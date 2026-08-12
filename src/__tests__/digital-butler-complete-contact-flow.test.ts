@@ -34,8 +34,18 @@ const steps = [
   { id: "completion", stepKey: "completion", position: 5, type: "TEXT" as const, required: false, config: { text: "已收到您的資料，店家將儘快與您聯絡。", nextStepKey: "complete" } },
   { id: "complete", stepKey: "complete", position: 6, type: "COMPLETE_FLOW" as const, required: false, config: {} },
 ];
-function conversation(currentStepKey: string, answers: Array<{ step: { stepKey: string }; value: unknown; phoneHash?: string | null }> = []) {
-  return { id: "conversation-1", storeId: "store-1", provider: "MESSENGER" as const, flowId: "flow-1", flowVersionId: "version-1", currentStepKey, expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps }, answers };
+const directCompletionSteps = steps
+  .filter((step) => step.stepKey !== "completion")
+  .map((step) => step.stepKey === "create"
+    ? { ...step, config: { ...step.config, nextStepKey: "complete" } }
+    : step);
+
+function conversation(
+  currentStepKey: string,
+  answers: Array<{ step: { stepKey: string }; value: unknown; phoneHash?: string | null }> = [],
+  flowSteps = steps,
+) {
+  return { id: "conversation-1", storeId: "store-1", provider: "MESSENGER" as const, flowId: "flow-1", flowVersionId: "version-1", currentStepKey, expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps: flowSteps }, answers };
 }
 
 function input(text: string, webhookEventId: string) {
@@ -89,13 +99,12 @@ describe("complete contact lead flow", () => {
     expect(repository.createLead).not.toHaveBeenCalled();
   });
 
-  it("adds the canonical booking link when a Messenger BOOKING completion refreshes an existing lead", async () => {
-    repository.createLead.mockResolvedValueOnce({ leadId: "existing-lead", created: false });
+  it("adds the canonical booking link before a Messenger BOOKING flow completes without a TEXT step", async () => {
     repository.findActiveConversation.mockResolvedValue(conversation("confirm", [
       { step: { stepKey: "menu" }, value: { value: "BOOKING", label: "預約體驗" } },
       { step: { stepKey: "name" }, value: "王小美" },
       { step: { stepKey: "phone" }, value: null, phoneHash: "hash" },
-    ]));
+    ], directCompletionSteps));
 
     const result = await new DigitalButlerRuntime(repository as never, gate).handleText(input("CONFIRM", "m-booking"));
 
