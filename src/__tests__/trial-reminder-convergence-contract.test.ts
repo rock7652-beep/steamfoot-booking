@@ -58,6 +58,24 @@ describe("trial reminder convergence contract", () => {
     expect(manager).toContain("void loadRescheduleSlots()");
   });
 
+  it("shows signed booking status and does not offer blank reschedule controls after one change", () => {
+    const actions = source("src/server/actions/trial-booking-self-service.ts");
+    const service = source("src/server/services/trial-booking-self-service.ts");
+    const manager = source("src/app/trial-booking/manage/trial-booking-manager.tsx");
+    expect(actions).toContain("getTrialBookingManagementStatusFromChat");
+    expect(service).toContain("getTrialBookingManagementStatus");
+    expect(service).toContain("bookingDate: booking.bookingDate.toISOString().slice(0, 10)");
+    expect(manager).toContain("目前預約：{booking.bookingDate} {booking.slotTime}");
+    expect(manager).toContain("本預約已改期一次，如需調整請聯絡店家");
+    expect(manager).toContain("booking?.customerRescheduleCount && booking.customerRescheduleCount >= 1");
+  });
+
+  it("removes the cancellation confirmation after a successful cancellation", () => {
+    const manager = source("src/app/trial-booking/manage/trial-booking-manager.tsx");
+    expect(manager).toContain('bookingStatus: "CANCELLED"');
+    expect(manager).toContain("{cancelled ? null : action === \"cancel\"");
+  });
+
   it("only lets the latest public booking date request update slots or loading state", () => {
     const form = source("src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx");
     expect(form).toContain("const requestId = slotRequestGate.issue()");

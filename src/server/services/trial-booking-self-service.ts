@@ -63,6 +63,23 @@ async function loadAuthorizedBooking(token: string, now = new Date()) {
   });
 }
 
+/** Minimal signed-link projection for the self-service page; no customer data. */
+export async function getTrialBookingManagementStatus(token: string, now = new Date()): Promise<{
+  bookingDate: string;
+  slotTime: string;
+  customerRescheduleCount: number;
+  bookingStatus: string;
+} | null> {
+  const booking = await loadAuthorizedBooking(token, now);
+  if (!booking) return null;
+  return {
+    bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+    slotTime: booking.slotTime,
+    customerRescheduleCount: booking.customerRescheduleCount,
+    bookingStatus: booking.bookingStatus,
+  };
+}
+
 async function isRescheduleStoreWritable(storeId: string): Promise<boolean> {
   const [bookable, subscriptionWriteBlocked] = await Promise.all([
     isStoreBookable(storeId),

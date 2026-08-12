@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   cancelTrialBooking,
   confirmTrialBooking,
+  getTrialBookingManagementStatus,
   listTrialRescheduleSlots,
   rescheduleTrialBooking,
 } from "@/server/services/trial-booking-self-service";
@@ -24,6 +25,9 @@ export async function cancelTrialBookingFromChat(token: string) {
 }
 export async function getTrialRescheduleSlotsFromChat(token: string, date: string) {
   return listTrialRescheduleSlots(tokenSchema.parse(token), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(date));
+}
+export async function getTrialBookingManagementStatusFromChat(token: string) {
+  return getTrialBookingManagementStatus(tokenSchema.parse(token));
 }
 export async function rescheduleTrialBookingFromChat(input: z.input<typeof slotSchema>) {
   const { token, date, slotTime } = slotSchema.parse(input);
