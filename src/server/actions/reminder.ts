@@ -163,9 +163,6 @@ async function loadBookingTestReminderTarget(bookingId: string, storeId: string)
   if (!["PENDING", "CONFIRMED"].includes(booking.bookingStatus)) {
     throw new AppError("BUSINESS_RULE", "只有待服務或已確認的預約可以發送測試提醒");
   }
-  if (booking.bookingType !== "FIRST_TRIAL") {
-    throw new AppError("BUSINESS_RULE", "只有首次體驗預約可以傳送測試提醒");
-  }
   return booking;
 }
 
@@ -177,9 +174,9 @@ function createTestBookingLink(booking: { id: string; storeId: string }): string
 }
 
 /**
- * Resolves exactly one delivery provider. An explicit chat source remains
- * authoritative. If the source is missing, only the existing same-store,
- * uniquely verified LINE route may be used; Messenger is never inferred.
+ * Resolves exactly one delivery provider. Messenger is allowed only for a
+ * first-trial booking whose original source is explicitly Messenger. Every
+ * other booking uses the existing same-store, uniquely verified LINE route.
  */
 export async function previewBookingTestReminder(
   input: z.input<typeof bookingTestReminderSchema>,
@@ -190,7 +187,7 @@ export async function previewBookingTestReminder(
     const { bookingId } = bookingTestReminderSchema.parse(input);
     const booking = await loadBookingTestReminderTarget(bookingId, storeId);
 
-    if (booking.trialBookingChannel !== "MESSENGER") {
+    if (booking.bookingType !== "FIRST_TRIAL" || booking.trialBookingChannel !== "MESSENGER") {
       const line = await previewBookingLineTestReminder({ bookingId });
       if (!line.success) return line;
       return {
@@ -236,7 +233,7 @@ export async function sendBookingTestReminder(
     const { bookingId } = bookingTestReminderSchema.parse(input);
     const booking = await loadBookingTestReminderTarget(bookingId, storeId);
 
-    if (booking.trialBookingChannel !== "MESSENGER") {
+    if (booking.bookingType !== "FIRST_TRIAL" || booking.trialBookingChannel !== "MESSENGER") {
       const line = await sendBookingLineTestReminder({ bookingId });
       if (!line.success) return line;
       return {
