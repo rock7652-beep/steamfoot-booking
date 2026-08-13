@@ -1,4 +1,12 @@
-import type { LineMessage } from "@/lib/line";
+import type { LineMessage, LinePushResult } from "@/lib/line";
+
+export type TrialBookingReminderCard = {
+  customerName: string;
+  bookingDate: string;
+  bookingTime: string;
+  shopName: string;
+  serviceName: string;
+};
 
 /**
  * The signed management URL deliberately stays out of the visible message
@@ -6,7 +14,7 @@ import type { LineMessage } from "@/lib/line";
  * the single authority for identity verification and action restrictions.
  */
 export function buildTrialBookingReminderLineMessages(
-  text: string,
+  card: TrialBookingReminderCard,
   managementUrl: string,
 ): LineMessage[] {
   const actionUrl = (action: "confirm" | "cancel" | "reschedule") => {
@@ -16,17 +24,30 @@ export function buildTrialBookingReminderLineMessages(
   };
   return [{
     type: "flex",
-    altText: "體驗預約管理：確認、取消或改期",
+    altText: `${card.customerName} 的預約提醒：${card.bookingDate} ${card.bookingTime}。請開啟訊息確認、改期或取消。`,
     contents: {
       type: "bubble",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#5C4634",
+        paddingAll: "16px",
+        contents: [
+          { type: "text", text: "蒸管家｜預約提醒", color: "#FFFFFF", weight: "bold", size: "lg" },
+          { type: "text", text: "請確認明日行程", color: "#F4E9DF", size: "sm", margin: "sm" },
+        ],
+      },
       body: {
         type: "box",
         layout: "vertical",
-        contents: [{
-          type: "text",
-          text,
-          wrap: true,
-        }],
+        spacing: "md",
+        contents: [
+          { type: "text", text: `${card.customerName} 您好`, weight: "bold", size: "lg" },
+          { type: "separator" },
+          detailRow("日期時間", `${card.bookingDate} ${card.bookingTime}`),
+          detailRow("店名", card.shopName),
+          detailRow("預約項目", card.serviceName),
+        ],
       },
       footer: {
         type: "box",
@@ -36,20 +57,63 @@ export function buildTrialBookingReminderLineMessages(
           {
             type: "button",
             style: "primary",
-            action: { type: "uri", label: "確認預約", uri: actionUrl("confirm") },
+            color: "#5C4634",
+            action: { type: "uri", label: "確認會到", uri: actionUrl("confirm") },
           },
           {
             type: "button",
             style: "secondary",
+            action: { type: "uri", label: "需要改期", uri: actionUrl("reschedule") },
+          },
+          {
+            type: "button",
+            style: "secondary",
+            color: "#A33A32",
             action: { type: "uri", label: "取消預約", uri: actionUrl("cancel") },
-          },
-          {
-            type: "button",
-            style: "secondary",
-            action: { type: "uri", label: "改期預約", uri: actionUrl("reschedule") },
           },
         ],
       },
     },
   }];
+}
+
+/**
+ * This is only used after a definitive Flex rejection. It deliberately keeps
+ * the existing signed management flow available as a normal text link for
+ * clients that cannot render Flex cards.
+ */
+export function buildTrialBookingReminderTextFallback(
+  card: TrialBookingReminderCard,
+  managementUrl: string,
+  prefix = "",
+): LineMessage[] {
+  return [{
+    type: "text",
+    text: `${prefix}${card.customerName} 您好！\n\n明天 ${card.bookingDate} ${card.bookingTime} 有一筆 ${card.serviceName} 預約。\n店名：${card.shopName}\n\n請開啟以下安全連結，確認會到、改期或取消：\n${managementUrl}`,
+  }];
+}
+
+function detailRow(label: string, value: string): Record<string, unknown> {
+  return {
+    type: "box",
+    layout: "baseline",
+    spacing: "sm",
+    contents: [
+      { type: "text", text: label, color: "#8A817A", size: "sm", flex: 3 },
+      { type: "text", text: value, color: "#302924", size: "sm", wrap: true, flex: 7 },
+    ],
+  };
+}
+
+/**
+ * A 4xx rejection is definitive: LINE did not accept the Flex payload, so it
+ * is safe to make one text-only attempt. Network errors and 5xx responses are
+ * intentionally not retried because delivery may be unknown.
+ */
+export function canFallbackToTextReminder(result: LinePushResult): boolean {
+  return result.success === false
+    && result.errorType === "line_api_rejected"
+    && result.httpStatus !== undefined
+    && result.httpStatus >= 400
+    && result.httpStatus < 500;
 }

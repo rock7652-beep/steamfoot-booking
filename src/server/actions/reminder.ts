@@ -25,7 +25,11 @@ import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-rem
 import { getAllActiveStoreIds } from "@/lib/store";
 import { DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING } from "@/lib/session-balance-notification-settings";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
-import { buildTrialBookingReminderLineMessages } from "@/server/services/trial-booking-reminder-line-message";
+import {
+  buildTrialBookingReminderLineMessages,
+  buildTrialBookingReminderTextFallback,
+  canFallbackToTextReminder,
+} from "@/server/services/trial-booking-reminder-line-message";
 import {
   previewMessengerUtilityTestReminder,
   sendMessengerUtilityTestReminder,
@@ -1083,14 +1087,29 @@ export async function sendBookingLineTestReminder(
 這是管理者手動發送的通知測試，無須回覆。
 
 ${renderedReminder}`;
-    const messages = isLineTrialBooking
-      ? buildTrialBookingReminderLineMessages(renderedBody, bookingLink)
+    const card = {
+      customerName: booking.customer.name,
+      bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+      bookingTime: booking.slotTime,
+      shopName: shopConfig.shopName,
+      serviceName: "首次體驗",
+    };
+    const flexMessages = isLineTrialBooking
+      ? buildTrialBookingReminderLineMessages(card, bookingLink)
+      : [{ type: "text" as const, text: renderedBody }];
+    const textMessages = isLineTrialBooking
+      ? buildTrialBookingReminderTextFallback(card, bookingLink, `${BOOKING_LINE_TEST_PREFIX}\n這是管理者手動發送的通知測試，無須回覆。\n\n`)
       : [{ type: "text" as const, text: renderedBody }];
     let actualRoute = route.channel;
     let result =
       route.channel === "STORE"
-        ? await pushMessage(storeId, route.recipientLineUserId, messages)
-        : await pushSteamButlerMessage(route.recipientLineUserId, messages);
+        ? await pushMessage(storeId, route.recipientLineUserId, flexMessages)
+        : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages);
+    if (isLineTrialBooking && canFallbackToTextReminder(result)) {
+      result = route.channel === "STORE"
+        ? await pushMessage(storeId, route.recipientLineUserId, textMessages)
+        : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
+    }
     const storeRecipient =
       booking.customer.lineLinkStatus === "LINKED"
         ? booking.customer.lineUserId?.trim()
@@ -1101,7 +1120,7 @@ ${renderedReminder}`;
       result.httpStatus === 400 &&
       storeRecipient
     ) {
-      result = await pushMessage(storeId, storeRecipient, messages);
+      result = await pushMessage(storeId, storeRecipient, textMessages);
       actualRoute = "STORE";
     }
 
