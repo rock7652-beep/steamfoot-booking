@@ -15,6 +15,16 @@ describe("formatReminderSendResult", () => {
     expect(formatReminderSendResult(status, errorMessage)).toBe(expected);
   });
 
+  it.each([
+    "LINE token not configured for store",
+    "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED",
+  ])("shows LINE configuration failure %s as actionable", (detail) => {
+    const result = formatReminderSendResult("FAILED", detail);
+    expect(result).toBe("LINE 發送設定不完整，請聯絡系統管理員");
+    expect(result).not.toBe("發送失敗");
+    expect(result).not.toContain(detail);
+  });
+
   it("keeps existing plain-language skipped explanations", () => {
     expect(formatReminderSendResult("SKIPPED", "該分店已停用此類提醒")).toBe("該分店已停用此類提醒");
   });
