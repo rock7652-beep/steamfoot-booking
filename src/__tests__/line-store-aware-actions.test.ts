@@ -357,7 +357,21 @@ describe("LINE sending actions are store-aware", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "U_store_customer",
-      [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
+      [expect.objectContaining({
+        type: "flex",
+        altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
+        contents: expect.objectContaining({
+          footer: expect.objectContaining({
+            contents: [expect.objectContaining({
+              action: {
+                type: "uri",
+                label: "查看／管理預約",
+                uri: "https://example.test/my-bookings",
+              },
+            })],
+          }),
+        }),
+      })],
     );
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
     expect(mockPrisma.messageLog.create).toHaveBeenCalledWith({
@@ -465,6 +479,14 @@ describe("LINE sending actions are store-aware", () => {
       httpStatus: 400,
       errorType: "line_api_rejected",
     });
+    // The package Flex retry is text-only; keep the central route rejected so
+    // the existing verified store-route fallback is exercised.
+    pushSteamButlerMessageMock.mockResolvedValueOnce({
+      success: false,
+      error: 'LINE API 400: {"message":"Failed to send messages"}',
+      httpStatus: 400,
+      errorType: "line_api_rejected",
+    });
 
     const { sendBookingLineTestReminder } = await import("@/server/actions/reminder");
     const result = await sendBookingLineTestReminder({ bookingId: "booking-central-400" });
@@ -550,7 +572,11 @@ describe("LINE sending actions are store-aware", () => {
     };
     mockPrisma.booking.findFirst.mockResolvedValue(booking);
     mockPrisma.messageLog.findFirst.mockResolvedValue(null);
-    mockPrisma.reminderRule.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue({
+      id: "rule-package",
+      templateId: "template-package",
+      template: { body: "自訂提醒：{{customerName}} 請於 {{bookingTime}} 準時抵達 {{shopName}}" },
+    });
 
     const { previewBookingTestReminder, sendBookingTestReminder } = await import("@/server/actions/reminder");
     await expect(previewBookingTestReminder({ bookingId: booking.id })).resolves.toEqual({
@@ -562,10 +588,68 @@ describe("LINE sending actions are store-aware", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "U_package",
-      [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
+      [expect.objectContaining({
+        type: "flex",
+        altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
+        contents: expect.objectContaining({
+          header: expect.objectContaining({
+            contents: expect.arrayContaining([
+              expect.objectContaining({ text: "測試提醒｜不影響正式排程" }),
+            ]),
+          }),
+          body: expect.objectContaining({
+            contents: expect.arrayContaining([
+              expect.objectContaining({ text: "方案預約" }),
+              expect.objectContaining({
+                text: "自訂提醒：方案顧客 請於 14:30 準時抵達 以斯帖蒸足坊",
+              }),
+            ]),
+          }),
+          footer: expect.objectContaining({
+            contents: [expect.objectContaining({
+              action: expect.objectContaining({
+                label: "查看／管理預約",
+                uri: "https://example.test/my-bookings",
+              }),
+            })],
+          }),
+        }),
+      })],
     );
     expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
     expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+  });
+
+  it("labels a single booking as a single booking in the Flex card", async () => {
+    const booking = {
+      id: "single-booking-1", storeId: "store-hsinchu", customerId: "customer-single",
+      bookingStatus: "CONFIRMED", bookingType: "SINGLE", trialBookingChannel: null,
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "15:30", people: 1,
+      store: { slug: "zhubei" },
+      customer: {
+        id: "customer-single", name: "單次顧客", lineUserId: "U_single",
+        lineLinkStatus: "LINKED", assignedStaff: null,
+      },
+    };
+    mockPrisma.booking.findFirst.mockResolvedValue(booking);
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue(null);
+
+    const { sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
+    });
+    const message = pushMessageMock.mock.calls.at(-1)?.[2]?.[0] as {
+      type: string;
+      contents: { body: { contents: Array<{ text?: string }> } };
+    };
+    expect(message.type).toBe("flex");
+    expect(message.contents.body.contents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ text: "單次預約" }),
+    ]));
+    expect(message.contents.body.contents).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ text: "方案預約" }),
+    ]));
   });
 
   it("selects Messenger Utility only for a valid Messenger source", async () => {

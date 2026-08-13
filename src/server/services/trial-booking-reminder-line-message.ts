@@ -1,5 +1,14 @@
 import type { LineMessage, LinePushResult } from "@/lib/line";
 
+export type PackageBookingReminderCard = {
+  customerName: string;
+  bookingDate: string;
+  bookingTime: string;
+  shopName: string;
+  serviceName: string;
+  reminderText: string;
+};
+
 export type TrialBookingReminderCard = {
   customerName: string;
   bookingDate: string;
@@ -13,6 +22,54 @@ export type TrialBookingReminderCard = {
  * body. Each button opens the same existing self-service page, which remains
  * the single authority for identity verification and action restrictions.
  */
+export function buildPackageBookingTestReminderLineMessages(
+  card: PackageBookingReminderCard,
+  managementUrl: string,
+): LineMessage[] {
+  return [{
+    type: "flex",
+    altText: `【測試提醒｜不影響正式排程】${card.customerName} 的預約：${card.bookingDate} ${card.bookingTime}`,
+    contents: {
+      type: "bubble",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#5C4634",
+        paddingAll: "16px",
+        contents: [
+          { type: "text", text: "蒸管家｜預約提醒", color: "#FFFFFF", weight: "bold", size: "lg" },
+          { type: "text", text: "測試提醒｜不影響正式排程", color: "#F4E9DF", size: "sm", margin: "sm" },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "md",
+        contents: [
+          { type: "text", text: `${card.customerName} 您好`, weight: "bold", size: "lg" },
+          { type: "separator" },
+          detailRow("日期時間", `${card.bookingDate} ${card.bookingTime}`),
+          detailRow("店名", card.shopName),
+          detailRow("預約項目", card.serviceName),
+          { type: "separator" },
+          { type: "text", text: "提醒內容", color: "#8A817A", size: "sm" },
+          { type: "text", text: card.reminderText, color: "#302924", size: "sm", wrap: true },
+        ],
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        contents: [{
+          type: "button",
+          style: "primary",
+          color: "#5C4634",
+          action: { type: "uri", label: "查看／管理預約", uri: managementUrl },
+        }],
+      },
+    },
+  }];
+}
+
 export function buildTrialBookingReminderLineMessages(
   card: TrialBookingReminderCard,
   managementUrl: string,

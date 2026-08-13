@@ -26,6 +26,7 @@ import { getAllActiveStoreIds } from "@/lib/store";
 import { DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING } from "@/lib/session-balance-notification-settings";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import {
+  buildPackageBookingTestReminderLineMessages,
   buildTrialBookingReminderLineMessages,
   buildTrialBookingReminderTextFallback,
   canFallbackToTextReminder,
@@ -1093,7 +1094,14 @@ ${renderedReminder}`;
     };
     const flexMessages = isLineTrialBooking
       ? buildTrialBookingReminderLineMessages(card, bookingLink)
-      : [{ type: "text" as const, text: renderedBody }];
+      : buildPackageBookingTestReminderLineMessages({
+        customerName: booking.customer.name,
+        bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+        bookingTime: booking.slotTime,
+        shopName: shopConfig.shopName,
+        serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
+        reminderText: renderedReminder,
+      }, bookingLink);
     const textMessages = isLineTrialBooking
       ? buildTrialBookingReminderTextFallback(card, bookingLink, `${BOOKING_LINE_TEST_PREFIX}\n這是管理者手動發送的通知測試，無須回覆。\n\n`)
       : [{ type: "text" as const, text: renderedBody }];
@@ -1102,7 +1110,7 @@ ${renderedReminder}`;
       route.channel === "STORE"
         ? await pushMessage(storeId, route.recipientLineUserId, flexMessages)
         : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages);
-    if (isLineTrialBooking && canFallbackToTextReminder(result)) {
+    if (canFallbackToTextReminder(result)) {
       result = route.channel === "STORE"
         ? await pushMessage(storeId, route.recipientLineUserId, textMessages)
         : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
