@@ -1099,6 +1099,7 @@ ${renderedReminder}`;
         bookingDate: booking.bookingDate.toISOString().slice(0, 10),
         bookingTime: booking.slotTime,
         shopName: shopConfig.shopName,
+        serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
       }, bookingLink);
     const textMessages = isLineTrialBooking
       ? buildTrialBookingReminderTextFallback(card, bookingLink, `${BOOKING_LINE_TEST_PREFIX}\n這是管理者手動發送的通知測試，無須回覆。\n\n`)
