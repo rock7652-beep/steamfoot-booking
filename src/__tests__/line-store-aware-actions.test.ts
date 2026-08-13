@@ -537,6 +537,37 @@ describe("LINE sending actions are store-aware", () => {
     expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_line", expect.any(Array));
   });
 
+  it("allows a package booking to use its verified same-store LINE reminder route", async () => {
+    const booking = {
+      id: "package-booking-1", storeId: "store-hsinchu", customerId: "customer-package",
+      bookingStatus: "CONFIRMED", bookingType: "PACKAGE_SESSION", trialBookingChannel: null,
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "14:30", people: 1,
+      store: { slug: "zhubei" },
+      customer: {
+        id: "customer-package", name: "方案顧客", lineUserId: "U_package",
+        lineLinkStatus: "LINKED", assignedStaff: null,
+      },
+    };
+    mockPrisma.booking.findFirst.mockResolvedValue(booking);
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue(null);
+
+    const { previewBookingTestReminder, sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: booking.id })).resolves.toEqual({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
+    });
+    await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
+    });
+    expect(pushMessageMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "U_package",
+      [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
+    );
+    expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+    expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+  });
+
   it("selects Messenger Utility only for a valid Messenger source", async () => {
     vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
     const booking = {
