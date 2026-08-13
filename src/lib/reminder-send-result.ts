@@ -14,13 +14,19 @@ const MESSENGER_RESULT_LABEL: Record<string, string> = {
   FAILED_IDENTITY_SCOPE: "Messenger 身分與此分店不一致",
 };
 
+const LINE_RECIPIENT_UNAVAILABLE_PREFIX = "LINE recipient unavailable: ";
+
 export function formatReminderSendResult(
   status: string,
   errorMessage?: string | null,
 ): string {
   if (status === "SENT") return "已發送";
 
-  const detail = errorMessage?.trim() ?? "";
+  const rawDetail = errorMessage?.trim() ?? "";
+  const detail = rawDetail.startsWith(LINE_RECIPIENT_UNAVAILABLE_PREFIX)
+    ? rawDetail.slice(LINE_RECIPIENT_UNAVAILABLE_PREFIX.length).trim()
+    : rawDetail;
+
   if (MESSENGER_RESULT_LABEL[detail]) return MESSENGER_RESULT_LABEL[detail];
   if (/NO_CENTRAL_(USER|LINE)/.test(detail)) return "未綁定 LINE";
   if (/LINE API 400/i.test(detail)) return "已綁定但無法送達";
