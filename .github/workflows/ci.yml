@@ -79,12 +79,13 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Run Digital Butler tests
+      - name: Run targeted tests
         shell: bash
         run: |
           mapfile -t tests < <(find src -type f \( -name '*digital-butler*.test.ts' -o -name '*digital-butler*.test.tsx' \) | sort)
+          tests+=(src/__tests__/reminder-send-result.test.ts)
           if [ "${#tests[@]}" -eq 0 ]; then
-            echo "No Digital Butler tests found."
+            echo "No targeted tests found."
             exit 0
           fi
           printf 'Testing %s\n' "${tests[@]}"
