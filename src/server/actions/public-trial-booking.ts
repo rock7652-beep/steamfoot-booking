@@ -26,6 +26,7 @@ import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-cha
 import type { SlotAvailability } from "@/types";
 
 const STORE_SLUG = "zhubei";
+const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶"];
 
 const InputSchema = z.object({
   name: z.string().trim().min(1, "請輸入姓名").max(50),
@@ -284,12 +285,13 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       where: chatLink?.channel === "LINE"
         ? { storeId: store.id, lineUserId: chatLink.chatIdentity, mergedIntoCustomerId: null }
         : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
-      select: { id: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
+      select: { id: true, name: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
     });
+    let reusedLineIdentityCustomer = Boolean(customer && chatLink?.channel === "LINE");
     if (!customer && chatLink?.channel === "LINE") {
       const phoneCustomer = await prisma.customer.findFirst({
         where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
-        select: { id: true, assignedStaffId: true, lineUserId: true },
+        select: { id: true, name: true, assignedStaffId: true, lineUserId: true },
       });
       if (phoneCustomer) {
         // A phone number typed into a public form is not proof that the sender
@@ -312,7 +314,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
               ? { lineUserId: chatLink.chatIdentity, lineLinkStatus: "LINKED" as const, lineLinkedAt: new Date() }
               : {}),
           },
-          select: { id: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
+          select: { id: true, name: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
         });
       } catch (error) {
         if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
@@ -320,7 +322,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           where: chatLink?.channel === "LINE"
             ? { storeId: store.id, lineUserId: chatLink.chatIdentity, mergedIntoCustomerId: null }
             : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
-          select: { id: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
+          select: { id: true, name: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
         });
         if (!concurrent) {
           if (chatLink?.channel === "LINE") {
@@ -329,7 +331,30 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           throw error;
         }
         customer = concurrent;
+        reusedLineIdentityCustomer = chatLink?.channel === "LINE";
       }
+    }
+
+    // A valid one-time LINE booking link proves the sender's same-store LINE
+    // identity, but only system placeholder names may be replaced by the
+    // submitted public-form name. The conditional update keeps formal names,
+    // phone-only matches, other stores, and identity fields untouched.
+    if (
+      reusedLineIdentityCustomer &&
+      chatLink?.channel === "LINE" &&
+      SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(customer.name) &&
+      !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(data.name)
+    ) {
+      await prisma.customer.updateMany({
+        where: {
+          id: customer.id,
+          storeId: store.id,
+          lineUserId: chatLink.chatIdentity,
+          mergedIntoCustomerId: null,
+          name: { in: SYSTEM_PLACEHOLDER_CUSTOMER_NAMES },
+        },
+        data: { name: data.name },
+      });
     }
 
     const existing = await prisma.booking.findFirst({
