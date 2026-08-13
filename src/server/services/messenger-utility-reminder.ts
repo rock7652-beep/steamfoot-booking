@@ -25,6 +25,28 @@ export type MessengerUtilityReminderResult = {
   quotaConsumed: boolean;
 };
 
+/**
+ * Manual dashboard tests are deliberately separate from the 18:00 scheduler.
+ * In particular, they do not consult its global kill switch or create a
+ * scheduler delivery claim / MessageLog row.  The caller records a clearly
+ * marked test audit entry instead.
+ */
+export type MessengerUtilityTestReminderInput = {
+  booking: {
+    id: string;
+    storeId: string;
+    bookingDate: Date;
+    slotTime: string;
+    people: number;
+  };
+  store: { slug: string; shopName: string };
+  bookingLink: string;
+};
+
+export type MessengerUtilityTestReminderPreview = {
+  code: "READY" | Exclude<MessengerUtilityReminderCode, "SENT" | "SKIPPED_DISABLED">;
+};
+
 export type MessengerUtilityReminderInput = {
   ruleId: string;
   templateId: string | null;
@@ -143,6 +165,73 @@ async function loadScopedRecipient(bookingId: string, storeId: string): Promise<
   } catch {
     return { status: "missing" };
   }
+}
+
+async function prepareMessengerUtilityTestReminder(
+  input: MessengerUtilityTestReminderInput,
+): Promise<
+  | { code: "READY"; pageId: string; accessToken: string; recipientId: string; template: NonNullable<ReturnType<typeof getMessengerUtilityTemplateConfig>> }
+  | { code: Exclude<MessengerUtilityReminderCode, "SENT" | "SKIPPED_DISABLED"> }
+> {
+  const template = getMessengerUtilityTemplateConfig(input.store.slug);
+  if (!template) return { code: "SKIPPED_MISSING_TEMPLATE" };
+
+  const page = getMessengerPageConfig(input.store.slug);
+  if (!page.pageId || !page.accessToken) return { code: "FAILED_CONFIGURATION" };
+
+  const recipient = await loadScopedRecipient(input.booking.id, input.booking.storeId);
+  if (recipient.status !== "ok") {
+    return { code: recipient.status === "scope" ? "FAILED_IDENTITY_SCOPE" : "SKIPPED_MISSING_IDENTITY" };
+  }
+  return {
+    code: "READY",
+    pageId: page.pageId,
+    accessToken: page.accessToken,
+    recipientId: recipient.recipientId,
+    template,
+  };
+}
+
+/** Safe preview only. It never calls Meta and never exposes the PSID. */
+export async function previewMessengerUtilityTestReminder(
+  input: MessengerUtilityTestReminderInput,
+): Promise<MessengerUtilityTestReminderPreview> {
+  const prepared = await prepareMessengerUtilityTestReminder(input);
+  return { code: prepared.code };
+}
+
+/**
+ * Sends one operator-requested Utility template.  It is intentionally not a
+ * scheduler path: the global automatic-reminder flag remains untouched and no
+ * scheduled reminder row or idempotency key is consumed.
+ */
+export async function sendMessengerUtilityTestReminder(
+  input: MessengerUtilityTestReminderInput,
+): Promise<MessengerUtilityReminderResult> {
+  const prepared = await prepareMessengerUtilityTestReminder(input);
+  if (prepared.code !== "READY") return { code: prepared.code, quotaConsumed: false };
+
+  const values = {
+    shopName: input.store.shopName,
+    bookingDate: input.booking.bookingDate.toISOString().slice(0, 10),
+    bookingTime: input.booking.slotTime,
+    people: String(input.booking.people),
+    bookingLink: input.bookingLink,
+  };
+  const result = await sendMessengerUtilityTemplate({
+    pageId: prepared.pageId,
+    pageAccessToken: prepared.accessToken,
+    recipientId: prepared.recipientId,
+    template: {
+      name: prepared.template.name,
+      language: prepared.template.language,
+      parameters: prepared.template.parameterOrder.map((key) => values[key]),
+    },
+  });
+  return {
+    code: result.success ? "SENT" : result.failureCode ?? "FAILED_TRANSPORT",
+    quotaConsumed: result.success,
+  };
 }
 
 /** Returns a safe code only; no raw API response, PSID, token, or PII is logged. */

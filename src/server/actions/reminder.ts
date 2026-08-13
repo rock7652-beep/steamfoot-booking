@@ -26,6 +26,11 @@ import { getAllActiveStoreIds } from "@/lib/store";
 import { DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING } from "@/lib/session-balance-notification-settings";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import { buildTrialBookingReminderLineMessages } from "@/server/services/trial-booking-reminder-line-message";
+import {
+  previewMessengerUtilityTestReminder,
+  sendMessengerUtilityTestReminder,
+  type MessengerUtilityReminderCode,
+} from "@/server/services/messenger-utility-reminder";
 
 // ============================================================
 // Validators
@@ -74,6 +79,8 @@ const bookingLineTestSchema = z.object({
   bookingId: z.string().min(1),
 });
 
+const bookingTestReminderSchema = bookingLineTestSchema;
+
 const sessionBalanceSettingSchema = z.object({
   isEnabled: z.boolean(),
   lastSessionEnabled: z.boolean(),
@@ -118,6 +125,187 @@ const BOOKING_LINE_TEST_PREFIX = "【測試提醒｜不影響正式排程】";
 const BOOKING_LINE_TEST_COOLDOWN_MS = 60_000;
 
 type SessionBalanceSettingInput = z.input<typeof sessionBalanceSettingSchema>;
+
+export type BookingTestReminderChannel = "LINE" | "MESSENGER";
+
+type BookingTestReminderPreview = {
+  channel: BookingTestReminderChannel;
+  channelLabel: string;
+};
+
+const MESSENGER_TEST_ERROR: Record<Exclude<MessengerUtilityReminderCode, "SENT">, string> = {
+  SKIPPED_DISABLED: "Messenger 自動提醒目前關閉；手動測試不會自行開啟它",
+  SKIPPED_MISSING_TEMPLATE: "Messenger 的核准提醒範本尚未設定，因此未發送",
+  SKIPPED_MISSING_IDENTITY: "這筆預約沒有可驗證的 Messenger 身分，因此未發送",
+  FAILED_META_REJECTED: "Meta 拒絕此次 Messenger 測試提醒，未標記為成功",
+  FAILED_TRANSPORT: "Messenger 傳輸失敗，未標記為成功",
+  FAILED_CONFIGURATION: "Messenger Page 設定不完整，因此未發送",
+  FAILED_IDENTITY_SCOPE: "Messenger 身分與此分店不一致，因此未發送",
+};
+
+function messengerTestError(code: Exclude<MessengerUtilityReminderCode, "SENT">): string {
+  return MESSENGER_TEST_ERROR[code];
+}
+
+async function loadBookingTestReminderTarget(bookingId: string, storeId: string) {
+  const booking = await prisma.booking.findFirst({
+    where: { id: bookingId, storeId },
+    include: {
+      customer: { include: { assignedStaff: true } },
+      store: { select: { slug: true } },
+    },
+  });
+  if (!booking) throw new AppError("NOT_FOUND", "找不到同店預約");
+  if (!["PENDING", "CONFIRMED"].includes(booking.bookingStatus)) {
+    throw new AppError("BUSINESS_RULE", "只有待服務或已確認的預約可以發送測試提醒");
+  }
+  if (booking.bookingType !== "FIRST_TRIAL" || !booking.trialBookingChannel) {
+    throw new AppError("BUSINESS_RULE", "這筆預約沒有可驗證的原始聊天來源，無法傳送測試提醒");
+  }
+  return booking;
+}
+
+function createTestBookingLink(booking: { id: string; storeId: string }): string {
+  if (!process.env.TRIAL_BOOKING_ACTION_SECRET) {
+    throw new AppError("BUSINESS_RULE", "體驗預約專屬連結尚未設定，因此未發送測試提醒");
+  }
+  return `${deriveBaseUrl()}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
+}
+
+/**
+ * Resolves exactly one delivery provider from the immutable chat source saved
+ * with the booking.  There is intentionally no LINE fallback for Messenger,
+ * nor any ability for a manager to choose a channel in the UI.
+ */
+export async function previewBookingTestReminder(
+  input: z.input<typeof bookingTestReminderSchema>,
+): Promise<ActionResult<BookingTestReminderPreview>> {
+  try {
+    const user = await requirePermission("booking.update");
+    const storeId = await resolveWriteStoreId(user);
+    const { bookingId } = bookingTestReminderSchema.parse(input);
+    const booking = await loadBookingTestReminderTarget(bookingId, storeId);
+
+    if (booking.trialBookingChannel === "LINE") {
+      const line = await previewBookingLineTestReminder({ bookingId });
+      if (!line.success) return line;
+      return {
+        success: true,
+        data: {
+          channel: "LINE",
+          channelLabel: line.data.lineRoute === "CENTRAL" ? "蒸管家中央 LINE" : "分店 LINE",
+        },
+      };
+    }
+
+    const preview = await previewMessengerUtilityTestReminder({
+      booking: {
+        id: booking.id,
+        storeId: booking.storeId,
+        bookingDate: booking.bookingDate,
+        slotTime: booking.slotTime,
+        people: booking.people,
+      },
+      store: { slug: booking.store.slug, shopName: (await getShopConfig(storeId)).shopName },
+      bookingLink: createTestBookingLink(booking),
+    });
+    if (preview.code !== "READY") {
+      throw new AppError("BUSINESS_RULE", messengerTestError(preview.code));
+    }
+    return { success: true, data: { channel: "MESSENGER", channelLabel: "Messenger Utility" } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/**
+ * Sends an explicitly requested test through the booking's original channel.
+ * Tests write only a test-marked MessageLog (without a scheduled rule or
+ * trigger), so they cannot consume the 18:00 reminder's idempotency key.
+ */
+export async function sendBookingTestReminder(
+  input: z.input<typeof bookingTestReminderSchema>,
+): Promise<ActionResult<{ messageLogId: string; channel: BookingTestReminderChannel; channelLabel: string }>> {
+  try {
+    const user = await requirePermission("booking.update");
+    const storeId = await resolveWriteStoreId(user);
+    const { bookingId } = bookingTestReminderSchema.parse(input);
+    const booking = await loadBookingTestReminderTarget(bookingId, storeId);
+
+    if (booking.trialBookingChannel === "LINE") {
+      const line = await sendBookingLineTestReminder({ bookingId });
+      if (!line.success) return line;
+      return {
+        success: true,
+        data: {
+          messageLogId: line.data.messageLogId,
+          channel: "LINE",
+          channelLabel: line.data.lineRoute === "CENTRAL" ? "蒸管家中央 LINE" : "分店 LINE",
+        },
+      };
+    }
+
+    const recentTest = await prisma.messageLog.findFirst({
+      where: {
+        bookingId,
+        storeId,
+        channel: "MESSENGER",
+        renderedBody: { startsWith: BOOKING_LINE_TEST_PREFIX },
+        createdAt: { gte: new Date(Date.now() - BOOKING_LINE_TEST_COOLDOWN_MS) },
+      },
+      select: { id: true },
+    });
+    if (recentTest) {
+      throw new AppError("BUSINESS_RULE", "這筆預約剛剛已發送測試提醒，請稍後再試");
+    }
+
+    const shopConfig = await getShopConfig(storeId);
+    const result = await sendMessengerUtilityTestReminder({
+      booking: {
+        id: booking.id,
+        storeId: booking.storeId,
+        bookingDate: booking.bookingDate,
+        slotTime: booking.slotTime,
+        people: booking.people,
+      },
+      store: { slug: booking.store.slug, shopName: shopConfig.shopName },
+      bookingLink: createTestBookingLink(booking),
+    });
+
+    const [log] = await prisma.$transaction([
+      prisma.messageLog.create({
+        data: {
+          customerId: booking.customerId,
+          bookingId: booking.id,
+          channel: "MESSENGER",
+          status: result.code === "SENT" ? "SENT" : "FAILED",
+          renderedBody: `${BOOKING_LINE_TEST_PREFIX}\nMessenger Utility 手動測試`,
+          errorMessage: result.code === "SENT" ? null : result.code,
+          sentAt: result.code === "SENT" ? new Date() : null,
+          storeId,
+        },
+      }),
+      prisma.auditLog.create({
+        data: {
+          actorUserId: user.id,
+          targetType: "Booking",
+          targetId: booking.id,
+          action: "SEND_MESSENGER_UTILITY_TEST_REMINDER",
+          afterJson: { channel: "MESSENGER", success: result.code === "SENT", code: result.code },
+        },
+      }),
+    ]);
+    revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/bookings");
+
+    if (result.code !== "SENT") {
+      throw new AppError("BUSINESS_RULE", messengerTestError(result.code));
+    }
+    return { success: true, data: { messageLogId: log.id, channel: "MESSENGER", channelLabel: "Messenger Utility" } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
 
 export async function previewBookingLineTestReminder(
   input: z.input<typeof bookingLineTestSchema>
