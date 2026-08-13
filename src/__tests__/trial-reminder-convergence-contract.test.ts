@@ -12,6 +12,7 @@ describe("trial reminder convergence contract", () => {
     const lineWebhook = source("src/app/api/line/webhook/route.ts");
     const messengerWebhook = source("src/app/api/messenger/webhook/route.ts");
     expect(runtime).toContain('conversation.provider === "LINE" || conversation.provider === "MESSENGER"');
+    expect(runtime).toContain('input.provider === "LINE" || input.provider === "MESSENGER"');
     expect(runtime).toContain("chatBookingCompletionPending");
     expect(runtime).not.toContain('conversation.provider === "MESSENGER"\n          && isBookingRequest');
     expect(lineWebhook).toContain('createTrialBookingChatLink({ storeId, channel: "LINE"');
