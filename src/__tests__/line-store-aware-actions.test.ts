@@ -572,7 +572,11 @@ describe("LINE sending actions are store-aware", () => {
     };
     mockPrisma.booking.findFirst.mockResolvedValue(booking);
     mockPrisma.messageLog.findFirst.mockResolvedValue(null);
-    mockPrisma.reminderRule.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue({
+      id: "rule-package",
+      templateId: "template-package",
+      template: { body: "自訂提醒：{{customerName}} 請於 {{bookingTime}} 準時抵達 {{shopName}}" },
+    });
 
     const { previewBookingTestReminder, sendBookingTestReminder } = await import("@/server/actions/reminder");
     await expect(previewBookingTestReminder({ bookingId: booking.id })).resolves.toEqual({
@@ -596,6 +600,9 @@ describe("LINE sending actions are store-aware", () => {
           body: expect.objectContaining({
             contents: expect.arrayContaining([
               expect.objectContaining({ text: "方案預約" }),
+              expect.objectContaining({
+                text: "自訂提醒：方案顧客 請於 14:30 準時抵達 以斯帖蒸足坊",
+              }),
             ]),
           }),
           footer: expect.objectContaining({
