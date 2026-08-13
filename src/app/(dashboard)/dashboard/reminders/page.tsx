@@ -25,6 +25,7 @@ import {
 } from "@/server/queries/reminder";
 import { getCurrentLineOfficialAccountStatus } from "@/server/actions/line-official-accounts";
 import { isLineSmokeTestEnabled } from "@/lib/line-config";
+import { formatReminderSendResult } from "@/lib/reminder-send-result";
 import { ReminderCard } from "./reminder-card";
 import { CreateTemplateForm } from "./create-template-form";
 import { CronRunBanner } from "./cron-run-banner";
@@ -331,7 +332,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                     <th className="px-3 py-2 text-left">規則</th>
                     <th className="px-3 py-2 text-left">LINE 路由</th>
                     <th className="px-3 py-2 text-left">狀態</th>
-                    <th className="px-3 py-2 text-left">失敗原因</th>
+                    <th className="px-3 py-2 text-left">發送結果</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-earth-100">
@@ -376,8 +377,8 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                             {LOG_STATUS_LABEL[log.status] ?? log.status}
                           </span>
                         </td>
-                        <td className="px-3 text-[11px] text-red-500">
-                          {log.errorMessage ?? "—"}
+                        <td className="px-3 text-[11px] text-earth-600">
+                          {formatReminderSendResult(log.status, log.errorMessage)}
                         </td>
                       </tr>
                     ))
@@ -401,7 +402,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                     <th className="px-3 py-2 text-left">方案</th>
                     <th className="px-3 py-2 text-left">狀態</th>
                     <th className="px-3 py-2 text-left">顧客回覆</th>
-                    <th className="px-3 py-2 text-left">失敗／跳過原因</th>
+                    <th className="px-3 py-2 text-left">發送結果</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-earth-100">
@@ -449,10 +450,11 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                               ? "之後再看看"
                               : "尚未回覆"}
                         </td>
-                        <td className="px-3 text-[11px] text-red-500">
-                          {log.errorMessage ??
-                            log.managerNotificationError ??
-                            "—"}
+                        <td className="px-3 text-[11px] text-earth-600">
+                          {formatReminderSendResult(
+                            log.status,
+                            log.errorMessage ?? log.managerNotificationError,
+                          )}
                         </td>
                       </tr>
                     ))
