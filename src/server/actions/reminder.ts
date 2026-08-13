@@ -163,8 +163,8 @@ async function loadBookingTestReminderTarget(bookingId: string, storeId: string)
   if (!["PENDING", "CONFIRMED"].includes(booking.bookingStatus)) {
     throw new AppError("BUSINESS_RULE", "只有待服務或已確認的預約可以發送測試提醒");
   }
-  if (booking.bookingType !== "FIRST_TRIAL" || !booking.trialBookingChannel) {
-    throw new AppError("BUSINESS_RULE", "這筆預約沒有可驗證的原始聊天來源，無法傳送測試提醒");
+  if (booking.bookingType !== "FIRST_TRIAL") {
+    throw new AppError("BUSINESS_RULE", "只有首次體驗預約可以傳送測試提醒");
   }
   return booking;
 }
@@ -177,9 +177,9 @@ function createTestBookingLink(booking: { id: string; storeId: string }): string
 }
 
 /**
- * Resolves exactly one delivery provider from the immutable chat source saved
- * with the booking.  There is intentionally no LINE fallback for Messenger,
- * nor any ability for a manager to choose a channel in the UI.
+ * Resolves exactly one delivery provider. An explicit chat source remains
+ * authoritative. If the source is missing, only the existing same-store,
+ * uniquely verified LINE route may be used; Messenger is never inferred.
  */
 export async function previewBookingTestReminder(
   input: z.input<typeof bookingTestReminderSchema>,
@@ -190,7 +190,7 @@ export async function previewBookingTestReminder(
     const { bookingId } = bookingTestReminderSchema.parse(input);
     const booking = await loadBookingTestReminderTarget(bookingId, storeId);
 
-    if (booking.trialBookingChannel === "LINE") {
+    if (booking.trialBookingChannel !== "MESSENGER") {
       const line = await previewBookingLineTestReminder({ bookingId });
       if (!line.success) return line;
       return {
@@ -236,7 +236,7 @@ export async function sendBookingTestReminder(
     const { bookingId } = bookingTestReminderSchema.parse(input);
     const booking = await loadBookingTestReminderTarget(bookingId, storeId);
 
-    if (booking.trialBookingChannel === "LINE") {
+    if (booking.trialBookingChannel !== "MESSENGER") {
       const line = await sendBookingLineTestReminder({ bookingId });
       if (!line.success) return line;
       return {
