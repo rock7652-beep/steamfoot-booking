@@ -26,6 +26,16 @@ describe("formatReminderSendResult", () => {
     expect(result).not.toContain(detail);
   });
 
+  it.each([
+    "CENTRAL_USER_INACTIVE",
+    "LINE recipient unavailable: CENTRAL_USER_INACTIVE",
+  ])("shows inactive central LINE account without exposing %s", (detail) => {
+    const result = formatReminderSendResult("SKIPPED", detail);
+    expect(result).toBe("中央會員已停用或不存在");
+    expect(result).not.toBe("已跳過");
+    expect(result).not.toContain("CENTRAL_USER_INACTIVE");
+  });
+
   it("keeps existing plain-language skipped explanations", () => {
     expect(formatReminderSendResult("SKIPPED", "該分店已停用此類提醒")).toBe("該分店已停用此類提醒");
   });
