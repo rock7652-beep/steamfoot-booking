@@ -32,6 +32,27 @@ describe("formatReminderSendResult", () => {
     expect(formatReminderSendResult("SKIPPED", code)).toBe(expected);
   });
 
+  it.each([
+    ["FAILED", "SKIPPED_MISSING_TEMPLATE", "Messenger 的核准提醒範本尚未設定"],
+    ["FAILED", "SKIPPED_MISSING_IDENTITY", "這筆預約沒有可驗證的 Messenger 身分"],
+    ["FAILED", "FAILED_CONFIGURATION", "Messenger Page 設定不完整"],
+    ["FAILED", "FAILED_IDENTITY_SCOPE", "Messenger 身分與此分店不一致"],
+  ])("keeps manual Messenger test result %s actionable despite %s status", (status, code, expected) => {
+    expect(formatReminderSendResult(status, code)).toBe(expected);
+  });
+
+  it.each([
+    "CENTRAL_USER_CONFLICT",
+    "CENTRAL_LINE_CONFLICT",
+    "IDENTITY_LINK_CONFLICT",
+    "LEGACY_LINE_CONFLICT",
+  ])("shows %s as an identity conflict requiring manual review", (code) => {
+    const result = formatReminderSendResult("SKIPPED", code);
+    expect(result).toBe("LINE 身分資料衝突，請聯絡客服協助處理");
+    expect(result).not.toBe("已跳過");
+    expect(result).not.toContain(code);
+  });
+
   it.each(["network", "401", "403", "429", "503"]) (
     "maps unavailable LINE verification %s without exposing its technical detail",
     (reason) => {

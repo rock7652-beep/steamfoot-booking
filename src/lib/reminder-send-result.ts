@@ -4,6 +4,16 @@
  * `errorMessage` intentionally remains unchanged in the database so support
  * and operational diagnostics can still use the original provider response.
  */
+const MESSENGER_RESULT_LABEL: Record<string, string> = {
+  SKIPPED_DISABLED: "Messenger 自動提醒目前關閉",
+  SKIPPED_MISSING_TEMPLATE: "Messenger 的核准提醒範本尚未設定",
+  SKIPPED_MISSING_IDENTITY: "這筆預約沒有可驗證的 Messenger 身分",
+  FAILED_META_REJECTED: "Meta 拒絕此次 Messenger 測試提醒",
+  FAILED_TRANSPORT: "Messenger 傳輸失敗",
+  FAILED_CONFIGURATION: "Messenger Page 設定不完整",
+  FAILED_IDENTITY_SCOPE: "Messenger 身分與此分店不一致",
+};
+
 export function formatReminderSendResult(
   status: string,
   errorMessage?: string | null,
@@ -11,17 +21,18 @@ export function formatReminderSendResult(
   if (status === "SENT") return "已發送";
 
   const detail = errorMessage?.trim() ?? "";
+  if (MESSENGER_RESULT_LABEL[detail]) return MESSENGER_RESULT_LABEL[detail];
   if (/NO_CENTRAL_(USER|LINE)/.test(detail)) return "未綁定 LINE";
   if (/LINE API 400/i.test(detail)) return "已綁定但無法送達";
+  if (/^(CENTRAL_USER|CENTRAL_LINE|IDENTITY_LINK|LEGACY_LINE)_CONFLICT$/.test(detail)) {
+    return "LINE 身分資料衝突，請聯絡客服協助處理";
+  }
 
   if (status === "SKIPPED") {
     if (!detail) return "已跳過";
     if (detail.startsWith("store_channel_verification_unavailable:")) {
       return "LINE 驗證暫時無法完成，請稍後重試";
     }
-    if (detail === "SKIPPED_DISABLED") return "Messenger 自動提醒目前關閉";
-    if (detail === "SKIPPED_MISSING_TEMPLATE") return "Messenger 的核准提醒範本尚未設定";
-    if (detail === "SKIPPED_MISSING_IDENTITY") return "這筆預約沒有可驗證的 Messenger 身分";
     if (detail === "Feature not enabled") return "此功能尚未啟用";
     if (detail === "Already processed today") return "今日已處理";
     if (detail === "MESSENGER_SCHEDULED_REMINDER_ISOLATED") {
