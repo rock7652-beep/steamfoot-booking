@@ -37,8 +37,11 @@ export function formatReminderSendResult(
 export function formatManagerNotificationResult(
   status?: string | null,
   errorMessage?: string | null,
+  responseAction?: string | null,
 ): string {
-  if (!status) return "不需通知";
+  if (!status) {
+    return responseAction === "VIP_INTEREST" ? "通知結果待確認" : "不需通知";
+  }
 
   const detail = errorMessage?.trim() ?? "";
   if (/店長尚未綁定.*LINE/.test(detail)) return "未綁定 LINE";

@@ -41,6 +41,10 @@ describe("formatManagerNotificationResult", () => {
     expect(formatManagerNotificationResult("FAILED", "店長尚未綁定可接收通知的 LINE")).toBe("未綁定 LINE");
   });
 
+  it("marks a required manager notification with no persisted outcome as pending confirmation", () => {
+    expect(formatManagerNotificationResult(null, null, "VIP_INTEREST")).toBe("通知結果待確認");
+  });
+
   it.each(["FAILED", "SKIPPED"]) ("keeps failed or skipped customer results separate from manager status: %s", (status) => {
     expect(formatReminderSendResult(status, "LINE API 500")).not.toBe("已發送");
   });

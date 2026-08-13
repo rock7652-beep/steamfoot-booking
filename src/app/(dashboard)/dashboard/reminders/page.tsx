@@ -461,6 +461,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                           {formatManagerNotificationResult(
                             log.managerNotificationStatus,
                             log.managerNotificationError,
+                            log.responseAction,
                           )}
                         </td>
                       </tr>
