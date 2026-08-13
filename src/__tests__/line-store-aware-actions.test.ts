@@ -29,6 +29,8 @@ const pushSteamButlerMessageMock = vi.fn(
 );
 const revalidatePathMock = vi.fn();
 const resolveCentralLineRecipientForCustomerMock = vi.fn();
+const previewMessengerUtilityTestReminderMock = vi.fn();
+const sendMessengerUtilityTestReminderMock = vi.fn();
 
 const mockPrisma = {
   customer: {
@@ -125,6 +127,15 @@ vi.mock("@/lib/base-url", () => ({
   deriveBaseUrl: () => "https://example.test",
 }));
 
+vi.mock("@/server/services/trial-booking-self-service", () => ({
+  createTrialBookingActionToken: () => "signed-test-token",
+}));
+
+vi.mock("@/server/services/messenger-utility-reminder", () => ({
+  previewMessengerUtilityTestReminder: (...args: unknown[]) => previewMessengerUtilityTestReminderMock(...args),
+  sendMessengerUtilityTestReminder: (...args: unknown[]) => sendMessengerUtilityTestReminderMock(...args),
+}));
+
 describe("LINE sending actions are store-aware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -135,6 +146,8 @@ describe("LINE sending actions are store-aware", () => {
       deliverable: false,
       recipientLineUserId: null,
     });
+    previewMessengerUtilityTestReminderMock.mockResolvedValue({ code: "READY" });
+    sendMessengerUtilityTestReminderMock.mockResolvedValue({ code: "SENT", quotaConsumed: true });
   });
 
   afterEach(() => {
@@ -498,5 +511,146 @@ describe("LINE sending actions are store-aware", () => {
     });
     expect(pushMessageMock).not.toHaveBeenCalled();
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("selects LINE only when the original trial chat source is LINE", async () => {
+    vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
+    const booking = {
+      id: "line-trial-1", storeId: "store-hsinchu", customerId: "customer-1",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: "LINE",
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "14:30", people: 1,
+      store: { slug: "zhubei" },
+      customer: { id: "customer-1", name: "LINE 顧客", lineUserId: "U_line", lineLinkStatus: "LINKED", assignedStaff: null },
+    };
+    // preview re-loads its authoritative target; send re-loads it once more.
+    mockPrisma.booking.findFirst.mockResolvedValue(booking);
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue(null);
+
+    const { previewBookingTestReminder, sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: booking.id })).resolves.toEqual({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
+    });
+    await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
+    });
+    expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_line", expect.any(Array));
+  });
+
+  it("selects Messenger Utility only for a valid Messenger source", async () => {
+    vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
+    const booking = {
+      id: "messenger-trial-1", storeId: "store-hsinchu", customerId: "customer-1",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: "MESSENGER",
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "14:30", people: 2,
+      store: { slug: "zhubei" },
+      customer: { id: "customer-1", name: "Messenger 顧客", lineUserId: "U_line", lineLinkStatus: "LINKED", assignedStaff: null },
+    };
+    mockPrisma.booking.findFirst.mockResolvedValue(booking);
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+
+    const { previewBookingTestReminder, sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: booking.id })).resolves.toEqual({
+      success: true, data: { channel: "MESSENGER", channelLabel: "Messenger Utility" },
+    });
+    await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
+      success: true, data: { channel: "MESSENGER", channelLabel: "Messenger Utility" },
+    });
+    expect(sendMessengerUtilityTestReminderMock).toHaveBeenCalledWith(expect.objectContaining({
+      booking: expect.objectContaining({ id: booking.id, storeId: booking.storeId }),
+    }));
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+    const logData = mockPrisma.messageLog.create.mock.calls.at(-1)?.[0].data;
+    expect(logData).not.toHaveProperty("ruleId");
+    expect(logData).not.toHaveProperty("triggerAt");
+  });
+
+  it("does not send when the booking has no original chat source", async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "no-source", storeId: "store-hsinchu", customerId: "customer-1",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: null,
+      customer: { name: "無來源顧客" }, store: { slug: "zhubei" },
+    });
+    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: "no-source" })).resolves.toEqual({
+      success: false,
+      error: "這筆預約沒有可驗證的原始聊天來源，無法傳送測試提醒",
+    });
+    expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+    expect(pushMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Messenger identity scoped to another store without falling back to LINE", async () => {
+    vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "wrong-store", storeId: "store-hsinchu", customerId: "customer-1",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: "MESSENGER",
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "14:30", people: 1,
+      customer: { name: "跨店顧客" }, store: { slug: "zhubei" },
+    });
+    previewMessengerUtilityTestReminderMock.mockResolvedValueOnce({ code: "FAILED_IDENTITY_SCOPE" });
+    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: "wrong-store" })).resolves.toEqual({
+      success: false,
+      error: "Messenger 身分與此分店不一致，因此未發送",
+    });
+    expect(pushMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("skips Messenger safely when its encrypted booking identity is unavailable", async () => {
+    vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "missing-identity", storeId: "store-hsinchu", customerId: "customer-1",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: "MESSENGER",
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "14:30", people: 1,
+      customer: { name: "無身分顧客" }, store: { slug: "zhubei" },
+    });
+    previewMessengerUtilityTestReminderMock.mockResolvedValueOnce({ code: "SKIPPED_MISSING_IDENTITY" });
+    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: "missing-identity" })).resolves.toEqual({
+      success: false,
+      error: "這筆預約沒有可驗證的 Messenger 身分，因此未發送",
+    });
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+  });
+
+  it("reports a Meta rejection as a failed test rather than a success", async () => {
+    vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "meta-rejected", storeId: "store-hsinchu", customerId: "customer-1",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: "MESSENGER",
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "14:30", people: 1,
+      customer: { name: "Meta 拒絕顧客" }, store: { slug: "zhubei" },
+    });
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+    sendMessengerUtilityTestReminderMock.mockResolvedValueOnce({ code: "FAILED_META_REJECTED", quotaConsumed: false });
+    const { sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(sendBookingTestReminder({ bookingId: "meta-rejected" })).resolves.toEqual({
+      success: false,
+      error: "Meta 拒絕此次 Messenger 測試提醒，未標記為成功",
+    });
+    expect(mockPrisma.messageLog.create).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ channel: "MESSENGER", status: "FAILED", errorMessage: "FAILED_META_REJECTED" }),
+    });
+  });
+
+  it("blocks a repeated Messenger test click before calling Meta again", async () => {
+    vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "repeat-messenger", storeId: "store-hsinchu", customerId: "customer-1",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: "MESSENGER",
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "14:30", people: 1,
+      customer: { name: "重複點擊顧客" }, store: { slug: "zhubei" },
+    });
+    mockPrisma.messageLog.findFirst.mockResolvedValue({ id: "recent-test" });
+    const { sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(sendBookingTestReminder({ bookingId: "repeat-messenger" })).resolves.toEqual({
+      success: false,
+      error: "這筆預約剛剛已發送測試提醒，請稍後再試",
+    });
+    expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
   });
 });
