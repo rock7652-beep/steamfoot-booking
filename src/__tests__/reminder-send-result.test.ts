@@ -18,6 +18,7 @@ describe("formatReminderSendResult", () => {
   it.each([
     "LINE token not configured for store",
     "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED",
+    'LINE API 401: {"message":"Authentication failed"}',
   ])("shows LINE configuration failure %s as actionable", (detail) => {
     const result = formatReminderSendResult("FAILED", detail);
     expect(result).toBe("LINE 發送設定不完整，請聯絡系統管理員");
