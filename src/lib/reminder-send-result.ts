@@ -32,3 +32,18 @@ export function formatReminderSendResult(
   if (status === "FAILED") return "發送失敗";
   return detail && /\p{Script=Han}/u.test(detail) ? detail : "—";
 }
+
+/** Formats the separate manager follow-up result for session-balance reminders. */
+export function formatManagerNotificationResult(
+  status?: string | null,
+  errorMessage?: string | null,
+): string {
+  if (!status) return "不需通知";
+
+  const detail = errorMessage?.trim() ?? "";
+  if (/店長尚未綁定.*LINE/.test(detail)) return "未綁定 LINE";
+
+  const result = formatReminderSendResult(status, detail);
+  if (status === "FAILED" && result === "發送失敗") return "通知失敗";
+  return result;
+}

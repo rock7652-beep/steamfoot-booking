@@ -25,7 +25,10 @@ import {
 } from "@/server/queries/reminder";
 import { getCurrentLineOfficialAccountStatus } from "@/server/actions/line-official-accounts";
 import { isLineSmokeTestEnabled } from "@/lib/line-config";
-import { formatReminderSendResult } from "@/lib/reminder-send-result";
+import {
+  formatManagerNotificationResult,
+  formatReminderSendResult,
+} from "@/lib/reminder-send-result";
 import { ReminderCard } from "./reminder-card";
 import { CreateTemplateForm } from "./create-template-form";
 import { CronRunBanner } from "./cron-run-banner";
@@ -402,13 +405,14 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                     <th className="px-3 py-2 text-left">方案</th>
                     <th className="px-3 py-2 text-left">狀態</th>
                     <th className="px-3 py-2 text-left">顧客回覆</th>
-                    <th className="px-3 py-2 text-left">發送結果</th>
+                    <th className="px-3 py-2 text-left">顧客提醒結果</th>
+                    <th className="px-3 py-2 text-left">店長通知結果</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-earth-100">
                   {sessionBalanceLogsData.logs.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-3 py-8 text-center text-earth-400">
+                      <td colSpan={8} className="px-3 py-8 text-center text-earth-400">
                         尚無剩餘堂數提醒紀錄
                       </td>
                     </tr>
@@ -451,9 +455,12 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                               : "尚未回覆"}
                         </td>
                         <td className="px-3 text-[11px] text-earth-600">
-                          {formatReminderSendResult(
-                            log.status,
-                            log.errorMessage ?? log.managerNotificationError,
+                          {formatReminderSendResult(log.status, log.errorMessage)}
+                        </td>
+                        <td className="px-3 text-[11px] text-earth-600">
+                          {formatManagerNotificationResult(
+                            log.managerNotificationStatus,
+                            log.managerNotificationError,
                           )}
                         </td>
                       </tr>
