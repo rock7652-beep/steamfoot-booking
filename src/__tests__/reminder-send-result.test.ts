@@ -53,12 +53,40 @@ describe("formatReminderSendResult", () => {
     expect(result).not.toContain(code);
   });
 
+  it.each([
+    "CENTRAL_USER_CONFLICT",
+    "CENTRAL_LINE_CONFLICT",
+    "IDENTITY_LINK_CONFLICT",
+    "LEGACY_LINE_CONFLICT",
+  ])("classifies prefixed scheduled conflict %s", (code) => {
+    const result = formatReminderSendResult(
+      "SKIPPED",
+      `LINE recipient unavailable: ${code}`,
+    );
+    expect(result).toBe("LINE 身分資料衝突，請聯絡客服協助處理");
+    expect(result).not.toBe("已跳過");
+    expect(result).not.toContain(code);
+  });
+
   it.each(["network", "401", "403", "429", "503"]) (
     "maps unavailable LINE verification %s without exposing its technical detail",
     (reason) => {
       const result = formatReminderSendResult(
         "SKIPPED",
         `store_channel_verification_unavailable:${reason}`,
+      );
+      expect(result).toBe("LINE 驗證暫時無法完成，請稍後重試");
+      expect(result).not.toBe("已跳過");
+      expect(result).not.toContain(reason);
+    },
+  );
+
+  it.each(["network", "401", "403", "429", "503"]) (
+    "maps prefixed scheduled LINE verification %s",
+    (reason) => {
+      const result = formatReminderSendResult(
+        "SKIPPED",
+        `LINE recipient unavailable: store_channel_verification_unavailable:${reason}`,
       );
       expect(result).toBe("LINE 驗證暫時無法完成，請稍後重試");
       expect(result).not.toBe("已跳過");
