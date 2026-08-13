@@ -357,7 +357,21 @@ describe("LINE sending actions are store-aware", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "U_store_customer",
-      [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
+      [expect.objectContaining({
+        type: "flex",
+        altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
+        contents: expect.objectContaining({
+          footer: expect.objectContaining({
+            contents: [expect.objectContaining({
+              action: {
+                type: "uri",
+                label: "查看／管理預約",
+                uri: "https://example.test/my-bookings",
+              },
+            })],
+          }),
+        }),
+      })],
     );
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
     expect(mockPrisma.messageLog.create).toHaveBeenCalledWith({
@@ -562,7 +576,25 @@ describe("LINE sending actions are store-aware", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "U_package",
-      [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
+      [expect.objectContaining({
+        type: "flex",
+        altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
+        contents: expect.objectContaining({
+          header: expect.objectContaining({
+            contents: expect.arrayContaining([
+              expect.objectContaining({ text: "測試提醒｜不影響正式排程" }),
+            ]),
+          }),
+          footer: expect.objectContaining({
+            contents: [expect.objectContaining({
+              action: expect.objectContaining({
+                label: "查看／管理預約",
+                uri: "https://example.test/my-bookings",
+              }),
+            })],
+          }),
+        }),
+      })],
     );
     expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
     expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
