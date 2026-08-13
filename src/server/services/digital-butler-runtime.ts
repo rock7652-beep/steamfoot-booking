@@ -750,7 +750,7 @@ export class DigitalButlerRuntime {
     }
 
     if (
-      input.provider === "LINE"
+      (input.provider === "LINE" || input.provider === "MESSENGER")
       && TRIAL_EXPERIENCE_TRIGGER_ALIASES.has(normalizeTriggerText(input.text))
     ) {
       if (conversation && !(await this.repository.cancelConversation(input.storeId, conversation.id))) {

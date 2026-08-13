@@ -133,7 +133,7 @@ describe("DigitalButlerRuntime", () => {
     expect(matchesDigitalButlerTriggerKeyword(["我想了解課程"], "我想體驗蒸足")).toBe(false);
   });
 
-  it("sends the direct booking entry and ends an active conversation for the trial intent", async () => {
+  it.each(["LINE", "MESSENGER"] as const)("sends the direct booking entry and ends an active %s conversation for the trial intent", async (provider) => {
     const steps = [
       {
         id: "menu", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const,
@@ -155,7 +155,7 @@ describe("DigitalButlerRuntime", () => {
     });
 
     const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
-      ...input, text: "我想體驗蒸足",
+      ...input, provider, text: "我想體驗蒸足",
     });
 
     expect(result).toMatchObject({
@@ -173,7 +173,7 @@ describe("DigitalButlerRuntime", () => {
     expect(repository.advanceConversation).not.toHaveBeenCalled();
   });
 
-  it("sends the direct booking entry after an expired conversation without starting name collection", async () => {
+  it.each(["LINE", "MESSENGER"] as const)("sends the direct booking entry after an expired %s conversation without starting name collection", async (provider) => {
     repository.findActiveConversation.mockResolvedValue({
       id: "expired-conversation", storeId: input.storeId, flowId: "flow-1",
       flowVersionId: "version-1", currentStepKey: "menu",
@@ -181,7 +181,7 @@ describe("DigitalButlerRuntime", () => {
     });
 
     const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
-      ...input, text: "我想體驗蒸足",
+      ...input, provider, text: "我想體驗蒸足",
     });
 
     expect(result).toMatchObject({
