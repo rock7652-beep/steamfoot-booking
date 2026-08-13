@@ -566,19 +566,99 @@ describe("LINE sending actions are store-aware", () => {
     expect(logData).not.toHaveProperty("triggerAt");
   });
 
-  it("does not send when the booking has no original chat source", async () => {
-    mockPrisma.booking.findFirst.mockResolvedValue({
-      id: "no-source", storeId: "store-hsinchu", customerId: "customer-1",
+  it("uses the unique verified same-store LINE binding when the original source is missing", async () => {
+    vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
+    const booking = {
+      id: "no-source-same-store", storeId: "store-hsinchu", customerId: "customer-1",
       bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: null,
-      customer: { name: "無來源顧客" }, store: { slug: "zhubei" },
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "14:30", people: 1,
+      store: { slug: "zhubei" },
+      customer: {
+        id: "customer-1", name: "同店 LINE 顧客", lineUserId: "U_same_store",
+        lineLinkStatus: "LINKED", assignedStaff: null,
+      },
+    };
+    mockPrisma.booking.findFirst.mockResolvedValue(booking);
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue(null);
+
+    const { previewBookingTestReminder, sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: booking.id })).resolves.toEqual({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
     });
-    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
-    await expect(previewBookingTestReminder({ bookingId: "no-source" })).resolves.toEqual({
-      success: false,
-      error: "這筆預約沒有可驗證的原始聊天來源，無法傳送測試提醒",
+    await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
     });
+    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_same_store", expect.any(Array));
+    expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
     expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a source-less booking when a LINE binding is only available outside the booking store", async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "no-source-cross-store", storeId: "store-hsinchu", customerId: "customer-cross-store",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: null,
+      customer: {
+        name: "跨店 LINE 顧客", lineUserId: null, lineLinkStatus: "UNLINKED", assignedStaff: null,
+      },
+      store: { slug: "zhubei" },
+    });
+    resolveCentralLineRecipientForCustomerMock.mockResolvedValueOnce(null);
+
+    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: "no-source-cross-store" })).resolves.toEqual({
+      success: false,
+      error: "LINE 收件人無法使用（CUSTOMER_NOT_FOUND）",
+    });
+    expect(resolveCentralLineRecipientForCustomerMock).toHaveBeenCalledWith(
+      "customer-cross-store",
+      "store-hsinchu",
+    );
+    expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a source-less booking when verified LINE identities conflict", async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "no-source-multiple", storeId: "store-hsinchu", customerId: "customer-multiple",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: null,
+      customer: {
+        name: "多身分顧客", lineUserId: null, lineLinkStatus: "UNLINKED", assignedStaff: null,
+      },
+      store: { slug: "zhubei" },
+    });
+    resolveCentralLineRecipientForCustomerMock.mockResolvedValueOnce({
+      status: "CENTRAL_USER_CONFLICT",
+      deliverable: false,
+      recipientLineUserId: null,
+    });
+
+    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: "no-source-multiple" })).resolves.toEqual({
+      success: false,
+      error: "LINE 收件人無法使用（CENTRAL_USER_CONFLICT）",
+    });
+    expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a source-less booking without a verified LINE binding", async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "no-source-no-line", storeId: "store-hsinchu", customerId: "customer-no-line",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: null,
+      customer: {
+        name: "無 LINE 綁定顧客", lineUserId: null, lineLinkStatus: "UNLINKED", assignedStaff: null,
+      },
+      store: { slug: "zhubei" },
+    });
+
+    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: "no-source-no-line" })).resolves.toEqual({
+      success: false,
+      error: "LINE 收件人無法使用（NO_CENTRAL_LINE）",
+    });
     expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+    expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+    expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
   });
 
   it("rejects a Messenger identity scoped to another store without falling back to LINE", async () => {
