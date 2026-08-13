@@ -16,6 +16,9 @@ export function formatReminderSendResult(
 
   if (status === "SKIPPED") {
     if (!detail) return "已跳過";
+    if (detail === "SKIPPED_DISABLED") return "Messenger 自動提醒目前關閉";
+    if (detail === "SKIPPED_MISSING_TEMPLATE") return "Messenger 的核准提醒範本尚未設定";
+    if (detail === "SKIPPED_MISSING_IDENTITY") return "這筆預約沒有可驗證的 Messenger 身分";
     if (detail === "Feature not enabled") return "此功能尚未啟用";
     if (detail === "Already processed today") return "今日已處理";
     if (detail === "MESSENGER_SCHEDULED_REMINDER_ISOLATED") {

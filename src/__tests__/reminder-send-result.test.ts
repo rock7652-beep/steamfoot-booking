@@ -23,6 +23,14 @@ describe("formatReminderSendResult", () => {
     expect(formatReminderSendResult("SKIPPED", "Feature not enabled")).toBe("此功能尚未啟用");
     expect(formatReminderSendResult("SKIPPED", "UNKNOWN_INTERNAL_CODE")).toBe("已跳過");
   });
+
+  it.each([
+    ["SKIPPED_DISABLED", "Messenger 自動提醒目前關閉"],
+    ["SKIPPED_MISSING_TEMPLATE", "Messenger 的核准提醒範本尚未設定"],
+    ["SKIPPED_MISSING_IDENTITY", "這筆預約沒有可驗證的 Messenger 身分"],
+  ])("keeps Messenger skip reason %s actionable", (code, expected) => {
+    expect(formatReminderSendResult("SKIPPED", code)).toBe(expected);
+  });
 });
 
 describe("formatManagerNotificationResult", () => {
