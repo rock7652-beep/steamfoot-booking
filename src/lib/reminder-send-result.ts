@@ -29,6 +29,7 @@ export function formatReminderSendResult(
 
   if (MESSENGER_RESULT_LABEL[detail]) return MESSENGER_RESULT_LABEL[detail];
   if (/NO_CENTRAL_(USER|LINE)/.test(detail)) return "未綁定 LINE";
+  if (detail === "CENTRAL_USER_INACTIVE") return "中央會員已停用或不存在";
   if (/LINE API 400/i.test(detail)) return "已綁定但無法送達";
   if (
     detail === "LINE token not configured for store" ||
