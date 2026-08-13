@@ -32,7 +32,8 @@ export function formatReminderSendResult(
   if (/LINE API 400/i.test(detail)) return "已綁定但無法送達";
   if (
     detail === "LINE token not configured for store" ||
-    detail === "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED"
+    detail === "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED" ||
+    /LINE API 401/i.test(detail)
   ) {
     return "LINE 發送設定不完整，請聯絡系統管理員";
   }
