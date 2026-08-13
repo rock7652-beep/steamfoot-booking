@@ -6,6 +6,7 @@ export type PackageBookingReminderCard = {
   bookingTime: string;
   shopName: string;
   serviceName: string;
+  reminderText: string;
 };
 
 export type TrialBookingReminderCard = {
@@ -50,6 +51,9 @@ export function buildPackageBookingTestReminderLineMessages(
           detailRow("日期時間", `${card.bookingDate} ${card.bookingTime}`),
           detailRow("店名", card.shopName),
           detailRow("預約項目", card.serviceName),
+          { type: "separator" },
+          { type: "text", text: "提醒內容", color: "#8A817A", size: "sm" },
+          { type: "text", text: card.reminderText, color: "#302924", size: "sm", wrap: true },
         ],
       },
       footer: {
