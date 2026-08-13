@@ -16,6 +16,9 @@ export function formatReminderSendResult(
 
   if (status === "SKIPPED") {
     if (!detail) return "已跳過";
+    if (detail.startsWith("store_channel_verification_unavailable:")) {
+      return "LINE 驗證暫時無法完成，請稍後重試";
+    }
     if (detail === "SKIPPED_DISABLED") return "Messenger 自動提醒目前關閉";
     if (detail === "SKIPPED_MISSING_TEMPLATE") return "Messenger 的核准提醒範本尚未設定";
     if (detail === "SKIPPED_MISSING_IDENTITY") return "這筆預約沒有可驗證的 Messenger 身分";

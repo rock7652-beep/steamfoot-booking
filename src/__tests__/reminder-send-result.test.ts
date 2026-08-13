@@ -31,6 +31,19 @@ describe("formatReminderSendResult", () => {
   ])("keeps Messenger skip reason %s actionable", (code, expected) => {
     expect(formatReminderSendResult("SKIPPED", code)).toBe(expected);
   });
+
+  it.each(["network", "401", "403", "429", "503"]) (
+    "maps unavailable LINE verification %s without exposing its technical detail",
+    (reason) => {
+      const result = formatReminderSendResult(
+        "SKIPPED",
+        `store_channel_verification_unavailable:${reason}`,
+      );
+      expect(result).toBe("LINE 驗證暫時無法完成，請稍後重試");
+      expect(result).not.toBe("已跳過");
+      expect(result).not.toContain(reason);
+    },
+  );
 });
 
 describe("formatManagerNotificationResult", () => {
