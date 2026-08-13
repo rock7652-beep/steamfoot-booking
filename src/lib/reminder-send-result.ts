@@ -30,6 +30,12 @@ export function formatReminderSendResult(
   if (MESSENGER_RESULT_LABEL[detail]) return MESSENGER_RESULT_LABEL[detail];
   if (/NO_CENTRAL_(USER|LINE)/.test(detail)) return "未綁定 LINE";
   if (/LINE API 400/i.test(detail)) return "已綁定但無法送達";
+  if (
+    detail === "LINE token not configured for store" ||
+    detail === "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED"
+  ) {
+    return "LINE 發送設定不完整，請聯絡系統管理員";
+  }
   if (/^(CENTRAL_USER|CENTRAL_LINE|IDENTITY_LINK|LEGACY_LINE)_CONFLICT$/.test(detail)) {
     return "LINE 身分資料衝突，請聯絡客服協助處理";
   }
