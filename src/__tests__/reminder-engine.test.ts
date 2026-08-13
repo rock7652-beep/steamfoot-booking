@@ -286,7 +286,12 @@ const pushMessageMock = vi.fn(
     storeId: string,
     lineUserId: string,
     messages: unknown[],
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    httpStatus?: number;
+    errorType?: "line_api_rejected";
+  }> => {
     void storeId;
     void lineUserId;
     void messages;
@@ -517,7 +522,7 @@ describe("runReminders (daily next-day batch)", () => {
     ]);
   });
 
-  it("體驗預約使用管理按鈕，不在 LINE 文字裸露簽章網址", async () => {
+  it("體驗預約以蒸管家單張 Flex 卡顯示資訊與管理按鈕", async () => {
     vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
     bookings.push(makeBooking({
       bookingDate: new Date("2026-05-12T00:00:00.000Z"),
@@ -531,25 +536,59 @@ describe("runReminders (daily next-day batch)", () => {
     const message = pushMessageMock.mock.calls[0]?.[2]?.[0] as {
       type: string;
       contents: {
-        body: { contents: Array<{ text?: string }> };
+        body: { contents: Array<{ text?: string; contents?: Array<{ text?: string }> }> };
         footer: { contents: Array<{ action: { label: string; uri: string } }> };
       };
     };
     expect(message.type).toBe("flex");
-    expect(message.contents.body.contents[0]?.text).not.toContain("/trial-booking/manage?token=");
+    expect(message.contents.body.contents[0]?.text).toBe("Alice 您好");
+    expect(message.contents.body.contents[2]?.contents?.map((item) => item.text)).toEqual(["日期時間", "2026-05-12 14:00"]);
+    expect(message.contents.body.contents[3]?.contents?.map((item) => item.text)).toEqual(["店名", "Test Shop"]);
+    expect(message.contents.body.contents[4]?.contents?.map((item) => item.text)).toEqual(["預約項目", "首次體驗"]);
     expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
-      "確認預約",
+      "確認會到",
+      "需要改期",
       "取消預約",
-      "改期預約",
     ]);
     for (const button of message.contents.footer.contents) {
       expect(button.action.uri).toContain("/trial-booking/manage?token=");
     }
     expect(message.contents.footer.contents.map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
       "confirm",
-      "cancel",
       "reschedule",
+      "cancel",
     ]);
+  });
+
+  it("Flex 被 LINE 明確拒絕時只降級一次文字提醒，且只寫一筆成功紀錄", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    bookings.push(makeBooking({
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      bookingType: "FIRST_TRIAL",
+    }));
+    rules.push(makeRule());
+    pushMessageMock
+      .mockResolvedValueOnce({
+        success: false,
+        error: "LINE API 400: invalid Flex payload",
+        httpStatus: 400,
+        errorType: "line_api_rejected",
+      })
+      .mockResolvedValueOnce({ success: true });
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
+
+    expect(pushMessageMock).toHaveBeenCalledTimes(2);
+    expect(pushMessageMock.mock.calls[0]?.[2]?.[0]).toMatchObject({ type: "flex" });
+    expect(pushMessageMock.mock.calls[1]?.[2]).toEqual([
+      { type: "text", text: expect.stringContaining("請開啟以下安全連結") },
+    ]);
+    expect(pushMessageMock.mock.calls[1]?.[2]?.[0]).toMatchObject({
+      text: expect.stringContaining("/trial-booking/manage?token="),
+    });
+    expect(messageLogs).toHaveLength(1);
+    expect(messageLogs[0]).toMatchObject({ status: "SENT" });
   });
 
   it("line_reminder 未授權時 → SKIPPED，不發 LINE並寫入稽核紀錄", async () => {

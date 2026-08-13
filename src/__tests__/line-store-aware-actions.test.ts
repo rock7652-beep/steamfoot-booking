@@ -417,14 +417,13 @@ describe("LINE sending actions are store-aware", () => {
     };
     expect(message).toMatchObject({
       type: "flex",
-      altText: "體驗預約管理：確認、取消或改期",
+      altText: expect.stringContaining("黃彥陸 的預約提醒"),
     });
-    expect(message.contents.body.contents[0]?.text).toContain("體驗預約提醒");
-    expect(message.contents.body.contents[0]?.text).not.toContain("/trial-booking/manage?token=");
+    expect(message.contents.body.contents[0]?.text).toBe("黃彥陸 您好");
     expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
-      "確認預約",
+      "確認會到",
+      "需要改期",
       "取消預約",
-      "改期預約",
     ]);
     for (const button of message.contents.footer.contents) {
       expect(button.action.uri).toContain("/trial-booking/manage?token=");
@@ -432,8 +431,8 @@ describe("LINE sending actions are store-aware", () => {
     }
     expect(message.contents.footer.contents.map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
       "confirm",
-      "cancel",
       "reschedule",
+      "cancel",
     ]);
   });
 
