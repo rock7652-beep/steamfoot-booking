@@ -167,6 +167,17 @@ export async function getCustomerBookingRescheduleStatus(bookingId: string) {
   const bookingDate = booking.bookingDate.toISOString().slice(0, 10);
   const todayDate = toLocalDateStr();
   const bookableUntilDate = await storeBookableUntilDate(booking.storeId);
+  const now = new Date();
+  const unavailableReason =
+    !PENDING_STATUSES.includes(booking.bookingStatus as (typeof PENDING_STATUSES)[number])
+      ? "inactive_booking"
+      : booking.customerRescheduleCount >= CUSTOMER_RESCHEDULE_LIMIT
+        ? "already_rescheduled"
+        : booking.isMakeup
+          ? "makeup_booking"
+          : !outsideCutoff(bookingDate, booking.slotTime, now)
+            ? "inside_cutoff"
+            : null;
   return {
     bookingDate,
     todayDate,
@@ -174,9 +185,8 @@ export async function getCustomerBookingRescheduleStatus(bookingId: string) {
     slotTime: booking.slotTime,
     bookingStatus: booking.bookingStatus,
     customerRescheduleCount: booking.customerRescheduleCount,
-    canReschedule:
-      bookingCanReschedule(booking, new Date()) &&
-      entitlementCoversDate(booking, bookingDate),
+    canReschedule: unavailableReason === null,
+    unavailableReason,
   };
 }
 

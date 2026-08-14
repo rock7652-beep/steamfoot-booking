@@ -45,7 +45,12 @@ describe("customer booking reschedule contract", () => {
     expect(action).toContain("sameSlotTime(slotTime, current.slotTime)");
     expect(action).toContain("revalidateBookings(booking.customerId)");
     expect(action).not.toContain('revalidatePath("/my-bookings")');
-    expect(action).toContain("entitlementCoversDate(booking, bookingDate)");
+    expect(action).toContain('canReschedule: unavailableReason === null');
+    expect(action).toContain('"inside_cutoff"');
+    expect(action).toContain('"already_rescheduled"');
+    expect(action).toContain('"makeup_booking"');
+    expect(action).toContain('"inactive_booking"');
+    expect(action).not.toContain("entitlementCoversDate(booking, bookingDate)");
   });
 
   it("normalizes legacy duty times before exposing reschedule slots", () => {
@@ -73,11 +78,11 @@ describe("customer booking reschedule contract", () => {
     expect(message).toContain('label: "取消前往"');
     expect(message).toContain('actionUrl("cancel")');
     expect(message).toContain("encodeURIComponent(bookingId)");
-    expect(message).toContain('backgroundColor: "#5C4634"');
-    expect(message).toContain('color: "#397552"');
-    expect(message).toContain('color: "#8A552F"');
-    expect(message).toContain('color: "#B33A32"');
-    expect(message).toContain('style: "primary",\n            color: "#B33A32"');
+    expect(message).toContain('backgroundColor: "#F3E7DC"');
+    expect(message).toContain('color: "#7FA58A"');
+    expect(message).toContain('color: "#B58A6A"');
+    expect(message).toContain('color: "#C77972"');
+    expect(message).toContain('style: "primary",\n            color: "#C77972"');
     const reminder = source("src/server/actions/reminder.ts");
     expect(reminder).toContain("/s/${encodeURIComponent(booking.store.slug)}/my-bookings");
   });
@@ -90,6 +95,9 @@ describe("customer booking reschedule contract", () => {
     expect(manager).toContain("min={minDate}");
     expect(manager).toContain("max={maxDate}");
     expect(manager).toContain("disabled={pending || loadingSlots}");
+    expect(manager).toContain("reasonMessage");
+    expect(manager).toContain("補課預約目前需由店家協助改期");
+    expect(manager).toContain("這筆預約目前不是可改期狀態");
   });
 
   it("exposes the safe reschedule route from the normal customer booking list", () => {
