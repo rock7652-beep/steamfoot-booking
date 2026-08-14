@@ -22,6 +22,8 @@ const h = vi.hoisted(() => ({
   txWalletUpdateMany: vi.fn(),
   txTransactionUpdateMany: vi.fn(),
   txTransactionCount: vi.fn(),
+  txTransactionFindFirst: vi.fn(),
+  txQueryRaw: vi.fn(),
   txBookingCount: vi.fn(),
   txPointRecordFindMany: vi.fn(),
   txPointRecordDeleteMany: vi.fn(),
@@ -126,6 +128,7 @@ beforeEach(() => {
         update: h.txUpdate,
         updateMany: h.txTransactionUpdateMany,
         count: h.txTransactionCount,
+        findFirst: h.txTransactionFindFirst,
       },
       customerPlanWallet: {
         findFirst: h.txWalletFindFirst,
@@ -142,6 +145,7 @@ beforeEach(() => {
       },
       customer: { updateMany: h.txCustomerUpdateMany },
       transactionAuditLog: { create: h.transactionAuditCreate },
+      $queryRaw: h.txQueryRaw,
     }),
   );
   h.txWalletFindFirst.mockResolvedValue({
@@ -156,6 +160,8 @@ beforeEach(() => {
   h.txWalletUpdateMany.mockResolvedValue({ count: 1 });
   h.txTransactionUpdateMany.mockResolvedValue({ count: 1 });
   h.txTransactionCount.mockResolvedValue(0);
+  h.txTransactionFindFirst.mockResolvedValue(null);
+  h.txQueryRaw.mockResolvedValue([{ id: CUSTOMER_ID }]);
   h.txBookingCount.mockResolvedValue(0);
   h.txPointRecordFindMany.mockResolvedValue([]);
   h.txPointRecordDeleteMany.mockResolvedValue({ count: 0 });
@@ -203,9 +209,10 @@ describe("transaction actions — store consistency", () => {
     }));
   });
 
-  it("restores customer state and referral points when the mistaken entry was the only paid purchase", async () => {
+  it("restores the exact pre-purchase customer state and referral points", async () => {
+    const previousConvertedAt = new Date("2026-07-01T00:00:00.000Z");
     h.transactionFindUnique.mockResolvedValueOnce({
-      id: "first-paid-mistake",
+      id: "effectful-paid-mistake",
       storeId: "store-taichung",
       customerId: CUSTOMER_ID,
       status: "SUCCESS",
@@ -215,99 +222,37 @@ describe("transaction actions — store consistency", () => {
       customerPlanWalletId: WALLET_ID,
       amount: 5990,
       note: null,
-      isFirstPurchase: true,
+      conversionEffectsApplied: true,
+      preConversionCustomerStage: "TRIAL",
+      preConversionSelfBookingEnabled: true,
+      preConversionConvertedAt: previousConvertedAt,
     });
-    h.txBookingCount.mockResolvedValueOnce(1);
     h.txPointRecordFindMany.mockResolvedValueOnce([
       { id: "point-referrer", customerId: "sponsor-1", points: 15 },
       { id: "point-self", customerId: CUSTOMER_ID, points: 5 },
     ]);
 
     const { voidTransaction } = await import("@/server/actions/transaction");
-    const result = await voidTransaction({ transactionId: "first-paid-mistake", reason: "入錯帳" });
+    const result = await voidTransaction({ transactionId: "effectful-paid-mistake", reason: "入錯帳" });
 
     expect(result.success).toBe(true);
-    expect(h.txTransactionCount).toHaveBeenCalledWith({
-      where: expect.objectContaining({
-        customerId: CUSTOMER_ID,
-        paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
-      }),
-    });
+    expect(h.txQueryRaw).toHaveBeenCalled();
     expect(h.txCustomerUpdateMany).toHaveBeenCalledWith({
       where: { id: CUSTOMER_ID, storeId: "store-taichung" },
       data: {
         customerStage: "TRIAL",
-        selfBookingEnabled: false,
-        convertedAt: null,
+        selfBookingEnabled: true,
+        convertedAt: previousConvertedAt,
       },
-    });
-    expect(h.txCustomerUpdateMany).toHaveBeenCalledWith({
-      where: { id: "sponsor-1", storeId: "store-taichung" },
-      data: { totalPoints: { decrement: 15 } },
     });
     expect(h.txPointRecordDeleteMany).toHaveBeenCalledWith({
       where: { id: { in: ["point-referrer", "point-self"] } },
     });
   });
 
-  it("restores customer state when the last paid purchase was not the original first purchase", async () => {
+  it("passes the original pre-purchase snapshot to the next effective purchase", async () => {
     h.transactionFindUnique.mockResolvedValueOnce({
-      id: "later-paid-mistake",
-      storeId: "store-taichung",
-      customerId: CUSTOMER_ID,
-      status: "SUCCESS",
-      paymentStatus: "CONFIRMED",
-      paymentMethod: "TRANSFER",
-      transactionType: "PACKAGE_PURCHASE",
-      customerPlanWalletId: WALLET_ID,
-      amount: 5990,
-      note: null,
-      isFirstPurchase: false,
-    });
-
-    const { voidTransaction } = await import("@/server/actions/transaction");
-    const result = await voidTransaction({ transactionId: "later-paid-mistake", reason: "入錯帳" });
-
-    expect(result.success).toBe(true);
-    expect(h.txTransactionCount).toHaveBeenCalled();
-    expect(h.txCustomerUpdateMany).toHaveBeenCalledWith({
-      where: { id: CUSTOMER_ID, storeId: "store-taichung" },
-      data: {
-        customerStage: "LEAD",
-        selfBookingEnabled: false,
-        convertedAt: null,
-      },
-    });
-  });
-
-  it("does not restore customer state when voiding a pending purchase", async () => {
-    h.transactionFindUnique.mockResolvedValueOnce({
-      id: "pending-mistake",
-      storeId: "store-taichung",
-      customerId: CUSTOMER_ID,
-      status: "SUCCESS",
-      paymentStatus: "PENDING",
-      paymentMethod: "TRANSFER",
-      transactionType: "PACKAGE_PURCHASE",
-      customerPlanWalletId: WALLET_ID,
-      amount: 5990,
-      note: null,
-      isFirstPurchase: true,
-    });
-
-    const { voidTransaction } = await import("@/server/actions/transaction");
-    const result = await voidTransaction({ transactionId: "pending-mistake", reason: "入錯帳" });
-
-    expect(result.success).toBe(true);
-    expect(h.txTransactionCount).not.toHaveBeenCalled();
-    expect(h.txBookingCount).not.toHaveBeenCalled();
-    expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
-    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
-  });
-
-  it("keeps customer state when another paid purchase still exists", async () => {
-    h.transactionFindUnique.mockResolvedValueOnce({
-      id: "first-paid-with-later-purchase",
+      id: "first-effectful-purchase",
       storeId: "store-taichung",
       customerId: CUSTOMER_ID,
       status: "SUCCESS",
@@ -317,20 +262,66 @@ describe("transaction actions — store consistency", () => {
       customerPlanWalletId: WALLET_ID,
       amount: 5990,
       note: null,
-      isFirstPurchase: true,
+      conversionEffectsApplied: true,
+      preConversionCustomerStage: "LEAD",
+      preConversionSelfBookingEnabled: false,
+      preConversionConvertedAt: null,
     });
+    h.txTransactionFindFirst.mockResolvedValueOnce({ id: "next-effectful-purchase" });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "first-effectful-purchase", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txUpdate).toHaveBeenCalledWith({
+      where: { id: "next-effectful-purchase" },
+      data: {
+        preConversionCustomerStage: "LEAD",
+        preConversionSelfBookingEnabled: false,
+        preConversionConvertedAt: null,
+      },
+    });
+    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
+    expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
+  });
+
+  it("does not restore customer state for manual or pending transactions without conversion effects", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "manual-paid-mistake",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      conversionEffectsApplied: false,
+      preConversionCustomerStage: null,
+      preConversionSelfBookingEnabled: null,
+      preConversionConvertedAt: null,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "manual-paid-mistake", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txTransactionFindFirst).not.toHaveBeenCalled();
+    expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
+    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects cancellation when another purchase also references the wallet", async () => {
     h.txTransactionCount.mockResolvedValueOnce(1);
 
     const { voidTransaction } = await import("@/server/actions/transaction");
-    const result = await voidTransaction({
-      transactionId: "first-paid-with-later-purchase",
-      reason: "入錯帳",
-    });
+    const result = await voidTransaction({ transactionId: "shared-wallet", reason: "入錯帳" });
 
-    expect(result.success).toBe(true);
-    expect(h.txBookingCount).not.toHaveBeenCalled();
-    expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
-    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    expect(h.walletSessionUpdateMany).not.toHaveBeenCalled();
+    expect(h.txWalletUpdateMany).not.toHaveBeenCalled();
+    expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
   });
 
   it.each(["RESERVED", "COMPLETED"])(
