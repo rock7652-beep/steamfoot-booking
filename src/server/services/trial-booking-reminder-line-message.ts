@@ -44,15 +44,15 @@ export function buildPackageBookingTestReminderLineMessages(
       header: {
         type: "box",
         layout: "vertical",
-        backgroundColor: "#5C4634",
+        backgroundColor: "#F3E7DC",
         paddingAll: "16px",
         contents: [
-          { type: "text", text: "蒸管家｜預約提醒", color: "#FFFFFF", weight: "bold", size: "lg" },
+          { type: "text", text: "蒸管家｜預約提醒", color: "#4A3A32", weight: "bold", size: "lg" },
           {
             type: "box",
             layout: "horizontal",
             margin: "md",
-            backgroundColor: "#F5C96A",
+            backgroundColor: "#F7DEAA",
             cornerRadius: "12px",
             paddingAll: "8px",
             contents: [
@@ -91,20 +91,20 @@ export function buildPackageBookingTestReminderLineMessages(
             ? [{
                 type: "button",
                 style: "primary",
-                color: "#397552",
+                color: "#7FA58A",
                 action: { type: "uri", label: "開啟 Google Maps 導航", uri: card.mapUrl },
               }]
             : []),
           {
             type: "button",
             style: "primary",
-            color: "#8A552F",
+            color: "#B58A6A",
             action: { type: "uri", label: "改時段", uri: actionUrl("reschedule") },
           },
           {
             type: "button",
             style: "primary",
-            color: "#B33A32",
+            color: "#C77972",
             action: { type: "uri", label: "取消前往", uri: actionUrl("cancel") },
           },
         ],
