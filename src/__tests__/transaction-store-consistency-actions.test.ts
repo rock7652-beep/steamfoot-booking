@@ -250,6 +250,61 @@ describe("transaction actions — store consistency", () => {
     });
   });
 
+  it("restores customer state when the last paid purchase was not the original first purchase", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "later-paid-mistake",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "CONFIRMED",
+      paymentMethod: "TRANSFER",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      isFirstPurchase: false,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "later-paid-mistake", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txTransactionCount).toHaveBeenCalled();
+    expect(h.txCustomerUpdateMany).toHaveBeenCalledWith({
+      where: { id: CUSTOMER_ID, storeId: "store-taichung" },
+      data: {
+        customerStage: "LEAD",
+        selfBookingEnabled: false,
+        convertedAt: null,
+      },
+    });
+  });
+
+  it("does not restore customer state when voiding a pending purchase", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "pending-mistake",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "PENDING",
+      paymentMethod: "TRANSFER",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      isFirstPurchase: true,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "pending-mistake", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txTransactionCount).not.toHaveBeenCalled();
+    expect(h.txBookingCount).not.toHaveBeenCalled();
+    expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
+    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
   it("keeps customer state when another paid purchase still exists", async () => {
     h.transactionFindUnique.mockResolvedValueOnce({
       id: "first-paid-with-later-purchase",
