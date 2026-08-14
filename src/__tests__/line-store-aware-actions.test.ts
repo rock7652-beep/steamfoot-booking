@@ -694,6 +694,50 @@ describe("LINE sending actions are store-aware", () => {
     ]));
   });
 
+  it("preserves custom instructions added to the standard package reminder template", async () => {
+    const booking = {
+      id: "single-booking-custom", storeId: "store-hsinchu", customerId: "customer-single-custom",
+      bookingStatus: "CONFIRMED", bookingType: "SINGLE", trialBookingChannel: null,
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "15:30", people: 1,
+      store: { slug: "zhubei" },
+      customer: {
+        id: "customer-single-custom", name: "自訂提醒顧客", lineUserId: "U_single_custom",
+        lineLinkStatus: "LINKED", assignedStaff: null,
+      },
+    };
+    mockPrisma.booking.findFirst.mockResolvedValue(booking);
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue({
+      id: "rule-standard",
+      templateId: "template-standard",
+      template: {
+        body: "{{customerName}} 您好！\n\n明天 ({{bookingDate}}) {{bookingTime}} 有一筆蒸足預約，請記得準時到店。\n\n請攜帶毛巾。\n\n如需取消或改期，請點擊：{{bookingLink}}\n\n{{shopName}} 敬上",
+      },
+    });
+
+    const { sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
+    });
+    const message = pushMessageMock.mock.calls.at(-1)?.[2]?.[0] as {
+      type: string;
+      contents: { body: { contents: Array<{ text?: string }> } };
+    };
+    expect(message.type).toBe("flex");
+    expect(message.contents.body.contents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ text: "單次預約" }),
+      expect.objectContaining({ text: "暖暖蒸足" }),
+      expect.objectContaining({ text: "45 分鐘" }),
+      expect.objectContaining({ text: "新竹縣竹北市科大一路80號" }),
+      expect.objectContaining({ text: "請攜帶毛巾。" }),
+    ]));
+    expect(message.contents.body.contents).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ text: "方案預約" }),
+      expect.objectContaining({ text: expect.stringContaining("https://") }),
+      expect.objectContaining({ text: expect.stringContaining("自訂提醒顧客 您好") }),
+    ]));
+  });
+
   it("selects Messenger Utility only for a valid Messenger source", async () => {
     vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
     const booking = {
