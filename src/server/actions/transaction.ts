@@ -125,6 +125,23 @@ export async function createTransaction(
     const amountNum = Math.abs(data.amount);
 
     const result = await prisma.$transaction(async (txClient) => {
+      if (data.customerPlanWalletId) {
+        // 與 voidTransaction 使用相同顧客鎖，避免來源檢查後才併發新增錢包關聯。
+        await txClient.$queryRaw`SELECT id FROM "Customer" WHERE id = ${data.customerId} FOR UPDATE`;
+        const lockedWallet = await txClient.customerPlanWallet.findFirst({
+          where: {
+            id: data.customerPlanWalletId,
+            customerId: data.customerId,
+            storeId,
+            status: "ACTIVE",
+          },
+          select: { id: true },
+        });
+        if (!lockedWallet) {
+          throw new AppError("CONFLICT", "課程錢包狀態已變更，請重新整理後再試一次");
+        }
+      }
+
       const snapshot = await buildTransactionSnapshot(txClient, {
         customerId: data.customerId,
         storeId,

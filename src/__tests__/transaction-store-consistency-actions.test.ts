@@ -198,6 +198,29 @@ describe("transaction actions — store consistency", () => {
     }));
   });
 
+  it("locks and revalidates a wallet before manually linking a transaction", async () => {
+    const { createTransaction } = await import("@/server/actions/transaction");
+    const result = await createTransaction({
+      customerId: CUSTOMER_ID,
+      customerPlanWalletId: WALLET_ID,
+      transactionType: "PACKAGE_PURCHASE",
+      paymentMethod: "CASH",
+      amount: 5990,
+    });
+
+    expect(result.success).toBe(true);
+    expect(h.txQueryRaw).toHaveBeenCalled();
+    expect(h.txWalletFindFirst).toHaveBeenCalledWith({
+      where: {
+        id: WALLET_ID,
+        customerId: CUSTOMER_ID,
+        storeId: "store-taichung",
+        status: "ACTIVE",
+      },
+      select: { id: true },
+    });
+  });
+
   it("allows a paid mistake entry when every session is still unused", async () => {
     h.transactionFindUnique.mockResolvedValueOnce({
       id: "paid-mistake",
