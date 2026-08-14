@@ -914,16 +914,9 @@ export async function voidTransaction(
       // 單次贈送方案同樣會建立 1 堂 wallet；過去只處理 PACKAGE_PURCHASE，
       // 會留下可使用的幽靈堂數。
       if (original.customerPlanWalletId) {
-        // 已付款方案應走退款流程；這個受控作廢路徑只處理尚未入帳的誤建單。
-        if (
-          original.paymentStatus !== "PENDING" ||
-          (original.paymentMethod !== "TRANSFER" && original.paymentMethod !== "UNPAID")
-        ) {
-          throw new AppError(
-            "BUSINESS_RULE",
-            "綁定方案的交易僅能作廢待確認的轉帳或未付款交易；已付款請使用退款流程。",
-          );
-        }
+        // 誤建單不應因已標記付款而被迫走退款流程。
+        // 是否可安全取消，以方案堂數完全未使用、未預約為準；下方 wallet/session
+        // 真值檢查與同一 DB transaction 會確保營收與堂數一起回復。
         const wallet = await tx.customerPlanWallet.findFirst({
           where: {
             id: original.customerPlanWalletId,
