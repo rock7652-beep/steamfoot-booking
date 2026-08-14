@@ -209,6 +209,7 @@ export async function assignPlanToCustomer(
         netAmount: finalAmount,
       });
 
+      const isFirstPurchase = !customer.convertedAt;
       const transaction = await tx.transaction.create({
         data: {
           customerId: data.customerId,
@@ -220,6 +221,7 @@ export async function assignPlanToCustomer(
           paymentStatus,                          // PR-3：PENDING (TRANSFER/UNPAID) or SUCCESS
           paidAt,                                  // PR-3：null (PENDING) or now
           conversionEffectsApplied: !isPending,
+          firstTopupRewardsApplied: !isPending && isFirstPurchase,
           preConversionCustomerStage: !isPending ? customer.customerStage : null,
           preConversionSelfBookingEnabled: !isPending ? customer.selfBookingEnabled : null,
           preConversionConvertedAt: !isPending ? customer.convertedAt : null,
@@ -246,7 +248,6 @@ export async function assignPlanToCustomer(
       // 3. 更新顧客狀態 + 發首儲推薦獎勵
       // PR-3：PENDING 交易（轉帳待確認 / 未付款）先不鎖 convertedAt、不升等、不發獎勵
       // 這些邏輯留給 PR-4 confirmTransactionPayment 在 PENDING → CONFIRMED 時統一觸發
-      const isFirstPurchase = !customer.convertedAt;
       if (!isPending) {
         await tx.customer.update({
           where: { id: data.customerId },
