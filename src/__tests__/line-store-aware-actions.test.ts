@@ -601,7 +601,7 @@ describe("LINE sending actions are store-aware", () => {
             contents: expect.arrayContaining([
               expect.objectContaining({ text: "方案預約" }),
               expect.objectContaining({
-                text: "自訂提醒：方案顧客 請於 14:30 準時抵達 以斯帖蒸足坊",
+                text: "自訂提醒：方案顧客 請於 14:30 準時抵達 暖暖蒸足",
               }),
             ]),
           }),
@@ -646,9 +646,13 @@ describe("LINE sending actions are store-aware", () => {
     expect(message.type).toBe("flex");
     expect(message.contents.body.contents).toEqual(expect.arrayContaining([
       expect.objectContaining({ text: "單次預約" }),
+      expect.objectContaining({ text: "暖暖蒸足" }),
+      expect.objectContaining({ text: "請記得準時到店。" }),
     ]));
     expect(message.contents.body.contents).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ text: "方案預約" }),
+      expect.objectContaining({ text: expect.stringContaining("https://") }),
+      expect.objectContaining({ text: expect.stringContaining("單次顧客 您好") }),
     ]));
   });
 
