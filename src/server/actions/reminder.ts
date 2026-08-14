@@ -138,20 +138,17 @@ function packageReminderCardText(
 ): string {
   if (!templateBody) return "請記得準時到店。";
 
-  const fullReminderVariables = [
-    "{{customerName}}",
-    "{{bookingDate}}",
-    "{{bookingTime}}",
-    "{{bookingLink}}",
-  ];
-  if (fullReminderVariables.every((variable) => templateBody.includes(variable))) {
-    return "請記得準時到店。";
-  }
-
+  const standardTemplateLines = new Set([
+    "{{customerName}} 您好！",
+    "明天 ({{bookingDate}}) {{bookingTime}} 有一筆蒸足預約，請記得準時到店。",
+    "如需取消或改期，請點擊：{{bookingLink}}",
+    "{{shopName}} 敬上",
+  ]);
+  const templateLines = templateBody.split("\n");
   const customText = renderedReminder
-    .replaceAll(bookingLink, "")
     .split("\n")
-    .map((line) => line.trim())
+    .filter((_, index) => !standardTemplateLines.has(templateLines[index]?.trim()))
+    .map((line) => line.replaceAll(bookingLink, "").trim())
     .filter((line) => line && !/^如需.*請點擊[：:]?$/.test(line))
     .join("\n");
   return customText || "請記得準時到店。";
