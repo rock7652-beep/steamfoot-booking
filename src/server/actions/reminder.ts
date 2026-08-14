@@ -840,10 +840,6 @@ export async function createMessageTemplate(
     await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
     // If setting as default, unset others (scoped to store)
-    if (data.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME) {
-      throw new AppError("VALIDATION", "此模板名稱由系統保留");
-    }
-
     if (data.isDefault) {
       await prisma.messageTemplate.updateMany({
         where: { channel: data.channel, isDefault: true, storeId },
@@ -886,6 +882,9 @@ export async function updateMessageTemplate(
       existing.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME
     ) {
       throw new AppError("NOT_FOUND", "訊息模板不存在");
+    }
+    if (data.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME) {
+      throw new AppError("VALIDATION", "此模板名稱由系統保留");
     }
 
     if (data.isDefault) {
@@ -930,7 +929,9 @@ export async function testSendLineMessage(
     const shopConfig = customer ? await getShopConfig(customer.storeId) : null;
 
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
-    if (!template) throw new AppError("NOT_FOUND", "模板不存在");
+    if (!template || template.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME) {
+      throw new AppError("NOT_FOUND", "模板不存在");
+    }
     const recipient = await resolveCentralLineRecipientForCustomer(customer.id, customer.storeId);
     const route = await resolveVerifiedReminderLineRoute(
       customer.storeId,
