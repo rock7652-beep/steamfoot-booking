@@ -1149,11 +1149,7 @@ export async function voidTransaction(
           });
           if (!latestCustomer) throw new AppError("NOT_FOUND", "顧客不存在");
 
-          const restoreData: {
-            customerStage?: typeof current.preConversionCustomerStage;
-            selfBookingEnabled?: boolean;
-            convertedAt?: Date | null;
-          } = {};
+          const restoreData: Prisma.CustomerUpdateManyMutationInput = {};
           // 只還原仍保有購買流程自動寫入值的欄位，避免覆蓋後續人工調整。
           if (latestCustomer.customerStage === "ACTIVE" && current.preConversionCustomerStage) {
             restoreData.customerStage = current.preConversionCustomerStage;
