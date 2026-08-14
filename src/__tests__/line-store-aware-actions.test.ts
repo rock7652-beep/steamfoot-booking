@@ -400,6 +400,7 @@ describe("LINE sending actions are store-aware", () => {
       trialBookingChannel: null,
       bookingDate: new Date("2026-07-24T00:00:00.000Z"),
       slotTime: "16:30",
+      store: { slug: "hsinchu" },
       customer: {
         id: "customer-1",
         name: "黃彥陸",
@@ -435,14 +436,14 @@ describe("LINE sending actions are store-aware", () => {
                 action: {
                   type: "uri",
                   label: "改時段",
-                  uri: "https://example.test/my-bookings/booking-1/reschedule",
+                  uri: "https://example.test/s/hsinchu/my-bookings/booking-1/reschedule",
                 },
               }),
               expect.objectContaining({
                 action: {
                   type: "uri",
                   label: "取消前往",
-                  uri: "https://example.test/my-bookings/booking-1/cancel",
+                  uri: "https://example.test/s/hsinchu/my-bookings/booking-1/cancel",
                 },
               }),
             ]),
@@ -540,6 +541,7 @@ describe("LINE sending actions are store-aware", () => {
       bookingStatus: "CONFIRMED",
       bookingDate: new Date("2026-07-24T00:00:00.000Z"),
       slotTime: "16:30",
+      store: { slug: "hsinchu" },
       customer: {
         id: "customer-1",
         name: "黃彥陸",
@@ -706,7 +708,7 @@ describe("LINE sending actions are store-aware", () => {
                 color: "#6B4A35",
                 action: expect.objectContaining({
                   label: "改時段",
-                  uri: "https://example.test/my-bookings/package-booking-1/reschedule",
+                  uri: "https://example.test/s/zhubei/my-bookings/package-booking-1/reschedule",
                 }),
               }),
               expect.objectContaining({
@@ -714,7 +716,7 @@ describe("LINE sending actions are store-aware", () => {
                 color: "#A33A32",
                 action: expect.objectContaining({
                   label: "取消前往",
-                  uri: "https://example.test/my-bookings/package-booking-1/cancel",
+                  uri: "https://example.test/s/zhubei/my-bookings/package-booking-1/cancel",
                 }),
               }),
             ]),
