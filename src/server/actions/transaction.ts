@@ -1271,9 +1271,10 @@ export async function voidTransaction(
 
 export async function fetchTransactionDetailDTO(
   transactionId: string,
+  activeStoreId?: string | null,
 ): Promise<ActionResult<TransactionDetailDTO>> {
   try {
-    const tx = await getTransactionDetail(transactionId);
+    const tx = await getTransactionDetail(transactionId, activeStoreId);
 
     const sessions = tx.customerPlanWallet?.sessions ?? [];
     const breakdown = {
