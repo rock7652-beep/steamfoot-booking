@@ -601,8 +601,18 @@ describe("LINE sending actions are store-aware", () => {
         altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
         contents: expect.objectContaining({
           header: expect.objectContaining({
+            backgroundColor: "#F3E7D8",
             contents: expect.arrayContaining([
-              expect.objectContaining({ text: "測試提醒｜不影響正式排程" }),
+              expect.objectContaining({ text: "蒸管家｜預約提醒", color: "#4A3527" }),
+              expect.objectContaining({
+                backgroundColor: "#F8DFAF",
+                contents: expect.arrayContaining([
+                  expect.objectContaining({
+                    text: "測試提醒｜不影響正式排程",
+                    color: "#7A4A12",
+                  }),
+                ]),
+              }),
             ]),
           }),
           body: expect.objectContaining({
@@ -616,12 +626,16 @@ describe("LINE sending actions are store-aware", () => {
           footer: expect.objectContaining({
             contents: expect.arrayContaining([
               expect.objectContaining({
+                style: "primary",
+                color: "#6C8B73",
                 action: expect.objectContaining({
                   label: "開啟 Google Maps 導航",
                   uri: "https://maps.app.goo.gl/b5yPNKj8jt6DfzZo9?g_st=ic",
                 }),
               }),
               expect.objectContaining({
+                style: "primary",
+                color: "#6B4A35",
                 action: expect.objectContaining({
                   label: "查看／管理預約",
                   uri: "https://example.test/my-bookings",
@@ -649,7 +663,13 @@ describe("LINE sending actions are store-aware", () => {
     };
     mockPrisma.booking.findFirst.mockResolvedValue(booking);
     mockPrisma.messageLog.findFirst.mockResolvedValue(null);
-    mockPrisma.reminderRule.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue({
+      id: "rule-standard",
+      templateId: "template-standard",
+      template: {
+        body: "{{customerName}} 您好！\n\n明天 ({{bookingDate}}) {{bookingTime}} 有一筆蒸足預約，請記得準時到店。\n\n如需取消或改期，請點擊：{{bookingLink}}\n\n{{shopName}} 敬上",
+      },
+    });
 
     const { sendBookingTestReminder } = await import("@/server/actions/reminder");
     await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
