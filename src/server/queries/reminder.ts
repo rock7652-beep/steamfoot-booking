@@ -11,6 +11,11 @@ import {
   DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
   type SessionBalanceNotificationSettingValue,
 } from "@/lib/session-balance-notification-settings";
+import {
+  DEFAULT_PACKAGE_LINE_CARD_REMINDER,
+  PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
+  packageLineCardReminderSettingId,
+} from "@/lib/package-line-card-reminder-setting";
 
 // ============================================================
 // ReminderRule queries
@@ -108,7 +113,10 @@ export async function getLineSmokeTestContext(storeId: string): Promise<{
 export async function listMessageTemplates(storeId: string) {
   const authorizedStoreId = await resolveReminderReadStore(storeId);
   return prisma.messageTemplate.findMany({
-    where: { storeId: authorizedStoreId },
+    where: {
+      storeId: authorizedStoreId,
+      name: { not: PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME },
+    },
     include: { _count: { select: { logs: true, rules: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -121,6 +129,20 @@ export async function getMessageTemplate(id: string, storeId: string) {
     include: { rules: { select: { id: true, name: true } } },
   });
   return template;
+}
+
+export async function getPackageLineCardReminderSetting(
+  storeId: string,
+): Promise<string> {
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
+  const setting = await prisma.messageTemplate.findUnique({
+    where: {
+      id: packageLineCardReminderSettingId(authorizedStoreId),
+      storeId: authorizedStoreId,
+    },
+    select: { body: true },
+  });
+  return setting?.body ?? DEFAULT_PACKAGE_LINE_CARD_REMINDER;
 }
 
 // ============================================================

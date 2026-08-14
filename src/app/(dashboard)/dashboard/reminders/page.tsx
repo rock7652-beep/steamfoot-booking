@@ -21,6 +21,7 @@ import {
   getTodayCronRunStatus,
   getLineSmokeTestContext,
   getSessionBalanceNotificationSetting,
+  getPackageLineCardReminderSetting,
   listSessionBalanceNotificationLogs,
 } from "@/server/queries/reminder";
 import { getCurrentLineOfficialAccountStatus } from "@/server/actions/line-official-accounts";
@@ -36,6 +37,7 @@ import { LineSmokeTestCard } from "./line-smoke-test-card";
 import { StoreLineHealthCard } from "./store-line-health-card";
 import { SessionBalanceReminderCard } from "./session-balance-reminder-card";
 import { LineNotificationRecipientsCard } from "./line-notification-recipients-card";
+import { PackageLineCardReminderSettingCard } from "./package-line-card-reminder-setting-card";
 import { listStoreLineNotificationRecipients } from "@/server/actions/store-line-notification-recipients";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
@@ -105,13 +107,22 @@ export default async function RemindersPage({ searchParams }: PageProps) {
   const activeTab = params.tab ?? "rules";
   const smokeTestEnabled = isLineSmokeTestEnabled();
 
-  const [stats, templates, cronStatus, reminderState, sessionBalanceSetting, notificationRecipients] = await Promise.all([
+  const [
+    stats,
+    templates,
+    cronStatus,
+    reminderState,
+    sessionBalanceSetting,
+    notificationRecipients,
+    packageLineCardReminder,
+  ] = await Promise.all([
     getReminderStats(activeStoreId),
     listMessageTemplates(activeStoreId),
     getTodayCronRunStatus(),
     getStoreReminderState(activeStoreId),
     getSessionBalanceNotificationSetting(activeStoreId),
     listStoreLineNotificationRecipients(),
+    getPackageLineCardReminderSetting(activeStoreId),
   ]);
   const smokeTestContext = smokeTestEnabled
     ? await getLineSmokeTestContext(activeStoreId)
@@ -213,6 +224,10 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         {activeTab === "rules" && (
           <section className="space-y-4">
             <LineNotificationRecipientsCard recipients={notificationRecipients} />
+            <PackageLineCardReminderSettingCard
+              key={`${activeStoreId}-package-line-card-reminder`}
+              initialBody={packageLineCardReminder}
+            />
             <ReminderCard
               key={activeStoreId}
               initialEnabled={reminderState.enabled}

@@ -42,6 +42,10 @@ const mockPrisma = {
   },
   messageTemplate: {
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(async ({ data }) => ({ id: "card-reminder-setting-1", ...data })),
+    update: vi.fn(async ({ data }) => ({ id: "card-reminder-setting-1", ...data })),
+    upsert: vi.fn(async ({ create, update }) => ({ ...create, ...update })),
   },
   messageLog: {
     findFirst: vi.fn(),
@@ -52,6 +56,7 @@ const mockPrisma = {
   },
   reminderRule: {
     findFirst: vi.fn(),
+    update: vi.fn(),
   },
   auditLog: {
     create: vi.fn(async ({ data }) => ({ id: "audit-log-1", ...data })),
@@ -156,10 +161,65 @@ describe("LINE sending actions are store-aware", () => {
     });
     previewMessengerUtilityTestReminderMock.mockResolvedValue({ code: "READY" });
     sendMessengerUtilityTestReminderMock.mockResolvedValue({ code: "SENT", quotaConsumed: true });
+    mockPrisma.messageTemplate.findFirst.mockResolvedValue(null);
+    mockPrisma.messageTemplate.findUnique.mockResolvedValue(null);
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("rejects the reserved card setting as the formal reminder template", async () => {
+    mockPrisma.reminderRule.findFirst.mockResolvedValueOnce({ id: "rule-1" });
+    mockPrisma.messageTemplate.findUnique.mockResolvedValueOnce({
+      storeId: "store-hsinchu",
+      name: "__SYSTEM_PACKAGE_LINE_CARD_REMINDER__",
+    });
+
+    const { setReminderTemplate } = await import("@/server/actions/reminder");
+    const result = await setReminderTemplate("package-line-card-reminder:store-hsinchu");
+
+    expect(result.success).toBe(false);
+    expect(mockPrisma.reminderRule.update).not.toHaveBeenCalled();
+  });
+
+  it("atomically stores concurrent package LINE card reminder saves in one active-store record", async () => {
+    const { savePackageLineCardReminderSetting } = await import("@/server/actions/reminder");
+    const results = await Promise.all([
+      savePackageLineCardReminderSetting({
+        body: "請穿著輕便服裝，並提前 5 分鐘抵達。",
+      }),
+      savePackageLineCardReminderSetting({
+        body: "請攜帶毛巾。",
+      }),
+    ]);
+
+    expect(results).toEqual([
+      { success: true, data: undefined },
+      { success: true, data: undefined },
+    ]);
+    expect(mockPrisma.messageTemplate.upsert).toHaveBeenCalledTimes(2);
+    for (const call of mockPrisma.messageTemplate.upsert.mock.calls) {
+      expect(call[0]).toEqual(expect.objectContaining({
+        where: { id: "package-line-card-reminder:store-hsinchu" },
+        create: expect.objectContaining({
+          id: "package-line-card-reminder:store-hsinchu",
+          storeId: "store-hsinchu",
+          name: "__SYSTEM_PACKAGE_LINE_CARD_REMINDER__",
+          channel: "LINE",
+          isDefault: false,
+        }),
+      }));
+    }
+    expect(mockPrisma.reminderRule.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects package LINE card reminders longer than 150 characters", async () => {
+    const { savePackageLineCardReminderSetting } = await import("@/server/actions/reminder");
+    const result = await savePackageLineCardReminderSetting({ body: "提".repeat(151) });
+
+    expect(result.success).toBe(false);
+    expect(mockPrisma.messageTemplate.upsert).not.toHaveBeenCalled();
   });
 
   it("testSendLineMessage passes the customer's storeId to pushMessage", async () => {
@@ -585,6 +645,9 @@ describe("LINE sending actions are store-aware", () => {
       templateId: "template-package",
       template: { body: "自訂提醒：{{customerName}} 請於 {{bookingTime}} 準時抵達 {{shopName}}" },
     });
+    mockPrisma.messageTemplate.findUnique.mockResolvedValue({
+      body: "請穿著輕便服裝，並提前 5 分鐘抵達。",
+    });
 
     const { previewBookingTestReminder, sendBookingTestReminder } = await import("@/server/actions/reminder");
     await expect(previewBookingTestReminder({ bookingId: booking.id })).resolves.toEqual({
@@ -619,7 +682,7 @@ describe("LINE sending actions are store-aware", () => {
             contents: expect.arrayContaining([
               expect.objectContaining({ text: "方案預約" }),
               expect.objectContaining({
-                text: "自訂提醒：方案顧客 請於 14:30 準時抵達 暖暖蒸足",
+                text: "請穿著輕便服裝，並提前 5 分鐘抵達。",
               }),
             ]),
           }),
@@ -694,7 +757,7 @@ describe("LINE sending actions are store-aware", () => {
     ]));
   });
 
-  it("preserves custom instructions added to the standard package reminder template", async () => {
+  it("uses the store card reminder without changing the formal reminder template", async () => {
     const booking = {
       id: "single-booking-custom", storeId: "store-hsinchu", customerId: "customer-single-custom",
       bookingStatus: "CONFIRMED", bookingType: "SINGLE", trialBookingChannel: null,
@@ -713,6 +776,9 @@ describe("LINE sending actions are store-aware", () => {
       template: {
         body: "{{customerName}} 您好！\n\n明天 ({{bookingDate}}) {{bookingTime}} 有一筆蒸足預約，請記得準時到店。\n\n請攜帶毛巾。\n\n如需取消或改期，請點擊：{{bookingLink}}\n\n{{shopName}} 敬上",
       },
+    });
+    mockPrisma.messageTemplate.findUnique.mockResolvedValue({
+      body: "請攜帶毛巾。",
     });
 
     const { sendBookingTestReminder } = await import("@/server/actions/reminder");
