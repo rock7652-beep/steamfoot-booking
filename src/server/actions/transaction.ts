@@ -882,6 +882,7 @@ export async function voidTransaction(
         paymentMethod: true,
         amount: true,
         note: true,
+        isFirstPurchase: true,
       },
     });
     if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
@@ -996,6 +997,64 @@ export async function voidTransaction(
       });
       if (result.count === 0) {
         throw new AppError("CONFLICT", "此交易狀態已變更，無法取消");
+      }
+
+      // 首次購買若是誤建且沒有其他有效購買，需同步還原顧客轉換狀態與推薦點數。
+      if (original.isFirstPurchase) {
+        const otherPaidPurchases = await tx.transaction.count({
+          where: {
+            customerId: original.customerId,
+            storeId: original.storeId,
+            status: "SUCCESS",
+            transactionType: { in: ALLOWED_TYPES },
+            paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
+          },
+        });
+
+        if (otherPaidPurchases === 0) {
+          const completedBookings = await tx.booking.count({
+            where: {
+              customerId: original.customerId,
+              storeId: original.storeId,
+              status: "COMPLETED",
+            },
+          });
+          const referralPointRecords = await tx.pointRecord.findMany({
+            where: {
+              storeId: original.storeId,
+              sourceKey: original.customerId,
+              sourceType: { in: ["first_topup_referrer", "first_topup_self"] },
+            },
+            select: { id: true, customerId: true, points: true },
+          });
+
+          for (const pointRecord of referralPointRecords) {
+            await tx.customer.updateMany({
+              where: {
+                id: pointRecord.customerId,
+                storeId: original.storeId,
+              },
+              data: { totalPoints: { decrement: pointRecord.points } },
+            });
+          }
+          if (referralPointRecords.length > 0) {
+            await tx.pointRecord.deleteMany({
+              where: { id: { in: referralPointRecords.map((record) => record.id) } },
+            });
+          }
+
+          await tx.customer.updateMany({
+            where: {
+              id: original.customerId,
+              storeId: original.storeId,
+            },
+            data: {
+              customerStage: completedBookings > 0 ? "TRIAL" : "LEAD",
+              selfBookingEnabled: false,
+              convertedAt: null,
+            },
+          });
+        }
       }
 
       await writeTransactionAuditLog(tx, {
