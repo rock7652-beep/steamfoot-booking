@@ -82,16 +82,15 @@ const completeMessengerSnapshot = {
 };
 
 describe("Production migration recovery guard", () => {
-  it("skips a Production build without a migration target before any DB preflight", () => {
+  it("selects the one-shot transaction snapshot target for Production without an env override", () => {
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: "utf8",
       env: { ...process.env, VERCEL_ENV: "production", DATABASE_URL: "", DIRECT_URL: "", [PRODUCTION_MIGRATION_TARGET_ENV]: "" },
     });
 
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("migration_skipped_no_target");
-    expect(result.stdout).not.toContain("production_connection_verified");
-    expect(result.stderr).not.toContain("production_connection_rejected");
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("production_connection_rejected");
+    expect(result.stdout).not.toContain("migration_skipped_no_target");
   });
 
   it("skips Preview and Development before accessing any database", () => {
