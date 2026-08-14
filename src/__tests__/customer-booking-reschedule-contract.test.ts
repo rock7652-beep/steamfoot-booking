@@ -69,6 +69,8 @@ describe("customer booking reschedule contract", () => {
   it("loads same-day alternatives as soon as the reschedule page opens", () => {
     const manager = source("src/app/(customer)/my-bookings/[id]/reschedule/reschedule-manager.tsx");
     expect(manager).toContain("listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)");
+    expect(manager).toContain('value={date}\n              disabled={pending}');
+    expect(manager).toContain('type="button"\n                    disabled={pending}');
   });
 
   it("exposes the safe reschedule route from the normal customer booking list", () => {
