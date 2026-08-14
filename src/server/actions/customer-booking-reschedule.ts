@@ -11,6 +11,11 @@ import { applySlotOverrides, loadDayBusinessHoursContext } from "@/lib/business-
 import { isDutySchedulingEnabled, resolveBookableUntilDate } from "@/lib/shop-config";
 import { isStoreBookable } from "@/lib/store-operating-status";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
+import {
+  acquireBookingSlotLocks,
+  bookingSlotTimeVariants,
+  canonicalizeBookingSlotTime,
+} from "@/server/services/booking-slot-lock";
 
 const CUSTOMER_RESCHEDULE_CUTOFF_MS = 12 * 60 * 60 * 1000;
 const CUSTOMER_RESCHEDULE_LIMIT = 1;
@@ -186,7 +191,11 @@ export async function listCustomerBookingRescheduleSlots(bookingId: string, date
         })
       : Promise.resolve([]),
   ]);
-  const used = new Map(grouped.map((row) => [row.slotTime, row._sum.people ?? 0]));
+  const used = new Map<string, number>();
+  for (const row of grouped) {
+    const canonical = canonicalizeBookingSlotTime(row.slotTime);
+    used.set(canonical, (used.get(canonical) ?? 0) + (row._sum.people ?? 0));
+  }
   const duty = new Set(dutyRows.map((row) => row.slotTime));
   return applySlotOverrides(ctx.rule, ctx.slotOverrides)
     .filter((slot) =>
@@ -227,6 +236,14 @@ export async function rescheduleCustomerBooking(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      await acquireBookingSlotLocks(tx, [
+        {
+          storeId: booking.storeId,
+          bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+          slotTime: booking.slotTime,
+        },
+        { storeId: booking.storeId, bookingDate: date, slotTime },
+      ]);
       const current = await tx.booking.findUnique({
         where: { id: booking.id },
         select: {
@@ -256,6 +273,8 @@ export async function rescheduleCustomerBooking(
         !CUSTOMER_RESCHEDULABLE_TYPES.includes(current.bookingType as (typeof CUSTOMER_RESCHEDULABLE_TYPES)[number]) ||
         !PENDING_STATUSES.includes(current.bookingStatus as (typeof PENDING_STATUSES)[number]) ||
         current.customerRescheduleCount >= CUSTOMER_RESCHEDULE_LIMIT ||
+        current.bookingDate.getTime() !== booking.bookingDate.getTime() ||
+        current.slotTime !== booking.slotTime ||
         !entitlementCoversDate(current, date) ||
         (date === current.bookingDate.toISOString().slice(0, 10) && slotTime === current.slotTime) ||
         !outsideCutoff(current.bookingDate.toISOString().slice(0, 10), current.slotTime, now)
@@ -276,7 +295,7 @@ export async function rescheduleCustomerBooking(
         where: {
           storeId: booking.storeId,
           bookingDate: ctx.dateObj,
-          slotTime,
+          slotTime: { in: bookingSlotTimeVariants(slotTime) },
           bookingStatus: { in: [...PENDING_STATUSES] },
           NOT: { id: booking.id },
         },
