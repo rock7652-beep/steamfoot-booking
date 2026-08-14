@@ -288,6 +288,9 @@ describe("Production migration recovery guard", () => {
     expect(hasExpectedTransactionConversionSnapshotColumns(columns.map((column) =>
       column.columnName === "conversionEffectsApplied" ? { ...column, columnDefault: "true" } : column
     ))).toBe(false);
+    expect(hasExpectedTransactionConversionSnapshotColumns(columns.map((column) =>
+      column.columnName === "preConversionSelfBookingEnabled" ? { ...column, columnDefault: "true" } : column
+    ))).toBe(false);
   });
 
   it("pins the exact payment-split RLS preflight and final states", () => {
