@@ -1274,6 +1274,7 @@ export async function fetchTransactionDetailDTO(
   activeStoreId?: string | null,
 ): Promise<ActionResult<TransactionDetailDTO>> {
   try {
+    await requirePermission("transaction.read");
     const tx = await getTransactionDetail(transactionId, activeStoreId);
 
     const sessions = tx.customerPlanWallet?.sessions ?? [];
