@@ -33,6 +33,9 @@ describe("customer booking reschedule contract", () => {
     expect(action).toContain('where: { status: "RESERVED" }');
     expect(action).toContain("wallets.every");
     expect(action).toContain('wallet.status === "ACTIVE"');
+    expect(action).toContain("resolveBookableUntilDate");
+    expect(action).toContain("storeBookingHorizonAllows");
+    expect(action).toContain("tx.shopConfig.findUnique");
   });
 
   it("updates the original booking without touching plan wallets or sessions", () => {
