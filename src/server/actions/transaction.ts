@@ -468,6 +468,7 @@ export async function confirmTransactionPayment(
         where: { id: transactionId },
         data: {
           conversionEffectsApplied: true,
+          firstTopupRewardsApplied: isFirstPurchase,
           preConversionCustomerStage: customer.customerStage,
           preConversionSelfBookingEnabled: customer.selfBookingEnabled,
           preConversionConvertedAt: customer.convertedAt,
@@ -884,7 +885,7 @@ export async function voidTransaction(
     const user = await requireWritablePermission("transaction.void");
     const data = voidTransactionSchema.parse(input);
 
-    const original = await prisma.transaction.findUnique({
+    let original = await prisma.transaction.findUnique({
       where: { id: data.transactionId },
       select: {
         id: true,
@@ -897,7 +898,9 @@ export async function voidTransaction(
         paymentMethod: true,
         amount: true,
         note: true,
+        createdAt: true,
         conversionEffectsApplied: true,
+        firstTopupRewardsApplied: true,
         preConversionCustomerStage: true,
         preConversionSelfBookingEnabled: true,
         preConversionConvertedAt: true,
@@ -928,6 +931,30 @@ export async function voidTransaction(
     await prisma.$transaction(async (tx) => {
       // 同一顧客的取消流程必須序列化，避免兩筆購買同時取消後遺漏狀態還原。
       await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${original.customerId} FOR UPDATE`;
+
+      const lockedOriginal = await tx.transaction.findUnique({
+        where: { id: original.id },
+        select: {
+          id: true,
+          storeId: true,
+          customerId: true,
+          status: true,
+          transactionType: true,
+          customerPlanWalletId: true,
+          paymentStatus: true,
+          paymentMethod: true,
+          amount: true,
+          note: true,
+          createdAt: true,
+          conversionEffectsApplied: true,
+          firstTopupRewardsApplied: true,
+          preConversionCustomerStage: true,
+          preConversionSelfBookingEnabled: true,
+          preConversionConvertedAt: true,
+        },
+      });
+      if (!lockedOriginal) throw new AppError("NOT_FOUND", "交易紀錄不存在");
+      original = lockedOriginal;
 
       if (original.transactionType === "PACKAGE_PURCHASE" && !original.customerPlanWalletId) {
         throw new AppError("BUSINESS_RULE", "套餐購買缺少錢包關聯，無法取消");
@@ -1032,49 +1059,69 @@ export async function voidTransaction(
 
       // 只還原由正式方案開通流程留下的狀態快照；人工補帳不會誤改顧客資料。
       if (original.conversionEffectsApplied) {
-        const nextEffectfulPurchase = await tx.transaction.findFirst({
-          where: {
-            customerId: original.customerId,
-            storeId: original.storeId,
-            status: "SUCCESS",
-            transactionType: { in: ALLOWED_TYPES },
-            paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
-            conversionEffectsApplied: true,
-          },
-          orderBy: { createdAt: "asc" },
-          select: { id: true },
-        });
+        const [previousEffectfulPurchase, nextEffectfulPurchase] = await Promise.all([
+          tx.transaction.findFirst({
+            where: {
+              customerId: original.customerId,
+              storeId: original.storeId,
+              status: "SUCCESS",
+              transactionType: { in: ALLOWED_TYPES },
+              paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
+              conversionEffectsApplied: true,
+              createdAt: { lt: original.createdAt },
+            },
+            orderBy: { createdAt: "desc" },
+            select: { id: true },
+          }),
+          tx.transaction.findFirst({
+            where: {
+              customerId: original.customerId,
+              storeId: original.storeId,
+              status: "SUCCESS",
+              transactionType: { in: ALLOWED_TYPES },
+              paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
+              conversionEffectsApplied: true,
+              createdAt: { gt: original.createdAt },
+            },
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          }),
+        ]);
 
-        if (nextEffectfulPurchase) {
-          // 若仍有後續有效購買，把最早的購買前快照向後傳遞，確保日後取消最後一筆時可正確還原。
+        if (nextEffectfulPurchase && !previousEffectfulPurchase) {
+          // 只有取消購買鏈最前端時才向後傳遞根快照；絕不覆寫較早交易。
           await tx.transaction.update({
             where: { id: nextEffectfulPurchase.id },
             data: {
               preConversionCustomerStage: original.preConversionCustomerStage,
               preConversionSelfBookingEnabled: original.preConversionSelfBookingEnabled,
               preConversionConvertedAt: original.preConversionConvertedAt,
+              firstTopupRewardsApplied: original.firstTopupRewardsApplied,
             },
           });
-        } else {
-          const referralPointRecords = await tx.pointRecord.findMany({
-            where: {
-              storeId: original.storeId,
-              sourceKey: original.customerId,
-              sourceType: { in: ["first_topup_referrer", "first_topup_self"] },
-            },
-            select: { id: true, customerId: true, points: true },
-          });
+        } else if (!previousEffectfulPurchase && !nextEffectfulPurchase) {
+          // 只刪除這條購買鏈確定發放的首儲獎勵，避免碰到 migration 前的歷史點數。
+          if (original.firstTopupRewardsApplied) {
+            const referralPointRecords = await tx.pointRecord.findMany({
+              where: {
+                storeId: original.storeId,
+                sourceKey: original.customerId,
+                sourceType: { in: ["first_topup_referrer", "first_topup_self"] },
+              },
+              select: { id: true, customerId: true, points: true },
+            });
 
-          for (const pointRecord of referralPointRecords) {
-            await tx.customer.updateMany({
-              where: { id: pointRecord.customerId, storeId: original.storeId },
-              data: { totalPoints: { decrement: pointRecord.points } },
-            });
-          }
-          if (referralPointRecords.length > 0) {
-            await tx.pointRecord.deleteMany({
-              where: { id: { in: referralPointRecords.map((record) => record.id) } },
-            });
+            for (const pointRecord of referralPointRecords) {
+              await tx.customer.updateMany({
+                where: { id: pointRecord.customerId, storeId: original.storeId },
+                data: { totalPoints: { decrement: pointRecord.points } },
+              });
+            }
+            if (referralPointRecords.length > 0) {
+              await tx.pointRecord.deleteMany({
+                where: { id: { in: referralPointRecords.map((record) => record.id) } },
+              });
+            }
           }
 
           await tx.customer.updateMany({
