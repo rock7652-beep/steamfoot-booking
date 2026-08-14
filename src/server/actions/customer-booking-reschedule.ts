@@ -24,6 +24,7 @@ const CUSTOMER_RESCHEDULABLE_TYPES = ["PACKAGE_SESSION", "SINGLE"] as const;
 type AuthorizedBooking = {
   id: string;
   storeId: string;
+  customerId: string;
   bookingDate: Date;
   slotTime: string;
   people: number;
@@ -159,12 +160,15 @@ function entitlementCoversDate(
 export async function getCustomerBookingRescheduleStatus(bookingId: string) {
   const booking = await loadAuthorizedBooking(bookingId);
   if (!booking) return null;
+  const bookingDate = booking.bookingDate.toISOString().slice(0, 10);
   return {
-    bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+    bookingDate,
     slotTime: booking.slotTime,
     bookingStatus: booking.bookingStatus,
     customerRescheduleCount: booking.customerRescheduleCount,
-    canReschedule: bookingCanReschedule(booking, new Date()),
+    canReschedule:
+      bookingCanReschedule(booking, new Date()) &&
+      entitlementCoversDate(booking, bookingDate),
   };
 }
 
@@ -329,7 +333,7 @@ export async function rescheduleCustomerBooking(
       return "rescheduled";
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     if (result === "rescheduled") {
-      revalidateBookings();
+      revalidateBookings(booking.customerId);
     }
     return result;
   } catch (error) {
