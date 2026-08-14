@@ -1004,16 +1004,6 @@ export async function voidTransaction(
       if (current.transactionType === "PACKAGE_PURCHASE" && !current.customerPlanWalletId) {
         throw new AppError("BUSINESS_RULE", "套餐購買缺少錢包關聯，無法取消");
       }
-      if (
-        current.customerPlanWalletId &&
-        ["SUCCESS", "CONFIRMED"].includes(current.paymentStatus) &&
-        current.conversionSnapshotCaptured === false
-      ) {
-        throw new AppError(
-          "BUSINESS_RULE",
-          "此為舊版或人工關聯的已付款方案，缺少安全還原資料，請人工核帳處理",
-        );
-      }
       // 只要交易實際綁有 wallet，就必須以 wallet 為單位完整作廢。
       // 單次贈送方案同樣會建立 1 堂 wallet；過去只處理 PACKAGE_PURCHASE，
       // 會留下可使用的幽靈堂數。
@@ -1060,6 +1050,44 @@ export async function voidTransaction(
             "BUSINESS_RULE",
             "此方案已有預約或堂數異動，不能直接取消交易。",
           );
+        }
+
+        // 舊版交易沒有顧客轉換／首儲快照時，只能在「已有更早的有效購買」下取消。
+        // 較早購買足以支持顧客目前的 ACTIVE 狀態與首儲歸屬，因此本筆誤建單
+        // 只需回收自己建立的錢包與營收；若它可能是第一筆購買，仍維持人工核帳。
+        if (
+          ["SUCCESS", "CONFIRMED"].includes(current.paymentStatus) &&
+          current.conversionSnapshotCaptured === false
+        ) {
+          if (!current.paidAt) {
+            throw new AppError(
+              "BUSINESS_RULE",
+              "此筆舊版付款缺少付款時間與安全還原資料，請人工核帳處理",
+            );
+          }
+          const earlierPaidPurchase = await tx.transaction.findFirst({
+            where: {
+              id: { not: current.id },
+              customerId: current.customerId,
+              storeId: current.storeId,
+              status: "SUCCESS",
+              transactionType: { in: ALLOWED_TYPES },
+              paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
+              conversionEffectsApplied: true,
+              OR: [
+                { paidAt: { lt: current.paidAt } },
+                { paidAt: current.paidAt, id: { lt: current.id } },
+              ],
+            },
+            orderBy: [{ paidAt: "desc" }, { id: "desc" }],
+            select: { id: true },
+          });
+          if (!earlierPaidPurchase) {
+            throw new AppError(
+              "BUSINESS_RULE",
+              "此筆可能是顧客第一筆舊版付款，缺少安全還原資料，請人工核帳處理",
+            );
+          }
         }
 
         const voidSessions = await tx.walletSession.updateMany({

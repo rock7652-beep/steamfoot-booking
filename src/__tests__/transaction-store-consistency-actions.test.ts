@@ -528,7 +528,7 @@ describe("transaction actions — store consistency", () => {
     expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
   });
 
-  it("rejects legacy paid wallet purchases that have no rollback snapshot", async () => {
+  it("allows a pristine legacy mistake when an earlier paid purchase preserves customer state", async () => {
     h.transactionFindUnique.mockResolvedValueOnce({
       id: "legacy-paid-purchase",
       storeId: "store-taichung",
@@ -540,20 +540,53 @@ describe("transaction actions — store consistency", () => {
       customerPlanWalletId: WALLET_ID,
       amount: 5990,
       note: null,
+      createdAt: new Date("2026-08-14T03:12:00.000Z"),
+      paidAt: new Date("2026-08-14T03:12:00.000Z"),
+      conversionEffectsApplied: false,
+      conversionSnapshotCaptured: false,
+    });
+    h.txTransactionFindFirst.mockResolvedValueOnce({ id: "earlier-paid-purchase" });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "legacy-paid-purchase", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txTransactionFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { not: "legacy-paid-purchase" },
+          customerId: CUSTOMER_ID,
+          storeId: "store-taichung",
+          conversionEffectsApplied: true,
+        }),
+      }),
+    );
+    expect(h.walletSessionUpdateMany).toHaveBeenCalled();
+    expect(h.txTransactionUpdateMany).toHaveBeenCalled();
+  });
+
+  it("still rejects a first legacy paid purchase without rollback data", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "first-legacy-paid-purchase",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T03:12:00.000Z"),
+      paidAt: new Date("2026-08-14T03:12:00.000Z"),
       conversionEffectsApplied: false,
       conversionSnapshotCaptured: false,
     });
 
     const { voidTransaction } = await import("@/server/actions/transaction");
-    const result = await voidTransaction({ transactionId: "legacy-paid-purchase", reason: "入錯帳" });
+    const result = await voidTransaction({ transactionId: "first-legacy-paid-purchase", reason: "入錯帳" });
 
     expect(result.success).toBe(false);
-    expect(h.txTransactionCount).toHaveBeenCalledWith({
-      where: {
-        id: { not: "shared-wallet" },
-        customerPlanWalletId: WALLET_ID,
-      },
-    });
     expect(h.walletSessionUpdateMany).not.toHaveBeenCalled();
     expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
   });
