@@ -30,6 +30,12 @@ type AuthorizedBooking = {
     status: string;
     expiryDate: Date | null;
   } | null;
+  walletSessions: Array<{
+    wallet: {
+      status: string;
+      expiryDate: Date | null;
+    };
+  }>;
 };
 
 function startsAt(date: string, slotTime: string): Date | null {
@@ -57,6 +63,12 @@ async function loadAuthorizedBooking(bookingId: string): Promise<AuthorizedBooki
       isMakeup: true,
       customerPlanWallet: {
         select: { status: true, expiryDate: true },
+      },
+      walletSessions: {
+        where: { status: "RESERVED" },
+        select: {
+          wallet: { select: { status: true, expiryDate: true } },
+        },
       },
       customerRescheduleCount: true,
     },
@@ -91,6 +103,7 @@ function entitlementCoversDate(
     bookingType: string;
     isMakeup: boolean;
     customerPlanWallet: AuthorizedBooking["customerPlanWallet"];
+    walletSessions: AuthorizedBooking["walletSessions"];
   },
   date: string,
 ): boolean {
@@ -99,10 +112,19 @@ function entitlementCoversDate(
   // dates. Keep that exceptional flow store-assisted until it has a dedicated
   // multi-credit reschedule contract.
   if (booking.isMakeup) return false;
-  const wallet = booking.customerPlanWallet;
-  if (!wallet || wallet.status !== "ACTIVE") return false;
   const targetDate = parseTaiwanDateToDbDate(date);
-  return !wallet.expiryDate || wallet.expiryDate >= targetDate;
+  const reservedWallets = booking.walletSessions.map((session) => session.wallet);
+  // Historical bookings may predate WalletSession allocation. In that case,
+  // retain the primary-wallet check; current multi-person bookings must prove
+  // every actually reserved wallet covers the new service date.
+  const wallets = reservedWallets.length > 0
+    ? reservedWallets
+    : booking.customerPlanWallet
+      ? [booking.customerPlanWallet]
+      : [];
+  return wallets.length > 0 && wallets.every(
+    (wallet) => wallet.status === "ACTIVE" && (!wallet.expiryDate || wallet.expiryDate >= targetDate),
+  );
 }
 
 export async function getCustomerBookingRescheduleStatus(bookingId: string) {
@@ -200,6 +222,12 @@ export async function rescheduleCustomerBooking(
           isMakeup: true,
           customerPlanWallet: {
             select: { status: true, expiryDate: true },
+          },
+          walletSessions: {
+            where: { status: "RESERVED" },
+            select: {
+              wallet: { select: { status: true, expiryDate: true } },
+            },
           },
           bookingStatus: true,
           customerRescheduleCount: true,
