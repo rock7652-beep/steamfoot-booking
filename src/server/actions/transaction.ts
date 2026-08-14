@@ -147,6 +147,7 @@ export async function createTransaction(
           quantity: data.quantity ?? null,
           note: data.note ?? null,
           storeId,
+          conversionSnapshotCaptured: true,
           ...snapshot,
         },
       });
@@ -471,10 +472,12 @@ export async function confirmTransactionPayment(
         where: { id: transactionId },
         data: {
           conversionEffectsApplied: true,
+          conversionSnapshotCaptured: true,
           firstTopupRewardsApplied: isFirstPurchase,
           preConversionCustomerStage: customer.customerStage,
           preConversionSelfBookingEnabled: customer.selfBookingEnabled,
           preConversionConvertedAt: customer.convertedAt,
+          conversionAppliedConvertedAt: customer.convertedAt ?? now,
         },
       });
 
@@ -904,10 +907,12 @@ export async function voidTransaction(
         createdAt: true,
         paidAt: true,
         conversionEffectsApplied: true,
+        conversionSnapshotCaptured: true,
         firstTopupRewardsApplied: true,
         preConversionCustomerStage: true,
         preConversionSelfBookingEnabled: true,
         preConversionConvertedAt: true,
+        conversionAppliedConvertedAt: true,
       },
     });
     if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
@@ -952,10 +957,12 @@ export async function voidTransaction(
           createdAt: true,
           paidAt: true,
           conversionEffectsApplied: true,
+          conversionSnapshotCaptured: true,
           firstTopupRewardsApplied: true,
           preConversionCustomerStage: true,
           preConversionSelfBookingEnabled: true,
           preConversionConvertedAt: true,
+          conversionAppliedConvertedAt: true,
         },
       });
       if (!lockedOriginal) throw new AppError("NOT_FOUND", "交易紀錄不存在");
@@ -963,6 +970,16 @@ export async function voidTransaction(
 
       if (current.transactionType === "PACKAGE_PURCHASE" && !current.customerPlanWalletId) {
         throw new AppError("BUSINESS_RULE", "套餐購買缺少錢包關聯，無法取消");
+      }
+      if (
+        current.customerPlanWalletId &&
+        ["SUCCESS", "CONFIRMED"].includes(current.paymentStatus) &&
+        current.conversionSnapshotCaptured === false
+      ) {
+        throw new AppError(
+          "BUSINESS_RULE",
+          "此為舊版或人工關聯的已付款方案，缺少安全還原資料，請人工核帳處理",
+        );
       }
       // 只要交易實際綁有 wallet，就必須以 wallet 為單位完整作廢。
       // 單次贈送方案同樣會建立 1 堂 wallet；過去只處理 PACKAGE_PURCHASE，
@@ -1111,6 +1128,7 @@ export async function voidTransaction(
               preConversionCustomerStage: current.preConversionCustomerStage,
               preConversionSelfBookingEnabled: current.preConversionSelfBookingEnabled,
               preConversionConvertedAt: current.preConversionConvertedAt,
+              conversionAppliedConvertedAt: current.conversionAppliedConvertedAt,
               firstTopupRewardsApplied: current.firstTopupRewardsApplied,
             },
           });
@@ -1162,7 +1180,9 @@ export async function voidTransaction(
           }
           if (
             current.preConversionConvertedAt == null &&
-            latestCustomer.convertedAt?.getTime() === activationTime.getTime()
+            current.conversionAppliedConvertedAt != null &&
+            latestCustomer.convertedAt?.getTime() ===
+              current.conversionAppliedConvertedAt.getTime()
           ) {
             restoreData.convertedAt = null;
           }

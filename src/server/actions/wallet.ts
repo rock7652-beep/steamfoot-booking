@@ -226,10 +226,14 @@ export async function assignPlanToCustomer(
           paymentStatus,                          // PR-3：PENDING (TRANSFER/UNPAID) or SUCCESS
           paidAt: isPending ? null : activationTime,
           conversionEffectsApplied: !isPending,
+          conversionSnapshotCaptured: true,
           firstTopupRewardsApplied: !isPending && isFirstPurchase,
           preConversionCustomerStage: !isPending ? lockedCustomer.customerStage : null,
           preConversionSelfBookingEnabled: !isPending ? lockedCustomer.selfBookingEnabled : null,
           preConversionConvertedAt: !isPending ? lockedCustomer.convertedAt : null,
+          conversionAppliedConvertedAt: !isPending
+            ? (lockedCustomer.convertedAt ?? activationTime)
+            : null,
           referenceNo: data.referenceNo ?? null,   // PR-3：轉帳參考號
           bankLast5: data.bankLast5 ?? null,       // PR-3：轉帳帳號末五碼
           amount: finalAmount,                    // 實收金額

@@ -305,11 +305,12 @@ describe("transaction actions — store consistency", () => {
       preConversionCustomerStage: "TRIAL",
       preConversionSelfBookingEnabled: false,
       preConversionConvertedAt: null,
+      conversionAppliedConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
     });
     h.txCustomerFindUnique.mockResolvedValueOnce({
       customerStage: "ACTIVE",
       selfBookingEnabled: true,
-      convertedAt: new Date("2026-08-14T02:00:00.000Z"),
+      convertedAt: new Date("2026-08-14T01:00:00.000Z"),
     });
 
     const { voidTransaction } = await import("@/server/actions/transaction");
@@ -346,6 +347,7 @@ describe("transaction actions — store consistency", () => {
       preConversionCustomerStage: "TRIAL",
       preConversionSelfBookingEnabled: false,
       preConversionConvertedAt: null,
+      conversionAppliedConvertedAt: new Date("2026-08-14T02:00:00.000Z"),
     });
     h.txCustomerFindUnique.mockResolvedValueOnce({
       customerStage: "INACTIVE",
@@ -382,6 +384,7 @@ describe("transaction actions — store consistency", () => {
       preConversionCustomerStage: "LEAD",
       preConversionSelfBookingEnabled: false,
       preConversionConvertedAt: null,
+      conversionAppliedConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
     });
     h.txTransactionFindFirst
       .mockResolvedValueOnce(null)
@@ -397,6 +400,7 @@ describe("transaction actions — store consistency", () => {
         preConversionCustomerStage: "LEAD",
         preConversionSelfBookingEnabled: false,
         preConversionConvertedAt: null,
+        conversionAppliedConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
         firstTopupRewardsApplied: true,
       },
     });
@@ -479,6 +483,7 @@ describe("transaction actions — store consistency", () => {
       note: null,
       createdAt: new Date("2026-08-14T01:00:00.000Z"),
       conversionEffectsApplied: false,
+      conversionSnapshotCaptured: true,
       firstTopupRewardsApplied: false,
       preConversionCustomerStage: null,
       preConversionSelfBookingEnabled: null,
@@ -492,6 +497,30 @@ describe("transaction actions — store consistency", () => {
     expect(h.txTransactionFindFirst).not.toHaveBeenCalled();
     expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
     expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects legacy paid wallet purchases that have no rollback snapshot", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "legacy-paid-purchase",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      conversionEffectsApplied: false,
+      conversionSnapshotCaptured: false,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "legacy-paid-purchase", reason: "入錯帳" });
+
+    expect(result.success).toBe(false);
+    expect(h.walletSessionUpdateMany).not.toHaveBeenCalled();
+    expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
   });
 
   it("rejects cancellation when another purchase also references the wallet", async () => {
