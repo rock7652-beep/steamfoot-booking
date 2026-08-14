@@ -519,6 +519,12 @@ describe("transaction actions — store consistency", () => {
     const result = await voidTransaction({ transactionId: "legacy-paid-purchase", reason: "入錯帳" });
 
     expect(result.success).toBe(false);
+    expect(h.txTransactionCount).toHaveBeenCalledWith({
+      where: {
+        id: { not: "shared-wallet" },
+        customerPlanWalletId: WALLET_ID,
+      },
+    });
     expect(h.walletSessionUpdateMany).not.toHaveBeenCalled();
     expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
   });

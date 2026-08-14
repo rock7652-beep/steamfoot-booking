@@ -1004,7 +1004,6 @@ export async function voidTransaction(
           where: {
             id: { not: current.id },
             customerPlanWalletId: wallet.id,
-            transactionType: { in: ALLOWED_TYPES },
           },
         });
         if (otherWalletPurchases > 0) {
