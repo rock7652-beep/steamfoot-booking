@@ -541,6 +541,7 @@ describe("transaction actions — store consistency", () => {
       amount: 5990,
       note: null,
       createdAt: new Date("2026-08-14T03:12:00.000Z"),
+      paidAt: new Date("2026-08-14T03:12:00.000Z"),
       conversionEffectsApplied: false,
       conversionSnapshotCaptured: false,
     });
@@ -577,6 +578,7 @@ describe("transaction actions — store consistency", () => {
       amount: 5990,
       note: null,
       createdAt: new Date("2026-08-14T03:12:00.000Z"),
+      paidAt: new Date("2026-08-14T03:12:00.000Z"),
       conversionEffectsApplied: false,
       conversionSnapshotCaptured: false,
     });
