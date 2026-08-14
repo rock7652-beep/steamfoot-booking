@@ -123,6 +123,14 @@ vi.mock("@/lib/shop-config", () => ({
   getShopConfig: vi.fn(async () => ({ shopName: "以斯帖蒸足坊" })),
 }));
 
+vi.mock("@/lib/store-resolver", () => ({
+  resolveStorePresentation: vi.fn(async () => ({
+    name: "暖暖蒸足",
+    address: "新竹縣竹北市科大一路80號",
+    mapUrl: "https://maps.app.goo.gl/b5yPNKj8jt6DfzZo9?g_st=ic",
+  })),
+}));
+
 vi.mock("@/lib/base-url", () => ({
   deriveBaseUrl: () => "https://example.test",
 }));
@@ -362,13 +370,13 @@ describe("LINE sending actions are store-aware", () => {
         altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
         contents: expect.objectContaining({
           footer: expect.objectContaining({
-            contents: [expect.objectContaining({
+            contents: expect.arrayContaining([expect.objectContaining({
               action: {
                 type: "uri",
                 label: "查看／管理預約",
                 uri: "https://example.test/my-bookings",
               },
-            })],
+            })]),
           }),
         }),
       })],
@@ -601,17 +609,25 @@ describe("LINE sending actions are store-aware", () => {
             contents: expect.arrayContaining([
               expect.objectContaining({ text: "方案預約" }),
               expect.objectContaining({
-                text: "自訂提醒：方案顧客 請於 14:30 準時抵達 以斯帖蒸足坊",
+                text: "自訂提醒：方案顧客 請於 14:30 準時抵達 暖暖蒸足",
               }),
             ]),
           }),
           footer: expect.objectContaining({
-            contents: [expect.objectContaining({
-              action: expect.objectContaining({
-                label: "查看／管理預約",
-                uri: "https://example.test/my-bookings",
+            contents: expect.arrayContaining([
+              expect.objectContaining({
+                action: expect.objectContaining({
+                  label: "開啟 Google Maps 導航",
+                  uri: "https://maps.app.goo.gl/b5yPNKj8jt6DfzZo9?g_st=ic",
+                }),
               }),
-            })],
+              expect.objectContaining({
+                action: expect.objectContaining({
+                  label: "查看／管理預約",
+                  uri: "https://example.test/my-bookings",
+                }),
+              }),
+            ]),
           }),
         }),
       })],
@@ -646,9 +662,15 @@ describe("LINE sending actions are store-aware", () => {
     expect(message.type).toBe("flex");
     expect(message.contents.body.contents).toEqual(expect.arrayContaining([
       expect.objectContaining({ text: "單次預約" }),
+      expect.objectContaining({ text: "暖暖蒸足" }),
+      expect.objectContaining({ text: "45 分鐘" }),
+      expect.objectContaining({ text: "新竹縣竹北市科大一路80號" }),
+      expect.objectContaining({ text: "請記得準時到店。" }),
     ]));
     expect(message.contents.body.contents).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ text: "方案預約" }),
+      expect.objectContaining({ text: expect.stringContaining("https://") }),
+      expect.objectContaining({ text: expect.stringContaining("單次顧客 您好") }),
     ]));
   });
 

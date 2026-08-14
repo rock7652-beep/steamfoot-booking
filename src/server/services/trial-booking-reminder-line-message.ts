@@ -6,7 +6,10 @@ export type PackageBookingReminderCard = {
   bookingTime: string;
   shopName: string;
   serviceName: string;
-  reminderText: string;
+  serviceDuration: string;
+  address?: string;
+  mapUrl?: string;
+  reminderText?: string;
 };
 
 export type TrialBookingReminderCard = {
@@ -51,20 +54,36 @@ export function buildPackageBookingTestReminderLineMessages(
           detailRow("日期時間", `${card.bookingDate} ${card.bookingTime}`),
           detailRow("店名", card.shopName),
           detailRow("預約項目", card.serviceName),
-          { type: "separator" },
-          { type: "text", text: "提醒內容", color: "#8A817A", size: "sm" },
-          { type: "text", text: card.reminderText, color: "#302924", size: "sm", wrap: true },
+          detailRow("服務時間", card.serviceDuration),
+          ...(card.address ? [detailRow("地址", card.address)] : []),
+          ...(card.reminderText
+            ? [
+                { type: "separator" },
+                { type: "text", text: "提醒內容", color: "#8A817A", size: "sm" },
+                { type: "text", text: card.reminderText, color: "#302924", size: "sm", wrap: true },
+              ]
+            : []),
         ],
       },
       footer: {
         type: "box",
         layout: "vertical",
-        contents: [{
-          type: "button",
-          style: "primary",
-          color: "#5C4634",
-          action: { type: "uri", label: "查看／管理預約", uri: managementUrl },
-        }],
+        spacing: "sm",
+        contents: [
+          ...(card.mapUrl
+            ? [{
+                type: "button",
+                style: "secondary",
+                action: { type: "uri", label: "開啟 Google Maps 導航", uri: card.mapUrl },
+              }]
+            : []),
+          {
+            type: "button",
+            style: "primary",
+            color: "#5C4634",
+            action: { type: "uri", label: "查看／管理預約", uri: managementUrl },
+          },
+        ],
       },
     },
   }];

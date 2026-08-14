@@ -20,6 +20,8 @@ import type { ActionResult } from "@/types";
 import { getShopConfig } from "@/lib/shop-config";
 import { deriveBaseUrl } from "@/lib/base-url";
 import { resolveWriteStoreId } from "@/lib/store";
+import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
+import { resolveStorePresentation } from "@/lib/store-resolver";
 import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import { getAllActiveStoreIds } from "@/lib/store";
@@ -1001,6 +1003,7 @@ export async function sendBookingLineTestReminder(
       where: { id: bookingId, storeId },
       include: {
         customer: { include: { assignedStaff: true } },
+        store: { select: { slug: true, name: true } },
       },
     });
     if (!booking) {
@@ -1042,13 +1045,16 @@ export async function sendBookingLineTestReminder(
       throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
     }
 
-    const [rule, shopConfig] = await Promise.all([
+    const [rule, shopConfig, storePresentation] = await Promise.all([
       prisma.reminderRule.findFirst({
         where: { storeId, isEnabled: true },
         orderBy: { createdAt: "asc" },
         include: { template: true },
       }),
       getShopConfig(storeId),
+      booking.bookingType === "FIRST_TRIAL" || !booking.store?.slug
+        ? Promise.resolve(null)
+        : resolveStorePresentation(booking.store.slug),
     ]);
     const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
     if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
@@ -1073,11 +1079,17 @@ export async function sendBookingLineTestReminder(
     const bookingLink = isLineTrialBooking
       ? `${deriveBaseUrl()}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`
       : `${deriveBaseUrl()}/my-bookings`;
+    const customerFacingShopName = isLineTrialBooking
+      ? shopConfig.shopName
+      : storePresentation?.name ?? getCustomerFacingStoreName({
+          slug: booking.store?.slug,
+          name: shopConfig.shopName,
+        });
     const renderedReminder = renderTemplate(templateBody, {
       customerName: booking.customer.name,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),
       bookingTime: booking.slotTime,
-      shopName: shopConfig.shopName,
+      shopName: customerFacingShopName,
       staffName: booking.customer.assignedStaff?.displayName ?? "店長",
       bookingLink,
     });
@@ -1089,7 +1101,7 @@ ${renderedReminder}`;
       customerName: booking.customer.name,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),
       bookingTime: booking.slotTime,
-      shopName: shopConfig.shopName,
+      shopName: customerFacingShopName,
       serviceName: "首次體驗",
     };
     const flexMessages = isLineTrialBooking
@@ -1098,9 +1110,12 @@ ${renderedReminder}`;
         customerName: booking.customer.name,
         bookingDate: booking.bookingDate.toISOString().slice(0, 10),
         bookingTime: booking.slotTime,
-        shopName: shopConfig.shopName,
+        shopName: customerFacingShopName,
         serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
-        reminderText: renderedReminder,
+        serviceDuration: "45 分鐘",
+        address: storePresentation?.address,
+        mapUrl: storePresentation?.mapUrl,
+        reminderText: rule?.template?.body ? renderedReminder.replaceAll(bookingLink, "").trim() : "請記得準時到店。",
       }, bookingLink);
     const textMessages = isLineTrialBooking
       ? buildTrialBookingReminderTextFallback(card, bookingLink, `${BOOKING_LINE_TEST_PREFIX}\n這是管理者手動發送的通知測試，無須回覆。\n\n`)
