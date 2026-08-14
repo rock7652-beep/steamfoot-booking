@@ -565,9 +565,13 @@ export async function setReminderTemplate(
     if (templateId !== null) {
       const tpl = await prisma.messageTemplate.findUnique({
         where: { id: templateId },
-        select: { storeId: true },
+        select: { storeId: true, name: true },
       });
-      if (!tpl || tpl.storeId !== storeId) {
+      if (
+        !tpl ||
+        tpl.storeId !== storeId ||
+        tpl.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME
+      ) {
         throw new AppError("NOT_FOUND", "訊息模板不存在");
       }
     }
