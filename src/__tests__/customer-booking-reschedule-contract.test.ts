@@ -48,6 +48,14 @@ describe("customer booking reschedule contract", () => {
     expect(action).toContain("entitlementCoversDate(booking, bookingDate)");
   });
 
+  it("normalizes legacy duty times before exposing reschedule slots", () => {
+    const action = source("src/server/actions/customer-booking-reschedule.ts");
+    expect(action).toContain("dutyRows.map((row) => canonicalizeBookingSlotTime(row.slotTime))");
+    expect(action).toContain("duty.has(canonical)");
+    expect(action).toContain("used.get(canonical)");
+    expect(action).toContain("slotTime: { in: bookingSlotTimeVariants(slotTime) }");
+  });
+
   it("updates the original booking without touching plan wallets or sessions", () => {
     const action = source("src/server/actions/customer-booking-reschedule.ts");
     expect(action).toContain("originalBookingDate: current.bookingDate");
@@ -72,8 +80,12 @@ describe("customer booking reschedule contract", () => {
   it("loads same-day alternatives as soon as the reschedule page opens", () => {
     const manager = source("src/app/(customer)/my-bookings/[id]/reschedule/reschedule-manager.tsx");
     expect(manager).toContain("listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)");
-    expect(manager).toContain('value={date}\n              disabled={pending}');
-    expect(manager).toContain('type="button"\n                    disabled={pending}');
+    expect(manager).toContain("listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)");
+    expect(manager).toContain("setLoadingSlots(true)");
+    expect(manager).toContain("正在載入這一天的可預約時段");
+    expect(manager).toContain("min={minDate}");
+    expect(manager).toContain("max={maxDate}");
+    expect(manager).toContain("disabled={pending || loadingSlots}");
   });
 
   it("exposes the safe reschedule route from the normal customer booking list", () => {
