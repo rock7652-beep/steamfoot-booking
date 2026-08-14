@@ -14,6 +14,7 @@ import {
 import {
   DEFAULT_PACKAGE_LINE_CARD_REMINDER,
   PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
+  packageLineCardReminderSettingId,
 } from "@/lib/package-line-card-reminder-setting";
 
 // ============================================================
@@ -134,13 +135,11 @@ export async function getPackageLineCardReminderSetting(
   storeId: string,
 ): Promise<string> {
   const authorizedStoreId = await resolveReminderReadStore(storeId);
-  const setting = await prisma.messageTemplate.findFirst({
+  const setting = await prisma.messageTemplate.findUnique({
     where: {
+      id: packageLineCardReminderSettingId(authorizedStoreId),
       storeId: authorizedStoreId,
-      name: PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
-      channel: "LINE",
     },
-    orderBy: { createdAt: "asc" },
     select: { body: true },
   });
   return setting?.body ?? DEFAULT_PACKAGE_LINE_CARD_REMINDER;
