@@ -601,19 +601,10 @@ export function TransactionDrawer({
           {data && view === "void-confirm" && (
             <div>
               <Section title="確認取消交易" tone="danger">
-                <div className="mb-3 space-y-2 text-sm text-earth-700">
-                  <p>取消後將同步：</p>
-                  <ul className="ml-4 list-disc space-y-1 text-earth-600">
-                    <li>本筆收入從營收統計扣除</li>
-                    {data.transactionType === "PACKAGE_PURCHASE" && (
-                      <>
-                        <li>顧客方案堂數同步扣回（錢包標為 CANCELLED）</li>
-                        <li>前台「我的方案」會同步更新</li>
-                      </>
-                    )}
-                    <li>此操作會留下異動紀錄，不可刪除</li>
-                  </ul>
-                </div>
+                <p className="mb-3 text-sm text-earth-700">
+                  確定取消這筆交易？系統會自動扣回營收
+                  {data.customerPlanWallet ? "與未使用堂數" : ""}。
+                </p>
                 <textarea
                   value={voidReason}
                   onChange={(e) => setVoidReason(e.target.value)}

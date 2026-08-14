@@ -21,6 +21,15 @@ const h = vi.hoisted(() => ({
   walletSessionUpdateMany: vi.fn(),
   txWalletUpdateMany: vi.fn(),
   txTransactionUpdateMany: vi.fn(),
+  txTransactionCount: vi.fn(),
+  txTransactionFindFirst: vi.fn(),
+  txTransactionFindUnique: vi.fn(),
+  txQueryRaw: vi.fn(),
+  txBookingCount: vi.fn(),
+  txPointRecordFindMany: vi.fn(),
+  txPointRecordDeleteMany: vi.fn(),
+  txCustomerFindUnique: vi.fn(),
+  txCustomerUpdateMany: vi.fn(),
   transactionAuditCreate: vi.fn(),
   txRun: vi.fn(),
   buildSnapshot: vi.fn(),
@@ -120,6 +129,9 @@ beforeEach(() => {
         create: h.txCreate,
         update: h.txUpdate,
         updateMany: h.txTransactionUpdateMany,
+        count: h.txTransactionCount,
+        findFirst: h.txTransactionFindFirst,
+        findUnique: h.txTransactionFindUnique,
       },
       customerPlanWallet: {
         findFirst: h.txWalletFindFirst,
@@ -129,7 +141,17 @@ beforeEach(() => {
         findMany: h.walletSessionFindMany,
         updateMany: h.walletSessionUpdateMany,
       },
+      booking: { count: h.txBookingCount },
+      pointRecord: {
+        findMany: h.txPointRecordFindMany,
+        deleteMany: h.txPointRecordDeleteMany,
+      },
+      customer: {
+        findUnique: h.txCustomerFindUnique,
+        updateMany: h.txCustomerUpdateMany,
+      },
       transactionAuditLog: { create: h.transactionAuditCreate },
+      $queryRaw: h.txQueryRaw,
     }),
   );
   h.txWalletFindFirst.mockResolvedValue({
@@ -143,6 +165,22 @@ beforeEach(() => {
   h.walletSessionUpdateMany.mockResolvedValue({ count: 10 });
   h.txWalletUpdateMany.mockResolvedValue({ count: 1 });
   h.txTransactionUpdateMany.mockResolvedValue({ count: 1 });
+  h.txTransactionCount.mockResolvedValue(0);
+  h.txTransactionFindFirst.mockResolvedValue(null);
+  h.txTransactionFindUnique.mockImplementation(async () => {
+    const latest = h.transactionFindUnique.mock.results.at(-1);
+    return latest ? await latest.value : null;
+  });
+  h.txQueryRaw.mockResolvedValue([{ id: CUSTOMER_ID }]);
+  h.txBookingCount.mockResolvedValue(0);
+  h.txPointRecordFindMany.mockResolvedValue([]);
+  h.txPointRecordDeleteMany.mockResolvedValue({ count: 0 });
+  h.txCustomerFindUnique.mockResolvedValue({
+    customerStage: "ACTIVE",
+    selfBookingEnabled: true,
+    convertedAt: null,
+  });
+  h.txCustomerUpdateMany.mockResolvedValue({ count: 1 });
   h.transactionAuditCreate.mockResolvedValue({});
 });
 
@@ -159,6 +197,415 @@ describe("transaction actions — store consistency", () => {
       }),
     }));
   });
+
+  it("locks and revalidates a wallet before manually linking a transaction", async () => {
+    const { createTransaction } = await import("@/server/actions/transaction");
+    const result = await createTransaction({
+      customerId: CUSTOMER_ID,
+      customerPlanWalletId: WALLET_ID,
+      transactionType: "PACKAGE_PURCHASE",
+      paymentMethod: "CASH",
+      amount: 5990,
+    });
+
+    expect(result.success).toBe(true);
+    expect(h.txQueryRaw).toHaveBeenCalled();
+    expect(h.txWalletFindFirst).toHaveBeenCalledWith({
+      where: {
+        id: WALLET_ID,
+        customerId: CUSTOMER_ID,
+        storeId: "store-taichung",
+        status: "ACTIVE",
+      },
+      select: { id: true },
+    });
+  });
+
+  it("allows a paid mistake entry when every session is still unused", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "paid-mistake",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "paid-mistake", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.walletSessionUpdateMany).toHaveBeenCalled();
+    expect(h.txWalletUpdateMany).toHaveBeenCalled();
+    expect(h.txTransactionUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ paymentStatus: "SUCCESS" }),
+      data: expect.objectContaining({ status: "VOIDED" }),
+    }));
+  });
+
+  it("restores the exact pre-purchase customer state and referral points", async () => {
+    const previousConvertedAt = new Date("2026-07-01T00:00:00.000Z");
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "effectful-paid-mistake",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T01:00:00.000Z"),
+      paidAt: new Date("2026-08-14T01:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: true,
+      firstTopupReferrerRewardApplied: true,
+      firstTopupSelfRewardApplied: true,
+      preConversionCustomerStage: "TRIAL",
+      preConversionSelfBookingEnabled: true,
+      preConversionConvertedAt: previousConvertedAt,
+    });
+    h.txPointRecordFindMany.mockResolvedValueOnce([
+      { id: "point-referrer", customerId: "sponsor-1", points: 15 },
+      { id: "point-self", customerId: CUSTOMER_ID, points: 5 },
+    ]);
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "effectful-paid-mistake", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txQueryRaw).toHaveBeenCalled();
+    expect(h.txCustomerUpdateMany).toHaveBeenCalledWith({
+      where: { id: CUSTOMER_ID, storeId: "store-taichung" },
+      data: {
+        customerStage: "TRIAL",
+        selfBookingEnabled: true,
+      },
+    });
+    expect(h.txPointRecordDeleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["point-referrer", "point-self"] } },
+    });
+  });
+
+  it("uses the transaction snapshot reloaded after acquiring the customer lock", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "concurrent-void",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T02:00:00.000Z"),
+      paidAt: new Date("2026-08-14T02:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: "ACTIVE",
+      preConversionSelfBookingEnabled: true,
+      preConversionConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
+    });
+    h.txTransactionFindUnique.mockResolvedValueOnce({
+      id: "concurrent-void",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T02:00:00.000Z"),
+      paidAt: new Date("2026-08-14T02:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: "TRIAL",
+      preConversionSelfBookingEnabled: false,
+      preConversionConvertedAt: null,
+      conversionAppliedConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
+    });
+    h.txCustomerFindUnique.mockResolvedValueOnce({
+      customerStage: "ACTIVE",
+      selfBookingEnabled: true,
+      convertedAt: new Date("2026-08-14T01:00:00.000Z"),
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "concurrent-void", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txTransactionFindUnique).toHaveBeenCalled();
+    expect(h.txCustomerUpdateMany).toHaveBeenCalledWith({
+      where: { id: CUSTOMER_ID, storeId: "store-taichung" },
+      data: {
+        customerStage: "TRIAL",
+        selfBookingEnabled: false,
+        convertedAt: null,
+      },
+    });
+  });
+
+  it("preserves customer fields changed manually after the purchase", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "manually-adjusted-customer",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T02:00:00.000Z"),
+      paidAt: new Date("2026-08-14T02:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: "TRIAL",
+      preConversionSelfBookingEnabled: false,
+      preConversionConvertedAt: null,
+      conversionAppliedConvertedAt: new Date("2026-08-14T02:00:00.000Z"),
+    });
+    h.txCustomerFindUnique.mockResolvedValueOnce({
+      customerStage: "INACTIVE",
+      selfBookingEnabled: false,
+      convertedAt: new Date("2026-08-14T03:00:00.000Z"),
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({
+      transactionId: "manually-adjusted-customer",
+      reason: "入錯帳",
+    });
+
+    expect(result.success).toBe(true);
+    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("passes the original pre-purchase snapshot to the next effective purchase", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "first-effectful-purchase",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T01:00:00.000Z"),
+      paidAt: new Date("2026-08-14T01:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: true,
+      firstTopupReferrerRewardApplied: true,
+      firstTopupSelfRewardApplied: true,
+      preConversionCustomerStage: "LEAD",
+      preConversionSelfBookingEnabled: false,
+      preConversionConvertedAt: null,
+      conversionAppliedConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
+    });
+    h.txTransactionFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "next-effectful-purchase" });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "first-effectful-purchase", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txUpdate).toHaveBeenCalledWith({
+      where: { id: "next-effectful-purchase" },
+      data: {
+        preConversionCustomerStage: "LEAD",
+        preConversionSelfBookingEnabled: false,
+        preConversionConvertedAt: null,
+        conversionAppliedConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
+        firstTopupRewardsApplied: true,
+        firstTopupReferrerRewardApplied: true,
+        firstTopupSelfRewardApplied: true,
+      },
+    });
+    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
+    expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
+  });
+
+  it("does not propagate a later purchase snapshot back to an earlier purchase", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "later-effectful-purchase",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T02:00:00.000Z"),
+      paidAt: new Date("2026-08-14T02:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: "ACTIVE",
+      preConversionSelfBookingEnabled: true,
+      preConversionConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
+    });
+    h.txTransactionFindFirst
+      .mockResolvedValueOnce({ id: "earlier-effectful-purchase" })
+      .mockResolvedValueOnce(null);
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "later-effectful-purchase", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txUpdate).not.toHaveBeenCalled();
+    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps historical referral points when this purchase did not award them", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "purchase-with-historical-points",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T02:00:00.000Z"),
+      paidAt: new Date("2026-08-14T02:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: "TRIAL",
+      preConversionSelfBookingEnabled: false,
+      preConversionConvertedAt: null,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "purchase-with-historical-points", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
+    expect(h.txPointRecordDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("does not restore customer state for manual or pending transactions without conversion effects", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "manual-paid-mistake",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T01:00:00.000Z"),
+      conversionEffectsApplied: false,
+      conversionSnapshotCaptured: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: null,
+      preConversionSelfBookingEnabled: null,
+      preConversionConvertedAt: null,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "manual-paid-mistake", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txTransactionFindFirst).not.toHaveBeenCalled();
+    expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
+    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects legacy paid wallet purchases that have no rollback snapshot", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "legacy-paid-purchase",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      conversionEffectsApplied: false,
+      conversionSnapshotCaptured: false,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "legacy-paid-purchase", reason: "入錯帳" });
+
+    expect(result.success).toBe(false);
+    expect(h.txTransactionCount).toHaveBeenCalledWith({
+      where: {
+        id: { not: "shared-wallet" },
+        customerPlanWalletId: WALLET_ID,
+      },
+    });
+    expect(h.walletSessionUpdateMany).not.toHaveBeenCalled();
+    expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects cancellation when another purchase also references the wallet", async () => {
+    h.txTransactionCount.mockResolvedValueOnce(1);
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "shared-wallet", reason: "入錯帳" });
+
+    expect(result.success).toBe(false);
+    expect(h.walletSessionUpdateMany).not.toHaveBeenCalled();
+    expect(h.txWalletUpdateMany).not.toHaveBeenCalled();
+    expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it.each(["RESERVED", "COMPLETED"])(
+    "still rejects a paid mistake entry when a session is %s",
+    async (sessionStatus) => {
+      h.transactionFindUnique.mockResolvedValueOnce({
+        id: `paid-${sessionStatus.toLowerCase()}`,
+        storeId: "store-taichung",
+        customerId: CUSTOMER_ID,
+        status: "SUCCESS",
+        paymentStatus: "SUCCESS",
+        paymentMethod: "CASH",
+        transactionType: "PACKAGE_PURCHASE",
+        customerPlanWalletId: WALLET_ID,
+        amount: 5990,
+        note: null,
+      });
+      h.walletSessionFindMany.mockResolvedValueOnce([
+        { id: "changed-session", status: sessionStatus, bookingId: sessionStatus === "RESERVED" ? "booking-1" : null },
+        ...Array.from({ length: 9 }, (_, i) => ({
+          id: `available-${i}`,
+          status: "AVAILABLE",
+          bookingId: null,
+        })),
+      ]);
+
+      const { voidTransaction } = await import("@/server/actions/transaction");
+      const result = await voidTransaction({
+        transactionId: `paid-${sessionStatus.toLowerCase()}`,
+        reason: "入錯帳",
+      });
+
+      expect(result.success).toBe(false);
+      expect(h.walletSessionUpdateMany).not.toHaveBeenCalled();
+      expect(h.txWalletUpdateMany).not.toHaveBeenCalled();
+      expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
+    },
+  );
 
   it("voids a SINGLE_PURCHASE wallet session with the acting staff audit id", async () => {
     h.transactionFindUnique.mockResolvedValueOnce({

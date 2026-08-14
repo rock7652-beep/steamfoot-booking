@@ -125,6 +125,23 @@ export async function createTransaction(
     const amountNum = Math.abs(data.amount);
 
     const result = await prisma.$transaction(async (txClient) => {
+      if (data.customerPlanWalletId) {
+        // 與 voidTransaction 使用相同顧客鎖，避免來源檢查後才併發新增錢包關聯。
+        await txClient.$queryRaw`SELECT id FROM "Customer" WHERE id = ${data.customerId} FOR UPDATE`;
+        const lockedWallet = await txClient.customerPlanWallet.findFirst({
+          where: {
+            id: data.customerPlanWalletId,
+            customerId: data.customerId,
+            storeId,
+            status: "ACTIVE",
+          },
+          select: { id: true },
+        });
+        if (!lockedWallet) {
+          throw new AppError("CONFLICT", "課程錢包狀態已變更，請重新整理後再試一次");
+        }
+      }
+
       const snapshot = await buildTransactionSnapshot(txClient, {
         customerId: data.customerId,
         storeId,
@@ -147,6 +164,7 @@ export async function createTransaction(
           quantity: data.quantity ?? null,
           note: data.note ?? null,
           storeId,
+          conversionSnapshotCaptured: true,
           ...snapshot,
         },
       });
@@ -357,9 +375,13 @@ export async function confirmTransactionPayment(
       );
     }
 
-    const now = new Date();
-
     await prisma.$transaction(async (tx) => {
+      if (original.bookingId) {
+        await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${original.bookingId} FOR UPDATE`;
+      }
+      await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${original.customerId} FOR UPDATE`;
+      const now = new Date();
+
       // CAS：只有 paymentStatus 仍為 PENDING 時才更新（防並行重複確認）
       const result = await tx.transaction.updateMany({
         where: {
@@ -412,7 +434,6 @@ export async function confirmTransactionPayment(
         // 單次預約現場轉購：轉帳確認入帳後，才把同一筆預約改成新方案扣堂。
         // 所有寫入都在本交易內；狀態不符時連付款確認與 wallet 建立一併回滾。
         if (original.bookingId) {
-          await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${original.bookingId} FOR UPDATE`;
           const booking = await tx.booking.findUnique({
             where: { id: original.bookingId },
             select: { id: true, customerId: true, storeId: true, bookingType: true, bookingStatus: true, isMakeup: true, people: true },
@@ -455,9 +476,27 @@ export async function confirmTransactionPayment(
       // CAS 成功 → 重現 PENDING 時 skip 的狀態升等 + 首儲推薦獎勵
       const customer = await tx.customer.findUnique({
         where: { id: original.customerId },
-        select: { convertedAt: true },
+        select: {
+          convertedAt: true,
+          customerStage: true,
+          selfBookingEnabled: true,
+        },
       });
-      const isFirstPurchase = !customer?.convertedAt;
+      if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+      const isFirstPurchase = !customer.convertedAt;
+
+      await tx.transaction.update({
+        where: { id: transactionId },
+        data: {
+          conversionEffectsApplied: true,
+          conversionSnapshotCaptured: true,
+          firstTopupRewardsApplied: false,
+          preConversionCustomerStage: customer.customerStage,
+          preConversionSelfBookingEnabled: customer.selfBookingEnabled,
+          preConversionConvertedAt: customer.convertedAt,
+          conversionAppliedConvertedAt: customer.convertedAt ?? now,
+        },
+      });
 
       await tx.customer.update({
         where: { id: original.customerId },
@@ -470,12 +509,22 @@ export async function confirmTransactionPayment(
 
       // 首儲推薦獎勵（僅首次購課且有 sponsor 才觸發）
       // 靜默失敗；dedup key 同 PR-3：PointRecord @@unique 擋重複發獎
-      await awardFirstTopupReferralPointsIfEligible({
+      const rewards = await awardFirstTopupReferralPointsIfEligible({
         customerId: original.customerId,
         storeId: original.storeId,
         isFirstPurchase,
         tx,
       });
+      if (rewards?.referrerAwarded || rewards?.selfAwarded) {
+        await tx.transaction.update({
+          where: { id: transactionId },
+          data: {
+            firstTopupRewardsApplied: true,
+            firstTopupReferrerRewardApplied: rewards?.referrerAwarded ?? false,
+            firstTopupSelfRewardApplied: rewards?.selfAwarded ?? false,
+          },
+        });
+      }
     });
 
     revalidateTransactions(original.customerId);
@@ -544,6 +593,8 @@ export async function voidPendingTransaction(
 
     await prisma.$transaction(async (tx) => {
       if (original.customerPlanWalletId) {
+        // 與人工錢包關聯及已付款取消共用顧客鎖，避免 provenance check 漏掉未提交關聯。
+        await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${original.customerId} FOR UPDATE`;
         const [wallet, sessionGroups, relatedTransactions] = await Promise.all([
           tx.customerPlanWallet.findUnique({
             where: { id: original.customerPlanWalletId },
@@ -882,6 +933,17 @@ export async function voidTransaction(
         paymentMethod: true,
         amount: true,
         note: true,
+        createdAt: true,
+        paidAt: true,
+        conversionEffectsApplied: true,
+        conversionSnapshotCaptured: true,
+        firstTopupRewardsApplied: true,
+        firstTopupReferrerRewardApplied: true,
+        firstTopupSelfRewardApplied: true,
+        preConversionCustomerStage: true,
+        preConversionSelfBookingEnabled: true,
+        preConversionConvertedAt: true,
+        conversionAppliedConvertedAt: true,
       },
     });
     if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
@@ -907,34 +969,78 @@ export async function voidTransaction(
     const now = new Date();
 
     await prisma.$transaction(async (tx) => {
-      if (original.transactionType === "PACKAGE_PURCHASE" && !original.customerPlanWalletId) {
+      // 同一顧客的取消流程必須序列化，避免兩筆購買同時取消後遺漏狀態還原。
+      await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${original.customerId} FOR UPDATE`;
+
+      const lockedOriginal = await tx.transaction.findUnique({
+        where: { id: original.id },
+        select: {
+          id: true,
+          storeId: true,
+          customerId: true,
+          status: true,
+          transactionType: true,
+          customerPlanWalletId: true,
+          paymentStatus: true,
+          paymentMethod: true,
+          amount: true,
+          note: true,
+          createdAt: true,
+          paidAt: true,
+          conversionEffectsApplied: true,
+          conversionSnapshotCaptured: true,
+          firstTopupRewardsApplied: true,
+          firstTopupReferrerRewardApplied: true,
+          firstTopupSelfRewardApplied: true,
+          preConversionCustomerStage: true,
+          preConversionSelfBookingEnabled: true,
+          preConversionConvertedAt: true,
+          conversionAppliedConvertedAt: true,
+        },
+      });
+      if (!lockedOriginal) throw new AppError("NOT_FOUND", "交易紀錄不存在");
+      const current = lockedOriginal;
+
+      if (current.transactionType === "PACKAGE_PURCHASE" && !current.customerPlanWalletId) {
         throw new AppError("BUSINESS_RULE", "套餐購買缺少錢包關聯，無法取消");
+      }
+      if (
+        current.customerPlanWalletId &&
+        ["SUCCESS", "CONFIRMED"].includes(current.paymentStatus) &&
+        current.conversionSnapshotCaptured === false
+      ) {
+        throw new AppError(
+          "BUSINESS_RULE",
+          "此為舊版或人工關聯的已付款方案，缺少安全還原資料，請人工核帳處理",
+        );
       }
       // 只要交易實際綁有 wallet，就必須以 wallet 為單位完整作廢。
       // 單次贈送方案同樣會建立 1 堂 wallet；過去只處理 PACKAGE_PURCHASE，
       // 會留下可使用的幽靈堂數。
-      if (original.customerPlanWalletId) {
-        // 已付款方案應走退款流程；這個受控作廢路徑只處理尚未入帳的誤建單。
-        if (
-          original.paymentStatus !== "PENDING" ||
-          (original.paymentMethod !== "TRANSFER" && original.paymentMethod !== "UNPAID")
-        ) {
-          throw new AppError(
-            "BUSINESS_RULE",
-            "綁定方案的交易僅能作廢待確認的轉帳或未付款交易；已付款請使用退款流程。",
-          );
-        }
+      if (current.customerPlanWalletId) {
+        // 誤建單不應因已標記付款而被迫走退款流程。
+        // 是否可安全取消，以方案堂數完全未使用、未預約為準；下方 wallet/session
+        // 真值檢查與同一 DB transaction 會確保營收與堂數一起回復。
         const wallet = await tx.customerPlanWallet.findFirst({
           where: {
-            id: original.customerPlanWalletId,
-            customerId: original.customerId,
-            storeId: original.storeId,
+            id: current.customerPlanWalletId,
+            customerId: current.customerId,
+            storeId: current.storeId,
             status: "ACTIVE",
           },
           select: { id: true, totalSessions: true, remainingSessions: true },
         });
         if (!wallet) {
           throw new AppError("CONFLICT", "課程錢包狀態或所屬顧客已變更，無法取消交易");
+        }
+        const otherWalletPurchases = await tx.transaction.count({
+          where: {
+            id: { not: current.id },
+            customerPlanWalletId: wallet.id,
+          },
+        });
+        if (otherWalletPurchases > 0) {
+          throw new AppError("BUSINESS_RULE", "此交易不是方案錢包的唯一來源，無法直接取消");
         }
         if (wallet.remainingSessions !== wallet.totalSessions) {
           throw new AppError("BUSINESS_RULE", "此方案已有堂數異動，不能直接取消交易");
@@ -975,8 +1081,8 @@ export async function voidTransaction(
         const cancelWallet = await tx.customerPlanWallet.updateMany({
           where: {
             id: wallet.id,
-            customerId: original.customerId,
-            storeId: original.storeId,
+            customerId: current.customerId,
+            storeId: current.storeId,
             status: "ACTIVE",
             remainingSessions: wallet.totalSessions,
           },
@@ -992,10 +1098,10 @@ export async function voidTransaction(
 
       // ── CAS：交易標記 VOIDED ──
       const result = await tx.transaction.updateMany({
-        where: { id: original.id, status: "SUCCESS", paymentStatus: original.paymentStatus },
+        where: { id: current.id, status: "SUCCESS", paymentStatus: current.paymentStatus },
         data: {
           status: "VOIDED",
-          ...(original.paymentStatus === "PENDING" && { paymentStatus: "CANCELLED" }),
+          ...(current.paymentStatus === "PENDING" && { paymentStatus: "CANCELLED" }),
           voidedAt: now,
           voidedByUserId: user.id,
           voidReason: data.reason,
@@ -1005,13 +1111,142 @@ export async function voidTransaction(
         throw new AppError("CONFLICT", "此交易狀態已變更，無法取消");
       }
 
+      // 只還原由正式方案開通流程留下的狀態快照；人工補帳不會誤改顧客資料。
+      if (current.conversionEffectsApplied) {
+        if (!current.paidAt) {
+          throw new AppError("CONFLICT", "交易缺少實際付款時間，請人工核帳處理");
+        }
+        const activationTime = current.paidAt;
+        const [previousEffectfulPurchase, nextEffectfulPurchase] = await Promise.all([
+          tx.transaction.findFirst({
+            where: {
+              customerId: current.customerId,
+              storeId: current.storeId,
+              status: "SUCCESS",
+              transactionType: { in: ALLOWED_TYPES },
+              paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
+              conversionEffectsApplied: true,
+              OR: [
+                { paidAt: { lt: activationTime } },
+                { paidAt: activationTime, id: { lt: current.id } },
+              ],
+            },
+            orderBy: [{ paidAt: "desc" }, { id: "desc" }],
+            select: { id: true },
+          }),
+          tx.transaction.findFirst({
+            where: {
+              customerId: current.customerId,
+              storeId: current.storeId,
+              status: "SUCCESS",
+              transactionType: { in: ALLOWED_TYPES },
+              paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
+              conversionEffectsApplied: true,
+              OR: [
+                { paidAt: { gt: activationTime } },
+                { paidAt: activationTime, id: { gt: current.id } },
+              ],
+            },
+            orderBy: [{ paidAt: "asc" }, { id: "asc" }],
+            select: { id: true },
+          }),
+        ]);
+
+        if (nextEffectfulPurchase && !previousEffectfulPurchase) {
+          // 只有取消購買鏈最前端時才向後傳遞根快照；絕不覆寫較早交易。
+          await tx.transaction.update({
+            where: { id: nextEffectfulPurchase.id },
+            data: {
+              preConversionCustomerStage: current.preConversionCustomerStage,
+              preConversionSelfBookingEnabled: current.preConversionSelfBookingEnabled,
+              preConversionConvertedAt: current.preConversionConvertedAt,
+              conversionAppliedConvertedAt: current.conversionAppliedConvertedAt,
+              firstTopupRewardsApplied: current.firstTopupRewardsApplied,
+              firstTopupReferrerRewardApplied: current.firstTopupReferrerRewardApplied,
+              firstTopupSelfRewardApplied: current.firstTopupSelfRewardApplied,
+            },
+          });
+        } else if (!previousEffectfulPurchase && !nextEffectfulPurchase) {
+          // 只刪除這條購買鏈確定發放的首儲獎勵，避免碰到 migration 前的歷史點數。
+          if (
+            current.firstTopupReferrerRewardApplied ||
+            current.firstTopupSelfRewardApplied
+          ) {
+            const referralPointRecords = await tx.pointRecord.findMany({
+              where: {
+                storeId: current.storeId,
+                sourceKey: current.customerId,
+                sourceType: {
+                  in: [
+                    ...(current.firstTopupReferrerRewardApplied
+                      ? ["first_topup_referrer"]
+                      : []),
+                    ...(current.firstTopupSelfRewardApplied ? ["first_topup_self"] : []),
+                  ],
+                },
+              },
+              select: { id: true, customerId: true, points: true },
+            });
+
+            for (const pointRecord of referralPointRecords) {
+              await tx.customer.updateMany({
+                where: { id: pointRecord.customerId, storeId: current.storeId },
+                data: { totalPoints: { decrement: pointRecord.points } },
+              });
+            }
+            if (referralPointRecords.length > 0) {
+              await tx.pointRecord.deleteMany({
+                where: { id: { in: referralPointRecords.map((record) => record.id) } },
+              });
+            }
+          }
+
+          const latestCustomer = await tx.customer.findUnique({
+            where: { id: current.customerId },
+            select: {
+              customerStage: true,
+              selfBookingEnabled: true,
+              convertedAt: true,
+            },
+          });
+          if (!latestCustomer) throw new AppError("NOT_FOUND", "顧客不存在");
+
+          const restoreData: Prisma.CustomerUpdateManyMutationInput = {};
+          // 只還原仍保有購買流程自動寫入值的欄位，避免覆蓋後續人工調整。
+          if (latestCustomer.customerStage === "ACTIVE" && current.preConversionCustomerStage) {
+            restoreData.customerStage = current.preConversionCustomerStage;
+          }
+          if (
+            latestCustomer.selfBookingEnabled === true &&
+            current.preConversionSelfBookingEnabled != null
+          ) {
+            restoreData.selfBookingEnabled = current.preConversionSelfBookingEnabled;
+          }
+          if (
+            current.preConversionConvertedAt == null &&
+            current.conversionAppliedConvertedAt != null &&
+            latestCustomer.convertedAt?.getTime() ===
+              current.conversionAppliedConvertedAt.getTime()
+          ) {
+            restoreData.convertedAt = null;
+          }
+
+          if (Object.keys(restoreData).length > 0) {
+            await tx.customer.updateMany({
+              where: { id: current.customerId, storeId: current.storeId },
+              data: restoreData,
+            });
+          }
+        }
+      }
+
       await writeTransactionAuditLog(tx, {
-        storeId: original.storeId,
-        transactionId: original.id,
+        storeId: current.storeId,
+        transactionId: current.id,
         actorUserId: user.id,
         action: "VOID",
         before: pickAuditFields(
-          { status: original.status, voidedAt: null, voidedByUserId: null, voidReason: null },
+          { status: current.status, voidedAt: null, voidedByUserId: null, voidReason: null },
           ["status", "voidedAt", "voidedByUserId", "voidReason"],
         ),
         after: pickAuditFields(
