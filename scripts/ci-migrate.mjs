@@ -431,7 +431,7 @@ async function readHumanSupportSummarySnapshot(prisma) {
 }
 
 async function readTransactionConversionSnapshot(prisma) {
-  return prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'Transaction' AND column_name IN ('conversionEffectsApplied', 'conversionSnapshotCaptured', 'firstTopupRewardsApplied', 'firstTopupReferrerRewardApplied', 'firstTopupSelfRewardApplied', 'preConversionCustomerStage', 'preConversionSelfBookingEnabled', 'preConversionConvertedAt', 'conversionAppliedConvertedAt') ORDER BY column_name`;
+  return prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault", datetime_precision AS "datetimePrecision" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'Transaction' AND column_name IN ('conversionEffectsApplied', 'conversionSnapshotCaptured', 'firstTopupRewardsApplied', 'firstTopupReferrerRewardApplied', 'firstTopupSelfRewardApplied', 'preConversionCustomerStage', 'preConversionSelfBookingEnabled', 'preConversionConvertedAt', 'conversionAppliedConvertedAt') ORDER BY column_name`;
 }
 
 export function hasNoTransactionConversionSnapshotColumns(columns) {
@@ -455,7 +455,8 @@ export function hasExpectedTransactionConversionSnapshotColumns(columns) {
     byName.get("preConversionSelfBookingEnabled")?.columnDefault === null &&
     ["preConversionConvertedAt", "conversionAppliedConvertedAt"].every((name) =>
       byName.get(name)?.dataType === "timestamp without time zone" &&
-      byName.get(name)?.isNullable === "YES" && byName.get(name)?.columnDefault === null
+      byName.get(name)?.isNullable === "YES" && byName.get(name)?.columnDefault === null &&
+      byName.get(name)?.datetimePrecision === 3
     );
 }
 
