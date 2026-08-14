@@ -6,6 +6,9 @@ export type PackageBookingReminderCard = {
   bookingTime: string;
   shopName: string;
   serviceName: string;
+  serviceDuration: string;
+  address?: string;
+  mapUrl?: string;
   reminderText?: string;
 };
 
@@ -51,6 +54,8 @@ export function buildPackageBookingTestReminderLineMessages(
           detailRow("日期時間", `${card.bookingDate} ${card.bookingTime}`),
           detailRow("店名", card.shopName),
           detailRow("預約項目", card.serviceName),
+          detailRow("服務時間", card.serviceDuration),
+          ...(card.address ? [detailRow("地址", card.address)] : []),
           ...(card.reminderText
             ? [
                 { type: "separator" },
@@ -63,12 +68,22 @@ export function buildPackageBookingTestReminderLineMessages(
       footer: {
         type: "box",
         layout: "vertical",
-        contents: [{
-          type: "button",
-          style: "primary",
-          color: "#5C4634",
-          action: { type: "uri", label: "查看／管理預約", uri: managementUrl },
-        }],
+        spacing: "sm",
+        contents: [
+          ...(card.mapUrl
+            ? [{
+                type: "button",
+                style: "secondary",
+                action: { type: "uri", label: "開啟 Google Maps 導航", uri: card.mapUrl },
+              }]
+            : []),
+          {
+            type: "button",
+            style: "primary",
+            color: "#5C4634",
+            action: { type: "uri", label: "查看／管理預約", uri: managementUrl },
+          },
+        ],
       },
     },
   }];
