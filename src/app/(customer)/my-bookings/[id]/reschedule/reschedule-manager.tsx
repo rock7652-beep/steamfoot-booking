@@ -59,9 +59,17 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
             });
         }
         if (!status.canReschedule) {
-          setMessage(status.customerRescheduleCount >= 1
-            ? "這筆預約已自行改期一次，如需再次調整請聯絡店家。"
-            : "距離預約 12 小時內無法自行改期，請聯絡店家協助。");
+          const reasonMessage = {
+            already_rescheduled: "這筆預約已自行改期一次，如需再次調整請聯絡店家。",
+            inside_cutoff: "距離預約 12 小時內無法自行改期，請聯絡店家協助。",
+            makeup_booking: "補課預約目前需由店家協助改期。",
+            inactive_booking: "這筆預約目前不是可改期狀態，請聯絡店家協助。",
+          } as const;
+          setMessage(
+            status.unavailableReason
+              ? reasonMessage[status.unavailableReason]
+              : "目前無法自行改期，請聯絡店家協助。",
+          );
         }
       })
       .catch(() => setMessage("目前無法取得預約資訊，請稍後再試。"));
