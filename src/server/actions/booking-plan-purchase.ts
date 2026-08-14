@@ -65,7 +65,9 @@ export async function purchasePlanForSingleBooking(
     const today = toLocalDateStr(now);
     const expiryDate = plan.validityDays ? parseTaiwanDateToDbDate(addTaiwanDuration(today, plan.validityDays, "DAY")) : null;
     const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${booking.customerId} FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${booking.id} FOR UPDATE`;
+      const activationTime = new Date();
       const fresh = await tx.booking.findUnique({
         where: { id: booking.id },
         select: { bookingType: true, bookingStatus: true, isMakeup: true, customerId: true, people: true },
@@ -84,13 +86,13 @@ export async function purchasePlanForSingleBooking(
       });
       if (wallet) {
         await seedWalletSessions(tx, wallet.id, plan.sessionCount);
-        await allocateSessionsFefo(tx, { candidates: [{ id: wallet.id, expiryDate, createdAt: now, remainingSessions: plan.sessionCount }], bookingId: booking.id, count: fresh.people, preferredWalletId: wallet.id });
+        await allocateSessionsFefo(tx, { candidates: [{ id: wallet.id, expiryDate, createdAt: activationTime, remainingSessions: plan.sessionCount }], bookingId: booking.id, count: fresh.people, preferredWalletId: wallet.id });
         await tx.booking.update({ where: { id: booking.id }, data: { bookingType: "PACKAGE_SESSION", customerPlanWalletId: wallet.id, servicePlanId: plan.id } });
-        await tx.customer.update({ where: { id: fresh.customerId }, data: { customerStage: "ACTIVE", selfBookingEnabled: true, ...(!customer.convertedAt && { convertedAt: now }) } });
+        await tx.customer.update({ where: { id: fresh.customerId }, data: { customerStage: "ACTIVE", selfBookingEnabled: true, ...(!customer.convertedAt && { convertedAt: activationTime }) } });
       }
       const snapshot = await buildTransactionSnapshot(tx, { customerId: fresh.customerId, storeId, revenueStaffId, planId: plan.id, grossAmount, netAmount: data.amount });
       const transaction = await tx.transaction.create({
-        data: { ...snapshot, customerId: fresh.customerId, storeId, bookingId: booking.id, revenueStaffId, soldByStaffId: user.staffId ?? null, customerPlanWalletId: wallet?.id ?? null, transactionType: "PACKAGE_PURCHASE", paymentMethod: data.paymentMethod, paymentStatus: isPending ? "PENDING" : "SUCCESS", paidAt: isPending ? null : now, conversionEffectsApplied: !isPending, preConversionCustomerStage: !isPending ? customer.customerStage : null, preConversionSelfBookingEnabled: !isPending ? customer.selfBookingEnabled : null, preConversionConvertedAt: !isPending ? customer.convertedAt : null, status: "SUCCESS", amount: data.amount, planId: plan.id, planSessionCountSnapshot: plan.sessionCount, pendingWalletExpiryDateSnapshot: isPending ? expiryDate : null, discountReason: data.discountReason || null, note: data.note || null },
+        data: { ...snapshot, customerId: fresh.customerId, storeId, bookingId: booking.id, revenueStaffId, soldByStaffId: user.staffId ?? null, customerPlanWalletId: wallet?.id ?? null, transactionType: "PACKAGE_PURCHASE", paymentMethod: data.paymentMethod, paymentStatus: isPending ? "PENDING" : "SUCCESS", paidAt: isPending ? null : activationTime, conversionEffectsApplied: !isPending, preConversionCustomerStage: !isPending ? customer.customerStage : null, preConversionSelfBookingEnabled: !isPending ? customer.selfBookingEnabled : null, preConversionConvertedAt: !isPending ? customer.convertedAt : null, status: "SUCCESS", amount: data.amount, planId: plan.id, planSessionCountSnapshot: plan.sessionCount, pendingWalletExpiryDateSnapshot: isPending ? expiryDate : null, discountReason: data.discountReason || null, note: data.note || null },
       });
       return { transactionId: transaction.id, walletId: wallet?.id ?? null };
     });

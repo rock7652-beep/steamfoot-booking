@@ -55,6 +55,7 @@ beforeEach(() => {
     customerPlanWallet: { create: walletCreate, findUnique: walletFindUnique, update: walletUpdate },
     walletSession: { groupBy: sessionGroupBy, updateMany: sessionUpdateMany },
     customer: { findUnique: customerFindUnique, update: customerUpdate },
+    $queryRaw: vi.fn().mockResolvedValue([{ id: "customer_1" }]),
   }));
 });
 

@@ -139,7 +139,8 @@ beforeEach(() => {
     cb({
       customerPlanWallet: { create: mockWalletCreate, update: vi.fn() },
       transaction: { create: mockTransactionCreate },
-      customer: { update: mockCustomerUpdate, findUnique: vi.fn() },
+      customer: { update: mockCustomerUpdate, findUnique: vi.fn().mockResolvedValue(CUSTOMER) },
+      $queryRaw: vi.fn().mockResolvedValue([{ id: CUSTOMER_ID }]),
     }),
   );
 });
