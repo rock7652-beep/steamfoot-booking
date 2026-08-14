@@ -593,6 +593,8 @@ export async function voidPendingTransaction(
 
     await prisma.$transaction(async (tx) => {
       if (original.customerPlanWalletId) {
+        // 與人工錢包關聯及已付款取消共用顧客鎖，避免 provenance check 漏掉未提交關聯。
+        await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${original.customerId} FOR UPDATE`;
         const [wallet, sessionGroups, relatedTransactions] = await Promise.all([
           tx.customerPlanWallet.findUnique({
             where: { id: original.customerPlanWalletId },
