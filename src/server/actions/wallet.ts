@@ -219,6 +219,10 @@ export async function assignPlanToCustomer(
           ...paymentSplitCreateData(paymentSplits),
           paymentStatus,                          // PR-3：PENDING (TRANSFER/UNPAID) or SUCCESS
           paidAt,                                  // PR-3：null (PENDING) or now
+          conversionEffectsApplied: !isPending,
+          preConversionCustomerStage: !isPending ? customer.customerStage : null,
+          preConversionSelfBookingEnabled: !isPending ? customer.selfBookingEnabled : null,
+          preConversionConvertedAt: !isPending ? customer.convertedAt : null,
           referenceNo: data.referenceNo ?? null,   // PR-3：轉帳參考號
           bankLast5: data.bankLast5 ?? null,       // PR-3：轉帳帳號末五碼
           amount: finalAmount,                    // 實收金額
