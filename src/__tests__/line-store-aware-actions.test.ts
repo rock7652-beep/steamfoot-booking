@@ -42,6 +42,9 @@ const mockPrisma = {
   },
   messageTemplate: {
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(async ({ data }) => ({ id: "card-reminder-setting-1", ...data })),
+    update: vi.fn(async ({ data }) => ({ id: "card-reminder-setting-1", ...data })),
   },
   messageLog: {
     findFirst: vi.fn(),
@@ -156,6 +159,7 @@ describe("LINE sending actions are store-aware", () => {
     });
     previewMessengerUtilityTestReminderMock.mockResolvedValue({ code: "READY" });
     sendMessengerUtilityTestReminderMock.mockResolvedValue({ code: "SENT", quotaConsumed: true });
+    mockPrisma.messageTemplate.findFirst.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -585,6 +589,9 @@ describe("LINE sending actions are store-aware", () => {
       templateId: "template-package",
       template: { body: "自訂提醒：{{customerName}} 請於 {{bookingTime}} 準時抵達 {{shopName}}" },
     });
+    mockPrisma.messageTemplate.findFirst.mockResolvedValue({
+      body: "請穿著輕便服裝，並提前 5 分鐘抵達。",
+    });
 
     const { previewBookingTestReminder, sendBookingTestReminder } = await import("@/server/actions/reminder");
     await expect(previewBookingTestReminder({ bookingId: booking.id })).resolves.toEqual({
@@ -619,7 +626,7 @@ describe("LINE sending actions are store-aware", () => {
             contents: expect.arrayContaining([
               expect.objectContaining({ text: "方案預約" }),
               expect.objectContaining({
-                text: "自訂提醒：方案顧客 請於 14:30 準時抵達 暖暖蒸足",
+                text: "請穿著輕便服裝，並提前 5 分鐘抵達。",
               }),
             ]),
           }),
@@ -694,7 +701,7 @@ describe("LINE sending actions are store-aware", () => {
     ]));
   });
 
-  it("preserves custom instructions added to the standard package reminder template", async () => {
+  it("uses the store card reminder without changing the formal reminder template", async () => {
     const booking = {
       id: "single-booking-custom", storeId: "store-hsinchu", customerId: "customer-single-custom",
       bookingStatus: "CONFIRMED", bookingType: "SINGLE", trialBookingChannel: null,
@@ -713,6 +720,9 @@ describe("LINE sending actions are store-aware", () => {
       template: {
         body: "{{customerName}} 您好！\n\n明天 ({{bookingDate}}) {{bookingTime}} 有一筆蒸足預約，請記得準時到店。\n\n請攜帶毛巾。\n\n如需取消或改期，請點擊：{{bookingLink}}\n\n{{shopName}} 敬上",
       },
+    });
+    mockPrisma.messageTemplate.findFirst.mockResolvedValue({
+      body: "請攜帶毛巾。",
     });
 
     const { sendBookingTestReminder } = await import("@/server/actions/reminder");
