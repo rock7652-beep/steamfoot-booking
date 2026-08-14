@@ -1209,7 +1209,10 @@ ${renderedReminder}`;
       result.httpStatus === 400 &&
       storeRecipient
     ) {
-      result = await pushMessage(storeId, storeRecipient, textMessages);
+      result = await pushMessage(storeId, storeRecipient, flexMessages);
+      if (canFallbackToTextReminder(result)) {
+        result = await pushMessage(storeId, storeRecipient, textMessages);
+      }
       actualRoute = "STORE";
     }
 
