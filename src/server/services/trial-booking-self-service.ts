@@ -39,15 +39,15 @@ function bookingStartsAt(booking: { bookingDate: Date; slotTime: string }): Date
   return parseTaipeiDateTime(booking.bookingDate.toISOString().slice(0, 10), booking.slotTime) ?? new Date(Number.NaN);
 }
 
-const SELF_SERVICE_CUTOFF_MS = 2 * 60 * 60 * 1000;
+const SELF_SERVICE_CUTOFF_MS = 12 * 60 * 60 * 1000;
 
 function selfServiceAllowed(booking: { bookingDate: Date; slotTime: string }, now: Date): boolean {
-  return bookingStartsAt(booking).getTime() - now.getTime() > SELF_SERVICE_CUTOFF_MS;
+  return bookingStartsAt(booking).getTime() - now.getTime() >= SELF_SERVICE_CUTOFF_MS;
 }
 
 export function isTrialRescheduleTargetAllowed(date: string, slotTime: string, now: Date): boolean {
   const startsAt = parseTaipeiDateTime(date, slotTime);
-  return startsAt !== null && startsAt.getTime() - now.getTime() > SELF_SERVICE_CUTOFF_MS;
+  return startsAt !== null && startsAt.getTime() - now.getTime() >= SELF_SERVICE_CUTOFF_MS;
 }
 
 function isValidTrialRescheduleDate(date: string): boolean {

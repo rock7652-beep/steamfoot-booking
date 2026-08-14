@@ -1185,7 +1185,7 @@ ${renderedReminder}`;
         reminderText:
           cardReminderSetting?.body ??
           DEFAULT_PACKAGE_LINE_CARD_REMINDER,
-      }, bookingLink);
+      }, bookingLink, booking.id);
     const textMessages = isLineTrialBooking
       ? buildTrialBookingReminderTextFallback(card, bookingLink, `${BOOKING_LINE_TEST_PREFIX}\n這是管理者手動發送的通知測試，無須回覆。\n\n`)
       : [{ type: "text" as const, text: renderedBody }];

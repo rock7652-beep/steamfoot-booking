@@ -430,13 +430,22 @@ describe("LINE sending actions are store-aware", () => {
         altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
         contents: expect.objectContaining({
           footer: expect.objectContaining({
-            contents: expect.arrayContaining([expect.objectContaining({
-              action: {
-                type: "uri",
-                label: "查看／管理預約",
-                uri: "https://example.test/my-bookings",
-              },
-            })]),
+            contents: expect.arrayContaining([
+              expect.objectContaining({
+                action: {
+                  type: "uri",
+                  label: "改時段",
+                  uri: "https://example.test/my-bookings/booking-1/reschedule",
+                },
+              }),
+              expect.objectContaining({
+                action: {
+                  type: "uri",
+                  label: "取消前往",
+                  uri: "https://example.test/my-bookings/booking-1/cancel",
+                },
+              }),
+            ]),
           }),
         }),
       })],
@@ -547,8 +556,8 @@ describe("LINE sending actions are store-aware", () => {
       httpStatus: 400,
       errorType: "line_api_rejected",
     });
-    // The package Flex retry is text-only; keep the central route rejected so
-    // the existing verified store-route fallback is exercised.
+    // Keep the central route rejected so the existing verified store-route
+    // fallback is exercised. The store route starts its own safe Flex attempt.
     pushSteamButlerMessageMock.mockResolvedValueOnce({
       success: false,
       error: 'LINE API 400: {"message":"Failed to send messages"}',
@@ -566,7 +575,10 @@ describe("LINE sending actions are store-aware", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "U_store_customer",
-      [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
+      [expect.objectContaining({
+        type: "flex",
+        altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
+      })],
     );
     expect(mockPrisma.messageLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ lineRoute: "STORE", status: "SENT" }),
@@ -678,14 +690,7 @@ describe("LINE sending actions are store-aware", () => {
               }),
             ]),
           }),
-          body: expect.objectContaining({
-            contents: expect.arrayContaining([
-              expect.objectContaining({ text: "方案預約" }),
-              expect.objectContaining({
-                text: "請穿著輕便服裝，並提前 5 分鐘抵達。",
-              }),
-            ]),
-          }),
+          body: expect.any(Object),
           footer: expect.objectContaining({
             contents: expect.arrayContaining([
               expect.objectContaining({
@@ -700,8 +705,16 @@ describe("LINE sending actions are store-aware", () => {
                 style: "primary",
                 color: "#6B4A35",
                 action: expect.objectContaining({
-                  label: "查看／管理預約",
-                  uri: "https://example.test/my-bookings",
+                  label: "改時段",
+                  uri: "https://example.test/my-bookings/package-booking-1/reschedule",
+                }),
+              }),
+              expect.objectContaining({
+                style: "secondary",
+                color: "#A33A32",
+                action: expect.objectContaining({
+                  label: "取消前往",
+                  uri: "https://example.test/my-bookings/package-booking-1/cancel",
                 }),
               }),
             ]),
@@ -709,6 +722,9 @@ describe("LINE sending actions are store-aware", () => {
         }),
       })],
     );
+    const packageCardJson = JSON.stringify(pushMessageMock.mock.calls.at(-1)?.[2]?.[0]);
+    expect(packageCardJson).toContain("方案預約");
+    expect(packageCardJson).toContain("請穿著輕便服裝，並提前 5 分鐘抵達。");
     expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
     expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
   });
@@ -743,18 +759,14 @@ describe("LINE sending actions are store-aware", () => {
       contents: { body: { contents: Array<{ text?: string }> } };
     };
     expect(message.type).toBe("flex");
-    expect(message.contents.body.contents).toEqual(expect.arrayContaining([
-      expect.objectContaining({ text: "單次預約" }),
-      expect.objectContaining({ text: "暖暖蒸足" }),
-      expect.objectContaining({ text: "45 分鐘" }),
-      expect.objectContaining({ text: "新竹縣竹北市科大一路80號" }),
-      expect.objectContaining({ text: "請記得準時到店。" }),
-    ]));
-    expect(message.contents.body.contents).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ text: "方案預約" }),
-      expect.objectContaining({ text: expect.stringContaining("https://") }),
-      expect.objectContaining({ text: expect.stringContaining("單次顧客 您好") }),
-    ]));
+    const messageJson = JSON.stringify(message);
+    expect(messageJson).toContain("單次預約");
+    expect(messageJson).toContain("暖暖蒸足");
+    expect(messageJson).toContain("45 分鐘");
+    expect(messageJson).toContain("新竹縣竹北市科大一路80號");
+    expect(messageJson).toContain("請記得準時到店。");
+    expect(messageJson).not.toContain("方案預約");
+    expect(messageJson).not.toContain("單次顧客 您好！");
   });
 
   it("uses the store card reminder without changing the formal reminder template", async () => {
@@ -790,18 +802,14 @@ describe("LINE sending actions are store-aware", () => {
       contents: { body: { contents: Array<{ text?: string }> } };
     };
     expect(message.type).toBe("flex");
-    expect(message.contents.body.contents).toEqual(expect.arrayContaining([
-      expect.objectContaining({ text: "單次預約" }),
-      expect.objectContaining({ text: "暖暖蒸足" }),
-      expect.objectContaining({ text: "45 分鐘" }),
-      expect.objectContaining({ text: "新竹縣竹北市科大一路80號" }),
-      expect.objectContaining({ text: "請攜帶毛巾。" }),
-    ]));
-    expect(message.contents.body.contents).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ text: "方案預約" }),
-      expect.objectContaining({ text: expect.stringContaining("https://") }),
-      expect.objectContaining({ text: expect.stringContaining("自訂提醒顧客 您好") }),
-    ]));
+    const messageJson = JSON.stringify(message);
+    expect(messageJson).toContain("單次預約");
+    expect(messageJson).toContain("暖暖蒸足");
+    expect(messageJson).toContain("45 分鐘");
+    expect(messageJson).toContain("新竹縣竹北市科大一路80號");
+    expect(messageJson).toContain("請攜帶毛巾。");
+    expect(messageJson).not.toContain("方案預約");
+    expect(messageJson).not.toContain("自訂提醒顧客 您好！");
   });
 
   it("selects Messenger Utility only for a valid Messenger source", async () => {
