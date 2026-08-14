@@ -639,7 +639,10 @@ async function main() {
     return;
   }
 
-  const target = process.env[PRODUCTION_MIGRATION_TARGET_ENV];
+  // One-shot fallback for the first Production deployment containing this migration.
+  // Remove it after the guarded deployment has verified the migration ledger and schema.
+  const target = process.env[PRODUCTION_MIGRATION_TARGET_ENV] ||
+    TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION;
   if (!target) {
     log("migration_skipped_no_target");
     return;
