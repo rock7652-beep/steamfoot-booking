@@ -112,7 +112,7 @@ export function TrialBookingManager() {
 
   return <main className="mx-auto min-h-dvh max-w-lg bg-[#f7f2ea] p-6 text-earth-900">
     <h1 className="text-2xl font-bold">體驗預約自助處理</h1>
-    <p className="mt-2 text-sm text-earth-600">您可確認會到、同店改期一次，或取消預約。距離預約兩小時內請直接聯絡門市。</p>
+    <p className="mt-2 text-sm text-earth-600">您可確認會到、同店改期一次，或取消預約。距離預約 12 小時內請直接聯絡門市。</p>
     {message && <p className="mt-4 rounded-xl bg-white p-3 text-sm">{message}</p>}
     {action === "cancel" ? cancelButton : action === "reschedule" ? rescheduleSection : action === "confirm" ? null : <>
       <button disabled={disabled} className="mt-6 w-full rounded-xl bg-primary-600 p-3 font-semibold text-white disabled:opacity-40" onClick={() => void confirmTrialBookingFromChat(token).then(result => setMessage(result === "unavailable" ? "此預約目前無法自行處理，請聯絡門市。" : "已確認會到，期待見到您！"))}>確認會到</button>

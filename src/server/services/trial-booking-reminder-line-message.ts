@@ -21,14 +21,21 @@ export type TrialBookingReminderCard = {
 };
 
 /**
- * The signed management URL deliberately stays out of the visible message
- * body. Each button opens the same existing self-service page, which remains
- * the single authority for identity verification and action restrictions.
+ * Action URLs deliberately stay out of the visible message body. The linked
+ * customer pages re-check login identity, store, ownership and the 12-hour
+ * cutoff before allowing any write.
  */
 export function buildPackageBookingTestReminderLineMessages(
   card: PackageBookingReminderCard,
   managementUrl: string,
+  bookingId: string,
 ): LineMessage[] {
+  const actionUrl = (action: "cancel" | "reschedule") => {
+    const url = new URL(managementUrl);
+    url.pathname = `${url.pathname.replace(/\/$/, "")}/${encodeURIComponent(bookingId)}/${action}`;
+    return url.toString();
+  };
+
   return [{
     type: "flex",
     altText: `【測試提醒｜不影響正式排程】${card.customerName} 的預約：${card.bookingDate} ${card.bookingTime}`,
@@ -92,7 +99,13 @@ export function buildPackageBookingTestReminderLineMessages(
             type: "button",
             style: "primary",
             color: "#6B4A35",
-            action: { type: "uri", label: "查看／管理預約", uri: managementUrl },
+            action: { type: "uri", label: "改時段", uri: actionUrl("reschedule") },
+          },
+          {
+            type: "button",
+            style: "secondary",
+            color: "#A33A32",
+            action: { type: "uri", label: "取消前往", uri: actionUrl("cancel") },
           },
         ],
       },
