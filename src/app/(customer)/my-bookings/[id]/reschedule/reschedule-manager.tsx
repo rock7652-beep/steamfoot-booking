@@ -23,6 +23,9 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
   const [selected, setSelected] = useState("");
   const [message, setMessage] = useState("");
   const [canReschedule, setCanReschedule] = useState(false);
+  const [minDate, setMinDate] = useState("");
+  const [maxDate, setMaxDate] = useState("");
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [pending, startTransition] = useTransition();
   const [slotRequestGate] = useState(createLatestRequestGate);
 
@@ -36,16 +39,21 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
         setDate(status.bookingDate);
         setCurrent(`${status.bookingDate} ${status.slotTime}`);
         setCanReschedule(status.canReschedule);
+        setMinDate(status.todayDate);
+        setMaxDate(status.bookableUntilDate);
         if (status.canReschedule) {
           const requestId = slotRequestGate.issue();
+          setLoadingSlots(true);
           void listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)
             .then((next) => {
               if (!slotRequestGate.isCurrent(requestId)) return;
               setSlots(next);
-              setMessage(next.length === 0 ? "這一天目前沒有可改期時段。" : "");
+              setLoadingSlots(false);
+              setMessage(next.length === 0 ? "這一天目前沒有開放或可預約的時段，請選擇其他日期。" : "");
             })
             .catch(() => {
               if (slotRequestGate.isCurrent(requestId)) {
+                setLoadingSlots(false);
                 setMessage("目前無法取得可改期時段，請稍後再試。");
               }
             });
@@ -62,17 +70,22 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
   async function loadSlots(nextDate: string) {
     if (!nextDate || !canReschedule) return;
     const requestId = slotRequestGate.issue();
+    setLoadingSlots(true);
     setSlots([]);
     setSelected("");
     try {
       const next = await listCustomerBookingRescheduleSlots(bookingId, nextDate);
       if (slotRequestGate.isCurrent(requestId)) {
         setSlots(next);
-        if (next.length === 0) setMessage("這一天目前沒有可改期時段。");
+        setLoadingSlots(false);
+        if (next.length === 0) setMessage("這一天目前沒有開放或可預約的時段，請選擇其他日期。");
         else setMessage("");
       }
     } catch {
-      if (slotRequestGate.isCurrent(requestId)) setMessage("目前無法取得可改期時段，請稍後再試。");
+      if (slotRequestGate.isCurrent(requestId)) {
+        setLoadingSlots(false);
+        setMessage("目前無法取得可改期時段，請稍後再試。");
+      }
     }
   }
 
@@ -115,7 +128,9 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
               id="reschedule-date"
               type="date"
               value={date}
-              disabled={pending}
+              min={minDate}
+              max={maxDate}
+              disabled={pending || loadingSlots}
               onChange={(event) => {
                 const next = event.target.value;
                 slotRequestGate.invalidate();
@@ -124,13 +139,18 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
               }}
               className="mt-2 min-h-[48px] w-full rounded-xl border border-earth-300 px-3 text-earth-900"
             />
+            {loadingSlots && (
+              <p className="mt-4 rounded-xl bg-primary-50 p-3 text-sm font-medium text-primary-800">
+                正在載入這一天的可預約時段…
+              </p>
+            )}
             {slots.length > 0 && (
               <div className="mt-4 grid grid-cols-3 gap-2">
                 {slots.map((slot) => (
                   <button
                     key={slot}
                     type="button"
-                    disabled={pending}
+                    disabled={pending || loadingSlots}
                     onClick={() => setSelected(slot)}
                     className={`min-h-[44px] rounded-xl border px-3 py-2 font-medium disabled:opacity-50 ${selected === slot ? "border-primary-600 bg-primary-100 text-primary-800" : "border-earth-300 text-earth-800"}`}
                   >

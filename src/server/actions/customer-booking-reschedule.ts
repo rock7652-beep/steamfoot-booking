@@ -112,12 +112,16 @@ async function storeAllowsReschedule(storeId: string): Promise<boolean> {
   return bookable && !blocked;
 }
 
-async function storeBookingHorizonAllows(storeId: string, date: string): Promise<boolean> {
+async function storeBookableUntilDate(storeId: string): Promise<string> {
   const config = await prisma.shopConfig.findUnique({
     where: { storeId },
     select: { bookableUntilDate: true },
   });
-  return date <= resolveBookableUntilDate(config?.bookableUntilDate);
+  return resolveBookableUntilDate(config?.bookableUntilDate);
+}
+
+async function storeBookingHorizonAllows(storeId: string, date: string): Promise<boolean> {
+  return date <= await storeBookableUntilDate(storeId);
 }
 
 function bookingCanReschedule(booking: AuthorizedBooking, now: Date): boolean {
@@ -161,8 +165,12 @@ export async function getCustomerBookingRescheduleStatus(bookingId: string) {
   const booking = await loadAuthorizedBooking(bookingId);
   if (!booking) return null;
   const bookingDate = booking.bookingDate.toISOString().slice(0, 10);
+  const todayDate = toLocalDateStr();
+  const bookableUntilDate = await storeBookableUntilDate(booking.storeId);
   return {
     bookingDate,
+    todayDate,
+    bookableUntilDate,
     slotTime: booking.slotTime,
     bookingStatus: booking.bookingStatus,
     customerRescheduleCount: booking.customerRescheduleCount,
@@ -212,16 +220,19 @@ export async function listCustomerBookingRescheduleSlots(bookingId: string, date
     const canonical = canonicalizeBookingSlotTime(row.slotTime);
     used.set(canonical, (used.get(canonical) ?? 0) + (row._sum.people ?? 0));
   }
-  const duty = new Set(dutyRows.map((row) => row.slotTime));
+  const duty = new Set(dutyRows.map((row) => canonicalizeBookingSlotTime(row.slotTime)));
   return applySlotOverrides(ctx.rule, ctx.slotOverrides)
-    .filter((slot) =>
-      slot.isEnabled &&
-      !(date === booking.bookingDate.toISOString().slice(0, 10) && sameSlotTime(slot.startTime, booking.slotTime)) &&
-      outsideCutoff(date, slot.startTime, now) &&
-      (!dutyEnabled || duty.has(slot.startTime)) &&
-      slot.capacity - (used.get(slot.startTime) ?? 0) >= booking.people
-    )
-    .map((slot) => slot.startTime);
+    .filter((slot) => {
+      const canonical = canonicalizeBookingSlotTime(slot.startTime);
+      return (
+        slot.isEnabled &&
+        !(date === booking.bookingDate.toISOString().slice(0, 10) && sameSlotTime(canonical, booking.slotTime)) &&
+        outsideCutoff(date, canonical, now) &&
+        (!dutyEnabled || duty.has(canonical)) &&
+        slot.capacity - (used.get(canonical) ?? 0) >= booking.people
+      );
+    })
+    .map((slot) => canonicalizeBookingSlotTime(slot.startTime));
 }
 
 export async function rescheduleCustomerBooking(
@@ -302,7 +313,11 @@ export async function rescheduleCustomerBooking(
       if (date > resolveBookableUntilDate(config?.bookableUntilDate)) return "unavailable";
       if (dutyEnabled) {
         const duty = await tx.dutyAssignment.findFirst({
-          where: { storeId: booking.storeId, date: ctx.dateObj, slotTime },
+          where: {
+            storeId: booking.storeId,
+            date: ctx.dateObj,
+            slotTime: { in: bookingSlotTimeVariants(slotTime) },
+          },
           select: { id: true },
         });
         if (!duty) return "unavailable";
