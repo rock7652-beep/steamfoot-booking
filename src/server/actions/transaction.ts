@@ -1067,6 +1067,7 @@ export async function voidTransaction(
               status: "SUCCESS",
               transactionType: { in: ALLOWED_TYPES },
               paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
+              conversionEffectsApplied: true,
               OR: [
                 { createdAt: { lt: current.createdAt } },
                 { createdAt: current.createdAt, id: { lt: current.id } },
