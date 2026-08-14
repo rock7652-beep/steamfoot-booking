@@ -61,4 +61,13 @@ describe("customer booking reschedule contract", () => {
     const manager = source("src/app/(customer)/my-bookings/[id]/reschedule/reschedule-manager.tsx");
     expect(manager).toContain("listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)");
   });
+
+  it("exposes the safe reschedule route from the normal customer booking list", () => {
+    const page = source("src/app/(customer)/my-bookings/page.tsx");
+    expect(page).toContain('b.bookingType === "PACKAGE_SESSION" || b.bookingType === "SINGLE"');
+    expect(page).toContain("!b.isMakeup");
+    expect(page).toContain("b.customerRescheduleCount < 1");
+    expect(page).toContain("/reschedule`");
+    expect(page).toContain("更改時間");
+  });
 });
