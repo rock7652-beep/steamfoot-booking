@@ -86,6 +86,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const activeStoreId = await getActiveStoreForRead(user);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
+  const isReadOnlyViewMode = isViewMode && !storeViewContext?.canWrite;
   const transactionsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const logCtx = {
     page: "transactions" as const,
@@ -131,13 +132,13 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       });
       return "EXPERIENCE" as const;
     }),
-    isViewMode
+    isReadOnlyViewMode
       ? Promise.resolve(false)
       : checkPermission(user.role, user.staffId, "transaction.void").catch(() => false),
-    isViewMode
+    isReadOnlyViewMode
       ? Promise.resolve(false)
       : checkPermission(user.role, user.staffId, "transaction.create").catch(() => false),
-    isViewMode
+    isReadOnlyViewMode
       ? Promise.resolve(false)
       : checkPermission(user.role, user.staffId, "transaction.refund").catch(() => false),
   ]);
@@ -159,7 +160,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {isViewMode && (
+      {isReadOnlyViewMode && (
         <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
           目前正在檢視分店交易資料。此頁為唯讀，無法修改、作廢或退款。
         </div>
