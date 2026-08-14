@@ -30,6 +30,7 @@ import {
   DEFAULT_PACKAGE_LINE_CARD_REMINDER,
   PACKAGE_LINE_CARD_REMINDER_MAX_LENGTH,
   PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
+  packageLineCardReminderSettingId,
 } from "@/lib/package-line-card-reminder-setting";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import {
@@ -789,32 +790,21 @@ export async function savePackageLineCardReminderSetting(
     await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
     const { body } = packageLineCardReminderSettingSchema.parse(input);
 
-    const existing = await prisma.messageTemplate.findFirst({
-      where: {
+    const settingId = packageLineCardReminderSettingId(storeId);
+    await prisma.messageTemplate.upsert({
+      where: { id: settingId },
+      create: {
+        id: settingId,
         storeId,
         name: PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
         channel: "LINE",
+        body,
+        isDefault: false,
       },
-      orderBy: { createdAt: "asc" },
-      select: { id: true },
+      update: {
+        body,
+      },
     });
-
-    if (existing) {
-      await prisma.messageTemplate.update({
-        where: { id: existing.id, storeId },
-        data: { body },
-      });
-    } else {
-      await prisma.messageTemplate.create({
-        data: {
-          storeId,
-          name: PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
-          channel: "LINE",
-          body,
-          isDefault: false,
-        },
-      });
-    }
 
     revalidatePath("/dashboard/reminders");
     return { success: true, data: undefined };
@@ -1121,13 +1111,11 @@ export async function sendBookingLineTestReminder(
         : resolveStorePresentation(booking.store.slug),
       booking.bookingType === "FIRST_TRIAL"
         ? Promise.resolve(null)
-        : prisma.messageTemplate.findFirst({
+        : prisma.messageTemplate.findUnique({
             where: {
+              id: packageLineCardReminderSettingId(storeId),
               storeId,
-              name: PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
-              channel: "LINE",
             },
-            orderBy: { createdAt: "asc" },
             select: { body: true },
           }),
     ]);
