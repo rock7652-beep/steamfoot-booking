@@ -39,6 +39,9 @@ describe("customer booking reschedule contract", () => {
     expect(action).toContain('parseTaipeiDateTime(date, "00:00") !== null');
     expect(action).toContain("date === current.bookingDate.toISOString().slice(0, 10)");
     expect(action).toContain("slotTime === current.slotTime");
+    expect(action).toContain("acquireBookingSlotLocks(tx");
+    expect(action).toContain("bookingSlotTimeVariants(slotTime)");
+    expect(action).toContain("canonicalizeBookingSlotTime(row.slotTime)");
   });
 
   it("updates the original booking without touching plan wallets or sessions", () => {
@@ -58,6 +61,8 @@ describe("customer booking reschedule contract", () => {
     expect(message).toContain('label: "取消前往"');
     expect(message).toContain('actionUrl("cancel")');
     expect(message).toContain("encodeURIComponent(bookingId)");
+    const reminder = source("src/server/actions/reminder.ts");
+    expect(reminder).toContain("/s/${encodeURIComponent(booking.store.slug)}/my-bookings");
   });
 
   it("loads same-day alternatives as soon as the reschedule page opens", () => {
