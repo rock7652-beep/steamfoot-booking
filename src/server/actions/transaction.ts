@@ -1273,6 +1273,7 @@ export async function fetchTransactionDetailDTO(
   transactionId: string,
 ): Promise<ActionResult<TransactionDetailDTO>> {
   try {
+    await requirePermission("transaction.read");
     const tx = await getTransactionDetail(transactionId);
 
     const sessions = tx.customerPlanWallet?.sessions ?? [];

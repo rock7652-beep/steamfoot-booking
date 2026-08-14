@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getManagerReadFilter, getStoreFilter, getVisibilityMode } from "@/lib/manager-visibility";
+import { getActiveStoreForRead } from "@/lib/store";
 import { dayRange } from "@/lib/date-utils";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
 
@@ -126,9 +127,10 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
 
 export async function getTransactionDetail(transactionId: string) {
   const user = await requireSession();
+  const activeStoreId = await getActiveStoreForRead(user);
 
   const tx = await prisma.transaction.findFirst({
-    where: { id: transactionId, ...getStoreFilter(user) },
+    where: { id: transactionId, ...(activeStoreId ? { storeId: activeStoreId } : {}) },
     include: {
       customer: { select: { id: true, name: true, assignedStaffId: true } },
       revenueStaff: { select: { id: true, displayName: true } },
