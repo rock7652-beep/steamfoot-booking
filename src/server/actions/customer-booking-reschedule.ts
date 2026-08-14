@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
-import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
+import { requireCustomerBookingEligibility } from "@/lib/customer-booking-eligibility";
 import { parseTaipeiDateTime, parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
 import { applySlotOverrides, loadDayBusinessHoursContext } from "@/lib/business-hours-resolver";
@@ -24,6 +24,12 @@ type AuthorizedBooking = {
   people: number;
   bookingStatus: string;
   customerRescheduleCount: number;
+  bookingType: "PACKAGE_SESSION" | "SINGLE";
+  isMakeup: boolean;
+  customerPlanWallet: {
+    status: string;
+    expiryDate: Date | null;
+  } | null;
 };
 
 function startsAt(date: string, slotTime: string): Date | null {
@@ -48,20 +54,20 @@ async function loadAuthorizedBooking(bookingId: string): Promise<AuthorizedBooki
       people: true,
       bookingStatus: true,
       bookingType: true,
+      isMakeup: true,
+      customerPlanWallet: {
+        select: { status: true, expiryDate: true },
+      },
       customerRescheduleCount: true,
     },
   });
   if (!booking || !CUSTOMER_RESCHEDULABLE_TYPES.includes(booking.bookingType as (typeof CUSTOMER_RESCHEDULABLE_TYPES)[number])) {
     return null;
   }
-  const customerId = await getCanonicalCustomerIdForSession({
-    id: user.id,
-    customerId: user.customerId ?? null,
-    email: user.email ?? null,
-    storeId: user.storeId ?? booking.storeId,
-  });
-  if (customerId !== booking.customerId) return null;
-  return booking;
+  if (user.role !== "CUSTOMER") return null;
+  const eligibility = await requireCustomerBookingEligibility(user);
+  if (eligibility.customerId !== booking.customerId || eligibility.storeId !== booking.storeId) return null;
+  return booking as AuthorizedBooking;
 }
 
 async function storeAllowsReschedule(storeId: string): Promise<boolean> {
@@ -78,6 +84,25 @@ function bookingCanReschedule(booking: AuthorizedBooking, now: Date): boolean {
     booking.customerRescheduleCount < CUSTOMER_RESCHEDULE_LIMIT &&
     outsideCutoff(booking.bookingDate.toISOString().slice(0, 10), booking.slotTime, now)
   );
+}
+
+function entitlementCoversDate(
+  booking: {
+    bookingType: string;
+    isMakeup: boolean;
+    customerPlanWallet: AuthorizedBooking["customerPlanWallet"];
+  },
+  date: string,
+): boolean {
+  if (booking.bookingType === "SINGLE") return true;
+  // Makeup bookings may consume multiple credits with independent expiry
+  // dates. Keep that exceptional flow store-assisted until it has a dedicated
+  // multi-credit reschedule contract.
+  if (booking.isMakeup) return false;
+  const wallet = booking.customerPlanWallet;
+  if (!wallet || wallet.status !== "ACTIVE") return false;
+  const targetDate = parseTaiwanDateToDbDate(date);
+  return !wallet.expiryDate || wallet.expiryDate >= targetDate;
 }
 
 export async function getCustomerBookingRescheduleStatus(bookingId: string) {
@@ -100,6 +125,7 @@ export async function listCustomerBookingRescheduleSlots(bookingId: string, date
     !bookingCanReschedule(booking, now) ||
     !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
     date < toLocalDateStr(now) ||
+    !entitlementCoversDate(booking, date) ||
     !(await storeAllowsReschedule(booking.storeId))
   ) return [];
 
@@ -150,6 +176,7 @@ export async function rescheduleCustomerBooking(
     !bookingCanReschedule(booking, now) ||
     !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
     date < toLocalDateStr(now) ||
+    !entitlementCoversDate(booking, date) ||
     !outsideCutoff(date, slotTime, now) ||
     (date === booking.bookingDate.toISOString().slice(0, 10) && slotTime === booking.slotTime) ||
     !(await storeAllowsReschedule(booking.storeId))
@@ -170,6 +197,10 @@ export async function rescheduleCustomerBooking(
           storeId: true,
           customerId: true,
           bookingType: true,
+          isMakeup: true,
+          customerPlanWallet: {
+            select: { status: true, expiryDate: true },
+          },
           bookingStatus: true,
           customerRescheduleCount: true,
           bookingDate: true,
@@ -183,6 +214,7 @@ export async function rescheduleCustomerBooking(
         !CUSTOMER_RESCHEDULABLE_TYPES.includes(current.bookingType as (typeof CUSTOMER_RESCHEDULABLE_TYPES)[number]) ||
         !PENDING_STATUSES.includes(current.bookingStatus as (typeof PENDING_STATUSES)[number]) ||
         current.customerRescheduleCount >= CUSTOMER_RESCHEDULE_LIMIT ||
+        !entitlementCoversDate(current, date) ||
         !outsideCutoff(current.bookingDate.toISOString().slice(0, 10), current.slotTime, now)
       ) return "unavailable";
       if (dutyEnabled) {
