@@ -1052,7 +1052,9 @@ export async function sendBookingLineTestReminder(
         include: { template: true },
       }),
       getShopConfig(storeId),
-      booking.bookingType === "FIRST_TRIAL" ? Promise.resolve(null) : resolveStorePresentation(booking.store.slug),
+      booking.bookingType === "FIRST_TRIAL" || !booking.store?.slug
+        ? Promise.resolve(null)
+        : resolveStorePresentation(booking.store.slug),
     ]);
     const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
     if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
