@@ -42,6 +42,10 @@ function startsAt(date: string, slotTime: string): Date | null {
   return parseTaipeiDateTime(date, slotTime);
 }
 
+function isValidRescheduleDate(date: string): boolean {
+  return parseTaipeiDateTime(date, "00:00") !== null;
+}
+
 function outsideCutoff(date: string, slotTime: string, now: Date): boolean {
   const value = startsAt(date, slotTime);
   return value !== null && value.getTime() - now.getTime() >= CUSTOMER_RESCHEDULE_CUTOFF_MS;
@@ -153,7 +157,7 @@ export async function listCustomerBookingRescheduleSlots(bookingId: string, date
   if (
     !booking ||
     !bookingCanReschedule(booking, now) ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+    !isValidRescheduleDate(date) ||
     date < toLocalDateStr(now) ||
     !entitlementCoversDate(booking, date) ||
     !(await storeBookingHorizonAllows(booking.storeId, date)) ||
@@ -205,7 +209,7 @@ export async function rescheduleCustomerBooking(
   if (
     !booking ||
     !bookingCanReschedule(booking, now) ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+    !isValidRescheduleDate(date) ||
     date < toLocalDateStr(now) ||
     !entitlementCoversDate(booking, date) ||
     !(await storeBookingHorizonAllows(booking.storeId, date)) ||
@@ -253,6 +257,7 @@ export async function rescheduleCustomerBooking(
         !PENDING_STATUSES.includes(current.bookingStatus as (typeof PENDING_STATUSES)[number]) ||
         current.customerRescheduleCount >= CUSTOMER_RESCHEDULE_LIMIT ||
         !entitlementCoversDate(current, date) ||
+        (date === current.bookingDate.toISOString().slice(0, 10) && slotTime === current.slotTime) ||
         !outsideCutoff(current.bookingDate.toISOString().slice(0, 10), current.slotTime, now)
       ) return "unavailable";
       const config = await tx.shopConfig.findUnique({
