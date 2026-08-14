@@ -124,11 +124,11 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
 // getTransactionDetail
 // ============================================================
 
-export async function getTransactionDetail(transactionId: string) {
+export async function getTransactionDetail(transactionId: string, activeStoreId?: string | null) {
   const user = await requireSession();
 
   const tx = await prisma.transaction.findFirst({
-    where: { id: transactionId, ...getStoreFilter(user) },
+    where: { id: transactionId, ...getStoreFilter(user, activeStoreId) },
     include: {
       customer: { select: { id: true, name: true, assignedStaffId: true } },
       revenueStaff: { select: { id: true, displayName: true } },
