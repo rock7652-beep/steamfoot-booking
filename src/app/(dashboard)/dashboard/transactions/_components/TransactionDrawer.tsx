@@ -70,7 +70,6 @@ interface DrawerProps {
   open: boolean;
   onClose: () => void;
   transactionId: string | null;
-  transactionStoreId: string;
   staffOptions: Array<{ id: string; displayName: string }>;
   canVoid: boolean;
   canEdit: boolean;
@@ -83,7 +82,6 @@ export function TransactionDrawer({
   open,
   onClose,
   transactionId,
-  transactionStoreId,
   staffOptions,
   canVoid,
   canEdit,
@@ -122,7 +120,7 @@ export function TransactionDrawer({
       setError(null);
       setView("main");
 
-      const res = await fetchTransactionDetailDTO(transactionId, transactionStoreId);
+      const res = await fetchTransactionDetailDTO(transactionId);
       if (cancelled) return;
       if (res.success) {
         setData(res.data);
@@ -145,12 +143,12 @@ export function TransactionDrawer({
     return () => {
       cancelled = true;
     };
-  }, [open, transactionId, transactionStoreId]);
+  }, [open, transactionId]);
 
   const refresh = () => {
     if (!transactionId) return;
     startTransition(() => {
-      fetchTransactionDetailDTO(transactionId, transactionStoreId).then((res) => {
+      fetchTransactionDetailDTO(transactionId).then((res) => {
         if (res.success) setData(res.data);
       });
       router.refresh();
