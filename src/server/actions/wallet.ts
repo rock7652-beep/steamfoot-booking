@@ -227,7 +227,7 @@ export async function assignPlanToCustomer(
           paidAt: isPending ? null : activationTime,
           conversionEffectsApplied: !isPending,
           conversionSnapshotCaptured: true,
-          firstTopupRewardsApplied: !isPending && isFirstPurchase,
+          firstTopupRewardsApplied: false,
           preConversionCustomerStage: !isPending ? lockedCustomer.customerStage : null,
           preConversionSelfBookingEnabled: !isPending ? lockedCustomer.selfBookingEnabled : null,
           preConversionConvertedAt: !isPending ? lockedCustomer.convertedAt : null,
@@ -269,12 +269,22 @@ export async function assignPlanToCustomer(
 
         // 推薦獎勵：首次購課 + 有 sponsor → 邀請者 +15、被邀請者 +5
         // sourceKey 以 customerId 為主鍵；靜默失敗
-        await awardFirstTopupReferralPointsIfEligible({
+        const rewards = await awardFirstTopupReferralPointsIfEligible({
           customerId: data.customerId,
           storeId: currentStoreId(user),
           isFirstPurchase,
           tx,
         });
+        if (rewards?.referrerAwarded || rewards?.selfAwarded) {
+          await tx.transaction.update({
+            where: { id: transaction.id },
+            data: {
+              firstTopupRewardsApplied: true,
+              firstTopupReferrerRewardApplied: rewards?.referrerAwarded ?? false,
+              firstTopupSelfRewardApplied: rewards?.selfAwarded ?? false,
+            },
+          });
+        }
       }
 
       return { wallet, transaction };

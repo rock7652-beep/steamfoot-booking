@@ -1864,6 +1864,8 @@ model Transaction {
   // migration 後建立的購買均明確標記；舊交易沒有完整快照時禁止直接取消。
   conversionSnapshotCaptured      Boolean           @default(false)
   firstTopupRewardsApplied         Boolean           @default(false)
+  firstTopupReferrerRewardApplied  Boolean           @default(false)
+  firstTopupSelfRewardApplied      Boolean           @default(false)
   preConversionCustomerStage      CustomerStage?
   preConversionSelfBookingEnabled Boolean?
   preConversionConvertedAt        DateTime?

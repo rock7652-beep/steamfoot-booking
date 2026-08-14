@@ -241,6 +241,8 @@ describe("transaction actions — store consistency", () => {
       paidAt: new Date("2026-08-14T01:00:00.000Z"),
       conversionEffectsApplied: true,
       firstTopupRewardsApplied: true,
+      firstTopupReferrerRewardApplied: true,
+      firstTopupSelfRewardApplied: true,
       preConversionCustomerStage: "TRIAL",
       preConversionSelfBookingEnabled: true,
       preConversionConvertedAt: previousConvertedAt,
@@ -381,6 +383,8 @@ describe("transaction actions — store consistency", () => {
       paidAt: new Date("2026-08-14T01:00:00.000Z"),
       conversionEffectsApplied: true,
       firstTopupRewardsApplied: true,
+      firstTopupReferrerRewardApplied: true,
+      firstTopupSelfRewardApplied: true,
       preConversionCustomerStage: "LEAD",
       preConversionSelfBookingEnabled: false,
       preConversionConvertedAt: null,
@@ -402,6 +406,8 @@ describe("transaction actions — store consistency", () => {
         preConversionConvertedAt: null,
         conversionAppliedConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
         firstTopupRewardsApplied: true,
+        firstTopupReferrerRewardApplied: true,
+        firstTopupSelfRewardApplied: true,
       },
     });
     expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();

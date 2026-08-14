@@ -473,7 +473,7 @@ export async function confirmTransactionPayment(
         data: {
           conversionEffectsApplied: true,
           conversionSnapshotCaptured: true,
-          firstTopupRewardsApplied: isFirstPurchase,
+          firstTopupRewardsApplied: false,
           preConversionCustomerStage: customer.customerStage,
           preConversionSelfBookingEnabled: customer.selfBookingEnabled,
           preConversionConvertedAt: customer.convertedAt,
@@ -492,12 +492,22 @@ export async function confirmTransactionPayment(
 
       // 首儲推薦獎勵（僅首次購課且有 sponsor 才觸發）
       // 靜默失敗；dedup key 同 PR-3：PointRecord @@unique 擋重複發獎
-      await awardFirstTopupReferralPointsIfEligible({
+      const rewards = await awardFirstTopupReferralPointsIfEligible({
         customerId: original.customerId,
         storeId: original.storeId,
         isFirstPurchase,
         tx,
       });
+      if (rewards?.referrerAwarded || rewards?.selfAwarded) {
+        await tx.transaction.update({
+          where: { id: transactionId },
+          data: {
+            firstTopupRewardsApplied: true,
+            firstTopupReferrerRewardApplied: rewards?.referrerAwarded ?? false,
+            firstTopupSelfRewardApplied: rewards?.selfAwarded ?? false,
+          },
+        });
+      }
     });
 
     revalidateTransactions(original.customerId);
@@ -909,6 +919,8 @@ export async function voidTransaction(
         conversionEffectsApplied: true,
         conversionSnapshotCaptured: true,
         firstTopupRewardsApplied: true,
+        firstTopupReferrerRewardApplied: true,
+        firstTopupSelfRewardApplied: true,
         preConversionCustomerStage: true,
         preConversionSelfBookingEnabled: true,
         preConversionConvertedAt: true,
@@ -959,6 +971,8 @@ export async function voidTransaction(
           conversionEffectsApplied: true,
           conversionSnapshotCaptured: true,
           firstTopupRewardsApplied: true,
+          firstTopupReferrerRewardApplied: true,
+          firstTopupSelfRewardApplied: true,
           preConversionCustomerStage: true,
           preConversionSelfBookingEnabled: true,
           preConversionConvertedAt: true,
@@ -1129,16 +1143,28 @@ export async function voidTransaction(
               preConversionConvertedAt: current.preConversionConvertedAt,
               conversionAppliedConvertedAt: current.conversionAppliedConvertedAt,
               firstTopupRewardsApplied: current.firstTopupRewardsApplied,
+              firstTopupReferrerRewardApplied: current.firstTopupReferrerRewardApplied,
+              firstTopupSelfRewardApplied: current.firstTopupSelfRewardApplied,
             },
           });
         } else if (!previousEffectfulPurchase && !nextEffectfulPurchase) {
           // 只刪除這條購買鏈確定發放的首儲獎勵，避免碰到 migration 前的歷史點數。
-          if (current.firstTopupRewardsApplied) {
+          if (
+            current.firstTopupReferrerRewardApplied ||
+            current.firstTopupSelfRewardApplied
+          ) {
             const referralPointRecords = await tx.pointRecord.findMany({
               where: {
                 storeId: current.storeId,
                 sourceKey: current.customerId,
-                sourceType: { in: ["first_topup_referrer", "first_topup_self"] },
+                sourceType: {
+                  in: [
+                    ...(current.firstTopupReferrerRewardApplied
+                      ? ["first_topup_referrer"]
+                      : []),
+                    ...(current.firstTopupSelfRewardApplied ? ["first_topup_self"] : []),
+                  ],
+                },
               },
               select: { id: true, customerId: true, points: true },
             });

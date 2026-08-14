@@ -32,9 +32,9 @@ export async function awardPoints(opts: {
   pointsOverride?: number;
   sourceType?: string;
   sourceKey?: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const points = opts.pointsOverride ?? POINT_VALUES[opts.type];
-  if (points === 0) return;
+  if (points === 0) return false;
 
   const client = opts.tx ?? prisma;
   const hasDedupe = opts.sourceType != null && opts.sourceKey != null;
@@ -56,7 +56,7 @@ export async function awardPoints(opts: {
     });
     if (result.count === 0) {
       // 已經發過點，不重複累積 totalPoints
-      return;
+      return false;
     }
   } else {
     await client.pointRecord.create({
@@ -74,4 +74,5 @@ export async function awardPoints(opts: {
     where: { id: opts.customerId },
     data: { totalPoints: { increment: points } },
   });
+  return true;
 }
