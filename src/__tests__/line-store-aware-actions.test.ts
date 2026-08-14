@@ -161,6 +161,7 @@ describe("LINE sending actions are store-aware", () => {
     previewMessengerUtilityTestReminderMock.mockResolvedValue({ code: "READY" });
     sendMessengerUtilityTestReminderMock.mockResolvedValue({ code: "SENT", quotaConsumed: true });
     mockPrisma.messageTemplate.findFirst.mockResolvedValue(null);
+    mockPrisma.messageTemplate.findUnique.mockResolvedValue(null);
   });
 
   afterEach(() => {
