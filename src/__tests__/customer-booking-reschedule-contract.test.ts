@@ -30,7 +30,9 @@ describe("customer booking reschedule contract", () => {
     expect(action).toContain('return "slot_full"');
     expect(action).toContain("entitlementCoversDate");
     expect(action).toContain("if (booking.isMakeup) return false");
-    expect(action).toContain('wallet.status !== "ACTIVE"');
+    expect(action).toContain('where: { status: "RESERVED" }');
+    expect(action).toContain("wallets.every");
+    expect(action).toContain('wallet.status === "ACTIVE"');
   });
 
   it("updates the original booking without touching plan wallets or sessions", () => {
