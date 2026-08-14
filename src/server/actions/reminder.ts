@@ -140,29 +140,6 @@ const sessionBalanceSettingSchema = z.object({
 const BOOKING_LINE_TEST_PREFIX = "【測試提醒｜不影響正式排程】";
 const BOOKING_LINE_TEST_COOLDOWN_MS = 60_000;
 
-function packageReminderCardText(
-  templateBody: string | null | undefined,
-  renderedReminder: string,
-  bookingLink: string,
-): string {
-  if (!templateBody) return "請記得準時到店。";
-
-  const standardTemplateLines = new Set([
-    "{{customerName}} 您好！",
-    "明天 ({{bookingDate}}) {{bookingTime}} 有一筆蒸足預約，請記得準時到店。",
-    "如需取消或改期，請點擊：{{bookingLink}}",
-    "{{shopName}} 敬上",
-  ]);
-  const templateLines = templateBody.split("\n");
-  const customText = renderedReminder
-    .split("\n")
-    .filter((_, index) => !standardTemplateLines.has(templateLines[index]?.trim()))
-    .map((line) => line.replaceAll(bookingLink, "").trim())
-    .filter((line) => line && !/^如需.*請點擊[：:]?$/.test(line))
-    .join("\n");
-  return customText || "請記得準時到店。";
-}
-
 type SessionBalanceSettingInput = z.input<typeof sessionBalanceSettingSchema>;
 
 export type BookingTestReminderChannel = "LINE" | "MESSENGER";
