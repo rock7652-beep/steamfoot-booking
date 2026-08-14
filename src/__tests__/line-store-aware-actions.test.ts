@@ -166,6 +166,35 @@ describe("LINE sending actions are store-aware", () => {
     vi.unstubAllEnvs();
   });
 
+  it("stores the package LINE card reminder in the active store only", async () => {
+    mockPrisma.messageTemplate.findFirst.mockResolvedValueOnce(null);
+
+    const { savePackageLineCardReminderSetting } = await import("@/server/actions/reminder");
+    await expect(savePackageLineCardReminderSetting({
+      body: "請穿著輕便服裝，並提前 5 分鐘抵達。",
+    })).resolves.toEqual({ success: true, data: undefined });
+
+    expect(mockPrisma.messageTemplate.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        storeId: "store-hsinchu",
+        name: "__SYSTEM_PACKAGE_LINE_CARD_REMINDER__",
+        channel: "LINE",
+        body: "請穿著輕便服裝，並提前 5 分鐘抵達。",
+        isDefault: false,
+      }),
+    });
+    expect(mockPrisma.reminderRule.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects package LINE card reminders longer than 150 characters", async () => {
+    const { savePackageLineCardReminderSetting } = await import("@/server/actions/reminder");
+    const result = await savePackageLineCardReminderSetting({ body: "提".repeat(151) });
+
+    expect(result.success).toBe(false);
+    expect(mockPrisma.messageTemplate.create).not.toHaveBeenCalled();
+    expect(mockPrisma.messageTemplate.update).not.toHaveBeenCalled();
+  });
+
   it("testSendLineMessage passes the customer's storeId to pushMessage", async () => {
     mockPrisma.customer.findUnique.mockResolvedValueOnce({
       id: "customer-1",
