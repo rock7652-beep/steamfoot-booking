@@ -542,7 +542,7 @@ export function TransactionDrawer({
                 canRefund && (
                   <Section title="退款">
                     <p className="mb-2 text-xs text-earth-500">
-                      建立一筆負向 REFUND 交易，原交易不變。
+                      適用於顧客確實付過款、現在要退錢；保留原交易，新增一筆負數退款紀錄。
                     </p>
                     <button
                       type="button"
@@ -557,6 +557,9 @@ export function TransactionDrawer({
               {/* 危險區（VOIDED 不顯示） */}
               {!isVoided && canVoid && (
                 <Section title="危險操作" tone="danger">
+                  <p className="mb-2 text-xs text-earth-500">
+                    適用於 Key 錯、重複建單或未實際收款；作廢原交易並扣回營收與未使用堂數。
+                  </p>
                   <button
                     type="button"
                     onClick={() => setView("void-confirm")}
