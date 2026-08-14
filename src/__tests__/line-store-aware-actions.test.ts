@@ -430,13 +430,22 @@ describe("LINE sending actions are store-aware", () => {
         altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
         contents: expect.objectContaining({
           footer: expect.objectContaining({
-            contents: expect.arrayContaining([expect.objectContaining({
-              action: {
-                type: "uri",
-                label: "查看／管理預約",
-                uri: "https://example.test/my-bookings",
-              },
-            })]),
+            contents: expect.arrayContaining([
+              expect.objectContaining({
+                action: {
+                  type: "uri",
+                  label: "改時段",
+                  uri: "https://example.test/my-bookings?action=reschedule",
+                },
+              }),
+              expect.objectContaining({
+                action: {
+                  type: "uri",
+                  label: "取消前往",
+                  uri: "https://example.test/my-bookings?action=cancel",
+                },
+              }),
+            ]),
           }),
         }),
       })],
@@ -700,8 +709,16 @@ describe("LINE sending actions are store-aware", () => {
                 style: "primary",
                 color: "#6B4A35",
                 action: expect.objectContaining({
-                  label: "查看／管理預約",
-                  uri: "https://example.test/my-bookings",
+                  label: "改時段",
+                  uri: "https://example.test/my-bookings?action=reschedule",
+                }),
+              }),
+              expect.objectContaining({
+                style: "secondary",
+                color: "#A33A32",
+                action: expect.objectContaining({
+                  label: "取消前往",
+                  uri: "https://example.test/my-bookings?action=cancel",
                 }),
               }),
             ]),
