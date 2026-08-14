@@ -8,7 +8,7 @@ import { requireCustomerBookingEligibility } from "@/lib/customer-booking-eligib
 import { parseTaipeiDateTime, parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import { PENDING_STATUSES } from "@/lib/booking-constants";
 import { applySlotOverrides, loadDayBusinessHoursContext } from "@/lib/business-hours-resolver";
-import { isDutySchedulingEnabled } from "@/lib/shop-config";
+import { isDutySchedulingEnabled, resolveBookableUntilDate } from "@/lib/shop-config";
 import { isStoreBookable } from "@/lib/store-operating-status";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 
@@ -90,6 +90,14 @@ async function storeAllowsReschedule(storeId: string): Promise<boolean> {
   return bookable && !blocked;
 }
 
+async function storeBookingHorizonAllows(storeId: string, date: string): Promise<boolean> {
+  const config = await prisma.shopConfig.findUnique({
+    where: { storeId },
+    select: { bookableUntilDate: true },
+  });
+  return date <= resolveBookableUntilDate(config?.bookableUntilDate);
+}
+
 function bookingCanReschedule(booking: AuthorizedBooking, now: Date): boolean {
   return (
     PENDING_STATUSES.includes(booking.bookingStatus as (typeof PENDING_STATUSES)[number]) &&
@@ -148,6 +156,7 @@ export async function listCustomerBookingRescheduleSlots(bookingId: string, date
     !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
     date < toLocalDateStr(now) ||
     !entitlementCoversDate(booking, date) ||
+    !(await storeBookingHorizonAllows(booking.storeId, date)) ||
     !(await storeAllowsReschedule(booking.storeId))
   ) return [];
 
@@ -199,6 +208,7 @@ export async function rescheduleCustomerBooking(
     !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
     date < toLocalDateStr(now) ||
     !entitlementCoversDate(booking, date) ||
+    !(await storeBookingHorizonAllows(booking.storeId, date)) ||
     !outsideCutoff(date, slotTime, now) ||
     (date === booking.bookingDate.toISOString().slice(0, 10) && slotTime === booking.slotTime) ||
     !(await storeAllowsReschedule(booking.storeId))
@@ -245,6 +255,11 @@ export async function rescheduleCustomerBooking(
         !entitlementCoversDate(current, date) ||
         !outsideCutoff(current.bookingDate.toISOString().slice(0, 10), current.slotTime, now)
       ) return "unavailable";
+      const config = await tx.shopConfig.findUnique({
+        where: { storeId: booking.storeId },
+        select: { bookableUntilDate: true },
+      });
+      if (date > resolveBookableUntilDate(config?.bookableUntilDate)) return "unavailable";
       if (dutyEnabled) {
         const duty = await tx.dutyAssignment.findFirst({
           where: { storeId: booking.storeId, date: ctx.dateObj, slotTime },
