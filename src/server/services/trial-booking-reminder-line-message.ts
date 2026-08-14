@@ -37,11 +37,21 @@ export function buildPackageBookingTestReminderLineMessages(
       header: {
         type: "box",
         layout: "vertical",
-        backgroundColor: "#5C4634",
+        backgroundColor: "#F3E7D8",
         paddingAll: "16px",
         contents: [
-          { type: "text", text: "蒸管家｜預約提醒", color: "#FFFFFF", weight: "bold", size: "lg" },
-          { type: "text", text: "測試提醒｜不影響正式排程", color: "#F4E9DF", size: "sm", margin: "sm" },
+          { type: "text", text: "蒸管家｜預約提醒", color: "#4A3527", weight: "bold", size: "lg" },
+          {
+            type: "box",
+            layout: "horizontal",
+            margin: "md",
+            backgroundColor: "#F8DFAF",
+            cornerRadius: "12px",
+            paddingAll: "8px",
+            contents: [
+              { type: "text", text: "測試提醒｜不影響正式排程", color: "#7A4A12", size: "xs", weight: "bold" },
+            ],
+          },
         ],
       },
       body: {
@@ -73,14 +83,15 @@ export function buildPackageBookingTestReminderLineMessages(
           ...(card.mapUrl
             ? [{
                 type: "button",
-                style: "secondary",
+                style: "primary",
+                color: "#6C8B73",
                 action: { type: "uri", label: "開啟 Google Maps 導航", uri: card.mapUrl },
               }]
             : []),
           {
             type: "button",
             style: "primary",
-            color: "#5C4634",
+            color: "#6B4A35",
             action: { type: "uri", label: "查看／管理預約", uri: managementUrl },
           },
         ],
