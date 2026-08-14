@@ -73,6 +73,11 @@ describe("customer booking reschedule contract", () => {
     expect(message).toContain('label: "取消前往"');
     expect(message).toContain('actionUrl("cancel")');
     expect(message).toContain("encodeURIComponent(bookingId)");
+    expect(message).toContain('backgroundColor: "#5C4634"');
+    expect(message).toContain('color: "#397552"');
+    expect(message).toContain('color: "#8A552F"');
+    expect(message).toContain('color: "#B33A32"');
+    expect(message).toContain('style: "primary",\n            color: "#B33A32"');
     const reminder = source("src/server/actions/reminder.ts");
     expect(reminder).toContain("/s/${encodeURIComponent(booking.store.slug)}/my-bookings");
   });
