@@ -1059,6 +1059,12 @@ export async function voidTransaction(
           ["SUCCESS", "CONFIRMED"].includes(current.paymentStatus) &&
           current.conversionSnapshotCaptured === false
         ) {
+          if (!current.paidAt) {
+            throw new AppError(
+              "BUSINESS_RULE",
+              "此筆舊版付款缺少付款時間與安全還原資料，請人工核帳處理",
+            );
+          }
           const earlierPaidPurchase = await tx.transaction.findFirst({
             where: {
               id: { not: current.id },
@@ -1069,11 +1075,11 @@ export async function voidTransaction(
               paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
               conversionEffectsApplied: true,
               OR: [
-                { createdAt: { lt: current.createdAt } },
-                { createdAt: current.createdAt, id: { lt: current.id } },
+                { paidAt: { lt: current.paidAt } },
+                { paidAt: current.paidAt, id: { lt: current.id } },
               ],
             },
-            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            orderBy: [{ paidAt: "desc" }, { id: "desc" }],
             select: { id: true },
           });
           if (!earlierPaidPurchase) {
