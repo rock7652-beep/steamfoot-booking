@@ -22,7 +22,7 @@ describe("revenue child-store view mode pages", () => {
     expect(source).toContain('href: "/dashboard/reconciliation"');
   });
 
-  it("scopes transaction records and disables write actions in view mode", () => {
+  it("scopes transaction records and disables write actions only in read-only view mode", () => {
     const source = readSource("src/app/(dashboard)/dashboard/transactions/page.tsx");
 
     expect(source).toContain("resolveStoreViewContextFromCookie(user)");
@@ -32,7 +32,10 @@ describe("revenue child-store view mode pages", () => {
     expect(source).toContain("activeStoreId: transactionsStoreId");
     expect(source).toContain("listStaffSelectOptions(transactionsStoreId)");
     expect(source).toContain("getCachedStorePlan(transactionsStoreId ?? user.storeId ?? undefined)");
-    expect(source.match(/isViewMode\s*\? Promise\.resolve\(false\)/g)?.length).toBe(3);
+    expect(source).toContain(
+      "const isReadOnlyViewMode = isViewMode && !storeViewContext?.canWrite",
+    );
+    expect(source.match(/isReadOnlyViewMode\s*\? Promise\.resolve\(false\)/g)?.length).toBe(3);
     expect(source).toContain("此頁為唯讀，無法修改、作廢或退款");
   });
 
