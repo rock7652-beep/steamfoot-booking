@@ -1052,7 +1052,7 @@ export async function sendBookingLineTestReminder(
         include: { template: true },
       }),
       getShopConfig(storeId),
-      resolveStorePresentation(booking.store.slug),
+      booking.bookingType === "FIRST_TRIAL" ? Promise.resolve(null) : resolveStorePresentation(booking.store.slug),
     ]);
     const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
     if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
@@ -1077,10 +1077,12 @@ export async function sendBookingLineTestReminder(
     const bookingLink = isLineTrialBooking
       ? `${deriveBaseUrl()}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`
       : `${deriveBaseUrl()}/my-bookings`;
-    const customerFacingShopName = storePresentation?.name ?? getCustomerFacingStoreName({
-      slug: booking.store?.slug,
-      name: shopConfig.shopName,
-    });
+    const customerFacingShopName = isLineTrialBooking
+      ? shopConfig.shopName
+      : storePresentation?.name ?? getCustomerFacingStoreName({
+          slug: booking.store?.slug,
+          name: shopConfig.shopName,
+        });
     const renderedReminder = renderTemplate(templateBody, {
       customerName: booking.customer.name,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),
