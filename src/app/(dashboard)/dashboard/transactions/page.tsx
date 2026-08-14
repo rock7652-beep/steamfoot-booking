@@ -363,6 +363,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
                   <td className="px-4 py-3 text-right">
                     <TransactionRowActions
                       transactionId={t.id}
+                      transactionStoreId={t.storeId}
                       staffOptions={staffOptions}
                       canVoid={canVoid}
                       canEdit={canEdit}
