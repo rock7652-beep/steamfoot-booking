@@ -882,7 +882,6 @@ export async function voidTransaction(
         paymentMethod: true,
         amount: true,
         note: true,
-        isFirstPurchase: true,
       },
     });
     if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
@@ -999,8 +998,9 @@ export async function voidTransaction(
         throw new AppError("CONFLICT", "此交易狀態已變更，無法取消");
       }
 
-      // 首次購買若是誤建且沒有其他有效購買，需同步還原顧客轉換狀態與推薦點數。
-      if (original.isFirstPurchase) {
+      // 只在「已付款」交易取消後已無其他有效購買時，還原顧客轉換狀態。
+      // 待付款交易從未觸發升級或推薦獎勵，因此不可改動顧客狀態。
+      if (original.paymentStatus === "SUCCESS" || original.paymentStatus === "CONFIRMED") {
         const otherPaidPurchases = await tx.transaction.count({
           where: {
             customerId: original.customerId,
@@ -1016,7 +1016,7 @@ export async function voidTransaction(
             where: {
               customerId: original.customerId,
               storeId: original.storeId,
-              status: "COMPLETED",
+              bookingStatus: "COMPLETED",
             },
           });
           const referralPointRecords = await tx.pointRecord.findMany({
