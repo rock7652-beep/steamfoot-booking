@@ -280,6 +280,7 @@ describe("Production migration recovery guard", () => {
       ["conversionAppliedConvertedAt", "timestamp without time zone", "timestamp", "YES", null],
     ].map(([columnName, dataType, udtName, isNullable, columnDefault]) => ({
       columnName, dataType, udtName, isNullable, columnDefault,
+      datetimePrecision: dataType === "timestamp without time zone" ? 3 : null,
     }));
     expect(hasNoTransactionConversionSnapshotColumns([])).toBe(true);
     expect(hasNoTransactionConversionSnapshotColumns(columns.slice(0, 1))).toBe(false);
@@ -290,6 +291,9 @@ describe("Production migration recovery guard", () => {
     ))).toBe(false);
     expect(hasExpectedTransactionConversionSnapshotColumns(columns.map((column) =>
       column.columnName === "preConversionSelfBookingEnabled" ? { ...column, columnDefault: "true" } : column
+    ))).toBe(false);
+    expect(hasExpectedTransactionConversionSnapshotColumns(columns.map((column) =>
+      column.columnName === "preConversionConvertedAt" ? { ...column, datetimePrecision: 6 } : column
     ))).toBe(false);
   });
 
