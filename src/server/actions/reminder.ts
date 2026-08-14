@@ -26,6 +26,11 @@ import { resolveCentralLineRecipientForCustomer } from "@/server/services/centra
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import { getAllActiveStoreIds } from "@/lib/store";
 import { DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING } from "@/lib/session-balance-notification-settings";
+import {
+  DEFAULT_PACKAGE_LINE_CARD_REMINDER,
+  PACKAGE_LINE_CARD_REMINDER_MAX_LENGTH,
+  PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
+} from "@/lib/package-line-card-reminder-setting";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import {
   buildPackageBookingTestReminderLineMessages,
@@ -87,6 +92,10 @@ const bookingLineTestSchema = z.object({
 });
 
 const bookingTestReminderSchema = bookingLineTestSchema;
+
+const packageLineCardReminderSettingSchema = z.object({
+  body: z.string().trim().min(1).max(PACKAGE_LINE_CARD_REMINDER_MAX_LENGTH),
+});
 
 const sessionBalanceSettingSchema = z.object({
   isEnabled: z.boolean(),
@@ -794,6 +803,49 @@ export async function applySessionBalanceSettingToAllStores(
   }
 }
 
+export async function savePackageLineCardReminderSetting(
+  input: z.input<typeof packageLineCardReminderSettingSchema>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const { body } = packageLineCardReminderSettingSchema.parse(input);
+
+    const existing = await prisma.messageTemplate.findFirst({
+      where: {
+        storeId,
+        name: PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
+        channel: "LINE",
+      },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await prisma.messageTemplate.update({
+        where: { id: existing.id, storeId },
+        data: { body },
+      });
+    } else {
+      await prisma.messageTemplate.create({
+        data: {
+          storeId,
+          name: PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
+          channel: "LINE",
+          body,
+          isDefault: false,
+        },
+      });
+    }
+
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
 // ============================================================
 // MessageTemplate CRUD
 // ============================================================
@@ -1068,7 +1120,7 @@ export async function sendBookingLineTestReminder(
       throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
     }
 
-    const [rule, shopConfig, storePresentation] = await Promise.all([
+    const [rule, shopConfig, storePresentation, cardReminderSetting] = await Promise.all([
       prisma.reminderRule.findFirst({
         where: { storeId, isEnabled: true },
         orderBy: { createdAt: "asc" },
@@ -1078,6 +1130,17 @@ export async function sendBookingLineTestReminder(
       booking.bookingType === "FIRST_TRIAL" || !booking.store?.slug
         ? Promise.resolve(null)
         : resolveStorePresentation(booking.store.slug),
+      booking.bookingType === "FIRST_TRIAL"
+        ? Promise.resolve(null)
+        : prisma.messageTemplate.findFirst({
+            where: {
+              storeId,
+              name: PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
+              channel: "LINE",
+            },
+            orderBy: { createdAt: "asc" },
+            select: { body: true },
+          }),
     ]);
     const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
     if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
@@ -1138,11 +1201,9 @@ ${renderedReminder}`;
         serviceDuration: "45 分鐘",
         address: storePresentation?.address,
         mapUrl: storePresentation?.mapUrl,
-        reminderText: packageReminderCardText(
-          rule?.template?.body,
-          renderedReminder,
-          bookingLink,
-        ),
+        reminderText:
+          cardReminderSetting?.body ??
+          DEFAULT_PACKAGE_LINE_CARD_REMINDER,
       }, bookingLink);
     const textMessages = isLineTrialBooking
       ? buildTrialBookingReminderTextFallback(card, bookingLink, `${BOOKING_LINE_TEST_PREFIX}\n這是管理者手動發送的通知測試，無須回覆。\n\n`)
