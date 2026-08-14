@@ -20,6 +20,7 @@ import type { ActionResult } from "@/types";
 import { getShopConfig } from "@/lib/shop-config";
 import { deriveBaseUrl } from "@/lib/base-url";
 import { resolveWriteStoreId } from "@/lib/store";
+import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import { getAllActiveStoreIds } from "@/lib/store";
@@ -1001,6 +1002,7 @@ export async function sendBookingLineTestReminder(
       where: { id: bookingId, storeId },
       include: {
         customer: { include: { assignedStaff: true } },
+        store: { select: { slug: true, name: true } },
       },
     });
     if (!booking) {
@@ -1073,11 +1075,15 @@ export async function sendBookingLineTestReminder(
     const bookingLink = isLineTrialBooking
       ? `${deriveBaseUrl()}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`
       : `${deriveBaseUrl()}/my-bookings`;
+    const customerFacingShopName = getCustomerFacingStoreName({
+      slug: booking.store?.slug,
+      name: shopConfig.shopName,
+    });
     const renderedReminder = renderTemplate(templateBody, {
       customerName: booking.customer.name,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),
       bookingTime: booking.slotTime,
-      shopName: shopConfig.shopName,
+      shopName: customerFacingShopName,
       staffName: booking.customer.assignedStaff?.displayName ?? "店長",
       bookingLink,
     });
@@ -1089,7 +1095,7 @@ ${renderedReminder}`;
       customerName: booking.customer.name,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),
       bookingTime: booking.slotTime,
-      shopName: shopConfig.shopName,
+      shopName: customerFacingShopName,
       serviceName: "首次體驗",
     };
     const flexMessages = isLineTrialBooking
@@ -1098,9 +1104,9 @@ ${renderedReminder}`;
         customerName: booking.customer.name,
         bookingDate: booking.bookingDate.toISOString().slice(0, 10),
         bookingTime: booking.slotTime,
-        shopName: shopConfig.shopName,
+        shopName: customerFacingShopName,
         serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
-        reminderText: renderedReminder,
+        reminderText: rule?.template?.body ? renderedReminder.replaceAll(bookingLink, "").trim() : "請記得準時到店。",
       }, bookingLink);
     const textMessages = isLineTrialBooking
       ? buildTrialBookingReminderTextFallback(card, bookingLink, `${BOOKING_LINE_TEST_PREFIX}\n這是管理者手動發送的通知測試，無須回覆。\n\n`)
