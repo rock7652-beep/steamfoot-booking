@@ -1145,7 +1145,7 @@ export async function sendBookingLineTestReminder(
 {{shopName}} 敬上`;
     const bookingLink = isLineTrialBooking
       ? `${deriveBaseUrl()}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`
-      : `${deriveBaseUrl()}/my-bookings`;
+      : `${deriveBaseUrl()}/s/${encodeURIComponent(booking.store.slug)}/my-bookings`;
     const customerFacingShopName = isLineTrialBooking
       ? shopConfig.shopName
       : storePresentation?.name ?? getCustomerFacingStoreName({
