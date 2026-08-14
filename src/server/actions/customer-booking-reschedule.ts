@@ -1,7 +1,6 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import { requireCustomerBookingEligibility } from "@/lib/customer-booking-eligibility";
@@ -16,6 +15,7 @@ import {
   bookingSlotTimeVariants,
   canonicalizeBookingSlotTime,
 } from "@/server/services/booking-slot-lock";
+import { revalidateBookings } from "@/lib/revalidation";
 
 const CUSTOMER_RESCHEDULE_CUTOFF_MS = 12 * 60 * 60 * 1000;
 const CUSTOMER_RESCHEDULE_LIMIT = 1;
@@ -329,7 +329,7 @@ export async function rescheduleCustomerBooking(
       return "rescheduled";
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     if (result === "rescheduled") {
-      revalidatePath("/my-bookings");
+      revalidateBookings();
     }
     return result;
   } catch (error) {
