@@ -160,6 +160,69 @@ describe("transaction actions — store consistency", () => {
     }));
   });
 
+  it("allows a paid mistake entry when every session is still unused", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "paid-mistake",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "PAID",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "paid-mistake", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.walletSessionUpdateMany).toHaveBeenCalled();
+    expect(h.txWalletUpdateMany).toHaveBeenCalled();
+    expect(h.txTransactionUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ paymentStatus: "PAID" }),
+      data: expect.objectContaining({ status: "VOIDED" }),
+    }));
+  });
+
+  it.each(["RESERVED", "COMPLETED"])(
+    "still rejects a paid mistake entry when a session is %s",
+    async (sessionStatus) => {
+      h.transactionFindUnique.mockResolvedValueOnce({
+        id: `paid-${sessionStatus.toLowerCase()}`,
+        storeId: "store-taichung",
+        customerId: CUSTOMER_ID,
+        status: "SUCCESS",
+        paymentStatus: "PAID",
+        paymentMethod: "CASH",
+        transactionType: "PACKAGE_PURCHASE",
+        customerPlanWalletId: WALLET_ID,
+        amount: 5990,
+        note: null,
+      });
+      h.walletSessionFindMany.mockResolvedValueOnce([
+        { id: "changed-session", status: sessionStatus, bookingId: sessionStatus === "RESERVED" ? "booking-1" : null },
+        ...Array.from({ length: 9 }, (_, i) => ({
+          id: `available-${i}`,
+          status: "AVAILABLE",
+          bookingId: null,
+        })),
+      ]);
+
+      const { voidTransaction } = await import("@/server/actions/transaction");
+      const result = await voidTransaction({
+        transactionId: `paid-${sessionStatus.toLowerCase()}`,
+        reason: "入錯帳",
+      });
+
+      expect(result.success).toBe(false);
+      expect(h.walletSessionUpdateMany).not.toHaveBeenCalled();
+      expect(h.txWalletUpdateMany).not.toHaveBeenCalled();
+      expect(h.txTransactionUpdateMany).not.toHaveBeenCalled();
+    },
+  );
+
   it("voids a SINGLE_PURCHASE wallet session with the acting staff audit id", async () => {
     h.transactionFindUnique.mockResolvedValueOnce({
       id: "single-void",
