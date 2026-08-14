@@ -131,6 +131,32 @@ const sessionBalanceSettingSchema = z.object({
 const BOOKING_LINE_TEST_PREFIX = "【測試提醒｜不影響正式排程】";
 const BOOKING_LINE_TEST_COOLDOWN_MS = 60_000;
 
+function packageReminderCardText(
+  templateBody: string | null | undefined,
+  renderedReminder: string,
+  bookingLink: string,
+): string {
+  if (!templateBody) return "請記得準時到店。";
+
+  const fullReminderVariables = [
+    "{{customerName}}",
+    "{{bookingDate}}",
+    "{{bookingTime}}",
+    "{{bookingLink}}",
+  ];
+  if (fullReminderVariables.every((variable) => templateBody.includes(variable))) {
+    return "請記得準時到店。";
+  }
+
+  const customText = renderedReminder
+    .replaceAll(bookingLink, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !/^如需.*請點擊[：:]?$/.test(line))
+    .join("\n");
+  return customText || "請記得準時到店。";
+}
+
 type SessionBalanceSettingInput = z.input<typeof sessionBalanceSettingSchema>;
 
 export type BookingTestReminderChannel = "LINE" | "MESSENGER";
@@ -1115,7 +1141,11 @@ ${renderedReminder}`;
         serviceDuration: "45 分鐘",
         address: storePresentation?.address,
         mapUrl: storePresentation?.mapUrl,
-        reminderText: rule?.template?.body ? renderedReminder.replaceAll(bookingLink, "").trim() : "請記得準時到店。",
+        reminderText: packageReminderCardText(
+          rule?.template?.body,
+          renderedReminder,
+          bookingLink,
+        ),
       }, bookingLink);
     const textMessages = isLineTrialBooking
       ? buildTrialBookingReminderTextFallback(card, bookingLink, `${BOOKING_LINE_TEST_PREFIX}\n這是管理者手動發送的通知測試，無須回覆。\n\n`)
