@@ -115,6 +115,7 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
               id="reschedule-date"
               type="date"
               value={date}
+              disabled={pending}
               onChange={(event) => {
                 const next = event.target.value;
                 slotRequestGate.invalidate();
@@ -129,8 +130,9 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
                   <button
                     key={slot}
                     type="button"
+                    disabled={pending}
                     onClick={() => setSelected(slot)}
-                    className={`min-h-[44px] rounded-xl border px-3 py-2 font-medium ${selected === slot ? "border-primary-600 bg-primary-100 text-primary-800" : "border-earth-300 text-earth-800"}`}
+                    className={`min-h-[44px] rounded-xl border px-3 py-2 font-medium disabled:opacity-50 ${selected === slot ? "border-primary-600 bg-primary-100 text-primary-800" : "border-earth-300 text-earth-800"}`}
                   >
                     {slot}
                   </button>
