@@ -56,6 +56,7 @@ const mockPrisma = {
   },
   reminderRule: {
     findFirst: vi.fn(),
+    update: vi.fn(),
   },
   auditLog: {
     create: vi.fn(async ({ data }) => ({ id: "audit-log-1", ...data })),
@@ -166,6 +167,20 @@ describe("LINE sending actions are store-aware", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("rejects the reserved card setting as the formal reminder template", async () => {
+    mockPrisma.reminderRule.findFirst.mockResolvedValueOnce({ id: "rule-1" });
+    mockPrisma.messageTemplate.findUnique.mockResolvedValueOnce({
+      storeId: "store-hsinchu",
+      name: "__SYSTEM_PACKAGE_LINE_CARD_REMINDER__",
+    });
+
+    const { setReminderTemplate } = await import("@/server/actions/reminder");
+    const result = await setReminderTemplate("package-line-card-reminder:store-hsinchu");
+
+    expect(result.success).toBe(false);
+    expect(mockPrisma.reminderRule.update).not.toHaveBeenCalled();
   });
 
   it("atomically stores concurrent package LINE card reminder saves in one active-store record", async () => {
