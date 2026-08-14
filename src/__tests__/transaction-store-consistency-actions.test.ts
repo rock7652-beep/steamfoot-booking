@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   txTransactionUpdateMany: vi.fn(),
   txTransactionCount: vi.fn(),
   txTransactionFindFirst: vi.fn(),
+  txTransactionFindUnique: vi.fn(),
   txQueryRaw: vi.fn(),
   txBookingCount: vi.fn(),
   txPointRecordFindMany: vi.fn(),
@@ -129,6 +130,7 @@ beforeEach(() => {
         updateMany: h.txTransactionUpdateMany,
         count: h.txTransactionCount,
         findFirst: h.txTransactionFindFirst,
+        findUnique: h.txTransactionFindUnique,
       },
       customerPlanWallet: {
         findFirst: h.txWalletFindFirst,
@@ -161,6 +163,10 @@ beforeEach(() => {
   h.txTransactionUpdateMany.mockResolvedValue({ count: 1 });
   h.txTransactionCount.mockResolvedValue(0);
   h.txTransactionFindFirst.mockResolvedValue(null);
+  h.txTransactionFindUnique.mockImplementation(async () => {
+    const latest = h.transactionFindUnique.mock.results.at(-1);
+    return latest ? await latest.value : null;
+  });
   h.txQueryRaw.mockResolvedValue([{ id: CUSTOMER_ID }]);
   h.txBookingCount.mockResolvedValue(0);
   h.txPointRecordFindMany.mockResolvedValue([]);
@@ -222,7 +228,9 @@ describe("transaction actions — store consistency", () => {
       customerPlanWalletId: WALLET_ID,
       amount: 5990,
       note: null,
+      createdAt: new Date("2026-08-14T01:00:00.000Z"),
       conversionEffectsApplied: true,
+      firstTopupRewardsApplied: true,
       preConversionCustomerStage: "TRIAL",
       preConversionSelfBookingEnabled: true,
       preConversionConvertedAt: previousConvertedAt,
@@ -250,6 +258,59 @@ describe("transaction actions — store consistency", () => {
     });
   });
 
+  it("uses the transaction snapshot reloaded after acquiring the customer lock", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "concurrent-void",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T02:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: "ACTIVE",
+      preConversionSelfBookingEnabled: true,
+      preConversionConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
+    });
+    h.txTransactionFindUnique.mockResolvedValueOnce({
+      id: "concurrent-void",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T02:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: "TRIAL",
+      preConversionSelfBookingEnabled: false,
+      preConversionConvertedAt: null,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "concurrent-void", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txTransactionFindUnique).toHaveBeenCalled();
+    expect(h.txCustomerUpdateMany).toHaveBeenCalledWith({
+      where: { id: CUSTOMER_ID, storeId: "store-taichung" },
+      data: {
+        customerStage: "TRIAL",
+        selfBookingEnabled: false,
+        convertedAt: null,
+      },
+    });
+  });
+
   it("passes the original pre-purchase snapshot to the next effective purchase", async () => {
     h.transactionFindUnique.mockResolvedValueOnce({
       id: "first-effectful-purchase",
@@ -262,12 +323,16 @@ describe("transaction actions — store consistency", () => {
       customerPlanWalletId: WALLET_ID,
       amount: 5990,
       note: null,
+      createdAt: new Date("2026-08-14T01:00:00.000Z"),
       conversionEffectsApplied: true,
+      firstTopupRewardsApplied: true,
       preConversionCustomerStage: "LEAD",
       preConversionSelfBookingEnabled: false,
       preConversionConvertedAt: null,
     });
-    h.txTransactionFindFirst.mockResolvedValueOnce({ id: "next-effectful-purchase" });
+    h.txTransactionFindFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "next-effectful-purchase" });
 
     const { voidTransaction } = await import("@/server/actions/transaction");
     const result = await voidTransaction({ transactionId: "first-effectful-purchase", reason: "入錯帳" });
@@ -279,10 +344,70 @@ describe("transaction actions — store consistency", () => {
         preConversionCustomerStage: "LEAD",
         preConversionSelfBookingEnabled: false,
         preConversionConvertedAt: null,
+        firstTopupRewardsApplied: true,
       },
     });
     expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
     expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
+  });
+
+  it("does not propagate a later purchase snapshot back to an earlier purchase", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "later-effectful-purchase",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T02:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: "ACTIVE",
+      preConversionSelfBookingEnabled: true,
+      preConversionConvertedAt: new Date("2026-08-14T01:00:00.000Z"),
+    });
+    h.txTransactionFindFirst
+      .mockResolvedValueOnce({ id: "earlier-effectful-purchase" })
+      .mockResolvedValueOnce(null);
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "later-effectful-purchase", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txUpdate).not.toHaveBeenCalled();
+    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps historical referral points when this purchase did not award them", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "purchase-with-historical-points",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T02:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: "TRIAL",
+      preConversionSelfBookingEnabled: false,
+      preConversionConvertedAt: null,
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({ transactionId: "purchase-with-historical-points", reason: "入錯帳" });
+
+    expect(result.success).toBe(true);
+    expect(h.txPointRecordFindMany).not.toHaveBeenCalled();
+    expect(h.txPointRecordDeleteMany).not.toHaveBeenCalled();
   });
 
   it("does not restore customer state for manual or pending transactions without conversion effects", async () => {
@@ -297,7 +422,9 @@ describe("transaction actions — store consistency", () => {
       customerPlanWalletId: WALLET_ID,
       amount: 5990,
       note: null,
+      createdAt: new Date("2026-08-14T01:00:00.000Z"),
       conversionEffectsApplied: false,
+      firstTopupRewardsApplied: false,
       preConversionCustomerStage: null,
       preConversionSelfBookingEnabled: null,
       preConversionConvertedAt: null,
