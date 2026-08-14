@@ -833,10 +833,17 @@ export async function createMessageTemplate(
   try {
     const user = await requireStaffSession();
     const data = createTemplateSchema.parse(input);
+    if (data.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME) {
+      throw new AppError("VALIDATION", "此模板名稱由系統保留");
+    }
     const storeId = await resolveWriteStoreId(user);
     await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
     // If setting as default, unset others (scoped to store)
+    if (data.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME) {
+      throw new AppError("VALIDATION", "此模板名稱由系統保留");
+    }
+
     if (data.isDefault) {
       await prisma.messageTemplate.updateMany({
         where: { channel: data.channel, isDefault: true, storeId },
@@ -873,7 +880,11 @@ export async function updateMessageTemplate(
 
     // Ownership check
     const existing = await prisma.messageTemplate.findUnique({ where: { id: templateId } });
-    if (!existing || existing.storeId !== storeId) {
+    if (
+      !existing ||
+      existing.storeId !== storeId ||
+      existing.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME
+    ) {
       throw new AppError("NOT_FOUND", "訊息模板不存在");
     }
 
