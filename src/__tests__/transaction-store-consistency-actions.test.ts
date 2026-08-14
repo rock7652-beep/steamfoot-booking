@@ -556,6 +556,7 @@ describe("transaction actions — store consistency", () => {
           id: { not: "legacy-paid-purchase" },
           customerId: CUSTOMER_ID,
           storeId: "store-taichung",
+          conversionEffectsApplied: true,
         }),
       }),
     );
