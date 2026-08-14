@@ -65,8 +65,8 @@ export async function purchasePlanForSingleBooking(
     const today = toLocalDateStr(now);
     const expiryDate = plan.validityDays ? parseTaiwanDateToDbDate(addTaiwanDuration(today, plan.validityDays, "DAY")) : null;
     const result = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${booking.customerId} FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${booking.id} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${booking.customerId} FOR UPDATE`;
       const activationTime = new Date();
       const fresh = await tx.booking.findUnique({
         where: { id: booking.id },

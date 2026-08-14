@@ -358,6 +358,9 @@ export async function confirmTransactionPayment(
     }
 
     await prisma.$transaction(async (tx) => {
+      if (original.bookingId) {
+        await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${original.bookingId} FOR UPDATE`;
+      }
       await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${original.customerId} FOR UPDATE`;
       const now = new Date();
 
@@ -413,7 +416,6 @@ export async function confirmTransactionPayment(
         // 單次預約現場轉購：轉帳確認入帳後，才把同一筆預約改成新方案扣堂。
         // 所有寫入都在本交易內；狀態不符時連付款確認與 wallet 建立一併回滾。
         if (original.bookingId) {
-          await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${original.bookingId} FOR UPDATE`;
           const booking = await tx.booking.findUnique({
             where: { id: original.bookingId },
             select: { id: true, customerId: true, storeId: true, bookingType: true, bookingStatus: true, isMakeup: true, people: true },
