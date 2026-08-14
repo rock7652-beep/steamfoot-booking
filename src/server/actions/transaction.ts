@@ -455,9 +455,24 @@ export async function confirmTransactionPayment(
       // CAS 成功 → 重現 PENDING 時 skip 的狀態升等 + 首儲推薦獎勵
       const customer = await tx.customer.findUnique({
         where: { id: original.customerId },
-        select: { convertedAt: true },
+        select: {
+          convertedAt: true,
+          customerStage: true,
+          selfBookingEnabled: true,
+        },
       });
-      const isFirstPurchase = !customer?.convertedAt;
+      if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+      const isFirstPurchase = !customer.convertedAt;
+
+      await tx.transaction.update({
+        where: { id: transactionId },
+        data: {
+          conversionEffectsApplied: true,
+          preConversionCustomerStage: customer.customerStage,
+          preConversionSelfBookingEnabled: customer.selfBookingEnabled,
+          preConversionConvertedAt: customer.convertedAt,
+        },
+      });
 
       await tx.customer.update({
         where: { id: original.customerId },
@@ -882,6 +897,10 @@ export async function voidTransaction(
         paymentMethod: true,
         amount: true,
         note: true,
+        conversionEffectsApplied: true,
+        preConversionCustomerStage: true,
+        preConversionSelfBookingEnabled: true,
+        preConversionConvertedAt: true,
       },
     });
     if (!original) throw new AppError("NOT_FOUND", "交易紀錄不存在");
@@ -907,6 +926,9 @@ export async function voidTransaction(
     const now = new Date();
 
     await prisma.$transaction(async (tx) => {
+      // 同一顧客的取消流程必須序列化，避免兩筆購買同時取消後遺漏狀態還原。
+      await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${original.customerId} FOR UPDATE`;
+
       if (original.transactionType === "PACKAGE_PURCHASE" && !original.customerPlanWalletId) {
         throw new AppError("BUSINESS_RULE", "套餐購買缺少錢包關聯，無法取消");
       }
@@ -928,6 +950,16 @@ export async function voidTransaction(
         });
         if (!wallet) {
           throw new AppError("CONFLICT", "課程錢包狀態或所屬顧客已變更，無法取消交易");
+        }
+        const otherWalletPurchases = await tx.transaction.count({
+          where: {
+            id: { not: original.id },
+            customerPlanWalletId: wallet.id,
+            transactionType: { in: ALLOWED_TYPES },
+          },
+        });
+        if (otherWalletPurchases > 0) {
+          throw new AppError("BUSINESS_RULE", "此交易不是方案錢包的唯一來源，無法直接取消");
         }
         if (wallet.remainingSessions !== wallet.totalSessions) {
           throw new AppError("BUSINESS_RULE", "此方案已有堂數異動，不能直接取消交易");
@@ -998,27 +1030,32 @@ export async function voidTransaction(
         throw new AppError("CONFLICT", "此交易狀態已變更，無法取消");
       }
 
-      // 只在「已付款」交易取消後已無其他有效購買時，還原顧客轉換狀態。
-      // 待付款交易從未觸發升級或推薦獎勵，因此不可改動顧客狀態。
-      if (original.paymentStatus === "SUCCESS" || original.paymentStatus === "CONFIRMED") {
-        const otherPaidPurchases = await tx.transaction.count({
+      // 只還原由正式方案開通流程留下的狀態快照；人工補帳不會誤改顧客資料。
+      if (original.conversionEffectsApplied) {
+        const nextEffectfulPurchase = await tx.transaction.findFirst({
           where: {
             customerId: original.customerId,
             storeId: original.storeId,
             status: "SUCCESS",
             transactionType: { in: ALLOWED_TYPES },
             paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
+            conversionEffectsApplied: true,
           },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
         });
 
-        if (otherPaidPurchases === 0) {
-          const completedBookings = await tx.booking.count({
-            where: {
-              customerId: original.customerId,
-              storeId: original.storeId,
-              bookingStatus: "COMPLETED",
+        if (nextEffectfulPurchase) {
+          // 若仍有後續有效購買，把最早的購買前快照向後傳遞，確保日後取消最後一筆時可正確還原。
+          await tx.transaction.update({
+            where: { id: nextEffectfulPurchase.id },
+            data: {
+              preConversionCustomerStage: original.preConversionCustomerStage,
+              preConversionSelfBookingEnabled: original.preConversionSelfBookingEnabled,
+              preConversionConvertedAt: original.preConversionConvertedAt,
             },
           });
+        } else {
           const referralPointRecords = await tx.pointRecord.findMany({
             where: {
               storeId: original.storeId,
@@ -1030,10 +1067,7 @@ export async function voidTransaction(
 
           for (const pointRecord of referralPointRecords) {
             await tx.customer.updateMany({
-              where: {
-                id: pointRecord.customerId,
-                storeId: original.storeId,
-              },
+              where: { id: pointRecord.customerId, storeId: original.storeId },
               data: { totalPoints: { decrement: pointRecord.points } },
             });
           }
@@ -1044,14 +1078,11 @@ export async function voidTransaction(
           }
 
           await tx.customer.updateMany({
-            where: {
-              id: original.customerId,
-              storeId: original.storeId,
-            },
+            where: { id: original.customerId, storeId: original.storeId },
             data: {
-              customerStage: completedBookings > 0 ? "TRIAL" : "LEAD",
-              selfBookingEnabled: false,
-              convertedAt: null,
+              customerStage: original.preConversionCustomerStage ?? undefined,
+              selfBookingEnabled: original.preConversionSelfBookingEnabled ?? undefined,
+              convertedAt: original.preConversionConvertedAt,
             },
           });
         }
