@@ -1139,14 +1139,44 @@ export async function voidTransaction(
             }
           }
 
-          await tx.customer.updateMany({
-            where: { id: current.customerId, storeId: current.storeId },
-            data: {
-              customerStage: current.preConversionCustomerStage ?? undefined,
-              selfBookingEnabled: current.preConversionSelfBookingEnabled ?? undefined,
-              convertedAt: current.preConversionConvertedAt,
+          const latestCustomer = await tx.customer.findUnique({
+            where: { id: current.customerId },
+            select: {
+              customerStage: true,
+              selfBookingEnabled: true,
+              convertedAt: true,
             },
           });
+          if (!latestCustomer) throw new AppError("NOT_FOUND", "顧客不存在");
+
+          const restoreData: {
+            customerStage?: typeof current.preConversionCustomerStage;
+            selfBookingEnabled?: boolean;
+            convertedAt?: Date | null;
+          } = {};
+          // 只還原仍保有購買流程自動寫入值的欄位，避免覆蓋後續人工調整。
+          if (latestCustomer.customerStage === "ACTIVE" && current.preConversionCustomerStage) {
+            restoreData.customerStage = current.preConversionCustomerStage;
+          }
+          if (
+            latestCustomer.selfBookingEnabled === true &&
+            current.preConversionSelfBookingEnabled != null
+          ) {
+            restoreData.selfBookingEnabled = current.preConversionSelfBookingEnabled;
+          }
+          if (
+            current.preConversionConvertedAt == null &&
+            latestCustomer.convertedAt?.getTime() === activationTime.getTime()
+          ) {
+            restoreData.convertedAt = null;
+          }
+
+          if (Object.keys(restoreData).length > 0) {
+            await tx.customer.updateMany({
+              where: { id: current.customerId, storeId: current.storeId },
+              data: restoreData,
+            });
+          }
         }
       }
 

@@ -28,6 +28,7 @@ const h = vi.hoisted(() => ({
   txBookingCount: vi.fn(),
   txPointRecordFindMany: vi.fn(),
   txPointRecordDeleteMany: vi.fn(),
+  txCustomerFindUnique: vi.fn(),
   txCustomerUpdateMany: vi.fn(),
   transactionAuditCreate: vi.fn(),
   txRun: vi.fn(),
@@ -145,7 +146,10 @@ beforeEach(() => {
         findMany: h.txPointRecordFindMany,
         deleteMany: h.txPointRecordDeleteMany,
       },
-      customer: { updateMany: h.txCustomerUpdateMany },
+      customer: {
+        findUnique: h.txCustomerFindUnique,
+        updateMany: h.txCustomerUpdateMany,
+      },
       transactionAuditLog: { create: h.transactionAuditCreate },
       $queryRaw: h.txQueryRaw,
     }),
@@ -171,6 +175,11 @@ beforeEach(() => {
   h.txBookingCount.mockResolvedValue(0);
   h.txPointRecordFindMany.mockResolvedValue([]);
   h.txPointRecordDeleteMany.mockResolvedValue({ count: 0 });
+  h.txCustomerFindUnique.mockResolvedValue({
+    customerStage: "ACTIVE",
+    selfBookingEnabled: true,
+    convertedAt: null,
+  });
   h.txCustomerUpdateMany.mockResolvedValue({ count: 1 });
   h.transactionAuditCreate.mockResolvedValue({});
 });
@@ -251,7 +260,6 @@ describe("transaction actions — store consistency", () => {
       data: {
         customerStage: "TRIAL",
         selfBookingEnabled: true,
-        convertedAt: previousConvertedAt,
       },
     });
     expect(h.txPointRecordDeleteMany).toHaveBeenCalledWith({
@@ -298,6 +306,11 @@ describe("transaction actions — store consistency", () => {
       preConversionSelfBookingEnabled: false,
       preConversionConvertedAt: null,
     });
+    h.txCustomerFindUnique.mockResolvedValueOnce({
+      customerStage: "ACTIVE",
+      selfBookingEnabled: true,
+      convertedAt: new Date("2026-08-14T02:00:00.000Z"),
+    });
 
     const { voidTransaction } = await import("@/server/actions/transaction");
     const result = await voidTransaction({ transactionId: "concurrent-void", reason: "入錯帳" });
@@ -312,6 +325,42 @@ describe("transaction actions — store consistency", () => {
         convertedAt: null,
       },
     });
+  });
+
+  it("preserves customer fields changed manually after the purchase", async () => {
+    h.transactionFindUnique.mockResolvedValueOnce({
+      id: "manually-adjusted-customer",
+      storeId: "store-taichung",
+      customerId: CUSTOMER_ID,
+      status: "SUCCESS",
+      paymentStatus: "SUCCESS",
+      paymentMethod: "CASH",
+      transactionType: "PACKAGE_PURCHASE",
+      customerPlanWalletId: WALLET_ID,
+      amount: 5990,
+      note: null,
+      createdAt: new Date("2026-08-14T02:00:00.000Z"),
+      paidAt: new Date("2026-08-14T02:00:00.000Z"),
+      conversionEffectsApplied: true,
+      firstTopupRewardsApplied: false,
+      preConversionCustomerStage: "TRIAL",
+      preConversionSelfBookingEnabled: false,
+      preConversionConvertedAt: null,
+    });
+    h.txCustomerFindUnique.mockResolvedValueOnce({
+      customerStage: "INACTIVE",
+      selfBookingEnabled: false,
+      convertedAt: new Date("2026-08-14T03:00:00.000Z"),
+    });
+
+    const { voidTransaction } = await import("@/server/actions/transaction");
+    const result = await voidTransaction({
+      transactionId: "manually-adjusted-customer",
+      reason: "入錯帳",
+    });
+
+    expect(result.success).toBe(true);
+    expect(h.txCustomerUpdateMany).not.toHaveBeenCalled();
   });
 
   it("passes the original pre-purchase snapshot to the next effective purchase", async () => {
