@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useStoreSlugRequired } from "@/lib/store-context";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
@@ -24,7 +24,7 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
   const [message, setMessage] = useState("");
   const [canReschedule, setCanReschedule] = useState(false);
   const [pending, startTransition] = useTransition();
-  const slotRequestGate = useRef(createLatestRequestGate()).current;
+  const [slotRequestGate] = useState(createLatestRequestGate);
 
   useEffect(() => {
     void getCustomerBookingRescheduleStatus(bookingId)
@@ -36,6 +36,20 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
         setDate(status.bookingDate);
         setCurrent(`${status.bookingDate} ${status.slotTime}`);
         setCanReschedule(status.canReschedule);
+        if (status.canReschedule) {
+          const requestId = slotRequestGate.issue();
+          void listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)
+            .then((next) => {
+              if (!slotRequestGate.isCurrent(requestId)) return;
+              setSlots(next);
+              setMessage(next.length === 0 ? "這一天目前沒有可改期時段。" : "");
+            })
+            .catch(() => {
+              if (slotRequestGate.isCurrent(requestId)) {
+                setMessage("目前無法取得可改期時段，請稍後再試。");
+              }
+            });
+        }
         if (!status.canReschedule) {
           setMessage(status.customerRescheduleCount >= 1
             ? "這筆預約已自行改期一次，如需再次調整請聯絡店家。"
@@ -43,7 +57,7 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
         }
       })
       .catch(() => setMessage("目前無法取得預約資訊，請稍後再試。"));
-  }, [bookingId]);
+  }, [bookingId, slotRequestGate]);
 
   async function loadSlots(nextDate: string) {
     if (!nextDate || !canReschedule) return;
