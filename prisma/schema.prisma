@@ -1859,6 +1859,11 @@ model Transaction {
   /// 既有歷史 row 保留為 legacy snapshot；refundTransactionLegacy 仍會更新
   refundAmount                    Decimal           @default(0) @db.Decimal(10, 0)
   isFirstPurchase                 Boolean           @default(false) // 是否新客首次購買
+  // 只有正式方案開通流程會設為 true；供取消時安全還原顧客購買前狀態。
+  conversionEffectsApplied        Boolean           @default(false)
+  preConversionCustomerStage      CustomerStage?
+  preConversionSelfBookingEnabled Boolean?
+  preConversionConvertedAt        DateTime?
 
   // === Void 相關（v1：取消交易）===
   voidedAt       DateTime?
