@@ -14,11 +14,14 @@ export const HUMAN_SUPPORT_SUMMARY_MIGRATION =
   "20260802090000_add_digital_butler_human_support_summary";
 export const PAYMENT_SPLIT_RLS_MIGRATION =
   "20260808090000_enable_transaction_payment_split_rls";
+export const TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION =
+  "20260814183000_add_transaction_conversion_snapshot";
 export const PRODUCTION_MIGRATION_TARGET_ENV = "PRODUCTION_MIGRATION_TARGET";
 export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
   PAYMENT_SPLIT_MIGRATION,
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
   PAYMENT_SPLIT_RLS_MIGRATION,
+  TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
 ];
 export const MESSENGER_CHECKSUM =
   "6edbd88d9fd2ab9e368b963d21f7d90ef2ed1f8e8c467a29c20f9a3c8d8e1488";
@@ -28,6 +31,8 @@ export const HUMAN_SUPPORT_SUMMARY_CHECKSUM =
   "9218b485f642748141666778d7643bc5ba1aee27541ae8dc17461dacd3884ad5";
 export const PAYMENT_SPLIT_RLS_CHECKSUM =
   "bdc2cd86ea67507df334271b3589c7e416bad4ec2c1cddc96da23b7f3d0f2064";
+export const TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM =
+  "71f451fb1a4830543ab32c6d7f6ed2ef88be7b0fd6a9bbd5ffe69e0e50148e13";
 const PENDING_MIGRATIONS_HEADER =
   /Following migrations? have not yet been applied:/;
 const MESSENGER_MIGRATION_FILE =
@@ -38,6 +43,15 @@ const HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE =
   `prisma/migrations/${HUMAN_SUPPORT_SUMMARY_MIGRATION}/migration.sql`;
 const PAYMENT_SPLIT_RLS_MIGRATION_FILE =
   `prisma/migrations/${PAYMENT_SPLIT_RLS_MIGRATION}/migration.sql`;
+const TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION_FILE =
+  `prisma/migrations/${TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION}/migration.sql`;
+const transactionConversionSnapshotColumns = [
+  "conversionEffectsApplied", "conversionSnapshotCaptured",
+  "firstTopupRewardsApplied", "firstTopupReferrerRewardApplied",
+  "firstTopupSelfRewardApplied", "preConversionCustomerStage",
+  "preConversionSelfBookingEnabled", "preConversionConvertedAt",
+  "conversionAppliedConvertedAt",
+];
 
 const expectedMessengerColumns = [
   ["id", "text", "text", "NO", null],
@@ -161,6 +175,7 @@ function assertApprovedMigrationTarget(value) {
     [PAYMENT_SPLIT_MIGRATION]: [PAYMENT_SPLIT_MIGRATION_FILE, PAYMENT_SPLIT_CHECKSUM],
     [HUMAN_SUPPORT_SUMMARY_MIGRATION]: [HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE, HUMAN_SUPPORT_SUMMARY_CHECKSUM],
     [PAYMENT_SPLIT_RLS_MIGRATION]: [PAYMENT_SPLIT_RLS_MIGRATION_FILE, PAYMENT_SPLIT_RLS_CHECKSUM],
+    [TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION]: [TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION_FILE, TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM],
   };
   const [targetFile, targetChecksum] = targetFiles[value];
   if (migrationChecksum(targetFile) !== targetChecksum) {
@@ -215,6 +230,11 @@ export function hasOnlyHumanSupportSummaryPending(statusOutput) {
 export function hasOnlyPaymentSplitRlsPending(statusOutput) {
   const pending = pendingMigrations(statusOutput);
   return pending.length === 1 && pending[0] === PAYMENT_SPLIT_RLS_MIGRATION;
+}
+
+export function hasOnlyTransactionConversionSnapshotPending(statusOutput) {
+  const pending = pendingMigrations(statusOutput);
+  return pending.length === 1 && pending[0] === TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION;
 }
 
 export function classifyMessengerMigration(input, failedMigrationNames) {
@@ -410,6 +430,32 @@ async function readHumanSupportSummarySnapshot(prisma) {
   return { columns, indexes };
 }
 
+async function readTransactionConversionSnapshot(prisma) {
+  return prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'Transaction' AND column_name IN ('conversionEffectsApplied', 'conversionSnapshotCaptured', 'firstTopupRewardsApplied', 'firstTopupReferrerRewardApplied', 'firstTopupSelfRewardApplied', 'preConversionCustomerStage', 'preConversionSelfBookingEnabled', 'preConversionConvertedAt', 'conversionAppliedConvertedAt') ORDER BY column_name`;
+}
+
+export function hasNoTransactionConversionSnapshotColumns(columns) {
+  return columns.length === 0;
+}
+
+export function hasExpectedTransactionConversionSnapshotColumns(columns) {
+  if (columns.length !== transactionConversionSnapshotColumns.length) return false;
+  const byName = new Map(columns.map((column) => [column.columnName, column]));
+  return transactionConversionSnapshotColumns.every((name) => byName.has(name)) &&
+    ["conversionEffectsApplied", "conversionSnapshotCaptured", "firstTopupRewardsApplied", "firstTopupReferrerRewardApplied", "firstTopupSelfRewardApplied"].every((name) => {
+      const column = byName.get(name);
+      return column.dataType === "boolean" && column.udtName === "bool" &&
+        column.isNullable === "NO" && column.columnDefault === "false";
+    }) &&
+    byName.get("preConversionCustomerStage")?.udtName === "CustomerStage" &&
+    byName.get("preConversionCustomerStage")?.isNullable === "YES" &&
+    byName.get("preConversionSelfBookingEnabled")?.dataType === "boolean" &&
+    byName.get("preConversionSelfBookingEnabled")?.isNullable === "YES" &&
+    ["preConversionConvertedAt", "conversionAppliedConvertedAt"].every((name) =>
+      byName.get(name)?.dataType === "timestamp without time zone" && byName.get(name)?.isNullable === "YES"
+    );
+}
+
 async function readMessengerLedger(prisma) {
   const [rows, failedRows] = await Promise.all([
     prisma.$queryRaw`SELECT migration_name AS "migrationName", checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt", applied_steps_count::int AS "appliedStepsCount", logs FROM "_prisma_migrations" WHERE migration_name = ${MESSENGER_MIGRATION}`,
@@ -443,6 +489,16 @@ async function readHumanSupportSummaryLedger(prisma) {
 async function readPaymentSplitRlsLedger(prisma) {
   const rows = await prisma.$queryRaw`SELECT checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt" FROM "_prisma_migrations" WHERE migration_name = ${PAYMENT_SPLIT_RLS_MIGRATION}`;
   return rows.length === 1 ? rows[0] : null;
+}
+
+async function readTransactionConversionSnapshotLedger(prisma) {
+  const rows = await prisma.$queryRaw`SELECT checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt" FROM "_prisma_migrations" WHERE migration_name = ${TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION}`;
+  return rows.length === 1 ? rows[0] : null;
+}
+
+export function isAppliedTransactionConversionSnapshotMigration(row) {
+  return row?.checksum === TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM &&
+    row.finishedAt !== null && row.rolledBackAt === null;
 }
 
 export function isAppliedPaymentSplitRlsMigration(row) {
@@ -532,6 +588,47 @@ async function runHumanSupportSummaryMigration(prisma) {
   log("human_support_final_schema_verified");
 }
 
+async function runTransactionConversionSnapshotMigration(prisma) {
+  const initialStatus = runPrisma(["migrate", "status"]);
+  if (isStatusUpToDate(initialStatus)) {
+    const [columns, ledger] = await Promise.all([
+      readTransactionConversionSnapshot(prisma),
+      readTransactionConversionSnapshotLedger(prisma),
+    ]);
+    if (!hasExpectedTransactionConversionSnapshotColumns(columns) ||
+        !isAppliedTransactionConversionSnapshotMigration(ledger)) {
+      abort("transaction_conversion_snapshot_applied_state_rejected");
+    }
+    log("transaction_conversion_snapshot_already_applied_verified");
+    return;
+  }
+  if (initialStatus.exitCode !== 1 ||
+      !hasOnlyTransactionConversionSnapshotPending(initialStatus.output)) {
+    abort("transaction_conversion_snapshot_pending_allowlist_rejected");
+  }
+  const before = await readTransactionConversionSnapshot(prisma);
+  if (!hasNoTransactionConversionSnapshotColumns(before)) {
+    abort("transaction_conversion_snapshot_preflight_rejected");
+  }
+  log("transaction_conversion_snapshot_preflight_verified");
+  log("transaction_conversion_snapshot_deploy_started");
+  if (runPrisma(["migrate", "deploy"]).exitCode !== 0) {
+    abort("transaction_conversion_snapshot_deploy_failed");
+  }
+  log("transaction_conversion_snapshot_deploy_succeeded");
+  const finalStatus = runPrisma(["migrate", "status"]);
+  if (!isStatusUpToDate(finalStatus)) abort("transaction_conversion_snapshot_final_status_rejected");
+  const [after, ledger] = await Promise.all([
+    readTransactionConversionSnapshot(prisma),
+    readTransactionConversionSnapshotLedger(prisma),
+  ]);
+  if (!hasExpectedTransactionConversionSnapshotColumns(after) ||
+      !isAppliedTransactionConversionSnapshotMigration(ledger)) {
+    abort("transaction_conversion_snapshot_final_schema_rejected");
+  }
+  log("transaction_conversion_snapshot_final_schema_verified");
+}
+
 function isStatusUpToDate(result) {
   return result.exitCode === 0 && result.output.includes("Database schema is up to date");
 }
@@ -569,6 +666,10 @@ async function main() {
     }
     if (target === PAYMENT_SPLIT_RLS_MIGRATION) {
       await runPaymentSplitRlsMigration(prisma);
+      return;
+    }
+    if (target === TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION) {
+      await runTransactionConversionSnapshotMigration(prisma);
       return;
     }
     const ledger = await readMessengerLedger(prisma);
