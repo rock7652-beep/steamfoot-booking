@@ -36,6 +36,9 @@ describe("customer booking reschedule contract", () => {
     expect(action).toContain("resolveBookableUntilDate");
     expect(action).toContain("storeBookingHorizonAllows");
     expect(action).toContain("tx.shopConfig.findUnique");
+    expect(action).toContain('parseTaipeiDateTime(date, "00:00") !== null');
+    expect(action).toContain("date === current.bookingDate.toISOString().slice(0, 10)");
+    expect(action).toContain("slotTime === current.slotTime");
   });
 
   it("updates the original booking without touching plan wallets or sessions", () => {
