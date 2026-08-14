@@ -76,7 +76,7 @@ export async function purchasePlanForSingleBooking(
         select: { id: true },
       });
       if (existing) throw new AppError("CONFLICT", "此預約已有收款或待確認付款，請勿重複操作");
-      const customer = await tx.customer.findUnique({ where: { id: fresh.customerId }, select: { assignedStaffId: true, convertedAt: true } });
+      const customer = await tx.customer.findUnique({ where: { id: fresh.customerId }, select: { assignedStaffId: true, convertedAt: true, customerStage: true, selfBookingEnabled: true } });
       if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
       const revenueStaffId = customer.assignedStaffId ?? user.staffId!;
       const wallet = isPending ? null : await tx.customerPlanWallet.create({
@@ -90,7 +90,7 @@ export async function purchasePlanForSingleBooking(
       }
       const snapshot = await buildTransactionSnapshot(tx, { customerId: fresh.customerId, storeId, revenueStaffId, planId: plan.id, grossAmount, netAmount: data.amount });
       const transaction = await tx.transaction.create({
-        data: { ...snapshot, customerId: fresh.customerId, storeId, bookingId: booking.id, revenueStaffId, soldByStaffId: user.staffId ?? null, customerPlanWalletId: wallet?.id ?? null, transactionType: "PACKAGE_PURCHASE", paymentMethod: data.paymentMethod, paymentStatus: isPending ? "PENDING" : "SUCCESS", paidAt: isPending ? null : now, status: "SUCCESS", amount: data.amount, planId: plan.id, planSessionCountSnapshot: plan.sessionCount, pendingWalletExpiryDateSnapshot: isPending ? expiryDate : null, discountReason: data.discountReason || null, note: data.note || null },
+        data: { ...snapshot, customerId: fresh.customerId, storeId, bookingId: booking.id, revenueStaffId, soldByStaffId: user.staffId ?? null, customerPlanWalletId: wallet?.id ?? null, transactionType: "PACKAGE_PURCHASE", paymentMethod: data.paymentMethod, paymentStatus: isPending ? "PENDING" : "SUCCESS", paidAt: isPending ? null : now, conversionEffectsApplied: !isPending, preConversionCustomerStage: !isPending ? customer.customerStage : null, preConversionSelfBookingEnabled: !isPending ? customer.selfBookingEnabled : null, preConversionConvertedAt: !isPending ? customer.convertedAt : null, status: "SUCCESS", amount: data.amount, planId: plan.id, planSessionCountSnapshot: plan.sessionCount, pendingWalletExpiryDateSnapshot: isPending ? expiryDate : null, discountReason: data.discountReason || null, note: data.note || null },
       });
       return { transactionId: transaction.id, walletId: wallet?.id ?? null };
     });
