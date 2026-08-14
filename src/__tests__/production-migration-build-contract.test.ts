@@ -11,6 +11,8 @@ import {
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
   PAYMENT_SPLIT_RLS_CHECKSUM,
   PAYMENT_SPLIT_RLS_MIGRATION,
+  TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM,
+  TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
   APPROVED_PRODUCTION_MIGRATION_TARGETS,
   PRODUCTION_MIGRATION_TARGET_ENV,
   classifyMessengerMigration,
@@ -21,11 +23,15 @@ import {
   hasOnlyPaymentSplitPending,
   hasOnlyHumanSupportSummaryPending,
   hasOnlyPaymentSplitRlsPending,
+  hasOnlyTransactionConversionSnapshotPending,
   hasNoHumanSupportSummaryObjects,
   hasExpectedHumanSupportSummarySchema,
   isAppliedPaymentSplitMigration,
   isAppliedHumanSupportSummaryMigration,
   isAppliedPaymentSplitRlsMigration,
+  isAppliedTransactionConversionSnapshotMigration,
+  hasNoTransactionConversionSnapshotColumns,
+  hasExpectedTransactionConversionSnapshotColumns,
   hasExpectedPaymentSplitRls,
   awaitsManualReconciliation,
   migrationChecksum,
@@ -50,6 +56,10 @@ const humanSupportSummaryMigration = resolve(
 const paymentSplitRlsMigration = resolve(
   process.cwd(),
   `prisma/migrations/${PAYMENT_SPLIT_RLS_MIGRATION}/migration.sql`,
+);
+const transactionConversionSnapshotMigration = resolve(
+  process.cwd(),
+  `prisma/migrations/${TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION}/migration.sql`,
 );
 const completeMessengerSnapshot = {
   enumValues: ["RUNNING", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"],
@@ -123,10 +133,12 @@ describe("Production migration recovery guard", () => {
       PAYMENT_SPLIT_MIGRATION,
       HUMAN_SUPPORT_SUMMARY_MIGRATION,
       PAYMENT_SPLIT_RLS_MIGRATION,
+      TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
     ]);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_MIGRATION)).toBe(PAYMENT_SPLIT_MIGRATION);
     expect(resolveProductionMigrationTarget(HUMAN_SUPPORT_SUMMARY_MIGRATION)).toBe(HUMAN_SUPPORT_SUMMARY_MIGRATION);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_RLS_MIGRATION)).toBe(PAYMENT_SPLIT_RLS_MIGRATION);
+    expect(resolveProductionMigrationTarget(TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION)).toBe(TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION);
 
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: "utf8",
@@ -158,6 +170,7 @@ describe("Production migration recovery guard", () => {
     expect(migrationChecksum(paymentSplitMigration)).toBe(PAYMENT_SPLIT_CHECKSUM);
     expect(migrationChecksum(humanSupportSummaryMigration)).toBe(HUMAN_SUPPORT_SUMMARY_CHECKSUM);
     expect(migrationChecksum(paymentSplitRlsMigration)).toBe(PAYMENT_SPLIT_RLS_CHECKSUM);
+    expect(migrationChecksum(transactionConversionSnapshotMigration)).toBe(TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM);
   });
 
   it("supports the applied Messenger path without resolve", () => {
@@ -239,6 +252,43 @@ describe("Production migration recovery guard", () => {
     expect(hasOnlyPaymentSplitRlsPending(`${PENDING_SINGULAR}\n${PAYMENT_SPLIT_RLS_MIGRATION}\n`)).toBe(true);
     expect(hasOnlyPaymentSplitRlsPending(`${onlyRls}${PAYMENT_SPLIT_MIGRATION}\n`)).toBe(false);
     expect(hasOnlyPaymentSplitRlsPending(`${onlyRls}20260901090000_unapproved\n`)).toBe(false);
+  });
+
+  it("allows and fingerprints only the transaction conversion snapshot migration", () => {
+    const onlySnapshot = `${PENDING}\n${TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION}\n`;
+    expect(hasOnlyTransactionConversionSnapshotPending(onlySnapshot)).toBe(true);
+    expect(hasOnlyTransactionConversionSnapshotPending(`${onlySnapshot}${PAYMENT_SPLIT_MIGRATION}\n`)).toBe(false);
+    expect(isAppliedTransactionConversionSnapshotMigration({
+      checksum: TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM,
+      finishedAt: new Date(),
+      rolledBackAt: null,
+    })).toBe(true);
+    expect(isAppliedTransactionConversionSnapshotMigration({
+      checksum: "wrong",
+      finishedAt: new Date(),
+      rolledBackAt: null,
+    })).toBe(false);
+
+    const columns = [
+      ["conversionEffectsApplied", "boolean", "bool", "NO", "false"],
+      ["conversionSnapshotCaptured", "boolean", "bool", "NO", "false"],
+      ["firstTopupRewardsApplied", "boolean", "bool", "NO", "false"],
+      ["firstTopupReferrerRewardApplied", "boolean", "bool", "NO", "false"],
+      ["firstTopupSelfRewardApplied", "boolean", "bool", "NO", "false"],
+      ["preConversionCustomerStage", "USER-DEFINED", "CustomerStage", "YES", null],
+      ["preConversionSelfBookingEnabled", "boolean", "bool", "YES", null],
+      ["preConversionConvertedAt", "timestamp without time zone", "timestamp", "YES", null],
+      ["conversionAppliedConvertedAt", "timestamp without time zone", "timestamp", "YES", null],
+    ].map(([columnName, dataType, udtName, isNullable, columnDefault]) => ({
+      columnName, dataType, udtName, isNullable, columnDefault,
+    }));
+    expect(hasNoTransactionConversionSnapshotColumns([])).toBe(true);
+    expect(hasNoTransactionConversionSnapshotColumns(columns.slice(0, 1))).toBe(false);
+    expect(hasExpectedTransactionConversionSnapshotColumns(columns)).toBe(true);
+    expect(hasExpectedTransactionConversionSnapshotColumns(columns.slice(1))).toBe(false);
+    expect(hasExpectedTransactionConversionSnapshotColumns(columns.map((column) =>
+      column.columnName === "conversionEffectsApplied" ? { ...column, columnDefault: "true" } : column
+    ))).toBe(false);
   });
 
   it("pins the exact payment-split RLS preflight and final states", () => {
