@@ -9,6 +9,7 @@ import { TransactionDrawer } from "./TransactionDrawer";
 
 interface RowActionsProps {
   transactionId: string;
+  transactionStoreId: string;
   staffOptions: Array<{ id: string; displayName: string }>;
   canVoid: boolean;
   canEdit: boolean;
@@ -17,6 +18,7 @@ interface RowActionsProps {
 
 export function TransactionRowActions({
   transactionId,
+  transactionStoreId,
   staffOptions,
   canVoid,
   canEdit,
@@ -39,6 +41,7 @@ export function TransactionRowActions({
           open={open}
           onClose={() => setOpen(false)}
           transactionId={transactionId}
+          transactionStoreId={transactionStoreId}
           staffOptions={staffOptions}
           canVoid={canVoid}
           canEdit={canEdit}
