@@ -449,10 +449,13 @@ export function hasExpectedTransactionConversionSnapshotColumns(columns) {
     }) &&
     byName.get("preConversionCustomerStage")?.udtName === "CustomerStage" &&
     byName.get("preConversionCustomerStage")?.isNullable === "YES" &&
+    byName.get("preConversionCustomerStage")?.columnDefault === null &&
     byName.get("preConversionSelfBookingEnabled")?.dataType === "boolean" &&
     byName.get("preConversionSelfBookingEnabled")?.isNullable === "YES" &&
+    byName.get("preConversionSelfBookingEnabled")?.columnDefault === null &&
     ["preConversionConvertedAt", "conversionAppliedConvertedAt"].every((name) =>
-      byName.get(name)?.dataType === "timestamp without time zone" && byName.get(name)?.isNullable === "YES"
+      byName.get(name)?.dataType === "timestamp without time zone" &&
+      byName.get(name)?.isNullable === "YES" && byName.get(name)?.columnDefault === null
     );
 }
 
