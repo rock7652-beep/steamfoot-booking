@@ -19,14 +19,18 @@ describe("customer booking reschedule contract", () => {
 
   it("revalidates customer ownership, store writability, capacity and one-change limit", () => {
     const action = source("src/server/actions/customer-booking-reschedule.ts");
-    expect(action).toContain("getCanonicalCustomerIdForSession");
-    expect(action).toContain("customerId !== booking.customerId");
+    expect(action).toContain("requireCustomerBookingEligibility");
+    expect(action).toContain("eligibility.customerId !== booking.customerId");
+    expect(action).toContain("eligibility.storeId !== booking.storeId");
     expect(action).toContain("isStoreBookable(storeId)");
     expect(action).toContain("isStoreSubscriptionWriteBlocked(storeId)");
     expect(action).toContain("customerRescheduleCount < CUSTOMER_RESCHEDULE_LIMIT");
     expect(action).toContain("Prisma.TransactionIsolationLevel.Serializable");
     expect(action).toContain("NOT: { id: booking.id }");
     expect(action).toContain('return "slot_full"');
+    expect(action).toContain("entitlementCoversDate");
+    expect(action).toContain("if (booking.isMakeup) return false");
+    expect(action).toContain('wallet.status !== "ACTIVE"');
   });
 
   it("updates the original booking without touching plan wallets or sessions", () => {
@@ -46,5 +50,10 @@ describe("customer booking reschedule contract", () => {
     expect(message).toContain('label: "取消前往"');
     expect(message).toContain('actionUrl("cancel")');
     expect(message).toContain("encodeURIComponent(bookingId)");
+  });
+
+  it("loads same-day alternatives as soon as the reschedule page opens", () => {
+    const manager = source("src/app/(customer)/my-bookings/[id]/reschedule/reschedule-manager.tsx");
+    expect(manager).toContain("listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)");
   });
 });
