@@ -80,7 +80,6 @@ describe("customer booking reschedule contract", () => {
   it("loads same-day alternatives as soon as the reschedule page opens", () => {
     const manager = source("src/app/(customer)/my-bookings/[id]/reschedule/reschedule-manager.tsx");
     expect(manager).toContain("listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)");
-    expect(manager).toContain("listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)");
     expect(manager).toContain("setLoadingSlots(true)");
     expect(manager).toContain("正在載入這一天的可預約時段");
     expect(manager).toContain("min={minDate}");
