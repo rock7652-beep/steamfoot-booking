@@ -44,7 +44,19 @@ type AuthorizedBooking = {
 };
 
 function startsAt(date: string, slotTime: string): Date | null {
-  return parseTaipeiDateTime(date, slotTime);
+  try {
+    return parseTaipeiDateTime(date, canonicalizeBookingSlotTime(slotTime));
+  } catch {
+    return null;
+  }
+}
+
+function sameSlotTime(left: string, right: string): boolean {
+  try {
+    return canonicalizeBookingSlotTime(left) === canonicalizeBookingSlotTime(right);
+  } catch {
+    return false;
+  }
 }
 
 function isValidRescheduleDate(date: string): boolean {
@@ -200,7 +212,7 @@ export async function listCustomerBookingRescheduleSlots(bookingId: string, date
   return applySlotOverrides(ctx.rule, ctx.slotOverrides)
     .filter((slot) =>
       slot.isEnabled &&
-      !(date === booking.bookingDate.toISOString().slice(0, 10) && slot.startTime === booking.slotTime) &&
+      !(date === booking.bookingDate.toISOString().slice(0, 10) && sameSlotTime(slot.startTime, booking.slotTime)) &&
       outsideCutoff(date, slot.startTime, now) &&
       (!dutyEnabled || duty.has(slot.startTime)) &&
       slot.capacity - (used.get(slot.startTime) ?? 0) >= booking.people
@@ -223,7 +235,7 @@ export async function rescheduleCustomerBooking(
     !entitlementCoversDate(booking, date) ||
     !(await storeBookingHorizonAllows(booking.storeId, date)) ||
     !outsideCutoff(date, slotTime, now) ||
-    (date === booking.bookingDate.toISOString().slice(0, 10) && slotTime === booking.slotTime) ||
+    (date === booking.bookingDate.toISOString().slice(0, 10) && sameSlotTime(slotTime, booking.slotTime)) ||
     !(await storeAllowsReschedule(booking.storeId))
   ) return "unavailable";
 
@@ -274,9 +286,9 @@ export async function rescheduleCustomerBooking(
         !PENDING_STATUSES.includes(current.bookingStatus as (typeof PENDING_STATUSES)[number]) ||
         current.customerRescheduleCount >= CUSTOMER_RESCHEDULE_LIMIT ||
         current.bookingDate.getTime() !== booking.bookingDate.getTime() ||
-        current.slotTime !== booking.slotTime ||
+        !sameSlotTime(current.slotTime, booking.slotTime) ||
         !entitlementCoversDate(current, date) ||
-        (date === current.bookingDate.toISOString().slice(0, 10) && slotTime === current.slotTime) ||
+        (date === current.bookingDate.toISOString().slice(0, 10) && sameSlotTime(slotTime, current.slotTime)) ||
         !outsideCutoff(current.bookingDate.toISOString().slice(0, 10), current.slotTime, now)
       ) return "unavailable";
       const config = await tx.shopConfig.findUnique({
