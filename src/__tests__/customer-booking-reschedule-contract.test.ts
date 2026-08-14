@@ -43,6 +43,8 @@ describe("customer booking reschedule contract", () => {
     expect(action).toContain("canonicalizeBookingSlotTime(row.slotTime)");
     expect(action).toContain("parseTaipeiDateTime(date, canonicalizeBookingSlotTime(slotTime))");
     expect(action).toContain("sameSlotTime(slotTime, current.slotTime)");
+    expect(action).toContain("revalidateBookings()");
+    expect(action).not.toContain('revalidatePath("/my-bookings")');
   });
 
   it("updates the original booking without touching plan wallets or sessions", () => {
