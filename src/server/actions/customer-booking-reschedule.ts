@@ -132,7 +132,7 @@ function bookingCanReschedule(booking: AuthorizedBooking, now: Date): boolean {
   );
 }
 
-function entitlementCoversDate(
+function entitlementUnavailableReason(
   booking: {
     bookingType: string;
     isMakeup: boolean;
@@ -140,12 +140,12 @@ function entitlementCoversDate(
     walletSessions: AuthorizedBooking["walletSessions"];
   },
   date: string,
-): boolean {
-  if (booking.bookingType === "SINGLE") return true;
+): "plan_not_valid_for_date" | "unavailable" | null {
+  if (booking.bookingType === "SINGLE") return null;
   // Makeup bookings may consume multiple credits with independent expiry
   // dates. Keep that exceptional flow store-assisted until it has a dedicated
   // multi-credit reschedule contract.
-  if (booking.isMakeup) return false;
+  if (booking.isMakeup) return "unavailable";
   const targetDate = parseTaiwanDateToDbDate(date);
   const reservedWallets = booking.walletSessions.map((session) => session.wallet);
   // Historical bookings may predate WalletSession allocation. In that case,
@@ -156,9 +156,19 @@ function entitlementCoversDate(
     : booking.customerPlanWallet
       ? [booking.customerPlanWallet]
       : [];
-  return wallets.length > 0 && wallets.every(
-    (wallet) => wallet.status === "ACTIVE" && (!wallet.expiryDate || wallet.expiryDate >= targetDate),
-  );
+  if (wallets.length === 0 || wallets.some((wallet) => wallet.status !== "ACTIVE")) {
+    return "unavailable";
+  }
+  return wallets.some((wallet) => wallet.expiryDate && wallet.expiryDate < targetDate)
+    ? "plan_not_valid_for_date"
+    : null;
+}
+
+function entitlementCoversDate(
+  booking: Parameters<typeof entitlementUnavailableReason>[0],
+  date: string,
+): boolean {
+  return entitlementUnavailableReason(booking, date) === null;
 }
 
 export async function getCustomerBookingRescheduleStatus(bookingId: string) {
@@ -218,7 +228,8 @@ export async function getCustomerBookingRescheduleSlots(
     !isValidRescheduleDate(date) ||
     date < toLocalDateStr(now)
   ) return empty("unavailable");
-  if (!entitlementCoversDate(booking, date)) return empty("plan_not_valid_for_date");
+  const entitlementReason = entitlementUnavailableReason(booking, date);
+  if (entitlementReason) return empty(entitlementReason);
   if (
     !(await storeBookingHorizonAllows(booking.storeId, date)) ||
     !(await storeAllowsReschedule(booking.storeId))
