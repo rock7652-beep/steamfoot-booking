@@ -35,6 +35,10 @@ type BookingRow = {
   trialBookingChannel?: "LINE" | "MESSENGER" | null;
   bookingType?: "FIRST_TRIAL" | "PACKAGE_SESSION" | "SINGLE";
   bookingStatus: string;
+  store: {
+    slug: string;
+    name: string;
+  };
   customer: {
     id: string;
     name: string;
@@ -262,6 +266,9 @@ const mockPrisma = {
   store: {
     findUnique: vi.fn(async () => null), // null = 跳過 usage gate
   },
+  messageTemplate: {
+    findUnique: vi.fn(async () => null),
+  },
 };
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
@@ -324,6 +331,13 @@ vi.mock("@/lib/line", () => ({
 vi.mock("@/lib/shop-config", () => ({
   getShopConfig: async () => ({ shopName: "Test Shop" }),
 }));
+vi.mock("@/lib/store-resolver", () => ({
+  resolveStorePresentation: async () => ({
+    name: "Test Shop",
+    address: "302 新竹縣竹北市中崙里科大一路 80 號",
+    mapUrl: "https://maps.example.com/test-shop",
+  }),
+}));
 vi.mock("@/lib/usage-gate", () => ({
   checkReminderSendLimit: (...args: unknown[]) => checkReminderSendLimitMock(...args),
 }));
@@ -381,6 +395,10 @@ function makeBooking(opts: {
     trialBookingChannel: opts.channel ?? null,
     bookingType: opts.bookingType ?? "SINGLE",
     bookingStatus: opts.status ?? "CONFIRMED",
+    store: {
+      slug: opts.storeId ?? STORE_ID,
+      name: "Test Shop",
+    },
     customer: {
       id: opts.customerId ?? CUSTOMER_ID,
       name: "Alice",
@@ -520,6 +538,63 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(STORE_ID, LINE_USER_ID, [
       { type: "text", text: expect.any(String) },
     ]);
+  });
+
+  it("方案預約於前一日 18:00 使用正式 Flex 卡且不帶測試標示", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(makeBooking({
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      bookingType: "PACKAGE_SESSION",
+    }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
+
+    const message = pushMessageMock.mock.calls[0]?.[2]?.[0] as {
+      type: string;
+      altText: string;
+      contents: {
+        header: { contents: Array<{ text?: string }> };
+        body: { contents: Array<{ text?: string; contents?: Array<{ text?: string }> }> };
+        footer: { contents: Array<{ action: { label: string; uri: string } }> };
+      };
+    };
+    expect(message.type).toBe("flex");
+    expect(message.altText).not.toContain("測試提醒");
+    expect(message.contents.header.contents).toHaveLength(1);
+    expect(message.contents.body.contents.flatMap((item) =>
+      item.contents?.map((child) => child.text) ?? [item.text],
+    )).toEqual(expect.arrayContaining([
+      "Alice 您好",
+      "日期時間",
+      "2026-05-12 14:00",
+      "店名",
+      "Test Shop",
+      "預約項目",
+      "方案預約",
+      "服務時間",
+      "45 分鐘",
+      "地址",
+      "302 新竹縣竹北市中崙里科大一路 80 號",
+    ]));
+    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+      "開啟 Google Maps 導航",
+      "改時段",
+      "取消前往",
+    ]);
+    expect(message.contents.footer.contents[1]?.action.uri).toContain(
+      "/s/store-test/my-bookings/booking-1/reschedule",
+    );
+    expect(message.contents.footer.contents[2]?.action.uri).toContain(
+      "/s/store-test/my-bookings/booking-1/cancel",
+    );
+    expect(messageLogs).toHaveLength(1);
+    expect(messageLogs[0]).toMatchObject({
+      ruleId: RULE_ID,
+      bookingId: BOOKING_ID,
+      status: "SENT",
+    });
   });
 
   it("體驗預約以蒸管家單張 Flex 卡顯示資訊與管理按鈕", async () => {
