@@ -88,6 +88,10 @@ let centralRecipientOverrides = new Map<string, {
   deliverable: boolean;
   recipientLineUserId: string | null;
 }>();
+let shopConfigPresentation: { address: string | null; mapUrl: string | null } | null = {
+  address: "302 新竹縣竹北市中崙里科大一路 80 號",
+  mapUrl: "https://maps.example.com/test-shop",
+};
 const mockHasStoreFeature = vi.fn();
 const sendMessengerUtilityReminderMock = vi.fn();
 const checkReminderSendLimitMock = vi.fn();
@@ -266,8 +270,8 @@ const mockPrisma = {
   store: {
     findUnique: vi.fn(async () => null), // null = 跳過 usage gate
   },
-  messageTemplate: {
-    findUnique: vi.fn(async () => null),
+  shopConfig: {
+    findUnique: vi.fn(async () => shopConfigPresentation),
   },
 };
 
@@ -330,13 +334,6 @@ vi.mock("@/lib/line", () => ({
 }));
 vi.mock("@/lib/shop-config", () => ({
   getShopConfig: async () => ({ shopName: "Test Shop" }),
-}));
-vi.mock("@/lib/store-resolver", () => ({
-  resolveStorePresentation: async () => ({
-    name: "Test Shop",
-    address: "302 新竹縣竹北市中崙里科大一路 80 號",
-    mapUrl: "https://maps.example.com/test-shop",
-  }),
 }));
 vi.mock("@/lib/usage-gate", () => ({
   checkReminderSendLimit: (...args: unknown[]) => checkReminderSendLimitMock(...args),
@@ -434,6 +431,11 @@ beforeEach(() => {
   rules = [];
   messageLogs = [];
   centralRecipientOverrides = new Map();
+  shopConfigPresentation = {
+    address: "302 新竹縣竹北市中崙里科大一路 80 號",
+    mapUrl: "https://maps.example.com/test-shop",
+  };
+  mockPrisma.shopConfig.findUnique.mockClear();
   pushMessageMock.mockClear();
   pushMessageMock.mockResolvedValue({ success: true });
   pushSteamButlerMessageMock.mockClear();
@@ -546,7 +548,11 @@ describe("runReminders (daily next-day batch)", () => {
       bookingDate: new Date("2026-05-12T00:00:00.000Z"),
       bookingType: "PACKAGE_SESSION",
     }));
-    rules.push(makeRule());
+    rules.push({
+      ...makeRule(),
+      templateId: "scheduled-template",
+      template: { body: "正式排程自訂提醒" },
+    });
 
     const { engine } = await loadModules();
     await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
@@ -583,6 +589,7 @@ describe("runReminders (daily next-day batch)", () => {
       "改時段",
       "取消前往",
     ]);
+    expect(JSON.stringify(message)).toContain("正式排程自訂提醒");
     expect(message.contents.footer.contents[1]?.action.uri).toContain(
       "/s/store-test/my-bookings/booking-1/reschedule",
     );
@@ -595,6 +602,32 @@ describe("runReminders (daily next-day batch)", () => {
       bookingId: BOOKING_ID,
       status: "SENT",
     });
+  });
+
+  it("分店未設定地址或地圖時不顯示其他分店資料與導航按鈕", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    shopConfigPresentation = { address: null, mapUrl: null };
+    bookings.push(makeBooking({
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      bookingType: "SINGLE",
+    }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
+
+    const message = pushMessageMock.mock.calls[0]?.[2]?.[0] as {
+      contents: {
+        body: { contents: Array<{ text?: string; contents?: Array<{ text?: string }> }> };
+        footer: { contents: Array<{ action: { label: string } }> };
+      };
+    };
+    const bodyText = JSON.stringify(message.contents.body);
+    expect(bodyText).not.toContain("302 新竹縣竹北市");
+    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+      "改時段",
+      "取消前往",
+    ]);
   });
 
   it("體驗預約以蒸管家單張 Flex 卡顯示資訊與管理按鈕", async () => {
