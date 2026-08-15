@@ -23,11 +23,6 @@ import {
 } from "@/lib/line";
 import { getShopConfig } from "@/lib/shop-config";
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
-import { resolveStorePresentation } from "@/lib/store-resolver";
-import {
-  DEFAULT_PACKAGE_LINE_CARD_REMINDER,
-  packageLineCardReminderSettingId,
-} from "@/lib/package-line-card-reminder-setting";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
 import type { StorePlanFields } from "@/lib/store-plan";
 import { deriveBaseUrl } from "@/lib/base-url";
@@ -227,11 +222,10 @@ export async function runReminders(): Promise<SendResult> {
 
   const baseUrl = deriveBaseUrl();
   const shopNameCache = new Map<string, string>();
-  const storePresentationCache = new Map<
+  const storeMapDetailsCache = new Map<
     string,
-    Awaited<ReturnType<typeof resolveStorePresentation>>
+    { address: string | null; mapUrl: string | null }
   >();
-  const packageReminderTextCache = new Map<string, string>();
   const storePlanCache = new Map<string, StorePlanFields>();
   const storeSendCountCache = new Map<string, number>();
   const storeLineReminderFeatureCache = new Map<string, boolean>();
@@ -432,29 +426,20 @@ export async function runReminders(): Promise<SendResult> {
       if (isLineTrialBooking) {
         bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
       }
-      if (!isLineTrialBooking && !storePresentationCache.has(bookingStoreId)) {
-        storePresentationCache.set(
-          bookingStoreId,
-          await resolveStorePresentation(booking.store.slug),
-        );
-      }
-      if (!isLineTrialBooking && !packageReminderTextCache.has(bookingStoreId)) {
-        const setting = await prisma.messageTemplate.findUnique({
-          where: {
-            id: packageLineCardReminderSettingId(bookingStoreId),
-            storeId: bookingStoreId,
-          },
-          select: { body: true },
+      if (!isLineTrialBooking && !storeMapDetailsCache.has(bookingStoreId)) {
+        const config = await prisma.shopConfig.findUnique({
+          where: { storeId: bookingStoreId },
+          select: { address: true, mapUrl: true },
         });
-        packageReminderTextCache.set(
-          bookingStoreId,
-          setting?.body ?? DEFAULT_PACKAGE_LINE_CARD_REMINDER,
-        );
+        storeMapDetailsCache.set(bookingStoreId, {
+          address: config?.address?.trim() || null,
+          mapUrl: config?.mapUrl?.trim() || null,
+        });
       }
-      const storePresentation = storePresentationCache.get(bookingStoreId);
+      const storeMapDetails = storeMapDetailsCache.get(bookingStoreId);
       const customerFacingShopName = isLineTrialBooking
         ? shopNameCache.get(bookingStoreId) ?? "蒸足"
-        : storePresentation?.name ?? getCustomerFacingStoreName({
+        : getCustomerFacingStoreName({
             slug: booking.store.slug,
             name: shopNameCache.get(bookingStoreId) ?? booking.store.name,
           });
@@ -485,11 +470,9 @@ export async function runReminders(): Promise<SendResult> {
             shopName: customerFacingShopName,
             serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
             serviceDuration: "45 分鐘",
-            address: storePresentation?.address,
-            mapUrl: storePresentation?.mapUrl,
-            reminderText:
-              packageReminderTextCache.get(bookingStoreId) ??
-              DEFAULT_PACKAGE_LINE_CARD_REMINDER,
+            address: storeMapDetails?.address ?? undefined,
+            mapUrl: storeMapDetails?.mapUrl ?? undefined,
+            reminderText: renderedBody,
           }, bookingLink, booking.id);
       const textMessages = isLineTrialBooking
         ? buildTrialBookingReminderTextFallback(card, bookingLink)
