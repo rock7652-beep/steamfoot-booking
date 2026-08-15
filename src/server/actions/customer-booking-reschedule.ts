@@ -264,7 +264,10 @@ export async function getCustomerBookingRescheduleSlots(
   }
   const duty = new Set(dutyRows.map((row) => canonicalizeBookingSlotTime(row.slotTime)));
   const staffedSlots = dutyEnabled
-    ? candidateSlots.filter((slot) => duty.has(canonicalizeBookingSlotTime(slot.startTime)))
+    ? candidateSlots.filter((slot) => {
+        const canonical = canonicalizeBookingSlotTime(slot.startTime);
+        return duty.has(canonical);
+      })
     : candidateSlots;
   if (staffedSlots.length === 0) return empty("no_duty");
 
