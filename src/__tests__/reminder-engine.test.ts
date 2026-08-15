@@ -538,7 +538,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(messageLogs[0].triggerAt?.toISOString()).toBe("2026-05-11T10:00:00.000Z");
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushMessageMock).toHaveBeenCalledWith(STORE_ID, LINE_USER_ID, [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
     ]);
   });
 
@@ -762,7 +762,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(result.skipped).toBe(1);
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushMessageMock).toHaveBeenCalledWith(OTHER_STORE_ID, LINE_USER_ID, [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
     ]);
     expect(messageLogs).toHaveLength(2);
     expect(messageLogs).toEqual(
@@ -910,7 +910,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(result.sent).toBe(1);
     expect(pushMessageMock).not.toHaveBeenCalled();
     expect(pushSteamButlerMessageMock).toHaveBeenCalledWith("U-central-only", [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
     ]);
     expect(messageLogs[0].lineRoute).toBe("CENTRAL");
   });
@@ -936,7 +936,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(result.sent).toBe(1);
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushMessageMock).toHaveBeenCalledWith("store-test", "U1234567890", [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
     ]);
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
     expect(messageLogs[0].lineRoute).toBe("STORE");
