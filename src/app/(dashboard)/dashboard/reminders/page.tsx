@@ -265,6 +265,12 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               canApplyToAllStores={user.role === "ADMIN"}
               mode="templates"
             />
+            <div className="rounded-xl border border-primary-100 bg-primary-50 p-4 text-sm leading-relaxed text-primary-900">
+              <p className="font-semibold">以下是方案／單次預約卡片內的提醒文案</p>
+              <p className="mt-1 text-xs">
+                姓名、日期與連結變數會由系統自動帶入。前一日 18:00 發送時，文案會放進單張 Flex 卡片，不會另外發送重複文字；首次體驗使用固定的體驗提醒卡。上方的剩餘堂數／續購提醒是另一套通知，不受此說明影響。「12 小時截止」是顧客自行改期或取消的操作限制，不是另一個提醒時間。
+              </p>
+            </div>
             {templates.length === 0 ? (
               <div className="rounded-xl border border-earth-200 bg-white p-8 text-center text-sm text-earth-400">
                 尚未建立訊息模板
