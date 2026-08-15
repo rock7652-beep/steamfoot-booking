@@ -44,7 +44,7 @@ import { resolveCentralLineRecipientsForCustomers } from "@/server/services/cent
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import {
-  buildPackageBookingTestReminderLineMessages,
+  buildPackageBookingReminderLineMessages,
   buildTrialBookingReminderLineMessages,
   buildTrialBookingReminderTextFallback,
   canFallbackToTextReminder,
@@ -478,7 +478,7 @@ export async function runReminders(): Promise<SendResult> {
       };
       const flexMessages = isLineTrialBooking
         ? buildTrialBookingReminderLineMessages(card, bookingLink)
-        : buildPackageBookingTestReminderLineMessages({
+        : buildPackageBookingReminderLineMessages({
             customerName: customer.name,
             bookingDate: bookingDateStr,
             bookingTime: booking.slotTime,
