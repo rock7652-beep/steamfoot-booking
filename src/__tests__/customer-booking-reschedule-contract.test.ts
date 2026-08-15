@@ -89,7 +89,7 @@ describe("customer booking reschedule contract", () => {
 
   it("loads same-day alternatives as soon as the reschedule page opens", () => {
     const manager = source("src/app/(customer)/my-bookings/[id]/reschedule/reschedule-manager.tsx");
-    expect(manager).toContain("listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)");
+    expect(manager).toContain("getCustomerBookingRescheduleSlots(bookingId, status.bookingDate)");
     expect(manager).toContain("setLoadingSlots(true)");
     expect(manager).toContain("正在載入這一天的可預約時段");
     expect(manager).toContain("min={minDate}");
@@ -98,6 +98,15 @@ describe("customer booking reschedule contract", () => {
     expect(manager).toContain("reasonMessage");
     expect(manager).toContain("補課預約目前需由店家協助改期");
     expect(manager).toContain("這筆預約目前不是可改期狀態");
+    expect(manager).toContain("所選日期超過方案有效期限");
+    expect(manager).toContain("這一天尚未安排值班人員");
+    expect(manager).toContain("這一天的可預約時段已額滿");
+    const action = source("src/server/actions/customer-booking-reschedule.ts");
+    expect(action).toContain('"plan_not_valid_for_date"');
+    expect(action).toContain('"no_duty"');
+    expect(action).toContain('"fully_booked"');
+    expect(action).toContain("staffedSlots.length === 0");
+    expect(action).toContain('unavailableReason: slots.length === 0 ? "fully_booked" : null');
   });
 
   it("exposes the safe reschedule route from the normal customer booking list", () => {
