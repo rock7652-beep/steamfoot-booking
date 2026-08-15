@@ -57,7 +57,7 @@ export function ReminderCard({ initialEnabled, initialTemplateId, templates }: P
             每天台灣時間 18:00，自動提醒「明天有預約且已綁定 LINE」的顧客。
           </p>
           <p className="mt-2 rounded-lg bg-primary-50 px-3 py-2 text-xs leading-relaxed text-primary-800">
-            預約的正式排程只有這一個時點。顧客會收到單張 LINE 卡片；下方模板文字會顯示在「方案／單次預約」卡片的提醒內容，不會另外再傳一則重複文字。首次體驗使用固定的體驗提醒卡。
+            預約的正式排程應只啟用這一個時點；每一條啟用中的規則都會各自傳送一張 LINE 卡片，請勿同時啟用重複規則。下方模板文字會顯示在「方案／單次預約」卡片的提醒內容，不會另外再傳一則重複文字。首次體驗使用固定的體驗提醒卡。
           </p>
         </div>
         <button
