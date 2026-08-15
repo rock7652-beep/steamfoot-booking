@@ -103,6 +103,10 @@ describe("customer booking reschedule contract", () => {
     expect(manager).toContain("這一天的可預約時段已額滿");
     const action = source("src/server/actions/customer-booking-reschedule.ts");
     expect(action).toContain('"plan_not_valid_for_date"');
+    expect(action).toContain("entitlementUnavailableReason");
+    expect(action).toContain('wallet.status !== "ACTIVE"');
+    expect(action).toContain('return "unavailable"');
+    expect(action).toContain("wallet.expiryDate < targetDate");
     expect(action).toContain('"no_duty"');
     expect(action).toContain('"fully_booked"');
     expect(action).toContain("staffedSlots.length === 0");
