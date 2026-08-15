@@ -6,12 +6,24 @@ import { useStoreSlugRequired } from "@/lib/store-context";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
 import {
   getCustomerBookingRescheduleStatus,
-  listCustomerBookingRescheduleSlots,
+  getCustomerBookingRescheduleSlots,
   rescheduleCustomerBooking,
 } from "@/server/actions/customer-booking-reschedule";
 
 interface Props {
   bookingId: string;
+}
+
+const SLOT_REASON_MESSAGE: Record<string, string> = {
+  plan_not_valid_for_date: "所選日期超過方案有效期限，請選擇其他日期或聯絡店家。",
+  no_duty: "這一天尚未安排值班人員，請選擇其他日期或聯絡店家。",
+  fully_booked: "這一天的可預約時段已額滿，請選擇其他日期。",
+  no_open_slots: "這一天目前沒有開放時段，請選擇其他日期。",
+  unavailable: "這一天目前無法自行改期，請選擇其他日期或聯絡店家。",
+};
+
+function slotResultMessage(reason: string | null): string {
+  return reason ? SLOT_REASON_MESSAGE[reason] ?? SLOT_REASON_MESSAGE.unavailable : "";
 }
 
 export function CustomerBookingRescheduleManager({ bookingId }: Props) {
@@ -44,12 +56,12 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
         if (status.canReschedule) {
           const requestId = slotRequestGate.issue();
           setLoadingSlots(true);
-          void listCustomerBookingRescheduleSlots(bookingId, status.bookingDate)
+          void getCustomerBookingRescheduleSlots(bookingId, status.bookingDate)
             .then((next) => {
               if (!slotRequestGate.isCurrent(requestId)) return;
-              setSlots(next);
+              setSlots(next.slots);
               setLoadingSlots(false);
-              setMessage(next.length === 0 ? "這一天目前沒有開放或可預約的時段，請選擇其他日期。" : "");
+              setMessage(slotResultMessage(next.unavailableReason));
             })
             .catch(() => {
               if (slotRequestGate.isCurrent(requestId)) {
@@ -81,12 +93,11 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
     setSlots([]);
     setSelected("");
     try {
-      const next = await listCustomerBookingRescheduleSlots(bookingId, nextDate);
+      const next = await getCustomerBookingRescheduleSlots(bookingId, nextDate);
       if (slotRequestGate.isCurrent(requestId)) {
-        setSlots(next);
+        setSlots(next.slots);
         setLoadingSlots(false);
-        if (next.length === 0) setMessage("這一天目前沒有開放或可預約的時段，請選擇其他日期。");
-        else setMessage("");
+        setMessage(slotResultMessage(next.unavailableReason));
       }
     } catch {
       if (slotRequestGate.isCurrent(requestId)) {

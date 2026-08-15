@@ -132,7 +132,7 @@ function bookingCanReschedule(booking: AuthorizedBooking, now: Date): boolean {
   );
 }
 
-function entitlementCoversDate(
+function entitlementUnavailableReason(
   booking: {
     bookingType: string;
     isMakeup: boolean;
@@ -140,12 +140,12 @@ function entitlementCoversDate(
     walletSessions: AuthorizedBooking["walletSessions"];
   },
   date: string,
-): boolean {
-  if (booking.bookingType === "SINGLE") return true;
+): "plan_not_valid_for_date" | "unavailable" | null {
+  if (booking.bookingType === "SINGLE") return null;
   // Makeup bookings may consume multiple credits with independent expiry
   // dates. Keep that exceptional flow store-assisted until it has a dedicated
   // multi-credit reschedule contract.
-  if (booking.isMakeup) return false;
+  if (booking.isMakeup) return "unavailable";
   const targetDate = parseTaiwanDateToDbDate(date);
   const reservedWallets = booking.walletSessions.map((session) => session.wallet);
   // Historical bookings may predate WalletSession allocation. In that case,
@@ -156,9 +156,19 @@ function entitlementCoversDate(
     : booking.customerPlanWallet
       ? [booking.customerPlanWallet]
       : [];
-  return wallets.length > 0 && wallets.every(
-    (wallet) => wallet.status === "ACTIVE" && (!wallet.expiryDate || wallet.expiryDate >= targetDate),
-  );
+  if (wallets.length === 0 || wallets.some((wallet) => wallet.status !== "ACTIVE")) {
+    return "unavailable";
+  }
+  return wallets.some((wallet) => wallet.expiryDate && wallet.expiryDate < targetDate)
+    ? "plan_not_valid_for_date"
+    : null;
+}
+
+function entitlementCoversDate(
+  booking: Parameters<typeof entitlementUnavailableReason>[0],
+  date: string,
+): boolean {
+  return entitlementUnavailableReason(booking, date) === null;
 }
 
 export async function getCustomerBookingRescheduleStatus(bookingId: string) {
@@ -190,21 +200,54 @@ export async function getCustomerBookingRescheduleStatus(bookingId: string) {
   };
 }
 
-export async function listCustomerBookingRescheduleSlots(bookingId: string, date: string): Promise<string[]> {
+export type CustomerBookingRescheduleSlotReason =
+  | "plan_not_valid_for_date"
+  | "no_duty"
+  | "fully_booked"
+  | "no_open_slots"
+  | "unavailable";
+
+export type CustomerBookingRescheduleSlotsResult = {
+  slots: string[];
+  unavailableReason: CustomerBookingRescheduleSlotReason | null;
+};
+
+export async function getCustomerBookingRescheduleSlots(
+  bookingId: string,
+  date: string,
+): Promise<CustomerBookingRescheduleSlotsResult> {
+  const empty = (unavailableReason: CustomerBookingRescheduleSlotReason): CustomerBookingRescheduleSlotsResult => ({
+    slots: [],
+    unavailableReason,
+  });
   const now = new Date();
   const booking = await loadAuthorizedBooking(bookingId);
   if (
     !booking ||
     !bookingCanReschedule(booking, now) ||
     !isValidRescheduleDate(date) ||
-    date < toLocalDateStr(now) ||
-    !entitlementCoversDate(booking, date) ||
+    date < toLocalDateStr(now)
+  ) return empty("unavailable");
+  const entitlementReason = entitlementUnavailableReason(booking, date);
+  if (entitlementReason) return empty(entitlementReason);
+  if (
     !(await storeBookingHorizonAllows(booking.storeId, date)) ||
     !(await storeAllowsReschedule(booking.storeId))
-  ) return [];
+  ) return empty("unavailable");
 
   const ctx = await loadDayBusinessHoursContext(booking.storeId, date);
-  if (ctx.rule.closed) return [];
+  if (ctx.rule.closed) return empty("no_open_slots");
+  const candidateSlots = applySlotOverrides(ctx.rule, ctx.slotOverrides)
+    .filter((slot) => {
+      const canonical = canonicalizeBookingSlotTime(slot.startTime);
+      return (
+        slot.isEnabled &&
+        !(date === booking.bookingDate.toISOString().slice(0, 10) && sameSlotTime(canonical, booking.slotTime)) &&
+        outsideCutoff(date, canonical, now)
+      );
+    });
+  if (candidateSlots.length === 0) return empty("no_open_slots");
+
   const dutyEnabled = await isDutySchedulingEnabled(booking.storeId);
   const [grouped, dutyRows] = await Promise.all([
     prisma.booking.groupBy({
@@ -231,18 +274,28 @@ export async function listCustomerBookingRescheduleSlots(bookingId: string, date
     used.set(canonical, (used.get(canonical) ?? 0) + (row._sum.people ?? 0));
   }
   const duty = new Set(dutyRows.map((row) => canonicalizeBookingSlotTime(row.slotTime)));
-  return applySlotOverrides(ctx.rule, ctx.slotOverrides)
+  const staffedSlots = dutyEnabled
+    ? candidateSlots.filter((slot) => {
+        const canonical = canonicalizeBookingSlotTime(slot.startTime);
+        return duty.has(canonical);
+      })
+    : candidateSlots;
+  if (staffedSlots.length === 0) return empty("no_duty");
+
+  const slots = staffedSlots
     .filter((slot) => {
       const canonical = canonicalizeBookingSlotTime(slot.startTime);
-      return (
-        slot.isEnabled &&
-        !(date === booking.bookingDate.toISOString().slice(0, 10) && sameSlotTime(canonical, booking.slotTime)) &&
-        outsideCutoff(date, canonical, now) &&
-        (!dutyEnabled || duty.has(canonical)) &&
-        slot.capacity - (used.get(canonical) ?? 0) >= booking.people
-      );
+      return slot.capacity - (used.get(canonical) ?? 0) >= booking.people;
     })
     .map((slot) => canonicalizeBookingSlotTime(slot.startTime));
+  return {
+    slots,
+    unavailableReason: slots.length === 0 ? "fully_booked" : null,
+  };
+}
+
+export async function listCustomerBookingRescheduleSlots(bookingId: string, date: string): Promise<string[]> {
+  return (await getCustomerBookingRescheduleSlots(bookingId, date)).slots;
 }
 
 export async function rescheduleCustomerBooking(
