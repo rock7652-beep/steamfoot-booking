@@ -259,6 +259,12 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         {/* Templates — denser grid */}
         {activeTab === "templates" && (
           <section className="space-y-4">
+            <div className="rounded-xl border border-primary-100 bg-primary-50 p-4 text-sm leading-relaxed text-primary-900">
+              <p className="font-semibold">這裡是 LINE 卡片內的提醒文案</p>
+              <p className="mt-1 text-xs">
+                畫面中的姓名、日期與連結變數會由系統自動帶入。前一日 18:00 發送時，文案會放進單張 Flex 卡片，不會另外發送重複文字。顧客自行改期的「12 小時截止」是操作限制，不是另一個提醒時間。
+              </p>
+            </div>
             <SessionBalanceReminderCard
               key={`${activeStoreId}-session-balance-templates`}
               initialSetting={sessionBalanceSetting}
