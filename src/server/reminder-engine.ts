@@ -22,6 +22,7 @@ import {
   type TemplateVariables,
 } from "@/lib/line";
 import { getShopConfig } from "@/lib/shop-config";
+import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
 import type { StorePlanFields } from "@/lib/store-plan";
 import { deriveBaseUrl } from "@/lib/base-url";
@@ -38,6 +39,7 @@ import { resolveCentralLineRecipientsForCustomers } from "@/server/services/cent
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import {
+  buildPackageBookingReminderLineMessages,
   buildTrialBookingReminderLineMessages,
   buildTrialBookingReminderTextFallback,
   canFallbackToTextReminder,
@@ -220,6 +222,10 @@ export async function runReminders(): Promise<SendResult> {
 
   const baseUrl = deriveBaseUrl();
   const shopNameCache = new Map<string, string>();
+  const storeMapDetailsCache = new Map<
+    string,
+    { address: string | null; mapUrl: string | null }
+  >();
   const storePlanCache = new Map<string, StorePlanFields>();
   const storeSendCountCache = new Map<string, number>();
   const storeLineReminderFeatureCache = new Map<string, boolean>();
@@ -242,6 +248,7 @@ export async function runReminders(): Promise<SendResult> {
       },
       include: {
         customer: { include: { assignedStaff: true } },
+        store: { select: { slug: true, name: true } },
       },
     });
 
@@ -391,7 +398,7 @@ export async function runReminders(): Promise<SendResult> {
         shopNameCache.set(bookingStoreId, sc.shopName);
       }
       const bookingDateStr = booking.bookingDate.toISOString().slice(0, 10);
-      let bookingLink = `${baseUrl}/my-bookings`;
+      let bookingLink = `${baseUrl}/s/${encodeURIComponent(booking.store.slug)}/my-bookings`;
       // Messenger bookings already continued above; a channel-null legacy
       // first trial that reaches a verified LINE route must use self-service.
       const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
@@ -419,11 +426,28 @@ export async function runReminders(): Promise<SendResult> {
       if (isLineTrialBooking) {
         bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
       }
+      if (!isLineTrialBooking && !storeMapDetailsCache.has(bookingStoreId)) {
+        const config = await prisma.shopConfig.findUnique({
+          where: { storeId: bookingStoreId },
+          select: { address: true, mapUrl: true },
+        });
+        storeMapDetailsCache.set(bookingStoreId, {
+          address: config?.address?.trim() || null,
+          mapUrl: config?.mapUrl?.trim() || null,
+        });
+      }
+      const storeMapDetails = storeMapDetailsCache.get(bookingStoreId);
+      const customerFacingShopName = isLineTrialBooking
+        ? shopNameCache.get(bookingStoreId) ?? "蒸足"
+        : getCustomerFacingStoreName({
+            slug: booking.store.slug,
+            name: shopNameCache.get(bookingStoreId) ?? booking.store.name,
+          });
       const vars: TemplateVariables = {
         customerName: customer.name,
         bookingDate: bookingDateStr,
         bookingTime: booking.slotTime,
-        shopName: shopNameCache.get(bookingStoreId) ?? "蒸足",
+        shopName: customerFacingShopName,
         staffName: customer.assignedStaff?.displayName ?? "店長",
         bookingLink,
       };
@@ -434,12 +458,22 @@ export async function runReminders(): Promise<SendResult> {
         customerName: customer.name,
         bookingDate: bookingDateStr,
         bookingTime: booking.slotTime,
-        shopName: shopNameCache.get(bookingStoreId) ?? "蒸足",
+        shopName: customerFacingShopName,
         serviceName: "首次體驗",
       };
       const flexMessages = isLineTrialBooking
         ? buildTrialBookingReminderLineMessages(card, bookingLink)
-        : [{ type: "text" as const, text: renderedBody }];
+        : buildPackageBookingReminderLineMessages({
+            customerName: customer.name,
+            bookingDate: bookingDateStr,
+            bookingTime: booking.slotTime,
+            shopName: customerFacingShopName,
+            serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
+            serviceDuration: "45 分鐘",
+            address: storeMapDetails?.address ?? undefined,
+            mapUrl: storeMapDetails?.mapUrl ?? undefined,
+            reminderText: renderedBody,
+          }, bookingLink, booking.id);
       const textMessages = isLineTrialBooking
         ? buildTrialBookingReminderTextFallback(card, bookingLink)
         : [{ type: "text" as const, text: renderedBody }];
@@ -447,7 +481,7 @@ export async function runReminders(): Promise<SendResult> {
       let sendResult = route.channel === "STORE"
         ? await pushMessage(bookingStoreId, route.recipientLineUserId, flexMessages)
         : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages);
-      if (isLineTrialBooking && canFallbackToTextReminder(sendResult)) {
+      if (canFallbackToTextReminder(sendResult)) {
         sendResult = route.channel === "STORE"
           ? await pushMessage(bookingStoreId, route.recipientLineUserId, textMessages)
           : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
@@ -462,7 +496,10 @@ export async function runReminders(): Promise<SendResult> {
         sendResult.httpStatus === 400 &&
         storeRecipient
       ) {
-        sendResult = await pushMessage(bookingStoreId, storeRecipient, textMessages);
+        sendResult = await pushMessage(bookingStoreId, storeRecipient, flexMessages);
+        if (canFallbackToTextReminder(sendResult)) {
+          sendResult = await pushMessage(bookingStoreId, storeRecipient, textMessages);
+        }
         actualRoute = "STORE";
       }
 

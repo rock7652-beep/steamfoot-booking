@@ -35,6 +35,10 @@ type BookingRow = {
   trialBookingChannel?: "LINE" | "MESSENGER" | null;
   bookingType?: "FIRST_TRIAL" | "PACKAGE_SESSION" | "SINGLE";
   bookingStatus: string;
+  store: {
+    slug: string;
+    name: string;
+  };
   customer: {
     id: string;
     name: string;
@@ -84,6 +88,10 @@ let centralRecipientOverrides = new Map<string, {
   deliverable: boolean;
   recipientLineUserId: string | null;
 }>();
+let shopConfigPresentation: { address: string | null; mapUrl: string | null } | null = {
+  address: "302 新竹縣竹北市中崙里科大一路 80 號",
+  mapUrl: "https://maps.example.com/test-shop",
+};
 const mockHasStoreFeature = vi.fn();
 const sendMessengerUtilityReminderMock = vi.fn();
 const checkReminderSendLimitMock = vi.fn();
@@ -262,6 +270,9 @@ const mockPrisma = {
   store: {
     findUnique: vi.fn(async () => null), // null = 跳過 usage gate
   },
+  shopConfig: {
+    findUnique: vi.fn(async () => shopConfigPresentation),
+  },
 };
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
@@ -381,6 +392,10 @@ function makeBooking(opts: {
     trialBookingChannel: opts.channel ?? null,
     bookingType: opts.bookingType ?? "SINGLE",
     bookingStatus: opts.status ?? "CONFIRMED",
+    store: {
+      slug: opts.storeId ?? STORE_ID,
+      name: "Test Shop",
+    },
     customer: {
       id: opts.customerId ?? CUSTOMER_ID,
       name: "Alice",
@@ -416,6 +431,11 @@ beforeEach(() => {
   rules = [];
   messageLogs = [];
   centralRecipientOverrides = new Map();
+  shopConfigPresentation = {
+    address: "302 新竹縣竹北市中崙里科大一路 80 號",
+    mapUrl: "https://maps.example.com/test-shop",
+  };
+  mockPrisma.shopConfig.findUnique.mockClear();
   pushMessageMock.mockClear();
   pushMessageMock.mockResolvedValue({ success: true });
   pushSteamButlerMessageMock.mockClear();
@@ -518,7 +538,95 @@ describe("runReminders (daily next-day batch)", () => {
     expect(messageLogs[0].triggerAt?.toISOString()).toBe("2026-05-11T10:00:00.000Z");
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushMessageMock).toHaveBeenCalledWith(STORE_ID, LINE_USER_ID, [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
+    ]);
+  });
+
+  it("方案預約於前一日 18:00 使用正式 Flex 卡且不帶測試標示", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(makeBooking({
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      bookingType: "PACKAGE_SESSION",
+    }));
+    rules.push({
+      ...makeRule(),
+      templateId: "scheduled-template",
+      template: { body: "正式排程自訂提醒" },
+    });
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
+
+    const message = pushMessageMock.mock.calls[0]?.[2]?.[0] as {
+      type: string;
+      altText: string;
+      contents: {
+        header: { contents: Array<{ text?: string }> };
+        body: { contents: Array<{ text?: string; contents?: Array<{ text?: string }> }> };
+        footer: { contents: Array<{ action: { label: string; uri: string } }> };
+      };
+    };
+    expect(message.type).toBe("flex");
+    expect(message.altText).not.toContain("測試提醒");
+    expect(message.contents.header.contents).toHaveLength(1);
+    expect(message.contents.body.contents.flatMap((item) =>
+      item.contents?.map((child) => child.text) ?? [item.text],
+    )).toEqual(expect.arrayContaining([
+      "Alice 您好",
+      "日期時間",
+      "2026-05-12 14:00",
+      "店名",
+      "Test Shop",
+      "預約項目",
+      "方案預約",
+      "服務時間",
+      "45 分鐘",
+      "地址",
+      "302 新竹縣竹北市中崙里科大一路 80 號",
+    ]));
+    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+      "開啟 Google Maps 導航",
+      "改時段",
+      "取消前往",
+    ]);
+    expect(JSON.stringify(message)).toContain("正式排程自訂提醒");
+    expect(message.contents.footer.contents[1]?.action.uri).toContain(
+      "/s/store-test/my-bookings/booking-1/reschedule",
+    );
+    expect(message.contents.footer.contents[2]?.action.uri).toContain(
+      "/s/store-test/my-bookings/booking-1/cancel",
+    );
+    expect(messageLogs).toHaveLength(1);
+    expect(messageLogs[0]).toMatchObject({
+      ruleId: RULE_ID,
+      bookingId: BOOKING_ID,
+      status: "SENT",
+    });
+  });
+
+  it("分店未設定地址或地圖時不顯示其他分店資料與導航按鈕", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    shopConfigPresentation = { address: null, mapUrl: null };
+    bookings.push(makeBooking({
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      bookingType: "SINGLE",
+    }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
+
+    const message = pushMessageMock.mock.calls[0]?.[2]?.[0] as {
+      contents: {
+        body: { contents: Array<{ text?: string; contents?: Array<{ text?: string }> }> };
+        footer: { contents: Array<{ action: { label: string } }> };
+      };
+    };
+    const bodyText = JSON.stringify(message.contents.body);
+    expect(bodyText).not.toContain("302 新竹縣竹北市");
+    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+      "改時段",
+      "取消前往",
     ]);
   });
 
@@ -654,7 +762,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(result.skipped).toBe(1);
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushMessageMock).toHaveBeenCalledWith(OTHER_STORE_ID, LINE_USER_ID, [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
     ]);
     expect(messageLogs).toHaveLength(2);
     expect(messageLogs).toEqual(
@@ -802,7 +910,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(result.sent).toBe(1);
     expect(pushMessageMock).not.toHaveBeenCalled();
     expect(pushSteamButlerMessageMock).toHaveBeenCalledWith("U-central-only", [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
     ]);
     expect(messageLogs[0].lineRoute).toBe("CENTRAL");
   });
@@ -828,7 +936,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(result.sent).toBe(1);
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushMessageMock).toHaveBeenCalledWith("store-test", "U1234567890", [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
     ]);
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
     expect(messageLogs[0].lineRoute).toBe("STORE");

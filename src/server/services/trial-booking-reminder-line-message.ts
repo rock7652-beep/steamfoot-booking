@@ -25,10 +25,19 @@ export type TrialBookingReminderCard = {
  * customer pages re-check login identity, store, ownership and the 12-hour
  * cutoff before allowing any write.
  */
+export function buildPackageBookingReminderLineMessages(
+  card: PackageBookingReminderCard,
+  managementUrl: string,
+  bookingId: string,
+): LineMessage[] {
+  return buildPackageBookingTestReminderLineMessages(card, managementUrl, bookingId, false);
+}
+
 export function buildPackageBookingTestReminderLineMessages(
   card: PackageBookingReminderCard,
   managementUrl: string,
   bookingId: string,
+  isTest = true,
 ): LineMessage[] {
   const actionUrl = (action: "cancel" | "reschedule") => {
     const url = new URL(managementUrl);
@@ -38,7 +47,9 @@ export function buildPackageBookingTestReminderLineMessages(
 
   return [{
     type: "flex",
-    altText: `【測試提醒｜不影響正式排程】${card.customerName} 的預約：${card.bookingDate} ${card.bookingTime}`,
+    altText: isTest
+      ? `【測試提醒｜不影響正式排程】${card.customerName} 的預約：${card.bookingDate} ${card.bookingTime}`
+      : `${card.customerName} 的預約提醒：${card.bookingDate} ${card.bookingTime}`,
     contents: {
       type: "bubble",
       header: {
@@ -48,17 +59,19 @@ export function buildPackageBookingTestReminderLineMessages(
         paddingAll: "16px",
         contents: [
           { type: "text", text: "蒸管家｜預約提醒", color: "#4A3A32", weight: "bold", size: "lg" },
-          {
-            type: "box",
-            layout: "horizontal",
-            margin: "md",
-            backgroundColor: "#F7DEAA",
-            cornerRadius: "12px",
-            paddingAll: "8px",
-            contents: [
-              { type: "text", text: "測試提醒｜不影響正式排程", color: "#4A2E0B", size: "xs", weight: "bold" },
-            ],
-          },
+          ...(isTest
+            ? [{
+                type: "box" as const,
+                layout: "horizontal" as const,
+                margin: "md",
+                backgroundColor: "#F7DEAA",
+                cornerRadius: "12px",
+                paddingAll: "8px",
+                contents: [
+                  { type: "text" as const, text: "測試提醒｜不影響正式排程", color: "#4A2E0B", size: "xs" as const, weight: "bold" as const },
+                ],
+              }]
+            : []),
         ],
       },
       body: {
