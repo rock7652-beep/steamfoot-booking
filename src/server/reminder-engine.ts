@@ -486,6 +486,22 @@ export async function runReminders(): Promise<SendResult> {
           ? await pushMessage(bookingStoreId, route.recipientLineUserId, textMessages)
           : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
       }
+      const centralFallbackRecipient =
+        recipient?.deliverable && recipient.recipientLineUserId
+          ? recipient.recipientLineUserId
+          : null;
+      if (
+        route.channel === "STORE" &&
+        !sendResult.success &&
+        sendResult.httpStatus === 400 &&
+        centralFallbackRecipient
+      ) {
+        sendResult = await pushSteamButlerMessage(centralFallbackRecipient, flexMessages);
+        if (canFallbackToTextReminder(sendResult)) {
+          sendResult = await pushSteamButlerMessage(centralFallbackRecipient, textMessages);
+        }
+        actualRoute = "CENTRAL";
+      }
       const storeRecipient =
         customer.lineLinkStatus === "LINKED"
           ? customer.lineUserId?.trim()
