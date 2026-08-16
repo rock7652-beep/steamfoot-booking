@@ -1156,11 +1156,11 @@ export async function markCompleted(
     const serviceStaffId =
       data.serviceStaffId ?? booking.serviceStaffId ?? null;
 
-    // PR-3d：實際到店人數（FIRST_TRIAL 部分到店）。
+    // 實際到店人數（首次體驗或套餐部分到店）。
     //   - 未傳 → 維持向後相容（attendedPeople 不寫，視為全到）
     //   - 1..booking.people → 寫入
     //   - > booking.people → 拒絕（VALIDATION）
-    //   - < booking.people 且 非 FIRST_TRIAL → 拒絕（BUSINESS_RULE，部分到店僅體驗）
+    //   - PACKAGE_SESSION 部分到店必須同時選擇未到者處理方式
     // 不會收到 0（zod min(1)）；0 走 markNoShow 路徑（既有流程）。
     let attendedPeopleToWrite: number | null = null;
     if (data.attendedPeople != null) {
@@ -1172,15 +1172,31 @@ export async function markCompleted(
       }
       if (
         data.attendedPeople < booking.people &&
-        booking.bookingType !== "FIRST_TRIAL"
+        booking.bookingType === "PACKAGE_SESSION" &&
+        !data.partialNoShowChoice
       ) {
         throw new AppError(
-          "BUSINESS_RULE",
-          "部分到店目前僅支援體驗預約",
+          "VALIDATION",
+          "請選擇未到者要扣堂或扣堂並給補課資格",
         );
+      }
+      if (
+        data.attendedPeople < booking.people &&
+        booking.bookingType === "SINGLE"
+      ) {
+        throw new AppError("BUSINESS_RULE", "單次服務目前不支援部分到店");
       }
       attendedPeopleToWrite = data.attendedPeople;
     }
+
+    const partialAbsentPeople =
+      attendedPeopleToWrite != null
+        ? Math.max(0, booking.people - attendedPeopleToWrite)
+        : 0;
+    const partialGrantMakeup =
+      partialAbsentPeople > 0 &&
+      booking.bookingType === "PACKAGE_SESSION" &&
+      data.partialNoShowChoice === "DEDUCTED_WITH_MAKEUP";
 
     let sessionBalanceNotificationIds: string[] = [];
     await prisma.$transaction(async (tx) => {
@@ -1194,6 +1210,12 @@ export async function markCompleted(
           // PR-3d：null 時不寫入（保留欄位現值）；明確值才寫入。
           ...(attendedPeopleToWrite != null
             ? { attendedPeople: attendedPeopleToWrite }
+            : {}),
+          ...(partialAbsentPeople > 0 && booking.bookingType === "PACKAGE_SESSION"
+            ? {
+                noShowPolicy: "DEDUCTED",
+                noShowMakeupGranted: partialGrantMakeup,
+              }
             : {}),
         },
       });
@@ -1213,7 +1235,11 @@ export async function markCompleted(
 
         const dateStr = booking.bookingDate.toISOString().slice(0, 10);
         const peopleSuffix =
-          booking.people > 1 ? `（${booking.people} 人預約）` : "";
+          partialAbsentPeople > 0 && attendedPeopleToWrite != null
+            ? `（實到 ${attendedPeopleToWrite}/${booking.people}；未到 ${partialAbsentPeople}）`
+            : booking.people > 1
+              ? `（${booking.people} 人預約）`
+              : "";
 
         if (completed > 0) {
           // 每個 session row 各寫 1 筆 SESSION_DEDUCTION，customerPlanWalletId 對應該 session 所屬 wallet
@@ -1293,6 +1319,31 @@ export async function markCompleted(
             storeId: booking.storeId,
           },
         );
+      }
+
+      // 套餐部分到店：原預約名額仍全數扣堂，只針對未到人數發補課券。
+      // 混合補課預約最多只補「方案堂數」部分，避免補課券再次複製。
+      if (partialGrantMakeup) {
+        const walletBackedPeople = Math.max(
+          0,
+          bookingPeopleForLedger - makeupLinkCount,
+        );
+        const creditCount = Math.min(partialAbsentPeople, walletBackedPeople);
+        if (creditCount > 0) {
+          const expiredAt = new Date();
+          expiredAt.setDate(expiredAt.getDate() + NO_SHOW_MAKEUP_VALID_DAYS);
+          for (let i = 0; i < creditCount; i++) {
+            await tx.makeupCredit.create({
+              data: {
+                customerId: booking.customerId,
+                originalBookingId: booking.id,
+                isUsed: false,
+                expiredAt,
+                storeId: booking.storeId,
+              },
+            });
+          }
+        }
       }
       // 🆕 自動給分：出席 +5（在同一事務內）
       try {
@@ -1574,6 +1625,21 @@ export async function revertBookingStatus(
     await prisma.$transaction(async (tx) => {
       // ── COMPLETED → PENDING ──
       if (st === "COMPLETED") {
+        // 部分到店若曾發補課券，回退前必須確認尚未被使用，再整組移除。
+        if (booking.noShowMakeupGranted) {
+          const credits = await tx.makeupCredit.findMany({
+            where: { originalBookingId: booking.id },
+          });
+          if (credits.some((c) => c.isUsed)) {
+            throw new AppError(
+              "BUSINESS_RULE",
+              "此筆部分未到產生的補課資格已被使用，請先取消補課預約後再修正。",
+            );
+          }
+          await tx.makeupCredit.deleteMany({
+            where: { originalBookingId: booking.id },
+          });
+        }
         // 退回堂數（非補課才退）
         // multi-person：對該 booking 的全部 COMPLETED row 回退
         const wallet = booking.customerPlanWallet;
@@ -1616,6 +1682,8 @@ export async function revertBookingStatus(
             // PR-3d：還原 COMPLETED → PENDING 時清空實到人數，避免下次完成
             // 時殘留舊值；店長需在 AttendanceModal 重新選擇。
             attendedPeople: null,
+            noShowPolicy: null,
+            noShowMakeupGranted: null,
           },
         });
       }
