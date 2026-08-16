@@ -1004,6 +1004,44 @@ describe("runReminders (daily next-day batch)", () => {
     });
   });
 
+  it("分店 LINE 明確拒絕後改用已驗證的中央 LINE", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(makeBooking({
+      customerId: "store-400-central-ready",
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+    }));
+    centralRecipientOverrides.set("store-400-central-ready", {
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U-central-ready",
+    });
+    rules.push(makeRule());
+    pushMessageMock
+      .mockResolvedValueOnce({
+        success: false,
+        error: 'LINE API 400: {"message":"Failed to send messages"}',
+        httpStatus: 400,
+        errorType: "line_api_rejected",
+      })
+      .mockResolvedValueOnce({
+        success: false,
+        error: 'LINE API 400: {"message":"Failed to send messages"}',
+        httpStatus: 400,
+        errorType: "line_api_rejected",
+      });
+    pushSteamButlerMessageMock.mockResolvedValueOnce({ success: true });
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result).toMatchObject({ sent: 1, failed: 0 });
+    expect(pushSteamButlerMessageMock).toHaveBeenCalledWith(
+      "U-central-ready",
+      [expect.objectContaining({ type: "flex" })],
+    );
+    expect(messageLogs[0]).toMatchObject({ status: "SENT", lineRoute: "CENTRAL" });
+  });
+
   it("idempotent：同一天重跑兩次 → 第二次 SKIPPED 不重複寫入", async () => {
     vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z")); // 剛好 18:00 TW
     bookings.push(
