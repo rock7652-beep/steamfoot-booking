@@ -159,7 +159,7 @@ export function DayDetailPanel({
         <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-1">
           <KpiChip label="預約" value={stats.total} />
           <KpiChip label="到店" value={stats.checkedIn} />
-          <KpiChip label="完成" value={stats.completed} />
+          <KpiChip label="完成人數" value={stats.completed} />
           <KpiChip
             label="未到人數"
             value={stats.noShow}
@@ -680,7 +680,10 @@ function computeStats(bookings: DayBooking[]) {
   for (const b of bookings) {
     stats.people += b.people;
     if (b.isCheckedIn) stats.checkedIn++;
-    if (b.bookingStatus === "COMPLETED") stats.completed++;
+    if (b.bookingStatus === "COMPLETED") {
+      stats.completed += b.attendedPeople ?? b.people;
+      stats.noShow += Math.max(0, b.people - (b.attendedPeople ?? b.people));
+    }
     if (b.bookingStatus === "NO_SHOW") stats.noShow += b.people;
     if (b.isMakeup) stats.makeup++;
   }
