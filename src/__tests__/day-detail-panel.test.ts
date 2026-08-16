@@ -66,4 +66,23 @@ describe("DayDetailPanel summary", () => {
     expect(text).toMatch(/未到人數\s+2/);
     expect(text).not.toMatch(/未到\s+1/);
   });
+
+  it("counts partial attendance as attended and absent people", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(DayDetailPanel, {
+        date: "2026-06-26",
+        bookings: [
+          booking({
+            bookingStatus: "COMPLETED",
+            people: 2,
+            attendedPeople: 1,
+          }),
+        ],
+        slots: [],
+      }),
+    );
+    const text = textFromHtml(html);
+    expect(text).toMatch(/完成人數\s+1/);
+    expect(text).toMatch(/未到人數\s+1/);
+  });
 });

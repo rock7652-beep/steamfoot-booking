@@ -49,9 +49,12 @@ export const updateBookingSchema = z.object({
 
 export const completeBookingSchema = z.object({
   serviceStaffId: z.string().cuid().optional(),
-  // PR-3d：實際到店人數（FIRST_TRIAL 部分到店流程）。
+  // 實際到店人數（多人預約的部分到店流程）。
   // 1..people；省略則維持 null（向後相容，顯示與收款皆視為全到）。
   // server 端再驗證 attendedPeople ≤ booking.people；
-  // attendedPeople < booking.people 只接受 FIRST_TRIAL。
   attendedPeople: z.number().int().min(1).max(4).optional(),
+  // 套餐部分到店時，未到者仍扣原預約堂數；此欄只決定是否發補課券。
+  partialNoShowChoice: z
+    .enum(["DEDUCTED", "DEDUCTED_WITH_MAKEUP"])
+    .optional(),
 });

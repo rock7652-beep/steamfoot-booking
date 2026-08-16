@@ -77,7 +77,7 @@ export interface BookingPrefill {
   isMakeup: boolean;
   isCheckedIn: boolean;
   people: number;
-  /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。 */
+  /** 實際到店人數（多人首次體驗或套餐；null = 未記錄／全到）。 */
   attendedPeople: number | null;
   customerName: string;
   customerPhone: string;
@@ -132,7 +132,10 @@ export function BookingDetailDrawer({
   const [error, setError] = useState<string | null>(null);
   const [isActing, startAction] = useTransition();
   const [noShowOpen, setNoShowOpen] = useState(false);
-  // PR-3d：實際到店人數 modal — FIRST_TRIAL 且 people > 1。
+  const [partialAttendedPeople, setPartialAttendedPeople] = useState<
+    number | null
+  >(null);
+  // 實際到店人數 modal — 多人首次體驗或套餐預約。
   // flow pivot：可由「收款」或「完成服務」入口觸發；以 intent 分流：
   //   - "collect" + N≥1 → 開 CollectTrialModal（attendedPeople 透過
   //     pendingAttendedPeople 帶入，收款 server 端同 transaction 寫 DB）
@@ -172,6 +175,7 @@ export function BookingDetailDrawer({
     setData(cache?.get(bookingId) ?? null);
     setError(null);
     setPendingAttendedPeople(null);
+    setPartialAttendedPeople(null);
   }
 
   // Derived loading state — `data` is "fresh" when its bookingId matches the
@@ -284,15 +288,14 @@ export function BookingDetailDrawer({
     setCollectOpen(true);
   }
 
-  // 完成服務入口：若 attendedPeople 已存（多半是收款入口寫入過）→ 直接完成服務，
-  // 不重問。否則 FIRST_TRIAL + people > 1 仍以 AttendanceModal fallback 詢問
-  //（涵蓋未走收款路徑直接完成服務的情境）。
+  // 完成服務入口：多人首次體驗與套餐都先確認實到人數。
   function handleComplete() {
     const b = data?.booking;
     if (readOnly) return;
     if (
       b &&
-      b.bookingType === "FIRST_TRIAL" &&
+      (b.bookingType === "FIRST_TRIAL" ||
+        b.bookingType === "PACKAGE_SESSION") &&
       b.people > 1 &&
       b.attendedPeople == null &&
       (b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED")
@@ -335,6 +338,17 @@ export function BookingDetailDrawer({
       setCollectOpen(true);
       return;
     }
+    const b = data?.booking;
+    if (
+      b?.bookingType === "PACKAGE_SESSION" &&
+      attendedPeople < b.people
+    ) {
+      setPartialAttendedPeople(attendedPeople);
+      setAttendanceOpen(false);
+      setAttendanceIntent(null);
+      setNoShowOpen(true);
+      return;
+    }
     // intent === "complete"（或 fallback）：直接完成服務，markCompleted 寫 DB。
     wrapAction(
       "已完成服務",
@@ -351,6 +365,24 @@ export function BookingDetailDrawer({
 
   function handleNoShowConfirm(choice: NoShowChoice) {
     if (readOnly) return;
+    if (partialAttendedPeople != null) {
+      wrapAction(
+        "已完成服務並記錄部分未到",
+        () =>
+          markCompleted(bookingId!, {
+            attendedPeople: partialAttendedPeople,
+            partialNoShowChoice: choice,
+          }),
+        "COMPLETED",
+        {
+          onSuccess: () => {
+            setNoShowOpen(false);
+            setPartialAttendedPeople(null);
+          },
+        },
+      );
+      return;
+    }
     const makeupPeople =
       data?.booking.makeupCreditLinks?.length ?? (data?.booking.isMakeup ? 1 : 0);
     const walletPeople = data?.booking.walletSessions?.length ?? 0;
@@ -499,31 +531,44 @@ export function BookingDetailDrawer({
         )}
       </RightSheet>
       {!readOnly && (
-      <NoShowModal
-        open={noShowOpen && !!data}
-        onClose={() => setNoShowOpen(false)}
-        onConfirm={handleNoShowConfirm}
-        loading={isActing}
-        isMakeup={
-          (data?.booking.isMakeup ?? false) &&
-          (data?.booking.makeupCreditLinks?.length ?? 0) > 0 &&
-          (data?.booking.walletSessions?.length ?? 0) === 0
-        }
-      />
-      )}
-      {!readOnly && data && data.booking.bookingType === "FIRST_TRIAL" && data.booking.people > 1 && (
-        <AttendanceModal
-          open={attendanceOpen}
+        <NoShowModal
+          open={noShowOpen && !!data}
           onClose={() => {
-            setAttendanceOpen(false);
-            setAttendanceIntent(null);
+            setNoShowOpen(false);
+            setPartialAttendedPeople(null);
           }}
-          people={data.booking.people}
-          trialDefaultUnit={data.trial?.settings.defaultPrice ?? null}
-          onConfirm={handleAttendanceConfirm}
+          onConfirm={handleNoShowConfirm}
           loading={isActing}
+          partial={partialAttendedPeople != null}
+          affectedPeople={
+            partialAttendedPeople != null
+              ? (data?.booking.people ?? 0) - partialAttendedPeople
+              : undefined
+          }
+          isMakeup={
+            (data?.booking.isMakeup ?? false) &&
+            (data?.booking.makeupCreditLinks?.length ?? 0) > 0 &&
+            (data?.booking.walletSessions?.length ?? 0) === 0
+          }
         />
       )}
+      {!readOnly &&
+        data &&
+        (data.booking.bookingType === "FIRST_TRIAL" ||
+          data.booking.bookingType === "PACKAGE_SESSION") &&
+        data.booking.people > 1 && (
+          <AttendanceModal
+            open={attendanceOpen}
+            onClose={() => {
+              setAttendanceOpen(false);
+              setAttendanceIntent(null);
+            }}
+            people={data.booking.people}
+            trialDefaultUnit={data.trial?.settings.defaultPrice ?? null}
+            onConfirm={handleAttendanceConfirm}
+            loading={isActing}
+          />
+        )}
       {!readOnly && data && (
         <TestReminderModal
           open={testReminderOpen}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 /**
- * PR-3d：「實際到店幾位？」modal — 僅 FIRST_TRIAL 且 people > 1 時
+ * 「實際到店幾位？」modal — 多人首次體驗或套餐預約
  * 從 booking-detail-drawer 的「完成服務」按鈕觸發。
  *
  * Decision A：只從 完成服務 入口；標記未到 維持既有 NoShowModal。
@@ -55,7 +55,10 @@ function buildOptions(
       opts.push({
         value: n,
         label: `${n} 位到店、${people - n} 位未到`,
-        hint: recompute,
+        hint:
+          unit > 0
+            ? recompute
+            : `到場 ${n} 人正常完成，未到 ${people - n} 人下一步再選處理方式。`,
       });
     }
   }
@@ -100,8 +103,7 @@ export function AttendanceModal({
           此預約共 {people} 位，實際到店幾位？
         </h3>
         <p className="mb-3 text-[12px] leading-relaxed text-earth-500">
-          選擇後系統會以實到人數計算收款預設金額；可在收款時手動覆蓋。
-          原預約人數會保留，不會被改寫。
+          原預約人數會保留。體驗依實到人數計算收款；套餐未到者將在下一步選擇處理方式。
         </p>
 
         <div className="mb-4 space-y-2">
