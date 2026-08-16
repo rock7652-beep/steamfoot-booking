@@ -17,6 +17,7 @@ import {
   listMessageTemplates,
   listMessageLogs,
   getReminderStats,
+  getStoreReminderHealthResult,
   getStoreReminderState,
   getTodayCronRunStatus,
   getLineSmokeTestContext,
@@ -39,6 +40,7 @@ import { SessionBalanceReminderCard } from "./session-balance-reminder-card";
 import { LineNotificationRecipientsCard } from "./line-notification-recipients-card";
 import { PackageLineCardReminderSettingCard } from "./package-line-card-reminder-setting-card";
 import { listStoreLineNotificationRecipients } from "@/server/actions/store-line-notification-recipients";
+import { classifyReminderHealth } from "@/lib/reminder-health";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
   PENDING: "待發送",
@@ -115,6 +117,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     sessionBalanceSetting,
     notificationRecipients,
     packageLineCardReminder,
+    storeReminderHealthResult,
   ] = await Promise.all([
     getReminderStats(activeStoreId),
     listMessageTemplates(activeStoreId),
@@ -123,12 +126,23 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     getSessionBalanceNotificationSetting(activeStoreId),
     listStoreLineNotificationRecipients(),
     getPackageLineCardReminderSetting(activeStoreId),
+    getStoreReminderHealthResult(activeStoreId),
   ]);
   const smokeTestContext = smokeTestEnabled
     ? await getLineSmokeTestContext(activeStoreId)
     : null;
   const lineHealthStatus =
     await getCurrentLineOfficialAccountStatus().catch(() => null);
+  const reminderHealth = classifyReminderHealth({
+    enabled: reminderState.enabled,
+    phase:
+      cronStatus.phase === "BEFORE_WINDOW"
+        ? storeReminderHealthResult.phase
+        : cronStatus.phase,
+    sent: storeReminderHealthResult.sent,
+    skipped: storeReminderHealthResult.skipped,
+    failed: storeReminderHealthResult.failed,
+  });
 
   const [logsData, sessionBalanceLogsData] = activeTab === "logs"
     ? await Promise.all([
@@ -233,6 +247,13 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               initialEnabled={reminderState.enabled}
               initialTemplateId={reminderState.canonicalTemplateId}
               templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+              health={{
+                status: reminderHealth,
+                batchDate: storeReminderHealthResult.batchDate,
+                sent: storeReminderHealthResult.sent,
+                skipped: storeReminderHealthResult.skipped,
+                failed: storeReminderHealthResult.failed,
+              }}
             />
             <SessionBalanceReminderCard
               key={`${activeStoreId}-session-balance-rules`}
