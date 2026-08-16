@@ -3,18 +3,41 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { setReminderEnabled, setReminderTemplate } from "@/server/actions/reminder";
+import type { ReminderHealthStatus } from "@/lib/reminder-health";
 
 interface Props {
   initialEnabled: boolean;
   initialTemplateId: string | null;
   templates: Array<{ id: string; name: string }>;
+  health: {
+    status: ReminderHealthStatus;
+    batchDate: string;
+    sent: number;
+    skipped: number;
+    failed: number;
+  };
 }
 
-export function ReminderCard({ initialEnabled, initialTemplateId, templates }: Props) {
+const HEALTH_COPY: Record<ReminderHealthStatus, { label: string; tone: string; detail: string }> = {
+  DISABLED: { label: "已停用", tone: "bg-earth-100 text-earth-600", detail: "目前不會執行前一日提醒。" },
+  WAITING: { label: "等待執行", tone: "bg-earth-100 text-earth-700", detail: "今日 18:00 執行後會顯示本店實際結果。" },
+  HEALTHY: { label: "正常", tone: "bg-green-100 text-green-700", detail: "最近一次本店提醒皆已成功送出。" },
+  NEEDS_ATTENTION: { label: "需處理", tone: "bg-amber-100 text-amber-800", detail: "有未綁定、無法送達或發送失敗，請查看發送紀錄。" },
+  NO_RECORDS: { label: "尚無紀錄", tone: "bg-earth-100 text-earth-600", detail: "排程已完成，但本店沒有需要提醒的預約。" },
+  SCHEDULE_ERROR: { label: "排程異常", tone: "bg-red-100 text-red-700", detail: "提醒排程未正常完成，請聯絡系統管理員。" },
+};
+
+export function ReminderCard({ initialEnabled, initialTemplateId, templates, health }: Props) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [templateId, setTemplateId] = useState<string>(initialTemplateId ?? "");
   const [togglePending, setTogglePending] = useState(false);
   const [templatePending, startTemplateTransition] = useTransition();
+  const displayedHealth = !enabled
+    ? "DISABLED"
+    : health.status === "DISABLED"
+      ? "WAITING"
+      : health.status;
+  const healthCopy = HEALTH_COPY[displayedHealth];
 
   async function handleToggle() {
     setTogglePending(true);
@@ -56,6 +79,17 @@ export function ReminderCard({ initialEnabled, initialTemplateId, templates }: P
           <p className="mt-1 text-sm leading-relaxed text-earth-500">
             每天台灣時間 18:00，自動提醒「明天有預約且已綁定 LINE」的顧客。
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className={`rounded-full px-2.5 py-1 font-semibold ${healthCopy.tone}`}>
+              {healthCopy.label}
+            </span>
+            <span className="text-earth-600">{healthCopy.detail}</span>
+          </div>
+          {enabled && !["WAITING", "SCHEDULE_ERROR"].includes(displayedHealth) && (
+            <p className="mt-2 text-xs font-medium text-earth-700">
+              {health.batchDate} 18:00：成功 {health.sent}、跳過 {health.skipped}、失敗 {health.failed}
+            </p>
+          )}
           <p className="mt-2 rounded-lg bg-primary-50 px-3 py-2 text-xs leading-relaxed text-primary-800">
             預約的正式排程應只啟用這一個時點；每一條啟用中的規則都會各自傳送一張 LINE 卡片，請勿同時啟用重複規則。下方模板文字會顯示在「方案／單次預約」卡片的提醒內容，不會另外再傳一則重複文字。首次體驗使用固定的體驗提醒卡。
           </p>

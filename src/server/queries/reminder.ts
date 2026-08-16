@@ -1,10 +1,14 @@
 import { prisma } from "@/lib/db";
 import type { CronRunStatus } from "@prisma/client";
 import { requireStaffSession } from "@/lib/session";
-import { dayRange, toLocalDateStr } from "@/lib/date-utils";
+import { addTaiwanDuration, dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
 import { AppError } from "@/lib/errors";
-import { todayReminderTriggerAt, tomorrowBookingDate } from "@/server/reminder-engine";
+import {
+  reminderTriggerAtForDate,
+  todayReminderTriggerAt,
+  tomorrowBookingDate,
+} from "@/server/reminder-engine";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import {
@@ -236,13 +240,22 @@ export async function getReminderStats(activeStoreId?: string | null) {
   const today = toLocalDateStr();
   const { start: todayStart, end: todayEnd } = dayRange(today);
 
-  const [enabledRules, todaySent, todayFailed] = await Promise.all([
+  const automaticLogFilter = {
+    createdAt: { gte: todayStart, lte: todayEnd },
+    ruleId: { not: null },
+    channel: "LINE" as const,
+    ...storeFilter,
+  };
+  const [enabledRules, todaySent, todaySkipped, todayFailed] = await Promise.all([
     prisma.reminderRule.count({ where: { isEnabled: true, ...storeFilter } }),
     prisma.messageLog.count({
-      where: { status: "SENT", createdAt: { gte: todayStart, lte: todayEnd }, ...storeFilter },
+      where: { status: "SENT", ...automaticLogFilter },
     }),
     prisma.messageLog.count({
-      where: { status: "FAILED", createdAt: { gte: todayStart, lte: todayEnd }, ...storeFilter },
+      where: { status: "SKIPPED", ...automaticLogFilter },
+    }),
+    prisma.messageLog.count({
+      where: { status: "FAILED", ...automaticLogFilter },
     }),
   ]);
 
@@ -298,7 +311,44 @@ export async function getReminderStats(activeStoreId?: string | null) {
     }
   }
 
-  return { enabledRules, todayPending, todaySent, todayFailed };
+  return { enabledRules, todayPending, todaySent, todaySkipped, todayFailed };
+}
+
+export async function getStoreReminderHealthResult(activeStoreId?: string | null) {
+  const storeId = await resolveReminderReadStore(activeStoreId);
+  const now = new Date();
+  const today = toLocalDateStr(now);
+  const todayTrigger = todayReminderTriggerAt(now);
+  const batchDate = now < todayTrigger
+    ? addTaiwanDuration(today, -1, "DAY")
+    : today;
+  const triggerAt = reminderTriggerAtForDate(batchDate);
+  const { start: batchStart, end: batchEnd } = dayRange(batchDate);
+  const baseWhere = {
+    storeId,
+    triggerAt,
+    ruleId: { not: null },
+    channel: "LINE" as const,
+  };
+  const [sent, skipped, failed, run] = await Promise.all([
+    prisma.messageLog.count({ where: { ...baseWhere, status: "SENT" } }),
+    prisma.messageLog.count({ where: { ...baseWhere, status: "SKIPPED" } }),
+    prisma.messageLog.count({ where: { ...baseWhere, status: "FAILED" } }),
+    prisma.cronRunLog.findFirst({
+      where: {
+        jobName: REMINDER_JOB_NAME,
+        startedAt: { gte: batchStart, lte: batchEnd },
+      },
+      orderBy: { startedAt: "desc" },
+      select: { status: true },
+    }),
+  ]);
+  const phase: CronRunBannerPhase = !run
+    ? "MISSING"
+    : run.status === "STARTED"
+      ? "STARTED_STUCK"
+      : run.status;
+  return { batchDate, sent, skipped, failed, phase };
 }
 
 async function resolveReminderReadStore(

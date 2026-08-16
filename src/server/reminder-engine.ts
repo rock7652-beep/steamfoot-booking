@@ -85,9 +85,12 @@ export interface SendResult {
  * 公開導出供 dashboard stats 重用。
  */
 export function todayReminderTriggerAt(now: Date = new Date()): Date {
-  const todayStr = toLocalDateStr(now);
+  return reminderTriggerAtForDate(toLocalDateStr(now));
+}
+
+export function reminderTriggerAtForDate(date: string): Date {
   // 台灣 18:00 = UTC 10:00（offset -8 小時）
-  return new Date(`${todayStr}T10:00:00.000Z`);
+  return new Date(`${date}T10:00:00.000Z`);
 }
 
 /**
