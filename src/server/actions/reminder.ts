@@ -1199,6 +1199,22 @@ ${renderedReminder}`;
         ? await pushMessage(storeId, route.recipientLineUserId, textMessages)
         : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
     }
+    const centralFallbackRecipient =
+      recipient?.deliverable && recipient.recipientLineUserId
+        ? recipient.recipientLineUserId
+        : null;
+    if (
+      route.channel === "STORE" &&
+      !result.success &&
+      result.httpStatus === 400 &&
+      centralFallbackRecipient
+    ) {
+      result = await pushSteamButlerMessage(centralFallbackRecipient, flexMessages);
+      if (canFallbackToTextReminder(result)) {
+        result = await pushSteamButlerMessage(centralFallbackRecipient, textMessages);
+      }
+      actualRoute = "CENTRAL";
+    }
     const storeRecipient =
       booking.customer.lineLinkStatus === "LINKED"
         ? booking.customer.lineUserId?.trim()
