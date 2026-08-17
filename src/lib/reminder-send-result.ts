@@ -33,7 +33,9 @@ export function formatReminderSendResult(
   if (/CENTRAL_LINE_NOT_MESSAGING_REACHABLE/.test(detail)) {
     return "LINE 通知身分尚未完成，請由分店 LINE 重新綁定";
   }
-  if (/LINE API 400/i.test(detail)) return "已綁定但無法送達";
+  if (/REPEATED_LINE_400_REBIND_REQUIRED/.test(detail) || /LINE API 400/i.test(detail)) {
+    return "LINE 身分與發送帳號不相容，請重新綁定";
+  }
   if (
     detail === "LINE token not configured for store" ||
     detail === "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED" ||

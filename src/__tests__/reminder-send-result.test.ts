@@ -9,7 +9,8 @@ describe("formatReminderSendResult", () => {
   it.each([
     ["SKIPPED", "LINE recipient unavailable: NO_CENTRAL_USER", "未綁定 LINE"],
     ["SKIPPED", "LINE recipient unavailable: NO_CENTRAL_LINE", "未綁定 LINE"],
-    ["FAILED", 'LINE API 400: {"message":"Failed to send messages"}', "已綁定但無法送達"],
+    ["FAILED", 'LINE API 400: {"message":"Failed to send messages"}', "LINE 身分與發送帳號不相容，請重新綁定"],
+    ["SKIPPED", "LINE recipient unavailable: REPEATED_LINE_400_REBIND_REQUIRED", "LINE 身分與發送帳號不相容，請重新綁定"],
     ["FAILED", "LINE API 400; CENTRAL_LINE_NOT_MESSAGING_REACHABLE", "LINE 通知身分尚未完成，請由分店 LINE 重新綁定"],
     ["SENT", "LINE API 400", "已發送"],
   ])("maps %s result without exposing the technical detail", (status, errorMessage, expected) => {
@@ -120,7 +121,7 @@ describe("formatReminderSendResult", () => {
 describe("formatManagerNotificationResult", () => {
   it.each([
     ["FAILED", "店長尚未綁定可接收通知的 LINE", "未綁定 LINE"],
-    ["FAILED", "LINE API 400", "已綁定但無法送達"],
+    ["FAILED", "LINE API 400", "LINE 身分與發送帳號不相容，請重新綁定"],
     ["FAILED", "LINE API 500", "通知失敗"],
     ["SENT", null, "已發送"],
     [null, null, "不需通知"],

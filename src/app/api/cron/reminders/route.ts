@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
 
   // 終態判定（dashboard 用）：
   //   - reminders 子任務 throw          → FAILED
-  //   - reminders OK 但其他子任務 throw → PARTIAL
+  //   - 個別訊息失敗或其他子任務 throw  → PARTIAL
   //   - 全部 OK 但 bookingsScanned = 0   → OK_EMPTY
   //   - 全部 OK 且有送                   → OK
   const reminderResult = results.reminders as
@@ -148,9 +148,9 @@ export async function GET(request: NextRequest) {
   const otherFailed = failedTasks.some((k) => k !== "reminders");
 
   let terminalStatus: CronRunStatus;
-  if (reminderFailed || (reminderResult?.failed ?? 0) > 0) {
+  if (reminderFailed) {
     terminalStatus = CronRunStatus.FAILED;
-  } else if (otherFailed) {
+  } else if ((reminderResult?.failed ?? 0) > 0 || otherFailed) {
     terminalStatus = CronRunStatus.PARTIAL;
   } else if ((reminderResult?.total ?? 0) === 0) {
     terminalStatus = CronRunStatus.OK_EMPTY;

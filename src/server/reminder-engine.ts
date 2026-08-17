@@ -68,6 +68,10 @@ const TRIAL_TEMPLATE = `{{customerName}} 您好！
 
 {{shopName}} 敬上`;
 
+const REPEATED_LINE_400_THRESHOLD = 2;
+const REPEATED_LINE_400_REBIND_REASON =
+  "LINE recipient unavailable: REPEATED_LINE_400_REBIND_REQUIRED";
+
 export interface SendResult {
   total: number;
   sent: number;
@@ -399,6 +403,44 @@ export async function runReminders(): Promise<SendResult> {
           ruleName: rule.name,
           status: "SKIPPED",
           error: reason,
+        });
+        continue;
+      }
+
+      // LINE 400 is a deterministic recipient/channel mismatch, not a
+      // transient transport failure. After two failures on the same store and
+      // resolved route, stop blindly retrying until the customer rebinds LINE.
+      // lineLinkedAt resets the failure window after a successful rebind.
+      const repeatedLine400Count = await prisma.messageLog.count({
+        where: {
+          customerId: customer.id,
+          storeId: bookingStoreId,
+          channel: "LINE",
+          lineRoute: route.channel,
+          status: "FAILED",
+          errorMessage: { startsWith: "LINE API 400", mode: "insensitive" },
+          ...(customer.lineLinkedAt
+            ? { createdAt: { gte: customer.lineLinkedAt } }
+            : {}),
+        },
+      });
+      if (repeatedLine400Count >= REPEATED_LINE_400_THRESHOLD) {
+        await recordSkippedReminder({
+          ruleId: rule.id,
+          templateId: rule.templateId,
+          customerId: customer.id,
+          bookingId: booking.id,
+          triggerAt,
+          storeId: bookingStoreId,
+          reason: REPEATED_LINE_400_REBIND_REASON,
+        });
+        result.skipped++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "SKIPPED",
+          error: REPEATED_LINE_400_REBIND_REASON,
         });
         continue;
       }

@@ -101,11 +101,12 @@ describe("trial reminder convergence contract", () => {
     expect(engine).not.toContain("sendMessengerUtilityReminder({");
   });
 
-  it("marks a batch with individual failures as retryable", () => {
+  it("keeps individual delivery failures separate from cron failure", () => {
     const route = source("src/app/api/cron/reminders/route.ts");
     const retry = source("src/server/reminder-cron-retry.ts");
-    expect(route).toContain("reminderFailed || (reminderResult?.failed ?? 0) > 0");
-    expect(retry).toContain("if (result.failed > 0) return \"FAILED\"");
+    expect(route).toContain("if (reminderFailed)");
+    expect(route).toContain("(reminderResult?.failed ?? 0) > 0 || otherFailed");
+    expect(retry).toContain("if (result.failed > 0) return \"PARTIAL\"");
   });
 
   it("persists a consumed chat link and channel in the booking transaction", () => {
