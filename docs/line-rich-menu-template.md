@@ -62,7 +62,7 @@ LIFF 會把 LIFF ID 之後的路徑接到 endpoint URL 後面。因為 **storeSl
 | 按鈕名稱 | 目標 URL | LIFF ID / web URL | 已可用 | 需 LINE session | 會進 onboarding | 風險與備註 |
 |---|---|---|---|---|---|---|
 | **立即預約** | `https://liff.line.me/2009711308-47Ffoh9r/member-booking` | 會員中心 LIFF | ✅ | 是 | 未綁定→落地頁 boundary，提供「回首頁」由首頁接 onboarding | 無剩餘堂數者會看到 no-wallet card；建議文案引導去體驗預約。亦可命名「課程預約」更精準 |
-| **體驗預約** | `https://liff.line.me/2009711308-47Ffoh9r/public-trial` | 公開體驗 LIFF bridge | ✅ | 是 | 不需 onboarding；驗證 LINE 身分後自動進公開表單 | 一點直接進表單。bridge 先確認 LIFF subject 可被竹北 Messaging API 送達，再簽發 30 分鐘一次性入口；不相容時 fail closed。 |
+| **體驗預約** | `https://liff.line.me/2011147985-tQ5wrAdH` | 竹北公開體驗專用 LIFF bridge | ✅ | 是 | 不需 onboarding；驗證 LINE 身分後自動進公開表單 | 一點直接進表單。專用 LINE Login channel 與竹北 Messaging API 位於同一 Provider；bridge 確認 subject 可送達後簽發 30 分鐘一次性入口。 |
 | **我的預約** | `https://liff.line.me/2009711308-47Ffoh9r/bookings` | 會員中心 LIFF | ✅ | 是 | 未綁定→`no_customer` boundary，提供「回首頁」 | 含取消 / 改期；風險低 |
 | **剩餘堂數** | `https://liff.line.me/2009711308-47Ffoh9r/wallets` | 會員中心 LIFF | ✅ | 是 | 同上 | = 我的方案；風險低 |
 
@@ -122,7 +122,7 @@ AI 健康評估     https://liff.line.me/2009744225-9aSc04fR
 圖文選單的「體驗預約」請直接設定 URI action：
 
 ```text
-https://liff.line.me/2009711308-47Ffoh9r/public-trial
+https://liff.line.me/2011147985-tQ5wrAdH
 ```
 
 這仍是一次點擊。LIFF bridge 只負責安全取得並驗證竹北店 LINE 身分，完成後會自動開啟原公開表單的日期與時段區塊；不需要先傳「我想體驗蒸足」。一般公開網址仍可從網站使用，但因沒有 LINE context，不保證新顧客能收到 LINE 提醒。

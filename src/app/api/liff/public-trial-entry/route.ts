@@ -4,6 +4,7 @@ import {
   LiffIdTokenError,
   verifyLiffIdToken,
 } from "@/lib/liff/verify-id-token";
+import { ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID } from "@/lib/liff/public-trial-config";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { createTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 
@@ -20,7 +21,6 @@ type ResponseBody =
       status: "error";
       code:
         | "INVALID_BODY"
-        | "MISSING_CHANNEL_CONFIG"
         | "STORE_NOT_FOUND"
         | "ID_TOKEN_INVALID"
         | "ID_TOKEN_EXPIRED"
@@ -44,14 +44,12 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return json({ status: "error", code: "INVALID_BODY" }, 400);
 
-  const expectedChannelId = process.env.LINE_LOGIN_CHANNEL_ID;
-  if (!expectedChannelId) {
-    return json({ status: "error", code: "MISSING_CHANNEL_CONFIG" }, 500);
-  }
-
   let verified;
   try {
-    verified = await verifyLiffIdToken(parsed.data.idToken, expectedChannelId);
+    verified = await verifyLiffIdToken(
+      parsed.data.idToken,
+      ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID,
+    );
   } catch (error) {
     if (error instanceof LiffIdTokenError) {
       if (error.code === "EXPIRED") {

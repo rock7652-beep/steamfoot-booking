@@ -37,10 +37,9 @@ function request(body: unknown) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "line-login-channel");
   mocks.verify.mockResolvedValue({
     lineUserId: "U-store-messaging",
-    channelId: "line-login-channel",
+    channelId: "2011147985",
     displayName: "王小美",
     pictureUrl: null,
     expiresAt: 2_000_000_000,
@@ -67,7 +66,7 @@ describe("POST /api/liff/public-trial-entry", () => {
     });
     expect(mocks.verify).toHaveBeenCalledWith(
       "verified-liff-token",
-      "line-login-channel",
+      "2011147985",
     );
     expect(mocks.probe).toHaveBeenCalledWith(
       "store-zhubei",
