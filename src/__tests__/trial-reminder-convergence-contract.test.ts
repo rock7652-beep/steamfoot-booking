@@ -119,6 +119,8 @@ describe("trial reminder convergence contract", () => {
   it("opens the public trial form from one LIFF rich-menu tap with a verified entry", () => {
     const bridge = source("src/app/(liff)/liff/public-trial/public-trial-liff-bridge.tsx");
     const route = source("src/app/api/liff/public-trial-entry/route.ts");
+    const page = source("src/app/(liff)/liff/public-trial/page.tsx");
+    const config = source("src/lib/liff/public-trial-config.ts");
     expect(bridge).toContain("initLiff(liffId)");
     expect(bridge).toContain("getIDToken()");
     expect(bridge).toContain('fetch("/api/liff/public-trial-entry"');
@@ -126,6 +128,10 @@ describe("trial reminder convergence contract", () => {
     expect(route).toContain("verifyLiffIdToken");
     expect(route).toContain("probeStoreLineRecipient");
     expect(route).toContain("createTrialBookingChatLink");
+    expect(route).toContain("ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID");
+    expect(page).toContain("ZHUBEI_PUBLIC_TRIAL_LIFF_ID");
+    expect(config).toContain('ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID = "2011147985"');
+    expect(config).toContain('ZHUBEI_PUBLIC_TRIAL_LIFF_ID = "2011147985-tQ5wrAdH"');
   });
 
   it("routes a public trial through LINE when the existing customer is already verified", () => {
