@@ -84,6 +84,10 @@ jobs:
         run: |
           mapfile -t tests < <(find src -type f \( -name '*digital-butler*.test.ts' -o -name '*digital-butler*.test.tsx' \) | sort)
           tests+=(src/__tests__/reminder-send-result.test.ts)
+          tests+=(src/__tests__/verified-reminder-line-route.test.ts)
+          tests+=(src/__tests__/reminder-engine.test.ts)
+          tests+=(src/__tests__/public-trial-line-customer.test.ts)
+          tests+=(src/__tests__/public-trial-booking-placeholder-name.test.ts)
           if [ "${#tests[@]}" -eq 0 ]; then
             echo "No targeted tests found."
             exit 0

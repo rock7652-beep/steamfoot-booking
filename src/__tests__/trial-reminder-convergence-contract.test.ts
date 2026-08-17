@@ -146,11 +146,15 @@ describe("trial reminder convergence contract", () => {
     expect(chatLink).toContain("TRIAL_BOOKING_STORE_NOT_SUPPORTED");
   });
 
-  it("never falls back from a LINE chat link to an unrelated phone owner", () => {
+  it("repairs a same-phone legacy id only through the store-signed LINE entry policy", () => {
     const booking = source("src/server/actions/public-trial-booking.ts");
-    expect(booking).toContain("A phone number typed into a public form is not proof");
-    expect(booking).toContain("此手機已有顧客資料");
-    expect(booking).not.toContain("customer = { id: phoneCustomer.id");
+    const resolver = source("src/server/services/public-trial-line-customer.ts");
+    expect(booking).toContain("resolvePublicTrialLineCustomer");
+    expect(resolver).toContain("probeStoreLineRecipient");
+    expect(resolver).toContain('probe.status === "COMPATIBLE"');
+    expect(resolver).toContain('probe.status === "UNAVAILABLE"');
+    expect(resolver).toContain("prisma.customer.updateMany");
+    expect(resolver).toContain("lineUserId: candidate.lineUserId");
   });
 
   it("removes the shared booking URL on both secure-link success and failure", () => {

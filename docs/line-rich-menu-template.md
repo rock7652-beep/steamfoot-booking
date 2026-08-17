@@ -116,6 +116,18 @@ AI 健康評估     https://liff.line.me/2009744225-9aSc04fR
 - 其他子頁未綁定時走 status discriminated union、不 throw，顯示 graceful boundary 並提供「回首頁」；雖不崩潰，但對**新客入口**而言「先進首頁」比「先卡 boundary 再回首頁」體驗更好、更穩。
 - session 失效時子頁顯示 `expired` retry，而非首頁完整歡迎流程，可接受。
 
+### 公開快速體驗預約的例外
+
+若圖文選單要開啟 `https://www.steamfoot.com/pricing/experience/zhubei/book#booking-form` 這個公開快速預約頁，**不可直接設定 URI action**。公開網址本身無法安全取得 LINE Messaging API 身分。
+
+請將該格設為 LINE 原生 **message action**：
+
+```text
+我想體驗蒸足
+```
+
+分店 webhook 收到訊息後，會以該分店的 Messaging API `source.userId` 建立一次性簽章入口，再回覆專屬公開預約連結。如此送出預約時才能把正確的分店 LINE 通知身分帶入，且不會把 LINE Login ID 誤當成推播收件人。
+
 ---
 
 ## 6. 多店擴充 notes（zhubei → hsinchu）

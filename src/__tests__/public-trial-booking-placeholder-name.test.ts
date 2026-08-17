@@ -63,6 +63,12 @@ vi.mock("@/server/services/trial-booking-chat-link", () => ({
     chatIdentity: LINE_USER_ID,
   })),
 }));
+vi.mock("@/server/services/public-trial-line-customer", () => ({
+  resolvePublicTrialLineCustomer: vi.fn(async () => ({
+    status: "matched",
+    customer: customer(),
+  })),
+}));
 
 import { submitPublicTrialBooking } from "@/server/actions/public-trial-booking";
 
