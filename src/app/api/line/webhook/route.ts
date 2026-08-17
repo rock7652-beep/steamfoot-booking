@@ -43,6 +43,31 @@ import { ZHUBEI_EXPERIENCE_BOOKING_URL } from "@/lib/booking-links";
 
 export const dynamic = "force-dynamic";
 
+function isStoreLineIdentityConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("code" in error) || error.code !== "P2002") {
+    return false;
+  }
+  const target = "meta" in error
+    ? (error.meta as { target?: string[] | string } | undefined)?.target
+    : undefined;
+  const fields = Array.isArray(target) ? target : typeof target === "string" ? [target] : [];
+  return fields.includes("storeId") && fields.includes("lineUserId");
+}
+
+async function updateStoreLineRecipient(
+  update: () => Promise<{ count: number }>,
+): Promise<{ count: number; identityConflict: boolean }> {
+  try {
+    const result = await update();
+    return { count: result.count, identityConflict: false };
+  } catch (error) {
+    if (isStoreLineIdentityConflict(error)) {
+      return { count: 0, identityConflict: true };
+    }
+    throw error;
+  }
+}
+
 // ── POST: 處理 LINE events ──
 
 export async function POST(req: Request) {
@@ -613,6 +638,8 @@ async function handlePhoneBindingRequest(
   replyToken?: string,
   eventIdentity?: Parameters<typeof lineWebhookEventKey>[0],
 ) {
+  let lineIdentityOwnedByOtherCustomer = false;
+  let reviewCustomerId: string | null = null;
   let result = await bindLineToCustomerInStore({
     storeId,
     lineUserId,
@@ -642,7 +669,7 @@ async function handlePhoneBindingRequest(
         // needs to replace this store's notification recipient, so perform that
         // CAS directly and leave the central User / Account identities intact.
         if (existing.userId) {
-          const rebound = await prisma.customer.updateMany({
+          const rebound = await updateStoreLineRecipient(() => prisma.customer.updateMany({
             where: {
               id: existing.id,
               storeId,
@@ -656,7 +683,11 @@ async function handlePhoneBindingRequest(
               lineLinkStatus: "LINKED",
               lineLinkedAt: new Date(),
             },
-          });
+          }));
+          if (rebound.identityConflict) {
+            lineIdentityOwnedByOtherCustomer = true;
+            reviewCustomerId = existing.id;
+          }
           if (rebound.count === 1) {
             result = {
               status: "bound_existing",
@@ -711,9 +742,10 @@ async function handlePhoneBindingRequest(
   // notification recipient; never create/replace NextAuth Account[line] or a
   // central CustomerIdentityLink with this store-scoped id.
   if (result.status === "phone_taken_by_other_user") {
-    const bound = await prisma.customer.updateMany({
+    const customerId = result.customerId;
+    const bound = await updateStoreLineRecipient(() => prisma.customer.updateMany({
       where: {
-        id: result.customerId,
+        id: customerId,
         storeId,
         phone,
         mergedIntoCustomerId: null,
@@ -724,7 +756,11 @@ async function handlePhoneBindingRequest(
         lineLinkStatus: "LINKED",
         lineLinkedAt: new Date(),
       },
-    });
+    }));
+    if (bound.identityConflict) {
+      lineIdentityOwnedByOtherCustomer = true;
+      reviewCustomerId = customerId;
+    }
     if (bound.count === 1) {
       const customer = await prisma.customer.findUnique({
         where: { id: result.customerId },
@@ -732,7 +768,7 @@ async function handlePhoneBindingRequest(
       });
       result = {
         status: "bound_existing",
-        customerId: result.customerId,
+        customerId,
         userId: customer?.userId ?? "",
         userCreated: false,
         lineAccountSync: "noop_already_synced",
@@ -762,7 +798,7 @@ async function handlePhoneBindingRequest(
       select: { id: true, userId: true },
     });
     if (customer) {
-      const rebound = await prisma.customer.updateMany({
+      const rebound = await updateStoreLineRecipient(() => prisma.customer.updateMany({
         where: {
           id: customer.id,
           storeId,
@@ -775,7 +811,11 @@ async function handlePhoneBindingRequest(
           lineLinkStatus: "LINKED",
           lineLinkedAt: new Date(),
         },
-      });
+      }));
+      if (rebound.identityConflict) {
+        lineIdentityOwnedByOtherCustomer = true;
+        reviewCustomerId = customer.id;
+      }
       if (rebound.count === 1) {
         result = {
           status: "bound_existing",
@@ -806,30 +846,36 @@ async function handlePhoneBindingRequest(
 
   // A candidate is captured only after the existing binding helper has safely
   // rejected an overwrite and only when a staff-authorized request exists.
-  if (result.status === "already_bound_to_other_line" && eventIdentity) {
+  const captureCustomerId = lineIdentityOwnedByOtherCustomer
+    ? reviewCustomerId
+    : result.status === "already_bound_to_other_line"
+      ? result.customerId
+      : null;
+  if (captureCustomerId && eventIdentity) {
     const eventKey = lineWebhookEventKey(eventIdentity);
     if (eventKey) {
       try {
         const captured = await captureLineRebindCandidate({
           storeId,
-          customerId: result.customerId,
+          customerId: captureCustomerId,
           normalizedPhone: phone,
           lineUserId,
           webhookEventKey: eventKey,
           eventTimestamp: eventIdentity.timestamp ? new Date(eventIdentity.timestamp) : undefined,
         });
         // No raw LINE id, phone, candidate data, or encryption error is logged.
-        console.info("[LINE Webhook] Rebind candidate capture", { storeId, customerId: result.customerId, status: captured.status });
+        console.info("[LINE Webhook] Rebind candidate capture", { storeId, customerId: captureCustomerId, status: captured.status });
       } catch {
-        console.error("[LINE Webhook] Rebind candidate capture failed", { storeId, customerId: result.customerId });
+        console.error("[LINE Webhook] Rebind candidate capture failed", { storeId, customerId: captureCustomerId });
       }
     }
   }
 
   if (!replyToken) return;
 
-  const text =
-    result.status === "bound_existing" || result.status === "already_synced"
+  const text = lineIdentityOwnedByOtherCustomer
+    ? "此 LINE 已綁定其他顧客資料，請由店長確認解除或合併。"
+    : result.status === "bound_existing" || result.status === "already_synced"
       ? "系統通知綁定成功！之後您將可收到預約提醒與方案通知。"
       : result.status === "customer_not_found"
         ? "查無顧客資料，請確認手機號碼是否與店長登記的一致，或聯繫店長協助確認。"

@@ -27,6 +27,7 @@ const replySteamButlerMessageMock = vi.fn(
 );
 const bindLineToCustomerInStoreMock = vi.fn();
 const probeStoreLineRecipientMock = vi.fn();
+const captureLineRebindCandidateMock = vi.fn();
 const digitalButlerHandleTextMock = vi.fn(
   async (_input: unknown): Promise<{
     handled: boolean;
@@ -88,6 +89,12 @@ vi.mock("@/server/services/bind-line-to-customer", () => ({
     bindLineToCustomerInStoreMock(...args),
 }));
 
+vi.mock("@/server/services/line-rebind", () => ({
+  captureLineRebindCandidate: (...args: unknown[]) => captureLineRebindCandidateMock(...args),
+  lineWebhookEventKey: ({ webhookEventId, messageId }: { webhookEventId?: string; messageId?: string }) =>
+    webhookEventId ? `line:${webhookEventId}` : messageId ? `test:${messageId}` : null,
+}));
+
 vi.mock("@/lib/line-bind-log", () => ({
   logLineBindEvent: vi.fn(),
   maskLineUserId: (value: string | null | undefined) => value ? "masked" : "(none)",
@@ -144,6 +151,8 @@ describe("LINE webhook store-aware signature and reply", () => {
     replySteamButlerMessageMock.mockResolvedValue({ success: true });
     bindLineToCustomerInStoreMock.mockReset();
     probeStoreLineRecipientMock.mockReset();
+    captureLineRebindCandidateMock.mockReset();
+    captureLineRebindCandidateMock.mockResolvedValue({ status: "not_eligible" });
     digitalButlerHandleTextMock.mockReset();
     digitalButlerHandleTextMock.mockResolvedValue({
       handled: false,
@@ -306,6 +315,51 @@ describe("LINE webhook store-aware signature and reply", () => {
       "reply-token-phone",
       [{ type: "text", text: "系統通知綁定成功！之後您將可收到預約提醒與方案通知。" }],
     );
+  });
+
+  it("returns a reviewable message when the new LINE identity belongs to another same-store customer", async () => {
+    bindLineToCustomerInStoreMock.mockResolvedValueOnce({
+      status: "already_bound_to_other_line",
+      customerId: "customer-hsinchu",
+      existingLineUserId: "U-central-login",
+    });
+    probeStoreLineRecipientMock.mockResolvedValue({ status: "INCOMPATIBLE" });
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: "customer-hsinchu",
+      lineUserId: "U-central-login",
+      userId: "central-user",
+    });
+    mockPrisma.customer.updateMany.mockRejectedValueOnce({
+      code: "P2002",
+      meta: { target: ["storeId", "lineUserId"] },
+    });
+
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq({
+      destination: "D_hsinchu",
+      events: [{
+        type: "message",
+        replyToken: "reply-token-phone",
+        source: { type: "user", userId: "U-already-used" },
+        message: { type: "text", id: "message-conflict", text: "0912345678" },
+        timestamp: 1_721_234_567_890,
+      }],
+    }));
+
+    expect(res.status).toBe(200);
+    expect(replyMessageMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "reply-token-phone",
+      [{ type: "text", text: "此 LINE 已綁定其他顧客資料，請由店長確認解除或合併。" }],
+    );
+    expect(captureLineRebindCandidateMock).toHaveBeenCalledWith({
+      storeId: "store-hsinchu",
+      customerId: "customer-hsinchu",
+      normalizedPhone: "0912345678",
+      lineUserId: "U-already-used",
+      webhookEventKey: "test:message-conflict",
+      eventTimestamp: new Date(1_721_234_567_890),
+    });
   });
 
   it("continues an active Digital Butler flow after synchronizing phone binding", async () => {
