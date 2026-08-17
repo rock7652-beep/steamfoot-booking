@@ -169,8 +169,6 @@ const TRIAL_EXPERIENCE_TRIGGER_ALIASES = new Set([
   "我想體驗蒸足",
   "我想預約蒸足",
   "我想預約體驗蒸足",
-  "我要預約體驗",
-  "預約體驗",
 ]);
 
 function normalizeTriggerText(text: string): string {

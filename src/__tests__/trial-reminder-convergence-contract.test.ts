@@ -116,6 +116,18 @@ describe("trial reminder convergence contract", () => {
     expect(booking).toContain("bookingId: created.id");
   });
 
+  it("opens the public trial form from one LIFF rich-menu tap with a verified entry", () => {
+    const bridge = source("src/app/(liff)/liff/public-trial/public-trial-liff-bridge.tsx");
+    const route = source("src/app/api/liff/public-trial-entry/route.ts");
+    expect(bridge).toContain("initLiff(liffId)");
+    expect(bridge).toContain("getIDToken()");
+    expect(bridge).toContain('fetch("/api/liff/public-trial-entry"');
+    expect(bridge).toContain("window.location.replace");
+    expect(route).toContain("verifyLiffIdToken");
+    expect(route).toContain("probeStoreLineRecipient");
+    expect(route).toContain("createTrialBookingChatLink");
+  });
+
   it("routes a public trial through LINE when the existing customer is already verified", () => {
     const booking = source("src/server/actions/public-trial-booking.ts");
     expect(booking).toContain('customer.lineLinkStatus === "LINKED" && customer.lineUserId');
