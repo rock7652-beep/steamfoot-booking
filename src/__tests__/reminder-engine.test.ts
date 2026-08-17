@@ -92,6 +92,7 @@ let shopConfigPresentation: { address: string | null; mapUrl: string | null } | 
   address: "302 新竹縣竹北市中崙里科大一路 80 號",
   mapUrl: "https://maps.example.com/test-shop",
 };
+let packageCardReminderSettings = new Map<string, string>();
 const mockHasStoreFeature = vi.fn();
 const sendMessengerUtilityReminderMock = vi.fn();
 const checkReminderSendLimitMock = vi.fn();
@@ -113,6 +114,12 @@ vi.mock("@prisma/client", () => ({
 
 // ── Mock prisma client ──
 const mockPrisma = {
+  messageTemplate: {
+    findUnique: vi.fn(async (args: { where: { id: string; storeId?: string } }) => {
+      const body = packageCardReminderSettings.get(args.where.storeId ?? "");
+      return body ? { body } : null;
+    }),
+  },
   reminderRule: {
     findMany: vi.fn(async (args: { where?: Record<string, unknown> }) => {
       const where = args.where ?? {};
@@ -437,6 +444,7 @@ beforeEach(() => {
   rules = [];
   messageLogs = [];
   centralRecipientOverrides = new Map();
+  packageCardReminderSettings = new Map();
   shopConfigPresentation = {
     address: "302 新竹縣竹北市中崙里科大一路 80 號",
     mapUrl: "https://maps.example.com/test-shop",
@@ -548,6 +556,9 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(STORE_ID, LINE_USER_ID, [
       expect.objectContaining({ type: "flex" }),
     ]);
+    expect(JSON.stringify(pushMessageMock.mock.calls[0]?.[2]?.[0])).toContain(
+      "請記得準時到店。",
+    );
   });
 
   it("方案預約於前一日 18:00 使用正式 Flex 卡且不帶測試標示", async () => {
@@ -561,6 +572,7 @@ describe("runReminders (daily next-day batch)", () => {
       templateId: "scheduled-template",
       template: { body: "正式排程自訂提醒" },
     });
+    packageCardReminderSettings.set(STORE_ID, "請提前五分鐘到店。");
 
     const { engine } = await loadModules();
     await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
@@ -597,7 +609,9 @@ describe("runReminders (daily next-day batch)", () => {
       "改時段",
       "取消前往",
     ]);
-    expect(JSON.stringify(message)).toContain("正式排程自訂提醒");
+    expect(JSON.stringify(message)).toContain("請提前五分鐘到店。");
+    expect(JSON.stringify(message)).not.toContain("正式排程自訂提醒");
+    expect(messageLogs[0]?.renderedBody).toBe("正式排程自訂提醒");
     expect(message.contents.footer.contents[1]?.action.uri).toContain(
       "/s/store-test/my-bookings/booking-1/reschedule",
     );

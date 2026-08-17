@@ -41,7 +41,7 @@ export function PackageLineCardReminderSettingCard({ initialBody }: Props) {
         <div>
           <h2 className="text-sm font-semibold text-earth-800">LINE 卡片提醒內容</h2>
           <p className="mt-1 text-xs leading-relaxed text-earth-500">
-            只套用於方案／單次預約的手動測試 Flex 卡，不影響前一天 18:00 正式提醒。
+            套用於方案／單次預約的前一天 18:00 正式提醒與手動測試；只影響目前分店。
           </p>
         </div>
         <button
