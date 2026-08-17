@@ -269,7 +269,30 @@ export async function probeStoreLineRecipient(
   storeId: string,
   lineUserId: string,
 ): Promise<StoreLineRecipientProbe> {
-  const token = getLineAccessTokenForStore(storeId);
+  return probeLineRecipientWithAccessToken(
+    getLineAccessTokenForStore(storeId),
+    lineUserId,
+  );
+}
+
+/**
+ * Verifies that a LINE Login subject is also reachable by the Steam Butler
+ * Messaging API channel. LINE Login and Messaging API ids are provider scoped,
+ * so an Auth.js Account id is never considered deliverable without this probe.
+ */
+export async function probeSteamButlerLineRecipient(
+  lineUserId: string,
+): Promise<StoreLineRecipientProbe> {
+  return probeLineRecipientWithAccessToken(
+    getSteamButlerLineAccessToken(),
+    lineUserId,
+  );
+}
+
+async function probeLineRecipientWithAccessToken(
+  token: string | null,
+  lineUserId: string,
+): Promise<StoreLineRecipientProbe> {
   if (!token) return { status: "UNAVAILABLE", httpStatus: null };
   try {
     const res = await fetch(`${LINE_API_BASE}/profile/${lineUserId}`, {

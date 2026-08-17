@@ -23,6 +23,7 @@ import { isStoreBookable } from "@/lib/store-operating-status";
 import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-trial-manager-notification";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
+import { resolvePublicTrialLineCustomer } from "@/server/services/public-trial-line-customer";
 import type { SlotAvailability } from "@/types";
 
 const STORE_SLUG = "zhubei";
@@ -281,25 +282,31 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
 
     const trialPlan = await ensureTrialPlan(store.id, settings.trialDefaultPrice);
 
-    let customer = await prisma.customer.findFirst({
-      where: chatLink?.channel === "LINE"
-        ? { storeId: store.id, lineUserId: chatLink.chatIdentity, mergedIntoCustomerId: null }
-        : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
-      select: { id: true, name: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
-    });
-    let reusedLineIdentityCustomer = Boolean(customer && chatLink?.channel === "LINE");
-    if (!customer && chatLink?.channel === "LINE") {
-      const phoneCustomer = await prisma.customer.findFirst({
-        where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
-        select: { id: true, name: true, assignedStaffId: true, lineUserId: true },
-      });
-      if (phoneCustomer) {
-        // A phone number typed into a public form is not proof that the sender
-        // owns the existing customer row. Never attach or route a reminder to
-        // that row unless it was already linked to this exact LINE sender.
-        return { status: "invalid_input", message: "此手機已有顧客資料，請聯繫門市協助確認 LINE 身分後再預約。" };
-      }
+    const lineCustomerResult = chatLink?.channel === "LINE"
+      ? await resolvePublicTrialLineCustomer({
+          storeId: store.id,
+          phone: data.phone,
+          messagingLineUserId: chatLink.chatIdentity,
+        })
+      : null;
+    if (lineCustomerResult?.status === "conflict") {
+      return { status: "invalid_input", message: "此手機或 LINE 身分已有其他綁定，請聯繫門市協助確認。" };
     }
+    if (lineCustomerResult?.status === "verification_unavailable") {
+      return { status: "invalid_input", message: "LINE 身分驗證暫時無法完成，請稍後再試。" };
+    }
+
+    let customer = lineCustomerResult && "customer" in lineCustomerResult
+      ? lineCustomerResult.customer
+      : chatLink?.channel === "LINE"
+        ? null
+        : await prisma.customer.findFirst({
+            where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
+            select: { id: true, name: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
+          });
+    let reusedLineIdentityCustomer = Boolean(
+      lineCustomerResult && "customer" in lineCustomerResult,
+    );
     if (!customer) {
       try {
         customer = await prisma.customer.create({

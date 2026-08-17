@@ -23,7 +23,10 @@ import { resolveWriteStoreId } from "@/lib/store";
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import { resolveStorePresentation } from "@/lib/store-resolver";
 import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
-import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import {
+  resolveVerifiedCentralReminderLineRoute,
+  resolveVerifiedReminderLineRoute,
+} from "@/server/services/verified-reminder-line-route";
 import { getAllActiveStoreIds } from "@/lib/store";
 import { DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING } from "@/lib/session-balance-notification-settings";
 import {
@@ -1199,37 +1202,30 @@ ${renderedReminder}`;
         ? await pushMessage(storeId, route.recipientLineUserId, textMessages)
         : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
     }
-    const centralFallbackRecipient =
-      recipient?.deliverable && recipient.recipientLineUserId
-        ? recipient.recipientLineUserId
-        : null;
     if (
       route.channel === "STORE" &&
       !result.success &&
-      result.httpStatus === 400 &&
-      centralFallbackRecipient
+      result.httpStatus === 400
     ) {
-      result = await pushSteamButlerMessage(centralFallbackRecipient, flexMessages);
-      if (canFallbackToTextReminder(result)) {
-        result = await pushSteamButlerMessage(centralFallbackRecipient, textMessages);
+      const fallbackRoute = await resolveVerifiedCentralReminderLineRoute(recipient);
+      if (fallbackRoute.status === "READY") {
+        result = await pushSteamButlerMessage(
+          fallbackRoute.recipientLineUserId,
+          flexMessages,
+        );
+        if (canFallbackToTextReminder(result)) {
+          result = await pushSteamButlerMessage(
+            fallbackRoute.recipientLineUserId,
+            textMessages,
+          );
+        }
+        actualRoute = "CENTRAL";
+      } else {
+        result = {
+          ...result,
+          error: [result.error, fallbackRoute.reason].filter(Boolean).join("; "),
+        };
       }
-      actualRoute = "CENTRAL";
-    }
-    const storeRecipient =
-      booking.customer.lineLinkStatus === "LINKED"
-        ? booking.customer.lineUserId?.trim()
-        : null;
-    if (
-      route.channel === "CENTRAL" &&
-      !result.success &&
-      result.httpStatus === 400 &&
-      storeRecipient
-    ) {
-      result = await pushMessage(storeId, storeRecipient, flexMessages);
-      if (canFallbackToTextReminder(result)) {
-        result = await pushMessage(storeId, storeRecipient, textMessages);
-      }
-      actualRoute = "STORE";
     }
 
     const [log] = await prisma.$transaction([

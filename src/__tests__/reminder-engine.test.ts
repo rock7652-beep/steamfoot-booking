@@ -324,12 +324,18 @@ const pushSteamButlerMessageMock = vi.fn(
     return { success: true };
   },
 );
+const probeSteamButlerLineRecipientMock = vi.fn(
+  async (): Promise<{ status: "COMPATIBLE" | "INCOMPATIBLE" | "UNAVAILABLE"; httpStatus?: number }> => ({
+    status: "COMPATIBLE",
+  }),
+);
 vi.mock("@/lib/line", () => ({
   pushMessage: (storeId: string, lineUserId: string, messages: unknown[]) =>
     pushMessageMock(storeId, lineUserId, messages),
   pushSteamButlerMessage: (lineUserId: string, messages: unknown[]) =>
     pushSteamButlerMessageMock(lineUserId, messages),
   probeStoreLineRecipient: vi.fn(async () => ({ status: "COMPATIBLE" })),
+  probeSteamButlerLineRecipient: () => probeSteamButlerLineRecipientMock(),
   renderTemplate: (body: string) => body,
 }));
 vi.mock("@/lib/shop-config", () => ({
@@ -440,6 +446,8 @@ beforeEach(() => {
   pushMessageMock.mockResolvedValue({ success: true });
   pushSteamButlerMessageMock.mockClear();
   pushSteamButlerMessageMock.mockResolvedValue({ success: true });
+  probeSteamButlerLineRecipientMock.mockClear();
+  probeSteamButlerLineRecipientMock.mockResolvedValue({ status: "COMPATIBLE" });
   // Reset call records on prisma mocks（讓 not.toHaveBeenCalled() 斷言可靠）
   mockPrisma.reminderRule.findMany.mockClear();
   mockPrisma.reminderRule.count.mockClear();
@@ -1040,6 +1048,48 @@ describe("runReminders (daily next-day batch)", () => {
       [expect.objectContaining({ type: "flex" })],
     );
     expect(messageLogs[0]).toMatchObject({ status: "SENT", lineRoute: "CENTRAL" });
+  });
+
+  it("中央 LINE Login 身分未通過 Messaging 驗證時不重送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(makeBooking({
+      customerId: "store-400-central-incompatible",
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+    }));
+    centralRecipientOverrides.set("store-400-central-incompatible", {
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U-login-only",
+    });
+    rules.push(makeRule());
+    pushMessageMock
+      .mockResolvedValueOnce({
+        success: false,
+        error: "LINE API 400",
+        httpStatus: 400,
+        errorType: "line_api_rejected",
+      })
+      .mockResolvedValueOnce({
+        success: false,
+        error: "LINE API 400",
+        httpStatus: 400,
+        errorType: "line_api_rejected",
+      });
+    probeSteamButlerLineRecipientMock.mockResolvedValueOnce({
+      status: "INCOMPATIBLE",
+      httpStatus: 404,
+    });
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result).toMatchObject({ sent: 0, failed: 1 });
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs[0]).toMatchObject({
+      status: "FAILED",
+      lineRoute: "STORE",
+      errorMessage: "LINE API 400; CENTRAL_LINE_NOT_MESSAGING_REACHABLE",
+    });
   });
 
   it("idempotent：同一天重跑兩次 → 第二次 SKIPPED 不重複寫入", async () => {

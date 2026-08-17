@@ -36,7 +36,10 @@ import {
   parseTaiwanDateToDbDate,
 } from "@/lib/date-utils";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
-import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import {
+  resolveVerifiedCentralReminderLineRoute,
+  resolveVerifiedReminderLineRoute,
+} from "@/server/services/verified-reminder-line-route";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import {
   buildPackageBookingReminderLineMessages,
@@ -489,37 +492,32 @@ export async function runReminders(): Promise<SendResult> {
           ? await pushMessage(bookingStoreId, route.recipientLineUserId, textMessages)
           : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
       }
-      const centralFallbackRecipient =
-        recipient?.deliverable && recipient.recipientLineUserId
-          ? recipient.recipientLineUserId
-          : null;
       if (
         route.channel === "STORE" &&
         !sendResult.success &&
-        sendResult.httpStatus === 400 &&
-        centralFallbackRecipient
+        sendResult.httpStatus === 400
       ) {
-        sendResult = await pushSteamButlerMessage(centralFallbackRecipient, flexMessages);
-        if (canFallbackToTextReminder(sendResult)) {
-          sendResult = await pushSteamButlerMessage(centralFallbackRecipient, textMessages);
+        const fallbackRoute = await resolveVerifiedCentralReminderLineRoute(recipient);
+        if (fallbackRoute.status === "READY") {
+          sendResult = await pushSteamButlerMessage(
+            fallbackRoute.recipientLineUserId,
+            flexMessages,
+          );
+          if (canFallbackToTextReminder(sendResult)) {
+            sendResult = await pushSteamButlerMessage(
+              fallbackRoute.recipientLineUserId,
+              textMessages,
+            );
+          }
+          actualRoute = "CENTRAL";
+        } else {
+          sendResult = {
+            ...sendResult,
+            error: [sendResult.error, fallbackRoute.reason]
+              .filter(Boolean)
+              .join("; "),
+          };
         }
-        actualRoute = "CENTRAL";
-      }
-      const storeRecipient =
-        customer.lineLinkStatus === "LINKED"
-          ? customer.lineUserId?.trim()
-          : null;
-      if (
-        route.channel === "CENTRAL" &&
-        !sendResult.success &&
-        sendResult.httpStatus === 400 &&
-        storeRecipient
-      ) {
-        sendResult = await pushMessage(bookingStoreId, storeRecipient, flexMessages);
-        if (canFallbackToTextReminder(sendResult)) {
-          sendResult = await pushMessage(bookingStoreId, storeRecipient, textMessages);
-        }
-        actualRoute = "STORE";
       }
 
       // 寫入 MessageLog（unique 索引為 race condition 保險）

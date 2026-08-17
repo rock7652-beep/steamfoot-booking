@@ -10,6 +10,7 @@ describe("formatReminderSendResult", () => {
     ["SKIPPED", "LINE recipient unavailable: NO_CENTRAL_USER", "未綁定 LINE"],
     ["SKIPPED", "LINE recipient unavailable: NO_CENTRAL_LINE", "未綁定 LINE"],
     ["FAILED", 'LINE API 400: {"message":"Failed to send messages"}', "已綁定但無法送達"],
+    ["FAILED", "LINE API 400; CENTRAL_LINE_NOT_MESSAGING_REACHABLE", "LINE 通知身分尚未完成，請由分店 LINE 重新綁定"],
     ["SENT", "LINE API 400", "已發送"],
   ])("maps %s result without exposing the technical detail", (status, errorMessage, expected) => {
     expect(formatReminderSendResult(status, errorMessage)).toBe(expected);
