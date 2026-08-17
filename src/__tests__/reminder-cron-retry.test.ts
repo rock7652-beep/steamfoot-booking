@@ -328,10 +328,10 @@ describe("computeRetryStatus — terminal status invariant", () => {
     ).toBe("OK");
   });
 
-  it("total>0 sent=部分 failed=部分 → FAILED，讓 backup cron 重試", async () => {
+  it("total>0 sent=部分 failed=部分 → PARTIAL，不把個別失敗誤報為排程中斷", async () => {
     const { computeRetryStatus } = await loadHelper();
     expect(
       computeRetryStatus({ total: 6, sent: 3, failed: 3 }, null),
-    ).toBe("FAILED");
+    ).toBe("PARTIAL");
   });
 });

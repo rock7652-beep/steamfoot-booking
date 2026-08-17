@@ -43,6 +43,7 @@ type BookingRow = {
     id: string;
     name: string;
     lineUserId: string | null;
+    lineLinkedAt: Date | null;
     lineLinkStatus: string;
     assignedStaff: { displayName: string } | null;
   };
@@ -225,6 +226,13 @@ const mockPrisma = {
       return messageLogs.filter((l) => {
         if (where.status && l.status !== where.status) return false;
         if (where.storeId && l.storeId !== where.storeId) return false;
+        if (where.customerId && l.customerId !== where.customerId) return false;
+        if (where.channel && (l.channel ?? "LINE") !== where.channel) return false;
+        if (where.lineRoute && l.lineRoute !== where.lineRoute) return false;
+        const errorFilter = where.errorMessage as { startsWith?: string } | undefined;
+        if (errorFilter?.startsWith && !l.errorMessage?.toLowerCase().startsWith(errorFilter.startsWith.toLowerCase())) {
+          return false;
+        }
         const sentAtFilter = where.sentAt as { gte?: Date; lt?: Date; lte?: Date } | undefined;
         if (sentAtFilter) {
           if (sentAtFilter.gte && (!l.sentAt || l.sentAt < sentAtFilter.gte)) return false;
@@ -413,6 +421,7 @@ function makeBooking(opts: {
       id: opts.customerId ?? CUSTOMER_ID,
       name: "Alice",
       lineUserId: opts.hasLine === false ? null : LINE_USER_ID,
+      lineLinkedAt: new Date("2026-01-01T00:00:00.000Z"),
       lineLinkStatus: opts.hasLine === false ? "UNLINKED" : "LINKED",
       assignedStaff: { displayName: "Bob" },
     },
@@ -1159,6 +1168,88 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
     expect(messageLogs).toHaveLength(2);
     expect(messageLogs[1]).toMatchObject({ status: "SENT" });
+  });
+
+  it("同店同路由已有兩次 LINE 400 時停止盲目重試並要求重新綁定", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z") }),
+    );
+    rules.push(makeRule());
+    messageLogs.push(
+      {
+        id: "line-400-1",
+        ruleId: RULE_ID,
+        bookingId: "old-booking-1",
+        customerId: CUSTOMER_ID,
+        triggerAt: new Date("2026-05-01T10:00:00.000Z"),
+        status: "FAILED",
+        storeId: STORE_ID,
+        createdAt: new Date("2026-05-01T10:00:00.000Z"),
+        sentAt: null,
+        channel: "LINE",
+        lineRoute: "STORE",
+        errorMessage: 'LINE API 400: {"message":"Failed to send messages"}',
+      },
+      {
+        id: "line-400-2",
+        ruleId: RULE_ID,
+        bookingId: "old-booking-2",
+        customerId: CUSTOMER_ID,
+        triggerAt: new Date("2026-05-05T10:00:00.000Z"),
+        status: "FAILED",
+        storeId: STORE_ID,
+        createdAt: new Date("2026-05-05T10:00:00.000Z"),
+        sentAt: null,
+        channel: "LINE",
+        lineRoute: "STORE",
+        errorMessage: 'LINE API 400: {"message":"Failed to send messages"}',
+      },
+    );
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result).toMatchObject({ sent: 0, skipped: 1, failed: 0 });
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs.at(-1)).toMatchObject({
+      status: "SKIPPED",
+      errorMessage: "LINE recipient unavailable: REPEATED_LINE_400_REBIND_REQUIRED",
+    });
+  });
+
+  it("重新綁定後只計算新綁定時間以後的 LINE 400 並恢復發送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    const booking = makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z") });
+    booking.customer.lineLinkedAt = new Date("2026-05-10T00:00:00.000Z");
+    bookings.push(booking);
+    rules.push(makeRule());
+    for (const [id, date] of [
+      ["line-400-before-rebind-1", "2026-05-01T10:00:00.000Z"],
+      ["line-400-before-rebind-2", "2026-05-05T10:00:00.000Z"],
+    ] as const) {
+      messageLogs.push({
+        id,
+        ruleId: RULE_ID,
+        bookingId: id,
+        customerId: CUSTOMER_ID,
+        triggerAt: new Date(date),
+        status: "FAILED",
+        storeId: STORE_ID,
+        createdAt: new Date(date),
+        sentAt: null,
+        channel: "LINE",
+        lineRoute: "STORE",
+        errorMessage: "LINE API 400",
+      });
+    }
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result).toMatchObject({ sent: 1, skipped: 0, failed: 0 });
+    expect(pushMessageMock).toHaveBeenCalledTimes(1);
+    expect(messageLogs.at(-1)).toMatchObject({ status: "SENT" });
   });
 
   it("並行 race（unique constraint P2002）→ SKIPPED 不 throw", async () => {
