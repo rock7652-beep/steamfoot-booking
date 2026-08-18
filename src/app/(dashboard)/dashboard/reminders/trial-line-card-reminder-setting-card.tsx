@@ -97,7 +97,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl }:
             className="w-full rounded-lg border border-earth-300 px-3 py-2 text-sm text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200"
           />
           <p className="mt-1 text-[11px] leading-relaxed text-earth-400">
-            留空時不顯示導航按鈕；請貼上該分店的 HTTPS Google Maps 分享網址。
+            此網址由分店共用，也會套用於方案／單次預約提醒；留空時不顯示導航按鈕。
           </p>
           <div className="mt-3 rounded-lg border border-earth-100 bg-[#F8F4EE] p-3 text-sm leading-relaxed text-earth-800">
             {trimmedBody || DEFAULT_TRIAL_LINE_CARD_REMINDER}

@@ -1,3 +1,5 @@
+import { PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME } from "@/lib/package-line-card-reminder-setting";
+
 export const TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME =
   "__SYSTEM_TRIAL_LINE_CARD_REMINDER__";
 
@@ -15,4 +17,3 @@ export function isSystemLineCardReminderTemplate(name: string): boolean {
   return name === TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME ||
     name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME;
 }
-import { PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME } from "@/lib/package-line-card-reminder-setting";
