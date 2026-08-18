@@ -1,5 +1,16 @@
 import type { LineMessage, LinePushResult } from "@/lib/line";
 
+const REMINDER_CARD_COLORS = {
+  headerBackground: "#F3EDE5",
+  headerText: "#4B433B",
+  headerSubtext: "#756B62",
+  primary: "#667A5C",
+  reschedule: "#8B6B52",
+  cancel: "#AD5F58",
+  testBadgeBackground: "#E9D9B9",
+  testBadgeText: "#5A421F",
+} as const;
+
 export type PackageBookingReminderCard = {
   customerName: string;
   bookingDate: string;
@@ -55,20 +66,20 @@ export function buildPackageBookingTestReminderLineMessages(
       header: {
         type: "box",
         layout: "vertical",
-        backgroundColor: "#F3E7DC",
+        backgroundColor: REMINDER_CARD_COLORS.headerBackground,
         paddingAll: "16px",
         contents: [
-          { type: "text", text: "蒸管家｜預約提醒", color: "#4A3A32", weight: "bold", size: "lg" },
+          { type: "text", text: "蒸管家｜預約提醒", color: REMINDER_CARD_COLORS.headerText, weight: "bold", size: "lg" },
           ...(isTest
             ? [{
                 type: "box" as const,
                 layout: "horizontal" as const,
                 margin: "md",
-                backgroundColor: "#F7DEAA",
+                backgroundColor: REMINDER_CARD_COLORS.testBadgeBackground,
                 cornerRadius: "12px",
                 paddingAll: "8px",
                 contents: [
-                  { type: "text" as const, text: "測試提醒｜不影響正式排程", color: "#4A2E0B", size: "xs" as const, weight: "bold" as const },
+                  { type: "text" as const, text: "測試提醒｜不影響正式排程", color: REMINDER_CARD_COLORS.testBadgeText, size: "xs" as const, weight: "bold" as const },
                 ],
               }]
             : []),
@@ -104,20 +115,20 @@ export function buildPackageBookingTestReminderLineMessages(
             ? [{
                 type: "button",
                 style: "primary",
-                color: "#7FA58A",
+                color: REMINDER_CARD_COLORS.primary,
                 action: { type: "uri", label: "開啟 Google Maps 導航", uri: card.mapUrl },
               }]
             : []),
           {
             type: "button",
             style: "primary",
-            color: "#B58A6A",
+            color: REMINDER_CARD_COLORS.reschedule,
             action: { type: "uri", label: "改時段", uri: actionUrl("reschedule") },
           },
           {
             type: "button",
             style: "primary",
-            color: "#C77972",
+            color: REMINDER_CARD_COLORS.cancel,
             action: { type: "uri", label: "取消前往", uri: actionUrl("cancel") },
           },
         ],
@@ -143,11 +154,11 @@ export function buildTrialBookingReminderLineMessages(
       header: {
         type: "box",
         layout: "vertical",
-        backgroundColor: "#5C4634",
+        backgroundColor: REMINDER_CARD_COLORS.headerBackground,
         paddingAll: "16px",
         contents: [
-          { type: "text", text: "蒸管家｜預約提醒", color: "#FFFFFF", weight: "bold", size: "lg" },
-          { type: "text", text: "請確認明日行程", color: "#F4E9DF", size: "sm", margin: "sm" },
+          { type: "text", text: "蒸管家｜預約提醒", color: REMINDER_CARD_COLORS.headerText, weight: "bold", size: "lg" },
+          { type: "text", text: "請確認明日行程", color: REMINDER_CARD_COLORS.headerSubtext, size: "sm", margin: "sm" },
         ],
       },
       body: {
@@ -170,18 +181,19 @@ export function buildTrialBookingReminderLineMessages(
           {
             type: "button",
             style: "primary",
-            color: "#5C4634",
+            color: REMINDER_CARD_COLORS.primary,
             action: { type: "uri", label: "確認會到", uri: actionUrl("confirm") },
           },
           {
             type: "button",
-            style: "secondary",
+            style: "primary",
+            color: REMINDER_CARD_COLORS.reschedule,
             action: { type: "uri", label: "需要改期", uri: actionUrl("reschedule") },
           },
           {
             type: "button",
-            style: "secondary",
-            color: "#A33A32",
+            style: "primary",
+            color: REMINDER_CARD_COLORS.cancel,
             action: { type: "uri", label: "取消預約", uri: actionUrl("cancel") },
           },
         ],
