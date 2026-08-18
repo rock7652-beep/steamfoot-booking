@@ -18,6 +18,7 @@ function flexContents(message: ReturnType<typeof buildTrialBookingReminderLineMe
   if (message.type !== "flex") throw new Error("Expected a Flex message");
   return message.contents as {
     header: FlexBox;
+    body: FlexBox;
     footer: FlexBox;
   };
 }
@@ -50,6 +51,8 @@ describe("LINE reminder card colors", () => {
       bookingTime: "15:00",
       shopName: "竹北店",
       serviceName: "首次體驗",
+      reminderText: "請穿著輕便服裝，提前 10 分鐘抵達。",
+      mapUrl: "https://maps.app.goo.gl/example",
     }, "https://www.steamfoot.com/trial-booking/manage?token=signed");
 
     const card = flexContents(message);
@@ -59,9 +62,11 @@ describe("LINE reminder card colors", () => {
       style,
       color,
     }))).toEqual([
+      { label: "開啟 Google Maps 導航", style: "primary", color: "#667A5C" },
       { label: "確認會到", style: "primary", color: "#667A5C" },
       { label: "需要改期", style: "primary", color: "#8B6B52" },
       { label: "取消預約", style: "primary", color: "#AD5F58" },
     ]);
+    expect(JSON.stringify(card.body)).toContain("請穿著輕便服裝，提前 10 分鐘抵達。");
   });
 });

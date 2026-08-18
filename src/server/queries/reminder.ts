@@ -20,6 +20,11 @@ import {
   PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
   packageLineCardReminderSettingId,
 } from "@/lib/package-line-card-reminder-setting";
+import {
+  DEFAULT_TRIAL_LINE_CARD_REMINDER,
+  TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME,
+  trialLineCardReminderSettingId,
+} from "@/lib/trial-line-card-reminder-setting";
 
 // ============================================================
 // ReminderRule queries
@@ -119,7 +124,7 @@ export async function listMessageTemplates(storeId: string) {
   return prisma.messageTemplate.findMany({
     where: {
       storeId: authorizedStoreId,
-      name: { not: PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME },
+      name: { notIn: [PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME, TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME] },
     },
     include: { _count: { select: { logs: true, rules: true } } },
     orderBy: { createdAt: "desc" },
@@ -147,6 +152,29 @@ export async function getPackageLineCardReminderSetting(
     select: { body: true },
   });
   return setting?.body ?? DEFAULT_PACKAGE_LINE_CARD_REMINDER;
+}
+
+export async function getTrialLineCardReminderSetting(
+  storeId: string,
+): Promise<{ body: string; mapUrl: string }> {
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
+  const [setting, config] = await Promise.all([
+    prisma.messageTemplate.findUnique({
+      where: {
+        id: trialLineCardReminderSettingId(authorizedStoreId),
+        storeId: authorizedStoreId,
+      },
+      select: { body: true },
+    }),
+    prisma.shopConfig.findUnique({
+      where: { storeId: authorizedStoreId },
+      select: { mapUrl: true },
+    }),
+  ]);
+  return {
+    body: setting?.body?.trim() || DEFAULT_TRIAL_LINE_CARD_REMINDER,
+    mapUrl: config?.mapUrl?.trim() || "",
+  };
 }
 
 // ============================================================

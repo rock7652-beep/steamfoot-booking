@@ -685,14 +685,18 @@ describe("runReminders (daily next-day batch)", () => {
     expect(message.contents.body.contents[3]?.contents?.map((item) => item.text)).toEqual(["店名", "Test Shop"]);
     expect(message.contents.body.contents[4]?.contents?.map((item) => item.text)).toEqual(["預約項目", "首次體驗"]);
     expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+      "開啟 Google Maps 導航",
       "確認會到",
       "需要改期",
       "取消預約",
     ]);
-    for (const button of message.contents.footer.contents) {
+    expect(message.contents.footer.contents[0]?.action.uri).toBe(
+      "https://maps.example.com/test-shop",
+    );
+    for (const button of message.contents.footer.contents.slice(1)) {
       expect(button.action.uri).toContain("/trial-booking/manage?token=");
     }
-    expect(message.contents.footer.contents.map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
+    expect(message.contents.footer.contents.slice(1).map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
       "confirm",
       "reschedule",
       "cancel",

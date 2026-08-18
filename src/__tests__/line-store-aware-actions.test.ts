@@ -40,6 +40,10 @@ const mockPrisma = {
   store: {
     findUnique: vi.fn(),
   },
+  shopConfig: {
+    findUnique: vi.fn(),
+    upsert: vi.fn(async ({ create, update }) => ({ ...create, ...update })),
+  },
   messageTemplate: {
     findUnique: vi.fn(),
     findFirst: vi.fn(),
@@ -164,6 +168,7 @@ describe("LINE sending actions are store-aware", () => {
     sendMessengerUtilityTestReminderMock.mockResolvedValue({ code: "SENT", quotaConsumed: true });
     mockPrisma.messageTemplate.findFirst.mockResolvedValue(null);
     mockPrisma.messageTemplate.findUnique.mockResolvedValue(null);
+    mockPrisma.shopConfig.findUnique.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -679,15 +684,15 @@ describe("LINE sending actions are store-aware", () => {
         altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
         contents: expect.objectContaining({
           header: expect.objectContaining({
-            backgroundColor: "#F3E7D8",
+            backgroundColor: "#F3EDE5",
             contents: expect.arrayContaining([
-              expect.objectContaining({ text: "蒸管家｜預約提醒", color: "#4A3527" }),
+              expect.objectContaining({ text: "蒸管家｜預約提醒", color: "#4B433B" }),
               expect.objectContaining({
-                backgroundColor: "#F8DFAF",
+                backgroundColor: "#E9D9B9",
                 contents: expect.arrayContaining([
                   expect.objectContaining({
                     text: "測試提醒｜不影響正式排程",
-                    color: "#7A4A12",
+                    color: "#5A421F",
                   }),
                 ]),
               }),
@@ -698,7 +703,7 @@ describe("LINE sending actions are store-aware", () => {
             contents: expect.arrayContaining([
               expect.objectContaining({
                 style: "primary",
-                color: "#6C8B73",
+                color: "#667A5C",
                 action: expect.objectContaining({
                   label: "開啟 Google Maps 導航",
                   uri: "https://maps.app.goo.gl/b5yPNKj8jt6DfzZo9?g_st=ic",
@@ -706,15 +711,15 @@ describe("LINE sending actions are store-aware", () => {
               }),
               expect.objectContaining({
                 style: "primary",
-                color: "#6B4A35",
+                color: "#8B6B52",
                 action: expect.objectContaining({
                   label: "改時段",
                   uri: "https://example.test/s/zhubei/my-bookings/package-booking-1/reschedule",
                 }),
               }),
               expect.objectContaining({
-                style: "secondary",
-                color: "#A33A32",
+                style: "primary",
+                color: "#AD5F58",
                 action: expect.objectContaining({
                   label: "取消前往",
                   uri: "https://example.test/s/zhubei/my-bookings/package-booking-1/cancel",
