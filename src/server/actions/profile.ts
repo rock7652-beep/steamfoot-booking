@@ -556,8 +556,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     }
     if (resolved.reason === "conflict_already_linked_phone") {
       return {
-        error:
-          "此聯絡電話已綁定其他登入帳號。請確認 Email 也與您過去留給店家的一致；若確認無誤請聯繫店家協助。",
+        error: "此手機已綁定其他 LINE，請聯絡店家協助重綁。",
         success: false,
       };
     }
