@@ -377,6 +377,35 @@ describe("updateProfileAction — merge by storeId + phone", () => {
     expect(mockCustomerCreate).not.toHaveBeenCalled();
   });
 
+  it("手機已綁定其他帳號時直接提示聯絡店家重新綁定，不誤判登入方式或要求比對 Email", async () => {
+    mockUserFindUnique.mockResolvedValue({
+      id: USER_ID,
+      passwordHash:
+        "$2b$10$abcdefghijklmnopqrstuvwxyz.zyxwvutsrqponmlkjihgfedcba1234",
+    });
+    mockResolveCustomerForUser.mockResolvedValue({
+      customer: null,
+      reason: "conflict_already_linked_phone",
+    });
+
+    const { updateProfileAction } = await import("@/server/actions/profile");
+    const fd = new FormData();
+    fd.set("name", "阿良");
+    fd.set("phone", "0912345678");
+    fd.set("birthday", "1990-01-15");
+
+    const result = await updateProfileAction({ error: null, success: false }, fd);
+
+    expect(result).toEqual({
+      error: "此手機已綁定其他登入帳號，請聯絡店家協助重新綁定。",
+      success: false,
+    });
+    expect(result.error).not.toMatch(/Email/);
+    expect(result.error).not.toMatch(/LINE/);
+    expect(mockMergePlaceholder).not.toHaveBeenCalled();
+    expect(mockCustomerCreate).not.toHaveBeenCalled();
+  });
+
   it("候選查找維持同店且排除已合併 Customer", async () => {
     const { updateProfileAction } = await import("@/server/actions/profile");
     const fd = new FormData();
