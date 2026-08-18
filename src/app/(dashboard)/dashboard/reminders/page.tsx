@@ -23,6 +23,7 @@ import {
   getLineSmokeTestContext,
   getSessionBalanceNotificationSetting,
   getPackageLineCardReminderSetting,
+  getTrialLineCardReminderSetting,
   listSessionBalanceNotificationLogs,
 } from "@/server/queries/reminder";
 import { getCurrentLineOfficialAccountStatus } from "@/server/actions/line-official-accounts";
@@ -39,6 +40,7 @@ import { StoreLineHealthCard } from "./store-line-health-card";
 import { SessionBalanceReminderCard } from "./session-balance-reminder-card";
 import { LineNotificationRecipientsCard } from "./line-notification-recipients-card";
 import { PackageLineCardReminderSettingCard } from "./package-line-card-reminder-setting-card";
+import { TrialLineCardReminderSettingCard } from "./trial-line-card-reminder-setting-card";
 import { listStoreLineNotificationRecipients } from "@/server/actions/store-line-notification-recipients";
 import { classifyReminderHealth } from "@/lib/reminder-health";
 
@@ -117,6 +119,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     sessionBalanceSetting,
     notificationRecipients,
     packageLineCardReminder,
+    trialLineCardReminder,
     storeReminderHealthResult,
   ] = await Promise.all([
     getReminderStats(activeStoreId),
@@ -126,6 +129,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     getSessionBalanceNotificationSetting(activeStoreId),
     listStoreLineNotificationRecipients(),
     getPackageLineCardReminderSetting(activeStoreId),
+    getTrialLineCardReminderSetting(activeStoreId),
     getStoreReminderHealthResult(activeStoreId),
   ]);
   const smokeTestContext = smokeTestEnabled
@@ -241,6 +245,11 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             <PackageLineCardReminderSettingCard
               key={`${activeStoreId}-package-line-card-reminder`}
               initialBody={packageLineCardReminder}
+            />
+            <TrialLineCardReminderSettingCard
+              key={`${activeStoreId}-trial-line-card-reminder`}
+              initialBody={trialLineCardReminder.body}
+              initialMapUrl={trialLineCardReminder.mapUrl}
             />
             <ReminderCard
               key={activeStoreId}

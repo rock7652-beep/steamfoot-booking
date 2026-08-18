@@ -35,6 +35,14 @@ import {
   PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
   packageLineCardReminderSettingId,
 } from "@/lib/package-line-card-reminder-setting";
+import {
+  DEFAULT_TRIAL_LINE_CARD_REMINDER,
+  TRIAL_LINE_CARD_MAP_URL_MAX_LENGTH,
+  TRIAL_LINE_CARD_REMINDER_MAX_LENGTH,
+  TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME,
+  isSystemLineCardReminderTemplate,
+  trialLineCardReminderSettingId,
+} from "@/lib/trial-line-card-reminder-setting";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import {
   buildPackageBookingTestReminderLineMessages,
@@ -99,6 +107,30 @@ const bookingTestReminderSchema = bookingLineTestSchema;
 
 const packageLineCardReminderSettingSchema = z.object({
   body: z.string().trim().min(1).max(PACKAGE_LINE_CARD_REMINDER_MAX_LENGTH),
+});
+
+const trialLineCardReminderSettingSchema = z.object({
+  body: z.string().trim().min(1).max(TRIAL_LINE_CARD_REMINDER_MAX_LENGTH),
+  mapUrl: z.string().trim().max(TRIAL_LINE_CARD_MAP_URL_MAX_LENGTH),
+}).superRefine((data, ctx) => {
+  if (!data.mapUrl) return;
+  try {
+    const url = new URL(data.mapUrl);
+    const host = url.hostname.toLowerCase();
+    const isGoogleMapsHost =
+      url.protocol === "https:" &&
+      (host === "maps.app.goo.gl" ||
+        host === "goo.gl" ||
+        host === "google.com" ||
+        host.endsWith(".google.com"));
+    if (!isGoogleMapsHost) throw new Error("invalid map host");
+  } catch {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["mapUrl"],
+      message: "請貼上 HTTPS Google Maps 分享網址",
+    });
+  }
 });
 
 const sessionBalanceSettingSchema = z.object({
@@ -573,7 +605,7 @@ export async function setReminderTemplate(
       if (
         !tpl ||
         tpl.storeId !== storeId ||
-        tpl.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME
+        isSystemLineCardReminderTemplate(tpl.name)
       ) {
         throw new AppError("NOT_FOUND", "訊息模板不存在");
       }
@@ -820,6 +852,42 @@ export async function savePackageLineCardReminderSetting(
   }
 }
 
+export async function saveTrialLineCardReminderSetting(
+  input: z.input<typeof trialLineCardReminderSettingSchema>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const { body, mapUrl } = trialLineCardReminderSettingSchema.parse(input);
+
+    await prisma.$transaction([
+      prisma.messageTemplate.upsert({
+        where: { id: trialLineCardReminderSettingId(storeId) },
+        create: {
+          id: trialLineCardReminderSettingId(storeId),
+          storeId,
+          name: TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME,
+          channel: "LINE",
+          body,
+          isDefault: false,
+        },
+        update: { body },
+      }),
+      prisma.shopConfig.upsert({
+        where: { storeId },
+        create: { storeId, mapUrl: mapUrl || null },
+        update: { mapUrl: mapUrl || null },
+      }),
+    ]);
+
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
 // ============================================================
 // MessageTemplate CRUD
 // ============================================================
@@ -830,7 +898,7 @@ export async function createMessageTemplate(
   try {
     const user = await requireStaffSession();
     const data = createTemplateSchema.parse(input);
-    if (data.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME) {
+    if (isSystemLineCardReminderTemplate(data.name)) {
       throw new AppError("VALIDATION", "此模板名稱由系統保留");
     }
     const storeId = await resolveWriteStoreId(user);
@@ -876,11 +944,11 @@ export async function updateMessageTemplate(
     if (
       !existing ||
       existing.storeId !== storeId ||
-      existing.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME
+      isSystemLineCardReminderTemplate(existing.name)
     ) {
       throw new AppError("NOT_FOUND", "訊息模板不存在");
     }
-    if (data.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME) {
+    if (data.name && isSystemLineCardReminderTemplate(data.name)) {
       throw new AppError("VALIDATION", "此模板名稱由系統保留");
     }
 
@@ -926,7 +994,7 @@ export async function testSendLineMessage(
     const shopConfig = customer ? await getShopConfig(customer.storeId) : null;
 
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
-    if (!template || template.name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME) {
+    if (!template || isSystemLineCardReminderTemplate(template.name)) {
       throw new AppError("NOT_FOUND", "模板不存在");
     }
     const recipient = await resolveCentralLineRecipientForCustomer(customer.id, customer.storeId);
@@ -1106,7 +1174,14 @@ export async function sendBookingLineTestReminder(
       throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
     }
 
-    const [rule, shopConfig, storePresentation, cardReminderSetting] = await Promise.all([
+    const [
+      rule,
+      shopConfig,
+      storePresentation,
+      cardReminderSetting,
+      trialCardReminderSetting,
+      trialMapConfig,
+    ] = await Promise.all([
       prisma.reminderRule.findFirst({
         where: { storeId, isEnabled: true },
         orderBy: { createdAt: "asc" },
@@ -1125,6 +1200,21 @@ export async function sendBookingLineTestReminder(
             },
             select: { body: true },
           }),
+      booking.bookingType === "FIRST_TRIAL"
+        ? prisma.messageTemplate.findUnique({
+            where: {
+              id: trialLineCardReminderSettingId(storeId),
+              storeId,
+            },
+            select: { body: true },
+          })
+        : Promise.resolve(null),
+      booking.bookingType === "FIRST_TRIAL"
+        ? prisma.shopConfig.findUnique({
+            where: { storeId },
+            select: { mapUrl: true },
+          })
+        : Promise.resolve(null),
     ]);
     const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
     if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
@@ -1173,6 +1263,10 @@ ${renderedReminder}`;
       bookingTime: booking.slotTime,
       shopName: customerFacingShopName,
       serviceName: "首次體驗",
+      reminderText:
+        trialCardReminderSetting?.body?.trim() ||
+        DEFAULT_TRIAL_LINE_CARD_REMINDER,
+      mapUrl: trialMapConfig?.mapUrl?.trim() || undefined,
     };
     const flexMessages = isLineTrialBooking
       ? buildTrialBookingReminderLineMessages(card, bookingLink)

@@ -29,6 +29,8 @@ export type TrialBookingReminderCard = {
   bookingTime: string;
   shopName: string;
   serviceName: string;
+  mapUrl?: string;
+  reminderText?: string;
 };
 
 /**
@@ -171,6 +173,13 @@ export function buildTrialBookingReminderLineMessages(
           detailRow("日期時間", `${card.bookingDate} ${card.bookingTime}`),
           detailRow("店名", card.shopName),
           detailRow("預約項目", card.serviceName),
+          ...(card.reminderText
+            ? [
+                { type: "separator" },
+                { type: "text", text: "提醒內容", color: "#8A817A", size: "sm" },
+                { type: "text", text: card.reminderText, color: "#302924", size: "sm", wrap: true },
+              ]
+            : []),
         ],
       },
       footer: {
@@ -178,6 +187,14 @@ export function buildTrialBookingReminderLineMessages(
         layout: "vertical",
         spacing: "sm",
         contents: [
+          ...(card.mapUrl
+            ? [{
+                type: "button" as const,
+                style: "primary" as const,
+                color: REMINDER_CARD_COLORS.primary,
+                action: { type: "uri" as const, label: "開啟 Google Maps 導航", uri: card.mapUrl },
+              }]
+            : []),
           {
             type: "button",
             style: "primary",
@@ -214,7 +231,7 @@ export function buildTrialBookingReminderTextFallback(
 ): LineMessage[] {
   return [{
     type: "text",
-    text: `${prefix}${card.customerName} 您好！\n\n明天 ${card.bookingDate} ${card.bookingTime} 有一筆 ${card.serviceName} 預約。\n店名：${card.shopName}\n\n請開啟以下安全連結，確認會到、改期或取消：\n${managementUrl}`,
+    text: `${prefix}${card.customerName} 您好！\n\n明天 ${card.bookingDate} ${card.bookingTime} 有一筆 ${card.serviceName} 預約。\n店名：${card.shopName}${card.reminderText ? `\n提醒內容：${card.reminderText}` : ""}${card.mapUrl ? `\nGoogle Maps 導航：${card.mapUrl}` : ""}\n\n請開啟以下安全連結，確認會到、改期或取消：\n${managementUrl}`,
   }];
 }
 
