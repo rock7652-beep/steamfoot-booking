@@ -377,7 +377,7 @@ describe("updateProfileAction — merge by storeId + phone", () => {
     expect(mockCustomerCreate).not.toHaveBeenCalled();
   });
 
-  it("手機已綁定其他 LINE 時直接提示聯絡店家重綁，不再誤導顧客比對 Email", async () => {
+  it("手機已綁定其他帳號時直接提示聯絡店家重新綁定，不誤判登入方式或要求比對 Email", async () => {
     mockUserFindUnique.mockResolvedValue({
       id: USER_ID,
       passwordHash:
@@ -397,10 +397,11 @@ describe("updateProfileAction — merge by storeId + phone", () => {
     const result = await updateProfileAction({ error: null, success: false }, fd);
 
     expect(result).toEqual({
-      error: "此手機已綁定其他 LINE，請聯絡店家協助重綁。",
+      error: "此手機已綁定其他登入帳號，請聯絡店家協助重新綁定。",
       success: false,
     });
     expect(result.error).not.toMatch(/Email/);
+    expect(result.error).not.toMatch(/LINE/);
     expect(mockMergePlaceholder).not.toHaveBeenCalled();
     expect(mockCustomerCreate).not.toHaveBeenCalled();
   });
