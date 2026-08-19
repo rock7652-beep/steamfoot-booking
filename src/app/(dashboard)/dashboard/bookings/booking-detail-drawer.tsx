@@ -28,6 +28,7 @@ import { TestReminderModal } from "./line-test-reminder-modal";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { formatWeekdayZh } from "@/lib/date-utils";
+import { sendGoogleReviewInvite } from "@/server/actions/google-review";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   CASH: "現金",
@@ -422,6 +423,24 @@ export function BookingDetailDrawer({
     wrapAction("已取消預約", () => cancelBooking(bookingId!), "CANCELLED");
   }
 
+  function handleGoogleReviewInvite() {
+    if (!bookingId || readOnly) return;
+    wrapAction(
+      "Google 評論邀請已送出",
+      () => sendGoogleReviewInvite(bookingId),
+      null,
+      {
+        onSuccess: () => setData((prev) => prev ? {
+          ...prev,
+          googleReview: {
+            configured: prev.googleReview?.configured ?? true,
+            sentAt: new Date().toISOString(),
+          },
+        } : prev),
+      },
+    );
+  }
+
   function handleRevert() {
     if (readOnly) return;
     // Revert returns to PENDING per booking.ts:867 logic.
@@ -510,6 +529,7 @@ export function BookingDetailDrawer({
               adjustCheckout: () => setAdjustCheckoutOpen(true),
               adjustToSingle: () => setAdjustToSingleOpen(true),
               testReminder: () => setTestReminderOpen(true),
+              inviteGoogleReview: handleGoogleReviewInvite,
             }}
           />
         ) : showPrefill && prefill ? (
@@ -693,6 +713,7 @@ interface DrawerActions {
   adjustCheckout: () => void;
   adjustToSingle: () => void;
   testReminder: () => void;
+  inviteGoogleReview: () => void;
 }
 
 function DrawerContent({
@@ -710,6 +731,7 @@ function DrawerContent({
 }) {
   const { booking, customerSummary, trial, single, checkout, checkoutToSingle } =
     payload;
+  const googleReview = payload.googleReview ?? { configured: false, sentAt: null };
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   const amount = computeAmount(booking, trial);
   const duration = booking.servicePlan?.category === "TRIAL" ? 30 : 60;
@@ -998,6 +1020,7 @@ function DrawerContent({
           single={single}
           checkout={checkout}
           checkoutToSingle={checkoutToSingle}
+          googleReview={googleReview}
           isActing={isActing}
           actions={actions}
         />
@@ -1272,6 +1295,7 @@ function ActionFooter({
   single,
   checkout,
   checkoutToSingle,
+  googleReview,
   isActing,
   actions,
 }: {
@@ -1280,12 +1304,13 @@ function ActionFooter({
   single: BookingDrawerPayload["single"];
   checkout: BookingDrawerPayload["checkout"];
   checkoutToSingle: BookingDrawerPayload["checkoutToSingle"];
+  googleReview: NonNullable<BookingDrawerPayload["googleReview"]>;
   isActing: boolean;
   actions: DrawerActions;
 }) {
   const status = booking.bookingStatus;
   const primaries: Array<{ label: string; onClick: () => void }> = [];
-  const secondaries: Array<{ label: string; onClick: () => void; tone?: "danger" }> = [];
+  const secondaries: Array<{ label: string; onClick: () => void; tone?: "danger"; disabled?: boolean }> = [];
 
   // 體驗 499 PR-3：FIRST_TRIAL 且尚未收款 + 預約仍 PENDING/CONFIRMED →
   // 顯示「收款」主鈕（drawer-only：收款是營收動作，集中在預約明細操作）。
@@ -1360,6 +1385,15 @@ function ActionFooter({
     secondaries.push({ label: "標記未到", onClick: actions.noShow });
     secondaries.push({ label: "取消預約", onClick: actions.cancel, tone: "danger" });
   } else if (status === "COMPLETED") {
+    secondaries.push({
+      label: googleReview.sentAt
+        ? "評論邀請已送出"
+        : googleReview.configured
+          ? "邀請 Google 評論"
+          : "尚未設定評論網址",
+      onClick: actions.inviteGoogleReview,
+      disabled: Boolean(googleReview.sentAt) || !googleReview.configured,
+    });
     secondaries.push({ label: "還原狀態", onClick: actions.revert });
   } else if (status === "NO_SHOW") {
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
@@ -1390,12 +1424,31 @@ function ActionFooter({
         </div>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
-        {secondaries.map((a) => (
+        {status === "COMPLETED" && secondaries.length > 0 ? (
+          <details className="relative">
+            <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-md border border-earth-300 bg-white px-3 text-xs font-medium text-earth-700 hover:bg-earth-50">
+              ⋯ 更多操作
+            </summary>
+            <div className="absolute bottom-10 left-0 z-20 min-w-44 rounded-md border border-earth-200 bg-white p-1 shadow-lg">
+              {secondaries.map((a) => (
+                <button
+                  key={a.label}
+                  type="button"
+                  onClick={a.onClick}
+                  disabled={isActing || a.disabled}
+                  className={`block w-full rounded px-3 py-2 text-left text-xs disabled:cursor-not-allowed disabled:opacity-50 ${a.tone === "danger" ? "text-red-600 hover:bg-red-50" : "text-earth-700 hover:bg-earth-50"}`}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : secondaries.map((a) => (
           <button
             key={a.label}
             type="button"
             onClick={a.onClick}
-            disabled={isActing}
+            disabled={isActing || a.disabled}
             className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors disabled:cursor-wait disabled:opacity-60 ${
               a.tone === "danger"
                 ? "border-red-200 bg-white text-red-600 hover:bg-red-50"

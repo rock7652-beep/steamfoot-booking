@@ -105,6 +105,13 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     // 去掉 /s/[slug] 前綴後的子路徑
     const subPath = pathname.slice(`/s/${storeSlug}`.length) || "/";
 
+    // Google 評論中繼是公開 Route Handler，但只放行這個精確路徑。
+    // 不能放入下方 storePublicPrefixes：那個分支會 rewrite 到根路徑，
+    // 而 handler 實際位於 /s/[slug]/google-review。slug/token/store 仍由 handler 驗證。
+    if (subPath === "/google-review") {
+      return withDomainCookie(NextResponse.next(), domainStoreId);
+    }
+
     // ── 分店 admin routes (/s/[slug]/admin/*) ──
     if (subPath.startsWith("/admin")) {
       if (!isLoggedIn) {

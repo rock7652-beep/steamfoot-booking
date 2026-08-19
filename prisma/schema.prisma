@@ -607,6 +607,7 @@ model Store {
   // Nullable：未設 → server 端會 fallback 到 NEXT_PUBLIC_LIFF_ID_<SLUG> env var（過渡期），
   // env 也無則顯示「尚未開通 LINE Mini App」（NotOpenForLiff UI 路徑不變）。
   liffId                     String?
+  googleReviewUrl            String? // 該店 Google 評論頁；公開中繼連結會轉址至此
   digitalButlerEnabled       Boolean              @default(false)
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
@@ -665,6 +666,7 @@ model Store {
   transactionAuditLogs              TransactionAuditLog[]
   lineNotificationRecipients        StoreLineNotificationRecipient[]
   messengerAuditRuns                MessengerAuditRun[]
+  googleReviewInvites               GoogleReviewInvite[]
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
@@ -1011,6 +1013,7 @@ model Staff {
   // 值班安排
   dutyAssignments DutyAssignment[] @relation("DutyStaff")
   dutyCreatedBy   DutyAssignment[] @relation("DutyCreatedBy")
+  googleReviewInvites GoogleReviewInvite[]
 
   // 註銷的單堂明細
   voidedSessions WalletSession[] @relation("VoidedSessions")
@@ -1117,6 +1120,7 @@ model Customer {
   identityLinks                   CustomerIdentityLink[]
   centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
   lineRebindRequests              LineRebindRequest[]
+  googleReviewInvites             GoogleReviewInvite[]
 
   @@unique([storeId, phone], name: "uq_store_customer_phone")
   @@unique([storeId, email], name: "uq_store_customer_email")
@@ -1650,6 +1654,7 @@ model Booking {
 
   // 對應的單堂明細（一對一：RESERVED / COMPLETED 時掛上）
   walletSessions WalletSession[]
+  googleReviewInvite GoogleReviewInvite?
 
   @@unique([recurrenceGroupId, recurrenceIndex])
   @@index([storeId])
@@ -1749,6 +1754,35 @@ model BookingSubmission {
   @@index([status, leaseExpiresAt])
   @@index([expiresAt])
   @@index([canonicalCustomerId])
+}
+
+// ============================================================
+// GoogleReviewInvite（Google 評論邀請與首次點擊追蹤）
+// ============================================================
+
+model GoogleReviewInvite {
+  id         String    @id @default(cuid())
+  token      String    @unique
+  storeId    String
+  customerId String
+  bookingId  String?   @unique
+  staffId    String?
+  source     String
+  invitedAt  DateTime  @default(now())
+  clickedAt  DateTime?
+  sentAt     DateTime?
+  lastAttemptAt DateTime?
+  deliveryStatus String @default("READY")
+  deliveryError String?
+
+  store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  booking  Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  staff    Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, invitedAt])
+  @@index([storeId, clickedAt])
+  @@index([customerId, invitedAt])
 }
 
 // ============================================================

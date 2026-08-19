@@ -130,6 +130,10 @@ export interface BookingDrawerPayload {
     currentRemaining: number | null;
     singleDefaultPrice: number;
   } | null;
+  googleReview?: {
+    configured: boolean;
+    sentAt: string | null;
+  };
 }
 
 export async function fetchBookingDetail(
@@ -168,6 +172,7 @@ export async function fetchBookingDetail(
     completedAgg,
     lastVisit,
     firstBookingCount,
+    googleReviewState,
   ] = await Promise.all([
     isTrial
       ? prisma.transaction.findFirst({
@@ -248,6 +253,13 @@ export async function fetchBookingDetail(
         customerId: booking.customerId,
         bookingStatus: { in: [...ACTIVE_BOOKING_STATUSES] },
         ...storeFilter,
+      },
+    }),
+    prisma.booking.findFirst({
+      where: { id: booking.id, storeId: booking.storeId },
+      select: {
+        store: { select: { googleReviewUrl: true } },
+        googleReviewInvite: { select: { sentAt: true } },
       },
     }),
   ]);
@@ -386,6 +398,10 @@ export async function fetchBookingDetail(
           remaining: booking.customerPlanWallet?.remainingSessions ?? null,
         })
       : null,
+    googleReview: {
+      configured: Boolean(googleReviewState?.store.googleReviewUrl),
+      sentAt: googleReviewState?.googleReviewInvite?.sentAt?.toISOString() ?? null,
+    },
   };
 }
 
