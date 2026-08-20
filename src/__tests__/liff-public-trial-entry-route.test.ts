@@ -111,10 +111,26 @@ describe("POST /api/liff/public-trial-entry", () => {
     expect(mocks.createLink).not.toHaveBeenCalled();
   });
 
-  it("does not accept another store slug", async () => {
+  it.each(["hsinchu", "taichung"])(
+    "accepts the enabled %s store with the shared LINE Login channel",
+    async (storeSlug) => {
+      const response = await POST(request({
+        idToken: "verified-liff-token",
+        storeSlug,
+      }));
+
+      expect(response.status).toBe(200);
+      expect(mocks.verify).toHaveBeenCalledWith(
+        "verified-liff-token",
+        "2010761154",
+      );
+    },
+  );
+
+  it("does not accept an unknown store slug", async () => {
     const response = await POST(request({
       idToken: "verified-liff-token",
-      storeSlug: "hsinchu",
+      storeSlug: "unknown-store",
     }));
 
     expect(response.status).toBe(400);
