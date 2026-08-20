@@ -129,10 +129,12 @@ describe("trial reminder convergence contract", () => {
     expect(route).toContain("verifyLiffIdToken");
     expect(route).toContain("probeStoreLineRecipient");
     expect(route).toContain("createTrialBookingChatLink");
-    expect(route).toContain("ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID");
-    expect(page).toContain("ZHUBEI_PUBLIC_TRIAL_LIFF_ID");
+    expect(route).toContain("resolvePublicTrialLiffConfig");
+    expect(page).toContain("resolvePublicTrialLiffConfig");
     expect(config).toContain('ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID = "2011147985"');
     expect(config).toContain('ZHUBEI_PUBLIC_TRIAL_LIFF_ID = "2011147985-tQ5wrAdH"');
+    expect(config).toContain('hsinchu: "2010761154-irZGuDty"');
+    expect(config).toContain('taichung: "2010761154-mupiLvl6"');
   });
 
   it("routes a public trial through LINE when the existing customer is already verified", () => {
@@ -151,17 +153,19 @@ describe("trial reminder convergence contract", () => {
   it("scopes calendar and slots to the same chat entry as submission", () => {
     const booking = source("src/server/actions/public-trial-booking.ts");
     const form = source("src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx");
-    expect(booking).toContain("resolveAvailabilityStore(entry)");
-    expect(form).toContain("fetchPublicTrialMonth(viewYear, viewMonth, entry)");
-    expect(form).toContain("fetchPublicTrialSlots(date, entry)");
+    expect(booking).toContain("resolveAvailabilityStore(storeSlug, entry)");
+    expect(form).toContain("fetchPublicTrialMonth(viewYear, viewMonth, entry, storeSlug)");
+    expect(form).toContain("fetchPublicTrialSlots(date, entry, storeSlug)");
   });
 
-  it("keeps the Zhubei presentation from accepting another store's chat entry", () => {
+  it("keeps every store presentation from accepting another store's chat entry", () => {
     const booking = source("src/server/actions/public-trial-booking.ts");
     const chatLink = source("src/server/services/trial-booking-chat-link.ts");
-    expect(booking).toContain("store?.slug === STORE_SLUG ? store : null");
-    expect(booking).toContain("chatLink && store?.slug !== STORE_SLUG");
-    expect(chatLink).toContain('SUPPORTED_PUBLIC_BOOKING_STORE_SLUG = "zhubei"');
+    expect(booking).toContain("store?.slug === storeSlug ? store : null");
+    expect(booking).toContain("chatLink && store?.slug !== data.storeSlug");
+    expect(chatLink).toContain("SUPPORTED_PUBLIC_BOOKING_STORE_SLUGS");
+    expect(chatLink).toContain('"hsinchu"');
+    expect(chatLink).toContain('"taichung"');
     expect(chatLink).toContain("TRIAL_BOOKING_STORE_NOT_SUPPORTED");
   });
 

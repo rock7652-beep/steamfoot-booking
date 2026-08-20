@@ -3,21 +3,23 @@ import {
   resolveStorePresentation,
   resolveStoreSlugForLiff,
 } from "@/lib/store-resolver";
-import { ZHUBEI_PUBLIC_TRIAL_LIFF_ID } from "@/lib/liff/public-trial-config";
+import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
 import { PublicTrialLiffBridge } from "./public-trial-liff-bridge";
 
 export const dynamic = "force-dynamic";
 
 export default async function PublicTrialLiffPage() {
   const storeSlug = await resolveStoreSlugForLiff();
-  if (storeSlug !== "zhubei") notFound();
+  if (!storeSlug) notFound();
 
   const presentation = await resolveStorePresentation(storeSlug);
   if (!presentation) notFound();
+  const config = resolvePublicTrialLiffConfig(storeSlug);
+  if (!config) notFound();
 
   return (
     <PublicTrialLiffBridge
-      liffId={ZHUBEI_PUBLIC_TRIAL_LIFF_ID}
+      liffId={config.liffId}
       storeSlug={presentation.slug}
       storeName={presentation.name}
       contactUrl={presentation.contactUrl}

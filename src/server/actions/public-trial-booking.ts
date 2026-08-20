@@ -26,7 +26,9 @@ import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-cha
 import { resolvePublicTrialLineCustomer } from "@/server/services/public-trial-line-customer";
 import type { SlotAvailability } from "@/types";
 
-const STORE_SLUG = "zhubei";
+const PUBLIC_TRIAL_STORE_SLUGS = ["zhubei", "hsinchu", "taichung"] as const;
+type PublicTrialStoreSlug = (typeof PUBLIC_TRIAL_STORE_SLUGS)[number];
+const DEFAULT_STORE_SLUG: PublicTrialStoreSlug = "zhubei";
 const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶"];
 
 const InputSchema = z.object({
@@ -37,6 +39,7 @@ const InputSchema = z.object({
   people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(2, "單次最多預約 2 人"),
   website: z.string().max(0).optional().default(""),
   entry: z.string().max(512).optional(),
+  storeSlug: z.enum(PUBLIC_TRIAL_STORE_SLUGS).optional().default(DEFAULT_STORE_SLUG),
 });
 
 export type PublicTrialDayStatus =
@@ -64,15 +67,15 @@ export type PublicTrialBookingResult =
   | { status: "limit_reached" }
   | { status: "service_unavailable" };
 
-async function resolvePublicStore() {
+async function resolvePublicStore(storeSlug: PublicTrialStoreSlug = DEFAULT_STORE_SLUG) {
   return prisma.store.findUnique({
-    where: { slug: STORE_SLUG },
+    where: { slug: storeSlug },
     select: { id: true, slug: true },
   });
 }
 
-async function resolveAvailabilityStore(entry?: string) {
-  if (!entry) return resolvePublicStore();
+async function resolveAvailabilityStore(storeSlug: PublicTrialStoreSlug, entry?: string) {
+  if (!entry) return resolvePublicStore(storeSlug);
   if (entry.length > 512) return null;
   const chatLink = await resolveTrialBookingChatLink(entry);
   if (!chatLink) return null;
@@ -80,15 +83,20 @@ async function resolveAvailabilityStore(entry?: string) {
     where: { id: chatLink.storeId },
     select: { id: true, slug: true },
   });
-  return store?.slug === STORE_SLUG ? store : null;
+  return store?.slug === storeSlug ? store : null;
 }
 
-export async function fetchPublicTrialMonth(year: number, month: number, entry?: string): Promise<{
+export async function fetchPublicTrialMonth(
+  year: number,
+  month: number,
+  entry?: string,
+  storeSlug: PublicTrialStoreSlug = DEFAULT_STORE_SLUG,
+): Promise<{
   days: PublicTrialCalendarDay[];
 }> {
   if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return { days: [] };
 
-  const store = await resolveAvailabilityStore(entry);
+  const store = await resolveAvailabilityStore(storeSlug, entry);
   const dates = enumerateMonthDates(year, month);
   if (!store || !(await isStoreBookable(store.id)) || (await isStoreSubscriptionWriteBlocked(store.id))) {
     return { days: dates.map(({ dateStr }) => ({ date: dateStr, status: "store_unavailable", availableSlots: 0 })) };
@@ -170,12 +178,16 @@ export async function fetchPublicTrialMonth(year: number, month: number, entry?:
   return { days };
 }
 
-export async function fetchPublicTrialSlots(date: string, entry?: string): Promise<{
+export async function fetchPublicTrialSlots(
+  date: string,
+  entry?: string,
+  storeSlug: PublicTrialStoreSlug = DEFAULT_STORE_SLUG,
+): Promise<{
   slots: SlotAvailability[];
   dayStatus: PublicTrialDayStatus;
 }> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { slots: [], dayStatus: "past" };
-  const store = await resolveAvailabilityStore(entry);
+  const store = await resolveAvailabilityStore(storeSlug, entry);
   if (!store || !(await isStoreBookable(store.id))) return { slots: [], dayStatus: "store_unavailable" };
   if (await isStoreSubscriptionWriteBlocked(store.id)) return { slots: [], dayStatus: "store_unavailable" };
 
@@ -246,9 +258,9 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     }
     const store = chatLink
       ? await prisma.store.findUnique({ where: { id: chatLink.storeId }, select: { id: true, slug: true } })
-      : await resolvePublicStore();
-    if (chatLink && store?.slug !== STORE_SLUG) {
-      return { status: "invalid_input", message: "此連結不適用於竹北店預約頁，請回到原本的聊天視窗重新取得正確門市連結。" };
+      : await resolvePublicStore(data.storeSlug);
+    if (chatLink && store?.slug !== data.storeSlug) {
+      return { status: "invalid_input", message: "此連結不適用於目前門市的預約頁，請回到原本的聊天視窗重新取得正確門市連結。" };
     }
     if (!store || !(await isStoreBookable(store.id))) return { status: "store_unavailable" };
     if (await isStoreSubscriptionWriteBlocked(store.id)) return { status: "store_unavailable" };

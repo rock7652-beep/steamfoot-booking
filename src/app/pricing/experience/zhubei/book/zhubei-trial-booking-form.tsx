@@ -66,7 +66,15 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
+export function ZhubeiTrialBookingForm({
+  entry,
+  storeSlug = "zhubei",
+  contactUrl = "https://lin.ee/Nki2OjA",
+}: {
+  entry?: string;
+  storeSlug?: "zhubei" | "hsinchu" | "taichung";
+  contactUrl?: string;
+}) {
   const slotRequestGate = useRef(createLatestRequestGate()).current;
   const today = useMemo(taiwanToday, []);
   const initialMonth = useMemo(() => ({
@@ -92,7 +100,7 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
   useEffect(() => {
     let active = true;
     setLoadingCalendar(true);
-    void fetchPublicTrialMonth(viewYear, viewMonth, entry)
+    void fetchPublicTrialMonth(viewYear, viewMonth, entry, storeSlug)
       .then((result) => {
         if (active) setCalendarDays(result.days);
       })
@@ -103,7 +111,7 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
         if (active) setLoadingCalendar(false);
       });
     return () => { active = false; };
-  }, [entry, viewYear, viewMonth]);
+  }, [entry, storeSlug, viewYear, viewMonth]);
 
   async function loadSlots(date: string) {
     const requestId = slotRequestGate.issue();
@@ -114,7 +122,7 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
     setSlots([]);
     setLoadingSlots(true);
     try {
-      const result = await fetchPublicTrialSlots(date, entry);
+      const result = await fetchPublicTrialSlots(date, entry, storeSlug);
       if (!slotRequestGate.isCurrent(requestId)) return;
       setSlots(result.slots);
       if (result.dayStatus !== "open") setMessage(dayStatusMessage(result.dayStatus));
@@ -155,7 +163,7 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
     setSubmitting(true);
     setMessage("");
     try {
-      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website, entry });
+      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website, entry, storeSlug });
       if (result.status === "ok") {
         setSuccess({
           date: result.bookingDate,
@@ -184,7 +192,7 @@ export function ZhubeiTrialBookingForm({ entry }: { entry?: string }) {
         <p className="mt-2 text-sm font-semibold text-primary-700">到店付款：{formatCurrency(success.expectedAmount)}</p>
         <p className="mt-2 text-sm text-earth-600">首次蒸足體驗每人 NT$499｜約 45 分鐘</p>
         <p className="mt-4 text-xs leading-5 text-earth-500">到店後再付款即可。這次預約不需要會員帳號，也不會扣除任何正式方案堂數。</p>
-        <a href="https://lin.ee/Nki2OjA" target="_blank" rel="noreferrer" className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-[#06C755] px-4 text-base font-bold text-white shadow-sm transition hover:bg-[#05b84d]">加入官方 LINE，接收預約提醒</a>
+        <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-[#06C755] px-4 text-base font-bold text-white shadow-sm transition hover:bg-[#05b84d]">加入官方 LINE，接收預約提醒</a>
         <p className="mt-2 text-xs leading-5 text-earth-500">若原本已完成 LINE 綁定，系統會以既有身分發送體驗提醒；首次加入後，也可從 LINE 內取得專屬預約入口。</p>
       </section>
     );

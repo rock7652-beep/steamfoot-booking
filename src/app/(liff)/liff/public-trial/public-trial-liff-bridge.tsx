@@ -52,7 +52,7 @@ export function PublicTrialLiffBridge({
 
         if (body?.status === "ok" && body.entry) {
           const destination = new URL(
-            "/pricing/experience/zhubei/book",
+            `/pricing/experience/${storeSlug}/book`,
             window.location.origin,
           );
           destination.searchParams.set("entry", body.entry);
@@ -92,14 +92,14 @@ export function PublicTrialLiffBridge({
               {state === "expired" ? "LINE 登入已逾時" : "體驗預約暫時無法開啟"}
             </h1>
             <p className="mt-2 text-sm leading-6 text-earth-600">
-              {state === "expired" ? "請重新整理後再試一次。" : "請稍後再試，或直接聯繫竹北店協助預約。"}
+              {state === "expired" ? "請重新整理後再試一次。" : `請稍後再試，或直接聯繫${storeName}協助預約。`}
             </p>
             <div className="mt-5 grid gap-3">
               <button type="button" onClick={() => window.location.reload()} className="min-h-11 rounded-xl bg-primary-600 px-4 text-sm font-bold text-white">
                 重新嘗試
               </button>
               <a href={contactUrl} className="flex min-h-11 items-center justify-center rounded-xl border border-earth-200 px-4 text-sm font-semibold text-earth-700">
-                聯繫竹北店
+                聯繫{storeName}
               </a>
             </div>
           </>
