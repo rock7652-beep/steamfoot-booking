@@ -16,7 +16,7 @@ export const SHARED_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID = "2010761154";
 const PUBLIC_TRIAL_LIFF_ID_BY_STORE = {
   zhubei: ZHUBEI_PUBLIC_TRIAL_LIFF_ID,
   hsinchu: "2010761154-irZGuDty",
-  taichung: "2010761154-mupiLvl6",
+  taichung: "2010761154-mupiLvi6",
 } as const;
 
 export type PublicTrialStoreSlug = keyof typeof PUBLIC_TRIAL_LIFF_ID_BY_STORE;
