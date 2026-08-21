@@ -12,7 +12,11 @@ import {
   type LineMessage,
 } from "@/lib/line";
 import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
-import { decideSessionBalanceNotification } from "@/server/services/session-balance-notification-policy";
+import { todayRange } from "@/lib/date-utils";
+import {
+  decideCustomerSessionBalanceNotification,
+  shouldDispatchCustomerSessionBalanceNotification,
+} from "@/server/services/session-balance-notification-policy";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 
 type Tx = Prisma.TransactionClient;
@@ -28,7 +32,8 @@ export async function enqueueSessionBalanceNotifications(
   const walletIds = [...new Set(input.walletIds)];
   if (walletIds.length === 0) return [];
 
-  const [wallets, activeContinuationWallets, setting] = await Promise.all([
+  const { start: todayStart } = todayRange();
+  const [wallets, validWallets, setting] = await Promise.all([
     tx.customerPlanWallet.findMany({
       where: {
         id: { in: walletIds },
@@ -43,8 +48,10 @@ export async function enqueueSessionBalanceNotifications(
         storeId: input.storeId,
         status: "ACTIVE",
         remainingSessions: { gt: 0 },
+        plan: { category: "PACKAGE" },
+        OR: [{ expiryDate: null }, { expiryDate: { gte: todayStart } }],
       },
-      select: { id: true },
+      select: { id: true, remainingSessions: true },
     }),
     tx.sessionBalanceNotificationSetting.findUnique({
       where: { storeId: input.storeId },
@@ -57,32 +64,28 @@ export async function enqueueSessionBalanceNotifications(
   ]);
   const effectiveSetting = setting ?? DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING;
   if (!effectiveSetting.isEnabled) return [];
-  const activeContinuationIds = new Set(
-    activeContinuationWallets.map((wallet) => wallet.id),
+  const totalRemainingSessions = validWallets.reduce(
+    (sum, wallet) => sum + wallet.remainingSessions,
+    0,
   );
-
-  const candidates = wallets.flatMap((wallet) => {
-    const decision = decideSessionBalanceNotification({
-      remainingSessions: wallet.remainingSessions,
-      hasContinuationPlan: [...activeContinuationIds].some(
-        (walletId) => walletId !== wallet.id,
-      ),
-    });
-    const typeEnabled =
-      decision.type === "LAST_SESSION"
-        ? effectiveSetting.lastSessionEnabled
-        : decision.type === "PLAN_USED_UP"
-          ? effectiveSetting.planUsedUpEnabled
-          : false;
-    return decision.type && typeEnabled
-      ? [{
-          storeId: input.storeId,
-          customerId: input.customerId,
-          walletId: wallet.id,
-          type: decision.type,
-        }]
-      : [];
-  });
+  const decision = decideCustomerSessionBalanceNotification({ totalRemainingSessions });
+  const typeEnabled =
+    decision.type === "LAST_SESSION"
+      ? effectiveSetting.lastSessionEnabled
+      : decision.type === "PLAN_USED_UP"
+        ? effectiveSetting.planUsedUpEnabled
+        : false;
+  const notificationWallet = decision.type === "LAST_SESSION"
+    ? validWallets.find((wallet) => wallet.remainingSessions === 1)
+    : wallets.find((wallet) => wallet.remainingSessions === 0);
+  const candidates = decision.type && typeEnabled && notificationWallet
+    ? [{
+        storeId: input.storeId,
+        customerId: input.customerId,
+        walletId: notificationWallet.id,
+        type: decision.type,
+      }]
+    : [];
   if (candidates.length === 0) return [];
 
   await tx.sessionBalanceNotification.createMany({
@@ -388,6 +391,33 @@ export async function dispatchSessionBalanceNotifications(
         },
       });
       if (!notification) continue;
+
+      const { start: todayStart } = todayRange();
+      const validWallets = await prisma.customerPlanWallet.findMany({
+        where: {
+          customerId: notification.customerId,
+          storeId: notification.storeId,
+          status: "ACTIVE",
+          remainingSessions: { gt: 0 },
+          plan: { category: "PACKAGE" },
+          OR: [{ expiryDate: null }, { expiryDate: { gte: todayStart } }],
+        },
+        select: { id: true, remainingSessions: true },
+      });
+      if (!shouldDispatchCustomerSessionBalanceNotification({
+        type: notification.type,
+        notificationWalletId: notification.walletId,
+        validWallets,
+      })) {
+        await prisma.sessionBalanceNotification.update({
+          where: { id },
+          data: {
+            status: "SKIPPED",
+            errorMessage: "顧客有效方案總堂數已變更，未發送續購提醒",
+          },
+        });
+        continue;
+      }
 
       const setting =
         notification.store.sessionBalanceNotificationSetting ??
