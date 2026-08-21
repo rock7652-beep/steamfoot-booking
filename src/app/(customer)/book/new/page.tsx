@@ -162,6 +162,7 @@ export default async function NewBookingPage() {
         <BookingCalendarView
           customerId={customerId}
           bookableUntil={bookableUntil}
+          bookingOpensAt={shopConfig?.bookingOpensAt?.toISOString() ?? null}
           weeklyRecurrenceEnabled={shopConfig?.weeklyRecurrenceEnabled === true}
           weeklyRecurrenceMaxWeeks={shopConfig?.weeklyRecurrenceMaxWeeks ?? 0}
           activeWallets={activeWallets.map((w) => ({
