@@ -30,10 +30,13 @@ import type { SlotAvailability } from "@/types";
 const PUBLIC_TRIAL_STORE_SLUGS = ["zhubei", "hsinchu", "taichung"] as const;
 type PublicTrialStoreSlug = (typeof PUBLIC_TRIAL_STORE_SLUGS)[number];
 const DEFAULT_STORE_SLUG: PublicTrialStoreSlug = "zhubei";
-const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶"];
+const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶", "未命名"];
 
 const InputSchema = z.object({
-  name: z.string().trim().min(1, "請輸入姓名").max(50),
+  name: z.string().trim().min(1, "請輸入姓名").max(50).refine(
+    (name) => !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(name),
+    "請輸入您的真實姓名",
+  ),
   phone: z.string().transform(normalizePhone).pipe(z.string().regex(/^09\d{8}$/, "請輸入正確手機號碼")),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
@@ -374,15 +377,17 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       }
     }
 
-    // A valid one-time LINE booking link proves the sender's same-store LINE
-    // identity, but only system placeholder names may be replaced by the
-    // submitted public-form name. The conditional update keeps formal names,
-    // phone-only matches, other stores, and identity fields untouched.
-    if (
-      reusedLineIdentityCustomer &&
-      chatLink?.channel === "LINE" &&
+    // Only system placeholder names may be replaced by the submitted public-
+    // form name. A verified LINE entry can be repaired immediately. A plain
+    // public entry is repaired later inside the successful booking transaction,
+    // so an already-booked or full-slot request cannot mutate the CRM record.
+    const shouldReplacePlaceholderName =
       SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(customer.name) &&
-      !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(data.name)
+      !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(data.name);
+    if (
+      shouldReplacePlaceholderName &&
+      reusedLineIdentityCustomer &&
+      chatLink?.channel === "LINE"
     ) {
       await prisma.customer.updateMany({
         where: {
@@ -427,6 +432,19 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           _sum: { people: true },
         });
         if ((aggregate._sum.people ?? 0) + data.people > slot.capacity) return null;
+
+        if (shouldReplacePlaceholderName && !reusedLineIdentityCustomer) {
+          await tx.customer.updateMany({
+            where: {
+              id: customer.id,
+              storeId: store.id,
+              phone: data.phone,
+              mergedIntoCustomerId: null,
+              name: { in: SYSTEM_PLACEHOLDER_CUSTOMER_NAMES },
+            },
+            data: { name: data.name },
+          });
+        }
 
         const created = await tx.booking.create({
           data: {
