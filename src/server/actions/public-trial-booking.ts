@@ -12,6 +12,7 @@ import {
   loadDayBusinessHoursContext,
   loadMonthBusinessHoursContext,
 } from "@/lib/business-hours-resolver";
+import { isCustomerSlotWithinBookingWindow } from "@/lib/shop-config";
 import {
   checkBookingLimit,
   checkCustomerLimit,
@@ -104,7 +105,7 @@ export async function fetchPublicTrialMonth(
 
   const context = await loadMonthBusinessHoursContext(store.id, year, month);
   const dutyEnabled = await isDutySchedulingEnabled(store.id);
-  const [bookings, dutyRows] = await Promise.all([
+  const [bookings, dutyRows, bookingWindowConfig] = await Promise.all([
     prisma.booking.groupBy({
       by: ["bookingDate", "slotTime"],
       where: {
@@ -121,6 +122,10 @@ export async function fetchPublicTrialMonth(
           distinct: ["date", "slotTime"],
         })
       : Promise.resolve([]),
+    prisma.shopConfig?.findUnique({
+      where: { storeId: store.id },
+      select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
+    }),
   ]);
 
   const bookingMap = new Map(
@@ -156,7 +161,10 @@ export async function fetchPublicTrialMonth(
     }
 
     const resolved = applySlotOverrides(rule, overridesByDate.get(dateStr) ?? []).filter((slot) => slot.isEnabled);
-    const bookableSlots = resolved.filter((slot) => !dutyEnabled || dutySet.has(`${dateStr}|${slot.startTime}`));
+    const bookableSlots = resolved.filter((slot) =>
+      isCustomerSlotWithinBookingWindow(dateStr, slot.startTime, bookingWindowConfig)
+      && (!dutyEnabled || dutySet.has(`${dateStr}|${slot.startTime}`)),
+    );
     if (bookableSlots.length === 0) {
       days.push({ date: dateStr, status: dutyEnabled ? "no_duty" : "closed", availableSlots: 0 });
       continue;
@@ -203,7 +211,7 @@ export async function fetchPublicTrialSlots(
   if (resolved.length === 0) return { slots: [], dayStatus: "closed" };
 
   const dutyEnabled = await isDutySchedulingEnabled(store.id);
-  const [bookings, dutyRows] = await Promise.all([
+  const [bookings, dutyRows, bookingWindowConfig] = await Promise.all([
     prisma.booking.groupBy({
       by: ["slotTime"],
       where: { storeId: store.id, bookingDate: ctx.dateObj, bookingStatus: { in: [...PENDING_STATUSES] } },
@@ -216,6 +224,10 @@ export async function fetchPublicTrialSlots(
           distinct: ["slotTime"],
         })
       : Promise.resolve([]),
+    prisma.shopConfig?.findUnique({
+      where: { storeId: store.id },
+      select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
+    }),
   ]);
 
   const booked = new Map(bookings.map((row) => [row.slotTime, row._sum.people ?? 0]));
@@ -224,6 +236,7 @@ export async function fetchPublicTrialSlots(
   const now = isToday ? getNowTaipeiHHmm() : null;
 
   const slots = resolved
+    .filter((slot) => isCustomerSlotWithinBookingWindow(date, slot.startTime, bookingWindowConfig))
     .filter((slot) => !dutyEnabled || duty.has(slot.startTime))
     .map((slot) => {
       const bookedCount = booked.get(slot.startTime) ?? 0;
@@ -282,6 +295,13 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       (candidate) => candidate.startTime === data.slotTime && candidate.isEnabled,
     );
     if (!slot) return { status: "slot_unavailable" };
+    const bookingWindowConfig = await prisma.shopConfig?.findUnique({
+      where: { storeId: store.id },
+      select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
+    });
+    if (!isCustomerSlotWithinBookingWindow(data.bookingDate, data.slotTime, bookingWindowConfig)) {
+      return { status: "slot_unavailable" };
+    }
     if (data.bookingDate === today && data.slotTime <= getNowTaipeiHHmm()) return { status: "slot_unavailable" };
 
     if (await isDutySchedulingEnabled(store.id)) {
