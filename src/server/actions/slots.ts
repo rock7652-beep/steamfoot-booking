@@ -202,7 +202,7 @@ export async function fetchDaySlots(date: string): Promise<{ slots: SlotAvailabi
   const { isDutySchedulingEnabled } = await import("@/lib/shop-config");
   const dutyFeatureInUse = await isDutySchedulingEnabled(storeId);
 
-  const [existingBookings, dutySlots] = await Promise.all([
+  const [existingBookings, dutySlots, bookingWindowConfig] = await Promise.all([
     prisma.booking.groupBy({
       by: ["slotTime"],
       where: {
@@ -219,6 +219,12 @@ export async function fetchDaySlots(date: string): Promise<{ slots: SlotAvailabi
           distinct: ["slotTime"],
         })
       : Promise.resolve([]),
+    user.role === "CUSTOMER"
+      ? prisma.shopConfig.findUnique({
+          where: { storeId },
+          select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
+        })
+      : Promise.resolve(null),
   ]);
 
   const bookedMap = new Map(existingBookings.map((b) => [b.slotTime, b._sum.people ?? 0]));
@@ -231,6 +237,10 @@ export async function fetchDaySlots(date: string): Promise<{ slots: SlotAvailabi
   const result: SlotAvailability[] = [];
   for (const s of resolvedSlots) {
     if (!s.isEnabled) continue;
+    if (user.role === "CUSTOMER") {
+      const { isCustomerSlotWithinBookingWindow } = await import("@/lib/shop-config");
+      if (!isCustomerSlotWithinBookingWindow(date, s.startTime, bookingWindowConfig)) continue;
+    }
     const booked = bookedMap.get(s.startTime) ?? 0;
     const isPast = isToday && nowHHmm !== null && s.startTime <= nowHHmm;
     result.push({
