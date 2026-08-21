@@ -8,6 +8,7 @@ import { useOneShotActionState } from "@/hooks/use-one-shot-action-state";
 import { useStoreSlugRequired } from "@/lib/store-context";
 import Link from "next/link";
 import { BirthdayFields } from "@/components/birthday-fields";
+import { resolveProfileSuccessDestination } from "@/lib/profile-success-destination";
 
 interface Props {
   customer: {
@@ -45,7 +46,7 @@ export function ProfileForm({
     state,
     successToastId: "profile-save-success",
     errorToastId: "profile-save-error",
-    successMessage: onboardingMode ? "完成註冊，開始使用吧！" : "個人資料已儲存",
+    successMessage: onboardingMode ? "註冊完成，基本資料已儲存" : "個人資料已儲存",
     onSuccess: async () => {
       // 完整 session 同步流程（雙保險，防 client / server 不一致）：
       //   1. await updateSession() — 觸發 NextAuth jwt callback trigger='update'，
@@ -64,7 +65,11 @@ export function ProfileForm({
       // 經 middleware 解析時若沒拿到 store-slug cookie 會 fallback / 404，
       // 看起來就像「停在 profile 沒跳走」。
       // 用 location.replace 立即同步導頁，避免 setTimeout 在 LIFF 被中斷。
-      const dest = nextPath || (onboardingMode ? `${prefix}/book` : null);
+      const dest = resolveProfileSuccessDestination({
+        nextPath,
+        onboardingMode,
+        prefix,
+      });
       if (dest) {
         window.location.replace(dest);
       }
