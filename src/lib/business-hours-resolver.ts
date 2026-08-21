@@ -22,6 +22,13 @@ import { generateSlots, type GeneratedSlot } from "@/lib/slot-generator";
 
 export type DayStatus = "open" | "closed" | "training" | "custom";
 
+export interface BusinessPeriod {
+  openTime: string;
+  closeTime: string;
+  slotInterval: number;
+  defaultCapacity: number;
+}
+
 export interface DayRule {
   status: DayStatus;
   closed: boolean;
@@ -30,6 +37,8 @@ export interface DayRule {
   closeTime: string | null;
   slotInterval: number;
   defaultCapacity: number;
+  /** 一天可有多個營業區段；舊資料會自動轉成單一區段。 */
+  periods: BusinessPeriod[];
   /** 規則來源：special > weekly > none */
   source: "special" | "weekly" | "none";
 }
@@ -41,6 +50,7 @@ export interface BusinessHoursRow {
   closeTime: string | null;
   slotInterval: number;
   defaultCapacity: number;
+  segments?: unknown;
 }
 
 export interface SpecialDayRow {
@@ -51,6 +61,33 @@ export interface SpecialDayRow {
   closeTime: string | null;
   slotInterval: number | null;
   defaultCapacity: number | null;
+  segments?: unknown;
+}
+
+const VALID_INTERVALS = new Set([30, 60, 90, 120]);
+
+export function parseBusinessPeriods(
+  value: unknown,
+  fallback: { openTime: string | null; closeTime: string | null; slotInterval: number; defaultCapacity: number },
+): BusinessPeriod[] {
+  const raw = Array.isArray(value) ? value : [];
+  const parsed = raw.flatMap((item): BusinessPeriod[] => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    if (typeof row.openTime !== "string" || typeof row.closeTime !== "string") return [];
+    const slotInterval = typeof row.slotInterval === "number" ? row.slotInterval : 60;
+    const defaultCapacity = typeof row.defaultCapacity === "number" ? row.defaultCapacity : 6;
+    if (!VALID_INTERVALS.has(slotInterval) || defaultCapacity < 1) return [];
+    return [{ openTime: row.openTime, closeTime: row.closeTime, slotInterval, defaultCapacity }];
+  });
+  if (parsed.length > 0) return parsed.sort((a, b) => a.openTime.localeCompare(b.openTime));
+  if (!fallback.openTime || !fallback.closeTime) return [];
+  return [{
+    openTime: fallback.openTime,
+    closeTime: fallback.closeTime,
+    slotInterval: fallback.slotInterval,
+    defaultCapacity: fallback.defaultCapacity,
+  }];
 }
 
 export interface SlotOverrideRow {
@@ -115,6 +152,7 @@ export function resolveDayRule(input: {
         closeTime: null,
         slotInterval: bh?.slotInterval ?? 60,
         defaultCapacity: bh?.defaultCapacity ?? 6,
+        periods: [],
         source: "special",
       };
     }
@@ -127,18 +165,27 @@ export function resolveDayRule(input: {
         closeTime: null,
         slotInterval: bh?.slotInterval ?? 60,
         defaultCapacity: bh?.defaultCapacity ?? 6,
+        periods: [],
         source: "special",
       };
     }
     // custom
+    const slotInterval = special.slotInterval ?? bh?.slotInterval ?? 60;
+    const defaultCapacity = special.defaultCapacity ?? bh?.defaultCapacity ?? 6;
     return {
       status: "custom",
       closed: false,
       reason: special.reason,
       openTime: special.openTime,
       closeTime: special.closeTime,
-      slotInterval: special.slotInterval ?? bh?.slotInterval ?? 60,
-      defaultCapacity: special.defaultCapacity ?? bh?.defaultCapacity ?? 6,
+      slotInterval,
+      defaultCapacity,
+      periods: parseBusinessPeriods(special.segments, {
+        openTime: special.openTime,
+        closeTime: special.closeTime,
+        slotInterval,
+        defaultCapacity,
+      }),
       source: "special",
     };
   }
@@ -154,6 +201,7 @@ export function resolveDayRule(input: {
         closeTime: null,
         slotInterval: bh.slotInterval,
         defaultCapacity: bh.defaultCapacity,
+        periods: [],
         source: "weekly",
       };
     }
@@ -165,6 +213,7 @@ export function resolveDayRule(input: {
       closeTime: bh.closeTime,
       slotInterval: bh.slotInterval,
       defaultCapacity: bh.defaultCapacity,
+      periods: parseBusinessPeriods(bh.segments, bh),
       source: "weekly",
     };
   }
@@ -178,6 +227,7 @@ export function resolveDayRule(input: {
     closeTime: null,
     slotInterval: 60,
     defaultCapacity: 6,
+    periods: [],
     source: "none",
   };
 }
@@ -194,14 +244,17 @@ export function resolveDayRule(input: {
  *   - enabled：強制加入不在生成範圍內的時段
  */
 export function applySlotOverrides(rule: DayRule, overrides: SlotOverrideRow[]): ResolvedSlot[] {
-  if (rule.closed || !rule.openTime || !rule.closeTime) {
+  if (rule.closed || rule.periods.length === 0) {
     return [];
   }
 
-  const generated = generateSlots(rule.openTime, rule.closeTime, rule.slotInterval, rule.defaultCapacity);
+  const generated = rule.periods.flatMap((period) =>
+    generateSlots(period.openTime, period.closeTime, period.slotInterval, period.defaultCapacity),
+  );
   const overrideMap = new Map(overrides.map((o) => [o.startTime, o]));
 
-  const slots: ResolvedSlot[] = generated.map((g) => {
+  const uniqueGenerated = [...new Map(generated.map((slot) => [slot.startTime, slot])).values()];
+  const slots: ResolvedSlot[] = uniqueGenerated.map((g) => {
     const ov = overrideMap.get(g.startTime);
     if (!ov) {
       return {
@@ -435,6 +488,7 @@ export async function loadDayBusinessHoursContext(
           closeTime: businessHour.closeTime,
           slotInterval: businessHour.slotInterval,
           defaultCapacity: businessHour.defaultCapacity,
+          segments: businessHour.segments,
         }
       : null,
   };
@@ -485,10 +539,10 @@ export async function computeMonthScheduleSummary(
   const days: MonthSummary = {};
   for (const { dateStr } of enumerateMonthDates(year, month)) {
     const rule = ctx.rules.get(dateStr)!;
-    const slotCount =
-      rule.openTime && rule.closeTime
-        ? generateSlots(rule.openTime, rule.closeTime, rule.slotInterval, 1).length
-        : 0;
+    const slotCount = rule.periods.reduce(
+      (count, period) => count + generateSlots(period.openTime, period.closeTime, period.slotInterval, 1).length,
+      0,
+    );
     days[dateStr] = {
       status: rule.status,
       openTime: rule.openTime,
