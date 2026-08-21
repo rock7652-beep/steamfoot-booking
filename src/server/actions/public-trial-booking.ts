@@ -30,10 +30,13 @@ import type { SlotAvailability } from "@/types";
 const PUBLIC_TRIAL_STORE_SLUGS = ["zhubei", "hsinchu", "taichung"] as const;
 type PublicTrialStoreSlug = (typeof PUBLIC_TRIAL_STORE_SLUGS)[number];
 const DEFAULT_STORE_SLUG: PublicTrialStoreSlug = "zhubei";
-const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶"];
+const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶", "未命名"];
 
 const InputSchema = z.object({
-  name: z.string().trim().min(1, "請輸入姓名").max(50),
+  name: z.string().trim().min(1, "請輸入姓名").max(50).refine(
+    (name) => !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(name),
+    "請輸入您的真實姓名",
+  ),
   phone: z.string().transform(normalizePhone).pipe(z.string().regex(/^09\d{8}$/, "請輸入正確手機號碼")),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
@@ -374,13 +377,12 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       }
     }
 
-    // A valid one-time LINE booking link proves the sender's same-store LINE
-    // identity, but only system placeholder names may be replaced by the
-    // submitted public-form name. The conditional update keeps formal names,
-    // phone-only matches, other stores, and identity fields untouched.
+    // Only system placeholder names may be replaced by the submitted public-
+    // form name. A LINE entry uses the verified same-store identity as its CAS
+    // predicate; a plain public entry uses the same phone that already selected
+    // this customer. Both paths keep formal names, other stores, and identity
+    // fields untouched.
     if (
-      reusedLineIdentityCustomer &&
-      chatLink?.channel === "LINE" &&
       SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(customer.name) &&
       !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(data.name)
     ) {
@@ -388,7 +390,9 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
         where: {
           id: customer.id,
           storeId: store.id,
-          lineUserId: chatLink.chatIdentity,
+          ...(reusedLineIdentityCustomer && chatLink?.channel === "LINE"
+            ? { lineUserId: chatLink.chatIdentity }
+            : { phone: data.phone }),
           mergedIntoCustomerId: null,
           name: { in: SYSTEM_PLACEHOLDER_CUSTOMER_NAMES },
         },
