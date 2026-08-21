@@ -134,7 +134,7 @@ describe("trial reminder convergence contract", () => {
     expect(config).toContain('ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID = "2011147985"');
     expect(config).toContain('ZHUBEI_PUBLIC_TRIAL_LIFF_ID = "2011147985-tQ5wrAdH"');
     expect(config).toContain('hsinchu: "2010761154-irZGuDty"');
-    expect(config).toContain('taichung: "2010761154-mupiLvl6"');
+    expect(config).toContain('taichung: "2010761154-mupiLvi6"');
   });
 
   it("routes a public trial through LINE when the existing customer is already verified", () => {
