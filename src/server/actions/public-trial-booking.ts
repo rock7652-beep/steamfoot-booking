@@ -378,21 +378,22 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     }
 
     // Only system placeholder names may be replaced by the submitted public-
-    // form name. A LINE entry uses the verified same-store identity as its CAS
-    // predicate; a plain public entry uses the same phone that already selected
-    // this customer. Both paths keep formal names, other stores, and identity
-    // fields untouched.
-    if (
+    // form name. A verified LINE entry can be repaired immediately. A plain
+    // public entry is repaired later inside the successful booking transaction,
+    // so an already-booked or full-slot request cannot mutate the CRM record.
+    const shouldReplacePlaceholderName =
       SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(customer.name) &&
-      !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(data.name)
+      !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(data.name);
+    if (
+      shouldReplacePlaceholderName &&
+      reusedLineIdentityCustomer &&
+      chatLink?.channel === "LINE"
     ) {
       await prisma.customer.updateMany({
         where: {
           id: customer.id,
           storeId: store.id,
-          ...(reusedLineIdentityCustomer && chatLink?.channel === "LINE"
-            ? { lineUserId: chatLink.chatIdentity }
-            : { phone: data.phone }),
+          lineUserId: chatLink.chatIdentity,
           mergedIntoCustomerId: null,
           name: { in: SYSTEM_PLACEHOLDER_CUSTOMER_NAMES },
         },
@@ -431,6 +432,19 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           _sum: { people: true },
         });
         if ((aggregate._sum.people ?? 0) + data.people > slot.capacity) return null;
+
+        if (shouldReplacePlaceholderName && !reusedLineIdentityCustomer) {
+          await tx.customer.updateMany({
+            where: {
+              id: customer.id,
+              storeId: store.id,
+              phone: data.phone,
+              mergedIntoCustomerId: null,
+              name: { in: SYSTEM_PLACEHOLDER_CUSTOMER_NAMES },
+            },
+            data: { name: data.name },
+          });
+        }
 
         const created = await tx.booking.create({
           data: {

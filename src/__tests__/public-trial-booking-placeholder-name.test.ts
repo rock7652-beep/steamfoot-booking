@@ -30,6 +30,7 @@ vi.mock("@/lib/db", () => ({
     booking: { findFirst: state.bookingFindFirst },
     shopConfig: { findUnique: vi.fn(async () => ({ bookingWindowDays: 14, bookingOpensAt: null, bookableUntilDate: null })) },
     $transaction: vi.fn(async (callback) => callback({
+      customer: { updateMany: state.customerUpdateMany },
       booking: { aggregate: state.bookingAggregate, create: state.bookingCreate },
       trialBookingLink: { updateMany: state.trialLinkUpdateMany },
     })),
@@ -201,5 +202,18 @@ describe("submitPublicTrialBooking — LINE placeholder customer name", () => {
     expect(result.status).toBe("ok");
     expect(state.customerName).toBe("既有正式姓名");
     expect(state.customerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not rename a plain public phone placeholder when the slot became full", async () => {
+    const { resolveTrialBookingChatLink } = await import("@/server/services/trial-booking-chat-link");
+    vi.mocked(resolveTrialBookingChatLink).mockResolvedValueOnce(null);
+    state.bookingAggregate.mockResolvedValueOnce({ _sum: { people: 2 } });
+
+    const result = await submitPublicTrialBooking({ ...input, entry: undefined });
+
+    expect(result.status).toBe("slot_full");
+    expect(state.customerName).toBe("顧客");
+    expect(state.customerUpdateMany).not.toHaveBeenCalled();
+    expect(state.bookingCreate).not.toHaveBeenCalled();
   });
 });
