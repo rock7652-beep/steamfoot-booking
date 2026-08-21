@@ -50,13 +50,13 @@ export function BookableUntilForm({ initialDate, initialOpensAt, initialDays, ca
       <header className="mb-2">
         <h2 className="text-sm font-semibold text-earth-900">顧客預約開放範圍</h2>
         <p className="mt-0.5 text-[11px] leading-relaxed text-earth-500">
-          選擇何時讓顧客開始預約，再決定一次可看到未來幾天。後台代客預約不受影響。
+          設定顧客何時可以開始預約，以及最多可以提前預約幾天。後台代客預約不受影響。
         </p>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <fieldset className="text-xs text-earth-600">
-          <legend className="mb-1">何時讓顧客開始預約？</legend>
+          <legend className="mb-1">預約功能何時啟用？</legend>
           <div className="space-y-2 rounded-lg border border-earth-300 bg-white px-3 py-2.5">
             <label className="flex cursor-pointer items-center gap-2 text-sm text-earth-800">
               <input
@@ -66,7 +66,7 @@ export function BookableUntilForm({ initialDate, initialOpensAt, initialDays, ca
                 disabled={!canManage || pending}
                 onChange={() => setOpenMode("now")}
               />
-              現在立即開放
+              現在啟用（顧客可立即預約）
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-earth-800">
               <input
@@ -76,7 +76,7 @@ export function BookableUntilForm({ initialDate, initialOpensAt, initialDays, ca
                 disabled={!canManage || pending}
                 onChange={() => setOpenMode("scheduled")}
               />
-              指定日期時間開放
+              於指定日期時間啟用
             </label>
             {openMode === "scheduled" && (
               <input
@@ -91,11 +91,14 @@ export function BookableUntilForm({ initialDate, initialOpensAt, initialDays, ca
           </div>
         </fieldset>
         <label className="text-xs text-earth-600">
-          開放未來幾天（每24小時計算）
+          顧客最多可提前預約幾天？
           <select value={days} disabled={!canManage || pending} onChange={(e) => setDays(Number(e.target.value))}
             className="mt-1 w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 disabled:opacity-60">
             {[7, 14, 21, 30, 60, 90].map((value) => <option key={value} value={value}>{value} 天</option>)}
           </select>
+          <span className="mt-1 block text-[11px] leading-relaxed text-earth-500">
+            例如選 14 天，範圍會每天自動往後延伸，不需要店長重新設定。
+          </span>
         </label>
       </div>
         {canManage && (
