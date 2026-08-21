@@ -11,7 +11,12 @@
 
 import { describe, it, expect } from "vitest";
 import { enumerateBookableDates } from "@/lib/bookable-window";
-import { resolveBookableUntilDate, DEFAULT_BOOKABLE_DAYS_AHEAD } from "@/lib/shop-config";
+import {
+  resolveBookableUntilDate,
+  DEFAULT_BOOKABLE_DAYS_AHEAD,
+  isCustomerSlotWithinBookingWindow,
+  resolveCustomerBookingWindow,
+} from "@/lib/shop-config";
 import { addTaiwanDuration, toLocalDateStr } from "@/lib/date-utils";
 
 describe("resolveBookableUntilDate — 店家有設定", () => {
@@ -50,5 +55,29 @@ describe("enumerateBookableDates — 後台日期清單", () => {
     expect(days[0]).toBe("2026-06-29");
     expect(days).toContain("2026-07-31");
     expect(days).not.toContain("2026-08-01");
+  });
+});
+
+describe("新版顧客預約範圍 — 精確24小時滾動", () => {
+  const now = new Date("2026-08-21T08:00:00.000Z"); // 台灣 8/21 16:00
+
+  it("14天後同一時間可預約，超過一分鐘不可預約", () => {
+    const config = { bookingWindowDays: 14 };
+    expect(isCustomerSlotWithinBookingWindow("2026-09-04", "16:00", config, now)).toBe(true);
+    expect(isCustomerSlotWithinBookingWindow("2026-09-04", "16:01", config, now)).toBe(false);
+  });
+
+  it("尚未到指定開放時間時不顯示任何時段", () => {
+    const config = { bookingOpensAt: new Date("2026-08-22T02:00:00.000Z"), bookingWindowDays: 14 };
+    expect(isCustomerSlotWithinBookingWindow("2026-08-23", "10:00", config, now)).toBe(false);
+  });
+
+  it("舊的固定截止日期仍保留到店長主動切換新版", () => {
+    const window = resolveCustomerBookingWindow(
+      { bookableUntilDate: new Date("2026-08-31T00:00:00.000Z"), bookingWindowDays: 7 },
+      now,
+    );
+    expect(window.closesAt.toISOString()).toBe("2026-08-31T15:59:59.999Z");
+    expect(window.days).toBeNull();
   });
 });
