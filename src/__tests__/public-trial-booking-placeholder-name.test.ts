@@ -28,6 +28,7 @@ vi.mock("@/lib/db", () => ({
       updateMany: state.customerUpdateMany,
     },
     booking: { findFirst: state.bookingFindFirst },
+    shopConfig: { findUnique: vi.fn(async () => ({ bookingWindowDays: 14, bookingOpensAt: null, bookableUntilDate: null })) },
     $transaction: vi.fn(async (callback) => callback({
       booking: { aggregate: state.bookingAggregate, create: state.bookingCreate },
       trialBookingLink: { updateMany: state.trialLinkUpdateMany },
@@ -50,6 +51,7 @@ vi.mock("@/lib/shop-config", () => ({
   checkCustomerLimit: vi.fn(async () => ({ allowed: true })),
   getTrialSettings: vi.fn(async () => ({ trialEnabled: true, trialDefaultPrice: 499 })),
   isDutySchedulingEnabled: vi.fn(async () => false),
+  isCustomerSlotWithinBookingWindow: vi.fn(() => true),
 }));
 vi.mock("@/lib/subscription-guard", () => ({ isStoreSubscriptionWriteBlocked: vi.fn(async () => false) }));
 vi.mock("@/lib/store-operating-status", () => ({ isStoreBookable: vi.fn(async () => true) }));

@@ -6,13 +6,13 @@ import {
   getCachedBusinessHours,
   getCachedMonthScheduleSummary,
 } from "@/lib/query-cache";
+import { parseBusinessPeriods } from "@/lib/business-hours-resolver";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { ScheduleManager } from "./schedule-manager";
 import { BookableUntilForm } from "./bookable-until-form";
-import { resolveBookableUntilDate } from "@/lib/shop-config";
 
 const DAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 const WEEK_DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
@@ -80,13 +80,12 @@ export default async function ScheduleSettingsPage() {
     getCachedMonthScheduleSummary(effectiveStoreId, nowYear, nowMonth),
     prisma.shopConfig.findUnique({
       where: { storeId: effectiveStoreId },
-      select: { bookableUntilDate: true },
+      select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
     }),
   ]);
   const bookableUntilInitial = shopConfig?.bookableUntilDate
     ? shopConfig.bookableUntilDate.toISOString().slice(0, 10)
     : null;
-  const bookableUntilDefault = resolveBookableUntilDate(null);
   const weeklyHours = weeklyRows.map((h) => ({
     ...h,
     dayName: WEEK_DAY_NAMES[h.dayOfWeek],
@@ -176,8 +175,8 @@ export default async function ScheduleSettingsPage() {
       <BookableUntilForm
         key={`bookable-until-${effectiveStoreId}`}
         initialDate={bookableUntilInitial}
-        defaultUntil={bookableUntilDefault}
-        today={todayStr}
+        initialOpensAt={shopConfig?.bookingOpensAt?.toISOString() ?? null}
+        initialDays={shopConfig?.bookingWindowDays ?? 14}
         canManage={canManage}
       />
 
@@ -194,6 +193,7 @@ export default async function ScheduleSettingsPage() {
               closeTime: h.closeTime,
               slotInterval: h.slotInterval,
               defaultCapacity: h.defaultCapacity,
+              periods: parseBusinessPeriods(h.segments, h),
             }))}
             initialSpecialDays={specialDays}
             initialSummary={initialSummary}
@@ -206,62 +206,18 @@ export default async function ScheduleSettingsPage() {
 
         {/* Right rules panel */}
         <aside className="space-y-3 xl:col-span-4 xl:sticky xl:top-4 xl:self-start">
-          {/* Rule priority cascade */}
-          <section className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-earth-900">規則優先順序</h3>
-            <p className="mt-0.5 text-[11px] text-earth-500">
-              由高至低，上面規則會覆蓋下面
-            </p>
-            <ol className="mt-3 space-y-1.5 text-[12px]">
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700">
-                  1
-                </span>
-                <span>
-                  <span className="font-medium text-earth-800">特殊日</span>
-                  <span className="ml-1 text-earth-500">（單日覆蓋）</span>
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-earth-100 text-[10px] font-bold text-earth-400">
-                  2
-                </span>
-                <span className="text-earth-400">
-                  <span className="font-medium">循環公休日</span>
-                  <span className="ml-1">（即將推出）</span>
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-100 text-[10px] font-bold text-green-700">
-                  3
-                </span>
-                <span>
-                  <span className="font-medium text-earth-800">每週固定規則</span>
-                  <span className="ml-1 text-earth-500">（永久循環）</span>
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-earth-100 text-[10px] font-bold text-earth-500">
-                  4
-                </span>
-                <span className="text-earth-500">預設不開放</span>
-              </li>
-            </ol>
-          </section>
-
           {/* Weekly fixed rule summary */}
           <section className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
             <header className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-earth-900">
-                每週固定規則
+                平常營業時間
               </h3>
               <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-medium text-green-700">
                 ✓ 設定一次循環
               </span>
             </header>
             <p className="mt-1 text-[11px] leading-relaxed text-earth-500">
-              設定一次永久套用，每週自動循環，不需每月重新設定。
-              於月曆下方「每週固定規則」展開編輯。
+              只有長期營業時間改變才需要調整；臨時訓練、旅遊或休息，直接點月曆日期。
             </p>
 
             <div className="mt-3 space-y-1">
@@ -292,39 +248,18 @@ export default async function ScheduleSettingsPage() {
             </div>
           </section>
 
-          {/* Recurring rules placeholder (Phase B) */}
-          <section className="rounded-xl border border-dashed border-earth-300 bg-earth-50/40 p-4">
-            <header className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-earth-700">
-                循環公休日
-              </h3>
-              <span className="rounded-full bg-earth-200 px-2 py-0.5 text-[10px] font-medium text-earth-600">
-                即將推出
-              </span>
-            </header>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-earth-500">
-              下一階段將支援：
-            </p>
-            <ul className="mt-2 space-y-1 text-[11px] text-earth-500">
-              <li>• 每月第 N 個星期幾固定休（例：第 2、4 個週一）</li>
-              <li>• 每月固定日期休（例：每月 15 號）</li>
-              <li>• 設定一次後，未來每月自動套用</li>
-            </ul>
-          </section>
-
           {/* Special days list */}
           <section className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
             <header className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-earth-900">
-                本月特殊日
+                本月特別安排
               </h3>
               <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                單次覆蓋
+                點日期即可調整
               </span>
             </header>
             <p className="mt-1 text-[11px] leading-relaxed text-earth-500">
-              僅單次有效，會覆蓋當週規則；用於國定假日、進修日等。
-              於月曆點選日期後設定。
+              適合訓練、旅遊、臨時公休或不同營業時間。
             </p>
 
             {specialDays.length === 0 ? (

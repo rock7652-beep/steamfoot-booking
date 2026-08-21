@@ -214,3 +214,38 @@ export async function updateBookableUntilDate(
     return handleActionError(e);
   }
 }
+
+const updateCustomerBookingWindowSchema = z.object({
+  opensAt: z.string().datetime({ offset: true }).nullable(),
+  days: z.number().int().min(1).max(90),
+});
+
+/** 儲存新版顧客預約範圍；不回溯、不修改任何既有預約。 */
+export async function updateCustomerBookingWindow(
+  input: z.infer<typeof updateCustomerBookingWindowSchema>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const { opensAt, days } = updateCustomerBookingWindowSchema.parse(input);
+    const storeId = await resolveWriteStoreId(user);
+    await prisma.shopConfig.upsert({
+      where: { storeId },
+      create: {
+        storeId,
+        bookableUntilDate: null,
+        bookingOpensAt: opensAt ? new Date(opensAt) : null,
+        bookingWindowDays: days,
+      },
+      update: {
+        bookableUntilDate: null,
+        bookingOpensAt: opensAt ? new Date(opensAt) : null,
+        bookingWindowDays: days,
+      },
+    });
+    revalidateShopConfig();
+    revalidatePath("/dashboard/settings/hours");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}

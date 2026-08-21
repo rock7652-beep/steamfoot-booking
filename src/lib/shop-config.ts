@@ -17,6 +17,47 @@ import type { PricingPlan } from "@prisma/client";
 /** 店家未設定 bookableUntilDate 時的預設：今天 +14 天（含當日） */
 export const DEFAULT_BOOKABLE_DAYS_AHEAD = 14;
 
+export interface CustomerBookingWindowConfig {
+  bookableUntilDate?: Date | null;
+  bookingOpensAt?: Date | null;
+  bookingWindowDays?: number | null;
+}
+
+/**
+ * 新版採精確 24 小時滾動；舊店若仍有 bookableUntilDate 則保留舊行為，
+ * 直到店長主動儲存新版設定才切換，避免上線時改變既有營運。
+ */
+export function resolveCustomerBookingWindow(
+  config: CustomerBookingWindowConfig | null | undefined,
+  now = new Date(),
+) {
+  const opensAt = config?.bookingOpensAt ?? null;
+  if (config?.bookableUntilDate) {
+    const date = config.bookableUntilDate.toISOString().slice(0, 10);
+    return { opensAt, closesAt: new Date(`${date}T23:59:59.999+08:00`), days: null };
+  }
+  const days = config?.bookingWindowDays ?? DEFAULT_BOOKABLE_DAYS_AHEAD;
+  return { opensAt, closesAt: new Date(now.getTime() + days * 24 * 60 * 60 * 1000), days };
+}
+
+export function isCustomerSlotWithinBookingWindow(
+  date: string,
+  time: string,
+  config: CustomerBookingWindowConfig | null | undefined,
+  now = new Date(),
+): boolean {
+  const slotAt = new Date(`${date}T${time}:00+08:00`);
+  const window = resolveCustomerBookingWindow(config, now);
+  return (!window.opensAt || now >= window.opensAt) && slotAt >= now && slotAt <= window.closesAt;
+}
+
+export function resolveCustomerBookableUntilDate(
+  config: CustomerBookingWindowConfig | null | undefined,
+  now = new Date(),
+): string {
+  return toLocalDateStr(resolveCustomerBookingWindow(config, now).closesAt);
+}
+
 /**
  * 解析顧客自助預約「可預約到日期」（含當日，"YYYY-MM-DD"，台灣時間）。
  *

@@ -37,6 +37,8 @@ interface Props {
   makeupCredits?: MakeupCreditInfo[];
   /** 顧客可預約到的日期（含當日，"YYYY-MM-DD"，台灣時間）。與後端 gate 同源。 */
   bookableUntil: string;
+  /** 指定開放時間；null 代表立即開放。 */
+  bookingOpensAt: string | null;
   weeklyRecurrenceEnabled: boolean;
   weeklyRecurrenceMaxWeeks: number;
 }
@@ -46,6 +48,7 @@ export function BookingCalendarView({
   activeWallets,
   makeupCredits = [],
   bookableUntil,
+  bookingOpensAt,
   weeklyRecurrenceEnabled,
   weeklyRecurrenceMaxWeeks,
 }: Props) {
@@ -55,6 +58,8 @@ export function BookingCalendarView({
   // 可預約到日期（含當日）。超過此日的時段尚未開放。
   const maxDate = parseLocalDate(bookableUntil);
   maxDate.setHours(0, 0, 0, 0);
+  const scheduledOpenAt = bookingOpensAt ? new Date(bookingOpensAt) : null;
+  const bookingHasOpened = !scheduledOpenAt || new Date() >= scheduledOpenAt;
 
   const [people, setPeople] = useState(1);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -208,7 +213,7 @@ export function BookingCalendarView({
               const display = getSlotCapacityDisplay(slot.capacity, slot.booked, people);
               return display.canFitRequestedPeople;
             });
-            const disabled = isPast || isBeyond || loadingMonth || !dayInfo || isClosed || isTraining || isFull;
+            const disabled = !bookingHasOpened || isPast || isBeyond || loadingMonth || !dayInfo || isClosed || isTraining || isFull;
             const isSelected = dateStr === selectedDate;
             const isToday = dateObj.getTime() === today.getTime();
 
@@ -254,11 +259,30 @@ export function BookingCalendarView({
 
       {/* 可預約範圍提示 */}
       <div className="mb-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        目前開放預約至{" "}
-        <strong>
-          {maxDate.toLocaleDateString("zh-TW", { year: "numeric", month: "long", day: "numeric" })}
-        </strong>
-        。次月預約時段尚未開放，請等候店長通知。
+        {!bookingHasOpened && scheduledOpenAt ? (
+          <>
+            尚未開放預約，將於{" "}
+            <strong>
+              {scheduledOpenAt.toLocaleString("zh-TW", {
+                timeZone: "Asia/Taipei",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </strong>
+            開放。
+          </>
+        ) : (
+          <>
+            目前開放預約至{" "}
+            <strong>
+              {maxDate.toLocaleDateString("zh-TW", { year: "numeric", month: "long", day: "numeric" })}
+            </strong>
+            。超過此範圍的時段尚未開放。
+          </>
+        )}
       </div>
 
       {/* 時段選擇 — 由下方滑出的 bottom sheet */}
