@@ -25,6 +25,7 @@ function makeTx(input: {
   } | null;
   remainingSessions: number;
   continuationWalletIds?: string[];
+  validWallets?: Array<{ id: string; remainingSessions: number }>;
 }) {
   const createMany = vi.fn().mockResolvedValue({ count: 1 });
   const findNotifications = vi.fn().mockResolvedValue([{ id: "notification-1" }]);
@@ -34,7 +35,15 @@ function makeTx(input: {
       { id: "wallet-1", remainingSessions: input.remainingSessions },
     ])
     .mockResolvedValueOnce(
-      (input.continuationWalletIds ?? []).map((id) => ({ id })),
+      input.validWallets ?? [
+        ...(input.remainingSessions > 0
+          ? [{ id: "wallet-1", remainingSessions: input.remainingSessions }]
+          : []),
+        ...(input.continuationWalletIds ?? []).map((id) => ({
+          id,
+          remainingSessions: 1,
+        })),
+      ],
     );
   return {
     tx: {
@@ -155,5 +164,35 @@ describe("session balance notification settings", () => {
       ),
     ).resolves.toEqual([]);
     expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it("does not enqueue a used-up prompt when another valid plan has sessions", async () => {
+    const { tx, createMany } = makeTx({
+      setting: null,
+      remainingSessions: 0,
+      validWallets: [{ id: "wallet-2", remainingSessions: 5 }],
+    });
+    await expect(
+      enqueueSessionBalanceNotifications(
+        tx as never,
+        { walletIds: ["wallet-1"], customerId: "customer-1", storeId: "store-1" },
+      ),
+    ).resolves.toEqual([]);
+    expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it("uses the customer's total valid balance for the last-session reminder", async () => {
+    const { tx, createMany } = makeTx({
+      setting: null,
+      remainingSessions: 0,
+      validWallets: [{ id: "wallet-2", remainingSessions: 1 }],
+    });
+    await enqueueSessionBalanceNotifications(
+      tx as never,
+      { walletIds: ["wallet-1"], customerId: "customer-1", storeId: "store-1" },
+    );
+    expect(createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({ walletId: "wallet-2", type: "LAST_SESSION" })],
+    }));
   });
 });
