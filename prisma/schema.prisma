@@ -2163,6 +2163,8 @@ model ShopConfig {
   trialMaxPrice            Decimal   @default(3000) @db.Decimal(10, 0) // 最高可輸入價格
   // === PR-1 新增：顧客自助預約可預約到的日期（含當日）；null = 回到預設 +14 天 ===
   bookableUntilDate        DateTime? @db.Date
+  bookingOpensAt           DateTime? // 可先排好時段，指定到點才對顧客開放
+  bookingWindowDays        Int       @default(14) // 顧客可預約未來幾個 24 小時
   weeklyRecurrenceEnabled  Boolean   @default(false)
   weeklyRecurrenceMaxWeeks Int       @default(8)
   // === PR-E 新增：店家地址與 Google Maps 短網址（per-store LIFF 顯示用）===
@@ -2385,6 +2387,7 @@ model BusinessHours {
   closeTime       String? // "HH:mm"，null 表示公休
   slotInterval    Int      @default(60) // 時段間隔（分鐘）：30/60/90/120
   defaultCapacity Int      @default(6) // 每時段預設名額
+  segments        Json?    // 新版多區段設定；null 時完全沿用上方舊欄位
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -2408,6 +2411,7 @@ model SpecialBusinessDay {
   closeTime       String? // type=custom 時的特殊營業結束
   slotInterval    Int? // 覆寫時段間隔（null=沿用每週規則）
   defaultCapacity Int? // 覆寫每時段名額（null=沿用每週規則）
+  segments        Json? // type=custom 的多區段設定；null 時沿用舊欄位
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
