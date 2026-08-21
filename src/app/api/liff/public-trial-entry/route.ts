@@ -4,7 +4,7 @@ import {
   LiffIdTokenError,
   verifyLiffIdToken,
 } from "@/lib/liff/verify-id-token";
-import { ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID } from "@/lib/liff/public-trial-config";
+import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { createTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 const BodySchema = z.object({
   idToken: z.string().min(1),
-  storeSlug: z.literal("zhubei"),
+  storeSlug: z.enum(["zhubei", "hsinchu", "taichung"]),
 });
 
 type ResponseBody =
@@ -44,11 +44,14 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return json({ status: "error", code: "INVALID_BODY" }, 400);
 
+  const config = resolvePublicTrialLiffConfig(parsed.data.storeSlug);
+  if (!config) return json({ status: "error", code: "STORE_NOT_FOUND" }, 404);
+
   let verified;
   try {
     verified = await verifyLiffIdToken(
       parsed.data.idToken,
-      ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID,
+      config.lineLoginChannelId,
     );
   } catch (error) {
     if (error instanceof LiffIdTokenError) {

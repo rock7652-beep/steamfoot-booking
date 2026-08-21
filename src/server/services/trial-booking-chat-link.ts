@@ -9,7 +9,11 @@ import {
 } from "@/lib/digital-butler-crypto";
 
 const LINK_TTL_MS = 30 * 60 * 1000;
-const SUPPORTED_PUBLIC_BOOKING_STORE_SLUG = "zhubei";
+const SUPPORTED_PUBLIC_BOOKING_STORE_SLUGS = new Set([
+  "zhubei",
+  "hsinchu",
+  "taichung",
+]);
 
 function prismaBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(value);
@@ -30,7 +34,7 @@ export async function createTrialBookingChatLink(input: {
     where: { id: input.storeId },
     select: { slug: true },
   });
-  if (store?.slug !== SUPPORTED_PUBLIC_BOOKING_STORE_SLUG) {
+  if (!store || !SUPPORTED_PUBLIC_BOOKING_STORE_SLUGS.has(store.slug)) {
     throw new Error("TRIAL_BOOKING_STORE_NOT_SUPPORTED");
   }
 
@@ -51,7 +55,7 @@ export async function createTrialBookingChatLink(input: {
     },
     select: { id: true, expiresAt: true },
   });
-  const url = new URL("/pricing/experience/zhubei/book", deriveBaseUrl());
+  const url = new URL(`/pricing/experience/${store.slug}/book`, deriveBaseUrl());
   url.searchParams.set("entry", `${link.id}.${token}`);
   return { url: url.toString(), expiresAt: link.expiresAt };
 }
