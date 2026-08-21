@@ -7,7 +7,6 @@ import { BookingCalendarView } from "./booking-calendar-view";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import { walletAvailableToBook } from "@/lib/wallet-availability";
-import { resolveBookableUntilDate } from "@/lib/shop-config";
 import { toLocalDateStr } from "@/lib/date-utils";
 
 export default async function NewBookingPage() {
@@ -84,6 +83,8 @@ export default async function NewBookingPage() {
           where: { storeId: bookingStoreId },
           select: {
             bookableUntilDate: true,
+            bookingOpensAt: true,
+            bookingWindowDays: true,
             weeklyRecurrenceEnabled: true,
             weeklyRecurrenceMaxWeeks: true,
           },
@@ -94,7 +95,8 @@ export default async function NewBookingPage() {
 
   // 顧客自助預約可預約到日期（含當日）；null = 預設今天 +14 天。
   // 與後端 createBooking gate 共用 resolveBookableUntilDate，避免前後端分裂。
-  const bookableUntil = resolveBookableUntilDate(shopConfig?.bookableUntilDate);
+  const { resolveCustomerBookableUntilDate } = await import("@/lib/shop-config");
+  const bookableUntil = resolveCustomerBookableUntilDate(shopConfig);
 
   // 可預約堂數一律走 wallet-availability helper（與首頁 / my-plans 一致）
   const walletsWithRemaining = customer.planWallets.map((w) => ({
