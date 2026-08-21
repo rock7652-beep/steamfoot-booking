@@ -185,7 +185,20 @@ async function loadCreateBookingEligibility(params: {
     where: { storeId },
     select: { bookableUntilDate: true },
   });
-  const bookableUntil = resolveBookableUntilDate(sc?.bookableUntilDate);
+  let bookableUntil = resolveBookableUntilDate(sc?.bookableUntilDate);
+  let customerWindowConfig: {
+    bookableUntilDate: Date | null;
+    bookingOpensAt: Date | null;
+    bookingWindowDays: number;
+  } | null = null;
+  if (user.role === "CUSTOMER") {
+    const { resolveCustomerBookableUntilDate } = await import("@/lib/shop-config");
+    customerWindowConfig = await prisma.shopConfig.findUnique({
+      where: { storeId },
+      select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
+    });
+    bookableUntil = resolveCustomerBookableUntilDate(customerWindowConfig);
+  }
   if (bookingDate > bookableUntil) {
     throw new AppError(
       "BUSINESS_RULE",
@@ -193,6 +206,12 @@ async function loadCreateBookingEligibility(params: {
         ? "次月預約時段尚未開放，請等候店長通知。"
         : `店鋪目前僅開放預約至 ${bookableUntil}，請先到營業時間設定開放日期。`,
     );
+  }
+  if (user.role === "CUSTOMER") {
+    const { isCustomerSlotWithinBookingWindow } = await import("@/lib/shop-config");
+    if (!isCustomerSlotWithinBookingWindow(bookingDate, slotTime, customerWindowConfig)) {
+      throw new AppError("BUSINESS_RULE", "此時段尚未開放預約，請重新選擇時間。");
+    }
   }
 
   const dayCtx = await loadDayBusinessHoursContext(storeId, bookingDate);
