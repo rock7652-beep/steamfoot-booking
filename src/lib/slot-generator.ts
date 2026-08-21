@@ -10,6 +10,13 @@ export interface GeneratedSlot {
   capacity: number;
 }
 
+export interface BusinessPeriodInput {
+  openTime: string;
+  closeTime: string;
+  slotInterval: number;
+  defaultCapacity: number;
+}
+
 /**
  * 根據營業規則生成時段列表
  *
@@ -150,5 +157,22 @@ export function validateTimeRange(input: {
     return { valid: false, error: "每時段名額不可小於 1" };
   }
 
+  return { valid: true };
+}
+
+/** 驗證一天內的多個營業區段，並阻擋重疊區段。 */
+export function validateBusinessPeriods(periods: BusinessPeriodInput[]): TimeRangeValidation {
+  if (periods.length < 1) return { valid: false, error: "請至少新增一個營業時段" };
+  if (periods.length > 8) return { valid: false, error: "一天最多可設定 8 個營業時段" };
+
+  const sorted = [...periods].sort((a, b) => a.openTime.localeCompare(b.openTime));
+  for (let index = 0; index < sorted.length; index += 1) {
+    const period = sorted[index];
+    const result = validateTimeRange(period);
+    if (!result.valid) return { valid: false, error: `第 ${index + 1} 段：${result.error}` };
+    if (index > 0 && timeToMinutes(period.openTime) < timeToMinutes(sorted[index - 1].closeTime)) {
+      return { valid: false, error: `第 ${index} 段與第 ${index + 1} 段時間重疊` };
+    }
+  }
   return { valid: true };
 }
