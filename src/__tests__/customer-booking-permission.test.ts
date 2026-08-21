@@ -110,6 +110,8 @@ vi.mock("@/lib/shop-config", () => ({
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
   resolveBookableUntilDate: (bookableUntilDate: Date | null | undefined) =>
     bookableUntilDate ? bookableUntilDate.toISOString().slice(0, 10) : "2026-05-10",
+  resolveCustomerBookableUntilDate: () => "2026-05-10",
+  isCustomerSlotWithinBookingWindow: () => true,
 }));
 
 vi.mock("@/lib/usage-gate", () => ({
