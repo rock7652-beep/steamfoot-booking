@@ -147,8 +147,8 @@ export function ProfileForm({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-4">
+        <div className="min-w-0">
           <label className={labelCls}>
             生日 <span className="text-earth-500 text-sm">（選填）</span>
           </label>
@@ -158,7 +158,7 @@ export function ProfileForm({
           )}
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label htmlFor="gender" className={labelCls}>
             性別 <span className="text-earth-500 text-sm">（選填）</span>
           </label>
