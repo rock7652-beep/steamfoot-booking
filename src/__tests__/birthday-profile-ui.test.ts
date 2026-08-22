@@ -62,6 +62,17 @@ describe("birthday profile UI contract", () => {
     expect(form).not.toContain("birthdayRequired");
   });
 
+  it("keeps birthday and gender stacked on phones without field overflow", () => {
+    const form = read("src/app/(customer)/profile/profile-form.tsx");
+    const picker = read("src/components/birthday-fields.tsx");
+    const page = read("src/app/(customer)/profile/page.tsx");
+
+    expect(form).toContain("grid-cols-1 gap-5 sm:grid-cols-2");
+    expect(picker).toContain("minmax(0,1.3fr)");
+    expect(picker).toContain("h-12 min-w-0 w-full");
+    expect(page).toContain("bg-white p-4 shadow-sm sm:p-6");
+  });
+
   it("renders the real profile form for an existing customer with null birthday", async () => {
     const { ProfileForm } = await import("@/app/(customer)/profile/profile-form");
     const html = renderToStaticMarkup(
