@@ -70,10 +70,12 @@ export function ZhubeiTrialBookingForm({
   entry,
   storeSlug = "zhubei",
   contactUrl = "https://lin.ee/Nki2OjA",
+  successGuideId = "first-visit-guide",
 }: {
   entry?: string;
   storeSlug?: "zhubei" | "hsinchu" | "taichung";
   contactUrl?: string;
+  successGuideId?: string;
 }) {
   const slotRequestGate = useRef(createLatestRequestGate()).current;
   const today = useMemo(taiwanToday, []);
@@ -96,6 +98,17 @@ export function ZhubeiTrialBookingForm({
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState<{ date: string; time: string; people: number; expectedAmount: number } | null>(null);
+
+  useEffect(() => {
+    if (!success) return;
+    const timeoutId = window.setTimeout(() => {
+      document.getElementById(successGuideId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 1200);
+    return () => window.clearTimeout(timeoutId);
+  }, [success, successGuideId]);
 
   useEffect(() => {
     let active = true;
@@ -192,6 +205,8 @@ export function ZhubeiTrialBookingForm({
         <p className="mt-2 text-sm font-semibold text-primary-700">到店付款：{formatCurrency(success.expectedAmount)}</p>
         <p className="mt-2 text-sm text-earth-600">首次蒸足體驗每人 NT$499｜約 45 分鐘</p>
         <p className="mt-4 text-xs leading-5 text-earth-500">到店後再付款即可。這次預約不需要會員帳號，也不會扣除任何正式方案堂數。</p>
+        <p className="mt-4 rounded-xl bg-primary-50 px-4 py-3 text-sm leading-6 text-primary-800">以下是第一次到店前需要知道的事項，建議先看完並儲存門市導航。</p>
+        <a href={`#${successGuideId}`} className="mt-4 flex min-h-12 items-center justify-center rounded-xl border border-primary-200 px-4 text-base font-bold text-primary-700">查看到店前提醒</a>
         <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-[#06C755] px-4 text-base font-bold text-white shadow-sm transition hover:bg-[#05b84d]">加入官方 LINE，接收預約提醒</a>
         <p className="mt-2 text-xs leading-5 text-earth-500">若原本已完成 LINE 綁定，系統會以既有身分發送體驗提醒；首次加入後，也可從 LINE 內取得專屬預約入口。</p>
       </section>
