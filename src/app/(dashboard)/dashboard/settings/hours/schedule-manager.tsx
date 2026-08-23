@@ -157,6 +157,7 @@ export function ScheduleManager({
   // 單時段名額調整 - 選中的時段
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [slotCapacityInput, setSlotCapacityInput] = useState<number>(0);
+  const [showAdvancedSlots, setShowAdvancedSlots] = useState(false);
 
   // ── Phase B: client 月份 cache + race guard ──────────
   // 月份切換時不要每次都打 server。已看過的月份直接從 Map 拿；
@@ -235,6 +236,10 @@ export function ScheduleManager({
       },
     ]);
   }, [dayDetail]);
+
+  useEffect(() => {
+    setShowAdvancedSlots(false);
+  }, [selectedDate]);
 
   // ── Day detail client cache ──────────────────────────
   // 點同一天第二次直接從 Map 拿，不打 server。
@@ -498,6 +503,7 @@ export function ScheduleManager({
               closeTime: editStatus === "custom" ? lastPeriod?.closeTime : undefined,
               defaultCapacity: editStatus === "custom" ? editCapacity : undefined,
               periods: editStatus === "custom" ? sortedPeriods : undefined,
+              resetSlotOverrides: true,
             });
             if (!result.success) {
               toast.error(result.error);
@@ -516,6 +522,7 @@ export function ScheduleManager({
               defaultCapacity: editStatus === "custom" ? editCapacity : undefined,
               periods: editStatus === "custom" ? sortedPeriods : undefined,
               weeks: copyWeeks,
+              resetSlotOverrides: editStatus === "custom",
             });
             if (copyResult.success) {
               toast.success(`已套用到未來 ${copyResult.data.count} 週`);
@@ -950,6 +957,7 @@ export function ScheduleManager({
                             <span className="ml-1 text-[10px] text-earth-400">僅時間/名額</span>
                           </span>
                         </label>
+                        {showAdvancedSlots && (
                         <label className="flex items-center gap-2 text-xs text-earth-700">
                           <input
                             type="radio"
@@ -976,6 +984,7 @@ export function ScheduleManager({
                             <option value={26}>26 週</option>
                           </select>
                         </label>
+                        )}
                       </>
                     )}
                   </div>
@@ -1009,10 +1018,38 @@ export function ScheduleManager({
               )}
             </div>
 
-            {/* 該日可預約時段控制 */}
-            <div className="rounded-xl border bg-white p-4 shadow-sm">
+            {/* 單一時段微調屬於進階功能，預設收合，避免成為店長的主要操作流程。 */}
+            <div className="rounded-xl border bg-white shadow-sm">
+              <button
+                type="button"
+                aria-expanded={showAdvancedSlots}
+                onClick={() => {
+                  setShowAdvancedSlots((shown) => {
+                    if (shown && applyMode === "template") setApplyMode("day");
+                    return !shown;
+                  });
+                }}
+                className="flex w-full items-center justify-between gap-3 p-4 text-left"
+              >
+                <span>
+                  <span className="block text-xs font-semibold text-earth-700">進階：單一時段微調</span>
+                  <span className="mt-0.5 block text-[11px] text-earth-400">
+                    只有臨時關閉一個時段或調整單格名額時才需要使用
+                  </span>
+                </span>
+                <span className="shrink-0 text-right text-[11px] text-earth-500">
+                  {dayDetail.slots.filter((slot) => slot.override).length > 0 && (
+                    <span className="mr-2 text-amber-600">
+                      {dayDetail.slots.filter((slot) => slot.override).length} 個微調
+                    </span>
+                  )}
+                  {showAdvancedSlots ? "收合" : "展開"}
+                </span>
+              </button>
+              {showAdvancedSlots && (
+              <div className="border-t px-4 pb-4 pt-3">
               <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-xs font-semibold text-earth-700">該日可預約時段</h4>
+                <h4 className="text-xs font-semibold text-earth-700">單一時段開放與名額</h4>
                 {loadingDay && dayDetail.slots.length === 0 ? (
                   <span className="text-[10px] text-earth-400">載入中…</span>
                 ) : canManage && dayDetail.slots.length > 0 && editStatus !== "closed" && editStatus !== "training" ? (
@@ -1155,6 +1192,8 @@ export function ScheduleManager({
                 <p className="mt-2 text-[10px] text-amber-600">
                   ⚡ 有手動覆寫的時段（黃框 = 強制開放，紅框 = 手動關閉，右鍵選取調整名額）
                 </p>
+              )}
+              </div>
               )}
             </div>
           </div>
