@@ -140,7 +140,7 @@ export default async function ZhubeiTrialBookingPage({
             <ZhubeiTrialBookingForm entry={entry} />
           </section>
 
-          <section className="mt-10 rounded-3xl bg-[#fcfaf7] p-5 sm:p-7">
+          <section id="first-visit-guide" className="mt-10 scroll-mt-5 rounded-3xl bg-[#fcfaf7] p-5 sm:p-7">
             <p className="text-sm font-semibold text-primary-700">第一次來會發生什麼？</p>
             <h2 className="mt-2 text-2xl font-bold">從進門到離開，都有店長陪你完成</h2>
             <div className="mt-6 space-y-5">
