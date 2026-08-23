@@ -43,6 +43,8 @@ import { PackageLineCardReminderSettingCard } from "./package-line-card-reminder
 import { TrialLineCardReminderSettingCard } from "./trial-line-card-reminder-setting-card";
 import { listStoreLineNotificationRecipients } from "@/server/actions/store-line-notification-recipients";
 import { classifyReminderHealth } from "@/lib/reminder-health";
+import { prisma } from "@/lib/db";
+import { GoogleReviewSettingCard } from "./google-review-setting-card";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
   PENDING: "待發送",
@@ -121,6 +123,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     packageLineCardReminder,
     trialLineCardReminder,
     storeReminderHealthResult,
+    googleReviewStore,
   ] = await Promise.all([
     getReminderStats(activeStoreId),
     listMessageTemplates(activeStoreId),
@@ -131,6 +134,10 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     getPackageLineCardReminderSetting(activeStoreId),
     getTrialLineCardReminderSetting(activeStoreId),
     getStoreReminderHealthResult(activeStoreId),
+    prisma.store.findUnique({
+      where: { id: activeStoreId },
+      select: { googleReviewUrl: true },
+    }),
   ]);
   const smokeTestContext = smokeTestEnabled
     ? await getLineSmokeTestContext(activeStoreId)
@@ -250,6 +257,10 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               key={`${activeStoreId}-trial-line-card-reminder`}
               initialBody={trialLineCardReminder.body}
               initialMapUrl={trialLineCardReminder.mapUrl}
+            />
+            <GoogleReviewSettingCard
+              key={`${activeStoreId}-google-review`}
+              initialUrl={googleReviewStore?.googleReviewUrl ?? ""}
             />
             <ReminderCard
               key={activeStoreId}
