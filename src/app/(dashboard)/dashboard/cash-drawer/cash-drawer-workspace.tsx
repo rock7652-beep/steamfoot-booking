@@ -28,6 +28,7 @@ import {
   initializeCashDrawerAction,
   openCashDrawerAction,
   closeCashDrawerAction,
+  reopenCashDrawerAction,
   addCashDrawerEntryAction,
 } from "@/server/actions/cash-drawer";
 import { createCashbookEntry } from "@/server/actions/cashbook";
@@ -84,6 +85,8 @@ interface CashDrawerWorkspaceProps {
   canOpen: boolean;
   /** cashDrawer.close */
   canClose: boolean;
+  /** OWNER / ADMIN 才可撤銷閉店 */
+  canReopen: boolean;
   /** cashDrawer.entry */
   canAddEntry: boolean;
   /** cashbook.create — 是否能新增現金帳（「記一筆收入」入口會連到 /dashboard/cashbook/new，
@@ -109,6 +112,7 @@ export function CashDrawerWorkspace({
   canInit,
   canOpen,
   canClose,
+  canReopen,
   canAddEntry,
   canCreateCashbook,
   closedDates,
@@ -157,6 +161,7 @@ export function CashDrawerWorkspace({
           paymentOverview={view.paymentOverview}
           entries={view.entries}
           canClose={canClose}
+          canReopen={canReopen}
           canAddEntry={canAddEntry}
           canCreateCashbook={canCreateCashbook}
           closedDates={closedDates}
@@ -602,6 +607,7 @@ function OpenedTodayWorkspace({
   paymentOverview,
   entries,
   canClose,
+  canReopen,
   canAddEntry,
   canCreateCashbook,
   closedDates,
@@ -615,6 +621,7 @@ function OpenedTodayWorkspace({
   paymentOverview: CashDrawerPaymentOverview;
   entries: CashDrawerEntry[];
   canClose: boolean;
+  canReopen: boolean;
   canAddEntry: boolean;
   canCreateCashbook: boolean;
   closedDates: string[];
@@ -682,6 +689,8 @@ function OpenedTodayWorkspace({
             />
           ) : (
             <ClosedActionsArea
+              sessionId={session.id}
+              canReopen={canReopen}
               canCreateCashbook={canCreateCashbook}
               closedDates={closedDates}
               canAssignStaff={canAssignStaff}
@@ -994,6 +1003,14 @@ function DailyActionsArea({
                 </span>
               </div>
 
+              <dl className="grid grid-cols-2 gap-2 rounded-lg bg-white px-3 py-2 text-xs sm:grid-cols-3">
+                <SummaryItem label="今日現金收入" value={`+ NT$ ${liveTotals.cashIncomeTotal.toString()}`} tone="text-green-700" />
+                <SummaryItem label="今日現金退款" value={`− NT$ ${liveTotals.cashExpenseTotal.toString()}`} tone="text-orange-700" />
+                <SummaryItem label="今日提領" value={`− NT$ ${liveTotals.cashWithdrawalTotal.toString()}`} tone="text-orange-700" />
+                <SummaryItem label="今日補入" value={`+ NT$ ${liveTotals.cashDepositTotal.toString()}`} tone="text-green-700" />
+                <SummaryItem label="現金調整" value={`NT$ ${liveTotals.cashAdjustmentTotal.toString()}`} tone="text-earth-700" />
+              </dl>
+
               {/* 閉店前確認提醒（避免誤按閉店無法補登異動）*/}
               <div className="rounded-lg border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-3">
                 <p className="text-base font-semibold text-amber-900">閉店前確認</p>
@@ -1081,6 +1098,8 @@ function ActionDisabledCard({ title, helper }: { title: string; helper: string }
 // ============================================================
 
 function ClosedActionsArea({
+  sessionId,
+  canReopen,
   canCreateCashbook,
   closedDates,
   canAssignStaff,
@@ -1088,6 +1107,8 @@ function ClosedActionsArea({
   todayStr,
   returnPath,
 }: {
+  sessionId: string;
+  canReopen: boolean;
   canCreateCashbook: boolean;
   closedDates: string[];
   canAssignStaff: boolean;
@@ -1095,6 +1116,17 @@ function ClosedActionsArea({
   todayStr: string;
   returnPath: string;
 }) {
+  async function handleReopen(
+    _prev: ActionResult<unknown> | null,
+    formData: FormData,
+  ): Promise<ActionResult<{ sessionId: string }>> {
+    "use server";
+    return reopenCashDrawerAction({
+      sessionId,
+      reason: String(formData.get("reason") ?? ""),
+    });
+  }
+
   return (
     <div className="rounded-xl border border-earth-200 bg-white p-4">
       <h2 className="text-base font-semibold text-earth-900">日常操作</h2>
@@ -1105,6 +1137,39 @@ function ClosedActionsArea({
             今日紀錄已鎖定，提領 / 補入需明日重新開店後操作。
           </span>
         </div>
+        {canReopen && (
+          <details className="group rounded-xl border border-amber-200 bg-amber-50/40">
+            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none hover:bg-amber-50 group-open:rounded-b-none">
+              <span className="text-sm font-semibold text-amber-900">撤銷閉店</span>
+              <span className="mt-0.5 text-xs text-amber-700">金額輸入錯誤時，恢復營業中重新結帳</span>
+            </summary>
+            <div className="space-y-3 border-t border-amber-200 p-3">
+              <p className="text-xs text-amber-800">
+                僅能在下一個營業日尚未開店前撤銷；操作原因與原閉店資料會保留。
+              </p>
+              <CashDrawerActionForm
+                action={handleReopen}
+                returnPath={returnPath}
+                submitLabel="確認撤銷閉店"
+                successPendingLabel="已撤銷，跳轉中…"
+                submitClassName="min-h-[44px] w-full bg-amber-600 text-white hover:bg-amber-700"
+                className="space-y-3"
+              >
+                <div>
+                  <label className="block text-sm font-medium text-earth-700">撤銷原因</label>
+                  <textarea
+                    name="reason"
+                    required
+                    maxLength={200}
+                    rows={2}
+                    className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                    placeholder="例如：閉店實點金額輸入錯誤"
+                  />
+                </div>
+              </CashDrawerActionForm>
+            </div>
+          </details>
+        )}
         {/* 補登：原地展開現金帳 inline form（與營業中共用）。今日已結帳 →
             CashbookFormFields 顯示「補紀錄」提示；選現金時要求勾選確認，
             後端 createCashbookEntry 用 confirmClosedCashbookChange 再次把關。 */}
