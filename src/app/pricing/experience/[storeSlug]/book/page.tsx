@@ -7,8 +7,18 @@ import { ZhubeiTrialBookingForm } from "../../zhubei/book/zhubei-trial-booking-f
 const ENABLED_STORES = ["hsinchu", "taichung"] as const;
 type EnabledStoreSlug = (typeof ENABLED_STORES)[number];
 
-const STORE_MAP_OVERRIDES: Partial<Record<EnabledStoreSlug, string>> = {
-  taichung: "https://maps.app.goo.gl/YLgzPuG5BmBZqWuR8?g_st=ic",
+const STORE_PRESENTATION_OVERRIDES: Record<
+  EnabledStoreSlug,
+  { address: string; mapUrl: string }
+> = {
+  hsinchu: {
+    address: "新竹市東區建中路120號",
+    mapUrl: "https://maps.app.goo.gl/1B8JM16qriMtUDvs5?g_st=ic",
+  },
+  taichung: {
+    address: "台中市梧棲區大智路二段239號",
+    mapUrl: "https://maps.app.goo.gl/YLgzPuG5BmBZqWuR8?g_st=ic",
+  },
 };
 
 const firstVisitItems = [
@@ -85,7 +95,7 @@ export default async function StoreTrialBookingPage({
 
   const entry = typeof query.entry === "string" ? query.entry : undefined;
   const storeName = getCustomerFacingStoreName(presentation);
-  const mapUrl = STORE_MAP_OVERRIDES[storeSlug] ?? presentation.mapUrl;
+  const storeDetails = STORE_PRESENTATION_OVERRIDES[storeSlug];
 
   return (
     <main className="min-h-dvh bg-[#f7f2ea] px-4 py-8 text-earth-900 sm:py-12">
@@ -158,11 +168,11 @@ export default async function StoreTrialBookingPage({
           <section className="mt-10 rounded-3xl border border-earth-100 bg-white p-5 sm:p-6">
             <p className="text-sm font-semibold text-primary-700">門市資訊</p>
             <h2 className="mt-2 text-xl font-bold">{storeName}</h2>
-            <p className="mt-2 text-sm leading-6 text-earth-600">{presentation.address}</p>
+            <p className="mt-2 text-sm leading-6 text-earth-600">{storeDetails.address}</p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <a
-                href={mapUrl}
+                href={storeDetails.mapUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="flex min-h-12 items-center justify-center rounded-xl bg-primary-600 px-4 font-semibold text-white"
