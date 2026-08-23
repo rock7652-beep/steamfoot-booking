@@ -26,6 +26,52 @@ const DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "
 const periodsJson = (periods: BusinessPeriodInput[]): Prisma.InputJsonValue =>
   periods.map((period) => ({ ...period })) as Prisma.InputJsonValue;
 
+async function assertBookingsFitSchedule(
+  storeId: string,
+  dates: Date[],
+  periods: BusinessPeriodInput[],
+) {
+  const capacityByTime = new Map<string, number>();
+  for (const period of periods) {
+    for (const slot of generateSlots(
+      period.openTime,
+      period.closeTime,
+      period.slotInterval,
+      period.defaultCapacity,
+    )) {
+      capacityByTime.set(slot.startTime, slot.capacity);
+    }
+  }
+
+  const bookedSlots = await prisma.booking.groupBy({
+    by: ["bookingDate", "slotTime"],
+    where: {
+      storeId,
+      bookingDate: { in: dates },
+      bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+    },
+    _sum: { people: true },
+  });
+
+  for (const booked of bookedSlots) {
+    const dateStr = booked.bookingDate.toISOString().slice(0, 10);
+    const capacity = capacityByTime.get(booked.slotTime);
+    const people = booked._sum.people ?? 0;
+    if (capacity == null) {
+      throw new AppError(
+        "VALIDATION",
+        `${dateStr} ${booked.slotTime} 已有預約，請先把這個時間保留在營業時段內`,
+      );
+    }
+    if (people > capacity) {
+      throw new AppError(
+        "VALIDATION",
+        `${dateStr} ${booked.slotTime} 已預約 ${people} 人，名額不可低於此數`,
+      );
+    }
+  }
+}
+
 // ============================================================
 // 查詢
 // ============================================================
@@ -388,6 +434,8 @@ export async function addSpecialDay(input: {
   closeTime?: string;
   defaultCapacity?: number;
   periods?: BusinessPeriodInput[];
+  /** 儲存新版日排程時，清除同日舊的逐格微調，避免舊規則繼續蓋掉新時段。 */
+  resetSlotOverrides?: boolean;
 }): Promise<ActionResult<void>> {
   try {
     const user = await requirePermission("business_hours.manage");
@@ -406,8 +454,20 @@ export async function addSpecialDay(input: {
       if (!v.valid) throw new AppError("VALIDATION", v.error!);
     }
 
+    // 重新產生日排程前，先確認既有預約仍落在新時段內且名額足夠。
+    // 通過後才可清除舊 SlotOverride，避免既有預約變成孤兒資料。
+    if (isCustom && input.resetSlotOverrides) {
+      const periods = input.periods ?? [{
+        openTime: input.openTime!,
+        closeTime: input.closeTime!,
+        slotInterval: 60,
+        defaultCapacity: input.defaultCapacity ?? 6,
+      }];
+      await assertBookingsFitSchedule(storeId, [dateObj], periods);
+    }
+
     // ② 容量下限防呆：custom 模式降容量時，檢查該日最大已預約人數
-    if (isCustom && input.defaultCapacity != null) {
+    if (isCustom && input.defaultCapacity != null && !input.resetSlotOverrides) {
       const maxBookedSlot = await prisma.booking.groupBy({
         by: ["slotTime"],
         where: {
@@ -447,7 +507,7 @@ export async function addSpecialDay(input: {
       }
     }
 
-    await prisma.specialBusinessDay.upsert({
+    const upsertArgs = {
       where: { storeId_date: { storeId, date: dateObj } },
       update: {
         type: input.type,
@@ -467,7 +527,16 @@ export async function addSpecialDay(input: {
         defaultCapacity: isCustom && input.defaultCapacity != null ? input.defaultCapacity : null,
         segments: isCustom && input.periods ? periodsJson(input.periods) : undefined,
       },
-    });
+    } satisfies Prisma.SpecialBusinessDayUpsertArgs;
+
+    if (input.resetSlotOverrides) {
+      await prisma.$transaction(async (tx) => {
+        await tx.specialBusinessDay.upsert(upsertArgs);
+        await tx.slotOverride.deleteMany({ where: { storeId, date: dateObj } });
+      });
+    } else {
+      await prisma.specialBusinessDay.upsert(upsertArgs);
+    }
 
     revalidateSpecialDays();
     return { success: true, data: undefined };
@@ -526,6 +595,7 @@ export async function copySettingsToFutureWeeks(input: {
   defaultCapacity?: number;
   periods?: BusinessPeriodInput[];
   weeks: number;       // 複製到未來幾週（1-52）
+  resetSlotOverrides?: boolean;
 }): Promise<ActionResult<{ count: number }>> {
   try {
     const user = await requirePermission("business_hours.manage");
@@ -555,6 +625,16 @@ export async function copySettingsToFutureWeeks(input: {
       dates.push(d);
     }
 
+    if (isCustom && input.resetSlotOverrides) {
+      const periods = input.periods ?? [{
+        openTime: input.openTime!,
+        closeTime: input.closeTime!,
+        slotInterval: 60,
+        defaultCapacity: input.defaultCapacity ?? 6,
+      }];
+      await assertBookingsFitSchedule(storeId, dates, periods);
+    }
+
     // 批次 upsert
     const upserts = dates.map((d) =>
       prisma.specialBusinessDay.upsert({
@@ -580,7 +660,14 @@ export async function copySettingsToFutureWeeks(input: {
       })
     );
 
-    await prisma.$transaction(upserts);
+    await prisma.$transaction([
+      ...upserts,
+      ...(input.resetSlotOverrides ? [
+        prisma.slotOverride.deleteMany({
+          where: { storeId, date: { in: dates } },
+        }),
+      ] : []),
+    ]);
 
     revalidateSpecialDays();
     return { success: true, data: { count: dates.length } };
