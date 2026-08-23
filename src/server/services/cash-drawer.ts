@@ -672,3 +672,92 @@ export async function closeCashDrawer(input: CloseInput): Promise<CashDrawerSess
     },
   });
 }
+
+export type ReopenInput = {
+  sessionId: string;
+  reason: string;
+  actorUserId: string;
+};
+
+/**
+ * 撤銷閉店 — 僅供 action 層確認為 OWNER / ADMIN 後呼叫。
+ *
+ * 只要同店已存在較晚營業日（不論 OPEN / CLOSED），就禁止回開，避免改動
+ * 已被後續開店承接的 finalBookBalance。原閉店快照寫入共用 AuditLog 後清空，
+ * session 回到 OPEN，店主可重新核對並再次閉店。
+ */
+export async function reopenCashDrawer(input: ReopenInput): Promise<CashDrawerSession> {
+  const reason = input.reason.trim();
+  if (!reason) {
+    throw new AppError("VALIDATION", "請填寫撤銷閉店原因");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const session = await tx.cashDrawerSession.findUnique({ where: { id: input.sessionId } });
+    if (!session) {
+      throw new AppError("NOT_FOUND", "找不到指定的現金抽屜 session");
+    }
+    if (session.status !== "CLOSED") {
+      throw new AppError("BUSINESS_RULE", "此營業日尚未閉店，無需撤銷");
+    }
+
+    const laterSession = await tx.cashDrawerSession.findFirst({
+      where: { storeId: session.storeId, businessDate: { gt: session.businessDate } },
+      select: { id: true },
+    });
+    if (laterSession) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "後續營業日已經開店，無法撤銷；請在目前營業日使用現金調整",
+      );
+    }
+
+    const beforeJson = {
+      status: session.status,
+      cashIncomeTotal: session.cashIncomeTotal.toString(),
+      cashExpenseTotal: session.cashExpenseTotal.toString(),
+      cashWithdrawalTotal: session.cashWithdrawalTotal.toString(),
+      cashDepositTotal: session.cashDepositTotal.toString(),
+      cashAdjustmentTotal: session.cashAdjustmentTotal.toString(),
+      expectedClosingCash: session.expectedClosingCash?.toString() ?? null,
+      closingActualCash: session.closingActualCash?.toString() ?? null,
+      closingDifference: session.closingDifference?.toString() ?? null,
+      closingNote: session.closingNote,
+      closedByUserId: session.closedByUserId,
+      closedAt: session.closedAt?.toISOString() ?? null,
+      finalBookBalance: session.finalBookBalance?.toString() ?? null,
+    };
+
+    const reopened = await tx.cashDrawerSession.update({
+      where: { id: session.id, status: "CLOSED" },
+      data: {
+        status: "OPEN",
+        cashIncomeTotal: ZERO,
+        cashExpenseTotal: ZERO,
+        cashWithdrawalTotal: ZERO,
+        cashDepositTotal: ZERO,
+        cashAdjustmentTotal: ZERO,
+        expectedClosingCash: null,
+        closingActualCash: null,
+        closingDifference: null,
+        closingNote: null,
+        closedByUserId: null,
+        closedAt: null,
+        finalBookBalance: null,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.actorUserId,
+        targetType: "CashDrawerSession",
+        targetId: session.id,
+        action: "REOPEN",
+        beforeJson,
+        afterJson: { status: "OPEN", reason },
+      },
+    });
+
+    return reopened;
+  });
+}
