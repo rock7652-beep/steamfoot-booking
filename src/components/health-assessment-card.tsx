@@ -11,17 +11,11 @@
  */
 
 import type { HealthSummary } from "@/lib/health-service";
-import { getHealthAssessmentUrl } from "@/lib/health-assessment";
-
 interface HealthAssessmentCardProps {
   summary: HealthSummary;
-  customerId?: string | null;
 }
 
-export function HealthAssessmentCard({
-  summary,
-  customerId,
-}: HealthAssessmentCardProps) {
+export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
   const latest = summary.latest;
   if (!latest) {
     // 不應發生（getHealthCardData 已 gate `!summary.latest`），保險空態
@@ -56,16 +50,6 @@ export function HealthAssessmentCard({
           <h3 className="text-lg font-bold text-earth-900">AI 健康評估</h3>
           <p className="mt-1 text-sm text-earth-700">最近一次量測摘要</p>
         </div>
-        {customerId && (
-          <a
-            href={getHealthAssessmentUrl(customerId)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex min-h-[44px] items-center rounded-md px-2 text-sm font-semibold text-primary-700 hover:bg-earth-50 hover:underline"
-          >
-            查看完整評估 &rarr;
-          </a>
-        )}
       </div>
 
       {/* Official score (HealthFlow PR #5) — 有官方分數才顯示，沒回則整段省略 */}
@@ -120,11 +104,10 @@ export function HealthAssessmentCard({
         </div>
       )}
 
-      {/* 引導語 — 沒官方分數時提示去 HealthFlow 看；有官方分數時改提資料來源 */}
       <p className="text-[11px] leading-relaxed text-earth-500">
         {official
-          ? "資料來源：HealthFlow AI 健康評估；點「查看完整評估」看完整報告與建議。"
-          : "完整健康分數與評估，請點「查看完整評估」前往 HealthFlow 原站。"}
+          ? "評估結果已整合至蒸管家；資料由 HealthFlow 評估引擎產生。"
+          : "量測資料已保存；待評估資料完整後，將於此顯示健康分數與建議。"}
       </p>
     </div>
   );

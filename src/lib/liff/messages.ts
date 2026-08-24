@@ -277,7 +277,7 @@ export const liffMessages = {
     /** @deprecated PR-H2c 後不顯示 self-computed score；留 key 避免別處意外引用報錯 */
     scoreSuffix: "/ 100",
     /** PR-H2c：在最近量測卡底下提示「正式分數請至 HealthFlow」（fallback 用，當 HealthFlow API 沒回 official score 時顯示） */
-    scoreOnHealthFlowHint: "完整健康分數與評估，請點下方「查看完整評估」前往 HealthFlow 原站。",
+    scoreOnHealthFlowHint: "完整健康分數與評估會直接顯示在蒸管家，不需前往外部網站。",
     /** PR feat/liff-health-official-score：官方分數卡底下資料來源歸屬 */
     officialScoreAttribution: "資料來源：HealthFlow AI 健康評估",
 
@@ -303,21 +303,21 @@ export const liffMessages = {
     // 未綁定 / 找不到對應帳號
     notLinkedTitle: "尚未完成 AI 健康評估",
     notLinkedUnlinkedBody:
-      "您目前尚未建立 AI 健康評估資料。點擊下方按鈕，可在 AI 健康評估系統中完成評估，幫助店家更了解您的身體狀況。",
+      "您目前尚未建立健康評估資料。點擊下方按鈕，即可在蒸管家完成第一次量測。",
     notLinkedNotFoundBody:
-      "目前查無對應的健康評估資料。可能是您使用了不同的 Email 或手機號碼建立帳號，或尚未完成評估。請點下方開始 AI 健康評估，或聯繫店家協助。",
+      "目前查無對應的健康評估資料。您可以直接在蒸管家新增量測；若曾有舊紀錄但未顯示，請聯繫店家協助核對。",
     notLinkedErrorBody:
       "AI 健康評估連結暫時無法載入，請稍後再試，或聯繫店家協助處理。",
 
     // CTAs
-    /** primary CTA — 跳轉外部 HealthFlow */
+    /** primary CTA — 蒸管家站內量測 */
     startHealthFlowCta: "開始 AI 健康評估",
     /** CTA loading — 產生 SteamFoot signed bridge state */
     linkStartLoading: "正在前往 AI 健康評估…",
     /** CTA error — signed bridge state could not be created */
     linkStartFailed: "暫時無法前往 AI 健康評估，請稍後再試或聯繫店家協助。",
-    /** outline CTA — 已綁定狀態下，跳轉外部完整評估系統 */
-    viewFullCta: "查看完整評估 ↗",
+    /** outline CTA — 已綁定狀態下，查看蒸管家完整評估 */
+    viewFullCta: "查看完整評估",
     /** LINE-green CTA */
     contactStoreCta: "聯絡店家",
     /** outline CTA — 回 LIFF 首頁 */

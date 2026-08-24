@@ -7,7 +7,6 @@ import Link from "next/link";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { HealthflowEntryButton } from "./healthflow-entry-button";
 
 /**
  * 顧客 Web 健康評估頁（PR-Frontend-2）
@@ -22,12 +21,17 @@ import { HealthflowEntryButton } from "./healthflow-entry-button";
  * 權限：沿用 (customer)/layout.tsx 的 role/store/完成註冊 gate。
  * AI 健康評估入口與摘要共用 `ai_health_summary` 店舖功能開關。
  */
-export default async function HealthPage() {
+export default async function HealthPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
 
   const storeCtx = await getStoreContext();
   const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
+  const { saved } = await searchParams;
 
   if (
     !storeCtx?.storeId ||
@@ -59,8 +63,18 @@ export default async function HealthPage() {
     <div>
       <HealthPageHeader prefix={prefix} />
 
-      {/* 前往量測（主按鈕，signed bridge entry；不直接傳 customerId 給 HealthFlow） */}
-      <HealthflowEntryButton storeSlug={storeCtx.storeSlug} />
+      {saved === "1" && (
+        <div role="status" className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800">
+          量測已儲存，以下是最新評估結果。
+        </div>
+      )}
+
+      <Link
+        href={`${prefix}/health/new`}
+        className="mb-5 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-primary-600 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+      >
+        新增量測
+      </Link>
 
       {/* 簡易數據卡 — 不傳 customerId 以隱藏卡片內重複的「查看完整評估」連結 */}
       {healthCard.available ? (
