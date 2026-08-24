@@ -4,6 +4,8 @@ import {
   resolveStoreSlugForLiff,
 } from "@/lib/store-resolver";
 import { liffMessages } from "@/lib/liff/messages";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import { LiffShell } from "./liff-shell";
 
 /**
@@ -40,6 +42,10 @@ export default async function LiffEntryPage() {
   if (!presentation.liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
+  const healthAssessmentEnabled = await hasStoreFeature(
+    presentation.id,
+    FEATURES.AI_HEALTH_SUMMARY,
+  ).catch(() => false);
 
   return (
     <LiffShell
@@ -47,6 +53,7 @@ export default async function LiffEntryPage() {
       storeSlug={presentation.slug}
       liffId={presentation.liffId}
       contactUrl={presentation.contactUrl}
+      healthAssessmentEnabled={healthAssessmentEnabled}
     />
   );
 }

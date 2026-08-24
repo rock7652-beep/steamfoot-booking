@@ -8,6 +8,7 @@ import {
   CentralMemberStoreSwitcher,
   type CustomerStoreOption,
 } from "./central-member-store-switcher";
+import { getCustomerPortalNavItems } from "@/lib/customer-portal-navigation";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 與桌面版 sidebar 共用同一套
 const ICON_PATHS: Record<string, string[]> = {
@@ -70,30 +71,25 @@ function NavIcon({ name, className = "" }: { name: string; className?: string })
   );
 }
 
-// 主選單 5 項：首頁 / 預約與方案（含購買方案 tab）/ 我的好康 / 健康評估 / 我的資料
-const NAV_ITEMS_BASE = [
-  { href: "/book", label: "首頁", icon: "home" },
-  { href: "/my-bookings", label: "預約與方案", icon: "calendar" },
-  { href: "/my-referrals", label: "我的好康", icon: "trophy" },
-  { href: "/health", label: "健康評估", icon: "heart" },
-  { href: "/profile", label: "我的資料", icon: "user" },
-];
-
 export function MobileNav({
   userName,
   pathname,
   storeName,
   storeSlug = "zhubei",
   stores,
+  healthAssessmentEnabled,
 }: {
   userName: string;
   pathname: string;
   storeName: string;
   storeSlug?: string;
   stores: CustomerStoreOption[];
+  healthAssessmentEnabled: boolean;
 }) {
   const prefix = `/s/${storeSlug}`;
-  const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({
+  const navItems = getCustomerPortalNavItems({
+    healthAssessmentEnabled,
+  }).map((item) => ({
     ...item,
     fullHref: `${prefix}${item.href}`,
   }));
@@ -157,7 +153,7 @@ export function MobileNav({
         </div>
 
         <div className="px-3 py-3">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive =
               item.href === "/book"
                 ? pathname === "/book"

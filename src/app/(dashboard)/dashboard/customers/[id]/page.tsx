@@ -60,6 +60,8 @@ import { HealthStatusBody } from "./_components/health-status-card";
 import { LineBindingSection } from "./line-binding-section";
 import { getLineConfigForStore } from "@/lib/line-config";
 import { RecentRecordsTabs } from "./recent-records-tabs";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 
 const TX_TYPE_LABEL: Record<string, string> = {
   TRIAL_PURCHASE: "體驗購買",
@@ -148,7 +150,15 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   const effectiveStoreId = customer.storeId;
 
-  const [plans, staffOptions, canDiscount, canAdjustWallet, perksSummary, shopConfig] = await Promise.all([
+  const [
+    plans,
+    staffOptions,
+    canDiscount,
+    canAdjustWallet,
+    perksSummary,
+    shopConfig,
+    healthAssessmentEnabled,
+  ] = await Promise.all([
     withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
       console.error("[customer-detail] plans query failed", {
         ...logCtx,
@@ -179,6 +189,9 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       where: { storeId: effectiveStoreId },
       select: { bookableUntilDate: true },
     }),
+    hasStoreFeature(effectiveStoreId, FEATURES.AI_HEALTH_SUMMARY).catch(
+      () => false,
+    ),
   ]);
 
   timer.finish();
@@ -755,18 +768,20 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               </div>
             )}
 
-            {/* HealthFlow 連結狀態（DB-only；零 API call；方案 A）*/}
-            <div className="mt-3 border-t border-earth-100 pt-3">
-              <p className="mb-2 text-[11px] font-semibold text-earth-600">
-                AI 健康評估
-              </p>
-              <HealthStatusBody
-                customerId={id}
-                healthProfileId={customer.healthProfileId ?? null}
-                healthLinkStatus={customer.healthLinkStatus}
-                healthSyncedAt={customer.healthSyncedAt ?? null}
-              />
-            </div>
+            {/* 單店健康功能關閉時，後台入口也完整隱藏；既有資料不刪除。 */}
+            {healthAssessmentEnabled && (
+              <div className="mt-3 border-t border-earth-100 pt-3">
+                <p className="mb-2 text-[11px] font-semibold text-earth-600">
+                  健康評估
+                </p>
+                <HealthStatusBody
+                  customerId={id}
+                  healthProfileId={customer.healthProfileId ?? null}
+                  healthLinkStatus={customer.healthLinkStatus}
+                  healthSyncedAt={customer.healthSyncedAt ?? null}
+                />
+              </div>
+            )}
           </SideCard>
 
           {/* Basic info — 緊湊兩欄 */}
