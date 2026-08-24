@@ -87,11 +87,15 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
         </label>
         <label className="min-w-0">
           <span className="mb-1 block text-xs font-medium text-earth-600">開始日期</span>
-          <input type="date" name="from" defaultValue={params.from} className="block min-h-10 w-full min-w-0 max-w-full rounded-md border border-earth-200 px-3 text-sm" />
+          <span className="block w-full min-w-0 max-w-full overflow-hidden rounded-md border border-earth-200">
+            <input type="date" name="from" defaultValue={params.from} className="block min-h-10 w-full min-w-0 max-w-full appearance-none border-0 bg-white px-3 text-sm" />
+          </span>
         </label>
         <label className="min-w-0">
           <span className="mb-1 block text-xs font-medium text-earth-600">結束日期</span>
-          <input type="date" name="to" defaultValue={params.to} className="block min-h-10 w-full min-w-0 max-w-full rounded-md border border-earth-200 px-3 text-sm" />
+          <span className="block w-full min-w-0 max-w-full overflow-hidden rounded-md border border-earth-200">
+            <input type="date" name="to" defaultValue={params.to} className="block min-h-10 w-full min-w-0 max-w-full appearance-none border-0 bg-white px-3 text-sm" />
+          </span>
         </label>
         <label className="min-w-0">
           <span className="mb-1 block text-xs font-medium text-earth-600">有量測的項目</span>
