@@ -4,12 +4,18 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdminSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
-import { handleActionError } from "@/lib/errors";
+import { AppError, handleActionError } from "@/lib/errors";
 import { revalidateDutyScheduling, revalidateShopConfig } from "@/lib/revalidation";
 import type { PricingPlan } from "@prisma/client";
 import type { ActionResult } from "@/types";
 import { resolveWriteStoreId } from "@/lib/store";
-import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
+import {
+  bookingDateToday,
+  formatDateZh,
+  parseTaipeiDateTime,
+  parseTaiwanDateToDbDate,
+  toLocalDateStr,
+} from "@/lib/date-utils";
 import { updateTag, revalidatePath } from "next/cache";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 
@@ -191,6 +197,33 @@ const updateBookableUntilDateSchema = z.object({
     .nullable(),
 });
 
+async function assertNoActiveBookingAfter(storeId: string, closesAt: Date): Promise<void> {
+  const bookings = await prisma.booking.findMany({
+    where: {
+      storeId,
+      bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+      bookingDate: { gte: bookingDateToday() },
+    },
+    select: { bookingDate: true, slotTime: true },
+    orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
+  });
+
+  const affected = bookings.find((booking) => {
+    // bookingDate 是 PostgreSQL DATE，Prisma 固定回傳 UTC 午夜；取 UTC 日期字串是安全的。
+    const date = booking.bookingDate.toISOString().slice(0, 10);
+    const startsAt = parseTaipeiDateTime(date, booking.slotTime);
+    return startsAt ? startsAt > closesAt : false;
+  });
+
+  if (!affected) return;
+
+  const affectedDate = affected.bookingDate.toISOString().slice(0, 10);
+  throw new AppError(
+    "BUSINESS_RULE",
+    `${formatDateZh(affectedDate)} ${affected.slotTime} 已有預約，請將開放截止日期設在該預約之後`,
+  );
+}
+
 export async function updateBookableUntilDate(
   input: z.infer<typeof updateBookableUntilDateSchema>
 ): Promise<ActionResult<void>> {
@@ -199,12 +232,24 @@ export async function updateBookableUntilDate(
     const { date } = updateBookableUntilDateSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
 
-    const value = date ? parseTaiwanDateToDbDate(date) : null;
+    if (!date) {
+      throw new AppError("VALIDATION", "請選擇開放預約的截止日期");
+    }
+    if (date < toLocalDateStr()) {
+      throw new AppError("VALIDATION", "開放截止日期不可早於今天");
+    }
+
+    const value = parseTaiwanDateToDbDate(date);
+    const dayEnd = parseTaipeiDateTime(date, "23:59");
+    if (!dayEnd) {
+      throw new AppError("VALIDATION", "開放截止日期格式有誤");
+    }
+    await assertNoActiveBookingAfter(storeId, new Date(dayEnd.getTime() + 59_999));
 
     await prisma.shopConfig.upsert({
       where: { storeId },
-      create: { storeId, bookableUntilDate: value },
-      update: { bookableUntilDate: value },
+      create: { storeId, bookableUntilDate: value, bookingOpensAt: null },
+      update: { bookableUntilDate: value, bookingOpensAt: null },
     });
 
     revalidateShopConfig();
@@ -228,6 +273,10 @@ export async function updateCustomerBookingWindow(
     const user = await requirePermission("business_hours.manage");
     const { opensAt, days } = updateCustomerBookingWindowSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
+    await assertNoActiveBookingAfter(
+      storeId,
+      new Date(Date.now() + days * 24 * 60 * 60 * 1000),
+    );
     await prisma.shopConfig.upsert({
       where: { storeId },
       create: {
