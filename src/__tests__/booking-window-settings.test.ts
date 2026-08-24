@@ -139,6 +139,7 @@ describe("店長介面文案", () => {
     expect(source).toContain("開放至指定日期");
     expect(source).toContain("自動開放未來幾天");
     expect(source).toContain("目前開放預約至");
+    expect(source).not.toContain("直覺設定");
     expect(source).not.toContain("預約功能何時啟用？");
     expect(source).not.toContain("於指定日期時間啟用");
   });

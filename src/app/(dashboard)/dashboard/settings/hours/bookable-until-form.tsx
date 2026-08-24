@@ -84,9 +84,6 @@ export function BookableUntilForm({
               onChange={() => setMode("fixed")}
             />
             開放至指定日期
-            <span className="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] text-primary-700">
-              直覺設定
-            </span>
           </span>
           {mode === "fixed" && (
             <input
