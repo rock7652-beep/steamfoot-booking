@@ -20,6 +20,8 @@ describe("health dashboard responsive contract", () => {
   it("allows filter controls and page header actions to shrink on mobile", () => {
     expect(healthPage).toContain("grid min-w-0 gap-3");
     expect(healthPage).toContain("w-full min-w-0 max-w-full");
+    expect(healthPage).toContain("overflow-hidden rounded-md border");
+    expect(healthPage).toContain("appearance-none border-0");
     expect(pageHeader).toContain("flex-col");
     expect(pageHeader).toContain("sm:flex-row");
   });
