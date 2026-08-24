@@ -67,10 +67,14 @@ export async function getNativeHealthSummary(
   const trend = records.slice().reverse().map((row) => ({
     measuredAt: row.measuredAt.toISOString().slice(0, 10),
     weight: row.weight,
-    bodyFat: row.bodyFat,
     bmi: row.bmi,
+    bodyFat: row.bodyFat,
     muscleMass: row.muscleMass,
+    boneMass: row.boneMass,
     visceralFat: row.visceralFat,
+    bmr: row.bmr,
+    bodyWater: row.bodyWater,
+    metabolicAge: row.metabolicAge,
   }));
 
   return {
