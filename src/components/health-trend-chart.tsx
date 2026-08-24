@@ -12,14 +12,27 @@ import {
 } from "recharts";
 import type { TrendPoint } from "@/lib/health-service";
 
-type MetricKey = "weight" | "bodyFat" | "muscleMass" | "bmi" | "visceralFat";
+type MetricKey =
+  | "weight"
+  | "bmi"
+  | "bodyFat"
+  | "muscleMass"
+  | "boneMass"
+  | "visceralFat"
+  | "bmr"
+  | "bodyWater"
+  | "metabolicAge";
 
 const METRICS: Array<{ key: MetricKey; label: string; unit: string }> = [
   { key: "weight", label: "體重", unit: "kg" },
+  { key: "bmi", label: "BMI", unit: "" },
   { key: "bodyFat", label: "體脂肪", unit: "%" },
   { key: "muscleMass", label: "肌肉量", unit: "kg" },
-  { key: "bmi", label: "BMI", unit: "" },
+  { key: "boneMass", label: "骨量", unit: "kg" },
   { key: "visceralFat", label: "內臟脂肪", unit: "" },
+  { key: "bmr", label: "基礎代謝", unit: "kcal" },
+  { key: "bodyWater", label: "體水分", unit: "%" },
+  { key: "metabolicAge", label: "體內年齡", unit: "歲" },
 ];
 
 export function HealthTrendChart({ trend }: { trend: TrendPoint[] }) {
