@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   import:
-    name: ${{ inputs.mode || 'dry-run' }} confirmed HealthFlow history
+    name: confirmed HealthFlow history import
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: Production – steamfoot-booking
@@ -82,7 +82,7 @@ jobs:
         run: npx tsx scripts/import-healthflow-records.ts --expected-records=431
 
       - name: Import and transactionally verify 431 confirmed records
-        if: inputs.mode == 'execute'
+        if: github.event_name == 'push' || inputs.mode == 'execute'
         run: >-
           npx tsx scripts/import-healthflow-records.ts
           --execute
