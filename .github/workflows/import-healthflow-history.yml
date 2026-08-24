@@ -15,11 +15,6 @@ on:
         description: For execute, enter IMPORT_431_CONFIRMED_HEALTHFLOW_RECORDS
         required: false
         type: string
-  push:
-    branches:
-      - codex/native-health-assessment
-    paths:
-      - .github/workflows/import-healthflow-history.yml
 
 permissions:
   contents: read
@@ -30,7 +25,7 @@ concurrency:
 
 jobs:
   import:
-    name: confirmed HealthFlow history import
+    name: ${{ inputs.mode }} confirmed HealthFlow history
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: Production – steamfoot-booking
@@ -82,7 +77,7 @@ jobs:
         run: npx tsx scripts/import-healthflow-records.ts --expected-records=431
 
       - name: Import and transactionally verify 431 confirmed records
-        if: github.event_name == 'push' || inputs.mode == 'execute'
+        if: inputs.mode == 'execute'
         run: >-
           npx tsx scripts/import-healthflow-records.ts
           --execute
