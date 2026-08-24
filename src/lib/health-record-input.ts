@@ -16,6 +16,7 @@ export const healthRecordInputSchema = z
     requestId: z.string().uuid("請重新整理頁面後再試"),
     measuredAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "量測日期格式不正確"),
     weight: optionalMetric("體重", 20, 300),
+    bmi: optionalMetric("BMI", 5, 100),
     bodyFat: optionalMetric("體脂肪", 1, 70),
     muscleMass: optionalMetric("肌肉量", 5, 80),
     boneMass: optionalMetric("骨量", 0.5, 8),
@@ -28,6 +29,7 @@ export const healthRecordInputSchema = z
   .superRefine((value, ctx) => {
     const hasMetric = [
       value.weight,
+      value.bmi,
       value.bodyFat,
       value.muscleMass,
       value.boneMass,
@@ -53,6 +55,7 @@ export function healthRecordFormData(formData: FormData) {
     requestId: formData.get("requestId"),
     measuredAt: formData.get("measuredAt"),
     weight: formData.get("weight"),
+    bmi: formData.get("bmi"),
     bodyFat: formData.get("bodyFat"),
     muscleMass: formData.get("muscleMass"),
     boneMass: formData.get("boneMass"),
