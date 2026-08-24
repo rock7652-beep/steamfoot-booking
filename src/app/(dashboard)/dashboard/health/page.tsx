@@ -80,22 +80,22 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
         }
       />
 
-      <form method="get" className="grid gap-3 rounded-xl border border-earth-200 bg-white p-4 md:grid-cols-5">
-        <label className="md:col-span-2">
+      <form method="get" className="grid min-w-0 gap-3 rounded-xl border border-earth-200 bg-white p-4 md:grid-cols-5">
+        <label className="min-w-0 md:col-span-2">
           <span className="mb-1 block text-xs font-medium text-earth-600">顧客姓名或電話</span>
-          <input name="search" defaultValue={params.search} placeholder="輸入姓名或電話" className="min-h-10 w-full rounded-md border border-earth-200 px-3 text-sm" />
+          <input name="search" defaultValue={params.search} placeholder="輸入姓名或電話" className="min-h-10 w-full min-w-0 max-w-full rounded-md border border-earth-200 px-3 text-sm" />
         </label>
-        <label>
+        <label className="min-w-0">
           <span className="mb-1 block text-xs font-medium text-earth-600">開始日期</span>
-          <input type="date" name="from" defaultValue={params.from} className="min-h-10 w-full rounded-md border border-earth-200 px-3 text-sm" />
+          <input type="date" name="from" defaultValue={params.from} className="block min-h-10 w-full min-w-0 max-w-full rounded-md border border-earth-200 px-3 text-sm" />
         </label>
-        <label>
+        <label className="min-w-0">
           <span className="mb-1 block text-xs font-medium text-earth-600">結束日期</span>
-          <input type="date" name="to" defaultValue={params.to} className="min-h-10 w-full rounded-md border border-earth-200 px-3 text-sm" />
+          <input type="date" name="to" defaultValue={params.to} className="block min-h-10 w-full min-w-0 max-w-full rounded-md border border-earth-200 px-3 text-sm" />
         </label>
-        <label>
+        <label className="min-w-0">
           <span className="mb-1 block text-xs font-medium text-earth-600">有量測的項目</span>
-          <select name="metric" defaultValue={metric ?? ""} className="min-h-10 w-full rounded-md border border-earth-200 px-3 text-sm">
+          <select name="metric" defaultValue={metric ?? ""} className="min-h-10 w-full min-w-0 max-w-full rounded-md border border-earth-200 px-3 text-sm">
             <option value="">全部</option>
             {METRICS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
@@ -107,7 +107,40 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
       </form>
 
       <div className="text-xs text-earth-500">共 {result.total} 筆量測紀錄</div>
-      <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
+      <div className="grid gap-3 md:hidden">
+        {result.records.map((record) => (
+          <article key={record.id} className="min-w-0 rounded-xl border border-earth-200 bg-white p-4">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link href={`/dashboard/customers/${record.customer.id}`} className="block truncate font-semibold text-earth-900 hover:text-primary-700">
+                  {record.customer.name}
+                </Link>
+                <div className="mt-0.5 truncate text-xs text-earth-500">{record.customer.phone ?? "—"}</div>
+              </div>
+              <time className="shrink-0 text-sm font-medium tabular-nums text-earth-700">
+                {record.measuredAt.toISOString().slice(0, 10)}
+              </time>
+            </div>
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+              <MobileMetric label="體重" value={record.weight} unit="kg" />
+              <MobileMetric label="BMI" value={record.bmi} />
+              <MobileMetric label="體脂肪" value={record.bodyFat} unit="%" />
+              <MobileMetric label="肌肉量" value={record.muscleMass} unit="kg" />
+              <MobileMetric label="骨量" value={record.boneMass} unit="kg" />
+              <MobileMetric label="內臟脂肪" value={record.visceralFat} />
+              <MobileMetric label="基礎代謝" value={record.bmr} unit="kcal" />
+              <MobileMetric label="體水分" value={record.bodyWater} unit="%" />
+              <MobileMetric label="體內年齡" value={record.metabolicAge} unit="歲" />
+            </dl>
+          </article>
+        ))}
+        {result.records.length === 0 && (
+          <div className="rounded-xl border border-earth-200 bg-white px-4 py-12 text-center text-sm text-earth-500">
+            找不到符合條件的量測紀錄
+          </div>
+        )}
+      </div>
+      <div className="hidden min-w-0 max-w-full overflow-x-auto rounded-xl border border-earth-200 bg-white md:block">
         <table className="min-w-[1320px] w-full text-left text-sm">
           <thead className="bg-earth-50 text-xs text-earth-600">
             <tr>
@@ -146,6 +179,17 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
 
 function Metric({ value, unit = "" }: { value: number | null; unit?: string }) {
   return <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{value == null ? "—" : `${value}${unit}`}</td>;
+}
+
+function MobileMetric({ label, value, unit = "" }: { label: string; value: number | null; unit?: string }) {
+  return (
+    <div className="min-w-0 border-t border-earth-100 pt-2">
+      <dt className="text-[11px] text-earth-500">{label}</dt>
+      <dd className="mt-0.5 truncate text-sm font-medium tabular-nums text-earth-800">
+        {value == null ? "—" : `${value}${unit}`}
+      </dd>
+    </div>
+  );
 }
 
 function pageHref(params: Awaited<PageProps["searchParams"]>, page: number) {
