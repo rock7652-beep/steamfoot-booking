@@ -81,4 +81,4 @@ jobs:
             fi
             echo '~~~'
           } > pilot-comment.md
-          gh api repos/${{ github.repository }}/issues/767/comments -F body=@pilot-comment.md
+          gh api repos/${{ github.repository }}/issues/770/comments -F body=@pilot-comment.md
