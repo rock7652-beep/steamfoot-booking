@@ -35,3 +35,7 @@ ALTER TABLE "CustomerHealthRecord"
 ALTER TABLE "CustomerHealthRecord"
   ADD CONSTRAINT "CustomerHealthRecord_customerId_fkey"
   FOREIGN KEY ("customerId") REFERENCES "Customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- 健康資料不可透過 Supabase anon/authenticated REST 直接存取。
+-- 應用程式只經由受 LINE/session、門店與權限檢查保護的 server-side Prisma 查詢。
+ALTER TABLE "CustomerHealthRecord" ENABLE ROW LEVEL SECURITY;
