@@ -104,6 +104,34 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
         </div>
       )}
 
+      {summary.trend.length > 0 && (
+        <div className="mb-4 border-t border-earth-100 pt-4">
+          <h4 className="text-sm font-semibold text-earth-900">近期量測紀錄</h4>
+          <div className="mt-2 divide-y divide-earth-100 rounded-xl border border-earth-100">
+            {[...summary.trend].reverse().map((record, index) => (
+              <div
+                key={`${record.measuredAt}-${index}`}
+                className="flex items-center justify-between gap-3 px-3 py-2.5 text-xs"
+              >
+                <span className="font-medium text-earth-800">
+                  {formatDate(record.measuredAt)}
+                </span>
+                <span className="text-right text-earth-600">
+                  {record.weight != null ? `${record.weight} kg` : "體重 —"}
+                  <span className="mx-1.5 text-earth-300">·</span>
+                  {record.bodyFat != null ? `體脂 ${record.bodyFat}%` : "體脂 —"}
+                </span>
+              </div>
+            ))}
+          </div>
+          {summary.meta.totalRecords > summary.trend.length && (
+            <p className="mt-2 text-right text-[11px] text-earth-500">
+              目前顯示最近 {summary.trend.length} 筆，共 {summary.meta.totalRecords} 筆紀錄
+            </p>
+          )}
+        </div>
+      )}
+
       <p className="text-[11px] leading-relaxed text-earth-500">
         {official
           ? "評估結果已整合至蒸管家；資料由 HealthFlow 評估引擎產生。"
