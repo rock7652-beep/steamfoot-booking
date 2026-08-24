@@ -7,9 +7,10 @@
  *   ... npx tsx scripts/import-healthflow-records.ts --execute --confirm-native-health-import
  *
  * 只依既有、已確認的 Customer.healthProfileId 對應；
- * 不使用姓名、電話等模糊比對，無法唯一確認的資料保留在報告中人工處理。
+ * 電話只產生去識別化的人工複核統計，不會自動綁定或匯入。
  */
 import { PrismaClient } from "@prisma/client";
+import { reconcileHealthflowImport } from "../src/lib/healthflow-import-reconciliation";
 
 const prisma = new PrismaClient();
 const execute = process.argv.includes("--execute");
@@ -17,7 +18,11 @@ const confirmed = process.argv.includes("--confirm-native-health-import");
 const baseUrl = process.env.HEALTHFLOW_SUPABASE_URL?.replace(/\/$/, "");
 const serviceKey = process.env.HEALTHFLOW_SERVICE_ROLE_KEY;
 
-type ProfileRow = { id: string };
+type ProfileRow = {
+  id: string;
+  phone: string | null;
+  phone_normalized: string | null;
+};
 type BodyRecordRow = {
   id: string;
   user_id: string;
@@ -63,34 +68,38 @@ async function main() {
   const [customers, profiles, records] = await Promise.all([
     prisma.customer.findMany({
       where: { mergedIntoCustomerId: null },
-      select: { id: true, storeId: true, healthProfileId: true },
+      select: { id: true, storeId: true, healthProfileId: true, phone: true },
     }),
     // 正式 HealthFlow schema 沒有 steamfoot_customer_id；唯一自動對應來源是
     // 蒸管家既有、已人工／流程確認過的 Customer.healthProfileId。
-    fetchAll<ProfileRow>("profiles", "id"),
+    fetchAll<ProfileRow>("profiles", "id,phone,phone_normalized"),
     fetchAll<BodyRecordRow>(
       "body_records",
       "id,user_id,measured_at,weight,bmi,body_fat,muscle_mass,bone_mass,visceral_fat,bmr,body_water,metabolic_age,note",
     ),
   ]);
 
-  const profileToCustomer = new Map<string, (typeof customers)[number]>();
-  for (const customer of customers) {
-    if (customer.healthProfileId) profileToCustomer.set(customer.healthProfileId, customer);
-  }
-  const matched = records.filter((record) => profileToCustomer.has(record.user_id));
-  const unmatchedProfileIds = new Set(
-    records.filter((record) => !profileToCustomer.has(record.user_id)).map((record) => record.user_id),
+  const reconciliation = reconcileHealthflowImport(
+    customers,
+    profiles.map((profile) => ({
+      id: profile.id,
+      phone: profile.phone,
+      phoneNormalized: profile.phone_normalized,
+    })),
+    records.map((record) => ({ userId: record.user_id })),
   );
+  const profileToCustomer = reconciliation.confirmedProfileToCustomer;
+  const matched = records.filter((record) => profileToCustomer.has(record.user_id));
 
   console.log(JSON.stringify({
     mode: execute ? "execute" : "dry-run",
-    sourceProfiles: profiles.length,
-    sourceRecords: records.length,
-    matchedRecords: matched.length,
-    unmatchedRecords: records.length - matched.length,
-    unmatchedProfiles: unmatchedProfileIds.size,
+    ...reconciliation.summary,
+    safety: "phoneReview candidates are report-only and are never auto-linked or imported",
   }, null, 2));
+
+  if (reconciliation.summary.duplicateConfirmedProfileIds > 0) {
+    throw new Error("偵測到重複 healthProfileId，已停止匯入以避免錯綁");
+  }
 
   if (!execute) return;
 
