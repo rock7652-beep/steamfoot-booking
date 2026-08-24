@@ -7,7 +7,8 @@
  *   ... npx tsx scripts/import-healthflow-records.ts --execute --confirm-native-health-import
  *
  * 只依既有、已確認的 Customer.healthProfileId 對應；
- * 電話只產生去識別化的人工複核統計，不會自動綁定或匯入。
+ * 電話、姓名、email、生日與店別只產生去識別化的人工複核統計，
+ * 不會自動綁定或匯入。
  */
 import { PrismaClient } from "@prisma/client";
 import { reconcileHealthflowImport } from "../src/lib/healthflow-import-reconciliation";
@@ -20,9 +21,14 @@ const serviceKey = process.env.HEALTHFLOW_SERVICE_ROLE_KEY;
 
 type ProfileRow = {
   id: string;
+  full_name: string | null;
   phone: string | null;
   phone_normalized: string | null;
+  email: string | null;
+  birth_date: string | null;
+  store_id: string | null;
 };
+type StoreRow = { id: string; name: string };
 type BodyRecordRow = {
   id: string;
   user_id: string;
@@ -65,26 +71,60 @@ async function main() {
     throw new Error("寫入模式必須同時提供 --execute --confirm-native-health-import");
   }
 
-  const [customers, profiles, records] = await Promise.all([
+  const [customers, profiles, healthflowStores, records] = await Promise.all([
     prisma.customer.findMany({
       where: { mergedIntoCustomerId: null },
-      select: { id: true, storeId: true, healthProfileId: true, phone: true },
+      select: {
+        id: true,
+        storeId: true,
+        healthProfileId: true,
+        phone: true,
+        name: true,
+        email: true,
+        birthday: true,
+        store: { select: { slug: true } },
+      },
     }),
     // 正式 HealthFlow schema 沒有 steamfoot_customer_id；唯一自動對應來源是
     // 蒸管家既有、已人工／流程確認過的 Customer.healthProfileId。
-    fetchAll<ProfileRow>("profiles", "id,phone,phone_normalized"),
+    fetchAll<ProfileRow>(
+      "profiles",
+      "id,full_name,phone,phone_normalized,email,birth_date,store_id",
+    ),
+    fetchAll<StoreRow>("stores", "id,name"),
     fetchAll<BodyRecordRow>(
       "body_records",
       "id,user_id,measured_at,weight,bmi,body_fat,muscle_mass,bone_mass,visceral_fat,bmr,body_water,metabolic_age,note",
     ),
   ]);
 
+  const healthflowStoreNames = new Map(
+    healthflowStores.map((store) => [store.id, store.name]),
+  );
+  const healthflowStoreToSteamfootSlug: Record<string, string> = {
+    以斯帖蒸足: "hsinchu",
+    暖暖蒸足: "zhubei",
+    暖沐蒸足: "taichung",
+  };
+
   const reconciliation = reconcileHealthflowImport(
-    customers,
+    customers.map((customer) => ({
+      ...customer,
+      birthDate: customer.birthday,
+      storeKey: customer.store.slug,
+    })),
     profiles.map((profile) => ({
       id: profile.id,
       phone: profile.phone,
       phoneNormalized: profile.phone_normalized,
+      fullName: profile.full_name,
+      email: profile.email,
+      birthDate: profile.birth_date,
+      storeKey: profile.store_id
+        ? healthflowStoreToSteamfootSlug[
+            healthflowStoreNames.get(profile.store_id) ?? ""
+          ] ?? null
+        : null,
     })),
     records.map((record) => ({ userId: record.user_id })),
   );
@@ -94,11 +134,14 @@ async function main() {
   console.log(JSON.stringify({
     mode: execute ? "execute" : "dry-run",
     ...reconciliation.summary,
-    safety: "phoneReview candidates are report-only and are never auto-linked or imported",
+    safety: "all review candidates are report-only and are never auto-linked or imported",
   }, null, 2));
 
   if (reconciliation.summary.duplicateConfirmedProfileIds > 0) {
     throw new Error("偵測到重複 healthProfileId，已停止匯入以避免錯綁");
+  }
+  if (reconciliation.summary.missingSourceProfiles > 0) {
+    throw new Error("量測紀錄引用不存在的 HealthFlow profile，已停止匯入");
   }
 
   if (!execute) return;
