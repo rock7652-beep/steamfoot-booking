@@ -7,11 +7,12 @@ import {
 } from "@/server/actions/customer-health-record";
 
 const fields = [
-  ["visceralFat", "內臟脂肪", "", "1"],
   ["weight", "體重", "kg", "0.1"],
+  ["bmi", "BMI", "", "0.1"],
   ["bodyFat", "體脂肪", "%", "0.1"],
   ["muscleMass", "肌肉量", "kg", "0.1"],
   ["boneMass", "骨量", "kg", "0.1"],
+  ["visceralFat", "內臟脂肪", "", "1"],
   ["bmr", "基礎代謝", "kcal", "1"],
   ["bodyWater", "體水分", "%", "0.1"],
   ["metabolicAge", "體內年齡", "歲", "1"],
@@ -68,6 +69,10 @@ export function HealthRecordForm({ requestId, today }: { requestId: string; toda
             </div>
           ))}
         </div>
+
+        <p className="mt-3 text-xs leading-relaxed text-earth-500">
+          BMI 可直接填入量測儀器數值；未填時，系統會在有身高與體重資料時自動計算。
+        </p>
 
         <label htmlFor="note" className="mt-5 block text-sm font-semibold text-earth-900">
           備註（選填）
