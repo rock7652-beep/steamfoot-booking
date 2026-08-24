@@ -74,7 +74,7 @@ export async function saveCustomerHealthRecord(
   try {
     await prisma.customerHealthRecord.upsert({
       where: {
-        source_sourceRecordId: {
+        uq_health_source_record: {
           source: "STEAMFOOT",
           sourceRecordId: parsed.data.requestId,
         },

@@ -104,7 +104,7 @@ async function main() {
   for (const record of matched) {
     const customer = profileToCustomer.get(record.user_id)!;
     await prisma.customerHealthRecord.upsert({
-      where: { source_sourceRecordId: { source: "HEALTHFLOW", sourceRecordId: record.id } },
+      where: { uq_health_source_record: { source: "HEALTHFLOW", sourceRecordId: record.id } },
       update: {},
       create: {
         storeId: customer.storeId,
