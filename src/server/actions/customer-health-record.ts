@@ -85,7 +85,7 @@ export async function saveCustomerHealthRecord(
         customerId: customer.id,
         measuredAt: new Date(`${parsed.data.measuredAt}T00:00:00.000Z`),
         weight: parsed.data.weight,
-        bmi: calculateNativeBmi(parsed.data.weight, customer.height),
+        bmi: parsed.data.bmi ?? calculateNativeBmi(parsed.data.weight, customer.height),
         bodyFat: parsed.data.bodyFat,
         muscleMass: parsed.data.muscleMass,
         boneMass: parsed.data.boneMass,
