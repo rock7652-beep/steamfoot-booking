@@ -105,9 +105,9 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,
-    label: "健康評估／摘要",
+    label: "健康評估",
     module: "健康",
-    description: "顧客健康評估入口與店長後台健康摘要。",
+    description: "控制顧客健康評估入口、LINE 會員中心與店長後台健康紀錄。關閉只隱藏功能，不刪除歷史資料。",
   },
   {
     key: FEATURES.MULTI_STORE,

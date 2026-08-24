@@ -9,6 +9,8 @@ import { ShareContactActions } from "./share-contact-actions";
 import { getReferralShareContext } from "@/server/queries/referral-share-context";
 import { totalAvailableToBook } from "@/lib/wallet-availability";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 
 /** 計算距離提醒文案 */
 function getReminderText(bookingDate: Date, slotTime: string): string {
@@ -51,6 +53,11 @@ export default async function CustomerHomePage() {
   const storeSlug = storeCtx?.storeSlug ?? "zhubei";
   const storeId = storeCtx?.storeId ?? null;
   const prefix = `/s/${storeSlug}`;
+  const healthAssessmentEnabled = storeId
+    ? await hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY).catch(
+        () => false,
+      )
+    : false;
 
   // ── 並行查詢 ──────────────────────────────────────
   let remaining = 0;
@@ -100,7 +107,9 @@ export default async function CustomerHomePage() {
         // 最早到期優先（nulls last）→ credits[0] 即最早到期
         orderBy: [{ expiredAt: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
       }),
-      getHealthCardData(user.customerId),
+      healthAssessmentEnabled
+        ? getHealthCardData(user.customerId)
+        : Promise.resolve(null),
       getMyReferralSummary(user.customerId, { activeStoreId: storeId }),
     ]);
     remaining = totalAvailableToBook(wallets);
@@ -192,36 +201,40 @@ export default async function CustomerHomePage() {
 
       {/* ═══ 2. 健康評估 + 分享好友（合併）═══ */}
       <section className="rounded-[20px] bg-white p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-        {/* 上半段：健康評估 */}
-        <div>
-          <p className="text-base font-semibold text-earth-900">看看你最近的身體狀態</p>
-          <p className="mt-1 text-sm leading-relaxed text-earth-700">
-            用 1 分鐘了解目前的身體指數
-          </p>
-          {/* PR-H2c：移除 self-computed score 顯示。原本這段對舊 shape 有 type 不匹配
-              (healthCard.score 是 object 不是 number)，實際上 prod 從沒 render 過。
-              改成「最近量測：YYYY/MM/DD」更直接，且不會與 HealthFlow 原站分數衝突。*/}
-          {healthCard?.available && (
-            <p className="mt-1 text-sm text-primary-700">
-              最近量測：
-              <span className="font-bold">
-                {healthCard.summary.latest?.measuredAt ?? "—"}
-              </span>
-            </p>
-          )}
-          <Link
-            href={`${prefix}/health`}
-            className="mt-3 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-primary-200 bg-primary-50 text-base font-semibold text-primary-700 hover:bg-primary-100"
-          >
-            查看健康評估
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
-        </div>
+        {healthAssessmentEnabled && (
+          <>
+            {/* 上半段：健康評估 */}
+            <div>
+              <p className="text-base font-semibold text-earth-900">看看你最近的身體狀態</p>
+              <p className="mt-1 text-sm leading-relaxed text-earth-700">
+                用 1 分鐘了解目前的身體指數
+              </p>
+              {/* PR-H2c：移除 self-computed score 顯示。原本這段對舊 shape 有 type 不匹配
+                  (healthCard.score 是 object 不是 number)，實際上 prod 從沒 render 過。
+                  改成「最近量測：YYYY/MM/DD」更直接，且不會與 HealthFlow 原站分數衝突。*/}
+              {healthCard?.available && (
+                <p className="mt-1 text-sm text-primary-700">
+                  最近量測：
+                  <span className="font-bold">
+                    {healthCard.summary.latest?.measuredAt ?? "—"}
+                  </span>
+                </p>
+              )}
+              <Link
+                href={`${prefix}/health`}
+                className="mt-3 flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-primary-200 bg-primary-50 text-base font-semibold text-primary-700 hover:bg-primary-100"
+              >
+                查看健康評估
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
 
-        {/* divider */}
-        <div className="my-3 border-t border-earth-100" />
+            {/* divider */}
+            <div className="my-3 border-t border-earth-100" />
+          </>
+        )}
 
         {/* 下半段：分享好友 */}
         <div>

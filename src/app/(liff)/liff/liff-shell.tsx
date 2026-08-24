@@ -47,6 +47,7 @@ interface LiffShellProps {
   liffId: string;
   /** PR-E：per-store LINE OA 連結。Server 端 resolveStorePresentation 解析後注入。 */
   contactUrl: string;
+  healthAssessmentEnabled: boolean;
 }
 
 /**
@@ -55,7 +56,13 @@ interface LiffShellProps {
  */
 type WalletSummary = { totalAvailable: number; hasMakeup: boolean };
 
-export function LiffShell({ storeName, storeSlug, liffId, contactUrl }: LiffShellProps) {
+export function LiffShell({
+  storeName,
+  storeSlug,
+  liffId,
+  contactUrl,
+  healthAssessmentEnabled,
+}: LiffShellProps) {
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-G4：lazy fetch — signed_in 後 fire-and-forget，不擋 home 既有渲染
   const [walletSummary, setWalletSummary] = useState<WalletSummary | null>(null);
@@ -209,6 +216,7 @@ export function LiffShell({ storeName, storeSlug, liffId, contactUrl }: LiffShel
           storeSlug={storeSlug}
           displayName={state.displayName}
           walletSummary={walletSummary}
+          healthAssessmentEnabled={healthAssessmentEnabled}
         />
       )}
     </div>
@@ -319,11 +327,13 @@ function WelcomeBack({
   storeSlug,
   displayName,
   walletSummary,
+  healthAssessmentEnabled,
 }: {
   storeSlug: string;
   displayName: string | null;
   /** PR-G4: lazy 載入結果；null 表示尚未到 / 失敗 → 不出「課程預約」CTA */
   walletSummary: WalletSummary | null;
+  healthAssessmentEnabled: boolean;
 }) {
   // PR-G4 (Option B)：有剩餘堂數的會員主流程是「課程預約」，所以：
   //   - 「課程預約」dark primary 排第一（顧客主路徑）
@@ -402,18 +412,20 @@ function WelcomeBack({
             3. 與其他 LIFF 入口 (預約/方案) 一致用 next/link same-page nav
           視覺維持「次要 / 外部服務」分隔 — border-t + pt-3 + mt-1。
           注意：HealthFlow URL 仍然不傳 query string，由 /liff/health 內的 button 觸發。*/}
-      <div className="mt-1 flex flex-col gap-2 border-t border-earth-200 pt-3">
-        <Link
-          href={`/s/${storeSlug}/liff/health`}
-          className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
-        >
-          <span>{liffMessages.shell.healthAssessmentCta}</span>
-          <ChevronRightIcon />
-        </Link>
-        <p className="px-1 text-xs text-earth-600">
-          {liffMessages.shell.healthAssessmentHint}
-        </p>
-      </div>
+      {healthAssessmentEnabled && (
+        <div className="mt-1 flex flex-col gap-2 border-t border-earth-200 pt-3">
+          <Link
+            href={`/s/${storeSlug}/liff/health`}
+            className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
+          >
+            <span>{liffMessages.shell.healthAssessmentCta}</span>
+            <ChevronRightIcon />
+          </Link>
+          <p className="px-1 text-xs text-earth-600">
+            {liffMessages.shell.healthAssessmentHint}
+          </p>
+        </div>
+      )}
 
       {/* PR-LIFF-profile：低調 utility 入口（我的資料）。
           視覺刻意比 4 顆核心 CTA + AI 健康評估都更低調：
