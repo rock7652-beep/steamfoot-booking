@@ -15,6 +15,11 @@ on:
         description: For execute, enter IMPORT_431_CONFIRMED_HEALTHFLOW_RECORDS
         required: false
         type: string
+  push:
+    branches:
+      - codex/native-health-assessment
+    paths:
+      - .github/workflows/import-healthflow-history.yml
 
 permissions:
   contents: read
@@ -25,7 +30,7 @@ concurrency:
 
 jobs:
   import:
-    name: ${{ inputs.mode }} confirmed HealthFlow history
+    name: ${{ inputs.mode || 'dry-run' }} confirmed HealthFlow history
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: Production – steamfoot-booking
