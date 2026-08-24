@@ -1,6 +1,11 @@
 name: Import confirmed HealthFlow history
 
 on:
+  push:
+    branches:
+      - codex/native-health-assessment
+    paths:
+      - .github/workflows/import-healthflow-history.yml
   workflow_dispatch:
     inputs:
       mode:
@@ -25,7 +30,7 @@ concurrency:
 
 jobs:
   import:
-    name: ${{ inputs.mode }} confirmed HealthFlow history
+    name: ${{ inputs.mode || 'dry-run' }} confirmed HealthFlow history
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
