@@ -3,13 +3,12 @@
  *
  * 供 /my-bookings 和 /book 使用
  *
- * PR-H2c：暴露 `summary` 取代 `score`。HealthFlow summary API 不回官方 score，
- * Steamfoot 自算的 score 與 HealthFlow 原站不一致，會誤導顧客。卡片只顯示量測摘要
- * + alert badge；正式分數導 HealthFlow 原站看。
+ * 資料直接讀取蒸管家原生健康量測表，不依賴外部網站。
  */
 
 import { prisma } from "@/lib/db";
-import { getHealthSummarySafe, type HealthSummary } from "@/lib/health-service";
+import type { HealthSummary } from "@/lib/health-service";
+import { getNativeHealthSummary } from "@/lib/native-health-service";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { getCurrentUser } from "@/lib/session";
@@ -17,7 +16,7 @@ import { isOwner } from "@/lib/permissions";
 
 export interface HealthCardData {
   available: true;
-  /** HealthFlow summary — latest 量測 + alerts + trend + meta，由 view 自行渲染 */
+  /** 蒸管家原生量測摘要 */
   summary: HealthSummary;
 }
 
@@ -49,8 +48,6 @@ export async function getHealthCardData(
       where: { id: customerId },
       select: {
         storeId: true,
-        healthProfileId: true,
-        healthLinkStatus: true,
       },
     });
 
@@ -70,15 +67,8 @@ export async function getHealthCardData(
       return { available: false, reason: "feature-unavailable" };
     }
 
-    if (!customer.healthProfileId || customer.healthLinkStatus !== "linked") {
-      return { available: false, reason: "not-linked" };
-    }
-
-    const summary = await getHealthSummarySafe(customer.healthProfileId, {
-      customerId,
-      storeId: customer.storeId,
-    });
-    if (!summary || !summary.latest) {
+    const summary = await getNativeHealthSummary(customerId, customer.storeId);
+    if (!summary.latest) {
       return { available: false, reason: "no-data" };
     }
 

@@ -4,7 +4,7 @@ const h = vi.hoisted(() => ({
   customerFindUnique: vi.fn(),
   hasStoreFeature: vi.fn(),
   getCurrentUser: vi.fn(),
-  getHealthSummarySafe: vi.fn(),
+  getNativeHealthSummary: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -27,8 +27,8 @@ vi.mock("@/lib/permissions", () => ({
   isOwner: () => false,
 }));
 
-vi.mock("@/lib/health-service", () => ({
-  getHealthSummarySafe: (...args: unknown[]) => h.getHealthSummarySafe(...args),
+vi.mock("@/lib/native-health-service", () => ({
+  getNativeHealthSummary: (...args: unknown[]) => h.getNativeHealthSummary(...args),
 }));
 
 import { getHealthCardData } from "@/server/queries/health-card";
@@ -38,8 +38,6 @@ describe("customer health card feature gate", () => {
     vi.clearAllMocks();
     h.customerFindUnique.mockResolvedValue({
       storeId: "store-1",
-      healthProfileId: "profile-1",
-      healthLinkStatus: "linked",
     });
     h.getCurrentUser.mockResolvedValue({
       id: "user-1",
@@ -48,7 +46,7 @@ describe("customer health card feature gate", () => {
     });
   });
 
-  it("does not call HealthFlow when ai_health_summary is disabled for the store", async () => {
+  it("does not read native health records when ai_health_summary is disabled for the store", async () => {
     h.hasStoreFeature.mockResolvedValue(false);
 
     await expect(getHealthCardData("customer-1")).resolves.toEqual({
@@ -60,6 +58,20 @@ describe("customer health card feature gate", () => {
       "store-1",
       "ai_health_summary",
     );
-    expect(h.getHealthSummarySafe).not.toHaveBeenCalled();
+    expect(h.getNativeHealthSummary).not.toHaveBeenCalled();
+  });
+
+  it("reads the current store's native health summary when enabled", async () => {
+    h.hasStoreFeature.mockResolvedValue(true);
+    h.getNativeHealthSummary.mockResolvedValue({
+      latest: { measuredAt: "2026-08-24", weight: 60 },
+      trend: [],
+      alerts: [],
+      meta: { totalRecords: 1, daysSinceLastMeasure: 0, firstMeasuredAt: "2026-08-24" },
+    });
+
+    const result = await getHealthCardData("customer-1");
+    expect(result.available).toBe(true);
+    expect(h.getNativeHealthSummary).toHaveBeenCalledWith("customer-1", "store-1");
   });
 });

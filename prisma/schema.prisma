@@ -665,6 +665,7 @@ model Store {
   transactionAuditLogs              TransactionAuditLog[]
   lineNotificationRecipients        StoreLineNotificationRecipient[]
   messengerAuditRuns                MessengerAuditRun[]
+  customerHealthRecords             CustomerHealthRecord[]
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
@@ -1111,6 +1112,7 @@ model Customer {
 
   // 蒸足心得 / 打卡貼文
   checkinPosts CheckinPost[]
+  healthRecords CustomerHealthRecord[]
 
   // 顧客經營追蹤紀錄（簡易 CRM-lite）
   followUps                       CustomerFollowUp[]
@@ -1131,6 +1133,37 @@ model Customer {
   @@index([sponsorId])
   @@index([phone])
   @@index([mergedIntoCustomerId]) // 列表過濾 mergedIntoCustomerId IS NULL 用
+}
+
+// 蒸管家原生健康量測。
+// storeId 冗餘保存是刻意設計：所有店長查詢必須先以店舖範圍過濾，避免跨店洩漏。
+model CustomerHealthRecord {
+  id               String   @id @default(cuid())
+  storeId          String
+  customerId       String
+  measuredAt       DateTime @db.Date
+  weight           Float?
+  bmi              Float?
+  bodyFat          Float?
+  muscleMass       Float?
+  boneMass         Float?
+  visceralFat      Float?
+  bmr              Float?
+  bodyWater        Float?
+  metabolicAge     Float?
+  note             String?
+  source           String   @default("STEAMFOOT")
+  sourceRecordId   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([source, sourceRecordId], name: "uq_health_source_record")
+  @@index([storeId, measuredAt])
+  @@index([storeId, customerId, measuredAt])
+  @@index([customerId, measuredAt])
 }
 
 // ============================================================

@@ -28,19 +28,11 @@ import {
   getIDToken,
   LiffInitError,
 } from "@/lib/liff/client";
-import {
-  createHealthflowEntryUrl,
-  fetchLiffHealthSummary,
-  type FetchLiffHealthSummaryResult,
-} from "@/server/actions/liff-health";
+import { fetchLiffHealthSummary, type FetchLiffHealthSummaryResult } from "@/server/actions/liff-health";
 import {
   liffMessages,
 } from "@/lib/liff/messages";
 import type { HealthSummary, HealthAlert } from "@/lib/health-service";
-import {
-  createHealthflowEntryAttemptId,
-  createHealthflowEntryErrorCode,
-} from "@/lib/healthflow-entry-correlation";
 
 // PR-H2c：移除 self-computed score 顯示 — HealthFlow API 不回官方 score，
 // Steamfoot 自算與 HealthFlow 原站不一致，會誤導顧客。改顯示 metrics + alerts +
@@ -554,75 +546,28 @@ function Disclaimer() {
 // CTAs
 // ──────────────────────────────────────────────────────────
 
-/**
- * 外部跳轉到 HealthFlow LIFF — 用 button + window.location.href
- * （PR-F1A / PR #184 教訓：LINE iOS webview 對這組合最穩）。
- */
 function StartHealthFlowButton({
   variant,
   storeSlug,
   label = liffMessages.health.startHealthFlowCta,
+  destination = "new",
 }: {
   variant: "primary" | "outline";
   storeSlug: string;
   label?: string;
+  destination?: "new" | "summary";
 }) {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const cls =
     variant === "primary"
       ? "flex w-full min-h-[48px] items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
       : "flex w-full min-h-[44px] items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50";
-  const handleClick = async () => {
-    if (pending) return;
-    setPending(true);
-    setError(null);
-    const attemptId = createHealthflowEntryAttemptId();
-    const transportErrorCode = createHealthflowEntryErrorCode(attemptId);
-    try {
-      const result = await createHealthflowEntryUrl(storeSlug, attemptId);
-      if (result.status === "ok") {
-        window.location.href = result.url;
-        return;
-      }
-      console.warn("healthflow_entry_client_result", {
-        requestId: result.requestId,
-        attemptId: result.attemptId,
-        errorCode: result.errorCode,
-        resultStatus: result.status,
-      });
-      setError(`${liffMessages.health.linkStartFailed} 錯誤代碼：${result.errorCode}`);
-    } catch (err) {
-      console.error("healthflow_entry_client_exception", {
-        requestId: null,
-        attemptId,
-        errorCode: transportErrorCode,
-        resultStatus: "transport_exception",
-        exceptionName: err instanceof Error ? err.name : "UnknownClientException",
-      });
-      setError(
-        `${liffMessages.health.linkStartFailed} 錯誤代碼：${transportErrorCode}`,
-      );
-    } finally {
-      setPending(false);
-    }
-  };
   return (
-    <>
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={pending}
-        className={`${cls} disabled:cursor-wait disabled:opacity-70`}
-      >
-        {pending ? liffMessages.health.linkStartLoading : label}
-      </button>
-      {error && (
-        <p className="text-center text-xs leading-relaxed text-red-600">
-          {error}
-        </p>
-      )}
-    </>
+    <Link
+      href={`/s/${storeSlug}/health${destination === "new" ? "/new" : ""}`}
+      className={cls}
+    >
+      {label}
+    </Link>
   );
 }
 
@@ -632,6 +577,7 @@ function ViewFullButton({ storeSlug }: { storeSlug: string }) {
       variant="outline"
       storeSlug={storeSlug}
       label={liffMessages.health.viewFullCta}
+      destination="summary"
     />
   );
 }

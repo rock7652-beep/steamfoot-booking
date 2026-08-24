@@ -43,10 +43,14 @@ export interface HealthRecord {
 export interface TrendPoint {
   measuredAt: string;
   weight: number | null;
-  bodyFat: number | null;
   bmi: number | null;
+  bodyFat: number | null;
   muscleMass: number | null;
+  boneMass: number | null;
   visceralFat: number | null;
+  bmr: number | null;
+  bodyWater: number | null;
+  metabolicAge: number | null;
 }
 
 export interface HealthAlert {

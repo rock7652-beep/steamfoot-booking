@@ -56,7 +56,8 @@ import {
 
 import { CustomerBasicInfo } from "./_components/customer-basic-info";
 import { IdentityDiagnosticPanel } from "./_components/identity-diagnostic-panel";
-import { HealthStatusBody } from "./_components/health-status-card";
+import { HealthAssessmentCard } from "@/components/health-assessment-card";
+import { getNativeHealthSummary } from "@/lib/native-health-service";
 import { LineBindingSection } from "./line-binding-section";
 import { getLineConfigForStore } from "@/lib/line-config";
 import { RecentRecordsTabs } from "./recent-records-tabs";
@@ -158,6 +159,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     perksSummary,
     shopConfig,
     healthAssessmentEnabled,
+    nativeHealthSummary,
   ] = await Promise.all([
     withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
       console.error("[customer-detail] plans query failed", {
@@ -192,6 +194,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     hasStoreFeature(effectiveStoreId, FEATURES.AI_HEALTH_SUMMARY).catch(
       () => false,
     ),
+    getNativeHealthSummary(id, effectiveStoreId).catch(() => null),
   ]);
 
   timer.finish();
@@ -768,21 +771,22 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               </div>
             )}
 
-            {/* 單店健康功能關閉時，後台入口也完整隱藏；既有資料不刪除。 */}
+            {/* 單店健康功能關閉時，後台入口隱藏；既有資料仍保留。 */}
             {healthAssessmentEnabled && (
               <div className="mt-3 border-t border-earth-100 pt-3">
                 <p className="mb-2 text-[11px] font-semibold text-earth-600">
-                  健康評估
+                  健康紀錄
                 </p>
-                <HealthStatusBody
-                  customerId={id}
-                  healthProfileId={customer.healthProfileId ?? null}
-                  healthLinkStatus={customer.healthLinkStatus}
-                  healthSyncedAt={customer.healthSyncedAt ?? null}
-                />
+                <Link href="/dashboard/health" className="text-xs font-medium text-primary-700 hover:underline">
+                  查看本店全部健康資料與篩選 →
+                </Link>
               </div>
             )}
           </SideCard>
+
+          {healthAssessmentEnabled && nativeHealthSummary?.latest && (
+            <HealthAssessmentCard summary={nativeHealthSummary} />
+          )}
 
           {/* Basic info — 緊湊兩欄 */}
           <CustomerBasicInfo

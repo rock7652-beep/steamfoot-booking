@@ -1,5 +1,5 @@
 /**
- * AI 健康評估卡片 — 客戶端顯示用
+ * 健康量測卡片 — 客戶端顯示用
  *
  * 用於 `/my-bookings`、`/book` 等顧客 web 頁面。
  *
@@ -10,18 +10,32 @@
  *     沒值時 fallback 維持 PR-H2c 行為。**不**恢復 Steamfoot self-compute。
  */
 
-import type { HealthSummary } from "@/lib/health-service";
-import { getHealthAssessmentUrl } from "@/lib/health-assessment";
+import type { HealthRecord, HealthSummary, TrendPoint } from "@/lib/health-service";
+import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
+
+type DisplayMetric = {
+  key: Exclude<keyof TrendPoint, "measuredAt">;
+  label: string;
+  unit: string;
+};
+
+const DISPLAY_METRICS: DisplayMetric[] = [
+  { key: "weight", label: "體重", unit: "kg" },
+  { key: "bmi", label: "BMI", unit: "" },
+  { key: "bodyFat", label: "體脂肪", unit: "%" },
+  { key: "muscleMass", label: "肌肉量", unit: "kg" },
+  { key: "boneMass", label: "骨量", unit: "kg" },
+  { key: "visceralFat", label: "內臟脂肪", unit: "" },
+  { key: "bmr", label: "基礎代謝", unit: "kcal" },
+  { key: "bodyWater", label: "體水分", unit: "%" },
+  { key: "metabolicAge", label: "體內年齡", unit: "歲" },
+];
 
 interface HealthAssessmentCardProps {
   summary: HealthSummary;
-  customerId?: string | null;
 }
 
-export function HealthAssessmentCard({
-  summary,
-  customerId,
-}: HealthAssessmentCardProps) {
+export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
   const latest = summary.latest;
   if (!latest) {
     // 不應發生（getHealthCardData 已 gate `!summary.latest`），保險空態
@@ -53,19 +67,9 @@ export function HealthAssessmentCard({
       {/* Header */}
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold text-earth-900">AI 健康評估</h3>
+          <h3 className="text-lg font-bold text-earth-900">健康量測</h3>
           <p className="mt-1 text-sm text-earth-700">最近一次量測摘要</p>
         </div>
-        {customerId && (
-          <a
-            href={getHealthAssessmentUrl(customerId)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex min-h-[44px] items-center rounded-md px-2 text-sm font-semibold text-primary-700 hover:bg-earth-50 hover:underline"
-          >
-            查看完整評估 &rarr;
-          </a>
-        )}
       </div>
 
       {/* Official score (HealthFlow PR #5) — 有官方分數才顯示，沒回則整段省略 */}
@@ -98,12 +102,16 @@ export function HealthAssessmentCard({
         </span>
       </div>
 
-      {/* 4 主指標 inline */}
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        <MetricCell label="體重" value={latest.weight} unit="kg" />
-        <MetricCell label="BMI" value={latest.bmi} unit="" />
-        <MetricCell label="體脂肪" value={latest.bodyFat} unit="%" />
-        <MetricCell label="內臟脂肪" value={latest.visceralFat} unit="" />
+      {/* HealthFlow 量測欄位完整摘要 */}
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {DISPLAY_METRICS.map((metric) => (
+          <MetricCell
+            key={metric.key}
+            label={metric.label}
+            value={latest[metric.key]}
+            unit={metric.unit}
+          />
+        ))}
       </div>
 
       {/* Alerts badge — 任何 warning/danger 集中顯示一行 */}
@@ -120,13 +128,69 @@ export function HealthAssessmentCard({
         </div>
       )}
 
-      {/* 引導語 — 沒官方分數時提示去 HealthFlow 看；有官方分數時改提資料來源 */}
+      {summary.trend.length > 0 && (
+        <div className="mb-4 border-t border-earth-100 pt-4">
+          <h4 className="mb-3 text-sm font-semibold text-earth-900">身體數據曲線</h4>
+          <HealthTrendChartLoader trend={summary.trend} />
+        </div>
+      )}
+
+      {summary.trend.length > 0 && (
+        <div className="mb-4 border-t border-earth-100 pt-4">
+          <h4 className="text-sm font-semibold text-earth-900">近期量測紀錄</h4>
+          <div className="mt-2 divide-y divide-earth-100 rounded-xl border border-earth-100">
+            {[...summary.trend].reverse().map((record, index) => (
+              <div
+                key={`${record.measuredAt}-${index}`}
+                className="px-3 py-3 text-xs"
+              >
+                <p className="font-medium text-earth-800">
+                  {formatDate(record.measuredAt)}
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3">
+                  {DISPLAY_METRICS.map((metric) => (
+                    <HistoryMetric
+                      key={metric.key}
+                      label={metric.label}
+                      value={record[metric.key]}
+                      unit={metric.unit}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          {summary.meta.totalRecords > summary.trend.length && (
+            <p className="mt-2 text-right text-[11px] text-earth-500">
+              目前顯示最近 {summary.trend.length} 筆，共 {summary.meta.totalRecords} 筆紀錄
+            </p>
+          )}
+        </div>
+      )}
+
       <p className="text-[11px] leading-relaxed text-earth-500">
-        {official
-          ? "資料來源：HealthFlow AI 健康評估；點「查看完整評估」看完整報告與建議。"
-          : "完整健康分數與評估，請點「查看完整評估」前往 HealthFlow 原站。"}
+        量測資料已安全保存於蒸管家，僅本人與所屬門店具權限的工作人員可查看。
       </p>
     </div>
+  );
+}
+
+function HistoryMetric({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: HealthRecord["weight"];
+  unit: string;
+}) {
+  return (
+    <span className="flex justify-between gap-2 text-earth-600">
+      <span>{label}</span>
+      <span className="tabular-nums text-earth-800">
+        {value == null ? "—" : `${value}${unit}`}
+      </span>
+    </span>
   );
 }
 
