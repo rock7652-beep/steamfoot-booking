@@ -2,10 +2,14 @@ import { prisma } from "@/lib/db";
 
 export type HealthMetricFilter =
   | "weight"
+  | "bmi"
   | "bodyFat"
   | "muscleMass"
-  | "bmi"
-  | "visceralFat";
+  | "boneMass"
+  | "visceralFat"
+  | "bmr"
+  | "bodyWater"
+  | "metabolicAge";
 
 export interface NativeHealthRecordFilters {
   search?: string;
