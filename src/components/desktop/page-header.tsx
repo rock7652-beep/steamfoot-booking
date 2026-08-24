@@ -22,14 +22,18 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div className="flex items-center justify-between pb-1">
-      <div>
+    <div className="flex min-w-0 flex-col items-stretch gap-3 pb-1 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
         <h1 className="text-lg font-bold text-earth-900">{title}</h1>
         {subtitle ? (
           <p className="text-[11px] text-earth-500">{subtitle}</p>
         ) : null}
       </div>
-      {actions ? <div className="flex items-center gap-1.5">{actions}</div> : null}
+      {actions ? (
+        <div className="flex shrink-0 items-center gap-1.5 self-start">
+          {actions}
+        </div>
+      ) : null}
     </div>
   );
 }
