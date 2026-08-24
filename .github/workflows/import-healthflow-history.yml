@@ -1,0 +1,85 @@
+name: Import confirmed HealthFlow history
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Run a read-only check or execute the verified import
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - execute
+      confirmation:
+        description: For execute, enter IMPORT_431_CONFIRMED_HEALTHFLOW_RECORDS
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: healthflow-native-history-production
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: ${{ inputs.mode }} confirmed HealthFlow history
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      HEALTHFLOW_SUPABASE_URL: ${{ secrets.HEALTHFLOW_SUPABASE_URL }}
+      HEALTHFLOW_SERVICE_ROLE_KEY: ${{ secrets.HEALTHFLOW_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Validate execution confirmation
+        if: inputs.mode == 'execute'
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "IMPORT_431_CONFIRMED_HEALTHFLOW_RECORDS" ]; then
+            echo "Execution confirmation did not match."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          missing=0
+          for name in DATABASE_URL DIRECT_URL HEALTHFLOW_SUPABASE_URL HEALTHFLOW_SERVICE_ROLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required GitHub production secret: $name"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Read-only reconciliation
+        run: npx tsx scripts/import-healthflow-records.ts --expected-records=431
+
+      - name: Import and transactionally verify 431 confirmed records
+        if: inputs.mode == 'execute'
+        run: >-
+          npx tsx scripts/import-healthflow-records.ts
+          --execute
+          --confirm-native-health-import
+          --expected-records=431
