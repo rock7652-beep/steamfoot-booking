@@ -15,11 +15,6 @@ on:
         description: For execute, enter ENABLE_WARMWARM_NATIVE_HEALTH
         required: false
         type: string
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/native-health-warmwarm-pilot.yml
 
 permissions:
   contents: read
@@ -60,5 +55,5 @@ jobs:
       - name: Validate production records and feature state
         run: npx tsx scripts/native-health-pilot.ts | tee pilot-output.txt
       - name: Enable warmwarm only and verify
-        if: github.event_name == 'push' || inputs.mode == 'execute'
+        if: inputs.mode == 'execute'
         run: npx tsx scripts/native-health-pilot.ts --execute --confirm-warmwarm-pilot
