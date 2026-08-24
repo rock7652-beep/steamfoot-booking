@@ -1,5 +1,5 @@
 /**
- * AI 健康評估卡片 — 客戶端顯示用
+ * 健康量測卡片 — 客戶端顯示用
  *
  * 用於 `/my-bookings`、`/book` 等顧客 web 頁面。
  *
@@ -11,6 +11,7 @@
  */
 
 import type { HealthSummary } from "@/lib/health-service";
+import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
 interface HealthAssessmentCardProps {
   summary: HealthSummary;
 }
@@ -47,7 +48,7 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
       {/* Header */}
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold text-earth-900">AI 健康評估</h3>
+          <h3 className="text-lg font-bold text-earth-900">健康量測</h3>
           <p className="mt-1 text-sm text-earth-700">最近一次量測摘要</p>
         </div>
       </div>
@@ -106,6 +107,13 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
 
       {summary.trend.length > 0 && (
         <div className="mb-4 border-t border-earth-100 pt-4">
+          <h4 className="mb-3 text-sm font-semibold text-earth-900">身體數據曲線</h4>
+          <HealthTrendChartLoader trend={summary.trend} />
+        </div>
+      )}
+
+      {summary.trend.length > 0 && (
+        <div className="mb-4 border-t border-earth-100 pt-4">
           <h4 className="text-sm font-semibold text-earth-900">近期量測紀錄</h4>
           <div className="mt-2 divide-y divide-earth-100 rounded-xl border border-earth-100">
             {[...summary.trend].reverse().map((record, index) => (
@@ -133,9 +141,7 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
       )}
 
       <p className="text-[11px] leading-relaxed text-earth-500">
-        {official
-          ? "評估結果已整合至蒸管家；資料由 HealthFlow 評估引擎產生。"
-          : "量測資料已保存；待評估資料完整後，將於此顯示健康分數與建議。"}
+        量測資料已安全保存於蒸管家，僅本人與所屬門店具權限的工作人員可查看。
       </p>
     </div>
   );

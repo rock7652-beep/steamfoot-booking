@@ -4,6 +4,8 @@ import { getCachedPlans } from "@/lib/query-cache";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import {
   DATA_EXPORT_LOCKED_MESSAGE,
   DATA_EXPORT_SELECT_STORE_MESSAGE,
@@ -88,6 +90,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
     canAssign,
     canEdit,
     canExportData,
+    healthRecordsEnabled,
   ] = await Promise.all([
       listCustomersForUser(customersUser, {
         stage: params.stage,
@@ -137,6 +140,9 @@ export default async function CustomersPage({ searchParams }: PageProps) {
       isViewMode
         ? Promise.resolve(false)
         : hasDataExportFeature(customersStoreId).catch(() => false),
+      customersStoreId
+        ? hasStoreFeature(customersStoreId, FEATURES.AI_HEALTH_SUMMARY).catch(() => false)
+        : Promise.resolve(false),
   ]);
 
   // PR-4：drawer 詳情不再於 server 端依 ?customerId= 預抓，也不再用 prop
@@ -212,6 +218,15 @@ export default async function CustomersPage({ searchParams }: PageProps) {
               <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
                 {dataExportLockedLabel}
               </span>
+            )}
+            {healthRecordsEnabled && (
+              <Link
+                href="/dashboard/health"
+                prefetch={false}
+                className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+              >
+                健康資料
+              </Link>
             )}
             <Link
               href="/dashboard/customers/central-binding"

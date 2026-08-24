@@ -259,7 +259,7 @@ export const liffMessages = {
     calendarCta: "加入行事曆",
   },
   // ── PR-H2 我的健康紀錄 ──
-  // LIFF 顧客在 LINE 內看 HealthFlow 健康摘要的唯讀頁。
+  // LIFF 顧客在 LINE 內看蒸管家原生健康摘要的唯讀頁。
   // 不取代 dashboard 端 health-summary / health-history（那些是後台店長視角）；
   // 本 namespace 是「顧客自己看的版本」，文案更友善、加醫療免責。
   // 不寫醫療性語言（不用「診斷 / 治療 / 預防」），用「保養 / 追蹤 / 觀察」。
@@ -279,7 +279,7 @@ export const liffMessages = {
     /** PR-H2c：在最近量測卡底下提示「正式分數請至 HealthFlow」（fallback 用，當 HealthFlow API 沒回 official score 時顯示） */
     scoreOnHealthFlowHint: "完整健康分數與評估會直接顯示在蒸管家，不需前往外部網站。",
     /** PR feat/liff-health-official-score：官方分數卡底下資料來源歸屬 */
-    officialScoreAttribution: "資料來源：HealthFlow AI 健康評估",
+    officialScoreAttribution: "資料來源：蒸管家健康紀錄",
 
     // 指標 labels
     metric: {
@@ -295,29 +295,29 @@ export const liffMessages = {
     /** {n} = trend length，e.g. "近 5 次變化" */
     trendLabel: "近 {n} 次變化",
 
-    // 已綁定但 HealthFlow 還沒任何量測
+    // 尚無量測
     noMeasurementTitle: "尚無量測紀錄",
     noMeasurementBody:
-      "您已連結 AI 健康評估系統，但目前還沒有任何量測資料。下次到店時，歡迎請店家為您安排一次身體組成量測。",
+      "目前還沒有任何量測資料。您可以直接在蒸管家新增紀錄，或下次到店時請店家協助量測。",
 
     // 未綁定 / 找不到對應帳號
-    notLinkedTitle: "尚未完成 AI 健康評估",
+    notLinkedTitle: "尚無健康紀錄",
     notLinkedUnlinkedBody:
       "您目前尚未建立健康評估資料。點擊下方按鈕，即可在蒸管家完成第一次量測。",
     notLinkedNotFoundBody:
       "目前查無對應的健康評估資料。您可以直接在蒸管家新增量測；若曾有舊紀錄但未顯示，請聯繫店家協助核對。",
     notLinkedErrorBody:
-      "AI 健康評估連結暫時無法載入，請稍後再試，或聯繫店家協助處理。",
+      "健康紀錄暫時無法載入，請稍後再試，或聯繫店家協助處理。",
 
     // CTAs
     /** primary CTA — 蒸管家站內量測 */
-    startHealthFlowCta: "開始 AI 健康評估",
+    startHealthFlowCta: "新增量測",
     /** CTA loading — 產生 SteamFoot signed bridge state */
     linkStartLoading: "正在前往 AI 健康評估…",
     /** CTA error — signed bridge state could not be created */
     linkStartFailed: "暫時無法前往 AI 健康評估，請稍後再試或聯繫店家協助。",
     /** outline CTA — 已綁定狀態下，查看蒸管家完整評估 */
-    viewFullCta: "查看完整評估",
+    viewFullCta: "查看歷史與曲線",
     /** LINE-green CTA */
     contactStoreCta: "聯絡店家",
     /** outline CTA — 回 LIFF 首頁 */

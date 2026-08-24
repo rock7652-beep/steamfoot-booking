@@ -3,27 +3,14 @@
 /**
  * fetchLiffHealthSummary — LIFF 顧客「我的健康紀錄」server action (PR-H2)
  *
- * 與既有 dashboard health-section / health-summary / health-history 共存不取代：
- *   - dashboard 端用 `tryAutoLinkHealth` + `getHealthSummarySafe(healthProfileId, { customerId })`
- *     顯示完整評估歷程
- *   - 本 action 是 LIFF-only read-only投影：給顧客在 LINE 內看自己的最近評估摘要
- *     （不含評估歷程列表 / 趨勢圖 — 那些在 dashboard 才有）
+ * LIFF-only read-only 投影：給顧客在 LINE 內查看蒸管家原生健康摘要。
  *
  * 設計合約（mirror fetchLiffWallets / fetchLiffMemberBooking / etc.）：
  *   1. 嚴格 CUSTOMER role only（staff 不該透過 LIFF 看健康摘要）
  *   2. **零 client 參數** — 全走 `requireSession` + `getCanonicalCustomerIdForSession`
  *   3. **不 throw 給 caller** — 全部 status discriminated union
- *   4. **read-only** — 不寫 DB、不改 `Customer.healthProfileId / healthLinkStatus`、
- *      不打 `tryAutoLinkHealth`（避免 LIFF 開頁觸發 dashboard 那條 link 流程）
- *   5. **不動 HealthFlow API 契約** — 重用既有 `getHealthSummarySafe` wrapper
- *   6. **不算分數** — 評分用 `computeHealthScore` 即時 compute（mirror dashboard 模式）
- *
- * 不在此 PR 範圍：
- *   - 不接 link / unlink (那是 dashboard server/actions/health.ts)
- *   - 不接量測 / 不接購買 / 不接付款
- *   - 不寫 Customer.healthLinkStatus（即使顧客本次拉到 not_found 也不寫；
- *     維持 dashboard 為唯一 source of truth）
- *   - 不動 schema / migration
+ *   4. **read-only** — 不寫 DB；資料只讀 CustomerHealthRecord
+ *   5. **不依賴外站** — HealthFlow 停用後仍可正常顯示
  */
 
 import { prisma } from "@/lib/db";
@@ -37,9 +24,9 @@ import {
   fingerprintHealthflowBridgeState,
 } from "@/lib/healthflow-identity-bridge";
 import {
-  getHealthSummarySafe,
   type HealthSummary,
 } from "@/lib/health-service";
+import { getNativeHealthSummary } from "@/lib/native-health-service";
 import { healthFlowLiffUrl } from "@/lib/liff/messages";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -60,7 +47,7 @@ export type FetchLiffHealthSummaryResult =
   | {
       status: "ok";
       linked: true;
-      /** 完整 HealthFlow summary（latest + trend + alerts + meta） */
+      /** 蒸管家原生 summary（latest + trend + alerts + meta） */
       summary: HealthSummary;
     }
   | {
@@ -291,8 +278,7 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
   const customerId = await getCanonicalCustomerIdForSession(user);
   if (!customerId) return { status: "no_customer" };
 
-  // ── 3. Read Customer.healthProfileId + linkStatus ──
-  // 只讀；不更新（不觸發 dashboard 那條 autoLink 流程）。
+  // ── 3. Read canonical customer/store ──
   let customer;
   try {
     customer = await prisma.customer.findUnique({
@@ -300,8 +286,6 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
       select: {
         id: true,
         storeId: true,
-        healthProfileId: true,
-        healthLinkStatus: true,
       },
     });
   } catch (err) {
@@ -318,27 +302,16 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
     return { status: "service_unavailable" };
   }
 
-  // ── 4. Branch by linkStatus ────────────────────────
-  if (!customer.healthProfileId || customer.healthLinkStatus !== "linked") {
-    // 未綁定 / dashboard autoLink 找不到 / 之前綁定失敗
-    const reason: "unlinked" | "not_found" | "error" =
-      customer.healthLinkStatus === "not_found"
-        ? "not_found"
-        : customer.healthLinkStatus === "error"
-          ? "error"
-          : "unlinked";
-    return { status: "ok", linked: false, reason };
-  }
-
-  // ── 5. Fetch HealthFlow summary (safe wrapper, 5min LRU)
-  const summary = await getHealthSummarySafe(customer.healthProfileId, {
-    customerId,
-    storeId: customer.storeId,
-  });
-  if (!summary) {
-    // HealthFlow API 失敗（safeApi 已 log + monitor）
+  // ── 4. Read Steamfoot-native summary ───────────────
+  let summary: HealthSummary;
+  try {
+    summary = await getNativeHealthSummary(customerId, customer.storeId);
+  } catch (err) {
+    console.error("[fetchLiffHealthSummary] native summary failed", err);
     return { status: "service_unavailable" };
   }
 
+  // `linked: true` 在原生模式代表顧客身分已確認；即使尚無紀錄，畫面也能顯示
+  // 「尚無量測」並引導到蒸管家站內量測頁。
   return { status: "ok", linked: true, summary };
 }

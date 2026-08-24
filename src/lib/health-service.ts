@@ -154,14 +154,13 @@ class HealthApiError extends Error {
   }
 }
 
-async function healthFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function healthFetch<T>(path: string): Promise<T> {
   if (!HEALTH_API_BASE || !HEALTH_API_KEY) {
     throw new HealthApiError("HEALTH_API_URL or HEALTH_API_KEY not configured");
   }
 
   const res = await fetch(`${HEALTH_API_BASE}${path}`, {
-    ...init,
-    headers: { ...init?.headers, "X-API-Key": HEALTH_API_KEY },
+    headers: { "X-API-Key": HEALTH_API_KEY },
     // 不用 Next.js cache，我們自己管快取
     cache: "no-store",
   });
@@ -171,50 +170,6 @@ async function healthFetch<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return (await res.json()) as T;
-}
-
-export interface CreateHealthRecordRequest {
-  requestId: string;
-  steamfootCustomerId: string;
-  profileId: string | null;
-  customer: {
-    name: string;
-    email: string | null;
-    phone: string | null;
-    gender: string | null;
-    height: number | null;
-  };
-  record: {
-    measuredAt: string;
-    weight: number | null;
-    bodyFat: number | null;
-    muscleMass: number | null;
-    boneMass: number | null;
-    visceralFat: number | null;
-    bmr: number | null;
-    bodyWater: number | null;
-    metabolicAge: number | null;
-    note: string | null;
-  };
-}
-
-export interface CreateHealthRecordResult {
-  profileId: string;
-  recordId: string;
-  idempotent: boolean;
-}
-
-/** 蒸管家站內量測寫入 HealthFlow；只允許 server-side 呼叫。 */
-export async function createHealthRecord(
-  input: CreateHealthRecordRequest,
-): Promise<CreateHealthRecordResult> {
-  const result = await healthFetch<CreateHealthRecordResult>("/api/health/records", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  invalidateHealthCache(result.profileId);
-  return result;
 }
 
 // ============================================================

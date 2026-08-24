@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { createHealthRecord } from "@/lib/health-service";
+import { calculateNativeBmi } from "@/lib/native-health-service";
 import { toLocalDateStr } from "@/lib/date-utils";
 import {
   healthRecordFormData,
@@ -64,50 +64,48 @@ export async function saveCustomerHealthRecord(
       storeId: store.storeId,
       mergedIntoCustomerId: null,
     },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      gender: true,
-      height: true,
-      healthProfileId: true,
-    },
+      select: {
+        id: true,
+        height: true,
+      },
   });
   if (!customer) return { error: "無法確認顧客資料，請重新登入" };
 
-  let saved;
   try {
-    saved = await createHealthRecord({
-      requestId: parsed.data.requestId,
-      steamfootCustomerId: customer.id,
-      profileId: customer.healthProfileId,
-      customer: {
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone,
-        gender: customer.gender,
-        height: customer.height,
+    await prisma.customerHealthRecord.upsert({
+      where: {
+        source_sourceRecordId: {
+          source: "STEAMFOOT",
+          sourceRecordId: parsed.data.requestId,
+        },
       },
-      record: parsed.data,
+      update: {},
+      create: {
+        storeId: store.storeId,
+        customerId: customer.id,
+        measuredAt: new Date(`${parsed.data.measuredAt}T00:00:00.000Z`),
+        weight: parsed.data.weight,
+        bmi: calculateNativeBmi(parsed.data.weight, customer.height),
+        bodyFat: parsed.data.bodyFat,
+        muscleMass: parsed.data.muscleMass,
+        boneMass: parsed.data.boneMass,
+        visceralFat: parsed.data.visceralFat,
+        bmr: parsed.data.bmr,
+        bodyWater: parsed.data.bodyWater,
+        metabolicAge: parsed.data.metabolicAge,
+        note: parsed.data.note,
+        source: "STEAMFOOT",
+        sourceRecordId: parsed.data.requestId,
+      },
     });
   } catch (error) {
-    console.error("[saveCustomerHealthRecord] HealthFlow write failed", {
+    console.error("[saveCustomerHealthRecord] native write failed", {
       customerId: customer.id,
       storeId: store.storeId,
       error: error instanceof Error ? error.message : String(error),
     });
     return { error: "健康資料暫時無法儲存，請稍後再試；本次未寫入任何紀錄" };
   }
-
-  await prisma.customer.update({
-    where: { id: customer.id },
-    data: {
-      healthProfileId: saved.profileId,
-      healthLinkStatus: "linked",
-      healthSyncedAt: new Date(),
-    },
-  });
 
   const path = `/s/${store.storeSlug}/health`;
   revalidatePath(path);
