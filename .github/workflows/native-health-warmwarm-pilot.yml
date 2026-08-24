@@ -17,7 +17,7 @@ on:
         type: string
   push:
     branches:
-      - codex/warmwarm-native-health-pilot
+      - main
     paths:
       - .github/workflows/native-health-warmwarm-pilot.yml
 
