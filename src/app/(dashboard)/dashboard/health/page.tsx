@@ -23,10 +23,14 @@ interface PageProps {
 
 const METRICS: Array<{ value: HealthMetricFilter; label: string }> = [
   { value: "weight", label: "體重" },
+  { value: "bmi", label: "BMI" },
   { value: "bodyFat", label: "體脂肪" },
   { value: "muscleMass", label: "肌肉量" },
-  { value: "bmi", label: "BMI" },
+  { value: "boneMass", label: "骨量" },
   { value: "visceralFat", label: "內臟脂肪" },
+  { value: "bmr", label: "基礎代謝" },
+  { value: "bodyWater", label: "體水分" },
+  { value: "metabolicAge", label: "體內年齡" },
 ];
 
 function normalizeMetric(value?: string): HealthMetricFilter | undefined {
@@ -104,12 +108,13 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
 
       <div className="text-xs text-earth-500">共 {result.total} 筆量測紀錄</div>
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-        <table className="min-w-[920px] w-full text-left text-sm">
+        <table className="min-w-[1320px] w-full text-left text-sm">
           <thead className="bg-earth-50 text-xs text-earth-600">
             <tr>
               <th className="px-4 py-3">量測日期</th><th className="px-4 py-3">顧客</th><th className="px-4 py-3">電話</th>
               <th className="px-4 py-3 text-right">體重</th><th className="px-4 py-3 text-right">BMI</th><th className="px-4 py-3 text-right">體脂</th>
-              <th className="px-4 py-3 text-right">肌肉量</th><th className="px-4 py-3 text-right">內臟脂肪</th>
+              <th className="px-4 py-3 text-right">肌肉量</th><th className="px-4 py-3 text-right">骨量</th><th className="px-4 py-3 text-right">內臟脂肪</th>
+              <th className="px-4 py-3 text-right">基礎代謝</th><th className="px-4 py-3 text-right">體水分</th><th className="px-4 py-3 text-right">體內年齡</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-earth-100">
@@ -119,10 +124,11 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
                 <td className="px-4 py-3 font-medium"><Link href={`/dashboard/customers/${record.customer.id}`} className="hover:text-primary-700">{record.customer.name}</Link></td>
                 <td className="whitespace-nowrap px-4 py-3">{record.customer.phone ?? "—"}</td>
                 <Metric value={record.weight} unit="kg" /><Metric value={record.bmi} /><Metric value={record.bodyFat} unit="%" />
-                <Metric value={record.muscleMass} unit="kg" /><Metric value={record.visceralFat} />
+                <Metric value={record.muscleMass} unit="kg" /><Metric value={record.boneMass} unit="kg" /><Metric value={record.visceralFat} />
+                <Metric value={record.bmr} unit="kcal" /><Metric value={record.bodyWater} unit="%" /><Metric value={record.metabolicAge} unit="歲" />
               </tr>
             ))}
-            {result.records.length === 0 && <tr><td colSpan={8} className="px-4 py-12 text-center text-earth-500">找不到符合條件的量測紀錄</td></tr>}
+            {result.records.length === 0 && <tr><td colSpan={12} className="px-4 py-12 text-center text-earth-500">找不到符合條件的量測紀錄</td></tr>}
           </tbody>
         </table>
       </div>
