@@ -4,7 +4,8 @@
  * 預設只 dry-run：
  *   HEALTHFLOW_SUPABASE_URL=... HEALTHFLOW_SERVICE_ROLE_KEY=... npx tsx scripts/import-healthflow-records.ts
  * 真正寫入必須明確加雙重確認：
- *   ... npx tsx scripts/import-healthflow-records.ts --execute --confirm-native-health-import
+ *   ... npx tsx scripts/import-healthflow-records.ts --execute \
+ *     --confirm-native-health-import --expected-records=431
  *
  * 只依既有、已確認的 Customer.healthProfileId 對應；
  * 電話、姓名、email、生日與店別只產生去識別化的人工複核統計，
@@ -16,6 +17,12 @@ import { reconcileHealthflowImport } from "../src/lib/healthflow-import-reconcil
 const prisma = new PrismaClient();
 const execute = process.argv.includes("--execute");
 const confirmed = process.argv.includes("--confirm-native-health-import");
+const expectedRecordsArg = process.argv.find((arg) =>
+  arg.startsWith("--expected-records="),
+);
+const expectedRecords = expectedRecordsArg
+  ? Number(expectedRecordsArg.slice("--expected-records=".length))
+  : null;
 const baseUrl = process.env.HEALTHFLOW_SUPABASE_URL?.replace(/\/$/, "");
 const serviceKey = process.env.HEALTHFLOW_SERVICE_ROLE_KEY;
 
@@ -69,6 +76,15 @@ async function fetchAll<T>(table: string, select: string): Promise<T[]> {
 async function main() {
   if (execute && !confirmed) {
     throw new Error("寫入模式必須同時提供 --execute --confirm-native-health-import");
+  }
+  if (
+    expectedRecords !== null &&
+    (!Number.isSafeInteger(expectedRecords) || expectedRecords <= 0)
+  ) {
+    throw new Error("--expected-records 必須是大於 0 的整數");
+  }
+  if (execute && expectedRecords === null) {
+    throw new Error("寫入模式必須提供 --expected-records=<已驗證筆數>");
   }
 
   const [customers, profiles, healthflowStores, records] = await Promise.all([
@@ -143,36 +159,97 @@ async function main() {
   if (reconciliation.summary.missingSourceProfiles > 0) {
     throw new Error("量測紀錄引用不存在的 HealthFlow profile，已停止匯入");
   }
+  if (expectedRecords !== null && matched.length !== expectedRecords) {
+    throw new Error(
+      `已確認紀錄筆數已變動：預期 ${expectedRecords}，實際 ${matched.length}；已停止匯入`,
+    );
+  }
 
   if (!execute) return;
 
-  let imported = 0;
-  for (const record of matched) {
+  const importRows = matched.map((record) => {
     const customer = profileToCustomer.get(record.user_id)!;
-    await prisma.customerHealthRecord.upsert({
-      where: { uq_health_source_record: { source: "HEALTHFLOW", sourceRecordId: record.id } },
-      update: {},
-      create: {
-        storeId: customer.storeId,
-        customerId: customer.id,
-        measuredAt: new Date(`${record.measured_at.slice(0, 10)}T00:00:00.000Z`),
-        weight: record.weight,
-        bmi: record.bmi,
-        bodyFat: record.body_fat,
-        muscleMass: record.muscle_mass,
-        boneMass: record.bone_mass,
-        visceralFat: record.visceral_fat,
-        bmr: record.bmr,
-        bodyWater: record.body_water,
-        metabolicAge: record.metabolic_age,
-        note: record.note,
-        source: "HEALTHFLOW",
-        sourceRecordId: record.id,
-      },
-    });
-    imported += 1;
-  }
-  console.log(JSON.stringify({ importedOrAlreadyPresent: imported }, null, 2));
+    const measuredAt = new Date(
+      `${record.measured_at.slice(0, 10)}T00:00:00.000Z`,
+    );
+    if (Number.isNaN(measuredAt.getTime())) {
+      throw new Error("來源資料含無效量測日期，已停止匯入");
+    }
+    return {
+      storeId: customer.storeId,
+      customerId: customer.id,
+      measuredAt,
+      weight: record.weight,
+      bmi: record.bmi,
+      bodyFat: record.body_fat,
+      muscleMass: record.muscle_mass,
+      boneMass: record.bone_mass,
+      visceralFat: record.visceral_fat,
+      bmr: record.bmr,
+      bodyWater: record.body_water,
+      metabolicAge: record.metabolic_age,
+      note: record.note,
+      source: "HEALTHFLOW",
+      sourceRecordId: record.id,
+    };
+  });
+  const expectedBySourceId = new Map(
+    importRows.map((row) => [
+      row.sourceRecordId,
+      { customerId: row.customerId, storeId: row.storeId },
+    ]),
+  );
+
+  const result = await prisma.$transaction(
+    async (transaction) => {
+      const existing = await transaction.customerHealthRecord.findMany({
+        where: { source: "HEALTHFLOW" },
+        select: { sourceRecordId: true, customerId: true, storeId: true },
+      });
+      for (const row of existing) {
+        const expected = row.sourceRecordId
+          ? expectedBySourceId.get(row.sourceRecordId)
+          : null;
+        if (
+          !expected ||
+          expected.customerId !== row.customerId ||
+          expected.storeId !== row.storeId
+        ) {
+          throw new Error("既有 HEALTHFLOW 紀錄與本次核准清單不一致，已停止匯入");
+        }
+      }
+
+      const created = await transaction.customerHealthRecord.createMany({
+        data: importRows,
+        skipDuplicates: true,
+      });
+      const after = await transaction.customerHealthRecord.findMany({
+        where: { source: "HEALTHFLOW" },
+        select: { sourceRecordId: true, customerId: true, storeId: true },
+      });
+      if (after.length !== expectedRecords) {
+        throw new Error(
+          `匯入後筆數驗證失敗：預期 ${expectedRecords}，實際 ${after.length}`,
+        );
+      }
+      for (const row of after) {
+        const expected = row.sourceRecordId
+          ? expectedBySourceId.get(row.sourceRecordId)
+          : null;
+        if (
+          !expected ||
+          expected.customerId !== row.customerId ||
+          expected.storeId !== row.storeId
+        ) {
+          throw new Error("匯入後對應驗證失敗，交易已回滾");
+        }
+      }
+      return { created: created.count, verified: after.length };
+    },
+    { timeout: 60_000 },
+  );
+
+  console.log(JSON.stringify({ status: "verified", ...result }, null, 2));
 }
 
 main()
