@@ -10,8 +10,27 @@
  *     沒值時 fallback 維持 PR-H2c 行為。**不**恢復 Steamfoot self-compute。
  */
 
-import type { HealthSummary } from "@/lib/health-service";
+import type { HealthRecord, HealthSummary, TrendPoint } from "@/lib/health-service";
 import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
+
+type DisplayMetric = {
+  key: Exclude<keyof TrendPoint, "measuredAt">;
+  label: string;
+  unit: string;
+};
+
+const DISPLAY_METRICS: DisplayMetric[] = [
+  { key: "weight", label: "體重", unit: "kg" },
+  { key: "bmi", label: "BMI", unit: "" },
+  { key: "bodyFat", label: "體脂肪", unit: "%" },
+  { key: "muscleMass", label: "肌肉量", unit: "kg" },
+  { key: "boneMass", label: "骨量", unit: "kg" },
+  { key: "visceralFat", label: "內臟脂肪", unit: "" },
+  { key: "bmr", label: "基礎代謝", unit: "kcal" },
+  { key: "bodyWater", label: "體水分", unit: "%" },
+  { key: "metabolicAge", label: "體內年齡", unit: "歲" },
+];
+
 interface HealthAssessmentCardProps {
   summary: HealthSummary;
 }
@@ -83,12 +102,16 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
         </span>
       </div>
 
-      {/* 4 主指標 inline */}
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        <MetricCell label="體重" value={latest.weight} unit="kg" />
-        <MetricCell label="BMI" value={latest.bmi} unit="" />
-        <MetricCell label="體脂肪" value={latest.bodyFat} unit="%" />
-        <MetricCell label="內臟脂肪" value={latest.visceralFat} unit="" />
+      {/* HealthFlow 量測欄位完整摘要 */}
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {DISPLAY_METRICS.map((metric) => (
+          <MetricCell
+            key={metric.key}
+            label={metric.label}
+            value={latest[metric.key]}
+            unit={metric.unit}
+          />
+        ))}
       </div>
 
       {/* Alerts badge — 任何 warning/danger 集中顯示一行 */}
@@ -119,16 +142,21 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
             {[...summary.trend].reverse().map((record, index) => (
               <div
                 key={`${record.measuredAt}-${index}`}
-                className="flex items-center justify-between gap-3 px-3 py-2.5 text-xs"
+                className="px-3 py-3 text-xs"
               >
-                <span className="font-medium text-earth-800">
+                <p className="font-medium text-earth-800">
                   {formatDate(record.measuredAt)}
-                </span>
-                <span className="text-right text-earth-600">
-                  {record.weight != null ? `${record.weight} kg` : "體重 —"}
-                  <span className="mx-1.5 text-earth-300">·</span>
-                  {record.bodyFat != null ? `體脂 ${record.bodyFat}%` : "體脂 —"}
-                </span>
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3">
+                  {DISPLAY_METRICS.map((metric) => (
+                    <HistoryMetric
+                      key={metric.key}
+                      label={metric.label}
+                      value={record[metric.key]}
+                      unit={metric.unit}
+                    />
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -144,6 +172,25 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
         量測資料已安全保存於蒸管家，僅本人與所屬門店具權限的工作人員可查看。
       </p>
     </div>
+  );
+}
+
+function HistoryMetric({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: HealthRecord["weight"];
+  unit: string;
+}) {
+  return (
+    <span className="flex justify-between gap-2 text-earth-600">
+      <span>{label}</span>
+      <span className="tabular-nums text-earth-800">
+        {value == null ? "—" : `${value}${unit}`}
+      </span>
+    </span>
   );
 }
 
