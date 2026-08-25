@@ -11,6 +11,6 @@ const HealthTrendChart = dynamic(
   },
 );
 
-export function HealthTrendChartLoader({ trend }: { trend: TrendPoint[] }) {
-  return <HealthTrendChart trend={trend} />;
+export function HealthTrendChartLoader({ trend, totalRecords }: { trend: TrendPoint[]; totalRecords: number }) {
+  return <HealthTrendChart trend={trend} totalRecords={totalRecords} />;
 }
