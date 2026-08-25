@@ -1,0 +1,57 @@
+name: Native health all-stores rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Read-only audit or guarded three-store rollout
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - execute
+      confirmation:
+        description: For execute, enter ENABLE_ALL_STORES_NATIVE_HEALTH
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-health-all-stores-production
+  cancel-in-progress: false
+
+jobs:
+  rollout:
+    name: ${{ inputs.mode || 'dry-run' }} native health for all stores
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - name: Validate execute confirmation
+        if: inputs.mode == 'execute'
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$CONFIRMATION" != "ENABLE_ALL_STORES_NATIVE_HEALTH" ]; then
+            echo "Execution confirmation did not match."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Validate production records and current feature state
+        run: npx tsx scripts/native-health-all-stores-rollout.ts
+      - name: Enable all stores and verify
+        if: inputs.mode == 'execute'
+        run: npx tsx scripts/native-health-all-stores-rollout.ts --execute --confirm-all-stores
