@@ -15,6 +15,11 @@ on:
         description: For execute, enter ENABLE_ALL_STORES_NATIVE_HEALTH
         required: false
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - .github/native-health-all-stores-rollout-request.json
 
 permissions:
   contents: read
@@ -33,17 +38,37 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
     steps:
-      - name: Validate execute confirmation
-        if: inputs.mode == 'execute'
+      - uses: actions/checkout@v4
+      - name: Resolve rollout request
+        id: request
         shell: bash
         env:
-          CONFIRMATION: ${{ inputs.confirmation }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            mode="$INPUT_MODE"
+            confirmation="$INPUT_CONFIRMATION"
+          else
+            mode="$(jq -r '.mode' .github/native-health-all-stores-rollout-request.json)"
+            confirmation="$(jq -r '.confirmation // ""' .github/native-health-all-stores-rollout-request.json)"
+          fi
+          if [ "$mode" != "dry-run" ] && [ "$mode" != "execute" ]; then
+            echo "Unsupported rollout mode: $mode"
+            exit 1
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "confirmation=$confirmation" >> "$GITHUB_OUTPUT"
+      - name: Validate execute confirmation
+        if: steps.request.outputs.mode == 'execute'
+        shell: bash
+        env:
+          CONFIRMATION: ${{ steps.request.outputs.confirmation }}
         run: |
           if [ "$CONFIRMATION" != "ENABLE_ALL_STORES_NATIVE_HEALTH" ]; then
             echo "Execution confirmation did not match."
             exit 1
           fi
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -53,5 +78,5 @@ jobs:
       - name: Validate production records and current feature state
         run: npx tsx scripts/native-health-all-stores-rollout.ts
       - name: Enable all stores and verify
-        if: inputs.mode == 'execute'
+        if: steps.request.outputs.mode == 'execute'
         run: npx tsx scripts/native-health-all-stores-rollout.ts --execute --confirm-all-stores
