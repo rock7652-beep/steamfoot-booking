@@ -1,4 +1,4 @@
 {
-  "mode": "dry-run",
-  "confirmation": ""
+  "mode": "execute",
+  "confirmation": "ENABLE_ALL_STORES_NATIVE_HEALTH"
 }
