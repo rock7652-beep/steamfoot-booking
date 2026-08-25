@@ -31,6 +31,10 @@ import {
   DEFAULT_TRIAL_LINE_CARD_REMINDER,
   trialLineCardReminderSettingId,
 } from "@/lib/trial-line-card-reminder-setting";
+import {
+  bookingReminderTypeSettingId,
+  parseBookingReminderTypeEnabled,
+} from "@/lib/booking-reminder-type-setting";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
 import type { StorePlanFields } from "@/lib/store-plan";
 import { deriveBaseUrl } from "@/lib/base-url";
@@ -252,6 +256,18 @@ export async function runReminders(): Promise<SendResult> {
   const { start: monthStart, end: monthEnd } = taiwanReminderMonthRange(now);
 
   for (const rule of rules) {
+    const [packageSetting, trialSetting] = await Promise.all([
+      prisma.messageTemplate.findUnique({
+        where: { id: bookingReminderTypeSettingId(rule.storeId, "PACKAGE") },
+        select: { body: true },
+      }),
+      prisma.messageTemplate.findUnique({
+        where: { id: bookingReminderTypeSettingId(rule.storeId, "TRIAL") },
+        select: { body: true },
+      }),
+    ]);
+    const packageBookingEnabled = parseBookingReminderTypeEnabled(packageSetting?.body);
+    const trialBookingEnabled = parseBookingReminderTypeEnabled(trialSetting?.body);
     if (!storeLineReminderFeatureCache.has(rule.storeId)) {
       storeLineReminderFeatureCache.set(
         rule.storeId,
@@ -284,8 +300,8 @@ export async function runReminders(): Promise<SendResult> {
       const bookingStoreId = booking.storeId;
       const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
       if (
-        (isLineTrialBooking && rule.trialBookingEnabled === false) ||
-        (!isLineTrialBooking && rule.packageBookingEnabled === false)
+        (isLineTrialBooking && !trialBookingEnabled) ||
+        (!isLineTrialBooking && !packageBookingEnabled)
       ) {
         result.skipped++;
         result.details.push({

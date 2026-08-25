@@ -43,6 +43,10 @@ import {
   isSystemLineCardReminderTemplate,
   trialLineCardReminderSettingId,
 } from "@/lib/trial-line-card-reminder-setting";
+import {
+  bookingReminderTypeSettingId,
+  bookingReminderTypeSettingName,
+} from "@/lib/booking-reminder-type-setting";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
 import {
   buildPackageBookingTestReminderLineMessages,
@@ -631,22 +635,18 @@ export async function setBookingReminderTypeEnabled(
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
     await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
-    const canonical = await prisma.reminderRule.findFirst({
-      where: { storeId },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, packageBookingEnabled: true, trialBookingEnabled: true },
-    });
-    if (!canonical) throw new AppError("NOT_FOUND", "尚未建立明日預約提醒規則");
-
-    const packageBookingEnabled = type === "PACKAGE" ? enabled : canonical.packageBookingEnabled;
-    const trialBookingEnabled = type === "TRIAL" ? enabled : canonical.trialBookingEnabled;
-    await prisma.reminderRule.update({
-      where: { id: canonical.id, storeId },
-      data: {
-        packageBookingEnabled,
-        trialBookingEnabled,
-        isEnabled: packageBookingEnabled || trialBookingEnabled,
+    const settingId = bookingReminderTypeSettingId(storeId, type);
+    await prisma.messageTemplate.upsert({
+      where: { id: settingId },
+      create: {
+        id: settingId,
+        storeId,
+        name: bookingReminderTypeSettingName(type),
+        channel: "LINE",
+        body: enabled ? "enabled" : "disabled",
+        isDefault: false,
       },
+      update: { body: enabled ? "enabled" : "disabled" },
     });
     revalidatePath("/dashboard/reminders");
     return { success: true, data: undefined };

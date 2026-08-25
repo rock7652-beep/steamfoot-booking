@@ -58,8 +58,6 @@ type RuleRow = {
   offsetDays: number;
   fixedTime: string | null;
   isEnabled: boolean;
-  packageBookingEnabled?: boolean;
-  trialBookingEnabled?: boolean;
   channel: ReminderChannel;
   templateId: string | null;
   createdAt: Date;
@@ -96,6 +94,7 @@ let shopConfigPresentation: { address: string | null; mapUrl: string | null } | 
   mapUrl: "https://maps.example.com/test-shop",
 };
 let packageCardReminderSettings = new Map<string, string>();
+const bookingReminderEnabledSettings = new Map<string, string>();
 const mockHasStoreFeature = vi.fn();
 const sendMessengerUtilityReminderMock = vi.fn();
 const checkReminderSendLimitMock = vi.fn();
@@ -119,6 +118,10 @@ vi.mock("@prisma/client", () => ({
 const mockPrisma = {
   messageTemplate: {
     findUnique: vi.fn(async (args: { where: { id: string; storeId?: string } }) => {
+      if (args.where.id.startsWith("booking-reminder-enabled:")) {
+        const body = bookingReminderEnabledSettings.get(args.where.id);
+        return body ? { body } : null;
+      }
       const body = packageCardReminderSettings.get(args.where.storeId ?? "");
       return body ? { body } : null;
     }),
@@ -456,6 +459,7 @@ beforeEach(() => {
   messageLogs = [];
   centralRecipientOverrides = new Map();
   packageCardReminderSettings = new Map();
+  bookingReminderEnabledSettings.clear();
   shopConfigPresentation = {
     address: "302 新竹縣竹北市中崙里科大一路 80 號",
     mapUrl: "https://maps.example.com/test-shop",
@@ -588,9 +592,11 @@ describe("runReminders (daily next-day batch)", () => {
     );
     rules.push({
       ...makeRule(),
-      packageBookingEnabled: false,
-      trialBookingEnabled: true,
     });
+    bookingReminderEnabledSettings.set(
+      `booking-reminder-enabled:package:${STORE_ID}`,
+      "disabled",
+    );
 
     const { engine } = await loadModules();
     const result = await engine.runReminders();
