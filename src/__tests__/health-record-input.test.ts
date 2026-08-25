@@ -29,6 +29,15 @@ describe("healthRecordInputSchema", () => {
     expect(parsed.bmi).toBe(22.4);
   });
 
+  it("accepts a half-step visceral fat value reported by the measuring device", () => {
+    const parsed = healthRecordInputSchema.parse({
+      ...valid,
+      weight: "",
+      visceralFat: "4.5",
+    });
+    expect(parsed.visceralFat).toBe(4.5);
+  });
+
   it("requires at least one metric", () => {
     const result = healthRecordInputSchema.safeParse({ ...valid, weight: "" });
     expect(result.success).toBe(false);
