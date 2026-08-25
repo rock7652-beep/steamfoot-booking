@@ -25,6 +25,12 @@ import {
   TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME,
   trialLineCardReminderSettingId,
 } from "@/lib/trial-line-card-reminder-setting";
+import {
+  bookingReminderTypeSettingId,
+  parseBookingReminderTypeEnabled,
+  PACKAGE_REMINDER_ENABLED_TEMPLATE_NAME,
+  TRIAL_REMINDER_ENABLED_TEMPLATE_NAME,
+} from "@/lib/booking-reminder-type-setting";
 
 // ============================================================
 // ReminderRule queries
@@ -55,17 +61,31 @@ export async function listReminderRules(storeId: string) {
  */
 export async function getStoreReminderState(storeId: string): Promise<{
   enabled: boolean;
+  packageBookingEnabled: boolean;
+  trialBookingEnabled: boolean;
   canonicalTemplateId: string | null;
 }> {
   const authorizedStoreId = await resolveReminderReadStore(storeId);
-  const rules = await prisma.reminderRule.findMany({
-    where: { storeId: authorizedStoreId },
-    orderBy: { createdAt: "asc" },
-    select: { isEnabled: true, templateId: true },
-  });
+  const [rules, packageSetting, trialSetting] = await Promise.all([
+    prisma.reminderRule.findMany({
+      where: { storeId: authorizedStoreId },
+      orderBy: { createdAt: "asc" },
+      select: { isEnabled: true, templateId: true },
+    }),
+    prisma.messageTemplate.findUnique({
+      where: { id: bookingReminderTypeSettingId(authorizedStoreId, "PACKAGE") },
+      select: { body: true },
+    }),
+    prisma.messageTemplate.findUnique({
+      where: { id: bookingReminderTypeSettingId(authorizedStoreId, "TRIAL") },
+      select: { body: true },
+    }),
+  ]);
   const canonical = rules.find((r) => r.isEnabled) ?? rules[0] ?? null;
   return {
     enabled: rules.some((r) => r.isEnabled),
+    packageBookingEnabled: parseBookingReminderTypeEnabled(packageSetting?.body),
+    trialBookingEnabled: parseBookingReminderTypeEnabled(trialSetting?.body),
     canonicalTemplateId: canonical?.templateId ?? null,
   };
 }
@@ -124,7 +144,7 @@ export async function listMessageTemplates(storeId: string) {
   return prisma.messageTemplate.findMany({
     where: {
       storeId: authorizedStoreId,
-      name: { notIn: [PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME, TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME] },
+      name: { notIn: [PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME, TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME, PACKAGE_REMINDER_ENABLED_TEMPLATE_NAME, TRIAL_REMINDER_ENABLED_TEMPLATE_NAME] },
     },
     include: { _count: { select: { logs: true, rules: true } } },
     orderBy: { createdAt: "desc" },

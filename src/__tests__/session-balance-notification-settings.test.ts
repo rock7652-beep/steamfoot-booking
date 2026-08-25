@@ -13,6 +13,7 @@ vi.mock("@/lib/base-url", () => ({
 
 import {
   DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+  extractSessionBalanceCustomCopy,
   renderSessionBalanceTemplate,
 } from "@/lib/session-balance-notification-settings";
 import {
@@ -66,6 +67,12 @@ function makeTx(input: {
 }
 
 describe("session balance notification settings", () => {
+  it("keeps custom copy but removes system variables and inline URLs", () => {
+    expect(extractSessionBalanceCustomCopy(
+      "{customerName} 您好，您的「{planName}」目前剩下最後 1 堂囉。\n\n這是門市自訂提醒。\n\n查看可預約時段：{bookingUrl}",
+    )).toBe("這是門市自訂提醒。");
+  });
+
   it("renders the last-session notification as a Flex card with booking and consultation actions", () => {
     const result = buildSessionBalanceLineMessages({
       type: "LAST_SESSION",

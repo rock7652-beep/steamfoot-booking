@@ -31,6 +31,10 @@ import {
   DEFAULT_TRIAL_LINE_CARD_REMINDER,
   trialLineCardReminderSettingId,
 } from "@/lib/trial-line-card-reminder-setting";
+import {
+  bookingReminderTypeSettingId,
+  parseBookingReminderTypeEnabled,
+} from "@/lib/booking-reminder-type-setting";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
 import type { StorePlanFields } from "@/lib/store-plan";
 import { deriveBaseUrl } from "@/lib/base-url";
@@ -252,6 +256,18 @@ export async function runReminders(): Promise<SendResult> {
   const { start: monthStart, end: monthEnd } = taiwanReminderMonthRange(now);
 
   for (const rule of rules) {
+    const [packageSetting, trialSetting] = await Promise.all([
+      prisma.messageTemplate.findUnique({
+        where: { id: bookingReminderTypeSettingId(rule.storeId, "PACKAGE") },
+        select: { body: true },
+      }),
+      prisma.messageTemplate.findUnique({
+        where: { id: bookingReminderTypeSettingId(rule.storeId, "TRIAL") },
+        select: { body: true },
+      }),
+    ]);
+    const packageBookingEnabled = parseBookingReminderTypeEnabled(packageSetting?.body);
+    const trialBookingEnabled = parseBookingReminderTypeEnabled(trialSetting?.body);
     if (!storeLineReminderFeatureCache.has(rule.storeId)) {
       storeLineReminderFeatureCache.set(
         rule.storeId,
@@ -282,6 +298,21 @@ export async function runReminders(): Promise<SendResult> {
     for (const booking of bookings) {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
+      const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
+      if (
+        (isLineTrialBooking && !trialBookingEnabled) ||
+        (!isLineTrialBooking && !packageBookingEnabled)
+      ) {
+        result.skipped++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "SKIPPED",
+          error: isLineTrialBooking ? "TRIAL_REMINDER_DISABLED" : "PACKAGE_REMINDER_DISABLED",
+        });
+        continue;
+      }
 
       // Messenger scheduled delivery is intentionally isolated from this PR.
       // Messenger can still issue a chat-bound booking link, but only LINE is
@@ -459,7 +490,6 @@ export async function runReminders(): Promise<SendResult> {
       let bookingLink = `${baseUrl}/s/${encodeURIComponent(booking.store.slug)}/my-bookings`;
       // Messenger bookings already continued above; a channel-null legacy
       // first trial that reaches a verified LINE route must use self-service.
-      const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
       if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
         await recordFailedReminder({
           ruleId: rule.id,

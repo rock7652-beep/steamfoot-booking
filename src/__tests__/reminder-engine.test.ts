@@ -94,6 +94,7 @@ let shopConfigPresentation: { address: string | null; mapUrl: string | null } | 
   mapUrl: "https://maps.example.com/test-shop",
 };
 let packageCardReminderSettings = new Map<string, string>();
+const bookingReminderEnabledSettings = new Map<string, string>();
 const mockHasStoreFeature = vi.fn();
 const sendMessengerUtilityReminderMock = vi.fn();
 const checkReminderSendLimitMock = vi.fn();
@@ -117,6 +118,10 @@ vi.mock("@prisma/client", () => ({
 const mockPrisma = {
   messageTemplate: {
     findUnique: vi.fn(async (args: { where: { id: string; storeId?: string } }) => {
+      if (args.where.id.startsWith("booking-reminder-enabled:")) {
+        const body = bookingReminderEnabledSettings.get(args.where.id);
+        return body ? { body } : null;
+      }
       const body = packageCardReminderSettings.get(args.where.storeId ?? "");
       return body ? { body } : null;
     }),
@@ -454,6 +459,7 @@ beforeEach(() => {
   messageLogs = [];
   centralRecipientOverrides = new Map();
   packageCardReminderSettings = new Map();
+  bookingReminderEnabledSettings.clear();
   shopConfigPresentation = {
     address: "302 新竹縣竹北市中崙里科大一路 80 號",
     mapUrl: "https://maps.example.com/test-shop",
@@ -568,6 +574,40 @@ describe("runReminders (daily next-day batch)", () => {
     expect(JSON.stringify(pushMessageMock.mock.calls[0]?.[2]?.[0])).toContain(
       "請記得準時到店。",
     );
+  });
+
+  it("方案與首次體驗提醒可獨立關閉，互不影響", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+        bookingType: "PACKAGE_SESSION",
+      }),
+      makeBooking({
+        id: "trial-booking",
+        customerId: "trial-customer",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+        bookingType: "FIRST_TRIAL",
+      }),
+    );
+    rules.push({
+      ...makeRule(),
+    });
+    bookingReminderEnabledSettings.set(
+      `booking-reminder-enabled:package:${STORE_ID}`,
+      "disabled",
+    );
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result).toMatchObject({ sent: 1, skipped: 1, failed: 0 });
+    expect(result.details).toContainEqual(expect.objectContaining({
+      bookingId: BOOKING_ID,
+      status: "SKIPPED",
+      error: "PACKAGE_REMINDER_DISABLED",
+    }));
+    expect(pushMessageMock).toHaveBeenCalledTimes(1);
   });
 
   it("方案預約於前一日 18:00 使用正式 Flex 卡且不帶測試標示", async () => {

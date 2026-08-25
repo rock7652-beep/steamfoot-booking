@@ -17,7 +17,6 @@ import {
   listMessageTemplates,
   listMessageLogs,
   getReminderStats,
-  getStoreReminderHealthResult,
   getStoreReminderState,
   getTodayCronRunStatus,
   getLineSmokeTestContext,
@@ -32,17 +31,15 @@ import {
   formatManagerNotificationResult,
   formatReminderSendResult,
 } from "@/lib/reminder-send-result";
-import { ReminderCard } from "./reminder-card";
 import { CreateTemplateForm } from "./create-template-form";
 import { CronRunBanner } from "./cron-run-banner";
 import { LineSmokeTestCard } from "./line-smoke-test-card";
 import { StoreLineHealthCard } from "./store-line-health-card";
-import { SessionBalanceReminderCard } from "./session-balance-reminder-card";
+import { SimpleSessionBalanceReminders } from "./simple-session-balance-reminders";
 import { LineNotificationRecipientsCard } from "./line-notification-recipients-card";
 import { PackageLineCardReminderSettingCard } from "./package-line-card-reminder-setting-card";
 import { TrialLineCardReminderSettingCard } from "./trial-line-card-reminder-setting-card";
 import { listStoreLineNotificationRecipients } from "@/server/actions/store-line-notification-recipients";
-import { classifyReminderHealth } from "@/lib/reminder-health";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
   PENDING: "待發送",
@@ -108,7 +105,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     );
   }
 
-  const activeTab = params.tab ?? "rules";
+  const activeTab = params.tab === "logs" ? "logs" : "rules";
   const smokeTestEnabled = isLineSmokeTestEnabled();
 
   const [
@@ -120,7 +117,6 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     notificationRecipients,
     packageLineCardReminder,
     trialLineCardReminder,
-    storeReminderHealthResult,
   ] = await Promise.all([
     getReminderStats(activeStoreId),
     listMessageTemplates(activeStoreId),
@@ -130,23 +126,12 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     listStoreLineNotificationRecipients(),
     getPackageLineCardReminderSetting(activeStoreId),
     getTrialLineCardReminderSetting(activeStoreId),
-    getStoreReminderHealthResult(activeStoreId),
   ]);
   const smokeTestContext = smokeTestEnabled
     ? await getLineSmokeTestContext(activeStoreId)
     : null;
   const lineHealthStatus =
     await getCurrentLineOfficialAccountStatus().catch(() => null);
-  const reminderHealth = classifyReminderHealth({
-    enabled: reminderState.enabled,
-    phase:
-      cronStatus.phase === "BEFORE_WINDOW"
-        ? storeReminderHealthResult.phase
-        : cronStatus.phase,
-    sent: storeReminderHealthResult.sent,
-    skipped: storeReminderHealthResult.skipped,
-    failed: storeReminderHealthResult.failed,
-  });
 
   const [logsData, sessionBalanceLogsData] = activeTab === "logs"
     ? await Promise.all([
@@ -178,7 +163,6 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
   const tabs = [
     { key: "rules", label: "提醒設定", count: null as number | null },
-    { key: "templates", label: "訊息模板", count: templates.length },
     { key: "logs", label: "發送紀錄", count: null as number | null },
   ];
 
@@ -187,7 +171,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
       <PageShell>
         <PageHeader
           title="提醒管理"
-          subtitle="LINE 提醒規則、訊息模板與發送紀錄"
+          subtitle="查看通知是否開啟，並修改顧客看到的內容"
           actions={
             <Link
               href="/dashboard/settings"
@@ -233,114 +217,55 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               );
             })}
           </div>
-          <div className="pb-1.5">
-            {activeTab === "templates" && <CreateTemplateForm key={activeStoreId} />}
-          </div>
+          <div />
         </div>
 
         {/* 提醒設定 — 單一「明日預約提醒」開關 */}
         {activeTab === "rules" && (
           <section className="space-y-4">
-            <LineNotificationRecipientsCard recipients={notificationRecipients} />
+            <div className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <span className={`font-semibold ${lineHealthStatus?.status === "NORMAL" ? "text-green-700" : "text-red-700"}`}>LINE {lineHealthStatus?.status === "NORMAL" ? "通知正常" : "需要處理"}</span>
+                <span className="text-green-700">今日成功 {stats.todaySent}</span>
+                <span className={stats.todayFailed ? "font-semibold text-red-700" : "text-earth-500"}>失敗 {stats.todayFailed}</span>
+                <Link href="/dashboard/reminders?tab=logs" className="ml-auto text-primary-700 hover:underline">查看發送紀錄</Link>
+              </div>
+            </div>
             <PackageLineCardReminderSettingCard
               key={`${activeStoreId}-package-line-card-reminder`}
               initialBody={packageLineCardReminder}
+              initialEnabled={reminderState.packageBookingEnabled}
             />
             <TrialLineCardReminderSettingCard
               key={`${activeStoreId}-trial-line-card-reminder`}
               initialBody={trialLineCardReminder.body}
               initialMapUrl={trialLineCardReminder.mapUrl}
+              initialEnabled={reminderState.trialBookingEnabled}
             />
-            <ReminderCard
+            <SimpleSessionBalanceReminders
               key={activeStoreId}
-              initialEnabled={reminderState.enabled}
-              initialTemplateId={reminderState.canonicalTemplateId}
-              templates={templates.map((t) => ({ id: t.id, name: t.name }))}
-              health={{
-                status: reminderHealth,
-                batchDate: storeReminderHealthResult.batchDate,
-                sent: storeReminderHealthResult.sent,
-                skipped: storeReminderHealthResult.skipped,
-                failed: storeReminderHealthResult.failed,
-              }}
-            />
-            <SessionBalanceReminderCard
-              key={`${activeStoreId}-session-balance-rules`}
               initialSetting={sessionBalanceSetting}
-              canApplyToAllStores={user.role === "ADMIN"}
-              mode="rules"
             />
-            {smokeTestContext && (
-              <LineSmokeTestCard
-                key={activeStoreId}
-                storeName={smokeTestContext.storeName}
-                customers={smokeTestContext.customers}
-              />
-            )}
-            {lineHealthStatus && (
-              <StoreLineHealthCard
-                key={`${activeStoreId}-line-health`}
-                initialStatus={lineHealthStatus}
-              />
-            )}
-          </section>
-        )}
 
-        {/* Templates — denser grid */}
-        {activeTab === "templates" && (
-          <section className="space-y-4">
-            <SessionBalanceReminderCard
-              key={`${activeStoreId}-session-balance-templates`}
-              initialSetting={sessionBalanceSetting}
-              canApplyToAllStores={user.role === "ADMIN"}
-              mode="templates"
-            />
-            <div className="rounded-xl border border-primary-100 bg-primary-50 p-4 text-sm leading-relaxed text-primary-900">
-              <p className="font-semibold">以下是方案／單次預約卡片內的提醒文案</p>
-              <p className="mt-1 text-xs">
-                姓名、日期與連結變數會由系統自動帶入。前一日 18:00 發送時，文案會放進單張 Flex 卡片，不會另外發送重複文字；首次體驗使用固定的體驗提醒卡。上方的剩餘堂數／續購提醒是另一套通知，不受此說明影響。「12 小時截止」是顧客自行改期或取消的操作限制，不是另一個提醒時間。
-              </p>
-            </div>
-            {templates.length === 0 ? (
-              <div className="rounded-xl border border-earth-200 bg-white p-8 text-center text-sm text-earth-400">
-                尚未建立訊息模板
-              </div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {templates.map((t) => (
-                  <div
-                    key={t.id}
-                    className="flex flex-col rounded-xl border border-earth-200 bg-white p-3 shadow-sm"
-                  >
-                    <div className="mb-2 flex items-center gap-1.5">
-                      <h3 className="flex-1 truncate text-sm font-semibold text-earth-800">
-                        {t.name}
-                      </h3>
-                      {t.isDefault && (
-                        <span className="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-700">
-                          預設
-                        </span>
-                      )}
-                      <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-500">
-                        {t.channel}
-                      </span>
-                    </div>
-                    <div className="rounded-lg bg-[#06C755]/10 p-2.5 text-[11px] leading-relaxed text-earth-700">
-                      {t.body.split("\n").map((line, i, arr) => (
-                        <span key={i}>
-                          {line}
-                          {i < arr.length - 1 && <br />}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-earth-100 pt-2 text-[11px] text-earth-400">
-                      <span>規則 {t._count.rules}</span>
-                      <span>發送 {t._count.logs}</span>
-                    </div>
+            <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
+              <summary className="flex cursor-pointer list-none items-center justify-between p-4 font-semibold text-earth-800">
+                進階設定
+                <span className="text-earth-400 transition group-open:rotate-180">⌄</span>
+              </summary>
+              <div className="space-y-4 border-t border-earth-100 p-4">
+                <p className="text-xs leading-relaxed text-earth-500">通知人員、LINE 連線檢測、手動測試與未使用的舊模板集中在此；不影響上方四種提醒的獨立開關。</p>
+                <LineNotificationRecipientsCard recipients={notificationRecipients} />
+                {smokeTestContext && <LineSmokeTestCard key={activeStoreId} storeName={smokeTestContext.storeName} customers={smokeTestContext.customers} />}
+                {lineHealthStatus && <StoreLineHealthCard key={`${activeStoreId}-line-health`} initialStatus={lineHealthStatus} />}
+                <details className="rounded-xl border border-earth-200 p-4">
+                  <summary className="cursor-pointer text-sm font-semibold text-earth-700">未使用／舊版文字模板（{templates.length}）</summary>
+                  <div className="mt-3 flex justify-end"><CreateTemplateForm key={activeStoreId} /></div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {templates.map((template) => <div key={template.id} className="rounded-lg bg-earth-50 p-3 text-xs text-earth-600"><p className="font-semibold">{template.name}</p><p className="mt-1">目前規則 {template._count.rules}；未綁定規則時不會自動發送。</p></div>)}
                   </div>
-                ))}
+                </details>
               </div>
-            )}
+            </details>
           </section>
         )}
 
