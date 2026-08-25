@@ -130,7 +130,7 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
           <article key={record.id} className="min-w-0 rounded-xl border border-earth-200 bg-white p-4">
             <div className="flex min-w-0 items-start justify-between gap-3">
               <div className="min-w-0">
-                <Link href={`/dashboard/customers/${record.customer.id}`} className="block truncate font-semibold text-earth-900 hover:text-primary-700">
+                <Link href={`/dashboard/customers/${record.customer.id}/health`} className="block truncate font-semibold text-earth-900 hover:text-primary-700">
                   {record.customer.name}
                 </Link>
                 <div className="mt-0.5 truncate text-xs text-earth-500">{record.customer.phone ?? "—"}</div>
@@ -145,6 +145,12 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
               <MobileMetric label="體脂肪" value={record.bodyFat} unit="%" />
               <MobileMetric label="肌肉量" value={record.muscleMass} unit="kg" />
             </dl>
+            <Link
+              href={`/dashboard/customers/${record.customer.id}/health`}
+              className="mt-3 inline-flex min-h-10 items-center text-xs font-semibold text-primary-700"
+            >
+              查看歷史曲線 →
+            </Link>
             <details className="group mt-3 border-t border-earth-100">
               <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between py-2 text-xs font-medium text-primary-700">
                 <span>查看完整數據</span>
@@ -183,7 +189,7 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
             {result.records.map((record) => (
               <tr key={record.id} className="text-earth-800">
                 <td className="whitespace-nowrap px-4 py-3">{record.measuredAt.toISOString().slice(0, 10)}</td>
-                <td className="px-4 py-3 font-medium"><Link href={`/dashboard/customers/${record.customer.id}`} className="hover:text-primary-700">{record.customer.name}</Link></td>
+                <td className="px-4 py-3 font-medium"><Link href={`/dashboard/customers/${record.customer.id}/health`} className="hover:text-primary-700">{record.customer.name}</Link></td>
                 <td className="whitespace-nowrap px-4 py-3">{record.customer.phone ?? "—"}</td>
                 <Metric value={record.weight} unit="kg" /><Metric value={record.bmi} /><Metric value={record.bodyFat} unit="%" />
                 <Metric value={record.muscleMass} unit="kg" /><Metric value={record.boneMass} unit="kg" /><Metric value={record.visceralFat} />
