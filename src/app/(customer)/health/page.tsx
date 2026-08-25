@@ -8,6 +8,11 @@ import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
+import { hasActiveCustomerHealthHistoryGrant } from "@/server/services/customer-health-history-grant";
+import {
+  grantCurrentStoreHealthHistoryAccess,
+  revokeCurrentStoreHealthHistoryAccess,
+} from "@/server/actions/customer-health-history-grant";
 
 /**
  * 顧客 Web 健康紀錄頁。量測、歷史與曲線皆由蒸管家原生提供。
@@ -18,14 +23,14 @@ import { resolveCentralMembershipsForUser } from "@/server/services/central-memb
 export default async function HealthPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; healthConsent?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
 
   const storeCtx = await getStoreContext();
   const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
-  const { saved } = await searchParams;
+  const { saved, healthConsent } = await searchParams;
 
   if (
     !storeCtx?.storeId ||
@@ -68,9 +73,16 @@ export default async function HealthPage({
     });
   }
 
-  const summary = await getNativeHealthSummaryForMemberships(verifiedMemberships).catch(
-    () => null,
-  );
+  const [summary, hasHistoryGrant] = await Promise.all([
+    getNativeHealthSummaryForMemberships(verifiedMemberships).catch(() => null),
+    verifiedMemberships.length > 1
+      ? hasActiveCustomerHealthHistoryGrant({
+          userId: user.id,
+          targetStoreId: storeCtx.storeId,
+          targetCustomerId: customerId,
+        })
+      : Promise.resolve(false),
+  ]);
 
   return (
     <div>
@@ -86,6 +98,54 @@ export default async function HealthPage({
         <div role="status" className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800">
           量測已儲存，以下是最新健康紀錄。
         </div>
+      )}
+
+      {healthConsent === "granted" && (
+        <div role="status" className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800">
+          已授權目前門市查看您的跨店健康歷史。
+        </div>
+      )}
+      {healthConsent === "revoked" && (
+        <div role="status" className="mb-5 rounded-xl border border-earth-200 bg-earth-50 p-4 text-sm font-medium text-earth-800">
+          已撤回授權；目前門市工作人員只能查看本店紀錄。
+        </div>
+      )}
+      {healthConsent === "error" && (
+        <div role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">
+          授權狀態暫時無法更新，請稍後再試。
+        </div>
+      )}
+
+      {verifiedMemberships.length > 1 && (
+        <section className="mb-5 rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
+          <h2 className="text-base font-semibold text-earth-900">跨店健康歷史授權</h2>
+          <p className="mt-2 text-sm leading-relaxed text-earth-700">
+            {hasHistoryGrant
+              ? "目前門市中具顧客資料權限的工作人員，可在您的顧客健康頁唯讀查看其他已驗證門市紀錄。"
+              : "您可授權目前門市中具顧客資料權限的工作人員，唯讀查看其他已驗證門市紀錄。紀錄不會搬移，也不會出現在全店總覽。"}
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-earth-500">
+            僅限您的個人健康頁；每筆保留原始量測門市，您可隨時撤回。
+          </p>
+          <form
+            action={
+              hasHistoryGrant
+                ? revokeCurrentStoreHealthHistoryAccess
+                : grantCurrentStoreHealthHistoryAccess
+            }
+          >
+            <button
+              type="submit"
+              className={`mt-4 min-h-[44px] rounded-xl px-5 text-sm font-semibold transition active:scale-[0.98] ${
+                hasHistoryGrant
+                  ? "border border-earth-300 bg-white text-earth-700 hover:bg-earth-50"
+                  : "bg-primary-600 text-white hover:bg-primary-700"
+              }`}
+            >
+              {hasHistoryGrant ? "撤回目前門市授權" : "授權目前門市查看"}
+            </button>
+          </form>
+        </section>
       )}
 
       <Link
