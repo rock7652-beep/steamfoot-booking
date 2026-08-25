@@ -15,6 +15,8 @@ describe("health dashboard responsive contract", () => {
     expect(healthPage).toContain('className="grid gap-3 md:hidden"');
     expect(healthPage).toContain("<MobileMetric");
     expect(healthPage).toContain("查看完整數據");
+    expect(healthPage).toContain("查看歷史曲線");
+    expect(healthPage).toContain("/health`}");
     expect(healthPage).toContain("group-open:inline");
     expect(healthPage).toContain("md:block");
   });
