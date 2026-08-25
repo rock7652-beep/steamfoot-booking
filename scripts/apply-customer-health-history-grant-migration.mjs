@@ -48,6 +48,7 @@ const pending = status
   .map((line) => line.trim())
   .filter((line) => /^\d{14}_[A-Za-z0-9_-]+$/.test(line));
 if (pending.length !== 1 || pending[0] !== MIGRATION) {
+  console.error(`health-grant-migration: pending=${pending.join(",") || "none"}`);
   fail("pending_migration_allowlist_rejected");
 }
 
