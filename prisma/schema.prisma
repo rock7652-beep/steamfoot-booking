@@ -505,6 +505,7 @@ model User {
   staff                           Staff?
   customer                        Customer?
   customerIdentityLinks           CustomerIdentityLink[]
+  healthHistoryGrants             CustomerHealthHistoryGrant[]
   centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
   lineRebindRequestsCreated       LineRebindRequest[]              @relation("LineRebindRequestCreatedBy")
   lineRebindRequestsCancelled     LineRebindRequest[]              @relation("LineRebindRequestCancelledBy")
@@ -627,6 +628,7 @@ model Store {
   staff                             Staff[]
   customers                         Customer[]
   customerIdentityLinks             CustomerIdentityLink[]
+  healthHistoryGrantsReceived       CustomerHealthHistoryGrant[]
   centralMemberLinkReviewRequests   CentralMemberLinkReviewRequest[]
   lineRebindRequests                LineRebindRequest[]
   lineOAuthAttempts                 LineOAuthAttempt[]
@@ -675,17 +677,17 @@ model Store {
 }
 
 model StoreLineNotificationRecipient {
-  id                   String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   storeId              String
   displayName          String
   roleLabel            String
   lineUserId           String?
-  bindingCode          String?  @unique
+  bindingCode          String?   @unique
   bindingCodeExpiresAt DateTime?
-  isActive             Boolean  @default(false)
+  isActive             Boolean   @default(false)
   linkedAt             DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
@@ -832,34 +834,34 @@ model DigitalButlerAnswer {
 }
 
 model DigitalButlerLead {
-  id                  String                      @id @default(cuid())
-  storeId             String
-  flowId              String
-  conversationId      String
-  completionActionKey String
-  customerDisplayName String?
-  customerAvatarUrl   String?
-  customerReference   String?
+  id                    String                      @id @default(cuid())
+  storeId               String
+  flowId                String
+  conversationId        String
+  completionActionKey   String
+  customerDisplayName   String?
+  customerAvatarUrl     String?
+  customerReference     String?
   lastMessageCiphertext Bytes?
-  lastMessageIv       Bytes?
-  lastMessageAuthTag  Bytes?
-  lastMessageAt       DateTime?
-  status              DigitalButlerLeadStatus     @default(NEW)
-  submittedAnswers    Json
-  phoneCiphertext     Bytes?
-  phoneIv             Bytes?
-  phoneAuthTag        Bytes?
-  phoneHash           String?
-  assignedStaffId     String?
-  internalNote        String?
-  lastContactedAt     DateTime?
-  createdAt           DateTime                    @default(now())
-  updatedAt           DateTime                    @updatedAt
-  store               Store                       @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  flow                StoreDigitalButlerFlow      @relation(fields: [flowId, storeId], references: [id, storeId], onDelete: Restrict)
-  conversation        DigitalButlerConversation   @relation(fields: [conversationId, storeId], references: [id, storeId], onDelete: Restrict)
-  assignedStaff       Staff?                      @relation("DigitalButlerLeadAssignee", fields: [assignedStaffId, storeId], references: [id, storeId], onDelete: Restrict)
-  activities          DigitalButlerLeadActivity[]
+  lastMessageIv         Bytes?
+  lastMessageAuthTag    Bytes?
+  lastMessageAt         DateTime?
+  status                DigitalButlerLeadStatus     @default(NEW)
+  submittedAnswers      Json
+  phoneCiphertext       Bytes?
+  phoneIv               Bytes?
+  phoneAuthTag          Bytes?
+  phoneHash             String?
+  assignedStaffId       String?
+  internalNote          String?
+  lastContactedAt       DateTime?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  store                 Store                       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  flow                  StoreDigitalButlerFlow      @relation(fields: [flowId, storeId], references: [id, storeId], onDelete: Restrict)
+  conversation          DigitalButlerConversation   @relation(fields: [conversationId, storeId], references: [id, storeId], onDelete: Restrict)
+  assignedStaff         Staff?                      @relation("DigitalButlerLeadAssignee", fields: [assignedStaffId, storeId], references: [id, storeId], onDelete: Restrict)
+  activities            DigitalButlerLeadActivity[]
 
   @@unique([storeId, conversationId, completionActionKey])
   @@unique([id, storeId])
@@ -1111,8 +1113,9 @@ model Customer {
   messageLogs MessageLog[]
 
   // 蒸足心得 / 打卡貼文
-  checkinPosts CheckinPost[]
-  healthRecords CustomerHealthRecord[]
+  checkinPosts                CheckinPost[]
+  healthRecords               CustomerHealthRecord[]
+  healthHistoryGrantsReceived CustomerHealthHistoryGrant[]
 
   // 顧客經營追蹤紀錄（簡易 CRM-lite）
   followUps                       CustomerFollowUp[]
@@ -1138,24 +1141,24 @@ model Customer {
 // 蒸管家原生健康量測。
 // storeId 冗餘保存是刻意設計：所有店長查詢必須先以店舖範圍過濾，避免跨店洩漏。
 model CustomerHealthRecord {
-  id               String   @id @default(cuid())
-  storeId          String
-  customerId       String
-  measuredAt       DateTime @db.Date
-  weight           Float?
-  bmi              Float?
-  bodyFat          Float?
-  muscleMass       Float?
-  boneMass         Float?
-  visceralFat      Float?
-  bmr              Float?
-  bodyWater        Float?
-  metabolicAge     Float?
-  note             String?
-  source           String   @default("STEAMFOOT")
-  sourceRecordId   String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             String   @id @default(cuid())
+  storeId        String
+  customerId     String
+  measuredAt     DateTime @db.Date
+  weight         Float?
+  bmi            Float?
+  bodyFat        Float?
+  muscleMass     Float?
+  boneMass       Float?
+  visceralFat    Float?
+  bmr            Float?
+  bodyWater      Float?
+  metabolicAge   Float?
+  note           String?
+  source         String   @default("STEAMFOOT")
+  sourceRecordId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   store    Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -1164,6 +1167,26 @@ model CustomerHealthRecord {
   @@index([storeId, measuredAt])
   @@index([storeId, customerId, measuredAt])
   @@index([customerId, measuredAt])
+}
+
+// 顧客明確授權「目前門市」的具權限工作人員唯讀查看其他已驗證門市健康歷史。
+// 原始健康紀錄不搬移；撤回以 revokedAt 保留稽核歷史。
+model CustomerHealthHistoryGrant {
+  id               String    @id @default(cuid())
+  userId           String
+  targetStoreId    String
+  targetCustomerId String
+  grantedAt        DateTime  @default(now())
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetStore    Store    @relation(fields: [targetStoreId], references: [id], onDelete: Cascade)
+  targetCustomer Customer @relation(fields: [targetCustomerId], references: [id], onDelete: Cascade)
+
+  @@index([targetStoreId, targetCustomerId, revokedAt])
+  @@index([userId, revokedAt])
 }
 
 // ============================================================
@@ -1605,50 +1628,50 @@ model BookingSlot {
 // ============================================================
 
 model Booking {
-  id                   String        @id @default(cuid())
-  customerId           String
-  storeId              String
-  bookingDate          DateTime      @db.Date
-  slotTime             String // "HH:mm"，對應 BookingSlot.startTime
-  revenueStaffId       String? // 冗餘快照：營收歸屬店長（nullable: 顧客可能尚未指派）
-  serviceStaffId       String? // 當天實際服務/值班店長（nullable, 可後補）
-  bookedByType         BookedByType  @default(CUSTOMER)
-  bookedByStaffId      String? // 若由店長代約，記錄是哪位店長
-  bookingType          BookingType   @default(PACKAGE_SESSION)
-  servicePlanId        String? // 使用哪個方案（nullable for flexibility）
-  customerPlanWalletId String? // 若使用套餐，對應哪個錢包
-  people               Int           @default(1) // 預約人數（1~4）— 原本預約人數，不可被部分到店流程改寫
+  id                      String               @id @default(cuid())
+  customerId              String
+  storeId                 String
+  bookingDate             DateTime             @db.Date
+  slotTime                String // "HH:mm"，對應 BookingSlot.startTime
+  revenueStaffId          String? // 冗餘快照：營收歸屬店長（nullable: 顧客可能尚未指派）
+  serviceStaffId          String? // 當天實際服務/值班店長（nullable, 可後補）
+  bookedByType            BookedByType         @default(CUSTOMER)
+  bookedByStaffId         String? // 若由店長代約，記錄是哪位店長
+  bookingType             BookingType          @default(PACKAGE_SESSION)
+  servicePlanId           String? // 使用哪個方案（nullable for flexibility）
+  customerPlanWalletId    String? // 若使用套餐，對應哪個錢包
+  people                  Int                  @default(1) // 預約人數（1~4）— 原本預約人數，不可被部分到店流程改寫
   // 多人預約的實際到店人數（FIRST_TRIAL 與 PACKAGE_SESSION）。
   // null = 未明確記錄／視為 attendedPeople == people（向後相容、不破現有資料）。
   // 1..people = 店長於 完成服務 時記錄；attendedPeople < people 表示部分到店，
   // 體驗收款預設改用 attendedPeople 計算；0 不寫入（0 走 markNoShow）。
-  attendedPeople       Int?
-  isMakeup             Boolean       @default(false) // 是否為補課預約
-  makeupCreditId       String?       @unique // 若為補課，關聯使用的補課資格
-  isCheckedIn          Boolean       @default(false) // 已棄用，保留向後相容
-  bookingStatus        BookingStatus @default(PENDING)
-  noShowPolicy         String? // "DEDUCTED" | "NOT_DEDUCTED"；整筆或部分未到時使用
-  noShowMakeupGranted  Boolean? // 整筆或部分未到是否有發補課資格
-  reminderSent         Boolean       @default(false)
+  attendedPeople          Int?
+  isMakeup                Boolean              @default(false) // 是否為補課預約
+  makeupCreditId          String?              @unique // 若為補課，關聯使用的補課資格
+  isCheckedIn             Boolean              @default(false) // 已棄用，保留向後相容
+  bookingStatus           BookingStatus        @default(PENDING)
+  noShowPolicy            String? // "DEDUCTED" | "NOT_DEDUCTED"；整筆或部分未到時使用
+  noShowMakeupGranted     Boolean? // 整筆或部分未到是否有發補課資格
+  reminderSent            Boolean              @default(false)
   // Customer-operated trial booking lifecycle. Nullable/default values keep
   // every historical booking compatible with the existing payment flow.
-  trialBookingChannel  TrialBookingChannel?
-  customerConfirmedAt  DateTime?
-  customerRescheduledAt DateTime?
-  customerCancelledAt DateTime?
+  trialBookingChannel     TrialBookingChannel?
+  customerConfirmedAt     DateTime?
+  customerRescheduledAt   DateTime?
+  customerCancelledAt     DateTime?
   customerCancelledSource String?
-  customerRescheduleCount Int          @default(0)
-  originalBookingDate  DateTime?       @db.Date
-  originalSlotTime     String?
-  notes                String?
+  customerRescheduleCount Int                  @default(0)
+  originalBookingDate     DateTime?            @db.Date
+  originalSlotTime        String?
+  notes                   String?
   // 體驗 499 PR-2：建立體驗預約當下的預計收款金額快照（僅 FIRST_TRIAL 設值）。
   // nullable：其他預約型別 / 既有資料一律 NULL。未來體驗價調整不回寫舊預約。
   // 實際收款金額在 PR-3 以 Transaction.amount 記錄，不存這裡。
-  expectedAmount       Decimal?      @db.Decimal(10, 0)
-  recurrenceGroupId    String?
-  recurrenceIndex      Int?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  expectedAmount          Decimal?             @db.Decimal(10, 0)
+  recurrenceGroupId       String?
+  recurrenceIndex         Int?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
 
   customer           Customer                @relation(fields: [customerId], references: [id])
   store              Store                   @relation(fields: [storeId], references: [id])
@@ -1672,7 +1695,7 @@ model Booking {
   transactions Transaction[]
 
   // 提醒
-  reminders Reminder[]
+  reminders         Reminder[]
   trialBookingLinks TrialBookingLink[]
 
   // 訊息紀錄
@@ -1716,7 +1739,7 @@ model TrialBookingLink {
   bookingId          String?             @unique
   createdAt          DateTime            @default(now())
 
-  store   Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store   Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
   @@index([storeId, expiresAt])
@@ -1896,9 +1919,9 @@ model Transaction {
   conversionEffectsApplied        Boolean           @default(false)
   // migration 後建立的購買均明確標記；舊交易沒有完整快照時禁止直接取消。
   conversionSnapshotCaptured      Boolean           @default(false)
-  firstTopupRewardsApplied         Boolean           @default(false)
-  firstTopupReferrerRewardApplied  Boolean           @default(false)
-  firstTopupSelfRewardApplied      Boolean           @default(false)
+  firstTopupRewardsApplied        Boolean           @default(false)
+  firstTopupReferrerRewardApplied Boolean           @default(false)
+  firstTopupSelfRewardApplied     Boolean           @default(false)
   preConversionCustomerStage      CustomerStage?
   preConversionSelfBookingEnabled Boolean?
   preConversionConvertedAt        DateTime?
@@ -1918,19 +1941,19 @@ model Transaction {
   refundedAt            DateTime?
   refundedByUserId      String?
 
-  customer            Customer              @relation(fields: [customerId], references: [id])
-  store               Store                 @relation(fields: [storeId], references: [id])
-  booking             Booking?              @relation(fields: [bookingId], references: [id])
-  revenueStaff        Staff                 @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
-  serviceStaff        Staff?                @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
-  soldByStaff         Staff?                @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
-  customerPlanWallet  CustomerPlanWallet?   @relation(fields: [customerPlanWalletId], references: [id])
-  servicePlan         ServicePlan?          @relation("TransactionPlan", fields: [planId], references: [id])
-  voidedBy            User?                 @relation("VoidedTransactions", fields: [voidedByUserId], references: [id])
+  customer            Customer                  @relation(fields: [customerId], references: [id])
+  store               Store                     @relation(fields: [storeId], references: [id])
+  booking             Booking?                  @relation(fields: [bookingId], references: [id])
+  revenueStaff        Staff                     @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff        Staff?                    @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  soldByStaff         Staff?                    @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
+  customerPlanWallet  CustomerPlanWallet?       @relation(fields: [customerPlanWalletId], references: [id])
+  servicePlan         ServicePlan?              @relation("TransactionPlan", fields: [planId], references: [id])
+  voidedBy            User?                     @relation("VoidedTransactions", fields: [voidedByUserId], references: [id])
   auditLogs           TransactionAuditLog[]
-  refundOfTransaction Transaction?          @relation("TransactionRefunds", fields: [refundOfTransactionId], references: [id], onDelete: Restrict)
-  refunds             Transaction[]         @relation("TransactionRefunds")
-  refundedBy          User?                 @relation("RefundedTransactions", fields: [refundedByUserId], references: [id])
+  refundOfTransaction Transaction?              @relation("TransactionRefunds", fields: [refundOfTransactionId], references: [id], onDelete: Restrict)
+  refunds             Transaction[]             @relation("TransactionRefunds")
+  refundedBy          User?                     @relation("RefundedTransactions", fields: [refundedByUserId], references: [id])
   paymentSplits       TransactionPaymentSplit[]
 
   @@index([storeId])
@@ -2040,20 +2063,20 @@ model AuditLog {
 // Messenger control-plane diagnostics. Stores only de-identified outcomes;
 // Graph credentials, PSIDs and raw Graph responses must never be persisted.
 model MessengerAuditRun {
-  id                    String                @id @default(cuid())
-  storeId               String
-  requestedByUserId     String
-  createdAt             DateTime              @default(now())
-  completedAt           DateTime?
-  status                MessengerAuditStatus  @default(RUNNING)
-  appValidated          Boolean?
-  pageTokenMatches      Boolean?
-  callbackMatches       Boolean?
-  configuredFields      String[]              @default([])
-  missingFields         String[]              @default([])
-  pageAttached          Boolean?
-  callsSafeSummary      Json?
-  errorCode             String?
+  id                String               @id @default(cuid())
+  storeId           String
+  requestedByUserId String
+  createdAt         DateTime             @default(now())
+  completedAt       DateTime?
+  status            MessengerAuditStatus @default(RUNNING)
+  appValidated      Boolean?
+  pageTokenMatches  Boolean?
+  callbackMatches   Boolean?
+  configuredFields  String[]             @default([])
+  missingFields     String[]             @default([])
+  pageAttached      Boolean?
+  callsSafeSummary  Json?
+  errorCode         String?
 
   store       Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
   requestedBy User  @relation(fields: [requestedByUserId], references: [id], onDelete: Restrict)
@@ -2420,7 +2443,7 @@ model BusinessHours {
   closeTime       String? // "HH:mm"，null 表示公休
   slotInterval    Int      @default(60) // 時段間隔（分鐘）：30/60/90/120
   defaultCapacity Int      @default(6) // 每時段預設名額
-  segments        Json?    // 新版多區段設定；null 時完全沿用上方舊欄位
+  segments        Json? // 新版多區段設定；null 時完全沿用上方舊欄位
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

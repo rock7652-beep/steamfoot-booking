@@ -17,6 +17,14 @@ const nativeHealthService = readFileSync(
   "src/lib/native-health-service.ts",
   "utf8",
 );
+const grantService = readFileSync(
+  "src/server/services/customer-health-history-grant.ts",
+  "utf8",
+);
+const storeHealthOverview = readFileSync(
+  "src/app/(dashboard)/dashboard/health/page.tsx",
+  "utf8",
+);
 
 describe("customer health route and performance contract", () => {
   it("keeps the basic customer page on a latest-record-only query", () => {
@@ -31,7 +39,7 @@ describe("customer health route and performance contract", () => {
     expect(customerHealthPage).toContain("getActiveStoreForRead");
     expect(customerHealthPage).toContain("FEATURES.AI_HEALTH_SUMMARY");
     expect(customerHealthPage).toContain("mergedIntoCustomerId: null");
-    expect(customerHealthPage).toContain("getNativeHealthSummary(customer.id, storeId)");
+    expect(customerHealthPage).toContain("getStaffVisibleHealthSummary");
     expect(customerHealthPage).toContain("HealthAssessmentCard");
   });
 
@@ -42,7 +50,14 @@ describe("customer health route and performance contract", () => {
     expect(nativeHealthService).toContain(
       "OR: scopes.map(({ storeId, customerId }) => ({ storeId, customerId }))",
     );
-    // Staff route remains exactly store-scoped.
-    expect(customerHealthPage).toContain("getNativeHealthSummary(customer.id, storeId)");
+    // Staff detail only expands after an active consent row and a fresh,
+    // fail-closed central membership resolution.
+    expect(grantService).toContain("revokedAt: null");
+    expect(grantService).toContain("resolveCentralUserForStoreCustomer");
+    expect(grantService).toContain("resolveCentralMembershipsForUser");
+    expect(grantService).toContain("targetStillVerified");
+    // Consent never changes the store-wide overview query.
+    expect(storeHealthOverview).not.toContain("CustomerHealthHistoryGrant");
+    expect(storeHealthOverview).not.toContain("getStaffVisibleHealthSummary");
   });
 });
