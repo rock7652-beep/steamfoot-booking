@@ -2,9 +2,13 @@
 
 import { useActionState } from "react";
 import {
-  initialSaveCustomerHealthRecordState,
   saveCustomerHealthRecord,
+  type SaveCustomerHealthRecordState,
 } from "@/server/actions/customer-health-record";
+
+const initialSaveCustomerHealthRecordState: SaveCustomerHealthRecordState = {
+  error: null,
+};
 
 const fields = [
   ["weight", "體重", "kg", "0.1"],
