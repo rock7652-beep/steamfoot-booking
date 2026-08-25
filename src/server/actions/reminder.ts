@@ -146,35 +146,6 @@ const sessionBalanceSettingSchema = z.object({
   planUsedUpTemplate: z.string().min(1).max(1500),
   learnMoreButtonLabel: z.string().min(1).max(20),
   laterButtonLabel: z.string().min(1).max(20),
-}).superRefine((data, ctx) => {
-  const required: Array<{
-    field: "lastSessionUnbookedTemplate" | "lastSessionBookedTemplate" | "planUsedUpTemplate";
-    variables: string[];
-  }> = [
-    {
-      field: "lastSessionUnbookedTemplate",
-      variables: ["{customerName}", "{planName}", "{bookingUrl}"],
-    },
-    {
-      field: "lastSessionBookedTemplate",
-      variables: ["{customerName}", "{planName}", "{bookingDateTime}"],
-    },
-    {
-      field: "planUsedUpTemplate",
-      variables: ["{customerName}", "{planName}"],
-    },
-  ];
-  for (const requirement of required) {
-    for (const variable of requirement.variables) {
-      if (!data[requirement.field].includes(variable)) {
-        ctx.addIssue({
-          code: "custom",
-          path: [requirement.field],
-          message: `必須保留變數 ${variable}`,
-        });
-      }
-    }
-  }
 });
 
 const BOOKING_LINE_TEST_PREFIX = "【測試提醒｜不影響正式排程】";
@@ -684,23 +655,6 @@ const sessionBalanceTemplateSettingSchema = z.object({
   planUsedUpTemplate: z.string().min(1).max(1500),
   learnMoreButtonLabel: z.string().min(1).max(20),
   laterButtonLabel: z.string().min(1).max(20),
-}).superRefine((data, ctx) => {
-  const required = [
-    { field: "lastSessionUnbookedTemplate" as const, variables: ["{customerName}", "{planName}", "{bookingUrl}"] },
-    { field: "lastSessionBookedTemplate" as const, variables: ["{customerName}", "{planName}", "{bookingDateTime}"] },
-    { field: "planUsedUpTemplate" as const, variables: ["{customerName}", "{planName}"] },
-  ];
-  for (const requirement of required) {
-    for (const variable of requirement.variables) {
-      if (!data[requirement.field].includes(variable)) {
-        ctx.addIssue({
-          code: "custom",
-          path: [requirement.field],
-          message: `必須保留變數 ${variable}`,
-        });
-      }
-    }
-  }
 });
 
 export async function saveSessionBalanceRuleSetting(
