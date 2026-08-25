@@ -55,17 +55,21 @@ export async function listReminderRules(storeId: string) {
  */
 export async function getStoreReminderState(storeId: string): Promise<{
   enabled: boolean;
+  packageBookingEnabled: boolean;
+  trialBookingEnabled: boolean;
   canonicalTemplateId: string | null;
 }> {
   const authorizedStoreId = await resolveReminderReadStore(storeId);
   const rules = await prisma.reminderRule.findMany({
     where: { storeId: authorizedStoreId },
     orderBy: { createdAt: "asc" },
-    select: { isEnabled: true, templateId: true },
+    select: { isEnabled: true, packageBookingEnabled: true, trialBookingEnabled: true, templateId: true },
   });
   const canonical = rules.find((r) => r.isEnabled) ?? rules[0] ?? null;
   return {
     enabled: rules.some((r) => r.isEnabled),
+    packageBookingEnabled: canonical?.packageBookingEnabled ?? true,
+    trialBookingEnabled: canonical?.trialBookingEnabled ?? true,
     canonicalTemplateId: canonical?.templateId ?? null,
   };
 }

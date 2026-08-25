@@ -2250,6 +2250,8 @@ model ReminderRule {
   channel       ReminderChannel @default(LINE)
   templateId    String?
   isEnabled     Boolean         @default(true)
+  packageBookingEnabled Boolean @default(true)
+  trialBookingEnabled   Boolean @default(true)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 

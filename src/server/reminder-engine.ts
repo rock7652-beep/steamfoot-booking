@@ -282,6 +282,21 @@ export async function runReminders(): Promise<SendResult> {
     for (const booking of bookings) {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
+      const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
+      if (
+        (isLineTrialBooking && rule.trialBookingEnabled === false) ||
+        (!isLineTrialBooking && rule.packageBookingEnabled === false)
+      ) {
+        result.skipped++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "SKIPPED",
+          error: isLineTrialBooking ? "TRIAL_REMINDER_DISABLED" : "PACKAGE_REMINDER_DISABLED",
+        });
+        continue;
+      }
 
       // Messenger scheduled delivery is intentionally isolated from this PR.
       // Messenger can still issue a chat-bound booking link, but only LINE is
@@ -459,7 +474,6 @@ export async function runReminders(): Promise<SendResult> {
       let bookingLink = `${baseUrl}/s/${encodeURIComponent(booking.store.slug)}/my-bookings`;
       // Messenger bookings already continued above; a channel-null legacy
       // first trial that reaches a verified LINE route must use self-service.
-      const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
       if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
         await recordFailedReminder({
           ruleId: rule.id,

@@ -623,6 +623,38 @@ export async function setReminderTemplate(
   }
 }
 
+export async function setBookingReminderTypeEnabled(
+  type: "PACKAGE" | "TRIAL",
+  enabled: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const canonical = await prisma.reminderRule.findFirst({
+      where: { storeId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, packageBookingEnabled: true, trialBookingEnabled: true },
+    });
+    if (!canonical) throw new AppError("NOT_FOUND", "尚未建立明日預約提醒規則");
+
+    const packageBookingEnabled = type === "PACKAGE" ? enabled : canonical.packageBookingEnabled;
+    const trialBookingEnabled = type === "TRIAL" ? enabled : canonical.trialBookingEnabled;
+    await prisma.reminderRule.update({
+      where: { id: canonical.id, storeId },
+      data: {
+        packageBookingEnabled,
+        trialBookingEnabled,
+        isEnabled: packageBookingEnabled || trialBookingEnabled,
+      },
+    });
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
 // ============================================================
 // Session balance / renewal reminder settings
 // ============================================================
