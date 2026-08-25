@@ -1,7 +1,7 @@
 import type { TrendPoint } from "@/lib/health-service";
 
 export type HealthDisplayMetric = {
-  key: Exclude<keyof TrendPoint, "measuredAt">;
+  key: Exclude<keyof TrendPoint, "measuredAt" | "storeName" | "storeSlug">;
   label: string;
   unit: string;
 };

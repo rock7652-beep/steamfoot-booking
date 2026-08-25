@@ -9,6 +9,10 @@ const customerHealthPage = readFileSync(
   "src/app/(dashboard)/dashboard/customers/[id]/health/page.tsx",
   "utf8",
 );
+const customerOwnedHealthPage = readFileSync(
+  "src/app/(customer)/health/page.tsx",
+  "utf8",
+);
 const nativeHealthService = readFileSync(
   "src/lib/native-health-service.ts",
   "utf8",
@@ -29,5 +33,16 @@ describe("customer health route and performance contract", () => {
     expect(customerHealthPage).toContain("mergedIntoCustomerId: null");
     expect(customerHealthPage).toContain("getNativeHealthSummary(customer.id, storeId)");
     expect(customerHealthPage).toContain("HealthAssessmentCard");
+  });
+
+  it("unifies only the signed-in customer's verified cross-store memberships", () => {
+    expect(customerOwnedHealthPage).toContain("resolveCentralMembershipsForUser(user.id)");
+    expect(customerOwnedHealthPage).toContain("getNativeHealthSummaryForMemberships");
+    expect(customerOwnedHealthPage).not.toContain("phone");
+    expect(nativeHealthService).toContain(
+      "OR: scopes.map(({ storeId, customerId }) => ({ storeId, customerId }))",
+    );
+    // Staff route remains exactly store-scoped.
+    expect(customerHealthPage).toContain("getNativeHealthSummary(customer.id, storeId)");
   });
 });

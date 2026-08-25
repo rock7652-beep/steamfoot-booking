@@ -1,12 +1,13 @@
 import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
-import { getNativeHealthSummary } from "@/lib/native-health-service";
+import { getNativeHealthSummaryForMemberships } from "@/lib/native-health-service";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
+import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 
 /**
  * 顧客 Web 健康紀錄頁。量測、歷史與曲線皆由蒸管家原生提供。
@@ -44,11 +45,42 @@ export default async function HealthPage({
   const customerId = resolved.customer?.id ?? null;
   if (!customerId) redirect("/");
 
-  const summary = await getNativeHealthSummary(customerId, storeCtx.storeId).catch(() => null);
+  const centralMemberships = await resolveCentralMembershipsForUser(user.id);
+  const verifiedMemberships = centralMemberships.memberships.map((membership) => ({
+    storeId: membership.storeId,
+    customerId: membership.customerId,
+    storeName: membership.storeName,
+    storeSlug: membership.storeSlug,
+  }));
+  if (
+    !verifiedMemberships.some(
+      (membership) =>
+        membership.storeId === storeCtx.storeId && membership.customerId === customerId,
+    )
+  ) {
+    verifiedMemberships.push({
+      storeId: storeCtx.storeId,
+      customerId,
+      // 正常情況中央會員解析器一定會提供正式店名；此 fail-safe 只在
+      // 舊會員尚未回填 identity link 時使用，不拿姓名或電話猜跨店身分。
+      storeName: storeCtx.storeSlug,
+      storeSlug: storeCtx.storeSlug,
+    });
+  }
+
+  const summary = await getNativeHealthSummaryForMemberships(verifiedMemberships).catch(
+    () => null,
+  );
 
   return (
     <div>
       <HealthPageHeader prefix={prefix} />
+
+      {verifiedMemberships.length > 1 && (
+        <div className="mb-5 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+          已整合您在 {verifiedMemberships.length} 家已驗證門市的健康紀錄；每筆仍保留原始量測門市。
+        </div>
+      )}
 
       {saved === "1" && (
         <div role="status" className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800">

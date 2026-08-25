@@ -38,6 +38,9 @@ export interface HealthRecord {
   bodyWater: number | null;
   metabolicAge: number | null;
   note: string | null;
+  /** 原始量測門市；只有顧客本人跨店檢視時提供。 */
+  storeName?: string;
+  storeSlug?: string;
 }
 
 export interface TrendPoint {
@@ -51,6 +54,9 @@ export interface TrendPoint {
   bmr: number | null;
   bodyWater: number | null;
   metabolicAge: number | null;
+  /** 原始量測門市；曲線計算不使用此欄位。 */
+  storeName?: string;
+  storeSlug?: string;
 }
 
 export interface HealthAlert {

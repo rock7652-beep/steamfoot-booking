@@ -127,7 +127,7 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
       )}
 
       <p className="text-[11px] leading-relaxed text-earth-500">
-        量測資料已安全保存於蒸管家，僅本人與所屬門店具權限的工作人員可查看。
+        量測資料已安全保存於蒸管家。本人可查看已驗證門市的個人歷史；工作人員仍僅能查看本店資料。
       </p>
     </div>
   );

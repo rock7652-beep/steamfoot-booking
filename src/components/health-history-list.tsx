@@ -40,9 +40,16 @@ export function HealthHistoryList({
             key={`${record.measuredAt}-${index}`}
             className="px-3 py-3 text-xs"
           >
-            <p className="font-medium text-earth-800">
-              {formatDate(record.measuredAt)}
-            </p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-medium text-earth-800">
+                {formatDate(record.measuredAt)}
+              </p>
+              {record.storeName && (
+                <span className="rounded-full bg-earth-50 px-2 py-1 text-[10px] text-earth-600">
+                  {record.storeName}
+                </span>
+              )}
+            </div>
             <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3">
               {HEALTH_DISPLAY_METRICS.map((metric) => (
                 <span
