@@ -20,10 +20,6 @@ export type SaveCustomerHealthRecordState = {
   fieldErrors?: Record<string, string[]>;
 };
 
-export const initialSaveCustomerHealthRecordState: SaveCustomerHealthRecordState = {
-  error: null,
-};
-
 export async function saveCustomerHealthRecord(
   _previous: SaveCustomerHealthRecordState,
   formData: FormData,
