@@ -5,7 +5,6 @@ import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { prisma } from "@/lib/db";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { getNativeHealthSummary } from "@/lib/native-health-service";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -13,6 +12,7 @@ import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
 } from "@/lib/store-view-context-server";
+import { getStaffVisibleHealthSummary } from "@/server/services/customer-health-history-grant";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -41,7 +41,10 @@ export default async function CustomerHealthPage({ params }: PageProps) {
   ]);
   if (!featureEnabled || !customer) notFound();
 
-  const summary = await getNativeHealthSummary(customer.id, storeId);
+  const visible = await getStaffVisibleHealthSummary({
+    targetCustomerId: customer.id,
+    targetStoreId: storeId,
+  });
 
   return (
     <PageShell>
@@ -66,8 +69,14 @@ export default async function CustomerHealthPage({ params }: PageProps) {
         }
       />
 
-      {summary.latest ? (
-        <HealthAssessmentCard summary={summary} />
+      {visible.hasCrossStoreGrant && (
+        <div className="mb-5 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+          顧客已授權本店唯讀查看 {visible.storeCount} 家已驗證門市的健康歷史；每筆仍保留原始量測門市。
+        </div>
+      )}
+
+      {visible.summary.latest ? (
+        <HealthAssessmentCard summary={visible.summary} />
       ) : (
         <div className="rounded-xl border border-earth-200 bg-white px-4 py-12 text-center text-sm text-earth-500">
           這位顧客目前沒有健康量測紀錄
