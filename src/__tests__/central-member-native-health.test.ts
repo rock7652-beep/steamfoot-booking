@@ -16,7 +16,10 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { getNativeHealthSummaryForMemberships } from "@/lib/native-health-service";
+import {
+  getNativeHealthSummary,
+  getNativeHealthSummaryForMemberships,
+} from "@/lib/native-health-service";
 
 describe("customer-owned cross-store native health summary", () => {
   beforeEach(() => {
@@ -42,6 +45,83 @@ describe("customer-owned cross-store native health summary", () => {
     expect(h.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expectedWhere }));
     expect(h.count).toHaveBeenCalledWith({ where: expectedWhere });
     expect(h.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expectedWhere }));
+  });
+
+  it("keeps the original measurement store on the latest record and trend", async () => {
+    h.findMany.mockResolvedValue([
+      {
+        measuredAt: new Date("2026-08-25T00:00:00.000Z"),
+        createdAt: new Date("2026-08-25T01:00:00.000Z"),
+        weight: 72,
+        bmi: 24.3,
+        bodyFat: 23,
+        muscleMass: 60,
+        boneMass: 2.9,
+        visceralFat: 8,
+        bmr: 1750,
+        bodyWater: 55,
+        metabolicAge: 40,
+        note: null,
+        store: { name: "暖暖蒸足", slug: "zhubei" },
+      },
+    ]);
+    h.count.mockResolvedValue(1);
+    h.findFirst.mockResolvedValue({
+      measuredAt: new Date("2026-08-25T00:00:00.000Z"),
+    });
+
+    const summary = await getNativeHealthSummaryForMemberships([
+      {
+        storeId: "store-a",
+        customerId: "customer-a",
+        storeName: "暖暖蒸足",
+        storeSlug: "zhubei",
+      },
+    ]);
+
+    expect(summary.latest).toMatchObject({
+      storeName: "暖暖蒸足",
+      storeSlug: "zhubei",
+    });
+    expect(summary.trend[0]).toMatchObject({
+      storeName: "暖暖蒸足",
+      storeSlug: "zhubei",
+    });
+  });
+
+  it("also returns the original store on a single-store summary without another query", async () => {
+    h.findMany.mockResolvedValue([
+      {
+        measuredAt: new Date("2026-08-25T00:00:00.000Z"),
+        createdAt: new Date("2026-08-25T01:00:00.000Z"),
+        weight: 72,
+        bmi: 24.3,
+        bodyFat: 23,
+        muscleMass: 60,
+        boneMass: 2.9,
+        visceralFat: 8,
+        bmr: 1750,
+        bodyWater: 55,
+        metabolicAge: 40,
+        note: null,
+        store: { name: "暖暖蒸足", slug: "zhubei" },
+      },
+    ]);
+    h.count.mockResolvedValue(1);
+    h.findFirst.mockResolvedValue({
+      measuredAt: new Date("2026-08-25T00:00:00.000Z"),
+    });
+
+    const summary = await getNativeHealthSummary("customer-a", "store-a");
+
+    expect(h.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { customerId: "customer-a", storeId: "store-a" },
+        include: { store: { select: { name: true, slug: true } } },
+      }),
+    );
+    expect(summary.latest?.storeName).toBe("暖暖蒸足");
+    expect(summary.trend[0]?.storeName).toBe("暖暖蒸足");
   });
 
   it("does not touch the database when there are no verified memberships", async () => {

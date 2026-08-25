@@ -46,7 +46,7 @@ export function HealthHistoryList({
               </p>
               {record.storeName && (
                 <span className="rounded-full bg-earth-50 px-2 py-1 text-[10px] text-earth-600">
-                  {record.storeName}
+                  量測門市：{record.storeName}
                 </span>
               )}
             </div>

@@ -72,18 +72,25 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
       )}
 
       {/* Latest measured date */}
-      <div className="mb-4 flex items-baseline justify-between rounded-xl bg-earth-50 px-4 py-3">
-        <span className="text-xs text-earth-500">最近量測</span>
-        <span className="text-sm">
-          <span className="font-semibold text-earth-900">
-            {formatDate(latest.measuredAt)}
-          </span>
-          {daysAgo !== null && (
-            <span className="ml-1 text-xs text-earth-500">
-              （{daysAgo} 天前）
+      <div className="mb-4 rounded-xl bg-earth-50 px-4 py-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-xs text-earth-500">最近量測</span>
+          <span className="text-sm">
+            <span className="font-semibold text-earth-900">
+              {formatDate(latest.measuredAt)}
             </span>
-          )}
-        </span>
+            {daysAgo !== null && (
+              <span className="ml-1 text-xs text-earth-500">
+                （{daysAgo} 天前）
+              </span>
+            )}
+          </span>
+        </div>
+        {latest.storeName && (
+          <p className="mt-2 border-t border-earth-100 pt-2 text-right text-xs text-earth-600">
+            量測門市：<span className="font-medium text-earth-800">{latest.storeName}</span>
+          </p>
+        )}
       </div>
 
       {/* HealthFlow 量測欄位完整摘要 */}

@@ -173,6 +173,7 @@ export async function getNativeHealthSummary(
       where: { customerId, storeId },
       orderBy: [{ measuredAt: "desc" }, { createdAt: "desc" }],
       take: 30,
+      include: { store: { select: { name: true, slug: true } } },
     }),
     prisma.customerHealthRecord.count({ where: { customerId, storeId } }),
     prisma.customerHealthRecord.findFirst({
@@ -186,16 +187,8 @@ export async function getNativeHealthSummary(
   const latest = latestRow ? toHealthRecord(latestRow) : null;
 
   const trend = records.slice().reverse().map((row) => ({
-    measuredAt: row.measuredAt.toISOString().slice(0, 10),
-    weight: row.weight,
-    bmi: row.bmi,
-    bodyFat: row.bodyFat,
-    muscleMass: row.muscleMass,
-    boneMass: row.boneMass,
-    visceralFat: row.visceralFat,
-    bmr: row.bmr,
-    bodyWater: row.bodyWater,
-    metabolicAge: row.metabolicAge,
+    ...toHealthRecord(row),
+    note: undefined,
   }));
 
   return {
