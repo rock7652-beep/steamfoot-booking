@@ -303,6 +303,84 @@ export async function bindLineToCustomerInStore(
     };
   }
 
+  // Official-account phone binding is notification-only.  It may have already
+  // stored a store-scoped Messaging API id on Customer.lineUserId while the
+  // Customer intentionally still has no login User.  Registration must
+  // activate that same Customer without overwriting the notification
+  // recipient: LINE Login and Messaging API ids can differ by provider.
+  if (!real.userId && real.lineUserId) {
+    try {
+      const activated = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            name: input.name,
+            phone: normalizedPhone,
+            role: "CUSTOMER",
+            status: "ACTIVE",
+          },
+          select: { id: true },
+        });
+        await tx.account.create({
+          data: {
+            userId: user.id,
+            provider: "line",
+            providerAccountId: input.lineUserId,
+            type: "oauth",
+          },
+        });
+        const claimed = await tx.customer.updateMany({
+          where: {
+            id: real.id,
+            storeId: input.storeId,
+            userId: null,
+            lineUserId: real.lineUserId,
+            mergedIntoCustomerId: null,
+          },
+          data: {
+            userId: user.id,
+            name: input.name,
+            authSource: "LINE",
+          },
+        });
+        if (claimed.count !== 1) {
+          throw new Error("NOTIFICATION_PREBIND_STALE");
+        }
+        return user;
+      });
+
+      await runPostBindBestEffort({
+        customerId: real.id,
+        userId: activated.id,
+        storeId: input.storeId,
+        phone: normalizedPhone,
+        lineUserId: input.lineUserId,
+      });
+
+      return {
+        status: "bound_existing",
+        customerId: real.id,
+        userId: activated.id,
+        userCreated: true,
+        lineAccountSync: "created",
+      };
+    } catch (err) {
+      if (isPrismaUniqueConflict(err)) {
+        const target = uniqueConflictTarget(err);
+        logLineBindEvent({
+          path: "liff-exchange",
+          status: "unique_conflict",
+          storeId: input.storeId,
+          lineUserId: input.lineUserId,
+          phone: normalizedPhone,
+          errorCode: "P2002",
+          extra: { conflictTarget: target, flow: "notification_prebind_activation" },
+        });
+        return { status: "unique_conflict", conflictTarget: target };
+      }
+      throw err;
+    }
+  }
+
   // 已綁不同 lineUserId → reject（schema 也會擋，但顯式 status 給 UI 文案）
   if (real.lineUserId && real.lineUserId !== input.lineUserId) {
     return {
