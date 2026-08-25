@@ -29,6 +29,7 @@ vi.mock("@/lib/base-url", () => ({
 import {
   handleSessionBalanceLineResponse,
   SESSION_BALANCE_LATER_COMMAND,
+  SESSION_BALANCE_TOP_UP_COMMAND,
   SESSION_BALANCE_VIP_COMMAND,
 } from "@/server/services/session-balance-notifications";
 
@@ -61,6 +62,17 @@ describe("session balance LINE response closure", () => {
     ]);
     recipientFindMany.mockResolvedValue([]);
     pushMessage.mockResolvedValue({ success: true });
+  });
+
+  it("treats a top-up card action as purchase interest", async () => {
+    const result = await handleSessionBalanceLineResponse({
+      storeId: "store-1",
+      lineUserId: "U-customer",
+      text: SESSION_BALANCE_TOP_UP_COMMAND,
+    });
+
+    expect(result).toMatchObject({ handled: true, response: "VIP_INTEREST" });
+    expect(pushMessage).toHaveBeenCalled();
   });
 
   it("ignores the command when no same-store sent reminder belongs to the LINE user", async () => {

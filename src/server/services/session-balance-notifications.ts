@@ -104,7 +104,15 @@ export async function enqueueSessionBalanceNotifications(
   return pending.map((notification) => notification.id);
 }
 
-function buildMessages(input: {
+const SESSION_BALANCE_CARD_COLORS = {
+  headerBackground: "#F3EDE5",
+  headerText: "#4B433B",
+  headerSubtext: "#756B62",
+  primary: "#667A5C",
+  secondary: "#8B6B52",
+} as const;
+
+export function buildSessionBalanceLineMessages(input: {
   type: "LAST_SESSION" | "PLAN_USED_UP";
   customerName: string;
   planName: string;
@@ -125,43 +133,131 @@ function buildMessages(input: {
       ? input.setting.lastSessionBookedTemplate
       : input.setting.lastSessionUnbookedTemplate;
     const body = renderSessionBalanceTemplate(template, variables);
-    return { body, messages: [{ type: "text", text: body }] };
+    return {
+      body,
+      messages: [{
+        type: "flex",
+        altText: `${input.customerName} 您好，您的「${input.planName}」剩下最後 1 堂。`,
+        contents: {
+          type: "bubble",
+          header: {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: SESSION_BALANCE_CARD_COLORS.headerBackground,
+            paddingAll: "16px",
+            contents: [
+              { type: "text", text: "蒸管家｜堂數提醒", color: SESSION_BALANCE_CARD_COLORS.headerText, weight: "bold", size: "lg" },
+              { type: "text", text: "方案剩餘最後 1 堂", color: SESSION_BALANCE_CARD_COLORS.headerSubtext, size: "sm", margin: "sm" },
+            ],
+          },
+          body: {
+            type: "box",
+            layout: "vertical",
+            spacing: "md",
+            contents: [
+              { type: "text", text: `${input.customerName} 您好`, weight: "bold", size: "lg" },
+              { type: "separator" },
+              { type: "text", text: "方案名稱", color: "#8A817A", size: "sm" },
+              { type: "text", text: input.planName, color: "#302924", size: "md", weight: "bold", wrap: true },
+              ...(input.reservedBooking
+                ? [
+                    { type: "text" as const, text: "已預約時間", color: "#8A817A", size: "sm" as const },
+                    { type: "text" as const, text: variables.bookingDateTime, color: "#302924", size: "md" as const, wrap: true },
+                  ]
+                : []),
+              { type: "separator" },
+              { type: "text", text: body, color: "#302924", size: "sm", wrap: true },
+            ],
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              ...(!input.reservedBooking
+                ? [{
+                    type: "button" as const,
+                    style: "primary" as const,
+                    color: SESSION_BALANCE_CARD_COLORS.primary,
+                    action: { type: "uri" as const, label: "立即預約", uri: variables.bookingUrl },
+                  }]
+                : []),
+              {
+                type: "button",
+                style: "primary",
+                color: SESSION_BALANCE_CARD_COLORS.secondary,
+                action: { type: "message", label: "諮詢店長", text: SESSION_BALANCE_VIP_COMMAND },
+              },
+            ],
+          },
+        },
+      }],
+    };
   }
 
   const body = renderSessionBalanceTemplate(
     input.setting.planUsedUpTemplate,
     variables,
   );
+  const topUpButtonLabel = input.setting.learnMoreButtonLabel === "了解蒸足 VIP 方案"
+    ? "我要儲值"
+    : input.setting.learnMoreButtonLabel;
   return {
     body,
     messages: [{
-      type: "text",
-      text: body,
-      quickReply: {
-        items: [
+      type: "flex",
+      altText: `${input.customerName} 您好，您的「${input.planName}」方案已使用完畢。`,
+      contents: {
+        type: "bubble",
+        header: {
+          type: "box",
+          layout: "vertical",
+          backgroundColor: SESSION_BALANCE_CARD_COLORS.headerBackground,
+          paddingAll: "16px",
+          contents: [
+            { type: "text", text: "蒸管家｜方案提醒", color: SESSION_BALANCE_CARD_COLORS.headerText, weight: "bold", size: "lg" },
+            { type: "text", text: "本期方案已完成", color: SESSION_BALANCE_CARD_COLORS.headerSubtext, size: "sm", margin: "sm" },
+          ],
+        },
+        body: {
+          type: "box",
+          layout: "vertical",
+          spacing: "md",
+          contents: [
+            { type: "text", text: `${input.customerName} 您好`, weight: "bold", size: "lg" },
+            { type: "separator" },
+            { type: "text", text: "已完成方案", color: "#8A817A", size: "sm" },
+            { type: "text", text: input.planName, color: "#302924", size: "md", weight: "bold", wrap: true },
+            { type: "separator" },
+            { type: "text", text: body, color: "#302924", size: "sm", wrap: true },
+          ],
+        },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
           {
-            type: "action",
-            action: {
-              type: "message",
-              label: input.setting.learnMoreButtonLabel,
-              text: "了解蒸足 VIP 方案",
-            },
+            type: "button",
+            style: "primary",
+            color: SESSION_BALANCE_CARD_COLORS.primary,
+            action: { type: "message", label: topUpButtonLabel, text: SESSION_BALANCE_TOP_UP_COMMAND },
           },
           {
-            type: "action",
-            action: {
-              type: "message",
-              label: input.setting.laterButtonLabel,
-              text: "之後再看看",
-            },
+            type: "button",
+            style: "primary",
+            color: SESSION_BALANCE_CARD_COLORS.secondary,
+            action: { type: "message", label: "諮詢店長", text: SESSION_BALANCE_VIP_COMMAND },
           },
-        ],
+          ],
+        },
       },
     }],
   };
 }
 
 export const SESSION_BALANCE_VIP_COMMAND = "了解蒸足 VIP 方案";
+export const SESSION_BALANCE_TOP_UP_COMMAND = "我要儲值";
 export const SESSION_BALANCE_LATER_COMMAND = "之後再看看";
 
 export type SessionBalanceResponseResult =
@@ -178,7 +274,7 @@ export async function handleSessionBalanceLineResponse(input: {
   text: string;
 }): Promise<SessionBalanceResponseResult> {
   const response =
-    input.text === SESSION_BALANCE_VIP_COMMAND
+    input.text === SESSION_BALANCE_VIP_COMMAND || input.text === SESSION_BALANCE_TOP_UP_COMMAND
       ? "VIP_INTEREST"
       : input.text === SESSION_BALANCE_LATER_COMMAND
         ? "LATER"
@@ -448,7 +544,7 @@ export async function dispatchSessionBalanceNotifications(
           : null,
         centralRecipient,
       );
-      const content = buildMessages({
+      const content = buildSessionBalanceLineMessages({
         type: notification.type,
         customerName: notification.customer.name,
         planName: notification.wallet.plan.name,

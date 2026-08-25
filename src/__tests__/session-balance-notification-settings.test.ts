@@ -15,7 +15,12 @@ import {
   DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
   renderSessionBalanceTemplate,
 } from "@/lib/session-balance-notification-settings";
-import { enqueueSessionBalanceNotifications } from "@/server/services/session-balance-notifications";
+import {
+  buildSessionBalanceLineMessages,
+  enqueueSessionBalanceNotifications,
+  SESSION_BALANCE_TOP_UP_COMMAND,
+  SESSION_BALANCE_VIP_COMMAND,
+} from "@/server/services/session-balance-notifications";
 
 function makeTx(input: {
   setting: {
@@ -61,6 +66,45 @@ function makeTx(input: {
 }
 
 describe("session balance notification settings", () => {
+  it("renders the last-session notification as a Flex card with booking and consultation actions", () => {
+    const result = buildSessionBalanceLineMessages({
+      type: "LAST_SESSION",
+      customerName: "王小美",
+      planName: "蒸足保養 5 堂",
+      storeSlug: "zhubei",
+      reservedBooking: null,
+      setting: DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+    });
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toMatchObject({ type: "flex" });
+    expect(JSON.stringify(result.messages[0])).toContain("立即預約");
+    expect(JSON.stringify(result.messages[0])).toContain("諮詢店長");
+    expect(JSON.stringify(result.messages[0])).toContain(SESSION_BALANCE_VIP_COMMAND);
+  });
+
+  it("renders the used-up notification as a Flex card and preserves the store template", () => {
+    const result = buildSessionBalanceLineMessages({
+      type: "PLAN_USED_UP",
+      customerName: "王小美",
+      planName: "蒸足保養 5 堂",
+      storeSlug: "zhubei",
+      reservedBooking: null,
+      setting: {
+        ...DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+        planUsedUpTemplate: "{customerName}，這是門市自訂的續購說明。",
+        learnMoreButtonLabel: "我要儲值",
+      },
+    });
+
+    expect(result.messages[0]).toMatchObject({ type: "flex" });
+    const serialized = JSON.stringify(result.messages[0]);
+    expect(serialized).toContain("這是門市自訂的續購說明");
+    expect(serialized).toContain("我要儲值");
+    expect(serialized).toContain(SESSION_BALANCE_TOP_UP_COMMAND);
+    expect(serialized).toContain("諮詢店長");
+  });
+
   it("keeps the database migration additive and store scoped", () => {
     const sql = readFileSync(
       resolve(
