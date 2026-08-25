@@ -1,0 +1,36 @@
+name: Apply customer health history grant migration
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/customer-health-history-grant-migration-request.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: customer-health-history-grant-production-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      CONFIRMATION: APPLY_CUSTOMER_HEALTH_HISTORY_GRANT_MIGRATION
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Apply only the approved health-history grant migration and verify
+        run: node scripts/apply-customer-health-history-grant-migration.mjs
