@@ -129,7 +129,7 @@ if (pending.length !== 1 || pending[0] !== MIGRATION) {
 
 const preflight = new PrismaClient({ datasources: { db: { url: process.env.DIRECT_URL } } });
 try {
-  const before = await preflight.$queryRawUnsafe(`SELECT to_regclass('public."CustomerHealthHistoryGrant"') AS table_name`);
+  const before = await preflight.$queryRawUnsafe(`SELECT to_regclass('public."CustomerHealthHistoryGrant"')::text AS table_name`);
   if (before[0]?.table_name !== null) fail("preexisting_table_rejected");
 } finally {
   await preflight.$disconnect();
