@@ -1,0 +1,75 @@
+name: Recover approved legacy health history
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/recover-approved-healthflow-history.ts
+      - .github/workflows/recover-approved-healthflow-history.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: healthflow-native-history-production
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    name: Verify and recover one approved history
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      HEALTHFLOW_SUPABASE_URL: ${{ secrets.HEALTHFLOW_SUPABASE_URL }}
+      HEALTHFLOW_SERVICE_ROLE_KEY: ${{ secrets.HEALTHFLOW_SERVICE_ROLE_KEY }}
+      TARGET_PROFILE_SHA256: b09ad3567b8902a4bf4a075773b61ba3eb0c48743c4449d2b49d0d3a258f8990
+      TARGET_CUSTOMER_NAME_SHA256: f5728e1bf9da467c18abe9b71f06e8d1c02400589164d77d3d9fa10a9ec641f3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          missing=0
+          for name in DATABASE_URL DIRECT_URL HEALTHFLOW_SUPABASE_URL HEALTHFLOW_SERVICE_ROLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required GitHub production secret: $name"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Read-only identity and history check
+        run: >-
+          npx tsx scripts/recover-approved-healthflow-history.ts
+          --profile-sha256="$TARGET_PROFILE_SHA256"
+          --customer-name-sha256="$TARGET_CUSTOMER_NAME_SHA256"
+          --expected-records=7
+          --store=zhubei
+
+      - name: Recover and transactionally verify approved history
+        run: >-
+          npx tsx scripts/recover-approved-healthflow-history.ts
+          --execute
+          --confirm-approved-recovery
+          --profile-sha256="$TARGET_PROFILE_SHA256"
+          --customer-name-sha256="$TARGET_CUSTOMER_NAME_SHA256"
+          --expected-records=7
+          --store=zhubei
