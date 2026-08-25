@@ -25,4 +25,10 @@ describe("progressive health history", () => {
     expect(historyList).toContain("載入更多（尚有 {remainingLoadedRecords} 筆）");
     expect(historyList).toContain("收合紀錄");
   });
+
+  it("clearly identifies the original store on the latest summary and every history row", () => {
+    expect(assessmentCard).toContain("量測門市：");
+    expect(assessmentCard).toContain("latest.storeName");
+    expect(historyList).toContain("量測門市：{record.storeName}");
+  });
 });
