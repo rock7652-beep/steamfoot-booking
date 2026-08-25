@@ -52,7 +52,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
   return (
     <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
       <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-4">
-        <div>
+        <div className="md:col-span-2">
           <h2 className="text-base font-semibold text-earth-900">方案／單次預約提醒</h2>
           <p className="mt-1 text-sm text-earth-500">前一日 18:00 發送；只影響方案與單次預約。</p>
         </div>
@@ -101,8 +101,9 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
           </div>
         </div>
 
-        <div>
-          <p className="mb-1 text-xs font-medium text-earth-700">卡片內容預覽</p>
+        <details className="md:col-span-2 rounded-xl border border-earth-200 p-3">
+          <summary className="cursor-pointer text-sm font-medium text-earth-700">查看卡片預覽</summary>
+          <div className="mt-3">
           <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
             <div className="bg-[#F3EDE5] p-3 text-sm font-semibold text-earth-800">蒸管家｜預約提醒</div>
             <div className="space-y-2 p-3 text-sm text-earth-700">
@@ -116,8 +117,8 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
               <div className="rounded-lg bg-[#AD5F58] px-3 py-2 text-white">取消預約</div>
             </div>
           </div>
-          <p className="mt-2 text-[11px] text-earth-400">改期與取消屬於必要功能；導航連結由首次體驗提醒中的分店地圖共用。</p>
-        </div>
+          <p className="mt-2 text-[11px] text-earth-400">改期與取消屬於必要功能；導航連結由首次體驗提醒中的分店地圖共用。</p></div>
+        </details>
       </div>
 
       <div className="mt-4 flex justify-end">
@@ -127,7 +128,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
           onClick={() => save(trimmedBody)}
           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-40"
         >
-          {pending ? "儲存中..." : "儲存提醒內容"}
+          {pending ? "儲存中..." : "儲存變更"}
         </button>
       </div>
       </div>

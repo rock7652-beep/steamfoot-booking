@@ -225,7 +225,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           <section className="space-y-4">
             <div className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-                <span className="font-semibold text-earth-800">LINE {lineHealthStatus ? "通知正常" : "狀態待確認"}</span>
+                <span className={`font-semibold ${lineHealthStatus?.status === "NORMAL" ? "text-green-700" : "text-red-700"}`}>LINE {lineHealthStatus?.status === "NORMAL" ? "通知正常" : "需要處理"}</span>
                 <span className="text-green-700">今日成功 {stats.todaySent}</span>
                 <span className={stats.todayFailed ? "font-semibold text-red-700" : "text-earth-500"}>失敗 {stats.todayFailed}</span>
                 <Link href="/dashboard/reminders?tab=logs" className="ml-auto text-primary-700 hover:underline">查看發送紀錄</Link>

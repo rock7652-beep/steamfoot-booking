@@ -90,7 +90,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
         </button>
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="mt-4 space-y-4">
         <div>
           <label htmlFor="trial-line-card-reminder" className="mb-1 block text-xs font-medium text-earth-700">
             店長自訂提醒
@@ -126,7 +126,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
           <p className="mt-1 text-[11px] leading-relaxed text-earth-400">
             此網址由分店共用，也會套用於方案／單次預約提醒；留空時不顯示導航按鈕。
           </p>
-          <div className="mt-3 overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
+          <details className="mt-3 rounded-xl border border-earth-200 p-3"><summary className="cursor-pointer text-sm font-medium text-earth-700">查看卡片預覽</summary><div className="mt-3 overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
             <div className="bg-[#F3EDE5] p-3 text-sm font-semibold text-earth-800">蒸管家｜首次體驗提醒</div>
             <div className="space-y-2 p-3 text-sm text-earth-700">
               <p className="font-semibold">王小美 您好</p>
@@ -139,7 +139,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
               <div className="rounded-lg bg-[#8B6B52] px-3 py-2">需要改期</div>
               <div className="rounded-lg bg-[#AD5F58] px-3 py-2">取消預約</div>
             </div>
-          </div>
+          </div></details>
           <p className="mt-2 text-[11px] text-earth-400">確認、改期與取消為必要功能；填入地圖網址後才顯示導航按鈕。</p>
         </div>
       </div>
@@ -151,7 +151,7 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
           onClick={() => save(trimmedBody, trimmedMapUrl)}
           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-40"
         >
-          {pending ? "儲存中..." : "儲存體驗提醒設定"}
+          {pending ? "儲存中..." : "儲存變更"}
         </button>
       </div>
       </div>

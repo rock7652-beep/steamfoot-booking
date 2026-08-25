@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { deriveBaseUrl } from "@/lib/base-url";
 import {
   DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+  extractSessionBalanceCustomCopy,
   renderSessionBalanceTemplate,
   type SessionBalanceNotificationSettingValue,
 } from "@/lib/session-balance-notification-settings";
@@ -132,7 +133,10 @@ export function buildSessionBalanceLineMessages(input: {
     const template = input.reservedBooking
       ? input.setting.lastSessionBookedTemplate
       : input.setting.lastSessionUnbookedTemplate;
-    const body = renderSessionBalanceTemplate(template, variables);
+    const body = renderSessionBalanceTemplate(
+      extractSessionBalanceCustomCopy(template),
+      variables,
+    );
     return {
       body,
       messages: [{
@@ -196,7 +200,7 @@ export function buildSessionBalanceLineMessages(input: {
   }
 
   const body = renderSessionBalanceTemplate(
-    input.setting.planUsedUpTemplate,
+    extractSessionBalanceCustomCopy(input.setting.planUsedUpTemplate),
     variables,
   );
   const topUpButtonLabel = input.setting.learnMoreButtonLabel === "了解蒸足 VIP 方案"

@@ -7,6 +7,7 @@ import {
   saveSessionBalanceTemplateSetting,
 } from "@/server/actions/reminder";
 import {
+  extractSessionBalanceCustomCopy,
   renderSessionBalanceTemplate,
   type SessionBalanceNotificationSettingValue,
 } from "@/lib/session-balance-notification-settings";
@@ -15,7 +16,7 @@ const sample = {
   customerName: "王小美",
   planName: "蒸足保養 5 堂",
   bookingDateTime: "2026-08-26 14:00",
-  bookingUrl: "https://www.steamfoot.com/預約連結",
+  bookingUrl: "",
 };
 
 function Switch({ checked, onClick, disabled }: { checked: boolean; onClick: () => void; disabled: boolean }) {
@@ -39,7 +40,12 @@ function CardPreview({ title, body, buttons }: { title: string; body: string; bu
 }
 
 export function SimpleSessionBalanceReminders({ initialSetting }: { initialSetting: SessionBalanceNotificationSettingValue }) {
-  const [setting, setSetting] = useState(initialSetting);
+  const [setting, setSetting] = useState(() => ({
+    ...initialSetting,
+    lastSessionUnbookedTemplate: extractSessionBalanceCustomCopy(initialSetting.lastSessionUnbookedTemplate),
+    lastSessionBookedTemplate: extractSessionBalanceCustomCopy(initialSetting.lastSessionBookedTemplate),
+    planUsedUpTemplate: extractSessionBalanceCustomCopy(initialSetting.planUsedUpTemplate),
+  }));
   const [scenario, setScenario] = useState<"unbooked" | "booked">("unbooked");
   const [pending, startTransition] = useTransition();
 
@@ -92,11 +98,11 @@ export function SimpleSessionBalanceReminders({ initialSetting }: { initialSetti
             <button type="button" onClick={() => setScenario("unbooked")} className={`flex-1 rounded-md px-3 py-2 ${scenario === "unbooked" ? "bg-white font-semibold shadow-sm" : "text-earth-500"}`}>尚未預約</button>
             <button type="button" onClick={() => setScenario("booked")} className={`flex-1 rounded-md px-3 py-2 ${scenario === "booked" ? "bg-white font-semibold shadow-sm" : "text-earth-500"}`}>已經預約</button>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <textarea value={lastBody} rows={9} maxLength={1500} onChange={(event) => update(scenario === "unbooked" ? "lastSessionUnbookedTemplate" : "lastSessionBookedTemplate", event.target.value)} className="w-full rounded-xl border border-earth-300 p-3 text-sm leading-relaxed" />
-            <CardPreview title="堂數提醒" body={renderSessionBalanceTemplate(lastBody, sample)} buttons={scenario === "unbooked" ? ["立即預約", "諮詢店長"] : ["諮詢店長"]} />
-          </div>
-          <button type="button" onClick={save} disabled={pending} className="mt-4 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">儲存最後一堂通知</button>
+          <label className="mb-1 block text-sm font-medium text-earth-700">提醒文字</label>
+          <textarea value={lastBody} rows={6} maxLength={1500} onChange={(event) => update(scenario === "unbooked" ? "lastSessionUnbookedTemplate" : "lastSessionBookedTemplate", event.target.value)} className="w-full rounded-xl border border-earth-300 p-3 text-sm leading-relaxed" />
+          <p className="mt-1 text-xs text-earth-400">顧客姓名、方案、日期與預約連結由系統自動帶入。</p>
+          <details className="mt-4 rounded-xl border border-earth-200 p-3"><summary className="cursor-pointer text-sm font-medium text-earth-700">查看卡片預覽</summary><div className="mt-3"><CardPreview title="堂數提醒" body={renderSessionBalanceTemplate(lastBody, sample)} buttons={scenario === "unbooked" ? ["立即預約", "諮詢店長"] : ["諮詢店長"]} /></div></details>
+          <button type="button" onClick={save} disabled={pending} className="mt-4 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">儲存變更</button>
         </div>
       </details>
 
@@ -106,15 +112,17 @@ export function SimpleSessionBalanceReminders({ initialSetting }: { initialSetti
           <div className="flex items-center gap-3"><Switch checked={setting.planUsedUpEnabled} onClick={() => toggle("planUsedUpEnabled")} disabled={pending} /><span className="text-earth-400 transition group-open:rotate-180">⌄</span></div>
         </summary>
         <div className="border-t border-earth-100 p-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3">
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-earth-700">提醒文字</label>
               <textarea value={setting.planUsedUpTemplate} rows={9} maxLength={1500} onChange={(event) => update("planUsedUpTemplate", event.target.value)} className="w-full rounded-xl border border-earth-300 p-3 text-sm leading-relaxed" />
+              <p className="mt-1 text-xs text-earth-400">顧客姓名與方案由系統自動帶入。</p>
               <label className="block text-sm font-medium text-earth-700">儲值按鈕文字<input value={setting.learnMoreButtonLabel === "了解蒸足 VIP 方案" ? "我要儲值" : setting.learnMoreButtonLabel} onChange={(event) => update("learnMoreButtonLabel", event.target.value)} maxLength={20} className="mt-1 w-full rounded-lg border border-earth-300 px-3 py-2" /></label>
             </div>
-            <CardPreview title="方案提醒" body={renderSessionBalanceTemplate(setting.planUsedUpTemplate, sample)} buttons={[setting.learnMoreButtonLabel === "了解蒸足 VIP 方案" ? "我要儲值" : setting.learnMoreButtonLabel, "諮詢店長"]} />
+            <details className="rounded-xl border border-earth-200 p-3"><summary className="cursor-pointer text-sm font-medium text-earth-700">查看卡片預覽</summary><div className="mt-3"><CardPreview title="方案提醒" body={renderSessionBalanceTemplate(setting.planUsedUpTemplate, sample)} buttons={[setting.learnMoreButtonLabel === "了解蒸足 VIP 方案" ? "我要儲值" : setting.learnMoreButtonLabel, "諮詢店長"]} /></div></details>
           </div>
           <p className="mt-3 text-xs text-earth-500">「我要儲值」與「諮詢店長」都會安全通知本店店長，實際動作由系統保護。</p>
-          <button type="button" onClick={save} disabled={pending} className="mt-4 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">儲存方案用完通知</button>
+          <button type="button" onClick={save} disabled={pending} className="mt-4 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">儲存變更</button>
         </div>
       </details>
     </>
