@@ -56,8 +56,8 @@ import {
 
 import { CustomerBasicInfo } from "./_components/customer-basic-info";
 import { IdentityDiagnosticPanel } from "./_components/identity-diagnostic-panel";
-import { HealthAssessmentCard } from "@/components/health-assessment-card";
-import { getNativeHealthSummary } from "@/lib/native-health-service";
+import { CustomerHealthOverviewCard } from "./_components/customer-health-overview-card";
+import { getLatestNativeHealthRecord } from "@/lib/native-health-service";
 import { LineBindingSection } from "./line-binding-section";
 import { getLineConfigForStore } from "@/lib/line-config";
 import { RecentRecordsTabs } from "./recent-records-tabs";
@@ -158,8 +158,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
     canAdjustWallet,
     perksSummary,
     shopConfig,
-    healthAssessmentEnabled,
-    nativeHealthSummary,
+    nativeHealthState,
   ] = await Promise.all([
     withTiming("getCachedPlans", timer, () => getCachedPlans(effectiveStoreId)).catch((e) => {
       console.error("[customer-detail] plans query failed", {
@@ -191,11 +190,20 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       where: { storeId: effectiveStoreId },
       select: { bookableUntilDate: true },
     }),
-    hasStoreFeature(effectiveStoreId, FEATURES.AI_HEALTH_SUMMARY).catch(
-      () => false,
-    ),
-    getNativeHealthSummary(id, effectiveStoreId).catch(() => null),
+    (async () => {
+      const enabled = await hasStoreFeature(
+        effectiveStoreId,
+        FEATURES.AI_HEALTH_SUMMARY,
+      ).catch(() => false);
+      const latest = enabled
+        ? await getLatestNativeHealthRecord(id, effectiveStoreId).catch(() => null)
+        : null;
+      return { enabled, latest };
+    })(),
   ]);
+
+  const healthAssessmentEnabled = nativeHealthState.enabled;
+  const latestHealthRecord = nativeHealthState.latest;
 
   timer.finish();
 
@@ -777,15 +785,18 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 <p className="mb-2 text-[11px] font-semibold text-earth-600">
                   健康紀錄
                 </p>
-                <Link href="/dashboard/health" className="text-xs font-medium text-primary-700 hover:underline">
-                  查看本店全部健康資料與篩選 →
+                <Link href={`/dashboard/customers/${id}/health`} className="text-xs font-medium text-primary-700 hover:underline">
+                  查看這位顧客的健康紀錄與曲線 →
                 </Link>
               </div>
             )}
           </SideCard>
 
-          {healthAssessmentEnabled && nativeHealthSummary?.latest && (
-            <HealthAssessmentCard summary={nativeHealthSummary} />
+          {healthAssessmentEnabled && latestHealthRecord && (
+            <CustomerHealthOverviewCard
+              latest={latestHealthRecord}
+              href={`/dashboard/customers/${id}/health`}
+            />
           )}
 
           {/* Basic info — 緊湊兩欄 */}
