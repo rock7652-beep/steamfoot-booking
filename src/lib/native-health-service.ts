@@ -1,8 +1,64 @@
 import { prisma } from "@/lib/db";
 import { toLocalDateStr } from "@/lib/date-utils";
-import type { HealthAlert, HealthSummary } from "@/lib/health-service";
+import type { HealthAlert, HealthRecord, HealthSummary } from "@/lib/health-service";
 
 export type NativeHealthTrendPoint = HealthSummary["trend"][number];
+
+const healthRecordSelect = {
+  measuredAt: true,
+  weight: true,
+  bmi: true,
+  bodyFat: true,
+  muscleMass: true,
+  boneMass: true,
+  visceralFat: true,
+  bmr: true,
+  bodyWater: true,
+  metabolicAge: true,
+  note: true,
+} as const;
+
+function toHealthRecord(row: {
+  measuredAt: Date;
+  weight: number | null;
+  bmi: number | null;
+  bodyFat: number | null;
+  muscleMass: number | null;
+  boneMass: number | null;
+  visceralFat: number | null;
+  bmr: number | null;
+  bodyWater: number | null;
+  metabolicAge: number | null;
+  note: string | null;
+}): HealthRecord {
+  return {
+    measuredAt: row.measuredAt.toISOString().slice(0, 10),
+    weight: row.weight,
+    bmi: row.bmi,
+    bodyFat: row.bodyFat,
+    muscleMass: row.muscleMass,
+    boneMass: row.boneMass,
+    visceralFat: row.visceralFat,
+    bmr: row.bmr,
+    bodyWater: row.bodyWater,
+    metabolicAge: row.metabolicAge,
+    note: row.note,
+  };
+}
+
+/** Lightweight customer-detail query: one indexed row, no history/count/chart data. */
+export async function getLatestNativeHealthRecord(
+  customerId: string,
+  storeId: string,
+): Promise<HealthRecord | null> {
+  const row = await prisma.customerHealthRecord.findFirst({
+    where: { customerId, storeId },
+    orderBy: [{ measuredAt: "desc" }, { createdAt: "desc" }],
+    select: healthRecordSelect,
+  });
+
+  return row ? toHealthRecord(row) : null;
+}
 
 function daysBetween(date: Date, today: string): number {
   const [year, month, day] = today.split("-").map(Number);
@@ -48,21 +104,7 @@ export async function getNativeHealthSummary(
   ]);
 
   const latestRow = records[0] ?? null;
-  const latest = latestRow
-    ? {
-        measuredAt: latestRow.measuredAt.toISOString().slice(0, 10),
-        weight: latestRow.weight,
-        bmi: latestRow.bmi,
-        bodyFat: latestRow.bodyFat,
-        muscleMass: latestRow.muscleMass,
-        boneMass: latestRow.boneMass,
-        visceralFat: latestRow.visceralFat,
-        bmr: latestRow.bmr,
-        bodyWater: latestRow.bodyWater,
-        metabolicAge: latestRow.metabolicAge,
-        note: latestRow.note,
-      }
-    : null;
+  const latest = latestRow ? toHealthRecord(latestRow) : null;
 
   const trend = records.slice().reverse().map((row) => ({
     measuredAt: row.measuredAt.toISOString().slice(0, 10),
