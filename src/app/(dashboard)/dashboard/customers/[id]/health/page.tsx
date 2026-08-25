@@ -12,7 +12,7 @@ import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
 } from "@/lib/store-view-context-server";
-import { getStaffVisibleHealthSummary } from "@/server/services/customer-health-history-grant";
+import { getStaffVisibleHealthSummary } from "@/server/services/customer-health-history-visibility";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -42,6 +42,7 @@ export default async function CustomerHealthPage({ params }: PageProps) {
   if (!featureEnabled || !customer) notFound();
 
   const visible = await getStaffVisibleHealthSummary({
+    staffRole: user.role,
     targetCustomerId: customer.id,
     targetStoreId: storeId,
   });
@@ -69,9 +70,9 @@ export default async function CustomerHealthPage({ params }: PageProps) {
         }
       />
 
-      {visible.hasCrossStoreGrant && (
+      {visible.hasCrossStoreAccess && (
         <div className="mb-5 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
-          顧客已授權本店唯讀查看 {visible.storeCount} 家已驗證門市的健康歷史；每筆仍保留原始量測門市。
+          此顧客已在 {visible.storeCount} 家門市完成會員驗證；店長可唯讀查看完整健康歷史，每筆仍保留原始量測門市。
         </div>
       )}
 

@@ -17,8 +17,8 @@ const nativeHealthService = readFileSync(
   "src/lib/native-health-service.ts",
   "utf8",
 );
-const grantService = readFileSync(
-  "src/server/services/customer-health-history-grant.ts",
+const visibilityService = readFileSync(
+  "src/server/services/customer-health-history-visibility.ts",
   "utf8",
 );
 const storeHealthOverview = readFileSync(
@@ -50,13 +50,13 @@ describe("customer health route and performance contract", () => {
     expect(nativeHealthService).toContain(
       "OR: scopes.map(({ storeId, customerId }) => ({ storeId, customerId }))",
     );
-    // Staff detail only expands after an active consent row and a fresh,
-    // fail-closed central membership resolution.
-    expect(grantService).toContain("revokedAt: null");
-    expect(grantService).toContain("resolveCentralUserForStoreCustomer");
-    expect(grantService).toContain("resolveCentralMembershipsForUser");
-    expect(grantService).toContain("targetStillVerified");
-    // Consent never changes the store-wide overview query.
+    // Manager detail expands only after a fresh, fail-closed central membership
+    // resolution confirms the customer belongs to the current store.
+    expect(visibilityService).toContain('new Set(["ADMIN", "OWNER", "PARTNER"])');
+    expect(visibilityService).toContain("resolveCentralUserForStoreCustomer");
+    expect(visibilityService).toContain("resolveCentralMembershipsForUser");
+    expect(visibilityService).toContain("targetStillVerified");
+    // Individual visibility never changes the store-wide overview query.
     expect(storeHealthOverview).not.toContain("CustomerHealthHistoryGrant");
     expect(storeHealthOverview).not.toContain("getStaffVisibleHealthSummary");
   });
