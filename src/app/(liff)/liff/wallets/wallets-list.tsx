@@ -14,7 +14,8 @@
  *   ✅ 7 天內到期 badge
  *   ✅ Defensive 分類：ACTIVE+0 視同 USED_UP；ACTIVE+過期 視同 EXPIRED
  *   ✅ 空狀態 + 聯絡店家 CTA
- *   ❌ 不做購買 / 續約 / 付款 / 延長 / 註銷 / 編輯
+ *   ✅ 購買 / 續購沿用既有顧客前台付款流程
+ *   ❌ 不在 LIFF 重做付款 / 延長 / 註銷 / 編輯
  *   ❌ 不顯示 WalletSession 明細（/my-plans 桌面版才有）
  *   ❌ 不從預約頁加入口（PR-E2 拍板）
  *
@@ -202,7 +203,7 @@ function ReadyView({
   return (
     <>
       {isEmpty ? (
-        <EmptyState contactUrl={contactUrl} />
+        <EmptyState storeSlug={storeSlug} contactUrl={contactUrl} />
       ) : (
         <>
           {active.length > 0 && (
@@ -250,6 +251,15 @@ function ReadyView({
           className="mt-4 inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
         >
           {liffMessages.wallets.ctaBookNow}
+        </Link>
+      )}
+
+      {!isEmpty && (
+        <Link
+          href={`/s/${storeSlug}/my-bookings?tab=plans`}
+          className={`${showBookNow ? "mt-2" : "mt-4"} inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-3 text-base font-semibold text-earth-800 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]`}
+        >
+          {liffMessages.wallets.ctaRenewPlan}
         </Link>
       )}
 
@@ -420,17 +430,29 @@ function MakeupCreditCard({ credit }: { credit: LiffMakeupCreditRow }) {
   );
 }
 
-function EmptyState({ contactUrl }: { contactUrl: string }) {
+function EmptyState({
+  storeSlug,
+  contactUrl,
+}: {
+  storeSlug: string;
+  contactUrl: string;
+}) {
   const m = liffMessages.wallets;
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-dashed border-earth-300 bg-white px-4 py-10 text-center">
       <p className="text-base font-semibold text-earth-900">{m.emptyTitle}</p>
       <p className="text-sm text-earth-600">{m.emptyBody}</p>
+      <Link
+        href={`/s/${storeSlug}/my-bookings?tab=plans`}
+        className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
+      >
+        {m.ctaPurchasePlan}
+      </Link>
       <a
         href={contactUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-2 inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
+        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
       >
         <LineIcon />
         {liffMessages.bookings.contactStoreCta}
