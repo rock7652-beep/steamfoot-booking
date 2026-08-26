@@ -1,0 +1,60 @@
+name: Audit recurring booking usage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/audit-recurring-booking-usage.ts
+      - .github/workflows/audit-recurring-booking-usage.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recurring-booking-usage-production
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Read-only production usage audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Validate production database secret
+        shell: bash
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Missing required GitHub production secret: DATABASE_URL"
+            exit 1
+          fi
+
+      - name: Generate read-only usage report
+        run: >-
+          npx tsx scripts/audit-recurring-booking-usage.ts
+          --output=recurring-booking-usage.json
+
+      - name: Upload private report
+        uses: actions/upload-artifact@v4
+        with:
+          name: recurring-booking-usage
+          path: recurring-booking-usage.json
+          retention-days: 1
