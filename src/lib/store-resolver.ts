@@ -248,3 +248,25 @@ export const resolveStorePresentation = cache(
     };
   }
 );
+
+/**
+ * Central-member LIFF uses one LINE Mini App as the authenticated shell while
+ * the URL store slug remains the source of truth for data isolation.
+ *
+ * Resolution order:
+ *   1. explicit central-member LIFF env;
+ *   2. the configured LIFF ID of the central entry store (defaults to zhubei).
+ *
+ * Individual stores do not need their own LIFF ID merely to appear in the
+ * central-member store switcher. Their store presentation and all operational
+ * data remain store-scoped.
+ */
+export const resolveCentralMemberLiffId = cache(async (): Promise<string | null> => {
+  const configured = emptyToNull(process.env.NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID);
+  if (configured) return configured;
+
+  const entryStoreSlug =
+    emptyToNull(process.env.CENTRAL_MEMBER_LIFF_ENTRY_STORE_SLUG) ?? "zhubei";
+  const entryStore = await resolveStorePresentation(entryStoreSlug);
+  return entryStore?.liffId ?? null;
+});

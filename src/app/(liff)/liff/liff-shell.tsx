@@ -40,7 +40,12 @@ import {
   type LiffBookingRow,
 } from "@/server/actions/liff-my-bookings";
 import { fetchLiffHealthSummary } from "@/server/actions/liff-health";
+import {
+  fetchLiffMemberStoreContext,
+  type LiffMemberStoreOption,
+} from "@/server/actions/liff-member-stores";
 import type { HealthSummary } from "@/lib/health-service";
+import { LiffStoreSwitcher } from "./liff-store-switcher";
 
 type State =
   | { kind: "initializing" }
@@ -81,6 +86,7 @@ export function LiffShell({
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-G4：lazy fetch — signed_in 後 fire-and-forget，不擋 home 既有渲染
   const [memberSummary, setMemberSummary] = useState<MemberHomeSummary | null>(null);
+  const [memberStores, setMemberStores] = useState<LiffMemberStoreOption[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +107,52 @@ export function LiffShell({
         setState({ kind: "not_in_line_app" });
         return;
       }
+
+      const loadMemberHome = async () => {
+        try {
+          const [wallets, bookings, health] = await Promise.all([
+            fetchLiffWallets(),
+            fetchLiffBookings(),
+            healthAssessmentEnabled
+              ? fetchLiffHealthSummary()
+              : Promise.resolve(null),
+          ]);
+          if (cancelled) return;
+          setMemberSummary({
+            activeWallets: wallets?.status === "ok" ? wallets.active : [],
+            makeupCredits:
+              wallets?.status === "ok" ? wallets.makeupCredits : [],
+            nextBooking:
+              bookings.status === "ok" ? (bookings.upcoming[0] ?? null) : null,
+            healthSummary:
+              health?.status === "ok" && health.linked
+                ? health.summary
+                : null,
+          });
+        } catch (err) {
+          console.warn("[liff-shell] member home summary failed (silent)", err);
+        }
+      };
+
+      // A central-member session can safely follow an internal store switch
+      // without repeating LINE exchange for each store. The server action
+      // validates the URL store against verified memberships before returning.
+      try {
+        const memberContext = await fetchLiffMemberStoreContext();
+        if (cancelled) return;
+        if (memberContext.status === "signed_in") {
+          setMemberStores(memberContext.stores);
+          setState({
+            kind: "signed_in",
+            displayName: memberContext.displayName,
+          });
+          void loadMemberHome();
+          return;
+        }
+      } catch (err) {
+        console.warn("[liff-shell] existing member session check failed", err);
+      }
+
       const idToken = getIDToken();
       if (!idToken) {
         setState({ kind: "expired" });
@@ -128,36 +180,22 @@ export function LiffShell({
         }
 
         if (body.status === "session_created") {
-          setState({ kind: "signed_in", displayName: body.displayName });
+          const memberContext = await fetchLiffMemberStoreContext().catch(
+            () => null,
+          );
+          if (cancelled) return;
+          if (memberContext?.status === "signed_in") {
+            setMemberStores(memberContext.stores);
+          }
+          setState({
+            kind: "signed_in",
+            displayName:
+              memberContext?.status === "signed_in"
+                ? memberContext.displayName
+                : body.displayName,
+          });
           // 會員首頁摘要採 lazy fetch，不阻擋首頁殼層；任一摘要來源失敗都 graceful fallback。
-          void (async () => {
-            try {
-              const [wallets, bookings, health] = await Promise.all([
-                fetchLiffWallets(),
-                fetchLiffBookings(),
-                healthAssessmentEnabled
-                  ? fetchLiffHealthSummary()
-                  : Promise.resolve(null),
-              ]);
-              if (cancelled) return;
-              setMemberSummary({
-                activeWallets: wallets?.status === "ok" ? wallets.active : [],
-                makeupCredits:
-                  wallets?.status === "ok" ? wallets.makeupCredits : [],
-                nextBooking:
-                  bookings.status === "ok" ? (bookings.upcoming[0] ?? null) : null,
-                healthSummary:
-                  health?.status === "ok" && health.linked
-                    ? health.summary
-                    : null,
-              });
-            } catch (err) {
-              console.warn(
-                "[liff-shell] member home summary failed (silent)",
-                err,
-              );
-            }
-          })();
+          void loadMemberHome();
           return;
         }
         if (body.status === "need_onboarding") {
@@ -189,7 +227,15 @@ export function LiffShell({
     <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
       <header className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">{storeName}</p>
+          {state.kind === "signed_in" ? (
+            <LiffStoreSwitcher
+              currentStoreSlug={storeSlug}
+              currentStoreName={storeName}
+              stores={memberStores}
+            />
+          ) : (
+            <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">{storeName}</p>
+          )}
           <p className="mt-0.5 text-sm text-earth-500">{liffMessages.shell.memberHomeLabel}</p>
         </div>
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-100 text-primary-700 shadow-sm" aria-hidden>

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import {
+  resolveCentralMemberLiffId,
   resolveStorePresentation,
   resolveStoreSlugForLiff,
 } from "@/lib/store-resolver";
@@ -39,7 +40,8 @@ export default async function LiffEntryPage() {
     // 視覺刻意與 NotOpenForLiff 區隔（URL 錯 ≠ LIFF 服務問題）
     notFound();
   }
-  if (!presentation.liffId) {
+  const liffId = await resolveCentralMemberLiffId();
+  if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
   const healthAssessmentEnabled = await hasStoreFeature(
@@ -51,7 +53,7 @@ export default async function LiffEntryPage() {
     <LiffShell
       storeName={presentation.name}
       storeSlug={presentation.slug}
-      liffId={presentation.liffId}
+      liffId={liffId}
       contactUrl={presentation.contactUrl}
       healthAssessmentEnabled={healthAssessmentEnabled}
     />
