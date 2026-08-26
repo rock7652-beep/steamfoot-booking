@@ -5,15 +5,21 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { initiateCustomerPlanPurchase } from "@/server/actions/wallet";
 
-interface Props {
+type Props = {
   planId: string;
   /** 路徑前綴（例：/s/zhubei），client 端接上 /book/shop/thank-you?txId=... */
   routePrefix: string;
-}
+  successPath?: never;
+} | {
+  planId: string;
+  /** LIFF 可指定站內完成頁，避免跳回網頁版。 */
+  successPath: string;
+  routePrefix?: never;
+};
 
 const LAST_FOUR_RE = /^\d{4}$/;
 
-export function PurchaseButton({ planId, routePrefix }: Props) {
+export function PurchaseButton({ planId, routePrefix, successPath }: Props) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const [transferLastFour, setTransferLastFour] = useState("");
@@ -42,7 +48,10 @@ export function PurchaseButton({ planId, routePrefix }: Props) {
       });
       if (result.success) {
         toast.success("已送出購買申請");
-        router.push(`${routePrefix}/book/shop/thank-you?txId=${result.data.transactionId}`);
+        const destination = successPath
+          ? `${successPath}?txId=${result.data.transactionId}`
+          : `${routePrefix}/book/shop/thank-you?txId=${result.data.transactionId}`;
+        router.push(destination);
       } else {
         toast.error(result.error ?? "送出失敗，請稍後再試");
       }
