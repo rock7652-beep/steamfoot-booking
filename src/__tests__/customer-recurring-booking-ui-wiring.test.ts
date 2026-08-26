@@ -41,6 +41,7 @@ describe("customer recurring booking UI wiring", () => {
   });
 
   it("keeps the selected slot status readable on the dark selection background", () => {
+    expect(source).toContain("checked={selectedSlot === slot.startTime}");
     expect(source).toContain('selectedSlot === slot.startTime ? "text-white/90"');
   });
 });

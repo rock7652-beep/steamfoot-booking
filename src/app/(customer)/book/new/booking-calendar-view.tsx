@@ -714,6 +714,7 @@ function SlotBookingForm({
                   type="radio"
                   name="slotTime"
                   value={slot.startTime}
+                  checked={selectedSlot === slot.startTime}
                   disabled={disabled}
                   className="sr-only"
                   required
