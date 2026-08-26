@@ -714,6 +714,7 @@ function SlotBookingForm({
                   type="radio"
                   name="slotTime"
                   value={slot.startTime}
+                  checked={selectedSlot === slot.startTime}
                   disabled={disabled}
                   className="sr-only"
                   required
@@ -724,7 +725,7 @@ function SlotBookingForm({
                 />
                 <span className="text-lg font-bold">{slot.startTime}</span>
                 {statusText && (
-                  <span className={`mt-1 text-sm font-medium ${isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.selectionStatus === "low" ? "text-yellow-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
+                  <span className={`mt-1 text-sm font-medium ${selectedSlot === slot.startTime ? "text-white/90" : isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.selectionStatus === "low" ? "text-yellow-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
                     {statusText}
                   </span>
                 )}

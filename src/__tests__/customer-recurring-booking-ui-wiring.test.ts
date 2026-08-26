@@ -39,4 +39,9 @@ describe("customer recurring booking UI wiring", () => {
     expect(source).toContain("改為保留 {maxAffordableWeeks} 週");
     expect(source).toContain("完成每次服務後才核銷");
   });
+
+  it("keeps the selected slot status readable on the dark selection background", () => {
+    expect(source).toContain("checked={selectedSlot === slot.startTime}");
+    expect(source).toContain('selectedSlot === slot.startTime ? "text-white/90"');
+  });
 });
