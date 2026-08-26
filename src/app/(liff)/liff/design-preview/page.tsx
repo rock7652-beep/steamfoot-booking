@@ -43,7 +43,41 @@ export default function LiffDesignPreviewPage() {
       <WelcomeBack
         storeSlug="zhubei"
         displayName={liffMessages.shell.designPreviewName}
-        walletSummary={{ totalAvailable: 8, hasMakeup: true }}
+        memberSummary={{
+          activeWallets: [{
+            id: "preview-wallet",
+            planName: "暖暖蒸足方案",
+            planCategory: "PACKAGE",
+            totalSessions: 12,
+            remainingSessions: 8,
+            availableToBook: 6,
+            pendingCount: 2,
+            usedCount: 4,
+            voidedCount: 0,
+            startDate: "2026-07-01",
+            expiryDate: "2026-12-31",
+            status: "ACTIVE",
+          }],
+          makeupCredits: [{ id: "preview-makeup", expiredAt: "2026-09-30" }],
+          nextBooking: {
+            id: "preview-booking",
+            bookingDate: "2026-08-29",
+            slotTime: "14:00",
+            bookingStatus: "CONFIRMED",
+            bookingType: "PACKAGE",
+            isMakeup: false,
+            staffName: null,
+          },
+          healthSummary: {
+            latest: null,
+            alerts: [],
+            meta: { totalRecords: 2, daysSinceLastMeasure: 3, firstMeasuredAt: "2026-07-01" },
+            trend: [
+              { measuredAt: "2026-07-01", weight: 69.2, bmi: 23.7, bodyFat: 25.1, muscleMass: 48.2, boneMass: 2.6, visceralFat: 6, bmr: 1420, bodyWater: 51.2, metabolicAge: 40 },
+              { measuredAt: "2026-08-23", weight: 68.4, bmi: 23.4, bodyFat: 24.5, muscleMass: 48.5, boneMass: 2.6, visceralFat: 5.5, bmr: 1432, bodyWater: 51.8, metabolicAge: 39 },
+            ],
+          },
+        }}
         healthAssessmentEnabled
       />
     </div>
