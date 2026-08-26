@@ -1,4 +1,4 @@
-# One-time authorized audit trigger: 2026-08-26
+# One-time authorized audit run: 2026-08-26
 name: Audit recurring booking usage
 
 on:
