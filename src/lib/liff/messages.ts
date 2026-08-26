@@ -399,11 +399,13 @@ export const liffMessages = {
 
     // empty state
     emptyTitle: "目前沒有可使用的方案",
-    emptyBody: "若您已購買方案，請聯絡店家協助確認。",
+    emptyBody: "您可以直接購買方案；若已完成購買但尚未顯示，請聯絡店家協助確認。",
 
     // PR-G3：「立即預約」CTA — 露在 ReadyView footer
     // 只有 active 加總 availableToBook > 0 才顯示；連到 /liff/member-booking
     ctaBookNow: "立即預約",
+    ctaPurchasePlan: "購買方案",
+    ctaRenewPlan: "續購方案",
 
     // 回首頁
     backHomeCta: "回首頁",
