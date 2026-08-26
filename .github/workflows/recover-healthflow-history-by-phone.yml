@@ -1,12 +1,13 @@
-name: Recover approved legacy health history
+name: Recover missing HealthFlow history by phone
 
 on:
   push:
     branches:
       - main
     paths:
-      - scripts/recover-approved-healthflow-history.ts
-      - .github/workflows/recover-approved-healthflow-history.yml
+      - scripts/recover-healthflow-history-by-phone.ts
+      - src/lib/healthflow-phone-recovery.ts
+      - .github/workflows/recover-healthflow-history-by-phone.yml
 
 permissions:
   contents: read
@@ -17,17 +18,15 @@ concurrency:
 
 jobs:
   recover:
-    name: Verify and recover one approved history
+    name: Audit, recover, and verify missing history
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     environment: Production – steamfoot-booking
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
       HEALTHFLOW_SUPABASE_URL: ${{ secrets.HEALTHFLOW_SUPABASE_URL }}
       HEALTHFLOW_SERVICE_ROLE_KEY: ${{ secrets.HEALTHFLOW_SERVICE_ROLE_KEY }}
-      TARGET_PROFILE_SHA256: b09ad3567b8902a4bf4a075773b61ba3eb0c48743c4449d2b49d0d3a258f8990
-      TARGET_CUSTOMER_NAME_SHA256: f5728e1bf9da467c18abe9b71f06e8d1c02400589164d77d3d9fa10a9ec641f3
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,20 +55,22 @@ jobs:
           done
           exit "$missing"
 
-      - name: Read-only identity and history check
+      - name: Read-only recovery audit
+        id: audit
         run: >-
-          npx tsx scripts/recover-approved-healthflow-history.ts
-          --profile-sha256="$TARGET_PROFILE_SHA256"
-          --customer-name-sha256="$TARGET_CUSTOMER_NAME_SHA256"
-          --expected-records=7
-          --store=zhubei
+          npx tsx scripts/recover-healthflow-history-by-phone.ts
+          --github-output="$GITHUB_OUTPUT"
 
-      - name: Recover and transactionally verify approved history
+      - name: Recover and transactionally verify approved plan
+        if: steps.audit.outputs.pending_records != '0'
         run: >-
-          npx tsx scripts/recover-approved-healthflow-history.ts
+          npx tsx scripts/recover-healthflow-history-by-phone.ts
           --execute
-          --confirm-approved-recovery
-          --profile-sha256="$TARGET_PROFILE_SHA256"
-          --customer-name-sha256="$TARGET_CUSTOMER_NAME_SHA256"
-          --expected-records=7
-          --store=zhubei
+          --confirm-unique-phone-recovery
+          --expected-pending=${{ steps.audit.outputs.pending_records }}
+          --expected-plan-sha256=${{ steps.audit.outputs.plan_digest }}
+
+      - name: Verify no eligible records remain
+        run: >-
+          npx tsx scripts/recover-healthflow-history-by-phone.ts
+          --expected-pending=0
