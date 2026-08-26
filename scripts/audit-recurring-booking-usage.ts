@@ -1,7 +1,7 @@
 /**
  * One-time, read-only audit of weekly recurring booking adoption.
  *
- * This script performs SELECT queries only. It does not create, update, or
+ * Authorized production audit run: 2026-08-26.\n * This script performs SELECT queries only. It does not create, update, or
  * delete customers, bookings, wallets, recurrence groups, or any other rows.
  */
 import { writeFileSync } from "node:fs";
