@@ -14,9 +14,9 @@
  *   ✅ 7 天內到期 badge
  *   ✅ Defensive 分類：ACTIVE+0 視同 USED_UP；ACTIVE+過期 視同 EXPIRED
  *   ✅ 空狀態 + 聯絡店家 CTA
- *   ✅ 購買 / 續購沿用既有顧客前台付款流程
- *   ❌ 不在 LIFF 重做付款 / 延長 / 註銷 / 編輯
- *   ❌ 不顯示 WalletSession 明細（/my-plans 桌面版才有）
+ *   ✅ 購買 / 續購留在 LIFF 專屬頁面，共用既有付款與通知後端
+ *   ❌ 不導向顧客網頁版；延長 / 註銷 / 編輯仍由店家處理
+ *   ❌ 不顯示 WalletSession 明細
  *   ❌ 不從預約頁加入口（PR-E2 拍板）
  *
  * Mobile-first：max-w-md。文案一律 `liffMessages.wallets.*` / `liffMessages.error.*`，不寫 inline 中文。
@@ -206,6 +206,13 @@ function ReadyView({
         <EmptyState storeSlug={storeSlug} contactUrl={contactUrl} />
       ) : (
         <>
+          <Link
+            href={`/s/${storeSlug}/liff/wallets/shop`}
+            className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+          >
+            {liffMessages.wallets.ctaRenewPlan}
+          </Link>
+
           {active.length > 0 && (
             <Section title={liffMessages.wallets.activeSectionTitle}>
               {active.map((w) => (
@@ -251,15 +258,6 @@ function ReadyView({
           className="mt-4 inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
         >
           {liffMessages.wallets.ctaBookNow}
-        </Link>
-      )}
-
-      {!isEmpty && (
-        <Link
-          href={`/s/${storeSlug}/my-bookings?tab=plans`}
-          className={`${showBookNow ? "mt-2" : "mt-4"} inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-3 text-base font-semibold text-earth-800 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]`}
-        >
-          {liffMessages.wallets.ctaRenewPlan}
         </Link>
       )}
 
@@ -443,7 +441,7 @@ function EmptyState({
       <p className="text-base font-semibold text-earth-900">{m.emptyTitle}</p>
       <p className="text-sm text-earth-600">{m.emptyBody}</p>
       <Link
-        href={`/s/${storeSlug}/my-bookings?tab=plans`}
+        href={`/s/${storeSlug}/liff/wallets/shop`}
         className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
       >
         {m.ctaPurchasePlan}

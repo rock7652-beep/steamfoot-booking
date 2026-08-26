@@ -7,6 +7,14 @@ const walletsSource = readFileSync(
   "utf8",
 );
 const messagesSource = readFileSync("src/lib/liff/messages.ts", "utf8");
+const shopSource = readFileSync(
+  "src/app/(liff)/liff/wallets/shop/page.tsx",
+  "utf8",
+);
+const checkoutSource = readFileSync(
+  "src/app/(liff)/liff/wallets/shop/[planId]/page.tsx",
+  "utf8",
+);
 
 describe("LIFF wallet state and purchase entry contract", () => {
   it("does not turn a failed wallet response into a successful zero balance", () => {
@@ -27,11 +35,16 @@ describe("LIFF wallet state and purchase entry contract", () => {
     expect(shellSource).toContain("請重新讀取資料");
   });
 
-  it("reuses the existing store-scoped customer purchase flow", () => {
-    const purchaseHref = "/s/${storeSlug}/my-bookings?tab=plans";
+  it("keeps purchase and renewal inside the store-scoped LIFF flow", () => {
+    const purchaseHref = "/s/${storeSlug}/liff/wallets/shop";
     expect(shellSource).toContain(purchaseHref);
     expect(walletsSource).toContain(purchaseHref);
+    expect(walletsSource).not.toContain("/my-bookings?tab=plans");
+    expect(shellSource).not.toContain("/my-bookings?tab=plans");
+    expect(shopSource).toContain("/liff/wallets/shop/${plan.id}");
+    expect(checkoutSource).toContain("/liff/wallets/shop/thank-you");
+    expect(checkoutSource).not.toContain("/book/shop/thank-you");
     expect(messagesSource).toContain('ctaPurchasePlan: "購買方案"');
-    expect(messagesSource).toContain('ctaRenewPlan: "續購方案"');
+    expect(messagesSource).toContain('ctaRenewPlan: "購買／續購方案"');
   });
 });

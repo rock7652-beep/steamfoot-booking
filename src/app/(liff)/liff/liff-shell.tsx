@@ -501,7 +501,7 @@ export function WelcomeBack({
               立即預約
             </Link>
           ) : (
-            <Link href={`/s/${storeSlug}/my-bookings?tab=plans`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
+            <Link href={`/s/${storeSlug}/liff/wallets/shop`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
               購買方案
             </Link>
           )}
