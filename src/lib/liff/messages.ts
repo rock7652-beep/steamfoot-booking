@@ -71,6 +71,8 @@ export const liffMessages = {
     makeupAvailableLabel: "另有補課資格",
     serviceSectionTitle: "常用服務",
     serviceSectionHint: "需要的功能都在這裡",
+    designPreviewName: "彥陸",
+    designPreviewStoreName: "暖暖蒸足",
     // PR-E3：3 個 CTA 已全 live (E2b)，加 helper copy 一行讓顧客知道入口在做什麼。
     // 對應 3 顆 CTA：「快速預約」→體驗預約 / 「查詢預約」→我的預約 / 「剩餘堂數」→我的方案
     welcomeHomeHint: "快速預約、查詢預約與剩餘堂數。",
