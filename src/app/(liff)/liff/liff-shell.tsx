@@ -341,16 +341,11 @@ export function WelcomeBack({
   walletSummary: WalletSummary | null;
   healthAssessmentEnabled: boolean;
 }) {
-  // PR-G4 (Option B)：有剩餘堂數的會員主流程是「課程預約」，所以：
-  //   - 「課程預約」dark primary 排第一（顧客主路徑）
-  //   - 「體驗預約」降 outlined（仍保留，會員可幫朋友 / 自己想另約體驗）
-  // 沒堂數 / 載入未回 / 載失敗 → 體驗預約維持 dark primary（新客主路徑）
+  // 會員 LIFF 只服務既有會員；新客體驗預約由公開體驗表單承接。
+  // 既有 /liff/trial-booking 路由保留以避免舊連結失效，但會員首頁不再露出。
   const showMemberBooking =
     walletSummary !== null &&
     (walletSummary.totalAvailable > 0 || walletSummary.hasMakeup);
-  const trialClass = showMemberBooking
-    ? "flex min-h-14 w-full items-center justify-between rounded-2xl border border-earth-200 bg-white px-5 py-3 text-left text-base font-semibold text-earth-900 shadow-[0_6px_20px_rgba(74,66,53,0.06)] transition hover:bg-earth-50 active:scale-[0.98]"
-    : "flex min-h-14 w-full items-center justify-between rounded-2xl bg-primary-600 px-5 py-3 text-left text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.18)] transition hover:bg-primary-700 active:scale-[0.98]";
 
   return (
     <div className="flex flex-col gap-4">
@@ -394,16 +389,6 @@ export function WelcomeBack({
           <ChevronRightIcon />
         </Link>
       )}
-      {/* PR-D1B：體驗預約 CTA 從 disabled 改為 Link → /liff/trial-booking。
-          PR-G4：showMemberBooking 時降為 outlined（會員主路徑是課程預約）；
-          否則維持 dark primary（新客主路徑）。 */}
-      <Link
-        href={`/s/${storeSlug}/liff/trial-booking`}
-        className={trialClass}
-      >
-        <span>{liffMessages.shell.comingSoon.booking}</span>
-        <ChevronRightIcon />
-      </Link>
       {/* PR-D2：我的預約 CTA 從 disabled 改為 Link → /liff/bookings */}
       <Link
         href={`/s/${storeSlug}/liff/bookings`}
