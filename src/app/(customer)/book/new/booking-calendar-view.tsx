@@ -730,10 +730,8 @@ function SlotBookingForm({
                       ? "border-blue-300 bg-blue-50 text-blue-900 hover:border-blue-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                     : display.selectionStatus === "full"
                       ? "cursor-not-allowed border-red-200 bg-red-50 text-red-700 opacity-75"
-                    : display.remainingCapacity === 1
+                    : display.remainingCapacity <= 2
                       ? "border-yellow-300 bg-yellow-50 text-yellow-900 hover:border-yellow-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
-                    : display.remainingCapacity === 2
-                      ? "border-orange-300 bg-orange-50 text-orange-900 hover:border-orange-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                       : "border-green-200 bg-green-50 text-green-900 hover:border-green-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                 }`}
               >
@@ -752,7 +750,7 @@ function SlotBookingForm({
                 />
                 <span className="text-lg font-bold">{slot.startTime}</span>
                 {statusText && (
-                  <span className={`mt-1 text-sm font-medium ${selectedSlot === slot.startTime ? "text-white/90" : alreadyBooked ? "text-blue-700" : isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.remainingCapacity === 1 ? "text-yellow-800" : display.remainingCapacity === 2 ? "text-orange-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
+                  <span className={`mt-1 text-sm font-medium ${selectedSlot === slot.startTime ? "text-white/90" : alreadyBooked ? "text-blue-700" : isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.remainingCapacity <= 2 ? "text-yellow-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
                     {statusText}
                   </span>
                 )}

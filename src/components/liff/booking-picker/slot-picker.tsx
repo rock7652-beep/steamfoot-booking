@@ -112,10 +112,8 @@ export function SlotPicker({
                       ? "border-earth-200 bg-earth-50 text-earth-400"
                       : !display.canFitRequestedPeople
                         ? "border-earth-200 bg-earth-50 text-earth-500"
-                        : display.remainingCapacity === 1
+                        : display.remainingCapacity <= 2
                           ? "border-yellow-300 bg-yellow-50 text-yellow-900 hover:border-yellow-400"
-                        : display.remainingCapacity === 2
-                          ? "border-orange-300 bg-orange-50 text-orange-900 hover:border-orange-400"
                         : "border-earth-300 bg-white text-earth-800 hover:bg-earth-50 hover:border-earth-500"
                 }`}
                 aria-label={`${s.startTime}，${isPast ? labels.pastLabel : display.label ?? "可預約"}`}
@@ -127,7 +125,7 @@ export function SlotPicker({
                   </span>
                 )}
                 {!isPast && display.label && (
-                  <span className={`text-[10px] leading-tight ${display.remainingCapacity === 1 ? "text-yellow-800" : display.remainingCapacity === 2 ? "text-orange-800" : ""}`}>
+                  <span className={`text-[10px] leading-tight ${display.remainingCapacity <= 2 ? "text-yellow-800" : ""}`}>
                     {display.selectionStatus === "full" ? "已額滿" : display.label}
                   </span>
                 )}
