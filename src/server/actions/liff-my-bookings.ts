@@ -40,6 +40,8 @@ export interface LiffBookingRow {
   /** BookingType 原值；client 端 mapping 翻譯（isMakeup 優先）*/
   bookingType: string;
   isMakeup: boolean;
+  /** 預約人數；首頁方案摘要以所有未來預約人數加總。 */
+  people: number;
   /** 服務店長 displayName；null → client 不顯示整行（不 fallback「未指派」）*/
   staffName: string | null;
 }
@@ -81,6 +83,7 @@ export async function fetchLiffBookings(): Promise<FetchLiffBookingsResult> {
     bookingStatus: string;
     bookingType: string;
     isMakeup: boolean;
+    people: number;
     revenueStaff: { displayName: string } | null;
   }>;
   try {
@@ -93,6 +96,7 @@ export async function fetchLiffBookings(): Promise<FetchLiffBookingsResult> {
         bookingStatus: true,
         bookingType: true,
         isMakeup: true,
+        people: true,
         revenueStaff: { select: { displayName: true } },
       },
       orderBy: [{ bookingDate: "desc" }, { slotTime: "asc" }],
@@ -115,6 +119,7 @@ export async function fetchLiffBookings(): Promise<FetchLiffBookingsResult> {
     bookingStatus: b.bookingStatus,
     bookingType: b.bookingType,
     isMakeup: b.isMakeup,
+    people: b.people,
     staffName: b.revenueStaff?.displayName ?? null,
   });
 
