@@ -11,15 +11,15 @@ const initialSaveCustomerHealthRecordState: SaveCustomerHealthRecordState = {
 };
 
 const fields = [
+  ["visceralFat", "內臟脂肪", "", "0.5"],
   ["weight", "體重", "kg", "0.1"],
   ["bmi", "BMI", "", "0.1"],
   ["bodyFat", "體脂肪", "%", "0.1"],
   ["muscleMass", "肌肉量", "kg", "0.1"],
   ["boneMass", "骨量", "kg", "0.1"],
-  ["visceralFat", "內臟脂肪", "", "0.5"],
   ["bmr", "基礎代謝", "kcal", "1"],
-  ["bodyWater", "體水分", "%", "0.1"],
   ["metabolicAge", "體內年齡", "歲", "1"],
+  ["bodyWater", "體水分", "%", "0.1"],
 ] as const;
 
 export function HealthRecordForm({ requestId, today }: { requestId: string; today: string }) {
