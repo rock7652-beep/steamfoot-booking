@@ -7,13 +7,14 @@ function source(path: string) {
 }
 
 describe("central-member LIFF routing contract", () => {
-  it("resolves one central LIFF ID with a zhubei compatibility fallback", () => {
+  it("resolves one central LIFF ID with environment, entry-store and public fallbacks", () => {
     const resolver = source("src/lib/store-resolver.ts");
 
     expect(resolver).toContain("NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID");
     expect(resolver).toContain("CENTRAL_MEMBER_LIFF_ENTRY_STORE_SLUG");
     expect(resolver).toContain('?? "zhubei"');
     expect(resolver).toContain("resolveStorePresentation(entryStoreSlug)");
+    expect(resolver).toContain('entryStore?.liffId ?? "2009711308-47Ffoh9r"');
   });
 
   it("uses the central LIFF ID on all signed-in member pages", () => {

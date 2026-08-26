@@ -268,5 +268,8 @@ export const resolveCentralMemberLiffId = cache(async (): Promise<string | null>
   const entryStoreSlug =
     emptyToNull(process.env.CENTRAL_MEMBER_LIFF_ENTRY_STORE_SLUG) ?? "zhubei";
   const entryStore = await resolveStorePresentation(entryStoreSlug);
-  return entryStore?.liffId ?? null;
+  // LIFF ID 是公開的 Mini App 識別碼（會出現在公開入口 URL），不是密鑰。
+  // 保留公開預設值可讓 Preview 與新環境在 DB/env 尚未回填時仍能驗證會員頁；
+  // 正式環境仍由明確 env 或中央入口店 Store.liffId 優先覆蓋。
+  return entryStore?.liffId ?? "2009711308-47Ffoh9r";
 });
