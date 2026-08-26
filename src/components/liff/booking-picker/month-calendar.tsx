@@ -76,6 +76,8 @@ export interface MonthCalendarProps {
   requestedPeople?: number;
   /** 緊湊版只縮短垂直高度，不改日期狀態與可選規則。 */
   compact?: boolean;
+  /** 會員目前仍有效的預約日期；僅會員預約傳入。 */
+  bookedDates?: readonly string[];
   /** 文案；由 caller 從 liffMessages 構造 */
   labels: MonthCalendarLabels;
 }
@@ -93,6 +95,7 @@ export function MonthCalendar({
   disabled,
   requestedPeople = 1,
   compact = false,
+  bookedDates = [],
   labels,
 }: MonthCalendarProps) {
   const firstDay = new Date(calYear, calMonth, 1);
@@ -185,6 +188,7 @@ export function MonthCalendar({
             const isPast = dateObj < today;
             const isSelected = dateStr === selectedDate;
             const isToday = dateObj.getTime() === today.getTime();
+            const hasBooking = bookedDates.includes(dateStr);
             const closed = !isPast && isClosedDay(dateStr);
             const indicator = !isPast && !closed ? dayIndicator(dateStr) : null;
             const full = indicator === "full";
@@ -208,8 +212,8 @@ export function MonthCalendar({
               >
                 <div className="flex w-full items-center gap-1">
                   <span className={`${compact ? "text-sm" : "text-base"} font-bold leading-none`}>{day}</span>
-                  {indicator && !isSelected && (
-                    <span className={`h-2 w-2 rounded-full ${indicator === "available" ? "bg-green-400" : indicator === "low" ? "bg-yellow-400" : "bg-red-400"}`} />
+                  {hasBooking && !isSelected && (
+                    <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden />
                   )}
                   {isToday && !isSelected && (
                     <span className="ml-auto rounded bg-earth-200 px-1 text-[10px] font-bold leading-none text-earth-800">
@@ -228,7 +232,7 @@ export function MonthCalendar({
                     {labels.closedDayLabel}
                   </span>
                 )}
-                {full && (
+                {full && !hasBooking && (
                   <span
                     className={`mt-1 rounded px-1 py-0.5 text-[10px] font-medium leading-tight ${
                       isSelected
@@ -237,6 +241,11 @@ export function MonthCalendar({
                     }`}
                   >
                     {labels.fullDayLabel}
+                  </span>
+                )}
+                {hasBooking && !isSelected && (
+                  <span className="mt-1 rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium leading-tight text-blue-700">
+                    已預約
                   </span>
                 )}
               </button>

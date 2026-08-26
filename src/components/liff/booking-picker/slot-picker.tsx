@@ -48,6 +48,8 @@ export interface SlotPickerProps {
   disabled: boolean;
   /** 此次預約的人數；體驗預約固定為 1。 */
   requestedPeople?: number;
+  /** 會員在這一天已預約的時段；僅會員預約傳入。 */
+  bookedSlotTimes?: readonly string[];
   /** 文案；由 caller 從 liffMessages 構造 */
   labels: SlotPickerLabels;
 }
@@ -60,6 +62,7 @@ export function SlotPicker({
   onSelectSlot,
   disabled,
   requestedPeople = 1,
+  bookedSlotTimes = [],
   labels,
 }: SlotPickerProps) {
   const dateObj = parseLocalDate(date);
@@ -92,6 +95,7 @@ export function SlotPicker({
             const display = getSlotCapacityDisplay(s.capacity, s.bookedCount, requestedPeople);
             const isPast = s.isPast === true;
             const isSelected = s.startTime === selectedSlot;
+            const alreadyBooked = bookedSlotTimes.includes(s.startTime);
             const slotDisabled = disabled || !display.canFitRequestedPeople || isPast;
             return (
               <button
@@ -102,12 +106,16 @@ export function SlotPicker({
                 className={`flex min-h-[52px] flex-col items-center justify-center rounded-lg border px-2 py-2 text-sm font-medium transition ${
                   isSelected
                     ? "border-earth-800 bg-earth-800 text-white"
+                    : alreadyBooked
+                      ? "border-blue-300 bg-blue-50 text-blue-900 hover:border-blue-400"
                     : isPast
                       ? "border-earth-200 bg-earth-50 text-earth-400"
                       : !display.canFitRequestedPeople
                         ? "border-earth-200 bg-earth-50 text-earth-500"
-                        : display.capacityStatus === "low"
+                        : display.remainingCapacity === 1
                           ? "border-yellow-300 bg-yellow-50 text-yellow-900 hover:border-yellow-400"
+                        : display.remainingCapacity === 2
+                          ? "border-orange-300 bg-orange-50 text-orange-900 hover:border-orange-400"
                         : "border-earth-300 bg-white text-earth-800 hover:bg-earth-50 hover:border-earth-500"
                 }`}
                 aria-label={`${s.startTime}，${isPast ? labels.pastLabel : display.label ?? "可預約"}`}
@@ -119,8 +127,13 @@ export function SlotPicker({
                   </span>
                 )}
                 {!isPast && display.label && (
-                  <span className={`text-[10px] leading-tight ${display.selectionStatus === "low" ? "text-yellow-800" : ""}`}>
+                  <span className={`text-[10px] leading-tight ${display.remainingCapacity === 1 ? "text-yellow-800" : display.remainingCapacity === 2 ? "text-orange-800" : ""}`}>
                     {display.selectionStatus === "full" ? "已額滿" : display.label}
+                  </span>
+                )}
+                {!isPast && alreadyBooked && (
+                  <span className={`text-[10px] leading-tight ${isSelected ? "text-white/90" : "text-blue-700"}`}>
+                    您已預約
                   </span>
                 )}
               </button>

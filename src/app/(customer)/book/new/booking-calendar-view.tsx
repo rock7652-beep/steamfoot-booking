@@ -41,6 +41,7 @@ interface Props {
   bookingOpensAt: string | null;
   weeklyRecurrenceEnabled: boolean;
   weeklyRecurrenceMaxWeeks: number;
+  upcomingBookings: Array<{ bookingDate: string; slotTime: string }>;
 }
 
 export function BookingCalendarView({
@@ -51,6 +52,7 @@ export function BookingCalendarView({
   bookingOpensAt,
   weeklyRecurrenceEnabled,
   weeklyRecurrenceMaxWeeks,
+  upcomingBookings,
 }: Props) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -69,6 +71,10 @@ export function BookingCalendarView({
   const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
   const [monthData, setMonthData] = useState<Record<string, MonthDayAvailability>>({});
   const [loadingMonth, setLoadingMonth] = useState(false);
+  const maxBookablePeople = Math.min(
+    4,
+    activeWallets.reduce((sum, wallet) => sum + wallet.remainingSessions, 0) + makeupCredits.length,
+  );
 
   // 載入整月可預約概覽
   const loadMonth = useCallback(async (year: number, month: number) => {
@@ -167,8 +173,8 @@ export function BookingCalendarView({
         <span className="min-w-[2rem] text-center text-2xl font-bold text-earth-900">{people}</span>
         <button
           type="button"
-          onClick={() => setPeople((p) => Math.min(4, p + 1))}
-          disabled={people >= 4}
+          onClick={() => setPeople((p) => Math.min(maxBookablePeople, p + 1))}
+          disabled={people >= maxBookablePeople}
           className="flex h-11 w-11 items-center justify-center rounded-lg border border-earth-300 text-xl text-earth-800 hover:bg-earth-100 disabled:opacity-40"
           aria-label="增加人數"
         >
@@ -216,6 +222,7 @@ export function BookingCalendarView({
             const disabled = !bookingHasOpened || isPast || isBeyond || loadingMonth || !dayInfo || isClosed || isTraining || isFull;
             const isSelected = dateStr === selectedDate;
             const isToday = dateObj.getTime() === today.getTime();
+            const hasBooking = upcomingBookings.some((booking) => booking.bookingDate === dateStr);
 
             return (
               <button
@@ -241,6 +248,9 @@ export function BookingCalendarView({
                   {isToday && !isSelected && (
                     <span className="ml-auto rounded bg-primary-100 px-1 text-xs font-bold leading-none text-primary-800">今</span>
                   )}
+                  {hasBooking && !isSelected && (
+                    <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden />
+                  )}
                 </div>
 
                 {(isClosed || isTraining) && !isPast && !isBeyond && (
@@ -248,6 +258,11 @@ export function BookingCalendarView({
                     isTraining ? "bg-amber-50 text-amber-800" : "bg-earth-100 text-earth-700"
                   }`}>
                     {isTraining ? "進修" : "公休"}
+                  </span>
+                )}
+                {hasBooking && !isSelected && (
+                  <span className="mt-2 rounded bg-blue-50 px-1.5 py-0.5 text-xs font-semibold leading-tight text-blue-700">
+                    已預約
                   </span>
                 )}
               </button>
@@ -339,6 +354,9 @@ export function BookingCalendarView({
                   bookableUntil={bookableUntil}
                   weeklyRecurrenceEnabled={weeklyRecurrenceEnabled}
                   weeklyRecurrenceMaxWeeks={weeklyRecurrenceMaxWeeks}
+                  bookedSlotTimes={upcomingBookings
+                    .filter((booking) => booking.bookingDate === selectedDate)
+                    .map((booking) => booking.slotTime)}
                 />
               )}
             </div>
@@ -397,6 +415,7 @@ function SlotBookingForm({
   bookableUntil,
   weeklyRecurrenceEnabled,
   weeklyRecurrenceMaxWeeks,
+  bookedSlotTimes,
 }: {
   customerId: string;
   selectedDate: string;
@@ -407,6 +426,7 @@ function SlotBookingForm({
   bookableUntil: string;
   weeklyRecurrenceEnabled: boolean;
   weeklyRecurrenceMaxWeeks: number;
+  bookedSlotTimes: string[];
 }) {
   const requestKey = useBookingRequestKey();
   const storeSlug = useStoreSlugRequired();
@@ -692,8 +712,11 @@ function SlotBookingForm({
             const isPast = !!slot.isPast;
             const display = getSlotCapacityDisplay(slot.capacity, slot.bookedCount, people);
             const disabled = isPast || !display.canFitRequestedPeople;
+            const alreadyBooked = bookedSlotTimes.includes(slot.startTime);
             const statusText = isPast
               ? "已過時段"
+              : alreadyBooked
+                ? "您已預約"
               : display.selectionStatus === "available"
                 ? "名額充足"
                 : display.label;
@@ -703,10 +726,14 @@ function SlotBookingForm({
                 className={`relative flex min-h-[72px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-colors ${
                   isPast || display.selectionStatus === "insufficient"
                     ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-60"
+                    : alreadyBooked
+                      ? "border-blue-300 bg-blue-50 text-blue-900 hover:border-blue-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                     : display.selectionStatus === "full"
                       ? "cursor-not-allowed border-red-200 bg-red-50 text-red-700 opacity-75"
-                    : display.capacityStatus === "low"
+                    : display.remainingCapacity === 1
                       ? "border-yellow-300 bg-yellow-50 text-yellow-900 hover:border-yellow-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
+                    : display.remainingCapacity === 2
+                      ? "border-orange-300 bg-orange-50 text-orange-900 hover:border-orange-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                       : "border-green-200 bg-green-50 text-green-900 hover:border-green-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                 }`}
               >
@@ -725,7 +752,7 @@ function SlotBookingForm({
                 />
                 <span className="text-lg font-bold">{slot.startTime}</span>
                 {statusText && (
-                  <span className={`mt-1 text-sm font-medium ${selectedSlot === slot.startTime ? "text-white/90" : isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.selectionStatus === "low" ? "text-yellow-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
+                  <span className={`mt-1 text-sm font-medium ${selectedSlot === slot.startTime ? "text-white/90" : alreadyBooked ? "text-blue-700" : isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.remainingCapacity === 1 ? "text-yellow-800" : display.remainingCapacity === 2 ? "text-orange-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
                     {statusText}
                   </span>
                 )}

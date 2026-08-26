@@ -36,7 +36,7 @@
  *   _components/success-card.tsx                   ← SuccessCard
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   initLiff,
   isInLineClient,
@@ -56,6 +56,7 @@ import {
   type LiffWalletRow,
   type LiffMakeupCreditRow,
 } from "@/server/actions/liff-my-wallets";
+import { fetchLiffBookings } from "@/server/actions/liff-my-bookings";
 import { liffMessages } from "@/lib/liff/messages";
 import { loadProfileWithSessionRefresh } from "@/lib/liff/profile-loader";
 import type { SlotAvailability } from "@/types";
@@ -112,6 +113,10 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   const [makeupCredits, setMakeupCredits] = useState<LiffMakeupCreditRow[]>([]);
   // 預約人數（1~4）。
   const [people, setPeople] = useState(1);
+  const [upcomingBookings, setUpcomingBookings] = useState<
+    Array<{ bookingDate: string; slotTime: string }>
+  >([]);
+  const slotSectionRef = useRef<HTMLElement>(null);
 
   // calendar state — 台灣今日（client clock；server gate 才是 source of truth）
   const today = (() => {
@@ -150,7 +155,19 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
         // 取會員方案摘要 — active 加總 availableToBook（不含過期 / 已用完）
         let walletResult;
         try {
-          walletResult = await fetchLiffWallets();
+          const [walletResponse, bookingResponse] = await Promise.all([
+            fetchLiffWallets(),
+            fetchLiffBookings(),
+          ]);
+          walletResult = walletResponse;
+          if (bookingResponse.status === "ok") {
+            setUpcomingBookings(
+              bookingResponse.upcoming.map(({ bookingDate, slotTime }) => ({
+                bookingDate,
+                slotTime,
+              })),
+            );
+          }
         } catch (err) {
           if (cancelled) return;
           console.warn("[member-booking-form] fetchLiffWallets threw", err);
@@ -260,6 +277,11 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     setSelectedSlot(null);
     void loadSlots(dateStr);
   }
+
+  useEffect(() => {
+    if (!selectedDate || loadingSlots) return;
+    slotSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loadingSlots, selectedDate]);
 
   function handlePrevMonth() {
     const nd = new Date(calYear, calMonth - 1, 1);
@@ -468,7 +490,24 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
       ? state.wallet.totalAvailable
       : 0;
   const cannotCoverPeople =
-    makeupCredits.length < people && walletAvail < people;
+    makeupCredits.length + walletAvail < people;
+  const maxBookablePeople = Math.min(4, makeupCredits.length + walletAvail);
+  const bookedDates = useMemo(
+    () => [...new Set(upcomingBookings.map((booking) => booking.bookingDate))],
+    [upcomingBookings],
+  );
+  const bookedSlotTimes = useMemo(
+    () => upcomingBookings
+      .filter((booking) => booking.bookingDate === selectedDate)
+      .map((booking) => booking.slotTime),
+    [selectedDate, upcomingBookings],
+  );
+  const makeupCount = Math.min(makeupCredits.length, people);
+  const planSessionCount = people - makeupCount;
+  const deductionSummary = [
+    planSessionCount > 0 ? `使用 ${planSessionCount} 堂` : null,
+    makeupCount > 0 ? `補課 ${makeupCount} 張` : null,
+  ].filter(Boolean).join("＋");
   const submitDisabled =
     state.kind === "submitting" ||
     !selectedDate ||
@@ -574,8 +613,11 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             </span>
             <button
               type="button"
-              onClick={() => setPeople((p) => Math.min(4, p + 1))}
-              disabled={people >= 4 || state.kind === "submitting"}
+              onClick={() => {
+                setPeople((p) => Math.min(maxBookablePeople, p + 1));
+                setSelectedSlot(null);
+              }}
+              disabled={people >= maxBookablePeople || state.kind === "submitting"}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-earth-300 text-lg disabled:opacity-40"
             >
               +
@@ -631,6 +673,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
               disabled={state.kind === "submitting"}
               requestedPeople={people}
               compact
+              bookedDates={bookedDates}
               labels={{
                 monthPrev: liffMessages.memberBooking.monthPrev,
                 monthNext: liffMessages.memberBooking.monthNext,
@@ -643,7 +686,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           </section>
 
           {selectedDate && (
-            <section aria-labelledby="member-booking-slot-heading">
+            <section ref={slotSectionRef} aria-labelledby="member-booking-slot-heading" className="scroll-mt-16">
               <h2 id="member-booking-slot-heading" className="mb-2 text-sm font-semibold text-earth-800">
                 2. 選擇時段
               </h2>
@@ -655,6 +698,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
                 onSelectSlot={setSelectedSlot}
                 disabled={state.kind === "submitting"}
                 requestedPeople={people}
+                bookedSlotTimes={bookedSlotTimes}
                 labels={{
                   loadingText: liffMessages.memberBooking.slotsLoading,
                   emptyText: liffMessages.memberBooking.noSlotsForDay,
@@ -665,6 +709,13 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             </section>
           )}
 
+          {selectedDate && selectedSlot && (
+            <div className="rounded-xl border border-earth-200 bg-white px-4 py-3 text-sm text-earth-800">
+              <span className="font-semibold">預約確認：</span>
+              {selectedDate.replaceAll("-", "/")}・{selectedSlot}・{people} 人・{deductionSummary}
+            </div>
+          )}
+
           <button
             type="button"
             disabled={submitDisabled}
@@ -673,8 +724,10 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           >
             {state.kind === "submitting"
               ? liffMessages.memberBooking.submitting
-              : !selectedDate || !selectedSlot
-                ? liffMessages.memberBooking.submitPlaceholder
+              : !selectedDate
+                ? "請選擇日期"
+                : !selectedSlot
+                  ? "請選擇時段"
                 : liffMessages.memberBooking.submit}
           </button>
         </>
