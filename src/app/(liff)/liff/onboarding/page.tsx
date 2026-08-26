@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import {
+  resolveCentralMemberLiffId,
   resolveStorePresentation,
   resolveStoreSlugForLiff,
 } from "@/lib/store-resolver";
@@ -38,7 +39,11 @@ export default async function LiffOnboardingPage() {
     // PR-E2：店不存在 → notFound() → render (liff)/not-found.tsx
     notFound();
   }
-  if (!presentation.liffId) {
+  // Existing per-store LIFFs keep their original onboarding flow. Stores that
+  // join through the central-member shell can use the shared LIFF instead of
+  // being blocked merely because they do not own a separate Mini App.
+  const liffId = presentation.liffId ?? (await resolveCentralMemberLiffId());
+  if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
 
@@ -46,7 +51,7 @@ export default async function LiffOnboardingPage() {
     <OnboardingForm
       storeSlug={presentation.slug}
       storeName={presentation.name}
-      liffId={presentation.liffId}
+      liffId={liffId}
       contactUrl={presentation.contactUrl}
     />
   );
