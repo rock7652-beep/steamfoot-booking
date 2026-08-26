@@ -44,6 +44,7 @@ export default function LiffDesignPreviewPage() {
         storeSlug="zhubei"
         displayName={liffMessages.shell.designPreviewName}
         memberSummary={{
+          walletsStatus: "ok",
           activeWallets: [{
             id: "preview-wallet",
             planName: "暖暖蒸足方案",
