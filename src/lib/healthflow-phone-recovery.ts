@@ -130,14 +130,21 @@ export function planHealthflowPhoneRecovery(input: {
   );
 
   const mappings: HealthflowPhoneRecoveryMapping[] = [];
+  const skippedProfiles: Array<{
+    profileId: string;
+    reason: HealthflowPhoneRecoverySkipReason;
+    recordCount: number;
+  }> = [];
   const skipped = emptyReasonCounts();
   let completeProfiles = 0;
   let completeRecords = 0;
 
   const skip = (
+    profileId: string,
     reason: HealthflowPhoneRecoverySkipReason,
     recordCount: number,
   ) => {
+    skippedProfiles.push({ profileId, reason, recordCount });
     skipped[reason].profiles += 1;
     skipped[reason].records += recordCount;
   };
@@ -154,7 +161,7 @@ export function planHealthflowPhoneRecovery(input: {
 
     if (existingRows.length === sourceRecordIds.length) {
       if (existingTargets.size !== 1) {
-        skip("existing_conflict", profileRecords.length);
+        skip(profile.id, "existing_conflict", profileRecords.length);
       } else {
         completeProfiles += 1;
         completeRecords += profileRecords.length;
@@ -162,13 +169,13 @@ export function planHealthflowPhoneRecovery(input: {
       continue;
     }
     if (existingTargets.size > 1) {
-      skip("existing_conflict", profileRecords.length);
+      skip(profile.id, "existing_conflict", profileRecords.length);
       continue;
     }
 
     const phone = normalizeTaiwanPhone(profile.phoneNormalized ?? profile.phone);
     if (!phone) {
-      skip("invalid_phone", profileRecords.length);
+      skip(profile.id, "invalid_phone", profileRecords.length);
       continue;
     }
 
@@ -176,7 +183,7 @@ export function planHealthflowPhoneRecovery(input: {
       ? profilesByStorePhone.get(`${profile.storeKey}:${phone}`) ?? []
       : profilesByGlobalPhone.get(phone) ?? [];
     if (sourceMatches.length !== 1) {
-      skip("ambiguous_source_phone", profileRecords.length);
+      skip(profile.id, "ambiguous_source_phone", profileRecords.length);
       continue;
     }
 
@@ -185,7 +192,7 @@ export function planHealthflowPhoneRecovery(input: {
       const existing = existingRows[0];
       const candidate = existing ? customersById.get(existing.customerId) : null;
       if (!candidate || candidate.storeId !== existing?.storeId) {
-        skip("existing_conflict", profileRecords.length);
+        skip(profile.id, "existing_conflict", profileRecords.length);
         continue;
       }
       candidates = [candidate];
@@ -196,28 +203,28 @@ export function planHealthflowPhoneRecovery(input: {
     }
 
     if (candidates.length === 0) {
-      skip("missing_target", profileRecords.length);
+      skip(profile.id, "missing_target", profileRecords.length);
       continue;
     }
     if (candidates.length !== 1) {
-      skip("ambiguous_target", profileRecords.length);
+      skip(profile.id, "ambiguous_target", profileRecords.length);
       continue;
     }
 
     const customer = candidates[0];
     if (profile.storeKey && customer.storeKey !== profile.storeKey) {
-      skip("store_conflict", profileRecords.length);
+      skip(profile.id, "store_conflict", profileRecords.length);
       continue;
     }
     if (normalizeTaiwanPhone(customer.phone) !== phone) {
-      skip("existing_conflict", profileRecords.length);
+      skip(profile.id, "existing_conflict", profileRecords.length);
       continue;
     }
     if (
       customer.healthProfileId &&
       customer.healthProfileId !== profile.id
     ) {
-      skip("different_health_profile", profileRecords.length);
+      skip(profile.id, "different_health_profile", profileRecords.length);
       continue;
     }
     if (
@@ -226,7 +233,7 @@ export function planHealthflowPhoneRecovery(input: {
           row.customerId !== customer.id || row.storeId !== customer.storeId,
       )
     ) {
-      skip("existing_conflict", profileRecords.length);
+      skip(profile.id, "existing_conflict", profileRecords.length);
       continue;
     }
 
@@ -269,6 +276,7 @@ export function planHealthflowPhoneRecovery(input: {
 
   return {
     mappings,
+    skippedProfiles,
     digest: healthflowPhoneRecoveryPlanDigest(mappings),
     summary: {
       sourceProfiles: sourceProfiles.length,
