@@ -1,10 +1,7 @@
 name: Recover missing HealthFlow history by phone
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/recover-healthflow-history-by-phone.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -57,14 +54,6 @@ jobs:
         run: >-
           npx tsx scripts/recover-healthflow-history-by-phone.ts
           --github-output="$GITHUB_OUTPUT"
-          --review-output=healthflow-review.json
-
-      - name: Upload masked review list
-        uses: actions/upload-artifact@v4
-        with:
-          name: healthflow-masked-review
-          path: healthflow-review.json
-          retention-days: 1
 
       - name: Recover and transactionally verify approved plan
         if: steps.audit.outputs.pending_records != '0'
