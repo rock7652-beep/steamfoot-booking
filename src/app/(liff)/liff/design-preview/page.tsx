@@ -1,0 +1,85 @@
+import { notFound } from "next/navigation";
+import { liffMessages } from "@/lib/liff/messages";
+import { WelcomeBack } from "../liff-shell";
+
+/**
+ * Draft PR visual review only. No customer session or production data is read.
+ * Production must never expose this demonstration route.
+ */
+export default function LiffDesignPreviewPage() {
+  if (process.env.VERCEL_ENV === "production") notFound();
+
+  return (
+    <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
+      <header className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">
+            {liffMessages.shell.designPreviewStoreName}
+          </p>
+          <p className="mt-0.5 text-sm text-earth-500">
+            {liffMessages.shell.memberHomeLabel}
+          </p>
+        </div>
+        <div
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-100 text-primary-700 shadow-sm"
+          aria-hidden
+        >
+          <svg
+            width="23"
+            height="23"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M20.8 3.2C12.5 3.4 6.5 6.5 5.2 12.1c-.8 3.5 1.3 6.8 4.8 6.8 6.2 0 9.8-7 10.8-15.7Z" />
+            <path d="M4 21c2.4-5.3 6.6-9.2 12.5-11.7" />
+          </svg>
+        </div>
+      </header>
+
+      <WelcomeBack
+        storeSlug="zhubei"
+        displayName={liffMessages.shell.designPreviewName}
+        memberSummary={{
+          activeWallets: [{
+            id: "preview-wallet",
+            planName: "暖暖蒸足方案",
+            planCategory: "PACKAGE",
+            totalSessions: 12,
+            remainingSessions: 8,
+            availableToBook: 6,
+            pendingCount: 2,
+            usedCount: 4,
+            voidedCount: 0,
+            startDate: "2026-07-01",
+            expiryDate: "2026-12-31",
+            status: "ACTIVE",
+          }],
+          makeupCredits: [{ id: "preview-makeup", expiredAt: "2026-09-30" }],
+          nextBooking: {
+            id: "preview-booking",
+            bookingDate: "2026-08-29",
+            slotTime: "14:00",
+            bookingStatus: "CONFIRMED",
+            bookingType: "PACKAGE",
+            isMakeup: false,
+            staffName: null,
+          },
+          healthSummary: {
+            latest: null,
+            alerts: [],
+            meta: { totalRecords: 2, daysSinceLastMeasure: 3, firstMeasuredAt: "2026-07-01" },
+            trend: [
+              { measuredAt: "2026-07-01", weight: 69.2, bmi: 23.7, bodyFat: 25.1, muscleMass: 48.2, boneMass: 2.6, visceralFat: 6, bmr: 1420, bodyWater: 51.2, metabolicAge: 40 },
+              { measuredAt: "2026-08-23", weight: 68.4, bmi: 23.4, bodyFat: 24.5, muscleMass: 48.5, boneMass: 2.6, visceralFat: 5.5, bmr: 1432, bodyWater: 51.8, metabolicAge: 39 },
+            ],
+          },
+        }}
+        healthAssessmentEnabled
+      />
+    </div>
+  );
+}
