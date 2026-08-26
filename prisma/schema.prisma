@@ -1761,6 +1761,10 @@ model BookingRecurrenceGroup {
   slotTime         String
   totalOccurrences Int
   people           Int
+  confirmationNotificationStatus String @default("PENDING")
+  confirmationNotificationClaimedAt DateTime?
+  confirmationNotificationSentAt DateTime?
+  confirmationNotificationError String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

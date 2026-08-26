@@ -9,7 +9,8 @@ const source = readFileSync(
 describe("customer recurring booking UI wiring", () => {
   it("keeps the recurring UI behind the store feature flag", () => {
     expect(source).toContain("weeklyRecurrenceEnabled && recurrenceOptions.length > 0");
-    expect(source).toContain("每週重複預約");
+    expect(source).toContain("保留每週固定時段");
+    expect(source).toContain("selectedSlot && weeklyRecurrenceEnabled");
   });
 
   it("uses the existing recurring action with the stable request key", () => {
@@ -31,5 +32,11 @@ describe("customer recurring booking UI wiring", () => {
     expect(source).toContain("wallet.recurringAvailableSessions");
     expect(source).toContain("formatBookingWalletOption(w, isRecurringActive)");
     expect(source).not.toContain("formatRecurringWalletOption");
+  });
+
+  it("offers the maximum affordable week count instead of only blocking", () => {
+    expect(source).toContain("maxAffordableWeeks");
+    expect(source).toContain("改為保留 {maxAffordableWeeks} 週");
+    expect(source).toContain("完成每次服務後才核銷");
   });
 });

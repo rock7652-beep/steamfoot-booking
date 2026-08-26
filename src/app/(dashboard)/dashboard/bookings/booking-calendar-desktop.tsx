@@ -12,6 +12,8 @@ interface BookingEntry {
   bookingStatus: string;
   isMakeup: boolean;
   people: number;
+  recurrenceIndex?: number | null;
+  recurrenceTotalOccurrences?: number | null;
   staffId: string | null;
   staffName: string | null;
   staffColor: string | null;
@@ -379,6 +381,11 @@ const BookingStrip = memo(function BookingStrip({
       <span className={`truncate ${style.textMuted ?? "text-earth-800"}`}>
         {booking.customerName}
       </span>
+      {booking.recurrenceIndex && booking.recurrenceTotalOccurrences ? (
+        <span className="shrink-0 rounded bg-violet-100 px-1 text-[9px] font-semibold text-violet-700">
+          固定 {booking.recurrenceIndex}/{booking.recurrenceTotalOccurrences}
+        </span>
+      ) : null}
     </button>
   );
 });

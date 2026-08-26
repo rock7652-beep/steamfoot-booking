@@ -21,6 +21,8 @@ export type PackageBookingReminderCard = {
   address?: string;
   mapUrl?: string;
   reminderText?: string;
+  recurrenceIndex?: number;
+  recurrenceTotalOccurrences?: number;
 };
 
 export type TrialBookingReminderCard = {
@@ -72,6 +74,16 @@ export function buildPackageBookingTestReminderLineMessages(
         paddingAll: "16px",
         contents: [
           { type: "text", text: "蒸管家｜預約提醒", color: REMINDER_CARD_COLORS.headerText, weight: "bold", size: "lg" },
+          ...(card.recurrenceIndex && card.recurrenceTotalOccurrences
+            ? [{
+                type: "text" as const,
+                text: `每週固定預約・第 ${card.recurrenceIndex}/${card.recurrenceTotalOccurrences} 次`,
+                color: REMINDER_CARD_COLORS.headerSubtext,
+                size: "sm" as const,
+                weight: "bold" as const,
+                margin: "sm",
+              }]
+            : []),
           ...(isTest
             ? [{
                 type: "box" as const,

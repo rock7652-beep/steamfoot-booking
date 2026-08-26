@@ -40,6 +40,8 @@ interface BookingEntry {
   isMakeup: boolean;
   isCheckedIn: boolean;
   people: number;
+  recurrenceIndex: number | null;
+  recurrenceTotalOccurrences: number | null;
   customerConfirmedAt: Date | null;
   /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。 */
   attendedPeople: number | null;
@@ -253,6 +255,8 @@ export function BookingsManager({
       id: b.id,
       slotTime: b.slotTime,
       people: b.people,
+      recurrenceIndex: b.recurrenceIndex,
+      recurrenceTotalOccurrences: b.recurrenceTotalOccurrences,
       customerConfirmedAt: b.customerConfirmedAt,
       attendedPeople: b.attendedPeople,
       isMakeup: b.isMakeup,

@@ -14,6 +14,8 @@ export interface DayBooking {
   id: string;
   slotTime: string;
   people: number;
+  recurrenceIndex?: number | null;
+  recurrenceTotalOccurrences?: number | null;
   /** 顧客透過提醒連結確認會到；有值時門市預約清單顯示確認標記。 */
   customerConfirmedAt?: Date | null;
   /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。
@@ -449,6 +451,11 @@ function TimelineItem({
           {booking.customerConfirmedAt ? (
             <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-800">
               顧客已確認會到
+            </span>
+          ) : null}
+          {booking.recurrenceIndex && booking.recurrenceTotalOccurrences ? (
+            <span className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-medium text-violet-800">
+              每週固定・第 {booking.recurrenceIndex}/{booking.recurrenceTotalOccurrences} 次
             </span>
           ) : null}
           {booking.bookingType === "FIRST_TRIAL" ? (

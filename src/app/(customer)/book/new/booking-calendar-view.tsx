@@ -569,6 +569,10 @@ function SlotBookingForm({
 
   // 人數 vs 剩餘堂數
   const hasEnoughSessions = totalRemaining >= recurrenceRequiredSessions;
+  const maxAffordableWeeks = Math.min(
+    recurrenceOptions.at(-1) ?? 0,
+    Math.floor(totalRemaining / Math.max(people, 1)),
+  );
 
   // 最晚到期日（用於提示）
   const latestExpiry = activeWallets
@@ -584,7 +588,9 @@ function SlotBookingForm({
         : "票券已超過可使用期限，請聯繫店家協助")
     : recurrenceRequiredSessions > 0 && !hasEnoughSessions
     ? isRecurringActive
-      ? `方案次數不足，循環預約共需 ${recurrenceRequiredSessions} 堂，目前方案次數僅剩 ${totalRemaining} 次`
+      ? maxAffordableWeeks >= 2
+        ? `目前方案最多可保留 ${maxAffordableWeeks} 週（共 ${maxAffordableWeeks * people} 堂）`
+        : `方案次數不足，固定時段至少需 ${people * 2} 堂，目前方案僅剩 ${totalRemaining} 堂`
       : `方案次數不足，無法預約 ${people} 人。目前可用補課 ${makeupToUse} 張、方案次數僅剩 ${totalRemaining} 次，請調整預約人數或聯繫店家`
     : null;
 
@@ -599,7 +605,7 @@ function SlotBookingForm({
         </h2>
         {state.recurringDates.length > 0 ? (
           <div className="mt-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-left text-sm text-green-900">
-            <p className="font-semibold">共建立 {state.recurringDates.length} 筆預約，扣除 {state.recurringDates.length * state.bookedPeople} 堂</p>
+            <p className="font-semibold">共保留 {state.recurringDates.length} 個固定時段，預留 {state.recurringDates.length * state.bookedPeople} 堂方案額度</p>
             <ul className="mt-2 space-y-1">
               {state.recurringDates.map((date) => (
                 <li key={date}>✓ {date.replaceAll("-", "/")}（{formatWeekdayZh(date).replace("週", "")}）{state.bookedTime}</li>
@@ -678,44 +684,6 @@ function SlotBookingForm({
         <span className="text-sm text-earth-700">（可於上方月曆區調整）</span>
       </div>
 
-      {weeklyRecurrenceEnabled && recurrenceOptions.length > 0 && (
-        <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-          <label className="flex cursor-pointer items-center gap-3 text-base font-semibold text-primary-900">
-            <input
-              type="checkbox"
-              checked={isRecurring}
-              disabled={pending}
-              onChange={(event) => {
-                setIsRecurring(event.target.checked);
-                setLoadedRecurringPreviewKey(null);
-              }}
-              className="h-5 w-5 rounded border-primary-400 text-primary-600 focus:ring-primary-500"
-            />
-            每週重複預約
-          </label>
-          <p className="mt-1 text-sm text-primary-800">同一人數、同一時段，連續預約數週</p>
-
-          {isRecurringActive && (
-            <div className="mt-4">
-              <label className="mb-2 block text-sm font-medium text-primary-900" htmlFor="recurrence-weeks">重複週數</label>
-              <select
-                id="recurrence-weeks"
-                value={weeks}
-                disabled={pending}
-                onChange={(event) => {
-                  setWeeks(Number(event.target.value));
-                  setLoadedRecurringPreviewKey(null);
-                }}
-                className="h-11 w-full rounded-lg border border-primary-300 bg-white px-3 text-base text-earth-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                {recurrenceOptions.map((option) => <option key={option} value={option}>{option} 週</option>)}
-              </select>
-              <p className="mt-2 text-sm text-primary-800">循環預約僅使用方案堂數，補課資格不會列入本次扣抵。</p>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* 時段卡片 */}
       <div>
         <p className="mb-2 text-base font-semibold text-earth-800">選擇時段</p>
@@ -780,6 +748,44 @@ function SlotBookingForm({
         </div>
       </div>
 
+      {selectedSlot && weeklyRecurrenceEnabled && recurrenceOptions.length > 0 && (
+        <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
+          <label className="flex cursor-pointer items-center gap-3 text-base font-semibold text-primary-900">
+            <input
+              type="checkbox"
+              checked={isRecurring}
+              disabled={pending}
+              onChange={(event) => {
+                setIsRecurring(event.target.checked);
+                setLoadedRecurringPreviewKey(null);
+              }}
+              className="h-5 w-5 rounded border-primary-400 text-primary-600 focus:ring-primary-500"
+            />
+            保留每週固定時段
+          </label>
+          <p className="mt-1 text-sm text-primary-800">喜歡這個時段嗎？可一次保留未來 2～{recurrenceOptions.at(-1)} 週。</p>
+
+          {isRecurringActive && (
+            <div className="mt-4">
+              <label className="mb-2 block text-sm font-medium text-primary-900" htmlFor="recurrence-weeks">保留週數</label>
+              <select
+                id="recurrence-weeks"
+                value={weeks}
+                disabled={pending}
+                onChange={(event) => {
+                  setWeeks(Number(event.target.value));
+                  setLoadedRecurringPreviewKey(null);
+                }}
+                className="h-11 w-full rounded-lg border border-primary-300 bg-white px-3 text-base text-earth-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {recurrenceOptions.map((option) => <option key={option} value={option}>{option} 週</option>)}
+              </select>
+              <p className="mt-2 text-sm text-primary-800">方案堂數會先保留，完成每次服務後才核銷；補課資格不列入固定時段。</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {availableSlots.length === 0 && (
         <p className="text-center text-base text-earth-700">今日所有時段已額滿</p>
       )}
@@ -821,7 +827,7 @@ function SlotBookingForm({
             </ul>
           )}
           <p className="mt-3 font-semibold">
-            共建立 {weeks} 筆預約，共扣除 {weeks * people} 堂（此方案可用 {totalRemaining} 堂）
+            共保留 {weeks} 個時段，預留 {weeks * people} 堂方案額度（此方案可用 {totalRemaining} 堂）
           </p>
           {!loadingRecurringPreview && recurrenceHasUnavailableDate && (
             <p className="mt-2 font-semibold text-red-700">無法建立循環預約；請選擇其他日期、時段或週數。</p>
@@ -850,6 +856,18 @@ function SlotBookingForm({
       {blockingError && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
           <p className="text-base font-semibold text-red-700">{blockingError}</p>
+          {isRecurringActive && !hasEnoughSessions && maxAffordableWeeks >= 2 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setWeeks(maxAffordableWeeks);
+                setLoadedRecurringPreviewKey(null);
+              }}
+              className="mt-2 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700"
+            >
+              改為保留 {maxAffordableWeeks} 週
+            </button>
+          ) : null}
         </div>
       )}
 
