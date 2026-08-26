@@ -476,15 +476,15 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     cannotCoverPeople;
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-5 px-4 py-8">
+    <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
       <header className="text-center">
         <p className="text-xs uppercase tracking-widest text-earth-500">
           {storeName}
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-earth-900">
+        <h1 className="mt-1.5 text-2xl font-semibold text-earth-900">
           {liffMessages.memberBooking.title}
         </h1>
-        <p className="mt-2 text-sm text-earth-600">
+        <p className="mt-1 text-sm text-earth-600">
           {liffMessages.memberBooking.body}
         </p>
       </header>
@@ -557,7 +557,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           )}
 
           {/* 預約人數選擇器（PR-NoShow-2：LIFF 也支援多人） */}
-          <div className="flex items-center gap-3 rounded-xl border border-earth-200 bg-white px-4 py-3">
+          <div className="flex items-center gap-2 rounded-xl border border-earth-200 bg-white px-4 py-2.5">
             <span className="text-sm font-semibold text-earth-800">
               {liffMessages.memberBooking.peopleLabel}
             </span>
@@ -580,7 +580,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             >
               +
             </button>
-            <span className="text-xs text-earth-500">
+            <span className="ml-auto text-xs text-earth-500">
               {liffMessages.memberBooking.peopleHint}
             </span>
           </div>
@@ -614,44 +614,55 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             </div>
           )}
 
-          <MonthCalendar
-            calYear={calYear}
-            calMonth={calMonth}
-            today={today}
-            monthData={monthData}
-            loadingMonth={loadingMonth}
-            selectedDate={selectedDate}
-            onSelectDate={handleSelectDate}
-            onPrevMonth={handlePrevMonth}
-            onNextMonth={handleNextMonth}
-            disabled={state.kind === "submitting"}
-            requestedPeople={people}
-            labels={{
-              monthPrev: liffMessages.memberBooking.monthPrev,
-              monthNext: liffMessages.memberBooking.monthNext,
-              weekLabels: liffMessages.memberBooking.weekLabels,
-              todayLabel: liffMessages.memberBooking.todayLabel,
-              closedDayLabel: liffMessages.memberBooking.closedDayLabel,
-              fullDayLabel: liffMessages.memberBooking.slotFullLabel,
-            }}
-          />
-
-          {selectedDate && (
-            <SlotPicker
-              date={selectedDate}
-              slots={slots}
-              loading={loadingSlots}
-              selectedSlot={selectedSlot}
-              onSelectSlot={setSelectedSlot}
+          <section aria-labelledby="member-booking-date-heading">
+            <h2 id="member-booking-date-heading" className="mb-2 text-sm font-semibold text-earth-800">
+              1. 選擇日期
+            </h2>
+            <MonthCalendar
+              calYear={calYear}
+              calMonth={calMonth}
+              today={today}
+              monthData={monthData}
+              loadingMonth={loadingMonth}
+              selectedDate={selectedDate}
+              onSelectDate={handleSelectDate}
+              onPrevMonth={handlePrevMonth}
+              onNextMonth={handleNextMonth}
               disabled={state.kind === "submitting"}
               requestedPeople={people}
+              compact
               labels={{
-                loadingText: liffMessages.memberBooking.slotsLoading,
-                emptyText: liffMessages.memberBooking.noSlotsForDay,
-                pastLabel: liffMessages.memberBooking.slotPastLabel,
-                fullLabel: liffMessages.memberBooking.slotFullLabel,
+                monthPrev: liffMessages.memberBooking.monthPrev,
+                monthNext: liffMessages.memberBooking.monthNext,
+                weekLabels: liffMessages.memberBooking.weekLabels,
+                todayLabel: liffMessages.memberBooking.todayLabel,
+                closedDayLabel: liffMessages.memberBooking.closedDayLabel,
+                fullDayLabel: liffMessages.memberBooking.slotFullLabel,
               }}
             />
+          </section>
+
+          {selectedDate && (
+            <section aria-labelledby="member-booking-slot-heading">
+              <h2 id="member-booking-slot-heading" className="mb-2 text-sm font-semibold text-earth-800">
+                2. 選擇時段
+              </h2>
+              <SlotPicker
+                date={selectedDate}
+                slots={slots}
+                loading={loadingSlots}
+                selectedSlot={selectedSlot}
+                onSelectSlot={setSelectedSlot}
+                disabled={state.kind === "submitting"}
+                requestedPeople={people}
+                labels={{
+                  loadingText: liffMessages.memberBooking.slotsLoading,
+                  emptyText: liffMessages.memberBooking.noSlotsForDay,
+                  pastLabel: liffMessages.memberBooking.slotPastLabel,
+                  fullLabel: liffMessages.memberBooking.slotFullLabel,
+                }}
+              />
+            </section>
           )}
 
           <button

@@ -74,6 +74,8 @@ export interface MonthCalendarProps {
   disabled: boolean;
   /** 此次預約的人數；影響日期狀態點的聚合結果。 */
   requestedPeople?: number;
+  /** 緊湊版只縮短垂直高度，不改日期狀態與可選規則。 */
+  compact?: boolean;
   /** 文案；由 caller 從 liffMessages 構造 */
   labels: MonthCalendarLabels;
 }
@@ -90,6 +92,7 @@ export function MonthCalendar({
   onNextMonth,
   disabled,
   requestedPeople = 1,
+  compact = false,
   labels,
 }: MonthCalendarProps) {
   const firstDay = new Date(calYear, calMonth, 1);
@@ -119,25 +122,25 @@ export function MonthCalendar({
   }
 
   return (
-    <div className="rounded-2xl border border-earth-200 bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between border-b border-earth-100 px-3 py-2">
+    <div className="overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-sm">
+      <div className={`flex items-center justify-between border-b border-earth-100 px-3 ${compact ? "py-1" : "py-2"}`}>
         <button
           type="button"
           onClick={onPrevMonth}
           disabled={disabled}
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-earth-800 hover:bg-earth-100 transition disabled:opacity-40"
+          className={`flex items-center justify-center rounded-lg text-earth-800 transition hover:bg-earth-100 disabled:opacity-40 ${compact ? "h-10 w-10" : "h-11 w-11"}`}
           aria-label={labels.monthPrev}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
-        <span className="text-lg font-bold text-earth-900">{monthLabel}</span>
+        <span className={`${compact ? "text-base" : "text-lg"} font-bold text-earth-900`}>{monthLabel}</span>
         <button
           type="button"
           onClick={onNextMonth}
           disabled={disabled}
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-earth-800 hover:bg-earth-100 transition disabled:opacity-40"
+          className={`flex items-center justify-center rounded-lg text-earth-800 transition hover:bg-earth-100 disabled:opacity-40 ${compact ? "h-10 w-10" : "h-11 w-11"}`}
           aria-label={labels.monthNext}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -150,7 +153,7 @@ export function MonthCalendar({
         {labels.weekLabels.map((w) => (
           <div
             key={w}
-            className="py-2 text-center text-sm font-semibold text-earth-700"
+            className={`${compact ? "py-1.5 text-xs" : "py-2 text-sm"} text-center font-semibold text-earth-700`}
           >
             {w}
           </div>
@@ -172,7 +175,7 @@ export function MonthCalendar({
               return (
                 <div
                   key={`e-${i}`}
-                  className="min-h-[72px] border-b border-r border-earth-100"
+                  className={`${compact ? "min-h-[54px]" : "min-h-[72px]"} border-b border-r border-earth-100`}
                 />
               );
             }
@@ -193,7 +196,7 @@ export function MonthCalendar({
                 type="button"
                 disabled={cellDisabled}
                 onClick={() => onSelectDate(dateStr)}
-                className={`relative flex min-h-[72px] flex-col items-start border-b border-r border-earth-100 p-1.5 transition ${
+                className={`relative flex flex-col items-start border-b border-r border-earth-100 transition ${compact ? "min-h-[54px] p-1" : "min-h-[72px] p-1.5"} ${
                   isSelected
                     ? "bg-earth-800 text-white"
                     : isPast || closed
@@ -204,7 +207,7 @@ export function MonthCalendar({
                 }`}
               >
                 <div className="flex w-full items-center gap-1">
-                  <span className="text-base font-bold leading-none">{day}</span>
+                  <span className={`${compact ? "text-sm" : "text-base"} font-bold leading-none`}>{day}</span>
                   {indicator && !isSelected && (
                     <span className={`h-2 w-2 rounded-full ${indicator === "available" ? "bg-green-400" : indicator === "low" ? "bg-yellow-400" : "bg-red-400"}`} />
                   )}
