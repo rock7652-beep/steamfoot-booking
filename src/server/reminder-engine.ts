@@ -285,6 +285,7 @@ export async function runReminders(): Promise<SendResult> {
       include: {
         customer: { include: { assignedStaff: true } },
         store: { select: { slug: true, name: true } },
+        recurrenceGroup: { select: { totalOccurrences: true } },
       },
     });
 
@@ -591,6 +592,8 @@ export async function runReminders(): Promise<SendResult> {
             reminderText:
               packageCardReminderCache.get(bookingStoreId) ??
               DEFAULT_PACKAGE_LINE_CARD_REMINDER,
+            recurrenceIndex: booking.recurrenceIndex ?? undefined,
+            recurrenceTotalOccurrences: booking.recurrenceGroup?.totalOccurrences ?? undefined,
           }, bookingLink, booking.id);
       const textMessages = isLineTrialBooking
         ? buildTrialBookingReminderTextFallback(card, bookingLink)

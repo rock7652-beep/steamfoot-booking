@@ -342,6 +342,8 @@ async function computeMonthBookingSummary(
         isMakeup: true,
         isCheckedIn: true,
         people: true,
+        recurrenceIndex: true,
+        recurrenceGroup: { select: { totalOccurrences: true } },
         customerConfirmedAt: true,
         // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；day-panel 行尾顯示「實到 N/M」）
         attendedPeople: true,
@@ -448,6 +450,8 @@ async function computeMonthBookingSummary(
     isMakeup: boolean;
     isCheckedIn: boolean;
     people: number;
+    recurrenceIndex: number | null;
+    recurrenceTotalOccurrences: number | null;
     customerConfirmedAt: Date | null;
     // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；null = 未記錄／全到）
     attendedPeople: number | null;
@@ -509,6 +513,8 @@ async function computeMonthBookingSummary(
       isMakeup: b.isMakeup,
       isCheckedIn: b.isCheckedIn,
       people: b.people,
+      recurrenceIndex: b.recurrenceIndex,
+      recurrenceTotalOccurrences: b.recurrenceGroup?.totalOccurrences ?? null,
       customerConfirmedAt: b.customerConfirmedAt,
       attendedPeople: b.attendedPeople,
       bookingType: b.bookingType,

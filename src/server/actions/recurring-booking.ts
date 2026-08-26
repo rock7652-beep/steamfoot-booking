@@ -41,6 +41,7 @@ import {
 } from "@/server/services/recurring-booking-errors";
 import { revalidateBookings } from "@/lib/revalidation";
 import { requireCustomerBookingEligibility } from "@/lib/customer-booking-eligibility";
+import { sendRecurringBookingConfirmation } from "@/server/services/recurring-booking-confirmation";
 
 // Next.js "use server" modules may only export async functions. Keep this
 // implementation limit module-local so createRecurringBookings() remains
@@ -136,6 +137,9 @@ export async function createRecurringBookings(
     });
     if (claim.kind === "replay") {
       if (!claim.snapshot.result.recurrenceGroupId) throw new Error("Recurring replay has no group ID");
+      await sendRecurringBookingConfirmation(claim.snapshot.result.recurrenceGroupId).catch((notificationError) => {
+        console.error("[createRecurringBookings] confirmation notification failed", notificationError);
+      });
       revalidateBookings(effectiveCustomerId);
       return { success: true, data: {
         recurrenceGroupId: claim.snapshot.result.recurrenceGroupId,
@@ -309,6 +313,9 @@ export async function createRecurringBookings(
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 
     revalidateBookings(effectiveCustomerId);
+    await sendRecurringBookingConfirmation(bookingIds.groupId).catch((notificationError) => {
+      console.error("[createRecurringBookings] confirmation notification failed", notificationError);
+    });
     return { success: true, data: { recurrenceGroupId: bookingIds.groupId, bookingIds: bookingIds.createdIds } };
   } catch (error) {
     if (activeSubmission) {
