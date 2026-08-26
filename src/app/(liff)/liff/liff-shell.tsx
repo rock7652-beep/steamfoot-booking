@@ -54,7 +54,7 @@ interface LiffShellProps {
  * PR-G4 wallet summary：signed_in 後 lazy fetch；totalAvailable > 0 才在 home
  * 露「課程預約」CTA。null 表示尚未載 / 載失敗 → CTA 不出（不擋既有 4 顆 CTA）。
  */
-type WalletSummary = { totalAvailable: number; hasMakeup: boolean };
+export type WalletSummary = { totalAvailable: number; hasMakeup: boolean };
 
 export function LiffShell({
   storeName,
@@ -329,7 +329,7 @@ function WelcomeCta({
   );
 }
 
-function WelcomeBack({
+export function WelcomeBack({
   storeSlug,
   displayName,
   walletSummary,
