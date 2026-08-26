@@ -26,7 +26,8 @@ import {
 import {
   type HealthSummary,
 } from "@/lib/health-service";
-import { getNativeHealthSummary } from "@/lib/native-health-service";
+import { getNativeHealthSummaryForMemberships } from "@/lib/native-health-service";
+import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 import { healthFlowLiffUrl } from "@/lib/liff/messages";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -49,6 +50,8 @@ export type FetchLiffHealthSummaryResult =
       linked: true;
       /** 蒸管家原生 summary（latest + trend + alerts + meta） */
       summary: HealthSummary;
+      /** 中央會員解析器確認可讀取的門市數量。 */
+      verifiedStoreCount: number;
     }
   | {
       status: "ok";
@@ -302,10 +305,39 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
     return { status: "service_unavailable" };
   }
 
-  // ── 4. Read Steamfoot-native summary ───────────────
+  // ── 4. Resolve verified central memberships ───────
+  // 僅使用中央會員解析器已驗證的 storeId + customerId 配對；不以電話、姓名
+  // 或 email 猜測跨店身分，避免把同名／共用電話的健康資料帶進來。
+  let memberships;
+  try {
+    const resolution = await resolveCentralMembershipsForUser(user.id);
+    memberships = resolution.memberships.map((membership) => ({
+      storeId: membership.storeId,
+      customerId: membership.customerId,
+      storeName: membership.storeName,
+      storeSlug: membership.storeSlug,
+    }));
+  } catch (err) {
+    console.error("[fetchLiffHealthSummary] central membership resolution failed", err);
+    return { status: "service_unavailable" };
+  }
+
+  // LIFF 當前 canonical customer 應存在於中央會員結果；若解析器沒有確認，
+  // fail closed，不退回單店猜測，以免使用過期 session 顯示不屬於本人的敏感資料。
+  if (
+    !memberships.some(
+      (membership) =>
+        membership.storeId === customer.storeId &&
+        membership.customerId === customerId,
+    )
+  ) {
+    return { status: "no_customer" };
+  }
+
+  // ── 5. Read central-member native summary ─────────
   let summary: HealthSummary;
   try {
-    summary = await getNativeHealthSummary(customerId, customer.storeId);
+    summary = await getNativeHealthSummaryForMemberships(memberships);
   } catch (err) {
     console.error("[fetchLiffHealthSummary] native summary failed", err);
     return { status: "service_unavailable" };
@@ -313,5 +345,10 @@ export async function fetchLiffHealthSummary(): Promise<FetchLiffHealthSummaryRe
 
   // `linked: true` 在原生模式代表顧客身分已確認；即使尚無紀錄，畫面也能顯示
   // 「尚無量測」並引導到蒸管家站內量測頁。
-  return { status: "ok", linked: true, summary };
+  return {
+    status: "ok",
+    linked: true,
+    summary,
+    verifiedStoreCount: memberships.length,
+  };
 }
