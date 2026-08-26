@@ -166,9 +166,15 @@ export function LiffShell({
   }, [liffId, storeSlug]);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
-      <header className="text-center">
-        <p className="text-xs uppercase tracking-widest text-earth-500">{storeName}</p>
+    <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
+      <header className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">{storeName}</p>
+          <p className="mt-0.5 text-sm text-earth-500">{liffMessages.shell.memberHomeLabel}</p>
+        </div>
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-100 text-primary-700 shadow-sm" aria-hidden>
+          <LeafIcon />
+        </div>
       </header>
 
       {state.kind === "initializing" && (
@@ -264,7 +270,7 @@ function InfoBlock({
   return (
     <div className={`flex flex-col gap-3 rounded-xl border px-4 py-5 text-sm ${toneClasses[tone]}`}>
       {title && <p className="font-medium">{title}</p>}
-      <p className="text-xs break-words opacity-90">{body}</p>
+      <p className="liff-supporting-text break-words opacity-90">{body}</p>
       <div className="flex flex-wrap gap-2">
         {showRetry && (
           <button
@@ -301,22 +307,22 @@ function WelcomeCta({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-xl border border-earth-200 bg-white px-4 py-5">
-        <h2 className="text-lg font-semibold text-earth-900">
+      <div className="rounded-3xl bg-white px-5 py-6 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
+        <h2 className="text-2xl font-semibold leading-snug text-earth-900">
           {liffMessages.shell.welcomeTitle}
           {displayName ? `，${displayName}` : ""}
         </h2>
-        <p className="mt-2 text-sm text-earth-700">
+        <p className="mt-3 text-base leading-relaxed text-earth-600">
           {liffMessages.shell.welcomeBody}
         </p>
       </div>
       <Link
         href={`/s/${storeSlug}/liff/onboarding`}
-        className="inline-flex w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+        className="inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.22)] transition hover:bg-primary-700 active:scale-[0.98]"
       >
         {liffMessages.shell.welcomeCta}
       </Link>
-      <p className="px-1 text-center text-xs text-earth-500">
+      <p className="liff-supporting-text px-1 text-center text-earth-500">
         {liffMessages.shell.welcomeFootnote}
       </p>
     </div>
@@ -343,32 +349,46 @@ function WelcomeBack({
     walletSummary !== null &&
     (walletSummary.totalAvailable > 0 || walletSummary.hasMakeup);
   const trialClass = showMemberBooking
-    ? "flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
-    : "flex w-full items-center justify-between rounded-xl bg-earth-800 px-4 py-3 text-left text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]";
+    ? "flex min-h-14 w-full items-center justify-between rounded-2xl border border-earth-200 bg-white px-5 py-3 text-left text-base font-semibold text-earth-900 shadow-[0_6px_20px_rgba(74,66,53,0.06)] transition hover:bg-earth-50 active:scale-[0.98]"
+    : "flex min-h-14 w-full items-center justify-between rounded-2xl bg-primary-600 px-5 py-3 text-left text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.18)] transition hover:bg-primary-700 active:scale-[0.98]";
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-900">
-        <p className="font-medium">
+    <div className="flex flex-col gap-4">
+      <section className="overflow-hidden rounded-3xl bg-earth-900 px-5 py-6 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
+        <p className="text-sm font-medium text-earth-200">
           {liffMessages.shell.signedInTitle}
           {displayName ? `，${displayName}` : ""}
         </p>
-        <p className="mt-1 text-xs text-green-800/80">
-          {liffMessages.shell.signedInBody}
-        </p>
-      </div>
+        {walletSummary ? (
+          <div className="mt-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-sm text-earth-300">{liffMessages.shell.availableSessionsLabel}</p>
+              <p className="mt-1 flex items-baseline gap-1.5">
+                <strong className="text-4xl font-semibold tabular-nums">{walletSummary.totalAvailable}</strong>
+                <span className="text-base text-earth-200">{liffMessages.shell.availableSessionsSuffix}</span>
+              </p>
+            </div>
+            {walletSummary.hasMakeup && (
+              <span className="rounded-full bg-white/10 px-3 py-1.5 text-sm text-earth-100">{liffMessages.shell.makeupAvailableLabel}</span>
+            )}
+          </div>
+        ) : (
+          <p className="mt-3 text-base leading-relaxed text-earth-200">{liffMessages.shell.signedInBody}</p>
+        )}
+      </section>
       {/* PR-E3：簡短 helper copy 讓顧客知道 3 顆 CTA 可以做什麼。
           muted secondary tone — 不搶 primary CTA 焦點；mobile-first 小字。*/}
-      <p className="px-1 text-sm text-earth-700">
-        {liffMessages.shell.welcomeHomeHint}
-      </p>
+      <div className="flex items-end justify-between px-1 pt-1">
+        <h2 className="text-lg font-semibold text-earth-900">{liffMessages.shell.serviceSectionTitle}</h2>
+        <p className="text-sm text-earth-500">{liffMessages.shell.serviceSectionHint}</p>
+      </div>
       {/* PR-G4：有剩餘堂數的會員 home 出「課程預約」dark primary 排第一。
           totalAvailable 加總 = active.reduce(availableToBook)（不含 reserved / used）。
           連 /liff/member-booking (PR-G3 #195)。 */}
       {showMemberBooking && (
         <Link
           href={`/s/${storeSlug}/liff/member-booking`}
-          className="flex w-full items-center justify-between rounded-xl bg-earth-800 px-4 py-3 text-left text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+          className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-primary-600 px-5 py-3 text-left text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.18)] transition hover:bg-primary-700 active:scale-[0.98]"
         >
           <span>{liffMessages.shell.comingSoon.memberBooking}</span>
           <ChevronRightIcon />
@@ -387,7 +407,7 @@ function WelcomeBack({
       {/* PR-D2：我的預約 CTA 從 disabled 改為 Link → /liff/bookings */}
       <Link
         href={`/s/${storeSlug}/liff/bookings`}
-        className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
+        className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-white px-5 py-3 text-left text-base font-semibold text-earth-900 shadow-[0_6px_20px_rgba(74,66,53,0.06)] ring-1 ring-earth-200/70 transition hover:bg-earth-50 active:scale-[0.98]"
       >
         <span>{liffMessages.shell.comingSoon.myBookings}</span>
         <ChevronRightIcon />
@@ -395,7 +415,7 @@ function WelcomeBack({
       {/* PR-E2b：剩餘堂數 / 我的方案 CTA 從 disabled 改為 Link → /liff/wallets (PR-E2 page 已 ship) */}
       <Link
         href={`/s/${storeSlug}/liff/wallets`}
-        className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
+        className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-white px-5 py-3 text-left text-base font-semibold text-earth-900 shadow-[0_6px_20px_rgba(74,66,53,0.06)] ring-1 ring-earth-200/70 transition hover:bg-earth-50 active:scale-[0.98]"
       >
         <span>{liffMessages.shell.comingSoon.remainingSessions}</span>
         <ChevronRightIcon />
@@ -413,15 +433,15 @@ function WelcomeBack({
           視覺維持「次要 / 外部服務」分隔 — border-t + pt-3 + mt-1。
           注意：HealthFlow URL 仍然不傳 query string，由 /liff/health 內的 button 觸發。*/}
       {healthAssessmentEnabled && (
-        <div className="mt-1 flex flex-col gap-2 border-t border-earth-200 pt-3">
+        <div className="mt-1 flex flex-col gap-2 pt-1">
           <Link
             href={`/s/${storeSlug}/liff/health`}
-            className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
+            className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-white px-5 py-3 text-left text-base font-semibold text-earth-900 shadow-[0_6px_20px_rgba(74,66,53,0.06)] ring-1 ring-earth-200/70 transition hover:bg-earth-50 active:scale-[0.98]"
           >
             <span>{liffMessages.shell.healthAssessmentCta}</span>
             <ChevronRightIcon />
           </Link>
-          <p className="px-1 text-xs text-earth-600">
+          <p className="liff-supporting-text px-1 text-earth-600">
             {liffMessages.shell.healthAssessmentHint}
           </p>
         </div>
@@ -435,7 +455,7 @@ function WelcomeBack({
           目的：顧客需要查資料時找得到，但不會分散主路徑注意力。 */}
       <Link
         href={`/s/${storeSlug}/liff/profile`}
-        className="mt-1 px-1 text-center text-sm text-earth-700 underline-offset-4 hover:underline"
+        className="mt-1 min-h-11 px-1 py-3 text-center text-sm font-medium text-earth-700 underline-offset-4 hover:underline"
       >
         {liffMessages.profile.homeEntryCta}
       </Link>
@@ -456,6 +476,24 @@ function ChevronRightIcon() {
       aria-hidden
     >
       <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+function LeafIcon() {
+  return (
+    <svg
+      width="23"
+      height="23"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.8 3.2C12.5 3.4 6.5 6.5 5.2 12.1c-.8 3.5 1.3 6.8 4.8 6.8 6.2 0 9.8-7 10.8-15.7Z" />
+      <path d="M4 21c2.4-5.3 6.6-9.2 12.5-11.7" />
     </svg>
   );
 }
