@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import {
+  resolveCentralMemberLiffId,
   resolveStorePresentation,
   resolveStoreSlugForLiff,
 } from "@/lib/store-resolver";
@@ -42,7 +43,10 @@ export default async function LiffTrialBookingPage() {
     // PR-E2：店不存在 → notFound() → render (liff)/not-found.tsx
     notFound();
   }
-  if (!presentation.liffId) {
+  // Prefer a store's own LIFF when configured, while allowing stores reached
+  // from the central-member shell to continue with the shared LIFF.
+  const liffId = presentation.liffId ?? (await resolveCentralMemberLiffId());
+  if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
 
@@ -50,7 +54,7 @@ export default async function LiffTrialBookingPage() {
     <TrialBookingForm
       storeSlug={presentation.slug}
       storeName={presentation.name}
-      liffId={presentation.liffId}
+      liffId={liffId}
       contactUrl={presentation.contactUrl}
     />
   );

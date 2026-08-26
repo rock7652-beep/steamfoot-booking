@@ -85,7 +85,7 @@ export function LiffShell({
 }: LiffShellProps) {
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-G4：lazy fetch — signed_in 後 fire-and-forget，不擋 home 既有渲染
-  const [memberSummary, setMemberSummary] = useState<MemberHomeSummary | null>(null);
+  const [memberSummary, setMemberSummary] = useState<MemberHomeSummary | "error" | null>(null);
   const [memberStores, setMemberStores] = useState<LiffMemberStoreOption[]>([]);
 
   useEffect(() => {
@@ -131,6 +131,7 @@ export function LiffShell({
           });
         } catch (err) {
           console.warn("[liff-shell] member home summary failed (silent)", err);
+          if (!cancelled) setMemberSummary("error");
         }
       };
 
@@ -403,9 +404,41 @@ export function WelcomeBack({
 }: {
   storeSlug: string;
   displayName: string | null;
-  memberSummary: MemberHomeSummary | null;
+  memberSummary: MemberHomeSummary | "error" | null;
   healthAssessmentEnabled: boolean;
 }) {
+  if (!memberSummary) {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="px-1 text-sm font-medium text-earth-600">
+          {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
+        </p>
+        <MemberHomeSummaryLoading />
+      </div>
+    );
+  }
+
+  if (memberSummary === "error") {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="px-1 text-sm font-medium text-earth-600">
+          {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
+        </p>
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-6 text-center text-amber-900">
+          <p className="text-sm font-semibold">目前無法讀取門市資料</p>
+          <p className="mt-2 text-xs text-amber-800">請重新整理後再試一次，您的方案與堂數不會受到影響。</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 min-h-11 rounded-xl border border-amber-300 bg-white px-5 text-sm font-semibold"
+          >
+            重新整理
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const wallets = memberSummary?.activeWallets ?? [];
   const totalAvailable = wallets.reduce((sum, wallet) => sum + wallet.availableToBook, 0);
   const totalPending = wallets.reduce((sum, wallet) => sum + wallet.pendingCount, 0);
@@ -482,6 +515,23 @@ export function WelcomeBack({
           </div>
         </Link>
       )}
+    </div>
+  );
+}
+
+function MemberHomeSummaryLoading() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-3xl bg-white px-5 py-8 text-center shadow-[0_8px_24px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70"
+    >
+      <div
+        className="h-8 w-8 animate-spin rounded-full border-2 border-earth-200 border-t-primary-700"
+        aria-hidden
+      />
+      <p className="text-sm font-medium text-earth-600">正在讀取目前門市資料…</p>
+      <p className="text-xs text-earth-500">完成後會顯示正確堂數與預約</p>
     </div>
   );
 }
