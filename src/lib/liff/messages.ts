@@ -405,7 +405,7 @@ export const liffMessages = {
     // 只有 active 加總 availableToBook > 0 才顯示；連到 /liff/member-booking
     ctaBookNow: "立即預約",
     ctaPurchasePlan: "購買方案",
-    ctaRenewPlan: "續購方案",
+    ctaRenewPlan: "購買／續購方案",
 
     // 回首頁
     backHomeCta: "回首頁",
