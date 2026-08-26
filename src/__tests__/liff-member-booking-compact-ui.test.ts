@@ -43,10 +43,12 @@ describe("LIFF member booking compact flow", () => {
   it("shows personal bookings and scarce capacity in LIFF and web", () => {
     expect(slotPicker).toContain("您已預約");
     expect(slotPicker).toContain("bg-yellow-50");
-    expect(slotPicker).toContain("bg-orange-50");
+    expect(slotPicker).toContain("display.remainingCapacity <= 2");
+    expect(slotPicker).not.toContain("bg-orange-50");
     expect(webBooking).toContain("您已預約");
     expect(webBooking).toContain("bg-yellow-50");
-    expect(webBooking).toContain("bg-orange-50");
+    expect(webBooking).toContain("display.remainingCapacity <= 2");
+    expect(webBooking).not.toContain("bg-orange-50");
   });
 
   it("caps people by usable sessions and guides the submit sequence", () => {
