@@ -371,20 +371,20 @@ export function WelcomeBack({
   const healthChange = getHealthChange(memberSummary?.healthSummary ?? null);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <p className="px-1 text-sm font-medium text-earth-600">
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>
 
-      <section className="rounded-3xl bg-earth-900 px-5 py-5 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
+      <section className="rounded-3xl bg-earth-900 px-5 py-4 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
         <p className="text-sm font-medium text-earth-300">下一次預約</p>
         {nextBooking ? (
           <div className="mt-3 flex items-end justify-between gap-4">
             <div>
-              <p className="text-2xl font-semibold">{formatDateLabel(nextBooking.bookingDate)}</p>
+              <p className="text-2xl font-semibold">{formatBookingDateLabel(nextBooking.bookingDate)}</p>
               <p className="mt-1 text-base text-earth-200">{nextBooking.slotTime}{nextBooking.staffName ? `・${nextBooking.staffName}` : ""}</p>
             </div>
-            <Link href={`/s/${storeSlug}/liff/bookings`} className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-earth-100">查看</Link>
+            <Link href={`/s/${storeSlug}/liff/bookings`} className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-earth-100">預約詳情</Link>
           </div>
         ) : (
           <div className="mt-3 flex items-center justify-between gap-4">
@@ -394,20 +394,20 @@ export function WelcomeBack({
         )}
       </section>
 
-      <section className="rounded-3xl bg-white px-5 py-5 shadow-[0_8px_24px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70">
+      <section className="rounded-3xl bg-white px-5 py-4 shadow-[0_8px_24px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-earth-900">方案摘要</h2>
-          {nearestWalletExpiry && <span className="text-xs text-earth-500">至 {formatDateLabel(nearestWalletExpiry)}</span>}
+          {nearestWalletExpiry && <span className="text-xs text-earth-500">有效至 {formatFullDateLabel(nearestWalletExpiry)}</span>}
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-          <SummaryMetric label="剩餘" value={totalRemaining} />
+          <SummaryMetric label="可使用" value={totalRemaining} />
           <SummaryMetric label="已預約" value={totalPending} />
-          <SummaryMetric label="可預約" value={totalAvailable} emphasized />
+          <SummaryMetric label="尚可預約" value={totalAvailable} emphasized />
         </div>
         {makeupCredits.length > 0 && (
           <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-sm">
-            <span className="font-medium text-earth-800">補課資格 {makeupCredits.length} 張</span>
-            <span className="text-earth-500">{nearestMakeupExpiry ? `至 ${formatDateLabel(nearestMakeupExpiry)}` : "無期限"}</span>
+            <span className="font-medium text-earth-800">補課 {makeupCredits.length} 張</span>
+            <span className="text-earth-500">{nearestMakeupExpiry ? `有效至 ${formatFullDateLabel(nearestMakeupExpiry)}` : "無期限"}</span>
           </div>
         )}
       </section>
@@ -420,7 +420,7 @@ export function WelcomeBack({
         <HomeTile href={`/s/${storeSlug}/liff/bookings`} label="我的預約" detail={nextBooking ? "查看與管理" : "目前無預約"} />
         <HomeTile href={`/s/${storeSlug}/liff/wallets`} label="我的方案" detail={`${totalRemaining} 堂可使用`} />
         {healthAssessmentEnabled ? (
-          <HomeTile href={`/s/${storeSlug}/liff/health`} label="健康紀錄" detail={healthChange?.short ?? "查看量測紀錄"} />
+          <HomeTile href={`/s/${storeSlug}/liff/health`} label="健康紀錄" detail="查看量測與變化" />
         ) : <div aria-hidden />}
         <HomeTile href={`/s/${storeSlug}/liff/profile`} label="我的資料" detail="會員基本資料" />
       </nav>
@@ -445,12 +445,24 @@ function SummaryMetric({ label, value, emphasized = false }: { label: string; va
 }
 
 function HomeTile({ href, label, detail }: { href: string; label: string; detail: string }) {
-  return <Link href={href} className="flex min-h-24 flex-col justify-between rounded-2xl bg-white p-4 shadow-[0_6px_18px_rgba(74,66,53,0.05)] ring-1 ring-earth-200/70 transition hover:bg-earth-50 active:scale-[0.98]"><div className="flex items-start justify-between gap-2"><span className="font-semibold text-earth-900">{label}</span><ChevronRightIcon /></div><span className="text-xs text-earth-500">{detail}</span></Link>;
+  return <Link href={href} className="flex min-h-20 flex-col justify-between rounded-2xl bg-white p-4 shadow-[0_6px_18px_rgba(74,66,53,0.05)] ring-1 ring-earth-200/70 transition hover:bg-earth-50 active:scale-[0.98]"><div className="flex items-start justify-between gap-2"><span className="font-semibold text-earth-900">{label}</span><ChevronRightIcon /></div><span className="text-xs text-earth-500">{detail}</span></Link>;
 }
 
-function formatDateLabel(date: string) {
-  const [, month, day] = date.split("-");
-  return `${Number(month)}/${Number(day)}`;
+function parseDateParts(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return { year, month, day };
+}
+
+function formatBookingDateLabel(date: string) {
+  const { year, month, day } = parseDateParts(date);
+  const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+  const weekday = weekdays[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  return `${month}/${day}（${weekday}）`;
+}
+
+function formatFullDateLabel(date: string) {
+  const { year, month, day } = parseDateParts(date);
+  return `${year}/${month}/${day}`;
 }
 
 function getHealthChange(summary: HealthSummary | null): { short: string; detail: string } | null {
