@@ -11,7 +11,7 @@
  * Logs contain aggregate counts only—never names, phones, profile IDs, record
  * IDs, or health metric values.
  */
-import { appendFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
 import {
   parseHealthflowMeasurementDate,
@@ -41,9 +41,11 @@ const expectedPending =
   expectedPendingArg === null ? null : Number(expectedPendingArg);
 const expectedDigest = arg("expected-plan-sha256");
 const githubOutput = arg("github-output");
+const reviewOutput = arg("review-output");
 
 type ProfileRow = {
   id: string;
+  full_name: string | null;
   phone: string | null;
   phone_normalized: string | null;
   store_id: string | null;
@@ -172,7 +174,7 @@ async function main() {
   validateArguments();
 
   const [profileRows, storeRows, recordRows, steamfoot] = await Promise.all([
-    fetchAll<ProfileRow>("profiles", "id,phone,phone_normalized,store_id"),
+    fetchAll<ProfileRow>("profiles", "id,full_name,phone,phone_normalized,store_id"),
     fetchAll<StoreRow>("stores", "id,name"),
     fetchAll<BodyRecordRow>(
       "body_records",
@@ -219,6 +221,31 @@ async function main() {
     records,
     ...steamfoot,
   });
+  if (reviewOutput) {
+    const sourceById = new Map(profileRows.map((row) => [row.id, row]));
+    const maskPhone = (value: string | null) => {
+      const digits = value?.replace(/\D/g, "") ?? "";
+      return digits.length >= 7
+        ? `${digits.slice(0, 4)}***${digits.slice(-3)}`
+        : value
+          ? "格式無效"
+          : "未提供";
+    };
+    const review = plan.skippedProfiles.map((item, index) => {
+      const source = sourceById.get(item.profileId);
+      return {
+        sequence: index + 1,
+        store: source?.store_id
+          ? healthflowStoreNames.get(source.store_id) ?? "未知門市"
+          : "舊資料未標門市",
+        name: source?.full_name?.trim() || "未提供姓名",
+        maskedPhone: maskPhone(source?.phone_normalized ?? source?.phone ?? null),
+        recordCount: item.recordCount,
+        reason: item.reason,
+      };
+    });
+    writeFileSync(reviewOutput, JSON.stringify(review, null, 2), "utf8");
+  }
   assertPlanExpectation(plan);
   writeGithubOutput(plan);
   console.log(
