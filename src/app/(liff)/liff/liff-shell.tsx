@@ -70,6 +70,7 @@ interface LiffShellProps {
  * 露「課程預約」CTA。null 表示尚未載 / 載失敗 → CTA 不出（不擋既有 4 顆 CTA）。
  */
 export type MemberHomeSummary = {
+  walletsStatus: "ok" | "error";
   activeWallets: LiffWalletRow[];
   makeupCredits: LiffMakeupCreditRow[];
   nextBooking: LiffBookingRow | null;
@@ -119,6 +120,7 @@ export function LiffShell({
           ]);
           if (cancelled) return;
           setMemberSummary({
+            walletsStatus: wallets?.status === "ok" ? "ok" : "error",
             activeWallets: wallets?.status === "ok" ? wallets.active : [],
             makeupCredits:
               wallets?.status === "ok" ? wallets.makeupCredits : [],
@@ -448,6 +450,7 @@ export function WelcomeBack({
   const nearestWalletExpiry = wallets.map((wallet) => wallet.expiryDate).find(Boolean) ?? null;
   const nearestMakeupExpiry = makeupCredits.map((credit) => credit.expiredAt).find(Boolean) ?? null;
   const healthChange = getHealthChange(memberSummary?.healthSummary ?? null);
+  const walletsAvailable = memberSummary.walletsStatus === "ok";
 
   return (
     <div className="flex flex-col gap-4">
@@ -473,31 +476,57 @@ export function WelcomeBack({
         )}
       </section>
 
-      <section className="rounded-3xl bg-white px-5 py-4 shadow-[0_8px_24px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-earth-900">方案摘要</h2>
-          {nearestWalletExpiry && <span className="text-xs text-earth-500">有效至 {formatFullDateLabel(nearestWalletExpiry)}</span>}
-        </div>
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-          <SummaryMetric label="可使用" value={totalRemaining} />
-          <SummaryMetric label="已預約" value={totalPending} />
-          <SummaryMetric label="尚可預約" value={totalAvailable} emphasized />
-        </div>
-        {makeupCredits.length > 0 && (
-          <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-sm">
-            <span className="font-medium text-earth-800">補課 {makeupCredits.length} 張</span>
-            <span className="text-earth-500">{nearestMakeupExpiry ? `有效至 ${formatFullDateLabel(nearestMakeupExpiry)}` : "無期限"}</span>
-          </div>
-        )}
-      </section>
+      {walletsAvailable ? (
+        <>
+          <section className="rounded-3xl bg-white px-5 py-4 shadow-[0_8px_24px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-earth-900">方案摘要</h2>
+              {nearestWalletExpiry && <span className="text-xs text-earth-500">有效至 {formatFullDateLabel(nearestWalletExpiry)}</span>}
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+              <SummaryMetric label="可使用" value={totalRemaining} />
+              <SummaryMetric label="已預約" value={totalPending} />
+              <SummaryMetric label="尚可預約" value={totalAvailable} emphasized />
+            </div>
+            {makeupCredits.length > 0 && (
+              <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-sm">
+                <span className="font-medium text-earth-800">補課 {makeupCredits.length} 張</span>
+                <span className="text-earth-500">{nearestMakeupExpiry ? `有效至 ${formatFullDateLabel(nearestMakeupExpiry)}` : "無期限"}</span>
+              </div>
+            )}
+          </section>
 
-      <Link href={`/s/${storeSlug}/liff/member-booking`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
-        立即預約
-      </Link>
+          {totalAvailable > 0 || makeupCredits.length > 0 ? (
+            <Link href={`/s/${storeSlug}/liff/member-booking`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
+              立即預約
+            </Link>
+          ) : (
+            <Link href={`/s/${storeSlug}/my-bookings?tab=plans`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
+              購買方案
+            </Link>
+          )}
+        </>
+      ) : (
+        <section className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-5 text-amber-900">
+          <p className="text-sm font-semibold">方案資料暫時無法讀取</p>
+          <p className="mt-2 text-xs text-amber-800">請重新整理後再試一次；您的方案、堂數與既有預約不會受到影響。</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 min-h-11 rounded-xl border border-amber-300 bg-white px-5 text-sm font-semibold"
+          >
+            重新整理
+          </button>
+        </section>
+      )}
 
       <nav className="grid grid-cols-2 gap-3" aria-label="會員功能">
         <HomeTile href={`/s/${storeSlug}/liff/bookings`} label="我的預約" detail={nextBooking ? "查看與管理" : "目前無預約"} />
-        <HomeTile href={`/s/${storeSlug}/liff/wallets`} label="我的方案" detail={`${totalRemaining} 堂可使用`} />
+        <HomeTile
+          href={`/s/${storeSlug}/liff/wallets`}
+          label="我的方案"
+          detail={walletsAvailable ? `${totalRemaining} 堂可使用` : "請重新讀取資料"}
+        />
         {healthAssessmentEnabled ? (
           <HomeTile href={`/s/${storeSlug}/liff/health`} label="健康紀錄" detail="查看量測與變化" />
         ) : <div aria-hidden />}
