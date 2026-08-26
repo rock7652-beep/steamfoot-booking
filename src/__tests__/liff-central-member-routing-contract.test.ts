@@ -34,12 +34,29 @@ describe("central-member LIFF routing contract", () => {
     }
   });
 
-  it("keeps onboarding and public trial on their existing store-specific flow", () => {
-    expect(source("src/app/(liff)/liff/onboarding/page.tsx")).not.toContain(
-      "resolveCentralMemberLiffId",
+  it("keeps store-specific onboarding while allowing a central LIFF fallback", () => {
+    const onboarding = source("src/app/(liff)/liff/onboarding/page.tsx");
+    expect(onboarding).toContain(
+      "presentation.liffId ?? (await resolveCentralMemberLiffId())",
     );
     expect(source("src/app/(liff)/liff/public-trial/page.tsx")).not.toContain(
       "resolveCentralMemberLiffId",
     );
+  });
+
+  it("allows the in-LIFF trial flow to fall back to the central LIFF", () => {
+    const trial = source("src/app/(liff)/liff/trial-booking/page.tsx");
+    expect(trial).toContain(
+      "presentation.liffId ?? (await resolveCentralMemberLiffId())",
+    );
+  });
+
+  it("never renders zero-session member data before the summary finishes loading", () => {
+    const shell = source("src/app/(liff)/liff/liff-shell.tsx");
+    expect(shell).toContain("if (!memberSummary)");
+    expect(shell).toContain("MemberHomeSummaryLoading");
+    expect(shell).toContain("正在讀取目前門市資料…");
+    expect(shell).toContain('setMemberSummary("error")');
+    expect(shell).toContain("您的方案與堂數不會受到影響");
   });
 });
