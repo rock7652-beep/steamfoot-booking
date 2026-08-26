@@ -1,13 +1,7 @@
 name: Recover missing HealthFlow history by phone
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - scripts/recover-healthflow-history-by-phone.ts
-      - src/lib/healthflow-phone-recovery.ts
-      - .github/workflows/recover-healthflow-history-by-phone.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
