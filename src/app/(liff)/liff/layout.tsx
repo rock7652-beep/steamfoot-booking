@@ -9,7 +9,7 @@ import BuildFooter from "@/components/build-footer";
  */
 export default function LiffLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-earth-50">
+    <div className="liff-customer-ui flex min-h-screen flex-col bg-[linear-gradient(180deg,#f5f2eb_0%,#faf8f5_34%,#faf8f5_100%)]">
       <main className="flex-1">{children}</main>
       <BuildFooter />
     </div>
