@@ -1,8 +1,8 @@
-# One-time authorized audit run: 2026-08-26
+# One-time authorized audit: runs only for the dedicated audit PR
 name: Audit recurring booking usage
 
 on:
-  push:
+  pull_request:
     branches: [main]
     paths:
       - scripts/audit-recurring-booking-usage.ts
