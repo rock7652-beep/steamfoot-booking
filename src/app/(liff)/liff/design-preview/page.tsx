@@ -109,6 +109,12 @@ export default async function LiffDesignPreviewPage() {
           },
         }}
         healthAssessmentEnabled={false}
+        terminology={{
+          summaryTitle: "療程摘要",
+          sessionUnit: "次",
+          makeupLabel: "補做資格",
+          walletLabel: "我的療程",
+        }}
       />
     </div>
   );
