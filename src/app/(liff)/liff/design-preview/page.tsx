@@ -6,6 +6,13 @@ import {
 } from "@/lib/store-resolver";
 import { WelcomeBack } from "../liff-shell";
 
+const spaTerminology = {
+  summaryTitle: "療程摘要",
+  sessionUnit: "次",
+  makeupLabel: "補做資格",
+  walletLabel: "我的療程",
+} as const;
+
 /**
  * Draft PR visual review only. No customer session or production data is read.
  * Production must never expose this demonstration route.
@@ -109,12 +116,7 @@ export default async function LiffDesignPreviewPage() {
           },
         }}
         healthAssessmentEnabled={false}
-        terminology={{
-          summaryTitle: "療程摘要",
-          sessionUnit: "次",
-          makeupLabel: "補做資格",
-          walletLabel: "我的療程",
-        }}
+        terminology={spaTerminology}
       />
     </div>
   );
