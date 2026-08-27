@@ -105,6 +105,14 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     // 去掉 /s/[slug] 前綴後的子路徑
     const subPath = pathname.slice(`/s/${storeSlug}`.length) || "/";
 
+    // Compatibility entry for LIFF apps that were configured with the legacy
+    // `/s/[storeSlug]/trial-booking` endpoint. Keep the browser on the exact
+    // LINE Developers endpoint while serving the native public-trial bridge;
+    // this preserves LIFF state and avoids falling through to the store home.
+    if (subPath === "/trial-booking") {
+      return storeRewrite(req, "/liff/public-trial", storeSlug, domainStoreId);
+    }
+
     // ── 分店 admin routes (/s/[slug]/admin/*) ──
     if (subPath.startsWith("/admin")) {
       if (!isLoggedIn) {
