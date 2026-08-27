@@ -37,10 +37,70 @@ export interface CentralMemberHealthIssue {
   customerIds: string[];
 }
 
+export type CentralMemberResolution =
+  | "OTP_REBIND"
+  | "MERGE_REVIEW"
+  | "MANUAL_REVIEW";
+
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.startsWith("886") && digits.length === 12) return `0${digits.slice(3)}`;
   return digits;
+}
+
+/**
+ * Read-only resolution classifier.  It recommends a lane but never changes an
+ * identity. OTP is allowed only when the customer, phone and candidate LINE
+ * identity are unique inside the affected store.
+ */
+export function classifyCentralMemberResolution(
+  activeStoreId: string,
+  issue: CentralMemberHealthIssue,
+  customers: CentralMemberHealthCustomer[],
+  links: CentralMemberHealthLink[],
+): CentralMemberResolution {
+  if (issue.reason === "duplicate_phone" || issue.reason === "multiple_customers_in_store") {
+    return "MERGE_REVIEW";
+  }
+  if (issue.reason !== "line_identity_mismatch" || issue.customerIds.length !== 1) {
+    return "MANUAL_REVIEW";
+  }
+
+  const customer = customers.find((row) => row.id === issue.customerIds[0]);
+  const linkId = issue.id.startsWith("line:") ? issue.id.slice("line:".length) : "";
+  const link = links.find((row) => row.id === linkId);
+  if (!customer || !link || customer.storeId !== activeStoreId || link.storeId !== activeStoreId) {
+    return "MANUAL_REVIEW";
+  }
+  if (customer.mergedIntoCustomerId !== null || (customer.userId !== null && customer.userId !== link.userId)) {
+    return "MANUAL_REVIEW";
+  }
+
+  const phone = normalizePhone(customer.phone);
+  if (!/^09\d{8}$/.test(phone)) return "MANUAL_REVIEW";
+  const samePhoneCustomers = customers.filter(
+    (row) => row.storeId === activeStoreId
+      && row.mergedIntoCustomerId === null
+      && normalizePhone(row.phone) === phone,
+  );
+  if (samePhoneCustomers.length !== 1) return "MERGE_REVIEW";
+
+  const candidateLineUserId = link.lineUserId ?? link.providerAccountId;
+  if (!candidateLineUserId) return "MANUAL_REVIEW";
+  const conflictingCustomer = customers.some(
+    (row) => row.storeId === activeStoreId
+      && row.mergedIntoCustomerId === null
+      && row.id !== customer.id
+      && row.lineUserId === candidateLineUserId,
+  );
+  const conflictingLink = links.some(
+    (row) => row.storeId === activeStoreId
+      && row.id !== link.id
+      && row.customerId !== customer.id
+      && row.provider === "line"
+      && (row.lineUserId ?? row.providerAccountId) === candidateLineUserId,
+  );
+  return conflictingCustomer || conflictingLink ? "MANUAL_REVIEW" : "OTP_REBIND";
 }
 
 /**
