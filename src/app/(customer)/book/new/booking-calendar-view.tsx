@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useActionState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { fetchDaySlots } from "@/server/actions/slots";
 import { fetchMonthAvailability } from "@/server/actions/slots";
 import { createBooking } from "@/server/actions/booking";
@@ -54,6 +55,7 @@ export function BookingCalendarView({
   weeklyRecurrenceMaxWeeks,
   upcomingBookings,
 }: Props) {
+  const router = useRouter();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -71,6 +73,8 @@ export function BookingCalendarView({
   const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
   const [monthData, setMonthData] = useState<Record<string, MonthDayAvailability>>({});
   const [loadingMonth, setLoadingMonth] = useState(false);
+  const [bookingFormRevision, setBookingFormRevision] = useState(0);
+  const [preferredSlotTime, setPreferredSlotTime] = useState<string | null>(null);
   const maxBookablePeople = Math.min(
     4,
     activeWallets.reduce((sum, wallet) => sum + wallet.remainingSessions, 0) + makeupCredits.length,
@@ -120,6 +124,14 @@ export function BookingCalendarView({
     setSelectedDate(null);
     setSlots([]);
   }, []);
+
+  const handleBookAgain = useCallback((slotTime: string) => {
+    setPreferredSlotTime(slotTime);
+    setBookingFormRevision((revision) => revision + 1);
+    closeSheet();
+    router.refresh();
+    void loadMonth(calYear, calMonth);
+  }, [calMonth, calYear, closeSheet, loadMonth, router]);
 
   // bottom sheet 開啟時鎖定背景捲動
   useEffect(() => {
@@ -345,6 +357,7 @@ export function BookingCalendarView({
                 </div>
               ) : (
                 <SlotBookingForm
+                  key={`${selectedDate}-${bookingFormRevision}`}
                   customerId={customerId}
                   selectedDate={selectedDate}
                   slots={slots}
@@ -357,6 +370,8 @@ export function BookingCalendarView({
                   bookedSlotTimes={upcomingBookings
                     .filter((booking) => booking.bookingDate === selectedDate)
                     .map((booking) => booking.slotTime)}
+                  preferredSlotTime={preferredSlotTime}
+                  onBookAgain={handleBookAgain}
                 />
               )}
             </div>
@@ -416,6 +431,8 @@ function SlotBookingForm({
   weeklyRecurrenceEnabled,
   weeklyRecurrenceMaxWeeks,
   bookedSlotTimes,
+  preferredSlotTime,
+  onBookAgain,
 }: {
   customerId: string;
   selectedDate: string;
@@ -427,6 +444,8 @@ function SlotBookingForm({
   weeklyRecurrenceEnabled: boolean;
   weeklyRecurrenceMaxWeeks: number;
   bookedSlotTimes: string[];
+  preferredSlotTime: string | null;
+  onBookAgain: (slotTime: string) => void;
 }) {
   const requestKey = useBookingRequestKey();
   const storeSlug = useStoreSlugRequired();
@@ -434,7 +453,13 @@ function SlotBookingForm({
   // people 直接用 prop（無本地 setter）→ 跟著上方月曆人數即時變動，
   // 確保補課自動判斷（people===1）與送出人數一致。
   const people = initialPeople;
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const preferredSlotAvailable = !!preferredSlotTime && slots.some((slot) => {
+    const display = getSlotCapacityDisplay(slot.capacity, slot.bookedCount, people);
+    return slot.startTime === preferredSlotTime && slot.isEnabled && !slot.isPast && display.canFitRequestedPeople;
+  });
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(
+    preferredSlotAvailable ? preferredSlotTime : null,
+  );
   const [selectedWalletId, setSelectedWalletId] = useState(activeWallets[0]?.id ?? "");
   const [isRecurring, setIsRecurring] = useState(false);
   const recurrenceOptions = useMemo(
@@ -651,12 +676,13 @@ function SlotBookingForm({
           >
             查看我的預約
           </a>
-          <a
-            href={`${prefix}/book/new`}
+          <button
+            type="button"
+            onClick={() => onBookAgain(state.bookedTime)}
             className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border border-earth-300 px-6 text-base font-semibold text-earth-800 transition hover:bg-earth-50"
           >
-            繼續預約
-          </a>
+            再預約下一次
+          </button>
           <a
             href={`${prefix}/book`}
             className="inline-flex min-h-[48px] items-center justify-center rounded-xl px-5 text-base text-earth-700 transition hover:text-earth-900"
@@ -670,6 +696,11 @@ function SlotBookingForm({
 
   return (
     <form action={action} className="space-y-4 rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
+      {preferredSlotTime && !preferredSlotAvailable && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+          上次預約的 {preferredSlotTime} 目前不可用，請改選其他時段。
+        </div>
+      )}
       {state.error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
           <p className="text-base font-semibold text-red-700">{friendlyError(state.error)}</p>
