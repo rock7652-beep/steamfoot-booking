@@ -190,6 +190,7 @@ beforeEach(() => {
   mockRepairCustomerIdentityOnLogin.mockReset();
   mockCompareSync.mockReset();
   vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "channel-123");
+  vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", "channel-123");
   mockVerifyLiffIdToken.mockResolvedValue({
     lineUserId: LINE_USER_ID,
     displayName: "LINE User",
