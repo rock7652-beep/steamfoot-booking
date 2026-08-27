@@ -54,15 +54,17 @@ export function HealthRecordForm({
         <label htmlFor="measuredAt" className="block text-sm font-semibold text-earth-900">
           量測日期
         </label>
-        <input
-          id="measuredAt"
-          name="measuredAt"
-          type="date"
-          defaultValue={today}
-          max={today}
-          required
-          className="mt-2 min-h-[52px] w-full rounded-xl border border-earth-200 px-4 text-base text-earth-900"
-        />
+        <span className="mt-2 block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-earth-200">
+          <input
+            id="measuredAt"
+            name="measuredAt"
+            type="date"
+            defaultValue={today}
+            max={today}
+            required
+            className="block min-h-[52px] w-full min-w-0 max-w-full appearance-none border-0 bg-white px-4 text-base text-earth-900"
+          />
+        </span>
         <FieldError messages={state.fieldErrors?.measuredAt} />
 
         <div className="mt-5 grid grid-cols-2 gap-3">
