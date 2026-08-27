@@ -47,7 +47,7 @@ async function main() {
     prisma.user.findMany({
       where: { role: "CUSTOMER" },
       select: {
-        id: true, status: true, passwordHash: true,
+        id: true, phone: true, status: true, passwordHash: true,
         accounts: { select: { provider: true } },
       },
     }),
@@ -64,6 +64,15 @@ async function main() {
   const activeById = new Map(activeCustomers.map((row) => [row.id, row] as const));
   const storeById = new Map(stores.map((row) => [row.id, row] as const));
   const userById = new Map(users.map((row) => [row.id, row] as const));
+  const usersByPhone = new Map<string, typeof users>();
+  for (const user of users) {
+    const phone = user.phone?.replace(/\D/g, "") ?? "";
+    if (!phone) continue;
+    const normalized = phone.startsWith("886") && phone.length === 12 ? `0${phone.slice(3)}` : phone;
+    const rows = usersByPhone.get(normalized) ?? [];
+    rows.push(user);
+    usersByPhone.set(normalized, rows);
+  }
   const issuesByCustomer = new Map<string, Set<string>>();
   const addIssue = (customerId: string, reason: string) => {
     if (!activeById.has(customerId)) return;
@@ -79,12 +88,21 @@ async function main() {
   }
 
   for (const customer of activeCustomers) {
+    const customerPhoneDigits = customer.phone.replace(/\D/g, "");
+    const normalizedCustomerPhone = customerPhoneDigits.startsWith("886") && customerPhoneDigits.length === 12
+      ? `0${customerPhoneDigits.slice(3)}`
+      : customerPhoneDigits;
     if (customer.userId) {
       const user = userById.get(customer.userId);
       if (!user) addIssue(customer.id, "會員連結的登入帳號不存在或不是顧客帳號");
       else {
         if (user.status !== "ACTIVE") addIssue(customer.id, "登入帳號已停用");
         if (!user.passwordHash && user.accounts.length === 0) addIssue(customer.id, "登入帳號沒有密碼、LINE 或 Google 等可用登入方式");
+      }
+    } else {
+      const samePhoneUsers = usersByPhone.get(normalizedCustomerPhone) ?? [];
+      if (samePhoneUsers.length > 0) {
+        addIssue(customer.id, "相同手機已有登入帳號，但尚未與這筆門市會員完成安全連結");
       }
     }
 
