@@ -7,7 +7,7 @@
  *   1. mount → initLiff → isInLineClient → fetchLiffWallets (拿 active 摘要) → ready
  *   2. 選日 → fetchDaySlots → 顯示 slot 列表
  *   3. 選 slot → submit → submitLiffMemberBooking
- *      - ok → success card (查看我的預約 / 回我的方案)
+ *      - ok → success card (再預約下一次 / 查看我的預約 / 回我的方案)
  *      - no_wallet_available / wallet_expired / insufficient_sessions
  *        → blocked + 聯繫店家
  *      - slot_full / slot_unavailable → reload slots（讓顧客重選）
@@ -19,10 +19,10 @@
  *   - 移除 already_has_trial / ExistingTrialCard
  *   - 移除 footnote「店家會於現場收取體驗費用」（會員預約不收費）
  *   - 移除 SuccessCard 內 storeName label
- *   - 移除 successHomeCta / contactStoreCta (SuccessCard 只兩顆 CTA)
+ *   - 移除 successHomeCta / contactStoreCta
  *   - 新增 Wallet summary 摘要列：「目前可預約 X 堂」+ 多張顯示「共 N 張方案」
  *   - Submit button label 改「使用堂數預約」
- *   - SuccessCard 2 CTA：查看我的預約 / 回我的方案
+ *   - SuccessCard 3 CTA：再預約下一次 / 查看我的預約 / 回我的方案
  *
  * Mobile-first：max-w-md / min-h-[44px] tap target / 月曆 cell min-h-[72px]。
  * 不寫 inline 中文（一律從 liffMessages.memberBooking.* / liffMessages.error.*）。
@@ -74,6 +74,11 @@ import { NoWalletCard } from "./_components/no-wallet-card";
 import { BlockedBlock } from "./_components/blocked-block";
 import { SuccessCard } from "./_components/success-card";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
+import {
+  buildMemberBookingNextPath,
+  findPreferredMemberBookingSlot,
+  parseMemberBookingNextSelection,
+} from "@/lib/liff/member-booking-next";
 
 type State =
   | { kind: "initializing" }
@@ -87,6 +92,7 @@ type State =
       kind: "success";
       bookingDate: string;
       slotTime: string;
+      people: number;
       usedMakeupCount: number;
     }
   | {
@@ -108,11 +114,16 @@ interface Props {
 
 export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: Props) {
   const requestKey = useBookingRequestKey();
+  const [bookingNextSelection] = useState(() =>
+    typeof window === "undefined"
+      ? null
+      : parseMemberBookingNextSelection(window.location.search),
+  );
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-NoShow-2：有效補課券（最早到期優先）。people=N 時券 >= N 即自動使用 N 張。
   const [makeupCredits, setMakeupCredits] = useState<LiffMakeupCreditRow[]>([]);
   // 預約人數（1~4）。
-  const [people, setPeople] = useState(1);
+  const [people, setPeople] = useState(bookingNextSelection?.people ?? 1);
   const [upcomingBookings, setUpcomingBookings] = useState<
     Array<{ bookingDate: string; slotTime: string }>
   >([]);
@@ -127,13 +138,17 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
   const [monthData, setMonthData] = useState<Record<string, MonthDayInfo>>({});
-  const [loadingMonth, setLoadingMonth] = useState(false);
+  const [loadingMonth, setLoadingMonth] = useState(true);
 
   // day + slot selection
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [preferredSlot, setPreferredSlot] = useState<string | null>(
+    bookingNextSelection?.slotTime ?? null,
+  );
+  const [preferredSlotUnavailable, setPreferredSlotUnavailable] = useState(false);
 
   // ── 1. mount: init LIFF + fetch wallet summary ─────
   useEffect(() => {
@@ -235,7 +250,6 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   useEffect(() => {
     if (!monthLoadable) return;
     let cancelled = false;
-    setLoadingMonth(true);
     (async () => {
       try {
         const result = await fetchMonthAvailability(calYear, calMonth + 1);
@@ -258,12 +272,26 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   }, [calYear, calMonth, monthLoadable]);
 
   // ── 3. load slots when date selected ───────────────
-  const loadSlots = useCallback(async (date: string) => {
+  const loadSlots = useCallback(async (
+    date: string,
+    preferredTime: string | null = null,
+    requestedPeople = 1,
+  ) => {
     setLoadingSlots(true);
     setSlots([]);
+    setPreferredSlotUnavailable(false);
     try {
       const result = await fetchDaySlots(date);
       setSlots(result.slots);
+      if (preferredTime) {
+        const matchingSlot = findPreferredMemberBookingSlot(
+          result.slots,
+          preferredTime,
+          requestedPeople,
+        );
+        setSelectedSlot(matchingSlot);
+        setPreferredSlotUnavailable(matchingSlot === null);
+      }
     } catch (err) {
       console.warn("[member-booking-form] fetchDaySlots failed", err);
       setSlots([]);
@@ -275,7 +303,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   function handleSelectDate(dateStr: string) {
     setSelectedDate(dateStr);
     setSelectedSlot(null);
-    void loadSlots(dateStr);
+    void loadSlots(dateStr, preferredSlot, people);
   }
 
   useEffect(() => {
@@ -290,6 +318,8 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     setSelectedDate(null);
     setSlots([]);
     setSelectedSlot(null);
+    setPreferredSlotUnavailable(false);
+    setLoadingMonth(true);
   }
 
   function handleNextMonth() {
@@ -299,6 +329,8 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     setSelectedDate(null);
     setSlots([]);
     setSelectedSlot(null);
+    setPreferredSlotUnavailable(false);
+    setLoadingMonth(true);
   }
 
   // ── 4. submit ──────────────────────────────────────
@@ -330,6 +362,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           kind: "success",
           bookingDate: result.bookingDate,
           slotTime: result.slotTime,
+          people,
           // 補課券是 server 自選 N 張（= people）；result.usedMakeup 為真才顯示。
           usedMakeupCount: result.usedMakeup ? people : 0,
         });
@@ -480,6 +513,15 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     setState({ kind: "ready", wallet: state.wallet });
   }
 
+  function handleBookNext(slotTime: string, bookingPeople: number) {
+    window.location.assign(
+      buildMemberBookingNextPath(storeSlug, {
+        slotTime,
+        people: bookingPeople,
+      }),
+    );
+  }
+
   // ── render ─────────────────────────────────────────
   // 補課券不足以覆蓋人數、且方案可預約堂數也不足 → 無法成立此人數，停用送出，
   // 讓「補課資格不足」提示引導顧客改人數（避免送出後落到「沒有方案」死路）。
@@ -575,6 +617,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           bookingDate={state.bookingDate}
           slotTime={state.slotTime}
           usedMakeupCount={state.usedMakeupCount}
+          onBookNext={() => handleBookNext(state.slotTime, state.people)}
         />
       )}
 
@@ -656,6 +699,24 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             </div>
           )}
 
+          {preferredSlot && (
+            <div
+              role="status"
+              className={`rounded-xl border px-4 py-3 text-sm ${
+                preferredSlotUnavailable
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-blue-200 bg-blue-50 text-blue-900"
+              }`}
+            >
+              {(preferredSlotUnavailable
+                ? liffMessages.memberBooking.repeatPreferredSlotUnavailable
+                : liffMessages.memberBooking.repeatPreferredSlotHint
+              )
+                .replace("{time}", preferredSlot)
+                .replace("{people}", String(people))}
+            </div>
+          )}
+
           <section aria-labelledby="member-booking-date-heading">
             <h2 id="member-booking-date-heading" className="mb-2 text-sm font-semibold text-earth-800">
               1. 選擇日期
@@ -695,7 +756,11 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
                 slots={slots}
                 loading={loadingSlots}
                 selectedSlot={selectedSlot}
-                onSelectSlot={setSelectedSlot}
+                onSelectSlot={(slot) => {
+                  setSelectedSlot(slot);
+                  setPreferredSlot(slot);
+                  setPreferredSlotUnavailable(false);
+                }}
                 disabled={state.kind === "submitting"}
                 requestedPeople={people}
                 bookedSlotTimes={bookedSlotTimes}
