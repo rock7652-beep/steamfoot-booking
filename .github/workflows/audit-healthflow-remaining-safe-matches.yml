@@ -2,9 +2,6 @@ name: Audit remaining HealthFlow safe matches
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - codex/healthflow-328-safe-audit
 
 permissions:
   contents: read
