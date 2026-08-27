@@ -49,11 +49,11 @@ jobs:
           done
           exit "$missing"
 
-      - name: Classify the 321 currently remaining records without writing
+      - name: Classify the 316 currently remaining records without writing
         id: audit
         run: >-
           npx tsx scripts/audit-healthflow-remaining-safe-matches.ts
-          --expected-remaining=321
+          --expected-remaining=316
           --github-output="$GITHUB_OUTPUT"
 
       - name: Publish aggregate summary only
