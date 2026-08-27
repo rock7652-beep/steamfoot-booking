@@ -80,7 +80,7 @@ function verifiedOk(overrides: Partial<{ displayName: string | null; pictureUrl:
 
 describe("POST /api/liff/exchange", () => {
   beforeEach(() => {
-    vi.stubEnv("LINE_LOGIN_CHANNEL_ID", CHANNEL);
+    vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", CHANNEL);
     mockSignIn.mockReset();
     mockVerify.mockReset();
     mockResolveStoreBySlug.mockReset();
@@ -214,11 +214,15 @@ describe("POST /api/liff/exchange", () => {
     expect(res.status).toBe(400);
   });
 
-  it("missing LINE_LOGIN_CHANNEL_ID env → 500 MISSING_CHANNEL_CONFIG", async () => {
-    vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "");
-    const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
-    expect(res.status).toBe(500);
-    expect((await res.json()).code).toBe("MISSING_CHANNEL_CONFIG");
+  it("uses the managed LIFF channel instead of the web OAuth channel", async () => {
+    vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "legacy-web-oauth-channel");
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockCustomerFindFirst.mockResolvedValueOnce(null);
+
+    await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+
+    expect(mockVerify).toHaveBeenCalledWith("tok", CHANNEL);
   });
 
   it("network error from LINE verify → 502 VERIFY_NETWORK", async () => {

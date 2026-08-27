@@ -70,7 +70,7 @@ function verifiedOk(overrides: { displayName?: string | null } = {}) {
 
 describe("submitOnboarding action (PR-C2)", () => {
   beforeEach(() => {
-    vi.stubEnv("LINE_LOGIN_CHANNEL_ID", CHANNEL);
+    vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", CHANNEL);
     mockVerify.mockReset();
     mockResolveStoreBySlug.mockReset();
     mockBindLine.mockReset();
@@ -256,13 +256,6 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(mockBindLine).not.toHaveBeenCalled();
   });
 
-  it("missing LINE_LOGIN_CHANNEL_ID env → service_unavailable", async () => {
-    vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "");
-    const r = await submitOnboarding(VALID_INPUT);
-    expect(r).toEqual({ status: "service_unavailable" });
-    expect(mockVerify).not.toHaveBeenCalled();
-  });
-
   // ────────────────────────────────────────────────────────
   // Input shape edges
   // ────────────────────────────────────────────────────────
@@ -314,7 +307,7 @@ describe("submitOnboarding action (PR-C2)", () => {
     });
   });
 
-  it("verifies idToken with LINE_LOGIN_CHANNEL_ID env", async () => {
+  it("verifies idToken with the central member LINE channel", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
     mockBindLine.mockResolvedValueOnce({
