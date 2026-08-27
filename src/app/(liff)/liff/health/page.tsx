@@ -41,7 +41,7 @@ export default async function LiffHealthPage() {
     );
   }
 
-  const liffId = await resolveCentralMemberLiffId();
+  const liffId = await resolveCentralMemberLiffId(storeSlug);
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
