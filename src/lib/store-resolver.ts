@@ -6,6 +6,7 @@ import {
   storeMapUrl as FALLBACK_STORE_MAP_URL,
 } from "@/lib/liff/messages";
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
+import { replaceRetiredCentralMemberLiffId } from "@/lib/liff/central-member-config";
 
 export { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 
@@ -262,15 +263,8 @@ export const resolveStorePresentation = cache(
  * data remain store-scoped.
  */
 export const resolveCentralMemberLiffId = cache(async (): Promise<string | null> => {
-  const currentCentralMemberLiffId = "2010761154-duGBs1Ng";
-  const retiredCentralMemberLiffId = "2009711308-47Ffoh9r";
-  const replaceRetiredLiffId = (liffId: string | null) =>
-    !liffId || liffId === retiredCentralMemberLiffId
-      ? currentCentralMemberLiffId
-      : liffId;
-
   const configured = emptyToNull(process.env.NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID);
-  if (configured) return replaceRetiredLiffId(configured);
+  if (configured) return replaceRetiredCentralMemberLiffId(configured);
 
   const entryStoreSlug =
     emptyToNull(process.env.CENTRAL_MEMBER_LIFF_ENTRY_STORE_SLUG) ?? "zhubei";
@@ -279,5 +273,5 @@ export const resolveCentralMemberLiffId = cache(async (): Promise<string | null>
   // 保留公開預設值可讓 Preview 與新環境在 DB/env 尚未回填時仍能驗證會員頁。
   // 舊中央 LIFF 已無法從 LINE Developers 管理且會在 LINE 端開啟失敗；
   // 過渡期間即使 DB 尚未回填，也統一導向目前可管理的新中央 LIFF。
-  return replaceRetiredLiffId(entryStore?.liffId ?? null);
+  return replaceRetiredCentralMemberLiffId(entryStore?.liffId ?? null);
 });
