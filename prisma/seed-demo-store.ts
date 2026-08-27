@@ -1,10 +1,10 @@
 /**
- * Demo 展示店 Seed — 蒸足 Demo 展示店
+ * Demo 展示店 Seed — 沐光舒療 SPA 示範店
  * 用途：火力展示 / 對外成交展示
  * 執行：npx tsx prisma/seed-demo-store.ts
  *
  * 建立完整展示資料：
- * - 4 位員工（1 店長 + 3 教練）
+ * - 4 位員工（1 店長 + 3 芳療師）
  * - 80 位客戶（LEAD/TRIAL/ACTIVE/INACTIVE 分布）
  * - ~300 筆預約（過去 3 個月 + 未來 2 週）
  * - ~200 筆交易
@@ -19,7 +19,6 @@ const prisma = new PrismaClient();
 
 const DEMO_STORE_ID = "demo-store";
 const PASSWORD_HASH = hashSync("demo1234", 10);
-const ROCK_PASSWORD_HASH = hashSync("test1234", 10);
 
 // ============================================================
 // 假資料工具
@@ -82,14 +81,14 @@ async function main() {
     where: { id: DEMO_STORE_ID },
     create: {
       id: DEMO_STORE_ID,
-      name: "蒸足 Demo 展示店",
+      name: "沐光舒療 SPA 示範店",
       slug: "demo",
       isDemo: true,
       plan: "ALLIANCE",
       planStatus: "ACTIVE",
     },
     update: {
-      name: "蒸足 Demo 展示店",
+      name: "沐光舒療 SPA 示範店",
       isDemo: true,
       plan: "ALLIANCE",
       planStatus: "ACTIVE",
@@ -100,16 +99,22 @@ async function main() {
     where: { storeId: DEMO_STORE_ID },
     create: {
       storeId: DEMO_STORE_ID,
-      shopName: "蒸足 Demo 展示店",
+      shopName: "沐光舒療 SPA 示範店",
       dutySchedulingEnabled: true,
+      address: "新竹縣竹北市光明六路示範號",
+      mapUrl: "https://maps.google.com/?q=24.8387,121.0178",
+      lineOfficialUrl: "https://example.com/demo-contact",
     },
     update: {
-      shopName: "蒸足 Demo 展示店",
+      shopName: "沐光舒療 SPA 示範店",
       dutySchedulingEnabled: true,
+      address: "新竹縣竹北市光明六路示範號",
+      mapUrl: "https://maps.google.com/?q=24.8387,121.0178",
+      lineOfficialUrl: "https://example.com/demo-contact",
     },
   });
 
-  console.log("  Store: 蒸足 Demo 展示店 (ALLIANCE + PRO)");
+  console.log("  Store: 沐光舒療 SPA 示範店 (ALLIANCE + PRO)");
 
   // ----------------------------------------------------------
   // 2. Users + Staff
@@ -117,11 +122,10 @@ async function main() {
   console.log("\n2. Users + Staff ...");
 
   const staffData = [
-    { email: "demo-owner@steamfoot.tw", name: "林美華 店長", display: "林美華 店長", color: "#6366f1", isOwner: true, role: "OWNER" as const, phone: "0900000001" },
-    { email: "rock7652@gmail.com", name: "Rock 店長", display: "Rock 店長", color: "#8b5cf6", isOwner: true, role: "OWNER" as const, phone: "0900000099" },
-    { email: "demo-staff1@steamfoot.tw", name: "陳志明 合作店長", display: "陳志明 合作店長", color: "#f59e0b", isOwner: false, role: "PARTNER" as const, phone: "0900000002" },
-    { email: "demo-staff2@steamfoot.tw", name: "張雅婷 合作店長", display: "張雅婷 合作店長", color: "#10b981", isOwner: false, role: "PARTNER" as const, phone: "0900000003" },
-    { email: "demo-staff3@steamfoot.tw", name: "王俊傑 合作店長", display: "王俊傑 合作店長", color: "#ef4444", isOwner: false, role: "PARTNER" as const, phone: "0900000004" },
+    { email: "demo-spa-owner@steamfoot.tw", name: "林沐晴 店長", display: "林沐晴 店長", color: "#8b6f5a", isOwner: true, role: "OWNER" as const, phone: "0900000001" },
+    { email: "demo-spa-staff1@steamfoot.tw", name: "陳語安 芳療師", display: "陳語安 芳療師", color: "#c79275", isOwner: false, role: "PARTNER" as const, phone: "0900000002" },
+    { email: "demo-spa-staff2@steamfoot.tw", name: "張若琳 芳療師", display: "張若琳 芳療師", color: "#8fa89b", isOwner: false, role: "PARTNER" as const, phone: "0900000003" },
+    { email: "demo-spa-staff3@steamfoot.tw", name: "王心瑜 芳療師", display: "王心瑜 芳療師", color: "#b49ab8", isOwner: false, role: "PARTNER" as const, phone: "0900000004" },
   ];
 
   const ALL_PERMISSIONS = [
@@ -141,7 +145,7 @@ async function main() {
 
   for (const s of staffData) {
     // Upsert user
-    const pwHash = s.email === "rock7652@gmail.com" ? ROCK_PASSWORD_HASH : PASSWORD_HASH;
+    const pwHash = PASSWORD_HASH;
     const user = await prisma.user.upsert({
       where: { email: s.email },
       create: {
@@ -189,12 +193,12 @@ async function main() {
   console.log("\n3. Service Plans ...");
 
   const planDefs = [
-    { name: "體驗", category: "TRIAL" as const, price: 500, sessions: 1, validity: 30, sort: 0 },
-    { name: "單次", category: "SINGLE" as const, price: 800, sessions: 1, validity: null, sort: 1 },
-    { name: "3堂套餐", category: "PACKAGE" as const, price: 2100, sessions: 3, validity: 60, sort: 2 },
-    { name: "5堂套餐", category: "PACKAGE" as const, price: 3250, sessions: 5, validity: 90, sort: 3 },
-    { name: "10堂套餐", category: "PACKAGE" as const, price: 6000, sessions: 10, validity: 180, sort: 4 },
-    { name: "22堂套餐", category: "PACKAGE" as const, price: 11000, sessions: 22, validity: 365, sort: 5 },
+    { name: "新客舒壓體驗 60 分鐘", category: "TRIAL" as const, price: 899, sessions: 1, validity: 30, sort: 0 },
+    { name: "全身芳療單次 90 分鐘", category: "SINGLE" as const, price: 1800, sessions: 1, validity: null, sort: 1 },
+    { name: "舒壓療程 3 次", category: "PACKAGE" as const, price: 5100, sessions: 3, validity: 60, sort: 2 },
+    { name: "舒壓療程 5 次", category: "PACKAGE" as const, price: 8000, sessions: 5, validity: 90, sort: 3 },
+    { name: "深層芳療 10 次", category: "PACKAGE" as const, price: 15000, sessions: 10, validity: 180, sort: 4 },
+    { name: "年度保養 12 次", category: "PACKAGE" as const, price: 16800, sessions: 12, validity: 365, sort: 5 },
   ];
 
   const plans: Record<string, { id: string; price: number; sessions: number; validity: number | null }> = {};
@@ -222,6 +226,54 @@ async function main() {
     }
   }
   console.log(`  ${Object.keys(plans).length} plans ready`);
+
+  // ----------------------------------------------------------
+  // 3a. 營業時間與可預約時段
+  // ----------------------------------------------------------
+  console.log("\n3a. Business hours + booking slots ...");
+
+  for (let dayOfWeek = 0; dayOfWeek <= 6; dayOfWeek++) {
+    const isClosed = dayOfWeek === 1;
+    await prisma.businessHours.upsert({
+      where: { storeId_dayOfWeek: { storeId: DEMO_STORE_ID, dayOfWeek } },
+      create: {
+        storeId: DEMO_STORE_ID,
+        dayOfWeek,
+        isOpen: !isClosed,
+        openTime: isClosed ? null : "10:00",
+        closeTime: isClosed ? null : "21:00",
+        slotInterval: 90,
+        defaultCapacity: 3,
+      },
+      update: {
+        isOpen: !isClosed,
+        openTime: isClosed ? null : "10:00",
+        closeTime: isClosed ? null : "21:00",
+        slotInterval: 90,
+        defaultCapacity: 3,
+      },
+    });
+
+    for (const startTime of SLOT_TIMES) {
+      await prisma.bookingSlot.upsert({
+        where: {
+          storeId_dayOfWeek_startTime: {
+            storeId: DEMO_STORE_ID,
+            dayOfWeek,
+            startTime,
+          },
+        },
+        create: {
+          storeId: DEMO_STORE_ID,
+          dayOfWeek,
+          startTime,
+          capacity: 3,
+          isEnabled: !isClosed,
+        },
+        update: { capacity: 3, isEnabled: !isClosed },
+      });
+    }
+  }
 
   // ----------------------------------------------------------
   // 4. Customers（80 筆）
@@ -289,7 +341,7 @@ async function main() {
   const wallets: Array<{ id: string; customerId: string; planName: string; remaining: number }> = [];
 
   // Active customers get active wallets
-  const packagePlans = ["3堂套餐", "5堂套餐", "10堂套餐", "22堂套餐"];
+  const packagePlans = ["舒壓療程 3 次", "舒壓療程 5 次", "深層芳療 10 次", "年度保養 12 次"];
   for (let i = 0; i < activeCustomers.length; i++) {
     const c = activeCustomers[i];
     const planName = packagePlans[i % packagePlans.length];
@@ -315,6 +367,15 @@ async function main() {
       },
     });
 
+    await prisma.walletSession.createMany({
+      data: Array.from({ length: plan.sessions }, (_, sessionIndex) => ({
+        walletId: wallet.id,
+        sessionNo: sessionIndex + 1,
+        status: sessionIndex < used ? "COMPLETED" as const : "AVAILABLE" as const,
+        completedAt: sessionIndex < used ? daysAgo(used - sessionIndex) : null,
+      })),
+    });
+
     wallets.push({ id: wallet.id, customerId: c.id, planName, remaining });
   }
 
@@ -324,7 +385,7 @@ async function main() {
     const plan = plans[planName];
     const startDate = daysAgo(120);
 
-    await prisma.customerPlanWallet.create({
+    const usedUpWallet = await prisma.customerPlanWallet.create({
       data: {
         customerId: c.id,
         storeId: DEMO_STORE_ID,
@@ -336,6 +397,15 @@ async function main() {
         expiryDate: daysAgo(30),
         status: "USED_UP",
       },
+    });
+
+    await prisma.walletSession.createMany({
+      data: Array.from({ length: plan.sessions }, (_, sessionIndex) => ({
+        walletId: usedUpWallet.id,
+        sessionNo: sessionIndex + 1,
+        status: "COMPLETED" as const,
+        completedAt: daysAgo(120 - sessionIndex),
+      })),
     });
   }
 
@@ -397,7 +467,7 @@ async function main() {
             bookedByType: Math.random() > 0.4 ? "STAFF" : "CUSTOMER",
             bookedByStaffId: Math.random() > 0.4 ? staff.id : null,
             bookingType,
-            servicePlanId: wallet ? plans[wallet.planName].id : (bookingType === "FIRST_TRIAL" ? plans["體驗"].id : plans["單次"].id),
+            servicePlanId: wallet ? plans[wallet.planName].id : (bookingType === "FIRST_TRIAL" ? plans["新客舒壓體驗 60 分鐘"].id : plans["全身芳療單次 90 分鐘"].id),
             customerPlanWalletId: wallet?.id ?? null,
             bookingStatus: status,
             people: 1,
@@ -412,8 +482,8 @@ async function main() {
             : bookingType === "PACKAGE_SESSION" ? "SESSION_DEDUCTION" as const
             : "SINGLE_PURCHASE" as const;
 
-          const amount = txType === "TRIAL_PURCHASE" ? 500
-            : txType === "SINGLE_PURCHASE" ? 800
+          const amount = txType === "TRIAL_PURCHASE" ? 899
+            : txType === "SINGLE_PURCHASE" ? 1800
             : 0; // session deduction = 0 amount
 
           await prisma.transaction.create({
@@ -469,7 +539,7 @@ async function main() {
             bookedByType: "STAFF",
             bookedByStaffId: staff.id,
             bookingType: wallet ? "PACKAGE_SESSION" : "SINGLE",
-            servicePlanId: wallet ? plans[wallet.planName].id : plans["單次"].id,
+            servicePlanId: wallet ? plans[wallet.planName].id : plans["全身芳療單次 90 分鐘"].id,
             customerPlanWalletId: wallet?.id ?? null,
             bookingStatus: "CONFIRMED",
             people: 1,
@@ -846,10 +916,10 @@ async function main() {
   // ----------------------------------------------------------
   console.log("\n===== Demo 展示店建立完成 =====");
   console.log("\nLogin accounts (password: demo1234):");
-  console.log("  店長: demo-owner@steamfoot.tw");
-  console.log("  教練: demo-staff1@steamfoot.tw");
-  console.log("  教練: demo-staff2@steamfoot.tw");
-  console.log("  教練: demo-staff3@steamfoot.tw");
+  console.log("  店長: demo-spa-owner@steamfoot.tw");
+  console.log("  芳療師: demo-spa-staff1@steamfoot.tw");
+  console.log("  芳療師: demo-spa-staff2@steamfoot.tw");
+  console.log("  芳療師: demo-spa-staff3@steamfoot.tw");
   console.log("\n統計:");
   console.log(`  客戶: ${customers.length} 筆`);
   console.log(`  預約: ${bookingCount} 筆`);
