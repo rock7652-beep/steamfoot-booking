@@ -29,6 +29,7 @@ import {
 } from "@/lib/liff/verify-id-token";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { logLineBindEvent } from "@/lib/line-bind-log";
+import { resolveCentralMemberLineLoginChannelId } from "@/lib/liff/central-member-config";
 
 export const dynamic = "force-dynamic";
 
@@ -89,18 +90,7 @@ export async function POST(req: Request): Promise<Response> {
   const { idToken, storeSlug } = parsed;
 
   // ── 2. Config check ──
-  const expectedChannelId = process.env.LINE_LOGIN_CHANNEL_ID;
-  if (!expectedChannelId) {
-    console.error("[liff/exchange] LINE_LOGIN_CHANNEL_ID env not set");
-    return json(
-      {
-        status: "error",
-        code: "MISSING_CHANNEL_CONFIG",
-        message: "server config error",
-      },
-      500
-    );
-  }
+  const expectedChannelId = resolveCentralMemberLineLoginChannelId();
 
   // ── 3. Verify idToken ──
   let verified;
