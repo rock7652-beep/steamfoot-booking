@@ -10,5 +10,5 @@ async function main(){const out=await prisma.$transaction(async tx=>{
   await tx.customerIdentityLink.create({data:{userId:c.userId,storeId:c.storeId,customerId:c.id,provider:"phone",providerAccountId:c.phone}});created++;
  }
  const afterRows=await tx.customerPlanWallet.findMany({where:{id:{in:cs.flatMap(c=>c.planWallets.map(w=>w.id))}},select:{id:true,remainingSessions:true}});const after=afterRows.map(w=>`${w.id}:${w.remainingSessions}`).sort();if(JSON.stringify(before)!==JSON.stringify(after))throw new Error("wallet_verification_failed");return{eligible:cs.length,created,phonesSet,already,blocked,walletsVerified:before.length};
-},{isolationLevel:Prisma.TransactionIsolationLevel.Serializable,timeout:120000,maxWait:20000});console.log(JSON.stringify(out))}
+ },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable,timeout:300000,maxWait:20000});console.log(JSON.stringify(out))}
 main().catch(e=>{console.error(e instanceof Error?e.message:"repair_failed");process.exitCode=1}).finally(()=>prisma.$disconnect());
