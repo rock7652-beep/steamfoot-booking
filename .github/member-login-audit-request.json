@@ -2,5 +2,5 @@
   "authorizedBy": "owner",
   "authorizedAt": "2026-08-27T18:27:00+08:00",
   "mode": "read-only",
-  "scope": "all-active-members"
+  "scope": "all-active-members-with-user-phone-cross-check-v2"
 }
