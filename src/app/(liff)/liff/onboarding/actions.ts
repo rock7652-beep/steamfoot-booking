@@ -24,6 +24,7 @@ import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { bindLineToCustomerInStore } from "@/server/services/bind-line-to-customer";
 import { logLineBindEvent } from "@/lib/line-bind-log";
 import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
+import { resolveCentralMemberLineLoginChannelId } from "@/lib/liff/central-member-config";
 
 const InputSchema = z.object({
   idToken: z.string().min(1),
@@ -65,11 +66,7 @@ export async function submitOnboarding(
   const { idToken, storeSlug, name, phone } = parsed.data;
 
   // ── 2. Channel config ────────────────────────────────
-  const expectedChannelId = process.env.LINE_LOGIN_CHANNEL_ID;
-  if (!expectedChannelId) {
-    console.error("[liff/onboarding] LINE_LOGIN_CHANNEL_ID env not set");
-    return { status: "service_unavailable" };
-  }
+  const expectedChannelId = resolveCentralMemberLineLoginChannelId();
 
   // ── 3. Re-verify idToken (defense in depth) ──────────
   let verified;
