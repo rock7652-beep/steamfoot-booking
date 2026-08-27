@@ -262,14 +262,22 @@ export const resolveStorePresentation = cache(
  * data remain store-scoped.
  */
 export const resolveCentralMemberLiffId = cache(async (): Promise<string | null> => {
+  const currentCentralMemberLiffId = "2010761154-duGBs1Ng";
+  const retiredCentralMemberLiffId = "2009711308-47Ffoh9r";
+  const replaceRetiredLiffId = (liffId: string | null) =>
+    !liffId || liffId === retiredCentralMemberLiffId
+      ? currentCentralMemberLiffId
+      : liffId;
+
   const configured = emptyToNull(process.env.NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID);
-  if (configured) return configured;
+  if (configured) return replaceRetiredLiffId(configured);
 
   const entryStoreSlug =
     emptyToNull(process.env.CENTRAL_MEMBER_LIFF_ENTRY_STORE_SLUG) ?? "zhubei";
   const entryStore = await resolveStorePresentation(entryStoreSlug);
   // LIFF ID 是公開的 Mini App 識別碼（會出現在公開入口 URL），不是密鑰。
-  // 保留公開預設值可讓 Preview 與新環境在 DB/env 尚未回填時仍能驗證會員頁；
-  // 正式環境仍由明確 env 或中央入口店 Store.liffId 優先覆蓋。
-  return entryStore?.liffId ?? "2009711308-47Ffoh9r";
+  // 保留公開預設值可讓 Preview 與新環境在 DB/env 尚未回填時仍能驗證會員頁。
+  // 舊中央 LIFF 已無法從 LINE Developers 管理且會在 LINE 端開啟失敗；
+  // 過渡期間即使 DB 尚未回填，也統一導向目前可管理的新中央 LIFF。
+  return replaceRetiredLiffId(entryStore?.liffId ?? null);
 });
