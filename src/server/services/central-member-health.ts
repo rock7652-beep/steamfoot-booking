@@ -38,7 +38,6 @@ export interface CentralMemberHealthIssue {
 }
 
 export type CentralMemberResolution =
-  | "OTP_REBIND"
   | "MERGE_REVIEW"
   | "MANUAL_REVIEW";
 
@@ -54,53 +53,18 @@ function normalizePhone(phone: string): string {
  * identity are unique inside the affected store.
  */
 export function classifyCentralMemberResolution(
-  activeStoreId: string,
+  _activeStoreId: string,
   issue: CentralMemberHealthIssue,
-  customers: CentralMemberHealthCustomer[],
-  links: CentralMemberHealthLink[],
+  _customers: CentralMemberHealthCustomer[],
+  _links: CentralMemberHealthLink[],
 ): CentralMemberResolution {
+  void _activeStoreId;
+  void _customers;
+  void _links;
   if (issue.reason === "duplicate_phone" || issue.reason === "multiple_customers_in_store") {
     return "MERGE_REVIEW";
   }
-  if (issue.reason !== "line_identity_mismatch" || issue.customerIds.length !== 1) {
-    return "MANUAL_REVIEW";
-  }
-
-  const customer = customers.find((row) => row.id === issue.customerIds[0]);
-  const linkId = issue.id.startsWith("line:") ? issue.id.slice("line:".length) : "";
-  const link = links.find((row) => row.id === linkId);
-  if (!customer || !link || customer.storeId !== activeStoreId || link.storeId !== activeStoreId) {
-    return "MANUAL_REVIEW";
-  }
-  if (customer.mergedIntoCustomerId !== null || (customer.userId !== null && customer.userId !== link.userId)) {
-    return "MANUAL_REVIEW";
-  }
-
-  const phone = normalizePhone(customer.phone);
-  if (!/^09\d{8}$/.test(phone)) return "MANUAL_REVIEW";
-  const samePhoneCustomers = customers.filter(
-    (row) => row.storeId === activeStoreId
-      && row.mergedIntoCustomerId === null
-      && normalizePhone(row.phone) === phone,
-  );
-  if (samePhoneCustomers.length !== 1) return "MERGE_REVIEW";
-
-  const candidateLineUserId = link.lineUserId ?? link.providerAccountId;
-  if (!candidateLineUserId) return "MANUAL_REVIEW";
-  const conflictingCustomer = customers.some(
-    (row) => row.storeId === activeStoreId
-      && row.mergedIntoCustomerId === null
-      && row.id !== customer.id
-      && row.lineUserId === candidateLineUserId,
-  );
-  const conflictingLink = links.some(
-    (row) => row.storeId === activeStoreId
-      && row.id !== link.id
-      && row.customerId !== customer.id
-      && row.provider === "line"
-      && (row.lineUserId ?? row.providerAccountId) === candidateLineUserId,
-  );
-  return conflictingCustomer || conflictingLink ? "MANUAL_REVIEW" : "OTP_REBIND";
+  return "MANUAL_REVIEW";
 }
 
 /**
@@ -174,19 +138,10 @@ export function detectCentralMemberHealthIssues(
         customerIds: [customer.id],
       });
     }
-    if (
-      link.provider === "line" &&
-      customer.lineUserId !== null &&
-      customer.lineUserId !== (link.lineUserId ?? link.providerAccountId)
-    ) {
-      issues.push({
-        id: `line:${link.id}`,
-        category: "LINE",
-        severity: "BLOCKED",
-        reason: "line_identity_mismatch",
-        customerIds: [customer.id],
-      });
-    }
+    // Legacy provider="line" is a LINE Login identity. Customer.lineUserId
+    // belongs to the store's Messaging API channel. LINE can assign different
+    // subjects across providers, so comparing them would create a false
+    // conflict and could lead to a destructive rebind.
     if (
       link.provider === "google" &&
       customer.googleId !== null &&
