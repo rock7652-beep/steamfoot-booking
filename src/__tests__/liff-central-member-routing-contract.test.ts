@@ -7,14 +7,17 @@ function source(path: string) {
 }
 
 describe("central-member LIFF routing contract", () => {
-  it("resolves one central LIFF ID with environment, entry-store and public fallbacks", () => {
+  it("resolves one central LIFF ID and replaces the retired LINE channel", () => {
     const resolver = source("src/lib/store-resolver.ts");
 
     expect(resolver).toContain("NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID");
     expect(resolver).toContain("CENTRAL_MEMBER_LIFF_ENTRY_STORE_SLUG");
     expect(resolver).toContain('?? "zhubei"');
     expect(resolver).toContain("resolveStorePresentation(entryStoreSlug)");
-    expect(resolver).toContain('entryStore?.liffId ?? "2009711308-47Ffoh9r"');
+    expect(resolver).toContain('currentCentralMemberLiffId = "2010761154-duGBs1Ng"');
+    expect(resolver).toContain('retiredCentralMemberLiffId = "2009711308-47Ffoh9r"');
+    expect(resolver).toContain("replaceRetiredLiffId(configured)");
+    expect(resolver).toContain("replaceRetiredLiffId(entryStore?.liffId ?? null)");
   });
 
   it("uses the central LIFF ID on all signed-in member pages", () => {
