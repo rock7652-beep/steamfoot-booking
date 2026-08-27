@@ -29,7 +29,12 @@ export function PublicTrialLiffBridge({
         await initLiff(liffId);
         if (cancelled) return;
         if (!isInLineClient()) {
-          setState("unavailable");
+          const publicBooking = new URL(
+            `/pricing/experience/${storeSlug}/book`,
+            window.location.origin,
+          );
+          publicBooking.hash = "booking-form";
+          window.location.replace(publicBooking.toString());
           return;
         }
 
