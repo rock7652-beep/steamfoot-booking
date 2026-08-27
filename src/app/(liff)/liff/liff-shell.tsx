@@ -418,11 +418,18 @@ export function WelcomeBack({
   displayName,
   memberSummary,
   healthAssessmentEnabled,
+  terminology,
 }: {
   storeSlug: string;
   displayName: string | null;
   memberSummary: MemberHomeSummary | "error" | null;
   healthAssessmentEnabled: boolean;
+  terminology?: {
+    summaryTitle: string;
+    sessionUnit: string;
+    makeupLabel: string;
+    walletLabel: string;
+  };
 }) {
   if (!memberSummary) {
     return (
@@ -467,6 +474,12 @@ export function WelcomeBack({
   const nearestMakeupExpiry = makeupCredits.map((credit) => credit.expiredAt).find(Boolean) ?? null;
   const healthChange = getHealthChange(memberSummary?.healthSummary ?? null);
   const walletsAvailable = memberSummary.walletsStatus === "ok";
+  const labels = terminology ?? {
+    summaryTitle: "方案摘要",
+    sessionUnit: "堂",
+    makeupLabel: "補課",
+    walletLabel: "我的方案",
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -496,17 +509,17 @@ export function WelcomeBack({
         <>
           <section className="rounded-3xl bg-white px-5 py-4 shadow-[0_8px_24px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-earth-900">方案摘要</h2>
+              <h2 className="text-base font-semibold text-earth-900">{labels.summaryTitle}</h2>
               {nearestWalletExpiry && <span className="text-xs text-earth-500">有效至 {formatFullDateLabel(nearestWalletExpiry)}</span>}
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <SummaryMetric label="可使用" value={totalUsable} />
-              <SummaryMetric label="已預約" value={totalBooked} />
-              <SummaryMetric label="尚可預約" value={totalBookable} emphasized />
+              <SummaryMetric label="可使用" value={totalUsable} unit={labels.sessionUnit} />
+              <SummaryMetric label="已預約" value={totalBooked} unit={labels.sessionUnit} />
+              <SummaryMetric label="尚可預約" value={totalBookable} unit={labels.sessionUnit} emphasized />
             </div>
             {makeupCredits.length > 0 && (
               <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-sm">
-                <span className="font-medium text-earth-800">補課 {makeupCredits.length} 張</span>
+                <span className="font-medium text-earth-800">{labels.makeupLabel} {makeupCredits.length} {labels.sessionUnit}</span>
                 <span className="text-earth-500">{nearestMakeupExpiry ? `有效至 ${formatFullDateLabel(nearestMakeupExpiry)}` : "無期限"}</span>
               </div>
             )}
@@ -540,12 +553,12 @@ export function WelcomeBack({
         <HomeTile href={`/s/${storeSlug}/liff/bookings`} label="我的預約" detail={nextBooking ? "查看與管理" : "目前無預約"} />
         <HomeTile
           href={`/s/${storeSlug}/liff/wallets`}
-          label="我的方案"
-          detail={walletsAvailable ? `${totalUsable} 堂可使用` : "請重新讀取資料"}
+          label={labels.walletLabel}
+          detail={walletsAvailable ? `${totalUsable} ${labels.sessionUnit}可使用` : "請重新讀取資料"}
         />
-        {healthAssessmentEnabled ? (
+        {healthAssessmentEnabled && (
           <HomeTile href={`/s/${storeSlug}/liff/health`} label="健康紀錄" detail="查看量測與變化" />
-        ) : <div aria-hidden />}
+        )}
         <HomeTile href={`/s/${storeSlug}/liff/profile`} label="我的資料" detail="會員基本資料" />
       </nav>
 
@@ -585,8 +598,8 @@ function MemberHomeSummaryLoading() {
   );
 }
 
-function SummaryMetric({ label, value, emphasized = false }: { label: string; value: number; emphasized?: boolean }) {
-  return <div className={`rounded-2xl px-2 py-3 ${emphasized ? "bg-primary-50" : "bg-earth-50"}`}><p className="text-xs text-earth-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-earth-900">{value}<span className="ml-0.5 text-xs font-medium text-earth-500">堂</span></p></div>;
+function SummaryMetric({ label, value, unit, emphasized = false }: { label: string; value: number; unit: string; emphasized?: boolean }) {
+  return <div className={`rounded-2xl px-2 py-3 ${emphasized ? "bg-primary-50" : "bg-earth-50"}`}><p className="text-xs text-earth-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-earth-900">{value}<span className="ml-0.5 text-xs font-medium text-earth-500">{unit}</span></p></div>;
 }
 
 function HomeTile({ href, label, detail }: { href: string; label: string; detail: string }) {
