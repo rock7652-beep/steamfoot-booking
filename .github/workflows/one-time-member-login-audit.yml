@@ -1,0 +1,40 @@
+name: One-time member login readiness audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      LOGIN_AUDIT_REPORT_PATH: member-login-audit.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Verify audit is read-only
+        run: |
+          if grep -En 'prisma\..*\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\(' scripts/audit-all-member-login-readiness.ts; then
+            echo "Write operation detected; refusing to run."
+            exit 1
+          fi
+      - name: Run aggregate-only console audit
+        run: npx tsx scripts/audit-all-member-login-readiness.ts
+      - name: Upload private detailed report
+        uses: actions/upload-artifact@v4
+        with:
+          name: member-login-audit-report
+          path: member-login-audit.json
+          retention-days: 1
+          if-no-files-found: error
