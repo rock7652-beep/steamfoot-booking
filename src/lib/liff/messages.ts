@@ -206,12 +206,8 @@ export const liffMessages = {
     successMakeupUsed: "已使用 {count} 張補課資格，本次不扣堂。",
     successDateLabel: "日期",
     successSlotLabel: "時段",
-    /** SuccessCard primary CTA — 保留本次時段與人數，再選下一個日期 */
+    /** SuccessCard primary CTA — 保留本次人數，再選下一個日期與時段 */
     successBookNextCta: "再預約下一次",
-    repeatPreferredSlotHint:
-      "已保留上次的 {time}、{people} 人，請選擇下一個日期。",
-    repeatPreferredSlotUnavailable:
-      "{time} 在這一天無法預約，請選擇其他時段。",
     /** SuccessCard secondary CTA — 與 trialBooking 一致 */
     successMyBookingsCta: "查看我的預約",
     /** SuccessCard secondary CTA — 回方案頁 */
