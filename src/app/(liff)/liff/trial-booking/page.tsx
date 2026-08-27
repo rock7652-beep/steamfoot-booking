@@ -45,7 +45,7 @@ export default async function LiffTrialBookingPage() {
   }
   // Prefer a store's own LIFF when configured, while allowing stores reached
   // from the central-member shell to continue with the shared LIFF.
-  const liffId = presentation.liffId ?? (await resolveCentralMemberLiffId());
+  const liffId = await resolveCentralMemberLiffId(storeSlug);
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }

@@ -6,7 +6,10 @@ import {
   storeMapUrl as FALLBACK_STORE_MAP_URL,
 } from "@/lib/liff/messages";
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
-import { replaceRetiredCentralMemberLiffId } from "@/lib/liff/central-member-config";
+import {
+  replaceRetiredCentralMemberLiffId,
+  resolveCentralMemberLiffIdForStore,
+} from "@/lib/liff/central-member-config";
 
 export { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 
@@ -251,18 +254,24 @@ export const resolveStorePresentation = cache(
 );
 
 /**
- * Central-member LIFF uses one LINE Mini App as the authenticated shell while
- * the URL store slug remains the source of truth for data isolation.
+ * Central-member LIFF apps share one LINE Login channel while each store keeps
+ * its own LIFF endpoint. The URL store slug remains the source of truth for
+ * data isolation and selects the matching LIFF ID before the client SDK starts.
  *
  * Resolution order:
- *   1. explicit central-member LIFF env;
- *   2. the configured LIFF ID of the central entry store (defaults to zhubei).
+ *   1. explicit per-store member LIFF map;
+ *   2. explicit central-member LIFF env (legacy/new-store fallback);
+ *   3. configured LIFF ID of the central entry store (defaults to zhubei).
  *
- * Individual stores do not need their own LIFF ID merely to appear in the
- * central-member store switcher. Their store presentation and all operational
- * data remain store-scoped.
+ * The store switcher still resolves only verified memberships. A LIFF entry ID
+ * selects the initial store; it never grants membership or cross-store access.
  */
-export const resolveCentralMemberLiffId = cache(async (): Promise<string | null> => {
+export const resolveCentralMemberLiffId = cache(async (
+  storeSlug?: string,
+): Promise<string | null> => {
+  const storeLiffId = resolveCentralMemberLiffIdForStore(storeSlug);
+  if (storeLiffId) return storeLiffId;
+
   const configured = emptyToNull(process.env.NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID);
   if (configured) return replaceRetiredCentralMemberLiffId(configured);
 

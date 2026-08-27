@@ -40,7 +40,7 @@ export default async function LiffEntryPage() {
     // 視覺刻意與 NotOpenForLiff 區隔（URL 錯 ≠ LIFF 服務問題）
     notFound();
   }
-  const liffId = await resolveCentralMemberLiffId();
+  const liffId = await resolveCentralMemberLiffId(storeSlug);
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }

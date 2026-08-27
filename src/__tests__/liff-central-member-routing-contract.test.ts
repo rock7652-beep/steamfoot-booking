@@ -1,13 +1,26 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { resolveCentralMemberLiffIdForStore } from "@/lib/liff/central-member-config";
 
 function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
 describe("central-member LIFF routing contract", () => {
-  it("resolves one central LIFF ID and replaces the retired LINE channel", () => {
+  it.each([
+    ["zhubei", "2010761154-duGBs1Ng"],
+    ["hsinchu", "2010761154-SWaHxZqg"],
+    ["taichung", "2010761154-D24uwxIB"],
+  ])("resolves %s to its own member LIFF", (storeSlug, expectedLiffId) => {
+    expect(resolveCentralMemberLiffIdForStore(storeSlug)).toBe(expectedLiffId);
+  });
+
+  it("fails closed for an unknown store", () => {
+    expect(resolveCentralMemberLiffIdForStore("unknown-store")).toBeNull();
+  });
+
+  it("maps each store to a member LIFF in the same LINE Login channel", () => {
     const resolver = source("src/lib/store-resolver.ts");
 
     expect(resolver).toContain("NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID");
@@ -21,6 +34,9 @@ describe("central-member LIFF routing contract", () => {
 
     const config = source("src/lib/liff/central-member-config.ts");
     expect(config).toContain('CENTRAL_MEMBER_LIFF_ID = "2010761154-duGBs1Ng"');
+    expect(config).toContain('hsinchu: "2010761154-SWaHxZqg"');
+    expect(config).toContain('taichung: "2010761154-D24uwxIB"');
+    expect(config).toContain("resolveCentralMemberLiffIdForStore");
     expect(config).toContain(
       'RETIRED_CENTRAL_MEMBER_LIFF_ID = "2009711308-47Ffoh9r"',
     );
@@ -41,26 +57,22 @@ describe("central-member LIFF routing contract", () => {
 
     for (const pagePath of pages) {
       const page = source(pagePath);
-      expect(page).toContain("resolveCentralMemberLiffId");
+      expect(page).toContain("resolveCentralMemberLiffId(storeSlug)");
       expect(page).toContain("liffId={liffId}");
     }
   });
 
-  it("keeps store-specific onboarding while allowing a central LIFF fallback", () => {
+  it("uses the current store member LIFF during onboarding", () => {
     const onboarding = source("src/app/(liff)/liff/onboarding/page.tsx");
-    expect(onboarding).toContain(
-      "presentation.liffId ?? (await resolveCentralMemberLiffId())",
-    );
+    expect(onboarding).toContain("resolveCentralMemberLiffId(storeSlug)");
     expect(source("src/app/(liff)/liff/public-trial/page.tsx")).not.toContain(
       "resolveCentralMemberLiffId",
     );
   });
 
-  it("allows the in-LIFF trial flow to fall back to the central LIFF", () => {
+  it("keeps the in-LIFF trial flow on the current store member LIFF", () => {
     const trial = source("src/app/(liff)/liff/trial-booking/page.tsx");
-    expect(trial).toContain(
-      "presentation.liffId ?? (await resolveCentralMemberLiffId())",
-    );
+    expect(trial).toContain("resolveCentralMemberLiffId(storeSlug)");
   });
 
   it("never renders zero-session member data before the summary finishes loading", () => {

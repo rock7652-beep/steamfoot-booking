@@ -39,7 +39,7 @@ export default async function LiffMyBookingsPage() {
     // PR-E2：店不存在 → notFound() → render (liff)/not-found.tsx
     notFound();
   }
-  const liffId = await resolveCentralMemberLiffId();
+  const liffId = await resolveCentralMemberLiffId(storeSlug);
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }

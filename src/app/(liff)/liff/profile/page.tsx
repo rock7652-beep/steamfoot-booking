@@ -36,7 +36,7 @@ export default async function LiffProfilePage() {
   if (!presentation) {
     notFound();
   }
-  const liffId = await resolveCentralMemberLiffId();
+  const liffId = await resolveCentralMemberLiffId(storeSlug);
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
