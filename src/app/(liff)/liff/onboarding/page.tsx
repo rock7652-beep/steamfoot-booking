@@ -42,7 +42,7 @@ export default async function LiffOnboardingPage() {
   // Existing per-store LIFFs keep their original onboarding flow. Stores that
   // join through the central-member shell can use the shared LIFF instead of
   // being blocked merely because they do not own a separate Mini App.
-  const liffId = presentation.liffId ?? (await resolveCentralMemberLiffId());
+  const liffId = await resolveCentralMemberLiffId(storeSlug);
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
