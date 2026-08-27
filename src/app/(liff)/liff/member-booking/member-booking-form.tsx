@@ -76,8 +76,7 @@ import { SuccessCard } from "./_components/success-card";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
 import {
   buildMemberBookingNextPath,
-  findPreferredMemberBookingSlot,
-  parseMemberBookingNextSelection,
+  parseMemberBookingNextPeople,
 } from "@/lib/liff/member-booking-next";
 
 type State =
@@ -114,16 +113,16 @@ interface Props {
 
 export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: Props) {
   const requestKey = useBookingRequestKey();
-  const [bookingNextSelection] = useState(() =>
+  const [bookingNextPeople] = useState(() =>
     typeof window === "undefined"
       ? null
-      : parseMemberBookingNextSelection(window.location.search),
+      : parseMemberBookingNextPeople(window.location.search),
   );
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-NoShow-2：有效補課券（最早到期優先）。people=N 時券 >= N 即自動使用 N 張。
   const [makeupCredits, setMakeupCredits] = useState<LiffMakeupCreditRow[]>([]);
   // 預約人數（1~4）。
-  const [people, setPeople] = useState(bookingNextSelection?.people ?? 1);
+  const [people, setPeople] = useState(bookingNextPeople ?? 1);
   const [upcomingBookings, setUpcomingBookings] = useState<
     Array<{ bookingDate: string; slotTime: string }>
   >([]);
@@ -145,10 +144,6 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [preferredSlot, setPreferredSlot] = useState<string | null>(
-    bookingNextSelection?.slotTime ?? null,
-  );
-  const [preferredSlotUnavailable, setPreferredSlotUnavailable] = useState(false);
 
   // ── 1. mount: init LIFF + fetch wallet summary ─────
   useEffect(() => {
@@ -272,26 +267,12 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   }, [calYear, calMonth, monthLoadable]);
 
   // ── 3. load slots when date selected ───────────────
-  const loadSlots = useCallback(async (
-    date: string,
-    preferredTime: string | null = null,
-    requestedPeople = 1,
-  ) => {
+  const loadSlots = useCallback(async (date: string) => {
     setLoadingSlots(true);
     setSlots([]);
-    setPreferredSlotUnavailable(false);
     try {
       const result = await fetchDaySlots(date);
       setSlots(result.slots);
-      if (preferredTime) {
-        const matchingSlot = findPreferredMemberBookingSlot(
-          result.slots,
-          preferredTime,
-          requestedPeople,
-        );
-        setSelectedSlot(matchingSlot);
-        setPreferredSlotUnavailable(matchingSlot === null);
-      }
     } catch (err) {
       console.warn("[member-booking-form] fetchDaySlots failed", err);
       setSlots([]);
@@ -303,7 +284,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   function handleSelectDate(dateStr: string) {
     setSelectedDate(dateStr);
     setSelectedSlot(null);
-    void loadSlots(dateStr, preferredSlot, people);
+    void loadSlots(dateStr);
   }
 
   useEffect(() => {
@@ -318,7 +299,6 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     setSelectedDate(null);
     setSlots([]);
     setSelectedSlot(null);
-    setPreferredSlotUnavailable(false);
     setLoadingMonth(true);
   }
 
@@ -329,7 +309,6 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     setSelectedDate(null);
     setSlots([]);
     setSelectedSlot(null);
-    setPreferredSlotUnavailable(false);
     setLoadingMonth(true);
   }
 
@@ -513,13 +492,8 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     setState({ kind: "ready", wallet: state.wallet });
   }
 
-  function handleBookNext(slotTime: string, bookingPeople: number) {
-    window.location.assign(
-      buildMemberBookingNextPath(storeSlug, {
-        slotTime,
-        people: bookingPeople,
-      }),
-    );
+  function handleBookNext(bookingPeople: number) {
+    window.location.assign(buildMemberBookingNextPath(storeSlug, bookingPeople));
   }
 
   // ── render ─────────────────────────────────────────
@@ -617,7 +591,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           bookingDate={state.bookingDate}
           slotTime={state.slotTime}
           usedMakeupCount={state.usedMakeupCount}
-          onBookNext={() => handleBookNext(state.slotTime, state.people)}
+          onBookNext={() => handleBookNext(state.people)}
         />
       )}
 
@@ -699,24 +673,6 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             </div>
           )}
 
-          {preferredSlot && (
-            <div
-              role="status"
-              className={`rounded-xl border px-4 py-3 text-sm ${
-                preferredSlotUnavailable
-                  ? "border-amber-200 bg-amber-50 text-amber-900"
-                  : "border-blue-200 bg-blue-50 text-blue-900"
-              }`}
-            >
-              {(preferredSlotUnavailable
-                ? liffMessages.memberBooking.repeatPreferredSlotUnavailable
-                : liffMessages.memberBooking.repeatPreferredSlotHint
-              )
-                .replace("{time}", preferredSlot)
-                .replace("{people}", String(people))}
-            </div>
-          )}
-
           <section aria-labelledby="member-booking-date-heading">
             <h2 id="member-booking-date-heading" className="mb-2 text-sm font-semibold text-earth-800">
               1. 選擇日期
@@ -756,11 +712,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
                 slots={slots}
                 loading={loadingSlots}
                 selectedSlot={selectedSlot}
-                onSelectSlot={(slot) => {
-                  setSelectedSlot(slot);
-                  setPreferredSlot(slot);
-                  setPreferredSlotUnavailable(false);
-                }}
+                onSelectSlot={setSelectedSlot}
                 disabled={state.kind === "submitting"}
                 requestedPeople={people}
                 bookedSlotTimes={bookedSlotTimes}
