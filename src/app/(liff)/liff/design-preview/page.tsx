@@ -15,7 +15,19 @@ export default async function LiffDesignPreviewPage() {
 
   const storeSlug = await resolveStoreSlugForLiff();
   if (!storeSlug) notFound();
-  const presentation = await resolveStorePresentation(storeSlug);
+  const presentation = await resolveStorePresentation(storeSlug) ?? (
+    storeSlug === "demo"
+      ? {
+          id: "demo-store",
+          slug: "demo",
+          name: "沐光舒療 SPA 示範店",
+          liffId: null,
+          contactUrl: "https://example.com/demo-contact",
+          address: "新竹縣竹北市光明六路示範號",
+          mapUrl: "https://maps.google.com/?q=24.8387,121.0178",
+        }
+      : null
+  );
   if (!presentation) notFound();
 
   return (
