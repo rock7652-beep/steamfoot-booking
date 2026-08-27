@@ -1,0 +1,6 @@
+{
+  "requestedAt": "2026-08-27T22:08:00+08:00",
+  "mode": "READ_ONLY",
+  "expectedMismatchCount": 34,
+  "authorizedScope": "Preview only; no identity writes"
+}
