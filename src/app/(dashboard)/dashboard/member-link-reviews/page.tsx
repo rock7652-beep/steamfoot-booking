@@ -23,6 +23,16 @@ const reasonLabel = {
   customer_linked_to_another_user: "顧客與會員連結屬於不同登入身分",
   multiple_customers_in_store: "同一中央會員在同店連到多筆顧客",
 };
+const resolutionLabel = {
+  OTP_REBIND: "待 OTP 重綁",
+  MERGE_REVIEW: "需安全合併",
+  MANUAL_REVIEW: "需人工核對",
+};
+const resolutionHelp = {
+  OTP_REBIND: "電話與候選 LINE 均為店內唯一；簡訊驗證本人後才可重新綁定。",
+  MERGE_REVIEW: "偵測到重複手機或同店多筆顧客，需先比較資料並產生合併預覽。",
+  MANUAL_REVIEW: "存在跨身分、跨門市或 LINE 使用衝突，不可自動改綁。",
+};
 
 export default async function MemberLinkReviewsPage() {
   const user = await getCurrentUser();
@@ -67,6 +77,11 @@ export default async function MemberLinkReviewsPage() {
   const futureCountByCustomer = new Map(futureCounts.map((row) => [row.customerId, row._count._all]));
   const reviewIssues = healthIssues.filter((issue) => issue.severity === "REVIEW");
   const blockedIssues = healthIssues.filter((issue) => issue.severity === "BLOCKED");
+  const resolutionCounts = {
+    OTP_REBIND: healthIssues.filter((issue) => issue.resolution === "OTP_REBIND").length,
+    MERGE_REVIEW: healthIssues.filter((issue) => issue.resolution === "MERGE_REVIEW").length,
+    MANUAL_REVIEW: healthIssues.filter((issue) => issue.resolution === "MANUAL_REVIEW").length,
+  };
 
   return (
     <PageShell>
@@ -82,6 +97,14 @@ export default async function MemberLinkReviewsPage() {
         <SummaryCard label="已處理" value={handledRequests.length} tone="green" />
         <SummaryCard label="目前異常" value={healthIssues.length} tone="earth" />
       </div>
+
+      {healthIssues.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <SummaryCard label="待 OTP 重綁" value={resolutionCounts.OTP_REBIND} tone="green" />
+          <SummaryCard label="需安全合併" value={resolutionCounts.MERGE_REVIEW} tone="amber" />
+          <SummaryCard label="需人工核對" value={resolutionCounts.MANUAL_REVIEW} tone="red" />
+        </div>
+      ) : null}
 
       {healthIssues.length === 0 && pendingRequests.length === 0 ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800">
@@ -176,17 +199,23 @@ function IssueSection({ title, description, issues }: { title: string; descripti
               <p className="font-medium text-earth-900">{reasonLabel[issue.reason]}</p>
               <p className="mt-1 text-xs text-earth-500">{issue.customers.map((customer) => `${customer.name}｜${customer.phone}`).join("、") || "顧客連結資料不完整"}</p>
             </div>
-            <span className={`rounded-full px-2.5 py-1 text-xs ${issue.severity === "BLOCKED" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>
-              {categoryLabel[issue.category]}・{issue.severity === "BLOCKED" ? "已阻擋" : "待確認"}
-            </span>
+            <div className="flex flex-wrap justify-end gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-xs ${issue.severity === "BLOCKED" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>
+                {categoryLabel[issue.category]}・{issue.severity === "BLOCKED" ? "已阻擋" : "待確認"}
+              </span>
+              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-800">
+                {resolutionLabel[issue.resolution]}
+              </span>
+            </div>
           </div>
+          <p className="mt-3 rounded-md bg-blue-50 p-2 text-xs text-blue-800">{resolutionHelp[issue.resolution]}</p>
           {issue.reason === "duplicate_phone" && issue.customerIds.length >= 2 ? (
             <div className="mt-3 flex justify-end">
               <Link href={`/dashboard/customers/merge?source=${issue.customerIds[0]}&target=${issue.customerIds[1]}`} className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700">比較並安全處理</Link>
             </div>
-          ) : (
+          ) : issue.resolution === "MANUAL_REVIEW" ? (
             <p className="mt-3 rounded-md bg-red-50 p-2 text-xs text-red-700">為避免錯綁，系統不會自動修改；請由總管理者確認身分與稽核紀錄。</p>
-          )}
+          ) : null}
         </div>
       ))}
     </section>
