@@ -5,6 +5,7 @@ import {
   saveCustomerHealthRecord,
   type SaveCustomerHealthRecordState,
 } from "@/server/actions/customer-health-record";
+import { saveLiffHealthRecord } from "@/server/actions/liff-health";
 
 const initialSaveCustomerHealthRecordState: SaveCustomerHealthRecordState = {
   error: null,
@@ -22,15 +23,27 @@ const fields = [
   ["bodyWater", "體水分", "%", "0.1"],
 ] as const;
 
-export function HealthRecordForm({ requestId, today }: { requestId: string; today: string }) {
+export function HealthRecordForm({
+  requestId,
+  today,
+  storeSlug,
+  surface = "web",
+}: {
+  requestId: string;
+  today: string;
+  storeSlug?: string;
+  surface?: "web" | "liff";
+}) {
+  const submitAction = surface === "liff" ? saveLiffHealthRecord : saveCustomerHealthRecord;
   const [state, action, pending] = useActionState(
-    saveCustomerHealthRecord,
+    submitAction,
     initialSaveCustomerHealthRecordState,
   );
 
   return (
     <form action={action} className="space-y-5">
       <input type="hidden" name="requestId" value={requestId} />
+      {surface === "liff" && <input type="hidden" name="storeSlug" value={storeSlug} />}
       {state.error && (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {state.error}
