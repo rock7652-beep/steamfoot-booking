@@ -249,6 +249,7 @@ function LinkedView({
           已整合您在 {verifiedStoreCount} 家已驗證門市的健康紀錄；每筆仍保留原始量測門市。
         </div>
       )}
+      <StartHealthFlowButton storeSlug={storeSlug} />
       {/* ── 官方 score 卡 (HealthFlow PR #5) / fallback 為 LatestSnapshot ──
           summary.official 由 health-service normalizeOfficial 填；若 HealthFlow
           API 沒回 score（舊版 / 部分 env），顯示原本 PR-H2c 的「最近量測卡」。*/}
@@ -609,7 +610,7 @@ function StartHealthFlowButton({
 }) {
   return (
     <Link
-      href={`/s/${storeSlug}/health/new`}
+      href={`/s/${storeSlug}/liff/health/new`}
       className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
     >
       {liffMessages.health.startHealthFlowCta}

@@ -14,6 +14,8 @@
  */
 
 import { prisma } from "@/lib/db";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/session";
 import {
   getCanonicalCustomerForSession,
@@ -27,7 +29,11 @@ import {
   type HealthSummary,
 } from "@/lib/health-service";
 import { getNativeHealthSummaryForMemberships } from "@/lib/native-health-service";
-import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
+import { calculateNativeBmi } from "@/lib/native-health-service";
+import {
+  resolveCentralMemberCustomerForStore,
+  resolveCentralMembershipsForUser,
+} from "@/server/services/central-member-resolver";
 import { healthFlowLiffUrl } from "@/lib/liff/messages";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -37,6 +43,108 @@ import {
   normalizeHealthflowEntryAttemptId,
 } from "@/lib/healthflow-entry-correlation";
 import { sanitizeHealthflowException } from "@/lib/healthflow-entry-redaction";
+import { toLocalDateStr } from "@/lib/date-utils";
+import {
+  healthRecordFormData,
+  healthRecordInputSchema,
+} from "@/lib/health-record-input";
+import type { SaveCustomerHealthRecordState } from "@/server/actions/customer-health-record";
+
+export async function saveLiffHealthRecord(
+  _previous: SaveCustomerHealthRecordState,
+  formData: FormData,
+): Promise<SaveCustomerHealthRecordState> {
+  let user;
+  try {
+    user = await requireSession();
+  } catch {
+    return { error: "登入已逾時，請重新從 LINE 開啟此頁" };
+  }
+  if (user.role !== "CUSTOMER") {
+    return { error: "無法確認顧客資料，請重新從 LINE 開啟此頁" };
+  }
+
+  const storeSlug = String(formData.get("storeSlug") ?? "");
+  const store = await prisma.store.findUnique({
+    where: { slug: storeSlug },
+    select: { id: true, slug: true },
+  });
+  if (!store) return { error: "無法確認門市，請回會員中心後再試" };
+
+  try {
+    await requireStoreFeature(store.id, FEATURES.AI_HEALTH_SUMMARY);
+  } catch {
+    return { error: "此店目前尚未開放健康評估" };
+  }
+
+  const parsed = healthRecordInputSchema.safeParse(healthRecordFormData(formData));
+  if (!parsed.success) {
+    return {
+      error: "請檢查量測內容",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+  if (parsed.data.measuredAt > toLocalDateStr()) {
+    return {
+      error: "量測日期不可晚於今天",
+      fieldErrors: { measuredAt: ["量測日期不可晚於今天"] },
+    };
+  }
+
+  const membership = await resolveCentralMemberCustomerForStore(user.id, store.id);
+  if (!membership) {
+    return { error: "無法確認您在此門市的會員資料，請聯繫店家協助" };
+  }
+  const customer = await prisma.customer.findFirst({
+    where: {
+      id: membership.customerId,
+      storeId: store.id,
+      mergedIntoCustomerId: null,
+    },
+    select: { id: true, height: true },
+  });
+  if (!customer) return { error: "無法確認顧客資料，請重新登入" };
+
+  try {
+    await prisma.customerHealthRecord.upsert({
+      where: {
+        uq_health_source_record: {
+          source: "STEAMFOOT",
+          sourceRecordId: parsed.data.requestId,
+        },
+      },
+      update: {},
+      create: {
+        storeId: store.id,
+        customerId: customer.id,
+        measuredAt: new Date(`${parsed.data.measuredAt}T00:00:00.000Z`),
+        weight: parsed.data.weight,
+        bmi: parsed.data.bmi ?? calculateNativeBmi(parsed.data.weight, customer.height),
+        bodyFat: parsed.data.bodyFat,
+        muscleMass: parsed.data.muscleMass,
+        boneMass: parsed.data.boneMass,
+        visceralFat: parsed.data.visceralFat,
+        bmr: parsed.data.bmr,
+        bodyWater: parsed.data.bodyWater,
+        metabolicAge: parsed.data.metabolicAge,
+        note: parsed.data.note,
+        source: "STEAMFOOT",
+        sourceRecordId: parsed.data.requestId,
+      },
+    });
+  } catch (error) {
+    console.error("[saveLiffHealthRecord] native write failed", {
+      customerId: customer.id,
+      storeId: store.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { error: "健康資料暫時無法儲存，請稍後再試；本次未寫入任何紀錄" };
+  }
+
+  const path = `/s/${store.slug}/liff/health`;
+  revalidatePath(path);
+  redirect(`${path}?saved=1`);
+}
 
 // PR-H2c：移除 self-computed score。
 // HealthFlow summary API 不回官方 score / riskLevel；Steamfoot 自算的 68 與 HealthFlow
