@@ -76,11 +76,6 @@ export function BookingCard({
         <span className="rounded-md bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-700">
           {liffTypeLabel(booking.bookingType, booking.isMakeup)}
         </span>
-        {booking.staffName && (
-          <span className="text-xs text-earth-600">
-            服務店長：{booking.staffName}
-          </span>
-        )}
       </div>
 
       {!isCancelled && (
