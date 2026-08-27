@@ -36,6 +36,12 @@ vi.mock("@/lib/db", () => ({
     })),
   },
 }));
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: vi.fn(() => undefined),
+    delete: vi.fn(),
+  })),
+}));
 vi.mock("@/lib/date-utils", () => ({ getNowTaipeiHHmm: () => "09:00", toLocalDateStr: () => "2026-08-13" }));
 vi.mock("@/lib/business-hours-resolver", () => ({
   applySlotOverrides: (rule: { slots: Array<{ startTime: string; capacity: number; isEnabled: boolean }> }) => rule.slots,

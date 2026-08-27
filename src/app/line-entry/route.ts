@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { resolveLineReferralEntry } from "@/server/queries/line-referral-entry";
+import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
 
 const REFERRAL_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 const COOKIE_OPTIONS = {
@@ -54,7 +55,15 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const response = NextResponse.redirect(result.lineOfficialUrl, 307);
+  const publicTrialConfig =
+    request.nextUrl.searchParams.get("destination") === "public-trial" &&
+    storeSlug
+      ? resolvePublicTrialLiffConfig(storeSlug)
+      : null;
+  const destination = publicTrialConfig
+    ? `https://liff.line.me/${publicTrialConfig.liffId}`
+    : result.lineOfficialUrl;
+  const response = NextResponse.redirect(destination, 307);
   response.cookies.set("pending-ref", result.referrerId, COOKIE_OPTIONS);
   response.cookies.set(
     "referral-visitor-token",

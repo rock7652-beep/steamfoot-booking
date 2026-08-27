@@ -41,6 +41,12 @@ export interface ReferrerEventLeaderboardItem {
   count: number;
 }
 
+export interface LiffStoreShareFunnel {
+  successfulShares: number;
+  friendOpens: number;
+  trialBookings: number;
+}
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -129,6 +135,33 @@ export async function getReferralEventCountsByType(
     type,
     count: map.get(type) ?? 0,
   }));
+}
+
+/** LIFF 店家分享近 30 天漏斗；只計 source=liff-store-share*。 */
+export async function getLiffStoreShareFunnel(
+  activeStoreId?: string | null,
+): Promise<LiffStoreShareFunnel> {
+  const user = await requireStaffSession();
+  const storeFilter = getStoreFilter(user, activeStoreId);
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const rows = await prisma.referralEvent.groupBy({
+    by: ["type"],
+    where: {
+      ...storeFilter,
+      createdAt: { gte: since },
+      source: { startsWith: "liff-store-share" },
+      type: { in: ["SHARE", "LINK_CLICK", "BOOKING_CREATED"] },
+    },
+    _count: { id: true },
+  });
+  const counts = new Map(rows.map((row) => [row.type, row._count.id]));
+
+  return {
+    successfulShares: counts.get("SHARE") ?? 0,
+    friendOpens: counts.get("LINK_CLICK") ?? 0,
+    trialBookings: counts.get("BOOKING_CREATED") ?? 0,
+  };
 }
 
 /**

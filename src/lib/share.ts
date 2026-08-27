@@ -46,11 +46,28 @@ export function buildReferralEntryUrl(
   return `${origin.replace(/\/$/, "")}${path}`;
 }
 
+/**
+ * LIFF 店家分享使用的推薦入口。
+ *
+ * 先經過同站 `/line-entry` 寫入推薦來源，再由 route 以 307 導向該店
+ * 公開體驗 LIFF。好友不會看到會員頁，也不會落到舊網頁版。
+ */
+export function buildPublicTrialReferralEntryUrl(
+  storeSlug: string,
+  code: string,
+  origin?: string,
+): string {
+  const path = `/s/${storeSlug}/line-entry?ref=${encodeURIComponent(code)}&destination=public-trial&source=liff-store-share`;
+  if (!origin) return path;
+  return `${origin.replace(/\/$/, "")}${path}`;
+}
+
 /** 向下相容別名；所有路徑都使用同一個安全入口。 */
 export const buildStoreLineEntryUrl = buildReferralEntryUrl;
 
 /** 分享 URL 已內嵌在 text 中間。 */
 export function buildLineShareUrl(text: string, _shareUrl?: string): string {
+  void _shareUrl;
   return `https://line.me/R/share?text=${encodeURIComponent(text)}`;
 }
 

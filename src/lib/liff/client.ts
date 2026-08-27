@@ -12,6 +12,9 @@
 
 import type { Liff } from "@line/liff";
 
+export type LiffShareMessages = Parameters<Liff["shareTargetPicker"]>[0];
+export type LiffShareResult = "success" | "cancelled" | "unavailable";
+
 const isBrowser = (): boolean => typeof window !== "undefined";
 
 let initPromise: Promise<Liff> | null = null;
@@ -79,6 +82,27 @@ export async function getProfile(): Promise<{
     throw new LiffInitError("LIFF SDK is not initialized");
   }
   return cachedLiff.getProfile();
+}
+
+/**
+ * 使用 LINE 原生好友／群組選擇器分享訊息。
+ * 只有 SDK 明確回傳 success 才視為成功；取消或舊版無結果都不灌 SHARE 統計。
+ */
+export async function shareViaTargetPicker(
+  messages: LiffShareMessages,
+): Promise<LiffShareResult> {
+  if (!isBrowser() || !cachedLiff) return "unavailable";
+  try {
+    if (!cachedLiff.isApiAvailable("shareTargetPicker")) {
+      return "unavailable";
+    }
+    const result = await cachedLiff.shareTargetPicker(messages, {
+      isMultiple: true,
+    });
+    return result?.status === "success" ? "success" : "cancelled";
+  } catch {
+    return "unavailable";
+  }
 }
 
 /** 在 LIFF 內開新分頁（external=true 走外部瀏覽器）；非 LIFF 環境 fallback 到 window.open */

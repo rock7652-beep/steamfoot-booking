@@ -95,6 +95,32 @@ describe("GET /line-entry", () => {
     expect(cookies).toContain("Max-Age=2592000");
   });
 
+  it("LIFF 店家分享會保留歸屬並進入該店公開體驗 LIFF", async () => {
+    const response = await GET(
+      new NextRequest(
+        "https://example.com/line-entry?ref=ABC234&destination=public-trial&source=liff-store-share",
+        { headers: { "x-store-slug": "taichung" } },
+      ),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://liff.line.me/2010761154-mupiLvI6",
+    );
+    expect(response.headers.getSetCookie().join("\n")).toContain(
+      "pending-ref=customer-t",
+    );
+    expect(mocks.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          type: "LINK_CLICK",
+          source: "liff-store-share",
+          storeId: "store-t",
+        }),
+      ]),
+    });
+  });
+
   it("ReferralEvent 寫入失敗仍 redirect 並保存歸屬 cookie", async () => {
     mocks.createMany.mockRejectedValue(new Error("event db unavailable"));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});

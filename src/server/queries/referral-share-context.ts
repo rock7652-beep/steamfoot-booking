@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/db";
 import { normalizeLineOfficialUrl } from "@/lib/line-official-url";
-import { buildReferralEntryUrl } from "@/lib/share";
+import {
+  buildPublicTrialReferralEntryUrl,
+  buildReferralEntryUrl,
+} from "@/lib/share";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 
@@ -9,7 +12,10 @@ export type ReferralShareContext =
       available: true;
       storeName: string;
       referralUrl: string;
+      publicTrialReferralUrl: string;
       shareTemplate: string | null;
+      address: string | null;
+      mapUrl: string | null;
     }
   | {
       available: false;
@@ -48,6 +54,8 @@ export async function getReferralShareContext(input: {
             select: {
               lineOfficialUrl: true,
               referralShareTemplate: true,
+              address: true,
+              mapUrl: true,
             },
           },
         },
@@ -73,6 +81,12 @@ export async function getReferralShareContext(input: {
       customer.store.slug,
       customer.referralCode ?? customer.id,
     ),
+    publicTrialReferralUrl: buildPublicTrialReferralEntryUrl(
+      customer.store.slug,
+      customer.referralCode ?? customer.id,
+    ),
     shareTemplate: customer.store.shopConfig?.referralShareTemplate ?? null,
+    address: customer.store.shopConfig?.address ?? null,
+    mapUrl: customer.store.shopConfig?.mapUrl ?? null,
   };
 }
