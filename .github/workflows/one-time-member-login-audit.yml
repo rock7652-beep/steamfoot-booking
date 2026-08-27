@@ -2,6 +2,11 @@ name: One-time member login readiness audit
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/member-login-audit-request.json
 
 permissions:
   contents: read
