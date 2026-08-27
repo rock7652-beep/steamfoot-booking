@@ -65,7 +65,7 @@ export default async function LiffDesignPreviewPage() {
           }],
           activeWallets: [{
             id: "preview-wallet",
-            planName: "暖暖蒸足方案",
+            planName: "深層芳療 10 次",
             planCategory: "PACKAGE",
             totalSessions: 12,
             remainingSessions: 8,
@@ -87,15 +87,7 @@ export default async function LiffDesignPreviewPage() {
             isMakeup: false,
             people: 1,
           },
-          healthSummary: {
-            latest: null,
-            alerts: [],
-            meta: { totalRecords: 2, daysSinceLastMeasure: 3, firstMeasuredAt: "2026-07-01" },
-            trend: [
-              { measuredAt: "2026-07-01", weight: 69.2, bmi: 23.7, bodyFat: 25.1, muscleMass: 48.2, boneMass: 2.6, visceralFat: 6, bmr: 1420, bodyWater: 51.2, metabolicAge: 40 },
-              { measuredAt: "2026-08-23", weight: 68.4, bmi: 23.4, bodyFat: 24.5, muscleMass: 48.5, boneMass: 2.6, visceralFat: 5.5, bmr: 1432, bodyWater: 51.8, metabolicAge: 39 },
-            ],
-          },
+          healthSummary: null,
           referralShare: {
             storeName: presentation.name,
             referralUrl: `/s/${presentation.slug}/line-entry?ref=PREVIEW&destination=public-trial&source=liff-store-share`,
@@ -104,7 +96,7 @@ export default async function LiffDesignPreviewPage() {
             mapUrl: presentation.mapUrl,
           },
         }}
-        healthAssessmentEnabled
+        healthAssessmentEnabled={false}
       />
     </div>
   );
