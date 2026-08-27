@@ -428,11 +428,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const storeSlug = credentials?.storeSlug as string | undefined;
         if (!idToken || !storeSlug) return null;
 
-        const expectedChannelId = process.env.LINE_LOGIN_CHANNEL_ID;
-        if (!expectedChannelId) {
-          console.error("[auth][liff-token] LINE_LOGIN_CHANNEL_ID env not set");
-          return null;
-        }
+        const { resolveCentralMemberLineLoginChannelId } = await import(
+          "@/lib/liff/central-member-config"
+        );
+        const expectedChannelId = resolveCentralMemberLineLoginChannelId();
 
         const { verifyLiffIdToken, LiffIdTokenError } = await import(
           "@/lib/liff/verify-id-token"
