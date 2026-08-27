@@ -1,17 +1,18 @@
 /**
- * Public LINE identifiers are intentionally scoped to the Zhubei public-trial
- * bridge. This LINE Login channel lives under the same LINE provider as the
- * Zhubei Messaging API channel, so both channels issue the same user subject.
+ * Public LINE identifiers are scoped to the public-trial bridges created in
+ * the shared member-login channel. Each store still verifies that the LINE
+ * subject is recognized by its own Messaging API before issuing an entry.
  *
  * Do not replace the shared member-login channel with these values: existing
  * member LIFF and NextAuth flows continue to use their current configuration.
  */
-export const ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID = "2011147985";
-export const ZHUBEI_PUBLIC_TRIAL_LIFF_ID = "2011147985-tQ5wrAdH";
+export const SHARED_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID = "2010761154";
+
+export const ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID =
+  SHARED_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID;
+export const ZHUBEI_PUBLIC_TRIAL_LIFF_ID = "2010761154-i4DO3oFO";
 export const ZHUBEI_PUBLIC_TRIAL_LIFF_URL =
   `https://liff.line.me/${ZHUBEI_PUBLIC_TRIAL_LIFF_ID}`;
-
-export const SHARED_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID = "2010761154";
 
 const PUBLIC_TRIAL_LIFF_ID_BY_STORE = {
   zhubei: ZHUBEI_PUBLIC_TRIAL_LIFF_ID,
@@ -29,9 +30,6 @@ export function resolvePublicTrialLiffConfig(storeSlug: string): {
   const slug = storeSlug as PublicTrialStoreSlug;
   return {
     liffId: PUBLIC_TRIAL_LIFF_ID_BY_STORE[slug],
-    lineLoginChannelId:
-      slug === "zhubei"
-        ? ZHUBEI_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID
-        : SHARED_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID,
+    lineLoginChannelId: SHARED_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID,
   };
 }
