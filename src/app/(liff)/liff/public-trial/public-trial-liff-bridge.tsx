@@ -25,16 +25,20 @@ export function PublicTrialLiffBridge({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      const openPublicBooking = () => {
+        const publicBooking = new URL(
+          `/pricing/experience/${storeSlug}/book`,
+          window.location.origin,
+        );
+        publicBooking.hash = "booking-form";
+        window.location.replace(publicBooking.toString());
+      };
+
       try {
         await initLiff(liffId);
         if (cancelled) return;
         if (!isInLineClient()) {
-          const publicBooking = new URL(
-            `/pricing/experience/${storeSlug}/book`,
-            window.location.origin,
-          );
-          publicBooking.hash = "booking-form";
-          window.location.replace(publicBooking.toString());
+          openPublicBooking();
           return;
         }
 
@@ -63,6 +67,18 @@ export function PublicTrialLiffBridge({
           destination.searchParams.set("entry", body.entry);
           destination.hash = "booking-form";
           window.location.replace(destination.toString());
+          return;
+        }
+
+        // LINE user IDs are scoped to a Provider. If a centrally managed LIFF
+        // lives under a different Provider from the store Messaging API, the
+        // identity must not be persisted as a notification recipient. Keep the
+        // booking usable by falling back to the store's public form instead.
+        if (
+          body?.status === "error" &&
+          body.code === "IDENTITY_SCOPE_MISMATCH"
+        ) {
+          openPublicBooking();
           return;
         }
 
