@@ -14,10 +14,19 @@ describe("central-member LIFF routing contract", () => {
     expect(resolver).toContain("CENTRAL_MEMBER_LIFF_ENTRY_STORE_SLUG");
     expect(resolver).toContain('?? "zhubei"');
     expect(resolver).toContain("resolveStorePresentation(entryStoreSlug)");
-    expect(resolver).toContain('currentCentralMemberLiffId = "2010761154-duGBs1Ng"');
-    expect(resolver).toContain('retiredCentralMemberLiffId = "2009711308-47Ffoh9r"');
-    expect(resolver).toContain("replaceRetiredLiffId(configured)");
-    expect(resolver).toContain("replaceRetiredLiffId(entryStore?.liffId ?? null)");
+    expect(resolver).toContain("replaceRetiredCentralMemberLiffId(configured)");
+    expect(resolver).toContain(
+      "replaceRetiredCentralMemberLiffId(entryStore?.liffId ?? null)",
+    );
+
+    const config = source("src/lib/liff/central-member-config.ts");
+    expect(config).toContain('CENTRAL_MEMBER_LIFF_ID = "2010761154-duGBs1Ng"');
+    expect(config).toContain(
+      'RETIRED_CENTRAL_MEMBER_LIFF_ID = "2009711308-47Ffoh9r"',
+    );
+    expect(config).toContain(
+      'CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID = "2010761154"',
+    );
   });
 
   it("uses the central LIFF ID on all signed-in member pages", () => {
