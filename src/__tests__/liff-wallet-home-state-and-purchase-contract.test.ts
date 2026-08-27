@@ -30,7 +30,7 @@ describe("LIFF wallet state and purchase entry contract", () => {
 
   it("does not offer member booking until wallet availability is confirmed", () => {
     expect(shellSource).toContain(
-      "totalAvailable > 0 || makeupCredits.length > 0",
+      "totalBookable > 0 || makeupCredits.length > 0",
     );
     expect(shellSource).toContain("請重新讀取資料");
   });

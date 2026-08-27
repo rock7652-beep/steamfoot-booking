@@ -69,6 +69,7 @@ function row(overrides: Partial<{
   bookingStatus: string;
   bookingType: string;
   isMakeup: boolean;
+  people: number;
   revenueStaff: { displayName: string } | null;
 }> = {}) {
   return {
@@ -78,6 +79,7 @@ function row(overrides: Partial<{
     bookingStatus: "PENDING",
     bookingType: "FIRST_TRIAL",
     isMakeup: false,
+    people: 1,
     revenueStaff: null,
     ...overrides,
   };
@@ -196,6 +198,7 @@ describe("fetchLiffBookings action (PR-D2)", () => {
         "bookingType",
         "id",
         "isMakeup",
+        "people",
         "slotTime",
         "staffName",
       ]);

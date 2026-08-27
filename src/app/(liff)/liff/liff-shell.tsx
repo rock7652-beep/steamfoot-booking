@@ -45,6 +45,7 @@ import {
   type LiffMemberStoreOption,
 } from "@/server/actions/liff-member-stores";
 import type { HealthSummary } from "@/lib/health-service";
+import { getMemberPlanSummary } from "@/lib/liff/member-plan-summary";
 import { LiffStoreSwitcher } from "./liff-store-switcher";
 
 type State =
@@ -66,13 +67,14 @@ interface LiffShellProps {
 }
 
 /**
- * PR-G4 wallet summary：signed_in 後 lazy fetch；totalAvailable > 0 才在 home
+ * PR-G4 wallet summary：signed_in 後 lazy fetch；totalBookable > 0 才在 home
  * 露「課程預約」CTA。null 表示尚未載 / 載失敗 → CTA 不出（不擋既有 4 顆 CTA）。
  */
 export type MemberHomeSummary = {
   walletsStatus: "ok" | "error";
   activeWallets: LiffWalletRow[];
   makeupCredits: LiffMakeupCreditRow[];
+  upcomingBookings: LiffBookingRow[];
   nextBooking: LiffBookingRow | null;
   healthSummary: HealthSummary | null;
 };
@@ -124,6 +126,8 @@ export function LiffShell({
             activeWallets: wallets?.status === "ok" ? wallets.active : [],
             makeupCredits:
               wallets?.status === "ok" ? wallets.makeupCredits : [],
+            upcomingBookings:
+              bookings.status === "ok" ? bookings.upcoming : [],
             nextBooking:
               bookings.status === "ok" ? (bookings.upcoming[0] ?? null) : null,
             healthSummary:
@@ -442,9 +446,10 @@ export function WelcomeBack({
   }
 
   const wallets = memberSummary?.activeWallets ?? [];
-  const totalAvailable = wallets.reduce((sum, wallet) => sum + wallet.availableToBook, 0);
-  const totalPending = wallets.reduce((sum, wallet) => sum + wallet.pendingCount, 0);
-  const totalRemaining = totalAvailable + totalPending;
+  const { totalUsable, totalBooked, totalBookable } = getMemberPlanSummary(
+    wallets,
+    memberSummary?.upcomingBookings ?? [],
+  );
   const nextBooking = memberSummary?.nextBooking ?? null;
   const makeupCredits = memberSummary?.makeupCredits ?? [];
   const nearestWalletExpiry = wallets.map((wallet) => wallet.expiryDate).find(Boolean) ?? null;
@@ -484,9 +489,9 @@ export function WelcomeBack({
               {nearestWalletExpiry && <span className="text-xs text-earth-500">有效至 {formatFullDateLabel(nearestWalletExpiry)}</span>}
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <SummaryMetric label="可使用" value={totalRemaining} />
-              <SummaryMetric label="已預約" value={totalPending} />
-              <SummaryMetric label="尚可預約" value={totalAvailable} emphasized />
+              <SummaryMetric label="可使用" value={totalUsable} />
+              <SummaryMetric label="已預約" value={totalBooked} />
+              <SummaryMetric label="尚可預約" value={totalBookable} emphasized />
             </div>
             {makeupCredits.length > 0 && (
               <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-sm">
@@ -496,7 +501,7 @@ export function WelcomeBack({
             )}
           </section>
 
-          {totalAvailable > 0 || makeupCredits.length > 0 ? (
+          {totalBookable > 0 || makeupCredits.length > 0 ? (
             <Link href={`/s/${storeSlug}/liff/member-booking`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
               立即預約
             </Link>
@@ -525,7 +530,7 @@ export function WelcomeBack({
         <HomeTile
           href={`/s/${storeSlug}/liff/wallets`}
           label="我的方案"
-          detail={walletsAvailable ? `${totalRemaining} 堂可使用` : "請重新讀取資料"}
+          detail={walletsAvailable ? `${totalUsable} 堂可使用` : "請重新讀取資料"}
         />
         {healthAssessmentEnabled ? (
           <HomeTile href={`/s/${storeSlug}/liff/health`} label="健康紀錄" detail="查看量測與變化" />

@@ -45,6 +45,16 @@ export default function LiffDesignPreviewPage() {
         displayName={liffMessages.shell.designPreviewName}
         memberSummary={{
           walletsStatus: "ok",
+          upcomingBookings: [{
+            id: "preview-booking",
+            bookingDate: "2026-08-29",
+            slotTime: "14:00",
+            bookingStatus: "CONFIRMED",
+            bookingType: "PACKAGE",
+            isMakeup: false,
+            people: 1,
+            staffName: null,
+          }],
           activeWallets: [{
             id: "preview-wallet",
             planName: "暖暖蒸足方案",
@@ -67,6 +77,7 @@ export default function LiffDesignPreviewPage() {
             bookingStatus: "CONFIRMED",
             bookingType: "PACKAGE",
             isMakeup: false,
+            people: 1,
             staffName: null,
           },
           healthSummary: {
