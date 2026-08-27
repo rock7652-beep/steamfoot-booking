@@ -1,16 +1,19 @@
 import { notFound } from "next/navigation";
 import { liffMessages } from "@/lib/liff/messages";
+import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import {
-  resolveStorePresentation,
-  resolveStoreSlugForLiff,
-} from "@/lib/store-resolver";
+  getIndustryService,
+  SPA_INDUSTRY_MODULE,
+} from "@/lib/industry-modules";
 import { WelcomeBack } from "../liff-shell";
+import { ModulePreviewSwitcher } from "../_components/module-preview-switcher";
 
-const spaTerminology = {
-  summaryTitle: "療程摘要",
-  sessionUnit: "次",
-  makeupLabel: "補做資格",
-  walletLabel: "我的療程",
+const featuredSpaService = getIndustryService(SPA_INDUSTRY_MODULE, "package_10");
+const demoPresentation = {
+  slug: "demo",
+  name: "沐光舒療 SPA 示範店",
+  address: "新竹縣竹北市光明六路示範號",
+  mapUrl: "https://maps.google.com/?q=24.8387,121.0178",
 } as const;
 
 /**
@@ -21,21 +24,9 @@ export default async function LiffDesignPreviewPage() {
   if (process.env.VERCEL_ENV === "production") notFound();
 
   const storeSlug = await resolveStoreSlugForLiff();
-  if (!storeSlug) notFound();
-  const presentation = await resolveStorePresentation(storeSlug) ?? (
-    storeSlug === "demo"
-      ? {
-          id: "demo-store",
-          slug: "demo",
-          name: "沐光舒療 SPA 示範店",
-          liffId: null,
-          contactUrl: "https://example.com/demo-contact",
-          address: "新竹縣竹北市光明六路示範號",
-          mapUrl: "https://maps.google.com/?q=24.8387,121.0178",
-        }
-      : null
-  );
-  if (!presentation) notFound();
+  if (storeSlug !== "demo") notFound();
+
+  const presentation = demoPresentation;
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
@@ -45,7 +36,7 @@ export default async function LiffDesignPreviewPage() {
             {presentation.name}
           </p>
           <p className="mt-0.5 text-sm text-earth-500">
-            {liffMessages.shell.memberHomeLabel}
+            {SPA_INDUSTRY_MODULE.customer.memberCenterLabel}
           </p>
         </div>
         <div
@@ -68,6 +59,8 @@ export default async function LiffDesignPreviewPage() {
         </div>
       </header>
 
+      <ModulePreviewSwitcher active="customer" />
+
       <WelcomeBack
         storeSlug={presentation.slug}
         displayName={liffMessages.shell.designPreviewName}
@@ -84,7 +77,7 @@ export default async function LiffDesignPreviewPage() {
           }],
           activeWallets: [{
             id: "preview-wallet",
-            planName: "深層芳療 10 次",
+            planName: featuredSpaService.name,
             planCategory: "PACKAGE",
             totalSessions: 12,
             remainingSessions: 8,
@@ -115,8 +108,8 @@ export default async function LiffDesignPreviewPage() {
             mapUrl: presentation.mapUrl,
           },
         }}
-        healthAssessmentEnabled={false}
-        terminology={spaTerminology}
+        healthAssessmentEnabled={SPA_INDUSTRY_MODULE.features.healthAssessment}
+        terminology={SPA_INDUSTRY_MODULE.customer}
       />
     </div>
   );

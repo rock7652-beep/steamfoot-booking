@@ -14,11 +14,21 @@
 
 import { PrismaClient } from "@prisma/client";
 import { hashSync } from "bcryptjs";
+import {
+  getIndustryService,
+  SPA_INDUSTRY_MODULE,
+} from "../src/lib/industry-modules";
 
 const prisma = new PrismaClient();
 
 const DEMO_STORE_ID = "demo-store";
+const DEMO_STORE_NAME = "沐光舒療 SPA 示範店";
 const PASSWORD_HASH = hashSync("demo1234", 10);
+const trialService = getIndustryService(SPA_INDUSTRY_MODULE, "trial");
+const singleService = getIndustryService(SPA_INDUSTRY_MODULE, "single");
+const packageServices = SPA_INDUSTRY_MODULE.services.filter(
+  (service) => service.category === "PACKAGE",
+);
 
 // ============================================================
 // 假資料工具
@@ -63,7 +73,7 @@ function randomPick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-const SLOT_TIMES = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
+const SLOT_TIMES = ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30", "19:00"];
 
 // ============================================================
 // Main
@@ -81,14 +91,14 @@ async function main() {
     where: { id: DEMO_STORE_ID },
     create: {
       id: DEMO_STORE_ID,
-      name: "沐光舒療 SPA 示範店",
+      name: DEMO_STORE_NAME,
       slug: "demo",
       isDemo: true,
       plan: "ALLIANCE",
       planStatus: "ACTIVE",
     },
     update: {
-      name: "沐光舒療 SPA 示範店",
+      name: DEMO_STORE_NAME,
       isDemo: true,
       plan: "ALLIANCE",
       planStatus: "ACTIVE",
@@ -99,14 +109,14 @@ async function main() {
     where: { storeId: DEMO_STORE_ID },
     create: {
       storeId: DEMO_STORE_ID,
-      shopName: "沐光舒療 SPA 示範店",
+      shopName: DEMO_STORE_NAME,
       dutySchedulingEnabled: true,
       address: "新竹縣竹北市光明六路示範號",
       mapUrl: "https://maps.google.com/?q=24.8387,121.0178",
       lineOfficialUrl: "https://example.com/demo-contact",
     },
     update: {
-      shopName: "沐光舒療 SPA 示範店",
+      shopName: DEMO_STORE_NAME,
       dutySchedulingEnabled: true,
       address: "新竹縣竹北市光明六路示範號",
       mapUrl: "https://maps.google.com/?q=24.8387,121.0178",
@@ -114,7 +124,7 @@ async function main() {
     },
   });
 
-  console.log("  Store: 沐光舒療 SPA 示範店 (ALLIANCE + PRO)");
+  console.log(`  Store: ${DEMO_STORE_NAME} (ALLIANCE + PRO)`);
 
   // ----------------------------------------------------------
   // 2. Users + Staff
@@ -192,14 +202,14 @@ async function main() {
   // ----------------------------------------------------------
   console.log("\n3. Service Plans ...");
 
-  const planDefs = [
-    { name: "新客舒壓體驗 60 分鐘", category: "TRIAL" as const, price: 899, sessions: 1, validity: 30, sort: 0 },
-    { name: "全身芳療單次 90 分鐘", category: "SINGLE" as const, price: 1800, sessions: 1, validity: null, sort: 1 },
-    { name: "舒壓療程 3 次", category: "PACKAGE" as const, price: 5100, sessions: 3, validity: 60, sort: 2 },
-    { name: "舒壓療程 5 次", category: "PACKAGE" as const, price: 8000, sessions: 5, validity: 90, sort: 3 },
-    { name: "深層芳療 10 次", category: "PACKAGE" as const, price: 15000, sessions: 10, validity: 180, sort: 4 },
-    { name: "年度保養 12 次", category: "PACKAGE" as const, price: 16800, sessions: 12, validity: 365, sort: 5 },
-  ];
+  const planDefs = SPA_INDUSTRY_MODULE.services.map((service, sort) => ({
+    name: service.name,
+    category: service.category,
+    price: service.price,
+    sessions: service.sessions,
+    validity: service.validityDays,
+    sort,
+  }));
 
   const plans: Record<string, { id: string; price: number; sessions: number; validity: number | null }> = {};
 
@@ -233,24 +243,24 @@ async function main() {
   console.log("\n3a. Business hours + booking slots ...");
 
   for (let dayOfWeek = 0; dayOfWeek <= 6; dayOfWeek++) {
-    const isClosed = dayOfWeek === 1;
+    const isClosed = SPA_INDUSTRY_MODULE.booking.closedWeekdays.includes(dayOfWeek);
     await prisma.businessHours.upsert({
       where: { storeId_dayOfWeek: { storeId: DEMO_STORE_ID, dayOfWeek } },
       create: {
         storeId: DEMO_STORE_ID,
         dayOfWeek,
         isOpen: !isClosed,
-        openTime: isClosed ? null : "10:00",
-        closeTime: isClosed ? null : "21:00",
-        slotInterval: 90,
-        defaultCapacity: 3,
+        openTime: isClosed ? null : SPA_INDUSTRY_MODULE.booking.openTime,
+        closeTime: isClosed ? null : SPA_INDUSTRY_MODULE.booking.closeTime,
+        slotInterval: SPA_INDUSTRY_MODULE.booking.slotIntervalMinutes,
+        defaultCapacity: SPA_INDUSTRY_MODULE.booking.defaultCapacity,
       },
       update: {
         isOpen: !isClosed,
-        openTime: isClosed ? null : "10:00",
-        closeTime: isClosed ? null : "21:00",
-        slotInterval: 90,
-        defaultCapacity: 3,
+        openTime: isClosed ? null : SPA_INDUSTRY_MODULE.booking.openTime,
+        closeTime: isClosed ? null : SPA_INDUSTRY_MODULE.booking.closeTime,
+        slotInterval: SPA_INDUSTRY_MODULE.booking.slotIntervalMinutes,
+        defaultCapacity: SPA_INDUSTRY_MODULE.booking.defaultCapacity,
       },
     });
 
@@ -267,10 +277,13 @@ async function main() {
           storeId: DEMO_STORE_ID,
           dayOfWeek,
           startTime,
-          capacity: 3,
+          capacity: SPA_INDUSTRY_MODULE.booking.defaultCapacity,
           isEnabled: !isClosed,
         },
-        update: { capacity: 3, isEnabled: !isClosed },
+        update: {
+          capacity: SPA_INDUSTRY_MODULE.booking.defaultCapacity,
+          isEnabled: !isClosed,
+        },
       });
     }
   }
@@ -341,7 +354,7 @@ async function main() {
   const wallets: Array<{ id: string; customerId: string; planName: string; remaining: number }> = [];
 
   // Active customers get active wallets
-  const packagePlans = ["舒壓療程 3 次", "舒壓療程 5 次", "深層芳療 10 次", "年度保養 12 次"];
+  const packagePlans = packageServices.map((service) => service.name);
   for (let i = 0; i < activeCustomers.length; i++) {
     const c = activeCustomers[i];
     const planName = packagePlans[i % packagePlans.length];
@@ -467,7 +480,11 @@ async function main() {
             bookedByType: Math.random() > 0.4 ? "STAFF" : "CUSTOMER",
             bookedByStaffId: Math.random() > 0.4 ? staff.id : null,
             bookingType,
-            servicePlanId: wallet ? plans[wallet.planName].id : (bookingType === "FIRST_TRIAL" ? plans["新客舒壓體驗 60 分鐘"].id : plans["全身芳療單次 90 分鐘"].id),
+            servicePlanId: wallet
+              ? plans[wallet.planName].id
+              : bookingType === "FIRST_TRIAL"
+                ? plans[trialService.name].id
+                : plans[singleService.name].id,
             customerPlanWalletId: wallet?.id ?? null,
             bookingStatus: status,
             people: 1,
@@ -482,8 +499,8 @@ async function main() {
             : bookingType === "PACKAGE_SESSION" ? "SESSION_DEDUCTION" as const
             : "SINGLE_PURCHASE" as const;
 
-          const amount = txType === "TRIAL_PURCHASE" ? 899
-            : txType === "SINGLE_PURCHASE" ? 1800
+          const amount = txType === "TRIAL_PURCHASE" ? trialService.price
+            : txType === "SINGLE_PURCHASE" ? singleService.price
             : 0; // session deduction = 0 amount
 
           await prisma.transaction.create({
@@ -539,7 +556,7 @@ async function main() {
             bookedByType: "STAFF",
             bookedByStaffId: staff.id,
             bookingType: wallet ? "PACKAGE_SESSION" : "SINGLE",
-            servicePlanId: wallet ? plans[wallet.planName].id : plans["全身芳療單次 90 分鐘"].id,
+            servicePlanId: wallet ? plans[wallet.planName].id : plans[singleService.name].id,
             customerPlanWalletId: wallet?.id ?? null,
             bookingStatus: "CONFIRMED",
             people: 1,

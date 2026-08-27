@@ -52,6 +52,10 @@ import {
 } from "@/server/actions/liff-referral-share";
 import { LiffStoreSwitcher } from "./liff-store-switcher";
 import { LiffStoreShareCard } from "./liff-store-share-card";
+import {
+  STEAMFOOT_INDUSTRY_MODULE,
+  type MemberHomeTerminology,
+} from "@/lib/industry-modules";
 
 type State =
   | { kind: "initializing" }
@@ -424,12 +428,7 @@ export function WelcomeBack({
   displayName: string | null;
   memberSummary: MemberHomeSummary | "error" | null;
   healthAssessmentEnabled: boolean;
-  terminology?: {
-    summaryTitle: string;
-    sessionUnit: string;
-    makeupLabel: string;
-    walletLabel: string;
-  };
+  terminology?: MemberHomeTerminology;
 }) {
   if (!memberSummary) {
     return (
@@ -474,12 +473,7 @@ export function WelcomeBack({
   const nearestMakeupExpiry = makeupCredits.map((credit) => credit.expiredAt).find(Boolean) ?? null;
   const healthChange = getHealthChange(memberSummary?.healthSummary ?? null);
   const walletsAvailable = memberSummary.walletsStatus === "ok";
-  const labels = terminology ?? {
-    summaryTitle: "方案摘要",
-    sessionUnit: "堂",
-    makeupLabel: "補課",
-    walletLabel: "我的方案",
-  };
+  const labels = terminology ?? STEAMFOOT_INDUSTRY_MODULE.customer;
 
   return (
     <div className="flex flex-col gap-4">
@@ -531,7 +525,7 @@ export function WelcomeBack({
             </Link>
           ) : (
             <Link href={`/s/${storeSlug}/liff/wallets/shop`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
-              購買方案
+              {labels.buyLabel}
             </Link>
           )}
         </>
