@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   audit:
-    name: Read-only 328-record identity audit
+    name: Read-only remaining-record identity audit
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: Production – steamfoot-booking
@@ -52,11 +52,11 @@ jobs:
           done
           exit "$missing"
 
-      - name: Classify the 328 remaining records without writing
+      - name: Classify the 321 currently remaining records without writing
         id: audit
         run: >-
           npx tsx scripts/audit-healthflow-remaining-safe-matches.ts
-          --expected-remaining=328
+          --expected-remaining=321
           --github-output="$GITHUB_OUTPUT"
 
       - name: Publish aggregate summary only
@@ -76,7 +76,7 @@ jobs:
           PLAN_DIGEST: ${{ steps.audit.outputs.plan_digest }}
         run: |
           {
-            echo "## HealthFlow 328 筆只讀安全對應稽核"
+            echo "## HealthFlow 剩餘資料只讀安全對應稽核"
             echo
             echo "| 分類 | 筆數 |"
             echo "| --- | ---: |"
