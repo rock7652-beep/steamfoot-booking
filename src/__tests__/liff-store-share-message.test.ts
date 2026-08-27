@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildLiffStoreShareMessages } from "@/lib/liff/store-share-message";
 
@@ -41,5 +43,20 @@ describe("LIFF store share message", () => {
       },
     });
     expect(JSON.stringify(messages).split(referralUrl)).toHaveLength(2);
+  });
+
+  it("opens LINE share directly when the native target picker is unavailable", () => {
+    const card = readFileSync(
+      resolve(
+        process.cwd(),
+        "src/app/(liff)/liff/liff-store-share-card.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(card).toContain("buildLineShareUrl");
+    expect(card).toContain("window.location.assign");
+    expect(card).not.toContain("copyToClipboard");
+    expect(card).not.toContain("分享連結已複製");
   });
 });

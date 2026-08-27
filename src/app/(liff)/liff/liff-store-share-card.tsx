@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import {
-  copyToClipboard,
+  buildLineShareUrl,
+  buildShareText,
   toAbsoluteUrl,
 } from "@/lib/share";
 import { shareViaTargetPicker } from "@/lib/liff/client";
@@ -18,14 +19,13 @@ export function LiffStoreShareCard({
 }) {
   const [sharing, setSharing] = useState(false);
 
-  async function copyFallback(referralUrl: string) {
-    const copied = await copyToClipboard(referralUrl);
-    if (!copied) {
-      toast.error("目前無法開啟分享，請稍後再試");
-      return;
-    }
-    void trackCurrentCustomerShare({ source: "liff-store-share:copy" });
-    toast.success("分享連結已複製，可以傳給好友了");
+  function openLineShare(referralUrl: string) {
+    const text = buildShareText({
+      storeName: context.storeName,
+      url: referralUrl,
+      template: context.shareTemplate,
+    });
+    window.location.assign(buildLineShareUrl(text));
   }
 
   async function handleShare() {
@@ -47,7 +47,7 @@ export function LiffStoreShareCard({
         return;
       }
       if (result === "unavailable") {
-        await copyFallback(referralUrl);
+        openLineShare(referralUrl);
       }
     } finally {
       setSharing(false);
