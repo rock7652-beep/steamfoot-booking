@@ -46,7 +46,12 @@ import {
 } from "@/server/actions/liff-member-stores";
 import type { HealthSummary } from "@/lib/health-service";
 import { getMemberPlanSummary } from "@/lib/liff/member-plan-summary";
+import {
+  fetchLiffReferralShareContext,
+  type LiffReferralShareContext,
+} from "@/server/actions/liff-referral-share";
 import { LiffStoreSwitcher } from "./liff-store-switcher";
+import { LiffStoreShareCard } from "./liff-store-share-card";
 
 type State =
   | { kind: "initializing" }
@@ -77,6 +82,7 @@ export type MemberHomeSummary = {
   upcomingBookings: LiffBookingRow[];
   nextBooking: LiffBookingRow | null;
   healthSummary: HealthSummary | null;
+  referralShare: LiffReferralShareContext | null;
 };
 
 export function LiffShell({
@@ -113,12 +119,13 @@ export function LiffShell({
 
       const loadMemberHome = async () => {
         try {
-          const [wallets, bookings, health] = await Promise.all([
+          const [wallets, bookings, health, referralShare] = await Promise.all([
             fetchLiffWallets(),
             fetchLiffBookings(),
             healthAssessmentEnabled
               ? fetchLiffHealthSummary()
               : Promise.resolve(null),
+            fetchLiffReferralShareContext(),
           ]);
           if (cancelled) return;
           setMemberSummary({
@@ -133,6 +140,10 @@ export function LiffShell({
             healthSummary:
               health?.status === "ok" && health.linked
                 ? health.summary
+                : null,
+            referralShare:
+              referralShare.status === "ok"
+                ? referralShare.context
                 : null,
           });
         } catch (err) {
@@ -549,6 +560,10 @@ export function WelcomeBack({
           </div>
         </Link>
       )}
+
+      {memberSummary.referralShare ? (
+        <LiffStoreShareCard context={memberSummary.referralShare} />
+      ) : null}
     </div>
   );
 }

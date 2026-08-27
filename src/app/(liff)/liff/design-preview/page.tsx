@@ -1,20 +1,29 @@
 import { notFound } from "next/navigation";
 import { liffMessages } from "@/lib/liff/messages";
+import {
+  resolveStorePresentation,
+  resolveStoreSlugForLiff,
+} from "@/lib/store-resolver";
 import { WelcomeBack } from "../liff-shell";
 
 /**
  * Draft PR visual review only. No customer session or production data is read.
  * Production must never expose this demonstration route.
  */
-export default function LiffDesignPreviewPage() {
+export default async function LiffDesignPreviewPage() {
   if (process.env.VERCEL_ENV === "production") notFound();
+
+  const storeSlug = await resolveStoreSlugForLiff();
+  if (!storeSlug) notFound();
+  const presentation = await resolveStorePresentation(storeSlug);
+  if (!presentation) notFound();
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
       <header className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">
-            {liffMessages.shell.designPreviewStoreName}
+            {presentation.name}
           </p>
           <p className="mt-0.5 text-sm text-earth-500">
             {liffMessages.shell.memberHomeLabel}
@@ -41,7 +50,7 @@ export default function LiffDesignPreviewPage() {
       </header>
 
       <WelcomeBack
-        storeSlug="zhubei"
+        storeSlug={presentation.slug}
         displayName={liffMessages.shell.designPreviewName}
         memberSummary={{
           walletsStatus: "ok",
@@ -88,6 +97,13 @@ export default function LiffDesignPreviewPage() {
               { measuredAt: "2026-07-01", weight: 69.2, bmi: 23.7, bodyFat: 25.1, muscleMass: 48.2, boneMass: 2.6, visceralFat: 6, bmr: 1420, bodyWater: 51.2, metabolicAge: 40 },
               { measuredAt: "2026-08-23", weight: 68.4, bmi: 23.4, bodyFat: 24.5, muscleMass: 48.5, boneMass: 2.6, visceralFat: 5.5, bmr: 1432, bodyWater: 51.8, metabolicAge: 39 },
             ],
+          },
+          referralShare: {
+            storeName: presentation.name,
+            referralUrl: `/s/${presentation.slug}/line-entry?ref=PREVIEW&destination=public-trial&source=liff-store-share`,
+            shareTemplate: null,
+            address: presentation.address,
+            mapUrl: presentation.mapUrl,
           },
         }}
         healthAssessmentEnabled

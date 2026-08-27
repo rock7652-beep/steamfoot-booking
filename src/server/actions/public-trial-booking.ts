@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
@@ -25,6 +26,11 @@ import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-tria
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 import { resolvePublicTrialLineCustomer } from "@/server/services/public-trial-line-customer";
+import { bindReferralToCustomer } from "@/server/services/referral-binding";
+import {
+  createBookingCreatedEvent,
+  createRegisterEvent,
+} from "@/server/services/referral-events";
 import type { SlotAvailability } from "@/types";
 
 const PUBLIC_TRIAL_STORE_SLUGS = ["zhubei", "hsinchu", "taichung"] as const;
@@ -267,6 +273,8 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
   }
 
   const data = parsed.data;
+  const cookieStore = await cookies();
+  const pendingRef = cookieStore.get("pending-ref")?.value?.trim() || null;
   try {
     const chatLink = data.entry ? await resolveTrialBookingChatLink(data.entry) : null;
     if (data.entry && !chatLink) {
@@ -331,6 +339,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       return { status: "invalid_input", message: "LINE 身分驗證暫時無法完成，請稍後再試。" };
     }
 
+    let customerCreated = false;
     let customer = lineCustomerResult && "customer" in lineCustomerResult
       ? lineCustomerResult.customer
       : chatLink?.channel === "LINE"
@@ -358,6 +367,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           },
           select: { id: true, name: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
         });
+        customerCreated = true;
       } catch (error) {
         if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
         const concurrent = await prisma.customer.findFirst({
@@ -488,6 +498,44 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     );
 
     if (!booking) return { status: "slot_full" };
+    if (pendingRef) {
+      const binding = await bindReferralToCustomer({
+        customerId: customer.id,
+        storeId: store.id,
+        referrerRef: pendingRef,
+        source: "liff-store-share",
+      });
+      const referrerId = binding.referrerCustomerId ?? null;
+      cookieStore.delete("pending-ref");
+      if (referrerId) {
+        try {
+          await Promise.all([
+            customerCreated
+              ? createRegisterEvent({
+                  storeId: store.id,
+                  customerId: customer.id,
+                  referrerId,
+                  source: "liff-store-share",
+                })
+              : Promise.resolve(null),
+            createBookingCreatedEvent({
+              storeId: store.id,
+              customerId: customer.id,
+              referrerId,
+              bookingId: booking.id,
+              source: "liff-store-share",
+            }),
+          ]);
+        } catch (error) {
+          console.error("[public-trial-booking] referral tracking failed", {
+            storeId: store.id,
+            bookingId: booking.id,
+            error,
+          });
+        }
+      }
+    }
+
     await notifyManagerOfPublicTrialBooking({
       storeId: store.id,
       storeSlug: store.slug,

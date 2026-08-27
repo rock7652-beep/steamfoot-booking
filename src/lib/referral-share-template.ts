@@ -1,18 +1,11 @@
 export const REFERRAL_SHARE_TEMPLATE_MAX_LENGTH = 2000;
 
 export const DEFAULT_REFERRAL_SHARE_TEMPLATE = [
-  "我最近去「{storeName}」",
-  "坐著45分鐘居然有點像慢跑完的感覺 😂",
-  "而且蒸完真的很好睡",
+  "想到你最近也很忙",
+  "我在「{storeName}」蒸足放鬆，覺得很舒服 😊",
   "",
-  "📍{storeName}",
-  "",
-  "如果你最近也有點累",
-  "可以去放鬆一下👇",
+  "分享給你，有興趣可以看看👇",
   "{url}",
-  "",
-  "現在還有體驗價$499",
-  "想去趕快約喔",
 ].join("\n");
 
 const ALLOWED_VARIABLES = new Set(["storeName", "url"]);

@@ -19,6 +19,8 @@ describe("referral share template", () => {
     expect(text).toContain("https://example.com/s/zhubei/line-entry?ref=abc");
     expect(text).not.toContain("{storeName}");
     expect(text).not.toContain("{url}");
+    expect(text).toContain("想到你最近也很忙");
+    expect(text).not.toContain("$499");
   });
 
   it("renders a valid merchant template", () => {
