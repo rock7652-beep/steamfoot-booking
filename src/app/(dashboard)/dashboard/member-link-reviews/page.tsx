@@ -24,14 +24,12 @@ const reasonLabel = {
   multiple_customers_in_store: "同一中央會員在同店連到多筆顧客",
 };
 const resolutionLabel = {
-  OTP_REBIND: "待 OTP 重綁",
   MERGE_REVIEW: "需安全合併",
   MANUAL_REVIEW: "需人工核對",
 };
 const resolutionHelp = {
-  OTP_REBIND: "電話與候選 LINE 均為店內唯一；簡訊驗證本人後才可重新綁定。",
   MERGE_REVIEW: "偵測到重複手機或同店多筆顧客，需先比較資料並產生合併預覽。",
-  MANUAL_REVIEW: "存在跨身分、跨門市或 LINE 使用衝突，不可自動改綁。",
+  MANUAL_REVIEW: "存在跨身分、跨門市或登入身分衝突，不可自動改綁。",
 };
 
 export default async function MemberLinkReviewsPage() {
@@ -78,7 +76,6 @@ export default async function MemberLinkReviewsPage() {
   const reviewIssues = healthIssues.filter((issue) => issue.severity === "REVIEW");
   const blockedIssues = healthIssues.filter((issue) => issue.severity === "BLOCKED");
   const resolutionCounts = {
-    OTP_REBIND: healthIssues.filter((issue) => issue.resolution === "OTP_REBIND").length,
     MERGE_REVIEW: healthIssues.filter((issue) => issue.resolution === "MERGE_REVIEW").length,
     MANUAL_REVIEW: healthIssues.filter((issue) => issue.resolution === "MANUAL_REVIEW").length,
   };
@@ -99,8 +96,7 @@ export default async function MemberLinkReviewsPage() {
       </div>
 
       {healthIssues.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <SummaryCard label="待 OTP 重綁" value={resolutionCounts.OTP_REBIND} tone="green" />
+        <div className="grid gap-3 sm:grid-cols-2">
           <SummaryCard label="需安全合併" value={resolutionCounts.MERGE_REVIEW} tone="amber" />
           <SummaryCard label="需人工核對" value={resolutionCounts.MANUAL_REVIEW} tone="red" />
         </div>

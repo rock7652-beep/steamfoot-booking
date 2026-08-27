@@ -21,12 +21,18 @@ const issue: CentralMemberHealthIssue = {
 };
 
 describe("classifyCentralMemberResolution", () => {
-  it("routes a unique phone and LINE candidate to OTP rebind", () => {
-    expect(classifyCentralMemberResolution("store-1", issue, [customer()], [link()])).toBe("OTP_REBIND");
+  it("never recommends rebind from mismatched LINE namespaces", () => {
+    expect(classifyCentralMemberResolution("store-1", issue, [customer()], [link()])).toBe("MANUAL_REVIEW");
   });
 
-  it("routes duplicate phone customers to merge review", () => {
-    expect(classifyCentralMemberResolution("store-1", issue, [customer(), customer({ id: "customer-2" })], [link()])).toBe("MERGE_REVIEW");
+  it("routes an explicit duplicate phone issue to merge review", () => {
+    expect(classifyCentralMemberResolution("store-1", {
+      ...issue,
+      id: "phone:0912345678",
+      category: "PHONE",
+      severity: "REVIEW",
+      reason: "duplicate_phone",
+    }, [customer(), customer({ id: "customer-2" })], [link()])).toBe("MERGE_REVIEW");
   });
 
   it("routes a LINE candidate used by another customer to manual review", () => {
