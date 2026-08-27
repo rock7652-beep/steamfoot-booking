@@ -62,7 +62,6 @@ export default async function LiffDesignPreviewPage() {
             bookingType: "PACKAGE",
             isMakeup: false,
             people: 1,
-            staffName: null,
           }],
           activeWallets: [{
             id: "preview-wallet",
@@ -87,7 +86,6 @@ export default async function LiffDesignPreviewPage() {
             bookingType: "PACKAGE",
             isMakeup: false,
             people: 1,
-            staffName: null,
           },
           healthSummary: {
             latest: null,
