@@ -60,6 +60,17 @@ export async function GET(request: NextRequest) {
     results.reminders = { error: error instanceof Error ? error.message : "Unknown error" };
   }
 
+  // ── 1b. Plan expiry reminders (14 / 7 days before expiry) ──
+  try {
+    const { runPlanExpiryNotifications } = await import("@/server/services/plan-expiry-notifications");
+    const expiryResult = await runPlanExpiryNotifications();
+    console.log(`[Cron] Plan expiry: ${expiryResult.sent} sent, ${expiryResult.skipped} skipped, ${expiryResult.failed} failed`);
+    results.planExpiryNotifications = expiryResult;
+  } catch (error) {
+    console.error("[Cron] Plan expiry reminder error:", error);
+    results.planExpiryNotifications = { error: error instanceof Error ? error.message : "Unknown error" };
+  }
+
   // ── 2. Report snapshot pre-compute (all stores) ──
   try {
     const today = toLocalDateStr();
