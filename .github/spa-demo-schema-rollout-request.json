@@ -1,0 +1,5 @@
+{
+  "approvedAt": "2026-08-28T23:45:00+08:00",
+  "scope": "additive schema plus demo-store allowlisted seed",
+  "formalStoreWritesAllowed": false
+}
