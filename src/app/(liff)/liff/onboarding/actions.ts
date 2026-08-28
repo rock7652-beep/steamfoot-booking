@@ -164,8 +164,19 @@ export async function submitOnboarding(
       return { status: "bound_other" };
     }
 
-    case "phone_taken_by_other_user":
+    case "phone_taken_by_other_user": {
+      const { tryExecuteAuthorizedLiffLoginFirstCapture } = await import(
+        "@/server/services/liff-login-rebind"
+      );
+      const capture = await tryExecuteAuthorizedLiffLoginFirstCapture({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (capture.status === "executed") return { status: "ok" };
       return { status: "phone_taken_by_login_account" };
+    }
 
     case "ambiguous_multiple_candidates":
       return { status: "ambiguous" };
