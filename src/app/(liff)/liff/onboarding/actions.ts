@@ -137,8 +137,32 @@ export async function submitOnboarding(
     case "already_synced":
       return { status: "ok" };
 
-    case "already_bound_to_other_line":
+    case "already_bound_to_other_line": {
+      // A valid, owner-preauthorized channel migration may replace only the
+      // stale LINE Login identity. Customer.lineUserId is the notification
+      // recipient and must remain untouched.
+      const { tryExecuteAuthorizedLiffLoginRebind } = await import(
+        "@/server/services/liff-login-rebind"
+      );
+      const rebind = await tryExecuteAuthorizedLiffLoginRebind({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (rebind.status === "executed") {
+        logLineBindEvent({
+          path: "liff-exchange",
+          status: "authorized_liff_login_rebind_executed",
+          storeId: store.id,
+          storeSlug: store.slug,
+          lineUserId: verified.lineUserId,
+          customerId: helperResult.customerId,
+        });
+        return { status: "ok" };
+      }
       return { status: "bound_other" };
+    }
 
     case "phone_taken_by_other_user":
       return { status: "phone_taken_by_login_account" };
