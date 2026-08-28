@@ -21,6 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockVerify = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
 const mockBindLine = vi.fn();
+const mockAuthorizedLiffRebind = vi.fn();
 
 vi.mock("@/lib/liff/verify-id-token", async () => {
   // 保留真正的 LiffIdTokenError class，讓 action 用 instanceof 判型
@@ -43,6 +44,11 @@ vi.mock("@/server/services/bind-line-to-customer", () => ({
 
 vi.mock("@/server/services/customer-identity-link", () => ({
   upsertCustomerIdentityLink: vi.fn(),
+}));
+
+vi.mock("@/server/services/liff-login-rebind", () => ({
+  tryExecuteAuthorizedLiffLoginRebind: (...args: unknown[]) =>
+    mockAuthorizedLiffRebind(...args),
 }));
 
 import { submitOnboarding } from "@/app/(liff)/liff/onboarding/actions";
@@ -74,6 +80,8 @@ describe("submitOnboarding action (PR-C2)", () => {
     mockVerify.mockReset();
     mockResolveStoreBySlug.mockReset();
     mockBindLine.mockReset();
+    mockAuthorizedLiffRebind.mockReset();
+    mockAuthorizedLiffRebind.mockResolvedValue({ status: "not_authorized" });
   });
 
   afterEach(() => {
@@ -165,6 +173,30 @@ describe("submitOnboarding action (PR-C2)", () => {
     });
     const r = await submitOnboarding(VALID_INPUT);
     expect(r).toEqual({ status: "bound_other" });
+  });
+
+  it("owner-authorized LIFF Login migration → ok without changing notification identity", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({
+      status: "already_bound_to_other_line",
+      customerId: "cust-y",
+      existingLineUserId: "U_messaging_recipient",
+    });
+    mockAuthorizedLiffRebind.mockResolvedValueOnce({
+      status: "executed",
+      requestId: "request-1",
+    });
+
+    const r = await submitOnboarding(VALID_INPUT);
+
+    expect(r).toEqual({ status: "ok" });
+    expect(mockAuthorizedLiffRebind).toHaveBeenCalledWith({
+      storeId: STORE.id,
+      customerId: "cust-y",
+      phone: VALID_INPUT.phone,
+      candidateLineUserId: LINE_USER_ID,
+    });
   });
 
   it("phone_taken_by_other_user → phone_taken_by_login_account", async () => {
