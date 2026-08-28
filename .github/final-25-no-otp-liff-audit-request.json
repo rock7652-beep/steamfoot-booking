@@ -1,0 +1,6 @@
+{
+  "authorizedBy": "owner",
+  "authorizedAt": "2026-08-29T00:05:00+08:00",
+  "mode": "read-only-deterministic-no-otp-preview",
+  "scope": "three-stores-final-25-active-plan-liff-login-readiness"
+}
