@@ -382,7 +382,7 @@ async function applySeed() {
         },
       });
     }
-  });
+  }, { maxWait: 10_000, timeout: 60_000 });
 }
 
 export async function runSpaDemoSeed(apply: boolean) {
