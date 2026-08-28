@@ -2,6 +2,15 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { SPA_INDUSTRY_MODULE } from "@/lib/industry-modules";
+import {
+  addMinutes,
+  canProviderPerformServices,
+  composeSpaServices,
+  hasContinuousAvailability,
+  SPA_SERVICE_MENU,
+  summarizeSpaServices,
+  type SpaProviderSpecialty,
+} from "@/lib/spa-scheduling";
 import { ModulePreviewSwitcher } from "./module-preview-switcher";
 
 type BookingStatus = "新客體驗" | "已確認" | "待到店" | "已到店" | "服務中" | "已完成";
@@ -12,6 +21,7 @@ type PreviewProvider = {
   badge: string;
   name: string;
   specialties: string;
+  specialtyKeys: readonly SpaProviderSpecialty[];
 };
 
 type PreviewBooking = {
@@ -20,8 +30,10 @@ type PreviewBooking = {
   time: string;
   customer: string;
   service: string;
+  serviceItems: readonly string[];
   providerId: string;
   durationMinutes: number;
+  bufferMinutes: number;
   status: BookingStatus;
   tone: Tone;
   remainingSessions: number | null;
@@ -35,9 +47,9 @@ type QuickSlot = {
 };
 
 const previewProviders: readonly PreviewProvider[] = [
-  { id: "p08", badge: "08", name: "陳語安", specialties: "精油芳療・肩頸舒壓" },
-  { id: "p12", badge: "12", name: "張若琳", specialties: "深層芳療・全身按摩" },
-  { id: "p16", badge: "16", name: "王心瑜", specialties: "臉部保養・新客體驗" },
+  { id: "p08", badge: "08", name: "陳語安", specialties: "精油芳療・肩頸舒壓", specialtyKeys: ["body", "head"] },
+  { id: "p10", badge: "10", name: "張若琳", specialties: "深層芳療・複合療程", specialtyKeys: ["body", "head", "foot", "face"] },
+  { id: "p16", badge: "16", name: "王心瑜", specialties: "臉部保養・新客體驗", specialtyKeys: ["face", "head"] },
 ];
 
 const scheduleDays = [
@@ -46,7 +58,11 @@ const scheduleDays = [
   { key: "2026-08-30", shortLabel: "8/30", weekday: "日", today: false },
 ] as const;
 
-const scheduleTimes = ["10:00", "11:30", "13:00", "14:30", "16:00", "17:30"] as const;
+const scheduleTimes = [
+  "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
+  "18:00", "18:30", "19:00", "19:30", "20:00", "20:30",
+] as const;
 
 const initialBookings: readonly PreviewBooking[] = [
   {
@@ -55,8 +71,10 @@ const initialBookings: readonly PreviewBooking[] = [
     time: "10:00",
     customer: "林小姐",
     service: "新客舒壓體驗 60 分鐘",
+    serviceItems: ["新客舒壓體驗"],
     providerId: "p08",
     durationMinutes: 60,
+    bufferMinutes: 30,
     status: "新客體驗",
     tone: "rose",
     remainingSessions: null,
@@ -65,11 +83,13 @@ const initialBookings: readonly PreviewBooking[] = [
   {
     id: "booking-zhang",
     date: "2026-08-29",
-    time: "11:30",
+    time: "10:00",
     customer: "張小姐",
-    service: "深層芳療 10 次",
-    providerId: "p12",
-    durationMinutes: 90,
+    service: "全身精油舒壓＋頭部舒壓＋足部放鬆",
+    serviceItems: ["全身精油舒壓 60 分", "頭部舒壓 30 分", "足部放鬆 30 分"],
+    providerId: "p10",
+    durationMinutes: 120,
+    bufferMinutes: 30,
     status: "待到店",
     tone: "sand",
     remainingSessions: 6,
@@ -81,8 +101,10 @@ const initialBookings: readonly PreviewBooking[] = [
     time: "11:30",
     customer: "周小姐",
     service: "全身芳療單次 90 分鐘",
+    serviceItems: ["全身芳療單次"],
     providerId: "p16",
     durationMinutes: 90,
+    bufferMinutes: 30,
     status: "已確認",
     tone: "sage",
     remainingSessions: null,
@@ -94,8 +116,10 @@ const initialBookings: readonly PreviewBooking[] = [
     time: "14:30",
     customer: "王小姐",
     service: "全身芳療單次 90 分鐘",
+    serviceItems: ["全身芳療單次"],
     providerId: "p08",
     durationMinutes: 90,
+    bufferMinutes: 30,
     status: "已確認",
     tone: "sage",
     remainingSessions: null,
@@ -107,8 +131,10 @@ const initialBookings: readonly PreviewBooking[] = [
     time: "14:30",
     customer: "李小姐",
     service: "舒壓療程 5 次",
-    providerId: "p12",
+    serviceItems: ["舒壓療程"],
+    providerId: "p10",
     durationMinutes: 90,
+    bufferMinutes: 30,
     status: "待到店",
     tone: "sand",
     remainingSessions: 3,
@@ -120,8 +146,10 @@ const initialBookings: readonly PreviewBooking[] = [
     time: "16:00",
     customer: "許小姐",
     service: "年度保養 12 次",
+    serviceItems: ["年度保養"],
     providerId: "p16",
     durationMinutes: 90,
+    bufferMinutes: 30,
     status: "已確認",
     tone: "sage",
     remainingSessions: 8,
@@ -133,8 +161,10 @@ const initialBookings: readonly PreviewBooking[] = [
     time: "13:00",
     customer: "吳小姐",
     service: "舒壓療程 3 次",
+    serviceItems: ["舒壓療程"],
     providerId: "p08",
     durationMinutes: 90,
+    bufferMinutes: 30,
     status: "已完成",
     tone: "slate",
     remainingSessions: 1,
@@ -142,14 +172,13 @@ const initialBookings: readonly PreviewBooking[] = [
   },
 ];
 
-const blockedSlots: Readonly<Record<string, string>> = {
-  "2026-08-29:13:00:p08": "午休",
-  "2026-08-29:13:00:p12": "午休",
-  "2026-08-29:13:00:p16": "午休",
-  "2026-08-29:16:00:p08": "緩衝",
-  "2026-08-29:17:30:p12": "提早下班",
-  "2026-08-30:10:00:p16": "休假",
-};
+const blockedRanges = [
+  { date: "2026-08-29", providerId: "p08", startTime: "13:00", durationMinutes: 60, label: "午休" },
+  { date: "2026-08-29", providerId: "p10", startTime: "13:00", durationMinutes: 60, label: "午休" },
+  { date: "2026-08-29", providerId: "p16", startTime: "13:30", durationMinutes: 60, label: "午休" },
+  { date: "2026-08-29", providerId: "p10", startTime: "17:30", durationMinutes: 210, label: "提早下班" },
+  { date: "2026-08-30", providerId: "p16", startTime: "10:00", durationMinutes: 660, label: "休假" },
+] as const;
 
 const managerNavigation = [
   { label: "今日營運", detail: "總覽", active: true },
@@ -171,7 +200,7 @@ export function SpaManagerSchedulePreview() {
   const industryModule = SPA_INDUSTRY_MODULE;
   const [bookings, setBookings] = useState<PreviewBooking[]>(() => [...initialBookings]);
   const [dayIndex, setDayIndex] = useState(1);
-  const [selectedBookingId, setSelectedBookingId] = useState<string | null>("booking-lin");
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>("booking-zhang");
   const [quickSlot, setQuickSlot] = useState<QuickSlot | null>(null);
   const [notice, setNotice] = useState("點選預約可查看詳情，點選空白時段可快速新增。");
 
@@ -230,21 +259,35 @@ export function SpaManagerSchedulePreview() {
     if (!quickSlot) return;
     const formData = new FormData(event.currentTarget);
     const customer = String(formData.get("customer") ?? "").trim();
-    const serviceKey = String(formData.get("service") ?? "trial");
-    const service = industryModule.services.find((candidate) => candidate.key === serviceKey) ?? industryModule.services[0];
-    if (!customer || !service) return;
+    const primaryKey = String(formData.get("primaryService") ?? "aroma_body_60");
+    const addOnKeys = formData.getAll("addOn").map(String);
+    const serviceItems = composeSpaServices(primaryKey, addOnKeys);
+    const serviceSummary = summarizeSpaServices(serviceItems);
+    const provider = getProvider(quickSlot.providerId);
+    if (!customer) return;
+
+    if (!canProviderPerformServices(provider.specialtyKeys, serviceItems)) {
+      setNotice(`${provider.badge}號無法完成全部所選項目，請改選其他芳療師。`);
+      return;
+    }
+    if (!isAvailable(quickSlot.date, quickSlot.time, provider.id, serviceSummary.durationMinutes, 30, bookings)) {
+      setNotice(`從 ${quickSlot.time} 起沒有連續 ${serviceSummary.durationMinutes} 分鐘服務＋30 分鐘整理空檔。`);
+      return;
+    }
 
     const booking: PreviewBooking = {
       id: `preview-${Date.now()}`,
       date: quickSlot.date,
       time: quickSlot.time,
       customer,
-      service: service.name,
+      service: serviceItems.map((item) => item.name).join("＋"),
+      serviceItems: serviceItems.map((item) => `${item.name} ${item.durationMinutes} 分`),
       providerId: quickSlot.providerId,
-      durationMinutes: service.durationMinutes,
-      status: service.category === "TRIAL" ? "新客體驗" : "已確認",
-      tone: service.category === "TRIAL" ? "rose" : "sage",
-      remainingSessions: service.category === "PACKAGE" ? service.sessions : null,
+      durationMinutes: serviceSummary.durationMinutes,
+      bufferMinutes: 30,
+      status: "已確認",
+      tone: "sage",
+      remainingSessions: null,
       note: "由店長於現場／電話快速建立",
     };
     setBookings((current) => [...current, booking]);
@@ -256,9 +299,7 @@ export function SpaManagerSchedulePreview() {
   function openFirstAvailableSlot() {
     for (const time of scheduleTimes) {
       for (const provider of previewProviders) {
-        const occupied = dayBookings.some((booking) => booking.time === time && booking.providerId === provider.id);
-        const blocked = blockedSlots[slotKey(selectedDay.key, time, provider.id)];
-        if (!occupied && !blocked) {
+        if (isAvailable(selectedDay.key, time, provider.id, 60, 30, bookings)) {
           openQuickBooking({ date: selectedDay.key, time, providerId: provider.id });
           return;
         }
@@ -322,7 +363,7 @@ export function SpaManagerSchedulePreview() {
             <MetricCard label="今日預約" value={String(dayBookings.length)} unit="筆" detail={`${previewProviders.length} 位芳療師`} />
             <MetricCard label="待服務" value={String(activeCount)} unit="筆" detail={activeCount ? "可逐筆確認到店" : "今日服務已完成"} />
             <MetricCard label="新顧客" value={String(newCustomerCount)} unit="位" detail={newCustomerCount ? "初次體驗" : "目前沒有新客"} emphasized />
-            <MetricCard label="人員排程" value="3" unit="位" detail="號牌 08・12・16" />
+            <MetricCard label="人員排程" value="3" unit="位" detail="號牌 08・10・16" />
           </section>
 
           <div className="mt-6 grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -336,36 +377,28 @@ export function SpaManagerSchedulePreview() {
               </div>
 
               <div className="hidden overflow-x-auto lg:block">
-                <table className="w-full min-w-[900px] border-collapse text-left">
-                  <thead>
-                    <tr className="bg-earth-50/90 text-sm">
-                      <th className="sticky left-0 z-20 w-20 border-b border-r border-earth-100 bg-earth-50 px-4 py-4 font-medium text-earth-500">時間</th>
-                      {previewProviders.map((provider) => <ProviderHeader key={provider.id} provider={provider} />)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scheduleTimes.map((time) => (
-                      <tr key={time}>
-                        <th className="sticky left-0 z-10 border-b border-r border-earth-100 bg-white px-4 py-4 align-top text-sm font-semibold tabular-nums text-earth-700">{time}</th>
-                        {previewProviders.map((provider) => {
-                          const booking = dayBookings.find((candidate) => candidate.time === time && candidate.providerId === provider.id);
-                          const blocked = blockedSlots[slotKey(selectedDay.key, time, provider.id)];
-                          return (
-                            <td key={provider.id} className="h-28 border-b border-r border-earth-100 p-2 align-top last:border-r-0">
-                              {booking ? (
-                                <ScheduleBooking booking={booking} selected={booking.id === selectedBookingId} onOpen={openBooking} />
-                              ) : blocked ? (
-                                <BlockedSlot label={blocked} />
-                              ) : (
-                                <EmptySlot label={`${time}・${provider.badge}號 ${provider.name}`} onOpen={() => openQuickBooking({ date: selectedDay.key, time, providerId: provider.id })} />
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
+                <div className="min-w-[900px]">
+                  <div className="grid grid-cols-[80px_repeat(3,minmax(240px,1fr))] bg-earth-50/90 text-sm">
+                    <div className="sticky left-0 z-20 border-b border-r border-earth-100 bg-earth-50 px-4 py-4 font-medium text-earth-500">時間</div>
+                    {previewProviders.map((provider) => <ProviderHeader key={provider.id} provider={provider} />)}
+                  </div>
+                  <div className="grid grid-cols-[80px_repeat(3,minmax(240px,1fr))]">
+                    <div className="sticky left-0 z-20 grid bg-white" style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, 52px)` }}>
+                      {scheduleTimes.map((time) => <div key={time} className="border-b border-r border-earth-100 px-3 py-2 text-xs font-semibold tabular-nums text-earth-600">{time}</div>)}
+                    </div>
+                    {previewProviders.map((provider) => (
+                      <ScheduleProviderColumn
+                        key={provider.id}
+                        provider={provider}
+                        date={selectedDay.key}
+                        bookings={dayBookings}
+                        selectedBookingId={selectedBookingId}
+                        onOpenBooking={openBooking}
+                        onOpenQuickBooking={openQuickBooking}
+                      />
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
               </div>
 
               <div className="grid gap-3 p-4 lg:hidden">
@@ -412,7 +445,54 @@ function DateSelector({ dayIndex, onChooseDay }: { dayIndex: number; onChooseDay
 }
 
 function ProviderHeader({ provider }: { provider: PreviewProvider }) {
-  return <th className="border-b border-r border-earth-100 px-4 py-4 last:border-r-0"><div className="flex items-center gap-3"><span className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-primary-100 px-2 text-xs font-bold text-primary-700">{provider.badge}號</span><div><p className="font-semibold text-earth-900">{provider.name}</p><p className="mt-0.5 text-xs font-normal text-earth-500">{provider.specialties}</p></div></div></th>;
+  return <div className="border-b border-r border-earth-100 px-4 py-4 last:border-r-0"><div className="flex items-center gap-3"><span className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-primary-100 px-2 text-xs font-bold text-primary-700">{provider.badge}號</span><div><p className="font-semibold text-earth-900">{provider.name}</p><p className="mt-0.5 text-xs font-normal text-earth-500">{provider.specialties}</p></div></div></div>;
+}
+
+function ScheduleProviderColumn({
+  provider,
+  date,
+  bookings,
+  selectedBookingId,
+  onOpenBooking,
+  onOpenQuickBooking,
+}: {
+  provider: PreviewProvider;
+  date: string;
+  bookings: readonly PreviewBooking[];
+  selectedBookingId: string | null;
+  onOpenBooking: (id: string) => void;
+  onOpenQuickBooking: (slot: QuickSlot) => void;
+}) {
+  const providerBookings = bookings.filter((booking) => booking.providerId === provider.id);
+  const providerBlocks = blockedRanges.filter((range) => range.date === date && range.providerId === provider.id);
+
+  return (
+    <div className="relative grid border-r border-earth-100 last:border-r-0" style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, 52px)` }}>
+      {scheduleTimes.map((time, index) => {
+        const available = isAvailable(date, time, provider.id, 30, 0, bookings);
+        return (
+          <div key={time} className="border-b border-earth-100 p-1" style={{ gridColumn: 1, gridRow: index + 1 }}>
+            {available ? <EmptySlot label={`${time}・${provider.badge}號 ${provider.name}`} onOpen={() => onOpenQuickBooking({ date, time, providerId: provider.id })} /> : null}
+          </div>
+        );
+      })}
+      {providerBlocks.map((range) => (
+        <div key={`${range.startTime}-${range.label}`} className="z-10 p-1" style={{ gridColumn: 1, gridRow: `${rowForTime(range.startTime)} / span ${rowsForMinutes(range.durationMinutes)}` }}>
+          <BlockedSlot label={range.label} />
+        </div>
+      ))}
+      {providerBookings.map((booking) => (
+        <div key={booking.id} className="z-20 p-1" style={{ gridColumn: 1, gridRow: `${rowForTime(booking.time)} / span ${rowsForMinutes(booking.durationMinutes)}` }}>
+          <ScheduleBooking booking={booking} selected={booking.id === selectedBookingId} onOpen={onOpenBooking} />
+        </div>
+      ))}
+      {providerBookings.filter((booking) => booking.bufferMinutes > 0).map((booking) => (
+        <div key={`${booking.id}-buffer`} className="z-10 p-1" style={{ gridColumn: 1, gridRow: `${rowForTime(addMinutes(booking.time, booking.durationMinutes))} / span ${rowsForMinutes(booking.bufferMinutes)}` }}>
+          <BlockedSlot label={`整理 ${booking.bufferMinutes} 分`} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function ScheduleBooking({ booking, selected, onOpen }: { booking: PreviewBooking; selected: boolean; onOpen: (id: string) => void }) {
@@ -420,21 +500,22 @@ function ScheduleBooking({ booking, selected, onOpen }: { booking: PreviewBookin
     <button type="button" onClick={() => onOpen(booking.id)} aria-pressed={selected} className={`h-full w-full rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${toneClasses[booking.tone]} ${selected ? "ring-2 ring-earth-700 ring-offset-1" : ""}`}>
       <span className="flex items-start justify-between gap-2"><span className="font-semibold text-earth-900">{booking.customer}</span><span className="shrink-0 text-[11px] font-semibold">{booking.status}</span></span>
       <span className="mt-2 block text-xs leading-relaxed text-earth-700">{booking.service}</span>
+      <span className="mt-2 block text-[11px] font-semibold tabular-nums text-earth-600">{booking.time}–{addMinutes(booking.time, booking.durationMinutes)}・{booking.durationMinutes} 分</span>
     </button>
   );
 }
 
 function EmptySlot({ label, onOpen }: { label: string; onOpen: () => void }) {
-  return <button type="button" onClick={onOpen} aria-label={`新增預約：${label}`} className="flex h-full min-h-20 w-full items-center justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/40 text-xs text-earth-400 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700">＋ 可安排</button>;
+  return <button type="button" onClick={onOpen} aria-label={`新增預約：${label}`} className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-earth-200 bg-earth-50/40 text-[11px] text-earth-400 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700">＋ 可安排</button>;
 }
 
 function BlockedSlot({ label }: { label: string }) {
-  return <div className="flex h-full min-h-20 items-center justify-center rounded-xl bg-earth-100 text-xs font-medium text-earth-400">{label}</div>;
+  return <div className="flex h-full items-center justify-center rounded-xl bg-earth-100 px-2 text-center text-xs font-medium text-earth-400">{label}</div>;
 }
 
 function MobileBookingCard({ booking, onOpen }: { booking: PreviewBooking; onOpen: (id: string) => void }) {
   const provider = getProvider(booking.providerId);
-  return <button type="button" onClick={() => onOpen(booking.id)} className={`rounded-xl border p-4 text-left ${toneClasses[booking.tone]}`}><span className="flex items-center justify-between gap-3"><span className="font-semibold text-earth-900">{booking.time}・{booking.customer}</span><span className="text-xs font-semibold">{booking.status}</span></span><span className="mt-2 block text-sm text-earth-700">{booking.service}</span><span className="mt-2 block text-xs text-earth-500">{provider.badge}號 {provider.name}</span></button>;
+  return <button type="button" onClick={() => onOpen(booking.id)} className={`rounded-xl border p-4 text-left ${toneClasses[booking.tone]}`}><span className="flex items-center justify-between gap-3"><span className="font-semibold text-earth-900">{booking.time}–{addMinutes(booking.time, booking.durationMinutes)}・{booking.customer}</span><span className="text-xs font-semibold">{booking.status}</span></span><span className="mt-2 block text-sm text-earth-700">{booking.service}</span><span className="mt-2 block text-xs text-earth-500">{booking.durationMinutes} 分鐘・{provider.badge}號 {provider.name}</span></button>;
 }
 
 function BookingDetail({ booking, onStatusChange, onRebook }: { booking: PreviewBooking; onStatusChange: (status: BookingStatus) => void; onRebook: () => void }) {
@@ -442,7 +523,7 @@ function BookingDetail({ booking, onStatusChange, onRebook }: { booking: Preview
   return (
     <section className="rounded-2xl bg-earth-900 p-5 text-white shadow-[0_12px_32px_rgba(52,47,39,0.14)]">
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-300">預約詳情・{booking.time}</p><h2 className="mt-2 text-xl font-semibold">{booking.customer}</h2></div><span className="rounded-full bg-white/12 px-2.5 py-1 text-xs font-semibold">{booking.status}</span></div>
-      <dl className="mt-5 space-y-3 border-t border-white/10 pt-4 text-sm"><DetailRow label="服務項目" value={booking.service} /><DetailRow label="芳療師" value={`${provider.badge}號 ${provider.name}`} /><DetailRow label="療程時間" value={`${booking.durationMinutes} 分鐘`} /><DetailRow label="可用次數" value={booking.remainingSessions === null ? "單次／現場付款" : `剩餘 ${booking.remainingSessions} 次`} /><DetailRow label="注意事項" value={booking.note} /></dl>
+      <dl className="mt-5 space-y-3 border-t border-white/10 pt-4 text-sm"><DetailRow label="服務項目" value={booking.serviceItems.join("＋")} /><DetailRow label="芳療師" value={`${provider.badge}號 ${provider.name}`} /><DetailRow label="服務時段" value={`${booking.time}–${addMinutes(booking.time, booking.durationMinutes)}`} /><DetailRow label="療程時間" value={`${booking.durationMinutes} 分鐘＋整理 ${booking.bufferMinutes} 分鐘`} /><DetailRow label="可用次數" value={booking.remainingSessions === null ? "單次／現場付款" : `剩餘 ${booking.remainingSessions} 次`} /><DetailRow label="注意事項" value={booking.note} /></dl>
       <div className="mt-5 grid grid-cols-2 gap-2"><ActionButton label="確認到店" onClick={() => onStatusChange("已到店")} disabled={booking.status === "已完成"} /><ActionButton label="開始服務" onClick={() => onStatusChange("服務中")} disabled={booking.status === "已完成"} /><ActionButton label="完成並扣療程" onClick={() => onStatusChange("已完成")} disabled={booking.status === "已完成"} emphasized /><ActionButton label="再約下一次" onClick={onRebook} /></div>
       <p className="mt-4 rounded-xl bg-white/8 px-3.5 py-3 text-xs leading-relaxed text-earth-200 ring-1 ring-white/10">本頁只操作瀏覽器中的虛構資料；重新整理後復原。</p>
     </section>
@@ -451,6 +532,18 @@ function BookingDetail({ booking, onStatusChange, onRebook }: { booking: Preview
 
 function QuickBookingForm({ slot, onCancel, onSubmit }: { slot: QuickSlot; onCancel: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
   const provider = getProvider(slot.providerId);
+  const [primaryKey, setPrimaryKey] = useState("aroma_body_60");
+  const [addOnKeys, setAddOnKeys] = useState<readonly string[]>([]);
+  const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
+  const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
+  const primary = SPA_SERVICE_MENU.find((item) => item.key === primaryKey) ?? primaryItems[0];
+  const selectedItems = composeSpaServices(primaryKey, primary.kind === "COMBO" ? [] : addOnKeys);
+  const summary = summarizeSpaServices(selectedItems);
+
+  function toggleAddOn(key: string) {
+    setAddOnKeys((current) => current.includes(key) ? current.filter((candidate) => candidate !== key) : [...current, key]);
+  }
+
   return (
     <section className="rounded-2xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-500">現場／電話快速預約</p><h2 className="mt-2 text-lg font-semibold">{slot.time}・{provider.badge}號 {provider.name}</h2></div><button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">關閉</button></div>
@@ -459,10 +552,9 @@ function QuickBookingForm({ slot, onCancel, onSubmit }: { slot: QuickSlot; onCan
           <label htmlFor="spa-preview-customer" className="block text-sm font-medium text-earth-700">顧客姓名</label>
           <input id="spa-preview-customer" name="customer" required autoFocus placeholder="例如：陳小姐" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500" />
         </div>
-        <div>
-          <label htmlFor="spa-preview-service" className="block text-sm font-medium text-earth-700">服務療程</label>
-          <select id="spa-preview-service" name="service" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500">{SPA_INDUSTRY_MODULE.services.map((service) => <option key={service.key} value={service.key}>{service.name}</option>)}</select>
-        </div>
+        <div><label htmlFor="spa-preview-primary-service" className="block text-sm font-medium text-earth-700">主療程／組合</label><select id="spa-preview-primary-service" name="primaryService" value={primaryKey} onChange={(event) => { setPrimaryKey(event.target.value); setAddOnKeys([]); }} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500">{primaryItems.map((item) => <option key={item.key} value={item.key}>{item.name}・{item.durationMinutes} 分</option>)}</select></div>
+        {primary.kind !== "COMBO" ? <fieldset><legend className="text-sm font-medium text-earth-700">加購項目（可複選）</legend><div className="mt-2 grid gap-2">{addOnItems.map((item) => <label key={item.key} className="flex items-center justify-between gap-3 rounded-xl border border-earth-200 px-3 py-2 text-sm"><span className="flex items-center gap-2"><input type="checkbox" name="addOn" value={item.key} checked={addOnKeys.includes(item.key)} onChange={() => toggleAddOn(item.key)} />{item.name}</span><span className="shrink-0 text-xs text-earth-500">＋{item.durationMinutes} 分</span></label>)}</div></fieldset> : null}
+        <div className="rounded-xl bg-primary-50 px-3.5 py-3 text-sm text-primary-800"><p className="font-semibold">合計 {summary.durationMinutes} 分鐘・NT${summary.price.toLocaleString()}</p><p className="mt-1 text-xs">另保留 30 分鐘整理；送出時會再次檢查連續空檔與芳療師資格。</p></div>
         <button type="submit" className="min-h-11 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white">加入示範排程</button>
       </form>
     </section>
@@ -497,8 +589,39 @@ function getProvider(providerId: string): PreviewProvider {
   return previewProviders.find((provider) => provider.id === providerId) ?? previewProviders[0];
 }
 
-function slotKey(date: string, time: string, providerId: string) {
-  return `${date}:${time}:${providerId}`;
+function isAvailable(
+  date: string,
+  time: string,
+  providerId: string,
+  serviceMinutes: number,
+  bufferMinutes: number,
+  bookings: readonly PreviewBooking[],
+) {
+  const bookingRanges = bookings
+    .filter((booking) => booking.date === date && booking.providerId === providerId)
+    .map((booking) => ({
+      startTime: booking.time,
+      durationMinutes: booking.durationMinutes + booking.bufferMinutes,
+    }));
+  const unavailableRanges = blockedRanges
+    .filter((range) => range.date === date && range.providerId === providerId)
+    .map((range) => ({ startTime: range.startTime, durationMinutes: range.durationMinutes }));
+  return hasContinuousAvailability({
+    startTime: time,
+    serviceMinutes,
+    bufferMinutes,
+    closeTime: "21:00",
+    occupiedRanges: [...bookingRanges, ...unavailableRanges],
+  });
+}
+
+function rowForTime(time: string) {
+  const index = scheduleTimes.indexOf(time as (typeof scheduleTimes)[number]);
+  return Math.max(index, 0) + 1;
+}
+
+function rowsForMinutes(minutes: number) {
+  return Math.max(Math.ceil(minutes / 30), 1);
 }
 
 function sortBookings(a: PreviewBooking, b: PreviewBooking) {
