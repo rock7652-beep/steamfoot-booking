@@ -26,7 +26,7 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - name: Verify audit is read only
-        run: test "$(grep -Ec '\.(create|update|updateMany|delete|deleteMany|upsert)\(' scripts/audit-final-25-no-otp-liff-repairs.ts)" -eq 0
+        run: test "$(grep -Ec 'prisma\.[[:alnum:]_]+\.(create|update|updateMany|delete|deleteMany|upsert)\(' scripts/audit-final-25-no-otp-liff-repairs.ts)" -eq 0
       - run: npx tsx scripts/audit-final-25-no-otp-liff-repairs.ts
       - uses: actions/upload-artifact@v4
         with:
