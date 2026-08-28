@@ -29,12 +29,15 @@ function toneForStatus(status: SpaDemoBookingStatus): SpaDemoTone {
 }
 
 /**
- * Preview reads the database only when explicitly enabled. This keeps PR
- * deployments from opening a connection to the production tenant by default.
- * Every database query remains pinned to the one immutable Demo store id.
+ * Vercel Preview reads the isolated Demo tenant after its Seed is installed.
+ * Local/test environments stay on fixtures unless explicitly enabled. Every
+ * database query remains pinned to the one immutable Demo store id.
  */
 export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
-  if (process.env.SPA_DEMO_DATABASE_PREVIEW_ENABLED !== "true") {
+  const databasePreviewEnabled =
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.SPA_DEMO_DATABASE_PREVIEW_ENABLED === "true";
+  if (!databasePreviewEnabled) {
     return SPA_DEMO_FIXTURE;
   }
 
