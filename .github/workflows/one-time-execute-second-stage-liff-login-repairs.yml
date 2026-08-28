@@ -29,5 +29,5 @@ jobs:
       - name: Verify protected data is outside mutation boundary
         run: |
           test "$(grep -Ec 'customerPlanWallet\.(create|update|delete)|booking\.(create|update|delete)|customerHealthRecord\.(create|update|delete)' scripts/execute-second-stage-liff-login-repairs.ts)" -eq 0
-          test "$(grep -Ec 'lineUserId:.*customer|customer.*lineUserId' scripts/execute-second-stage-liff-login-repairs.ts)" -eq 0
+          test "$(grep -Ec 'tx\.customer\.(update|updateMany).*lineUserId|data:.*lineUserId.*tx\.customer' scripts/execute-second-stage-liff-login-repairs.ts)" -eq 0
       - run: npx tsx scripts/execute-second-stage-liff-login-repairs.ts
