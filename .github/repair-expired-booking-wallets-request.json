@@ -1,0 +1,5 @@
+{
+  "authorized": "owner",
+  "mode": "atomic-guarded-rebind",
+  "scope": "four-audited-future-bookings-after-linked-wallet-expiry-20260828"
+}
