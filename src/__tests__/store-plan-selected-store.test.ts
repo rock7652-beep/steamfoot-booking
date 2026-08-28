@@ -31,4 +31,16 @@ describe("selected concrete store plan", () => {
       select: { plan: true },
     });
   });
+
+  it("always gives the isolated SPA Demo store the full-access plan", async () => {
+    mocks.getActiveStoreForRead.mockResolvedValue("demo-store");
+    const { getCurrentStorePlan, getStoreForPlanByStoreId } = await import("@/lib/store-plan");
+
+    await expect(getCurrentStorePlan()).resolves.toBe("ALLIANCE");
+    await expect(getStoreForPlanByStoreId("demo-store")).resolves.toMatchObject({
+      id: "demo-store",
+      plan: "ALLIANCE",
+    });
+    expect(mocks.findUnique).not.toHaveBeenCalled();
+  });
 });

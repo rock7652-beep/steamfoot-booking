@@ -33,6 +33,10 @@ describe("SPA Demo tenant isolation", () => {
     expect(source).toContain("SPA_DEMO_STAFF_EMAIL_BELONGS_TO_FORMAL_STORE");
     expect(source).toContain("SPA_DEMO_ALLOWLIST_ID_BELONGS_TO_FORMAL_STORE");
     expect(source).toContain("prisma.$transaction");
+    expect(source).toContain('const SPA_DEMO_FULL_ACCESS_PLAN = "ALLIANCE"');
+    expect(source).toContain('const SPA_DEMO_DIGITAL_BUTLER_FEATURE = "digital_butler"');
+    expect(source).toContain('source: "HQ_OVERRIDE"');
+    expect(source).toContain("SPA_DEMO_FULL_ACCESS_VERIFICATION_FAILED");
     expect(source).not.toMatch(/\.(delete|deleteMany|updateMany)\s*\(/);
   });
 });

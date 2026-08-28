@@ -61,6 +61,10 @@ export type SpaDemoStoreIdentity = {
   isDemo: boolean;
 };
 
+export function isSpaDemoStoreId(storeId: string | null | undefined): boolean {
+  return storeId === SPA_DEMO_STORE.id;
+}
+
 export function assertSpaDemoStoreIdentity(store: SpaDemoStoreIdentity | null): asserts store is SpaDemoStoreIdentity {
   if (
     !store ||

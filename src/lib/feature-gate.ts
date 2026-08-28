@@ -14,6 +14,7 @@ import { requireFeature, getPlanLimits, hasFeature, FEATURES } from "@/lib/featu
 import { getCurrentStoreForPlan, getStoreForPlanByStoreId } from "@/lib/store-plan";
 import type { FeatureKey, PlanLimits } from "@/lib/feature-flags";
 import type { StorePlanFields } from "@/lib/store-plan";
+import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 
 const FEATURE_KEY_SET = new Set<string>(Object.values(FEATURES));
 
@@ -71,6 +72,7 @@ export async function hasStoreFeature(
   feature: FeatureKey,
 ): Promise<boolean> {
   if (!isFeatureKey(feature)) return false;
+  if (isSpaDemoStoreId(storeId)) return true;
 
   const store = await getStoreForPlanByStoreId(storeId);
   const baseAllowed = hasFeature(store.plan, feature);

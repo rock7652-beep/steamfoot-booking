@@ -52,6 +52,19 @@ beforeEach(() => {
 });
 
 describe("hasStoreFeature", () => {
+  it("opens every registered feature for the isolated SPA Demo store", async () => {
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("demo-store", FEATURES.DIGITAL_BUTLER),
+    ).resolves.toBe(true);
+    await expect(
+      hasStoreFeature("demo-store", FEATURES.ADVANCED_REPORTS),
+    ).resolves.toBe(true);
+    expect(mockGetStoreForPlanByStoreId).not.toHaveBeenCalled();
+    expect(mockEntitlementFindUnique).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["BASIC", false],
     ["GROWTH", true],

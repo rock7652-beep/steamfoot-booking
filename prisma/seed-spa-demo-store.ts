@@ -22,6 +22,8 @@ import {
 const prisma = new PrismaClient();
 const APPLY = process.argv.includes("--apply");
 const PASSWORD_HASH = hashSync("demo1234", 10);
+const SPA_DEMO_FULL_ACCESS_PLAN = "ALLIANCE" as const;
+const SPA_DEMO_DIGITAL_BUTLER_FEATURE = "digital_butler";
 
 const STAFF = [
   { id: "spa-demo-owner", userId: "spa-demo-user-owner", email: "demo-spa-owner@steamfoot.tw", displayName: "林沐晴 店長", role: "OWNER" as const, isOwner: true, colorCode: "#8b6f5a" },
@@ -124,8 +126,45 @@ async function applySeed() {
   await prisma.$transaction(async (tx) => {
     await tx.store.upsert({
       where: { id: SPA_DEMO_STORE.id },
-      create: { id: SPA_DEMO_STORE.id, slug: SPA_DEMO_STORE.slug, name: SPA_DEMO_STORE.name, isDemo: true, plan: "EXPERIENCE", planStatus: "TRIAL" },
-      update: { slug: SPA_DEMO_STORE.slug, name: SPA_DEMO_STORE.name, isDemo: true },
+      create: {
+        id: SPA_DEMO_STORE.id,
+        slug: SPA_DEMO_STORE.slug,
+        name: SPA_DEMO_STORE.name,
+        isDemo: true,
+        plan: SPA_DEMO_FULL_ACCESS_PLAN,
+        planStatus: "ACTIVE",
+        digitalButlerEnabled: true,
+      },
+      update: {
+        slug: SPA_DEMO_STORE.slug,
+        name: SPA_DEMO_STORE.name,
+        isDemo: true,
+        plan: SPA_DEMO_FULL_ACCESS_PLAN,
+        planStatus: "ACTIVE",
+        digitalButlerEnabled: true,
+      },
+    });
+    await tx.storeFeatureEntitlement.upsert({
+      where: {
+        uq_store_feature_entitlement: {
+          storeId: SPA_DEMO_STORE.id,
+          featureKey: SPA_DEMO_DIGITAL_BUTLER_FEATURE,
+        },
+      },
+      create: {
+        storeId: SPA_DEMO_STORE.id,
+        featureKey: SPA_DEMO_DIGITAL_BUTLER_FEATURE,
+        status: "ENABLED",
+        source: "HQ_OVERRIDE",
+        note: "SPA Demo 全功能展示授權",
+      },
+      update: {
+        status: "ENABLED",
+        source: "HQ_OVERRIDE",
+        startsAt: null,
+        expiresAt: null,
+        note: "SPA Demo 全功能展示授權",
+      },
     });
     await tx.shopConfig.upsert({
       where: { storeId: SPA_DEMO_STORE.id },
@@ -243,6 +282,33 @@ export async function runSpaDemoSeed(apply: boolean) {
     prisma.customer.count({ where: { storeId: SPA_DEMO_STORE.id } }),
     prisma.booking.count({ where: { storeId: SPA_DEMO_STORE.id, id: { in: SPA_DEMO_BOOKINGS.map((booking) => booking.id) } } }),
   ]);
+  const fullAccess = await prisma.store.findUnique({
+    where: { id: SPA_DEMO_STORE.id },
+    select: {
+      slug: true,
+      isDemo: true,
+      plan: true,
+      planStatus: true,
+      digitalButlerEnabled: true,
+      featureEntitlements: {
+        where: { featureKey: SPA_DEMO_DIGITAL_BUTLER_FEATURE },
+        select: { featureKey: true, status: true, startsAt: true, expiresAt: true },
+      },
+    },
+  });
+  if (!fullAccess) throw new Error("SPA_DEMO_FULL_ACCESS_VERIFICATION_FAILED");
+  assertSpaDemoStoreIdentity({ id: SPA_DEMO_STORE.id, ...fullAccess });
+  if (
+    fullAccess.plan !== SPA_DEMO_FULL_ACCESS_PLAN ||
+    fullAccess.planStatus !== "ACTIVE" ||
+    !fullAccess.digitalButlerEnabled ||
+    fullAccess.featureEntitlements.length !== 1 ||
+    fullAccess.featureEntitlements[0]?.status !== "ENABLED" ||
+    fullAccess.featureEntitlements[0]?.startsAt !== null ||
+    fullAccess.featureEntitlements[0]?.expiresAt !== null
+  ) {
+    throw new Error("SPA_DEMO_FULL_ACCESS_VERIFICATION_FAILED");
+  }
   return { applied: true, staff: counts[0], customers: counts[1], previewBookings: counts[2] };
 }
 

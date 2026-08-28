@@ -8,6 +8,7 @@
 import { prisma } from "@/lib/db";
 import { getActiveStoreForRead } from "@/lib/store";
 import { requireStaffSession } from "@/lib/session";
+import { isSpaDemoStoreId, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import type { PricingPlan, Store } from "@prisma/client";
 
 /** Store plan 查詢所需的 select 欄位 */
@@ -40,6 +41,7 @@ export async function getCurrentStorePlan(): Promise<PricingPlan> {
 
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) return "ALLIANCE"; // ADMIN 全部分店 → 解鎖全部功能
+  if (isSpaDemoStoreId(storeId)) return "ALLIANCE";
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: { plan: true },
@@ -67,6 +69,19 @@ export async function getCurrentStoreForPlan(): Promise<StorePlanFields> {
     };
   }
 
+  if (isSpaDemoStoreId(storeId)) {
+    return {
+      id: SPA_DEMO_STORE.id,
+      plan: "ALLIANCE",
+      maxStaffOverride: null,
+      maxCustomersOverride: null,
+      maxMonthlyBookingsOverride: null,
+      maxMonthlyReportsOverride: null,
+      maxReminderSendsOverride: null,
+      maxStoresOverride: null,
+    };
+  }
+
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: STORE_PLAN_SELECT,
@@ -81,6 +96,7 @@ export async function getCurrentStoreForPlan(): Promise<StorePlanFields> {
 
 /** 依 storeId 取得 plan（供 cron / 非 session 場景使用） */
 export async function getStorePlanById(storeId: string): Promise<PricingPlan> {
+  if (isSpaDemoStoreId(storeId)) return "ALLIANCE";
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: { plan: true },
@@ -96,6 +112,18 @@ export async function getStorePlanById(storeId: string): Promise<PricingPlan> {
  * 改由呼叫端從 session/customer 拿到 storeId 後傳入此 helper。
  */
 export async function getStoreForPlanByStoreId(storeId: string): Promise<StorePlanFields> {
+  if (isSpaDemoStoreId(storeId)) {
+    return {
+      id: SPA_DEMO_STORE.id,
+      plan: "ALLIANCE",
+      maxStaffOverride: null,
+      maxCustomersOverride: null,
+      maxMonthlyBookingsOverride: null,
+      maxMonthlyReportsOverride: null,
+      maxReminderSendsOverride: null,
+      maxStoresOverride: null,
+    };
+  }
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: STORE_PLAN_SELECT,
