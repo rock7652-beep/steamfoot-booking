@@ -25,7 +25,7 @@ async function main() {
     prisma.customer.findMany({
       where: {
         mergedIntoCustomerId: null,
-        wallets: {
+        planWallets: {
           some: {
             status: "ACTIVE",
             remainingSessions: { gt: 0 },
