@@ -26,6 +26,33 @@ const PASSWORD_HASH = hashSync("demo1234", 10);
 const SPA_DEMO_FULL_ACCESS_PLAN = "ALLIANCE" as const;
 const SPA_DEMO_DIGITAL_BUTLER_FEATURE = "digital_butler";
 
+const SKILLS = [
+  { id: "spa-demo-skill-body", key: "body", name: "身體芳療" },
+  { id: "spa-demo-skill-head", key: "head", name: "頭部／肩頸" },
+  { id: "spa-demo-skill-foot", key: "foot", name: "足部療程" },
+  { id: "spa-demo-skill-face", key: "face", name: "臉部保養" },
+] as const;
+
+const TREATMENTS = [
+  { id: "spa-demo-treatment-body-60", name: "全身芳療", variant: "60 分鐘", price: 1800, serviceMinutes: 60, bufferMinutes: 15, skills: ["body"] },
+  { id: "spa-demo-treatment-body-90", name: "全身芳療", variant: "90 分鐘", price: 2500, serviceMinutes: 90, bufferMinutes: 15, skills: ["body"] },
+  { id: "spa-demo-treatment-head-30", name: "頭部舒壓", variant: "30 分鐘", price: 800, serviceMinutes: 30, bufferMinutes: 10, skills: ["head"] },
+  { id: "spa-demo-treatment-foot-30", name: "足部放鬆", variant: "30 分鐘", price: 800, serviceMinutes: 30, bufferMinutes: 10, skills: ["foot"] },
+  { id: "spa-demo-treatment-face-60", name: "臉部保濕護理", variant: "60 分鐘", price: 2000, serviceMinutes: 60, bufferMinutes: 15, skills: ["face"] },
+] as const;
+
+const STAFF_SKILLS: Record<string, readonly string[]> = {
+  "spa-demo-staff-08": ["body", "head", "foot"],
+  "spa-demo-staff-10": ["body", "head", "foot", "face"],
+  "spa-demo-staff-16": ["body", "face"],
+};
+
+const STAFF_WEEKLY_AVAILABILITY: Record<string, { days: readonly number[]; startTime: string; endTime: string }> = {
+  "spa-demo-staff-08": { days: [2, 3, 4, 5, 6, 0], startTime: "10:00", endTime: "18:00" },
+  "spa-demo-staff-10": { days: [2, 3, 4, 6, 0], startTime: "12:00", endTime: "21:00" },
+  "spa-demo-staff-16": { days: [3, 4, 5, 6, 0], startTime: "10:00", endTime: "19:00" },
+};
+
 const STAFF = [
   { id: "spa-demo-owner", userId: "spa-demo-user-owner", email: "demo-spa-owner@steamfoot.tw", displayName: "林沐晴 店長", role: "OWNER" as const, isOwner: true, colorCode: "#8b6f5a" },
   { id: "spa-demo-staff-08", userId: "spa-demo-user-08", email: "demo-spa-08@steamfoot.tw", displayName: "08號 陳語安", role: "PARTNER" as const, isOwner: false, colorCode: "#c79275" },
@@ -202,6 +229,79 @@ async function applySeed() {
       });
     }
 
+    for (const [sortOrder, skill] of SKILLS.entries()) {
+      await tx.professionalSkill.upsert({
+        where: { id: skill.id },
+        create: { id: skill.id, storeId: SPA_DEMO_STORE.id, name: skill.name, sortOrder },
+        update: { name: skill.name, sortOrder, isActive: true },
+      });
+    }
+
+    for (const [sortOrder, treatment] of TREATMENTS.entries()) {
+      await tx.treatment.upsert({
+        where: { id: treatment.id },
+        create: {
+          id: treatment.id,
+          storeId: SPA_DEMO_STORE.id,
+          name: treatment.name,
+          variantLabel: treatment.variant,
+          price: treatment.price,
+          serviceMinutes: treatment.serviceMinutes,
+          bufferMinutes: treatment.bufferMinutes,
+          publicVisible: true,
+          sortOrder,
+        },
+        update: {
+          name: treatment.name,
+          variantLabel: treatment.variant,
+          price: treatment.price,
+          serviceMinutes: treatment.serviceMinutes,
+          bufferMinutes: treatment.bufferMinutes,
+          isActive: true,
+          publicVisible: true,
+          sortOrder,
+        },
+      });
+      for (const skillKey of treatment.skills) {
+        const skill = SKILLS.find((candidate) => candidate.key === skillKey);
+        if (!skill) throw new Error(`SPA_DEMO_TREATMENT_SKILL_MISSING:${skillKey}`);
+        await tx.treatmentSkill.upsert({
+          where: { treatmentId_skillId: { treatmentId: treatment.id, skillId: skill.id } },
+          create: { storeId: SPA_DEMO_STORE.id, treatmentId: treatment.id, skillId: skill.id },
+          update: { storeId: SPA_DEMO_STORE.id },
+        });
+      }
+    }
+
+    for (const [staffId, skillKeys] of Object.entries(STAFF_SKILLS)) {
+      for (const skillKey of skillKeys) {
+        const skill = SKILLS.find((candidate) => candidate.key === skillKey);
+        if (!skill) throw new Error(`SPA_DEMO_STAFF_SKILL_MISSING:${skillKey}`);
+        await tx.staffSkill.upsert({
+          where: { staffId_skillId: { staffId, skillId: skill.id } },
+          create: { storeId: SPA_DEMO_STORE.id, staffId, skillId: skill.id },
+          update: { storeId: SPA_DEMO_STORE.id },
+        });
+      }
+    }
+
+    for (const [staffId, availability] of Object.entries(STAFF_WEEKLY_AVAILABILITY)) {
+      for (const dayOfWeek of availability.days) {
+        await tx.staffWeeklyAvailability.upsert({
+          where: {
+            uq_staff_weekly_availability: {
+              staffId,
+              dayOfWeek,
+              startTime: availability.startTime,
+              endTime: availability.endTime,
+            },
+          },
+          create: { storeId: SPA_DEMO_STORE.id, staffId, dayOfWeek, startTime: availability.startTime, endTime: availability.endTime },
+          update: { storeId: SPA_DEMO_STORE.id, isActive: true },
+        });
+      }
+    }
+
     for (let dayOfWeek = 0; dayOfWeek <= 6; dayOfWeek += 1) {
       const isOpen = !SPA_INDUSTRY_MODULE.booking.closedWeekdays.includes(dayOfWeek);
       await tx.businessHours.upsert({
@@ -239,6 +339,7 @@ async function applySeed() {
 
     for (const booking of SPA_DEMO_BOOKINGS) {
       const planName = BOOKING_PLANS[booking.id];
+      const treatment = planName === "新客舒壓體驗 60 分鐘" ? TREATMENTS[0] : TREATMENTS[1];
       const bookingStatus = booking.status === "已完成" ? "COMPLETED" : "CONFIRMED";
       await tx.booking.upsert({
         where: { id: booking.id },
@@ -254,6 +355,12 @@ async function applySeed() {
           bookedByStaffId: "spa-demo-owner",
           bookingType: booking.status === "新客體驗" ? "FIRST_TRIAL" : BOOKING_WALLETS[booking.id] ? "PACKAGE_SESSION" : "SINGLE",
           servicePlanId: PLAN_IDS[planName],
+          treatmentId: treatment.id,
+          treatmentNameSnapshot: treatment.name,
+          treatmentVariantSnapshot: treatment.variant,
+          treatmentPriceSnapshot: treatment.price,
+          treatmentServiceMinutesSnapshot: treatment.serviceMinutes,
+          treatmentBufferMinutesSnapshot: treatment.bufferMinutes,
           customerPlanWalletId: BOOKING_WALLETS[booking.id] ?? null,
           bookingStatus,
           notes: `SPA_DEMO|${booking.note}`,
@@ -263,6 +370,12 @@ async function applySeed() {
           slotTime: booking.time,
           serviceStaffId: booking.providerId,
           servicePlanId: PLAN_IDS[planName],
+          treatmentId: treatment.id,
+          treatmentNameSnapshot: treatment.name,
+          treatmentVariantSnapshot: treatment.variant,
+          treatmentPriceSnapshot: treatment.price,
+          treatmentServiceMinutesSnapshot: treatment.serviceMinutes,
+          treatmentBufferMinutesSnapshot: treatment.bufferMinutes,
           customerPlanWalletId: BOOKING_WALLETS[booking.id] ?? null,
           bookingStatus,
           notes: `SPA_DEMO|${booking.note}`,

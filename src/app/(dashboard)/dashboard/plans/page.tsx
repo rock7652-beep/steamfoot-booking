@@ -14,6 +14,8 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { PlansManager } from "./_components/plans-manager";
 import type { PlanRow } from "./_components/plan-form-drawer";
+import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
+import { TreatmentWorkspace } from "./_components/treatment-workspace";
 
 export default async function PlansPage() {
   const user = await getCurrentUser();
@@ -29,6 +31,7 @@ export default async function PlansPage() {
   const canManage =
     !isViewMode &&
     (await checkPermission(user.role, user.staffId, "wallet.create"));
+  const isSpaDemo = isSpaDemoStoreId(plansStoreId);
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。
@@ -65,8 +68,8 @@ export default async function PlansPage() {
     <FeatureGate plan={storePlan} feature={FEATURES.PLAN_MANAGEMENT}>
       <PageShell>
         <PageHeader
-          title="方案管理"
-          subtitle="管理前台可購買與店內可指派方案"
+          title={isSpaDemo ? "療程管理" : "方案管理"}
+          subtitle={isSpaDemo ? "設定療程金額、服務時間、整理時間與必要專業" : "管理前台可購買與店內可指派方案"}
           actions={
             <Link
               href="/dashboard"
@@ -77,11 +80,7 @@ export default async function PlansPage() {
           }
         />
 
-        <PlansManager
-          initialPlans={planRows}
-          canManage={canManage}
-          readOnly={isViewMode}
-        />
+        {isSpaDemo ? <TreatmentWorkspace /> : <PlansManager initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
       </PageShell>
     </FeatureGate>
   );
