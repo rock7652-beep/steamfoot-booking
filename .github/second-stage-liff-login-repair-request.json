@@ -4,5 +4,7 @@
   "mode": "atomic-exact-snapshot-repair",
   "candidateCount": 44,
   "candidateFingerprint": "323986d7bb958c68354c985ef7acf0de7ab59e91cd87ccdb9e2e32b1335a78be",
-  "manualCustomersMustRemainUnchanged": 24
+  "manualCustomersMustRemainUnchanged": 24,
+  "retryAt": "2026-08-28T23:28:00+08:00",
+  "retryReason": "safety-grep-false-positive-before-database-execution"
 }
