@@ -56,9 +56,10 @@ describe("SPA Demo tenant isolation", () => {
       sidebar.indexOf('href: "/dashboard/settings"'),
     );
     expect(staffPage).toContain("StaffWorkspace");
-    expect(staffWorkspace).toContain("人員總覽");
-    expect(staffWorkspace).toContain("接客時段");
-    expect(staffWorkspace).toContain("休假與例外");
+    expect(staffWorkspace).toContain("專業項目");
+    expect(staffWorkspace).toContain("固定班表");
+    expect(staffWorkspace).toContain("請假／臨時加班");
+    expect(staffWorkspace).toContain("不必逐時段新增");
     expect(staffWorkspace).toContain("緊急聯絡人");
     expect(schedule).toContain("sticky top-0 z-30");
     expect(schedule).toContain("max-h-[calc(100vh-330px)]");

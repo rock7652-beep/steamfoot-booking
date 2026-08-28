@@ -236,10 +236,10 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
               </div>
             </dl>
             <Link
-              href="/dashboard/duty"
+              href="/dashboard/staff"
               className="inline-flex rounded-lg border border-earth-300 px-3 py-2 text-xs font-medium text-earth-700 hover:bg-earth-50"
             >
-              設定此人員可接客時段
+              返回人員管理設定專業與班表
             </Link>
           </section>
         )}

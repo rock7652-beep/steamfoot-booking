@@ -53,6 +53,7 @@ export default async function StaffPage() {
       customerCount: staff._count.assignedCustomers,
       specialties: provider?.specialties
         ?? (staff.isOwner ? "門店營運管理" : "尚未設定專業項目"),
+      specialtyKeys: provider?.specialtyKeys ?? [],
       emergencyContact: provider?.emergencyContact ?? null,
       weeklyAvailability: provider?.weeklyAvailability ?? [],
       scheduleExceptions: provider?.scheduleExceptions ?? [],
