@@ -43,6 +43,7 @@ export type IndustryModule = {
     staffLabel: string;
   };
   booking: {
+    resourceModel: "space_capacity" | "provider_availability";
     slotIntervalMinutes: number;
     defaultCapacity: number;
     openTime: string;
@@ -85,6 +86,7 @@ export const STEAMFOOT_INDUSTRY_MODULE: IndustryModule = {
     staffLabel: "人員管理",
   },
   booking: {
+    resourceModel: "space_capacity",
     slotIntervalMinutes: 60,
     defaultCapacity: 1,
     openTime: "10:00",
@@ -131,8 +133,9 @@ export const SPA_INDUSTRY_MODULE: IndustryModule = {
     staffLabel: "芳療師管理",
   },
   booking: {
+    resourceModel: "provider_availability",
     slotIntervalMinutes: 90,
-    defaultCapacity: 3,
+    defaultCapacity: 1,
     openTime: "10:00",
     closeTime: "21:00",
     closedWeekdays: [1],

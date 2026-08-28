@@ -28,6 +28,9 @@ describe("industry modules", () => {
       buyLabel: "購買療程",
     });
     expect(SPA_INDUSTRY_MODULE.roles.provider).toBe("芳療師");
+    expect(SPA_INDUSTRY_MODULE.booking.resourceModel).toBe("provider_availability");
+    expect(SPA_INDUSTRY_MODULE.booking.defaultCapacity).toBe(1);
+    expect(STEAMFOOT_INDUSTRY_MODULE.booking.resourceModel).toBe("space_capacity");
     expect(SPA_INDUSTRY_MODULE.features.healthAssessment).toBe(false);
     expect(STEAMFOOT_INDUSTRY_MODULE.features.healthAssessment).toBe(true);
   });
