@@ -432,6 +432,12 @@ export async function createBooking(
     const makeupPeople = Math.min(validMakeupCount, bookingPeople);
     const walletPeople = bookingPeople - makeupPeople;
     const willUseMakeup = makeupPeople > 0;
+    const bookingDateObj2 = new Date(data.bookingDate + "T00:00:00Z");
+    const walletsCoveringBookingDate = customer.planWallets.filter(
+      (wallet) =>
+        wallet.remainingSessions > 0 &&
+        (!wallet.expiryDate || wallet.expiryDate >= bookingDateObj2),
+    );
 
     // ── 4. 一般預約：需有有效課程 + 票券期限 + 人數檢查
     // 不信任 client 傳入的 customerPlanWalletId — 必須屬於 effectiveCustomerId
@@ -458,12 +464,7 @@ export async function createBooking(
       }
 
       // 票券期限檢查：所有 ACTIVE wallet 都過期 → 阻擋
-      const bookingDateObj2 = new Date(data.bookingDate + "T00:00:00Z");
-      const hasWalletCoveringDate = customer.planWallets.some(
-        (w) =>
-          w.remainingSessions > 0 &&
-          (!w.expiryDate || w.expiryDate >= bookingDateObj2)
-      );
+      const hasWalletCoveringDate = walletsCoveringBookingDate.length > 0;
       if (!hasWalletCoveringDate) {
         // 找最晚到期日用於提示
         const latestExpiry = customer.planWallets
@@ -479,8 +480,27 @@ export async function createBooking(
         );
       }
 
+      // 明確指定的 wallet 也必須覆蓋「實際上課日」。先前只檢查顧客名下
+      // 是否另有任一張有效 wallet，卻保留 client 指定的過期 wallet，造成
+      // 預約成功後仍綁定過期方案。
+      if (
+        data.customerPlanWalletId &&
+        !walletsCoveringBookingDate.some((wallet) => wallet.id === data.customerPlanWalletId)
+      ) {
+        const selectedWallet = customer.planWallets.find(
+          (wallet) => wallet.id === data.customerPlanWalletId,
+        );
+        const selectedExpiry = selectedWallet?.expiryDate?.toISOString().slice(0, 10);
+        throw new AppError(
+          "BUSINESS_RULE",
+          selectedExpiry
+            ? `所選方案有效期限至 ${selectedExpiry}，無法預約 ${data.bookingDate}`
+            : "所選方案在預約日期不可使用，請改選其他有效方案",
+        );
+      }
+
       // 人數 vs 剩餘堂數檢查
-      const totalRemaining = customer.planWallets.reduce(
+      const totalRemaining = walletsCoveringBookingDate.reduce(
         (sum, w) => sum + w.remainingSessions,
         0
       );
@@ -496,11 +516,7 @@ export async function createBooking(
       // 排序規則：expiryDate ASC（NULL 排最後）→ createdAt ASC → id ASC（穩定）
       if (!data.customerPlanWalletId) {
         const firstUsable = sortWalletsByFEFO(
-          customer.planWallets.filter(
-            (w) =>
-              w.remainingSessions > 0 &&
-              (!w.expiryDate || w.expiryDate >= bookingDateObj2)
-          )
+          walletsCoveringBookingDate
         )[0];
         if (!firstUsable) {
           throw new AppError(
@@ -533,12 +549,11 @@ export async function createBooking(
         where: {
           status: "RESERVED",
           wallet: {
-            customerId: effectiveCustomerId,
-            status: "ACTIVE",
+            id: { in: walletsCoveringBookingDate.map((wallet) => wallet.id) },
           },
         },
       });
-      const totalRemaining = customer.planWallets.reduce(
+      const totalRemaining = walletsCoveringBookingDate.reduce(
         (sum, w) => sum + w.remainingSessions,
         0
       );
@@ -703,9 +718,9 @@ export async function createBooking(
       // PR #194: people=N 一張 wallet 不夠時，依 FEFO 順序橫跨多張補足
       //   - preferredWalletId = data.customerPlanWalletId (auto-pick FEFO 第一張或 user 明選)
       //   - 跨 wallet 後若實際 primary 與 preferred 不同（preferred 0 堂被略過）→ 更新 booking 欄位
-      if (walletPeople > 0 && data.customerPlanWalletId && customer.planWallets.length > 0) {
+      if (walletPeople > 0 && data.customerPlanWalletId && walletsCoveringBookingDate.length > 0) {
         const { primaryWalletId } = await allocateSessionsFefo(tx, {
-          candidates: customer.planWallets.map((w) => ({
+          candidates: walletsCoveringBookingDate.map((w) => ({
             id: w.id,
             expiryDate: w.expiryDate,
             createdAt: w.createdAt,

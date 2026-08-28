@@ -384,4 +384,41 @@ describe("createBooking auto-pick — FEFO（最早到期優先）", () => {
       WALLET_NO_EXPIRY_OLD,
     );
   });
+
+  it("明確指定已在上課日前到期的 wallet → 即使另有有效 wallet 也拒絕", async () => {
+    const expiredWalletId = "ck0000000000000000000x02";
+    mockCustomerFindUnique.mockResolvedValue(
+      customerWith([
+        {
+          id: expiredWalletId,
+          remainingSessions: 1,
+          expiryDate: new Date("2026-04-20T00:00:00Z"),
+          createdAt: new Date("2026-01-01T00:00:00Z"),
+        },
+        {
+          id: WALLET_LATE_EXPIRY,
+          remainingSessions: 3,
+          expiryDate: new Date("2026-08-31T00:00:00Z"),
+          createdAt: new Date("2026-02-01T00:00:00Z"),
+        },
+      ]),
+    );
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const result = await createBooking({
+      customerId: CUSTOMER_ID,
+      bookingDate: "2026-04-27",
+      slotTime: "11:00",
+      bookingType: "PACKAGE_SESSION",
+      customerPlanWalletId: expiredWalletId,
+      people: 1,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("所選方案有效期限至 2026-04-20");
+      expect(result.error).toContain("無法預約 2026-04-27");
+    }
+    expect(mockBookingCreate).not.toHaveBeenCalled();
+  });
 });
