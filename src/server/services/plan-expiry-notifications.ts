@@ -4,6 +4,10 @@ import { pushMessage, pushSteamButlerMessage, type LineFlexMessage } from "@/lib
 import { toLocalDateStr } from "@/lib/date-utils";
 import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import {
+  parsePlanExpiryReminderEnabled,
+  planExpiryReminderSettingId,
+} from "@/lib/plan-expiry-reminder-setting";
 
 const EXPIRY_REMINDERS = [
   { days: 14, key: "plan-expiry-14-days" },
@@ -120,8 +124,18 @@ export async function runPlanExpiryNotifications(now = new Date()) {
         _count: { select: { sessions: { where: { status: "RESERVED" } } } },
       },
     });
+    const storeIds = [...new Set(wallets.map((wallet) => wallet.storeId))];
+    const settings = await prisma.messageTemplate.findMany({
+      where: { id: { in: storeIds.map(planExpiryReminderSettingId) } },
+      select: { id: true, body: true },
+    });
+    const settingById = new Map(settings.map((setting) => [setting.id, setting.body]));
 
     for (const wallet of wallets) {
+      if (!parsePlanExpiryReminderEnabled(settingById.get(planExpiryReminderSettingId(wallet.storeId)))) {
+        summary.skipped += 1;
+        continue;
+      }
       // remainingSessions = AVAILABLE + RESERVED. If everything is already
       // arranged, another booking reminder would only create noise.
       if (wallet._count.sessions >= wallet.remainingSessions) {
