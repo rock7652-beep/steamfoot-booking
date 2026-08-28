@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
+import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
 import { SpaManagerSchedulePreview } from "../_components/spa-manager-schedule-preview";
 
 /**
@@ -10,7 +12,14 @@ export default async function SpaManagerPreviewPage() {
   if (process.env.VERCEL_ENV === "production") notFound();
 
   const storeSlug = await resolveStoreSlugForLiff();
-  if (storeSlug !== "demo") notFound();
+  if (storeSlug !== SPA_DEMO_STORE.slug) notFound();
 
-  return <SpaManagerSchedulePreview />;
+  const preview = await getSpaDemoPreviewData();
+  return (
+    <SpaManagerSchedulePreview
+      initialProviders={preview.providers}
+      initialBookings={preview.bookings}
+      dataSource={preview.source}
+    />
+  );
 }

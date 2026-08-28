@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { liffMessages } from "@/lib/liff/messages";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
+import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
 import {
   getIndustryService,
   SPA_INDUSTRY_MODULE,
@@ -10,13 +12,6 @@ import { ModulePreviewSwitcher } from "../_components/module-preview-switcher";
 import { SpaServiceComposerPreview } from "../_components/spa-service-composer-preview";
 
 const featuredSpaService = getIndustryService(SPA_INDUSTRY_MODULE, "package_10");
-const demoPresentation = {
-  slug: "demo",
-  name: "沐光舒療 SPA 示範店",
-  address: "新竹縣竹北市光明六路示範號",
-  mapUrl: "https://maps.google.com/?q=24.8387,121.0178",
-} as const;
-
 /**
  * Draft PR visual review only. No customer session or production data is read.
  * Production must never expose this demonstration route.
@@ -25,9 +20,9 @@ export default async function LiffDesignPreviewPage() {
   if (process.env.VERCEL_ENV === "production") notFound();
 
   const storeSlug = await resolveStoreSlugForLiff();
-  if (storeSlug !== "demo") notFound();
+  if (storeSlug !== SPA_DEMO_STORE.slug) notFound();
 
-  const presentation = demoPresentation;
+  const { presentation } = await getSpaDemoPreviewData();
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">

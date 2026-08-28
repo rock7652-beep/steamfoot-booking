@@ -3,54 +3,28 @@
 import { FormEvent, useMemo, useState } from "react";
 import { SPA_INDUSTRY_MODULE } from "@/lib/industry-modules";
 import {
+  SPA_DEMO_BOOKINGS,
+  SPA_DEMO_PROVIDERS,
+  type SpaDemoBooking as PreviewBooking,
+  type SpaDemoBookingStatus as BookingStatus,
+  type SpaDemoProvider as PreviewProvider,
+  type SpaDemoTone as Tone,
+} from "@/lib/spa-demo-store";
+import {
   addMinutes,
   canProviderPerformServices,
   composeSpaServices,
   hasContinuousAvailability,
   SPA_SERVICE_MENU,
   summarizeSpaServices,
-  type SpaProviderSpecialty,
 } from "@/lib/spa-scheduling";
 import { ModulePreviewSwitcher } from "./module-preview-switcher";
-
-type BookingStatus = "新客體驗" | "已確認" | "待到店" | "已到店" | "服務中" | "已完成";
-type Tone = "sage" | "sand" | "rose" | "slate";
-
-type PreviewProvider = {
-  id: string;
-  badge: string;
-  name: string;
-  specialties: string;
-  specialtyKeys: readonly SpaProviderSpecialty[];
-};
-
-type PreviewBooking = {
-  id: string;
-  date: string;
-  time: string;
-  customer: string;
-  service: string;
-  serviceItems: readonly string[];
-  providerId: string;
-  durationMinutes: number;
-  bufferMinutes: number;
-  status: BookingStatus;
-  tone: Tone;
-  remainingSessions: number | null;
-  note: string;
-};
 
 type QuickSlot = {
   date: string;
   time: string;
   providerId: string;
 };
-
-const previewProviders: readonly PreviewProvider[] = [
-  { id: "p08", badge: "08", name: "陳語安", specialties: "精油芳療・肩頸舒壓", specialtyKeys: ["body", "head"] },
-  { id: "p10", badge: "10", name: "張若琳", specialties: "深層芳療・複合療程", specialtyKeys: ["body", "head", "foot", "face"] },
-  { id: "p16", badge: "16", name: "王心瑜", specialties: "臉部保養・新客體驗", specialtyKeys: ["face", "head"] },
-];
 
 const scheduleDays = [
   { key: "2026-08-28", shortLabel: "8/28", weekday: "五", today: false },
@@ -64,120 +38,15 @@ const scheduleTimes = [
   "18:00", "18:30", "19:00", "19:30", "20:00", "20:30",
 ] as const;
 
-const initialBookings: readonly PreviewBooking[] = [
-  {
-    id: "booking-lin",
-    date: "2026-08-29",
-    time: "10:00",
-    customer: "林小姐",
-    service: "新客舒壓體驗 60 分鐘",
-    serviceItems: ["新客舒壓體驗"],
-    providerId: "p08",
-    durationMinutes: 60,
-    bufferMinutes: 30,
-    status: "新客體驗",
-    tone: "rose",
-    remainingSessions: null,
-    note: "首次到店，肩頸容易緊繃",
-  },
-  {
-    id: "booking-zhang",
-    date: "2026-08-29",
-    time: "10:00",
-    customer: "張小姐",
-    service: "全身精油舒壓＋頭部舒壓＋足部放鬆",
-    serviceItems: ["全身精油舒壓 60 分", "頭部舒壓 30 分", "足部放鬆 30 分"],
-    providerId: "p10",
-    durationMinutes: 120,
-    bufferMinutes: 30,
-    status: "待到店",
-    tone: "sand",
-    remainingSessions: 6,
-    note: "偏好力道中等，避開左肩舊傷",
-  },
-  {
-    id: "booking-zhou",
-    date: "2026-08-29",
-    time: "11:30",
-    customer: "周小姐",
-    service: "全身芳療單次 90 分鐘",
-    serviceItems: ["全身芳療單次"],
-    providerId: "p16",
-    durationMinutes: 90,
-    bufferMinutes: 30,
-    status: "已確認",
-    tone: "sage",
-    remainingSessions: null,
-    note: "單次服務，現場付款",
-  },
-  {
-    id: "booking-wang",
-    date: "2026-08-29",
-    time: "14:30",
-    customer: "王小姐",
-    service: "全身芳療單次 90 分鐘",
-    serviceItems: ["全身芳療單次"],
-    providerId: "p08",
-    durationMinutes: 90,
-    bufferMinutes: 30,
-    status: "已確認",
-    tone: "sage",
-    remainingSessions: null,
-    note: "希望加強腰背",
-  },
-  {
-    id: "booking-li",
-    date: "2026-08-29",
-    time: "14:30",
-    customer: "李小姐",
-    service: "舒壓療程 5 次",
-    serviceItems: ["舒壓療程"],
-    providerId: "p10",
-    durationMinutes: 90,
-    bufferMinutes: 30,
-    status: "待到店",
-    tone: "sand",
-    remainingSessions: 3,
-    note: "療程將於 9/30 到期",
-  },
-  {
-    id: "booking-xu",
-    date: "2026-08-29",
-    time: "16:00",
-    customer: "許小姐",
-    service: "年度保養 12 次",
-    serviceItems: ["年度保養"],
-    providerId: "p16",
-    durationMinutes: 90,
-    bufferMinutes: 30,
-    status: "已確認",
-    tone: "sage",
-    remainingSessions: 8,
-    note: "固定每兩週保養",
-  },
-  {
-    id: "booking-before",
-    date: "2026-08-28",
-    time: "13:00",
-    customer: "吳小姐",
-    service: "舒壓療程 3 次",
-    serviceItems: ["舒壓療程"],
-    providerId: "p08",
-    durationMinutes: 90,
-    bufferMinutes: 30,
-    status: "已完成",
-    tone: "slate",
-    remainingSessions: 1,
-    note: "已完成服務",
-  },
-];
+// Detail subcomponents use the same immutable allowlist as the server loader.
+const previewProviders = SPA_DEMO_PROVIDERS;
 
 const blockedRanges = [
-  { date: "2026-08-29", providerId: "p08", startTime: "13:00", durationMinutes: 60, label: "午休" },
-  { date: "2026-08-29", providerId: "p10", startTime: "13:00", durationMinutes: 60, label: "午休" },
-  { date: "2026-08-29", providerId: "p16", startTime: "13:30", durationMinutes: 60, label: "午休" },
-  { date: "2026-08-29", providerId: "p10", startTime: "17:30", durationMinutes: 210, label: "提早下班" },
-  { date: "2026-08-30", providerId: "p16", startTime: "10:00", durationMinutes: 660, label: "休假" },
+  { date: "2026-08-29", providerId: "spa-demo-staff-08", startTime: "13:00", durationMinutes: 60, label: "午休" },
+  { date: "2026-08-29", providerId: "spa-demo-staff-10", startTime: "13:00", durationMinutes: 60, label: "午休" },
+  { date: "2026-08-29", providerId: "spa-demo-staff-16", startTime: "13:30", durationMinutes: 60, label: "午休" },
+  { date: "2026-08-29", providerId: "spa-demo-staff-10", startTime: "17:30", durationMinutes: 210, label: "提早下班" },
+  { date: "2026-08-30", providerId: "spa-demo-staff-16", startTime: "10:00", durationMinutes: 660, label: "休假" },
 ] as const;
 
 const managerNavigation = [
@@ -196,11 +65,20 @@ const toneClasses: Record<Tone, string> = {
   slate: "border-earth-200 bg-earth-100 text-earth-500",
 };
 
-export function SpaManagerSchedulePreview() {
+export function SpaManagerSchedulePreview({
+  initialProviders = SPA_DEMO_PROVIDERS,
+  initialBookings = SPA_DEMO_BOOKINGS,
+  dataSource = "fixture",
+}: {
+  initialProviders?: readonly PreviewProvider[];
+  initialBookings?: readonly PreviewBooking[];
+  dataSource?: "fixture" | "database";
+}) {
   const industryModule = SPA_INDUSTRY_MODULE;
+  const activeProviders = initialProviders;
   const [bookings, setBookings] = useState<PreviewBooking[]>(() => [...initialBookings]);
   const [dayIndex, setDayIndex] = useState(1);
-  const [selectedBookingId, setSelectedBookingId] = useState<string | null>("booking-zhang");
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>("spa-demo-booking-zhang");
   const [quickSlot, setQuickSlot] = useState<QuickSlot | null>(null);
   const [notice, setNotice] = useState("點選預約可查看詳情，點選空白時段可快速新增。");
 
@@ -298,7 +176,7 @@ export function SpaManagerSchedulePreview() {
 
   function openFirstAvailableSlot() {
     for (const time of scheduleTimes) {
-      for (const provider of previewProviders) {
+      for (const provider of activeProviders) {
         if (isAvailable(selectedDay.key, time, provider.id, 60, 30, bookings)) {
           openQuickBooking({ date: selectedDay.key, time, providerId: provider.id });
           return;
@@ -346,7 +224,7 @@ export function SpaManagerSchedulePreview() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-semibold text-primary-700">SPA 人員排程</span>
-                <span className="text-xs text-earth-500">互動預覽・不寫入正式資料</span>
+                <span className="text-xs text-earth-500">互動預覽・{dataSource === "database" ? "Demo 店資料" : "隔離示範資料"}</span>
               </div>
               <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{industryModule.manager.dashboardLabel}</h1>
               <p className="mt-1 text-sm text-earth-500">手機展示顧客端，筆電／iPad 展示店長端</p>
@@ -360,7 +238,7 @@ export function SpaManagerSchedulePreview() {
           </div>
 
           <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="今日營運摘要">
-            <MetricCard label="今日預約" value={String(dayBookings.length)} unit="筆" detail={`${previewProviders.length} 位芳療師`} />
+            <MetricCard label="今日預約" value={String(dayBookings.length)} unit="筆" detail={`${activeProviders.length} 位芳療師`} />
             <MetricCard label="待服務" value={String(activeCount)} unit="筆" detail={activeCount ? "可逐筆確認到店" : "今日服務已完成"} />
             <MetricCard label="新顧客" value={String(newCustomerCount)} unit="位" detail={newCustomerCount ? "初次體驗" : "目前沒有新客"} emphasized />
             <MetricCard label="人員排程" value="3" unit="位" detail="號牌 08・10・16" />
@@ -380,13 +258,13 @@ export function SpaManagerSchedulePreview() {
                 <div className="min-w-[900px]">
                   <div className="grid grid-cols-[80px_repeat(3,minmax(240px,1fr))] bg-earth-50/90 text-sm">
                     <div className="sticky left-0 z-20 border-b border-r border-earth-100 bg-earth-50 px-4 py-4 font-medium text-earth-500">時間</div>
-                    {previewProviders.map((provider) => <ProviderHeader key={provider.id} provider={provider} />)}
+                    {activeProviders.map((provider) => <ProviderHeader key={provider.id} provider={provider} />)}
                   </div>
                   <div className="grid grid-cols-[80px_repeat(3,minmax(240px,1fr))]">
                     <div className="sticky left-0 z-20 grid bg-white" style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, 52px)` }}>
                       {scheduleTimes.map((time) => <div key={time} className="border-b border-r border-earth-100 px-3 py-2 text-xs font-semibold tabular-nums text-earth-600">{time}</div>)}
                     </div>
-                    {previewProviders.map((provider) => (
+                    {activeProviders.map((provider) => (
                       <ScheduleProviderColumn
                         key={provider.id}
                         provider={provider}
