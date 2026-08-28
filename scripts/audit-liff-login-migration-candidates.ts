@@ -20,7 +20,7 @@ const sha256 = (value: string) => createHash("sha256").update(value, "utf8").dig
 
 async function main() {
   const now = new Date();
-  const [stores, customers, links, accounts, activeRequests] = await Promise.all([
+  const [stores, customers, links, accounts, rebindRequests] = await Promise.all([
     prisma.store.findMany({ select: { id: true, name: true, slug: true } }),
     prisma.customer.findMany({
       where: {
@@ -59,11 +59,10 @@ async function main() {
       select: { id: true, userId: true, providerAccountId: true },
     }),
     prisma.lineRebindRequest.findMany({
-      where: {
-        status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] },
-        expiresAt: { gt: now },
+      select: {
+        id: true, customerId: true, reason: true, status: true, expiresAt: true,
+        candidate: { select: { id: true } },
       },
-      select: { id: true, customerId: true, reason: true, expiresAt: true },
     }),
   ]);
 
@@ -112,9 +111,15 @@ async function main() {
         accounts.some((account) => account.providerAccountId === oldLoginId && account.id !== userAccounts[0].id)) {
       addExcluded(customer, "LEGACY_LOGIN_IDENTITY_CONFLICT"); continue;
     }
-    const activeRequest = activeRequests.find((request) => request.customerId === customer.id);
+    const existingRequest = rebindRequests.find((request) => request.customerId === customer.id);
+    const activeRequest = existingRequest &&
+      ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"].includes(existingRequest.status) &&
+      existingRequest.expiresAt > now ? existingRequest : null;
     if (activeRequest && activeRequest.reason !== reason) {
       addExcluded(customer, "OTHER_ACTIVE_REBIND_REQUEST"); continue;
+    }
+    if (existingRequest?.candidate && !activeRequest) {
+      addExcluded(customer, "HISTORICAL_REBIND_HAS_CANDIDATE"); continue;
     }
 
     eligible.push({
@@ -128,6 +133,7 @@ async function main() {
       messagingUserIdHash: customer.lineUserId ? sha256(customer.lineUserId) : null,
       existingAuthorizedRequestId: activeRequest?.id ?? null,
       existingAuthorizedRequestExpiresAt: activeRequest?.expiresAt.toISOString() ?? null,
+      reusableHistoricalRequestId: existingRequest && !activeRequest ? existingRequest.id : null,
     });
   }
 

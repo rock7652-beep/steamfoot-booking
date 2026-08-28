@@ -2,5 +2,6 @@
   "authorizedBy": "owner",
   "authorizedAt": "2026-08-28T22:15:00+08:00",
   "mode": "read-only",
-  "scope": "all-stores-active-plan-safe-liff-login-migration-candidates-v1"
+  "scope": "all-stores-active-plan-safe-liff-login-migration-candidates-v2",
+  "rerun": "2026-08-28T22:34:00+08:00"
 }
