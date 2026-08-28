@@ -1,0 +1,8 @@
+{
+  "authorizedBy": "owner",
+  "authorizedAt": "2026-08-28T23:25:00+08:00",
+  "mode": "atomic-exact-snapshot-repair",
+  "candidateCount": 44,
+  "candidateFingerprint": "323986d7bb958c68354c985ef7acf0de7ab59e91cd87ccdb9e2e32b1335a78be",
+  "manualCustomersMustRemainUnchanged": 24
+}
