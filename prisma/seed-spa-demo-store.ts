@@ -231,13 +231,10 @@ async function applySeed() {
   });
 }
 
-async function main() {
-  console.log(`SPA Demo Seed: ${SPA_DEMO_STORE.name} (${SPA_DEMO_STORE.id})`);
+export async function runSpaDemoSeed(apply: boolean) {
   await preflight();
-  console.log("Preflight passed: no formal-store id, slug, or staff collision.");
-  if (!APPLY) {
-    console.log("Dry run only. No data was written. Add --apply after explicit approval.");
-    return;
+  if (!apply) {
+    return { applied: false, staff: 0, customers: 0, previewBookings: 0 };
   }
   await applySeed();
   await preflight();
@@ -246,12 +243,24 @@ async function main() {
     prisma.customer.count({ where: { storeId: SPA_DEMO_STORE.id } }),
     prisma.booking.count({ where: { storeId: SPA_DEMO_STORE.id, id: { in: SPA_DEMO_BOOKINGS.map((booking) => booking.id) } } }),
   ]);
-  console.log(`Applied and verified: staff=${counts[0]}, customers=${counts[1]}, previewBookings=${counts[2]}`);
+  return { applied: true, staff: counts[0], customers: counts[1], previewBookings: counts[2] };
 }
 
-main()
-  .catch((error) => {
-    console.error("SPA Demo Seed failed:", error);
-    process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+async function main() {
+  console.log(`SPA Demo Seed: ${SPA_DEMO_STORE.name} (${SPA_DEMO_STORE.id})`);
+  const result = await runSpaDemoSeed(APPLY);
+  if (!result.applied) {
+    console.log("Preflight passed. Dry run only; no data was written. Add --apply after explicit approval.");
+    return;
+  }
+  console.log(`Applied and verified: staff=${result.staff}, customers=${result.customers}, previewBookings=${result.previewBookings}`);
+}
+
+if (!process.env.NEXT_RUNTIME) {
+  main()
+    .catch((error) => {
+      console.error("SPA Demo Seed failed:", error);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}
