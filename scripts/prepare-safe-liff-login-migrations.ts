@@ -54,11 +54,10 @@ async function main() {
         select: { id: true, userId: true, providerAccountId: true },
       }),
       tx.lineRebindRequest.findMany({
-        where: {
-          status: { in: ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"] },
-          expiresAt: { gt: now },
+        select: {
+          id: true, customerId: true, reason: true, status: true, expiresAt: true,
+          candidate: { select: { id: true } },
         },
-        select: { id: true, customerId: true, reason: true },
       }),
       tx.user.findFirst({
         where: { role: "ADMIN", status: "ACTIVE" },
@@ -84,6 +83,7 @@ async function main() {
       phoneHash: string;
       oldLoginUserIdHash: string;
       existingRequestId: string | null;
+      reusableHistoricalRequestId: string | null;
     }> = [];
     for (const customer of customers) {
       const phone = normalizePhone(customer.phone);
@@ -98,8 +98,12 @@ async function main() {
       if (userAccounts.length !== 1 || userAccounts[0].providerAccountId !== oldLoginId) continue;
       if (links.some((link) => link.providerAccountId === oldLoginId && link.id !== customerLinks[0].id) ||
           accounts.some((account) => account.providerAccountId === oldLoginId && account.id !== userAccounts[0].id)) continue;
-      const activeRequest = activeRequests.find((request) => request.customerId === customer.id);
+      const existingRequest = activeRequests.find((request) => request.customerId === customer.id);
+      const activeRequest = existingRequest &&
+        ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"].includes(existingRequest.status) &&
+        existingRequest.expiresAt > now ? existingRequest : null;
       if (activeRequest && activeRequest.reason !== reason) continue;
+      if (existingRequest?.candidate && !activeRequest) continue;
       eligible.push({
         storeId: customer.storeId,
         store: storeById.get(customer.storeId)?.name ?? storeById.get(customer.storeId)?.slug ?? "unknown",
@@ -109,6 +113,7 @@ async function main() {
         phoneHash: sha256(phone),
         oldLoginUserIdHash: sha256(oldLoginId),
         existingRequestId: activeRequest?.id ?? null,
+        reusableHistoricalRequestId: existingRequest && !activeRequest ? existingRequest.id : null,
       });
     }
 
@@ -125,8 +130,26 @@ async function main() {
     let created = 0;
     for (const row of eligible) {
       if (row.existingRequestId) continue;
-      const request = await tx.lineRebindRequest.create({
-        data: {
+      const request = row.reusableHistoricalRequestId
+        ? await tx.lineRebindRequest.update({
+          where: { id: row.reusableHistoricalRequestId },
+          data: {
+            createdByUserId: actor.id,
+            cancelledByUserId: null,
+            reason,
+            phoneHash: row.phoneHash,
+            oldUserIdHash: row.oldLoginUserIdHash,
+            status: "PENDING_CAPTURE",
+            expiresAt,
+            capturedAt: null,
+            consumedAt: null,
+            expiredAt: null,
+            cancelledAt: null,
+          },
+          select: { id: true },
+        })
+        : await tx.lineRebindRequest.create({
+          data: {
           storeId: row.storeId,
           customerId: row.customerId,
           createdByUserId: actor.id,
@@ -134,15 +157,15 @@ async function main() {
           phoneHash: row.phoneHash,
           oldUserIdHash: row.oldLoginUserIdHash,
           expiresAt,
-        },
-        select: { id: true },
-      });
+          },
+          select: { id: true },
+        });
       await tx.auditLog.create({
         data: {
           actorUserId: actor.id,
           targetType: "LineRebindRequest",
           targetId: request.id,
-          action: "PREPARE_LIFF_LOGIN_REBIND",
+          action: row.reusableHistoricalRequestId ? "REOPEN_LIFF_LOGIN_REBIND" : "PREPARE_LIFF_LOGIN_REBIND",
           afterJson: {
             storeId: row.storeId,
             customerId: row.customerId,
