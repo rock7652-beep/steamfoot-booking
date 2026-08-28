@@ -40,7 +40,28 @@ async function main() {
       bookedByType: true,
       people: true,
       store: { select: { id: true, name: true, slug: true } },
-      customer: { select: { id: true, name: true, phone: true } },
+      customer: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          planWallets: {
+            where: { status: "ACTIVE" },
+            select: {
+              id: true,
+              storeId: true,
+              startDate: true,
+              expiryDate: true,
+              remainingSessions: true,
+              plan: { select: { name: true } },
+              sessions: {
+                where: { status: "AVAILABLE" },
+                select: { id: true },
+              },
+            },
+          },
+        },
+      },
       servicePlan: { select: { name: true } },
       customerPlanWallet: {
         select: {
@@ -58,6 +79,22 @@ async function main() {
   const anomalies = bookings.flatMap((booking) => {
     const wallet = booking.customerPlanWallet;
     if (!wallet?.expiryDate || booking.bookingDate <= wallet.expiryDate) return [];
+
+    const replacementCandidates = booking.customer.planWallets
+      .filter((candidate) =>
+        candidate.id !== wallet.id &&
+        candidate.storeId === booking.store.id &&
+        candidate.startDate <= booking.bookingDate &&
+        (!candidate.expiryDate || candidate.expiryDate >= booking.bookingDate) &&
+        candidate.sessions.length >= booking.people,
+      )
+      .map((candidate) => ({
+        walletId: candidate.id,
+        planName: candidate.plan.name,
+        expiryDate: candidate.expiryDate ? dateOnly(candidate.expiryDate) : null,
+        remainingSessions: candidate.remainingSessions,
+        availableSessions: candidate.sessions.length,
+      }));
 
     return [{
       store: booking.store.name,
@@ -77,6 +114,7 @@ async function main() {
       walletRemainingSessions: wallet.remainingSessions,
       walletExpiryDate: dateOnly(wallet.expiryDate),
       daysAfterExpiry: differenceInCalendarDays(booking.bookingDate, wallet.expiryDate),
+      replacementCandidates,
     }];
   });
 
