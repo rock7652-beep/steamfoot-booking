@@ -52,6 +52,7 @@ interface Props {
   staffList: StaffOption[];
   canManage: boolean;
   weekDayInfo: WeekDayInfo[];
+  preferredStaffId?: string;
 }
 
 const DAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -78,6 +79,7 @@ export function DutyDayEditor({
   staffList,
   canManage,
   weekDayInfo,
+  preferredStaffId,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -87,7 +89,7 @@ export function DutyDayEditor({
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // 新增人員表單
-  const [formStaffId, setFormStaffId] = useState("");
+  const [formStaffId, setFormStaffId] = useState(preferredStaffId ?? "");
   const [formDutyRole, setFormDutyRole] = useState<DutyRole>("STORE_MANAGER");
   const [formParticipation, setFormParticipation] = useState<ParticipationType>("PRIMARY");
   const [formNotes, setFormNotes] = useState("");
@@ -109,7 +111,7 @@ export function DutyDayEditor({
 
   function startAdd(slotTime: string) {
     setAddingSlot(slotTime);
-    setFormStaffId("");
+    setFormStaffId(preferredStaffId ?? "");
     setFormDutyRole("STORE_MANAGER");
     setFormParticipation("PRIMARY");
     setFormNotes("");

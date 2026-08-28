@@ -31,6 +31,16 @@ export type SpaDemoProvider = {
     relation: string;
     phone: string;
   };
+  weeklyAvailability: readonly {
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+  }[];
+  scheduleExceptions: readonly {
+    date: string;
+    label: string;
+    tone: "leave" | "extra";
+  }[];
 };
 
 export type SpaDemoBooking = {
@@ -91,6 +101,15 @@ export const SPA_DEMO_PROVIDERS: readonly SpaDemoProvider[] = [
     specialties: "精油芳療・肩頸舒壓",
     specialtyKeys: ["body", "head"],
     emergencyContact: { name: "陳小姐", relation: "姊姊", phone: "0900-000-008" },
+    weeklyAvailability: [
+      { dayOfWeek: 0, startTime: "10:00", endTime: "18:00" },
+      { dayOfWeek: 2, startTime: "10:00", endTime: "18:00" },
+      { dayOfWeek: 3, startTime: "10:00", endTime: "20:00" },
+      { dayOfWeek: 4, startTime: "10:00", endTime: "18:00" },
+      { dayOfWeek: 5, startTime: "10:00", endTime: "20:00" },
+      { dayOfWeek: 6, startTime: "10:00", endTime: "18:00" },
+    ],
+    scheduleExceptions: [],
   },
   {
     id: "spa-demo-staff-10",
@@ -99,6 +118,16 @@ export const SPA_DEMO_PROVIDERS: readonly SpaDemoProvider[] = [
     specialties: "深層芳療・複合療程",
     specialtyKeys: ["body", "head", "foot", "face"],
     emergencyContact: { name: "張先生", relation: "配偶", phone: "0900-000-010" },
+    weeklyAvailability: [
+      { dayOfWeek: 0, startTime: "10:00", endTime: "19:00" },
+      { dayOfWeek: 2, startTime: "12:00", endTime: "21:00" },
+      { dayOfWeek: 3, startTime: "12:00", endTime: "21:00" },
+      { dayOfWeek: 4, startTime: "12:00", endTime: "21:00" },
+      { dayOfWeek: 6, startTime: "10:00", endTime: "19:00" },
+    ],
+    scheduleExceptions: [
+      { date: "2026-09-03", label: "個人休假", tone: "leave" },
+    ],
   },
   {
     id: "spa-demo-staff-16",
@@ -107,6 +136,16 @@ export const SPA_DEMO_PROVIDERS: readonly SpaDemoProvider[] = [
     specialties: "臉部保養・新客體驗",
     specialtyKeys: ["face", "head"],
     emergencyContact: { name: "王小姐", relation: "母親", phone: "0900-000-016" },
+    weeklyAvailability: [
+      { dayOfWeek: 0, startTime: "11:00", endTime: "20:00" },
+      { dayOfWeek: 2, startTime: "11:00", endTime: "20:00" },
+      { dayOfWeek: 3, startTime: "11:00", endTime: "20:00" },
+      { dayOfWeek: 4, startTime: "11:00", endTime: "20:00" },
+      { dayOfWeek: 5, startTime: "11:00", endTime: "20:00" },
+    ],
+    scheduleExceptions: [
+      { date: "2026-09-05", label: "臨時加班 10:00–16:00", tone: "extra" },
+    ],
   },
 ];
 

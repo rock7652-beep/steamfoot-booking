@@ -47,6 +47,7 @@ describe("SPA Demo tenant isolation", () => {
     const permissions = readFileSync("src/lib/permissions.ts", "utf8");
     const sidebar = readFileSync("src/components/sidebar.tsx", "utf8");
     const staffPage = readFileSync("src/app/(dashboard)/dashboard/staff/page.tsx", "utf8");
+    const staffWorkspace = readFileSync("src/app/(dashboard)/dashboard/staff/staff-workspace.tsx", "utf8");
     const schedule = readFileSync("src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx", "utf8");
 
     expect(SPA_DEMO_OWNER_STAFF_ID).toBe("spa-demo-owner");
@@ -54,8 +55,11 @@ describe("SPA Demo tenant isolation", () => {
     expect(sidebar.indexOf('href: "/dashboard/staff"')).toBeLessThan(
       sidebar.indexOf('href: "/dashboard/settings"'),
     );
-    expect(staffPage).toContain("設定可接客時段");
-    expect(staffPage).toContain("緊急聯絡人");
+    expect(staffPage).toContain("StaffWorkspace");
+    expect(staffWorkspace).toContain("人員總覽");
+    expect(staffWorkspace).toContain("接客時段");
+    expect(staffWorkspace).toContain("休假與例外");
+    expect(staffWorkspace).toContain("緊急聯絡人");
     expect(schedule).toContain("sticky top-0 z-30");
     expect(schedule).toContain("max-h-[calc(100vh-330px)]");
     expect(SPA_DEMO_PROVIDERS.every((provider) => provider.specialties && provider.emergencyContact.phone)).toBe(true);
