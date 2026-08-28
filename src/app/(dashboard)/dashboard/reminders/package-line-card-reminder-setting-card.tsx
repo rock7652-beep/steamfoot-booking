@@ -82,7 +82,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <div>
+        <div className="md:col-span-2">
           <label htmlFor="package-line-card-reminder" className="mb-1 block text-xs font-medium text-earth-700">
             店長自訂提醒
           </label>
