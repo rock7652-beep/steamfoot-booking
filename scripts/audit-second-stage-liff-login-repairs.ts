@@ -17,7 +17,7 @@ type RepairAction =
 
 async function main() {
   const now = new Date();
-  const [stores, activePlanCustomers, allCustomers, links, accounts, users] = await Promise.all([
+  const [stores, activePlanCustomers, allCustomers, links, accounts, users, rebindRequests] = await Promise.all([
     prisma.store.findMany({ select: { id: true, name: true, slug: true } }),
     prisma.customer.findMany({
       where: {
@@ -41,6 +41,12 @@ async function main() {
     prisma.user.findMany({
       where: { role: "CUSTOMER", status: "ACTIVE" },
       select: { id: true, phone: true },
+    }),
+    prisma.lineRebindRequest.findMany({
+      select: {
+        id: true, customerId: true, reason: true, status: true, expiresAt: true,
+        candidate: { select: { id: true } },
+      },
     }),
   ]);
 
@@ -73,7 +79,17 @@ async function main() {
   const addRepair = (
     customer: typeof activePlanCustomers[number], action: RepairAction,
     userId: string, accountId: string | null, linkId: string | null, providerAccountId: string,
-  ) => repairable.push({
+  ) => {
+    const existingRequest = rebindRequests.find((request) => request.customerId === customer.id);
+    const activeRequest = existingRequest && ["PENDING_CAPTURE", "CANDIDATE_CAPTURED"].includes(existingRequest.status) && existingRequest.expiresAt > now
+      ? existingRequest : null;
+    if (activeRequest && activeRequest.reason !== "LIFF_LOGIN_CHANNEL_MIGRATION_V1") {
+      addManual(customer, "OTHER_ACTIVE_REBIND_REQUEST"); return;
+    }
+    if (existingRequest?.candidate && !activeRequest) {
+      addManual(customer, "HISTORICAL_REBIND_HAS_CANDIDATE"); return;
+    }
+    repairable.push({
     storeId: customer.storeId,
     store: storeById.get(customer.storeId)?.name ?? storeById.get(customer.storeId)?.slug ?? "unknown",
     customerId: customer.id,
@@ -84,7 +100,10 @@ async function main() {
     accountId,
     linkId,
     providerAccountIdHash: sha256(providerAccountId),
+    rebindRequestId: existingRequest?.id ?? null,
+    rebindRequestMode: activeRequest ? "ACTIVE" : existingRequest ? "REUSABLE" : "CREATE",
   });
+  };
 
   for (const customer of activePlanCustomers) {
     const phone = normalizePhone(customer.phone);
@@ -151,6 +170,7 @@ async function main() {
   const fingerprintRows = repairable.map((row) => ({
     storeId: row.storeId, customerId: row.customerId, action: row.action, userId: row.userId,
     accountId: row.accountId, linkId: row.linkId, phoneHash: row.phoneHash, providerAccountIdHash: row.providerAccountIdHash,
+    rebindRequestId: row.rebindRequestId, rebindRequestMode: row.rebindRequestMode,
   }));
   const actionCounts = Object.fromEntries([...new Set(repairable.map((row) => String(row.action)))].sort().map((action) => [action, repairable.filter((row) => row.action === action).length]));
   const manualReasonCounts = Object.fromEntries([...new Set(manual.map((row) => String(row.code)))].sort().map((code) => [code, manual.filter((row) => row.code === code).length]));
