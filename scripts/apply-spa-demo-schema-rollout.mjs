@@ -21,7 +21,10 @@ function fail(code) {
 function projectRef(value) {
   try {
     const url = new URL(value);
-    return url.username.match(/^postgres\.([a-z0-9]+)$/)?.[1] ?? null;
+    const poolerRef = url.username.match(/^postgres\.([a-z0-9]+)$/)?.[1];
+    if (poolerRef) return poolerRef;
+    if (url.username !== "postgres") return null;
+    return url.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/)?.[1] ?? null;
   } catch {
     return null;
   }
