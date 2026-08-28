@@ -6,6 +6,7 @@ import { normalizePhone } from "@/lib/normalize";
 import { sha256 } from "@/server/services/line-rebind";
 
 export const LIFF_LOGIN_REBIND_REASON = "LIFF_LOGIN_CHANNEL_MIGRATION_V1";
+export const LIFF_LOGIN_FIRST_CAPTURE_REASON = "LIFF_LOGIN_FIRST_CAPTURE_V1";
 
 export type AuthorizedLiffLoginRebindResult =
   | { status: "executed"; requestId: string }
@@ -98,37 +99,33 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
           phone: true,
           userId: true,
           mergedIntoCustomerId: true,
-          user: { select: { id: true, status: true } },
         },
       });
+      const oldLinks = await tx.customerIdentityLink.findMany({
+        where: { storeId: input.storeId, customerId: input.customerId, provider: "line" },
+        select: { id: true, userId: true, providerAccountId: true, lineUserId: true },
+        take: 2,
+      });
+      const ownerUserId = customer?.userId ?? oldLinks[0]?.userId ?? null;
+      const ownerUser = ownerUserId
+        ? await tx.user.findUnique({ where: { id: ownerUserId }, select: { id: true, status: true, role: true } })
+        : null;
       if (
         !customer ||
         customer.storeId !== input.storeId ||
         customer.mergedIntoCustomerId ||
-        !customer.userId ||
-        customer.user?.id !== customer.userId ||
-        customer.user?.status !== "ACTIVE" ||
+        !ownerUserId ||
+        ownerUser?.id !== ownerUserId ||
+        ownerUser.status !== "ACTIVE" ||
+        ownerUser.role !== "CUSTOMER" ||
         normalizePhone(customer.phone) !== phone
       ) {
         throw new RebindRejected("CUSTOMER_STATE_CHANGED");
       }
-
-      const oldLinks = await tx.customerIdentityLink.findMany({
-        where: {
-          storeId: input.storeId,
-          customerId: input.customerId,
-          userId: customer.userId,
-          provider: "line",
-        },
-        select: {
-          id: true,
-          providerAccountId: true,
-          lineUserId: true,
-        },
-        take: 2,
-      });
       if (
         oldLinks.length !== 1 ||
+        oldLinks[0].userId !== ownerUserId ||
+        (customer.userId !== null && customer.userId !== ownerUserId) ||
         oldLinks[0].lineUserId !== oldLinks[0].providerAccountId ||
         request.oldUserIdHash !== sha256(oldLinks[0].providerAccountId)
       ) {
@@ -152,7 +149,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
           select: { id: true, userId: true },
         }),
         tx.account.findMany({
-          where: { provider: "line", providerAccountId: oldLineUserId, userId: customer.userId },
+          where: { provider: "line", providerAccountId: oldLineUserId, userId: ownerUserId },
           select: { id: true },
           take: 2,
         }),
@@ -160,10 +157,10 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
       if (
         oldAccounts.length !== 1 ||
         candidateLinks.some((link) =>
-          link.userId !== customer.userId ||
+          link.userId !== ownerUserId ||
           (link.storeId === input.storeId && link.customerId !== input.customerId)
         ) ||
-        candidateAccounts.some((account) => account.userId !== customer.userId)
+        candidateAccounts.some((account) => account.userId !== ownerUserId)
       ) {
         throw new RebindRejected("LOGIN_IDENTITY_CONFLICT");
       }
@@ -173,7 +170,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
           id: oldLinks[0].id,
           storeId: input.storeId,
           customerId: input.customerId,
-          userId: customer.userId,
+          userId: ownerUserId,
           provider: "line",
           providerAccountId: oldLineUserId,
           lineUserId: oldLineUserId,
@@ -189,7 +186,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         const removed = await tx.account.deleteMany({
           where: {
             id: oldAccounts[0].id,
-            userId: customer.userId,
+            userId: ownerUserId,
             provider: "line",
             providerAccountId: oldLineUserId,
           },
@@ -199,7 +196,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         const accountUpdated = await tx.account.updateMany({
           where: {
             id: oldAccounts[0].id,
-            userId: customer.userId,
+            userId: ownerUserId,
             provider: "line",
             providerAccountId: oldLineUserId,
           },
@@ -261,6 +258,80 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
       return { status: "rejected", code: "WRITE_CONFLICT" };
     }
+    return { status: "rejected", code: "EXECUTION_FAILED" };
+  }
+}
+
+/**
+ * Owner-preauthorized first LINE Login capture for an existing direct User.
+ * The verified LIFF subject and the original store phone are both required.
+ * Customer.lineUserId remains notification-only and is never read or written.
+ */
+export async function tryExecuteAuthorizedLiffLoginFirstCapture(input: {
+  storeId: string;
+  customerId: string;
+  phone: string;
+  candidateLineUserId: string;
+}): Promise<AuthorizedLiffLoginRebindResult> {
+  const phone = normalizePhone(input.phone);
+  if (!/^09\d{8}$/.test(phone) || !input.candidateLineUserId) return { status: "rejected", code: "INVALID_INPUT" };
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const requests = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "LineRebindRequest"
+        WHERE "storeId" = ${input.storeId}
+          AND "customerId" = ${input.customerId}
+          AND "status" = ${"PENDING_CAPTURE"}::"LineRebindRequestStatus"
+          AND "reason" = ${LIFF_LOGIN_FIRST_CAPTURE_REASON}
+          AND "expiresAt" > ${now}
+        ORDER BY "createdAt" DESC LIMIT 2 FOR UPDATE
+      `;
+      if (requests.length === 0) return { status: "not_authorized" as const };
+      if (requests.length !== 1) throw new RebindRejected("MULTIPLE_ACTIVE_REQUESTS");
+      const request = await tx.lineRebindRequest.findUnique({ where: { id: requests[0].id } });
+      if (!request || request.phoneHash !== sha256(phone) || request.oldUserIdHash !== null || request.consumedAt || request.expiresAt <= now) {
+        throw new RebindRejected("REQUEST_STATE_CHANGED");
+      }
+      const lockedCustomers = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "Customer" WHERE "id" = ${input.customerId} AND "storeId" = ${input.storeId} FOR UPDATE
+      `;
+      if (lockedCustomers.length !== 1) throw new RebindRejected("CUSTOMER_STATE_CHANGED");
+      const customer = await tx.customer.findUnique({
+        where: { id: input.customerId },
+        select: { id: true, storeId: true, phone: true, userId: true, mergedIntoCustomerId: true, user: { select: { id: true, status: true, role: true } } },
+      });
+      if (!customer || customer.storeId !== input.storeId || customer.mergedIntoCustomerId || !customer.userId ||
+          customer.user?.id !== customer.userId || customer.user.status !== "ACTIVE" || customer.user.role !== "CUSTOMER" ||
+          normalizePhone(customer.phone) !== phone) throw new RebindRejected("CUSTOMER_STATE_CHANGED");
+      const [storePhoneCount, existingLinks, userAccounts, candidateLinks, candidateAccounts] = await Promise.all([
+        tx.customer.count({ where: { storeId: input.storeId, phone: customer.phone, mergedIntoCustomerId: null } }),
+        tx.customerIdentityLink.findMany({ where: { customerId: customer.id, provider: "line" }, select: { id: true }, take: 2 }),
+        tx.account.findMany({ where: { userId: customer.userId, provider: "line" }, select: { id: true }, take: 2 }),
+        tx.customerIdentityLink.findMany({ where: { provider: "line", providerAccountId: input.candidateLineUserId }, select: { id: true }, take: 1 }),
+        tx.account.findMany({ where: { provider: "line", providerAccountId: input.candidateLineUserId }, select: { id: true }, take: 1 }),
+      ]);
+      if (storePhoneCount !== 1 || existingLinks.length !== 0 || userAccounts.length !== 0 || candidateLinks.length !== 0 || candidateAccounts.length !== 0) {
+        throw new RebindRejected("LOGIN_IDENTITY_CONFLICT");
+      }
+      await tx.account.create({ data: { userId: customer.userId, type: "oauth", provider: "line", providerAccountId: input.candidateLineUserId } });
+      await tx.customerIdentityLink.create({ data: { userId: customer.userId, storeId: customer.storeId, customerId: customer.id, provider: "line", providerAccountId: input.candidateLineUserId, lineUserId: input.candidateLineUserId } });
+      const consumed = await tx.lineRebindRequest.updateMany({
+        where: { id: request.id, status: "PENDING_CAPTURE", consumedAt: null, expiresAt: { gt: now } },
+        data: { status: "CONSUMED", consumedAt: now },
+      });
+      if (consumed.count !== 1) throw new RebindRejected("REQUEST_COMPARE_AND_SET_FAILED");
+      await tx.auditLog.create({ data: {
+        actorUserId: request.createdByUserId, targetType: "LineRebindRequest", targetId: request.id,
+        action: "EXECUTE_LIFF_LOGIN_FIRST_CAPTURE",
+        beforeJson: { storeId: request.storeId, customerId: request.customerId, loginIdentityPresent: false },
+        afterJson: { status: "CONSUMED", newLoginUserIdHash: sha256(input.candidateLineUserId), customerMessagingIdentityPreserved: true },
+      } });
+      return { status: "executed" as const, requestId: request.id };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10_000, timeout: 30_000 });
+  } catch (error) {
+    if (error instanceof RebindRejected) return { status: "rejected", code: error.code };
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { status: "rejected", code: "WRITE_CONFLICT" };
     return { status: "rejected", code: "EXECUTION_FAILED" };
   }
 }
