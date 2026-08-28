@@ -22,6 +22,10 @@ import { SubmitButton } from "@/components/submit-button";
 import { StaffStatusToggle } from "./staff-status-toggle";
 import { ResetPasswordButton } from "./reset-password-button";
 import type { UserRole } from "@prisma/client";
+import {
+  isSpaDemoStoreId,
+  SPA_DEMO_PROVIDERS,
+} from "@/lib/spa-demo-store";
 
 const inputCls =
   "block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
@@ -57,6 +61,8 @@ export default async function StaffPage({
     (await checkPermission(user.role, user.staffId, "staff.manage")) &&
     !(user.role === "ADMIN" && adminMissingStore);
   const [staffList, plan] = await Promise.all([listStaff(activeStoreId), getCurrentStorePlan()]);
+  const isSpaDemo = isSpaDemoStoreId(activeStoreId);
+  const spaProviderById = new Map(SPA_DEMO_PROVIDERS.map((provider) => [provider.id, provider]));
 
   async function handleCreateStaff(formData: FormData) {
     "use server";
@@ -91,7 +97,7 @@ export default async function StaffPage({
   const inactiveCount = totalCount - activeCount;
 
   const kpis: KpiStripItem[] = [
-    { label: "員工總數", value: totalCount, tone: "earth" },
+    { label: "人員總數", value: totalCount, tone: "earth" },
     { label: "啟用中", value: activeCount, tone: "primary" },
     { label: "停用中", value: inactiveCount, tone: "amber" },
   ];
@@ -133,13 +139,13 @@ export default async function StaffPage({
       <PageShell>
         <PageHeader
           title="人員管理"
-          subtitle="建立員工、指派角色與可視範圍"
+          subtitle="人員總覽、專業項目、可接客時段與基本資料"
           actions={
             <Link
-              href="/dashboard/settings"
-              className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+              href="/dashboard/duty"
+              className="rounded-lg bg-primary-600 px-3 py-2 text-xs font-medium text-white hover:bg-primary-700"
             >
-              ← 返回設定
+              設定可接客時段
             </Link>
           }
         />
@@ -156,8 +162,8 @@ export default async function StaffPage({
           {canManageStaff && (
             <div className="xl:col-span-4 xl:sticky xl:top-4 xl:self-start">
               <FormSection
-                title="新增員工"
-                description="建立後可在編輯頁調整權限與顏色"
+                title="新增人員"
+                description="建立後可調整基本資料、權限與接客設定"
               >
                 <form action={handleCreateStaff} className="space-y-4">
                   <div>
@@ -168,7 +174,9 @@ export default async function StaffPage({
                       className={`mt-1 ${inputCls}`}
                     >
                       <option value="OWNER">店長（主要經營者）</option>
-                      <option value="PARTNER">合作店長</option>
+                      <option value="PARTNER">
+                        {isSpaDemo ? "芳療師" : "服務人員（芳療師／老師／教練）"}
+                      </option>
                     </select>
                   </div>
 
@@ -284,7 +292,7 @@ export default async function StaffPage({
               <header className="flex flex-wrap items-center justify-between gap-3 border-b border-earth-100 px-4 py-3">
                 <div className="flex items-center gap-3">
                   <h2 className="text-sm font-semibold text-earth-900">
-                    員工列表
+                    人員總覽
                   </h2>
                   <span className="text-xs text-earth-500">
                     {visibleStaff.length}
@@ -357,14 +365,18 @@ export default async function StaffPage({
                       <tr>
                         <th className="px-3 py-2 text-left">姓名</th>
                         <th className="px-3 py-2 text-left">角色</th>
-                        <th className="px-3 py-2 text-left">Email</th>
+                        <th className="px-3 py-2 text-left">聯絡方式</th>
+                        {isSpaDemo && <th className="px-3 py-2 text-left">專業項目</th>}
+                        {isSpaDemo && <th className="px-3 py-2 text-left">緊急聯絡人</th>}
                         <th className="px-3 py-2 text-left">狀態</th>
                         <th className="px-3 py-2 text-right">顧客</th>
                         <th className="px-3 py-2 text-right">操作</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-earth-100">
-                      {visibleStaff.map((staff) => (
+                      {visibleStaff.map((staff) => {
+                        const spaProvider = spaProviderById.get(staff.id);
+                        return (
                         <tr
                           key={staff.id}
                           className="h-11 transition hover:bg-primary-50/40"
@@ -390,14 +402,32 @@ export default async function StaffPage({
                               }`}
                             >
                               {staff.isOwner
-                                ? "系統管理者"
+                                ? "店長"
+                                : isSpaDemo
+                                  ? "芳療師"
                                 : (ROLE_LABELS[staff.user.role as UserRole] ??
                                   staff.user.role)}
                             </span>
                           </td>
                           <td className="px-3 text-[13px] text-earth-600">
-                            {staff.user.email}
+                            <div>{staff.user.phone || "未設定電話"}</div>
+                            <div className="text-[11px] text-earth-400">{staff.user.email}</div>
                           </td>
+                          {isSpaDemo && (
+                            <td className="max-w-48 px-3 text-xs text-earth-600">
+                              {spaProvider?.specialties ?? (staff.isOwner ? "門店管理" : "尚未設定")}
+                            </td>
+                          )}
+                          {isSpaDemo && (
+                            <td className="px-3 text-xs text-earth-600">
+                              {spaProvider ? (
+                                <>
+                                  <div>{spaProvider.emergencyContact.name}（{spaProvider.emergencyContact.relation}）</div>
+                                  <div className="text-[11px] tabular-nums text-earth-400">{spaProvider.emergencyContact.phone}</div>
+                                </>
+                              ) : "—"}
+                            </td>
+                          )}
                           <td className="px-3">
                             <span
                               className={`rounded px-2 py-0.5 text-[11px] font-medium ${
@@ -412,6 +442,15 @@ export default async function StaffPage({
                             {staff._count.assignedCustomers}
                           </td>
                           <td className="px-3">
+                            <div className="flex items-center justify-end gap-2">
+                              {!staff.isOwner && (
+                                <Link
+                                  href="/dashboard/duty"
+                                  className="text-xs text-earth-600 hover:underline"
+                                >
+                                  接客時段
+                                </Link>
+                              )}
                             {canManageStaff && !staff.isOwner ? (
                               <div className="flex items-center justify-end gap-2">
                                 <Link
@@ -450,9 +489,11 @@ export default async function StaffPage({
                                 —
                               </span>
                             )}
+                            </div>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -53,7 +53,7 @@ export interface NavGroup {
 // ============================================================
 // Store Admin Navigation — 店家後台 v1（OWNER / PARTNER / Staff）
 // ============================================================
-// 扁平 7 個一級入口：首頁 / 預約管理 / 顧客管理 / 顧客經營 / 營運 / 分析 / 設定
+// 店家主要工作入口採一級導覽；人員管理不藏在設定內。
 // ADMIN 進入時另以 NAV_GROUPS 呈現完整總部視角。
 // 原有獨立路徑（bonus-rules、cashbook、reconciliation、transactions、
 // store-revenue、staff、plans、settings/*、reminders、duty）保留，由
@@ -84,6 +84,18 @@ export const STORE_ADMIN_NAV: NavItem[] = [
     href: "/dashboard/customers",
     label: "顧客管理",
     permission: "customer.read",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/staff",
+    label: "人員管理",
+    permission: "staff.view",
+    requiredFeature: FEATURES.STAFF_MANAGEMENT,
+    upgradeTo: "BASIC",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />

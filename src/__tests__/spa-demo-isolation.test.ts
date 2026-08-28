@@ -4,6 +4,8 @@ import { AppError } from "@/lib/errors";
 import { assertStoreAccess, getStoreFilter } from "@/lib/manager-visibility";
 import {
   assertSpaDemoStoreIdentity,
+  SPA_DEMO_OWNER_STAFF_ID,
+  SPA_DEMO_PROVIDERS,
   SPA_DEMO_STORE,
 } from "@/lib/spa-demo-store";
 
@@ -36,8 +38,27 @@ describe("SPA Demo tenant isolation", () => {
     expect(source).toContain('const SPA_DEMO_FULL_ACCESS_PLAN = "ALLIANCE"');
     expect(source).toContain('const SPA_DEMO_DIGITAL_BUTLER_FEATURE = "digital_butler"');
     expect(source).toContain('source: "HQ_OVERRIDE"');
+    expect(source).toContain("identity.isOwner ? ALL_PERMISSIONS : PROVIDER_PERMISSIONS");
     expect(source).toContain("SPA_DEMO_FULL_ACCESS_VERIFICATION_FAILED");
     expect(source).not.toMatch(/\.(delete|deleteMany|updateMany)\s*\(/);
+  });
+
+  it("gives the isolated Demo owner full navigation and exposes complete provider profiles", () => {
+    const permissions = readFileSync("src/lib/permissions.ts", "utf8");
+    const sidebar = readFileSync("src/components/sidebar.tsx", "utf8");
+    const staffPage = readFileSync("src/app/(dashboard)/dashboard/staff/page.tsx", "utf8");
+    const schedule = readFileSync("src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx", "utf8");
+
+    expect(SPA_DEMO_OWNER_STAFF_ID).toBe("spa-demo-owner");
+    expect(permissions).toContain("staffId === SPA_DEMO_OWNER_STAFF_ID");
+    expect(sidebar.indexOf('href: "/dashboard/staff"')).toBeLessThan(
+      sidebar.indexOf('href: "/dashboard/settings"'),
+    );
+    expect(staffPage).toContain("設定可接客時段");
+    expect(staffPage).toContain("緊急聯絡人");
+    expect(schedule).toContain("sticky top-0 z-30");
+    expect(schedule).toContain("max-h-[calc(100vh-330px)]");
+    expect(SPA_DEMO_PROVIDERS.every((provider) => provider.specialties && provider.emergencyContact.phone)).toBe(true);
   });
 });
 

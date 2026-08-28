@@ -140,18 +140,19 @@ export function SpaProviderSchedule({
         </div>
       </div>
 
-      <section className="grid gap-3 sm:grid-cols-3" aria-label="當日 SPA 營運摘要">
-        <Metric label="今日預約" value={`${bookings.length} 筆`} />
-        <Metric label="待服務" value={`${pendingCount} 筆`} />
-        <Metric label="已排芳療師" value={`${activeProviderCount} / ${providers.length} 位`} />
-      </section>
-
       <section className="overflow-hidden rounded-lg border border-earth-200 bg-white">
-        <div className="border-b border-earth-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-earth-900">時間 × 芳療師</h2>
-          <p className="mt-0.5 text-xs text-earth-500">
-            點選預約可直接完成服務、扣療程、收款、取消或改期
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-earth-200 px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-earth-900">時間 × 芳療師</h2>
+            <p className="mt-0.5 text-xs text-earth-500">
+              點空白時段新增預約；點預約可完成服務、扣療程、收款、取消或改期
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2" aria-label="當日 SPA 營運摘要">
+            <Metric label="預約" value={`${bookings.length} 筆`} />
+            <Metric label="待服務" value={`${pendingCount} 筆`} />
+            <Metric label="已排人員" value={`${activeProviderCount}/${providers.length}`} />
+          </div>
         </div>
 
         {providers.length === 0 ? (
@@ -159,16 +160,16 @@ export function SpaProviderSchedule({
             尚未建立可排程的芳療師
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="max-h-[calc(100vh-330px)] min-h-[460px] overflow-auto">
             <div
               className="min-w-max"
               style={{ width: `${80 + providers.length * 240}px` }}
             >
               <div
-                className="grid border-b border-earth-200 bg-earth-50"
+                className="sticky top-0 z-30 grid border-b border-earth-200 bg-earth-50 shadow-sm"
                 style={{ gridTemplateColumns: `80px repeat(${providers.length}, minmax(240px, 1fr))` }}
               >
-                <div className="sticky left-0 z-20 border-r border-earth-200 bg-earth-50 px-3 py-3 text-xs font-semibold text-earth-500">
+                <div className="sticky left-0 z-40 border-r border-earth-200 bg-earth-50 px-3 py-3 text-xs font-semibold text-earth-500">
                   時間
                 </div>
                 {providers.map((provider) => (
@@ -335,9 +336,9 @@ function ProviderColumn({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-earth-200 bg-white px-4 py-3">
-      <p className="text-xs text-earth-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums text-earth-900">{value}</p>
+    <div className="flex items-center gap-1.5 rounded-md bg-earth-50 px-2.5 py-1.5">
+      <span className="text-[11px] text-earth-500">{label}</span>
+      <span className="text-xs font-semibold tabular-nums text-earth-900">{value}</span>
     </div>
   );
 }

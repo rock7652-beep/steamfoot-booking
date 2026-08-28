@@ -8,6 +8,8 @@ export const SPA_DEMO_STORE = {
   mapUrl: "https://maps.google.com/?q=24.8387,121.0178",
 } as const;
 
+export const SPA_DEMO_OWNER_STAFF_ID = "spa-demo-owner";
+
 export type SpaDemoBookingStatus =
   | "新客體驗"
   | "已確認"
@@ -24,6 +26,11 @@ export type SpaDemoProvider = {
   name: string;
   specialties: string;
   specialtyKeys: readonly SpaProviderSpecialty[];
+  emergencyContact: {
+    name: string;
+    relation: string;
+    phone: string;
+  };
 };
 
 export type SpaDemoBooking = {
@@ -77,9 +84,30 @@ export function assertSpaDemoStoreIdentity(store: SpaDemoStoreIdentity | null): 
 }
 
 export const SPA_DEMO_PROVIDERS: readonly SpaDemoProvider[] = [
-  { id: "spa-demo-staff-08", badge: "08", name: "陳語安", specialties: "精油芳療・肩頸舒壓", specialtyKeys: ["body", "head"] },
-  { id: "spa-demo-staff-10", badge: "10", name: "張若琳", specialties: "深層芳療・複合療程", specialtyKeys: ["body", "head", "foot", "face"] },
-  { id: "spa-demo-staff-16", badge: "16", name: "王心瑜", specialties: "臉部保養・新客體驗", specialtyKeys: ["face", "head"] },
+  {
+    id: "spa-demo-staff-08",
+    badge: "08",
+    name: "陳語安",
+    specialties: "精油芳療・肩頸舒壓",
+    specialtyKeys: ["body", "head"],
+    emergencyContact: { name: "陳小姐", relation: "姊姊", phone: "0900-000-008" },
+  },
+  {
+    id: "spa-demo-staff-10",
+    badge: "10",
+    name: "張若琳",
+    specialties: "深層芳療・複合療程",
+    specialtyKeys: ["body", "head", "foot", "face"],
+    emergencyContact: { name: "張先生", relation: "配偶", phone: "0900-000-010" },
+  },
+  {
+    id: "spa-demo-staff-16",
+    badge: "16",
+    name: "王心瑜",
+    specialties: "臉部保養・新客體驗",
+    specialtyKeys: ["face", "head"],
+    emergencyContact: { name: "王小姐", relation: "母親", phone: "0900-000-016" },
+  },
 ];
 
 export const SPA_DEMO_BOOKINGS: readonly SpaDemoBooking[] = [

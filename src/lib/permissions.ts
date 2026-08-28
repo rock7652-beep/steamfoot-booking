@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS } from "@/lib/cache-tags";
+import { SPA_DEMO_OWNER_STAFF_ID } from "@/lib/spa-demo-store";
 
 // ============================================================
 // 角色常數 & 輔助函式
@@ -345,6 +346,10 @@ export async function checkPermission(
 
   // Customer 不在此系統中
   if (role === "CUSTOMER") return false;
+
+  // SPA Demo 店長是隔離的展示帳號，需能走完所有後台示範流程。
+  // 僅比對固定 staff id，不會擴及任何正式門市或其他 OWNER。
+  if (staffId === SPA_DEMO_OWNER_STAFF_ID) return true;
 
   // 所有員工角色（OWNER / PARTNER）查 StaffPermission 表
   if (!staffId) return false;

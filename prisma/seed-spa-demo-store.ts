@@ -18,6 +18,7 @@ import {
   SPA_DEMO_BOOKINGS,
   SPA_DEMO_STORE,
 } from "../src/lib/spa-demo-store";
+import { ALL_PERMISSIONS } from "../src/lib/permissions";
 
 const prisma = new PrismaClient();
 const APPLY = process.argv.includes("--apply");
@@ -80,7 +81,7 @@ const BOOKING_WALLETS: Record<string, string | undefined> = {
   "spa-demo-booking-before": "spa-demo-wallet-wu",
 };
 
-const PERMISSIONS = [
+const PROVIDER_PERMISSIONS = [
   "customer.read", "customer.create", "customer.update",
   "booking.read", "booking.create", "booking.update",
   "wallet.read", "wallet.create", "plans.edit",
@@ -183,7 +184,8 @@ async function applySeed() {
         create: { id: identity.id, userId: identity.userId, storeId: SPA_DEMO_STORE.id, displayName: identity.displayName, colorCode: identity.colorCode, isOwner: identity.isOwner },
         update: { displayName: identity.displayName, colorCode: identity.colorCode, isOwner: identity.isOwner },
       });
-      for (const permission of PERMISSIONS) {
+      const permissions = identity.isOwner ? ALL_PERMISSIONS : PROVIDER_PERMISSIONS;
+      for (const permission of permissions) {
         await tx.staffPermission.upsert({
           where: { staffId_permission: { staffId: identity.id, permission } },
           create: { staffId: identity.id, permission, granted: true },
