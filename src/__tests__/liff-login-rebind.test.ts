@@ -5,11 +5,15 @@ const h = vi.hoisted(() => ({
   queryRaw: vi.fn(),
   requestFind: vi.fn(),
   customerFind: vi.fn(),
+  customerCount: vi.fn(),
+  userFind: vi.fn(),
   linksFind: vi.fn(),
   accountsFind: vi.fn(),
   linkUpdate: vi.fn(),
   accountUpdate: vi.fn(),
   accountDelete: vi.fn(),
+  accountCreate: vi.fn(),
+  linkCreate: vi.fn(),
   requestUpdate: vi.fn(),
   auditCreate: vi.fn(),
   sha: vi.fn(),
@@ -25,12 +29,12 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/normalize", () => ({ normalizePhone: (value: string) => value }));
 vi.mock("@/server/services/line-rebind", () => ({ sha256: h.sha }));
 
-import { tryExecuteAuthorizedLiffLoginRebind } from "@/server/services/liff-login-rebind";
+import { tryExecuteAuthorizedLiffLoginFirstCapture, tryExecuteAuthorizedLiffLoginRebind } from "@/server/services/liff-login-rebind";
 
 const phone = "0963770378";
 const oldLoginId = "U-old-login";
 const newLoginId = "U-new-login";
-const hash = (value: string) => `hash:${value}`;
+const hash = (value: string) => `digest:${Buffer.from(value, "utf8").toString("hex")}`;
 
 function tx() {
   return {
@@ -39,15 +43,18 @@ function tx() {
       findUnique: h.requestFind,
       updateMany: h.requestUpdate,
     },
-    customer: { findUnique: h.customerFind },
+    customer: { findUnique: h.customerFind, count: h.customerCount },
+    user: { findUnique: h.userFind },
     customerIdentityLink: {
       findMany: h.linksFind,
       updateMany: h.linkUpdate,
+      create: h.linkCreate,
     },
     account: {
       findMany: h.accountsFind,
       updateMany: h.accountUpdate,
       deleteMany: h.accountDelete,
+      create: h.accountCreate,
     },
     auditLog: { create: h.auditCreate },
   };
@@ -81,11 +88,12 @@ describe("authorized LIFF Login rebind", () => {
       phone,
       userId: "user-1",
       mergedIntoCustomerId: null,
-      user: { id: "user-1", status: "ACTIVE" },
     });
+    h.userFind.mockResolvedValue({ id: "user-1", status: "ACTIVE", role: "CUSTOMER" });
     h.linksFind
       .mockResolvedValueOnce([{
         id: "link-old",
+        userId: "user-1",
         providerAccountId: oldLoginId,
         lineUserId: oldLoginId,
       }])
@@ -146,6 +154,7 @@ describe("authorized LIFF Login rebind", () => {
       .mockReset()
       .mockResolvedValueOnce([{
         id: "link-old",
+        userId: "user-1",
         providerAccountId: oldLoginId,
         lineUserId: oldLoginId,
       }])
@@ -163,5 +172,48 @@ describe("authorized LIFF Login rebind", () => {
     })).resolves.toEqual({ status: "rejected", code: "LOGIN_IDENTITY_CONFLICT" });
     expect(h.linkUpdate).not.toHaveBeenCalled();
     expect(h.accountUpdate).not.toHaveBeenCalled();
+  });
+
+  it("supports a cross-store Customer owned by an exact identity link", async () => {
+    h.customerFind.mockResolvedValue({ id: "customer-1", storeId: "store-1", phone, userId: null, mergedIntoCustomerId: null });
+    await expect(tryExecuteAuthorizedLiffLoginRebind({
+      storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId,
+    })).resolves.toEqual({ status: "executed", requestId: "request-1" });
+    expect(h.linkUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ userId: "user-1" }) }));
+  });
+});
+
+describe("authorized first LIFF Login capture", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    h.sha.mockImplementation(hash);
+    h.transaction.mockImplementation(async (callback: (client: unknown) => unknown) => callback(tx()));
+    h.queryRaw.mockResolvedValueOnce([{ id: "capture-1" }]).mockResolvedValueOnce([{ id: "customer-1" }]);
+    h.requestFind.mockResolvedValue({
+      id: "capture-1", storeId: "store-1", customerId: "customer-1", createdByUserId: "admin-1",
+      status: "PENDING_CAPTURE", reason: "LIFF_LOGIN_FIRST_CAPTURE_V1", phoneHash: hash(phone), oldUserIdHash: null,
+      expiresAt: new Date(Date.now() + 60_000), consumedAt: null,
+    });
+    h.customerFind.mockResolvedValue({
+      id: "customer-1", storeId: "store-1", phone, userId: "user-1", mergedIntoCustomerId: null,
+      user: { id: "user-1", status: "ACTIVE", role: "CUSTOMER" },
+    });
+    h.customerCount.mockReset().mockResolvedValue(1);
+    h.linksFind.mockReset().mockResolvedValue([]);
+    h.accountsFind.mockReset().mockResolvedValue([]);
+    h.accountCreate.mockResolvedValue({ id: "account-new" });
+    h.linkCreate.mockResolvedValue({ id: "link-new" });
+    h.requestUpdate.mockResolvedValue({ count: 1 });
+    h.auditCreate.mockResolvedValue({ id: "audit-1" });
+  });
+
+  it("captures the verified LIFF identity without writing Customer.lineUserId", async () => {
+    await expect(tryExecuteAuthorizedLiffLoginFirstCapture({
+      storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId,
+    })).resolves.toEqual({ status: "executed", requestId: "capture-1" });
+    expect(h.accountCreate).toHaveBeenCalled();
+    expect(h.linkCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ providerAccountId: newLoginId, lineUserId: newLoginId }) }));
+    expect(tx().customer).not.toHaveProperty("update");
+    expect(tx().customer).not.toHaveProperty("updateMany");
   });
 });
