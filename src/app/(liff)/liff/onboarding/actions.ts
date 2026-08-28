@@ -153,7 +153,7 @@ export async function submitOnboarding(
       if (rebind.status === "executed") {
         logLineBindEvent({
           path: "liff-exchange",
-          status: "authorized_liff_login_rebind_executed",
+          status: "already_synced",
           storeId: store.id,
           storeSlug: store.slug,
           lineUserId: verified.lineUserId,
