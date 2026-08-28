@@ -118,7 +118,11 @@ async function main() {
       });
     }
     return repaired;
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, {
+    isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    maxWait: 10_000,
+    timeout: 30_000,
+  });
 
   await writeFile(
     "expired-booking-wallet-repair-result.json",
