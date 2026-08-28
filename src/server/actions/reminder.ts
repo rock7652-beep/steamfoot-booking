@@ -626,6 +626,35 @@ export async function setBookingReminderTypeEnabled(
   }
 }
 
+export async function setPlanExpiryReminderEnabled(
+  enabled: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const { PLAN_EXPIRY_REMINDER_TEMPLATE_NAME, planExpiryReminderSettingId } =
+      await import("@/lib/plan-expiry-reminder-setting");
+    const settingId = planExpiryReminderSettingId(storeId);
+    await prisma.messageTemplate.upsert({
+      where: { id: settingId },
+      create: {
+        id: settingId,
+        storeId,
+        name: PLAN_EXPIRY_REMINDER_TEMPLATE_NAME,
+        channel: "LINE",
+        body: enabled ? "enabled" : "disabled",
+        isDefault: false,
+      },
+      update: { body: enabled ? "enabled" : "disabled" },
+    });
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
 // ============================================================
 // Session balance / renewal reminder settings
 // ============================================================

@@ -1,4 +1,5 @@
 import { PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME } from "@/lib/package-line-card-reminder-setting";
+import { PLAN_EXPIRY_REMINDER_TEMPLATE_NAME } from "@/lib/plan-expiry-reminder-setting";
 
 export const TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME =
   "__SYSTEM_TRIAL_LINE_CARD_REMINDER__";
@@ -15,5 +16,6 @@ export function trialLineCardReminderSettingId(storeId: string): string {
 
 export function isSystemLineCardReminderTemplate(name: string): boolean {
   return name === TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME ||
-    name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME;
+    name === PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME ||
+    name === PLAN_EXPIRY_REMINDER_TEMPLATE_NAME;
 }
