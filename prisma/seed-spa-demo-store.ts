@@ -24,10 +24,10 @@ const APPLY = process.argv.includes("--apply");
 const PASSWORD_HASH = hashSync("demo1234", 10);
 
 const STAFF = [
-  { id: "spa-demo-owner", userId: "spa-demo-user-owner", email: "demo-spa-owner@steamfoot.tw", phone: "0900000001", displayName: "林沐晴 店長", role: "OWNER" as const, isOwner: true, colorCode: "#8b6f5a" },
-  { id: "spa-demo-staff-08", userId: "spa-demo-user-08", email: "demo-spa-08@steamfoot.tw", phone: "0900000008", displayName: "08號 陳語安", role: "PARTNER" as const, isOwner: false, colorCode: "#c79275" },
-  { id: "spa-demo-staff-10", userId: "spa-demo-user-10", email: "demo-spa-10@steamfoot.tw", phone: "0900000010", displayName: "10號 張若琳", role: "PARTNER" as const, isOwner: false, colorCode: "#8fa89b" },
-  { id: "spa-demo-staff-16", userId: "spa-demo-user-16", email: "demo-spa-16@steamfoot.tw", phone: "0900000016", displayName: "16號 王心瑜", role: "PARTNER" as const, isOwner: false, colorCode: "#b49ab8" },
+  { id: "spa-demo-owner", userId: "spa-demo-user-owner", email: "demo-spa-owner@steamfoot.tw", displayName: "林沐晴 店長", role: "OWNER" as const, isOwner: true, colorCode: "#8b6f5a" },
+  { id: "spa-demo-staff-08", userId: "spa-demo-user-08", email: "demo-spa-08@steamfoot.tw", displayName: "08號 陳語安", role: "PARTNER" as const, isOwner: false, colorCode: "#c79275" },
+  { id: "spa-demo-staff-10", userId: "spa-demo-user-10", email: "demo-spa-10@steamfoot.tw", displayName: "10號 張若琳", role: "PARTNER" as const, isOwner: false, colorCode: "#8fa89b" },
+  { id: "spa-demo-staff-16", userId: "spa-demo-user-16", email: "demo-spa-16@steamfoot.tw", displayName: "16號 王心瑜", role: "PARTNER" as const, isOwner: false, colorCode: "#b49ab8" },
 ] as const;
 
 const CUSTOMERS = [
@@ -136,7 +136,7 @@ async function applySeed() {
     for (const identity of STAFF) {
       await tx.user.upsert({
         where: { email: identity.email },
-        create: { id: identity.userId, email: identity.email, phone: identity.phone, name: identity.displayName, passwordHash: PASSWORD_HASH, role: identity.role },
+        create: { id: identity.userId, email: identity.email, name: identity.displayName, passwordHash: PASSWORD_HASH, role: identity.role },
         update: { name: identity.displayName, role: identity.role },
       });
       await tx.staff.upsert({
