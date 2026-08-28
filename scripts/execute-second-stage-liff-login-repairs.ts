@@ -92,7 +92,7 @@ async function main() {
       const phoneUsers = usersByPhone.get(phone) ?? [];
       if (phoneUsers.length !== 1) continue;
       const targetUser = phoneUsers[0];
-      if (allCustomers.some((other) => other.storeId === customer.storeId && other.id !== customer.id && other.userId === targetUser.id)) continue;
+      if (allCustomers.some((other) => other.id !== customer.id && other.userId === targetUser.id)) continue;
       const userAccounts = accounts.filter((account) => account.userId === targetUser.id);
       if (userAccounts.length !== 1) continue;
       const account = userAccounts[0];

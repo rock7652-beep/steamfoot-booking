@@ -147,8 +147,8 @@ async function main() {
     const phoneUsers = usersByPhone.get(phone) ?? [];
     if (phoneUsers.length !== 1) { addManual(customer, "UNIQUE_ACTIVE_PHONE_USER_NOT_FOUND"); continue; }
     const targetUser = phoneUsers[0];
-    if (allCustomers.some((other) => other.storeId === customer.storeId && other.id !== customer.id && other.userId === targetUser.id)) {
-      addManual(customer, "PHONE_USER_ALREADY_HAS_STORE_CUSTOMER"); continue;
+    if (allCustomers.some((other) => other.id !== customer.id && other.userId === targetUser.id)) {
+      addManual(customer, "PHONE_USER_ALREADY_HAS_DIRECT_CUSTOMER"); continue;
     }
     const userAccounts = accounts.filter((account) => account.userId === targetUser.id);
     if (userAccounts.length !== 1) { addManual(customer, "PHONE_USER_LINE_ACCOUNT_NOT_EXACT"); continue; }
