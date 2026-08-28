@@ -2,5 +2,6 @@
   "authorizedBy": "owner",
   "authorizedAt": "2026-08-28T22:55:00+08:00",
   "mode": "read-only",
-  "scope": "remaining-69-active-plan-members-second-stage-liff-login-repair-v1"
+  "scope": "remaining-active-plan-members-second-stage-liff-login-repair-v2",
+  "rerun": "2026-08-28T23:15:00+08:00"
 }
