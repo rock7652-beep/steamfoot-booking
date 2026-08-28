@@ -46,6 +46,7 @@ try {
     prisma.$queryRawUnsafe(`SELECT finished_at, rolled_back_at FROM "_prisma_migrations" WHERE migration_name = $1`, MIGRATION),
   ]);
   if (identity.length !== 1 || identity[0].id !== "demo-store" || identity[0].slug !== "demo" || identity[0].isDemo !== true) {
+    console.error("spa-demo-rollout: identity-diagnostic", identity.map((row) => ({ id: row.id, slug: row.slug, isDemo: row.isDemo })));
     fail("demo_store_identity_rejected");
   }
   if (![0, SPA_TABLES.length].includes(tables.length)) fail("partial_schema_rejected");
