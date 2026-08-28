@@ -16,6 +16,7 @@ import type { PricingPlan } from "@prisma/client";
 import StoreSwitcher from "@/components/store-switcher";
 import { StoreViewModeSwitcher } from "@/components/store-view-mode-switcher";
 import { MVP_HIDDEN_ROUTES } from "@/lib/mvp-hidden-features";
+import type { IndustryModuleId } from "@/lib/industry-modules";
 
 // 修改密碼 modal 一年用不到一次，但每次切後台頁都被掛在 sidebar 樹裡 → 浪費 ~20KB JS。
 // 改 next/dynamic + 條件 mount，只有 user menu 點擊「修改密碼」才會 fetch chunk + render。
@@ -558,6 +559,8 @@ interface DashboardShellProps {
     viewedStoreId: string;
     multiStoreEnabled: boolean;
   };
+  /** Store-scoped industry UI. Formal stores always remain steamfoot. */
+  industryModuleId?: IndustryModuleId;
 }
 
 export default function DashboardShell({
@@ -574,6 +577,7 @@ export default function DashboardShell({
   storeOptions,
   activeStoreId,
   viewMode,
+  industryModuleId = "steamfoot",
 }: DashboardShellProps) {
   const rawPathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -628,6 +632,19 @@ export default function DashboardShell({
   const isHqRoute = rawPathname.startsWith("/hq");
   const isStoreAdminRoute = /^\/s\/[^/]+\/admin(\/|$)/.test(rawPathname);
 
+  const storeAdminNav = useMemo(() => {
+    if (industryModuleId !== "spa") return STORE_ADMIN_NAV;
+    const labels: Partial<Record<string, string>> = {
+      "/dashboard": "今日營運",
+      "/dashboard/bookings": "芳療師排程",
+      "/dashboard/plans": "療程管理",
+    };
+    return STORE_ADMIN_NAV.map((item) => ({
+      ...item,
+      label: labels[item.href] ?? item.label,
+    }));
+  }, [industryModuleId]);
+
   const navGroupsToRender: NavGroup[] = useMemo(() => {
     if (isHqRoute) return NAV_GROUPS;
     if (isStoreAdminRoute) {
@@ -637,7 +654,7 @@ export default function DashboardShell({
           label: "",
           defaultOpen: true,
           icon: <></>,
-          items: STORE_ADMIN_NAV,
+          items: storeAdminNav,
         },
       ];
     }
@@ -649,10 +666,10 @@ export default function DashboardShell({
         label: "",
         defaultOpen: true,
         icon: <></>,
-        items: STORE_ADMIN_NAV,
+        items: storeAdminNav,
       },
     ];
-  }, [isHqRoute, isStoreAdminRoute, isAdmin]);
+  }, [isHqRoute, isStoreAdminRoute, isAdmin, storeAdminNav]);
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {

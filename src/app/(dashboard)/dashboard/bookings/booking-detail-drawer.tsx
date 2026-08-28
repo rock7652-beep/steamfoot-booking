@@ -116,6 +116,10 @@ interface BookingDetailDrawerProps {
    */
   onUpdated?: (bookingId: string, newStatus: string | null) => void;
   readOnly?: boolean;
+  /** Optional prefilled "book this customer again" destination. */
+  rebookHref?: string;
+  /** Industry-specific service duration when the core Booking row has no duration column. */
+  durationMinutes?: number;
 }
 
 export function BookingDetailDrawer({
@@ -127,6 +131,8 @@ export function BookingDetailDrawer({
   onClose,
   onUpdated,
   readOnly = false,
+  rebookHref,
+  durationMinutes,
 }: BookingDetailDrawerProps) {
   const [data, setData] = useState<BookingDrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -498,6 +504,8 @@ export function BookingDetailDrawer({
             isActing={isActing}
             onClose={onClose}
             readOnly={readOnly}
+            rebookHref={rebookHref}
+            durationMinutes={durationMinutes}
             actions={{
               complete: handleComplete,
               noShow: () => setNoShowOpen(true),
@@ -515,6 +523,7 @@ export function BookingDetailDrawer({
         ) : showPrefill && prefill ? (
           <PrefillDrawerContent
             prefill={prefill}
+            durationMinutes={durationMinutes}
             loading={loading}
             error={error}
             onClose={onClose}
@@ -522,6 +531,7 @@ export function BookingDetailDrawer({
         ) : showHeaderFromSummary && summary ? (
           <SummaryDrawerContent
             summary={summary}
+            durationMinutes={durationMinutes}
             loading={loading}
             error={error}
             onClose={onClose}
@@ -701,18 +711,22 @@ function DrawerContent({
   onClose,
   actions,
   readOnly = false,
+  rebookHref,
+  durationMinutes,
 }: {
   payload: BookingDrawerPayload;
   isActing: boolean;
   onClose: () => void;
   actions: DrawerActions;
   readOnly?: boolean;
+  rebookHref?: string;
+  durationMinutes?: number;
 }) {
   const { booking, customerSummary, trial, single, checkout, checkoutToSingle } =
     payload;
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   const amount = computeAmount(booking, trial);
-  const duration = booking.servicePlan?.category === "TRIAL" ? 30 : 60;
+  const duration = durationMinutes ?? (booking.servicePlan?.category === "TRIAL" ? 30 : 60);
   const endTime = computeEndTime(booking.slotTime, duration);
   const dateLabel = formatDateLabel(booking.bookingDate);
 
@@ -1000,6 +1014,7 @@ function DrawerContent({
           checkoutToSingle={checkoutToSingle}
           isActing={isActing}
           actions={actions}
+          rebookHref={rebookHref}
         />
       )}
     </>
@@ -1013,17 +1028,19 @@ function DrawerContent({
  */
 function SummaryDrawerContent({
   summary,
+  durationMinutes,
   loading,
   error,
   onClose,
 }: {
   summary: BookingSummary;
+  durationMinutes?: number;
   loading: boolean;
   error: string | null;
   onClose: () => void;
 }) {
   const meta = bookingStatusMeta(summary.bookingStatus, false);
-  const duration = summary.servicePlanCategory === "TRIAL" ? 30 : 60;
+  const duration = durationMinutes ?? (summary.servicePlanCategory === "TRIAL" ? 30 : 60);
 
   return (
     <>
@@ -1091,17 +1108,19 @@ function SummaryDrawerContent({
  */
 function PrefillDrawerContent({
   prefill,
+  durationMinutes,
   loading,
   error,
   onClose,
 }: {
   prefill: BookingPrefill;
+  durationMinutes?: number;
   loading: boolean;
   error: string | null;
   onClose: () => void;
 }) {
   const meta = bookingStatusMeta(prefill.bookingStatus, prefill.isCheckedIn);
-  const duration = prefill.bookingType === "FIRST_TRIAL" ? 30 : 60;
+  const duration = durationMinutes ?? (prefill.bookingType === "FIRST_TRIAL" ? 30 : 60);
   const endTime = computeEndTime(prefill.slotTime, duration);
   const dateLabel = formatDateLabel(prefill.bookingDate);
   const amount = prefillAmount(prefill);
@@ -1274,6 +1293,7 @@ function ActionFooter({
   checkoutToSingle,
   isActing,
   actions,
+  rebookHref,
 }: {
   booking: BookingDrawerPayload["booking"];
   trial: BookingDrawerPayload["trial"];
@@ -1282,6 +1302,7 @@ function ActionFooter({
   checkoutToSingle: BookingDrawerPayload["checkoutToSingle"];
   isActing: boolean;
   actions: DrawerActions;
+  rebookHref?: string;
 }) {
   const status = booking.bookingStatus;
   const primaries: Array<{ label: string; onClick: () => void }> = [];
@@ -1390,6 +1411,14 @@ function ActionFooter({
         </div>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
+        {rebookHref ? (
+          <Link
+            href={rebookHref}
+            className="inline-flex h-8 items-center rounded-md border border-primary-200 bg-white px-3 text-xs font-medium text-primary-700 hover:bg-primary-50"
+          >
+            再約下一次
+          </Link>
+        ) : null}
         {secondaries.map((a) => (
           <button
             key={a.label}

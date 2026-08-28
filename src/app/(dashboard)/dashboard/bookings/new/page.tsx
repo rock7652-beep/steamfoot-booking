@@ -7,6 +7,7 @@ import { enumerateBookableDates } from "@/lib/bookable-window";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { resolveBookableUntilDate } from "@/lib/shop-config";
 import { getActiveStoreForRead } from "@/lib/store";
+import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { redirect } from "next/navigation";
@@ -25,7 +26,7 @@ import {
 } from "@/components/desktop";
 
 interface PageProps {
-  searchParams: Promise<{ date?: string; mode?: string }>;
+  searchParams: Promise<{ date?: string; mode?: string; customerId?: string }>;
 }
 
 const inputCls =
@@ -45,6 +46,15 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const todayStr = toLocalDateStr();
   const defaultDate = params.date ?? todayStr;
   const activeStoreId = await getActiveStoreForRead(user);
+  const defaultCustomer = params.customerId
+    ? await prisma.customer.findFirst({
+        where: {
+          id: params.customerId,
+          ...getStoreFilter(user, activeStoreId),
+        },
+        select: { id: true, name: true, phone: true, email: true },
+      })
+    : null;
   const shopConfig = activeStoreId
     ? await prisma.shopConfig.findUnique({
         where: { storeId: activeStoreId },
@@ -157,7 +167,15 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
             {/* 右欄：顧客 / 方案 — 客戶端互動由 CustomerAndPlanFields 負責 */}
             <div className="space-y-6">
-              <CustomerAndPlanFields defaultMode={defaultMode} />
+              <CustomerAndPlanFields
+                defaultMode={defaultMode}
+                defaultCustomerId={defaultCustomer?.id}
+                defaultCustomerLabel={
+                  defaultCustomer
+                    ? `${defaultCustomer.name}（${defaultCustomer.phone || defaultCustomer.email || ""}）`
+                    : undefined
+                }
+              />
             </div>
           </div>
 

@@ -47,11 +47,16 @@ function shortDate(iso: string | null): string {
 
 export function CustomerAndPlanFields({
   defaultMode,
+  defaultCustomerId,
+  defaultCustomerLabel,
 }: {
   /** 從「新增補課」入口帶入 mode=makeup 時為 "makeup"，預設選補課。 */
   defaultMode?: "makeup";
+  /** 「再約下一次」帶入的同店顧客；server 已先做店別隔離驗證。 */
+  defaultCustomerId?: string;
+  defaultCustomerLabel?: string;
 }) {
-  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(defaultCustomerId ?? null);
   const [wallets, setWallets] = useState<ActiveWalletSummary[]>([]);
   const [makeup, setMakeup] = useState<MakeupCreditSummary>(EMPTY_MAKEUP);
   const [walletsLoading, setWalletsLoading] = useState(false);
@@ -173,7 +178,11 @@ export function CustomerAndPlanFields({
             顧客 <span className="text-red-500">*</span>
           </label>
           <div className="mt-1">
-            <CustomerSearch onSelect={handleCustomerSelect} />
+            <CustomerSearch
+              defaultCustomerId={defaultCustomerId}
+              defaultCustomerLabel={defaultCustomerLabel}
+              onSelect={handleCustomerSelect}
+            />
           </div>
         </div>
       </FormSection>

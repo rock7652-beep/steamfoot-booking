@@ -1,7 +1,7 @@
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { toLocalDateStr } from "@/lib/date-utils";
+import { parseLocalDate, toDateInputValue, toLocalDateStr } from "@/lib/date-utils";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { getActiveStoreForRead } from "@/lib/store";
 import {
@@ -15,6 +15,11 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { FormSuccessToast } from "@/components/form-success-toast";
 import { BookingsManager } from "./bookings-manager";
+import { SpaProviderSchedule } from "./spa-provider-schedule";
+import {
+  assertSpaDemoStoreIdentity,
+  SPA_DEMO_STORE,
+} from "@/lib/spa-demo-store";
 
 /**
  * 預約管理 — 桌機版（Phase 2 desktop family）
@@ -23,7 +28,7 @@ import { BookingsManager } from "./bookings-manager";
  * 主體委由 BookingsManager（client）處理月曆 + 日明細 + booking detail drawer。
  */
 interface PageProps {
-  searchParams: Promise<{ year?: string; month?: string }>;
+  searchParams: Promise<{ year?: string; month?: string; date?: string }>;
 }
 
 export default async function BookingsPage({ searchParams }: PageProps) {
@@ -35,13 +40,24 @@ export default async function BookingsPage({ searchParams }: PageProps) {
 
   const todayStr = toLocalDateStr();
   const [todayY, todayM] = todayStr.split("-").map(Number);
-  const year = params.year ? parseInt(params.year) : todayY;
-  const month = params.month ? parseInt(params.month) : todayM;
+  const selectedDate = normalizeRequestedDate(params.date, todayStr);
+  const [selectedY, selectedM] = selectedDate.split("-").map(Number);
+  const year = params.date ? selectedY : params.year ? parseInt(params.year) : todayY;
+  const month = params.date ? selectedM : params.month ? parseInt(params.month) : todayM;
 
   const activeStoreId = await getActiveStoreForRead(user);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const bookingsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const isViewMode = storeViewContext?.isViewMode === true;
+  const isSpaDemoStore = bookingsStoreId === SPA_DEMO_STORE.id;
+  if (isSpaDemoStore) {
+    const identity = await prisma.store.findUnique({
+      where: { id: SPA_DEMO_STORE.id },
+      select: { id: true, slug: true, isDemo: true },
+    });
+    // Fail closed: the SPA branch is allowlisted to the one isolated Demo tenant.
+    assertSpaDemoStoreIdentity(identity);
+  }
   const logCtx = {
     page: "bookings" as const,
     activeStoreId: bookingsStoreId,
@@ -53,7 +69,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     sessionRole: user.role,
   };
   const timer = new ServerTiming("/dashboard/bookings");
-  const [monthData, monthSchedule, servicePlans] = await Promise.all([
+  const [monthData, monthSchedule, servicePlans, spaProviders] = await Promise.all([
     // 月曆主資料失敗時回空陣列 — 月曆 cell 顯示為「無預約」，UI 不會 crash。
     // 各 cell 仍可被點開，僅是當下無資料；保守於假造任何預約。
     withTiming("getMonthBookingSummary", timer, () =>
@@ -97,8 +113,59 @@ export default async function BookingsPage({ searchParams }: PageProps) {
           })
         : Promise.resolve([]),
     ),
+    withTiming("spaProviders", timer, () =>
+      isSpaDemoStore
+        ? prisma.staff.findMany({
+            where: {
+              storeId: SPA_DEMO_STORE.id,
+              status: "ACTIVE",
+              isOwner: false,
+            },
+            select: { id: true, displayName: true, colorCode: true },
+            orderBy: { displayName: "asc" },
+          })
+        : Promise.resolve([]),
+    ),
   ]);
   timer.finish();
+
+  if (isSpaDemoStore) {
+    const selectedDay = monthData.find((day) => day.date === selectedDate);
+    return (
+      <PageShell>
+        <FormSuccessToast />
+        <PageHeader
+          title="芳療師排程"
+          subtitle="蒸管家後台・SPA 擴充模組"
+          actions={
+            isViewMode ? (
+              <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
+                查看模式不可新增預約
+              </span>
+            ) : (
+              <Link
+                href={`/dashboard/bookings/new?date=${selectedDate}`}
+                prefetch={false}
+                className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
+              >
+                ＋ 新增預約
+              </Link>
+            )
+          }
+        />
+        <SpaProviderSchedule
+          key={selectedDate}
+          date={selectedDate}
+          providers={spaProviders.map((provider) => ({
+            ...provider,
+            colorCode: provider.colorCode ?? "#8fa89b",
+          }))}
+          initialBookings={selectedDay?.bookings ?? []}
+          readOnly={isViewMode}
+        />
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell>
@@ -132,4 +199,10 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       />
     </PageShell>
   );
+}
+
+function normalizeRequestedDate(value: string | undefined, fallback: string): string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return fallback;
+  const parsed = parseLocalDate(value);
+  return toDateInputValue(parsed) === value ? value : fallback;
 }

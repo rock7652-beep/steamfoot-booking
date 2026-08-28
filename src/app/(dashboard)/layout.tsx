@@ -21,6 +21,8 @@ import {
   type StoreViewContext,
   type ViewableStoreOption,
 } from "@/lib/store-organization";
+import type { IndustryModuleId } from "@/lib/industry-modules";
+import { assertSpaDemoStoreIdentity, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 
 export default async function DashboardLayout({
   children,
@@ -90,14 +92,19 @@ export default async function DashboardLayout({
   let storeViewContext: StoreViewContext | null = null;
   let viewableStores: ViewableStoreOption[] = [];
   let multiStoreEnabled = false;
+  let industryModuleId: IndustryModuleId = "steamfoot";
   if (effectiveStoreId) {
     try {
       const store = await prisma.store.findUnique({
         where: { id: effectiveStoreId },
-        select: { name: true, operatingStatus: true },
+        select: { id: true, slug: true, isDemo: true, name: true, operatingStatus: true },
       });
       storeName = store?.name ?? null;
       operatingStatus = store?.operatingStatus ?? null;
+      if (effectiveStoreId === SPA_DEMO_STORE.id) {
+        assertSpaDemoStoreIdentity(store);
+        industryModuleId = "spa";
+      }
     } catch {
       // 忽略：店名/營運狀態失敗時使用 UI fallback
     }
@@ -176,6 +183,7 @@ export default async function DashboardLayout({
             }
           : undefined
       }
+      industryModuleId={industryModuleId}
     >
       {storeViewContext?.isViewMode && viewedStore ? (
         <ViewModeBanner viewedStoreName={viewedStore.name} />

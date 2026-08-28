@@ -1,0 +1,40 @@
+import { describe, expect, it } from "vitest";
+import {
+  resolveSpaProviderBadge,
+  resolveSpaScheduleService,
+} from "@/lib/spa-dashboard-schedule";
+
+describe("SPA dashboard schedule presentation", () => {
+  it("keeps the seeded 60+30+30 composed booking at 120 minutes", () => {
+    expect(
+      resolveSpaScheduleService({ bookingId: "spa-demo-booking-zhang" }),
+    ).toEqual({
+      name: "全身精油舒壓＋頭部舒壓＋足部放鬆",
+      durationMinutes: 120,
+    });
+  });
+
+  it("uses the SPA catalog for ordinary plan bookings", () => {
+    expect(
+      resolveSpaScheduleService({
+        bookingId: "future-booking",
+        servicePlanName: "新客舒壓體驗 60 分鐘",
+      }),
+    ).toEqual({
+      name: "新客舒壓體驗 60 分鐘",
+      durationMinutes: 60,
+    });
+  });
+
+  it("uses a conservative SPA fallback for an unknown future service", () => {
+    expect(resolveSpaScheduleService({ bookingId: "future-booking" })).toEqual({
+      name: "SPA 服務",
+      durationMinutes: 90,
+    });
+  });
+
+  it("extracts the therapist number badge", () => {
+    expect(resolveSpaProviderBadge("10號 張若琳")).toBe("10");
+    expect(resolveSpaProviderBadge("未編號芳療師")).toBe("--");
+  });
+});
