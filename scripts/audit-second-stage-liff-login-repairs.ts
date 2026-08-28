@@ -28,7 +28,7 @@ async function main() {
     }),
     prisma.customer.findMany({
       where: { mergedIntoCustomerId: null },
-      select: { id: true, storeId: true, phone: true, userId: true },
+      select: { id: true, storeId: true, name: true, phone: true, userId: true },
     }),
     prisma.customerIdentityLink.findMany({
       where: { provider: "line" },
@@ -39,8 +39,8 @@ async function main() {
       select: { id: true, userId: true, providerAccountId: true },
     }),
     prisma.user.findMany({
-      where: { role: "CUSTOMER", status: "ACTIVE" },
-      select: { id: true, phone: true },
+      where: { role: "CUSTOMER" },
+      select: { id: true, name: true, phone: true, status: true, role: true },
     }),
     prisma.lineRebindRequest.findMany({
       select: {
@@ -58,6 +58,7 @@ async function main() {
   }
   const usersByPhone = new Map<string, typeof users>();
   for (const user of users) {
+    if (user.status !== "ACTIVE") continue;
     const phone = user.phone ? normalizePhone(user.phone) : "";
     if (!phone) continue;
     const rows = usersByPhone.get(phone) ?? [];
@@ -174,6 +175,51 @@ async function main() {
   }));
   const actionCounts = Object.fromEntries([...new Set(repairable.map((row) => String(row.action)))].sort().map((action) => [action, repairable.filter((row) => row.action === action).length]));
   const manualReasonCounts = Object.fromEntries([...new Set(manual.map((row) => String(row.code)))].sort().map((code) => [code, manual.filter((row) => row.code === code).length]));
+  const manualDiagnostics = manual.map((row) => {
+    const customer = activePlanCustomers.find((item) => item.id === row.customerId)!;
+    const phone = normalizePhone(customer.phone);
+    const customerLinks = links.filter((link) => link.customerId === customer.id);
+    const samePhoneUsers = users.filter((user) => user.phone && normalizePhone(user.phone) === phone);
+    const relatedUserIds = new Set([
+      customer.userId,
+      ...customerLinks.map((link) => link.userId),
+      ...samePhoneUsers.map((user) => user.id),
+    ].filter((id): id is string => Boolean(id)));
+    const relatedAccounts = accounts.filter((account) => relatedUserIds.has(account.userId));
+    return {
+      storeId: customer.storeId,
+      store: row.store,
+      customerId: customer.id,
+      customerName: customer.name,
+      code: row.code,
+      directUserId: customer.userId,
+      samePhoneCustomers: allCustomers.filter((item) => normalizePhone(item.phone) === phone).map((item) => ({
+        customerId: item.id, storeId: item.storeId, customerName: item.name, directUserId: item.userId,
+      })),
+      samePhoneUsers: samePhoneUsers.map((user) => ({
+        userId: user.id, name: user.name, status: user.status,
+        directCustomerIds: allCustomers.filter((item) => item.userId === user.id).map((item) => item.id),
+        lineAccounts: accounts.filter((account) => account.userId === user.id).map((account) => ({
+          accountId: account.id, providerAccountIdHash: sha256(account.providerAccountId),
+          matchingLinkIds: links.filter((link) => link.providerAccountId === account.providerAccountId).map((link) => link.id),
+        })),
+      })),
+      customerLineLinks: customerLinks.map((link) => ({
+        linkId: link.id, userId: link.userId,
+        providerAccountIdHash: sha256(link.providerAccountId),
+        lineUserIdMatches: link.lineUserId === link.providerAccountId,
+        matchingAccountIds: relatedAccounts.filter((account) => account.userId === link.userId && account.providerAccountId === link.providerAccountId).map((account) => account.id),
+        globalMatchingLinkIds: links.filter((other) => other.providerAccountId === link.providerAccountId).map((other) => other.id),
+      })),
+      relatedUsers: [...relatedUserIds].map((userId) => ({
+        userId,
+        user: users.find((user) => user.id === userId) ?? null,
+        directCustomerIds: allCustomers.filter((item) => item.userId === userId).map((item) => item.id),
+        lineAccountIds: accounts.filter((account) => account.userId === userId).map((account) => account.id),
+        identityLinkIds: links.filter((link) => link.userId === userId).map((link) => link.id),
+      })),
+    };
+  });
   const summary = {
     activePlanCustomersAudited: activePlanCustomers.length,
     firstStageExact,
@@ -183,7 +229,7 @@ async function main() {
     manualReasonCounts,
     candidateFingerprint: sha256(JSON.stringify(fingerprintRows)),
   };
-  await writeFile(reportPath, JSON.stringify({ generatedAt: now.toISOString(), summary, repairable, manual }, null, 2));
+  await writeFile(reportPath, JSON.stringify({ generatedAt: now.toISOString(), summary, repairable, manual, manualDiagnostics }, null, 2));
   console.log(JSON.stringify(summary));
 }
 
