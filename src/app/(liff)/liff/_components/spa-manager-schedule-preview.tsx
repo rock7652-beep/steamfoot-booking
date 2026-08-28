@@ -455,8 +455,14 @@ function QuickBookingForm({ slot, onCancel, onSubmit }: { slot: QuickSlot; onCan
     <section className="rounded-2xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-500">現場／電話快速預約</p><h2 className="mt-2 text-lg font-semibold">{slot.time}・{provider.badge}號 {provider.name}</h2></div><button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">關閉</button></div>
       <form className="mt-5 space-y-4" onSubmit={onSubmit}>
-        <label className="block text-sm font-medium text-earth-700">顧客姓名<input name="customer" required autoFocus placeholder="例如：陳小姐" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500" /></label>
-        <label className="block text-sm font-medium text-earth-700">服務療程<select name="service" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500">{SPA_INDUSTRY_MODULE.services.map((service) => <option key={service.key} value={service.key}>{service.name}</option>)}</select></label>
+        <div>
+          <label htmlFor="spa-preview-customer" className="block text-sm font-medium text-earth-700">顧客姓名</label>
+          <input id="spa-preview-customer" name="customer" required autoFocus placeholder="例如：陳小姐" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500" />
+        </div>
+        <div>
+          <label htmlFor="spa-preview-service" className="block text-sm font-medium text-earth-700">服務療程</label>
+          <select id="spa-preview-service" name="service" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500">{SPA_INDUSTRY_MODULE.services.map((service) => <option key={service.key} value={service.key}>{service.name}</option>)}</select>
+        </div>
         <button type="submit" className="min-h-11 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white">加入示範排程</button>
       </form>
     </section>
