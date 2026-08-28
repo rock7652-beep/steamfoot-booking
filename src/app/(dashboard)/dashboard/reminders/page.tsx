@@ -226,8 +226,8 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
         {/* 提醒設定 — 單一「明日預約提醒」開關 */}
         {activeTab === "rules" && (
-          <section className="space-y-4">
-            <div className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
+          <section className="grid gap-4 xl:grid-cols-2">
+            <div className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                 <span className={`font-semibold ${lineHealthStatus?.status === "NORMAL" ? "text-green-700" : "text-red-700"}`}>LINE {lineHealthStatus?.status === "NORMAL" ? "通知正常" : "需要處理"}</span>
                 <span className="text-green-700">今日成功 {stats.todaySent}</span>
@@ -252,7 +252,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             />
             <PlanExpiryReminderSettingCard initialEnabled={planExpiryReminderEnabled} />
 
-            <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
+            <details className="group rounded-xl border border-earth-200 bg-white shadow-sm xl:col-span-2">
               <summary className="flex cursor-pointer list-none items-center justify-between p-4 font-semibold text-earth-800">
                 進階設定
                 <span className="text-earth-400 transition group-open:rotate-180">⌄</span>
