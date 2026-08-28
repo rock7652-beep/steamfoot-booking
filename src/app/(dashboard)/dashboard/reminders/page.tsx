@@ -226,7 +226,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
         {/* 提醒設定 — 單一「明日預約提醒」開關 */}
         {activeTab === "rules" && (
-          <section className="grid gap-3 md:grid-cols-2">
+          <section className="grid items-start gap-3 md:grid-cols-2">
             <div className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm md:col-span-2">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                 <span className={`font-semibold ${lineHealthStatus?.status === "NORMAL" ? "text-green-700" : "text-red-700"}`}>LINE {lineHealthStatus?.status === "NORMAL" ? "通知正常" : "需要處理"}</span>
