@@ -38,7 +38,11 @@ function run(command, args) {
 }
 
 if (process.env.CONFIRMATION !== EXPECTED_CONFIRMATION) fail("confirmation_rejected");
-if (projectRef(process.env.DIRECT_URL) !== EXPECTED_PROJECT_REF) fail("production_connection_rejected");
+const actualProjectRef = projectRef(process.env.DIRECT_URL);
+if (actualProjectRef !== EXPECTED_PROJECT_REF) {
+  console.error("spa-demo-rollout: connection-diagnostic", { directUrlPresent: Boolean(process.env.DIRECT_URL), actualProjectRef });
+  fail("production_connection_rejected");
+}
 
 const prisma = new PrismaClient({ datasources: { db: { url: process.env.DIRECT_URL } } });
 
