@@ -65,7 +65,7 @@ try {
   if (tables.length === 0) {
     if (ledger.length) fail("ledger_schema_mismatch_rejected");
     console.log("spa-demo-rollout: applying additive schema");
-    run("npx", ["prisma", "db", "execute", "--file", `prisma/migrations/${MIGRATION}/migration.sql`]);
+    run("npx", ["prisma", "db", "execute", "--schema", "prisma/schema.prisma", "--file", `prisma/migrations/${MIGRATION}/migration.sql`]);
   }
 
   const [fingerprint, bookingColumns, rls] = await Promise.all([
