@@ -14,6 +14,7 @@ import { isSpaDemoStoreId, SPA_DEMO_PROVIDERS } from "@/lib/spa-demo-store";
 import { StaffWorkspace, type StaffWorkspacePerson } from "./staff-workspace";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 
 export default async function StaffPage() {
   const user = await getCurrentUser();
@@ -33,8 +34,9 @@ export default async function StaffPage() {
   ]);
   const canManage = canManagePermission && !adminMissingStore;
   const isSpaDemo = isSpaDemoStoreId(activeStoreId);
+  const spaSchemaReady = isSpaDemo ? await isSpaOperationalSchemaReady() : false;
   const providerById = new Map(SPA_DEMO_PROVIDERS.map((provider) => [provider.id, provider]));
-  const [storedSkills, storedAvailability, storedExceptions] = isSpaDemo ? await Promise.all([
+  const [storedSkills, storedAvailability, storedExceptions] = isSpaDemo && spaSchemaReady ? await Promise.all([
     prisma.staffSkill.findMany({ where: { storeId: activeStoreId! }, include: { skill: { select: { id: true } } } }),
     prisma.staffWeeklyAvailability.findMany({ where: { storeId: activeStoreId!, isActive: true }, orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] }),
     prisma.staffAvailabilityException.findMany({ where: { storeId: activeStoreId!, date: { gte: parseTaiwanDateToDbDate(toLocalDateStr()) } }, orderBy: { date: "asc" } }),
@@ -107,12 +109,19 @@ export default async function StaffPage() {
             目前尚未選擇操作店家，請從 HQ 選擇店家後再管理人員。
           </div>
         ) : (
-          <StaffWorkspace
-            people={people}
-            today={toLocalDateStr()}
-            canManage={canManage}
-            createAction={handleCreateStaff}
-          />
+          <>
+            {isSpaDemo && !spaSchemaReady ? (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                人員排班資料功能更新中，目前可先查看 Demo 設定；待資料表就緒後即可儲存。
+              </div>
+            ) : null}
+            <StaffWorkspace
+              people={people}
+              today={toLocalDateStr()}
+              canManage={canManage && (!isSpaDemo || spaSchemaReady)}
+              createAction={handleCreateStaff}
+            />
+          </>
         )}
       </PageShell>
     </FeatureGate>

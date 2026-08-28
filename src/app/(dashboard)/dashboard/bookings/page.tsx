@@ -26,6 +26,7 @@ import {
 } from "@/lib/business-hours-resolver";
 import { calculateSpaProviderStartTimes } from "@/lib/spa-availability";
 import { resolveSpaScheduleService } from "@/lib/spa-dashboard-schedule";
+import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 
 /**
  * 預約管理 — 桌機版（Phase 2 desktop family）
@@ -56,6 +57,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const bookingsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const isViewMode = storeViewContext?.isViewMode === true;
   const isSpaDemoStore = bookingsStoreId === SPA_DEMO_STORE.id;
+  const spaSchemaReady = isSpaDemoStore ? await isSpaOperationalSchemaReady() : false;
   if (isSpaDemoStore) {
     const identity = await prisma.store.findUnique({
       where: { id: SPA_DEMO_STORE.id },
@@ -120,7 +122,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         : Promise.resolve([]),
     ),
     withTiming("spaProviders", timer, () =>
-      isSpaDemoStore
+      isSpaDemoStore && spaSchemaReady
         ? prisma.staff.findMany({
             where: {
               storeId: SPA_DEMO_STORE.id,
@@ -137,10 +139,16 @@ export default async function BookingsPage({ searchParams }: PageProps) {
             },
             orderBy: { displayName: "asc" },
           })
-        : Promise.resolve([]),
+        : isSpaDemoStore
+          ? prisma.staff.findMany({
+              where: { storeId: SPA_DEMO_STORE.id, status: "ACTIVE", isOwner: false },
+              select: { id: true, displayName: true, colorCode: true },
+              orderBy: { displayName: "asc" },
+            }).then((providers) => providers.map((provider) => ({ ...provider, skills: [], weeklyAvailabilities: [], availabilityExceptions: [] })))
+          : Promise.resolve([]),
     ),
     withTiming("spaTreatments", timer, () =>
-      isSpaDemoStore
+      isSpaDemoStore && spaSchemaReady
         ? prisma.treatment.findMany({ where: { storeId: SPA_DEMO_STORE.id, isActive: true }, select: { serviceMinutes: true, bufferMinutes: true, skills: { select: { skill: { select: { id: true } } } } } })
         : Promise.resolve([]),
     ),
@@ -159,10 +167,15 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     )
       .filter((slot) => slot.isEnabled)
       .map((slot) => slot.startTime);
-    const occupiedBookings = await prisma.booking.findMany({
-      where: { storeId: SPA_DEMO_STORE.id, bookingDate: parseTaiwanDateToDbDate(selectedDate), bookingStatus: { in: ["PENDING", "CONFIRMED"] }, serviceStaffId: { not: null } },
-      select: { id: true, slotTime: true, serviceStaffId: true, treatmentServiceMinutesSnapshot: true, treatmentBufferMinutesSnapshot: true, servicePlan: { select: { name: true } } },
-    });
+    const occupiedBookings = spaSchemaReady
+      ? await prisma.booking.findMany({
+          where: { storeId: SPA_DEMO_STORE.id, bookingDate: parseTaiwanDateToDbDate(selectedDate), bookingStatus: { in: ["PENDING", "CONFIRMED"] }, serviceStaffId: { not: null } },
+          select: { id: true, slotTime: true, serviceStaffId: true, treatmentServiceMinutesSnapshot: true, treatmentBufferMinutesSnapshot: true, servicePlan: { select: { name: true } } },
+        })
+      : await prisma.booking.findMany({
+          where: { storeId: SPA_DEMO_STORE.id, bookingDate: parseTaiwanDateToDbDate(selectedDate), bookingStatus: { in: ["PENDING", "CONFIRMED"] }, serviceStaffId: { not: null } },
+          select: { id: true, slotTime: true, serviceStaffId: true, servicePlan: { select: { name: true } } },
+        }).then((bookings) => bookings.map((booking) => ({ ...booking, treatmentServiceMinutesSnapshot: null, treatmentBufferMinutesSnapshot: null })));
     const availabilityTreatments = spaTreatments.length ? spaTreatments.map((treatment) => ({
       serviceMinutes: treatment.serviceMinutes,
       bufferMinutes: treatment.bufferMinutes,

@@ -18,6 +18,7 @@ import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import { TreatmentWorkspace } from "./_components/treatment-workspace";
 import { INITIAL_TREATMENTS, type TreatmentRow } from "@/lib/spa-treatment-defaults";
 import { prisma } from "@/lib/db";
+import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 
 export default async function PlansPage() {
   const user = await getCurrentUser();
@@ -34,6 +35,7 @@ export default async function PlansPage() {
     !isViewMode &&
     (await checkPermission(user.role, user.staffId, "wallet.create"));
   const isSpaDemo = isSpaDemoStoreId(plansStoreId);
+  const spaSchemaReady = isSpaDemo ? await isSpaOperationalSchemaReady() : false;
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。
@@ -65,7 +67,7 @@ export default async function PlansPage() {
     ...p,
     price: Number(p.price) as unknown as PlanRow["price"],
   }));
-  const storedTreatments = isSpaDemo && plansStoreId
+  const storedTreatments = isSpaDemo && spaSchemaReady && plansStoreId
     ? await prisma.treatment.findMany({
         where: { storeId: plansStoreId, isActive: true },
         include: { skills: { include: { skill: { select: { id: true } } } } },
@@ -101,7 +103,12 @@ export default async function PlansPage() {
           }
         />
 
-        {isSpaDemo ? <TreatmentWorkspace initialTreatments={spaTreatmentRows} canManage={canManage} /> : <PlansManager initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
+        {isSpaDemo && !spaSchemaReady ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            療程資料功能更新中，目前可先查看 Demo 設定；待資料表就緒後即可儲存。
+          </div>
+        ) : null}
+        {isSpaDemo ? <TreatmentWorkspace initialTreatments={spaTreatmentRows} canManage={canManage && spaSchemaReady} /> : <PlansManager initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
       </PageShell>
     </FeatureGate>
   );

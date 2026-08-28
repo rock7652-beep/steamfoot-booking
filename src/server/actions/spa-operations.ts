@@ -10,6 +10,7 @@ import { resolveWriteStoreId } from "@/lib/store";
 import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import type { ActionResult } from "@/types";
+import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 
 const SKILLS = [
   { key: "body", id: "spa-demo-skill-body", name: "身體芳療" },
@@ -66,6 +67,9 @@ async function requireSpaDemoWrite(permission: "plans.edit" | "staff.manage") {
   const storeId = await resolveWriteStoreId(user);
   if (!isSpaDemoStoreId(storeId)) {
     throw new AppError("FORBIDDEN", "此設定目前只開放 SPA Demo 驗收");
+  }
+  if (!(await isSpaOperationalSchemaReady())) {
+    throw new AppError("CONFLICT", "SPA 資料功能更新中，請稍後再試");
   }
   return { user, storeId };
 }
