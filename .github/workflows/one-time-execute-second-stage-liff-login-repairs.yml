@@ -16,8 +16,8 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
-      SECOND_STAGE_EXPECTED_COUNT: "44"
-      SECOND_STAGE_EXPECTED_FINGERPRINT: 323986d7bb958c68354c985ef7acf0de7ab59e91cd87ccdb9e2e32b1335a78be
+      SECOND_STAGE_EXPECTED_COUNT: "43"
+      SECOND_STAGE_EXPECTED_FINGERPRINT: 5793c471f1a99b877081e77b4ec97f8abf39cf5da657579af2c6e3111142076b
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
