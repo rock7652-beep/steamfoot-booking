@@ -99,7 +99,8 @@ export function DashboardBookingForm({
     }
   }, [selectedDate, isPastDate, loadSlots, lockScheduleSelection]);
 
-  const isClosed = !loading && !isPastDate && slots.length === 0;
+  const isClosed =
+    !lockScheduleSelection && !loading && !isPastDate && slots.length === 0;
 
   const handlePeopleChange = (nextPeople: number) => {
     setPeople(nextPeople);
@@ -263,7 +264,8 @@ export function DashboardBookingForm({
         )}
 
         {/* 若今天所有時段都已過或已滿 */}
-        {selectedDate === todayStr &&
+        {!lockScheduleSelection &&
+          selectedDate === todayStr &&
           !loading &&
           slots.length > 0 &&
           slots.every((s) => isSlotPastToday(selectedDate, s.startTime) || s.available <= 0) && (
