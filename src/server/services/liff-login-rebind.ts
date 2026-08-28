@@ -107,7 +107,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         customer.mergedIntoCustomerId ||
         !customer.userId ||
         customer.user?.id !== customer.userId ||
-        customer.user.status !== "ACTIVE" ||
+        customer.user?.status !== "ACTIVE" ||
         normalizePhone(customer.phone) !== phone
       ) {
         throw new RebindRejected("CUSTOMER_STATE_CHANGED");
