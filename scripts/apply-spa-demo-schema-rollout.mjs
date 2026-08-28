@@ -2,7 +2,10 @@ import { execFileSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 
 const MIGRATION = "20260828141500_add_spa_treatments_skills_availability";
-const EXPECTED_PROJECT_REF = "qijlnhtpbintanzpxkvf";
+const ALLOWED_PROJECT_REFS = new Set([
+  "qijlnhtpbintanzpxkvf",
+  "ttworfzgwejdeolegkxl",
+]);
 const EXPECTED_CONFIRMATION = "APPLY_SPA_DEMO_SCHEMA_ROLLOUT";
 const SPA_TABLES = [
   "ProfessionalSkill",
@@ -39,7 +42,7 @@ function run(command, args) {
 
 if (process.env.CONFIRMATION !== EXPECTED_CONFIRMATION) fail("confirmation_rejected");
 const actualProjectRef = projectRef(process.env.DIRECT_URL);
-if (actualProjectRef !== EXPECTED_PROJECT_REF) {
+if (!actualProjectRef || !ALLOWED_PROJECT_REFS.has(actualProjectRef)) {
   console.error("spa-demo-rollout: connection-diagnostic", { directUrlPresent: Boolean(process.env.DIRECT_URL), actualProjectRef });
   fail("production_connection_rejected");
 }
