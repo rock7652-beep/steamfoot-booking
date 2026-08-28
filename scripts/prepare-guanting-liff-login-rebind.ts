@@ -37,7 +37,7 @@ async function main() {
       customer.storeId !== STORE_ID ||
       customer.userId !== USER_ID ||
       customer.user?.id !== USER_ID ||
-      customer.user.status !== "ACTIVE" ||
+      customer.user?.status !== "ACTIVE" ||
       customer.mergedIntoCustomerId ||
       sha256(normalizePhone(customer.phone)) !== PHONE_HASH ||
       !customer.lineUserId ||
