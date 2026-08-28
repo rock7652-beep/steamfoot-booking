@@ -16,6 +16,8 @@ import { PlansManager } from "./_components/plans-manager";
 import type { PlanRow } from "./_components/plan-form-drawer";
 import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import { TreatmentWorkspace } from "./_components/treatment-workspace";
+import { INITIAL_TREATMENTS, type TreatmentRow } from "@/lib/spa-treatment-defaults";
+import { prisma } from "@/lib/db";
 
 export default async function PlansPage() {
   const user = await getCurrentUser();
@@ -63,6 +65,25 @@ export default async function PlansPage() {
     ...p,
     price: Number(p.price) as unknown as PlanRow["price"],
   }));
+  const storedTreatments = isSpaDemo && plansStoreId
+    ? await prisma.treatment.findMany({
+        where: { storeId: plansStoreId, isActive: true },
+        include: { skills: { include: { skill: { select: { id: true } } } } },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      })
+    : [];
+  const spaTreatmentRows: TreatmentRow[] = storedTreatments.length
+    ? storedTreatments.map((item) => ({
+        id: item.id as TreatmentRow["id"],
+        name: item.name,
+        variant: item.variantLabel ?? `${item.serviceMinutes} 分鐘`,
+        price: Number(item.price),
+        serviceMinutes: item.serviceMinutes,
+        bufferMinutes: item.bufferMinutes,
+        publicVisible: item.publicVisible,
+        skillKeys: item.skills.map(({ skill }) => skill.id.replace("spa-demo-skill-", "") as TreatmentRow["skillKeys"][number]),
+      }))
+    : INITIAL_TREATMENTS;
 
   return (
     <FeatureGate plan={storePlan} feature={FEATURES.PLAN_MANAGEMENT}>
@@ -80,7 +101,7 @@ export default async function PlansPage() {
           }
         />
 
-        {isSpaDemo ? <TreatmentWorkspace /> : <PlansManager initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
+        {isSpaDemo ? <TreatmentWorkspace initialTreatments={spaTreatmentRows} canManage={canManage} /> : <PlansManager initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
       </PageShell>
     </FeatureGate>
   );

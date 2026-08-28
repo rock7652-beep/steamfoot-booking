@@ -1,7 +1,7 @@
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { parseLocalDate, toDateInputValue, toLocalDateStr } from "@/lib/date-utils";
+import { parseLocalDate, parseTaiwanDateToDbDate, toDateInputValue, toLocalDateStr } from "@/lib/date-utils";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { getActiveStoreForRead } from "@/lib/store";
 import {
@@ -24,6 +24,8 @@ import {
   applySlotOverrides,
   loadDayBusinessHoursContext,
 } from "@/lib/business-hours-resolver";
+import { calculateSpaProviderStartTimes } from "@/lib/spa-availability";
+import { resolveSpaScheduleService } from "@/lib/spa-dashboard-schedule";
 
 /**
  * 預約管理 — 桌機版（Phase 2 desktop family）
@@ -73,7 +75,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     sessionRole: user.role,
   };
   const timer = new ServerTiming("/dashboard/bookings");
-  const [monthData, monthSchedule, servicePlans, spaProviders] = await Promise.all([
+  const [monthData, monthSchedule, servicePlans, spaProviders, spaTreatments] = await Promise.all([
     // 月曆主資料失敗時回空陣列 — 月曆 cell 顯示為「無預約」，UI 不會 crash。
     // 各 cell 仍可被點開，僅是當下無資料；保守於假造任何預約。
     withTiming("getMonthBookingSummary", timer, () =>
@@ -125,9 +127,21 @@ export default async function BookingsPage({ searchParams }: PageProps) {
               status: "ACTIVE",
               isOwner: false,
             },
-            select: { id: true, displayName: true, colorCode: true },
+            select: {
+              id: true,
+              displayName: true,
+              colorCode: true,
+              skills: { select: { skill: { select: { id: true } } } },
+              weeklyAvailabilities: { where: { dayOfWeek: parseLocalDate(selectedDate).getDay(), isActive: true }, select: { startTime: true, endTime: true } },
+              availabilityExceptions: { where: { date: parseTaiwanDateToDbDate(selectedDate) }, select: { type: true, startTime: true, endTime: true } },
+            },
             orderBy: { displayName: "asc" },
           })
+        : Promise.resolve([]),
+    ),
+    withTiming("spaTreatments", timer, () =>
+      isSpaDemoStore
+        ? prisma.treatment.findMany({ where: { storeId: SPA_DEMO_STORE.id, isActive: true }, select: { serviceMinutes: true, bufferMinutes: true, skills: { select: { skill: { select: { id: true } } } } } })
         : Promise.resolve([]),
     ),
   ]);
@@ -145,6 +159,42 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     )
       .filter((slot) => slot.isEnabled)
       .map((slot) => slot.startTime);
+    const occupiedBookings = await prisma.booking.findMany({
+      where: { storeId: SPA_DEMO_STORE.id, bookingDate: parseTaiwanDateToDbDate(selectedDate), bookingStatus: { in: ["PENDING", "CONFIRMED"] }, serviceStaffId: { not: null } },
+      select: { id: true, slotTime: true, serviceStaffId: true, treatmentServiceMinutesSnapshot: true, treatmentBufferMinutesSnapshot: true, servicePlan: { select: { name: true } } },
+    });
+    const availabilityTreatments = spaTreatments.length ? spaTreatments.map((treatment) => ({
+      serviceMinutes: treatment.serviceMinutes,
+      bufferMinutes: treatment.bufferMinutes,
+      skillKeys: treatment.skills.map(({ skill }) => skill.id.replace("spa-demo-skill-", "")),
+    })) : [
+      { serviceMinutes: 60, bufferMinutes: 15, skillKeys: ["body"] },
+      { serviceMinutes: 30, bufferMinutes: 10, skillKeys: ["head"] },
+      { serviceMinutes: 30, bufferMinutes: 10, skillKeys: ["foot"] },
+      { serviceMinutes: 60, bufferMinutes: 15, skillKeys: ["face"] },
+    ];
+    const providerBookableStartTimes = Object.fromEntries(spaProviders.map((provider) => {
+      const providerSkills = provider.skills.length ? provider.skills.map(({ skill }) => skill.id.replace("spa-demo-skill-", "")) : ["body", "head", "foot", "face"];
+      const occupiedRanges = occupiedBookings.filter((booking) => booking.serviceStaffId === provider.id).map((booking) => ({
+        startTime: booking.slotTime,
+        durationMinutes: (booking.treatmentServiceMinutesSnapshot ?? resolveSpaScheduleService({ bookingId: booking.id, servicePlanName: booking.servicePlan?.name }).durationMinutes) + (booking.treatmentBufferMinutesSnapshot ?? 0),
+      }));
+      const union = new Set<string>();
+      for (const treatment of availabilityTreatments) {
+        for (const time of calculateSpaProviderStartTimes({
+          candidateStartTimes: bookableStartTimes,
+          businessCloseTime: spaDayContext.rule.closeTime ?? "21:00",
+          serviceMinutes: treatment.serviceMinutes,
+          bufferMinutes: treatment.bufferMinutes,
+          requiredSkillKeys: treatment.skillKeys,
+          providerSkillKeys: providerSkills,
+          weeklyRanges: provider.weeklyAvailabilities.length ? provider.weeklyAvailabilities : [{ startTime: "10:00", endTime: "21:00" }],
+          exceptions: provider.availabilityExceptions,
+          occupiedRanges,
+        })) union.add(time);
+      }
+      return [provider.id, [...union].sort()];
+    }));
     return (
       <PageShell>
         <FormSuccessToast />
@@ -175,6 +225,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
             colorCode: provider.colorCode ?? "#8fa89b",
           }))}
           bookableStartTimes={bookableStartTimes}
+          providerBookableStartTimes={providerBookableStartTimes}
           initialBookings={selectedDay?.bookings ?? []}
           readOnly={isViewMode}
         />

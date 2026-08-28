@@ -69,12 +69,14 @@ export function SpaProviderSchedule({
   date,
   providers,
   bookableStartTimes,
+  providerBookableStartTimes,
   initialBookings,
   readOnly = false,
 }: {
   date: string;
   providers: readonly SpaScheduleProvider[];
   bookableStartTimes: readonly string[];
+  providerBookableStartTimes?: Readonly<Record<string, readonly string[]>>;
   initialBookings: readonly SpaScheduleBooking[];
   readOnly?: boolean;
 }) {
@@ -200,7 +202,7 @@ export function SpaProviderSchedule({
                     key={provider.id}
                     date={date}
                     provider={provider}
-                    bookableStartTimes={bookableStartTimes}
+                    bookableStartTimes={providerBookableStartTimes?.[provider.id] ?? bookableStartTimes}
                     bookings={bookings.filter(
                       (booking) => providerIdForBooking(booking) === provider.id,
                     )}

@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { SubmitButton } from "@/components/submit-button";
 import { ResetPasswordButton } from "./reset-password-button";
 import { StaffStatusToggle } from "./staff-status-toggle";
 import type { SpaProviderSpecialty } from "@/lib/spa-scheduling";
+import { saveSpaAvailabilityException, saveSpaStaffSkills, saveSpaWeeklyAvailability } from "@/server/actions/spa-operations";
 
 type Availability = { dayOfWeek: number; startTime: string; endTime: string };
 type ScheduleException = { date: string; label: string; tone: "leave" | "extra" };
@@ -67,6 +68,7 @@ export function StaffWorkspace({ people: initialPeople, today, canManage, create
   const [people, setPeople] = useState(() => initialPeople.map(clonePerson));
   const [editor, setEditor] = useState<Editor>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const selected = useMemo(
     () => editor && "personId" in editor ? people.find((person) => person.id === editor.personId) ?? null : null,
     [editor, people],
@@ -74,15 +76,35 @@ export function StaffWorkspace({ people: initialPeople, today, canManage, create
   const servicePeople = people.filter((person) => person.weeklyAvailability.length > 0 || person.specialtyKeys.length > 0);
   const exceptions = servicePeople.flatMap((person) => person.scheduleExceptions.map((exception) => ({ ...exception, person }))).filter((item) => item.date >= today).sort((a, b) => a.date.localeCompare(b.date));
 
-  function updatePerson(personId: string, changes: Partial<StaffWorkspacePerson>) {
+  function updatePerson(personId: string, changes: Partial<StaffWorkspacePerson>, message = "設定已儲存，重新整理後仍會保留") {
     setPeople((current) => current.map((person) => person.id === personId ? { ...person, ...changes } : person));
     setEditor(null);
-    setNotice("Demo 設定已更新，可繼續檢查操作流程");
+    setNotice(message);
+  }
+  function saveSkills(personId: string, specialtyKeys: SpaProviderSpecialty[]) {
+    startTransition(async () => {
+      const result = await saveSpaStaffSkills({ staffId: personId, skillKeys: specialtyKeys });
+      if (!result.success) { setNotice(result.error); return; }
+      updatePerson(personId, { specialtyKeys, specialties: specialtyKeys.map(specialtyLabel).join("・") });
+    });
+  }
+  function saveAvailability(personId: string, weeklyAvailability: Availability[]) {
+    startTransition(async () => {
+      const result = await saveSpaWeeklyAvailability({ staffId: personId, availability: weeklyAvailability });
+      if (!result.success) { setNotice(result.error); return; }
+      updatePerson(personId, { weeklyAvailability });
+    });
   }
   function addException(personId: string, exception: ScheduleException) {
     const person = people.find((item) => item.id === personId);
     if (!person) return;
-    updatePerson(personId, { scheduleExceptions: [...person.scheduleExceptions.filter((item) => item.date !== exception.date), exception].sort((a, b) => a.date.localeCompare(b.date)) });
+    startTransition(async () => {
+      const isLeave = exception.tone === "leave";
+      const times = isLeave ? null : exception.label.match(/(\d{2}:\d{2})–(\d{2}:\d{2})/);
+      const result = await saveSpaAvailabilityException({ staffId: personId, date: exception.date, type: isLeave ? "UNAVAILABLE" : "AVAILABLE", startTime: times?.[1] ?? null, endTime: times?.[2] ?? null, reason: isLeave ? exception.label : null });
+      if (!result.success) { setNotice(result.error); return; }
+      updatePerson(personId, { scheduleExceptions: [...person.scheduleExceptions, exception].sort((a, b) => a.date.localeCompare(b.date)) });
+    });
   }
 
   return (
@@ -121,10 +143,11 @@ export function StaffWorkspace({ people: initialPeople, today, canManage, create
       </section>
 
       {editor?.type === "details" && selected ? <PersonDrawer person={selected} onClose={() => setEditor(null)} onSpecialties={() => setEditor({ type: "specialties", personId: selected.id })} onSchedule={() => setEditor({ type: "schedule", personId: selected.id })} /> : null}
-      {editor?.type === "specialties" && selected ? <SpecialtyDrawer person={selected} onClose={() => setEditor(null)} onSave={(keys) => updatePerson(selected.id, { specialtyKeys: keys, specialties: keys.map(specialtyLabel).join("・") })} /> : null}
-      {editor?.type === "schedule" && selected ? <ScheduleDrawer person={selected} onClose={() => setEditor(null)} onSave={(weeklyAvailability) => updatePerson(selected.id, { weeklyAvailability })} /> : null}
+      {editor?.type === "specialties" && selected ? <SpecialtyDrawer person={selected} onClose={() => setEditor(null)} onSave={(keys) => saveSkills(selected.id, keys)} /> : null}
+      {editor?.type === "schedule" && selected ? <ScheduleDrawer person={selected} onClose={() => setEditor(null)} onSave={(weeklyAvailability) => saveAvailability(selected.id, weeklyAvailability)} /> : null}
       {editor?.type === "exception" ? <ExceptionDrawer people={servicePeople} initialPersonId={editor.personId} today={today} onClose={() => setEditor(null)} onSave={addException} /> : null}
       {editor?.type === "create" ? <CreatePersonDrawer createAction={createAction} onClose={() => setEditor(null)} /> : null}
+      {isPending ? <div className="fixed bottom-5 right-5 z-[60] rounded-lg bg-earth-900 px-4 py-2 text-sm text-white shadow-lg">儲存中…</div> : null}
     </div>
   );
 }
