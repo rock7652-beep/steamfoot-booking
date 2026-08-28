@@ -7,6 +7,7 @@ import { enumerateBookableDates } from "@/lib/bookable-window";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { resolveBookableUntilDate } from "@/lib/shop-config";
 import { getActiveStoreForRead } from "@/lib/store";
+import { assertSpaDemoStoreIdentity, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -26,7 +27,13 @@ import {
 } from "@/components/desktop";
 
 interface PageProps {
-  searchParams: Promise<{ date?: string; mode?: string; customerId?: string }>;
+  searchParams: Promise<{
+    date?: string;
+    mode?: string;
+    customerId?: string;
+    slotTime?: string;
+    serviceStaffId?: string;
+  }>;
 }
 
 const inputCls =
@@ -46,21 +53,54 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const todayStr = toLocalDateStr();
   const defaultDate = params.date ?? todayStr;
   const activeStoreId = await getActiveStoreForRead(user);
-  const defaultCustomer = params.customerId
-    ? await prisma.customer.findFirst({
-        where: {
-          id: params.customerId,
-          ...getStoreFilter(user, activeStoreId),
-        },
-        select: { id: true, name: true, phone: true, email: true },
-      })
-    : null;
-  const shopConfig = activeStoreId
-    ? await prisma.shopConfig.findUnique({
-        where: { storeId: activeStoreId },
-        select: { bookableUntilDate: true },
-      })
-    : null;
+  const isSpaDemoStore = activeStoreId === SPA_DEMO_STORE.id;
+  const requestedSlotTime = /^\d{2}:\d{2}$/.test(params.slotTime ?? "")
+    ? params.slotTime
+    : undefined;
+  const [spaIdentity, defaultServiceStaff, spaTreatments, defaultCustomer, shopConfig] =
+    await Promise.all([
+      isSpaDemoStore
+        ? prisma.store.findUnique({
+            where: { id: SPA_DEMO_STORE.id },
+            select: { id: true, slug: true, isDemo: true },
+          })
+        : Promise.resolve(null),
+      isSpaDemoStore && params.serviceStaffId
+        ? prisma.staff.findFirst({
+            where: {
+              id: params.serviceStaffId,
+              storeId: SPA_DEMO_STORE.id,
+              status: "ACTIVE",
+              isOwner: false,
+            },
+            select: { id: true, displayName: true, colorCode: true },
+          })
+        : Promise.resolve(null),
+      isSpaDemoStore
+        ? prisma.servicePlan.findMany({
+            where: { storeId: SPA_DEMO_STORE.id, isActive: true },
+            select: { id: true, name: true },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+          })
+        : Promise.resolve([]),
+      params.customerId
+        ? prisma.customer.findFirst({
+            where: {
+              id: params.customerId,
+              ...getStoreFilter(user, activeStoreId),
+            },
+            select: { id: true, name: true, phone: true, email: true },
+          })
+        : Promise.resolve(null),
+      activeStoreId
+        ? prisma.shopConfig.findUnique({
+            where: { storeId: activeStoreId },
+            select: { bookableUntilDate: true },
+          })
+        : Promise.resolve(null),
+    ]);
+  if (isSpaDemoStore) assertSpaDemoStoreIdentity(spaIdentity);
+  const lockSpaSchedule = !!defaultServiceStaff && !!requestedSlotTime;
   const bookableUntil = resolveBookableUntilDate(shopConfig?.bookableUntilDate);
   const days = enumerateBookableDates(todayStr, bookableUntil);
   const isOwner = user.role === "ADMIN";
@@ -72,7 +112,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   // 過去日期不預載（表單會擋）；查詢失敗 → undefined，client fallback 維持原行為。
   const initialSlotDate = days.includes(defaultDate) ? defaultDate : days[0];
   let initialSlots: Awaited<ReturnType<typeof fetchDaySlots>>["slots"] | undefined;
-  if (initialSlotDate && initialSlotDate >= todayStr) {
+  if (!lockSpaSchedule && initialSlotDate && initialSlotDate >= todayStr) {
     try {
       initialSlots = (await fetchDaySlots(initialSlotDate)).slots;
     } catch {
@@ -91,6 +131,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       | "PACKAGE_SESSION";
     const customerPlanWalletId =
       (formData.get("customerPlanWalletId") as string) || undefined;
+    const servicePlanId =
+      (formData.get("servicePlanId") as string) || undefined;
     const people = Number(formData.get("people")) || 1;
     const notes = (formData.get("notes") as string) || undefined;
     const skipDutyCheck = formData.get("skipDutyCheck") === "on";
@@ -99,6 +141,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     // 使用 customerPlanWalletId 指定/FEFO 自選的方案堂數。
     const isMakeup = formData.get("isMakeup") === "on";
     const requestKey = (formData.get("requestKey") as string) || undefined;
+    const serviceStaffId =
+      (formData.get("serviceStaffId") as string) || undefined;
 
     if (!customerId) {
       redirect(
@@ -115,10 +159,16 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       notes,
       skipDutyCheck: skipDutyCheck || undefined,
       customerPlanWalletId,
+      servicePlanId,
+      serviceStaffId,
       ...(isMakeup ? { isMakeup: true as const } : {}),
     };
     const result = requestKey
-      ? await createBooking(bookingInput, { requestKey, source: "staff-booking" })
+      ? await createBooking(bookingInput, {
+          requestKey,
+          source: "staff-booking",
+          assignedStaffId: serviceStaffId ?? null,
+        })
       : await createBooking(bookingInput);
 
     if (!result.success) {
@@ -156,9 +206,24 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
             {/* 左欄：預約資訊 */}
             <div className="space-y-6">
               <FormSection title="預約資訊" description="日期、時段與人數">
+                {defaultServiceStaff ? (
+                  <div className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3">
+                    <p className="text-xs font-medium text-primary-700">指定芳療師</p>
+                    <p className="mt-1 text-sm font-semibold text-primary-900">
+                      {defaultServiceStaff.displayName}
+                    </p>
+                    <input
+                      type="hidden"
+                      name="serviceStaffId"
+                      value={defaultServiceStaff.id}
+                    />
+                  </div>
+                ) : null}
                 <DashboardBookingForm
                   days={days}
                   defaultDate={defaultDate}
+                  defaultSlotTime={requestedSlotTime}
+                  lockScheduleSelection={lockSpaSchedule}
                   todayStr={todayStr}
                   initialSlots={initialSlots}
                 />
@@ -169,6 +234,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
             <div className="space-y-6">
               <CustomerAndPlanFields
                 defaultMode={defaultMode}
+                spaMode={isSpaDemoStore}
+                spaTreatments={spaTreatments}
                 defaultCustomerId={defaultCustomer?.id}
                 defaultCustomerLabel={
                   defaultCustomer

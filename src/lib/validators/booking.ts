@@ -15,6 +15,10 @@ export const createBookingSchema = z.object({
   // createBooking 內的 customer.findUnique + 跨店檢查 + 顧客自有 wallet 範圍
   // 配堂控制。empty string 仍被 .min(1) 擋；optional 行為不變。
   servicePlanId: z.string().min(1).optional(),
+  // SPA 芳療師排程從「人員 × 時間」空格建立預約時帶入。
+  // 不限制 cuid：Demo seed / 匯入資料可能使用固定 ID；安全邊界由
+  // createBooking 內的同店、啟用狀態驗證負責。
+  serviceStaffId: z.string().min(1).optional(),
   customerPlanWalletId: z.string().min(1).optional(),
   people: z.number().int().min(1).max(4).optional(),
   isMakeup: z.boolean().optional(),

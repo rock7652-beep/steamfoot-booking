@@ -78,6 +78,9 @@ import { Prisma } from "@prisma/client";
 // 規則與禁止項見該 helper 的 JSDoc 與 spec §3.4。
 import { snapshotRevenueStaffForBooking } from "./booking-helpers";
 import type { z } from "zod";
+import { assertSpaDemoStoreIdentity, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { addMinutes, hasContinuousAvailability } from "@/lib/spa-scheduling";
+import { resolveSpaScheduleService } from "@/lib/spa-dashboard-schedule";
 
 async function assertStaffBookingWritable(
   user: Awaited<ReturnType<typeof requireSession>>,
@@ -254,6 +257,15 @@ export async function createBooking(
     await assertStaffBookingWritable(user);
     const data = createBookingSchema.parse(input);
     const storeId = currentStoreId(user);
+    const isSpaProviderBooking =
+      storeId === SPA_DEMO_STORE.id && !!data.serviceStaffId;
+    if (isSpaProviderBooking) {
+      const identity = await prisma.store.findUnique({
+        where: { id: SPA_DEMO_STORE.id },
+        select: { id: true, slug: true, isDemo: true },
+      });
+      assertSpaDemoStoreIdentity(identity);
+    }
     const bookingPeople = data.people ?? 1;
     const requestedMakeup = data.isMakeup ?? false;
     // 補課券有效性以「預約日期」當天 00:00（台灣）為界，而非操作當下 now。
@@ -304,13 +316,32 @@ export async function createBooking(
     }
     assertCustomerInOperationStore(customer, storeId);
 
+    let selectedServicePlan: { id: string; storeId: string; name: string } | null = null;
     if (data.servicePlanId) {
       const servicePlan = await prisma.servicePlan.findUnique({
         where: { id: data.servicePlanId },
-        select: { id: true, storeId: true },
+        select: { id: true, storeId: true, name: true },
       });
       if (!servicePlan) throw new AppError("NOT_FOUND", "課程方案不存在");
       assertSameStore("ServicePlan", servicePlan.storeId, storeId);
+      selectedServicePlan = servicePlan;
+    }
+
+    // SPA 人員排程：指定的芳療師必須是目前營運店別內的啟用員工。
+    // 這是寫入前的 server-side 邊界，不信任網址或 hidden input。
+    if (data.serviceStaffId) {
+      const serviceStaff = await prisma.staff.findFirst({
+        where: {
+          id: data.serviceStaffId,
+          storeId,
+          status: "ACTIVE",
+          ...(isSpaProviderBooking ? { isOwner: false } : {}),
+        },
+        select: { id: true },
+      });
+      if (!serviceStaff) {
+        throw new AppError("FORBIDDEN", "指定的服務人員不屬於目前店舖或已停用");
+      }
     }
 
     // Explicit wallet selection is part of the user's operation intent. Validate
@@ -586,6 +617,12 @@ export async function createBooking(
 
     // 取得該時段的實際容量（applySlotOverrides 已處理 capacity_change）
     const slotCapacity = matchedSlot.capacity;
+    const spaServiceDuration = isSpaProviderBooking
+      ? resolveSpaScheduleService({
+          bookingId: "new-spa-booking",
+          servicePlanName: selectedServicePlan?.name,
+        }).durationMinutes
+      : null;
 
     // ── 8. 決定 bookedByType / bookedByStaffId
     let bookedByType: "CUSTOMER" | "STAFF" | "ADMIN";
@@ -606,9 +643,58 @@ export async function createBooking(
       // 取得鎖後才重新讀取容量，避免兩個請求同時通過
       // transaction 外的舊快照後造成超賣。同一顧客可以在同時段
       // 建立多筆預約（例如 4+1 拆單或後續追加同行者），只由總人數容量限制。
-      await acquireBookingSlotLocks(tx, [
-        { storeId, bookingDate: data.bookingDate, slotTime: data.slotTime },
-      ]);
+      const lockTimes = spaServiceDuration
+        ? Array.from(
+            { length: Math.max(1, Math.ceil(spaServiceDuration / 30)) },
+            (_, index) => addMinutes(data.slotTime, index * 30),
+          )
+        : [data.slotTime];
+      await acquireBookingSlotLocks(
+        tx,
+        lockTimes.map((slotTime) => ({
+          storeId,
+          bookingDate: data.bookingDate,
+          slotTime,
+        })),
+      );
+
+      if (isSpaProviderBooking && spaServiceDuration && dayCtx.rule.closeTime) {
+        const occupied = await tx.booking.findMany({
+          where: {
+            storeId,
+            bookingDate: bookingDateObj,
+            serviceStaffId: data.serviceStaffId,
+            bookingStatus: { in: [...PENDING_STATUSES] },
+          },
+          select: {
+            id: true,
+            slotTime: true,
+            servicePlan: { select: { name: true } },
+            customerPlanWallet: {
+              select: { plan: { select: { name: true } } },
+            },
+          },
+        });
+        const available = hasContinuousAvailability({
+          startTime: data.slotTime,
+          serviceMinutes: spaServiceDuration,
+          closeTime: dayCtx.rule.closeTime,
+          occupiedRanges: occupied.map((booking) => ({
+            startTime: booking.slotTime,
+            durationMinutes: resolveSpaScheduleService({
+              bookingId: booking.id,
+              servicePlanName: booking.servicePlan?.name,
+              walletPlanName: booking.customerPlanWallet?.plan.name,
+            }).durationMinutes,
+          })),
+        });
+        if (!available) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            "此芳療師在所選療程時間內已有預約，請改選其他時段",
+          );
+        }
+      }
 
       const slotTimeVariants = bookingSlotTimeVariants(data.slotTime);
       const bookedAgg = await tx.booking.aggregate({
@@ -616,6 +702,9 @@ export async function createBooking(
           storeId,
           bookingDate: bookingDateObj,
           slotTime: { in: slotTimeVariants },
+          ...(isSpaProviderBooking
+            ? { serviceStaffId: data.serviceStaffId }
+            : {}),
           bookingStatus: { in: [...PENDING_STATUSES] },
         },
         _sum: { people: true },
@@ -669,6 +758,7 @@ export async function createBooking(
           // PR-1.5a 設計鎖定：快照來源只能是 customer.assignedStaffId。
           // 完整規則與禁止項見 snapshotRevenueStaffForBooking 的 JSDoc。
           revenueStaffId: snapshotRevenueStaffForBooking(customer.assignedStaffId),
+          serviceStaffId: data.serviceStaffId ?? null,
           bookedByType,
           bookedByStaffId,
           bookingType: data.bookingType,

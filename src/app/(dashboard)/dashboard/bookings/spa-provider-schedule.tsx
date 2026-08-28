@@ -68,11 +68,13 @@ export interface SpaScheduleBooking {
 export function SpaProviderSchedule({
   date,
   providers,
+  bookableStartTimes,
   initialBookings,
   readOnly = false,
 }: {
   date: string;
   providers: readonly SpaScheduleProvider[];
+  bookableStartTimes: readonly string[];
   initialBookings: readonly SpaScheduleBooking[];
   readOnly?: boolean;
 }) {
@@ -195,11 +197,14 @@ export function SpaProviderSchedule({
                 {providers.map((provider) => (
                   <ProviderColumn
                     key={provider.id}
+                    date={date}
                     provider={provider}
+                    bookableStartTimes={bookableStartTimes}
                     bookings={bookings.filter(
                       (booking) => providerIdForBooking(booking) === provider.id,
                     )}
                     onOpen={setActiveBookingId}
+                    readOnly={readOnly}
                   />
                 ))}
               </div>
@@ -250,26 +255,49 @@ function ProviderHeader({ provider }: { provider: SpaScheduleProvider }) {
 }
 
 function ProviderColumn({
+  date,
   provider,
+  bookableStartTimes,
   bookings,
   onOpen,
+  readOnly,
 }: {
+  date: string;
   provider: SpaScheduleProvider;
+  bookableStartTimes: readonly string[];
   bookings: readonly SpaScheduleBooking[];
   onOpen: (bookingId: string) => void;
+  readOnly: boolean;
 }) {
+  const enabledTimes = new Set(bookableStartTimes);
   return (
     <div
       className="relative grid border-r border-earth-200 last:border-r-0"
       style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, ${ROW_HEIGHT}px)` }}
     >
-      {scheduleTimes.map((time, index) => (
-        <div
-          key={time}
-          className="border-b border-earth-100 bg-earth-50/20 p-1"
-          style={{ gridColumn: 1, gridRow: index + 1 }}
-        />
-      ))}
+      {scheduleTimes.map((time, index) => {
+        const canCreate = enabledTimes.has(time) && !readOnly;
+        return canCreate ? (
+          <Link
+            key={time}
+            href={`/dashboard/bookings/new?date=${encodeURIComponent(date)}&slotTime=${encodeURIComponent(time)}&serviceStaffId=${encodeURIComponent(provider.id)}`}
+            prefetch={false}
+            aria-label={`${provider.displayName} ${time} 新增預約`}
+            className="group flex items-center justify-center border-b border-earth-100 bg-earth-50/20 p-1 text-[11px] font-medium text-transparent transition hover:bg-primary-50 hover:text-primary-700 focus-visible:bg-primary-50 focus-visible:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400"
+            style={{ gridColumn: 1, gridRow: index + 1 }}
+          >
+            <span className="rounded px-2 py-1 group-hover:bg-white group-focus-visible:bg-white">
+              ＋ 安排
+            </span>
+          </Link>
+        ) : (
+          <div
+            key={time}
+            className="border-b border-earth-100 bg-earth-50/20 p-1"
+            style={{ gridColumn: 1, gridRow: index + 1 }}
+          />
+        );
+      })}
 
       {bookings.map((booking) => {
         const duration = durationForBooking(booking);

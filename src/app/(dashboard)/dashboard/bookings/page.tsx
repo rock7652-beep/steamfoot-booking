@@ -20,6 +20,10 @@ import {
   assertSpaDemoStoreIdentity,
   SPA_DEMO_STORE,
 } from "@/lib/spa-demo-store";
+import {
+  applySlotOverrides,
+  loadDayBusinessHoursContext,
+} from "@/lib/business-hours-resolver";
 
 /**
  * 預約管理 — 桌機版（Phase 2 desktop family）
@@ -131,6 +135,16 @@ export default async function BookingsPage({ searchParams }: PageProps) {
 
   if (isSpaDemoStore) {
     const selectedDay = monthData.find((day) => day.date === selectedDate);
+    const spaDayContext = await loadDayBusinessHoursContext(
+      SPA_DEMO_STORE.id,
+      selectedDate,
+    );
+    const bookableStartTimes = applySlotOverrides(
+      spaDayContext.rule,
+      spaDayContext.slotOverrides,
+    )
+      .filter((slot) => slot.isEnabled)
+      .map((slot) => slot.startTime);
     return (
       <PageShell>
         <FormSuccessToast />
@@ -160,6 +174,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
             ...provider,
             colorCode: provider.colorCode ?? "#8fa89b",
           }))}
+          bookableStartTimes={bookableStartTimes}
           initialBookings={selectedDay?.bookings ?? []}
           readOnly={isViewMode}
         />

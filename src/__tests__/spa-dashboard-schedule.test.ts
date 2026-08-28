@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { createBookingSchema } from "@/lib/validators/booking";
 import {
   resolveSpaProviderBadge,
   resolveSpaScheduleService,
@@ -36,5 +38,27 @@ describe("SPA dashboard schedule presentation", () => {
   it("extracts the therapist number badge", () => {
     expect(resolveSpaProviderBadge("10號 張若琳")).toBe("10");
     expect(resolveSpaProviderBadge("未編號芳療師")).toBe("--");
+  });
+
+  it("accepts a server-validated provider when creating from the schedule", () => {
+    expect(
+      createBookingSchema.parse({
+        customerId: "demo-customer",
+        bookingDate: "2026-08-29",
+        slotTime: "14:30",
+        bookingType: "SINGLE",
+        serviceStaffId: "spa-demo-staff-10",
+      }).serviceStaffId,
+    ).toBe("spa-demo-staff-10");
+  });
+
+  it("turns an enabled empty provider cell into a prefilled booking link", () => {
+    const source = readFileSync(
+      "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
+      "utf8",
+    );
+    expect(source).toContain("slotTime=${encodeURIComponent(time)}");
+    expect(source).toContain("serviceStaffId=${encodeURIComponent(provider.id)}");
+    expect(source).toContain("＋ 安排");
   });
 });
