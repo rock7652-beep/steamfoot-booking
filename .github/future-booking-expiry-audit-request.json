@@ -1,5 +1,5 @@
 {
   "authorized": "owner",
   "mode": "read-only",
-  "scope": "all-non-demo-stores-future-bookings-after-linked-wallet-expiry-20260828"
+  "scope": "all-non-demo-stores-future-bookings-after-linked-wallet-expiry-with-safe-replacement-candidates-20260828"
 }
