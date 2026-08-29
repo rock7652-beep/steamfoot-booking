@@ -401,6 +401,29 @@ describe("submitOnboarding action (PR-C2)", () => {
     });
   });
 
+  it.each([
+    { id: "store-zhubei", slug: "zhubei", name: "暖暖蒸足" },
+    { id: "store-hsinchu", slug: "hsinchu", name: "以斯帖蒸足坊" },
+    { id: "store-taichung", slug: "taichung", name: "暖沐蒸足" },
+    { id: "store-future", slug: "future-store", name: "未來新門市" },
+  ])("allows atomic new-member creation for $name", async (store) => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(store);
+    mockBindLine.mockResolvedValueOnce({
+      status: "created_new",
+      customerId: `customer-${store.slug}`,
+      userId: `user-${store.slug}`,
+      lineAccountSync: "created",
+    });
+
+    await expect(
+      submitOnboarding({ ...VALID_INPUT, storeSlug: store.slug }),
+    ).resolves.toEqual({ status: "ok" });
+    expect(mockBindLine).toHaveBeenLastCalledWith(
+      expect.objectContaining({ storeId: store.id, allowCreate: true }),
+    );
+  });
+
   it("verifies idToken with the central member LINE channel", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
