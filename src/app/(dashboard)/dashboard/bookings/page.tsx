@@ -243,6 +243,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
           }))}
           bookableStartTimes={bookableStartTimes}
           providerBookableStartTimes={providerBookableStartTimes}
+          timeUnitMinutes={spaDayContext.rule.slotInterval === 15 ? 15 : 30}
           initialBookings={selectedDay?.bookings ?? []}
           readOnly={isViewMode}
         />

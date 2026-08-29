@@ -78,6 +78,7 @@ function minutesToTime(minutes: number): number extends never ? never : string {
 
 /** 可用的時段間隔選項 */
 export const SLOT_INTERVAL_OPTIONS = [
+  { value: 15, label: "每 15 分鐘" },
   { value: 30, label: "每 30 分鐘" },
   { value: 60, label: "每 60 分鐘" },
   { value: 90, label: "每 90 分鐘" },
@@ -105,7 +106,7 @@ export interface TimeRangeValidation {
  * 規則：
  * 1. closeTime 必須晚於 openTime
  * 2. (closeTime - openTime) 必須 >= slotInterval
- * 3. slotInterval 必須是 30/60/90/120 其中之一
+ * 3. slotInterval 必須是 15/30/60/90/120 其中之一
  * 4. defaultCapacity 必須 >= 1
  */
 export function validateTimeRange(input: {

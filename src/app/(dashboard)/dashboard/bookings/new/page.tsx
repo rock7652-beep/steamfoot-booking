@@ -233,6 +233,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
                       findSpaDemoCatalogItem(treatment.id)?.resourceType ?? "BED",
                   }))}
                   defaultServiceStaffId={defaultServiceStaff?.id}
+                  defaultServiceStaffName={defaultServiceStaff?.displayName}
                   defaultSlotTime={requestedSlotTime}
                 />
               ) : (

@@ -22,13 +22,7 @@ import {
 
 const SCHEDULE_START_MINUTES = 10 * 60;
 const SCHEDULE_END_MINUTES = 21 * 60;
-const ROW_MINUTES = 30;
-const ROW_HEIGHT = 48;
-
-const scheduleTimes = Array.from(
-  { length: (SCHEDULE_END_MINUTES - SCHEDULE_START_MINUTES) / ROW_MINUTES },
-  (_, index) => minutesToTime(SCHEDULE_START_MINUTES + index * ROW_MINUTES),
-);
+const DEFAULT_ROW_MINUTES = 30;
 
 export interface SpaScheduleProvider {
   id: string;
@@ -76,6 +70,7 @@ export function SpaProviderSchedule({
   providers,
   bookableStartTimes,
   providerBookableStartTimes,
+  timeUnitMinutes = DEFAULT_ROW_MINUTES,
   initialBookings,
   readOnly = false,
 }: {
@@ -83,6 +78,7 @@ export function SpaProviderSchedule({
   providers: readonly SpaScheduleProvider[];
   bookableStartTimes: readonly string[];
   providerBookableStartTimes?: Readonly<Record<string, readonly string[]>>;
+  timeUnitMinutes?: 15 | 30;
   initialBookings: readonly SpaScheduleBooking[];
   readOnly?: boolean;
 }) {
@@ -90,6 +86,15 @@ export function SpaProviderSchedule({
   const [bookings, setBookings] = useState(() => [...initialBookings]);
   const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
   const [detailCache] = useState(() => createBookingDetailCache());
+  const rowMinutes = timeUnitMinutes === 15 ? 15 : DEFAULT_ROW_MINUTES;
+  const rowHeight = rowMinutes === 15 ? 36 : 48;
+  const scheduleTimes = useMemo(
+    () => Array.from(
+      { length: (SCHEDULE_END_MINUTES - SCHEDULE_START_MINUTES) / rowMinutes },
+      (_, index) => minutesToTime(SCHEDULE_START_MINUTES + index * rowMinutes),
+    ),
+    [rowMinutes],
+  );
 
   const bookingById = useMemo(
     () => new Map(bookings.map((booking) => [booking.id, booking])),
@@ -162,6 +167,7 @@ export function SpaProviderSchedule({
             <Metric label="有預約人員" value={`${activeProviderCount}/${providers.length}`} />
             <Metric label="按摩床" value="2 張" />
             <Metric label="沙發椅" value="2 張" />
+            <Metric label="時間單位" value={`${rowMinutes} 分`} />
           </div>
         </div>
 
@@ -193,7 +199,7 @@ export function SpaProviderSchedule({
               >
                 <div
                   className="sticky left-0 z-20 grid border-r border-earth-200 bg-white"
-                  style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, ${ROW_HEIGHT}px)` }}
+                  style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, ${rowHeight}px)` }}
                 >
                   {scheduleTimes.map((time) => (
                     <div
@@ -216,6 +222,9 @@ export function SpaProviderSchedule({
                     )}
                     onOpen={setActiveBookingId}
                     readOnly={readOnly}
+                    scheduleTimes={scheduleTimes}
+                    rowMinutes={rowMinutes}
+                    rowHeight={rowHeight}
                   />
                 ))}
               </div>
@@ -275,6 +284,9 @@ function ProviderColumn({
   bookings,
   onOpen,
   readOnly,
+  scheduleTimes,
+  rowMinutes,
+  rowHeight,
 }: {
   date: string;
   provider: SpaScheduleProvider;
@@ -282,12 +294,15 @@ function ProviderColumn({
   bookings: readonly SpaScheduleBooking[];
   onOpen: (bookingId: string) => void;
   readOnly: boolean;
+  scheduleTimes: readonly string[];
+  rowMinutes: number;
+  rowHeight: number;
 }) {
   const enabledTimes = new Set(bookableStartTimes);
   return (
     <div
       className="relative grid border-r border-earth-200 last:border-r-0"
-      style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, ${ROW_HEIGHT}px)` }}
+      style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, ${rowHeight}px)` }}
     >
       {scheduleTimes.map((time, index) => {
         const canCreate = enabledTimes.has(time) && !readOnly;
@@ -323,7 +338,7 @@ function ProviderColumn({
             className={`z-10 m-1 overflow-hidden rounded-md border px-3 py-2 text-left shadow-sm transition hover:-translate-y-px hover:shadow ${statusClass(booking.bookingStatus)}`}
             style={{
               gridColumn: 1,
-              gridRow: `${rowForTime(booking.slotTime)} / span ${rowsForMinutes(duration)}`,
+              gridRow: `${rowForTime(booking.slotTime, rowMinutes)} / span ${rowsForMinutes(duration, rowMinutes)}`,
             }}
           >
             <span className="flex items-start justify-between gap-2">
@@ -444,13 +459,13 @@ function statusClass(status: string): string {
   return "border-primary-200 bg-primary-50 text-primary-800";
 }
 
-function rowForTime(time: string): number {
+function rowForTime(time: string, rowMinutes: number): number {
   const [hour, minute] = time.split(":").map(Number);
-  return Math.max(1, Math.floor((hour * 60 + minute - SCHEDULE_START_MINUTES) / ROW_MINUTES) + 1);
+  return Math.max(1, Math.floor((hour * 60 + minute - SCHEDULE_START_MINUTES) / rowMinutes) + 1);
 }
 
-function rowsForMinutes(minutes: number): number {
-  return Math.max(1, Math.ceil(minutes / ROW_MINUTES));
+function rowsForMinutes(minutes: number, rowMinutes: number): number {
+  return Math.max(1, Math.ceil(minutes / rowMinutes));
 }
 
 function minutesToTime(minutes: number): string {

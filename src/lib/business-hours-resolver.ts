@@ -64,7 +64,7 @@ export interface SpecialDayRow {
   segments?: unknown;
 }
 
-const VALID_INTERVALS = new Set([30, 60, 90, 120]);
+const VALID_INTERVALS = new Set([15, 30, 60, 90, 120]);
 
 export function parseBusinessPeriods(
   value: unknown,
