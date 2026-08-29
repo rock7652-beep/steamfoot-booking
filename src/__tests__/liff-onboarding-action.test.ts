@@ -397,7 +397,7 @@ describe("submitOnboarding action (PR-C2)", () => {
       lineName: "DisplayName from LINE",
       phone: VALID_INPUT.phone,
       name: VALID_INPUT.name,
-      allowCreate: false,
+      allowCreate: true,
     });
   });
 
