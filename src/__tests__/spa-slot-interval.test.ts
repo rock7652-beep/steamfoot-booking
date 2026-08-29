@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   generateSlots,
@@ -25,5 +26,20 @@ describe("SPA 15/30 minute booking units", () => {
       slotInterval: 15,
       defaultCapacity: 1,
     })).toEqual({ valid: true });
+  });
+
+  it("keeps the time-unit setting discoverable from the SPA schedule and settings", () => {
+    const schedule = readFileSync(
+      "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
+      "utf8",
+    );
+    const settings = readFileSync(
+      "src/app/(dashboard)/dashboard/settings/page.tsx",
+      "utf8",
+    );
+
+    expect(schedule).toContain("設定 15／30 分鐘");
+    expect(schedule).toContain("/dashboard/settings/hours");
+    expect(settings).toContain("營業與預約時間");
   });
 });

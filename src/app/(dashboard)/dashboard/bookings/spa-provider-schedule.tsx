@@ -168,6 +168,14 @@ export function SpaProviderSchedule({
             <Metric label="按摩床" value="2 張" />
             <Metric label="沙發椅" value="2 張" />
             <Metric label="時間單位" value={`${rowMinutes} 分`} />
+            {!readOnly ? (
+              <Link
+                href="/dashboard/settings/hours"
+                className="inline-flex items-center rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+              >
+                設定 15／30 分鐘
+              </Link>
+            ) : null}
           </div>
         </div>
 

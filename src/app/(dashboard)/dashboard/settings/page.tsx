@@ -9,6 +9,7 @@ import { listReminderRules } from "@/server/queries/reminder";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
+import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -86,6 +87,7 @@ export default async function SettingsIndexPage() {
     user.staffId,
     "trial.manage",
   );
+  const isSpaDemo = isSpaDemoStoreId(activeStoreId);
 
   // 並行拉 summary（皆為既有 query）
   const [plan, shopConfig, staffList, rules, weeklyHours, store, trialSettings, hasDigitalButler] =
@@ -142,7 +144,10 @@ export default async function SettingsIndexPage() {
     {
       title: "店務設定",
       items: [
-        { label: "預約開放設定", href: "/dashboard/settings/hours" },
+        {
+          label: isSpaDemo ? "營業與預約時間" : "預約開放設定",
+          href: "/dashboard/settings/hours",
+        },
         { label: "值班排班設定", href: "/dashboard/settings/duty" },
       ],
     },
@@ -178,6 +183,9 @@ export default async function SettingsIndexPage() {
 
   // ==== 右欄資料 ====
   const quickActions = [
+    ...(isSpaDemo
+      ? [{ label: "設定 15／30 分鐘", href: "/dashboard/settings/hours" }]
+      : []),
     { label: "新增預約", href: "/dashboard/bookings/new" },
     { label: "新增顧客", href: "/dashboard/customers/new" },
     { label: "預約月曆", href: "/dashboard/bookings" },
@@ -247,13 +255,13 @@ export default async function SettingsIndexPage() {
           }
         />
 
-        {/* 3. 預約開放設定 */}
+        {/* 3. 營業與預約時間 */}
         <SettingsActionCard
-          title="預約開放設定"
-          description="營業時間、可預約時段與休假"
+          title={isSpaDemo ? "營業與預約時間" : "預約開放設定"}
+          description={isSpaDemo ? "設定營業時間、15／30 分鐘預約單位與休假" : "營業時間、可預約時段與休假"}
           iconPath="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
           primaryHref="/dashboard/settings/hours"
-          primaryLabel="編輯預約設定"
+          primaryLabel={isSpaDemo ? "設定營業與時間單位" : "編輯預約設定"}
           summary={
             <InfoList
               density="compact"
