@@ -19,6 +19,11 @@ import {
 import {
   createBookingDetailCache,
 } from "./booking-detail-cache";
+import {
+  SpaQuickBookingDrawer,
+  type SpaQuickTarget,
+  type SpaQuickTreatment,
+} from "./spa-quick-booking-drawer";
 
 const SCHEDULE_START_MINUTES = 10 * 60;
 const SCHEDULE_END_MINUTES = 21 * 60;
@@ -71,6 +76,7 @@ export function SpaProviderSchedule({
   bookableStartTimes,
   providerBookableStartTimes,
   timeUnitMinutes = DEFAULT_ROW_MINUTES,
+  treatments,
   initialBookings,
   readOnly = false,
 }: {
@@ -79,12 +85,14 @@ export function SpaProviderSchedule({
   bookableStartTimes: readonly string[];
   providerBookableStartTimes?: Readonly<Record<string, readonly string[]>>;
   timeUnitMinutes?: 15 | 30;
+  treatments: readonly SpaQuickTreatment[];
   initialBookings: readonly SpaScheduleBooking[];
   readOnly?: boolean;
 }) {
   const router = useRouter();
   const [bookings, setBookings] = useState(() => [...initialBookings]);
   const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
+  const [quickTarget, setQuickTarget] = useState<SpaQuickTarget | null>(null);
   const [detailCache] = useState(() => createBookingDetailCache());
   const rowMinutes = timeUnitMinutes === 15 ? 15 : DEFAULT_ROW_MINUTES;
   const rowHeight = rowMinutes === 15 ? 36 : 48;
@@ -222,13 +230,13 @@ export function SpaProviderSchedule({
                 {providers.map((provider) => (
                   <ProviderColumn
                     key={provider.id}
-                    date={date}
                     provider={provider}
                     bookableStartTimes={providerBookableStartTimes?.[provider.id] ?? bookableStartTimes}
                     bookings={bookings.filter(
                       (booking) => providerIdForBooking(booking) === provider.id,
                     )}
                     onOpen={setActiveBookingId}
+                    onCreate={(time) => setQuickTarget({ providerId: provider.id, time })}
                     readOnly={readOnly}
                     scheduleTimes={scheduleTimes}
                     rowMinutes={rowMinutes}
@@ -257,6 +265,17 @@ export function SpaProviderSchedule({
         }
         durationMinutes={activeBooking ? durationForBooking(activeBooking) : undefined}
       />
+      {quickTarget ? (
+        <SpaQuickBookingDrawer
+          key={`${quickTarget.providerId}-${quickTarget.time}`}
+          date={date}
+          target={quickTarget}
+          providers={providers}
+          treatments={treatments}
+          onClose={() => setQuickTarget(null)}
+          onCreated={() => router.refresh()}
+        />
+      ) : null}
     </div>
   );
 }
@@ -286,21 +305,21 @@ function ProviderHeader({ provider }: { provider: SpaScheduleProvider }) {
 }
 
 function ProviderColumn({
-  date,
   provider,
   bookableStartTimes,
   bookings,
   onOpen,
+  onCreate,
   readOnly,
   scheduleTimes,
   rowMinutes,
   rowHeight,
 }: {
-  date: string;
   provider: SpaScheduleProvider;
   bookableStartTimes: readonly string[];
   bookings: readonly SpaScheduleBooking[];
   onOpen: (bookingId: string) => void;
+  onCreate: (time: string) => void;
   readOnly: boolean;
   scheduleTimes: readonly string[];
   rowMinutes: number;
@@ -315,10 +334,10 @@ function ProviderColumn({
       {scheduleTimes.map((time, index) => {
         const canCreate = enabledTimes.has(time) && !readOnly;
         return canCreate ? (
-          <Link
+          <button
             key={time}
-            href={`/dashboard/bookings/new?date=${encodeURIComponent(date)}&slotTime=${encodeURIComponent(time)}&serviceStaffId=${encodeURIComponent(provider.id)}`}
-            prefetch={false}
+            type="button"
+            onClick={() => onCreate(time)}
             aria-label={`${provider.displayName} ${time} 新增預約`}
             className="group flex items-center justify-center border-b border-earth-100 bg-earth-50/20 p-1 text-[11px] font-medium text-transparent transition hover:bg-primary-50 hover:text-primary-700 focus-visible:bg-primary-50 focus-visible:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400"
             style={{ gridColumn: 1, gridRow: index + 1 }}
@@ -326,7 +345,7 @@ function ProviderColumn({
             <span className="rounded px-2 py-1 group-hover:bg-white group-focus-visible:bg-white">
               ＋ 安排
             </span>
-          </Link>
+          </button>
         ) : (
           <div
             key={time}

@@ -52,13 +52,13 @@ describe("SPA dashboard schedule presentation", () => {
     ).toBe("spa-demo-staff-10");
   });
 
-  it("turns an enabled empty provider cell into a prefilled booking link", () => {
+  it("opens the in-place quick booking drawer from an enabled provider cell", () => {
     const source = readFileSync(
       "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
       "utf8",
     );
-    expect(source).toContain("slotTime=${encodeURIComponent(time)}");
-    expect(source).toContain("serviceStaffId=${encodeURIComponent(provider.id)}");
+    expect(source).toContain("onCreate={(time) => setQuickTarget");
+    expect(source).toContain("<SpaQuickBookingDrawer");
     expect(source).toContain("＋ 安排");
   });
 });

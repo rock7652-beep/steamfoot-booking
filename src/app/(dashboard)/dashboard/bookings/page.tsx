@@ -27,6 +27,7 @@ import {
 import { calculateSpaProviderStartTimes } from "@/lib/spa-availability";
 import { resolveSpaScheduleService } from "@/lib/spa-dashboard-schedule";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+import { SPA_DEMO_CATALOG } from "@/lib/spa-demo-catalog";
 
 /**
  * 預約管理 — 桌機版（Phase 2 desktop family）
@@ -231,7 +232,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
           }
         />
         <SpaProviderSchedule
-          key={selectedDate}
+          key={`${selectedDate}-${selectedDay?.bookings.map((booking) => `${booking.id}:${booking.bookingStatus}`).join("|") ?? "empty"}`}
           date={selectedDate}
           providers={spaProviders.map((provider) => ({
             ...provider,
@@ -244,6 +245,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
           bookableStartTimes={bookableStartTimes}
           providerBookableStartTimes={providerBookableStartTimes}
           timeUnitMinutes={spaDayContext.rule.slotInterval === 15 ? 15 : 30}
+          treatments={SPA_DEMO_CATALOG.map((item) => ({ ...item }))}
           initialBookings={selectedDay?.bookings ?? []}
           readOnly={isViewMode}
         />

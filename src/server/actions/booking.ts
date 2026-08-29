@@ -730,10 +730,11 @@ export async function createBooking(
       // 取得鎖後才重新讀取容量，避免兩個請求同時通過
       // transaction 外的舊快照後造成超賣。同一顧客可以在同時段
       // 建立多筆預約（例如 4+1 拆單或後續追加同行者），只由總人數容量限制。
+      const spaLockInterval = dayCtx.rule.slotInterval === 15 ? 15 : 30;
       const lockTimes = spaServiceDuration
         ? Array.from(
-            { length: Math.max(1, Math.ceil(spaServiceDuration / 30)) },
-            (_, index) => addMinutes(data.slotTime, index * 30),
+            { length: Math.max(1, Math.ceil(spaServiceDuration / spaLockInterval)) },
+            (_, index) => addMinutes(data.slotTime, index * spaLockInterval),
           )
         : [data.slotTime];
       await acquireBookingSlotLocks(
