@@ -22,6 +22,8 @@ const mockVerify = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
 const mockBindLine = vi.fn();
 const mockAuthorizedLiffRebind = vi.fn();
+const mockAutoLiffMigration = vi.fn();
+const mockAuthorizedFirstCapture = vi.fn();
 
 vi.mock("@/lib/liff/verify-id-token", async () => {
   // 保留真正的 LiffIdTokenError class，讓 action 用 instanceof 判型
@@ -49,6 +51,10 @@ vi.mock("@/server/services/customer-identity-link", () => ({
 vi.mock("@/server/services/liff-login-rebind", () => ({
   tryExecuteAuthorizedLiffLoginRebind: (...args: unknown[]) =>
     mockAuthorizedLiffRebind(...args),
+  tryAutoMigrateRecentLiffLoginIdentity: (...args: unknown[]) =>
+    mockAutoLiffMigration(...args),
+  tryExecuteAuthorizedLiffLoginFirstCapture: (...args: unknown[]) =>
+    mockAuthorizedFirstCapture(...args),
 }));
 
 import { submitOnboarding } from "@/app/(liff)/liff/onboarding/actions";
@@ -82,6 +88,10 @@ describe("submitOnboarding action (PR-C2)", () => {
     mockBindLine.mockReset();
     mockAuthorizedLiffRebind.mockReset();
     mockAuthorizedLiffRebind.mockResolvedValue({ status: "not_authorized" });
+    mockAutoLiffMigration.mockReset();
+    mockAutoLiffMigration.mockResolvedValue({ status: "not_eligible" });
+    mockAuthorizedFirstCapture.mockReset();
+    mockAuthorizedFirstCapture.mockResolvedValue({ status: "not_authorized" });
   });
 
   afterEach(() => {
@@ -197,6 +207,29 @@ describe("submitOnboarding action (PR-C2)", () => {
       phone: VALID_INPUT.phone,
       candidateLineUserId: LINE_USER_ID,
     });
+  });
+
+  it("recent exact new-customer LIFF migration → ok without staff interruption", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({
+      status: "already_bound_to_other_line",
+      customerId: "cust-recent",
+      existingLineUserId: "U_retired_liff",
+    });
+    mockAutoLiffMigration.mockResolvedValueOnce({ status: "executed" });
+
+    const r = await submitOnboarding(VALID_INPUT);
+
+    expect(r).toEqual({ status: "ok" });
+    expect(mockAutoLiffMigration).toHaveBeenCalledWith({
+      storeId: STORE.id,
+      customerId: "cust-recent",
+      phone: VALID_INPUT.phone,
+      name: VALID_INPUT.name,
+      candidateLineUserId: LINE_USER_ID,
+    });
+    expect(mockAuthorizedLiffRebind).not.toHaveBeenCalled();
   });
 
   it("phone_taken_by_other_user → phone_taken_by_login_account", async () => {
