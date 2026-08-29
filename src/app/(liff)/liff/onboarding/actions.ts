@@ -187,9 +187,24 @@ export async function submitOnboarding(
         candidateLineUserId: verified.lineUserId,
       });
       if (automatic.status === "executed") return { status: "ok" };
-      const { tryExecuteAuthorizedLiffLoginFirstCapture } = await import(
+      const {
+        tryExecuteAuthorizedLiffLoginRebind,
+        tryExecuteAuthorizedLiffLoginFirstCapture,
+      } = await import(
         "@/server/services/liff-login-rebind"
       );
+      // A phone collision can still be the known retired-LIFF migration case:
+      // the store customer belongs to an existing user whose stale LINE Login
+      // identity must be replaced. Consume that narrowly scoped authorization
+      // before falling back to first capture (which intentionally rejects an
+      // account that already has a LINE identity).
+      const rebind = await tryExecuteAuthorizedLiffLoginRebind({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (rebind.status === "executed") return { status: "ok" };
       const capture = await tryExecuteAuthorizedLiffLoginFirstCapture({
         storeId: store.id,
         customerId: helperResult.customerId,

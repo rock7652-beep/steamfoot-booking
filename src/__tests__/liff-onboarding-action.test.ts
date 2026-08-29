@@ -242,6 +242,33 @@ describe("submitOnboarding action (PR-C2)", () => {
     });
     const r = await submitOnboarding(VALID_INPUT);
     expect(r).toEqual({ status: "phone_taken_by_login_account" });
+    expect(mockAuthorizedLiffRebind).toHaveBeenCalled();
+    expect(mockAuthorizedFirstCapture).toHaveBeenCalled();
+  });
+
+  it("owner-authorized old-LIFF rebind also repairs phone_taken_by_other_user", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({
+      status: "phone_taken_by_other_user",
+      customerId: "cust-jian",
+      sameLineUserId: false,
+    });
+    mockAuthorizedLiffRebind.mockResolvedValueOnce({
+      status: "executed",
+      requestId: "request-jian",
+    });
+
+    const r = await submitOnboarding(VALID_INPUT);
+
+    expect(r).toEqual({ status: "ok" });
+    expect(mockAuthorizedLiffRebind).toHaveBeenCalledWith({
+      storeId: STORE.id,
+      customerId: "cust-jian",
+      phone: VALID_INPUT.phone,
+      candidateLineUserId: LINE_USER_ID,
+    });
+    expect(mockAuthorizedFirstCapture).not.toHaveBeenCalled();
   });
 
   it("ambiguous_multiple_candidates → ambiguous", async () => {
