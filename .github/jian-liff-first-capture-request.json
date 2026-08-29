@@ -4,5 +4,6 @@
   "case": "jian-ming-yan-liff-rebind",
   "customerId": "cmt4a22ym0003jo043rxomj4o",
   "requestedAt": "2026-08-29",
-  "attempt": 2
+  "attempt": 3,
+  "acceptMatchingExistingRequest": true
 }
