@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { STATUS_LABEL } from "@/lib/booking-constants";
 import {
@@ -10,6 +11,7 @@ import {
   toDateInputValue,
 } from "@/lib/date-utils";
 import { addMinutes } from "@/lib/spa-scheduling";
+import { updateSpaScheduleInterval } from "@/server/actions/spa-schedule-settings";
 import {
   inferSpaDemoResourceType,
   spaResourceLabel,
@@ -99,7 +101,10 @@ export function SpaProviderSchedule({
   const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
   const [quickTarget, setQuickTarget] = useState<SpaQuickTarget | null>(null);
   const [detailCache] = useState(() => createBookingDetailCache());
-  const rowMinutes = timeUnitMinutes === 15 ? 15 : DEFAULT_ROW_MINUTES;
+  const [rowMinutes, setRowMinutes] = useState<15 | 30>(
+    timeUnitMinutes === 15 ? 15 : DEFAULT_ROW_MINUTES,
+  );
+  const [isChangingInterval, startIntervalChange] = useTransition();
   const rowHeight = rowMinutes === 15 ? 36 : 48;
   const scheduleTimes = useMemo(
     () =>
@@ -149,18 +154,31 @@ export function SpaProviderSchedule({
     );
   }
 
+  function handleIntervalChange(interval: 15 | 30) {
+    if (interval === rowMinutes || isChangingInterval) return;
+    const previous = rowMinutes;
+    setRowMinutes(interval);
+    startIntervalChange(async () => {
+      const result = await updateSpaScheduleInterval(interval);
+      if (!result.success) {
+        setRowMinutes(previous);
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`已切換為每 ${interval} 分鐘可開始預約`);
+      router.refresh();
+    });
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-earth-200 bg-white px-4 py-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-earth-200 bg-white px-4 py-2.5">
         <div>
           <p className="text-xs font-semibold tracking-wide text-primary-700">
             今日預約工作台
           </p>
           <p className="mt-1 text-sm font-semibold text-earth-900">
             {formatDateWithWeekdayZh(date)}
-          </p>
-          <p className="mt-0.5 text-xs text-earth-500">
-            一眼確認誰在班、服務到幾點、何時能接下一位
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -179,7 +197,7 @@ export function SpaProviderSchedule({
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-lg border border-earth-200 bg-white">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-earth-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-earth-200 px-4 py-3">
           <div>
             <h2 className="text-sm font-semibold text-earth-900">
@@ -198,14 +216,28 @@ export function SpaProviderSchedule({
             />
             <Metric label="按摩床" value="2 張" />
             <Metric label="沙發椅" value="2 張" />
-            <Metric label="時間單位" value={`${rowMinutes} 分`} />
             {!readOnly ? (
-              <Link
-                href="/dashboard/settings/hours"
-                className="inline-flex items-center rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+              <div
+                className="inline-flex rounded-lg border border-earth-200 bg-earth-50 p-1"
+                aria-label="切換預約時間單位"
               >
-                設定 15／30 分鐘
-              </Link>
+                {([15, 30] as const).map((interval) => (
+                  <button
+                    key={interval}
+                    type="button"
+                    onClick={() => handleIntervalChange(interval)}
+                    disabled={isChangingInterval}
+                    aria-pressed={rowMinutes === interval}
+                    className={`rounded-md px-3 py-1 text-xs font-semibold transition disabled:cursor-wait ${
+                      rowMinutes === interval
+                        ? "bg-white text-primary-700 shadow-sm ring-1 ring-earth-200"
+                        : "text-earth-500 hover:text-earth-800"
+                    }`}
+                  >
+                    {interval} 分
+                  </button>
+                ))}
+              </div>
             ) : null}
           </div>
         </div>
@@ -215,10 +247,10 @@ export function SpaProviderSchedule({
             尚未建立可排程的芳療師
           </div>
         ) : (
-          <div className="max-h-[calc(100vh-330px)] min-h-[460px] overflow-auto">
+          <div className="min-h-[460px] flex-1 overflow-auto">
             <div
-              className="min-w-max"
-              style={{ width: `${80 + providers.length * 240}px` }}
+              className="w-full"
+              style={{ minWidth: `${80 + providers.length * 240}px` }}
             >
               <div
                 className="sticky top-0 z-30 grid border-b border-earth-200 bg-earth-50 shadow-sm"

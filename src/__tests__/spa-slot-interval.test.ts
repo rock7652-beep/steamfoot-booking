@@ -28,7 +28,7 @@ describe("SPA 15/30 minute booking units", () => {
     })).toEqual({ valid: true });
   });
 
-  it("keeps the time-unit setting discoverable from the SPA schedule and settings", () => {
+  it("switches the time unit directly inside the SPA schedule", () => {
     const schedule = readFileSync(
       "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
       "utf8",
@@ -38,8 +38,26 @@ describe("SPA 15/30 minute booking units", () => {
       "utf8",
     );
 
-    expect(schedule).toContain("設定 15／30 分鐘");
-    expect(schedule).toContain("/dashboard/settings/hours");
+    expect(schedule).toContain("handleIntervalChange");
+    expect(schedule).toContain("切換預約時間單位");
+    expect(schedule).toContain("updateSpaScheduleInterval");
+    expect(schedule).not.toContain('href="/dashboard/settings/hours"');
     expect(settings).toContain("營業與預約時間");
+  });
+
+  it("lets the SPA schedule use the full workspace width", () => {
+    const page = readFileSync(
+      "src/app/(dashboard)/dashboard/bookings/page.tsx",
+      "utf8",
+    );
+    const schedule = readFileSync(
+      "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
+      "utf8",
+    );
+
+    expect(page).toContain("max-w-none");
+    expect(schedule).toContain('className="w-full"');
+    expect(schedule).toContain("minWidth:");
+    expect(schedule).not.toContain("max-h-[calc(100vh-330px)]");
   });
 });

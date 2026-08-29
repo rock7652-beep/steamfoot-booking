@@ -210,27 +210,8 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       return [provider.id, [...union].sort()];
     }));
     return (
-      <PageShell>
+      <PageShell className="flex h-[calc(100dvh-64px)] w-full max-w-none flex-col gap-3 px-4 py-3">
         <FormSuccessToast />
-        <PageHeader
-          title="今日預約工作台"
-          subtitle="今日一覽人員、預約、整理時間與空間容量"
-          actions={
-            isViewMode ? (
-              <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
-                查看模式不可新增預約
-              </span>
-            ) : (
-              <Link
-                href={`/dashboard/bookings/new?date=${selectedDate}`}
-                prefetch={false}
-                className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-primary-700"
-              >
-                ＋ 新增預約
-              </Link>
-            )
-          }
-        />
         <SpaProviderSchedule
           key={`${selectedDate}-${selectedDay?.bookings.map((booking) => `${booking.id}:${booking.bookingStatus}`).join("|") ?? "empty"}`}
           date={selectedDate}

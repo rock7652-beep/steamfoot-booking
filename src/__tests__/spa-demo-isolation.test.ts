@@ -62,7 +62,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(staffWorkspace).toContain("不必逐時段新增");
     expect(staffWorkspace).toContain("緊急聯絡人");
     expect(schedule).toContain("sticky top-0 z-30");
-    expect(schedule).toContain("max-h-[calc(100vh-330px)]");
+    expect(schedule).toContain('className="min-h-[460px] flex-1 overflow-auto"');
     expect(SPA_DEMO_PROVIDERS.every((provider) => provider.specialties && provider.emergencyContact.phone)).toBe(true);
   });
 });

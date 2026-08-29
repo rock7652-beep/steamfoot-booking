@@ -57,7 +57,8 @@ describe("SPA dashboard schedule presentation", () => {
       "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
       "utf8",
     );
-    expect(source).toContain("onCreate={(time) => setQuickTarget");
+    expect(source).toContain("onCreate={(time) =>");
+    expect(source).toContain("setQuickTarget({ providerId: provider.id, time })");
     expect(source).toContain("<SpaQuickBookingDrawer");
     expect(source).toContain("＋ 安排");
   });
