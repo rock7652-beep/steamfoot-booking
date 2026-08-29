@@ -74,6 +74,59 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
 
   providers: [
+    // ── SPA 服務人員登入（手機 + 密碼）──
+    // 與店長 Email 後台、顧客前台完全分流；目前只開放 SPA Demo。
+    Credentials({
+      id: "service-staff-phone",
+      name: "service-staff-phone",
+      credentials: {
+        phone: { label: "手機", type: "tel" },
+        password: { label: "密碼", type: "password" },
+        storeSlug: { label: "店舖", type: "text" },
+      },
+      async authorize(credentials) {
+        const phone = normalizePhone(String(credentials?.phone ?? ""));
+        const password = String(credentials?.password ?? "");
+        const storeSlug = String(credentials?.storeSlug ?? "");
+        if (!/^09\d{8}$/.test(phone) || password.length < 6 || !storeSlug) return null;
+
+        const user = await prisma.user.findFirst({
+          where: {
+            phone,
+            role: "PARTNER",
+            status: "ACTIVE",
+            staff: {
+              status: "ACTIVE",
+              store: { slug: storeSlug, id: "demo-store" },
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            passwordHash: true,
+            role: true,
+            staff: {
+              select: { id: true, storeId: true, store: { select: { slug: true } } },
+            },
+          },
+        });
+        if (!user?.passwordHash || !user.staff) return null;
+        if (!compareSync(password, user.passwordHash)) return null;
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email ?? null,
+          role: user.role,
+          staffId: user.staff.id,
+          customerId: null,
+          storeId: user.staff.storeId,
+          storeSlug: user.staff.store.slug,
+        };
+      },
+    }),
+
     // ── Staff 登入（Email + 密碼）──
     Credentials({
       id: "credentials",

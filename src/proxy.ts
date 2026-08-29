@@ -105,6 +105,23 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     // 去掉 /s/[slug] 前綴後的子路徑
     const subPath = pathname.slice(`/s/${storeSlug}`.length) || "/";
 
+    // ── SPA 服務人員專用入口 ──
+    if (subPath === "/staff/login") {
+      if (isLoggedIn && role === "PARTNER" && sessionStoreId) {
+        return NextResponse.redirect(new URL(`/s/${storeSlug}/staff/my-bookings`, req.url));
+      }
+      return storeRewrite(req, "/staff-login", storeSlug, domainStoreId);
+    }
+    if (subPath === "/staff/my-bookings") {
+      if (!isLoggedIn) {
+        return NextResponse.redirect(new URL(`/s/${storeSlug}/staff/login`, req.url));
+      }
+      if (role !== "PARTNER" || !sessionStoreId) {
+        return NextResponse.redirect(new URL(`/s/${storeSlug}/staff/login`, req.url));
+      }
+      return storeRewrite(req, "/staff-schedule", storeSlug, domainStoreId);
+    }
+
     // Compatibility entry for LIFF apps that were configured with the legacy
     // `/s/[storeSlug]/trial-booking` endpoint. Keep the browser on the exact
     // LINE Developers endpoint while serving the native public-trial bridge;

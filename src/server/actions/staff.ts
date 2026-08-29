@@ -18,6 +18,7 @@ import { resolveWriteStoreId } from "@/lib/store";
 import { revalidateStaff, revalidateStaffPermissions } from "@/lib/revalidation";
 import type { UserRole } from "@prisma/client";
 import type { ActionResult } from "@/types";
+import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 
 /**
  * 要求可管理人員的身份：OWNER（店長）或 ADMIN（系統管理者，需已選定分店）。
@@ -86,8 +87,13 @@ async function assertCanManageStaff(
 
 const createStaffSchema = z.object({
   name: z.string().min(1).max(100),
-  email: z.string().email(),
-  phone: z.string().min(8).max(20).optional(),
+  email: z.preprocess(
+    (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().email().optional(),
+  ),
+  phone: z.string().transform(normalizePhone).pipe(
+    z.string().regex(/^09\d{8}$/, "請輸入 09 開頭的 10 碼手機號碼"),
+  ),
   password: z.string().min(6),
   displayName: z.string().min(1).max(100),
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
@@ -122,6 +128,8 @@ export async function createStaff(
     const writeStoreId = await resolveWriteStoreId(sessionUser);
     await requireStoreFeature(writeStoreId, FEATURES.STAFF_MANAGEMENT);
 
+    const normalizedEmail = data.email ? normalizeEmail(data.email) : undefined;
+
     // 用量限制：檢查員工數量上限
     const { checkStaffLimitOrThrow } = await import("@/lib/usage-gate");
     const currentStaffCount = await prisma.staff.count({
@@ -130,8 +138,15 @@ export async function createStaff(
     await checkStaffLimitOrThrow(currentStaffCount);
 
     // 檢查 email 是否已存在
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
-    if (existing) throw new AppError("CONFLICT", "此 Email 已被使用");
+    if (normalizedEmail) {
+      const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (existing) throw new AppError("CONFLICT", "此 Email 已被使用");
+    }
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone: data.phone, role: data.role ?? "PARTNER" },
+      select: { id: true },
+    });
+    if (existingPhone) throw new AppError("CONFLICT", "此手機號碼已建立相同身分的帳號");
 
     const passwordHash = hashSync(data.password, 10);
     const staffRole: UserRole = data.role ?? "OWNER";
@@ -139,7 +154,7 @@ export async function createStaff(
     const user = await prisma.user.create({
       data: {
         name: data.name,
-        email: data.email,
+        email: normalizedEmail,
         phone: data.phone,
         passwordHash,
         role: staffRole,

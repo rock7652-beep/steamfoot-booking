@@ -16,7 +16,12 @@ import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 
-export default async function StaffPage() {
+export default async function StaffPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ createError?: string }>;
+}) {
+  const { createError } = await searchParams;
   const user = await getCurrentUser();
   if (!user) notFound();
   if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
@@ -36,11 +41,25 @@ export default async function StaffPage() {
   const isSpaDemo = isSpaDemoStoreId(activeStoreId);
   const spaSchemaReady = isSpaDemo ? await isSpaOperationalSchemaReady() : false;
   const providerById = new Map(SPA_DEMO_PROVIDERS.map((provider) => [provider.id, provider]));
-  const [storedSkills, storedAvailability, storedExceptions] = isSpaDemo && spaSchemaReady ? await Promise.all([
-    prisma.staffSkill.findMany({ where: { storeId: activeStoreId! }, include: { skill: { select: { id: true } } } }),
-    prisma.staffWeeklyAvailability.findMany({ where: { storeId: activeStoreId!, isActive: true }, orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] }),
-    prisma.staffAvailabilityException.findMany({ where: { storeId: activeStoreId!, date: { gte: parseTaiwanDateToDbDate(toLocalDateStr()) } }, orderBy: { date: "asc" } }),
-  ]) : [[], [], []];
+  let storedSkills: Array<{ staffId: string; skill: { id: string } }> = [];
+  let storedAvailability: Awaited<ReturnType<typeof prisma.staffWeeklyAvailability.findMany>> = [];
+  let storedExceptions: Awaited<ReturnType<typeof prisma.staffAvailabilityException.findMany>> = [];
+  let spaStaffDataReady = spaSchemaReady;
+  if (isSpaDemo && spaSchemaReady) {
+    try {
+      [storedSkills, storedAvailability, storedExceptions] = await Promise.all([
+        prisma.staffSkill.findMany({ where: { storeId: activeStoreId! }, include: { skill: { select: { id: true } } } }),
+        prisma.staffWeeklyAvailability.findMany({ where: { storeId: activeStoreId!, isActive: true }, orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] }),
+        prisma.staffAvailabilityException.findMany({ where: { storeId: activeStoreId!, date: { gte: parseTaiwanDateToDbDate(toLocalDateStr()) } }, orderBy: { date: "asc" } }),
+      ]);
+    } catch (error) {
+      spaStaffDataReady = false;
+      console.error("[spa-staff] optional operational data unavailable", {
+        storeId: activeStoreId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   const people: StaffWorkspacePerson[] = staffList.map((staff) => {
     const provider = providerById.get(staff.id);
@@ -84,8 +103,8 @@ export default async function StaffPage() {
     const result = await createStaff({
       name: formData.get("name") as string,
       displayName: formData.get("displayName") as string,
-      email: formData.get("email") as string,
-      phone: formData.get("phone") as string,
+      email: String(formData.get("email") ?? "").trim() || undefined,
+      phone: String(formData.get("phone") ?? "").trim(),
       password: formData.get("password") as string,
       colorCode: formData.get("colorCode") as string,
       monthlySpaceFee: formData.get("monthlySpaceFee")
@@ -93,7 +112,9 @@ export default async function StaffPage() {
         : 0,
       role: roleValue as "OWNER" | "PARTNER",
     });
-    if (!result.success) throw new Error(result.error || "新增人員失敗");
+    if (!result.success) {
+      redirect(`/dashboard/staff?createError=${encodeURIComponent(result.error || "新增人員失敗")}`);
+    }
     redirect("/dashboard/staff");
   }
 
@@ -110,7 +131,12 @@ export default async function StaffPage() {
           </div>
         ) : (
           <>
-            {isSpaDemo && !spaSchemaReady ? (
+            {createError ? (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                新增人員失敗：{createError}
+              </div>
+            ) : null}
+            {isSpaDemo && !spaStaffDataReady ? (
               <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 人員排班資料功能更新中，目前可先查看 Demo 設定；待資料表就緒後即可儲存。
               </div>
@@ -118,7 +144,7 @@ export default async function StaffPage() {
             <StaffWorkspace
               people={people}
               today={toLocalDateStr()}
-              canManage={canManage && (!isSpaDemo || spaSchemaReady)}
+              canManage={canManage}
               createAction={handleCreateStaff}
             />
           </>
