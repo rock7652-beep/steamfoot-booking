@@ -7,6 +7,7 @@ import { sha256 } from "@/server/services/line-rebind";
 
 export const LIFF_LOGIN_REBIND_REASON = "LIFF_LOGIN_CHANNEL_MIGRATION_V1";
 export const LIFF_LOGIN_FIRST_CAPTURE_REASON = "LIFF_LOGIN_FIRST_CAPTURE_V1";
+export const RECENT_LIFF_AUTO_MIGRATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type AuthorizedLiffLoginRebindResult =
   | { status: "executed"; requestId: string }
@@ -16,6 +17,124 @@ export type AuthorizedLiffLoginRebindResult =
 class RebindRejected extends Error {
   constructor(readonly code: string) {
     super(code);
+  }
+}
+
+export type RecentLiffAutoMigrationResult =
+  | { status: "executed" }
+  | { status: "not_eligible" }
+  | { status: "rejected"; code: string };
+
+function normalizeIdentityName(value: string): string {
+  return value.normalize("NFKC").trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Automatically repairs the narrow "registered on the retired LIFF, then
+ * immediately opened the current LIFF" case.
+ *
+ * This is deliberately stricter than ordinary phone matching: the Customer,
+ * User and legacy identity link must all have been created within 24 hours,
+ * the store phone and submitted name must be unique/exact, the legacy Account
+ * and link must agree, and the new verified LINE subject must be completely
+ * unclaimed. Customer.lineUserId is never written because it can be the
+ * Messaging API notification recipient.
+ */
+export async function tryAutoMigrateRecentLiffLoginIdentity(input: {
+  storeId: string;
+  customerId: string;
+  phone: string;
+  name: string;
+  candidateLineUserId: string;
+}): Promise<RecentLiffAutoMigrationResult> {
+  const phone = normalizePhone(input.phone);
+  if (!/^09\d{8}$/.test(phone) || !input.candidateLineUserId || !normalizeIdentityName(input.name)) {
+    return { status: "rejected", code: "INVALID_INPUT" };
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "Customer"
+        WHERE "id" = ${input.customerId} AND "storeId" = ${input.storeId}
+        FOR UPDATE
+      `;
+      if (locked.length !== 1) return { status: "not_eligible" as const };
+
+      const customer = await tx.customer.findUnique({
+        where: { id: input.customerId },
+        select: {
+          id: true, storeId: true, userId: true, name: true, phone: true,
+          authSource: true, lineUserId: true, mergedIntoCustomerId: true,
+          createdAt: true,
+        },
+      });
+      if (!customer?.userId || customer.storeId !== input.storeId || customer.mergedIntoCustomerId ||
+          customer.authSource !== "LINE" || normalizePhone(customer.phone) !== phone ||
+          normalizeIdentityName(customer.name) !== normalizeIdentityName(input.name)) {
+        return { status: "not_eligible" as const };
+      }
+
+      const cutoff = new Date(Date.now() - RECENT_LIFF_AUTO_MIGRATION_WINDOW_MS);
+      if (customer.createdAt < cutoff) return { status: "not_eligible" as const };
+
+      const [user, phoneCount, oldLinks, oldAccounts, candidateLinks, candidateAccounts] = await Promise.all([
+        tx.user.findUnique({ where: { id: customer.userId }, select: { id: true, role: true, status: true, createdAt: true } }),
+        tx.customer.count({ where: { storeId: input.storeId, phone, mergedIntoCustomerId: null } }),
+        tx.customerIdentityLink.findMany({
+          where: { userId: customer.userId, storeId: input.storeId, customerId: customer.id, provider: "line" },
+          select: { id: true, providerAccountId: true, lineUserId: true, createdAt: true }, take: 2,
+        }),
+        tx.account.findMany({ where: { userId: customer.userId, provider: "line" }, select: { id: true, providerAccountId: true }, take: 2 }),
+        tx.customerIdentityLink.findMany({ where: { provider: "line", providerAccountId: input.candidateLineUserId }, select: { id: true }, take: 1 }),
+        tx.account.findMany({ where: { provider: "line", providerAccountId: input.candidateLineUserId }, select: { id: true }, take: 1 }),
+      ]);
+      if (!user || user.role !== "CUSTOMER" || user.status !== "ACTIVE" || user.createdAt < cutoff ||
+          phoneCount !== 1 || oldLinks.length !== 1 || oldAccounts.length !== 1 ||
+          candidateLinks.length !== 0 || candidateAccounts.length !== 0) {
+        return { status: "not_eligible" as const };
+      }
+
+      const oldLink = oldLinks[0];
+      const oldAccount = oldAccounts[0];
+      const oldLineUserId = oldLink.providerAccountId;
+      if (oldLink.createdAt < cutoff || oldLink.lineUserId !== oldLineUserId ||
+          oldAccount.providerAccountId !== oldLineUserId || oldLineUserId === input.candidateLineUserId ||
+          (customer.lineUserId !== null && customer.lineUserId !== oldLineUserId)) {
+        return { status: "not_eligible" as const };
+      }
+
+      const linkUpdated = await tx.customerIdentityLink.updateMany({
+        where: { id: oldLink.id, userId: customer.userId, storeId: input.storeId, customerId: customer.id,
+          provider: "line", providerAccountId: oldLineUserId, lineUserId: oldLineUserId },
+        data: { providerAccountId: input.candidateLineUserId, lineUserId: input.candidateLineUserId },
+      });
+      if (linkUpdated.count !== 1) throw new RebindRejected("LINK_COMPARE_AND_SET_FAILED");
+
+      const accountUpdated = await tx.account.updateMany({
+        where: { id: oldAccount.id, userId: customer.userId, provider: "line", providerAccountId: oldLineUserId },
+        data: { providerAccountId: input.candidateLineUserId, refresh_token: null, access_token: null,
+          expires_at: null, token_type: null, scope: null, id_token: null, session_state: null },
+      });
+      if (accountUpdated.count !== 1) throw new RebindRejected("ACCOUNT_COMPARE_AND_SET_FAILED");
+
+      await tx.auditLog.create({ data: {
+        actorUserId: customer.userId,
+        targetType: "CustomerIdentityLink",
+        targetId: oldLink.id,
+        action: "AUTO_MIGRATE_RECENT_LIFF_LOGIN_IDENTITY",
+        beforeJson: { storeId: input.storeId, customerId: customer.id, oldLoginUserIdHash: sha256(oldLineUserId) },
+        afterJson: { newLoginUserIdHash: sha256(input.candidateLineUserId), customerMessagingIdentityPreserved: true,
+          eligibility: "recent_line_registration_exact_phone_name_unique_identity" },
+      } });
+      return { status: "executed" as const };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10_000, timeout: 30_000 });
+  } catch (error) {
+    if (error instanceof RebindRejected) return { status: "rejected", code: error.code };
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+      return { status: "rejected", code: "WRITE_CONFLICT" };
+    }
+    return { status: "rejected", code: "EXECUTION_FAILED" };
   }
 }
 
