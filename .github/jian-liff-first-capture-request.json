@@ -1,7 +1,8 @@
 {
   "authorized": "owner",
   "scope": "single-customer",
-  "case": "jian-ming-yan-liff-first-capture",
+  "case": "jian-ming-yan-liff-rebind",
   "customerId": "cmt4a22ym0003jo043rxomj4o",
-  "requestedAt": "2026-08-29"
+  "requestedAt": "2026-08-29",
+  "attempt": 2
 }
