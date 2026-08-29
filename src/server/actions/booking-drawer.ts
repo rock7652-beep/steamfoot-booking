@@ -361,7 +361,9 @@ export async function fetchBookingDetail(
             ? toLocalDateStr(collectedSingleTx.paidAt)
             : null,
           defaultPrice:
-            booking.servicePlan?.price != null
+            booking.treatmentPriceSnapshot != null
+              ? Number(booking.treatmentPriceSnapshot)
+              : booking.servicePlan?.price != null
               ? Number(booking.servicePlan.price)
               : 799,
         }

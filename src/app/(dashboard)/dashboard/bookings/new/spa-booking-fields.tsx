@@ -3,328 +3,106 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormSection } from "@/components/desktop";
 import { formatWeekdayZh } from "@/lib/date-utils";
-import {
-  fetchSpaBookingAvailability,
-  type SpaBookingAvailability,
-} from "@/server/actions/spa-booking-availability";
+import { fetchSpaBookingAvailability, type SpaBookingAvailability } from "@/server/actions/spa-booking-availability";
 import { useBookingFormValidation } from "./booking-create-form";
 
 export type SpaBookingTreatmentOption = {
-  id: string;
-  name: string;
-  variantLabel: string | null;
-  price: number;
-  serviceMinutes: number;
-  bufferMinutes: number;
+  id: string; name: string; variantLabel: string | null; price: number;
+  serviceMinutes: number; bufferMinutes: number;
+  kind: "SERVICE" | "COMBO" | "ADD_ON"; resourceType: "BED" | "CHAIR";
 };
 
-export function SpaBookingFields({
-  days,
-  defaultDate,
-  treatments,
-  defaultServiceStaffId,
-  defaultSlotTime,
-}: {
-  days: readonly string[];
-  defaultDate: string;
-  treatments: readonly SpaBookingTreatmentOption[];
-  defaultServiceStaffId?: string;
-  defaultSlotTime?: string;
+function addMinutes(time: string, minutes: number) {
+  const [hour = 0, minute = 0] = time.split(":").map(Number);
+  const total = hour * 60 + minute + minutes;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+export function SpaBookingFields({ days, defaultDate, treatments, defaultServiceStaffId, defaultSlotTime }: {
+  days: readonly string[]; defaultDate: string; treatments: readonly SpaBookingTreatmentOption[];
+  defaultServiceStaffId?: string; defaultSlotTime?: string;
 }) {
   const { errors, clearError } = useBookingFormValidation();
-  const initialDate = days.includes(defaultDate) ? defaultDate : (days[0] ?? "");
-  const [date, setDate] = useState(initialDate);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [date, setDate] = useState(days.includes(defaultDate) ? defaultDate : (days[0] ?? ""));
+  const [mainId, setMainId] = useState("");
+  const [addOnIds, setAddOnIds] = useState<string[]>([]);
   const [availability, setAvailability] = useState<SpaBookingAvailability | null>(null);
-  const [providerId, setProviderId] = useState(defaultServiceStaffId ?? "");
-  const [slotTime, setSlotTime] = useState(defaultSlotTime ?? "");
+  const [providerFilter, setProviderFilter] = useState(defaultServiceStaffId ?? "all");
+  const [providerId, setProviderId] = useState("");
+  const [slotTime, setSlotTime] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
-
-  const selectedTreatments = useMemo(
-    () => treatments.filter((treatment) => selectedIds.includes(treatment.id)),
-    [selectedIds, treatments],
-  );
-  const clientSummary = useMemo(
-    () => ({
-      serviceMinutes: selectedTreatments.reduce(
-        (sum, treatment) => sum + treatment.serviceMinutes,
-        0,
-      ),
-      bufferMinutes: selectedTreatments.reduce(
-        (sum, treatment) => sum + treatment.bufferMinutes,
-        0,
-      ),
-      totalPrice: selectedTreatments.reduce(
-        (sum, treatment) => sum + treatment.price,
-        0,
-      ),
-    }),
-    [selectedTreatments],
-  );
+  const selectedIds = useMemo(() => (mainId ? [mainId, ...addOnIds] : []), [mainId, addOnIds]);
+  const mainServices = treatments.filter((item) => item.kind !== "ADD_ON");
+  const addOns = treatments.filter((item) => item.kind === "ADD_ON");
+  const selectedTreatments = treatments.filter((item) => selectedIds.includes(item.id));
+  const summary = {
+    serviceMinutes: selectedTreatments.reduce((sum, item) => sum + item.serviceMinutes, 0),
+    bufferMinutes: Math.max(0, ...selectedTreatments.map((item) => item.bufferMinutes)),
+    totalPrice: selectedTreatments.reduce((sum, item) => sum + item.price, 0),
+  };
 
   useEffect(() => {
-    if (!date || selectedIds.length === 0) {
-      return;
-    }
+    if (!date || !mainId) return;
     const requestId = ++requestIdRef.current;
-    void fetchSpaBookingAvailability({ date, treatmentIds: selectedIds })
-      .then((result) => {
-        if (requestId !== requestIdRef.current) return;
-        if (!result.success) {
-          setAvailability(null);
-          setLoadError(result.error || "暫時無法計算可預約時間");
-          return;
-        }
-        setAvailability(result.data);
-        const availableProviders = result.data.providers.filter(
-          (provider) => provider.startTimes.length > 0,
-        );
-        const nextProviderId =
-          defaultServiceStaffId &&
-          availableProviders.some((provider) => provider.id === defaultServiceStaffId)
-            ? defaultServiceStaffId
-            : (availableProviders[0]?.id ?? "");
-        setProviderId(nextProviderId);
-        const nextProvider = availableProviders.find(
-          (provider) => provider.id === nextProviderId,
-        );
-        setSlotTime(
-          defaultSlotTime && nextProvider?.startTimes.includes(defaultSlotTime)
-            ? defaultSlotTime
-            : "",
-        );
-      })
-      .catch(() => {
-        if (requestId === requestIdRef.current) {
-          setAvailability(null);
-          setLoadError("暫時無法計算可預約時間");
-        }
-      })
-      .finally(() => {
-        if (requestId === requestIdRef.current) setLoading(false);
-      });
-  }, [date, selectedIds, defaultServiceStaffId, defaultSlotTime]);
+    void fetchSpaBookingAvailability({ date, treatmentIds: selectedIds }).then((result) => {
+      if (requestId !== requestIdRef.current) return;
+      if (!result.success) { setAvailability(null); setLoadError(result.error || "暫時無法計算可預約時間"); return; }
+      setAvailability(result.data);
+      const preferred = defaultServiceStaffId && result.data.providers.some((provider) => provider.id === defaultServiceStaffId && provider.startTimes.length > 0) ? defaultServiceStaffId : "all";
+      setProviderFilter(preferred);
+      const provider = result.data.providers.find((item) => item.id === preferred);
+      if (defaultSlotTime && provider?.startTimes.includes(defaultSlotTime)) { setProviderId(provider.id); setSlotTime(defaultSlotTime); }
+      else { setProviderId(""); setSlotTime(""); }
+    }).catch(() => {
+      if (requestId === requestIdRef.current) { setAvailability(null); setLoadError("暫時無法計算可預約時間"); }
+    }).finally(() => { if (requestId === requestIdRef.current) setLoading(false); });
+  }, [date, mainId, addOnIds, selectedIds, defaultServiceStaffId, defaultSlotTime]);
 
-  const selectedProvider = availability?.providers.find(
-    (provider) => provider.id === providerId,
-  );
+  const appointments = (availability?.providers ?? []).filter((provider) => providerFilter === "all" || provider.id === providerFilter)
+    .flatMap((provider) => provider.startTimes.map((time) => ({ provider, time })))
+    .sort((a, b) => a.time.localeCompare(b.time) || a.provider.displayName.localeCompare(b.provider.displayName));
+  function resetAppointment() { clearError("slot"); setProviderId(""); setSlotTime(""); }
+  function beginAvailabilityRefresh() { resetAppointment(); setLoading(true); setLoadError(null); }
 
-  function toggleTreatment(id: string) {
-    clearError("treatment");
-    clearError("slot");
-    const next = selectedIds.includes(id)
-      ? selectedIds.filter((selectedId) => selectedId !== id)
-      : [...selectedIds, id];
-    setSelectedIds(next);
-    if (next.length === 0) {
-      requestIdRef.current += 1;
-      setAvailability(null);
-      setProviderId(defaultServiceStaffId ?? "");
-      setLoadError(null);
-      setLoading(false);
-    } else {
-      setLoading(true);
-      setLoadError(null);
-    }
-    setSlotTime("");
-  }
+  return <>
+    <input type="hidden" name="spaMode" value="on" />
+    {selectedIds.map((id) => <input key={id} type="hidden" name="treatmentIds" value={id} />)}
 
-  const availableProviderCount =
-    availability?.providers.filter((provider) => provider.startTimes.length > 0).length ?? 0;
+    <FormSection title="1. 想安排哪一天？" description="電話或 LINE 詢問時，先用顧客想來的日期找空檔">
+      <select name="bookingDate" required value={date} onChange={(event) => { setDate(event.target.value); if (mainId) beginAvailabilityRefresh(); else resetAppointment(); }} className="block w-full rounded-lg border border-earth-300 bg-white px-3 py-3 text-base text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-300">
+        {days.map((day) => <option key={day} value={day}>{day}（{formatWeekdayZh(day)}）</option>)}
+      </select>
+    </FormSection>
 
-  return (
-    <>
-      <input type="hidden" name="spaMode" value="on" />
-      {selectedIds.map((id) => (
-        <input key={id} type="hidden" name="treatmentIds" value={id} />
-      ))}
+    <FormSection title="2. 今天想做什麼？" description="選一個主服務或固定套餐；需要時再加選小項目">
+      <div data-booking-treatment-section tabIndex={-1} className="grid gap-2 md:grid-cols-2">
+        {mainServices.map((item) => {
+          const selected = mainId === item.id;
+          return <button key={item.id} type="button" aria-pressed={selected} onClick={() => { clearError("treatment"); setMainId(item.id); setAddOnIds([]); beginAvailabilityRefresh(); }} className={`rounded-xl border p-4 text-left transition ${selected ? "border-primary-600 bg-primary-50 ring-2 ring-primary-200" : "border-earth-200 bg-white hover:border-primary-300"}`}>
+            <span className="block text-sm font-semibold text-earth-900">{item.name}</span>
+            <span className="mt-1 block text-xs text-earth-500">{item.variantLabel}・{item.resourceType === "CHAIR" ? "沙發椅" : "按摩床"}</span>
+            <span className="mt-2 block text-sm font-medium text-earth-700">NT${item.price.toLocaleString("zh-TW")}</span>
+          </button>;
+        })}
+      </div>
+      {errors.treatment && <p className="text-sm text-red-600" role="alert">{errors.treatment}</p>}
+      {mainId && addOns.length > 0 ? <div><p className="mb-2 text-sm font-medium text-earth-700">加選（選填）</p><div className="flex flex-wrap gap-2">
+        {addOns.map((item) => { const selected = addOnIds.includes(item.id); return <button key={item.id} type="button" aria-pressed={selected} onClick={() => { setAddOnIds((current) => selected ? current.filter((id) => id !== item.id) : [...current, item.id]); beginAvailabilityRefresh(); }} className={`rounded-full border px-3 py-2 text-sm ${selected ? "border-primary-600 bg-primary-600 text-white" : "border-earth-300 bg-white text-earth-700"}`}>＋ {item.name} {item.serviceMinutes} 分・NT${item.price}</button>; })}
+      </div></div> : null}
+      {mainId ? <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3"><div className="flex items-center justify-between gap-3 text-sm font-semibold text-primary-900"><span>服務 {summary.serviceMinutes} 分鐘</span><span>NT${summary.totalPrice.toLocaleString("zh-TW")}</span></div><p className="mt-1 text-xs text-primary-800">整理只計一次 {summary.bufferMinutes} 分鐘・共占用 {summary.serviceMinutes + summary.bufferMinutes} 分鐘</p></div> : null}
+    </FormSection>
 
-      <FormSection
-        title="本次服務"
-        description="可複選，系統會自動累加時間與需要的專業"
-      >
-        <div data-booking-treatment-section tabIndex={-1} className="space-y-2">
-          {treatments.map((treatment) => {
-            const selected = selectedIds.includes(treatment.id);
-            return (
-              <button
-                key={treatment.id}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => toggleTreatment(treatment.id)}
-                className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-3 text-left transition ${
-                  selected
-                    ? "border-primary-500 bg-primary-50 ring-1 ring-primary-200"
-                    : "border-earth-200 bg-white hover:border-primary-300 hover:bg-earth-50"
-                }`}
-              >
-                <span className="flex min-w-0 items-center gap-3">
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
-                      selected
-                        ? "border-primary-600 bg-primary-600 text-white"
-                        : "border-earth-300 text-transparent"
-                    }`}
-                  >
-                    ✓
-                  </span>
-                  <span>
-                    <span className="block text-sm font-semibold text-earth-900">
-                      {treatment.name}
-                    </span>
-                    <span className="mt-0.5 block text-xs text-earth-500">
-                      {treatment.variantLabel ?? `${treatment.serviceMinutes} 分鐘`}
-                      {treatment.bufferMinutes > 0
-                        ? `・整理 ${treatment.bufferMinutes} 分鐘`
-                        : ""}
-                    </span>
-                  </span>
-                </span>
-                <span className="shrink-0 text-sm font-medium tabular-nums text-earth-700">
-                  NT${treatment.price.toLocaleString("zh-TW")}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {errors.treatment && (
-          <p className="text-sm text-red-600" role="alert">
-            {errors.treatment}
-          </p>
-        )}
-
-        {selectedIds.length > 0 && (
-          <div className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-primary-900">
-                已選 {selectedIds.length} 項服務
-              </p>
-              <p className="text-sm font-semibold tabular-nums text-primary-900">
-                NT${clientSummary.totalPrice.toLocaleString("zh-TW")}
-              </p>
-            </div>
-            <p className="mt-1 text-xs text-primary-800">
-              服務 {clientSummary.serviceMinutes} 分鐘＋整理 {clientSummary.bufferMinutes} 分鐘
-              ＝占用 {clientSummary.serviceMinutes + clientSummary.bufferMinutes} 分鐘
-            </p>
-          </div>
-        )}
-      </FormSection>
-
-      <FormSection
-        title="安排時間"
-        description="只顯示專業符合且有完整連續空檔的人員與時段"
-      >
-        <div>
-          <label className="block text-sm font-medium text-earth-700">
-            日期 <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="bookingDate"
-            required
-            value={date}
-            onChange={(event) => {
-              setDate(event.target.value);
-              setSlotTime("");
-              if (selectedIds.length > 0) {
-                setLoading(true);
-                setLoadError(null);
-              }
-              clearError("slot");
-            }}
-            className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
-          >
-            {days.map((day) => (
-              <option key={day} value={day}>
-                {day}（{formatWeekdayZh(day)}）
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {selectedIds.length === 0 ? (
-          <p className="rounded-lg bg-earth-50 px-4 py-4 text-center text-sm text-earth-500">
-            先選本次服務，系統才會計算可預約的人員與時間。
-          </p>
-        ) : loading ? (
-          <p className="rounded-lg bg-earth-50 px-4 py-4 text-center text-sm text-earth-500">
-            正在比對專業、班表與連續空檔…
-          </p>
-        ) : loadError ? (
-          <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-            {loadError}
-          </p>
-        ) : availability && availableProviderCount === 0 ? (
-          <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            這一天沒有同時具備所需專業與完整 {availability.occupiedMinutes} 分鐘空檔的人員。
-          </p>
-        ) : availability ? (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-earth-700">服務人員</label>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                {availability.providers
-                  .filter((provider) => provider.startTimes.length > 0)
-                  .map((provider, index) => (
-                    <button
-                      key={provider.id}
-                      type="button"
-                      onClick={() => {
-                        setProviderId(provider.id);
-                        setSlotTime("");
-                        clearError("slot");
-                      }}
-                      className={`rounded-lg border px-3 py-2 text-sm font-medium ${
-                        providerId === provider.id
-                          ? "border-primary-600 bg-primary-600 text-white"
-                          : "border-earth-200 bg-white text-earth-700 hover:border-primary-300"
-                      }`}
-                    >
-                      {index === 0 ? "推薦・" : ""}{provider.displayName}
-                    </button>
-                  ))}
-              </div>
-            </div>
-
-            <div data-booking-slot-section tabIndex={-1}>
-              <label className="block text-sm font-medium text-earth-700">
-                開始時間 <span className="text-red-500">*</span>
-              </label>
-              <div className="mt-1.5 grid grid-cols-4 gap-2">
-                {(selectedProvider?.startTimes ?? []).map((time) => (
-                  <button
-                    key={time}
-                    type="button"
-                    onClick={() => {
-                      setSlotTime(time);
-                      clearError("slot");
-                    }}
-                    className={`rounded-lg border px-2 py-2.5 text-sm font-medium tabular-nums ${
-                      slotTime === time
-                        ? "border-primary-600 bg-primary-600 text-white"
-                        : "border-earth-200 bg-white text-earth-700 hover:border-primary-400 hover:bg-primary-50"
-                    }`}
-                  >
-                    {time}
-                  </button>
-                ))}
-              </div>
-              {errors.slot && (
-                <p className="mt-2 text-sm text-red-600" role="alert">
-                  {errors.slot}
-                </p>
-              )}
-            </div>
-          </>
-        ) : null}
-
-        <input type="hidden" name="people" value="1" />
-        <input type="hidden" name="serviceStaffId" value={providerId} />
-        <input type="hidden" name="slotTime" value={slotTime} />
-      </FormSection>
-    </>
-  );
+    <FormSection title="3. 直接選可約時段" description="系統已同時計算專業、班表、既有預約及床位／座椅容量">
+      {!mainId ? <p className="rounded-lg bg-earth-50 p-4 text-center text-sm text-earth-500">先選主服務，才會顯示真正可預約的選項。</p> : loading ? <p className="rounded-lg bg-earth-50 p-4 text-center text-sm text-earth-500">正在找最快可接的時段…</p> : loadError ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{loadError}</p> : availability ? <>
+        <div className="flex flex-wrap gap-2"><button type="button" onClick={() => { setProviderFilter("all"); resetAppointment(); }} className={`rounded-full border px-3 py-1.5 text-sm ${providerFilter === "all" ? "border-primary-600 bg-primary-600 text-white" : "border-earth-300 bg-white text-earth-700"}`}>不指定・最快</button>
+          {availability.providers.filter((item) => item.startTimes.length > 0).map((provider) => <button key={provider.id} type="button" onClick={() => { setProviderFilter(provider.id); resetAppointment(); }} className={`rounded-full border px-3 py-1.5 text-sm ${providerFilter === provider.id ? "border-primary-600 bg-primary-600 text-white" : "border-earth-300 bg-white text-earth-700"}`}>{provider.displayName}</button>)}</div>
+        <div data-booking-slot-section tabIndex={-1} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{appointments.slice(0, 30).map(({ provider, time }) => { const selected = providerId === provider.id && slotTime === time; return <button key={`${provider.id}-${time}`} type="button" onClick={() => { setProviderId(provider.id); setSlotTime(time); clearError("slot"); }} className={`rounded-xl border p-3 text-left ${selected ? "border-primary-600 bg-primary-50 ring-2 ring-primary-200" : "border-earth-200 bg-white hover:border-primary-300"}`}><span className="block text-base font-bold tabular-nums text-earth-900">{time}–{addMinutes(time, availability.serviceMinutes)}</span><span className="mt-1 block text-sm text-earth-700">{provider.displayName}・{availability.resourceLabel}</span>{availability.bufferMinutes > 0 ? <span className="mt-1 block text-xs text-earth-500">{addMinutes(time, availability.occupiedMinutes)} 整理完成</span> : null}</button>; })}</div>
+        {appointments.length === 0 ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">當天沒有同時符合人員與{availability.resourceLabel}容量的完整空檔，請改日期或服務。</p> : null}
+        {errors.slot && <p className="text-sm text-red-600" role="alert">{errors.slot}</p>}
+      </> : null}
+      <input type="hidden" name="people" value="1" /><input type="hidden" name="serviceStaffId" value={providerId} /><input type="hidden" name="slotTime" value={slotTime} />
+    </FormSection>
+  </>;
 }

@@ -27,6 +27,7 @@ import {
   StickyFormActions,
 } from "@/components/desktop";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+import { findSpaDemoCatalogItem, SPA_DEMO_CATALOG } from "@/lib/spa-demo-catalog";
 
 interface PageProps {
   searchParams: Promise<{
@@ -81,7 +82,11 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
         : Promise.resolve(null),
       isSpaDemoStore && spaSchemaReady
         ? prisma.treatment.findMany({
-            where: { storeId: SPA_DEMO_STORE.id, isActive: true },
+            where: {
+              storeId: SPA_DEMO_STORE.id,
+              isActive: true,
+              id: { in: SPA_DEMO_CATALOG.map((item) => item.id) },
+            },
             select: {
               id: true,
               name: true,
@@ -205,7 +210,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
         title="新增預約"
         subtitle={
           isSpaDemoStore
-            ? "先選本次服務，系統自動顯示符合專業且有完整空檔的人員與時間"
+            ? "先確認日期與服務，再直接選可用時段；顧客資料最後填"
             : "左側選時段、右側選顧客與方案，確認後建立"
         }
         actions={
@@ -221,7 +226,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       <FormShell width="lg">
         <BookingCreateForm action={handleCreate}>
           <BookingRequestKeyField />
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className={isSpaDemoStore ? "space-y-6" : "grid grid-cols-1 gap-6 md:grid-cols-2"}>
             {/* 左欄：預約資訊 */}
             <div className="space-y-6">
               {isSpaDemoStore ? (
@@ -231,6 +236,9 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
                   treatments={spaTreatments.map((treatment) => ({
                     ...treatment,
                     price: Number(treatment.price),
+                    kind: findSpaDemoCatalogItem(treatment.id)?.kind ?? "SERVICE",
+                    resourceType:
+                      findSpaDemoCatalogItem(treatment.id)?.resourceType ?? "BED",
                   }))}
                   defaultServiceStaffId={defaultServiceStaff?.id}
                   defaultSlotTime={requestedSlotTime}

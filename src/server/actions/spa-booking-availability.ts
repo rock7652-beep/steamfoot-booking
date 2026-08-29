@@ -18,6 +18,14 @@ import { calculateSpaProviderStartTimes } from "@/lib/spa-availability";
 import { composeSpaBookingTreatments } from "@/lib/spa-booking-composition";
 import { resolveSpaScheduleService } from "@/lib/spa-dashboard-schedule";
 import type { ActionResult } from "@/types";
+import {
+  findSpaDemoCatalogItem,
+  inferSpaDemoResourceType,
+  SPA_DEMO_RESOURCE_CAPACITY,
+  spaResourceLabel,
+  type SpaDemoResourceType,
+} from "@/lib/spa-demo-catalog";
+import { isSpaResourceAvailable } from "@/lib/spa-resource-availability";
 
 const inputSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -29,6 +37,8 @@ export type SpaBookingAvailability = {
   bufferMinutes: number;
   occupiedMinutes: number;
   totalPrice: number;
+  resourceType: SpaDemoResourceType;
+  resourceLabel: string;
   providers: Array<{
     id: string;
     displayName: string;
@@ -108,6 +118,8 @@ export async function fetchSpaBookingAvailability(
           id: true,
           slotTime: true,
           serviceStaffId: true,
+          treatmentId: true,
+          treatmentNameSnapshot: true,
           treatmentServiceMinutesSnapshot: true,
           treatmentBufferMinutesSnapshot: true,
           servicePlan: { select: { name: true } },
@@ -130,6 +142,9 @@ export async function fetchSpaBookingAvailability(
           skillKeys: treatment.skills.map(({ skill }) =>
             skill.id.replace("spa-demo-skill-", ""),
           ),
+          kind: findSpaDemoCatalogItem(treatment.id)?.kind ?? "SERVICE",
+          resourceType:
+            findSpaDemoCatalogItem(treatment.id)?.resourceType ?? "BED",
         };
       }),
     );
@@ -150,6 +165,8 @@ export async function fetchSpaBookingAvailability(
         bufferMinutes: composition.bufferMinutes,
         occupiedMinutes: composition.occupiedMinutes,
         totalPrice: composition.totalPrice,
+        resourceType: composition.resourceType,
+        resourceLabel: spaResourceLabel(composition.resourceType),
         providers: providers.map((provider) => ({
           id: provider.id,
           displayName: provider.displayName,
@@ -178,7 +195,29 @@ export async function fetchSpaBookingAvailability(
                     }).durationMinutes) +
                   (booking.treatmentBufferMinutesSnapshot ?? 0),
               })),
-          }),
+          }).filter((startTime) =>
+            isSpaResourceAvailable({
+              startTime,
+              durationMinutes: composition.occupiedMinutes,
+              resourceType: composition.resourceType,
+              capacity: SPA_DEMO_RESOURCE_CAPACITY[composition.resourceType],
+              occupiedRanges: occupiedBookings.map((booking) => ({
+                startTime: booking.slotTime,
+                durationMinutes:
+                  (booking.treatmentServiceMinutesSnapshot ??
+                    resolveSpaScheduleService({
+                      bookingId: booking.id,
+                      servicePlanName: booking.servicePlan?.name,
+                      walletPlanName: booking.customerPlanWallet?.plan.name,
+                    }).durationMinutes) +
+                  (booking.treatmentBufferMinutesSnapshot ?? 0),
+                resourceType: inferSpaDemoResourceType({
+                  treatmentId: booking.treatmentId,
+                  treatmentName: booking.treatmentNameSnapshot,
+                }),
+              })),
+            }),
+          ),
         })),
       },
     };

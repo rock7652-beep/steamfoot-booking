@@ -93,6 +93,13 @@ import {
 } from "@/lib/spa-booking-composition";
 import { calculateSpaProviderStartTimes } from "@/lib/spa-availability";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+import {
+  findSpaDemoCatalogItem,
+  inferSpaDemoResourceType,
+  SPA_DEMO_RESOURCE_CAPACITY,
+  spaResourceLabel,
+} from "@/lib/spa-demo-catalog";
+import { isSpaResourceAvailable } from "@/lib/spa-resource-availability";
 
 async function assertStaffBookingWritable(
   user: Awaited<ReturnType<typeof requireSession>>,
@@ -379,6 +386,9 @@ export async function createBooking(
             skillKeys: treatment.skills.map(({ skill }) =>
               skill.id.replace("spa-demo-skill-", ""),
             ),
+            kind: findSpaDemoCatalogItem(treatment.id)?.kind ?? "SERVICE",
+            resourceType:
+              findSpaDemoCatalogItem(treatment.id)?.resourceType ?? "BED",
           };
         }),
       );
@@ -758,12 +768,14 @@ export async function createBooking(
           where: {
             storeId,
             bookingDate: bookingDateObj,
-            serviceStaffId: data.serviceStaffId,
             bookingStatus: { in: [...PENDING_STATUSES] },
           },
           select: {
             id: true,
             slotTime: true,
+            serviceStaffId: true,
+            treatmentId: true,
+            treatmentNameSnapshot: true,
             treatmentServiceMinutesSnapshot: true,
             treatmentBufferMinutesSnapshot: true,
             servicePlan: { select: { name: true } },
@@ -772,7 +784,9 @@ export async function createBooking(
             },
           },
         });
-        const occupiedRanges = occupied.map((booking) => ({
+        const occupiedRanges = occupied
+          .filter((booking) => booking.serviceStaffId === data.serviceStaffId)
+          .map((booking) => ({
           startTime: booking.slotTime,
           durationMinutes:
             (booking.treatmentServiceMinutesSnapshot ??
@@ -805,6 +819,32 @@ export async function createBooking(
           throw new AppError(
             "BUSINESS_RULE",
             "此芳療師在所選療程時間內已有預約，請改選其他時段",
+          );
+        }
+        if (spaComposition && !isSpaResourceAvailable({
+          startTime: data.slotTime,
+          durationMinutes: spaComposition.occupiedMinutes,
+          resourceType: spaComposition.resourceType,
+          capacity: SPA_DEMO_RESOURCE_CAPACITY[spaComposition.resourceType],
+          occupiedRanges: occupied.map((existing) => ({
+            startTime: existing.slotTime,
+            durationMinutes:
+              (existing.treatmentServiceMinutesSnapshot ??
+                resolveSpaScheduleService({
+                  bookingId: existing.id,
+                  servicePlanName: existing.servicePlan?.name,
+                  walletPlanName: existing.customerPlanWallet?.plan.name,
+                }).durationMinutes) +
+              (existing.treatmentBufferMinutesSnapshot ?? 0),
+            resourceType: inferSpaDemoResourceType({
+              treatmentId: existing.treatmentId,
+              treatmentName: existing.treatmentNameSnapshot,
+            }),
+          })),
+        })) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            `${spaResourceLabel(spaComposition.resourceType)}在所選時間已滿，請改選其他時段`,
           );
         }
       }

@@ -105,7 +105,7 @@ export function CustomerAndPlanFields({
   }, []);
 
   useEffect(() => {
-    if (!customerId) return;
+    if (spaMode || !customerId) return;
     let cancelled = false;
     void (async () => {
       setWalletsLoading(true);
@@ -154,7 +154,33 @@ export function CustomerAndPlanFields({
     return () => {
       cancelled = true;
     };
-  }, [customerId, bookingDate, defaultMode]);
+  }, [customerId, bookingDate, defaultMode, spaMode]);
+
+  if (spaMode) {
+    return (
+      <FormSection
+        title="4. 留下顧客資料"
+        description="服務、時段與人員確認後，最後再輸入姓名與電話"
+      >
+        <input type="hidden" name="bookingType" value="SINGLE" />
+        <div>
+          <label className={labelCls}>
+            顧客 <span className="text-red-500">*</span>
+          </label>
+          <div className="mt-1">
+            <CustomerSearch
+              defaultCustomerId={defaultCustomerId}
+              defaultCustomerLabel={defaultCustomerLabel}
+              onSelect={handleCustomerSelect}
+            />
+          </div>
+          <p className="mt-2 text-xs text-earth-500">
+            預約時不處理付款；服務完成後再選現金、刷卡、儲值金或購買次數方案。
+          </p>
+        </div>
+      </FormSection>
+    );
+  }
 
   const hasWallets = wallets.length > 0;
   const hasMakeup = makeup.count > 0;

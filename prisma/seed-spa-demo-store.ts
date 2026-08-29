@@ -19,6 +19,7 @@ import {
   SPA_DEMO_STORE,
 } from "../src/lib/spa-demo-store";
 import { ALL_PERMISSIONS } from "../src/lib/permissions";
+import { SPA_DEMO_CATALOG } from "../src/lib/spa-demo-catalog";
 
 const prisma = new PrismaClient();
 const APPLY = process.argv.includes("--apply");
@@ -33,13 +34,7 @@ const SKILLS = [
   { id: "spa-demo-skill-face", key: "face", name: "臉部保養" },
 ] as const;
 
-const TREATMENTS = [
-  { id: "spa-demo-treatment-body-60", name: "全身芳療", variant: "60 分鐘", price: 1800, serviceMinutes: 60, bufferMinutes: 15, skills: ["body"] },
-  { id: "spa-demo-treatment-body-90", name: "全身芳療", variant: "90 分鐘", price: 2500, serviceMinutes: 90, bufferMinutes: 15, skills: ["body"] },
-  { id: "spa-demo-treatment-head-30", name: "頭部舒壓", variant: "30 分鐘", price: 800, serviceMinutes: 30, bufferMinutes: 10, skills: ["head"] },
-  { id: "spa-demo-treatment-foot-30", name: "足部放鬆", variant: "30 分鐘", price: 800, serviceMinutes: 30, bufferMinutes: 10, skills: ["foot"] },
-  { id: "spa-demo-treatment-face-60", name: "臉部保濕護理", variant: "60 分鐘", price: 2000, serviceMinutes: 60, bufferMinutes: 15, skills: ["face"] },
-] as const;
+const TREATMENTS = SPA_DEMO_CATALOG;
 
 const STAFF_SKILLS: Record<string, readonly string[]> = {
   "spa-demo-staff-08": ["body", "head", "foot"],
@@ -339,7 +334,9 @@ async function applySeed() {
 
     for (const booking of SPA_DEMO_BOOKINGS) {
       const planName = BOOKING_PLANS[booking.id];
-      const treatment = planName === "新客舒壓體驗 60 分鐘" ? TREATMENTS[0] : TREATMENTS[1];
+      const treatment = planName === "新客舒壓體驗 60 分鐘"
+        ? TREATMENTS.find((item) => item.id === "spa-demo-treatment-body-60")!
+        : TREATMENTS.find((item) => item.id === "spa-demo-treatment-body-90")!;
       const bookingStatus = booking.status === "已完成" ? "COMPLETED" : "CONFIRMED";
       await tx.booking.upsert({
         where: { id: booking.id },

@@ -73,14 +73,10 @@ export function BookingCreateForm({ action, children }: BookingCreateFormProps) 
     if (Object.keys(nextErrors).length > 0) {
       event.preventDefault();
       setErrors(nextErrors);
-      focusField(
-        form,
-        nextErrors.customer
-          ? "customer"
-          : nextErrors.treatment
-            ? "treatment"
-            : "slot",
-      );
+      const isSpa = data.get("spaMode") === "on";
+      focusField(form, isSpa
+        ? nextErrors.treatment ? "treatment" : nextErrors.slot ? "slot" : "customer"
+        : nextErrors.customer ? "customer" : nextErrors.treatment ? "treatment" : "slot");
     }
   };
 

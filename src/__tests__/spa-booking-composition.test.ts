@@ -10,6 +10,8 @@ const treatments = [
     serviceMinutes: 90,
     bufferMinutes: 15,
     skillKeys: ["body"],
+    kind: "SERVICE" as const,
+    resourceType: "BED" as const,
   },
   {
     id: "head-30",
@@ -19,20 +21,29 @@ const treatments = [
     serviceMinutes: 30,
     bufferMinutes: 10,
     skillKeys: ["head"],
+    kind: "ADD_ON" as const,
+    resourceType: "BED" as const,
   },
 ] as const;
 
 describe("SPA booking service composition", () => {
-  it("accumulates service, cleanup, occupied time and price", () => {
+  it("accumulates service but applies the longest cleanup once", () => {
     expect(composeSpaBookingTreatments(treatments)).toMatchObject({
       treatmentIds: ["body-90", "head-30"],
       displayName: "全身芳療 90 分鐘＋頭部舒壓 30 分鐘",
       totalPrice: 3300,
       serviceMinutes: 120,
-      bufferMinutes: 25,
-      occupiedMinutes: 145,
+      bufferMinutes: 15,
+      occupiedMinutes: 135,
       requiredSkillKeys: ["body", "head"],
+      resourceType: "BED",
     });
+  });
+
+  it("requires exactly one main service or fixed combo", () => {
+    expect(() => composeSpaBookingTreatments([treatments[1]])).toThrow(
+      "請選擇一個主要服務或固定套餐",
+    );
   });
 
   it("requires every selected service only once", () => {

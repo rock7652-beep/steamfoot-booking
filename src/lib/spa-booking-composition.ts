@@ -6,6 +6,8 @@ export type SpaBookingTreatment = {
   serviceMinutes: number;
   bufferMinutes: number;
   skillKeys: readonly string[];
+  kind?: "SERVICE" | "COMBO" | "ADD_ON";
+  resourceType?: "BED" | "CHAIR";
 };
 
 export type SpaBookingComposition = {
@@ -16,6 +18,7 @@ export type SpaBookingComposition = {
   bufferMinutes: number;
   occupiedMinutes: number;
   requiredSkillKeys: string[];
+  resourceType: "BED" | "CHAIR";
 };
 
 /**
@@ -30,14 +33,18 @@ export function composeSpaBookingTreatments(
   const uniqueIds = new Set(treatments.map((treatment) => treatment.id));
   if (uniqueIds.size !== treatments.length) throw new Error("服務項目不可重複選擇");
 
+  const mainServices = treatments.filter((treatment) => treatment.kind !== "ADD_ON");
+  if (mainServices.length !== 1) {
+    throw new Error("請選擇一個主要服務或固定套餐");
+  }
+
   const serviceMinutes = treatments.reduce(
     (sum, treatment) => sum + treatment.serviceMinutes,
     0,
   );
-  const bufferMinutes = treatments.reduce(
-    (sum, treatment) => sum + treatment.bufferMinutes,
-    0,
-  );
+  // One continuous visit only needs one post-service cleanup window. Taking
+  // the longest configured cleanup prevents add-ons from stacking buffers.
+  const bufferMinutes = Math.max(...treatments.map((treatment) => treatment.bufferMinutes));
 
   return {
     treatmentIds: treatments.map((treatment) => treatment.id),
@@ -53,5 +60,6 @@ export function composeSpaBookingTreatments(
     requiredSkillKeys: [
       ...new Set(treatments.flatMap((treatment) => treatment.skillKeys)),
     ],
+    resourceType: mainServices[0].resourceType ?? "BED",
   };
 }

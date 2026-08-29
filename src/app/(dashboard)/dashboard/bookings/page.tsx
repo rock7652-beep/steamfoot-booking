@@ -212,8 +212,8 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       <PageShell>
         <FormSuccessToast />
         <PageHeader
-          title="芳療師排程"
-          subtitle="蒸管家後台・SPA 擴充模組"
+          title="今日預約工作台"
+          subtitle="今日一覽人員、預約、整理時間與空間容量"
           actions={
             isViewMode ? (
               <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
@@ -236,6 +236,10 @@ export default async function BookingsPage({ searchParams }: PageProps) {
           providers={spaProviders.map((provider) => ({
             ...provider,
             colorCode: provider.colorCode ?? "#8fa89b",
+            shiftLabel: provider.weeklyAvailabilities.length
+              ? provider.weeklyAvailabilities.map((range) => `${range.startTime}–${range.endTime}`).join("、")
+              : "今日休假",
+            nextAvailableTime: providerBookableStartTimes[provider.id]?.[0] ?? null,
           }))}
           bookableStartTimes={bookableStartTimes}
           providerBookableStartTimes={providerBookableStartTimes}

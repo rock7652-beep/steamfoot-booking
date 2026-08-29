@@ -6,6 +6,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { STATUS_LABEL } from "@/lib/booking-constants";
 import { formatDateWithWeekdayZh, parseLocalDate, toDateInputValue } from "@/lib/date-utils";
 import { addMinutes } from "@/lib/spa-scheduling";
+import { inferSpaDemoResourceType, spaResourceLabel } from "@/lib/spa-demo-catalog";
 import {
   resolveSpaProviderBadge,
   resolveSpaScheduleService,
@@ -33,6 +34,8 @@ export interface SpaScheduleProvider {
   id: string;
   displayName: string;
   colorCode: string;
+  shiftLabel: string;
+  nextAvailableTime: string | null;
 }
 
 export interface SpaScheduleBooking {
@@ -123,11 +126,11 @@ export function SpaProviderSchedule({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-earth-200 bg-white px-4 py-3">
         <div>
-          <p className="text-xs font-semibold tracking-wide text-primary-700">SPA 芳療師排程</p>
+          <p className="text-xs font-semibold tracking-wide text-primary-700">今日預約工作台</p>
           <p className="mt-1 text-sm font-semibold text-earth-900">
             {formatDateWithWeekdayZh(date)}
           </p>
-          <p className="mt-0.5 text-xs text-earth-500">以人員時間為主，不使用月曆格管理容量</p>
+          <p className="mt-0.5 text-xs text-earth-500">一眼確認誰在班、服務到幾點、何時能接下一位</p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -148,7 +151,7 @@ export function SpaProviderSchedule({
       <section className="overflow-hidden rounded-lg border border-earth-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-earth-200 px-4 py-3">
           <div>
-            <h2 className="text-sm font-semibold text-earth-900">時間 × 芳療師</h2>
+            <h2 className="text-sm font-semibold text-earth-900">時間 × 服務人員</h2>
             <p className="mt-0.5 text-xs text-earth-500">
               點空白時段新增預約；點預約可完成服務、扣療程、收款、取消或改期
             </p>
@@ -156,7 +159,9 @@ export function SpaProviderSchedule({
           <div className="flex flex-wrap gap-2" aria-label="當日 SPA 營運摘要">
             <Metric label="預約" value={`${bookings.length} 筆`} />
             <Metric label="待服務" value={`${pendingCount} 筆`} />
-            <Metric label="已排人員" value={`${activeProviderCount}/${providers.length}`} />
+            <Metric label="有預約人員" value={`${activeProviderCount}/${providers.length}`} />
+            <Metric label="按摩床" value="2 張" />
+            <Metric label="沙發椅" value="2 張" />
           </div>
         </div>
 
@@ -253,7 +258,10 @@ function ProviderHeader({ provider }: { provider: SpaScheduleProvider }) {
         </span>
         <div>
           <p className="text-sm font-semibold text-earth-900">{name}</p>
-          <p className="text-[11px] text-earth-500">芳療師</p>
+          <p className="text-[11px] text-earth-500">值班 {provider.shiftLabel}</p>
+          <p className="text-[11px] font-medium text-primary-700">
+            {provider.nextAvailableTime ? `最快 ${provider.nextAvailableTime} 可接` : "今日暫無空檔"}
+          </p>
         </div>
       </div>
     </div>
@@ -330,11 +338,13 @@ function ProviderColumn({
               {serviceNameForBooking(booking)}
             </span>
             <span className="mt-1 block text-[10px] font-medium tabular-nums text-earth-600">
-              {booking.slotTime}–{addMinutes(booking.slotTime, duration)}・服務 {serviceMinutesForBooking(booking)} 分
-              {(booking.treatmentBufferMinutesSnapshot ?? 0) > 0
-                ? `＋整理 ${booking.treatmentBufferMinutesSnapshot} 分`
-                : ""}
+              {booking.slotTime}–{addMinutes(booking.slotTime, serviceMinutesForBooking(booking))} 服務・{spaResourceLabel(inferSpaDemoResourceType({ treatmentName: booking.treatmentNameSnapshot }))}
             </span>
+            {(booking.treatmentBufferMinutesSnapshot ?? 0) > 0 ? (
+              <span className="mt-0.5 block text-[10px] tabular-nums text-earth-500">
+                整理至 {addMinutes(booking.slotTime, duration)}，之後可接下一位
+              </span>
+            ) : null}
           </button>
         );
       })}
