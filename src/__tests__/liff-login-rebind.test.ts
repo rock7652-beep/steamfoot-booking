@@ -29,7 +29,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/normalize", () => ({ normalizePhone: (value: string) => value }));
 vi.mock("@/server/services/line-rebind", () => ({ sha256: h.sha }));
 
-import { tryExecuteAuthorizedLiffLoginFirstCapture, tryExecuteAuthorizedLiffLoginRebind } from "@/server/services/liff-login-rebind";
+import { tryAutoMigrateRecentLiffLoginIdentity, tryExecuteAuthorizedLiffLoginFirstCapture, tryExecuteAuthorizedLiffLoginRebind } from "@/server/services/liff-login-rebind";
 
 const phone = "0963770378";
 const oldLoginId = "U-old-login";
@@ -180,6 +180,56 @@ describe("authorized LIFF Login rebind", () => {
       storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId,
     })).resolves.toEqual({ status: "executed", requestId: "request-1" });
     expect(h.linkUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ userId: "user-1" }) }));
+  });
+});
+
+describe("recent new-customer LIFF auto migration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    h.sha.mockImplementation(hash);
+    h.transaction.mockImplementation(async (callback: (client: unknown) => unknown) => callback(tx()));
+    h.queryRaw.mockResolvedValue([{ id: "customer-1" }]);
+    h.customerFind.mockResolvedValue({
+      id: "customer-1", storeId: "store-1", userId: "user-1", name: "王小明", phone,
+      authSource: "LINE", lineUserId: oldLoginId, mergedIntoCustomerId: null,
+      createdAt: new Date(),
+    });
+    h.customerCount.mockResolvedValue(1);
+    h.userFind.mockResolvedValue({ id: "user-1", role: "CUSTOMER", status: "ACTIVE", createdAt: new Date() });
+    h.linksFind.mockReset().mockResolvedValueOnce([{ id: "link-old", providerAccountId: oldLoginId, lineUserId: oldLoginId, createdAt: new Date() }]).mockResolvedValueOnce([]);
+    h.accountsFind.mockReset().mockResolvedValueOnce([{ id: "account-old", providerAccountId: oldLoginId }]).mockResolvedValueOnce([]);
+    h.linkUpdate.mockResolvedValue({ count: 1 });
+    h.accountUpdate.mockResolvedValue({ count: 1 });
+    h.auditCreate.mockResolvedValue({ id: "audit-1" });
+  });
+
+  it("atomically migrates an exact recent legacy LIFF identity", async () => {
+    await expect(tryAutoMigrateRecentLiffLoginIdentity({
+      storeId: "store-1", customerId: "customer-1", phone, name: "王小明", candidateLineUserId: newLoginId,
+    })).resolves.toEqual({ status: "executed" });
+    expect(h.linkUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: { providerAccountId: newLoginId, lineUserId: newLoginId } }));
+    expect(h.accountUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ providerAccountId: newLoginId }) }));
+    expect(JSON.stringify(h.auditCreate.mock.calls[0][0])).not.toContain(oldLoginId);
+    expect(JSON.stringify(h.auditCreate.mock.calls[0][0])).not.toContain(newLoginId);
+  });
+
+  it("does not migrate an older customer", async () => {
+    h.customerFind.mockResolvedValueOnce({
+      id: "customer-1", storeId: "store-1", userId: "user-1", name: "王小明", phone,
+      authSource: "LINE", lineUserId: oldLoginId, mergedIntoCustomerId: null,
+      createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
+    });
+    await expect(tryAutoMigrateRecentLiffLoginIdentity({
+      storeId: "store-1", customerId: "customer-1", phone, name: "王小明", candidateLineUserId: newLoginId,
+    })).resolves.toEqual({ status: "not_eligible" });
+    expect(h.linkUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not migrate when the submitted name differs", async () => {
+    await expect(tryAutoMigrateRecentLiffLoginIdentity({
+      storeId: "store-1", customerId: "customer-1", phone, name: "不同姓名", candidateLineUserId: newLoginId,
+    })).resolves.toEqual({ status: "not_eligible" });
+    expect(h.linkUpdate).not.toHaveBeenCalled();
   });
 });
 
