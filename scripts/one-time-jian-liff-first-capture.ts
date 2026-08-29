@@ -30,7 +30,7 @@ async function main() {
       tx.customer.findMany({where:{storeId:EXPECTED.storeId,mergedIntoCustomerId:null},select:{id:true,phone:true}}),
       tx.customerIdentityLink.findMany({where:{OR:[{customerId:EXPECTED.customerId},{userId:EXPECTED.userId}],provider:"line"},select:{id:true,userId:true,storeId:true,customerId:true,providerAccountId:true,lineUserId:true},take:3}),
       tx.account.findMany({where:{userId:EXPECTED.userId,provider:"line"},select:{id:true,userId:true,providerAccountId:true},take:3}),
-      tx.lineRebindRequest.findMany({where:{storeId:EXPECTED.storeId,customerId:EXPECTED.customerId,status:"PENDING_CAPTURE",expiresAt:{gt:new Date()}},select:{id:true},take:2}),
+      tx.lineRebindRequest.findMany({where:{storeId:EXPECTED.storeId,customerId:EXPECTED.customerId,status:"PENDING_CAPTURE",expiresAt:{gt:new Date()}},select:{id:true,reason:true,phoneHash:true,oldUserIdHash:true,expiresAt:true},take:2}),
     ]);
     if (!customer || customer.storeId !== EXPECTED.storeId || customer.userId !== EXPECTED.userId || customer.mergedIntoCustomerId) throw new Error("CUSTOMER_STATE_CHANGED");
     const phone = normalizePhone(customer.phone);
@@ -44,16 +44,22 @@ async function main() {
         link.providerAccountId!==link.lineUserId || account.userId!==EXPECTED.userId || account.providerAccountId!==link.providerAccountId) {
       throw new Error("OLD_LOGIN_IDENTITY_INCONSISTENT");
     }
-    if (pending.length) throw new Error("ACTIVE_REQUEST_ALREADY_PRESENT");
+    const oldIdentityHash=sha256(link.providerAccountId);
+    const phoneHash=sha256(phone);
+    if (pending.length === 1) {
+      const existing=pending[0];
+      if (existing.reason!==REASON || existing.phoneHash!==phoneHash || existing.oldUserIdHash!==oldIdentityHash) throw new Error("ACTIVE_REQUEST_CONFLICT");
+      return {status:"ALREADY_AUTHORIZED",requestId:existing.id,customerId:EXPECTED.customerId,expiresAt:existing.expiresAt.toISOString()};
+    }
+    if (pending.length > 1) throw new Error("MULTIPLE_ACTIVE_REQUESTS");
 
     const now = new Date();
-    const oldIdentityHash=sha256(link.providerAccountId);
     const request = await tx.lineRebindRequest.create({data:{
       storeId:EXPECTED.storeId,
       customerId:EXPECTED.customerId,
       createdByUserId:EXPECTED.actorUserId,
       reason:REASON,
-      phoneHash:sha256(phone),
+      phoneHash,
       oldUserIdHash:oldIdentityHash,
       status:"PENDING_CAPTURE",
       expiresAt:new Date(now.getTime()+48*60*60*1000),
