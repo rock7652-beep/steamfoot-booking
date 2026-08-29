@@ -150,10 +150,11 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
   storeId: string;
   customerId: string;
   phone: string;
+  name: string;
   candidateLineUserId: string;
 }): Promise<AuthorizedLiffLoginRebindResult> {
   const phone = normalizePhone(input.phone);
-  if (!/^09\d{8}$/.test(phone) || !input.candidateLineUserId) {
+  if (!/^09\d{8}$/.test(phone) || !normalizeIdentityName(input.name) || !input.candidateLineUserId) {
     return { status: "rejected", code: "INVALID_INPUT" };
   }
 
@@ -215,6 +216,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         select: {
           id: true,
           storeId: true,
+          name: true,
           phone: true,
           userId: true,
           mergedIntoCustomerId: true,
@@ -237,7 +239,8 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         ownerUser?.id !== ownerUserId ||
         ownerUser.status !== "ACTIVE" ||
         ownerUser.role !== "CUSTOMER" ||
-        normalizePhone(customer.phone) !== phone
+        normalizePhone(customer.phone) !== phone ||
+        normalizeIdentityName(customer.name) !== normalizeIdentityName(input.name)
       ) {
         throw new RebindRejected("CUSTOMER_STATE_CHANGED");
       }
