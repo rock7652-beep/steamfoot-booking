@@ -70,6 +70,9 @@ describe("SPA dashboard schedule presentation", () => {
     );
 
     expect(source).toContain("回到現在");
+    expect(source).toContain('aria-label="選擇預約日期"');
+    expect(source).toContain("handleDateChange");
+    expect(source).toContain("resolveDashboardHref");
     expect(source).toContain("<NowLine");
     expect(source).toContain("一小時內");
     expect(source).toContain("待結帳");

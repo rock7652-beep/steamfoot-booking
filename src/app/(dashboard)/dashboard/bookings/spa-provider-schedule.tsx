@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { DashboardLink as Link } from "@/components/dashboard-link";
+import {
+  DashboardLink as Link,
+  resolveDashboardHref,
+} from "@/components/dashboard-link";
 import {
   formatDateWithWeekdayZh,
   parseLocalDate,
@@ -96,6 +99,7 @@ export function SpaProviderSchedule({
   readOnly?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [bookings, setBookings] = useState(() => [...initialBookings]);
   const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
   const [quickTarget, setQuickTarget] = useState<SpaQuickTarget | null>(null);
@@ -238,6 +242,13 @@ export function SpaProviderSchedule({
     scrollToMinutes(scheduleScrollRef.current, nowMinutes, rowMinutes, rowHeight);
   }
 
+  function handleDateChange(nextDate: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate) || nextDate === date) return;
+    router.push(
+      resolveDashboardHref(`/dashboard/bookings?date=${nextDate}`, pathname),
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-earth-200 bg-white">
@@ -265,6 +276,16 @@ export function SpaProviderSchedule({
             >
               ←
             </Link>
+            <label className="relative">
+              <span className="sr-only">選擇預約日期</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(event) => handleDateChange(event.target.value)}
+                aria-label="選擇預約日期"
+                className="h-8 rounded-md border border-earth-300 bg-white px-2.5 text-xs font-semibold tabular-nums text-earth-800 outline-none hover:bg-earth-50 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+              />
+            </label>
             <Link
               href={`/dashboard/bookings?date=${todayDate}`}
               className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-3 text-xs font-semibold text-earth-700 hover:bg-earth-50"
