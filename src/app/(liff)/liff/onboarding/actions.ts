@@ -159,6 +159,7 @@ export async function submitOnboarding(
         storeId: store.id,
         customerId: helperResult.customerId,
         phone,
+        name,
         candidateLineUserId: verified.lineUserId,
       });
       if (rebind.status === "executed") {
@@ -202,6 +203,7 @@ export async function submitOnboarding(
         storeId: store.id,
         customerId: helperResult.customerId,
         phone,
+        name,
         candidateLineUserId: verified.lineUserId,
       });
       if (rebind.status === "executed") return { status: "ok" };
