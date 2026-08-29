@@ -18,6 +18,7 @@ import { FormErrorToast } from "@/components/form-error-toast";
 import { SubmitButton } from "@/components/submit-button";
 import { BookingRequestKeyField } from "@/components/booking-request-key-field";
 import { BookingCreateForm } from "./booking-create-form";
+import { SpaBookingFields } from "./spa-booking-fields";
 import {
   PageShell,
   PageHeader,
@@ -25,6 +26,7 @@ import {
   FormSection,
   StickyFormActions,
 } from "@/components/desktop";
+import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 
 interface PageProps {
   searchParams: Promise<{
@@ -54,6 +56,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const defaultDate = params.date ?? todayStr;
   const activeStoreId = await getActiveStoreForRead(user);
   const isSpaDemoStore = activeStoreId === SPA_DEMO_STORE.id;
+  const spaSchemaReady = isSpaDemoStore ? await isSpaOperationalSchemaReady() : false;
   const requestedSlotTime = /^\d{2}:\d{2}$/.test(params.slotTime ?? "")
     ? params.slotTime
     : undefined;
@@ -76,11 +79,18 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
             select: { id: true, displayName: true, colorCode: true },
           })
         : Promise.resolve(null),
-      isSpaDemoStore
-        ? prisma.servicePlan.findMany({
+      isSpaDemoStore && spaSchemaReady
+        ? prisma.treatment.findMany({
             where: { storeId: SPA_DEMO_STORE.id, isActive: true },
-            select: { id: true, name: true },
-            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+            select: {
+              id: true,
+              name: true,
+              variantLabel: true,
+              price: true,
+              serviceMinutes: true,
+              bufferMinutes: true,
+            },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }, { serviceMinutes: "asc" }],
           })
         : Promise.resolve([]),
       params.customerId
@@ -112,7 +122,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   // 過去日期不預載（表單會擋）；查詢失敗 → undefined，client fallback 維持原行為。
   const initialSlotDate = days.includes(defaultDate) ? defaultDate : days[0];
   let initialSlots: Awaited<ReturnType<typeof fetchDaySlots>>["slots"] | undefined;
-  if (!lockSpaSchedule && initialSlotDate && initialSlotDate >= todayStr) {
+  if (!isSpaDemoStore && !lockSpaSchedule && initialSlotDate && initialSlotDate >= todayStr) {
     try {
       initialSlots = (await fetchDaySlots(initialSlotDate)).slots;
     } catch {
@@ -143,6 +153,10 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
     const requestKey = (formData.get("requestKey") as string) || undefined;
     const serviceStaffId =
       (formData.get("serviceStaffId") as string) || undefined;
+    const treatmentIds = formData
+      .getAll("treatmentIds")
+      .map((value) => String(value))
+      .filter(Boolean);
 
     if (!customerId) {
       redirect(
@@ -161,6 +175,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       customerPlanWalletId,
       servicePlanId,
       serviceStaffId,
+      treatmentIds: treatmentIds.length > 0 ? treatmentIds : undefined,
       ...(isMakeup ? { isMakeup: true as const } : {}),
     };
     const result = requestKey
@@ -188,7 +203,11 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
 
       <PageHeader
         title="新增預約"
-        subtitle="左側選時段、右側選顧客與方案，確認後建立"
+        subtitle={
+          isSpaDemoStore
+            ? "先選本次服務，系統自動顯示符合專業且有完整空檔的人員與時間"
+            : "左側選時段、右側選顧客與方案，確認後建立"
+        }
         actions={
           <Link
             href="/dashboard/bookings"
@@ -205,29 +224,29 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* 左欄：預約資訊 */}
             <div className="space-y-6">
-              <FormSection title="預約資訊" description="日期、時段與人數">
-                {defaultServiceStaff ? (
-                  <div className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3">
-                    <p className="text-xs font-medium text-primary-700">指定芳療師</p>
-                    <p className="mt-1 text-sm font-semibold text-primary-900">
-                      {defaultServiceStaff.displayName}
-                    </p>
-                    <input
-                      type="hidden"
-                      name="serviceStaffId"
-                      value={defaultServiceStaff.id}
-                    />
-                  </div>
-                ) : null}
-                <DashboardBookingForm
+              {isSpaDemoStore ? (
+                <SpaBookingFields
                   days={days}
                   defaultDate={defaultDate}
+                  treatments={spaTreatments.map((treatment) => ({
+                    ...treatment,
+                    price: Number(treatment.price),
+                  }))}
+                  defaultServiceStaffId={defaultServiceStaff?.id}
                   defaultSlotTime={requestedSlotTime}
-                  lockScheduleSelection={lockSpaSchedule}
-                  todayStr={todayStr}
-                  initialSlots={initialSlots}
                 />
-              </FormSection>
+              ) : (
+                <FormSection title="預約資訊" description="日期、時段與人數">
+                  <DashboardBookingForm
+                    days={days}
+                    defaultDate={defaultDate}
+                    defaultSlotTime={requestedSlotTime}
+                    lockScheduleSelection={lockSpaSchedule}
+                    todayStr={todayStr}
+                    initialSlots={initialSlots}
+                  />
+                </FormSection>
+              )}
             </div>
 
             {/* 右欄：顧客 / 方案 — 客戶端互動由 CustomerAndPlanFields 負責 */}
@@ -235,7 +254,6 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               <CustomerAndPlanFields
                 defaultMode={defaultMode}
                 spaMode={isSpaDemoStore}
-                spaTreatments={spaTreatments}
                 defaultCustomerId={defaultCustomer?.id}
                 defaultCustomerLabel={
                   defaultCustomer
@@ -255,7 +273,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
               placeholder="特殊需求、備忘事項...（選填）"
             />
 
-            {isOwner ? (
+            {isOwner && !isSpaDemoStore ? (
               <label className="flex items-center gap-2 pt-1 text-sm text-earth-600">
                 <input
                   type="checkbox"

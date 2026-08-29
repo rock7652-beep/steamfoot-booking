@@ -350,6 +350,9 @@ async function computeMonthBookingSummary(
         // 體驗 499 PR-2：日面板 badge「體驗·未收款｜NT$xxx」用（最小新增 2 欄）
         bookingType: true,
         expectedAmount: true,
+        treatmentNameSnapshot: true,
+        treatmentServiceMinutesSnapshot: true,
+        treatmentBufferMinutesSnapshot: true,
         // PR-D1D：badge 顯示金額容錯 — LIFF 建立的 FIRST_TRIAL `expectedAmount=null`，
         // 需照 storeId 退到 ShopConfig.trialDefaultPrice（batch fetch 於 collectedTx 之後）。
         storeId: true,
@@ -457,6 +460,9 @@ async function computeMonthBookingSummary(
     attendedPeople: number | null;
     bookingType: string;
     expectedAmount: number | null;
+    treatmentNameSnapshot: string | null;
+    treatmentServiceMinutesSnapshot: number | null;
+    treatmentBufferMinutesSnapshot: number | null;
     // PR-D1D：FIRST_TRIAL badge fallback 用，僅 FIRST_TRIAL 有值；其他 type = null。
     // 為 LIFF 建立的體驗（expectedAmount=null）退回 store 預設體驗價。
     trialDefaultPrice: number | null;
@@ -520,6 +526,9 @@ async function computeMonthBookingSummary(
       bookingType: b.bookingType,
       // Decimal → number 在 server 邊界轉換，避免 RSC 序列化問題
       expectedAmount: b.expectedAmount == null ? null : Number(b.expectedAmount),
+      treatmentNameSnapshot: b.treatmentNameSnapshot,
+      treatmentServiceMinutesSnapshot: b.treatmentServiceMinutesSnapshot,
+      treatmentBufferMinutesSnapshot: b.treatmentBufferMinutesSnapshot,
       trialDefaultPrice:
         b.bookingType === "FIRST_TRIAL"
           ? trialDefaultByStore.get(b.storeId) ?? TRIAL_DEFAULTS.trialDefaultPrice

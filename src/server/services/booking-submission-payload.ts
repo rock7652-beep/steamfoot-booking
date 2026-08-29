@@ -12,6 +12,7 @@ export type BookingCreateIntentInput = {
   canonicalCustomerId: string;
   bookingType: BookingType;
   servicePlanId?: string | null;
+  treatmentIds?: readonly string[] | null;
   bookingDate: string;
   slotTime: string;
   people?: number;
@@ -40,6 +41,7 @@ export type CanonicalBookingCreateIntent = {
   makeupPolicy: "AUTO_PRIORITY" | "NONE";
   walletSelectionMode: BookingWalletSelectionMode;
   preferredWalletId: string | null;
+  treatmentIds: string[] | null;
 };
 
 function normalizeNotes(notes: string | null | undefined): string | null {
@@ -75,6 +77,10 @@ export function buildCanonicalBookingCreateIntent(
     walletSelectionMode,
     preferredWalletId:
       walletSelectionMode === "PREFERRED_WALLET" ? preferredWalletId : null,
+    treatmentIds:
+      input.treatmentIds && input.treatmentIds.length > 0
+        ? [...new Set(input.treatmentIds)].sort()
+        : null,
   };
 }
 
@@ -86,7 +92,7 @@ export function buildCanonicalBookingCreateIntent(
 export function hashCanonicalBookingCreateIntent(
   intent: CanonicalBookingCreateIntent,
 ): string {
-  const orderedTuple = [
+  const orderedTuple: unknown[] = [
     intent.version,
     intent.submissionType,
     intent.storeId,
@@ -105,6 +111,9 @@ export function hashCanonicalBookingCreateIntent(
     intent.walletSelectionMode,
     intent.preferredWalletId,
   ];
+  // Keep the tuple byte-for-byte compatible for all existing Steamfoot
+  // booking retries. SPA composition is appended only when explicitly used.
+  if (intent.treatmentIds) orderedTuple.push(intent.treatmentIds);
   return createHash("sha256").update(JSON.stringify(orderedTuple)).digest("hex");
 }
 

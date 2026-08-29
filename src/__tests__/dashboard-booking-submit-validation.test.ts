@@ -39,6 +39,25 @@ describe("dashboard new-booking visible validation", () => {
     });
   });
 
+  it("requires at least one treatment only for the SPA composer", () => {
+    expect(
+      getBookingSubmitErrors({
+        customerId: "customer-1",
+        slotTime: "10:00",
+        spaMode: "on",
+        treatmentIds: [],
+      }),
+    ).toEqual({ treatment: "請至少選擇一項本次服務" });
+    expect(
+      getBookingSubmitErrors({
+        customerId: "customer-1",
+        slotTime: "10:00",
+        spaMode: "on",
+        treatmentIds: ["body-90", "head-30"],
+      }),
+    ).toEqual({});
+  });
+
   it("focuses the customer search input when customer selection is missing", () => {
     expect(createForm).toContain("scrollIntoView");
     expect(createForm).toContain("target?.focus()");

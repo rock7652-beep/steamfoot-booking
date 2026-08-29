@@ -11,7 +11,7 @@ import {
 } from "react";
 import { getBookingSubmitErrors, type BookingSubmitErrors } from "./booking-submit-validation";
 
-type FieldName = "customer" | "slot";
+type FieldName = "customer" | "treatment" | "slot";
 type Errors = BookingSubmitErrors;
 
 const BookingFormValidationContext = createContext<{
@@ -49,11 +49,13 @@ export function BookingCreateForm({ action, children }: BookingCreateFormProps) 
   }, []);
 
   const focusField = (form: HTMLFormElement, field: FieldName) => {
-    const target = form.querySelector<HTMLElement>(
+    const selector =
       field === "customer"
         ? '[data-booking-customer-search]'
-        : '[data-booking-slot-section]',
-    );
+        : field === "treatment"
+          ? '[data-booking-treatment-section]'
+          : '[data-booking-slot-section]';
+    const target = form.querySelector<HTMLElement>(selector);
     target?.scrollIntoView({ behavior: "smooth", block: "center" });
     if (field === "customer") target?.focus();
   };
@@ -64,12 +66,21 @@ export function BookingCreateForm({ action, children }: BookingCreateFormProps) 
     const nextErrors = getBookingSubmitErrors({
       customerId: data.get("customerId"),
       slotTime: data.get("slotTime"),
+      spaMode: data.get("spaMode"),
+      treatmentIds: data.getAll("treatmentIds"),
     });
 
     if (Object.keys(nextErrors).length > 0) {
       event.preventDefault();
       setErrors(nextErrors);
-      focusField(form, nextErrors.customer ? "customer" : "slot");
+      focusField(
+        form,
+        nextErrors.customer
+          ? "customer"
+          : nextErrors.treatment
+            ? "treatment"
+            : "slot",
+      );
     }
   };
 

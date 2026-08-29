@@ -19,6 +19,9 @@ export const createBookingSchema = z.object({
   // 不限制 cuid：Demo seed / 匯入資料可能使用固定 ID；安全邊界由
   // createBooking 內的同店、啟用狀態驗證負責。
   serviceStaffId: z.string().min(1).optional(),
+  // SPA Demo：本次實際執行的服務，可複選；與 servicePlanId（付款權益）分離。
+  // 正式三店既有呼叫不帶此欄位，行為完全不變。
+  treatmentIds: z.array(z.string().min(1)).min(1).max(8).optional(),
   customerPlanWalletId: z.string().min(1).optional(),
   people: z.number().int().min(1).max(4).optional(),
   isMakeup: z.boolean().optional(),

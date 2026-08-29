@@ -46,6 +46,9 @@ export interface SpaScheduleBooking {
   bookingType: string;
   expectedAmount: number | null;
   trialDefaultPrice: number | null;
+  treatmentNameSnapshot: string | null;
+  treatmentServiceMinutesSnapshot: number | null;
+  treatmentBufferMinutesSnapshot: number | null;
   collected: boolean;
   collectedAmount: number | null;
   customerName: string;
@@ -327,7 +330,10 @@ function ProviderColumn({
               {serviceNameForBooking(booking)}
             </span>
             <span className="mt-1 block text-[10px] font-medium tabular-nums text-earth-600">
-              {booking.slotTime}–{addMinutes(booking.slotTime, duration)}・{duration} 分
+              {booking.slotTime}–{addMinutes(booking.slotTime, duration)}・服務 {serviceMinutesForBooking(booking)} 分
+              {(booking.treatmentBufferMinutesSnapshot ?? 0) > 0
+                ? `＋整理 ${booking.treatmentBufferMinutesSnapshot} 分`
+                : ""}
             </span>
           </button>
         );
@@ -388,6 +394,7 @@ function providerIdForBooking(booking: SpaScheduleBooking): string | null {
 }
 
 function serviceNameForBooking(booking: SpaScheduleBooking): string {
+  if (booking.treatmentNameSnapshot) return booking.treatmentNameSnapshot;
   return resolveSpaScheduleService({
     bookingId: booking.id,
     servicePlanName: booking.servicePlan?.name,
@@ -396,11 +403,28 @@ function serviceNameForBooking(booking: SpaScheduleBooking): string {
 }
 
 function durationForBooking(booking: SpaScheduleBooking): number {
+  if (booking.treatmentServiceMinutesSnapshot != null) {
+    return (
+      booking.treatmentServiceMinutesSnapshot +
+      (booking.treatmentBufferMinutesSnapshot ?? 0)
+    );
+  }
   return resolveSpaScheduleService({
     bookingId: booking.id,
     servicePlanName: booking.servicePlan?.name,
     walletPlanName: booking.customerPlanWallet?.plan.name,
   }).durationMinutes;
+}
+
+function serviceMinutesForBooking(booking: SpaScheduleBooking): number {
+  return (
+    booking.treatmentServiceMinutesSnapshot ??
+    resolveSpaScheduleService({
+      bookingId: booking.id,
+      servicePlanName: booking.servicePlan?.name,
+      walletPlanName: booking.customerPlanWallet?.plan.name,
+    }).durationMinutes
+  );
 }
 
 function statusClass(status: string): string {
