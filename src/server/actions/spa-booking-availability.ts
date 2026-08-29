@@ -72,23 +72,7 @@ export async function fetchSpaBookingAvailability(
     });
     assertSpaDemoStoreIdentity(identity);
 
-    const [treatments, providers, occupiedBookings, dayContext] = await Promise.all([
-      prisma.treatment.findMany({
-        where: {
-          id: { in: data.treatmentIds },
-          storeId,
-          isActive: true,
-        },
-        select: {
-          id: true,
-          name: true,
-          variantLabel: true,
-          price: true,
-          serviceMinutes: true,
-          bufferMinutes: true,
-          skills: { select: { skill: { select: { id: true } } } },
-        },
-      }),
+    const [providers, occupiedBookings, dayContext] = await Promise.all([
       prisma.staff.findMany({
         where: { storeId, status: "ACTIVE", isOwner: false },
         select: {
@@ -129,22 +113,20 @@ export async function fetchSpaBookingAvailability(
       loadDayBusinessHoursContext(storeId, data.date),
     ]);
 
-    if (treatments.length !== data.treatmentIds.length) {
-      throw new AppError("VALIDATION", "部分服務項目不存在或已停用");
-    }
-    const byId = new Map(treatments.map((treatment) => [treatment.id, treatment]));
     const composition = composeSpaBookingTreatments(
       data.treatmentIds.map((id) => {
-        const treatment = byId.get(id)!;
+        const treatment = findSpaDemoCatalogItem(id);
+        if (!treatment) throw new AppError("VALIDATION", "服務項目不存在或已停用");
         return {
-          ...treatment,
-          price: Number(treatment.price),
-          skillKeys: treatment.skills.map(({ skill }) =>
-            skill.id.replace("spa-demo-skill-", ""),
-          ),
-          kind: findSpaDemoCatalogItem(treatment.id)?.kind ?? "SERVICE",
-          resourceType:
-            findSpaDemoCatalogItem(treatment.id)?.resourceType ?? "BED",
+          id: treatment.id,
+          name: treatment.name,
+          variantLabel: treatment.variant,
+          price: treatment.price,
+          serviceMinutes: treatment.serviceMinutes,
+          bufferMinutes: treatment.bufferMinutes,
+          skillKeys: [...treatment.skills],
+          kind: treatment.kind,
+          resourceType: treatment.resourceType,
         };
       }),
     );

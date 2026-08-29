@@ -357,38 +357,20 @@ export async function createBooking(
       if (new Set(data.treatmentIds).size !== data.treatmentIds.length) {
         throw new AppError("VALIDATION", "服務項目不可重複選擇");
       }
-      const treatments = await prisma.treatment.findMany({
-        where: {
-          id: { in: data.treatmentIds },
-          storeId,
-          isActive: true,
-        },
-        select: {
-          id: true,
-          name: true,
-          variantLabel: true,
-          price: true,
-          serviceMinutes: true,
-          bufferMinutes: true,
-          skills: { select: { skill: { select: { id: true } } } },
-        },
-      });
-      if (treatments.length !== data.treatmentIds.length) {
-        throw new AppError("VALIDATION", "部分服務項目不存在或已停用");
-      }
-      const byId = new Map(treatments.map((treatment) => [treatment.id, treatment]));
       spaComposition = composeSpaBookingTreatments(
         data.treatmentIds.map((id) => {
-          const treatment = byId.get(id)!;
+          const treatment = findSpaDemoCatalogItem(id);
+          if (!treatment) throw new AppError("VALIDATION", "服務項目不存在或已停用");
           return {
-            ...treatment,
-            price: Number(treatment.price),
-            skillKeys: treatment.skills.map(({ skill }) =>
-              skill.id.replace("spa-demo-skill-", ""),
-            ),
-            kind: findSpaDemoCatalogItem(treatment.id)?.kind ?? "SERVICE",
-            resourceType:
-              findSpaDemoCatalogItem(treatment.id)?.resourceType ?? "BED",
+            id: treatment.id,
+            name: treatment.name,
+            variantLabel: treatment.variant,
+            price: treatment.price,
+            serviceMinutes: treatment.serviceMinutes,
+            bufferMinutes: treatment.bufferMinutes,
+            skillKeys: [...treatment.skills],
+            kind: treatment.kind,
+            resourceType: treatment.resourceType,
           };
         }),
       );
@@ -916,10 +898,9 @@ export async function createBooking(
           bookedByStaffId,
           bookingType: data.bookingType,
           servicePlanId: data.servicePlanId ?? null,
-          treatmentId:
-            spaComposition?.treatmentIds.length === 1
-              ? spaComposition.treatmentIds[0]
-              : null,
+          // Demo catalog is snapshot-first so Preview works before the
+          // optional Seed synchronization creates relational Treatment rows.
+          treatmentId: null,
           customerPlanWalletId: data.customerPlanWalletId ?? null,
           people: bookingPeople,
           isMakeup: willUseMakeup,

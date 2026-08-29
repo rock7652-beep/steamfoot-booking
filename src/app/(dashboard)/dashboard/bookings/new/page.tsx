@@ -81,22 +81,14 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
           })
         : Promise.resolve(null),
       isSpaDemoStore && spaSchemaReady
-        ? prisma.treatment.findMany({
-            where: {
-              storeId: SPA_DEMO_STORE.id,
-              isActive: true,
-              id: { in: SPA_DEMO_CATALOG.map((item) => item.id) },
-            },
-            select: {
-              id: true,
-              name: true,
-              variantLabel: true,
-              price: true,
-              serviceMinutes: true,
-              bufferMinutes: true,
-            },
-            orderBy: [{ sortOrder: "asc" }, { name: "asc" }, { serviceMinutes: "asc" }],
-          })
+        ? Promise.resolve(SPA_DEMO_CATALOG.map((item) => ({
+            id: item.id,
+            name: item.name,
+            variantLabel: item.variant,
+            price: item.price,
+            serviceMinutes: item.serviceMinutes,
+            bufferMinutes: item.bufferMinutes,
+          })))
         : Promise.resolve([]),
       params.customerId
         ? prisma.customer.findFirst({
