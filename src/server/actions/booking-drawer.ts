@@ -27,6 +27,10 @@ export interface BookingDrawerPayload {
     isMakeup: boolean;
     isCheckedIn: boolean;
     notes: string | null;
+    treatmentNameSnapshot?: string | null;
+    treatmentPriceSnapshot?: number | null;
+    treatmentServiceMinutesSnapshot?: number | null;
+    treatmentBufferMinutesSnapshot?: number | null;
     customer: {
       id: string;
       name: string;
@@ -263,6 +267,13 @@ export async function fetchBookingDetail(
       isMakeup: booking.isMakeup,
       isCheckedIn: booking.isCheckedIn,
       notes: booking.notes,
+      treatmentNameSnapshot: booking.treatmentNameSnapshot,
+      treatmentPriceSnapshot:
+        booking.treatmentPriceSnapshot == null
+          ? null
+          : Number(booking.treatmentPriceSnapshot),
+      treatmentServiceMinutesSnapshot: booking.treatmentServiceMinutesSnapshot,
+      treatmentBufferMinutesSnapshot: booking.treatmentBufferMinutesSnapshot,
       customer: {
         id: booking.customer.id,
         name: booking.customer.name,
@@ -306,9 +317,7 @@ export async function fetchBookingDetail(
       makeupCreditLinks: booking.makeupCreditLinks,
       walletSessions: booking.walletSessions,
       expectedAmount:
-        booking.expectedAmount == null
-          ? null
-          : Number(booking.expectedAmount),
+        booking.expectedAmount == null ? null : Number(booking.expectedAmount),
       attendedPeople: booking.attendedPeople,
     },
     customerSummary: {
@@ -364,8 +373,8 @@ export async function fetchBookingDetail(
             booking.treatmentPriceSnapshot != null
               ? Number(booking.treatmentPriceSnapshot)
               : booking.servicePlan?.price != null
-              ? Number(booking.servicePlan.price)
-              : 799,
+                ? Number(booking.servicePlan.price)
+                : 799,
         }
       : null,
     checkout: isSingle

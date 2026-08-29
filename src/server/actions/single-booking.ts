@@ -11,7 +11,10 @@ import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
 import { completePaidBookingInTransaction } from "@/server/services/paid-booking-completion";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
-import { normalizePaymentSplits, paymentSplitCreateData } from "@/lib/payment-splits";
+import {
+  normalizePaymentSplits,
+  paymentSplitCreateData,
+} from "@/lib/payment-splits";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
 
@@ -55,7 +58,9 @@ export async function collectSinglePayment(
         bookingStatus: true,
         customerId: true,
         revenueStaffId: true,
+        serviceStaffId: true,
         servicePlanId: true,
+        treatmentPriceSnapshot: true,
         bookingDate: true,
         slotTime: true,
         servicePlan: { select: { price: true } },
@@ -77,12 +82,15 @@ export async function collectSinglePayment(
       );
     }
 
-    // 原價：servicePlan.price 優先（未來改方案價直接生效），fallback 799。
+    // SPA 預約以建立當下的服務組合總價快照為準；非 SPA 舊資料再沿用
+    // servicePlan.price，最後才使用歷史 fallback。
     // 實收：未傳 amount → 預設等於原價（= 全價）。
     const originalAmount =
-      booking.servicePlan?.price != null
-        ? Number(booking.servicePlan.price)
-        : SINGLE_DEFAULT_PRICE;
+      booking.treatmentPriceSnapshot != null
+        ? Number(booking.treatmentPriceSnapshot)
+        : booking.servicePlan?.price != null
+          ? Number(booking.servicePlan.price)
+          : SINGLE_DEFAULT_PRICE;
     const netAmount = data.amount ?? originalAmount;
     const paymentSplits = normalizePaymentSplits(data.paymentSplits, netAmount);
 
@@ -95,6 +103,7 @@ export async function collectSinglePayment(
     // 體驗客有「必須有直屬店長」的硬規則，店家可能臨櫃單收）。
     const revenueStaffId =
       booking.revenueStaffId ??
+      booking.serviceStaffId ??
       booking.customer.assignedStaffId ??
       user.staffId ??
       (() => {
@@ -142,7 +151,7 @@ export async function collectSinglePayment(
           customerId: booking.customerId,
           bookingId: booking.id,
           revenueStaffId,
-          serviceStaffId: user.staffId ?? null,
+          serviceStaffId: booking.serviceStaffId ?? user.staffId ?? null,
           soldByStaffId: user.staffId ?? null,
           transactionType: "SINGLE_PURCHASE" as TransactionType,
           paymentMethod: data.paymentMethod as PaymentMethod,
@@ -165,7 +174,7 @@ export async function collectSinglePayment(
           storeId,
           bookingDate: booking.bookingDate,
           slotTime: booking.slotTime,
-          serviceStaffId: user.staffId ?? null,
+          serviceStaffId: booking.serviceStaffId ?? user.staffId ?? null,
         });
       }
 

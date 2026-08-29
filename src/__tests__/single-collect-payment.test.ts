@@ -45,7 +45,10 @@ const h = vi.hoisted(() => {
       }),
     ),
     buildSnapshot: vi.fn(
-      async (_tx: unknown, params: { grossAmount: number; netAmount: number }) => ({
+      async (
+        _tx: unknown,
+        params: { grossAmount: number; netAmount: number },
+      ) => ({
         transactionNo: "TXN-1",
         transactionDate: new Date(),
         status: "SUCCESS" as const,
@@ -256,6 +259,25 @@ describe("collectSinglePayment — type / status / store guards", () => {
 });
 
 describe("collectSinglePayment — original-price source + amount", () => {
+  it("uses the SPA treatment price snapshot before legacy servicePlan price", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_spa",
+      bookingType: "SINGLE",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      revenueStaffId: null,
+      serviceStaffId: "spa_staff_10",
+      servicePlanId: null,
+      treatmentPriceSnapshot: 1680,
+      servicePlan: null,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectSinglePayment({ ...base, bookingId: "bk_spa", amount: 1680 });
+    expect(lastTx().grossAmount).toBe(1680);
+    expect(lastTx().amount).toBe(1680);
+    expect(lastTx().serviceStaffId).toBe("spa_staff_10");
+  });
+
   it("no amount + servicePlan.price=899 → originalAmount=899, netAmount=899 (default = full)", async () => {
     h.bookingFindFirst.mockResolvedValue({
       id: "bk_1",
@@ -292,7 +314,11 @@ describe("collectSinglePayment — original-price source + amount", () => {
   });
 
   it("amount=600 with original=799 → discountAmount=199 reflected via snapshot", async () => {
-    const r = await collectSinglePayment({ ...base, amount: 600, discountReason: "好友介紹" });
+    const r = await collectSinglePayment({
+      ...base,
+      amount: 600,
+      discountReason: "好友介紹",
+    });
     expect(r.success).toBe(true);
     const t = lastTx();
     expect(t.amount).toBe(600);
@@ -363,9 +389,8 @@ describe("collectSinglePayment — revenue staff attribution snapshot", () => {
 // discountReason / note bounded.
 describe("collectSinglePaymentSchema", () => {
   it("accepts non-cuid bookingId + valid method + optional discountReason", async () => {
-    const { collectSinglePaymentSchema } = await import(
-      "@/lib/validators/single-booking"
-    );
+    const { collectSinglePaymentSchema } =
+      await import("@/lib/validators/single-booking");
     expect(() =>
       collectSinglePaymentSchema.parse({
         bookingId: "staging-bk-001",
@@ -376,17 +401,18 @@ describe("collectSinglePaymentSchema", () => {
     ).not.toThrow();
   });
   it("rejects empty bookingId", async () => {
-    const { collectSinglePaymentSchema } = await import(
-      "@/lib/validators/single-booking"
-    );
+    const { collectSinglePaymentSchema } =
+      await import("@/lib/validators/single-booking");
     expect(() =>
-      collectSinglePaymentSchema.parse({ bookingId: "", paymentMethod: "CASH" }),
+      collectSinglePaymentSchema.parse({
+        bookingId: "",
+        paymentMethod: "CASH",
+      }),
     ).toThrow();
   });
   it("rejects UNPAID payment method (SUCCESS-only)", async () => {
-    const { collectSinglePaymentSchema } = await import(
-      "@/lib/validators/single-booking"
-    );
+    const { collectSinglePaymentSchema } =
+      await import("@/lib/validators/single-booking");
     expect(() =>
       collectSinglePaymentSchema.parse({
         bookingId: "bk_1",
@@ -395,9 +421,8 @@ describe("collectSinglePaymentSchema", () => {
     ).toThrow();
   });
   it("rejects amount=0 (SINGLE is paid service; no 0元 success)", async () => {
-    const { collectSinglePaymentSchema } = await import(
-      "@/lib/validators/single-booking"
-    );
+    const { collectSinglePaymentSchema } =
+      await import("@/lib/validators/single-booking");
     expect(() =>
       collectSinglePaymentSchema.parse({
         bookingId: "bk_1",
@@ -407,9 +432,8 @@ describe("collectSinglePaymentSchema", () => {
     ).toThrow();
   });
   it("rejects discountReason > 500 chars", async () => {
-    const { collectSinglePaymentSchema } = await import(
-      "@/lib/validators/single-booking"
-    );
+    const { collectSinglePaymentSchema } =
+      await import("@/lib/validators/single-booking");
     expect(() =>
       collectSinglePaymentSchema.parse({
         bookingId: "bk_1",

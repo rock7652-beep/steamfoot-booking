@@ -4,9 +4,16 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { STATUS_LABEL } from "@/lib/booking-constants";
-import { formatDateWithWeekdayZh, parseLocalDate, toDateInputValue } from "@/lib/date-utils";
+import {
+  formatDateWithWeekdayZh,
+  parseLocalDate,
+  toDateInputValue,
+} from "@/lib/date-utils";
 import { addMinutes } from "@/lib/spa-scheduling";
-import { inferSpaDemoResourceType, spaResourceLabel } from "@/lib/spa-demo-catalog";
+import {
+  inferSpaDemoResourceType,
+  spaResourceLabel,
+} from "@/lib/spa-demo-catalog";
 import {
   resolveSpaProviderBadge,
   resolveSpaScheduleService,
@@ -16,9 +23,7 @@ import {
   type BookingPrefill,
   type BookingSummary,
 } from "./booking-detail-drawer";
-import {
-  createBookingDetailCache,
-} from "./booking-detail-cache";
+import { createBookingDetailCache } from "./booking-detail-cache";
 import {
   SpaQuickBookingDrawer,
   type SpaQuickTarget,
@@ -97,10 +102,14 @@ export function SpaProviderSchedule({
   const rowMinutes = timeUnitMinutes === 15 ? 15 : DEFAULT_ROW_MINUTES;
   const rowHeight = rowMinutes === 15 ? 36 : 48;
   const scheduleTimes = useMemo(
-    () => Array.from(
-      { length: (SCHEDULE_END_MINUTES - SCHEDULE_START_MINUTES) / rowMinutes },
-      (_, index) => minutesToTime(SCHEDULE_START_MINUTES + index * rowMinutes),
-    ),
+    () =>
+      Array.from(
+        {
+          length: (SCHEDULE_END_MINUTES - SCHEDULE_START_MINUTES) / rowMinutes,
+        },
+        (_, index) =>
+          minutesToTime(SCHEDULE_START_MINUTES + index * rowMinutes),
+      ),
     [rowMinutes],
   );
 
@@ -108,12 +117,16 @@ export function SpaProviderSchedule({
     () => new Map(bookings.map((booking) => [booking.id, booking])),
     [bookings],
   );
-  const activeBooking = activeBookingId ? bookingById.get(activeBookingId) ?? null : null;
+  const activeBooking = activeBookingId
+    ? (bookingById.get(activeBookingId) ?? null)
+    : null;
   const activeProviderCount = new Set(
     bookings.map((booking) => providerIdForBooking(booking)).filter(Boolean),
   ).size;
   const pendingCount = bookings.filter(
-    (booking) => booking.bookingStatus === "PENDING" || booking.bookingStatus === "CONFIRMED",
+    (booking) =>
+      booking.bookingStatus === "PENDING" ||
+      booking.bookingStatus === "CONFIRMED",
   ).length;
 
   function handleUpdated(bookingId: string, newStatus: string | null) {
@@ -128,7 +141,8 @@ export function SpaProviderSchedule({
           ? {
               ...booking,
               bookingStatus: newStatus,
-              isCheckedIn: newStatus === "COMPLETED" ? true : booking.isCheckedIn,
+              isCheckedIn:
+                newStatus === "COMPLETED" ? true : booking.isCheckedIn,
             }
           : booking,
       ),
@@ -139,11 +153,15 @@ export function SpaProviderSchedule({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-earth-200 bg-white px-4 py-3">
         <div>
-          <p className="text-xs font-semibold tracking-wide text-primary-700">今日預約工作台</p>
+          <p className="text-xs font-semibold tracking-wide text-primary-700">
+            今日預約工作台
+          </p>
           <p className="mt-1 text-sm font-semibold text-earth-900">
             {formatDateWithWeekdayZh(date)}
           </p>
-          <p className="mt-0.5 text-xs text-earth-500">一眼確認誰在班、服務到幾點、何時能接下一位</p>
+          <p className="mt-0.5 text-xs text-earth-500">
+            一眼確認誰在班、服務到幾點、何時能接下一位
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -164,7 +182,9 @@ export function SpaProviderSchedule({
       <section className="overflow-hidden rounded-lg border border-earth-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-earth-200 px-4 py-3">
           <div>
-            <h2 className="text-sm font-semibold text-earth-900">時間 × 服務人員</h2>
+            <h2 className="text-sm font-semibold text-earth-900">
+              時間 × 服務人員
+            </h2>
             <p className="mt-0.5 text-xs text-earth-500">
               點空白時段新增預約；點預約可完成服務、扣療程、收款、取消或改期
             </p>
@@ -172,7 +192,10 @@ export function SpaProviderSchedule({
           <div className="flex flex-wrap gap-2" aria-label="當日 SPA 營運摘要">
             <Metric label="預約" value={`${bookings.length} 筆`} />
             <Metric label="待服務" value={`${pendingCount} 筆`} />
-            <Metric label="有預約人員" value={`${activeProviderCount}/${providers.length}`} />
+            <Metric
+              label="有預約人員"
+              value={`${activeProviderCount}/${providers.length}`}
+            />
             <Metric label="按摩床" value="2 張" />
             <Metric label="沙發椅" value="2 張" />
             <Metric label="時間單位" value={`${rowMinutes} 分`} />
@@ -199,7 +222,9 @@ export function SpaProviderSchedule({
             >
               <div
                 className="sticky top-0 z-30 grid border-b border-earth-200 bg-earth-50 shadow-sm"
-                style={{ gridTemplateColumns: `80px repeat(${providers.length}, minmax(240px, 1fr))` }}
+                style={{
+                  gridTemplateColumns: `80px repeat(${providers.length}, minmax(240px, 1fr))`,
+                }}
               >
                 <div className="sticky left-0 z-40 border-r border-earth-200 bg-earth-50 px-3 py-3 text-xs font-semibold text-earth-500">
                   時間
@@ -211,11 +236,15 @@ export function SpaProviderSchedule({
 
               <div
                 className="grid"
-                style={{ gridTemplateColumns: `80px repeat(${providers.length}, minmax(240px, 1fr))` }}
+                style={{
+                  gridTemplateColumns: `80px repeat(${providers.length}, minmax(240px, 1fr))`,
+                }}
               >
                 <div
                   className="sticky left-0 z-20 grid border-r border-earth-200 bg-white"
-                  style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, ${rowHeight}px)` }}
+                  style={{
+                    gridTemplateRows: `repeat(${scheduleTimes.length}, ${rowHeight}px)`,
+                  }}
                 >
                   {scheduleTimes.map((time) => (
                     <div
@@ -231,12 +260,18 @@ export function SpaProviderSchedule({
                   <ProviderColumn
                     key={provider.id}
                     provider={provider}
-                    bookableStartTimes={providerBookableStartTimes?.[provider.id] ?? bookableStartTimes}
+                    bookableStartTimes={
+                      providerBookableStartTimes?.[provider.id] ??
+                      bookableStartTimes
+                    }
                     bookings={bookings.filter(
-                      (booking) => providerIdForBooking(booking) === provider.id,
+                      (booking) =>
+                        providerIdForBooking(booking) === provider.id,
                     )}
                     onOpen={setActiveBookingId}
-                    onCreate={(time) => setQuickTarget({ providerId: provider.id, time })}
+                    onCreate={(time) =>
+                      setQuickTarget({ providerId: provider.id, time })
+                    }
                     readOnly={readOnly}
                     scheduleTimes={scheduleTimes}
                     rowMinutes={rowMinutes}
@@ -263,7 +298,10 @@ export function SpaProviderSchedule({
             ? `/dashboard/bookings/new?customerId=${encodeURIComponent(activeBooking.customer.id)}`
             : undefined
         }
-        durationMinutes={activeBooking ? durationForBooking(activeBooking) : undefined}
+        durationMinutes={
+          activeBooking ? durationForBooking(activeBooking) : undefined
+        }
+        spaMode
       />
       {quickTarget ? (
         <SpaQuickBookingDrawer
@@ -294,9 +332,13 @@ function ProviderHeader({ provider }: { provider: SpaScheduleProvider }) {
         </span>
         <div>
           <p className="text-sm font-semibold text-earth-900">{name}</p>
-          <p className="text-[11px] text-earth-500">值班 {provider.shiftLabel}</p>
+          <p className="text-[11px] text-earth-500">
+            值班 {provider.shiftLabel}
+          </p>
           <p className="text-[11px] font-medium text-primary-700">
-            {provider.nextAvailableTime ? `最快 ${provider.nextAvailableTime} 可接` : "今日暫無空檔"}
+            {provider.nextAvailableTime
+              ? `最快 ${provider.nextAvailableTime} 可接`
+              : "今日暫無空檔"}
           </p>
         </div>
       </div>
@@ -329,7 +371,9 @@ function ProviderColumn({
   return (
     <div
       className="relative grid border-r border-earth-200 last:border-r-0"
-      style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, ${rowHeight}px)` }}
+      style={{
+        gridTemplateRows: `repeat(${scheduleTimes.length}, ${rowHeight}px)`,
+      }}
     >
       {scheduleTimes.map((time, index) => {
         const canCreate = enabledTimes.has(time) && !readOnly;
@@ -380,7 +424,14 @@ function ProviderColumn({
               {serviceNameForBooking(booking)}
             </span>
             <span className="mt-1 block text-[10px] font-medium tabular-nums text-earth-600">
-              {booking.slotTime}–{addMinutes(booking.slotTime, serviceMinutesForBooking(booking))} 服務・{spaResourceLabel(inferSpaDemoResourceType({ treatmentName: booking.treatmentNameSnapshot }))}
+              {booking.slotTime}–
+              {addMinutes(booking.slotTime, serviceMinutesForBooking(booking))}{" "}
+              服務・
+              {spaResourceLabel(
+                inferSpaDemoResourceType({
+                  treatmentName: booking.treatmentNameSnapshot,
+                }),
+              )}
             </span>
             {(booking.treatmentBufferMinutesSnapshot ?? 0) > 0 ? (
               <span className="mt-0.5 block text-[10px] tabular-nums text-earth-500">
@@ -398,7 +449,9 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-1.5 rounded-md bg-earth-50 px-2.5 py-1.5">
       <span className="text-[11px] text-earth-500">{label}</span>
-      <span className="text-xs font-semibold tabular-nums text-earth-900">{value}</span>
+      <span className="text-xs font-semibold tabular-nums text-earth-900">
+        {value}
+      </span>
     </div>
   );
 }
@@ -480,15 +533,20 @@ function serviceMinutesForBooking(booking: SpaScheduleBooking): number {
 }
 
 function statusClass(status: string): string {
-  if (status === "COMPLETED") return "border-earth-200 bg-earth-100 text-earth-500";
+  if (status === "COMPLETED")
+    return "border-earth-200 bg-earth-100 text-earth-500";
   if (status === "NO_SHOW") return "border-red-200 bg-red-50 text-red-700";
-  if (status === "PENDING") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (status === "PENDING")
+    return "border-amber-200 bg-amber-50 text-amber-800";
   return "border-primary-200 bg-primary-50 text-primary-800";
 }
 
 function rowForTime(time: string, rowMinutes: number): number {
   const [hour, minute] = time.split(":").map(Number);
-  return Math.max(1, Math.floor((hour * 60 + minute - SCHEDULE_START_MINUTES) / rowMinutes) + 1);
+  return Math.max(
+    1,
+    Math.floor((hour * 60 + minute - SCHEDULE_START_MINUTES) / rowMinutes) + 1,
+  );
 }
 
 function rowsForMinutes(minutes: number, rowMinutes: number): number {

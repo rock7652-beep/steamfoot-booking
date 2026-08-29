@@ -4,7 +4,10 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge";
+import {
+  StatusBadge,
+  bookingStatusMeta,
+} from "@/components/admin/status-badge";
 import {
   fetchBookingDetail,
   type BookingDrawerPayload,
@@ -120,6 +123,8 @@ interface BookingDetailDrawerProps {
   rebookHref?: string;
   /** Industry-specific service duration when the core Booking row has no duration column. */
   durationMinutes?: number;
+  /** SPA Demo uses one unified on-site checkout flow. */
+  spaMode?: boolean;
 }
 
 export function BookingDetailDrawer({
@@ -133,6 +138,7 @@ export function BookingDetailDrawer({
   readOnly = false,
   rebookHref,
   durationMinutes,
+  spaMode = false,
 }: BookingDetailDrawerProps) {
   const [data, setData] = useState<BookingDrawerPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -238,8 +244,7 @@ export function BookingDetailDrawer({
     startAction(async () => {
       try {
         const result = (await action()) as
-          | { success: boolean; error?: string }
-          | undefined;
+          { success: boolean; error?: string } | undefined;
         if (result && result.success === false) {
           toast.error(result.error ?? "操作失敗");
           return;
@@ -256,7 +261,9 @@ export function BookingDetailDrawer({
                     ...prev.booking,
                     bookingStatus: nextStatus,
                     isCheckedIn:
-                      nextStatus === "COMPLETED" ? true : prev.booking.isCheckedIn,
+                      nextStatus === "COMPLETED"
+                        ? true
+                        : prev.booking.isCheckedIn,
                   },
                 }
               : prev,
@@ -345,10 +352,7 @@ export function BookingDetailDrawer({
       return;
     }
     const b = data?.booking;
-    if (
-      b?.bookingType === "PACKAGE_SESSION" &&
-      attendedPeople < b.people
-    ) {
+    if (b?.bookingType === "PACKAGE_SESSION" && attendedPeople < b.people) {
       setPartialAttendedPeople(attendedPeople);
       setAttendanceOpen(false);
       setAttendanceIntent(null);
@@ -390,22 +394,22 @@ export function BookingDetailDrawer({
       return;
     }
     const makeupPeople =
-      data?.booking.makeupCreditLinks?.length ?? (data?.booking.isMakeup ? 1 : 0);
+      data?.booking.makeupCreditLinks?.length ??
+      (data?.booking.isMakeup ? 1 : 0);
     const walletPeople = data?.booking.walletSessions?.length ?? 0;
     // 整筆補課未到：server 不扣堂、不發券，toast 不可說「扣堂並發補課」。
     const isFullMakeupBooking =
-      (data?.booking.isMakeup ?? false) && makeupPeople > 0 && walletPeople === 0;
+      (data?.booking.isMakeup ?? false) &&
+      makeupPeople > 0 &&
+      walletPeople === 0;
     const labelMap: Record<NoShowChoice, string> = {
       DEDUCTED: "已標記未到並扣堂",
       DEDUCTED_WITH_MAKEUP: "已標記未到、扣堂並發補課",
     };
     const label = isFullMakeupBooking ? "已標記未到" : labelMap[choice];
-    wrapAction(
-      label,
-      () => markNoShow(bookingId!, choice),
-      "NO_SHOW",
-      { onSuccess: () => setNoShowOpen(false) },
-    );
+    wrapAction(label, () => markNoShow(bookingId!, choice), "NO_SHOW", {
+      onSuccess: () => setNoShowOpen(false),
+    });
   }
 
   function handleRescheduleConfirm(newDate: string, newSlotTime: string) {
@@ -416,7 +420,10 @@ export function BookingDetailDrawer({
     wrapAction(
       "已改期",
       () =>
-        updateBooking(bookingId!, { bookingDate: newDate, slotTime: newSlotTime }),
+        updateBooking(bookingId!, {
+          bookingDate: newDate,
+          slotTime: newSlotTime,
+        }),
       null,
       { onSuccess: () => setRescheduleOpen(false) },
     );
@@ -443,7 +450,8 @@ export function BookingDetailDrawer({
     setCollectOpen(false);
     setPendingAttendedPeople(null);
     setReloadNonce((n) => n + 1);
-    if (bookingId) onUpdated?.(bookingId, serviceCompleted ? "COMPLETED" : null);
+    if (bookingId)
+      onUpdated?.(bookingId, serviceCompleted ? "COMPLETED" : null);
   }
 
   // 單次（SINGLE，不扣堂）收款成功 — 同 trial 行為：重抓 detail 翻成
@@ -451,7 +459,8 @@ export function BookingDetailDrawer({
   function handleSingleCollected(serviceCompleted: boolean) {
     setCollectSingleOpen(false);
     setReloadNonce((n) => n + 1);
-    if (bookingId) onUpdated?.(bookingId, serviceCompleted ? "COMPLETED" : null);
+    if (bookingId)
+      onUpdated?.(bookingId, serviceCompleted ? "COMPLETED" : null);
   }
 
   // 體驗 499 PR-3b：收款更正成功 — 同理重抓 detail（金額/付款方式翻新）
@@ -506,6 +515,7 @@ export function BookingDetailDrawer({
             readOnly={readOnly}
             rebookHref={rebookHref}
             durationMinutes={durationMinutes}
+            spaMode={spaMode}
             actions={{
               complete: handleComplete,
               noShow: () => setNoShowOpen(true),
@@ -615,9 +625,7 @@ export function BookingDetailDrawer({
           people={data.booking.people}
           // flow pivot：收款入口先 AttendanceModal 時 pendingAttendedPeople 帶入；
           // 否則 fallback 為 DB 上已記錄的 attendedPeople（多半為 null）。
-          attendedPeople={
-            pendingAttendedPeople ?? data.booking.attendedPeople
-          }
+          attendedPeople={pendingAttendedPeople ?? data.booking.attendedPeople}
           settings={data.trial.settings}
           onCollected={handleCollected}
         />
@@ -646,26 +654,38 @@ export function BookingDetailDrawer({
         )}
       {!readOnly && data && data.single && !data.single.collected && (
         <CollectSingleModal
+          key={data.booking.id}
           open={collectSingleOpen}
           onClose={() => setCollectSingleOpen(false)}
           bookingId={data.booking.id}
           customerName={data.booking.customer.name}
           dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
           defaultPrice={data.single.defaultPrice}
+          spaMode={spaMode}
+          serviceName={
+            data.booking.treatmentNameSnapshot ??
+            data.booking.servicePlan?.name ??
+            "本次服務"
+          }
+          serviceMinutes={data.booking.treatmentServiceMinutesSnapshot}
+          wallets={data.checkout?.wallets ?? []}
           onCollected={handleSingleCollected}
         />
       )}
-      {!readOnly && data && data.checkout && data.checkout.canAdjustToPackage && (
-        <AdjustCheckoutModal
-          open={adjustCheckoutOpen}
-          onClose={() => setAdjustCheckoutOpen(false)}
-          bookingId={data.booking.id}
-          customerName={data.booking.customer.name}
-          dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
-          wallets={data.checkout.wallets}
-          onAdjusted={handleAdjusted}
-        />
-      )}
+      {!readOnly &&
+        data &&
+        data.checkout &&
+        data.checkout.canAdjustToPackage && (
+          <AdjustCheckoutModal
+            open={adjustCheckoutOpen}
+            onClose={() => setAdjustCheckoutOpen(false)}
+            bookingId={data.booking.id}
+            customerName={data.booking.customer.name}
+            dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
+            wallets={data.checkout.wallets}
+            onAdjusted={handleAdjusted}
+          />
+        )}
       {!readOnly &&
         data &&
         data.checkoutToSingle &&
@@ -713,6 +733,7 @@ function DrawerContent({
   readOnly = false,
   rebookHref,
   durationMinutes,
+  spaMode = false,
 }: {
   payload: BookingDrawerPayload;
   isActing: boolean;
@@ -721,12 +742,20 @@ function DrawerContent({
   readOnly?: boolean;
   rebookHref?: string;
   durationMinutes?: number;
+  spaMode?: boolean;
 }) {
-  const { booking, customerSummary, trial, single, checkout, checkoutToSingle } =
-    payload;
+  const {
+    booking,
+    customerSummary,
+    trial,
+    single,
+    checkout,
+    checkoutToSingle,
+  } = payload;
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   const amount = computeAmount(booking, trial);
-  const duration = durationMinutes ?? (booking.servicePlan?.category === "TRIAL" ? 30 : 60);
+  const duration =
+    durationMinutes ?? (booking.servicePlan?.category === "TRIAL" ? 30 : 60);
   const endTime = computeEndTime(booking.slotTime, duration);
   const dateLabel = formatDateLabel(booking.bookingDate);
 
@@ -738,7 +767,8 @@ function DrawerContent({
           <div className="flex items-center gap-2">
             <StatusBadge variant={meta.variant}>{meta.label}</StatusBadge>
             <span className="text-sm font-semibold tabular-nums text-earth-700">
-              {booking.bookingDate.slice(5).replace("-", "/")} {booking.slotTime}
+              {booking.bookingDate.slice(5).replace("-", "/")}{" "}
+              {booking.slotTime}
             </span>
           </div>
           <h2
@@ -751,9 +781,11 @@ function DrawerContent({
           <p className="mt-0.5 truncate text-sm text-earth-500">
             {booking.isMakeup
               ? "補課 · "
-              : booking.servicePlan?.name
-                ? `${booking.servicePlan.name} · `
-                : ""}
+              : booking.treatmentNameSnapshot
+                ? `${booking.treatmentNameSnapshot} · `
+                : booking.servicePlan?.name
+                  ? `${booking.servicePlan.name} · `
+                  : ""}
             {duration} 分鐘
           </p>
         </div>
@@ -794,17 +826,16 @@ function DrawerContent({
           />
           {booking.serviceStaff &&
             booking.serviceStaff.id !== booking.revenueStaff?.id && (
-              <KV
-                label="值班店長"
-                value={booking.serviceStaff.displayName}
-              />
+              <KV label="值班店長" value={booking.serviceStaff.displayName} />
             )}
           <KV
             label="服務"
             value={
               booking.isMakeup
                 ? "補課"
-                : (booking.servicePlan?.name ?? "—")
+                : (booking.treatmentNameSnapshot ??
+                  booking.servicePlan?.name ??
+                  "—")
             }
           />
           <KV label="人數" value={`${booking.people} 人`} />
@@ -846,10 +877,7 @@ function DrawerContent({
               }
             />
           ) : null}
-          <KV
-            label="累積完成"
-            value={`${customerSummary.totalBookings} 次`}
-          />
+          <KV label="累積完成" value={`${customerSummary.totalBookings} 次`} />
           <KV
             label="最近到店"
             value={
@@ -1015,6 +1043,7 @@ function DrawerContent({
           isActing={isActing}
           actions={actions}
           rebookHref={rebookHref}
+          spaMode={spaMode}
         />
       )}
     </>
@@ -1040,7 +1069,8 @@ function SummaryDrawerContent({
   onClose: () => void;
 }) {
   const meta = bookingStatusMeta(summary.bookingStatus, false);
-  const duration = durationMinutes ?? (summary.servicePlanCategory === "TRIAL" ? 30 : 60);
+  const duration =
+    durationMinutes ?? (summary.servicePlanCategory === "TRIAL" ? 30 : 60);
 
   return (
     <>
@@ -1049,7 +1079,8 @@ function SummaryDrawerContent({
           <div className="flex items-center gap-2">
             <StatusBadge variant={meta.variant}>{meta.label}</StatusBadge>
             <span className="text-sm font-semibold tabular-nums text-earth-700">
-              {summary.bookingDate.slice(5).replace("-", "/")} {summary.slotTime}
+              {summary.bookingDate.slice(5).replace("-", "/")}{" "}
+              {summary.slotTime}
             </span>
           </div>
           <h2
@@ -1120,7 +1151,8 @@ function PrefillDrawerContent({
   onClose: () => void;
 }) {
   const meta = bookingStatusMeta(prefill.bookingStatus, prefill.isCheckedIn);
-  const duration = durationMinutes ?? (prefill.bookingType === "FIRST_TRIAL" ? 30 : 60);
+  const duration =
+    durationMinutes ?? (prefill.bookingType === "FIRST_TRIAL" ? 30 : 60);
   const endTime = computeEndTime(prefill.slotTime, duration);
   const dateLabel = formatDateLabel(prefill.bookingDate);
   const amount = prefillAmount(prefill);
@@ -1136,7 +1168,8 @@ function PrefillDrawerContent({
           <div className="flex items-center gap-2">
             <StatusBadge variant={meta.variant}>{meta.label}</StatusBadge>
             <span className="text-sm font-semibold tabular-nums text-earth-700">
-              {prefill.bookingDate.slice(5).replace("-", "/")} {prefill.slotTime}
+              {prefill.bookingDate.slice(5).replace("-", "/")}{" "}
+              {prefill.slotTime}
             </span>
           </div>
           <h2
@@ -1294,6 +1327,7 @@ function ActionFooter({
   isActing,
   actions,
   rebookHref,
+  spaMode = false,
 }: {
   booking: BookingDrawerPayload["booking"];
   trial: BookingDrawerPayload["trial"];
@@ -1303,10 +1337,15 @@ function ActionFooter({
   isActing: boolean;
   actions: DrawerActions;
   rebookHref?: string;
+  spaMode?: boolean;
 }) {
   const status = booking.bookingStatus;
   const primaries: Array<{ label: string; onClick: () => void }> = [];
-  const secondaries: Array<{ label: string; onClick: () => void; tone?: "danger" }> = [];
+  const secondaries: Array<{
+    label: string;
+    onClick: () => void;
+    tone?: "danger";
+  }> = [];
 
   // 體驗 499 PR-3：FIRST_TRIAL 且尚未收款 + 預約仍 PENDING/CONFIRMED →
   // 顯示「收款」主鈕（drawer-only：收款是營收動作，集中在預約明細操作）。
@@ -1356,12 +1395,21 @@ function ActionFooter({
       primaries.push({ label: "收款並完成服務", onClick: actions.collect });
     }
     if (canCollectSingle) {
-      primaries.push({ label: "收款並完成服務", onClick: actions.collectSingle });
+      primaries.push({
+        label: spaMode ? "現場結帳" : "收款並完成服務",
+        onClick: actions.collectSingle,
+      });
     }
     // 體驗／單次尚未收款時不得繞過金流直接完成；收款 modal 會在同一
     // transaction 完成兩件事。已提前收款者才保留單獨「完成服務」。
     if (!canCollect && !canCollectSingle) {
-      primaries.push({ label: "完成服務", onClick: actions.complete });
+      primaries.push({
+        label:
+          spaMode && booking.bookingType === "PACKAGE_SESSION"
+            ? "確認療程扣次並完成"
+            : "完成服務",
+        onClick: actions.complete,
+      });
     }
     if (canCorrect) {
       secondaries.push({
@@ -1370,7 +1418,7 @@ function ActionFooter({
         tone: "danger",
       });
     }
-    if (canAdjustCheckout) {
+    if (canAdjustCheckout && !spaMode) {
       secondaries.push({ label: "調整結帳", onClick: actions.adjustCheckout });
     }
     if (canAdjustToSingle) {
@@ -1379,7 +1427,11 @@ function ActionFooter({
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
     secondaries.push({ label: "傳送測試提醒", onClick: actions.testReminder });
     secondaries.push({ label: "標記未到", onClick: actions.noShow });
-    secondaries.push({ label: "取消預約", onClick: actions.cancel, tone: "danger" });
+    secondaries.push({
+      label: "取消預約",
+      onClick: actions.cancel,
+      tone: "danger",
+    });
   } else if (status === "COMPLETED") {
     secondaries.push({ label: "還原狀態", onClick: actions.revert });
   } else if (status === "NO_SHOW") {
