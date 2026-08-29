@@ -24,6 +24,11 @@ function shiftDate(date: string, amount: number) {
   return value.toISOString().slice(0, 10);
 }
 
+function shiftMonth(date: string, amount: number) {
+  const [year, month] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1 + amount, 1)).toISOString().slice(0, 10);
+}
+
 function addMinutes(time: string, minutes: number) {
   const [hour, minute] = time.split(":").map(Number);
   const total = hour * 60 + minute + minutes;
@@ -128,7 +133,7 @@ export default async function StaffSchedulePage({ searchParams }: { searchParams
             </div>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className={bookings.length ? "mt-4 space-y-3" : "mt-3"}>
             {bookings.length ? bookings.map((booking) => {
               const minutes = booking.treatmentServiceMinutesSnapshot ?? booking.treatment?.serviceMinutes ?? 60;
               const serviceName = booking.treatmentNameSnapshot ?? booking.treatment?.name ?? "服務項目";
@@ -145,13 +150,17 @@ export default async function StaffSchedulePage({ searchParams }: { searchParams
                   </div>
                 </article>
               );
-            }) : <p className="py-8 text-center text-sm text-earth-500">這一天沒有安排顧客</p>}
+            }) : <p className="rounded-xl bg-earth-50 px-4 py-4 text-center text-sm text-earth-500">這一天沒有安排顧客</p>}
           </div>
         </section>
 
         <section className="rounded-2xl border border-earth-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-earth-900">{year} 年 {month} 月</h2>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Link aria-label="上個月" href={`/s/${storeSlug}/staff/my-bookings?date=${shiftMonth(selectedDate, -1)}`} className="flex h-10 w-10 items-center justify-center rounded-lg border border-earth-300 text-lg text-earth-700">‹</Link>
+              <h2 className="min-w-28 text-center font-semibold text-earth-900">{year} 年 {month} 月</h2>
+              <Link aria-label="下個月" href={`/s/${storeSlug}/staff/my-bookings?date=${shiftMonth(selectedDate, 1)}`} className="flex h-10 w-10 items-center justify-center rounded-lg border border-earth-300 text-lg text-earth-700">›</Link>
+            </div>
             <Link href={`/s/${storeSlug}/staff/my-bookings?date=${toLocalDateStr()}`} className="text-sm text-primary-700">回到今天</Link>
           </div>
           <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs text-earth-500">

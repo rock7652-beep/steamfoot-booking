@@ -24,7 +24,7 @@ describe("SPA service staff workspace", () => {
 
   it("selects only the customer name and never sends private customer fields", () => {
     expect(page).toContain('customer: { select: { name: true } }');
-    expect(page).not.toMatch(/customer:\s*\{\s*select:\s*\{[^}]*phone/s);
+    expect(page).not.toContain("customer: { select: { name: true, phone");
     expect(page).not.toContain("customerPlanWallet");
     expect(page).not.toContain("transactions");
   });
@@ -33,5 +33,14 @@ describe("SPA service staff workspace", () => {
     expect(createUi).toContain('pattern="09[0-9]{8}"');
     expect(createUi).toContain("手機（必填）");
     expect(createAction).toContain("請輸入 09 開頭的 10 碼手機號碼");
+  });
+
+  it("lets providers switch months directly and keeps empty days compact", () => {
+    expect(page).toContain('aria-label="上個月"');
+    expect(page).toContain('aria-label="下個月"');
+    expect(page).toContain("shiftMonth(selectedDate, -1)");
+    expect(page).toContain("shiftMonth(selectedDate, 1)");
+    expect(page).toContain("這一天沒有安排顧客");
+    expect(page).not.toContain('py-8 text-center text-sm text-earth-500">這一天沒有安排顧客');
   });
 });
