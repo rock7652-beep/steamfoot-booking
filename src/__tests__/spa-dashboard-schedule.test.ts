@@ -60,6 +60,20 @@ describe("SPA dashboard schedule presentation", () => {
     expect(source).toContain("onCreate={(time) =>");
     expect(source).toContain("setQuickTarget({ providerId: provider.id, time })");
     expect(source).toContain("<SpaQuickBookingDrawer");
-    expect(source).toContain("＋ 安排");
+    expect(source).toContain("排預約");
+  });
+
+  it("centers daily operations on the current time and actionable states", () => {
+    const source = readFileSync(
+      "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
+      "utf8",
+    );
+
+    expect(source).toContain("回到現在");
+    expect(source).toContain("<NowLine");
+    expect(source).toContain("一小時內");
+    expect(source).toContain("待結帳");
+    expect(source).toContain("按摩床可用");
+    expect(source).toContain("spaOperationalStatus");
   });
 });
