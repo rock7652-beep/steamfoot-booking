@@ -138,6 +138,17 @@ export async function submitOnboarding(
       return { status: "ok" };
 
     case "already_bound_to_other_line": {
+      const { tryAutoMigrateRecentLiffLoginIdentity } = await import(
+        "@/server/services/liff-login-rebind"
+      );
+      const automatic = await tryAutoMigrateRecentLiffLoginIdentity({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        name,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (automatic.status === "executed") return { status: "ok" };
       // A valid, owner-preauthorized channel migration may replace only the
       // stale LINE Login identity. Customer.lineUserId is the notification
       // recipient and must remain untouched.
@@ -165,6 +176,17 @@ export async function submitOnboarding(
     }
 
     case "phone_taken_by_other_user": {
+      const { tryAutoMigrateRecentLiffLoginIdentity } = await import(
+        "@/server/services/liff-login-rebind"
+      );
+      const automatic = await tryAutoMigrateRecentLiffLoginIdentity({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        name,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (automatic.status === "executed") return { status: "ok" };
       const { tryExecuteAuthorizedLiffLoginFirstCapture } = await import(
         "@/server/services/liff-login-rebind"
       );
