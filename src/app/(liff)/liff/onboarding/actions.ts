@@ -96,7 +96,11 @@ export async function submitOnboarding(
     lineName: verified.displayName,
     phone,
     name,
-    allowCreate: false,
+    // This page is also the first-party registration entry for a genuinely
+    // new store customer. The canonical helper creates the User, Customer and
+    // LINE identity atomically only when the verified store/phone has no
+    // existing candidate; all collision branches still fail closed.
+    allowCreate: true,
   });
 
   // ── 6. Structured observability (PR-F1) ──────────────
