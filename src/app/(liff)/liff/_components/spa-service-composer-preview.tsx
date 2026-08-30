@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
 import {
   canProviderPerformServices,
   composeSpaServices,
@@ -19,19 +20,19 @@ type PreviewProvider = {
 
 const providers: readonly PreviewProvider[] = [
   {
-    id: "p08",
+    id: "spa-demo-staff-08",
     label: "08號 陳語安",
     specialties: ["body", "head"],
     occupiedRanges: [{ startTime: "11:00", durationMinutes: 120 }],
   },
   {
-    id: "p10",
+    id: "spa-demo-staff-10",
     label: "10號 張若琳",
     specialties: ["body", "head", "foot", "face"],
     occupiedRanges: [{ startTime: "12:30", durationMinutes: 90 }],
   },
   {
-    id: "p16",
+    id: "spa-demo-staff-16",
     label: "16號 王心瑜",
     specialties: ["face", "head"],
     occupiedRanges: [{ startTime: "15:00", durationMinutes: 90 }],
@@ -46,12 +47,15 @@ const candidateTimes = [
 const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
 const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
 
-export function SpaServiceComposerPreview() {
+export function SpaServiceComposerPreview({ previewDate }: { previewDate: string }) {
   const [primaryKey, setPrimaryKey] = useState("aroma_body_60");
-  const [addOnKeys, setAddOnKeys] = useState<readonly string[]>(["head_30", "foot_30"]);
-  const [providerId, setProviderId] = useState("p10");
+  const [addOnKeys, setAddOnKeys] = useState<readonly string[]>([]);
+  const [providerId, setProviderId] = useState("spa-demo-staff-08");
   const [selectedTime, setSelectedTime] = useState("10:00");
-  const [notice, setNotice] = useState("這是互動示範，不會建立正式預約。");
+  const [customerName, setCustomerName] = useState("同步測試顧客");
+  const [bookingDate, setBookingDate] = useState(previewDate);
+  const [notice, setNotice] = useState("送出後會同步到 Demo 店長與指定芳療師行程。");
+  const [isSubmitting, startSubmitting] = useTransition();
 
   const selectedPrimary = SPA_SERVICE_MENU.find((item) => item.key === primaryKey) ?? primaryItems[0];
   const selectedItems = useMemo(
@@ -92,7 +96,21 @@ export function SpaServiceComposerPreview() {
 
   function confirmPreview() {
     if (!selectedProvider || !safeSelectedTime) return;
-    setNotice(`示範預約已確認：${selectedProvider.label}・${safeSelectedTime}・共 ${summary.durationMinutes} 分鐘。`);
+    startSubmitting(async () => {
+      const result = await createSpaDemoCustomerBooking({
+        customerName,
+        bookingDate,
+        slotTime: safeSelectedTime,
+        providerId: selectedProvider.id,
+        primaryKey,
+        addOnKeys: selectedPrimary.kind === "COMBO" ? [] : [...addOnKeys],
+      });
+      if (!result.success) {
+        setNotice(result.error);
+        return;
+      }
+      setNotice(`已同步：${result.data.customerName}・${selectedProvider.label}・${result.data.bookingDate} ${result.data.slotTime}。店長與芳療師重新整理即可看到。`);
+    });
   }
 
   return (
@@ -155,7 +173,11 @@ export function SpaServiceComposerPreview() {
         </fieldset>
 
         <fieldset>
-          <legend className="text-sm font-semibold text-earth-900">4. 連續可預約時段</legend>
+          <legend className="text-sm font-semibold text-earth-900">4. 選擇日期與連續可預約時段</legend>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="text-sm font-medium text-earth-700">測試顧客姓名<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} maxLength={30} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
+            <label className="text-sm font-medium text-earth-700">預約日期<input type="date" min={previewDate} max={previewDate} value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
+          </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {availableTimes.slice(0, 6).map((time) => (
               <label key={time} className={`cursor-pointer rounded-xl border px-3 py-2 text-sm tabular-nums ${safeSelectedTime === time ? "border-primary-500 bg-primary-50 font-semibold text-primary-800" : "border-earth-200 text-earth-600"}`}>
@@ -167,7 +189,7 @@ export function SpaServiceComposerPreview() {
           <p className="mt-2 text-xs text-earth-500">系統已排除無法連續容納 {summary.durationMinutes} 分鐘服務＋30 分鐘緩衝的時段。</p>
         </fieldset>
 
-        <button type="button" onClick={confirmPreview} disabled={!selectedProvider || !safeSelectedTime} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">確認示範預約</button>
+        <button type="button" onClick={confirmPreview} disabled={isSubmitting || !customerName.trim() || !bookingDate || !selectedProvider || !safeSelectedTime} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isSubmitting ? "同步預約中…" : "確認並同步 Demo 預約"}</button>
         <p className="text-center text-xs leading-relaxed text-earth-500" aria-live="polite">{notice}</p>
       </div>
     </section>

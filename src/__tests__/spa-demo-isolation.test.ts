@@ -88,6 +88,37 @@ describe("SPA Demo tenant isolation", () => {
     expect(manager).not.toContain("確認到店");
     expect(manager).not.toContain("開始服務");
   });
+
+  it("connects one fixed Demo customer booking to manager and provider views", () => {
+    const composer = readFileSync(
+      "src/app/(liff)/liff/_components/spa-service-composer-preview.tsx",
+      "utf8",
+    );
+    const action = readFileSync(
+      "src/server/actions/spa-demo-customer-booking.ts",
+      "utf8",
+    );
+    const previewQuery = readFileSync(
+      "src/server/queries/spa-demo-preview.ts",
+      "utf8",
+    );
+    const providerPage = readFileSync(
+      "src/app/(service-workspace)/staff-schedule/page.tsx",
+      "utf8",
+    );
+
+    expect(composer).toContain("createSpaDemoCustomerBooking");
+    expect(composer).toContain("確認並同步 Demo 預約");
+    expect(action).toContain('process.env.VERCEL_ENV === "production"');
+    expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_ID");
+    expect(action).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
+    expect(action).toContain('storeId: SPA_DEMO_STORE.id');
+    expect(action).toContain('bookingStatus: "CONFIRMED"');
+    expect(action).toContain('revalidatePath("/dashboard/bookings")');
+    expect(action).toContain('revalidatePath("/staff-schedule")');
+    expect(previewQuery).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
+    expect(providerPage).toContain("serviceStaffId: user.staffId");
+  });
 });
 
 vi.mock("server-only", () => ({}));

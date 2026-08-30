@@ -9,6 +9,8 @@ export const SPA_DEMO_STORE = {
 } as const;
 
 export const SPA_DEMO_OWNER_STAFF_ID = "spa-demo-owner";
+export const SPA_DEMO_LIVE_FLOW_CUSTOMER_ID = "spa-demo-customer-live-flow";
+export const SPA_DEMO_LIVE_FLOW_BOOKING_ID = "spa-demo-booking-live-flow";
 
 export type SpaDemoBookingStatus =
   | "新客體驗"

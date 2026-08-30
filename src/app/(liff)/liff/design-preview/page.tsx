@@ -3,6 +3,7 @@ import { liffMessages } from "@/lib/liff/messages";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
+import { toLocalDateStr } from "@/lib/date-utils";
 import {
   getIndustryService,
   SPA_INDUSTRY_MODULE,
@@ -54,7 +55,7 @@ export default async function LiffDesignPreviewPage() {
         </div>
       </header>
 
-      <SpaServiceComposerPreview />
+      <SpaServiceComposerPreview previewDate={toLocalDateStr()} />
 
       <WelcomeBack
         storeSlug={presentation.slug}

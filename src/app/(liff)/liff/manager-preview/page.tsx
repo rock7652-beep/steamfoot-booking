@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { SpaManagerSchedulePreview } from "../_components/spa-manager-schedule-preview";
 
 /**
@@ -20,6 +21,7 @@ export default async function SpaManagerPreviewPage() {
       initialProviders={preview.providers}
       initialBookings={preview.bookings}
       dataSource={preview.source}
+      previewDate={toLocalDateStr()}
     />
   );
 }

@@ -6,6 +6,7 @@ import {
   assertSpaDemoStoreIdentity,
   SPA_DEMO_BOOKINGS,
   SPA_DEMO_FIXTURE,
+  SPA_DEMO_LIVE_FLOW_BOOKING_ID,
   SPA_DEMO_PROVIDERS,
   SPA_DEMO_STORE,
   type SpaDemoBooking,
@@ -69,7 +70,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     prisma.booking.findMany({
       where: {
         storeId: SPA_DEMO_STORE.id,
-        id: { in: SPA_DEMO_BOOKINGS.map((booking) => booking.id) },
+        id: { in: [...SPA_DEMO_BOOKINGS.map((booking) => booking.id), SPA_DEMO_LIVE_FLOW_BOOKING_ID] },
       },
       select: {
         id: true,
@@ -79,6 +80,11 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         bookingType: true,
         notes: true,
         serviceStaffId: true,
+        treatmentNameSnapshot: true,
+        treatmentVariantSnapshot: true,
+        treatmentPriceSnapshot: true,
+        treatmentServiceMinutesSnapshot: true,
+        treatmentBufferMinutesSnapshot: true,
         customer: { select: { name: true, storeId: true } },
         servicePlan: { select: { name: true, storeId: true } },
         customerPlanWallet: { select: { remainingSessions: true, storeId: true } },
@@ -95,7 +101,8 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
 
   const mappedBookings: SpaDemoBooking[] = bookings.map((record) => {
     const fixture = SPA_DEMO_BOOKINGS.find((booking) => booking.id === record.id);
-    if (!fixture) throw new Error(`SPA_DEMO_BOOKING_NOT_ALLOWLISTED:${record.id}`);
+    const isLiveFlow = record.id === SPA_DEMO_LIVE_FLOW_BOOKING_ID;
+    if (!fixture && !isLiveFlow) throw new Error(`SPA_DEMO_BOOKING_NOT_ALLOWLISTED:${record.id}`);
     if (
       record.customer.storeId !== SPA_DEMO_STORE.id ||
       (record.servicePlan && record.servicePlan.storeId !== SPA_DEMO_STORE.id) ||
@@ -107,19 +114,36 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     const status = record.bookingType === "FIRST_TRIAL"
       ? "新客體驗"
       : STATUS_MAP[record.bookingStatus] ?? "已確認";
+    if (isLiveFlow) {
+      return {
+        id: record.id,
+        date: toLocalDateStr(record.bookingDate),
+        time: record.slotTime,
+        customer: record.customer.name,
+        service: record.treatmentNameSnapshot ?? record.servicePlan?.name ?? "SPA 服務",
+        serviceItems: (record.treatmentNameSnapshot ?? "SPA 服務").split("＋"),
+        providerId: record.serviceStaffId ?? SPA_DEMO_PROVIDERS[0].id,
+        durationMinutes: record.treatmentServiceMinutesSnapshot ?? 60,
+        bufferMinutes: record.treatmentBufferMinutesSnapshot ?? 30,
+        status,
+        tone: toneForStatus(status),
+        remainingSessions: null,
+        note: "顧客端送出，店長與芳療師同步驗收",
+      };
+    }
     return {
-      ...fixture,
+      ...fixture!,
       date: toLocalDateStr(record.bookingDate),
       time: record.slotTime,
       customer: record.customer.name,
-      service: fixture.serviceItems.length > 1
-        ? fixture.service
-        : record.servicePlan?.name ?? fixture.service,
-      providerId: record.serviceStaffId ?? fixture.providerId,
+      service: fixture!.serviceItems.length > 1
+        ? fixture!.service
+        : record.servicePlan?.name ?? fixture!.service,
+      providerId: record.serviceStaffId ?? fixture!.providerId,
       status,
       tone: toneForStatus(status),
-      remainingSessions: record.customerPlanWallet?.remainingSessions ?? fixture.remainingSessions,
-      note: record.notes?.replace(/^SPA_DEMO\|/, "") ?? fixture.note,
+      remainingSessions: record.customerPlanWallet?.remainingSessions ?? fixture!.remainingSessions,
+      note: record.notes?.replace(/^SPA_DEMO\|/, "") ?? fixture!.note,
     };
   });
 

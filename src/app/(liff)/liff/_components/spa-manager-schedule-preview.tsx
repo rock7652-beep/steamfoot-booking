@@ -68,15 +68,20 @@ export function SpaManagerSchedulePreview({
   initialProviders = SPA_DEMO_PROVIDERS,
   initialBookings = SPA_DEMO_BOOKINGS,
   dataSource = "fixture",
+  previewDate = "2026-08-29",
 }: {
   initialProviders?: readonly PreviewProvider[];
   initialBookings?: readonly PreviewBooking[];
   dataSource?: "fixture" | "database";
+  previewDate?: string;
 }) {
   const industryModule = SPA_INDUSTRY_MODULE;
   const activeProviders = initialProviders;
   const [bookings, setBookings] = useState<PreviewBooking[]>(() => [...initialBookings]);
-  const [dayIndex, setDayIndex] = useState(1);
+  const [dayIndex, setDayIndex] = useState(() => {
+    const index = scheduleDays.findIndex((day) => day.key === previewDate);
+    return index >= 0 ? index : 1;
+  });
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [quickSlot, setQuickSlot] = useState<QuickSlot | null>(null);
   const [notice, setNotice] = useState("點選預約可查看詳情，點選空白時段可快速新增。");
