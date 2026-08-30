@@ -76,14 +76,14 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
   const people = data.guests.length;
   const treatmentIds = [...new Set(guestServices.map((service) => service.treatmentId))];
 
-  const [store, treatments, packagePlan, idCollisions, providers] = await Promise.all([
+  const [store, treatmentOwners, packagePlan, idCollisions, providers] = await Promise.all([
     prisma.store.findFirst({
       where: { id: SPA_DEMO_STORE.id, slug: SPA_DEMO_STORE.slug, isDemo: true },
       select: { id: true },
     }),
     prisma.treatment.findMany({
-      where: { id: { in: treatmentIds }, storeId: SPA_DEMO_STORE.id, isActive: true },
-      select: { id: true },
+      where: { id: { in: treatmentIds } },
+      select: { id: true, storeId: true },
     }),
     prisma.servicePlan.findFirst({
       where: { id: SPA_DEMO_LIVE_FLOW_PACKAGE_PLAN_ID, storeId: SPA_DEMO_STORE.id, isActive: true },
@@ -100,8 +100,11 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
     }),
   ]);
 
-  if (!store || treatments.length !== treatmentIds.length || !packagePlan) {
+  if (!store || !packagePlan) {
     return { success: false as const, error: "Demo 店、人員或療程設定不完整" };
+  }
+  if (treatmentOwners.some((treatment) => treatment.storeId !== SPA_DEMO_STORE.id)) {
+    return { success: false as const, error: "Demo 療程識別碼發生跨店衝突" };
   }
   const bookingCollisions = idCollisions[1];
   if ((idCollisions[0] && idCollisions[0].storeId !== SPA_DEMO_STORE.id)
@@ -136,6 +139,23 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
   }
 
   await prisma.$transaction(async (tx) => {
+    for (const [index, service] of guestServices.entries()) {
+      await tx.treatment.upsert({
+        where: { id: service.treatmentId },
+        create: {
+          id: service.treatmentId,
+          storeId: SPA_DEMO_STORE.id,
+          name: service.items.map((item) => item.name.replace("加購", "")).join("＋"),
+          variantLabel: `${service.summary.durationMinutes} 分鐘`,
+          price: service.summary.price,
+          serviceMinutes: service.summary.durationMinutes,
+          bufferMinutes: 30,
+          publicVisible: false,
+          sortOrder: 100 + index,
+        },
+        update: { isActive: true },
+      });
+    }
     await tx.storedValueLedgerEntry.deleteMany({
       where: {
         storeId: SPA_DEMO_STORE.id,
