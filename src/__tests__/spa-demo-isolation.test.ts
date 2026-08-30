@@ -15,6 +15,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(source).toContain('process.env.VERCEL_ENV === "production"');
     expect(source).toContain("getSpaDemoPreviewData");
     expect(source).toContain("booking.providerId === provider.id");
+    expect(source).toContain("booking.date === previewDate");
   });
 
   it("accepts only the immutable demo id + slug + isDemo identity", () => {
