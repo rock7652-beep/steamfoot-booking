@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import { completeSpaDemoBooking, completeSpaDemoGuestBooking } from "@/server/actions/spa-demo-checkout";
+import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
 import { SPA_INDUSTRY_MODULE } from "@/lib/industry-modules";
 import {
   SPA_DEMO_BOOKINGS,
@@ -14,12 +15,13 @@ import {
 } from "@/lib/spa-demo-store";
 import {
   addMinutes,
-  canProviderPerformServices,
   composeSpaServices,
   SPA_SERVICE_MENU,
   summarizeSpaServices,
 } from "@/lib/spa-scheduling";
 import { isSpaProviderAvailable } from "@/lib/spa-provider-availability";
+import type { SpaBookableProvider } from "@/lib/spa-provider-availability";
+import { findSpaPartyProviderAssignment } from "@/lib/spa-party-assignment";
 
 type QuickSlot = {
   date: string;
@@ -127,9 +129,7 @@ export function SpaManagerSchedulePreview({
   function openQuickBooking(slot: QuickSlot) {
     setQuickSlot(slot);
     setSelectedBookingId(null);
-    const provider = getActiveProvider(slot.providerId);
-    if (!provider) return;
-    setNotice(`正在安排 ${slot.time}・${provider.badge}號 ${provider.name}。`);
+    setNotice(`正在安排 ${slot.time} 的預約。`);
   }
 
   function updateBookingStatus(bookingIds: readonly string[], status: BookingStatus, settlementLabel?: string, settlementAmount?: number, storedValueBalance?: number | null, packageRemainingSessions?: number | null) {
@@ -195,42 +195,76 @@ export function SpaManagerSchedulePreview({
     if (!quickSlot) return;
     const formData = new FormData(event.currentTarget);
     const customer = String(formData.get("customer") ?? "").trim();
-    const primaryKey = String(formData.get("primaryService") ?? "aroma_body_60");
-    const addOnKeys = formData.getAll("addOn").map(String);
-    const serviceItems = composeSpaServices(primaryKey, addOnKeys);
-    const serviceSummary = summarizeSpaServices(serviceItems);
-    const provider = getActiveProvider(quickSlot.providerId);
-    if (!provider) return;
-    if (!customer) return;
-
-    if (!canProviderPerformServices(provider.specialtyKeys, serviceItems)) {
-      setNotice(`${provider.badge}號無法完成全部所選項目，請改選其他芳療師。`);
-      return;
-    }
-    if (!isAvailable(quickSlot.date, quickSlot.time, provider, serviceSummary.durationMinutes, 30, bookings)) {
-      setNotice(`從 ${quickSlot.time} 起沒有連續 ${serviceSummary.durationMinutes} 分鐘服務＋30 分鐘整理空檔。`);
-      return;
-    }
-
-    const booking: PreviewBooking = {
-      id: `preview-${Date.now()}`,
+    const phone = String(formData.get("phone") ?? "").trim();
+    const people = Number(formData.get("people") ?? 1);
+    const guests = Array.from({ length: people }, (_, index) => {
+      const primaryKey = String(formData.get(`guest-${index}-primary`) ?? "");
+      const addOnKeys = formData.getAll(`guest-${index}-addOn`).map(String);
+      return { primaryKey, addOnKeys, items: composeSpaServices(primaryKey, addOnKeys) };
+    });
+    const providers = toBookableProviders(activeProviders, bookings);
+    const assignment = findSpaPartyProviderAssignment({
+      requests: guests.map((guest) => ({ items: guest.items })),
+      providers,
       date: quickSlot.date,
       time: quickSlot.time,
-      customer,
-      service: serviceItems.map((item) => item.name).join("＋"),
-      serviceItems: serviceItems.map((item) => `${item.name} ${item.durationMinutes} 分`),
-      providerId: quickSlot.providerId,
-      durationMinutes: serviceSummary.durationMinutes,
-      bufferMinutes: 30,
-      status: "已確認",
-      tone: "sage",
-      remainingSessions: null,
-      note: "由店長於現場／電話快速建立",
-    };
-    setBookings((current) => [...current, booking]);
-    setSelectedBookingId(booking.id);
-    setQuickSlot(null);
-    setNotice(`${customer} 的預約已加入排程。`);
+    });
+    if (!customer || !/^09\d{8}$/.test(phone)) {
+      setNotice("請填寫主要聯絡人與正確手機號碼。");
+      return;
+    }
+    if (assignment.length !== people) {
+      setNotice("此時段無法同時安排全部服務，請更換時間。");
+      return;
+    }
+
+    startCompleting(async () => {
+      const result = await createSpaDemoCustomerBooking({
+        bookingDate: quickSlot.date,
+        slotTime: quickSlot.time,
+        bookingSource: "MANAGER",
+        primaryContact: { name: customer, phone },
+        guests: guests.map((guest, index) => ({
+          providerId: assignment[index].id,
+          primaryKey: guest.primaryKey,
+          addOnKeys: guest.addOnKeys,
+        })),
+      });
+      if (!result.success) {
+        setNotice(result.error);
+        return;
+      }
+      const nextBookings: PreviewBooking[] = guests.map((guest, index) => {
+        const summary = summarizeSpaServices(guest.items);
+        return {
+          id: SPA_DEMO_LIVE_FLOW_BOOKING_IDS[index],
+          date: quickSlot.date,
+          time: quickSlot.time,
+          customer,
+          service: guest.items.map((item) => item.name.replace("加購", "")).join("＋"),
+          serviceItems: guest.items.map((item) => item.name.replace("加購", "")),
+          providerId: assignment[index].id,
+          durationMinutes: summary.durationMinutes,
+          bufferMinutes: 30,
+          status: "已確認",
+          tone: "sage",
+          remainingSessions: null,
+          note: "無",
+          partySize: people,
+          guestIndex: index + 1,
+          price: summary.price,
+          storedValueBalance: 5000,
+          packageRemainingSessions: 5,
+        };
+      });
+      setBookings((current) => [
+        ...current.filter((booking) => !SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number])),
+        ...nextBookings,
+      ]);
+      setSelectedBookingId(nextBookings[0].id);
+      setQuickSlot(null);
+      setNotice(`${customer} 共 ${people} 位的預約已加入排程。`);
+    });
   }
 
   function openFirstAvailableSlot() {
@@ -348,7 +382,7 @@ export function SpaManagerSchedulePreview({
               <button type="button" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-600">關閉</button>
             </div>
             {quickSlot ? (
-              <QuickBookingForm provider={getActiveProvider(quickSlot.providerId)} slot={quickSlot} onCancel={() => setQuickSlot(null)} onSubmit={createQuickBooking} />
+            <QuickBookingForm providers={toBookableProviders(activeProviders, bookings)} slot={quickSlot} onCancel={() => setQuickSlot(null)} onSubmit={createQuickBooking} isSubmitting={isCompleting} />
             ) : selectedBooking ? (
               <BookingDetail key={selectedGroupBookings.map((booking) => booking.id).join("|")} providers={selectedGroupBookings.map((booking) => getActiveProvider(booking.providerId)).filter((provider): provider is PreviewProvider => Boolean(provider))} bookings={selectedGroupBookings} booking={selectedBooking} onCompleteGroup={completeBooking} onCompleteGuest={completeGuestBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
             ) : null}
@@ -502,31 +536,55 @@ function BookingDetail({ providers, bookings, booking, onCompleteGroup, onComple
   );
 }
 
-function QuickBookingForm({ provider, slot, onCancel, onSubmit }: { provider: PreviewProvider | undefined; slot: QuickSlot; onCancel: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
-  const [primaryKey, setPrimaryKey] = useState("aroma_body_60");
-  const [addOnKeys, setAddOnKeys] = useState<readonly string[]>([]);
+type QuickGuestSelection = {
+  primaryKey: string;
+  addOnKeys: readonly string[];
+};
+
+const emptyQuickGuest = (): QuickGuestSelection => ({ primaryKey: "aroma_body_60", addOnKeys: [] });
+
+function QuickBookingForm({ providers, slot, onCancel, onSubmit, isSubmitting }: { providers: readonly SpaBookableProvider[]; slot: QuickSlot; onCancel: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; isSubmitting: boolean }) {
+  const [people, setPeople] = useState(1);
+  const [guests, setGuests] = useState<readonly QuickGuestSelection[]>([emptyQuickGuest()]);
+  const [activeGuestIndex, setActiveGuestIndex] = useState(0);
   const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
   const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
-  const primary = SPA_SERVICE_MENU.find((item) => item.key === primaryKey) ?? primaryItems[0];
-  const selectedItems = composeSpaServices(primaryKey, primary.kind === "COMBO" ? [] : addOnKeys);
-  const summary = summarizeSpaServices(selectedItems);
+  const activeGuest = guests[activeGuestIndex] ?? guests[0];
+  const activePrimary = SPA_SERVICE_MENU.find((item) => item.key === activeGuest.primaryKey) ?? primaryItems[0];
+  const guestItems = guests.map((guest) => composeSpaServices(guest.primaryKey, guest.addOnKeys));
+  const guestSummaries = guestItems.map(summarizeSpaServices);
+  const assignment = findSpaPartyProviderAssignment({ requests: guestItems.map((items) => ({ items })), providers, date: slot.date, time: slot.time });
+  const totalPrice = guestSummaries.reduce((total, summary) => total + summary.price, 0);
+
+  function changePeople(count: number) {
+    setPeople(count);
+    setGuests((current) => Array.from({ length: count }, (_, index) => current[index] ?? emptyQuickGuest()));
+    setActiveGuestIndex((current) => Math.min(current, count - 1));
+  }
+
+  function updateActiveGuest(update: (guest: QuickGuestSelection) => QuickGuestSelection) {
+    setGuests((current) => current.map((guest, index) => index === activeGuestIndex ? update(guest) : guest));
+  }
 
   function toggleAddOn(key: string) {
-    setAddOnKeys((current) => current.includes(key) ? current.filter((candidate) => candidate !== key) : [...current, key]);
+    updateActiveGuest((guest) => ({
+      ...guest,
+      addOnKeys: guest.addOnKeys.includes(key)
+        ? guest.addOnKeys.filter((candidate) => candidate !== key)
+        : [...guest.addOnKeys, key],
+    }));
   }
 
   return (
     <section className="rounded-2xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
-      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-500">現場／電話快速預約</p><h2 className="mt-2 text-lg font-semibold">{slot.time}・{provider ? `${provider.badge}號 ${provider.name}` : "尚未指派"}</h2></div><button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">關閉</button></div>
+      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-500">現場／電話快速預約</p><h2 className="mt-2 text-lg font-semibold">{slot.time}・芳療師不指定</h2></div><button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">關閉</button></div>
       <form className="mt-5 space-y-4" onSubmit={onSubmit}>
-        <div>
-          <label htmlFor="spa-preview-customer" className="block text-sm font-medium text-earth-700">顧客姓名</label>
-          <input id="spa-preview-customer" name="customer" required autoFocus placeholder="例如：陳小姐" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500" />
-        </div>
-        <div><label htmlFor="spa-preview-primary-service" className="block text-sm font-medium text-earth-700">主療程／組合</label><select id="spa-preview-primary-service" name="primaryService" value={primaryKey} onChange={(event) => { setPrimaryKey(event.target.value); setAddOnKeys([]); }} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500">{primaryItems.map((item) => <option key={item.key} value={item.key}>{item.name}・{item.durationMinutes} 分</option>)}</select></div>
-        {primary.kind !== "COMBO" ? <fieldset><legend className="text-sm font-medium text-earth-700">加購項目（可複選）</legend><div className="mt-2 grid gap-2">{addOnItems.map((item) => <label key={item.key} className="flex items-center justify-between gap-3 rounded-xl border border-earth-200 px-3 py-2 text-sm"><span className="flex items-center gap-2"><input type="checkbox" name="addOn" value={item.key} checked={addOnKeys.includes(item.key)} onChange={() => toggleAddOn(item.key)} />{item.name}</span><span className="shrink-0 text-xs text-earth-500">＋{item.durationMinutes} 分</span></label>)}</div></fieldset> : null}
-        <div className="rounded-xl bg-primary-50 px-3.5 py-3 text-sm text-primary-800"><p className="font-semibold">合計 {summary.durationMinutes} 分鐘・NT${summary.price.toLocaleString()}</p><p className="mt-1 text-xs">另保留 30 分鐘整理；送出時會再次檢查連續空檔與芳療師資格。</p></div>
-        <button type="submit" className="min-h-11 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white">加入排程</button>
+        <div className="grid grid-cols-2 gap-2"><div><label htmlFor="spa-preview-customer" className="block text-sm font-medium text-earth-700">主要聯絡人</label><input id="spa-preview-customer" name="customer" required autoFocus placeholder="例如：陳小姐" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500" /></div><div><label htmlFor="spa-preview-phone" className="block text-sm font-medium text-earth-700">電話</label><input id="spa-preview-phone" name="phone" required inputMode="tel" pattern="09[0-9]{8}" placeholder="0912345678" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500" /></div></div>
+        <fieldset><legend className="text-sm font-medium text-earth-700">人數</legend><input type="hidden" name="people" value={people} /><div className="mt-2 grid grid-cols-3 gap-2">{[1, 2, 3].map((count) => <button key={count} type="button" onClick={() => changePeople(count)} className={`min-h-11 rounded-xl text-sm font-semibold ring-1 ${people === count ? "bg-earth-900 text-white ring-earth-900" : "bg-white text-earth-700 ring-earth-200"}`}>{count} 位</button>)}</div></fieldset>
+        <div className="flex gap-2">{guests.map((guest, index) => <button key={index} type="button" onClick={() => setActiveGuestIndex(index)} className={`min-h-10 flex-1 rounded-xl px-2 text-sm font-semibold ring-1 ${activeGuestIndex === index ? "bg-primary-100 text-primary-900 ring-primary-200" : "bg-white text-earth-600 ring-earth-200"}`}>{index === 0 ? "第 1 位" : `第 ${index + 1} 位`}</button>)}</div>
+        {guests.map((guest, index) => <div key={index} className={index === activeGuestIndex ? "space-y-4" : "hidden"}><div><label htmlFor={`spa-preview-primary-service-${index}`} className="block text-sm font-medium text-earth-700">服務</label><select id={`spa-preview-primary-service-${index}`} name={`guest-${index}-primary`} value={guest.primaryKey} onChange={(event) => updateActiveGuest(() => ({ primaryKey: event.target.value, addOnKeys: [] }))} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500">{primaryItems.map((item) => <option key={item.key} value={item.key}>{item.name}・{item.durationMinutes} 分</option>)}</select></div>{activePrimary.kind !== "COMBO" ? <fieldset><legend className="text-sm font-medium text-earth-700">加購</legend><div className="mt-2 grid gap-2">{addOnItems.map((item) => <label key={item.key} className="flex items-center justify-between gap-3 rounded-xl border border-earth-200 px-3 py-2 text-sm"><span className="flex items-center gap-2"><input type="checkbox" name={`guest-${index}-addOn`} value={item.key} checked={guest.addOnKeys.includes(item.key)} onChange={() => toggleAddOn(item.key)} />{item.name}</span><span className="shrink-0 text-xs text-earth-500">＋{item.durationMinutes} 分</span></label>)}</div></fieldset> : null}</div>)}
+        <div className="rounded-xl bg-primary-50 px-3.5 py-3 text-sm text-primary-800"><p className="font-semibold">{people} 位・NT${totalPrice.toLocaleString()}</p><div className="mt-2 space-y-1 text-xs">{guestSummaries.map((summary, index) => <p key={index}>第 {index + 1} 位・{summary.durationMinutes} 分鐘・{assignment[index]?.label ?? "此時段無法安排"}</p>)}</div></div>
+        <button type="submit" disabled={isSubmitting || assignment.length !== people} className="min-h-11 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35">{isSubmitting ? "建立中…" : "建立整組預約"}</button>
       </form>
     </section>
   );
@@ -581,6 +639,28 @@ function isAvailable(
     serviceMinutes,
     bufferMinutes,
   });
+}
+
+function toBookableProviders(
+  providers: readonly PreviewProvider[],
+  bookings: readonly PreviewBooking[],
+): readonly SpaBookableProvider[] {
+  return providers.map((provider) => ({
+    id: provider.id,
+    label: `${provider.badge}號 ${provider.name}`,
+    specialties: provider.specialtyKeys,
+    weeklyAvailability: provider.weeklyAvailability,
+    availabilityExceptions: provider.scheduleExceptions.map((exception) => ({
+      date: exception.date,
+      type: exception.tone === "leave" ? "UNAVAILABLE" as const : "AVAILABLE" as const,
+      startTime: exception.startTime ?? null,
+      endTime: exception.endTime ?? null,
+    })),
+    occupiedRanges: [
+      ...bookings.filter((booking) => booking.providerId === provider.id).map((booking) => ({ date: booking.date, startTime: booking.time, durationMinutes: booking.durationMinutes + booking.bufferMinutes })),
+      ...blockedRanges.filter((range) => range.providerId === provider.id).map((range) => ({ date: range.date, startTime: range.startTime, durationMinutes: range.durationMinutes })),
+    ],
+  }));
 }
 
 function rowForTime(time: string) {

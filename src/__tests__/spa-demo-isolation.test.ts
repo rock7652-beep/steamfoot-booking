@@ -154,6 +154,8 @@ describe("SPA Demo tenant isolation", () => {
     expect(composer).not.toContain("姓名");
     expect(action).not.toContain("data.customerName");
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME");
+    expect(action).toContain('bookingSource: z.enum(["CUSTOMER", "MANAGER"])');
+    expect(action).toContain('bookedByType: data.bookingSource === "MANAGER" ? "STAFF" : "CUSTOMER"');
     expect(action).toContain('process.env.VERCEL_ENV === "production"');
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_ID");
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
@@ -196,6 +198,10 @@ describe("SPA Demo tenant isolation", () => {
     expect(manager).toContain("分開付款");
     expect(manager).toContain("完成此位並結帳");
     expect(manager).toContain("主要聯絡人儲值金");
+    expect(manager).toContain("主要聯絡人");
+    expect(manager).toContain("建立整組預約");
+    expect(manager).toContain('bookingSource: "MANAGER"');
+    expect(manager).toContain("findSpaPartyProviderAssignment");
     expect(manager).not.toContain("確認到店");
     expect(manager).not.toContain("開始服務");
   });

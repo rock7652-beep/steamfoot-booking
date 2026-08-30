@@ -30,11 +30,20 @@ import { getSpaDemoBookableProviders } from "@/server/queries/spa-demo-booking-a
 const inputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
+  bookingSource: z.enum(["CUSTOMER", "MANAGER"]).default("CUSTOMER"),
+  primaryContact: z.object({
+    name: z.string().trim().min(1).max(100),
+    phone: z.string().trim().regex(/^09\d{8}$/),
+  }).optional(),
   guests: z.array(z.object({
     providerId: z.string().min(1),
     primaryKey: z.string().min(1),
     addOnKeys: z.array(z.string()).max(3),
   })).min(1).max(3),
+}).superRefine((value, context) => {
+  if (value.bookingSource === "MANAGER" && !value.primaryContact) {
+    context.addIssue({ code: "custom", message: "請填寫主要聯絡人與電話" });
+  }
 });
 
 const PRIMARY_TREATMENT_ID: Record<string, string> = {
@@ -55,6 +64,12 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
   }
 
   const data = parsed.data;
+  const customerName = data.bookingSource === "MANAGER"
+    ? data.primaryContact!.name
+    : SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME;
+  const customerPhone = data.bookingSource === "MANAGER"
+    ? data.primaryContact!.phone
+    : "0911999999";
   const today = toLocalDateStr();
   const latest = new Date(`${today}T00:00:00Z`);
   latest.setUTCDate(latest.getUTCDate() + 14);
@@ -192,14 +207,14 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
       create: {
         id: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
         storeId: SPA_DEMO_STORE.id,
-        name: SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME,
-        phone: "0911999999",
+        name: customerName,
+        phone: customerPhone,
         assignedStaffId: providerIds[0],
         customerStage: "TRIAL",
         selfBookingEnabled: true,
         serviceNote: "SPA Demo 三端同步驗收顧客",
       },
-      update: { assignedStaffId: providerIds[0] },
+      update: { name: customerName, phone: customerPhone, assignedStaffId: providerIds[0] },
     });
     await tx.storedValueWallet.upsert({
       where: { storeId_customerId: { storeId: SPA_DEMO_STORE.id, customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID } },
@@ -247,7 +262,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
         slotTime: data.slotTime,
         revenueStaffId: providerId,
         serviceStaffId: providerId,
-        bookedByType: "CUSTOMER",
+        bookedByType: data.bookingSource === "MANAGER" ? "STAFF" : "CUSTOMER",
         bookingType: "SINGLE",
         treatmentId: service.treatmentId,
         bookingStatus: "CONFIRMED",
@@ -264,6 +279,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
         slotTime: data.slotTime,
         revenueStaffId: providerId,
         serviceStaffId: providerId,
+        bookedByType: data.bookingSource === "MANAGER" ? "STAFF" : "CUSTOMER",
         treatmentId: service.treatmentId,
         bookingType: "SINGLE",
         servicePlanId: null,
@@ -295,7 +311,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
     success: true as const,
     data: {
       bookingId: SPA_DEMO_LIVE_FLOW_BOOKING_ID,
-      customerName: idCollisions[0]?.name ?? SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME,
+      customerName,
       people,
       providerIds,
       bookingDate: data.bookingDate,
