@@ -92,6 +92,8 @@ describe("SPA Demo tenant isolation", () => {
     expect(customer).not.toContain("SpaServiceComposerPreview");
     expect(customer).toContain("bookingHref");
     expect(customerBooking).toContain("SpaServiceComposerPreview");
+    expect(customerBooking).toContain("initialCompletedBooking");
+    expect(customerBooking).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_IDS");
     expect(manager).not.toContain("ModulePreviewSwitcher");
     expect(manager).not.toContain("桌機、iPad 與手機共用同一套排程");
     expect(manager).toContain('aria-label="預約右側操作面板"');
@@ -141,6 +143,9 @@ describe("SPA Demo tenant isolation", () => {
     expect(composer).toContain("findSpaPartyProviderAssignment");
     expect(composer).toContain("completedBooking");
     expect(composer).toContain("預約完成");
+    expect(composer).toContain("服務與結帳完成");
+    expect(composer).toContain("整組已結帳");
+    expect(composer).toContain("儲值金餘額");
     expect(composer).toContain("返回會員中心");
     expect(composer).toContain('useState("")');
     expect(composer).toContain("isSpaProviderAvailable");

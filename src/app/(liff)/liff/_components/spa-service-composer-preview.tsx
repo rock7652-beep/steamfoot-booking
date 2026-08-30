@@ -24,11 +24,16 @@ type CompletedGuest = {
   provider: string;
 };
 
-type CompletedBooking = {
+export type SpaCompletedBookingPreview = {
   date: string;
   time: string;
   guests: readonly CompletedGuest[];
   totalPrice: number;
+  status?: "已確認" | "已完成";
+  settlementLabel?: string | null;
+  settlementAmount?: number | null;
+  storedValueBalance?: number | null;
+  packageRemainingSessions?: number | null;
 };
 
 const emptyGuest = (): GuestSelection => ({ primaryKey: "", addOnKeys: [], providerId: "" });
@@ -52,10 +57,11 @@ function isProviderAvailable(provider: SpaBookableProvider, date: string, time: 
   return isSpaProviderAvailable({ provider, date, startTime: time, serviceMinutes, bufferMinutes: 30 });
 }
 
-export function SpaServiceComposerPreview({ previewDate, latestDate, providers }: {
+export function SpaServiceComposerPreview({ previewDate, latestDate, providers, initialCompletedBooking = null }: {
   previewDate: string;
   latestDate: string;
   providers: readonly SpaBookableProvider[];
+  initialCompletedBooking?: SpaCompletedBookingPreview | null;
 }) {
   const [people, setPeople] = useState(1);
   const [guests, setGuests] = useState<readonly GuestSelection[]>([emptyGuest()]);
@@ -63,7 +69,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers }
   const [bookingDate, setBookingDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [notice, setNotice] = useState("");
-  const [completedBooking, setCompletedBooking] = useState<CompletedBooking | null>(null);
+  const [completedBooking, setCompletedBooking] = useState<SpaCompletedBookingPreview | null>(initialCompletedBooking);
   const [isSubmitting, startSubmitting] = useTransition();
 
   const guestItems = useMemo(() => guests.map(selectedItemsFor), [guests]);
@@ -157,6 +163,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers }
         date: result.data.bookingDate,
         time: result.data.slotTime,
         totalPrice,
+        status: "已確認",
         guests: guests.map((guest, index) => ({
           label: guestLabel(index),
           service: guestItems[index].map((item) => item.name.replace("加購", "")).join("＋"),
@@ -171,7 +178,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers }
     return (
       <section className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70" aria-label="預約完成">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-2xl text-primary-800" aria-hidden>✓</div>
-        <p className="mt-5 text-sm font-semibold text-primary-700">預約完成</p>
+        <p className="mt-5 text-sm font-semibold text-primary-700">{completedBooking.status === "已完成" ? "服務與結帳完成" : "預約完成"}</p>
         <h2 className="mt-1 text-2xl font-semibold text-earth-900">{formatBookingDate(completedBooking.date)} {completedBooking.time}</h2>
         <div className="mt-5 space-y-3 border-y border-earth-100 py-4">
           {completedBooking.guests.map((guest) => (
@@ -183,6 +190,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers }
           ))}
           <div className="flex justify-between gap-4 px-1 pt-1 text-sm"><span className="text-earth-500">合計</span><span className="font-semibold text-earth-900">NT${completedBooking.totalPrice.toLocaleString()}</span></div>
         </div>
+        {completedBooking.status === "已完成" ? <div className="mt-4 rounded-2xl bg-primary-50 p-4 text-sm text-primary-900"><p className="font-semibold">整組已結帳・{completedBooking.settlementLabel ?? "完成"}{completedBooking.settlementAmount ? `・NT$${completedBooking.settlementAmount.toLocaleString()}` : ""}</p>{completedBooking.settlementLabel === "儲值金" ? <p className="mt-1 text-xs">儲值金餘額 NT${(completedBooking.storedValueBalance ?? 0).toLocaleString()}</p> : null}{completedBooking.settlementLabel?.startsWith("扣療程") ? <p className="mt-1 text-xs">療程剩餘 {completedBooking.packageRemainingSessions ?? 0} 次</p> : null}</div> : null}
         <Link href="/s/demo/liff/design-preview" className="mt-6 flex min-h-12 w-full items-center justify-center rounded-2xl bg-earth-900 px-4 font-semibold text-white">返回會員中心</Link>
       </section>
     );
