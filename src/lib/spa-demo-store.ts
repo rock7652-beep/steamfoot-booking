@@ -12,6 +12,11 @@ export const SPA_DEMO_OWNER_STAFF_ID = "spa-demo-owner";
 export const SPA_DEMO_LIVE_FLOW_CUSTOMER_ID = "spa-demo-customer-live-flow";
 export const SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME = "彥陸";
 export const SPA_DEMO_LIVE_FLOW_BOOKING_ID = "spa-demo-booking-live-flow";
+export const SPA_DEMO_LIVE_FLOW_BOOKING_IDS = [
+  SPA_DEMO_LIVE_FLOW_BOOKING_ID,
+  `${SPA_DEMO_LIVE_FLOW_BOOKING_ID}-guest-2`,
+  `${SPA_DEMO_LIVE_FLOW_BOOKING_ID}-guest-3`,
+] as const;
 export const SPA_DEMO_LIVE_FLOW_TRANSACTION_ID = "spa-demo-transaction-live-flow";
 export const SPA_DEMO_LIVE_FLOW_STORED_WALLET_ID = "spa-demo-stored-value-live-flow";
 export const SPA_DEMO_LIVE_FLOW_STORED_TRANSACTION_ID = "spa-demo-transaction-live-stored";
