@@ -65,6 +65,27 @@ describe("SPA Demo tenant isolation", () => {
     expect(schedule).toContain('className="min-h-[460px] flex-1 overflow-auto"');
     expect(SPA_DEMO_PROVIDERS.every((provider) => provider.specialties && provider.emergencyContact.phone)).toBe(true);
   });
+
+  it("keeps customer mobile and manager tablet/desktop previews separate", () => {
+    const customer = readFileSync(
+      "src/app/(liff)/liff/design-preview/page.tsx",
+      "utf8",
+    );
+    const manager = readFileSync(
+      "src/app/(liff)/liff/_components/spa-manager-schedule-preview.tsx",
+      "utf8",
+    );
+
+    expect(customer).not.toContain("ModulePreviewSwitcher");
+    expect(manager).not.toContain("ModulePreviewSwitcher");
+    expect(manager).toContain("店長端專為桌機與 iPad 設計");
+    expect(manager).toContain('aria-label="預約右側操作面板"');
+    expect(manager).toContain('className="overflow-x-auto"');
+    expect(manager).toContain("完成服務並收費");
+    expect(manager).toContain("完成服務並扣次");
+    expect(manager).not.toContain("確認到店");
+    expect(manager).not.toContain("開始服務");
+  });
 });
 
 vi.mock("server-only", () => ({}));

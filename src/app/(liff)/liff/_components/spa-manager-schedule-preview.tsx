@@ -18,7 +18,6 @@ import {
   SPA_SERVICE_MENU,
   summarizeSpaServices,
 } from "@/lib/spa-scheduling";
-import { ModulePreviewSwitcher } from "./module-preview-switcher";
 
 type QuickSlot = {
   date: string;
@@ -78,7 +77,7 @@ export function SpaManagerSchedulePreview({
   const activeProviders = initialProviders;
   const [bookings, setBookings] = useState<PreviewBooking[]>(() => [...initialBookings]);
   const [dayIndex, setDayIndex] = useState(1);
-  const [selectedBookingId, setSelectedBookingId] = useState<string | null>("spa-demo-booking-zhang");
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [quickSlot, setQuickSlot] = useState<QuickSlot | null>(null);
   const [notice, setNotice] = useState("點選預約可查看詳情，點選空白時段可快速新增。");
 
@@ -220,31 +219,34 @@ export function SpaManagerSchedulePreview({
         </aside>
 
         <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-7 xl:px-10">
-          <header className="flex flex-col gap-5 border-b border-earth-200/80 pb-6 xl:flex-row xl:items-center xl:justify-between">
+          <header className="border-b border-earth-200/80 pb-6">
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-semibold text-primary-700">SPA 人員排程</span>
                 <span className="text-xs text-earth-500">互動預覽・{dataSource === "database" ? "Demo 店資料" : "隔離示範資料"}</span>
               </div>
               <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{industryModule.manager.dashboardLabel}</h1>
-              <p className="mt-1 text-sm text-earth-500">手機展示顧客端，筆電／iPad 展示店長端</p>
+              <p className="mt-1 text-sm text-earth-500">店長端專為桌機與 iPad 設計；點選預約後由右側面板完成操作</p>
             </div>
-            <div className="w-full max-w-sm xl:w-80"><ModulePreviewSwitcher active="manager" /></div>
           </header>
 
-          <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-5 rounded-2xl border border-earth-200 bg-white px-4 py-4 text-sm text-earth-600 md:hidden">
+            店長排程需要較大的操作空間，請使用 iPad 或桌機開啟；手機版今日行程將提供給芳療師使用。
+          </div>
+
+          <div className="mt-5 hidden flex-col gap-3 rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 sm:flex-row sm:items-center sm:justify-between md:flex">
             <p aria-live="polite">{notice}</p>
             <button type="button" onClick={openFirstAvailableSlot} className="min-h-10 shrink-0 rounded-xl bg-earth-900 px-4 font-semibold text-white">＋ 現場快速預約</button>
           </div>
 
-          <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="今日營運摘要">
+          <section className="mt-6 hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-4" aria-label="今日營運摘要">
             <MetricCard label="今日預約" value={String(dayBookings.length)} unit="筆" detail={`${activeProviders.length} 位芳療師`} />
-            <MetricCard label="待服務" value={String(activeCount)} unit="筆" detail={activeCount ? "可逐筆確認到店" : "今日服務已完成"} />
+            <MetricCard label="待服務" value={String(activeCount)} unit="筆" detail={activeCount ? "可逐筆完成服務" : "今日服務已完成"} />
             <MetricCard label="新顧客" value={String(newCustomerCount)} unit="位" detail={newCustomerCount ? "初次體驗" : "目前沒有新客"} emphasized />
             <MetricCard label="人員排程" value="3" unit="位" detail="號牌 08・10・16" />
           </section>
 
-          <div className="mt-6 grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="mt-6 hidden min-w-0 gap-6 md:grid">
             <section className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(74,66,53,0.06)] ring-1 ring-earth-200/70">
               <div className="flex flex-col gap-4 border-b border-earth-100 px-5 py-5 xl:flex-row xl:items-center xl:justify-between">
                 <div>
@@ -254,7 +256,7 @@ export function SpaManagerSchedulePreview({
                 <DateSelector dayIndex={dayIndex} onChooseDay={chooseDay} />
               </div>
 
-              <div className="hidden overflow-x-auto lg:block">
+              <div className="overflow-x-auto">
                 <div className="min-w-[900px]">
                   <div className="grid grid-cols-[80px_repeat(3,minmax(240px,1fr))] bg-earth-50/90 text-sm">
                     <div className="sticky left-0 z-20 border-b border-r border-earth-100 bg-earth-50 px-4 py-4 font-medium text-earth-500">時間</div>
@@ -279,23 +281,9 @@ export function SpaManagerSchedulePreview({
                 </div>
               </div>
 
-              <div className="grid gap-3 p-4 lg:hidden">
-                <p className="rounded-xl bg-earth-50 px-3 py-2 text-xs text-earth-500">iPad 直向／窄螢幕使用預約清單；橫向後會切換成人員欄位表。</p>
-                {dayBookings.length ? dayBookings.toSorted(sortBookings).map((booking) => (
-                  <MobileBookingCard key={booking.id} booking={booking} onOpen={openBooking} />
-                )) : <p className="py-10 text-center text-sm text-earth-400">這一天目前沒有預約</p>}
-              </div>
             </section>
 
-            <aside className="grid content-start gap-5" aria-label="預約操作區">
-              {quickSlot ? (
-                <QuickBookingForm slot={quickSlot} onCancel={() => setQuickSlot(null)} onSubmit={createQuickBooking} />
-              ) : selectedBooking ? (
-                <BookingDetail booking={selectedBooking} onStatusChange={updateBookingStatus} onRebook={requestRebooking} />
-              ) : (
-                <EmptyDetail />
-              )}
-
+            <aside aria-label="今日提醒">
               <section className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(74,66,53,0.05)] ring-1 ring-earth-200/70">
                 <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">今日提醒</h2><span className="rounded-full bg-earth-100 px-2 py-1 text-xs text-earth-500">2 項</span></div>
                 <div className="mt-4 space-y-3"><AlertItem title="新客首次到店" detail="服務前確認注意事項" tone="rose" /><AlertItem title="療程即將到期" detail="完成服務後提醒續購" tone="sand" /></div>
@@ -304,6 +292,22 @@ export function SpaManagerSchedulePreview({
           </div>
         </main>
       </div>
+
+      {quickSlot || selectedBooking ? (
+        <div className="fixed inset-0 z-50 hidden bg-black/25 md:block" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); }}>
+          <aside className="ml-auto h-full w-full max-w-[430px] overflow-y-auto bg-[#f7f5f0] p-5 shadow-2xl" aria-label="預約右側操作面板" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-semibold text-earth-700">預約操作</p>
+              <button type="button" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-600">關閉</button>
+            </div>
+            {quickSlot ? (
+              <QuickBookingForm slot={quickSlot} onCancel={() => setQuickSlot(null)} onSubmit={createQuickBooking} />
+            ) : selectedBooking ? (
+              <BookingDetail booking={selectedBooking} onStatusChange={updateBookingStatus} onRebook={requestRebooking} />
+            ) : null}
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -391,18 +395,13 @@ function BlockedSlot({ label }: { label: string }) {
   return <div className="flex h-full items-center justify-center rounded-xl bg-earth-100 px-2 text-center text-xs font-medium text-earth-400">{label}</div>;
 }
 
-function MobileBookingCard({ booking, onOpen }: { booking: PreviewBooking; onOpen: (id: string) => void }) {
-  const provider = getProvider(booking.providerId);
-  return <button type="button" onClick={() => onOpen(booking.id)} className={`rounded-xl border p-4 text-left ${toneClasses[booking.tone]}`}><span className="flex items-center justify-between gap-3"><span className="font-semibold text-earth-900">{booking.time}–{addMinutes(booking.time, booking.durationMinutes)}・{booking.customer}</span><span className="text-xs font-semibold">{booking.status}</span></span><span className="mt-2 block text-sm text-earth-700">{booking.service}</span><span className="mt-2 block text-xs text-earth-500">{booking.durationMinutes} 分鐘・{provider.badge}號 {provider.name}</span></button>;
-}
-
 function BookingDetail({ booking, onStatusChange, onRebook }: { booking: PreviewBooking; onStatusChange: (status: BookingStatus) => void; onRebook: () => void }) {
   const provider = getProvider(booking.providerId);
   return (
     <section className="rounded-2xl bg-earth-900 p-5 text-white shadow-[0_12px_32px_rgba(52,47,39,0.14)]">
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-300">預約詳情・{booking.time}</p><h2 className="mt-2 text-xl font-semibold">{booking.customer}</h2></div><span className="rounded-full bg-white/12 px-2.5 py-1 text-xs font-semibold">{booking.status}</span></div>
       <dl className="mt-5 space-y-3 border-t border-white/10 pt-4 text-sm"><DetailRow label="服務項目" value={booking.serviceItems.join("＋")} /><DetailRow label="芳療師" value={`${provider.badge}號 ${provider.name}`} /><DetailRow label="服務時段" value={`${booking.time}–${addMinutes(booking.time, booking.durationMinutes)}`} /><DetailRow label="療程時間" value={`${booking.durationMinutes} 分鐘＋整理 ${booking.bufferMinutes} 分鐘`} /><DetailRow label="可用次數" value={booking.remainingSessions === null ? "單次／現場付款" : `剩餘 ${booking.remainingSessions} 次`} /><DetailRow label="注意事項" value={booking.note} /></dl>
-      <div className="mt-5 grid grid-cols-2 gap-2"><ActionButton label="確認到店" onClick={() => onStatusChange("已到店")} disabled={booking.status === "已完成"} /><ActionButton label="開始服務" onClick={() => onStatusChange("服務中")} disabled={booking.status === "已完成"} /><ActionButton label="完成並扣療程" onClick={() => onStatusChange("已完成")} disabled={booking.status === "已完成"} emphasized /><ActionButton label="再約下一次" onClick={onRebook} /></div>
+      <div className="mt-5 grid gap-2"><ActionButton label={booking.remainingSessions === null ? "完成服務並收費" : "完成服務並扣次"} onClick={() => onStatusChange("已完成")} disabled={booking.status === "已完成"} emphasized /><ActionButton label="再約下一次" onClick={onRebook} /></div>
       <p className="mt-4 rounded-xl bg-white/8 px-3.5 py-3 text-xs leading-relaxed text-earth-200 ring-1 ring-white/10">本頁只操作瀏覽器中的虛構資料；重新整理後復原。</p>
     </section>
   );
@@ -437,10 +436,6 @@ function QuickBookingForm({ slot, onCancel, onSubmit }: { slot: QuickSlot; onCan
       </form>
     </section>
   );
-}
-
-function EmptyDetail() {
-  return <section className="rounded-2xl bg-white p-8 text-center ring-1 ring-earth-200/70"><p className="font-semibold">尚未選擇預約</p><p className="mt-2 text-sm text-earth-500">點選預約查看詳情，或點空白時段快速新增。</p></section>;
 }
 
 function MetricCard({ label, value, unit, detail, emphasized = false }: { label: string; value: string; unit: string; detail: string; emphasized?: boolean }) {
@@ -500,8 +495,4 @@ function rowForTime(time: string) {
 
 function rowsForMinutes(minutes: number) {
   return Math.max(Math.ceil(minutes / 30), 1);
-}
-
-function sortBookings(a: PreviewBooking, b: PreviewBooking) {
-  return a.time.localeCompare(b.time) || a.providerId.localeCompare(b.providerId);
 }

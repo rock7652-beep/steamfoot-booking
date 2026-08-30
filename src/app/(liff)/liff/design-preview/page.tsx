@@ -8,7 +8,6 @@ import {
   SPA_INDUSTRY_MODULE,
 } from "@/lib/industry-modules";
 import { WelcomeBack } from "../liff-shell";
-import { ModulePreviewSwitcher } from "../_components/module-preview-switcher";
 import { SpaServiceComposerPreview } from "../_components/spa-service-composer-preview";
 
 const featuredSpaService = getIndustryService(SPA_INDUSTRY_MODULE, "package_10");
@@ -54,8 +53,6 @@ export default async function LiffDesignPreviewPage() {
           </svg>
         </div>
       </header>
-
-      <ModulePreviewSwitcher active="customer" />
 
       <SpaServiceComposerPreview />
 
