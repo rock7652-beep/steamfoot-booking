@@ -78,9 +78,11 @@ describe("SPA Demo tenant isolation", () => {
 
     expect(customer).not.toContain("ModulePreviewSwitcher");
     expect(manager).not.toContain("ModulePreviewSwitcher");
-    expect(manager).toContain("店長端專為桌機與 iPad 設計");
+    expect(manager).toContain("桌機、iPad 與手機共用同一套排程");
     expect(manager).toContain('aria-label="預約右側操作面板"');
     expect(manager).toContain('className="overflow-x-auto"');
+    expect(manager).not.toContain("請使用 iPad 或桌機開啟");
+    expect(manager).not.toContain("md:hidden");
     expect(manager).toContain("完成服務並收費");
     expect(manager).toContain("完成服務並扣次");
     expect(manager).not.toContain("確認到店");
