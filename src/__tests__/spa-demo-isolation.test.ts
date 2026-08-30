@@ -133,6 +133,10 @@ describe("SPA Demo tenant isolation", () => {
     expect(composer).toContain("createSpaDemoCustomerBooking");
     expect(composer).toContain("確認預約");
     expect(composer).toContain("不指定");
+    expect(composer).toContain("1. 人數");
+    expect(composer).toContain("4. 可約時段");
+    expect(composer).toContain("assignedProviders.length !== people");
+    expect(composer).toContain("summary.price * people");
     expect(composer).toContain('useState("")');
     expect(composer).toContain("isSpaProviderAvailable");
     expect(composer).not.toContain('id: "spa-demo-staff-08"');
@@ -143,6 +147,9 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).toContain('process.env.VERCEL_ENV === "production"');
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_ID");
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
+    expect(action).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_IDS");
+    expect(action).toContain("new Set(data.providerIds).size !== data.people");
+    expect(action).toContain("excludeBookingIds: SPA_DEMO_LIVE_FLOW_BOOKING_IDS");
     expect(action).toContain("getSpaDemoBookableProviders");
     expect(action).toContain("isSpaProviderAvailable");
     expect(action).toContain('storeId: SPA_DEMO_STORE.id');
