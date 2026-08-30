@@ -7,6 +7,7 @@ import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import {
   SPA_DEMO_LIVE_FLOW_BOOKING_ID,
   SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
+  SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME,
   SPA_DEMO_PROVIDERS,
   SPA_DEMO_STORE,
   SPA_DEMO_LIVE_FLOW_STORED_WALLET_ID,
@@ -21,7 +22,6 @@ import {
 } from "@/lib/spa-scheduling";
 
 const inputSchema = z.object({
-  customerName: z.string().trim().min(1, "請輸入測試顧客姓名").max(30),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
   providerId: z.string().min(1),
@@ -98,7 +98,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
       select: { id: true, price: true },
     }),
     Promise.all([
-      prisma.customer.findUnique({ where: { id: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID }, select: { storeId: true } }),
+      prisma.customer.findUnique({ where: { id: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID }, select: { storeId: true, name: true } }),
       prisma.booking.findUnique({ where: { id: SPA_DEMO_LIVE_FLOW_BOOKING_ID }, select: { storeId: true } }),
     ]),
     prisma.booking.findMany({
@@ -138,14 +138,14 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
       create: {
         id: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
         storeId: SPA_DEMO_STORE.id,
-        name: data.customerName,
+        name: SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME,
         phone: "0911999999",
         assignedStaffId: data.providerId,
         customerStage: "TRIAL",
         selfBookingEnabled: true,
         serviceNote: "SPA Demo 三端同步驗收顧客",
       },
-      update: { name: data.customerName, assignedStaffId: data.providerId },
+      update: { assignedStaffId: data.providerId },
     });
     await tx.storedValueWallet.upsert({
       where: { storeId_customerId: { storeId: SPA_DEMO_STORE.id, customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID } },
@@ -227,7 +227,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
     success: true as const,
     data: {
       bookingId: SPA_DEMO_LIVE_FLOW_BOOKING_ID,
-      customerName: data.customerName,
+      customerName: idCollisions[0]?.name ?? SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME,
       providerId: data.providerId,
       bookingDate: data.bookingDate,
       slotTime: data.slotTime,

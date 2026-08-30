@@ -62,7 +62,6 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
   const [addOnKeys, setAddOnKeys] = useState<readonly string[]>([]);
   const [providerId, setProviderId] = useState("");
   const [selectedTime, setSelectedTime] = useState("10:00");
-  const [customerName, setCustomerName] = useState("王小姐");
   const [bookingDate, setBookingDate] = useState(previewDate);
   const [notice, setNotice] = useState("");
   const [isSubmitting, startSubmitting] = useTransition();
@@ -108,7 +107,6 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
     if (!assignedProvider || !safeSelectedTime) return;
     startSubmitting(async () => {
       const result = await createSpaDemoCustomerBooking({
-        customerName,
         bookingDate,
         slotTime: safeSelectedTime,
         providerId: assignedProvider.id,
@@ -164,10 +162,7 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
 
         <fieldset>
           <legend className="text-sm font-semibold text-earth-900">3. 選擇日期與時間</legend>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="text-sm font-medium text-earth-700">姓名<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} maxLength={30} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
-            <label className="text-sm font-medium text-earth-700">預約日期<input type="date" min={previewDate} max={previewDate} value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
-          </div>
+          <label className="mt-3 block text-sm font-medium text-earth-700">預約日期<input type="date" min={previewDate} max={previewDate} value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
           <div className="mt-3 flex flex-wrap gap-2">
             {availableTimes.slice(0, 6).map((time) => (
               <label key={time} className={`cursor-pointer rounded-xl border px-3 py-2 text-sm tabular-nums ${safeSelectedTime === time ? "border-primary-500 bg-primary-50 font-semibold text-primary-800" : "border-earth-200 text-earth-600"}`}>
@@ -194,7 +189,7 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
           </div>
         </fieldset>
 
-        <button type="button" onClick={confirmPreview} disabled={isSubmitting || !customerName.trim() || !bookingDate || !assignedProvider || !safeSelectedTime} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isSubmitting ? "預約中…" : "確認預約"}</button>
+        <button type="button" onClick={confirmPreview} disabled={isSubmitting || !bookingDate || !assignedProvider || !safeSelectedTime} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isSubmitting ? "預約中…" : "確認預約"}</button>
         {notice ? <p className="text-center text-sm font-medium text-primary-700" aria-live="polite">{notice}</p> : null}
       </div>
     </section>

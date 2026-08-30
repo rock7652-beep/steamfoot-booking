@@ -135,6 +135,9 @@ describe("SPA Demo tenant isolation", () => {
     expect(composer).toContain("不指定");
     expect(composer).toContain('useState("")');
     expect(composer).not.toContain("最新預約");
+    expect(composer).not.toContain("姓名");
+    expect(action).not.toContain("data.customerName");
+    expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME");
     expect(action).toContain('process.env.VERCEL_ENV === "production"');
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_ID");
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
