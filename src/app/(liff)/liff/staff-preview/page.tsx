@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { formatDateWithWeekdayZh, toLocalDateStr } from "@/lib/date-utils";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { SPA_DEMO_PROVIDERS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
@@ -17,11 +18,12 @@ export default async function SpaStaffPreviewPage() {
   if (storeSlug !== SPA_DEMO_STORE.slug) notFound();
 
   const preview = await getSpaDemoPreviewData();
+  const previewDate = toLocalDateStr();
   const provider = preview.providers.find((item) => item.id === SPA_DEMO_PROVIDERS[0].id);
   if (!provider) notFound();
 
   const bookings = preview.bookings
-    .filter((booking) => booking.providerId === provider.id)
+    .filter((booking) => booking.providerId === provider.id && booking.date === previewDate)
     .sort((left, right) => left.time.localeCompare(right.time));
 
   return (
@@ -42,7 +44,7 @@ export default async function SpaStaffPreviewPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-primary-700">今日工作</p>
-              <h2 className="mt-1 text-xl font-bold text-earth-900">2026 年 8 月 30 日</h2>
+              <h2 className="mt-1 text-xl font-bold text-earth-900">{formatDateWithWeekdayZh(previewDate)}</h2>
             </div>
             <span className="text-xs text-earth-500">與顧客、店長同步</span>
           </div>
