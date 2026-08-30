@@ -31,7 +31,6 @@ import { TestReminderModal } from "./line-test-reminder-modal";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { formatWeekdayZh } from "@/lib/date-utils";
-import { checkInSpaBooking } from "@/server/actions/spa-checkout";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   CASH: "現金",
@@ -322,15 +321,6 @@ export function BookingDetailDrawer({
     wrapAction("已完成服務", () => markCompleted(bookingId!), "COMPLETED");
   }
 
-  function handleCheckIn() {
-    if (!bookingId || readOnly) return;
-    wrapAction(
-      "已確認到店並開始服務",
-      () => checkInSpaBooking({ bookingId }),
-      null,
-    );
-  }
-
   // AttendanceModal confirm — 依 attendanceIntent 分流。
   //   intent="collect"：0 → markNoShow；N≥1 → 暫存 pendingAttendedPeople 並開 CollectTrialModal
   //   intent="complete"：0 → markNoShow；N≥1 → markCompleted({attendedPeople:N})
@@ -521,7 +511,33 @@ export function BookingDetailDrawer({
         onClose={onClose}
         labelledById="booking-drawer-title"
       >
-        {hasFullData && data ? (
+        {hasFullData &&
+        data &&
+        spaMode &&
+        collectSingleOpen &&
+        data.single &&
+        !data.single.collected ? (
+          <CollectSingleModal
+            key={data.booking.id}
+            open
+            embedded
+            onClose={() => setCollectSingleOpen(false)}
+            bookingId={data.booking.id}
+            customerName={data.booking.customer.name}
+            dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
+            defaultPrice={data.single.defaultPrice}
+            spaMode
+            serviceName={
+              data.booking.treatmentNameSnapshot ??
+              data.booking.servicePlan?.name ??
+              "本次服務"
+            }
+            serviceMinutes={data.booking.treatmentServiceMinutesSnapshot}
+            wallets={data.checkout?.wallets ?? []}
+            storedValue={data.storedValue}
+            onCollected={handleSingleCollected}
+          />
+        ) : hasFullData && data ? (
           <DrawerContent
             payload={data}
             isActing={isActing}
@@ -532,7 +548,6 @@ export function BookingDetailDrawer({
             spaMode={spaMode}
             actions={{
               complete: handleComplete,
-              checkIn: handleCheckIn,
               noShow: () => setNoShowOpen(true),
               cancel: handleCancel,
               revert: handleRevert,
@@ -667,27 +682,31 @@ export function BookingDetailDrawer({
             onCorrected={handleCorrected}
           />
         )}
-      {!readOnly && data && data.single && !data.single.collected && (
-        <CollectSingleModal
-          key={data.booking.id}
-          open={collectSingleOpen}
-          onClose={() => setCollectSingleOpen(false)}
-          bookingId={data.booking.id}
-          customerName={data.booking.customer.name}
-          dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
-          defaultPrice={data.single.defaultPrice}
-          spaMode={spaMode}
-          serviceName={
-            data.booking.treatmentNameSnapshot ??
-            data.booking.servicePlan?.name ??
-            "本次服務"
-          }
-          serviceMinutes={data.booking.treatmentServiceMinutesSnapshot}
-          wallets={data.checkout?.wallets ?? []}
-          storedValue={data.storedValue}
-          onCollected={handleSingleCollected}
-        />
-      )}
+      {!readOnly &&
+        !spaMode &&
+        data &&
+        data.single &&
+        !data.single.collected && (
+          <CollectSingleModal
+            key={data.booking.id}
+            open={collectSingleOpen}
+            onClose={() => setCollectSingleOpen(false)}
+            bookingId={data.booking.id}
+            customerName={data.booking.customer.name}
+            dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
+            defaultPrice={data.single.defaultPrice}
+            spaMode={spaMode}
+            serviceName={
+              data.booking.treatmentNameSnapshot ??
+              data.booking.servicePlan?.name ??
+              "本次服務"
+            }
+            serviceMinutes={data.booking.treatmentServiceMinutesSnapshot}
+            wallets={data.checkout?.wallets ?? []}
+            storedValue={data.storedValue}
+            onCollected={handleSingleCollected}
+          />
+        )}
       {!readOnly &&
         data &&
         data.checkout &&
@@ -729,7 +748,6 @@ export function BookingDetailDrawer({
 
 interface DrawerActions {
   complete: () => void;
-  checkIn: () => void;
   noShow: () => void;
   cancel: () => void;
   revert: () => void;
@@ -770,7 +788,19 @@ function DrawerContent({
     checkoutToSingle,
     storedValue,
   } = payload;
-  const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
+  const meta = bookingStatusMeta(
+    booking.bookingStatus,
+    spaMode ? false : booking.isCheckedIn,
+  );
+  const statusLabel = spaMode
+    ? booking.bookingStatus === "COMPLETED"
+      ? "已完成"
+      : booking.bookingStatus === "NO_SHOW"
+        ? "未到"
+        : booking.bookingStatus === "CANCELLED"
+          ? "已取消"
+          : "待服務"
+    : meta.label;
   const amount = computeAmount(booking, trial);
   const duration =
     durationMinutes ?? (booking.servicePlan?.category === "TRIAL" ? 30 : 60);
@@ -783,7 +813,7 @@ function DrawerContent({
       <div className="flex items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <StatusBadge variant={meta.variant}>{meta.label}</StatusBadge>
+            <StatusBadge variant={meta.variant}>{statusLabel}</StatusBadge>
             <span className="text-sm font-semibold tabular-nums text-earth-700">
               {booking.bookingDate.slice(5).replace("-", "/")}{" "}
               {booking.slotTime}
@@ -1415,15 +1445,15 @@ function ActionFooter({
     (status === "PENDING" || status === "CONFIRMED");
 
   if (status === "PENDING" || status === "CONFIRMED") {
-    if (spaMode && !booking.isCheckedIn) {
-      secondaries.push({ label: "確認到店／開始服務", onClick: actions.checkIn });
-    }
     if (canCollect) {
-      primaries.push({ label: "收款並完成服務", onClick: actions.collect });
+      primaries.push({
+        label: spaMode ? "完成服務並收費" : "收款並完成服務",
+        onClick: actions.collect,
+      });
     }
     if (canCollectSingle) {
       primaries.push({
-        label: spaMode ? "現場結帳" : "收款並完成服務",
+        label: spaMode ? "完成服務並收費" : "收款並完成服務",
         onClick: actions.collectSingle,
       });
     }
@@ -1433,7 +1463,7 @@ function ActionFooter({
       primaries.push({
         label:
           spaMode && booking.bookingType === "PACKAGE_SESSION"
-            ? "確認療程扣次並完成"
+            ? "完成服務並扣次"
             : "完成服務",
         onClick: actions.complete,
       });
@@ -1448,12 +1478,17 @@ function ActionFooter({
     if (canAdjustCheckout && !spaMode) {
       secondaries.push({ label: "調整結帳", onClick: actions.adjustCheckout });
     }
-    if (canAdjustToSingle) {
+    if (canAdjustToSingle && !spaMode) {
       secondaries.push({ label: "調整結帳", onClick: actions.adjustToSingle });
     }
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
-    secondaries.push({ label: "傳送測試提醒", onClick: actions.testReminder });
-    secondaries.push({ label: "標記未到", onClick: actions.noShow });
+    if (!spaMode) {
+      secondaries.push({
+        label: "傳送測試提醒",
+        onClick: actions.testReminder,
+      });
+    }
+    secondaries.push({ label: "未到", onClick: actions.noShow });
     secondaries.push({
       label: "取消預約",
       onClick: actions.cancel,
@@ -1490,7 +1525,7 @@ function ActionFooter({
         </div>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
-        {rebookHref ? (
+        {rebookHref && !spaMode ? (
           <Link
             href={rebookHref}
             className="inline-flex h-8 items-center rounded-md border border-primary-200 bg-white px-3 text-xs font-medium text-primary-700 hover:bg-primary-50"
@@ -1513,14 +1548,16 @@ function ActionFooter({
             {a.label}
           </button>
         ))}
-        <div className="ml-auto">
-          <Link
-            href={`/dashboard/bookings/${booking.id}`}
-            className="inline-flex h-8 items-center text-xs font-medium text-primary-600 hover:text-primary-700"
-          >
-            完整頁面 →
-          </Link>
-        </div>
+        {!spaMode ? (
+          <div className="ml-auto">
+            <Link
+              href={`/dashboard/bookings/${booking.id}`}
+              className="inline-flex h-8 items-center text-xs font-medium text-primary-600 hover:text-primary-700"
+            >
+              完整頁面 →
+            </Link>
+          </div>
+        ) : null}
       </div>
     </div>
   );

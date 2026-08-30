@@ -137,26 +137,10 @@ export function SpaProviderSchedule({
   ).length;
   const todayDate = nowMinutes == null ? date : toDateInputValue(new Date());
   const isToday = nowMinutes != null && date === todayDate;
-  const arrivingSoonCount = isToday
-    ? bookings.filter((booking) => {
-        if (
-          booking.isCheckedIn ||
-          (booking.bookingStatus !== "PENDING" &&
-            booking.bookingStatus !== "CONFIRMED")
-        ) {
-          return false;
-        }
-        const start = timeToMinutes(booking.slotTime);
-        return start >= nowMinutes && start <= nowMinutes + 60;
-      }).length
-    : pendingCount;
-  const checkedInCount = bookings.filter(
-    (booking) =>
-      booking.isCheckedIn &&
-      booking.bookingStatus !== "COMPLETED" &&
-      booking.bookingStatus !== "CANCELLED",
+  const completedCount = bookings.filter(
+    (booking) => booking.bookingStatus === "COMPLETED" && booking.collected,
   ).length;
-  const checkoutCount = bookings.filter(
+  const unsettledCount = bookings.filter(
     (booking) => booking.bookingStatus === "COMPLETED" && !booking.collected,
   ).length;
   const occupiedResources = isToday
@@ -239,7 +223,12 @@ export function SpaProviderSchedule({
 
   function handleBackToNow() {
     if (nowMinutes == null) return;
-    scrollToMinutes(scheduleScrollRef.current, nowMinutes, rowMinutes, rowHeight);
+    scrollToMinutes(
+      scheduleScrollRef.current,
+      nowMinutes,
+      rowMinutes,
+      rowHeight,
+    );
   }
 
   function handleDateChange(nextDate: string) {
@@ -261,12 +250,35 @@ export function SpaProviderSchedule({
               {formatDateWithWeekdayZh(date)}
             </h2>
           </div>
-          <div className="flex flex-1 flex-wrap gap-1.5" aria-label="當日 SPA 營運摘要">
-            <Metric tone={arrivingSoonCount > 0 ? "notice" : "quiet"} label={isToday ? "一小時內" : "待到店"} value={`${arrivingSoonCount} 位`} />
-            <Metric tone={checkedInCount > 0 ? "active" : "quiet"} label="服務中" value={`${checkedInCount} 位`} />
-            <Metric tone={checkoutCount > 0 ? "warning" : "quiet"} label="待結帳" value={`${checkoutCount} 筆`} />
-            <Metric label="按摩床可用" value={`${Math.max(0, 2 - occupiedResources.BED)}/2`} />
-            <Metric label="沙發椅可用" value={`${Math.max(0, 2 - occupiedResources.CHAIR)}/2`} />
+          <div
+            className="flex flex-1 flex-wrap gap-1.5"
+            aria-label="當日 SPA 營運摘要"
+          >
+            <Metric
+              tone={pendingCount > 0 ? "notice" : "quiet"}
+              label="待服務"
+              value={`${pendingCount} 筆`}
+            />
+            <Metric
+              tone={completedCount > 0 ? "active" : "quiet"}
+              label="已完成"
+              value={`${completedCount} 筆`}
+            />
+            {unsettledCount > 0 ? (
+              <Metric
+                tone="warning"
+                label="待收費"
+                value={`${unsettledCount} 筆`}
+              />
+            ) : null}
+            <Metric
+              label="按摩床可用"
+              value={`${Math.max(0, 2 - occupiedResources.BED)}/2`}
+            />
+            <Metric
+              label="沙發椅可用"
+              value={`${Math.max(0, 2 - occupiedResources.CHAIR)}/2`}
+            />
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
             <Link
@@ -339,7 +351,10 @@ export function SpaProviderSchedule({
             尚未建立可排程的芳療師
           </div>
         ) : (
-          <div ref={scheduleScrollRef} className="min-h-[460px] flex-1 overflow-auto">
+          <div
+            ref={scheduleScrollRef}
+            className="min-h-[460px] flex-1 overflow-auto"
+          >
             <div
               className="w-full"
               style={{ minWidth: `${80 + providers.length * 240}px` }}
@@ -557,7 +572,10 @@ function ProviderColumn({
               </span>
               <span className="mt-1 block text-[10px] font-medium tabular-nums text-earth-600">
                 {booking.slotTime}–
-                {addMinutes(booking.slotTime, serviceMinutesForBooking(booking))}{" "}
+                {addMinutes(
+                  booking.slotTime,
+                  serviceMinutesForBooking(booking),
+                )}{" "}
                 服務・
                 {spaResourceLabel(
                   inferSpaDemoResourceType({
@@ -567,7 +585,8 @@ function ProviderColumn({
               </span>
               {(booking.treatmentBufferMinutesSnapshot ?? 0) > 0 ? (
                 <span className="mt-0.5 block text-[10px] tabular-nums text-earth-500">
-                  整理至 {addMinutes(booking.slotTime, duration)}・之後可接下一位
+                  整理至 {addMinutes(booking.slotTime, duration)}
+                  ・之後可接下一位
                 </span>
               ) : null}
             </span>
@@ -594,11 +613,11 @@ function Metric({
     warning: "bg-rose-50 text-rose-900 ring-1 ring-rose-100",
   }[tone];
   return (
-    <div className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 ${toneClass}`}>
+    <div
+      className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 ${toneClass}`}
+    >
       <span className="text-[11px] text-earth-500">{label}</span>
-      <span className="text-xs font-semibold tabular-nums">
-        {value}
-      </span>
+      <span className="text-xs font-semibold tabular-nums">{value}</span>
     </div>
   );
 }
@@ -612,11 +631,13 @@ function NowLine({
   rowMinutes: number;
   rowHeight: number;
 }) {
-  if (nowMinutes < SCHEDULE_START_MINUTES || nowMinutes > SCHEDULE_END_MINUTES) {
+  if (
+    nowMinutes < SCHEDULE_START_MINUTES ||
+    nowMinutes > SCHEDULE_END_MINUTES
+  ) {
     return null;
   }
-  const top =
-    ((nowMinutes - SCHEDULE_START_MINUTES) / rowMinutes) * rowHeight;
+  const top = ((nowMinutes - SCHEDULE_START_MINUTES) / rowMinutes) * rowHeight;
   return (
     <div
       className="pointer-events-none absolute left-0 right-0 z-20 border-t-2 border-rose-500"
@@ -717,12 +738,11 @@ function statusClass(status: string): string {
 
 function spaOperationalStatus(booking: SpaScheduleBooking): string {
   if (booking.bookingStatus === "COMPLETED") {
-    return booking.collected ? "已完成" : "待結帳";
+    return booking.collected ? "已完成" : "待收費";
   }
   if (booking.bookingStatus === "CANCELLED") return "已取消";
-  if (booking.bookingStatus === "NO_SHOW") return "未到店";
-  if (booking.isCheckedIn) return "服務中";
-  return "待到店";
+  if (booking.bookingStatus === "NO_SHOW") return "未到";
+  return "待服務";
 }
 
 function timeToMinutes(time: string): number {
@@ -737,8 +757,7 @@ function scrollToMinutes(
   rowHeight: number,
 ) {
   if (!container) return;
-  const offset =
-    ((minutes - SCHEDULE_START_MINUTES) / rowMinutes) * rowHeight;
+  const offset = ((minutes - SCHEDULE_START_MINUTES) / rowMinutes) * rowHeight;
   container.scrollTo({
     top: Math.max(0, offset - Math.min(180, container.clientHeight / 3)),
     behavior: "smooth",

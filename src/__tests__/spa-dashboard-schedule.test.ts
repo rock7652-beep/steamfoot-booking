@@ -58,12 +58,14 @@ describe("SPA dashboard schedule presentation", () => {
       "utf8",
     );
     expect(source).toContain("onCreate={(time) =>");
-    expect(source).toContain("setQuickTarget({ providerId: provider.id, time })");
+    expect(source).toContain(
+      "setQuickTarget({ providerId: provider.id, time })",
+    );
     expect(source).toContain("<SpaQuickBookingDrawer");
     expect(source).toContain("排預約");
   });
 
-  it("centers daily operations on the current time and actionable states", () => {
+  it("centers daily operations on the current time and simplified states", () => {
     const source = readFileSync(
       "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
       "utf8",
@@ -74,10 +76,20 @@ describe("SPA dashboard schedule presentation", () => {
     expect(source).toContain("handleDateChange");
     expect(source).toContain("resolveDashboardHref");
     expect(source).toContain("<NowLine");
-    expect(source).toContain("一小時內");
-    expect(source).toContain("待結帳");
-    expect(source).toContain('label="服務中"');
+    expect(source).toContain('label="待服務"');
+    expect(source).toContain('label="已完成"');
+    expect(source).toContain('label="待收費"');
+    expect(source).not.toContain('label="服務中"');
+    expect(source).not.toContain('return "待到店"');
     expect(source).toContain("按摩床可用");
     expect(source).toContain("spaOperationalStatus");
+  });
+
+  it("derives settlement from every supported successful checkout transaction", () => {
+    const query = readFileSync("src/server/queries/booking.ts", "utf8");
+    expect(query).toContain(
+      'in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "SESSION_DEDUCTION"]',
+    );
+    expect(query).toContain("bookingId: { in: monthBookingIds }");
   });
 });

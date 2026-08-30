@@ -33,6 +33,8 @@ interface Props {
   /** 原價（servicePlan.price ?? 799），由 drawer payload 帶入 */
   defaultPrice: number;
   spaMode?: boolean;
+  /** SPA 工作台嵌在既有右側面板內，不再疊第二層 Modal。 */
+  embedded?: boolean;
   serviceName?: string;
   serviceMinutes?: number | null;
   wallets?: Array<{
@@ -63,6 +65,7 @@ export function CollectSingleModal({
   dateLabel,
   defaultPrice,
   spaMode = false,
+  embedded = false,
   serviceName = "本次服務",
   serviceMinutes,
   wallets = [],
@@ -223,16 +226,27 @@ export function CollectSingleModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-4"
-      onClick={() => !pending && onClose()}
+      className={
+        embedded
+          ? "flex h-full min-h-0 flex-col bg-white"
+          : "fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-4"
+      }
+      onClick={embedded ? undefined : () => !pending && onClose()}
     >
       <div
-        className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-xl"
+        className={
+          embedded
+            ? "h-full w-full overflow-y-auto overscroll-contain p-5"
+            : "my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-xl"
+        }
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-3 text-lg font-semibold text-earth-900">
+        <h3
+          id={embedded ? "booking-drawer-title" : undefined}
+          className="mb-3 text-lg font-semibold text-earth-900"
+        >
           {spaMode
-            ? "現場結帳"
+            ? "完成服務並收費"
             : mode === "single"
               ? "單次收款並完成服務"
               : "轉購新儲值方案"}
@@ -456,13 +470,77 @@ export function CollectSingleModal({
           <div className="mb-4 rounded-lg border border-primary-200 bg-primary-50 p-3 text-sm text-primary-900">
             <div className="flex justify-between">
               <span>本次扣款</span>
-              <span className="font-semibold">NT$ {defaultPrice.toLocaleString("zh-TW")}</span>
+              <span className="font-semibold">
+                NT$ {defaultPrice.toLocaleString("zh-TW")}
+              </span>
             </div>
             <div className="mt-1 flex justify-between text-xs text-primary-700">
               <span>扣款後餘額</span>
-              <span>NT$ {Math.max(0, (storedValue?.balance ?? 0) - defaultPrice).toLocaleString("zh-TW")}</span>
+              <span>
+                NT${" "}
+                {Math.max(
+                  0,
+                  (storedValue?.balance ?? 0) - defaultPrice,
+                ).toLocaleString("zh-TW")}
+              </span>
             </div>
           </div>
+        ) : spaMode ? (
+          <details className="mb-4 rounded-lg border border-earth-200 bg-earth-50/60 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-medium text-earth-600">
+              調整金額或新增備註（選填）
+            </summary>
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium text-earth-600">
+                實收金額（NT$）
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={amount}
+                min={1}
+                max={defaultPrice}
+                disabled={pending}
+                onChange={(e) => setAmount(e.target.value)}
+                className="mb-1 w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm"
+              />
+              <p className="mb-3 text-[11px] text-earth-400">
+                {trimmed === "" ? (
+                  <span className="text-red-500">請輸入實收金額</span>
+                ) : !validAmount ? (
+                  <span className="text-red-500">金額需為正整數</span>
+                ) : overPaid ? (
+                  <span className="text-red-500">不可高於原價</span>
+                ) : discountAmount > 0 ? (
+                  `已折扣 NT$ ${discountAmount.toLocaleString()}（請填折扣原因）`
+                ) : (
+                  "目前按原價收費"
+                )}
+              </p>
+              <label className="mb-1 block text-xs font-medium text-earth-600">
+                折扣原因（選填）
+              </label>
+              <input
+                value={discountReason}
+                disabled={pending}
+                onChange={(e) => setDiscountReason(e.target.value)}
+                maxLength={500}
+                placeholder="有折扣時再填寫"
+                className="mb-3 w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm"
+              />
+              <label className="mb-1 block text-xs font-medium text-earth-600">
+                備註（選填）
+              </label>
+              <input
+                value={note}
+                disabled={pending}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={500}
+                placeholder="其他收款說明"
+                className="w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm"
+              />
+            </div>
+          </details>
         ) : (
           <>
             <label className="mb-1 block text-xs font-medium text-earth-600">
@@ -494,30 +572,24 @@ export function CollectSingleModal({
           </>
         )}
 
-        {!spaMode || spaSettlement === "PAYMENT" ? (
+        {!spaMode ? (
           <>
             <label className="mb-1 block text-xs font-medium text-earth-600">
               付款方式
             </label>
-            {!spaMode ? (
-              <select
-                value={method}
-                disabled={pending}
-                onChange={(e) => setMethod(e.target.value)}
-                className="mb-3 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm"
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p className="mb-3 rounded-lg bg-earth-50 px-3 py-2 text-sm font-medium text-earth-800">
-                {method === "CREDIT_CARD" ? "刷卡" : "現金"}
-              </p>
-            )}
-            {mode === "single" && validAmount && !spaMode && (
+            <select
+              value={method}
+              disabled={pending}
+              onChange={(e) => setMethod(e.target.value)}
+              className="mb-3 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm"
+            >
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            {mode === "single" && validAmount && (
               <PaymentSplitFields
                 totalAmount={amountNum}
                 primaryMethod={method as PaymentSplitInput["paymentMethod"]}
@@ -529,7 +601,7 @@ export function CollectSingleModal({
           </>
         ) : null}
 
-        {!spaMode || spaSettlement === "PAYMENT" ? (
+        {!spaMode ? (
           <>
             <label className="mb-1 block text-xs font-medium text-earth-600">
               折扣原因（選填）
@@ -592,13 +664,15 @@ export function CollectSingleModal({
               ? "處理中..."
               : spaMode && spaSettlement === "STORED_VALUE"
                 ? "確認扣儲值金並完成服務"
-              : spaMode && spaSettlement === "PACKAGE"
-                ? "確認扣次並完成服務"
-                : mode === "plan"
-                  ? "確認轉購方案"
-                  : completeService
-                    ? "確認收款並完成服務"
-                    : "僅確認收款"}
+                : spaMode && spaSettlement === "PACKAGE"
+                  ? "確認扣次並完成服務"
+                  : mode === "plan"
+                    ? "確認轉購方案"
+                    : completeService
+                      ? spaMode
+                        ? `收 NT$ ${amountNum.toLocaleString("zh-TW")} 並完成`
+                        : "確認收款並完成服務"
+                      : "僅確認收款"}
           </button>
         </div>
       </div>

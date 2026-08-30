@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
-import { getManagerCustomerFilter, getStoreFilter } from "@/lib/manager-visibility";
+import {
+  getManagerCustomerFilter,
+  getStoreFilter,
+} from "@/lib/manager-visibility";
 import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
@@ -31,12 +34,25 @@ export interface ListBookingsOptions {
 // Customer: 只有自己的預約
 // ============================================================
 
-export async function listBookings(options: ListBookingsOptions & { activeStoreId?: string | null } = {}) {
+export async function listBookings(
+  options: ListBookingsOptions & { activeStoreId?: string | null } = {},
+) {
   const user = await requireSession();
-  const { dateFrom, dateTo, status, customerId, activeStoreId, page = 1, pageSize = 30 } = options;
+  const {
+    dateFrom,
+    dateTo,
+    status,
+    customerId,
+    activeStoreId,
+    page = 1,
+    pageSize = 30,
+  } = options;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const readUser = userForViewContext(user, storeViewContext);
-  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
+  const readStoreId = storeIdForViewContext(
+    activeStoreId ?? null,
+    storeViewContext,
+  );
 
   // 後端強制資料隔離（讀取型：受 visibility mode 控制）
   let whereCustomer: Record<string, unknown> = {};
@@ -53,7 +69,8 @@ export async function listBookings(options: ListBookingsOptions & { activeStoreI
     );
     // getManagerCustomerFilter 回傳 { customer: { assignedStaffId: ... } } 或 {}
     // 這裡需要取出 customer 層級的 where
-    const nested = customerFilter.customer as Record<string, unknown> | undefined;
+    const nested = customerFilter.customer as
+      Record<string, unknown> | undefined;
     whereCustomer = nested ?? {};
   }
 
@@ -76,12 +93,16 @@ export async function listBookings(options: ListBookingsOptions & { activeStoreI
   const isCustomer = readUser.role === "CUSTOMER";
   const includeFields = isCustomer
     ? {
-        revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+        revenueStaff: {
+          select: { id: true, displayName: true, colorCode: true },
+        },
         servicePlan: { select: { id: true, name: true } },
       }
     : {
         customer: { select: { id: true, name: true, phone: true } },
-        revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+        revenueStaff: {
+          select: { id: true, displayName: true, colorCode: true },
+        },
         serviceStaff: { select: { id: true, displayName: true } },
         servicePlan: { select: { id: true, name: true } },
       };
@@ -131,7 +152,9 @@ export async function getBookingDetailForUser(
           serviceNote: true, // 內部服務備註（後台限定）— 預約詳情顧客資訊顯示
         },
       },
-      revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+      revenueStaff: {
+        select: { id: true, displayName: true, colorCode: true },
+      },
       serviceStaff: { select: { id: true, displayName: true } },
       servicePlan: true,
       customerPlanWallet: {
@@ -159,11 +182,17 @@ export async function getBookingDetailForUser(
 // getDayBookings — 取某天的完整預約清單（後台日曆用）
 // ============================================================
 
-export async function getDayBookings(date: string, activeStoreId?: string | null) {
+export async function getDayBookings(
+  date: string,
+  activeStoreId?: string | null,
+) {
   const user = await requireStaffSession();
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const readUser = userForViewContext(user, storeViewContext);
-  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
+  const readStoreId = storeIdForViewContext(
+    activeStoreId ?? null,
+    storeViewContext,
+  );
 
   const dateObj = new Date(date + "T00:00:00Z");
 
@@ -180,10 +209,14 @@ export async function getDayBookings(date: string, activeStoreId?: string | null
           id: true,
           name: true,
           phone: true,
-          assignedStaff: { select: { id: true, displayName: true, colorCode: true } },
+          assignedStaff: {
+            select: { id: true, displayName: true, colorCode: true },
+          },
         },
       },
-      revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+      revenueStaff: {
+        select: { id: true, displayName: true, colorCode: true },
+      },
       serviceStaff: { select: { id: true, displayName: true } },
       servicePlan: { select: { name: true } },
     },
@@ -196,7 +229,11 @@ export async function getDayBookings(date: string, activeStoreId?: string | null
 // Owner: 全部 / Manager: 自己的
 // ============================================================
 
-export async function getMonthlyRevenueSummary(year: number, month: number, activeStoreId?: string | null) {
+export async function getMonthlyRevenueSummary(
+  year: number,
+  month: number,
+  activeStoreId?: string | null,
+) {
   const user = await requireStaffSession();
 
   const startDate = new Date(Date.UTC(year, month - 1, 1));
@@ -214,7 +251,12 @@ export async function getMonthlyRevenueSummary(year: number, month: number, acti
       ...staffFilter,
       createdAt: { gte: startDate, lte: endDate },
       transactionType: {
-        in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"],
+        in: [
+          "TRIAL_PURCHASE",
+          "SINGLE_PURCHASE",
+          "PACKAGE_PURCHASE",
+          "SUPPLEMENT",
+        ],
       },
     },
     _sum: { amount: true },
@@ -257,7 +299,10 @@ export async function getMonthBookingSummary(
   const user = await requireStaffSession();
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const readUser = userForViewContext(user, storeViewContext);
-  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
+  const readStoreId = storeIdForViewContext(
+    activeStoreId ?? null,
+    storeViewContext,
+  );
   // getStoreFilter 回 { storeId } 或 {}（ADMIN __all__）。抽出 scope 當 cache key；
   // null = 跨店（ADMIN 未指定 store）。重建 where 與原本 spread 行為完全一致。
   const filter = getStoreFilter(readUser, readStoreId);
@@ -391,18 +436,18 @@ async function computeMonthBookingSummary(
     }),
   ]);
 
-  // 體驗 499 PR-3：FIRST_TRIAL 預約是否「已收款」— 一次 batch 查詢
-  // （TRIAL_PURCHASE + status=SUCCESS 的交易），non-collected 不會有任何
-  // Transaction（PR-2 保證），collected 才有一筆。不是新欄位、純 derived。
-  const trialBookingIds = monthBookings
-    .filter((b) => b.bookingType === "FIRST_TRIAL")
-    .map((b) => b.id);
+  // 預約工作台的「已結清」狀態必須涵蓋所有結帳方式：首次體驗、單次收款／
+  // 儲值金，以及療程扣次。這裡以成功交易作為同一個 source of truth，避免
+  // Drawer 已完成結帳、排程卻仍顯示待收費。
+  const monthBookingIds = monthBookings.map((booking) => booking.id);
   const collectedTx =
-    trialBookingIds.length > 0
+    monthBookingIds.length > 0
       ? await prisma.transaction.findMany({
           where: {
-            bookingId: { in: trialBookingIds },
-            transactionType: "TRIAL_PURCHASE",
+            bookingId: { in: monthBookingIds },
+            transactionType: {
+              in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "SESSION_DEDUCTION"],
+            },
             status: "SUCCESS",
           },
           select: { bookingId: true, amount: true },
@@ -435,13 +480,16 @@ async function computeMonthBookingSummary(
   }
 
   // 取涉及的 staff 名稱
-  const staffIds = [...new Set(staffCounts.map((s) => s.revenueStaffId!).filter(Boolean))];
-  const staffList = staffIds.length > 0
-    ? await prisma.staff.findMany({
-        where: { id: { in: staffIds } },
-        select: { id: true, displayName: true, colorCode: true },
-      })
-    : [];
+  const staffIds = [
+    ...new Set(staffCounts.map((s) => s.revenueStaffId!).filter(Boolean)),
+  ];
+  const staffList =
+    staffIds.length > 0
+      ? await prisma.staff.findMany({
+          where: { id: { in: staffIds } },
+          select: { id: true, displayName: true, colorCode: true },
+        })
+      : [];
   const staffMap = new Map(staffList.map((s) => [s.id, s]));
 
   // 組裝每日資料 — 每筆 booking 一次寫入完整 detail，讓前端 day panel
@@ -466,8 +514,7 @@ async function computeMonthBookingSummary(
     // PR-D1D：FIRST_TRIAL badge fallback 用，僅 FIRST_TRIAL 有值；其他 type = null。
     // 為 LIFF 建立的體驗（expectedAmount=null）退回 store 預設體驗價。
     trialDefaultPrice: number | null;
-    // 體驗 499 PR-3：是否已現場收款 + 實收金額（derived from TRIAL_PURCHASE
-    // SUCCESS tx；badge 由「未收款」翻成「已收款」）
+    // 是否已完成收費／扣次（derived from SUCCESS transaction）。
     collected: boolean;
     collectedAmount: number | null;
     // 前端 calendar strip 用的扁平欄位（避免每筆都做 nested optional chain）
@@ -504,7 +551,12 @@ async function computeMonthBookingSummary(
 
   for (let day = 1; day <= endDate.getUTCDate(); day++) {
     const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    dailyMap.set(dateKey, { total: 0, totalPeople: 0, staffBookings: [], bookings: [] });
+    dailyMap.set(dateKey, {
+      total: 0,
+      totalPeople: 0,
+      staffBookings: [],
+      bookings: [],
+    });
   }
 
   // 將完整 booking list groupBy date 後塞入 dailyMap
@@ -525,13 +577,15 @@ async function computeMonthBookingSummary(
       attendedPeople: b.attendedPeople,
       bookingType: b.bookingType,
       // Decimal → number 在 server 邊界轉換，避免 RSC 序列化問題
-      expectedAmount: b.expectedAmount == null ? null : Number(b.expectedAmount),
+      expectedAmount:
+        b.expectedAmount == null ? null : Number(b.expectedAmount),
       treatmentNameSnapshot: b.treatmentNameSnapshot,
       treatmentServiceMinutesSnapshot: b.treatmentServiceMinutesSnapshot,
       treatmentBufferMinutesSnapshot: b.treatmentBufferMinutesSnapshot,
       trialDefaultPrice:
         b.bookingType === "FIRST_TRIAL"
-          ? trialDefaultByStore.get(b.storeId) ?? TRIAL_DEFAULTS.trialDefaultPrice
+          ? (trialDefaultByStore.get(b.storeId) ??
+            TRIAL_DEFAULTS.trialDefaultPrice)
           : null,
       collected: collectedMap.has(b.id),
       collectedAmount: collectedMap.get(b.id) ?? null,
@@ -597,14 +651,16 @@ async function computeMonthBookingSummary(
   for (const [dateKey, staffCountMap] of staffByDate) {
     const entry = dailyMap.get(dateKey);
     if (!entry) continue;
-    entry.staffBookings = Array.from(staffCountMap.entries()).map(([sid, count]) => {
-      const staff = staffMap.get(sid);
-      return {
-        staffName: staff?.displayName ?? "Unknown",
-        colorCode: staff?.colorCode ?? "#999",
-        count,
-      };
-    });
+    entry.staffBookings = Array.from(staffCountMap.entries()).map(
+      ([sid, count]) => {
+        const staff = staffMap.get(sid);
+        return {
+          staffName: staff?.displayName ?? "Unknown",
+          colorCode: staff?.colorCode ?? "#999",
+          count,
+        };
+      },
+    );
   }
 
   return Array.from(dailyMap.entries()).map(([dateStr, data]) => ({

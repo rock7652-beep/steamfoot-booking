@@ -60,21 +60,21 @@ describe("SPA quick booking", () => {
     expect(checkout).toContain("settleSpaBookingWithPackage");
     expect(checkout).toContain("settleSpaBookingWithStoredValue");
     expect(checkout).toContain('entryType: "DEBIT"');
-    expect(checkout).toContain('FOR UPDATE`');
-    expect(drawer).toContain("現場結帳");
+    expect(checkout).toContain("FOR UPDATE`");
+    expect(drawer).toContain("完成服務並收費");
+    expect(drawer).toContain("embedded");
     expect(drawer).toContain("確認扣儲值金並完成服務");
     expect(drawer).toContain("確認扣次並完成服務");
   });
 
-  it("supports an optional arrival step without completing the booking", () => {
-    const checkout = readFileSync("src/server/actions/spa-checkout.ts", "utf8");
+  it("keeps the SPA manager flow to service completion and payment", () => {
     const detail = readFileSync(
       "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
       "utf8",
     );
-    expect(checkout).toContain("checkInSpaBooking");
-    expect(checkout).toContain("data: { isCheckedIn: true }");
-    expect(detail).toContain("確認到店／開始服務");
+    expect(detail).toContain("完成服務並收費");
+    expect(detail).toContain("完成服務並扣次");
+    expect(detail).not.toContain("確認到店／開始服務");
   });
 
   it("keeps stored value as a monetary ledger instead of a service plan", () => {
@@ -86,6 +86,8 @@ describe("SPA quick booking", () => {
     expect(schema).toContain("model StoredValueWallet");
     expect(schema).toContain("model StoredValueLedgerEntry");
     expect(migration).toContain("StoredValueWallet_balance_nonnegative");
-    expect(migration).toContain('CREATE UNIQUE INDEX "StoredValueLedgerEntry_bookingId_key"');
+    expect(migration).toContain(
+      'CREATE UNIQUE INDEX "StoredValueLedgerEntry_bookingId_key"',
+    );
   });
 });
