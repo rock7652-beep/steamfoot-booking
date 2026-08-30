@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { formatDateWithWeekdayZh, toLocalDateStr } from "@/lib/date-utils";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
-import { SPA_DEMO_PROVIDERS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { SPA_DEMO_LIVE_FLOW_BOOKING_ID, SPA_DEMO_PROVIDERS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
 
 function addMinutes(time: string, minutes: number) {
@@ -19,7 +19,9 @@ export default async function SpaStaffPreviewPage() {
 
   const preview = await getSpaDemoPreviewData();
   const previewDate = toLocalDateStr();
-  const provider = preview.providers.find((item) => item.id === SPA_DEMO_PROVIDERS[0].id);
+  const liveBooking = preview.bookings.find((booking) => booking.id === SPA_DEMO_LIVE_FLOW_BOOKING_ID);
+  const provider = preview.providers.find((item) => item.id === liveBooking?.providerId)
+    ?? preview.providers.find((item) => item.id === SPA_DEMO_PROVIDERS[0].id);
   if (!provider) notFound();
 
   const bookings = preview.bookings

@@ -4,6 +4,10 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
+import {
+  getSpaDemoBookableProviders,
+  getSpaDemoFixtureBookableProviders,
+} from "@/server/queries/spa-demo-booking-availability";
 import { SpaServiceComposerPreview } from "../../_components/spa-service-composer-preview";
 
 export default async function SpaBookingPreviewPage() {
@@ -14,6 +18,16 @@ export default async function SpaBookingPreviewPage() {
 
   const { presentation } = await getSpaDemoPreviewData();
   const displayStoreName = presentation.name.replace(/\s*示範店$/, "");
+  const previewDate = toLocalDateStr();
+  const latest = new Date(`${previewDate}T00:00:00Z`);
+  latest.setUTCDate(latest.getUTCDate() + 14);
+  const latestDate = latest.toISOString().slice(0, 10);
+  const databasePreviewEnabled =
+    process.env.VERCEL_ENV === "preview"
+    || process.env.SPA_DEMO_DATABASE_PREVIEW_ENABLED === "true";
+  const providers = databasePreviewEnabled
+    ? await getSpaDemoBookableProviders({ startDate: previewDate, endDate: latestDate })
+    : getSpaDemoFixtureBookableProviders();
 
   return (
     <div className="spa-preview-page mx-auto flex max-w-md flex-col gap-5 px-5 pb-10 pt-7">
@@ -33,7 +47,11 @@ export default async function SpaBookingPreviewPage() {
         </h1>
       </header>
 
-      <SpaServiceComposerPreview previewDate={toLocalDateStr()} />
+      <SpaServiceComposerPreview
+        previewDate={previewDate}
+        latestDate={latestDate}
+        providers={providers}
+      />
     </div>
   );
 }

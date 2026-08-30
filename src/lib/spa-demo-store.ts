@@ -50,6 +50,8 @@ export type SpaDemoProvider = {
     date: string;
     label: string;
     tone: "leave" | "extra";
+    startTime?: string | null;
+    endTime?: string | null;
   }[];
 };
 

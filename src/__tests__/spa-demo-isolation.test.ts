@@ -134,6 +134,8 @@ describe("SPA Demo tenant isolation", () => {
     expect(composer).toContain("確認預約");
     expect(composer).toContain("不指定");
     expect(composer).toContain('useState("")');
+    expect(composer).toContain("isSpaProviderAvailable");
+    expect(composer).not.toContain('id: "spa-demo-staff-08"');
     expect(composer).not.toContain("最新預約");
     expect(composer).not.toContain("姓名");
     expect(action).not.toContain("data.customerName");
@@ -141,6 +143,8 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).toContain('process.env.VERCEL_ENV === "production"');
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_ID");
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
+    expect(action).toContain("getSpaDemoBookableProviders");
+    expect(action).toContain("isSpaProviderAvailable");
     expect(action).toContain('storeId: SPA_DEMO_STORE.id');
     expect(action).toContain('bookingStatus: "CONFIRMED"');
     expect(action).toContain('revalidatePath("/dashboard/bookings")');
@@ -197,7 +201,8 @@ describe("SPA Demo preview database scoping", () => {
     expect(prisma.staff.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         storeId: SPA_DEMO_STORE.id,
-        id: { in: SPA_DEMO_PROVIDERS.map((provider) => provider.id) },
+        status: "ACTIVE",
+        isOwner: false,
       }),
     }));
     expect(prisma.booking.findMany).toHaveBeenCalledWith(expect.objectContaining({

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
-import { toLocalDateStr } from "@/lib/date-utils";
+import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import {
   assertSpaDemoStoreIdentity,
   SPA_DEMO_BOOKINGS,
@@ -61,12 +61,28 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     prisma.staff.findMany({
       where: {
         storeId: SPA_DEMO_STORE.id,
-        id: { in: SPA_DEMO_PROVIDERS.map((provider) => provider.id) },
         status: "ACTIVE",
         isOwner: false,
       },
-      select: { id: true, displayName: true },
-      orderBy: { displayName: "asc" },
+      select: {
+        id: true,
+        displayName: true,
+        skills: {
+          where: { storeId: SPA_DEMO_STORE.id, skill: { isActive: true } },
+          select: { skillId: true, skill: { select: { name: true } } },
+        },
+        weeklyAvailabilities: {
+          where: { storeId: SPA_DEMO_STORE.id, isActive: true },
+          select: { dayOfWeek: true, startTime: true, endTime: true },
+          orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+        },
+        availabilityExceptions: {
+          where: { storeId: SPA_DEMO_STORE.id, date: { gte: parseTaiwanDateToDbDate(toLocalDateStr()) } },
+          select: { date: true, type: true, reason: true, startTime: true, endTime: true },
+          orderBy: { date: "asc" },
+        },
+      },
+      orderBy: { createdAt: "asc" },
     }),
     prisma.booking.findMany({
       where: {
@@ -104,8 +120,28 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
 
   const providers = staff.map((record) => {
     const fixture = SPA_DEMO_PROVIDERS.find((provider) => provider.id === record.id);
-    if (!fixture) throw new Error(`SPA_DEMO_PROVIDER_NOT_ALLOWLISTED:${record.id}`);
-    return { ...fixture, name: record.displayName.replace(/^\d+號\s*/, "") };
+    const badgeMatch = record.displayName.match(/^(\d+)號\s*/);
+    const specialtyKeys = record.skills
+      .map((row) => row.skillId.replace("spa-demo-skill-", ""))
+      .filter((key): key is "body" | "head" | "foot" | "face" => ["body", "head", "foot", "face"].includes(key));
+    return {
+      id: record.id,
+      badge: badgeMatch?.[1] ?? record.displayName.slice(0, 2),
+      name: record.displayName.replace(/^\d+號\s*/, ""),
+      specialties: record.skills.map((row) => row.skill.name).join("・") || "尚未設定專業項目",
+      specialtyKeys,
+      emergencyContact: fixture?.emergencyContact ?? { name: "", relation: "", phone: "" },
+      weeklyAvailability: record.weeklyAvailabilities,
+      scheduleExceptions: record.availabilityExceptions.map((exception) => ({
+        date: toLocalDateStr(exception.date),
+        label: exception.type === "UNAVAILABLE"
+          ? exception.reason || "個人休假"
+          : `臨時加班 ${exception.startTime}–${exception.endTime}`,
+        tone: exception.type === "UNAVAILABLE" ? "leave" as const : "extra" as const,
+        startTime: exception.startTime,
+        endTime: exception.endTime,
+      })),
+    };
   });
 
   const mappedBookings: SpaDemoBooking[] = bookings.map((record) => {
@@ -116,7 +152,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       record.customer.storeId !== SPA_DEMO_STORE.id ||
       (record.servicePlan && record.servicePlan.storeId !== SPA_DEMO_STORE.id) ||
       (record.customerPlanWallet && record.customerPlanWallet.storeId !== SPA_DEMO_STORE.id) ||
-      (record.serviceStaffId && !SPA_DEMO_PROVIDERS.some((provider) => provider.id === record.serviceStaffId))
+      (record.serviceStaffId && !staff.some((provider) => provider.id === record.serviceStaffId))
     ) {
       throw new Error(`SPA_DEMO_CROSS_STORE_RELATION_REJECTED:${record.id}`);
     }
@@ -132,7 +168,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         customer: "王小姐",
         service: record.treatmentNameSnapshot ?? record.servicePlan?.name ?? "SPA 服務",
         serviceItems: (record.treatmentNameSnapshot ?? "SPA 服務").split("＋"),
-        providerId: record.serviceStaffId ?? SPA_DEMO_PROVIDERS[0].id,
+        providerId: record.serviceStaffId ?? providers[0]?.id ?? SPA_DEMO_PROVIDERS[0].id,
         durationMinutes: record.treatmentServiceMinutesSnapshot ?? 60,
         bufferMinutes: record.treatmentBufferMinutesSnapshot ?? 30,
         status,

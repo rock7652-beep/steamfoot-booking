@@ -16,10 +16,10 @@ import {
   addMinutes,
   canProviderPerformServices,
   composeSpaServices,
-  hasContinuousAvailability,
   SPA_SERVICE_MENU,
   summarizeSpaServices,
 } from "@/lib/spa-scheduling";
+import { isSpaProviderAvailable } from "@/lib/spa-provider-availability";
 
 type QuickSlot = {
   date: string;
@@ -38,9 +38,6 @@ const scheduleTimes = [
   "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
   "18:00", "18:30", "19:00", "19:30", "20:00", "20:30",
 ] as const;
-
-// Detail subcomponents use the same immutable allowlist as the server loader.
-const previewProviders = SPA_DEMO_PROVIDERS;
 
 const blockedRanges = [
   { date: "2026-08-29", providerId: "spa-demo-staff-08", startTime: "13:00", durationMinutes: 60, label: "午休" },
@@ -77,6 +74,9 @@ export function SpaManagerSchedulePreview({
 }) {
   const industryModule = SPA_INDUSTRY_MODULE;
   const activeProviders = initialProviders;
+  const getActiveProvider = (providerId: string) => (
+    activeProviders.find((provider) => provider.id === providerId) ?? activeProviders[0]
+  );
   const [bookings, setBookings] = useState<PreviewBooking[]>(() => [...initialBookings]);
   const [dayIndex, setDayIndex] = useState(() => {
     const index = scheduleDays.findIndex((day) => day.key === previewDate);
@@ -115,7 +115,8 @@ export function SpaManagerSchedulePreview({
   function openQuickBooking(slot: QuickSlot) {
     setQuickSlot(slot);
     setSelectedBookingId(null);
-    const provider = getProvider(slot.providerId);
+    const provider = getActiveProvider(slot.providerId);
+    if (!provider) return;
     setNotice(`正在安排 ${slot.time}・${provider.badge}號 ${provider.name}。`);
   }
 
@@ -154,7 +155,8 @@ export function SpaManagerSchedulePreview({
 
   function requestRebooking() {
     if (!selectedBooking) return;
-    const provider = getProvider(selectedBooking.providerId);
+    const provider = getActiveProvider(selectedBooking.providerId);
+    if (!provider) return;
     setNotice(`已準備為 ${selectedBooking.customer} 安排下一次；保留 ${provider.badge}號 ${provider.name}，日期與時間重新選擇。`);
   }
 
@@ -167,14 +169,15 @@ export function SpaManagerSchedulePreview({
     const addOnKeys = formData.getAll("addOn").map(String);
     const serviceItems = composeSpaServices(primaryKey, addOnKeys);
     const serviceSummary = summarizeSpaServices(serviceItems);
-    const provider = getProvider(quickSlot.providerId);
+    const provider = getActiveProvider(quickSlot.providerId);
+    if (!provider) return;
     if (!customer) return;
 
     if (!canProviderPerformServices(provider.specialtyKeys, serviceItems)) {
       setNotice(`${provider.badge}號無法完成全部所選項目，請改選其他芳療師。`);
       return;
     }
-    if (!isAvailable(quickSlot.date, quickSlot.time, provider.id, serviceSummary.durationMinutes, 30, bookings)) {
+    if (!isAvailable(quickSlot.date, quickSlot.time, provider, serviceSummary.durationMinutes, 30, bookings)) {
       setNotice(`從 ${quickSlot.time} 起沒有連續 ${serviceSummary.durationMinutes} 分鐘服務＋30 分鐘整理空檔。`);
       return;
     }
@@ -203,7 +206,7 @@ export function SpaManagerSchedulePreview({
   function openFirstAvailableSlot() {
     for (const time of scheduleTimes) {
       for (const provider of activeProviders) {
-        if (isAvailable(selectedDay.key, time, provider.id, 60, 30, bookings)) {
+        if (isAvailable(selectedDay.key, time, provider, 60, 30, bookings)) {
           openQuickBooking({ date: selectedDay.key, time, providerId: provider.id });
           return;
         }
@@ -258,7 +261,7 @@ export function SpaManagerSchedulePreview({
             <MetricCard label="今日預約" value={String(dayBookings.length)} unit="筆" detail={`${activeProviders.length} 位芳療師`} />
             <MetricCard label="待服務" value={String(activeCount)} unit="筆" detail={activeCount ? "可逐筆完成服務" : "今日服務已完成"} />
             <MetricCard label="新顧客" value={String(newCustomerCount)} unit="位" detail={newCustomerCount ? "初次體驗" : "目前沒有新客"} emphasized />
-            <MetricCard label="人員排程" value="3" unit="位" detail="號牌 08・10・16" />
+            <MetricCard label="人員排程" value={String(activeProviders.length)} unit="位" detail={activeProviders.map((provider) => `${provider.badge}號`).join("・")} />
           </section>
 
           <div className="mt-6 grid min-w-0 gap-6">
@@ -271,12 +274,12 @@ export function SpaManagerSchedulePreview({
               </div>
 
               <div className="overflow-x-auto">
-                <div className="min-w-[900px]">
-                  <div className="grid grid-cols-[80px_repeat(3,minmax(240px,1fr))] bg-earth-50/90 text-sm">
+                <div style={{ minWidth: `${80 + Math.max(activeProviders.length, 1) * 240}px` }}>
+                  <div className="grid bg-earth-50/90 text-sm" style={{ gridTemplateColumns: `80px repeat(${Math.max(activeProviders.length, 1)}, minmax(240px, 1fr))` }}>
                     <div className="sticky left-0 z-20 border-b border-r border-earth-100 bg-earth-50 px-4 py-4 font-medium text-earth-500">時間</div>
                     {activeProviders.map((provider) => <ProviderHeader key={provider.id} provider={provider} />)}
                   </div>
-                  <div className="grid grid-cols-[80px_repeat(3,minmax(240px,1fr))]">
+                  <div className="grid" style={{ gridTemplateColumns: `80px repeat(${Math.max(activeProviders.length, 1)}, minmax(240px, 1fr))` }}>
                     <div className="sticky left-0 z-20 grid bg-white" style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, 52px)` }}>
                       {scheduleTimes.map((time) => <div key={time} className="border-b border-r border-earth-100 px-3 py-2 text-xs font-semibold tabular-nums text-earth-600">{time}</div>)}
                     </div>
@@ -315,9 +318,9 @@ export function SpaManagerSchedulePreview({
               <button type="button" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-600">關閉</button>
             </div>
             {quickSlot ? (
-              <QuickBookingForm slot={quickSlot} onCancel={() => setQuickSlot(null)} onSubmit={createQuickBooking} />
+              <QuickBookingForm provider={getActiveProvider(quickSlot.providerId)} slot={quickSlot} onCancel={() => setQuickSlot(null)} onSubmit={createQuickBooking} />
             ) : selectedBooking ? (
-              <BookingDetail booking={selectedBooking} onComplete={completeBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
+              <BookingDetail provider={getActiveProvider(selectedBooking.providerId)} booking={selectedBooking} onComplete={completeBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
             ) : null}
           </aside>
         </div>
@@ -365,7 +368,7 @@ function ScheduleProviderColumn({
   return (
     <div className="relative grid border-r border-earth-100 last:border-r-0" style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, 52px)` }}>
       {scheduleTimes.map((time, index) => {
-        const available = isAvailable(date, time, provider.id, 30, 0, bookings);
+        const available = isAvailable(date, time, provider, 30, 0, bookings);
         return (
           <div key={time} className="border-b border-earth-100 p-1" style={{ gridColumn: 1, gridRow: index + 1 }}>
             {available ? <EmptySlot label={`${time}・${provider.badge}號 ${provider.name}`} onOpen={() => onOpenQuickBooking({ date, time, providerId: provider.id })} /> : null}
@@ -409,14 +412,13 @@ function BlockedSlot({ label }: { label: string }) {
   return <div className="flex h-full items-center justify-center rounded-xl bg-earth-100 px-2 text-center text-xs font-medium text-earth-400">{label}</div>;
 }
 
-function BookingDetail({ booking, onComplete, isCompleting, onRebook }: { booking: PreviewBooking; onComplete: (settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; isCompleting: boolean; onRebook: () => void }) {
-  const provider = getProvider(booking.providerId);
+function BookingDetail({ provider, booking, onComplete, isCompleting, onRebook }: { provider: PreviewProvider | undefined; booking: PreviewBooking; onComplete: (settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; isCompleting: boolean; onRebook: () => void }) {
   const [showCheckout, setShowCheckout] = useState(false);
   const [settlement, setSettlement] = useState<"CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE">(booking.remainingSessions === null ? "CASH" : "PACKAGE");
   return (
     <section className="rounded-2xl bg-earth-900 p-5 text-white shadow-[0_12px_32px_rgba(52,47,39,0.14)]">
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-300">預約詳情・{booking.time}</p><h2 className="mt-2 text-xl font-semibold">{booking.customer}</h2></div><span className="rounded-full bg-white/12 px-2.5 py-1 text-xs font-semibold">{booking.status}</span></div>
-      <dl className="mt-5 space-y-3 border-t border-white/10 pt-4 text-sm"><DetailRow label="服務項目" value={booking.serviceItems.join("＋")} /><DetailRow label="芳療師" value={`${provider.badge}號 ${provider.name}`} /><DetailRow label="服務時段" value={`${booking.time}–${addMinutes(booking.time, booking.durationMinutes)}`} /><DetailRow label="療程時間" value={`${booking.durationMinutes} 分鐘＋整理 ${booking.bufferMinutes} 分鐘`} /><DetailRow label="可用次數" value={booking.remainingSessions === null ? "單次／現場付款" : `剩餘 ${booking.remainingSessions} 次`} /><DetailRow label="注意事項" value={booking.note} /></dl>
+      <dl className="mt-5 space-y-3 border-t border-white/10 pt-4 text-sm"><DetailRow label="服務項目" value={booking.serviceItems.join("＋")} /><DetailRow label="芳療師" value={provider ? `${provider.badge}號 ${provider.name}` : "尚未指派"} /><DetailRow label="服務時段" value={`${booking.time}–${addMinutes(booking.time, booking.durationMinutes)}`} /><DetailRow label="療程時間" value={`${booking.durationMinutes} 分鐘＋整理 ${booking.bufferMinutes} 分鐘`} /><DetailRow label="可用次數" value={booking.remainingSessions === null ? "單次／現場付款" : `剩餘 ${booking.remainingSessions} 次`} /><DetailRow label="注意事項" value={booking.note} /></dl>
       {booking.id === SPA_DEMO_LIVE_FLOW_BOOKING_ID ? <div className="mt-4 grid grid-cols-2 gap-2 text-xs"><div className="rounded-xl bg-white/8 p-3 ring-1 ring-white/10"><p className="text-earth-400">儲值金餘額</p><p className="mt-1 font-semibold text-white">NT${(booking.storedValueBalance ?? 0).toLocaleString()}</p></div><div className="rounded-xl bg-white/8 p-3 ring-1 ring-white/10"><p className="text-earth-400">療程剩餘</p><p className="mt-1 font-semibold text-white">{booking.packageRemainingSessions ?? 0} 次</p></div></div> : null}
       {booking.status === "已完成" ? (
         <div className="mt-5 rounded-xl bg-primary-100 px-4 py-3 text-sm font-semibold text-primary-900">已完成・{booking.settlementLabel ?? "結帳完成"}{booking.settlementAmount ? `・NT$${booking.settlementAmount.toLocaleString()}` : ""}</div>
@@ -437,8 +439,7 @@ function BookingDetail({ booking, onComplete, isCompleting, onRebook }: { bookin
   );
 }
 
-function QuickBookingForm({ slot, onCancel, onSubmit }: { slot: QuickSlot; onCancel: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
-  const provider = getProvider(slot.providerId);
+function QuickBookingForm({ provider, slot, onCancel, onSubmit }: { provider: PreviewProvider | undefined; slot: QuickSlot; onCancel: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
   const [primaryKey, setPrimaryKey] = useState("aroma_body_60");
   const [addOnKeys, setAddOnKeys] = useState<readonly string[]>([]);
   const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
@@ -453,7 +454,7 @@ function QuickBookingForm({ slot, onCancel, onSubmit }: { slot: QuickSlot; onCan
 
   return (
     <section className="rounded-2xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
-      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-500">現場／電話快速預約</p><h2 className="mt-2 text-lg font-semibold">{slot.time}・{provider.badge}號 {provider.name}</h2></div><button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">關閉</button></div>
+      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-500">現場／電話快速預約</p><h2 className="mt-2 text-lg font-semibold">{slot.time}・{provider ? `${provider.badge}號 ${provider.name}` : "尚未指派"}</h2></div><button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">關閉</button></div>
       <form className="mt-5 space-y-4" onSubmit={onSubmit}>
         <div>
           <label htmlFor="spa-preview-customer" className="block text-sm font-medium text-earth-700">顧客姓名</label>
@@ -484,37 +485,42 @@ function AlertItem({ title, detail, tone }: { title: string; detail: string; ton
   return <div className="flex gap-3 rounded-xl bg-earth-50 p-3.5"><span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${tone === "rose" ? "bg-[#c78e7c]" : "bg-[#c5a66c]"}`} aria-hidden /><div><p className="text-sm font-semibold text-earth-900">{title}</p><p className="mt-1 text-xs text-earth-500">{detail}</p></div></div>;
 }
 
-function ModuleSetting({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-white/45">{label}</dt><dd className="mt-1 font-semibold text-white">{value}</dd></div>;
-}
-
-function getProvider(providerId: string): PreviewProvider {
-  return previewProviders.find((provider) => provider.id === providerId) ?? previewProviders[0];
-}
-
 function isAvailable(
   date: string,
   time: string,
-  providerId: string,
+  provider: PreviewProvider,
   serviceMinutes: number,
   bufferMinutes: number,
   bookings: readonly PreviewBooking[],
 ) {
   const bookingRanges = bookings
-    .filter((booking) => booking.date === date && booking.providerId === providerId)
+    .filter((booking) => booking.date === date && booking.providerId === provider.id)
     .map((booking) => ({
+      date: booking.date,
       startTime: booking.time,
       durationMinutes: booking.durationMinutes + booking.bufferMinutes,
     }));
   const unavailableRanges = blockedRanges
-    .filter((range) => range.date === date && range.providerId === providerId)
-    .map((range) => ({ startTime: range.startTime, durationMinutes: range.durationMinutes }));
-  return hasContinuousAvailability({
+    .filter((range) => range.date === date && range.providerId === provider.id)
+    .map((range) => ({ date: range.date, startTime: range.startTime, durationMinutes: range.durationMinutes }));
+  return isSpaProviderAvailable({
+    provider: {
+      id: provider.id,
+      label: `${provider.badge}號 ${provider.name}`,
+      specialties: provider.specialtyKeys,
+      weeklyAvailability: provider.weeklyAvailability,
+      availabilityExceptions: provider.scheduleExceptions.map((exception) => ({
+        date: exception.date,
+        type: exception.tone === "leave" ? "UNAVAILABLE" : "AVAILABLE",
+        startTime: exception.startTime ?? null,
+        endTime: exception.endTime ?? null,
+      })),
+      occupiedRanges: [...bookingRanges, ...unavailableRanges],
+    },
+    date,
     startTime: time,
     serviceMinutes,
     bufferMinutes,
-    closeTime: "21:00",
-    occupiedRanges: [...bookingRanges, ...unavailableRanges],
   });
 }
 

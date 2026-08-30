@@ -3,61 +3,41 @@
 import { useMemo, useState, useTransition } from "react";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
 import {
+  createHalfHourTimeOptions,
+  isSpaProviderAvailable,
+  type SpaBookableProvider,
+} from "@/lib/spa-provider-availability";
+import {
   canProviderPerformServices,
   composeSpaServices,
-  hasContinuousAvailability,
   SPA_SERVICE_MENU,
-  type SpaProviderSpecialty,
   summarizeSpaServices,
 } from "@/lib/spa-scheduling";
 
-type PreviewProvider = {
-  id: string;
-  label: string;
-  specialties: readonly SpaProviderSpecialty[];
-  occupiedRanges: readonly { startTime: string; durationMinutes: number }[];
-};
-
-const providers: readonly PreviewProvider[] = [
-  {
-    id: "spa-demo-staff-08",
-    label: "08號 陳語安",
-    specialties: ["body", "head"],
-    occupiedRanges: [{ startTime: "11:00", durationMinutes: 120 }],
-  },
-  {
-    id: "spa-demo-staff-10",
-    label: "10號 張若琳",
-    specialties: ["body", "head", "foot", "face"],
-    occupiedRanges: [{ startTime: "12:30", durationMinutes: 90 }],
-  },
-  {
-    id: "spa-demo-staff-16",
-    label: "16號 王心瑜",
-    specialties: ["face", "head"],
-    occupiedRanges: [{ startTime: "15:00", durationMinutes: 90 }],
-  },
-] as const;
-
-const candidateTimes = [
-  "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-  "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-] as const;
+const candidateTimes = createHalfHourTimeOptions();
 
 const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
 const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
 
-function isProviderAvailable(provider: PreviewProvider, time: string, serviceMinutes: number) {
-  return hasContinuousAvailability({
+function isProviderAvailable(provider: SpaBookableProvider, date: string, time: string, serviceMinutes: number) {
+  return isSpaProviderAvailable({
+    provider,
+    date,
     startTime: time,
     serviceMinutes,
     bufferMinutes: 30,
-    closeTime: "21:00",
-    occupiedRanges: provider.occupiedRanges,
   });
 }
 
-export function SpaServiceComposerPreview({ previewDate }: { previewDate: string }) {
+export function SpaServiceComposerPreview({
+  previewDate,
+  latestDate,
+  providers,
+}: {
+  previewDate: string;
+  latestDate: string;
+  providers: readonly SpaBookableProvider[];
+}) {
   const [primaryKey, setPrimaryKey] = useState("aroma_body_60");
   const [addOnKeys, setAddOnKeys] = useState<readonly string[]>([]);
   const [providerId, setProviderId] = useState("");
@@ -76,13 +56,13 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
   const selectedProvider = qualifiedProviders.find((provider) => provider.id === providerId);
   const providersForAvailability = selectedProvider ? [selectedProvider] : qualifiedProviders;
   const availableTimes = candidateTimes.filter((time) =>
-    providersForAvailability.some((provider) => isProviderAvailable(provider, time, summary.durationMinutes)),
+    providersForAvailability.some((provider) => isProviderAvailable(provider, bookingDate, time, summary.durationMinutes)),
   );
-  const safeSelectedTime = availableTimes.includes(selectedTime as (typeof candidateTimes)[number])
+  const safeSelectedTime = availableTimes.includes(selectedTime)
     ? selectedTime
     : availableTimes[0];
   const assignedProvider = safeSelectedTime
-    ? providersForAvailability.find((provider) => isProviderAvailable(provider, safeSelectedTime, summary.durationMinutes))
+    ? providersForAvailability.find((provider) => isProviderAvailable(provider, bookingDate, safeSelectedTime, summary.durationMinutes))
     : undefined;
 
   function choosePrimary(nextPrimaryKey: string) {
@@ -162,14 +142,15 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
 
         <fieldset>
           <legend className="text-sm font-semibold text-earth-900">3. 選擇日期與時間</legend>
-          <label className="mt-3 block text-sm font-medium text-earth-700">預約日期<input type="date" min={previewDate} max={previewDate} value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
+          <label className="mt-3 block text-sm font-medium text-earth-700">預約日期<input type="date" min={previewDate} max={latestDate} value={bookingDate} onChange={(event) => { setBookingDate(event.target.value); setSelectedTime(""); setNotice(""); }} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
           <div className="mt-3 flex flex-wrap gap-2">
-            {availableTimes.slice(0, 6).map((time) => (
+            {availableTimes.map((time) => (
               <label key={time} className={`cursor-pointer rounded-xl border px-3 py-2 text-sm tabular-nums ${safeSelectedTime === time ? "border-primary-500 bg-primary-50 font-semibold text-primary-800" : "border-earth-200 text-earth-600"}`}>
                 <input className="sr-only" type="radio" name="spa-time" value={time} checked={safeSelectedTime === time} onChange={() => setSelectedTime(time)} />
                 {time}
               </label>
             ))}
+            {!availableTimes.length ? <p className="text-sm text-earth-500">當天沒有可預約時段</p> : null}
           </div>
         </fieldset>
 

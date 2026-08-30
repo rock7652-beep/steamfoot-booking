@@ -124,6 +124,7 @@ export async function saveSpaStaffSkills(input: z.infer<typeof staffSkillsSchema
       await tx.staffSkill.createMany({ data: data.skillKeys.map((key) => ({ storeId, staffId: data.staffId, skillId: SKILLS.find((skill) => skill.key === key)!.id })) });
     });
     revalidatePath("/dashboard/staff");
+    revalidatePath("/liff/design-preview/booking");
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error, context); }
 }
@@ -142,6 +143,7 @@ export async function saveSpaWeeklyAvailability(input: z.infer<typeof weeklyAvai
       if (data.availability.length) await tx.staffWeeklyAvailability.createMany({ data: data.availability.map((item) => ({ ...item, storeId, staffId: data.staffId })) });
     });
     revalidatePath("/dashboard/staff");
+    revalidatePath("/liff/design-preview/booking");
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error, context); }
 }
@@ -156,6 +158,7 @@ export async function saveSpaAvailabilityException(input: z.infer<typeof excepti
     await assertDemoStaff(data.staffId, storeId);
     await prisma.staffAvailabilityException.create({ data: { storeId, staffId: data.staffId, date: parseTaiwanDateToDbDate(data.date), type: data.type, startTime: data.type === "AVAILABLE" ? data.startTime : null, endTime: data.type === "AVAILABLE" ? data.endTime : null, reason: data.reason } });
     revalidatePath("/dashboard/staff");
+    revalidatePath("/liff/design-preview/booking");
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error, context); }
 }
