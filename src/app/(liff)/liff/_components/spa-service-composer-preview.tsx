@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
 import { createHalfHourTimeOptions, isSpaProviderAvailable, type SpaBookableProvider } from "@/lib/spa-provider-availability";
@@ -8,6 +9,20 @@ import { canProviderPerformServices, composeSpaServices, SPA_SERVICE_MENU, summa
 const candidateTimes = createHalfHourTimeOptions();
 const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
 const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
+
+type CompletedBooking = {
+  date: string;
+  time: string;
+  people: number;
+  service: string;
+  durationMinutes: number;
+  provider: string;
+};
+
+function formatBookingDate(date: string) {
+  const [, month, day] = date.split("-").map(Number);
+  return `${month}月${day}日`;
+}
 
 function isProviderAvailable(provider: SpaBookableProvider, date: string, time: string, serviceMinutes: number) {
   return isSpaProviderAvailable({ provider, date, startTime: time, serviceMinutes, bufferMinutes: 30 });
@@ -25,6 +40,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers }
   const [selectedTime, setSelectedTime] = useState("");
   const [providerId, setProviderId] = useState("");
   const [notice, setNotice] = useState("");
+  const [completedBooking, setCompletedBooking] = useState<CompletedBooking | null>(null);
   const [isSubmitting, startSubmitting] = useTransition();
 
   const selectedPrimary = SPA_SERVICE_MENU.find((item) => item.key === primaryKey);
@@ -76,10 +92,38 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers }
         primaryKey,
         addOnKeys: selectedPrimary.kind === "COMBO" ? [] : [...addOnKeys],
       });
-      setNotice(result.success
-        ? `預約完成：${result.data.bookingDate} ${result.data.slotTime}・${result.data.people} 位`
-        : result.error);
+      if (!result.success) {
+        setNotice(result.error);
+        return;
+      }
+      setCompletedBooking({
+        date: result.data.bookingDate,
+        time: result.data.slotTime,
+        people: result.data.people,
+        service: selectedItems.map((item) => item.name.replace("加購", "")).join("＋"),
+        durationMinutes: summary.durationMinutes,
+        provider: safeProviderId
+          ? assignedProviders.map((provider) => provider.label).join("、")
+          : "系統安排",
+      });
     });
+  }
+
+  if (completedBooking) {
+    return (
+      <section className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70" aria-label="預約完成">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-2xl text-primary-800" aria-hidden>✓</div>
+        <p className="mt-5 text-sm font-semibold text-primary-700">預約完成</p>
+        <h2 className="mt-1 text-2xl font-semibold text-earth-900">{formatBookingDate(completedBooking.date)} {completedBooking.time}</h2>
+        <dl className="mt-5 space-y-3 border-y border-earth-100 py-4 text-sm">
+          <div className="flex justify-between gap-4"><dt className="text-earth-500">人數</dt><dd className="font-semibold text-earth-900">{completedBooking.people} 位</dd></div>
+          <div className="flex justify-between gap-4"><dt className="text-earth-500">服務</dt><dd className="text-right font-semibold text-earth-900">{completedBooking.service}</dd></div>
+          <div className="flex justify-between gap-4"><dt className="text-earth-500">時間</dt><dd className="font-semibold text-earth-900">{completedBooking.durationMinutes} 分鐘</dd></div>
+          <div className="flex justify-between gap-4"><dt className="text-earth-500">芳療師</dt><dd className="font-semibold text-earth-900">{completedBooking.provider}</dd></div>
+        </dl>
+        <Link href="/s/demo/liff/design-preview" className="mt-6 flex min-h-12 w-full items-center justify-center rounded-2xl bg-earth-900 px-4 font-semibold text-white">返回會員中心</Link>
+      </section>
+    );
   }
 
   return (
