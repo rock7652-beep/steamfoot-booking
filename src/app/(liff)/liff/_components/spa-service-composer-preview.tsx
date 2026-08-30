@@ -47,10 +47,20 @@ const candidateTimes = [
 const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
 const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
 
+function isProviderAvailable(provider: PreviewProvider, time: string, serviceMinutes: number) {
+  return hasContinuousAvailability({
+    startTime: time,
+    serviceMinutes,
+    bufferMinutes: 30,
+    closeTime: "21:00",
+    occupiedRanges: provider.occupiedRanges,
+  });
+}
+
 export function SpaServiceComposerPreview({ previewDate }: { previewDate: string }) {
   const [primaryKey, setPrimaryKey] = useState("aroma_body_60");
   const [addOnKeys, setAddOnKeys] = useState<readonly string[]>([]);
-  const [providerId, setProviderId] = useState("AUTO");
+  const [providerId, setProviderId] = useState("");
   const [selectedTime, setSelectedTime] = useState("10:00");
   const [customerName, setCustomerName] = useState("王小姐");
   const [bookingDate, setBookingDate] = useState(previewDate);
@@ -64,30 +74,23 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
   );
   const summary = summarizeSpaServices(selectedItems);
   const qualifiedProviders = providers.filter((provider) => canProviderPerformServices(provider.specialties, selectedItems));
-  const availableProviders = providerId === "AUTO"
-    ? qualifiedProviders
-    : qualifiedProviders.filter((provider) => provider.id === providerId);
-  const canTakeAt = (provider: PreviewProvider, time: string) => hasContinuousAvailability({
-    startTime: time,
-    serviceMinutes: summary.durationMinutes,
-    bufferMinutes: 30,
-    closeTime: "21:00",
-    occupiedRanges: provider.occupiedRanges,
-  });
+  const selectedProvider = qualifiedProviders.find((provider) => provider.id === providerId);
+  const providersForAvailability = selectedProvider ? [selectedProvider] : qualifiedProviders;
   const availableTimes = candidateTimes.filter((time) =>
-    availableProviders.some((provider) => canTakeAt(provider, time)),
+    providersForAvailability.some((provider) => isProviderAvailable(provider, time, summary.durationMinutes)),
   );
   const safeSelectedTime = availableTimes.includes(selectedTime as (typeof candidateTimes)[number])
     ? selectedTime
     : availableTimes[0];
-  const selectedProvider = safeSelectedTime
-    ? availableProviders.find((provider) => canTakeAt(provider, safeSelectedTime)) ?? null
-    : null;
+  const assignedProvider = safeSelectedTime
+    ? providersForAvailability.find((provider) => isProviderAvailable(provider, safeSelectedTime, summary.durationMinutes))
+    : undefined;
 
   function choosePrimary(nextPrimaryKey: string) {
     const nextPrimary = SPA_SERVICE_MENU.find((item) => item.key === nextPrimaryKey);
     setPrimaryKey(nextPrimaryKey);
     if (nextPrimary?.kind === "COMBO") setAddOnKeys([]);
+    setProviderId("");
     setSelectedTime("");
     setNotice("");
   }
@@ -96,18 +99,19 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
     setAddOnKeys((current) => current.includes(key)
       ? current.filter((candidate) => candidate !== key)
       : [...current, key]);
+    setProviderId("");
     setSelectedTime("");
     setNotice("");
   }
 
   function confirmPreview() {
-    if (!selectedProvider || !safeSelectedTime) return;
+    if (!assignedProvider || !safeSelectedTime) return;
     startSubmitting(async () => {
       const result = await createSpaDemoCustomerBooking({
         customerName,
         bookingDate,
         slotTime: safeSelectedTime,
-        providerId: selectedProvider.id,
+        providerId: assignedProvider.id,
         primaryKey,
         addOnKeys: selectedPrimary.kind === "COMBO" ? [] : [...addOnKeys],
       });
@@ -115,12 +119,14 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
         setNotice(result.error);
         return;
       }
-      setNotice(`預約完成：${result.data.bookingDate} ${result.data.slotTime}・${selectedProvider.label}`);
+      setNotice(`預約完成：${result.data.bookingDate} ${result.data.slotTime}・${assignedProvider.label}`);
     });
   }
 
   return (
-    <section className="overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70" aria-label="預約服務">\n      <div className="space-y-6 p-5">\n        <fieldset>
+    <section className="overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70" aria-label="預約內容">
+      <div className="space-y-6 p-5">
+        <fieldset>
           <legend className="text-sm font-semibold text-earth-900">1. 選擇主療程或組合</legend>
           <div className="mt-3 grid gap-2">
             {primaryItems.map((item) => (
@@ -157,23 +163,7 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
         </div>
 
         <fieldset>
-          <legend className="text-sm font-semibold text-earth-900">3. 芳療師（選填）</legend>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <label className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold ${providerId === "AUTO" ? "border-earth-900 bg-earth-900 text-white" : "border-earth-200 text-earth-700"}`}>
-              <input className="sr-only" type="radio" name="spa-provider" value="AUTO" checked={providerId === "AUTO"} onChange={() => { setProviderId("AUTO"); setSelectedTime(""); }} />
-              不指定
-            </label>
-            {qualifiedProviders.map((provider) => (
-              <label key={provider.id} className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold ${providerId === provider.id ? "border-earth-900 bg-earth-900 text-white" : "border-earth-200 text-earth-700"}`}>
-                <input className="sr-only" type="radio" name="spa-provider" value={provider.id} checked={providerId === provider.id} onChange={() => { setProviderId(provider.id); setSelectedTime(""); }} />
-                {provider.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset>
-          <legend className="text-sm font-semibold text-earth-900">4. 選擇日期與時間</legend>
+          <legend className="text-sm font-semibold text-earth-900">3. 選擇日期與時間</legend>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-sm font-medium text-earth-700">姓名<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} maxLength={30} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
             <label className="text-sm font-medium text-earth-700">預約日期<input type="date" min={previewDate} max={previewDate} value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
@@ -188,7 +178,23 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
           </div>
         </fieldset>
 
-        <button type="button" onClick={confirmPreview} disabled={isSubmitting || !customerName.trim() || !bookingDate || !selectedProvider || !safeSelectedTime} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isSubmitting ? "預約中…" : "確認預約"}</button>
+        <fieldset>
+          <legend className="text-sm font-semibold text-earth-900">4. 芳療師（選填）</legend>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <label className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold ${providerId === "" ? "border-earth-900 bg-earth-900 text-white" : "border-earth-200 text-earth-700"}`}>
+              <input className="sr-only" type="radio" name="spa-provider" value="" checked={providerId === ""} onChange={() => { setProviderId(""); setSelectedTime(""); }} />
+              不指定
+            </label>
+            {qualifiedProviders.map((provider) => (
+              <label key={provider.id} className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold ${providerId === provider.id ? "border-earth-900 bg-earth-900 text-white" : "border-earth-200 text-earth-700"}`}>
+                <input className="sr-only" type="radio" name="spa-provider" value={provider.id} checked={providerId === provider.id} onChange={() => { setProviderId(provider.id); setSelectedTime(""); }} />
+                {provider.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <button type="button" onClick={confirmPreview} disabled={isSubmitting || !customerName.trim() || !bookingDate || !assignedProvider || !safeSelectedTime} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isSubmitting ? "預約中…" : "確認預約"}</button>
         {notice ? <p className="text-center text-sm font-medium text-primary-700" aria-live="polite">{notice}</p> : null}
       </div>
     </section>

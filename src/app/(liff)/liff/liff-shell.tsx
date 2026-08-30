@@ -423,12 +423,14 @@ export function WelcomeBack({
   memberSummary,
   healthAssessmentEnabled,
   terminology,
+  bookingHref,
 }: {
   storeSlug: string;
   displayName: string | null;
   memberSummary: MemberHomeSummary | "error" | null;
   healthAssessmentEnabled: boolean;
   terminology?: MemberHomeTerminology;
+  bookingHref?: string;
 }) {
   if (!memberSummary) {
     return (
@@ -474,6 +476,7 @@ export function WelcomeBack({
   const healthChange = getHealthChange(memberSummary?.healthSummary ?? null);
   const walletsAvailable = memberSummary.walletsStatus === "ok";
   const labels = terminology ?? STEAMFOOT_INDUSTRY_MODULE.customer;
+  const resolvedBookingHref = bookingHref ?? `/s/${storeSlug}/liff/member-booking`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -494,7 +497,7 @@ export function WelcomeBack({
         ) : (
           <div className="mt-3 flex items-center justify-between gap-4">
             <p className="text-base text-earth-200">目前沒有預約</p>
-            <Link href={`/s/${storeSlug}/liff/member-booking`} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-earth-900">立即預約</Link>
+            <Link href={resolvedBookingHref} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-earth-900">立即預約</Link>
           </div>
         )}
       </section>
@@ -520,7 +523,7 @@ export function WelcomeBack({
           </section>
 
           {totalBookable > 0 || makeupCredits.length > 0 ? (
-            <Link href={`/s/${storeSlug}/liff/member-booking`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
+            <Link href={resolvedBookingHref} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
               立即預約
             </Link>
           ) : (

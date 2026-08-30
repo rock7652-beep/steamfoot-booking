@@ -79,14 +79,21 @@ describe("SPA Demo tenant isolation", () => {
       "src/app/(liff)/liff/design-preview/page.tsx",
       "utf8",
     );
+    const customerBooking = readFileSync(
+      "src/app/(liff)/liff/design-preview/booking/page.tsx",
+      "utf8",
+    );
     const manager = readFileSync(
       "src/app/(liff)/liff/_components/spa-manager-schedule-preview.tsx",
       "utf8",
     );
 
     expect(customer).not.toContain("ModulePreviewSwitcher");
+    expect(customer).not.toContain("SpaServiceComposerPreview");
+    expect(customer).toContain("bookingHref");
+    expect(customerBooking).toContain("SpaServiceComposerPreview");
     expect(manager).not.toContain("ModulePreviewSwitcher");
-    expect(manager).toContain("桌機、iPad 與手機共用同一套排程");
+    expect(manager).not.toContain("桌機、iPad 與手機共用同一套排程");
     expect(manager).toContain('aria-label="預約右側操作面板"');
     expect(manager).toContain('className="overflow-x-auto"');
     expect(manager).not.toContain("請使用 iPad 或桌機開啟");
@@ -124,7 +131,10 @@ describe("SPA Demo tenant isolation", () => {
     );
 
     expect(composer).toContain("createSpaDemoCustomerBooking");
-    expect(composer).toContain("確認並同步 Demo 預約");
+    expect(composer).toContain("確認預約");
+    expect(composer).toContain("不指定");
+    expect(composer).toContain('useState("")');
+    expect(composer).not.toContain("最新預約");
     expect(action).toContain('process.env.VERCEL_ENV === "production"');
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_ID");
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");

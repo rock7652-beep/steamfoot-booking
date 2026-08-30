@@ -1,9 +1,15 @@
 import { notFound } from "next/navigation";
+import { liffMessages } from "@/lib/liff/messages";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
-import { toLocalDateStr } from "@/lib/date-utils";
-import { SpaServiceComposerPreview } from "../_components/spa-service-composer-preview";
+import {
+  getIndustryService,
+  SPA_INDUSTRY_MODULE,
+} from "@/lib/industry-modules";
+import { WelcomeBack } from "../liff-shell";
+
+const featuredSpaService = getIndustryService(SPA_INDUSTRY_MODULE, "package_10");
 
 export default async function LiffDesignPreviewPage() {
   if (process.env.VERCEL_ENV === "production") notFound();
@@ -32,7 +38,57 @@ export default async function LiffDesignPreviewPage() {
         </div>
       </header>
 
-      <SpaServiceComposerPreview previewDate={toLocalDateStr()} />
+      <WelcomeBack
+        storeSlug={presentation.slug}
+        displayName={liffMessages.shell.designPreviewName}
+        memberSummary={{
+          walletsStatus: "ok",
+          upcomingBookings: [{
+            id: "preview-booking",
+            bookingDate: "2026-08-29",
+            slotTime: "14:00",
+            bookingStatus: "CONFIRMED",
+            bookingType: "PACKAGE",
+            isMakeup: false,
+            people: 1,
+          }],
+          activeWallets: [{
+            id: "preview-wallet",
+            planName: featuredSpaService.name,
+            planCategory: "PACKAGE",
+            totalSessions: 12,
+            remainingSessions: 8,
+            availableToBook: 6,
+            pendingCount: 2,
+            usedCount: 4,
+            voidedCount: 0,
+            startDate: "2026-07-01",
+            expiryDate: "2026-12-31",
+            status: "ACTIVE",
+          }],
+          makeupCredits: [{ id: "preview-makeup", expiredAt: "2026-09-30" }],
+          nextBooking: {
+            id: "preview-booking",
+            bookingDate: "2026-08-29",
+            slotTime: "14:00",
+            bookingStatus: "CONFIRMED",
+            bookingType: "PACKAGE",
+            isMakeup: false,
+            people: 1,
+          },
+          healthSummary: null,
+          referralShare: {
+            storeName: displayStoreName,
+            referralUrl: `/s/${presentation.slug}/line-entry?ref=PREVIEW&destination=public-trial&source=liff-store-share`,
+            shareTemplate: null,
+            address: presentation.address,
+            mapUrl: presentation.mapUrl,
+          },
+        }}
+        healthAssessmentEnabled={SPA_INDUSTRY_MODULE.features.healthAssessment}
+        terminology={SPA_INDUSTRY_MODULE.customer}
+        bookingHref={`/s/${presentation.slug}/liff/design-preview/booking`}
+      />
     </div>
   );
 }
