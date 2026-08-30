@@ -18,6 +18,7 @@ export type ConversionMetric = {
 
 export type ConversionMetrics = {
   month: string;
+  trialAttendees: ConversionMetric;
   convertedCustomers: ConversionMetric;
   conversionRate: ConversionMetric;
   unconvertedCustomers: ConversionMetric;
@@ -26,6 +27,8 @@ export type ConversionMetrics = {
 export type CompletedTrial = {
   customerId: string;
   bookingDate: Date;
+  people?: number;
+  attendedPeople?: number | null;
 };
 
 export type PackagePurchase = {
@@ -35,6 +38,7 @@ export type PackagePurchase = {
 };
 
 type ConversionCounts = {
+  trialAttendees: number;
   convertedCustomers: number;
   conversionRate: number;
   unconvertedCustomers: number;
@@ -58,18 +62,25 @@ function compare(current: number, baseline: number): ConversionComparison {
   };
 }
 
+function actualAttendance(trial: CompletedTrial): number {
+  return trial.attendedPeople ?? trial.people ?? 1;
+}
+
 function countsForMonth(
   month: string,
   trials: CompletedTrial[],
   purchases: PackagePurchase[],
 ): ConversionCounts {
   const selection = selectConversionCustomerIds(month, trials, purchases);
-  const trialCustomers = selection.trialCustomerIds.size;
+  const trialAttendees = trials
+    .filter((trial) => toLocalDateStr(trial.bookingDate).startsWith(`${month}-`))
+    .reduce((sum, trial) => sum + actualAttendance(trial), 0);
   const convertedCustomers = selection.convertedCustomerIds.size;
   return {
+    trialAttendees,
     convertedCustomers,
-    conversionRate: trialCustomers === 0 ? 0 : (convertedCustomers / trialCustomers) * 100,
-    unconvertedCustomers: trialCustomers - convertedCustomers,
+    conversionRate: trialAttendees === 0 ? 0 : (convertedCustomers / trialAttendees) * 100,
+    unconvertedCustomers: Math.max(trialAttendees - convertedCustomers, 0),
   };
 }
 
@@ -79,7 +90,7 @@ export type ConversionCustomerSelection = {
   unconvertedCustomerIds: Set<string>;
 };
 
-/** KPI count 與 CRM list 共用的唯一 customerId selection。 */
+/** KPI 的主聯絡人 CRM list 共用 customerId selection；同行者若未建檔，只能納入人次 KPI。 */
 export function selectConversionCustomerIds(
   month: string,
   trials: CompletedTrial[],
@@ -87,7 +98,7 @@ export function selectConversionCustomerIds(
 ): ConversionCustomerSelection {
   const trialDatesByCustomer = new Map<string, Set<string>>();
   for (const trial of trials) {
-    const trialDate = trial.bookingDate.toISOString().slice(0, 10);
+    const trialDate = toLocalDateStr(trial.bookingDate);
     if (!trialDate.startsWith(`${month}-`)) continue;
     const dates = trialDatesByCustomer.get(trial.customerId) ?? new Set<string>();
     dates.add(trialDate);
@@ -130,6 +141,7 @@ export function buildConversionMetrics(
 
   return {
     month,
+    trialAttendees: metric("trialAttendees"),
     convertedCustomers: metric("convertedCustomers"),
     conversionRate: metric("conversionRate"),
     unconvertedCustomers: metric("unconvertedCustomers"),
@@ -137,8 +149,11 @@ export function buildConversionMetrics(
 }
 
 /**
- * 開卡 = 同店、同一台灣日完成 FIRST_TRIAL 並成功購買正式方案，且 Wallet 未取消。
- * Booking 只有一個 customerId，因此不使用 people / attendedPeople；同行者未各自建檔時不計。
+ * 體驗母數 = FIRST_TRIAL 完成時的實際到店人數（attendedPeople ?? people）。
+ * 開卡分子 = 同店、同一台灣日完成 FIRST_TRIAL 並成功購買正式方案、且 Wallet 未取消的顧客。
+ *
+ * 同行者若沒有各自建立 Customer，系統只能把他計入「體驗人次」母數，無法在 CRM 名單
+ * 顯示其個人身份；這是資料模型的既有限制，但不再把 2～4 人同行錯算成 1 次體驗。
  */
 export async function getConversionMetrics(
   storeId: string,
@@ -158,7 +173,12 @@ async function loadConversionFacts(storeId: string, months: string[]) {
       bookingType: "FIRST_TRIAL",
       OR: bookingRanges.map(({ start, end }) => ({ bookingDate: { gte: start, lte: end } })),
     },
-    select: { customerId: true, bookingDate: true },
+    select: {
+      customerId: true,
+      bookingDate: true,
+      people: true,
+      attendedPeople: true,
+    },
   });
 
   const customerIds = [...new Set(trials.map((trial) => trial.customerId))];
