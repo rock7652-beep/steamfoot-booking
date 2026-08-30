@@ -60,6 +60,7 @@ export default async function SpaStaffPreviewPage() {
                     <p className="mt-1 font-medium text-earth-800">{booking.customer}</p>
                     <p className="mt-1 text-sm text-earth-600">{booking.service}・{booking.durationMinutes} 分鐘</p>
                     <p className="mt-2 text-xs text-earth-500">服務後保留 {booking.bufferMinutes} 分鐘整理</p>
+                    {booking.status === "已完成" ? <p className="mt-2 text-sm font-semibold text-primary-800">已結帳・{booking.settlementLabel ?? "完成"}</p> : null}
                   </div>
                   <span className="shrink-0 rounded-full bg-white px-2 py-1 text-xs text-primary-700">{booking.status}</span>
                 </div>

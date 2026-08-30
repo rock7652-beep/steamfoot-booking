@@ -11,6 +11,7 @@ export const SPA_DEMO_STORE = {
 export const SPA_DEMO_OWNER_STAFF_ID = "spa-demo-owner";
 export const SPA_DEMO_LIVE_FLOW_CUSTOMER_ID = "spa-demo-customer-live-flow";
 export const SPA_DEMO_LIVE_FLOW_BOOKING_ID = "spa-demo-booking-live-flow";
+export const SPA_DEMO_LIVE_FLOW_TRANSACTION_ID = "spa-demo-transaction-live-flow";
 
 export type SpaDemoBookingStatus =
   | "新客體驗"
@@ -59,6 +60,8 @@ export type SpaDemoBooking = {
   tone: SpaDemoTone;
   remainingSessions: number | null;
   note: string;
+  settlementLabel?: string | null;
+  settlementAmount?: number | null;
 };
 
 export type SpaDemoPreviewData = {

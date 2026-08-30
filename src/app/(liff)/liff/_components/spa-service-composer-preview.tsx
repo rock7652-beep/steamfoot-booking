@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
+import type { SpaDemoBooking } from "@/lib/spa-demo-store";
 import {
   canProviderPerformServices,
   composeSpaServices,
@@ -47,7 +48,7 @@ const candidateTimes = [
 const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
 const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
 
-export function SpaServiceComposerPreview({ previewDate }: { previewDate: string }) {
+export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previewDate: string; liveBooking?: SpaDemoBooking | null }) {
   const [primaryKey, setPrimaryKey] = useState("aroma_body_60");
   const [addOnKeys, setAddOnKeys] = useState<readonly string[]>([]);
   const [providerId, setProviderId] = useState("spa-demo-staff-08");
@@ -122,6 +123,12 @@ export function SpaServiceComposerPreview({ previewDate }: { previewDate: string
       </div>
 
       <div className="space-y-6 p-5">
+        {liveBooking ? (
+          <div className={`rounded-2xl border p-4 ${liveBooking.status === "已完成" ? "border-primary-200 bg-primary-50" : "border-earth-200 bg-earth-50"}`}>
+            <div className="flex items-start justify-between gap-3"><div><p className="text-xs text-earth-500">最新 Demo 預約</p><p className="mt-1 font-semibold text-earth-900">{liveBooking.date}・{liveBooking.time}・{liveBooking.service}</p></div><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-primary-700">{liveBooking.status}</span></div>
+            {liveBooking.status === "已完成" ? <p className="mt-2 text-sm font-medium text-primary-800">店長已完成服務・{liveBooking.settlementLabel ?? "結帳完成"}{liveBooking.settlementAmount ? `・NT$${liveBooking.settlementAmount.toLocaleString()}` : ""}</p> : null}
+          </div>
+        ) : null}
         <fieldset>
           <legend className="text-sm font-semibold text-earth-900">1. 選擇主療程或組合</legend>
           <div className="mt-3 grid gap-2">

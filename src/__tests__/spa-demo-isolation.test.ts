@@ -114,6 +114,14 @@ describe("SPA Demo tenant isolation", () => {
       "src/app/(service-workspace)/staff-schedule/page.tsx",
       "utf8",
     );
+    const checkout = readFileSync(
+      "src/server/actions/spa-demo-checkout.ts",
+      "utf8",
+    );
+    const manager = readFileSync(
+      "src/app/(liff)/liff/_components/spa-manager-schedule-preview.tsx",
+      "utf8",
+    );
 
     expect(composer).toContain("createSpaDemoCustomerBooking");
     expect(composer).toContain("確認並同步 Demo 預約");
@@ -126,6 +134,15 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).toContain('revalidatePath("/staff-schedule")');
     expect(previewQuery).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
     expect(providerPage).toContain("serviceStaffId: user.staffId");
+    expect(checkout).toContain('process.env.VERCEL_ENV === "production"');
+    expect(checkout).toContain("z.literal(SPA_DEMO_LIVE_FLOW_BOOKING_ID)");
+    expect(checkout).toContain('storeId: SPA_DEMO_STORE.id');
+    expect(checkout).toContain('bookingStatus: "COMPLETED"');
+    expect(checkout).toContain('revalidatePath("/liff/staff-preview")');
+    expect(manager).toContain("完成服務與結帳");
+    expect(manager).toContain("確認完成並結帳");
+    expect(manager).not.toContain("確認到店");
+    expect(manager).not.toContain("開始服務");
   });
 });
 

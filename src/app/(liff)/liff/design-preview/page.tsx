@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { liffMessages } from "@/lib/liff/messages";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
-import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { SPA_DEMO_LIVE_FLOW_BOOKING_ID, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
 import { toLocalDateStr } from "@/lib/date-utils";
 import {
@@ -22,7 +22,8 @@ export default async function LiffDesignPreviewPage() {
   const storeSlug = await resolveStoreSlugForLiff();
   if (storeSlug !== SPA_DEMO_STORE.slug) notFound();
 
-  const { presentation } = await getSpaDemoPreviewData();
+  const { presentation, bookings } = await getSpaDemoPreviewData();
+  const liveBooking = bookings.find((booking) => booking.id === SPA_DEMO_LIVE_FLOW_BOOKING_ID) ?? null;
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
@@ -55,7 +56,7 @@ export default async function LiffDesignPreviewPage() {
         </div>
       </header>
 
-      <SpaServiceComposerPreview previewDate={toLocalDateStr()} />
+      <SpaServiceComposerPreview previewDate={toLocalDateStr()} liveBooking={liveBooking} />
 
       <WelcomeBack
         storeSlug={presentation.slug}

@@ -115,6 +115,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       ? "新客體驗"
       : STATUS_MAP[record.bookingStatus] ?? "已確認";
     if (isLiveFlow) {
+      const settlement = record.notes?.match(/\|label=([^|]+)\|amount=(\d+)/);
       return {
         id: record.id,
         date: toLocalDateStr(record.bookingDate),
@@ -129,6 +130,8 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         tone: toneForStatus(status),
         remainingSessions: null,
         note: "顧客端送出，店長與芳療師同步驗收",
+        settlementLabel: settlement?.[1] ?? null,
+        settlementAmount: settlement ? Number(settlement[2]) : null,
       };
     }
     return {
