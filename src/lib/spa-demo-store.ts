@@ -78,6 +78,9 @@ export type SpaDemoBooking = {
   settlementAmount?: number | null;
   storedValueBalance?: number | null;
   packageRemainingSessions?: number | null;
+  partySize?: number;
+  guestIndex?: number;
+  price?: number;
 };
 
 export type SpaDemoPreviewData = {
