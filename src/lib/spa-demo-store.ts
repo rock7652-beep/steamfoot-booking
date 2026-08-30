@@ -24,6 +24,16 @@ export const SPA_DEMO_LIVE_FLOW_STORED_LEDGER_ID = "spa-demo-ledger-live-stored"
 export const SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID = "spa-demo-wallet-live-flow";
 export const SPA_DEMO_LIVE_FLOW_PACKAGE_PLAN_ID = "spa-demo-plan-package_5";
 export const SPA_DEMO_LIVE_FLOW_PACKAGE_TRANSACTION_ID = "spa-demo-transaction-live-package";
+export const SPA_DEMO_LIVE_FLOW_NOTIFICATION_ID = "spa-demo-message-live-flow";
+
+export type SpaDemoBookingNotification = {
+  kind: "BOOKED" | "UPDATED" | "CANCELLED";
+  title: string;
+  date: string;
+  time: string;
+  lines: readonly string[];
+  summary: string;
+};
 
 export type SpaDemoBookingStatus =
   | "新客體驗"
@@ -94,6 +104,7 @@ export type SpaDemoPreviewData = {
   };
   providers: readonly SpaDemoProvider[];
   bookings: readonly SpaDemoBooking[];
+  notification: SpaDemoBookingNotification | null;
   source: "fixture" | "database";
 };
 
@@ -286,5 +297,6 @@ export const SPA_DEMO_FIXTURE: SpaDemoPreviewData = {
   presentation: SPA_DEMO_STORE,
   providers: SPA_DEMO_PROVIDERS,
   bookings: SPA_DEMO_BOOKINGS,
+  notification: null,
   source: "fixture",
 };

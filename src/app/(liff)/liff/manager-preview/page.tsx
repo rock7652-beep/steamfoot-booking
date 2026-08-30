@@ -21,6 +21,7 @@ export default async function SpaManagerPreviewPage() {
       initialProviders={preview.providers}
       initialBookings={preview.bookings}
       previewDate={toLocalDateStr()}
+      initialNotification={preview.notification}
     />
   );
 }

@@ -7,6 +7,8 @@ import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer
 import { createHalfHourTimeOptions, isSpaProviderAvailable, type SpaBookableProvider } from "@/lib/spa-provider-availability";
 import { canProviderPerformServices, composeSpaServices, SPA_SERVICE_MENU, summarizeSpaServices, type SpaServiceItem } from "@/lib/spa-scheduling";
 import { findSpaPartyProviderAssignment } from "@/lib/spa-party-assignment";
+import type { SpaDemoBookingNotification } from "@/lib/spa-demo-store";
+import { SpaBookingNotificationCard } from "./spa-booking-notification-card";
 
 const candidateTimes = createHalfHourTimeOptions();
 const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
@@ -62,11 +64,12 @@ function isProviderAvailable(provider: SpaBookableProvider, date: string, time: 
   return isSpaProviderAvailable({ provider, date, startTime: time, serviceMinutes, bufferMinutes: 30 });
 }
 
-export function SpaServiceComposerPreview({ previewDate, latestDate, providers, initialCompletedBooking = null }: {
+export function SpaServiceComposerPreview({ previewDate, latestDate, providers, initialCompletedBooking = null, initialNotification = null }: {
   previewDate: string;
   latestDate: string;
   providers: readonly SpaBookableProvider[];
   initialCompletedBooking?: SpaCompletedBookingPreview | null;
+  initialNotification?: SpaDemoBookingNotification | null;
 }) {
   const [people, setPeople] = useState(1);
   const [guests, setGuests] = useState<readonly GuestSelection[]>([emptyGuest()]);
@@ -75,6 +78,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
   const [selectedTime, setSelectedTime] = useState("");
   const [notice, setNotice] = useState("");
   const [completedBooking, setCompletedBooking] = useState<SpaCompletedBookingPreview | null>(initialCompletedBooking);
+  const [notification, setNotification] = useState<SpaDemoBookingNotification | null>(initialNotification);
   const [isEditing, setIsEditing] = useState(false);
   const [showCancelOptions, setShowCancelOptions] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<{ bookingId: string; scope: "GUEST" | "GROUP" } | null>(null);
@@ -208,6 +212,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
           addOnKeys: [...guest.addOnKeys],
         })),
       });
+      setNotification(result.data.notification);
       setIsEditing(false);
       setNotice("");
     });
@@ -222,6 +227,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
         setCancelTarget(null);
         return;
       }
+      setNotification(result.data.notification);
       if (result.data.cancelledAll) {
         setCompletedBooking(null);
         setShowCancelOptions(false);
@@ -264,6 +270,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
           <div className="flex justify-between gap-4 px-1 pt-1 text-sm"><span className="text-earth-500">合計</span><span className="font-semibold text-earth-900">NT${completedBooking.totalPrice.toLocaleString()}</span></div>
         </div>
         {completedBooking.status === "已完成" ? <div className="mt-4 rounded-2xl bg-primary-50 p-4 text-sm text-primary-900"><p className="font-semibold">整組已結帳・{completedBooking.settlementLabel ?? "完成"}{completedBooking.settlementAmount ? `・NT$${completedBooking.settlementAmount.toLocaleString()}` : ""}</p>{completedBooking.settlementLabel === "儲值金" ? <p className="mt-1 text-xs">儲值金餘額 NT${(completedBooking.storedValueBalance ?? 0).toLocaleString()}</p> : null}{completedBooking.settlementLabel?.startsWith("扣療程") ? <p className="mt-1 text-xs">療程剩餘 {completedBooking.packageRemainingSessions ?? 0} 次</p> : null}</div> : null}
+        {notification ? <div className="mt-4"><SpaBookingNotificationCard notification={notification} /></div> : null}
         {completedBooking.status !== "已完成" ? (
           <div className="mt-5 space-y-3">
             {!showCancelOptions ? (
@@ -362,6 +369,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
         {selectedTime ? <div className="rounded-2xl bg-primary-50 p-4 ring-1 ring-primary-100"><div className="flex items-end justify-between gap-4"><p className="text-sm font-semibold text-earth-900">{people} 位・{guestSummaries.map((summary) => `${summary.durationMinutes} 分`).join("／")}</p><p className="text-lg font-semibold text-earth-900">NT${totalPrice.toLocaleString()}</p></div></div> : null}
         {selectedTime ? <button type="button" onClick={confirmPreview} disabled={isSubmitting || assignedProviders.length !== people} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isSubmitting ? "處理中…" : isEditing ? "儲存修改" : "確認預約"}</button> : null}
         {notice ? <p className="text-center text-sm font-medium text-primary-700" aria-live="polite">{notice}</p> : null}
+        {!completedBooking && notification ? <SpaBookingNotificationCard notification={notification} /> : null}
       </div>
     </section>
   );

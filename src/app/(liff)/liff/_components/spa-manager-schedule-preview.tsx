@@ -13,6 +13,7 @@ import {
   type SpaDemoBookingStatus as BookingStatus,
   type SpaDemoProvider as PreviewProvider,
   type SpaDemoTone as Tone,
+  type SpaDemoBookingNotification,
 } from "@/lib/spa-demo-store";
 import {
   addMinutes,
@@ -23,6 +24,7 @@ import {
 import { isSpaProviderAvailable } from "@/lib/spa-provider-availability";
 import type { SpaBookableProvider } from "@/lib/spa-provider-availability";
 import { findSpaPartyProviderAssignment } from "@/lib/spa-party-assignment";
+import { SpaBookingNotificationCard } from "./spa-booking-notification-card";
 
 type QuickSlot = {
   date: string;
@@ -70,10 +72,12 @@ export function SpaManagerSchedulePreview({
   initialProviders = SPA_DEMO_PROVIDERS,
   initialBookings = SPA_DEMO_BOOKINGS,
   previewDate = "2026-08-29",
+  initialNotification = null,
 }: {
   initialProviders?: readonly PreviewProvider[];
   initialBookings?: readonly PreviewBooking[];
   previewDate?: string;
+  initialNotification?: SpaDemoBookingNotification | null;
 }) {
   const industryModule = SPA_INDUSTRY_MODULE;
   const activeProviders = initialProviders;
@@ -88,6 +92,7 @@ export function SpaManagerSchedulePreview({
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [quickSlot, setQuickSlot] = useState<QuickSlot | null>(null);
   const [notice, setNotice] = useState("點選預約可查看詳情，點選空白時段可快速新增。");
+  const [notification, setNotification] = useState<SpaDemoBookingNotification | null>(initialNotification);
   const [isCompleting, startCompleting] = useTransition();
 
   const selectedDay = scheduleDays[dayIndex];
@@ -247,6 +252,7 @@ export function SpaManagerSchedulePreview({
       const nextDayIndex = scheduleDays.findIndex((day) => day.key === bookingDate);
       if (nextDayIndex >= 0) setDayIndex(nextDayIndex);
       setSelectedBookingId(nextBookings[0].id);
+      setNotification(result.data.notification);
       setNotice(`${customer} 共 ${guests.length} 位的預約已更新。`);
     });
   }
@@ -258,6 +264,7 @@ export function SpaManagerSchedulePreview({
         setNotice(result.error);
         return;
       }
+      setNotification(result.data.notification);
       if (result.data.cancelledAll) {
         setBookings((current) => current.filter((booking) => !SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number])));
         setSelectedBookingId(null);
@@ -348,6 +355,7 @@ export function SpaManagerSchedulePreview({
       ]);
       setSelectedBookingId(nextBookings[0].id);
       setQuickSlot(null);
+      setNotification(result.data.notification);
       setNotice(`${customer} 共 ${people} 位的預約已加入排程。`);
     });
   }
@@ -450,6 +458,7 @@ export function SpaManagerSchedulePreview({
             </section>
 
             <aside aria-label="今日提醒">
+              {notification ? <div className="mb-4"><SpaBookingNotificationCard notification={notification} /></div> : null}
               <section className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(74,66,53,0.05)] ring-1 ring-earth-200/70">
                 <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">今日提醒</h2><span className="rounded-full bg-earth-100 px-2 py-1 text-xs text-earth-500">2 項</span></div>
                 <div className="mt-4 space-y-3"><AlertItem title="新客首次到店" detail="服務前確認注意事項" tone="rose" /><AlertItem title="療程即將到期" detail="完成服務後提醒續購" tone="sand" /></div>

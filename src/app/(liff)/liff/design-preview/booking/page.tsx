@@ -91,6 +91,7 @@ export default async function SpaBookingPreviewPage() {
         latestDate={latestDate}
         providers={providers}
         initialCompletedBooking={initialCompletedBooking}
+        initialNotification={preview.notification}
       />
     </div>
   );

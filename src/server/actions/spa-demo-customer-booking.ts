@@ -17,6 +17,7 @@ import {
   SPA_DEMO_LIVE_FLOW_STORED_TRANSACTION_ID,
   SPA_DEMO_LIVE_FLOW_STORED_LEDGER_ID,
   SPA_DEMO_LIVE_FLOW_PACKAGE_TRANSACTION_ID,
+  type SpaDemoBookingNotification,
 } from "@/lib/spa-demo-store";
 import {
   canProviderPerformServices,
@@ -26,6 +27,7 @@ import {
 } from "@/lib/spa-scheduling";
 import { isSpaProviderAvailable } from "@/lib/spa-provider-availability";
 import { getSpaDemoBookableProviders } from "@/server/queries/spa-demo-booking-availability";
+import { saveSpaDemoBookingNotification } from "@/server/services/spa-demo-booking-notification";
 
 const inputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -91,6 +93,14 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
   }
   const people = data.guests.length;
   const treatmentIds = [...new Set(guestServices.map((service) => service.treatmentId))];
+  const notification: SpaDemoBookingNotification = {
+    kind: data.bookingOperation === "UPDATE" ? "UPDATED" : "BOOKED",
+    title: data.bookingOperation === "UPDATE" ? "預約已修改" : "預約成功",
+    date: data.bookingDate,
+    time: data.slotTime,
+    lines: guestServices.map((service, index) => `${index === 0 ? "第 1 位" : `同行者 ${index + 1}`}・${service.items.map((item) => item.name.replace("加購", "")).join("＋")}・${service.summary.durationMinutes} 分鐘`),
+    summary: `${people} 位・合計 NT$${guestServices.reduce((total, service) => total + service.summary.price, 0).toLocaleString()}`,
+  };
 
   const [store, treatmentOwners, packagePlan, idCollisions, providers] = await Promise.all([
     prisma.store.findFirst({
@@ -312,6 +322,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
         data: { bookingStatus: "CANCELLED" },
       });
     }
+    await saveSpaDemoBookingNotification(tx, SPA_DEMO_LIVE_FLOW_BOOKING_ID, notification);
   });
 
   revalidatePath("/liff/manager-preview");
@@ -329,6 +340,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
       providerIds,
       bookingDate: data.bookingDate,
       slotTime: data.slotTime,
+      notification,
     },
   };
 }

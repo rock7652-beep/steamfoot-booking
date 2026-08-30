@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { SPA_DEMO_LIVE_FLOW_BOOKING_IDS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import {
+  SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
+  SPA_DEMO_STORE,
+  type SpaDemoBookingNotification,
+} from "@/lib/spa-demo-store";
+import { saveSpaDemoBookingNotification } from "@/server/services/spa-demo-booking-notification";
 
 const cancelInputSchema = z.object({
   bookingId: z.enum(SPA_DEMO_LIVE_FLOW_BOOKING_IDS),
@@ -73,16 +78,26 @@ export async function cancelSpaDemoBooking(input: unknown) {
       if (!active.some((booking) => booking.id === parsed.data.bookingId)) {
         throw new Error("SPA_DEMO_BOOKING_NOT_FOUND");
       }
+      const ordered = active.toSorted((left, right) => guestIndex(left.notes) - guestIndex(right.notes));
 
       if (parsed.data.scope === "GROUP" || active.length === 1) {
+        const notification: SpaDemoBookingNotification = {
+          kind: "CANCELLED",
+          title: "預約已取消",
+          date: ordered[0].bookingDate.toISOString().slice(0, 10),
+          time: ordered[0].slotTime,
+          lines: ordered.map((booking, index) => `${index === 0 ? "第 1 位" : `同行者 ${index + 1}`}・${booking.treatmentNameSnapshot ?? "SPA 服務"}・${booking.treatmentServiceMinutesSnapshot ?? 60} 分鐘`),
+          summary: `共 ${ordered.length} 位・整組已取消`,
+        };
         await tx.booking.updateMany({
           where: { id: { in: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS] }, storeId: SPA_DEMO_STORE.id },
           data: { bookingStatus: "CANCELLED" },
         });
-        return { cancelledAll: true, bookingIds: [] as string[] };
+        await saveSpaDemoBookingNotification(tx, ordered[0].id, notification);
+        return { cancelledAll: true, bookingIds: [] as string[], notification };
       }
 
-      const ordered = active.toSorted((left, right) => guestIndex(left.notes) - guestIndex(right.notes));
+      const cancelled = ordered.find((booking) => booking.id === parsed.data.bookingId)!;
       const survivors = ordered.filter((booking) => booking.id !== parsed.data.bookingId);
       const partySize = survivors.length;
       for (const [index, survivor] of survivors.entries()) {
@@ -117,7 +132,16 @@ export async function cancelSpaDemoBooking(input: unknown) {
         where: { id: { in: [...unusedIds] }, storeId: SPA_DEMO_STORE.id },
         data: { bookingStatus: "CANCELLED" },
       });
-      return { cancelledAll: false, bookingIds: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS.slice(0, partySize)] };
+      const notification: SpaDemoBookingNotification = {
+        kind: "CANCELLED",
+        title: "同行預約已取消",
+        date: cancelled.bookingDate.toISOString().slice(0, 10),
+        time: cancelled.slotTime,
+        lines: [`已取消・${cancelled.treatmentNameSnapshot ?? "SPA 服務"}・${cancelled.treatmentServiceMinutesSnapshot ?? 60} 分鐘`],
+        summary: `其餘 ${partySize} 位預約保留`,
+      };
+      await saveSpaDemoBookingNotification(tx, SPA_DEMO_LIVE_FLOW_BOOKING_IDS[0], notification);
+      return { cancelledAll: false, bookingIds: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS.slice(0, partySize)], notification };
     });
     revalidateSpaDemoBookingViews();
     return { success: true as const, data: result };

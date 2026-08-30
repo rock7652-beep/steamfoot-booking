@@ -8,12 +8,15 @@ import {
   SPA_DEMO_FIXTURE,
   SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
   SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
+  SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
+  SPA_DEMO_LIVE_FLOW_NOTIFICATION_ID,
   SPA_DEMO_PROVIDERS,
   SPA_DEMO_STORE,
   type SpaDemoBooking,
   type SpaDemoBookingStatus,
   type SpaDemoPreviewData,
   type SpaDemoTone,
+  type SpaDemoBookingNotification,
 } from "@/lib/spa-demo-store";
 
 const STATUS_MAP: Record<string, SpaDemoBookingStatus> = {
@@ -28,6 +31,19 @@ function toneForStatus(status: SpaDemoBookingStatus): SpaDemoTone {
   if (status === "待到店") return "sand";
   if (status === "已完成") return "slate";
   return "sage";
+}
+
+function parseSpaDemoNotification(renderedBody: string | null): SpaDemoBookingNotification | null {
+  if (!renderedBody) return null;
+  try {
+    const value = JSON.parse(renderedBody) as Partial<SpaDemoBookingNotification>;
+    if (!(["BOOKED", "UPDATED", "CANCELLED"] as const).includes(value.kind as SpaDemoBookingNotification["kind"])) return null;
+    if (typeof value.title !== "string" || typeof value.date !== "string" || typeof value.time !== "string" || typeof value.summary !== "string") return null;
+    if (!Array.isArray(value.lines) || value.lines.some((line) => typeof line !== "string")) return null;
+    return value as SpaDemoBookingNotification;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -57,7 +73,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
   });
   assertSpaDemoStoreIdentity(store);
 
-  const [staff, bookings, liveStoredWallet, livePackageWallet] = await Promise.all([
+  const [staff, bookings, liveStoredWallet, livePackageWallet, notificationLog] = await Promise.all([
     prisma.staff.findMany({
       where: {
         storeId: SPA_DEMO_STORE.id,
@@ -116,6 +132,14 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     prisma.customerPlanWallet.findFirst({
       where: { id: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID, storeId: SPA_DEMO_STORE.id },
       select: { remainingSessions: true },
+    }),
+    prisma.messageLog.findFirst({
+      where: {
+        id: SPA_DEMO_LIVE_FLOW_NOTIFICATION_ID,
+        storeId: SPA_DEMO_STORE.id,
+        customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
+      },
+      select: { renderedBody: true },
     }),
   ]);
 
@@ -215,6 +239,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     },
     providers,
     bookings: mappedBookings,
+    notification: parseSpaDemoNotification(notificationLog?.renderedBody ?? null),
     source: "database",
   };
 }
