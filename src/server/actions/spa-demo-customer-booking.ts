@@ -316,12 +316,14 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
 
   revalidatePath("/liff/manager-preview");
   revalidatePath("/liff/design-preview/booking");
+  revalidatePath("/liff/staff-preview");
   revalidatePath("/dashboard/bookings");
   revalidatePath("/staff-schedule");
   return {
     success: true as const,
     data: {
       bookingId: SPA_DEMO_LIVE_FLOW_BOOKING_ID,
+      bookingIds: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS.slice(0, people)],
       customerName,
       people,
       providerIds,

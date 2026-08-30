@@ -150,6 +150,11 @@ describe("SPA Demo tenant isolation", () => {
     expect(composer).toContain("整組已結帳");
     expect(composer).toContain("儲值金餘額");
     expect(composer).toContain("返回會員中心");
+    expect(composer).toContain("修改預約");
+    expect(composer).toContain("取消預約");
+    expect(composer).toContain("取消整組預約");
+    expect(composer).toContain("cancelSpaDemoBooking");
+    expect(composer).toContain('bookingOperation: isEditing ? "UPDATE" : "CREATE"');
     expect(composer).toContain('useState("")');
     expect(composer).toContain("isSpaProviderAvailable");
     expect(composer).not.toContain('id: "spa-demo-staff-08"');

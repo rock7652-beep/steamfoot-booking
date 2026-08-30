@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { SPA_DEMO_LIVE_FLOW_BOOKING_IDS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { SPA_SERVICE_MENU } from "@/lib/spa-scheduling";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
 import {
@@ -39,11 +40,20 @@ export default async function SpaBookingPreviewPage() {
     packageRemainingSessions: liveBookings[0].packageRemainingSessions,
     guests: liveBookings.map((booking, index) => {
       const provider = preview.providers.find((item) => item.id === booking.providerId);
+      const serviceNames = booking.service.split("＋");
+      const primary = SPA_SERVICE_MENU.find((item) => item.kind !== "ADD_ON" && item.name === serviceNames[0]);
+      const addOnKeys = SPA_SERVICE_MENU
+        .filter((item) => item.kind === "ADD_ON" && serviceNames.includes(item.name.replace("加購", "")))
+        .map((item) => item.key);
       return {
+        bookingId: booking.id,
         label: index === 0 ? "第 1 位" : `同行者 ${index + 1}`,
         service: booking.service,
         durationMinutes: booking.durationMinutes,
+        price: booking.price ?? 0,
         provider: provider ? `${provider.badge}號 ${provider.name}` : "系統安排",
+        primaryKey: primary?.key ?? "",
+        addOnKeys,
       };
     }),
   } : null;
@@ -51,7 +61,11 @@ export default async function SpaBookingPreviewPage() {
     process.env.VERCEL_ENV === "preview"
     || process.env.SPA_DEMO_DATABASE_PREVIEW_ENABLED === "true";
   const providers = databasePreviewEnabled
-    ? await getSpaDemoBookableProviders({ startDate: previewDate, endDate: latestDate })
+    ? await getSpaDemoBookableProviders({
+        startDate: previewDate,
+        endDate: latestDate,
+        excludeBookingIds: liveBookings.length ? SPA_DEMO_LIVE_FLOW_BOOKING_IDS : undefined,
+      })
     : getSpaDemoFixtureBookableProviders();
 
   return (

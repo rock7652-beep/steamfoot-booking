@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
+import { cancelSpaDemoBooking } from "@/server/actions/spa-demo-booking-management";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
 import { createHalfHourTimeOptions, isSpaProviderAvailable, type SpaBookableProvider } from "@/lib/spa-provider-availability";
 import { canProviderPerformServices, composeSpaServices, SPA_SERVICE_MENU, summarizeSpaServices, type SpaServiceItem } from "@/lib/spa-scheduling";
@@ -18,10 +19,14 @@ type GuestSelection = {
 };
 
 type CompletedGuest = {
+  bookingId: string;
   label: string;
   service: string;
   durationMinutes: number;
+  price: number;
   provider: string;
+  primaryKey: string;
+  addOnKeys: readonly string[];
 };
 
 export type SpaCompletedBookingPreview = {
@@ -70,6 +75,9 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
   const [selectedTime, setSelectedTime] = useState("");
   const [notice, setNotice] = useState("");
   const [completedBooking, setCompletedBooking] = useState<SpaCompletedBookingPreview | null>(initialCompletedBooking);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showCancelOptions, setShowCancelOptions] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<{ bookingId: string; scope: "GUEST" | "GROUP" } | null>(null);
   const [isSubmitting, startSubmitting] = useTransition();
 
   const guestItems = useMemo(() => guests.map(selectedItemsFor), [guests]);
@@ -87,9 +95,33 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
     : [];
 
   function resetSchedule() {
-    setBookingDate("");
+    if (!isEditing) setBookingDate("");
     setSelectedTime("");
     setNotice("");
+  }
+
+  function resetBookingForm() {
+    setPeople(1);
+    setGuests([emptyGuest()]);
+    setActiveGuestIndex(0);
+    setBookingDate("");
+    setSelectedTime("");
+  }
+
+  function beginEdit() {
+    if (!completedBooking || completedBooking.status === "已完成") return;
+    setPeople(completedBooking.guests.length);
+    setGuests(completedBooking.guests.map((guest) => ({
+      primaryKey: guest.primaryKey,
+      addOnKeys: [...guest.addOnKeys],
+      providerId: "",
+    })));
+    setActiveGuestIndex(0);
+    setBookingDate(completedBooking.date);
+    setSelectedTime(completedBooking.time);
+    setNotice("");
+    setShowCancelOptions(false);
+    setIsEditing(true);
   }
 
   function changePeople(count: number) {
@@ -149,6 +181,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
       const result = await createSpaDemoCustomerBooking({
         bookingDate,
         slotTime: selectedTime,
+        bookingOperation: isEditing ? "UPDATE" : "CREATE",
         guests: guests.map((guest, index) => ({
           primaryKey: guest.primaryKey,
           addOnKeys: [...guest.addOnKeys],
@@ -165,16 +198,56 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
         totalPrice,
         status: "已確認",
         guests: guests.map((guest, index) => ({
+          bookingId: result.data.bookingIds[index],
           label: guestLabel(index),
           service: guestItems[index].map((item) => item.name.replace("加購", "")).join("＋"),
           durationMinutes: guestSummaries[index].durationMinutes,
-          provider: guest.providerId ? assignedProviders[index].label : "系統安排",
+          price: guestSummaries[index].price,
+          provider: assignedProviders[index].label,
+          primaryKey: guest.primaryKey,
+          addOnKeys: [...guest.addOnKeys],
         })),
       });
+      setIsEditing(false);
+      setNotice("");
     });
   }
 
-  if (completedBooking) {
+  function confirmCancellation() {
+    if (!cancelTarget || !completedBooking) return;
+    startSubmitting(async () => {
+      const result = await cancelSpaDemoBooking(cancelTarget);
+      if (!result.success) {
+        setNotice(result.error);
+        setCancelTarget(null);
+        return;
+      }
+      if (result.data.cancelledAll) {
+        setCompletedBooking(null);
+        setShowCancelOptions(false);
+        setCancelTarget(null);
+        resetBookingForm();
+        setNotice("預約已取消");
+        return;
+      }
+      const survivors = completedBooking.guests.filter((guest) => guest.bookingId !== cancelTarget.bookingId);
+      const relabelled = survivors.map((guest, index) => ({
+        ...guest,
+        bookingId: result.data.bookingIds[index],
+        label: guestLabel(index),
+      }));
+      setCompletedBooking({
+        ...completedBooking,
+        guests: relabelled,
+        totalPrice: relabelled.reduce((total, guest) => total + guest.price, 0),
+      });
+      setCancelTarget(null);
+      setShowCancelOptions(false);
+      setNotice("此位預約已取消");
+    });
+  }
+
+  if (completedBooking && !isEditing) {
     return (
       <section className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70" aria-label="預約完成">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-2xl text-primary-800" aria-hidden>✓</div>
@@ -182,7 +255,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
         <h2 className="mt-1 text-2xl font-semibold text-earth-900">{formatBookingDate(completedBooking.date)} {completedBooking.time}</h2>
         <div className="mt-5 space-y-3 border-y border-earth-100 py-4">
           {completedBooking.guests.map((guest) => (
-            <div key={guest.label} className="rounded-2xl bg-earth-50 p-4 text-sm">
+            <div key={guest.bookingId} className="rounded-2xl bg-earth-50 p-4 text-sm">
               <div className="flex items-start justify-between gap-3"><p className="font-semibold text-earth-900">{guest.label}</p><p className="shrink-0 text-earth-500">{guest.durationMinutes} 分鐘</p></div>
               <p className="mt-2 text-earth-700">{guest.service}</p>
               <p className="mt-1 text-xs text-earth-500">{guest.provider}</p>
@@ -191,7 +264,25 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
           <div className="flex justify-between gap-4 px-1 pt-1 text-sm"><span className="text-earth-500">合計</span><span className="font-semibold text-earth-900">NT${completedBooking.totalPrice.toLocaleString()}</span></div>
         </div>
         {completedBooking.status === "已完成" ? <div className="mt-4 rounded-2xl bg-primary-50 p-4 text-sm text-primary-900"><p className="font-semibold">整組已結帳・{completedBooking.settlementLabel ?? "完成"}{completedBooking.settlementAmount ? `・NT$${completedBooking.settlementAmount.toLocaleString()}` : ""}</p>{completedBooking.settlementLabel === "儲值金" ? <p className="mt-1 text-xs">儲值金餘額 NT${(completedBooking.storedValueBalance ?? 0).toLocaleString()}</p> : null}{completedBooking.settlementLabel?.startsWith("扣療程") ? <p className="mt-1 text-xs">療程剩餘 {completedBooking.packageRemainingSessions ?? 0} 次</p> : null}</div> : null}
-        <Link href="/s/demo/liff/design-preview" className="mt-6 flex min-h-12 w-full items-center justify-center rounded-2xl bg-earth-900 px-4 font-semibold text-white">返回會員中心</Link>
+        {completedBooking.status !== "已完成" ? (
+          <div className="mt-5 space-y-3">
+            {!showCancelOptions ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={beginEdit} className="min-h-12 rounded-2xl bg-earth-900 px-4 font-semibold text-white">修改預約</button>
+                <button type="button" onClick={() => { setShowCancelOptions(true); setNotice(""); }} className="min-h-12 rounded-2xl border border-earth-200 px-4 font-semibold text-earth-700">取消預約</button>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-earth-200 p-4">
+                <div className="flex items-center justify-between gap-3"><p className="font-semibold text-earth-900">選擇取消範圍</p><button type="button" onClick={() => { setShowCancelOptions(false); setCancelTarget(null); }} className="text-sm text-earth-500">返回</button></div>
+                {completedBooking.guests.length > 1 ? <div className="mt-3 grid gap-2">{completedBooking.guests.map((guest) => <button key={guest.bookingId} type="button" onClick={() => setCancelTarget({ bookingId: guest.bookingId, scope: "GUEST" })} className="min-h-11 rounded-xl border border-earth-200 px-3 text-left text-sm font-medium text-earth-700">取消{guest.label}・{guest.service}</button>)}</div> : null}
+                <button type="button" onClick={() => setCancelTarget({ bookingId: completedBooking.guests[0].bookingId, scope: "GROUP" })} className="mt-2 min-h-11 w-full rounded-xl bg-[#9a5d4d] px-3 text-sm font-semibold text-white">取消整組預約</button>
+              </div>
+            )}
+            {cancelTarget ? <div className="rounded-2xl bg-[#fbf2ef] p-4 text-sm"><p className="font-semibold text-earth-900">{cancelTarget.scope === "GROUP" ? "確定取消整組預約？" : "確定取消這一位？"}</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => setCancelTarget(null)} className="min-h-11 rounded-xl border border-earth-200 bg-white font-semibold text-earth-700">保留預約</button><button type="button" disabled={isSubmitting} onClick={confirmCancellation} className="min-h-11 rounded-xl bg-[#9a5d4d] font-semibold text-white disabled:opacity-40">{isSubmitting ? "處理中…" : "確認取消"}</button></div></div> : null}
+          </div>
+        ) : null}
+        {notice ? <p className="mt-4 text-center text-sm font-medium text-primary-700" aria-live="polite">{notice}</p> : null}
+        <Link href="/s/demo/liff/design-preview" className="mt-4 flex min-h-12 w-full items-center justify-center rounded-2xl border border-earth-200 px-4 font-semibold text-earth-700">返回會員中心</Link>
       </section>
     );
   }
@@ -199,11 +290,10 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
   return (
     <section className="overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70" aria-label="預約內容">
       <div className="space-y-6 p-5">
+        {isEditing ? <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-earth-900">修改預約</h2><button type="button" onClick={() => { setIsEditing(false); setNotice(""); }} className="min-h-11 rounded-xl px-3 text-sm font-semibold text-earth-500">返回</button></div> : null}
         <fieldset>
           <legend className="text-sm font-semibold text-earth-900">1. 人數</legend>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {[1, 2, 3].map((count) => <button key={count} type="button" onClick={() => changePeople(count)} className={`min-h-11 rounded-xl border text-sm font-semibold ${people === count ? "border-earth-900 bg-earth-900 text-white" : "border-earth-200 text-earth-700"}`}>{count} 位</button>)}
-          </div>
+          {isEditing ? <p className="mt-3 rounded-xl bg-earth-50 px-4 py-3 text-sm font-semibold text-earth-800">{people} 位</p> : <div className="mt-3 grid grid-cols-3 gap-2">{[1, 2, 3].map((count) => <button key={count} type="button" onClick={() => changePeople(count)} className={`min-h-11 rounded-xl border text-sm font-semibold ${people === count ? "border-earth-900 bg-earth-900 text-white" : "border-earth-200 text-earth-700"}`}>{count} 位</button>)}</div>}
         </fieldset>
 
         <fieldset>
@@ -270,7 +360,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
         ) : null}
 
         {selectedTime ? <div className="rounded-2xl bg-primary-50 p-4 ring-1 ring-primary-100"><div className="flex items-end justify-between gap-4"><p className="text-sm font-semibold text-earth-900">{people} 位・{guestSummaries.map((summary) => `${summary.durationMinutes} 分`).join("／")}</p><p className="text-lg font-semibold text-earth-900">NT${totalPrice.toLocaleString()}</p></div></div> : null}
-        {selectedTime ? <button type="button" onClick={confirmPreview} disabled={isSubmitting || assignedProviders.length !== people} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isSubmitting ? "預約中…" : "確認預約"}</button> : null}
+        {selectedTime ? <button type="button" onClick={confirmPreview} disabled={isSubmitting || assignedProviders.length !== people} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isSubmitting ? "處理中…" : isEditing ? "儲存修改" : "確認預約"}</button> : null}
         {notice ? <p className="text-center text-sm font-medium text-primary-700" aria-live="polite">{notice}</p> : null}
       </div>
     </section>
