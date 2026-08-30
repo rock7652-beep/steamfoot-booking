@@ -59,6 +59,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     prisma.staff.findMany({
       where: {
         storeId: SPA_DEMO_STORE.id,
+        id: { in: SPA_DEMO_PROVIDERS.map((provider) => provider.id) },
         status: "ACTIVE",
         isOwner: false,
       },

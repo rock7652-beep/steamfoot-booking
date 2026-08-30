@@ -23,6 +23,7 @@ import { BookingsManager } from "./bookings-manager";
 import { SpaProviderSchedule } from "./spa-provider-schedule";
 import {
   assertSpaDemoStoreIdentity,
+  SPA_DEMO_PROVIDERS,
   SPA_DEMO_STORE,
 } from "@/lib/spa-demo-store";
 import {
@@ -158,6 +159,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
           ? prisma.staff.findMany({
               where: {
                 storeId: SPA_DEMO_STORE.id,
+                id: { in: SPA_DEMO_PROVIDERS.map((provider) => provider.id) },
                 status: "ACTIVE",
                 isOwner: false,
               },
@@ -185,6 +187,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
                 .findMany({
                   where: {
                     storeId: SPA_DEMO_STORE.id,
+                    id: { in: SPA_DEMO_PROVIDERS.map((provider) => provider.id) },
                     status: "ACTIVE",
                     isOwner: false,
                   },

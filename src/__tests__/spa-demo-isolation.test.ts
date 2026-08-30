@@ -95,7 +95,10 @@ describe("SPA Demo preview database scoping", () => {
 
     expect(result.source).toBe("database");
     expect(prisma.staff.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ storeId: SPA_DEMO_STORE.id }),
+      where: expect.objectContaining({
+        storeId: SPA_DEMO_STORE.id,
+        id: { in: SPA_DEMO_PROVIDERS.map((provider) => provider.id) },
+      }),
     }));
     expect(prisma.booking.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ storeId: SPA_DEMO_STORE.id }),

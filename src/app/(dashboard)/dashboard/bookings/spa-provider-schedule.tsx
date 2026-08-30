@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { toast } from "sonner";
 import {
   DashboardLink as Link,
   resolveDashboardHref,
@@ -13,7 +12,6 @@ import {
   toDateInputValue,
 } from "@/lib/date-utils";
 import { addMinutes } from "@/lib/spa-scheduling";
-import { updateSpaScheduleInterval } from "@/server/actions/spa-schedule-settings";
 import {
   inferSpaDemoResourceType,
   spaResourceLabel,
@@ -109,7 +107,6 @@ export function SpaProviderSchedule({
   const [rowMinutes, setRowMinutes] = useState<15 | 30>(
     timeUnitMinutes === 15 ? 15 : DEFAULT_ROW_MINUTES,
   );
-  const [isChangingInterval, startIntervalChange] = useTransition();
   const rowHeight = rowMinutes === 15 ? 36 : 48;
   const scheduleTimes = useMemo(
     () =>
@@ -206,19 +203,8 @@ export function SpaProviderSchedule({
   }
 
   function handleIntervalChange(interval: 15 | 30) {
-    if (interval === rowMinutes || isChangingInterval) return;
-    const previous = rowMinutes;
+    if (interval === rowMinutes) return;
     setRowMinutes(interval);
-    startIntervalChange(async () => {
-      const result = await updateSpaScheduleInterval(interval);
-      if (!result.success) {
-        setRowMinutes(previous);
-        toast.error(result.error);
-        return;
-      }
-      toast.success(`已切換為每 ${interval} 分鐘可開始預約`);
-      router.refresh();
-    });
   }
 
   function handleBackToNow() {
@@ -330,9 +316,8 @@ export function SpaProviderSchedule({
                     key={interval}
                     type="button"
                     onClick={() => handleIntervalChange(interval)}
-                    disabled={isChangingInterval}
                     aria-pressed={rowMinutes === interval}
-                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition disabled:cursor-wait ${
+                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
                       rowMinutes === interval
                         ? "bg-white text-primary-700 shadow-sm ring-1 ring-earth-200"
                         : "text-earth-500 hover:text-earth-800"

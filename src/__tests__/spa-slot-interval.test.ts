@@ -40,7 +40,8 @@ describe("SPA 15/30 minute booking units", () => {
 
     expect(schedule).toContain("handleIntervalChange");
     expect(schedule).toContain("切換預約時間單位");
-    expect(schedule).toContain("updateSpaScheduleInterval");
+    expect(schedule).not.toContain("updateSpaScheduleInterval");
+    expect(schedule).toContain("setRowMinutes(interval)");
     expect(schedule).not.toContain('href="/dashboard/settings/hours"');
     expect(settings).toContain("營業與預約時間");
   });
