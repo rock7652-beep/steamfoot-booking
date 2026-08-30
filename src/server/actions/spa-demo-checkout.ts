@@ -58,6 +58,7 @@ export async function completeSpaDemoBooking(input: unknown) {
 
   const amount = Number(booking.treatmentPriceSnapshot ?? 0);
   const label = SETTLEMENT_LABEL[parsed.data.settlement];
+  const settlementAmount = parsed.data.settlement === "PACKAGE" ? 0 : amount;
   let result: { storedValueBalance: number | null; packageRemainingSessions: number | null };
   try {
     result = await prisma.$transaction(async (tx) => {
@@ -152,7 +153,7 @@ export async function completeSpaDemoBooking(input: unknown) {
       data: {
         bookingStatus: "COMPLETED",
         ...(parsed.data.settlement === "PACKAGE" ? { bookingType: "PACKAGE_SESSION", servicePlanId: SPA_DEMO_LIVE_FLOW_PACKAGE_PLAN_ID, customerPlanWalletId: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID } : {}),
-        notes: `SPA_DEMO_LIVE_FLOW|settlement=${parsed.data.settlement}|label=${label}|amount=${amount}`,
+        notes: `SPA_DEMO_LIVE_FLOW|settlement=${parsed.data.settlement}|label=${label}|amount=${settlementAmount}`,
       },
     });
       return { storedValueBalance, packageRemainingSessions };
@@ -170,6 +171,6 @@ export async function completeSpaDemoBooking(input: unknown) {
   revalidatePath("/liff/staff-preview");
   return {
     success: true as const,
-    data: { bookingId: booking.id, settlementLabel: label, amount, ...result },
+    data: { bookingId: booking.id, settlementLabel: label, amount: settlementAmount, ...result },
   };
 }
