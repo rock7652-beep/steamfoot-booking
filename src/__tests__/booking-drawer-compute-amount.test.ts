@@ -130,6 +130,21 @@ describe("computeAmount — PR-D1C FIRST_TRIAL fallback (people=1)", () => {
     expect(computeAmount(booking, null)).toBe("NT$ 799");
   });
 
+  it("SINGLE：療程價格快照優先於目前方案價格，與結帳應收一致", () => {
+    const booking = makeBooking({
+      bookingType: "SINGLE",
+      treatmentPriceSnapshot: 2500,
+      servicePlan: {
+        id: "plan_single",
+        name: "單次",
+        price: 1800,
+        sessionCount: 1,
+        category: "SINGLE",
+      },
+    });
+    expect(computeAmount(booking, null)).toBe("NT$ 2,500");
+  });
+
   it("PACKAGE_SESSION sessionCount>1 → 顯示「每堂」與方案總價", () => {
     const booking = makeBooking({
       bookingType: "PACKAGE_SESSION",
