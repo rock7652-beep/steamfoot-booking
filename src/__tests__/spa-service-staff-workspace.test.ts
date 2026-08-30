@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 describe("SPA service staff workspace", () => {
   const auth = readFileSync("src/lib/auth.ts", "utf8");
   const page = readFileSync("src/app/(service-workspace)/staff-schedule/page.tsx", "utf8");
+  const datePicker = readFileSync("src/app/(service-workspace)/staff-schedule/staff-schedule-date-picker.tsx", "utf8");
   const proxy = readFileSync("src/proxy.ts", "utf8");
   const createAction = readFileSync("src/server/actions/staff.ts", "utf8");
   const createUi = readFileSync("src/app/(dashboard)/dashboard/staff/staff-workspace.tsx", "utf8");
@@ -42,5 +43,14 @@ describe("SPA service staff workspace", () => {
     expect(page).toContain("shiftMonth(selectedDate, 1)");
     expect(page).toContain("這一天沒有安排顧客");
     expect(page).not.toContain('py-8 text-center text-sm text-earth-500">這一天沒有安排顧客');
+  });
+
+  it("keeps the date picker synchronized and avoids repeating the duration", () => {
+    expect(page).toContain("StaffScheduleDatePicker");
+    expect(datePicker).toContain("key={selectedDate}");
+    expect(datePicker).toContain("router.push");
+    expect(datePicker).toContain('aria-label="選擇日期"');
+    expect(page).toContain("variant !== durationLabel");
+    expect(page).toContain("treatmentSummary(serviceName, variant, minutes)");
   });
 });

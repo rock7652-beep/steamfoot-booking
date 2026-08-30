@@ -11,6 +11,7 @@ import {
 } from "@/lib/date-utils";
 import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import { serviceStaffLogoutAction } from "@/server/actions/auth";
+import { StaffScheduleDatePicker } from "./staff-schedule-date-picker";
 
 type SearchParams = Promise<{ date?: string }>;
 
@@ -33,6 +34,11 @@ function addMinutes(time: string, minutes: number) {
   const [hour, minute] = time.split(":").map(Number);
   const total = hour * 60 + minute + minutes;
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function treatmentSummary(serviceName: string, variant: string | null | undefined, minutes: number) {
+  const durationLabel = `${minutes} 分鐘`;
+  return [serviceName, variant && variant !== durationLabel ? variant : null, durationLabel].filter(Boolean).join("・");
 }
 
 function maskPhone(phone: string | null) {
@@ -126,9 +132,7 @@ export default async function StaffSchedulePage({ searchParams }: { searchParams
             </div>
             <div className="flex items-center gap-2">
               <Link href={`/s/${storeSlug}/staff/my-bookings?date=${shiftDate(selectedDate, -1)}`} className="rounded-lg border border-earth-300 px-3 py-2 text-sm">‹</Link>
-              <form action={`/s/${storeSlug}/staff/my-bookings`}>
-                <input name="date" type="date" defaultValue={selectedDate} className="rounded-lg border border-earth-300 px-3 py-2 text-sm" />
-              </form>
+              <StaffScheduleDatePicker storeSlug={storeSlug} selectedDate={selectedDate} />
               <Link href={`/s/${storeSlug}/staff/my-bookings?date=${shiftDate(selectedDate, 1)}`} className="rounded-lg border border-earth-300 px-3 py-2 text-sm">›</Link>
             </div>
           </div>
@@ -144,7 +148,7 @@ export default async function StaffSchedulePage({ searchParams }: { searchParams
                     <div>
                       <p className="text-lg font-semibold text-earth-900">{booking.slotTime}–{addMinutes(booking.slotTime, minutes)}</p>
                       <p className="mt-1 font-medium text-earth-800">{booking.customer.name}</p>
-                      <p className="mt-1 text-sm text-earth-600">{serviceName}{variant ? `・${variant}` : ""}・{minutes} 分鐘</p>
+                      <p className="mt-1 text-sm text-earth-600">{treatmentSummary(serviceName, variant, minutes)}</p>
                     </div>
                     <span className="rounded-full bg-white px-2 py-1 text-xs text-earth-600">{booking.bookingStatus === "COMPLETED" ? "已完成" : "已預約"}</span>
                   </div>
