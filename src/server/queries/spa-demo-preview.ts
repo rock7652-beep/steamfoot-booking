@@ -6,7 +6,7 @@ import {
   assertSpaDemoStoreIdentity,
   SPA_DEMO_BOOKINGS,
   SPA_DEMO_FIXTURE,
-  SPA_DEMO_LIVE_FLOW_BOOKING_ID,
+  SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
   SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
   SPA_DEMO_PROVIDERS,
   SPA_DEMO_STORE,
@@ -87,7 +87,8 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     prisma.booking.findMany({
       where: {
         storeId: SPA_DEMO_STORE.id,
-        id: { in: [...SPA_DEMO_BOOKINGS.map((booking) => booking.id), SPA_DEMO_LIVE_FLOW_BOOKING_ID] },
+        id: { in: [...SPA_DEMO_BOOKINGS.map((booking) => booking.id), ...SPA_DEMO_LIVE_FLOW_BOOKING_IDS] },
+        bookingStatus: { not: "CANCELLED" },
       },
       select: {
         id: true,
@@ -146,7 +147,9 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
 
   const mappedBookings: SpaDemoBooking[] = bookings.map((record) => {
     const fixture = SPA_DEMO_BOOKINGS.find((booking) => booking.id === record.id);
-    const isLiveFlow = record.id === SPA_DEMO_LIVE_FLOW_BOOKING_ID;
+    const isLiveFlow = SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(
+      record.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number],
+    );
     if (!fixture && !isLiveFlow) throw new Error(`SPA_DEMO_BOOKING_NOT_ALLOWLISTED:${record.id}`);
     if (
       record.customer.storeId !== SPA_DEMO_STORE.id ||
@@ -165,7 +168,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         id: record.id,
         date: toLocalDateStr(record.bookingDate),
         time: record.slotTime,
-        customer: "王小姐",
+        customer: record.customer.name,
         service: record.treatmentNameSnapshot ?? record.servicePlan?.name ?? "SPA 服務",
         serviceItems: (record.treatmentNameSnapshot ?? "SPA 服務").split("＋"),
         providerId: record.serviceStaffId ?? providers[0]?.id ?? SPA_DEMO_PROVIDERS[0].id,
