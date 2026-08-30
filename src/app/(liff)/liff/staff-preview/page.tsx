@@ -21,7 +21,7 @@ export default async function SpaStaffPreviewPage({ searchParams }: { searchPara
   const previewDate = toLocalDateStr();
   const { staff: requestedStaffId } = await searchParams;
   const liveBooking = preview.bookings.find((booking) => booking.id === SPA_DEMO_LIVE_FLOW_BOOKING_ID);
-  const provider = preview.providers.find((item) => item.id === requestedStaffId)
+  const provider = preview.providers.find((item) => item.id === requestedStaffId || item.badge === requestedStaffId)
     ?? preview.providers.find((item) => item.id === liveBooking?.providerId)
     ?? preview.providers.find((item) => item.id === SPA_DEMO_PROVIDERS[0].id);
   if (!provider) notFound();
