@@ -11,7 +11,7 @@ function addMinutes(time: string, minutes: number) {
 }
 
 /** Draft Preview only. Production keeps the authenticated staff workspace. */
-export default async function SpaStaffPreviewPage() {
+export default async function SpaStaffPreviewPage({ searchParams }: { searchParams: Promise<{ staff?: string }> }) {
   if (process.env.VERCEL_ENV === "production") notFound();
 
   const storeSlug = await resolveStoreSlugForLiff();
@@ -19,8 +19,10 @@ export default async function SpaStaffPreviewPage() {
 
   const preview = await getSpaDemoPreviewData();
   const previewDate = toLocalDateStr();
+  const { staff: requestedStaffId } = await searchParams;
   const liveBooking = preview.bookings.find((booking) => booking.id === SPA_DEMO_LIVE_FLOW_BOOKING_ID);
-  const provider = preview.providers.find((item) => item.id === liveBooking?.providerId)
+  const provider = preview.providers.find((item) => item.id === requestedStaffId)
+    ?? preview.providers.find((item) => item.id === liveBooking?.providerId)
     ?? preview.providers.find((item) => item.id === SPA_DEMO_PROVIDERS[0].id);
   if (!provider) notFound();
 
