@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
-import type { SpaDemoBooking } from "@/lib/spa-demo-store";
 import {
   canProviderPerformServices,
   composeSpaServices,
@@ -48,10 +47,10 @@ const candidateTimes = [
 const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
 const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
 
-export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previewDate: string; liveBooking?: SpaDemoBooking | null }) {
+export function SpaServiceComposerPreview({ previewDate }: { previewDate: string }) {
   const [primaryKey, setPrimaryKey] = useState("aroma_body_60");
   const [addOnKeys, setAddOnKeys] = useState<readonly string[]>([]);
-  const [providerId, setProviderId] = useState("spa-demo-staff-08");
+  const [providerId, setProviderId] = useState("AUTO");
   const [selectedTime, setSelectedTime] = useState("10:00");
   const [customerName, setCustomerName] = useState("王小姐");
   const [bookingDate, setBookingDate] = useState(previewDate);
@@ -65,26 +64,32 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
   );
   const summary = summarizeSpaServices(selectedItems);
   const qualifiedProviders = providers.filter((provider) => canProviderPerformServices(provider.specialties, selectedItems));
-  const selectedProvider = qualifiedProviders.find((provider) => provider.id === providerId) ?? qualifiedProviders[0];
-  const availableTimes = selectedProvider
-    ? candidateTimes.filter((time) => hasContinuousAvailability({
-      startTime: time,
-      serviceMinutes: summary.durationMinutes,
-      bufferMinutes: 30,
-      closeTime: "21:00",
-      occupiedRanges: selectedProvider.occupiedRanges,
-    }))
-    : [];
+  const availableProviders = providerId === "AUTO"
+    ? qualifiedProviders
+    : qualifiedProviders.filter((provider) => provider.id === providerId);
+  const canTakeAt = (provider: PreviewProvider, time: string) => hasContinuousAvailability({
+    startTime: time,
+    serviceMinutes: summary.durationMinutes,
+    bufferMinutes: 30,
+    closeTime: "21:00",
+    occupiedRanges: provider.occupiedRanges,
+  });
+  const availableTimes = candidateTimes.filter((time) =>
+    availableProviders.some((provider) => canTakeAt(provider, time)),
+  );
   const safeSelectedTime = availableTimes.includes(selectedTime as (typeof candidateTimes)[number])
     ? selectedTime
     : availableTimes[0];
+  const selectedProvider = safeSelectedTime
+    ? availableProviders.find((provider) => canTakeAt(provider, safeSelectedTime)) ?? null
+    : null;
 
   function choosePrimary(nextPrimaryKey: string) {
     const nextPrimary = SPA_SERVICE_MENU.find((item) => item.key === nextPrimaryKey);
     setPrimaryKey(nextPrimaryKey);
     if (nextPrimary?.kind === "COMBO") setAddOnKeys([]);
     setSelectedTime("");
-    setNotice("已重新計算可連續安排的時段。");
+    setNotice("");
   }
 
   function toggleAddOn(key: string) {
@@ -92,7 +97,7 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
       ? current.filter((candidate) => candidate !== key)
       : [...current, key]);
     setSelectedTime("");
-    setNotice("已重新加總療程時間與價格。");
+    setNotice("");
   }
 
   function confirmPreview() {
@@ -115,21 +120,7 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
   }
 
   return (
-    <section className="overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70" aria-labelledby="spa-composer-title">
-      <div className="bg-earth-900 px-5 py-5 text-white">
-        <p className="text-xs font-semibold tracking-[0.16em] text-primary-200">複合療程預約</p>
-        <h2 id="spa-composer-title" className="mt-2 text-xl font-semibold">自由搭配，時間自動加總</h2>
-        <p className="mt-2 text-sm leading-relaxed text-earth-200">可選主療程＋加購，也可直接選店家搭好的組合方案。</p>
-      </div>
-
-      <div className="space-y-6 p-5">
-        {liveBooking ? (
-          <div className={`rounded-2xl border p-4 ${liveBooking.status === "已完成" ? "border-primary-200 bg-primary-50" : "border-earth-200 bg-earth-50"}`}>
-            <div className="flex items-start justify-between gap-3"><div><p className="text-xs text-earth-500">最新預約</p><p className="mt-1 font-semibold text-earth-900">{liveBooking.date}・{liveBooking.time}・{liveBooking.service}</p></div><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-primary-700">{liveBooking.status}</span></div>
-            {liveBooking.status === "已完成" ? <div className="mt-2 text-sm font-medium text-primary-800"><p>店長已完成服務・{liveBooking.settlementLabel ?? "結帳完成"}{liveBooking.settlementAmount ? `・NT$${liveBooking.settlementAmount.toLocaleString()}` : ""}</p>{liveBooking.settlementLabel === "儲值金" ? <p className="mt-1">儲值金餘額：NT${(liveBooking.storedValueBalance ?? 0).toLocaleString()}</p> : null}{liveBooking.settlementLabel === "扣療程 1 次" ? <p className="mt-1">療程剩餘：{liveBooking.packageRemainingSessions ?? 0} 次</p> : null}</div> : null}
-          </div>
-        ) : null}
-        <fieldset>
+    <section className="overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70" aria-label="預約服務">\n      <div className="space-y-6 p-5">\n        <fieldset>
           <legend className="text-sm font-semibold text-earth-900">1. 選擇主療程或組合</legend>
           <div className="mt-3 grid gap-2">
             {primaryItems.map((item) => (
@@ -163,15 +154,18 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
             <div><p className="text-xs text-primary-700">已選 {selectedItems.length} 個項目</p><p className="mt-1 text-lg font-semibold text-earth-900">共 {summary.durationMinutes} 分鐘</p></div>
             <p className="text-right text-sm text-earth-600">預估<br /><span className="text-lg font-semibold text-earth-900">NT${summary.price.toLocaleString()}</span></p>
           </div>
-          <p className="mt-3 border-t border-primary-100 pt-3 text-xs leading-relaxed text-earth-600">所有項目由同一位芳療師完成。</p>
         </div>
 
         <fieldset>
-          <legend className="text-sm font-semibold text-earth-900">3. 選擇芳療師號牌</legend>
+          <legend className="text-sm font-semibold text-earth-900">3. 芳療師（選填）</legend>
           <div className="mt-3 flex flex-wrap gap-2">
+            <label className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold ${providerId === "AUTO" ? "border-earth-900 bg-earth-900 text-white" : "border-earth-200 text-earth-700"}`}>
+              <input className="sr-only" type="radio" name="spa-provider" value="AUTO" checked={providerId === "AUTO"} onChange={() => { setProviderId("AUTO"); setSelectedTime(""); }} />
+              不指定
+            </label>
             {qualifiedProviders.map((provider) => (
-              <label key={provider.id} className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold ${selectedProvider?.id === provider.id ? "border-earth-900 bg-earth-900 text-white" : "border-earth-200 text-earth-700"}`}>
-                <input className="sr-only" type="radio" name="spa-provider" value={provider.id} checked={selectedProvider?.id === provider.id} onChange={() => { setProviderId(provider.id); setSelectedTime(""); }} />
+              <label key={provider.id} className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold ${providerId === provider.id ? "border-earth-900 bg-earth-900 text-white" : "border-earth-200 text-earth-700"}`}>
+                <input className="sr-only" type="radio" name="spa-provider" value={provider.id} checked={providerId === provider.id} onChange={() => { setProviderId(provider.id); setSelectedTime(""); }} />
                 {provider.label}
               </label>
             ))}
