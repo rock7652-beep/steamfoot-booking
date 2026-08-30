@@ -126,7 +126,7 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
         {liveBooking ? (
           <div className={`rounded-2xl border p-4 ${liveBooking.status === "已完成" ? "border-primary-200 bg-primary-50" : "border-earth-200 bg-earth-50"}`}>
             <div className="flex items-start justify-between gap-3"><div><p className="text-xs text-earth-500">最新 Demo 預約</p><p className="mt-1 font-semibold text-earth-900">{liveBooking.date}・{liveBooking.time}・{liveBooking.service}</p></div><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-primary-700">{liveBooking.status}</span></div>
-            {liveBooking.status === "已完成" ? <p className="mt-2 text-sm font-medium text-primary-800">店長已完成服務・{liveBooking.settlementLabel ?? "結帳完成"}{liveBooking.settlementAmount ? `・NT$${liveBooking.settlementAmount.toLocaleString()}` : ""}</p> : null}
+            {liveBooking.status === "已完成" ? <div className="mt-2 text-sm font-medium text-primary-800"><p>店長已完成服務・{liveBooking.settlementLabel ?? "結帳完成"}{liveBooking.settlementAmount ? `・NT$${liveBooking.settlementAmount.toLocaleString()}` : ""}</p>{liveBooking.settlementLabel === "儲值金" ? <p className="mt-1">儲值金餘額：NT${(liveBooking.storedValueBalance ?? 0).toLocaleString()}</p> : null}{liveBooking.settlementLabel === "扣療程 1 次" ? <p className="mt-1">療程剩餘：{liveBooking.packageRemainingSessions ?? 0} 次</p> : null}</div> : null}
           </div>
         ) : null}
         <fieldset>

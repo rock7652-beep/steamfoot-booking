@@ -9,6 +9,9 @@ import {
   SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
   SPA_DEMO_PROVIDERS,
   SPA_DEMO_STORE,
+  SPA_DEMO_LIVE_FLOW_STORED_WALLET_ID,
+  SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
+  SPA_DEMO_LIVE_FLOW_PACKAGE_PLAN_ID,
 } from "@/lib/spa-demo-store";
 import {
   canProviderPerformServices,
@@ -77,7 +80,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
   const treatmentId = PRIMARY_TREATMENT_ID[data.primaryKey];
   if (!treatmentId) return { success: false as const, error: "Demo 主療程尚未設定" };
 
-  const [store, provider, treatment, idCollisions, occupied] = await Promise.all([
+  const [store, provider, treatment, packagePlan, idCollisions, occupied] = await Promise.all([
     prisma.store.findFirst({
       where: { id: SPA_DEMO_STORE.id, slug: SPA_DEMO_STORE.slug, isDemo: true },
       select: { id: true },
@@ -89,6 +92,10 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
     prisma.treatment.findFirst({
       where: { id: treatmentId, storeId: SPA_DEMO_STORE.id, isActive: true },
       select: { id: true },
+    }),
+    prisma.servicePlan.findFirst({
+      where: { id: SPA_DEMO_LIVE_FLOW_PACKAGE_PLAN_ID, storeId: SPA_DEMO_STORE.id, isActive: true },
+      select: { id: true, price: true },
     }),
     Promise.all([
       prisma.customer.findUnique({ where: { id: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID }, select: { storeId: true } }),
@@ -106,7 +113,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
     }),
   ]);
 
-  if (!store || !provider || !treatment) {
+  if (!store || !provider || !treatment || !packagePlan) {
     return { success: false as const, error: "Demo 店、人員或療程設定不完整" };
   }
   if (idCollisions.some((record) => record && record.storeId !== SPA_DEMO_STORE.id)) {
@@ -140,6 +147,37 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
       },
       update: { name: data.customerName, assignedStaffId: data.providerId },
     });
+    await tx.storedValueWallet.upsert({
+      where: { storeId_customerId: { storeId: SPA_DEMO_STORE.id, customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID } },
+      create: {
+        id: SPA_DEMO_LIVE_FLOW_STORED_WALLET_ID,
+        storeId: SPA_DEMO_STORE.id,
+        customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
+        balance: 5000,
+        entries: { create: { storeId: SPA_DEMO_STORE.id, customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID, entryType: "ADJUSTMENT", amount: 5000, balanceAfter: 5000, note: "SPA Demo 驗收期初餘額" } },
+      },
+      update: { status: "ACTIVE" },
+    });
+    await tx.customerPlanWallet.upsert({
+      where: { id: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID },
+      create: {
+        id: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
+        storeId: SPA_DEMO_STORE.id,
+        customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
+        planId: packagePlan.id,
+        purchasedPrice: packagePlan.price,
+        totalSessions: 5,
+        remainingSessions: 5,
+        startDate: parseTaiwanDateToDbDate(data.bookingDate),
+        expiryDate: latest,
+        status: "ACTIVE",
+      },
+      update: {},
+    });
+    await tx.walletSession.createMany({
+      data: Array.from({ length: 5 }, (_, index) => ({ id: `${SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID}-session-${index + 1}`, walletId: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID, sessionNo: index + 1, status: "AVAILABLE" as const })),
+      skipDuplicates: true,
+    });
     await tx.booking.upsert({
       where: { id: SPA_DEMO_LIVE_FLOW_BOOKING_ID },
       create: {
@@ -168,6 +206,9 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
         revenueStaffId: data.providerId,
         serviceStaffId: data.providerId,
         treatmentId,
+        bookingType: "SINGLE",
+        servicePlanId: null,
+        customerPlanWalletId: null,
         bookingStatus: "CONFIRMED",
         notes: `SPA_DEMO_LIVE_FLOW|skills=${requiredSpecialties}`,
         treatmentNameSnapshot: serviceName,

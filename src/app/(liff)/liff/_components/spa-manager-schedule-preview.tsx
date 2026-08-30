@@ -121,14 +121,14 @@ export function SpaManagerSchedulePreview({
     setNotice(`正在安排 ${slot.time}・${provider.badge}號 ${provider.name}。`);
   }
 
-  function updateBookingStatus(status: BookingStatus, settlementLabel?: string, settlementAmount?: number) {
+  function updateBookingStatus(status: BookingStatus, settlementLabel?: string, settlementAmount?: number, storedValueBalance?: number | null, packageRemainingSessions?: number | null) {
     if (!selectedBookingId) return;
     setBookings((current) => current.map((booking) => {
       if (booking.id !== selectedBookingId) return booking;
       const remainingSessions = status === "已完成" && booking.remainingSessions !== null
         ? Math.max(booking.remainingSessions - 1, 0)
         : booking.remainingSessions;
-      return { ...booking, status, remainingSessions, tone: status === "已完成" ? "slate" : booking.tone, settlementLabel, settlementAmount };
+      return { ...booking, status, remainingSessions, tone: status === "已完成" ? "slate" : booking.tone, settlementLabel, settlementAmount, storedValueBalance: storedValueBalance ?? booking.storedValueBalance, packageRemainingSessions: packageRemainingSessions ?? booking.packageRemainingSessions };
     }));
     setNotice(status === "已完成" ? "服務已完成，療程次數已於示範資料中扣除 1 次。" : `預約狀態已更新為「${status}」。`);
   }
@@ -149,7 +149,7 @@ export function SpaManagerSchedulePreview({
         setNotice(result.error);
         return;
       }
-      updateBookingStatus("已完成", result.data.settlementLabel, result.data.amount);
+      updateBookingStatus("已完成", result.data.settlementLabel, result.data.amount, result.data.storedValueBalance, result.data.packageRemainingSessions);
       setNotice(`服務與結帳已一次完成：${result.data.settlementLabel}${result.data.amount ? `・NT$${result.data.amount.toLocaleString()}` : ""}。顧客與芳療師重新整理即可看到。`);
     });
   }
@@ -428,6 +428,7 @@ function BookingDetail({ booking, onComplete, isCompleting, onRebook }: { bookin
     <section className="rounded-2xl bg-earth-900 p-5 text-white shadow-[0_12px_32px_rgba(52,47,39,0.14)]">
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-300">預約詳情・{booking.time}</p><h2 className="mt-2 text-xl font-semibold">{booking.customer}</h2></div><span className="rounded-full bg-white/12 px-2.5 py-1 text-xs font-semibold">{booking.status}</span></div>
       <dl className="mt-5 space-y-3 border-t border-white/10 pt-4 text-sm"><DetailRow label="服務項目" value={booking.serviceItems.join("＋")} /><DetailRow label="芳療師" value={`${provider.badge}號 ${provider.name}`} /><DetailRow label="服務時段" value={`${booking.time}–${addMinutes(booking.time, booking.durationMinutes)}`} /><DetailRow label="療程時間" value={`${booking.durationMinutes} 分鐘＋整理 ${booking.bufferMinutes} 分鐘`} /><DetailRow label="可用次數" value={booking.remainingSessions === null ? "單次／現場付款" : `剩餘 ${booking.remainingSessions} 次`} /><DetailRow label="注意事項" value={booking.note} /></dl>
+      {booking.id === SPA_DEMO_LIVE_FLOW_BOOKING_ID ? <div className="mt-4 grid grid-cols-2 gap-2 text-xs"><div className="rounded-xl bg-white/8 p-3 ring-1 ring-white/10"><p className="text-earth-400">儲值金餘額</p><p className="mt-1 font-semibold text-white">NT${(booking.storedValueBalance ?? 0).toLocaleString()}</p></div><div className="rounded-xl bg-white/8 p-3 ring-1 ring-white/10"><p className="text-earth-400">療程剩餘</p><p className="mt-1 font-semibold text-white">{booking.packageRemainingSessions ?? 0} 次</p></div></div> : null}
       {booking.status === "已完成" ? (
         <div className="mt-5 rounded-xl bg-primary-100 px-4 py-3 text-sm font-semibold text-primary-900">已完成・{booking.settlementLabel ?? "結帳完成"}{booking.settlementAmount ? `・NT$${booking.settlementAmount.toLocaleString()}` : ""}</div>
       ) : showCheckout ? (

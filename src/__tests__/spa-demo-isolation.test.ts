@@ -138,6 +138,10 @@ describe("SPA Demo tenant isolation", () => {
     expect(checkout).toContain("z.literal(SPA_DEMO_LIVE_FLOW_BOOKING_ID)");
     expect(checkout).toContain('storeId: SPA_DEMO_STORE.id');
     expect(checkout).toContain('bookingStatus: "COMPLETED"');
+    expect(checkout).toContain("storedValueLedgerEntry.create");
+    expect(checkout).toContain('transactionType: "SESSION_DEDUCTION"');
+    expect(checkout).toContain('status: "RESERVED"');
+    expect(checkout).toContain('status: "COMPLETED"');
     expect(checkout).toContain('revalidatePath("/liff/staff-preview")');
     expect(manager).toContain("完成服務與結帳");
     expect(manager).toContain("確認完成並結帳");
@@ -152,6 +156,8 @@ vi.mock("@/lib/db", () => ({
     store: { findFirst: vi.fn() },
     staff: { findMany: vi.fn() },
     booking: { findMany: vi.fn() },
+    storedValueWallet: { findFirst: vi.fn() },
+    customerPlanWallet: { findFirst: vi.fn() },
   },
 }));
 
@@ -168,6 +174,8 @@ describe("SPA Demo preview database scoping", () => {
     } as never);
     vi.mocked(prisma.staff.findMany).mockResolvedValue([]);
     vi.mocked(prisma.booking.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.storedValueWallet.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.customerPlanWallet.findFirst).mockResolvedValue(null);
 
     const { getSpaDemoPreviewData } = await import("@/server/queries/spa-demo-preview");
     const result = await getSpaDemoPreviewData();
@@ -207,6 +215,8 @@ describe("SPA Demo preview database scoping", () => {
       servicePlan: null,
       customerPlanWallet: null,
     }] as never);
+    vi.mocked(prisma.storedValueWallet.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.customerPlanWallet.findFirst).mockResolvedValue(null);
 
     const { getSpaDemoPreviewData } = await import("@/server/queries/spa-demo-preview");
     await expect(getSpaDemoPreviewData()).rejects.toThrow("SPA_DEMO_CROSS_STORE_RELATION_REJECTED");

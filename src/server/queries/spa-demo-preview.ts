@@ -7,6 +7,7 @@ import {
   SPA_DEMO_BOOKINGS,
   SPA_DEMO_FIXTURE,
   SPA_DEMO_LIVE_FLOW_BOOKING_ID,
+  SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
   SPA_DEMO_PROVIDERS,
   SPA_DEMO_STORE,
   type SpaDemoBooking,
@@ -56,7 +57,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
   });
   assertSpaDemoStoreIdentity(store);
 
-  const [staff, bookings] = await Promise.all([
+  const [staff, bookings, liveStoredWallet, livePackageWallet] = await Promise.all([
     prisma.staff.findMany({
       where: {
         storeId: SPA_DEMO_STORE.id,
@@ -90,6 +91,14 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         customerPlanWallet: { select: { remainingSessions: true, storeId: true } },
       },
       orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
+    }),
+    prisma.storedValueWallet.findFirst({
+      where: { storeId: SPA_DEMO_STORE.id, customerId: "spa-demo-customer-live-flow" },
+      select: { balance: true },
+    }),
+    prisma.customerPlanWallet.findFirst({
+      where: { id: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID, storeId: SPA_DEMO_STORE.id },
+      select: { remainingSessions: true },
     }),
   ]);
 
@@ -132,6 +141,8 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         note: "顧客端送出，店長與芳療師同步驗收",
         settlementLabel: settlement?.[1] ?? null,
         settlementAmount: settlement ? Number(settlement[2]) : null,
+        storedValueBalance: liveStoredWallet ? Number(liveStoredWallet.balance) : null,
+        packageRemainingSessions: livePackageWallet?.remainingSessions ?? null,
       };
     }
     return {
