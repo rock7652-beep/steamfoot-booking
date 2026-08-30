@@ -236,14 +236,7 @@ export function SpaManagerSchedulePreview({
             ))}
           </nav>
 
-          <div className="mt-auto rounded-2xl bg-white/8 p-4 ring-1 ring-white/10">
-            <p className="text-xs text-white/50">排程資源模式</p>
-            <p className="mt-1.5 text-sm font-semibold">管理芳療師時間</p>
-            <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
-              <ModuleSetting label="號牌顯示" value="號碼＋姓名" />
-              <ModuleSetting label="療程緩衝" value="可設定" />
-            </dl>
-          </div>
+
         </aside>
 
         <main className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-7 xl:px-10">

@@ -24,6 +24,7 @@ export default async function LiffDesignPreviewPage() {
 
   const { presentation, bookings } = await getSpaDemoPreviewData();
   const liveBooking = bookings.find((booking) => booking.id === SPA_DEMO_LIVE_FLOW_BOOKING_ID) ?? null;
+  const displayStoreName = presentation.name.replace(/\s*示範店$/, "");
 
   return (
     <div className="spa-preview-page mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
@@ -31,7 +32,7 @@ export default async function LiffDesignPreviewPage() {
       <header className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">
-            {presentation.name}
+            {displayStoreName}
           </p>
           <p className="mt-0.5 text-sm text-earth-500">
             {SPA_INDUSTRY_MODULE.customer.memberCenterLabel}
@@ -99,7 +100,7 @@ export default async function LiffDesignPreviewPage() {
           },
           healthSummary: null,
           referralShare: {
-            storeName: presentation.name,
+            storeName: displayStoreName,
             referralUrl: `/s/${presentation.slug}/line-entry?ref=PREVIEW&destination=public-trial&source=liff-store-share`,
             shareTemplate: null,
             address: presentation.address,
