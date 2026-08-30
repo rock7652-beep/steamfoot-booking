@@ -10,6 +10,13 @@ import {
 } from "@/lib/spa-demo-store";
 
 describe("SPA Demo tenant isolation", () => {
+  it("keeps the staff sync preview outside production", () => {
+    const source = readFileSync("src/app/(liff)/liff/staff-preview/page.tsx", "utf8");
+    expect(source).toContain('process.env.VERCEL_ENV === "production"');
+    expect(source).toContain("getSpaDemoPreviewData");
+    expect(source).toContain("booking.providerId === provider.id");
+  });
+
   it("accepts only the immutable demo id + slug + isDemo identity", () => {
     expect(() => assertSpaDemoStoreIdentity({ id: "demo-store", slug: "demo", isDemo: true })).not.toThrow();
     expect(() => assertSpaDemoStoreIdentity({ id: "demo-store", slug: "demo", isDemo: false })).toThrow("SPA_DEMO_STORE_IDENTITY_MISMATCH");
