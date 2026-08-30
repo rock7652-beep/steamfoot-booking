@@ -137,6 +137,9 @@ describe("SPA Demo tenant isolation", () => {
     expect(composer).toContain("4. 可約時段");
     expect(composer).toContain("assignedProviders.length !== people");
     expect(composer).toContain("summary.price * people");
+    expect(composer).toContain("completedBooking");
+    expect(composer).toContain("預約完成");
+    expect(composer).toContain("返回會員中心");
     expect(composer).toContain('useState("")');
     expect(composer).toContain("isSpaProviderAvailable");
     expect(composer).not.toContain('id: "spa-demo-staff-08"');
