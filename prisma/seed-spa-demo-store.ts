@@ -314,6 +314,39 @@ async function applySeed() {
       });
     }
 
+    // Monetary stored value is intentionally seeded only for one Demo customer.
+    // Never reset an existing balance: repeated seeds must preserve checkout history.
+    const storedValueWallet = await tx.storedValueWallet.findUnique({
+      where: {
+        storeId_customerId: {
+          storeId: SPA_DEMO_STORE.id,
+          customerId: "spa-demo-customer-zhou",
+        },
+      },
+      select: { id: true },
+    });
+    if (!storedValueWallet) {
+      await tx.storedValueWallet.create({
+        data: {
+          id: "spa-demo-stored-value-zhou",
+          storeId: SPA_DEMO_STORE.id,
+          customerId: "spa-demo-customer-zhou",
+          balance: 5000,
+          entries: {
+            create: {
+              id: "spa-demo-stored-value-zhou-opening",
+              storeId: SPA_DEMO_STORE.id,
+              customerId: "spa-demo-customer-zhou",
+              entryType: "ADJUSTMENT",
+              amount: 5000,
+              balanceAfter: 5000,
+              note: "SPA Demo 驗收期初餘額",
+            },
+          },
+        },
+      });
+    }
+
     for (const wallet of WALLET_DEFS) {
       const service = SPA_INDUSTRY_MODULE.services.find((candidate) => candidate.name === wallet.planName);
       if (!service) throw new Error(`SPA_DEMO_PLAN_MISSING:${wallet.planName}`);

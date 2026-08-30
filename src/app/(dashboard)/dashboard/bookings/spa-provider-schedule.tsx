@@ -263,7 +263,7 @@ export function SpaProviderSchedule({
           </div>
           <div className="flex flex-1 flex-wrap gap-1.5" aria-label="當日 SPA 營運摘要">
             <Metric tone={arrivingSoonCount > 0 ? "notice" : "quiet"} label={isToday ? "一小時內" : "待到店"} value={`${arrivingSoonCount} 位`} />
-            <Metric tone={checkedInCount > 0 ? "active" : "quiet"} label="已到店" value={`${checkedInCount} 位`} />
+            <Metric tone={checkedInCount > 0 ? "active" : "quiet"} label="服務中" value={`${checkedInCount} 位`} />
             <Metric tone={checkoutCount > 0 ? "warning" : "quiet"} label="待結帳" value={`${checkoutCount} 筆`} />
             <Metric label="按摩床可用" value={`${Math.max(0, 2 - occupiedResources.BED)}/2`} />
             <Metric label="沙發椅可用" value={`${Math.max(0, 2 - occupiedResources.CHAIR)}/2`} />
@@ -721,7 +721,7 @@ function spaOperationalStatus(booking: SpaScheduleBooking): string {
   }
   if (booking.bookingStatus === "CANCELLED") return "已取消";
   if (booking.bookingStatus === "NO_SHOW") return "未到店";
-  if (booking.isCheckedIn) return "已到店";
+  if (booking.isCheckedIn) return "服務中";
   return "待到店";
 }
 

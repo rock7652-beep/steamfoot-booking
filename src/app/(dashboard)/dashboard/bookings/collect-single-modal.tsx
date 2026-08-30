@@ -9,7 +9,10 @@ import {
   getSingleBookingPurchasePlans,
   purchasePlanForSingleBooking,
 } from "@/server/actions/booking-plan-purchase";
-import { settleSpaBookingWithPackage } from "@/server/actions/spa-checkout";
+import {
+  settleSpaBookingWithPackage,
+  settleSpaBookingWithStoredValue,
+} from "@/server/actions/spa-checkout";
 
 /**
  * 單次（SINGLE，不扣堂）現場收款 Modal（drawer-only 入口）。
@@ -39,6 +42,7 @@ interface Props {
     expiryDate: string | null;
     recommended: boolean;
   }>;
+  storedValue?: { balance: number; status: string } | null;
   /** 收款成功後回呼（母層負責關閉 / 重抓 detail / 重整月曆）。 */
   onCollected: (serviceCompleted: boolean) => void;
 }
@@ -62,6 +66,7 @@ export function CollectSingleModal({
   serviceName = "本次服務",
   serviceMinutes,
   wallets = [],
+  storedValue = null,
   onCollected,
 }: Props) {
   const [amount, setAmount] = useState(String(defaultPrice));
@@ -74,9 +79,9 @@ export function CollectSingleModal({
   const [discountReason, setDiscountReason] = useState("");
   const [note, setNote] = useState("");
   const [mode, setMode] = useState<"single" | "plan">("single");
-  const [spaSettlement, setSpaSettlement] = useState<"PAYMENT" | "PACKAGE">(
-    "PAYMENT",
-  );
+  const [spaSettlement, setSpaSettlement] = useState<
+    "PAYMENT" | "PACKAGE" | "STORED_VALUE"
+  >("PAYMENT");
   const [walletId, setWalletId] = useState(
     () =>
       wallets.find((wallet) => wallet.recommended)?.id ?? wallets[0]?.id ?? "",
@@ -121,6 +126,26 @@ export function CollectSingleModal({
     planAmountNum <= selectedPlan.price;
 
   function handleConfirm() {
+    if (spaMode && spaSettlement === "STORED_VALUE") {
+      if (!storedValue || storedValue.status !== "ACTIVE") {
+        return toast.error("此顧客目前沒有可用的儲值金帳戶");
+      }
+      if (storedValue.balance < defaultPrice) {
+        return toast.error("儲值金餘額不足");
+      }
+      startTransition(async () => {
+        const result = await settleSpaBookingWithStoredValue({ bookingId });
+        if (result.success) {
+          toast.success(
+            `已扣儲值金並完成服務，餘額 NT$ ${result.data.remainingBalance.toLocaleString("zh-TW")}`,
+          );
+          onCollected(true);
+        } else {
+          toast.error(result.error ?? "儲值金扣款失敗");
+        }
+      });
+      return;
+    }
     if (spaMode && spaSettlement === "PACKAGE") {
       if (!walletId) return toast.error("此顧客目前沒有可扣次的療程");
       startTransition(async () => {
@@ -296,10 +321,19 @@ export function CollectSingleModal({
               />
               <SettlementChoice
                 label="儲值金"
-                detail="尚未建立金額帳戶"
-                selected={false}
-                disabled
-                onClick={() => undefined}
+                detail={
+                  storedValue
+                    ? `餘額 NT$ ${storedValue.balance.toLocaleString("zh-TW")}${storedValue.balance < defaultPrice ? "（不足）" : ""}`
+                    : "目前沒有儲值金"
+                }
+                selected={spaSettlement === "STORED_VALUE"}
+                disabled={
+                  pending ||
+                  !storedValue ||
+                  storedValue.status !== "ACTIVE" ||
+                  storedValue.balance < defaultPrice
+                }
+                onClick={() => setSpaSettlement("STORED_VALUE")}
               />
               <SettlementChoice
                 label="療程扣次"
@@ -418,6 +452,17 @@ export function CollectSingleModal({
               確認後扣除 1 次並將本次服務標記完成，不另外收款。
             </p>
           </div>
+        ) : spaMode && spaSettlement === "STORED_VALUE" ? (
+          <div className="mb-4 rounded-lg border border-primary-200 bg-primary-50 p-3 text-sm text-primary-900">
+            <div className="flex justify-between">
+              <span>本次扣款</span>
+              <span className="font-semibold">NT$ {defaultPrice.toLocaleString("zh-TW")}</span>
+            </div>
+            <div className="mt-1 flex justify-between text-xs text-primary-700">
+              <span>扣款後餘額</span>
+              <span>NT$ {Math.max(0, (storedValue?.balance ?? 0) - defaultPrice).toLocaleString("zh-TW")}</span>
+            </div>
+          </div>
         ) : (
           <>
             <label className="mb-1 block text-xs font-medium text-earth-600">
@@ -531,8 +576,12 @@ export function CollectSingleModal({
             onClick={handleConfirm}
             disabled={
               pending ||
-              (spaMode && spaSettlement === "PACKAGE"
-                ? !walletId
+              (spaMode && spaSettlement !== "PAYMENT"
+                ? spaSettlement === "PACKAGE"
+                  ? !walletId
+                  : !storedValue ||
+                    storedValue.status !== "ACTIVE" ||
+                    storedValue.balance < defaultPrice
                 : mode === "single"
                   ? !validAmount || overPaid || !paymentSplitsValid
                   : !validPlanAmount)
@@ -541,6 +590,8 @@ export function CollectSingleModal({
           >
             {pending
               ? "處理中..."
+              : spaMode && spaSettlement === "STORED_VALUE"
+                ? "確認扣儲值金並完成服務"
               : spaMode && spaSettlement === "PACKAGE"
                 ? "確認扣次並完成服務"
                 : mode === "plan"

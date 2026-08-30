@@ -678,6 +678,8 @@ model Store {
   staffSkills                       StaffSkill[]
   staffWeeklyAvailabilities         StaffWeeklyAvailability[]
   staffAvailabilityExceptions       StaffAvailabilityException[]
+  storedValueWallets                StoredValueWallet[]
+  storedValueLedgerEntries          StoredValueLedgerEntry[]
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
@@ -1132,6 +1134,8 @@ model Customer {
   checkinPosts                CheckinPost[]
   healthRecords               CustomerHealthRecord[]
   healthHistoryGrantsReceived CustomerHealthHistoryGrant[]
+  storedValueWallets          StoredValueWallet[]
+  storedValueLedgerEntries    StoredValueLedgerEntry[]
 
   // 顧客經營追蹤紀錄（簡易 CRM-lite）
   followUps                       CustomerFollowUp[]
@@ -1813,15 +1817,16 @@ model Booking {
   createdAt                       DateTime             @default(now())
   updatedAt                       DateTime             @updatedAt
 
-  customer           Customer                @relation(fields: [customerId], references: [id])
-  store              Store                   @relation(fields: [storeId], references: [id])
-  revenueStaff       Staff?                  @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
-  serviceStaff       Staff?                  @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
-  bookedByStaff      Staff?                  @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
-  servicePlan        ServicePlan?            @relation(fields: [servicePlanId], references: [id])
-  treatment          Treatment?              @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
-  customerPlanWallet CustomerPlanWallet?     @relation(fields: [customerPlanWalletId], references: [id])
-  recurrenceGroup    BookingRecurrenceGroup? @relation(fields: [recurrenceGroupId], references: [id], onDelete: SetNull)
+  customer               Customer                @relation(fields: [customerId], references: [id])
+  store                  Store                   @relation(fields: [storeId], references: [id])
+  revenueStaff           Staff?                  @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff           Staff?                  @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  bookedByStaff          Staff?                  @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
+  servicePlan            ServicePlan?            @relation(fields: [servicePlanId], references: [id])
+  treatment              Treatment?              @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+  customerPlanWallet     CustomerPlanWallet?     @relation(fields: [customerPlanWalletId], references: [id])
+  recurrenceGroup        BookingRecurrenceGroup? @relation(fields: [recurrenceGroupId], references: [id], onDelete: SetNull)
+  storedValueLedgerEntry StoredValueLedgerEntry?
 
   // 補課關聯
   // legacy（PR-NoShow-2 之前）：單張券。新流程改用 makeupCreditLinks（join table），
@@ -2087,20 +2092,21 @@ model Transaction {
   refundedAt            DateTime?
   refundedByUserId      String?
 
-  customer            Customer                  @relation(fields: [customerId], references: [id])
-  store               Store                     @relation(fields: [storeId], references: [id])
-  booking             Booking?                  @relation(fields: [bookingId], references: [id])
-  revenueStaff        Staff                     @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
-  serviceStaff        Staff?                    @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
-  soldByStaff         Staff?                    @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
-  customerPlanWallet  CustomerPlanWallet?       @relation(fields: [customerPlanWalletId], references: [id])
-  servicePlan         ServicePlan?              @relation("TransactionPlan", fields: [planId], references: [id])
-  voidedBy            User?                     @relation("VoidedTransactions", fields: [voidedByUserId], references: [id])
-  auditLogs           TransactionAuditLog[]
-  refundOfTransaction Transaction?              @relation("TransactionRefunds", fields: [refundOfTransactionId], references: [id], onDelete: Restrict)
-  refunds             Transaction[]             @relation("TransactionRefunds")
-  refundedBy          User?                     @relation("RefundedTransactions", fields: [refundedByUserId], references: [id])
-  paymentSplits       TransactionPaymentSplit[]
+  customer               Customer                  @relation(fields: [customerId], references: [id])
+  store                  Store                     @relation(fields: [storeId], references: [id])
+  booking                Booking?                  @relation(fields: [bookingId], references: [id])
+  revenueStaff           Staff                     @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff           Staff?                    @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  soldByStaff            Staff?                    @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
+  customerPlanWallet     CustomerPlanWallet?       @relation(fields: [customerPlanWalletId], references: [id])
+  servicePlan            ServicePlan?              @relation("TransactionPlan", fields: [planId], references: [id])
+  voidedBy               User?                     @relation("VoidedTransactions", fields: [voidedByUserId], references: [id])
+  auditLogs              TransactionAuditLog[]
+  refundOfTransaction    Transaction?              @relation("TransactionRefunds", fields: [refundOfTransactionId], references: [id], onDelete: Restrict)
+  refunds                Transaction[]             @relation("TransactionRefunds")
+  refundedBy             User?                     @relation("RefundedTransactions", fields: [refundedByUserId], references: [id])
+  paymentSplits          TransactionPaymentSplit[]
+  storedValueLedgerEntry StoredValueLedgerEntry?
 
   @@index([storeId])
   @@index([customerId])
@@ -2134,6 +2140,53 @@ model TransactionPaymentSplit {
 
   @@index([transactionId])
   @@index([paymentMethod])
+}
+
+// ============================================================
+// SPA stored value — monetary entitlement, intentionally separate from
+// ServicePlan / CustomerPlanWallet session entitlements.
+// ============================================================
+
+model StoredValueWallet {
+  id         String   @id @default(cuid())
+  storeId    String
+  customerId String
+  balance    Decimal  @default(0) @db.Decimal(10, 0)
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  store    Store                    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer Customer                 @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  entries  StoredValueLedgerEntry[]
+
+  @@unique([storeId, customerId])
+  @@index([storeId, status])
+  @@index([customerId])
+}
+
+model StoredValueLedgerEntry {
+  id            String   @id @default(cuid())
+  walletId      String
+  storeId       String
+  customerId    String
+  bookingId     String?  @unique
+  transactionId String?  @unique
+  entryType     String
+  amount        Decimal  @db.Decimal(10, 0)
+  balanceAfter  Decimal  @db.Decimal(10, 0)
+  note          String?
+  createdAt     DateTime @default(now())
+
+  wallet      StoredValueWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  store       Store             @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customer    Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  booking     Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  transaction Transaction?      @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, createdAt])
+  @@index([storeId, createdAt])
+  @@index([customerId, createdAt])
 }
 
 // ============================================================

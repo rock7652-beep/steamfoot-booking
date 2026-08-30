@@ -76,6 +76,7 @@ describe("SPA dashboard schedule presentation", () => {
     expect(source).toContain("<NowLine");
     expect(source).toContain("一小時內");
     expect(source).toContain("待結帳");
+    expect(source).toContain('label="服務中"');
     expect(source).toContain("按摩床可用");
     expect(source).toContain("spaOperationalStatus");
   });

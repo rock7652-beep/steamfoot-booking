@@ -31,6 +31,7 @@ import { TestReminderModal } from "./line-test-reminder-modal";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { formatWeekdayZh } from "@/lib/date-utils";
+import { checkInSpaBooking } from "@/server/actions/spa-checkout";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   CASH: "現金",
@@ -38,6 +39,7 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
   LINE_PAY: "LINE Pay",
   CREDIT_CARD: "信用卡",
   OTHER: "其他",
+  STORED_VALUE: "儲值金",
 };
 
 /**
@@ -320,6 +322,15 @@ export function BookingDetailDrawer({
     wrapAction("已完成服務", () => markCompleted(bookingId!), "COMPLETED");
   }
 
+  function handleCheckIn() {
+    if (!bookingId || readOnly) return;
+    wrapAction(
+      "已確認到店並開始服務",
+      () => checkInSpaBooking({ bookingId }),
+      null,
+    );
+  }
+
   // AttendanceModal confirm — 依 attendanceIntent 分流。
   //   intent="collect"：0 → markNoShow；N≥1 → 暫存 pendingAttendedPeople 並開 CollectTrialModal
   //   intent="complete"：0 → markNoShow；N≥1 → markCompleted({attendedPeople:N})
@@ -460,7 +471,10 @@ export function BookingDetailDrawer({
     setCollectSingleOpen(false);
     setReloadNonce((n) => n + 1);
     if (bookingId)
-      onUpdated?.(bookingId, serviceCompleted ? "COMPLETED" : null);
+      onUpdated?.(
+        bookingId,
+        spaMode ? null : serviceCompleted ? "COMPLETED" : null,
+      );
   }
 
   // 體驗 499 PR-3b：收款更正成功 — 同理重抓 detail（金額/付款方式翻新）
@@ -518,6 +532,7 @@ export function BookingDetailDrawer({
             spaMode={spaMode}
             actions={{
               complete: handleComplete,
+              checkIn: handleCheckIn,
               noShow: () => setNoShowOpen(true),
               cancel: handleCancel,
               revert: handleRevert,
@@ -669,6 +684,7 @@ export function BookingDetailDrawer({
           }
           serviceMinutes={data.booking.treatmentServiceMinutesSnapshot}
           wallets={data.checkout?.wallets ?? []}
+          storedValue={data.storedValue}
           onCollected={handleSingleCollected}
         />
       )}
@@ -713,6 +729,7 @@ export function BookingDetailDrawer({
 
 interface DrawerActions {
   complete: () => void;
+  checkIn: () => void;
   noShow: () => void;
   cancel: () => void;
   revert: () => void;
@@ -751,6 +768,7 @@ function DrawerContent({
     single,
     checkout,
     checkoutToSingle,
+    storedValue,
   } = payload;
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   const amount = computeAmount(booking, trial);
@@ -1016,6 +1034,12 @@ function DrawerContent({
               value={`NT$ ${single.defaultPrice.toLocaleString()}`}
             />
           )}
+          {spaMode && storedValue ? (
+            <KV
+              label="儲值金餘額"
+              value={`NT$ ${storedValue.balance.toLocaleString("zh-TW")}`}
+            />
+          ) : null}
         </Section>
 
         {/* Section D: 備註 */}
@@ -1391,6 +1415,9 @@ function ActionFooter({
     (status === "PENDING" || status === "CONFIRMED");
 
   if (status === "PENDING" || status === "CONFIRMED") {
+    if (spaMode && !booking.isCheckedIn) {
+      secondaries.push({ label: "確認到店／開始服務", onClick: actions.checkIn });
+    }
     if (canCollect) {
       primaries.push({ label: "收款並完成服務", onClick: actions.collect });
     }

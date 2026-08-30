@@ -104,6 +104,11 @@ export interface BookingDrawerPayload {
     collectedAt: string | null;
     defaultPrice: number;
   } | null;
+  // Monetary stored value is a payment entitlement, not a service/session plan.
+  storedValue?: {
+    balance: number;
+    status: string;
+  } | null;
   // 調整結帳方式（Phase 1 — 僅 SINGLE 未收款 → PACKAGE_SESSION 扣方案）。
   // 僅 SINGLE 預約有此區塊（其他型別一律 null）。canAdjustToPackage=true 時
   // Drawer 才顯示「調整結帳」按鈕；false 時 reason 給不可調整原因（已收款 /
@@ -168,6 +173,7 @@ export async function fetchBookingDetail(
     trialSettings,
     canCorrect,
     collectedSingleTx,
+    storedValueWallet,
     adjustWallets,
     completedAgg,
     lastVisit,
@@ -206,8 +212,20 @@ export async function fetchBookingDetail(
             discountAmount: true,
             paymentMethod: true,
             paidAt: true,
+            storedValueLedgerEntry: { select: { id: true } },
           },
           orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve(null),
+    isSingle
+      ? prisma.storedValueWallet.findUnique({
+          where: {
+            storeId_customerId: {
+              storeId: booking.storeId,
+              customerId: booking.customerId,
+            },
+          },
+          select: { balance: true, status: true },
         })
       : Promise.resolve(null),
     // 調整結帳方式：僅 SINGLE 且非補課才查顧客可用方案（ACTIVE + 有剩餘堂）。
@@ -363,7 +381,9 @@ export async function fetchBookingDetail(
             collectedSingleTx == null
               ? null
               : Number(collectedSingleTx.discountAmount),
-          collectedMethod: collectedSingleTx?.paymentMethod ?? null,
+          collectedMethod: collectedSingleTx?.storedValueLedgerEntry
+            ? "STORED_VALUE"
+            : (collectedSingleTx?.paymentMethod ?? null),
           // paidAt 是 timestamp（非 DB date 欄位），UTC toISOString().slice(0,10)
           // 在 00:00-08:00 台北時間會跨日顯示成前一天。用 toLocalDateStr 換 +8。
           collectedAt: collectedSingleTx?.paidAt
@@ -375,6 +395,12 @@ export async function fetchBookingDetail(
               : booking.servicePlan?.price != null
                 ? Number(booking.servicePlan.price)
                 : 799,
+        }
+      : null,
+    storedValue: storedValueWallet
+      ? {
+          balance: Number(storedValueWallet.balance),
+          status: storedValueWallet.status,
         }
       : null,
     checkout: isSingle
