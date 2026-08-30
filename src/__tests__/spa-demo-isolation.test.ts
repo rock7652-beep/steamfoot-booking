@@ -12,10 +12,15 @@ import {
 describe("SPA Demo tenant isolation", () => {
   it("keeps the staff sync preview outside production", () => {
     const source = readFileSync("src/app/(liff)/liff/staff-preview/page.tsx", "utf8");
+    const schedule = readFileSync(
+      "src/app/(liff)/liff/_components/spa-staff-schedule-preview.tsx",
+      "utf8",
+    );
     expect(source).toContain('process.env.VERCEL_ENV === "production"');
     expect(source).toContain("getSpaDemoPreviewData");
-    expect(source).toContain("booking.providerId === provider.id");
-    expect(source).toContain("booking.date === previewDate");
+    expect(schedule).toContain("booking.providerId === provider.id");
+    expect(schedule).toContain("booking.date === selectedDate");
+    expect(schedule).toContain('aria-label="行程日期"');
   });
 
   it("accepts only the immutable demo id + slug + isDemo identity", () => {
