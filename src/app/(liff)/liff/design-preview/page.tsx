@@ -26,7 +26,8 @@ export default async function LiffDesignPreviewPage() {
   const liveBooking = bookings.find((booking) => booking.id === SPA_DEMO_LIVE_FLOW_BOOKING_ID) ?? null;
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
+    <div className="spa-preview-page mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
+      <style>{`.liff-customer-ui:has(.spa-preview-page) > footer { display: none; }`}</style>
       <header className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">

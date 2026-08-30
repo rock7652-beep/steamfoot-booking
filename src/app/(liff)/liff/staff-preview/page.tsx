@@ -27,10 +27,11 @@ export default async function SpaStaffPreviewPage() {
     .sort((left, right) => left.time.localeCompare(right.time));
 
   return (
-    <main className="min-h-screen bg-earth-50 px-4 py-6">
+    <main className="spa-preview-page min-h-screen bg-earth-50 px-4 py-6">
+      <style>{`.liff-customer-ui:has(.spa-preview-page) > footer { display: none; }`}</style>
       <div className="mx-auto max-w-2xl space-y-4">
         <header className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold tracking-[0.12em] text-primary-700">SPA 芳療師行程・Demo Preview</p>
+          <p className="text-xs font-semibold tracking-[0.12em] text-primary-700">SPA 芳療師行程</p>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold text-earth-900">{provider.badge}號 {provider.name}</h1>
@@ -46,7 +47,6 @@ export default async function SpaStaffPreviewPage() {
               <p className="text-sm font-medium text-primary-700">今日工作</p>
               <h2 className="mt-1 text-xl font-bold text-earth-900">{formatDateWithWeekdayZh(previewDate)}</h2>
             </div>
-            <span className="text-xs text-earth-500">與顧客、店長同步</span>
           </div>
 
           <div className="mt-4 space-y-3">
@@ -71,7 +71,6 @@ export default async function SpaStaffPreviewPage() {
           </div>
         </section>
 
-        <p className="px-1 text-xs leading-5 text-earth-500">此頁僅供 Draft PR 驗收；正式站的芳療師行程仍須登入。</p>
       </div>
     </main>
   );

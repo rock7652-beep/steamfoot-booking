@@ -53,9 +53,9 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
   const [addOnKeys, setAddOnKeys] = useState<readonly string[]>([]);
   const [providerId, setProviderId] = useState("spa-demo-staff-08");
   const [selectedTime, setSelectedTime] = useState("10:00");
-  const [customerName, setCustomerName] = useState("同步測試顧客");
+  const [customerName, setCustomerName] = useState("王小姐");
   const [bookingDate, setBookingDate] = useState(previewDate);
-  const [notice, setNotice] = useState("送出後會同步到 Demo 店長與指定芳療師行程。");
+  const [notice, setNotice] = useState("");
   const [isSubmitting, startSubmitting] = useTransition();
 
   const selectedPrimary = SPA_SERVICE_MENU.find((item) => item.key === primaryKey) ?? primaryItems[0];
@@ -110,7 +110,7 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
         setNotice(result.error);
         return;
       }
-      setNotice(`已同步：${result.data.customerName}・${selectedProvider.label}・${result.data.bookingDate} ${result.data.slotTime}。店長與芳療師重新整理即可看到。`);
+      setNotice(`預約完成：${result.data.bookingDate} ${result.data.slotTime}・${selectedProvider.label}`);
     });
   }
 
@@ -125,7 +125,7 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
       <div className="space-y-6 p-5">
         {liveBooking ? (
           <div className={`rounded-2xl border p-4 ${liveBooking.status === "已完成" ? "border-primary-200 bg-primary-50" : "border-earth-200 bg-earth-50"}`}>
-            <div className="flex items-start justify-between gap-3"><div><p className="text-xs text-earth-500">最新 Demo 預約</p><p className="mt-1 font-semibold text-earth-900">{liveBooking.date}・{liveBooking.time}・{liveBooking.service}</p></div><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-primary-700">{liveBooking.status}</span></div>
+            <div className="flex items-start justify-between gap-3"><div><p className="text-xs text-earth-500">最新預約</p><p className="mt-1 font-semibold text-earth-900">{liveBooking.date}・{liveBooking.time}・{liveBooking.service}</p></div><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-primary-700">{liveBooking.status}</span></div>
             {liveBooking.status === "已完成" ? <div className="mt-2 text-sm font-medium text-primary-800"><p>店長已完成服務・{liveBooking.settlementLabel ?? "結帳完成"}{liveBooking.settlementAmount ? `・NT$${liveBooking.settlementAmount.toLocaleString()}` : ""}</p>{liveBooking.settlementLabel === "儲值金" ? <p className="mt-1">儲值金餘額：NT${(liveBooking.storedValueBalance ?? 0).toLocaleString()}</p> : null}{liveBooking.settlementLabel === "扣療程 1 次" ? <p className="mt-1">療程剩餘：{liveBooking.packageRemainingSessions ?? 0} 次</p> : null}</div> : null}
           </div>
         ) : null}
@@ -163,7 +163,7 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
             <div><p className="text-xs text-primary-700">已選 {selectedItems.length} 個項目</p><p className="mt-1 text-lg font-semibold text-earth-900">共 {summary.durationMinutes} 分鐘</p></div>
             <p className="text-right text-sm text-earth-600">預估<br /><span className="text-lg font-semibold text-earth-900">NT${summary.price.toLocaleString()}</span></p>
           </div>
-          <p className="mt-3 border-t border-primary-100 pt-3 text-xs leading-relaxed text-earth-600">服務由同一位芳療師完成；另保留 30 分鐘整理緩衝。</p>
+          <p className="mt-3 border-t border-primary-100 pt-3 text-xs leading-relaxed text-earth-600">所有項目由同一位芳療師完成。</p>
         </div>
 
         <fieldset>
@@ -176,13 +176,12 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
               </label>
             ))}
           </div>
-          <p className="mt-2 text-xs text-earth-500">只顯示能完成全部所選項目的芳療師。</p>
         </fieldset>
 
         <fieldset>
-          <legend className="text-sm font-semibold text-earth-900">4. 選擇日期與連續可預約時段</legend>
+          <legend className="text-sm font-semibold text-earth-900">4. 選擇日期與時間</legend>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="text-sm font-medium text-earth-700">測試顧客姓名<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} maxLength={30} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
+            <label className="text-sm font-medium text-earth-700">姓名<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} maxLength={30} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
             <label className="text-sm font-medium text-earth-700">預約日期<input type="date" min={previewDate} max={previewDate} value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></label>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -193,11 +192,10 @@ export function SpaServiceComposerPreview({ previewDate, liveBooking }: { previe
               </label>
             ))}
           </div>
-          <p className="mt-2 text-xs text-earth-500">系統已排除無法連續容納 {summary.durationMinutes} 分鐘服務＋30 分鐘緩衝的時段。</p>
         </fieldset>
 
-        <button type="button" onClick={confirmPreview} disabled={isSubmitting || !customerName.trim() || !bookingDate || !selectedProvider || !safeSelectedTime} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isSubmitting ? "同步預約中…" : "確認並同步 Demo 預約"}</button>
-        <p className="text-center text-xs leading-relaxed text-earth-500" aria-live="polite">{notice}</p>
+        <button type="button" onClick={confirmPreview} disabled={isSubmitting || !customerName.trim() || !bookingDate || !selectedProvider || !safeSelectedTime} className="min-h-12 w-full rounded-2xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isSubmitting ? "預約中…" : "確認預約"}</button>
+        {notice ? <p className="text-center text-sm font-medium text-primary-700" aria-live="polite">{notice}</p> : null}
       </div>
     </section>
   );

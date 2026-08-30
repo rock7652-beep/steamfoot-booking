@@ -20,7 +20,6 @@ export default async function SpaManagerPreviewPage() {
     <SpaManagerSchedulePreview
       initialProviders={preview.providers}
       initialBookings={preview.bookings}
-      dataSource={preview.source}
       previewDate={toLocalDateStr()}
     />
   );

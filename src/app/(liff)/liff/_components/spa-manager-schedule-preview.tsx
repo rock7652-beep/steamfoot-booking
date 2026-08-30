@@ -69,12 +69,10 @@ const toneClasses: Record<Tone, string> = {
 export function SpaManagerSchedulePreview({
   initialProviders = SPA_DEMO_PROVIDERS,
   initialBookings = SPA_DEMO_BOOKINGS,
-  dataSource = "fixture",
   previewDate = "2026-08-29",
 }: {
   initialProviders?: readonly PreviewProvider[];
   initialBookings?: readonly PreviewBooking[];
-  dataSource?: "fixture" | "database";
   previewDate?: string;
 }) {
   const industryModule = SPA_INDUSTRY_MODULE;
@@ -130,7 +128,7 @@ export function SpaManagerSchedulePreview({
         : booking.remainingSessions;
       return { ...booking, status, remainingSessions, tone: status === "已完成" ? "slate" : booking.tone, settlementLabel, settlementAmount, storedValueBalance: storedValueBalance ?? booking.storedValueBalance, packageRemainingSessions: packageRemainingSessions ?? booking.packageRemainingSessions };
     }));
-    setNotice(status === "已完成" ? "服務已完成，療程次數已於示範資料中扣除 1 次。" : `預約狀態已更新為「${status}」。`);
+    setNotice(status === "已完成" ? "服務已完成，療程次數已扣除 1 次。" : `預約狀態已更新為「${status}」。`);
   }
 
   function completeBooking(settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") {
@@ -140,7 +138,7 @@ export function SpaManagerSchedulePreview({
       const label = { CASH: "現金", CREDIT_CARD: "刷卡", STORED_VALUE: "儲值金", PACKAGE: "扣療程 1 次" }[settlement];
       const booking = bookings.find((item) => item.id === bookingId);
       updateBookingStatus("已完成", label, booking?.remainingSessions === null ? 0 : undefined);
-      setNotice(`示範預約已一次完成服務與結帳：${label}。`);
+      setNotice(`服務與結帳已完成：${label}。`);
       return;
     }
     startCompleting(async () => {
@@ -150,7 +148,7 @@ export function SpaManagerSchedulePreview({
         return;
       }
       updateBookingStatus("已完成", result.data.settlementLabel, result.data.amount, result.data.storedValueBalance, result.data.packageRemainingSessions);
-      setNotice(`服務與結帳已一次完成：${result.data.settlementLabel}${result.data.amount ? `・NT$${result.data.amount.toLocaleString()}` : ""}。顧客與芳療師重新整理即可看到。`);
+      setNotice(`服務與結帳已一次完成：${result.data.settlementLabel}${result.data.amount ? `・NT$${result.data.amount.toLocaleString()}` : ""}。`);
     });
   }
 
@@ -199,7 +197,7 @@ export function SpaManagerSchedulePreview({
     setBookings((current) => [...current, booking]);
     setSelectedBookingId(booking.id);
     setQuickSlot(null);
-    setNotice(`${customer} 的預約已加入示範排程。重新整理後會復原，不會寫入正式資料。`);
+    setNotice(`${customer} 的預約已加入排程。`);
   }
 
   function openFirstAvailableSlot() {
@@ -215,13 +213,14 @@ export function SpaManagerSchedulePreview({
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f3ee] text-earth-900">
+    <div className="spa-preview-page min-h-screen bg-[#f5f3ee] text-earth-900">
+      <style>{`.liff-customer-ui:has(.spa-preview-page) > footer { display: none; }`}</style>
       <div className="mx-auto min-h-screen max-w-[1600px] lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="hidden border-r border-earth-200/80 bg-[#2f352b] px-5 py-7 text-white lg:flex lg:flex-col">
           <div className="border-b border-white/10 pb-6">
             <p className="text-xs font-semibold tracking-[0.18em] text-primary-200">蒸管家</p>
             <p className="mt-2 text-lg font-semibold">沐光舒療 SPA</p>
-            <p className="mt-1 text-xs text-white/55">店長管理後台・示範店</p>
+            <p className="mt-1 text-xs text-white/55">店長管理後台</p>
           </div>
 
           <nav className="mt-6 space-y-1.5" aria-label="店長後台功能">
@@ -252,10 +251,8 @@ export function SpaManagerSchedulePreview({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-semibold text-primary-700">SPA 人員排程</span>
-                <span className="text-xs text-earth-500">互動預覽・{dataSource === "database" ? "Demo 店資料" : "隔離示範資料"}</span>
               </div>
               <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{industryModule.manager.dashboardLabel}</h1>
-              <p className="mt-1 text-sm text-earth-500">桌機、iPad 與手機共用同一套排程；手機可左右滑動查看各芳療師</p>
             </div>
           </header>
 
@@ -276,7 +273,6 @@ export function SpaManagerSchedulePreview({
               <div className="flex flex-col gap-4 border-b border-earth-100 px-5 py-5 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold">時間 × 芳療師</h2>
-                  <p className="mt-1 text-sm text-earth-500">月曆負責選日期，這張表負責管理當天人員</p>
                 </div>
                 <DateSelector dayIndex={dayIndex} onChooseDay={chooseDay} />
               </div>
@@ -444,7 +440,6 @@ function BookingDetail({ booking, onComplete, isCompleting, onRebook }: { bookin
       ) : (
         <div className="mt-5 grid gap-2"><ActionButton label={booking.remainingSessions === null ? "完成服務並收費" : "完成服務並扣次"} onClick={() => setShowCheckout(true)} emphasized /><ActionButton label="再約下一次" onClick={onRebook} /></div>
       )}
-      <p className="mt-4 rounded-xl bg-white/8 px-3.5 py-3 text-xs leading-relaxed text-earth-200 ring-1 ring-white/10">在這個面板一次完成服務與結帳，不增加中間步驟。</p>
     </section>
   );
 }
@@ -474,7 +469,7 @@ function QuickBookingForm({ slot, onCancel, onSubmit }: { slot: QuickSlot; onCan
         <div><label htmlFor="spa-preview-primary-service" className="block text-sm font-medium text-earth-700">主療程／組合</label><select id="spa-preview-primary-service" name="primaryService" value={primaryKey} onChange={(event) => { setPrimaryKey(event.target.value); setAddOnKeys([]); }} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500">{primaryItems.map((item) => <option key={item.key} value={item.key}>{item.name}・{item.durationMinutes} 分</option>)}</select></div>
         {primary.kind !== "COMBO" ? <fieldset><legend className="text-sm font-medium text-earth-700">加購項目（可複選）</legend><div className="mt-2 grid gap-2">{addOnItems.map((item) => <label key={item.key} className="flex items-center justify-between gap-3 rounded-xl border border-earth-200 px-3 py-2 text-sm"><span className="flex items-center gap-2"><input type="checkbox" name="addOn" value={item.key} checked={addOnKeys.includes(item.key)} onChange={() => toggleAddOn(item.key)} />{item.name}</span><span className="shrink-0 text-xs text-earth-500">＋{item.durationMinutes} 分</span></label>)}</div></fieldset> : null}
         <div className="rounded-xl bg-primary-50 px-3.5 py-3 text-sm text-primary-800"><p className="font-semibold">合計 {summary.durationMinutes} 分鐘・NT${summary.price.toLocaleString()}</p><p className="mt-1 text-xs">另保留 30 分鐘整理；送出時會再次檢查連續空檔與芳療師資格。</p></div>
-        <button type="submit" className="min-h-11 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white">加入示範排程</button>
+        <button type="submit" className="min-h-11 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white">加入排程</button>
       </form>
     </section>
   );
