@@ -16,11 +16,11 @@ const SPECIALTY_BY_SKILL_ID: Record<string, SpaProviderSpecialty> = {
 export async function getSpaDemoBookableProviders({
   startDate,
   endDate,
-  excludeBookingId,
+  excludeBookingIds,
 }: {
   startDate: string;
   endDate: string;
-  excludeBookingId?: string;
+  excludeBookingIds?: readonly string[];
 }): Promise<readonly SpaBookableProvider[]> {
   const [staff, bookings] = await Promise.all([
     prisma.staff.findMany({
@@ -57,7 +57,7 @@ export async function getSpaDemoBookableProviders({
     }),
     prisma.booking.findMany({
       where: {
-        id: excludeBookingId ? { not: excludeBookingId } : undefined,
+        id: excludeBookingIds?.length ? { notIn: [...excludeBookingIds] } : undefined,
         storeId: SPA_DEMO_STORE.id,
         serviceStaffId: { not: null },
         bookingDate: {
