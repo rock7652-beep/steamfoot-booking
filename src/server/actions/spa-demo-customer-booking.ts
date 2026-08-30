@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import {
   SPA_DEMO_LIVE_FLOW_BOOKING_ID,
+  SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
   SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
   SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME,
   SPA_DEMO_STORE,
@@ -25,7 +26,8 @@ import { getSpaDemoBookableProviders } from "@/server/queries/spa-demo-booking-a
 const inputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
-  providerId: z.string().min(1),
+  people: z.number().int().min(1).max(3),
+  providerIds: z.array(z.string().min(1)).min(1).max(3),
   primaryKey: z.string().min(1),
   addOnKeys: z.array(z.string()).max(3),
 });
@@ -80,35 +82,46 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
     }),
     Promise.all([
       prisma.customer.findUnique({ where: { id: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID }, select: { storeId: true, name: true } }),
-      prisma.booking.findUnique({ where: { id: SPA_DEMO_LIVE_FLOW_BOOKING_ID }, select: { storeId: true } }),
+      prisma.booking.findMany({ where: { id: { in: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS] } }, select: { storeId: true } }),
     ]),
     getSpaDemoBookableProviders({
       startDate: data.bookingDate,
       endDate: data.bookingDate,
-      excludeBookingId: SPA_DEMO_LIVE_FLOW_BOOKING_ID,
+      excludeBookingIds: SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
     }),
   ]);
 
   if (!store || !treatment || !packagePlan) {
     return { success: false as const, error: "Demo 店、人員或療程設定不完整" };
   }
-  if (idCollisions.some((record) => record && record.storeId !== SPA_DEMO_STORE.id)) {
+  const bookingCollisions = idCollisions[1];
+  if ((idCollisions[0] && idCollisions[0].storeId !== SPA_DEMO_STORE.id)
+    || bookingCollisions.some((record) => record.storeId !== SPA_DEMO_STORE.id)) {
     return { success: false as const, error: "Demo 測試識別碼發生跨店衝突" };
   }
 
-  const provider = providers.find((candidate) => candidate.id === data.providerId);
-  if (!provider) return { success: false as const, error: "這位芳療師目前未開放預約" };
-  if (!canProviderPerformServices(provider.specialties, items)) {
-    return { success: false as const, error: "這位芳療師無法完成全部所選項目" };
+  if (data.providerIds.length !== data.people || new Set(data.providerIds).size !== data.people) {
+    return { success: false as const, error: "芳療師人數與預約人數不一致" };
   }
-  if (!isSpaProviderAvailable({
-    provider,
-    date: data.bookingDate,
-    startTime: data.slotTime,
-    serviceMinutes: summary.durationMinutes,
-    bufferMinutes: 30,
-  })) {
-    return { success: false as const, error: "此時段不在芳療師班表內或已有預約，請改選其他時間" };
+  const selectedProviders = data.providerIds.map((providerId) =>
+    providers.find((candidate) => candidate.id === providerId),
+  );
+  if (selectedProviders.some((provider) => !provider)) {
+    return { success: false as const, error: "芳療師目前未開放預約" };
+  }
+  for (const provider of selectedProviders) {
+    if (!provider || !canProviderPerformServices(provider.specialties, items)) {
+      return { success: false as const, error: "芳療師無法完成全部所選項目" };
+    }
+    if (!isSpaProviderAvailable({
+      provider,
+      date: data.bookingDate,
+      startTime: data.slotTime,
+      serviceMinutes: summary.durationMinutes,
+      bufferMinutes: 30,
+    })) {
+      return { success: false as const, error: "此時段可服務人數已不足，請改選其他時間" };
+    }
   }
 
   const serviceName = items.map((item) => item.name.replace("加購", "")).join("＋");
@@ -122,12 +135,12 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
         storeId: SPA_DEMO_STORE.id,
         name: SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME,
         phone: "0911999999",
-        assignedStaffId: data.providerId,
+        assignedStaffId: data.providerIds[0],
         customerStage: "TRIAL",
         selfBookingEnabled: true,
         serviceNote: "SPA Demo 三端同步驗收顧客",
       },
-      update: { assignedStaffId: data.providerId },
+      update: { assignedStaffId: data.providerIds[0] },
     });
     await tx.storedValueWallet.upsert({
       where: { storeId_customerId: { storeId: SPA_DEMO_STORE.id, customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID } },
@@ -160,23 +173,25 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
       data: Array.from({ length: 5 }, (_, index) => ({ id: `${SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID}-session-${index + 1}`, walletId: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID, sessionNo: index + 1, status: "AVAILABLE" as const })),
       skipDuplicates: true,
     });
-    await tx.booking.upsert({
-      where: { id: SPA_DEMO_LIVE_FLOW_BOOKING_ID },
-      create: {
-        id: SPA_DEMO_LIVE_FLOW_BOOKING_ID,
+    for (const [index, providerId] of data.providerIds.entries()) {
+      const bookingId = SPA_DEMO_LIVE_FLOW_BOOKING_IDS[index];
+      await tx.booking.upsert({
+        where: { id: bookingId },
+        create: {
+        id: bookingId,
         storeId: SPA_DEMO_STORE.id,
         customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
         bookingDate: parseTaiwanDateToDbDate(data.bookingDate),
         slotTime: data.slotTime,
-        revenueStaffId: data.providerId,
-        serviceStaffId: data.providerId,
+        revenueStaffId: providerId,
+        serviceStaffId: providerId,
         bookedByType: "CUSTOMER",
         bookingType: "SINGLE",
         treatmentId,
         bookingStatus: "CONFIRMED",
-        notes: `SPA_DEMO_LIVE_FLOW|skills=${requiredSpecialties}`,
+        notes: `SPA_DEMO_LIVE_FLOW|party=${data.people}|guest=${index + 1}|skills=${requiredSpecialties}`,
         treatmentNameSnapshot: serviceName,
-        treatmentVariantSnapshot: `共 ${items.length} 項服務`,
+        treatmentVariantSnapshot: `${data.people} 位・共 ${items.length} 項服務`,
         treatmentPriceSnapshot: summary.price,
         treatmentServiceMinutesSnapshot: summary.durationMinutes,
         treatmentBufferMinutesSnapshot: 30,
@@ -185,21 +200,29 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
         customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
         bookingDate: parseTaiwanDateToDbDate(data.bookingDate),
         slotTime: data.slotTime,
-        revenueStaffId: data.providerId,
-        serviceStaffId: data.providerId,
+        revenueStaffId: providerId,
+        serviceStaffId: providerId,
         treatmentId,
         bookingType: "SINGLE",
         servicePlanId: null,
         customerPlanWalletId: null,
         bookingStatus: "CONFIRMED",
-        notes: `SPA_DEMO_LIVE_FLOW|skills=${requiredSpecialties}`,
+        notes: `SPA_DEMO_LIVE_FLOW|party=${data.people}|guest=${index + 1}|skills=${requiredSpecialties}`,
         treatmentNameSnapshot: serviceName,
-        treatmentVariantSnapshot: `共 ${items.length} 項服務`,
+        treatmentVariantSnapshot: `${data.people} 位・共 ${items.length} 項服務`,
         treatmentPriceSnapshot: summary.price,
         treatmentServiceMinutesSnapshot: summary.durationMinutes,
         treatmentBufferMinutesSnapshot: 30,
       },
-    });
+      });
+    }
+    const unusedBookingIds = SPA_DEMO_LIVE_FLOW_BOOKING_IDS.slice(data.people);
+    if (unusedBookingIds.length) {
+      await tx.booking.updateMany({
+        where: { id: { in: [...unusedBookingIds] }, storeId: SPA_DEMO_STORE.id },
+        data: { bookingStatus: "CANCELLED" },
+      });
+    }
   });
 
   revalidatePath("/liff/manager-preview");
@@ -211,7 +234,8 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
     data: {
       bookingId: SPA_DEMO_LIVE_FLOW_BOOKING_ID,
       customerName: idCollisions[0]?.name ?? SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME,
-      providerId: data.providerId,
+      people: data.people,
+      providerIds: data.providerIds,
       bookingDate: data.bookingDate,
       slotTime: data.slotTime,
     },
