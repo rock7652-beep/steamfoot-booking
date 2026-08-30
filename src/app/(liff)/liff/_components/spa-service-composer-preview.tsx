@@ -228,7 +228,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers }
           </details>
         ) : null}
 
-        {allServicesSelected ? <fieldset><legend className="text-sm font-semibold text-earth-900">3. 日期</legend><input aria-label="預約日期" type="date" min={previewDate} max={latestDate} value={bookingDate} onChange={(event) => { setBookingDate(event.target.value); setSelectedTime(""); setGuests((current) => current.map((guest) => ({ ...guest, providerId: "" }))); setNotice(""); }} className="mt-3 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></fieldset> : null}
+        {allServicesSelected ? <fieldset><legend className="text-sm font-semibold text-earth-900">3. 日期</legend><input aria-label="預約日期" type="date" min={previewDate} max={latestDate} value={bookingDate} onChange={(event) => { setBookingDate(event.target.value); setSelectedTime(""); setGuests((current) => current.map((guest) => ({ ...guest, providerId: "" }))); setNotice(""); }} onBlur={(event) => { if (event.currentTarget.value !== bookingDate) { setBookingDate(event.currentTarget.value); setSelectedTime(""); setGuests((current) => current.map((guest) => ({ ...guest, providerId: "" }))); setNotice(""); } }} className="mt-3 min-h-11 w-full rounded-xl border border-earth-200 px-3 outline-none focus:border-primary-500" /></fieldset> : null}
 
         {bookingDate ? (
           <fieldset>
