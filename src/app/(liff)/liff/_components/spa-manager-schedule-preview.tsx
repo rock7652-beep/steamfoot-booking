@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import { completeSpaDemoBooking, completeSpaDemoGuestBooking } from "@/server/actions/spa-demo-checkout";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
+import { cancelSpaDemoBooking } from "@/server/actions/spa-demo-booking-management";
 import { SPA_INDUSTRY_MODULE } from "@/lib/industry-modules";
 import {
   SPA_DEMO_BOOKINGS,
@@ -190,6 +191,89 @@ export function SpaManagerSchedulePreview({
     setNotice(`已準備為 ${selectedBooking.customer} 安排下一次；保留 ${provider.badge}號 ${provider.name}，日期與時間重新選擇。`);
   }
 
+  function updateGroupBooking(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedBooking || !selectedGroupBookings.length) return;
+    const formData = new FormData(event.currentTarget);
+    const customer = String(formData.get("customer") ?? "").trim();
+    const phone = String(formData.get("phone") ?? "").trim();
+    const bookingDate = String(formData.get("bookingDate") ?? selectedBooking.date);
+    const slotTime = String(formData.get("slotTime") ?? selectedBooking.time);
+    const guests = selectedGroupBookings
+      .toSorted((left, right) => (left.guestIndex ?? 1) - (right.guestIndex ?? 1))
+      .map((_, index) => {
+        const primaryKey = String(formData.get(`edit-guest-${index}-primary`) ?? "");
+        const addOnKeys = formData.getAll(`edit-guest-${index}-addOn`).map(String);
+        return { primaryKey, addOnKeys, items: composeSpaServices(primaryKey, addOnKeys) };
+      });
+    const providers = toBookableProviders(
+      activeProviders,
+      bookings.filter((booking) => !SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number])),
+    );
+    const assignment = findSpaPartyProviderAssignment({ requests: guests.map((guest) => ({ items: guest.items })), providers, date: bookingDate, time: slotTime });
+    if (!customer || !/^09\d{8}$/.test(phone)) {
+      setNotice("請填寫主要聯絡人與正確手機號碼。");
+      return;
+    }
+    if (assignment.length !== guests.length) {
+      setNotice("修改後的時段無法同時安排全部服務。");
+      return;
+    }
+    startCompleting(async () => {
+      const result = await createSpaDemoCustomerBooking({
+        bookingDate,
+        slotTime,
+        bookingSource: "MANAGER",
+        bookingOperation: "UPDATE",
+        primaryContact: { name: customer, phone },
+        guests: guests.map((guest, index) => ({ providerId: assignment[index].id, primaryKey: guest.primaryKey, addOnKeys: guest.addOnKeys })),
+      });
+      if (!result.success) {
+        setNotice(result.error);
+        return;
+      }
+      const nextBookings: PreviewBooking[] = guests.map((guest, index) => {
+        const summary = summarizeSpaServices(guest.items);
+        return {
+          id: SPA_DEMO_LIVE_FLOW_BOOKING_IDS[index], date: bookingDate, time: slotTime, customer,
+          service: guest.items.map((item) => item.name.replace("加購", "")).join("＋"),
+          serviceItems: guest.items.map((item) => item.name.replace("加購", "")), providerId: assignment[index].id,
+          durationMinutes: summary.durationMinutes, bufferMinutes: 30, status: "已確認", tone: "sage", remainingSessions: null,
+          note: "無", partySize: guests.length, guestIndex: index + 1, price: summary.price, contactPhone: phone,
+          storedValueBalance: selectedBooking.storedValueBalance, packageRemainingSessions: selectedBooking.packageRemainingSessions,
+        };
+      });
+      setBookings((current) => [...current.filter((booking) => !SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number])), ...nextBookings]);
+      const nextDayIndex = scheduleDays.findIndex((day) => day.key === bookingDate);
+      if (nextDayIndex >= 0) setDayIndex(nextDayIndex);
+      setSelectedBookingId(nextBookings[0].id);
+      setNotice(`${customer} 共 ${guests.length} 位的預約已更新。`);
+    });
+  }
+
+  function cancelBooking(scope: "GUEST" | "GROUP", bookingId: string) {
+    startCompleting(async () => {
+      const result = await cancelSpaDemoBooking({ bookingId, scope });
+      if (!result.success) {
+        setNotice(result.error);
+        return;
+      }
+      if (result.data.cancelledAll) {
+        setBookings((current) => current.filter((booking) => !SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number])));
+        setSelectedBookingId(null);
+        setNotice("整組預約已取消。");
+        return;
+      }
+      const survivors = selectedGroupBookings
+        .toSorted((left, right) => (left.guestIndex ?? 1) - (right.guestIndex ?? 1))
+        .filter((booking) => booking.id !== bookingId)
+        .map((booking, index, all) => ({ ...booking, id: SPA_DEMO_LIVE_FLOW_BOOKING_IDS[index], partySize: all.length, guestIndex: index + 1 }));
+      setBookings((current) => [...current.filter((booking) => !SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number])), ...survivors]);
+      setSelectedBookingId(survivors[0]?.id ?? null);
+      setNotice("此位預約已取消，其餘同行預約保留。");
+    });
+  }
+
   function createQuickBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!quickSlot) return;
@@ -253,6 +337,7 @@ export function SpaManagerSchedulePreview({
           partySize: people,
           guestIndex: index + 1,
           price: summary.price,
+          contactPhone: phone,
           storedValueBalance: 5000,
           packageRemainingSessions: 5,
         };
@@ -384,7 +469,7 @@ export function SpaManagerSchedulePreview({
             {quickSlot ? (
             <QuickBookingForm providers={toBookableProviders(activeProviders, bookings)} slot={quickSlot} onCancel={() => setQuickSlot(null)} onSubmit={createQuickBooking} isSubmitting={isCompleting} />
             ) : selectedBooking ? (
-              <BookingDetail key={selectedGroupBookings.map((booking) => booking.id).join("|")} providers={selectedGroupBookings.map((booking) => getActiveProvider(booking.providerId)).filter((provider): provider is PreviewProvider => Boolean(provider))} bookings={selectedGroupBookings} booking={selectedBooking} onCompleteGroup={completeBooking} onCompleteGuest={completeGuestBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
+              <BookingDetail key={selectedGroupBookings.map((booking) => booking.id).join("|")} providers={activeProviders} bookableProviders={toBookableProviders(activeProviders, bookings.filter((item) => !selectedGroupBookings.some((selected) => selected.id === item.id)))} bookings={selectedGroupBookings} booking={selectedBooking} onCompleteGroup={completeBooking} onCompleteGuest={completeGuestBooking} onUpdate={updateGroupBooking} onCancel={cancelBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
             ) : null}
           </aside>
         </div>
@@ -476,8 +561,10 @@ function BlockedSlot({ label }: { label: string }) {
   return <div className="flex h-full items-center justify-center rounded-xl bg-earth-100 px-2 text-center text-xs font-medium text-earth-400">{label}</div>;
 }
 
-function BookingDetail({ providers, bookings, booking, onCompleteGroup, onCompleteGuest, isCompleting, onRebook }: { providers: readonly PreviewProvider[]; bookings: readonly PreviewBooking[]; booking: PreviewBooking; onCompleteGroup: (settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onCompleteGuest: (bookingId: string, settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; isCompleting: boolean; onRebook: () => void }) {
+function BookingDetail({ providers, bookableProviders, bookings, booking, onCompleteGroup, onCompleteGuest, onUpdate, onCancel, isCompleting, onRebook }: { providers: readonly PreviewProvider[]; bookableProviders: readonly SpaBookableProvider[]; bookings: readonly PreviewBooking[]; booking: PreviewBooking; onCompleteGroup: (settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onCompleteGuest: (bookingId: string, settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onUpdate: (event: FormEvent<HTMLFormElement>) => void; onCancel: (scope: "GUEST" | "GROUP", bookingId: string) => void; isCompleting: boolean; onRebook: () => void }) {
   const [showCheckout, setShowCheckout] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<{ scope: "GUEST" | "GROUP"; bookingId: string } | null>(null);
   const [checkoutMode, setCheckoutMode] = useState<"GROUP" | "SPLIT">("GROUP");
   const [settlement, setSettlement] = useState<"CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE">(booking.remainingSessions === null ? "CASH" : "PACKAGE");
   const [guestSettlements, setGuestSettlements] = useState<Record<string, "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE">>(() => Object.fromEntries(bookings.map((item) => [item.id, "CASH"])));
@@ -494,6 +581,9 @@ function BookingDetail({ providers, bookings, booking, onCompleteGroup, onComple
     ["STORED_VALUE", "主要聯絡人儲值金"],
     ["PACKAGE", checkoutMode === "GROUP" ? `主要聯絡人療程 ${people} 次` : "主要聯絡人療程 1 次"],
   ] as const;
+  if (showEdit) {
+    return <BookingEditForm booking={booking} bookings={orderedBookings} providers={bookableProviders} onSubmit={onUpdate} onCancel={() => setShowEdit(false)} isSubmitting={isCompleting} />;
+  }
   return (
     <section className="rounded-2xl bg-earth-900 p-5 text-white shadow-[0_12px_32px_rgba(52,47,39,0.14)]">
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-300">同行預約・{booking.time}</p><h2 className="mt-2 text-xl font-semibold">{booking.customer}</h2></div><span className="rounded-full bg-white/12 px-2.5 py-1 text-xs font-semibold">{completedCount}/{people} 已完成</span></div>
@@ -507,6 +597,7 @@ function BookingDetail({ providers, bookings, booking, onCompleteGroup, onComple
               <div className="flex items-start justify-between gap-3"><p className="text-sm font-semibold">{index === 0 ? "第 1 位" : `同行者 ${index + 1}`}</p><span className="text-xs text-earth-300">{item.status}</span></div>
               <p className="mt-2 text-sm text-earth-100">{item.serviceItems.join("＋")}</p>
               <div className="mt-2 grid gap-1 text-xs text-earth-300"><p>{provider ? `${provider.badge}號 ${provider.name}` : "尚未指派"}</p><p>{item.time}–{addMinutes(item.time, item.durationMinutes)}・{item.durationMinutes} 分鐘</p>{item.price ? <p>NT${item.price.toLocaleString()}</p> : null}</div>
+              {!someCompleted && !allCompleted ? <button type="button" onClick={() => setCancelTarget({ scope: "GUEST", bookingId: item.id })} className="mt-3 text-xs font-semibold text-earth-300 underline underline-offset-4">取消此位</button> : null}
               {item.status === "已完成" ? <p className="mt-3 rounded-xl bg-primary-100 px-3 py-2 text-xs font-semibold text-primary-900">已結帳・{item.settlementLabel ?? "完成"}</p> : showCheckout && (checkoutMode === "SPLIT" || someCompleted) ? (
                 <div className="mt-3">
                   <div className="grid grid-cols-2 gap-2">
@@ -521,6 +612,7 @@ function BookingDetail({ providers, bookings, booking, onCompleteGroup, onComple
       </div>
       {expectedAmount > 0 ? <div className="mt-4 flex items-center justify-between text-sm"><span className="text-earth-300">整組合計</span><span className="font-semibold">NT${expectedAmount.toLocaleString()}</span></div> : null}
       {isLiveGroup ? <div className="mt-4 grid grid-cols-2 gap-2 text-xs"><div className="rounded-xl bg-white/8 p-3 ring-1 ring-white/10"><p className="text-earth-400">儲值金餘額</p><p className="mt-1 font-semibold text-white">NT${(booking.storedValueBalance ?? 0).toLocaleString()}</p></div><div className="rounded-xl bg-white/8 p-3 ring-1 ring-white/10"><p className="text-earth-400">療程剩餘</p><p className="mt-1 font-semibold text-white">{booking.packageRemainingSessions ?? 0} 次</p></div></div> : null}
+      {cancelTarget ? <div className="mt-5 rounded-2xl bg-[#624238] p-4"><p className="text-sm font-semibold">{cancelTarget.scope === "GROUP" ? "確定取消整組預約？" : "確定取消此位預約？"}</p><div className="mt-3 grid grid-cols-2 gap-2"><ActionButton label="返回" onClick={() => setCancelTarget(null)} disabled={isCompleting} /><ActionButton label={isCompleting ? "處理中…" : "確認取消"} onClick={() => onCancel(cancelTarget.scope, cancelTarget.bookingId)} disabled={isCompleting} emphasized /></div></div> : null}
       {allCompleted ? (
         <div className="mt-5 grid gap-2"><div className="rounded-xl bg-primary-100 px-4 py-3 text-sm font-semibold text-primary-900">整組服務已完成</div><ActionButton label="再約下一次" onClick={onRebook} /></div>
       ) : showCheckout ? (
@@ -530,8 +622,47 @@ function BookingDetail({ providers, bookings, booking, onCompleteGroup, onComple
           <div className="mt-3"><ActionButton label="返回" onClick={() => setShowCheckout(false)} disabled={isCompleting} /></div>
         </div>
       ) : (
-        <div className="mt-5 grid gap-2"><ActionButton label="完成服務與結帳" onClick={() => { setCheckoutMode(someCompleted ? "SPLIT" : "GROUP"); setShowCheckout(true); }} emphasized /><ActionButton label="再約下一次" onClick={onRebook} /></div>
+        <div className="mt-5 grid gap-2"><ActionButton label="完成服務與結帳" onClick={() => { setCheckoutMode(someCompleted ? "SPLIT" : "GROUP"); setShowCheckout(true); }} emphasized />{!someCompleted ? <><ActionButton label="修改預約" onClick={() => setShowEdit(true)} /><ActionButton label="取消整組" onClick={() => setCancelTarget({ scope: "GROUP", bookingId: booking.id })} /></> : null}<ActionButton label="再約下一次" onClick={onRebook} /></div>
       )}
+    </section>
+  );
+}
+
+function selectionFromBooking(booking: PreviewBooking): QuickGuestSelection {
+  const primary = SPA_SERVICE_MENU.find((item) => item.kind !== "ADD_ON" && booking.service.includes(item.name));
+  const addOnKeys = SPA_SERVICE_MENU
+    .filter((item) => item.kind === "ADD_ON" && booking.service.includes(item.name.replace("加購", "")))
+    .map((item) => item.key);
+  return { primaryKey: primary?.key ?? "aroma_body_60", addOnKeys };
+}
+
+function BookingEditForm({ booking, bookings, providers, onSubmit, onCancel, isSubmitting }: { booking: PreviewBooking; bookings: readonly PreviewBooking[]; providers: readonly SpaBookableProvider[]; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onCancel: () => void; isSubmitting: boolean }) {
+  const [guests, setGuests] = useState<readonly QuickGuestSelection[]>(() => bookings.map(selectionFromBooking));
+  const [activeGuestIndex, setActiveGuestIndex] = useState(0);
+  const [bookingDate, setBookingDate] = useState(booking.date);
+  const [slotTime, setSlotTime] = useState(booking.time);
+  const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
+  const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
+  const guestItems = guests.map((guest) => composeSpaServices(guest.primaryKey, guest.addOnKeys));
+  const summaries = guestItems.map(summarizeSpaServices);
+  const assignment = findSpaPartyProviderAssignment({ requests: guestItems.map((items) => ({ items })), providers, date: bookingDate, time: slotTime });
+  const totalPrice = summaries.reduce((total, summary) => total + summary.price, 0);
+
+  function updateGuest(index: number, update: (guest: QuickGuestSelection) => QuickGuestSelection) {
+    setGuests((current) => current.map((guest, guestIndex) => guestIndex === index ? update(guest) : guest));
+  }
+
+  return (
+    <section className="rounded-2xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
+      <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold">修改預約</h2><button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">返回</button></div>
+      <form className="mt-5 space-y-4" onSubmit={onSubmit}>
+        <div className="grid grid-cols-2 gap-2"><div><label htmlFor="spa-edit-customer" className="block text-sm font-medium text-earth-700">主要聯絡人</label><input id="spa-edit-customer" name="customer" required defaultValue={booking.customer} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3" /></div><div><label htmlFor="spa-edit-phone" className="block text-sm font-medium text-earth-700">電話</label><input id="spa-edit-phone" name="phone" required inputMode="tel" pattern="09[0-9]{8}" defaultValue={booking.contactPhone ?? ""} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3" /></div></div>
+        <div className="grid grid-cols-2 gap-2"><div><label htmlFor="spa-edit-date" className="block text-sm font-medium text-earth-700">日期</label><select id="spa-edit-date" name="bookingDate" value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3">{scheduleDays.map((day) => <option key={day.key} value={day.key}>{day.shortLabel}（{day.weekday}）</option>)}</select></div><div><label htmlFor="spa-edit-time" className="block text-sm font-medium text-earth-700">時間</label><select id="spa-edit-time" name="slotTime" value={slotTime} onChange={(event) => setSlotTime(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3">{scheduleTimes.map((time) => <option key={time} value={time}>{time}</option>)}</select></div></div>
+        <div className="flex gap-2">{guests.map((_, index) => <button key={index} type="button" onClick={() => setActiveGuestIndex(index)} className={`min-h-10 flex-1 rounded-xl px-2 text-sm font-semibold ring-1 ${activeGuestIndex === index ? "bg-primary-100 text-primary-900 ring-primary-200" : "bg-white text-earth-600 ring-earth-200"}`}>{index === 0 ? "第 1 位" : `第 ${index + 1} 位`}</button>)}</div>
+        {guests.map((guest, index) => <div key={index} className={activeGuestIndex === index ? "space-y-4" : "hidden"}><div><label htmlFor={`spa-edit-primary-${index}`} className="block text-sm font-medium text-earth-700">服務</label><select id={`spa-edit-primary-${index}`} name={`edit-guest-${index}-primary`} value={guest.primaryKey} onChange={(event) => updateGuest(index, () => ({ primaryKey: event.target.value, addOnKeys: [] }))} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 px-3">{primaryItems.map((item) => <option key={item.key} value={item.key}>{item.name}・{item.durationMinutes} 分</option>)}</select></div>{SPA_SERVICE_MENU.find((item) => item.key === guest.primaryKey)?.kind !== "COMBO" ? <fieldset><legend className="text-sm font-medium text-earth-700">加購</legend><div className="mt-2 grid gap-2">{addOnItems.map((item) => <label key={item.key} className="flex items-center justify-between gap-3 rounded-xl border border-earth-200 px-3 py-2 text-sm"><span className="flex items-center gap-2"><input type="checkbox" name={`edit-guest-${index}-addOn`} value={item.key} checked={guest.addOnKeys.includes(item.key)} onChange={() => updateGuest(index, (current) => ({ ...current, addOnKeys: current.addOnKeys.includes(item.key) ? current.addOnKeys.filter((key) => key !== item.key) : [...current.addOnKeys, item.key] }))} />{item.name}</span><span className="text-xs text-earth-500">＋{item.durationMinutes} 分</span></label>)}</div></fieldset> : null}</div>)}
+        <div className="rounded-xl bg-primary-50 p-3.5 text-sm text-primary-900"><p className="font-semibold">{guests.length} 位・NT${totalPrice.toLocaleString()}</p><div className="mt-2 space-y-1 text-xs">{summaries.map((summary, index) => <p key={index}>第 {index + 1} 位・{summary.durationMinutes} 分鐘・{assignment[index]?.label ?? "此時段無法安排"}</p>)}</div></div>
+        <button type="submit" disabled={isSubmitting || assignment.length !== guests.length} className="min-h-11 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-35">{isSubmitting ? "更新中…" : "儲存修改"}</button>
+      </form>
     </section>
   );
 }
@@ -549,8 +680,6 @@ function QuickBookingForm({ providers, slot, onCancel, onSubmit, isSubmitting }:
   const [activeGuestIndex, setActiveGuestIndex] = useState(0);
   const primaryItems = SPA_SERVICE_MENU.filter((item) => item.kind !== "ADD_ON");
   const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
-  const activeGuest = guests[activeGuestIndex] ?? guests[0];
-  const activePrimary = SPA_SERVICE_MENU.find((item) => item.key === activeGuest.primaryKey) ?? primaryItems[0];
   const guestItems = guests.map((guest) => composeSpaServices(guest.primaryKey, guest.addOnKeys));
   const guestSummaries = guestItems.map(summarizeSpaServices);
   const assignment = findSpaPartyProviderAssignment({ requests: guestItems.map((items) => ({ items })), providers, date: slot.date, time: slot.time });
@@ -582,7 +711,7 @@ function QuickBookingForm({ providers, slot, onCancel, onSubmit, isSubmitting }:
         <div className="grid grid-cols-2 gap-2"><div><label htmlFor="spa-preview-customer" className="block text-sm font-medium text-earth-700">主要聯絡人</label><input id="spa-preview-customer" name="customer" required autoFocus placeholder="例如：陳小姐" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500" /></div><div><label htmlFor="spa-preview-phone" className="block text-sm font-medium text-earth-700">電話</label><input id="spa-preview-phone" name="phone" required inputMode="tel" pattern="09[0-9]{8}" placeholder="0912345678" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500" /></div></div>
         <fieldset><legend className="text-sm font-medium text-earth-700">人數</legend><input type="hidden" name="people" value={people} /><div className="mt-2 grid grid-cols-3 gap-2">{[1, 2, 3].map((count) => <button key={count} type="button" onClick={() => changePeople(count)} className={`min-h-11 rounded-xl text-sm font-semibold ring-1 ${people === count ? "bg-earth-900 text-white ring-earth-900" : "bg-white text-earth-700 ring-earth-200"}`}>{count} 位</button>)}</div></fieldset>
         <div className="flex gap-2">{guests.map((guest, index) => <button key={index} type="button" onClick={() => setActiveGuestIndex(index)} className={`min-h-10 flex-1 rounded-xl px-2 text-sm font-semibold ring-1 ${activeGuestIndex === index ? "bg-primary-100 text-primary-900 ring-primary-200" : "bg-white text-earth-600 ring-earth-200"}`}>{index === 0 ? "第 1 位" : `第 ${index + 1} 位`}</button>)}</div>
-        {guests.map((guest, index) => <div key={index} className={index === activeGuestIndex ? "space-y-4" : "hidden"}><div><label htmlFor={`spa-preview-primary-service-${index}`} className="block text-sm font-medium text-earth-700">服務</label><select id={`spa-preview-primary-service-${index}`} name={`guest-${index}-primary`} value={guest.primaryKey} onChange={(event) => updateActiveGuest(() => ({ primaryKey: event.target.value, addOnKeys: [] }))} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500">{primaryItems.map((item) => <option key={item.key} value={item.key}>{item.name}・{item.durationMinutes} 分</option>)}</select></div>{activePrimary.kind !== "COMBO" ? <fieldset><legend className="text-sm font-medium text-earth-700">加購</legend><div className="mt-2 grid gap-2">{addOnItems.map((item) => <label key={item.key} className="flex items-center justify-between gap-3 rounded-xl border border-earth-200 px-3 py-2 text-sm"><span className="flex items-center gap-2"><input type="checkbox" name={`guest-${index}-addOn`} value={item.key} checked={guest.addOnKeys.includes(item.key)} onChange={() => toggleAddOn(item.key)} />{item.name}</span><span className="shrink-0 text-xs text-earth-500">＋{item.durationMinutes} 分</span></label>)}</div></fieldset> : null}</div>)}
+        {guests.map((guest, index) => <div key={index} className={index === activeGuestIndex ? "space-y-4" : "hidden"}><div><label htmlFor={`spa-preview-primary-service-${index}`} className="block text-sm font-medium text-earth-700">服務</label><select id={`spa-preview-primary-service-${index}`} name={`guest-${index}-primary`} value={guest.primaryKey} onChange={(event) => updateActiveGuest(() => ({ primaryKey: event.target.value, addOnKeys: [] }))} className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500">{primaryItems.map((item) => <option key={item.key} value={item.key}>{item.name}・{item.durationMinutes} 分</option>)}</select></div>{SPA_SERVICE_MENU.find((item) => item.key === guest.primaryKey)?.kind !== "COMBO" ? <fieldset><legend className="text-sm font-medium text-earth-700">加購</legend><div className="mt-2 grid gap-2">{addOnItems.map((item) => <label key={item.key} className="flex items-center justify-between gap-3 rounded-xl border border-earth-200 px-3 py-2 text-sm"><span className="flex items-center gap-2"><input type="checkbox" name={`guest-${index}-addOn`} value={item.key} checked={guest.addOnKeys.includes(item.key)} onChange={() => toggleAddOn(item.key)} />{item.name}</span><span className="shrink-0 text-xs text-earth-500">＋{item.durationMinutes} 分</span></label>)}</div></fieldset> : null}</div>)}
         <div className="rounded-xl bg-primary-50 px-3.5 py-3 text-sm text-primary-800"><p className="font-semibold">{people} 位・NT${totalPrice.toLocaleString()}</p><div className="mt-2 space-y-1 text-xs">{guestSummaries.map((summary, index) => <p key={index}>第 {index + 1} 位・{summary.durationMinutes} 分鐘・{assignment[index]?.label ?? "此時段無法安排"}</p>)}</div></div>
         <button type="submit" disabled={isSubmitting || assignment.length !== people} className="min-h-11 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35">{isSubmitting ? "建立中…" : "建立整組預約"}</button>
       </form>

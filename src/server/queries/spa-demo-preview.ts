@@ -103,7 +103,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         treatmentPriceSnapshot: true,
         treatmentServiceMinutesSnapshot: true,
         treatmentBufferMinutesSnapshot: true,
-        customer: { select: { name: true, storeId: true } },
+        customer: { select: { name: true, phone: true, storeId: true } },
         servicePlan: { select: { name: true, storeId: true } },
         customerPlanWallet: { select: { remainingSessions: true, storeId: true } },
       },
@@ -187,6 +187,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         partySize,
         guestIndex,
         price: Number(record.treatmentPriceSnapshot ?? 0),
+        contactPhone: record.customer.phone ?? "",
       };
     }
     return {

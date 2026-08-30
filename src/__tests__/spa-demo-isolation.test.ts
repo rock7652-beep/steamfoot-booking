@@ -87,7 +87,6 @@ describe("SPA Demo tenant isolation", () => {
       "src/app/(liff)/liff/_components/spa-manager-schedule-preview.tsx",
       "utf8",
     );
-
     expect(customer).not.toContain("ModulePreviewSwitcher");
     expect(customer).not.toContain("SpaServiceComposerPreview");
     expect(customer).toContain("bookingHref");
@@ -130,6 +129,10 @@ describe("SPA Demo tenant isolation", () => {
       "src/app/(liff)/liff/_components/spa-manager-schedule-preview.tsx",
       "utf8",
     );
+    const management = readFileSync(
+      "src/server/actions/spa-demo-booking-management.ts",
+      "utf8",
+    );
 
     expect(composer).toContain("createSpaDemoCustomerBooking");
     expect(composer).toContain("確認預約");
@@ -155,6 +158,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).not.toContain("data.customerName");
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME");
     expect(action).toContain('bookingSource: z.enum(["CUSTOMER", "MANAGER"])');
+    expect(action).toContain('bookingOperation: z.enum(["CREATE", "UPDATE"])');
     expect(action).toContain('bookedByType: data.bookingSource === "MANAGER" ? "STAFF" : "CUSTOMER"');
     expect(action).toContain('process.env.VERCEL_ENV === "production"');
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_ID");
@@ -202,6 +206,16 @@ describe("SPA Demo tenant isolation", () => {
     expect(manager).toContain("建立整組預約");
     expect(manager).toContain('bookingSource: "MANAGER"');
     expect(manager).toContain("findSpaPartyProviderAssignment");
+    expect(manager).toContain("修改預約");
+    expect(manager).toContain("取消此位");
+    expect(manager).toContain("取消整組");
+    expect(manager).toContain("cancelSpaDemoBooking");
+    expect(management).toContain('process.env.VERCEL_ENV === "production"');
+    expect(management).toContain('scope: z.enum(["GUEST", "GROUP"])');
+    expect(management).toContain("FOR UPDATE");
+    expect(management).toContain('storeId: SPA_DEMO_STORE.id');
+    expect(management).toContain('bookingStatus: "CANCELLED"');
+    expect(management).toContain('revalidatePath("/liff/staff-preview")');
     expect(manager).not.toContain("確認到店");
     expect(manager).not.toContain("開始服務");
   });

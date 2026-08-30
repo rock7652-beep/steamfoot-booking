@@ -31,6 +31,7 @@ const inputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
   bookingSource: z.enum(["CUSTOMER", "MANAGER"]).default("CUSTOMER"),
+  bookingOperation: z.enum(["CREATE", "UPDATE"]).default("CREATE"),
   primaryContact: z.object({
     name: z.string().trim().min(1).max(100),
     phone: z.string().trim().regex(/^09\d{8}$/),
@@ -125,6 +126,16 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
   if ((idCollisions[0] && idCollisions[0].storeId !== SPA_DEMO_STORE.id)
     || bookingCollisions.some((record) => record.storeId !== SPA_DEMO_STORE.id)) {
     return { success: false as const, error: "Demo 測試識別碼發生跨店衝突" };
+  }
+  if (data.bookingOperation === "UPDATE") {
+    const activeBookings = await prisma.booking.findMany({
+      where: { id: { in: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS] }, storeId: SPA_DEMO_STORE.id, bookingStatus: { not: "CANCELLED" } },
+      select: { bookingStatus: true },
+    });
+    if (!activeBookings.length) return { success: false as const, error: "找不到可修改的預約" };
+    if (activeBookings.some((booking) => !(["PENDING", "CONFIRMED"] as const).includes(booking.bookingStatus as "PENDING" | "CONFIRMED"))) {
+      return { success: false as const, error: "服務開始或結帳後不能修改預約" };
+    }
   }
 
   const providerIds = data.guests.map((guest) => guest.providerId);

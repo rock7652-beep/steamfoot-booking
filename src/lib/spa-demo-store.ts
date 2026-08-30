@@ -81,6 +81,7 @@ export type SpaDemoBooking = {
   partySize?: number;
   guestIndex?: number;
   price?: number;
+  contactPhone?: string;
 };
 
 export type SpaDemoPreviewData = {
