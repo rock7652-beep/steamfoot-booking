@@ -19,6 +19,11 @@ function shiftMonth(month: string, offset: number): string {
   return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function bookingRange(month: string) {
+  const [year, mon] = month.split("-").map(Number);
+  return bookingMonthRange(year, mon);
+}
+
 function monthLabel(month: string): string {
   const [, mon] = month.split("-");
   return `${Number(mon)}月`;
@@ -34,8 +39,8 @@ export async function getStorePerformanceTrends(
   endingMonth: string,
 ): Promise<StorePerformanceTrend[]> {
   const months = Array.from({ length: 6 }, (_, index) => shiftMonth(endingMonth, index - 5));
-  const firstBookingRange = bookingMonthRange(...months[0].split("-").map(Number) as [number, number]);
-  const lastBookingRange = bookingMonthRange(...months[5].split("-").map(Number) as [number, number]);
+  const firstBookingRange = bookingRange(months[0]);
+  const lastBookingRange = bookingRange(months[5]);
   const firstTxRange = monthRange(months[0]);
   const lastTxRange = monthRange(months[5]);
 
