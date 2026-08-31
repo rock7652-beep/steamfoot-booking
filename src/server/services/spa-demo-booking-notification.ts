@@ -76,7 +76,7 @@ export async function saveSpaDemoBookingNotification(
 export async function deliverSpaDemoBookingNotification(claim: SpaDemoNotificationClaim) {
   if (!claim.shouldSend || process.env.VERCEL_ENV === "production") return "NOOP" as const;
 
-  const enabled = process.env.SPA_DEMO_LINE_TEST_SEND_ENABLED?.trim().toLowerCase() === "true";
+  const enabled = process.env.SPA_DEMO_LINE_TEST_SEND_ENABLED?.trim().toLowerCase() !== "false";
   const recipientLineUserId = getSteamButlerLineDestination();
   if (!enabled || !recipientLineUserId) {
     await prisma.messageLog.updateMany({
