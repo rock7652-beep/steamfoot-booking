@@ -18,6 +18,9 @@ describe("SPA manager navigation", () => {
     expect(source).toContain('workspace === "customers"');
     expect(source).toContain("一日預約表");
     expect(source).toContain("values={[15, 30]}");
+    expect(source).toContain("onOpenQuickBooking({ date: workspaceDate, time, providerId: provider.id })");
+    expect(source).toContain("border-red-500");
+    expect(source).toContain("現在");
     expect(source).toContain("onClick={() => onOpenBooking(booking.id)}");
     expect(source).toContain("setSelectedCustomer(customer.name)");
     expect(source).toContain("CustomerAccountPreview");
