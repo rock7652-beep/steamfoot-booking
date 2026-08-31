@@ -1,41 +1,36 @@
-import { readFileSync } from "node:fs";
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-describe("SPA manager navigation", () => {
-  const source = readFileSync(
-    "src/app/(liff)/liff/_components/spa-manager-schedule-preview.tsx",
-    "utf8",
-  );
+const root = process.cwd();
 
-  it("renders every sidebar item as a same-page button", () => {
-    expect(source).toContain('type ManagerWorkspaceKey = "today" | "bookings" | "customers" | "services" | "providers" | "settings"');
-    expect(source).toContain("onClick={() => chooseWorkspace(item.key)}");
-    expect(source).toContain('aria-current={activeWorkspace === item.key ? "page" : undefined}');
+function read(relativePath: string) {
+  return fs.readFileSync(path.join(root, relativePath), "utf8");
+}
+
+describe("SPA 店長入口使用正式管理頁", () => {
+  const preview = read("src/app/(liff)/liff/_components/spa-manager-schedule-preview.tsx");
+
+  it.each([
+    ["預約管理", "/spa-schedule"],
+    ["顧客管理", "/customers"],
+    ["療程管理", "/plans"],
+    ["人員管理", "/staff"],
+    ["營運設定", "/settings"],
+  ])("%s 連到正式頁 %s", (label, route) => {
+    expect(preview).toContain(`label: "${label}", path: "${route}"`);
   });
 
-  it("keeps daily booking and customer account details in side panels", () => {
-    expect(source).toContain('workspace === "bookings"');
-    expect(source).toContain('workspace === "customers"');
-    expect(source).toContain("一日預約表");
-    expect(source).toContain("values={[15, 30]}");
-    expect(source).toContain("onOpenQuickBooking({ date: workspaceDate, time, providerId: provider.id })");
-    expect(source).toContain("border-red-500");
-    expect(source).toContain("現在");
-    expect(source).toContain("onClick={() => onOpenBooking(booking.id)}");
-    expect(source).toContain("setSelectedCustomer(customer.name)");
-    expect(source).toContain("CustomerAccountPreview");
+  it("不再顯示縮水工作區或硬編統計數字", () => {
+    expect(preview).not.toContain("ManagerWorkspacePanel");
+    expect(preview).not.toContain("128 位");
+    expect(preview).not.toContain("芳療師管理");
   });
 
-  it("provides working service, provider, and settings sections", () => {
-    expect(source).toContain('workspace === "services"');
-    expect(source).toContain('workspace === "providers"');
-    expect(source).toContain('workspace === "settings"');
-    expect(source).toContain("setServiceAvailability");
-    expect(source).toContain("setEditingServiceKey");
-    expect(source).toContain("setEditingProviderId");
-    expect(source).toContain("setSlotInterval");
-    expect(source).toContain("新增療程");
-    expect(source).toContain("新增人員");
-    expect(source).toContain("提醒管理");
+  it("正式管理頁沿用既有完整元件", () => {
+    expect(read("src/app/(dashboard)/dashboard/spa-schedule/page.tsx")).toContain("<SpaProviderSchedule");
+    expect(read("src/app/(dashboard)/dashboard/customers/page.tsx")).toContain("<CustomersListWithDrawer");
+    expect(read("src/app/(dashboard)/dashboard/plans/page.tsx")).toContain("<TreatmentWorkspace");
+    expect(read("src/app/(dashboard)/dashboard/staff/page.tsx")).toContain("<StaffWorkspace");
   });
 });
