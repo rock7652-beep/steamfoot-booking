@@ -49,6 +49,7 @@ export default async function DigitalButlerLeadsPage({ searchParams }: PageProps
       assignedStaffId: params.staff || undefined,
       provider,
       waitingForHumanSupport,
+      focusedLeadId: params.leadId || undefined,
     }),
     listDigitalButlerLeadStaff(storeId),
   ]);

@@ -246,10 +246,14 @@ export function BookingsManager({
     return map;
   }, [monthData]);
 
-  const deepLinkAppliedRef = useRef(false);
+  const appliedDeepLinkIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!initialBookingId || deepLinkAppliedRef.current) return;
-    deepLinkAppliedRef.current = true;
+    if (!initialBookingId) {
+      appliedDeepLinkIdRef.current = null;
+      return;
+    }
+    if (appliedDeepLinkIdRef.current === initialBookingId) return;
+    appliedDeepLinkIdRef.current = initialBookingId;
     setActiveBookingId(initialBookingId);
     setActiveSummary(summaryById.get(initialBookingId) ?? null);
     setActivePrefill(prefillById.get(initialBookingId) ?? null);
