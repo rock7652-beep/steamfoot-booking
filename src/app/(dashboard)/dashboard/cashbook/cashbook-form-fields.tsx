@@ -112,7 +112,35 @@ export function CashbookFormFields({
             {entryType === "INCOME" ? (
               <>
                 <label className={labelCls}>收入分類</label>
-                <div className="mt-1 grid grid-cols-2 gap-2">
+
+                <div className="mt-1 grid grid-cols-2 gap-1.5 md:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setIncomeKind("RETAIL")}
+                    aria-pressed={incomeKind === "RETAIL"}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                      incomeKind === "RETAIL"
+                        ? "border-primary-600 bg-primary-50 text-primary-800"
+                        : "border-earth-200 bg-white text-earth-600"
+                    }`}
+                  >
+                    零售商品
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIncomeKind("OTHER")}
+                    aria-pressed={incomeKind === "OTHER"}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                      incomeKind === "OTHER"
+                        ? "border-primary-600 bg-primary-50 text-primary-800"
+                        : "border-earth-200 bg-white text-earth-600"
+                    }`}
+                  >
+                    其他收入
+                  </button>
+                </div>
+
+                <div className="mt-1 hidden grid-cols-2 gap-2 md:grid">
                   <label className="cursor-pointer rounded-lg border border-earth-200 px-3 py-2 text-sm">
                     <input
                       type="radio"
@@ -132,6 +160,7 @@ export function CashbookFormFields({
                     其他收入
                   </label>
                 </div>
+
                 {incomeKind === "RETAIL" ? (
                   <select
                     name="category"
