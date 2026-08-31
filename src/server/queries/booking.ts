@@ -11,6 +11,7 @@ import {
   userForViewContext,
 } from "@/lib/store-view-context-server";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
+import { validateStoreAccess } from "@/lib/store";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { TRIAL_DEFAULTS } from "@/lib/shop-config";
 import { todayRange, dayRange } from "@/lib/date-utils";
@@ -298,11 +299,16 @@ export async function getMonthBookingSummary(
 ) {
   const user = await requireStaffSession();
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
-  const readUser = userForViewContext(user, storeViewContext);
-  const readStoreId = storeIdForViewContext(
-    activeStoreId ?? null,
-    storeViewContext,
-  );
+  const hasExplicitStoreScope = activeStoreId !== undefined;
+  const readStoreId = hasExplicitStoreScope
+    ? activeStoreId
+      ? await validateStoreAccess(user, activeStoreId, "read")
+      : null
+    : storeIdForViewContext(null, storeViewContext);
+  const readUser =
+    hasExplicitStoreScope && readStoreId && user.role !== "ADMIN"
+      ? { ...user, storeId: readStoreId }
+      : userForViewContext(user, storeViewContext);
   // getStoreFilter 回 { storeId } 或 {}（ADMIN __all__）。抽出 scope 當 cache key；
   // null = 跨店（ADMIN 未指定 store）。重建 where 與原本 spread 行為完全一致。
   const filter = getStoreFilter(readUser, readStoreId);
