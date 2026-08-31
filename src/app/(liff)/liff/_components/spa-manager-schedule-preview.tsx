@@ -443,7 +443,10 @@ export function SpaManagerSchedulePreview({
     });
     const providers = toBookableProviders(activeProviders, bookings);
     const assignment = findSpaPartyProviderAssignment({
-      requests: guests.map((guest) => ({ items: guest.items })),
+      requests: guests.map((guest, index) => ({
+        items: guest.items,
+        providerId: index === 0 ? quickSlot.providerId : undefined,
+      })),
       providers,
       date: quickSlot.date,
       time: quickSlot.time,
@@ -901,7 +904,16 @@ function QuickBookingForm({ providers, slot, onCancel, onSubmit, isSubmitting }:
   const addOnItems = SPA_SERVICE_MENU.filter((item) => item.kind === "ADD_ON");
   const guestItems = guests.map((guest) => composeSpaServices(guest.primaryKey, guest.addOnKeys));
   const guestSummaries = guestItems.map(summarizeSpaServices);
-  const assignment = findSpaPartyProviderAssignment({ requests: guestItems.map((items) => ({ items })), providers, date: slot.date, time: slot.time });
+  const assignment = findSpaPartyProviderAssignment({
+    requests: guestItems.map((items, index) => ({
+      items,
+      providerId: index === 0 ? slot.providerId : undefined,
+    })),
+    providers,
+    date: slot.date,
+    time: slot.time,
+  });
+  const selectedProvider = providers.find((provider) => provider.id === slot.providerId);
   const totalPrice = guestSummaries.reduce((total, summary) => total + summary.price, 0);
 
   function changePeople(count: number) {
@@ -925,7 +937,7 @@ function QuickBookingForm({ providers, slot, onCancel, onSubmit, isSubmitting }:
 
   return (
     <section className="rounded-2xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
-      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-500">現場／電話快速預約</p><h2 className="mt-2 text-lg font-semibold">{slot.time}・芳療師不指定</h2></div><button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">關閉</button></div>
+      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-medium text-earth-500">現場／電話快速預約</p><h2 className="mt-2 text-lg font-semibold">{slot.time}・{selectedProvider?.label ?? "芳療師不指定"}</h2></div><button type="button" onClick={onCancel} className="rounded-lg px-2 py-1 text-sm text-earth-500 hover:bg-earth-100">關閉</button></div>
       <form className="mt-5 space-y-4" onSubmit={onSubmit}>
         <div className="grid grid-cols-2 gap-2"><div><label htmlFor="spa-preview-customer" className="block text-sm font-medium text-earth-700">主要聯絡人</label><input id="spa-preview-customer" name="customer" required autoFocus placeholder="例如：陳小姐" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500" /></div><div><label htmlFor="spa-preview-phone" className="block text-sm font-medium text-earth-700">電話</label><input id="spa-preview-phone" name="phone" required inputMode="tel" pattern="09[0-9]{8}" placeholder="0912345678" className="mt-1.5 min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 outline-none focus:border-primary-500" /></div></div>
         <fieldset><legend className="text-sm font-medium text-earth-700">人數</legend><input type="hidden" name="people" value={people} /><div className="mt-2 grid grid-cols-3 gap-2">{[1, 2, 3].map((count) => <button key={count} type="button" onClick={() => changePeople(count)} className={`min-h-11 rounded-xl text-sm font-semibold ring-1 ${people === count ? "bg-earth-900 text-white ring-earth-900" : "bg-white text-earth-700 ring-earth-200"}`}>{count} 位</button>)}</div></fieldset>

@@ -272,6 +272,8 @@ describe("SPA Demo tenant isolation", () => {
     expect(manager).toContain("建立整組預約");
     expect(manager).toContain('bookingSource: "MANAGER"');
     expect(manager).toContain("findSpaPartyProviderAssignment");
+    expect(manager).toContain("index === 0 ? quickSlot.providerId : undefined");
+    expect(manager).toContain("index === 0 ? slot.providerId : undefined");
     expect(manager).toContain("修改預約");
     expect(manager).toContain("取消此位");
     expect(manager).toContain("取消整組");
