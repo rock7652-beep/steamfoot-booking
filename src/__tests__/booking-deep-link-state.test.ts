@@ -23,6 +23,25 @@ describe("booking deep-link state", () => {
     expect(source).toContain('user.role !== "ADMIN" && deepLinkedBooking.storeId !== user.storeId');
   });
 
+  it("propagates the resolved store to the drawer detail fetch", () => {
+    const manager = fs.readFileSync(
+      path.join(process.cwd(), "src/app/(dashboard)/dashboard/bookings/bookings-manager.tsx"),
+      "utf8",
+    );
+    const cache = fs.readFileSync(
+      path.join(process.cwd(), "src/app/(dashboard)/dashboard/bookings/booking-detail-cache.ts"),
+      "utf8",
+    );
+    const action = fs.readFileSync(
+      path.join(process.cwd(), "src/server/actions/booking-drawer.ts"),
+      "utf8",
+    );
+
+    expect(manager).toContain("createBookingDetailCache(storeId)");
+    expect(cache).toContain("fetchBookingDetail(id, resolvedStoreId)");
+    expect(action).toContain('validateStoreAccess(user, resolvedStoreId, "read")');
+  });
+
   it("clears a previously deep-linked drawer when bookingId disappears", () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), "src/app/(dashboard)/dashboard/bookings/bookings-manager.tsx"),

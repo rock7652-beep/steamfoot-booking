@@ -18,7 +18,6 @@ import {
 } from "./booking-detail-drawer";
 import {
   createBookingDetailCache,
-  type BookingDetailCache,
 } from "./booking-detail-cache";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -128,6 +127,7 @@ const EMPTY_FILTERS: BookingFilters = {
 };
 
 interface BookingsManagerProps {
+  storeId?: string;
   year: number;
   month: number;
   monthData: MonthSummaryDay[];
@@ -138,6 +138,7 @@ interface BookingsManagerProps {
 }
 
 export function BookingsManager({
+  storeId,
   year,
   month,
   monthData: initialMonthData,
@@ -185,11 +186,7 @@ export function BookingsManager({
   );
   // Shared client-side detail cache (SWR + dedupe), stable across renders.
   // Owned here so drawer actions can invalidate it centrally after mutations.
-  const detailCacheRef = useRef<BookingDetailCache | null>(null);
-  if (!detailCacheRef.current) {
-    detailCacheRef.current = createBookingDetailCache();
-  }
-  const detailCache = detailCacheRef.current;
+  const detailCache = useMemo(() => createBookingDetailCache(storeId), [storeId]);
 
   // Batch / inline action state
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
@@ -654,6 +651,7 @@ export function BookingsManager({
       <BookingDetailDrawer
         open={!!activeBookingId}
         bookingId={activeBookingId}
+        resolvedStoreId={storeId}
         summary={activeSummary}
         prefill={activePrefill}
         cache={detailCache}

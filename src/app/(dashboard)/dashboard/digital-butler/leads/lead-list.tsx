@@ -68,6 +68,7 @@ export function DigitalButlerLeadList({
   selectedProvider,
   waitingForHumanSupport,
   focusedLeadId,
+  resolvedStoreId,
 }: {
   leads: Lead[];
   staff: Array<{ id: string; displayName: string }>;
@@ -76,6 +77,7 @@ export function DigitalButlerLeadList({
   selectedProvider: string;
   waitingForHumanSupport: boolean;
   focusedLeadId: string | null;
+  resolvedStoreId: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -162,6 +164,7 @@ export function DigitalButlerLeadList({
             startTransition(async () => {
               const result = await updateDigitalButlerLeadAction({
                 leadId: lead.id,
+                storeId: resolvedStoreId,
                 status: form.get("status") as DigitalButlerLeadStatus,
                 assignedStaffId: (form.get("assignedStaffId") as string) || null,
                 note: (form.get("note") as string) || null,

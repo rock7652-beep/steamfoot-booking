@@ -30,7 +30,7 @@ export interface BookingDetailCache {
   load(id: string): Promise<BookingDrawerPayload>;
 }
 
-export function createBookingDetailCache(): BookingDetailCache {
+export function createBookingDetailCache(resolvedStoreId?: string): BookingDetailCache {
   const cache = new Map<string, BookingDrawerPayload>();
   const inflight = new Map<string, Promise<BookingDrawerPayload>>();
 
@@ -48,7 +48,7 @@ export function createBookingDetailCache(): BookingDetailCache {
       const existing = inflight.get(id);
       if (existing) return existing;
 
-      const p = fetchBookingDetail(id).then(
+      const p = fetchBookingDetail(id, resolvedStoreId).then(
         (payload) => {
           // 只有仍是當前 in-flight 才寫入 cache（被 invalidate/取代則跳過）。
           if (inflight.get(id) === p) {

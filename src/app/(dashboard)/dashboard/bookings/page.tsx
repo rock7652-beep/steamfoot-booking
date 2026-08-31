@@ -147,6 +147,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         }
       />
       <BookingsManager
+        storeId={bookingsStoreId ?? undefined}
         year={year}
         month={month}
         monthData={monthData}

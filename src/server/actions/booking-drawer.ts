@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import { getActiveStoreForRead } from "@/lib/store";
+import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
 import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
@@ -134,13 +134,20 @@ export interface BookingDrawerPayload {
 
 export async function fetchBookingDetail(
   bookingId: string,
+  resolvedStoreId?: string,
 ): Promise<BookingDrawerPayload> {
   const user = await requireStaffSession();
   const activeStoreId = await getActiveStoreForRead(user);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
-  const bookingStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
-  const readUser = userForViewContext(user, storeViewContext);
-  const isViewMode = storeViewContext?.isViewMode === true;
+  const bookingStoreId = resolvedStoreId
+    ? await validateStoreAccess(user, resolvedStoreId, "read")
+    : storeIdForViewContext(activeStoreId, storeViewContext);
+  const readUser = resolvedStoreId && user.role !== "ADMIN"
+    ? { ...user, storeId: resolvedStoreId }
+    : userForViewContext(user, storeViewContext);
+  const isViewMode = resolvedStoreId
+    ? user.role !== "ADMIN" && resolvedStoreId !== user.storeId
+    : storeViewContext?.isViewMode === true;
   // 重用已解析的 staff user，避免 getBookingDetail 內再 requireSession 一次
   const booking = await getBookingDetailForUser(
     bookingId,

@@ -72,6 +72,7 @@ export default async function DigitalButlerLeadsPage({ searchParams }: PageProps
         subtitle="查看顧客需求、指派負責人並更新處理進度"
       />
       <DigitalButlerLeadList
+        resolvedStoreId={storeId}
         leads={leads}
         staff={staff}
         selectedStatus={status ?? ""}

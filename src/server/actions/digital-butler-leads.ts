@@ -5,12 +5,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireDigitalButlerEntitlement } from "@/lib/digital-butler-entitlement";
-import { getActiveStoreForRead } from "@/lib/store";
+import { validateStoreAccess } from "@/lib/store";
 import { requireWritablePermission } from "@/lib/permissions";
 import type { ActionResult } from "@/types";
 
 const updateSchema = z.object({
   leadId: z.string().min(1),
+  storeId: z.string().min(1),
   status: z.enum(["NEW", "CONTACTING", "QUOTED", "WON", "LOST", "PAUSED"]),
   assignedStaffId: z.string().min(1).nullable().optional(),
   note: z.string().max(1000, "備註最多 1000 字").nullable().optional(),
@@ -22,10 +23,10 @@ export async function updateDigitalButlerLeadAction(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireWritablePermission("customer.update");
-    const storeId = await getActiveStoreForRead(user);
+    const data = updateSchema.parse(input);
+    const storeId = await validateStoreAccess(user, data.storeId, "write");
     if (!storeId) throw new AppError("VALIDATION", "請先切換到特定店舖");
     await requireDigitalButlerEntitlement(storeId);
-    const data = updateSchema.parse(input);
     const note = data.note?.trim() || null;
 
     await prisma.$transaction(async (tx) => {
