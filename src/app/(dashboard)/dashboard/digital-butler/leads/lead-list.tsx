@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DigitalButlerLeadStatus } from "@prisma/client";
@@ -67,6 +67,7 @@ export function DigitalButlerLeadList({
   selectedStaffId,
   selectedProvider,
   waitingForHumanSupport,
+  focusedLeadId,
 }: {
   leads: Lead[];
   staff: Array<{ id: string; displayName: string }>;
@@ -74,12 +75,21 @@ export function DigitalButlerLeadList({
   selectedStaffId: string;
   selectedProvider: string;
   waitingForHumanSupport: boolean;
+  focusedLeadId: string | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!focusedLeadId) return;
+    document.getElementById(`lead-${focusedLeadId}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [focusedLeadId]);
 
   function filter(key: "status" | "staff" | "provider", value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -139,7 +149,12 @@ export function DigitalButlerLeadList({
           return (
         <form
           key={lead.id}
-          className="grid gap-3 rounded-xl border border-earth-200 bg-white p-3 shadow-sm lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)] lg:gap-4"
+          id={`lead-${lead.id}`}
+          className={`grid scroll-m-6 gap-3 rounded-xl border bg-white p-3 shadow-sm transition lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)] lg:gap-4 ${
+            focusedLeadId === lead.id
+              ? "border-primary-500 ring-4 ring-primary-100"
+              : "border-earth-200"
+          }`}
           onSubmit={(event) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);

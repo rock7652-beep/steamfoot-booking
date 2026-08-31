@@ -23,7 +23,7 @@ import { BookingsManager } from "./bookings-manager";
  * 主體委由 BookingsManager（client）處理月曆 + 日明細 + booking detail drawer。
  */
 interface PageProps {
-  searchParams: Promise<{ year?: string; month?: string }>;
+  searchParams: Promise<{ year?: string; month?: string; bookingId?: string }>;
 }
 
 export default async function BookingsPage({ searchParams }: PageProps) {
@@ -33,15 +33,31 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   }
   const params = await searchParams;
 
-  const todayStr = toLocalDateStr();
-  const [todayY, todayM] = todayStr.split("-").map(Number);
-  const year = params.year ? parseInt(params.year) : todayY;
-  const month = params.month ? parseInt(params.month) : todayM;
-
   const activeStoreId = await getActiveStoreForRead(user);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const bookingsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const isViewMode = storeViewContext?.isViewMode === true;
+
+  const deepLinkedBooking = params.bookingId && bookingsStoreId
+    ? await prisma.booking.findFirst({
+        where: { id: params.bookingId, storeId: bookingsStoreId },
+        select: { id: true, bookingDate: true },
+      })
+    : null;
+
+  const todayStr = toLocalDateStr();
+  const [todayY, todayM] = todayStr.split("-").map(Number);
+  const deepLinkedDate = deepLinkedBooking?.bookingDate.toISOString().slice(0, 10);
+  const year = deepLinkedDate
+    ? Number(deepLinkedDate.slice(0, 4))
+    : params.year
+      ? parseInt(params.year)
+      : todayY;
+  const month = deepLinkedDate
+    ? Number(deepLinkedDate.slice(5, 7))
+    : params.month
+      ? parseInt(params.month)
+      : todayM;
   const logCtx = {
     page: "bookings" as const,
     activeStoreId: bookingsStoreId,
@@ -129,6 +145,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         monthSchedule={monthSchedule}
         servicePlans={servicePlans}
         readOnly={isViewMode}
+        initialBookingId={deepLinkedBooking?.id ?? null}
       />
     </PageShell>
   );

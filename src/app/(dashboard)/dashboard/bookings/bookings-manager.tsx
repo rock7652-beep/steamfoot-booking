@@ -134,6 +134,7 @@ interface BookingsManagerProps {
   monthSchedule: MonthScheduleMap;
   servicePlans: ServicePlanOption[];
   readOnly?: boolean;
+  initialBookingId?: string | null;
 }
 
 export function BookingsManager({
@@ -143,6 +144,7 @@ export function BookingsManager({
   monthSchedule,
   servicePlans,
   readOnly = false,
+  initialBookingId = null,
 }: BookingsManagerProps) {
   // monthData lifted into client state so we can patch a single booking
   // optimistically (status flip / cancel) without re-fetching the entire
@@ -170,7 +172,9 @@ export function BookingsManager({
   const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useState<BookingFilters>(EMPTY_FILTERS);
-  const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
+  const [activeBookingId, setActiveBookingId] = useState<string | null>(
+    initialBookingId,
+  );
   const [activeSummary, setActiveSummary] = useState<BookingSummary | null>(
     null,
   );
@@ -241,6 +245,15 @@ export function BookingsManager({
     }
     return map;
   }, [monthData]);
+
+  const deepLinkAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!initialBookingId || deepLinkAppliedRef.current) return;
+    deepLinkAppliedRef.current = true;
+    setActiveBookingId(initialBookingId);
+    setActiveSummary(summaryById.get(initialBookingId) ?? null);
+    setActivePrefill(prefillById.get(initialBookingId) ?? null);
+  }, [initialBookingId, prefillById, summaryById]);
 
   /**
    * Day panel bookings — derived from already-loaded `monthData`. Switching
