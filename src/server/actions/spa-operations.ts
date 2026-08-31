@@ -11,6 +11,7 @@ import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import type { ActionResult } from "@/types";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 
 const SKILLS = [
   { key: "body", id: "spa-demo-skill-body", name: "身體芳療" },
@@ -62,13 +63,38 @@ const exceptionSchema = z.object({
   reason: z.string().trim().max(200).nullable(),
 });
 
-const compensationSchema = z.object({
-  staffId: z.string().min(1),
+const compensationSettingSchema = z.object({
   mode: z.enum(["PERCENTAGE", "FIXED"]),
   value: z.number().min(0).max(1_000_000),
+});
+
+const compensationSchema = compensationSettingSchema.extend({
+  staffId: z.string().min(1),
 }).superRefine((data, context) => {
   if (data.mode === "PERCENTAGE" && data.value > 100) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "百分比不可超過 100" });
+  }
+});
+
+const staffSetupSchema = z.object({
+  staffId: z.string().min(1),
+  legalName: z.string().trim().min(1).max(100),
+  phone: z.string().transform(normalizePhone).pipe(z.string().regex(/^09\d{8}$/, "請輸入 09 開頭的 10 碼手機號碼")),
+  email: z.union([z.string().email(), z.literal("")]),
+  displayName: z.string().trim().min(1).max(100),
+  colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  skillKeys: z.array(z.enum(skillKeys)).min(1),
+  availability: weeklyAvailabilitySchema.shape.availability,
+  compensation: compensationSettingSchema,
+}).superRefine((data, context) => {
+  if (new Set(data.availability.map((item) => item.dayOfWeek)).size !== data.availability.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["availability"], message: "同一天只能設定一個固定班表" });
+  }
+  if (data.availability.some((item) => item.startTime >= item.endTime)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["availability"], message: "結束時間必須晚於開始時間" });
+  }
+  if (data.compensation.mode === "PERCENTAGE" && data.compensation.value > 100) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["compensation", "value"], message: "百分比不可超過 100" });
   }
 });
 
@@ -190,6 +216,71 @@ export async function saveSpaStaffCompensation(input: z.infer<typeof compensatio
     });
     revalidatePath("/dashboard/staff");
     revalidatePath("/liff/manager-preview");
+    return { success: true, data: undefined };
+  } catch (error) { return handleActionError(error, context); }
+}
+
+export async function saveSpaStaffSetup(input: z.infer<typeof staffSetupSchema>): Promise<ActionResult> {
+  let context: { userId?: string; storeId?: string } = {};
+  try {
+    const { user, storeId } = await requireSpaDemoWrite("staff.manage");
+    context = { userId: user.id, storeId };
+    if (!(await isSpaCompensationSchemaReady())) {
+      throw new AppError("CONFLICT", "抽成設定功能更新中，請稍後再試");
+    }
+    const data = staffSetupSchema.parse(input);
+    await assertDemoStaff(data.staffId, storeId);
+    await prisma.$transaction(async (tx) => {
+      await ensureSkills(tx, storeId);
+      const staff = await tx.staff.findUnique({
+        where: { id_storeId: { id: data.staffId, storeId } },
+        select: { userId: true },
+      });
+      if (!staff) throw new AppError("NOT_FOUND", "找不到這位 Demo 人員");
+      const email = data.email ? normalizeEmail(data.email) : null;
+      const duplicateUser = await tx.user.findFirst({
+        where: {
+          id: { not: staff.userId },
+          OR: [
+            { phone: data.phone },
+            ...(email ? [{ email }] : []),
+          ],
+        },
+        select: { id: true },
+      });
+      if (duplicateUser) throw new AppError("CONFLICT", "手機或 Email 已被其他帳號使用");
+      await tx.user.update({
+        where: { id: staff.userId },
+        data: { name: data.legalName, phone: data.phone, email },
+      });
+      await tx.staff.update({
+        where: { id_storeId: { id: data.staffId, storeId } },
+        data: { displayName: data.displayName, colorCode: data.colorCode },
+      });
+      await tx.staffSkill.deleteMany({ where: { storeId, staffId: data.staffId } });
+      await tx.staffSkill.createMany({
+        data: data.skillKeys.map((key) => ({
+          storeId,
+          staffId: data.staffId,
+          skillId: SKILLS.find((skill) => skill.key === key)!.id,
+        })),
+      });
+      await tx.staffWeeklyAvailability.deleteMany({ where: { storeId, staffId: data.staffId } });
+      if (data.availability.length) {
+        await tx.staffWeeklyAvailability.createMany({
+          data: data.availability.map((availability) => ({ ...availability, storeId, staffId: data.staffId })),
+        });
+      }
+      await tx.spaStaffCompensation.upsert({
+        where: { staffId: data.staffId },
+        create: { storeId, staffId: data.staffId, ...data.compensation },
+        update: { ...data.compensation, isActive: true },
+      });
+    });
+    revalidatePath("/dashboard/staff");
+    revalidatePath("/liff/design-preview/booking");
+    revalidatePath("/liff/manager-preview");
+    revalidatePath("/liff/staff-preview");
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error, context); }
 }

@@ -127,6 +127,16 @@ export default async function StaffPage({
             value: Number(formData.get("compensationValue")),
           }
         : undefined,
+      spaSkillKeys: isSpaDemo
+        ? formData.getAll("spaSkillKeys").map(String) as Array<"body" | "head" | "foot" | "face">
+        : undefined,
+      spaWeeklyAvailability: isSpaDemo
+        ? formData.getAll("spaAvailabilityDays").map((day) => ({
+            dayOfWeek: Number(day),
+            startTime: String(formData.get("spaStartTime")),
+            endTime: String(formData.get("spaEndTime")),
+          }))
+        : undefined,
     });
     if (!result.success) {
       redirect(`/dashboard/staff?createError=${encodeURIComponent(result.error || "新增人員失敗")}`);

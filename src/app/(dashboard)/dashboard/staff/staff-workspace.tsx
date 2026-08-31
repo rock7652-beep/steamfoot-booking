@@ -6,7 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { ResetPasswordButton } from "./reset-password-button";
 import { StaffStatusToggle } from "./staff-status-toggle";
 import type { SpaProviderSpecialty } from "@/lib/spa-scheduling";
-import { saveSpaAvailabilityException, saveSpaStaffCompensation, saveSpaStaffSkills, saveSpaWeeklyAvailability } from "@/server/actions/spa-operations";
+import { saveSpaAvailabilityException, saveSpaStaffCompensation, saveSpaStaffSetup, saveSpaStaffSkills, saveSpaWeeklyAvailability } from "@/server/actions/spa-operations";
 
 type Availability = { dayOfWeek: number; startTime: string; endTime: string };
 type ScheduleException = { date: string; label: string; tone: "leave" | "extra" };
@@ -35,6 +35,7 @@ export type StaffWorkspacePerson = {
 
 type Editor =
   | { type: "details"; personId: string }
+  | { type: "setup"; personId: string }
   | { type: "specialties"; personId: string }
   | { type: "schedule"; personId: string }
   | { type: "compensation"; personId: string }
@@ -106,6 +107,44 @@ export function StaffWorkspace({ people: initialPeople, today, canManage, showSp
       updatePerson(personId, { weeklyAvailability });
     });
   }
+  function saveSetup(personId: string, setup: {
+    legalName: string;
+    phone: string;
+    email: string;
+    displayName: string;
+    colorCode: string;
+    specialtyKeys: SpaProviderSpecialty[];
+    weeklyAvailability: Availability[];
+    compensationMode: "PERCENTAGE" | "FIXED";
+    compensationValue: number;
+  }) {
+    startTransition(async () => {
+      const result = await saveSpaStaffSetup({
+        staffId: personId,
+        legalName: setup.legalName,
+        phone: setup.phone,
+        email: setup.email,
+        displayName: setup.displayName,
+        colorCode: setup.colorCode,
+        skillKeys: setup.specialtyKeys,
+        availability: setup.weeklyAvailability,
+        compensation: { mode: setup.compensationMode, value: setup.compensationValue },
+      });
+      if (!result.success) { setNotice(result.error); return; }
+      updatePerson(personId, {
+        legalName: setup.legalName,
+        phone: setup.phone,
+        email: setup.email || "尚未設定",
+        displayName: setup.displayName,
+        colorCode: setup.colorCode,
+        specialtyKeys: setup.specialtyKeys,
+        specialties: setup.specialtyKeys.map(specialtyLabel).join("・"),
+        weeklyAvailability: setup.weeklyAvailability,
+        compensationMode: setup.compensationMode,
+        compensationValue: setup.compensationValue,
+      }, "人員設定已儲存");
+    });
+  }
   function addException(personId: string, exception: ScheduleException) {
     const person = people.find((item) => item.id === personId);
     if (!person) return;
@@ -136,15 +175,15 @@ export function StaffWorkspace({ people: initialPeople, today, canManage, showSp
         {people.map((person) => (
           <article key={person.id} className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
-              <button type="button" onClick={() => setEditor({ type: "details", personId: person.id })} className="flex min-w-0 items-center gap-3 text-left"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: person.colorCode }}>{initials(person.displayName)}</span><span className="min-w-0"><span className="block truncate text-sm font-semibold text-earth-900">{person.displayName}</span><span className="mt-0.5 block text-xs text-earth-500">{person.roleLabel}</span></span></button>
+              <button type="button" onClick={() => setEditor({ type: showSpaCompensation ? "setup" : "details", personId: person.id })} className="flex min-w-0 items-center gap-3 text-left"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: person.colorCode }}>{initials(person.displayName)}</span><span className="min-w-0"><span className="block truncate text-sm font-semibold text-earth-900">{person.displayName}</span><span className="mt-0.5 block text-xs text-earth-500">{person.roleLabel}</span></span></button>
               <StatusBadge status={person.status} />
             </div>
             <div className="mt-4 space-y-3 border-t border-earth-100 pt-3">
-              <QuickSetting label="專業項目" value={specialtySummary(person.specialtyKeys, person.specialties)} empty="尚未設定，顧客無法指定此人員" canEdit={person.canEdit} onEdit={() => setEditor({ type: "specialties", personId: person.id })} />
-              <QuickSetting label="固定班表" value={scheduleSummary(person.weeklyAvailability)} empty="尚未設定接客時間" canEdit={person.canEdit && person.specialtyKeys.length > 0} onEdit={() => setEditor({ type: "schedule", personId: person.id })} />
-              {showSpaCompensation ? <QuickSetting label="抽成" value={compensationSummary(person.compensationMode, person.compensationValue)} empty="尚未設定" canEdit={person.canEdit} onEdit={() => setEditor({ type: "compensation", personId: person.id })} /> : null}
+              <QuickSetting label="專業項目" value={specialtySummary(person.specialtyKeys, person.specialties)} empty="尚未設定，顧客無法指定此人員" canEdit={person.canEdit} onEdit={() => setEditor({ type: showSpaCompensation ? "setup" : "specialties", personId: person.id })} />
+              <QuickSetting label="固定班表" value={scheduleSummary(person.weeklyAvailability)} empty="尚未設定接客時間" canEdit={person.canEdit && person.specialtyKeys.length > 0} onEdit={() => setEditor({ type: showSpaCompensation ? "setup" : "schedule", personId: person.id })} />
+              {showSpaCompensation ? <QuickSetting label="抽成" value={compensationSummary(person.compensationMode, person.compensationValue)} empty="尚未設定" canEdit={person.canEdit} onEdit={() => setEditor({ type: "setup", personId: person.id })} /> : null}
             </div>
-            <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-xs"><span className="text-earth-400">服務顧客 {person.customerCount} 位</span><button type="button" onClick={() => setEditor({ type: "details", personId: person.id })} className="font-medium text-primary-700 hover:underline">基本資料與聯絡人 →</button></div>
+            <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-xs"><span className="text-earth-400">服務顧客 {person.customerCount} 位</span><button type="button" onClick={() => setEditor({ type: showSpaCompensation ? "setup" : "details", personId: person.id })} className="font-medium text-primary-700 hover:underline">{showSpaCompensation ? "查看與設定 →" : "基本資料與聯絡人 →"}</button></div>
           </article>
         ))}
       </section>
@@ -155,6 +194,7 @@ export function StaffWorkspace({ people: initialPeople, today, canManage, showSp
       </section>
 
       {editor?.type === "details" && selected ? <PersonDrawer person={selected} showSpaCompensation={showSpaCompensation} onClose={() => setEditor(null)} onSpecialties={() => setEditor({ type: "specialties", personId: selected.id })} onSchedule={() => setEditor({ type: "schedule", personId: selected.id })} onCompensation={() => setEditor({ type: "compensation", personId: selected.id })} /> : null}
+      {editor?.type === "setup" && selected ? <SpaStaffSetupDrawer person={selected} onClose={() => setEditor(null)} onSave={(setup) => saveSetup(selected.id, setup)} /> : null}
       {editor?.type === "specialties" && selected ? <SpecialtyDrawer person={selected} onClose={() => setEditor(null)} onSave={(keys) => saveSkills(selected.id, keys)} /> : null}
       {editor?.type === "schedule" && selected ? <ScheduleDrawer person={selected} onClose={() => setEditor(null)} onSave={(weeklyAvailability) => saveAvailability(selected.id, weeklyAvailability)} /> : null}
       {editor?.type === "compensation" && selected ? <CompensationDrawer person={selected} onClose={() => setEditor(null)} onSave={(mode, value) => saveCompensation(selected.id, mode, value)} /> : null}
@@ -192,6 +232,87 @@ function CompensationDrawer({ person, onClose, onSave }: { person: StaffWorkspac
   return <Drawer title={`抽成設定｜${person.displayName}`} onClose={onClose}><div className="space-y-4"><div><p className="text-sm font-medium text-earth-700">計算方式</p><div className="mt-2 grid grid-cols-2 gap-2"><ChoiceButton active={mode === "PERCENTAGE"} label="服務金額比例" onClick={() => setMode("PERCENTAGE")} /><ChoiceButton active={mode === "FIXED"} label="每位固定金額" onClick={() => setMode("FIXED")} /></div></div><Field label={mode === "PERCENTAGE" ? "抽成比例（%）" : "每位抽成金額"}><input type="number" min="0" max={mode === "PERCENTAGE" ? 100 : 1000000} step={mode === "PERCENTAGE" ? "0.1" : "1"} value={value} onChange={(event) => setValue(Number(event.target.value))} className={inputClass} /></Field></div><DrawerActions onCancel={onClose} onSave={() => onSave(mode, value)} saveLabel="儲存抽成設定" disabled={!valid} /></Drawer>;
 }
 
+function SpaStaffSetupDrawer({ person, onClose, onSave }: {
+  person: StaffWorkspacePerson;
+  onClose: () => void;
+  onSave: (setup: {
+    legalName: string;
+    phone: string;
+    email: string;
+    displayName: string;
+    colorCode: string;
+    specialtyKeys: SpaProviderSpecialty[];
+    weeklyAvailability: Availability[];
+    compensationMode: "PERCENTAGE" | "FIXED";
+    compensationValue: number;
+  }) => void;
+}) {
+  const [legalName, setLegalName] = useState(person.legalName);
+  const [phone, setPhone] = useState(person.phone ?? "");
+  const [email, setEmail] = useState(person.email === "尚未設定" ? "" : person.email);
+  const [displayName, setDisplayName] = useState(person.displayName);
+  const [colorCode, setColorCode] = useState(person.colorCode);
+  const [specialtyKeys, setSpecialtyKeys] = useState<SpaProviderSpecialty[]>([...person.specialtyKeys]);
+  const [days, setDays] = useState<number[]>(person.weeklyAvailability.map((item) => item.dayOfWeek));
+  const [startTime, setStartTime] = useState(person.weeklyAvailability[0]?.startTime ?? "10:00");
+  const [endTime, setEndTime] = useState(person.weeklyAvailability[0]?.endTime ?? "19:00");
+  const [compensationEnabled, setCompensationEnabled] = useState((person.compensationValue ?? 0) > 0);
+  const [compensationMode, setCompensationMode] = useState<"PERCENTAGE" | "FIXED">(person.compensationMode ?? "PERCENTAGE");
+  const [compensationValue, setCompensationValue] = useState(person.compensationValue ?? 0);
+  function toggleSpecialty(key: SpaProviderSpecialty) { setSpecialtyKeys((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]); }
+  function toggleDay(day: number) { setDays((current) => current.includes(day) ? current.filter((item) => item !== day) : [...current, day]); }
+  const finalCompensationValue = compensationEnabled ? compensationValue : 0;
+  const valid = legalName.trim().length > 0
+    && /^09\d{8}$/.test(phone)
+    && (email === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    && displayName.trim().length > 0
+    && specialtyKeys.length > 0
+    && days.length > 0
+    && startTime < endTime
+    && Number.isFinite(finalCompensationValue)
+    && finalCompensationValue >= 0
+    && (compensationMode !== "PERCENTAGE" || finalCompensationValue <= 100);
+  function save() {
+    onSave({
+      legalName: legalName.trim(),
+      phone,
+      email: email.trim(),
+      displayName: displayName.trim(),
+      colorCode,
+      specialtyKeys,
+      weeklyAvailability: WEEK_DAYS.filter((day) => days.includes(day.dayOfWeek)).map((day) => ({ dayOfWeek: day.dayOfWeek, startTime, endTime })),
+      compensationMode,
+      compensationValue: finalCompensationValue,
+    });
+  }
+  return <Drawer title={`人員設定｜${person.displayName}`} onClose={onClose}>
+    <div className="space-y-6">
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-earth-900">基本資料</h3>
+        <div className="grid grid-cols-2 gap-3"><Field label="真實姓名"><input value={legalName} onChange={(event) => setLegalName(event.target.value)} className={inputClass} /></Field><Field label="顯示名稱"><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} className={inputClass} /></Field></div>
+        <Field label="手機"><input type="tel" inputMode="numeric" maxLength={10} value={phone} onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))} className={inputClass} /></Field>
+        <div className="grid grid-cols-[1fr_72px] gap-3"><Field label="Email（選填）"><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className={inputClass} /></Field><Field label="識別色"><input type="color" value={colorCode} onChange={(event) => setColorCode(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-earth-300" /></Field></div>
+      </section>
+      <section className="border-t border-earth-100 pt-5">
+        <h3 className="text-sm font-semibold text-earth-900">可服務項目</h3>
+        <div className="mt-3 grid grid-cols-2 gap-2">{SPECIALTY_OPTIONS.map((option) => <ChoiceButton key={option.key} active={specialtyKeys.includes(option.key)} label={option.label} onClick={() => toggleSpecialty(option.key)} />)}</div>
+      </section>
+      <section className="border-t border-earth-100 pt-5">
+        <h3 className="text-sm font-semibold text-earth-900">固定班表</h3>
+        <div className="mt-3 grid grid-cols-7 gap-1.5">{WEEK_DAYS.map((day) => <button key={day.dayOfWeek} type="button" aria-pressed={days.includes(day.dayOfWeek)} onClick={() => toggleDay(day.dayOfWeek)} className={`rounded-lg border py-2.5 text-xs font-semibold ${days.includes(day.dayOfWeek) ? "border-primary-600 bg-primary-600 text-white" : "border-earth-200 text-earth-500"}`}>{day.short}</button>)}</div>
+        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-2"><Field label="開始"><select value={startTime} onChange={(event) => setStartTime(event.target.value)} className={inputClass}>{TIME_OPTIONS.slice(0, -1).map((time) => <option key={time}>{time}</option>)}</select></Field><span className="pb-2 text-earth-400">至</span><Field label="結束"><select value={endTime} onChange={(event) => setEndTime(event.target.value)} className={inputClass}>{TIME_OPTIONS.slice(1).map((time) => <option key={time}>{time}</option>)}</select></Field></div>
+      </section>
+      <section className="border-t border-earth-100 pt-5">
+        <h3 className="text-sm font-semibold text-earth-900">抽成</h3>
+        <div className="mt-3 grid grid-cols-3 gap-2"><ChoiceButton active={!compensationEnabled} label="不計抽成" onClick={() => setCompensationEnabled(false)} /><ChoiceButton active={compensationEnabled && compensationMode === "PERCENTAGE"} label="服務比例" onClick={() => { setCompensationEnabled(true); setCompensationMode("PERCENTAGE"); }} /><ChoiceButton active={compensationEnabled && compensationMode === "FIXED"} label="每位固定" onClick={() => { setCompensationEnabled(true); setCompensationMode("FIXED"); }} /></div>
+        {compensationEnabled ? <div className="mt-3"><Field label={compensationMode === "PERCENTAGE" ? "抽成比例（%）" : "每位抽成金額"}><input type="number" min="0" max={compensationMode === "PERCENTAGE" ? 100 : 1000000} step={compensationMode === "PERCENTAGE" ? "0.1" : "1"} value={compensationValue} onChange={(event) => setCompensationValue(Number(event.target.value))} className={inputClass} /></Field></div> : null}
+      </section>
+    </div>
+    <DrawerActions onCancel={onClose} onSave={save} saveLabel="儲存人員設定" disabled={!valid} />
+    <div className="mt-3 grid grid-cols-2 gap-2">{person.canEdit ? <StaffStatusToggle staffId={person.id} currentStatus={person.status} /> : null}{person.canResetPassword ? <ResetPasswordButton userId={person.userId} displayName={person.displayName} /> : null}</div>
+  </Drawer>;
+}
+
 function ExceptionDrawer({ people, initialPersonId, today, onClose, onSave }: { people: readonly StaffWorkspacePerson[]; initialPersonId?: string; today: string; onClose: () => void; onSave: (personId: string, exception: ScheduleException) => void }) {
   const [personId, setPersonId] = useState(initialPersonId ?? people[0]?.id ?? "");
   const [date, setDate] = useState(today);
@@ -208,11 +329,34 @@ function PersonDrawer({ person, showSpaCompensation, onClose, onSpecialties, onS
 
 function CreatePersonDrawer({ createAction, showSpaCompensation, onClose }: { createAction: (formData: FormData) => void | Promise<void>; showSpaCompensation: boolean; onClose: () => void }) {
   const [compensationMode, setCompensationMode] = useState<"PERCENTAGE" | "FIXED">("PERCENTAGE");
-  return <Drawer title="新增人員" onClose={onClose}><form action={createAction} className="space-y-4"><Field label="人員類型"><select name="role" defaultValue="PARTNER" className={inputClass}><option value="PARTNER">服務人員（芳療師／老師／教練）</option><option value="OWNER">店長</option></select></Field><Field label="真實姓名"><input name="name" required className={inputClass} /></Field><Field label="顯示名稱"><input name="displayName" required className={inputClass} placeholder="例如：08號 陳語安" /></Field><Field label="手機（必填）"><input name="phone" type="tel" inputMode="numeric" autoComplete="tel" pattern="09[0-9]{8}" maxLength={10} required className={inputClass} placeholder="09xxxxxxxx" /></Field><Field label="初始密碼"><input name="password" type="password" minLength={6} required className={inputClass} /></Field><Field label="Email（選填）"><input name="email" type="email" className={inputClass} /></Field>{showSpaCompensation ? <div className="grid grid-cols-2 gap-3"><Field label="抽成方式"><select name="compensationMode" value={compensationMode} onChange={(event) => setCompensationMode(event.target.value as "PERCENTAGE" | "FIXED")} className={inputClass}><option value="PERCENTAGE">服務金額比例</option><option value="FIXED">每位固定金額</option></select></Field><Field label={compensationMode === "PERCENTAGE" ? "抽成比例（%）" : "每位抽成金額"}><input name="compensationValue" type="number" min="0" max={compensationMode === "PERCENTAGE" ? 100 : 1000000} step={compensationMode === "PERCENTAGE" ? "0.1" : "1"} defaultValue="0" required className={inputClass} /></Field></div> : null}<div className="grid grid-cols-2 gap-3"><Field label="識別色"><input name="colorCode" type="color" defaultValue="#8fa89b" className="mt-1 h-10 w-full rounded-lg border border-earth-300" /></Field><Field label="月度空間費"><input name="monthlySpaceFee" type="number" min="0" defaultValue="0" className={inputClass} /></Field></div><div className="flex justify-end gap-2 border-t border-earth-100 pt-4"><button type="button" onClick={onClose} className="rounded-lg border border-earth-300 px-4 py-2 text-sm text-earth-700 hover:bg-earth-50">取消</button><SubmitButton label="建立人員" pendingLabel="建立中..." className="bg-primary-600 text-white hover:bg-primary-700" /></div></form></Drawer>;
+  const [compensationEnabled, setCompensationEnabled] = useState(true);
+  const [compensationValue, setCompensationValue] = useState(0);
+  const [specialtyKeys, setSpecialtyKeys] = useState<SpaProviderSpecialty[]>(["body"]);
+  const [days, setDays] = useState<number[]>([2, 3, 4, 5, 6, 0]);
+  const [startTime, setStartTime] = useState("10:00");
+  const [endTime, setEndTime] = useState("20:00");
+  function toggleSpecialty(key: SpaProviderSpecialty) { setSpecialtyKeys((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]); }
+  function toggleDay(day: number) { setDays((current) => current.includes(day) ? current.filter((item) => item !== day) : [...current, day]); }
+  return <Drawer title="新增人員" onClose={onClose}><form action={createAction} className="space-y-6">
+    <section className="space-y-4">
+      <Field label="人員類型"><select name="role" defaultValue="PARTNER" className={inputClass}><option value="PARTNER">服務人員（芳療師／老師／教練）</option><option value="OWNER">店長</option></select></Field>
+      <div className="grid grid-cols-2 gap-3"><Field label="真實姓名"><input name="name" required className={inputClass} /></Field><Field label="顯示名稱"><input name="displayName" required className={inputClass} placeholder="例如：08號 陳語安" /></Field></div>
+      <Field label="手機（必填）"><input name="phone" type="tel" inputMode="numeric" autoComplete="tel" pattern="09[0-9]{8}" maxLength={10} required className={inputClass} placeholder="09xxxxxxxx" /></Field>
+      <div className="grid grid-cols-2 gap-3"><Field label="初始密碼"><input name="password" type="password" minLength={6} required className={inputClass} /></Field><Field label="Email（選填）"><input name="email" type="email" className={inputClass} /></Field></div>
+      <Field label="識別色"><input name="colorCode" type="color" defaultValue="#8fa89b" className="mt-1 h-10 w-full rounded-lg border border-earth-300" /></Field>
+      {!showSpaCompensation ? <Field label="月度空間費"><input name="monthlySpaceFee" type="number" min="0" defaultValue="0" className={inputClass} /></Field> : <input type="hidden" name="monthlySpaceFee" value="0" />}
+    </section>
+    {showSpaCompensation ? <>
+      <section className="border-t border-earth-100 pt-5"><h3 className="text-sm font-semibold text-earth-900">可服務項目</h3><div className="mt-3 grid grid-cols-2 gap-2">{SPECIALTY_OPTIONS.map((option) => <label key={option.key} className={`cursor-pointer rounded-lg border px-3 py-2.5 text-center text-sm font-medium ${specialtyKeys.includes(option.key) ? "border-primary-600 bg-primary-50 text-primary-800" : "border-earth-200 text-earth-600"}`}><input type="checkbox" name="spaSkillKeys" value={option.key} checked={specialtyKeys.includes(option.key)} onChange={() => toggleSpecialty(option.key)} className="sr-only" />{option.label}</label>)}</div></section>
+      <section className="border-t border-earth-100 pt-5"><h3 className="text-sm font-semibold text-earth-900">固定班表</h3><div className="mt-3 grid grid-cols-7 gap-1.5">{WEEK_DAYS.map((day) => <label key={day.dayOfWeek} className={`cursor-pointer rounded-lg border py-2.5 text-center text-xs font-semibold ${days.includes(day.dayOfWeek) ? "border-primary-600 bg-primary-600 text-white" : "border-earth-200 text-earth-500"}`}><input type="checkbox" name="spaAvailabilityDays" value={day.dayOfWeek} checked={days.includes(day.dayOfWeek)} onChange={() => toggleDay(day.dayOfWeek)} className="sr-only" />{day.short}</label>)}</div><div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-2"><Field label="開始"><select name="spaStartTime" value={startTime} onChange={(event) => setStartTime(event.target.value)} className={inputClass}>{TIME_OPTIONS.slice(0, -1).map((time) => <option key={time}>{time}</option>)}</select></Field><span className="pb-2 text-earth-400">至</span><Field label="結束"><select name="spaEndTime" value={endTime} onChange={(event) => setEndTime(event.target.value)} className={inputClass}>{TIME_OPTIONS.slice(1).map((time) => <option key={time}>{time}</option>)}</select></Field></div></section>
+      <section className="border-t border-earth-100 pt-5"><h3 className="text-sm font-semibold text-earth-900">抽成</h3><input type="hidden" name="compensationMode" value={compensationMode} /><div className="mt-3 grid grid-cols-3 gap-2"><ChoiceButton active={!compensationEnabled} label="不計抽成" onClick={() => setCompensationEnabled(false)} /><ChoiceButton active={compensationEnabled && compensationMode === "PERCENTAGE"} label="服務比例" onClick={() => { setCompensationEnabled(true); setCompensationMode("PERCENTAGE"); }} /><ChoiceButton active={compensationEnabled && compensationMode === "FIXED"} label="每位固定" onClick={() => { setCompensationEnabled(true); setCompensationMode("FIXED"); }} /></div><Field label={compensationEnabled ? (compensationMode === "PERCENTAGE" ? "抽成比例（%）" : "每位抽成金額") : "抽成金額"}><input name="compensationValue" type="number" min="0" max={compensationMode === "PERCENTAGE" ? 100 : 1000000} step={compensationMode === "PERCENTAGE" ? "0.1" : "1"} value={compensationEnabled ? compensationValue : 0} onChange={(event) => setCompensationValue(Number(event.target.value))} readOnly={!compensationEnabled} required className={`${inputClass} ${!compensationEnabled ? "bg-earth-50 text-earth-400" : ""}`} /></Field></section>
+    </> : null}
+    <div className="flex justify-end gap-2 border-t border-earth-100 pt-4"><button type="button" onClick={onClose} className="rounded-lg border border-earth-300 px-4 py-2 text-sm text-earth-700 hover:bg-earth-50">取消</button><SubmitButton label="建立人員" pendingLabel="建立中..." disabled={showSpaCompensation && (specialtyKeys.length === 0 || days.length === 0 || startTime >= endTime)} className="bg-primary-600 text-white hover:bg-primary-700" /></div>
+  </form></Drawer>;
 }
 
 function PresetButton({ label, hint, onClick }: { label: string; hint: string; onClick: () => void }) { return <button type="button" onClick={onClick} className="rounded-xl border border-earth-200 p-3 text-left hover:border-primary-300 hover:bg-primary-50"><span className="block text-sm font-semibold text-earth-800">{label}</span><span className="mt-0.5 block text-xs text-earth-400">{hint}</span></button>; }
-function ChoiceButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) { return <button type="button" onClick={onClick} className={`rounded-lg border px-3 py-2.5 text-sm font-medium ${active ? "border-primary-600 bg-primary-50 text-primary-800" : "border-earth-200 text-earth-600"}`}>{label}</button>; }
+function ChoiceButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) { return <button type="button" aria-pressed={active} onClick={onClick} className={`rounded-lg border px-3 py-2.5 text-sm font-medium ${active ? "border-primary-600 bg-primary-50 text-primary-800" : "border-earth-200 text-earth-600"}`}>{label}</button>; }
 function DrawerActions({ onCancel, onSave, saveLabel, disabled }: { onCancel: () => void; onSave: () => void; saveLabel: string; disabled?: boolean }) { return <div className="mt-6 flex justify-end gap-2 border-t border-earth-100 pt-4"><button type="button" onClick={onCancel} className="rounded-lg border border-earth-300 px-4 py-2 text-sm text-earth-700 hover:bg-earth-50">取消</button><button type="button" onClick={onSave} disabled={disabled} className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-earth-300">{saveLabel}</button></div>; }
 function Drawer({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) { return <div className="fixed inset-0 z-50 flex justify-end"><button type="button" aria-label="關閉側邊面板" onClick={onClose} className="absolute inset-0 bg-earth-950/25" /><aside role="dialog" aria-modal="true" aria-label={title} className="relative h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-2xl"><header className="mb-5 flex items-center justify-between"><h1 className="text-lg font-semibold text-earth-900">{title}</h1><button type="button" onClick={onClose} className="rounded-lg p-2 text-earth-500 hover:bg-earth-100" aria-label="關閉">✕</button></header>{children}</aside></div>; }
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block text-sm font-medium text-earth-700">{label}{children}</label>; }
@@ -223,6 +367,6 @@ function initials(name: string): string { const badge = name.match(/^(\d+)號/);
 function specialtyLabel(key: SpaProviderSpecialty): string { return SPECIALTY_OPTIONS.find((option) => option.key === key)?.label ?? key; }
 function specialtySummary(keys: readonly SpaProviderSpecialty[], fallback: string): string | null { return keys.length > 0 ? keys.map(specialtyLabel).join("・") : fallback === "尚未設定專業項目" || fallback === "門店營運管理" ? null : fallback; }
 function scheduleSummary(availability: readonly Availability[]): string | null { if (availability.length === 0) return null; const days = WEEK_DAYS.filter((day) => availability.some((item) => item.dayOfWeek === day.dayOfWeek)).map((day) => day.short).join("、"); const times = new Set(availability.map((item) => `${item.startTime}–${item.endTime}`)); return `週${days}・${times.size === 1 ? [...times][0] : "時段各異"}`; }
-function compensationSummary(mode: "PERCENTAGE" | "FIXED" | null, value: number | null): string | null { if (!mode || value === null) return null; return mode === "PERCENTAGE" ? `服務金額 ${value}%` : `每位 NT$${value.toLocaleString()}`; }
+function compensationSummary(mode: "PERCENTAGE" | "FIXED" | null, value: number | null): string | null { if (!mode || value === null) return null; if (value === 0) return "不計抽成"; return mode === "PERCENTAGE" ? `服務金額 ${value}%` : `每位 NT$${value.toLocaleString()}`; }
 function formatDate(dateStr: string): string { const [, month, day] = dateStr.split("-"); const date = new Date(`${dateStr}T00:00:00Z`); const label = ["日", "一", "二", "三", "四", "五", "六"][date.getUTCDay()]; return `${Number(month)}/${Number(day)}（週${label}）`; }
 function clonePerson(person: StaffWorkspacePerson): StaffWorkspacePerson { return { ...person, specialtyKeys: [...person.specialtyKeys], weeklyAvailability: person.weeklyAvailability.map((item) => ({ ...item })), scheduleExceptions: person.scheduleExceptions.map((item) => ({ ...item })) }; }

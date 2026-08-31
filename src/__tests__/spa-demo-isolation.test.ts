@@ -75,9 +75,10 @@ describe("SPA Demo tenant isolation", () => {
     expect(staffWorkspace).toContain("不必逐時段新增");
     expect(staffWorkspace).toContain("緊急聯絡人");
     expect(staffWorkspace).toContain("showSpaCompensation");
-    expect(staffWorkspace).toContain("saveSpaStaffCompensation");
-    expect(staffWorkspace).toContain("抽成方式");
+    expect(staffWorkspace).toContain("saveSpaStaffSetup");
+    expect(staffWorkspace).toContain("不計抽成");
     expect(staffWorkspace).toContain("抽成比例（%）");
+    expect(staffWorkspace).toContain("儲存人員設定");
     expect(schedule).toContain("sticky top-0 z-30");
     expect(schedule).toContain('className="min-h-[460px] flex-1 overflow-auto"');
     expect(SPA_DEMO_PROVIDERS.every((provider) => provider.specialties && provider.emergencyContact.phone)).toBe(true);
@@ -310,7 +311,11 @@ describe("SPA Demo tenant isolation", () => {
     expect(migration).toContain("FORCE ROW LEVEL SECURITY");
     expect(staffAction).toContain("isSpaDemoStoreId(writeStoreId)");
     expect(staffAction).toContain("spaCompensationSetting");
+    expect(staffAction).toContain("spaSkillKeys");
+    expect(staffAction).toContain("spaWeeklyAvailability");
+    expect(staffAction).toContain("prisma.$transaction");
     expect(spaAction).toContain("saveSpaStaffCompensation");
+    expect(spaAction).toContain("saveSpaStaffSetup");
     expect(spaAction).toContain('requireSpaDemoWrite("staff.manage")');
     expect(report).toContain("compensationAmount");
     expect(report).toContain("booking.refundedAt");
