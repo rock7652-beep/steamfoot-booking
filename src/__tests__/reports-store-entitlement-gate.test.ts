@@ -17,6 +17,7 @@ const mockMonthlyRevenueByCategory = vi.fn();
 const mockGetCustomerFlowMetrics = vi.fn();
 const mockGetConversionMetrics = vi.fn();
 const mockGetRetentionMetrics = vi.fn();
+const mockGetStorePerformanceTrends = vi.fn();
 const mockGetReportSnapshotWithMeta = vi.fn();
 const mockUpsertReportSnapshot = vi.fn();
 const mockRedirect = vi.fn((href: string) => {
@@ -74,6 +75,10 @@ vi.mock("@/server/queries/conversion-metrics", () => ({
 
 vi.mock("@/server/queries/retention-metrics", () => ({
   getRetentionMetrics: (...args: unknown[]) => mockGetRetentionMetrics(...args),
+}));
+
+vi.mock("@/server/queries/performance-trends", () => ({
+  getStorePerformanceTrends: (...args: unknown[]) => mockGetStorePerformanceTrends(...args),
 }));
 
 vi.mock("@/server/queries/report-snapshot", () => ({
@@ -192,9 +197,34 @@ beforeEach(() => {
       mom: { difference: 2, percentage: null },
       yoy: { difference: 1, percentage: 100 },
     },
+    trialAttendees: {
+      current: 2,
+      mom: { difference: 2, percentage: null },
+      yoy: { difference: 1, percentage: 100 },
+    },
+    trialBookingGroups: {
+      current: 2,
+      mom: { difference: 2, percentage: null },
+      yoy: { difference: 1, percentage: 100 },
+    },
   });
   mockGetConversionMetrics.mockResolvedValue({
     month: "2026-07",
+    trialAttendees: {
+      current: 2,
+      mom: { difference: 2, percentage: null },
+      yoy: { difference: 1, percentage: 100 },
+    },
+    currentTrialConversions: {
+      current: 1,
+      mom: { difference: 1, percentage: null },
+      yoy: { difference: 0, percentage: 0 },
+    },
+    trackedConversions: {
+      current: 0,
+      mom: { difference: 0, percentage: null },
+      yoy: { difference: 0, percentage: null },
+    },
     convertedCustomers: {
       current: 1,
       mom: { difference: 1, percentage: null },
@@ -211,6 +241,7 @@ beforeEach(() => {
       yoy: { difference: 0, percentage: 0 },
     },
   });
+  mockGetStorePerformanceTrends.mockResolvedValue(null);
   mockGetRetentionMetrics.mockResolvedValue({
     month: "2026-07",
     returnedCustomers: {
@@ -267,11 +298,12 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("本月來客數");
     expect(html).toContain("新客數");
     expect(html).toContain("舊客數");
-    expect(html).toContain("體驗顧客數");
+    expect(html).toContain("體驗人次");
+    expect(html).toContain("體驗組數");
     expect(html).toContain("較上月");
     expect(html).toContain("去年同月");
     expect(html).toContain("基期為 0，無法比較");
-    expect(html).toContain("多人同行者需各自建立顧客與體驗預約才會納入");
+    expect(html).toContain("多人同行不再只算 1 人");
     expect(html).not.toContain("客單價");
     expect(html).toMatch(/segment=monthly-customers/);
     expect(html).toMatch(/segment=monthly-new/);
@@ -295,21 +327,24 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("HQ 全店視角暫不提供留存分析");
   });
 
-  it("shows only the three scoped conversion KPIs below customer flow", async () => {
+  it("shows purchase-month opening attribution below customer flow", async () => {
     const html = renderToStaticMarkup(
       await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }),
     );
 
     expect(mockGetConversionMetrics).toHaveBeenCalledWith("store-active", expect.any(String));
     expect(html).toContain("成交分析");
-    expect(html).toContain("開卡人數");
-    expect(html).toContain("開卡率");
-    expect(html).toContain("未開卡人數");
+    expect(html).toContain("本月體驗開卡");
+    expect(html).toContain("追蹤開卡");
+    expect(html).toContain("當月總開卡");
+    expect(html).toContain("本月體驗開卡率");
+    expect(html).toContain("未開卡人次");
     expect(html).toContain("查看顧客 →");
-    expect(html).toMatch(/\/dashboard\/growth\?segment=monthly-unconverted&amp;month=\d{4}-\d{2}/);
     expect(html).toMatch(/segment=monthly-converted/);
+    expect(html).toMatch(/segment=monthly-current-trial-converted/);
+    expect(html).toMatch(/segment=monthly-tracked-converted/);
     expect(html.indexOf("成交分析")).toBeGreaterThan(html.indexOf("客流分析"));
-    expect(html).toContain("方案權益未取消");
+    expect(html).toContain("開卡歸實際購買月份");
     expect(html).toContain("基期為 0，無法比較");
     expect(html).not.toMatch(/成交率|客單價|來源分析/);
   });
@@ -331,7 +366,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).not.toMatch(/續約率|平均回店天數|人員回流|Benchmark|健康值/);
     expect(html).toMatch(/segment=monthly-returned/);
     expect(html).toMatch(/segment=monthly-not-returned/);
-    expect(html.match(/查看顧客 →/g)).toHaveLength(8);
+    expect(html.match(/查看顧客 →/g)).toHaveLength(9);
   });
 
   it("allows a GROWTH store even when advanced_reports is unavailable", async () => {

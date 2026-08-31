@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { bookingMonthRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
 import { REVENUE_NET_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
+import { selectConversionCustomerIds } from "@/server/queries/conversion-metrics";
 
 export type StorePerformanceTrend = {
   month: string;
@@ -44,7 +45,7 @@ export async function getStorePerformanceTrends(
   const firstTxRange = monthRange(months[0]);
   const lastTxRange = monthRange(months[5]);
 
-  const [bookings, transactions, cashbookEntries] = await Promise.all([
+  const [bookings, transactions, cashbookEntries, conversionTrials, packagePurchases] = await Promise.all([
     prisma.booking.findMany({
       where: {
         storeId,
@@ -84,6 +85,36 @@ export async function getStorePerformanceTrends(
       },
       select: { entryDate: true, category: true, amount: true },
     }),
+    prisma.booking.findMany({
+      where: {
+        storeId,
+        bookingStatus: "COMPLETED",
+        bookingType: "FIRST_TRIAL",
+        bookingDate: { lte: lastBookingRange.end },
+      },
+      select: {
+        customerId: true,
+        bookingDate: true,
+        people: true,
+        attendedPeople: true,
+      },
+    }),
+    prisma.transaction.findMany({
+      where: {
+        storeId,
+        transactionType: "PACKAGE_PURCHASE",
+        status: "SUCCESS",
+        paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
+        customerPlanWalletId: { not: null },
+        transactionDate: { lte: lastTxRange.end },
+      },
+      select: {
+        customerId: true,
+        transactionDate: true,
+        paidAt: true,
+        customerPlanWallet: { select: { status: true } },
+      },
+    }),
   ]);
 
   return months.map((month) => {
@@ -94,19 +125,7 @@ export async function getStorePerformanceTrends(
     const trialAttendees = trialRows.reduce((sum, row) => sum + attendance(row), 0);
     const completedServices = monthBookings.reduce((sum, row) => sum + attendance(row), 0);
 
-    const trialDatesByCustomer = new Map<string, Set<string>>();
-    for (const trial of trialRows) {
-      const dates = trialDatesByCustomer.get(trial.customerId) ?? new Set<string>();
-      dates.add(toLocalDateStr(trial.bookingDate));
-      trialDatesByCustomer.set(trial.customerId, dates);
-    }
-    const converted = new Set<string>();
-    for (const tx of transactions) {
-      if (tx.transactionType !== "PACKAGE_PURCHASE") continue;
-      if (!tx.customerId || !tx.customerPlanWalletId || tx.customerPlanWallet?.status === "CANCELLED") continue;
-      const trialDates = trialDatesByCustomer.get(tx.customerId);
-      if (trialDates?.has(toLocalDateStr(tx.transactionDate))) converted.add(tx.customerId);
-    }
+    const conversion = selectConversionCustomerIds(month, conversionTrials, packagePurchases);
 
     const systemRevenue = transactions
       .filter((tx) => toLocalDateStr(tx.transactionDate).startsWith(`${month}-`))
@@ -123,8 +142,10 @@ export async function getStorePerformanceTrends(
       month,
       label: monthLabel(month),
       trialAttendees,
-      convertedCustomers: converted.size,
-      conversionRate: trialAttendees === 0 ? 0 : (converted.size / trialAttendees) * 100,
+      convertedCustomers: conversion.convertedCustomerIds.size,
+      conversionRate: trialAttendees === 0
+        ? 0
+        : (conversion.currentTrialConvertedCustomerIds.size / trialAttendees) * 100,
       completedServices,
       revenue: systemRevenue + manualIncome,
       retailRevenue,
