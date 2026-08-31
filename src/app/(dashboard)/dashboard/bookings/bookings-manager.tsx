@@ -249,6 +249,11 @@ export function BookingsManager({
   const appliedDeepLinkIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!initialBookingId) {
+      if (appliedDeepLinkIdRef.current !== null) {
+        setActiveBookingId(null);
+        setActiveSummary(null);
+        setActivePrefill(null);
+      }
       appliedDeepLinkIdRef.current = null;
       return;
     }

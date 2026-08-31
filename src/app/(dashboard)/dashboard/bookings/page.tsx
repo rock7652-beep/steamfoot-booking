@@ -35,7 +35,11 @@ export default async function BookingsPage({ searchParams }: PageProps) {
 
   const activeStoreId = await getActiveStoreForRead(user);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
-  const bookingsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  // A notification deep link is already store-scoped by its `/s/:slug` route.
+  // Prefer that authorized route store over a stale cross-store view cookie.
+  const bookingsStoreId = params.bookingId
+    ? activeStoreId
+    : storeIdForViewContext(activeStoreId, storeViewContext);
   const isViewMode = storeViewContext?.isViewMode === true;
 
   const deepLinkedBooking = params.bookingId && bookingsStoreId
