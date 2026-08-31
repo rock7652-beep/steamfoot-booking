@@ -1,0 +1,31 @@
+name: One-time HealthFlow unique name and store recovery
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/one-time-healthflow-name-store-recovery.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      HEALTHFLOW_SUPABASE_URL: ${{ secrets.HEALTHFLOW_SUPABASE_URL }}
+      HEALTHFLOW_SERVICE_ROLE_KEY: ${{ secrets.HEALTHFLOW_SERVICE_ROLE_KEY }}
+      CUSTOMER_ID: cmomcpxap0001jy04n24ewviv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Read-only unique name and store audit
+        run: npx tsx scripts/recover-healthflow-history-by-fingerprint.ts --allow-unique-name-store
+      - name: Recover unique match
+        run: npx tsx scripts/recover-healthflow-history-by-fingerprint.ts --allow-unique-name-store --execute

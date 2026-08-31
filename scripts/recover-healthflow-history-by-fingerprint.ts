@@ -1,13 +1,15 @@
 import { PrismaClient } from "@prisma/client";
 import { parseHealthflowMeasurementDate } from "../src/lib/healthflow-phone-recovery";
+import { normalizePersonName } from "../src/lib/healthflow-import-reconciliation";
 
 const prisma = new PrismaClient();
 const customerId = process.env.CUSTOMER_ID;
 const baseUrl = process.env.HEALTHFLOW_SUPABASE_URL?.replace(/\/$/, "");
 const serviceKey = process.env.HEALTHFLOW_SERVICE_ROLE_KEY;
 const execute = process.argv.includes("--execute");
+const allowUniqueNameStore = process.argv.includes("--allow-unique-name-store");
 
-type Profile = { id: string; store_id: string | null };
+type Profile = { id: string; full_name: string | null; store_id: string | null };
 type Store = { id: string; name: string };
 type RecordRow = {
   id: string; user_id: string; measured_at: string;
@@ -41,7 +43,7 @@ async function main() {
   if (!customerId) throw new Error("缺少 CUSTOMER_ID");
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
-    select: { id: true, storeId: true, healthProfileId: true, mergedIntoCustomerId: true,
+    select: { id: true, name: true, storeId: true, healthProfileId: true, mergedIntoCustomerId: true,
       store: { select: { name: true } },
       healthRecords: { where: { source: "STEAMFOOT" }, orderBy: [{ measuredAt: "desc" }, { createdAt: "desc" }], take: 1 },
     },
@@ -49,14 +51,14 @@ async function main() {
   if (!customer || customer.mergedIntoCustomerId || customer.healthRecords.length !== 1) throw new Error("找不到唯一有效顧客或原生量測");
   const native = customer.healthRecords[0];
   const [profiles, stores, records] = await Promise.all([
-    fetchAll<Profile>("profiles", "id,store_id"),
+    fetchAll<Profile>("profiles", "id,full_name,store_id"),
     fetchAll<Store>("stores", "id,name"),
     fetchAll<RecordRow>("body_records", "id,user_id,measured_at,weight,bmi,body_fat,muscle_mass,bone_mass,visceral_fat,bmr,body_water,metabolic_age,note"),
   ]);
   const storeNameById = new Map(stores.map((row) => [row.id, row.name]));
   const profileById = new Map(profiles.map((row) => [row.id, row]));
   const nativeDate = native.measuredAt.toISOString().slice(0, 10);
-  const candidates = records.filter((row) => {
+  const fingerprintCandidates = records.filter((row) => {
     const profile = profileById.get(row.user_id);
     return row.measured_at.slice(0, 10) === nativeDate
       && profile?.store_id != null
@@ -65,13 +67,27 @@ async function main() {
       && same(row.body_fat, native.bodyFat) && same(row.muscle_mass, native.muscleMass)
       && same(row.metabolic_age, native.metabolicAge);
   });
-  const profileIds = new Set(candidates.map((row) => row.user_id));
-  console.log(JSON.stringify({ mode: execute ? "execute" : "dry-run", candidateRecords: candidates.length, candidateProfiles: profileIds.size }));
-  if (candidates.length !== 1 || profileIds.size !== 1) throw new Error("量測指紋不是唯一匹配，已停止且未寫入");
-  const profileId = candidates[0].user_id;
+  let profileId: string | null = fingerprintCandidates.length === 1 ? fingerprintCandidates[0].user_id : null;
+  let matchedFingerprintRecordId: string | null = fingerprintCandidates.length === 1 ? fingerprintCandidates[0].id : null;
+  let matchMethod = "fingerprint";
+  if (!profileId && allowUniqueNameStore) {
+    const normalizedName = normalizePersonName(customer.name);
+    const sameStoreCustomers = await prisma.customer.count({
+      where: { storeId: customer.storeId, mergedIntoCustomerId: null, name: customer.name },
+    });
+    const nameProfiles = profiles.filter((profile) => profile.store_id != null
+      && storeNameById.get(profile.store_id) === customer.store.name
+      && normalizePersonName(profile.full_name) === normalizedName);
+    if (sameStoreCustomers === 1 && nameProfiles.length === 1) {
+      profileId = nameProfiles[0].id;
+      matchMethod = "unique_name_store";
+    }
+  }
+  console.log(JSON.stringify({ mode: execute ? "execute" : "dry-run", matchMethod: profileId ? matchMethod : "none", uniqueProfile: Boolean(profileId) }));
+  if (!profileId) throw new Error("量測指紋及門市同名皆無唯一匹配，已停止且未寫入");
   if (customer.healthProfileId && customer.healthProfileId !== profileId) throw new Error("既有健康身分不同，已停止且未寫入");
   const profileRecords = records.filter((row) => row.user_id === profileId);
-  const importSourceRecords = profileRecords.filter((row) => row.id !== candidates[0].id);
+  const importSourceRecords = profileRecords.filter((row) => row.id !== matchedFingerprintRecordId);
   const sourceIds = importSourceRecords.map((row) => row.id);
   const conflicts = sourceIds.length ? await prisma.customerHealthRecord.findMany({
     where: { source: "HEALTHFLOW", sourceRecordId: { in: sourceIds }, NOT: { customerId } }, select: { id: true },
