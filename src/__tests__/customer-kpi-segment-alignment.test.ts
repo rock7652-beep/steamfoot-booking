@@ -69,6 +69,12 @@ describe("KPI customer selection and CRM list alignment", () => {
     expect(await hydrateCustomerSegment("store-1", selection.convertedCustomerIds)).toHaveLength(
       selection.convertedCustomerIds.size,
     );
+    expect(await hydrateCustomerSegment("store-1", selection.currentTrialConvertedCustomerIds)).toHaveLength(
+      selection.currentTrialConvertedCustomerIds.size,
+    );
+    expect(await hydrateCustomerSegment("store-1", selection.trackedConvertedCustomerIds)).toHaveLength(
+      selection.trackedConvertedCustomerIds.size,
+    );
     expect(await hydrateCustomerSegment("store-1", selection.unconvertedCustomerIds)).toHaveLength(
       selection.unconvertedCustomerIds.size,
     );

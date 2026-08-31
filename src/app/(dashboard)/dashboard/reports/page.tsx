@@ -354,15 +354,17 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           <div>
             <h2 id="conversion-analysis-title" className="text-sm font-semibold text-earth-800">成交分析</h2>
             <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">
-              開卡率以「完成體驗當天的開卡顧客 ÷ 實際體驗到店人次」計算；同行者沒有個別建檔時仍會計入體驗母數。
+              開卡歸實際購買月份；當月總開卡分為本月體驗開卡與過往體驗追蹤開卡，已結算的體驗月份不回寫。
             </p>
           </div>
           {conversionMetrics ? (
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
               {[
                 ["體驗人次", conversionMetrics.trialAttendees, "count", null, "人次"],
-                ["開卡人數", conversionMetrics.convertedCustomers, "count", "monthly-converted", "位"],
-                ["開卡率", conversionMetrics.conversionRate, "rate", null, "%"],
+                ["本月體驗開卡", conversionMetrics.currentTrialConversions, "count", "monthly-current-trial-converted", "位"],
+                ["追蹤開卡", conversionMetrics.trackedConversions, "count", "monthly-tracked-converted", "位"],
+                ["當月總開卡", conversionMetrics.convertedCustomers, "count", "monthly-converted", "位"],
+                ["本月體驗開卡率", conversionMetrics.conversionRate, "rate", null, "%"],
                 ["未開卡人次", conversionMetrics.unconvertedCustomers, "count", null, "人次"],
               ].map(([label, metric, kind, segment, unit]) => {
                 const value = metric as (typeof conversionMetrics)["convertedCustomers"];
