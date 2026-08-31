@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import type { DigitalButlerLeadStatus } from "@prisma/client";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getActiveStoreForRead } from "@/lib/store";
+import { getAccessibleStoreIds, getActiveStoreForRead } from "@/lib/store";
+import { prisma } from "@/lib/db";
 import { requireDigitalButlerEntitlement } from "@/lib/digital-butler-entitlement";
 import type { DigitalButlerProviderFilter } from "@/lib/digital-butler-provider";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -31,11 +32,21 @@ interface PageProps {
 export default async function DigitalButlerLeadsPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) notFound();
-  const storeId = await getActiveStoreForRead(user);
+  const params = await searchParams;
+  const activeStoreId = await getActiveStoreForRead(user);
+  const focusedLead = params.leadId
+    ? await prisma.digitalButlerLead.findFirst({
+        where: {
+          id: params.leadId,
+          storeId: { in: await getAccessibleStoreIds(user) },
+        },
+        select: { storeId: true },
+      })
+    : null;
+  const storeId = focusedLead?.storeId ?? activeStoreId;
   if (!storeId) notFound();
   await requireDigitalButlerEntitlement(storeId).catch(() => notFound());
 
-  const params = await searchParams;
   const status = STATUSES.has(params.status as DigitalButlerLeadStatus)
     ? (params.status as DigitalButlerLeadStatus)
     : undefined;

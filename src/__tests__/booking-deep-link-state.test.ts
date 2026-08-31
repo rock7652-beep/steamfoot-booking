@@ -3,14 +3,24 @@ import fs from "node:fs";
 import path from "node:path";
 
 describe("booking deep-link state", () => {
-  it("prefers the authorized route store over a stale view-mode cookie", () => {
+  it("resolves current and legacy links only within authorized stores", () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), "src/app/(dashboard)/dashboard/bookings/page.tsx"),
       "utf8",
     );
 
-    expect(source).toContain("params.bookingId\n    ? activeStoreId");
-    expect(source).toContain("where: { id: params.bookingId, storeId: bookingsStoreId }");
+    expect(source).toContain("await getAccessibleStoreIds(user)");
+    expect(source).toContain("storeId: { in: accessibleStoreIds }");
+    expect(source).toContain("deepLinkedBooking?.storeId ?? fallbackStoreId");
+  });
+
+  it("derives read-only mode from the matched booking store", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "src/app/(dashboard)/dashboard/bookings/page.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain('user.role !== "ADMIN" && deepLinkedBooking.storeId !== user.storeId');
   });
 
   it("clears a previously deep-linked drawer when bookingId disappears", () => {

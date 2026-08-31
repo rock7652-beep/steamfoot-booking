@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { ServerTiming, withTiming } from "@/lib/perf";
-import { getActiveStoreForRead } from "@/lib/store";
+import { getAccessibleStoreIds, getActiveStoreForRead } from "@/lib/store";
 import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
@@ -35,19 +35,23 @@ export default async function BookingsPage({ searchParams }: PageProps) {
 
   const activeStoreId = await getActiveStoreForRead(user);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
-  // A notification deep link is already store-scoped by its `/s/:slug` route.
-  // Prefer that authorized route store over a stale cross-store view cookie.
-  const bookingsStoreId = params.bookingId
-    ? activeStoreId
-    : storeIdForViewContext(activeStoreId, storeViewContext);
-  const isViewMode = storeViewContext?.isViewMode === true;
-
-  const deepLinkedBooking = params.bookingId && bookingsStoreId
+  const fallbackStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  // Booking ids are globally unique. Resolve legacy and current notification
+  // links only within stores this user is authorized to read, then let the
+  // matched booking determine both data scope and read-only mode.
+  const accessibleStoreIds = params.bookingId
+    ? await getAccessibleStoreIds(user)
+    : [];
+  const deepLinkedBooking = params.bookingId
     ? await prisma.booking.findFirst({
-        where: { id: params.bookingId, storeId: bookingsStoreId },
-        select: { id: true, bookingDate: true },
+        where: { id: params.bookingId, storeId: { in: accessibleStoreIds } },
+        select: { id: true, storeId: true, bookingDate: true },
       })
     : null;
+  const bookingsStoreId = deepLinkedBooking?.storeId ?? fallbackStoreId;
+  const isViewMode = deepLinkedBooking
+    ? user.role !== "ADMIN" && deepLinkedBooking.storeId !== user.storeId
+    : storeViewContext?.isViewMode === true;
 
   const todayStr = toLocalDateStr();
   const [todayY, todayM] = todayStr.split("-").map(Number);
