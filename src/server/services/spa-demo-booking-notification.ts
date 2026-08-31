@@ -108,6 +108,13 @@ export async function deliverSpaDemoBookingNotification(claim: SpaDemoNotificati
     recipientLineUserId,
     buildSpaDemoBookingLineMessages(notification, bookingUrl),
   );
+  if (!result.success) {
+    console.error("[spa-demo-line] delivery failed", {
+      error: result.error ?? "LINE_DELIVERY_FAILED",
+      httpStatus: result.httpStatus ?? null,
+      errorType: result.errorType ?? null,
+    });
+  }
   await prisma.messageLog.updateMany({
     where: { id: claim.messageLogId, storeId: SPA_DEMO_STORE.id, customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID },
     data: {
