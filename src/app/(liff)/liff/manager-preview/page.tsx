@@ -31,6 +31,7 @@ export default async function SpaManagerPreviewPage() {
       initialReconciledDates={reconciledDates}
       initialAdjustments={adjustments}
       initialRefunds={refunds}
+      adminBasePath={`/s/${SPA_DEMO_STORE.slug}/admin/dashboard`}
     />
   );
 }
