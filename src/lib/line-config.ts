@@ -4,6 +4,7 @@ export const LINE_SECRET_NOT_CONFIGURED_ERROR = "LINE secret not configured for 
 const STEAM_BUTLER_LINE_DESTINATION_ENV = "STEAM_BUTLER_LINE_DESTINATION";
 const STEAM_BUTLER_LINE_CHANNEL_SECRET_ENV = "STEAM_BUTLER_LINE_CHANNEL_SECRET";
 const STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN_ENV = "STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN";
+const SPA_DEMO_LINE_TEST_RECIPIENT_ENV = "SPA_DEMO_LINE_TEST_RECIPIENT";
 
 type LineStoreSlug = "zhubei" | "hsinchu" | "taichung";
 
@@ -59,6 +60,10 @@ export function getSteamButlerLineAccessToken(): string | null {
 
 export function getSteamButlerLineDestination(): string | null {
   return nonEmptyEnv(STEAM_BUTLER_LINE_DESTINATION_ENV);
+}
+
+export function getSpaDemoLineTestRecipient(): string | null {
+  return nonEmptyEnv(SPA_DEMO_LINE_TEST_RECIPIENT_ENV);
 }
 
 export function resolveLineStoreSlug(storeIdOrSlug: string): LineStoreSlug | null {

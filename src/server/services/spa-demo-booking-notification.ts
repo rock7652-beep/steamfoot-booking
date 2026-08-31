@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { deriveBaseUrl } from "@/lib/base-url";
-import { getSteamButlerLineDestination } from "@/lib/line-config";
+import { getSpaDemoLineTestRecipient } from "@/lib/line-config";
 import { pushSteamButlerMessage } from "@/lib/line";
 import {
   SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
@@ -77,7 +77,7 @@ export async function deliverSpaDemoBookingNotification(claim: SpaDemoNotificati
   if (!claim.shouldSend || process.env.VERCEL_ENV === "production") return "NOOP" as const;
 
   const enabled = process.env.SPA_DEMO_LINE_TEST_SEND_ENABLED?.trim().toLowerCase() !== "false";
-  const recipientLineUserId = getSteamButlerLineDestination();
+  const recipientLineUserId = getSpaDemoLineTestRecipient();
   if (!enabled || !recipientLineUserId) {
     await prisma.messageLog.updateMany({
       where: {
