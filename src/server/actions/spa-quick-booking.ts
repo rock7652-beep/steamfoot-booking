@@ -7,6 +7,7 @@ import { requireWritablePermission } from "@/lib/permissions";
 import { currentStoreId } from "@/lib/store";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { handleActionError } from "@/lib/errors";
+import { revalidatePath } from "next/cache";
 
 const inputSchema = z.object({
   customerId: z.string().min(1).optional(),
@@ -80,6 +81,7 @@ export async function createSpaQuickBooking(
     if (!booking.success) {
       return { success: false, error: booking.error, customerId };
     }
+    revalidatePath("/dashboard/spa-schedule");
     return {
       success: true,
       data: { bookingId: booking.data.bookingId, customerId },
