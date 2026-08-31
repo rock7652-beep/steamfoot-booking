@@ -240,7 +240,7 @@ export async function completeSpaDemoBooking(input: unknown) {
               servicePlanId: SPA_DEMO_LIVE_FLOW_PACKAGE_PLAN_ID,
               customerPlanWalletId: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
             } : {}),
-            notes: `SPA_DEMO_LIVE_FLOW|party=${partySize}|guest=${index + 1}|settlement=${parsed.data.settlement}|label=${label}|amount=${parsed.data.settlement === "PACKAGE" ? 0 : amount}`,
+            notes: `SPA_DEMO_LIVE_FLOW|party=${partySize}|guest=${index + 1}|checkout=GROUP|settlement=${parsed.data.settlement}|label=${label}|amount=${parsed.data.settlement === "PACKAGE" ? 0 : amount}`,
           },
         });
       }
@@ -426,7 +426,7 @@ export async function completeSpaDemoGuestBooking(input: unknown) {
             servicePlanId: SPA_DEMO_LIVE_FLOW_PACKAGE_PLAN_ID,
             customerPlanWalletId: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
           } : {}),
-          notes: `SPA_DEMO_LIVE_FLOW|party=${partySize}|guest=${guestIndex}|settlement=${parsed.data.settlement}|label=${label}|amount=${parsed.data.settlement === "PACKAGE" ? 0 : amount}`,
+          notes: `SPA_DEMO_LIVE_FLOW|party=${partySize}|guest=${guestIndex}|checkout=INDIVIDUAL|settlement=${parsed.data.settlement}|label=${label}|amount=${parsed.data.settlement === "PACKAGE" ? 0 : amount}`,
         },
       });
       return { storedValueBalance, packageRemainingSessions };

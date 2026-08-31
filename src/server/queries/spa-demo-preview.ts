@@ -189,6 +189,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       : STATUS_MAP[record.bookingStatus] ?? "已確認";
     if (isLiveFlow) {
       const settlement = record.notes?.match(/\|label=([^|]+)\|amount=(\d+)/);
+      const settlementScope = record.notes?.match(/\|checkout=(GROUP|INDIVIDUAL)\|/)?.[1] as "GROUP" | "INDIVIDUAL" | undefined;
       const partySize = Number(record.notes?.match(/\|party=(\d+)/)?.[1] ?? 1);
       const guestIndex = Number(record.notes?.match(/\|guest=(\d+)/)?.[1] ?? 1);
       return {
@@ -207,6 +208,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         note: "無",
         settlementLabel: settlement?.[1] ?? null,
         settlementAmount: settlement ? Number(settlement[2]) : null,
+        settlementScope: settlementScope ?? null,
         storedValueBalance: liveStoredWallet ? Number(liveStoredWallet.balance) : null,
         packageRemainingSessions: livePackageWallet?.remainingSessions ?? null,
         partySize,

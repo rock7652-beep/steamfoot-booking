@@ -4,7 +4,8 @@ import { FormEvent, useMemo, useState, useTransition } from "react";
 import { completeSpaDemoBooking, completeSpaDemoGuestBooking } from "@/server/actions/spa-demo-checkout";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
 import { cancelSpaDemoBooking } from "@/server/actions/spa-demo-booking-management";
-import { confirmSpaDemoDailyReconciliation } from "@/server/actions/spa-demo-daily-reconciliation";
+import { adjustSpaDemoDailySettlement, confirmSpaDemoDailyReconciliation } from "@/server/actions/spa-demo-daily-reconciliation";
+import type { SpaDemoDailyAdjustment } from "@/server/queries/spa-demo-daily-reconciliation";
 import { SPA_INDUSTRY_MODULE } from "@/lib/industry-modules";
 import {
   SPA_DEMO_BOOKINGS,
@@ -105,12 +106,14 @@ export function SpaManagerSchedulePreview({
   previewDate = "2026-08-29",
   initialNotification = null,
   initialReconciledDates = [],
+  initialAdjustments = [],
 }: {
   initialProviders?: readonly PreviewProvider[];
   initialBookings?: readonly PreviewBooking[];
   previewDate?: string;
   initialNotification?: SpaDemoBookingNotification | null;
   initialReconciledDates?: readonly string[];
+  initialAdjustments?: readonly SpaDemoDailyAdjustment[];
 }) {
   const industryModule = SPA_INDUSTRY_MODULE;
   const activeProviders = initialProviders;
@@ -123,6 +126,7 @@ export function SpaManagerSchedulePreview({
   const [selectedDailyGroupKey, setSelectedDailyGroupKey] = useState<string | null>(null);
   const [isDailyReconciliationOpen, setIsDailyReconciliationOpen] = useState(false);
   const [reconciledDates, setReconciledDates] = useState<ReadonlySet<string>>(() => new Set(initialReconciledDates));
+  const [dailyAdjustments, setDailyAdjustments] = useState<SpaDemoDailyAdjustment[]>(() => [...initialAdjustments]);
   const [quickSlot, setQuickSlot] = useState<QuickSlot | null>(null);
   const [notice, setNotice] = useState("點選預約可查看詳情，點選空白時段可快速新增。");
   const [notification, setNotification] = useState<SpaDemoBookingNotification | null>(initialNotification);
@@ -191,6 +195,30 @@ export function SpaManagerSchedulePreview({
       }
       setReconciledDates((current) => new Set(current).add(result.data.date));
       setNotice(`${formatDateWithWeekdayZh(result.data.date)}帳務已核對。`);
+    });
+  }
+
+  function adjustDailySettlement(input: {
+    bookingIds: readonly string[];
+    settlement: "CASH" | "CREDIT_CARD";
+    amount: number;
+    reason: string;
+  }) {
+    const date = selectedDay.key;
+    startCompleting(async () => {
+      const result = await adjustSpaDemoDailySettlement({ date, ...input, bookingIds: [...input.bookingIds] });
+      if (!result.success) {
+        setNotice(result.error);
+        return;
+      }
+      setBookings((current) => current.map((booking) => (
+        result.data.bookingIds.includes(booking.id)
+          ? { ...booking, settlementLabel: result.data.afterMethod, settlementAmount: result.data.afterAmount, settlementScope: result.data.settlementScope }
+          : booking
+      )));
+      markDateUnreconciled(result.data.date);
+      setDailyAdjustments((current) => [result.data, ...current]);
+      setNotice(`${result.data.customer} 的帳務已更正，請重新核對本日帳務。`);
     });
   }
 
@@ -573,9 +601,12 @@ export function SpaManagerSchedulePreview({
               <DailyReconciliationDetail
                 date={selectedDay.key}
                 summary={dailySummary}
+                bookings={dayBookings}
                 isReconciled={isSelectedDayReconciled}
                 onConfirm={confirmDailyReconciliation}
+                onAdjust={adjustDailySettlement}
                 isConfirming={isCompleting}
+                adjustments={dailyAdjustments.filter((adjustment) => adjustment.date === selectedDay.key)}
               />
             ) : selectedDailyGroup ? (
               <DailyGroupDetail
@@ -931,19 +962,90 @@ function DailyOperationsSection({
   );
 }
 
+type DailyAdjustmentTarget = {
+  key: string;
+  bookingIds: readonly string[];
+  customer: string;
+  label: string;
+  settlement: "CASH" | "CREDIT_CARD";
+  amount: number;
+};
+
+function buildDailyAdjustmentTargets(summary: SpaDailySummary, bookings: readonly PreviewBooking[]): DailyAdjustmentTarget[] {
+  return summary.groups.flatMap((group) => {
+    const ordered = bookings
+      .filter((booking) => group.bookingIds.includes(booking.id) && booking.status === "已完成")
+      .toSorted((left, right) => (left.guestIndex ?? 1) - (right.guestIndex ?? 1));
+    if (!ordered.length) return [];
+    const firstMethod = ordered[0].settlementLabel === "現金"
+      ? "CASH" as const
+      : ordered[0].settlementLabel === "刷卡"
+        ? "CREDIT_CARD" as const
+        : null;
+    if (group.checkoutMode === "整組付款" && firstMethod && ordered.every((booking) => booking.settlementLabel === ordered[0].settlementLabel)) {
+      return [{
+        key: group.key,
+        bookingIds: ordered.map((booking) => booking.id),
+        customer: group.customer,
+        label: `${group.time}・${group.customer}・整組付款`,
+        settlement: firstMethod,
+        amount: group.paidAmount,
+      }];
+    }
+    return ordered.flatMap((booking) => {
+      const settlement = booking.settlementLabel === "現金"
+        ? "CASH" as const
+        : booking.settlementLabel === "刷卡"
+          ? "CREDIT_CARD" as const
+          : null;
+      if (!settlement || !booking.settlementAmount) return [];
+      return [{
+        key: booking.id,
+        bookingIds: [booking.id],
+        customer: booking.customer,
+        label: `${booking.time}・${booking.customer}・第 ${booking.guestIndex ?? 1} 位`,
+        settlement,
+        amount: booking.settlementAmount,
+      }];
+    });
+  });
+}
+
 function DailyReconciliationDetail({
   date,
   summary,
+  bookings,
   isReconciled,
   onConfirm,
+  onAdjust,
   isConfirming,
+  adjustments,
 }: {
   date: string;
   summary: SpaDailySummary;
+  bookings: readonly PreviewBooking[];
   isReconciled: boolean;
   onConfirm: () => void;
+  onAdjust: (input: { bookingIds: readonly string[]; settlement: "CASH" | "CREDIT_CARD"; amount: number; reason: string }) => void;
   isConfirming: boolean;
+  adjustments: readonly SpaDemoDailyAdjustment[];
 }) {
+  const [editingTargetKey, setEditingTargetKey] = useState<string | null>(null);
+  const adjustmentTargets = buildDailyAdjustmentTargets(summary, bookings);
+  const editingTarget = adjustmentTargets.find((target) => target.key === editingTargetKey) ?? null;
+
+  function submitAdjustment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingTarget) return;
+    const formData = new FormData(event.currentTarget);
+    const settlement = String(formData.get("settlement"));
+    const amount = Number(formData.get("amount"));
+    const reason = String(formData.get("reason") ?? "").trim();
+    if ((settlement !== "CASH" && settlement !== "CREDIT_CARD") || !Number.isInteger(amount) || amount <= 0 || reason.length < 2) return;
+    onAdjust({ bookingIds: editingTarget.bookingIds, settlement, amount, reason });
+    setEditingTargetKey(null);
+  }
+
   return (
     <section className="rounded-2xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
       <p className="text-xs text-earth-500">{formatDateWithWeekdayZh(date)}</p>
@@ -978,6 +1080,50 @@ function DailyReconciliationDetail({
       {summary.reconciliationStatus === "PENDING" ? (
         <div className="mt-5 rounded-xl bg-[#f6f0e5] px-3.5 py-3 text-sm text-[#765f38]">
           {summary.unsettledGroupCount ? `${summary.unsettledGroupCount} 組尚未完成結帳` : `${summary.unrecordedPaymentCount} 組付款方式未記錄`}
+        </div>
+      ) : null}
+
+      {adjustmentTargets.length ? (
+        <div className="mt-5 border-t border-earth-100 pt-5">
+          <h3 className="font-semibold">帳務更正</h3>
+          <div className="mt-2 divide-y divide-earth-100">
+            {adjustmentTargets.map((target) => (
+              <div key={target.key} className="py-3">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <div>
+                    <p className="font-medium text-earth-800">{target.label}</p>
+                    <p className="mt-1 text-xs text-earth-500">{target.settlement === "CASH" ? "現金" : "刷卡"}・NT${target.amount.toLocaleString()}</p>
+                  </div>
+                  <button type="button" onClick={() => setEditingTargetKey((current) => current === target.key ? null : target.key)} className="min-h-9 rounded-lg border border-earth-200 bg-white px-3 text-xs font-semibold text-earth-700">更正</button>
+                </div>
+                {editingTargetKey === target.key ? (
+                  <form key={target.key} onSubmit={submitAdjustment} className="mt-3 space-y-3 rounded-xl bg-earth-50 p-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="text-xs font-medium text-earth-600">付款方式<select name="settlement" defaultValue={target.settlement} className="mt-1 min-h-10 w-full rounded-lg border border-earth-200 bg-white px-2 text-sm"><option value="CASH">現金</option><option value="CREDIT_CARD">刷卡</option></select></label>
+                      <label className="text-xs font-medium text-earth-600">實收金額<input name="amount" type="number" min="1" max="100000" defaultValue={target.amount} required className="mt-1 min-h-10 w-full rounded-lg border border-earth-200 bg-white px-2 text-sm" /></label>
+                    </div>
+                    <label className="block text-xs font-medium text-earth-600">更正原因<input name="reason" minLength={2} maxLength={80} required placeholder="例如：付款方式選錯" className="mt-1 min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 text-sm" /></label>
+                    <button type="submit" disabled={isConfirming} className="min-h-10 w-full rounded-lg bg-earth-900 px-3 text-sm font-semibold text-white disabled:opacity-40">儲存更正</button>
+                  </form>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {adjustments.length ? (
+        <div className="mt-5 border-t border-earth-100 pt-5">
+          <h3 className="font-semibold">更正紀錄</h3>
+          <div className="mt-2 space-y-2">
+            {adjustments.map((adjustment) => (
+              <div key={`${adjustment.adjustedAt}-${adjustment.bookingIds.join("-")}`} className="rounded-xl bg-earth-50 px-3 py-2.5 text-xs text-earth-600">
+                <p className="font-medium text-earth-800">{adjustment.time}・{adjustment.customer}</p>
+                <p className="mt-1">{adjustment.beforeMethod} NT${adjustment.beforeAmount.toLocaleString()} → {adjustment.afterMethod} NT${adjustment.afterAmount.toLocaleString()}</p>
+                <p className="mt-1">{adjustment.reason}・{adjustment.adjustedBy}</p>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 

@@ -68,6 +68,18 @@ describe("SPA daily operations and accounting summary", () => {
     ]);
   });
 
+  it("keeps a corrected group payment counted once even when it differs from service total", () => {
+    const summary = buildSpaDailySummary([
+      booking({ id: "booking-1", guestIndex: 1, price: 1300, settlementAmount: 4800, settlementScope: "GROUP" }),
+      booking({ id: "booking-2", guestIndex: 2, price: 1500, providerId: "staff-10", settlementAmount: 4800, settlementScope: "GROUP" }),
+      booking({ id: "booking-3", guestIndex: 3, price: 2200, providerId: "staff-07", settlementAmount: 4800, settlementScope: "GROUP" }),
+    ], providers);
+
+    expect(summary).toMatchObject({ expectedAmount: 5000, paidAmount: 4800 });
+    expect(summary.groups[0]).toMatchObject({ checkoutMode: "整組付款", paidAmount: 4800 });
+    expect(summary.payments).toContainEqual({ method: "現金", count: 1, amount: 4800 });
+  });
+
   it("keeps unfinished services out of received revenue", () => {
     const summary = buildSpaDailySummary([
       booking({ id: "booking-1", status: "已確認", tone: "sage", settlementAmount: null, settlementLabel: null }),

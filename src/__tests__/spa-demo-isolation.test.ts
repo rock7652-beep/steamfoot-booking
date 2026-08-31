@@ -106,6 +106,9 @@ describe("SPA Demo tenant isolation", () => {
     expect(manager).toContain('aria-label="查詢日期"');
     expect(manager).toContain('"每日帳務核對右側面板"');
     expect(manager).toContain("確認本日帳務");
+    expect(manager).toContain("帳務更正");
+    expect(manager).toContain("更正原因");
+    expect(manager).toContain("更正紀錄");
     expect(manager).toContain("整組付款只計算一次");
     expect(manager).toContain("DailyGroupDetail");
     expect(manager).toContain('className="overflow-x-auto"');
@@ -129,9 +132,16 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).toContain('process.env.VERCEL_ENV === "production"');
     expect(action).toContain("storeId: SPA_DEMO_STORE.id");
     expect(action).toContain('triggeredBy: "spa_demo_manager"');
+    expect(action).toContain('triggeredBy: "spa_demo_manager_adjustment"');
+    expect(action).toContain("adjustSpaDemoDailySettlement");
+    expect(action).toContain("prisma.$transaction");
+    expect(action).toContain('status: "mismatch"');
+    expect(action).toContain("reason: z.string().trim().min(2).max(80)");
     expect(action).toContain('summary.reconciliationStatus !== "READY"');
     expect(query).toContain("storeId: SPA_DEMO_STORE.id");
     expect(query).toContain('triggeredBy: "spa_demo_manager"');
+    expect(query).toContain('triggeredBy: "spa_demo_manager_adjustment"');
+    expect(query).toContain("listSpaDemoDailyAdjustments");
   });
 
   it("connects one fixed Demo customer booking to manager and provider views", () => {

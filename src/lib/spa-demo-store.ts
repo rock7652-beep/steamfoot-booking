@@ -87,6 +87,7 @@ export type SpaDemoBooking = {
   note: string;
   settlementLabel?: string | null;
   settlementAmount?: number | null;
+  settlementScope?: "GROUP" | "INDIVIDUAL" | null;
   storedValueBalance?: number | null;
   packageRemainingSessions?: number | null;
   partySize?: number;

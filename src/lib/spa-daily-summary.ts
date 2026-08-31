@@ -58,6 +58,7 @@ function groupKey(booking: SpaDemoBooking): string {
 
 function isGroupCheckout(bookings: readonly SpaDemoBooking[], expectedAmount: number): boolean {
   if (bookings.length <= 1 || bookings.some((booking) => booking.status !== "已完成")) return false;
+  if (bookings.every((booking) => booking.settlementScope === "GROUP")) return true;
   const first = bookings[0];
   const sameSettlement = bookings.every((booking) => booking.settlementLabel === first.settlementLabel);
   const recordedAmount = first.settlementAmount ?? 0;
