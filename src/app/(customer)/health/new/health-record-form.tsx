@@ -6,6 +6,8 @@ import {
   type SaveCustomerHealthRecordState,
 } from "@/server/actions/customer-health-record";
 import { saveLiffHealthRecord } from "@/server/actions/liff-health";
+import { updateLiffHealthRecord } from "@/server/actions/liff-health";
+import type { HealthRecord } from "@/lib/health-service";
 
 const initialSaveCustomerHealthRecordState: SaveCustomerHealthRecordState = {
   error: null,
@@ -28,13 +30,24 @@ export function HealthRecordForm({
   today,
   storeSlug,
   surface = "web",
+  mode = "create",
+  recordId,
+  initialValues,
 }: {
   requestId: string;
   today: string;
   storeSlug?: string;
   surface?: "web" | "liff";
+  mode?: "create" | "edit";
+  recordId?: string;
+  initialValues?: HealthRecord;
 }) {
-  const submitAction = surface === "liff" ? saveLiffHealthRecord : saveCustomerHealthRecord;
+  const submitAction =
+    surface === "liff" && mode === "edit"
+      ? updateLiffHealthRecord
+      : surface === "liff"
+        ? saveLiffHealthRecord
+        : saveCustomerHealthRecord;
   const [state, action, pending] = useActionState(
     submitAction,
     initialSaveCustomerHealthRecordState,
@@ -43,6 +56,7 @@ export function HealthRecordForm({
   return (
     <form action={action} className="space-y-5">
       <input type="hidden" name="requestId" value={requestId} />
+      {recordId && <input type="hidden" name="recordId" value={recordId} />}
       {surface === "liff" && <input type="hidden" name="storeSlug" value={storeSlug} />}
       {state.error && (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -59,7 +73,7 @@ export function HealthRecordForm({
             id="measuredAt"
             name="measuredAt"
             type="date"
-            defaultValue={today}
+            defaultValue={initialValues?.measuredAt ?? today}
             max={today}
             required
             className="block min-h-[52px] w-full min-w-0 max-w-full appearance-none border-0 bg-white px-4 text-base text-earth-900"
@@ -80,6 +94,7 @@ export function HealthRecordForm({
                   type="number"
                   inputMode="decimal"
                   step={step}
+                  defaultValue={initialValues?.[name] ?? ""}
                   className="min-h-[52px] w-full rounded-xl border border-earth-200 px-4 pr-12 text-base text-earth-900"
                 />
                 {unit && <span className="absolute right-3 top-4 text-sm text-earth-500">{unit}</span>}
@@ -103,6 +118,7 @@ export function HealthRecordForm({
           maxLength={500}
           placeholder="例如：蒸足前量測"
           className="mt-2 w-full rounded-xl border border-earth-200 px-4 py-3 text-base text-earth-900"
+          defaultValue={initialValues?.note ?? ""}
         />
         <FieldError messages={state.fieldErrors?.note} />
       </section>
@@ -112,7 +128,11 @@ export function HealthRecordForm({
         disabled={pending}
         className="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-primary-600 px-5 text-base font-semibold text-white shadow-sm hover:bg-primary-700 disabled:cursor-wait disabled:opacity-70"
       >
-        {pending ? "正在儲存…" : "儲存並查看評估"}
+        {pending
+          ? "正在儲存…"
+          : mode === "edit"
+            ? "儲存修改"
+            : "儲存並查看評估"}
       </button>
       <p className="text-center text-xs leading-relaxed text-earth-500">
         健康評估為日常追蹤參考，不能取代醫療診斷；若身體不適請諮詢專業醫療人員。

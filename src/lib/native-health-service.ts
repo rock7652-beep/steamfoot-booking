@@ -121,6 +121,7 @@ export async function getNativeHealthSummaryForMemberships(
         ? daysBetween(latestRow.measuredAt, toLocalDateStr())
         : null,
       firstMeasuredAt: first?.measuredAt.toISOString().slice(0, 10) ?? null,
+      recordIds: records.slice().reverse().map((row) => row.id),
     },
   };
 }
@@ -199,6 +200,7 @@ export async function getNativeHealthSummary(
       totalRecords,
       daysSinceLastMeasure: latestRow ? daysBetween(latestRow.measuredAt, toLocalDateStr()) : null,
       firstMeasuredAt: first?.measuredAt.toISOString().slice(0, 10) ?? null,
+      recordIds: records.slice().reverse().map((row) => row.id),
     },
   };
 }
