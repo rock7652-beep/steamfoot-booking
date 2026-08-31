@@ -38,3 +38,17 @@ export async function isSpaOperationalSchemaReady(): Promise<boolean> {
     return false;
   }
 }
+
+export async function isSpaCompensationSchemaReady(): Promise<boolean> {
+  try {
+    const [result] = await prisma.$queryRaw<Array<{ ready: boolean }>>`
+      SELECT to_regclass('public."SpaStaffCompensation"') IS NOT NULL AS ready
+    `;
+    return result?.ready === true;
+  } catch (error) {
+    console.error("[spa-compensation-schema] readiness check failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}

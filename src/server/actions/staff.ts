@@ -19,6 +19,7 @@ import { revalidateStaff, revalidateStaffPermissions } from "@/lib/revalidation"
 import type { UserRole } from "@prisma/client";
 import type { ActionResult } from "@/types";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
+import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 
 /**
  * 要求可管理人員的身份：OWNER（店長）或 ADMIN（系統管理者，需已選定分店）。
@@ -100,6 +101,14 @@ const createStaffSchema = z.object({
   monthlySpaceFee: z.number().int().min(0).optional(),
   spaceFeeEnabled: z.boolean().optional(),
   role: z.enum(["OWNER", "PARTNER"]).optional(),
+  spaCompensation: z.object({
+    mode: z.enum(["PERCENTAGE", "FIXED"]),
+    value: z.number().min(0).max(1_000_000),
+  }).optional(),
+}).superRefine((data, context) => {
+  if (data.spaCompensation?.mode === "PERCENTAGE" && data.spaCompensation.value > 100) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["spaCompensation", "value"], message: "百分比不可超過 100" });
+  }
 });
 
 const updateStaffSchema = z.object({
@@ -126,6 +135,9 @@ export async function createStaff(
     const sessionUser = await requireStaffManageSession();
     const data = createStaffSchema.parse(input);
     const writeStoreId = await resolveWriteStoreId(sessionUser);
+    if (data.spaCompensation && !isSpaDemoStoreId(writeStoreId)) {
+      throw new AppError("FORBIDDEN", "抽成設定目前只開放 SPA 模組");
+    }
     await requireStoreFeature(writeStoreId, FEATURES.STAFF_MANAGEMENT);
 
     const normalizedEmail = data.email ? normalizeEmail(data.email) : undefined;
@@ -166,6 +178,15 @@ export async function createStaff(
             monthlySpaceFee: data.monthlySpaceFee ?? 0,
             spaceFeeEnabled: data.spaceFeeEnabled ?? true,
             storeId: writeStoreId,
+            ...(data.spaCompensation ? {
+              spaCompensationSetting: {
+                create: {
+                  store: { connect: { id: writeStoreId } },
+                  mode: data.spaCompensation.mode,
+                  value: data.spaCompensation.value,
+                },
+              },
+            } : {}),
           },
         },
       },

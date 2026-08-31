@@ -678,6 +678,7 @@ model Store {
   staffSkills                       StaffSkill[]
   staffWeeklyAvailabilities         StaffWeeklyAvailability[]
   staffAvailabilityExceptions       StaffAvailabilityException[]
+  spaStaffCompensationSettings      SpaStaffCompensation[]
   storedValueWallets                StoredValueWallet[]
   storedValueLedgerEntries          StoredValueLedgerEntry[]
 
@@ -1035,6 +1036,7 @@ model Staff {
   skills                 StaffSkill[]
   weeklyAvailabilities   StaffWeeklyAvailability[]
   availabilityExceptions StaffAvailabilityException[]
+  spaCompensationSetting SpaStaffCompensation?
 
   @@unique([id, storeId])
   @@index([storeId])
@@ -1661,6 +1663,25 @@ model StaffAvailabilityException {
 
   @@index([storeId, date])
   @@index([staffId, date])
+}
+
+// SPA 服務人員的抽成設定。獨立於 Staff，避免影響既有蒸足門市的人員資料。
+model SpaStaffCompensation {
+  id        String   @id @default(cuid())
+  storeId   String
+  staffId   String   @unique
+  mode      String // PERCENTAGE | FIXED
+  value     Decimal  @db.Decimal(10, 2)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  staff Staff @relation(fields: [staffId, storeId], references: [id, storeId], onDelete: Cascade)
+
+  @@unique([staffId, storeId])
+  @@index([storeId, isActive])
+  @@index([staffId, isActive])
 }
 
 // ============================================================

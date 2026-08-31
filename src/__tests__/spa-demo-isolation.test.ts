@@ -74,6 +74,10 @@ describe("SPA Demo tenant isolation", () => {
     expect(staffWorkspace).toContain("請假／臨時加班");
     expect(staffWorkspace).toContain("不必逐時段新增");
     expect(staffWorkspace).toContain("緊急聯絡人");
+    expect(staffWorkspace).toContain("showSpaCompensation");
+    expect(staffWorkspace).toContain("saveSpaStaffCompensation");
+    expect(staffWorkspace).toContain("抽成方式");
+    expect(staffWorkspace).toContain("抽成比例（%）");
     expect(schedule).toContain("sticky top-0 z-30");
     expect(schedule).toContain('className="min-h-[460px] flex-1 overflow-auto"');
     expect(SPA_DEMO_PROVIDERS.every((provider) => provider.specialties && provider.emergencyContact.phone)).toBe(true);
@@ -109,6 +113,9 @@ describe("SPA Demo tenant isolation", () => {
     expect(manager).toContain("帳務更正");
     expect(manager).toContain("更正原因");
     expect(manager).toContain("更正紀錄");
+    expect(manager).toContain("退款／作廢紀錄");
+    expect(manager).toContain('aria-label="期間營運與技師業績報表"');
+    expect(manager).toContain("芳療師業績與抽成");
     expect(manager).toContain("整組付款只計算一次");
     expect(manager).toContain("DailyGroupDetail");
     expect(manager).toContain('className="overflow-x-auto"');
@@ -142,6 +149,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(query).toContain('triggeredBy: "spa_demo_manager"');
     expect(query).toContain('triggeredBy: "spa_demo_manager_adjustment"');
     expect(query).toContain("listSpaDemoDailyAdjustments");
+    expect(query).toContain("listSpaDemoDailyRefunds");
   });
 
   it("connects one fixed Demo customer booking to manager and provider views", () => {
@@ -171,6 +179,10 @@ describe("SPA Demo tenant isolation", () => {
     );
     const management = readFileSync(
       "src/server/actions/spa-demo-booking-management.ts",
+      "utf8",
+    );
+    const refund = readFileSync(
+      "src/server/actions/spa-demo-refund.ts",
       "utf8",
     );
 
@@ -264,8 +276,36 @@ describe("SPA Demo tenant isolation", () => {
     expect(management).toContain('bookingStatus: "CANCELLED"');
     expect(management).toContain('revalidatePath("/liff/staff-preview")');
     expect(management).toContain("saveSpaDemoBookingNotification");
+    expect(refund).toContain('process.env.VERCEL_ENV === "production"');
+    expect(refund).toContain("storeId: SPA_DEMO_STORE.id");
+    expect(refund).toContain('transactionType: "REFUND"');
+    expect(refund).toContain('status: "AVAILABLE"');
+    expect(refund).toContain('entryType: "CREDIT"');
+    expect(refund).toContain('triggeredBy: "spa_demo_manager_refund"');
+    expect(refund).toContain("refundReason: parsed.data.reason");
+    expect(manager).toContain("退款／作廢");
     expect(manager).not.toContain("確認到店");
     expect(manager).not.toContain("開始服務");
+  });
+
+  it("stores SPA compensation separately and never writes it for formal stores", () => {
+    const schema = readFileSync("prisma/schema.prisma", "utf8");
+    const migration = readFileSync("prisma/migrations/20260831140000_add_spa_staff_compensation/migration.sql", "utf8");
+    const staffAction = readFileSync("src/server/actions/staff.ts", "utf8");
+    const spaAction = readFileSync("src/server/actions/spa-operations.ts", "utf8");
+    const report = readFileSync("src/lib/spa-advanced-report.ts", "utf8");
+
+    expect(schema).toContain("model SpaStaffCompensation");
+    expect(migration).toContain("SpaStaffCompensation_mode_check");
+    expect(migration).toContain("SpaStaffCompensation_value_check");
+    expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(migration).toContain("FORCE ROW LEVEL SECURITY");
+    expect(staffAction).toContain("isSpaDemoStoreId(writeStoreId)");
+    expect(staffAction).toContain("spaCompensationSetting");
+    expect(spaAction).toContain("saveSpaStaffCompensation");
+    expect(spaAction).toContain('requireSpaDemoWrite("staff.manage")');
+    expect(report).toContain("compensationAmount");
+    expect(report).toContain("booking.refundedAt");
   });
 });
 

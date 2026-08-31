@@ -2,10 +2,11 @@
 
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import { completeSpaDemoBooking, completeSpaDemoGuestBooking } from "@/server/actions/spa-demo-checkout";
+import { refundSpaDemoCheckout } from "@/server/actions/spa-demo-refund";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
 import { cancelSpaDemoBooking } from "@/server/actions/spa-demo-booking-management";
 import { adjustSpaDemoDailySettlement, confirmSpaDemoDailyReconciliation } from "@/server/actions/spa-demo-daily-reconciliation";
-import type { SpaDemoDailyAdjustment } from "@/server/queries/spa-demo-daily-reconciliation";
+import type { SpaDemoDailyAdjustment, SpaDemoDailyRefund } from "@/server/queries/spa-demo-daily-reconciliation";
 import { SPA_INDUSTRY_MODULE } from "@/lib/industry-modules";
 import {
   SPA_DEMO_BOOKINGS,
@@ -27,6 +28,7 @@ import { isSpaProviderAvailable } from "@/lib/spa-provider-availability";
 import type { SpaBookableProvider } from "@/lib/spa-provider-availability";
 import { findSpaPartyProviderAssignment } from "@/lib/spa-party-assignment";
 import { buildSpaDailySummary, type SpaDailyGroup, type SpaDailySummary } from "@/lib/spa-daily-summary";
+import { buildSpaAdvancedReport, type SpaAdvancedReport } from "@/lib/spa-advanced-report";
 import {
   formatDateWithWeekdayZh,
   formatWeekdayZh,
@@ -107,6 +109,7 @@ export function SpaManagerSchedulePreview({
   initialNotification = null,
   initialReconciledDates = [],
   initialAdjustments = [],
+  initialRefunds = [],
 }: {
   initialProviders?: readonly PreviewProvider[];
   initialBookings?: readonly PreviewBooking[];
@@ -114,6 +117,7 @@ export function SpaManagerSchedulePreview({
   initialNotification?: SpaDemoBookingNotification | null;
   initialReconciledDates?: readonly string[];
   initialAdjustments?: readonly SpaDemoDailyAdjustment[];
+  initialRefunds?: readonly SpaDemoDailyRefund[];
 }) {
   const industryModule = SPA_INDUSTRY_MODULE;
   const activeProviders = initialProviders;
@@ -122,11 +126,15 @@ export function SpaManagerSchedulePreview({
   );
   const [bookings, setBookings] = useState<PreviewBooking[]>(() => [...initialBookings]);
   const [selectedDate, setSelectedDate] = useState(previewDate);
+  const initialReportDates = initialBookings.map((booking) => booking.date).toSorted();
+  const [reportDateFrom, setReportDateFrom] = useState(initialReportDates[0] ?? previewDate);
+  const [reportDateTo, setReportDateTo] = useState(initialReportDates.at(-1) ?? previewDate);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [selectedDailyGroupKey, setSelectedDailyGroupKey] = useState<string | null>(null);
   const [isDailyReconciliationOpen, setIsDailyReconciliationOpen] = useState(false);
   const [reconciledDates, setReconciledDates] = useState<ReadonlySet<string>>(() => new Set(initialReconciledDates));
   const [dailyAdjustments, setDailyAdjustments] = useState<SpaDemoDailyAdjustment[]>(() => [...initialAdjustments]);
+  const [dailyRefunds, setDailyRefunds] = useState<SpaDemoDailyRefund[]>(() => [...initialRefunds]);
   const [quickSlot, setQuickSlot] = useState<QuickSlot | null>(null);
   const [notice, setNotice] = useState("點選預約可查看詳情，點選空白時段可快速新增。");
   const [notification, setNotification] = useState<SpaDemoBookingNotification | null>(initialNotification);
@@ -159,6 +167,10 @@ export function SpaManagerSchedulePreview({
   const dailySummary = useMemo(
     () => buildSpaDailySummary(dayBookings, activeProviders),
     [activeProviders, dayBookings],
+  );
+  const advancedReport = useMemo(
+    () => buildSpaAdvancedReport(bookings, activeProviders, reportDateFrom, reportDateTo),
+    [activeProviders, bookings, reportDateFrom, reportDateTo],
   );
   const selectedDailyGroup = dailySummary.groups.find((group) => group.key === selectedDailyGroupKey) ?? null;
   const isSelectedDayReconciled = reconciledDates.has(selectedDay.key);
@@ -287,6 +299,39 @@ export function SpaManagerSchedulePreview({
       }
       updateBookingStatus(result.data.bookingIds, "已完成", result.data.settlementLabel, result.data.amount, result.data.storedValueBalance, result.data.packageRemainingSessions);
       setNotice(`服務與結帳已一次完成：${result.data.settlementLabel}${result.data.amount ? `・NT$${result.data.amount.toLocaleString()}` : ""}。`);
+    });
+  }
+
+  function refundCheckout(scope: "GROUP" | "GUEST", bookingId: string, reason: string) {
+    startCompleting(async () => {
+      const result = await refundSpaDemoCheckout({ scope, bookingId, reason });
+      if (!result.success) {
+        setNotice(result.error);
+        return;
+      }
+      setBookings((current) => current.map((booking) => {
+        const walletUpdates = SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number]) ? {
+          ...(result.data.storedValueBalance !== null ? { storedValueBalance: result.data.storedValueBalance } : {}),
+          ...(result.data.packageRemainingSessions !== null ? { packageRemainingSessions: result.data.packageRemainingSessions } : {}),
+        } : {};
+        return result.data.bookingIds.includes(booking.id)
+          ? { ...booking, ...walletUpdates, refundAmount: result.data.refunds.find((refund) => refund.bookingId === booking.id)?.amount ?? 0, refundReason: result.data.reason, refundedAt: result.data.refundedAt }
+          : { ...booking, ...walletUpdates };
+      }));
+      markDateUnreconciled(result.data.date);
+      setDailyRefunds((current) => [{
+        date: result.data.date,
+        bookingIds: result.data.bookingIds,
+        customer: result.data.customer,
+        time: result.data.time,
+        scope: result.data.scope,
+        settlements: result.data.settlements,
+        refundAmount: result.data.refundAmount,
+        reason: result.data.reason,
+        refundedBy: result.data.refundedBy,
+        refundedAt: result.data.refundedAt,
+      }, ...current]);
+      setNotice(`退款／作廢已完成${result.data.refundAmount ? `・NT$${result.data.refundAmount.toLocaleString()}` : "・療程次數已補回"}，請重新核對本日帳務。`);
     });
   }
 
@@ -543,6 +588,14 @@ export function SpaManagerSchedulePreview({
             }}
           />
 
+          <AdvancedOperationsReport
+            report={advancedReport}
+            dateFrom={reportDateFrom}
+            dateTo={reportDateTo}
+            onDateFromChange={(date) => { if (date <= reportDateTo) setReportDateFrom(date); }}
+            onDateToChange={(date) => { if (date >= reportDateFrom) setReportDateTo(date); }}
+          />
+
           <div className="mt-6 grid min-w-0 gap-6">
             <section className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(74,66,53,0.06)] ring-1 ring-earth-200/70">
               <div className="flex flex-col gap-4 border-b border-earth-100 px-5 py-5 xl:flex-row xl:items-center xl:justify-between">
@@ -607,6 +660,7 @@ export function SpaManagerSchedulePreview({
                 onAdjust={adjustDailySettlement}
                 isConfirming={isCompleting}
                 adjustments={dailyAdjustments.filter((adjustment) => adjustment.date === selectedDay.key)}
+                refunds={dailyRefunds.filter((refund) => refund.date === selectedDay.key)}
               />
             ) : selectedDailyGroup ? (
               <DailyGroupDetail
@@ -617,7 +671,7 @@ export function SpaManagerSchedulePreview({
             ) : quickSlot ? (
             <QuickBookingForm providers={toBookableProviders(activeProviders, bookings)} slot={quickSlot} onCancel={() => setQuickSlot(null)} onSubmit={createQuickBooking} isSubmitting={isCompleting} />
             ) : selectedBooking ? (
-              <BookingDetail key={selectedGroupBookings.map((booking) => booking.id).join("|")} scheduleDays={scheduleDays} providers={activeProviders} bookableProviders={toBookableProviders(activeProviders, bookings.filter((item) => !selectedGroupBookings.some((selected) => selected.id === item.id)))} bookings={selectedGroupBookings} booking={selectedBooking} onCompleteGroup={completeBooking} onCompleteGuest={completeGuestBooking} onUpdate={updateGroupBooking} onCancel={cancelBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
+              <BookingDetail key={selectedGroupBookings.map((booking) => `${booking.id}:${booking.refundedAt ?? ""}`).join("|")} scheduleDays={scheduleDays} providers={activeProviders} bookableProviders={toBookableProviders(activeProviders, bookings.filter((item) => !selectedGroupBookings.some((selected) => selected.id === item.id)))} bookings={selectedGroupBookings} booking={selectedBooking} onCompleteGroup={completeBooking} onCompleteGuest={completeGuestBooking} onRefund={refundCheckout} onUpdate={updateGroupBooking} onCancel={cancelBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
             ) : null}
           </aside>
         </div>
@@ -711,10 +765,12 @@ function BlockedSlot({ label }: { label: string }) {
   return <div className="flex h-full items-center justify-center rounded-xl bg-earth-100 px-2 text-center text-xs font-medium text-earth-400">{label}</div>;
 }
 
-function BookingDetail({ scheduleDays, providers, bookableProviders, bookings, booking, onCompleteGroup, onCompleteGuest, onUpdate, onCancel, isCompleting, onRebook }: { scheduleDays: readonly ScheduleDay[]; providers: readonly PreviewProvider[]; bookableProviders: readonly SpaBookableProvider[]; bookings: readonly PreviewBooking[]; booking: PreviewBooking; onCompleteGroup: (settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onCompleteGuest: (bookingId: string, settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onUpdate: (event: FormEvent<HTMLFormElement>) => void; onCancel: (scope: "GUEST" | "GROUP", bookingId: string) => void; isCompleting: boolean; onRebook: () => void }) {
+function BookingDetail({ scheduleDays, providers, bookableProviders, bookings, booking, onCompleteGroup, onCompleteGuest, onRefund, onUpdate, onCancel, isCompleting, onRebook }: { scheduleDays: readonly ScheduleDay[]; providers: readonly PreviewProvider[]; bookableProviders: readonly SpaBookableProvider[]; bookings: readonly PreviewBooking[]; booking: PreviewBooking; onCompleteGroup: (settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onCompleteGuest: (bookingId: string, settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onRefund: (scope: "GROUP" | "GUEST", bookingId: string, reason: string) => void; onUpdate: (event: FormEvent<HTMLFormElement>) => void; onCancel: (scope: "GUEST" | "GROUP", bookingId: string) => void; isCompleting: boolean; onRebook: () => void }) {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<{ scope: "GUEST" | "GROUP"; bookingId: string } | null>(null);
+  const [showRefund, setShowRefund] = useState(false);
+  const [refundTargetId, setRefundTargetId] = useState(booking.id);
   const [checkoutMode, setCheckoutMode] = useState<"GROUP" | "SPLIT">("GROUP");
   const [settlement, setSettlement] = useState<"CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE">(booking.remainingSessions === null ? "CASH" : "PACKAGE");
   const [guestSettlements, setGuestSettlements] = useState<Record<string, "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE">>(() => Object.fromEntries(bookings.map((item) => [item.id, "CASH"])));
@@ -722,6 +778,8 @@ function BookingDetail({ scheduleDays, providers, bookableProviders, bookings, b
   const people = Math.max(bookings.length, booking.partySize ?? 1);
   const completedCount = bookings.filter((item) => item.status === "已完成").length;
   const allCompleted = completedCount === people;
+  const refundableBookings = orderedBookings.filter((item) => item.status === "已完成" && !item.refundedAt);
+  const allRefunded = allCompleted && refundableBookings.length === 0;
   const someCompleted = completedCount > 0 && !allCompleted;
   const isLiveGroup = SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number]);
   const expectedAmount = bookings.reduce((total, item) => total + (item.price ?? 0), 0);
@@ -748,7 +806,7 @@ function BookingDetail({ scheduleDays, providers, bookableProviders, bookings, b
               <p className="mt-2 text-sm text-earth-100">{item.serviceItems.join("＋")}</p>
               <div className="mt-2 grid gap-1 text-xs text-earth-300"><p>{provider ? `${provider.badge}號 ${provider.name}` : "尚未指派"}</p><p>{item.time}–{addMinutes(item.time, item.durationMinutes)}・{item.durationMinutes} 分鐘</p>{item.price ? <p>NT${item.price.toLocaleString()}</p> : null}</div>
               {!someCompleted && !allCompleted ? <button type="button" onClick={() => setCancelTarget({ scope: "GUEST", bookingId: item.id })} className="mt-3 text-xs font-semibold text-earth-300 underline underline-offset-4">取消此位</button> : null}
-              {item.status === "已完成" ? <p className="mt-3 rounded-xl bg-primary-100 px-3 py-2 text-xs font-semibold text-primary-900">已結帳・{item.settlementLabel ?? "完成"}</p> : showCheckout && (checkoutMode === "SPLIT" || someCompleted) ? (
+              {item.status === "已完成" ? <p className="mt-3 rounded-xl bg-primary-100 px-3 py-2 text-xs font-semibold text-primary-900">{item.refundedAt ? `已退款${item.refundAmount ? `・NT$${item.refundAmount.toLocaleString()}` : "・療程已補回"}` : `已結帳・${item.settlementLabel ?? "完成"}`}</p> : showCheckout && (checkoutMode === "SPLIT" || someCompleted) ? (
                 <div className="mt-3">
                   <div className="grid grid-cols-2 gap-2">
                     {guestSettlementOptions.map(([value, label]) => <label key={value} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-xl px-2.5 text-xs ring-1 ${guestSettlement === value ? "bg-primary-100 text-primary-900 ring-primary-200" : "bg-white/5 text-white ring-white/15"}`}><input type="radio" name={`spa-demo-split-${item.id}`} checked={guestSettlement === value} onChange={() => setGuestSettlements((current) => ({ ...current, [item.id]: value }))} />{label}</label>)}
@@ -763,8 +821,19 @@ function BookingDetail({ scheduleDays, providers, bookableProviders, bookings, b
       {expectedAmount > 0 ? <div className="mt-4 flex items-center justify-between text-sm"><span className="text-earth-300">整組合計</span><span className="font-semibold">NT${expectedAmount.toLocaleString()}</span></div> : null}
       {isLiveGroup ? <div className="mt-4 grid grid-cols-2 gap-2 text-xs"><div className="rounded-xl bg-white/8 p-3 ring-1 ring-white/10"><p className="text-earth-400">儲值金餘額</p><p className="mt-1 font-semibold text-white">NT${(booking.storedValueBalance ?? 0).toLocaleString()}</p></div><div className="rounded-xl bg-white/8 p-3 ring-1 ring-white/10"><p className="text-earth-400">療程剩餘</p><p className="mt-1 font-semibold text-white">{booking.packageRemainingSessions ?? 0} 次</p></div></div> : null}
       {cancelTarget ? <div className="mt-5 rounded-2xl bg-[#624238] p-4"><p className="text-sm font-semibold">{cancelTarget.scope === "GROUP" ? "確定取消整組預約？" : "確定取消此位預約？"}</p><div className="mt-3 grid grid-cols-2 gap-2"><ActionButton label="返回" onClick={() => setCancelTarget(null)} disabled={isCompleting} /><ActionButton label={isCompleting ? "處理中…" : "確認取消"} onClick={() => onCancel(cancelTarget.scope, cancelTarget.bookingId)} disabled={isCompleting} emphasized /></div></div> : null}
+      {showRefund ? (
+        <form className="mt-5 rounded-2xl bg-[#624238] p-4" onSubmit={(event) => { event.preventDefault(); const reason = String(new FormData(event.currentTarget).get("reason") ?? "").trim(); if (reason.length < 2) return; const scope = refundTargetId === "GROUP" ? "GROUP" : "GUEST"; onRefund(scope, scope === "GROUP" ? booking.id : refundTargetId, reason); setShowRefund(false); }}>
+          <p className="text-sm font-semibold">退款／作廢</p>
+          <div className="mt-3 grid gap-2">
+            {refundableBookings.length === orderedBookings.length && orderedBookings.length > 1 ? <label className="flex min-h-10 items-center gap-2 rounded-xl bg-white/8 px-3 text-xs"><input type="radio" name="refundTarget" checked={refundTargetId === "GROUP"} onChange={() => setRefundTargetId("GROUP")} />整組退款</label> : null}
+            {refundableBookings.map((item) => <label key={item.id} className="flex min-h-10 items-center gap-2 rounded-xl bg-white/8 px-3 text-xs"><input type="radio" name="refundTarget" checked={refundTargetId === item.id} onChange={() => setRefundTargetId(item.id)} />第 {item.guestIndex ?? 1} 位・{item.service}</label>)}
+          </div>
+          <label className="mt-3 block text-xs text-earth-200">原因<input name="reason" required minLength={2} maxLength={80} placeholder="例如：顧客臨時取消付款" className="mt-1 min-h-10 w-full rounded-lg border-0 bg-white px-3 text-earth-900" /></label>
+          <div className="mt-3 grid grid-cols-2 gap-2"><ActionButton label="返回" onClick={() => setShowRefund(false)} disabled={isCompleting} /><button type="submit" disabled={isCompleting} className="min-h-11 rounded-xl bg-primary-200 px-3 text-xs font-semibold text-primary-900 disabled:opacity-35">{isCompleting ? "處理中…" : "確認退款"}</button></div>
+        </form>
+      ) : null}
       {allCompleted ? (
-        <div className="mt-5 grid gap-2"><div className="rounded-xl bg-primary-100 px-4 py-3 text-sm font-semibold text-primary-900">整組服務已完成</div><ActionButton label="再約下一次" onClick={onRebook} /></div>
+        <div className="mt-5 grid gap-2"><div className="rounded-xl bg-primary-100 px-4 py-3 text-sm font-semibold text-primary-900">{allRefunded ? "此組結帳已退款" : "整組服務已完成"}</div>{!showRefund && refundableBookings.length ? <ActionButton label="退款／作廢" onClick={() => { setRefundTargetId(refundableBookings.length === orderedBookings.length && orderedBookings.length > 1 ? "GROUP" : refundableBookings[0].id); setShowRefund(true); }} /> : null}<ActionButton label="再約下一次" onClick={onRebook} /></div>
       ) : showCheckout ? (
         <div className="mt-5 rounded-2xl bg-white/8 p-4 ring-1 ring-white/10">
           {!someCompleted && people > 1 ? <div className="grid grid-cols-2 gap-2"><ActionButton label="整組付款" onClick={() => setCheckoutMode("GROUP")} emphasized={checkoutMode === "GROUP"} /><ActionButton label="分開付款" onClick={() => setCheckoutMode("SPLIT")} emphasized={checkoutMode === "SPLIT"} /></div> : null}
@@ -869,6 +938,65 @@ function QuickBookingForm({ providers, slot, onCancel, onSubmit, isSubmitting }:
   );
 }
 
+function AdvancedOperationsReport({ report, dateFrom, dateTo, onDateFromChange, onDateToChange }: {
+  report: SpaAdvancedReport;
+  dateFrom: string;
+  dateTo: string;
+  onDateFromChange: (date: string) => void;
+  onDateToChange: (date: string) => void;
+}) {
+  return (
+    <section className="mt-6 overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(74,66,53,0.06)] ring-1 ring-earth-200/70" aria-label="期間營運與技師業績報表">
+      <div className="flex flex-col gap-3 border-b border-earth-100 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-semibold">營運報表</h2>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
+          <input type="date" aria-label="報表開始日期" value={dateFrom} max={dateTo} onChange={(event) => onDateFromChange(event.target.value)} className="min-h-10 rounded-lg border border-earth-200 bg-white px-2 text-earth-700" />
+          <span className="text-earth-400">至</span>
+          <input type="date" aria-label="報表結束日期" value={dateTo} min={dateFrom} onChange={(event) => onDateToChange(event.target.value)} className="min-h-10 rounded-lg border border-earth-200 bg-white px-2 text-earth-700" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-px bg-earth-100 lg:grid-cols-5">
+        <ReportMetric label="預約組數" value={`${report.bookingGroups}`} unit="組" />
+        <ReportMetric label="完成服務" value={`${report.completedServices}`} unit="位" />
+        <ReportMetric label="原收款" value={`NT$${report.grossReceived.toLocaleString()}`} />
+        <ReportMetric label="退款" value={`NT$${report.refundAmount.toLocaleString()}`} negative={report.refundAmount > 0} />
+        <ReportMetric label="淨收入" value={`NT$${report.netReceived.toLocaleString()}`} emphasized />
+      </div>
+      <div className="grid lg:grid-cols-2">
+        <div className="border-b border-earth-100 p-5 lg:border-b-0 lg:border-r">
+          <h3 className="font-semibold">芳療師業績與抽成</h3>
+          <div className="mt-3 divide-y divide-earth-100">
+            {report.providers.length ? report.providers.map((provider) => (
+              <div key={provider.providerId} className="py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div><p className="font-semibold text-earth-900">{provider.label}</p><p className="mt-1 text-xs text-earth-500">完成 {provider.completedServices} 位{provider.refundedServices ? `・退款 ${provider.refundedServices} 位` : ""}・{provider.compensationLabel}</p></div>
+                  <div className="text-right"><p className="font-semibold tabular-nums text-earth-900">NT${provider.netServiceAmount.toLocaleString()}</p><p className="mt-1 text-xs text-earth-500">抽成 {provider.compensationAmount === null ? "尚未設定" : `NT$${provider.compensationAmount.toLocaleString()}`}</p></div>
+                </div>
+              </div>
+            )) : <p className="py-6 text-sm text-earth-500">此期間尚無完成服務</p>}
+          </div>
+        </div>
+        <div className="p-5">
+          <h3 className="font-semibold">服務項目</h3>
+          <div className="mt-3 divide-y divide-earth-100">
+            {report.services.length ? report.services.slice(0, 6).map((service) => (
+              <div key={service.name} className="flex items-center justify-between gap-3 py-3 text-sm">
+                <div><p className="font-medium text-earth-800">{service.name}</p><p className="mt-1 text-xs text-earth-500">完成 {service.completedCount} 次{service.refundedCount ? `・退款 ${service.refundedCount} 次` : ""}</p></div>
+                <span className="font-semibold tabular-nums text-earth-900">NT${service.serviceAmount.toLocaleString()}</span>
+              </div>
+            )) : <p className="py-6 text-sm text-earth-500">此期間尚無服務資料</p>}
+          </div>
+          <div className="mt-4 flex justify-between border-t border-earth-100 pt-4 text-sm"><span className="text-earth-500">平均每組淨收</span><span className="font-semibold tabular-nums text-earth-900">NT${report.averageGroupSpend.toLocaleString()}</span></div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ReportMetric({ label, value, unit, emphasized = false, negative = false }: { label: string; value: string; unit?: string; emphasized?: boolean; negative?: boolean }) {
+  return <div className={`${emphasized ? "bg-primary-50" : "bg-white"} px-4 py-4`}><p className="text-xs text-earth-500">{label}</p><p className={`mt-1.5 text-lg font-semibold tabular-nums ${negative ? "text-[#855649]" : "text-earth-900"}`}>{value}{unit ? <span className="ml-1 text-xs font-medium text-earth-500">{unit}</span> : null}</p></div>;
+}
+
 function DailyOperationsSection({
   summary,
   date,
@@ -936,6 +1064,7 @@ function DailyOperationsSection({
               </div>
             )) : <p className="py-4 text-sm text-earth-500">尚無完成結帳</p>}
           </div>
+          {summary.refundAmount > 0 ? <div className="mt-3 flex items-center justify-between rounded-xl bg-[#f7ece8] px-3 py-2.5 text-sm text-[#855649]"><span>退款／作廢</span><span className="font-semibold tabular-nums">－NT${summary.refundAmount.toLocaleString()}</span></div> : null}
           <div className="mt-4 border-t border-earth-100 pt-4">
             <h3 className="font-semibold">芳療師完成服務</h3>
             <div className="mt-2 space-y-2">
@@ -973,9 +1102,11 @@ type DailyAdjustmentTarget = {
 
 function buildDailyAdjustmentTargets(summary: SpaDailySummary, bookings: readonly PreviewBooking[]): DailyAdjustmentTarget[] {
   return summary.groups.flatMap((group) => {
-    const ordered = bookings
+    const allCompleted = bookings
       .filter((booking) => group.bookingIds.includes(booking.id) && booking.status === "已完成")
       .toSorted((left, right) => (left.guestIndex ?? 1) - (right.guestIndex ?? 1));
+    if (group.checkoutMode === "整組付款" && allCompleted.some((booking) => booking.refundedAt)) return [];
+    const ordered = allCompleted.filter((booking) => !booking.refundedAt);
     if (!ordered.length) return [];
     const firstMethod = ordered[0].settlementLabel === "現金"
       ? "CASH" as const
@@ -1020,6 +1151,7 @@ function DailyReconciliationDetail({
   onAdjust,
   isConfirming,
   adjustments,
+  refunds,
 }: {
   date: string;
   summary: SpaDailySummary;
@@ -1029,6 +1161,7 @@ function DailyReconciliationDetail({
   onAdjust: (input: { bookingIds: readonly string[]; settlement: "CASH" | "CREDIT_CARD"; amount: number; reason: string }) => void;
   isConfirming: boolean;
   adjustments: readonly SpaDemoDailyAdjustment[];
+  refunds: readonly SpaDemoDailyRefund[];
 }) {
   const [editingTargetKey, setEditingTargetKey] = useState<string | null>(null);
   const adjustmentTargets = buildDailyAdjustmentTargets(summary, bookings);
@@ -1060,7 +1193,9 @@ function DailyReconciliationDetail({
         <div className="flex justify-between gap-3 py-3"><span className="text-earth-500">預約人次</span><span className="font-semibold">{summary.bookingCount} 位</span></div>
         <div className="flex justify-between gap-3 py-3"><span className="text-earth-500">完成服務</span><span className="font-semibold">{summary.completedCount} 位</span></div>
         <div className="flex justify-between gap-3 py-3"><span className="text-earth-500">服務總額</span><span className="font-semibold tabular-nums">NT${summary.expectedAmount.toLocaleString()}</span></div>
-        <div className="flex justify-between gap-3 py-3"><span className="text-earth-500">當日實收</span><span className="font-semibold tabular-nums">NT${summary.paidAmount.toLocaleString()}</span></div>
+        <div className="flex justify-between gap-3 py-3"><span className="text-earth-500">原收款</span><span className="font-semibold tabular-nums">NT${summary.grossPaidAmount.toLocaleString()}</span></div>
+        {summary.refundAmount > 0 ? <div className="flex justify-between gap-3 py-3 text-[#855649]"><span>退款／作廢</span><span className="font-semibold tabular-nums">－NT${summary.refundAmount.toLocaleString()}</span></div> : null}
+        <div className="flex justify-between gap-3 py-3"><span className="font-semibold text-earth-800">當日淨收</span><span className="font-semibold tabular-nums">NT${summary.paidAmount.toLocaleString()}</span></div>
       </div>
 
       {summary.payments.length ? (
@@ -1127,6 +1262,21 @@ function DailyReconciliationDetail({
         </div>
       ) : null}
 
+      {refunds.length ? (
+        <div className="mt-5 border-t border-earth-100 pt-5">
+          <h3 className="font-semibold">退款／作廢紀錄</h3>
+          <div className="mt-2 space-y-2">
+            {refunds.map((refund) => (
+              <div key={`${refund.refundedAt}-${refund.bookingIds.join("-")}`} className="rounded-xl bg-[#f7ece8] px-3 py-2.5 text-xs text-[#855649]">
+                <p className="font-medium">{refund.time}・{refund.customer}・{refund.scope === "GROUP" ? "整組" : "單人"}</p>
+                <p className="mt-1">{refund.refundAmount ? `退款 NT$${refund.refundAmount.toLocaleString()}` : "療程次數已補回"}</p>
+                <p className="mt-1">{refund.reason}・{refund.refundedBy}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {summary.reconciliationStatus === "READY" && !isReconciled ? (
         <button type="button" onClick={onConfirm} disabled={isConfirming} className="mt-5 min-h-12 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isConfirming ? "核對中…" : "確認本日帳務"}</button>
       ) : null}
@@ -1170,7 +1320,8 @@ function DailyGroupDetail({ group, bookings, providers }: { group: SpaDailyGroup
       <div className="mt-4 space-y-2 text-sm">
         <div className="flex justify-between gap-3"><span className="text-earth-500">付款方式</span><span className="font-semibold text-earth-900">{group.paymentSummary}</span></div>
         <div className="flex justify-between gap-3"><span className="text-earth-500">服務總額</span><span className="font-semibold tabular-nums text-earth-900">NT${group.expectedAmount.toLocaleString()}</span></div>
-        <div className="flex justify-between gap-3 border-t border-earth-100 pt-3"><span className="font-semibold text-earth-900">當日實收</span><span className="text-lg font-semibold tabular-nums text-earth-900">NT${group.paidAmount.toLocaleString()}</span></div>
+        {group.refundAmount > 0 ? <div className="flex justify-between gap-3 text-[#855649]"><span>退款／作廢</span><span className="font-semibold tabular-nums">－NT${group.refundAmount.toLocaleString()}</span></div> : null}
+        <div className="flex justify-between gap-3 border-t border-earth-100 pt-3"><span className="font-semibold text-earth-900">當日淨收</span><span className="text-lg font-semibold tabular-nums text-earth-900">NT${group.paidAmount.toLocaleString()}</span></div>
       </div>
     </section>
   );

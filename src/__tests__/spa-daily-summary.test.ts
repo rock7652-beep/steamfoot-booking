@@ -80,6 +80,19 @@ describe("SPA daily operations and accounting summary", () => {
     expect(summary.payments).toContainEqual({ method: "現金", count: 1, amount: 4800 });
   });
 
+  it("subtracts refunds once and keeps provider net performance traceable", () => {
+    const summary = buildSpaDailySummary([
+      booking({ id: "booking-1", guestIndex: 1, price: 1300, settlementAmount: 4800, settlementScope: "GROUP", refundAmount: 1248, refundedAt: "2026-09-01T10:00:00.000Z" }),
+      booking({ id: "booking-2", guestIndex: 2, price: 1500, providerId: "staff-10", settlementAmount: 4800, settlementScope: "GROUP" }),
+      booking({ id: "booking-3", guestIndex: 3, price: 2200, providerId: "staff-07", settlementAmount: 4800, settlementScope: "GROUP" }),
+    ], providers);
+
+    expect(summary).toMatchObject({ grossPaidAmount: 4800, refundAmount: 1248, paidAmount: 3552 });
+    expect(summary.groups[0]).toMatchObject({ checkoutMode: "整組付款", refundAmount: 1248, paidAmount: 3552, paymentSummary: "現金・含退款" });
+    expect(summary.payments).toContainEqual({ method: "現金", count: 1, amount: 3552 });
+    expect(summary.providerPerformance[0]).toMatchObject({ serviceAmount: 1300, refundAmount: 1300, netServiceAmount: 0 });
+  });
+
   it("keeps unfinished services out of received revenue", () => {
     const summary = buildSpaDailySummary([
       booking({ id: "booking-1", status: "已確認", tone: "sage", settlementAmount: null, settlementLabel: null }),

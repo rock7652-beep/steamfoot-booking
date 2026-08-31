@@ -14,7 +14,7 @@ import { isSpaDemoStoreId, SPA_DEMO_PROVIDERS } from "@/lib/spa-demo-store";
 import { StaffWorkspace, type StaffWorkspacePerson } from "./staff-workspace";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 
 export default async function StaffPage({
   searchParams,
@@ -40,10 +40,12 @@ export default async function StaffPage({
   const canManage = canManagePermission && !adminMissingStore;
   const isSpaDemo = isSpaDemoStoreId(activeStoreId);
   const spaSchemaReady = isSpaDemo ? await isSpaOperationalSchemaReady() : false;
+  const spaCompensationReady = isSpaDemo ? await isSpaCompensationSchemaReady() : false;
   const providerById = new Map(SPA_DEMO_PROVIDERS.map((provider) => [provider.id, provider]));
   let storedSkills: Array<{ staffId: string; skill: { id: string } }> = [];
   let storedAvailability: Awaited<ReturnType<typeof prisma.staffWeeklyAvailability.findMany>> = [];
   let storedExceptions: Awaited<ReturnType<typeof prisma.staffAvailabilityException.findMany>> = [];
+  let storedCompensation: Awaited<ReturnType<typeof prisma.spaStaffCompensation.findMany>> = [];
   let spaStaffDataReady = spaSchemaReady;
   if (isSpaDemo && spaSchemaReady) {
     try {
@@ -60,12 +62,18 @@ export default async function StaffPage({
       });
     }
   }
+  if (isSpaDemo && spaCompensationReady) {
+    storedCompensation = await prisma.spaStaffCompensation.findMany({
+      where: { storeId: activeStoreId!, isActive: true },
+    });
+  }
 
   const people: StaffWorkspacePerson[] = staffList.map((staff) => {
     const provider = providerById.get(staff.id);
     const persistedSkillKeys = storedSkills.filter((row) => row.staffId === staff.id).map((row) => row.skill.id.replace("spa-demo-skill-", "") as StaffWorkspacePerson["specialtyKeys"][number]);
     const persistedAvailability = storedAvailability.filter((row) => row.staffId === staff.id).map(({ dayOfWeek, startTime, endTime }) => ({ dayOfWeek, startTime, endTime }));
     const persistedExceptions = storedExceptions.filter((row) => row.staffId === staff.id).map((row) => ({ date: row.date.toISOString().slice(0, 10), label: row.type === "UNAVAILABLE" ? (row.reason || "個人休假") : `臨時加班 ${row.startTime}–${row.endTime}`, tone: row.type === "UNAVAILABLE" ? "leave" as const : "extra" as const }));
+    const compensation = storedCompensation.find((row) => row.staffId === staff.id);
     return {
       id: staff.id,
       userId: staff.user.id,
@@ -94,6 +102,8 @@ export default async function StaffPage({
         && staff.user.id !== user.id
         && staff.user.role !== "ADMIN"
         && !(user.role === "OWNER" && staff.user.role === "OWNER"),
+      compensationMode: compensation?.mode === "PERCENTAGE" || compensation?.mode === "FIXED" ? compensation.mode : null,
+      compensationValue: compensation ? Number(compensation.value) : null,
     };
   });
 
@@ -111,6 +121,12 @@ export default async function StaffPage({
         ? Number(formData.get("monthlySpaceFee"))
         : 0,
       role: roleValue as "OWNER" | "PARTNER",
+      spaCompensation: isSpaDemo && formData.get("compensationValue") !== null
+        ? {
+            mode: String(formData.get("compensationMode")) as "PERCENTAGE" | "FIXED",
+            value: Number(formData.get("compensationValue")),
+          }
+        : undefined,
     });
     if (!result.success) {
       redirect(`/dashboard/staff?createError=${encodeURIComponent(result.error || "新增人員失敗")}`);
@@ -145,6 +161,7 @@ export default async function StaffPage({
               people={people}
               today={toLocalDateStr()}
               canManage={canManage}
+              showSpaCompensation={isSpaDemo && spaCompensationReady}
               createAction={handleCreateStaff}
             />
           </>

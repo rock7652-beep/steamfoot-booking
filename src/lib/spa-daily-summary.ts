@@ -11,6 +11,7 @@ export type SpaDailyGroup = {
   completedCount: number;
   expectedAmount: number;
   paidAmount: number;
+  refundAmount: number;
   checkoutMode: "整組付款" | "分開付款" | "單人付款" | "待結帳";
   paymentSummary: string;
 };
@@ -20,6 +21,8 @@ export type SpaDailyProviderPerformance = {
   label: string;
   completedServices: number;
   serviceAmount: number;
+  refundAmount: number;
+  netServiceAmount: number;
 };
 
 export type SpaDailySummary = {
@@ -28,6 +31,8 @@ export type SpaDailySummary = {
   pendingCount: number;
   expectedAmount: number;
   paidAmount: number;
+  grossPaidAmount: number;
+  refundAmount: number;
   unsettledGroupCount: number;
   unrecordedPaymentCount: number;
   reconciliationStatus: "EMPTY" | "PENDING" | "READY";
@@ -71,11 +76,12 @@ function groupPaymentEntries(bookings: readonly SpaDemoBooking[], groupCheckout:
   if (!completed.length) return [];
   if (groupCheckout) {
     const booking = completed[0];
-    return [{ method: paymentMethod(booking.settlementLabel), amount: booking.settlementAmount ?? 0 }];
+    const refunds = completed.reduce((total, item) => total + (item.refundAmount ?? 0), 0);
+    return [{ method: paymentMethod(booking.settlementLabel), amount: Math.max((booking.settlementAmount ?? 0) - refunds, 0) }];
   }
   return completed.map((booking) => ({
     method: paymentMethod(booking.settlementLabel),
-    amount: booking.settlementAmount ?? 0,
+    amount: Math.max((booking.settlementAmount ?? 0) - (booking.refundAmount ?? 0), 0),
   }));
 }
 
@@ -97,6 +103,7 @@ export function buildSpaDailySummary(
       const completedCount = ordered.filter((booking) => booking.status === "已完成").length;
       const groupCheckout = isGroupCheckout(ordered, expectedAmount);
       const entries = groupPaymentEntries(ordered, groupCheckout);
+      const refundAmount = ordered.reduce((total, booking) => total + (booking.refundAmount ?? 0), 0);
       paymentEntries.push(...entries);
       const checkoutMode = completedCount < ordered.length
         ? "待結帳" as const
@@ -106,7 +113,7 @@ export function buildSpaDailySummary(
             ? "整組付款" as const
             : "分開付款" as const;
       const paymentSummary = entries.length
-        ? [...new Set(entries.map((entry) => entry.method))].join("＋")
+        ? `${[...new Set(entries.map((entry) => entry.method))].join("＋")}${refundAmount > 0 || ordered.some((booking) => booking.refundedAt) ? "・含退款" : ""}`
         : "尚未結帳";
       return {
         key,
@@ -117,6 +124,7 @@ export function buildSpaDailySummary(
         completedCount,
         expectedAmount,
         paidAmount: entries.reduce((total, entry) => total + entry.amount, 0),
+        refundAmount,
         checkoutMode,
         paymentSummary,
       };
@@ -137,17 +145,23 @@ export function buildSpaDailySummary(
   const providerPerformance = providers
     .map((provider) => {
       const completed = bookings.filter((booking) => booking.providerId === provider.id && booking.status === "已完成");
+      const refundAmount = completed.reduce((total, booking) => total + (booking.refundedAt ? (booking.price ?? 0) : 0), 0);
+      const serviceAmount = completed.reduce((total, booking) => total + (booking.price ?? 0), 0);
       return {
         providerId: provider.id,
         label: `${provider.badge}號 ${provider.name}`,
         completedServices: completed.length,
-        serviceAmount: completed.reduce((total, booking) => total + (booking.price ?? 0), 0),
+        serviceAmount,
+        refundAmount,
+        netServiceAmount: Math.max(serviceAmount - refundAmount, 0),
       };
     })
     .filter((provider) => provider.completedServices > 0);
 
   const completedCount = bookings.filter((booking) => booking.status === "已完成").length;
   const expectedAmount = groups.reduce((total, group) => total + group.expectedAmount, 0);
+  const refundAmount = groups.reduce((total, group) => total + group.refundAmount, 0);
+  const paidAmount = paymentEntries.reduce((total, entry) => total + entry.amount, 0);
   const unsettledGroupCount = groups.filter((group) => group.checkoutMode === "待結帳").length;
   const unrecordedPaymentCount = groups.filter((group) => (
     group.completedCount === group.people && group.paymentSummary.includes("未記錄")
@@ -162,7 +176,9 @@ export function buildSpaDailySummary(
     completedCount,
     pendingCount: bookings.length - completedCount,
     expectedAmount,
-    paidAmount: paymentEntries.reduce((total, entry) => total + entry.amount, 0),
+    paidAmount,
+    grossPaidAmount: paidAmount + refundAmount,
+    refundAmount,
     unsettledGroupCount,
     unrecordedPaymentCount,
     reconciliationStatus,

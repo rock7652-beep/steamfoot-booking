@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
-import { listSpaDemoDailyAdjustments, listSpaDemoReconciledDates } from "@/server/queries/spa-demo-daily-reconciliation";
+import { listSpaDemoDailyAdjustments, listSpaDemoDailyRefunds, listSpaDemoReconciledDates } from "@/server/queries/spa-demo-daily-reconciliation";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { SpaManagerSchedulePreview } from "../_components/spa-manager-schedule-preview";
 
@@ -16,10 +16,11 @@ export default async function SpaManagerPreviewPage() {
   const storeSlug = await resolveStoreSlugForLiff();
   if (storeSlug !== SPA_DEMO_STORE.slug) notFound();
 
-  const [preview, reconciledDates, adjustments] = await Promise.all([
+  const [preview, reconciledDates, adjustments, refunds] = await Promise.all([
     getSpaDemoPreviewData(),
     listSpaDemoReconciledDates(),
     listSpaDemoDailyAdjustments(),
+    listSpaDemoDailyRefunds(),
   ]);
   return (
     <SpaManagerSchedulePreview
@@ -29,6 +30,7 @@ export default async function SpaManagerPreviewPage() {
       initialNotification={preview.notification}
       initialReconciledDates={reconciledDates}
       initialAdjustments={adjustments}
+      initialRefunds={refunds}
     />
   );
 }

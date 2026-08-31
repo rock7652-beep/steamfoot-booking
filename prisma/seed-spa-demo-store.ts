@@ -48,6 +48,12 @@ const STAFF_WEEKLY_AVAILABILITY: Record<string, { days: readonly number[]; start
   "spa-demo-staff-16": { days: [3, 4, 5, 6, 0], startTime: "10:00", endTime: "19:00" },
 };
 
+const STAFF_COMPENSATION: Record<string, { mode: "PERCENTAGE" | "FIXED"; value: number }> = {
+  "spa-demo-staff-08": { mode: "PERCENTAGE", value: 40 },
+  "spa-demo-staff-10": { mode: "PERCENTAGE", value: 45 },
+  "spa-demo-staff-16": { mode: "FIXED", value: 600 },
+};
+
 const STAFF = [
   { id: "spa-demo-owner", userId: "spa-demo-user-owner", email: "demo-spa-owner@steamfoot.tw", phone: "0900000001", displayName: "林沐晴 店長", role: "OWNER" as const, isOwner: true, colorCode: "#8b6f5a" },
   { id: "spa-demo-staff-08", userId: "spa-demo-user-08", email: "demo-spa-08@steamfoot.tw", phone: "0900000002", displayName: "08號 陳語安", role: "PARTNER" as const, isOwner: false, colorCode: "#c79275" },
@@ -295,6 +301,14 @@ async function applySeed() {
           update: { storeId: SPA_DEMO_STORE.id, isActive: true },
         });
       }
+    }
+
+    for (const [staffId, compensation] of Object.entries(STAFF_COMPENSATION)) {
+      await tx.spaStaffCompensation.upsert({
+        where: { staffId },
+        create: { storeId: SPA_DEMO_STORE.id, staffId, ...compensation },
+        update: { ...compensation, isActive: true },
+      });
     }
 
     for (let dayOfWeek = 0; dayOfWeek <= 6; dayOfWeek += 1) {

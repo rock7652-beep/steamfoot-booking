@@ -10,7 +10,7 @@ import { resolveWriteStoreId } from "@/lib/store";
 import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import type { ActionResult } from "@/types";
-import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 
 const SKILLS = [
   { key: "body", id: "spa-demo-skill-body", name: "身體芳療" },
@@ -60,6 +60,16 @@ const exceptionSchema = z.object({
   startTime: z.string().regex(timePattern).nullable(),
   endTime: z.string().regex(timePattern).nullable(),
   reason: z.string().trim().max(200).nullable(),
+});
+
+const compensationSchema = z.object({
+  staffId: z.string().min(1),
+  mode: z.enum(["PERCENTAGE", "FIXED"]),
+  value: z.number().min(0).max(1_000_000),
+}).superRefine((data, context) => {
+  if (data.mode === "PERCENTAGE" && data.value > 100) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "百分比不可超過 100" });
+  }
 });
 
 async function requireSpaDemoWrite(permission: "plans.edit" | "staff.manage") {
@@ -159,6 +169,27 @@ export async function saveSpaAvailabilityException(input: z.infer<typeof excepti
     await prisma.staffAvailabilityException.create({ data: { storeId, staffId: data.staffId, date: parseTaiwanDateToDbDate(data.date), type: data.type, startTime: data.type === "AVAILABLE" ? data.startTime : null, endTime: data.type === "AVAILABLE" ? data.endTime : null, reason: data.reason } });
     revalidatePath("/dashboard/staff");
     revalidatePath("/liff/design-preview/booking");
+    return { success: true, data: undefined };
+  } catch (error) { return handleActionError(error, context); }
+}
+
+export async function saveSpaStaffCompensation(input: z.infer<typeof compensationSchema>): Promise<ActionResult> {
+  let context: { userId?: string; storeId?: string } = {};
+  try {
+    const { user, storeId } = await requireSpaDemoWrite("staff.manage");
+    context = { userId: user.id, storeId };
+    if (!(await isSpaCompensationSchemaReady())) {
+      throw new AppError("CONFLICT", "抽成設定功能更新中，請稍後再試");
+    }
+    const data = compensationSchema.parse(input);
+    await assertDemoStaff(data.staffId, storeId);
+    await prisma.spaStaffCompensation.upsert({
+      where: { staffId: data.staffId },
+      create: { storeId, staffId: data.staffId, mode: data.mode, value: data.value },
+      update: { mode: data.mode, value: data.value, isActive: true },
+    });
+    revalidatePath("/dashboard/staff");
+    revalidatePath("/liff/manager-preview");
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error, context); }
 }

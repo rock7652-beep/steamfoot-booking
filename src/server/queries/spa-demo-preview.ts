@@ -18,6 +18,7 @@ import {
   type SpaDemoTone,
   type SpaDemoBookingNotification,
 } from "@/lib/spa-demo-store";
+import { isSpaCompensationSchemaReady } from "@/lib/spa-schema-readiness";
 
 const STATUS_MAP: Record<string, SpaDemoBookingStatus> = {
   PENDING: "待到店",
@@ -73,7 +74,8 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
   });
   assertSpaDemoStoreIdentity(store);
 
-  const [staff, bookings, liveStoredWallet, livePackageWallet, notificationLog] = await Promise.all([
+  const compensationReady = await isSpaCompensationSchemaReady();
+  const [staff, bookings, liveStoredWallet, livePackageWallet, notificationLog, compensationSettings] = await Promise.all([
     prisma.staff.findMany({
       where: {
         storeId: SPA_DEMO_STORE.id,
@@ -142,6 +144,12 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       select: { renderedBody: true, status: true, errorMessage: true },
       orderBy: [{ sentAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
     }),
+    compensationReady
+      ? prisma.spaStaffCompensation.findMany({
+          where: { storeId: SPA_DEMO_STORE.id, isActive: true },
+          select: { staffId: true, mode: true, value: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   const providers = staff.map((record) => {
@@ -150,12 +158,18 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     const specialtyKeys = record.skills
       .map((row) => row.skillId.replace("spa-demo-skill-", ""))
       .filter((key): key is "body" | "head" | "foot" | "face" => ["body", "head", "foot", "face"].includes(key));
+    const compensation = compensationSettings.find((setting) => setting.staffId === record.id);
+    const compensationMode: "PERCENTAGE" | "FIXED" | null = compensation?.mode === "PERCENTAGE" || compensation?.mode === "FIXED"
+      ? compensation.mode
+      : null;
     return {
       id: record.id,
       badge: badgeMatch?.[1] ?? record.displayName.slice(0, 2),
       name: record.displayName.replace(/^\d+號\s*/, ""),
       specialties: record.skills.map((row) => row.skill.name).join("・") || "尚未設定專業項目",
       specialtyKeys,
+      compensationMode,
+      compensationValue: compensation ? Number(compensation.value) : null,
       emergencyContact: fixture?.emergencyContact ?? { name: "", relation: "", phone: "" },
       weeklyAvailability: record.weeklyAvailabilities,
       scheduleExceptions: record.availabilityExceptions.map((exception) => ({
@@ -189,6 +203,9 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       : STATUS_MAP[record.bookingStatus] ?? "已確認";
     if (isLiveFlow) {
       const settlement = record.notes?.match(/\|label=([^|]+)\|amount=(\d+)/);
+      const refundAmount = Number(record.notes?.match(/\|refundAmount=(\d+)/)?.[1] ?? Number.NaN);
+      const refundReason = record.notes?.match(/\|refundReason=([^|]+)/)?.[1] ?? null;
+      const refundedAt = record.notes?.match(/\|refundedAt=([^|]+)/)?.[1] ?? null;
       const settlementScope = record.notes?.match(/\|checkout=(GROUP|INDIVIDUAL)\|/)?.[1] as "GROUP" | "INDIVIDUAL" | undefined;
       const partySize = Number(record.notes?.match(/\|party=(\d+)/)?.[1] ?? 1);
       const guestIndex = Number(record.notes?.match(/\|guest=(\d+)/)?.[1] ?? 1);
@@ -209,6 +226,9 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         settlementLabel: settlement?.[1] ?? null,
         settlementAmount: settlement ? Number(settlement[2]) : null,
         settlementScope: settlementScope ?? null,
+        refundAmount: Number.isFinite(refundAmount) ? refundAmount : null,
+        refundReason,
+        refundedAt,
         storedValueBalance: liveStoredWallet ? Number(liveStoredWallet.balance) : null,
         packageRemainingSessions: livePackageWallet?.remainingSessions ?? null,
         partySize,

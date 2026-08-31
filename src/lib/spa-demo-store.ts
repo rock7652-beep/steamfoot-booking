@@ -52,6 +52,8 @@ export type SpaDemoProvider = {
   name: string;
   specialties: string;
   specialtyKeys: readonly SpaProviderSpecialty[];
+  compensationMode?: "PERCENTAGE" | "FIXED" | null;
+  compensationValue?: number | null;
   emergencyContact: {
     name: string;
     relation: string;
@@ -88,6 +90,9 @@ export type SpaDemoBooking = {
   settlementLabel?: string | null;
   settlementAmount?: number | null;
   settlementScope?: "GROUP" | "INDIVIDUAL" | null;
+  refundAmount?: number | null;
+  refundReason?: string | null;
+  refundedAt?: string | null;
   storedValueBalance?: number | null;
   packageRemainingSessions?: number | null;
   partySize?: number;

@@ -200,8 +200,16 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
         storeId: SPA_DEMO_STORE.id,
         OR: [
           { id: SPA_DEMO_LIVE_FLOW_STORED_LEDGER_ID },
+          { id: { startsWith: "spa-demo-refund-ledger-" } },
           { bookingId: { in: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS] } },
         ],
+      },
+    });
+    await tx.transaction.deleteMany({
+      where: {
+        storeId: SPA_DEMO_STORE.id,
+        id: { startsWith: "spa-demo-refund-" },
+        transactionType: "REFUND",
       },
     });
     await tx.transaction.deleteMany({
