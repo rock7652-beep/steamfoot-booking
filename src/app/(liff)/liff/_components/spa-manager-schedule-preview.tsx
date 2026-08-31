@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState, useTransition, type ReactNode } from "react";
+import { FormEvent, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { completeSpaDemoBooking, completeSpaDemoGuestBooking } from "@/server/actions/spa-demo-checkout";
 import { refundSpaDemoCheckout } from "@/server/actions/spa-demo-refund";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
@@ -665,6 +665,7 @@ export function SpaManagerSchedulePreview({
               bookings={bookings}
               providers={activeProviders}
               onOpenBooking={openBooking}
+              onOpenQuickBooking={openQuickBooking}
               onBackToday={() => chooseWorkspace("today")}
             />
           )}
@@ -713,12 +714,14 @@ function ManagerWorkspacePanel({
   bookings,
   providers,
   onOpenBooking,
+  onOpenQuickBooking,
   onBackToday,
 }: {
   workspace: Exclude<ManagerWorkspaceKey, "today">;
   bookings: readonly PreviewBooking[];
   providers: readonly PreviewProvider[];
   onOpenBooking: (bookingId: string) => void;
+  onOpenQuickBooking: (slot: QuickSlot) => void;
   onBackToday: () => void;
 }) {
   const [search, setSearch] = useState("");
@@ -727,7 +730,9 @@ function ManagerWorkspacePanel({
   );
   const [slotInterval, setSlotInterval] = useState<15 | 30>(30);
   const [bufferMinutes, setBufferMinutes] = useState<15 | 30>(30);
-  const [workspaceDate, setWorkspaceDate] = useState("2026-09-01");
+  const [workspaceDate, setWorkspaceDate] = useState("2026-08-31");
+  const [nowMinute, setNowMinute] = useState<number | null>(null);
+  const [nowDate, setNowDate] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
   const [editingServiceKey, setEditingServiceKey] = useState<string | "new" | null>(null);
   const [editingProviderId, setEditingProviderId] = useState<string | "new" | null>(null);
@@ -741,6 +746,22 @@ function ManagerWorkspacePanel({
     { length: Math.floor((21 * 60 - 10 * 60) / slotInterval) + 1 },
     (_, index) => addMinutes("10:00", index * slotInterval),
   );
+  useEffect(() => {
+    function syncNow() {
+      setNowDate(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
+      const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+      const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+      const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+      setNowMinute(hour * 60 + minute);
+    }
+    syncNow();
+    const timer = window.setInterval(syncNow, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const quickStartMinute = Math.min(Math.max(Math.ceil((nowMinute ?? 600) / slotInterval) * slotInterval, 600), 1260);
+  const quickStartTime = `${String(Math.floor(quickStartMinute / 60)).padStart(2, "0")}:${String(quickStartMinute % 60).padStart(2, "0")}`;
+  const rowHeight = slotInterval === 15 ? 34 : 48;
+  const nowLineMinute = nowMinute === null ? null : Math.min(Math.max(nowMinute, 600), 1260);
 
   return (
     <section className="mt-6" aria-label={`${managerNavigation.find((item) => item.key === workspace)?.label ?? "管理"}工作區`}>
@@ -756,24 +777,25 @@ function ManagerWorkspacePanel({
             <div className="flex flex-wrap items-center gap-2">
               <input type="date" aria-label="預約表日期" value={workspaceDate} onChange={(event) => setWorkspaceDate(event.target.value)} className="min-h-10 rounded-lg border border-earth-200 px-3 text-sm" />
               <SegmentedSetting values={[15, 30]} selected={slotInterval} suffix="分鐘" onSelect={(value) => setSlotInterval(value as 15 | 30)} />
-              <button type="button" className="min-h-10 rounded-lg bg-earth-900 px-4 text-sm font-semibold text-white">＋ 新增預約</button>
+              <button type="button" onClick={() => providers[0] && onOpenQuickBooking({ date: workspaceDate, time: quickStartTime, providerId: providers[0].id })} className="min-h-10 rounded-lg bg-earth-900 px-4 text-sm font-semibold text-white">＋ 新增預約</button>
             </div>
           </div>
           <div className="overflow-auto rounded-2xl bg-white ring-1 ring-earth-200/70">
-            <div className="grid min-w-[900px]" style={{ gridTemplateColumns: `76px repeat(${providers.length}, minmax(240px, 1fr))` }}>
+            <div className="relative grid min-w-[900px]" style={{ gridTemplateColumns: `76px repeat(${providers.length}, minmax(240px, 1fr))` }}>
               <div className="sticky left-0 z-20 border-b border-r border-earth-200 bg-earth-50 p-3 text-xs font-semibold text-earth-500">時間</div>
               {providers.map((provider) => <ProviderHeader key={provider.id} provider={provider} />)}
               <div className="sticky left-0 z-20 bg-white">
-                {workspaceTimes.map((time) => <div key={time} className="border-b border-r border-earth-100 px-3 py-2 text-xs font-semibold tabular-nums text-earth-500" style={{ height: slotInterval === 15 ? 34 : 48 }}>{time}</div>)}
+                {workspaceTimes.map((time) => <div key={time} className="border-b border-r border-earth-100 px-3 py-2 text-xs font-semibold tabular-nums text-earth-500" style={{ height: rowHeight }}>{time}</div>)}
               </div>
               {providers.map((provider) => <div key={provider.id} className="relative border-r border-earth-100">
-                {workspaceTimes.map((time) => <div key={time} className="border-b border-earth-100" style={{ height: slotInterval === 15 ? 34 : 48 }} />)}
+                {workspaceTimes.map((time) => <button key={time} type="button" aria-label={`${provider.badge}號 ${provider.name} ${time} 新增預約`} onClick={() => onOpenQuickBooking({ date: workspaceDate, time, providerId: provider.id })} className="block w-full border-b border-earth-100 transition hover:bg-primary-50 focus:bg-primary-50 focus:outline-none" style={{ height: rowHeight }} />)}
                 {workspaceBookings.filter((booking) => booking.providerId === provider.id).map((booking) => {
                   const start = (Number(booking.time.slice(0, 2)) * 60 + Number(booking.time.slice(3)) - 600) / slotInterval;
-                  const height = Math.max(1, booking.durationMinutes / slotInterval) * (slotInterval === 15 ? 34 : 48);
-                  return <button key={booking.id} type="button" onClick={() => onOpenBooking(booking.id)} className={`absolute left-1 right-1 rounded-lg border p-2 text-left text-xs ${toneClasses[booking.tone]}`} style={{ top: start * (slotInterval === 15 ? 34 : 48) + 2, height: height - 4 }}><strong className="block">{booking.time}・{booking.customer}</strong><span className="mt-1 block line-clamp-2">{booking.service}</span></button>;
+                  const height = Math.max(1, booking.durationMinutes / slotInterval) * rowHeight;
+                  return <button key={booking.id} type="button" onClick={() => onOpenBooking(booking.id)} className={`absolute left-1 right-1 z-10 rounded-lg border p-2 text-left text-xs ${toneClasses[booking.tone]}`} style={{ top: start * rowHeight + 2, height: height - 4 }}><strong className="block">{booking.time}・{booking.customer}</strong><span className="mt-1 block line-clamp-2">{booking.service}</span></button>;
                 })}
               </div>)}
+              {nowDate === workspaceDate && nowLineMinute !== null ? <div className="pointer-events-none absolute left-[76px] right-0 z-30 border-t-2 border-red-500" style={{ top: 67 + ((nowLineMinute - 600) / slotInterval) * rowHeight }}><span className="absolute -top-3 left-1 rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">現在</span></div> : null}
             </div>
           </div>
         </div>
