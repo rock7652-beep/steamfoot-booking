@@ -1,11 +1,14 @@
 import { prisma } from "@/lib/db";
 import {
+  classifyCentralMemberResolution,
   detectCentralMemberHealthIssues,
   type CentralMemberHealthIssue,
+  type CentralMemberResolution,
 } from "@/server/services/central-member-health";
 
 export type CentralMemberHealthIssueView = CentralMemberHealthIssue & {
   customers: Array<{ id: string; name: string; phone: string }>;
+  resolution: CentralMemberResolution;
 };
 
 export async function getCentralMemberHealthIssues(
@@ -48,6 +51,7 @@ export async function getCentralMemberHealthIssues(
   const customerById = new Map(customers.map((customer) => [customer.id, customer] as const));
   return detectCentralMemberHealthIssues(storeId, customers, links).map((issue) => ({
     ...issue,
+    resolution: classifyCentralMemberResolution(storeId, issue, customers, links),
     customers: issue.customerIds.flatMap((id) => {
       const customer = customerById.get(id);
       return customer ? [{ id: customer.id, name: customer.name, phone: customer.phone }] : [];

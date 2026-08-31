@@ -100,6 +100,7 @@ export interface BookingPrefill {
 interface BookingDetailDrawerProps {
   open: boolean;
   bookingId: string | null;
+  resolvedStoreId?: string;
   /** Pre-loaded summary from calendar / day panel — used for instant header render. */
   summary?: BookingSummary | null;
   /**
@@ -131,6 +132,7 @@ interface BookingDetailDrawerProps {
 export function BookingDetailDrawer({
   open,
   bookingId,
+  resolvedStoreId,
   summary,
   prefill,
   cache,
@@ -204,7 +206,7 @@ export function BookingDetailDrawer({
     if (!open || !bookingId) return;
     const id = bookingId;
     let canceled = false;
-    const promise = cache ? cache.load(id) : fetchBookingDetail(id);
+    const promise = cache ? cache.load(id) : fetchBookingDetail(id, resolvedStoreId);
     promise
       .then((payload) => {
         if (canceled) return;
@@ -219,7 +221,7 @@ export function BookingDetailDrawer({
     return () => {
       canceled = true;
     };
-  }, [open, bookingId, reloadNonce, cache]);
+  }, [open, bookingId, reloadNonce, cache, resolvedStoreId]);
 
   /**
    * Run a drawer action. Updates local drawer state optimistically with

@@ -1,0 +1,35 @@
+name: Audit final 25 no-OTP LIFF repairs
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/final-25-no-otp-liff-audit-request.json]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      FINAL_25_LIFF_AUDIT_REPORT_PATH: final-25-no-otp-liff-audit.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Verify audit is read only
+        run: test "$(grep -Ec 'prisma\.[[:alnum:]_]+\.(create|update|updateMany|delete|deleteMany|upsert)\(' scripts/audit-final-25-no-otp-liff-repairs.ts)" -eq 0
+      - run: npx tsx scripts/audit-final-25-no-otp-liff-repairs.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: final-25-no-otp-liff-audit
+          path: final-25-no-otp-liff-audit.json
+          retention-days: 1

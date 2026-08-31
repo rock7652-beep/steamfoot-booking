@@ -42,6 +42,7 @@ const expectedPending =
 const expectedDigest = arg("expected-plan-sha256");
 const githubOutput = arg("github-output");
 const reviewOutput = arg("review-output");
+const customerId = arg("customer-id");
 
 type ProfileRow = {
   id: string;
@@ -142,7 +143,10 @@ async function loadSteamfootState(
 ) {
   const [customers, existing] = await Promise.all([
     client.customer.findMany({
-      where: { mergedIntoCustomerId: null },
+      where: {
+        mergedIntoCustomerId: null,
+        ...(customerId ? { id: customerId } : {}),
+      },
       select: {
         id: true,
         storeId: true,
@@ -305,6 +309,25 @@ async function main() {
         data: importRows,
         skipDuplicates: true,
       });
+      for (const mapping of currentPlan.mappings) {
+        const linked = await tx.customer.updateMany({
+          where: {
+            id: mapping.customerId,
+            OR: [
+              { healthProfileId: null },
+              { healthProfileId: mapping.profileId },
+            ],
+          },
+          data: {
+            healthProfileId: mapping.profileId,
+            healthLinkStatus: "linked",
+            healthSyncedAt: new Date(),
+          },
+        });
+        if (linked.count !== 1) {
+          throw new Error("健康身分綁定狀態已變動，交易已回滾");
+        }
+      }
       const sourceRecordIds = importRows.map((row) => row.sourceRecordId);
       const after = await tx.customerHealthRecord.findMany({
         where: {

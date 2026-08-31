@@ -24,6 +24,7 @@ import {
   getPackageLineCardReminderSetting,
   getTrialLineCardReminderSetting,
   listSessionBalanceNotificationLogs,
+  getPlanExpiryReminderEnabled,
 } from "@/server/queries/reminder";
 import { getCurrentLineOfficialAccountStatus } from "@/server/actions/line-official-accounts";
 import { isLineSmokeTestEnabled } from "@/lib/line-config";
@@ -39,6 +40,7 @@ import { SimpleSessionBalanceReminders } from "./simple-session-balance-reminder
 import { LineNotificationRecipientsCard } from "./line-notification-recipients-card";
 import { PackageLineCardReminderSettingCard } from "./package-line-card-reminder-setting-card";
 import { TrialLineCardReminderSettingCard } from "./trial-line-card-reminder-setting-card";
+import { PlanExpiryReminderSettingCard } from "./plan-expiry-reminder-setting-card";
 import { listStoreLineNotificationRecipients } from "@/server/actions/store-line-notification-recipients";
 
 const LOG_STATUS_LABEL: Record<string, string> = {
@@ -117,6 +119,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     notificationRecipients,
     packageLineCardReminder,
     trialLineCardReminder,
+    planExpiryReminderEnabled,
   ] = await Promise.all([
     getReminderStats(activeStoreId),
     listMessageTemplates(activeStoreId),
@@ -126,6 +129,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
     listStoreLineNotificationRecipients(),
     getPackageLineCardReminderSetting(activeStoreId),
     getTrialLineCardReminderSetting(activeStoreId),
+    getPlanExpiryReminderEnabled(activeStoreId),
   ]);
   const smokeTestContext = smokeTestEnabled
     ? await getLineSmokeTestContext(activeStoreId)
@@ -222,8 +226,8 @@ export default async function RemindersPage({ searchParams }: PageProps) {
 
         {/* 提醒設定 — 單一「明日預約提醒」開關 */}
         {activeTab === "rules" && (
-          <section className="space-y-4">
-            <div className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm">
+          <section className="grid items-start gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-earth-200 bg-white p-4 shadow-sm md:col-span-2">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                 <span className={`font-semibold ${lineHealthStatus?.status === "NORMAL" ? "text-green-700" : "text-red-700"}`}>LINE {lineHealthStatus?.status === "NORMAL" ? "通知正常" : "需要處理"}</span>
                 <span className="text-green-700">今日成功 {stats.todaySent}</span>
@@ -246,14 +250,15 @@ export default async function RemindersPage({ searchParams }: PageProps) {
               key={activeStoreId}
               initialSetting={sessionBalanceSetting}
             />
+            <PlanExpiryReminderSettingCard initialEnabled={planExpiryReminderEnabled} />
 
-            <details className="group rounded-xl border border-earth-200 bg-white shadow-sm">
+            <details className="group rounded-xl border border-earth-200 bg-white shadow-sm md:col-span-2">
               <summary className="flex cursor-pointer list-none items-center justify-between p-4 font-semibold text-earth-800">
                 進階設定
                 <span className="text-earth-400 transition group-open:rotate-180">⌄</span>
               </summary>
               <div className="space-y-4 border-t border-earth-100 p-4">
-                <p className="text-xs leading-relaxed text-earth-500">通知人員、LINE 連線檢測、手動測試與未使用的舊模板集中在此；不影響上方四種提醒的獨立開關。</p>
+                <p className="text-xs leading-relaxed text-earth-500">通知人員、LINE 連線檢測、手動測試與未使用的舊模板集中在此；不影響上方五種提醒的獨立開關。</p>
                 <LineNotificationRecipientsCard recipients={notificationRecipients} />
                 {smokeTestContext && <LineSmokeTestCard key={activeStoreId} storeName={smokeTestContext.storeName} customers={smokeTestContext.customers} />}
                 {lineHealthStatus && <StoreLineHealthCard key={`${activeStoreId}-line-health`} initialStatus={lineHealthStatus} />}

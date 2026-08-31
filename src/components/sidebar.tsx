@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
-import UpdateBanner from "@/components/update-banner";
 import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature-gate";
 import { DashboardBreadcrumb } from "@/components/breadcrumb";
 import type { TrialStatus } from "@/lib/shop-config";
@@ -1115,7 +1114,6 @@ export default function DashboardShell({
 
         {/* Content */}
         <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
-          <UpdateBanner />
           {trialStatus && trialStatus.isFree && trialStatus.stage !== "normal" && (
             <div className="mb-4 mt-3">
               <TrialProgressBar trial={trialStatus} />

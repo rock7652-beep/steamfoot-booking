@@ -96,7 +96,11 @@ export async function submitOnboarding(
     lineName: verified.displayName,
     phone,
     name,
-    allowCreate: false,
+    // This page is also the first-party registration entry for a genuinely
+    // new store customer. The canonical helper creates the User, Customer and
+    // LINE identity atomically only when the verified store/phone has no
+    // existing candidate; all collision branches still fail closed.
+    allowCreate: true,
   });
 
   // ── 6. Structured observability (PR-F1) ──────────────
@@ -137,11 +141,85 @@ export async function submitOnboarding(
     case "already_synced":
       return { status: "ok" };
 
-    case "already_bound_to_other_line":
+    case "already_bound_to_other_line": {
+      const { tryAutoMigrateRecentLiffLoginIdentity } = await import(
+        "@/server/services/liff-login-rebind"
+      );
+      const automatic = await tryAutoMigrateRecentLiffLoginIdentity({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        name,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (automatic.status === "executed") return { status: "ok" };
+      // A valid, owner-preauthorized channel migration may replace only the
+      // stale LINE Login identity. Customer.lineUserId is the notification
+      // recipient and must remain untouched.
+      const { tryExecuteAuthorizedLiffLoginRebind } = await import(
+        "@/server/services/liff-login-rebind"
+      );
+      const rebind = await tryExecuteAuthorizedLiffLoginRebind({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        name,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (rebind.status === "executed") {
+        logLineBindEvent({
+          path: "liff-exchange",
+          status: "already_synced",
+          storeId: store.id,
+          storeSlug: store.slug,
+          lineUserId: verified.lineUserId,
+          customerId: helperResult.customerId,
+        });
+        return { status: "ok" };
+      }
       return { status: "bound_other" };
+    }
 
-    case "phone_taken_by_other_user":
+    case "phone_taken_by_other_user": {
+      const { tryAutoMigrateRecentLiffLoginIdentity } = await import(
+        "@/server/services/liff-login-rebind"
+      );
+      const automatic = await tryAutoMigrateRecentLiffLoginIdentity({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        name,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (automatic.status === "executed") return { status: "ok" };
+      const {
+        tryExecuteAuthorizedLiffLoginRebind,
+        tryExecuteAuthorizedLiffLoginFirstCapture,
+      } = await import(
+        "@/server/services/liff-login-rebind"
+      );
+      // A phone collision can still be the known retired-LIFF migration case:
+      // the store customer belongs to an existing user whose stale LINE Login
+      // identity must be replaced. Consume that narrowly scoped authorization
+      // before falling back to first capture (which intentionally rejects an
+      // account that already has a LINE identity).
+      const rebind = await tryExecuteAuthorizedLiffLoginRebind({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        name,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (rebind.status === "executed") return { status: "ok" };
+      const capture = await tryExecuteAuthorizedLiffLoginFirstCapture({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (capture.status === "executed") return { status: "ok" };
       return { status: "phone_taken_by_login_account" };
+    }
 
     case "ambiguous_multiple_candidates":
       return { status: "ambiguous" };

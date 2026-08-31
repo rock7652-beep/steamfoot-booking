@@ -1,0 +1,10 @@
+{
+  "authorizedBy": "owner",
+  "authorizedAt": "2026-08-28T23:25:00+08:00",
+  "mode": "atomic-exact-snapshot-repair",
+  "candidateCount": 43,
+  "candidateFingerprint": "5793c471f1a99b877081e77b4ec97f8abf39cf5da657579af2c6e3111142076b",
+  "manualCustomersMustRemainUnchanged": 25,
+  "retryAt": "2026-08-28T23:33:00+08:00",
+  "retryReason": "exclude-cross-store-direct-customer-user-uniqueness-after-full-rollback"
+}

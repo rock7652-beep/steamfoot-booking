@@ -31,6 +31,10 @@ import {
   PACKAGE_REMINDER_ENABLED_TEMPLATE_NAME,
   TRIAL_REMINDER_ENABLED_TEMPLATE_NAME,
 } from "@/lib/booking-reminder-type-setting";
+import {
+  parsePlanExpiryReminderEnabled,
+  planExpiryReminderSettingId,
+} from "@/lib/plan-expiry-reminder-setting";
 
 // ============================================================
 // ReminderRule queries
@@ -108,6 +112,15 @@ export async function getSessionBalanceNotificationSetting(
     },
   });
   return setting ?? { ...DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING };
+}
+
+export async function getPlanExpiryReminderEnabled(storeId: string): Promise<boolean> {
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
+  const setting = await prisma.messageTemplate.findUnique({
+    where: { id: planExpiryReminderSettingId(authorizedStoreId) },
+    select: { body: true },
+  });
+  return parsePlanExpiryReminderEnabled(setting?.body);
 }
 
 export async function getLineSmokeTestContext(storeId: string): Promise<{

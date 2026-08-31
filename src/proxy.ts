@@ -2,7 +2,10 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isStaffRole } from "@/lib/permissions";
-import { buildStoreRewriteRequestHeaders } from "@/lib/proxy-helpers";
+import {
+  buildStoreRewriteRequestHeaders,
+  legacyRedirectUrl,
+} from "@/lib/proxy-helpers";
 
 // ============================================================
 // B7-4.5: 正式流程不依賴靜態 map
@@ -346,12 +349,16 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   if (pathname.startsWith("/dashboard")) {
     if (isLoggedIn && role === "ADMIN") {
       const rest = pathname.slice("/dashboard".length);
-      return NextResponse.redirect(new URL(`/hq/dashboard${rest}`, req.url));
+      return NextResponse.redirect(
+        legacyRedirectUrl(req.nextUrl, `/hq/dashboard${rest}`),
+      );
     }
     if (isLoggedIn && sessionStoreId) {
       const slug = userSlug;
       const rest = pathname.slice("/dashboard".length);
-      return NextResponse.redirect(new URL(`/s/${slug}/admin/dashboard${rest}`, req.url));
+      return NextResponse.redirect(
+        legacyRedirectUrl(req.nextUrl, `/s/${slug}/admin/dashboard${rest}`),
+      );
     }
     return NextResponse.redirect(new URL("/hq/login", req.url));
   }

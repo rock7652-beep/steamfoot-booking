@@ -8,7 +8,7 @@ import {
   toLocalDateStr,
 } from "@/lib/date-utils";
 import { ServerTiming, withTiming } from "@/lib/perf";
-import { getActiveStoreForRead } from "@/lib/store";
+import { getAccessibleStoreIds, getActiveStoreForRead } from "@/lib/store";
 import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
@@ -42,7 +42,7 @@ import { SPA_DEMO_CATALOG } from "@/lib/spa-demo-catalog";
  * 主體委由 BookingsManager（client）處理月曆 + 日明細 + booking detail drawer。
  */
 interface PageProps {
-  searchParams: Promise<{ year?: string; month?: string; date?: string }>;
+  searchParams: Promise<{ year?: string; month?: string; date?: string; bookingId?: string }>;
 }
 
 export default async function BookingsPage({ searchParams }: PageProps) {
@@ -55,28 +55,44 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   }
   const params = await searchParams;
 
+  const activeStoreId = await getActiveStoreForRead(user);
+  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const fallbackStoreId = storeIdForViewContext(
+    activeStoreId,
+    storeViewContext,
+  );
+  // Booking ids are globally unique. Resolve legacy and current notification
+  // links only within stores this user is authorized to read, then let the
+  // matched booking determine both data scope and read-only mode.
+  const accessibleStoreIds = params.bookingId
+    ? await getAccessibleStoreIds(user)
+    : [];
+  const deepLinkedBooking = params.bookingId
+    ? await prisma.booking.findFirst({
+        where: { id: params.bookingId, storeId: { in: accessibleStoreIds } },
+        select: { id: true, storeId: true, bookingDate: true },
+      })
+    : null;
+  const bookingsStoreId = deepLinkedBooking?.storeId ?? fallbackStoreId;
+  const isViewMode = deepLinkedBooking
+    ? user.role !== "ADMIN" && deepLinkedBooking.storeId !== user.storeId
+    : storeViewContext?.isViewMode === true;
   const todayStr = toLocalDateStr();
   const [todayY, todayM] = todayStr.split("-").map(Number);
-  const selectedDate = normalizeRequestedDate(params.date, todayStr);
+  const deepLinkedDate = deepLinkedBooking?.bookingDate.toISOString().slice(0, 10);
+  const requestedDate = params.date ?? deepLinkedDate;
+  const selectedDate = normalizeRequestedDate(requestedDate, todayStr);
   const [selectedY, selectedM] = selectedDate.split("-").map(Number);
-  const year = params.date
+  const year = requestedDate
     ? selectedY
     : params.year
       ? parseInt(params.year)
       : todayY;
-  const month = params.date
+  const month = requestedDate
     ? selectedM
     : params.month
       ? parseInt(params.month)
       : todayM;
-
-  const activeStoreId = await getActiveStoreForRead(user);
-  const storeViewContext = await resolveStoreViewContextFromCookie(user);
-  const bookingsStoreId = storeIdForViewContext(
-    activeStoreId,
-    storeViewContext,
-  );
-  const isViewMode = storeViewContext?.isViewMode === true;
   const isSpaDemoStore = bookingsStoreId === SPA_DEMO_STORE.id;
   const spaSchemaReady = isSpaDemoStore
     ? await isSpaOperationalSchemaReady()
@@ -374,12 +390,14 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         }
       />
       <BookingsManager
+        storeId={bookingsStoreId ?? undefined}
         year={year}
         month={month}
         monthData={monthData}
         monthSchedule={monthSchedule}
         servicePlans={servicePlans}
         readOnly={isViewMode}
+        initialBookingId={deepLinkedBooking?.id ?? null}
       />
     </PageShell>
   );

@@ -297,6 +297,8 @@ function LinkedView({
           <HealthHistoryList
             trend={summary.trend}
             totalRecords={summary.meta.totalRecords}
+            editBasePath={`/s/${storeSlug}/liff/health`}
+            recordIds={summary.meta.recordIds}
           />
         </section>
       )}

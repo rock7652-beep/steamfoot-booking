@@ -151,7 +151,7 @@ export const liffMessages = {
   // 從 /liff/wallets ReadyView「立即預約」進來；mirror trialBooking 結構但拿掉
   // already_has_trial / 體驗收費 footnote / SuccessCard 的 store label。
   // 主視覺差異：加 walletSummary 摘要列；submit label = 使用堂數預約；
-  // SuccessCard 只兩顆 CTA（查看我的預約 / 回我的方案）。
+  // SuccessCard 提供再次預約、查看預約與回方案頁。
   memberBooking: {
     // page header
     title: "使用堂數預約",
@@ -206,7 +206,9 @@ export const liffMessages = {
     successMakeupUsed: "已使用 {count} 張補課資格，本次不扣堂。",
     successDateLabel: "日期",
     successSlotLabel: "時段",
-    /** SuccessCard primary CTA — 與 trialBooking 一致 */
+    /** SuccessCard primary CTA — 保留本次人數，再選下一個日期與時段 */
+    successBookNextCta: "再預約下一次",
+    /** SuccessCard secondary CTA — 與 trialBooking 一致 */
     successMyBookingsCta: "查看我的預約",
     /** SuccessCard secondary CTA — 回方案頁 */
     successWalletsCta: "回我的方案",
