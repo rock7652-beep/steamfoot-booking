@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
+import Link from "next/link";
+import { FormEvent, useMemo, useState, useTransition } from "react";
 import { completeSpaDemoBooking, completeSpaDemoGuestBooking } from "@/server/actions/spa-demo-checkout";
 import { refundSpaDemoCheckout } from "@/server/actions/spa-demo-refund";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
@@ -50,8 +51,6 @@ type ScheduleDay = {
   today: boolean;
 };
 
-type ManagerWorkspaceKey = "today" | "bookings" | "customers" | "services" | "providers" | "settings";
-
 const baseScheduleDates = ["2026-08-28", "2026-08-29", "2026-08-30"] as const;
 
 function buildScheduleDays(bookings: readonly PreviewBooking[], previewDate: string, selectedDate: string): readonly ScheduleDay[] {
@@ -89,12 +88,12 @@ const blockedRanges = [
 ] as const;
 
 const managerNavigation = [
-  { key: "today", label: "今日營運", detail: "總覽" },
-  { key: "bookings", label: "預約管理", detail: "6 筆" },
-  { key: "customers", label: "顧客管理", detail: "128 位" },
-  { key: "services", label: "療程管理", detail: "6 項" },
-  { key: "providers", label: "人員管理", detail: "3 位" },
-  { key: "settings", label: "營運設定", detail: "" },
+  { label: "今日營運", path: null, active: true },
+  { label: "預約管理", path: "/spa-schedule", active: false },
+  { label: "顧客管理", path: "/customers", active: false },
+  { label: "療程管理", path: "/plans", active: false },
+  { label: "人員管理", path: "/staff", active: false },
+  { label: "營運設定", path: "/settings", active: false },
 ] as const;
 
 const toneClasses: Record<Tone, string> = {
@@ -112,6 +111,7 @@ export function SpaManagerSchedulePreview({
   initialReconciledDates = [],
   initialAdjustments = [],
   initialRefunds = [],
+  adminBasePath = "/s/demo/admin/dashboard",
 }: {
   initialProviders?: readonly PreviewProvider[];
   initialBookings?: readonly PreviewBooking[];
@@ -120,6 +120,7 @@ export function SpaManagerSchedulePreview({
   initialReconciledDates?: readonly string[];
   initialAdjustments?: readonly SpaDemoDailyAdjustment[];
   initialRefunds?: readonly SpaDemoDailyRefund[];
+  adminBasePath?: string;
 }) {
   const industryModule = SPA_INDUSTRY_MODULE;
   const activeProviders = initialProviders;
@@ -127,7 +128,6 @@ export function SpaManagerSchedulePreview({
     activeProviders.find((provider) => provider.id === providerId) ?? activeProviders[0]
   );
   const [bookings, setBookings] = useState<PreviewBooking[]>(() => [...initialBookings]);
-  const [activeWorkspace, setActiveWorkspace] = useState<ManagerWorkspaceKey>("today");
   const [selectedDate, setSelectedDate] = useState(previewDate);
   const initialReportDates = initialBookings.map((booking) => booking.date).toSorted();
   const [reportDateFrom, setReportDateFrom] = useState(initialReportDates[0] ?? previewDate);
@@ -188,16 +188,6 @@ export function SpaManagerSchedulePreview({
     setIsDailyReconciliationOpen(false);
     setQuickSlot(null);
     setNotice(`${nextDay.shortLabel}（${nextDay.weekday}）排程已顯示。`);
-  }
-
-  function chooseWorkspace(workspace: ManagerWorkspaceKey) {
-    setActiveWorkspace(workspace);
-    setSelectedBookingId(null);
-    setSelectedDailyGroupKey(null);
-    setIsDailyReconciliationOpen(false);
-    setQuickSlot(null);
-    const item = managerNavigation.find((candidate) => candidate.key === workspace);
-    setNotice(item ? `已切換至${item.label}。` : "");
   }
 
   function markDateUnreconciled(date: string) {
@@ -549,18 +539,23 @@ export function SpaManagerSchedulePreview({
           </div>
 
           <nav className="mt-6 space-y-1.5" aria-label="店長後台功能">
-            {managerNavigation.map((item) => (
-              <button
-                type="button"
-                key={item.label}
-                onClick={() => chooseWorkspace(item.key)}
-                aria-current={activeWorkspace === item.key ? "page" : undefined}
-                className={`flex min-h-12 w-full items-center justify-between rounded-xl px-3.5 text-left text-sm transition-colors ${activeWorkspace === item.key ? "bg-white text-earth-900 shadow-sm" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
-              >
-                <span className="font-medium">{item.label}</span>
-                {item.detail ? <span className={activeWorkspace === item.key ? "text-earth-500" : "text-white/40"}>{item.detail}</span> : null}
-              </button>
-            ))}
+            {managerNavigation.map((item) => {
+              const className = `flex min-h-12 items-center rounded-xl px-3.5 text-sm font-medium transition-colors ${item.active ? "bg-white text-earth-900 shadow-sm" : "text-white/70 hover:bg-white/10 hover:text-white"}`;
+
+              if (item.path) {
+                return (
+                  <Link key={item.label} href={`${adminBasePath}${item.path}`} className={className}>
+                    {item.label}
+                  </Link>
+                );
+              }
+
+              return (
+                <div key={item.label} aria-current="page" className={className}>
+                  {item.label}
+                </div>
+              );
+            })}
           </nav>
 
 
@@ -570,13 +565,12 @@ export function SpaManagerSchedulePreview({
           <header className="border-b border-earth-200/80 pb-6">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-semibold text-primary-700">SPA 店長後台</span>
+                <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-semibold text-primary-700">SPA 人員排程</span>
               </div>
-              <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{managerNavigation.find((item) => item.key === activeWorkspace)?.label ?? industryModule.manager.dashboardLabel}</h1>
+              <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{industryModule.manager.dashboardLabel}</h1>
             </div>
           </header>
 
-          {activeWorkspace === "today" ? <>
           <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 sm:flex-row sm:items-center sm:justify-between">
             <p aria-live="polite">{notice}</p>
             <button type="button" onClick={openFirstAvailableSlot} className="min-h-10 shrink-0 rounded-xl bg-earth-900 px-4 font-semibold text-white">＋ 現場快速預約</button>
@@ -659,16 +653,6 @@ export function SpaManagerSchedulePreview({
               </section>
             </aside>
           </div>
-          </> : (
-            <ManagerWorkspacePanel
-              workspace={activeWorkspace}
-              bookings={bookings}
-              providers={activeProviders}
-              onOpenBooking={openBooking}
-              onOpenQuickBooking={openQuickBooking}
-              onBackToday={() => chooseWorkspace("today")}
-            />
-          )}
         </main>
       </div>
 
@@ -707,182 +691,6 @@ export function SpaManagerSchedulePreview({
       ) : null}
     </div>
   );
-}
-
-function ManagerWorkspacePanel({
-  workspace,
-  bookings,
-  providers,
-  onOpenBooking,
-  onOpenQuickBooking,
-  onBackToday,
-}: {
-  workspace: Exclude<ManagerWorkspaceKey, "today">;
-  bookings: readonly PreviewBooking[];
-  providers: readonly PreviewProvider[];
-  onOpenBooking: (bookingId: string) => void;
-  onOpenQuickBooking: (slot: QuickSlot) => void;
-  onBackToday: () => void;
-}) {
-  const [search, setSearch] = useState("");
-  const [serviceAvailability, setServiceAvailability] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(SPA_SERVICE_MENU.map((item) => [item.key, true])),
-  );
-  const [slotInterval, setSlotInterval] = useState<15 | 30>(30);
-  const [bufferMinutes, setBufferMinutes] = useState<15 | 30>(30);
-  const [workspaceDate, setWorkspaceDate] = useState("2026-08-31");
-  const [nowMinute, setNowMinute] = useState<number | null>(null);
-  const [nowDate, setNowDate] = useState<string | null>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
-  const [editingServiceKey, setEditingServiceKey] = useState<string | "new" | null>(null);
-  const [editingProviderId, setEditingProviderId] = useState<string | "new" | null>(null);
-  const normalizedSearch = search.trim().toLowerCase();
-  const customers = [...new Set(bookings.map((booking) => booking.customer))].map((customer) => {
-    const customerBookings = bookings.filter((booking) => booking.customer === customer).toSorted((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
-    return { name: customer, bookings: customerBookings };
-  }).filter((customer) => !normalizedSearch || customer.name.toLowerCase().includes(normalizedSearch));
-  const workspaceBookings = bookings.filter((booking) => booking.date === workspaceDate);
-  const workspaceTimes = Array.from(
-    { length: Math.floor((21 * 60 - 10 * 60) / slotInterval) + 1 },
-    (_, index) => addMinutes("10:00", index * slotInterval),
-  );
-  useEffect(() => {
-    function syncNow() {
-      setNowDate(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
-      const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
-      const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
-      const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
-      setNowMinute(hour * 60 + minute);
-    }
-    syncNow();
-    const timer = window.setInterval(syncNow, 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
-  const quickStartMinute = Math.min(Math.max(Math.ceil((nowMinute ?? 600) / slotInterval) * slotInterval, 600), 1260);
-  const quickStartTime = `${String(Math.floor(quickStartMinute / 60)).padStart(2, "0")}:${String(quickStartMinute % 60).padStart(2, "0")}`;
-  const rowHeight = slotInterval === 15 ? 34 : 48;
-  const nowLineMinute = nowMinute === null ? null : Math.min(Math.max(nowMinute, 600), 1260);
-
-  return (
-    <section className="mt-6" aria-label={`${managerNavigation.find((item) => item.key === workspace)?.label ?? "管理"}工作區`}>
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-primary-800">所有操作都在這一頁完成。</p>
-        <button type="button" onClick={onBackToday} className="min-h-10 rounded-xl border border-primary-200 bg-white px-4 text-sm font-semibold text-primary-800">返回今日營運</button>
-      </div>
-
-      {workspace === "bookings" ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 ring-1 ring-earth-200/70">
-            <div><h2 className="font-semibold">一日預約表</h2><p className="mt-1 text-xs text-earth-500">依人員查看服務、整理時間與空檔</p></div>
-            <div className="flex flex-wrap items-center gap-2">
-              <input type="date" aria-label="預約表日期" value={workspaceDate} onChange={(event) => setWorkspaceDate(event.target.value)} className="min-h-10 rounded-lg border border-earth-200 px-3 text-sm" />
-              <SegmentedSetting values={[15, 30]} selected={slotInterval} suffix="分鐘" onSelect={(value) => setSlotInterval(value as 15 | 30)} />
-              <button type="button" onClick={() => providers[0] && onOpenQuickBooking({ date: workspaceDate, time: quickStartTime, providerId: providers[0].id })} className="min-h-10 rounded-lg bg-earth-900 px-4 text-sm font-semibold text-white">＋ 新增預約</button>
-            </div>
-          </div>
-          <div className="overflow-auto rounded-2xl bg-white ring-1 ring-earth-200/70">
-            <div className="relative grid min-w-[900px]" style={{ gridTemplateColumns: `76px repeat(${providers.length}, minmax(240px, 1fr))` }}>
-              <div className="sticky left-0 z-20 border-b border-r border-earth-200 bg-earth-50 p-3 text-xs font-semibold text-earth-500">時間</div>
-              {providers.map((provider) => <ProviderHeader key={provider.id} provider={provider} />)}
-              <div className="sticky left-0 z-20 bg-white">
-                {workspaceTimes.map((time) => <div key={time} className="border-b border-r border-earth-100 px-3 py-2 text-xs font-semibold tabular-nums text-earth-500" style={{ height: rowHeight }}>{time}</div>)}
-              </div>
-              {providers.map((provider) => <div key={provider.id} className="relative border-r border-earth-100">
-                {workspaceTimes.map((time) => <button key={time} type="button" aria-label={`${provider.badge}號 ${provider.name} ${time} 新增預約`} onClick={() => onOpenQuickBooking({ date: workspaceDate, time, providerId: provider.id })} className="block w-full border-b border-earth-100 transition hover:bg-primary-50 focus:bg-primary-50 focus:outline-none" style={{ height: rowHeight }} />)}
-                {workspaceBookings.filter((booking) => booking.providerId === provider.id).map((booking) => {
-                  const start = (Number(booking.time.slice(0, 2)) * 60 + Number(booking.time.slice(3)) - 600) / slotInterval;
-                  const height = Math.max(1, booking.durationMinutes / slotInterval) * rowHeight;
-                  return <button key={booking.id} type="button" onClick={() => onOpenBooking(booking.id)} className={`absolute left-1 right-1 z-10 rounded-lg border p-2 text-left text-xs ${toneClasses[booking.tone]}`} style={{ top: start * rowHeight + 2, height: height - 4 }}><strong className="block">{booking.time}・{booking.customer}</strong><span className="mt-1 block line-clamp-2">{booking.service}</span></button>;
-                })}
-              </div>)}
-              {nowDate === workspaceDate && nowLineMinute !== null ? <div className="pointer-events-none absolute left-[76px] right-0 z-30 border-t-2 border-red-500" style={{ top: 67 + ((nowLineMinute - 600) / slotInterval) * rowHeight }}><span className="absolute -top-3 left-1 rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">現在</span></div> : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {workspace === "customers" ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3"><div className="min-w-[280px] flex-1"><WorkspaceSearch value={search} onChange={setSearch} placeholder="搜尋姓名或電話" /></div><button type="button" className="min-h-11 rounded-xl bg-earth-900 px-4 text-sm font-semibold text-white">＋ 新增顧客</button></div>
-          <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-earth-200/70">
-            <div className="hidden grid-cols-[1.1fr_1fr_1fr_1fr_80px] gap-3 border-b border-earth-200 bg-earth-50 px-5 py-3 text-xs font-semibold text-earth-500 md:grid"><span>顧客</span><span>聯絡方式</span><span>儲值金</span><span>有效方案</span><span /></div>
-            {customers.map((customer) => {
-              const latest = customer.bookings[0];
-              const phone = customer.name === "彥陸" ? "0972-756-667" : `09${String(customer.name.charCodeAt(0)).slice(-2)}-***-***`;
-              const balance = customer.name === "彥陸" ? 3700 : 0;
-              const plan = latest?.service.includes("次") ? latest.service : "—";
-              return <button key={customer.name} type="button" onClick={() => setSelectedCustomer(customer.name)} className="grid w-full gap-2 border-b border-earth-100 px-5 py-4 text-left last:border-b-0 hover:bg-earth-50 md:grid-cols-[1.1fr_1fr_1fr_1fr_80px] md:items-center"><span><strong className="block">{customer.name}</strong><span className="text-xs text-earth-400">最近 {latest?.date ?? "—"}</span></span><span className="text-sm text-earth-600">{phone}</span><span className="text-sm font-semibold">NT${balance.toLocaleString()}</span><span className="text-sm text-earth-600">{plan}</span><span className="text-sm font-semibold text-primary-700">查看 →</span></button>;
-            })}
-          </div>
-          {selectedCustomer ? <WorkspaceDrawer title={`顧客資料｜${selectedCustomer}`} onClose={() => setSelectedCustomer(null)}><CustomerAccountPreview customer={selectedCustomer} bookings={bookings.filter((booking) => booking.customer === selectedCustomer)} /></WorkspaceDrawer> : null}
-        </div>
-      ) : null}
-
-      {workspace === "services" ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">療程與加購項目</h2><p className="mt-1 text-xs text-earth-500">設定售價、時間、上下架與顧客預約頁顯示</p></div><button type="button" onClick={() => setEditingServiceKey("new")} className="min-h-10 rounded-lg bg-earth-900 px-4 text-sm font-semibold text-white">＋ 新增療程</button></div>
-          <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-earth-200/70">
-            <div className="min-w-[820px]"><div className="grid grid-cols-[100px_1fr_110px_120px_110px_190px] gap-3 border-b border-earth-200 bg-earth-50 px-5 py-3 text-xs font-semibold text-earth-500"><span>類型</span><span>療程名稱</span><span>時間</span><span>售價</span><span>前台顯示</span><span>操作</span></div>
-            {SPA_SERVICE_MENU.map((service) => { const enabled = serviceAvailability[service.key] !== false; return <div key={service.key} className="grid grid-cols-[100px_1fr_110px_120px_110px_190px] items-center gap-3 border-b border-earth-100 px-5 py-4 text-sm last:border-b-0"><span className="text-earth-500">{service.kind === "ADD_ON" ? "加購" : service.kind === "COMBO" ? "組合" : "主療程"}</span><strong>{service.name}</strong><span>{service.durationMinutes} 分鐘</span><span className="font-semibold">NT${service.price.toLocaleString()}</span><span className={enabled ? "text-primary-700" : "text-earth-400"}>{enabled ? "顯示" : "隱藏"}</span><span className="flex gap-2"><button type="button" onClick={() => setEditingServiceKey(service.key)} className="rounded-lg border border-earth-200 px-3 py-2 font-semibold text-primary-700">編輯</button><button type="button" onClick={() => setServiceAvailability((current) => ({ ...current, [service.key]: !enabled }))} className="rounded-lg border border-earth-200 px-3 py-2 font-semibold text-earth-600">{enabled ? "下架" : "上架"}</button></span></div>; })}</div>
-          </div>
-          {editingServiceKey ? <WorkspaceDrawer title={editingServiceKey === "new" ? "新增療程" : "編輯療程"} onClose={() => setEditingServiceKey(null)}><ServiceEditorPreview serviceKey={editingServiceKey} onClose={() => setEditingServiceKey(null)} /></WorkspaceDrawer> : null}
-        </div>
-      ) : null}
-
-      {workspace === "providers" ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">人員總覽</h2><p className="mt-1 text-xs text-earth-500">管理基本資料、專業項目、固定班表、請假與抽成</p></div><button type="button" onClick={() => setEditingProviderId("new")} className="min-h-10 rounded-lg bg-earth-900 px-4 text-sm font-semibold text-white">＋ 新增人員</button></div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{providers.map((provider) => <article key={provider.id} className="rounded-2xl bg-white p-5 ring-1 ring-earth-200/70"><div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3"><span className="flex h-11 min-w-11 items-center justify-center rounded-xl bg-primary-100 px-2 text-xs font-bold text-primary-700">{provider.badge}號</span><span><strong className="block">{provider.name}</strong><span className="text-xs text-earth-500">在職</span></span></div><button type="button" onClick={() => setEditingProviderId(provider.id)} className="rounded-lg border border-earth-200 px-3 py-2 text-xs font-semibold text-primary-700">設定與編輯</button></div><dl className="mt-4 space-y-3 border-t border-earth-100 pt-4 text-sm"><div><dt className="text-xs text-earth-400">專業項目</dt><dd className="mt-1 text-earth-700">{provider.specialties}</dd></div><div><dt className="text-xs text-earth-400">固定班表</dt><dd className="mt-1 text-earth-700">{provider.weeklyAvailability.length} 天／週</dd></div><div><dt className="text-xs text-earth-400">抽成</dt><dd className="mt-1 text-earth-700">{provider.compensationMode === "PERCENTAGE" ? `${provider.compensationValue ?? 0}%` : provider.compensationMode === "FIXED" ? `每位 NT$${provider.compensationValue ?? 0}` : "尚未設定"}</dd></div></dl></article>)}</div>
-          {editingProviderId ? <WorkspaceDrawer title={editingProviderId === "new" ? "新增人員" : "人員設定與編輯"} onClose={() => setEditingProviderId(null)}><ProviderEditorPreview provider={editingProviderId === "new" ? null : providers.find((provider) => provider.id === editingProviderId) ?? null} onClose={() => setEditingProviderId(null)} /></WorkspaceDrawer> : null}
-        </div>
-      ) : null}
-
-      {workspace === "settings" ? (
-        <div className="grid gap-5 xl:grid-cols-[220px_minmax(0,1fr)]">
-          <nav className="space-y-1 rounded-2xl bg-white p-3 ring-1 ring-earth-200/70">{["店務設定","營運設定","人員與權限"].map((group) => <div key={group} className="mb-4"><p className="px-3 py-2 text-xs font-semibold text-earth-400">{group}</p>{(group === "店務設定" ? ["營業與預約時間","值班排班設定"] : group === "營運設定" ? ["成長方案中心","付款設定","推薦分享文案","體驗課設定","提醒管理","數位管家流程","數位管家名單"] : ["人員管理"]).map((item) => <button key={item} type="button" className="block w-full rounded-lg px-3 py-2 text-left text-sm text-earth-700 hover:bg-earth-50">{item}</button>)}</div>)}</nav>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <SettingCard title="營業與預約時間"><p className="mb-3 text-sm text-earth-600">設定每週營業時間、預約單位與特殊休假。</p><SegmentedSetting values={[15, 30]} selected={slotInterval} suffix="分鐘" onSelect={(value) => setSlotInterval(value as 15 | 30)} /></SettingCard>
-            <SettingCard title="值班排班設定"><p className="text-sm text-earth-600">人員值班、輪班及預約聯動。</p><button type="button" className="mt-4 rounded-lg border border-earth-200 px-3 py-2 text-sm font-semibold text-primary-700">編輯班表</button></SettingCard>
-            <SettingCard title="付款設定"><div className="flex flex-wrap gap-2">{["現金", "刷卡", "儲值金", "扣療程"].map((label) => <span key={label} className="rounded-full bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-800">{label}</span>)}</div></SettingCard>
-            <SettingCard title="提醒管理"><p className="text-sm text-earth-600">預約成功、修改、取消與隔日提醒。</p><button type="button" className="mt-4 rounded-lg border border-earth-200 px-3 py-2 text-sm font-semibold text-primary-700">管理提醒</button></SettingCard>
-            <SettingCard title="服務後整理時間"><SegmentedSetting values={[15, 30]} selected={bufferMinutes} suffix="分鐘" onSelect={(value) => setBufferMinutes(value as 15 | 30)} /></SettingCard>
-            <SettingCard title="顧客指定人員"><p className="text-sm text-earth-600">預設不指定，需要時才由顧客選擇。</p></SettingCard>
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function WorkspaceDrawer({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  return <div className="fixed inset-0 z-[60] bg-black/25" onClick={onClose}><aside className="ml-auto h-full w-full max-w-[480px] overflow-y-auto bg-[#f7f5f0] p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}><header className="mb-5 flex items-center justify-between border-b border-earth-200 pb-4"><h2 className="font-semibold">{title}</h2><button type="button" onClick={onClose} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm">關閉</button></header>{children}</aside></div>;
-}
-
-function CustomerAccountPreview({ customer, bookings }: { customer: string; bookings: readonly PreviewBooking[] }) {
-  const latest = bookings.toSorted((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`))[0];
-  const balance = customer === "彥陸" ? 3700 : 0;
-  return <div className="space-y-4"><SettingCard title="基本資料"><dl className="grid grid-cols-2 gap-3 text-sm"><div><dt className="text-earth-400">姓名</dt><dd className="mt-1 font-semibold">{customer}</dd></div><div><dt className="text-earth-400">手機</dt><dd className="mt-1">{customer === "彥陸" ? "0972-756-667" : "09**-***-***"}</dd></div><div><dt className="text-earth-400">會員狀態</dt><dd className="mt-1 text-primary-700">有效會員</dd></div><div><dt className="text-earth-400">最近服務</dt><dd className="mt-1">{latest?.date ?? "—"}</dd></div></dl><button type="button" className="mt-4 rounded-lg border border-earth-200 px-3 py-2 text-sm font-semibold text-primary-700">編輯基本資料</button></SettingCard><SettingCard title="儲值金"><div className="flex items-end justify-between"><span className="text-sm text-earth-500">可用餘額</span><strong className="text-2xl">NT${balance.toLocaleString()}</strong></div><button type="button" className="mt-4 rounded-lg border border-earth-200 px-3 py-2 text-sm font-semibold text-primary-700">查看儲值明細</button></SettingCard><SettingCard title="療程方案"><p className="font-semibold">{latest?.service.includes("次") ? latest.service : "全身精油舒壓 4 次"}</p><p className="mt-2 text-sm text-earth-500">剩餘 4 次・有效期限 2026/12/31</p></SettingCard><SettingCard title="預約與消費紀錄"><div className="space-y-3">{bookings.map((booking) => <button key={booking.id} type="button" className="block w-full border-b border-earth-100 pb-3 text-left text-sm last:border-b-0"><strong>{booking.date} {booking.time}</strong><span className="mt-1 block text-earth-500">{booking.service}・{booking.status}</span></button>)}</div></SettingCard></div>;
-}
-
-function ServiceEditorPreview({ serviceKey, onClose }: { serviceKey: string; onClose: () => void }) {
-  const service = SPA_SERVICE_MENU.find((item) => item.key === serviceKey);
-  return <div className="space-y-4"><label className="block text-sm font-medium">療程名稱<input defaultValue={service?.name ?? ""} className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3" /></label><div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">服務時間<input type="number" defaultValue={service?.durationMinutes ?? 60} className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3" /></label><label className="block text-sm font-medium">售價<input type="number" defaultValue={service?.price ?? 0} className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3" /></label></div><label className="flex items-center justify-between rounded-lg border border-earth-200 bg-white p-3 text-sm"><span>前台顯示並開放預約</span><input type="checkbox" defaultChecked /></label><label className="block text-sm font-medium">需要的專業項目<select defaultValue={service?.requiredSpecialty ?? "body"} className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3"><option value="body">身體芳療</option><option value="face">臉部保養</option><option value="head">頭部／肩頸</option><option value="foot">足部療程</option></select></label><div className="flex justify-end gap-2 border-t border-earth-200 pt-4"><button type="button" onClick={onClose} className="rounded-lg border border-earth-200 px-4 py-2 text-sm">取消</button><button type="button" onClick={onClose} className="rounded-lg bg-earth-900 px-4 py-2 text-sm font-semibold text-white">儲存療程</button></div></div>;
-}
-
-function ProviderEditorPreview({ provider, onClose }: { provider: PreviewProvider | null; onClose: () => void }) {
-  return <div className="space-y-4"><div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">人員號碼<input defaultValue={provider?.badge ?? ""} className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3" /></label><label className="block text-sm font-medium">顯示名稱<input defaultValue={provider?.name ?? ""} className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3" /></label></div><label className="block text-sm font-medium">聯絡電話<input className="mt-1 min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3" /></label><SettingCard title="專業項目"><div className="grid grid-cols-2 gap-2">{["身體芳療","頭部／肩頸","足部療程","臉部保養"].map((label) => <label key={label} className="flex items-center gap-2 rounded-lg border border-earth-200 p-3 text-sm"><input type="checkbox" defaultChecked={provider?.specialties.includes(label.slice(0, 2))} />{label}</label>)}</div></SettingCard><SettingCard title="固定班表"><p className="text-sm text-earth-600">週一至週六・10:00–20:00</p><button type="button" className="mt-3 rounded-lg border border-earth-200 px-3 py-2 text-sm font-semibold text-primary-700">編輯班表</button></SettingCard><SettingCard title="抽成設定"><div className="grid grid-cols-2 gap-3"><select className="min-h-11 rounded-lg border border-earth-200 bg-white px-3 text-sm"><option>百分比</option><option>固定金額</option></select><input type="number" defaultValue={provider?.compensationValue ?? 40} className="min-h-11 rounded-lg border border-earth-200 bg-white px-3" /></div></SettingCard><div className="flex justify-end gap-2 border-t border-earth-200 pt-4"><button type="button" onClick={onClose} className="rounded-lg border border-earth-200 px-4 py-2 text-sm">取消</button><button type="button" onClick={onClose} className="rounded-lg bg-earth-900 px-4 py-2 text-sm font-semibold text-white">儲存人員</button></div></div>;
-}
-
-function WorkspaceSearch({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
-  return <input type="search" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} className="min-h-11 w-full rounded-xl border border-earth-200 bg-white px-4 outline-none focus:border-primary-500" />;
-}
-
-function SettingCard({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="rounded-2xl bg-white p-5 ring-1 ring-earth-200/70"><h2 className="font-semibold">{title}</h2><div className="mt-4">{children}</div></section>;
-}
-
-function SegmentedSetting({ values, selected, suffix, onSelect }: { values: readonly number[]; selected: number; suffix: string; onSelect: (value: number) => void }) {
-  return <div className="flex gap-2">{values.map((value) => <button key={value} type="button" onClick={() => onSelect(value)} className={`min-h-10 rounded-xl px-4 text-sm font-semibold ${selected === value ? "bg-earth-900 text-white" : "bg-earth-100 text-earth-600"}`}>{value} {suffix}</button>)}</div>;
 }
 
 function DateSelector({ selectedDate, onChooseDay }: { selectedDate: string; onChooseDay: (date: string) => void }) {
