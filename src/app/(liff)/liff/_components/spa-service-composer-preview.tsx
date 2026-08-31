@@ -29,6 +29,8 @@ type CompletedGuest = {
   provider: string;
   primaryKey: string;
   addOnKeys: readonly string[];
+  refundAmount?: number | null;
+  refundedAt?: string | null;
 };
 
 export type SpaCompletedBookingPreview = {
@@ -41,6 +43,9 @@ export type SpaCompletedBookingPreview = {
   settlementAmount?: number | null;
   storedValueBalance?: number | null;
   packageRemainingSessions?: number | null;
+  refundAmount?: number;
+  refundReason?: string | null;
+  allRefunded?: boolean;
 };
 
 const emptyGuest = (): GuestSelection => ({ primaryKey: "", addOnKeys: [], providerId: "" });
@@ -257,7 +262,7 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
     return (
       <section className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70" aria-label="預約完成">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-2xl text-primary-800" aria-hidden>✓</div>
-        <p className="mt-5 text-sm font-semibold text-primary-700">{completedBooking.status === "已完成" ? "服務與結帳完成" : "預約完成"}</p>
+        <p className="mt-5 text-sm font-semibold text-primary-700">{completedBooking.allRefunded ? "服務完成・結帳已退款" : completedBooking.status === "已完成" ? "服務與結帳完成" : "預約完成"}</p>
         <h2 className="mt-1 text-2xl font-semibold text-earth-900">{formatBookingDate(completedBooking.date)} {completedBooking.time}</h2>
         <div className="mt-5 space-y-3 border-y border-earth-100 py-4">
           {completedBooking.guests.map((guest) => (
@@ -265,11 +270,12 @@ export function SpaServiceComposerPreview({ previewDate, latestDate, providers, 
               <div className="flex items-start justify-between gap-3"><p className="font-semibold text-earth-900">{guest.label}</p><p className="shrink-0 text-earth-500">{guest.durationMinutes} 分鐘</p></div>
               <p className="mt-2 text-earth-700">{guest.service}</p>
               <p className="mt-1 text-xs text-earth-500">{guest.provider}</p>
+              {guest.refundedAt ? <p className="mt-2 text-xs font-semibold text-[#855649]">已退款{guest.refundAmount ? `・NT$${guest.refundAmount.toLocaleString()}` : "・療程已補回"}</p> : null}
             </div>
           ))}
           <div className="flex justify-between gap-4 px-1 pt-1 text-sm"><span className="text-earth-500">合計</span><span className="font-semibold text-earth-900">NT${completedBooking.totalPrice.toLocaleString()}</span></div>
         </div>
-        {completedBooking.status === "已完成" ? <div className="mt-4 rounded-2xl bg-primary-50 p-4 text-sm text-primary-900"><p className="font-semibold">整組已結帳・{completedBooking.settlementLabel ?? "完成"}{completedBooking.settlementAmount ? `・NT$${completedBooking.settlementAmount.toLocaleString()}` : ""}</p>{completedBooking.settlementLabel === "儲值金" ? <p className="mt-1 text-xs">儲值金餘額 NT${(completedBooking.storedValueBalance ?? 0).toLocaleString()}</p> : null}{completedBooking.settlementLabel?.startsWith("扣療程") ? <p className="mt-1 text-xs">療程剩餘 {completedBooking.packageRemainingSessions ?? 0} 次</p> : null}</div> : null}
+        {completedBooking.status === "已完成" ? <div className={`mt-4 rounded-2xl p-4 text-sm ${completedBooking.refundAmount ? "bg-[#f7ece8] text-[#855649]" : "bg-primary-50 text-primary-900"}`}><p className="font-semibold">{completedBooking.allRefunded ? "整組已退款" : completedBooking.refundAmount ? "部分退款" : `整組已結帳・${completedBooking.settlementLabel ?? "完成"}`}{completedBooking.refundAmount ? `・NT$${completedBooking.refundAmount.toLocaleString()}` : completedBooking.settlementAmount ? `・NT$${completedBooking.settlementAmount.toLocaleString()}` : ""}</p>{completedBooking.refundReason ? <p className="mt-1 text-xs">{completedBooking.refundReason}</p> : null}{!completedBooking.refundAmount && completedBooking.settlementLabel === "儲值金" ? <p className="mt-1 text-xs">儲值金餘額 NT${(completedBooking.storedValueBalance ?? 0).toLocaleString()}</p> : null}{!completedBooking.refundAmount && completedBooking.settlementLabel?.startsWith("扣療程") ? <p className="mt-1 text-xs">療程剩餘 {completedBooking.packageRemainingSessions ?? 0} 次</p> : null}</div> : null}
         {notification ? <div className="mt-4"><SpaBookingNotificationCard notification={notification} /></div> : null}
         {completedBooking.status !== "已完成" ? (
           <div className="mt-5 space-y-3">

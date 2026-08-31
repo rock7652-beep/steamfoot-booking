@@ -28,6 +28,9 @@ export default async function SpaBookingPreviewPage() {
     .filter((booking) => SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number]))
     .sort((left, right) => (left.guestIndex ?? 1) - (right.guestIndex ?? 1));
   const allCompleted = liveBookings.length > 0 && liveBookings.every((booking) => booking.status === "已完成");
+  const refundedBookings = liveBookings.filter((booking) => booking.refundedAt);
+  const refundAmount = refundedBookings.reduce((total, booking) => total + (booking.refundAmount ?? 0), 0);
+  const allRefunded = allCompleted && refundedBookings.length === liveBookings.length;
   const settlementLabels = new Set(liveBookings.map((booking) => booking.settlementLabel).filter(Boolean));
   const initialCompletedBooking: SpaCompletedBookingPreview | null = liveBookings.length ? {
     date: liveBookings[0].date,
@@ -38,6 +41,9 @@ export default async function SpaBookingPreviewPage() {
     settlementAmount: allCompleted && settlementLabels.size === 1 ? liveBookings[0].settlementAmount : null,
     storedValueBalance: liveBookings[0].storedValueBalance,
     packageRemainingSessions: liveBookings[0].packageRemainingSessions,
+    refundAmount,
+    refundReason: refundedBookings[0]?.refundReason ?? null,
+    allRefunded,
     guests: liveBookings.map((booking, index) => {
       const provider = preview.providers.find((item) => item.id === booking.providerId);
       const serviceNames = booking.service.split("＋");
@@ -54,6 +60,8 @@ export default async function SpaBookingPreviewPage() {
         provider: provider ? `${provider.badge}號 ${provider.name}` : "系統安排",
         primaryKey: primary?.key ?? "",
         addOnKeys,
+        refundAmount: booking.refundAmount,
+        refundedAt: booking.refundedAt,
       };
     }),
   } : null;

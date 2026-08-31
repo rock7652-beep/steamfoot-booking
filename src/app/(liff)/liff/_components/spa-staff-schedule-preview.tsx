@@ -93,14 +93,14 @@ export function SpaStaffSchedulePreview({
                   <p className="mt-1 text-sm text-earth-600">{booking.service}・{booking.durationMinutes} 分鐘</p>
                   <p className="mt-2 text-xs text-earth-500">服務後保留 {booking.bufferMinutes} 分鐘整理</p>
                   {booking.status === "已完成" ? (
-                    <div className="mt-2 text-sm font-semibold text-primary-800">
-                      <p>已結帳・{booking.settlementLabel ?? "完成"}</p>
-                      {booking.settlementLabel === "儲值金" ? <p className="mt-1 text-xs">扣款後餘額 NT${(booking.storedValueBalance ?? 0).toLocaleString()}</p> : null}
-                      {booking.settlementLabel === "扣療程 1 次" ? <p className="mt-1 text-xs">扣次後剩餘 {booking.packageRemainingSessions ?? 0} 次</p> : null}
+                    <div className={`mt-2 text-sm font-semibold ${booking.refundedAt ? "text-[#855649]" : "text-primary-800"}`}>
+                      <p>{booking.refundedAt ? `已退款${booking.refundAmount ? `・NT$${booking.refundAmount.toLocaleString()}` : "・療程已補回"}` : `已結帳・${booking.settlementLabel ?? "完成"}`}</p>
+                      {!booking.refundedAt && booking.settlementLabel === "儲值金" ? <p className="mt-1 text-xs">扣款後餘額 NT${(booking.storedValueBalance ?? 0).toLocaleString()}</p> : null}
+                      {!booking.refundedAt && booking.settlementLabel === "扣療程 1 次" ? <p className="mt-1 text-xs">扣次後剩餘 {booking.packageRemainingSessions ?? 0} 次</p> : null}
                     </div>
                   ) : null}
                 </div>
-                <span className="shrink-0 rounded-full bg-white px-2 py-1 text-xs text-primary-700">{booking.status}</span>
+                <span className="shrink-0 rounded-full bg-white px-2 py-1 text-xs text-primary-700">{booking.refundedAt ? "已退款" : booking.status}</span>
               </div>
             </article>
           )) : (

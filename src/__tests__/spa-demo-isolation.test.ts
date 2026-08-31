@@ -185,6 +185,10 @@ describe("SPA Demo tenant isolation", () => {
       "src/server/actions/spa-demo-refund.ts",
       "utf8",
     );
+    const staffPreview = readFileSync(
+      "src/app/(liff)/liff/_components/spa-staff-schedule-preview.tsx",
+      "utf8",
+    );
 
     expect(composer).toContain("createSpaDemoCustomerBooking");
     expect(composer).toContain("確認預約");
@@ -200,6 +204,8 @@ describe("SPA Demo tenant isolation", () => {
     expect(composer).toContain("預約完成");
     expect(composer).toContain("服務與結帳完成");
     expect(composer).toContain("整組已結帳");
+    expect(composer).toContain("整組已退款");
+    expect(composer).toContain("服務完成・結帳已退款");
     expect(composer).toContain("儲值金餘額");
     expect(composer).toContain("返回會員中心");
     expect(composer).toContain("修改預約");
@@ -283,6 +289,8 @@ describe("SPA Demo tenant isolation", () => {
     expect(refund).toContain('entryType: "CREDIT"');
     expect(refund).toContain('triggeredBy: "spa_demo_manager_refund"');
     expect(refund).toContain("refundReason: parsed.data.reason");
+    expect(staffPreview).toContain("已退款");
+    expect(staffPreview).toContain("booking.refundedAt");
     expect(manager).toContain("退款／作廢");
     expect(manager).not.toContain("確認到店");
     expect(manager).not.toContain("開始服務");
