@@ -2,6 +2,11 @@ name: Recover missing HealthFlow history by phone
 
 on:
   workflow_dispatch:
+    inputs:
+      customer_id:
+        description: Steamfoot customer ID; blank retains the legacy all-customer audit
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -53,6 +58,7 @@ jobs:
         id: audit
         run: >-
           npx tsx scripts/recover-healthflow-history-by-phone.ts
+          ${{ inputs.customer_id && format('--customer-id={0}', inputs.customer_id) || '' }}
           --github-output="$GITHUB_OUTPUT"
 
       - name: Recover and transactionally verify approved plan
@@ -61,10 +67,12 @@ jobs:
           npx tsx scripts/recover-healthflow-history-by-phone.ts
           --execute
           --confirm-unique-phone-recovery
+          ${{ inputs.customer_id && format('--customer-id={0}', inputs.customer_id) || '' }}
           --expected-pending=${{ steps.audit.outputs.pending_records }}
           --expected-plan-sha256=${{ steps.audit.outputs.plan_digest }}
 
       - name: Verify no eligible records remain
         run: >-
           npx tsx scripts/recover-healthflow-history-by-phone.ts
+          ${{ inputs.customer_id && format('--customer-id={0}', inputs.customer_id) || '' }}
           --expected-pending=0
