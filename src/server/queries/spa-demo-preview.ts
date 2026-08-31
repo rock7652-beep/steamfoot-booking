@@ -37,7 +37,7 @@ function parseSpaDemoNotification(renderedBody: string | null): SpaDemoBookingNo
   if (!renderedBody) return null;
   try {
     const value = JSON.parse(renderedBody) as Partial<SpaDemoBookingNotification>;
-    if (!(["BOOKED", "UPDATED", "CANCELLED"] as const).includes(value.kind as SpaDemoBookingNotification["kind"])) return null;
+    if (!(["BOOKED", "UPDATED", "CANCELLED", "REMINDER"] as const).includes(value.kind as SpaDemoBookingNotification["kind"])) return null;
     if (typeof value.title !== "string" || typeof value.date !== "string" || typeof value.time !== "string" || typeof value.summary !== "string") return null;
     if (!Array.isArray(value.lines) || value.lines.some((line) => typeof line !== "string")) return null;
     return value as SpaDemoBookingNotification;
@@ -135,11 +135,12 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     }),
     prisma.messageLog.findFirst({
       where: {
-        id: SPA_DEMO_LIVE_FLOW_NOTIFICATION_ID,
+        id: { startsWith: SPA_DEMO_LIVE_FLOW_NOTIFICATION_ID },
         storeId: SPA_DEMO_STORE.id,
         customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
       },
-      select: { renderedBody: true },
+      select: { renderedBody: true, status: true },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -239,7 +240,12 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     },
     providers,
     bookings: mappedBookings,
-    notification: parseSpaDemoNotification(notificationLog?.renderedBody ?? null),
+    notification: (() => {
+      const notification = parseSpaDemoNotification(notificationLog?.renderedBody ?? null);
+      return notification && notificationLog
+        ? { ...notification, deliveryStatus: notificationLog.status }
+        : notification;
+    })(),
     source: "database",
   };
 }

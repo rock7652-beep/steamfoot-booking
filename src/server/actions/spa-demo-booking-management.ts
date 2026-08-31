@@ -8,7 +8,10 @@ import {
   SPA_DEMO_STORE,
   type SpaDemoBookingNotification,
 } from "@/lib/spa-demo-store";
-import { saveSpaDemoBookingNotification } from "@/server/services/spa-demo-booking-notification";
+import {
+  deliverSpaDemoBookingNotificationBestEffort,
+  saveSpaDemoBookingNotification,
+} from "@/server/services/spa-demo-booking-notification";
 
 const cancelInputSchema = z.object({
   bookingId: z.enum(SPA_DEMO_LIVE_FLOW_BOOKING_IDS),
@@ -93,8 +96,8 @@ export async function cancelSpaDemoBooking(input: unknown) {
           where: { id: { in: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS] }, storeId: SPA_DEMO_STORE.id },
           data: { bookingStatus: "CANCELLED" },
         });
-        await saveSpaDemoBookingNotification(tx, ordered[0].id, notification);
-        return { cancelledAll: true, bookingIds: [] as string[], notification };
+        const notificationClaim = await saveSpaDemoBookingNotification(tx, ordered[0].id, notification);
+        return { cancelledAll: true, bookingIds: [] as string[], notification, notificationClaim };
       }
 
       const cancelled = ordered.find((booking) => booking.id === parsed.data.bookingId)!;
@@ -140,11 +143,19 @@ export async function cancelSpaDemoBooking(input: unknown) {
         lines: [`已取消・${cancelled.treatmentNameSnapshot ?? "SPA 服務"}・${cancelled.treatmentServiceMinutesSnapshot ?? 60} 分鐘`],
         summary: `其餘 ${partySize} 位預約保留`,
       };
-      await saveSpaDemoBookingNotification(tx, SPA_DEMO_LIVE_FLOW_BOOKING_IDS[0], notification);
-      return { cancelledAll: false, bookingIds: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS.slice(0, partySize)], notification };
+      const notificationClaim = await saveSpaDemoBookingNotification(tx, SPA_DEMO_LIVE_FLOW_BOOKING_IDS[0], notification);
+      return { cancelledAll: false, bookingIds: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS.slice(0, partySize)], notification, notificationClaim };
     });
+    await deliverSpaDemoBookingNotificationBestEffort(result.notificationClaim);
     revalidateSpaDemoBookingViews();
-    return { success: true as const, data: result };
+    return {
+      success: true as const,
+      data: {
+        cancelledAll: result.cancelledAll,
+        bookingIds: result.bookingIds,
+        notification: result.notification,
+      },
+    };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "";
     if (message === "SPA_DEMO_BOOKING_LOCKED") return { success: false as const, error: "服務開始或結帳後不能取消預約" };

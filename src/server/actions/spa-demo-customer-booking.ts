@@ -27,7 +27,10 @@ import {
 } from "@/lib/spa-scheduling";
 import { isSpaProviderAvailable } from "@/lib/spa-provider-availability";
 import { getSpaDemoBookableProviders } from "@/server/queries/spa-demo-booking-availability";
-import { saveSpaDemoBookingNotification } from "@/server/services/spa-demo-booking-notification";
+import {
+  deliverSpaDemoBookingNotificationBestEffort,
+  saveSpaDemoBookingNotification,
+} from "@/server/services/spa-demo-booking-notification";
 
 const inputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -174,7 +177,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
     }
   }
 
-  await prisma.$transaction(async (tx) => {
+  const notificationClaim = await prisma.$transaction(async (tx) => {
     for (const [index, service] of guestServices.entries()) {
       await tx.treatment.upsert({
         where: { id: service.treatmentId },
@@ -322,8 +325,9 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
         data: { bookingStatus: "CANCELLED" },
       });
     }
-    await saveSpaDemoBookingNotification(tx, SPA_DEMO_LIVE_FLOW_BOOKING_ID, notification);
+    return saveSpaDemoBookingNotification(tx, SPA_DEMO_LIVE_FLOW_BOOKING_ID, notification);
   });
+  await deliverSpaDemoBookingNotificationBestEffort(notificationClaim);
 
   revalidatePath("/liff/manager-preview");
   revalidatePath("/liff/design-preview/booking");

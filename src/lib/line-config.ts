@@ -57,6 +57,10 @@ export function getSteamButlerLineAccessToken(): string | null {
   return nonEmptyEnv(STEAM_BUTLER_LINE_CHANNEL_ACCESS_TOKEN_ENV);
 }
 
+export function getSteamButlerLineDestination(): string | null {
+  return nonEmptyEnv(STEAM_BUTLER_LINE_DESTINATION_ENV);
+}
+
 export function resolveLineStoreSlug(storeIdOrSlug: string): LineStoreSlug | null {
   return STORE_ID_TO_LINE_SLUG[storeIdOrSlug] ?? null;
 }

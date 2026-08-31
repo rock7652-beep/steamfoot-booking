@@ -278,7 +278,11 @@ describe("SPA Demo preview database scoping", () => {
       where: expect.objectContaining({ storeId: SPA_DEMO_STORE.id }),
     }));
     expect(prisma.messageLog.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ storeId: SPA_DEMO_STORE.id }),
+      where: expect.objectContaining({
+        id: { startsWith: "spa-demo-message-live-flow" },
+        storeId: SPA_DEMO_STORE.id,
+        customerId: "spa-demo-customer-live-flow",
+      }),
     }));
   });
 

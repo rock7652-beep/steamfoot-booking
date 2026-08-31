@@ -27,12 +27,13 @@ export const SPA_DEMO_LIVE_FLOW_PACKAGE_TRANSACTION_ID = "spa-demo-transaction-l
 export const SPA_DEMO_LIVE_FLOW_NOTIFICATION_ID = "spa-demo-message-live-flow";
 
 export type SpaDemoBookingNotification = {
-  kind: "BOOKED" | "UPDATED" | "CANCELLED";
+  kind: "BOOKED" | "UPDATED" | "CANCELLED" | "REMINDER";
   title: string;
   date: string;
   time: string;
   lines: readonly string[];
   summary: string;
+  deliveryStatus?: "PENDING" | "SENT" | "FAILED" | "SKIPPED";
 };
 
 export type SpaDemoBookingStatus =
