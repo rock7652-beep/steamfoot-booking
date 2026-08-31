@@ -13,11 +13,14 @@ describe("SPA manager navigation", () => {
     expect(source).toContain('aria-current={activeWorkspace === item.key ? "page" : undefined}');
   });
 
-  it("keeps booking and customer details in the existing side panel", () => {
+  it("keeps daily booking and customer account details in side panels", () => {
     expect(source).toContain('workspace === "bookings"');
     expect(source).toContain('workspace === "customers"');
+    expect(source).toContain("一日預約表");
+    expect(source).toContain("values={[15, 30]}");
     expect(source).toContain("onClick={() => onOpenBooking(booking.id)}");
-    expect(source).toContain("onClick={() => latest && onOpenBooking(latest.id)}");
+    expect(source).toContain("setSelectedCustomer(customer.name)");
+    expect(source).toContain("CustomerAccountPreview");
   });
 
   it("provides working service, provider, and settings sections", () => {
@@ -25,7 +28,11 @@ describe("SPA manager navigation", () => {
     expect(source).toContain('workspace === "providers"');
     expect(source).toContain('workspace === "settings"');
     expect(source).toContain("setServiceAvailability");
-    expect(source).toContain("setSelectedProviderId");
+    expect(source).toContain("setEditingServiceKey");
+    expect(source).toContain("setEditingProviderId");
     expect(source).toContain("setSlotInterval");
+    expect(source).toContain("新增療程");
+    expect(source).toContain("新增人員");
+    expect(source).toContain("提醒管理");
   });
 });
