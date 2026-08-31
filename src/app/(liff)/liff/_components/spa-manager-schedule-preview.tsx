@@ -24,6 +24,8 @@ import {
 import { isSpaProviderAvailable } from "@/lib/spa-provider-availability";
 import type { SpaBookableProvider } from "@/lib/spa-provider-availability";
 import { findSpaPartyProviderAssignment } from "@/lib/spa-party-assignment";
+import { buildSpaDailySummary, type SpaDailyGroup, type SpaDailySummary } from "@/lib/spa-daily-summary";
+import { formatWeekdayZh } from "@/lib/date-utils";
 import { SpaBookingNotificationCard } from "./spa-booking-notification-card";
 
 type QuickSlot = {
@@ -32,11 +34,28 @@ type QuickSlot = {
   providerId: string;
 };
 
-const scheduleDays = [
-  { key: "2026-08-28", shortLabel: "8/28", weekday: "五", today: false },
-  { key: "2026-08-29", shortLabel: "8/29", weekday: "六", today: true },
-  { key: "2026-08-30", shortLabel: "8/30", weekday: "日", today: false },
-] as const;
+type ScheduleDay = {
+  key: string;
+  shortLabel: string;
+  weekday: string;
+  today: boolean;
+};
+
+const baseScheduleDates = ["2026-08-28", "2026-08-29", "2026-08-30"] as const;
+
+function buildScheduleDays(bookings: readonly PreviewBooking[], previewDate: string): readonly ScheduleDay[] {
+  return [...new Set([...baseScheduleDates, previewDate, ...bookings.map((booking) => booking.date)])]
+    .toSorted()
+    .map((date) => {
+      const [, month, day] = date.split("-").map(Number);
+      return {
+        key: date,
+        shortLabel: `${month}/${day}`,
+        weekday: formatWeekdayZh(date).replace("週", ""),
+        today: date === previewDate,
+      };
+    });
+}
 
 const scheduleTimes = [
   "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
@@ -81,6 +100,10 @@ export function SpaManagerSchedulePreview({
 }) {
   const industryModule = SPA_INDUSTRY_MODULE;
   const activeProviders = initialProviders;
+  const scheduleDays = useMemo(
+    () => buildScheduleDays(initialBookings, previewDate),
+    [initialBookings, previewDate],
+  );
   const getActiveProvider = (providerId: string) => (
     activeProviders.find((provider) => provider.id === providerId) ?? activeProviders[0]
   );
@@ -90,6 +113,7 @@ export function SpaManagerSchedulePreview({
     return index >= 0 ? index : 1;
   });
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [selectedDailyGroupKey, setSelectedDailyGroupKey] = useState<string | null>(null);
   const [quickSlot, setQuickSlot] = useState<QuickSlot | null>(null);
   const [notice, setNotice] = useState("點選預約可查看詳情，點選空白時段可快速新增。");
   const [notification, setNotification] = useState<SpaDemoBookingNotification | null>(initialNotification);
@@ -115,6 +139,11 @@ export function SpaManagerSchedulePreview({
   }, [bookings, selectedBooking]);
   const activeCount = dayBookings.filter((booking) => booking.status !== "已完成").length;
   const newCustomerCount = dayBookings.filter((booking) => booking.status === "新客體驗").length;
+  const dailySummary = useMemo(
+    () => buildSpaDailySummary(dayBookings, activeProviders),
+    [activeProviders, dayBookings],
+  );
+  const selectedDailyGroup = dailySummary.groups.find((group) => group.key === selectedDailyGroupKey) ?? null;
 
   function chooseDay(nextIndex: number) {
     const safeIndex = Math.max(0, Math.min(scheduleDays.length - 1, nextIndex));
@@ -122,12 +151,14 @@ export function SpaManagerSchedulePreview({
     const firstBooking = bookings.find((booking) => booking.date === nextDay.key);
     setDayIndex(safeIndex);
     setSelectedBookingId(firstBooking?.id ?? null);
+    setSelectedDailyGroupKey(null);
     setQuickSlot(null);
     setNotice(`${nextDay.shortLabel}（${nextDay.weekday}）排程已顯示。`);
   }
 
   function openBooking(bookingId: string) {
     setSelectedBookingId(bookingId);
+    setSelectedDailyGroupKey(null);
     setQuickSlot(null);
     setNotice("已開啟預約詳情。");
   }
@@ -135,6 +166,7 @@ export function SpaManagerSchedulePreview({
   function openQuickBooking(slot: QuickSlot) {
     setQuickSlot(slot);
     setSelectedBookingId(null);
+    setSelectedDailyGroupKey(null);
     setNotice(`正在安排 ${slot.time} 的預約。`);
   }
 
@@ -415,11 +447,20 @@ export function SpaManagerSchedulePreview({
           </div>
 
           <section className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="今日營運摘要">
-            <MetricCard label="今日預約" value={String(dayBookings.length)} unit="筆" detail={`${activeProviders.length} 位芳療師`} />
-            <MetricCard label="待服務" value={String(activeCount)} unit="筆" detail={activeCount ? "可逐筆完成服務" : "今日服務已完成"} />
-            <MetricCard label="新顧客" value={String(newCustomerCount)} unit="位" detail={newCustomerCount ? "初次體驗" : "目前沒有新客"} emphasized />
-            <MetricCard label="人員排程" value={String(activeProviders.length)} unit="位" detail={activeProviders.map((provider) => `${provider.badge}號`).join("・")} />
+            <MetricCard label="預約人次" value={String(dailySummary.bookingCount)} unit="位" detail={`${dailySummary.groups.length} 組預約`} />
+            <MetricCard label="已完成" value={String(dailySummary.completedCount)} unit="位" detail={newCustomerCount ? `含 ${newCustomerCount} 位新客` : "服務完成即列入"} />
+            <MetricCard label="今日實收" value={`NT$${dailySummary.paidAmount.toLocaleString()}`} unit="" detail="整組付款只計算一次" emphasized />
+            <MetricCard label="待服務" value={String(activeCount)} unit="位" detail={activeCount ? "點預約即可完成結帳" : "今日服務已完成"} />
           </section>
+
+          <DailyOperationsSection
+            summary={dailySummary}
+            onOpenGroup={(key) => {
+              setSelectedBookingId(null);
+              setQuickSlot(null);
+              setSelectedDailyGroupKey(key);
+            }}
+          />
 
           <div className="mt-6 grid min-w-0 gap-6">
             <section className="min-w-0 overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(74,66,53,0.06)] ring-1 ring-earth-200/70">
@@ -427,7 +468,7 @@ export function SpaManagerSchedulePreview({
                 <div>
                   <h2 className="text-lg font-semibold">時間 × 芳療師</h2>
                 </div>
-                <DateSelector dayIndex={dayIndex} onChooseDay={chooseDay} />
+                <DateSelector days={scheduleDays} dayIndex={dayIndex} onChooseDay={chooseDay} />
               </div>
 
               <div className="overflow-x-auto">
@@ -468,17 +509,23 @@ export function SpaManagerSchedulePreview({
         </main>
       </div>
 
-      {quickSlot || selectedBooking ? (
-        <div className="fixed inset-0 z-50 bg-black/25" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); }}>
-          <aside className="ml-auto h-full w-full max-w-[430px] overflow-y-auto bg-[#f7f5f0] p-5 shadow-2xl" aria-label="預約右側操作面板" onClick={(event) => event.stopPropagation()}>
+      {quickSlot || selectedBooking || selectedDailyGroup ? (
+        <div className="fixed inset-0 z-50 bg-black/25" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); setSelectedDailyGroupKey(null); }}>
+          <aside className="ml-auto h-full w-full max-w-[430px] overflow-y-auto bg-[#f7f5f0] p-5 shadow-2xl" aria-label={selectedDailyGroup ? "每日帳務右側明細面板" : "預約右側操作面板"} onClick={(event) => event.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-semibold text-earth-700">預約操作</p>
-              <button type="button" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-600">關閉</button>
+              <p className="text-sm font-semibold text-earth-700">{selectedDailyGroup ? "帳務明細" : "預約操作"}</p>
+              <button type="button" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); setSelectedDailyGroupKey(null); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-600">關閉</button>
             </div>
-            {quickSlot ? (
+            {selectedDailyGroup ? (
+              <DailyGroupDetail
+                group={selectedDailyGroup}
+                bookings={dayBookings.filter((booking) => selectedDailyGroup.bookingIds.includes(booking.id))}
+                providers={activeProviders}
+              />
+            ) : quickSlot ? (
             <QuickBookingForm providers={toBookableProviders(activeProviders, bookings)} slot={quickSlot} onCancel={() => setQuickSlot(null)} onSubmit={createQuickBooking} isSubmitting={isCompleting} />
             ) : selectedBooking ? (
-              <BookingDetail key={selectedGroupBookings.map((booking) => booking.id).join("|")} providers={activeProviders} bookableProviders={toBookableProviders(activeProviders, bookings.filter((item) => !selectedGroupBookings.some((selected) => selected.id === item.id)))} bookings={selectedGroupBookings} booking={selectedBooking} onCompleteGroup={completeBooking} onCompleteGuest={completeGuestBooking} onUpdate={updateGroupBooking} onCancel={cancelBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
+              <BookingDetail key={selectedGroupBookings.map((booking) => booking.id).join("|")} scheduleDays={scheduleDays} providers={activeProviders} bookableProviders={toBookableProviders(activeProviders, bookings.filter((item) => !selectedGroupBookings.some((selected) => selected.id === item.id)))} bookings={selectedGroupBookings} booking={selectedBooking} onCompleteGroup={completeBooking} onCompleteGuest={completeGuestBooking} onUpdate={updateGroupBooking} onCancel={cancelBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
             ) : null}
           </aside>
         </div>
@@ -487,16 +534,16 @@ export function SpaManagerSchedulePreview({
   );
 }
 
-function DateSelector({ dayIndex, onChooseDay }: { dayIndex: number; onChooseDay: (index: number) => void }) {
+function DateSelector({ days, dayIndex, onChooseDay }: { days: readonly ScheduleDay[]; dayIndex: number; onChooseDay: (index: number) => void }) {
   return (
     <div className="flex items-center gap-2 overflow-x-auto" aria-label="選擇排程日期">
       <button type="button" disabled={dayIndex === 0} onClick={() => onChooseDay(dayIndex - 1)} className="min-h-10 shrink-0 rounded-lg border border-earth-200 bg-earth-50 px-3 text-earth-600 disabled:opacity-35">前一天</button>
-      {scheduleDays.map((day, index) => (
+      {days.map((day, index) => (
         <button type="button" key={day.key} onClick={() => onChooseDay(index)} aria-pressed={dayIndex === index} className={`min-h-10 shrink-0 rounded-lg px-3 font-semibold ${dayIndex === index ? "bg-earth-900 text-white" : "border border-earth-200 bg-white text-earth-600"}`}>
           {day.shortLabel}（{day.weekday}）{day.today ? " 今天" : ""}
         </button>
       ))}
-      <button type="button" disabled={dayIndex === scheduleDays.length - 1} onClick={() => onChooseDay(dayIndex + 1)} className="min-h-10 shrink-0 rounded-lg border border-earth-200 bg-earth-50 px-3 text-earth-600 disabled:opacity-35">後一天</button>
+      <button type="button" disabled={dayIndex === days.length - 1} onClick={() => onChooseDay(dayIndex + 1)} className="min-h-10 shrink-0 rounded-lg border border-earth-200 bg-earth-50 px-3 text-earth-600 disabled:opacity-35">後一天</button>
     </div>
   );
 }
@@ -570,7 +617,7 @@ function BlockedSlot({ label }: { label: string }) {
   return <div className="flex h-full items-center justify-center rounded-xl bg-earth-100 px-2 text-center text-xs font-medium text-earth-400">{label}</div>;
 }
 
-function BookingDetail({ providers, bookableProviders, bookings, booking, onCompleteGroup, onCompleteGuest, onUpdate, onCancel, isCompleting, onRebook }: { providers: readonly PreviewProvider[]; bookableProviders: readonly SpaBookableProvider[]; bookings: readonly PreviewBooking[]; booking: PreviewBooking; onCompleteGroup: (settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onCompleteGuest: (bookingId: string, settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onUpdate: (event: FormEvent<HTMLFormElement>) => void; onCancel: (scope: "GUEST" | "GROUP", bookingId: string) => void; isCompleting: boolean; onRebook: () => void }) {
+function BookingDetail({ scheduleDays, providers, bookableProviders, bookings, booking, onCompleteGroup, onCompleteGuest, onUpdate, onCancel, isCompleting, onRebook }: { scheduleDays: readonly ScheduleDay[]; providers: readonly PreviewProvider[]; bookableProviders: readonly SpaBookableProvider[]; bookings: readonly PreviewBooking[]; booking: PreviewBooking; onCompleteGroup: (settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onCompleteGuest: (bookingId: string, settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onUpdate: (event: FormEvent<HTMLFormElement>) => void; onCancel: (scope: "GUEST" | "GROUP", bookingId: string) => void; isCompleting: boolean; onRebook: () => void }) {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<{ scope: "GUEST" | "GROUP"; bookingId: string } | null>(null);
@@ -591,7 +638,7 @@ function BookingDetail({ providers, bookableProviders, bookings, booking, onComp
     ["PACKAGE", checkoutMode === "GROUP" ? `主要聯絡人療程 ${people} 次` : "主要聯絡人療程 1 次"],
   ] as const;
   if (showEdit) {
-    return <BookingEditForm booking={booking} bookings={orderedBookings} providers={bookableProviders} onSubmit={onUpdate} onCancel={() => setShowEdit(false)} isSubmitting={isCompleting} />;
+    return <BookingEditForm scheduleDays={scheduleDays} booking={booking} bookings={orderedBookings} providers={bookableProviders} onSubmit={onUpdate} onCancel={() => setShowEdit(false)} isSubmitting={isCompleting} />;
   }
   return (
     <section className="rounded-2xl bg-earth-900 p-5 text-white shadow-[0_12px_32px_rgba(52,47,39,0.14)]">
@@ -645,7 +692,7 @@ function selectionFromBooking(booking: PreviewBooking): QuickGuestSelection {
   return { primaryKey: primary?.key ?? "aroma_body_60", addOnKeys };
 }
 
-function BookingEditForm({ booking, bookings, providers, onSubmit, onCancel, isSubmitting }: { booking: PreviewBooking; bookings: readonly PreviewBooking[]; providers: readonly SpaBookableProvider[]; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onCancel: () => void; isSubmitting: boolean }) {
+function BookingEditForm({ scheduleDays, booking, bookings, providers, onSubmit, onCancel, isSubmitting }: { scheduleDays: readonly ScheduleDay[]; booking: PreviewBooking; bookings: readonly PreviewBooking[]; providers: readonly SpaBookableProvider[]; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onCancel: () => void; isSubmitting: boolean }) {
   const [guests, setGuests] = useState<readonly QuickGuestSelection[]>(() => bookings.map(selectionFromBooking));
   const [activeGuestIndex, setActiveGuestIndex] = useState(0);
   const [bookingDate, setBookingDate] = useState(booking.date);
@@ -724,6 +771,107 @@ function QuickBookingForm({ providers, slot, onCancel, onSubmit, isSubmitting }:
         <div className="rounded-xl bg-primary-50 px-3.5 py-3 text-sm text-primary-800"><p className="font-semibold">{people} 位・NT${totalPrice.toLocaleString()}</p><div className="mt-2 space-y-1 text-xs">{guestSummaries.map((summary, index) => <p key={index}>第 {index + 1} 位・{summary.durationMinutes} 分鐘・{assignment[index]?.label ?? "此時段無法安排"}</p>)}</div></div>
         <button type="submit" disabled={isSubmitting || assignment.length !== people} className="min-h-11 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-35">{isSubmitting ? "建立中…" : "建立整組預約"}</button>
       </form>
+    </section>
+  );
+}
+
+function DailyOperationsSection({ summary, onOpenGroup }: { summary: SpaDailySummary; onOpenGroup: (key: string) => void }) {
+  return (
+    <section className="mt-6 overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(74,66,53,0.06)] ring-1 ring-earth-200/70" aria-label="每日營運與帳務總覽">
+      <div className="border-b border-earth-100 px-5 py-5">
+        <h2 className="text-lg font-semibold">每日營運與帳務</h2>
+      </div>
+      <div className="grid lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)]">
+        <div className="border-b border-earth-100 p-5 lg:border-b-0 lg:border-r">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-semibold">預約與結帳明細</h3>
+            <span className="text-sm text-earth-500">{summary.groups.length} 組</span>
+          </div>
+          <div className="mt-3 divide-y divide-earth-100">
+            {summary.groups.length ? summary.groups.map((group) => (
+              <button
+                key={group.key}
+                type="button"
+                onClick={() => onOpenGroup(group.key)}
+                className="flex w-full items-center justify-between gap-4 py-3.5 text-left transition hover:bg-earth-50"
+                aria-label={`查看 ${group.time} ${group.customer} 帳務明細`}
+              >
+                <span className="min-w-0">
+                  <span className="block font-semibold text-earth-900">{group.time}・{group.customer}・{group.people} 位</span>
+                  <span className="mt-1 block text-xs text-earth-500">{group.completedCount}/{group.people} 完成・{group.checkoutMode}・{group.paymentSummary}</span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block font-semibold tabular-nums text-earth-900">NT${group.paidAmount.toLocaleString()}</span>
+                  <span className="mt-1 block text-xs text-earth-400">查看 ›</span>
+                </span>
+              </button>
+            )) : <p className="py-6 text-center text-sm text-earth-500">這一天尚無預約</p>}
+          </div>
+        </div>
+
+        <div className="p-5">
+          <h3 className="font-semibold">付款方式</h3>
+          <div className="mt-3 divide-y divide-earth-100">
+            {summary.payments.length ? summary.payments.map((payment) => (
+              <div key={payment.method} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                <span className="text-earth-600">{payment.method}・{payment.count} 筆</span>
+                <span className="font-semibold tabular-nums text-earth-900">NT${payment.amount.toLocaleString()}</span>
+              </div>
+            )) : <p className="py-4 text-sm text-earth-500">尚無完成結帳</p>}
+          </div>
+          <div className="mt-4 border-t border-earth-100 pt-4">
+            <h3 className="font-semibold">芳療師完成服務</h3>
+            <div className="mt-2 space-y-2">
+              {summary.providerPerformance.length ? summary.providerPerformance.map((provider) => (
+                <div key={provider.providerId} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-earth-600">{provider.label}・{provider.completedServices} 位</span>
+                  <span className="font-semibold tabular-nums text-earth-900">NT${provider.serviceAmount.toLocaleString()}</span>
+                </div>
+              )) : <p className="text-sm text-earth-500">尚無完成服務</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DailyGroupDetail({ group, bookings, providers }: { group: SpaDailyGroup; bookings: readonly PreviewBooking[]; providers: readonly PreviewProvider[] }) {
+  const ordered = bookings.toSorted((left, right) => (left.guestIndex ?? 1) - (right.guestIndex ?? 1));
+  return (
+    <section className="rounded-2xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs text-earth-500">{group.time}・{group.people} 位同行</p>
+          <h2 className="mt-2 text-xl font-semibold text-earth-900">{group.customer}</h2>
+        </div>
+        <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-semibold text-primary-800">{group.checkoutMode}</span>
+      </div>
+      <div className="mt-5 divide-y divide-earth-100 border-y border-earth-100">
+        {ordered.map((booking, index) => {
+          const provider = providers.find((candidate) => candidate.id === booking.providerId);
+          return (
+            <div key={booking.id} className="py-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-earth-900">{index === 0 ? "第 1 位" : `同行者 ${index + 1}`}</p>
+                  <p className="mt-1 text-sm text-earth-600">{booking.serviceItems.join("＋")}</p>
+                  <p className="mt-1 text-xs text-earth-500">{provider ? `${provider.badge}號 ${provider.name}` : "尚未指派"}・{booking.durationMinutes} 分鐘</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-semibold tabular-nums text-earth-900">NT${(booking.price ?? 0).toLocaleString()}</p>
+                  <p className="mt-1 text-xs text-earth-500">{booking.status}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-4 space-y-2 text-sm">
+        <div className="flex justify-between gap-3"><span className="text-earth-500">付款方式</span><span className="font-semibold text-earth-900">{group.paymentSummary}</span></div>
+        <div className="flex justify-between gap-3"><span className="text-earth-500">服務總額</span><span className="font-semibold tabular-nums text-earth-900">NT${group.expectedAmount.toLocaleString()}</span></div>
+        <div className="flex justify-between gap-3 border-t border-earth-100 pt-3"><span className="font-semibold text-earth-900">今日實收</span><span className="text-lg font-semibold tabular-nums text-earth-900">NT${group.paidAmount.toLocaleString()}</span></div>
+      </div>
     </section>
   );
 }

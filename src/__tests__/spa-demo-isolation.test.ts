@@ -100,7 +100,11 @@ describe("SPA Demo tenant isolation", () => {
     expect(customerBooking).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_IDS");
     expect(manager).not.toContain("ModulePreviewSwitcher");
     expect(manager).not.toContain("桌機、iPad 與手機共用同一套排程");
-    expect(manager).toContain('aria-label="預約右側操作面板"');
+    expect(manager).toContain('"預約右側操作面板"');
+    expect(manager).toContain('aria-label="每日營運與帳務總覽"');
+    expect(manager).toContain('"每日帳務右側明細面板"');
+    expect(manager).toContain("整組付款只計算一次");
+    expect(manager).toContain("DailyGroupDetail");
     expect(manager).toContain('className="overflow-x-auto"');
     expect(manager).not.toContain("請使用 iPad 或桌機開啟");
     expect(manager).not.toContain("md:hidden");
