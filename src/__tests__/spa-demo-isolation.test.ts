@@ -244,7 +244,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).toContain("isSpaProviderAvailable");
     expect(action).toContain('storeId: SPA_DEMO_STORE.id');
     expect(action).toContain('bookingStatus: "CONFIRMED"');
-    expect(action).toContain('revalidatePath("/dashboard/bookings")');
+    expect(action).toContain('revalidatePath("/dashboard/spa-schedule")');
     expect(action).toContain('revalidatePath("/staff-schedule")');
     expect(action).toContain("saveSpaDemoBookingNotification");
     expect(previewQuery).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
