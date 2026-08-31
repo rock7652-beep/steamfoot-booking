@@ -33,3 +33,14 @@ export function buildStoreRewriteRequestHeaders(
   requestHeaders.set("x-next-pathname", pathname);
   return requestHeaders;
 }
+
+/**
+ * Builds a legacy-route redirect without dropping the incoming query string.
+ * Notification deep links enter through legacy `/dashboard/*` URLs, so ids
+ * such as `bookingId` and `leadId` must survive the store-scoped redirect.
+ */
+export function legacyRedirectUrl(reqUrl: URL, destinationPath: string): URL {
+  const destination = new URL(destinationPath, reqUrl);
+  destination.search = reqUrl.search;
+  return destination;
+}

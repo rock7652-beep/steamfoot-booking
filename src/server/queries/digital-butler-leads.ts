@@ -7,6 +7,43 @@ import { HUMAN_SUPPORT_COMPLETION_ACTION_KEY } from "@/server/services/human-sup
 
 const STORED_PROVIDERS: DigitalButlerProvider[] = ["LINE", "MESSENGER", "INSTAGRAM"];
 
+const LEAD_SELECT = {
+  id: true,
+  status: true,
+  completionActionKey: true,
+  submittedAnswers: true,
+  customerDisplayName: true,
+  customerAvatarUrl: true,
+  customerReference: true,
+  lastMessageCiphertext: true,
+  lastMessageIv: true,
+  lastMessageAuthTag: true,
+  lastMessageAt: true,
+  phoneCiphertext: true,
+  phoneIv: true,
+  phoneAuthTag: true,
+  internalNote: true,
+  lastContactedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  flow: { select: { name: true } },
+  conversation: { select: { provider: true, senderIdHash: true } },
+  assignedStaff: { select: { id: true, displayName: true } },
+  activities: {
+    orderBy: { createdAt: "desc" as const },
+    take: 5,
+    select: {
+      id: true,
+      fromStatus: true,
+      toStatus: true,
+      note: true,
+      contactedAt: true,
+      createdAt: true,
+      createdBy: { select: { name: true } },
+    },
+  },
+} as const;
+
 export async function listDigitalButlerLeads(
   storeId: string,
   filters: {
@@ -14,6 +51,7 @@ export async function listDigitalButlerLeads(
     assignedStaffId?: string;
     provider?: DigitalButlerProviderFilter;
     waitingForHumanSupport?: boolean;
+    focusedLeadId?: string;
   } = {},
 ) {
   await requireDigitalButlerEntitlement(storeId);
@@ -39,45 +77,18 @@ export async function listDigitalButlerLeads(
             ? { conversation: { provider: filters.provider } }
             : {}),
     },
-    select: {
-      id: true,
-      status: true,
-      completionActionKey: true,
-      submittedAnswers: true,
-      customerDisplayName: true,
-      customerAvatarUrl: true,
-      customerReference: true,
-      lastMessageCiphertext: true,
-      lastMessageIv: true,
-      lastMessageAuthTag: true,
-      lastMessageAt: true,
-      phoneCiphertext: true,
-      phoneIv: true,
-      phoneAuthTag: true,
-      internalNote: true,
-      lastContactedAt: true,
-      createdAt: true,
-      updatedAt: true,
-      flow: { select: { name: true } },
-      conversation: { select: { provider: true, senderIdHash: true } },
-      assignedStaff: { select: { id: true, displayName: true } },
-      activities: {
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        select: {
-          id: true,
-          fromStatus: true,
-          toStatus: true,
-          note: true,
-          contactedAt: true,
-          createdAt: true,
-          createdBy: { select: { name: true } },
-        },
-      },
-    },
+    select: LEAD_SELECT,
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 200,
   });
+
+  if (filters.focusedLeadId && !leads.some((lead) => lead.id === filters.focusedLeadId)) {
+    const focusedLead = await prisma.digitalButlerLead.findFirst({
+      where: { id: filters.focusedLeadId, storeId },
+      select: LEAD_SELECT,
+    });
+    if (focusedLead) leads.unshift(focusedLead);
+  }
 
   return leads.map((lead) => {
     const {

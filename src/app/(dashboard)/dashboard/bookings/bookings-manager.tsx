@@ -18,7 +18,6 @@ import {
 } from "./booking-detail-drawer";
 import {
   createBookingDetailCache,
-  type BookingDetailCache,
 } from "./booking-detail-cache";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -128,21 +127,25 @@ const EMPTY_FILTERS: BookingFilters = {
 };
 
 interface BookingsManagerProps {
+  storeId?: string;
   year: number;
   month: number;
   monthData: MonthSummaryDay[];
   monthSchedule: MonthScheduleMap;
   servicePlans: ServicePlanOption[];
   readOnly?: boolean;
+  initialBookingId?: string | null;
 }
 
 export function BookingsManager({
+  storeId,
   year,
   month,
   monthData: initialMonthData,
   monthSchedule,
   servicePlans,
   readOnly = false,
+  initialBookingId = null,
 }: BookingsManagerProps) {
   // monthData lifted into client state so we can patch a single booking
   // optimistically (status flip / cancel) without re-fetching the entire
@@ -170,7 +173,9 @@ export function BookingsManager({
   const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useState<BookingFilters>(EMPTY_FILTERS);
-  const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
+  const [activeBookingId, setActiveBookingId] = useState<string | null>(
+    initialBookingId,
+  );
   const [activeSummary, setActiveSummary] = useState<BookingSummary | null>(
     null,
   );
@@ -181,11 +186,7 @@ export function BookingsManager({
   );
   // Shared client-side detail cache (SWR + dedupe), stable across renders.
   // Owned here so drawer actions can invalidate it centrally after mutations.
-  const detailCacheRef = useRef<BookingDetailCache | null>(null);
-  if (!detailCacheRef.current) {
-    detailCacheRef.current = createBookingDetailCache();
-  }
-  const detailCache = detailCacheRef.current;
+  const detailCache = useMemo(() => createBookingDetailCache(storeId), [storeId]);
 
   // Batch / inline action state
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
@@ -241,6 +242,24 @@ export function BookingsManager({
     }
     return map;
   }, [monthData]);
+
+  const appliedDeepLinkIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialBookingId) {
+      if (appliedDeepLinkIdRef.current !== null) {
+        setActiveBookingId(null);
+        setActiveSummary(null);
+        setActivePrefill(null);
+      }
+      appliedDeepLinkIdRef.current = null;
+      return;
+    }
+    if (appliedDeepLinkIdRef.current === initialBookingId) return;
+    appliedDeepLinkIdRef.current = initialBookingId;
+    setActiveBookingId(initialBookingId);
+    setActiveSummary(summaryById.get(initialBookingId) ?? null);
+    setActivePrefill(prefillById.get(initialBookingId) ?? null);
+  }, [initialBookingId, prefillById, summaryById]);
 
   /**
    * Day panel bookings — derived from already-loaded `monthData`. Switching
@@ -632,6 +651,7 @@ export function BookingsManager({
       <BookingDetailDrawer
         open={!!activeBookingId}
         bookingId={activeBookingId}
+        resolvedStoreId={storeId}
         summary={activeSummary}
         prefill={activePrefill}
         cache={detailCache}
