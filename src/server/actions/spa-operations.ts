@@ -190,13 +190,53 @@ export async function saveSpaAvailabilityException(input: z.infer<typeof excepti
     const { user, storeId } = await requireSpaDemoWrite("staff.manage");
     context = { userId: user.id, storeId };
     const data = exceptionSchema.parse(input);
-    if (data.type === "AVAILABLE" && (!data.startTime || !data.endTime || data.startTime >= data.endTime)) throw new AppError("VALIDATION", "臨時加班必須設定正確的開始與結束時間");
+    const hasStartTime = Boolean(data.startTime);
+    const hasEndTime = Boolean(data.endTime);
+    if (hasStartTime !== hasEndTime || (data.startTime && data.endTime && data.startTime >= data.endTime)) {
+      throw new AppError("VALIDATION", "結束時間必須晚於開始時間");
+    }
+    if (data.type === "AVAILABLE" && (!data.startTime || !data.endTime)) {
+      throw new AppError("VALIDATION", "臨時加班必須設定開始與結束時間");
+    }
     await assertDemoStaff(data.staffId, storeId);
-    await prisma.staffAvailabilityException.create({ data: { storeId, staffId: data.staffId, date: parseTaiwanDateToDbDate(data.date), type: data.type, startTime: data.type === "AVAILABLE" ? data.startTime : null, endTime: data.type === "AVAILABLE" ? data.endTime : null, reason: data.reason } });
+    if (data.type === "UNAVAILABLE") {
+      const activeBookings = await prisma.booking.findMany({
+        where: {
+          storeId,
+          serviceStaffId: data.staffId,
+          bookingDate: parseTaiwanDateToDbDate(data.date),
+          bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+        },
+        select: {
+          slotTime: true,
+          treatmentServiceMinutesSnapshot: true,
+          treatmentBufferMinutesSnapshot: true,
+        },
+      });
+      const conflictingBookings = data.startTime && data.endTime
+        ? activeBookings.filter((booking) => {
+            const bookingStart = timeToMinutes(booking.slotTime);
+            const bookingEnd = bookingStart
+              + (booking.treatmentServiceMinutesSnapshot ?? 90)
+              + (booking.treatmentBufferMinutesSnapshot ?? 0);
+            return bookingStart < timeToMinutes(data.endTime!)
+              && timeToMinutes(data.startTime!) < bookingEnd;
+          })
+        : activeBookings;
+      if (conflictingBookings.length > 0) {
+        throw new AppError("CONFLICT", `此時段已有 ${conflictingBookings.length} 筆預約，請先更換芳療師後再設定請假`);
+      }
+    }
+    await prisma.staffAvailabilityException.create({ data: { storeId, staffId: data.staffId, date: parseTaiwanDateToDbDate(data.date), type: data.type, startTime: data.startTime, endTime: data.endTime, reason: data.reason } });
     revalidatePath("/dashboard/staff");
     revalidatePath("/liff/design-preview/booking");
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error, context); }
+}
+
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
 }
 
 export async function saveSpaStaffCompensation(input: z.infer<typeof compensationSchema>): Promise<ActionResult> {

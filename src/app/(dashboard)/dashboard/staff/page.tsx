@@ -72,7 +72,18 @@ export default async function StaffPage({
     const provider = providerById.get(staff.id);
     const persistedSkillKeys = storedSkills.filter((row) => row.staffId === staff.id).map((row) => row.skill.id.replace("spa-demo-skill-", "") as StaffWorkspacePerson["specialtyKeys"][number]);
     const persistedAvailability = storedAvailability.filter((row) => row.staffId === staff.id).map(({ dayOfWeek, startTime, endTime }) => ({ dayOfWeek, startTime, endTime }));
-    const persistedExceptions = storedExceptions.filter((row) => row.staffId === staff.id).map((row) => ({ date: row.date.toISOString().slice(0, 10), label: row.type === "UNAVAILABLE" ? (row.reason || "個人休假") : `臨時加班 ${row.startTime}–${row.endTime}`, tone: row.type === "UNAVAILABLE" ? "leave" as const : "extra" as const }));
+    const persistedExceptions = storedExceptions.filter((row) => row.staffId === staff.id).map((row) => ({
+      date: row.date.toISOString().slice(0, 10),
+      label: row.type === "UNAVAILABLE"
+        ? row.startTime && row.endTime
+          ? `請假 ${row.startTime}–${row.endTime}${row.reason ? `・${row.reason}` : ""}`
+          : row.reason || "個人休假"
+        : `臨時加班 ${row.startTime}–${row.endTime}${row.reason ? `・${row.reason}` : ""}`,
+      tone: row.type === "UNAVAILABLE" ? "leave" as const : "extra" as const,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      reason: row.reason,
+    }));
     const compensation = storedCompensation.find((row) => row.staffId === staff.id);
     return {
       id: staff.id,

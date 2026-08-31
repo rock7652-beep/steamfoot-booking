@@ -9,7 +9,7 @@ import type { SpaProviderSpecialty } from "@/lib/spa-scheduling";
 import { saveSpaAvailabilityException, saveSpaStaffCompensation, saveSpaStaffSetup, saveSpaStaffSkills, saveSpaWeeklyAvailability } from "@/server/actions/spa-operations";
 
 type Availability = { dayOfWeek: number; startTime: string; endTime: string };
-type ScheduleException = { date: string; label: string; tone: "leave" | "extra" };
+type ScheduleException = { date: string; label: string; tone: "leave" | "extra"; startTime?: string | null; endTime?: string | null; reason?: string | null };
 
 export type StaffWorkspacePerson = {
   id: string;
@@ -150,8 +150,7 @@ export function StaffWorkspace({ people: initialPeople, today, canManage, showSp
     if (!person) return;
     startTransition(async () => {
       const isLeave = exception.tone === "leave";
-      const times = isLeave ? null : exception.label.match(/(\d{2}:\d{2})–(\d{2}:\d{2})/);
-      const result = await saveSpaAvailabilityException({ staffId: personId, date: exception.date, type: isLeave ? "UNAVAILABLE" : "AVAILABLE", startTime: times?.[1] ?? null, endTime: times?.[2] ?? null, reason: isLeave ? exception.label : null });
+      const result = await saveSpaAvailabilityException({ staffId: personId, date: exception.date, type: isLeave ? "UNAVAILABLE" : "AVAILABLE", startTime: exception.startTime ?? null, endTime: exception.endTime ?? null, reason: exception.reason ?? null });
       if (!result.success) { setNotice(result.error); return; }
       updatePerson(personId, { scheduleExceptions: [...person.scheduleExceptions, exception].sort((a, b) => a.date.localeCompare(b.date)) });
     });
@@ -316,11 +315,16 @@ function SpaStaffSetupDrawer({ person, onClose, onSave }: {
 function ExceptionDrawer({ people, initialPersonId, today, onClose, onSave }: { people: readonly StaffWorkspacePerson[]; initialPersonId?: string; today: string; onClose: () => void; onSave: (personId: string, exception: ScheduleException) => void }) {
   const [personId, setPersonId] = useState(initialPersonId ?? people[0]?.id ?? "");
   const [date, setDate] = useState(today);
-  const [type, setType] = useState<"leave" | "extra">("leave");
+  const [type, setType] = useState<"leave-day" | "leave-time" | "extra">("leave-day");
   const [startTime, setStartTime] = useState("10:00");
   const [endTime, setEndTime] = useState("18:00");
-  const label = type === "leave" ? "個人休假" : `臨時加班 ${startTime}–${endTime}`;
-  return <Drawer title="請假／臨時加班" onClose={onClose}><div className="space-y-4"><Field label="人員"><select value={personId} onChange={(event) => setPersonId(event.target.value)} className={inputClass}>{people.map((person) => <option key={person.id} value={person.id}>{person.displayName}</option>)}</select></Field><Field label="日期"><input type="date" min={today} value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} /></Field><div><p className="text-sm font-medium text-earth-700">異動類型</p><div className="mt-2 grid grid-cols-2 gap-2"><ChoiceButton active={type === "leave"} label="休假整天" onClick={() => setType("leave")} /><ChoiceButton active={type === "extra"} label="臨時加班" onClick={() => setType("extra")} /></div></div>{type === "extra" ? <div className="grid grid-cols-2 gap-3"><Field label="開始"><select value={startTime} onChange={(event) => setStartTime(event.target.value)} className={inputClass}>{TIME_OPTIONS.slice(0, -1).map((time) => <option key={time}>{time}</option>)}</select></Field><Field label="結束"><select value={endTime} onChange={(event) => setEndTime(event.target.value)} className={inputClass}>{TIME_OPTIONS.slice(1).map((time) => <option key={time}>{time}</option>)}</select></Field></div> : null}</div><DrawerActions onCancel={onClose} onSave={() => onSave(personId, { date, label, tone: type })} saveLabel="儲存例外" disabled={!personId || !date || (type === "extra" && startTime >= endTime)} /></Drawer>;
+  const [reason, setReason] = useState("");
+  const usesTime = type !== "leave-day";
+  const isLeave = type !== "extra";
+  const label = type === "leave-day"
+    ? reason || "個人休假"
+    : `${isLeave ? "請假" : "臨時加班"} ${startTime}–${endTime}${reason ? `・${reason}` : ""}`;
+  return <Drawer title="請假／臨時加班" onClose={onClose}><div className="space-y-4"><Field label="人員"><select value={personId} onChange={(event) => setPersonId(event.target.value)} className={inputClass}>{people.map((person) => <option key={person.id} value={person.id}>{person.displayName}</option>)}</select></Field><Field label="日期"><input type="date" min={today} value={date} onChange={(event) => setDate(event.target.value)} className={inputClass} /></Field><div><p className="text-sm font-medium text-earth-700">異動類型</p><div className="mt-2 grid grid-cols-3 gap-2"><ChoiceButton active={type === "leave-day"} label="整天請假" onClick={() => setType("leave-day")} /><ChoiceButton active={type === "leave-time"} label="時段請假" onClick={() => setType("leave-time")} /><ChoiceButton active={type === "extra"} label="臨時加班" onClick={() => setType("extra")} /></div></div>{usesTime ? <div className="grid grid-cols-2 gap-3"><Field label="開始"><select value={startTime} onChange={(event) => setStartTime(event.target.value)} className={inputClass}>{TIME_OPTIONS.slice(0, -1).map((time) => <option key={time}>{time}</option>)}</select></Field><Field label="結束"><select value={endTime} onChange={(event) => setEndTime(event.target.value)} className={inputClass}>{TIME_OPTIONS.slice(1).map((time) => <option key={time}>{time}</option>)}</select></Field></div> : null}<Field label="原因（選填）"><input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={200} className={inputClass} placeholder="例如：私人行程" /></Field>{isLeave ? <p className="text-xs text-earth-500">若已有預約，請先更換芳療師後再設定請假。</p> : null}</div><DrawerActions onCancel={onClose} onSave={() => onSave(personId, { date, label, tone: isLeave ? "leave" : "extra", startTime: usesTime ? startTime : null, endTime: usesTime ? endTime : null, reason: reason || null })} saveLabel="儲存例外" disabled={!personId || !date || (usesTime && startTime >= endTime)} /></Drawer>;
 }
 
 function PersonDrawer({ person, showSpaCompensation, onClose, onSpecialties, onSchedule, onCompensation }: { person: StaffWorkspacePerson; showSpaCompensation: boolean; onClose: () => void; onSpecialties: () => void; onSchedule: () => void; onCompensation: () => void }) {

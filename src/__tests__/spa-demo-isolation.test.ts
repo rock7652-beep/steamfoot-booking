@@ -72,6 +72,9 @@ describe("SPA Demo tenant isolation", () => {
     expect(staffWorkspace).toContain("專業項目");
     expect(staffWorkspace).toContain("固定班表");
     expect(staffWorkspace).toContain("請假／臨時加班");
+    expect(staffWorkspace).toContain("整天請假");
+    expect(staffWorkspace).toContain("時段請假");
+    expect(staffWorkspace).toContain("已有預約");
     expect(staffWorkspace).toContain("不必逐時段新增");
     expect(staffWorkspace).toContain("緊急聯絡人");
     expect(staffWorkspace).toContain("showSpaCompensation");
@@ -82,6 +85,9 @@ describe("SPA Demo tenant isolation", () => {
     expect(schedule).toContain("sticky top-0 z-30");
     expect(schedule).toContain('className="min-h-[460px] flex-1 overflow-auto"');
     expect(SPA_DEMO_PROVIDERS.every((provider) => provider.specialties && provider.emergencyContact.phone)).toBe(true);
+    const operations = readFileSync("src/server/actions/spa-operations.ts", "utf8");
+    expect(operations).toContain('bookingStatus: { in: ["PENDING", "CONFIRMED"] }');
+    expect(operations).toContain("請先更換芳療師後再設定請假");
   });
 
   it("keeps customer mobile and manager tablet/desktop previews separate", () => {

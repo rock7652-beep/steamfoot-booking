@@ -45,7 +45,19 @@ export function isSpaProviderAvailable({
   bufferMinutes?: number;
 }): boolean {
   const exceptions = provider.availabilityExceptions.filter((item) => item.date === date);
-  if (exceptions.some((item) => item.type === "UNAVAILABLE")) return false;
+  const requestedRange = { startTime, durationMinutes: serviceMinutes + bufferMinutes };
+  const requestedStart = timeToMinutes(startTime);
+  const requestedEnd = requestedStart + requestedRange.durationMinutes;
+  const isUnavailable = exceptions
+    .filter((item) => item.type === "UNAVAILABLE")
+    .some((item) => {
+      if (!item.startTime || !item.endTime) return true;
+      return rangesOverlap(requestedRange, {
+        startTime: item.startTime,
+        durationMinutes: timeToMinutes(item.endTime) - timeToMinutes(item.startTime),
+      });
+    });
+  if (isUnavailable) return false;
 
   const dayOfWeek = parseLocalDate(date).getDay();
   const workingRanges = [
@@ -58,9 +70,6 @@ export function isSpaProviderAvailable({
         endTime: item.endTime!,
       })),
   ];
-  const requestedRange = { startTime, durationMinutes: serviceMinutes + bufferMinutes };
-  const requestedStart = timeToMinutes(startTime);
-  const requestedEnd = requestedStart + requestedRange.durationMinutes;
   const fitsWorkingRange = workingRanges.some((range) => (
     requestedStart >= timeToMinutes(range.startTime)
     && requestedEnd <= timeToMinutes(range.endTime)

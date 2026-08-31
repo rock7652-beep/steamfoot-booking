@@ -175,8 +175,10 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       scheduleExceptions: record.availabilityExceptions.map((exception) => ({
         date: toLocalDateStr(exception.date),
         label: exception.type === "UNAVAILABLE"
-          ? exception.reason || "個人休假"
-          : `臨時加班 ${exception.startTime}–${exception.endTime}`,
+          ? exception.startTime && exception.endTime
+            ? `請假 ${exception.startTime}–${exception.endTime}${exception.reason ? `・${exception.reason}` : ""}`
+            : exception.reason || "個人休假"
+          : `臨時加班 ${exception.startTime}–${exception.endTime}${exception.reason ? `・${exception.reason}` : ""}`,
         tone: exception.type === "UNAVAILABLE" ? "leave" as const : "extra" as const,
         startTime: exception.startTime,
         endTime: exception.endTime,

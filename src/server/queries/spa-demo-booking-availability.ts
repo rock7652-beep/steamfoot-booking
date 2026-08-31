@@ -110,8 +110,8 @@ export function getSpaDemoFixtureBookableProviders(): readonly SpaBookableProvid
     availabilityExceptions: provider.scheduleExceptions.map((exception) => ({
       date: exception.date,
       type: exception.tone === "leave" ? "UNAVAILABLE" as const : "AVAILABLE" as const,
-      startTime: null,
-      endTime: null,
+      startTime: exception.startTime ?? null,
+      endTime: exception.endTime ?? null,
     })),
     occupiedRanges: [],
   }));

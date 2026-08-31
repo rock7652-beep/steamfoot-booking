@@ -70,6 +70,7 @@ export type SpaDemoProvider = {
     tone: "leave" | "extra";
     startTime?: string | null;
     endTime?: string | null;
+    reason?: string | null;
   }[];
 };
 

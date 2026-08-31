@@ -63,6 +63,36 @@ describe("SPA provider availability", () => {
     })).toBe(true);
   });
 
+  it("blocks only bookings that overlap a partial leave, including buffer time", () => {
+    const partiallyUnavailableProvider: SpaBookableProvider = {
+      ...provider,
+      availabilityExceptions: [{
+        date: "2026-08-30",
+        type: "UNAVAILABLE",
+        startTime: "14:00",
+        endTime: "16:00",
+      }],
+    };
+    expect(isSpaProviderAvailable({
+      provider: partiallyUnavailableProvider,
+      date: "2026-08-30",
+      startTime: "13:00",
+      serviceMinutes: 60,
+    })).toBe(false);
+    expect(isSpaProviderAvailable({
+      provider: partiallyUnavailableProvider,
+      date: "2026-08-30",
+      startTime: "10:00",
+      serviceMinutes: 60,
+    })).toBe(true);
+    expect(isSpaProviderAvailable({
+      provider: partiallyUnavailableProvider,
+      date: "2026-08-30",
+      startTime: "16:00",
+      serviceMinutes: 60,
+    })).toBe(true);
+  });
+
   it("rejects overlapping bookings on the selected date only", () => {
     const occupiedProvider: SpaBookableProvider = {
       ...provider,
