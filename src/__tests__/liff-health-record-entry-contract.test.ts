@@ -10,7 +10,8 @@ describe("LIFF native health record entry", () => {
     expect(view).toContain("/liff/health/new");
     expect(view).not.toContain("href={`/s/${storeSlug}/health/new`}");
     expect(form).toContain('surface?: "web" | "liff"');
-    expect(form).toContain('surface === "liff" ? saveLiffHealthRecord');
+    expect(form).toContain('? saveLiffHealthRecord');
+    expect(form).toContain('? updateLiffHealthRecord');
     expect(view.match(/<StartHealthFlowButton storeSlug=\{storeSlug\} \/>/g)?.length).toBeGreaterThanOrEqual(3);
   });
 

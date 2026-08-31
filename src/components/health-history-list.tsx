@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { HEALTH_DISPLAY_METRICS } from "@/lib/health-display-metrics";
 import type { TrendPoint } from "@/lib/health-service";
 
@@ -10,14 +11,20 @@ const RECORDS_PER_LOAD = 5;
 interface HealthHistoryListProps {
   trend: TrendPoint[];
   totalRecords: number;
+  editBasePath?: string;
+  recordIds?: string[];
 }
 
 export function HealthHistoryList({
   trend,
   totalRecords,
+  editBasePath,
+  recordIds,
 }: HealthHistoryListProps) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_RECORDS);
-  const recentRecords = trend.slice().reverse();
+  const recentRecords = trend
+    .map((record, index) => ({ record, recordId: recordIds?.[index] }))
+    .reverse();
   const visibleRecords = recentRecords.slice(0, visibleCount);
   const remainingLoadedRecords = Math.max(0, recentRecords.length - visibleCount);
   const canLoadMore = remainingLoadedRecords > 0;
@@ -35,7 +42,7 @@ export function HealthHistoryList({
         id="health-history-records"
         className="mt-2 divide-y divide-earth-100 rounded-xl border border-earth-100"
       >
-        {visibleRecords.map((record, index) => (
+        {visibleRecords.map(({ record, recordId }, index) => (
           <div
             key={`${record.measuredAt}-${index}`}
             className="px-3 py-3 text-xs"
@@ -44,11 +51,21 @@ export function HealthHistoryList({
               <p className="font-medium text-earth-800">
                 {formatDate(record.measuredAt)}
               </p>
-              {record.storeName && (
-                <span className="rounded-full bg-earth-50 px-2 py-1 text-[10px] text-earth-600">
-                  量測門市：{record.storeName}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {record.storeName && (
+                  <span className="rounded-full bg-earth-50 px-2 py-1 text-[10px] text-earth-600">
+                    量測門市：{record.storeName}
+                  </span>
+                )}
+                {editBasePath && recordId && (
+                  <Link
+                    href={`${editBasePath}/${recordId}/edit`}
+                    className="flex min-h-10 items-center rounded-lg border border-primary-200 px-3 text-xs font-semibold text-primary-700"
+                  >
+                    編輯
+                  </Link>
+                )}
+              </div>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3">
               {HEALTH_DISPLAY_METRICS.map((metric) => (

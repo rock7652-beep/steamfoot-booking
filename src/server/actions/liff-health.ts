@@ -146,6 +146,125 @@ export async function saveLiffHealthRecord(
   redirect(`${path}?saved=1`);
 }
 
+/** 顧客本人編輯既有健康紀錄；recordId 只作定位，所有權仍由 session + 中央會員範圍判斷。 */
+export async function updateLiffHealthRecord(
+  _previous: SaveCustomerHealthRecordState,
+  formData: FormData,
+): Promise<SaveCustomerHealthRecordState> {
+  let user;
+  try {
+    user = await requireSession();
+  } catch {
+    return { error: "登入已逾時，請重新從 LINE 開啟此頁" };
+  }
+  if (user.role !== "CUSTOMER") {
+    return { error: "無法確認顧客資料，請重新從 LINE 開啟此頁" };
+  }
+
+  const storeSlug = String(formData.get("storeSlug") ?? "");
+  const recordId = String(formData.get("recordId") ?? "");
+  if (!recordId) return { error: "找不到要修改的健康紀錄" };
+
+  const store = await prisma.store.findUnique({
+    where: { slug: storeSlug },
+    select: { id: true, slug: true },
+  });
+  if (!store) return { error: "無法確認門市，請回會員中心後再試" };
+  try {
+    await requireStoreFeature(store.id, FEATURES.AI_HEALTH_SUMMARY);
+  } catch {
+    return { error: "此店目前尚未開放健康評估" };
+  }
+
+  const parsed = healthRecordInputSchema.safeParse(healthRecordFormData(formData));
+  if (!parsed.success) {
+    return {
+      error: "請檢查量測內容",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+  if (parsed.data.measuredAt > toLocalDateStr()) {
+    return {
+      error: "量測日期不可晚於今天",
+      fieldErrors: { measuredAt: ["量測日期不可晚於今天"] },
+    };
+  }
+
+  const resolved = await resolveCentralMembershipsForUser(user.id);
+  const scopes = resolved.memberships.map(({ storeId, customerId }) => ({
+    storeId,
+    customerId,
+  }));
+  if (scopes.length === 0) return { error: "無法確認顧客資料，請重新登入" };
+
+  const record = await prisma.customerHealthRecord.findFirst({
+    where: { id: recordId, OR: scopes },
+    select: { id: true, customer: { select: { height: true } } },
+  });
+  if (!record) return { error: "找不到這筆紀錄，或您沒有修改權限" };
+
+  try {
+    await prisma.customerHealthRecord.update({
+      where: { id: record.id },
+      data: {
+        measuredAt: new Date(`${parsed.data.measuredAt}T00:00:00.000Z`),
+        weight: parsed.data.weight,
+        bmi: parsed.data.bmi ?? calculateNativeBmi(parsed.data.weight, record.customer.height),
+        bodyFat: parsed.data.bodyFat,
+        muscleMass: parsed.data.muscleMass,
+        boneMass: parsed.data.boneMass,
+        visceralFat: parsed.data.visceralFat,
+        bmr: parsed.data.bmr,
+        bodyWater: parsed.data.bodyWater,
+        metabolicAge: parsed.data.metabolicAge,
+        note: parsed.data.note,
+      },
+    });
+  } catch (error) {
+    console.error("[updateLiffHealthRecord] native update failed", {
+      recordId: record.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { error: "健康資料暫時無法更新，請稍後再試；原紀錄未變更" };
+  }
+
+  const path = `/s/${store.slug}/liff/health`;
+  revalidatePath(path);
+  redirect(`${path}?updated=1`);
+}
+
+export async function getOwnedLiffHealthRecord(recordId: string) {
+  const user = await requireSession();
+  if (user.role !== "CUSTOMER") return null;
+  const resolved = await resolveCentralMembershipsForUser(user.id);
+  const scopes = resolved.memberships.map(({ storeId, customerId }) => ({
+    storeId,
+    customerId,
+  }));
+  if (scopes.length === 0) return null;
+  const record = await prisma.customerHealthRecord.findFirst({
+    where: { id: recordId, OR: scopes },
+    include: { store: { select: { name: true, slug: true } } },
+  });
+  if (!record) return null;
+  return {
+    recordId: record.id,
+    measuredAt: record.measuredAt.toISOString().slice(0, 10),
+    weight: record.weight,
+    bmi: record.bmi,
+    bodyFat: record.bodyFat,
+    muscleMass: record.muscleMass,
+    boneMass: record.boneMass,
+    visceralFat: record.visceralFat,
+    bmr: record.bmr,
+    bodyWater: record.bodyWater,
+    metabolicAge: record.metabolicAge,
+    note: record.note,
+    storeName: record.store.name,
+    storeSlug: record.store.slug,
+  };
+}
+
 // PR-H2c：移除 self-computed score。
 // HealthFlow summary API 不回官方 score / riskLevel；Steamfoot 自算的 68 與 HealthFlow
 // 原站 86 不一致會誤導顧客。本 action 只回原始 summary，顧客面交給 view 顯示

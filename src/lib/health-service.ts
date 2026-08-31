@@ -101,6 +101,8 @@ export interface HealthSummary {
     totalRecords: number;
     daysSinceLastMeasure: number | null;
     firstMeasuredAt: string | null;
+    /** 與 trend 同順序的原生紀錄 ID；只在顧客本人流程提供。 */
+    recordIds?: string[];
   };
   /**
    * HealthFlow PR #5 (2026-05-25) additive：官方 score + 風險判讀 + 建議摘要。
