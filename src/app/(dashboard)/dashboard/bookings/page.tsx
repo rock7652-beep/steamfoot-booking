@@ -8,10 +8,7 @@ import {
 } from "@/lib/date-utils";
 import { ServerTiming, withTiming } from "@/lib/perf";
 import { getAccessibleStoreIds, getActiveStoreForRead } from "@/lib/store";
-import {
-  resolveStoreViewContextFromCookie,
-  storeIdForViewContext,
-} from "@/lib/store-view-context-server";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -41,12 +38,11 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   }
   const params = await searchParams;
 
+  // getActiveStoreForRead() already gives an authorized route-first store scope.
+  // Reapplying the viewed-store cookie here can replace /s/:slug with a stale store.
   const activeStoreId = await getActiveStoreForRead(user);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
-  const fallbackStoreId = storeIdForViewContext(
-    activeStoreId,
-    storeViewContext,
-  );
+  const fallbackStoreId = activeStoreId;
   // Booking ids are globally unique. Resolve legacy and current notification
   // links only within stores this user is authorized to read, then let the
   // matched booking determine both data scope and read-only mode.
