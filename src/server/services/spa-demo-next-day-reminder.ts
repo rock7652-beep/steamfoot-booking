@@ -62,7 +62,8 @@ export async function sendSpaDemoNextDayReminder(now = new Date()) {
   const delivery = await deliverSpaDemoBookingNotificationBestEffort(claim);
   return {
     sent: delivery === "SENT" ? 1 : 0,
-    skipped: delivery === "SENT" ? 0 : 1,
-    reason: delivery === "SENT" ? null : delivery,
+    simulated: delivery === "SIMULATED" ? 1 : 0,
+    skipped: delivery === "SENT" || delivery === "SIMULATED" ? 0 : 1,
+    reason: delivery === "SENT" || delivery === "SIMULATED" ? null : delivery,
   };
 }

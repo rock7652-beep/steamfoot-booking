@@ -139,7 +139,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         storeId: SPA_DEMO_STORE.id,
         customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
       },
-      select: { renderedBody: true, status: true },
+      select: { renderedBody: true, status: true, errorMessage: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
@@ -243,7 +243,12 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     notification: (() => {
       const notification = parseSpaDemoNotification(notificationLog?.renderedBody ?? null);
       return notification && notificationLog
-        ? { ...notification, deliveryStatus: notificationLog.status }
+        ? {
+            ...notification,
+            deliveryStatus: notificationLog.errorMessage === "SPA_DEMO_SIMULATED_DELIVERY"
+              ? "SIMULATED" as const
+              : notificationLog.status,
+          }
         : notification;
     })(),
     source: "database",

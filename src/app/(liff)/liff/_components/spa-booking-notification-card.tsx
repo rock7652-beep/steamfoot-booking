@@ -8,6 +8,8 @@ function formatDate(date: string) {
 export function SpaBookingNotificationCard({ notification }: { notification: SpaDemoBookingNotification }) {
   const statusLabel = notification.deliveryStatus === "SENT"
     ? "已發送"
+    : notification.deliveryStatus === "SIMULATED"
+      ? "測試完成"
     : notification.deliveryStatus === "FAILED"
       ? "發送失敗"
       : notification.deliveryStatus === "SKIPPED"

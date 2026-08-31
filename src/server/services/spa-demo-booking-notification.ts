@@ -78,7 +78,7 @@ export async function deliverSpaDemoBookingNotification(claim: SpaDemoNotificati
 
   const enabled = process.env.SPA_DEMO_LINE_TEST_SEND_ENABLED?.trim().toLowerCase() !== "false";
   const recipientLineUserId = getSpaDemoLineTestRecipient();
-  if (!enabled || !recipientLineUserId) {
+  if (!enabled) {
     await prisma.messageLog.updateMany({
       where: {
         id: claim.messageLogId,
@@ -86,9 +86,25 @@ export async function deliverSpaDemoBookingNotification(claim: SpaDemoNotificati
         customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
         status: "PENDING",
       },
-      data: { status: "SKIPPED", errorMessage: enabled ? "SPA_DEMO_TEST_RECIPIENT_NOT_CONFIGURED" : "SPA_DEMO_LINE_TEST_SEND_DISABLED" },
+      data: { status: "SKIPPED", errorMessage: "SPA_DEMO_LINE_TEST_SEND_DISABLED" },
     });
     return "SKIPPED" as const;
+  }
+  if (!recipientLineUserId) {
+    await prisma.messageLog.updateMany({
+      where: {
+        id: claim.messageLogId,
+        storeId: SPA_DEMO_STORE.id,
+        customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
+        status: "PENDING",
+      },
+      data: {
+        status: "SKIPPED",
+        sentAt: new Date(),
+        errorMessage: "SPA_DEMO_SIMULATED_DELIVERY",
+      },
+    });
+    return "SIMULATED" as const;
   }
 
   const log = await prisma.messageLog.findFirst({

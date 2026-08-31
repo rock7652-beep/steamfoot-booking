@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSpaDemoLineTestRecipient } from "@/lib/line-config";
 import { sendSpaDemoNextDayReminder } from "@/server/services/spa-demo-next-day-reminder";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
+  const previewSimulation = request.nextUrl.searchParams.get("simulate") === "1"
+    && !getSpaDemoLineTestRecipient();
+  if (!previewSimulation && (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const result = await sendSpaDemoNextDayReminder();

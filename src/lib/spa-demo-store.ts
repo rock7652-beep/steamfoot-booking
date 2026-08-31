@@ -33,7 +33,7 @@ export type SpaDemoBookingNotification = {
   time: string;
   lines: readonly string[];
   summary: string;
-  deliveryStatus?: "PENDING" | "SENT" | "FAILED" | "SKIPPED";
+  deliveryStatus?: "PENDING" | "SENT" | "FAILED" | "SKIPPED" | "SIMULATED";
 };
 
 export type SpaDemoBookingStatus =

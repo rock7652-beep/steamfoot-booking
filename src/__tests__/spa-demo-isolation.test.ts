@@ -286,6 +286,22 @@ describe("SPA Demo preview database scoping", () => {
     }));
   });
 
+  it("keeps Preview notification simulation isolated from production", () => {
+    const delivery = readFileSync(
+      "src/server/services/spa-demo-booking-notification.ts",
+      "utf8",
+    );
+    const reminderRoute = readFileSync(
+      "src/app/api/cron/spa-demo-reminders/route.ts",
+      "utf8",
+    );
+    expect(delivery).toContain('process.env.VERCEL_ENV === "production"');
+    expect(delivery).toContain("SPA_DEMO_SIMULATED_DELIVERY");
+    expect(delivery).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_ID");
+    expect(reminderRoute).toContain('process.env.VERCEL_ENV === "production"');
+    expect(reminderRoute).toContain('request.nextUrl.searchParams.get("simulate") === "1"');
+  });
+
   it("fails closed when a Demo booking points at a formal-store relation", async () => {
     process.env.SPA_DEMO_DATABASE_PREVIEW_ENABLED = "true";
     const { prisma } = await import("@/lib/db");
