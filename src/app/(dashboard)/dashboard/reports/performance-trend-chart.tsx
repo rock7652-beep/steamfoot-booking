@@ -17,6 +17,8 @@ const METRICS: Array<{ key: MetricKey; label: string; money?: boolean; percent?:
 export function PerformanceTrendChart({ data }: { data: StorePerformanceTrend[] }) {
   const [metric, setMetric] = useState<MetricKey>("trialAttendees");
   const config = METRICS.find((item) => item.key === metric)!;
+  const hasRetailData = data.some((item) => item.retailRevenue > 0);
+  const showRetailEmptyState = metric === "retailRevenue" && !hasRetailData;
 
   return (
     <section className="rounded-xl border border-earth-200 bg-white p-3" aria-labelledby="performance-trend-title">
@@ -43,31 +45,40 @@ export function PerformanceTrendChart({ data }: { data: StorePerformanceTrend[] 
         </div>
       </div>
 
-      <div className="mt-3 h-[260px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e7e2dc" />
-            <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#a8a29e" />
-            <YAxis
-              tick={{ fontSize: 11 }}
-              stroke="#a8a29e"
-              tickFormatter={(value) =>
-                config.money ? `${Math.round(Number(value) / 1000)}k` : config.percent ? `${Number(value).toFixed(0)}%` : String(value)
-              }
-            />
-            <Tooltip
-              contentStyle={{ fontSize: 12, borderRadius: 8 }}
-              formatter={(value) => {
-                const amount = Number(value);
-                if (config.money) return [`NT$ ${amount.toLocaleString()}`, config.label];
-                if (config.percent) return [`${amount.toFixed(1)}%`, config.label];
-                return [`${amount.toLocaleString()}`, config.label];
-              }}
-            />
-            <Line type="monotone" dataKey={metric} name={config.label} stroke="#65a30d" strokeWidth={2} dot={{ r: 3 }} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      {showRetailEmptyState ? (
+        <div className="mt-3 flex min-h-[260px] items-center justify-center rounded-lg bg-earth-50/60 px-6 text-center">
+          <div>
+            <p className="text-sm font-semibold text-earth-700">目前尚無可辨識的零售紀錄</p>
+            <p className="mt-1 text-xs leading-relaxed text-earth-500">開始記錄零售分類後，趨勢會自動累積。</p>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 h-[260px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e7e2dc" />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#a8a29e" />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                stroke="#a8a29e"
+                tickFormatter={(value) =>
+                  config.money ? `${Math.round(Number(value) / 1000)}k` : config.percent ? `${Number(value).toFixed(0)}%` : String(value)
+                }
+              />
+              <Tooltip
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                formatter={(value) => {
+                  const amount = Number(value);
+                  if (config.money) return [`NT$ ${amount.toLocaleString()}`, config.label];
+                  if (config.percent) return [`${amount.toFixed(1)}%`, config.label];
+                  return [`${amount.toLocaleString()}`, config.label];
+                }}
+              />
+              <Line type="monotone" dataKey={metric} name={config.label} stroke="#65a30d" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </section>
   );
 }
