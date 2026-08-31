@@ -140,7 +140,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
       },
       select: { renderedBody: true, status: true, errorMessage: true },
-      orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
+      orderBy: [{ sentAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
     }),
   ]);
 
