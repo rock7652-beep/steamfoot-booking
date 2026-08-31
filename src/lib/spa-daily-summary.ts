@@ -26,7 +26,11 @@ export type SpaDailySummary = {
   bookingCount: number;
   completedCount: number;
   pendingCount: number;
+  expectedAmount: number;
   paidAmount: number;
+  unsettledGroupCount: number;
+  unrecordedPaymentCount: number;
+  reconciliationStatus: "EMPTY" | "PENDING" | "READY";
   groups: readonly SpaDailyGroup[];
   payments: readonly {
     method: SpaDailyPaymentMethod;
@@ -142,11 +146,25 @@ export function buildSpaDailySummary(
     .filter((provider) => provider.completedServices > 0);
 
   const completedCount = bookings.filter((booking) => booking.status === "已完成").length;
+  const expectedAmount = groups.reduce((total, group) => total + group.expectedAmount, 0);
+  const unsettledGroupCount = groups.filter((group) => group.checkoutMode === "待結帳").length;
+  const unrecordedPaymentCount = groups.filter((group) => (
+    group.completedCount === group.people && group.paymentSummary.includes("未記錄")
+  )).length;
+  const reconciliationStatus = bookings.length === 0
+    ? "EMPTY" as const
+    : unsettledGroupCount > 0 || unrecordedPaymentCount > 0
+      ? "PENDING" as const
+      : "READY" as const;
   return {
     bookingCount: bookings.length,
     completedCount,
     pendingCount: bookings.length - completedCount,
+    expectedAmount,
     paidAmount: paymentEntries.reduce((total, entry) => total + entry.amount, 0),
+    unsettledGroupCount,
+    unrecordedPaymentCount,
+    reconciliationStatus,
     groups,
     payments,
     providerPerformance,

@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState, useTransition } from "react";
 import { completeSpaDemoBooking, completeSpaDemoGuestBooking } from "@/server/actions/spa-demo-checkout";
 import { createSpaDemoCustomerBooking } from "@/server/actions/spa-demo-customer-booking";
 import { cancelSpaDemoBooking } from "@/server/actions/spa-demo-booking-management";
+import { confirmSpaDemoDailyReconciliation } from "@/server/actions/spa-demo-daily-reconciliation";
 import { SPA_INDUSTRY_MODULE } from "@/lib/industry-modules";
 import {
   SPA_DEMO_BOOKINGS,
@@ -25,7 +26,12 @@ import { isSpaProviderAvailable } from "@/lib/spa-provider-availability";
 import type { SpaBookableProvider } from "@/lib/spa-provider-availability";
 import { findSpaPartyProviderAssignment } from "@/lib/spa-party-assignment";
 import { buildSpaDailySummary, type SpaDailyGroup, type SpaDailySummary } from "@/lib/spa-daily-summary";
-import { formatWeekdayZh } from "@/lib/date-utils";
+import {
+  formatDateWithWeekdayZh,
+  formatWeekdayZh,
+  parseLocalDate,
+  toDateInputValue,
+} from "@/lib/date-utils";
 import { SpaBookingNotificationCard } from "./spa-booking-notification-card";
 
 type QuickSlot = {
@@ -43,8 +49,8 @@ type ScheduleDay = {
 
 const baseScheduleDates = ["2026-08-28", "2026-08-29", "2026-08-30"] as const;
 
-function buildScheduleDays(bookings: readonly PreviewBooking[], previewDate: string): readonly ScheduleDay[] {
-  return [...new Set([...baseScheduleDates, previewDate, ...bookings.map((booking) => booking.date)])]
+function buildScheduleDays(bookings: readonly PreviewBooking[], previewDate: string, selectedDate: string): readonly ScheduleDay[] {
+  return [...new Set([...baseScheduleDates, previewDate, selectedDate, ...bookings.map((booking) => booking.date)])]
     .toSorted()
     .map((date) => {
       const [, month, day] = date.split("-").map(Number);
@@ -55,6 +61,12 @@ function buildScheduleDays(bookings: readonly PreviewBooking[], previewDate: str
         today: date === previewDate,
       };
     });
+}
+
+function shiftScheduleDate(date: string, days: number): string {
+  const shifted = parseLocalDate(date);
+  shifted.setDate(shifted.getDate() + days);
+  return toDateInputValue(shifted);
 }
 
 const scheduleTimes = [
@@ -92,34 +104,35 @@ export function SpaManagerSchedulePreview({
   initialBookings = SPA_DEMO_BOOKINGS,
   previewDate = "2026-08-29",
   initialNotification = null,
+  initialReconciledDates = [],
 }: {
   initialProviders?: readonly PreviewProvider[];
   initialBookings?: readonly PreviewBooking[];
   previewDate?: string;
   initialNotification?: SpaDemoBookingNotification | null;
+  initialReconciledDates?: readonly string[];
 }) {
   const industryModule = SPA_INDUSTRY_MODULE;
   const activeProviders = initialProviders;
-  const scheduleDays = useMemo(
-    () => buildScheduleDays(initialBookings, previewDate),
-    [initialBookings, previewDate],
-  );
   const getActiveProvider = (providerId: string) => (
     activeProviders.find((provider) => provider.id === providerId) ?? activeProviders[0]
   );
   const [bookings, setBookings] = useState<PreviewBooking[]>(() => [...initialBookings]);
-  const [dayIndex, setDayIndex] = useState(() => {
-    const index = scheduleDays.findIndex((day) => day.key === previewDate);
-    return index >= 0 ? index : 1;
-  });
+  const [selectedDate, setSelectedDate] = useState(previewDate);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [selectedDailyGroupKey, setSelectedDailyGroupKey] = useState<string | null>(null);
+  const [isDailyReconciliationOpen, setIsDailyReconciliationOpen] = useState(false);
+  const [reconciledDates, setReconciledDates] = useState<ReadonlySet<string>>(() => new Set(initialReconciledDates));
   const [quickSlot, setQuickSlot] = useState<QuickSlot | null>(null);
   const [notice, setNotice] = useState("點選預約可查看詳情，點選空白時段可快速新增。");
   const [notification, setNotification] = useState<SpaDemoBookingNotification | null>(initialNotification);
   const [isCompleting, startCompleting] = useTransition();
 
-  const selectedDay = scheduleDays[dayIndex];
+  const scheduleDays = useMemo(
+    () => buildScheduleDays(bookings, previewDate, selectedDate),
+    [bookings, previewDate, selectedDate],
+  );
+  const selectedDay = scheduleDays.find((day) => day.key === selectedDate) ?? scheduleDays[0];
   const dayBookings = useMemo(
     () => bookings.filter((booking) => booking.date === selectedDay.key),
     [bookings, selectedDay.key],
@@ -144,21 +157,47 @@ export function SpaManagerSchedulePreview({
     [activeProviders, dayBookings],
   );
   const selectedDailyGroup = dailySummary.groups.find((group) => group.key === selectedDailyGroupKey) ?? null;
+  const isSelectedDayReconciled = reconciledDates.has(selectedDay.key);
 
-  function chooseDay(nextIndex: number) {
-    const safeIndex = Math.max(0, Math.min(scheduleDays.length - 1, nextIndex));
-    const nextDay = scheduleDays[safeIndex];
-    const firstBooking = bookings.find((booking) => booking.date === nextDay.key);
-    setDayIndex(safeIndex);
-    setSelectedBookingId(firstBooking?.id ?? null);
+  function chooseDay(date: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    const nextDay = buildScheduleDays(bookings, previewDate, date).find((day) => day.key === date);
+    if (!nextDay) return;
+    setSelectedDate(date);
+    setSelectedBookingId(null);
     setSelectedDailyGroupKey(null);
+    setIsDailyReconciliationOpen(false);
     setQuickSlot(null);
     setNotice(`${nextDay.shortLabel}（${nextDay.weekday}）排程已顯示。`);
+  }
+
+  function markDateUnreconciled(date: string) {
+    setReconciledDates((current) => {
+      if (!current.has(date)) return current;
+      const next = new Set(current);
+      next.delete(date);
+      return next;
+    });
+  }
+
+  function confirmDailyReconciliation() {
+    if (dailySummary.reconciliationStatus !== "READY") return;
+    const date = selectedDay.key;
+    startCompleting(async () => {
+      const result = await confirmSpaDemoDailyReconciliation({ date });
+      if (!result.success) {
+        setNotice(result.error);
+        return;
+      }
+      setReconciledDates((current) => new Set(current).add(result.data.date));
+      setNotice(`${formatDateWithWeekdayZh(result.data.date)}帳務已核對。`);
+    });
   }
 
   function openBooking(bookingId: string) {
     setSelectedBookingId(bookingId);
     setSelectedDailyGroupKey(null);
+    setIsDailyReconciliationOpen(false);
     setQuickSlot(null);
     setNotice("已開啟預約詳情。");
   }
@@ -167,11 +206,13 @@ export function SpaManagerSchedulePreview({
     setQuickSlot(slot);
     setSelectedBookingId(null);
     setSelectedDailyGroupKey(null);
+    setIsDailyReconciliationOpen(false);
     setNotice(`正在安排 ${slot.time} 的預約。`);
   }
 
   function updateBookingStatus(bookingIds: readonly string[], status: BookingStatus, settlementLabel?: string, settlementAmount?: number, storedValueBalance?: number | null, packageRemainingSessions?: number | null) {
     if (!bookingIds.length) return;
+    bookings.filter((booking) => bookingIds.includes(booking.id)).forEach((booking) => markDateUnreconciled(booking.date));
     setBookings((current) => current.map((booking) => {
       const isTarget = bookingIds.includes(booking.id);
       const isLiveBooking = SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number]);
@@ -281,8 +322,9 @@ export function SpaManagerSchedulePreview({
         };
       });
       setBookings((current) => [...current.filter((booking) => !SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number])), ...nextBookings]);
-      const nextDayIndex = scheduleDays.findIndex((day) => day.key === bookingDate);
-      if (nextDayIndex >= 0) setDayIndex(nextDayIndex);
+      setSelectedDate(bookingDate);
+      markDateUnreconciled(selectedBooking.date);
+      markDateUnreconciled(bookingDate);
       setSelectedBookingId(nextBookings[0].id);
       setNotification(result.data.notification);
       setNotice(`${customer} 共 ${guests.length} 位的預約已更新。`);
@@ -290,6 +332,7 @@ export function SpaManagerSchedulePreview({
   }
 
   function cancelBooking(scope: "GUEST" | "GROUP", bookingId: string) {
+    selectedGroupBookings.forEach((booking) => markDateUnreconciled(booking.date));
     startCompleting(async () => {
       const result = await cancelSpaDemoBooking({ bookingId, scope });
       if (!result.success) {
@@ -385,6 +428,7 @@ export function SpaManagerSchedulePreview({
         ...current.filter((booking) => !SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number])),
         ...nextBookings,
       ]);
+      markDateUnreconciled(quickSlot.date);
       setSelectedBookingId(nextBookings[0].id);
       setQuickSlot(null);
       setNotification(result.data.notification);
@@ -446,19 +490,28 @@ export function SpaManagerSchedulePreview({
             <button type="button" onClick={openFirstAvailableSlot} className="min-h-10 shrink-0 rounded-xl bg-earth-900 px-4 font-semibold text-white">＋ 現場快速預約</button>
           </div>
 
-          <section className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="今日營運摘要">
+          <section className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="當日營運摘要">
             <MetricCard label="預約人次" value={String(dailySummary.bookingCount)} unit="位" detail={`${dailySummary.groups.length} 組預約`} />
             <MetricCard label="已完成" value={String(dailySummary.completedCount)} unit="位" detail={newCustomerCount ? `含 ${newCustomerCount} 位新客` : "服務完成即列入"} />
-            <MetricCard label="今日實收" value={`NT$${dailySummary.paidAmount.toLocaleString()}`} unit="" detail="整組付款只計算一次" emphasized />
-            <MetricCard label="待服務" value={String(activeCount)} unit="位" detail={activeCount ? "點預約即可完成結帳" : "今日服務已完成"} />
+            <MetricCard label="當日實收" value={`NT$${dailySummary.paidAmount.toLocaleString()}`} unit="" detail="整組付款只計算一次" emphasized />
+            <MetricCard label="待服務" value={String(activeCount)} unit="位" detail={activeCount ? "點預約即可完成結帳" : "當日服務已完成"} />
           </section>
 
           <DailyOperationsSection
             summary={dailySummary}
+            date={selectedDay.key}
+            isReconciled={isSelectedDayReconciled}
             onOpenGroup={(key) => {
               setSelectedBookingId(null);
               setQuickSlot(null);
+              setIsDailyReconciliationOpen(false);
               setSelectedDailyGroupKey(key);
+            }}
+            onOpenReconciliation={() => {
+              setSelectedBookingId(null);
+              setQuickSlot(null);
+              setSelectedDailyGroupKey(null);
+              setIsDailyReconciliationOpen(true);
             }}
           />
 
@@ -468,7 +521,7 @@ export function SpaManagerSchedulePreview({
                 <div>
                   <h2 className="text-lg font-semibold">時間 × 芳療師</h2>
                 </div>
-                <DateSelector days={scheduleDays} dayIndex={dayIndex} onChooseDay={chooseDay} />
+                <DateSelector selectedDate={selectedDay.key} onChooseDay={chooseDay} />
               </div>
 
               <div className="overflow-x-auto">
@@ -509,14 +562,22 @@ export function SpaManagerSchedulePreview({
         </main>
       </div>
 
-      {quickSlot || selectedBooking || selectedDailyGroup ? (
-        <div className="fixed inset-0 z-50 bg-black/25" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); setSelectedDailyGroupKey(null); }}>
-          <aside className="ml-auto h-full w-full max-w-[430px] overflow-y-auto bg-[#f7f5f0] p-5 shadow-2xl" aria-label={selectedDailyGroup ? "每日帳務右側明細面板" : "預約右側操作面板"} onClick={(event) => event.stopPropagation()}>
+      {quickSlot || selectedBooking || selectedDailyGroup || isDailyReconciliationOpen ? (
+        <div className="fixed inset-0 z-50 bg-black/25" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); setSelectedDailyGroupKey(null); setIsDailyReconciliationOpen(false); }}>
+          <aside className="ml-auto h-full w-full max-w-[430px] overflow-y-auto bg-[#f7f5f0] p-5 shadow-2xl" aria-label={isDailyReconciliationOpen ? "每日帳務核對右側面板" : selectedDailyGroup ? "每日帳務右側明細面板" : "預約右側操作面板"} onClick={(event) => event.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-semibold text-earth-700">{selectedDailyGroup ? "帳務明細" : "預約操作"}</p>
-              <button type="button" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); setSelectedDailyGroupKey(null); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-600">關閉</button>
+              <p className="text-sm font-semibold text-earth-700">{isDailyReconciliationOpen ? "每日帳務核對" : selectedDailyGroup ? "帳務明細" : "預約操作"}</p>
+              <button type="button" onClick={() => { setQuickSlot(null); setSelectedBookingId(null); setSelectedDailyGroupKey(null); setIsDailyReconciliationOpen(false); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-earth-600">關閉</button>
             </div>
-            {selectedDailyGroup ? (
+            {isDailyReconciliationOpen ? (
+              <DailyReconciliationDetail
+                date={selectedDay.key}
+                summary={dailySummary}
+                isReconciled={isSelectedDayReconciled}
+                onConfirm={confirmDailyReconciliation}
+                isConfirming={isCompleting}
+              />
+            ) : selectedDailyGroup ? (
               <DailyGroupDetail
                 group={selectedDailyGroup}
                 bookings={dayBookings.filter((booking) => selectedDailyGroup.bookingIds.includes(booking.id))}
@@ -534,16 +595,18 @@ export function SpaManagerSchedulePreview({
   );
 }
 
-function DateSelector({ days, dayIndex, onChooseDay }: { days: readonly ScheduleDay[]; dayIndex: number; onChooseDay: (index: number) => void }) {
+function DateSelector({ selectedDate, onChooseDay }: { selectedDate: string; onChooseDay: (date: string) => void }) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto" aria-label="選擇排程日期">
-      <button type="button" disabled={dayIndex === 0} onClick={() => onChooseDay(dayIndex - 1)} className="min-h-10 shrink-0 rounded-lg border border-earth-200 bg-earth-50 px-3 text-earth-600 disabled:opacity-35">前一天</button>
-      {days.map((day, index) => (
-        <button type="button" key={day.key} onClick={() => onChooseDay(index)} aria-pressed={dayIndex === index} className={`min-h-10 shrink-0 rounded-lg px-3 font-semibold ${dayIndex === index ? "bg-earth-900 text-white" : "border border-earth-200 bg-white text-earth-600"}`}>
-          {day.shortLabel}（{day.weekday}）{day.today ? " 今天" : ""}
-        </button>
-      ))}
-      <button type="button" disabled={dayIndex === days.length - 1} onClick={() => onChooseDay(dayIndex + 1)} className="min-h-10 shrink-0 rounded-lg border border-earth-200 bg-earth-50 px-3 text-earth-600 disabled:opacity-35">後一天</button>
+    <div className="flex flex-wrap items-center gap-2" aria-label="選擇排程日期">
+      <button type="button" onClick={() => onChooseDay(shiftScheduleDate(selectedDate, -1))} className="min-h-10 shrink-0 rounded-lg border border-earth-200 bg-earth-50 px-3 text-earth-600">前一天</button>
+      <input
+        type="date"
+        aria-label="查詢日期"
+        value={selectedDate}
+        onChange={(event) => onChooseDay(event.target.value)}
+        className="min-h-10 rounded-lg border border-earth-200 bg-white px-3 font-semibold text-earth-700"
+      />
+      <button type="button" onClick={() => onChooseDay(shiftScheduleDate(selectedDate, 1))} className="min-h-10 shrink-0 rounded-lg border border-earth-200 bg-earth-50 px-3 text-earth-600">後一天</button>
     </div>
   );
 }
@@ -775,11 +838,34 @@ function QuickBookingForm({ providers, slot, onCancel, onSubmit, isSubmitting }:
   );
 }
 
-function DailyOperationsSection({ summary, onOpenGroup }: { summary: SpaDailySummary; onOpenGroup: (key: string) => void }) {
+function DailyOperationsSection({
+  summary,
+  date,
+  isReconciled,
+  onOpenGroup,
+  onOpenReconciliation,
+}: {
+  summary: SpaDailySummary;
+  date: string;
+  isReconciled: boolean;
+  onOpenGroup: (key: string) => void;
+  onOpenReconciliation: () => void;
+}) {
+  const reconciliationLabel = isReconciled
+    ? "已核對"
+    : summary.reconciliationStatus === "READY"
+      ? "待核對"
+      : summary.reconciliationStatus === "PENDING"
+        ? "尚未完成"
+        : "無需核對";
   return (
     <section className="mt-6 overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(74,66,53,0.06)] ring-1 ring-earth-200/70" aria-label="每日營運與帳務總覽">
-      <div className="border-b border-earth-100 px-5 py-5">
-        <h2 className="text-lg font-semibold">每日營運與帳務</h2>
+      <div className="flex items-center justify-between gap-3 border-b border-earth-100 px-5 py-5">
+        <div>
+          <h2 className="text-lg font-semibold">每日營運與帳務</h2>
+          <p className="mt-1 text-sm text-earth-500">{formatDateWithWeekdayZh(date)}</p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isReconciled ? "bg-primary-100 text-primary-800" : "bg-earth-100 text-earth-600"}`}>{reconciliationLabel}</span>
       </div>
       <div className="grid lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)]">
         <div className="border-b border-earth-100 p-5 lg:border-b-0 lg:border-r">
@@ -830,8 +916,76 @@ function DailyOperationsSection({ summary, onOpenGroup }: { summary: SpaDailySum
               )) : <p className="text-sm text-earth-500">尚無完成服務</p>}
             </div>
           </div>
+          <div className="mt-4 border-t border-earth-100 pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-semibold">帳務核對</h3>
+                <p className="mt-1 text-xs text-earth-500">{reconciliationLabel}</p>
+              </div>
+              <button type="button" onClick={onOpenReconciliation} className="min-h-10 rounded-xl border border-earth-200 bg-white px-3 text-sm font-semibold text-earth-700">查看／核對</button>
+            </div>
+          </div>
         </div>
       </div>
+    </section>
+  );
+}
+
+function DailyReconciliationDetail({
+  date,
+  summary,
+  isReconciled,
+  onConfirm,
+  isConfirming,
+}: {
+  date: string;
+  summary: SpaDailySummary;
+  isReconciled: boolean;
+  onConfirm: () => void;
+  isConfirming: boolean;
+}) {
+  return (
+    <section className="rounded-2xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
+      <p className="text-xs text-earth-500">{formatDateWithWeekdayZh(date)}</p>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-earth-900">每日結帳核對</h2>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isReconciled ? "bg-primary-100 text-primary-800" : "bg-earth-100 text-earth-600"}`}>
+          {isReconciled ? "已核對" : summary.reconciliationStatus === "READY" ? "待核對" : summary.reconciliationStatus === "PENDING" ? "尚未完成" : "無需核對"}
+        </span>
+      </div>
+
+      <div className="mt-5 divide-y divide-earth-100 border-y border-earth-100 text-sm">
+        <div className="flex justify-between gap-3 py-3"><span className="text-earth-500">預約人次</span><span className="font-semibold">{summary.bookingCount} 位</span></div>
+        <div className="flex justify-between gap-3 py-3"><span className="text-earth-500">完成服務</span><span className="font-semibold">{summary.completedCount} 位</span></div>
+        <div className="flex justify-between gap-3 py-3"><span className="text-earth-500">服務總額</span><span className="font-semibold tabular-nums">NT${summary.expectedAmount.toLocaleString()}</span></div>
+        <div className="flex justify-between gap-3 py-3"><span className="text-earth-500">當日實收</span><span className="font-semibold tabular-nums">NT${summary.paidAmount.toLocaleString()}</span></div>
+      </div>
+
+      {summary.payments.length ? (
+        <div className="mt-4">
+          <h3 className="font-semibold">付款方式</h3>
+          <div className="mt-2 space-y-2 text-sm">
+            {summary.payments.map((payment) => (
+              <div key={payment.method} className="flex justify-between gap-3">
+                <span className="text-earth-500">{payment.method}・{payment.count} 筆</span>
+                <span className="font-semibold tabular-nums">NT${payment.amount.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {summary.reconciliationStatus === "PENDING" ? (
+        <div className="mt-5 rounded-xl bg-[#f6f0e5] px-3.5 py-3 text-sm text-[#765f38]">
+          {summary.unsettledGroupCount ? `${summary.unsettledGroupCount} 組尚未完成結帳` : `${summary.unrecordedPaymentCount} 組付款方式未記錄`}
+        </div>
+      ) : null}
+
+      {summary.reconciliationStatus === "READY" && !isReconciled ? (
+        <button type="button" onClick={onConfirm} disabled={isConfirming} className="mt-5 min-h-12 w-full rounded-xl bg-earth-900 px-4 font-semibold text-white disabled:opacity-40">{isConfirming ? "核對中…" : "確認本日帳務"}</button>
+      ) : null}
+      {isReconciled ? <p className="mt-5 rounded-xl bg-primary-50 px-3.5 py-3 text-center text-sm font-semibold text-primary-800">本日帳務已核對</p> : null}
+      {summary.reconciliationStatus === "EMPTY" ? <p className="mt-5 text-center text-sm text-earth-500">這一天沒有預約資料</p> : null}
     </section>
   );
 }
@@ -870,7 +1024,7 @@ function DailyGroupDetail({ group, bookings, providers }: { group: SpaDailyGroup
       <div className="mt-4 space-y-2 text-sm">
         <div className="flex justify-between gap-3"><span className="text-earth-500">付款方式</span><span className="font-semibold text-earth-900">{group.paymentSummary}</span></div>
         <div className="flex justify-between gap-3"><span className="text-earth-500">服務總額</span><span className="font-semibold tabular-nums text-earth-900">NT${group.expectedAmount.toLocaleString()}</span></div>
-        <div className="flex justify-between gap-3 border-t border-earth-100 pt-3"><span className="font-semibold text-earth-900">今日實收</span><span className="text-lg font-semibold tabular-nums text-earth-900">NT${group.paidAmount.toLocaleString()}</span></div>
+        <div className="flex justify-between gap-3 border-t border-earth-100 pt-3"><span className="font-semibold text-earth-900">當日實收</span><span className="text-lg font-semibold tabular-nums text-earth-900">NT${group.paidAmount.toLocaleString()}</span></div>
       </div>
     </section>
   );

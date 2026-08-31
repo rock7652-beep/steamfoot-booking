@@ -103,6 +103,9 @@ describe("SPA Demo tenant isolation", () => {
     expect(manager).toContain('"預約右側操作面板"');
     expect(manager).toContain('aria-label="每日營運與帳務總覽"');
     expect(manager).toContain('"每日帳務右側明細面板"');
+    expect(manager).toContain('aria-label="查詢日期"');
+    expect(manager).toContain('"每日帳務核對右側面板"');
+    expect(manager).toContain("確認本日帳務");
     expect(manager).toContain("整組付款只計算一次");
     expect(manager).toContain("DailyGroupDetail");
     expect(manager).toContain('className="overflow-x-auto"');
@@ -111,6 +114,24 @@ describe("SPA Demo tenant isolation", () => {
     expect(manager).toContain("完成服務與結帳");
     expect(manager).not.toContain("確認到店");
     expect(manager).not.toContain("開始服務");
+  });
+
+  it("keeps daily reconciliation durable and restricted to the Demo store", () => {
+    const action = readFileSync(
+      "src/server/actions/spa-demo-daily-reconciliation.ts",
+      "utf8",
+    );
+    const query = readFileSync(
+      "src/server/queries/spa-demo-daily-reconciliation.ts",
+      "utf8",
+    );
+
+    expect(action).toContain('process.env.VERCEL_ENV === "production"');
+    expect(action).toContain("storeId: SPA_DEMO_STORE.id");
+    expect(action).toContain('triggeredBy: "spa_demo_manager"');
+    expect(action).toContain('summary.reconciliationStatus !== "READY"');
+    expect(query).toContain("storeId: SPA_DEMO_STORE.id");
+    expect(query).toContain('triggeredBy: "spa_demo_manager"');
   });
 
   it("connects one fixed Demo customer booking to manager and provider views", () => {

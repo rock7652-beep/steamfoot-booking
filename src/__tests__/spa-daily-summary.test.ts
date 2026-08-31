@@ -41,6 +41,12 @@ describe("SPA daily operations and accounting summary", () => {
     ], providers);
 
     expect(summary.paidAmount).toBe(5000);
+    expect(summary).toMatchObject({
+      expectedAmount: 5000,
+      unsettledGroupCount: 0,
+      unrecordedPaymentCount: 0,
+      reconciliationStatus: "READY",
+    });
     expect(summary.groups).toHaveLength(1);
     expect(summary.groups[0]).toMatchObject({ checkoutMode: "整組付款", paidAmount: 5000, people: 3 });
     expect(summary.payments).toContainEqual({ method: "現金", count: 1, amount: 5000 });
@@ -67,8 +73,36 @@ describe("SPA daily operations and accounting summary", () => {
       booking({ id: "booking-1", status: "已確認", tone: "sage", settlementAmount: null, settlementLabel: null }),
     ], providers);
 
-    expect(summary).toMatchObject({ bookingCount: 1, completedCount: 0, pendingCount: 1, paidAmount: 0 });
+    expect(summary).toMatchObject({
+      bookingCount: 1,
+      completedCount: 0,
+      pendingCount: 1,
+      paidAmount: 0,
+      unsettledGroupCount: 1,
+      reconciliationStatus: "PENDING",
+    });
     expect(summary.groups[0]).toMatchObject({ checkoutMode: "待結帳", paymentSummary: "尚未結帳" });
     expect(summary.payments).toEqual([]);
+  });
+
+  it("requires a recorded payment method before daily reconciliation", () => {
+    const summary = buildSpaDailySummary([
+      booking({ settlementAmount: null, settlementLabel: null }),
+    ], providers);
+
+    expect(summary).toMatchObject({
+      completedCount: 1,
+      unrecordedPaymentCount: 1,
+      reconciliationStatus: "PENDING",
+    });
+  });
+
+  it("marks a day without bookings as not requiring reconciliation", () => {
+    expect(buildSpaDailySummary([], providers)).toMatchObject({
+      bookingCount: 0,
+      expectedAmount: 0,
+      paidAmount: 0,
+      reconciliationStatus: "EMPTY",
+    });
   });
 });
