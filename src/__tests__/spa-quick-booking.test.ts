@@ -40,15 +40,14 @@ describe("SPA quick booking", () => {
     expect(schedule).toContain("<SpaQuickBookingDrawer");
     expect(action).toContain("await requireSpaStore(storeId)");
     expect(action).toContain("storeId !== SPA_DEMO_STORE.id");
-    expect(action).toContain('bookingType: "SINGLE"');
+    expect(action).toContain("tx.spaBooking.create");
   });
 
   it("locks 15-minute SPA ranges at the configured granularity", () => {
-    const bookingAction = readFileSync("src/server/actions/booking.ts", "utf8");
-    expect(bookingAction).toContain(
-      "dayCtx.rule.slotInterval === 15 ? 15 : 30",
-    );
-    expect(bookingAction).toContain("index * spaLockInterval");
+    const bookingAction = readFileSync("src/server/actions/spa-quick-booking.ts", "utf8");
+    expect(bookingAction).toContain("pg_advisory_xact_lock");
+    expect(bookingAction).toContain("startTime: { lt: endTime }");
+    expect(bookingAction).toContain("endTime: { gt: data.slotTime }");
   });
 
   it("keeps on-site checkout inside the SPA Demo boundary", () => {
@@ -79,13 +78,13 @@ describe("SPA quick booking", () => {
   });
 
   it("keeps stored value as a monetary ledger instead of a service plan", () => {
-    const schema = readFileSync("prisma/schema.prisma", "utf8");
+    const schema = readFileSync("spa-prisma/schema.prisma", "utf8");
     const migration = readFileSync(
       "prisma/migrations/20260830093000_add_spa_stored_value_wallet/migration.sql",
       "utf8",
     );
-    expect(schema).toContain("model StoredValueWallet");
-    expect(schema).toContain("model StoredValueLedgerEntry");
+    expect(schema).toContain("model SpaStoredValueWallet");
+    expect(schema).toContain("model SpaStoredValueEntry");
     expect(migration).toContain("StoredValueWallet_balance_nonnegative");
     expect(migration).toContain(
       'CREATE UNIQUE INDEX "StoredValueLedgerEntry_bookingId_key"',

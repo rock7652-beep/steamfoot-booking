@@ -63,7 +63,6 @@ export async function collectSinglePayment(
         serviceStaffId: true,
         servicePlanId: true,
         expectedAmount: true,
-        treatmentPriceSnapshot: true,
         bookingDate: true,
         slotTime: true,
         servicePlan: { select: { price: true } },
@@ -85,13 +84,9 @@ export async function collectSinglePayment(
       );
     }
 
-    // SPA 預約以建立當下的服務組合總價快照為準；非 SPA 舊資料再沿用
-    // servicePlan.price，最後才使用歷史 fallback。
     // 實收：未傳 amount → 預設等於原價（= 全價）。
     const originalAmount =
-      booking.treatmentPriceSnapshot != null
-        ? Number(booking.treatmentPriceSnapshot)
-        : booking.expectedAmount != null
+      booking.expectedAmount != null
           ? Number(booking.expectedAmount)
           : booking.servicePlan?.price != null
             ? Number(booking.servicePlan.price)

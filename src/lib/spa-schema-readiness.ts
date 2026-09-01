@@ -1,33 +1,26 @@
-import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 
 export async function isSpaOperationalSchemaReady(): Promise<boolean> {
   try {
-    const [result] = await prisma.$queryRaw<Array<{ ready: boolean }>>`
+    const [result] = await spaPrisma.$queryRaw<Array<{ ready: boolean }>>`
       SELECT
         (
-          SELECT COUNT(*) = 6
+          SELECT COUNT(*) = 14
           FROM information_schema.tables
           WHERE table_schema = 'public'
             AND table_name IN (
-              'ProfessionalSkill',
-              'Treatment',
-              'TreatmentSkill',
-              'StaffSkill',
-              'StaffWeeklyAvailability',
-              'StaffAvailabilityException'
+              'SpaBooking', 'SpaBookingItem', 'SpaEntitlement',
+              'SpaEntitlementUse', 'SpaPayment', 'SpaStoredValueWallet',
+              'SpaStoredValueEntry', 'SpaTreatment', 'SpaSkill',
+              'SpaTreatmentSkill', 'SpaStaffSkill', 'SpaStaffAvailability',
+              'SpaStaffAvailabilityException', 'SpaStaffCompensation'
             )
         )
         AND EXISTS (
           SELECT 1 FROM information_schema.columns
           WHERE table_schema = 'public'
-            AND table_name = 'Booking'
-            AND column_name = 'treatmentServiceMinutesSnapshot'
-        )
-        AND EXISTS (
-          SELECT 1 FROM information_schema.columns
-          WHERE table_schema = 'public'
-            AND table_name = 'Booking'
-            AND column_name = 'treatmentBufferMinutesSnapshot'
+            AND table_name = 'SpaBooking'
+            AND column_name = 'partyGroupId'
         ) AS ready
     `;
     return result?.ready === true;
@@ -41,7 +34,7 @@ export async function isSpaOperationalSchemaReady(): Promise<boolean> {
 
 export async function isSpaCompensationSchemaReady(): Promise<boolean> {
   try {
-    const [result] = await prisma.$queryRaw<Array<{ ready: boolean }>>`
+    const [result] = await spaPrisma.$queryRaw<Array<{ ready: boolean }>>`
       SELECT to_regclass('public."SpaStaffCompensation"') IS NOT NULL AS ready
     `;
     return result?.ready === true;

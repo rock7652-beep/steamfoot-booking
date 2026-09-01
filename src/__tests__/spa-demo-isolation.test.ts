@@ -42,10 +42,10 @@ describe("SPA Demo tenant isolation", () => {
       "src/server/actions/booking-drawer.ts",
       "utf8",
     );
-    expect(drawer).toContain("if (!includeStoredValue)");
     expect(drawer).toContain("select: singleTransactionSelect");
-    expect(drawer).toContain("isSpaDemoStoreId(booking.storeId)");
-    expect(drawer).toContain("optional stored-value ledger table unavailable");
+    expect(drawer).toContain("fetchSpaBookingDetail");
+    expect(drawer).toContain("spaPrisma.spaStoredValueWallet");
+    expect(drawer).not.toContain("prisma.storedValueWallet");
   });
 
   it("allows headquarters to select the Demo store through an explicit store view", () => {
@@ -97,7 +97,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(schedule).toContain('className="min-h-[460px] flex-1 overflow-auto"');
     expect(SPA_DEMO_PROVIDERS.every((provider) => provider.specialties && provider.emergencyContact.phone)).toBe(true);
     const operations = readFileSync("src/server/actions/spa-operations.ts", "utf8");
-    expect(operations).toContain('bookingStatus: { in: ["PENDING", "CONFIRMED"] }');
+    expect(operations).toContain('status: { in: ["PENDING", "CONFIRMED"] }');
     expect(operations).toContain("請先更換芳療師後再設定請假");
   });
 
@@ -159,7 +159,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).toContain('triggeredBy: "spa_demo_manager"');
     expect(action).toContain('triggeredBy: "spa_demo_manager_adjustment"');
     expect(action).toContain("adjustSpaDemoDailySettlement");
-    expect(action).toContain("prisma.$transaction");
+    expect(action).toContain("spaPrisma.$transaction");
     expect(action).toContain('status: "mismatch"');
     expect(action).toContain("reason: z.string().trim().min(2).max(80)");
     expect(action).toContain('summary.reconciliationStatus !== "READY"');
@@ -241,7 +241,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME");
     expect(action).toContain('bookingSource: z.enum(["CUSTOMER", "MANAGER"])');
     expect(action).toContain('bookingOperation: z.enum(["CREATE", "UPDATE"])');
-    expect(action).toContain('bookedByType: data.bookingSource === "MANAGER" ? "STAFF" : "CUSTOMER"');
+    expect(action).toContain("tx.spaBooking.create");
     expect(action).toContain('process.env.VERCEL_ENV === "production"');
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_CUSTOMER_ID");
     expect(action).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
@@ -249,12 +249,12 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).toContain("guests: z.array");
     expect(action).toContain("new Set(providerIds).size !== people");
     expect(action).toContain("guestServices[index]");
-    expect(action).toContain('startsWith: "spa-demo-transaction-live-split-"');
+    expect(action).toContain("spaPayment.deleteMany");
     expect(action).toContain("excludeBookingIds: SPA_DEMO_LIVE_FLOW_BOOKING_IDS");
     expect(action).toContain("getSpaDemoBookableProviders");
     expect(action).toContain("isSpaProviderAvailable");
     expect(action).toContain('storeId: SPA_DEMO_STORE.id');
-    expect(action).toContain('bookingStatus: "CONFIRMED"');
+    expect(action).toContain('status: "CONFIRMED"');
     expect(action).toContain('revalidatePath("/dashboard/bookings")');
     expect(action).toContain('revalidatePath("/staff-schedule")');
     expect(action).toContain("saveSpaDemoBookingNotification");
@@ -263,18 +263,16 @@ describe("SPA Demo tenant isolation", () => {
     expect(checkout).toContain('process.env.VERCEL_ENV === "production"');
     expect(checkout).toContain("z.enum(SPA_DEMO_LIVE_FLOW_BOOKING_IDS)");
     expect(checkout).toContain('storeId: SPA_DEMO_STORE.id');
-    expect(checkout).toContain('bookingStatus: "COMPLETED"');
-    expect(checkout).toContain("storedValueLedgerEntry.create");
-    expect(checkout).toContain('parsed.data.settlement === "PACKAGE" ? "SESSION_DEDUCTION" : "SINGLE_PURCHASE"');
-    expect(checkout).toContain('status: "RESERVED"');
     expect(checkout).toContain('status: "COMPLETED"');
-    expect(checkout).toContain("remainingSessions: { gte: partySize }");
-    expect(checkout).toContain("take: partySize");
-    expect(checkout).toContain("bookingIds: group.map");
+    expect(checkout).toContain("spaStoredValueEntry.create");
+    expect(checkout).toContain("spaPayment.create");
+    expect(checkout).toContain('status: "COMPLETED"');
+    expect(checkout).toContain("remainingUses");
+    expect(checkout).toContain("bookingIds: bookings.map");
     expect(checkout).toContain("SPA_DEMO_GROUP_INCOMPLETE");
     expect(checkout).toContain("completeSpaDemoGuestBooking");
-    expect(checkout).toContain("guestInputSchema");
-    expect(checkout).toContain("此位尚未結帳");
+    expect(checkout).toContain("const inputSchema");
+    expect(checkout).toContain('const subject = group ? "整組" : "此位"');
     expect(checkout).toContain("同行者尚未連結會員，請改用現金或刷卡");
     expect(checkout).toContain('revalidatePath("/liff/staff-preview")');
     expect(manager).toContain("完成服務與結帳");
@@ -299,14 +297,13 @@ describe("SPA Demo tenant isolation", () => {
     expect(management).toContain('scope: z.enum(["GUEST", "GROUP"])');
     expect(management).toContain("FOR UPDATE");
     expect(management).toContain('storeId: SPA_DEMO_STORE.id');
-    expect(management).toContain('bookingStatus: "CANCELLED"');
+    expect(management).toContain('status: "CANCELLED"');
     expect(management).toContain('revalidatePath("/liff/staff-preview")');
     expect(management).toContain("saveSpaDemoBookingNotification");
     expect(refund).toContain('process.env.VERCEL_ENV === "production"');
     expect(refund).toContain("storeId: SPA_DEMO_STORE.id");
-    expect(refund).toContain('transactionType: "REFUND"');
-    expect(refund).toContain('status: "AVAILABLE"');
-    expect(refund).toContain('entryType: "CREDIT"');
+    expect(refund).toContain("refundOfPaymentId");
+    expect(refund).toContain('entryType: "REFUND"');
     expect(refund).toContain('triggeredBy: "spa_demo_manager_refund"');
     expect(refund).toContain("refundReason: parsed.data.reason");
     expect(staffPreview).toContain("已退款");
@@ -317,7 +314,7 @@ describe("SPA Demo tenant isolation", () => {
   });
 
   it("stores SPA compensation separately and never writes it for formal stores", () => {
-    const schema = readFileSync("prisma/schema.prisma", "utf8");
+    const schema = readFileSync("spa-prisma/schema.prisma", "utf8");
     const migration = readFileSync("prisma/migrations/20260831140000_add_spa_staff_compensation/migration.sql", "utf8");
     const staffAction = readFileSync("src/server/actions/staff.ts", "utf8");
     const spaAction = readFileSync("src/server/actions/spa-operations.ts", "utf8");
@@ -329,10 +326,10 @@ describe("SPA Demo tenant isolation", () => {
     expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
     expect(migration).toContain("FORCE ROW LEVEL SECURITY");
     expect(staffAction).toContain("isSpaDemoStoreId(writeStoreId)");
-    expect(staffAction).toContain("spaCompensationSetting");
-    expect(staffAction).toContain("spaSkillKeys");
-    expect(staffAction).toContain("spaWeeklyAvailability");
-    expect(staffAction).toContain("prisma.$transaction");
+    expect(staffAction).toContain("data.spaCompensation");
+    expect(staffAction).toContain("data.spaSkillKeys");
+    expect(staffAction).toContain("data.spaWeeklyAvailability");
+    expect(staffAction).toContain("spaPrisma.$transaction");
     expect(spaAction).toContain("saveSpaStaffCompensation");
     expect(spaAction).toContain("saveSpaStaffSetup");
     expect(spaAction).toContain('requireSpaDemoWrite("staff.manage")');
@@ -347,9 +344,20 @@ vi.mock("@/lib/db", () => ({
     store: { findFirst: vi.fn() },
     staff: { findMany: vi.fn() },
     booking: { findMany: vi.fn() },
-    storedValueWallet: { findFirst: vi.fn() },
     customerPlanWallet: { findFirst: vi.fn() },
     messageLog: { findFirst: vi.fn() },
+  },
+}));
+vi.mock("@/lib/spa-db", () => ({
+  spaPrisma: {
+    $queryRaw: vi.fn().mockResolvedValue([{ ready: true }]),
+    spaStaffSkill: { findMany: vi.fn().mockResolvedValue([]) },
+    spaStaffAvailability: { findMany: vi.fn().mockResolvedValue([]) },
+    spaStaffAvailabilityException: { findMany: vi.fn().mockResolvedValue([]) },
+    spaBooking: { findMany: vi.fn() },
+    spaStoredValueWallet: { findFirst: vi.fn().mockResolvedValue(null) },
+    spaEntitlement: { findFirst: vi.fn().mockResolvedValue(null) },
+    spaStaffCompensation: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 
@@ -357,6 +365,7 @@ describe("SPA Demo preview database scoping", () => {
   it("pins all data reads to demo-store", async () => {
     process.env.SPA_DEMO_DATABASE_PREVIEW_ENABLED = "true";
     const { prisma } = await import("@/lib/db");
+    const { spaPrisma } = await import("@/lib/spa-db");
     vi.mocked(prisma.store.findFirst).mockResolvedValue({
       id: SPA_DEMO_STORE.id,
       slug: SPA_DEMO_STORE.slug,
@@ -365,8 +374,7 @@ describe("SPA Demo preview database scoping", () => {
       shopConfig: { address: SPA_DEMO_STORE.address, mapUrl: SPA_DEMO_STORE.mapUrl },
     } as never);
     vi.mocked(prisma.staff.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.booking.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.storedValueWallet.findFirst).mockResolvedValue(null);
+    vi.mocked(spaPrisma.spaBooking.findMany).mockResolvedValue([]);
     vi.mocked(prisma.customerPlanWallet.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.messageLog.findFirst).mockResolvedValue(null);
 
@@ -381,7 +389,7 @@ describe("SPA Demo preview database scoping", () => {
         isOwner: false,
       }),
     }));
-    expect(prisma.booking.findMany).toHaveBeenCalledWith(expect.objectContaining({
+    expect(spaPrisma.spaBooking.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ storeId: SPA_DEMO_STORE.id }),
     }));
     expect(prisma.messageLog.findFirst).toHaveBeenCalledWith(expect.objectContaining({
@@ -412,6 +420,7 @@ describe("SPA Demo preview database scoping", () => {
   it("fails closed when a Demo booking points at a formal-store relation", async () => {
     process.env.SPA_DEMO_DATABASE_PREVIEW_ENABLED = "true";
     const { prisma } = await import("@/lib/db");
+    const { spaPrisma } = await import("@/lib/spa-db");
     vi.mocked(prisma.store.findFirst).mockResolvedValue({
       id: SPA_DEMO_STORE.id,
       slug: SPA_DEMO_STORE.slug,
@@ -420,19 +429,20 @@ describe("SPA Demo preview database scoping", () => {
       shopConfig: null,
     } as never);
     vi.mocked(prisma.staff.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.booking.findMany).mockResolvedValue([{
+    vi.mocked(spaPrisma.spaBooking.findMany).mockResolvedValue([{
       id: "spa-demo-booking-lin",
       bookingDate: new Date("2026-08-29T00:00:00.000Z"),
-      slotTime: "10:00",
-      bookingStatus: "CONFIRMED",
-      bookingType: "FIRST_TRIAL",
+      startTime: "10:00",
+      status: "CONFIRMED",
       notes: null,
-      serviceStaffId: null,
-      customer: { name: "正式顧客", storeId: "formal-store" },
-      servicePlan: null,
-      customerPlanWallet: null,
+      serviceStaffId: "formal-staff",
+      serviceNameSnapshot: "SPA 服務",
+      totalPriceSnapshot: 1000,
+      partyGroupId: null,
+      guestIndex: 1,
+      items: [],
+      payments: [],
     }] as never);
-    vi.mocked(prisma.storedValueWallet.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.customerPlanWallet.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.messageLog.findFirst).mockResolvedValue(null);
 

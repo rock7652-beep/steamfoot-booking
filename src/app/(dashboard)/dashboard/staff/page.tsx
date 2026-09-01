@@ -13,7 +13,7 @@ import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import { SPA_DEMO_PROVIDERS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { StaffWorkspace, type StaffWorkspacePerson } from "./staff-workspace";
 import type { UserRole } from "@prisma/client";
-import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
@@ -48,16 +48,16 @@ export default async function StaffPage({
   const spaCompensationReady = isSpaDemo ? await isSpaCompensationSchemaReady() : false;
   const providerById = new Map(SPA_DEMO_PROVIDERS.map((provider) => [provider.id, provider]));
   let storedSkills: Array<{ staffId: string; skill: { id: string } }> = [];
-  let storedAvailability: Awaited<ReturnType<typeof prisma.staffWeeklyAvailability.findMany>> = [];
-  let storedExceptions: Awaited<ReturnType<typeof prisma.staffAvailabilityException.findMany>> = [];
-  let storedCompensation: Awaited<ReturnType<typeof prisma.spaStaffCompensation.findMany>> = [];
+  let storedAvailability: Array<{ staffId: string; dayOfWeek: number; startTime: string; endTime: string }> = [];
+  let storedExceptions: Array<{ staffId: string; date: Date; type: "UNAVAILABLE" | "AVAILABLE"; startTime: string | null; endTime: string | null; reason: string | null }> = [];
+  let storedCompensation: Array<{ staffId: string; mode: string; value: { toString(): string } }> = [];
   let spaStaffDataReady = spaSchemaReady;
   if (isSpaDemo && spaSchemaReady) {
     try {
       [storedSkills, storedAvailability, storedExceptions] = await Promise.all([
-        prisma.staffSkill.findMany({ where: { storeId: activeStoreId! }, include: { skill: { select: { id: true } } } }),
-        prisma.staffWeeklyAvailability.findMany({ where: { storeId: activeStoreId!, isActive: true }, orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] }),
-        prisma.staffAvailabilityException.findMany({ where: { storeId: activeStoreId!, date: { gte: parseTaiwanDateToDbDate(toLocalDateStr()) } }, orderBy: { date: "asc" } }),
+        spaPrisma.spaStaffSkill.findMany({ where: { storeId: activeStoreId! }, include: { skill: { select: { id: true } } } }),
+        spaPrisma.spaStaffAvailability.findMany({ where: { storeId: activeStoreId!, isActive: true }, orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] }),
+        spaPrisma.spaStaffAvailabilityException.findMany({ where: { storeId: activeStoreId!, date: { gte: parseTaiwanDateToDbDate(toLocalDateStr()) } }, orderBy: { date: "asc" } }),
       ]);
     } catch (error) {
       spaStaffDataReady = false;
@@ -68,7 +68,7 @@ export default async function StaffPage({
     }
   }
   if (isSpaDemo && spaCompensationReady) {
-    storedCompensation = await prisma.spaStaffCompensation.findMany({
+    storedCompensation = await spaPrisma.spaStaffCompensation.findMany({
       where: { storeId: activeStoreId!, isActive: true },
     });
   }

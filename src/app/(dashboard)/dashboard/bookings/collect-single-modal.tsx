@@ -11,6 +11,7 @@ import {
 } from "@/server/actions/booking-plan-purchase";
 import {
   settleSpaBookingWithPackage,
+  settleSpaBookingWithPayment,
   settleSpaBookingWithStoredValue,
 } from "@/server/actions/spa-checkout";
 
@@ -202,6 +203,22 @@ export function CollectSingleModal({
     }
 
     startTransition(async () => {
+      if (spaMode) {
+        const result = await settleSpaBookingWithPayment({
+          bookingId,
+          paymentMethod: method as "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER",
+          amount: amountNum,
+          note: note.trim() || undefined,
+          completeService,
+        });
+        if (result.success) {
+          toast.success(result.data.serviceCompleted ? "已收款並完成服務" : "已確認收款");
+          onCollected(result.data.serviceCompleted);
+        } else {
+          toast.error(result.error ?? "收款失敗");
+        }
+        return;
+      }
       const r = await collectSinglePayment({
         bookingId,
         paymentMethod: method as

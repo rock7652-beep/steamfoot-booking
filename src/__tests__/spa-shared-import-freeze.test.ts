@@ -26,8 +26,8 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/lib/permissions.ts",
   "src/lib/store-plan.ts",
   "src/server/actions/booking-drawer.ts",
-  "src/server/actions/booking.ts",
   "src/server/actions/staff.ts",
+  "src/server/queries/booking.ts",
 ].sort();
 
 function sourceFiles(directory: string): string[] {

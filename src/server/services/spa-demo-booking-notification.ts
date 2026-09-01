@@ -54,7 +54,7 @@ export async function saveSpaDemoBookingNotification(
       id: messageLogId,
       storeId: SPA_DEMO_STORE.id,
       customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
-      bookingId,
+      spaBookingId: bookingId,
       channel: "LINE",
       status: "PENDING",
       renderedBody,
@@ -62,7 +62,8 @@ export async function saveSpaDemoBookingNotification(
     update: {
       storeId: SPA_DEMO_STORE.id,
       customerId: SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
-      bookingId,
+      bookingId: null,
+      spaBookingId: bookingId,
       channel: "LINE",
       status: "PENDING",
       renderedBody,

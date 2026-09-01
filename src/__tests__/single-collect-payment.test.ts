@@ -283,7 +283,7 @@ describe("collectSinglePayment — original-price source + amount", () => {
     expect(lastTx().amount).toBe(799);
   });
 
-  it("uses the SPA treatment price snapshot before legacy servicePlan price", async () => {
+  it("uses the Steamfoot expectedAmount without reading retired SPA fields", async () => {
     h.bookingFindFirst.mockResolvedValue({
       id: "bk_spa",
       bookingType: "SINGLE",
@@ -292,7 +292,7 @@ describe("collectSinglePayment — original-price source + amount", () => {
       revenueStaffId: null,
       serviceStaffId: "spa_staff_10",
       servicePlanId: null,
-      treatmentPriceSnapshot: 1680,
+      expectedAmount: 1680,
       servicePlan: null,
       customer: { assignedStaffId: null },
     } as unknown as never);

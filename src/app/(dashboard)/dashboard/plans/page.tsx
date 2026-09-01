@@ -17,7 +17,7 @@ import type { PlanRow } from "./_components/plan-form-drawer";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { TreatmentWorkspace } from "./_components/treatment-workspace";
 import { INITIAL_TREATMENTS, type TreatmentRow } from "@/lib/spa-treatment-defaults";
-import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
@@ -72,7 +72,7 @@ export default async function PlansPage() {
     price: Number(p.price) as unknown as PlanRow["price"],
   }));
   const storedTreatments = isSpaDemo && spaSchemaReady && plansStoreId
-    ? await prisma.treatment.findMany({
+    ? await spaPrisma.spaTreatment.findMany({
         where: { storeId: plansStoreId, isActive: true },
         include: { skills: { include: { skill: { select: { id: true } } } } },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
