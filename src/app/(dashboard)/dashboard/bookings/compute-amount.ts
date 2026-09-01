@@ -74,6 +74,15 @@ export function computeAmount(
     return `NT$ ${booking.treatmentPriceSnapshot.toLocaleString()}`;
   }
 
+  // 蒸足「方案扣堂 → 單次」使用轉換當下的 expectedAmount 快照。
+  if (
+    booking.bookingType === "SINGLE" &&
+    booking.expectedAmount != null &&
+    booking.expectedAmount > 0
+  ) {
+    return `NT$ ${booking.expectedAmount.toLocaleString()}`;
+  }
+
   if (!booking.servicePlan) return "—";
   const price = booking.servicePlan.price;
   if (!price) return "—";

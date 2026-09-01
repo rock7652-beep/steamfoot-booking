@@ -30,7 +30,7 @@ import type { PaymentMethod, TransactionType } from "@prisma/client";
 //   - bookingType 必須是 SINGLE（不接受 FIRST_TRIAL / PACKAGE_SESSION）
 //   - 透過 booking.update 權限把關（規格）：能完成預約 → 才能完成收款；
 //     避免「可完成但不能收款」造成漏帳
-//   - 原價來自 booking.servicePlan?.price ?? 799（不走 shop-config）
+//   - 原價優先使用療程／單次快照，再 fallback servicePlan.price ?? 799
 //   - 不寫 CustomerPlanWallet / WalletSession / 不扣堂（wallet-free）
 //
 // 重複收款：同 booking 已有 SINGLE_PURCHASE + SUCCESS → 拒絕
@@ -60,6 +60,7 @@ export async function collectSinglePayment(
         revenueStaffId: true,
         serviceStaffId: true,
         servicePlanId: true,
+        expectedAmount: true,
         treatmentPriceSnapshot: true,
         bookingDate: true,
         slotTime: true,
@@ -88,9 +89,11 @@ export async function collectSinglePayment(
     const originalAmount =
       booking.treatmentPriceSnapshot != null
         ? Number(booking.treatmentPriceSnapshot)
-        : booking.servicePlan?.price != null
-          ? Number(booking.servicePlan.price)
-          : SINGLE_DEFAULT_PRICE;
+        : booking.expectedAmount != null
+          ? Number(booking.expectedAmount)
+          : booking.servicePlan?.price != null
+            ? Number(booking.servicePlan.price)
+            : SINGLE_DEFAULT_PRICE;
     const netAmount = data.amount ?? originalAmount;
     const paymentSplits = normalizePaymentSplits(data.paymentSplits, netAmount);
 

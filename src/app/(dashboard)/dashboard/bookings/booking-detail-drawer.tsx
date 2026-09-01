@@ -171,6 +171,7 @@ export function BookingDetailDrawer({
   const [correctOpen, setCorrectOpen] = useState(false);
   const [collectSingleOpen, setCollectSingleOpen] = useState(false);
   const [adjustCheckoutOpen, setAdjustCheckoutOpen] = useState(false);
+  const [adjustToSingleOpen, setAdjustToSingleOpen] = useState(false);
   const [testReminderOpen, setTestReminderOpen] = useState(false);
   // 收款 / 更正成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -488,6 +489,13 @@ export function BookingDetailDrawer({
     if (bookingId) onUpdated?.(bookingId, null);
   }
 
+  // 方案扣堂改為單次後重抓明細；顯示「單次蒸足」與單次金額快照。
+  function handleAdjustedToSingle() {
+    setAdjustToSingleOpen(false);
+    setReloadNonce((n) => n + 1);
+    if (bookingId) onUpdated?.(bookingId, null);
+  }
+
   // What we have to render (priority):
   //   1. Full payload matching current bookingId — preferred when loaded (from
   //      fetch or cache). Only this enables the action footer.
@@ -551,6 +559,7 @@ export function BookingDetailDrawer({
               correct: () => setCorrectOpen(true),
               collectSingle: () => setCollectSingleOpen(true),
               adjustCheckout: () => setAdjustCheckoutOpen(true),
+              adjustToSingle: () => setAdjustToSingleOpen(true),
               testReminder: () => setTestReminderOpen(true),
             }}
           />
@@ -693,7 +702,9 @@ export function BookingDetailDrawer({
             serviceName={
               data.booking.treatmentNameSnapshot ??
               data.booking.servicePlan?.name ??
-              "本次服務"
+              (data.booking.bookingType === "SINGLE"
+                ? "單次蒸足"
+                : "本次服務")
             }
             serviceMinutes={data.booking.treatmentServiceMinutesSnapshot}
             wallets={data.checkout?.wallets ?? []}
@@ -715,6 +726,23 @@ export function BookingDetailDrawer({
             onAdjusted={handleAdjusted}
           />
         )}
+      {!readOnly &&
+        data &&
+        data.checkoutToSingle &&
+        data.checkoutToSingle.canAdjustToSingle && (
+          <AdjustCheckoutModal
+            mode="toSingle"
+            open={adjustToSingleOpen}
+            onClose={() => setAdjustToSingleOpen(false)}
+            bookingId={data.booking.id}
+            customerName={data.booking.customer.name}
+            dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
+            currentPlanName={data.checkoutToSingle.currentPlanName}
+            currentRemaining={data.checkoutToSingle.currentRemaining}
+            singleDefaultPrice={data.checkoutToSingle.singleDefaultPrice}
+            onAdjusted={handleAdjustedToSingle}
+          />
+        )}
     </>
   );
 }
@@ -733,6 +761,7 @@ interface DrawerActions {
   correct: () => void;
   collectSingle: () => void;
   adjustCheckout: () => void;
+  adjustToSingle: () => void;
   testReminder: () => void;
 }
 
@@ -761,6 +790,7 @@ function DrawerContent({
     trial,
     single,
     checkout,
+    checkoutToSingle,
     storedValue,
   } = payload;
   const meta = bookingStatusMeta(
@@ -808,7 +838,9 @@ function DrawerContent({
                 ? `${booking.treatmentNameSnapshot} · `
                 : booking.servicePlan?.name
                   ? `${booking.servicePlan.name} · `
-                  : ""}
+                  : booking.bookingType === "SINGLE"
+                    ? "單次蒸足 · "
+                    : ""}
             {duration} 分鐘
           </p>
         </div>
@@ -858,7 +890,7 @@ function DrawerContent({
                 ? "補課"
                 : (booking.treatmentNameSnapshot ??
                   booking.servicePlan?.name ??
-                  "—")
+                  (booking.bookingType === "SINGLE" ? "單次蒸足" : "—"))
             }
           />
           <KV label="人數" value={`${booking.people} 人`} />
@@ -1068,6 +1100,7 @@ function DrawerContent({
           trial={trial}
           single={single}
           checkout={checkout}
+          checkoutToSingle={checkoutToSingle}
           isActing={isActing}
           actions={actions}
           rebookHref={rebookHref}
@@ -1212,7 +1245,9 @@ function PrefillDrawerContent({
               ? "補課 · "
               : prefill.servicePlanName
                 ? `${prefill.servicePlanName} · `
-                : ""}
+                : prefill.bookingType === "SINGLE"
+                  ? "單次蒸足 · "
+                  : ""}
             {duration} 分鐘
           </p>
         </div>
@@ -1262,7 +1297,12 @@ function PrefillDrawerContent({
           )}
           <KV
             label="服務"
-            value={prefill.isMakeup ? "補課" : (prefill.servicePlanName ?? "—")}
+            value={
+              prefill.isMakeup
+                ? "補課"
+                : (prefill.servicePlanName ??
+                  (prefill.bookingType === "SINGLE" ? "單次蒸足" : "—"))
+            }
           />
           <KV label="人數" value={`${prefill.people} 人`} />
           {prefill.attendedPeople != null &&
@@ -1351,6 +1391,7 @@ function ActionFooter({
   trial,
   single,
   checkout,
+  checkoutToSingle,
   isActing,
   actions,
   rebookHref,
@@ -1360,6 +1401,7 @@ function ActionFooter({
   trial: BookingDrawerPayload["trial"];
   single: BookingDrawerPayload["single"];
   checkout: BookingDrawerPayload["checkout"];
+  checkoutToSingle: BookingDrawerPayload["checkoutToSingle"];
   isActing: boolean;
   actions: DrawerActions;
   rebookHref?: string;
@@ -1408,6 +1450,11 @@ function ActionFooter({
     checkout.canAdjustToPackage &&
     (status === "PENDING" || status === "CONFIRMED");
 
+  const canAdjustToSingle =
+    checkoutToSingle != null &&
+    checkoutToSingle.canAdjustToSingle &&
+    (status === "PENDING" || status === "CONFIRMED");
+
   if (status === "PENDING" || status === "CONFIRMED") {
     if (canCollect) {
       primaries.push({
@@ -1441,6 +1488,9 @@ function ActionFooter({
     }
     if (canAdjustCheckout && !spaMode) {
       secondaries.push({ label: "補選方案", onClick: actions.adjustCheckout });
+    }
+    if (canAdjustToSingle && !spaMode) {
+      secondaries.push({ label: "改為單次", onClick: actions.adjustToSingle });
     }
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
     if (!spaMode) {
