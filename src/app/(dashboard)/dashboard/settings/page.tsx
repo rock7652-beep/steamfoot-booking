@@ -88,9 +88,8 @@ export default async function SettingsIndexPage() {
     user.staffId,
     "trial.manage",
   );
-  const isSpaDemo =
-    (await getStoreIndustryModule(activeStoreId)) === "spa" &&
-    activeStoreId === SPA_DEMO_STORE.id;
+  const isSpaStore = (await getStoreIndustryModule(activeStoreId)) === "spa";
+  const isSpaDemo = isSpaStore && activeStoreId === SPA_DEMO_STORE.id;
 
   // 並行拉 summary（皆為既有 query）
   const [plan, shopConfig, staffList, rules, weeklyHours, store, trialSettings, hasDigitalButler] =
@@ -172,7 +171,7 @@ export default async function SettingsIndexPage() {
           : []),
       ],
     },
-    ...(isSpaDemo
+    ...(isSpaStore
       ? [
           {
             title: "人員與權限",
@@ -245,7 +244,7 @@ export default async function SettingsIndexPage() {
         }
       >
         {/* 蒸足先收起人員管理；SPA 保留技師、技能與排班設定。 */}
-        {isSpaDemo ? (
+        {isSpaStore ? (
           <SettingsActionCard
             title="人員管理"
             description="建立員工、指派角色與可視範圍"
