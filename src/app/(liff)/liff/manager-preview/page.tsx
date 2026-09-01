@@ -23,11 +23,13 @@ export default async function SpaManagerPreviewPage() {
     listSpaDemoDailyRefunds(),
   ]);
   const previewDate = toLocalDateStr();
+  const previewNow = new Date().toISOString();
   return (
     <SpaManagerSchedulePreview
       initialProviders={preview.providers}
       initialBookings={preview.bookings}
       previewDate={previewDate}
+      previewNow={previewNow}
       initialNotification={getCurrentSpaDemoNotification(preview.notification, preview.bookings, previewDate)}
       initialReconciledDates={reconciledDates}
       initialAdjustments={adjustments}

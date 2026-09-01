@@ -103,6 +103,34 @@ export type SpaDemoBooking = {
   contactPhone?: string;
 };
 
+export type SpaDemoManagerReminder = {
+  title: string;
+  detail: string;
+  tone: "rose" | "sand";
+};
+
+export function getSpaDemoManagerReminders(
+  bookings: readonly SpaDemoBooking[],
+  selectedDate: string,
+  today: string,
+): readonly SpaDemoManagerReminder[] {
+  if (selectedDate !== today) return [];
+  const actionable = bookings.filter((booking) =>
+    booking.date === selectedDate
+    && booking.status !== "已完成"
+    && booking.status !== "待補登"
+    && !booking.refundedAt,
+  );
+  const reminders: SpaDemoManagerReminder[] = [];
+  if (actionable.some((booking) => booking.status === "新客體驗")) {
+    reminders.push({ title: "新客首次到店", detail: "服務前確認注意事項", tone: "rose" });
+  }
+  if (actionable.some((booking) => booking.remainingSessions !== null && booking.remainingSessions <= 3)) {
+    reminders.push({ title: "療程即將到期", detail: "完成服務後提醒續購", tone: "sand" });
+  }
+  return reminders;
+}
+
 export type SpaDemoPreviewData = {
   presentation: {
     id: string;

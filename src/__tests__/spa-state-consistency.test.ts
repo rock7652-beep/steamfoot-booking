@@ -2,10 +2,12 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   getCurrentSpaDemoNotification,
+  getSpaDemoManagerReminders,
   SPA_DEMO_LIVE_FLOW_BOOKING_ID,
   type SpaDemoBooking,
   type SpaDemoBookingNotification,
 } from "@/lib/spa-demo-store";
+import { canCompleteSpaBooking } from "@/lib/spa-booking-completion";
 
 const activeBooking: SpaDemoBooking = {
   id: SPA_DEMO_LIVE_FLOW_BOOKING_ID,
@@ -33,10 +35,33 @@ const reminder: SpaDemoBookingNotification = {
 };
 
 describe("SPA three-party state consistency", () => {
+  it("blocks completion before the Taipei appointment start time", () => {
+    expect(canCompleteSpaBooking("2026-09-01", "15:30", new Date("2026-09-01T07:29:59.000Z"))).toBe(false);
+    expect(canCompleteSpaBooking("2026-09-01", "15:30", new Date("2026-09-01T07:30:00.000Z"))).toBe(true);
+    expect(canCompleteSpaBooking("2026-09-01", "15:30", new Date("2026-09-01T08:00:00.000Z"))).toBe(true);
+  });
+
   it("hides stale reminders and notifications for completed bookings", () => {
     expect(getCurrentSpaDemoNotification(reminder, [activeBooking], "2026-09-01")).toEqual(reminder);
     expect(getCurrentSpaDemoNotification({ ...reminder, date: "2026-09-01" }, [activeBooking], "2026-09-01")).toBeNull();
     expect(getCurrentSpaDemoNotification(reminder, [{ ...activeBooking, status: "已完成" }], "2026-09-01")).toBeNull();
+  });
+
+  it("only shows manager reminders for actionable bookings today", () => {
+    expect(getSpaDemoManagerReminders([{ ...activeBooking, date: "2026-09-01", status: "新客體驗" }], "2026-09-01", "2026-09-01"))
+      .toEqual([{ title: "新客首次到店", detail: "服務前確認注意事項", tone: "rose" }]);
+    expect(getSpaDemoManagerReminders([{ ...activeBooking, date: "2026-09-01", status: "已完成" }], "2026-09-01", "2026-09-01")).toEqual([]);
+    expect(getSpaDemoManagerReminders([{ ...activeBooking, date: "2026-09-01", status: "新客體驗", refundedAt: "2026-09-01T08:00:00.000Z" }], "2026-09-01", "2026-09-01")).toEqual([]);
+    expect(getSpaDemoManagerReminders([{ ...activeBooking, date: "2026-09-01", status: "新客體驗" }], "2026-08-31", "2026-09-01")).toEqual([]);
+  });
+
+  it("enforces the appointment-time guard in both checkout actions and the manager UI", () => {
+    const checkout = readFileSync("src/server/actions/spa-demo-checkout.ts", "utf8");
+    const manager = readFileSync("src/app/(liff)/liff/_components/spa-manager-schedule-preview.tsx", "utf8");
+    expect(checkout.match(/canCompleteSpaBooking/g)).toHaveLength(3);
+    expect(checkout).toContain("尚未到，暫時不能完成服務或結帳");
+    expect(manager).toContain("canCompleteService={canCompleteSpaBooking");
+    expect(manager).toContain("disabled={!canCompleteService}");
   });
 
   it("keeps customer preview subpages inside the independent SPA entry", () => {

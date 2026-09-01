@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { canCompleteSpaBooking } from "@/lib/spa-booking-completion";
+import { toLocalDateStr } from "@/lib/date-utils";
 import {
   SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
   SPA_DEMO_LIVE_FLOW_PACKAGE_PLAN_ID,
@@ -60,6 +62,9 @@ export async function completeSpaDemoBooking(input: unknown) {
   });
   if (!selected || selected.customer.storeId !== SPA_DEMO_STORE.id || selected.serviceStaff?.storeId !== SPA_DEMO_STORE.id) {
     return { success: false as const, error: "Demo 預約不存在或資料隔離檢查失敗" };
+  }
+  if (!canCompleteSpaBooking(toLocalDateStr(selected.bookingDate), selected.slotTime)) {
+    return { success: false as const, error: `預約時間 ${selected.slotTime} 尚未到，暫時不能完成服務或結帳` };
   }
   const partySize = Number(selected.notes?.match(/\|party=(\d+)/)?.[1] ?? 1);
   if (!Number.isInteger(partySize) || partySize < 1 || partySize > SPA_DEMO_LIVE_FLOW_BOOKING_IDS.length) {
@@ -293,12 +298,17 @@ export async function completeSpaDemoGuestBooking(input: unknown) {
       revenueStaffId: true,
       serviceStaffId: true,
       notes: true,
+      bookingDate: true,
+      slotTime: true,
       customer: { select: { storeId: true } },
       serviceStaff: { select: { storeId: true } },
     },
   });
   if (!booking || booking.customer.storeId !== SPA_DEMO_STORE.id || booking.serviceStaff?.storeId !== SPA_DEMO_STORE.id || !booking.serviceStaffId) {
     return { success: false as const, error: "Demo 預約不存在或資料隔離檢查失敗" };
+  }
+  if (!canCompleteSpaBooking(toLocalDateStr(booking.bookingDate), booking.slotTime)) {
+    return { success: false as const, error: `預約時間 ${booking.slotTime} 尚未到，暫時不能完成服務或結帳` };
   }
   const partySize = Number(booking.notes?.match(/\|party=(\d+)/)?.[1] ?? 1);
   const guestIndex = Number(booking.notes?.match(/\|guest=(\d+)/)?.[1] ?? 1);
