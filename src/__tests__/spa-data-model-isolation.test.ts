@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(__dirname, "../..");
-const spaSchema = readFileSync(resolve(root, "prisma/spa/schema.prisma"), "utf8");
+const spaSchema = readFileSync(resolve(root, "spa-prisma/schema.prisma"), "utf8");
 const mainSchema = readFileSync(resolve(root, "prisma/schema.prisma"), "utf8");
 const migration = readFileSync(
   resolve(root, "prisma/migrations/20260901110000_add_isolated_spa_models/migration.sql"),
@@ -12,7 +12,7 @@ const migration = readFileSync(
 
 describe("isolated SPA data model", () => {
   it("uses a dedicated generated Prisma client", () => {
-    expect(spaSchema).toContain('output   = "../../src/generated/spa-client"');
+    expect(spaSchema).toContain('output   = "../src/generated/spa-client"');
     expect(spaSchema).toContain("model SpaBooking");
     expect(spaSchema).toContain("model SpaEntitlement");
     expect(spaSchema).toContain("model SpaPayment");

@@ -1,6 +1,6 @@
 generator spaClient {
   provider = "prisma-client-js"
-  output   = "../../src/generated/spa-client"
+  output   = "../src/generated/spa-client"
 }
 
 datasource db {

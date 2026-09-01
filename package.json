@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/ci-migrate.mjs && npm run generate:clients && next build",
-    "generate:clients": "prisma generate && prisma generate --schema prisma/spa/schema.prisma",
+    "generate:clients": "prisma generate && prisma generate --schema spa-prisma/schema.prisma",
     "start": "next start",
     "lint": "eslint",
     "seed": "npx tsx prisma/seed.ts",
