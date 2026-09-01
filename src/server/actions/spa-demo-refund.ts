@@ -8,6 +8,7 @@ import {
   SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
   SPA_DEMO_STORE,
 } from "@/lib/spa-demo-store";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const inputSchema = z.object({
   bookingId: z.enum(SPA_DEMO_LIVE_FLOW_BOOKING_IDS),
@@ -52,6 +53,7 @@ export async function refundSpaDemoCheckout(input: unknown) {
   if (process.env.VERCEL_ENV === "production") {
     return { success: false as const, error: "Demo 退款不在正式站開放" };
   }
+  await requireSpaStore(SPA_DEMO_STORE.id);
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: "退款資料不完整" };
 

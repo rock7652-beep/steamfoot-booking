@@ -173,6 +173,11 @@ async function applySeed() {
         digitalButlerEnabled: true,
       },
     });
+    await tx.$executeRaw`
+      UPDATE "Store"
+      SET "industryModule" = 'SPA'::"IndustryModule"
+      WHERE id = ${SPA_DEMO_STORE.id}
+    `;
     await tx.storeFeatureEntitlement.upsert({
       where: {
         uq_store_feature_entitlement: {

@@ -12,6 +12,7 @@ import {
   deliverSpaDemoBookingNotificationBestEffort,
   saveSpaDemoBookingNotification,
 } from "@/server/services/spa-demo-booking-notification";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const cancelInputSchema = z.object({
   bookingId: z.enum(SPA_DEMO_LIVE_FLOW_BOOKING_IDS),
@@ -34,6 +35,7 @@ export async function cancelSpaDemoBooking(input: unknown) {
   if (process.env.VERCEL_ENV === "production") {
     return { success: false as const, error: "Demo 取消預約不在正式站開放" };
   }
+  await requireSpaStore(SPA_DEMO_STORE.id);
   const parsed = cancelInputSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: "取消資料不完整" };
 

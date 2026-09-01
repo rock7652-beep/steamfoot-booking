@@ -7,6 +7,7 @@ import { requireWritablePermission } from "@/lib/permissions";
 import { currentStoreId } from "@/lib/store";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { handleActionError } from "@/lib/errors";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const inputSchema = z.object({
   customerId: z.string().min(1).optional(),
@@ -40,7 +41,9 @@ export async function createSpaQuickBooking(
 
   try {
     const user = await requireWritablePermission("booking.create");
-    if (currentStoreId(user) !== SPA_DEMO_STORE.id) {
+    const storeId = currentStoreId(user);
+    await requireSpaStore(storeId);
+    if (storeId !== SPA_DEMO_STORE.id) {
       return { success: false, error: "快速排預約目前只開放 SPA Demo 驗收" };
     }
 

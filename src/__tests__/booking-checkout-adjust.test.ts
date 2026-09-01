@@ -70,6 +70,9 @@ vi.mock("@/lib/permissions", () => ({
 vi.mock("@/lib/subscription-guard", () => ({
   assertStoreSubscriptionWritable: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/industry-module-server", () => ({
+  requireSteamfootStore: vi.fn(async () => undefined),
+}));
 vi.mock("@/lib/store", () => ({ currentStoreId: h.currentStoreId }));
 vi.mock("@/server/services/wallet-session", () => ({
   allocateSessionsFefo: h.allocateSessionsFefo,

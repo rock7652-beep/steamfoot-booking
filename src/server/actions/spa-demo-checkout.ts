@@ -13,6 +13,7 @@ import {
   SPA_DEMO_LIVE_FLOW_TRANSACTION_ID,
   SPA_DEMO_STORE,
 } from "@/lib/spa-demo-store";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const inputSchema = z.object({
   bookingId: z.enum(SPA_DEMO_LIVE_FLOW_BOOKING_IDS),
@@ -42,6 +43,7 @@ export async function completeSpaDemoBooking(input: unknown) {
   if (process.env.VERCEL_ENV === "production") {
     return { success: false as const, error: "Demo 結帳不在正式站開放" };
   }
+  await requireSpaStore(SPA_DEMO_STORE.id);
 
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: "結帳資料不完整" };
@@ -280,6 +282,7 @@ export async function completeSpaDemoGuestBooking(input: unknown) {
   if (process.env.VERCEL_ENV === "production") {
     return { success: false as const, error: "Demo 結帳不在正式站開放" };
   }
+  await requireSpaStore(SPA_DEMO_STORE.id);
   const parsed = guestInputSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: "結帳資料不完整" };
 

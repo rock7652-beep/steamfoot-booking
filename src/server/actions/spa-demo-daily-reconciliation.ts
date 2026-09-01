@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { buildSpaDailySummary } from "@/lib/spa-daily-summary";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const inputSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -42,6 +43,7 @@ export async function confirmSpaDemoDailyReconciliation(input: unknown) {
   if (process.env.VERCEL_ENV === "production") {
     return { success: false as const, error: "Demo 帳務核對不在正式站開放" };
   }
+  await requireSpaStore(SPA_DEMO_STORE.id);
 
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: "日期格式不正確" };
@@ -123,6 +125,7 @@ export async function adjustSpaDemoDailySettlement(input: unknown) {
   if (process.env.VERCEL_ENV === "production") {
     return { success: false as const, error: "Demo 帳務更正不在正式站開放" };
   }
+  await requireSpaStore(SPA_DEMO_STORE.id);
 
   const parsed = adjustmentSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: "帳務更正資料不完整" };

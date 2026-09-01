@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  getStoreIndustryModule: vi.fn(async () => "steamfoot"),
+}));
+
 const CUSTOMER_ID = "cust-taichung";
 const STAFF_ID = "staff-taichung";
 const USER_ID = "user-admin";

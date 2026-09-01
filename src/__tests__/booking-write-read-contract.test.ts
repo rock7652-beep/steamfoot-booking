@@ -18,6 +18,10 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  getStoreIndustryModule: vi.fn(async () => "steamfoot"),
+}));
+
 const STORE_A = "store-zhubei";
 const STORE_B = "store-demo";
 const REAL_CUSTOMER_ID = "ck0000000000000000000001";

@@ -1,4 +1,5 @@
 export type IndustryModuleId = "steamfoot" | "spa";
+export type PersistedIndustryModule = "STEAMFOOT" | "SPA";
 
 export type IndustryFeatureSet = {
   packages: boolean;
@@ -220,7 +221,13 @@ export function getIndustryModule(id: IndustryModuleId): IndustryModule {
 }
 
 export function resolveIndustryModuleId(value: string | null | undefined): IndustryModuleId {
-  return value === "spa" ? "spa" : "steamfoot";
+  return value === "spa" || value === "SPA" ? "spa" : "steamfoot";
+}
+
+export function toPersistedIndustryModule(
+  value: IndustryModuleId,
+): PersistedIndustryModule {
+  return value === "spa" ? "SPA" : "STEAMFOOT";
 }
 
 export function getIndustryService(

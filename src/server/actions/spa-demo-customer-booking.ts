@@ -31,6 +31,7 @@ import {
   deliverSpaDemoBookingNotificationBestEffort,
   saveSpaDemoBookingNotification,
 } from "@/server/services/spa-demo-booking-notification";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const inputSchema = z.object({
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -63,6 +64,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
   if (process.env.VERCEL_ENV === "production") {
     return { success: false as const, error: "Demo 預約不在正式站開放" };
   }
+  await requireSpaStore(SPA_DEMO_STORE.id);
 
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) {
