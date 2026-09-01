@@ -1,0 +1,168 @@
+generator spaClient {
+  provider = "prisma-client-js"
+  output   = "../src/generated/spa-client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// SPA owns this client. It intentionally does not declare Steamfoot Booking,
+// CustomerPlanWallet, WalletSession or Transaction models.
+
+enum SpaBookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum SpaEntitlementStatus {
+  ACTIVE
+  EXHAUSTED
+  EXPIRED
+  VOIDED
+}
+
+enum SpaEntitlementUseStatus {
+  RESERVED
+  COMPLETED
+  RELEASED
+  VOIDED
+}
+
+enum SpaPaymentStatus {
+  PENDING
+  SUCCESS
+  VOIDED
+  REFUNDED
+}
+
+enum SpaPaymentMethod {
+  CASH
+  TRANSFER
+  LINE_PAY
+  CREDIT_CARD
+  OTHER
+}
+
+model SpaBooking {
+  id                  String           @id @default(cuid())
+  storeId             String
+  customerId          String
+  serviceStaffId      String
+  revenueStaffId      String?
+  bookingDate         DateTime         @db.Date
+  startTime           String
+  endTime             String
+  status              SpaBookingStatus @default(PENDING)
+  people              Int              @default(1)
+  serviceNameSnapshot String
+  totalPriceSnapshot  Decimal          @db.Decimal(10, 0)
+  requestKey          String?
+  notes               String?
+  checkedInAt         DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  items           SpaBookingItem[]
+  entitlementUses SpaEntitlementUse[]
+  payments        SpaPayment[]
+
+  @@unique([storeId, requestKey])
+  @@unique([id, storeId])
+  @@index([storeId, bookingDate, startTime])
+  @@index([storeId, serviceStaffId, bookingDate])
+  @@index([storeId, customerId, bookingDate])
+  @@index([storeId, status])
+}
+
+model SpaBookingItem {
+  id                    String     @id @default(cuid())
+  storeId               String
+  bookingId             String
+  treatmentId           String
+  treatmentNameSnapshot String
+  variantSnapshot       String?
+  priceSnapshot         Decimal    @db.Decimal(10, 0)
+  serviceMinutes        Int
+  bufferMinutes         Int        @default(0)
+  sortOrder             Int        @default(0)
+  createdAt             DateTime   @default(now())
+
+  booking SpaBooking @relation(fields: [bookingId, storeId], references: [id, storeId], onDelete: Cascade)
+
+  @@unique([bookingId, sortOrder])
+  @@index([storeId, treatmentId])
+}
+
+model SpaEntitlement {
+  id                String               @id @default(cuid())
+  storeId           String
+  customerId        String
+  treatmentId       String?
+  nameSnapshot      String
+  purchasedPrice    Decimal              @db.Decimal(10, 0)
+  totalUses         Int
+  remainingUses     Int
+  startDate         DateTime             @db.Date
+  expiryDate        DateTime?            @db.Date
+  status            SpaEntitlementStatus @default(ACTIVE)
+  sourceReference   String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  uses SpaEntitlementUse[]
+
+  @@unique([id, storeId])
+  @@index([storeId, customerId, status, expiryDate])
+  @@index([storeId, treatmentId])
+}
+
+model SpaEntitlementUse {
+  id            String                  @id @default(cuid())
+  storeId       String
+  entitlementId String
+  bookingId     String
+  uses          Int                     @default(1)
+  status        SpaEntitlementUseStatus @default(RESERVED)
+  reservedAt    DateTime                @default(now())
+  completedAt   DateTime?
+  releasedAt    DateTime?
+
+  entitlement SpaEntitlement @relation(fields: [entitlementId, storeId], references: [id, storeId], onDelete: Restrict)
+  booking     SpaBooking     @relation(fields: [bookingId, storeId], references: [id, storeId], onDelete: Restrict)
+
+  @@unique([entitlementId, bookingId])
+  @@index([storeId, bookingId, status])
+}
+
+model SpaPayment {
+  id             String           @id @default(cuid())
+  storeId        String
+  customerId     String
+  bookingId      String
+  revenueStaffId String?
+  soldByStaffId  String?
+  grossAmount    Decimal          @db.Decimal(10, 0)
+  netAmount      Decimal          @db.Decimal(10, 0)
+  paymentMethod  SpaPaymentMethod
+  status         SpaPaymentStatus @default(SUCCESS)
+  paidAt         DateTime?
+  voidedAt       DateTime?
+  note           String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  booking SpaBooking @relation(fields: [bookingId, storeId], references: [id, storeId], onDelete: Restrict)
+
+  @@unique([id, storeId])
+  @@index([storeId, bookingId, status])
+  @@index([storeId, customerId, createdAt])
+  @@index([storeId, revenueStaffId, createdAt])
+}

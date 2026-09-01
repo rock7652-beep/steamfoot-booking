@@ -1159,6 +1159,7 @@ model Customer {
   @@unique([storeId, googleId], name: "uq_store_customer_google")
   @@unique([storeId, lineUserId], name: "uq_store_customer_line")
   @@unique([storeId, lineBindingCode], name: "uq_store_customer_binding_code")
+  @@unique([id, storeId])
   @@unique([referralCode], name: "uq_customer_referral_code")
   @@index([storeId])
   @@index([assignedStaffId])

@@ -25,6 +25,11 @@
 4. SPA 讀取切到新模型並觀察；蒸足仍只讀既有 Booking、Wallet、Transaction。
 5. 停止 dual-read 後，才從共用模型移除 SPA 欄位與 relation。
 
+獨立模型由 `spa-prisma/schema.prisma` 產生至 `src/generated/spa-client`。這個
+client 故意不宣告蒸足的 Booking、CustomerPlanWallet、WalletSession、
+Transaction；反向地，主 Prisma client 也不宣告 SpaBooking、SpaEntitlement、
+SpaPayment。兩者只以資料庫外鍵連接 Store、Customer、Staff 等身份核心。
+
 拆分採兩階段部署：先建立新表與雙寫／回填工具，再切讀取。不可在同一次 migration
 直接搬移或刪除正式蒸足資料。
 
