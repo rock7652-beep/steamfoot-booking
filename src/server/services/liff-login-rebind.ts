@@ -174,17 +174,18 @@ export async function tryAutoMigrateRecentLiffLoginIdentity(input: {
  * The caller must supply a LINE subject obtained from a freshly verified LIFF
  * ID token. This updates only Auth.js Account + the legacy LINE Login
  * CustomerIdentityLink. Customer.lineUserId is the Messaging API recipient and
- * is intentionally never selected or written here.
+ * is intentionally never selected or written here. The submitted/display name
+ * is not an authentication factor: authorization comes from the exact active
+ * request, its phone hash and the unchanged legacy identity snapshot.
  */
 export async function tryExecuteAuthorizedLiffLoginRebind(input: {
   storeId: string;
   customerId: string;
   phone: string;
-  name: string;
   candidateLineUserId: string;
 }): Promise<AuthorizedLiffLoginRebindResult> {
   const phone = normalizePhone(input.phone);
-  if (!/^09\d{8}$/.test(phone) || !normalizeIdentityName(input.name) || !input.candidateLineUserId) {
+  if (!/^09\d{8}$/.test(phone) || !input.candidateLineUserId) {
     return { status: "rejected", code: "INVALID_INPUT" };
   }
 
@@ -246,7 +247,6 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         select: {
           id: true,
           storeId: true,
-          name: true,
           phone: true,
           userId: true,
           mergedIntoCustomerId: true,
@@ -269,8 +269,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         ownerUser?.id !== ownerUserId ||
         ownerUser.status !== "ACTIVE" ||
         ownerUser.role !== "CUSTOMER" ||
-        normalizePhone(customer.phone) !== phone ||
-        !isCompatibleIdentityName(customer.name, input.name)
+        normalizePhone(customer.phone) !== phone
       ) {
         throw new RebindRejected("CUSTOMER_STATE_CHANGED");
       }
@@ -393,6 +392,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
             status: "CONSUMED",
             consumedAt: now.toISOString(),
             customerMessagingIdentityPreserved: true,
+            authorizationBasis: "active_request_phone_hash_and_legacy_identity_snapshot",
           },
         },
       });

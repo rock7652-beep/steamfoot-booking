@@ -114,7 +114,6 @@ describe("authorized LIFF Login rebind", () => {
       storeId: "store-1",
       customerId: "customer-1",
       phone,
-      name: "王小明",
       candidateLineUserId: newLoginId,
     })).resolves.toEqual({ status: "executed", requestId: "request-1" });
 
@@ -144,7 +143,6 @@ describe("authorized LIFF Login rebind", () => {
       storeId: "store-1",
       customerId: "customer-1",
       phone,
-      name: "王小明",
       candidateLineUserId: newLoginId,
     })).resolves.toEqual({ status: "not_authorized" });
     expect(h.linkUpdate).not.toHaveBeenCalled();
@@ -171,7 +169,6 @@ describe("authorized LIFF Login rebind", () => {
       storeId: "store-1",
       customerId: "customer-1",
       phone,
-      name: "王小明",
       candidateLineUserId: newLoginId,
     })).resolves.toEqual({ status: "rejected", code: "LOGIN_IDENTITY_CONFLICT" });
     expect(h.linkUpdate).not.toHaveBeenCalled();
@@ -181,12 +178,12 @@ describe("authorized LIFF Login rebind", () => {
   it("supports a cross-store Customer owned by an exact identity link", async () => {
     h.customerFind.mockResolvedValue({ id: "customer-1", storeId: "store-1", name: "王小明", phone, userId: null, mergedIntoCustomerId: null });
     await expect(tryExecuteAuthorizedLiffLoginRebind({
-      storeId: "store-1", customerId: "customer-1", phone, name: "王小明", candidateLineUserId: newLoginId,
+      storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId,
     })).resolves.toEqual({ status: "executed", requestId: "request-1" });
     expect(h.linkUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ userId: "user-1" }) }));
   });
 
-  it("accepts an exact Chinese member name with a short LINE nickname suffix", async () => {
+  it("executes without treating a submitted or LINE display name as identity", async () => {
     h.customerFind.mockResolvedValue({
       id: "customer-1", storeId: "store-1", name: "曾孟萱", phone,
       userId: "user-1", mergedIntoCustomerId: null,
@@ -194,7 +191,7 @@ describe("authorized LIFF Login rebind", () => {
 
     await expect(tryExecuteAuthorizedLiffLoginRebind({
       storeId: "store-1", customerId: "customer-1", phone,
-      name: "曾孟萱 Jennie", candidateLineUserId: newLoginId,
+      candidateLineUserId: newLoginId,
     })).resolves.toEqual({ status: "executed", requestId: "request-1" });
 
     expect(h.linkUpdate).toHaveBeenCalledTimes(1);
@@ -203,26 +200,6 @@ describe("authorized LIFF Login rebind", () => {
     }));
   });
 
-  it("fails closed when the submitted name differs from the member record", async () => {
-    await expect(tryExecuteAuthorizedLiffLoginRebind({
-      storeId: "store-1", customerId: "customer-1", phone, name: "不同姓名", candidateLineUserId: newLoginId,
-    })).resolves.toEqual({ status: "rejected", code: "CUSTOMER_STATE_CHANGED" });
-    expect(h.linkUpdate).not.toHaveBeenCalled();
-    expect(h.accountUpdate).not.toHaveBeenCalled();
-  });
-
-  it("fails closed when a LINE nickname contains a different Chinese member name", async () => {
-    h.customerFind.mockResolvedValue({
-      id: "customer-1", storeId: "store-1", name: "曾孟萱", phone,
-      userId: "user-1", mergedIntoCustomerId: null,
-    });
-    await expect(tryExecuteAuthorizedLiffLoginRebind({
-      storeId: "store-1", customerId: "customer-1", phone,
-      name: "曾孟瑄 Jennie", candidateLineUserId: newLoginId,
-    })).resolves.toEqual({ status: "rejected", code: "CUSTOMER_STATE_CHANGED" });
-    expect(h.linkUpdate).not.toHaveBeenCalled();
-    expect(h.accountUpdate).not.toHaveBeenCalled();
-  });
 });
 
 describe("recent new-customer LIFF auto migration", () => {
