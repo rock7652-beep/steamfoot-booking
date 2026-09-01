@@ -16,6 +16,35 @@ import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 
+/**
+ * Stored value is still an optional SPA entitlement. Some production stores can
+ * legitimately be on the core booking schema before the SPA wallet migration is
+ * enabled. A missing optional table must not take down the whole booking drawer,
+ * especially because package selection does not depend on stored value.
+ */
+async function findOptionalStoredValueWallet(storeId: string, customerId: string) {
+  try {
+    return await prisma.storedValueWallet.findUnique({
+      where: { storeId_customerId: { storeId, customerId } },
+      select: { balance: true, status: true },
+    });
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+    if (code !== "P2021") throw error;
+
+    console.warn(JSON.stringify({
+      level: "warning",
+      message: "optional stored-value wallet table unavailable",
+      action: "fetchBookingDetail",
+      prismaCode: code,
+    }));
+    return null;
+  }
+}
+
 export interface BookingDrawerPayload {
   booking: {
     id: string;
@@ -225,15 +254,7 @@ export async function fetchBookingDetail(
         })
       : Promise.resolve(null),
     isSingle
-      ? prisma.storedValueWallet.findUnique({
-          where: {
-            storeId_customerId: {
-              storeId: booking.storeId,
-              customerId: booking.customerId,
-            },
-          },
-          select: { balance: true, status: true },
-        })
+      ? findOptionalStoredValueWallet(booking.storeId, booking.customerId)
       : Promise.resolve(null),
     // 調整結帳方式：僅 SINGLE 且非補課才查顧客可用方案（ACTIVE + 有剩餘堂）。
     // FIRST_TRIAL / PACKAGE_SESSION / 補課一律 lazy 帶過，不必要查 wallet。

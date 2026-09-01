@@ -216,7 +216,10 @@ export function BookingDetailDrawer({
       .catch((e) => {
         if (canceled) return;
         // 已有可顯示資料（cache）時，背景 revalidate 失敗不蓋畫面；否則才顯示錯誤。
-        if (!cache?.get(id)) setError(e?.message ?? "載入失敗");
+        if (!cache?.get(id)) {
+          console.error("booking detail load failed", e);
+          setError("預約資料暫時無法完整載入，請稍後再試，或開啟完整頁面查看。");
+        }
       });
     return () => {
       canceled = true;
@@ -1478,7 +1481,7 @@ function ActionFooter({
       });
     }
     if (canAdjustCheckout && !spaMode) {
-      secondaries.push({ label: "調整結帳", onClick: actions.adjustCheckout });
+      secondaries.push({ label: "補選方案", onClick: actions.adjustCheckout });
     }
     if (canAdjustToSingle && !spaMode) {
       secondaries.push({ label: "調整結帳", onClick: actions.adjustToSingle });
