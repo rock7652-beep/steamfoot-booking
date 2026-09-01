@@ -259,6 +259,26 @@ describe("collectSinglePayment — type / status / store guards", () => {
 });
 
 describe("collectSinglePayment — original-price source + amount", () => {
+  it("uses Steamfoot expectedAmount snapshot before the retained package price", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_converted",
+      bookingType: "SINGLE",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      revenueStaffId: null,
+      servicePlanId: "plan_package",
+      expectedAmount: 799,
+      treatmentPriceSnapshot: null,
+      servicePlan: { price: 5990 },
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+
+    await collectSinglePayment({ ...base, bookingId: "bk_converted" });
+
+    expect(lastTx().grossAmount).toBe(799);
+    expect(lastTx().amount).toBe(799);
+  });
+
   it("uses the SPA treatment price snapshot before legacy servicePlan price", async () => {
     h.bookingFindFirst.mockResolvedValue({
       id: "bk_spa",

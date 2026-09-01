@@ -145,6 +145,21 @@ describe("computeAmount — PR-D1C FIRST_TRIAL fallback (people=1)", () => {
     expect(computeAmount(booking, null)).toBe("NT$ 2,500");
   });
 
+  it("SINGLE：方案轉單次使用 expectedAmount，不誤顯示整張方案售價", () => {
+    const booking = makeBooking({
+      bookingType: "SINGLE",
+      expectedAmount: 799,
+      servicePlan: {
+        id: "plan_package",
+        name: "10 堂方案",
+        price: 5990,
+        sessionCount: 10,
+        category: "PACKAGE",
+      },
+    });
+    expect(computeAmount(booking, null)).toBe("NT$ 799");
+  });
+
   it("PACKAGE_SESSION sessionCount>1 → 顯示「每堂」與方案總價", () => {
     const booking = makeBooking({
       bookingType: "PACKAGE_SESSION",

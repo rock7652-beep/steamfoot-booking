@@ -122,7 +122,8 @@ export interface BookingDrawerPayload {
   } | null;
   // 單次（SINGLE，不扣堂）：僅 SINGLE 預約有此區塊（其他型別一律 null）。
   // collected=true → 已建立 SINGLE_PURCHASE SUCCESS 交易；defaultPrice 來自
-  // booking.servicePlan?.price ?? 799（與 collectSinglePayment 同源），給
+  // treatmentPriceSnapshot / expectedAmount / servicePlan.price / 799
+  //（與 collectSinglePayment 同源），給
   // 收款 Modal 顯示原價 + 折扣計算用。
   single: {
     collected: boolean;
@@ -160,7 +161,7 @@ export interface BookingDrawerPayload {
   // 「已扣堂 / 已有 SUCCESS 交易」的權威判斷在 adjustCheckoutToSingle action 內（執行時
   // race-safe 重查），此 Drawer 區塊只負責入口呈現，不重複加查詢。
   // currentPlanName / currentRemaining 供 Modal 顯示「目前：方案扣堂｜方案名｜剩 X 堂」；
-  // singleDefaultPrice 為轉換後單次原價（servicePlanId 清 null → 799），供 Modal 顯示。
+  // singleDefaultPrice 為轉換後的蒸足單次金額快照。
   checkoutToSingle: {
     canAdjustToSingle: boolean;
     reason: string | null;
@@ -422,9 +423,11 @@ export async function fetchBookingDetail(
           defaultPrice:
             booking.treatmentPriceSnapshot != null
               ? Number(booking.treatmentPriceSnapshot)
-              : booking.servicePlan?.price != null
-                ? Number(booking.servicePlan.price)
-                : 799,
+              : booking.expectedAmount != null
+                ? Number(booking.expectedAmount)
+                : booking.servicePlan?.price != null
+                  ? Number(booking.servicePlan.price)
+                  : 799,
         }
       : null,
     storedValue: storedValueWallet
@@ -442,8 +445,7 @@ export async function fetchBookingDetail(
           wallets: adjustWallets,
         })
       : null,
-    // 蒸足不允許把方案扣堂改成單次；SPA 結帳模式維持隔離。
-    checkoutToSingle: isPackage && isSpaDemoStoreId(booking.storeId)
+    checkoutToSingle: isPackage
       ? buildCheckoutToSingleBlock({
           isMakeup: booking.isMakeup,
           bookingStatus: booking.bookingStatus,
@@ -452,6 +454,12 @@ export async function fetchBookingDetail(
             booking.servicePlan?.name ??
             null,
           remaining: booking.customerPlanWallet?.remainingSessions ?? null,
+          singlePrice:
+            booking.treatmentPriceSnapshot != null
+              ? Number(booking.treatmentPriceSnapshot)
+              : booking.expectedAmount != null
+                ? Number(booking.expectedAmount)
+                : 799,
         })
       : null,
   };
@@ -466,6 +474,7 @@ function buildCheckoutToSingleBlock(args: {
   bookingStatus: string;
   planName: string | null;
   remaining: number | null;
+  singlePrice: number;
 }): NonNullable<BookingDrawerPayload["checkoutToSingle"]> {
   let reason: string | null = null;
   if (args.isMakeup) {
@@ -482,8 +491,7 @@ function buildCheckoutToSingleBlock(args: {
     reason,
     currentPlanName: args.planName,
     currentRemaining: args.remaining,
-    // 轉成 SINGLE 後 servicePlanId 清 null → collectSinglePayment fallback 799。
-    singleDefaultPrice: 799,
+    singleDefaultPrice: args.singlePrice,
   };
 }
 

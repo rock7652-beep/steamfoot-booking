@@ -369,8 +369,7 @@ describe("adjustCheckoutToPackageSchema", () => {
 // ============================================================
 // Mode B — adjustCheckoutToSingle（PACKAGE_SESSION 方案扣堂 → SINGLE 單次未收款）
 //  - 釋放配堂只「呼叫」既有 releaseSessions（RESERVED → AVAILABLE）
-//  - 翻成乾淨單次：bookingType=SINGLE / walletId=null / servicePlanId=null /
-//    expectedAmount=null
+//  - 翻成單次：bookingType=SINGLE / walletId=null / servicePlanId=null，金額快照 799
 //  - 零金流：不建任何 Transaction、不收款
 //  - reason 選填，空白也建立 AuditLog
 //  - race-safe：$transaction 內 FOR UPDATE → 重查（型別/狀態/已扣堂/SUCCESS 交易）→ 釋放 → update
@@ -391,8 +390,6 @@ const PACKAGE_PENDING = {
 const baseB = { bookingId: "bk_2", reason: "連蒸第二天優惠" };
 
 function setupModeB() {
-  // PACKAGE_SESSION → SINGLE 僅保留給隔離的 SPA 模組。
-  h.currentStoreId.mockReturnValue("demo-store");
   h.bookingFindFirst.mockResolvedValue({ ...PACKAGE_PENDING } as unknown as never);
   h.txBookingFindUnique.mockResolvedValue({
     bookingType: "PACKAGE_SESSION",
@@ -417,12 +414,12 @@ describe("adjustCheckoutToSingle — happy path (PACKAGE_SESSION → SINGLE)", (
     expect(h.releaseSessions).toHaveBeenCalledTimes(1);
     expect((h.releaseSessions.mock.calls[0] as unknown[])[1]).toBe("bk_2");
 
-    // 翻成乾淨單次：清方案 / wallet / 金額快照
+    // 轉成蒸足單次並解除 wallet / 方案，保留單次金額快照。
     const upd = lastUpdateData();
     expect(upd.data.bookingType).toBe("SINGLE");
     expect(upd.data.customerPlanWalletId).toBeNull();
     expect(upd.data.servicePlanId).toBeNull();
-    expect(upd.data.expectedAmount).toBeNull();
+    expect(upd.data.expectedAmount).toBe(799);
 
     // audit：action + reason 寫入
     expect(h.txAuditCreate).toHaveBeenCalledTimes(1);
@@ -431,6 +428,8 @@ describe("adjustCheckoutToSingle — happy path (PACKAGE_SESSION → SINGLE)", (
     };
     expect(audit.data.action).toBe("ADJUST_CHECKOUT_METHOD");
     expect(audit.data.afterJson.reason).toBe("連蒸第二天優惠");
+    expect(audit.data.afterJson.servicePlanId).toBeNull();
+    expect(audit.data.afterJson.expectedAmount).toBe(799);
 
     // 零金流
     expect(h.txTransactionCreate).not.toHaveBeenCalled();
@@ -496,20 +495,6 @@ describe("adjustCheckoutToSingle — race-safe ordering", () => {
 });
 
 describe("adjustCheckoutToSingle — pre-transaction guards", () => {
-  it("rejects Steamfoot stores before reading or mutating a booking", async () => {
-    setupModeB();
-    h.currentStoreId.mockReturnValue("store_1");
-
-    const r = await adjustCheckoutToSingle(baseB);
-
-    expect(r.success).toBe(false);
-    if (!r.success) {
-      expect(r.error).toContain("蒸足預約會直接扣最快到期方案一堂");
-    }
-    expect(h.bookingFindFirst).not.toHaveBeenCalled();
-    expect(h.txRun).not.toHaveBeenCalled();
-  });
-
   it("rejects makeup booking", async () => {
     setupModeB();
     h.bookingFindFirst.mockResolvedValue({

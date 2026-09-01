@@ -15,8 +15,9 @@ import {
   releaseSessions,
 } from "@/server/services/wallet-session";
 import { revalidateBookings } from "@/lib/revalidation";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import type { ActionResult } from "@/types";
+
+const SINGLE_DEFAULT_PRICE = 799;
 
 // ============================================================
 // adjustCheckoutToPackage — 調整結帳方式（Phase 1）
@@ -275,16 +276,6 @@ export async function adjustCheckoutToSingle(
     const data = adjustCheckoutToSingleSchema.parse(input);
     const storeId = currentStoreId(user);
 
-    // 蒸足預約一律使用方案扣堂；「方案轉單次」只保留給隔離的 SPA 模組。
-    // 這是 server-side 最終防線，避免舊畫面、快取或直接呼叫 action 再次把
-    // customerPlanWalletId / servicePlanId 清空，造成預約明細無服務、無金額。
-    if (!isSpaDemoStoreId(storeId)) {
-      throw new AppError(
-        "BUSINESS_RULE",
-        "蒸足預約會直接扣最快到期方案一堂，不可改為單次付費",
-      );
-    }
-
     // store-scoped 查詢即安全邊界（ID 格式非關卡）
     const booking = await prisma.booking.findFirst({
       where: { id: data.bookingId, storeId },
@@ -382,15 +373,16 @@ export async function adjustCheckoutToSingle(
       //    路徑，不硬刪、不改 wallet-session 核心。
       await releaseSessions(tx, booking.id);
 
-      // 2. 翻成乾淨的單次未收款：清掉方案 / wallet / 金額快照。單次原價於收款時
-      //    由既有 collectSinglePayment 依 servicePlan.price ?? 799（此處 null → 799）取得。
+      // 2. 改成蒸足單次未收款：解除 wallet / 方案關聯，並留下單次金額快照。
+      //    Drawer 對沒有 servicePlan 的蒸足 SINGLE 顯示「單次蒸足」；不借用 SPA
+      //    treatment 欄位，兩個模組的服務資料仍保持隔離。
       await tx.booking.update({
         where: { id: booking.id },
         data: {
           bookingType: "SINGLE",
           customerPlanWalletId: null,
           servicePlanId: null,
-          expectedAmount: null,
+          expectedAmount: SINGLE_DEFAULT_PRICE,
         },
       });
 
@@ -414,7 +406,7 @@ export async function adjustCheckoutToSingle(
             bookingType: "SINGLE",
             customerPlanWalletId: null,
             servicePlanId: null,
-            expectedAmount: null,
+            expectedAmount: SINGLE_DEFAULT_PRICE,
             reason: data.reason ?? null,
           },
         },
