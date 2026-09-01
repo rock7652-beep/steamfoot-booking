@@ -2,6 +2,13 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("SPA preview direct entries", () => {
+  it("lets SPA direct entries bypass the default Steamfoot route fallback", () => {
+    const proxy = readFileSync("src/proxy.ts", "utf8");
+
+    expect(proxy).toContain('pathname === "/spa-preview"');
+    expect(proxy).toContain('pathname.startsWith("/spa-preview/")');
+  });
+
   it.each([
     ["src/app/spa-preview/page.tsx", "/liff/design-preview"],
     ["src/app/spa-preview/manager/page.tsx", "/liff/manager-preview"],
