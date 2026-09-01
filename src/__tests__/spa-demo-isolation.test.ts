@@ -37,6 +37,17 @@ describe("SPA Demo tenant isolation", () => {
     expect(getStoreFilter({ role: "OWNER", storeId: "formal-store" })).toEqual({ storeId: "formal-store" });
   });
 
+  it("does not join SPA stored-value ledger data for Steamfoot single bookings", () => {
+    const drawer = readFileSync(
+      "src/server/actions/booking-drawer.ts",
+      "utf8",
+    );
+    expect(drawer).toContain("if (!includeStoredValue)");
+    expect(drawer).toContain("select: singleTransactionSelect");
+    expect(drawer).toContain("isSpaDemoStoreId(booking.storeId)");
+    expect(drawer).toContain("optional stored-value ledger table unavailable");
+  });
+
   it("allows headquarters to select the Demo store through an explicit store view", () => {
     expect(getStoreFilter({ role: "ADMIN" }, SPA_DEMO_STORE.id)).toEqual({ storeId: SPA_DEMO_STORE.id });
   });
