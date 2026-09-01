@@ -8,6 +8,7 @@ import {
   SPA_INDUSTRY_MODULE,
 } from "@/lib/industry-modules";
 import { WelcomeBack } from "../liff-shell";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 const featuredSpaService = getIndustryService(SPA_INDUSTRY_MODULE, "package_10");
 
@@ -17,8 +18,25 @@ export default async function LiffDesignPreviewPage() {
   const storeSlug = await resolveStoreSlugForLiff();
   if (storeSlug !== SPA_DEMO_STORE.slug) notFound();
 
-  const { presentation } = await getSpaDemoPreviewData();
+  const { presentation, bookings } = await getSpaDemoPreviewData();
   const displayStoreName = presentation.name.replace(/\s*示範店$/, "");
+  const today = toLocalDateStr();
+  const upcomingBookings = bookings
+    .filter((booking) =>
+      booking.date >= today
+      && !booking.refundedAt
+      && ["新客體驗", "已確認", "待到店"].includes(booking.status),
+    )
+    .sort((left, right) => `${left.date} ${left.time}`.localeCompare(`${right.date} ${right.time}`))
+    .map((booking) => ({
+      id: booking.id,
+      bookingDate: booking.date,
+      slotTime: booking.time,
+      bookingStatus: "CONFIRMED",
+      bookingType: "PACKAGE",
+      isMakeup: false,
+      people: 1,
+    }));
 
   return (
     <div className="spa-preview-page mx-auto flex max-w-md flex-col gap-5 px-5 pb-10 pt-7">
@@ -43,15 +61,7 @@ export default async function LiffDesignPreviewPage() {
         displayName={liffMessages.shell.designPreviewName}
         memberSummary={{
           walletsStatus: "ok",
-          upcomingBookings: [{
-            id: "preview-booking",
-            bookingDate: "2026-08-29",
-            slotTime: "14:00",
-            bookingStatus: "CONFIRMED",
-            bookingType: "PACKAGE",
-            isMakeup: false,
-            people: 1,
-          }],
+          upcomingBookings,
           activeWallets: [{
             id: "preview-wallet",
             planName: featuredSpaService.name,
@@ -67,15 +77,7 @@ export default async function LiffDesignPreviewPage() {
             status: "ACTIVE",
           }],
           makeupCredits: [{ id: "preview-makeup", expiredAt: "2026-09-30" }],
-          nextBooking: {
-            id: "preview-booking",
-            bookingDate: "2026-08-29",
-            slotTime: "14:00",
-            bookingStatus: "CONFIRMED",
-            bookingType: "PACKAGE",
-            isMakeup: false,
-            people: 1,
-          },
+          nextBooking: upcomingBookings[0] ?? null,
           healthSummary: null,
           referralShare: {
             storeName: displayStoreName,

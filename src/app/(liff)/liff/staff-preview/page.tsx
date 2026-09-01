@@ -20,12 +20,23 @@ export default async function SpaStaffPreviewPage({ searchParams }: { searchPara
     ?? preview.providers.find((item) => item.id === liveBooking?.providerId)
     ?? preview.providers.find((item) => item.id === SPA_DEMO_PROVIDERS[0].id);
   if (!provider) notFound();
+  const staffBookings = preview.bookings.map((booking) => ({
+    id: booking.id,
+    date: booking.date,
+    time: booking.time,
+    customer: booking.customer,
+    service: booking.service,
+    providerId: booking.providerId,
+    durationMinutes: booking.durationMinutes,
+    bufferMinutes: booking.bufferMinutes,
+    status: booking.status,
+  }));
 
   return (
     <main className="spa-preview-page min-h-screen bg-earth-50 px-4 py-6">
       <style>{`.liff-customer-ui:has(.spa-preview-page) > footer { display: none; }`}</style>
       <div className="mx-auto max-w-2xl space-y-4">
-        <SpaStaffSchedulePreview provider={provider} allBookings={preview.bookings} today={previewDate} />
+        <SpaStaffSchedulePreview provider={provider} allBookings={staffBookings} today={previewDate} />
       </div>
     </main>
   );

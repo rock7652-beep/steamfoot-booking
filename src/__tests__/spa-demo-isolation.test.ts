@@ -298,8 +298,15 @@ describe("SPA Demo tenant isolation", () => {
     expect(refund).toContain('entryType: "CREDIT"');
     expect(refund).toContain('triggeredBy: "spa_demo_manager_refund"');
     expect(refund).toContain("refundReason: parsed.data.reason");
-    expect(staffPreview).toContain("已退款");
-    expect(staffPreview).toContain("booking.refundedAt");
+    expect(staffPreview).not.toContain("已退款");
+    expect(staffPreview).not.toContain("refundAmount");
+    expect(staffPreview).not.toContain("settlementLabel");
+    expect(staffPreview).not.toContain("storedValueBalance");
+    expect(staffPreview).not.toContain("packageRemainingSessions");
+    const staffPage = readFileSync("src/app/(liff)/liff/staff-preview/page.tsx", "utf8");
+    expect(staffPage).toContain("const staffBookings = preview.bookings.map");
+    expect(staffPage).toContain("allBookings={staffBookings}");
+    expect(staffPage).not.toContain("allBookings={preview.bookings}");
     expect(manager).toContain("退款／作廢");
     expect(manager).not.toContain("確認到店");
     expect(manager).not.toContain("開始服務");
