@@ -35,6 +35,7 @@ const repository = {
   findActiveConversation: vi.fn(),
   expireConversation: vi.fn(async () => undefined),
   cancelConversation: vi.fn(async () => true),
+  hasPreviousValidationFailure: vi.fn(async () => false),
   findTriggeredFlow: vi.fn(),
   createConversation: vi.fn(),
   saveAnswer: vi.fn(async () => true),

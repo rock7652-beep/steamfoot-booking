@@ -9,7 +9,7 @@ const COMMANDS: ReadonlyArray<{
 }> = [
   {
     command: "HANDOFF",
-    phrases: ["轉接客服", "真人客服", "轉真人", "找客服"],
+    phrases: ["轉接客服", "真人客服", "轉真人", "找客服", "聯絡真人", "人工客服", "聯絡客服"],
   },
   {
     command: "CANCEL",
