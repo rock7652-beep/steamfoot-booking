@@ -10,11 +10,12 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
-import { isSpaDemoStoreId, SPA_DEMO_PROVIDERS } from "@/lib/spa-demo-store";
+import { SPA_DEMO_PROVIDERS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { StaffWorkspace, type StaffWorkspacePerson } from "./staff-workspace";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 export default async function StaffPage({
   searchParams,
@@ -38,7 +39,11 @@ export default async function StaffPage({
     getCurrentStorePlan(),
   ]);
   const canManage = canManagePermission && !adminMissingStore;
-  const isSpaDemo = isSpaDemoStoreId(activeStoreId);
+  const isSpaDemo = Boolean(
+    activeStoreId &&
+    (await getStoreIndustryModule(activeStoreId)) === "spa" &&
+    activeStoreId === SPA_DEMO_STORE.id,
+  );
   const spaSchemaReady = isSpaDemo ? await isSpaOperationalSchemaReady() : false;
   const spaCompensationReady = isSpaDemo ? await isSpaCompensationSchemaReady() : false;
   const providerById = new Map(SPA_DEMO_PROVIDERS.map((provider) => [provider.id, provider]));

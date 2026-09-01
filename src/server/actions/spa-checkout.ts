@@ -14,6 +14,7 @@ import { markCompleted } from "@/server/actions/booking";
 import { completePaidBookingInTransaction } from "@/server/services/paid-booking-completion";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import type { ActionResult } from "@/types";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const settleSpaPackageSchema = z.object({
   bookingId: z.string().min(1),
@@ -25,6 +26,7 @@ const spaBookingSchema = z.object({ bookingId: z.string().min(1) });
 async function requireSpaCheckoutStore() {
   const user = await requireWritablePermission("booking.update");
   const storeId = currentStoreId(user);
+  await requireSpaStore(storeId);
   if (storeId !== SPA_DEMO_STORE.id) {
     throw new AppError("FORBIDDEN", "SPA 現場結帳目前只開放 Demo 店驗收");
   }

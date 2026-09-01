@@ -28,6 +28,7 @@ import {
 } from "@/components/desktop";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { findSpaDemoCatalogItem, SPA_DEMO_CATALOG } from "@/lib/spa-demo-catalog";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 interface PageProps {
   searchParams: Promise<{
@@ -56,7 +57,10 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const todayStr = toLocalDateStr();
   const defaultDate = params.date ?? todayStr;
   const activeStoreId = await getActiveStoreForRead(user);
-  const isSpaDemoStore = activeStoreId === SPA_DEMO_STORE.id;
+  const isSpaStore = activeStoreId
+    ? (await getStoreIndustryModule(activeStoreId)) === "spa"
+    : false;
+  const isSpaDemoStore = isSpaStore && activeStoreId === SPA_DEMO_STORE.id;
   const spaSchemaReady = isSpaDemoStore ? await isSpaOperationalSchemaReady() : false;
   const requestedSlotTime = /^\d{2}:\d{2}$/.test(params.slotTime ?? "")
     ? params.slotTime

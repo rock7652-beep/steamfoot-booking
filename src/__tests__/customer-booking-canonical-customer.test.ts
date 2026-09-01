@@ -18,6 +18,10 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  getStoreIndustryModule: vi.fn(async () => "steamfoot"),
+}));
+
 const STORE_A = "store-zhubei";
 const REAL_CUSTOMER_ID = "ck0000000000000000000001"; // session 對應的真顧客
 const STALE_SESSION_CUSTOMER_ID = "ck0000000000000000000099"; // session 殘留的舊 ID

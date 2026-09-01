@@ -12,6 +12,7 @@ import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import type { ActionResult } from "@/types";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const SKILLS = [
   { key: "body", id: "spa-demo-skill-body", name: "身體芳療" },
@@ -101,6 +102,7 @@ const staffSetupSchema = z.object({
 async function requireSpaDemoWrite(permission: "plans.edit" | "staff.manage") {
   const user = await requirePermission(permission);
   const storeId = await resolveWriteStoreId(user);
+  await requireSpaStore(storeId);
   if (!isSpaDemoStoreId(storeId)) {
     throw new AppError("FORBIDDEN", "此設定目前只開放 SPA Demo 驗收");
   }

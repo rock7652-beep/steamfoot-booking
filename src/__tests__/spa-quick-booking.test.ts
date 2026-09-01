@@ -38,7 +38,8 @@ describe("SPA quick booking", () => {
       "utf8",
     );
     expect(schedule).toContain("<SpaQuickBookingDrawer");
-    expect(action).toContain("currentStoreId(user) !== SPA_DEMO_STORE.id");
+    expect(action).toContain("await requireSpaStore(storeId)");
+    expect(action).toContain("storeId !== SPA_DEMO_STORE.id");
     expect(action).toContain('bookingType: "SINGLE"');
   });
 

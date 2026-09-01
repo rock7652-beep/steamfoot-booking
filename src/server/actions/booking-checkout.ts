@@ -16,6 +16,7 @@ import {
 } from "@/server/services/wallet-session";
 import { revalidateBookings } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
+import { requireSteamfootStore } from "@/lib/industry-module-server";
 
 const SINGLE_DEFAULT_PRICE = 799;
 
@@ -48,6 +49,7 @@ export async function adjustCheckoutToPackage(
     const user = await requireWritablePermission("booking.update");
     const data = adjustCheckoutToPackageSchema.parse(input);
     const storeId = currentStoreId(user);
+    await requireSteamfootStore(storeId);
     // 訂閱到期保護：到期店家不可結帳轉換（無訂閱店不擋）
     await assertStoreSubscriptionWritable(storeId);
 
@@ -275,6 +277,7 @@ export async function adjustCheckoutToSingle(
     const user = await requireWritablePermission("booking.update");
     const data = adjustCheckoutToSingleSchema.parse(input);
     const storeId = currentStoreId(user);
+    await requireSteamfootStore(storeId);
 
     // store-scoped 查詢即安全邊界（ID 格式非關卡）
     const booking = await prisma.booking.findFirst({

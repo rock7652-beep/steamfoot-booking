@@ -31,6 +31,7 @@ import { calculateSpaProviderStartTimes } from "@/lib/spa-availability";
 import { resolveSpaScheduleService } from "@/lib/spa-dashboard-schedule";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { SPA_DEMO_CATALOG } from "@/lib/spa-demo-catalog";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 /**
  * 預約管理 — 桌機版（Phase 2 desktop family）
@@ -89,7 +90,10 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     : params.month
       ? parseInt(params.month)
       : todayM;
-  const isSpaDemoStore = bookingsStoreId === SPA_DEMO_STORE.id;
+  const isSpaStore = bookingsStoreId
+    ? (await getStoreIndustryModule(bookingsStoreId)) === "spa"
+    : false;
+  const isSpaDemoStore = isSpaStore && bookingsStoreId === SPA_DEMO_STORE.id;
   const spaSchemaReady = isSpaDemoStore
     ? await isSpaOperationalSchemaReady()
     : false;

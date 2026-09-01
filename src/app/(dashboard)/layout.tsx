@@ -22,7 +22,7 @@ import {
   type ViewableStoreOption,
 } from "@/lib/store-organization";
 import type { IndustryModuleId } from "@/lib/industry-modules";
-import { assertSpaDemoStoreIdentity, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 export default async function DashboardLayout({
   children,
@@ -97,14 +97,11 @@ export default async function DashboardLayout({
     try {
       const store = await prisma.store.findUnique({
         where: { id: effectiveStoreId },
-        select: { id: true, slug: true, isDemo: true, name: true, operatingStatus: true },
+        select: { name: true, operatingStatus: true },
       });
       storeName = store?.name ?? null;
       operatingStatus = store?.operatingStatus ?? null;
-      if (effectiveStoreId === SPA_DEMO_STORE.id) {
-        assertSpaDemoStoreIdentity(store);
-        industryModuleId = "spa";
-      }
+      industryModuleId = await getStoreIndustryModule(effectiveStoreId);
     } catch {
       // 忽略：店名/營運狀態失敗時使用 UI fallback
     }

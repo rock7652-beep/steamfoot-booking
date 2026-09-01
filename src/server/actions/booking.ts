@@ -84,7 +84,8 @@ import { Prisma } from "@prisma/client";
 // 規則與禁止項見該 helper 的 JSDoc 與 spec §3.4。
 import { snapshotRevenueStaffForBooking } from "./booking-helpers";
 import type { z } from "zod";
-import { assertSpaDemoStoreIdentity, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { addMinutes, hasContinuousAvailability } from "@/lib/spa-scheduling";
 import { resolveSpaScheduleService } from "@/lib/spa-dashboard-schedule";
 import {
@@ -277,14 +278,11 @@ export async function createBooking(
     await assertStaffBookingWritable(user);
     const data = createBookingSchema.parse(input);
     const storeId = currentStoreId(user);
-    const isSpaProviderBooking =
-      storeId === SPA_DEMO_STORE.id && !!data.serviceStaffId;
-    if (isSpaProviderBooking) {
-      const identity = await prisma.store.findUnique({
-        where: { id: SPA_DEMO_STORE.id },
-        select: { id: true, slug: true, isDemo: true },
-      });
-      assertSpaDemoStoreIdentity(identity);
+    const industryModule = await getStoreIndustryModule(storeId);
+    const isSpaStore = industryModule === "spa";
+    const isSpaProviderBooking = isSpaStore && !!data.serviceStaffId;
+    if (!isSpaStore && data.treatmentIds?.length) {
+      throw new AppError("FORBIDDEN", "蒸足門市不可使用 SPA 療程欄位");
     }
     const bookingPeople = data.people ?? 1;
     const requestedMakeup = data.isMakeup ?? false;
@@ -329,7 +327,7 @@ export async function createBooking(
     // 蒸足規則：顧客只要已有能涵蓋預約日的有效方案，建立預約時就直接
     // 依 FEFO（到期日 ASC → 建立時間 ASC → id ASC）保留一堂。
     // SPA 模組仍保留 SINGLE / 儲值 / 療程等不同結帳方式，不套用此規則。
-    if (storeId !== SPA_DEMO_STORE.id && data.bookingType === "SINGLE") {
+    if (!isSpaStore && data.bookingType === "SINGLE") {
       const bookingDateForWallet = new Date(`${data.bookingDate}T00:00:00Z`);
       const autoWallet = sortWalletsByFEFO(
         customer.planWallets.filter(
@@ -368,7 +366,7 @@ export async function createBooking(
 
     let spaComposition: SpaBookingComposition | null = null;
     if (data.treatmentIds?.length) {
-      if (storeId !== SPA_DEMO_STORE.id || !(await isSpaOperationalSchemaReady())) {
+      if (!isSpaStore || storeId !== SPA_DEMO_STORE.id || !(await isSpaOperationalSchemaReady())) {
         throw new AppError("FORBIDDEN", "多服務預約目前只開放 SPA Demo 驗收");
       }
       if (!data.serviceStaffId) {

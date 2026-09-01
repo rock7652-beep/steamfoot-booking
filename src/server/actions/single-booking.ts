@@ -17,6 +17,7 @@ import {
 } from "@/lib/payment-splits";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
+import { requireSteamfootStore } from "@/lib/industry-module-server";
 
 // ============================================================
 // collectSinglePayment — 單次（SINGLE，不扣堂）現場收款
@@ -46,6 +47,7 @@ export async function collectSinglePayment(
     const data = collectSinglePaymentSchema.parse(input);
     const completeService = data.completeService === true;
     const storeId = currentStoreId(user);
+    await requireSteamfootStore(storeId);
     // 訂閱到期保護：到期店家不可收款（無訂閱店不擋）
     await assertStoreSubscriptionWritable(storeId);
 

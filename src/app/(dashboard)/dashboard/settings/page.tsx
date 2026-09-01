@@ -9,7 +9,8 @@ import { listReminderRules } from "@/server/queries/reminder";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
+import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -87,7 +88,9 @@ export default async function SettingsIndexPage() {
     user.staffId,
     "trial.manage",
   );
-  const isSpaDemo = isSpaDemoStoreId(activeStoreId);
+  const isSpaDemo =
+    (await getStoreIndustryModule(activeStoreId)) === "spa" &&
+    activeStoreId === SPA_DEMO_STORE.id;
 
   // 並行拉 summary（皆為既有 query）
   const [plan, shopConfig, staffList, rules, weeklyHours, store, trialSettings, hasDigitalButler] =

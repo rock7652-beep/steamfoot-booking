@@ -16,10 +16,8 @@ import type { UserRole } from "@prisma/client";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import {
-  isSpaDemoStoreId,
-  SPA_DEMO_PROVIDERS,
-} from "@/lib/spa-demo-store";
+import { SPA_DEMO_PROVIDERS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -37,7 +35,12 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
 
   const staff = await getStaffDetail(id, activeStoreId).catch(() => null);
   if (!staff) notFound();
-  const spaProvider = isSpaDemoStoreId(activeStoreId)
+  const isSpaDemo = Boolean(
+    activeStoreId &&
+    (await getStoreIndustryModule(activeStoreId)) === "spa" &&
+    activeStoreId === SPA_DEMO_STORE.id,
+  );
+  const spaProvider = isSpaDemo
     ? SPA_DEMO_PROVIDERS.find((provider) => provider.id === staff.id) ?? null
     : null;
 

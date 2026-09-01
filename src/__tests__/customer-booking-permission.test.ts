@@ -13,6 +13,10 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  getStoreIndustryModule: vi.fn(async () => "steamfoot"),
+}));
+
 // ── Mock prisma ──
 const mockBusinessHoursFindMany = vi.fn();
 const mockBusinessHoursFindFirst = vi.fn();

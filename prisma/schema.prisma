@@ -367,6 +367,13 @@ enum StoreOperatingStatus {
   INACTIVE
 }
 
+// Store-level module firewall. Business actions must authorize against this
+// persisted value; isDemo and hard-coded store IDs are not module boundaries.
+enum IndustryModule {
+  STEAMFOOT
+  SPA
+}
+
 enum StoreFeatureEntitlementStatus {
   ENABLED
   DISABLED
@@ -594,6 +601,7 @@ model Store {
   lineDestination            String?              @unique // LINE Official Account bot userId (webhook destination)
   isDefault                  Boolean              @default(false)
   isDemo                     Boolean              @default(false) // Demo 店 — 僅供展示或測試
+  industryModule             IndustryModule       @default(STEAMFOOT)
   parentStoreId              String?
   operatingStatus            StoreOperatingStatus @default(ACTIVE)
   plan                       PricingPlan          @default(EXPERIENCE)
@@ -688,6 +696,7 @@ model Store {
   treatmentSkills    TreatmentSkill[]
 
   @@index([parentStoreId])
+  @@index([industryModule])
 }
 
 model StoreLineNotificationRecipient {

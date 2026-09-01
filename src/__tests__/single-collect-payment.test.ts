@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  requireSteamfootStore: vi.fn(async () => undefined),
+}));
+
 // 單次（SINGLE，不扣堂）現場收款 — collectSinglePayment 行為保證：
 //  - 只在「真的收款」時建立 1 筆 SINGLE_PURCHASE 交易
 //  - status=SUCCESS（snapshot）+ paymentStatus=SUCCESS（明確）+ paidAt 有值

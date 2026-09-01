@@ -26,6 +26,7 @@ import {
   type SpaDemoResourceType,
 } from "@/lib/spa-demo-catalog";
 import { isSpaResourceAvailable } from "@/lib/spa-resource-availability";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const inputSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -55,6 +56,7 @@ export async function fetchSpaBookingAvailability(
     const user = await requirePermission("booking.create");
     const storeId = await resolveWriteStoreId(user);
     context = { userId: user.id, storeId };
+    await requireSpaStore(storeId);
     if (storeId !== SPA_DEMO_STORE.id) {
       throw new AppError("FORBIDDEN", "此預約方式目前只開放 SPA Demo 驗收");
     }
