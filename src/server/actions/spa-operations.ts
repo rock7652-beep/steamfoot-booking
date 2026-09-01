@@ -1,9 +1,10 @@
 "use server";
 
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+import type { Prisma as SpaPrisma } from "@/generated/spa-client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requirePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
@@ -117,12 +118,12 @@ async function assertDemoStaff(staffId: string, storeId: string) {
   if (!staff) throw new AppError("NOT_FOUND", "找不到這位 Demo 人員");
 }
 
-async function ensureSkills(tx: Prisma.TransactionClient, storeId: string) {
+async function ensureSkills(tx: SpaPrisma.TransactionClient, storeId: string) {
   for (const [sortOrder, skill] of SKILLS.entries()) {
-    const existing = await tx.professionalSkill.findUnique({ where: { id: skill.id }, select: { storeId: true } });
+    const existing = await tx.spaSkill.findUnique({ where: { id: skill.id }, select: { storeId: true } });
     if (existing && existing.storeId !== storeId) throw new AppError("CONFLICT", "專業項目識別碼已被其他門市使用");
-    if (existing) await tx.professionalSkill.update({ where: { id: skill.id }, data: { name: skill.name, sortOrder, isActive: true } });
-    else await tx.professionalSkill.create({ data: { id: skill.id, storeId, name: skill.name, sortOrder } });
+    if (existing) await tx.spaSkill.update({ where: { id: skill.id }, data: { name: skill.name, sortOrder, isActive: true } });
+    else await tx.spaSkill.create({ data: { id: skill.id, storeId, name: skill.name, sortOrder } });
   }
 }
 
@@ -132,15 +133,15 @@ export async function saveSpaTreatment(input: z.infer<typeof treatmentSchema>): 
     const { user, storeId } = await requireSpaDemoWrite("plans.edit");
     context = { userId: user.id, storeId };
     const data = treatmentSchema.parse(input);
-    await prisma.$transaction(async (tx) => {
+    await spaPrisma.$transaction(async (tx) => {
       await ensureSkills(tx, storeId);
-      const existing = await tx.treatment.findUnique({ where: { id: data.id }, select: { storeId: true } });
+      const existing = await tx.spaTreatment.findUnique({ where: { id: data.id }, select: { storeId: true } });
       if (existing && existing.storeId !== storeId) throw new AppError("CONFLICT", "療程識別碼已被其他門市使用");
       const treatmentData = { name: data.name, variantLabel: data.variant, price: data.price, serviceMinutes: data.serviceMinutes, bufferMinutes: data.bufferMinutes, publicVisible: data.publicVisible };
-      if (existing) await tx.treatment.update({ where: { id: data.id }, data: { ...treatmentData, isActive: true } });
-      else await tx.treatment.create({ data: { id: data.id, storeId, ...treatmentData } });
-      await tx.treatmentSkill.deleteMany({ where: { storeId, treatmentId: data.id } });
-      await tx.treatmentSkill.createMany({
+      if (existing) await tx.spaTreatment.update({ where: { id: data.id }, data: { ...treatmentData, isActive: true } });
+      else await tx.spaTreatment.create({ data: { id: data.id, storeId, ...treatmentData } });
+      await tx.spaTreatmentSkill.deleteMany({ where: { storeId, treatmentId: data.id } });
+      await tx.spaTreatmentSkill.createMany({
         data: data.skillKeys.map((key) => ({ storeId, treatmentId: data.id, skillId: SKILLS.find((skill) => skill.key === key)!.id })),
       });
     });
@@ -156,10 +157,10 @@ export async function saveSpaStaffSkills(input: z.infer<typeof staffSkillsSchema
     context = { userId: user.id, storeId };
     const data = staffSkillsSchema.parse(input);
     await assertDemoStaff(data.staffId, storeId);
-    await prisma.$transaction(async (tx) => {
+    await spaPrisma.$transaction(async (tx) => {
       await ensureSkills(tx, storeId);
-      await tx.staffSkill.deleteMany({ where: { storeId, staffId: data.staffId } });
-      await tx.staffSkill.createMany({ data: data.skillKeys.map((key) => ({ storeId, staffId: data.staffId, skillId: SKILLS.find((skill) => skill.key === key)!.id })) });
+      await tx.spaStaffSkill.deleteMany({ where: { storeId, staffId: data.staffId } });
+      await tx.spaStaffSkill.createMany({ data: data.skillKeys.map((key) => ({ storeId, staffId: data.staffId, skillId: SKILLS.find((skill) => skill.key === key)!.id })) });
     });
     revalidatePath("/dashboard/staff");
     revalidatePath("/liff/design-preview/booking");
@@ -176,9 +177,9 @@ export async function saveSpaWeeklyAvailability(input: z.infer<typeof weeklyAvai
     if (new Set(data.availability.map((item) => item.dayOfWeek)).size !== data.availability.length) throw new AppError("VALIDATION", "同一天只能設定一個固定班表");
     if (data.availability.some((item) => item.startTime >= item.endTime)) throw new AppError("VALIDATION", "結束時間必須晚於開始時間");
     await assertDemoStaff(data.staffId, storeId);
-    await prisma.$transaction(async (tx) => {
-      await tx.staffWeeklyAvailability.deleteMany({ where: { storeId, staffId: data.staffId } });
-      if (data.availability.length) await tx.staffWeeklyAvailability.createMany({ data: data.availability.map((item) => ({ ...item, storeId, staffId: data.staffId })) });
+    await spaPrisma.$transaction(async (tx) => {
+      await tx.spaStaffAvailability.deleteMany({ where: { storeId, staffId: data.staffId } });
+      if (data.availability.length) await tx.spaStaffAvailability.createMany({ data: data.availability.map((item) => ({ ...item, storeId, staffId: data.staffId })) });
     });
     revalidatePath("/dashboard/staff");
     revalidatePath("/liff/design-preview/booking");
@@ -202,25 +203,23 @@ export async function saveSpaAvailabilityException(input: z.infer<typeof excepti
     }
     await assertDemoStaff(data.staffId, storeId);
     if (data.type === "UNAVAILABLE") {
-      const activeBookings = await prisma.booking.findMany({
+      const activeBookings = await spaPrisma.spaBooking.findMany({
         where: {
           storeId,
           serviceStaffId: data.staffId,
           bookingDate: parseTaiwanDateToDbDate(data.date),
-          bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+          status: { in: ["PENDING", "CONFIRMED"] },
         },
         select: {
-          slotTime: true,
-          treatmentServiceMinutesSnapshot: true,
-          treatmentBufferMinutesSnapshot: true,
+          startTime: true,
+          items: { select: { serviceMinutes: true, bufferMinutes: true } },
         },
       });
       const conflictingBookings = data.startTime && data.endTime
         ? activeBookings.filter((booking) => {
-            const bookingStart = timeToMinutes(booking.slotTime);
+            const bookingStart = timeToMinutes(booking.startTime);
             const bookingEnd = bookingStart
-              + (booking.treatmentServiceMinutesSnapshot ?? 90)
-              + (booking.treatmentBufferMinutesSnapshot ?? 0);
+              + booking.items.reduce((sum, item) => sum + item.serviceMinutes + item.bufferMinutes, 0);
             return bookingStart < timeToMinutes(data.endTime!)
               && timeToMinutes(data.startTime!) < bookingEnd;
           })
@@ -229,7 +228,7 @@ export async function saveSpaAvailabilityException(input: z.infer<typeof excepti
         throw new AppError("CONFLICT", `此時段已有 ${conflictingBookings.length} 筆預約，請先更換芳療師後再設定請假`);
       }
     }
-    await prisma.staffAvailabilityException.create({ data: { storeId, staffId: data.staffId, date: parseTaiwanDateToDbDate(data.date), type: data.type, startTime: data.startTime, endTime: data.endTime, reason: data.reason } });
+    await spaPrisma.spaStaffAvailabilityException.create({ data: { storeId, staffId: data.staffId, date: parseTaiwanDateToDbDate(data.date), type: data.type, startTime: data.startTime, endTime: data.endTime, reason: data.reason } });
     revalidatePath("/dashboard/staff");
     revalidatePath("/liff/design-preview/booking");
     return { success: true, data: undefined };
@@ -251,7 +250,7 @@ export async function saveSpaStaffCompensation(input: z.infer<typeof compensatio
     }
     const data = compensationSchema.parse(input);
     await assertDemoStaff(data.staffId, storeId);
-    await prisma.spaStaffCompensation.upsert({
+    await spaPrisma.spaStaffCompensation.upsert({
       where: { staffId: data.staffId },
       create: { storeId, staffId: data.staffId, mode: data.mode, value: data.value },
       update: { mode: data.mode, value: data.value, isActive: true },
@@ -273,7 +272,6 @@ export async function saveSpaStaffSetup(input: z.infer<typeof staffSetupSchema>)
     const data = staffSetupSchema.parse(input);
     await assertDemoStaff(data.staffId, storeId);
     await prisma.$transaction(async (tx) => {
-      await ensureSkills(tx, storeId);
       const staff = await tx.staff.findUnique({
         where: { id_storeId: { id: data.staffId, storeId } },
         select: { userId: true },
@@ -299,17 +297,20 @@ export async function saveSpaStaffSetup(input: z.infer<typeof staffSetupSchema>)
         where: { id_storeId: { id: data.staffId, storeId } },
         data: { displayName: data.displayName, colorCode: data.colorCode },
       });
-      await tx.staffSkill.deleteMany({ where: { storeId, staffId: data.staffId } });
-      await tx.staffSkill.createMany({
+    });
+    await spaPrisma.$transaction(async (tx) => {
+      await ensureSkills(tx, storeId);
+      await tx.spaStaffSkill.deleteMany({ where: { storeId, staffId: data.staffId } });
+      await tx.spaStaffSkill.createMany({
         data: data.skillKeys.map((key) => ({
           storeId,
           staffId: data.staffId,
           skillId: SKILLS.find((skill) => skill.key === key)!.id,
         })),
       });
-      await tx.staffWeeklyAvailability.deleteMany({ where: { storeId, staffId: data.staffId } });
+      await tx.spaStaffAvailability.deleteMany({ where: { storeId, staffId: data.staffId } });
       if (data.availability.length) {
-        await tx.staffWeeklyAvailability.createMany({
+        await tx.spaStaffAvailability.createMany({
           data: data.availability.map((availability) => ({ ...availability, storeId, staffId: data.staffId })),
         });
       }

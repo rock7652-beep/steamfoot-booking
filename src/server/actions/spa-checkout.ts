@@ -1,251 +1,149 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { requireWritablePermission } from "@/lib/permissions";
 import { currentStoreId } from "@/lib/store";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
-import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
-import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
-import { adjustCheckoutToPackage } from "@/server/actions/booking-checkout";
-import { markCompleted } from "@/server/actions/booking";
-import { completePaidBookingInTransaction } from "@/server/services/paid-booking-completion";
-import { createBookingCompletedEvent } from "@/server/services/referral-events";
 import type { ActionResult } from "@/types";
 import { requireSpaStore } from "@/lib/industry-module-server";
 
-const settleSpaPackageSchema = z.object({
-  bookingId: z.string().min(1),
-  walletId: z.string().min(1),
+const bookingSchema = z.object({ bookingId: z.string().min(1) });
+const packageSchema = bookingSchema.extend({ walletId: z.string().min(1) });
+const paymentSchema = bookingSchema.extend({
+  paymentMethod: z.enum(["CASH", "TRANSFER", "LINE_PAY", "CREDIT_CARD", "OTHER"]),
+  amount: z.number().int().positive(),
+  note: z.string().trim().max(300).optional(),
+  completeService: z.boolean().default(true),
 });
-
-const spaBookingSchema = z.object({ bookingId: z.string().min(1) });
 
 async function requireSpaCheckoutStore() {
   const user = await requireWritablePermission("booking.update");
   const storeId = currentStoreId(user);
   await requireSpaStore(storeId);
-  if (storeId !== SPA_DEMO_STORE.id) {
-    throw new AppError("FORBIDDEN", "SPA 現場結帳目前只開放 Demo 店驗收");
-  }
+  if (storeId !== SPA_DEMO_STORE.id) throw new AppError("FORBIDDEN", "SPA 現場結帳目前只開放 Demo 店驗收");
   await assertStoreSubscriptionWritable(storeId);
   return { user, storeId };
 }
 
-/** Optional operational step: mark the customer present without completing service. */
-export async function checkInSpaBooking(
-  input: z.infer<typeof spaBookingSchema>,
-): Promise<ActionResult<{ bookingId: string }>> {
+function revalidateSpaBooking() {
+  revalidatePath("/dashboard/bookings");
+  revalidatePath("/liff/manager-preview");
+  revalidatePath("/liff/staff-preview");
+}
+
+export async function checkInSpaBooking(input: z.infer<typeof bookingSchema>): Promise<ActionResult<{ bookingId: string }>> {
   try {
     const { storeId } = await requireSpaCheckoutStore();
-    const { bookingId } = spaBookingSchema.parse(input);
-    const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, storeId },
-      select: { id: true, customerId: true, bookingStatus: true },
-    });
+    const { bookingId } = bookingSchema.parse(input);
+    const booking = await spaPrisma.spaBooking.findFirst({ where: { id: bookingId, storeId } });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
-    if (booking.bookingStatus !== "PENDING" && booking.bookingStatus !== "CONFIRMED") {
-      throw new AppError("BUSINESS_RULE", "只有待服務的預約可以確認到店");
-    }
-    await prisma.booking.update({
-      where: { id: booking.id },
-      data: { isCheckedIn: true },
-    });
-    revalidateBookings(booking.customerId);
+    if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") throw new AppError("BUSINESS_RULE", "只有待服務的預約可以確認到店");
+    await spaPrisma.spaBooking.update({ where: { id: booking.id }, data: { checkedInAt: new Date() } });
+    revalidateSpaBooking();
     return { success: true, data: { bookingId: booking.id } };
   } catch (error) {
     return handleActionError(error);
   }
 }
 
-/** SPA Demo coordinator: reserve an existing treatment entitlement, then deduct it. */
-export async function settleSpaBookingWithPackage(
-  input: z.infer<typeof settleSpaPackageSchema>,
-): Promise<ActionResult<{ bookingId: string }>> {
+export async function settleSpaBookingWithPayment(input: z.infer<typeof paymentSchema>): Promise<ActionResult<{ bookingId: string; serviceCompleted: boolean }>> {
   try {
-    await requireSpaCheckoutStore();
-    const data = settleSpaPackageSchema.parse(input);
-    const adjusted = await adjustCheckoutToPackage(data);
-    if (!adjusted.success) throw new AppError("BUSINESS_RULE", adjusted.error);
+    const { user, storeId } = await requireSpaCheckoutStore();
+    const data = paymentSchema.parse(input);
+    const booking = await spaPrisma.spaBooking.findFirst({ where: { id: data.bookingId, storeId } });
+    if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
+    if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") throw new AppError("BUSINESS_RULE", "此預約狀態無法收款");
+    const grossAmount = Number(booking.totalPriceSnapshot);
+    if (data.amount > grossAmount) throw new AppError("VALIDATION", "實收金額不可高於原價");
 
-    const completed = await markCompleted(data.bookingId);
-    if (!completed.success) {
-      throw new AppError(
-        "CONFLICT",
-        `療程已保留，但完成扣次未成功：${completed.error}。請重新開啟預約後按「完成服務」。`,
-      );
-    }
-    return { success: true, data: { bookingId: data.bookingId } };
+    await spaPrisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "SpaBooking" WHERE id = ${booking.id} FOR UPDATE`;
+      if (await tx.spaPayment.findFirst({ where: { bookingId: booking.id, storeId, refundOfPaymentId: null, status: { in: ["PENDING", "SUCCESS"] } } })) {
+        throw new AppError("BUSINESS_RULE", "此預約已建立付款，請勿重複收款");
+      }
+      const paidAt = new Date();
+      await tx.spaPayment.create({
+        data: {
+          storeId,
+          customerId: booking.customerId,
+          bookingId: booking.id,
+          revenueStaffId: booking.revenueStaffId ?? booking.serviceStaffId,
+          soldByStaffId: user.staffId ?? null,
+          grossAmount,
+          netAmount: data.amount,
+          paymentMethod: data.paymentMethod,
+          status: "SUCCESS",
+          paidAt,
+          note: data.note,
+        },
+      });
+      if (data.completeService) await tx.spaBooking.update({ where: { id: booking.id }, data: { status: "COMPLETED", completedAt: paidAt } });
+    });
+    revalidateSpaBooking();
+    return { success: true, data: { bookingId: booking.id, serviceCompleted: data.completeService } };
   } catch (error) {
     return handleActionError(error);
   }
 }
 
-/**
- * Deduct a monetary stored-value wallet and complete the service atomically.
- * The wallet ledger is the funding source; Transaction remains the service
- * consumption record and is deliberately marked OTHER (non-cash) so it never
- * increases the physical cash drawer.
- */
-export async function settleSpaBookingWithStoredValue(
-  input: z.infer<typeof spaBookingSchema>,
-): Promise<ActionResult<{ bookingId: string; remainingBalance: number }>> {
+export async function settleSpaBookingWithPackage(input: z.infer<typeof packageSchema>): Promise<ActionResult<{ bookingId: string }>> {
   try {
     const { user, storeId } = await requireSpaCheckoutStore();
-    const { bookingId } = spaBookingSchema.parse(input);
-
-    const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, storeId },
-      select: {
-        id: true,
-        bookingType: true,
-        bookingStatus: true,
-        customerId: true,
-        revenueStaffId: true,
-        serviceStaffId: true,
-        servicePlanId: true,
-        treatmentNameSnapshot: true,
-        treatmentPriceSnapshot: true,
-        bookingDate: true,
-        slotTime: true,
-        servicePlan: { select: { price: true } },
-        customer: {
-          select: { assignedStaffId: true, sponsorId: true },
-        },
-      },
-    });
+    const data = packageSchema.parse(input);
+    const booking = await spaPrisma.spaBooking.findFirst({ where: { id: data.bookingId, storeId } });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
-    if (booking.bookingType !== "SINGLE") {
-      throw new AppError("BUSINESS_RULE", "只有單次服務可改用儲值金結帳");
-    }
-    if (booking.bookingStatus !== "PENDING" && booking.bookingStatus !== "CONFIRMED") {
-      throw new AppError("BUSINESS_RULE", "此預約狀態無法使用儲值金結帳");
-    }
+    if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") throw new AppError("BUSINESS_RULE", "此預約狀態無法扣療程");
 
-    const amount =
-      booking.treatmentPriceSnapshot != null
-        ? Number(booking.treatmentPriceSnapshot)
-        : booking.servicePlan?.price != null
-          ? Number(booking.servicePlan.price)
-          : 799;
-    if (!Number.isInteger(amount) || amount <= 0) {
-      throw new AppError("VALIDATION", "本次服務金額無效");
-    }
-    const revenueStaffId =
-      booking.revenueStaffId ??
-      booking.serviceStaffId ??
-      booking.customer.assignedStaffId ??
-      user.staffId;
-    if (!revenueStaffId) {
-      throw new AppError("FORBIDDEN", "無法判定本次服務的營收歸屬");
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${booking.id} FOR UPDATE`;
-      const existing = await tx.transaction.findFirst({
-        where: {
-          bookingId: booking.id,
-          transactionType: "SINGLE_PURCHASE",
-          status: "SUCCESS",
-        },
-        select: { id: true },
-      });
-      if (existing) throw new AppError("BUSINESS_RULE", "此預約已完成結帳，請勿重複扣款");
-
-      const wallet = await tx.storedValueWallet.findUnique({
-        where: { storeId_customerId: { storeId, customerId: booking.customerId } },
-        select: { id: true, balance: true, status: true },
-      });
-      if (!wallet || wallet.status !== "ACTIVE") {
-        throw new AppError("BUSINESS_RULE", "此顧客目前沒有可用的儲值金帳戶");
-      }
-      await tx.$queryRaw`SELECT id FROM "StoredValueWallet" WHERE id = ${wallet.id} FOR UPDATE`;
-      const lockedWallet = await tx.storedValueWallet.findUnique({
-        where: { id: wallet.id },
-        select: { balance: true, status: true },
-      });
-      const currentBalance = Number(lockedWallet?.balance ?? 0);
-      if (lockedWallet?.status !== "ACTIVE" || currentBalance < amount) {
-        throw new AppError(
-          "BUSINESS_RULE",
-          `儲值金餘額不足，目前 NT$ ${currentBalance.toLocaleString("zh-TW")}`,
-        );
-      }
-
-      const snapshot = await buildTransactionSnapshot(tx, {
-        customerId: booking.customerId,
-        storeId,
-        revenueStaffId,
-        planId: booking.servicePlanId ?? null,
-        grossAmount: amount,
-        netAmount: amount,
-      });
-      const transaction = await tx.transaction.create({
-        data: {
-          customerId: booking.customerId,
-          bookingId: booking.id,
-          revenueStaffId,
-          serviceStaffId: booking.serviceStaffId ?? user.staffId ?? null,
-          soldByStaffId: user.staffId ?? null,
-          transactionType: "SINGLE_PURCHASE",
-          paymentMethod: "OTHER",
-          paymentStatus: "SUCCESS",
-          paidAt: new Date(),
-          amount,
-          storeId,
-          note: `儲值金扣款${booking.treatmentNameSnapshot ? `｜${booking.treatmentNameSnapshot}` : ""}`,
-          ...snapshot,
-        },
-      });
-      const remainingBalance = currentBalance - amount;
-      await tx.storedValueWallet.update({
-        where: { id: wallet.id },
-        data: { balance: remainingBalance },
-      });
-      await tx.storedValueLedgerEntry.create({
-        data: {
-          walletId: wallet.id,
-          storeId,
-          customerId: booking.customerId,
-          bookingId: booking.id,
-          transactionId: transaction.id,
-          entryType: "DEBIT",
-          amount: -amount,
-          balanceAfter: remainingBalance,
-          note: booking.treatmentNameSnapshot ?? "SPA 現場服務",
-        },
-      });
-      await completePaidBookingInTransaction(tx, {
-        bookingId: booking.id,
-        bookingType: booking.bookingType,
-        customerId: booking.customerId,
-        storeId,
-        bookingDate: booking.bookingDate,
-        slotTime: booking.slotTime,
-        serviceStaffId: booking.serviceStaffId ?? user.staffId ?? null,
-      });
-      return { remainingBalance };
+    await spaPrisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "SpaBooking" WHERE id = ${booking.id} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "SpaEntitlement" WHERE id = ${data.walletId} FOR UPDATE`;
+      const entitlement = await tx.spaEntitlement.findFirst({ where: { id: data.walletId, storeId, customerId: booking.customerId, status: "ACTIVE", remainingUses: { gte: 1 } } });
+      if (!entitlement) throw new AppError("BUSINESS_RULE", "此療程已無可用次數");
+      const now = new Date();
+      await tx.spaEntitlementUse.create({ data: { storeId, entitlementId: entitlement.id, bookingId: booking.id, uses: 1, status: "COMPLETED", completedAt: now } });
+      const remainingUses = entitlement.remainingUses - 1;
+      await tx.spaEntitlement.update({ where: { id: entitlement.id }, data: { remainingUses, status: remainingUses === 0 ? "EXHAUSTED" : "ACTIVE" } });
+      await tx.spaPayment.create({ data: { storeId, customerId: booking.customerId, bookingId: booking.id, revenueStaffId: booking.revenueStaffId ?? booking.serviceStaffId, soldByStaffId: user.staffId ?? null, grossAmount: booking.totalPriceSnapshot, netAmount: 0, paymentMethod: "ENTITLEMENT", status: "SUCCESS", paidAt: now, note: `扣療程｜${entitlement.nameSnapshot}` } });
+      await tx.spaBooking.update({ where: { id: booking.id }, data: { status: "COMPLETED", completedAt: now } });
     });
+    revalidateSpaBooking();
+    return { success: true, data: { bookingId: booking.id } };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
 
-    try {
-      await createBookingCompletedEvent({
-        storeId,
-        customerId: booking.customerId,
-        referrerId: booking.customer.sponsorId ?? null,
-        bookingId: booking.id,
-        source: "stored-value-and-complete",
-      });
-    } catch {
-      // Referral tracking must never roll back the atomic checkout.
-    }
-    revalidateBookings(booking.customerId);
-    revalidateTransactions(booking.customerId);
-    return {
-      success: true,
-      data: { bookingId: booking.id, remainingBalance: result.remainingBalance },
-    };
+export async function settleSpaBookingWithStoredValue(input: z.infer<typeof bookingSchema>): Promise<ActionResult<{ bookingId: string; remainingBalance: number }>> {
+  try {
+    const { user, storeId } = await requireSpaCheckoutStore();
+    const { bookingId } = bookingSchema.parse(input);
+    const booking = await spaPrisma.spaBooking.findFirst({ where: { id: bookingId, storeId } });
+    if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
+    if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") throw new AppError("BUSINESS_RULE", "此預約狀態無法使用儲值金結帳");
+    const amount = Number(booking.totalPriceSnapshot);
+
+    const remainingBalance = await spaPrisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "SpaBooking" WHERE id = ${booking.id} FOR UPDATE`;
+      const wallet = await tx.spaStoredValueWallet.findUnique({ where: { storeId_customerId: { storeId, customerId: booking.customerId } } });
+      if (!wallet || wallet.status !== "ACTIVE") throw new AppError("BUSINESS_RULE", "此顧客目前沒有可用的儲值金帳戶");
+      await tx.$queryRaw`SELECT id FROM "SpaStoredValueWallet" WHERE id = ${wallet.id} FOR UPDATE`;
+      const locked = await tx.spaStoredValueWallet.findUnique({ where: { id: wallet.id } });
+      const balance = Number(locked?.balance ?? 0);
+      if (balance < amount) throw new AppError("BUSINESS_RULE", `儲值金餘額不足，目前 NT$ ${balance.toLocaleString("zh-TW")}`);
+      const now = new Date();
+      const payment = await tx.spaPayment.create({ data: { storeId, customerId: booking.customerId, bookingId: booking.id, revenueStaffId: booking.revenueStaffId ?? booking.serviceStaffId, soldByStaffId: user.staffId ?? null, grossAmount: amount, netAmount: amount, paymentMethod: "STORED_VALUE", status: "SUCCESS", paidAt: now, note: `儲值金扣款｜${booking.serviceNameSnapshot}` } });
+      const nextBalance = balance - amount;
+      await tx.spaStoredValueWallet.update({ where: { id: wallet.id }, data: { balance: nextBalance } });
+      await tx.spaStoredValueEntry.create({ data: { walletId: wallet.id, storeId, customerId: booking.customerId, bookingId: booking.id, paymentId: payment.id, entryType: "DEBIT", amount: -amount, balanceAfter: nextBalance, note: booking.serviceNameSnapshot } });
+      await tx.spaBooking.update({ where: { id: booking.id }, data: { status: "COMPLETED", completedAt: now } });
+      return nextBalance;
+    });
+    revalidateSpaBooking();
+    return { success: true, data: { bookingId: booking.id, remainingBalance } };
   } catch (error) {
     return handleActionError(error);
   }

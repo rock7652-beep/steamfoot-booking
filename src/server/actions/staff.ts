@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { requireStaffSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireStoreFeature } from "@/lib/feature-gate";
@@ -188,17 +189,13 @@ export async function createStaff(
     const passwordHash = hashSync(data.password, 10);
     const staffRole: UserRole = data.role ?? "OWNER";
 
-    const user = await prisma.$transaction(async (tx) => {
-      if (data.spaSkillKeys) {
-        const skillIds = data.spaSkillKeys.map((key) => `spa-demo-skill-${key}`);
-        const matchingSkills = await tx.professionalSkill.count({
-          where: { id: { in: skillIds }, storeId: writeStoreId, isActive: true },
-        });
-        if (matchingSkills !== skillIds.length) {
-          throw new AppError("CONFLICT", "部分專業項目尚未建立，請重新整理後再試");
-        }
-      }
+    if (data.spaSkillKeys) {
+      const skillIds = data.spaSkillKeys.map((key) => `spa-demo-skill-${key}`);
+      const matchingSkills = await spaPrisma.spaSkill.count({ where: { id: { in: skillIds }, storeId: writeStoreId, isActive: true } });
+      if (matchingSkills !== skillIds.length) throw new AppError("CONFLICT", "部分專業項目尚未建立，請重新整理後再試");
+    }
 
+    const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
           name: data.name,
@@ -214,40 +211,21 @@ export async function createStaff(
               monthlySpaceFee: data.monthlySpaceFee ?? 0,
               spaceFeeEnabled: data.spaceFeeEnabled ?? true,
               storeId: writeStoreId,
-              ...(data.spaCompensation ? {
-                spaCompensationSetting: {
-                  create: {
-                    store: { connect: { id: writeStoreId } },
-                    mode: data.spaCompensation.mode,
-                    value: data.spaCompensation.value,
-                  },
-                },
-              } : {}),
             },
           },
         },
         include: { staff: true },
       });
-      if (created.staff && data.spaSkillKeys) {
-        await tx.staffSkill.createMany({
-          data: data.spaSkillKeys.map((key) => ({
-            storeId: writeStoreId,
-            staffId: created.staff!.id,
-            skillId: `spa-demo-skill-${key}`,
-          })),
-        });
-      }
-      if (created.staff && data.spaWeeklyAvailability?.length) {
-        await tx.staffWeeklyAvailability.createMany({
-          data: data.spaWeeklyAvailability.map((availability) => ({
-            ...availability,
-            storeId: writeStoreId,
-            staffId: created.staff!.id,
-          })),
-        });
-      }
       return created;
     });
+
+    if (user.staff && hasSpaSetup) {
+      await spaPrisma.$transaction(async (tx) => {
+        if (data.spaSkillKeys?.length) await tx.spaStaffSkill.createMany({ data: data.spaSkillKeys.map((key) => ({ storeId: writeStoreId, staffId: user.staff!.id, skillId: `spa-demo-skill-${key}` })) });
+        if (data.spaWeeklyAvailability?.length) await tx.spaStaffAvailability.createMany({ data: data.spaWeeklyAvailability.map((availability) => ({ ...availability, storeId: writeStoreId, staffId: user.staff!.id })) });
+        if (data.spaCompensation) await tx.spaStaffCompensation.create({ data: { storeId: writeStoreId, staffId: user.staff!.id, mode: data.spaCompensation.mode, value: data.spaCompensation.value } });
+      });
+    }
 
     // 根據角色建立預設權限
     if (user.staff) {

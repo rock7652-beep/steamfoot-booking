@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import {
   assertSpaDemoStoreIdentity,
@@ -9,6 +10,7 @@ import {
   SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
   SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
   SPA_DEMO_LIVE_FLOW_CUSTOMER_ID,
+  SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME,
   SPA_DEMO_LIVE_FLOW_NOTIFICATION_ID,
   SPA_DEMO_PROVIDERS,
   SPA_DEMO_STORE,
@@ -75,7 +77,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
   assertSpaDemoStoreIdentity(store);
 
   const compensationReady = await isSpaCompensationSchemaReady();
-  const [staff, bookings, liveStoredWallet, livePackageWallet, notificationLog, compensationSettings] = await Promise.all([
+  const [staff, staffSkills, weeklyAvailabilities, availabilityExceptions, bookings, liveStoredWallet, livePackageWallet, notificationLog, compensationSettings] = await Promise.all([
     prisma.staff.findMany({
       where: {
         storeId: SPA_DEMO_STORE.id,
@@ -85,55 +87,46 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       select: {
         id: true,
         displayName: true,
-        skills: {
-          where: { storeId: SPA_DEMO_STORE.id, skill: { isActive: true } },
-          select: { skillId: true, skill: { select: { name: true } } },
-        },
-        weeklyAvailabilities: {
-          where: { storeId: SPA_DEMO_STORE.id, isActive: true },
-          select: { dayOfWeek: true, startTime: true, endTime: true },
-          orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
-        },
-        availabilityExceptions: {
-          where: { storeId: SPA_DEMO_STORE.id, date: { gte: parseTaiwanDateToDbDate(toLocalDateStr()) } },
-          select: { date: true, type: true, reason: true, startTime: true, endTime: true },
-          orderBy: { date: "asc" },
-        },
       },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.booking.findMany({
+    spaPrisma.spaStaffSkill.findMany({ where: { storeId: SPA_DEMO_STORE.id }, select: { staffId: true, skillId: true, skill: { select: { name: true } } } }),
+    spaPrisma.spaStaffAvailability.findMany({ where: { storeId: SPA_DEMO_STORE.id, isActive: true }, select: { staffId: true, dayOfWeek: true, startTime: true, endTime: true }, orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] }),
+    spaPrisma.spaStaffAvailabilityException.findMany({ where: { storeId: SPA_DEMO_STORE.id, date: { gte: parseTaiwanDateToDbDate(toLocalDateStr()) } }, select: { staffId: true, date: true, type: true, reason: true, startTime: true, endTime: true }, orderBy: { date: "asc" } }),
+    spaPrisma.spaBooking.findMany({
       where: {
         storeId: SPA_DEMO_STORE.id,
         id: { in: [...SPA_DEMO_BOOKINGS.map((booking) => booking.id), ...SPA_DEMO_LIVE_FLOW_BOOKING_IDS] },
-        bookingStatus: { not: "CANCELLED" },
+        status: { not: "CANCELLED" },
       },
       select: {
         id: true,
         bookingDate: true,
-        slotTime: true,
-        bookingStatus: true,
-        bookingType: true,
+        startTime: true,
+        status: true,
         notes: true,
         serviceStaffId: true,
-        treatmentNameSnapshot: true,
-        treatmentVariantSnapshot: true,
-        treatmentPriceSnapshot: true,
-        treatmentServiceMinutesSnapshot: true,
-        treatmentBufferMinutesSnapshot: true,
-        customer: { select: { name: true, phone: true, storeId: true } },
-        servicePlan: { select: { name: true, storeId: true } },
-        customerPlanWallet: { select: { remainingSessions: true, storeId: true } },
+        serviceNameSnapshot: true,
+        totalPriceSnapshot: true,
+        partyGroupId: true,
+        guestIndex: true,
+        items: { orderBy: { sortOrder: "asc" } },
+        payments: {
+          where: { refundOfPaymentId: null, status: { in: ["SUCCESS", "REFUNDED"] } },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          include: { refunds: { where: { status: "SUCCESS" }, orderBy: { createdAt: "desc" } } },
+        },
       },
-      orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
+      orderBy: [{ bookingDate: "asc" }, { startTime: "asc" }],
     }),
-    prisma.storedValueWallet.findFirst({
+    spaPrisma.spaStoredValueWallet.findFirst({
       where: { storeId: SPA_DEMO_STORE.id, customerId: "spa-demo-customer-live-flow" },
       select: { balance: true },
     }),
-    prisma.customerPlanWallet.findFirst({
+    spaPrisma.spaEntitlement.findFirst({
       where: { id: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID, storeId: SPA_DEMO_STORE.id },
-      select: { remainingSessions: true },
+      select: { remainingUses: true },
     }),
     prisma.messageLog.findFirst({
       where: {
@@ -145,7 +138,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       orderBy: [{ sentAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
     }),
     compensationReady
-      ? prisma.spaStaffCompensation.findMany({
+      ? spaPrisma.spaStaffCompensation.findMany({
           where: { storeId: SPA_DEMO_STORE.id, isActive: true },
           select: { staffId: true, mode: true, value: true },
         })
@@ -155,7 +148,8 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
   const providers = staff.map((record) => {
     const fixture = SPA_DEMO_PROVIDERS.find((provider) => provider.id === record.id);
     const badgeMatch = record.displayName.match(/^(\d+)號\s*/);
-    const specialtyKeys = record.skills
+    const recordSkills = staffSkills.filter((skill) => skill.staffId === record.id);
+    const specialtyKeys = recordSkills
       .map((row) => row.skillId.replace("spa-demo-skill-", ""))
       .filter((key): key is "body" | "head" | "foot" | "face" => ["body", "head", "foot", "face"].includes(key));
     const compensation = compensationSettings.find((setting) => setting.staffId === record.id);
@@ -166,13 +160,13 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       id: record.id,
       badge: badgeMatch?.[1] ?? record.displayName.slice(0, 2),
       name: record.displayName.replace(/^\d+號\s*/, ""),
-      specialties: record.skills.map((row) => row.skill.name).join("・") || "尚未設定專業項目",
+      specialties: recordSkills.map((row) => row.skill.name).join("・") || "尚未設定專業項目",
       specialtyKeys,
       compensationMode,
       compensationValue: compensation ? Number(compensation.value) : null,
       emergencyContact: fixture?.emergencyContact ?? { name: "", relation: "", phone: "" },
-      weeklyAvailability: record.weeklyAvailabilities,
-      scheduleExceptions: record.availabilityExceptions.map((exception) => ({
+      weeklyAvailability: weeklyAvailabilities.filter((availability) => availability.staffId === record.id),
+      scheduleExceptions: availabilityExceptions.filter((exception) => exception.staffId === record.id).map((exception) => ({
         date: toLocalDateStr(exception.date),
         label: exception.type === "UNAVAILABLE"
           ? exception.startTime && exception.endTime
@@ -192,35 +186,32 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       record.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number],
     );
     if (!fixture && !isLiveFlow) throw new Error(`SPA_DEMO_BOOKING_NOT_ALLOWLISTED:${record.id}`);
-    if (
-      record.customer.storeId !== SPA_DEMO_STORE.id ||
-      (record.servicePlan && record.servicePlan.storeId !== SPA_DEMO_STORE.id) ||
-      (record.customerPlanWallet && record.customerPlanWallet.storeId !== SPA_DEMO_STORE.id) ||
-      (record.serviceStaffId && !staff.some((provider) => provider.id === record.serviceStaffId))
-    ) {
+    if (!staff.some((provider) => provider.id === record.serviceStaffId)) {
       throw new Error(`SPA_DEMO_CROSS_STORE_RELATION_REJECTED:${record.id}`);
     }
-    const status = record.bookingType === "FIRST_TRIAL"
-      ? "新客體驗"
-      : STATUS_MAP[record.bookingStatus] ?? "已確認";
+    const status = STATUS_MAP[record.status] ?? "已確認";
     if (isLiveFlow) {
+      const payment = record.payments[0];
+      const refund = payment?.refunds[0];
       const settlement = record.notes?.match(/\|label=([^|]+)\|amount=(\d+)/);
-      const refundAmount = Number(record.notes?.match(/\|refundAmount=(\d+)/)?.[1] ?? Number.NaN);
-      const refundReason = record.notes?.match(/\|refundReason=([^|]+)/)?.[1] ?? null;
-      const refundedAt = record.notes?.match(/\|refundedAt=([^|]+)/)?.[1] ?? null;
+      const refundAmount = refund ? Number(refund.netAmount) : Number.NaN;
+      const refundReason = refund?.refundReason ?? null;
+      const refundedAt = refund?.refundedAt?.toISOString() ?? null;
       const settlementScope = record.notes?.match(/\|checkout=(GROUP|INDIVIDUAL)\|/)?.[1] as "GROUP" | "INDIVIDUAL" | undefined;
       const partySize = Number(record.notes?.match(/\|party=(\d+)/)?.[1] ?? 1);
-      const guestIndex = Number(record.notes?.match(/\|guest=(\d+)/)?.[1] ?? 1);
+      const guestIndex = record.guestIndex;
+      const serviceMinutes = record.items.reduce((sum, item) => sum + item.serviceMinutes, 0) || 60;
+      const bufferMinutes = record.items.reduce((sum, item) => sum + item.bufferMinutes, 0);
       return {
         id: record.id,
         date: toLocalDateStr(record.bookingDate),
-        time: record.slotTime,
-        customer: record.customer.name,
-        service: record.treatmentNameSnapshot ?? record.servicePlan?.name ?? "SPA 服務",
-        serviceItems: (record.treatmentNameSnapshot ?? "SPA 服務").split("＋"),
+        time: record.startTime,
+        customer: SPA_DEMO_LIVE_FLOW_CUSTOMER_NAME,
+        service: record.serviceNameSnapshot,
+        serviceItems: record.items.map((item) => item.treatmentNameSnapshot),
         providerId: record.serviceStaffId ?? providers[0]?.id ?? SPA_DEMO_PROVIDERS[0].id,
-        durationMinutes: record.treatmentServiceMinutesSnapshot ?? 60,
-        bufferMinutes: record.treatmentBufferMinutesSnapshot ?? 30,
+        durationMinutes: serviceMinutes,
+        bufferMinutes,
         status,
         tone: toneForStatus(status),
         remainingSessions: null,
@@ -232,25 +223,23 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
         refundReason,
         refundedAt,
         storedValueBalance: liveStoredWallet ? Number(liveStoredWallet.balance) : null,
-        packageRemainingSessions: livePackageWallet?.remainingSessions ?? null,
+        packageRemainingSessions: livePackageWallet?.remainingUses ?? null,
         partySize,
         guestIndex,
-        price: Number(record.treatmentPriceSnapshot ?? 0),
-        contactPhone: record.customer.phone ?? "",
+        price: Number(record.totalPriceSnapshot),
+        contactPhone: "0911999999",
       };
     }
     return {
       ...fixture!,
       date: toLocalDateStr(record.bookingDate),
-      time: record.slotTime,
-      customer: record.customer.name,
-      service: fixture!.serviceItems.length > 1
-        ? fixture!.service
-        : record.servicePlan?.name ?? fixture!.service,
+      time: record.startTime,
+      customer: fixture!.customer,
+      service: record.serviceNameSnapshot,
       providerId: record.serviceStaffId ?? fixture!.providerId,
       status,
       tone: toneForStatus(status),
-      remainingSessions: record.customerPlanWallet?.remainingSessions ?? fixture!.remainingSessions,
+      remainingSessions: fixture!.remainingSessions,
       note: record.notes?.replace(/^SPA_DEMO\|/, "") ?? fixture!.note,
     };
   });

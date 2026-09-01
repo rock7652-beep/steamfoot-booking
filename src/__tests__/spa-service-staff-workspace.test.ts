@@ -24,8 +24,9 @@ describe("SPA service staff workspace", () => {
   });
 
   it("selects only the customer name and never sends private customer fields", () => {
-    expect(page).toContain('customer: { select: { name: true } }');
-    expect(page).not.toContain("customer: { select: { name: true, phone");
+    expect(page).toContain("customerNames.get(booking.customerId)");
+    expect(page).toContain("select: { id: true, name: true }");
+    expect(page).not.toContain("select: { id: true, name: true, phone");
     expect(page).not.toContain("customerPlanWallet");
     expect(page).not.toContain("transactions");
   });

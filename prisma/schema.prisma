@@ -135,11 +135,6 @@ enum BookingStatus {
   NO_SHOW
 }
 
-enum StaffAvailabilityExceptionType {
-  UNAVAILABLE
-  AVAILABLE
-}
-
 enum BookedByType {
   CUSTOMER
   STAFF
@@ -681,19 +676,10 @@ model Store {
   lineNotificationRecipients        StoreLineNotificationRecipient[]
   messengerAuditRuns                MessengerAuditRun[]
   customerHealthRecords             CustomerHealthRecord[]
-  professionalSkills                ProfessionalSkill[]
-  treatments                        Treatment[]
-  staffSkills                       StaffSkill[]
-  staffWeeklyAvailabilities         StaffWeeklyAvailability[]
-  staffAvailabilityExceptions       StaffAvailabilityException[]
-  spaStaffCompensationSettings      SpaStaffCompensation[]
-  storedValueWallets                StoredValueWallet[]
-  storedValueLedgerEntries          StoredValueLedgerEntry[]
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
   settlements        StoreSettlement[]
-  treatmentSkills    TreatmentSkill[]
 
   @@index([parentStoreId])
   @@index([industryModule])
@@ -1041,12 +1027,6 @@ model Staff {
   // 註銷的單堂明細
   voidedSessions WalletSession[] @relation("VoidedSessions")
 
-  // SPA 人員專業與可接客時間（新增式模型，不取代既有 DutyAssignment）
-  skills                 StaffSkill[]
-  weeklyAvailabilities   StaffWeeklyAvailability[]
-  availabilityExceptions StaffAvailabilityException[]
-  spaCompensationSetting SpaStaffCompensation?
-
   @@unique([id, storeId])
   @@index([storeId])
 }
@@ -1145,8 +1125,6 @@ model Customer {
   checkinPosts                CheckinPost[]
   healthRecords               CustomerHealthRecord[]
   healthHistoryGrantsReceived CustomerHealthHistoryGrant[]
-  storedValueWallets          StoredValueWallet[]
-  storedValueLedgerEntries    StoredValueLedgerEntry[]
 
   // 顧客經營追蹤紀錄（簡易 CRM-lite）
   followUps                       CustomerFollowUp[]
@@ -1559,142 +1537,6 @@ model ServicePlan {
 }
 
 // ============================================================
-// SPA 療程、專業與人員可接客規則
-//
-// 這些模型刻意不取代 ServicePlan / CustomerPlanWallet：
-// ServicePlan 是堂數商品；Treatment 是本次預約做什麼、多少錢與占用多久。
-// ============================================================
-
-model ProfessionalSkill {
-  id        String   @id @default(cuid())
-  storeId   String
-  name      String
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  store      Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  treatments TreatmentSkill[]
-  staff      StaffSkill[]
-
-  @@unique([storeId, name], name: "uq_professional_skill_store_name")
-  @@unique([id, storeId])
-  @@index([storeId, isActive])
-}
-
-model Treatment {
-  id             String   @id @default(cuid())
-  storeId        String
-  name           String
-  variantLabel   String?
-  price          Decimal  @db.Decimal(10, 0)
-  serviceMinutes Int
-  bufferMinutes  Int      @default(0)
-  isActive       Boolean  @default(true)
-  publicVisible  Boolean  @default(false)
-  sortOrder      Int      @default(0)
-  description    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  store    Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  skills   TreatmentSkill[]
-  bookings Booking[]
-
-  @@unique([storeId, name, variantLabel], name: "uq_treatment_store_name_variant")
-  @@unique([id, storeId])
-  @@index([storeId, isActive, publicVisible])
-}
-
-model TreatmentSkill {
-  storeId     String
-  treatmentId String
-  skillId     String
-  createdAt   DateTime @default(now())
-
-  store     Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  treatment Treatment         @relation(fields: [treatmentId, storeId], references: [id, storeId], onDelete: Cascade)
-  skill     ProfessionalSkill @relation(fields: [skillId, storeId], references: [id, storeId], onDelete: Cascade)
-
-  @@id([treatmentId, skillId])
-  @@index([storeId])
-  @@index([skillId])
-}
-
-model StaffSkill {
-  storeId   String
-  staffId   String
-  skillId   String
-  createdAt DateTime @default(now())
-
-  store Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  staff Staff             @relation(fields: [staffId, storeId], references: [id, storeId], onDelete: Cascade)
-  skill ProfessionalSkill @relation(fields: [skillId, storeId], references: [id, storeId], onDelete: Cascade)
-
-  @@id([staffId, skillId])
-  @@index([storeId])
-  @@index([skillId])
-}
-
-model StaffWeeklyAvailability {
-  id        String   @id @default(cuid())
-  storeId   String
-  staffId   String
-  dayOfWeek Int
-  startTime String
-  endTime   String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  staff Staff @relation(fields: [staffId, storeId], references: [id, storeId], onDelete: Cascade)
-
-  @@unique([staffId, dayOfWeek, startTime, endTime], name: "uq_staff_weekly_availability")
-  @@index([storeId, dayOfWeek, isActive])
-  @@index([staffId, dayOfWeek])
-}
-
-model StaffAvailabilityException {
-  id        String                         @id @default(cuid())
-  storeId   String
-  staffId   String
-  date      DateTime                       @db.Date
-  type      StaffAvailabilityExceptionType
-  startTime String?
-  endTime   String?
-  reason    String?
-  createdAt DateTime                       @default(now())
-  updatedAt DateTime                       @updatedAt
-
-  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  staff Staff @relation(fields: [staffId, storeId], references: [id, storeId], onDelete: Cascade)
-
-  @@index([storeId, date])
-  @@index([staffId, date])
-}
-
-// SPA 服務人員的抽成設定。獨立於 Staff，避免影響既有蒸足門市的人員資料。
-model SpaStaffCompensation {
-  id        String   @id @default(cuid())
-  storeId   String
-  staffId   String   @unique
-  mode      String // PERCENTAGE | FIXED
-  value     Decimal  @db.Decimal(10, 2)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  staff Staff @relation(fields: [staffId, storeId], references: [id, storeId], onDelete: Cascade)
-
-  @@unique([staffId, storeId])
-  @@index([storeId, isActive])
-  @@index([staffId, isActive])
-}
-
-// ============================================================
 // CustomerPlanWallet（顧客課程錢包）
 // ============================================================
 
@@ -1796,68 +1638,59 @@ model BookingSlot {
 // ============================================================
 
 model Booking {
-  id                              String               @id @default(cuid())
-  customerId                      String
-  storeId                         String
-  bookingDate                     DateTime             @db.Date
-  slotTime                        String // "HH:mm"，對應 BookingSlot.startTime
-  revenueStaffId                  String? // 冗餘快照：營收歸屬店長（nullable: 顧客可能尚未指派）
-  serviceStaffId                  String? // 當天實際服務/值班店長（nullable, 可後補）
-  bookedByType                    BookedByType         @default(CUSTOMER)
-  bookedByStaffId                 String? // 若由店長代約，記錄是哪位店長
-  bookingType                     BookingType          @default(PACKAGE_SESSION)
-  servicePlanId                   String? // 使用哪個方案（nullable for flexibility）
-  treatmentId                     String? // 本次選擇的療程；與堂數方案分離
-  customerPlanWalletId            String? // 若使用套餐，對應哪個錢包
-  people                          Int                  @default(1) // 預約人數（1~4）— 原本預約人數，不可被部分到店流程改寫
+  id                      String               @id @default(cuid())
+  customerId              String
+  storeId                 String
+  bookingDate             DateTime             @db.Date
+  slotTime                String // "HH:mm"，對應 BookingSlot.startTime
+  revenueStaffId          String? // 冗餘快照：營收歸屬店長（nullable: 顧客可能尚未指派）
+  serviceStaffId          String? // 當天實際服務/值班店長（nullable, 可後補）
+  bookedByType            BookedByType         @default(CUSTOMER)
+  bookedByStaffId         String? // 若由店長代約，記錄是哪位店長
+  bookingType             BookingType          @default(PACKAGE_SESSION)
+  servicePlanId           String? // 使用哪個方案（nullable for flexibility）
+  customerPlanWalletId    String? // 若使用套餐，對應哪個錢包
+  people                  Int                  @default(1) // 預約人數（1~4）— 原本預約人數，不可被部分到店流程改寫
   // 多人預約的實際到店人數（FIRST_TRIAL 與 PACKAGE_SESSION）。
   // null = 未明確記錄／視為 attendedPeople == people（向後相容、不破現有資料）。
   // 1..people = 店長於 完成服務 時記錄；attendedPeople < people 表示部分到店，
   // 體驗收款預設改用 attendedPeople 計算；0 不寫入（0 走 markNoShow）。
-  attendedPeople                  Int?
-  isMakeup                        Boolean              @default(false) // 是否為補課預約
-  makeupCreditId                  String?              @unique // 若為補課，關聯使用的補課資格
-  isCheckedIn                     Boolean              @default(false) // 已棄用，保留向後相容
-  bookingStatus                   BookingStatus        @default(PENDING)
-  noShowPolicy                    String? // "DEDUCTED" | "NOT_DEDUCTED"；整筆或部分未到時使用
-  noShowMakeupGranted             Boolean? // 整筆或部分未到是否有發補課資格
-  reminderSent                    Boolean              @default(false)
+  attendedPeople          Int?
+  isMakeup                Boolean              @default(false) // 是否為補課預約
+  makeupCreditId          String?              @unique // 若為補課，關聯使用的補課資格
+  isCheckedIn             Boolean              @default(false) // 已棄用，保留向後相容
+  bookingStatus           BookingStatus        @default(PENDING)
+  noShowPolicy            String? // "DEDUCTED" | "NOT_DEDUCTED"；整筆或部分未到時使用
+  noShowMakeupGranted     Boolean? // 整筆或部分未到是否有發補課資格
+  reminderSent            Boolean              @default(false)
   // Customer-operated trial booking lifecycle. Nullable/default values keep
   // every historical booking compatible with the existing payment flow.
-  trialBookingChannel             TrialBookingChannel?
-  customerConfirmedAt             DateTime?
-  customerRescheduledAt           DateTime?
-  customerCancelledAt             DateTime?
-  customerCancelledSource         String?
-  customerRescheduleCount         Int                  @default(0)
-  originalBookingDate             DateTime?            @db.Date
-  originalSlotTime                String?
-  notes                           String?
+  trialBookingChannel     TrialBookingChannel?
+  customerConfirmedAt     DateTime?
+  customerRescheduledAt   DateTime?
+  customerCancelledAt     DateTime?
+  customerCancelledSource String?
+  customerRescheduleCount Int                  @default(0)
+  originalBookingDate     DateTime?            @db.Date
+  originalSlotTime        String?
+  notes                   String?
   // 體驗 499 PR-2：建立體驗預約當下的預計收款金額快照（僅 FIRST_TRIAL 設值）。
   // nullable：其他預約型別 / 既有資料一律 NULL。未來體驗價調整不回寫舊預約。
   // 實際收款金額在 PR-3 以 Transaction.amount 記錄，不存這裡。
-  expectedAmount                  Decimal?             @db.Decimal(10, 0)
-  // 療程預約快照：療程日後改名、調價或調整時間，不得回寫既有預約。
-  treatmentNameSnapshot           String?
-  treatmentVariantSnapshot        String?
-  treatmentPriceSnapshot          Decimal?             @db.Decimal(10, 0)
-  treatmentServiceMinutesSnapshot Int?
-  treatmentBufferMinutesSnapshot  Int?
-  recurrenceGroupId               String?
-  recurrenceIndex                 Int?
-  createdAt                       DateTime             @default(now())
-  updatedAt                       DateTime             @updatedAt
+  expectedAmount          Decimal?             @db.Decimal(10, 0)
+  recurrenceGroupId       String?
+  recurrenceIndex         Int?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
 
-  customer               Customer                @relation(fields: [customerId], references: [id])
-  store                  Store                   @relation(fields: [storeId], references: [id])
-  revenueStaff           Staff?                  @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
-  serviceStaff           Staff?                  @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
-  bookedByStaff          Staff?                  @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
-  servicePlan            ServicePlan?            @relation(fields: [servicePlanId], references: [id])
-  treatment              Treatment?              @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
-  customerPlanWallet     CustomerPlanWallet?     @relation(fields: [customerPlanWalletId], references: [id])
-  recurrenceGroup        BookingRecurrenceGroup? @relation(fields: [recurrenceGroupId], references: [id], onDelete: SetNull)
-  storedValueLedgerEntry StoredValueLedgerEntry?
+  customer           Customer                @relation(fields: [customerId], references: [id])
+  store              Store                   @relation(fields: [storeId], references: [id])
+  revenueStaff       Staff?                  @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff       Staff?                  @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  bookedByStaff      Staff?                  @relation("BookedByStaff", fields: [bookedByStaffId], references: [id])
+  servicePlan        ServicePlan?            @relation(fields: [servicePlanId], references: [id])
+  customerPlanWallet CustomerPlanWallet?     @relation(fields: [customerPlanWalletId], references: [id])
+  recurrenceGroup    BookingRecurrenceGroup? @relation(fields: [recurrenceGroupId], references: [id], onDelete: SetNull)
 
   // 補課關聯
   // legacy（PR-NoShow-2 之前）：單張券。新流程改用 makeupCreditLinks（join table），
@@ -1895,7 +1728,6 @@ model Booking {
   @@index([revenueStaffId, bookingDate]) // 店長月報查詢
   @@index([bookingStatus])
   @@index([customerPlanWalletId]) // ⚡ 方案使用紀錄查詢
-  @@index([treatmentId])
   @@index([recurrenceGroupId])
 }
 
@@ -2123,21 +1955,20 @@ model Transaction {
   refundedAt            DateTime?
   refundedByUserId      String?
 
-  customer               Customer                  @relation(fields: [customerId], references: [id])
-  store                  Store                     @relation(fields: [storeId], references: [id])
-  booking                Booking?                  @relation(fields: [bookingId], references: [id])
-  revenueStaff           Staff                     @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
-  serviceStaff           Staff?                    @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
-  soldByStaff            Staff?                    @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
-  customerPlanWallet     CustomerPlanWallet?       @relation(fields: [customerPlanWalletId], references: [id])
-  servicePlan            ServicePlan?              @relation("TransactionPlan", fields: [planId], references: [id])
-  voidedBy               User?                     @relation("VoidedTransactions", fields: [voidedByUserId], references: [id])
-  auditLogs              TransactionAuditLog[]
-  refundOfTransaction    Transaction?              @relation("TransactionRefunds", fields: [refundOfTransactionId], references: [id], onDelete: Restrict)
-  refunds                Transaction[]             @relation("TransactionRefunds")
-  refundedBy             User?                     @relation("RefundedTransactions", fields: [refundedByUserId], references: [id])
-  paymentSplits          TransactionPaymentSplit[]
-  storedValueLedgerEntry StoredValueLedgerEntry?
+  customer            Customer                  @relation(fields: [customerId], references: [id])
+  store               Store                     @relation(fields: [storeId], references: [id])
+  booking             Booking?                  @relation(fields: [bookingId], references: [id])
+  revenueStaff        Staff                     @relation("RevenueStaff", fields: [revenueStaffId], references: [id])
+  serviceStaff        Staff?                    @relation("ServiceStaff", fields: [serviceStaffId], references: [id])
+  soldByStaff         Staff?                    @relation("SoldByStaff", fields: [soldByStaffId], references: [id])
+  customerPlanWallet  CustomerPlanWallet?       @relation(fields: [customerPlanWalletId], references: [id])
+  servicePlan         ServicePlan?              @relation("TransactionPlan", fields: [planId], references: [id])
+  voidedBy            User?                     @relation("VoidedTransactions", fields: [voidedByUserId], references: [id])
+  auditLogs           TransactionAuditLog[]
+  refundOfTransaction Transaction?              @relation("TransactionRefunds", fields: [refundOfTransactionId], references: [id], onDelete: Restrict)
+  refunds             Transaction[]             @relation("TransactionRefunds")
+  refundedBy          User?                     @relation("RefundedTransactions", fields: [refundedByUserId], references: [id])
+  paymentSplits       TransactionPaymentSplit[]
 
   @@index([storeId])
   @@index([customerId])
@@ -2171,53 +2002,6 @@ model TransactionPaymentSplit {
 
   @@index([transactionId])
   @@index([paymentMethod])
-}
-
-// ============================================================
-// SPA stored value — monetary entitlement, intentionally separate from
-// ServicePlan / CustomerPlanWallet session entitlements.
-// ============================================================
-
-model StoredValueWallet {
-  id         String   @id @default(cuid())
-  storeId    String
-  customerId String
-  balance    Decimal  @default(0) @db.Decimal(10, 0)
-  status     String   @default("ACTIVE")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  store    Store                    @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  customer Customer                 @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  entries  StoredValueLedgerEntry[]
-
-  @@unique([storeId, customerId])
-  @@index([storeId, status])
-  @@index([customerId])
-}
-
-model StoredValueLedgerEntry {
-  id            String   @id @default(cuid())
-  walletId      String
-  storeId       String
-  customerId    String
-  bookingId     String?  @unique
-  transactionId String?  @unique
-  entryType     String
-  amount        Decimal  @db.Decimal(10, 0)
-  balanceAfter  Decimal  @db.Decimal(10, 0)
-  note          String?
-  createdAt     DateTime @default(now())
-
-  wallet      StoredValueWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  store       Store             @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  customer    Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  booking     Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  transaction Transaction?      @relation(fields: [transactionId], references: [id], onDelete: SetNull)
-
-  @@index([walletId, createdAt])
-  @@index([storeId, createdAt])
-  @@index([customerId, createdAt])
 }
 
 // ============================================================
@@ -2521,6 +2305,7 @@ model MessageLog {
   templateId   String?
   customerId   String
   bookingId    String?
+  spaBookingId String? // SPA 獨立預約識別碼；刻意不連到蒸足 Booking FK
   // 觸發時間（UTC）— 改期後 triggerAt 變更可重新發送
   // 規範：自動規則路徑（ruleId + bookingId 同時有值）必須寫入；純手動發送可為 NULL
   triggerAt    DateTime?
@@ -2544,6 +2329,7 @@ model MessageLog {
   @@index([ruleId, bookingId, triggerAt], map: "idx_rule_booking_trigger")
   @@index([customerId])
   @@index([bookingId])
+  @@index([spaBookingId])
   @@index([status])
   @@index([storeId])
   @@index([lineRoute])
