@@ -165,8 +165,8 @@ export function AdjustCheckoutModal({
         ) : (
           <>
             <p className="mb-3 text-sm text-earth-600">
-              此預約尚未連結使用方案。請選擇本次要使用的方案；系統已優先選擇最快到期的方案。
-              送出後不會立即扣堂，完成服務時才會正式扣除。
+              此預約尚未連結使用方案。系統已優先選擇最快到期的方案；
+              送出後立即保留一堂，取消預約才會退回。
             </p>
 
             <div className="mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm">
