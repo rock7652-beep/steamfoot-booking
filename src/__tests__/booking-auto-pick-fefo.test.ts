@@ -243,6 +243,39 @@ beforeEach(() => {
 });
 
 describe("createBooking auto-pick — FEFO（最早到期優先）", () => {
+  it("蒸足 SINGLE 預約若已有方案，自動改為方案扣堂並選最快到期", async () => {
+    mockCustomerFindUnique.mockResolvedValue(
+      customerWith([
+        {
+          id: WALLET_LATE_EXPIRY,
+          remainingSessions: 3,
+          expiryDate: new Date("2026-08-31T00:00:00Z"),
+          createdAt: new Date("2026-02-01T00:00:00Z"),
+        },
+        {
+          id: WALLET_EARLY_EXPIRY,
+          remainingSessions: 3,
+          expiryDate: new Date("2026-06-30T00:00:00Z"),
+          createdAt: new Date("2026-03-01T00:00:00Z"),
+        },
+      ]),
+    );
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const result = await createBooking({
+      customerId: CUSTOMER_ID,
+      bookingDate: "2026-04-27",
+      slotTime: "11:00",
+      bookingType: "SINGLE",
+      people: 1,
+    });
+
+    expect(result.success, JSON.stringify(result)).toBe(true);
+    const createCall = mockBookingCreate.mock.calls[0][0];
+    expect(createCall.data.bookingType).toBe("PACKAGE_SESSION");
+    expect(createCall.data.customerPlanWalletId).toBe(WALLET_EARLY_EXPIRY);
+  });
+
   it("先買無期限 vs 後買快到期 → 自動選快到期（不再 FIFO）", async () => {
     mockCustomerFindUnique.mockResolvedValue(
       customerWith([

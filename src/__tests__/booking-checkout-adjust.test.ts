@@ -64,7 +64,12 @@ vi.mock("@/lib/db", () => ({
     $transaction: h.txRun,
   },
 }));
-vi.mock("@/lib/permissions", () => ({ requirePermission: h.requirePermission }));
+vi.mock("@/lib/permissions", () => ({
+  requireWritablePermission: h.requirePermission,
+}));
+vi.mock("@/lib/subscription-guard", () => ({
+  assertStoreSubscriptionWritable: vi.fn(async () => undefined),
+}));
 vi.mock("@/lib/store", () => ({ currentStoreId: h.currentStoreId }));
 vi.mock("@/server/services/wallet-session", () => ({
   allocateSessionsFefo: h.allocateSessionsFefo,
@@ -386,6 +391,8 @@ const PACKAGE_PENDING = {
 const baseB = { bookingId: "bk_2", reason: "連蒸第二天優惠" };
 
 function setupModeB() {
+  // PACKAGE_SESSION → SINGLE 僅保留給隔離的 SPA 模組。
+  h.currentStoreId.mockReturnValue("demo-store");
   h.bookingFindFirst.mockResolvedValue({ ...PACKAGE_PENDING } as unknown as never);
   h.txBookingFindUnique.mockResolvedValue({
     bookingType: "PACKAGE_SESSION",
@@ -489,6 +496,20 @@ describe("adjustCheckoutToSingle — race-safe ordering", () => {
 });
 
 describe("adjustCheckoutToSingle — pre-transaction guards", () => {
+  it("rejects Steamfoot stores before reading or mutating a booking", async () => {
+    setupModeB();
+    h.currentStoreId.mockReturnValue("store_1");
+
+    const r = await adjustCheckoutToSingle(baseB);
+
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error).toContain("蒸足預約會直接扣最快到期方案一堂");
+    }
+    expect(h.bookingFindFirst).not.toHaveBeenCalled();
+    expect(h.txRun).not.toHaveBeenCalled();
+  });
+
   it("rejects makeup booking", async () => {
     setupModeB();
     h.bookingFindFirst.mockResolvedValue({

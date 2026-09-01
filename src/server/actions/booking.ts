@@ -257,11 +257,12 @@ async function loadCreateBookingEligibility(params: {
 // ============================================================
 // createBooking
 //
-// 新邏輯（出席才扣堂制）：
+// 新邏輯（預約即保留堂數）：
 // 1. 建立預約，狀態 = PENDING（「待到店」）
-// 2. 不扣堂（堂數在 markCompleted 時才扣）
-// 3. 補課預約：標記 credit 為已使用
-// 4. 預約數限制：remainingSessions - count(PENDING bookings) > 0
+// 2. 蒸足門市的 SINGLE 預約若已有可用方案，自動改用最快到期方案並保留堂數
+// 3. 取消預約才退回；markCompleted 將保留堂數轉為正式完成
+// 4. 補課預約：標記 credit 為已使用
+// 5. 預約數限制：remainingSessions - count(PENDING bookings) > 0
 // ============================================================
 
 export async function createBooking(
@@ -324,6 +325,25 @@ export async function createBooking(
       },
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+
+    // 蒸足規則：顧客只要已有能涵蓋預約日的有效方案，建立預約時就直接
+    // 依 FEFO（到期日 ASC → 建立時間 ASC → id ASC）保留一堂。
+    // SPA 模組仍保留 SINGLE / 儲值 / 療程等不同結帳方式，不套用此規則。
+    if (storeId !== SPA_DEMO_STORE.id && data.bookingType === "SINGLE") {
+      const bookingDateForWallet = new Date(`${data.bookingDate}T00:00:00Z`);
+      const autoWallet = sortWalletsByFEFO(
+        customer.planWallets.filter(
+          (wallet) =>
+            wallet.remainingSessions > 0 &&
+            (!wallet.expiryDate || wallet.expiryDate >= bookingDateForWallet),
+        ),
+      )[0];
+
+      if (autoWallet) {
+        data.bookingType = "PACKAGE_SESSION";
+        data.customerPlanWalletId = autoWallet.id;
+      }
+    }
 
     // ── 2. 權限檢查
     // CUSTOMER：身份已由 resolveCustomerForUser 驗過；自助預約入口能否使用，

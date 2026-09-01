@@ -15,6 +15,35 @@ import { getTrialSettings } from "@/lib/shop-config";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
+import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
+
+/**
+ * Stored value is an optional SPA-only entitlement. The SPA preview can be
+ * deployed before its wallet migration is enabled; that must not take down the
+ * whole booking drawer because package selection does not depend on stored value.
+ */
+async function findOptionalStoredValueWallet(storeId: string, customerId: string) {
+  try {
+    return await prisma.storedValueWallet.findUnique({
+      where: { storeId_customerId: { storeId, customerId } },
+      select: { balance: true, status: true },
+    });
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+    if (code !== "P2021") throw error;
+
+    console.warn(JSON.stringify({
+      level: "warning",
+      message: "optional stored-value wallet table unavailable",
+      action: "fetchBookingDetail",
+      prismaCode: code,
+    }));
+    return null;
+  }
+}
 
 export interface BookingDrawerPayload {
   booking: {
@@ -224,16 +253,10 @@ export async function fetchBookingDetail(
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve(null),
-    isSingle
-      ? prisma.storedValueWallet.findUnique({
-          where: {
-            storeId_customerId: {
-              storeId: booking.storeId,
-              customerId: booking.customerId,
-            },
-          },
-          select: { balance: true, status: true },
-        })
+    // 蒸足模組沒有儲值金額功能；StoredValueWallet 僅屬於隔離的 SPA 模組。
+    // 不可讓一般門市的 SINGLE 預約碰觸 SPA schema。
+    isSingle && isSpaDemoStoreId(booking.storeId)
+      ? findOptionalStoredValueWallet(booking.storeId, booking.customerId)
       : Promise.resolve(null),
     // 調整結帳方式：僅 SINGLE 且非補課才查顧客可用方案（ACTIVE + 有剩餘堂）。
     // FIRST_TRIAL / PACKAGE_SESSION / 補課一律 lazy 帶過，不必要查 wallet。
@@ -419,7 +442,8 @@ export async function fetchBookingDetail(
           wallets: adjustWallets,
         })
       : null,
-    checkoutToSingle: isPackage
+    // 蒸足不允許把方案扣堂改成單次；SPA 結帳模式維持隔離。
+    checkoutToSingle: isPackage && isSpaDemoStoreId(booking.storeId)
       ? buildCheckoutToSingleBlock({
           isMakeup: booking.isMakeup,
           bookingStatus: booking.bookingStatus,
