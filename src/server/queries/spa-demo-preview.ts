@@ -57,7 +57,15 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     process.env.VERCEL_ENV === "preview" ||
     process.env.SPA_DEMO_DATABASE_PREVIEW_ENABLED === "true";
   if (!databasePreviewEnabled) {
-    return SPA_DEMO_FIXTURE;
+    const today = toLocalDateStr();
+    return {
+      ...SPA_DEMO_FIXTURE,
+      bookings: SPA_DEMO_FIXTURE.bookings.map((booking) => (
+        booking.date < today && booking.status !== "已完成"
+          ? { ...booking, status: "待補登" as const, tone: "sand" as const }
+          : booking
+      )),
+    };
   }
 
   const store = await prisma.store.findFirst({
@@ -186,6 +194,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     };
   });
 
+  const today = toLocalDateStr();
   const mappedBookings: SpaDemoBooking[] = bookings.map((record) => {
     const fixture = SPA_DEMO_BOOKINGS.find((booking) => booking.id === record.id);
     const isLiveFlow = SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(
@@ -200,9 +209,13 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     ) {
       throw new Error(`SPA_DEMO_CROSS_STORE_RELATION_REJECTED:${record.id}`);
     }
-    const status = record.bookingType === "FIRST_TRIAL"
+    const bookingDate = toLocalDateStr(record.bookingDate);
+    const originalStatus = record.bookingType === "FIRST_TRIAL"
       ? "新客體驗"
       : STATUS_MAP[record.bookingStatus] ?? "已確認";
+    const status: SpaDemoBookingStatus = bookingDate < today && originalStatus !== "已完成"
+      ? "待補登"
+      : originalStatus;
     if (isLiveFlow) {
       const settlement = record.notes?.match(/\|label=([^|]+)\|amount=(\d+)/);
       const refundAmount = Number(record.notes?.match(/\|refundAmount=(\d+)/)?.[1] ?? Number.NaN);
@@ -213,7 +226,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
       const guestIndex = Number(record.notes?.match(/\|guest=(\d+)/)?.[1] ?? 1);
       return {
         id: record.id,
-        date: toLocalDateStr(record.bookingDate),
+        date: bookingDate,
         time: record.slotTime,
         customer: record.customer.name,
         service: record.treatmentNameSnapshot ?? record.servicePlan?.name ?? "SPA 服務",
@@ -241,7 +254,7 @@ export async function getSpaDemoPreviewData(): Promise<SpaDemoPreviewData> {
     }
     return {
       ...fixture!,
-      date: toLocalDateStr(record.bookingDate),
+      date: bookingDate,
       time: record.slotTime,
       customer: record.customer.name,
       service: fixture!.serviceItems.length > 1

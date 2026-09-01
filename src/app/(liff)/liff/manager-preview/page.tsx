@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
-import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { getCurrentSpaDemoNotification, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
 import { listSpaDemoDailyAdjustments, listSpaDemoDailyRefunds, listSpaDemoReconciledDates } from "@/server/queries/spa-demo-daily-reconciliation";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -22,12 +22,13 @@ export default async function SpaManagerPreviewPage() {
     listSpaDemoDailyAdjustments(),
     listSpaDemoDailyRefunds(),
   ]);
+  const previewDate = toLocalDateStr();
   return (
     <SpaManagerSchedulePreview
       initialProviders={preview.providers}
       initialBookings={preview.bookings}
-      previewDate={toLocalDateStr()}
-      initialNotification={preview.notification}
+      previewDate={previewDate}
+      initialNotification={getCurrentSpaDemoNotification(preview.notification, preview.bookings, previewDate)}
       initialReconciledDates={reconciledDates}
       initialAdjustments={adjustments}
       initialRefunds={refunds}

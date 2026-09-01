@@ -424,6 +424,7 @@ export function WelcomeBack({
   healthAssessmentEnabled,
   terminology,
   bookingHref,
+  memberLinks,
 }: {
   storeSlug: string;
   displayName: string | null;
@@ -431,6 +432,11 @@ export function WelcomeBack({
   healthAssessmentEnabled: boolean;
   terminology?: MemberHomeTerminology;
   bookingHref?: string;
+  memberLinks?: {
+    bookings: string;
+    wallets: string;
+    profile: string;
+  };
 }) {
   if (!memberSummary) {
     return (
@@ -477,6 +483,11 @@ export function WelcomeBack({
   const walletsAvailable = memberSummary.walletsStatus === "ok";
   const labels = terminology ?? STEAMFOOT_INDUSTRY_MODULE.customer;
   const resolvedBookingHref = bookingHref ?? `/s/${storeSlug}/liff/member-booking`;
+  const resolvedMemberLinks = memberLinks ?? {
+    bookings: `/s/${storeSlug}/liff/bookings`,
+    wallets: `/s/${storeSlug}/liff/wallets`,
+    profile: `/s/${storeSlug}/liff/profile`,
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -492,7 +503,7 @@ export function WelcomeBack({
               <p className="text-2xl font-semibold">{formatBookingDateLabel(nextBooking.bookingDate)}</p>
               <p className="mt-1 text-base text-earth-200">{nextBooking.slotTime}</p>
             </div>
-            <Link href={`/s/${storeSlug}/liff/bookings`} className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-earth-100">預約詳情</Link>
+            <Link href={resolvedMemberLinks.bookings} className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-earth-100">預約詳情</Link>
           </div>
         ) : (
           <div className="mt-3 flex items-center justify-between gap-4">
@@ -547,16 +558,16 @@ export function WelcomeBack({
       )}
 
       <nav className="grid grid-cols-2 gap-3" aria-label="會員功能">
-        <HomeTile href={`/s/${storeSlug}/liff/bookings`} label="我的預約" detail={nextBooking ? "查看與管理" : "目前無預約"} />
+        <HomeTile href={resolvedMemberLinks.bookings} label="我的預約" detail={nextBooking ? "查看與管理" : "目前無預約"} />
         <HomeTile
-          href={`/s/${storeSlug}/liff/wallets`}
+          href={resolvedMemberLinks.wallets}
           label={labels.walletLabel}
           detail={walletsAvailable ? `${totalUsable} ${labels.sessionUnit}可使用` : "請重新讀取資料"}
         />
         {healthAssessmentEnabled && (
           <HomeTile href={`/s/${storeSlug}/liff/health`} label="健康紀錄" detail="查看量測與變化" />
         )}
-        <HomeTile href={`/s/${storeSlug}/liff/profile`} label="我的資料" detail="會員基本資料" />
+        <HomeTile href={resolvedMemberLinks.profile} label="我的資料" detail="會員基本資料" />
       </nav>
 
       {healthAssessmentEnabled && healthChange && (

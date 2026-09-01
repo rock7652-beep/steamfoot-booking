@@ -40,6 +40,7 @@ export type SpaDemoBookingStatus =
   | "新客體驗"
   | "已確認"
   | "待到店"
+  | "待補登"
   | "已到店"
   | "服務中"
   | "已完成";
@@ -115,6 +116,25 @@ export type SpaDemoPreviewData = {
   notification: SpaDemoBookingNotification | null;
   source: "fixture" | "database";
 };
+
+export function getCurrentSpaDemoNotification(
+  notification: SpaDemoBookingNotification | null,
+  bookings: readonly SpaDemoBooking[],
+  today: string,
+): SpaDemoBookingNotification | null {
+  if (!notification) return null;
+  const hasActionableBooking = bookings.some((booking) =>
+    SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(
+      booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number],
+    )
+    && booking.date >= today
+    && booking.status !== "已完成"
+    && !booking.refundedAt,
+  );
+  if (!hasActionableBooking) return null;
+  if (notification.kind === "REMINDER" && notification.date <= today) return null;
+  return notification.date >= today ? notification : null;
+}
 
 export type SpaDemoStoreIdentity = {
   id: string;
