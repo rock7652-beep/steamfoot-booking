@@ -15,6 +15,7 @@ import {
   releaseSessions,
 } from "@/server/services/wallet-session";
 import { revalidateBookings } from "@/lib/revalidation";
+import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import type { ActionResult } from "@/types";
 
 // ============================================================
@@ -273,6 +274,16 @@ export async function adjustCheckoutToSingle(
     const user = await requireWritablePermission("booking.update");
     const data = adjustCheckoutToSingleSchema.parse(input);
     const storeId = currentStoreId(user);
+
+    // 蒸足預約一律使用方案扣堂；「方案轉單次」只保留給隔離的 SPA 模組。
+    // 這是 server-side 最終防線，避免舊畫面、快取或直接呼叫 action 再次把
+    // customerPlanWalletId / servicePlanId 清空，造成預約明細無服務、無金額。
+    if (!isSpaDemoStoreId(storeId)) {
+      throw new AppError(
+        "BUSINESS_RULE",
+        "蒸足預約會直接扣最快到期方案一堂，不可改為單次付費",
+      );
+    }
 
     // store-scoped 查詢即安全邊界（ID 格式非關卡）
     const booking = await prisma.booking.findFirst({

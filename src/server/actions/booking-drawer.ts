@@ -442,7 +442,8 @@ export async function fetchBookingDetail(
           wallets: adjustWallets,
         })
       : null,
-    checkoutToSingle: isPackage
+    // 蒸足不允許把方案扣堂改成單次；SPA 結帳模式維持隔離。
+    checkoutToSingle: isPackage && isSpaDemoStoreId(booking.storeId)
       ? buildCheckoutToSingleBlock({
           isMakeup: booking.isMakeup,
           bookingStatus: booking.bookingStatus,
