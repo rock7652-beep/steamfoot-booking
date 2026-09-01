@@ -45,6 +45,73 @@ async function findOptionalStoredValueWallet(storeId: string, customerId: string
   }
 }
 
+const singleTransactionSelect = {
+  id: true,
+  amount: true,
+  grossAmount: true,
+  discountAmount: true,
+  paymentMethod: true,
+  paidAt: true,
+} as const;
+
+/**
+ * StoredValueLedgerEntry is SPA-only. A normal Steamfoot SINGLE booking must
+ * never join that optional table, even when the single purchase already exists.
+ */
+async function findCollectedSingleTransaction(
+  bookingId: string,
+  includeStoredValue: boolean,
+) {
+  const where = {
+    bookingId,
+    transactionType: "SINGLE_PURCHASE" as const,
+    status: "SUCCESS" as const,
+  };
+
+  if (!includeStoredValue) {
+    const transaction = await prisma.transaction.findFirst({
+      where,
+      select: singleTransactionSelect,
+      orderBy: { createdAt: "desc" },
+    });
+    return transaction
+      ? { ...transaction, storedValueLedgerEntry: null }
+      : null;
+  }
+
+  try {
+    return await prisma.transaction.findFirst({
+      where,
+      select: {
+        ...singleTransactionSelect,
+        storedValueLedgerEntry: { select: { id: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+    if (code !== "P2021") throw error;
+
+    console.warn(JSON.stringify({
+      level: "warning",
+      message: "optional stored-value ledger table unavailable",
+      action: "fetchBookingDetail",
+      prismaCode: code,
+    }));
+    const transaction = await prisma.transaction.findFirst({
+      where,
+      select: singleTransactionSelect,
+      orderBy: { createdAt: "desc" },
+    });
+    return transaction
+      ? { ...transaction, storedValueLedgerEntry: null }
+      : null;
+  }
+}
+
 export interface BookingDrawerPayload {
   booking: {
     id: string;
@@ -236,23 +303,10 @@ export async function fetchBookingDetail(
     // discountAmount 供 Drawer 顯示「原價 / 實收 / 折扣」三段，與
     // collectSinglePayment 寫入欄位一致。
     isSingle
-      ? prisma.transaction.findFirst({
-          where: {
-            bookingId: booking.id,
-            transactionType: "SINGLE_PURCHASE",
-            status: "SUCCESS",
-          },
-          select: {
-            id: true,
-            amount: true,
-            grossAmount: true,
-            discountAmount: true,
-            paymentMethod: true,
-            paidAt: true,
-            storedValueLedgerEntry: { select: { id: true } },
-          },
-          orderBy: { createdAt: "desc" },
-        })
+      ? findCollectedSingleTransaction(
+          booking.id,
+          isSpaDemoStoreId(booking.storeId),
+        )
       : Promise.resolve(null),
     // 蒸足模組沒有儲值金額功能；StoredValueWallet 僅屬於隔離的 SPA 模組。
     // 不可讓一般門市的 SINGLE 預約碰觸 SPA schema。
