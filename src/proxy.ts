@@ -369,6 +369,12 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     return withDomainCookie(NextResponse.next(), domainStoreId);
   }
 
+  // SPA Demo has its own direct Preview entries. Do not let the generic
+  // legacy fallback send these routes through the default Steamfoot store.
+  if (pathname === "/spa-preview" || pathname.startsWith("/spa-preview/")) {
+    return withDomainCookie(NextResponse.next(), domainStoreId);
+  }
+
   // /pricing → keep as-is (public)
   if (pathname === "/pricing" || pathname.startsWith("/pricing/")) {
     return withDomainCookie(NextResponse.next(), domainStoreId);
