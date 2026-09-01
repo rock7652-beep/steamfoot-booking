@@ -1,32 +1,18 @@
--- Final SPA cutover: the dedicated tables were populated by the preceding
--- migration and the application no longer reads these shared SPA fields.
+-- SPA application cutover: the dedicated tables were populated by the
+-- preceding migration. Legacy shared objects intentionally remain during the
+-- compatibility window. Their removal must ship in a later, standalone
+-- migration only after the new application has been deployed and all three
+-- Steamfoot stores have passed production verification.
 
--- Preserve the notification link before retiring shared SPA bookings.
+-- Preserve the notification link before switching SPA reads.
 UPDATE "MessageLog" m
 SET "spaBookingId" = m."bookingId", "bookingId" = NULL
 FROM "Booking" b
 JOIN "Store" s ON s."id" = b."storeId" AND s."industryModule" = 'SPA'
 WHERE m."bookingId" = b."id";
 
--- These tables were SPA-only despite living in the shared Prisma client.
-DROP TABLE IF EXISTS "StoredValueLedgerEntry" CASCADE;
-DROP TABLE IF EXISTS "StoredValueWallet" CASCADE;
-DROP TABLE IF EXISTS "TreatmentSkill" CASCADE;
-DROP TABLE IF EXISTS "StaffSkill" CASCADE;
-DROP TABLE IF EXISTS "StaffWeeklyAvailability" CASCADE;
-DROP TABLE IF EXISTS "StaffAvailabilityException" CASCADE;
-DROP TABLE IF EXISTS "Treatment" CASCADE;
-DROP TABLE IF EXISTS "ProfessionalSkill" CASCADE;
-
-ALTER TABLE "Booking"
-  DROP COLUMN IF EXISTS "treatmentId",
-  DROP COLUMN IF EXISTS "treatmentNameSnapshot",
-  DROP COLUMN IF EXISTS "treatmentVariantSnapshot",
-  DROP COLUMN IF EXISTS "treatmentPriceSnapshot",
-  DROP COLUMN IF EXISTS "treatmentServiceMinutesSnapshot",
-  DROP COLUMN IF EXISTS "treatmentBufferMinutesSnapshot";
-
-DROP TYPE IF EXISTS "StaffAvailabilityExceptionType";
+-- Do not remove the legacy tables, Booking columns, or enum here. Deploy the
+-- application cutover first, observe production, then retire them separately.
 
 -- Database-level module firewall. It remains active throughout and after the
 -- cutover, so an application regression cannot write a row into the other
