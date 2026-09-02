@@ -51,7 +51,7 @@ interface BookingEntry {
   trialDefaultPrice: number | null;
   collected: boolean;
   collectedAmount: number | null;
-  deductedPlanNames: string[];
+  deductedPlanNames?: string[];
   customerName: string;
   staffId: string | null;
   staffName: string | null;
