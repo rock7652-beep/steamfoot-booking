@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bookingPlanBadge,
   effectiveWalletStatusOnDate,
   isWalletUsableForServiceDate,
   linkedWalletRemainingForBooking,
@@ -28,5 +29,29 @@ describe("wallet booking integrity", () => {
     expect(isWalletUsableForServiceDate({ status: "ACTIVE", remainingSessions: 1, expiryDate: serviceDate }, serviceDate)).toBe(true);
     expect(effectiveWalletStatusOnDate("ACTIVE", new Date("2026-08-31T00:00:00.000Z"), "2026-09-02")).toBe("EXPIRED");
     expect(effectiveWalletStatusOnDate("ACTIVE", serviceDate, "2026-09-02")).toBe("ACTIVE");
+  });
+
+  it("does not show plan warnings on trial or single bookings", () => {
+    expect(bookingPlanBadge({ bookingType: "FIRST_TRIAL", bookingStatus: "COMPLETED", collected: true, linkedWalletRemaining: 0 })).toEqual({ kind: "none" });
+    expect(bookingPlanBadge({ bookingType: "SINGLE", bookingStatus: "COMPLETED", collected: true, linkedWalletRemaining: 0 })).toEqual({ kind: "none" });
+  });
+
+  it("does not show plan warnings on makeup bookings", () => {
+    expect(bookingPlanBadge({
+      bookingType: "PACKAGE_SESSION",
+      bookingStatus: "COMPLETED",
+      collected: false,
+      linkedWalletRemaining: 0,
+      isMakeup: true,
+    })).toEqual({ kind: "none" });
+  });
+
+  it("shows completed package history as deducted instead of no valid plan", () => {
+    expect(bookingPlanBadge({ bookingType: "PACKAGE_SESSION", bookingStatus: "COMPLETED", collected: true, linkedWalletRemaining: 0 })).toEqual({ kind: "deducted" });
+  });
+
+  it("only warns about missing plans on upcoming package bookings", () => {
+    expect(bookingPlanBadge({ bookingType: "PACKAGE_SESSION", bookingStatus: "PENDING", collected: false, linkedWalletRemaining: 0 })).toEqual({ kind: "needs_review" });
+    expect(bookingPlanBadge({ bookingType: "PACKAGE_SESSION", bookingStatus: "PENDING", collected: false, linkedWalletRemaining: 8 })).toEqual({ kind: "remaining", sessions: 8 });
   });
 });

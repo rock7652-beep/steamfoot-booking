@@ -8,6 +8,7 @@ import { TrialBookingDrawer } from "../_components/trial-booking-drawer";
 import { resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { remainingSessionsState } from "@/lib/remaining-sessions-label";
+import { bookingPlanBadge } from "@/lib/wallet-booking-integrity";
 import type { SlotAvailability } from "@/types";
 
 export interface DayBooking {
@@ -33,6 +34,8 @@ export interface DayBooking {
   trialDefaultPrice: number | null;
   collected: boolean;
   collectedAmount: number | null;
+  /** 本次成功 SESSION_DEDUCTION 實際扣除的方案名稱；交易紀錄為準。 */
+  deductedPlanNames: string[];
   customer: {
     name: string;
     phone: string;
@@ -347,6 +350,13 @@ function TimelineItem({
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   // 有效 PACKAGE 堂數提醒（複用 PR #280 顧客清單同款 helper，定義一致）。
   const sessions = remainingSessionsState(booking.customer?.validPackageSessions ?? 0);
+  const planBadge = bookingPlanBadge({
+    bookingType: booking.bookingType,
+    bookingStatus: booking.bookingStatus,
+    collected: booking.collected,
+    linkedWalletRemaining: booking.customer?.validPackageSessions ?? 0,
+    isMakeup: booking.isMakeup,
+  });
   const borderColor =
     meta.variant === "success"
       ? "border-l-green-500"
@@ -387,6 +397,9 @@ function TimelineItem({
     booking.servicePlan?.name
     ?? booking.customerPlanWallet?.plan?.name
     ?? (booking.isMakeup ? "補課" : "—");
+  const deductedPlanLabel = booking.deductedPlanNames.length > 0
+    ? booking.deductedPlanNames.join("＋")
+    : planLabel;
 
   function handleBodyClick() {
     if (isActing) return;
@@ -474,9 +487,9 @@ function TimelineItem({
               </span>
             )
           ) : null}
-          {/* 有效堂數提醒（緊接狀態，讀作「預約中｜剩 N 堂」）。輕量呈現：
-              1–3 堂亮黃「提醒儲值」；≥4 堂淡色「剩 N 堂」；無有效方案極淡灰字。 */}
-          {sessions.hasValid ? (
+          {/* 只有待到店的套餐預約才顯示目前剩餘堂數；歷史預約顯示本次
+              是否已扣堂。體驗／單次不顯示方案警示。 */}
+          {planBadge.kind === "remaining" ? (
             <span
               className={
                 sessions.isLow
@@ -485,15 +498,25 @@ function TimelineItem({
               }
             >
               {sessions.isLow
-                ? `剩 ${sessions.total} 堂｜提醒儲值`
-                : `剩 ${sessions.total} 堂`}
+                ? `剩 ${planBadge.sessions} 堂｜提醒儲值`
+                : `剩 ${planBadge.sessions} 堂`}
             </span>
-          ) : (
-            <span className="shrink-0 text-[11px] text-earth-300">無有效方案</span>
-          )}
-          <span className="min-w-0 flex-1 truncate text-xs text-earth-500">
-            {planLabel}
-          </span>
+          ) : planBadge.kind === "deducted" ? (
+            <span className="min-w-0 truncate text-[11px] font-medium text-emerald-700">
+              已扣堂｜{deductedPlanLabel}
+            </span>
+          ) : planBadge.kind === "not_deducted" ? (
+            <span className="shrink-0 text-[11px] text-earth-500">未扣堂</span>
+          ) : planBadge.kind === "needs_review" ? (
+            <span className="shrink-0 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-700">
+              方案待核對
+            </span>
+          ) : null}
+          {planBadge.kind !== "deducted" ? (
+            <span className="min-w-0 flex-1 truncate text-xs text-earth-500">
+              {planLabel}
+            </span>
+          ) : null}
         </div>
         {/* 內部服務備註提醒（後台限定）— 有值才顯示一行截斷，沒值不佔空間 */}
         {booking.customer?.serviceNote ? (
