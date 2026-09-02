@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { linkedWalletRemainingForBooking } from "@/lib/wallet-booking-integrity";
 import { spaPrisma } from "@/lib/spa-db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
@@ -507,7 +508,12 @@ async function computeMonthBookingSummary(
         // 後台預約建立流程不寫 servicePlanId，PACKAGE_SESSION 是用 wallet 帶方案，
         // 真正方案名稱要從 wallet.plan 取（servicePlan 幾乎一律 null）。
         customerPlanWallet: {
-          select: { plan: { select: { name: true } } },
+          select: {
+            status: true,
+            remainingSessions: true,
+            expiryDate: true,
+            plan: { select: { name: true } },
+          },
         },
       },
       orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
@@ -617,7 +623,12 @@ async function computeMonthBookingSummary(
     revenueStaff: { id: string; displayName: string; colorCode: string } | null;
     serviceStaff: { id: string; displayName: string } | null;
     servicePlan: { name: string } | null;
-    customerPlanWallet: { plan: { name: string } } | null;
+    customerPlanWallet: {
+      status: string;
+      remainingSessions: number;
+      expiryDate: Date | null;
+      plan: { name: string };
+    } | null;
   }
   interface DayEntry {
     total: number;
@@ -683,10 +694,13 @@ async function computeMonthBookingSummary(
               colorCode: b.customer.assignedStaff.colorCode,
             }
           : null,
-        // server-side reduce 成單一數字，不把 wallet 陣列送到 client
-        validPackageSessions: b.customer.planWallets.reduce(
-          (sum, w) => sum + w.remainingSessions,
-          0,
+        // 當日列以這筆預約實際綁定的 wallet 為準，不能用顧客名下
+        // PACKAGE category 加總反推。點數會員方案也會扣堂，但 category
+        // 未必是 PACKAGE；舊邏輯因此誤顯示「無有效方案」。
+        validPackageSessions: linkedWalletRemainingForBooking(
+          b.bookingType,
+          b.bookingDate,
+          b.customerPlanWallet,
         ),
       },
       revenueStaff: b.revenueStaff
@@ -704,7 +718,12 @@ async function computeMonthBookingSummary(
         : null,
       servicePlan: b.servicePlan ? { name: b.servicePlan.name } : null,
       customerPlanWallet: b.customerPlanWallet
-        ? { plan: { name: b.customerPlanWallet.plan.name } }
+        ? {
+            status: b.customerPlanWallet.status,
+            remainingSessions: b.customerPlanWallet.remainingSessions,
+            expiryDate: b.customerPlanWallet.expiryDate,
+            plan: { name: b.customerPlanWallet.plan.name },
+          }
         : null,
     });
   }
