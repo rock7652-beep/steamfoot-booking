@@ -78,6 +78,7 @@ import {
   reReserveSessionsFefo,
 } from "@/server/services/wallet-session";
 import { Prisma } from "@prisma/client";
+import { isWalletUsableForServiceDate } from "@/lib/wallet-booking-integrity";
 // PR-1.5a：Booking.revenueStaffId 快照規則 helper（鎖定 + 防回歸）。
 // 規則與禁止項見該 helper 的 JSDoc 與 spec §3.4。
 import { snapshotRevenueStaffForBooking } from "./booking-helpers";
@@ -1286,6 +1287,77 @@ export async function markCompleted(
 
     let sessionBalanceNotificationIds: string[] = [];
     await prisma.$transaction(async (tx) => {
+      // 完成服務前重新核對「預約綁定方案＋堂數＋期限」。建立預約時的
+      // 驗證不能取代此處：兩者之間方案可能被調整、停用或產生 ledger drift。
+      // 期限以實際服務日判斷（DATE 欄位），避免事後補登完成時誤擋合法服務。
+      if (
+        booking.bookingType === "PACKAGE_SESSION" &&
+        fallbackWalletPeople > 0
+      ) {
+        const reservedSessions = await tx.walletSession.findMany({
+          where: { bookingId, status: "RESERVED" },
+          select: {
+            walletId: true,
+            wallet: {
+              select: {
+                status: true,
+                remainingSessions: true,
+                expiryDate: true,
+              },
+            },
+          },
+        });
+
+        if (
+          reservedSessions.length > 0 &&
+          reservedSessions.length !== fallbackWalletPeople
+        ) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            `此預約應扣 ${fallbackWalletPeople} 堂，但目前只保留 ${reservedSessions.length} 堂，請先修正方案資料`,
+          );
+        }
+
+        const invalidReservedWallet = reservedSessions.find(
+          ({ wallet }) =>
+            !isWalletUsableForServiceDate(wallet, booking.bookingDate),
+        );
+        if (invalidReservedWallet) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            "此預約綁定的方案已失效、堂數不足或無法涵蓋服務日期，尚未完成也未扣堂，請先修正方案資料",
+          );
+        }
+
+        // 舊資料可能沒有 WalletSession ledger，仍允許走既有 counter fallback，
+        // 但必須重新讀取 primary wallet 並通過同一組有效性檢查。
+        if (reservedSessions.length === 0) {
+          const currentWallet = booking.customerPlanWalletId
+            ? await tx.customerPlanWallet.findUnique({
+                where: { id: booking.customerPlanWalletId },
+                select: {
+                  status: true,
+                  remainingSessions: true,
+                  expiryDate: true,
+                },
+              })
+            : null;
+          if (
+            !currentWallet ||
+            !isWalletUsableForServiceDate(
+              currentWallet,
+              booking.bookingDate,
+              fallbackWalletPeople,
+            )
+          ) {
+            throw new AppError(
+              "BUSINESS_RULE",
+              "此預約綁定的方案已失效、堂數不足或無法涵蓋服務日期，尚未完成也未扣堂，請先修正方案資料",
+            );
+          }
+        }
+      }
+
       // 1. 標記出席
       await tx.booking.update({
         where: { id: bookingId },
