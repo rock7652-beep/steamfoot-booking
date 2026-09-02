@@ -71,7 +71,12 @@ interface BookingEntry {
   revenueStaff: { id: string; displayName: string; colorCode: string } | null;
   serviceStaff: { id: string; displayName: string } | null;
   servicePlan: { name: string } | null;
-  customerPlanWallet: { plan: { name: string } } | null;
+  customerPlanWallet: {
+    status: string;
+    remainingSessions: number;
+    expiryDate: Date | null;
+    plan: { name: string };
+  } | null;
 }
 
 interface MonthSummaryDay {
