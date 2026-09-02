@@ -48,7 +48,12 @@ export interface DayBooking {
   servicePlan: { name: string } | null;
   /** PACKAGE_SESSION 預約實際使用的方案 — 來自 wallet 關聯（後台建立流程
    *  不寫 servicePlanId，正解走 customerPlanWallet.plan.name）。 */
-  customerPlanWallet: { plan: { name: string } } | null;
+  customerPlanWallet: {
+    status: string;
+    remainingSessions: number;
+    expiryDate: Date | null;
+    plan: { name: string };
+  } | null;
 }
 
 /** Statuses that can still be moved to COMPLETED — defines who shows the

@@ -63,6 +63,7 @@ import { getLineConfigForStore } from "@/lib/line-config";
 import { RecentRecordsTabs } from "./recent-records-tabs";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
+import { effectiveWalletStatusOnDate } from "@/lib/wallet-booking-integrity";
 
 const TX_TYPE_LABEL: Record<string, string> = {
   TRIAL_PURCHASE: "體驗購買",
@@ -243,7 +244,19 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       ? staffOptions.map((s) => ({ id: s.id, displayName: s.displayName }))
       : [];
 
-  const wallets = customer.planWallets ?? [];
+  const wallets = (customer.planWallets ?? []).map((wallet) => {
+    // DB status may remain ACTIVE until a maintenance job runs. The dashboard
+    // must derive expiry defensively so an expired plan is neither labelled
+    // valid nor offered by the create-booking form.
+    const effectiveStatus = effectiveWalletStatusOnDate(
+      wallet.status,
+      wallet.expiryDate,
+      todayStr,
+    );
+    return effectiveStatus === wallet.status
+      ? wallet
+      : { ...wallet, status: "EXPIRED" as const };
+  });
   // FEFO 排序：與 server 自動選擇規則一致（最早到期優先）
   const activeWallets = sortWalletsByFEFO(wallets.filter((w) => w.status === "ACTIVE"));
   const inactiveWallets = wallets.filter((w) => w.status !== "ACTIVE");
