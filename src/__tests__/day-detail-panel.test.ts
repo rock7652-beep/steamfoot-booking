@@ -102,4 +102,14 @@ describe("DayDetailPanel summary", () => {
 
     expect(textFromHtml(html)).toContain("已扣堂｜$299會員限定(250點)");
   });
+
+  it("accepts cached rows created before deducted plan names existed", () => {
+    expect(() => renderToStaticMarkup(
+      React.createElement(DayDetailPanel, {
+        date: "2026-06-26",
+        bookings: [booking({ deductedPlanNames: undefined })],
+        slots: [],
+      }),
+    )).not.toThrow();
+  });
 });

@@ -35,7 +35,7 @@ export interface DayBooking {
   collected: boolean;
   collectedAmount: number | null;
   /** 本次成功 SESSION_DEDUCTION 實際扣除的方案名稱；交易紀錄為準。 */
-  deductedPlanNames: string[];
+  deductedPlanNames?: string[];
   customer: {
     name: string;
     phone: string;
@@ -397,8 +397,9 @@ function TimelineItem({
     booking.servicePlan?.name
     ?? booking.customerPlanWallet?.plan?.name
     ?? (booking.isMakeup ? "補課" : "—");
-  const deductedPlanLabel = booking.deductedPlanNames.length > 0
-    ? booking.deductedPlanNames.join("＋")
+  const deductedPlanNames = booking.deductedPlanNames ?? [];
+  const deductedPlanLabel = deductedPlanNames.length > 0
+    ? deductedPlanNames.join("＋")
     : planLabel;
 
   function handleBodyClick() {
