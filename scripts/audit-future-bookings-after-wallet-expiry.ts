@@ -1,6 +1,5 @@
 /**
- * One-time production audit: future bookings scheduled after their linked
- * plan wallet expiry date.
+ * One-time production audit: future PACKAGE_SESSION booking/wallet integrity.
  *
  * READ ONLY. This script only calls Prisma findMany and writes a private
  * short-lived GitHub Actions artifact. It never mutates database records.
@@ -23,14 +22,15 @@ function differenceInCalendarDays(later: Date, earlier: Date): number {
 async function main() {
   const today = toLocalDateStr();
   const todayDate = new Date(`${today}T00:00:00.000Z`);
+  const storeSlug = process.env.AUDIT_STORE_SLUG ?? "zhubei";
 
   const bookings = await prisma.booking.findMany({
     where: {
       bookingDate: { gte: todayDate },
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-      customerPlanWalletId: { not: null },
+      bookingType: "PACKAGE_SESSION",
       isMakeup: false,
-      store: { isDemo: false },
+      store: { isDemo: false, slug: storeSlug },
     },
     select: {
       id: true,
@@ -39,6 +39,7 @@ async function main() {
       bookingStatus: true,
       bookedByType: true,
       people: true,
+      makeupCreditLinks: { select: { makeupCreditId: true } },
       store: { select: { id: true, name: true, slug: true } },
       customer: {
         select: {
@@ -53,7 +54,7 @@ async function main() {
               startDate: true,
               expiryDate: true,
               remainingSessions: true,
-              plan: { select: { name: true } },
+              plan: { select: { name: true, category: true } },
               sessions: {
                 where: { status: "AVAILABLE" },
                 select: { id: true },
@@ -66,10 +67,17 @@ async function main() {
       customerPlanWallet: {
         select: {
           id: true,
+          customerId: true,
+          storeId: true,
+          startDate: true,
           expiryDate: true,
           status: true,
           remainingSessions: true,
-          plan: { select: { name: true } },
+          plan: { select: { name: true, category: true } },
+          sessions: {
+            where: { status: "RESERVED" },
+            select: { bookingId: true },
+          },
         },
       },
     },
@@ -78,11 +86,44 @@ async function main() {
 
   const anomalies = bookings.flatMap((booking) => {
     const wallet = booking.customerPlanWallet;
-    if (!wallet?.expiryDate || booking.bookingDate <= wallet.expiryDate) return [];
+    const walletPeople = Math.max(
+      0,
+      booking.people - booking.makeupCreditLinks.length,
+    );
+    const reasons: string[] = [];
+
+    if (!wallet) {
+      reasons.push("MISSING_LINKED_WALLET");
+    } else {
+      if (wallet.customerId !== booking.customer.id) reasons.push("WALLET_CUSTOMER_MISMATCH");
+      if (wallet.storeId !== booking.store.id) reasons.push("WALLET_STORE_MISMATCH");
+      if (wallet.status !== "ACTIVE") reasons.push("WALLET_NOT_ACTIVE");
+      if (wallet.remainingSessions < walletPeople) reasons.push("INSUFFICIENT_REMAINING");
+      if (wallet.startDate > booking.bookingDate) reasons.push("BOOKING_BEFORE_WALLET_START");
+      if (wallet.expiryDate && booking.bookingDate > wallet.expiryDate) reasons.push("BOOKING_AFTER_WALLET_EXPIRY");
+      const reservedForBooking = wallet.sessions.filter(
+        (session) => session.bookingId === booking.id,
+      ).length;
+      if (reservedForBooking > 0 && reservedForBooking !== walletPeople) {
+        reasons.push("RESERVED_SESSION_COUNT_MISMATCH");
+      }
+
+      // Mirrors the production day-list bug: the booking is valid and linked,
+      // but the old row summary only counted PACKAGE-category wallets.
+      const oldDayListTotal = booking.customer.planWallets
+        .filter((candidate) => candidate.plan.category === "PACKAGE")
+        .filter((candidate) => !candidate.expiryDate || candidate.expiryDate >= todayDate)
+        .reduce((sum, candidate) => sum + candidate.remainingSessions, 0);
+      if (oldDayListTotal === 0 && wallet.remainingSessions > 0) {
+        reasons.push("DAY_LIST_FALSE_NO_VALID_PLAN");
+      }
+    }
+
+    if (reasons.length === 0) return [];
 
     const replacementCandidates = booking.customer.planWallets
       .filter((candidate) =>
-        candidate.id !== wallet.id &&
+        candidate.id !== wallet?.id &&
         candidate.storeId === booking.store.id &&
         candidate.startDate <= booking.bookingDate &&
         (!candidate.expiryDate || candidate.expiryDate >= booking.bookingDate) &&
@@ -105,15 +146,19 @@ async function main() {
       bookingStatus: booking.bookingStatus,
       bookedByType: booking.bookedByType,
       people: booking.people,
+      walletBackedPeople: walletPeople,
+      reasons,
       customerId: booking.customer.id,
       customerName: booking.customer.name,
       customerPhone: booking.customer.phone,
-      servicePlan: booking.servicePlan?.name ?? wallet.plan.name,
-      walletId: wallet.id,
-      walletStatus: wallet.status,
-      walletRemainingSessions: wallet.remainingSessions,
-      walletExpiryDate: dateOnly(wallet.expiryDate),
-      daysAfterExpiry: differenceInCalendarDays(booking.bookingDate, wallet.expiryDate),
+      servicePlan: booking.servicePlan?.name ?? wallet?.plan.name ?? null,
+      walletId: wallet?.id ?? null,
+      walletStatus: wallet?.status ?? null,
+      walletRemainingSessions: wallet?.remainingSessions ?? null,
+      walletExpiryDate: wallet?.expiryDate ? dateOnly(wallet.expiryDate) : null,
+      daysAfterExpiry: wallet?.expiryDate && booking.bookingDate > wallet.expiryDate
+        ? differenceInCalendarDays(booking.bookingDate, wallet.expiryDate)
+        : 0,
       replacementCandidates,
     }];
   });
@@ -130,11 +175,11 @@ async function main() {
 
   await writeFile(
     "future-bookings-after-wallet-expiry.json",
-    JSON.stringify({ auditedAtTaipeiDate: today, scannedBookings: bookings.length, anomalyCount: anomalies.length, storeSummary, anomalies }, null, 2),
+    JSON.stringify({ auditedAtTaipeiDate: today, storeSlug, scannedBookings: bookings.length, anomalyCount: anomalies.length, storeSummary, anomalies }, null, 2),
   );
 
   // Keep stdout free of customer PII; details live in the private 1-day artifact.
-  console.log(JSON.stringify({ today, scannedBookings: bookings.length, anomalyCount: anomalies.length, storeSummary }));
+  console.log(JSON.stringify({ today, storeSlug, scannedBookings: bookings.length, anomalyCount: anomalies.length, storeSummary }));
 }
 
 main()
