@@ -51,6 +51,7 @@ interface BookingEntry {
   trialDefaultPrice: number | null;
   collected: boolean;
   collectedAmount: number | null;
+  deductedPlanNames: string[];
   customerName: string;
   staffId: string | null;
   staffName: string | null;
@@ -291,6 +292,7 @@ export function BookingsManager({
       trialDefaultPrice: b.trialDefaultPrice,
       collected: b.collected,
       collectedAmount: b.collectedAmount,
+      deductedPlanNames: b.deductedPlanNames,
       customer: b.customer,
       revenueStaff: b.revenueStaff,
       serviceStaff: b.serviceStaff,

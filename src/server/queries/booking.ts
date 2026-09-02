@@ -377,6 +377,7 @@ async function computeSpaMonthBookingSummary(storeId: string, year: number, mont
           trialDefaultPrice: null,
           collected: payment != null,
           collectedAmount: payment ? Number(payment.netAmount) : null,
+          deductedPlanNames: [],
           customerName: customer.name,
           staffId: revenueStaff?.id ?? serviceStaff?.id ?? null,
           staffName: revenueStaff?.displayName ?? serviceStaff?.displayName ?? null,
@@ -534,12 +535,26 @@ async function computeMonthBookingSummary(
             },
             status: "SUCCESS",
           },
-          select: { bookingId: true, amount: true },
+          select: {
+            bookingId: true,
+            amount: true,
+            transactionType: true,
+            customerPlanWallet: {
+              select: { plan: { select: { name: true } } },
+            },
+          },
         })
       : [];
   const collectedMap = new Map<string, number>();
+  const deductedPlanNamesByBooking = new Map<string, Set<string>>();
   for (const t of collectedTx) {
-    if (t.bookingId) collectedMap.set(t.bookingId, Number(t.amount));
+    if (!t.bookingId) continue;
+    collectedMap.set(t.bookingId, Number(t.amount));
+    if (t.transactionType === "SESSION_DEDUCTION" && t.customerPlanWallet) {
+      const names = deductedPlanNamesByBooking.get(t.bookingId) ?? new Set<string>();
+      names.add(t.customerPlanWallet.plan.name);
+      deductedPlanNamesByBooking.set(t.bookingId, names);
+    }
   }
 
   // PR-D1D：FIRST_TRIAL badge fallback — 用 storeId 批次撈 ShopConfig.trialDefaultPrice。
@@ -601,6 +616,8 @@ async function computeMonthBookingSummary(
     // 是否已完成收費／扣次（derived from SUCCESS transaction）。
     collected: boolean;
     collectedAmount: number | null;
+    // 成功扣堂交易實際使用的方案名稱（可能因多人 FEFO 跨多個 wallet）。
+    deductedPlanNames: string[];
     // 前端 calendar strip 用的扁平欄位（避免每筆都做 nested optional chain）
     customerName: string;
     staffId: string | null;
@@ -678,6 +695,7 @@ async function computeMonthBookingSummary(
           : null,
       collected: collectedMap.has(b.id),
       collectedAmount: collectedMap.get(b.id) ?? null,
+      deductedPlanNames: [...(deductedPlanNamesByBooking.get(b.id) ?? [])],
       customerName: b.customer.name,
       staffId: b.revenueStaff?.id ?? null,
       staffName: b.revenueStaff?.displayName ?? null,

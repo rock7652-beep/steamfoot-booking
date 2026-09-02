@@ -44,3 +44,44 @@ export function effectiveWalletStatusOnDate(
     ? "EXPIRED"
     : status;
 }
+
+export type BookingPlanBadge =
+  | { kind: "none" }
+  | { kind: "remaining"; sessions: number }
+  | { kind: "deducted" }
+  | { kind: "not_deducted" }
+  | { kind: "needs_review" };
+
+/**
+ * Day-list plan badges describe this booking, not the customer's entitlement
+ * today. Trial/single rows never need a plan warning. Historical package rows
+ * show whether this visit deducted a session; only upcoming package bookings
+ * use the current linked-wallet balance as an eligibility warning.
+ */
+export function bookingPlanBadge(params: {
+  bookingType: string;
+  bookingStatus: string;
+  collected: boolean;
+  linkedWalletRemaining: number;
+  isMakeup?: boolean;
+}): BookingPlanBadge {
+  if (params.bookingType !== "PACKAGE_SESSION" || params.isMakeup) {
+    return { kind: "none" };
+  }
+
+  if (params.bookingStatus === "PENDING" || params.bookingStatus === "CONFIRMED") {
+    return params.linkedWalletRemaining > 0
+      ? { kind: "remaining", sessions: params.linkedWalletRemaining }
+      : { kind: "needs_review" };
+  }
+
+  if (params.bookingStatus === "COMPLETED") {
+    return params.collected ? { kind: "deducted" } : { kind: "needs_review" };
+  }
+
+  if (params.bookingStatus === "NO_SHOW") {
+    return params.collected ? { kind: "deducted" } : { kind: "not_deducted" };
+  }
+
+  return { kind: "none" };
+}
