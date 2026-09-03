@@ -36,6 +36,7 @@ function booking(overrides: Partial<DayBooking>): DayBooking {
     trialDefaultPrice: null,
     collected: false,
     collectedAmount: null,
+    deductedPlanNames: [],
     customer: {
       name: "陳沛妍",
       phone: "0912345678",
@@ -84,5 +85,31 @@ describe("DayDetailPanel summary", () => {
     const text = textFromHtml(html);
     expect(text).toMatch(/完成人數\s+1/);
     expect(text).toMatch(/未到人數\s+1/);
+  });
+
+  it("shows the plan recorded by the successful deduction", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(DayDetailPanel, {
+        date: "2026-06-26",
+        bookings: [booking({
+          bookingStatus: "COMPLETED",
+          collected: true,
+          deductedPlanNames: ["$299會員限定(250點)"],
+        })],
+        slots: [],
+      }),
+    );
+
+    expect(textFromHtml(html)).toContain("已扣堂｜$299會員限定(250點)");
+  });
+
+  it("accepts cached rows created before deducted plan names existed", () => {
+    expect(() => renderToStaticMarkup(
+      React.createElement(DayDetailPanel, {
+        date: "2026-06-26",
+        bookings: [booking({ deductedPlanNames: undefined })],
+        slots: [],
+      }),
+    )).not.toThrow();
   });
 });

@@ -32,6 +32,7 @@ import {
 } from "@/lib/line-bind-log";
 import { DigitalButlerRuntime } from "@/server/services/digital-butler-runtime";
 import {
+  addDigitalButlerEscapeQuickReplies,
   digitalButlerReplyDiagnostics,
   sanitizeDigitalButlerReplyMessages,
 } from "@/server/services/digital-butler-line-reply";
@@ -513,7 +514,10 @@ async function replyDigitalButlerMessages(
     }
   }));
   const messages = sanitizeDigitalButlerReplyMessages(
-    digitalButlerIntentsToLineMessages(intents),
+    addDigitalButlerEscapeQuickReplies(
+      digitalButlerIntentsToLineMessages(intents),
+      result.outcome,
+    ),
   );
   if (!messages.length) {
     console.error(JSON.stringify({

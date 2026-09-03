@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import {
   SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
   SPA_DEMO_STORE,
@@ -12,6 +13,7 @@ import {
   deliverSpaDemoBookingNotificationBestEffort,
   saveSpaDemoBookingNotification,
 } from "@/server/services/spa-demo-booking-notification";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const cancelInputSchema = z.object({
   bookingId: z.enum(SPA_DEMO_LIVE_FLOW_BOOKING_IDS),
@@ -26,127 +28,98 @@ function revalidateSpaDemoBookingViews() {
   revalidatePath("/staff-schedule");
 }
 
-function guestIndex(notes: string | null) {
-  return Number(notes?.match(/\|guest=(\d+)/)?.[1] ?? 1);
-}
-
 export async function cancelSpaDemoBooking(input: unknown) {
   if (process.env.VERCEL_ENV === "production") {
     return { success: false as const, error: "Demo 取消預約不在正式站開放" };
   }
+  await requireSpaStore(SPA_DEMO_STORE.id);
   const parsed = cancelInputSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: "取消資料不完整" };
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await spaPrisma.$transaction(async (tx) => {
       for (const bookingId of SPA_DEMO_LIVE_FLOW_BOOKING_IDS) {
-        await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${bookingId} FOR UPDATE`;
+        await tx.$queryRaw`SELECT id FROM "SpaBooking" WHERE id = ${bookingId} FOR UPDATE`;
       }
-      const active = await tx.booking.findMany({
+      const active = await tx.spaBooking.findMany({
         where: {
           id: { in: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS] },
           storeId: SPA_DEMO_STORE.id,
-          bookingStatus: { not: "CANCELLED" },
+          status: { not: "CANCELLED" },
         },
         select: {
           id: true,
           customerId: true,
           bookingDate: true,
-          slotTime: true,
+          startTime: true,
           revenueStaffId: true,
           serviceStaffId: true,
-          bookedByType: true,
-          bookedByStaffId: true,
-          bookingType: true,
-          servicePlanId: true,
-          treatmentId: true,
-          customerPlanWalletId: true,
-          bookingStatus: true,
+          status: true,
           notes: true,
-          treatmentNameSnapshot: true,
-          treatmentVariantSnapshot: true,
-          treatmentPriceSnapshot: true,
-          treatmentServiceMinutesSnapshot: true,
-          treatmentBufferMinutesSnapshot: true,
-          customer: { select: { storeId: true } },
-          serviceStaff: { select: { storeId: true } },
+          serviceNameSnapshot: true,
+          totalPriceSnapshot: true,
+          guestIndex: true,
+          items: { select: { serviceMinutes: true } },
         },
       });
-      if (!active.length || active.some((booking) => booking.customer.storeId !== SPA_DEMO_STORE.id || booking.serviceStaff?.storeId !== SPA_DEMO_STORE.id)) {
+      if (!active.length) {
         throw new Error("SPA_DEMO_BOOKING_NOT_FOUND");
       }
-      if (active.some((booking) => !(["PENDING", "CONFIRMED"] as const).includes(booking.bookingStatus as "PENDING" | "CONFIRMED"))) {
+      if (active.some((booking) => !(["PENDING", "CONFIRMED"] as const).includes(booking.status as "PENDING" | "CONFIRMED"))) {
         throw new Error("SPA_DEMO_BOOKING_LOCKED");
       }
       if (!active.some((booking) => booking.id === parsed.data.bookingId)) {
         throw new Error("SPA_DEMO_BOOKING_NOT_FOUND");
       }
-      const ordered = active.toSorted((left, right) => guestIndex(left.notes) - guestIndex(right.notes));
+      const ordered = active.toSorted((left, right) => left.guestIndex - right.guestIndex);
 
       if (parsed.data.scope === "GROUP" || active.length === 1) {
         const notification: SpaDemoBookingNotification = {
           kind: "CANCELLED",
           title: "預約已取消",
           date: ordered[0].bookingDate.toISOString().slice(0, 10),
-          time: ordered[0].slotTime,
-          lines: ordered.map((booking, index) => `${index === 0 ? "第 1 位" : `同行者 ${index + 1}`}・${booking.treatmentNameSnapshot ?? "SPA 服務"}・${booking.treatmentServiceMinutesSnapshot ?? 60} 分鐘`),
+          time: ordered[0].startTime,
+          lines: ordered.map((booking, index) => `${index === 0 ? "第 1 位" : `同行者 ${index + 1}`}・${booking.serviceNameSnapshot}・${booking.items.reduce((sum, item) => sum + item.serviceMinutes, 0)} 分鐘`),
           summary: `共 ${ordered.length} 位・整組已取消`,
         };
-        await tx.booking.updateMany({
+        await tx.spaBooking.updateMany({
           where: { id: { in: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS] }, storeId: SPA_DEMO_STORE.id },
-          data: { bookingStatus: "CANCELLED" },
+          data: { status: "CANCELLED", cancelledAt: new Date() },
         });
-        const notificationClaim = await saveSpaDemoBookingNotification(tx, ordered[0].id, notification);
-        return { cancelledAll: true, bookingIds: [] as string[], notification, notificationClaim };
+        return { cancelledAll: true, bookingIds: [] as string[], notification, notificationBookingId: ordered[0].id };
       }
 
       const cancelled = ordered.find((booking) => booking.id === parsed.data.bookingId)!;
       const survivors = ordered.filter((booking) => booking.id !== parsed.data.bookingId);
       const partySize = survivors.length;
       for (const [index, survivor] of survivors.entries()) {
-        const targetId = SPA_DEMO_LIVE_FLOW_BOOKING_IDS[index];
         const skills = survivor.notes?.match(/\|skills=([^|]*)/)?.[1] ?? "";
-        await tx.booking.update({
-          where: { id: targetId },
+        await tx.spaBooking.update({
+          where: { id: survivor.id },
           data: {
-            customerId: survivor.customerId,
-            bookingDate: survivor.bookingDate,
-            slotTime: survivor.slotTime,
-            revenueStaffId: survivor.revenueStaffId,
-            serviceStaffId: survivor.serviceStaffId,
-            bookedByType: survivor.bookedByType,
-            bookedByStaffId: survivor.bookedByStaffId,
-            bookingType: survivor.bookingType,
-            servicePlanId: survivor.servicePlanId,
-            treatmentId: survivor.treatmentId,
-            customerPlanWalletId: survivor.customerPlanWalletId,
-            bookingStatus: survivor.bookingStatus,
+            guestIndex: index + 1,
             notes: `SPA_DEMO_LIVE_FLOW|party=${partySize}|guest=${index + 1}|skills=${skills}`,
-            treatmentNameSnapshot: survivor.treatmentNameSnapshot,
-            treatmentVariantSnapshot: `${partySize} 位同行・第 ${index + 1} 位`,
-            treatmentPriceSnapshot: survivor.treatmentPriceSnapshot,
-            treatmentServiceMinutesSnapshot: survivor.treatmentServiceMinutesSnapshot,
-            treatmentBufferMinutesSnapshot: survivor.treatmentBufferMinutesSnapshot,
           },
         });
       }
-      const unusedIds = SPA_DEMO_LIVE_FLOW_BOOKING_IDS.slice(partySize);
-      await tx.booking.updateMany({
-        where: { id: { in: [...unusedIds] }, storeId: SPA_DEMO_STORE.id },
-        data: { bookingStatus: "CANCELLED" },
+      await tx.spaBooking.update({
+        where: { id: cancelled.id },
+        data: { status: "CANCELLED", cancelledAt: new Date() },
       });
       const notification: SpaDemoBookingNotification = {
         kind: "CANCELLED",
         title: "同行預約已取消",
         date: cancelled.bookingDate.toISOString().slice(0, 10),
-        time: cancelled.slotTime,
-        lines: [`已取消・${cancelled.treatmentNameSnapshot ?? "SPA 服務"}・${cancelled.treatmentServiceMinutesSnapshot ?? 60} 分鐘`],
+        time: cancelled.startTime,
+        lines: [`已取消・${cancelled.serviceNameSnapshot}・${cancelled.items.reduce((sum, item) => sum + item.serviceMinutes, 0)} 分鐘`],
         summary: `其餘 ${partySize} 位預約保留`,
       };
-      const notificationClaim = await saveSpaDemoBookingNotification(tx, SPA_DEMO_LIVE_FLOW_BOOKING_IDS[0], notification);
-      return { cancelledAll: false, bookingIds: [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS.slice(0, partySize)], notification, notificationClaim };
+      return { cancelledAll: false, bookingIds: survivors.map((booking) => booking.id), notification, notificationBookingId: survivors[0].id };
     });
-    await deliverSpaDemoBookingNotificationBestEffort(result.notificationClaim);
+    const notificationClaim = await prisma.$transaction((tx) =>
+      saveSpaDemoBookingNotification(tx, result.notificationBookingId, result.notification),
+    );
+    await deliverSpaDemoBookingNotificationBestEffort(notificationClaim);
     revalidateSpaDemoBookingViews();
     return {
       success: true as const,

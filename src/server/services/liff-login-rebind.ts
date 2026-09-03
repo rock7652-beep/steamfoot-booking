@@ -30,6 +30,36 @@ function normalizeIdentityName(value: string): string {
 }
 
 /**
+ * LIFF pre-fills the form with the LINE display name. Existing store records
+ * commonly contain only the customer's Chinese legal/preferred name while the
+ * display name appends a short Latin nickname (for example
+ * `曾孟萱 Jennie`). Treat that narrow shape as the same person so an otherwise
+ * fully-authorized migration does not force the customer to contact staff.
+ *
+ * This deliberately does not do fuzzy matching:
+ * - the stored name must be 2-20 Han characters (middle dots allowed)
+ * - the submitted value must start with that exact name
+ * - the only extra characters may be a 1-24 character ASCII nickname
+ *
+ * Phone uniqueness, an unclaimed verified LINE subject and all of the caller's
+ * existing transaction checks are still required before any write occurs.
+ */
+function isCompatibleIdentityName(recorded: string, submitted: string): boolean {
+  const recordedNormalized = normalizeIdentityName(recorded);
+  const submittedNormalized = normalizeIdentityName(submitted);
+  if (recordedNormalized === submittedNormalized) return true;
+
+  const recordedCompact = recordedNormalized.replace(/[\s·・]/gu, "");
+  if (!/^\p{Script=Han}{2,20}$/u.test(recordedCompact)) return false;
+
+  const submittedCompact = submittedNormalized.replace(/[\s()（）._-]/gu, "");
+  if (!submittedCompact.startsWith(recordedCompact)) return false;
+
+  const nickname = submittedCompact.slice(recordedCompact.length);
+  return /^[A-Za-z0-9]{1,24}$/.test(nickname);
+}
+
+/**
  * Automatically repairs the narrow "registered on the retired LIFF, then
  * immediately opened the current LIFF" case.
  *
@@ -71,7 +101,7 @@ export async function tryAutoMigrateRecentLiffLoginIdentity(input: {
       });
       if (!customer?.userId || customer.storeId !== input.storeId || customer.mergedIntoCustomerId ||
           customer.authSource !== "LINE" || normalizePhone(customer.phone) !== phone ||
-          normalizeIdentityName(customer.name) !== normalizeIdentityName(input.name)) {
+          !isCompatibleIdentityName(customer.name, input.name)) {
         return { status: "not_eligible" as const };
       }
 
@@ -144,17 +174,18 @@ export async function tryAutoMigrateRecentLiffLoginIdentity(input: {
  * The caller must supply a LINE subject obtained from a freshly verified LIFF
  * ID token. This updates only Auth.js Account + the legacy LINE Login
  * CustomerIdentityLink. Customer.lineUserId is the Messaging API recipient and
- * is intentionally never selected or written here.
+ * is intentionally never selected or written here. The submitted/display name
+ * is not an authentication factor: authorization comes from the exact active
+ * request, its phone hash and the unchanged legacy identity snapshot.
  */
 export async function tryExecuteAuthorizedLiffLoginRebind(input: {
   storeId: string;
   customerId: string;
   phone: string;
-  name: string;
   candidateLineUserId: string;
 }): Promise<AuthorizedLiffLoginRebindResult> {
   const phone = normalizePhone(input.phone);
-  if (!/^09\d{8}$/.test(phone) || !normalizeIdentityName(input.name) || !input.candidateLineUserId) {
+  if (!/^09\d{8}$/.test(phone) || !input.candidateLineUserId) {
     return { status: "rejected", code: "INVALID_INPUT" };
   }
 
@@ -216,7 +247,6 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         select: {
           id: true,
           storeId: true,
-          name: true,
           phone: true,
           userId: true,
           mergedIntoCustomerId: true,
@@ -239,8 +269,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
         ownerUser?.id !== ownerUserId ||
         ownerUser.status !== "ACTIVE" ||
         ownerUser.role !== "CUSTOMER" ||
-        normalizePhone(customer.phone) !== phone ||
-        normalizeIdentityName(customer.name) !== normalizeIdentityName(input.name)
+        normalizePhone(customer.phone) !== phone
       ) {
         throw new RebindRejected("CUSTOMER_STATE_CHANGED");
       }
@@ -363,6 +392,7 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
             status: "CONSUMED",
             consumedAt: now.toISOString(),
             customerMessagingIdentityPreserved: true,
+            authorizationBasis: "active_request_phone_hash_and_legacy_identity_snapshot",
           },
         },
       });

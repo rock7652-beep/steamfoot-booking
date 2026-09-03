@@ -28,6 +28,8 @@ import {
 } from "@/components/desktop";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { findSpaDemoCatalogItem, SPA_DEMO_CATALOG } from "@/lib/spa-demo-catalog";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { createSpaQuickBooking } from "@/server/actions/spa-quick-booking";
 
 interface PageProps {
   searchParams: Promise<{
@@ -56,7 +58,10 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
   const todayStr = toLocalDateStr();
   const defaultDate = params.date ?? todayStr;
   const activeStoreId = await getActiveStoreForRead(user);
-  const isSpaDemoStore = activeStoreId === SPA_DEMO_STORE.id;
+  const isSpaStore = activeStoreId
+    ? (await getStoreIndustryModule(activeStoreId)) === "spa"
+    : false;
+  const isSpaDemoStore = isSpaStore && activeStoreId === SPA_DEMO_STORE.id;
   const spaSchemaReady = isSpaDemoStore ? await isSpaOperationalSchemaReady() : false;
   const requestedSlotTime = /^\d{2}:\d{2}$/.test(params.slotTime ?? "")
     ? params.slotTime
@@ -159,6 +164,17 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       redirect(
         `/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent("請選擇顧客")}`,
       );
+    }
+
+    if (isSpaDemoStore) {
+      if (!requestKey || !serviceStaffId || treatmentIds.length === 0) {
+        redirect(`/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent("請完整選擇服務、芳療師與時段")}`);
+      }
+      const spaResult = await createSpaQuickBooking({ customerId, bookingDate, slotTime, serviceStaffId, treatmentIds, notes, requestKey });
+      if (!spaResult.success) {
+        redirect(`/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent(spaResult.error || "預約建立失敗")}`);
+      }
+      redirect(`/dashboard/bookings?view=day&date=${bookingDate}&saved=${encodeURIComponent("已建立預約")}`);
     }
 
     const bookingInput = {

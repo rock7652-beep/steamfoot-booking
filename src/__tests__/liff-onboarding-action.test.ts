@@ -205,7 +205,6 @@ describe("submitOnboarding action (PR-C2)", () => {
       storeId: STORE.id,
       customerId: "cust-y",
       phone: VALID_INPUT.phone,
-      name: VALID_INPUT.name,
       candidateLineUserId: LINE_USER_ID,
     });
   });
@@ -267,7 +266,6 @@ describe("submitOnboarding action (PR-C2)", () => {
       storeId: STORE.id,
       customerId: "cust-jian",
       phone: VALID_INPUT.phone,
-      name: VALID_INPUT.name,
       candidateLineUserId: LINE_USER_ID,
     });
     expect(mockAuthorizedFirstCapture).not.toHaveBeenCalled();

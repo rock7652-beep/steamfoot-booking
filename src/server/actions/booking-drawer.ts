@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { requireStaffSession } from "@/lib/session";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
@@ -15,6 +16,33 @@ import { getTrialSettings } from "@/lib/shop-config";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
+import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
+
+const singleTransactionSelect = {
+  id: true,
+  amount: true,
+  grossAmount: true,
+  discountAmount: true,
+  paymentMethod: true,
+  paidAt: true,
+} as const;
+
+/**
+ * StoredValueLedgerEntry is SPA-only. A normal Steamfoot SINGLE booking must
+ * never join that optional table, even when the single purchase already exists.
+ */
+async function findCollectedSingleTransaction(
+  bookingId: string,
+) {
+  const where = {
+    bookingId,
+    transactionType: "SINGLE_PURCHASE" as const,
+    status: "SUCCESS" as const,
+  };
+
+  const transaction = await prisma.transaction.findFirst({ where, select: singleTransactionSelect, orderBy: { createdAt: "desc" } });
+  return transaction ? { ...transaction, storedValueLedgerEntry: null } : null;
+}
 
 export interface BookingDrawerPayload {
   booking: {
@@ -93,7 +121,8 @@ export interface BookingDrawerPayload {
   } | null;
   // 單次（SINGLE，不扣堂）：僅 SINGLE 預約有此區塊（其他型別一律 null）。
   // collected=true → 已建立 SINGLE_PURCHASE SUCCESS 交易；defaultPrice 來自
-  // booking.servicePlan?.price ?? 799（與 collectSinglePayment 同源），給
+  // treatmentPriceSnapshot / expectedAmount / servicePlan.price / 799
+  //（與 collectSinglePayment 同源），給
   // 收款 Modal 顯示原價 + 折扣計算用。
   single: {
     collected: boolean;
@@ -131,7 +160,7 @@ export interface BookingDrawerPayload {
   // 「已扣堂 / 已有 SUCCESS 交易」的權威判斷在 adjustCheckoutToSingle action 內（執行時
   // race-safe 重查），此 Drawer 區塊只負責入口呈現，不重複加查詢。
   // currentPlanName / currentRemaining 供 Modal 顯示「目前：方案扣堂｜方案名｜剩 X 堂」；
-  // singleDefaultPrice 為轉換後單次原價（servicePlanId 清 null → 799），供 Modal 顯示。
+  // singleDefaultPrice 為轉換後的蒸足單次金額快照。
   checkoutToSingle: {
     canAdjustToSingle: boolean;
     reason: string | null;
@@ -139,6 +168,93 @@ export interface BookingDrawerPayload {
     currentRemaining: number | null;
     singleDefaultPrice: number;
   } | null;
+}
+
+async function fetchSpaBookingDetail(bookingId: string, storeId: string): Promise<BookingDrawerPayload> {
+  const booking = await spaPrisma.spaBooking.findFirst({
+    where: { id: bookingId, storeId },
+    include: {
+      items: { orderBy: { sortOrder: "asc" } },
+      payments: { where: { refundOfPaymentId: null }, orderBy: { createdAt: "desc" }, take: 1 },
+    },
+  });
+  if (!booking) throw new Error("BOOKING_NOT_FOUND");
+
+  const [customer, staff, wallet, entitlements, completedCount, lastVisit, activeCount] = await Promise.all([
+    prisma.customer.findFirst({ where: { id: booking.customerId, storeId }, select: { id: true, name: true, phone: true, serviceNote: true } }),
+    prisma.staff.findMany({ where: { id: { in: [booking.serviceStaffId, ...(booking.revenueStaffId ? [booking.revenueStaffId] : [])] }, storeId }, select: { id: true, displayName: true, colorCode: true } }),
+    spaPrisma.spaStoredValueWallet.findUnique({ where: { storeId_customerId: { storeId, customerId: booking.customerId } } }),
+    spaPrisma.spaEntitlement.findMany({ where: { storeId, customerId: booking.customerId, status: "ACTIVE", remainingUses: { gt: 0 } }, orderBy: [{ expiryDate: "asc" }, { createdAt: "asc" }] }),
+    spaPrisma.spaBooking.count({ where: { storeId, customerId: booking.customerId, status: "COMPLETED" } }),
+    spaPrisma.spaBooking.findFirst({ where: { storeId, customerId: booking.customerId, status: "COMPLETED", id: { not: booking.id } }, select: { bookingDate: true }, orderBy: { bookingDate: "desc" } }),
+    spaPrisma.spaBooking.count({ where: { storeId, customerId: booking.customerId, status: { in: ["PENDING", "CONFIRMED"] } } }),
+  ]);
+  if (!customer) throw new Error("SPA_BOOKING_CUSTOMER_NOT_FOUND");
+  const serviceStaff = staff.find((person) => person.id === booking.serviceStaffId) ?? null;
+  const revenueStaff = staff.find((person) => person.id === booking.revenueStaffId) ?? null;
+  const payment = booking.payments[0] ?? null;
+  const serviceMinutes = booking.items.reduce((sum, item) => sum + item.serviceMinutes, 0);
+  const bufferMinutes = booking.items.reduce((sum, item) => sum + item.bufferMinutes, 0);
+  const checkoutWallets = entitlements.map((entitlement, index) => ({
+    id: entitlement.id,
+    planName: entitlement.nameSnapshot,
+    remainingSessions: entitlement.remainingUses,
+    expiryDate: entitlement.expiryDate?.toISOString().slice(0, 10) ?? null,
+    recommended: index === 0,
+  }));
+
+  return {
+    booking: {
+      id: booking.id,
+      bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+      slotTime: booking.startTime,
+      bookingStatus: booking.status,
+      bookingType: "SINGLE",
+      people: booking.people,
+      isMakeup: false,
+      isCheckedIn: booking.checkedInAt != null,
+      notes: booking.notes,
+      treatmentNameSnapshot: booking.serviceNameSnapshot,
+      treatmentPriceSnapshot: Number(booking.totalPriceSnapshot),
+      treatmentServiceMinutesSnapshot: serviceMinutes,
+      treatmentBufferMinutesSnapshot: bufferMinutes,
+      customer,
+      revenueStaff,
+      serviceStaff,
+      servicePlan: null,
+      customerPlanWallet: null,
+      makeupCreditLinks: [],
+      walletSessions: [],
+      expectedAmount: Number(booking.totalPriceSnapshot),
+      attendedPeople: null,
+    },
+    customerSummary: {
+      totalBookings: completedCount,
+      lastVisit: lastVisit?.bookingDate.toISOString().slice(0, 10) ?? null,
+      isNewCustomer: activeCount <= 1,
+    },
+    trial: null,
+    single: {
+      collected: payment != null,
+      collectedAmount: payment ? Number(payment.netAmount) : null,
+      collectedOriginalAmount: payment ? Number(payment.grossAmount) : null,
+      collectedDiscountAmount: payment ? Number(payment.grossAmount) - Number(payment.netAmount) : null,
+      collectedMethod: payment?.paymentMethod ?? null,
+      collectedAt: payment?.paidAt ? toLocalDateStr(payment.paidAt) : null,
+      defaultPrice: Number(booking.totalPriceSnapshot),
+    },
+    storedValue: wallet ? { balance: Number(wallet.balance), status: wallet.status } : null,
+    checkout: {
+      canAdjustToPackage: payment == null && (booking.status === "PENDING" || booking.status === "CONFIRMED") && checkoutWallets.length > 0,
+      reason: payment
+        ? "此預約已完成付款"
+        : checkoutWallets.length === 0
+          ? "此顧客目前沒有可用療程"
+          : null,
+      wallets: checkoutWallets,
+    },
+    checkoutToSingle: null,
+  };
 }
 
 export async function fetchBookingDetail(
@@ -157,6 +273,9 @@ export async function fetchBookingDetail(
   const isViewMode = resolvedStoreId
     ? user.role !== "ADMIN" && resolvedStoreId !== user.storeId
     : storeViewContext?.isViewMode === true;
+  if (bookingStoreId && isSpaDemoStoreId(bookingStoreId)) {
+    return fetchSpaBookingDetail(bookingId, bookingStoreId);
+  }
   // 重用已解析的 staff user，避免 getBookingDetail 內再 requireSession 一次
   const booking = await getBookingDetailForUser(
     bookingId,
@@ -180,7 +299,6 @@ export async function fetchBookingDetail(
     trialSettings,
     canCorrect,
     collectedSingleTx,
-    storedValueWallet,
     adjustWallets,
     completedAgg,
     lastVisit,
@@ -206,34 +324,7 @@ export async function fetchBookingDetail(
     // discountAmount 供 Drawer 顯示「原價 / 實收 / 折扣」三段，與
     // collectSinglePayment 寫入欄位一致。
     isSingle
-      ? prisma.transaction.findFirst({
-          where: {
-            bookingId: booking.id,
-            transactionType: "SINGLE_PURCHASE",
-            status: "SUCCESS",
-          },
-          select: {
-            id: true,
-            amount: true,
-            grossAmount: true,
-            discountAmount: true,
-            paymentMethod: true,
-            paidAt: true,
-            storedValueLedgerEntry: { select: { id: true } },
-          },
-          orderBy: { createdAt: "desc" },
-        })
-      : Promise.resolve(null),
-    isSingle
-      ? prisma.storedValueWallet.findUnique({
-          where: {
-            storeId_customerId: {
-              storeId: booking.storeId,
-              customerId: booking.customerId,
-            },
-          },
-          select: { balance: true, status: true },
-        })
+      ? findCollectedSingleTransaction(booking.id)
       : Promise.resolve(null),
     // 調整結帳方式：僅 SINGLE 且非補課才查顧客可用方案（ACTIVE + 有剩餘堂）。
     // FIRST_TRIAL / PACKAGE_SESSION / 補課一律 lazy 帶過，不必要查 wallet。
@@ -292,13 +383,10 @@ export async function fetchBookingDetail(
       isMakeup: booking.isMakeup,
       isCheckedIn: booking.isCheckedIn,
       notes: booking.notes,
-      treatmentNameSnapshot: booking.treatmentNameSnapshot,
-      treatmentPriceSnapshot:
-        booking.treatmentPriceSnapshot == null
-          ? null
-          : Number(booking.treatmentPriceSnapshot),
-      treatmentServiceMinutesSnapshot: booking.treatmentServiceMinutesSnapshot,
-      treatmentBufferMinutesSnapshot: booking.treatmentBufferMinutesSnapshot,
+      treatmentNameSnapshot: null,
+      treatmentPriceSnapshot: null,
+      treatmentServiceMinutesSnapshot: null,
+      treatmentBufferMinutesSnapshot: null,
       customer: {
         id: booking.customer.id,
         name: booking.customer.name,
@@ -397,19 +485,14 @@ export async function fetchBookingDetail(
             ? toLocalDateStr(collectedSingleTx.paidAt)
             : null,
           defaultPrice:
-            booking.treatmentPriceSnapshot != null
-              ? Number(booking.treatmentPriceSnapshot)
-              : booking.servicePlan?.price != null
-                ? Number(booking.servicePlan.price)
-                : 799,
+            booking.expectedAmount != null
+                ? Number(booking.expectedAmount)
+                : booking.servicePlan?.price != null
+                  ? Number(booking.servicePlan.price)
+                  : 799,
         }
       : null,
-    storedValue: storedValueWallet
-      ? {
-          balance: Number(storedValueWallet.balance),
-          status: storedValueWallet.status,
-        }
-      : null,
+    storedValue: null,
     checkout: isSingle
       ? buildCheckoutBlock({
           isMakeup: booking.isMakeup,
@@ -428,6 +511,10 @@ export async function fetchBookingDetail(
             booking.servicePlan?.name ??
             null,
           remaining: booking.customerPlanWallet?.remainingSessions ?? null,
+          singlePrice:
+            booking.expectedAmount != null
+                ? Number(booking.expectedAmount)
+                : 799,
         })
       : null,
   };
@@ -442,6 +529,7 @@ function buildCheckoutToSingleBlock(args: {
   bookingStatus: string;
   planName: string | null;
   remaining: number | null;
+  singlePrice: number;
 }): NonNullable<BookingDrawerPayload["checkoutToSingle"]> {
   let reason: string | null = null;
   if (args.isMakeup) {
@@ -458,8 +546,7 @@ function buildCheckoutToSingleBlock(args: {
     reason,
     currentPlanName: args.planName,
     currentRemaining: args.remaining,
-    // 轉成 SINGLE 後 servicePlanId 清 null → collectSinglePayment fallback 799。
-    singleDefaultPrice: 799,
+    singleDefaultPrice: args.singlePrice,
   };
 }
 

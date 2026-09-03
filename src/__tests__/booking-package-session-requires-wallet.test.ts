@@ -20,6 +20,10 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  getStoreIndustryModule: vi.fn(async () => "steamfoot"),
+}));
+
 const STORE_A = "store-zhubei";
 const NO_PLAN_CUSTOMER_ID = "ck0000000000000000000001";
 const PLAN_CUSTOMER_ID = "ck0000000000000000000002";

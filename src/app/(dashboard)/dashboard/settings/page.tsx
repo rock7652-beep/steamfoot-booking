@@ -9,7 +9,8 @@ import { listReminderRules } from "@/server/queries/reminder";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
+import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -87,7 +88,8 @@ export default async function SettingsIndexPage() {
     user.staffId,
     "trial.manage",
   );
-  const isSpaDemo = isSpaDemoStoreId(activeStoreId);
+  const isSpaStore = (await getStoreIndustryModule(activeStoreId)) === "spa";
+  const isSpaDemo = isSpaStore && activeStoreId === SPA_DEMO_STORE.id;
 
   // 並行拉 summary（皆為既有 query）
   const [plan, shopConfig, staffList, rules, weeklyHours, store, trialSettings, hasDigitalButler] =
@@ -169,10 +171,14 @@ export default async function SettingsIndexPage() {
           : []),
       ],
     },
-    {
-      title: "人員與權限",
-      items: [{ label: "人員管理", href: "/dashboard/staff" }],
-    },
+    ...(isSpaStore
+      ? [
+          {
+            title: "人員與權限",
+            items: [{ label: "人員管理", href: "/dashboard/staff" }],
+          },
+        ]
+      : []),
   ];
 
   // ==== 付款設定 summary ====
@@ -237,23 +243,25 @@ export default async function SettingsIndexPage() {
           </SettingsSidePanel>
         }
       >
-        {/* 1. 人員管理 */}
-        <SettingsActionCard
-          title="人員管理"
-          description="建立員工、指派角色與可視範圍"
-          iconPath="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-          primaryHref="/dashboard/staff"
-          primaryLabel="管理人員"
-          summary={
-            <InfoList
-              density="compact"
-              items={[
-                { label: "員工總數", value: `${staffCount} 位` },
-                { label: "啟用中", value: `${activeStaffCount} 位` },
-              ]}
-            />
-          }
-        />
+        {/* 蒸足先收起人員管理；SPA 保留技師、技能與排班設定。 */}
+        {isSpaStore ? (
+          <SettingsActionCard
+            title="人員管理"
+            description="建立員工、指派角色與可視範圍"
+            iconPath="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+            primaryHref="/dashboard/staff"
+            primaryLabel="管理人員"
+            summary={
+              <InfoList
+                density="compact"
+                items={[
+                  { label: "員工總數", value: `${staffCount} 位` },
+                  { label: "啟用中", value: `${activeStaffCount} 位` },
+                ]}
+              />
+            }
+          />
+        ) : null}
 
         {/* 3. 營業與預約時間 */}
         <SettingsActionCard

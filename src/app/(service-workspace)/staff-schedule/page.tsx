@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { getCurrentUser } from "@/lib/session";
 import {
   bookingMonthRange,
@@ -64,36 +65,40 @@ export default async function StaffSchedulePage({ searchParams }: { searchParams
       where: { id: user.staffId, storeId: user.storeId, status: "ACTIVE" },
       select: { displayName: true, user: { select: { phone: true } } },
     }),
-    prisma.booking.findMany({
+    spaPrisma.spaBooking.findMany({
       where: {
         storeId: user.storeId,
         serviceStaffId: user.staffId,
         bookingDate: parseTaiwanDateToDbDate(selectedDate),
-        bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
+        status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
       },
       select: {
         id: true,
-        slotTime: true,
-        bookingStatus: true,
-        treatmentNameSnapshot: true,
-        treatmentVariantSnapshot: true,
-        treatmentServiceMinutesSnapshot: true,
-        customer: { select: { name: true } },
-        treatment: { select: { name: true, variantLabel: true, serviceMinutes: true } },
+        startTime: true,
+        status: true,
+        customerId: true,
+        serviceNameSnapshot: true,
+        items: { select: { variantSnapshot: true, serviceMinutes: true } },
       },
-      orderBy: { slotTime: "asc" },
+      orderBy: { startTime: "asc" },
     }),
-    prisma.booking.findMany({
+    spaPrisma.spaBooking.findMany({
       where: {
         storeId: user.storeId,
         serviceStaffId: user.staffId,
         bookingDate: { gte: monthBounds.start, lte: monthBounds.end },
-        bookingStatus: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
+        status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
       },
       select: { bookingDate: true },
     }),
   ]);
   if (!staff) redirect(`/s/${storeSlug}/staff/login`);
+  const customerIds = [...new Set(bookings.map((booking) => booking.customerId))];
+  const customers = await prisma.customer.findMany({
+    where: { id: { in: customerIds }, storeId: user.storeId },
+    select: { id: true, name: true },
+  });
+  const customerNames = new Map(customers.map((customer) => [customer.id, customer.name]));
 
   const counts = new Map<string, number>();
   for (const booking of monthBookings) {
@@ -139,18 +144,18 @@ export default async function StaffSchedulePage({ searchParams }: { searchParams
 
           <div className={bookings.length ? "mt-4 space-y-3" : "mt-3"}>
             {bookings.length ? bookings.map((booking) => {
-              const minutes = booking.treatmentServiceMinutesSnapshot ?? booking.treatment?.serviceMinutes ?? 60;
-              const serviceName = booking.treatmentNameSnapshot ?? booking.treatment?.name ?? "服務項目";
-              const variant = booking.treatmentVariantSnapshot ?? booking.treatment?.variantLabel;
+              const minutes = booking.items.reduce((sum, item) => sum + item.serviceMinutes, 0) || 60;
+              const serviceName = booking.serviceNameSnapshot || "服務項目";
+              const variant = booking.items.length === 1 ? booking.items[0]?.variantSnapshot : null;
               return (
                 <article key={booking.id} className="rounded-xl bg-earth-50 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-lg font-semibold text-earth-900">{booking.slotTime}–{addMinutes(booking.slotTime, minutes)}</p>
-                      <p className="mt-1 font-medium text-earth-800">{booking.customer.name}</p>
+                      <p className="text-lg font-semibold text-earth-900">{booking.startTime}–{addMinutes(booking.startTime, minutes)}</p>
+                      <p className="mt-1 font-medium text-earth-800">{customerNames.get(booking.customerId) ?? "顧客"}</p>
                       <p className="mt-1 text-sm text-earth-600">{treatmentSummary(serviceName, variant, minutes)}</p>
                     </div>
-                    <span className="rounded-full bg-white px-2 py-1 text-xs text-earth-600">{booking.bookingStatus === "COMPLETED" ? "已完成" : "已預約"}</span>
+                    <span className="rounded-full bg-white px-2 py-1 text-xs text-earth-600">{booking.status === "COMPLETED" ? "已完成" : "已預約"}</span>
                   </div>
                 </article>
               );

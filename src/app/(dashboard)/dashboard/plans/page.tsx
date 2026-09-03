@@ -14,11 +14,12 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { PlansManager } from "./_components/plans-manager";
 import type { PlanRow } from "./_components/plan-form-drawer";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
+import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { TreatmentWorkspace } from "./_components/treatment-workspace";
 import { INITIAL_TREATMENTS, type TreatmentRow } from "@/lib/spa-treatment-defaults";
-import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 export default async function PlansPage() {
   const user = await getCurrentUser();
@@ -34,7 +35,10 @@ export default async function PlansPage() {
   const canManage =
     !isViewMode &&
     (await checkPermission(user.role, user.staffId, "wallet.create"));
-  const isSpaDemo = isSpaDemoStoreId(plansStoreId);
+  const isSpaStore = plansStoreId
+    ? (await getStoreIndustryModule(plansStoreId)) === "spa"
+    : false;
+  const isSpaDemo = isSpaStore && plansStoreId === SPA_DEMO_STORE.id;
   const spaSchemaReady = isSpaDemo ? await isSpaOperationalSchemaReady() : false;
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
@@ -68,7 +72,7 @@ export default async function PlansPage() {
     price: Number(p.price) as unknown as PlanRow["price"],
   }));
   const storedTreatments = isSpaDemo && spaSchemaReady && plansStoreId
-    ? await prisma.treatment.findMany({
+    ? await spaPrisma.spaTreatment.findMany({
         where: { storeId: plansStoreId, isActive: true },
         include: { skills: { include: { skill: { select: { id: true } } } } },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],

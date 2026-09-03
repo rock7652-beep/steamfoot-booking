@@ -216,7 +216,10 @@ export function BookingDetailDrawer({
       .catch((e) => {
         if (canceled) return;
         // 已有可顯示資料（cache）時，背景 revalidate 失敗不蓋畫面；否則才顯示錯誤。
-        if (!cache?.get(id)) setError(e?.message ?? "載入失敗");
+        if (!cache?.get(id)) {
+          console.error("booking detail load failed", e);
+          setError("預約資料暫時無法完整載入，請稍後再試，或開啟完整頁面查看。");
+        }
       });
     return () => {
       canceled = true;
@@ -486,9 +489,7 @@ export function BookingDetailDrawer({
     if (bookingId) onUpdated?.(bookingId, null);
   }
 
-  // 調整結帳方式 Mode B 成功（PACKAGE_SESSION → SINGLE）— bookingType / wallet 翻轉，
-  // 預約狀態不變。重抓 detail 讓 Drawer 改顯示單次未收款；onUpdated(null) 讓母層
-  // 重整當日資料（月曆 strip 的方案標籤一併更新）。
+  // 方案扣堂改為單次後重抓明細；顯示「單次蒸足」與單次金額快照。
   function handleAdjustedToSingle() {
     setAdjustToSingleOpen(false);
     setReloadNonce((n) => n + 1);
@@ -701,7 +702,9 @@ export function BookingDetailDrawer({
             serviceName={
               data.booking.treatmentNameSnapshot ??
               data.booking.servicePlan?.name ??
-              "本次服務"
+              (data.booking.bookingType === "SINGLE"
+                ? "單次蒸足"
+                : "本次服務")
             }
             serviceMinutes={data.booking.treatmentServiceMinutesSnapshot}
             wallets={data.checkout?.wallets ?? []}
@@ -835,7 +838,9 @@ function DrawerContent({
                 ? `${booking.treatmentNameSnapshot} · `
                 : booking.servicePlan?.name
                   ? `${booking.servicePlan.name} · `
-                  : ""}
+                  : booking.bookingType === "SINGLE"
+                    ? "單次蒸足 · "
+                    : ""}
             {duration} 分鐘
           </p>
         </div>
@@ -885,7 +890,7 @@ function DrawerContent({
                 ? "補課"
                 : (booking.treatmentNameSnapshot ??
                   booking.servicePlan?.name ??
-                  "—")
+                  (booking.bookingType === "SINGLE" ? "單次蒸足" : "—"))
             }
           />
           <KV label="人數" value={`${booking.people} 人`} />
@@ -1240,7 +1245,9 @@ function PrefillDrawerContent({
               ? "補課 · "
               : prefill.servicePlanName
                 ? `${prefill.servicePlanName} · `
-                : ""}
+                : prefill.bookingType === "SINGLE"
+                  ? "單次蒸足 · "
+                  : ""}
             {duration} 分鐘
           </p>
         </div>
@@ -1290,7 +1297,12 @@ function PrefillDrawerContent({
           )}
           <KV
             label="服務"
-            value={prefill.isMakeup ? "補課" : (prefill.servicePlanName ?? "—")}
+            value={
+              prefill.isMakeup
+                ? "補課"
+                : (prefill.servicePlanName ??
+                  (prefill.bookingType === "SINGLE" ? "單次蒸足" : "—"))
+            }
           />
           <KV label="人數" value={`${prefill.people} 人`} />
           {prefill.attendedPeople != null &&
@@ -1438,9 +1450,6 @@ function ActionFooter({
     checkout.canAdjustToPackage &&
     (status === "PENDING" || status === "CONFIRMED");
 
-  // 調整結帳方式 Mode B（PACKAGE_SESSION 方案扣堂 → SINGLE 單次未收款）：server
-  // 已用同源 guard 判定 canAdjustToSingle；此處只呈現次要動線。與 Mode A 互斥
-  // （預約非 SINGLE 即 PACKAGE_SESSION），不會同時出現兩顆「調整結帳」。
   const canAdjustToSingle =
     checkoutToSingle != null &&
     checkoutToSingle.canAdjustToSingle &&
@@ -1478,10 +1487,10 @@ function ActionFooter({
       });
     }
     if (canAdjustCheckout && !spaMode) {
-      secondaries.push({ label: "調整結帳", onClick: actions.adjustCheckout });
+      secondaries.push({ label: "補選方案", onClick: actions.adjustCheckout });
     }
     if (canAdjustToSingle && !spaMode) {
-      secondaries.push({ label: "調整結帳", onClick: actions.adjustToSingle });
+      secondaries.push({ label: "改為單次", onClick: actions.adjustToSingle });
     }
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
     if (!spaMode) {

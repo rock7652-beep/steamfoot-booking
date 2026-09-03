@@ -28,6 +28,7 @@ const repository = {
   findActiveConversation: vi.fn(),
   expireConversation: vi.fn(async () => undefined),
   cancelConversation: vi.fn(async () => true),
+  hasPreviousValidationFailure: vi.fn(async () => false),
   findTriggeredFlow: vi.fn(),
   createConversation: vi.fn(),
   saveAnswer: vi.fn(async () => true),
@@ -624,6 +625,28 @@ describe("DigitalButlerRuntime", () => {
       text: "手機格式不正確，請輸入 09 開頭的 10 碼手機號碼。",
     }]);
     expect(repository.saveAnswer).not.toHaveBeenCalled();
+  });
+
+  it("hands a single-choice conversation to a human after two consecutive free-text replies", async () => {
+    const steps = [{
+      id: "step-menu", stepKey: "menu", position: 0, type: "SINGLE_CHOICE" as const,
+      config: { text: "請選擇", options: [{ label: "預約", value: "BOOK" }, { label: "詢問", value: "ASK" }] },
+      required: true,
+    }];
+    repository.findActiveConversation.mockResolvedValue({
+      id: "conversation-1", storeId: input.storeId, flowId: "flow-1",
+      flowVersionId: "version-1", currentStepKey: "menu",
+      expiresAt: new Date(Date.now() + 60_000), flowVersion: { steps }, answers: [],
+    });
+    repository.hasPreviousValidationFailure.mockResolvedValueOnce(true);
+
+    const result = await new DigitalButlerRuntime(repository as never, gate).handleText({
+      ...input, text: "我想直接問問題",
+    });
+
+    expect(repository.cancelConversation).toHaveBeenCalledWith(input.storeId, "conversation-1");
+    expect(result).toMatchObject({ outcome: "HANDOFF_REQUESTED" });
+    expect(result.messages[0]).toMatchObject({ type: "text", text: expect.stringContaining("門市夥伴") });
   });
 
   it("keeps HANDOFF ahead of information matching and free-text validation", async () => {

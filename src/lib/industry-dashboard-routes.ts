@@ -1,5 +1,8 @@
 import type { IndustryModuleId } from "@/lib/industry-modules";
-import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+
+// Keep the shared dashboard router free of SPA implementation imports. The
+// isolated Demo tenant is the only SPA store currently enabled for this route.
+const SPA_DEMO_STORE_ID = "demo-store";
 
 export function bookingDashboardPath(moduleId: IndustryModuleId): string {
   return moduleId === "spa"
@@ -8,5 +11,5 @@ export function bookingDashboardPath(moduleId: IndustryModuleId): string {
 }
 
 export function bookingDashboardPathForStore(storeId: string | null | undefined): string {
-  return bookingDashboardPath(storeId === SPA_DEMO_STORE.id ? "spa" : "steamfoot");
+  return bookingDashboardPath(storeId === SPA_DEMO_STORE_ID ? "spa" : "steamfoot");
 }

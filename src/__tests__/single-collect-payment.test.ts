@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  requireSteamfootStore: vi.fn(async () => undefined),
+}));
+
 // 單次（SINGLE，不扣堂）現場收款 — collectSinglePayment 行為保證：
 //  - 只在「真的收款」時建立 1 筆 SINGLE_PURCHASE 交易
 //  - status=SUCCESS（snapshot）+ paymentStatus=SUCCESS（明確）+ paidAt 有值
@@ -259,7 +263,27 @@ describe("collectSinglePayment — type / status / store guards", () => {
 });
 
 describe("collectSinglePayment — original-price source + amount", () => {
-  it("uses the SPA treatment price snapshot before legacy servicePlan price", async () => {
+  it("uses Steamfoot expectedAmount snapshot before the retained package price", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_converted",
+      bookingType: "SINGLE",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      revenueStaffId: null,
+      servicePlanId: "plan_package",
+      expectedAmount: 799,
+      treatmentPriceSnapshot: null,
+      servicePlan: { price: 5990 },
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+
+    await collectSinglePayment({ ...base, bookingId: "bk_converted" });
+
+    expect(lastTx().grossAmount).toBe(799);
+    expect(lastTx().amount).toBe(799);
+  });
+
+  it("uses the Steamfoot expectedAmount without reading retired SPA fields", async () => {
     h.bookingFindFirst.mockResolvedValue({
       id: "bk_spa",
       bookingType: "SINGLE",
@@ -268,7 +292,7 @@ describe("collectSinglePayment — original-price source + amount", () => {
       revenueStaffId: null,
       serviceStaffId: "spa_staff_10",
       servicePlanId: null,
-      treatmentPriceSnapshot: 1680,
+      expectedAmount: 1680,
       servicePlan: null,
       customer: { assignedStaffId: null },
     } as unknown as never);

@@ -17,6 +17,7 @@ import {
 } from "@/lib/payment-splits";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
+import { requireSteamfootStore } from "@/lib/industry-module-server";
 
 // ============================================================
 // collectSinglePayment — 單次（SINGLE，不扣堂）現場收款
@@ -30,7 +31,7 @@ import type { PaymentMethod, TransactionType } from "@prisma/client";
 //   - bookingType 必須是 SINGLE（不接受 FIRST_TRIAL / PACKAGE_SESSION）
 //   - 透過 booking.update 權限把關（規格）：能完成預約 → 才能完成收款；
 //     避免「可完成但不能收款」造成漏帳
-//   - 原價來自 booking.servicePlan?.price ?? 799（不走 shop-config）
+//   - 原價優先使用療程／單次快照，再 fallback servicePlan.price ?? 799
 //   - 不寫 CustomerPlanWallet / WalletSession / 不扣堂（wallet-free）
 //
 // 重複收款：同 booking 已有 SINGLE_PURCHASE + SUCCESS → 拒絕
@@ -46,6 +47,7 @@ export async function collectSinglePayment(
     const data = collectSinglePaymentSchema.parse(input);
     const completeService = data.completeService === true;
     const storeId = currentStoreId(user);
+    await requireSteamfootStore(storeId);
     // 訂閱到期保護：到期店家不可收款（無訂閱店不擋）
     await assertStoreSubscriptionWritable(storeId);
 
@@ -60,7 +62,7 @@ export async function collectSinglePayment(
         revenueStaffId: true,
         serviceStaffId: true,
         servicePlanId: true,
-        treatmentPriceSnapshot: true,
+        expectedAmount: true,
         bookingDate: true,
         slotTime: true,
         servicePlan: { select: { price: true } },
@@ -82,15 +84,13 @@ export async function collectSinglePayment(
       );
     }
 
-    // SPA 預約以建立當下的服務組合總價快照為準；非 SPA 舊資料再沿用
-    // servicePlan.price，最後才使用歷史 fallback。
     // 實收：未傳 amount → 預設等於原價（= 全價）。
     const originalAmount =
-      booking.treatmentPriceSnapshot != null
-        ? Number(booking.treatmentPriceSnapshot)
-        : booking.servicePlan?.price != null
-          ? Number(booking.servicePlan.price)
-          : SINGLE_DEFAULT_PRICE;
+      booking.expectedAmount != null
+          ? Number(booking.expectedAmount)
+          : booking.servicePlan?.price != null
+            ? Number(booking.servicePlan.price)
+            : SINGLE_DEFAULT_PRICE;
     const netAmount = data.amount ?? originalAmount;
     const paymentSplits = normalizePaymentSplits(data.paymentSplits, netAmount);
 

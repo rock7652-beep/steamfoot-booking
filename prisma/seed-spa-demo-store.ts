@@ -10,6 +10,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { PrismaClient as SpaPrismaClient } from "../src/generated/spa-client";
 import { hashSync } from "bcryptjs";
 import { parseTaiwanDateToDbDate } from "../src/lib/date-utils";
 import { SPA_INDUSTRY_MODULE } from "../src/lib/industry-modules";
@@ -22,10 +23,17 @@ import { ALL_PERMISSIONS } from "../src/lib/permissions";
 import { SPA_DEMO_CATALOG } from "../src/lib/spa-demo-catalog";
 
 const prisma = new PrismaClient();
+const spaPrisma = new SpaPrismaClient();
 const APPLY = process.argv.includes("--apply");
 const PASSWORD_HASH = hashSync("demo1234", 10);
 const SPA_DEMO_FULL_ACCESS_PLAN = "ALLIANCE" as const;
 const SPA_DEMO_DIGITAL_BUTLER_FEATURE = "digital_butler";
+
+function addSeedMinutes(time: string, minutes: number) {
+  const [hour, minute] = time.split(":").map(Number);
+  const total = hour * 60 + minute + minutes;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
 
 const SKILLS = [
   { id: "spa-demo-skill-body", key: "body", name: "身體芳療" },
@@ -71,10 +79,6 @@ const CUSTOMERS = [
   { id: "spa-demo-customer-wu", name: "吳小姐", phone: "0911000007", staffId: "spa-demo-staff-08", stage: "ACTIVE" as const, note: "已完成服務" },
 ] as const;
 
-const PLAN_IDS = Object.fromEntries(
-  SPA_INDUSTRY_MODULE.services.map((service) => [service.name, `spa-demo-plan-${service.key}`]),
-) as Record<string, string>;
-
 const WALLET_DEFS = [
   { id: "spa-demo-wallet-zhang", customerId: "spa-demo-customer-zhang", planName: "深層芳療 10 次", total: 10, remaining: 6, expiry: "2027-02-28" },
   { id: "spa-demo-wallet-li", customerId: "spa-demo-customer-li", planName: "舒壓療程 5 次", total: 5, remaining: 3, expiry: "2026-09-30" },
@@ -100,13 +104,6 @@ const BOOKING_PLANS: Record<string, string> = {
   "spa-demo-booking-li": "舒壓療程 5 次",
   "spa-demo-booking-xu": "年度保養 12 次",
   "spa-demo-booking-before": "舒壓療程 3 次",
-};
-
-const BOOKING_WALLETS: Record<string, string | undefined> = {
-  "spa-demo-booking-zhang": "spa-demo-wallet-zhang",
-  "spa-demo-booking-li": "spa-demo-wallet-li",
-  "spa-demo-booking-xu": "spa-demo-wallet-xu",
-  "spa-demo-booking-before": "spa-demo-wallet-wu",
 };
 
 const PROVIDER_PERMISSIONS = [
@@ -137,14 +134,13 @@ async function preflight() {
     }
   }
 
-  const [staffRows, customerRows, planRows, walletRows, bookingRows] = await Promise.all([
+  const [staffRows, customerRows, entitlementRows, bookingRows] = await Promise.all([
     prisma.staff.findMany({ where: { id: { in: STAFF.map((item) => item.id) } }, select: { id: true, storeId: true } }),
     prisma.customer.findMany({ where: { id: { in: CUSTOMERS.map((item) => item.id) } }, select: { id: true, storeId: true } }),
-    prisma.servicePlan.findMany({ where: { id: { in: Object.values(PLAN_IDS) } }, select: { id: true, storeId: true } }),
-    prisma.customerPlanWallet.findMany({ where: { id: { in: WALLET_DEFS.map((item) => item.id) } }, select: { id: true, storeId: true } }),
-    prisma.booking.findMany({ where: { id: { in: SPA_DEMO_BOOKINGS.map((item) => item.id) } }, select: { id: true, storeId: true } }),
+    spaPrisma.spaEntitlement.findMany({ where: { id: { in: WALLET_DEFS.map((item) => item.id) } }, select: { id: true, storeId: true } }),
+    spaPrisma.spaBooking.findMany({ where: { id: { in: SPA_DEMO_BOOKINGS.map((item) => item.id) } }, select: { id: true, storeId: true } }),
   ]);
-  for (const row of [...staffRows, ...customerRows, ...planRows, ...walletRows, ...bookingRows]) {
+  for (const row of [...staffRows, ...customerRows, ...entitlementRows, ...bookingRows]) {
     if (row.storeId !== SPA_DEMO_STORE.id) {
       throw new Error(`SPA_DEMO_ALLOWLIST_ID_BELONGS_TO_FORMAL_STORE:${row.id}`);
     }
@@ -173,6 +169,11 @@ async function applySeed() {
         digitalButlerEnabled: true,
       },
     });
+    await tx.$executeRaw`
+      UPDATE "Store"
+      SET "industryModule" = 'SPA'::"IndustryModule"
+      WHERE id = ${SPA_DEMO_STORE.id}
+    `;
     await tx.storeFeatureEntitlement.upsert({
       where: {
         uq_store_feature_entitlement: {
@@ -222,95 +223,6 @@ async function applySeed() {
       }
     }
 
-    for (const [sortOrder, service] of SPA_INDUSTRY_MODULE.services.entries()) {
-      await tx.servicePlan.upsert({
-        where: { id: PLAN_IDS[service.name] },
-        create: { id: PLAN_IDS[service.name], storeId: SPA_DEMO_STORE.id, name: service.name, category: service.category, price: service.price, sessionCount: service.sessions, validityDays: service.validityDays, sortOrder, isActive: true },
-        update: { name: service.name, category: service.category, price: service.price, sessionCount: service.sessions, validityDays: service.validityDays, sortOrder, isActive: true },
-      });
-    }
-
-    for (const [sortOrder, skill] of SKILLS.entries()) {
-      await tx.professionalSkill.upsert({
-        where: { id: skill.id },
-        create: { id: skill.id, storeId: SPA_DEMO_STORE.id, name: skill.name, sortOrder },
-        update: { name: skill.name, sortOrder, isActive: true },
-      });
-    }
-
-    for (const [sortOrder, treatment] of TREATMENTS.entries()) {
-      await tx.treatment.upsert({
-        where: { id: treatment.id },
-        create: {
-          id: treatment.id,
-          storeId: SPA_DEMO_STORE.id,
-          name: treatment.name,
-          variantLabel: treatment.variant,
-          price: treatment.price,
-          serviceMinutes: treatment.serviceMinutes,
-          bufferMinutes: treatment.bufferMinutes,
-          publicVisible: true,
-          sortOrder,
-        },
-        update: {
-          name: treatment.name,
-          variantLabel: treatment.variant,
-          price: treatment.price,
-          serviceMinutes: treatment.serviceMinutes,
-          bufferMinutes: treatment.bufferMinutes,
-          isActive: true,
-          publicVisible: true,
-          sortOrder,
-        },
-      });
-      for (const skillKey of treatment.skills) {
-        const skill = SKILLS.find((candidate) => candidate.key === skillKey);
-        if (!skill) throw new Error(`SPA_DEMO_TREATMENT_SKILL_MISSING:${skillKey}`);
-        await tx.treatmentSkill.upsert({
-          where: { treatmentId_skillId: { treatmentId: treatment.id, skillId: skill.id } },
-          create: { storeId: SPA_DEMO_STORE.id, treatmentId: treatment.id, skillId: skill.id },
-          update: { storeId: SPA_DEMO_STORE.id },
-        });
-      }
-    }
-
-    for (const [staffId, skillKeys] of Object.entries(STAFF_SKILLS)) {
-      for (const skillKey of skillKeys) {
-        const skill = SKILLS.find((candidate) => candidate.key === skillKey);
-        if (!skill) throw new Error(`SPA_DEMO_STAFF_SKILL_MISSING:${skillKey}`);
-        await tx.staffSkill.upsert({
-          where: { staffId_skillId: { staffId, skillId: skill.id } },
-          create: { storeId: SPA_DEMO_STORE.id, staffId, skillId: skill.id },
-          update: { storeId: SPA_DEMO_STORE.id },
-        });
-      }
-    }
-
-    for (const [staffId, availability] of Object.entries(STAFF_WEEKLY_AVAILABILITY)) {
-      for (const dayOfWeek of availability.days) {
-        await tx.staffWeeklyAvailability.upsert({
-          where: {
-            uq_staff_weekly_availability: {
-              staffId,
-              dayOfWeek,
-              startTime: availability.startTime,
-              endTime: availability.endTime,
-            },
-          },
-          create: { storeId: SPA_DEMO_STORE.id, staffId, dayOfWeek, startTime: availability.startTime, endTime: availability.endTime },
-          update: { storeId: SPA_DEMO_STORE.id, isActive: true },
-        });
-      }
-    }
-
-    for (const [staffId, compensation] of Object.entries(STAFF_COMPENSATION)) {
-      await tx.spaStaffCompensation.upsert({
-        where: { staffId },
-        create: { storeId: SPA_DEMO_STORE.id, staffId, ...compensation },
-        update: { ...compensation, isActive: true },
-      });
-    }
-
     for (let dayOfWeek = 0; dayOfWeek <= 6; dayOfWeek += 1) {
       const isOpen = !SPA_INDUSTRY_MODULE.booking.closedWeekdays.includes(dayOfWeek);
       await tx.businessHours.upsert({
@@ -328,102 +240,81 @@ async function applySeed() {
       });
     }
 
-    // Monetary stored value is intentionally seeded only for one Demo customer.
-    // Never reset an existing balance: repeated seeds must preserve checkout history.
-    const storedValueWallet = await tx.storedValueWallet.findUnique({
-      where: {
-        storeId_customerId: {
-          storeId: SPA_DEMO_STORE.id,
-          customerId: "spa-demo-customer-zhou",
-        },
-      },
-      select: { id: true },
-    });
-    if (!storedValueWallet) {
-      await tx.storedValueWallet.create({
-        data: {
-          id: "spa-demo-stored-value-zhou",
-          storeId: SPA_DEMO_STORE.id,
-          customerId: "spa-demo-customer-zhou",
-          balance: 5000,
-          entries: {
-            create: {
-              id: "spa-demo-stored-value-zhou-opening",
-              storeId: SPA_DEMO_STORE.id,
-              customerId: "spa-demo-customer-zhou",
-              entryType: "ADJUSTMENT",
-              amount: 5000,
-              balanceAfter: 5000,
-              note: "SPA Demo 驗收期初餘額",
-            },
-          },
-        },
+  }, { maxWait: 10_000, timeout: 60_000 });
+
+  await spaPrisma.$transaction(async (tx) => {
+    for (const [sortOrder, skill] of SKILLS.entries()) {
+      await tx.spaSkill.upsert({
+        where: { id: skill.id },
+        create: { id: skill.id, storeId: SPA_DEMO_STORE.id, name: skill.name, sortOrder },
+        update: { name: skill.name, sortOrder, isActive: true },
       });
     }
-
-    for (const wallet of WALLET_DEFS) {
-      const service = SPA_INDUSTRY_MODULE.services.find((candidate) => candidate.name === wallet.planName);
-      if (!service) throw new Error(`SPA_DEMO_PLAN_MISSING:${wallet.planName}`);
-      await tx.customerPlanWallet.upsert({
-        where: { id: wallet.id },
-        create: { id: wallet.id, storeId: SPA_DEMO_STORE.id, customerId: wallet.customerId, planId: PLAN_IDS[wallet.planName], purchasedPrice: service.price, totalSessions: wallet.total, remainingSessions: wallet.remaining, startDate: parseTaiwanDateToDbDate("2026-07-01"), expiryDate: parseTaiwanDateToDbDate(wallet.expiry), status: "ACTIVE" },
-        update: { remainingSessions: wallet.remaining, expiryDate: parseTaiwanDateToDbDate(wallet.expiry), status: "ACTIVE" },
+    for (const [sortOrder, treatment] of TREATMENTS.entries()) {
+      await tx.spaTreatment.upsert({
+        where: { id: treatment.id },
+        create: { id: treatment.id, storeId: SPA_DEMO_STORE.id, name: treatment.name, variantLabel: treatment.variant, price: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, publicVisible: true, sortOrder },
+        update: { name: treatment.name, variantLabel: treatment.variant, price: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, isActive: true, publicVisible: true, sortOrder },
       });
-      for (let sessionNo = 1; sessionNo <= wallet.total; sessionNo += 1) {
-        const completed = sessionNo <= wallet.total - wallet.remaining;
-        await tx.walletSession.upsert({
-          where: { walletId_sessionNo: { walletId: wallet.id, sessionNo } },
-          create: { id: `${wallet.id}-session-${sessionNo}`, walletId: wallet.id, sessionNo, status: completed ? "COMPLETED" : "AVAILABLE", completedAt: completed ? parseTaiwanDateToDbDate("2026-08-01") : null },
-          update: { status: completed ? "COMPLETED" : "AVAILABLE", completedAt: completed ? parseTaiwanDateToDbDate("2026-08-01") : null },
+      for (const skillKey of treatment.skills) {
+        const skill = SKILLS.find((candidate) => candidate.key === skillKey);
+        if (!skill) throw new Error(`SPA_DEMO_TREATMENT_SKILL_MISSING:${skillKey}`);
+        await tx.spaTreatmentSkill.upsert({
+          where: { treatmentId_skillId: { treatmentId: treatment.id, skillId: skill.id } },
+          create: { storeId: SPA_DEMO_STORE.id, treatmentId: treatment.id, skillId: skill.id },
+          update: { storeId: SPA_DEMO_STORE.id },
         });
       }
     }
-
+    for (const [staffId, skillKeys] of Object.entries(STAFF_SKILLS)) {
+      for (const skillKey of skillKeys) {
+        const skill = SKILLS.find((candidate) => candidate.key === skillKey)!;
+        await tx.spaStaffSkill.upsert({
+          where: { staffId_skillId: { staffId, skillId: skill.id } },
+          create: { storeId: SPA_DEMO_STORE.id, staffId, skillId: skill.id },
+          update: { storeId: SPA_DEMO_STORE.id },
+        });
+      }
+    }
+    for (const [staffId, availability] of Object.entries(STAFF_WEEKLY_AVAILABILITY)) {
+      for (const dayOfWeek of availability.days) {
+        await tx.spaStaffAvailability.upsert({
+          where: { storeId_staffId_dayOfWeek: { storeId: SPA_DEMO_STORE.id, staffId, dayOfWeek } },
+          create: { storeId: SPA_DEMO_STORE.id, staffId, dayOfWeek, startTime: availability.startTime, endTime: availability.endTime },
+          update: { startTime: availability.startTime, endTime: availability.endTime, isActive: true },
+        });
+      }
+    }
+    for (const [staffId, compensation] of Object.entries(STAFF_COMPENSATION)) {
+      await tx.spaStaffCompensation.upsert({
+        where: { staffId },
+        create: { storeId: SPA_DEMO_STORE.id, staffId, ...compensation },
+        update: { ...compensation, isActive: true },
+      });
+    }
+    const storedWallet = await tx.spaStoredValueWallet.findUnique({ where: { storeId_customerId: { storeId: SPA_DEMO_STORE.id, customerId: "spa-demo-customer-zhou" } } });
+    if (!storedWallet) {
+      await tx.spaStoredValueWallet.create({
+        data: { id: "spa-demo-stored-value-zhou", storeId: SPA_DEMO_STORE.id, customerId: "spa-demo-customer-zhou", balance: 5000, entries: { create: { id: "spa-demo-stored-value-zhou-opening", customerId: "spa-demo-customer-zhou", entryType: "ADJUSTMENT", amount: 5000, balanceAfter: 5000, note: "SPA Demo 驗收期初餘額" } } },
+      });
+    }
+    for (const wallet of WALLET_DEFS) {
+      const service = SPA_INDUSTRY_MODULE.services.find((candidate) => candidate.name === wallet.planName);
+      if (!service) throw new Error(`SPA_DEMO_PLAN_MISSING:${wallet.planName}`);
+      await tx.spaEntitlement.upsert({
+        where: { id: wallet.id },
+        create: { id: wallet.id, storeId: SPA_DEMO_STORE.id, customerId: wallet.customerId, nameSnapshot: wallet.planName, purchasedPrice: service.price, totalUses: wallet.total, remainingUses: wallet.remaining, startDate: parseTaiwanDateToDbDate("2026-07-01"), expiryDate: parseTaiwanDateToDbDate(wallet.expiry), status: "ACTIVE", sourceReference: "SPA_DEMO" },
+        update: { remainingUses: wallet.remaining, expiryDate: parseTaiwanDateToDbDate(wallet.expiry), status: "ACTIVE" },
+      });
+    }
     for (const booking of SPA_DEMO_BOOKINGS) {
       const planName = BOOKING_PLANS[booking.id];
-      const treatment = planName === "新客舒壓體驗 60 分鐘"
-        ? TREATMENTS.find((item) => item.id === "spa-demo-treatment-body-60")!
-        : TREATMENTS.find((item) => item.id === "spa-demo-treatment-body-90")!;
-      const bookingStatus = booking.status === "已完成" ? "COMPLETED" : "CONFIRMED";
-      await tx.booking.upsert({
+      const treatment = planName === "新客舒壓體驗 60 分鐘" ? TREATMENTS.find((item) => item.id === "spa-demo-treatment-body-60")! : TREATMENTS.find((item) => item.id === "spa-demo-treatment-body-90")!;
+      const status = booking.status === "已完成" ? "COMPLETED" : "CONFIRMED";
+      await tx.spaBooking.upsert({
         where: { id: booking.id },
-        create: {
-          id: booking.id,
-          storeId: SPA_DEMO_STORE.id,
-          customerId: BOOKING_CUSTOMERS[booking.id],
-          bookingDate: parseTaiwanDateToDbDate(booking.date),
-          slotTime: booking.time,
-          revenueStaffId: booking.providerId,
-          serviceStaffId: booking.providerId,
-          bookedByType: "STAFF",
-          bookedByStaffId: "spa-demo-owner",
-          bookingType: booking.status === "新客體驗" ? "FIRST_TRIAL" : BOOKING_WALLETS[booking.id] ? "PACKAGE_SESSION" : "SINGLE",
-          servicePlanId: PLAN_IDS[planName],
-          treatmentId: treatment.id,
-          treatmentNameSnapshot: treatment.name,
-          treatmentVariantSnapshot: treatment.variant,
-          treatmentPriceSnapshot: treatment.price,
-          treatmentServiceMinutesSnapshot: treatment.serviceMinutes,
-          treatmentBufferMinutesSnapshot: treatment.bufferMinutes,
-          customerPlanWalletId: BOOKING_WALLETS[booking.id] ?? null,
-          bookingStatus,
-          notes: `SPA_DEMO|${booking.note}`,
-        },
-        update: {
-          bookingDate: parseTaiwanDateToDbDate(booking.date),
-          slotTime: booking.time,
-          serviceStaffId: booking.providerId,
-          servicePlanId: PLAN_IDS[planName],
-          treatmentId: treatment.id,
-          treatmentNameSnapshot: treatment.name,
-          treatmentVariantSnapshot: treatment.variant,
-          treatmentPriceSnapshot: treatment.price,
-          treatmentServiceMinutesSnapshot: treatment.serviceMinutes,
-          treatmentBufferMinutesSnapshot: treatment.bufferMinutes,
-          customerPlanWalletId: BOOKING_WALLETS[booking.id] ?? null,
-          bookingStatus,
-          notes: `SPA_DEMO|${booking.note}`,
-        },
+        create: { id: booking.id, storeId: SPA_DEMO_STORE.id, customerId: BOOKING_CUSTOMERS[booking.id], serviceStaffId: booking.providerId, revenueStaffId: booking.providerId, bookingDate: parseTaiwanDateToDbDate(booking.date), startTime: booking.time, endTime: addSeedMinutes(booking.time, treatment.serviceMinutes + treatment.bufferMinutes), status, serviceNameSnapshot: treatment.name, totalPriceSnapshot: treatment.price, notes: `SPA_DEMO|${booking.note}`, completedAt: status === "COMPLETED" ? parseTaiwanDateToDbDate(booking.date) : null, items: { create: { treatmentId: treatment.id, treatmentNameSnapshot: treatment.name, variantSnapshot: treatment.variant, priceSnapshot: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes } } },
+        update: { bookingDate: parseTaiwanDateToDbDate(booking.date), startTime: booking.time, endTime: addSeedMinutes(booking.time, treatment.serviceMinutes + treatment.bufferMinutes), serviceStaffId: booking.providerId, revenueStaffId: booking.providerId, status, serviceNameSnapshot: treatment.name, totalPriceSnapshot: treatment.price, notes: `SPA_DEMO|${booking.note}` },
       });
     }
   }, { maxWait: 10_000, timeout: 60_000 });
@@ -439,7 +330,7 @@ export async function runSpaDemoSeed(apply: boolean) {
   const counts = await Promise.all([
     prisma.staff.count({ where: { storeId: SPA_DEMO_STORE.id } }),
     prisma.customer.count({ where: { storeId: SPA_DEMO_STORE.id } }),
-    prisma.booking.count({ where: { storeId: SPA_DEMO_STORE.id, id: { in: SPA_DEMO_BOOKINGS.map((booking) => booking.id) } } }),
+    spaPrisma.spaBooking.count({ where: { storeId: SPA_DEMO_STORE.id, id: { in: SPA_DEMO_BOOKINGS.map((booking) => booking.id) } } }),
   ]);
   const fullAccess = await prisma.store.findUnique({
     where: { id: SPA_DEMO_STORE.id },
@@ -487,5 +378,7 @@ if (!process.env.NEXT_RUNTIME) {
       console.error("SPA Demo Seed failed:", error);
       process.exitCode = 1;
     })
-    .finally(() => prisma.$disconnect());
+    .finally(async () => {
+      await Promise.all([prisma.$disconnect(), spaPrisma.$disconnect()]);
+    });
 }

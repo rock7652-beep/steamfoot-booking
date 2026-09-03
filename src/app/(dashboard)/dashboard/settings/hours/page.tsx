@@ -7,7 +7,8 @@ import {
   getCachedMonthScheduleSummary,
 } from "@/lib/query-cache";
 import { parseBusinessPeriods } from "@/lib/business-hours-resolver";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
+import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -92,7 +93,9 @@ export default async function ScheduleSettingsPage() {
     dayName: WEEK_DAY_NAMES[h.dayOfWeek],
   }));
   const isHeadquarters = currentStore?.isDefault ?? false;
-  const isSpaDemo = isSpaDemoStoreId(effectiveStoreId);
+  const isSpaDemo =
+    (await getStoreIndustryModule(effectiveStoreId)) === "spa" &&
+    effectiveStoreId === SPA_DEMO_STORE.id;
 
   const openDays = weeklyHours.filter((h) => h.isOpen);
   const sampleOpen = openDays[0];

@@ -645,7 +645,11 @@ export default function DashboardShell({
   const isStoreAdminRoute = /^\/s\/[^/]+\/admin(\/|$)/.test(rawPathname);
 
   const storeAdminNav = useMemo(() => {
-    if (industryModuleId !== "spa") return STORE_ADMIN_NAV;
+    // 蒸足目前先收起人員管理；SPA 仍需要技師、技能與排班入口。
+    // 僅隱藏導覽，不刪除頁面或既有人員資料，方便日後重新開放。
+    if (industryModuleId !== "spa") {
+      return STORE_ADMIN_NAV.filter((item) => item.href !== "/dashboard/staff");
+    }
     const labels: Partial<Record<string, string>> = {
       "/dashboard": "今日營運",
       "/dashboard/plans": "療程管理",

@@ -12,6 +12,7 @@ import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-serv
 import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { FormSuccessToast } from "@/components/form-success-toast";
@@ -50,10 +51,13 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     ? await getAccessibleStoreIds(user)
     : [];
   const deepLinkedBooking = params.bookingId
-    ? await prisma.booking.findFirst({
+    ? (await prisma.booking.findFirst({
         where: { id: params.bookingId, storeId: { in: accessibleStoreIds } },
         select: { id: true, storeId: true, bookingDate: true },
-      })
+      })) ?? (await spaPrisma.spaBooking.findFirst({
+        where: { id: params.bookingId, storeId: { in: accessibleStoreIds } },
+        select: { id: true, storeId: true, bookingDate: true },
+      }))
     : null;
   const bookingsStoreId = deepLinkedBooking?.storeId ?? fallbackStoreId;
   const canonicalPath = bookingDashboardPathForStore(bookingsStoreId);
@@ -144,7 +148,6 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       ),
     ]);
   timer.finish();
-
   return (
     <PageShell>
       <FormSuccessToast />

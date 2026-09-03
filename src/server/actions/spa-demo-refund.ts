@@ -3,44 +3,20 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import {
   SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
   SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
+  SPA_DEMO_LIVE_FLOW_STORED_WALLET_ID,
   SPA_DEMO_STORE,
 } from "@/lib/spa-demo-store";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 const inputSchema = z.object({
   bookingId: z.enum(SPA_DEMO_LIVE_FLOW_BOOKING_IDS),
   scope: z.enum(["GROUP", "GUEST"]),
   reason: z.string().trim().min(2).max(80),
 });
-
-type RefundableSettlement = "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE";
-
-function parseBookingNotes(notes: string | null) {
-  const read = (key: string) => notes?.match(new RegExp(`\\|${key}=([^|]+)`))?.[1] ?? "";
-  return {
-    party: Number(read("party") || 1),
-    guest: Number(read("guest") || 1),
-    checkout: read("checkout") as "GROUP" | "INDIVIDUAL",
-    settlement: read("settlement") as RefundableSettlement,
-    label: read("label"),
-    amount: Number(read("amount") || 0),
-    refunded: read("refund") === "REFUNDED",
-  };
-}
-
-function allocateGroupAmounts(total: number, prices: readonly number[]): number[] {
-  const priceTotal = prices.reduce((sum, price) => sum + price, 0);
-  if (priceTotal <= 0) return prices.map(() => 0);
-  let allocated = 0;
-  return prices.map((price, index) => {
-    if (index === prices.length - 1) return total - allocated;
-    const amount = Math.round(total * price / priceTotal);
-    allocated += amount;
-    return amount;
-  });
-}
 
 function revalidateSpaDemo() {
   revalidatePath("/liff/design-preview");
@@ -49,258 +25,176 @@ function revalidateSpaDemo() {
 }
 
 export async function refundSpaDemoCheckout(input: unknown) {
-  if (process.env.VERCEL_ENV === "production") {
-    return { success: false as const, error: "Demo 退款不在正式站開放" };
-  }
+  if (process.env.VERCEL_ENV === "production") return { success: false as const, error: "Demo 退款不在正式站開放" };
+  await requireSpaStore(SPA_DEMO_STORE.id);
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: "退款資料不完整" };
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      const selected = await tx.booking.findFirst({
-        where: { id: parsed.data.bookingId, storeId: SPA_DEMO_STORE.id, bookingStatus: "COMPLETED" },
-        select: {
-          id: true,
-          bookingDate: true,
-          slotTime: true,
-          customerId: true,
-          notes: true,
-          treatmentPriceSnapshot: true,
-          customer: { select: { name: true, storeId: true } },
-          serviceStaff: { select: { storeId: true } },
-        },
-      });
-      if (!selected || selected.customer.storeId !== SPA_DEMO_STORE.id || selected.serviceStaff?.storeId !== SPA_DEMO_STORE.id) {
-        throw new Error("SPA_DEMO_REFUND_ISOLATION_FAILED");
-      }
+    const selected = await spaPrisma.spaBooking.findFirst({
+      where: { id: parsed.data.bookingId, storeId: SPA_DEMO_STORE.id, status: "COMPLETED" },
+    });
+    if (!selected) throw new Error("SPA_DEMO_REFUND_ISOLATION_FAILED");
 
-      const selectedMeta = parseBookingNotes(selected.notes);
-      if (!Number.isInteger(selectedMeta.party) || selectedMeta.party < 1 || selectedMeta.party > SPA_DEMO_LIVE_FLOW_BOOKING_IDS.length) {
-        throw new Error("SPA_DEMO_REFUND_GROUP_INVALID");
-      }
-      const expectedIds = [...SPA_DEMO_LIVE_FLOW_BOOKING_IDS.slice(0, selectedMeta.party)];
-      const targetIds = parsed.data.scope === "GROUP" ? expectedIds : [selected.id];
-      for (const bookingId of targetIds) {
-        await tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${bookingId} FOR UPDATE`;
-      }
+    const group = await spaPrisma.spaBooking.findMany({
+      where: {
+        storeId: SPA_DEMO_STORE.id,
+        partyGroupId: selected.partyGroupId ?? selected.id,
+        status: "COMPLETED",
+      },
+      orderBy: { guestIndex: "asc" },
+    });
+    const targets = parsed.data.scope === "GROUP" ? group : group.filter((booking) => booking.id === selected.id);
+    if (!targets.length) throw new Error("SPA_DEMO_REFUND_GROUP_INVALID");
 
-      const group = await tx.booking.findMany({
-        where: {
-          id: { in: expectedIds },
-          storeId: SPA_DEMO_STORE.id,
-          customerId: selected.customerId,
-          bookingDate: selected.bookingDate,
-          slotTime: selected.slotTime,
-          bookingStatus: "COMPLETED",
-        },
-        select: {
-          id: true,
-          notes: true,
-          treatmentPriceSnapshot: true,
-          customerId: true,
-          revenueStaffId: true,
-          serviceStaffId: true,
-        },
-        orderBy: { id: "asc" },
-      });
-      if (group.length !== expectedIds.length) throw new Error("SPA_DEMO_REFUND_GROUP_INVALID");
+    const customer = await prisma.customer.findFirst({
+      where: { id: selected.customerId, storeId: SPA_DEMO_STORE.id },
+      select: { name: true },
+    });
+    if (!customer) throw new Error("SPA_DEMO_REFUND_ISOLATION_FAILED");
 
-      const ordered = expectedIds.map((id) => group.find((booking) => booking.id === id)!);
-      const metadata = ordered.map((booking) => parseBookingNotes(booking.notes));
-      const targets = ordered.filter((booking) => targetIds.includes(booking.id));
-      if (targets.some((booking) => parseBookingNotes(booking.notes).refunded)) {
-        throw new Error("SPA_DEMO_ALREADY_REFUNDED");
+    const result = await spaPrisma.$transaction(async (tx) => {
+      for (const booking of targets) {
+        await tx.$queryRaw`SELECT id FROM "SpaBooking" WHERE id = ${booking.id} FOR UPDATE`;
       }
-      if (metadata.some((meta) => !(["CASH", "CREDIT_CARD", "STORED_VALUE", "PACKAGE"] as const).includes(meta.settlement))) {
-        throw new Error("SPA_DEMO_REFUND_SETTLEMENT_INVALID");
-      }
-
-      const originalTransactions = await tx.transaction.findMany({
+      const originals = await tx.spaPayment.findMany({
         where: {
           storeId: SPA_DEMO_STORE.id,
-          transactionType: { not: "REFUND" },
-          status: "SUCCESS",
-          bookingId: { in: metadata[0].checkout === "GROUP" ? [expectedIds[0]] : targetIds },
-        },
-        select: {
-          id: true,
-          bookingId: true,
-          amount: true,
-          paymentMethod: true,
-          revenueStaffId: true,
-          serviceStaffId: true,
-          planId: true,
-          customerPlanWalletId: true,
-          transactionType: true,
+          bookingId: { in: targets.map((booking) => booking.id) },
+          refundOfPaymentId: null,
+          status: { in: ["SUCCESS", "REFUNDED"] },
         },
       });
-      if (metadata[0].checkout === "GROUP" ? originalTransactions.length !== 1 : originalTransactions.length !== targets.length) {
-        throw new Error("SPA_DEMO_REFUND_TRANSACTION_INVALID");
-      }
+      if (originals.length !== targets.length) throw new Error("SPA_DEMO_REFUND_PAYMENT_INVALID");
+      if (originals.some((payment) => payment.status === "REFUNDED")) throw new Error("SPA_DEMO_ALREADY_REFUNDED");
 
-      const prices = ordered.map((booking) => Number(booking.treatmentPriceSnapshot ?? 0));
-      const groupOriginal = metadata[0].checkout === "GROUP" ? originalTransactions[0] : null;
-      const allocated = groupOriginal
-        ? allocateGroupAmounts(Number(groupOriginal.amount), prices)
-        : prices;
       let storedValueBalance: number | null = null;
       let packageRemainingSessions: number | null = null;
       const refundedAt = new Date();
       const refunds: { bookingId: string; amount: number }[] = [];
 
       for (const booking of targets) {
-        const index = ordered.findIndex((item) => item.id === booking.id);
-        const meta = metadata[index];
-        const original = groupOriginal ?? originalTransactions.find((transaction) => transaction.bookingId === booking.id);
-        if (!original) throw new Error("SPA_DEMO_REFUND_TRANSACTION_INVALID");
-        const amount = meta.settlement === "PACKAGE" ? 0 : groupOriginal ? allocated[index] : Number(original.amount);
-        const refundId = `spa-demo-refund-${booking.id}`;
-        const duplicate = await tx.transaction.findFirst({
-          where: { id: refundId, storeId: SPA_DEMO_STORE.id, transactionType: "REFUND" },
-          select: { id: true },
-        });
-        if (duplicate) throw new Error("SPA_DEMO_ALREADY_REFUNDED");
+        const original = originals.find((payment) => payment.bookingId === booking.id)!;
+        const amount = Number(original.netAmount);
+        const refundId = `spa-refund-${booking.id}`;
+        if (await tx.spaPayment.findUnique({ where: { id: refundId } })) throw new Error("SPA_DEMO_ALREADY_REFUNDED");
 
-        await tx.transaction.create({
+        await tx.spaPayment.create({
           data: {
             id: refundId,
-            customerId: booking.customerId,
             storeId: SPA_DEMO_STORE.id,
+            customerId: booking.customerId,
             bookingId: booking.id,
             revenueStaffId: original.revenueStaffId,
-            serviceStaffId: original.serviceStaffId,
-            customerPlanWalletId: original.customerPlanWalletId,
-            planId: original.planId,
-            transactionType: "REFUND",
+            soldByStaffId: original.soldByStaffId,
+            grossAmount: amount,
+            netAmount: amount,
             paymentMethod: original.paymentMethod,
-            paymentStatus: "SUCCESS",
-            paidAt: refundedAt,
-            transactionDate: selected.bookingDate,
-            amount: -amount,
-            netAmount: -amount,
-            quantity: 1,
             status: "SUCCESS",
-            refundOfTransactionId: original.id,
-            refundReason: parsed.data.reason,
+            quantity: 1,
+            refundOfPaymentId: original.id,
+            paidAt: refundedAt,
             refundedAt,
+            refundReason: parsed.data.reason,
             note: `SPA Demo 退款｜${parsed.data.reason}`,
           },
         });
-
-        if (meta.settlement === "PACKAGE") {
-          const restored = await tx.walletSession.updateMany({
-            where: {
-              walletId: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
-              bookingId: booking.id,
-              status: "COMPLETED",
-            },
-            data: { status: "AVAILABLE", bookingId: null, reservedAt: null, completedAt: null },
-          });
-          if (restored.count !== 1) throw new Error("SPA_DEMO_REFUND_PACKAGE_INVALID");
-        }
-
-        await tx.booking.update({
-          where: { id: booking.id },
-          data: {
-            notes: `SPA_DEMO_LIVE_FLOW|party=${meta.party}|guest=${meta.guest}|checkout=${meta.checkout}|settlement=${meta.settlement}|label=${meta.label}|amount=${meta.amount}|refund=REFUNDED|refundAmount=${amount}|refundReason=${parsed.data.reason}|refundedAt=${refundedAt.toISOString()}`,
-          },
+        await tx.spaPayment.update({
+          where: { id: original.id },
+          data: { status: "REFUNDED", refundedAt, refundReason: parsed.data.reason },
         });
-        refunds.push({ bookingId: booking.id, amount });
-      }
 
-      const targetMetadata = targets.map((booking) => metadata[ordered.findIndex((item) => item.id === booking.id)]);
-      const storedRefunds = refunds.filter((_, index) => targetMetadata[index].settlement === "STORED_VALUE");
-      if (storedRefunds.length) {
-        const wallet = await tx.storedValueWallet.findFirst({
-          where: { storeId: SPA_DEMO_STORE.id, customerId: selected.customerId },
-          select: { id: true },
-        });
-        if (!wallet) throw new Error("SPA_DEMO_REFUND_STORED_INVALID");
-        await tx.$queryRaw`SELECT id FROM "StoredValueWallet" WHERE id = ${wallet.id} FOR UPDATE`;
-        const current = await tx.storedValueWallet.findUnique({ where: { id: wallet.id }, select: { balance: true } });
-        storedValueBalance = Number(current?.balance ?? 0);
-        for (const refund of storedRefunds) {
-          storedValueBalance += refund.amount;
-          await tx.storedValueLedgerEntry.create({
+        if (original.paymentMethod === "STORED_VALUE") {
+          const wallet = await tx.spaStoredValueWallet.findUnique({ where: { id: SPA_DEMO_LIVE_FLOW_STORED_WALLET_ID } });
+          if (!wallet || wallet.storeId !== SPA_DEMO_STORE.id) throw new Error("SPA_DEMO_REFUND_STORED_INVALID");
+          await tx.$queryRaw`SELECT id FROM "SpaStoredValueWallet" WHERE id = ${wallet.id} FOR UPDATE`;
+          const locked = await tx.spaStoredValueWallet.findUnique({ where: { id: wallet.id } });
+          storedValueBalance = Number(locked?.balance ?? 0) + amount;
+          await tx.spaStoredValueWallet.update({ where: { id: wallet.id }, data: { balance: storedValueBalance } });
+          await tx.spaStoredValueEntry.create({
             data: {
-              id: `spa-demo-refund-ledger-${refund.bookingId}`,
+              id: `spa-refund-ledger-${booking.id}`,
               walletId: wallet.id,
               storeId: SPA_DEMO_STORE.id,
-              customerId: selected.customerId,
-              transactionId: `spa-demo-refund-${refund.bookingId}`,
-              entryType: "CREDIT",
-              amount: refund.amount,
+              customerId: booking.customerId,
+              bookingId: booking.id,
+              paymentId: refundId,
+              entryType: "REFUND",
+              amount,
               balanceAfter: storedValueBalance,
               note: `SPA Demo 退款｜${parsed.data.reason}`,
             },
           });
         }
-        await tx.storedValueWallet.update({ where: { id: wallet.id }, data: { balance: storedValueBalance } });
-      }
 
-      if (targetMetadata.some((meta) => meta.settlement === "PACKAGE")) {
-        const available = await tx.walletSession.count({
-          where: { walletId: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID, status: "AVAILABLE" },
-        });
-        await tx.customerPlanWallet.update({
-          where: { id: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID },
-          data: { remainingSessions: available, status: "ACTIVE" },
-        });
-        packageRemainingSessions = available;
-      }
+        if (original.paymentMethod === "ENTITLEMENT") {
+          const restored = await tx.spaEntitlementUse.updateMany({
+            where: {
+              storeId: SPA_DEMO_STORE.id,
+              bookingId: booking.id,
+              entitlementId: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID,
+              status: "COMPLETED",
+            },
+            data: { status: "RELEASED", releasedAt: refundedAt },
+          });
+          if (restored.count !== 1) throw new Error("SPA_DEMO_REFUND_PACKAGE_INVALID");
+          const entitlement = await tx.spaEntitlement.update({
+            where: { id: SPA_DEMO_LIVE_FLOW_PACKAGE_WALLET_ID },
+            data: { remainingUses: { increment: 1 }, status: "ACTIVE" },
+          });
+          packageRemainingSessions = entitlement.remainingUses;
+        }
 
-      const targetDate = selected.bookingDate.toISOString().slice(0, 10);
-      await tx.reconciliationRun.updateMany({
-        where: { storeId: SPA_DEMO_STORE.id, triggeredBy: "spa_demo_manager", targetDate, status: "pass" },
-        data: { status: "mismatch", mismatchCount: 1, passCount: 2 },
-      });
-      await tx.reconciliationRun.create({
-        data: {
-          storeId: SPA_DEMO_STORE.id,
-          triggeredBy: "spa_demo_manager_refund",
-          status: "pass",
-          targetDate,
-          targetMonth: targetDate.slice(0, 7),
-          totalChecks: 1,
-          passCount: 1,
-          mismatchCount: 0,
-          errorCount: 0,
-          durationMs: 0,
-          finishedAt: refundedAt,
-          checks: {
-            create: [{
-              checkCode: "spa_daily_checkout_refund",
-              checkName: "退款／作廢",
-              status: "pass",
-              sources: { bookingIds: targetIds, amounts: refunds.map((refund) => refund.amount) },
-              expected: parsed.data.reason,
-              debugPayload: {
-                customer: selected.customer.name,
-                slotTime: selected.slotTime,
-                scope: parsed.data.scope,
-                settlements: [...new Set(targetMetadata.map((meta) => meta.settlement))],
-                refundedBy: "spa_demo_manager",
-              },
-            }],
+        await tx.spaBooking.update({
+          where: { id: booking.id },
+          data: {
+            notes: `${booking.notes ?? "SPA_DEMO_LIVE_FLOW"}|refund=REFUNDED|refundAmount=${amount}|refundReason=${parsed.data.reason}|refundedAt=${refundedAt.toISOString()}`,
           },
-        },
-      });
+        });
+        refunds.push({ bookingId: booking.id, amount });
+      }
 
       return {
-        date: targetDate,
-        bookingIds: targetIds,
+        date: selected.bookingDate.toISOString().slice(0, 10),
+        bookingIds: targets.map((booking) => booking.id),
         refunds,
         refundAmount: refunds.reduce((sum, refund) => sum + refund.amount, 0),
         reason: parsed.data.reason,
         refundedAt: refundedAt.toISOString(),
-        customer: selected.customer.name,
-        time: selected.slotTime,
+        customer: customer.name,
+        time: selected.startTime,
         scope: parsed.data.scope,
-        settlements: [...new Set(targetMetadata.map((meta) => meta.settlement))],
+        settlements: [...new Set(originals.map((payment) => payment.paymentMethod))],
         refundedBy: "店長",
         storedValueBalance,
         packageRemainingSessions,
       };
+    });
+
+    await prisma.reconciliationRun.create({
+      data: {
+        storeId: SPA_DEMO_STORE.id,
+        triggeredBy: "spa_demo_manager_refund",
+        status: "pass",
+        targetDate: result.date,
+        targetMonth: result.date.slice(0, 7),
+        totalChecks: 1,
+        passCount: 1,
+        mismatchCount: 0,
+        errorCount: 0,
+        durationMs: 0,
+        finishedAt: new Date(result.refundedAt),
+        checks: {
+          create: [{
+            checkCode: "spa_daily_checkout_refund",
+            checkName: "SPA 獨立退款",
+            status: "pass",
+            sources: { bookingIds: result.bookingIds, amounts: result.refunds.map((refund) => refund.amount) },
+            expected: result.reason,
+            debugPayload: { customer: result.customer, slotTime: result.time, scope: result.scope, settlements: result.settlements, refundedBy: "spa_demo_manager", source: "SpaPayment" },
+          }],
+        },
+      },
     });
 
     revalidateSpaDemo();

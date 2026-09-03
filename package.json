@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/ci-migrate.mjs && prisma generate && next build",
+    "build": "node scripts/ci-migrate.mjs && npm run generate:clients && next build",
+    "generate:clients": "prisma generate && prisma generate --schema spa-prisma/schema.prisma",
     "start": "next start",
     "lint": "eslint",
     "seed": "npx tsx prisma/seed.ts",
@@ -18,7 +19,7 @@
     "preflight:digital-butler": "tsx scripts/digital-butler-production-preflight.ts",
     "upgrade:zhubei-messenger-flow": "tsx scripts/upgrade-zhubei-messenger-digital-butler-flow.ts",
     "audit:messenger-production": "tsx scripts/messenger-production-audit.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "npm run generate:clients"
   },
   "prisma": {
     "schema": "prisma",

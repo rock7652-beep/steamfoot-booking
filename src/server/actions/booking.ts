@@ -19,8 +19,6 @@ import {
   getNowTaipeiHHmm,
   toLocalDateStr,
   dayRange,
-  parseLocalDate,
-  parseTaiwanDateToDbDate,
 } from "@/lib/date-utils";
 import {
   getBookingDateTime,
@@ -80,26 +78,12 @@ import {
   reReserveSessionsFefo,
 } from "@/server/services/wallet-session";
 import { Prisma } from "@prisma/client";
+import { isWalletUsableForServiceDate } from "@/lib/wallet-booking-integrity";
 // PR-1.5a：Booking.revenueStaffId 快照規則 helper（鎖定 + 防回歸）。
 // 規則與禁止項見該 helper 的 JSDoc 與 spec §3.4。
 import { snapshotRevenueStaffForBooking } from "./booking-helpers";
 import type { z } from "zod";
-import { assertSpaDemoStoreIdentity, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
-import { addMinutes, hasContinuousAvailability } from "@/lib/spa-scheduling";
-import { resolveSpaScheduleService } from "@/lib/spa-dashboard-schedule";
-import {
-  composeSpaBookingTreatments,
-  type SpaBookingComposition,
-} from "@/lib/spa-booking-composition";
-import { calculateSpaProviderStartTimes } from "@/lib/spa-availability";
-import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
-import {
-  findSpaDemoCatalogItem,
-  inferSpaDemoResourceType,
-  SPA_DEMO_RESOURCE_CAPACITY,
-  spaResourceLabel,
-} from "@/lib/spa-demo-catalog";
-import { isSpaResourceAvailable } from "@/lib/spa-resource-availability";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 async function assertStaffBookingWritable(
   user: Awaited<ReturnType<typeof requireSession>>,
@@ -257,11 +241,12 @@ async function loadCreateBookingEligibility(params: {
 // ============================================================
 // createBooking
 //
-// 新邏輯（出席才扣堂制）：
+// 新邏輯（預約即保留堂數）：
 // 1. 建立預約，狀態 = PENDING（「待到店」）
-// 2. 不扣堂（堂數在 markCompleted 時才扣）
-// 3. 補課預約：標記 credit 為已使用
-// 4. 預約數限制：remainingSessions - count(PENDING bookings) > 0
+// 2. 蒸足門市的 SINGLE 預約若已有可用方案，自動改用最快到期方案並保留堂數
+// 3. 取消預約才退回；markCompleted 將保留堂數轉為正式完成
+// 4. 補課預約：標記 credit 為已使用
+// 5. 預約數限制：remainingSessions - count(PENDING bookings) > 0
 // ============================================================
 
 export async function createBooking(
@@ -276,14 +261,12 @@ export async function createBooking(
     await assertStaffBookingWritable(user);
     const data = createBookingSchema.parse(input);
     const storeId = currentStoreId(user);
-    const isSpaProviderBooking =
-      storeId === SPA_DEMO_STORE.id && !!data.serviceStaffId;
-    if (isSpaProviderBooking) {
-      const identity = await prisma.store.findUnique({
-        where: { id: SPA_DEMO_STORE.id },
-        select: { id: true, slug: true, isDemo: true },
-      });
-      assertSpaDemoStoreIdentity(identity);
+    const industryModule = await getStoreIndustryModule(storeId);
+    if (industryModule === "spa") {
+      throw new AppError("FORBIDDEN", "SPA 預約必須使用獨立的 SPA 預約流程");
+    }
+    if (data.treatmentIds?.length) {
+      throw new AppError("FORBIDDEN", "蒸足門市不可使用 SPA 療程欄位");
     }
     const bookingPeople = data.people ?? 1;
     const requestedMakeup = data.isMakeup ?? false;
@@ -325,6 +308,25 @@ export async function createBooking(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
+    // 蒸足規則：顧客只要已有能涵蓋預約日的有效方案，建立預約時就直接
+    // 依 FEFO（到期日 ASC → 建立時間 ASC → id ASC）保留一堂。
+    // SPA 模組仍保留 SINGLE / 儲值 / 療程等不同結帳方式，不套用此規則。
+    if (data.bookingType === "SINGLE") {
+      const bookingDateForWallet = new Date(`${data.bookingDate}T00:00:00Z`);
+      const autoWallet = sortWalletsByFEFO(
+        customer.planWallets.filter(
+          (wallet) =>
+            wallet.remainingSessions > 0 &&
+            (!wallet.expiryDate || wallet.expiryDate >= bookingDateForWallet),
+        ),
+      )[0];
+
+      if (autoWallet) {
+        data.bookingType = "PACKAGE_SESSION";
+        data.customerPlanWalletId = autoWallet.id;
+      }
+    }
+
     // ── 2. 權限檢查
     // CUSTOMER：身份已由 resolveCustomerForUser 驗過；自助預約入口能否使用，
     // 由下方 PACKAGE_SESSION wallet / 期限 / 人數驗證決定，不再用 customer.selfBookingEnabled 擋
@@ -335,7 +337,6 @@ export async function createBooking(
     }
     assertCustomerInOperationStore(customer, storeId);
 
-    let selectedServicePlan: { id: string; storeId: string; name: string } | null = null;
     if (data.servicePlanId) {
       const servicePlan = await prisma.servicePlan.findUnique({
         where: { id: data.servicePlanId },
@@ -343,89 +344,19 @@ export async function createBooking(
       });
       if (!servicePlan) throw new AppError("NOT_FOUND", "課程方案不存在");
       assertSameStore("ServicePlan", servicePlan.storeId, storeId);
-      selectedServicePlan = servicePlan;
     }
 
-    let spaComposition: SpaBookingComposition | null = null;
-    if (data.treatmentIds?.length) {
-      if (storeId !== SPA_DEMO_STORE.id || !(await isSpaOperationalSchemaReady())) {
-        throw new AppError("FORBIDDEN", "多服務預約目前只開放 SPA Demo 驗收");
-      }
-      if (!data.serviceStaffId) {
-        throw new AppError("VALIDATION", "請選擇可承接本次服務的人員");
-      }
-      if (new Set(data.treatmentIds).size !== data.treatmentIds.length) {
-        throw new AppError("VALIDATION", "服務項目不可重複選擇");
-      }
-      spaComposition = composeSpaBookingTreatments(
-        data.treatmentIds.map((id) => {
-          const treatment = findSpaDemoCatalogItem(id);
-          if (!treatment) throw new AppError("VALIDATION", "服務項目不存在或已停用");
-          return {
-            id: treatment.id,
-            name: treatment.name,
-            variantLabel: treatment.variant,
-            price: treatment.price,
-            serviceMinutes: treatment.serviceMinutes,
-            bufferMinutes: treatment.bufferMinutes,
-            skillKeys: [...treatment.skills],
-            kind: treatment.kind,
-            resourceType: treatment.resourceType,
-          };
-        }),
-      );
-    }
-
-    // SPA 人員排程：指定的芳療師必須是目前營運店別內的啟用員工。
-    // 這是寫入前的 server-side 邊界，不信任網址或 hidden input。
-    let spaProviderContext: {
-      skillKeys: string[];
-      weeklyRanges: Array<{ startTime: string; endTime: string }>;
-      exceptions: Array<{
-        type: "UNAVAILABLE" | "AVAILABLE";
-        startTime: string | null;
-        endTime: string | null;
-      }>;
-    } | null = null;
     if (data.serviceStaffId) {
       const serviceStaff = await prisma.staff.findFirst({
         where: {
           id: data.serviceStaffId,
           storeId,
           status: "ACTIVE",
-          ...(isSpaProviderBooking ? { isOwner: false } : {}),
         },
         select: { id: true },
       });
       if (!serviceStaff) {
         throw new AppError("FORBIDDEN", "指定的服務人員不屬於目前店舖或已停用");
-      }
-      if (spaComposition) {
-        const provider = await prisma.staff.findUnique({
-          where: { id: serviceStaff.id },
-          select: {
-            skills: { select: { skill: { select: { id: true } } } },
-            weeklyAvailabilities: {
-              where: {
-                dayOfWeek: parseLocalDate(data.bookingDate).getDay(),
-                isActive: true,
-              },
-              select: { startTime: true, endTime: true },
-            },
-            availabilityExceptions: {
-              where: { date: parseTaiwanDateToDbDate(data.bookingDate) },
-              select: { type: true, startTime: true, endTime: true },
-            },
-          },
-        });
-        if (!provider) throw new AppError("NOT_FOUND", "找不到指定的服務人員");
-        spaProviderContext = {
-          skillKeys: provider.skills.map(({ skill }) =>
-            skill.id.replace("spa-demo-skill-", ""),
-          ),
-          weeklyRanges: provider.weeklyAvailabilities,
-          exceptions: provider.availabilityExceptions,
-        };
       }
     }
 
@@ -694,7 +625,7 @@ export async function createBooking(
 
     // ── 7.5 值班檢查：該時段須有值班人員（ADMIN 可略過）
     const skipDutyCheck = data.skipDutyCheck === true && user.role === "ADMIN";
-    if (!skipDutyCheck && !spaComposition) {
+    if (!skipDutyCheck) {
       const { isDutySchedulingEnabled } = await import("@/lib/shop-config");
       // 必須帶 storeId，避免 fallback 至 DEFAULT_STORE_ID 設定
       const dutyFeatureInUse = await isDutySchedulingEnabled(storeId);
@@ -718,14 +649,6 @@ export async function createBooking(
 
     // 取得該時段的實際容量（applySlotOverrides 已處理 capacity_change）
     const slotCapacity = matchedSlot.capacity;
-    const spaServiceDuration = isSpaProviderBooking
-      ? spaComposition?.occupiedMinutes ??
-        resolveSpaScheduleService({
-          bookingId: "new-spa-booking",
-          servicePlanName: selectedServicePlan?.name,
-        }).durationMinutes
-      : null;
-
     // ── 8. 決定 bookedByType / bookedByStaffId
     let bookedByType: "CUSTOMER" | "STAFF" | "ADMIN";
     let bookedByStaffId: string | null = null;
@@ -745,107 +668,14 @@ export async function createBooking(
       // 取得鎖後才重新讀取容量，避免兩個請求同時通過
       // transaction 外的舊快照後造成超賣。同一顧客可以在同時段
       // 建立多筆預約（例如 4+1 拆單或後續追加同行者），只由總人數容量限制。
-      const spaLockInterval = dayCtx.rule.slotInterval === 15 ? 15 : 30;
-      const lockTimes = spaServiceDuration
-        ? Array.from(
-            { length: Math.max(1, Math.ceil(spaServiceDuration / spaLockInterval)) },
-            (_, index) => addMinutes(data.slotTime, index * spaLockInterval),
-          )
-        : [data.slotTime];
       await acquireBookingSlotLocks(
         tx,
-        lockTimes.map((slotTime) => ({
+        [{
           storeId,
           bookingDate: data.bookingDate,
-          slotTime,
-        })),
+          slotTime: data.slotTime,
+        }],
       );
-
-      if (isSpaProviderBooking && spaServiceDuration && dayCtx.rule.closeTime) {
-        const occupied = await tx.booking.findMany({
-          where: {
-            storeId,
-            bookingDate: bookingDateObj,
-            bookingStatus: { in: [...PENDING_STATUSES] },
-          },
-          select: {
-            id: true,
-            slotTime: true,
-            serviceStaffId: true,
-            treatmentId: true,
-            treatmentNameSnapshot: true,
-            treatmentServiceMinutesSnapshot: true,
-            treatmentBufferMinutesSnapshot: true,
-            servicePlan: { select: { name: true } },
-            customerPlanWallet: {
-              select: { plan: { select: { name: true } } },
-            },
-          },
-        });
-        const occupiedRanges = occupied
-          .filter((booking) => booking.serviceStaffId === data.serviceStaffId)
-          .map((booking) => ({
-          startTime: booking.slotTime,
-          durationMinutes:
-            (booking.treatmentServiceMinutesSnapshot ??
-              resolveSpaScheduleService({
-                bookingId: booking.id,
-                servicePlanName: booking.servicePlan?.name,
-                walletPlanName: booking.customerPlanWallet?.plan.name,
-              }).durationMinutes) +
-            (booking.treatmentBufferMinutesSnapshot ?? 0),
-        }));
-        const available = spaComposition && spaProviderContext
-          ? calculateSpaProviderStartTimes({
-              candidateStartTimes: [data.slotTime],
-              businessCloseTime: dayCtx.rule.closeTime,
-              serviceMinutes: spaComposition.serviceMinutes,
-              bufferMinutes: spaComposition.bufferMinutes,
-              requiredSkillKeys: spaComposition.requiredSkillKeys,
-              providerSkillKeys: spaProviderContext.skillKeys,
-              weeklyRanges: spaProviderContext.weeklyRanges,
-              exceptions: spaProviderContext.exceptions,
-              occupiedRanges,
-            }).length === 1
-          : hasContinuousAvailability({
-              startTime: data.slotTime,
-              serviceMinutes: spaServiceDuration,
-              closeTime: dayCtx.rule.closeTime,
-              occupiedRanges,
-            });
-        if (!available) {
-          throw new AppError(
-            "BUSINESS_RULE",
-            "此芳療師在所選療程時間內已有預約，請改選其他時段",
-          );
-        }
-        if (spaComposition && !isSpaResourceAvailable({
-          startTime: data.slotTime,
-          durationMinutes: spaComposition.occupiedMinutes,
-          resourceType: spaComposition.resourceType,
-          capacity: SPA_DEMO_RESOURCE_CAPACITY[spaComposition.resourceType],
-          occupiedRanges: occupied.map((existing) => ({
-            startTime: existing.slotTime,
-            durationMinutes:
-              (existing.treatmentServiceMinutesSnapshot ??
-                resolveSpaScheduleService({
-                  bookingId: existing.id,
-                  servicePlanName: existing.servicePlan?.name,
-                  walletPlanName: existing.customerPlanWallet?.plan.name,
-                }).durationMinutes) +
-              (existing.treatmentBufferMinutesSnapshot ?? 0),
-            resourceType: inferSpaDemoResourceType({
-              treatmentId: existing.treatmentId,
-              treatmentName: existing.treatmentNameSnapshot,
-            }),
-          })),
-        })) {
-          throw new AppError(
-            "BUSINESS_RULE",
-            `${spaResourceLabel(spaComposition.resourceType)}在所選時間已滿，請改選其他時段`,
-          );
-        }
-      }
 
       const slotTimeVariants = bookingSlotTimeVariants(data.slotTime);
       const bookedAgg = await tx.booking.aggregate({
@@ -853,9 +683,6 @@ export async function createBooking(
           storeId,
           bookingDate: bookingDateObj,
           slotTime: { in: slotTimeVariants },
-          ...(isSpaProviderBooking
-            ? { serviceStaffId: data.serviceStaffId }
-            : {}),
           bookingStatus: { in: [...PENDING_STATUSES] },
         },
         _sum: { people: true },
@@ -914,9 +741,6 @@ export async function createBooking(
           bookedByStaffId,
           bookingType: data.bookingType,
           servicePlanId: data.servicePlanId ?? null,
-          // Demo catalog is snapshot-first so Preview works before the
-          // optional Seed synchronization creates relational Treatment rows.
-          treatmentId: null,
           customerPlanWalletId: data.customerPlanWalletId ?? null,
           people: bookingPeople,
           isMakeup: willUseMakeup,
@@ -925,14 +749,6 @@ export async function createBooking(
           notes: data.notes,
           // 體驗 499 PR-2：金額快照（additive；非體驗預約不傳 → null，行為不變）
           expectedAmount: data.expectedAmount ?? null,
-          treatmentNameSnapshot: spaComposition?.displayName ?? null,
-          treatmentVariantSnapshot:
-            spaComposition && spaComposition.treatmentIds.length > 1
-              ? `共 ${spaComposition.treatmentIds.length} 項服務`
-              : null,
-          treatmentPriceSnapshot: spaComposition?.totalPrice ?? null,
-          treatmentServiceMinutesSnapshot: spaComposition?.serviceMinutes ?? null,
-          treatmentBufferMinutesSnapshot: spaComposition?.bufferMinutes ?? null,
           // 顧客自助預約 → 使用 customer 所屬 storeId（避免 session storeId 與 customer storeId 不一致）
           // 後台代約 → 使用 session storeId
           storeId,
@@ -1471,6 +1287,77 @@ export async function markCompleted(
 
     let sessionBalanceNotificationIds: string[] = [];
     await prisma.$transaction(async (tx) => {
+      // 完成服務前重新核對「預約綁定方案＋堂數＋期限」。建立預約時的
+      // 驗證不能取代此處：兩者之間方案可能被調整、停用或產生 ledger drift。
+      // 期限以實際服務日判斷（DATE 欄位），避免事後補登完成時誤擋合法服務。
+      if (
+        booking.bookingType === "PACKAGE_SESSION" &&
+        fallbackWalletPeople > 0
+      ) {
+        const reservedSessions = await tx.walletSession.findMany({
+          where: { bookingId, status: "RESERVED" },
+          select: {
+            walletId: true,
+            wallet: {
+              select: {
+                status: true,
+                remainingSessions: true,
+                expiryDate: true,
+              },
+            },
+          },
+        });
+
+        if (
+          reservedSessions.length > 0 &&
+          reservedSessions.length !== fallbackWalletPeople
+        ) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            `此預約應扣 ${fallbackWalletPeople} 堂，但目前只保留 ${reservedSessions.length} 堂，請先修正方案資料`,
+          );
+        }
+
+        const invalidReservedWallet = reservedSessions.find(
+          ({ wallet }) =>
+            !isWalletUsableForServiceDate(wallet, booking.bookingDate),
+        );
+        if (invalidReservedWallet) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            "此預約綁定的方案已失效、堂數不足或無法涵蓋服務日期，尚未完成也未扣堂，請先修正方案資料",
+          );
+        }
+
+        // 舊資料可能沒有 WalletSession ledger，仍允許走既有 counter fallback，
+        // 但必須重新讀取 primary wallet 並通過同一組有效性檢查。
+        if (reservedSessions.length === 0) {
+          const currentWallet = booking.customerPlanWalletId
+            ? await tx.customerPlanWallet.findUnique({
+                where: { id: booking.customerPlanWalletId },
+                select: {
+                  status: true,
+                  remainingSessions: true,
+                  expiryDate: true,
+                },
+              })
+            : null;
+          if (
+            !currentWallet ||
+            !isWalletUsableForServiceDate(
+              currentWallet,
+              booking.bookingDate,
+              fallbackWalletPeople,
+            )
+          ) {
+            throw new AppError(
+              "BUSINESS_RULE",
+              "此預約綁定的方案已失效、堂數不足或無法涵蓋服務日期，尚未完成也未扣堂，請先修正方案資料",
+            );
+          }
+        }
+      }
+
       // 1. 標記出席
       await tx.booking.update({
         where: { id: bookingId },

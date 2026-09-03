@@ -8,6 +8,7 @@ import { revalidateBusinessHours } from "@/lib/revalidation";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { currentStoreId } from "@/lib/store";
 import type { ActionResult } from "@/types";
+import { requireSpaStore } from "@/lib/industry-module-server";
 
 type ScheduleInterval = 15 | 30;
 
@@ -26,7 +27,9 @@ export async function updateSpaScheduleInterval(
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireWritablePermission("business_hours.manage");
-    if (currentStoreId(user) !== SPA_DEMO_STORE.id) {
+    const storeId = currentStoreId(user);
+    await requireSpaStore(storeId);
+    if (storeId !== SPA_DEMO_STORE.id) {
       return { success: false, error: "此快速設定目前只開放 SPA Demo 驗收" };
     }
 

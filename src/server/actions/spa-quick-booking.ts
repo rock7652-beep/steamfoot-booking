@@ -1,13 +1,25 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createBooking } from "@/server/actions/booking";
 import { createCustomer } from "@/server/actions/customer";
+import { spaPrisma } from "@/lib/spa-db";
+import { prisma } from "@/lib/db";
 import { requireWritablePermission } from "@/lib/permissions";
 import { currentStoreId } from "@/lib/store";
 import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
-import { handleActionError } from "@/lib/errors";
-import { revalidatePath } from "next/cache";
+import { AppError, handleActionError } from "@/lib/errors";
+import { requireSpaStore } from "@/lib/industry-module-server";
+import { fetchSpaBookingAvailability } from "@/server/actions/spa-booking-availability";
+import { composeSpaBookingTreatments } from "@/lib/spa-booking-composition";
+import {
+  findSpaDemoCatalogItem,
+  inferSpaDemoResourceType,
+  SPA_DEMO_RESOURCE_CAPACITY,
+  spaResourceLabel,
+} from "@/lib/spa-demo-catalog";
+import { addMinutes } from "@/lib/spa-scheduling";
+import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 
 const inputSchema = z.object({
   customerId: z.string().min(1).optional(),
@@ -41,7 +53,9 @@ export async function createSpaQuickBooking(
 
   try {
     const user = await requireWritablePermission("booking.create");
-    if (currentStoreId(user) !== SPA_DEMO_STORE.id) {
+    const storeId = currentStoreId(user);
+    await requireSpaStore(storeId);
+    if (storeId !== SPA_DEMO_STORE.id) {
       return { success: false, error: "快速排預約目前只開放 SPA Demo 驗收" };
     }
 
@@ -60,31 +74,91 @@ export async function createSpaQuickBooking(
 
     if (!customerId) return { success: false, error: "請選擇顧客" };
 
-    const booking = await createBooking(
-      {
-        customerId,
-        bookingDate: data.bookingDate,
-        slotTime: data.slotTime,
-        bookingType: "SINGLE",
-        people: 1,
-        serviceStaffId: data.serviceStaffId,
-        treatmentIds: data.treatmentIds,
-        notes: data.notes || undefined,
-      },
-      {
-        requestKey: data.requestKey,
-        source: "spa-quick-booking",
-        assignedStaffId: data.serviceStaffId,
-      },
-    );
+    const [customer, staff, availability] = await Promise.all([
+      prisma.customer.findFirst({ where: { id: customerId, storeId }, select: { id: true } }),
+      prisma.staff.findFirst({ where: { id: data.serviceStaffId, storeId, status: "ACTIVE" }, select: { id: true } }),
+      fetchSpaBookingAvailability({ date: data.bookingDate, treatmentIds: data.treatmentIds }),
+    ]);
+    if (!customer || !staff) return { success: false, error: "顧客或芳療師不屬於本店", customerId };
+    if (!availability.success) return { success: false, error: availability.error, customerId };
+    const provider = availability.data.providers.find((candidate) => candidate.id === data.serviceStaffId);
+    if (!provider?.startTimes.includes(data.slotTime)) return { success: false, error: "此時段目前無法安排所選芳療師", customerId };
 
-    if (!booking.success) {
-      return { success: false, error: booking.error, customerId };
-    }
+    const treatments = data.treatmentIds.map((id) => {
+      const treatment = findSpaDemoCatalogItem(id);
+      if (!treatment) throw new Error("SPA_TREATMENT_NOT_FOUND");
+      return treatment;
+    });
+    const composition = composeSpaBookingTreatments(treatments.map((treatment) => ({
+      id: treatment.id,
+      name: treatment.name,
+      variantLabel: treatment.variant,
+      price: treatment.price,
+      serviceMinutes: treatment.serviceMinutes,
+      bufferMinutes: treatment.bufferMinutes,
+      skillKeys: [...treatment.skills],
+      kind: treatment.kind,
+      resourceType: treatment.resourceType,
+    })));
+    const booking = await spaPrisma.$transaction(async (tx) => {
+      // Serialize writes for one SPA store/date, then recheck provider and
+      // room capacity inside the same transaction to prevent double booking.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${storeId}:${data.bookingDate}:spa-booking`}, 0))`;
+      const endTime = addMinutes(data.slotTime, composition.occupiedMinutes);
+      const overlaps = await tx.spaBooking.findMany({
+        where: {
+          storeId,
+          bookingDate: parseTaiwanDateToDbDate(data.bookingDate),
+          status: { in: ["PENDING", "CONFIRMED"] },
+          startTime: { lt: endTime },
+          endTime: { gt: data.slotTime },
+        },
+        select: {
+          serviceStaffId: true,
+          items: { select: { treatmentId: true, treatmentNameSnapshot: true } },
+        },
+      });
+      if (overlaps.some((existing) => existing.serviceStaffId === data.serviceStaffId)) {
+        throw new AppError("CONFLICT", "此芳療師在所選時段已有預約");
+      }
+      const occupiedResourceCount = overlaps.filter((existing) =>
+        inferSpaDemoResourceType({
+          treatmentId: existing.items[0]?.treatmentId,
+          treatmentName: existing.items[0]?.treatmentNameSnapshot,
+        }) === composition.resourceType,
+      ).length;
+      if (occupiedResourceCount >= SPA_DEMO_RESOURCE_CAPACITY[composition.resourceType]) {
+        throw new AppError("CONFLICT", `${spaResourceLabel(composition.resourceType)}在所選時間已滿`);
+      }
+      for (const [sortOrder, treatment] of treatments.entries()) {
+        await tx.spaTreatment.upsert({
+          where: { id: treatment.id },
+          create: { id: treatment.id, storeId, name: treatment.name, variantLabel: treatment.variant, price: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, publicVisible: true, sortOrder },
+          update: { name: treatment.name, variantLabel: treatment.variant, price: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, isActive: true },
+        });
+      }
+      return tx.spaBooking.create({
+        data: {
+          storeId,
+          customerId,
+          serviceStaffId: data.serviceStaffId,
+          revenueStaffId: data.serviceStaffId,
+          bookingDate: parseTaiwanDateToDbDate(data.bookingDate),
+          startTime: data.slotTime,
+          endTime,
+          status: "CONFIRMED",
+          serviceNameSnapshot: composition.displayName,
+          totalPriceSnapshot: composition.totalPrice,
+          requestKey: data.requestKey,
+          notes: data.notes || null,
+          items: { create: treatments.map((treatment, sortOrder) => ({ storeId, treatmentId: treatment.id, treatmentNameSnapshot: treatment.name, variantSnapshot: treatment.variant, priceSnapshot: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, sortOrder })) },
+        },
+      });
+    });
     revalidatePath("/dashboard/spa-schedule");
     return {
       success: true,
-      data: { bookingId: booking.data.bookingId, customerId },
+      data: { bookingId: booking.id, customerId },
     };
   } catch (error) {
     return handleActionError(error);

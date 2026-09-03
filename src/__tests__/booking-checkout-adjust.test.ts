@@ -64,7 +64,15 @@ vi.mock("@/lib/db", () => ({
     $transaction: h.txRun,
   },
 }));
-vi.mock("@/lib/permissions", () => ({ requirePermission: h.requirePermission }));
+vi.mock("@/lib/permissions", () => ({
+  requireWritablePermission: h.requirePermission,
+}));
+vi.mock("@/lib/subscription-guard", () => ({
+  assertStoreSubscriptionWritable: vi.fn(async () => undefined),
+}));
+vi.mock("@/lib/industry-module-server", () => ({
+  requireSteamfootStore: vi.fn(async () => undefined),
+}));
 vi.mock("@/lib/store", () => ({ currentStoreId: h.currentStoreId }));
 vi.mock("@/server/services/wallet-session", () => ({
   allocateSessionsFefo: h.allocateSessionsFefo,
@@ -364,8 +372,7 @@ describe("adjustCheckoutToPackageSchema", () => {
 // ============================================================
 // Mode B — adjustCheckoutToSingle（PACKAGE_SESSION 方案扣堂 → SINGLE 單次未收款）
 //  - 釋放配堂只「呼叫」既有 releaseSessions（RESERVED → AVAILABLE）
-//  - 翻成乾淨單次：bookingType=SINGLE / walletId=null / servicePlanId=null /
-//    expectedAmount=null
+//  - 翻成單次：bookingType=SINGLE / walletId=null / servicePlanId=null，金額快照 799
 //  - 零金流：不建任何 Transaction、不收款
 //  - reason 選填，空白也建立 AuditLog
 //  - race-safe：$transaction 內 FOR UPDATE → 重查（型別/狀態/已扣堂/SUCCESS 交易）→ 釋放 → update
@@ -410,12 +417,12 @@ describe("adjustCheckoutToSingle — happy path (PACKAGE_SESSION → SINGLE)", (
     expect(h.releaseSessions).toHaveBeenCalledTimes(1);
     expect((h.releaseSessions.mock.calls[0] as unknown[])[1]).toBe("bk_2");
 
-    // 翻成乾淨單次：清方案 / wallet / 金額快照
+    // 轉成蒸足單次並解除 wallet / 方案，保留單次金額快照。
     const upd = lastUpdateData();
     expect(upd.data.bookingType).toBe("SINGLE");
     expect(upd.data.customerPlanWalletId).toBeNull();
     expect(upd.data.servicePlanId).toBeNull();
-    expect(upd.data.expectedAmount).toBeNull();
+    expect(upd.data.expectedAmount).toBe(799);
 
     // audit：action + reason 寫入
     expect(h.txAuditCreate).toHaveBeenCalledTimes(1);
@@ -424,6 +431,8 @@ describe("adjustCheckoutToSingle — happy path (PACKAGE_SESSION → SINGLE)", (
     };
     expect(audit.data.action).toBe("ADJUST_CHECKOUT_METHOD");
     expect(audit.data.afterJson.reason).toBe("連蒸第二天優惠");
+    expect(audit.data.afterJson.servicePlanId).toBeNull();
+    expect(audit.data.afterJson.expectedAmount).toBe(799);
 
     // 零金流
     expect(h.txTransactionCreate).not.toHaveBeenCalled();

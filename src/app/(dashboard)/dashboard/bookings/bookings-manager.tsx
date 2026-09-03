@@ -51,6 +51,7 @@ interface BookingEntry {
   trialDefaultPrice: number | null;
   collected: boolean;
   collectedAmount: number | null;
+  deductedPlanNames?: string[];
   customerName: string;
   staffId: string | null;
   staffName: string | null;
@@ -71,7 +72,12 @@ interface BookingEntry {
   revenueStaff: { id: string; displayName: string; colorCode: string } | null;
   serviceStaff: { id: string; displayName: string } | null;
   servicePlan: { name: string } | null;
-  customerPlanWallet: { plan: { name: string } } | null;
+  customerPlanWallet: {
+    status: string;
+    remainingSessions: number;
+    expiryDate: Date | null;
+    plan: { name: string };
+  } | null;
 }
 
 interface MonthSummaryDay {
@@ -286,6 +292,7 @@ export function BookingsManager({
       trialDefaultPrice: b.trialDefaultPrice,
       collected: b.collected,
       collectedAmount: b.collectedAmount,
+      deductedPlanNames: b.deductedPlanNames,
       customer: b.customer,
       revenueStaff: b.revenueStaff,
       serviceStaff: b.serviceStaff,

@@ -16,6 +16,9 @@ import {
 } from "@/server/services/wallet-session";
 import { revalidateBookings } from "@/lib/revalidation";
 import type { ActionResult } from "@/types";
+import { requireSteamfootStore } from "@/lib/industry-module-server";
+
+const SINGLE_DEFAULT_PRICE = 799;
 
 // ============================================================
 // adjustCheckoutToPackage — 調整結帳方式（Phase 1）
@@ -46,6 +49,7 @@ export async function adjustCheckoutToPackage(
     const user = await requireWritablePermission("booking.update");
     const data = adjustCheckoutToPackageSchema.parse(input);
     const storeId = currentStoreId(user);
+    await requireSteamfootStore(storeId);
     // 訂閱到期保護：到期店家不可結帳轉換（無訂閱店不擋）
     await assertStoreSubscriptionWritable(storeId);
 
@@ -273,6 +277,7 @@ export async function adjustCheckoutToSingle(
     const user = await requireWritablePermission("booking.update");
     const data = adjustCheckoutToSingleSchema.parse(input);
     const storeId = currentStoreId(user);
+    await requireSteamfootStore(storeId);
 
     // store-scoped 查詢即安全邊界（ID 格式非關卡）
     const booking = await prisma.booking.findFirst({
@@ -371,15 +376,16 @@ export async function adjustCheckoutToSingle(
       //    路徑，不硬刪、不改 wallet-session 核心。
       await releaseSessions(tx, booking.id);
 
-      // 2. 翻成乾淨的單次未收款：清掉方案 / wallet / 金額快照。單次原價於收款時
-      //    由既有 collectSinglePayment 依 servicePlan.price ?? 799（此處 null → 799）取得。
+      // 2. 改成蒸足單次未收款：解除 wallet / 方案關聯，並留下單次金額快照。
+      //    Drawer 對沒有 servicePlan 的蒸足 SINGLE 顯示「單次蒸足」；不借用 SPA
+      //    treatment 欄位，兩個模組的服務資料仍保持隔離。
       await tx.booking.update({
         where: { id: booking.id },
         data: {
           bookingType: "SINGLE",
           customerPlanWalletId: null,
           servicePlanId: null,
-          expectedAmount: null,
+          expectedAmount: SINGLE_DEFAULT_PRICE,
         },
       });
 
@@ -403,7 +409,7 @@ export async function adjustCheckoutToSingle(
             bookingType: "SINGLE",
             customerPlanWalletId: null,
             servicePlanId: null,
-            expectedAmount: null,
+            expectedAmount: SINGLE_DEFAULT_PRICE,
             reason: data.reason ?? null,
           },
         },

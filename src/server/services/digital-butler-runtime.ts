@@ -93,6 +93,7 @@ type RuntimeRepository = {
   ): Promise<RuntimeConversation | null>;
   expireConversation(storeId: string, conversationId: string): Promise<void>;
   cancelConversation(storeId: string, conversationId: string): Promise<boolean>;
+  hasPreviousValidationFailure(storeId: string, conversationId: string): Promise<boolean>;
   findTriggeredFlow(storeId: string, text: string): Promise<{
     id: string;
     currentPublishedVersionId: string;
@@ -498,6 +499,15 @@ class PrismaDigitalButlerRuntimeRepository implements RuntimeRepository {
     return cancelled.count === 1;
   }
 
+  async hasPreviousValidationFailure(storeId: string, conversationId: string) {
+    const latest = await prisma.digitalButlerExecutionLog.findFirst({
+      where: { storeId, conversationId },
+      orderBy: { createdAt: "desc" },
+      select: { outcome: true },
+    });
+    return latest?.outcome === "VALIDATION_FAILED";
+  }
+
   async findTriggeredFlow(storeId: string, text: string) {
     const flows = await prisma.storeDigitalButlerFlow.findMany({
       where: { storeId, status: "PUBLISHED", enabled: true, currentPublishedVersionId: { not: null } },
@@ -844,6 +854,12 @@ export class DigitalButlerRuntime {
 
     const answer = validateAnswer(step, input.text);
     if (answer.error) {
+      if (
+        step.type === "SINGLE_CHOICE"
+        && await this.repository.hasPreviousValidationFailure(input.storeId, conversation.id)
+      ) {
+        return finish(await this.handleGlobalCommand(conversation, "HANDOFF"), conversation.id);
+      }
       return finish({ handled: true, messages: [questionMessage(step, answer.error)], outcome: "VALIDATION_FAILED" }, conversation.id);
     }
     const saved = await this.repository.saveAnswer({
