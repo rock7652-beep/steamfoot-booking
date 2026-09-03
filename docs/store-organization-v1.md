@@ -1,4 +1,26 @@
-# Store Organization v1
+# RFC-001: Store Organization v1
+
+## Status
+
+GA.
+
+Production Release Review:
+
+PASS.
+
+Release milestone:
+
+SteamFoot 2.0 - Organization Edition.
+
+## Product Definition
+
+Store Organization represents a view relationship, not a management
+relationship.
+
+View Mode provides full read access and no data mutation capability.
+
+Store Organization v1 is not a multi-store management system. It is the
+foundation for a brand to grow while each store remains independently operated.
 
 ## Product Boundary
 
@@ -7,7 +29,34 @@ It does not represent ownership, management authority, revenue attribution,
 commission, performance ranking, settlement, or operating control.
 
 Each store remains independently operated. Organization changes only affect
-which stores can be viewed in a future read-only view mode.
+which stores can be viewed in read-only view mode.
+
+## Product Principles
+
+### Independent
+
+Each store remains independently operated. Customers, bookings, revenue, plans,
+cash records, reports, and history remain scoped to the operating store.
+
+### View Relationship
+
+Store Organization only defines who may view descendant stores. It does not
+grant operational control over another store.
+
+### Understand First, Change Second
+
+The system should help HQ and upper stores understand the organization before
+changing it. Reading is the default posture; editing must be intentional.
+
+### Full Read, Zero Write
+
+View Mode allows complete reading of supported modules and blocks all mutation
+paths. Disabled UI is a secondary signal; server-side guards are required.
+
+### Respect
+
+The system exists to build trust, support, and shared experience. It must not
+turn store organization into interference, ranking, or control.
 
 ## Data Invariants
 
@@ -18,12 +67,13 @@ which stores can be viewed in a future read-only view mode.
   `storeId`.
 - Historical records are never rewritten when organization relationships change.
 - `parentStoreId` must not create self-parent or cyclic relationships.
+- Organization changes do not affect customers, bookings, revenue, plans,
+  packages, cash records, reports, or historical data ownership.
 
 ## View Mode Boundary
 
-Future view mode allows an upper store staff user to read descendant store data.
-It must not enable mutation. Server-side write guards are required; disabled UI
-is only a secondary signal.
+View Mode allows an upper store staff user to read descendant store data. It
+must not enable mutation.
 
 View Mode principle:
 
@@ -36,21 +86,8 @@ The context shape is:
 - `isViewMode`: true when a non-HQ staff user is viewing a descendant store.
 - `canWrite`: false in view mode.
 
-PR-1 introduced foundation helpers, types, guard skeletons, tests, and
-documentation.
-
-PR-3 connects only the shell foundation:
-
-- A session-scoped `viewed-store-id` cookie.
-- A dashboard shell switcher with "我的店" and "查看下層店".
-- A global "查看模式" banner with "返回我的店".
-- Server-side validation that only descendants can be selected.
-- `requireWritablePermission()` remains the write guard skeleton for future
-  action wiring.
-
-PR-3 still does not connect dashboard, bookings, customers, plans, cash drawer,
-reports, or HQ analytics to `viewedStoreId`. Those modules must be wired in
-separate PRs with module-specific read filters, mutation guards, and cache keys.
+View Mode must reset to the user's own store after returning, refreshing after
+return, logout, or login.
 
 ## HQ Analytics Boundary
 
@@ -60,49 +97,64 @@ keys. Store manager view mode must not aggregate descendant KPIs.
 
 ## v1 Non-goals
 
-- No dashboard UI.
-- No store switcher for non-ADMIN users.
-- No mutation behavior changes.
-- No schema or migration changes.
-- No production data updates or backfill.
+- No cross-store management.
 - No descendant KPI aggregate on the dashboard home.
 - No cross-store revenue attribution.
+- No commission or settlement behavior.
+- No performance ranking.
 - No staff/user management across descendant stores.
 - No HQ analytics implementation.
+- No mutation capability in View Mode.
 
-## PR-2 HQ Organization UI
+## Implementation Status
 
-HQ may maintain `Store.parentStoreId` from `/hq/dashboard/stores/organization`.
-This UI is ADMIN-only and is limited to organization maintenance:
+| Area | Status | Notes |
+| --- | --- | --- |
+| Foundation | GA | Organization helpers, view context, write guard foundation, and tests are complete. |
+| HQ Organization | GA | HQ can view and maintain the store organization tree. |
+| View Mode | GA | Store managers can switch to descendant stores and return to their own store. |
+| Dashboard | GA | Full Read, Zero Write. |
+| Customers | GA | Full Read, Zero Write for list and detail. |
+| Bookings | GA | Full Read, Zero Write for list/calendar and detail. |
+| Plans | GA | Full Read, Zero Write for plans and customer plan information. |
+| Cash Drawer | GA | Full Read, Zero Write for cash drawer and cashbook information. |
+| Reports | GA | Single-store Full Read, Zero Write. No export in View Mode. |
 
-- Show the current store tree.
-- Preview a store's previous and next parent before submit.
-- Confirm before mutating `Store.parentStoreId`.
-- Reuse the PR-1 self-parent and cycle guard.
-- Write a generic `AuditLog` row with before/after parent snapshots.
+## Production Release Review
 
-This still does not activate store manager view mode. Dashboard, bookings,
-customers, reports, and HQ analytics remain unchanged.
+Status:
 
-## PR-3 View Mode Foundation
+PASS.
 
-PR-3 activates the shell-level view mode context without module integration.
+Production URL:
 
-Scope:
+https://www.steamfoot.com
 
-- Resolve `ownStoreId`, `viewedStoreId`, `isViewMode`, and `canWrite`.
-- Let store staff switch between "我的店" and descendant stores.
-- Show a global read-only view-mode banner when viewing a descendant store.
-- Clear view-mode cookies on logout / context clear.
-- Keep all existing module reads and writes unchanged.
+Validated flows:
 
-Non-goals:
+- HQ login.
+- HQ stores page.
+- HQ store organization page.
+- Store manager normal mode.
+- View Mode switch to descendant store.
+- Dashboard, Customers, Customer Detail, Bookings, Booking Detail, Plans, Cash
+  Drawer, and Reports in normal mode.
+- Dashboard, Customers, Bookings, Plans, Cash Drawer, and Reports in View Mode.
+- Full Read, Zero Write behavior across supported modules.
+- Reports export hidden/disabled in View Mode.
+- Return to own store.
+- Refresh after return.
+- Logout and login returning to the user's own store.
 
-- No dashboard support.
-- No bookings support.
-- No customers support.
-- No plans/packages support.
-- No cash drawer support.
-- No reports support.
-- No HQ analytics.
-- No schema or migration.
+Browser console error log:
+
+None observed during production release smoke.
+
+## Release Statement
+
+Store Organization v1 is GA as part of SteamFoot 2.0 - Organization Edition.
+
+Store Organization v1 does not introduce multi-store management. It establishes
+a product architecture where the brand can grow, upper stores can understand
+descendant operations, and each store still keeps independent ownership of its
+customers, bookings, revenue, plans, cash records, reports, and history.
