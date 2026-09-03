@@ -17,6 +17,13 @@ const documentation = readFileSync(
   resolve(process.cwd(), "docs/production-migration-reconciliation.md"),
   "utf8",
 );
+const forwardRlsMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "prisma/migrations/20260824170000_harden_remaining_public_tables/migration.sql",
+  ),
+  "utf8",
+);
 
 describe("MessengerAuditRun RLS contract", () => {
   it("keeps RLS out of the immutable historical migration", () => {
@@ -30,5 +37,14 @@ describe("MessengerAuditRun RLS contract", () => {
     expect(reconciliation).not.toContain("ENABLE ROW LEVEL SECURITY");
     expect(documentation).toMatch(/separate security\s+remediation/);
     expect(documentation).toContain("forward-only migration");
+  });
+
+  it("enables RLS in a separate forward-only migration without a permissive policy", () => {
+    expect(forwardRlsMigration).toContain(
+      'ALTER TABLE IF EXISTS "MessengerAuditRun" ENABLE ROW LEVEL SECURITY;',
+    );
+    expect(forwardRlsMigration).not.toContain("FORCE ROW LEVEL SECURITY");
+    expect(forwardRlsMigration).not.toMatch(/CREATE\s+POLICY/i);
+    expect(forwardRlsMigration).not.toMatch(/USING\s*\(\s*true\s*\)/i);
   });
 });
