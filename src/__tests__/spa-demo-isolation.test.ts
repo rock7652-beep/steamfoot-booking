@@ -255,7 +255,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).toContain("isSpaProviderAvailable");
     expect(action).toContain('storeId: SPA_DEMO_STORE.id');
     expect(action).toContain('status: "CONFIRMED"');
-    expect(action).toContain('revalidatePath("/dashboard/bookings")');
+    expect(action).toContain('revalidatePath("/dashboard/spa-schedule")');
     expect(action).toContain('revalidatePath("/staff-schedule")');
     expect(action).toContain("saveSpaDemoBookingNotification");
     expect(previewQuery).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
@@ -306,8 +306,15 @@ describe("SPA Demo tenant isolation", () => {
     expect(refund).toContain('entryType: "REFUND"');
     expect(refund).toContain('triggeredBy: "spa_demo_manager_refund"');
     expect(refund).toContain("refundReason: parsed.data.reason");
-    expect(staffPreview).toContain("已退款");
-    expect(staffPreview).toContain("booking.refundedAt");
+    expect(staffPreview).not.toContain("已退款");
+    expect(staffPreview).not.toContain("refundAmount");
+    expect(staffPreview).not.toContain("settlementLabel");
+    expect(staffPreview).not.toContain("storedValueBalance");
+    expect(staffPreview).not.toContain("packageRemainingSessions");
+    const staffPage = readFileSync("src/app/(liff)/liff/staff-preview/page.tsx", "utf8");
+    expect(staffPage).toContain("const staffBookings = preview.bookings.map");
+    expect(staffPage).toContain("allBookings={staffBookings}");
+    expect(staffPage).not.toContain("allBookings={preview.bookings}");
     expect(manager).toContain("退款／作廢");
     expect(manager).not.toContain("確認到店");
     expect(manager).not.toContain("開始服務");

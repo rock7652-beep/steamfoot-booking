@@ -295,7 +295,7 @@ export async function createSpaDemoCustomerBooking(input: unknown) {
   revalidatePath("/liff/manager-preview");
   revalidatePath("/liff/design-preview/booking");
   revalidatePath("/liff/staff-preview");
-  revalidatePath("/dashboard/bookings");
+  revalidatePath("/dashboard/spa-schedule");
   revalidatePath("/staff-schedule");
   return {
     success: true as const,

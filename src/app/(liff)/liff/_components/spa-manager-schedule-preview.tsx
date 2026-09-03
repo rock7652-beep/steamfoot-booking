@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import { completeSpaDemoBooking, completeSpaDemoGuestBooking } from "@/server/actions/spa-demo-checkout";
 import { refundSpaDemoCheckout } from "@/server/actions/spa-demo-refund";
@@ -8,7 +9,9 @@ import { cancelSpaDemoBooking } from "@/server/actions/spa-demo-booking-manageme
 import { adjustSpaDemoDailySettlement, confirmSpaDemoDailyReconciliation } from "@/server/actions/spa-demo-daily-reconciliation";
 import type { SpaDemoDailyAdjustment, SpaDemoDailyRefund } from "@/server/queries/spa-demo-daily-reconciliation";
 import { SPA_INDUSTRY_MODULE } from "@/lib/industry-modules";
+import { canCompleteSpaBooking } from "@/lib/spa-booking-completion";
 import {
+  getSpaDemoManagerReminders,
   SPA_DEMO_BOOKINGS,
   SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
   SPA_DEMO_PROVIDERS,
@@ -87,12 +90,12 @@ const blockedRanges = [
 ] as const;
 
 const managerNavigation = [
-  { label: "今日營運", detail: "總覽", active: true },
-  { label: "預約管理", detail: "6 筆", active: false },
-  { label: "顧客管理", detail: "128 位", active: false },
-  { label: "療程管理", detail: "6 項", active: false },
-  { label: "芳療師管理", detail: "3 位", active: false },
-  { label: "營運設定", detail: "", active: false },
+  { label: "今日營運", path: null, active: true },
+  { label: "預約管理", path: "/spa-schedule", active: false },
+  { label: "顧客管理", path: "/customers", active: false },
+  { label: "療程管理", path: "/plans", active: false },
+  { label: "人員管理", path: "/staff", active: false },
+  { label: "營運設定", path: "/settings", active: false },
 ] as const;
 
 const toneClasses: Record<Tone, string> = {
@@ -106,18 +109,22 @@ export function SpaManagerSchedulePreview({
   initialProviders = SPA_DEMO_PROVIDERS,
   initialBookings = SPA_DEMO_BOOKINGS,
   previewDate = "2026-08-29",
+  previewNow = "2026-08-29T12:00:00.000Z",
   initialNotification = null,
   initialReconciledDates = [],
   initialAdjustments = [],
   initialRefunds = [],
+  adminBasePath = "/s/demo/admin/dashboard",
 }: {
   initialProviders?: readonly PreviewProvider[];
   initialBookings?: readonly PreviewBooking[];
   previewDate?: string;
+  previewNow?: string;
   initialNotification?: SpaDemoBookingNotification | null;
   initialReconciledDates?: readonly string[];
   initialAdjustments?: readonly SpaDemoDailyAdjustment[];
   initialRefunds?: readonly SpaDemoDailyRefund[];
+  adminBasePath?: string;
 }) {
   const industryModule = SPA_INDUSTRY_MODULE;
   const activeProviders = initialProviders;
@@ -174,6 +181,7 @@ export function SpaManagerSchedulePreview({
   );
   const selectedDailyGroup = dailySummary.groups.find((group) => group.key === selectedDailyGroupKey) ?? null;
   const isSelectedDayReconciled = reconciledDates.has(selectedDay.key);
+  const managerReminders = getSpaDemoManagerReminders(dayBookings, selectedDay.key, previewDate);
 
   function chooseDay(date: string) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
@@ -266,6 +274,7 @@ export function SpaManagerSchedulePreview({
         : booking.remainingSessions;
       return { ...booking, ...walletUpdates, status, remainingSessions, tone: status === "已完成" ? "slate" : booking.tone, settlementLabel, settlementAmount };
     }));
+    if (status === "已完成") setNotification(null);
     setNotice(status === "已完成" ? "服務已完成，療程次數已扣除 1 次。" : `預約狀態已更新為「${status}」。`);
   }
 
@@ -331,6 +340,7 @@ export function SpaManagerSchedulePreview({
         refundedBy: result.data.refundedBy,
         refundedAt: result.data.refundedAt,
       }, ...current]);
+      setNotification(null);
       setNotice(`退款／作廢已完成${result.data.refundAmount ? `・NT$${result.data.refundAmount.toLocaleString()}` : "・療程次數已補回"}，請重新核對本日帳務。`);
     });
   }
@@ -513,6 +523,10 @@ export function SpaManagerSchedulePreview({
   }
 
   function openFirstAvailableSlot() {
+    if (selectedDay.key < previewDate) {
+      setNotice("歷史日期僅供查詢與補登，無法新增預約。");
+      return;
+    }
     for (const time of scheduleTimes) {
       for (const provider of activeProviders) {
         if (isAvailable(selectedDay.key, time, provider, 60, 30, bookings)) {
@@ -536,16 +550,23 @@ export function SpaManagerSchedulePreview({
           </div>
 
           <nav className="mt-6 space-y-1.5" aria-label="店長後台功能">
-            {managerNavigation.map((item) => (
-              <div
-                key={item.label}
-                aria-current={item.active ? "page" : undefined}
-                className={`flex min-h-12 items-center justify-between rounded-xl px-3.5 text-sm ${item.active ? "bg-white text-earth-900 shadow-sm" : "text-white/70"}`}
-              >
-                <span className="font-medium">{item.label}</span>
-                {item.detail ? <span className={item.active ? "text-earth-500" : "text-white/40"}>{item.detail}</span> : null}
-              </div>
-            ))}
+            {managerNavigation.map((item) => {
+              const className = `flex min-h-12 items-center rounded-xl px-3.5 text-sm font-medium transition-colors ${item.active ? "bg-white text-earth-900 shadow-sm" : "text-white/70 hover:bg-white/10 hover:text-white"}`;
+
+              if (item.path) {
+                return (
+                  <Link key={item.label} href={`${adminBasePath}${item.path}`} className={className}>
+                    {item.label}
+                  </Link>
+                );
+              }
+
+              return (
+                <div key={item.label} aria-current="page" className={className}>
+                  {item.label}
+                </div>
+              );
+            })}
           </nav>
 
 
@@ -557,20 +578,20 @@ export function SpaManagerSchedulePreview({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-semibold text-primary-700">SPA 人員排程</span>
               </div>
-              <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{industryModule.manager.dashboardLabel}</h1>
+              <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">{selectedDay.key === previewDate ? industryModule.manager.dashboardLabel : "歷史營運"}</h1>
             </div>
           </header>
 
           <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 sm:flex-row sm:items-center sm:justify-between">
             <p aria-live="polite">{notice}</p>
-            <button type="button" onClick={openFirstAvailableSlot} className="min-h-10 shrink-0 rounded-xl bg-earth-900 px-4 font-semibold text-white">＋ 現場快速預約</button>
+            <button type="button" onClick={openFirstAvailableSlot} disabled={selectedDay.key < previewDate} className="min-h-10 shrink-0 rounded-xl bg-earth-900 px-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">＋ 現場快速預約</button>
           </div>
 
           <section className="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="當日營運摘要">
             <MetricCard label="預約人次" value={String(dailySummary.bookingCount)} unit="位" detail={`${dailySummary.groups.length} 組預約`} />
             <MetricCard label="已完成" value={String(dailySummary.completedCount)} unit="位" detail={newCustomerCount ? `含 ${newCustomerCount} 位新客` : "服務完成即列入"} />
             <MetricCard label="當日實收" value={`NT$${dailySummary.paidAmount.toLocaleString()}`} unit="" detail="整組付款只計算一次" emphasized />
-            <MetricCard label="待服務" value={String(activeCount)} unit="位" detail={activeCount ? "點預約即可完成結帳" : "當日服務已完成"} />
+            <MetricCard label={selectedDay.key < previewDate ? "待補登" : "待服務"} value={String(activeCount)} unit="位" detail={activeCount ? (selectedDay.key < previewDate ? "請補登完成、未到或取消" : "點預約即可完成結帳") : "當日服務已完成"} />
           </section>
 
           <DailyOperationsSection
@@ -623,6 +644,7 @@ export function SpaManagerSchedulePreview({
                         key={provider.id}
                         provider={provider}
                         date={selectedDay.key}
+                        allowNewBooking={selectedDay.key >= previewDate}
                         bookings={dayBookings}
                         selectedBookingIds={selectedGroupBookings.map((booking) => booking.id)}
                         onOpenBooking={openBooking}
@@ -635,13 +657,13 @@ export function SpaManagerSchedulePreview({
 
             </section>
 
-            <aside aria-label="今日提醒">
+            {selectedDay.key === previewDate && (notification || managerReminders.length) ? <aside aria-label="今日提醒">
               {notification ? <div className="mb-4"><SpaBookingNotificationCard notification={notification} /></div> : null}
-              <section className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(74,66,53,0.05)] ring-1 ring-earth-200/70">
-                <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">今日提醒</h2><span className="rounded-full bg-earth-100 px-2 py-1 text-xs text-earth-500">2 項</span></div>
-                <div className="mt-4 space-y-3"><AlertItem title="新客首次到店" detail="服務前確認注意事項" tone="rose" /><AlertItem title="療程即將到期" detail="完成服務後提醒續購" tone="sand" /></div>
-              </section>
-            </aside>
+              {managerReminders.length ? <section className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(74,66,53,0.05)] ring-1 ring-earth-200/70">
+                <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">今日提醒</h2><span className="rounded-full bg-earth-100 px-2 py-1 text-xs text-earth-500">{managerReminders.length} 項</span></div>
+                <div className="mt-4 space-y-3">{managerReminders.map((reminder) => <AlertItem key={reminder.title} {...reminder} />)}</div>
+              </section> : null}
+            </aside> : null}
           </div>
         </main>
       </div>
@@ -674,7 +696,7 @@ export function SpaManagerSchedulePreview({
             ) : quickSlot ? (
             <QuickBookingForm providers={toBookableProviders(activeProviders, bookings)} slot={quickSlot} onCancel={() => setQuickSlot(null)} onSubmit={createQuickBooking} isSubmitting={isCompleting} />
             ) : selectedBooking ? (
-              <BookingDetail key={selectedGroupBookings.map((booking) => `${booking.id}:${booking.refundedAt ?? ""}`).join("|")} scheduleDays={scheduleDays} providers={activeProviders} bookableProviders={toBookableProviders(activeProviders, bookings.filter((item) => !selectedGroupBookings.some((selected) => selected.id === item.id)))} bookings={selectedGroupBookings} booking={selectedBooking} onCompleteGroup={completeBooking} onCompleteGuest={completeGuestBooking} onRefund={refundCheckout} onUpdate={updateGroupBooking} onCancel={cancelBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
+              <BookingDetail key={selectedGroupBookings.map((booking) => `${booking.id}:${booking.refundedAt ?? ""}`).join("|")} scheduleDays={scheduleDays} providers={activeProviders} bookableProviders={toBookableProviders(activeProviders, bookings.filter((item) => !selectedGroupBookings.some((selected) => selected.id === item.id)))} bookings={selectedGroupBookings} booking={selectedBooking} canCompleteService={canCompleteSpaBooking(selectedBooking.date, selectedBooking.time, new Date(previewNow))} onCompleteGroup={completeBooking} onCompleteGuest={completeGuestBooking} onRefund={refundCheckout} onUpdate={updateGroupBooking} onCancel={cancelBooking} isCompleting={isCompleting} onRebook={requestRebooking} />
             ) : null}
           </aside>
         </div>
@@ -706,6 +728,7 @@ function ProviderHeader({ provider }: { provider: PreviewProvider }) {
 function ScheduleProviderColumn({
   provider,
   date,
+  allowNewBooking,
   bookings,
   selectedBookingIds,
   onOpenBooking,
@@ -713,6 +736,7 @@ function ScheduleProviderColumn({
 }: {
   provider: PreviewProvider;
   date: string;
+  allowNewBooking: boolean;
   bookings: readonly PreviewBooking[];
   selectedBookingIds: readonly string[];
   onOpenBooking: (id: string) => void;
@@ -724,10 +748,10 @@ function ScheduleProviderColumn({
   return (
     <div className="relative grid border-r border-earth-100 last:border-r-0" style={{ gridTemplateRows: `repeat(${scheduleTimes.length}, 52px)` }}>
       {scheduleTimes.map((time, index) => {
-        const available = isAvailable(date, time, provider, 30, 0, bookings);
+        const available = isAvailable(date, time, provider, 60, 30, bookings);
         return (
           <div key={time} className="border-b border-earth-100 p-1" style={{ gridColumn: 1, gridRow: index + 1 }}>
-            {available ? <EmptySlot label={`${time}・${provider.badge}號 ${provider.name}`} onOpen={() => onOpenQuickBooking({ date, time, providerId: provider.id })} /> : null}
+            {available && allowNewBooking ? <EmptySlot label={`${time}・${provider.badge}號 ${provider.name}`} onOpen={() => onOpenQuickBooking({ date, time, providerId: provider.id })} /> : null}
           </div>
         );
       })}
@@ -768,7 +792,7 @@ function BlockedSlot({ label }: { label: string }) {
   return <div className="flex h-full items-center justify-center rounded-xl bg-earth-100 px-2 text-center text-xs font-medium text-earth-400">{label}</div>;
 }
 
-function BookingDetail({ scheduleDays, providers, bookableProviders, bookings, booking, onCompleteGroup, onCompleteGuest, onRefund, onUpdate, onCancel, isCompleting, onRebook }: { scheduleDays: readonly ScheduleDay[]; providers: readonly PreviewProvider[]; bookableProviders: readonly SpaBookableProvider[]; bookings: readonly PreviewBooking[]; booking: PreviewBooking; onCompleteGroup: (settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onCompleteGuest: (bookingId: string, settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onRefund: (scope: "GROUP" | "GUEST", bookingId: string, reason: string) => void; onUpdate: (event: FormEvent<HTMLFormElement>) => void; onCancel: (scope: "GUEST" | "GROUP", bookingId: string) => void; isCompleting: boolean; onRebook: () => void }) {
+function BookingDetail({ scheduleDays, providers, bookableProviders, bookings, booking, canCompleteService, onCompleteGroup, onCompleteGuest, onRefund, onUpdate, onCancel, isCompleting, onRebook }: { scheduleDays: readonly ScheduleDay[]; providers: readonly PreviewProvider[]; bookableProviders: readonly SpaBookableProvider[]; bookings: readonly PreviewBooking[]; booking: PreviewBooking; canCompleteService: boolean; onCompleteGroup: (settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onCompleteGuest: (bookingId: string, settlement: "CASH" | "CREDIT_CARD" | "STORED_VALUE" | "PACKAGE") => void; onRefund: (scope: "GROUP" | "GUEST", bookingId: string, reason: string) => void; onUpdate: (event: FormEvent<HTMLFormElement>) => void; onCancel: (scope: "GUEST" | "GROUP", bookingId: string) => void; isCompleting: boolean; onRebook: () => void }) {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<{ scope: "GUEST" | "GROUP"; bookingId: string } | null>(null);
@@ -814,7 +838,7 @@ function BookingDetail({ scheduleDays, providers, bookableProviders, bookings, b
                   <div className="grid grid-cols-2 gap-2">
                     {guestSettlementOptions.map(([value, label]) => <label key={value} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-xl px-2.5 text-xs ring-1 ${guestSettlement === value ? "bg-primary-100 text-primary-900 ring-primary-200" : "bg-white/5 text-white ring-white/15"}`}><input type="radio" name={`spa-demo-split-${item.id}`} checked={guestSettlement === value} onChange={() => setGuestSettlements((current) => ({ ...current, [item.id]: value }))} />{label}</label>)}
                   </div>
-                  <div className="mt-2"><ActionButton label={isCompleting ? "處理中…" : "完成此位並結帳"} onClick={() => onCompleteGuest(item.id, guestSettlement)} disabled={isCompleting} emphasized /></div>
+                  <div className="mt-2"><ActionButton label={isCompleting ? "處理中…" : "完成此位並結帳"} onClick={() => onCompleteGuest(item.id, guestSettlement)} disabled={isCompleting || !canCompleteService} emphasized /></div>
                 </div>
               ) : null}
             </div>
@@ -840,11 +864,12 @@ function BookingDetail({ scheduleDays, providers, bookableProviders, bookings, b
       ) : showCheckout ? (
         <div className="mt-5 rounded-2xl bg-white/8 p-4 ring-1 ring-white/10">
           {!someCompleted && people > 1 ? <div className="grid grid-cols-2 gap-2"><ActionButton label="整組付款" onClick={() => setCheckoutMode("GROUP")} emphasized={checkoutMode === "GROUP"} /><ActionButton label="分開付款" onClick={() => setCheckoutMode("SPLIT")} emphasized={checkoutMode === "SPLIT"} /></div> : null}
-          {checkoutMode === "GROUP" && !someCompleted ? <><p className="mt-4 text-sm font-semibold">整組完成與結帳</p><div className="mt-3 grid grid-cols-2 gap-2">{settlementOptions.map(([value, label]) => <label key={value} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm ring-1 ${settlement === value ? "bg-primary-100 text-primary-900 ring-primary-200" : "bg-white/5 text-white ring-white/15"}`}><input type="radio" name="spa-demo-settlement" value={value} checked={settlement === value} onChange={() => setSettlement(value)} />{label}</label>)}</div><div className="mt-3"><ActionButton label={isCompleting ? "處理中…" : "整組完成並結帳"} onClick={() => onCompleteGroup(settlement)} disabled={isCompleting} emphasized /></div></> : null}
+          {!canCompleteService ? <p className="mt-3 rounded-xl bg-[#624238] px-3 py-2 text-xs font-semibold">預約時間 {booking.time} 尚未到，暫時不能完成服務或結帳。</p> : null}
+          {checkoutMode === "GROUP" && !someCompleted ? <><p className="mt-4 text-sm font-semibold">整組完成與結帳</p><div className="mt-3 grid grid-cols-2 gap-2">{settlementOptions.map(([value, label]) => <label key={value} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm ring-1 ${settlement === value ? "bg-primary-100 text-primary-900 ring-primary-200" : "bg-white/5 text-white ring-white/15"}`}><input type="radio" name="spa-demo-settlement" value={value} checked={settlement === value} onChange={() => setSettlement(value)} />{label}</label>)}</div><div className="mt-3"><ActionButton label={isCompleting ? "處理中…" : "整組完成並結帳"} onClick={() => onCompleteGroup(settlement)} disabled={isCompleting || !canCompleteService} emphasized /></div></> : null}
           <div className="mt-3"><ActionButton label="返回" onClick={() => setShowCheckout(false)} disabled={isCompleting} /></div>
         </div>
       ) : (
-        <div className="mt-5 grid gap-2"><ActionButton label="完成服務與結帳" onClick={() => { setCheckoutMode(someCompleted ? "SPLIT" : "GROUP"); setShowCheckout(true); }} emphasized />{!someCompleted ? <><ActionButton label="修改預約" onClick={() => setShowEdit(true)} /><ActionButton label="取消整組" onClick={() => setCancelTarget({ scope: "GROUP", bookingId: booking.id })} /></> : null}<ActionButton label="再約下一次" onClick={onRebook} /></div>
+        <div className="mt-5 grid gap-2">{!canCompleteService ? <p className="rounded-xl bg-[#624238] px-3 py-2 text-xs font-semibold">預約時間 {booking.time} 尚未到，暫時不能完成服務或結帳。</p> : null}<ActionButton label="完成服務與結帳" onClick={() => { setCheckoutMode(someCompleted ? "SPLIT" : "GROUP"); setShowCheckout(true); }} disabled={!canCompleteService} emphasized />{!someCompleted ? <><ActionButton label="修改預約" onClick={() => setShowEdit(true)} /><ActionButton label="取消整組" onClick={() => setCancelTarget({ scope: "GROUP", bookingId: booking.id })} /></> : null}<ActionButton label="再約下一次" onClick={onRebook} /></div>
       )}
     </section>
   );
@@ -1072,7 +1097,7 @@ function DailyOperationsSection({
             {summary.payments.length ? summary.payments.map((payment) => (
               <div key={payment.method} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                 <span className="text-earth-600">{payment.method}・{payment.count} 筆</span>
-                <span className="font-semibold tabular-nums text-earth-900">NT${payment.amount.toLocaleString()}</span>
+                <span className="text-right"><span className="block font-semibold tabular-nums text-earth-900">原收 NT${payment.grossAmount.toLocaleString()}</span>{payment.amount !== payment.grossAmount ? <span className="mt-0.5 block text-xs text-[#855649]">退款後 NT${payment.amount.toLocaleString()}</span> : null}</span>
               </div>
             )) : <p className="py-4 text-sm text-earth-500">尚無完成結帳</p>}
           </div>
@@ -1217,7 +1242,7 @@ function DailyReconciliationDetail({
             {summary.payments.map((payment) => (
               <div key={payment.method} className="flex justify-between gap-3">
                 <span className="text-earth-500">{payment.method}・{payment.count} 筆</span>
-                <span className="font-semibold tabular-nums">NT${payment.amount.toLocaleString()}</span>
+                <span className="text-right"><span className="block font-semibold tabular-nums">原收 NT${payment.grossAmount.toLocaleString()}</span>{payment.amount !== payment.grossAmount ? <span className="mt-0.5 block text-xs text-[#855649]">退款後 NT${payment.amount.toLocaleString()}</span> : null}</span>
               </div>
             ))}
           </div>
@@ -1300,6 +1325,8 @@ function DailyReconciliationDetail({
 
 function DailyGroupDetail({ group, bookings, providers }: { group: SpaDailyGroup; bookings: readonly PreviewBooking[]; providers: readonly PreviewProvider[] }) {
   const ordered = bookings.toSorted((left, right) => (left.guestIndex ?? 1) - (right.guestIndex ?? 1));
+  const grossPaidAmount = group.paidAmount + group.refundAmount;
+  const adjustmentAmount = group.expectedAmount - grossPaidAmount;
   return (
     <section className="rounded-2xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
       <div className="flex items-start justify-between gap-3">
@@ -1321,7 +1348,7 @@ function DailyGroupDetail({ group, bookings, providers }: { group: SpaDailyGroup
                   <p className="mt-1 text-xs text-earth-500">{provider ? `${provider.badge}號 ${provider.name}` : "尚未指派"}・{booking.durationMinutes} 分鐘</p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="font-semibold tabular-nums text-earth-900">NT${(booking.price ?? 0).toLocaleString()}</p>
+                  <p className="font-semibold tabular-nums text-earth-900">預約時價格 NT${(booking.price ?? 0).toLocaleString()}</p>
                   <p className="mt-1 text-xs text-earth-500">{booking.status}</p>
                 </div>
               </div>
@@ -1332,6 +1359,8 @@ function DailyGroupDetail({ group, bookings, providers }: { group: SpaDailyGroup
       <div className="mt-4 space-y-2 text-sm">
         <div className="flex justify-between gap-3"><span className="text-earth-500">付款方式</span><span className="font-semibold text-earth-900">{group.paymentSummary}</span></div>
         <div className="flex justify-between gap-3"><span className="text-earth-500">服務總額</span><span className="font-semibold tabular-nums text-earth-900">NT${group.expectedAmount.toLocaleString()}</span></div>
+        <div className="flex justify-between gap-3"><span className="text-earth-500">原收款</span><span className="font-semibold tabular-nums text-earth-900">NT${grossPaidAmount.toLocaleString()}</span></div>
+        {adjustmentAmount > 0 ? <div className="flex justify-between gap-3 text-earth-600"><span>帳務更正／折讓</span><span className="font-semibold tabular-nums">－NT${adjustmentAmount.toLocaleString()}</span></div> : null}
         {group.refundAmount > 0 ? <div className="flex justify-between gap-3 text-[#855649]"><span>退款／作廢</span><span className="font-semibold tabular-nums">－NT${group.refundAmount.toLocaleString()}</span></div> : null}
         <div className="flex justify-between gap-3 border-t border-earth-100 pt-3"><span className="font-semibold text-earth-900">當日淨收</span><span className="text-lg font-semibold tabular-nums text-earth-900">NT${group.paidAmount.toLocaleString()}</span></div>
       </div>

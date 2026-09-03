@@ -40,6 +40,7 @@ export type SpaDemoBookingStatus =
   | "新客體驗"
   | "已確認"
   | "待到店"
+  | "待補登"
   | "已到店"
   | "服務中"
   | "已完成";
@@ -102,6 +103,34 @@ export type SpaDemoBooking = {
   contactPhone?: string;
 };
 
+export type SpaDemoManagerReminder = {
+  title: string;
+  detail: string;
+  tone: "rose" | "sand";
+};
+
+export function getSpaDemoManagerReminders(
+  bookings: readonly SpaDemoBooking[],
+  selectedDate: string,
+  today: string,
+): readonly SpaDemoManagerReminder[] {
+  if (selectedDate !== today) return [];
+  const actionable = bookings.filter((booking) =>
+    booking.date === selectedDate
+    && booking.status !== "已完成"
+    && booking.status !== "待補登"
+    && !booking.refundedAt,
+  );
+  const reminders: SpaDemoManagerReminder[] = [];
+  if (actionable.some((booking) => booking.status === "新客體驗")) {
+    reminders.push({ title: "新客首次到店", detail: "服務前確認注意事項", tone: "rose" });
+  }
+  if (actionable.some((booking) => booking.remainingSessions !== null && booking.remainingSessions <= 3)) {
+    reminders.push({ title: "療程即將到期", detail: "完成服務後提醒續購", tone: "sand" });
+  }
+  return reminders;
+}
+
 export type SpaDemoPreviewData = {
   presentation: {
     id: string;
@@ -115,6 +144,25 @@ export type SpaDemoPreviewData = {
   notification: SpaDemoBookingNotification | null;
   source: "fixture" | "database";
 };
+
+export function getCurrentSpaDemoNotification(
+  notification: SpaDemoBookingNotification | null,
+  bookings: readonly SpaDemoBooking[],
+  today: string,
+): SpaDemoBookingNotification | null {
+  if (!notification) return null;
+  const hasActionableBooking = bookings.some((booking) =>
+    SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(
+      booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number],
+    )
+    && booking.date >= today
+    && booking.status !== "已完成"
+    && !booking.refundedAt,
+  );
+  if (!hasActionableBooking) return null;
+  if (notification.kind === "REMINDER" && notification.date <= today) return null;
+  return notification.date >= today ? notification : null;
+}
 
 export type SpaDemoStoreIdentity = {
   id: string;

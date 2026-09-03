@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { canCompleteSpaBooking } from "@/lib/spa-booking-completion";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { spaPrisma } from "@/lib/spa-db";
 import {
   SPA_DEMO_LIVE_FLOW_BOOKING_IDS,
@@ -26,7 +28,7 @@ function revalidateSpaViews() {
   revalidatePath("/liff/design-preview");
   revalidatePath("/liff/manager-preview");
   revalidatePath("/liff/staff-preview");
-  revalidatePath("/dashboard/bookings");
+  revalidatePath("/dashboard/spa-schedule");
   revalidatePath("/staff-schedule");
 }
 
@@ -193,8 +195,21 @@ export async function completeSpaDemoBooking(input: unknown) {
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: "結帳資料不完整" };
 
-  const selected = await spaPrisma.spaBooking.findFirst({ where: { id: parsed.data.bookingId, storeId: SPA_DEMO_STORE.id } });
-  if (!selected) return { success: false as const, error: "Demo 預約不存在或資料隔離檢查失敗" };
+  const selected = await spaPrisma.spaBooking.findFirst({
+    where: { id: parsed.data.bookingId, storeId: SPA_DEMO_STORE.id },
+    select: {
+      id: true,
+      bookingDate: true,
+      startTime: true,
+      notes: true,
+    },
+  });
+  if (!selected) {
+    return { success: false as const, error: "Demo 預約不存在或資料隔離檢查失敗" };
+  }
+  if (!canCompleteSpaBooking(toLocalDateStr(selected.bookingDate), selected.startTime)) {
+    return { success: false as const, error: `預約時間 ${selected.startTime} 尚未到，暫時不能完成服務或結帳` };
+  }
   const partySize = Number(selected.notes?.match(/\|party=(\d+)/)?.[1] ?? 1);
   const bookingIds = SPA_DEMO_LIVE_FLOW_BOOKING_IDS.slice(0, partySize);
 
@@ -220,8 +235,21 @@ export async function completeSpaDemoGuestBooking(input: unknown) {
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { success: false as const, error: "結帳資料不完整" };
 
-  const booking = await spaPrisma.spaBooking.findFirst({ where: { id: parsed.data.bookingId, storeId: SPA_DEMO_STORE.id } });
-  if (!booking) return { success: false as const, error: "Demo 預約不存在或資料隔離檢查失敗" };
+  const booking = await spaPrisma.spaBooking.findFirst({
+    where: { id: parsed.data.bookingId, storeId: SPA_DEMO_STORE.id },
+    select: {
+      id: true,
+      bookingDate: true,
+      startTime: true,
+      guestIndex: true,
+    },
+  });
+  if (!booking) {
+    return { success: false as const, error: "Demo 預約不存在或資料隔離檢查失敗" };
+  }
+  if (!canCompleteSpaBooking(toLocalDateStr(booking.bookingDate), booking.startTime)) {
+    return { success: false as const, error: `預約時間 ${booking.startTime} 尚未到，暫時不能完成服務或結帳` };
+  }
   if (booking.guestIndex > 1 && (parsed.data.settlement === "STORED_VALUE" || parsed.data.settlement === "PACKAGE")) {
     return { success: false as const, error: "同行者尚未連結會員，請改用現金或刷卡" };
   }

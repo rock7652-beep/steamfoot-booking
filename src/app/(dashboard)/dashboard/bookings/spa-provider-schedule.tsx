@@ -220,7 +220,7 @@ export function SpaProviderSchedule({
   function handleDateChange(nextDate: string) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate) || nextDate === date) return;
     router.push(
-      resolveDashboardHref(`/dashboard/bookings?date=${nextDate}`, pathname),
+      resolveDashboardHref(`/dashboard/spa-schedule?date=${nextDate}`, pathname),
     );
   }
 
@@ -268,7 +268,7 @@ export function SpaProviderSchedule({
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
             <Link
-              href={`/dashboard/bookings?date=${shiftDate(date, -1)}`}
+              href={`/dashboard/spa-schedule?date=${shiftDate(date, -1)}`}
               aria-label="前一天"
               className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
             >
@@ -285,13 +285,13 @@ export function SpaProviderSchedule({
               />
             </label>
             <Link
-              href={`/dashboard/bookings?date=${todayDate}`}
+              href={`/dashboard/spa-schedule?date=${todayDate}`}
               className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-3 text-xs font-semibold text-earth-700 hover:bg-earth-50"
             >
               今天
             </Link>
             <Link
-              href={`/dashboard/bookings?date=${shiftDate(date, 1)}`}
+              href={`/dashboard/spa-schedule?date=${shiftDate(date, 1)}`}
               aria-label="後一天"
               className="inline-flex h-8 items-center rounded-md border border-earth-300 bg-white px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
             >
@@ -424,11 +424,6 @@ export function SpaProviderSchedule({
         onClose={() => setActiveBookingId(null)}
         onUpdated={handleUpdated}
         readOnly={readOnly}
-        rebookHref={
-          activeBooking
-            ? `/dashboard/bookings/new?customerId=${encodeURIComponent(activeBooking.customer.id)}`
-            : undefined
-        }
         durationMinutes={
           activeBooking ? durationForBooking(activeBooking) : undefined
         }

@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createCustomer } from "@/server/actions/customer";
 import { spaPrisma } from "@/lib/spa-db";
@@ -154,6 +155,7 @@ export async function createSpaQuickBooking(
         },
       });
     });
+    revalidatePath("/dashboard/spa-schedule");
     return {
       success: true,
       data: { bookingId: booking.id, customerId },

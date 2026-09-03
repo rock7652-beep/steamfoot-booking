@@ -192,11 +192,16 @@ export async function getDayBookings(
 ) {
   const user = await requireStaffSession();
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
-  const readUser = userForViewContext(user, storeViewContext);
-  const readStoreId = storeIdForViewContext(
-    activeStoreId ?? null,
-    storeViewContext,
-  );
+  const hasExplicitStoreScope = activeStoreId !== undefined;
+  const readStoreId = hasExplicitStoreScope
+    ? activeStoreId
+      ? await validateStoreAccess(user, activeStoreId, "read")
+      : null
+    : storeIdForViewContext(null, storeViewContext);
+  const readUser =
+    hasExplicitStoreScope && readStoreId && user.role !== "ADMIN"
+      ? { ...user, storeId: readStoreId }
+      : userForViewContext(user, storeViewContext);
 
   const dateObj = new Date(date + "T00:00:00Z");
 
