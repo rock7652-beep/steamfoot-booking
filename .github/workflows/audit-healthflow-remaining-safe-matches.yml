@@ -1,0 +1,95 @@
+name: Audit remaining HealthFlow safe matches
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: healthflow-native-history-read-only-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Read-only remaining-record identity audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      HEALTHFLOW_SUPABASE_URL: ${{ secrets.HEALTHFLOW_SUPABASE_URL }}
+      HEALTHFLOW_SERVICE_ROLE_KEY: ${{ secrets.HEALTHFLOW_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          missing=0
+          for name in DATABASE_URL DIRECT_URL HEALTHFLOW_SUPABASE_URL HEALTHFLOW_SERVICE_ROLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required GitHub production secret: $name"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Classify the 316 currently remaining records without writing
+        id: audit
+        run: >-
+          npx tsx scripts/audit-healthflow-remaining-safe-matches.ts
+          --expected-remaining=316
+          --github-output="$GITHUB_OUTPUT"
+
+      - name: Publish aggregate summary only
+        shell: bash
+        env:
+          SOURCE_RECORDS: ${{ steps.audit.outputs.source_records }}
+          IMPORTED_RECORDS: ${{ steps.audit.outputs.already_imported_records }}
+          REMAINING_RECORDS: ${{ steps.audit.outputs.remaining_records }}
+          SAFE_PROFILES: ${{ steps.audit.outputs.safe_profiles }}
+          SAFE_RECORDS: ${{ steps.audit.outputs.safe_records }}
+          MANUAL_PROFILES: ${{ steps.audit.outputs.manual_profiles }}
+          MANUAL_RECORDS: ${{ steps.audit.outputs.manual_records }}
+          NO_CUSTOMER_RECORDS: ${{ steps.audit.outputs.no_customer_records }}
+          AMBIGUOUS_RECORDS: ${{ steps.audit.outputs.ambiguous_records }}
+          CONFLICT_RECORDS: ${{ steps.audit.outputs.conflict_records }}
+          INSUFFICIENT_RECORDS: ${{ steps.audit.outputs.insufficient_records }}
+          PLAN_DIGEST: ${{ steps.audit.outputs.plan_digest }}
+        run: |
+          {
+            echo "## HealthFlow 剩餘資料只讀安全對應稽核"
+            echo
+            echo "| 分類 | 筆數 |"
+            echo "| --- | ---: |"
+            echo "| HealthFlow 原始紀錄 | $SOURCE_RECORDS |"
+            echo "| 已在蒸管家 | $IMPORTED_RECORDS |"
+            echo "| 本次核對剩餘 | $REMAINING_RECORDS |"
+            echo "| 唯一可確認 | $SAFE_RECORDS |"
+            echo "| 需人工確認 | $MANUAL_RECORDS |"
+            echo "| 找不到顧客 | $NO_CUSTOMER_RECORDS |"
+            echo "| 多重候選 | $AMBIGUOUS_RECORDS |"
+            echo "| 身分或既有連結衝突 | $CONFLICT_RECORDS |"
+            echo "| 資料不足 | $INSUFFICIENT_RECORDS |"
+            echo
+            echo "安全候選 profiles：$SAFE_PROFILES；人工 profiles：$MANUAL_PROFILES。"
+            echo
+            echo "計畫 SHA-256：\`$PLAN_DIGEST\`"
+            echo
+            echo "此工作不含任何資料庫寫入，也不公開姓名、電話、Email、生日或內部 ID。"
+          } >> "$GITHUB_STEP_SUMMARY"
