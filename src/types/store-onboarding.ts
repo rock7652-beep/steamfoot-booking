@@ -2,7 +2,12 @@
  * B7-5: 建店開通 — 型別定義（最終定稿 v2）
  */
 
-import type { PricingPlan, StoreOperatingStatus, StorePlanStatus } from "@prisma/client";
+import type {
+  PricingPlan,
+  StoreOperatingStatus,
+  StorePlanStatus,
+} from "@prisma/client";
+import type { PersistedIndustryModule } from "@/lib/industry-modules";
 
 // ============================================================
 // 建店輸入
@@ -17,6 +22,8 @@ export interface CreateStoreInput {
   plan: PricingPlan;
   /** 是否為 Demo 店 */
   isDemo: boolean;
+  /** 建立後不可由營運介面變更 */
+  industryModule: PersistedIndustryModule;
 
   /** OWNER 必填（name / email / password） */
   owner: OwnerInput;
@@ -57,6 +64,7 @@ export interface StoreDeliverySummary {
     planStatus: StorePlanStatus;
     operatingStatus: StoreOperatingStatus;
     isDemo: boolean;
+    industryModule: PersistedIndustryModule;
   };
   /** 交付網址 — 對應 proxy.ts 實際路由 */
   urls: {

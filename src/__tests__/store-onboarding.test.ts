@@ -2,11 +2,22 @@
  * B7-5: Store Onboarding 測試（驗收對齊版）
  */
 import { describe, it, expect, vi } from "vitest";
+import {
+  buildInitialBusinessHours,
+  buildSteamfootBookingSlots,
+  SPA_STARTER_SKILLS,
+  SPA_STARTER_TREATMENTS,
+} from "@/lib/store-module-onboarding";
 
 // ── Mocks ──
 vi.mock("@/lib/db", () => ({
   prisma: {
-    store: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    store: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
     user: { findUnique: vi.fn(), create: vi.fn() },
     shopConfig: { create: vi.fn() },
     bookingSlot: { createMany: vi.fn() },
@@ -16,8 +27,17 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/spa-db", () => ({
+  spaPrisma: {
+    spaSkill: { createMany: vi.fn(), count: vi.fn() },
+    spaTreatment: { create: vi.fn(), count: vi.fn() },
+  },
+}));
+
 vi.mock("@/lib/session", () => ({
-  requireAdminSession: vi.fn().mockResolvedValue({ id: "admin", role: "ADMIN" }),
+  requireAdminSession: vi
+    .fn()
+    .mockResolvedValue({ id: "admin", role: "ADMIN" }),
   getCurrentUser: vi.fn(),
 }));
 
@@ -44,10 +64,14 @@ describe("建店欄位驗證", () => {
     const invalid = ["Store", "my store", "store!", "UPPER", "a"];
 
     for (const s of valid) {
-      expect(/^[a-z0-9-]+$/.test(s) && s.length >= 2 && s.length <= 30).toBe(true);
+      expect(/^[a-z0-9-]+$/.test(s) && s.length >= 2 && s.length <= 30).toBe(
+        true,
+      );
     }
     for (const s of invalid) {
-      expect(/^[a-z0-9-]+$/.test(s) && s.length >= 2 && s.length <= 30).toBe(false);
+      expect(/^[a-z0-9-]+$/.test(s) && s.length >= 2 && s.length <= 30).toBe(
+        false,
+      );
     }
   });
 
@@ -77,15 +101,21 @@ describe("交付 URL 產出", () => {
   const storeId = "store-kaohsiung";
 
   it("storefront = /s/{slug}/（顧客登入頁）", () => {
-    expect(`${baseUrl}/s/${slug}/`).toBe("https://www.steamfoot.com/s/kaohsiung/");
+    expect(`${baseUrl}/s/${slug}/`).toBe(
+      "https://www.steamfoot.com/s/kaohsiung/",
+    );
   });
 
   it("booking = /s/{slug}/book", () => {
-    expect(`${baseUrl}/s/${slug}/book`).toBe("https://www.steamfoot.com/s/kaohsiung/book");
+    expect(`${baseUrl}/s/${slug}/book`).toBe(
+      "https://www.steamfoot.com/s/kaohsiung/book",
+    );
   });
 
   it("register = /s/{slug}/register", () => {
-    expect(`${baseUrl}/s/${slug}/register`).toBe("https://www.steamfoot.com/s/kaohsiung/register");
+    expect(`${baseUrl}/s/${slug}/register`).toBe(
+      "https://www.steamfoot.com/s/kaohsiung/register",
+    );
   });
 
   it("adminLogin = /hq/login（全域）", () => {
@@ -93,11 +123,15 @@ describe("交付 URL 產出", () => {
   });
 
   it("adminDashboard = /s/{slug}/admin/dashboard", () => {
-    expect(`${baseUrl}/s/${slug}/admin/dashboard`).toBe("https://www.steamfoot.com/s/kaohsiung/admin/dashboard");
+    expect(`${baseUrl}/s/${slug}/admin/dashboard`).toBe(
+      "https://www.steamfoot.com/s/kaohsiung/admin/dashboard",
+    );
   });
 
   it("hqStoreDetail = /hq/dashboard/stores/{storeId}", () => {
-    expect(`${baseUrl}/hq/dashboard/stores/${storeId}`).toBe("https://www.steamfoot.com/hq/dashboard/stores/store-kaohsiung");
+    expect(`${baseUrl}/hq/dashboard/stores/${storeId}`).toBe(
+      "https://www.steamfoot.com/hq/dashboard/stores/store-kaohsiung",
+    );
   });
 });
 
@@ -157,8 +191,11 @@ describe("Demo vs 正式店", () => {
 
   it("Demo 店 canActivate 永遠 false", () => {
     const store = { isDemo: true };
-    const checklist: Array<{ status: "pass" | "fail" | "skip" }> = [{ status: "pass" }];
-    const canActivate = !store.isDemo && checklist.every((c) => c.status !== "fail");
+    const checklist: Array<{ status: "pass" | "fail" | "skip" }> = [
+      { status: "pass" },
+    ];
+    const canActivate =
+      !store.isDemo && checklist.every((c) => c.status !== "fail");
     expect(canActivate).toBe(false);
   });
 });
@@ -177,26 +214,45 @@ describe("Store 狀態機", () => {
   });
 
   it("StorePlanStatus 有 7 個值", () => {
-    const allStatuses = ["TRIAL", "ACTIVE", "PAYMENT_PENDING", "PAST_DUE", "SCHEDULED_DOWNGRADE", "CANCELLED", "EXPIRED"];
+    const allStatuses = [
+      "TRIAL",
+      "ACTIVE",
+      "PAYMENT_PENDING",
+      "PAST_DUE",
+      "SCHEDULED_DOWNGRADE",
+      "CANCELLED",
+      "EXPIRED",
+    ];
     expect(allStatuses).toHaveLength(7);
   });
 
   it("營運狀態切換 action 只走 HQ requireAdminSession", async () => {
     const { prisma } = await import("@/lib/db");
     const { requireAdminSession } = await import("@/lib/session");
-    const { updateStoreOperatingStatusAction } = await import("@/server/actions/store-onboarding");
+    const { updateStoreOperatingStatusAction } =
+      await import("@/server/actions/store-onboarding");
 
-    vi.mocked(prisma.store.findUnique).mockResolvedValue({ id: "store-kaohsiung" } as never);
-    vi.mocked(prisma.store.update).mockResolvedValue({ operatingStatus: "PAUSED" } as never);
+    vi.mocked(prisma.store.findUnique).mockResolvedValue({
+      id: "store-kaohsiung",
+    } as never);
+    vi.mocked(prisma.store.update).mockResolvedValue({
+      operatingStatus: "PAUSED",
+    } as never);
 
-    const result = await updateStoreOperatingStatusAction("store-kaohsiung", "PAUSED");
+    const result = await updateStoreOperatingStatusAction(
+      "store-kaohsiung",
+      "PAUSED",
+    );
 
     expect(requireAdminSession).toHaveBeenCalled();
     expect(prisma.store.update).toHaveBeenCalledWith({
       where: { id: "store-kaohsiung" },
       data: { operatingStatus: "PAUSED" },
     });
-    expect(result).toEqual({ success: true, data: { operatingStatus: "PAUSED" } });
+    expect(result).toEqual({
+      success: true,
+      data: { operatingStatus: "PAUSED" },
+    });
   });
 });
 
@@ -207,17 +263,17 @@ describe("Store 狀態機", () => {
 describe("驗收 Checklist 涵蓋 6 大面向", () => {
   // 交付 checklist keys
   const deliveryKeys = [
-    "store_record",     // ① 店舖基本資料
-    "route_entry",      // ② 路由入口
-    "owner_login",      // ③ OWNER 登入
-    "staff_created",    // ③ STAFF 建立
-    "booking_page",     // ④ 顧客前台
-    "register_page",    // ④ 顧客前台
-    "first_booking",    // ④ 人工驗證
-    "owner_permissions",// ⑤ 權限
-    "store_isolation",  // ⑤ 隔離
-    "line_config",      // ⑥ LINE
-    "email_service",    // ⑥ Email
+    "store_record", // ① 店舖基本資料
+    "route_entry", // ② 路由入口
+    "owner_login", // ③ OWNER 登入
+    "staff_created", // ③ STAFF 建立
+    "booking_page", // ④ 顧客前台
+    "register_page", // ④ 顧客前台
+    "first_booking", // ④ 人工驗證
+    "owner_permissions", // ⑤ 權限
+    "store_isolation", // ⑤ 隔離
+    "line_config", // ⑥ LINE
+    "email_service", // ⑥ Email
   ];
 
   it("交付 checklist 有 11 項", () => {
@@ -226,13 +282,13 @@ describe("驗收 Checklist 涵蓋 6 大面向", () => {
 
   // 啟用前技術 checklist keys
   const verifyKeys = [
-    "store-exists",      // ① 店舖基本資料
-    "shop-config",       // ① ShopConfig
-    "slug-resolvable",   // ② 路由入口
-    "owner-exists",      // ③ OWNER
+    "store-exists", // ① 店舖基本資料
+    "shop-config", // ① ShopConfig
+    "slug-resolvable", // ② 路由入口
+    "owner-exists", // ③ OWNER
     "owner-permissions", // ⑤ 權限
-    "booking-slots",     // ④ 前台
-    "line-config",       // ⑥ LINE
+    "booking-slots", // ④ 前台
+    "line-config", // ⑥ LINE
   ];
 
   it("啟用前 checklist 有 7 項", () => {
@@ -241,14 +297,17 @@ describe("驗收 Checklist 涵蓋 6 大面向", () => {
 
   it("pass-only list canActivate = true", () => {
     const items: Array<{ status: "pass" | "fail" | "skip" }> = [
-      { status: "pass" }, { status: "pass" }, { status: "skip" },
+      { status: "pass" },
+      { status: "pass" },
+      { status: "skip" },
     ];
     expect(items.every((c) => c.status !== "fail")).toBe(true);
   });
 
   it("any fail → canActivate = false", () => {
     const items: Array<{ status: "pass" | "fail" | "skip" }> = [
-      { status: "pass" }, { status: "fail" },
+      { status: "pass" },
+      { status: "fail" },
     ];
     expect(items.every((c) => c.status !== "fail")).toBe(false);
   });
@@ -260,8 +319,21 @@ describe("驗收 Checklist 涵蓋 6 大面向", () => {
 
 describe("預設時段", () => {
   it("56 slots (8 times × 7 days)", () => {
-    const slotTimes = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
+    const slotTimes = [
+      "10:00",
+      "11:00",
+      "14:00",
+      "15:00",
+      "16:00",
+      "17:30",
+      "18:30",
+      "19:30",
+    ];
     expect(slotTimes.length * 7).toBe(56);
+  });
+
+  it("SPA 不使用蒸足容量時段", () => {
+    expect(buildSteamfootBookingSlots("store-a")).toHaveLength(56);
   });
 });
 
@@ -304,5 +376,35 @@ describe("預設營業時間", () => {
     expect(sun.closeTime).toBe("21:00");
     expect(sun.slotInterval).toBe(60);
     expect(sun.defaultCapacity).toBe(6);
+  });
+});
+
+describe("營運模組初始化", () => {
+  it("蒸足維持 60 分鐘、容量 6、全週營業", () => {
+    const rows = buildInitialBusinessHours("store-steamfoot", "STEAMFOOT");
+    expect(rows).toHaveLength(7);
+    expect(rows.every((row) => row.isOpen)).toBe(true);
+    expect(
+      rows.every((row) => row.slotInterval === 60 && row.defaultCapacity === 6),
+    ).toBe(true);
+  });
+
+  it("SPA 使用 30 分鐘、單一技師容量、週一公休", () => {
+    const rows = buildInitialBusinessHours("store-spa", "SPA");
+    expect(rows).toHaveLength(7);
+    expect(rows.find((row) => row.dayOfWeek === 1)?.isOpen).toBe(false);
+    expect(
+      rows.every((row) => row.slotInterval === 30 && row.defaultCapacity === 1),
+    ).toBe(true);
+  });
+
+  it("SPA 只建立可編輯且未公開的設定範本，不建立交易資料", () => {
+    expect(SPA_STARTER_SKILLS).toHaveLength(3);
+    expect(SPA_STARTER_TREATMENTS).toHaveLength(3);
+    expect(
+      SPA_STARTER_TREATMENTS.every(
+        (item) => item.serviceMinutes > 0 && item.price > 0,
+      ),
+    ).toBe(true);
   });
 });
