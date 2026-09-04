@@ -127,11 +127,6 @@ export function SpaProviderSchedule({
   const activeBooking = activeBookingId
     ? (bookingById.get(activeBookingId) ?? null)
     : null;
-  const pendingCount = bookings.filter(
-    (booking) =>
-      booking.bookingStatus === "PENDING" ||
-      booking.bookingStatus === "CONFIRMED",
-  ).length;
   const todayDate = nowMinutes == null ? date : toDateInputValue(new Date());
   const isToday = nowMinutes != null && date === todayDate;
   const completedCount = bookings.filter(
@@ -220,36 +215,129 @@ export function SpaProviderSchedule({
   function handleDateChange(nextDate: string) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate) || nextDate === date) return;
     router.push(
-      resolveDashboardHref(`/dashboard/spa-schedule?date=${nextDate}`, pathname),
+      resolveDashboardHref(
+        `/dashboard/spa-schedule?date=${nextDate}`,
+        pathname,
+      ),
     );
   }
 
+  function openFirstAvailableSlot() {
+    if (readOnly || date < todayDate) return;
+    for (const time of scheduleTimes) {
+      const provider = providers.find((item) =>
+        (providerBookableStartTimes?.[item.id] ?? bookableStartTimes).includes(
+          time,
+        ),
+      );
+      if (provider) {
+        setQuickTarget({ providerId: provider.id, time });
+        return;
+      }
+    }
+  }
+
+  const bookingGroups = new Set(
+    bookings.map((booking) => `${booking.slotTime}|${booking.customer.id}`),
+  ).size;
+  const paidAmount = bookings.reduce(
+    (total, booking) => total + (booking.collectedAmount ?? 0),
+    0,
+  );
+  const activeCount = bookings.filter((booking) =>
+    ["PENDING", "CONFIRMED"].includes(booking.bookingStatus),
+  ).length;
+  const isHistory = date < todayDate;
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-earth-200 bg-white">
+    <div className="min-w-0 space-y-6 pb-8">
+      <header className="border-b border-earth-200/80 pb-6">
+        <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-semibold text-primary-700">
+          SPA 人員排程
+        </span>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-earth-900 sm:text-3xl">
+          {isHistory ? "歷史營運" : "今日營運"}
+        </h1>
+      </header>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800 sm:flex-row sm:items-center sm:justify-between">
+        <p>
+          {providers.length
+            ? "預約、服務進度與當日收款皆使用目前登入店家的資料。"
+            : "目前店家尚未建立可接客的芳療師，請先到人員管理完成設定。"}
+        </p>
+        {!readOnly && providers.length ? (
+          <button
+            type="button"
+            onClick={openFirstAvailableSlot}
+            disabled={isHistory}
+            className="min-h-10 shrink-0 rounded-xl bg-earth-900 px-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ＋ 現場快速預約
+          </button>
+        ) : !readOnly ? (
+          <Link
+            href="/dashboard/staff"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl bg-earth-900 px-4 font-semibold text-white"
+          >
+            前往人員管理
+          </Link>
+        ) : null}
+      </div>
+
+      <section
+        className="grid grid-cols-2 gap-3 xl:grid-cols-4"
+        aria-label="當日營運摘要"
+      >
+        <OverviewMetric
+          label="預約人次"
+          value={String(bookings.length)}
+          unit="位"
+          detail={`${bookingGroups} 組預約`}
+        />
+        <OverviewMetric
+          label="已完成"
+          value={String(completedCount)}
+          unit="位"
+          detail="服務完成即列入"
+        />
+        <OverviewMetric
+          label="當日實收"
+          value={`NT$${paidAmount.toLocaleString()}`}
+          detail="依完成付款紀錄計算"
+          emphasized
+        />
+        <OverviewMetric
+          label={isHistory ? "待補登" : "待服務"}
+          value={String(activeCount)}
+          unit="位"
+          detail={
+            activeCount
+              ? isHistory
+                ? "請補登完成、未到或取消"
+                : "點預約即可查看與處理"
+              : "當日服務已完成"
+          }
+        />
+      </section>
+
+      <DailyOperations
+        bookings={bookings}
+        date={date}
+        paidAmount={paidAmount}
+      />
+
+      <section className="flex min-h-[620px] flex-col overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-[0_8px_28px_rgba(74,66,53,0.06)]">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-earth-200 px-4 py-2.5">
           <div>
             <p className="text-[11px] font-semibold tracking-wide text-primary-700">
-              今日預約工作台
+              時間 × 芳療師
             </p>
             <h2 className="text-sm font-semibold text-earth-900">
               {formatDateWithWeekdayZh(date)}
             </h2>
           </div>
-          <div
-            className="flex flex-1 flex-wrap gap-1.5"
-            aria-label="當日 SPA 營運摘要"
-          >
-            <Metric
-              tone={pendingCount > 0 ? "notice" : "quiet"}
-              label="待服務"
-              value={`${pendingCount} 筆`}
-            />
-            <Metric
-              tone={completedCount > 0 ? "active" : "quiet"}
-              label="已完成"
-              value={`${completedCount} 筆`}
-            />
+          <div className="flex flex-1 flex-wrap gap-1.5">
             {unsettledCount > 0 ? (
               <Metric
                 tone="warning"
@@ -332,8 +420,21 @@ export function SpaProviderSchedule({
         </div>
 
         {providers.length === 0 ? (
-          <div className="px-4 py-16 text-center text-sm text-earth-500">
-            尚未建立可排程的芳療師
+          <div className="flex flex-1 flex-col items-center justify-center px-4 py-16 text-center">
+            <p className="text-base font-semibold text-earth-800">
+              尚未建立可排程的芳療師
+            </p>
+            <p className="mt-2 max-w-md text-sm text-earth-500">
+              新增人員後，設定專業項目與固定班表，這裡就會自動出現芳療師欄位。
+            </p>
+            {!readOnly ? (
+              <Link
+                href="/dashboard/staff"
+                className="mt-4 rounded-xl border border-primary-300 bg-primary-50 px-4 py-2.5 text-sm font-semibold text-primary-800"
+              >
+                設定第一位芳療師
+              </Link>
+            ) : null}
           </div>
         ) : (
           <div
@@ -442,6 +543,122 @@ export function SpaProviderSchedule({
       ) : null}
     </div>
   );
+}
+
+function OverviewMetric({
+  label,
+  value,
+  unit,
+  detail,
+  emphasized = false,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  detail: string;
+  emphasized?: boolean;
+}) {
+  return (
+    <article
+      className={`rounded-2xl p-4 shadow-[0_8px_24px_rgba(74,66,53,0.05)] ring-1 ring-earth-200/70 sm:p-5 ${emphasized ? "bg-primary-50" : "bg-white"}`}
+    >
+      <p className="text-xs font-medium text-earth-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums text-earth-900 sm:text-3xl">
+        {value}
+        {unit ? (
+          <span className="ml-1 text-sm font-medium text-earth-500">
+            {unit}
+          </span>
+        ) : null}
+      </p>
+      <p className="mt-2 text-xs text-earth-500">{detail}</p>
+    </article>
+  );
+}
+
+function DailyOperations({
+  bookings,
+  date,
+  paidAmount,
+}: {
+  bookings: readonly SpaScheduleBooking[];
+  date: string;
+  paidAmount: number;
+}) {
+  const rows = [...bookings].sort((left, right) =>
+    left.slotTime.localeCompare(right.slotTime),
+  );
+  return (
+    <section
+      className="overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(74,66,53,0.06)] ring-1 ring-earth-200/70"
+      aria-label="每日營運與帳務總覽"
+    >
+      <header className="border-b border-earth-100 px-5 py-5">
+        <h2 className="text-lg font-semibold text-earth-900">每日營運與帳務</h2>
+        <p className="mt-1 text-sm text-earth-500">
+          {formatDateWithWeekdayZh(date)}
+        </p>
+      </header>
+      <div className="grid lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,0.7fr)]">
+        <div className="border-b border-earth-100 p-5 lg:border-b-0 lg:border-r">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-semibold">預約與結帳明細</h3>
+            <span className="text-sm text-earth-500">{rows.length} 位</span>
+          </div>
+          {rows.length ? (
+            <div className="mt-3 divide-y divide-earth-100">
+              {rows.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="flex items-center justify-between gap-4 py-3.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-earth-900">
+                      {booking.slotTime}・{booking.customerName}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-earth-500">
+                      {booking.treatmentNameSnapshot ??
+                        booking.servicePlan?.name ??
+                        "SPA 服務"}
+                      ・{statusLabel(booking.bookingStatus)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-semibold tabular-nums text-earth-900">
+                    {booking.collectedAmount == null
+                      ? "待結帳"
+                      : `NT$${booking.collectedAmount.toLocaleString()}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm text-earth-500">
+              這一天尚無預約
+            </p>
+          )}
+        </div>
+        <div className="p-5">
+          <h3 className="font-semibold">當日收款</h3>
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-earth-50 px-4 py-4">
+            <span className="text-sm text-earth-600">已收款</span>
+            <span className="text-lg font-semibold tabular-nums text-earth-900">
+              NT${paidAmount.toLocaleString()}
+            </span>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-earth-500">
+            僅彙總目前登入店家的成功付款；退款與調整仍以付款明細為準。
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function statusLabel(status: string) {
+  if (status === "COMPLETED") return "已完成";
+  if (status === "CANCELLED") return "已取消";
+  if (status === "CONFIRMED") return "已確認";
+  return "待確認";
 }
 
 function ProviderHeader({ provider }: { provider: SpaScheduleProvider }) {
