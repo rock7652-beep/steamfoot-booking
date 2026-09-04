@@ -5,8 +5,7 @@ import { prisma } from "@/lib/db";
 import { handleActionError } from "@/lib/errors";
 import { requireWritablePermission } from "@/lib/permissions";
 import { revalidateBusinessHours } from "@/lib/revalidation";
-import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
-import { currentStoreId } from "@/lib/store";
+import { resolveWriteStoreId } from "@/lib/store";
 import type { ActionResult } from "@/types";
 import { requireSpaStore } from "@/lib/industry-module-server";
 
@@ -21,26 +20,23 @@ function withInterval(value: Prisma.JsonValue | null, interval: ScheduleInterval
   ) as Prisma.InputJsonValue;
 }
 
-/** SPA Demo 工作台專用：直接切換全店預約起始時間密度。 */
+/** SPA 工作台專用：直接切換目前門市的預約起始時間密度。 */
 export async function updateSpaScheduleInterval(
   interval: ScheduleInterval,
 ): Promise<ActionResult<void>> {
   try {
     const user = await requireWritablePermission("business_hours.manage");
-    const storeId = currentStoreId(user);
+    const storeId = await resolveWriteStoreId(user);
     await requireSpaStore(storeId);
-    if (storeId !== SPA_DEMO_STORE.id) {
-      return { success: false, error: "此快速設定目前只開放 SPA Demo 驗收" };
-    }
 
     if (interval !== 15 && interval !== 30) {
       return { success: false, error: "時間單位只能設為 15 或 30 分鐘" };
     }
 
     const [weeklyRules, customDays] = await Promise.all([
-      prisma.businessHours.findMany({ where: { storeId: SPA_DEMO_STORE.id } }),
+      prisma.businessHours.findMany({ where: { storeId } }),
       prisma.specialBusinessDay.findMany({
-        where: { storeId: SPA_DEMO_STORE.id, type: "custom" },
+        where: { storeId, type: "custom" },
       }),
     ]);
 

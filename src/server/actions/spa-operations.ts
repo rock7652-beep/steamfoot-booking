@@ -8,31 +8,22 @@ import { spaPrisma } from "@/lib/spa-db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requirePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import type { ActionResult } from "@/types";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 import { requireSpaStore } from "@/lib/industry-module-server";
+import {
+  isStoreScopedSpaTreatmentId,
+  SPA_SKILLS,
+  spaSkillId,
+} from "@/lib/spa-store-identifiers";
 
-const SKILLS = [
-  { key: "body", id: "spa-demo-skill-body", name: "身體芳療" },
-  { key: "head", id: "spa-demo-skill-head", name: "頭部／肩頸" },
-  { key: "foot", id: "spa-demo-skill-foot", name: "足部療程" },
-  { key: "face", id: "spa-demo-skill-face", name: "臉部保養" },
-] as const;
 const skillKeys = ["body", "head", "foot", "face"] as const;
-const treatmentIds = [
-  "spa-demo-treatment-body-60",
-  "spa-demo-treatment-body-90",
-  "spa-demo-treatment-head-30",
-  "spa-demo-treatment-foot-30",
-  "spa-demo-treatment-face-60",
-] as const;
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const treatmentSchema = z.object({
-  id: z.enum(treatmentIds),
+  id: z.string().trim().min(1).max(200),
   name: z.string().trim().min(1).max(100),
   variant: z.string().trim().min(1).max(50),
   price: z.number().int().min(0).max(10_000_000),
@@ -100,49 +91,50 @@ const staffSetupSchema = z.object({
   }
 });
 
-async function requireSpaDemoWrite(permission: "plans.edit" | "staff.manage") {
+async function requireSpaWrite(permission: "plans.edit" | "staff.manage") {
   const user = await requirePermission(permission);
   const storeId = await resolveWriteStoreId(user);
   await requireSpaStore(storeId);
-  if (!isSpaDemoStoreId(storeId)) {
-    throw new AppError("FORBIDDEN", "此設定目前只開放 SPA Demo 驗收");
-  }
   if (!(await isSpaOperationalSchemaReady())) {
     throw new AppError("CONFLICT", "SPA 資料功能更新中，請稍後再試");
   }
   return { user, storeId };
 }
 
-async function assertDemoStaff(staffId: string, storeId: string) {
+async function assertSpaStaff(staffId: string, storeId: string) {
   const staff = await prisma.staff.findFirst({ where: { id: staffId, storeId }, select: { id: true } });
-  if (!staff) throw new AppError("NOT_FOUND", "找不到這位 Demo 人員");
+  if (!staff) throw new AppError("NOT_FOUND", "找不到這位 SPA 人員");
 }
 
 async function ensureSkills(tx: SpaPrisma.TransactionClient, storeId: string) {
-  for (const [sortOrder, skill] of SKILLS.entries()) {
-    const existing = await tx.spaSkill.findUnique({ where: { id: skill.id }, select: { storeId: true } });
+  for (const [sortOrder, skill] of SPA_SKILLS.entries()) {
+    const id = spaSkillId(storeId, skill.key);
+    const existing = await tx.spaSkill.findUnique({ where: { id }, select: { storeId: true } });
     if (existing && existing.storeId !== storeId) throw new AppError("CONFLICT", "專業項目識別碼已被其他門市使用");
-    if (existing) await tx.spaSkill.update({ where: { id: skill.id }, data: { name: skill.name, sortOrder, isActive: true } });
-    else await tx.spaSkill.create({ data: { id: skill.id, storeId, name: skill.name, sortOrder } });
+    if (existing) await tx.spaSkill.update({ where: { id }, data: { name: skill.name, sortOrder, isActive: true } });
+    else await tx.spaSkill.create({ data: { id, storeId, name: skill.name, sortOrder } });
   }
 }
 
 export async function saveSpaTreatment(input: z.infer<typeof treatmentSchema>): Promise<ActionResult> {
   let context: { userId?: string; storeId?: string } = {};
   try {
-    const { user, storeId } = await requireSpaDemoWrite("plans.edit");
+    const { user, storeId } = await requireSpaWrite("plans.edit");
     context = { userId: user.id, storeId };
     const data = treatmentSchema.parse(input);
     await spaPrisma.$transaction(async (tx) => {
       await ensureSkills(tx, storeId);
       const existing = await tx.spaTreatment.findUnique({ where: { id: data.id }, select: { storeId: true } });
       if (existing && existing.storeId !== storeId) throw new AppError("CONFLICT", "療程識別碼已被其他門市使用");
+      if (!existing && !isStoreScopedSpaTreatmentId(storeId, data.id)) {
+        throw new AppError("FORBIDDEN", "療程識別碼不屬於本店");
+      }
       const treatmentData = { name: data.name, variantLabel: data.variant, price: data.price, serviceMinutes: data.serviceMinutes, bufferMinutes: data.bufferMinutes, publicVisible: data.publicVisible };
       if (existing) await tx.spaTreatment.update({ where: { id: data.id }, data: { ...treatmentData, isActive: true } });
       else await tx.spaTreatment.create({ data: { id: data.id, storeId, ...treatmentData } });
       await tx.spaTreatmentSkill.deleteMany({ where: { storeId, treatmentId: data.id } });
       await tx.spaTreatmentSkill.createMany({
-        data: data.skillKeys.map((key) => ({ storeId, treatmentId: data.id, skillId: SKILLS.find((skill) => skill.key === key)!.id })),
+        data: data.skillKeys.map((key) => ({ storeId, treatmentId: data.id, skillId: spaSkillId(storeId, key) })),
       });
     });
     revalidatePath("/dashboard/plans");
@@ -153,14 +145,14 @@ export async function saveSpaTreatment(input: z.infer<typeof treatmentSchema>): 
 export async function saveSpaStaffSkills(input: z.infer<typeof staffSkillsSchema>): Promise<ActionResult> {
   let context: { userId?: string; storeId?: string } = {};
   try {
-    const { user, storeId } = await requireSpaDemoWrite("staff.manage");
+    const { user, storeId } = await requireSpaWrite("staff.manage");
     context = { userId: user.id, storeId };
     const data = staffSkillsSchema.parse(input);
-    await assertDemoStaff(data.staffId, storeId);
+    await assertSpaStaff(data.staffId, storeId);
     await spaPrisma.$transaction(async (tx) => {
       await ensureSkills(tx, storeId);
       await tx.spaStaffSkill.deleteMany({ where: { storeId, staffId: data.staffId } });
-      await tx.spaStaffSkill.createMany({ data: data.skillKeys.map((key) => ({ storeId, staffId: data.staffId, skillId: SKILLS.find((skill) => skill.key === key)!.id })) });
+      await tx.spaStaffSkill.createMany({ data: data.skillKeys.map((key) => ({ storeId, staffId: data.staffId, skillId: spaSkillId(storeId, key) })) });
     });
     revalidatePath("/dashboard/staff");
     revalidatePath("/liff/design-preview/booking");
@@ -171,12 +163,12 @@ export async function saveSpaStaffSkills(input: z.infer<typeof staffSkillsSchema
 export async function saveSpaWeeklyAvailability(input: z.infer<typeof weeklyAvailabilitySchema>): Promise<ActionResult> {
   let context: { userId?: string; storeId?: string } = {};
   try {
-    const { user, storeId } = await requireSpaDemoWrite("staff.manage");
+    const { user, storeId } = await requireSpaWrite("staff.manage");
     context = { userId: user.id, storeId };
     const data = weeklyAvailabilitySchema.parse(input);
     if (new Set(data.availability.map((item) => item.dayOfWeek)).size !== data.availability.length) throw new AppError("VALIDATION", "同一天只能設定一個固定班表");
     if (data.availability.some((item) => item.startTime >= item.endTime)) throw new AppError("VALIDATION", "結束時間必須晚於開始時間");
-    await assertDemoStaff(data.staffId, storeId);
+    await assertSpaStaff(data.staffId, storeId);
     await spaPrisma.$transaction(async (tx) => {
       await tx.spaStaffAvailability.deleteMany({ where: { storeId, staffId: data.staffId } });
       if (data.availability.length) await tx.spaStaffAvailability.createMany({ data: data.availability.map((item) => ({ ...item, storeId, staffId: data.staffId })) });
@@ -190,7 +182,7 @@ export async function saveSpaWeeklyAvailability(input: z.infer<typeof weeklyAvai
 export async function saveSpaAvailabilityException(input: z.infer<typeof exceptionSchema>): Promise<ActionResult> {
   let context: { userId?: string; storeId?: string } = {};
   try {
-    const { user, storeId } = await requireSpaDemoWrite("staff.manage");
+    const { user, storeId } = await requireSpaWrite("staff.manage");
     context = { userId: user.id, storeId };
     const data = exceptionSchema.parse(input);
     const hasStartTime = Boolean(data.startTime);
@@ -201,7 +193,7 @@ export async function saveSpaAvailabilityException(input: z.infer<typeof excepti
     if (data.type === "AVAILABLE" && (!data.startTime || !data.endTime)) {
       throw new AppError("VALIDATION", "臨時加班必須設定開始與結束時間");
     }
-    await assertDemoStaff(data.staffId, storeId);
+    await assertSpaStaff(data.staffId, storeId);
     if (data.type === "UNAVAILABLE") {
       const activeBookings = await spaPrisma.spaBooking.findMany({
         where: {
@@ -243,13 +235,13 @@ function timeToMinutes(time: string): number {
 export async function saveSpaStaffCompensation(input: z.infer<typeof compensationSchema>): Promise<ActionResult> {
   let context: { userId?: string; storeId?: string } = {};
   try {
-    const { user, storeId } = await requireSpaDemoWrite("staff.manage");
+    const { user, storeId } = await requireSpaWrite("staff.manage");
     context = { userId: user.id, storeId };
     if (!(await isSpaCompensationSchemaReady())) {
       throw new AppError("CONFLICT", "抽成設定功能更新中，請稍後再試");
     }
     const data = compensationSchema.parse(input);
-    await assertDemoStaff(data.staffId, storeId);
+    await assertSpaStaff(data.staffId, storeId);
     await spaPrisma.spaStaffCompensation.upsert({
       where: { staffId: data.staffId },
       create: { storeId, staffId: data.staffId, mode: data.mode, value: data.value },
@@ -264,19 +256,19 @@ export async function saveSpaStaffCompensation(input: z.infer<typeof compensatio
 export async function saveSpaStaffSetup(input: z.infer<typeof staffSetupSchema>): Promise<ActionResult> {
   let context: { userId?: string; storeId?: string } = {};
   try {
-    const { user, storeId } = await requireSpaDemoWrite("staff.manage");
+    const { user, storeId } = await requireSpaWrite("staff.manage");
     context = { userId: user.id, storeId };
     if (!(await isSpaCompensationSchemaReady())) {
       throw new AppError("CONFLICT", "抽成設定功能更新中，請稍後再試");
     }
     const data = staffSetupSchema.parse(input);
-    await assertDemoStaff(data.staffId, storeId);
+    await assertSpaStaff(data.staffId, storeId);
     await prisma.$transaction(async (tx) => {
       const staff = await tx.staff.findUnique({
         where: { id_storeId: { id: data.staffId, storeId } },
         select: { userId: true },
       });
-      if (!staff) throw new AppError("NOT_FOUND", "找不到這位 Demo 人員");
+      if (!staff) throw new AppError("NOT_FOUND", "找不到這位 SPA 人員");
       const email = data.email ? normalizeEmail(data.email) : null;
       const duplicateUser = await tx.user.findFirst({
         where: {
@@ -305,7 +297,7 @@ export async function saveSpaStaffSetup(input: z.infer<typeof staffSetupSchema>)
         data: data.skillKeys.map((key) => ({
           storeId,
           staffId: data.staffId,
-          skillId: SKILLS.find((skill) => skill.key === key)!.id,
+          skillId: spaSkillId(storeId, key),
         })),
       });
       await tx.spaStaffAvailability.deleteMany({ where: { storeId, staffId: data.staffId } });

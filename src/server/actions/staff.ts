@@ -20,8 +20,9 @@ import { revalidateStaff, revalidateStaffPermissions } from "@/lib/revalidation"
 import type { UserRole } from "@prisma/client";
 import type { ActionResult } from "@/types";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+import { requireSpaStore } from "@/lib/industry-module-server";
+import { SPA_SKILLS, spaSkillId } from "@/lib/spa-store-identifiers";
 
 const spaSkillKeys = ["body", "head", "foot", "face"] as const;
 const spaTimePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -155,9 +156,7 @@ export async function createStaff(
     const data = createStaffSchema.parse(input);
     const writeStoreId = await resolveWriteStoreId(sessionUser);
     const hasSpaSetup = Boolean(data.spaCompensation || data.spaSkillKeys || data.spaWeeklyAvailability);
-    if (hasSpaSetup && !isSpaDemoStoreId(writeStoreId)) {
-      throw new AppError("FORBIDDEN", "SPA 人員設定不可寫入其他門市");
-    }
+    if (hasSpaSetup) await requireSpaStore(writeStoreId);
     if (hasSpaSetup && !(await isSpaOperationalSchemaReady())) {
       throw new AppError("CONFLICT", "SPA 人員設定功能更新中，請稍後再試");
     }
@@ -190,9 +189,17 @@ export async function createStaff(
     const staffRole: UserRole = data.role ?? "OWNER";
 
     if (data.spaSkillKeys) {
-      const skillIds = data.spaSkillKeys.map((key) => `spa-demo-skill-${key}`);
-      const matchingSkills = await spaPrisma.spaSkill.count({ where: { id: { in: skillIds }, storeId: writeStoreId, isActive: true } });
-      if (matchingSkills !== skillIds.length) throw new AppError("CONFLICT", "部分專業項目尚未建立，請重新整理後再試");
+      await spaPrisma.$transaction(async (tx) => {
+        for (const [sortOrder, skill] of SPA_SKILLS.entries()) {
+          if (!data.spaSkillKeys?.includes(skill.key)) continue;
+          const id = spaSkillId(writeStoreId, skill.key);
+          await tx.spaSkill.upsert({
+            where: { id },
+            create: { id, storeId: writeStoreId, name: skill.name, sortOrder },
+            update: { name: skill.name, sortOrder, isActive: true },
+          });
+        }
+      });
     }
 
     const user = await prisma.$transaction(async (tx) => {
@@ -221,7 +228,7 @@ export async function createStaff(
 
     if (user.staff && hasSpaSetup) {
       await spaPrisma.$transaction(async (tx) => {
-        if (data.spaSkillKeys?.length) await tx.spaStaffSkill.createMany({ data: data.spaSkillKeys.map((key) => ({ storeId: writeStoreId, staffId: user.staff!.id, skillId: `spa-demo-skill-${key}` })) });
+        if (data.spaSkillKeys?.length) await tx.spaStaffSkill.createMany({ data: data.spaSkillKeys.map((key) => ({ storeId: writeStoreId, staffId: user.staff!.id, skillId: spaSkillId(writeStoreId, key) })) });
         if (data.spaWeeklyAvailability?.length) await tx.spaStaffAvailability.createMany({ data: data.spaWeeklyAvailability.map((availability) => ({ ...availability, storeId: writeStoreId, staffId: user.staff!.id })) });
         if (data.spaCompensation) await tx.spaStaffCompensation.create({ data: { storeId: writeStoreId, staffId: user.staff!.id, mode: data.spaCompensation.mode, value: data.spaCompensation.value } });
       });
