@@ -17,7 +17,8 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { FormSuccessToast } from "@/components/form-success-toast";
 import { BookingsManager } from "./bookings-manager";
-import { bookingDashboardPathForStore } from "@/lib/industry-dashboard-routes";
+import { bookingDashboardPathForStoreModule } from "@/lib/industry-dashboard-routes";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 /**
  * 預約管理 — 桌機版（Phase 2 desktop family）
@@ -60,7 +61,10 @@ export default async function BookingsPage({ searchParams }: PageProps) {
       }))
     : null;
   const bookingsStoreId = deepLinkedBooking?.storeId ?? fallbackStoreId;
-  const canonicalPath = bookingDashboardPathForStore(bookingsStoreId);
+  const storeModule = bookingsStoreId
+    ? await getStoreIndustryModule(bookingsStoreId)
+    : null;
+  const canonicalPath = bookingDashboardPathForStoreModule(storeModule);
   if (canonicalPath !== "/dashboard/bookings") redirect(canonicalPath);
   const isViewMode = deepLinkedBooking
     ? user.role !== "ADMIN" && deepLinkedBooking.storeId !== user.storeId

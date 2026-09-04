@@ -33,6 +33,11 @@ export function TreatmentWorkspace({ initialTreatments = INITIAL_TREATMENTS, can
         <span>療程</span><span>售價</span><span>顧客時間</span><span>實際占用</span><span>需要專業</span><span></span>
       </div>
       <div className="divide-y divide-earth-100">
+        {treatments.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-earth-500">
+            尚未建立療程，請由總部重新執行此店的 SPA 初始化檢查。
+          </p>
+        ) : null}
         {treatments.map((item) => <div key={item.id} className="grid grid-cols-[minmax(220px,1.5fr)_100px_110px_120px_minmax(160px,1fr)_90px] items-center gap-3 px-4 py-4 text-sm">
           <div><p className="font-semibold text-earth-900">{item.name}</p><p className="mt-0.5 text-xs text-earth-500">{item.variant}・{item.publicVisible ? "顧客可預約" : "僅店內安排"}</p></div>
           <span className="tabular-nums text-earth-800">${item.price.toLocaleString()}</span>

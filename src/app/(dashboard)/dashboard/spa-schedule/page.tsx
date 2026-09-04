@@ -13,12 +13,7 @@ import {
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { calculateSpaProviderStartTimes } from "@/lib/spa-availability";
-import { SPA_DEMO_CATALOG } from "@/lib/spa-demo-catalog";
-import {
-  assertSpaDemoStoreIdentity,
-  SPA_DEMO_PROVIDERS,
-  SPA_DEMO_STORE,
-} from "@/lib/spa-demo-store";
+import { inferSpaDemoResourceType } from "@/lib/spa-demo-catalog";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { getActiveStoreForRead } from "@/lib/store";
 import {
@@ -27,6 +22,12 @@ import {
 } from "@/lib/store-view-context-server";
 import { getMonthBookingSummary } from "@/server/queries/booking";
 import { SpaProviderSchedule } from "../bookings/spa-provider-schedule";
+import { requireSpaStore } from "@/lib/industry-module-server";
+import {
+  inferSpaTreatmentKind,
+  isSpaSkillKey,
+  spaSkillKeyFromId,
+} from "@/lib/spa-store-identifiers";
 
 interface PageProps {
   searchParams: Promise<{ date?: string }>;
@@ -41,13 +42,8 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
   const activeStoreId = await getActiveStoreForRead(user);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const storeId = storeIdForViewContext(activeStoreId, storeViewContext);
-  if (storeId !== SPA_DEMO_STORE.id) redirect("/dashboard/bookings");
-
-  const identity = await prisma.store.findUnique({
-    where: { id: storeId },
-    select: { id: true, slug: true, isDemo: true },
-  });
-  assertSpaDemoStoreIdentity(identity);
+  if (!storeId) redirect("/dashboard/bookings");
+  await requireSpaStore(storeId).catch(() => redirect("/dashboard/bookings"));
 
   const params = await searchParams;
   const selectedDate = normalizeRequestedDate(params.date, toLocalDateStr());
@@ -57,11 +53,10 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
 
   const dayOfWeek = parseLocalDate(selectedDate).getDay();
   const [monthData, staff, staffSkills, weeklyAvailabilities, availabilityExceptions, spaTreatments] = await Promise.all([
-    getMonthBookingSummary(year, month, SPA_DEMO_STORE.id),
+    getMonthBookingSummary(year, month, storeId),
     prisma.staff.findMany({
       where: {
-        storeId: SPA_DEMO_STORE.id,
-        id: { in: SPA_DEMO_PROVIDERS.map((provider) => provider.id) },
+        storeId,
         status: "ACTIVE",
         isOwner: false,
       },
@@ -70,26 +65,30 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
     }),
     spaSchemaReady
       ? spaPrisma.spaStaffSkill.findMany({
-          where: { storeId: SPA_DEMO_STORE.id },
+          where: { storeId },
           select: { staffId: true, skillId: true },
         })
       : Promise.resolve([]),
     spaSchemaReady
       ? spaPrisma.spaStaffAvailability.findMany({
-          where: { storeId: SPA_DEMO_STORE.id, dayOfWeek, isActive: true },
+          where: { storeId, dayOfWeek, isActive: true },
           select: { staffId: true, startTime: true, endTime: true },
         })
       : Promise.resolve([]),
     spaSchemaReady
       ? spaPrisma.spaStaffAvailabilityException.findMany({
-          where: { storeId: SPA_DEMO_STORE.id, date: parseTaiwanDateToDbDate(selectedDate) },
+          where: { storeId, date: parseTaiwanDateToDbDate(selectedDate) },
           select: { staffId: true, type: true, startTime: true, endTime: true },
         })
       : Promise.resolve([]),
     spaSchemaReady
       ? spaPrisma.spaTreatment.findMany({
-          where: { storeId: SPA_DEMO_STORE.id, isActive: true },
+          where: { storeId, isActive: true },
           select: {
+            id: true,
+            name: true,
+            variantLabel: true,
+            price: true,
             serviceMinutes: true,
             bufferMinutes: true,
             skills: { select: { skill: { select: { id: true } } } },
@@ -112,7 +111,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
 
   const selectedDay = monthData.find((day) => day.date === selectedDate);
   const spaDayContext = await loadDayBusinessHoursContext(
-    SPA_DEMO_STORE.id,
+    storeId,
     selectedDate,
   );
   const bookableStartTimes = applySlotOverrides(
@@ -124,7 +123,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
   const occupiedBookings = spaSchemaReady
     ? await spaPrisma.spaBooking.findMany({
         where: {
-          storeId: SPA_DEMO_STORE.id,
+          storeId,
           bookingDate: parseTaiwanDateToDbDate(selectedDate),
           status: { in: ["PENDING", "CONFIRMED"] },
         },
@@ -142,8 +141,8 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
         serviceMinutes: treatment.serviceMinutes,
         bufferMinutes: treatment.bufferMinutes,
         skillKeys: treatment.skills.map(({ skill }) =>
-          skill.id.replace("spa-demo-skill-", ""),
-        ),
+          spaSkillKeyFromId(skill.id),
+        ).filter(isSpaSkillKey),
       }))
     : [
         { serviceMinutes: 60, bufferMinutes: 15, skillKeys: ["body"] },
@@ -154,10 +153,10 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
   const providerBookableStartTimes = Object.fromEntries(
     spaProviders.map((provider) => {
       const providerSkills = provider.skills.length
-        ? provider.skills.map(({ skill }) =>
-            skill.id.replace("spa-demo-skill-", ""),
-          )
-        : ["body", "head", "foot", "face"];
+        ? provider.skills
+            .map(({ skill }) => spaSkillKeyFromId(skill.id))
+            .filter(isSpaSkillKey)
+        : [];
       const occupiedRanges = occupiedBookings
         .filter((booking) => booking.serviceStaffId === provider.id)
         .map((booking) => ({
@@ -208,7 +207,19 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
         bookableStartTimes={bookableStartTimes}
         providerBookableStartTimes={providerBookableStartTimes}
         timeUnitMinutes={spaDayContext.rule.slotInterval === 15 ? 15 : 30}
-        treatments={SPA_DEMO_CATALOG.map((item) => ({ ...item }))}
+        treatments={spaTreatments.map((item) => ({
+          id: item.id,
+          name: item.name,
+          variant: item.variantLabel ?? `${item.serviceMinutes} 分鐘`,
+          price: Number(item.price),
+          serviceMinutes: item.serviceMinutes,
+          bufferMinutes: item.bufferMinutes,
+          kind: inferSpaTreatmentKind(item.name),
+          resourceType: inferSpaDemoResourceType({
+            treatmentId: item.id,
+            treatmentName: item.name,
+          }),
+        }))}
         initialBookings={selectedDay?.bookings ?? []}
         readOnly={isViewMode}
       />

@@ -9,7 +9,6 @@ import { listReminderRules } from "@/server/queries/reminder";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
-import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
@@ -89,7 +88,6 @@ export default async function SettingsIndexPage() {
     "trial.manage",
   );
   const isSpaStore = (await getStoreIndustryModule(activeStoreId)) === "spa";
-  const isSpaDemo = isSpaStore && activeStoreId === SPA_DEMO_STORE.id;
 
   // 並行拉 summary（皆為既有 query）
   const [plan, shopConfig, staffList, rules, weeklyHours, store, trialSettings, hasDigitalButler] =
@@ -147,7 +145,7 @@ export default async function SettingsIndexPage() {
       title: "店務設定",
       items: [
         {
-          label: isSpaDemo ? "營業與預約時間" : "預約開放設定",
+          label: isSpaStore ? "營業與預約時間" : "預約開放設定",
           href: "/dashboard/settings/hours",
         },
         { label: "值班排班設定", href: "/dashboard/settings/duty" },
@@ -189,7 +187,7 @@ export default async function SettingsIndexPage() {
 
   // ==== 右欄資料 ====
   const quickActions = [
-    ...(isSpaDemo
+    ...(isSpaStore
       ? [{ label: "設定 15／30 分鐘", href: "/dashboard/settings/hours" }]
       : []),
     { label: "新增預約", href: "/dashboard/bookings/new" },
@@ -265,11 +263,11 @@ export default async function SettingsIndexPage() {
 
         {/* 3. 營業與預約時間 */}
         <SettingsActionCard
-          title={isSpaDemo ? "營業與預約時間" : "預約開放設定"}
-          description={isSpaDemo ? "設定營業時間、15／30 分鐘預約單位與休假" : "營業時間、可預約時段與休假"}
+          title={isSpaStore ? "營業與預約時間" : "預約開放設定"}
+          description={isSpaStore ? "設定營業時間、15／30 分鐘預約單位與休假" : "營業時間、可預約時段與休假"}
           iconPath="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
           primaryHref="/dashboard/settings/hours"
-          primaryLabel={isSpaDemo ? "設定營業與時間單位" : "編輯預約設定"}
+          primaryLabel={isSpaStore ? "設定營業與時間單位" : "編輯預約設定"}
           summary={
             <InfoList
               density="compact"

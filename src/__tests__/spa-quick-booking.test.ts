@@ -28,7 +28,7 @@ describe("SPA quick booking", () => {
     ]);
   });
 
-  it("opens an in-place drawer and keeps booking writes behind the SPA Demo boundary", () => {
+  it("opens an in-place drawer and keeps booking writes behind the current SPA store boundary", () => {
     const schedule = readFileSync(
       "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
       "utf8",
@@ -39,7 +39,8 @@ describe("SPA quick booking", () => {
     );
     expect(schedule).toContain("<SpaQuickBookingDrawer");
     expect(action).toContain("await requireSpaStore(storeId)");
-    expect(action).toContain("storeId !== SPA_DEMO_STORE.id");
+    expect(action).not.toContain("SPA_DEMO_STORE");
+    expect(action).toContain("storeId,");
     expect(action).toContain("tx.spaBooking.create");
   });
 
@@ -50,13 +51,14 @@ describe("SPA quick booking", () => {
     expect(bookingAction).toContain("endTime: { gt: data.slotTime }");
   });
 
-  it("keeps on-site checkout inside the SPA Demo boundary", () => {
+  it("keeps on-site checkout inside the current SPA store boundary", () => {
     const checkout = readFileSync("src/server/actions/spa-checkout.ts", "utf8");
     const drawer = readFileSync(
       "src/app/(dashboard)/dashboard/bookings/collect-single-modal.tsx",
       "utf8",
     );
-    expect(checkout).toContain("storeId !== SPA_DEMO_STORE.id");
+    expect(checkout).toContain("await requireSpaStore(storeId)");
+    expect(checkout).not.toContain("SPA_DEMO_STORE");
     expect(checkout).toContain("settleSpaBookingWithPackage");
     expect(checkout).toContain("settleSpaBookingWithStoredValue");
     expect(checkout).toContain('entryType: "DEBIT"');

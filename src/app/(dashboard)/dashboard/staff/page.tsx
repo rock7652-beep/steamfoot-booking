@@ -6,16 +6,15 @@ import { getCurrentStorePlan } from "@/lib/store-plan";
 import { FEATURES } from "@/lib/feature-flags";
 import { FeatureGate } from "@/components/feature-gate";
 import { getActiveStoreForRead } from "@/lib/store";
-import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
-import { SPA_DEMO_PROVIDERS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { StaffWorkspace, type StaffWorkspacePerson } from "./staff-workspace";
 import type { UserRole } from "@prisma/client";
 import { spaPrisma } from "@/lib/spa-db";
 import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { spaSkillKeyFromId } from "@/lib/spa-store-identifiers";
 
 export default async function StaffPage({
   searchParams,
@@ -28,31 +27,26 @@ export default async function StaffPage({
   if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const adminActiveStoreCookie = user.role === "ADMIN"
-    ? (await cookies()).get("active-store-id")?.value ?? null
-    : null;
   const adminMissingStore = user.role === "ADMIN"
-    && (!adminActiveStoreCookie || adminActiveStoreCookie === "__all__");
+    && !activeStoreId;
   const [canManagePermission, staffList, plan] = await Promise.all([
     checkPermission(user.role, user.staffId, "staff.manage"),
     listStaff(activeStoreId),
     getCurrentStorePlan(),
   ]);
   const canManage = canManagePermission && !adminMissingStore;
-  const isSpaDemo = Boolean(
+  const isSpaStore = Boolean(
     activeStoreId &&
-    (await getStoreIndustryModule(activeStoreId)) === "spa" &&
-    activeStoreId === SPA_DEMO_STORE.id,
+    (await getStoreIndustryModule(activeStoreId)) === "spa",
   );
-  const spaSchemaReady = isSpaDemo ? await isSpaOperationalSchemaReady() : false;
-  const spaCompensationReady = isSpaDemo ? await isSpaCompensationSchemaReady() : false;
-  const providerById = new Map(SPA_DEMO_PROVIDERS.map((provider) => [provider.id, provider]));
+  const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
+  const spaCompensationReady = isSpaStore ? await isSpaCompensationSchemaReady() : false;
   let storedSkills: Array<{ staffId: string; skill: { id: string } }> = [];
   let storedAvailability: Array<{ staffId: string; dayOfWeek: number; startTime: string; endTime: string }> = [];
   let storedExceptions: Array<{ staffId: string; date: Date; type: "UNAVAILABLE" | "AVAILABLE"; startTime: string | null; endTime: string | null; reason: string | null }> = [];
   let storedCompensation: Array<{ staffId: string; mode: string; value: { toString(): string } }> = [];
   let spaStaffDataReady = spaSchemaReady;
-  if (isSpaDemo && spaSchemaReady) {
+  if (isSpaStore && spaSchemaReady) {
     try {
       [storedSkills, storedAvailability, storedExceptions] = await Promise.all([
         spaPrisma.spaStaffSkill.findMany({ where: { storeId: activeStoreId! }, include: { skill: { select: { id: true } } } }),
@@ -67,15 +61,17 @@ export default async function StaffPage({
       });
     }
   }
-  if (isSpaDemo && spaCompensationReady) {
+  if (isSpaStore && spaCompensationReady) {
     storedCompensation = await spaPrisma.spaStaffCompensation.findMany({
       where: { storeId: activeStoreId!, isActive: true },
     });
   }
 
   const people: StaffWorkspacePerson[] = staffList.map((staff) => {
-    const provider = providerById.get(staff.id);
-    const persistedSkillKeys = storedSkills.filter((row) => row.staffId === staff.id).map((row) => row.skill.id.replace("spa-demo-skill-", "") as StaffWorkspacePerson["specialtyKeys"][number]);
+    const persistedSkillKeys = storedSkills
+      .filter((row) => row.staffId === staff.id)
+      .map((row) => spaSkillKeyFromId(row.skill.id))
+      .filter((key): key is StaffWorkspacePerson["specialtyKeys"][number] => key !== null);
     const persistedAvailability = storedAvailability.filter((row) => row.staffId === staff.id).map(({ dayOfWeek, startTime, endTime }) => ({ dayOfWeek, startTime, endTime }));
     const persistedExceptions = storedExceptions.filter((row) => row.staffId === staff.id).map((row) => ({
       date: row.date.toISOString().slice(0, 10),
@@ -97,7 +93,7 @@ export default async function StaffPage({
       legalName: staff.user.name,
       roleLabel: staff.isOwner
         ? "店長"
-        : isSpaDemo
+        : isSpaStore
           ? "芳療師"
           : ROLE_LABELS[staff.user.role as UserRole] ?? "服務人員",
       email: staff.user.email ?? "尚未設定",
@@ -105,12 +101,11 @@ export default async function StaffPage({
       colorCode: staff.colorCode,
       status: staff.status,
       customerCount: staff._count.assignedCustomers,
-      specialties: provider?.specialties
-        ?? (staff.isOwner ? "門店營運管理" : "尚未設定專業項目"),
-      specialtyKeys: persistedSkillKeys.length ? persistedSkillKeys : provider?.specialtyKeys ?? [],
-      emergencyContact: provider?.emergencyContact ?? null,
-      weeklyAvailability: persistedAvailability.length ? persistedAvailability : provider?.weeklyAvailability ?? [],
-      scheduleExceptions: persistedExceptions.length ? persistedExceptions : provider?.scheduleExceptions ?? [],
+      specialties: staff.isOwner ? "門店營運管理" : "尚未設定專業項目",
+      specialtyKeys: persistedSkillKeys,
+      emergencyContact: null,
+      weeklyAvailability: persistedAvailability,
+      scheduleExceptions: persistedExceptions,
       canEdit: canManage && !staff.isOwner,
       canResetPassword:
         canManage
@@ -137,16 +132,16 @@ export default async function StaffPage({
         ? Number(formData.get("monthlySpaceFee"))
         : 0,
       role: roleValue as "OWNER" | "PARTNER",
-      spaCompensation: isSpaDemo && formData.get("compensationValue") !== null
+      spaCompensation: isSpaStore && formData.get("compensationValue") !== null
         ? {
             mode: String(formData.get("compensationMode")) as "PERCENTAGE" | "FIXED",
             value: Number(formData.get("compensationValue")),
           }
         : undefined,
-      spaSkillKeys: isSpaDemo
+      spaSkillKeys: isSpaStore
         ? formData.getAll("spaSkillKeys").map(String) as Array<"body" | "head" | "foot" | "face">
         : undefined,
-      spaWeeklyAvailability: isSpaDemo
+      spaWeeklyAvailability: isSpaStore
         ? formData.getAll("spaAvailabilityDays").map((day) => ({
             dayOfWeek: Number(day),
             startTime: String(formData.get("spaStartTime")),
@@ -178,16 +173,16 @@ export default async function StaffPage({
                 新增人員失敗：{createError}
               </div>
             ) : null}
-            {isSpaDemo && !spaStaffDataReady ? (
+            {isSpaStore && !spaStaffDataReady ? (
               <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                人員排班資料功能更新中，目前可先查看 Demo 設定；待資料表就緒後即可儲存。
+                人員排班資料功能更新中，待資料表就緒後即可儲存。
               </div>
             ) : null}
             <StaffWorkspace
               people={people}
               today={toLocalDateStr()}
               canManage={canManage}
-              showSpaCompensation={isSpaDemo && spaCompensationReady}
+              showSpaCompensation={isSpaStore && spaCompensationReady}
               createAction={handleCreateStaff}
             />
           </>

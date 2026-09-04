@@ -320,7 +320,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(manager).not.toContain("開始服務");
   });
 
-  it("stores SPA compensation separately and never writes it for formal stores", () => {
+  it("stores SPA compensation separately and gates it by the authoritative store module", () => {
     const schema = readFileSync("spa-prisma/schema.prisma", "utf8");
     const migration = readFileSync("prisma/migrations/20260831140000_add_spa_staff_compensation/migration.sql", "utf8");
     const staffAction = readFileSync("src/server/actions/staff.ts", "utf8");
@@ -332,14 +332,14 @@ describe("SPA Demo tenant isolation", () => {
     expect(migration).toContain("SpaStaffCompensation_value_check");
     expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
     expect(migration).toContain("FORCE ROW LEVEL SECURITY");
-    expect(staffAction).toContain("isSpaDemoStoreId(writeStoreId)");
+    expect(staffAction).toContain("await requireSpaStore(writeStoreId)");
     expect(staffAction).toContain("data.spaCompensation");
     expect(staffAction).toContain("data.spaSkillKeys");
     expect(staffAction).toContain("data.spaWeeklyAvailability");
     expect(staffAction).toContain("spaPrisma.$transaction");
     expect(spaAction).toContain("saveSpaStaffCompensation");
     expect(spaAction).toContain("saveSpaStaffSetup");
-    expect(spaAction).toContain('requireSpaDemoWrite("staff.manage")');
+    expect(spaAction).toContain('requireSpaWrite("staff.manage")');
     expect(report).toContain("compensationAmount");
     expect(report).toContain("booking.refundedAt");
   });

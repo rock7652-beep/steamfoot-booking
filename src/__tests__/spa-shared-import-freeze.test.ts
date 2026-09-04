@@ -11,9 +11,6 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/app/(dashboard)/dashboard/bookings/page.tsx",
   "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx",
   "src/app/(dashboard)/dashboard/plans/page.tsx",
-  "src/app/(dashboard)/dashboard/settings/hours/page.tsx",
-  "src/app/(dashboard)/dashboard/settings/page.tsx",
-  "src/app/(dashboard)/dashboard/staff/[id]/edit/page.tsx",
   "src/app/(dashboard)/dashboard/staff/page.tsx",
   "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
   "src/app/(liff)/liff/design-preview/booking/page.tsx",
@@ -27,6 +24,7 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/lib/store-plan.ts",
   "src/server/actions/booking-drawer.ts",
   "src/server/actions/staff.ts",
+  "src/server/actions/store-onboarding.ts",
   "src/server/queries/booking.ts",
 ].sort();
 

@@ -14,12 +14,12 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { PlansManager } from "./_components/plans-manager";
 import type { PlanRow } from "./_components/plan-form-drawer";
-import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { TreatmentWorkspace } from "./_components/treatment-workspace";
-import { INITIAL_TREATMENTS, type TreatmentRow } from "@/lib/spa-treatment-defaults";
+import type { TreatmentRow } from "@/lib/spa-treatment-defaults";
 import { spaPrisma } from "@/lib/spa-db";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { spaSkillKeyFromId } from "@/lib/spa-store-identifiers";
 
 export default async function PlansPage() {
   const user = await getCurrentUser();
@@ -38,8 +38,7 @@ export default async function PlansPage() {
   const isSpaStore = plansStoreId
     ? (await getStoreIndustryModule(plansStoreId)) === "spa"
     : false;
-  const isSpaDemo = isSpaStore && plansStoreId === SPA_DEMO_STORE.id;
-  const spaSchemaReady = isSpaDemo ? await isSpaOperationalSchemaReady() : false;
+  const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。
@@ -71,15 +70,14 @@ export default async function PlansPage() {
     ...p,
     price: Number(p.price) as unknown as PlanRow["price"],
   }));
-  const storedTreatments = isSpaDemo && spaSchemaReady && plansStoreId
+  const storedTreatments = isSpaStore && spaSchemaReady && plansStoreId
     ? await spaPrisma.spaTreatment.findMany({
         where: { storeId: plansStoreId, isActive: true },
         include: { skills: { include: { skill: { select: { id: true } } } } },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       })
     : [];
-  const spaTreatmentRows: TreatmentRow[] = storedTreatments.length
-    ? storedTreatments.map((item) => ({
+  const spaTreatmentRows: TreatmentRow[] = storedTreatments.map((item) => ({
         id: item.id as TreatmentRow["id"],
         name: item.name,
         variant: item.variantLabel ?? `${item.serviceMinutes} 分鐘`,
@@ -87,16 +85,17 @@ export default async function PlansPage() {
         serviceMinutes: item.serviceMinutes,
         bufferMinutes: item.bufferMinutes,
         publicVisible: item.publicVisible,
-        skillKeys: item.skills.map(({ skill }) => skill.id.replace("spa-demo-skill-", "") as TreatmentRow["skillKeys"][number]),
-      }))
-    : INITIAL_TREATMENTS;
+        skillKeys: item.skills
+          .map(({ skill }) => spaSkillKeyFromId(skill.id))
+          .filter((key): key is TreatmentRow["skillKeys"][number] => key !== null),
+      }));
 
   return (
     <FeatureGate plan={storePlan} feature={FEATURES.PLAN_MANAGEMENT}>
       <PageShell>
         <PageHeader
-          title={isSpaDemo ? "療程管理" : "方案管理"}
-          subtitle={isSpaDemo ? "設定療程金額、服務時間、整理時間與必要專業" : "管理前台可購買與店內可指派方案"}
+          title={isSpaStore ? "療程管理" : "方案管理"}
+          subtitle={isSpaStore ? "設定療程金額、服務時間、整理時間與必要專業" : "管理前台可購買與店內可指派方案"}
           actions={
             <Link
               href="/dashboard"
@@ -107,12 +106,12 @@ export default async function PlansPage() {
           }
         />
 
-        {isSpaDemo && !spaSchemaReady ? (
+        {isSpaStore && !spaSchemaReady ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            療程資料功能更新中，目前可先查看 Demo 設定；待資料表就緒後即可儲存。
+            療程資料功能更新中，待資料表就緒後即可儲存。
           </div>
         ) : null}
-        {isSpaDemo ? <TreatmentWorkspace initialTreatments={spaTreatmentRows} canManage={canManage && spaSchemaReady} /> : <PlansManager initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
+        {isSpaStore ? <TreatmentWorkspace initialTreatments={spaTreatmentRows} canManage={canManage && spaSchemaReady} /> : <PlansManager initialPlans={planRows} canManage={canManage} readOnly={isViewMode} />}
       </PageShell>
     </FeatureGate>
   );

@@ -651,14 +651,23 @@ export default function DashboardShell({
       return STORE_ADMIN_NAV.filter((item) => item.href !== "/dashboard/staff");
     }
     const labels: Partial<Record<string, string>> = {
-      "/dashboard": "今日營運",
       "/dashboard/plans": "療程管理",
+      "/dashboard/settings": "營運設定",
     };
-    return STORE_ADMIN_NAV.map((item) =>
-      item.href === "/dashboard/bookings"
-        ? { ...item, href: bookingDashboardPath("spa"), label: "芳療師排程" }
-        : { ...item, label: labels[item.href] ?? item.label },
-    );
+    const spaManagerRoutes = new Set([
+      "/dashboard/bookings",
+      "/dashboard/customers",
+      "/dashboard/plans",
+      "/dashboard/staff",
+      "/dashboard/settings",
+    ]);
+    return STORE_ADMIN_NAV
+      .filter((item) => spaManagerRoutes.has(item.href))
+      .map((item) =>
+        item.href === "/dashboard/bookings"
+          ? { ...item, href: bookingDashboardPath("spa"), label: "預約管理" }
+          : { ...item, label: labels[item.href] ?? item.label },
+      );
   }, [industryModuleId]);
 
   const navGroupsToRender: NavGroup[] = useMemo(() => {

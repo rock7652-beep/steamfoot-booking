@@ -6,20 +6,23 @@ import { createCustomer } from "@/server/actions/customer";
 import { spaPrisma } from "@/lib/spa-db";
 import { prisma } from "@/lib/db";
 import { requireWritablePermission } from "@/lib/permissions";
-import { currentStoreId } from "@/lib/store";
-import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { resolveWriteStoreId } from "@/lib/store";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireSpaStore } from "@/lib/industry-module-server";
 import { fetchSpaBookingAvailability } from "@/server/actions/spa-booking-availability";
 import { composeSpaBookingTreatments } from "@/lib/spa-booking-composition";
 import {
-  findSpaDemoCatalogItem,
   inferSpaDemoResourceType,
   SPA_DEMO_RESOURCE_CAPACITY,
   spaResourceLabel,
 } from "@/lib/spa-demo-catalog";
 import { addMinutes } from "@/lib/spa-scheduling";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
+import {
+  inferSpaTreatmentKind,
+  isSpaSkillKey,
+  spaSkillKeyFromId,
+} from "@/lib/spa-store-identifiers";
 
 const inputSchema = z.object({
   customerId: z.string().min(1).optional(),
@@ -53,11 +56,8 @@ export async function createSpaQuickBooking(
 
   try {
     const user = await requireWritablePermission("booking.create");
-    const storeId = currentStoreId(user);
+    const storeId = await resolveWriteStoreId(user);
     await requireSpaStore(storeId);
-    if (storeId !== SPA_DEMO_STORE.id) {
-      return { success: false, error: "快速排預約目前只開放 SPA Demo 驗收" };
-    }
 
     const data = parsed.data;
     let customerId = data.customerId;
@@ -74,31 +74,40 @@ export async function createSpaQuickBooking(
 
     if (!customerId) return { success: false, error: "請選擇顧客" };
 
-    const [customer, staff, availability] = await Promise.all([
+    const [customer, staff, availability, storedTreatments] = await Promise.all([
       prisma.customer.findFirst({ where: { id: customerId, storeId }, select: { id: true } }),
       prisma.staff.findFirst({ where: { id: data.serviceStaffId, storeId, status: "ACTIVE" }, select: { id: true } }),
       fetchSpaBookingAvailability({ date: data.bookingDate, treatmentIds: data.treatmentIds }),
+      spaPrisma.spaTreatment.findMany({
+        where: { id: { in: data.treatmentIds }, storeId, isActive: true },
+        include: { skills: { select: { skill: { select: { id: true } } } } },
+      }),
     ]);
     if (!customer || !staff) return { success: false, error: "顧客或芳療師不屬於本店", customerId };
     if (!availability.success) return { success: false, error: availability.error, customerId };
     const provider = availability.data.providers.find((candidate) => candidate.id === data.serviceStaffId);
     if (!provider?.startTimes.includes(data.slotTime)) return { success: false, error: "此時段目前無法安排所選芳療師", customerId };
 
-    const treatments = data.treatmentIds.map((id) => {
-      const treatment = findSpaDemoCatalogItem(id);
-      if (!treatment) throw new Error("SPA_TREATMENT_NOT_FOUND");
-      return treatment;
-    });
+    if (storedTreatments.length !== data.treatmentIds.length) {
+      return { success: false, error: "服務項目不存在、已停用或不屬於本店", customerId };
+    }
+    const treatmentById = new Map(storedTreatments.map((item) => [item.id, item]));
+    const treatments = data.treatmentIds.map((id) => treatmentById.get(id)!);
     const composition = composeSpaBookingTreatments(treatments.map((treatment) => ({
       id: treatment.id,
       name: treatment.name,
-      variantLabel: treatment.variant,
-      price: treatment.price,
+      variantLabel: treatment.variantLabel,
+      price: Number(treatment.price),
       serviceMinutes: treatment.serviceMinutes,
       bufferMinutes: treatment.bufferMinutes,
-      skillKeys: [...treatment.skills],
-      kind: treatment.kind,
-      resourceType: treatment.resourceType,
+      skillKeys: treatment.skills
+        .map(({ skill }) => spaSkillKeyFromId(skill.id))
+        .filter(isSpaSkillKey),
+      kind: inferSpaTreatmentKind(treatment.name),
+      resourceType: inferSpaDemoResourceType({
+        treatmentId: treatment.id,
+        treatmentName: treatment.name,
+      }),
     })));
     const booking = await spaPrisma.$transaction(async (tx) => {
       // Serialize writes for one SPA store/date, then recheck provider and
@@ -130,13 +139,6 @@ export async function createSpaQuickBooking(
       if (occupiedResourceCount >= SPA_DEMO_RESOURCE_CAPACITY[composition.resourceType]) {
         throw new AppError("CONFLICT", `${spaResourceLabel(composition.resourceType)}在所選時間已滿`);
       }
-      for (const [sortOrder, treatment] of treatments.entries()) {
-        await tx.spaTreatment.upsert({
-          where: { id: treatment.id },
-          create: { id: treatment.id, storeId, name: treatment.name, variantLabel: treatment.variant, price: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, publicVisible: true, sortOrder },
-          update: { name: treatment.name, variantLabel: treatment.variant, price: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, isActive: true },
-        });
-      }
       return tx.spaBooking.create({
         data: {
           storeId,
@@ -151,7 +153,7 @@ export async function createSpaQuickBooking(
           totalPriceSnapshot: composition.totalPrice,
           requestKey: data.requestKey,
           notes: data.notes || null,
-          items: { create: treatments.map((treatment, sortOrder) => ({ storeId, treatmentId: treatment.id, treatmentNameSnapshot: treatment.name, variantSnapshot: treatment.variant, priceSnapshot: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, sortOrder })) },
+          items: { create: treatments.map((treatment, sortOrder) => ({ storeId, treatmentId: treatment.id, treatmentNameSnapshot: treatment.name, variantSnapshot: treatment.variantLabel, priceSnapshot: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, sortOrder })) },
         },
       });
     });

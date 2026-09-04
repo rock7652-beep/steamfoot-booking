@@ -47,6 +47,8 @@ import {
   EmptyRow,
   type Column,
 } from "@/components/desktop";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { redirect } from "next/navigation";
 
 /**
  * 店家後台首頁 — Decision Page（桌機版）
@@ -73,6 +75,12 @@ export default async function DashboardHomePage() {
   if (!user) return null;
 
   const activeStoreId = await getActiveStoreForRead(user);
+  if (
+    activeStoreId &&
+    (await getStoreIndustryModule(activeStoreId)) === "spa"
+  ) {
+    redirect("/dashboard/spa-schedule");
+  }
   let storeViewContext: StoreViewContext | null = null;
   if (user.role !== "ADMIN" && user.storeId) {
     storeViewContext = await resolveStoreViewContext(user, { viewedStoreId: activeStoreId });
