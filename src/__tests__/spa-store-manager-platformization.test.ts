@@ -1,9 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import {
-  spaSkillId,
-  spaSkillKeyFromId,
-} from "@/lib/spa-store-identifiers";
+import { spaSkillId, spaSkillKeyFromId } from "@/lib/spa-store-identifiers";
 
 const managerFiles = [
   "src/app/(dashboard)/dashboard/spa-schedule/page.tsx",
@@ -38,7 +35,9 @@ describe("SPA store manager platformization", () => {
   });
 
   it("uses the authoritative SPA module gate before reusable writes", () => {
-    for (const file of managerFiles.filter((file) => file.includes("/actions/"))) {
+    for (const file of managerFiles.filter((file) =>
+      file.includes("/actions/"),
+    )) {
       const source = readFileSync(file, "utf8");
       expect(source, file).toContain("requireSpaStore");
     }
@@ -56,5 +55,24 @@ describe("SPA store manager platformization", () => {
     ]) {
       expect(sidebar).toContain(`"${path}"`);
     }
+  });
+
+  it("keeps the full SPA manager operations interface on authenticated stores", () => {
+    const workspace = readFileSync(
+      "src/app/(dashboard)/dashboard/bookings/spa-provider-schedule.tsx",
+      "utf8",
+    );
+    for (const label of [
+      "今日營運",
+      "當日營運摘要",
+      "每日營運與帳務",
+      "時間 × 芳療師",
+      "現場快速預約",
+    ]) {
+      expect(workspace).toContain(label);
+    }
+    expect(workspace).not.toContain("SPA_DEMO_STORE");
+    expect(workspace).not.toContain("SPA_DEMO_PROVIDERS");
+    expect(workspace).not.toContain("createSpaDemoCustomerBooking");
   });
 });

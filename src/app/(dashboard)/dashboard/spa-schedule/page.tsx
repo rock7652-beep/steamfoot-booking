@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/desktop";
 import { FormSuccessToast } from "@/components/form-success-toast";
-import { applySlotOverrides, loadDayBusinessHoursContext } from "@/lib/business-hours-resolver";
+import {
+  applySlotOverrides,
+  loadDayBusinessHoursContext,
+} from "@/lib/business-hours-resolver";
 import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
 import {
@@ -35,7 +38,10 @@ interface PageProps {
 
 export default async function SpaSchedulePage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
-  if (!user || !(await checkPermission(user.role, user.staffId, "booking.read"))) {
+  if (
+    !user ||
+    !(await checkPermission(user.role, user.staffId, "booking.read"))
+  ) {
     redirect("/dashboard");
   }
 
@@ -52,7 +58,14 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
   const isViewMode = storeViewContext?.isViewMode === true;
 
   const dayOfWeek = parseLocalDate(selectedDate).getDay();
-  const [monthData, staff, staffSkills, weeklyAvailabilities, availabilityExceptions, spaTreatments] = await Promise.all([
+  const [
+    monthData,
+    staff,
+    staffSkills,
+    weeklyAvailabilities,
+    availabilityExceptions,
+    spaTreatments,
+  ] = await Promise.all([
     getMonthBookingSummary(year, month, storeId),
     prisma.staff.findMany({
       where: {
@@ -140,9 +153,9 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
     ? spaTreatments.map((treatment) => ({
         serviceMinutes: treatment.serviceMinutes,
         bufferMinutes: treatment.bufferMinutes,
-        skillKeys: treatment.skills.map(({ skill }) =>
-          spaSkillKeyFromId(skill.id),
-        ).filter(isSpaSkillKey),
+        skillKeys: treatment.skills
+          .map(({ skill }) => spaSkillKeyFromId(skill.id))
+          .filter(isSpaSkillKey),
       }))
     : [
         { serviceMinutes: 60, bufferMinutes: 15, skillKeys: ["body"] },
@@ -189,7 +202,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
   );
 
   return (
-    <PageShell className="flex h-[calc(100dvh-64px)] w-full max-w-none flex-col gap-3 px-4 py-3">
+    <PageShell className="w-full max-w-none px-4 py-5 sm:px-6 lg:px-8 lg:py-7 xl:px-10">
       <FormSuccessToast />
       <SpaProviderSchedule
         key={`${selectedDate}-${selectedDay?.bookings.map((booking) => `${booking.id}:${booking.bookingStatus}:${booking.collected}`).join("|") ?? "empty"}`}
@@ -202,7 +215,8 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
                 .map((range) => `${range.startTime}–${range.endTime}`)
                 .join("、")
             : "今日休假",
-          nextAvailableTime: providerBookableStartTimes[provider.id]?.[0] ?? null,
+          nextAvailableTime:
+            providerBookableStartTimes[provider.id]?.[0] ?? null,
         }))}
         bookableStartTimes={bookableStartTimes}
         providerBookableStartTimes={providerBookableStartTimes}
