@@ -127,6 +127,9 @@ export function SpaProviderSchedule({
   const activeBooking = activeBookingId
     ? (bookingById.get(activeBookingId) ?? null)
     : null;
+  const pendingCount = bookings.filter((booking) =>
+    ["PENDING", "CONFIRMED"].includes(booking.bookingStatus),
+  ).length;
   const todayDate = nowMinutes == null ? date : toDateInputValue(new Date());
   const isToday = nowMinutes != null && date === todayDate;
   const completedCount = bookings.filter(
@@ -338,6 +341,11 @@ export function SpaProviderSchedule({
             </h2>
           </div>
           <div className="flex flex-1 flex-wrap gap-1.5">
+            <Metric
+              tone={pendingCount > 0 ? "notice" : "quiet"}
+              label="待服務"
+              value={`${pendingCount} 筆`}
+            />
             {unsettledCount > 0 ? (
               <Metric
                 tone="warning"
