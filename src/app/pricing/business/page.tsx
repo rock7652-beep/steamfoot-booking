@@ -89,6 +89,16 @@ export default function BusinessPage() {
           </div>
         </section>
 
+        <section aria-labelledby="guides-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="guides-title" className="text-2xl font-semibold">店長經營指南</h2>
+              <p className="mt-2 text-base leading-7 text-[#4C6259]">預約溝通、逐筆提醒、到期追蹤，哪些工作可以交給管家？</p>
+            </div>
+            <Link href="/pricing/guides" className="inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">看看三個省時做法 →</Link>
+          </div>
+        </section>
+
         <section aria-labelledby="contact-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8 sm:py-8">
           <div className="grid gap-5 lg:grid-cols-[1.25fr_1fr] lg:items-center">
             <div><p className="text-sm font-medium tracking-widest text-[#74603C]">從你的門市需要開始</p>
