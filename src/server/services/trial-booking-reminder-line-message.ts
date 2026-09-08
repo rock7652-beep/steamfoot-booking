@@ -1,15 +1,7 @@
+import { LINE_CARD_COLORS, LINE_CARD_STYLES, outlinedLineAction } from "@/lib/line-card-theme";
 import type { LineMessage, LinePushResult } from "@/lib/line";
 
-const REMINDER_CARD_COLORS = {
-  headerBackground: "#F3EDE5",
-  headerText: "#4B433B",
-  headerSubtext: "#756B62",
-  primary: "#667A5C",
-  reschedule: "#8B6B52",
-  cancel: "#AD5F58",
-  testBadgeBackground: "#E9D9B9",
-  testBadgeText: "#5A421F",
-} as const;
+const REMINDER_CARD_COLORS = LINE_CARD_COLORS;
 
 export type PackageBookingReminderCard = {
   customerName: string;
@@ -67,13 +59,14 @@ export function buildPackageBookingTestReminderLineMessages(
       : `${card.customerName} 的預約提醒：${card.bookingDate} ${card.bookingTime}`,
     contents: {
       type: "bubble",
+      styles: LINE_CARD_STYLES,
       header: {
         type: "box",
         layout: "vertical",
         backgroundColor: REMINDER_CARD_COLORS.headerBackground,
         paddingAll: "16px",
         contents: [
-          { type: "text", text: "蒸管家｜預約提醒", color: REMINDER_CARD_COLORS.headerText, weight: "bold", size: "lg" },
+          { type: "text", text: "蒸管家｜預約提醒", color: REMINDER_CARD_COLORS.headerText, weight: "bold", size: "lg", wrap: true },
           ...(card.recurrenceIndex && card.recurrenceTotalOccurrences
             ? [{
                 type: "text" as const,
@@ -104,7 +97,7 @@ export function buildPackageBookingTestReminderLineMessages(
         layout: "vertical",
         spacing: "md",
         contents: [
-          { type: "text", text: `${card.customerName} 您好`, weight: "bold", size: "lg" },
+          { type: "text", text: `${card.customerName} 您好`, color: LINE_CARD_COLORS.primary, wrap: true, weight: "bold", size: "lg" },
           { type: "separator" },
           detailRow("日期時間", `${card.bookingDate} ${card.bookingTime}`),
           detailRow("店名", card.shopName),
@@ -114,8 +107,8 @@ export function buildPackageBookingTestReminderLineMessages(
           ...(card.reminderText
             ? [
                 { type: "separator" },
-                { type: "text", text: "提醒內容", color: "#8A817A", size: "sm" },
-                { type: "text", text: card.reminderText, color: "#302924", size: "sm", wrap: true },
+                { type: "text", text: "提醒內容", color: LINE_CARD_COLORS.label, size: "sm" },
+                { type: "text", text: card.reminderText, color: LINE_CARD_COLORS.text, size: "sm", wrap: true },
               ]
             : []),
         ],
@@ -133,15 +126,10 @@ export function buildPackageBookingTestReminderLineMessages(
                 action: { type: "uri", label: "開啟 Google Maps 導航", uri: card.mapUrl },
               }]
             : []),
+          outlinedLineAction({ type: "uri", label: "改時段", uri: actionUrl("reschedule") }),
           {
             type: "button",
-            style: "primary",
-            color: REMINDER_CARD_COLORS.reschedule,
-            action: { type: "uri", label: "改時段", uri: actionUrl("reschedule") },
-          },
-          {
-            type: "button",
-            style: "primary",
+            style: "link",
             color: REMINDER_CARD_COLORS.cancel,
             action: { type: "uri", label: "取消前往", uri: actionUrl("cancel") },
           },
@@ -165,13 +153,14 @@ export function buildTrialBookingReminderLineMessages(
     altText: `${card.customerName} 的預約提醒：${card.bookingDate} ${card.bookingTime}。請開啟訊息確認、改期或取消。`,
     contents: {
       type: "bubble",
+      styles: LINE_CARD_STYLES,
       header: {
         type: "box",
         layout: "vertical",
         backgroundColor: REMINDER_CARD_COLORS.headerBackground,
         paddingAll: "16px",
         contents: [
-          { type: "text", text: "蒸管家｜預約提醒", color: REMINDER_CARD_COLORS.headerText, weight: "bold", size: "lg" },
+          { type: "text", text: "蒸管家｜預約提醒", color: REMINDER_CARD_COLORS.headerText, weight: "bold", size: "lg", wrap: true },
           { type: "text", text: "請確認明日行程", color: REMINDER_CARD_COLORS.headerSubtext, size: "sm", margin: "sm" },
         ],
       },
@@ -180,7 +169,7 @@ export function buildTrialBookingReminderLineMessages(
         layout: "vertical",
         spacing: "md",
         contents: [
-          { type: "text", text: `${card.customerName} 您好`, weight: "bold", size: "lg" },
+          { type: "text", text: `${card.customerName} 您好`, color: LINE_CARD_COLORS.primary, wrap: true, weight: "bold", size: "lg" },
           { type: "separator" },
           detailRow("日期時間", `${card.bookingDate} ${card.bookingTime}`),
           detailRow("店名", card.shopName),
@@ -188,8 +177,8 @@ export function buildTrialBookingReminderLineMessages(
           ...(card.reminderText
             ? [
                 { type: "separator" },
-                { type: "text", text: "提醒內容", color: "#8A817A", size: "sm" },
-                { type: "text", text: card.reminderText, color: "#302924", size: "sm", wrap: true },
+                { type: "text", text: "提醒內容", color: LINE_CARD_COLORS.label, size: "sm" },
+                { type: "text", text: card.reminderText, color: LINE_CARD_COLORS.text, size: "sm", wrap: true },
               ]
             : []),
         ],
@@ -213,15 +202,10 @@ export function buildTrialBookingReminderLineMessages(
             color: REMINDER_CARD_COLORS.primary,
             action: { type: "uri", label: "確認會到", uri: actionUrl("confirm") },
           },
+          outlinedLineAction({ type: "uri", label: "需要改期", uri: actionUrl("reschedule") }),
           {
             type: "button",
-            style: "primary",
-            color: REMINDER_CARD_COLORS.reschedule,
-            action: { type: "uri", label: "需要改期", uri: actionUrl("reschedule") },
-          },
-          {
-            type: "button",
-            style: "primary",
+            style: "link",
             color: REMINDER_CARD_COLORS.cancel,
             action: { type: "uri", label: "取消預約", uri: actionUrl("cancel") },
           },
@@ -253,8 +237,8 @@ function detailRow(label: string, value: string): Record<string, unknown> {
     layout: "baseline",
     spacing: "sm",
     contents: [
-      { type: "text", text: label, color: "#8A817A", size: "sm", flex: 3 },
-      { type: "text", text: value, color: "#302924", size: "sm", wrap: true, flex: 7 },
+      { type: "text", text: label, color: LINE_CARD_COLORS.label, size: "sm", flex: 3 },
+      { type: "text", text: value, color: LINE_CARD_COLORS.text, size: "sm", wrap: true, flex: 7 },
     ],
   };
 }

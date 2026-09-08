@@ -653,7 +653,7 @@ describe("runReminders (daily next-day batch)", () => {
       "地址",
       "302 新竹縣竹北市中崙里科大一路 80 號",
     ]));
-    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+    expect(cardButtons(message.contents.footer.contents).map((button) => button.action.label)).toEqual([
       "開啟 Google Maps 導航",
       "改時段",
       "取消前往",
@@ -661,10 +661,10 @@ describe("runReminders (daily next-day batch)", () => {
     expect(JSON.stringify(message)).toContain("請提前五分鐘到店。");
     expect(JSON.stringify(message)).not.toContain("正式排程自訂提醒");
     expect(messageLogs[0]?.renderedBody).toBe("正式排程自訂提醒");
-    expect(message.contents.footer.contents[1]?.action.uri).toContain(
+    expect(cardButtons(message.contents.footer.contents)[1]?.action.uri).toContain(
       "/s/store-test/my-bookings/booking-1/reschedule",
     );
-    expect(message.contents.footer.contents[2]?.action.uri).toContain(
+    expect(cardButtons(message.contents.footer.contents)[2]?.action.uri).toContain(
       "/s/store-test/my-bookings/booking-1/cancel",
     );
     expect(messageLogs).toHaveLength(1);
@@ -695,7 +695,7 @@ describe("runReminders (daily next-day batch)", () => {
     };
     const bodyText = JSON.stringify(message.contents.body);
     expect(bodyText).not.toContain("302 新竹縣竹北市");
-    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+    expect(cardButtons(message.contents.footer.contents).map((button) => button.action.label)).toEqual([
       "改時段",
       "取消前往",
     ]);
@@ -724,19 +724,19 @@ describe("runReminders (daily next-day batch)", () => {
     expect(message.contents.body.contents[2]?.contents?.map((item) => item.text)).toEqual(["日期時間", "2026-05-12 14:00"]);
     expect(message.contents.body.contents[3]?.contents?.map((item) => item.text)).toEqual(["店名", "Test Shop"]);
     expect(message.contents.body.contents[4]?.contents?.map((item) => item.text)).toEqual(["預約項目", "首次體驗"]);
-    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+    expect(cardButtons(message.contents.footer.contents).map((button) => button.action.label)).toEqual([
       "開啟 Google Maps 導航",
       "確認會到",
       "需要改期",
       "取消預約",
     ]);
-    expect(message.contents.footer.contents[0]?.action.uri).toBe(
+    expect(cardButtons(message.contents.footer.contents)[0]?.action.uri).toBe(
       "https://maps.example.com/test-shop",
     );
-    for (const button of message.contents.footer.contents.slice(1)) {
+    for (const button of cardButtons(message.contents.footer.contents).slice(1)) {
       expect(button.action.uri).toContain("/trial-booking/manage?token=");
     }
-    expect(message.contents.footer.contents.slice(1).map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
+    expect(cardButtons(message.contents.footer.contents).slice(1).map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
       "confirm",
       "reschedule",
       "cancel",
@@ -1465,3 +1465,10 @@ describe("getReminderStats (daily-batch model)", () => {
     expect(stats.todayPending).toBe(1); // 只有 b3
   });
 });
+
+/** Unwrap outlined controls while keeping action assertions independent of presentation. */
+function cardButtons<T>(items: T[]): T[] {
+  return items.flatMap((item) => item && typeof item === "object" && "contents" in item
+    ? (item as { contents: T[] }).contents
+    : [item]);
+}
