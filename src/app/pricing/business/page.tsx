@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { DayStory } from "./day-story";
 
 export const metadata: Metadata = {
@@ -61,15 +60,8 @@ export default function BusinessPage() {
                   <h3 className="mt-2 text-2xl font-medium">暖沐蒸足</h3>
                   <p className="mt-3 text-base font-medium leading-7">把預約前的提醒，交給系統安排。</p>
                   <p className="mt-2 text-base leading-7 text-[#4C6259]">暖沐蒸足已啟用提醒規則，店長可集中查看通知設定與發送紀錄。</p>
-                  <details name="store-case" className="mt-3 border-t border-[#153B31]/15 pt-2">
-                    <summary className="cursor-pointer py-2 text-base font-medium">看店家怎麼用</summary>
-                    <dl className="mt-2 space-y-3 text-base leading-7">
-                      <div><dt className="font-medium">使用情境</dt><dd className="text-[#4C6259]">預約前，需要安排顧客提醒並確認通知是否送出。</dd></div>
-                      <div><dt className="font-medium">實際做法</dt><dd className="text-[#4C6259]">門市啟用提醒規則，依設定發送；店長在提醒管理查看設定及發送紀錄。</dd></div>
-                      <div><dt className="font-medium">能省下的步驟</dt><dd className="text-[#4C6259]">符合規則的預約可由系統發送提醒，減少逐筆手動傳訊息。</dd></div>
-                    </dl>
-                  </details>
-                  <a href="#how-it-works" className="mt-4 inline-flex min-h-12 items-center text-sm font-medium underline underline-offset-4">查看功能示意 ↑</a>
+
+                  <a href="/pricing/cases?store=nuanmu" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖沐完整案例 →</a>
                 </article>
                 <article className="flex flex-col rounded-xl border border-[#153B31]/15 bg-white/60 p-5">
                   <p className="text-sm text-[#74603C]">案例 B・體驗預約</p>
@@ -77,18 +69,8 @@ export default function BusinessPage() {
 
                   <p className="mt-3 text-base font-medium leading-7">顧客選好時間，預約直接進後台。</p>
                   <p className="mt-2 text-base leading-7 text-[#4C6259]">暖暖蒸足讓體驗顧客自行選擇日期與時段，店長在後台查看當日安排。</p>
-                  <details name="store-case" className="mt-3 border-t border-[#153B31]/15 pt-2">
-                    <summary className="cursor-pointer py-2 text-base font-medium">看店家怎麼用</summary>
-                    <dl className="mt-2 space-y-3 text-base leading-7">
-                      <div><dt className="font-medium">使用情境</dt><dd className="text-[#4C6259]">新顧客想預約首次體驗，需要知道哪些日期與時段可以選。</dd></div>
-                      <div><dt className="font-medium">實際做法</dt><dd className="text-[#4C6259]">顧客選擇日期、時段並填寫必要資料；送出成功後，系統在門市後台建立體驗預約。</dd></div>
-                      <div><dt className="font-medium">能省下的步驟</dt><dd className="text-[#4C6259]">已完成的線上預約不必再手抄到另一份預約表，店長可直接查看名單與時段。</dd></div>
-                    </dl>
-                  </details>
-                  <a href="/pricing/business-assets/booking-time-original.png" target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center gap-3 rounded-lg border border-[#153B31]/15 bg-white p-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2" aria-label="另開真實預約畫面">
-                    <Image src="/pricing/business-assets/booking-time-original.png" width={1532} height={1364} sizes="(max-width: 640px) 128px, 160px" unoptimized alt="" className="h-auto w-32 shrink-0 rounded object-contain sm:w-40" />
-                    <span>查看真實預約畫面 <span aria-hidden="true">↗</span><span className="mt-1 block font-normal text-[#64756D]">點擊查看高清原圖</span></span>
-                  </a>
+
+                  <Link href="/pricing/cases?store=nuannuan" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖暖完整案例 →</Link>
                 </article>
               </div>
             </div>
