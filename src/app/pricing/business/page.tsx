@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { DayStory, WorkflowPanel } from "./day-story";
+import { DayStory } from "./day-story";
 
 export const metadata: Metadata = {
   title: "蒸管家｜店務少一點忙，顧客多一點照顧",
@@ -31,46 +31,46 @@ export default function BusinessPage() {
         </div>
       </header>
       <main id="main">
-        <section aria-labelledby="hero-title" className="mx-auto grid max-w-6xl gap-10 px-5 pb-10 pt-10 sm:px-8 sm:py-14 lg:grid-cols-[1.1fr_1fr] lg:items-end lg:gap-10">
+        <section aria-labelledby="hero-title" className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
           <div>
-            <p className="mb-6 text-sm font-medium tracking-[0.16em] text-[#74603C]">簡單學・一眼懂・輕鬆做</p>
-            <h1 id="hero-title" className="text-[clamp(2.3rem,5.5vw,4.5rem)] font-semibold leading-[1.3] tracking-tight">
-              店務少一點忙，<br /><span className="text-[#967039]">顧客多一點照顧。</span>
+            <p className="mb-3 text-sm font-medium tracking-[0.16em] text-[#74603C]">簡單學・一眼懂・輕鬆做</p>
+            <h1 id="hero-title" className="text-[clamp(1.8rem,3.5vw,3rem)] font-semibold leading-[1.3] tracking-tight">
+              店務少一點忙，<br className="sm:hidden" /><span className="text-[#967039]">顧客多一點照顧。</span>
             </h1>
-            <p className="mt-7 max-w-lg text-lg leading-relaxed text-[#4C6259]">預約、堂數、收款與顧客追蹤，<br className="hidden sm:block" />蒸管家幫你集中管理。</p>
-            <div className="mt-9 flex flex-wrap items-center gap-5">
+            <p className="mt-3 max-w-2xl text-lg leading-relaxed text-[#4C6259]">預約、堂數、收款與顧客追蹤，<br className="hidden sm:block" />蒸管家幫你集中管理。</p>
+            <div className="mt-4 flex flex-wrap items-center gap-5">
               <ConsultLink />
               <a href="#how-it-works" className="py-3 text-base underline underline-offset-8">看看怎麼運作</a>
             </div>
           </div>
-          <figure className="min-w-0 rounded-2xl bg-[#EEE9DD] p-5 sm:p-7">
-            <WorkflowPanel index={1} />
-            <figcaption className="mt-4 text-sm text-[#4C6259]">顧客預約 → 店長名單｜介面示意・範例資料</figcaption>
-          </figure>
+
         </section>
 
         <DayStory />
 
-        <section aria-labelledby="cases-title" className="border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-16 sm:px-8 sm:py-14">
+        <section aria-labelledby="cases-title" className="border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-7 sm:px-8 sm:py-8">
           <div className="mx-auto max-w-6xl">
             <p className="text-sm font-medium tracking-widest text-[#74603C]">店家案例</p>
-            <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_1.3fr] lg:gap-10">
-              <div><h2 id="cases-title" className="text-3xl font-semibold leading-snug">從真實店務，<br />認識蒸管家。</h2>
+            <div className="mt-3 grid gap-4">
+              <div><h2 id="cases-title" className="text-3xl font-semibold leading-snug">真實店家，實際使用。</h2>
                 <p className="mt-5 text-base leading-8 text-[#4C6259]">想了解與自己門市相近的使用情境？免費介紹時，可以從店家案例開始聊。</p>
               </div>
-              <div className="divide-y divide-[#153B31]/20 border-y border-[#153B31]/20">
-                <article className="py-7">
+              <div className="grid gap-5 md:grid-cols-2">
+                <article className="py-3">
                   <p className="text-sm text-[#74603C]">預約提醒</p>
                   <h3 className="mt-2 text-2xl font-medium">暖沐蒸足</h3>
                   <p className="mt-4 text-base leading-8 text-[#4C6259]">門市已啟用自動提醒規則，店長可在提醒管理查看通知設定與發送紀錄，掌握預約前的通知安排。</p>
                 </article>
-                <article className="py-7">
+                <article className="py-3">
                   <p className="text-sm text-[#74603C]">顧客體驗預約與日常管理</p>
                   <h3 className="mt-2 text-2xl font-medium">暖暖蒸足</h3>
+                  <details className="mt-3">
+                    <summary className="cursor-pointer py-2 text-sm underline underline-offset-4">查看真實預約畫面</summary>
                   <a href="/pricing/business-assets/real-trial-booking.jpg" target="_blank" rel="noopener noreferrer" className="mt-4 block overflow-hidden rounded-xl bg-white" aria-label="放大暖暖蒸足實際預約畫面">
                     <Image src="/pricing/business-assets/real-trial-booking.jpg" width={1363} height={936} sizes="(max-width: 768px) 100vw, 560px" alt="暖暖蒸足顧客預約體驗服務的真實表單" className="h-auto w-full" />
                   </a>
                   <p className="mt-2 text-sm text-[#4C6259]">實際顧客預約畫面・點圖放大</p>
+                  </details>
                   <p className="mt-4 text-base leading-8 text-[#4C6259]">首次體驗頁提供可約日期與時段；店長在後台月曆查看預約，點選日期展開當日明細，並透過提醒設定安排預約前通知。</p>
                 </article>
               </div>
@@ -78,13 +78,13 @@ export default function BusinessPage() {
           </div>
         </section>
 
-        <section aria-labelledby="contact-title" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-14">
-          <div className="grid gap-10 lg:grid-cols-[1.25fr_1fr] lg:items-center">
+        <section aria-labelledby="contact-title" className="mx-auto max-w-6xl px-5 py-7 sm:px-8 sm:py-8">
+          <div className="grid gap-5 lg:grid-cols-[1.25fr_1fr] lg:items-center">
             <div><p className="text-sm font-medium tracking-widest text-[#74603C]">從你的門市需要開始</p>
               <h2 id="contact-title" className="mt-4 text-3xl font-semibold leading-snug sm:text-4xl">先聊聊，<br />你最想少忙哪件事？</h2>
               <p className="mt-5 max-w-lg text-base leading-8 text-[#4C6259]">不用先研究完整功能表。告訴我們你的店怎麼運作，一起看看哪些功能用得上。</p>
             </div>
-            <div className="rounded-2xl bg-[#123E32] p-7 text-[#F8F5EE] sm:p-9">
+            <div className="rounded-2xl bg-[#123E32] p-5 text-[#F8F5EE] sm:p-6">
               <p className="text-base">基本版・限時優惠</p>
               <p className="mt-3 text-base">每月 <span className="text-4xl font-semibold tracking-tight">NT$1,490</span></p>
               <p className="mt-5 text-base leading-7 text-[#D4E0D8]">三個付費方案皆內含 LINE 顧客入口（LIFF）；自動提醒等模組依方案選配。</p>
@@ -93,7 +93,7 @@ export default function BusinessPage() {
               <Link href="/pricing" className="mt-5 inline-block py-2 text-base underline underline-offset-8">查看完整方案與加購說明</Link>
             </div>
           </div>
-          <div className="mt-12 border-t border-[#153B31]/15 pt-8">
+          <div className="mt-6 border-t border-[#153B31]/15 pt-8">
             <h3 className="text-xl font-semibold">開始使用，先從了解你的門市開始</h3>
             <p className="mt-3 leading-8 text-[#4C6259]">了解需求 → 確認門市與帳號設定 → 協助開始使用。介紹後再安排試用內容、開通方式與期限。</p>
             <div className="mt-6 divide-y divide-[#153B31]/15">
