@@ -69,11 +69,11 @@ describe("store feature catalog", () => {
 
     expect(feature).toMatchObject({
       key: "ai_health_summary",
-      label: "健康評估",
+      label: "健康評估與體態追蹤",
       module: "健康",
       description:
-        "控制顧客健康評估入口、LINE 會員中心與店長後台健康紀錄。關閉只隱藏功能，不刪除歷史資料。",
+        "量測紀錄、歷史數據與變化趨勢；控制顧客 LIFF 與店長後台健康功能。關閉不刪除歷史資料，不作醫療診斷。",
     });
-    expect(getStoreFeatureLabel(FEATURES.AI_HEALTH_SUMMARY)).toBe("健康評估");
+    expect(getStoreFeatureLabel(FEATURES.AI_HEALTH_SUMMARY)).toBe("健康評估與體態追蹤");
   });
 });
