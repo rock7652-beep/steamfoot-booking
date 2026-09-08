@@ -89,6 +89,12 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     return withDomainCookie(NextResponse.next(), domainStoreId);
   }
 
+  // Reminder links authenticate the exact booking/store with a signed token.
+  // Allow both page loads and Server Action POSTs without a login session.
+  if (pathname === "/trial-booking/manage") {
+    return withDomainCookie(NextResponse.next(), domainStoreId);
+  }
+
   if (pathname === "/store-select") return withDomainCookie(NextResponse.next(), domainStoreId);
 
   if (pathname === "/book/zhubei") {
