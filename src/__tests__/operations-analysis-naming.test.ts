@@ -16,14 +16,14 @@ describe("operations and analysis naming", () => {
       'title="營運分析"',
     );
     expect(source("src/app/(dashboard)/dashboard/advanced-reports/page.tsx")).toContain(
-      'title="經營診斷"',
+      'redirect("/dashboard/reports")',
     );
   });
 
   it("uses the new names in breadcrumbs and mobile header", () => {
     const breadcrumb = source("src/components/breadcrumb.tsx");
     expect(breadcrumb).toContain('"營運分析"');
-    expect(breadcrumb).toContain('"經營診斷"');
+    expect(breadcrumb).not.toContain('經營診斷');
   });
 
   it("uses the new names in HQ features and plan surfaces", () => {
@@ -33,8 +33,8 @@ describe("operations and analysis naming", () => {
       "src/app/(dashboard)/dashboard/settings/plans/page.tsx",
       "src/app/pricing/page.tsx",
     ].map(source).join("\n");
-    expect(surfaces).toContain("營運分析");
-    expect(surfaces).toContain("經營診斷");
+    expect(surfaces).toContain("分析");
+    expect(surfaces).not.toContain("經營診斷");
     expect(surfaces).not.toMatch(/基本報表|進階報表|成長版/);
   });
 });

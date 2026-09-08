@@ -86,13 +86,12 @@ export default async function PlanSettingsPage() {
         { key: "plan_management", label: "方案管理" },
         { key: "cashbook", label: "帳簿" },
         { key: "reconciliation", label: "對帳" },
-        { key: "basic_reports", label: "營運分析" },
       ],
     },
     {
       group: "進階分析",
       features: [
-        { key: "advanced_reports", label: "經營診斷" },
+        { key: "basic_reports", label: "分析（NT$800／月獨立加購）" },
         { key: "ai_health_summary", label: "健康評估與體態追蹤" },
         { key: "kpi_dashboard", label: "KPI 儀表板" },
         { key: "talent_pipeline", label: "人才管道" },
