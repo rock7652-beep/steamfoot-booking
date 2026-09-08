@@ -93,9 +93,9 @@ export default function BusinessPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 id="guides-title" className="text-2xl font-semibold">店長經營指南</h2>
-              <p className="mt-2 text-base leading-7 text-[#4C6259]">預約溝通、逐筆提醒、到期追蹤，哪些工作可以交給管家？</p>
+              <p className="mt-2 text-base leading-7 text-[#4C6259]">一人店怎麼排預約？開店先看哪些資訊？從今天就能用的做法開始。</p>
             </div>
-            <Link href="/pricing/guides" className="inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">看看三個省時做法 →</Link>
+            <Link href="/pricing/guides" className="inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">閱讀店長實用指南 →</Link>
           </div>
         </section>
 
