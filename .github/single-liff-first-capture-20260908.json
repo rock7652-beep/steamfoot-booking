@@ -1,0 +1,5 @@
+{
+  "request": "single-member-liff-first-capture-20260908",
+  "scope": "one exact member; create authorization only",
+  "preserve": ["customer", "notificationIdentity", "health", "plans", "bookings"]
+}
