@@ -50,6 +50,7 @@ export function DayStory() {
   const group = groups[active];
   return (
     <section id="how-it-works" aria-labelledby="day-title" className="mx-auto max-w-6xl scroll-mt-4 px-5 pb-8 sm:px-8">
+      <p className="mb-2 text-sm text-[#4C6259]">簡單學・一眼懂・輕鬆做</p>
       <h2 id="day-title" className="text-2xl font-semibold">店長的一天，一起看懂。</h2>
       <div role="tablist" aria-label="店務情境" className="mt-4 grid grid-cols-3 gap-2">
         {groups.map((item, index) => <button key={item.title} id={"story-tab-" + index} role="tab" aria-selected={active === index} aria-controls="story-panel" tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={(event) => {
