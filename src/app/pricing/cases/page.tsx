@@ -69,12 +69,38 @@ export default async function StoreCasesPage({
         <article aria-labelledby="case-title" className="mt-5 rounded-2xl border border-[#153B31]/15 bg-white p-5 sm:p-7">
           <p className="text-sm text-[#74603C]">{current.name}｜{current.topic}</p>
           <h2 id="case-title" className="mt-2 text-2xl font-semibold leading-snug">{current.title}</h2>
+          {current.id === "nuannuan" ? (
+            <figure className="mt-5">
+              <a href="/pricing/business-assets/booking-time-original.png" target="_blank" rel="noopener noreferrer" aria-label="另開暖暖蒸足真實預約原圖"
+                className="block overflow-hidden rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] focus-visible:outline-2 focus-visible:outline-offset-4">
+                <Image src="/pricing/business-assets/booking-time-original.png" width={1532} height={1364} unoptimized
+                  alt="暖暖蒸足體驗預約頁，顧客可查看可約日期與時段"
+                  className="mx-auto h-auto max-h-[440px] w-full object-contain" />
+              </a>
+              <figcaption className="mt-2 text-sm leading-6 text-[#4C6259]">門市真實預約畫面・點圖放大查看</figcaption>
+            </figure>
+          ) : (
+            <figure className="mt-5 grid items-center gap-4 sm:grid-cols-[minmax(0,360px)_1fr]">
+              <a href="/pricing/business-assets/brand-reminder-example.jpeg" target="_blank" rel="noopener noreferrer" aria-label="放大暖沐預約提醒示意圖（另開視窗）"
+                className="block overflow-hidden rounded-xl border border-[#153B31]/15 bg-[#FAF8F2] focus-visible:outline-2 focus-visible:outline-offset-4">
+                <Image src="/pricing/business-assets/brand-reminder-example.jpeg" width={1058} height={1487} unoptimized
+                  alt="暖沐蒸足預約提醒示意：林小姐的預約時間、服務資訊，以及改時段與取消前往選項"
+                  className="mx-auto h-auto max-h-[480px] w-full object-contain" />
+              </a>
+              <figcaption>
+                <h3 className="text-lg font-semibold">少一則手動提醒，少一輪來回確認。</h3>
+                <p className="mt-2 text-base leading-7 text-[#4C6259]">預約資訊隨卡片送達，顧客可自行改期或取消，讓店長省下逐筆提醒與確認的時間。</p>
+                <p className="mt-2 text-sm leading-6 text-[#4C6259]">新版提醒示意・姓名與預約資料為範例・點圖放大</p>
+              </figcaption>
+            </figure>
+          )}
+
           <p className="mt-3 text-base leading-7 text-[#4C6259]">{current.intro}</p>
 
 
 
-          <section aria-labelledby="cost-comparison" className="mt-5">
-            <h3 id="cost-comparison" className="text-lg font-semibold">時間花在哪裡？蒸管家怎麼接手？</h3>
+          <details className="mt-5 rounded-xl border border-[#153B31]/15 p-4">
+            <summary className="cursor-pointer text-lg font-semibold">看看少了哪些來回與手動工作</summary>
             <div className="mt-3 space-y-3">
               {current.costs.map(([manual, automated], index) => (
                 <div key={manual} className="overflow-hidden rounded-xl border border-[#153B31]/15 md:grid md:grid-cols-2">
@@ -90,36 +116,11 @@ export default async function StoreCasesPage({
               ))}
             </div>
             <p className="mt-3 text-sm leading-6 text-[#4C6259]">通知依門市已完成的 LINE 串接與啟用設定運作；改期、取消須完成預約操作。</p>
-          </section>
+          </details>
           <div className="mt-5 rounded-xl border-l-4 border-[#967039] bg-[#EEF4F0] p-4">
             <h3 className="text-lg font-semibold">把這些時間，留給顧客。</h3>
             <p className="mt-2 text-base leading-7">{current.benefit}</p>
           </div>
-          {current.id === "nuannuan" ? (
-            <figure className="mt-5">
-              <a href="/pricing/business-assets/booking-time-original.png" target="_blank" rel="noopener noreferrer" aria-label="另開暖暖蒸足真實預約原圖"
-                className="block overflow-hidden rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] focus-visible:outline-2 focus-visible:outline-offset-4">
-                <Image src="/pricing/business-assets/booking-time-original.png" width={1532} height={1364} unoptimized
-                  alt="暖暖蒸足體驗預約頁，顧客可查看可約日期與時段"
-                  className="mx-auto h-auto max-h-[440px] w-full object-contain" />
-              </a>
-              <figcaption className="mt-2 text-sm leading-6 text-[#4C6259]">門市真實預約畫面・點圖放大查看</figcaption>
-            </figure>
-          ) : (
-            <figure className="mt-5 grid items-center gap-4 sm:grid-cols-[minmax(0,280px)_1fr]">
-              <a href="/pricing/business-assets/brand-reminder-example.jpeg" target="_blank" rel="noopener noreferrer" aria-label="放大暖沐預約提醒示意圖（另開視窗）"
-                className="block overflow-hidden rounded-xl border border-[#153B31]/15 bg-[#FAF8F2] focus-visible:outline-2 focus-visible:outline-offset-4">
-                <Image src="/pricing/business-assets/brand-reminder-example.jpeg" width={1058} height={1487} unoptimized
-                  alt="暖沐蒸足預約提醒示意：林小姐的預約時間、服務資訊，以及改時段與取消前往選項"
-                  className="mx-auto h-auto max-h-[360px] w-full object-contain" />
-              </a>
-              <figcaption>
-                <h3 className="text-lg font-semibold">少一則手動提醒，少一輪來回確認。</h3>
-                <p className="mt-2 text-base leading-7 text-[#4C6259]">預約資訊隨卡片送達，顧客可自行改期或取消，讓店長省下逐筆提醒與確認的時間。</p>
-                <p className="mt-2 text-sm leading-6 text-[#4C6259]">新版提醒示意・姓名與預約資料為範例・點圖放大</p>
-              </figcaption>
-            </figure>
-          )}
           <p className="mt-4 text-base leading-7 text-[#4C6259]">{current.fit}</p>
           {current.id === "nuanmu" ? (
             <p className="mt-4 text-sm leading-6 text-[#4C6259]">

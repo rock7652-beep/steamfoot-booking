@@ -78,20 +78,29 @@ export default function StoreGuidesPage() {
         </nav>
       </header>
       <main id="main" className="mx-auto max-w-5xl px-5 py-7 sm:px-8 sm:py-10">
-        <p className="text-sm text-[#74603C]">店長經營指南</p>
-        <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">店裡哪件事，最讓你忙不過來？</h1>
-        <p className="mt-3 text-base leading-7 text-[#4C6259]">怎麼排時間、開店先看什麼、提醒怎麼做？選一篇，照著試試看。</p>
+        <div className="grid items-center gap-5 md:grid-cols-2">
+          <div>
+            <p className="text-sm text-[#74603C]">店長經營指南</p>
+            <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">一個人顧店，<br />也能少忙一點。</h1>
+            <p className="mt-3 text-base leading-7 text-[#4C6259]">排時間、看預約、做提醒。選一篇，把方法帶回店裡。</p>
+          </div>
+          <figure className="overflow-hidden rounded-2xl">
+            <Image src="/pricing/business-assets/store-owner-care.webp" width={1536} height={1024} sizes="(min-width: 768px) 460px, 100vw" alt="情境插畫：店長把注意力留給面前的顧客" className="h-auto w-full" />
+            <figcaption className="bg-[#153F33] px-4 py-3 text-base text-white">把時間留給服務，也留一點給自己。</figcaption>
+          </figure>
+        </div>
         <div className="mt-5 space-y-3">
           {guides.map((guide, index) => (
             <details key={guide.id} id={guide.id} name="store-guide" className="group scroll-mt-6 rounded-2xl border border-[#153B31]/20 bg-white open:border-[#153B31]/50">
               <summary className="cursor-pointer rounded-2xl p-5 focus-visible:outline-2 focus-visible:outline-offset-4 sm:p-6">
                 <span className="text-sm font-medium text-[#74603C]">0{index + 1} · {guide.category}</span>
                 <h2 className="mt-2 text-xl font-semibold leading-snug sm:text-2xl">{guide.title}</h2>
-                <p className="mt-2 text-base leading-7 text-[#4C6259]">{guide.summary}</p>
+
                 <span className="mt-3 block text-base font-medium group-open:hidden">閱讀做法 ＋</span>
                 <span className="mt-3 hidden text-base font-medium group-open:block">收起文章 −</span>
               </summary>
               <article aria-label={guide.title} className="border-t border-[#153B31]/15 p-5 sm:p-6">
+                <p className="mb-5 text-base leading-7 text-[#4C6259]">{guide.summary}</p>
                 <div className="grid gap-5 md:grid-cols-2">
                   <section>
                     <h3 className="text-lg font-semibold">時間花在哪裡？</h3>
