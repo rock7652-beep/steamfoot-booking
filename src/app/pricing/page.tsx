@@ -30,9 +30,9 @@ const PLAN_ORIGINAL_PRICE: Partial<Record<PricingPlan, string>> = {
 };
 
 const PLAN_CTA_LABEL: Record<PricingPlan, string> = {
-  EXPERIENCE: "免費體驗",
-  BASIC: "選擇基本版",
-  GROWTH: "選擇專業版",
+  EXPERIENCE: "預約免費介紹",
+  BASIC: "諮詢基本版",
+  GROWTH: "諮詢專業版",
   ALLIANCE: "聯繫我們",
 };
 
@@ -70,7 +70,7 @@ export default function PricingPage() {
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-earth-100 bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="text-lg font-bold text-earth-900">
+          <Link href="/pricing/business#main" className="text-lg font-bold text-earth-900">
             蒸管家
           </Link>
           <div className="flex items-center gap-3">
@@ -81,10 +81,10 @@ export default function PricingPage() {
               登入
             </Link>
             <Link
-              href="/register"
+              href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer"
               className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
             >
-              免費體驗
+              預約免費介紹
             </Link>
           </div>
         </div>
@@ -94,7 +94,7 @@ export default function PricingPage() {
         {/* ── Hero ── */}
         <section className="mx-auto max-w-4xl px-6 pb-16 pt-20 text-center">
           <h1 className="text-3xl font-extrabold tracking-tight text-earth-900 sm:text-5xl">
-            蒸管家｜服務品牌成長系統
+            蒸管家｜店務管理系統
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-earth-600">
             從單店營運、顧客經營到多店管理，適用於預約制門市、工作室與服務品牌。
@@ -106,10 +106,10 @@ export default function PricingPage() {
           </div>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Link
-              href="/register"
+              href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer"
               className="rounded-xl bg-primary-600 px-7 py-3 text-sm font-semibold text-white shadow-md shadow-primary-200 transition hover:bg-primary-700"
             >
-              免費體驗
+              預約免費介紹
             </Link>
             <a
               href="#plans"
@@ -117,14 +117,7 @@ export default function PricingPage() {
             >
               查看方案
             </a>
-            <a
-              href="https://lin.ee/SGy5UBz"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl bg-[#06C755] px-7 py-3 text-sm font-semibold text-white shadow-md shadow-green-200 transition hover:brightness-110"
-            >
-              加 LINE 諮詢
-            </a>
+
           </div>
         </section>
 
@@ -387,39 +380,33 @@ export default function PricingPage() {
         {/* ── 最後 CTA ── */}
         <section className="bg-earth-900 px-6 py-20 text-center text-white">
           <h2 className="text-2xl font-bold sm:text-3xl">
-            你不是缺客人
+            每一家店，都值得擁有一位數位管家。
           </h2>
           <p className="mx-auto mt-3 max-w-md text-base text-earth-300">
-            你是缺一套「會幫你長出店長的系統」
+            把預約、顧客資料、堂數與日常店務整理好，讓你更專心照顧客人。
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <Link
-              href="/register"
+              href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer"
               className="rounded-xl bg-primary-500 px-7 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-primary-600"
             >
-              免費體驗
+              預約免費介紹
             </Link>
             <Link
-              href="/register"
+              href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer"
               className="rounded-xl bg-amber-500 px-7 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-amber-600"
             >
               升級我的方案
             </Link>
-            <a
-              href="https://lin.ee/SGy5UBz"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl bg-[#06C755] px-7 py-3 text-sm font-semibold text-white shadow-md transition hover:brightness-110"
-            >
-              加 LINE 諮詢
-            </a>
+
           </div>
         </section>
       </main>
 
       {/* Footer */}
       <footer className="border-t border-earth-100 bg-white px-6 py-8 text-center text-xs text-earth-400">
-        &copy; {new Date().getFullYear()} 蒸管家｜服務品牌成長系統
+        &copy; {new Date().getFullYear()} 蒸管家｜店務管理系統
+        <Link href="/hq/login" className="ml-4 inline-block py-3 underline underline-offset-4">店家後台登入</Link>
       </footer>
     </div>
   );
@@ -617,11 +604,13 @@ function PlanCard({
       </p>
 
       {/* CTA */}
-      <button
-        className={`mt-5 w-full rounded-xl py-3 text-sm font-semibold text-white transition ${btnClass}`}
+      <a
+        href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer"
+        className={`mt-5 block w-full text-center rounded-xl py-3 text-sm font-semibold text-white transition ${btnClass}`}
       >
         {ctaLabel}
-      </button>
+      </a>
+      <p className="mt-2 text-center text-xs text-earth-500">加入 LINE 後，告訴我們你想了解的方案。</p>
     </div>
   );
 }
