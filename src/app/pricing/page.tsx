@@ -118,7 +118,7 @@ export default function PricingPage() {
               查看方案
             </a>
             <a
-              href="https://lin.ee/placeholder"
+              href="https://lin.ee/SGy5UBz"
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-xl bg-[#06C755] px-7 py-3 text-sm font-semibold text-white shadow-md shadow-green-200 transition hover:brightness-110"
@@ -406,7 +406,7 @@ export default function PricingPage() {
               升級我的方案
             </Link>
             <a
-              href="https://lin.ee/placeholder"
+              href="https://lin.ee/SGy5UBz"
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-xl bg-[#06C755] px-7 py-3 text-sm font-semibold text-white shadow-md transition hover:brightness-110"
