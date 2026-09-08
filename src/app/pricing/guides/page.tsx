@@ -78,16 +78,18 @@ export default function StoreGuidesPage() {
         </nav>
       </header>
       <main id="main" className="mx-auto max-w-5xl px-5 py-7 sm:px-8 sm:py-10">
-        <div className="grid items-center gap-5 md:grid-cols-2">
+        <div className="max-w-2xl">
           <div>
-            <p className="text-sm text-[#74603C]">店長經營指南</p>
+            <p className="flex items-center gap-2 text-sm text-[#74603C]">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 shrink-0">
+                <path d="M12 5v15M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Z" />
+              </svg>
+              店長經營指南
+            </p>
             <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">一個人顧店，<br />也能少忙一點。</h1>
             <p className="mt-3 text-base leading-7 text-[#4C6259]">排時間、看預約、做提醒。選一篇，把方法帶回店裡。</p>
           </div>
-          <figure className="overflow-hidden rounded-2xl">
-            <Image src="/pricing/business-assets/store-owner-care.webp" width={1536} height={1024} sizes="(min-width: 768px) 460px, 100vw" alt="情境插畫：店長把注意力留給面前的顧客" className="h-auto w-full" />
-            <figcaption className="bg-[#153F33] px-4 py-3 text-base text-white">把時間留給服務，也留一點給自己。</figcaption>
-          </figure>
+
         </div>
         <div className="mt-5 space-y-3">
           {guides.map((guide, index) => (
