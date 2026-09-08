@@ -1,0 +1,25 @@
+name: Prepare single member LIFF first capture 20260908
+on:
+  push:
+    branches: [main]
+    paths: [.github/single-liff-first-capture-20260908.json]
+permissions:
+  contents: read
+concurrency:
+  group: single-liff-first-capture-20260908
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 24, cache: npm}
+      - run: npm ci
+      - name: Prepare exact-member authorization
+        run: npx tsx scripts/prepare-single-liff-first-capture-20260908.ts
