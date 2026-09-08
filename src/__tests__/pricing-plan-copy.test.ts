@@ -19,7 +19,7 @@ describe("pricing and growth plan copy", () => {
   it("uses the official LINE link for consultation calls to action", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
 
-    expect(source.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(4);
+    expect(source.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(1);
     expect(source).not.toContain("lin.ee/placeholder");
   });
 
