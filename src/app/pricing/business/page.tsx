@@ -93,7 +93,7 @@ export default function BusinessPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 id="guides-title" className="text-2xl font-semibold">店長經營指南</h2>
-              <p className="mt-2 text-base leading-7 text-[#4C6259]">一人店怎麼排預約？開店先看哪些資訊？從今天就能用的做法開始。</p>
+              <p className="mt-2 text-base leading-7 text-[#4C6259]">一個人顧店，預約怎麼排？每天開店先看什麼？這裡有可以照做的小方法。</p>
             </div>
             <Link href="/pricing/guides" className="inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">閱讀店長實用指南 →</Link>
           </div>
