@@ -37,7 +37,7 @@ export default function BusinessPage() {
           <div className="grid items-center gap-5 lg:grid-cols-2 lg:gap-x-10">
           <div>
             <h1 id="hero-title" className="text-[clamp(1.8rem,3.5vw,3rem)] font-semibold leading-[1.3] tracking-tight">
-              <span className="block sm:inline">每一家店，</span>都值得擁有<span className="whitespace-nowrap">一位<span className="text-[#967039]">數位管家</span>。</span>
+              <span className="block sm:inline">每一家店，</span>都值得擁有<span>一位<span className="text-[#967039]">數位管家</span>。</span>
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-[#4C6259]">預約、堂數、收款與顧客追蹤，一處管理。</p>
           </div>
