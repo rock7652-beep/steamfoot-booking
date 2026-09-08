@@ -4,10 +4,34 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "店長經營指南｜蒸管家",
-  description: "從體驗預約、到店提醒到方案到期，減少來回溝通與重複輸入，把店長的時間留給顧客。",
+  description: "一人店預約安排、每日開店檢查，以及體驗預約與提醒做法。從店長能直接照做的小步驟開始，把時間留給顧客。",
 };
 
 const guides = [
+  {
+    id: "solo-store", category: "一人店實用做法", title: "一邊服務、一邊回訊息？先把可接待時間安排好。",
+    summary: "先留服務與整理時間，再開放預約；空檔集中處理詢問。",
+    cost: "只有一位店長時，服務中停下來查時間、回訊息，手上的顧客會被打斷。若只看行事曆哪裡空白，忘了收款、整理與休息，也容易把自己排得太滿。",
+    action: "先依實際服務長度，保留結帳與整理所需時間，再核對線上可預約時段。讓顧客從預約入口自行選時間，店長在服務空檔集中查看新預約與需要協助的訊息。",
+    steps: ["開店前核對今天能接待的時段，把休息與無法接待的時間排除；設定後從顧客端再看一次。", "收到一般預約詢問時，提供預約入口；特殊需求另外確認，不在服務途中反覆協調時間。", "每次服務結束後，查看下一筆預約與異動，再集中回覆尚未完成預約的詢問。"],
+    takeaway: "留得下整理與休息的空檔，才是店長真正能接待的時間。",
+    note: "以上為排程建議；可預約時段依門市已設定的規則提供。整理、休息與特殊需求仍須由店長安排及核對。",
+    checklist: [["先安排", "服務、結帳、整理、休息"], ["再開放", "核對顧客看到的可約時段"], ["空檔處理", "新預約、異動與待回覆訊息"]],
+    checklistTitle: "一人店的安排順序", example: "您好，我目前正在服務中。您可以先從預約入口查看可約時間並送出；若有其他需求，請先留言，我會在服務空檔回覆您。",
+    image: "", width: 0, height: 0, alt: "", caption: "", caseUrl: "", caseLabel: "",
+  },
+  {
+    id: "opening-checklist", category: "每日開店檢查", title: "每天開店，先看這三件事。",
+    summary: "先看今日預約、再看異動，最後準備收款與方案核對。",
+    cost: "營業開始才發現預約改了時間、體驗客需要準備，或顧客方案需要確認，店長就得一邊接待、一邊找資料。先集中看完今天的重點，可以少一些臨時切換與補查。",
+    action: "把蒸管家後台當作每天開店的檢查起點：先看當日預約，再核對改期、取消與確認狀態，最後針對今天要接待的顧客查看方案與收款安排。依序查閱，比想到一件查一件更容易掌握。",
+    steps: ["看今日預約：核對日期、時間、人數與服務項目，特別留意首次體驗與接續較緊的時段。", "看預約異動：核對改期、取消與已確認會到的狀態。未確認的顧客仍保留預約，需要時再聯繫。", "看服務準備：核對預約綁定方案、剩餘堂數與有效期限；服務完成時，再確認本次收款或扣堂。"],
+    takeaway: "先知道今天會發生什麼，接待時就少一份臨時找資料的忙亂。",
+    note: "這是店長依序查閱的建議清單，不代表系統新增了單一開店總覽頁。確認狀態依提醒功能提供；未回覆不等於取消，開店前核對也不取代結帳時的再次確認。",
+    checklist: [["今日預約", "時間、人數、項目、首次體驗"], ["預約異動", "改期、取消、確認狀態"], ["服務準備", "綁定方案、堂數、期限、收款"]],
+    checklistTitle: "開店前，依序核對", example: "",
+    image: "", width: 0, height: 0, alt: "", caption: "", caseUrl: "", caseLabel: "",
+  },
   {
     id: "trial-booking", category: "體驗預約", title: "一筆體驗預約，為什麼要忙兩次？",
     summary: "讓顧客自己選時間，省下來回確認與重複建檔。",
@@ -56,7 +80,7 @@ export default function StoreGuidesPage() {
       <main id="main" className="mx-auto max-w-5xl px-5 py-7 sm:px-8 sm:py-10">
         <p className="text-sm text-[#74603C]">店長經營指南</p>
         <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">哪一件店務，最占用你的時間？</h1>
-        <p className="mt-3 text-base leading-7 text-[#4C6259]">從一件重複工作開始，看看蒸管家怎麼接手。</p>
+        <p className="mt-3 text-base leading-7 text-[#4C6259]">從一人店的時間安排、每日開店檢查，到預約與提醒，選一篇今天就能用的做法。</p>
         <div className="mt-5 space-y-3">
           {guides.map((guide, index) => (
             <details key={guide.id} id={guide.id} name="store-guide" className="group scroll-mt-6 rounded-2xl border border-[#153B31]/20 bg-white open:border-[#153B31]/50">
@@ -79,7 +103,21 @@ export default function StoreGuidesPage() {
                   </section>
                 </div>
                 <div className="mt-5 grid items-start gap-5 md:grid-cols-2">
-                  {guide.image ? (
+                  {guide.checklist ? (
+                    <section className="rounded-xl border border-[#153B31]/15 bg-[#FAF8F2] p-4">
+                      <h3 className="text-lg font-semibold">{guide.checklistTitle}</h3>
+                      <dl className="mt-3 divide-y divide-[#153B31]/15">
+                        {guide.checklist.map(([label, value]) => <div key={label} className="py-3">
+                          <dt className="text-base font-semibold">{label}</dt>
+                          <dd className="mt-1 text-base leading-7 text-[#4C6259]">{value}</dd>
+                        </div>)}
+                      </dl>
+                      {guide.example ? <div className="mt-3 border-t border-[#153B31]/15 pt-3">
+                        <h4 className="text-base font-semibold">可參考的回覆文字</h4>
+                        <blockquote className="mt-2 text-base leading-7 text-[#4C6259]">{guide.example}</blockquote>
+                      </div> : null}
+                    </section>
+                  ) : guide.image ? (
                     <figure>
                       <a href={guide.image} target="_blank" rel="noopener noreferrer" aria-label={guide.caption + "（另開視窗）"} className="block rounded-xl border border-[#153B31]/15 bg-[#FAF8F2] p-2 focus-visible:outline-2 focus-visible:outline-offset-4">
                         <Image src={guide.image} width={guide.width} height={guide.height} alt={guide.alt} unoptimized className="mx-auto h-auto max-h-[300px] w-full object-contain" />
