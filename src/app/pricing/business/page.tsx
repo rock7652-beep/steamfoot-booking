@@ -34,17 +34,15 @@ export default function BusinessPage() {
       <main id="main">
         <section aria-labelledby="hero-title" className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
           <div>
-            <p className="mb-3 text-sm font-medium tracking-[0.16em] text-[#74603C]">簡單學・一眼懂・輕鬆做</p>
             <h1 id="hero-title" className="text-[clamp(1.8rem,3.5vw,3rem)] font-semibold leading-[1.3] tracking-tight">
-              <span className="block sm:inline">每一家店，</span><span className="text-[#967039]">都值得擁有<span className="whitespace-nowrap">一位數位管家。</span></span>
+              <span className="block sm:inline">每一家店，</span>都值得擁有<span className="whitespace-nowrap">一位<span className="text-[#967039]">數位管家</span>。</span>
             </h1>
-            <p className="mt-3 text-lg leading-relaxed text-[#4C6259]">店務少一點忙，顧客多一點照顧。</p>
-            <p className="mt-2 max-w-2xl text-base leading-relaxed text-[#4C6259]">預約、堂數、收款與顧客追蹤，蒸管家幫你集中管理。</p>
+            <p className="mt-3 max-w-2xl text-base leading-relaxed text-[#4C6259]">預約、堂數、收款與顧客追蹤，一處管理。</p>
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
               <ConsultLink />
               <a href="#how-it-works" className="py-3 text-base underline underline-offset-8">看看怎麼運作</a>
             </div>
-            <p className="mt-2 text-sm leading-6 text-[#4C6259]">填寫門市需求後，由專人聯繫安排體驗。</p>
+            <p className="mt-2 text-sm leading-6 text-[#4C6259]">填寫需求，由專人聯繫安排體驗。</p>
           </div>
         </section>
 
@@ -119,7 +117,7 @@ export default function BusinessPage() {
       </main>
       <footer className="border-t border-[#153B31]/15 px-5 py-7 text-sm text-[#4C6259] sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-4">
-          <p>蒸管家｜每一家店都值得擁有一位數位管家。</p>
+          <p>蒸管家｜店務少一點忙，顧客多一點照顧。</p>
           <a href={TRIAL_URL} className="underline underline-offset-4">申請體驗帳號</a>
         </div>
       </footer>
