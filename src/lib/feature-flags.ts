@@ -75,6 +75,7 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "duty_scheduling",
   ],
   BASIC: [
+    "member_portal",
     "basic_booking",
     "customer_management",
     "staff_management",
@@ -89,6 +90,7 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "store_revenue",
   ],
   GROWTH: [
+    "member_portal",
     "basic_booking",
     "customer_management",
     "staff_management",

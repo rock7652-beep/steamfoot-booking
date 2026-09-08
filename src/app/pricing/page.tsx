@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PlanPackageNotes } from "@/components/plan-package-notes";
 import {
   PRICING_PLAN_INFO,
   PLAN_LIMITS,
@@ -47,13 +48,13 @@ const COMPARISON_ROWS: {
   { label: "方案 / 堂數管理", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "基本收款紀錄", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "營運分析", basic: "內含", pro: "內含", alliance: "內含" },
-  { label: "前台預約入口", basic: "內含", pro: "內含", alliance: "內含" },
+  { label: "LINE 顧客入口（LIFF）", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "LINE 綁定狀態", basic: "內含", pro: "內含", alliance: "內含" },
   { label: "LINE 自動提醒", basic: "$500 工具模組", pro: "$500 工具模組", alliance: "內含" },
   { label: "資料匯出", basic: "$500 工具模組", pro: "$500 工具模組", alliance: "內含" },
   { label: "現金抽屜", basic: "$500 工具模組", pro: "內含", alliance: "內含" },
   { label: "顧客經營", basic: "$800 經營模組", pro: "內含", alliance: "內含" },
-  { label: "健康評估／摘要", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
+  { label: "健康評估與體態追蹤", basic: "$800／月加購", pro: "經營額度選配／加購", alliance: "內含" },
   { label: "經營診斷", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
   { label: "月結管理", basic: "$800 經營模組", pro: "$800 經營模組", alliance: "內含" },
   { label: "多店管理", basic: "-", pro: "-", alliance: "內含" },
@@ -192,11 +193,12 @@ export default function PricingPage() {
                 "顧客管理",
                 "方案 / 堂數管理",
                 "基本收款紀錄與營運分析",
+                "LINE 顧客入口（LIFF），保留門市開關",
                 "可選 1 個 $500 工具型模組",
               ]}
               locked={[
                 "顧客經營",
-                "健康評估／摘要",
+                "健康評估與體態追蹤（可加購）",
                 "經營診斷",
                 "月結管理",
               ]}
@@ -236,7 +238,7 @@ export default function PricingPage() {
               features={[
                 "原價 NT$ 7,100/月起",
                 "限時優惠價 NT$ 4,990/月起",
-                "功能全含",
+                "本頁所列營運與選配模組全含",
                 "總部管理 + 1 家分店",
                 "第二家分店起，每家 +$1,000/月分店營運費",
                 "多店管理",
@@ -253,6 +255,10 @@ export default function PricingPage() {
             />
           </div>
         </section>
+
+        <div className="mx-auto max-w-5xl px-6 py-8">
+          <PlanPackageNotes />
+        </div>
 
         {/* ── 升級轉換區 ── */}
         <section className="mx-auto max-w-4xl px-6 py-20">
