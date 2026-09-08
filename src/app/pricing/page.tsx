@@ -19,6 +19,22 @@ const limits = [
 function TrialLink() {
   return <a href={TRIAL_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#123E32] px-5 py-3 text-sm font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4">申請體驗帳號<span aria-hidden="true" className="ml-2">↗</span></a>;
 }
+function PlanDetails({ plan }: { plan: (typeof plans)[number] }) {
+  return <>
+          <div className="mx-5 border-t border-[#153B31]/15 py-4">
+            <p className="text-sm text-[#64756D] line-through">原價 NT${plan.original}／月{plan.id === "ALLIANCE" ? "起" : ""}</p>
+            <p className="mt-1"><span className="text-3xl font-semibold tracking-tight">NT${plan.price}</span><span className="ml-1 text-sm">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
+            <p className="mt-2 text-sm font-medium">年繳 NT${plan.annual}{plan.id === "ALLIANCE" ? "起" : ""}，使用 14 個月</p>
+          </div>
+          <div className="mx-5 border-t border-[#153B31]/15 py-4"><h3 className="text-sm text-[#4C6259]">功能差異</h3><p className="mt-2 text-base leading-7 font-medium">{plan.difference}</p></div>
+          <div className="mx-5 border-t border-[#153B31]/15 py-4"><h3 className="text-sm text-[#4C6259]">可選哪些功能</h3><p className="mt-2 leading-7">{plan.tools}</p><p className="leading-7">{plan.management}</p></div>
+          <div className="mx-5 border-t border-[#153B31]/15 py-4"><h3 className="mb-2 text-sm text-[#4C6259]">使用規模</h3><dl className="space-y-2">{limits.map(item => {
+            const value = PLAN_LIMITS[plan.id][item.field];
+            return <div key={item.field} className="flex justify-between gap-2 text-base"><dt className="text-[#4C6259]">{item.label}</dt><dd className="font-medium">{value === null ? "無限制" : `${value.toLocaleString()} ${item.unit}`}</dd></div>;
+          })}</dl><p className="mt-3 border-t border-[#153B31]/10 pt-3 text-sm">{plan.stores}</p>{plan.id === "ALLIANCE" && <p className="mt-2 text-sm leading-6 text-[#4C6259]">第二家分店起，每家 +$1,000/月分店營運費。實際門市數量與開通範圍於申請時確認。</p>}</div>
+          <div className="px-5 pb-5"><TrialLink /></div>
+  </>;
+}
 export default function PricingPage() {
   return <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
     <header className="border-b border-[#153B31]/15 bg-white">
@@ -32,34 +48,34 @@ export default function PricingPage() {
         <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">選擇適合你門市的管家。</h1>
         <p className="mt-3 text-base leading-7 text-[#4C6259]">從日常店務、顧客回訪到多店管理，依你的經營需要選擇。</p>
       </div>
+      <section aria-label="手機版方案比較" className="mb-5 space-y-3 lg:hidden">
+        <p className="text-sm text-[#4C6259]">先比較差異，點選方案查看完整內容。</p>
+        {plans.map(plan => <details key={plan.id} name="mobile-plan" className={"group rounded-xl border border-[#153B31]/20 " + (plan.id === "GROWTH" ? "bg-[#E9F1EB]" : "bg-white")}>
+          <summary className="cursor-pointer list-none p-4 focus-visible:outline-2 focus-visible:outline-offset-4 [&::-webkit-details-marker]:hidden">
+            <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><span className="text-xl font-semibold">{plan.name}</span><span className="whitespace-nowrap"><span className="text-2xl font-semibold">NT${plan.price}</span><span className="text-sm">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></span></span>
+            <span className="mt-2 block text-base leading-7 text-[#4C6259]">適合{plan.audience}</span>
+            <span className="mt-1 block text-base font-medium leading-7">{plan.difference}</span>
+            <span className="mt-2 block text-sm font-medium"><span className="group-open:hidden">查看方案細節 ＋</span><span className="hidden group-open:inline">收合方案細節 −</span></span>
+          </summary>
+          <PlanDetails plan={plan} />
+        </details>)}
+      </section>
       <section aria-label="三個方案共同內含" className="mb-5 rounded-xl border border-[#153B31]/15 bg-white p-4">
         <h2 className="font-semibold">三個方案都包含</h2>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">預約管理・顧客資料・方案堂數・基本收款・營運分析</p>
         <p className="mt-1 text-sm leading-6 text-[#4C6259]">LINE 顧客入口（LIFF）皆內含，可預約、取消與查詢堂數；保留各門市獨立開關。</p>
       </section>
-      <section aria-label="方案比較" className="grid gap-4 lg:grid-cols-3 lg:gap-x-4 lg:gap-y-0">
+      <section aria-label="方案比較" className="hidden gap-4 lg:grid lg:grid-cols-3 lg:gap-x-4 lg:gap-y-0">
         {plans.map(plan => <article key={plan.id} aria-labelledby={plan.id} className={"grid gap-0 overflow-hidden rounded-2xl border border-[#153B31]/20 lg:row-span-6 lg:grid-rows-subgrid " + (plan.id === "GROWTH" ? "bg-[#E9F1EB]" : "bg-white")}>
           <div className="p-5 pb-4">
             <h2 id={plan.id} className="text-xl font-semibold">{plan.name}</h2>
             <p className="mt-2 text-lg font-medium">{plan.purpose}</p>
             <p className="mt-2 text-base leading-7 text-[#4C6259]">適合{plan.audience}</p>
           </div>
-          <div className="mx-5 border-t border-[#153B31]/15 py-4">
-            <p className="text-sm text-[#64756D] line-through">原價 NT${plan.original}／月{plan.id === "ALLIANCE" ? "起" : ""}</p>
-            <p className="mt-1"><span className="text-3xl font-semibold tracking-tight">NT${plan.price}</span><span className="ml-1 text-sm">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
-            <p className="mt-2 text-sm font-medium">年繳 NT${plan.annual}{plan.id === "ALLIANCE" ? "起" : ""}，使用 14 個月</p>
-          </div>
-          <div className="mx-5 border-t border-[#153B31]/15 py-4"><h3 className="text-sm text-[#4C6259]">功能差異</h3><p className="mt-2 text-base leading-7 font-medium">{plan.difference}</p></div>
-          <div className="mx-5 border-t border-[#153B31]/15 py-4"><h3 className="text-sm text-[#4C6259]">可選哪些功能</h3><p className="mt-2 leading-7">{plan.tools}</p><p className="leading-7">{plan.management}</p></div>
-          <div className="mx-5 border-t border-[#153B31]/15 py-4"><h3 className="mb-2 text-sm text-[#4C6259]">使用規模</h3><dl className="space-y-2">{limits.map(item => {
-            const value = PLAN_LIMITS[plan.id][item.field];
-            return <div key={item.field} className="flex justify-between gap-2 text-base"><dt className="text-[#4C6259]">{item.label}</dt><dd className="font-medium">{value === null ? "無限制" : `${value.toLocaleString()} ${item.unit}`}</dd></div>;
-          })}</dl><p className="mt-3 border-t border-[#153B31]/10 pt-3 text-sm">{plan.stores}</p></div>
-          <div className="px-5 pb-5"><TrialLink /></div>
+          <PlanDetails plan={plan} />
         </article>)}
       </section>
       <p className="mt-4 text-sm leading-6 text-[#4C6259]">限時優惠｜主方案繳 12 個月，使用 14 個月。額外模組與分店營運費另計；優惠結束後依正式原價調整。</p>
-      <p className="mt-2 text-sm leading-6 text-[#4C6259]">展店版：第二家分店起，每家 +$1,000/月分店營運費。實際門市數量與開通範圍於申請時確認。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">先用方案內含的功能；需要更多時，再按項目加購。</p>
@@ -77,7 +93,7 @@ export default function PricingPage() {
       </section>
     </main>
     <section className="bg-[#123E32] px-5 py-8 text-center text-white">
-      <h2 className="text-2xl font-semibold">每一家店，都值得擁有一位數位管家。</h2>
+      <h2 className="text-2xl font-semibold"><span className="block sm:inline">每一家店，</span><span>都值得擁有一位<span className="whitespace-nowrap">數位管家。</span></span></h2>
       <p className="mx-auto mt-3 max-w-4xl text-base leading-7 text-[#D4E0D8]">預約、堂數、收款一次整理，專心照顧顧客。</p>
       <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center rounded-full border border-white/50 px-5 py-3 font-medium">還不確定？加 LINE 聊聊</a>
     </section>
