@@ -54,8 +54,8 @@ export default function BusinessPage() {
             </div>
           </div>
           <figure className="min-w-0 rounded-2xl border border-[#153B31]/15 bg-white p-3 shadow-lg">
-            <a href="/images/business/real-trial-booking.jpg" target="_blank" rel="noopener noreferrer" aria-label="放大首次體驗預約實際畫面">
-              <Image src="/images/business/real-trial-booking.jpg" width={1363} height={936} sizes="(max-width: 1024px) 100vw, 460px" alt="暖暖蒸足實際首次體驗預約表單，顯示可約日期與時段，未填寫任何顧客資料" className="h-auto w-full rounded-xl" />
+            <a href="/pricing/business-assets/real-trial-booking.jpg" target="_blank" rel="noopener noreferrer" aria-label="放大首次體驗預約實際畫面">
+              <Image src="/pricing/business-assets/real-trial-booking.jpg" width={1363} height={936} sizes="(max-width: 1024px) 100vw, 460px" alt="暖暖蒸足實際首次體驗預約表單，顯示可約日期與時段，未填寫任何顧客資料" className="h-auto w-full rounded-xl" />
             </a>
             <figcaption className="px-2 pb-2 pt-4 text-sm leading-6 text-[#4C6259]">暖暖蒸足｜首次體驗預約實際畫面<br />顧客先選日期，再看可約時段。點圖可放大。<br />擷取於 2026/09/08；此圖為公開體驗表單，非 LIFF 會員頁。</figcaption>
           </figure>
