@@ -67,8 +67,8 @@ export default function BusinessPage() {
                   <h3 className="mt-2 text-2xl font-medium">暖暖蒸足</h3>
 
                   <p className="mt-4 text-base leading-8 text-[#4C6259]">顧客自行選日期與時段，店長在後台查看每日預約。</p>
-                  <a href="/pricing/business-assets/real-trial-booking.jpg" target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center gap-3 rounded-lg border border-[#153B31]/15 bg-white p-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2" aria-label="另開真實預約畫面">
-                    <Image src="/pricing/business-assets/real-trial-booking.jpg" width={1363} height={936} sizes="80px" alt="" className="h-14 w-20 shrink-0 rounded object-contain" />
+                  <a href="/pricing/business-assets/booking-time-original.png" target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center gap-3 rounded-lg border border-[#153B31]/15 bg-white p-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2" aria-label="另開真實預約畫面">
+                    <Image src="/pricing/business-assets/booking-time-original.png" width={1532} height={1364} sizes="(max-width: 640px) 128px, 160px" unoptimized alt="" className="h-auto w-32 shrink-0 rounded object-contain sm:w-40" />
                     <span>查看真實預約畫面 <span aria-hidden="true">↗</span><span className="mt-1 block font-normal text-[#64756D]">另開放大，不影響目前閱讀</span></span>
                   </a>
                 </article>
@@ -117,7 +117,7 @@ export default function BusinessPage() {
       <footer className="border-t border-[#153B31]/15 px-5 py-7 text-sm text-[#4C6259] sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-4">
           <p>蒸管家｜每一家店都值得擁有一位數位管家。</p>
-          <Link href="/hq/login" className="underline underline-offset-4">店家後台登入</Link>
+          <a href="https://steam-butler-check.vercel.app/?source=business-footer&amp;campaign=trial-interest" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">門市健檢・了解體驗</a>
         </div>
       </footer>
     </div>
