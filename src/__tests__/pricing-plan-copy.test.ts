@@ -16,6 +16,13 @@ const PLAN_PAGES = [
 const PUBLIC_PRICING_PAGE = "src/app/pricing/page.tsx";
 
 describe("pricing and growth plan copy", () => {
+  it("uses the official LINE link for both consultation calls to action", () => {
+    const source = readSource(PUBLIC_PRICING_PAGE);
+
+    expect(source.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(2);
+    expect(source).not.toContain("lin.ee/placeholder");
+  });
+
   it.each(PLAN_PAGES)("bundles health assessment and summary on %s", (path) => {
     const source = readSource(path);
 
