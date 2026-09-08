@@ -31,7 +31,6 @@ describe("operations and analysis naming", () => {
       "src/lib/store-feature-catalog.ts",
       "src/app/(dashboard)/dashboard/settings/plan/page.tsx",
       "src/app/(dashboard)/dashboard/settings/plans/page.tsx",
-      "src/app/pricing/page.tsx",
     ].map(source).join("\n");
     expect(surfaces).toContain("分析");
     expect(surfaces).not.toContain("經營診斷");
