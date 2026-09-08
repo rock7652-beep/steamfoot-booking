@@ -1,7 +1,7 @@
 const steps = [
   { who: "顧客", title: "自己選時間", benefit: "少來回問時段", icon: "calendar" },
-  { who: "蒸管家", title: "自動建檔", benefit: "少重抄一次資料", icon: "record" },
-  { who: "店長", title: "收到通知", benefit: "打開 LINE 就知道", icon: "bell" },
+  { who: "蒸管家", title: "自動建檔", benefit: "不用重抄資料", icon: "record" },
+  { who: "店長", title: "收到通知", benefit: "LINE 即時通知", icon: "bell" },
 ];
 
 export function BookingOverview() {
