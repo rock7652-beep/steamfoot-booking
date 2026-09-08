@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { DayStory } from "./day-story";
 
 export const metadata: Metadata = {
   title: "蒸管家｜店務少一點忙，顧客多一點照顧",
@@ -9,17 +10,6 @@ export const metadata: Metadata = {
 };
 
 const LINE_URL = "https://lin.ee/SGy5UBz";
-const benefits = [
-  { number: "01", title: "少回覆", question: "預約時間，還在來回確認？", description: "顧客從 LINE 入口自行預約，把可預約時間看清楚，減少來回詢問。" },
-  { number: "02", title: "少漏事", question: "忙起來，就忘了提醒顧客？", description: "設定自動提醒，讓顧客確認會到、調整或取消預約；店長也能看到回覆。" },
-  { number: "03", title: "少翻找", question: "剩幾堂、付了沒，要到處找？", description: "預約、顧客、方案堂數與收款紀錄集中查看，接待時不用反覆翻對話。" },
-];
-const steps = [
-  { role: "顧客", title: "在 LINE 裡安排預約", description: "選擇日期與可預約時段，也能查詢自己的方案堂數。" },
-  { role: "系統", title: "依設定送出提醒", description: "顧客可確認會到、調整時間或取消，減少店長逐一聯繫。" },
-  { role: "店長", title: "集中掌握當日店務", description: "查看預約與顧客資訊，服務完成後處理堂數與收款紀錄。" },
-];
-
 function ConsultLink({ light = false }: { light?: boolean }) {
   return <a href={LINE_URL} target="_blank" rel="noopener noreferrer"
     className={`inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-center text-base font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#B58C43] ${light ? "bg-[#F5EFE3] text-[#123E32] hover:bg-white" : "bg-[#123E32] text-white hover:bg-[#245A49]"}`}>
@@ -43,7 +33,7 @@ export default function BusinessPage() {
       <main id="main">
         <section aria-labelledby="hero-title" className="mx-auto grid max-w-6xl gap-10 px-5 pb-16 pt-14 sm:px-8 sm:py-24 lg:grid-cols-[1.5fr_1fr] lg:items-end lg:gap-16">
           <div>
-            <p className="mb-6 text-sm font-medium tracking-[0.16em] text-[#74603C]">給預約制門市的店務管理系統</p>
+            <p className="mb-6 text-sm font-medium tracking-[0.16em] text-[#74603C]">簡單學・一眼懂・輕鬆做</p>
             <h1 id="hero-title" className="text-[clamp(2.3rem,5.5vw,4.5rem)] font-semibold leading-[1.3] tracking-tight">
               店務少一點忙，<br /><span className="text-[#967039]">顧客多一點照顧。</span>
             </h1>
@@ -61,38 +51,7 @@ export default function BusinessPage() {
           </figure>
         </section>
 
-        <section aria-labelledby="benefits-title" className="bg-[#123E32] px-5 py-16 text-[#F8F5EE] sm:px-8 sm:py-20">
-          <div className="mx-auto max-w-6xl">
-            <h2 id="benefits-title" className="text-3xl font-semibold leading-snug">一天的忙，<br className="sm:hidden" />不必都靠你記住。</h2>
-            <div className="mt-10 grid gap-9 md:grid-cols-3 md:gap-10">
-              {benefits.map((item) => <article key={item.number} className="border-t border-white/25 pt-6">
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-3xl font-medium">{item.title}</h3>
-                  <span className="text-sm text-[#DFC99D]">{item.number}</span>
-                </div>
-                <p className="mt-6 text-lg font-medium">{item.question}</p>
-                <p className="mt-3 text-base leading-8 text-[#D4E0D8]">{item.description}</p>
-              </article>)}
-            </div>
-          </div>
-        </section>
-
-        <section id="how-it-works" aria-labelledby="workflow-title" className="mx-auto max-w-6xl scroll-mt-6 px-5 py-16 sm:px-8 sm:py-24">
-          <p className="text-sm font-medium tracking-widest text-[#74603C]">從預約到店務</p>
-          <h2 id="workflow-title" className="mt-4 text-3xl font-semibold leading-snug sm:text-4xl">顧客方便，店長也輕鬆。</h2>
-          <p className="mt-5 max-w-xl text-base leading-8 text-[#4C6259]">一筆預約，從顧客的 LINE 入口，到店長的日常管理。先看這三個環節。</p>
-          <ol className="mt-10 grid gap-5 md:grid-cols-3">
-            {steps.map((step, index) => <li key={step.role} className="rounded-2xl border border-[#153B31]/15 bg-white p-6 sm:p-8">
-              <div className="flex items-center justify-between text-sm text-[#74603C]"><span>{step.role}</span><span>0{index + 1}</span></div>
-              <h3 className="mt-7 text-xl font-semibold">{step.title}</h3>
-              <p className="mt-4 text-base leading-8 text-[#4C6259]">{step.description}</p>
-            </li>)}
-          </ol>
-          <div className="mt-8 border-l-2 border-[#B58C43] pl-5">
-            <h3 className="text-lg font-semibold">也照顧有體態管理需求的門市</h3>
-            <p className="mt-2 text-base leading-8 text-[#4C6259]">健康評估與體態追蹤模組，可記錄量測、查看歷史數據與變化趨勢。依方案選配或加購，不作醫療診斷或效果保證。</p>
-          </div>
-        </section>
+        <DayStory />
 
         <section aria-labelledby="cases-title" className="border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-16 sm:px-8 sm:py-20">
           <div className="mx-auto max-w-6xl">
