@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { DayStory } from "./day-story";
+import { DayStory, WorkflowPanel } from "./day-story";
 
 export const metadata: Metadata = {
   title: "蒸管家｜店務少一點忙，顧客多一點照顧",
@@ -31,7 +31,7 @@ export default function BusinessPage() {
         </div>
       </header>
       <main id="main">
-        <section aria-labelledby="hero-title" className="mx-auto grid max-w-6xl gap-10 px-5 pb-16 pt-14 sm:px-8 sm:py-24 lg:grid-cols-[1.5fr_1fr] lg:items-end lg:gap-16">
+        <section aria-labelledby="hero-title" className="mx-auto grid max-w-6xl gap-10 px-5 pb-10 pt-10 sm:px-8 sm:py-14 lg:grid-cols-[1.1fr_1fr] lg:items-end lg:gap-10">
           <div>
             <p className="mb-6 text-sm font-medium tracking-[0.16em] text-[#74603C]">簡單學・一眼懂・輕鬆做</p>
             <h1 id="hero-title" className="text-[clamp(2.3rem,5.5vw,4.5rem)] font-semibold leading-[1.3] tracking-tight">
@@ -43,20 +43,18 @@ export default function BusinessPage() {
               <a href="#how-it-works" className="py-3 text-base underline underline-offset-8">看看怎麼運作</a>
             </div>
           </div>
-          <figure className="min-w-0 rounded-2xl border border-[#153B31]/15 bg-white p-3 shadow-lg">
-            <a href="/pricing/business-assets/real-trial-booking.jpg" target="_blank" rel="noopener noreferrer" aria-label="放大首次體驗預約實際畫面">
-              <Image src="/pricing/business-assets/real-trial-booking.jpg" width={1363} height={936} sizes="(max-width: 1024px) 100vw, 460px" alt="暖暖蒸足實際首次體驗預約表單，顯示可約日期與時段，未填寫任何顧客資料" className="h-auto w-full rounded-xl" />
-            </a>
-            <figcaption className="px-2 pb-2 pt-4 text-sm leading-6 text-[#4C6259]">暖暖蒸足｜顧客預約體驗服務<br />顧客先選日期，再看可約時段。點圖可放大。<br />擷取於 2026/09/08；此圖為門市顧客預約表單，非店家申請試用。</figcaption>
+          <figure className="min-w-0 rounded-2xl bg-[#EEE9DD] p-5 sm:p-7">
+            <WorkflowPanel index={1} />
+            <figcaption className="mt-4 text-sm text-[#4C6259]">顧客預約 → 店長名單｜介面示意・範例資料</figcaption>
           </figure>
         </section>
 
         <DayStory />
 
-        <section aria-labelledby="cases-title" className="border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-16 sm:px-8 sm:py-20">
+        <section aria-labelledby="cases-title" className="border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-16 sm:px-8 sm:py-14">
           <div className="mx-auto max-w-6xl">
             <p className="text-sm font-medium tracking-widest text-[#74603C]">店家案例</p>
-            <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_1.3fr] lg:gap-16">
+            <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_1.3fr] lg:gap-10">
               <div><h2 id="cases-title" className="text-3xl font-semibold leading-snug">從真實店務，<br />認識蒸管家。</h2>
                 <p className="mt-5 text-base leading-8 text-[#4C6259]">想了解與自己門市相近的使用情境？免費介紹時，可以從店家案例開始聊。</p>
               </div>
@@ -69,6 +67,10 @@ export default function BusinessPage() {
                 <article className="py-7">
                   <p className="text-sm text-[#74603C]">顧客體驗預約與日常管理</p>
                   <h3 className="mt-2 text-2xl font-medium">暖暖蒸足</h3>
+                  <a href="/pricing/business-assets/real-trial-booking.jpg" target="_blank" rel="noopener noreferrer" className="mt-4 block overflow-hidden rounded-xl bg-white" aria-label="放大暖暖蒸足實際預約畫面">
+                    <Image src="/pricing/business-assets/real-trial-booking.jpg" width={1363} height={936} sizes="(max-width: 768px) 100vw, 560px" alt="暖暖蒸足顧客預約體驗服務的真實表單" className="h-auto w-full" />
+                  </a>
+                  <p className="mt-2 text-sm text-[#4C6259]">實際顧客預約畫面・點圖放大</p>
                   <p className="mt-4 text-base leading-8 text-[#4C6259]">首次體驗頁提供可約日期與時段；店長在後台月曆查看預約，點選日期展開當日明細，並透過提醒設定安排預約前通知。</p>
                 </article>
               </div>
@@ -76,7 +78,7 @@ export default function BusinessPage() {
           </div>
         </section>
 
-        <section aria-labelledby="contact-title" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
+        <section aria-labelledby="contact-title" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-14">
           <div className="grid gap-10 lg:grid-cols-[1.25fr_1fr] lg:items-center">
             <div><p className="text-sm font-medium tracking-widest text-[#74603C]">從你的門市需要開始</p>
               <h2 id="contact-title" className="mt-4 text-3xl font-semibold leading-snug sm:text-4xl">先聊聊，<br />你最想少忙哪件事？</h2>
