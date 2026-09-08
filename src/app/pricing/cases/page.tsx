@@ -105,7 +105,21 @@ export default async function StoreCasesPage({
               </a>
               <figcaption className="mt-2 text-sm leading-6 text-[#4C6259]">門市真實預約畫面・點圖放大查看</figcaption>
             </figure>
-          ) : null}
+          ) : (
+            <figure className="mt-5 grid items-center gap-4 sm:grid-cols-[minmax(0,280px)_1fr]">
+              <a href="/pricing/business-assets/brand-reminder-example.jpeg" target="_blank" rel="noopener noreferrer" aria-label="放大暖沐預約提醒示意圖（另開視窗）"
+                className="block overflow-hidden rounded-xl border border-[#153B31]/15 bg-[#FAF8F2] focus-visible:outline-2 focus-visible:outline-offset-4">
+                <Image src="/pricing/business-assets/brand-reminder-example.jpeg" width={1058} height={1487} unoptimized
+                  alt="暖沐蒸足預約提醒示意：林小姐的預約時間、服務資訊，以及改時段與取消前往選項"
+                  className="mx-auto h-auto max-h-[360px] w-full object-contain" />
+              </a>
+              <figcaption>
+                <h3 className="text-lg font-semibold">少一則手動提醒，少一輪來回確認。</h3>
+                <p className="mt-2 text-base leading-7 text-[#4C6259]">預約資訊隨卡片送達，顧客可自行改期或取消，讓店長省下逐筆提醒與確認的時間。</p>
+                <p className="mt-2 text-sm leading-6 text-[#4C6259]">新版提醒示意・姓名與預約資料為範例・點圖放大</p>
+              </figcaption>
+            </figure>
+          )}
           <p className="mt-4 text-base leading-7 text-[#4C6259]">{current.fit}</p>
           {current.id === "nuanmu" ? (
             <p className="mt-4 text-sm leading-6 text-[#4C6259]">

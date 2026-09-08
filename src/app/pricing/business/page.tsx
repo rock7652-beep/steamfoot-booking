@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { DayStory } from "./day-story";
 
 export const metadata: Metadata = {
@@ -61,6 +62,17 @@ export default function BusinessPage() {
                   <p className="mt-3 text-base font-medium leading-7">逐筆提醒的時間，交給蒸管家。</p>
                   <p className="mt-2 text-base leading-7 text-[#4C6259]">暖沐蒸足依提醒規則安排通知，減少逐筆傳送訊息與整理回覆的工作。</p>
 
+                  <a href="/pricing/business-assets/brand-reminder-example.jpeg" target="_blank" rel="noopener noreferrer"
+                    aria-label="放大暖沐預約提醒示意圖（另開視窗）"
+                    className="mt-3 flex items-center gap-4 rounded-xl border border-[#153B31]/15 bg-white p-3 focus-visible:outline-2 focus-visible:outline-offset-4">
+                    <Image src="/pricing/business-assets/brand-reminder-example.jpeg" width={1058} height={1487} unoptimized
+                      alt="深綠米白配色的蒸管家預約提醒示意卡片"
+                      className="h-32 w-24 shrink-0 rounded-md object-contain" />
+                    <span className="min-w-0">
+                      <span className="block text-base font-medium">提醒交給管家，時間留給顧客。</span>
+                      <span className="mt-1 block text-sm leading-6 text-[#4C6259]">新版提醒示意・點圖放大</span>
+                    </span>
+                  </a>
                   <a href="/pricing/cases?store=nuanmu" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖沐完整案例 →</a>
                 </article>
                 <article className="flex flex-col rounded-xl border border-[#153B31]/15 bg-white/60 p-5">
