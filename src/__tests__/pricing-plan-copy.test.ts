@@ -16,10 +16,10 @@ const PLAN_PAGES = [
 const PUBLIC_PRICING_PAGE = "src/app/pricing/page.tsx";
 
 describe("pricing and growth plan copy", () => {
-  it("uses the official LINE link for both consultation calls to action", () => {
+  it("uses the official LINE link for consultation calls to action", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
 
-    expect(source.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(2);
+    expect(source.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(4);
     expect(source).not.toContain("lin.ee/placeholder");
   });
 
@@ -48,7 +48,7 @@ describe("pricing and growth plan copy", () => {
   it("brands the public pricing page as 蒸管家 for service businesses", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
 
-    expect(source).toContain("蒸管家｜服務品牌成長系統");
+    expect(source).toContain("蒸管家｜店務管理系統");
     expect(source).toContain("預約制門市、工作室與服務品牌");
     expect(source).not.toContain("蒸足系統方案");
     expect(source).not.toContain("蒸足預約管理系統");

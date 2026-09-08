@@ -9,7 +9,7 @@ import type { PricingPlan } from "@prisma/client";
 export const metadata = {
   title: "方案與價格 — 蒸管家",
   description:
-    "蒸管家服務品牌成長系統，從單店營運、顧客經營到多店管理，適用於預約制門市、工作室與服務品牌。",
+    "蒸管家店務管理系統，從單店營運、顧客經營到多店管理，適用於預約制門市、工作室與服務品牌。",
 };
 
 // ============================================================
@@ -74,7 +74,7 @@ export default function PricingPage() {
             蒸管家
           </Link>
           <div className="flex items-center gap-3">
-            
+
             <Link
               href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer"
               className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
@@ -387,7 +387,7 @@ export default function PricingPage() {
             >
               預約免費介紹
             </Link>
-            
+
 
           </div>
         </section>
