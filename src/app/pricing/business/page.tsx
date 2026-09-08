@@ -53,25 +53,24 @@ export default function BusinessPage() {
             <p className="text-sm font-medium tracking-widest text-[#74603C]">店家案例</p>
             <div className="mt-3 grid gap-4">
               <div><h2 id="cases-title" className="text-3xl font-semibold leading-snug">真實店家，實際使用。</h2>
-                <p className="mt-5 text-base leading-8 text-[#4C6259]">想了解與自己門市相近的使用情境？免費介紹時，可以從店家案例開始聊。</p>
+                <p className="mt-5 text-base leading-8 text-[#4C6259]">看看門市怎麼用。</p>
               </div>
               <div className="grid gap-5 md:grid-cols-2">
-                <article className="py-3">
+                <article className="flex flex-col rounded-xl border border-[#153B31]/15 bg-white/60 p-5">
                   <p className="text-sm text-[#74603C]">預約提醒</p>
                   <h3 className="mt-2 text-2xl font-medium">暖沐蒸足</h3>
-                  <p className="mt-4 text-base leading-8 text-[#4C6259]">門市已啟用自動提醒規則，店長可在提醒管理查看通知設定與發送紀錄，掌握預約前的通知安排。</p>
+                  <p className="mt-4 text-base leading-8 text-[#4C6259]">自動提醒顧客，店長集中查看通知設定與發送紀錄。</p>
+                  <a href="#how-it-works" className="mt-4 inline-flex min-h-12 items-center text-sm font-medium underline underline-offset-4">查看功能示意 ↑</a>
                 </article>
-                <article className="py-3">
+                <article className="flex flex-col rounded-xl border border-[#153B31]/15 bg-white/60 p-5">
                   <p className="text-sm text-[#74603C]">顧客體驗預約與日常管理</p>
                   <h3 className="mt-2 text-2xl font-medium">暖暖蒸足</h3>
-                  <details className="mt-3">
-                    <summary className="cursor-pointer py-2 text-sm underline underline-offset-4">查看真實預約畫面</summary>
-                  <a href="/pricing/business-assets/real-trial-booking.jpg" target="_blank" rel="noopener noreferrer" className="mt-4 block overflow-hidden rounded-xl bg-white" aria-label="放大暖暖蒸足實際預約畫面">
-                    <Image src="/pricing/business-assets/real-trial-booking.jpg" width={1363} height={936} sizes="(max-width: 768px) 100vw, 560px" alt="暖暖蒸足顧客預約體驗服務的真實表單" className="h-auto w-full" />
+
+                  <p className="mt-4 text-base leading-8 text-[#4C6259]">顧客自行選日期與時段，店長在後台查看每日預約。</p>
+                  <a href="/pricing/business-assets/real-trial-booking.jpg" target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center gap-3 rounded-lg border border-[#153B31]/15 bg-white p-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2" aria-label="另開真實預約畫面">
+                    <Image src="/pricing/business-assets/real-trial-booking.jpg" width={1363} height={936} sizes="80px" alt="" className="h-14 w-20 shrink-0 rounded object-contain" />
+                    <span>查看真實預約畫面 <span aria-hidden="true">↗</span><span className="mt-1 block font-normal text-[#64756D]">另開放大，不影響目前閱讀</span></span>
                   </a>
-                  <p className="mt-2 text-sm text-[#4C6259]">實際顧客預約畫面・點圖放大</p>
-                  </details>
-                  <p className="mt-4 text-base leading-8 text-[#4C6259]">首次體驗頁提供可約日期與時段；店長在後台月曆查看預約，點選日期展開當日明細，並透過提醒設定安排預約前通知。</p>
                 </article>
               </div>
             </div>
