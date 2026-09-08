@@ -119,7 +119,9 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
 </div></div>
 
 <script>
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyLTou6qvTiqPTGPShNRCY8F53FW98xr9PzbjRpE0n-ios3zdJAyAv_3aVdtTLJYwlr/exec';
+const SUBMIT_URL = '/pricing/submit';
+let submissionId;
+let submissionUnconfirmed = false;
 const form = document.getElementById('storeForm');
 const systemFields = document.getElementById('systemFields');
 const errorBox = document.getElementById('errorBox');
@@ -154,16 +156,11 @@ document.querySelectorAll('input[name="needs"]').forEach(el=>el.addEventListener
 
 form.addEventListener('submit', async (e)=>{
   e.preventDefault();
+  if (submitBtn.disabled || submissionUnconfirmed) return;
   errorBox.classList.remove('show');
 
   const needs=[...document.querySelectorAll('input[name="needs"]:checked')].map(x=>x.value);
   if(!needs.length){alert('請至少選擇一項需求');return;}
-
-  if(APPS_SCRIPT_URL.startsWith('請貼上')){
-    errorBox.textContent='尚未設定 Apps Script 網址。請先完成部署，再貼入 HTML。';
-    errorBox.classList.add('show');
-    return;
-  }
 
   const fd = new FormData(form);
   const payload = Object.fromEntries(fd.entries());
@@ -172,6 +169,8 @@ form.addEventListener('submit', async (e)=>{
     alert('請至少填寫聯絡電話或 LINE ID 其中一項');
     return;
   }
+  submissionId ||= crypto.randomUUID();
+  payload.requestId = submissionId;
   payload.needs = needs;
   payload.replaceReason = [...document.querySelectorAll('input[name="replaceReason"]:checked')].map(x=>x.value);
 
@@ -193,12 +192,24 @@ form.addEventListener('submit', async (e)=>{
   submitBtn.textContent='正在送出…';
 
   try{
-    await fetch(APPS_SCRIPT_URL,{
+    const response = await fetch(SUBMIT_URL,{
       method:'POST',
-      mode:'no-cors',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      signal: AbortSignal.timeout(65000),
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload)
     });
+
+    const result = await response.json();
+    if (response.status === 400 && result.code === 'INVALID_INPUT') {
+      errorBox.textContent = '請確認店名、稱呼、店家類型、聯絡方式與需求是否填寫完整，文字是否過長。';
+      errorBox.classList.add('show');
+      submitBtn.disabled = false;
+      updateTrialChoice();
+      return;
+    }
+    if (!response.ok || result.ok !== true || result.saved !== true || result.requestId !== submissionId) {
+      throw new Error('Save unconfirmed');
+    }
 
     const requestedTrial = payload.contactWay === '申請體驗帳號';
     const successView = document.getElementById('successView');
@@ -210,10 +221,16 @@ form.addEventListener('submit', async (e)=>{
     document.getElementById('successView').classList.add('show');
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(err){
-    errorBox.textContent='送出失敗，請稍後再試，或直接透過 LINE 與我們聯繫。';
+    submissionUnconfirmed = true;
+    errorBox.textContent='目前無法確認資料是否已保存。為避免重複申請，請先不要重送；請透過下方官方 LINE 提供店名，讓我們幫你確認。';
+    const contactLink = document.createElement('a');
+    contactLink.href = 'https://lin.ee/SGy5UBz';
+    contactLink.textContent = ' 加 LINE 確認申請';
+    contactLink.style.textDecoration = 'underline';
+    errorBox.appendChild(contactLink);
     errorBox.classList.add('show');
-    submitBtn.disabled=false;
-    updateTrialChoice();
+    submitBtn.disabled=true;
+    submitBtn.textContent='請聯繫確認申請';
   }
 });
 </script>
