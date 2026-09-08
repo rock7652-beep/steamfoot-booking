@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 
 export const metadata: Metadata = {
   title: "蒸管家｜店務少一點忙，顧客多一點照顧",
@@ -42,7 +43,7 @@ export default function BusinessPage() {
       <main id="main">
         <section aria-labelledby="hero-title" className="mx-auto grid max-w-6xl gap-10 px-5 pb-16 pt-14 sm:px-8 sm:py-24 lg:grid-cols-[1.5fr_1fr] lg:items-end lg:gap-16">
           <div>
-            <p className="mb-6 text-sm font-medium tracking-[0.16em] text-[#74603C]">給每天用心經營的店長</p>
+            <p className="mb-6 text-sm font-medium tracking-[0.16em] text-[#74603C]">給預約制門市的店務管理系統</p>
             <h1 id="hero-title" className="text-[clamp(2.3rem,5.5vw,4.5rem)] font-semibold leading-[1.3] tracking-tight">
               店務少一點忙，<br /><span className="text-[#967039]">顧客多一點照顧。</span>
             </h1>
@@ -52,11 +53,12 @@ export default function BusinessPage() {
               <a href="#how-it-works" className="py-3 text-base underline underline-offset-8">看看怎麼運作</a>
             </div>
           </div>
-          <aside aria-label="服務理念" className="border-l-2 border-[#B58C43] py-2 pl-6 lg:mb-3">
-            <p className="text-sm text-[#74603C]">每一家店，都值得擁有一位數位管家。</p>
-            <p className="mt-5 text-2xl font-medium leading-relaxed">把時間留給眼前的顧客，<br />也留一點給自己。</p>
-            <p className="mt-5 text-base leading-relaxed text-[#4C6259]">從單店的日常開始。<br />適合預約制門市、工作室與服務品牌。</p>
-          </aside>
+          <figure className="min-w-0 rounded-2xl border border-[#153B31]/15 bg-white p-3 shadow-lg">
+            <a href="/images/business/real-trial-booking.jpg" target="_blank" rel="noopener noreferrer" aria-label="放大首次體驗預約實際畫面">
+              <Image src="/images/business/real-trial-booking.jpg" width={1363} height={936} sizes="(max-width: 1024px) 100vw, 460px" alt="暖暖蒸足實際首次體驗預約表單，顯示可約日期與時段，未填寫任何顧客資料" className="h-auto w-full rounded-xl" />
+            </a>
+            <figcaption className="px-2 pb-2 pt-4 text-sm leading-6 text-[#4C6259]">暖暖蒸足｜首次體驗預約實際畫面<br />顧客先選日期，再看可約時段。點圖可放大。<br />擷取於 2026/09/08；此圖為公開體驗表單，非 LIFF 會員頁。</figcaption>
+          </figure>
         </section>
 
         <section aria-labelledby="benefits-title" className="bg-[#123E32] px-5 py-16 text-[#F8F5EE] sm:px-8 sm:py-20">
@@ -100,9 +102,16 @@ export default function BusinessPage() {
                 <p className="mt-5 text-base leading-8 text-[#4C6259]">想了解與自己門市相近的使用情境？免費介紹時，可以從店家案例開始聊。</p>
               </div>
               <div className="divide-y divide-[#153B31]/20 border-y border-[#153B31]/20">
-                {[["A", "暖沐蒸足"], ["B", "暖暖蒸足"]].map(([letter, name]) => <article key={letter} className="flex items-center gap-6 py-7">
-                  <span className="text-sm text-[#74603C]">案例 {letter}</span><h3 className="text-2xl font-medium">{name}</h3>
-                </article>)}
+                <article className="py-7">
+                  <p className="text-sm text-[#74603C]">案例 A｜預約提醒</p>
+                  <h3 className="mt-2 text-2xl font-medium">暖沐蒸足</h3>
+                  <p className="mt-4 text-base leading-8 text-[#4C6259]">門市已啟用自動提醒規則，店長可在提醒管理查看通知設定與發送紀錄，掌握預約前的通知安排。</p>
+                </article>
+                <article className="py-7">
+                  <p className="text-sm text-[#74603C]">案例 B｜體驗預約與日常管理</p>
+                  <h3 className="mt-2 text-2xl font-medium">暖暖蒸足</h3>
+                  <p className="mt-4 text-base leading-8 text-[#4C6259]">首次體驗頁提供可約日期與時段；店長在後台月曆查看預約，點選日期展開當日明細，並透過提醒設定安排預約前通知。</p>
+                </article>
               </div>
             </div>
           </div>
