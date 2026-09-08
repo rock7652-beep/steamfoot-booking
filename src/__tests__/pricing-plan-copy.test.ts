@@ -16,6 +16,13 @@ const PLAN_PAGES = [
 const PUBLIC_PRICING_PAGE = "src/app/pricing/page.tsx";
 
 describe("pricing and growth plan copy", () => {
+  it("presents analysis as an independent paid addon", () => {
+    const source = readSource(PUBLIC_PRICING_PAGE);
+    expect(source).toContain("分析 NT$800／月獨立加購");
+    expect(source).toContain("不占方案選配額度；展店版亦不包含");
+    expect(source).not.toContain("經營診斷");
+    expect(source).not.toContain("基本收款・營運分析");
+  });
   it("uses the official LINE link for consultation calls to action", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
 

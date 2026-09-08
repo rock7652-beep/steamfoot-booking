@@ -37,11 +37,11 @@ export default async function CoachRevenuePage() {
     : DATA_EXPORT_SELECT_STORE_MESSAGE;
 
   const gateStoreId = reportsStoreId ?? activeStoreId;
-  if (gateStoreId && !(await hasStoreFeature(gateStoreId, FF.ADVANCED_REPORTS))) {
+  if (gateStoreId && !(await hasStoreFeature(gateStoreId, FF.BASIC_REPORTS))) {
     return (
       <UpgradeNoticePage
-        title="經營診斷尚未開通"
-        description="此功能需使用展店版，或由總部為店舖開通經營診斷功能。"
+        title="分析尚未開通"
+        description="分析為 NT$800／月獨立加購，請聯絡總部開通。"
       />
     );
   }

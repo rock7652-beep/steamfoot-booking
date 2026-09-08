@@ -62,7 +62,7 @@ export default function PricingPage() {
       </section>
       <section aria-label="三個方案共同內含" className="mb-5 rounded-xl border border-[#153B31]/15 bg-white p-4">
         <h2 className="font-semibold">三個方案都包含</h2>
-        <p className="mt-2 text-base leading-7 text-[#4C6259]">預約管理・顧客資料・方案堂數・基本收款・營運分析</p>
+        <p className="mt-2 text-base leading-7 text-[#4C6259]">預約管理・顧客資料・方案堂數・基本收款</p>
         <p className="mt-1 text-sm leading-6 text-[#4C6259]">LINE 顧客入口（LIFF）皆內含，可預約、取消與查詢堂數；保留各門市獨立開關。</p>
       </section>
       <section aria-label="方案比較" className="hidden gap-4 lg:grid lg:grid-cols-3 lg:gap-x-4 lg:gap-y-0">
@@ -81,9 +81,9 @@ export default function PricingPage() {
         <p className="mt-2 text-base leading-7 text-[#4C6259]">先用方案內含的功能；需要更多時，再按項目加購。</p>
         <div className="mt-4 grid items-start gap-4 sm:grid-cols-2">
           <details className="rounded-xl border border-[#153B31]/15 bg-white p-4"><summary className="cursor-pointer text-base font-semibold">工具型模組 <span className="ml-2 font-normal">每個 $500／月</span></summary><p className="mt-3 leading-7 text-[#4C6259]">LINE 自動提醒、資料匯出、現金抽屜。</p></details>
-          <details className="rounded-xl border border-[#153B31]/15 bg-white p-4"><summary className="cursor-pointer text-base font-semibold">經營型模組 <span className="ml-2 font-normal">每個 $800／月</span></summary><p className="mt-3 leading-7 text-[#4C6259]">顧客經營、健康評估與體態追蹤、經營診斷、月結管理。</p></details>
+          <details className="rounded-xl border border-[#153B31]/15 bg-white p-4"><summary className="cursor-pointer text-base font-semibold">經營型模組 <span className="ml-2 font-normal">每個 $800／月</span></summary><p className="mt-3 leading-7 text-[#4C6259]">顧客經營、健康評估與體態追蹤、月結管理。</p></details>
         </div>
-        <p className="mt-3 text-sm leading-6 text-[#4C6259]">數位管家需另行確認開通，不包含在上述模組全含範圍內。</p>
+        <p className="mt-3 text-sm leading-6 text-[#4C6259]">分析 NT$800／月獨立加購，由總部依門市開關，不占方案選配額度；展店版亦不包含。數位管家另行確認開通。</p>
         <details className="mt-4 border-t border-[#153B31]/15 py-4"><summary className="cursor-pointer font-medium">申請前須知</summary>
           <dl className="mt-3 grid gap-4 text-base leading-7 sm:grid-cols-3">
             <div><dt className="font-medium">體驗怎麼開始？</dt><dd className="mt-1 text-[#4C6259]">填寫門市需求後，由專人聯繫，確認體驗內容與期限，再提供登入方式。</dd></div>
