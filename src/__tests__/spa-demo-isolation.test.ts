@@ -255,7 +255,7 @@ describe("SPA Demo tenant isolation", () => {
     expect(action).toContain("isSpaProviderAvailable");
     expect(action).toContain('storeId: SPA_DEMO_STORE.id');
     expect(action).toContain('status: "CONFIRMED"');
-    expect(action).toContain('revalidatePath("/dashboard/bookings")');
+    expect(action).toContain('revalidatePath("/dashboard/spa-schedule")');
     expect(action).toContain('revalidatePath("/staff-schedule")');
     expect(action).toContain("saveSpaDemoBookingNotification");
     expect(previewQuery).toContain("SPA_DEMO_LIVE_FLOW_BOOKING_ID");
@@ -306,14 +306,21 @@ describe("SPA Demo tenant isolation", () => {
     expect(refund).toContain('entryType: "REFUND"');
     expect(refund).toContain('triggeredBy: "spa_demo_manager_refund"');
     expect(refund).toContain("refundReason: parsed.data.reason");
-    expect(staffPreview).toContain("已退款");
-    expect(staffPreview).toContain("booking.refundedAt");
+    expect(staffPreview).not.toContain("已退款");
+    expect(staffPreview).not.toContain("refundAmount");
+    expect(staffPreview).not.toContain("settlementLabel");
+    expect(staffPreview).not.toContain("storedValueBalance");
+    expect(staffPreview).not.toContain("packageRemainingSessions");
+    const staffPage = readFileSync("src/app/(liff)/liff/staff-preview/page.tsx", "utf8");
+    expect(staffPage).toContain("const staffBookings = preview.bookings.map");
+    expect(staffPage).toContain("allBookings={staffBookings}");
+    expect(staffPage).not.toContain("allBookings={preview.bookings}");
     expect(manager).toContain("退款／作廢");
     expect(manager).not.toContain("確認到店");
     expect(manager).not.toContain("開始服務");
   });
 
-  it("stores SPA compensation separately and never writes it for formal stores", () => {
+  it("stores SPA compensation separately and gates it by the authoritative store module", () => {
     const schema = readFileSync("spa-prisma/schema.prisma", "utf8");
     const migration = readFileSync("prisma/migrations/20260831140000_add_spa_staff_compensation/migration.sql", "utf8");
     const staffAction = readFileSync("src/server/actions/staff.ts", "utf8");
@@ -325,14 +332,14 @@ describe("SPA Demo tenant isolation", () => {
     expect(migration).toContain("SpaStaffCompensation_value_check");
     expect(migration).toContain("ENABLE ROW LEVEL SECURITY");
     expect(migration).toContain("FORCE ROW LEVEL SECURITY");
-    expect(staffAction).toContain("isSpaDemoStoreId(writeStoreId)");
+    expect(staffAction).toContain("await requireSpaStore(writeStoreId)");
     expect(staffAction).toContain("data.spaCompensation");
     expect(staffAction).toContain("data.spaSkillKeys");
     expect(staffAction).toContain("data.spaWeeklyAvailability");
     expect(staffAction).toContain("spaPrisma.$transaction");
     expect(spaAction).toContain("saveSpaStaffCompensation");
     expect(spaAction).toContain("saveSpaStaffSetup");
-    expect(spaAction).toContain('requireSpaDemoWrite("staff.manage")');
+    expect(spaAction).toContain('requireSpaWrite("staff.manage")');
     expect(report).toContain("compensationAmount");
     expect(report).toContain("booking.refundedAt");
   });

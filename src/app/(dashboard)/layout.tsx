@@ -68,6 +68,7 @@ export default async function DashboardLayout({
       : ("EXPERIENCE" as const);
   const effectiveFeatures = effectiveStoreId
     ? {
+        [FEATURES.BASIC_REPORTS]: await hasStoreFeature(effectiveStoreId, FEATURES.BASIC_REPORTS),
         [FEATURES.LINE_REMINDER]: await hasStoreFeature(
           effectiveStoreId,
           FEATURES.LINE_REMINDER,
@@ -77,7 +78,7 @@ export default async function DashboardLayout({
           FEATURES.DIGITAL_BUTLER,
         ),
       }
-    : {};
+    : { [FEATURES.BASIC_REPORTS]: isAdmin };
 
   // 讀取 store-slug 用於 logout redirect（ADMIN 不帶 slug，回 /）
   const ckStore = await cookies();

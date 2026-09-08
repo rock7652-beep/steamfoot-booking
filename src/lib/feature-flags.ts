@@ -75,6 +75,7 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "duty_scheduling",
   ],
   BASIC: [
+    "member_portal",
     "basic_booking",
     "customer_management",
     "staff_management",
@@ -84,11 +85,11 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "plan_management",
     "cashbook",
     "reconciliation",
-    "basic_reports",
     "ops_dashboard_basic",
     "store_revenue",
   ],
   GROWTH: [
+    "member_portal",
     "basic_booking",
     "customer_management",
     "staff_management",
@@ -99,7 +100,6 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "cashbook",
     "cash_drawer",
     "reconciliation",
-    "basic_reports",
     "ops_dashboard_basic",
     "store_revenue",
     // PRO 固定內含
@@ -127,7 +127,6 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "cashbook",
     "cash_drawer",
     "reconciliation",
-    "basic_reports",
     "ops_dashboard_basic",
     "store_revenue",
     "data_export",
@@ -135,7 +134,6 @@ export const PLAN_FEATURES: Record<PricingPlan, FeatureKey[]> = {
     "service_fee_calculator",
     // PRO 全部
     "customer_care",
-    "advanced_reports",
     "training_content",
     "ranking",
     "ai_health_summary",

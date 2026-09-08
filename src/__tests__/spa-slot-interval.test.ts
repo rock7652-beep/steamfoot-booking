@@ -48,7 +48,7 @@ describe("SPA 15/30 minute booking units", () => {
 
   it("lets the SPA schedule use the full workspace width", () => {
     const page = readFileSync(
-      "src/app/(dashboard)/dashboard/bookings/page.tsx",
+      "src/app/(dashboard)/dashboard/spa-schedule/page.tsx",
       "utf8",
     );
     const schedule = readFileSync(

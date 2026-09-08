@@ -16,6 +16,7 @@ import StoreSwitcher from "@/components/store-switcher";
 import { StoreViewModeSwitcher } from "@/components/store-view-mode-switcher";
 import { MVP_HIDDEN_ROUTES } from "@/lib/mvp-hidden-features";
 import type { IndustryModuleId } from "@/lib/industry-modules";
+import { bookingDashboardPath } from "@/lib/industry-dashboard-routes";
 
 // 修改密碼 modal 一年用不到一次，但每次切後台頁都被掛在 sidebar 樹裡 → 浪費 ~20KB JS。
 // 改 next/dynamic + 條件 mount，只有 user menu 點擊「修改密碼」才會 fetch chunk + render。
@@ -650,18 +651,37 @@ export default function DashboardShell({
       return STORE_ADMIN_NAV.filter((item) => item.href !== "/dashboard/staff");
     }
     const labels: Partial<Record<string, string>> = {
-      "/dashboard": "今日營運",
-      "/dashboard/bookings": "芳療師排程",
       "/dashboard/plans": "療程管理",
+      "/dashboard/settings": "營運設定",
     };
-    return STORE_ADMIN_NAV.map((item) => ({
-      ...item,
-      label: labels[item.href] ?? item.label,
-    }));
+    const spaManagerRoutes = new Set([
+      "/dashboard/bookings",
+      "/dashboard/customers",
+      "/dashboard/plans",
+      "/dashboard/staff",
+      "/dashboard/settings",
+    ]);
+    return STORE_ADMIN_NAV
+      .filter((item) => spaManagerRoutes.has(item.href))
+      .map((item) =>
+        item.href === "/dashboard/bookings"
+          ? { ...item, href: bookingDashboardPath("spa"), label: "預約管理" }
+          : { ...item, label: labels[item.href] ?? item.label },
+      );
   }, [industryModuleId]);
 
   const navGroupsToRender: NavGroup[] = useMemo(() => {
-    if (isHqRoute) return NAV_GROUPS;
+    if (isHqRoute) {
+      if (industryModuleId !== "spa") return NAV_GROUPS;
+      return NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.map((item) =>
+          item.href === "/dashboard/bookings"
+            ? { ...item, href: bookingDashboardPath("spa"), label: "芳療師排程" }
+            : item,
+        ),
+      }));
+    }
     if (isStoreAdminRoute) {
       return [
         {
@@ -684,7 +704,7 @@ export default function DashboardShell({
         items: storeAdminNav,
       },
     ];
-  }, [isHqRoute, isStoreAdminRoute, isAdmin, storeAdminNav]);
+  }, [industryModuleId, isHqRoute, isStoreAdminRoute, isAdmin, storeAdminNav]);
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {

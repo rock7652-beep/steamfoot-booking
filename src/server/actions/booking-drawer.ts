@@ -16,7 +16,7 @@ import { getTrialSettings } from "@/lib/shop-config";
 import { checkPermission } from "@/lib/permissions";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
-import { isSpaDemoStoreId } from "@/lib/spa-demo-store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 const singleTransactionSelect = {
   id: true,
@@ -273,7 +273,10 @@ export async function fetchBookingDetail(
   const isViewMode = resolvedStoreId
     ? user.role !== "ADMIN" && resolvedStoreId !== user.storeId
     : storeViewContext?.isViewMode === true;
-  if (bookingStoreId && isSpaDemoStoreId(bookingStoreId)) {
+  if (
+    bookingStoreId &&
+    (await getStoreIndustryModule(bookingStoreId)) === "spa"
+  ) {
     return fetchSpaBookingDetail(bookingId, bookingStoreId);
   }
   // 重用已解析的 staff user，避免 getBookingDetail 內再 requireSession 一次

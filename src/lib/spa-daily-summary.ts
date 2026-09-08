@@ -41,6 +41,7 @@ export type SpaDailySummary = {
     method: SpaDailyPaymentMethod;
     count: number;
     amount: number;
+    grossAmount: number;
   }[];
   providerPerformance: readonly SpaDailyProviderPerformance[];
 };
@@ -77,11 +78,13 @@ function groupPaymentEntries(bookings: readonly SpaDemoBooking[], groupCheckout:
   if (groupCheckout) {
     const booking = completed[0];
     const refunds = completed.reduce((total, item) => total + (item.refundAmount ?? 0), 0);
-    return [{ method: paymentMethod(booking.settlementLabel), amount: Math.max((booking.settlementAmount ?? 0) - refunds, 0) }];
+    const grossAmount = booking.settlementAmount ?? 0;
+    return [{ method: paymentMethod(booking.settlementLabel), amount: Math.max(grossAmount - refunds, 0), grossAmount }];
   }
   return completed.map((booking) => ({
     method: paymentMethod(booking.settlementLabel),
     amount: Math.max((booking.settlementAmount ?? 0) - (booking.refundAmount ?? 0), 0),
+    grossAmount: booking.settlementAmount ?? 0,
   }));
 }
 
@@ -95,7 +98,7 @@ export function buildSpaDailySummary(
     grouped.set(key, [...(grouped.get(key) ?? []), booking]);
   }
 
-  const paymentEntries: { method: SpaDailyPaymentMethod; amount: number }[] = [];
+  const paymentEntries: { method: SpaDailyPaymentMethod; amount: number; grossAmount: number }[] = [];
   const groups = [...grouped.entries()]
     .map(([key, groupBookings]) => {
       const ordered = groupBookings.toSorted((left, right) => (left.guestIndex ?? 1) - (right.guestIndex ?? 1));
@@ -138,6 +141,7 @@ export function buildSpaDailySummary(
         method,
         count: matching.length,
         amount: matching.reduce((total, entry) => total + entry.amount, 0),
+        grossAmount: matching.reduce((total, entry) => total + entry.grossAmount, 0),
       };
     })
     .filter((entry) => entry.count > 0);

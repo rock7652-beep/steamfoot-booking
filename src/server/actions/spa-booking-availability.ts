@@ -6,7 +6,6 @@ import { spaPrisma } from "@/lib/spa-db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requirePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
-import { SPA_DEMO_STORE, assertSpaDemoStoreIdentity } from "@/lib/spa-demo-store";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
 import {
   getNowTaipeiHHmm,
@@ -19,7 +18,6 @@ import { calculateSpaProviderStartTimes } from "@/lib/spa-availability";
 import { composeSpaBookingTreatments } from "@/lib/spa-booking-composition";
 import type { ActionResult } from "@/types";
 import {
-  findSpaDemoCatalogItem,
   inferSpaDemoResourceType,
   SPA_DEMO_RESOURCE_CAPACITY,
   spaResourceLabel,
@@ -27,6 +25,11 @@ import {
 } from "@/lib/spa-demo-catalog";
 import { isSpaResourceAvailable } from "@/lib/spa-resource-availability";
 import { requireSpaStore } from "@/lib/industry-module-server";
+import {
+  inferSpaTreatmentKind,
+  isSpaSkillKey,
+  spaSkillKeyFromId,
+} from "@/lib/spa-store-identifiers";
 
 const inputSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -57,9 +60,6 @@ export async function fetchSpaBookingAvailability(
     const storeId = await resolveWriteStoreId(user);
     context = { userId: user.id, storeId };
     await requireSpaStore(storeId);
-    if (storeId !== SPA_DEMO_STORE.id) {
-      throw new AppError("FORBIDDEN", "此預約方式目前只開放 SPA Demo 驗收");
-    }
     if (!(await isSpaOperationalSchemaReady())) {
       throw new AppError("CONFLICT", "SPA 資料功能更新中，請稍後再試");
     }
@@ -68,13 +68,7 @@ export async function fetchSpaBookingAvailability(
       throw new AppError("VALIDATION", "服務項目不可重複選擇");
     }
 
-    const identity = await prisma.store.findUnique({
-      where: { id: SPA_DEMO_STORE.id },
-      select: { id: true, slug: true, isDemo: true },
-    });
-    assertSpaDemoStoreIdentity(identity);
-
-    const [providers, staffSkills, weeklyAvailabilities, availabilityExceptions, occupiedBookings, dayContext] = await Promise.all([
+    const [providers, staffSkills, weeklyAvailabilities, availabilityExceptions, occupiedBookings, dayContext, treatments] = await Promise.all([
       prisma.staff.findMany({
         where: { storeId, status: "ACTIVE", isOwner: false },
         select: {
@@ -101,22 +95,40 @@ export async function fetchSpaBookingAvailability(
         },
       }),
       loadDayBusinessHoursContext(storeId, data.date),
+      spaPrisma.spaTreatment.findMany({
+        where: {
+          id: { in: data.treatmentIds },
+          storeId,
+          isActive: true,
+        },
+        include: {
+          skills: { select: { skill: { select: { id: true } } } },
+        },
+      }),
     ]);
+    if (treatments.length !== data.treatmentIds.length) {
+      throw new AppError("VALIDATION", "服務項目不存在、已停用或不屬於本店");
+    }
+    const treatmentById = new Map(treatments.map((item) => [item.id, item]));
 
     const composition = composeSpaBookingTreatments(
       data.treatmentIds.map((id) => {
-        const treatment = findSpaDemoCatalogItem(id);
-        if (!treatment) throw new AppError("VALIDATION", "服務項目不存在或已停用");
+        const treatment = treatmentById.get(id)!;
         return {
           id: treatment.id,
           name: treatment.name,
-          variantLabel: treatment.variant,
-          price: treatment.price,
+          variantLabel: treatment.variantLabel,
+          price: Number(treatment.price),
           serviceMinutes: treatment.serviceMinutes,
           bufferMinutes: treatment.bufferMinutes,
-          skillKeys: [...treatment.skills],
-          kind: treatment.kind,
-          resourceType: treatment.resourceType,
+          skillKeys: treatment.skills
+            .map(({ skill }) => spaSkillKeyFromId(skill.id))
+            .filter(isSpaSkillKey),
+          kind: inferSpaTreatmentKind(treatment.name),
+          resourceType: inferSpaDemoResourceType({
+            treatmentId: treatment.id,
+            treatmentName: treatment.name,
+          }),
         };
       }),
     );
@@ -149,7 +161,10 @@ export async function fetchSpaBookingAvailability(
             serviceMinutes: composition.serviceMinutes,
             bufferMinutes: composition.bufferMinutes,
             requiredSkillKeys: composition.requiredSkillKeys,
-            providerSkillKeys: staffSkills.filter((skill) => skill.staffId === provider.id).map((skill) => skill.skillId.replace("spa-demo-skill-", "")),
+            providerSkillKeys: staffSkills
+              .filter((skill) => skill.staffId === provider.id)
+              .map((skill) => spaSkillKeyFromId(skill.skillId))
+              .filter(isSpaSkillKey),
             weeklyRanges: weeklyAvailabilities.filter((range) => range.staffId === provider.id),
             exceptions: availabilityExceptions.filter((exception) => exception.staffId === provider.id),
             occupiedRanges: occupiedBookings

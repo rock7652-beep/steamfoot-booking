@@ -1,4 +1,6 @@
 import { Fragment } from "react";
+import { PlanPackageNotes } from "@/components/plan-package-notes";
+import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { redirect, notFound } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -49,8 +51,7 @@ const PLANS: PlanCard[] = [
       "顧客管理",
       "方案 / 堂數管理",
       "基本收款紀錄",
-      "營運分析",
-      "前台預約入口",
+      "LINE 顧客入口（LIFF），保留門市開關",
       "可選 1 個 $500 工具型模組",
     ],
     audience: ["單店", "基本營運", "先把資料集中"],
@@ -76,7 +77,7 @@ const PLANS: PlanCard[] = [
       "可選 1 個 $800 經營型模組",
     ],
     audience: ["穩定營運", "想提升回訪", "需要現金管理", "需要經營判斷"],
-    ctaLabel: "目前方案",
+    ctaLabel: "示意方案（非實際訂閱）",
   },
   {
     key: "SCALE",
@@ -88,7 +89,7 @@ const PLANS: PlanCard[] = [
     priceNote: "限時優惠價",
     description: "適合兩家店以上、多店經營與合作店長月結。",
     features: [
-      "功能全含",
+      "本頁所列營運與選配模組全含",
       "包含總部管理 + 1 家分店",
       "第二家分店起，每家 +$1,000/月分店營運費",
       "多店管理",
@@ -110,15 +111,14 @@ const COMPARE_ROWS: {
   { label: "顧客管理", basic: "內含", professional: "內含", scale: "內含" },
   { label: "方案 / 堂數管理", basic: "內含", professional: "內含", scale: "內含" },
   { label: "基本收款紀錄", basic: "內含", professional: "內含", scale: "內含" },
-  { label: "營運分析", basic: "內含", professional: "內含", scale: "內含" },
-  { label: "前台預約入口", basic: "內含", professional: "內含", scale: "內含" },
+  { label: "分析", basic: "$800／月加購", professional: "$800／月加購", scale: "$800／月加購" },
+  { label: "LINE 顧客入口（LIFF）", basic: "內含", professional: "內含", scale: "內含" },
   { label: "LINE 綁定狀態", basic: "內含", professional: "內含", scale: "內含" },
   { label: "LINE 自動提醒", basic: "$500 工具模組", professional: "$500 工具模組", scale: "內含" },
   { label: "資料匯出", basic: "$500 工具模組", professional: "$500 工具模組", scale: "內含" },
   { label: "現金抽屜", basic: "$500 工具模組", professional: "內含", scale: "內含" },
   { label: "顧客經營", basic: "$800 經營模組", professional: "內含", scale: "內含" },
-  { label: "健康評估／摘要", basic: "$800 經營模組", professional: "$800 經營模組", scale: "內含" },
-  { label: "經營診斷", basic: "$800 經營模組", professional: "$800 經營模組", scale: "內含" },
+  { label: "健康評估與體態追蹤", basic: "$800／月加購", professional: "經營額度選配／加購", scale: "內含" },
   { label: "月結管理", basic: "$800 經營模組", professional: "$800 經營模組", scale: "內含" },
   { label: "多店管理", basic: "-", professional: "-", scale: "內含" },
 ];
@@ -186,6 +186,7 @@ export default async function PlansCenterPage() {
   if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
     notFound();
   }
+  if (!(await checkPermission(user.role, user.staffId, "plans.edit"))) notFound();
 
   return (
     <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-4 px-5 py-4">
@@ -233,7 +234,7 @@ export default async function PlansCenterPage() {
                 {plan.isCurrent ? (
                   <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">
                     <span className="h-1 w-1 rounded-full bg-primary-500" />
-                    目前所在
+                    示意方案
                   </div>
                 ) : null}
               </li>
@@ -275,11 +276,11 @@ export default async function PlansCenterPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-primary-700">
-                  您目前使用
+                  方案展示範例（非您的實際訂閱）
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-100 px-2.5 py-0.5 text-[11px] font-medium text-primary-700">
                   <span className="h-1.5 w-1.5 rounded-full bg-primary-500" />
-                  使用中
+                  示意資料
                 </span>
               </div>
               <div className="mt-0.5 flex items-baseline gap-2">
@@ -436,6 +437,8 @@ export default async function PlansCenterPage() {
         ))}
       </div>
 
+      <PlanPackageNotes />
+
       {/* 功能比較表（輔助資訊，視覺弱化） */}
       <section className="rounded-xl border border-earth-200 bg-earth-50/30">
         <header className="flex items-baseline gap-2 px-5 py-3">
@@ -483,7 +486,7 @@ export default async function PlansCenterPage() {
       </section>
 
       <p className="px-1 text-[11px] leading-relaxed text-earth-400">
-        本頁僅更新方案展示文案，未調整系統功能開關、PLAN_FEATURES 或正式站方案預設。實際開通、升級與付款請聯絡客服協助處理。
+        本頁為方案介紹，展示範例不是門市帳單；實際訂閱請至方案設定查看。LIFF 三個付費方案內含，門市獨立開關與其他模組權限仍保留。實際開通、升級與付款請聯絡客服協助處理。
       </p>
     </PageShell>
   );

@@ -16,8 +16,6 @@ import type { UserRole } from "@prisma/client";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { SPA_DEMO_PROVIDERS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
-import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -35,14 +33,6 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
 
   const staff = await getStaffDetail(id, activeStoreId).catch(() => null);
   if (!staff) notFound();
-  const isSpaDemo = Boolean(
-    activeStoreId &&
-    (await getStoreIndustryModule(activeStoreId)) === "spa" &&
-    activeStoreId === SPA_DEMO_STORE.id,
-  );
-  const spaProvider = isSpaDemo
-    ? SPA_DEMO_PROVIDERS.find((provider) => provider.id === staff.id) ?? null
-    : null;
 
   // 取得該店長的現有權限
   const currentPerms = staff.isOwner
@@ -219,33 +209,6 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
           </div>
         </form>
 
-        {spaProvider && (
-          <section className="mt-5 space-y-3 border-t border-earth-100 pt-5">
-            <div>
-              <h2 className="text-sm font-semibold text-earth-900">專業與接客設定</h2>
-              <p className="mt-0.5 text-xs text-earth-400">SPA 示範店人員資料</p>
-            </div>
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-xs text-earth-400">專業項目</dt>
-                <dd className="mt-0.5 text-earth-700">{spaProvider.specialties}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-earth-400">緊急聯絡人</dt>
-                <dd className="mt-0.5 text-earth-700">
-                  {spaProvider.emergencyContact.name}（{spaProvider.emergencyContact.relation}）
-                  <span className="ml-2 tabular-nums text-earth-500">{spaProvider.emergencyContact.phone}</span>
-                </dd>
-              </div>
-            </dl>
-            <Link
-              href="/dashboard/staff"
-              className="inline-flex rounded-lg border border-earth-300 px-3 py-2 text-xs font-medium text-earth-700 hover:bg-earth-50"
-            >
-              返回人員管理設定專業與班表
-            </Link>
-          </section>
-        )}
       </div>
 
       {/* 權限設定（僅非 Owner 員工、且操作者具店員管理權限時顯示） */}

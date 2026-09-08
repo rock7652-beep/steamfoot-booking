@@ -1,9 +1,4 @@
-export type SpaTreatmentId =
-  | "spa-demo-treatment-body-60"
-  | "spa-demo-treatment-body-90"
-  | "spa-demo-treatment-head-30"
-  | "spa-demo-treatment-foot-30"
-  | "spa-demo-treatment-face-60";
+export type SpaTreatmentId = string;
 
 export type SpaSkillKey = "body" | "head" | "foot" | "face";
 

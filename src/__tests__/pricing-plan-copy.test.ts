@@ -16,10 +16,26 @@ const PLAN_PAGES = [
 const PUBLIC_PRICING_PAGE = "src/app/pricing/page.tsx";
 
 describe("pricing and growth plan copy", () => {
+  it("presents analysis as an independent paid addon", () => {
+    const source = readSource(PUBLIC_PRICING_PAGE);
+    expect(source).toContain("分析 NT$800／月獨立加購");
+    expect(source).toContain("不占方案選配額度；展店版亦不包含");
+    expect(source).not.toContain("經營診斷");
+    expect(source).not.toContain("基本收款・營運分析");
+  });
+  it("uses the official LINE link for consultation calls to action", () => {
+    const source = readSource(PUBLIC_PRICING_PAGE);
+
+    expect(source.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(1);
+    expect(source).not.toContain("lin.ee/placeholder");
+  });
+
   it.each(PLAN_PAGES)("bundles health assessment and summary on %s", (path) => {
     const source = readSource(path);
 
-    expect(source).toContain("健康評估／摘要");
+    expect(source).toContain("健康評估與體態追蹤");
+    expect(source).toContain("LINE 顧客入口（LIFF）");
+    expect(source).toContain(path === PUBLIC_PRICING_PAGE ? "申請前須知" : "<PlanPackageNotes />");
     expect(source).not.toContain("AI 健康評估入口");
     expect(source).not.toContain("AI 健康摘要");
   });
@@ -39,7 +55,7 @@ describe("pricing and growth plan copy", () => {
   it("brands the public pricing page as 蒸管家 for service businesses", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
 
-    expect(source).toContain("蒸管家｜服務品牌成長系統");
+    expect(source).toContain("蒸管家｜店務管理系統");
     expect(source).toContain("預約制門市、工作室與服務品牌");
     expect(source).not.toContain("蒸足系統方案");
     expect(source).not.toContain("蒸足預約管理系統");

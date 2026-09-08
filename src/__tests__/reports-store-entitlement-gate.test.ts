@@ -281,7 +281,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).not.toContain("店長明細");
     expect(html).not.toContain("收入類型</h2>");
     expect(html).not.toMatch(/基本報表|進階報表/);
-    expect(html).toContain("經營診斷 →");
+    expect(html).not.toContain("經營診斷 →");
     expect(html).toContain("月結管理 →");
     expect(html).toContain("date range");
     expect(mockMonthlyStoreSummary).toHaveBeenCalledTimes(1);
@@ -423,9 +423,18 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(mockMonthlyStoreSummary).not.toHaveBeenCalled();
     expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();
     expect(html).toContain("營運分析尚未開通");
-    expect(html).toContain("請聯絡總部開通營運分析功能。");
+    expect(html).toContain("分析為 NT$800／月獨立加購，請聯絡總部開通。");
     expect(html).not.toContain("經營診斷");
     expect(html).not.toContain("成長版");
+  });
+
+  it("skips single-store snapshots for the HQ monthly all-store view", async () => {
+    mockGetActiveStoreForRead.mockResolvedValueOnce(null);
+    mockStoreIdForViewContext.mockReturnValueOnce(null);
+    await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) });
+    expect(mockGetReportSnapshotWithMeta).not.toHaveBeenCalled();
+    expect(mockUpsertReportSnapshot).not.toHaveBeenCalled();
+    expect(mockMonthlyStoreSummary).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ activeStoreId: null }));
   });
 
   it("keeps the HQ all-store report view available when there is no concrete store id to gate", async () => {
@@ -468,7 +477,7 @@ describe("reports basic_reports source audit", () => {
     expect(source).toContain("getReportSnapshotWithMeta");
     expect(source).toContain("hasDataExportFeature");
     expect(source).toContain("hasStoreFeature(gateStoreId, FEATURES.BASIC_REPORTS)");
-    expect(source).toContain("<FeatureGate plan={plan} feature={FEATURES.BASIC_REPORTS}>");
+    expect(source).toContain("<FeatureGate plan={plan} feature={FEATURES.BASIC_REPORTS} enabled={true}>");
   });
 
   it("keeps related revenue report pages store-aware for advanced_reports", () => {
@@ -478,7 +487,7 @@ describe("reports basic_reports source audit", () => {
     ]) {
       const source = fs.readFileSync(path.join(repoRoot, filePath), "utf8");
 
-      expect(source).toContain("hasStoreFeature(gateStoreId, FF.ADVANCED_REPORTS)");
+      expect(source).toContain("hasStoreFeature(gateStoreId, FF.BASIC_REPORTS)");
       expect(source).not.toContain("hasPricingFeature(pricingPlan, FF.ADVANCED_REPORTS)");
       expect(source).not.toContain("需要 PRO 方案");
     }

@@ -182,7 +182,7 @@ export function StaffWorkspace({ people: initialPeople, today, canManage, showSp
               <QuickSetting label="固定班表" value={scheduleSummary(person.weeklyAvailability)} empty="尚未設定接客時間" canEdit={person.canEdit && person.specialtyKeys.length > 0} onEdit={() => setEditor({ type: showSpaCompensation ? "setup" : "schedule", personId: person.id })} />
               {showSpaCompensation ? <QuickSetting label="抽成" value={compensationSummary(person.compensationMode, person.compensationValue)} empty="尚未設定" canEdit={person.canEdit} onEdit={() => setEditor({ type: "setup", personId: person.id })} /> : null}
             </div>
-            <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-xs"><span className="text-earth-400">服務顧客 {person.customerCount} 位</span><button type="button" onClick={() => setEditor({ type: showSpaCompensation ? "setup" : "details", personId: person.id })} className="font-medium text-primary-700 hover:underline">{showSpaCompensation ? "查看與設定 →" : "基本資料與聯絡人 →"}</button></div>
+            <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-xs"><span className="text-earth-400">直屬顧客 {person.customerCount} 位</span><button type="button" onClick={() => setEditor({ type: showSpaCompensation ? "setup" : "details", personId: person.id })} className="font-medium text-primary-700 hover:underline">{showSpaCompensation ? "查看與設定 →" : "基本資料與聯絡人 →"}</button></div>
           </article>
         ))}
       </section>

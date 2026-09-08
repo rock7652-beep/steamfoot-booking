@@ -3,7 +3,10 @@
 import { useState, useTransition } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { createStoreAction } from "@/server/actions/store-onboarding";
-import type { CreateStoreInput, StoreDeliverySummary } from "@/types/store-onboarding";
+import type {
+  CreateStoreInput,
+  StoreDeliverySummary,
+} from "@/types/store-onboarding";
 
 export default function NewStorePage() {
   const [pending, startTransition] = useTransition();
@@ -13,8 +16,13 @@ export default function NewStorePage() {
   // Form state — Store
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [plan, setPlan] = useState<"EXPERIENCE" | "BASIC" | "GROWTH" | "ALLIANCE">("GROWTH");
+  const [plan, setPlan] = useState<
+    "EXPERIENCE" | "BASIC" | "GROWTH" | "ALLIANCE"
+  >("GROWTH");
   const [isDemo, setIsDemo] = useState(false);
+  const [industryModule, setIndustryModule] = useState<
+    "STEAMFOOT" | "SPA" | ""
+  >("");
   const [domain, setDomain] = useState("");
   const [lineDestination, setLineDestination] = useState("");
   const [dutySchedulingEnabled, setDutySchedulingEnabled] = useState(false);
@@ -26,12 +34,17 @@ export default function NewStorePage() {
 
   function handleSubmit() {
     setError(null);
+    if (!industryModule) {
+      setError("請先選擇店舖模組；建立後不可變更");
+      return;
+    }
 
     const input: CreateStoreInput = {
       name: name.trim(),
       slug: slug.trim().toLowerCase(),
       plan,
       isDemo,
+      industryModule,
       domain: domain.trim() || undefined,
       lineDestination: lineDestination.trim() || undefined,
       dutySchedulingEnabled: dutySchedulingEnabled || undefined,
@@ -58,7 +71,9 @@ export default function NewStorePage() {
       <div className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-green-700">建店完成</h1>
-          <p className="mt-1 text-sm text-earth-500">以下為交付摘要，請保存或轉發給店家</p>
+          <p className="mt-1 text-sm text-earth-500">
+            以下為交付摘要，請保存或轉發給店家
+          </p>
         </div>
 
         <div className="space-y-6">
@@ -69,7 +84,18 @@ export default function NewStorePage() {
             <InfoRow label="Store ID" value={result.store.id} mono />
             <InfoRow label="方案" value={result.store.plan} />
             <InfoRow label="狀態" value={result.store.planStatus} />
-            <InfoRow label="類型" value={result.store.isDemo ? "Demo" : "正式"} />
+            <InfoRow
+              label="類型"
+              value={result.store.isDemo ? "Demo" : "正式"}
+            />
+            <InfoRow
+              label="營運模組"
+              value={
+                result.store.industryModule === "SPA"
+                  ? "SPA／美容美體（已鎖定）"
+                  : "蒸足（已鎖定）"
+              }
+            />
           </Section>
 
           {/* URLs — 前台 */}
@@ -88,27 +114,53 @@ export default function NewStorePage() {
 
           {/* Accounts */}
           <Section title="帳號">
-            <InfoRow label="OWNER" value={`${result.accounts.owner.name} (${result.accounts.owner.email})`} />
+            <InfoRow
+              label="OWNER"
+              value={`${result.accounts.owner.name} (${result.accounts.owner.email})`}
+            />
             {result.accounts.staff.map((s, i) => (
-              <InfoRow key={i} label={`STAFF ${i + 1}`} value={`${s.name} (${s.email}) — ${s.role}`} />
+              <InfoRow
+                key={i}
+                label={`STAFF ${i + 1}`}
+                value={`${s.name} (${s.email}) — ${s.role}`}
+              />
             ))}
           </Section>
 
           {/* Third-party */}
           <Section title="第三方服務">
-            <InfoRow label="LINE" value={result.thirdParty.line === "configured" ? "已設定" : "未設定"} />
-            <InfoRow label="Email 服務" value={result.thirdParty.email === "configured" ? "已設定" : "未設定"} />
+            <InfoRow
+              label="LINE"
+              value={
+                result.thirdParty.line === "configured" ? "已設定" : "未設定"
+              }
+            />
+            <InfoRow
+              label="Email 服務"
+              value={
+                result.thirdParty.email === "configured" ? "已設定" : "未設定"
+              }
+            />
           </Section>
 
           {/* Checklist */}
           <Section title="驗收 Checklist">
             {result.checklist.map((item) => (
               <div key={item.key} className="flex items-center gap-2 py-1">
-                <span className={`text-sm ${
-                  item.status === "pass" ? "text-green-600" :
-                  item.status === "fail" ? "text-red-600" : "text-amber-500"
-                }`}>
-                  {item.status === "pass" ? "✅" : item.status === "fail" ? "❌" : "⏭️"}
+                <span
+                  className={`text-sm ${
+                    item.status === "pass"
+                      ? "text-green-600"
+                      : item.status === "fail"
+                        ? "text-red-600"
+                        : "text-amber-500"
+                  }`}
+                >
+                  {item.status === "pass"
+                    ? "✅"
+                    : item.status === "fail"
+                      ? "❌"
+                      : "⏭️"}
                 </span>
                 <span className="text-sm text-earth-700">{item.label}</span>
               </div>
@@ -116,8 +168,12 @@ export default function NewStorePage() {
           </Section>
 
           {/* Activation */}
-          <div className={`rounded-lg border px-4 py-3 ${result.canActivate ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
-            <p className={`text-sm font-medium ${result.canActivate ? "text-green-700" : "text-amber-700"}`}>
+          <div
+            className={`rounded-lg border px-4 py-3 ${result.canActivate ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}
+          >
+            <p
+              className={`text-sm font-medium ${result.canActivate ? "text-green-700" : "text-amber-700"}`}
+            >
               {result.store.isDemo
                 ? "ℹ️ Demo 店不可啟用為正式店"
                 : result.canActivate
@@ -150,21 +206,66 @@ export default function NewStorePage() {
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-earth-900">建立新店</h1>
-        <p className="mt-1 text-sm text-earth-500">填寫店舖基本資料與 OWNER 帳號</p>
+        <p className="mt-1 text-sm text-earth-500">
+          填寫店舖基本資料與 OWNER 帳號
+        </p>
       </div>
 
       {error && (
-        <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
+        <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
       )}
 
       <div className="space-y-8 rounded-xl border border-earth-200 bg-white p-6">
         {/* 店舖資訊 */}
         <fieldset>
-          <legend className="mb-3 text-sm font-semibold text-earth-800">店舖資訊</legend>
+          <legend className="mb-3 text-sm font-semibold text-earth-800">
+            店舖資訊
+          </legend>
+          <div className="mb-5">
+            <p className="mb-2 text-xs font-medium text-earth-600">
+              營運模組 *
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ModuleOption
+                checked={industryModule === "STEAMFOOT"}
+                title="蒸足門市"
+                description="空間容量、固定時段、方案與補課流程"
+                onSelect={() => setIndustryModule("STEAMFOOT")}
+              />
+              <ModuleOption
+                checked={industryModule === "SPA"}
+                title="SPA／美容美體"
+                description="芳療師可用時間、療程、技能與抽成流程"
+                onSelect={() => {
+                  setIndustryModule("SPA");
+                  setDutySchedulingEnabled(false);
+                }}
+              />
+            </div>
+            <p className="mt-2 text-xs font-medium text-amber-700">
+              建立後模組即鎖定；如選錯需另建新店。
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="店名 *" value={name} onChange={setName} placeholder="蒸足 XX店" />
-            <Field label="Slug *" value={slug} onChange={setSlug} placeholder="kaohsiung" hint="小寫英數字 + 短橫線" />
-            <SelectField label="PricingPlan" value={plan} onChange={setPlan as (v: string) => void}
+            <Field
+              label="店名 *"
+              value={name}
+              onChange={setName}
+              placeholder="蒸足 XX店"
+            />
+            <Field
+              label="Slug *"
+              value={slug}
+              onChange={setSlug}
+              placeholder="kaohsiung"
+              hint="小寫英數字 + 短橫線"
+            />
+            <SelectField
+              label="PricingPlan"
+              value={plan}
+              onChange={setPlan as (v: string) => void}
               options={[
                 { value: "EXPERIENCE", label: "EXPERIENCE" },
                 { value: "BASIC", label: "BASIC" },
@@ -172,28 +273,70 @@ export default function NewStorePage() {
                 { value: "ALLIANCE", label: "ALLIANCE" },
               ]}
             />
-            <Field label="自訂網域" value={domain} onChange={setDomain} placeholder="steamfoot-xx.com" />
-            <Field label="LINE Destination" value={lineDestination} onChange={setLineDestination} placeholder="Uxxxxxxx" />
+            <Field
+              label="自訂網域"
+              value={domain}
+              onChange={setDomain}
+              placeholder="steamfoot-xx.com"
+            />
+            <Field
+              label="LINE Destination"
+              value={lineDestination}
+              onChange={setLineDestination}
+              placeholder="Uxxxxxxx"
+            />
           </div>
           <div className="mt-3 flex flex-col gap-2">
             <label className="flex items-center gap-2 text-sm text-earth-700">
-              <input type="checkbox" checked={isDemo} onChange={(e) => setIsDemo(e.target.checked)} className="rounded" />
+              <input
+                type="checkbox"
+                checked={isDemo}
+                onChange={(e) => setIsDemo(e.target.checked)}
+                className="rounded"
+              />
               這是 Demo 店（僅供展示或測試）
             </label>
-            <label className="flex items-center gap-2 text-sm text-earth-700">
-              <input type="checkbox" checked={dutySchedulingEnabled} onChange={(e) => setDutySchedulingEnabled(e.target.checked)} className="rounded" />
-              啟用值班排程功能
+            <label
+              className={`flex items-center gap-2 text-sm ${industryModule === "SPA" ? "text-earth-400" : "text-earth-700"}`}
+            >
+              <input
+                type="checkbox"
+                checked={dutySchedulingEnabled}
+                onChange={(e) => setDutySchedulingEnabled(e.target.checked)}
+                disabled={industryModule === "SPA"}
+                className="rounded"
+              />
+              啟用蒸足值班排程功能
             </label>
           </div>
         </fieldset>
 
         {/* OWNER */}
         <fieldset>
-          <legend className="mb-3 text-sm font-semibold text-earth-800">OWNER 帳號</legend>
+          <legend className="mb-3 text-sm font-semibold text-earth-800">
+            OWNER 帳號
+          </legend>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="姓名 *" value={ownerName} onChange={setOwnerName} placeholder="王小明" />
-            <Field label="Email *" value={ownerEmail} onChange={setOwnerEmail} type="email" placeholder="owner@store.com" />
-            <Field label="密碼 *" value={ownerPassword} onChange={setOwnerPassword} type="password" placeholder="至少 6 字元" />
+            <Field
+              label="姓名 *"
+              value={ownerName}
+              onChange={setOwnerName}
+              placeholder="王小明"
+            />
+            <Field
+              label="Email *"
+              value={ownerEmail}
+              onChange={setOwnerEmail}
+              type="email"
+              placeholder="owner@store.com"
+            />
+            <Field
+              label="密碼 *"
+              value={ownerPassword}
+              onChange={setOwnerPassword}
+              type="password"
+              placeholder="至少 6 字元"
+            />
           </div>
         </fieldset>
 
@@ -208,7 +351,10 @@ export default function NewStorePage() {
       </div>
 
       <div className="mt-4 text-center">
-        <Link href="/hq/dashboard/stores" className="text-sm text-earth-500 hover:text-earth-700">
+        <Link
+          href="/hq/dashboard/stores"
+          className="text-sm text-earth-500 hover:text-earth-700"
+        >
           ← 返回店舖列表
         </Link>
       </div>
@@ -218,7 +364,13 @@ export default function NewStorePage() {
 
 // ── Helper components ──
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-lg border border-earth-200 bg-white p-4">
       <h3 className="mb-2 text-sm font-semibold text-earth-800">{title}</h3>
@@ -227,26 +379,93 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function InfoRow({ label, value, mono, link }: { label: string; value: string; mono?: boolean; link?: boolean }) {
+function ModuleOption({
+  checked,
+  title,
+  description,
+  onSelect,
+}: {
+  checked: boolean;
+  title: string;
+  description: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      onClick={onSelect}
+      className={`rounded-xl border p-4 text-left transition ${
+        checked
+          ? "border-primary-500 bg-primary-50 ring-1 ring-primary-500"
+          : "border-earth-200 hover:border-earth-300"
+      }`}
+    >
+      <span className="block text-sm font-semibold text-earth-900">
+        {title}
+      </span>
+      <span className="mt-1 block text-xs leading-5 text-earth-500">
+        {description}
+      </span>
+    </button>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+  mono,
+  link,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  link?: boolean;
+}) {
   return (
     <div className="flex items-baseline gap-2 text-sm">
       <span className="w-24 shrink-0 text-earth-500">{label}</span>
       {link ? (
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline break-all">{value}</a>
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary-600 hover:underline break-all"
+        >
+          {value}
+        </a>
       ) : (
-        <span className={`text-earth-800 break-all ${mono ? "font-mono text-xs" : ""}`}>{value}</span>
+        <span
+          className={`text-earth-800 break-all ${mono ? "font-mono text-xs" : ""}`}
+        >
+          {value}
+        </span>
       )}
     </div>
   );
 }
 
-function Field({ label, value, onChange, type = "text", placeholder, hint }: {
-  label: string; value: string; onChange: (v: string) => void;
-  type?: string; placeholder?: string; hint?: string;
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  placeholder?: string;
+  hint?: string;
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-earth-600">{label}</label>
+      <label className="block text-xs font-medium text-earth-600">
+        {label}
+      </label>
       <input
         type={type}
         value={value}
@@ -259,19 +478,32 @@ function Field({ label, value, onChange, type = "text", placeholder, hint }: {
   );
 }
 
-function SelectField({ label, value, onChange, options }: {
-  label: string; value: string; onChange: (v: string) => void;
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
   options: { value: string; label: string }[];
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-earth-600">{label}</label>
+      <label className="block text-xs font-medium text-earth-600">
+        {label}
+      </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
       >
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </select>
     </div>
   );

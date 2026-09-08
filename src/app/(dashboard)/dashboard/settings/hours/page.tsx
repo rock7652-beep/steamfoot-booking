@@ -7,7 +7,6 @@ import {
   getCachedMonthScheduleSummary,
 } from "@/lib/query-cache";
 import { parseBusinessPeriods } from "@/lib/business-hours-resolver";
-import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
@@ -93,9 +92,8 @@ export default async function ScheduleSettingsPage() {
     dayName: WEEK_DAY_NAMES[h.dayOfWeek],
   }));
   const isHeadquarters = currentStore?.isDefault ?? false;
-  const isSpaDemo =
-    (await getStoreIndustryModule(effectiveStoreId)) === "spa" &&
-    effectiveStoreId === SPA_DEMO_STORE.id;
+  const isSpaStore =
+    (await getStoreIndustryModule(effectiveStoreId)) === "spa";
 
   const openDays = weeklyHours.filter((h) => h.isOpen);
   const sampleOpen = openDays[0];
@@ -110,8 +108,8 @@ export default async function ScheduleSettingsPage() {
   return (
     <PageShell>
       <PageHeader
-        title={isSpaDemo ? "營業與預約時間" : "預約開放設定"}
-        subtitle={isSpaDemo ? "設定每週營業時間、15／30 分鐘預約單位及特殊休假" : "管理每日可預約時段，設定店休、進修日或特殊營業時間"}
+        title={isSpaStore ? "營業與預約時間" : "預約開放設定"}
+        subtitle={isSpaStore ? "設定每週營業時間、15／30 分鐘預約單位及特殊休假" : "管理每日可預約時段，設定店休、進修日或特殊營業時間"}
         actions={
           <Link
             href="/dashboard/settings"

@@ -1,24 +1,70 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { liffMessages } from "@/lib/liff/messages";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
-import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { SPA_DEMO_LIVE_FLOW_BOOKING_IDS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
 import {
   getIndustryService,
   SPA_INDUSTRY_MODULE,
 } from "@/lib/industry-modules";
 import { WelcomeBack } from "../liff-shell";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 const featuredSpaService = getIndustryService(SPA_INDUSTRY_MODULE, "package_10");
 
-export default async function LiffDesignPreviewPage() {
+export default async function LiffDesignPreviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ section?: string }>;
+}) {
   if (process.env.VERCEL_ENV === "production") notFound();
 
   const storeSlug = await resolveStoreSlugForLiff();
   if (storeSlug !== SPA_DEMO_STORE.slug) notFound();
 
-  const { presentation } = await getSpaDemoPreviewData();
+  const { presentation, bookings } = await getSpaDemoPreviewData();
+  const { section } = await searchParams;
   const displayStoreName = presentation.name.replace(/\s*示範店$/, "");
+  const today = toLocalDateStr();
+  const upcomingBookings = bookings
+    .filter((booking) =>
+      booking.date >= today
+      && !booking.refundedAt
+      && ["新客體驗", "已確認", "待到店"].includes(booking.status),
+    )
+    .sort((left, right) => `${left.date} ${left.time}`.localeCompare(`${right.date} ${right.time}`))
+    .map((booking) => ({
+      id: booking.id,
+      bookingDate: booking.date,
+      slotTime: booking.time,
+      bookingStatus: "CONFIRMED",
+      bookingType: "PACKAGE",
+      isMakeup: false,
+      people: 1,
+    }));
+  const liveBookings = bookings
+    .filter((booking) => SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(
+      booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number],
+    ))
+    .toSorted((left, right) => (left.guestIndex ?? 1) - (right.guestIndex ?? 1));
+  const remainingSessions = liveBookings[0]?.packageRemainingSessions ?? 0;
+  const bookedSessions = upcomingBookings.reduce((total, booking) => total + booking.people, 0);
+  const availableToBook = Math.max(remainingSessions - bookedSessions, 0);
+  const previewBasePath = `/s/${presentation.slug}/liff/design-preview`;
+
+  if (section === "bookings" || section === "wallets" || section === "profile") {
+    return (
+      <SpaCustomerPreviewSection
+        section={section}
+        storeName={displayStoreName}
+        backHref={previewBasePath}
+        bookings={liveBookings}
+        remainingSessions={remainingSessions}
+        today={today}
+      />
+    );
+  }
 
   return (
     <div className="spa-preview-page mx-auto flex max-w-md flex-col gap-5 px-5 pb-10 pt-7">
@@ -43,39 +89,23 @@ export default async function LiffDesignPreviewPage() {
         displayName={liffMessages.shell.designPreviewName}
         memberSummary={{
           walletsStatus: "ok",
-          upcomingBookings: [{
-            id: "preview-booking",
-            bookingDate: "2026-08-29",
-            slotTime: "14:00",
-            bookingStatus: "CONFIRMED",
-            bookingType: "PACKAGE",
-            isMakeup: false,
-            people: 1,
-          }],
+          upcomingBookings,
           activeWallets: [{
             id: "preview-wallet",
             planName: featuredSpaService.name,
             planCategory: "PACKAGE",
             totalSessions: 12,
-            remainingSessions: 8,
-            availableToBook: 6,
-            pendingCount: 2,
-            usedCount: 4,
+            remainingSessions,
+            availableToBook,
+            pendingCount: bookedSessions,
+            usedCount: Math.max(12 - remainingSessions, 0),
             voidedCount: 0,
             startDate: "2026-07-01",
             expiryDate: "2026-12-31",
             status: "ACTIVE",
           }],
           makeupCredits: [{ id: "preview-makeup", expiredAt: "2026-09-30" }],
-          nextBooking: {
-            id: "preview-booking",
-            bookingDate: "2026-08-29",
-            slotTime: "14:00",
-            bookingStatus: "CONFIRMED",
-            bookingType: "PACKAGE",
-            isMakeup: false,
-            people: 1,
-          },
+          nextBooking: upcomingBookings[0] ?? null,
           healthSummary: null,
           referralShare: {
             storeName: displayStoreName,
@@ -88,7 +118,60 @@ export default async function LiffDesignPreviewPage() {
         healthAssessmentEnabled={SPA_INDUSTRY_MODULE.features.healthAssessment}
         terminology={SPA_INDUSTRY_MODULE.customer}
         bookingHref={`/s/${presentation.slug}/liff/design-preview/booking`}
+        memberLinks={{
+          bookings: `${previewBasePath}?section=bookings`,
+          wallets: `${previewBasePath}?section=wallets`,
+          profile: `${previewBasePath}?section=profile`,
+        }}
       />
+    </div>
+  );
+}
+
+function SpaCustomerPreviewSection({
+  section,
+  storeName,
+  backHref,
+  bookings,
+  remainingSessions,
+  today,
+}: {
+  section: "bookings" | "wallets" | "profile";
+  storeName: string;
+  backHref: string;
+  bookings: Awaited<ReturnType<typeof getSpaDemoPreviewData>>["bookings"];
+  remainingSessions: number;
+  today: string;
+}) {
+  const firstBooking = bookings[0];
+  const activeBookings = bookings.filter((booking) => booking.date >= today && booking.status !== "已完成" && !booking.refundedAt);
+  const nextBooking = activeBookings[0];
+  const title = section === "bookings" ? "我的預約" : section === "wallets" ? "我的療程" : "我的資料";
+  return (
+    <div className="spa-preview-page mx-auto flex max-w-md flex-col gap-5 px-5 pb-10 pt-7">
+      <style>{`.liff-customer-ui:has(.spa-preview-page) > footer { display: none; }`}</style>
+      <header>
+        <Link href={backHref} className="inline-flex min-h-11 items-center text-sm font-medium text-earth-600">‹ 會員中心</Link>
+        <p className="mt-1 text-sm font-semibold tracking-[0.12em] text-primary-700">{storeName}</p>
+        <h1 className="mt-1 text-2xl font-semibold text-earth-900">{title}</h1>
+      </header>
+      {section === "bookings" ? (
+        <section className="rounded-3xl bg-white p-5 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
+          {nextBooking ? <><p className="text-sm font-semibold text-earth-900">下一次預約</p><p className="mt-2 text-lg font-semibold text-earth-900">{nextBooking.date}・{nextBooking.time}</p><p className="mt-1 text-xs text-earth-500">共 {activeBookings.length} 位・{nextBooking.status}</p></> : <><p className="text-sm font-semibold text-earth-900">目前沒有未來預約</p><p className="mt-1 text-xs text-earth-500">已完成、取消或退款的預約不會列為下一次預約。</p></>}
+          {!nextBooking && bookings.length ? <div className="mt-5 border-t border-earth-100 pt-4"><p className="text-sm font-semibold text-earth-800">最近一次紀錄</p><p className="mt-2 text-sm text-earth-600">{firstBooking.date}・{firstBooking.time}・{bookings.length} 位</p><p className="mt-1 text-xs text-earth-500">{firstBooking.status}{bookings.every((booking) => booking.refundedAt) ? "・整組已退款" : ""}</p></div> : null}
+        </section>
+      ) : section === "wallets" ? (
+        <section className="rounded-3xl bg-white p-5 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
+          <p className="text-sm text-earth-500">目前有效療程</p>
+          <p className="mt-2 text-3xl font-semibold text-earth-900">{remainingSessions} 次</p>
+          <p className="mt-2 text-sm text-earth-600">有效至 2026/12/31</p>
+          <p className="mt-4 rounded-2xl bg-earth-50 px-4 py-3 text-xs text-earth-500">此處與店長顧客資料使用同一筆 Demo 療程餘額。</p>
+        </section>
+      ) : (
+        <section className="rounded-3xl bg-white p-5 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
+          <dl className="space-y-4 text-sm"><div><dt className="text-earth-500">姓名</dt><dd className="mt-1 font-semibold text-earth-900">{firstBooking?.customer ?? "彥陸"}</dd></div><div><dt className="text-earth-500">手機號碼</dt><dd className="mt-1 font-semibold text-earth-900">{firstBooking?.contactPhone ?? "0911999999"}</dd></div></dl>
+        </section>
+      )}
     </div>
   );
 }

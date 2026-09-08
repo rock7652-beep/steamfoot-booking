@@ -49,7 +49,7 @@ describe("SPA daily operations and accounting summary", () => {
     });
     expect(summary.groups).toHaveLength(1);
     expect(summary.groups[0]).toMatchObject({ checkoutMode: "整組付款", paidAmount: 5000, people: 3 });
-    expect(summary.payments).toContainEqual({ method: "現金", count: 1, amount: 5000 });
+    expect(summary.payments).toContainEqual({ method: "現金", count: 1, amount: 5000, grossAmount: 5000 });
     expect(summary.providerPerformance.map((provider) => provider.serviceAmount)).toEqual([1300, 1500, 2200]);
   });
 
@@ -63,8 +63,8 @@ describe("SPA daily operations and accounting summary", () => {
     expect(summary.paidAmount).toBe(5000);
     expect(summary.groups[0]).toMatchObject({ checkoutMode: "分開付款", paymentSummary: "現金＋刷卡" });
     expect(summary.payments).toEqual([
-      { method: "現金", count: 2, amount: 3500 },
-      { method: "刷卡", count: 1, amount: 1500 },
+      { method: "現金", count: 2, amount: 3500, grossAmount: 3500 },
+      { method: "刷卡", count: 1, amount: 1500, grossAmount: 1500 },
     ]);
   });
 
@@ -77,7 +77,7 @@ describe("SPA daily operations and accounting summary", () => {
 
     expect(summary).toMatchObject({ expectedAmount: 5000, paidAmount: 4800 });
     expect(summary.groups[0]).toMatchObject({ checkoutMode: "整組付款", paidAmount: 4800 });
-    expect(summary.payments).toContainEqual({ method: "現金", count: 1, amount: 4800 });
+    expect(summary.payments).toContainEqual({ method: "現金", count: 1, amount: 4800, grossAmount: 4800 });
   });
 
   it("subtracts refunds once and keeps provider net performance traceable", () => {
@@ -89,7 +89,7 @@ describe("SPA daily operations and accounting summary", () => {
 
     expect(summary).toMatchObject({ grossPaidAmount: 4800, refundAmount: 1248, paidAmount: 3552 });
     expect(summary.groups[0]).toMatchObject({ checkoutMode: "整組付款", refundAmount: 1248, paidAmount: 3552, paymentSummary: "現金・含退款" });
-    expect(summary.payments).toContainEqual({ method: "現金", count: 1, amount: 3552 });
+    expect(summary.payments).toContainEqual({ method: "現金", count: 1, amount: 3552, grossAmount: 4800 });
     expect(summary.providerPerformance[0]).toMatchObject({ serviceAmount: 1300, refundAmount: 1300, netServiceAmount: 0 });
   });
 

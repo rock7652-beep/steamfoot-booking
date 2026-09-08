@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { toLocalDateStr } from "@/lib/date-utils";
-import { SPA_DEMO_LIVE_FLOW_BOOKING_IDS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { getCurrentSpaDemoNotification, SPA_DEMO_LIVE_FLOW_BOOKING_IDS, SPA_DEMO_STORE } from "@/lib/spa-demo-store";
 import { SPA_SERVICE_MENU } from "@/lib/spa-scheduling";
 import { resolveStoreSlugForLiff } from "@/lib/store-resolver";
 import { getSpaDemoPreviewData } from "@/server/queries/spa-demo-preview";
@@ -27,24 +27,24 @@ export default async function SpaBookingPreviewPage() {
   const liveBookings = preview.bookings
     .filter((booking) => SPA_DEMO_LIVE_FLOW_BOOKING_IDS.includes(booking.id as (typeof SPA_DEMO_LIVE_FLOW_BOOKING_IDS)[number]))
     .sort((left, right) => (left.guestIndex ?? 1) - (right.guestIndex ?? 1));
-  const allCompleted = liveBookings.length > 0 && liveBookings.every((booking) => booking.status === "已完成");
-  const refundedBookings = liveBookings.filter((booking) => booking.refundedAt);
-  const refundAmount = refundedBookings.reduce((total, booking) => total + (booking.refundAmount ?? 0), 0);
-  const allRefunded = allCompleted && refundedBookings.length === liveBookings.length;
-  const settlementLabels = new Set(liveBookings.map((booking) => booking.settlementLabel).filter(Boolean));
-  const initialCompletedBooking: SpaCompletedBookingPreview | null = liveBookings.length ? {
-    date: liveBookings[0].date,
-    time: liveBookings[0].time,
-    totalPrice: liveBookings.reduce((total, booking) => total + (booking.price ?? 0), 0),
-    status: allCompleted ? "已完成" : "已確認",
-    settlementLabel: allCompleted && settlementLabels.size === 1 ? liveBookings[0].settlementLabel : allCompleted ? "分開結帳" : null,
-    settlementAmount: allCompleted && settlementLabels.size === 1 ? liveBookings[0].settlementAmount : null,
-    storedValueBalance: liveBookings[0].storedValueBalance,
-    packageRemainingSessions: liveBookings[0].packageRemainingSessions,
-    refundAmount,
-    refundReason: refundedBookings[0]?.refundReason ?? null,
-    allRefunded,
-    guests: liveBookings.map((booking, index) => {
+  const activeLiveBookings = liveBookings.filter((booking) =>
+    booking.date >= previewDate
+    && booking.status !== "已完成"
+    && !booking.refundedAt,
+  );
+  const initialCompletedBooking: SpaCompletedBookingPreview | null = activeLiveBookings.length ? {
+    date: activeLiveBookings[0].date,
+    time: activeLiveBookings[0].time,
+    totalPrice: activeLiveBookings.reduce((total, booking) => total + (booking.price ?? 0), 0),
+    status: "已確認",
+    settlementLabel: null,
+    settlementAmount: null,
+    storedValueBalance: activeLiveBookings[0].storedValueBalance,
+    packageRemainingSessions: activeLiveBookings[0].packageRemainingSessions,
+    refundAmount: 0,
+    refundReason: null,
+    allRefunded: false,
+    guests: activeLiveBookings.map((booking, index) => {
       const provider = preview.providers.find((item) => item.id === booking.providerId);
       const serviceNames = booking.service.split("＋");
       const primary = SPA_SERVICE_MENU.find((item) => item.kind !== "ADD_ON" && item.name === serviceNames[0]);
@@ -99,7 +99,7 @@ export default async function SpaBookingPreviewPage() {
         latestDate={latestDate}
         providers={providers}
         initialCompletedBooking={initialCompletedBooking}
-        initialNotification={preview.notification}
+        initialNotification={getCurrentSpaDemoNotification(preview.notification, preview.bookings, previewDate)}
       />
     </div>
   );

@@ -63,9 +63,9 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   },
   {
     key: FEATURES.MEMBER_PORTAL,
-    label: "LINE 會員中心",
+    label: "LINE 顧客入口（LIFF）",
     module: "顧客",
-    description: "顧客可自行預約、取消與查詢方案的會員入口。",
+    description: "三個付費方案內含；顧客可自行預約、取消與查詢方案堂數。保留門市獨立開關，其他模組依各自權限運作。",
   },
   {
     key: FEATURES.REFERRAL_SHARE,
@@ -93,21 +93,15 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   },
   {
     key: FEATURES.BASIC_REPORTS,
-    label: "營運分析",
+    label: "分析",
     module: "分析",
-    description: "查看店舖來客、營收、預約與營運數據。",
-  },
-  {
-    key: FEATURES.ADVANCED_REPORTS,
-    label: "經營診斷",
-    module: "分析",
-    description: "分析店家經營健康度，找出問題與改善方向。",
+    description: "NT$800／月，獨立開通。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,
-    label: "健康評估",
+    label: "健康評估與體態追蹤",
     module: "健康",
-    description: "控制顧客健康評估入口、LINE 會員中心與店長後台健康紀錄。關閉只隱藏功能，不刪除歷史資料。",
+    description: "量測紀錄、歷史數據與變化趨勢；控制顧客 LIFF 與店長後台健康功能。關閉不刪除歷史資料，不作醫療診斷。",
   },
   {
     key: FEATURES.MULTI_STORE,

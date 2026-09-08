@@ -12,7 +12,7 @@ export function DashboardBreadcrumb({ mobile }: BreadcrumbProps) {
   const pathname = usePathname();
 
   const analysisPage = pathname.startsWith("/dashboard/advanced-reports")
-    ? "經營診斷"
+    ? "分析"
     : pathname.startsWith("/dashboard/reports")
       ? "營運分析"
       : null;

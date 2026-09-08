@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { spaPrisma } from "@/lib/spa-db";
 import { requireWritablePermission } from "@/lib/permissions";
-import { currentStoreId } from "@/lib/store";
-import { SPA_DEMO_STORE } from "@/lib/spa-demo-store";
+import { resolveWriteStoreId } from "@/lib/store";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import type { ActionResult } from "@/types";
 import { requireSpaStore } from "@/lib/industry-module-server";
+import { canCompleteSpaBooking } from "@/lib/spa-booking-completion";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 const bookingSchema = z.object({ bookingId: z.string().min(1) });
 const packageSchema = bookingSchema.extend({ walletId: z.string().min(1) });
@@ -22,9 +23,8 @@ const paymentSchema = bookingSchema.extend({
 
 async function requireSpaCheckoutStore() {
   const user = await requireWritablePermission("booking.update");
-  const storeId = currentStoreId(user);
+  const storeId = await resolveWriteStoreId(user);
   await requireSpaStore(storeId);
-  if (storeId !== SPA_DEMO_STORE.id) throw new AppError("FORBIDDEN", "SPA 現場結帳目前只開放 Demo 店驗收");
   await assertStoreSubscriptionWritable(storeId);
   return { user, storeId };
 }
@@ -33,6 +33,15 @@ function revalidateSpaBooking() {
   revalidatePath("/dashboard/bookings");
   revalidatePath("/liff/manager-preview");
   revalidatePath("/liff/staff-preview");
+}
+
+function assertSpaBookingCanComplete(booking: {
+  bookingDate: Date;
+  startTime: string;
+}) {
+  if (!canCompleteSpaBooking(toLocalDateStr(booking.bookingDate), booking.startTime)) {
+    throw new AppError("BUSINESS_RULE", "預約時間尚未開始，無法提前完成服務或結帳");
+  }
 }
 
 export async function checkInSpaBooking(input: z.infer<typeof bookingSchema>): Promise<ActionResult<{ bookingId: string }>> {
@@ -57,6 +66,7 @@ export async function settleSpaBookingWithPayment(input: z.infer<typeof paymentS
     const booking = await spaPrisma.spaBooking.findFirst({ where: { id: data.bookingId, storeId } });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
     if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") throw new AppError("BUSINESS_RULE", "此預約狀態無法收款");
+    assertSpaBookingCanComplete(booking);
     const grossAmount = Number(booking.totalPriceSnapshot);
     if (data.amount > grossAmount) throw new AppError("VALIDATION", "實收金額不可高於原價");
 
@@ -97,6 +107,7 @@ export async function settleSpaBookingWithPackage(input: z.infer<typeof packageS
     const booking = await spaPrisma.spaBooking.findFirst({ where: { id: data.bookingId, storeId } });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
     if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") throw new AppError("BUSINESS_RULE", "此預約狀態無法扣療程");
+    assertSpaBookingCanComplete(booking);
 
     await spaPrisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "SpaBooking" WHERE id = ${booking.id} FOR UPDATE`;
@@ -124,6 +135,7 @@ export async function settleSpaBookingWithStoredValue(input: z.infer<typeof book
     const booking = await spaPrisma.spaBooking.findFirst({ where: { id: bookingId, storeId } });
     if (!booking) throw new AppError("NOT_FOUND", "預約不存在或不屬於本店");
     if (booking.status !== "PENDING" && booking.status !== "CONFIRMED") throw new AppError("BUSINESS_RULE", "此預約狀態無法使用儲值金結帳");
+    assertSpaBookingCanComplete(booking);
     const amount = Number(booking.totalPriceSnapshot);
 
     const remainingBalance = await spaPrisma.$transaction(async (tx) => {
