@@ -4,7 +4,7 @@ import Image from "next/image";
 import { DayStory } from "./day-story";
 
 export const metadata: Metadata = {
-  title: "蒸管家｜店務少一點忙，顧客多一點照顧",
+  title: "蒸管家｜每一家店，都值得擁有一位數位管家",
   description: "預約、堂數、收款與顧客追蹤，集中管理。了解蒸管家如何協助預約制門市與工作室的日常營運。",
   robots: { index: false, follow: false },
 };
@@ -36,9 +36,10 @@ export default function BusinessPage() {
           <div>
             <p className="mb-3 text-sm font-medium tracking-[0.16em] text-[#74603C]">簡單學・一眼懂・輕鬆做</p>
             <h1 id="hero-title" className="text-[clamp(1.8rem,3.5vw,3rem)] font-semibold leading-[1.3] tracking-tight">
-              店務少一點忙，<br className="sm:hidden" /><span className="text-[#967039]">顧客多一點照顧。</span>
+              <span className="block sm:inline">每一家店，</span><span className="text-[#967039]">都值得擁有<span className="whitespace-nowrap">一位數位管家。</span></span>
             </h1>
-            <p className="mt-3 max-w-2xl text-lg leading-relaxed text-[#4C6259]">預約、堂數、收款與顧客追蹤，<br className="hidden sm:block" />蒸管家幫你集中管理。</p>
+            <p className="mt-3 text-lg leading-relaxed text-[#4C6259]">店務少一點忙，顧客多一點照顧。</p>
+            <p className="mt-2 max-w-2xl text-base leading-relaxed text-[#4C6259]">預約、堂數、收款與顧客追蹤，蒸管家幫你集中管理。</p>
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
               <ConsultLink />
               <a href="#how-it-works" className="py-3 text-base underline underline-offset-8">看看怎麼運作</a>
