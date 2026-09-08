@@ -74,12 +74,7 @@ export default function PricingPage() {
             蒸管家
           </Link>
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="rounded-lg border border-earth-200 px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
-            >
-              登入
-            </Link>
+            
             <Link
               href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer"
               className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
@@ -392,12 +387,7 @@ export default function PricingPage() {
             >
               預約免費介紹
             </Link>
-            <Link
-              href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer"
-              className="rounded-xl bg-amber-500 px-7 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-amber-600"
-            >
-              升級我的方案
-            </Link>
+            
 
           </div>
         </section>
