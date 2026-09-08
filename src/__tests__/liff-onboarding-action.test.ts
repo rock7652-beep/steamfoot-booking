@@ -185,6 +185,34 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(r).toEqual({ status: "bound_other" });
   });
 
+  it("allows authorized first capture when a legacy notification recipient blocks binding", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({
+      status: "already_bound_to_other_line",
+      customerId: "cust-y",
+      existingLineUserId: "U_messaging_recipient",
+    });
+    mockAuthorizedFirstCapture.mockResolvedValueOnce({ status: "executed", requestId: "capture-1" });
+    expect(await submitOnboarding(VALID_INPUT)).toEqual({ status: "ok" });
+    expect(mockAuthorizedFirstCapture).toHaveBeenCalledWith({
+      storeId: STORE.id,
+      customerId: "cust-y",
+      phone: VALID_INPUT.phone,
+      candidateLineUserId: LINE_USER_ID,
+    });
+  });
+
+  it("keeps a conflicting first-capture identity blocked", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({
+      status: "already_bound_to_other_line", customerId: "cust-y", existingLineUserId: "U_other",
+    });
+    mockAuthorizedFirstCapture.mockResolvedValueOnce({ status: "rejected", code: "LOGIN_IDENTITY_CONFLICT" });
+    expect(await submitOnboarding(VALID_INPUT)).toEqual({ status: "bound_other" });
+  });
+
   it("owner-authorized LIFF Login migration → ok without changing notification identity", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
