@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { BookingOverview } from "./booking-overview";
 import { DayStory } from "./day-story";
 
 export const metadata: Metadata = {
@@ -33,20 +34,33 @@ export default function BusinessPage() {
       </header>
       <main id="main">
         <section aria-labelledby="hero-title" className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+          <div className="grid items-center gap-5 lg:grid-cols-2 lg:gap-x-10">
           <div>
             <h1 id="hero-title" className="text-[clamp(1.8rem,3.5vw,3rem)] font-semibold leading-[1.3] tracking-tight">
               <span className="block sm:inline">每一家店，</span>都值得擁有<span className="whitespace-nowrap">一位<span className="text-[#967039]">數位管家</span>。</span>
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-[#4C6259]">預約、堂數、收款與顧客追蹤，一處管理。</p>
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+          </div>
+          <figure className="overflow-hidden rounded-2xl lg:col-start-2 lg:row-start-1 lg:row-span-2">
+            <Image src="/pricing/business-assets/store-owner-care.webp" width={1536} height={1024} sizes="(min-width: 1024px) 520px, 100vw" preload
+              alt="情境插畫：店長專心招呼顧客，手機與預約筆記放在一旁" className="h-auto w-full" />
+            <figcaption className="bg-[#153F33] px-4 py-3 text-base font-medium text-white">店務交給管家，時間留給顧客。</figcaption>
+          </figure>
+          <div>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <ConsultLink />
               <a href="#how-it-works" className="py-3 text-base underline underline-offset-8">看看怎麼運作</a>
             </div>
             <p className="mt-2 text-sm leading-6 text-[#4C6259]">填寫需求，由專人聯繫安排體驗。</p>
           </div>
+          </div>
         </section>
 
-        <DayStory />
+        <BookingOverview />
+        <details id="how-it-works" className="group mx-auto max-w-6xl scroll-mt-4 px-5 pb-7 sm:px-8">
+          <summary className="cursor-pointer border-y border-[#153B31]/15 py-4 text-base font-semibold">想看操作畫面？展開店長的一天</summary>
+          <div className="pt-5"><DayStory /></div>
+        </details>
 
         <section aria-labelledby="cases-title" className="border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-7 sm:px-8 sm:py-8">
           <div className="mx-auto max-w-6xl">
@@ -60,18 +74,15 @@ export default function BusinessPage() {
                   <p className="text-sm text-[#74603C]">案例 A・預約提醒</p>
                   <h3 className="mt-2 text-2xl font-medium">暖沐蒸足</h3>
                   <p className="mt-3 text-base font-medium leading-7">逐筆提醒的時間，交給蒸管家。</p>
-                  <p className="mt-2 text-base leading-7 text-[#4C6259]">暖沐蒸足依提醒規則安排通知，減少逐筆傳送訊息與整理回覆的工作。</p>
+
 
                   <a href="/pricing/business-assets/brand-reminder-example.jpeg" target="_blank" rel="noopener noreferrer"
                     aria-label="放大暖沐預約提醒示意圖（另開視窗）"
-                    className="mt-3 flex items-center gap-4 rounded-xl border border-[#153B31]/15 bg-white p-3 focus-visible:outline-2 focus-visible:outline-offset-4">
-                    <Image src="/pricing/business-assets/brand-reminder-example.jpeg" width={1058} height={1487} unoptimized
-                      alt="深綠米白配色的蒸管家預約提醒示意卡片"
-                      className="h-32 w-24 shrink-0 rounded-md object-contain" />
-                    <span className="min-w-0">
-                      <span className="block text-base font-medium">提醒交給管家，時間留給顧客。</span>
-                      <span className="mt-1 block text-sm leading-6 text-[#4C6259]">新版提醒示意・點圖放大</span>
-                    </span>
+                    className="mt-4 block rounded-xl border border-[#153B31]/15 bg-white p-3 focus-visible:outline-2 focus-visible:outline-offset-4">
+                    <Image src="/pricing/business-assets/brand-reminder-example.jpeg" width={1058} height={1487} sizes="(min-width: 768px) 480px, 100vw"
+                      alt="預約提醒示意卡片：林小姐的預約資訊、改時段與取消選項"
+                      className="mx-auto h-64 w-full rounded-md object-contain sm:h-80" />
+                    <span className="mt-3 block text-center text-sm leading-6 text-[#4C6259]">提醒卡片示意・點圖放大</span>
                   </a>
                   <a href="/pricing/cases?store=nuanmu" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖沐完整案例 →</a>
                 </article>
@@ -82,6 +93,10 @@ export default function BusinessPage() {
                   <p className="mt-3 text-base font-medium leading-7">少一些來回確認，少一次重複建檔。</p>
                   <p className="mt-2 text-base leading-7 text-[#4C6259]">顧客自行選時段，送出後自動建檔與排入預約，再透過 LINE 通知店長。</p>
 
+                  <a href="/pricing/business-assets/booking-time-original.png" target="_blank" rel="noopener noreferrer" aria-label="放大暖暖蒸足預約畫面（另開視窗）" className="mt-4 block rounded-xl border border-[#153B31]/15 bg-white p-3 focus-visible:outline-2 focus-visible:outline-offset-4">
+                    <Image src="/pricing/business-assets/booking-time-original.png" width={1532} height={1364} sizes="(min-width: 768px) 480px, 100vw" alt="暖暖蒸足真實預約畫面：顧客自行選擇日期與時段" className="mx-auto h-64 w-full object-contain sm:h-80" />
+                    <span className="mt-3 block text-center text-sm leading-6 text-[#4C6259]">真實預約畫面・點圖放大</span>
+                  </a>
                   <Link href="/pricing/cases?store=nuannuan" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖暖完整案例 →</Link>
                 </article>
               </div>
