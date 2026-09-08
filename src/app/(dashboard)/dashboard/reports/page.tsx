@@ -115,7 +115,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   type StoreSummary = Awaited<ReturnType<typeof monthlyStoreSummary>>;
   type RevenueByCategory = Awaited<ReturnType<typeof monthlyRevenueByCategory>>;
 
-  const snapshotStoreId = reportsStoreId || user.storeId!;
+  const snapshotStoreId = reportsStoreId;
   const isMonthPreset = activePreset === "month";
   const isPastMonth = month < currentMonth;
   const isCurrentMonth = month === currentMonth;
@@ -127,7 +127,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   let plan: Awaited<ReturnType<typeof getCachedStorePlan>>;
   let snapshotHit = false;
 
-  if (isMonthPreset && (isPastMonth || isCurrentMonth)) {
+  if (snapshotStoreId && isMonthPreset && (isPastMonth || isCurrentMonth)) {
     const [ssSnap, rcSnap, sp] = await Promise.all([
       withTiming("snapshotStoreSummary", timer, () =>
         getReportSnapshotWithMeta(snapshotStoreId, month, "STORE_SUMMARY"),

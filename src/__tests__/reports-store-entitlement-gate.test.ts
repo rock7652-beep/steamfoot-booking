@@ -428,6 +428,15 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).not.toContain("成長版");
   });
 
+  it("skips single-store snapshots for the HQ monthly all-store view", async () => {
+    mockGetActiveStoreForRead.mockResolvedValueOnce(null);
+    mockStoreIdForViewContext.mockReturnValueOnce(null);
+    await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) });
+    expect(mockGetReportSnapshotWithMeta).not.toHaveBeenCalled();
+    expect(mockUpsertReportSnapshot).not.toHaveBeenCalled();
+    expect(mockMonthlyStoreSummary).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ activeStoreId: null }));
+  });
+
   it("keeps the HQ all-store report view available when there is no concrete store id to gate", async () => {
     mockGetActiveStoreForRead.mockResolvedValueOnce(null);
     mockStoreIdForViewContext.mockReturnValueOnce(null);
