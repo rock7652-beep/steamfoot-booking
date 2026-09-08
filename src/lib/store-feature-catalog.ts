@@ -93,15 +93,9 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
   },
   {
     key: FEATURES.BASIC_REPORTS,
-    label: "營運分析",
+    label: "分析",
     module: "分析",
-    description: "查看店舖來客、營收、預約與營運數據。",
-  },
-  {
-    key: FEATURES.ADVANCED_REPORTS,
-    label: "經營診斷",
-    module: "分析",
-    description: "分析店家經營健康度，找出問題與改善方向。",
+    description: "NT$800／月，獨立開通。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,

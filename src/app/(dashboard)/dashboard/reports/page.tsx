@@ -81,7 +81,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     return (
       <UpgradeNoticePage
         title="營運分析尚未開通"
-        description="請聯絡總部開通營運分析功能。"
+        description="分析為 NT$800／月獨立加購，請聯絡總部開通。"
       />
     );
   }
@@ -115,7 +115,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   type StoreSummary = Awaited<ReturnType<typeof monthlyStoreSummary>>;
   type RevenueByCategory = Awaited<ReturnType<typeof monthlyRevenueByCategory>>;
 
-  const snapshotStoreId = reportsStoreId || user.storeId!;
+  const snapshotStoreId = reportsStoreId;
   const isMonthPreset = activePreset === "month";
   const isPastMonth = month < currentMonth;
   const isCurrentMonth = month === currentMonth;
@@ -127,7 +127,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   let plan: Awaited<ReturnType<typeof getCachedStorePlan>>;
   let snapshotHit = false;
 
-  if (isMonthPreset && (isPastMonth || isCurrentMonth)) {
+  if (snapshotStoreId && isMonthPreset && (isPastMonth || isCurrentMonth)) {
     const [ssSnap, rcSnap, sp] = await Promise.all([
       withTiming("snapshotStoreSummary", timer, () =>
         getReportSnapshotWithMeta(snapshotStoreId, month, "STORE_SUMMARY"),
@@ -266,7 +266,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   ];
 
   return (
-    <FeatureGate plan={plan} feature={FEATURES.BASIC_REPORTS}>
+    <FeatureGate plan={plan} feature={FEATURES.BASIC_REPORTS} enabled={true}>
       <PageShell>
         <PageHeader
           title="營運分析"
@@ -283,7 +283,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                   <a href={`/api/export/staff-monthly?month=${month}`} className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50" download>店長 CSV</a>
                 </>
               )}
-              <a href="/dashboard/advanced-reports" className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50">經營診斷 →</a>
               <a href="/dashboard/service-fee-calculator" className="rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100">月結管理 →</a>
             </>
           }
