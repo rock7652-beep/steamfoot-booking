@@ -10,11 +10,11 @@ export const metadata: Metadata = {
 };
 
 const LINE_URL = "https://lin.ee/SGy5UBz";
-const TRIAL_URL = "https://steam-butler-check.vercel.app/?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=business";
+const TRIAL_URL = "/pricing/apply.html?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=business";
 function ConsultLink({ light = false }: { light?: boolean }) {
-  return <a href={TRIAL_URL} target="_blank" rel="noopener noreferrer"
+  return <a href={TRIAL_URL}
     className={`inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-center text-base font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#B58C43] ${light ? "bg-[#F5EFE3] text-[#123E32] hover:bg-white" : "bg-[#123E32] text-white hover:bg-[#245A49]"}`}>
-    申請體驗帳號<span aria-hidden="true" className="ml-3">↗</span>
+    申請體驗帳號<span aria-hidden="true" className="ml-3">→</span>
   </a>;
 }
 
@@ -120,7 +120,7 @@ export default function BusinessPage() {
       <footer className="border-t border-[#153B31]/15 px-5 py-7 text-sm text-[#4C6259] sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-4">
           <p>蒸管家｜每一家店都值得擁有一位數位管家。</p>
-          <a href={TRIAL_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">申請體驗帳號</a>
+          <a href={TRIAL_URL} className="underline underline-offset-4">申請體驗帳號</a>
         </div>
       </footer>
     </div>
