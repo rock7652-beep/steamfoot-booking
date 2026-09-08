@@ -4,35 +4,33 @@ import Image from "next/image";
 
 export const metadata: Metadata = {
   title: "真實店家案例｜蒸管家",
-  description: "看看暖沐蒸足如何安排預約提醒、暖暖蒸足如何讓體驗預約直接進入後台。",
+  description: "來回確認時段、重複建檔與逐筆提醒，都是店長的時間成本。看看蒸管家如何接手預約、建檔與 LINE 通知。",
 };
 
 const cases = [
   {
     id: "nuanmu", label: "A", name: "暖沐蒸足", topic: "預約提醒",
-    title: "把預約前的提醒，交給系統安排。",
-    intro: "暖沐蒸足已啟用提醒規則，店長可集中查看通知設定與發送紀錄。",
-    situation: "預約前，門市需要安排顧客提醒，也需要知道通知是否送出。",
-    steps: [
-      ["安排提醒", "門市設定提醒規則與通知內容。"],
-      ["依規則發送", "符合已啟用規則的預約，由系統安排通知。"],
-      ["集中查看", "店長在提醒管理查看設定與發送紀錄。"],
+    title: "每一則手動提醒，都占用店長的時間。",
+    intro: "暖沐蒸足已啟用提醒規則，把例行通知交給系統安排，店長集中查看發送紀錄。",
+    costs: [
+      ["逐筆找出需要提醒的預約，再傳送訊息。", "依已啟用的提醒規則安排發送，減少逐筆操作。"],
+      ["詢問顧客是否會到，再整理回覆。", "顧客可在提醒中確認會到，後台同步顯示確認狀態。"],
+      ["顧客改期或取消後，再追蹤異動資訊。", "顧客透過預約流程完成改期或取消，系統通知店家。"],
     ],
-    benefit: "符合規則的預約，不必再逐筆手動傳送提醒。",
+    benefit: "少一些逐筆提醒與回覆整理，把注意力留給需要你服務的顧客。",
     fit: "適合已有固定預約，需要安排顧客提醒的門市。",
   },
   {
     id: "nuannuan", label: "B", name: "暖暖蒸足", topic: "體驗預約",
-    title: "顧客選好時間，預約直接進後台。",
-    intro: "暖暖蒸足讓體驗顧客自行選擇日期與時段，店長在後台查看當日安排。",
-    situation: "新顧客想預約首次體驗，需要知道哪些日期與時段可以選。",
-    steps: [
-      ["選擇時間", "顧客在體驗預約頁選擇可約日期與時段。"],
-      ["填寫並送出", "顧客完成必要資料，確認後送出預約。"],
-      ["後台直接查看", "送出成功後，系統在門市後台建立體驗預約。"],
+    title: "一筆體驗預約，不必忙兩次。",
+    intro: "從確認時間、收集資料到建立預約，每次回覆與輸入都是成本。暖暖蒸足透過線上體驗預約，讓蒸管家接手這些重複工作。",
+    costs: [
+      ["顧客問體驗，店長來回提供時段、等待回覆，再確認時間。", "顧客線上查看可體驗時間，自己選好日期與時段。"],
+      ["收集姓名、電話後，再進系統建檔，排入當天的預約。", "顧客填寫必要資料並送出成功後，自動建檔、排入對應日期與時間，並以 LINE 通知店長體驗客資訊。"],
+      ["前一天逐筆提醒，再追蹤是否到店、改期或取消。", "體驗前一天依設定發送提醒；完成改期或取消會通知店家，確認會到則顯示在後台。"],
     ],
-    benefit: "已完成的線上預約，不必再手抄到另一份預約表。",
-    fit: "適合常接到首次體驗詢問，希望減少來回確認時間的門市。",
+    benefit: "少一些來回確認，少一次重複輸入，少一份逐筆提醒的工作。",
+    fit: "適合常接到首次體驗詢問，希望減少溝通與建檔時間的門市。",
   },
 ];
 
@@ -55,8 +53,8 @@ export default async function StoreCasesPage({
       </header>
       <main className="mx-auto max-w-5xl px-5 py-7 sm:px-8 sm:py-10">
         <p className="text-sm text-[#74603C]">真實店家案例</p>
-        <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">看看門市怎麼用。</h1>
-        <p className="mt-3 text-base leading-7 text-[#4C6259]">從預約到日常管理，選一家門市，看看實際做法。</p>
+        <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">每一次來回確認，都是店長的時間。</h1>
+        <p className="mt-3 text-base leading-7 text-[#4C6259]">確認時段、重複建檔、到店提醒，讓蒸管家接手例行工作。</p>
         <nav aria-label="選擇店家案例" className="mt-5 grid grid-cols-2 gap-3">
           {cases.map((item) => (
             <Link key={item.id} href={"/pricing/cases?store=" + item.id} scroll={false}
@@ -73,6 +71,30 @@ export default async function StoreCasesPage({
           <h2 id="case-title" className="mt-2 text-2xl font-semibold leading-snug">{current.title}</h2>
           <p className="mt-3 text-base leading-7 text-[#4C6259]">{current.intro}</p>
 
+
+
+          <section aria-labelledby="cost-comparison" className="mt-5">
+            <h3 id="cost-comparison" className="text-lg font-semibold">時間花在哪裡？蒸管家怎麼接手？</h3>
+            <div className="mt-3 space-y-3">
+              {current.costs.map(([manual, automated], index) => (
+                <div key={manual} className="overflow-hidden rounded-xl border border-[#153B31]/15 md:grid md:grid-cols-2">
+                  <div className="bg-[#F8F5EE] p-4">
+                    <p className="text-sm font-medium text-[#74603C]">{index + 1}・店長手動處理時</p>
+                    <p className="mt-2 text-base leading-7 text-[#4C6259]">{manual}</p>
+                  </div>
+                  <div className="bg-[#EEF4F0] p-4">
+                    <p className="text-sm font-semibold">交給蒸管家</p>
+                    <p className="mt-2 text-base leading-7">{automated}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[#4C6259]">通知依門市已完成的 LINE 串接與啟用設定運作；改期、取消須完成預約操作。</p>
+          </section>
+          <div className="mt-5 rounded-xl border-l-4 border-[#967039] bg-[#EEF4F0] p-4">
+            <h3 className="text-lg font-semibold">把這些時間，留給顧客。</h3>
+            <p className="mt-2 text-base leading-7">{current.benefit}</p>
+          </div>
           {current.id === "nuannuan" ? (
             <figure className="mt-5">
               <a href="/pricing/business-assets/booking-time-original.png" target="_blank" rel="noopener noreferrer" aria-label="另開暖暖蒸足真實預約原圖"
@@ -84,24 +106,6 @@ export default async function StoreCasesPage({
               <figcaption className="mt-2 text-sm leading-6 text-[#4C6259]">門市真實預約畫面・點圖放大查看</figcaption>
             </figure>
           ) : null}
-
-          <div className="mt-5 border-t border-[#153B31]/15 pt-5">
-            <h3 className="text-lg font-semibold">門市要處理什麼？</h3>
-            <p className="mt-2 text-base leading-7 text-[#4C6259]">{current.situation}</p>
-          </div>
-          <h3 className="mt-5 text-lg font-semibold">實際怎麼做？</h3>
-          <ol className="mt-3 grid gap-3 md:grid-cols-3">
-            {current.steps.map(([title, description], index) => (
-              <li key={title} className="rounded-xl bg-[#F8F5EE] p-4">
-                <p className="text-base font-semibold"><span className="mr-2 text-[#967039]">{index + 1}.</span>{title}</p>
-                <p className="mt-2 text-base leading-7 text-[#4C6259]">{description}</p>
-              </li>
-            ))}
-          </ol>
-          <div className="mt-5 rounded-xl border-l-4 border-[#967039] bg-[#EEF4F0] p-4">
-            <h3 className="text-lg font-semibold">少掉哪一步？</h3>
-            <p className="mt-2 text-base leading-7">{current.benefit}</p>
-          </div>
           <p className="mt-4 text-base leading-7 text-[#4C6259]">{current.fit}</p>
           {current.id === "nuanmu" ? (
             <p className="mt-4 text-sm leading-6 text-[#4C6259]">
@@ -111,7 +115,7 @@ export default async function StoreCasesPage({
         </article>
 
         <section aria-labelledby="case-cta" className="mt-6">
-          <h2 id="case-cta" className="text-xl font-semibold">也想用在你的門市？</h2>
+          <h2 id="case-cta" className="text-xl font-semibold">把時間留給服務，把日常交給管家。</h2>
           <p className="mt-2 text-base leading-7 text-[#4C6259]">填寫需求，由專人聯繫安排適合的體驗。</p>
           <div className="mt-4 flex flex-wrap items-center gap-5">
             <a href={trialUrl} className="inline-flex min-h-12 items-center rounded-full bg-[#123E32] px-6 py-3 text-base font-semibold text-white hover:bg-[#245A49]">申請體驗帳號</a>
