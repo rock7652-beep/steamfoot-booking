@@ -1,3 +1,4 @@
+import { LINE_CARD_COLORS, LINE_CARD_STYLES } from "@/lib/line-card-theme";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { deriveBaseUrl } from "@/lib/base-url";
@@ -105,13 +106,7 @@ export async function enqueueSessionBalanceNotifications(
   return pending.map((notification) => notification.id);
 }
 
-const SESSION_BALANCE_CARD_COLORS = {
-  headerBackground: "#F3EDE5",
-  headerText: "#4B433B",
-  headerSubtext: "#756B62",
-  primary: "#667A5C",
-  secondary: "#8B6B52",
-} as const;
+const SESSION_BALANCE_CARD_COLORS = LINE_CARD_COLORS;
 
 export function buildSessionBalanceLineMessages(input: {
   type: "LAST_SESSION" | "PLAN_USED_UP";
@@ -144,13 +139,14 @@ export function buildSessionBalanceLineMessages(input: {
         altText: `${input.customerName} 您好，您的「${input.planName}」剩下最後 1 堂。`,
         contents: {
           type: "bubble",
+      styles: LINE_CARD_STYLES,
           header: {
             type: "box",
             layout: "vertical",
             backgroundColor: SESSION_BALANCE_CARD_COLORS.headerBackground,
             paddingAll: "16px",
             contents: [
-              { type: "text", text: "蒸管家｜堂數提醒", color: SESSION_BALANCE_CARD_COLORS.headerText, weight: "bold", size: "lg" },
+              { type: "text", text: "蒸管家｜堂數提醒", color: SESSION_BALANCE_CARD_COLORS.headerText, weight: "bold", size: "lg", wrap: true },
               { type: "text", text: "方案剩餘最後 1 堂", color: SESSION_BALANCE_CARD_COLORS.headerSubtext, size: "sm", margin: "sm" },
             ],
           },
@@ -159,18 +155,18 @@ export function buildSessionBalanceLineMessages(input: {
             layout: "vertical",
             spacing: "md",
             contents: [
-              { type: "text", text: `${input.customerName} 您好`, weight: "bold", size: "lg" },
+              { type: "text", text: `${input.customerName} 您好`, color: LINE_CARD_COLORS.primary, wrap: true, weight: "bold", size: "lg" },
               { type: "separator" },
-              { type: "text", text: "方案名稱", color: "#8A817A", size: "sm" },
-              { type: "text", text: input.planName, color: "#302924", size: "md", weight: "bold", wrap: true },
+              { type: "text", text: "方案名稱", color: LINE_CARD_COLORS.label, size: "sm" },
+              { type: "text", text: input.planName, color: LINE_CARD_COLORS.text, size: "md", weight: "bold", wrap: true },
               ...(input.reservedBooking
                 ? [
-                    { type: "text" as const, text: "已預約時間", color: "#8A817A", size: "sm" as const },
-                    { type: "text" as const, text: variables.bookingDateTime, color: "#302924", size: "md" as const, wrap: true },
+                    { type: "text" as const, text: "已預約時間", color: LINE_CARD_COLORS.label, size: "sm" as const },
+                    { type: "text" as const, text: variables.bookingDateTime, color: LINE_CARD_COLORS.text, size: "md" as const, wrap: true },
                   ]
                 : []),
               { type: "separator" },
-              { type: "text", text: body, color: "#302924", size: "sm", wrap: true },
+              { type: "text", text: body, color: LINE_CARD_COLORS.text, size: "sm", wrap: true },
             ],
           },
           footer: {
@@ -188,7 +184,7 @@ export function buildSessionBalanceLineMessages(input: {
                 : []),
               {
                 type: "button",
-                style: "primary",
+                style: "link",
                 color: SESSION_BALANCE_CARD_COLORS.secondary,
                 action: { type: "message", label: "諮詢店長", text: SESSION_BALANCE_VIP_COMMAND },
               },
@@ -213,13 +209,14 @@ export function buildSessionBalanceLineMessages(input: {
       altText: `${input.customerName} 您好，您的「${input.planName}」方案已使用完畢。`,
       contents: {
         type: "bubble",
+      styles: LINE_CARD_STYLES,
         header: {
           type: "box",
           layout: "vertical",
           backgroundColor: SESSION_BALANCE_CARD_COLORS.headerBackground,
           paddingAll: "16px",
           contents: [
-            { type: "text", text: "蒸管家｜方案提醒", color: SESSION_BALANCE_CARD_COLORS.headerText, weight: "bold", size: "lg" },
+            { type: "text", text: "蒸管家｜方案提醒", color: SESSION_BALANCE_CARD_COLORS.headerText, weight: "bold", size: "lg", wrap: true },
             { type: "text", text: "本期方案已完成", color: SESSION_BALANCE_CARD_COLORS.headerSubtext, size: "sm", margin: "sm" },
           ],
         },
@@ -228,12 +225,12 @@ export function buildSessionBalanceLineMessages(input: {
           layout: "vertical",
           spacing: "md",
           contents: [
-            { type: "text", text: `${input.customerName} 您好`, weight: "bold", size: "lg" },
+            { type: "text", text: `${input.customerName} 您好`, color: LINE_CARD_COLORS.primary, wrap: true, weight: "bold", size: "lg" },
             { type: "separator" },
-            { type: "text", text: "已完成方案", color: "#8A817A", size: "sm" },
-            { type: "text", text: input.planName, color: "#302924", size: "md", weight: "bold", wrap: true },
+            { type: "text", text: "已完成方案", color: LINE_CARD_COLORS.label, size: "sm" },
+            { type: "text", text: input.planName, color: LINE_CARD_COLORS.text, size: "md", weight: "bold", wrap: true },
             { type: "separator" },
-            { type: "text", text: body, color: "#302924", size: "sm", wrap: true },
+            { type: "text", text: body, color: LINE_CARD_COLORS.text, size: "sm", wrap: true },
           ],
         },
         footer: {
@@ -249,7 +246,7 @@ export function buildSessionBalanceLineMessages(input: {
           },
           {
             type: "button",
-            style: "primary",
+            style: "link",
             color: SESSION_BALANCE_CARD_COLORS.secondary,
             action: { type: "message", label: "諮詢店長", text: SESSION_BALANCE_VIP_COMMAND },
           },

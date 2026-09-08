@@ -439,11 +439,13 @@ describe("LINE sending actions are store-aware", () => {
           footer: expect.objectContaining({
             contents: expect.arrayContaining([
               expect.objectContaining({
-                action: {
-                  type: "uri",
-                  label: "改時段",
-                  uri: "https://example.test/s/hsinchu/my-bookings/booking-1/reschedule",
-                },
+                contents: expect.arrayContaining([expect.objectContaining({
+                  action: {
+                    type: "uri",
+                    label: "改時段",
+                    uri: "https://example.test/s/hsinchu/my-bookings/booking-1/reschedule",
+                  },
+                })]),
               }),
               expect.objectContaining({
                 action: {
@@ -518,16 +520,16 @@ describe("LINE sending actions are store-aware", () => {
       altText: expect.stringContaining("黃彥陸 的預約提醒"),
     });
     expect(message.contents.body.contents[0]?.text).toBe("黃彥陸 您好");
-    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
+    expect(cardButtons(message.contents.footer.contents).map((button) => button.action.label)).toEqual([
       "確認會到",
       "需要改期",
       "取消預約",
     ]);
-    for (const button of message.contents.footer.contents) {
+    for (const button of cardButtons(message.contents.footer.contents)) {
       expect(button.action.uri).toContain("/trial-booking/manage?token=");
       expect(button.action.uri).not.toContain("/my-bookings");
     }
-    expect(message.contents.footer.contents.map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
+    expect(cardButtons(message.contents.footer.contents).map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
       "confirm",
       "reschedule",
       "cancel",
@@ -684,9 +686,9 @@ describe("LINE sending actions are store-aware", () => {
         altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
         contents: expect.objectContaining({
           header: expect.objectContaining({
-            backgroundColor: "#F3EDE5",
+            backgroundColor: "#153F33",
             contents: expect.arrayContaining([
-              expect.objectContaining({ text: "蒸管家｜預約提醒", color: "#4B433B" }),
+              expect.objectContaining({ text: "蒸管家｜預約提醒", color: "#FFFFFF" }),
               expect.objectContaining({
                 backgroundColor: "#E9D9B9",
                 contents: expect.arrayContaining([
@@ -703,23 +705,26 @@ describe("LINE sending actions are store-aware", () => {
             contents: expect.arrayContaining([
               expect.objectContaining({
                 style: "primary",
-                color: "#667A5C",
+                color: "#153F33",
                 action: expect.objectContaining({
                   label: "開啟 Google Maps 導航",
                   uri: "https://maps.app.goo.gl/b5yPNKj8jt6DfzZo9?g_st=ic",
                 }),
               }),
               expect.objectContaining({
-                style: "primary",
-                color: "#8B6B52",
-                action: expect.objectContaining({
-                  label: "改時段",
-                  uri: "https://example.test/s/zhubei/my-bookings/package-booking-1/reschedule",
-                }),
+                borderColor: "#153F33",
+                contents: expect.arrayContaining([expect.objectContaining({
+                  style: "link",
+                  color: "#153F33",
+                  action: expect.objectContaining({
+                    label: "改時段",
+                    uri: "https://example.test/s/zhubei/my-bookings/package-booking-1/reschedule",
+                  }),
+                })]),
               }),
               expect.objectContaining({
-                style: "primary",
-                color: "#AD5F58",
+                style: "link",
+                color: "#666666",
                 action: expect.objectContaining({
                   label: "取消前往",
                   uri: "https://example.test/s/zhubei/my-bookings/package-booking-1/cancel",
@@ -1016,3 +1021,10 @@ describe("LINE sending actions are store-aware", () => {
     expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
   });
 });
+
+/** Unwrap outlined controls while keeping action assertions independent of presentation. */
+function cardButtons<T>(items: T[]): T[] {
+  return items.flatMap((item) => item && typeof item === "object" && "contents" in item
+    ? (item as { contents: T[] }).contents
+    : [item]);
+}

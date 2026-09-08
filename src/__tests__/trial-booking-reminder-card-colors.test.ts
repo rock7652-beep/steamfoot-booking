@@ -7,6 +7,7 @@ import {
 type FlexBox = {
   backgroundColor?: string;
   contents: Array<{
+    contents?: FlexBox["contents"];
     style?: string;
     color?: string;
     action?: { label?: string };
@@ -24,7 +25,7 @@ function flexContents(message: ReturnType<typeof buildTrialBookingReminderLineMe
 }
 
 describe("LINE reminder card colors", () => {
-  it("uses one warm brand palette for package reminders", () => {
+  it("uses the green brand palette for package reminders", () => {
     const [message] = buildPackageBookingReminderLineMessages({
       customerName: "黃彥陸",
       bookingDate: "2026-08-19",
@@ -36,15 +37,15 @@ describe("LINE reminder card colors", () => {
     }, "https://www.steamfoot.com/s/zhubei/my-bookings", "booking-1");
 
     const card = flexContents(message);
-    expect(card.header.backgroundColor).toBe("#F3EDE5");
-    expect(card.footer.contents.map(({ style, color }) => ({ style, color }))).toEqual([
-      { style: "primary", color: "#667A5C" },
-      { style: "primary", color: "#8B6B52" },
-      { style: "primary", color: "#AD5F58" },
+    expect(card.header.backgroundColor).toBe("#153F33");
+    expect(card.footer.contents.flatMap((item) => item.contents ?? [item]).map(({ style, color }) => ({ style, color }))).toEqual([
+      { style: "primary", color: "#153F33" },
+      { style: "link", color: "#153F33" },
+      { style: "link", color: "#666666" },
     ]);
   });
 
-  it("uses the same palette and white-label button style for first-trial reminders", () => {
+  it("uses the same palette and clear action hierarchy for first-trial reminders", () => {
     const [message] = buildTrialBookingReminderLineMessages({
       customerName: "test",
       bookingDate: "2026-08-19",
@@ -56,16 +57,16 @@ describe("LINE reminder card colors", () => {
     }, "https://www.steamfoot.com/trial-booking/manage?token=signed");
 
     const card = flexContents(message);
-    expect(card.header.backgroundColor).toBe("#F3EDE5");
-    expect(card.footer.contents.map(({ action, style, color }) => ({
+    expect(card.header.backgroundColor).toBe("#153F33");
+    expect(card.footer.contents.flatMap((item) => item.contents ?? [item]).map(({ action, style, color }) => ({
       label: action?.label,
       style,
       color,
     }))).toEqual([
-      { label: "開啟 Google Maps 導航", style: "primary", color: "#667A5C" },
-      { label: "確認會到", style: "primary", color: "#667A5C" },
-      { label: "需要改期", style: "primary", color: "#8B6B52" },
-      { label: "取消預約", style: "primary", color: "#AD5F58" },
+      { label: "開啟 Google Maps 導航", style: "primary", color: "#153F33" },
+      { label: "確認會到", style: "primary", color: "#153F33" },
+      { label: "需要改期", style: "link", color: "#153F33" },
+      { label: "取消預約", style: "link", color: "#666666" },
     ]);
     expect(JSON.stringify(card.body)).toContain("請穿著輕便服裝，提前 10 分鐘抵達。");
   });
