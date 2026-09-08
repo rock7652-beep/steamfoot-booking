@@ -22,6 +22,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { HealthHistoryList } from "@/components/health-history-list";
 import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
 import {
@@ -30,7 +31,7 @@ import {
   getIDToken,
   LiffInitError,
 } from "@/lib/liff/client";
-import { fetchLiffHealthSummary, type FetchLiffHealthSummaryResult } from "@/server/actions/liff-health";
+import { loadHealthWithSessionRefresh } from "@/lib/liff/health-loader";
 import {
   liffMessages,
 } from "@/lib/liff/messages";
@@ -61,6 +62,7 @@ interface Props {
 }
 
 export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) {
+  const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
 
   useEffect(() => {
@@ -90,9 +92,9 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
         return;
       }
 
-      let result: FetchLiffHealthSummaryResult;
+      let result: Awaited<ReturnType<typeof loadHealthWithSessionRefresh>>;
       try {
-        result = await fetchLiffHealthSummary();
+        result = await loadHealthWithSessionRefresh({ idToken, storeSlug });
       } catch (err) {
         if (cancelled) return;
         console.warn("[health-view] fetch failed", err);
@@ -102,6 +104,12 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
       if (cancelled) return;
 
       switch (result.status) {
+        case "need_onboarding":
+          router.replace(`/s/${storeSlug}/liff/onboarding`);
+          return;
+        case "expired":
+          setState({ kind: "expired" });
+          return;
         case "ok":
           if (result.linked) {
             setState({
@@ -124,7 +132,7 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
     return () => {
       cancelled = true;
     };
-  }, [liffId]);
+  }, [liffId, storeSlug, router]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">

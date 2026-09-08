@@ -156,7 +156,7 @@ export async function submitOnboarding(
       // A valid, owner-preauthorized channel migration may replace only the
       // stale LINE Login identity. Customer.lineUserId is the notification
       // recipient and must remain untouched.
-      const { tryExecuteAuthorizedLiffLoginRebind } = await import(
+      const { tryExecuteAuthorizedLiffLoginRebind, tryExecuteAuthorizedLiffLoginFirstCapture } = await import(
         "@/server/services/liff-login-rebind"
       );
       const rebind = await tryExecuteAuthorizedLiffLoginRebind({
@@ -176,6 +176,16 @@ export async function submitOnboarding(
         });
         return { status: "ok" };
       }
+      // A legacy Messaging API recipient can exist without a LINE Login
+      // Account. Honor the existing scoped first-capture authorization here
+      // too; the service still rejects missing authorization and collisions.
+      const capture = await tryExecuteAuthorizedLiffLoginFirstCapture({
+        storeId: store.id,
+        customerId: helperResult.customerId,
+        phone,
+        candidateLineUserId: verified.lineUserId,
+      });
+      if (capture.status === "executed") return { status: "ok" };
       return { status: "bound_other" };
     }
 
