@@ -134,6 +134,7 @@ export default async function StoreCasesPage({
           <div className="mt-4 flex flex-wrap items-center gap-5">
             <a href={trialUrl} className="inline-flex min-h-12 items-center rounded-full bg-[#123E32] px-6 py-3 text-base font-semibold text-white hover:bg-[#245A49]">申請體驗帳號</a>
             <Link href="/pricing" className="py-3 text-base underline underline-offset-4">查看方案價格</Link>
+            <Link href="/pricing/guides" className="py-3 text-base underline underline-offset-4">閱讀店長經營指南</Link>
           </div>
         </section>
       </main>
