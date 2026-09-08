@@ -58,8 +58,8 @@ export default function BusinessPage() {
                 <article className="flex flex-col rounded-xl border border-[#153B31]/15 bg-white/60 p-5">
                   <p className="text-sm text-[#74603C]">案例 A・預約提醒</p>
                   <h3 className="mt-2 text-2xl font-medium">暖沐蒸足</h3>
-                  <p className="mt-3 text-base font-medium leading-7">把預約前的提醒，交給系統安排。</p>
-                  <p className="mt-2 text-base leading-7 text-[#4C6259]">暖沐蒸足已啟用提醒規則，店長可集中查看通知設定與發送紀錄。</p>
+                  <p className="mt-3 text-base font-medium leading-7">逐筆提醒的時間，交給蒸管家。</p>
+                  <p className="mt-2 text-base leading-7 text-[#4C6259]">暖沐蒸足依提醒規則安排通知，減少逐筆傳送訊息與整理回覆的工作。</p>
 
                   <a href="/pricing/cases?store=nuanmu" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖沐完整案例 →</a>
                 </article>
@@ -67,8 +67,8 @@ export default function BusinessPage() {
                   <p className="text-sm text-[#74603C]">案例 B・體驗預約</p>
                   <h3 className="mt-2 text-2xl font-medium">暖暖蒸足</h3>
 
-                  <p className="mt-3 text-base font-medium leading-7">顧客選好時間，預約直接進後台。</p>
-                  <p className="mt-2 text-base leading-7 text-[#4C6259]">暖暖蒸足讓體驗顧客自行選擇日期與時段，店長在後台查看當日安排。</p>
+                  <p className="mt-3 text-base font-medium leading-7">少一些來回確認，少一次重複建檔。</p>
+                  <p className="mt-2 text-base leading-7 text-[#4C6259]">顧客自行選時段，送出後自動建檔與排入預約，再透過 LINE 通知店長。</p>
 
                   <Link href="/pricing/cases?store=nuannuan" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖暖完整案例 →</Link>
                 </article>
