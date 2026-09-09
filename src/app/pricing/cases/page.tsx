@@ -1,3 +1,4 @@
+import { MarketingIcon } from "../marketing-icon";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
@@ -98,6 +99,22 @@ export default async function StoreCasesPage({
           <p className="mt-3 text-base leading-7 text-[#4C6259]">{current.intro}</p>
 
 
+
+          
+          <section aria-label="店長工作前後對照" className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-[#153B31]/15 bg-[#F8F5EE] p-4">
+              <h3 className="flex items-center gap-2 text-base font-semibold"><MarketingIcon kind="chat" />原本，店長一件件處理</h3>
+              <ul className="mt-3 space-y-2 text-base leading-7 text-[#4C6259]">
+                {(current.id === "nuannuan" ? ["來回問時段", "抄資料、建立預約", "逐筆傳訊息提醒"] : ["找出明天的預約", "逐筆傳訊息提醒", "整理顧客回覆"]).map(text => <li key={text}>{text}</li>)}
+              </ul>
+            </div>
+            <div className="rounded-xl border border-[#153B31]/15 bg-[#EEF4F0] p-4">
+              <h3 className="flex items-center gap-2 text-base font-semibold"><MarketingIcon kind="calendar" />現在，交給蒸管家</h3>
+              <ul className="mt-3 space-y-2 text-base leading-7">
+                {(current.id === "nuannuan" ? ["顧客自己選時間", "資料、預約自動建好", "依設定發送 LINE 提醒"] : ["依規則安排提醒", "顧客點選確認會到", "店長在後台看確認狀態"]).map(text => <li key={text}>{text}</li>)}
+              </ul>
+            </div>
+          </section>
 
           <details className="mt-5 rounded-xl border border-[#153B31]/15 p-4">
             <summary className="cursor-pointer text-lg font-semibold">看看少了哪些來回與手動工作</summary>

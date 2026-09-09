@@ -1,3 +1,4 @@
+import { MarketingIcon } from "./marketing-icon";
 import Link from "next/link";
 import { PLAN_LIMITS } from "@/lib/feature-flags";
 
@@ -7,9 +8,9 @@ export const metadata = {
 };
 const TRIAL_URL = "/pricing/apply.html?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=pricing";
 const plans = [
-  { id: "BASIC", name: "基本版", purpose: "把日常店務整理好", audience: "個人工作室、小型單店", price: "1,490", original: "2,100", annual: "17,880", difference: "預約、顧客、堂數、收款集中管理", tools: "任選 1 個工具功能，月費已含", management: "經營功能可另外加購", stores: "單店使用" },
-  { id: "GROWTH", name: "專業版", purpose: "把顧客回訪經營好", audience: "重視回訪、續購與帳務的單店", price: "2,490", original: "3,600", annual: "29,880", difference: "基本版功能＋顧客經營、現金抽屜", tools: "任選 1 個工具功能，月費已含", management: "任選 1 個經營功能，月費已含", stores: "單店使用" },
-  { id: "ALLIANCE", name: "展店版", purpose: "把多家門市管理好", audience: "多店品牌、準備展店的店家", price: "4,990", original: "7,100", annual: "59,880", difference: "專業版功能＋多店管理、月結管理", tools: "下列工具功能全部內含", management: "下列經營功能全部內含", stores: "總部管理 + 1 家分店" },
+  { id: "BASIC", name: "基本版", icon: "store", purpose: "管好日常", audience: "個人工作室、小型單店", price: "1,490", original: "2,100", annual: "17,880", difference: "預約、顧客、堂數、收款集中管理", tools: "任選 1 個工具功能，月費已含", management: "經營功能可另外加購", stores: "單店使用" },
+  { id: "GROWTH", name: "專業版", icon: "return", purpose: "做好回訪", audience: "重視回訪、續購與帳務的單店", price: "2,490", original: "3,600", annual: "29,880", difference: "基本版功能＋顧客經營、現金抽屜", tools: "任選 1 個工具功能，月費已含", management: "任選 1 個經營功能，月費已含", stores: "單店使用" },
+  { id: "ALLIANCE", name: "展店版", icon: "stores", purpose: "管理多店", audience: "多店品牌、準備展店的店家", price: "4,990", original: "7,100", annual: "59,880", difference: "專業版功能＋多店管理、月結管理", tools: "下列工具功能全部內含", management: "下列經營功能全部內含", stores: "總部管理 + 1 家分店" },
 ] as const;
 const limits = [
   { label: "員工帳號", field: "maxStaff", unit: "位" },
@@ -52,8 +53,8 @@ export default function PricingPage() {
         <p className="text-sm text-[#4C6259]">先比較差異，點選方案查看完整內容。</p>
         {plans.map(plan => <details key={plan.id} name="mobile-plan" className={"group rounded-xl border border-[#153B31]/20 " + (plan.id === "GROWTH" ? "bg-[#E9F1EB]" : "bg-white")}>
           <summary className="cursor-pointer list-none p-4 focus-visible:outline-2 focus-visible:outline-offset-4 [&::-webkit-details-marker]:hidden">
-            <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><span className="text-xl font-semibold">{plan.name}</span><span className="whitespace-nowrap"><span className="text-2xl font-semibold">NT${plan.price}</span><span className="text-sm">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></span></span>
-            <span className="mt-2 block text-base leading-7 text-[#4C6259]">適合{plan.audience}</span>
+            <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><span className="inline-flex items-center gap-2 text-xl font-semibold"><MarketingIcon kind={plan.icon} />{plan.name}</span><span className="whitespace-nowrap"><span className="text-2xl font-semibold">NT${plan.price}</span><span className="text-sm">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></span></span>
+            <span className="mt-3 block text-lg font-semibold">{plan.purpose}</span><span className="mt-1 block text-base leading-7 text-[#4C6259]">適合{plan.audience}</span>
             <span className="mt-1 block text-base font-medium leading-7">{plan.difference}</span>
             <span className="mt-2 block text-sm font-medium"><span className="group-open:hidden">查看方案細節 ＋</span><span className="hidden group-open:inline">收合方案細節 −</span></span>
           </summary>
@@ -68,7 +69,7 @@ export default function PricingPage() {
       <section aria-label="方案比較" className="hidden gap-4 lg:grid lg:grid-cols-3 lg:gap-x-4 lg:gap-y-0">
         {plans.map(plan => <article key={plan.id} aria-labelledby={plan.id} className={"grid gap-0 overflow-hidden rounded-2xl border border-[#153B31]/20 lg:row-span-6 lg:grid-rows-subgrid " + (plan.id === "GROWTH" ? "bg-[#E9F1EB]" : "bg-white")}>
           <div className="p-5 pb-4">
-            <h2 id={plan.id} className="text-xl font-semibold">{plan.name}</h2>
+            <h2 id={plan.id} className="flex items-center gap-3 text-xl font-semibold"><MarketingIcon kind={plan.icon} />{plan.name}</h2>
             <p className="mt-2 text-lg font-medium">{plan.purpose}</p>
             <p className="mt-2 text-base leading-7 text-[#4C6259]">適合{plan.audience}</p>
           </div>
