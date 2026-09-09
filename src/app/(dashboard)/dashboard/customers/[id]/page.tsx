@@ -34,12 +34,13 @@ import {
 } from "@/components/wallet-session-detail";
 import { CustomerStageForm } from "./customer-stage-form";
 import {
+  PENDING_STATUSES,
   STATUS_LABEL,
   BOOKING_TYPE_LABEL,
   WALLET_STATUS_LABEL,
 } from "@/lib/booking-constants";
 import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
-import { formatTWTime, toLocalDateStr } from "@/lib/date-utils";
+import { getNowTaipeiHHmm, formatTWTime, toLocalDateStr } from "@/lib/date-utils";
 import { CUSTOMER_FOLLOW_UP_RESULT_LABEL } from "@/lib/customer-follow-up";
 import { TALENT_STAGE_LABELS } from "@/types/talent";
 import type { CustomerStage, TalentStage } from "@prisma/client";
@@ -61,6 +62,7 @@ import { CustomerHealthOverviewCard } from "./_components/customer-health-overvi
 import { getLatestNativeHealthRecord } from "@/lib/native-health-service";
 import { LineBindingSection } from "./line-binding-section";
 import { getLineConfigForStore } from "@/lib/line-config";
+import { partitionPendingBookings, customerWalletSummary } from "./customer-detail-summary";
 import { CustomerDetailSection } from "./customer-detail-section";
 import { RecentRecordsTabs } from "./recent-records-tabs";
 import { hasStoreFeature } from "@/lib/feature-gate";
@@ -251,7 +253,16 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       ? staffOptions.map((s) => ({ id: s.id, displayName: s.displayName }))
       : [];
 
-  const wallets = (customer.planWallets ?? []).map((wallet) => {
+  const pendingBookings = simplified ? await prisma.booking.findMany({
+    where: { customerId: id, storeId: effectiveStoreId, bookingStatus: { in: [...PENDING_STATUSES] } },
+    select: { id: true, bookingDate: true, slotTime: true, bookingStatus: true, customerPlanWalletId: true, people: true, isMakeup: true },
+  }) : [];
+  const pendingGroups = partitionPendingBookings(pendingBookings, todayStr, getNowTaipeiHHmm());
+  const wallets = (customer.planWallets ?? []).map((originalWallet) => {
+    const wallet = simplified ? {
+      ...originalWallet,
+      bookings: pendingBookings.filter((b) => b.customerPlanWalletId === originalWallet.id),
+    } : originalWallet;
     // DB status may remain ACTIVE until a maintenance job runs. The dashboard
     // must derive expiry defensively so an expired plan is neither labelled
     // valid nor offered by the create-booking form.
@@ -275,7 +286,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   const totalAvailableSessions = totalAvailableToBook(activeWallets);
 
   const bookings = customer.bookings ?? [];
-  const upcomingBookings = bookings.filter(
+  const upcomingBookings = simplified ? pendingGroups.upcoming : bookings.filter(
     (b) => b.bookingStatus === "PENDING" || b.bookingStatus === "CONFIRMED",
   );
   const historyBookings = bookings.filter(
@@ -516,6 +527,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   <WalletItem
                     key={w.id}
                     w={w}
+                    simplified={simplified}
                     userRole={user.role}
                     canAdjustWallet={canAdjustWallet && !isViewMode}
                     readOnly={isViewMode}
@@ -534,6 +546,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                         <WalletItem
                           key={w.id}
                           w={w}
+                    simplified={simplified}
                           userRole={user.role}
                           canAdjustWallet={canAdjustWallet && !isViewMode}
                           readOnly={isViewMode}
@@ -583,7 +596,17 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
               </CustomerDetailSection>
 
-              {/* Upcoming bookings — kept compact below create form */}
+{simplified ? (<section className="mt-3 border-t border-earth-100 pt-3">
+<h2 className="text-base font-semibold text-earth-800">下一筆預約</h2>
+{upcomingBookings.length === 0 ? <p className="py-3 text-base text-earth-500">目前沒有接下來的預約</p> : upcomingBookings.slice(0,1).map((b) => (<div key={b.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 py-3 text-base">
+<span className="tabular-nums text-earth-800">{formatTWTime(b.bookingDate, { dateOnly: true })} · {b.slotTime}</span>
+{isViewMode ? <span className="text-earth-500">查看模式</span> : <Link href={`/dashboard/bookings/${b.id}`} className="inline-flex min-h-11 items-center text-primary-700">查看預約 →</Link>}
+</div>))}
+{upcomingBookings.length > 1 && <CustomerDetailSection enabled title={`其他預約（${upcomingBookings.length - 1}）`}>{upcomingBookings.slice(1).map((b) => (<div key={b.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 py-3 text-base">
+<span className="tabular-nums text-earth-800">{formatTWTime(b.bookingDate, { dateOnly: true })} · {b.slotTime}</span>
+{isViewMode ? <span className="text-earth-500">查看模式</span> : <Link href={`/dashboard/bookings/${b.id}`} className="inline-flex min-h-11 items-center text-primary-700">查看預約 →</Link>}
+</div>))}</CustomerDetailSection>}
+</section>) : (<>              {/* Upcoming bookings — kept compact below create form */}
               {upcomingBookings.length > 0 && (
                 <div className="mt-3 border-t border-earth-100 pt-3">
                   <p className="mb-1.5 text-[11px] font-medium text-earth-500">
@@ -615,12 +638,20 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     ))}
                   </div>
                 </div>
-              )}
+              )}</>)}
             </div>
           </section>
 
           {/* 2. Recent records — 預約 / 消費 tab 整併 */}
-<CustomerDetailSection enabled={simplified} title="預約與消費紀錄" >
+<CustomerDetailSection enabled={simplified} title={simplified && pendingGroups.past.length > 0 ? `過往紀錄（${pendingGroups.past.length} 筆待處理）` : "過往紀錄"} >
+{simplified && pendingGroups.past.length > 0 && <section className="mb-4">
+<h2 className="text-base font-semibold text-amber-800">待處理的過往預約（{pendingGroups.past.length}）</h2>
+<p className="mt-1 text-sm text-earth-600">時間已過，尚未標記完成、未到或取消。請核對後處理。</p>
+{pendingGroups.past.map((b) => (<div key={b.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 py-3 text-base">
+<span className="tabular-nums text-earth-800">{formatTWTime(b.bookingDate, { dateOnly: true })} · {b.slotTime}</span>
+{isViewMode ? <span className="text-earth-500">查看模式</span> : <Link href={`/dashboard/bookings/${b.id}`} className="inline-flex min-h-11 items-center text-primary-700">查看預約 →</Link>}
+</div>))}
+</section>}
           <RecentRecordsTabs
             tabs={[
               {
@@ -758,8 +789,9 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
         {/* ========== Right ~35% — info & quick actions ========== */}
         <aside className="space-y-3 xl:col-span-4">
+<CustomerDetailSection enabled={simplified} title="更多資料">
           {/* 顧客狀態總覽 — 狀態 badges + LINE 綁定 + AI 健康 合併單卡 */}
-<CustomerDetailSection enabled={simplified} title="LINE 與通知設定" >
+<CustomerDetailSection enabled={false} title="LINE 與通知設定" >
           <SideCard title="顧客狀態總覽" subtitle="系統狀態 / LINE 綁定 / AI 健康">
             {/* Status badges */}
             <div className="flex flex-wrap gap-1.5">
@@ -843,7 +875,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </SideCard>
 
 </CustomerDetailSection>
-{healthAssessmentEnabled && <CustomerDetailSection enabled={simplified} title="健康紀錄" >
+{healthAssessmentEnabled && <CustomerDetailSection enabled={false} title="健康紀錄" >
           {simplified && <Link href={`/dashboard/customers/${id}/health`} className="inline-flex min-h-11 items-center text-base text-primary-700">查看健康紀錄與曲線 →</Link>}
           {healthAssessmentEnabled && latestHealthRecord && (
             <CustomerHealthOverviewCard
@@ -854,7 +886,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
 </CustomerDetailSection>}
           {/* Basic info — 緊湊兩欄 */}
-<CustomerDetailSection enabled={simplified} title="完整基本資料" >
+<CustomerDetailSection enabled={false} title="完整基本資料" >
           <CustomerBasicInfo
             name={customer.name}
             phone={customer.phone}
@@ -871,7 +903,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           />
 
 </CustomerDetailSection>
-<CustomerDetailSection enabled={simplified} title="追蹤紀錄" >
+<CustomerDetailSection enabled={false} title="追蹤紀錄" >
           <SideCard title="追蹤紀錄" subtitle="最近聯絡狀態">
             {customer.followUps.length === 0 ? (
               <p className="text-xs text-earth-500">尚無追蹤紀錄</p>
@@ -912,7 +944,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 </CustomerDetailSection>}
           {/* Quick actions — links + inline stage form */}
           {simplified ? (
-            canEdit && <CustomerDetailSection enabled title="其他顧客設定">
+            canEdit && <CustomerDetailSection enabled={false} title="其他顧客設定">
               <CustomerStageForm customerId={id} currentStage={customer.customerStage} />
               {canManageLineRebind && <Link href={`/dashboard/customers/merge?source=${id}`} className="mt-3 inline-flex min-h-11 items-center text-base text-primary-700">處理重複顧客 →</Link>}
             </CustomerDetailSection>
@@ -1000,8 +1032,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           )}
 
           {/* Growth summary — compact, full management on Growth page */}
-<CustomerDetailSection enabled={simplified} title="推薦與點數" >
-          {user.role !== "CUSTOMER" && (
+<CustomerDetailSection enabled={false} title="推薦與點數" >
+          {user.role !== "CUSTOMER" && !simplified && (
             <SideCard
               title="成長摘要"
               subtitle="完整成長系統將於 Growth 頁管理"
@@ -1037,6 +1069,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           )}
 
 </CustomerDetailSection>
+          {simplified && <Link href="/dashboard/growth" className="inline-flex min-h-11 items-center text-base text-primary-700">前往顧客經營 →</Link>}
           {/* System info */}
 {(!simplified || user.role === "ADMIN") && <CustomerDetailSection enabled={simplified} title="系統資訊" >
           <SideCard title="系統資訊" subtitle="營運除錯用">
@@ -1067,6 +1100,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             </dl>
           </SideCard>
 </CustomerDetailSection>}
+</CustomerDetailSection>
         </aside>
       </div>
     </PageShell>
@@ -1159,6 +1193,7 @@ function WalletItem({
   userRole,
   canAdjustWallet,
   readOnly = false,
+  simplified = false,
 }: {
   w: {
     id: string;
@@ -1170,10 +1205,12 @@ function WalletItem({
     startDate: Date;
     expiryDate: Date | null;
     sessions: SessionRow[];
+    bookings?: { bookingStatus: string; isMakeup: boolean; people?: number }[];
   };
   userRole: string;
   canAdjustWallet: boolean;
   readOnly?: boolean;
+  simplified?: boolean;
 }) {
   // PR-2 wallet-session-ui：所有非 CUSTOMER 角色都可見註銷按鈕；
   // wallet.adjust 權限由 server action 把關，UI 只負責顯示。
@@ -1182,6 +1219,7 @@ function WalletItem({
   // 從 sessions 推 available / reserved 計數，給補登 form 即時 preview 用。
   const availableCount = w.sessions.filter((s) => s.status === "AVAILABLE").length;
   const reservedCount = w.sessions.filter((s) => s.status === "RESERVED").length;
+  const summary = customerWalletSummary(w);
 
   // compact 第二輪：方案卡降高 — 摘要常駐顯示，次要操作（調整堂數 / 延長
   // 期限 / 堂數明細）一律收進單一 per-wallet「管理 ▾」，確保多方案時「建立
@@ -1225,12 +1263,13 @@ function WalletItem({
           </div>
           <div className="shrink-0 text-right text-sm">
             <div>
-              <span className="text-lg font-bold text-primary-700">{availableCount}</span>
-              <span className="text-earth-500"> 堂可再預約</span>
+              <span className="text-lg font-bold text-primary-700">{simplified ? (summary.inconsistent ? "待核對" : summary.available) : availableCount}</span>
+              <span className="text-earth-500">{simplified && summary.inconsistent ? " 可預約堂數" : " 堂可再預約"}</span>
             </div>
             <div className="text-[11px] text-earth-500">
               方案剩餘 {w.remainingSessions} / {w.totalSessions} 堂
-              {reservedCount > 0 ? `・待到店 ${reservedCount} 堂` : ""}
+              {(simplified ? summary.pending : reservedCount) > 0 ? `・已預約 ${simplified ? summary.pending : reservedCount} 堂` : ""}
+{simplified && summary.inconsistent && <p className="mt-1 text-sm text-amber-800">剩餘堂數與明細不一致，請先核對。</p>}
             </div>
           </div>
         </div>
