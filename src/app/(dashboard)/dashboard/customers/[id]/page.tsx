@@ -830,7 +830,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             )}
 
             {/* 單店健康功能關閉時，後台入口隱藏；既有資料仍保留。 */}
-            {healthAssessmentEnabled && (
+            {healthAssessmentEnabled && !simplified && (
               <div className="mt-3 border-t border-earth-100 pt-3">
                 <p className="mb-2 text-[11px] font-semibold text-earth-600">
                   健康紀錄
@@ -843,7 +843,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </SideCard>
 
 </CustomerDetailSection>
-<CustomerDetailSection enabled={simplified} title="健康紀錄" >
+{healthAssessmentEnabled && <CustomerDetailSection enabled={simplified} title="健康紀錄" >
+          {simplified && <Link href={`/dashboard/customers/${id}/health`} className="inline-flex min-h-11 items-center text-base text-primary-700">查看健康紀錄與曲線 →</Link>}
           {healthAssessmentEnabled && latestHealthRecord && (
             <CustomerHealthOverviewCard
               latest={latestHealthRecord}
@@ -851,7 +852,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             />
           )}
 
-</CustomerDetailSection>
+</CustomerDetailSection>}
           {/* Basic info — 緊湊兩欄 */}
 <CustomerDetailSection enabled={simplified} title="完整基本資料" >
           <CustomerBasicInfo
