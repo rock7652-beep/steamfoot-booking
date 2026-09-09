@@ -505,7 +505,7 @@ function TimelineItem({
             </span>
           ) : planBadge.kind === "deducted" ? (
             <span className="w-full break-words text-sm font-medium text-emerald-700">
-              已扣堂｜{deductedPlanLabel}
+              已扣堂｜方案：{deductedPlanLabel}
             </span>
           ) : planBadge.kind === "not_deducted" ? (
             <span className="shrink-0 text-sm text-earth-500">未扣堂</span>
@@ -517,7 +517,7 @@ function TimelineItem({
         </div>
         {planBadge.kind !== "deducted" && planLabel !== "—" ? (
           <span className="w-full break-words text-sm leading-relaxed text-earth-600">
-            {planLabel}
+            方案：{planLabel}
           </span>
         ) : null}
         {/* 內部服務備註提醒（後台限定）— 有值才顯示一行截斷，沒值不佔空間 */}
