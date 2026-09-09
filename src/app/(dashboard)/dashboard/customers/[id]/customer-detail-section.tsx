@@ -30,7 +30,14 @@ export function CustomerDetailSection({ enabled, title, id, children }: {
       if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
       const target = new URL(link.href, window.location.href);
       if (target.origin === window.location.origin && target.pathname === window.location.pathname && target.search === window.location.search && matches(target.hash) && ref.current) {
-        ref.current.open = true;
+        // Own same-page section navigation so a stale router URL cannot reattach
+        // an earlier fragment. Modified clicks and links to other pages pass through.
+        event.preventDefault();
+        target.hash = id;
+        if (window.location.href !== target.href) {
+          window.history.pushState(null, "", target.href);
+        }
+        reveal();
       }
     };
     // Child effects can run before AppRouter installs its History API bridge.
