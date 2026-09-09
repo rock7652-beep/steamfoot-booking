@@ -432,7 +432,7 @@ export const liffMessages = {
     // booking card cta
     cardCta: "取消此次預約",
     // 與 cancelBooking action 內的 12 小時 cutoff 訊息一致；D4A 拍板沿用 web 12h
-    cardHint: "開課前 12 小時可自行取消",
+    cardHint: "預約時間前 12 小時可自行取消",
 
     // success
     successTitle: "預約已取消",
@@ -441,7 +441,7 @@ export const liffMessages = {
     // error states — 對應 cancelLiffBooking 的 status enum
     errorNotFound: "找不到此預約，可能已被取消或調整。",
     errorForbidden: "此預約無法由您取消。",
-    errorCutoffBreach: "開課前 12 小時內無法自行取消，請聯繫店家協助。",
+    errorCutoffBreach: "預約時間前 12 小時內無法自行取消，請聯繫店家協助。",
     errorStatusBlocked: "此預約目前狀態無法取消。",
     errorServiceUnavailable: "目前無法完成取消，請稍後再試。",
   },
