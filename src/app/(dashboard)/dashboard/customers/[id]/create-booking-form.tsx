@@ -19,11 +19,12 @@ interface Props {
   customerId: string;
   days: string[];
   activeWallets: ActiveWallet[];
+  simplified?: boolean;
 }
 
 type BookingType = "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
 
-export function CreateBookingForm({ customerId, days, activeWallets }: Props) {
+export function CreateBookingForm({ customerId, days, activeWallets, simplified = false }: Props) {
   const requestKey = useBookingRequestKey();
   const [selectedDate, setSelectedDate] = useState(days[0] ?? "");
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
@@ -160,7 +161,7 @@ export function CreateBookingForm({ customerId, days, activeWallets }: Props) {
       </div>
 
       {activeWallets.length > 0 && bookingType === "PACKAGE_SESSION" && (
-        <div>
+        <div className={simplified ? "col-span-2 min-w-0 sm:col-span-4" : undefined}>
           <label className="block text-xs text-earth-500">使用課程</label>
           <select
             name="customerPlanWalletId"

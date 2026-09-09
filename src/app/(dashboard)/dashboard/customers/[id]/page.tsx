@@ -583,6 +583,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 </div>
               ) : (
                 <CreateBookingForm
+                  simplified={simplified}
                   customerId={id}
                   days={bookingDays}
                   activeWallets={activeWallets.map((w) => ({
