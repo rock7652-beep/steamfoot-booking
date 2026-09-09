@@ -653,6 +653,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 </div>))}
 </section>}
           <RecentRecordsTabs
+            simplified={simplified}
             tabs={[
               {
                 key: "bookings",
@@ -792,7 +793,13 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 <CustomerDetailSection enabled={simplified} title="更多資料">
           {/* 顧客狀態總覽 — 狀態 badges + LINE 綁定 + AI 健康 合併單卡 */}
 <CustomerDetailSection enabled={false} title="LINE 與通知設定" >
-          <SideCard title="顧客狀態總覽" subtitle="系統狀態 / LINE 綁定 / AI 健康">
+          <SideCard title={simplified ? "聯絡與通知" : "顧客狀態總覽"} subtitle={simplified ? undefined : "系統狀態 / LINE 綁定 / AI 健康"}>
+            {simplified ? (
+              <dl className="space-y-3 text-base">
+                <div className="flex flex-wrap justify-between gap-2"><dt className="text-earth-500">LINE 綁定</dt><dd className="text-earth-800">{customer.lineLinkStatus === "LINKED" ? "已綁定" : "未綁定"}</dd></div>
+                <div className="flex flex-wrap justify-between gap-2"><dt className="text-earth-500">系統通知</dt><dd className="text-earth-800">{lineNotificationLabel(lineNotificationStatus)}</dd></div>
+              </dl>
+            ) : (<>
             {/* Status badges */}
             <div className="flex flex-wrap gap-1.5">
               <span
@@ -833,12 +840,13 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               </span>
             </div>
 
+
+            </>)}
             {/* LINE 綁定操作（產生綁定碼 / 解除綁定）*/}
             {canEdit && (
               <div className="mt-3 border-t border-earth-100 pt-3">
-                <p className="mb-2 text-[11px] font-semibold text-earth-600">
-                  LINE 綁定操作
-                </p>
+                {!simplified && <p className="mb-2 text-[11px] font-semibold text-earth-600">LINE 綁定操作</p>}
+                <CustomerDetailSection enabled={simplified} title="管理 LINE 綁定">
                 <LineBindingSection
                   customerId={id}
                   lineLinkStatus={customer.lineLinkStatus}
@@ -858,6 +866,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     userIdHashPrefix: activeLineRebindRequest.candidate?.userIdHash.slice(0, 8) ?? null,
                   } : null}
                 />
+                </CustomerDetailSection>
               </div>
             )}
 
@@ -877,7 +886,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 </CustomerDetailSection>
 {healthAssessmentEnabled && <CustomerDetailSection enabled={false} title="健康紀錄" >
           {simplified && <Link href={`/dashboard/customers/${id}/health`} className="inline-flex min-h-11 items-center text-base text-primary-700">查看健康紀錄與曲線 →</Link>}
-          {healthAssessmentEnabled && latestHealthRecord && (
+          {healthAssessmentEnabled && latestHealthRecord && !simplified && (
             <CustomerHealthOverviewCard
               latest={latestHealthRecord}
               href={`/dashboard/customers/${id}/health`}

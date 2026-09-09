@@ -22,14 +22,14 @@ export interface RecentRecordsTab {
   content: React.ReactNode;
 }
 
-export function RecentRecordsTabs({ tabs }: { tabs: RecentRecordsTab[] }) {
+export function RecentRecordsTabs({ tabs, simplified = false }: { tabs: RecentRecordsTab[]; simplified?: boolean }) {
   const [active, setActive] = useState(tabs[0]?.key ?? "");
   const activeTab = tabs.find((t) => t.key === active) ?? tabs[0];
 
   return (
     <section className="rounded-xl border border-earth-200 bg-white">
-      <div className="flex items-center justify-between gap-2 px-4 py-3">
-        <div className="flex items-center gap-1">
+      <div className={simplified ? "flex flex-col gap-3 px-3 py-3" : "flex items-center justify-between gap-2 px-4 py-3"}>
+        <div className={simplified ? "grid grid-cols-2 gap-2" : "flex items-center gap-1"}>
           {tabs.map((t) => {
             const isActive = t.key === activeTab?.key;
             return (
@@ -37,13 +37,13 @@ export function RecentRecordsTabs({ tabs }: { tabs: RecentRecordsTab[] }) {
                 key={t.key}
                 type="button"
                 onClick={() => setActive(t.key)}
-                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                className={`${simplified ? "inline-flex min-h-11 flex-wrap items-center justify-center gap-1 rounded-md px-2 py-2 text-base font-medium" : "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium"} transition-colors ${
                   isActive
                     ? "bg-primary-50 text-primary-700"
                     : "text-earth-500 hover:bg-earth-50 hover:text-earth-700"
                 }`}
               >
-                <span>{t.label}</span>
+                <span className={simplified ? "whitespace-nowrap" : undefined}>{t.label}</span>
                 <span
                   className={`rounded-full px-1.5 text-[10px] tabular-nums ${
                     isActive
@@ -60,7 +60,7 @@ export function RecentRecordsTabs({ tabs }: { tabs: RecentRecordsTab[] }) {
         {activeTab?.href ? (
           <Link
             href={activeTab.href}
-            className="shrink-0 text-[11px] text-primary-600 hover:text-primary-700"
+            className={simplified ? "inline-flex min-h-11 items-center self-end text-base text-primary-700" : "shrink-0 text-[11px] text-primary-600 hover:text-primary-700"}
           >
             查看全部 →
           </Link>
