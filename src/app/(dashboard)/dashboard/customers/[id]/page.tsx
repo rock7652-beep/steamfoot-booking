@@ -1,3 +1,4 @@
+import { formatPaymentMethod } from "@/lib/data-export-labels";
 import { getCustomerDetailForUser } from "@/server/queries/customer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -644,7 +645,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </section>
 
           {/* 2. Recent records — 預約 / 消費 tab 整併 */}
-<CustomerDetailSection enabled={simplified} title={simplified && pendingGroups.past.length > 0 ? `過往紀錄（${pendingGroups.past.length} 筆待處理）` : "過往紀錄"} >
+<CustomerDetailSection enabled={simplified} id={simplified ? "bookings" : undefined} title={simplified && pendingGroups.past.length > 0 ? `過往紀錄（${pendingGroups.past.length} 筆待處理）` : "過往紀錄"} >
 {simplified && pendingGroups.past.length > 0 && <section className="mb-4">
 <h2 className="text-base font-semibold text-amber-800">待處理的過往預約（{pendingGroups.past.length}）</h2>
 <p className="mt-1 text-sm text-earth-600">時間已過，尚未標記完成、未到或取消。請核對後處理。</p>
@@ -660,7 +661,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 key: "bookings",
                 label: "預約紀錄",
                 count: historyBookings.length,
-                href: isViewMode ? undefined : `/dashboard/bookings?customerId=${id}`,
+                href: isViewMode ? undefined : simplified ? `/dashboard/customers/${id}/records?type=bookings` : `/dashboard/bookings?customerId=${id}`,
                 content:
                   recentHistory.length === 0 ? (
                     <EmptyRow title="尚無預約紀錄" dense />
@@ -724,7 +725,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                 key: "transactions",
                 label: "消費紀錄",
                 count: transactions.length,
-                href: isViewMode ? undefined : `/dashboard/transactions?customerId=${id}`,
+                href: isViewMode ? undefined : simplified ? `/dashboard/customers/${id}/records?type=transactions` : `/dashboard/transactions?customerId=${id}`,
                 content:
                   recentTransactions.length === 0 ? (
                     <EmptyRow title="尚無消費紀錄" dense />
@@ -774,7 +775,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                                   )}
                                 </td>
                                 <td className="px-3 text-[13px] text-earth-500">
-                                  {t.paymentMethod}
+                                  {simplified ? formatPaymentMethod(t.paymentMethod) : t.paymentMethod}
                                 </td>
                               </tr>
                             );
