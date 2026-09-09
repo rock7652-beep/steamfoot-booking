@@ -164,9 +164,9 @@ export function DayDetailPanel({
     <div className="flex h-full flex-col">
       {/* 頂部：精簡 KPI chip 列（固定，不跟著清單捲動）。
           日期已在 Drawer 標題顯示，這裡不再重複，把高度讓給名單。
-          窄版用 overflow-x-auto + whitespace-nowrap 橫向滑動，不換多排。 */}
+          窄版統計可換行，避免右側數字被截斷。 */}
       <div className="shrink-0 px-4 pt-3">
-        <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-1">
+        <div className="flex flex-wrap items-center gap-1.5 pb-1">
           <KpiChip label="預約" value={stats.total} />
           <KpiChip label="到店" value={stats.checkedIn} />
           <KpiChip label="完成人數" value={stats.completed} />
@@ -437,6 +437,7 @@ function TimelineItem({
       <button
         type="button"
         onClick={handleBodyClick}
+        aria-label={`查看 ${booking.slotTime} ${booking.customer?.name ?? "預約"} 的預約詳情`}
         disabled={!onClick || isActing}
         className="flex min-w-0 flex-1 flex-col gap-2 py-3 text-left disabled:cursor-default"
       >
@@ -503,7 +504,7 @@ function TimelineItem({
                 : `剩 ${planBadge.sessions} 堂`}
             </span>
           ) : planBadge.kind === "deducted" ? (
-            <span className="min-w-0 truncate text-sm font-medium text-emerald-700">
+            <span className="w-full break-words text-sm font-medium text-emerald-700">
               已扣堂｜{deductedPlanLabel}
             </span>
           ) : planBadge.kind === "not_deducted" ? (
@@ -513,12 +514,12 @@ function TimelineItem({
               方案待核對
             </span>
           ) : null}
-          {planBadge.kind !== "deducted" ? (
-            <span className="min-w-0 flex-1 truncate text-xs text-earth-500">
-              {planLabel}
-            </span>
-          ) : null}
         </div>
+        {planBadge.kind !== "deducted" && planLabel !== "—" ? (
+          <span className="w-full break-words text-sm leading-relaxed text-earth-600">
+            {planLabel}
+          </span>
+        ) : null}
         {/* 內部服務備註提醒（後台限定）— 有值才顯示一行截斷，沒值不佔空間 */}
         {booking.customer?.serviceNote ? (
           <div className="flex items-center gap-1 text-sm text-amber-700">
@@ -530,8 +531,7 @@ function TimelineItem({
         ) : null}
       </button>
 
-      {/* Inline actions — show 完成 only on actionable rows, 查看 always
-          (acts as a backup affordance to the body click). */}
+      {/* 整列可開啟詳情時不重複放查看按鈕；無 callback 時保留連結。 */}
       <div className="flex shrink-0 flex-col justify-center gap-2 py-3">
         {actionable && onCompleteSingle ? (
           <button
@@ -546,26 +546,14 @@ function TimelineItem({
             {isActing ? "..." : "完成"}
           </button>
         ) : null}
-        {onClick ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isActing) onClick(booking.id);
-            }}
-            disabled={isActing}
-            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-60"
-          >
-            查看
-          </button>
-        ) : (
+        {!onClick ? (
           <Link
             href={`/dashboard/bookings/${booking.id}`}
             className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
             查看
           </Link>
-        )}
+        ) : null}
       </div>
     </div>
   );
