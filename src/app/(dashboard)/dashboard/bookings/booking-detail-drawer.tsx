@@ -870,7 +870,7 @@ function DrawerContent({
             }
           />
           <KV readable={!spaMode}
-            label={spaMode ? "教練" : "服務人員"}
+            label="教練"
             value={booking.revenueStaff?.displayName ?? "未指派"}
             icon={
               booking.revenueStaff?.colorCode && (
@@ -1083,7 +1083,7 @@ function DrawerContent({
 
         {/* Section D: 備註 */}
         {booking.notes && (
-          <Section readable={!spaMode} order={spaMode ? undefined : 4} title="預約備註">
+          <Section readable={!spaMode} order={spaMode ? undefined : 4} title={spaMode ? "備註" : "預約備註"}>
             <div className={spaMode ? "col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700" : "col-span-2 whitespace-pre-wrap break-words rounded-md bg-amber-50 px-3 py-2 text-base leading-relaxed text-earth-700"}>
               {booking.notes}
             </div>
@@ -1699,4 +1699,3 @@ function formatDateLabel(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return `${y}/${String(m).padStart(2, "0")}/${String(d).padStart(2, "0")}（${formatWeekdayZh(iso)}）`;
 }
-
