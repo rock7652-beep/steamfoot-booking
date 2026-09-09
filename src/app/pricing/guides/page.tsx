@@ -58,7 +58,7 @@ const guides = [
     caseUrl: "/pricing/cases?store=nuanmu", caseLabel: "看看暖沐蒸足怎麼用",
   },
   {
-    id: "plan-expiry", icon: "calendar" as const, category: "方案到期", title: "方案快到期，提早提醒顧客。",
+    id: "plan-expiry", icon: "calendar-clock" as const, category: "方案到期", title: "方案快到期，提早提醒顧客。",
     summary: "不用一個一個查到期日，提早提醒顧客約時間。",
     cost: "你得一個一個查方案哪天到期、還剩幾堂，再問顧客什麼時候有空。忙起來忘了提醒，等顧客想預約，才發現已經過期。",
     action: "開啟方案到期提醒後，蒸管家會依到期日和店內設定發通知。顧客看到還剩幾堂、哪天到期，就能接著預約，有問題也能聯繫店長。",
@@ -95,12 +95,12 @@ export default function StoreGuidesPage() {
         <div className="mt-5 space-y-3">
           {guides.map((guide, index) => (
             <details key={guide.id} id={guide.id} name="store-guide" className="group scroll-mt-6 rounded-2xl border border-[#153B31]/20 bg-white open:border-[#153B31]/50">
-              <summary className="cursor-pointer list-none rounded-2xl p-5 focus-visible:outline-2 focus-visible:outline-offset-4 sm:p-6 [&::-webkit-details-marker]:hidden">
+              <summary className="cursor-pointer list-none rounded-2xl px-5 py-4 focus-visible:outline-2 focus-visible:outline-offset-4 sm:px-6 sm:py-5 [&::-webkit-details-marker]:hidden">
                 <span className="flex items-center gap-3 text-sm font-medium text-[#74603C]"><MarketingIcon kind={guide.icon} />0{index + 1} · {guide.category}</span>
                 <h2 className="mt-2 text-xl font-semibold leading-snug sm:text-2xl">{guide.title}</h2>
 
-                <span className="mt-3 block text-base font-medium group-open:hidden">閱讀做法 ＋</span>
-                <span className="mt-3 hidden text-base font-medium group-open:block">收起文章 −</span>
+                <span className="mt-2 block text-base font-medium group-open:hidden">閱讀做法 ＋</span>
+                <span className="mt-2 hidden text-base font-medium group-open:block">收起文章 −</span>
               </summary>
               <article aria-label={guide.title} className="border-t border-[#153B31]/15 p-5 sm:p-6">
                 <p className="mb-5 text-base leading-7 text-[#4C6259]">{guide.summary}</p>
