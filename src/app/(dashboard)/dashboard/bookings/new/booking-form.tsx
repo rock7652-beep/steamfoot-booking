@@ -8,6 +8,7 @@ import { getSlotCapacityDisplay } from "@/lib/slot-capacity-display";
 import type { SlotAvailability } from "@/types";
 import { useBookingFormValidation } from "./booking-create-form";
 import { shouldClearSelectedSlot } from "./booking-submit-validation";
+import { SteamfootBookingCalendar } from "@/components/steamfoot-booking-calendar";
 
 interface Props {
   days: string[];
@@ -43,9 +44,10 @@ export function DashboardBookingForm({
   todayStr,
   initialSlots,
 }: Props) {
-  const { errors, clearError } = useBookingFormValidation();
+  const { errors, clearError, calendarCustomerId, setCalendarDate } = useBookingFormValidation();
   const initialDate = days.includes(defaultDate) ? defaultDate : (days[0] ?? "");
   const [selectedDate, setSelectedDate] = useState(initialDate);
+  useEffect(() => { setCalendarDate(selectedDate); }, [selectedDate, setCalendarDate]);
   // SSR 已帶初始日時段 → 首屏直接顯示、loading=false；否則沿用原本 client 載入。
   const [slots, setSlots] = useState<SlotAvailability[]>(initialSlots ?? []);
   const [loading, setLoading] = useState(initialSlots === undefined);
@@ -64,13 +66,13 @@ export function DashboardBookingForm({
   // 載入時段（cache hit 秒開、cache miss 走 server + race guard）
   const loadSlots = useCallback(async (date: string) => {
     if (!lockScheduleSelection) setSelectedSlot(null);
+    const requestId = ++requestIdRef.current;
     const cached = slotCacheRef.current.get(date);
     if (cached) {
       setSlots(cached);
       setLoading(false);
       return;
     }
-    const requestId = ++requestIdRef.current;
     setLoading(true);
     try {
       const result = await fetchDaySlots(date);
@@ -123,6 +125,9 @@ export function DashboardBookingForm({
           <p className="mt-1.5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
             店鋪目前沒有開放可預約日期，請先到營業時間設定開放日期。
           </p>
+        ) : !lockScheduleSelection ? (
+          <SteamfootBookingCalendar days={days} value={selectedDate} customerId={calendarCustomerId}
+            onChange={(date) => { setSelectedSlot(null); setSelectedDate(date); setCalendarDate(date); }} />
         ) : (
           <select
             name={lockScheduleSelection ? undefined : "bookingDate"}

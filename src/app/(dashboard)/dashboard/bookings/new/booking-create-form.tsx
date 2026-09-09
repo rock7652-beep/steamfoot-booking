@@ -17,6 +17,10 @@ type Errors = BookingSubmitErrors;
 const BookingFormValidationContext = createContext<{
   errors: Errors;
   clearError: (field: FieldName) => void;
+  calendarCustomerId: string | null;
+  setCalendarCustomerId: (id: string | null) => void;
+  calendarDate: string | null;
+  setCalendarDate: (date: string) => void;
 } | null>(null);
 
 export function useBookingFormValidation() {
@@ -38,6 +42,8 @@ interface BookingCreateFormProps {
  */
 export function BookingCreateForm({ action, children }: BookingCreateFormProps) {
   const [errors, setErrors] = useState<Errors>({});
+  const [calendarCustomerId, setCalendarCustomerId] = useState<string | null>(null);
+  const [calendarDate, setCalendarDate] = useState<string | null>(null);
 
   const clearError = useCallback((field: FieldName) => {
     setErrors((current) => {
@@ -80,7 +86,7 @@ export function BookingCreateForm({ action, children }: BookingCreateFormProps) 
     }
   };
 
-  const value = useMemo(() => ({ errors, clearError }), [errors, clearError]);
+  const value = useMemo(() => ({ errors, clearError, calendarCustomerId, setCalendarCustomerId, calendarDate, setCalendarDate }), [errors, clearError, calendarCustomerId, calendarDate]);
 
   return (
     <BookingFormValidationContext.Provider value={value}>

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect, useActionState } from "react";
+import { useState, useCallback, useEffect, useActionState, useRef } from "react";
 import { createBooking } from "@/server/actions/booking";
 import { fetchDaySlots } from "@/server/actions/slots";
 import { toast } from "sonner";
 import type { SlotAvailability } from "@/types";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
+import { SteamfootBookingCalendar } from "@/components/steamfoot-booking-calendar";
 
 interface ActiveWallet {
   id: string;
@@ -27,6 +28,8 @@ type BookingType = "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
 export function CreateBookingForm({ customerId, days, activeWallets, simplified = false }: Props) {
   const requestKey = useBookingRequestKey();
   const [selectedDate, setSelectedDate] = useState(days[0] ?? "");
+  const [calendarRefresh, setCalendarRefresh] = useState(0);
+  const slotRequest = useRef(0);
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(days.length > 0);
   // 防呆：有可用 wallet → bookingType 預設 PACKAGE_SESSION + 自動選 FEFO 首張
@@ -34,14 +37,16 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
   const [walletId, setWalletId] = useState<string>(activeWallets[0]?.id ?? "");
 
   const loadSlots = useCallback(async (date: string) => {
+    const request = ++slotRequest.current;
     setLoadingSlots(true);
     try {
       const result = await fetchDaySlots(date);
+      if (request !== slotRequest.current) return;
       setSlots(result.slots);
     } catch {
-      setSlots([]);
+      if (request === slotRequest.current) setSlots([]);
     } finally {
-      setLoadingSlots(false);
+      if (request === slotRequest.current) setLoadingSlots(false);
     }
   }, []);
 
@@ -71,6 +76,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
       if (result.success) {
         requestKey.complete();
         toast.success("預約已建立");
+        setCalendarRefresh((count) => count + 1);
         // 重新載入時段（反映新預約）
         loadSlots(bookingDate);
         return { error: null, success: true };
@@ -95,12 +101,16 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
         </div>
       )}
 
-      <div>
+      <div className={simplified ? "col-span-2 min-w-0 sm:col-span-4" : undefined}>
         <label className="block text-xs text-earth-500">日期</label>
         {days.length === 0 ? (
           <p className="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
             店鋪目前沒有開放可預約日期
           </p>
+        ) : simplified ? (
+          <SteamfootBookingCalendar days={days} value={selectedDate} customerId={customerId}
+            disabled={pending} refreshKey={calendarRefresh}
+            onChange={(date) => { if (date !== selectedDate) { setLoadingSlots(true); setSelectedDate(date); } }} />
         ) : (
           <select
             name="bookingDate"
