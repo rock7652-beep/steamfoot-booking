@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { customerSectionId } from "./customer-section-anchor";
 import type { ReactNode } from "react";
 
 /** Progressive disclosure; existing hash links still open their target section. */
@@ -10,10 +11,15 @@ export function CustomerDetailSection({ enabled, title, id, children }: {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     if (!enabled || !id) return;
-    const matches = (hash: string) => hash === `#${id}` || (id === "booking" && hash === "#new-booking");
+    const matches = (hash: string) => customerSectionId(hash) === id;
     const reveal = () => {
       if (matches(window.location.hash) && ref.current) {
         ref.current.open = true;
+        if (window.location.hash !== `#${id}`) {
+          const canonical = new URL(window.location.href);
+          canonical.hash = id;
+          window.history.replaceState(window.history.state, "", canonical);
+        }
         ref.current.scrollIntoView({ block: "start" });
       }
     };
