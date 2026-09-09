@@ -18,7 +18,9 @@ export function CustomerDetailSection({ enabled, title, id, children }: {
         if (window.location.hash !== `#${id}`) {
           const canonical = new URL(window.location.href);
           canonical.hash = id;
-          window.history.replaceState(window.history.state, "", canonical);
+          // Let Next synchronize its canonical URL. Reusing history.state carries
+          // __NA, which bypasses that synchronization and can restore the old hash.
+          window.history.replaceState(null, "", canonical.href);
         }
         ref.current.scrollIntoView({ block: "start" });
       }
@@ -34,9 +36,11 @@ export function CustomerDetailSection({ enabled, title, id, children }: {
     reveal();
     document.addEventListener("click", onLink, true);
     window.addEventListener("hashchange", reveal);
+    window.addEventListener("popstate", reveal);
     return () => {
       document.removeEventListener("click", onLink, true);
       window.removeEventListener("hashchange", reveal);
+      window.removeEventListener("popstate", reveal);
     };
   }, [enabled, id]);
   if (!enabled) return id ? <div id={id}>{children}</div> : <>{children}</>;
