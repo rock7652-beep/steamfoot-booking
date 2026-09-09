@@ -27,7 +27,6 @@ import { CorrectTrialCollectionModal } from "./correct-trial-collection-modal";
 import { AttendanceModal } from "./attendance-modal";
 import { CollectSingleModal } from "./collect-single-modal";
 import { AdjustCheckoutModal } from "./adjust-checkout-modal";
-import { TestReminderModal } from "./line-test-reminder-modal";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { formatWeekdayZh } from "@/lib/date-utils";
@@ -172,7 +171,6 @@ export function BookingDetailDrawer({
   const [collectSingleOpen, setCollectSingleOpen] = useState(false);
   const [adjustCheckoutOpen, setAdjustCheckoutOpen] = useState(false);
   const [adjustToSingleOpen, setAdjustToSingleOpen] = useState(false);
-  const [testReminderOpen, setTestReminderOpen] = useState(false);
   // 收款 / 更正成功後預約狀態不變、但 trial.collected 會翻轉 → 用 nonce 觸發重抓
   const [reloadNonce, setReloadNonce] = useState(0);
   // 記錄 `data` 上次 seed 的 bookingId — 讓我們能在 render 期（而非 effect 內）
@@ -560,11 +558,11 @@ export function BookingDetailDrawer({
               collectSingle: () => setCollectSingleOpen(true),
               adjustCheckout: () => setAdjustCheckoutOpen(true),
               adjustToSingle: () => setAdjustToSingleOpen(true),
-              testReminder: () => setTestReminderOpen(true),
             }}
           />
         ) : showPrefill && prefill ? (
           <PrefillDrawerContent
+            spaMode={spaMode}
             prefill={prefill}
             durationMinutes={durationMinutes}
             loading={loading}
@@ -573,6 +571,7 @@ export function BookingDetailDrawer({
           />
         ) : showHeaderFromSummary && summary ? (
           <SummaryDrawerContent
+            spaMode={spaMode}
             summary={summary}
             durationMinutes={durationMinutes}
             loading={loading}
@@ -622,15 +621,6 @@ export function BookingDetailDrawer({
             loading={isActing}
           />
         )}
-      {!readOnly && data && (
-        <TestReminderModal
-          open={testReminderOpen}
-          onClose={() => setTestReminderOpen(false)}
-          bookingId={data.booking.id}
-          customerName={data.booking.customer.name}
-          dateLabel={`${data.booking.bookingDate} ${data.booking.slotTime}`}
-        />
-      )}
       {!readOnly && data && (
         <RescheduleModal
           open={rescheduleOpen}
@@ -762,7 +752,6 @@ interface DrawerActions {
   collectSingle: () => void;
   adjustCheckout: () => void;
   adjustToSingle: () => void;
-  testReminder: () => void;
 }
 
 function DrawerContent({
@@ -808,8 +797,8 @@ function DrawerContent({
     : meta.label;
   const amount = computeAmount(booking, trial);
   const duration =
-    durationMinutes ?? (booking.servicePlan?.category === "TRIAL" ? 30 : 60);
-  const endTime = computeEndTime(booking.slotTime, duration);
+    durationMinutes ?? (spaMode ? (booking.servicePlan?.category === "TRIAL" ? 30 : 60) : null);
+  const endTime = duration != null ? computeEndTime(booking.slotTime, duration) : null;
   const dateLabel = formatDateLabel(booking.bookingDate);
 
   return (
@@ -833,17 +822,17 @@ function DrawerContent({
           </h2>
           <p className={spaMode ? "mt-0.5 truncate text-sm text-earth-500" : "mt-1 break-words text-base text-earth-600"}>
             {!spaMode && booking.bookingType === "FIRST_TRIAL"
-              ? "首次體驗 · "
+              ? (duration != null ? "首次體驗 · " : "首次體驗")
               : booking.isMakeup
-              ? "補課 · "
+              ? (duration != null ? "補課 · " : "補課")
               : booking.treatmentNameSnapshot
-                ? `${booking.treatmentNameSnapshot} · `
+                ? `${booking.treatmentNameSnapshot}${duration != null ? " · " : ""}`
                 : booking.servicePlan?.name
-                  ? `${booking.servicePlan.name} · `
+                  ? `${booking.servicePlan.name}${duration != null ? " · " : ""}`
                   : booking.bookingType === "SINGLE"
-                    ? "單次蒸足 · "
+                    ? (duration != null ? "單次蒸足 · " : "單次蒸足")
                     : ""}
-            {duration} 分鐘
+            {duration != null ? `${duration} 分鐘` : ""}
           </p>
         </div>
         <button
@@ -865,7 +854,7 @@ function DrawerContent({
             label="時間"
             value={
               <span className="tabular-nums">
-                {booking.slotTime} - {endTime}
+                {booking.slotTime}{endTime ? ` - ${endTime}` : ""}
               </span>
             }
           />
@@ -894,7 +883,7 @@ function DrawerContent({
                 ? "補課"
                 : (booking.treatmentNameSnapshot ??
                   booking.servicePlan?.name ??
-                  (booking.bookingType === "SINGLE" ? "單次蒸足" : "—"))
+                  (booking.bookingType === "SINGLE" ? "單次蒸足" : !spaMode && booking.bookingType === "PACKAGE_SESSION" ? "方案服務" : "—"))
             }
           />
           <KV readable={!spaMode} label="人數" value={`${booking.people} 人`} />
@@ -905,7 +894,7 @@ function DrawerContent({
                 value={`${booking.attendedPeople} / ${booking.people} 人`}
               />
             )}
-          <KV readable={!spaMode} label="金額" value={amount} />
+          <KV readable={!spaMode} label={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? "結帳方式" : "金額"} value={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? (booking.isMakeup ? "使用補課資格" : "依方案扣堂") : amount} />
         </Section>
 
         {/* Section B: 顧客資訊 */}
@@ -1121,19 +1110,21 @@ function DrawerContent({
 function SummaryDrawerContent({
   summary,
   durationMinutes,
+  spaMode,
   loading,
   error,
   onClose,
 }: {
   summary: BookingSummary;
   durationMinutes?: number;
+  spaMode: boolean;
   loading: boolean;
   error: string | null;
   onClose: () => void;
 }) {
   const meta = bookingStatusMeta(summary.bookingStatus, false);
   const duration =
-    durationMinutes ?? (summary.servicePlanCategory === "TRIAL" ? 30 : 60);
+    durationMinutes ?? (spaMode ? (summary.servicePlanCategory === "TRIAL" ? 30 : 60) : null);
 
   return (
     <>
@@ -1155,11 +1146,11 @@ function SummaryDrawerContent({
           </h2>
           <p className="mt-0.5 truncate text-sm text-earth-500">
             {summary.isMakeup
-              ? "補課 · "
+              ? (duration != null ? "補課 · " : "補課")
               : summary.servicePlanName
-                ? `${summary.servicePlanName} · `
+                ? `${summary.servicePlanName}${duration != null ? " · " : ""}`
                 : ""}
-            {duration} 分鐘
+            {duration != null ? `${duration} 分鐘` : ""}
           </p>
         </div>
         <button
@@ -1203,20 +1194,22 @@ function SummaryDrawerContent({
 function PrefillDrawerContent({
   prefill,
   durationMinutes,
+  spaMode,
   loading,
   error,
   onClose,
 }: {
   prefill: BookingPrefill;
   durationMinutes?: number;
+  spaMode: boolean;
   loading: boolean;
   error: string | null;
   onClose: () => void;
 }) {
   const meta = bookingStatusMeta(prefill.bookingStatus, prefill.isCheckedIn);
   const duration =
-    durationMinutes ?? (prefill.bookingType === "FIRST_TRIAL" ? 30 : 60);
-  const endTime = computeEndTime(prefill.slotTime, duration);
+    durationMinutes ?? (spaMode ? (prefill.bookingType === "FIRST_TRIAL" ? 30 : 60) : null);
+  const endTime = duration != null ? computeEndTime(prefill.slotTime, duration) : null;
   const dateLabel = formatDateLabel(prefill.bookingDate);
   const amount = prefillAmount(prefill);
   const showServiceStaff =
@@ -1244,13 +1237,13 @@ function PrefillDrawerContent({
           </h2>
           <p className="mt-0.5 truncate text-sm text-earth-500">
             {prefill.isMakeup
-              ? "補課 · "
+              ? (duration != null ? "補課 · " : "補課")
               : prefill.servicePlanName
-                ? `${prefill.servicePlanName} · `
+                ? `${prefill.servicePlanName}${duration != null ? " · " : ""}`
                 : prefill.bookingType === "SINGLE"
-                  ? "單次蒸足 · "
+                  ? (duration != null ? "單次蒸足 · " : "單次蒸足")
                   : ""}
-            {duration} 分鐘
+            {duration != null ? `${duration} 分鐘` : ""}
           </p>
         </div>
         <button
@@ -1278,7 +1271,7 @@ function PrefillDrawerContent({
             label="時間"
             value={
               <span className="tabular-nums">
-                {prefill.slotTime} - {endTime}
+                {prefill.slotTime}{endTime ? ` - ${endTime}` : ""}
               </span>
             }
           />
@@ -1497,12 +1490,6 @@ function ActionFooter({
       secondaries.push({ label: "改為單次", onClick: actions.adjustToSingle });
     }
     secondaries.push({ label: "改時間", onClick: actions.reschedule });
-    if (!spaMode) {
-      secondaries.push({
-        label: "傳送測試提醒",
-        onClick: actions.testReminder,
-      });
-    }
     secondaries.push({ label: "未到", onClick: actions.noShow });
     secondaries.push({
       label: "取消預約",
@@ -1563,16 +1550,7 @@ function ActionFooter({
             {a.label}
           </button>
         ))}
-        {!spaMode ? (
-          <div className="ml-auto">
-            <Link
-              href={`/dashboard/bookings/${booking.id}`}
-              className="inline-flex h-8 items-center text-xs font-medium text-primary-600 hover:text-primary-700"
-            >
-              完整頁面 →
-            </Link>
-          </div>
-        ) : null}
+
       </div>
     </div>
   );

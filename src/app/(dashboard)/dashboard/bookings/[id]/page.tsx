@@ -1,3 +1,4 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -70,6 +71,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
   const isViewMode = storeViewContext?.isViewMode === true;
   const booking = await getBooking(id, readUser, bookingStoreId);
   if (!booking) notFound();
+
+  // Preserve existing authorization, then use the same detail flow as the day list.
+  // SPA keeps its independent entry and existing behavior.
+  if (await getStoreIndustryModule(booking.storeId) === "steamfoot") {
+    redirect(`/dashboard/bookings?bookingId=${encodeURIComponent(booking.id)}`);
+  }
 
   const isActive =
     booking.bookingStatus === "CONFIRMED" || booking.bookingStatus === "PENDING";
