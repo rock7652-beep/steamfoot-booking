@@ -17,6 +17,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { FormSuccessToast } from "@/components/form-success-toast";
 import { BookingsManager } from "./bookings-manager";
+import { BookingLoadError } from "./booking-load-error";
 import { bookingDashboardPathForStoreModule } from "@/lib/industry-dashboard-routes";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
@@ -98,8 +99,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   const timer = new ServerTiming("/dashboard/bookings");
   const [monthData, monthSchedule, servicePlans] =
     await Promise.all([
-      // 月曆主資料失敗時回空陣列 — 月曆 cell 顯示為「無預約」，UI 不會 crash。
-      // 各 cell 仍可被點開，僅是當下無資料；保守於假造任何預約。
+      // 查詢失敗與成功但沒有預約必須分開，避免店長誤判空檔。
       withTiming("getMonthBookingSummary", timer, () =>
         getMonthBookingSummary(year, month, bookingsStoreId).catch((e) => {
           console.error("[bookings] getMonthBookingSummary failed", {
@@ -107,7 +107,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
             step: "getMonthBookingSummary",
             error: e instanceof Error ? e.message : String(e),
           });
-          return [] as Awaited<ReturnType<typeof getMonthBookingSummary>>;
+          return null;
         }),
       ),
       // 月份營業狀態摘要 — 讓月曆可分辨「沒預約」vs「沒營業」。
@@ -174,6 +174,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
           )
         }
       />
+      {monthData === null ? <BookingLoadError /> : (
       <BookingsManager
         storeId={bookingsStoreId ?? undefined}
         year={year}
@@ -184,6 +185,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         readOnly={isViewMode}
         initialBookingId={deepLinkedBooking?.id ?? null}
       />
+      )}
     </PageShell>
   );
 }

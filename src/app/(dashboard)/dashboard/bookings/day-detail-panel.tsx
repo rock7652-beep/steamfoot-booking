@@ -438,10 +438,10 @@ function TimelineItem({
         type="button"
         onClick={handleBodyClick}
         disabled={!onClick || isActing}
-        className="flex min-w-0 flex-1 flex-col gap-1 py-2.5 text-left disabled:cursor-default"
+        className="flex min-w-0 flex-1 flex-col gap-2 py-3 text-left disabled:cursor-default"
       >
-        <div className="flex items-center gap-2">
-          <span className="shrink-0 text-sm font-bold tabular-nums text-earth-900">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <span className="shrink-0 text-base font-bold tabular-nums text-earth-900">
             {booking.slotTime}
           </span>
           {booking.people > 1 && (
@@ -452,38 +452,38 @@ function TimelineItem({
           {booking.people > 1 &&
             booking.attendedPeople != null &&
             booking.attendedPeople < booking.people && (
-              <span className="shrink-0 text-[11px] font-medium text-amber-700">
+              <span className="shrink-0 text-sm font-medium text-amber-700">
                 （實到 {booking.attendedPeople}/{booking.people}）
               </span>
             )}
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-earth-900">
+          <span className="min-w-0 flex-1 basis-24 break-words text-base font-semibold text-earth-900">
             {booking.customer?.name ?? "—"}
           </span>
           <span className="shrink-0 text-xs text-earth-500">
             {assignedStaffName}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
           </StatusBadge>
           {booking.customerConfirmedAt ? (
-            <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-800">
+            <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-sm font-medium text-sky-800">
               顧客已確認會到
             </span>
           ) : null}
           {booking.recurrenceIndex && booking.recurrenceTotalOccurrences ? (
-            <span className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-medium text-violet-800">
+            <span className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-sm font-medium text-violet-800">
               每週固定・第 {booking.recurrenceIndex}/{booking.recurrenceTotalOccurrences} 次
             </span>
           ) : null}
           {booking.bookingType === "FIRST_TRIAL" ? (
             booking.collected ? (
-              <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800">
+              <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-sm font-medium text-emerald-800">
                 體驗·已收款｜NT${trialAmountText}
               </span>
             ) : (
-              <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
+              <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800">
                 體驗·未收款｜NT${trialAmountText}
               </span>
             )
@@ -494,8 +494,8 @@ function TimelineItem({
             <span
               className={
                 sessions.isLow
-                  ? "shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800"
-                  : "shrink-0 text-[11px] font-medium text-earth-600"
+                  ? "shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800"
+                  : "shrink-0 text-sm font-medium text-earth-600"
               }
             >
               {sessions.isLow
@@ -503,13 +503,13 @@ function TimelineItem({
                 : `剩 ${planBadge.sessions} 堂`}
             </span>
           ) : planBadge.kind === "deducted" ? (
-            <span className="min-w-0 truncate text-[11px] font-medium text-emerald-700">
+            <span className="min-w-0 truncate text-sm font-medium text-emerald-700">
               已扣堂｜{deductedPlanLabel}
             </span>
           ) : planBadge.kind === "not_deducted" ? (
-            <span className="shrink-0 text-[11px] text-earth-500">未扣堂</span>
+            <span className="shrink-0 text-sm text-earth-500">未扣堂</span>
           ) : planBadge.kind === "needs_review" ? (
-            <span className="shrink-0 rounded bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-red-700">
+            <span className="shrink-0 rounded bg-red-50 px-1.5 py-0.5 text-sm font-medium text-red-700">
               方案待核對
             </span>
           ) : null}
@@ -521,7 +521,7 @@ function TimelineItem({
         </div>
         {/* 內部服務備註提醒（後台限定）— 有值才顯示一行截斷，沒值不佔空間 */}
         {booking.customer?.serviceNote ? (
-          <div className="flex items-center gap-1 text-[11px] text-amber-700">
+          <div className="flex items-center gap-1 text-sm text-amber-700">
             <span aria-hidden>📝</span>
             <span className="min-w-0 flex-1 truncate">
               {booking.customer.serviceNote}
@@ -532,7 +532,7 @@ function TimelineItem({
 
       {/* Inline actions — show 完成 only on actionable rows, 查看 always
           (acts as a backup affordance to the body click). */}
-      <div className="flex shrink-0 items-center gap-1.5 py-2.5">
+      <div className="flex shrink-0 flex-col justify-center gap-2 py-3">
         {actionable && onCompleteSingle ? (
           <button
             type="button"
@@ -541,7 +541,7 @@ function TimelineItem({
               if (!isActing) onCompleteSingle(booking.id);
             }}
             disabled={isActing}
-            className="inline-flex h-7 items-center rounded-md bg-primary-600 px-2.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
           >
             {isActing ? "..." : "完成"}
           </button>
@@ -554,14 +554,14 @@ function TimelineItem({
               if (!isActing) onClick(booking.id);
             }}
             disabled={isActing}
-            className="inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-60"
+            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-60"
           >
             查看
           </button>
         ) : (
           <Link
             href={`/dashboard/bookings/${booking.id}`}
-            className="inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
             查看
           </Link>
