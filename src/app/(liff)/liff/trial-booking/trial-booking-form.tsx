@@ -550,7 +550,7 @@ function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactUrl}
+            href={contactUrl || undefined} aria-disabled={!contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
@@ -596,7 +596,7 @@ function BlockedBlock({
         )}
         {showContactStore && (
           <a
-            href={contactUrl}
+            href={contactUrl || undefined} aria-disabled={!contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-red-300 bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
@@ -678,7 +678,7 @@ function SuccessCard({
           自然有出口，不用回 LINE 聊天列找店家。純 <a> 開 LINE OA，零 server。
           PR-E：href 改自 server-resolved per-store contactUrl。 */}
       <a
-        href={contactUrl}
+        href={contactUrl || undefined} aria-disabled={!contactUrl}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-[#05b54d] active:scale-[0.98]"
@@ -748,7 +748,7 @@ function ExistingTrialCard({
       </div>
       <div className="flex flex-wrap gap-2">
         <a
-          href={contactUrl}
+          href={contactUrl || undefined} aria-disabled={!contactUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="flex-1 rounded-xl border border-earth-300 bg-white px-4 py-3 text-center text-base font-medium text-earth-800 hover:bg-earth-50"

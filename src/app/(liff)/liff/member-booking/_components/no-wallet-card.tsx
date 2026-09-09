@@ -39,7 +39,7 @@ export function NoWalletCard({
       <p className="text-xs break-words opacity-90">{body}</p>
       <div className="flex flex-wrap gap-2">
         <a
-          href={contactUrl}
+          href={contactUrl || undefined} aria-disabled={!contactUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="rounded-md border border-amber-300 bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
