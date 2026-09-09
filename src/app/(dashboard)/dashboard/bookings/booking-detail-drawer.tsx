@@ -909,7 +909,7 @@ function DrawerContent({
               booking.customer.phone ? (
                 <a
                   href={`tel:${booking.customer.phone}`}
-                  className="text-primary-600 hover:text-primary-700"
+                  className={spaMode ? "text-primary-600 hover:text-primary-700" : "inline-flex min-h-11 items-center break-all text-primary-700 underline decoration-primary-300 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"}
                 >
                   {booking.customer.phone}
                 </a>
@@ -919,14 +919,14 @@ function DrawerContent({
             }
           />
           {booking.customer.serviceNote ? (
-            <KV readable={!spaMode}
-              label="服務備註"
-              value={
-                <span className="whitespace-pre-wrap text-amber-800">
-                  {booking.customer.serviceNote}
-                </span>
-              }
-            />
+            spaMode ? (
+              <KV label="服務備註" value={<span className="whitespace-pre-wrap text-amber-800">{booking.customer.serviceNote}</span>} />
+            ) : (
+              <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3">
+                <p className="mb-1 text-sm font-medium text-earth-600">服務備註</p>
+                <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{booking.customer.serviceNote}</p>
+              </div>
+            )
           ) : null}
           <KV readable={!spaMode} label="累積完成" value={`${customerSummary.totalBookings} 次`} />
           <KV readable={!spaMode}
@@ -939,16 +939,16 @@ function DrawerContent({
                   : "—"
             }
           />
-          <div className="col-span-2 mt-1 flex gap-2">
+          <div className={spaMode ? "col-span-2 mt-1 flex gap-2" : "col-span-2 mt-2 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2"}>
             <Link
               href={`/dashboard/customers/${booking.customer.id}`}
-              className="inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-3 text-xs font-medium text-earth-700 hover:bg-earth-50"
+              className={spaMode ? "inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-3 text-xs font-medium text-earth-700 hover:bg-earth-50" : "inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 bg-white px-3 py-2 text-base font-medium text-earth-700 hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"}
             >
               查看顧客資料
             </Link>
             <Link
               href={`/dashboard/customers/${booking.customer.id}#bookings`}
-              className="inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-3 text-xs font-medium text-earth-700 hover:bg-earth-50"
+              className={spaMode ? "inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-3 text-xs font-medium text-earth-700 hover:bg-earth-50" : "inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 bg-white px-3 py-2 text-base font-medium text-earth-700 hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"}
             >
               查看歷史預約
             </Link>
@@ -1089,7 +1089,7 @@ function DrawerContent({
         {/* Section D: 備註 */}
         {booking.notes && (
           <Section readable={!spaMode} order={spaMode ? undefined : 4} title={spaMode ? "備註" : "預約備註"}>
-            <div className={spaMode ? "col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700" : "col-span-2 whitespace-pre-wrap break-words rounded-md bg-amber-50 px-3 py-2 text-base leading-relaxed text-earth-700"}>
+            <div className={spaMode ? "col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700" : "col-span-2 whitespace-pre-wrap break-words rounded-lg border border-earth-200 bg-earth-50 p-3 text-base leading-relaxed text-earth-800"}>
               {booking.notes}
             </div>
           </Section>
