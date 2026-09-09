@@ -26,6 +26,8 @@ const mockTransaction = vi.fn();
 const mockMakeupCreate = vi.fn();
 const mockMakeupFindMany = vi.fn();
 const mockMakeupDeleteMany = vi.fn();
+const mockWalletFindUnique = vi.fn();
+const mockReservedSessions = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -86,6 +88,11 @@ vi.mock("@/server/services/wallet-session", () => ({
 vi.mock("@/server/services/referral-points", () => ({
   awardFirstBookingReferralPointsIfEligible: vi.fn(),
 }));
+// 通知發送另有專屬測試；本檔只驗證完成、扣堂及補課分流。
+vi.mock("@/server/services/session-balance-notifications", () => ({
+  enqueueSessionBalanceNotifications: vi.fn(async () => []),
+  dispatchSessionBalanceNotifications: vi.fn(),
+}));
 vi.mock("./booking-helpers", () => ({
   snapshotRevenueStaffForBooking: (s: string | null) => s ?? null,
 }));
@@ -116,12 +123,15 @@ beforeEach(() => {
   mockTxTransactionFindFirst.mockResolvedValue({ id: "tx_paid" });
   mockMakeupFindMany.mockResolvedValue([]);
   mockMakeupDeleteMany.mockResolvedValue({ count: 0 });
+  mockWalletFindUnique.mockResolvedValue({ status: "ACTIVE", remainingSessions: 5, expiryDate: null });
+  mockReservedSessions.mockResolvedValue([]);
   mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
     return cb({
       booking: { update: mockTxBookingUpdate },
-      transaction: { create: vi.fn() },
+      transaction: { create: vi.fn(), findMany: vi.fn(async () => []) },
+      walletSession: { findMany: mockReservedSessions },
       customer: { update: vi.fn() },
-      customerPlanWallet: { update: vi.fn() },
+      customerPlanWallet: { update: vi.fn(), findUnique: mockWalletFindUnique, count: vi.fn(async () => 1) },
       makeupCredit: {
         create: mockMakeupCreate,
         findMany: mockMakeupFindMany,
@@ -158,6 +168,7 @@ function packageBooking(people: number) {
     isMakeup: false,
     customerId: "c1",
     customer: { id: "c1", customerStage: "ACTIVE" },
+    customerPlanWalletId: "w1",
     // 必須有 wallet，否則 P0 guard 會拒絕完成 PACKAGE_SESSION
     customerPlanWallet: {
       id: "w1",
@@ -174,6 +185,34 @@ function packageBooking(people: number) {
 }
 
 describe("markCompleted — PR-3d attendedPeople write semantics", () => {
+  it.each([
+    ["方案過期", { status: "ACTIVE", remainingSessions: 5, expiryDate: new Date("2026-06-06") }],
+    ["堂數不足", { status: "ACTIVE", remainingSessions: 1, expiryDate: null }],
+  ])("%s → 拒絕完成且不發補課", async (_label, wallet) => {
+    mockBookingFindUnique.mockResolvedValue(packageBooking(2));
+    mockWalletFindUnique.mockResolvedValue(wallet);
+    const r = await markCompleted("bk_pkg", {
+      attendedPeople: 1,
+      partialNoShowChoice: "DEDUCTED_WITH_MAKEUP",
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/失效、堂數不足/);
+    expect(mockTxBookingUpdate).not.toHaveBeenCalled();
+    expect(mockMakeupCreate).not.toHaveBeenCalled();
+  });
+
+  it("保留堂數與方案人數不符 → 拒絕完成", async () => {
+    mockBookingFindUnique.mockResolvedValue(packageBooking(2));
+    mockReservedSessions.mockResolvedValue([{
+      walletId: "w1",
+      wallet: { status: "ACTIVE", remainingSessions: 5, expiryDate: null },
+    }]);
+    const r = await markCompleted("bk_pkg", { attendedPeople: 2 });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/應扣 2 堂.*只保留 1 堂/);
+    expect(mockTxBookingUpdate).not.toHaveBeenCalled();
+  });
+
   it("FIRST_TRIAL people=2 + attendedPeople=1 → writes attendedPeople=1", async () => {
     mockBookingFindUnique.mockResolvedValue(trialBooking(2));
     const r = await markCompleted("bk_1", { attendedPeople: 1 });
