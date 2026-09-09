@@ -10,8 +10,9 @@ export function CustomerDetailSection({ enabled, title, id, children }: {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     if (!enabled || !id) return;
+    const matches = (hash: string) => hash === `#${id}` || (id === "booking" && hash === "#new-booking");
     const reveal = () => {
-      if (window.location.hash === `#${id}` && ref.current) {
+      if (matches(window.location.hash) && ref.current) {
         ref.current.open = true;
         ref.current.scrollIntoView({ block: "start" });
       }
@@ -20,7 +21,7 @@ export function CustomerDetailSection({ enabled, title, id, children }: {
       const link = event.target instanceof Element ? event.target.closest("a") : null;
       if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
       const target = new URL(link.href, window.location.href);
-      if (target.origin === window.location.origin && target.pathname === window.location.pathname && target.search === window.location.search && target.hash === `#${id}` && ref.current) {
+      if (target.origin === window.location.origin && target.pathname === window.location.pathname && target.search === window.location.search && matches(target.hash) && ref.current) {
         ref.current.open = true;
       }
     };
