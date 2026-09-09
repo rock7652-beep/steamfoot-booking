@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { collectSinglePayment } from "@/server/actions/single-booking";
 import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
@@ -95,6 +95,29 @@ export function CollectSingleModal({
   >([]);
   const [planId, setPlanId] = useState("");
   const [pending, startTransition] = useTransition();
+  const submitting = useRef(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  function runCheckout(action: () => Promise<void>) {
+    if (spaMode) {
+      startTransition(action);
+      return;
+    }
+    if (submitting.current || pending) return;
+    submitting.current = true;
+    setSubmitError(null);
+    startTransition(async () => {
+      try {
+        await action();
+      } catch {
+        const message = "尚未確認收款結果，請先返回預約核對收款狀態，避免重複收款。";
+        setSubmitError(message);
+        toast.error(message);
+      } finally {
+        submitting.current = false;
+      }
+    });
+  }
 
   useEffect(() => {
     if (!open || mode !== "plan" || plans.length > 0) return;
@@ -137,7 +160,7 @@ export function CollectSingleModal({
       if (storedValue.balance < defaultPrice) {
         return toast.error("儲值金餘額不足");
       }
-      startTransition(async () => {
+      runCheckout(async () => {
         const result = await settleSpaBookingWithStoredValue({ bookingId });
         if (result.success) {
           toast.success(
@@ -152,7 +175,7 @@ export function CollectSingleModal({
     }
     if (spaMode && spaSettlement === "PACKAGE") {
       if (!walletId) return toast.error("此顧客目前沒有可扣次的療程");
-      startTransition(async () => {
+      runCheckout(async () => {
         const result = await settleSpaBookingWithPackage({
           bookingId,
           walletId,
@@ -168,7 +191,7 @@ export function CollectSingleModal({
     }
     if (mode === "plan") {
       if (!planId) return toast.error("請選擇儲值方案");
-      startTransition(async () => {
+      runCheckout(async () => {
         const r = await purchasePlanForSingleBooking({
           bookingId,
           planId,
@@ -202,7 +225,7 @@ export function CollectSingleModal({
       // 改成 toast warning 而非 throw，讓店長確認後仍可送出。
     }
 
-    startTransition(async () => {
+    runCheckout(async () => {
       if (spaMode) {
         const result = await settleSpaBookingWithPayment({
           bookingId,
@@ -236,6 +259,7 @@ export function CollectSingleModal({
         );
         onCollected(r.data.serviceCompleted);
       } else {
+        setSubmitError(r.error ?? "收款失敗，請核對資料後再試。");
         toast.error(r.error ?? "收款失敗");
       }
     });
@@ -254,7 +278,7 @@ export function CollectSingleModal({
         className={
           embedded
             ? "h-full w-full overflow-y-auto overscroll-contain p-5"
-            : "my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-xl"
+            : `my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-xl${!spaMode ? " [&_input:not([type=checkbox])]:min-h-11 [&_input]:text-base [&_select]:min-h-11 [&_select]:text-base [&_textarea]:text-base [&_button]:min-h-11 [&_button]:text-base [&_label]:text-sm" : ""}`
         }
         onClick={(e) => e.stopPropagation()}
       >
@@ -619,7 +643,8 @@ export function CollectSingleModal({
         ) : null}
 
         {!spaMode ? (
-          <>
+          <details className="mb-4">
+            <summary className="mb-3 cursor-pointer text-sm font-medium text-earth-700">折扣原因與備註（選填）</summary>
             <label className="mb-1 block text-xs font-medium text-earth-600">
               折扣原因（選填）
             </label>
@@ -648,9 +673,12 @@ export function CollectSingleModal({
               placeholder="其他收款說明，可留空"
               className="mb-4 w-full resize-none rounded-lg border border-earth-300 px-3 py-2 text-sm"
             />
-          </>
+          </details>
         ) : null}
 
+        {!spaMode && submitError && (
+          <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm leading-relaxed text-red-700">{submitError}</p>
+        )}
         <div className="flex justify-end gap-2">
           <button
             type="button"
