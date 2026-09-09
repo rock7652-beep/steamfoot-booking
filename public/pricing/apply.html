@@ -98,14 +98,15 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
   </a>
 </div>
 
-<p class="hint" id="trialHint" hidden>申請送出後，我們會確認體驗內容與期限，再提供帳號啟用方式。填寫本表不會立即自動開通。</p>
+<p class="hint" id="trialHint" hidden>收到需求後，我們會透過您留下的 LINE 或電話聯繫，確認體驗內容與期限，再安排開通。</p>
 <button id="submitBtn" type="submit">完成門市健檢</button>
-<div id="errorBox" class="error"></div>
+<p id="submitStatus" class="hint" role="status" aria-live="polite"></p>
+<div id="errorBox" class="error" role="alert" tabindex="-1"></div>
 <div class="privacy">資料僅供蒸管家了解需求與後續聯繫使用，不會對外公開。</div>
 </form>
 </div>
 
-<div id="successView" class="success">
+<div id="successView" class="success" role="status" tabindex="-1">
 <div class="check">✓</div>
 <h2>我們已經大致了解你的店</h2>
 <p>蒸管家會依照你的需求，整理適合的功能與示範內容，再與你聯繫。</p>
@@ -122,6 +123,42 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
 const SUBMIT_URL = '/pricing/submit';
 let submissionId;
 let submissionUnconfirmed = false;
+const receiptKey = 'steam-butler-application';
+let receipt;
+try { receipt = JSON.parse(sessionStorage.getItem(receiptKey) || 'null'); } catch {}
+function keepReceipt(value) {
+  receipt = value;
+  try { sessionStorage.setItem(receiptKey, JSON.stringify(value)); } catch {}
+}
+function showUnconfirmed() {
+  submissionUnconfirmed = true;
+  submitBtn.disabled = true;
+  submitBtn.textContent = '請先確認申請結果';
+  document.getElementById('submitStatus').textContent = '';
+  errorBox.textContent = '目前還無法確認是否送出成功。您填寫的內容仍在本頁，請先不要重新送出。加入官方 LINE，提供店名，讓我們協助確認。';
+  const link = document.createElement('a');
+  link.href = 'https://lin.ee/SGy5UBz';
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = ' 加 LINE 確認申請';
+  link.style.textDecoration = 'underline';
+  errorBox.appendChild(link);
+  errorBox.classList.add('show');
+  errorBox.focus();
+}
+function showSuccess(payload) {
+  const view = document.getElementById('successView');
+  const trial = payload.contactWay === '申請體驗帳號';
+  const via = payload.phone && payload.lineId ? 'LINE 或電話' : payload.lineId ? 'LINE' : '電話';
+  view.querySelector('h2').textContent = trial ? '已收到您的體驗申請' : '已收到您的門市健檢';
+  view.querySelector('p').textContent = trial
+    ? '資料已保存。我們會透過您留下的' + via + '聯繫您，確認體驗內容與期限，再安排開通。'
+    : '資料已保存。我們會透過您留下的' + via + '聯繫您，提供適合店內需求的功能建議。';
+  document.getElementById('formView').style.display = 'none';
+  view.classList.add('show');
+  view.focus();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 const form = document.getElementById('storeForm');
 const systemFields = document.getElementById('systemFields');
 const errorBox = document.getElementById('errorBox');
@@ -136,7 +173,8 @@ function updateTrialChoice() {
   document.getElementById('entryLead').textContent = trial
     ? '填寫門市資料 → 專人聯繫 → 安排開通。確認適合的體驗內容與期限後，再提供登入方式。'
     : '回答幾個簡單問題，依照你的店型與需求，準備適合的功能建議與示範內容。';
-  submitBtn.textContent = trial ? '完成健檢並申請體驗' : '完成門市健檢';
+  if (submitBtn.disabled || submissionUnconfirmed) return;
+  submitBtn.textContent = trial ? '送出體驗申請' : '完成門市健檢';
 }
 contactWay.addEventListener('change', updateTrialChoice);
 const entryParams = new URLSearchParams(window.location.search);
@@ -144,6 +182,23 @@ if (entryParams.get('intent') === 'trial' || entryParams.get('campaign') === 'tr
   contactWay.value = '申請體驗帳號';
 }
 updateTrialChoice();
+if (receipt && receipt.payload && typeof receipt.payload.requestId === 'string') {
+  submissionId = receipt.payload.requestId;
+  if (receipt.state === 'saved') {
+    showSuccess(receipt.payload);
+  } else if (receipt.state === 'pending') {
+    for (const field of form.elements) {
+      if (!field.name || !(field.name in receipt.payload)) continue;
+      const value = receipt.payload[field.name];
+      if (field.type === 'checkbox' || field.type === 'radio') {
+        field.checked = Array.isArray(value) ? value.includes(field.value) : value === field.value;
+      } else if (typeof value === 'string') field.value = value;
+    }
+    updateTrialChoice();
+    systemFields.classList.toggle('show', document.getElementById('yes').checked);
+    showUnconfirmed();
+  }
+}
 
 document.querySelectorAll('input[name="hasSystem"]').forEach(x=>x.addEventListener('change',()=>{
   systemFields.classList.toggle('show', document.getElementById('yes').checked);
@@ -164,6 +219,8 @@ form.addEventListener('submit', async (e)=>{
 
   const fd = new FormData(form);
   const payload = Object.fromEntries(fd.entries());
+  payload.phone = (payload.phone || '').trim();
+  payload.lineId = (payload.lineId || '').trim();
 
   if(!(payload.phone || '').trim() && !(payload.lineId || '').trim()){
     alert('請至少填寫聯絡電話或 LINE ID 其中一項');
@@ -188,8 +245,11 @@ form.addEventListener('submit', async (e)=>{
       ? 'Android'
       : 'Desktop';
 
+  keepReceipt({state:'pending',payload});
   submitBtn.disabled=true;
   submitBtn.textContent='正在送出…';
+  form.setAttribute('aria-busy', 'true');
+  document.getElementById('submitStatus').textContent='正在確認資料是否保存，請稍候。';
 
   try{
     const response = await fetch(SUBMIT_URL,{
@@ -201,6 +261,9 @@ form.addEventListener('submit', async (e)=>{
 
     const result = await response.json();
     if (response.status === 400 && result.code === 'INVALID_INPUT') {
+      try { sessionStorage.removeItem(receiptKey); } catch {}
+      receipt = null;
+      document.getElementById('submitStatus').textContent = '';
       errorBox.textContent = '請確認店名、稱呼、店家類型、聯絡方式與需求是否填寫完整，文字是否過長。';
       errorBox.classList.add('show');
       submitBtn.disabled = false;
@@ -211,26 +274,12 @@ form.addEventListener('submit', async (e)=>{
       throw new Error('Save unconfirmed');
     }
 
-    const requestedTrial = payload.contactWay === '申請體驗帳號';
-    const successView = document.getElementById('successView');
-    successView.querySelector('h2').textContent = requestedTrial ? '體驗申請已送出' : '門市健檢已送出';
-    successView.querySelector('p').textContent = requestedTrial
-      ? '我們會與你確認體驗內容及期限，再安排帳號開通。你也可以加入官方 LINE，告知店名與體驗需求。'
-      : '我們會依照你的需求，整理適合的功能與示範內容，再與你聯繫。';
-    document.getElementById('formView').style.display='none';
-    document.getElementById('successView').classList.add('show');
-    window.scrollTo({top:0,behavior:'smooth'});
+    keepReceipt({state:'saved',payload:{requestId:submissionId,contactWay:payload.contactWay,phone:Boolean(payload.phone),lineId:Boolean(payload.lineId)}});
+    showSuccess(payload);
   }catch(err){
-    submissionUnconfirmed = true;
-    errorBox.textContent='目前無法確認資料是否已保存。為避免重複申請，請先不要重送；請透過下方官方 LINE 提供店名，讓我們幫你確認。';
-    const contactLink = document.createElement('a');
-    contactLink.href = 'https://lin.ee/SGy5UBz';
-    contactLink.textContent = ' 加 LINE 確認申請';
-    contactLink.style.textDecoration = 'underline';
-    errorBox.appendChild(contactLink);
-    errorBox.classList.add('show');
-    submitBtn.disabled=true;
-    submitBtn.textContent='請聯繫確認申請';
+    showUnconfirmed();
+  }finally{
+    form.removeAttribute('aria-busy');
   }
 });
 </script>
