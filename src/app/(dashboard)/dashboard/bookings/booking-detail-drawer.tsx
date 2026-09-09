@@ -29,6 +29,7 @@ import { CollectSingleModal } from "./collect-single-modal";
 import { AdjustCheckoutModal } from "./adjust-checkout-modal";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
+import { packageUsageSummary } from "./package-usage-summary";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -974,10 +975,12 @@ function DrawerContent({
             />
           )}
           <KV readable={!spaMode}
-            label={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? "結帳方式" : "付款狀態"}
+            label={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? (["PENDING", "CONFIRMED"].includes(booking.bookingStatus) ? "本次使用" : "結帳方式") : "付款狀態"}
             value={
               !spaMode && booking.bookingType === "PACKAGE_SESSION"
-                ? booking.isMakeup ? "使用補課資格" : "依方案扣堂"
+                ? ["PENDING", "CONFIRMED"].includes(booking.bookingStatus)
+                  ? packageUsageSummary(booking)
+                  : booking.isMakeup ? "使用補課資格" : "依方案扣堂"
                 : booking.isMakeup
                 ? "補課（免費）"
                 : booking.bookingType === "PACKAGE_SESSION"
@@ -995,6 +998,11 @@ function DrawerContent({
                         : "—"
             }
           />
+          {!spaMode && booking.bookingType === "PACKAGE_SESSION" && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus) && (
+            <p className="col-span-2 text-sm leading-relaxed text-earth-500">
+              依本筆預約名額顯示，完成時仍會核對方案與堂數；部分未到依選擇的處理方式辦理。
+            </p>
+          )}
           {trial && trial.collected && (
             <>
               <KV readable={!spaMode}
