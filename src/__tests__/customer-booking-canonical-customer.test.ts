@@ -111,6 +111,8 @@ vi.mock("@/lib/shop-config", () => ({
   isDutySchedulingEnabled: vi.fn(async () => false),
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
   // 本檔不測「可預約到日期」上限 → 回足夠遠的日期，不擋
+  resolveCustomerBookableUntilDate: () => "2099-12-31",
+  isCustomerSlotWithinBookingWindow: () => true,
   resolveBookableUntilDate: () => "2099-12-31",
 }));
 

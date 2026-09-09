@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { AppError } from "@/lib/errors";
 
 const STORE_A = "store-zhubei";
 const CUSTOMER_ID = "ck0000000000000000000c01";
@@ -47,6 +48,7 @@ vi.mock("@/lib/session", () => ({
   getCurrentUser: vi.fn(),
 }));
 vi.mock("@/lib/permissions", () => ({
+  requireWritablePermission: (...a: unknown[]) => mockRequirePermission(...a),
   requirePermission: (...a: unknown[]) => mockRequirePermission(...a),
   checkPermission: vi.fn(),
 }));
@@ -105,24 +107,34 @@ beforeEach(() => {
 });
 
 describe("extendWalletExpiry — 護欄", () => {
+  it("唯讀或無 wallet.adjust 權限時，不讀取或更改錢包", async () => {
+    mockRequirePermission.mockRejectedValueOnce(new AppError("FORBIDDEN", "目前為唯讀模式"));
+    expect(await run({ newExpiryDate: "2026-07-15" })).toMatchObject({
+      success: false, error: "目前為唯讀模式",
+    });
+    expect(mockRequirePermission).toHaveBeenCalledWith("wallet.adjust");
+    expect(mockWalletFindUnique).not.toHaveBeenCalled();
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
   it("USED_UP 不可延長", async () => {
     mockWalletFindUnique.mockResolvedValue(wallet({ status: "USED_UP" }));
     const r = await run({ newExpiryDate: "2026-07-15" });
-    expect(r.success).toBe(false);
+    expect(r).toMatchObject({ success: false, error: "此方案狀態無法延長期限（已用完或已註銷）" });
     expect(mockWalletUpdate).not.toHaveBeenCalled();
   });
 
   it("CANCELLED 不可延長", async () => {
     mockWalletFindUnique.mockResolvedValue(wallet({ status: "CANCELLED" }));
     const r = await run({ newExpiryDate: "2026-07-15" });
-    expect(r.success).toBe(false);
+    expect(r).toMatchObject({ success: false, error: "此方案狀態無法延長期限（已用完或已註銷）" });
     expect(mockWalletUpdate).not.toHaveBeenCalled();
   });
 
   it("無期限（expiryDate=null）不可延長", async () => {
     mockWalletFindUnique.mockResolvedValue(wallet({ expiryDate: null }));
     const r = await run({ newExpiryDate: "2026-07-15" });
-    expect(r.success).toBe(false);
+    expect(r).toMatchObject({ success: false, error: "此方案無期限，無需延長" });
     expect(mockWalletUpdate).not.toHaveBeenCalled();
   });
 
@@ -131,21 +143,21 @@ describe("extendWalletExpiry — 護欄", () => {
       wallet({ expiryDate: new Date("2026-05-10T00:00:00.000Z") }),
     );
     const r = await run({ newExpiryDate: "2026-05-18" }); // < today 2026-05-19
-    expect(r.success).toBe(false);
+    expect(r).toMatchObject({ success: false, error: "新到期日不可早於今天" });
     expect(mockWalletUpdate).not.toHaveBeenCalled();
   });
 
   it("只能延長：新到期日 = 目前到期日 → 拒絕", async () => {
     mockWalletFindUnique.mockResolvedValue(wallet());
     const r = await run({ newExpiryDate: "2026-06-30" });
-    expect(r.success).toBe(false);
+    expect(r).toMatchObject({ success: false, error: "只能延長：新到期日須晚於目前到期日（2026-06-30）" });
     expect(mockWalletUpdate).not.toHaveBeenCalled();
   });
 
   it("只能延長：新到期日早於目前到期日 → 拒絕", async () => {
     mockWalletFindUnique.mockResolvedValue(wallet());
     const r = await run({ newExpiryDate: "2026-06-15" });
-    expect(r.success).toBe(false);
+    expect(r).toMatchObject({ success: false, error: "只能延長：新到期日須晚於目前到期日（2026-06-30）" });
     expect(mockWalletUpdate).not.toHaveBeenCalled();
   });
 

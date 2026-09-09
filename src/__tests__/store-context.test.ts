@@ -7,6 +7,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mock next/headers ──
 const mockCookieGet = vi.fn();
+const mockResolveStoreBySlug = vi.fn();
+vi.mock("@/lib/store-resolver", () => ({ resolveStoreBySlug: mockResolveStoreBySlug }));
 vi.mock("next/headers", () => ({
   cookies: () => Promise.resolve({ get: mockCookieGet }),
 }));
@@ -14,6 +16,7 @@ vi.mock("next/headers", () => ({
 describe("store-context server-side", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockResolveStoreBySlug.mockResolvedValue({ id: "verified-store", slug: "zhubei" });
   });
 
   describe("getStoreContext", () => {
@@ -27,7 +30,8 @@ describe("store-context server-side", () => {
       });
 
       const ctx = await getStoreContext();
-      expect(ctx).toEqual({ storeSlug: "zhubei", storeId: "default-store" });
+      expect(ctx).toEqual({ storeSlug: "zhubei", storeId: "verified-store" });
+      expect(mockResolveStoreBySlug).toHaveBeenCalledWith("zhubei");
     });
 
     it("should return null when cookies are missing", async () => {

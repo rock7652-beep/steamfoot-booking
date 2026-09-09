@@ -5,8 +5,25 @@ const mockBookingFindMany = vi.fn();
 const mockBookingFindFirst = vi.fn();
 const mockBookingCount = vi.fn();
 
+// Exercise real store authorization against a bounded parent/child fixture.
+vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: vi.fn(async () => true) }));
+const mockStoreFindMany = vi.fn(async ({ where }: {
+  where: { id?: string | { in: string[] }; parentStoreId?: { in: (string | null)[] } };
+}) => {
+  const stores = [
+    { id: "store-parent", slug: "parent", name: "Parent", parentStoreId: null, isDefault: true },
+    { id: "store-child", slug: "child", name: "Child", parentStoreId: "store-parent", isDefault: false },
+  ];
+  return stores.filter((store) =>
+    typeof where.id === "string" ? store.id === where.id :
+    where.id?.in ? where.id.in.includes(store.id) :
+    where.parentStoreId?.in ? where.parentStoreId.in.includes(store.parentStoreId) : true,
+  );
+});
+
 vi.mock("@/lib/db", () => ({
   prisma: {
+    store: { findMany: mockStoreFindMany },
     booking: {
       findMany: (...args: unknown[]) => mockBookingFindMany(...args),
       findFirst: (...args: unknown[]) => mockBookingFindFirst(...args),
@@ -111,6 +128,14 @@ describe("bookings view mode support", () => {
         }),
       }),
     );
+  });
+
+  it("rejects an unrelated store before querying its day bookings", async () => {
+    const { getDayBookings } = await import("@/server/queries/booking");
+    await expect(getDayBookings("2026-07-01", "store-unrelated")).rejects.toThrow(
+      "店舖不存在、已停用或無權存取",
+    );
+    expect(mockBookingFindMany).not.toHaveBeenCalled();
   });
 
   it("uses viewedStoreId for booking detail queries", async () => {

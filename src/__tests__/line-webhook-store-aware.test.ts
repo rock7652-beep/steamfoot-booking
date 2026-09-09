@@ -394,7 +394,12 @@ describe("LINE webhook store-aware signature and reply", () => {
     expect(replyMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "reply-token-phone",
-      [{ type: "text", text: "請問您想了解哪一項服務？" }],
+      [{ type: "text", text: "請問您想了解哪一項服務？",
+        quickReply: { items: expect.arrayContaining([
+          expect.objectContaining({ action: { type: "message", label: "聯絡真人", text: "真人客服" } }),
+          expect.objectContaining({ action: { type: "message", label: "結束數位管家", text: "結束" } }),
+        ]) },
+      }],
     );
   });
 

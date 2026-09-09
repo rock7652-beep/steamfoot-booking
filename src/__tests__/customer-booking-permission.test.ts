@@ -76,6 +76,10 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/store-view-context-server", () => ({
+  resolveStoreViewContextFromCookie: vi.fn(async () => null),
+}));
+
 // ── Mock session：CUSTOMER 角色（自助預約） ──
 const STORE_A = "store-zhubei";
 const CUSTOMER_ID = "ck0000000000000000000001";

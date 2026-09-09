@@ -126,6 +126,8 @@ vi.mock("@/lib/manager-visibility", () => ({
 vi.mock("@/lib/shop-config", () => ({
   isDutySchedulingEnabled: vi.fn(async () => false),
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
+  resolveCustomerBookableUntilDate: () => "2099-12-31",
+  isCustomerSlotWithinBookingWindow: () => true,
   resolveBookableUntilDate: vi.fn(() => "2026-12-31"),
 }));
 vi.mock("@/lib/usage-gate", () => ({

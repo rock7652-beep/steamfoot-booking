@@ -10,7 +10,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/messenger-config", () => ({
-  getMessengerPageConfig: (...args: unknown[]) => mockPageConfig(...args),
+  getMessengerAppAccessToken: () => process.env.MESSENGER_APP_ACCESS_TOKEN ?? null, getMessengerPageConfig: (...args: unknown[]) => mockPageConfig(...args),
 }));
 
 const secrets = {

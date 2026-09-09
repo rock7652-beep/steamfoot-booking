@@ -13,8 +13,10 @@ describe("per-store referral share", () => {
       storeName,
       url: "/s/store/line-entry?ref=ABC234",
     });
-    expect(text).toContain(`我最近去「${storeName}」`);
-    expect(text).toContain(`📍${storeName}`);
+    expect(text).toContain(`我在「${storeName}」`);
+    for (const other of ["暖暖蒸足", "以斯帖蒸足", "暖沐蒸足"].filter((name) => name !== storeName)) {
+      expect(text).not.toContain(other);
+    }
     expect(text).toContain("ref=ABC234");
   });
 });

@@ -57,7 +57,7 @@ describe("pending payment LINE notification wiring", () => {
 
   it("links the LINE message to the existing payment workbench transaction", () => {
     expect(notificationSource).toContain(
-      "/dashboard/payments?transactionId=${encodeURIComponent(event.paymentId)}",
+      "managerUrl(event.storeSlug, `/payments?transactionId=${encodeURIComponent(event.paymentId)}`)",
     );
     expect(notificationSource).toContain("前往後台確認");
   });

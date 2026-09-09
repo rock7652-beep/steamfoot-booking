@@ -32,6 +32,7 @@ vi.mock("@/lib/db", () => ({
 
 const mockRequirePermission = vi.fn();
 vi.mock("@/lib/permissions", () => ({
+  requireWritablePermission: (...a: unknown[]) => mockRequirePermission(...a),
   requirePermission: (...a: unknown[]) => mockRequirePermission(...a),
 }));
 
@@ -48,7 +49,10 @@ vi.mock("@/lib/manager-visibility", () => ({
   getStoreFilter: () => ({}),
 }));
 
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  unstable_cache: <T,>(callback: T) => callback,
+}));
 
 import { updateCustomerServiceNoteAction } from "@/server/actions/customer";
 
@@ -85,7 +89,8 @@ describe("updateCustomerServiceNoteAction — 安全邊界", () => {
       customerId: "c1",
       serviceNote: "x",
     });
-    expect(r.success).toBe(false);
+    expect(r).toMatchObject({ success: false, error: "無權限" });
+    expect(mockCustomerFindUnique).not.toHaveBeenCalled();
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
   });
 

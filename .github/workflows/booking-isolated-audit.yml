@@ -1,0 +1,67 @@
+name: Booking isolated database audit
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-integration:
+    if: github.head_ref == 'fix/test-audit-recovery'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-test-only
+          POSTGRES_DB: steamfoot_audit_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d steamfoot_audit_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/steamfoot_audit_test
+      DIRECT_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/steamfoot_audit_test
+      BOOKING_INTEGRATION_TEST_DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/steamfoot_audit_test
+      BOOKING_CONCURRENCY_TEST_DATABASE_URL: postgresql://postgres:disposable-test-only@127.0.0.1:5432/steamfoot_audit_test
+      DIGITAL_BUTLER_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Create schema in disposable database
+        run: npx prisma db push --skip-generate
+      - name: Run all 31 PostgreSQL scenarios
+        run: >-
+          npx vitest run
+          src/__tests__/booking-actions.pg.integration.test.ts
+          src/__tests__/booking-slot-concurrency.pg.test.ts
+          src/__tests__/weekly-recurring-bookings.pg.integration.test.ts
+          --reporter=default --reporter=json --outputFile=booking-pg-results.json
+      - name: Verify no PostgreSQL scenarios were skipped
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("booking-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 31 || r.numPassedTests !== 31 || r.numPendingTests !== 0) {
+              throw new Error("Expected all 31 database scenarios to pass without skips");
+            }
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: booking-pg-results
+          path: booking-pg-results.json
+          retention-days: 3
