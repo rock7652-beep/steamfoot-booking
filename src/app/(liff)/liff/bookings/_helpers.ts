@@ -95,10 +95,10 @@ export function generateGoogleCalendarUrl(args: {
     text: `${storeName} 預約`,
     dates: `${fmt(startLocal)}/${fmt(endLocal)}`,
     details: [
-      `地址：${storeAddress}`,
-      `導航：${storeMapUrl}`,
-      `聯絡店家：${contactUrl}`,
-    ].join("\n"),
+      storeAddress ? `地址：${storeAddress}` : "",
+      storeMapUrl ? `導航：${storeMapUrl}` : "",
+      contactUrl ? `聯絡店家：${contactUrl}` : "",
+    ].filter(Boolean).join("\n"),
     location: storeAddress,
   });
 

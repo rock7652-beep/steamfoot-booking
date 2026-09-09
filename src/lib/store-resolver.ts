@@ -1,10 +1,12 @@
 import { cache } from "react";
+import { STORE_LOCATION_DEFAULTS } from "@/lib/store-location-defaults";
 import { AppError } from "@/lib/errors";
 import {
   contactStoreUrl as FALLBACK_CONTACT_URL,
   storeAddress as FALLBACK_STORE_ADDRESS,
   storeMapUrl as FALLBACK_STORE_MAP_URL,
 } from "@/lib/liff/messages";
+import { getLineConfigForStore } from "@/lib/line-config";
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import {
   replaceRetiredCentralMemberLiffId,
@@ -173,9 +175,9 @@ export async function resolveStoreFromOAuthCookie(): Promise<{ storeId: string; 
  * 欄位來源（per spec sheet 1）：
  *   - liffId     : Store.liffId（DB） → NEXT_PUBLIC_LIFF_ID_<SLUG> env var（過渡期 fallback）
  *                  → null（callsite 顯示 NotOpenForLiff UI）
- *   - contactUrl : ShopConfig.lineOfficialUrl → 常數 FALLBACK_CONTACT_URL
- *   - address    : ShopConfig.address          → 常數 FALLBACK_STORE_ADDRESS
- *   - mapUrl     : ShopConfig.mapUrl           → 常數 FALLBACK_STORE_MAP_URL
+ *   - contactUrl : ShopConfig.lineOfficialUrl → 該店 LINE 官方帳號 → 空字串
+ *   - address    : ShopConfig.address → 空字串（竹北僅保留自己的舊設定）
+ *   - mapUrl     : ShopConfig.mapUrl → 本店地址導航 → 空字串
  *
  * HealthFlow URL 不在此 PR per-store（per spec 1.5 + 用戶決策 A）：
  *   仍由 client 直接 import `healthFlowLiffUrl`；本介面不回傳。
@@ -186,11 +188,11 @@ export type StorePresentation = {
   name: string;
   /** LIFF ID；null = 該店尚未開通 Mini App（page 應顯示 NotOpenForLiff） */
   liffId: string | null;
-  /** LINE OA 連結（聯絡店家），絕不為空字串 */
+  /** LINE OA 連結（聯絡店家）；未設定時為空字串 */
   contactUrl: string;
-  /** 店家地址（顯示用），絕不為空字串 */
+  /** 店家地址（顯示用）；未設定時為空字串 */
   address: string;
-  /** Google Maps 短網址（導航），絕不為空字串 */
+  /** Google Maps 短網址（導航）；未設定時為空字串 */
   mapUrl: string;
 };
 
@@ -198,7 +200,7 @@ export type StorePresentation = {
  * 給 LIFF page.tsx 使用：依 slug 解析 store + per-store 顯示用欄位。
  *
  * 設計重點：
- *   1. 缺值一律 fallback 到常數（FALLBACK_*）——任何時點 LIFF 不空白
+ *   1. 缺值不可使用其他店家資訊；舊竹北常數僅適用於 zhubei
  *   2. liffId 例外：env var 才是最後的過渡 fallback，皆無則 null（讓 page 顯示「尚未開通」）
  *   3. 用 React.cache 包裝 → 同一 request 多次呼叫只查 1 次（同 resolveStoreBySlug）
  *   4. 不 throw；找不到店 → 回 null，由 page render NotOpenForLiff
@@ -241,14 +243,28 @@ export const resolveStorePresentation = cache(
       process.env[`NEXT_PUBLIC_LIFF_ID_${slug.toUpperCase()}`]
     );
 
+    // Legacy constants belong to zhubei only, never to another tenant.
+    const isZhubei = store.slug === "zhubei";
+    const defaults = STORE_LOCATION_DEFAULTS[store.slug];
+    const address = emptyToNull(cfg?.address) ?? defaults?.address ?? (isZhubei ? FALLBACK_STORE_ADDRESS : "");
+    const configuredMapUrl = emptyToNull(cfg?.mapUrl);
+    const mapUrl = configuredMapUrl ?? (defaults && address === defaults.address ? defaults.mapUrl : null) ?? (address
+      ? (isZhubei && address === FALLBACK_STORE_ADDRESS
+        ? FALLBACK_STORE_MAP_URL
+        : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`)
+      : "");
+    const basicId = getLineConfigForStore(store.slug).expectedBasicId;
+    const contactUrl = emptyToNull(cfg?.lineOfficialUrl)
+      ?? (isZhubei ? FALLBACK_CONTACT_URL : basicId ? `https://line.me/R/ti/p/${basicId}` : "");
+
     return {
       id: store.id,
       slug: store.slug,
       name: getCustomerFacingStoreName(store),
       liffId: emptyToNull(storeLiffRow?.liffId) ?? envLiffId ?? null,
-      contactUrl: cfg?.lineOfficialUrl ?? FALLBACK_CONTACT_URL,
-      address: cfg?.address ?? FALLBACK_STORE_ADDRESS,
-      mapUrl: cfg?.mapUrl ?? FALLBACK_STORE_MAP_URL,
+      contactUrl,
+      address,
+      mapUrl,
     };
   }
 );

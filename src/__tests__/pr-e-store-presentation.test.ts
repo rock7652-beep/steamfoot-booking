@@ -90,7 +90,7 @@ describe("PR-E：resolveStorePresentation fallback safety net", () => {
     expect(p!.mapUrl).toBe(storeMapUrl);
   });
 
-  it("ShopConfig row 不存在（null）→ 全欄位仍 fallback 到常數", async () => {
+  it("ShopConfig row 不存在（null）→ 不使用竹北常數", async () => {
     mockStoreLookup({
       storeBySlug: { id: STORE_ID_DEMO2, slug: "demo2", name: "Demo 第二店" },
       liffId: null,
@@ -99,9 +99,9 @@ describe("PR-E：resolveStorePresentation fallback safety net", () => {
 
     const p = await resolveStorePresentation("demo2");
     expect(p).not.toBeNull();
-    expect(p!.contactUrl).toBe(contactStoreUrl);
-    expect(p!.address).toBe(storeAddress);
-    expect(p!.mapUrl).toBe(storeMapUrl);
+    expect(p!.contactUrl).toBe("");
+    expect(p!.address).toBe("");
+    expect(p!.mapUrl).toBe("");
   });
 });
 
@@ -479,5 +479,62 @@ describe("PR-E：generateGoogleCalendarUrl 接 per-store args 後行為", () => 
     expect(details).toContain(storeMapUrl);
     expect(details).toContain(contactStoreUrl);
     expect(location).toBe(storeAddress);
+  });
+});
+
+describe("LIFF 門市地點隔離", () => {
+  it.each(["spa-demo", "unknown-store"])("%s 缺值不借用竹北地址或導航", async (slug) => {
+    mockStoreLookup({
+      storeBySlug: { id: `store-${slug}`, slug, name: slug },
+      liffId: null,
+      shopConfig: { address: "   ", mapUrl: "", lineOfficialUrl: " " },
+    });
+    const p = await resolveStorePresentation(slug);
+    expect(p!.address).toBe("");
+    expect(p!.mapUrl).toBe("");
+    expect(p!.contactUrl).not.toBe(contactStoreUrl);
+    expect(mockShopConfigFindUnique).toHaveBeenCalledWith({
+      where: { storeId: `store-${slug}` },
+      select: { lineOfficialUrl: true, address: true, mapUrl: true },
+    });
+  });
+
+  it("僅用本店地址產生缺少的導航", async () => {
+    mockStoreLookup({
+      storeBySlug: { id: "store-hsinchu", slug: "hsinchu", name: "以斯帖" },
+      liffId: null,
+      shopConfig: { address: "測試用新竹市地址", mapUrl: null, lineOfficialUrl: null },
+    });
+    const p = await resolveStorePresentation("hsinchu");
+    expect(new URL(p!.mapUrl).searchParams.get("destination")).toBe("測試用新竹市地址");
+    expect(p!.contactUrl).toBe("https://line.me/R/ti/p/@059rrqpw");
+  });
+
+  it("地址未知的行事曆不附帶其他店的位置", () => {
+    const url = new URL(generateGoogleCalendarUrl({
+      bookingDate: "2026-09-09", slotTime: "18:30", storeName: "以斯帖蒸足坊",
+      storeAddress: "", storeMapUrl: "", contactUrl: "",
+    }));
+    expect(url.searchParams.get("location")).toBe("");
+    expect(url.searchParams.get("details")).not.toContain("導航：");
+    expect(url.toString()).not.toContain(encodeURIComponent(storeAddress));
+  });
+});
+
+
+describe("已核對的門市地址接回 LIFF", () => {
+  it.each([
+    ["hsinchu", "新竹市東區建中路120號", "https://maps.app.goo.gl/1B8JM16qriMtUDvs5?g_st=ic"],
+    ["taichung", "台中市梧棲區大智路二段239號", "https://maps.app.goo.gl/YLgzPuG5BmBZqWuR8?g_st=ic"],
+  ])("%s 使用自己的已核對設定", async (slug, address, mapUrl) => {
+    mockStoreLookup({ storeBySlug: { id: slug, slug, name: slug }, liffId: null,
+      shopConfig: { address: null, mapUrl: null, lineOfficialUrl: null } });
+    const p = await resolveStorePresentation(slug);
+    expect(p!.address).toBe(address);
+    expect(p!.mapUrl).toBe(mapUrl);
+    const calendar = new URL(generateGoogleCalendarUrl({ bookingDate: "2026-09-09", slotTime: "18:30",
+      storeName: p!.name, storeAddress: p!.address, storeMapUrl: p!.mapUrl, contactUrl: p!.contactUrl }));
+    expect(calendar.searchParams.get("location")).toBe(address);
+    expect(calendar.searchParams.get("details")).toContain(mapUrl);
   });
 });

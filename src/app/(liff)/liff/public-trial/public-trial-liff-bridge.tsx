@@ -119,7 +119,7 @@ export function PublicTrialLiffBridge({
               <button type="button" onClick={() => window.location.reload()} className="min-h-11 rounded-xl bg-primary-600 px-4 text-sm font-bold text-white">
                 重新嘗試
               </button>
-              <a href={contactUrl} className="flex min-h-11 items-center justify-center rounded-xl border border-earth-200 px-4 text-sm font-semibold text-earth-700">
+              <a href={contactUrl || undefined} aria-disabled={!contactUrl} className="flex min-h-11 items-center justify-center rounded-xl border border-earth-200 px-4 text-sm font-semibold text-earth-700">
                 聯繫{storeName}
               </a>
             </div>

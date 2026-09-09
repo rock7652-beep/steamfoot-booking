@@ -631,7 +631,7 @@ function StartHealthFlowButton({
 function ContactStoreButton({ contactUrl }: { contactUrl: string }) {
   return (
     <a
-      href={contactUrl}
+      href={contactUrl || undefined} aria-disabled={!contactUrl}
       target="_blank"
       rel="noopener noreferrer"
       className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
@@ -713,7 +713,7 @@ function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactUrl}
+            href={contactUrl || undefined} aria-disabled={!contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"

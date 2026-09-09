@@ -7,19 +7,6 @@ import { ZhubeiTrialBookingForm } from "../../zhubei/book/zhubei-trial-booking-f
 const ENABLED_STORES = ["hsinchu", "taichung"] as const;
 type EnabledStoreSlug = (typeof ENABLED_STORES)[number];
 
-const STORE_PRESENTATION_OVERRIDES: Record<
-  EnabledStoreSlug,
-  { address: string; mapUrl: string }
-> = {
-  hsinchu: {
-    address: "新竹市東區建中路120號",
-    mapUrl: "https://maps.app.goo.gl/1B8JM16qriMtUDvs5?g_st=ic",
-  },
-  taichung: {
-    address: "台中市梧棲區大智路二段239號",
-    mapUrl: "https://maps.app.goo.gl/YLgzPuG5BmBZqWuR8?g_st=ic",
-  },
-};
 
 const firstVisitItems = [
   {
@@ -95,7 +82,7 @@ export default async function StoreTrialBookingPage({
 
   const entry = typeof query.entry === "string" ? query.entry : undefined;
   const storeName = getCustomerFacingStoreName(presentation);
-  const storeDetails = STORE_PRESENTATION_OVERRIDES[storeSlug];
+  const storeDetails = presentation;
 
   return (
     <main className="min-h-dvh bg-[#f7f2ea] px-4 py-8 text-earth-900 sm:py-12">
