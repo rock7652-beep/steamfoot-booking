@@ -1,3 +1,4 @@
+import { MarketingIcon } from "../marketing-icon";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 
 const guides = [
   {
-    id: "solo-store", category: "一人店實用做法", title: "一邊服務、一邊回訊息？先把可接待時間安排好。",
+    id: "solo-store", icon: "clock" as const, category: "一人店實用做法", title: "一個人顧店，怎麼安排時間？",
     summary: "先留好服務、整理和休息時間，有空時再一起回訊息。",
     cost: "一個人顧店，常常服務到一半，又要停下來查時間、回訊息。預約排得太滿，連收款、整理和休息的時間都沒有。",
     action: "先算好一次服務要多久，加上結帳和整理的時間，再開放顧客預約。顧客可以在線上自己選時間，你有空時再查看新預約、回覆訊息。",
@@ -21,7 +22,7 @@ const guides = [
     image: "", width: 0, height: 0, alt: "", caption: "", caseUrl: "", caseLabel: "",
   },
   {
-    id: "opening-checklist", category: "每日開店檢查", title: "每天開店，先看這三件事。",
+    id: "opening-checklist", icon: "checklist" as const, category: "每日開店檢查", title: "開店前，先看這三件事。",
     summary: "今天誰會來？有沒有人改時間？這次要收款還是扣堂？",
     cost: "顧客到了，才發現時間改了、體驗用品還沒準備，或不知道這次要扣哪個方案，就得邊接待邊找資料。開店前先看一遍，接客時會從容一些。",
     action: "打開蒸管家後台，先看今天的預約，再看看誰改期、取消或已確認會到。最後查看今天顧客的方案，先知道這次要收款還是扣堂。",
@@ -33,7 +34,7 @@ const guides = [
     image: "", width: 0, height: 0, alt: "", caption: "", caseUrl: "", caseLabel: "",
   },
   {
-    id: "trial-booking", category: "體驗預約", title: "一筆體驗預約，為什麼要忙兩次？",
+    id: "trial-booking", icon: "calendar" as const, category: "體驗預約", title: "體驗預約，讓顧客自己選時間。",
     summary: "讓顧客自己選時間，省下來回確認與重複建檔。",
     cost: "顧客問「什麼時候可以體驗？」你查時間、回訊息，再等對方確認。約好後，還要把姓名和電話輸入系統，排到當天的預約裡。同一筆預約，又得忙一次。",
     action: "顧客在線上選好體驗時間、填完資料並送出成功，蒸管家就會自動建立顧客資料，排到選好的日期和時間。設定好 LINE 通知後，店長也會收到體驗客資訊。",
@@ -45,7 +46,7 @@ const guides = [
     caseUrl: "/pricing/cases?store=nuannuan", caseLabel: "看看暖暖蒸足怎麼用",
   },
   {
-    id: "arrival-reminder", category: "到店提醒", title: "明天誰會來？不用一個一個傳訊息提醒。",
+    id: "arrival-reminder", icon: "bell" as const, category: "到店提醒", title: "到店提醒，交給蒸管家。",
     summary: "讓蒸管家發提醒，你再看誰回覆、誰改時間。",
     cost: "每天找出明天的預約，一個一個傳提醒，再看看誰回了、誰要改時間。訊息散在不同對話裡，忙著服務時還要來回找。",
     action: "開啟到店提醒後，蒸管家會照你設定的時間發送。顧客可以點卡片上的按鈕改期或取消；如果卡片有「確認會到」，顧客按下後，你也能在後台看到。",
@@ -57,7 +58,7 @@ const guides = [
     caseUrl: "/pricing/cases?store=nuanmu", caseLabel: "看看暖沐蒸足怎麼用",
   },
   {
-    id: "plan-expiry", category: "方案到期", title: "方案快到期？提醒顧客還有幾堂可以用。",
+    id: "plan-expiry", icon: "calendar" as const, category: "方案到期", title: "方案快到期，提早提醒顧客。",
     summary: "不用一個一個查到期日，提早提醒顧客約時間。",
     cost: "你得一個一個查方案哪天到期、還剩幾堂，再問顧客什麼時候有空。忙起來忘了提醒，等顧客想預約，才發現已經過期。",
     action: "開啟方案到期提醒後，蒸管家會依到期日和店內設定發通知。顧客看到還剩幾堂、哪天到期，就能接著預約，有問題也能聯繫店長。",
@@ -94,8 +95,8 @@ export default function StoreGuidesPage() {
         <div className="mt-5 space-y-3">
           {guides.map((guide, index) => (
             <details key={guide.id} id={guide.id} name="store-guide" className="group scroll-mt-6 rounded-2xl border border-[#153B31]/20 bg-white open:border-[#153B31]/50">
-              <summary className="cursor-pointer rounded-2xl p-5 focus-visible:outline-2 focus-visible:outline-offset-4 sm:p-6">
-                <span className="text-sm font-medium text-[#74603C]">0{index + 1} · {guide.category}</span>
+              <summary className="cursor-pointer list-none rounded-2xl p-5 focus-visible:outline-2 focus-visible:outline-offset-4 sm:p-6 [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-3 text-sm font-medium text-[#74603C]"><MarketingIcon kind={guide.icon} />0{index + 1} · {guide.category}</span>
                 <h2 className="mt-2 text-xl font-semibold leading-snug sm:text-2xl">{guide.title}</h2>
 
                 <span className="mt-3 block text-base font-medium group-open:hidden">閱讀做法 ＋</span>
