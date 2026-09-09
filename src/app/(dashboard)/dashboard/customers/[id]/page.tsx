@@ -35,6 +35,7 @@ import {
 import { CustomerStageForm } from "./customer-stage-form";
 import {
   STATUS_LABEL,
+  BOOKING_TYPE_LABEL,
   WALLET_STATUS_LABEL,
 } from "@/lib/booking-constants";
 import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
@@ -60,6 +61,7 @@ import { CustomerHealthOverviewCard } from "./_components/customer-health-overvi
 import { getLatestNativeHealthRecord } from "@/lib/native-health-service";
 import { LineBindingSection } from "./line-binding-section";
 import { getLineConfigForStore } from "@/lib/line-config";
+import { CustomerDetailSection } from "./customer-detail-section";
 import { RecentRecordsTabs } from "./recent-records-tabs";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -151,6 +153,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
   }
 
   const effectiveStoreId = customer.storeId;
+  const storeModule = await prisma.store.findUnique({
+    where: { id: effectiveStoreId },
+    select: { industryModule: true },
+  });
+  const simplified = storeModule?.industryModule === "STEAMFOOT";
 
   const [
     plans,
@@ -318,6 +325,26 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         <span className="text-earth-700">顧客詳情</span>
       </div>
 
+      {simplified ? (
+        <header className="space-y-4">
+          <div>
+            <h1 className="text-2xl font-bold text-earth-900">{customer.name}</h1>
+            <a href={`tel:${customer.phone}`} className="inline-flex min-h-11 items-center text-base text-primary-700 underline underline-offset-4">{customer.phone}</a>
+          </div>
+          {canEdit && (
+            <div className="grid grid-cols-2 gap-3 sm:max-w-lg">
+              <Link href="#booking" className="flex min-h-11 items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-base font-semibold text-white">新增預約</Link>
+              <Link href={`/dashboard/customers/${id}/edit`} className="flex min-h-11 items-center justify-center rounded-lg border border-earth-200 bg-white px-4 py-2 text-base font-medium text-earth-700">編輯資料</Link>
+            </div>
+          )}
+          {customer.notes && (
+            <section className="border-l-2 border-primary-600 bg-earth-50 px-4 py-3">
+              <h2 className="mb-2 text-base font-semibold text-earth-800">服務注意事項與備註</h2>
+              <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{customer.notes}</p>
+            </section>
+          )}
+        </header>
+      ) : (
       <PageHeader
         title={customer.name}
         subtitle={[
@@ -360,6 +387,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </>
         }
       />
+      )}
 
       {isViewMode ? (
         <div className="rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm text-primary-800">
@@ -367,6 +395,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         </div>
       ) : null}
 
+      {!simplified && (<>
       {/* Header chips — quick state at a glance */}
       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-earth-200 pb-1.5">
         <span
@@ -421,6 +450,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
         </span>
       </div>
 
+      </>)}
+
       {/* Main grid — 左 ~65% 操作 / 右 ~35% 資訊（xl 以上才分欄，手機單欄） */}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
         {/* ========== Left ~65% — primary operations ========== */}
@@ -431,7 +462,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             className="scroll-mt-16 space-y-3 rounded-xl border border-earth-200 bg-white px-4 py-3"
           >
             {/* Plans header + assign actions */}
-            <div className="flex items-center justify-between gap-2">
+            <div className={simplified ? "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" : "flex items-center justify-between gap-2"}>
               <div>
                 <h2 className="text-sm font-semibold text-earth-800">課程方案</h2>
                 <p className="text-[11px] text-earth-400">
@@ -515,7 +546,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             )}
 
             {/* Create booking — 同卡內以分隔線區隔 */}
-            <div id="booking" className="scroll-mt-16 border-t border-earth-100 pt-3">
+            <div className="border-t border-earth-100 pt-3">
+              <CustomerDetailSection enabled={simplified} title="新增預約" id="booking">
               <h2 className="mb-2 text-sm font-semibold text-earth-800">建立預約</h2>
               {isViewMode ? (
                 <div className="rounded-lg border border-earth-100 bg-earth-50 px-4 py-3 text-xs text-earth-500">
@@ -527,7 +559,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     需先指派方案，才能建立課程堂數預約
                   </p>
                   <p className="mt-1 text-[11px] text-amber-700">
-                    完成指派後可在此建立 PACKAGE 堂數預約。體驗或單次預約請至「預約管理」頁面建立。
+                    完成指派後可在此使用方案預約。體驗或單次預約請至「預約管理」頁面建立。
                   </p>
                   <Link
                     href="#plan"
@@ -548,6 +580,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   }))}
                 />
               )}
+
+              </CustomerDetailSection>
 
               {/* Upcoming bookings — kept compact below create form */}
               {upcomingBookings.length > 0 && (
@@ -586,6 +620,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           </section>
 
           {/* 2. Recent records — 預約 / 消費 tab 整併 */}
+<CustomerDetailSection enabled={simplified} title="預約與消費紀錄" >
           <RecentRecordsTabs
             tabs={[
               {
@@ -598,7 +633,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     <EmptyRow title="尚無預約紀錄" dense />
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
+                      <table className={simplified ? "block w-full text-left text-base sm:table [&_thead]:hidden sm:[&_thead]:table-header-group [&_tbody]:block sm:[&_tbody]:table-row-group [&_tr]:flex [&_tr]:h-auto [&_tr]:flex-wrap [&_tr]:gap-y-2 [&_tr]:py-3 sm:[&_tr]:table-row [&_td]:py-1 [&_td]:text-base sm:[&_td]:text-sm [&_td]:whitespace-normal [&_td_span]:whitespace-nowrap" : "w-full text-left text-sm"}>
                         <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
                           <tr>
                             <th className="px-3 py-2">日期</th>
@@ -618,7 +653,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                                 {b.slotTime}
                               </td>
                               <td className="px-3 text-[13px] text-earth-600">
-                                {b.bookingType}
+                                {simplified ? (BOOKING_TYPE_LABEL[b.bookingType] ?? b.bookingType) : b.bookingType}
                               </td>
                               <td className="px-3">
                                 <span
@@ -662,7 +697,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                     <EmptyRow title="尚無消費紀錄" dense />
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
+                      <table className={simplified ? "block w-full text-left text-base sm:table [&_thead]:hidden sm:[&_thead]:table-header-group [&_tbody]:block sm:[&_tbody]:table-row-group [&_tr]:flex [&_tr]:h-auto [&_tr]:flex-wrap [&_tr]:gap-y-2 [&_tr]:py-3 sm:[&_tr]:table-row [&_td]:py-1 [&_td]:text-base sm:[&_td]:text-sm [&_td]:whitespace-normal [&_td_span]:whitespace-nowrap" : "w-full text-left text-sm"}>
                         <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
                           <tr>
                             <th className="px-3 py-2">日期</th>
@@ -718,11 +753,13 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               },
             ]}
           />
+</CustomerDetailSection>
         </div>
 
         {/* ========== Right ~35% — info & quick actions ========== */}
         <aside className="space-y-3 xl:col-span-4">
           {/* 顧客狀態總覽 — 狀態 badges + LINE 綁定 + AI 健康 合併單卡 */}
+<CustomerDetailSection enabled={simplified} title="LINE 與通知設定" >
           <SideCard title="顧客狀態總覽" subtitle="系統狀態 / LINE 綁定 / AI 健康">
             {/* Status badges */}
             <div className="flex flex-wrap gap-1.5">
@@ -805,6 +842,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             )}
           </SideCard>
 
+</CustomerDetailSection>
+<CustomerDetailSection enabled={simplified} title="健康紀錄" >
           {healthAssessmentEnabled && latestHealthRecord && (
             <CustomerHealthOverviewCard
               latest={latestHealthRecord}
@@ -812,7 +851,9 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             />
           )}
 
+</CustomerDetailSection>
           {/* Basic info — 緊湊兩欄 */}
+<CustomerDetailSection enabled={simplified} title="完整基本資料" >
           <CustomerBasicInfo
             name={customer.name}
             phone={customer.phone}
@@ -825,9 +866,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             derivedSource={derivedSource}
             createdAt={customer.createdAt}
             assignedStaff={customer.assignedStaff}
-            notes={customer.notes}
+            notes={simplified ? null : customer.notes}
           />
 
+</CustomerDetailSection>
+<CustomerDetailSection enabled={simplified} title="追蹤紀錄" >
           <SideCard title="追蹤紀錄" subtitle="最近聯絡狀態">
             {customer.followUps.length === 0 ? (
               <p className="text-xs text-earth-500">尚無追蹤紀錄</p>
@@ -856,14 +899,23 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             )}
           </SideCard>
 
+</CustomerDetailSection>
           {/* 身分診斷（協助店長判斷真實註冊方式 + 偵測來源異常）*/}
+{(!simplified || user.role === "ADMIN") && <CustomerDetailSection enabled={simplified} title="管理者診斷" >
           <IdentityDiagnosticPanel
             derivedSource={derivedSource}
             snapshot={identitySnapshot}
             customerPhone={customer.phone}
           />
 
+</CustomerDetailSection>}
           {/* Quick actions — links + inline stage form */}
+          {simplified ? (
+            canEdit && <CustomerDetailSection enabled title="其他顧客設定">
+              <CustomerStageForm customerId={id} currentStage={customer.customerStage} />
+              {canManageLineRebind && <Link href={`/dashboard/customers/merge?source=${id}`} className="mt-3 inline-flex min-h-11 items-center text-base text-primary-700">處理重複顧客 →</Link>}
+            </CustomerDetailSection>
+          ) : (<>
           <SideCard title="快速操作" subtitle="常用動作直接進入">
             <div className="flex flex-col gap-1.5">
               {canEdit ? (
@@ -933,6 +985,8 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             </div>
           </SideCard>
 
+
+          </>)}
           {/* Transfer customer (ADMIN only) */}
           {user.role === "ADMIN" && staffList.length > 0 && (
             <SideCard title="轉移顧客" subtitle="指派給其他店長">
@@ -945,6 +999,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
           )}
 
           {/* Growth summary — compact, full management on Growth page */}
+<CustomerDetailSection enabled={simplified} title="推薦與點數" >
           {user.role !== "CUSTOMER" && (
             <SideCard
               title="成長摘要"
@@ -980,7 +1035,9 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             </SideCard>
           )}
 
+</CustomerDetailSection>
           {/* System info */}
+{(!simplified || user.role === "ADMIN") && <CustomerDetailSection enabled={simplified} title="系統資訊" >
           <SideCard title="系統資訊" subtitle="營運除錯用">
             <dl className="flex flex-col">
               <SystemRow
@@ -1008,6 +1065,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               <SystemRow label="來源" value={derivedSource.label} />
             </dl>
           </SideCard>
+</CustomerDetailSection>}
         </aside>
       </div>
     </PageShell>
