@@ -894,7 +894,9 @@ function DrawerContent({
                 value={`${booking.attendedPeople} / ${booking.people} 人`}
               />
             )}
-          <KV readable={!spaMode} label={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? "結帳方式" : "金額"} value={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? (booking.isMakeup ? "使用補課資格" : "依方案扣堂") : amount} />
+          {(spaMode || booking.bookingType !== "FIRST_TRIAL") && (
+            <KV readable={!spaMode} label={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? "結帳方式" : "金額"} value={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? (booking.isMakeup ? "使用補課資格" : "依方案扣堂") : amount} />
+          )}
         </Section>
 
         {/* Section B: 顧客資訊 */}
@@ -954,7 +956,11 @@ function DrawerContent({
 
         {/* Section C: 方案 / 付款 */}
         <Section readable={!spaMode} order={spaMode ? undefined : 2} title={spaMode ? "方案 / 付款" : "收款與扣堂"}>
-          <KV readable={!spaMode} label="類型" value={formatBookingType(booking)} />
+          {!spaMode && booking.bookingType === "FIRST_TRIAL" ? (
+            <KV readable label="金額" value={amount} />
+          ) : (
+            <KV readable={!spaMode} label="類型" value={formatBookingType(booking)} />
+          )}
           {(spaMode || booking.bookingType === "PACKAGE_SESSION") && (
             <KV readable={!spaMode}
               label="方案"
