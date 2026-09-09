@@ -5,11 +5,14 @@ import { requirePermission } from "@/lib/permissions";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import { dayRange } from "@/lib/date-utils";
+import { walletAvailableToBook, walletPendingCount } from "@/lib/wallet-availability";
 
 export interface ActiveWalletSummary {
   id: string;
   planName: string;
   remainingSessions: number;
+  availableSessions: number;
+  reservedSessions: number;
   /** YYYY-MM-DD；null = 無期限 */
   expiryDate: string | null;
 }
@@ -83,6 +86,11 @@ export async function fetchCustomerActiveWalletsForBooking(
         expiryDate: true,
         createdAt: true,
         plan: { select: { name: true } },
+        sessions: { select: { status: true } },
+        bookings: {
+          where: { customerId, storeId: customer.storeId },
+          select: { bookingStatus: true, people: true, isMakeup: true },
+        },
       },
     }),
     prisma.makeupCredit.findMany({
@@ -108,6 +116,8 @@ export async function fetchCustomerActiveWalletsForBooking(
       id: w.id,
       planName: w.plan.name,
       remainingSessions: w.remainingSessions,
+      availableSessions: walletAvailableToBook(w),
+      reservedSessions: walletPendingCount(w),
       expiryDate: w.expiryDate?.toISOString().slice(0, 10) ?? null,
     })),
     makeup: {

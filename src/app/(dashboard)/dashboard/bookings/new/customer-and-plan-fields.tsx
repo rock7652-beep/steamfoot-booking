@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FormSection } from "@/components/desktop";
 import CustomerSearch from "./customer-search";
+import { useBookingFormValidation } from "./booking-create-form";
 import {
   fetchCustomerActiveWalletsForBooking,
   type ActiveWalletSummary,
@@ -60,6 +61,10 @@ export function CustomerAndPlanFields({
   spaMode?: boolean;
 }) {
   const [customerId, setCustomerId] = useState<string | null>(defaultCustomerId ?? null);
+  const { calendarDate, setCalendarCustomerId } = useBookingFormValidation();
+  useEffect(() => {
+    if (!spaMode) setCalendarCustomerId(customerId);
+  }, [customerId, spaMode, setCalendarCustomerId]);
   const [wallets, setWallets] = useState<ActiveWalletSummary[]>([]);
   const [makeup, setMakeup] = useState<MakeupCreditSummary>(EMPTY_MAKEUP);
   const [walletsLoading, setWalletsLoading] = useState(false);
@@ -69,7 +74,8 @@ export function CustomerAndPlanFields({
   const [walletId, setWalletId] = useState<string>("");
   // 預約日期由左欄 DashboardBookingForm（同一 form 的 select[name="bookingDate"]）控制。
   // 補課券有效性需依「預約日期」判斷，故在此讀取並監聽其變化以重查。
-  const [bookingDate, setBookingDate] = useState<string | null>(null);
+  const [legacyBookingDate, setBookingDate] = useState<string | null>(null);
+  const bookingDate = spaMode ? legacyBookingDate : calendarDate;
   const [bookingPeople, setBookingPeople] = useState(1);
   const anchorRef = useRef<HTMLSpanElement>(null);
   // 記錄已套用「預設選擇」的顧客 → 同顧客改日期時不覆蓋店長手動選擇。
@@ -277,11 +283,16 @@ export function CustomerAndPlanFields({
             >
               {wallets.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.planName}（剩 {w.remainingSessions} 堂
+                  {w.planName}（可再預約 {w.availableSessions} 堂
                   {w.expiryDate ? `・到 ${w.expiryDate}` : "・無期限"}）
                 </option>
               ))}
             </select>
+            {wallets.filter((w) => w.id === walletId).map((w) => (
+              <p key={w.id} className="mt-1 text-xs text-earth-500">
+                剩餘 {w.remainingSessions} 堂・已預約 {w.reservedSessions} 堂
+              </p>
+            ))}
             <p className="mt-1 text-[11px] text-earth-500">
               {isMakeupSelected && packagePeople > 0
                 ? "補課券不足的人數會使用此方案；已自動選最快到期的方案。"
