@@ -33,11 +33,13 @@ export function CustomerDetailSection({ enabled, title, id, children }: {
         ref.current.open = true;
       }
     };
-    reveal();
+    // Child effects can run before AppRouter installs its History API bridge.
+    const initialReveal = window.requestAnimationFrame(reveal);
     document.addEventListener("click", onLink, true);
     window.addEventListener("hashchange", reveal);
     window.addEventListener("popstate", reveal);
     return () => {
+      window.cancelAnimationFrame(initialReveal);
       document.removeEventListener("click", onLink, true);
       window.removeEventListener("hashchange", reveal);
       window.removeEventListener("popstate", reveal);
