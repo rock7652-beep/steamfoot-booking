@@ -894,8 +894,8 @@ function DrawerContent({
                 value={`${booking.attendedPeople} / ${booking.people} 人`}
               />
             )}
-          {(spaMode || booking.bookingType !== "FIRST_TRIAL") && (
-            <KV readable={!spaMode} label={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? "結帳方式" : "金額"} value={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? (booking.isMakeup ? "使用補課資格" : "依方案扣堂") : amount} />
+          {(spaMode || (booking.bookingType !== "FIRST_TRIAL" && booking.bookingType !== "PACKAGE_SESSION")) && (
+            <KV readable={!spaMode} label="金額" value={amount} />
           )}
         </Section>
 
@@ -958,9 +958,9 @@ function DrawerContent({
         <Section readable={!spaMode} order={spaMode ? undefined : 2} title={spaMode ? "方案 / 付款" : "收款與扣堂"}>
           {!spaMode && booking.bookingType === "FIRST_TRIAL" ? (
             <KV readable label="金額" value={amount} />
-          ) : (
+          ) : (spaMode || booking.bookingType !== "PACKAGE_SESSION") ? (
             <KV readable={!spaMode} label="類型" value={formatBookingType(booking)} />
-          )}
+          ) : null}
           {(spaMode || booking.bookingType === "PACKAGE_SESSION") && (
             <KV readable={!spaMode}
               label="方案"
@@ -969,14 +969,16 @@ function DrawerContent({
           )}
           {booking.customerPlanWallet && (
             <KV readable={!spaMode}
-              label="套餐剩餘"
+              label={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? "剩餘堂數" : "套餐剩餘"}
               value={`${booking.customerPlanWallet.remainingSessions} / ${booking.customerPlanWallet.totalSessions} 堂`}
             />
           )}
           <KV readable={!spaMode}
-            label="付款狀態"
+            label={!spaMode && booking.bookingType === "PACKAGE_SESSION" ? "結帳方式" : "付款狀態"}
             value={
-              booking.isMakeup
+              !spaMode && booking.bookingType === "PACKAGE_SESSION"
+                ? booking.isMakeup ? "使用補課資格" : "依方案扣堂"
+                : booking.isMakeup
                 ? "補課（免費）"
                 : booking.bookingType === "PACKAGE_SESSION"
                   ? "套餐扣堂"
