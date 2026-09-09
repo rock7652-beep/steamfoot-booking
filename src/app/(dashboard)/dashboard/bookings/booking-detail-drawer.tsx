@@ -826,13 +826,15 @@ function DrawerContent({
           </div>
           <h2
             id="booking-drawer-title"
-            className="mt-1 truncate text-lg font-bold text-earth-900"
+            className={spaMode ? "mt-1 truncate text-lg font-bold text-earth-900" : "mt-2 break-words text-xl font-bold text-earth-900"}
           >
             {booking.customer.name}
             {booking.people > 1 && <PeopleBadge people={booking.people} />}
           </h2>
-          <p className="mt-0.5 truncate text-sm text-earth-500">
-            {booking.isMakeup
+          <p className={spaMode ? "mt-0.5 truncate text-sm text-earth-500" : "mt-1 break-words text-base text-earth-600"}>
+            {!spaMode && booking.bookingType === "FIRST_TRIAL"
+              ? "首次體驗 · "
+              : booking.isMakeup
               ? "補課 · "
               : booking.treatmentNameSnapshot
                 ? `${booking.treatmentNameSnapshot} · `
@@ -855,11 +857,11 @@ function DrawerContent({
       </div>
 
       {/* Body — scrollable */}
-      <div className="flex-1 overflow-y-auto">
+      <div className={spaMode ? "flex-1 overflow-y-auto" : "flex min-h-0 flex-1 flex-col overflow-y-auto"}>
         {/* Section A: 預約資訊 */}
-        <Section title="預約資訊">
-          <KV label="日期" value={dateLabel} />
-          <KV
+        <Section readable={!spaMode} title="預約資訊">
+          <KV readable={!spaMode} label="日期" value={dateLabel} />
+          <KV readable={!spaMode}
             label="時間"
             value={
               <span className="tabular-nums">
@@ -867,7 +869,7 @@ function DrawerContent({
               </span>
             }
           />
-          <KV
+          <KV readable={!spaMode}
             label="教練"
             value={booking.revenueStaff?.displayName ?? "未指派"}
             icon={
@@ -881,33 +883,35 @@ function DrawerContent({
           />
           {booking.serviceStaff &&
             booking.serviceStaff.id !== booking.revenueStaff?.id && (
-              <KV label="值班店長" value={booking.serviceStaff.displayName} />
+              <KV readable={!spaMode} label="值班店長" value={booking.serviceStaff.displayName} />
             )}
-          <KV
+          <KV readable={!spaMode}
             label="服務"
             value={
-              booking.isMakeup
+              !spaMode && booking.bookingType === "FIRST_TRIAL"
+                ? "首次體驗"
+                : booking.isMakeup
                 ? "補課"
                 : (booking.treatmentNameSnapshot ??
                   booking.servicePlan?.name ??
                   (booking.bookingType === "SINGLE" ? "單次蒸足" : "—"))
             }
           />
-          <KV label="人數" value={`${booking.people} 人`} />
+          <KV readable={!spaMode} label="人數" value={`${booking.people} 人`} />
           {booking.attendedPeople != null &&
             booking.attendedPeople < booking.people && (
-              <KV
+              <KV readable={!spaMode}
                 label="實際到店"
                 value={`${booking.attendedPeople} / ${booking.people} 人`}
               />
             )}
-          <KV label="金額" value={amount} />
+          <KV readable={!spaMode} label="金額" value={amount} />
         </Section>
 
         {/* Section B: 顧客資訊 */}
-        <Section title="顧客資訊">
-          <KV label="姓名" value={booking.customer.name} />
-          <KV
+        <Section readable={!spaMode} order={spaMode ? undefined : 3} title="顧客資訊">
+          <KV readable={!spaMode} label="姓名" value={booking.customer.name} />
+          <KV readable={!spaMode}
             label="電話"
             value={
               booking.customer.phone ? (
@@ -923,7 +927,7 @@ function DrawerContent({
             }
           />
           {booking.customer.serviceNote ? (
-            <KV
+            <KV readable={!spaMode}
               label="服務備註"
               value={
                 <span className="whitespace-pre-wrap text-amber-800">
@@ -932,8 +936,8 @@ function DrawerContent({
               }
             />
           ) : null}
-          <KV label="累積完成" value={`${customerSummary.totalBookings} 次`} />
-          <KV
+          <KV readable={!spaMode} label="累積完成" value={`${customerSummary.totalBookings} 次`} />
+          <KV readable={!spaMode}
             label="最近到店"
             value={
               customerSummary.lastVisit
@@ -960,23 +964,21 @@ function DrawerContent({
         </Section>
 
         {/* Section C: 方案 / 付款 */}
-        <Section title="方案 / 付款">
-          <KV label="類型" value={formatBookingType(booking)} />
-          <KV
-            label="方案"
-            value={
-              booking.customerPlanWallet?.plan.name ??
-              booking.servicePlan?.name ??
-              "—"
-            }
-          />
+        <Section readable={!spaMode} order={spaMode ? undefined : 2} title={spaMode ? "方案 / 付款" : "收款與扣堂"}>
+          <KV readable={!spaMode} label="類型" value={formatBookingType(booking)} />
+          {(spaMode || booking.bookingType === "PACKAGE_SESSION") && (
+            <KV readable={!spaMode}
+              label="方案"
+              value={booking.customerPlanWallet?.plan.name ?? booking.servicePlan?.name ?? "—"}
+            />
+          )}
           {booking.customerPlanWallet && (
-            <KV
+            <KV readable={!spaMode}
               label="套餐剩餘"
               value={`${booking.customerPlanWallet.remainingSessions} / ${booking.customerPlanWallet.totalSessions} 堂`}
             />
           )}
-          <KV
+          <KV readable={!spaMode}
             label="付款狀態"
             value={
               booking.isMakeup
@@ -998,7 +1000,7 @@ function DrawerContent({
           />
           {trial && trial.collected && (
             <>
-              <KV
+              <KV readable={!spaMode}
                 label="付款方式"
                 value={
                   trial.collectedMethod
@@ -1007,7 +1009,7 @@ function DrawerContent({
                     : "—"
                 }
               />
-              <KV
+              <KV readable={!spaMode}
                 label="收款金額"
                 value={
                   trial.collectedAmount == null
@@ -1016,13 +1018,13 @@ function DrawerContent({
                 }
               />
               {trial.collectedAt && (
-                <KV label="收款日期" value={trial.collectedAt} />
+                <KV readable={!spaMode} label="收款日期" value={trial.collectedAt} />
               )}
             </>
           )}
           {single && single.collected && (
             <>
-              <KV
+              <KV readable={!spaMode}
                 label="付款方式"
                 value={
                   single.collectedMethod
@@ -1031,7 +1033,7 @@ function DrawerContent({
                     : "—"
                 }
               />
-              <KV
+              <KV readable={!spaMode}
                 label="收款金額"
                 value={
                   single.collectedAmount == null
@@ -1041,13 +1043,13 @@ function DrawerContent({
               />
               {single.collectedDiscountAmount != null &&
                 single.collectedDiscountAmount > 0 && (
-                  <KV
+                  <KV readable={!spaMode}
                     label="折扣"
                     value={`NT$ ${single.collectedDiscountAmount.toLocaleString()}`}
                   />
                 )}
               {single.collectedAt && (
-                <KV label="收款日期" value={single.collectedAt} />
+                <KV readable={!spaMode} label="收款日期" value={single.collectedAt} />
               )}
             </>
           )}
@@ -1060,19 +1062,19 @@ function DrawerContent({
               </div>
             )}
           {trial && !trial.collected && booking.expectedAmount != null && (
-            <KV
+            <KV readable={!spaMode}
               label="預計收款"
               value={`NT$ ${booking.expectedAmount.toLocaleString()}`}
             />
           )}
           {single && !single.collected && (
-            <KV
+            <KV readable={!spaMode}
               label="預計收款"
               value={`NT$ ${single.defaultPrice.toLocaleString()}`}
             />
           )}
           {spaMode && storedValue ? (
-            <KV
+            <KV readable={!spaMode}
               label="儲值金餘額"
               value={`NT$ ${storedValue.balance.toLocaleString("zh-TW")}`}
             />
@@ -1081,8 +1083,8 @@ function DrawerContent({
 
         {/* Section D: 備註 */}
         {booking.notes && (
-          <Section title="備註">
-            <div className="col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700">
+          <Section readable={!spaMode} order={spaMode ? undefined : 4} title={spaMode ? "備註" : "預約備註"}>
+            <div className={spaMode ? "col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700" : "col-span-2 whitespace-pre-wrap break-words rounded-md bg-amber-50 px-3 py-2 text-base leading-relaxed text-earth-700"}>
               {booking.notes}
             </div>
           </Section>
@@ -1475,7 +1477,9 @@ function ActionFooter({
         label:
           spaMode && booking.bookingType === "PACKAGE_SESSION"
             ? "完成服務並扣次"
-            : "完成服務",
+            : !spaMode && booking.bookingType === "PACKAGE_SESSION" && !booking.isMakeup
+              ? "完成服務並扣堂"
+              : "完成服務",
         onClick: actions.complete,
       });
     }
@@ -1524,7 +1528,7 @@ function ActionFooter({
               type="button"
               onClick={a.onClick}
               disabled={isActing}
-              className={`inline-flex h-9 flex-1 items-center justify-center rounded-md px-3 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${
+              className={`inline-flex ${spaMode ? "h-9" : "min-h-11"} flex-1 items-center justify-center rounded-md px-3 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${
                 i === 0
                   ? "bg-primary-600 text-white hover:bg-primary-700"
                   : "border border-primary-300 bg-white text-primary-700 hover:bg-primary-50"
@@ -1550,7 +1554,7 @@ function ActionFooter({
             type="button"
             onClick={a.onClick}
             disabled={isActing}
-            className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium transition-colors disabled:cursor-wait disabled:opacity-60 ${
+            className={`inline-flex ${spaMode ? "h-8 text-xs" : "min-h-11 text-sm"} items-center rounded-md border px-3 font-medium transition-colors disabled:cursor-wait disabled:opacity-60 ${
               a.tone === "danger"
                 ? "border-red-200 bg-white text-red-600 hover:bg-red-50"
                 : "border-earth-300 bg-white text-earth-700 hover:bg-earth-50"
@@ -1581,16 +1585,20 @@ function ActionFooter({
 function Section({
   title,
   children,
+  readable = false,
+  order,
 }: {
   title: string;
   children: React.ReactNode;
+  readable?: boolean;
+  order?: number;
 }) {
   return (
-    <div className="border-b border-earth-100 px-4 py-3">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-earth-500">
+    <div style={order ? { order } : undefined} className={readable ? "shrink-0 border-b border-earth-100 px-4 py-4" : "border-b border-earth-100 px-4 py-3"}>
+      <h3 className={readable ? "mb-3 text-base font-semibold text-earth-800" : "mb-2 text-xs font-semibold uppercase tracking-wide text-earth-500"}>
         {title}
       </h3>
-      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2">
+      <div className={readable ? "grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-3" : "grid grid-cols-[auto_1fr] gap-x-3 gap-y-2"}>
         {children}
       </div>
     </div>
@@ -1598,6 +1606,7 @@ function Section({
 }
 
 function KV({
+  readable = false,
   label,
   value,
   icon,
@@ -1605,13 +1614,14 @@ function KV({
   label: string;
   value: React.ReactNode;
   icon?: React.ReactNode;
+  readable?: boolean;
 }) {
   return (
     <>
-      <div className="min-w-[4.5rem] text-xs text-earth-500">{label}</div>
-      <div className="flex items-center text-sm text-earth-800">
+      <div className={readable ? "text-sm leading-6 text-earth-600" : "min-w-[4.5rem] text-xs text-earth-500"}>{label}</div>
+      <div className={readable ? "flex min-w-0 items-start text-base leading-6 text-earth-800" : "flex items-center text-sm text-earth-800"}>
         {icon}
-        <span className="min-w-0 truncate">{value}</span>
+        <span className={readable ? "min-w-0 whitespace-pre-wrap break-words" : "min-w-0 truncate"}>{value}</span>
       </div>
     </>
   );

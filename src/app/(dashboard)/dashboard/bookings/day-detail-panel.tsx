@@ -515,7 +515,11 @@ function TimelineItem({
             </span>
           ) : null}
         </div>
-        {planBadge.kind !== "deducted" && planLabel !== "—" ? (
+        {booking.bookingType === "FIRST_TRIAL" ? (
+          <span className="w-full text-sm leading-relaxed text-earth-600">
+            服務：首次體驗
+          </span>
+        ) : planBadge.kind !== "deducted" && planLabel !== "—" ? (
           <span className="w-full break-words text-sm leading-relaxed text-earth-600">
             方案：{planLabel}
           </span>
@@ -713,3 +717,4 @@ function computeStats(bookings: DayBooking[]) {
   }
   return stats;
 }
+

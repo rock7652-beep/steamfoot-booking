@@ -113,3 +113,17 @@ describe("DayDetailPanel summary", () => {
     )).not.toThrow();
   });
 });
+describe("trial service label", () => {
+  it.each([null, { name: "體驗課" }])("uses the same service label with or without a linked name (%j)", (servicePlan) => {
+    const text = textFromHtml(renderToStaticMarkup(
+      React.createElement(DayDetailPanel, {
+        date: "2026-09-11",
+        bookings: [booking({ bookingType: "FIRST_TRIAL", servicePlan, expectedAmount: 499 })],
+        slots: [],
+      }),
+    ));
+    expect(text).toContain("服務：首次體驗");
+    expect(text).not.toContain("方案：");
+    expect(text).toContain("NT$499");
+  });
+});
