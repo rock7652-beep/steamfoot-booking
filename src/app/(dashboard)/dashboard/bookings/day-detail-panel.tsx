@@ -164,9 +164,9 @@ export function DayDetailPanel({
     <div className="flex h-full flex-col">
       {/* 頂部：精簡 KPI chip 列（固定，不跟著清單捲動）。
           日期已在 Drawer 標題顯示，這裡不再重複，把高度讓給名單。
-          窄版統計可換行，避免右側數字被截斷。 */}
+          六項統計固定三欄兩排；欄內可換行，放大文字時仍完整顯示。 */}
       <div className="shrink-0 px-4 pt-3">
-        <div className="flex flex-wrap items-center gap-1.5 pb-1">
+        <div className="grid grid-cols-3 gap-2 pb-1">
           <KpiChip label="預約" value={stats.total} />
           <KpiChip label="到店" value={stats.checkedIn} />
           <KpiChip label="完成人數" value={stats.completed} />
@@ -182,7 +182,7 @@ export function DayDetailPanel({
             tone={stats.makeup > 0 ? "warning" : "default"}
           />
           {filteredFrom != null && (
-            <span className="ml-auto inline-flex h-[22px] shrink-0 items-center rounded-full bg-primary-50 px-2 text-[11px] font-semibold text-primary-700">
+            <span className="col-span-3 justify-self-end rounded-full bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700">
               篩選中 {stats.total}/{filteredFrom}
             </span>
           )}
@@ -577,9 +577,9 @@ function KpiChip({
         ? "text-amber-600"
         : "text-earth-900";
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-earth-200 bg-earth-50 px-2.5 py-1 text-xs">
+    <span className="inline-flex min-w-0 flex-wrap items-center justify-between gap-x-1 gap-y-0.5 rounded-lg border border-earth-200 bg-earth-50 px-2.5 py-1.5 text-xs">
       <span className="text-earth-500">{label}</span>
-      <span className={`font-bold tabular-nums ${valueColor}`}>{value}</span>
+      <span className={`min-w-0 break-all font-bold tabular-nums ${valueColor}`}>{value}</span>
     </span>
   );
 }
