@@ -4,6 +4,8 @@
 
 import type { PricingPlan, StoreOperatingStatus, StorePlanStatus } from "@prisma/client";
 
+export type StoreIndustryModule = "STEAMFOOT" | "SPA";
+
 // ============================================================
 // 建店輸入
 // ============================================================
@@ -17,6 +19,8 @@ export interface CreateStoreInput {
   plan: PricingPlan;
   /** 是否為 Demo 店 */
   isDemo: boolean;
+  /** 產業模組；省略時維持既有預設 STEAMFOOT。建立後不可由店舖端切換。 */
+  industryModule?: StoreIndustryModule;
 
   /** OWNER 必填（name / email / password） */
   owner: OwnerInput;
@@ -57,6 +61,7 @@ export interface StoreDeliverySummary {
     planStatus: StorePlanStatus;
     operatingStatus: StoreOperatingStatus;
     isDemo: boolean;
+    industryModule: StoreIndustryModule;
   };
   /** 交付網址 — 對應 proxy.ts 實際路由 */
   urls: {

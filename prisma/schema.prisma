@@ -362,6 +362,19 @@ enum StoreOperatingStatus {
   INACTIVE
 }
 
+/// 店舖選用的產業模組。既有店舖一律回填為 STEAMFOOT，避免改變既有營運行為。
+enum IndustryModule {
+  STEAMFOOT
+  SPA
+}
+
+/// HQ 建店後的模組佈建狀態。只有 ACTIVE 的模組可被啟用或提供服務。
+enum StoreModuleInstallationStatus {
+  PROVISIONING
+  ACTIVE
+  FAILED
+}
+
 enum StoreFeatureEntitlementStatus {
   ENABLED
   DISABLED
@@ -589,6 +602,7 @@ model Store {
   isDefault                  Boolean              @default(false)
   isDemo                     Boolean              @default(false) // Demo 店 — 僅供展示或測試
   parentStoreId              String?
+  industryModule             IndustryModule       @default(STEAMFOOT)
   operatingStatus            StoreOperatingStatus @default(ACTIVE)
   plan                       PricingPlan          @default(EXPERIENCE)
   planStatus                 StorePlanStatus      @default(ACTIVE)
@@ -665,12 +679,33 @@ model Store {
   transactionAuditLogs              TransactionAuditLog[]
   lineNotificationRecipients        StoreLineNotificationRecipient[]
   messengerAuditRuns                MessengerAuditRun[]
+  moduleInstallation                StoreModuleInstallation?
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
   settlements        StoreSettlement[]
 
   @@index([parentStoreId])
+  @@index([industryModule])
+}
+
+/// 每家店只安裝一個可獨立運作的產業模組；module 是建立當下的不可變快照，
+/// Store.industryModule 則是所有執行期授權檢查的唯一權威來源。
+model StoreModuleInstallation {
+  id              String                        @id @default(cuid())
+  storeId         String                        @unique
+  module          IndustryModule
+  version         Int                           @default(1)
+  status          StoreModuleInstallationStatus @default(PROVISIONING)
+  failureCode     String?
+  failureDetail   String?
+  provisionedAt   DateTime?
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([module, status])
 }
 
 model StoreLineNotificationRecipient {

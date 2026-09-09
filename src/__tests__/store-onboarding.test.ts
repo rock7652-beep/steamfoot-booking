@@ -306,3 +306,69 @@ describe("預設營業時間", () => {
     expect(sun.defaultCapacity).toBe(6);
   });
 });
+
+// ============================================================
+// 9. 產業模組隔離
+// ============================================================
+
+describe("產業模組隔離", () => {
+  it("建立 SPA 店不會寫入蒸足 BookingSlot 或 BusinessHours", async () => {
+    const { prisma } = await import("@/lib/db");
+    const { createStoreAction } = await import("@/server/actions/store-onboarding");
+
+    vi.clearAllMocks();
+    vi.mocked(prisma.store.findUnique).mockResolvedValue(null as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null as never);
+    vi.mocked(prisma.store.create).mockResolvedValue({
+      id: "store-spa-demo",
+      name: "SPA Demo",
+      slug: "spa-demo",
+      plan: "GROWTH",
+      planStatus: "TRIAL",
+      operatingStatus: "TRIAL",
+      isDemo: true,
+    } as never);
+    vi.mocked(prisma.user.create).mockResolvedValue({ staff: { id: "staff-owner" } } as never);
+    vi.stubEnv("NEXTAUTH_URL", "https://preview.example.test");
+
+    const result = await createStoreAction({
+      name: "SPA Demo",
+      slug: "spa-demo",
+      plan: "GROWTH",
+      isDemo: true,
+      industryModule: "SPA",
+      owner: { name: "Owner", email: "spa-owner@example.com", password: "123456" },
+    });
+
+    expect(result.success).toBe(true);
+    expect(prisma.store.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        industryModule: "SPA",
+        moduleInstallation: { create: expect.objectContaining({ status: "PROVISIONING" }) },
+      }),
+    }));
+    expect(prisma.bookingSlot.createMany).not.toHaveBeenCalled();
+    expect(prisma.businessHours.createMany).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
+  it("佈建中的模組不可啟用，且不會進入後續驗收查詢", async () => {
+    const { prisma } = await import("@/lib/db");
+    const { activateStoreAction } = await import("@/server/actions/store-onboarding");
+
+    vi.clearAllMocks();
+    vi.mocked(prisma.store.findUnique).mockResolvedValue({
+      id: "store-spa-demo",
+      isDemo: false,
+      planStatus: "TRIAL",
+      moduleInstallation: { status: "PROVISIONING" },
+    } as never);
+
+    await expect(activateStoreAction("store-spa-demo")).resolves.toEqual({
+      success: false,
+      error: "產業模組尚未完成佈建，暫時不可啟用店舖",
+    });
+    expect(prisma.staff.findMany).not.toHaveBeenCalled();
+    expect(prisma.store.update).not.toHaveBeenCalled();
+  });
+});

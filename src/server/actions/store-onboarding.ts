@@ -12,6 +12,7 @@ import type {
   StoreDeliverySummary,
   ChecklistItem,
   AccountSummary,
+  StoreIndustryModule,
 } from "@/types/store-onboarding";
 import type { StoreOperatingStatus, UserRole } from "@prisma/client";
 
@@ -65,6 +66,7 @@ export async function createStoreAction(
   // ── 建店 Transaction ──
   try {
     const storeId = `store-${input.slug}`;
+    const industryModule: StoreIndustryModule = input.industryModule ?? "STEAMFOOT";
     const passwordHash = hashSync(input.owner.password, 10);
     const ownerRole: UserRole = "OWNER";
 
@@ -78,6 +80,7 @@ export async function createStoreAction(
         lineDestination: input.lineDestination ?? null,
         isDefault: false,
         isDemo: input.isDemo,
+        industryModule,
         plan: input.plan,
         operatingStatus: "TRIAL",
         planStatus: "TRIAL", // ★ 一律 TRIAL（規格強制）
@@ -85,6 +88,14 @@ export async function createStoreAction(
           create: {
             shopName: input.name,
             dutySchedulingEnabled: input.dutySchedulingEnabled ?? false,
+          },
+        },
+        moduleInstallation: {
+          create: {
+            module: industryModule,
+            // SPA 的專屬資料與排程尚未完成前，絕不可讓 HQ 誤啟用一間半成品店。
+            status: industryModule === "SPA" ? "PROVISIONING" : "ACTIVE",
+            provisionedAt: industryModule === "STEAMFOOT" ? new Date() : null,
           },
         },
       },
@@ -151,15 +162,18 @@ export async function createStoreAction(
       });
     }
 
-    // 4. Default booking slots（8 slots × 7 days）
-    const slotTimes = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
-    const slotData = [];
-    for (let day = 0; day <= 6; day++) {
-      for (const time of slotTimes) {
-        slotData.push({ storeId, dayOfWeek: day, startTime: time, capacity: 6, isEnabled: true });
+    // 4. 蒸足預設時段（8 slots × 7 days）。SPA 必須只由自己的 provider
+    // availability / treatment schema 佈建，不能寫入這組 legacy BookingSlot。
+    if (industryModule === "STEAMFOOT") {
+      const slotTimes = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
+      const slotData = [];
+      for (let day = 0; day <= 6; day++) {
+        for (const time of slotTimes) {
+          slotData.push({ storeId, dayOfWeek: day, startTime: time, capacity: 6, isEnabled: true });
+        }
       }
+      await prisma.bookingSlot.createMany({ data: slotData });
     }
-    await prisma.bookingSlot.createMany({ data: slotData });
 
     // 5. Default weekly BusinessHours（7 天，全部營業）
     //
@@ -171,23 +185,25 @@ export async function createStoreAction(
     //   每天 10:00–21:00、slotInterval 60 分、每時段 6 名額。
     // 店長之後可於後台「營業時間設定」自行調整；@@unique(storeId,dayOfWeek)
     // 確保不重複（此處為全新店，createMany 安全）。
-    const businessHoursData = [];
-    for (let dow = 0; dow <= 6; dow++) {
-      businessHoursData.push({
-        storeId,
-        dayOfWeek: dow,
-        isOpen: true,
-        openTime: "10:00",
-        closeTime: "21:00",
-        slotInterval: 60,
-        defaultCapacity: 6,
-      });
+    if (industryModule === "STEAMFOOT") {
+      const businessHoursData = [];
+      for (let dow = 0; dow <= 6; dow++) {
+        businessHoursData.push({
+          storeId,
+          dayOfWeek: dow,
+          isOpen: true,
+          openTime: "10:00",
+          closeTime: "21:00",
+          slotInterval: 60,
+          defaultCapacity: 6,
+        });
+      }
+      await prisma.businessHours.createMany({ data: businessHoursData });
     }
-    await prisma.businessHours.createMany({ data: businessHoursData });
 
     // ── 產出交付摘要 ──
     const baseUrl = deriveBaseUrl();
-    const checklist = buildDeliveryChecklist(input);
+    const checklist = buildDeliveryChecklist(input, industryModule);
 
     const summary: StoreDeliverySummary = {
       store: {
@@ -198,6 +214,7 @@ export async function createStoreAction(
         planStatus: store.planStatus,
         operatingStatus: store.operatingStatus,
         isDemo: store.isDemo,
+        industryModule,
       },
       urls: buildStoreUrls(baseUrl, store.slug, store.id),
       accounts: {
@@ -213,7 +230,7 @@ export async function createStoreAction(
         email: process.env.RESEND_API_KEY ? "configured" : "not_configured",
       },
       checklist,
-      canActivate: !input.isDemo && checklist.every((c) => c.status !== "fail"),
+      canActivate: !input.isDemo && industryModule === "STEAMFOOT" && checklist.every((c) => c.status !== "fail"),
     };
 
     return { success: true, data: summary };
@@ -237,6 +254,7 @@ export async function activateStoreAction(
     where: { id: storeId },
     include: {
       shopConfig: true,
+      moduleInstallation: true,
       staff: { include: { user: true } },
     },
   });
@@ -252,6 +270,10 @@ export async function activateStoreAction(
 
   if (store.planStatus === "ACTIVE") {
     return { success: false, error: "店舖已經是 ACTIVE 狀態" };
+  }
+
+  if (store.moduleInstallation?.status !== "ACTIVE") {
+    return { success: false, error: "產業模組尚未完成佈建，暫時不可啟用店舖" };
   }
 
   // 啟用前驗證
@@ -298,6 +320,7 @@ export async function getStoreDeliverySummary(
     where: { id: storeId },
     include: {
       shopConfig: true,
+      moduleInstallation: true,
       staff: {
         include: { user: { select: { name: true, email: true, role: true } } },
       },
@@ -323,6 +346,7 @@ export async function getStoreDeliverySummary(
       planStatus: store.planStatus,
       operatingStatus: store.operatingStatus,
       isDemo: store.isDemo,
+      industryModule: store.industryModule,
     },
     urls: buildStoreUrls(baseUrl, store.slug, store.id),
     accounts: {
@@ -344,7 +368,7 @@ export async function getStoreDeliverySummary(
       email: process.env.RESEND_API_KEY ? "configured" : "not_configured",
     },
     checklist,
-    canActivate: !store.isDemo && checklist.every((c) => c.status !== "fail"),
+    canActivate: !store.isDemo && store.moduleInstallation?.status === "ACTIVE" && checklist.every((c) => c.status !== "fail"),
   };
 
   return { success: true, data: summary };
@@ -364,6 +388,7 @@ export async function listStoresAction(): Promise<
       planStatus: string;
       operatingStatus: StoreOperatingStatus;
       isDemo: boolean;
+      industryModule: StoreIndustryModule;
       staffCount: number;
       customerCount: number;
       createdAt: Date;
@@ -381,6 +406,7 @@ export async function listStoresAction(): Promise<
       planStatus: true,
       operatingStatus: true,
       isDemo: true,
+      industryModule: true,
       createdAt: true,
       _count: { select: { staff: true, customers: true } },
     },
@@ -397,6 +423,7 @@ export async function listStoresAction(): Promise<
       planStatus: s.planStatus,
       operatingStatus: s.operatingStatus,
       isDemo: s.isDemo,
+      industryModule: s.industryModule,
       staffCount: s._count.staff,
       customerCount: s._count.customers,
       createdAt: s.createdAt,
@@ -459,11 +486,14 @@ function buildStoreUrls(baseUrl: string, slug: string, storeId: string) {
 // ============================================================
 
 function buildDeliveryChecklist(
-  input: CreateStoreInput
+  input: CreateStoreInput,
+  industryModule: StoreIndustryModule,
 ): ChecklistItem[] {
   return [
     // ① 店舖基本資料
     { key: "store_record", label: "店舖基本資料已建立", status: "pass" },
+    { key: "module_installation", label: `${industryModule === "SPA" ? "SPA" : "蒸足"}模組已完成佈建`,
+      status: industryModule === "STEAMFOOT" ? "pass" : "fail" },
     // ② 路由入口
     { key: "route_entry", label: "路由入口 /s/[slug]/ 已可存取", status: "pass" },
     // ③ OWNER / STAFF 登入
@@ -495,7 +525,7 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
   // ① 店舖基本資料
   const store = await prisma.store.findUnique({
     where: { id: storeId },
-    include: { shopConfig: true },
+    include: { shopConfig: true, moduleInstallation: true },
   });
 
   items.push({
@@ -505,6 +535,12 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
   });
 
   if (!store) return items;
+
+  items.push({
+    key: "module-installation",
+    label: "產業模組已完成佈建",
+    status: store.moduleInstallation?.status === "ACTIVE" ? "pass" : "fail",
+  });
 
   items.push({
     key: "shop-config",
@@ -545,12 +581,20 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
   }
 
   // ④ 顧客前台主流程
-  const slotCount = await prisma.bookingSlot.count({ where: { storeId } });
-  items.push({
-    key: "booking-slots",
-    label: "預約時段已建立",
-    status: slotCount > 0 ? "pass" : "fail",
-  });
+  if (store.industryModule === "STEAMFOOT") {
+    const slotCount = await prisma.bookingSlot.count({ where: { storeId } });
+    items.push({
+      key: "booking-slots",
+      label: "蒸足預約時段已建立",
+      status: slotCount > 0 ? "pass" : "fail",
+    });
+  } else {
+    items.push({
+      key: "booking-slots",
+      label: "SPA 專屬排程已建立",
+      status: "fail",
+    });
+  }
 
   // ⑥ 第三方服務
   items.push({
@@ -573,6 +617,9 @@ function validateCreateStoreInput(input: CreateStoreInput): string[] {
   if (!input.slug?.trim()) errors.push("slug 不可為空");
   if (!/^[a-z0-9-]+$/.test(input.slug)) errors.push("slug 只能包含小寫英數字和短橫線");
   if (input.slug.length < 2 || input.slug.length > 30) errors.push("slug 長度需 2-30 字元");
+  if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "SPA") {
+    errors.push("產業模組不正確");
+  }
 
   if (!input.owner.name?.trim()) errors.push("OWNER 姓名不可為空");
   if (!input.owner.email?.trim()) errors.push("OWNER Email 不可為空");

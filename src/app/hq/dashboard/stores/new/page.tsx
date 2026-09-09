@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { createStoreAction } from "@/server/actions/store-onboarding";
-import type { CreateStoreInput, StoreDeliverySummary } from "@/types/store-onboarding";
+import type { CreateStoreInput, StoreDeliverySummary, StoreIndustryModule } from "@/types/store-onboarding";
 
 export default function NewStorePage() {
   const [pending, startTransition] = useTransition();
@@ -15,6 +15,7 @@ export default function NewStorePage() {
   const [slug, setSlug] = useState("");
   const [plan, setPlan] = useState<"EXPERIENCE" | "BASIC" | "GROWTH" | "ALLIANCE">("GROWTH");
   const [isDemo, setIsDemo] = useState(false);
+  const [industryModule, setIndustryModule] = useState<StoreIndustryModule>("STEAMFOOT");
   const [domain, setDomain] = useState("");
   const [lineDestination, setLineDestination] = useState("");
   const [dutySchedulingEnabled, setDutySchedulingEnabled] = useState(false);
@@ -32,6 +33,7 @@ export default function NewStorePage() {
       slug: slug.trim().toLowerCase(),
       plan,
       isDemo,
+      industryModule,
       domain: domain.trim() || undefined,
       lineDestination: lineDestination.trim() || undefined,
       dutySchedulingEnabled: dutySchedulingEnabled || undefined,
@@ -68,6 +70,7 @@ export default function NewStorePage() {
             <InfoRow label="Slug" value={result.store.slug} mono />
             <InfoRow label="Store ID" value={result.store.id} mono />
             <InfoRow label="方案" value={result.store.plan} />
+            <InfoRow label="模組" value={result.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"} />
             <InfoRow label="狀態" value={result.store.planStatus} />
             <InfoRow label="類型" value={result.store.isDemo ? "Demo" : "正式"} />
           </Section>
@@ -170,6 +173,12 @@ export default function NewStorePage() {
                 { value: "BASIC", label: "BASIC" },
                 { value: "GROWTH", label: "GROWTH" },
                 { value: "ALLIANCE", label: "ALLIANCE" },
+              ]}
+            />
+            <SelectField label="產業模組" value={industryModule} onChange={setIndustryModule as (v: string) => void}
+              options={[
+                { value: "STEAMFOOT", label: "蒸足門市（可立即啟用）" },
+                { value: "SPA", label: "SPA／美容美體（佈建中，尚不可啟用）" },
               ]}
             />
             <Field label="自訂網域" value={domain} onChange={setDomain} placeholder="steamfoot-xx.com" />

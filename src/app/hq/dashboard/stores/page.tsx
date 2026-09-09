@@ -63,6 +63,7 @@ export default async function StoresPage() {
               <th className="px-4 py-3 text-left font-medium text-earth-600">店名</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">Slug</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">方案</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">模組</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">方案狀態</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">營運狀態</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
@@ -80,6 +81,9 @@ export default async function StoresPage() {
                   <td className="px-4 py-3 font-medium text-earth-900">{store.name}</td>
                   <td className="px-4 py-3 text-earth-500 font-mono text-xs">{store.slug}</td>
                   <td className="px-4 py-3 text-earth-600">{store.plan}</td>
+                  <td className="px-4 py-3 text-earth-600">
+                    {store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>
                       {status.label}
