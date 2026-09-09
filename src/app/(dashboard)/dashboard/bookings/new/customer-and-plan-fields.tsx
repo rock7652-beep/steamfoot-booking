@@ -277,11 +277,16 @@ export function CustomerAndPlanFields({
             >
               {wallets.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.planName}（剩 {w.remainingSessions} 堂
+                  {w.planName}（可再預約 {w.availableSessions} 堂
                   {w.expiryDate ? `・到 ${w.expiryDate}` : "・無期限"}）
                 </option>
               ))}
             </select>
+            {wallets.filter((w) => w.id === walletId).map((w) => (
+              <p key={w.id} className="mt-1 text-xs text-earth-500">
+                剩餘 {w.remainingSessions} 堂・已預約 {w.reservedSessions} 堂
+              </p>
+            ))}
             <p className="mt-1 text-[11px] text-earth-500">
               {isMakeupSelected && packagePeople > 0
                 ? "補課券不足的人數會使用此方案；已自動選最快到期的方案。"

@@ -171,7 +171,7 @@ export function CreateBookingForm({ customerId, days, activeWallets, simplified 
           >
             {activeWallets.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.planName}（剩 {w.remainingSessions} 堂{w.expiryDate ? `・到 ${w.expiryDate}` : "・無期限"}）
+                {w.planName}（{simplified ? "可再預約" : "剩"} {w.remainingSessions} 堂{w.expiryDate ? `・到 ${w.expiryDate}` : "・無期限"}）
               </option>
             ))}
           </select>
