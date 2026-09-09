@@ -9,11 +9,11 @@
 :root{--green:#0F3B2E;--gold:#C89A3C;--cream:#F7F4EF;--ink:#18332B;--muted:#6E7773;--line:#DED8CF}
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;background:linear-gradient(180deg,#F7F4EF,#EFEAE1);color:var(--ink)}
 .wrap{max-width:760px;margin:auto;padding:28px 16px 56px}.card{background:#fff;border-radius:28px;overflow:hidden;box-shadow:0 18px 48px rgba(15,59,46,.10)}
-.hero{padding:34px 28px 26px;background:radial-gradient(circle at 88% 20%,rgba(200,154,60,.16),transparent 28%),linear-gradient(135deg,#fff,#FBF8F2);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:16px}.mark{width:72px;height:72px}.brand-name{font-size:31px;font-weight:800;letter-spacing:.08em;color:var(--green)}.brand-en{font-size:12px;letter-spacing:.32em;color:var(--gold);margin-top:8px}
-.badge{display:inline-block;margin-top:22px;padding:8px 12px;border-radius:999px;background:#F2F6F3;border:1px solid #DCE8E1;font-size:13px;font-weight:700;color:var(--green)}
+.hero{padding:22px 28px 20px;background:radial-gradient(circle at 88% 20%,rgba(200,154,60,.16),transparent 28%),linear-gradient(135deg,#fff,#FBF8F2);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:16px}.mark{width:48px;height:48px;flex-shrink:0}.brand-name{font-size:25px;font-weight:800;letter-spacing:.08em;color:var(--green)}.brand-en{font-size:12px;letter-spacing:.32em;color:var(--gold);margin-top:4px}
+.badge{display:inline-block;margin-top:14px;padding:8px 12px;border-radius:999px;background:#F2F6F3;border:1px solid #DCE8E1;font-size:13px;font-weight:700;color:var(--green)}
 h1{font-size:34px;line-height:1.25;margin:16px 0 10px;color:var(--green)}.lead{line-height:1.8;color:var(--muted);margin:0}
-form{padding:22px 28px 34px}.section{margin-top:28px;font-size:18px;font-weight:800;color:var(--green)}.field{margin:18px 0}label{display:block;font-size:15px;font-weight:700;margin-bottom:9px}.req{color:#B75C48}
+form{padding:16px 28px 34px}form>.section:first-child{margin-top:8px}.entry-note{margin:6px 0 0;font-size:14px;line-height:1.7;color:var(--muted)}.section{margin-top:28px;font-size:18px;font-weight:800;color:var(--green)}.field{margin:18px 0}label{display:block;font-size:15px;font-weight:700;margin-bottom:9px}.req{color:#B75C48}
 input,select,textarea{width:100%;padding:14px;border:1px solid var(--line);border-radius:14px;font-size:16px}textarea{min-height:100px}
 .options{display:grid;grid-template-columns:1fr 1fr;gap:10px}.opt{position:relative}.opt input{position:absolute;opacity:0}.opt label{border:1px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer;font-weight:400}.opt input:checked+label{border-color:var(--green);background:#EEF5F1;color:var(--green);font-weight:750;box-shadow:inset 0 0 0 1px var(--green)}
 .conditional{display:none;padding:18px;background:#FAF7F1;border:1px solid #E8DFD0;border-radius:18px}.conditional.show{display:block}
@@ -37,6 +37,7 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
 <span class="badge" id="entryBadge">1 分鐘門市健檢</span>
 <h1 id="entryTitle">讓蒸管家先認識你的店</h1>
 <p class="lead" id="entryLead">回答幾個簡單問題，我們會依照你的店型、規模與需求，準備更適合你的功能建議與示範內容。也可在下方選擇申請體驗帳號，由我們聯繫確認後安排開通。</p>
+<p class="entry-note" id="entryNote" hidden>確認體驗內容與期限後，提供登入方式。</p>
 </header>
 
 <form id="storeForm">
@@ -167,11 +168,12 @@ const contactWay = document.getElementById('contactWay');
 function updateTrialChoice() {
   const trial = contactWay.value === '申請體驗帳號';
   document.getElementById('trialHint').hidden = !trial;
+  document.getElementById('entryNote').hidden = !trial;
   document.title = trial ? '申請體驗帳號｜蒸管家' : '蒸管家｜1 分鐘門市健檢';
   document.getElementById('entryBadge').textContent = trial ? '體驗帳號申請' : '1 分鐘門市健檢';
   document.getElementById('entryTitle').textContent = trial ? '申請蒸管家體驗帳號' : '讓蒸管家先認識你的店';
   document.getElementById('entryLead').textContent = trial
-    ? '填寫門市資料 → 專人聯繫 → 安排開通。確認適合的體驗內容與期限後，再提供登入方式。'
+    ? '填寫資料 → 專人聯繫 → 安排體驗'
     : '回答幾個簡單問題，依照你的店型與需求，準備適合的功能建議與示範內容。';
   if (submitBtn.disabled || submissionUnconfirmed) return;
   submitBtn.textContent = trial ? '送出體驗申請' : '完成門市健檢';
