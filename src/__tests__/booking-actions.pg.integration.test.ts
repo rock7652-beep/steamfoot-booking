@@ -325,15 +325,17 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
   it("moves a production booking across both date and slot", async () => {
     const base = await createStore("cross-date-move", 2);
     const holder = await createCustomerWallet(base, "holder");
-    const sourceDate = "2026-07-20";
-    const targetDate = "2026-07-27";
+    // Match the suite's future booking day and wallet validity. A historical
+    // date fails creation before the cross-date reschedule contract is tested.
+    const sourceDate = date;
+    const targetDate = "2099-01-12";
     const sourceDateObj = new Date(`${sourceDate}T00:00:00Z`);
     const targetDateObj = new Date(`${targetDate}T00:00:00Z`);
     const source = await actions.createBooking({
       ...createInput(base, holder, "10:00"),
       bookingDate: sourceDate,
     });
-    expect(source.success).toBe(true);
+    expect(source.success, JSON.stringify(source)).toBe(true);
     if (!source.success) return;
 
     const reservedBefore = await db().walletSession.findFirstOrThrow({
