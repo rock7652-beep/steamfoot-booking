@@ -210,6 +210,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
       await tx.businessHours.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.shopConfig.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.staff.deleteMany({ where: { storeId: { in: storeIds } } });
+      await tx.pointRecord.deleteMany({ where: { customerId: { in: customerIds } } });
       await tx.customer.deleteMany({ where: { id: { in: customerIds } } });
       await tx.store.deleteMany({ where: { id: { in: storeIds } } });
     });
