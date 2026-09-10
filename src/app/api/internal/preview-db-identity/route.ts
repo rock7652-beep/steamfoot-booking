@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 
 function identity(value: string | undefined) {
   if (!value) return null;
@@ -10,17 +12,26 @@ function identity(value: string | undefined) {
   } catch { return null; }
 }
 
-/** Temporary Preview-only diagnostic; never exposes URL credentials or executes queries. */
-export function GET() {
+/** Temporary, Preview-only and secret-protected runtime connection diagnostic. */
+export async function GET(request: Request) {
   if (process.env.VERCEL_ENV !== "preview") return new NextResponse(null, { status: 404 });
+  if (request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new NextResponse(null, { status: 404 });
+  }
   const database = identity(process.env.DATABASE_URL);
   const direct = identity(process.env.DIRECT_URL);
+  const [mainQuery, spaQuery] = await Promise.all([
+    prisma.$queryRaw`SELECT 1`,
+    spaPrisma.$queryRaw`SELECT 1`,
+  ]);
   // Do not expose even non-sensitive infrastructure identifiers to callers.
   // Project members with Vercel runtime-log access perform the one-time check.
   console.info("[preview-db-identity]", {
     database,
     direct,
     refsMatch: database?.ref === direct?.ref,
+    mainQuery: mainQuery.length === 1,
+    spaQuery: spaQuery.length === 1,
   });
   return new NextResponse(null, { status: 204 });
 }
