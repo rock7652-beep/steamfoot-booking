@@ -1358,9 +1358,13 @@ export async function markCompleted(
         }
       }
 
-      // 1. 標記出席
-      await tx.booking.update({
-        where: { id: bookingId },
+      // 1. 標記出席。transaction 外的讀取可能讓兩個請求都看到 PENDING；
+      // 這個條件更新是唯一勝者閘門，避免第二個請求誤走 legacy fallback 再扣堂。
+      const statusUpdate = await tx.booking.updateMany({
+        where: {
+          id: bookingId,
+          bookingStatus: { notIn: ["COMPLETED", "CANCELLED"] },
+        },
         data: {
           bookingStatus: "COMPLETED",
           isCheckedIn: true, // 向後相容
@@ -1377,6 +1381,19 @@ export async function markCompleted(
             : {}),
         },
       });
+      if (statusUpdate.count !== 1) {
+        const current = await tx.booking.findUnique({
+          where: { id: bookingId },
+          select: { bookingStatus: true },
+        });
+        if (current?.bookingStatus === "COMPLETED") {
+          throw new AppError("VALIDATION", "已標記為出席");
+        }
+        if (current?.bookingStatus === "CANCELLED") {
+          throw new AppError("BUSINESS_RULE", "已取消的預約無法標記出席");
+        }
+        throw new AppError("CONFLICT", "預約狀態已變更，請重新整理後再試一次");
+      }
 
       // 2. 扣堂 + 寫使用紀錄（只完成已保留的 WalletSession；補課券部分不扣方案）
       // multi-person + multi-wallet：對該 booking 的全部 RESERVED row 操作；

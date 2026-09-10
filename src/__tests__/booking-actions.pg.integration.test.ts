@@ -26,6 +26,10 @@ vi.mock("@/server/services/referral-events", () => ({
   createBookingCreatedEvent: boundary.createBookingCreatedEvent,
   createBookingCompletedEvent: boundary.createBookingCompletedEvent,
 }));
+vi.mock("@/server/services/session-balance-notifications", () => ({
+  enqueueSessionBalanceNotifications: vi.fn(async () => []),
+  dispatchSessionBalanceNotifications: vi.fn(async () => undefined),
+}));
 
 const testDatabaseUrl = resolveBookingIntegrationTestDatabaseUrl(process.env);
 const describeWithPostgres = testDatabaseUrl ? describe : describe.skip;
@@ -38,7 +42,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
     if (!prisma) throw new Error("Booking integration test database is not configured");
     return prisma;
   };
-  let actions: Pick<BookingActions, "createBooking" | "updateBooking">;
+  let actions: Pick<BookingActions, "createBooking" | "updateBooking" | "markCompleted">;
   const stores = new Set<string>();
 
   const date = "2099-01-05";
@@ -603,6 +607,43 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
     expect(await db().booking.count({ where: { storeId: base.storeId } })).toBe(1);
     expect(await db().bookingSubmission.count({ where: { storeId: base.storeId } })).toBe(1);
     expect(await db().walletSession.count({ where: { walletId: holder.wallet.id, status: "RESERVED" } })).toBe(1);
+  });
+
+  it("serializes parallel markCompleted calls for one reserved session", async () => {
+    const base = await createStore("parallel-complete", 1);
+    const holder = await createCustomerWallet(base, "holder", { remaining: 1, ledger: 1 });
+    const created = await actions.createBooking(createInput(base, holder, "10:00"));
+    expect(created.success, JSON.stringify(created)).toBe(true);
+    if (!created.success) return;
+
+    const results = await startTogether(
+      () => actions.markCompleted(created.data.bookingId),
+      () => actions.markCompleted(created.data.bookingId),
+    );
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect(results.filter((result) => !result.success)).toHaveLength(1);
+
+    expect(await db().booking.findUniqueOrThrow({ where: { id: created.data.bookingId } }))
+      .toMatchObject({ bookingStatus: "COMPLETED" });
+    expect(await db().customerPlanWallet.findUniqueOrThrow({ where: { id: holder.wallet.id } }))
+      .toMatchObject({ remainingSessions: 0 });
+    expect(await db().walletSession.count({
+      where: { walletId: holder.wallet.id, bookingId: created.data.bookingId, status: "COMPLETED" },
+    })).toBe(1);
+    expect(await db().transaction.count({
+      where: { bookingId: created.data.bookingId, transactionType: "SESSION_DEDUCTION", status: "SUCCESS" },
+    })).toBe(1);
+
+    const replay = await actions.markCompleted(created.data.bookingId);
+    expect(replay).toMatchObject({ success: false, error: "已標記為出席" });
+    expect(await db().customerPlanWallet.findUniqueOrThrow({ where: { id: holder.wallet.id } }))
+      .toMatchObject({ remainingSessions: 0 });
+    expect(await db().walletSession.count({
+      where: { walletId: holder.wallet.id, bookingId: created.data.bookingId, status: "COMPLETED" },
+    })).toBe(1);
+    expect(await db().transaction.count({
+      where: { bookingId: created.data.bookingId, transactionType: "SESSION_DEDUCTION", status: "SUCCESS" },
+    })).toBe(1);
   });
 
   it("fails closed on a malformed replay snapshot without creating another booking", async () => {

@@ -3,10 +3,11 @@ import { cancelBooking } from "@/server/actions/booking";
 import { prisma } from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { SubmitButton } from "@/components/submit-button";
 import { getStoreContext } from "@/lib/store-context";
 import { FormErrorToast } from "@/components/form-error-toast";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
+import { CancelBookingForm } from "./cancel-booking-form";
+import type { ActionResult } from "@/types";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -64,13 +65,12 @@ export default async function CancelBookingPage({ params }: PageProps) {
   const hoursUntilBooking = (bookingDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
   const canCancel = hoursUntilBooking >= 12;
 
-  async function doCancelAction() {
+  async function doCancelAction(
+    _previous: ActionResult<void> | null,
+    _formData: FormData,
+  ): Promise<ActionResult<void>> {
     "use server";
-    const result = await cancelBooking(id, "顧客自行取消");
-    if (!result.success) {
-      redirect(`${prefix}/my-bookings/${id}/cancel?error=${encodeURIComponent(result.error || "取消失敗")}`);
-    }
-    redirect(`${prefix}/my-bookings`);
+    return cancelBooking(id, "顧客自行取消");
   }
 
   return (
@@ -99,9 +99,7 @@ export default async function CancelBookingPage({ params }: PageProps) {
               取消後課程堂數不會扣除，但請盡量提早通知以便安排其他顧客。
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <form action={doCancelAction}>
-                <SubmitButton label="確認取消" pendingLabel="取消中..." className="w-full bg-red-600 text-white hover:bg-red-700 sm:w-auto" />
-              </form>
+              <CancelBookingForm action={doCancelAction} destination={`${prefix}/my-bookings`} />
               <Link
                 href={`${prefix}/my-bookings`}
                 className="flex min-h-[48px] items-center justify-center rounded-xl border border-earth-300 px-6 text-base font-semibold text-earth-800 hover:bg-earth-50"

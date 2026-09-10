@@ -43,7 +43,7 @@ jobs:
       - run: npm ci
       - name: Create schema in disposable database
         run: npx prisma db push --skip-generate
-      - name: Run all 31 PostgreSQL scenarios
+      - name: Run all 32 PostgreSQL scenarios
         run: >-
           npx vitest run
           src/__tests__/booking-actions.pg.integration.test.ts
@@ -55,8 +55,8 @@ jobs:
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             const r = JSON.parse(readFileSync("booking-pg-results.json", "utf8"));
-            if (!r.success || r.numTotalTests !== 31 || r.numPassedTests !== 31 || r.numPendingTests !== 0) {
-              throw new Error("Expected all 31 database scenarios to pass without skips");
+            if (!r.success || r.numTotalTests !== 32 || r.numPassedTests !== 32 || r.numPendingTests !== 0) {
+              throw new Error("Expected all 32 database scenarios to pass without skips");
             }
           '
       - uses: actions/upload-artifact@v4
