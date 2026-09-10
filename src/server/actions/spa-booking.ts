@@ -8,7 +8,7 @@ import { handleActionError, AppError } from "@/lib/errors";
 import { requireSpaStore } from "@/lib/industry-module-server";
 import { requireWritablePermission } from "@/lib/permissions";
 import { spaPrisma } from "@/lib/spa-db";
-import { resolveWriteStoreId } from "@/lib/store";
+import { getActiveStoreForRead } from "@/lib/store";
 import { applicableLocations, spaEndTime, staffAvailable, validSpaDate } from "@/lib/spa-scheduling";
 import type { ActionResult } from "@/types";
 
@@ -28,7 +28,10 @@ const active = ["PENDING", "CONFIRMED"] as const;
 
 async function authorizedStore(permission: "booking.create" | "booking.update") {
   const user = await requireWritablePermission(permission);
-  const storeId = await resolveWriteStoreId(user);
+  // SPA routes are store-slug scoped; server actions must resolve the same
+  // authorised route/cookie context as the schedule page, not only JWT storeId.
+  const storeId = await getActiveStoreForRead(user);
+  if (!storeId) throw new AppError("UNAUTHORIZED", "缺少目前店舖，請重新開啟 SPA 排程頁");
   await requireSpaStore(storeId);
   const installation = await prisma.storeModuleInstallation.findUnique({ where: { storeId }, select: { status: true } });
   if (installation?.status !== "ACTIVE") throw new AppError("FORBIDDEN", "此店尚未完成服務模組設定");
