@@ -1,3 +1,4 @@
+import {SpaPackagesManager} from "./_components/spa-packages-manager";
 import { spaPrisma } from "@/lib/spa-db";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getSpaServiceStaff } from "@/server/queries/spa-service-staff";
@@ -38,6 +39,11 @@ export default async function PlansPage() {
   const spaAssignments = isSpa && plansStoreId ? await getSpaServiceStaff(plansStoreId) : {people:[],services:[]};
 
   const spaLocations = isSpa && plansStoreId ? await spaPrisma.spaServiceLocation.findMany({where:{storeId:plansStoreId},select:{id:true,name:true,isActive:true}}) : [];
+
+  if(isSpa && plansStoreId){
+    const packages=await spaPrisma.spaPackage.findMany({where:{storeId:plansStoreId},orderBy:{name:"asc"}});
+    return <PageShell><PageHeader title="方案管理" subtitle="設定服務、人員與次數方案"/><SpaSkillsManager services={spaAssignments.services} people={spaAssignments.people} locations={spaLocations} canManage={canManage}/><SpaPackagesManager packages={packages.map(p=>({...p,price:Number(p.price)}))} services={spaAssignments.services} canManage={canManage}/></PageShell>;
+  }
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。

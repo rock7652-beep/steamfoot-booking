@@ -37,6 +37,8 @@ model SpaBooking {
   status              SpaBookingStatus @default(CONFIRMED)
   serviceNameSnapshot String
   totalPriceSnapshot  Decimal          @db.Decimal(10, 0)
+  partyGroupId        String?
+  guestIndex          Int @default(1)
   requestKey          String?
   notes               String?
   createdAt           DateTime         @default(now())
@@ -183,4 +185,64 @@ model SpaReceipt {
 
   @@unique([bookingId, storeId])
   @@index([storeId, paidAt])
+}
+
+model SpaPackage {
+  id String @id @default(cuid())
+  storeId String
+  treatmentId String
+  name String
+  price Decimal @db.Decimal(10,0)
+  uses Int
+  validityDays Int
+  isActive Boolean @default(true)
+  updatedAt DateTime @updatedAt
+  @@unique([id,storeId])
+  @@index([storeId,isActive])
+}
+
+model SpaCreditSale {
+  id String @id @default(cuid())
+  storeId String
+  customerId String
+  requestKey String
+  fingerprint String
+  kind String
+  name String
+  amount Decimal @db.Decimal(10,0)
+  paymentMethod String
+  sourceId String
+  recordedByUserId String
+  createdAt DateTime @default(now())
+  @@unique([storeId,requestKey])
+  @@unique([id,storeId])
+  @@index([storeId,customerId,createdAt])
+}
+
+model SpaRefund {
+  id String @id @default(cuid())
+  storeId String
+  customerId String
+  saleId String?
+  receiptId String?
+  amount Decimal @db.Decimal(10,0)
+  paymentMethod String
+  uses Int?
+  reason String
+  recordedByUserId String
+  createdAt DateTime @default(now())
+  @@unique([storeId,saleId])
+  @@unique([storeId,receiptId])
+  @@index([storeId,customerId,createdAt])
+}
+
+model SpaBookingGroup {
+  id String @id @default(cuid())
+  storeId String
+  customerId String
+  requestKey String
+  fingerprint String
+  createdAt DateTime @default(now())
+  @@unique([storeId,requestKey])
+  @@unique([id,storeId])
 }

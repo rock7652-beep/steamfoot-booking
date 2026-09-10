@@ -1,17 +1,18 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { completeSpaBooking, getSpaCheckoutOptions } from "@/server/actions/spa-checkout";
+import { completeSpaBooking, completeSpaBookingGroup, getSpaCheckoutOptions } from "@/server/actions/spa-checkout";
 import type { SpaScheduleBooking } from "@/server/queries/spa-schedule";
 import type { SpaCreditOptions } from "@/server/spa-checkout-credit";
 
 type Method = "CASH" | "CARD" | "STORED_VALUE" | "ENTITLEMENT";
-export function SpaCheckoutPanel({ booking, customerName, onClose, onCompleted }: { booking: SpaScheduleBooking; customerName: string; onClose: () => void; onCompleted: () => void }) {
+export function SpaCheckoutPanel({ booking, groupBookings = [], customerName, onClose, onCompleted }: { booking: SpaScheduleBooking; groupBookings?:SpaScheduleBooking[]; customerName: string; onClose: () => void; onCompleted: () => void }) {
+ const [scope,setScope]=useState<"PERSON"|"GROUP">("PERSON");
  const [method, setMethod] = useState<Method>("CASH");
  const [sourceId, setSourceId] = useState("");
  const [confirmed, setConfirmed] = useState(false);
  const [error, setError] = useState("");
- const [options, setOptions] = useState<SpaCreditOptions | null>(null);
+ const [options, setOptions] = useState<(SpaCreditOptions & {groupMembers?:{id:string;guestIndex?:number;status:string;serviceName:string;totalPrice:number;updatedAt:string;bookingDate?:string;startTime:string}[]}) | null>(null);
  const [optionsError, setOptionsError] = useState("");
  const [revision, setRevision] = useState(0);
  const [pending, start] = useTransition();
@@ -24,6 +25,8 @@ export function SpaCheckoutPanel({ booking, customerName, onClose, onCompleted }
   }).catch(() => { if (active) setOptionsError("無法讀取方案與儲值，請重試。"); });
   return () => { active = false; };
  }, [booking.id, revision]);
+ const unpaid=(options?.groupMembers??groupBookings).filter(b=>["PENDING","CONFIRMED"].includes(b.status));
+ const chargeAmount=scope==="GROUP"?unpaid.reduce((n,b)=>n+b.totalPrice,0):booking.totalPrice;
  const credit = method === "STORED_VALUE" || method === "ENTITLEMENT";
  const effectiveSourceId = sourceId || (method === "STORED_VALUE" ? options?.wallets[0]?.id : options?.entitlements.length === 1 ? options.entitlements[0].id : "") || "";
  const wallet = options?.wallets.find(w => w.id === effectiveSourceId);
@@ -38,17 +41,18 @@ export function SpaCheckoutPanel({ booking, customerName, onClose, onCompleted }
    e.preventDefault(); if (!confirmed || !valid) return; setError("");
    start(async () => {
     try {
-     const r = await completeSpaBooking({ bookingId: booking.id, expectedUpdatedAt: booking.updatedAt, expectedAmount: booking.totalPrice, paymentMethod: method, ...(credit ? { sourceId: effectiveSourceId } : {}) });
+     const r = scope==="GROUP"?await completeSpaBookingGroup({groupId:booking.partyGroupId!,bookings:unpaid.map(b=>({bookingId:b.id,expectedUpdatedAt:b.updatedAt,expectedAmount:b.totalPrice,paymentMethod:method}))}):await completeSpaBooking({ bookingId: booking.id, expectedUpdatedAt: booking.updatedAt, expectedAmount: booking.totalPrice, paymentMethod: method, ...(credit ? { sourceId: effectiveSourceId } : {}) });
      if (!r.success) { setError(r.error); setConfirmed(false); setRevision(v=>v+1); return; }
      onCompleted();
     } catch { setError("連線失敗，請重試；同筆預約不會重複入帳。"); }
    });
   }}>
    <header className="flex justify-between"><h2 id="spa-checkout-title" className="text-xl font-bold">完成並結帳</h2><button type="button" disabled={pending} onClick={onClose}>關閉</button></header>
-   <section className="rounded-xl bg-earth-50 p-4"><p className="font-semibold">{customerName}</p><p>{booking.serviceName}</p><p>{booking.startTime}–{booking.endTime}</p><p className="mt-3 text-2xl font-bold">服務金額 NT${booking.totalPrice.toLocaleString()}</p></section>
+   <section className="rounded-xl bg-earth-50 p-4"><p className="font-semibold">{customerName}</p><p>{booking.serviceName}</p><p>{booking.startTime}–{booking.endTime}</p><p className="mt-3 text-2xl font-bold">服務金額 NT${chargeAmount.toLocaleString()}</p></section>
+   {booking.partyGroupId&&options&&unpaid.length>1&&<section className="space-y-2"><p className="font-semibold">結帳範圍</p><div className="flex gap-3"><button type="button" disabled={pending} onClick={()=>{setScope("PERSON");setConfirmed(false);}} className={`rounded-lg border p-3 ${scope==="PERSON"?"bg-earth-100":""}`}>只結這位（第 {booking.guestIndex} 位）</button><button type="button" disabled={pending} onClick={()=>{setScope("GROUP");choose("CASH");}} className={`rounded-lg border p-3 ${scope==="GROUP"?"bg-earth-100":""}`}>整組未結帳（{unpaid.length} 位）</button></div>{scope==="GROUP"&&<div className="rounded-lg bg-earth-50 p-3 text-sm">{unpaid.map(b=><p key={b.id}>第 {b.guestIndex} 位 · {b.startTime} · {b.serviceName} · NT${b.totalPrice.toLocaleString()}</p>)}<p>整組現金／刷卡一次完成；使用各自方案或儲值，請逐位結帳。</p></div>}</section>}
    <fieldset disabled={pending} className="space-y-3">
     <legend className="mb-2 font-semibold">付款方式</legend>
-    <div className="grid grid-cols-2 gap-3">{([["CASH", "現金"], ["CARD", "刷卡"], ["ENTITLEMENT", "方案扣次"], ["STORED_VALUE", "儲值扣款"]] as const).map(([value, label]) => <label key={value} className={`rounded-lg border p-3 ${method === value ? "border-earth-700 bg-earth-50" : "border-earth-200"}`}><input type="radio" name="paymentMethod" checked={method === value} onChange={() => choose(value)} /> {label}</label>)}</div>
+    <div className="grid grid-cols-2 gap-3">{([["CASH", "現金"], ["CARD", "刷卡"], ["ENTITLEMENT", "方案扣次"], ["STORED_VALUE", "儲值扣款"]] as const).filter(([value])=>scope!=="GROUP"||value==="CASH"||value==="CARD").map(([value, label]) => <label key={value} className={`rounded-lg border p-3 ${method === value ? "border-earth-700 bg-earth-50" : "border-earth-200"}`}><input type="radio" name="paymentMethod" checked={method === value} onChange={() => choose(value)} /> {label}</label>)}</div>
     {credit && !options && !optionsError && <p role="status">讀取顧客方案與餘額中…</p>}
     {credit && optionsError && <p role="alert">{optionsError} <button type="button" className="underline" onClick={() => setRevision(v => v + 1)}>重新讀取</button></p>}
     {method === "ENTITLEMENT" && options && <>

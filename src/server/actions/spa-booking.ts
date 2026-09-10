@@ -1,4 +1,5 @@
 "use server";
+import type {Prisma} from "../../../generated/spa-client";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -65,19 +66,20 @@ function actionError(error: unknown): ActionResult<{ bookingId: string }> {
   return handleActionError(error);
 }
 
-async function saveBooking(storeId: string, data: CreateSpaBookingInput, edit?: UpdateSpaBookingInput) {
+async function saveBooking(storeId: string, data: CreateSpaBookingInput, edit?: UpdateSpaBookingInput, transaction?: Prisma.TransactionClient, group?:{id:string;index:number}) {
   const [customer, staff] = await Promise.all([
     prisma.customer.findFirst({ where: { id: data.customerId, storeId }, select: { id: true } }),
     prisma.staff.findFirst({ where: { id: data.serviceStaffId, storeId, status: "ACTIVE" }, select: { id: true } }),
   ]);
   if (!customer || !staff) throw new AppError("VALIDATION", "顧客或服務人員不屬於目前店家");
-  return spaPrisma.$transaction(async tx => {
+  const run = async (tx:Prisma.TransactionClient) => {
     // One store lock also serializes request-key retries and moves between resources.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
     const existing = edit ? await tx.spaBooking.findFirst({ where: { id: edit.bookingId, storeId } }) : null;
     if (edit && (!existing || !active.includes(existing.status as typeof active[number]) || existing.updatedAt.toISOString() !== edit.expectedUpdatedAt)) {
       throw new AppError("CONFLICT", "預約已變更或無法修改，請關閉面板後重新開啟");
     }
+    if(edit && existing?.partyGroupId && existing.customerId!==data.customerId)throw new AppError("VALIDATION","同行預約的主要聯絡人不能個別更換");
     if (!edit) {
       const duplicate = await tx.spaBooking.findFirst({ where: { storeId, requestKey: data.requestKey } });
       if (duplicate) return { id: duplicate.id };
@@ -141,14 +143,15 @@ async function saveBooking(storeId: string, data: CreateSpaBookingInput, edit?: 
     // independent SPA booking first, then its immutable item snapshots in the
     // same transaction.
     const booking = await tx.spaBooking.create({
-      data: { ...values, storeId, requestKey: data.requestKey },
+      data: { ...values, storeId, requestKey: data.requestKey, ...(group?{partyGroupId:group.id,guestIndex:group.index}:{}) },
       select: { id: true },
     });
     await tx.spaBookingItem.createMany({
       data: itemRows.map(item => ({ ...item, bookingId: booking.id })),
     });
     return booking;
-  }, { timeout: 15000 });
+  };
+  return transaction?run(transaction):spaPrisma.$transaction(run,{timeout:15000});
 }
 
 export async function createSpaBookingAction(input: CreateSpaBookingInput): Promise<ActionResult<{ bookingId: string }>> {
@@ -189,4 +192,21 @@ export async function cancelSpaBookingAction(input: z.infer<typeof cancelSchema>
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: parsed.data.bookingId } };
   } catch (e) { return actionError(e); }
+}
+
+const groupSchema=z.object({requestKey:z.string().uuid(),customerId:z.string().min(1),guests:z.array(inputSchema).min(2).max(3)}).refine(d=>d.guests.every(g=>g.customerId===d.customerId&&g.bookingDate===d.guests[0].bookingDate),"同行預約須使用同一主要聯絡人與日期").refine(d=>new Set(d.guests.map(g=>g.requestKey)).size===d.guests.length,"同行預約不可重複");
+export async function createSpaGroupBookingAction(input:z.infer<typeof groupSchema>){
+ try{
+  const d=groupSchema.parse(input),storeId=await authorizedStore("booking.create"),fingerprint=JSON.stringify(d);
+  const group=await spaPrisma.$transaction(async tx=>{
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`},0))`;
+   const previous=await tx.spaBookingGroup.findUnique({where:{storeId_requestKey:{storeId,requestKey:d.requestKey}}});
+   if(previous){if(previous.fingerprint!==fingerprint)throw new AppError("CONFLICT","同行預約內容已變更，請重新開啟");return previous;}
+   if(await tx.spaBooking.count({where:{storeId,requestKey:{in:d.guests.map(g=>g.requestKey)}}}))throw new AppError("CONFLICT","其中一位已有預約紀錄，請先重新確認");
+   const created=await tx.spaBookingGroup.create({data:{storeId,customerId:d.customerId,requestKey:d.requestKey,fingerprint}});
+   for(let i=0;i<d.guests.length;i++)await saveBooking(storeId,d.guests[i],undefined,tx,{id:created.id,index:i+1});
+   return created;
+  },{timeout:25000});
+  revalidatePath("/dashboard/spa-schedule");return{success:true as const,data:{groupId:group.id}};
+ }catch(e){return actionError(e);}
 }

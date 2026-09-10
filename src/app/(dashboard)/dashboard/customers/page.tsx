@@ -1,3 +1,5 @@
+import {getStoreIndustryModule} from "@/lib/industry-module-server";
+import {SpaCustomers} from "./_components/spa-customers";
 import { listCustomersForUser } from "@/server/queries/customer";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCachedPlans } from "@/lib/query-cache";
@@ -74,6 +76,11 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const customersStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const customersUser = userForViewContext(user, storeViewContext);
+  if(customersStoreId && await getStoreIndustryModule(customersStoreId)==="spa") {
+    const canSell=!isViewMode && await checkPermission(user.role,user.staffId,"wallet.create") && await checkPermission(user.role,user.staffId,"transaction.create");
+    const canRefund=!isViewMode && await checkPermission(user.role,user.staffId,"transaction.refund");
+    return <SpaCustomers storeId={customersStoreId} search={params.search??""} canSell={canSell} canRefund={canRefund}/>;
+  }
   const logCtx = {
     page: "customers" as const,
     activeStoreId: customersStoreId,
