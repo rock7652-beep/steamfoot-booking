@@ -30,6 +30,7 @@ model SpaBooking {
   storeId             String
   customerId          String
   serviceStaffId      String
+  serviceLocationId   String?
   bookingDate         DateTime         @db.Date
   startTime           String
   endTime             String
@@ -41,11 +42,13 @@ model SpaBooking {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   items               SpaBookingItem[]
+  serviceLocation     SpaServiceLocation? @relation(fields: [serviceLocationId, storeId], references: [id, storeId])
 
   @@unique([storeId, requestKey])
   @@unique([id, storeId])
   @@index([storeId, bookingDate, startTime])
   @@index([storeId, serviceStaffId, bookingDate])
+  @@index([storeId, serviceLocationId, bookingDate])
   @@index([storeId, customerId, bookingDate])
 }
 
@@ -77,10 +80,34 @@ model SpaTreatment {
   isActive       Boolean  @default(true)
   sortOrder      Int      @default(0)
   skills         SpaTreatmentSkill[]
+  serviceLocations SpaTreatmentServiceLocation[]
 
   @@unique([id, storeId])
   @@unique([storeId, name, variantLabel])
   @@index([storeId, publicVisible, isActive, sortOrder])
+}
+
+model SpaServiceLocation {
+  id        String @id @default(cuid())
+  storeId   String
+  name      String
+  isActive  Boolean @default(true)
+  sortOrder Int @default(0)
+  bookings  SpaBooking[]
+  treatments SpaTreatmentServiceLocation[]
+  @@unique([id, storeId])
+  @@unique([storeId, name])
+  @@index([storeId, isActive, sortOrder])
+}
+
+model SpaTreatmentServiceLocation {
+  storeId String
+  treatmentId String
+  serviceLocationId String
+  treatment SpaTreatment @relation(fields: [treatmentId, storeId], references: [id, storeId], onDelete: Cascade)
+  serviceLocation SpaServiceLocation @relation(fields: [serviceLocationId, storeId], references: [id, storeId], onDelete: Cascade)
+  @@id([treatmentId, serviceLocationId])
+  @@index([storeId, serviceLocationId])
 }
 
 model SpaSkill {
