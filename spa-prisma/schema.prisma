@@ -42,6 +42,7 @@ model SpaBooking {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   items               SpaBookingItem[]
+  receipt             SpaReceipt?
   serviceLocation     SpaServiceLocation? @relation(fields: [serviceLocationId, storeId], references: [id, storeId])
 
   @@unique([storeId, requestKey])
@@ -164,4 +165,19 @@ model SpaStaffAvailabilityException {
   endTime String?
   reason String?
   @@index([storeId, staffId, date])
+}
+
+model SpaReceipt {
+  id String @id @default(cuid())
+  storeId String
+  bookingId String
+  amount Decimal @db.Decimal(10, 0)
+  currency String @default("TWD")
+  paymentMethod String
+  recordedByUserId String
+  paidAt DateTime @default(now())
+  booking SpaBooking @relation(fields: [bookingId, storeId], references: [id, storeId], onDelete: Restrict)
+
+  @@unique([bookingId, storeId])
+  @@index([storeId, paidAt])
 }

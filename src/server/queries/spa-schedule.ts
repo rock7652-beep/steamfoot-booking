@@ -16,6 +16,7 @@ export type SpaScheduleBooking = {
   notes: string;
   treatmentIds: string[];
   updatedAt: string;
+  receipt?: {id:string;amount:number;paymentMethod:string;paidAt:string}|null;
 };
 
 /** SPA schedule read boundary. Never import the legacy Booking query in this module. */
@@ -27,10 +28,12 @@ export async function getSpaScheduleForDay(storeId: string, date: string): Promi
       id: true, customerId: true, serviceStaffId: true, startTime: true, endTime: true,
       status: true, serviceNameSnapshot: true, totalPriceSnapshot: true,
       serviceLocationId: true, notes: true, updatedAt: true,
+      receipt: {select:{id:true,amount:true,paymentMethod:true,paidAt:true}},
       items: { orderBy: { sortOrder: "asc" }, select: { treatmentId: true } },
     },
   });
   return rows.map((row) => ({
+    receipt:row.receipt?{id:row.receipt.id,amount:Number(row.receipt.amount),paymentMethod:row.receipt.paymentMethod,paidAt:row.receipt.paidAt.toISOString()}:null,
     id: row.id, customerId: row.customerId, serviceStaffId: row.serviceStaffId,
     startTime: row.startTime, endTime: row.endTime, status: row.status,
     serviceName: row.serviceNameSnapshot, totalPrice: Number(row.totalPriceSnapshot),

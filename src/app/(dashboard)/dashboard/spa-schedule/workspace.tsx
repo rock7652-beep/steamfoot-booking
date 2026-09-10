@@ -1,5 +1,6 @@
 "use client";
 
+import { SpaCheckoutPanel } from "./checkout-panel";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getSpaAvailableProviders } from "@/server/actions/spa-service-staff";
@@ -13,16 +14,17 @@ import type { SpaScheduleBooking } from "@/server/queries/spa-schedule";
 type Named = { id: string; name: string };
 type Treatment = Named & { price: number; serviceMinutes: number; bufferMinutes: number; locationIds: string[] };
 type Props = { date: string; bookings: SpaScheduleBooking[]; staff: (Named & {colorCode?:string})[]; customers: (Named & { phone: string })[];
-  treatments: Treatment[]; locations: Named[]; canCreate: boolean; canUpdate: boolean };
+  treatments: Treatment[]; locations: Named[]; canCreate: boolean; canUpdate: boolean;canCheckout:boolean };
 const statusNames: Record<string, string> = { PENDING: "待確認", CONFIRMED: "已預約", CANCELLED: "已取消", COMPLETED: "已完成", NO_SHOW: "未到" };
 const statusStyles:Record<string,string>={PENDING:"border-amber-300 bg-amber-50 text-amber-950",CONFIRMED:"border-teal-300 bg-teal-50 text-teal-950",COMPLETED:"border-slate-300 bg-slate-100 text-slate-800"};
 const inputClass = "mt-1 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 
 export function SpaScheduleWorkspace(props: Props) {
-  const { date, bookings, staff, customers, treatments, locations, canCreate, canUpdate } = props;
+  const { date, bookings, staff, customers, treatments, locations, canCreate, canUpdate,canCheckout } = props;
   const router = useRouter();
   const [interval, setIntervalMinutes] = useState<15 | 30>(30);
   const [clock, setClock] = useState<Date | null>(null);
+  const [checkout,setCheckout]=useState<SpaScheduleBooking|null>(null);
   const [draft, setDraft] = useState<CreateSpaBookingInput | null>(null);
   const [editing, setEditing] = useState<SpaScheduleBooking | null>(null);
   const [step, setStep] = useState(0);
@@ -119,10 +121,12 @@ export function SpaScheduleWorkspace(props: Props) {
     <details className="mt-4 rounded-xl border border-earth-200 bg-white p-4"><summary className="cursor-pointer">當日預約紀錄（{bookings.length}）</summary>
       {bookings.map(b => <button key={b.id} onClick={() => openEdit(b)} className="flex w-full justify-between gap-3 border-b py-3 text-left text-sm"><span>{b.startTime}–{b.endTime} {customers.find(c => c.id === b.customerId)?.name ?? "顧客"} · {b.serviceName}<small className="block text-earth-500">{staff.find(p=>p.id===b.serviceStaffId)?.name??"服務人員"} · {locations.find(l=>l.id===b.serviceLocationId)?.name??"待安排位置"}</small></span><span>{statusNames[b.status]}</span></button>)}
     </details>
+    {checkout&&<SpaCheckoutPanel key={checkout.id} booking={checkout} customerName={customers.find(c=>c.id===checkout.customerId)?.name??"顧客"} onClose={()=>setCheckout(null)} onCompleted={()=>{setCheckout(null);setNotice("已完成服務並記錄收款。");router.refresh();}}/>}
     {draft && <RightSheet open onClose={() => { if (!pending) setDraft(null); }} width={520} labelledById="spa-panel-title">
       <header className="flex items-center justify-between border-b p-5"><h2 id="spa-panel-title" className="text-xl font-bold">{editing ? "預約詳情" : "新增預約"}</h2><button disabled={pending} onClick={() => setDraft(null)} aria-label="關閉預約面板">✕</button></header>
       <div className="flex-1 overflow-y-auto p-5">
         {editing && <p className="mb-4 text-sm">{statusNames[editing.status]}{!editing.serviceLocationId && " · 待安排位置"}</p>}
+        {editing?.receipt&&<div className="mb-4 rounded-lg bg-green-50 p-3 text-sm">已收款 NT${editing.receipt.amount.toLocaleString()} · {editing.receipt.paymentMethod==="CASH"?"現金":"刷卡"}<p>收款時間：{new Intl.DateTimeFormat("zh-TW",{timeZone:"Asia/Taipei",dateStyle:"short",timeStyle:"short"}).format(new Date(editing.receipt.paidAt))}</p><p className="break-all text-xs">收款編號：{editing.receipt.id}</p></div>}
         <nav aria-label="預約步驟" className="mb-5 grid grid-cols-4 gap-1">{["服務", "時間", "顧客", "確認"].map((label, i) => <button key={label} onClick={() => setStep(i)} className={`rounded-lg py-2 text-sm ${i === step ? "bg-earth-800 text-white" : "bg-earth-50"}`}>{i + 1} {label}</button>)}</nav>
         <fieldset disabled={pending || !editable}>
           {step === 0 && <div className="space-y-2"><h3 className="font-semibold">選擇服務</h3>{!treatments.length&&<Link href="/dashboard/plans" className="block rounded-lg bg-amber-50 p-3 underline">尚無啟用服務，前往方案管理 →</Link>}{treatments.map(t => <label key={t.id} className="flex items-center gap-3 rounded-lg border border-earth-200 p-3"><input type="checkbox" checked={draft.treatmentIds.includes(t.id)} onChange={e => setDraft({ ...draft, serviceLocationId: undefined, treatmentIds: e.target.checked ? [...draft.treatmentIds, t.id] : draft.treatmentIds.filter(id => id !== t.id) })} /><span className="flex-1">{t.name}<small className="block text-earth-500">{t.serviceMinutes} 分鐘{t.bufferMinutes > 0 && `＋緩衝 ${t.bufferMinutes} 分鐘`}</small></span><span>${t.price.toLocaleString()}</span></label>)}</div>}
@@ -145,6 +149,7 @@ export function SpaScheduleWorkspace(props: Props) {
         {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       </div>
       <footer className="flex flex-wrap items-center gap-2 border-t p-5">
+        {editing&&editable&&canCheckout&&<button disabled={pending} className="rounded-lg bg-teal-800 px-3 py-2 text-white" onClick={()=>{setCheckout(editing);setDraft(null);}}>完成並結帳</button>}
         {editing && editable && <button disabled={pending} onClick={() => { if (window.confirm("確認取消這筆預約？取消後將釋放人員與服務位置時段。")) submit(true); }} className="mr-auto rounded-lg border border-red-200 px-3 py-2 text-red-700">取消預約</button>}
         {step > 0 && <button disabled={pending} onClick={() => setStep(step - 1)} className="rounded-lg border px-3 py-2">上一步</button>}
         {step < 3 ? <button onClick={() => setStep(step + 1)} className="rounded-lg bg-earth-800 px-4 py-2 text-white">下一步</button>
