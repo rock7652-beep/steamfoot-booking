@@ -630,6 +630,15 @@ export default function DashboardShell({
   const isHqRoute = rawPathname.startsWith("/hq");
   const isStoreAdminRoute = /^\/s\/[^/]+\/admin(\/|$)/.test(rawPathname);
 
+  const spaNavigation = useMemo<NavItem[]>(() => {
+    const items: NavItem[] = [...STORE_ADMIN_NAV.map(item=>item.href === "/dashboard/bookings" ? {...item,href:"/dashboard/spa-schedule"}:item),
+      {href:"/dashboard/spa-staff",label:"人員管理",permission:"duty.manage",ownerOnly:true,icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0116 0v2"/></svg>},
+      {href:"/dashboard/spa-resources",label:"服務位置",permission:"business_hours.manage",icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg>},
+    ];
+    const order=["/dashboard","/dashboard/spa-schedule","/dashboard/customers","/dashboard/plans","/dashboard/spa-staff","/dashboard/spa-resources","/dashboard/revenue","/dashboard/reports","/dashboard/growth","/dashboard/digital-butler/leads","/dashboard/settings"];
+    return items.sort((a,b)=>order.indexOf(a.href)-order.indexOf(b.href));
+  },[]);
+
   const navGroupsToRender: NavGroup[] = useMemo(() => {
     if (isHqRoute) return NAV_GROUPS;
     if (isStoreAdminRoute) {
@@ -639,7 +648,7 @@ export default function DashboardShell({
           label: "",
           defaultOpen: true,
           icon: <></>,
-          items: industryModule === "spa" ? [...STORE_ADMIN_NAV.map((item) => item.href === "/dashboard/bookings" ? { ...item, href: "/dashboard/spa-schedule" } : item), { href: "/dashboard/spa-staff", label: "人員管理", permission: "duty.manage", ownerOnly: true, icon: <span aria-hidden="true">♙</span> }, { href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <span aria-hidden="true">▦</span> }] : STORE_ADMIN_NAV,
+          items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV,
         },
       ];
     }
@@ -651,10 +660,10 @@ export default function DashboardShell({
         label: "",
         defaultOpen: true,
         icon: <></>,
-        items: industryModule === "spa" ? [...STORE_ADMIN_NAV.map((item) => item.href === "/dashboard/bookings" ? { ...item, href: "/dashboard/spa-schedule" } : item), { href: "/dashboard/spa-staff", label: "人員管理", permission: "duty.manage", ownerOnly: true, icon: <span aria-hidden="true">♙</span> }, { href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <span aria-hidden="true">▦</span> }] : STORE_ADMIN_NAV,
+        items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV,
       },
     ];
-  }, [isHqRoute, isStoreAdminRoute, isAdmin, industryModule]);
+  }, [isHqRoute, isStoreAdminRoute, isAdmin, industryModule, spaNavigation]);
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {

@@ -25,7 +25,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
   const date = requestedDate && validSpaDate(requestedDate) ? requestedDate : toLocalDateStr();
   const [bookings, staff, customers, treatments, locations, canCreate, canUpdate] = await Promise.all([
     getSpaScheduleForDay(storeId, date),
-    prisma.staff.findMany({ where: { storeId, status: "ACTIVE" }, select: { id: true, displayName: true }, orderBy: { displayName: "asc" } }),
+    prisma.staff.findMany({ where: { storeId, status: "ACTIVE" }, select: { id: true, displayName: true, colorCode: true }, orderBy: { displayName: "asc" } }),
     prisma.customer.findMany({ where: { storeId }, select: { id: true, name: true, phone: true }, orderBy: { name: "asc" } }),
     spaPrisma.spaTreatment.findMany({ where: { storeId, isActive: true }, include: { serviceLocations: true }, orderBy: { sortOrder: "asc" } }),
     spaPrisma.spaServiceLocation.findMany({ where: { storeId, isActive: true }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }),
@@ -33,7 +33,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
     checkPermission(user.role, user.staffId, "booking.update"),
   ]);
   return <PageShell className="px-4 py-6">
-    <SpaScheduleWorkspace key={date} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName }))} customers={customers}
+    <SpaScheduleWorkspace key={date} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}
       locations={locations} canCreate={canCreate} canUpdate={canUpdate}
       treatments={treatments.map(t => ({ id: t.id, name: t.name, price: Number(t.price), serviceMinutes: t.serviceMinutes,
         bufferMinutes: t.bufferMinutes, locationIds: t.serviceLocations.map(l => l.serviceLocationId) }))} />

@@ -11,7 +11,7 @@ import type { SpaScheduleBooking } from "@/server/queries/spa-schedule";
 
 type Named = { id: string; name: string };
 type Treatment = Named & { price: number; serviceMinutes: number; bufferMinutes: number; locationIds: string[] };
-type Props = { date: string; bookings: SpaScheduleBooking[]; staff: Named[]; customers: (Named & { phone: string })[];
+type Props = { date: string; bookings: SpaScheduleBooking[]; staff: (Named & {colorCode?:string})[]; customers: (Named & { phone: string })[];
   treatments: Treatment[]; locations: Named[]; canCreate: boolean; canUpdate: boolean };
 const statusNames: Record<string, string> = { PENDING: "待確認", CONFIRMED: "已預約", CANCELLED: "已取消", COMPLETED: "已完成", NO_SHOW: "未到" };
 const inputClass = "mt-1 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
@@ -97,7 +97,7 @@ export function SpaScheduleWorkspace(props: Props) {
     {!staff.length ? <p className="rounded-xl border p-8">尚無可安排的服務人員，請先完成人員設定。</p> :
       <div className="max-h-[70vh] overflow-auto rounded-xl border border-earth-200 bg-white" ref={node => { if (node && node.dataset.positioned !== "yes") { node.scrollTop = 9 * 60 / interval * rowHeight; node.dataset.positioned = "yes"; } }}>
         <div style={{ minWidth: Math.max(680, staff.length * 210 + 70) }}>
-          <div className="sticky top-0 z-20 grid border-b bg-earth-50" style={{ gridTemplateColumns: `70px repeat(${staff.length}, 1fr)` }}><div className="p-3 text-xs">時間</div>{staff.map(s => <div key={s.id} className="border-l p-3 font-semibold">{s.name}</div>)}</div>
+          <div className="sticky top-0 z-20 grid border-b bg-earth-50" style={{ gridTemplateColumns: `70px repeat(${staff.length}, 1fr)` }}><div className="p-3 text-xs">時間</div>{staff.map(s => <div key={s.id} className="border-l p-3 font-semibold"><span className="mr-2 inline-block h-3 w-3 rounded-full" style={{backgroundColor:s.colorCode??"#6366f1"}}/>{s.name}</div>)}</div>
           <div className="relative grid" style={{ gridTemplateColumns: `70px repeat(${staff.length}, 1fr)` }}>
             <div>{slots.map(time => <div key={time} style={{ height: rowHeight }} className="border-b px-2 py-2 text-xs text-earth-500">{time}</div>)}</div>
             {staff.map(s => <div key={s.id} className="relative border-l">

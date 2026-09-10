@@ -1,4 +1,5 @@
 "use client";
+import { NewSpaPerson } from "./new-person";
 import { useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -12,6 +13,7 @@ const weekdays=["日","一","二","三","四","五","六"];
 const button="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm disabled:opacity-50";
 export function StaffScheduleWorkspace({people,services,exceptions,month,today}:{people:Person[];services:{id:string;name:string}[];exceptions:Exception[];month:string;today:string}){
  const router=useRouter(),pathname=usePathname();
+ const [notice,setNotice]=useState("");
  const [personId,setPersonId]=useState(people[0]?.id??"");
  const person=people.find(p=>p.id===personId)??people[0];
  const [draft,setDraft]=useState<{date:string;shifts:Shift[]}|null>(null);
@@ -25,7 +27,8 @@ export function StaffScheduleWorkspace({people,services,exceptions,month,today}:
  function shiftsFor(date:string){const regular=person?.shifts.find(s=>s.dayOfWeek===parseTaiwanDateToDbDate(date).getUTCDay());return effectiveShifts(regular?{...regular,isActive:true}:null,exceptions.filter(e=>e.staffId===person?.id&&e.date===date));}
  function submit(action:()=>Promise<{success:boolean;error?:string}>){setError("");start(async()=>{try{const result=await action();if(!result.success){setError(result.error??"儲存失敗");return;}setDraft(null);setServiceDraft(null);router.refresh();}catch{setError("連線失敗，內容已保留，請重試");}});}
  return <main className="mx-auto max-w-[1440px] p-4 md:p-6">
-  <header className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">人員管理</h1><p className="mt-2 text-sm text-earth-500">點選日期安排班別，一天可有多段服務時間，空檔為休息時間。</p></div><Link className={button} href="/dashboard/staff">新增人員／管理人員資料</Link></header>
+  <header className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">人員管理</h1><p className="mt-2 text-sm text-earth-500">點選日期安排班別，一天可有多段服務時間，空檔為休息時間。</p></div><NewSpaPerson onCreated={id=>{setPersonId(id);setNotice("人員已新增，請設定可提供服務，再點月曆日期安排班別。");}}/></header>
+  {notice&&<p role="status" className="mb-4 rounded-lg bg-teal-50 p-3 text-sm text-teal-900">{notice}</p>}
   {!person?<p className="p-6">請先新增人員。</p>:<>
   <section className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-earth-200 bg-white p-4"><label className="font-semibold">人員 <select aria-label="選擇排班人員" className="ml-2 rounded-lg border border-earth-200 p-2" value={person.id} onChange={e=>setPersonId(e.target.value)}>{people.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><p className="flex-1 text-sm text-earth-500">{services.filter(s=>person.treatmentIds.includes(s.id)).map(s=>s.name).join("、")||"尚未設定可提供服務"}</p><button className={button} onClick={()=>{setError("");setServiceDraft([...person.treatmentIds]);}}>設定可提供服務</button></section>
   <div className="mb-3 flex flex-wrap items-center gap-3"><button className={button} aria-label="上個月" onClick={()=>changeMonth(-1)}>←</button><h2 className="text-lg font-semibold">{year} 年 {monthNumber} 月</h2><button className={button} aria-label="下個月" onClick={()=>changeMonth(1)}>→</button><button className={button} onClick={()=>router.push(`${pathname}?month=${today.slice(0,7)}`)}>本月</button><span className="text-xs text-earth-500">未另排班的日期沿用既有固定班表</span></div>
