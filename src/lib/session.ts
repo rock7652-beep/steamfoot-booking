@@ -13,6 +13,7 @@ import { resolveCentralMemberCustomerForStore } from "@/server/services/central-
 type CustomerSessionUser = {
   id: string;
   role: string;
+  staffId: string | null;
   customerId: string | null;
   storeId: string | null;
   storeSlug: string | null;
@@ -145,11 +146,58 @@ async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(use
   }
 }
 
+/**
+ * Server Actions do not always retain the rewritten page pathname headers that
+ * a dashboard render receives.  A staff JWT issued before its Staff relation
+ * was provisioned can therefore be missing storeId even though the request is
+ * on a concrete /s/:slug/admin route.  Recover it only from that route's
+ * resolved Store plus an active Staff row for the signed-in user; never from a
+ * client cookie alone.
+ */
+async function recoverMissingStaffIdentity<T extends CustomerSessionUser>(user: T): Promise<T> {
+  if (!isStaffRole(user.role) || user.role === "ADMIN" || user.storeId) return user;
+
+  let requestStoreSlug: string | null = null;
+  try {
+    const headerList = await headers();
+    const cookieStore = await cookies();
+    requestStoreSlug = headerList.get("x-store-slug") ?? cookieStore.get("store-slug")?.value ?? null;
+  } catch {
+    return user;
+  }
+  if (!requestStoreSlug || requestStoreSlug === "__hq__") return user;
+
+  try {
+    const staff = await prisma.staff.findFirst({
+      where: {
+        userId: user.id,
+        status: "ACTIVE",
+        store: { slug: requestStoreSlug },
+      },
+      select: { id: true, storeId: true, store: { select: { slug: true } } },
+    });
+    if (!staff) return user;
+    return {
+      ...user,
+      staffId: staff.id,
+      storeId: staff.storeId,
+      storeSlug: staff.store.slug,
+    };
+  } catch (error) {
+    console.error("[getCurrentUser] staff identity recovery failed", {
+      userId: user.id,
+      requestStoreSlug,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return user;
+  }
+}
+
 /** 取得當前 session user（null = 未登入）— React cache 確保同一 request 只查一次 */
 export const getCurrentUser = cache(async () => {
   const session = await auth();
   if (!session?.user) return null;
-  return recoverMissingCustomerIdentity(session.user);
+  return recoverMissingStaffIdentity(await recoverMissingCustomerIdentity(session.user));
 });
 
 /** 取得 session；若未登入拋出 UNAUTHORIZED */
