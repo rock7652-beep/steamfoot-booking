@@ -38,6 +38,7 @@ const mockBookingAggregate = vi.fn();
 const mockBookingFindFirst = vi.fn();
 const mockBookingCreate = vi.fn();
 const mockBookingUpdate = vi.fn();
+const mockTxBookingUpdateMany = vi.fn();
 const mockTransactionCreate = vi.fn();
 const mockBusinessHoursFindMany = vi.fn();
 const mockBusinessHoursFindFirst = vi.fn();
@@ -126,6 +127,8 @@ vi.mock("@/lib/manager-visibility", () => ({
 vi.mock("@/lib/shop-config", () => ({
   isDutySchedulingEnabled: vi.fn(async () => false),
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
+  resolveCustomerBookableUntilDate: () => "2099-12-31",
+  isCustomerSlotWithinBookingWindow: () => true,
   resolveBookableUntilDate: vi.fn(() => "2026-12-31"),
 }));
 vi.mock("@/lib/usage-gate", () => ({
@@ -207,6 +210,7 @@ function setupBusinessHours() {
   mockTxJoinCreateMany.mockResolvedValue({ count: 0 });
   mockTxJoinFindMany.mockResolvedValue([]);
   mockTxJoinDeleteMany.mockResolvedValue({ count: 0 });
+  mockTxBookingUpdateMany.mockResolvedValue({ count: 1 });
   mockAllocateSessionsFefo.mockResolvedValue({ allocations: [], primaryWalletId: null });
   mockTx.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) =>
     cb({
@@ -216,6 +220,7 @@ function setupBusinessHours() {
         findFirst: mockBookingFindFirst,
         create: mockBookingCreate,
         update: mockBookingUpdate,
+        updateMany: (...a: unknown[]) => mockTxBookingUpdateMany(...a),
       },
       makeupCredit: { updateMany: (...a: unknown[]) => mockTxMakeupUpdateMany(...a), update: vi.fn(), create: vi.fn() },
       bookingMakeupCredit: {

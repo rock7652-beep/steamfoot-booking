@@ -83,6 +83,8 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/adjust-checkout-modal", () => ({
   AdjustCheckoutModal: () => null,
 }));
 
+vi.mock("@/app/(dashboard)/dashboard/bookings/line-test-reminder-modal", () => ({ TestReminderModal: () => null }));
+
 import { RescheduleModal } from "@/app/(dashboard)/dashboard/bookings/reschedule-modal";
 import { BookingDetailDrawer } from "@/app/(dashboard)/dashboard/bookings/booking-detail-drawer";
 

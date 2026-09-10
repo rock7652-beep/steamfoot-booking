@@ -36,3 +36,12 @@ export function isPreview(): boolean {
 export function isDevelopment(): boolean {
   return getRuntimeEnv() === "development";
 }
+
+/**
+ * Preview deployments may share third-party credentials with production.
+ * Keep every outbound delivery and customer-data lookup inside the deployed
+ * environment unless this is the production deployment itself.
+ */
+export function isPreviewExternalIntegrationBlocked(): boolean {
+  return isPreview();
+}

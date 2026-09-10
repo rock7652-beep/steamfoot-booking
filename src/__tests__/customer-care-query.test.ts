@@ -17,6 +17,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockCustomerFindMany = vi.fn();
 const mockBookingGroupBy = vi.fn();
+const mockFollowUpFindMany = vi.fn();
 const mockGetStoreFilter = vi.fn();
 const mockGetTrialFollowUpList = vi.fn();
 
@@ -28,6 +29,11 @@ function throwIfCalled(name: string) {
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    customerFollowUp: {
+      findMany: (...a: unknown[]) => mockFollowUpFindMany(...a),
+      create: throwIfCalled("customerFollowUp.create"),
+      update: throwIfCalled("customerFollowUp.update"),
+    },
     customer: {
       findMany: (...a: unknown[]) => mockCustomerFindMany(...a),
       update: throwIfCalled("customer.update"),
@@ -74,6 +80,7 @@ beforeEach(() => {
   mockGetStoreFilter.mockReturnValue({ storeId: STORE_A });
   mockGetTrialFollowUpList.mockResolvedValue([]);
   mockBookingGroupBy.mockResolvedValue([]);
+  mockFollowUpFindMany.mockResolvedValue([]);
 });
 
 function fakeOwner() {

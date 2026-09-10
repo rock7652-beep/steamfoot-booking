@@ -19,6 +19,8 @@ describe("dashboard customer workspace summary data sources", () => {
 
   it("does not add an all-store aggregation or direct Prisma query for the workspace card", () => {
     expect(pageSource).not.toContain("getAllStoreCustomerWorkspaceSummary");
-    expect(pageSource).toContain("const dashboardStoreId = isViewMode");
+    expect(pageSource).toContain("await getActiveStoreForRead(user)");
+    expect(pageSource).toContain("const dashboardStoreId = activeStoreId");
+    expect(pageSource).not.toContain("prisma.customer.");
   });
 });

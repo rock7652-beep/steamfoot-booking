@@ -29,10 +29,10 @@ describe("customer booking reschedule contract", () => {
     expect(action).toContain("NOT: { id: booking.id }");
     expect(action).toContain('return "slot_full"');
     expect(action).toContain("entitlementCoversDate");
-    expect(action).toContain("if (booking.isMakeup) return false");
+    expect(action).toContain('if (booking.isMakeup) return "unavailable"');
     expect(action).toContain('where: { status: "RESERVED" }');
-    expect(action).toContain("wallets.every");
-    expect(action).toContain('wallet.status === "ACTIVE"');
+    expect(action).toContain('wallets.some((wallet) => wallet.status !== "ACTIVE")');
+    expect(action).toContain("entitlementUnavailableReason(booking, date) === null");
     expect(action).toContain("resolveBookableUntilDate");
     expect(action).toContain("storeBookingHorizonAllows");
     expect(action).toContain("tx.shopConfig.findUnique");

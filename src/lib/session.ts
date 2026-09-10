@@ -135,12 +135,20 @@ async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(use
       storeSlug: customer.store.slug,
     };
   } catch (error) {
-    // 身份修復失敗不可讓所有頁面掛掉；保留原 session，交由既有頁面 gate 處理。
+    // 同店暫時失敗仍保留 session；跨店查詢失敗不得沿用另一店的 Customer。
     console.error("[getCurrentUser] customer identity recovery failed", {
       userId: user.id,
       storeId: requestStore.storeId,
       error: error instanceof Error ? error.message : String(error),
     });
+    if (user.customerId && user.storeId !== requestStore.storeId) {
+      return {
+        ...user,
+        customerId: null,
+        storeId: requestStore.storeId,
+        storeSlug: requestStore.storeSlug,
+      };
+    }
     return user;
   }
 }

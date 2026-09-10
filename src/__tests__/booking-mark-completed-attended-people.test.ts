@@ -21,6 +21,7 @@ const STORE = "store_1";
 
 const mockBookingFindUnique = vi.fn();
 const mockTxBookingUpdate = vi.fn();
+const mockTxBookingUpdateMany = vi.fn();
 const mockTxTransactionFindFirst = vi.fn();
 const mockTransaction = vi.fn();
 const mockMakeupCreate = vi.fn();
@@ -112,13 +113,18 @@ vi.mock("@/lib/errors", () => ({
 
 import { markCompleted, revertBookingStatus } from "@/server/actions/booking";
 
-type UpdateArg = { where: { id: string }; data: Record<string, unknown> };
-const lastUpdateData = (): Record<string, unknown> =>
-  (mockTxBookingUpdate.mock.calls.at(-1) as unknown as [UpdateArg])[0].data;
+type UpdateArg = { where: Record<string, unknown>; data: Record<string, unknown> };
+const lastUpdateData = (): Record<string, unknown> => {
+  const calls = mockTxBookingUpdateMany.mock.calls.length
+    ? mockTxBookingUpdateMany.mock.calls
+    : mockTxBookingUpdate.mock.calls;
+  return (calls.at(-1) as unknown as [UpdateArg])[0].data;
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockTxBookingUpdate.mockResolvedValue({});
+  mockTxBookingUpdateMany.mockResolvedValue({ count: 1 });
   // FIRST_TRIAL 必須已有成功收款，才能單獨走 markCompleted（提前收款情境）。
   mockTxTransactionFindFirst.mockResolvedValue({ id: "tx_paid" });
   mockMakeupFindMany.mockResolvedValue([]);
@@ -127,7 +133,7 @@ beforeEach(() => {
   mockReservedSessions.mockResolvedValue([]);
   mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
     return cb({
-      booking: { update: mockTxBookingUpdate },
+      booking: { update: mockTxBookingUpdate, updateMany: mockTxBookingUpdateMany, findUnique: vi.fn() },
       transaction: { create: vi.fn(), findMany: vi.fn(async () => []) },
       walletSession: { findMany: mockReservedSessions },
       customer: { update: vi.fn() },
@@ -197,7 +203,7 @@ describe("markCompleted — PR-3d attendedPeople write semantics", () => {
     });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error).toMatch(/失效、堂數不足/);
-    expect(mockTxBookingUpdate).not.toHaveBeenCalled();
+    expect(mockTxBookingUpdateMany).not.toHaveBeenCalled();
     expect(mockMakeupCreate).not.toHaveBeenCalled();
   });
 
@@ -210,7 +216,7 @@ describe("markCompleted — PR-3d attendedPeople write semantics", () => {
     const r = await markCompleted("bk_pkg", { attendedPeople: 2 });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error).toMatch(/應扣 2 堂.*只保留 1 堂/);
-    expect(mockTxBookingUpdate).not.toHaveBeenCalled();
+    expect(mockTxBookingUpdateMany).not.toHaveBeenCalled();
   });
 
   it("FIRST_TRIAL people=2 + attendedPeople=1 → writes attendedPeople=1", async () => {
@@ -240,7 +246,7 @@ describe("markCompleted — PR-3d attendedPeople write semantics", () => {
     mockBookingFindUnique.mockResolvedValue(trialBooking(2));
     const r = await markCompleted("bk_1", { attendedPeople: 3 });
     expect(r.success).toBe(false);
-    expect(mockTxBookingUpdate).not.toHaveBeenCalled();
+    expect(mockTxBookingUpdateMany).not.toHaveBeenCalled();
   });
 
   it("PACKAGE_SESSION people=2 + attendedPeople=1 without policy → rejects", async () => {
@@ -248,7 +254,7 @@ describe("markCompleted — PR-3d attendedPeople write semantics", () => {
     const r = await markCompleted("bk_pkg", { attendedPeople: 1 });
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error).toMatch(/未到者/);
-    expect(mockTxBookingUpdate).not.toHaveBeenCalled();
+    expect(mockTxBookingUpdateMany).not.toHaveBeenCalled();
   });
 
   it("PACKAGE_SESSION 2 人實到 1 人＋只扣堂 → 完成且不發補課", async () => {

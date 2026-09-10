@@ -36,8 +36,25 @@ vi.mock("@/lib/permissions", () => ({
   isNonOwnerStaff: (role: string) => role === "OWNER" || role === "PARTNER",
 }));
 
+// Exercise real store authorization against a bounded parent/child fixture.
+vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: vi.fn(async () => true) }));
+const mockStoreFindMany = vi.fn(async ({ where }: {
+  where: { id?: string | { in: string[] }; parentStoreId?: { in: (string | null)[] } };
+}) => {
+  const stores = [
+    { id: "store-parent", slug: "parent", name: "Parent", parentStoreId: null, isDefault: true },
+    { id: "store-child", slug: "child", name: "Child", parentStoreId: "store-parent", isDefault: false },
+  ];
+  return stores.filter((store) =>
+    typeof where.id === "string" ? store.id === where.id :
+    where.id?.in ? where.id.in.includes(store.id) :
+    where.parentStoreId?.in ? where.parentStoreId.in.includes(store.parentStoreId) : true,
+  );
+});
+
 vi.mock("@/lib/db", () => ({
   prisma: {
+    store: { findMany: mockStoreFindMany },
     transaction: {
       groupBy: (...args: unknown[]) => mockTransactionGroupBy(...args),
       aggregate: (...args: unknown[]) => mockTransactionAggregate(...args),
@@ -98,6 +115,7 @@ vi.mock("@/lib/store-view-context-server", () => ({
 }));
 
 vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => new Headers()),
   cookies: vi.fn(async () => ({
     get: (name: string) =>
       name === "active-store-id" ? { value: STORE_PARENT } : undefined,

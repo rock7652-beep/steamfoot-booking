@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   storeFindUnique: vi.fn(),
   identityLinkFindMany: vi.fn(),
   customerFindFirst: vi.fn(),
+  customerFindMany: vi.fn(),
+  approvedUnlinksFindMany: vi.fn(),
   customerFindUnique: vi.fn(),
   staffFindUnique: vi.fn(),
 }));
@@ -25,7 +27,9 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     store: { findUnique: mocks.storeFindUnique },
     customerIdentityLink: { findMany: mocks.identityLinkFindMany },
+    centralMemberLinkReviewRequest: { findMany: mocks.approvedUnlinksFindMany },
     customer: {
+      findMany: mocks.customerFindMany,
       findFirst: mocks.customerFindFirst,
       findUnique: mocks.customerFindUnique,
     },
@@ -55,10 +59,46 @@ beforeEach(() => {
   mocks.cookies.mockResolvedValue({ get: () => undefined });
   mocks.storeFindUnique.mockResolvedValue({ id: "store-zhubei", slug: "zhubei" });
   mocks.identityLinkFindMany.mockResolvedValue([]);
+  mocks.customerFindMany.mockResolvedValue([]);
+  mocks.approvedUnlinksFindMany.mockResolvedValue([]);
   mocks.customerFindFirst.mockResolvedValue(null);
 });
 
 describe("getCurrentUser customer identity recovery", () => {
+  it("clears another store's JWT identity when membership lookup fails", async () => {
+    mocks.auth.mockResolvedValue({ user: {
+      ...staleCustomerSession,
+      customerId: "customer-taichung",
+      storeId: "store-taichung",
+      storeSlug: "taichung",
+    } });
+    mocks.identityLinkFindMany.mockRejectedValueOnce(new Error("membership lookup unavailable"));
+
+    await expect(getCurrentUser()).resolves.toEqual(expect.objectContaining({
+      id: "user-zhubei",
+      customerId: null,
+      storeId: "store-zhubei",
+      storeSlug: "zhubei",
+    }));
+    expect(mocks.customerFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("preserves the same-store session during a temporary membership lookup failure", async () => {
+    mocks.auth.mockResolvedValue({ user: {
+      ...staleCustomerSession,
+      customerId: "customer-zhubei",
+      storeId: "store-zhubei",
+      storeSlug: "zhubei",
+    } });
+    mocks.identityLinkFindMany.mockRejectedValueOnce(new Error("membership lookup unavailable"));
+
+    await expect(getCurrentUser()).resolves.toEqual(expect.objectContaining({
+      customerId: "customer-zhubei",
+      storeId: "store-zhubei",
+      storeSlug: "zhubei",
+    }));
+  });
+
   it("recovers customerId from the same-store CustomerIdentityLink", async () => {
     mocks.identityLinkFindMany.mockResolvedValue([{
       id: "link-zhubei",

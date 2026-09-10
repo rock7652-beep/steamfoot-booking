@@ -12,9 +12,13 @@ const mockCustomerPlanWalletFindMany = vi.fn();
 const mockTodoDismissFindMany = vi.fn();
 const mockStaffPermissionFindMany = vi.fn();
 const mockRequireStaffSession = vi.fn();
+const mockSessionBalanceNotificationFindMany = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    sessionBalanceNotification: {
+      findMany: (...args: unknown[]) => mockSessionBalanceNotificationFindMany(...args),
+    },
     booking: {
       aggregate: (...args: unknown[]) => mockBookingAggregate(...args),
       count: (...args: unknown[]) => mockBookingCount(...args),
@@ -85,6 +89,7 @@ describe("dashboard view mode support", () => {
     mockCustomerFindMany.mockResolvedValue([]);
     mockCustomerPlanWalletFindMany.mockResolvedValue([]);
     mockTodoDismissFindMany.mockResolvedValue([]);
+    mockSessionBalanceNotificationFindMany.mockResolvedValue([]);
   });
 
   it("uses viewedStoreId for dashboard summary queries", async () => {
@@ -139,6 +144,11 @@ describe("dashboard view mode support", () => {
       }),
     );
     expect(mockTodoDismissFindMany).not.toHaveBeenCalled();
+    expect(mockSessionBalanceNotificationFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ storeId: "store-child" }),
+      }),
+    );
   });
 
   it("shows the newest pending payment and deep-links to that transaction", async () => {

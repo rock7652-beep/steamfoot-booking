@@ -62,6 +62,12 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/permissions", () => ({
+  requireWritablePermission: vi.fn(async () => ({
+    id: "user-1",
+    role: "OWNER",
+    storeId: STORE_A,
+    staffId: STAFF_ID,
+  })),
   requirePermission: vi.fn(async () => ({
     id: "user-1",
     role: "OWNER",
@@ -91,7 +97,11 @@ vi.mock("@/lib/shop-config", () => ({
   checkCustomerLimit: vi.fn(),
 }));
 
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  // Unit tests execute the callback directly without Next's request cache.
+  unstable_cache: <T,>(callback: T) => callback,
+}));
 
 // ── Import target after mocks ─────────────────────────────────────────
 
