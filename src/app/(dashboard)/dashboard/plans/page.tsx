@@ -1,5 +1,5 @@
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { spaPrisma } from "@/lib/spa-db";
+import { getSpaServiceStaff } from "@/server/queries/spa-service-staff";
 import { SpaSkillsManager } from "./_components/spa-skills-manager";
 import { listPlans } from "@/server/queries/plan";
 import { getCurrentUser } from "@/lib/session";
@@ -34,10 +34,7 @@ export default async function PlansPage() {
     (await checkPermission(user.role, user.staffId, "wallet.create"));
 
   const isSpa = plansStoreId ? await getStoreIndustryModule(plansStoreId) === "spa" : false;
-  const [spaSkills, spaTreatments] = isSpa && plansStoreId ? await Promise.all([
-    spaPrisma.spaSkill.findMany({where:{storeId:plansStoreId,isActive:true},select:{id:true,name:true},orderBy:{name:"asc"}}),
-    spaPrisma.spaTreatment.findMany({where:{storeId:plansStoreId},select:{id:true,name:true,variantLabel:true,skills:{select:{skillId:true}}},orderBy:{name:"asc"}}),
-  ]) : [[],[]];
+  const spaAssignments = isSpa && plansStoreId ? await getSpaServiceStaff(plansStoreId) : {people:[],services:[]};
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。
@@ -86,7 +83,7 @@ export default async function PlansPage() {
           }
         />
 
-        {isSpa && <SpaSkillsManager skills={spaSkills} treatments={spaTreatments.map(t=>({id:t.id,name:[t.name,t.variantLabel].filter(Boolean).join(" · "),skillIds:t.skills.map(s=>s.skillId)}))} canManage={canManage}/> }
+        {isSpa && <SpaSkillsManager {...spaAssignments} canManage={canManage}/> }
         <PlansManager
           initialPlans={planRows}
           canManage={canManage}

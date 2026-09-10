@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { getSpaAvailableProviders } from "@/server/actions/spa-service-staff";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { applicableLocations, minutesOf, timeOf } from "@/lib/spa-scheduling";
@@ -30,6 +31,22 @@ export function SpaScheduleWorkspace(props: Props) {
     const timer = window.setInterval(() => setClock(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+  const [providerResult, setProviderResult] = useState<{key:string;people:Named[];error?:string}>({key:"",people:[]});
+  const providerKey = draft && (!editing || ["PENDING", "CONFIRMED"].includes(editing.status)) && draft.treatmentIds.length ? JSON.stringify([draft.bookingDate,draft.startTime,[...draft.treatmentIds].sort(),editing?.id]) : "";
+  useEffect(()=>{
+    if(!providerKey)return;
+    let current=true;
+    const [requestedDate,startTime,treatmentIds,bookingId]=JSON.parse(providerKey) as [string,string,string[],string?];
+    getSpaAvailableProviders({date:requestedDate,startTime,treatmentIds,bookingId}).then(result=>{
+      if(!current)return;
+      if(!result.success){setProviderResult({key:providerKey,people:[],error:result.error});return;}
+      setProviderResult({key:providerKey,people:result.people});
+      setDraft(previous=>previous?{...previous,serviceStaffId:result.people.some(p=>p.id===previous.serviceStaffId)?previous.serviceStaffId:result.people.length===1?result.people[0].id:""}:previous);
+    }).catch(()=>{if(current)setProviderResult({key:providerKey,people:[],error:"無法取得可服務人員，請調整時間重試"});});
+    return()=>{current=false;};
+  },[providerKey]);
+  const checkingProviders=!!providerKey&&providerResult.key!==providerKey;
+  const availableProviders=providerKey&&providerResult.key===providerKey?providerResult.people:[];
   const selected = treatments.filter(t => draft?.treatmentIds.includes(t.id));
   const allowed = selected.length ? applicableLocations(locations, selected.map(t => t.locationIds)) : [];
   const effectiveLocation = draft?.serviceLocationId || (allowed.length === 1 ? allowed[0].id : "");
@@ -48,6 +65,7 @@ export function SpaScheduleWorkspace(props: Props) {
   const editable = editing ? canUpdate && ["PENDING", "CONFIRMED"].includes(editing.status) : canCreate;
   function submit(cancel = false) {
     if (!draft || pending) return;
+    if (!cancel && (checkingProviders || !availableProviders.some(p=>p.id===draft.serviceStaffId))) { setError("請選擇此時段可服務的人員"); return; }
     setError("");
     startTransition(async () => {
       try {
@@ -105,7 +123,9 @@ export function SpaScheduleWorkspace(props: Props) {
           {step === 1 && <div className="space-y-4">
             <label className="block">日期<input type="date" className={inputClass} value={draft.bookingDate} onChange={e => setDraft({ ...draft, bookingDate: e.target.value })} /></label>
             <label className="block">開始時間<input type="time" className={inputClass} value={draft.startTime} onChange={e => setDraft({ ...draft, startTime: e.target.value })} /></label>
-            <label className="block">服務人員<select className={inputClass} value={draft.serviceStaffId} onChange={e => setDraft({ ...draft, serviceStaffId: e.target.value })}>{staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+            <label className="block">服務人員<select disabled={checkingProviders} className={inputClass} value={availableProviders.some(p=>p.id===draft.serviceStaffId)?draft.serviceStaffId:""} onChange={e => setDraft({ ...draft, serviceStaffId: e.target.value })}><option value="">{checkingProviders?"查詢中…":"請選擇可服務人員"}</option>{availableProviders.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+            {!checkingProviders&&<p className="text-sm text-earth-500">{!providerKey?"請先選擇服務。":providerResult.error??(availableProviders.length?"僅顯示可提供所選服務、有排班且時段空閒的人員。":"此時段沒有可服務人員，請選擇其他時間。")}</p>}
+
             <label className="block">服務位置<select className={inputClass} value={effectiveLocation} onChange={e => setDraft({ ...draft, serviceLocationId: e.target.value || undefined })}><option value="">請選擇</option>{allowed.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
             {!allowed.length && <p className="text-sm text-amber-800">請先選擇服務；若仍無適用位置，需先設定服務與位置的對應。</p>}
             {allowed.length === 1 && <p className="text-sm text-earth-500">已自動帶入唯一適用位置，送出時會確認是否有空位。</p>}

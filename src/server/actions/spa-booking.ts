@@ -95,7 +95,7 @@ async function saveBooking(storeId: string, data: CreateSpaBookingInput, edit?: 
     const locationId = data.serviceLocationId ?? (allowed.length === 1 ? allowed[0].id : undefined);
     if (!locationId || !allowed.some(l => l.id === locationId)) throw new AppError("VALIDATION", "請選擇適用於所有服務項目的服務位置");
     const skills = await tx.spaStaffSkill.findMany({ where: { storeId, staffId: data.serviceStaffId, skill: { isActive: true } } });
-    if (ordered.some(t => t.skills.some(s => !skills.some(ss => ss.skillId === s.skillId)))) throw new AppError("VALIDATION", "此服務人員未具備所選服務的專長");
+    if (ordered.some(t => t.skills.some(s => !skills.some(ss => ss.skillId === s.skillId)))) throw new AppError("VALIDATION", "此人員未設定為可提供所選服務");
     const bookingDate = parseTaiwanDateToDbDate(data.bookingDate);
     const [regular, exceptions] = await Promise.all([
       tx.spaStaffAvailability.findUnique({ where: { storeId_staffId_dayOfWeek: { storeId, staffId: data.serviceStaffId, dayOfWeek: bookingDate.getUTCDay() } } }),
