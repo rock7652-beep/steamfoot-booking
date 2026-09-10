@@ -15,5 +15,12 @@ export function GET() {
   if (process.env.VERCEL_ENV !== "preview") return new NextResponse(null, { status: 404 });
   const database = identity(process.env.DATABASE_URL);
   const direct = identity(process.env.DIRECT_URL);
-  return NextResponse.json({ database, direct, refsMatch: database?.ref === direct?.ref });
+  // Do not expose even non-sensitive infrastructure identifiers to callers.
+  // Project members with Vercel runtime-log access perform the one-time check.
+  console.info("[preview-db-identity]", {
+    database,
+    direct,
+    refsMatch: database?.ref === direct?.ref,
+  });
+  return new NextResponse(null, { status: 204 });
 }
