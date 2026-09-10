@@ -54,30 +54,36 @@ export async function saveSpaPersonServices(input:{staffId:string;treatmentIds:s
 export async function getSpaAvailableProviders(input:{date:string;startTime:string;treatmentIds:string[];bookingId?:string}){
  try{
   const storeId=await spaResourceStore("booking.read");const d=z.object({date:z.string().refine(validSpaDate),startTime:z.string(),treatmentIds:z.array(z.string()).min(1).max(20),bookingId:z.string().optional()}).parse(input);
-  const treatments=await spaPrisma.spaTreatment.findMany({where:{storeId,id:{in:d.treatmentIds},isActive:true},include:{skills:true}});
+  const treatments=await spaPrisma.spaTreatment.findMany({where:{storeId,id:{in:d.treatmentIds},isActive:true},include:{skills:true,serviceLocations:true}});
   if(treatments.length!==new Set(d.treatmentIds).size)throw new AppError("VALIDATION","請重新選擇服務");
   const end=spaEndTime(d.startTime,treatments),date=parseTaiwanDateToDbDate(d.date);
-  const [people,links,regular,exceptions,bookings]=await Promise.all([
+  const [people,links,regular,exceptions,bookings,locations]=await Promise.all([
    prisma.staff.findMany({where:{storeId,status:"ACTIVE"},select:{id:true,displayName:true}}),
    spaPrisma.spaStaffSkill.findMany({where:{storeId,skill:{isActive:true}}}),
    spaPrisma.spaStaffAvailability.findMany({where:{storeId,dayOfWeek:date.getUTCDay()}}),
    spaPrisma.spaStaffAvailabilityException.findMany({where:{storeId,date}}),
-   spaPrisma.spaBooking.findMany({where:{storeId,bookingDate:date,status:{in:["PENDING","CONFIRMED"]},...(d.bookingId?{id:{not:d.bookingId}}:{})},select:{serviceStaffId:true,startTime:true,endTime:true}}),
+   spaPrisma.spaBooking.findMany({where:{storeId,bookingDate:date,status:{in:["PENDING","CONFIRMED"]},...(d.bookingId?{id:{not:d.bookingId}}:{})},select:{serviceStaffId:true,serviceLocationId:true,startTime:true,endTime:true}}),
+   spaPrisma.spaServiceLocation.findMany({where:{storeId,isActive:true},select:{id:true,name:true}}),
   ]);
   const qualified=people.filter(p=>treatments.every(t=>t.skills.every(s=>links.some(l=>l.staffId===p.id&&l.skillId===s.skillId))));
   const onShift=(id:string,start:string,finish:string)=>staffAvailable(start,finish,regular.find(r=>r.staffId===id)??null,exceptions.filter(e=>e.staffId===id));
   const free=(id:string,start:string,finish:string)=>!bookings.some(b=>b.serviceStaffId===id&&overlaps(start,finish,b.startTime,b.endTime));
-  const available=qualified.filter(p=>onShift(p.id,d.startTime,end)&&free(p.id,d.startTime,end));
-  const reason=available.length?"":!qualified.length?"尚未設定可提供全部所選服務的人員，請至方案管理設定。":!qualified.some(p=>onShift(p.id,d.startTime,end))?"此時段未排班、正在休息，或剩餘班別不足以完成服務。":"符合資格的人員在此時段已有預約。";
+  const applicable=locations.filter(l=>treatments.every(t=>t.serviceLocations.some(link=>link.serviceLocationId===l.id)));
+  const freeLocations=(start:string,finish:string)=>applicable.filter(l=>!bookings.some(b=>b.serviceLocationId===l.id&&overlaps(start,finish,b.startTime,b.endTime)));
+  const availableLocations=freeLocations(d.startTime,end);
+  const available=availableLocations.length?qualified.filter(p=>onShift(p.id,d.startTime,end)&&free(p.id,d.startTime,end)):[];
+  const reason=available.length?"":!applicable.length?"所選服務尚未設定共同適用的啟用位置。":!qualified.length?"尚未設定可提供全部所選服務的人員，請至方案管理設定。":!availableLocations.length?"適用的服務位置在此時段已滿。":!qualified.some(p=>onShift(p.id,d.startTime,end))?"此時段未排班、正在休息，或剩餘班別不足以完成服務。":"符合資格的人員在此時段已有預約。";
+  const setupHref=!applicable.length?"/dashboard/spa-resources":!qualified.length?"/dashboard/plans":!qualified.some(p=>onShift(p.id,d.startTime,end))?"/dashboard/spa-staff":null;
+  const setupLabel=!applicable.length?"設定服務位置":!qualified.length?"設定可服務人員":"查看人員班表";
   const suggestions:{startTime:string;endTime:string}[]=[];
   const duration=minutesOf(end)-minutesOf(d.startTime);
-  if(!available.length&&qualified.length){
+  if(!available.length&&qualified.length&&applicable.length){
    for(let minute=Math.ceil((minutesOf(d.startTime)+1)/15)*15;minute+duration<=1440&&suggestions.length<4;minute+=15){
     const start=timeOf(minute),finish=timeOf(minute+duration);
-    if(qualified.some(p=>onShift(p.id,start,finish)&&free(p.id,start,finish)))suggestions.push({startTime:start,endTime:finish});
+    if(freeLocations(start,finish).length&&qualified.some(p=>onShift(p.id,start,finish)&&free(p.id,start,finish)))suggestions.push({startTime:start,endTime:finish});
    }
   }
-  return{success:true as const,people:available.map(p=>({id:p.id,name:p.displayName})),reason,suggestions};
+  return{success:true as const,people:available.map(p=>({id:p.id,name:p.displayName})),reason,suggestions,locations:availableLocations,setupHref,setupLabel};
  }catch(e){const result=handleActionError(e);return {success:false as const,error:result.success?"查詢失敗":result.error};}
 }
 
