@@ -92,6 +92,10 @@ export async function collectSinglePayment(
             ? Number(booking.servicePlan.price)
             : SINGLE_DEFAULT_PRICE;
     const netAmount = data.amount ?? originalAmount;
+    // Revalidate the resolved amount too: omitted input may resolve to a zero-price snapshot.
+    if (netAmount === 0 && (!data.discountReason || !completeService || data.paymentSplits)) {
+      throw new AppError("VALIDATION", "全額折抵須填寫原因並完成服務，不需拆分付款");
+    }
     const paymentSplits = normalizePaymentSplits(data.paymentSplits, netAmount);
 
     if (netAmount > originalAmount) {
@@ -154,7 +158,7 @@ export async function collectSinglePayment(
           serviceStaffId: booking.serviceStaffId ?? user.staffId ?? null,
           soldByStaffId: user.staffId ?? null,
           transactionType: "SINGLE_PURCHASE" as TransactionType,
-          paymentMethod: data.paymentMethod as PaymentMethod,
+          paymentMethod: netAmount === 0 ? "OTHER" : data.paymentMethod as PaymentMethod,
           ...paymentSplitCreateData(paymentSplits),
           paymentStatus: "SUCCESS",
           paidAt: new Date(),

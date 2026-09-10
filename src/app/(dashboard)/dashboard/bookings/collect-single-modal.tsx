@@ -136,10 +136,11 @@ export function CollectSingleModal({
   if (!open) return null;
 
   // 空字串不能 coerce 成 0：Number("") === 0 會誤通過 finite 檢查、又會建立
-  // 0 元成功交易。明確要求輸入數字，min 1。
+  // 0 元交易。空白仍無效；蒸足單次允許明確輸入 0 元全額折抵。
   const trimmed = amount.trim();
-  const amountNum = trimmed === "" ? NaN : Math.round(Number(trimmed));
-  const validAmount = Number.isFinite(amountNum) && amountNum > 0;
+  const amountNum = trimmed === "" ? NaN : spaMode ? Math.round(Number(trimmed)) : Number(trimmed);
+  const isFullDiscount = !spaMode && mode === "single" && amountNum === 0;
+  const validAmount = Number.isInteger(amountNum) && (amountNum > 0 || isFullDiscount);
   const discountAmount = validAmount
     ? Math.max(0, defaultPrice - amountNum)
     : 0;
@@ -220,9 +221,9 @@ export function CollectSingleModal({
       toast.error("實收金額不可高於原價");
       return;
     }
-    if (discountAmount > 0 && discountReason.trim().length === 0) {
-      // soft hint：折扣建議寫原因，但不強制（server 也不擋）。
-      // 改成 toast warning 而非 throw，讓店長確認後仍可送出。
+    if (isFullDiscount && !discountReason.trim()) {
+      toast.error("全額折抵請填寫原因");
+      return;
     }
 
     runCheckout(async () => {
@@ -246,16 +247,16 @@ export function CollectSingleModal({
         bookingId,
         paymentMethod: method as
           "CASH" | "TRANSFER" | "LINE_PAY" | "CREDIT_CARD" | "OTHER",
-        paymentSplits,
+        paymentSplits: isFullDiscount ? undefined : paymentSplits,
         amount: amountNum,
         discountReason:
           discountReason.trim().length > 0 ? discountReason.trim() : undefined,
         note: note.trim() || undefined,
-        completeService,
+        completeService: isFullDiscount || completeService,
       });
       if (r.success) {
         toast.success(
-          r.data.serviceCompleted ? "已收款並完成服務" : "已確認收款",
+          isFullDiscount ? "已全額折抵並完成服務" : r.data.serviceCompleted ? "已收款並完成服務" : "已確認收款",
         );
         onCollected(r.data.serviceCompleted);
       } else {
@@ -405,7 +406,7 @@ export function CollectSingleModal({
           </div>
         ) : null}
 
-        {mode === "single" && !spaMode && (
+        {mode === "single" && !spaMode && !isFullDiscount && (
           <label className="mb-4 flex items-start gap-2 rounded-lg border border-earth-200 bg-white p-3 text-sm text-earth-700">
             <input
               type="checkbox"
@@ -591,7 +592,7 @@ export function CollectSingleModal({
               type="number"
               inputMode="numeric"
               value={amount}
-              min={1}
+              min={0}
               max={defaultPrice}
               disabled={pending}
               onChange={(e) => setAmount(e.target.value)}
@@ -601,7 +602,7 @@ export function CollectSingleModal({
               {trimmed === "" ? (
                 <span className="text-red-500">請輸入實收金額</span>
               ) : !validAmount ? (
-                <span className="text-red-500">金額需為正整數</span>
+                <span className="text-red-500">金額需為 0 或正整數</span>
               ) : overPaid ? (
                 <span className="text-red-500">不可高於原價</span>
               ) : discountAmount > 0 ? (
@@ -613,7 +614,7 @@ export function CollectSingleModal({
           </>
         )}
 
-        {!spaMode ? (
+        {!spaMode && !isFullDiscount ? (
           <>
             <label className="mb-1 block text-xs font-medium text-earth-600">
               付款方式
@@ -643,10 +644,10 @@ export function CollectSingleModal({
         ) : null}
 
         {!spaMode ? (
-          <details className="mb-4">
-            <summary className="mb-3 cursor-pointer text-sm font-medium text-earth-700">折扣原因與備註（選填）</summary>
+          <details className="mb-4" open={isFullDiscount || undefined}>
+            <summary className="mb-3 cursor-pointer text-sm font-medium text-earth-700">{isFullDiscount ? "全額折抵原因（必填）" : "折扣原因與備註（選填）"}</summary>
             <label className="mb-1 block text-xs font-medium text-earth-600">
-              折扣原因（選填）
+              {isFullDiscount ? "折扣原因（必填）" : "折扣原因（選填）"}
             </label>
             <textarea
               value={discountReason}
@@ -700,7 +701,7 @@ export function CollectSingleModal({
                     storedValue.status !== "ACTIVE" ||
                     storedValue.balance < defaultPrice
                 : mode === "single"
-                  ? !validAmount || overPaid || !paymentSplitsValid
+                  ? !validAmount || overPaid || (isFullDiscount ? !discountReason.trim() : !paymentSplitsValid)
                   : !validPlanAmount)
             }
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
@@ -711,6 +712,8 @@ export function CollectSingleModal({
                 ? "確認扣儲值金並完成服務"
                 : spaMode && spaSettlement === "PACKAGE"
                   ? "確認扣次並完成服務"
+                  : isFullDiscount
+                    ? "確認全額折抵並完成服務"
                   : mode === "plan"
                     ? "確認轉購方案"
                     : completeService

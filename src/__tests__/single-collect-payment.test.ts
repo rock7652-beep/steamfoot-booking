@@ -13,6 +13,13 @@ vi.mock("@/lib/industry-module-server", () => ({
 //    （= wallet-free / 不扣堂保證）
 //  - 防重複收款、型別/狀態/跨店 guard、歸屬快照、金額上限校驗
 
+vi.mock("@/server/services/paid-booking-completion", () => ({
+  completePaidBookingInTransaction: vi.fn(async () => undefined),
+}));
+vi.mock("@/server/services/referral-events", () => ({
+  createBookingCompletedEvent: vi.fn(async () => undefined),
+}));
+
 const h = vi.hoisted(() => {
   const txCreate = vi.fn(async () => ({ id: "tx_1" }));
   // P1 race-safe duplicate guard：findFirst 已移進 prisma.$transaction，
@@ -444,7 +451,7 @@ describe("collectSinglePaymentSchema", () => {
       }),
     ).toThrow();
   });
-  it("rejects amount=0 (SINGLE is paid service; no 0元 success)", async () => {
+  it("rejects amount=0 without full-discount reason and completion", async () => {
     const { collectSinglePaymentSchema } =
       await import("@/lib/validators/single-booking");
     expect(() =>
@@ -465,5 +472,35 @@ describe("collectSinglePaymentSchema", () => {
         discountReason: "x".repeat(501),
       }),
     ).toThrow();
+  });
+});
+
+
+describe("full discount completion", () => {
+  it("records gross 799, discount 799, net 0 and completes once without wallet deduction", async () => {
+    const { completePaidBookingInTransaction } = await import("@/server/services/paid-booking-completion");
+    const result = await collectSinglePayment({ ...base, amount: 0, discountReason: "  轉介紹免費券  ", completeService: true });
+    expect(result).toMatchObject({ success: true, data: { serviceCompleted: true } });
+    expect(h.txCreate).toHaveBeenCalledTimes(1);
+    expect(lastTx()).toMatchObject({ grossAmount: 799, discountAmount: 799, netAmount: 0, amount: 0, discountReason: "轉介紹免費券", paymentMethod: "OTHER" });
+    expect(completePaidBookingInTransaction).toHaveBeenCalledTimes(1);
+    h.txFindFirstInTx.mockResolvedValue({ id: "tx_1" });
+    expect((await collectSinglePayment({ ...base, amount: 0, discountReason: "免費券", completeService: true })).success).toBe(false);
+    expect(h.txCreate).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    { amount: 0, discountReason: "   ", completeService: true },
+    { amount: 0, discountReason: "免費券", completeService: false },
+    { amount: -1, discountReason: "免費券", completeService: true },
+    { amount: 0.5, discountReason: "免費券", completeService: true },
+    { amount: 0, discountReason: "免費券", completeService: true, paymentSplits: [{ paymentMethod: "CASH" as const, amount: 1 }, { paymentMethod: "OTHER" as const, amount: 1 }] },
+  ])("rejects invalid free completion %# without writing", async (input) => {
+    expect((await collectSinglePayment({ ...base, ...input })).success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
+  });
+  it("does not bypass the reason check when omitted amount resolves to zero", async () => {
+    h.bookingFindFirst.mockResolvedValue({ id: "bk_1", bookingType: "SINGLE", bookingStatus: "PENDING", expectedAmount: 0, customer: { assignedStaffId: null } });
+    expect((await collectSinglePayment({ ...base, completeService: true })).success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
   });
 });
