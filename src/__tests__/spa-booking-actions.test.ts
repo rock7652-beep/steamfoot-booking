@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   permission: vi.fn(), store: vi.fn(), guard: vi.fn(), installation: vi.fn(),
   customer: vi.fn(), staff: vi.fn(), bookingFind: vi.fn(), create: vi.fn(), update: vi.fn(),
-  treatment: vi.fn(), locations: vi.fn(), skills: vi.fn(), shift: vi.fn(), exceptions: vi.fn(), lock: vi.fn(), tx: vi.fn(),
+  treatment: vi.fn(), locations: vi.fn(), skills: vi.fn(), shift: vi.fn(), exceptions: vi.fn(), lock: vi.fn(), itemCreateMany: vi.fn(), tx: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findFirst: m.customer }, staff: { findFirst: m.staff }, storeModuleInstallation: { findUnique: m.installation } } }));
@@ -18,11 +18,11 @@ beforeEach(() => {
   vi.resetAllMocks();
   m.permission.mockResolvedValue(true); m.store.mockResolvedValue({ id: "user", role: "OWNER", staffId: "staff" }); m.guard.mockResolvedValue({ storeId: "spa-store", storeSlug: "spa" });
   m.installation.mockResolvedValue({ status: "ACTIVE" }); m.customer.mockResolvedValue({ id: "customer" }); m.staff.mockResolvedValue({ id: "staff" });
-  m.bookingFind.mockResolvedValue(null); m.create.mockResolvedValue({ id: "booking" }); m.update.mockResolvedValue({ id: "booking" });
+  m.bookingFind.mockResolvedValue(null); m.create.mockResolvedValue({ id: "booking" }); m.update.mockResolvedValue({ id: "booking" }); m.itemCreateMany.mockResolvedValue({ count: 1 });
   m.treatment.mockResolvedValue([{ id: "treatment", name: "服務", price: 100, serviceMinutes: 60, bufferMinutes: 15, skills: [{ skillId: "skill" }], serviceLocations: [{ serviceLocationId: "location" }] }]);
   m.locations.mockResolvedValue([{ id: "location" }]); m.skills.mockResolvedValue([{ skillId: "skill" }]);
   m.shift.mockResolvedValue({ startTime: "10:00", endTime: "18:00", isActive: true }); m.exceptions.mockResolvedValue([]);
-  m.tx.mockImplementation(async fn => fn({ $executeRaw: m.lock, spaBooking: { findFirst: m.bookingFind, create: m.create, update: m.update }, spaTreatment: { findMany: m.treatment }, spaServiceLocation: { findMany: m.locations }, spaStaffSkill: { findMany: m.skills }, spaStaffAvailability: { findUnique: m.shift }, spaStaffAvailabilityException: { findMany: m.exceptions } }));
+  m.tx.mockImplementation(async fn => fn({ $executeRaw: m.lock, spaBooking: { findFirst: m.bookingFind, create: m.create, update: m.update }, spaBookingItem: { createMany: m.itemCreateMany }, spaTreatment: { findMany: m.treatment }, spaServiceLocation: { findMany: m.locations }, spaStaffSkill: { findMany: m.skills }, spaStaffAvailability: { findUnique: m.shift }, spaStaffAvailabilityException: { findMany: m.exceptions } }));
 });
 describe("SPA booking actions", () => {
   it("auto assigns one compatible location and snapshots buffer in the end time", async () => {

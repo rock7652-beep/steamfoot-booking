@@ -113,12 +113,35 @@ async function saveBooking(storeId: string, data: CreateSpaBookingInput, edit?: 
       bookingDate, startTime: data.startTime, endTime,
       serviceNameSnapshot: ordered.map(t => t.name).join("＋"), totalPriceSnapshot: ordered.reduce((sum, t) => sum + Number(t.price), 0),
       notes: data.notes || null,
-      items: { create: ordered.map((t, sortOrder) => ({ storeId, treatmentId: t.id, treatmentNameSnapshot: t.name, priceSnapshot: t.price, serviceMinutes: t.serviceMinutes, bufferMinutes: t.bufferMinutes, sortOrder })) },
     };
+    const itemRows = ordered.map((t, sortOrder) => ({
+      storeId,
+      treatmentId: t.id,
+      treatmentNameSnapshot: t.name,
+      priceSnapshot: t.price,
+      serviceMinutes: t.serviceMinutes,
+      bufferMinutes: t.bufferMinutes,
+      sortOrder,
+    }));
     if (edit) {
-      return tx.spaBooking.update({ where: { id_storeId: { id: edit.bookingId, storeId } }, data: { ...values, items: { deleteMany: {}, ...values.items } }, select: { id: true } });
+      return tx.spaBooking.update({
+        where: { id_storeId: { id: edit.bookingId, storeId } },
+        data: { ...values, items: { deleteMany: {}, create: itemRows } },
+        select: { id: true },
+      });
     }
-    return tx.spaBooking.create({ data: { ...values, storeId, requestKey: data.requestKey }, select: { id: true } });
+    // Prisma's checked create input cannot mix this composite relation's scalar
+    // keys (storeId/serviceLocationId) with a nested item create.  Persist the
+    // independent SPA booking first, then its immutable item snapshots in the
+    // same transaction.
+    const booking = await tx.spaBooking.create({
+      data: { ...values, storeId, requestKey: data.requestKey },
+      select: { id: true },
+    });
+    await tx.spaBookingItem.createMany({
+      data: itemRows.map(item => ({ ...item, bookingId: booking.id })),
+    });
+    return booking;
   }, { timeout: 15000 });
 }
 
