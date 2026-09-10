@@ -30,6 +30,7 @@ import { AdjustCheckoutModal } from "./adjust-checkout-modal";
 import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { packageUsageSummary } from "./package-usage-summary";
+import { bookingPlanExpiry } from "@/lib/booking-plan-expiry";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -797,6 +798,7 @@ function DrawerContent({
           : "待服務"
     : meta.label;
   const amount = computeAmount(booking, trial);
+  const planExpiry = bookingPlanExpiry(booking.customerPlanWallet?.expiryDate);
   const duration =
     durationMinutes ?? (spaMode ? (booking.servicePlan?.category === "TRIAL" ? 30 : 60) : null);
   const endTime = duration != null ? computeEndTime(booking.slotTime, duration) : null;
@@ -967,6 +969,9 @@ function DrawerContent({
               label="方案"
               value={booking.customerPlanWallet?.plan.name ?? booking.servicePlan?.name ?? "—"}
             />
+          )}
+          {!spaMode && booking.bookingType === "PACKAGE_SESSION" && !booking.isMakeup && (
+            <KV readable label="到期日" value={<span className={planExpiry.className}>{planExpiry.detail}</span>} />
           )}
           {booking.customerPlanWallet && (
             <KV readable={!spaMode}

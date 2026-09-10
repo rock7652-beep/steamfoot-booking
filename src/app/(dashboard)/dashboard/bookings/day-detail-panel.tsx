@@ -9,6 +9,7 @@ import { resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { remainingSessionsState } from "@/lib/remaining-sessions-label";
 import { bookingPlanBadge } from "@/lib/wallet-booking-integrity";
+import { bookingPlanExpiry } from "@/lib/booking-plan-expiry";
 import type { SlotAvailability } from "@/types";
 
 export interface DayBooking {
@@ -389,14 +390,17 @@ function TimelineItem({
     if (display != null) trialAmountText = display.toLocaleString();
   }
   // 方案來源 fallback chain：
-  //   1) servicePlan.name — 罕見，僅在 caller 明確指定 servicePlanId 時有值
-  //   2) customerPlanWallet.plan.name — 後台 PACKAGE_SESSION 正解（FEFO 綁定的 wallet）
+  //   1) customerPlanWallet.plan.name — 與剩餘堂數、到期日使用相同的綁定方案
+  //   2) servicePlan.name — 未綁定 wallet 時的服務名稱
   //   3) 補課（沒方案）→ 「補課」
   //   4) 其他 → 「—」
   const planLabel =
-    booking.servicePlan?.name
-    ?? booking.customerPlanWallet?.plan?.name
+    booking.customerPlanWallet?.plan?.name
+    ?? booking.servicePlan?.name
     ?? (booking.isMakeup ? "補課" : "—");
+  const expiry = booking.bookingType === "PACKAGE_SESSION" && !booking.isMakeup
+    ? bookingPlanExpiry(booking.customerPlanWallet?.expiryDate)
+    : null;
   const deductedPlanNames = booking.deductedPlanNames ?? [];
   const deductedPlanLabel = deductedPlanNames.length > 0
     ? deductedPlanNames.join("＋")
@@ -520,8 +524,9 @@ function TimelineItem({
             服務：首次體驗
           </span>
         ) : planBadge.kind !== "deducted" && planLabel !== "—" ? (
-          <span className="w-full break-words text-sm leading-relaxed text-earth-600">
-            方案：{planLabel}
+          <span className="flex w-full min-w-0 items-baseline gap-1 text-sm leading-relaxed text-earth-600">
+            <span className="min-w-0 truncate" title={planLabel}>{planLabel}</span>
+            {expiry && <span className={`shrink-0 whitespace-nowrap ${expiry.className}`}>· {expiry.compact}</span>}
           </span>
         ) : null}
         {/* 內部服務備註提醒（後台限定）— 有值才顯示一行截斷，沒值不佔空間 */}
