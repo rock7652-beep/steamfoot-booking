@@ -209,6 +209,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
       await tx.specialBusinessDay.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.businessHours.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.shopConfig.deleteMany({ where: { storeId: { in: storeIds } } });
+      await tx.staff.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.customer.deleteMany({ where: { id: { in: customerIds } } });
       await tx.store.deleteMany({ where: { id: { in: storeIds } } });
     });
@@ -612,6 +613,10 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
   it("serializes parallel markCompleted calls for one reserved session", async () => {
     const base = await createStore("parallel-complete", 1);
     const holder = await createCustomerWallet(base, "holder", { remaining: 1, ledger: 1 });
+    const created = await actions.createBooking(createInput(base, holder, "10:00"));
+    expect(created.success, JSON.stringify(created)).toBe(true);
+    if (!created.success) return;
+
     const staffUser = await db().user.create({
       data: { id: `${base.prefix}_staff_user`, name: "Completion test owner", role: "OWNER" },
     });
@@ -633,11 +638,12 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
       customerId: null,
       email: null,
     };
+    await db().booking.update({
+      where: { id: created.data.bookingId },
+      data: { revenueStaffId: staff.id },
+    });
     boundary.requireSession.mockResolvedValue(completionUser);
     boundary.requireWritablePermission.mockResolvedValue(completionUser);
-    const created = await actions.createBooking(createInput(base, holder, "10:00"));
-    expect(created.success, JSON.stringify(created)).toBe(true);
-    if (!created.success) return;
 
     const results = await startTogether(
       () => actions.markCompleted(created.data.bookingId),
