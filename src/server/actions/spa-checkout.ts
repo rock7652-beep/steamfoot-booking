@@ -6,7 +6,21 @@ import { spaPrisma } from "@/lib/spa-db";
 import { prisma } from "@/lib/db";
 import { spaResourceStore } from "./spa-resources";
 import { AppError, handleActionError } from "@/lib/errors";
-const inputSchema=z.object({bookingId:z.string().min(1),expectedUpdatedAt:z.string().datetime(),expectedAmount:z.number().int().nonnegative(),paymentMethod:z.enum(["CASH","CARD"])});
+import { assertNoPriorSpaSettlement, deductSpaCredit, readSpaCreditOptions } from "../spa-checkout-credit";
+const inputSchema=z.object({bookingId:z.string().min(1),expectedUpdatedAt:z.string().datetime(),expectedAmount:z.number().int().nonnegative(),paymentMethod:z.enum(["CASH","CARD","STORED_VALUE","ENTITLEMENT"]),sourceId:z.string().min(1).optional()}).superRefine((d,ctx)=>{
+ const credit=d.paymentMethod==="STORED_VALUE"||d.paymentMethod==="ENTITLEMENT";
+ if(credit!==Boolean(d.sourceId))ctx.addIssue({code:"custom",message:"請選擇有效的付款來源"});
+});
+export async function getSpaCheckoutOptions(bookingId:string){
+ try{
+  await requirePermission("transaction.create");
+  const storeId=await spaResourceStore("booking.update");
+  const booking=await spaPrisma.spaBooking.findFirst({where:{id:z.string().min(1).parse(bookingId),storeId}});
+  if(!booking)throw new AppError("NOT_FOUND","找不到本店預約");
+  const options=await readSpaCreditOptions(spaPrisma,booking);
+  return{success:true as const,...options};
+ }catch(e){const r=handleActionError(e);return{success:false as const,error:r.success?"讀取失敗":r.error};}
+}
 export async function completeSpaBooking(input:z.infer<typeof inputSchema>){
  try{
   const user=await requirePermission("transaction.create");
@@ -20,12 +34,15 @@ export async function completeSpaBooking(input:z.infer<typeof inputSchema>){
    if(!booking)throw new AppError("NOT_FOUND","找不到本店預約");
    const existing=await tx.spaReceipt.findUnique({where:{bookingId_storeId:{storeId,bookingId:d.bookingId}}});
    if(existing){
-    if(booking.status!=="COMPLETED"||Number(existing.amount)!==d.expectedAmount||existing.paymentMethod!==d.paymentMethod)throw new AppError("CONFLICT","此預約已有收款紀錄，請重新開啟核對");
+    if(booking.status!=="COMPLETED"||Number(existing.amount)!==d.expectedAmount||existing.paymentMethod!==d.paymentMethod||(existing.sourceId??undefined)!==d.sourceId)throw new AppError("CONFLICT","此預約已有收款紀錄，請重新開啟核對");
     return existing;
    }
    if(!["PENDING","CONFIRMED"].includes(booking.status))throw new AppError("CONFLICT","此預約已完成或取消，無法再次結帳");
    if(booking.updatedAt.toISOString()!==d.expectedUpdatedAt||Number(booking.totalPriceSnapshot)!==d.expectedAmount)throw new AppError("CONFLICT","預約內容或金額已變更，請重新開啟結帳");
-   const created=await tx.spaReceipt.create({data:{storeId,bookingId:booking.id,amount:booking.totalPriceSnapshot,paymentMethod:d.paymentMethod,recordedByUserId:user.id}});
+   await assertNoPriorSpaSettlement(tx,booking);
+   const credit=d.paymentMethod==="STORED_VALUE"||d.paymentMethod==="ENTITLEMENT"
+     ?{sourceId:d.sourceId!,...await deductSpaCredit(tx,booking,d.paymentMethod,d.sourceId!,Number(booking.totalPriceSnapshot))}:{};
+   const created=await tx.spaReceipt.create({data:{storeId,bookingId:booking.id,amount:booking.totalPriceSnapshot,paymentMethod:d.paymentMethod,recordedByUserId:user.id,...credit}});
    await tx.spaBooking.update({where:{id_storeId:{id:booking.id,storeId}},data:{status:"COMPLETED"}});
    return created;
   },{timeout:15000});
