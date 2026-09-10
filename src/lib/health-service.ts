@@ -6,6 +6,7 @@
  * 2. getHealthSummary(profileId) — 取得健康評估摘要（帶 5 分鐘快取）
  * 3. generateBusinessInsights(summary) — 生成經營提示
  */
+import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 
 const HEALTH_API_BASE = process.env.HEALTH_API_URL || "";
 const HEALTH_API_KEY = process.env.HEALTH_API_KEY || "";
@@ -167,6 +168,9 @@ class HealthApiError extends Error {
 }
 
 async function healthFetch<T>(path: string): Promise<T> {
+  if (isPreviewExternalIntegrationBlocked()) {
+    throw new HealthApiError("Preview HealthFlow lookup is blocked");
+  }
   if (!HEALTH_API_BASE || !HEALTH_API_KEY) {
     throw new HealthApiError("HEALTH_API_URL or HEALTH_API_KEY not configured");
   }

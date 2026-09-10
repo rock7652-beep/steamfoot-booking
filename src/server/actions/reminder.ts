@@ -166,6 +166,7 @@ const MESSENGER_TEST_ERROR: Record<Exclude<MessengerUtilityReminderCode, "SENT">
   SKIPPED_MISSING_IDENTITY: "這筆預約沒有可驗證的 Messenger 身分，因此未發送",
   FAILED_META_REJECTED: "Meta 拒絕此次 Messenger 測試提醒，未標記為成功",
   FAILED_TRANSPORT: "Messenger 傳輸失敗，未標記為成功",
+  FAILED_PREVIEW_BLOCKED: "Preview 已封鎖對外 Messenger 發送，未標記為成功",
   FAILED_CONFIGURATION: "Messenger Page 設定不完整，因此未發送",
   FAILED_IDENTITY_SCOPE: "Messenger 身分與此分店不一致，因此未發送",
 };

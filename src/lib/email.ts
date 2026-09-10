@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { deriveBaseUrl } from "@/lib/base-url";
+import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 
 // ============================================================
 // Email utility — Resend API
@@ -32,6 +33,10 @@ function getResend() {
 }
 
 async function sendMail(to: string, subject: string, html: string) {
+  if (isPreviewExternalIntegrationBlocked()) {
+    console.info("[Email] Preview outbound delivery blocked");
+    return;
+  }
   const resend = getResend();
 
   if (!resend) {
