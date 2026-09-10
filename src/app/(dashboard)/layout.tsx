@@ -1,3 +1,4 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
@@ -51,6 +52,7 @@ export default async function DashboardLayout({
       getStoreOptions(user),
       getActiveStoreForRead(user),
     ]);
+  const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : "steamfoot";
   const trialStatus = await getCachedTrialStatus(activeStoreId ?? undefined);
 
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）
@@ -144,6 +146,7 @@ export default async function DashboardLayout({
 
   return (
     <DashboardShell
+      industryModule={industryModule}
       isOwner={isOwnerLevel}
       permissions={permissions}
       pricingPlan={pricingPlan}

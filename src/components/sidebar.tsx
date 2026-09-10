@@ -536,6 +536,7 @@ interface StoreViewOption {
 }
 
 interface DashboardShellProps {
+  industryModule?: "spa" | "steamfoot";
   isOwner: boolean;
   permissions: string[];
   pricingPlan: PricingPlan;
@@ -561,6 +562,7 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({
+  industryModule = "steamfoot",
   isOwner,
   permissions,
   pricingPlan,
@@ -637,7 +639,7 @@ export default function DashboardShell({
           label: "",
           defaultOpen: true,
           icon: <></>,
-          items: STORE_ADMIN_NAV,
+          items: STORE_ADMIN_NAV.map((item) => industryModule === "spa" && item.href === "/dashboard/bookings" ? { ...item, href: "/dashboard/spa-schedule" } : item),
         },
       ];
     }
@@ -649,10 +651,10 @@ export default function DashboardShell({
         label: "",
         defaultOpen: true,
         icon: <></>,
-        items: STORE_ADMIN_NAV,
+        items: STORE_ADMIN_NAV.map((item) => industryModule === "spa" && item.href === "/dashboard/bookings" ? { ...item, href: "/dashboard/spa-schedule" } : item),
       },
     ];
-  }, [isHqRoute, isStoreAdminRoute, isAdmin]);
+  }, [isHqRoute, isStoreAdminRoute, isAdmin, industryModule]);
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {
