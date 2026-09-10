@@ -79,4 +79,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export const POST = handlers.POST;
+export async function POST(request: NextRequest) {
+  const { withWebLineStoreContext } = await import("@/lib/line-oauth/web-store-context");
+  const { resolveStoreBySlug } = await import("@/lib/store-resolver");
+  return withWebLineStoreContext(request, () => handlers.POST(request), resolveStoreBySlug);
+}
