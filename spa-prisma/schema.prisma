@@ -1,6 +1,9 @@
 generator spaClient {
   provider = "prisma-client-js"
-  output   = "../src/generated/spa-client"
+  // Keep generated Prisma runtime code outside Next's source tree. Otherwise
+  // Turbopack's NFT tracer follows Prisma's dynamic runtime loader as though it
+  // were application source and warns that it traced the entire project.
+  output   = "../generated/spa-client"
 }
 
 datasource db {

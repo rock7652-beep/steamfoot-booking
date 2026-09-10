@@ -1,6 +1,6 @@
 import "server-only";
 
-import { PrismaClient } from "@/generated/spa-client";
+import { PrismaClient } from "../../generated/spa-client";
 
 function buildSpaDatabaseUrl(): string {
   const base = process.env.DATABASE_URL ?? "";

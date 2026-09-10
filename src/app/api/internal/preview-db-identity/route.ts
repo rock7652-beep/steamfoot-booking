@@ -21,8 +21,8 @@ export async function GET(request: Request) {
   const database = identity(process.env.DATABASE_URL);
   const direct = identity(process.env.DIRECT_URL);
   const [mainQuery, spaQuery] = await Promise.all([
-    prisma.$queryRaw`SELECT 1`,
-    spaPrisma.$queryRaw`SELECT 1`,
+    prisma.$queryRaw<Array<{ ok: number }>>`SELECT 1 AS ok`,
+    spaPrisma.$queryRaw<Array<{ ok: number }>>`SELECT 1 AS ok`,
   ]);
   // Do not expose even non-sensitive infrastructure identifiers to callers.
   // Project members with Vercel runtime-log access perform the one-time check.
