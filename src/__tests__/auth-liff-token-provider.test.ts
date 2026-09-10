@@ -660,3 +660,54 @@ describe("web LINE credential isolation", () => {
     expect(provider.clientSecret).toBe("");
   });
 });
+
+// Same synthetic membership is consumed through both real auth callbacks.
+// This verifies identity parity, not a live LINE exchange or production history.
+describe("web LINE and LIFF membership parity", () => {
+  it.each(["zhubei", "hsinchu", "taichung"])(
+    "selects the same linked customer in %s despite another legacy store",
+    async (slug) => {
+      const authorize = await getLiffAuthorize();
+      const config = mockNextAuth.mock.calls.at(-1)![0];
+      const jwt = config.callbacks.jwt;
+      const { prisma } = await import("@/lib/db");
+      const store = { id: `test-store-${slug}`, slug };
+      const customer = {
+        id: `test-customer-${slug}`,
+        storeId: store.id,
+        store: { slug },
+      };
+      const user = {
+        id: "test-central-member",
+        name: "Synthetic member",
+        email: null,
+        role: "CUSTOMER",
+        status: "ACTIVE",
+      };
+      mockResolveStoreBySlug.mockResolvedValue(store);
+      mockResolveStoreFromOAuthCookie.mockResolvedValue({
+        storeId: store.id, storeSlug: slug,
+      });
+      mockIdentityLinkFindUnique.mockResolvedValue({ customer, user, userId: user.id });
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        role: "CUSTOMER", staff: null,
+        customer: { id: "legacy-other", storeId: "other-store", store: { slug: "other" } },
+      } as never);
+
+      const liff = await authorize({ idToken: "synthetic-verified-token", storeSlug: slug }) as Record<string, unknown>;
+      const web = await jwt({
+        token: {}, user: { id: user.id },
+        account: { type: "oauth", provider: "line", providerAccountId: LINE_USER_ID },
+      });
+      expect(liff).toMatchObject({ id: user.id, customerId: customer.id, storeId: store.id, storeSlug: slug });
+      expect(web).toMatchObject({ sub: liff.id, customerId: liff.customerId, storeId: liff.storeId, storeSlug: liff.storeSlug });
+      expect(mockIdentityLinkFindUnique).toHaveBeenCalledTimes(2);
+      for (const [query] of mockIdentityLinkFindUnique.mock.calls) {
+        expect(query.where.uq_customer_identity_provider_store).toEqual({
+          provider: "line", providerAccountId: LINE_USER_ID, storeId: store.id,
+        });
+      }
+      expect(mockCustomerFindFirst).not.toHaveBeenCalled();
+    },
+  );
+});
