@@ -612,6 +612,29 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
   it("serializes parallel markCompleted calls for one reserved session", async () => {
     const base = await createStore("parallel-complete", 1);
     const holder = await createCustomerWallet(base, "holder", { remaining: 1, ledger: 1 });
+    const staffUser = await db().user.create({
+      data: { id: `${base.prefix}_staff_user`, name: "Completion test owner", role: "OWNER" },
+    });
+    const staff = await db().staff.create({
+      data: {
+        id: `${base.prefix}_staff`,
+        userId: staffUser.id,
+        storeId: base.storeId,
+        displayName: "Completion test owner",
+        isOwner: true,
+      },
+    });
+    const completionUser = {
+      id: staffUser.id,
+      role: "OWNER",
+      storeId: base.storeId,
+      storeSlug: null,
+      staffId: staff.id,
+      customerId: null,
+      email: null,
+    };
+    boundary.requireSession.mockResolvedValue(completionUser);
+    boundary.requireWritablePermission.mockResolvedValue(completionUser);
     const created = await actions.createBooking(createInput(base, holder, "10:00"));
     expect(created.success, JSON.stringify(created)).toBe(true);
     if (!created.success) return;

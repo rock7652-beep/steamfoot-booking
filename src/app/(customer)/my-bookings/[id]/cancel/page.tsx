@@ -22,6 +22,11 @@ function getBookingDateTime(bookingDate: Date, slotTime: string): Date {
   return new Date(`${dateStr}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00+08:00`);
 }
 
+function canCustomerCancelBooking(bookingDate: Date, slotTime: string): boolean {
+  const bookingDateTime = getBookingDateTime(bookingDate, slotTime);
+  return (bookingDateTime.getTime() - Date.now()) / (1000 * 60 * 60) >= 12;
+}
+
 export default async function CancelBookingPage({ params }: PageProps) {
   const { id } = await params;
   const user = await getCurrentUser();
@@ -61,9 +66,7 @@ export default async function CancelBookingPage({ params }: PageProps) {
   }
 
   // 計算距離開課的時間
-  const bookingDateTime = getBookingDateTime(booking.bookingDate, booking.slotTime);
-  const hoursUntilBooking = (bookingDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
-  const canCancel = hoursUntilBooking >= 12;
+  const canCancel = canCustomerCancelBooking(booking.bookingDate, booking.slotTime);
 
   async function doCancelAction(
     _previous: ActionResult<void> | null,
