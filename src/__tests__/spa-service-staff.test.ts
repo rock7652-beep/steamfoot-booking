@@ -4,7 +4,7 @@ vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/server/actions/spa-resources",()=>({spaResourceStore:m.store}));
 vi.mock("@/lib/db",()=>({prisma:{staff:{findFirst:m.staffFind,findMany:m.staffList,count:m.staffCount}}}));
 vi.mock("@/lib/spa-db",()=>({spaPrisma:{$transaction:m.tx,spaTreatment:{findMany:m.treatments},spaStaffSkill:{findMany:m.links},spaStaffAvailability:{findMany:m.regular},spaStaffAvailabilityException:{findMany:m.exceptions},spaBooking:{findMany:m.bookings}}}));
-import { getSpaAvailableProviders,saveSpaPersonServices,saveSpaServiceProviders } from "@/server/actions/spa-service-staff";
+import { getSpaAvailableProviders,saveSpaPersonServices,saveSpaServiceProviders,saveSpaServiceDetails } from "@/server/actions/spa-service-staff";
 beforeEach(()=>{vi.clearAllMocks();m.store.mockResolvedValue("store");m.staffFind.mockResolvedValue({id:"A"});m.staffList.mockResolvedValue([{id:"A",displayName:"甲"},{id:"B",displayName:"乙"}]);});
 describe("service-provider relation",()=>{
  it("removing one person's service preserves other providers and other services",async()=>{
@@ -22,8 +22,18 @@ describe("service-provider relation",()=>{
   m.treatments.mockResolvedValue([{id:"T1",serviceMinutes:30,bufferMinutes:0,skills:[{skillId:"S1"}]},{id:"T2",serviceMinutes:30,bufferMinutes:0,skills:[{skillId:"S2"}]}]);
   m.links.mockResolvedValue(["A","B","C","D"].flatMap(staffId=>(staffId==="B"?["S1"]:["S1","S2"]).map(skillId=>({staffId,skillId}))));
   m.regular.mockResolvedValue(["A","B","C","D"].map(staffId=>({staffId,startTime:"09:00",endTime:"18:00",isActive:true})));
-  m.exceptions.mockResolvedValue([{staffId:"C",type:"UNAVAILABLE",startTime:"12:00",endTime:"13:00"}]);m.bookings.mockResolvedValue([{serviceStaffId:"D"}]);
+  m.exceptions.mockResolvedValue([{staffId:"C",type:"UNAVAILABLE",startTime:"12:00",endTime:"13:00"}]);m.bookings.mockResolvedValue([{serviceStaffId:"D",startTime:"12:00",endTime:"13:00"}]);
   const result=await getSpaAvailableProviders({date:"2026-09-11",startTime:"12:00",treatmentIds:["T1","T2"]});
-  expect(result).toEqual({success:true,people:[{id:"A",name:"A"}]});
+  expect(result).toMatchObject({success:true,people:[{id:"A",name:"A"}],reason:"",suggestions:[]});
  });
+});
+
+it("suggests only complete service intervals after a break and existing booking",async()=>{
+ m.staffList.mockResolvedValue([{id:"A",displayName:"甲"}]);m.treatments.mockResolvedValue([{id:"T",serviceMinutes:45,bufferMinutes:15,skills:[]}]);m.links.mockResolvedValue([]);
+ m.regular.mockResolvedValue([{staffId:"A",startTime:"09:00",endTime:"16:00",isActive:true}]);m.exceptions.mockResolvedValue([{staffId:"A",type:"UNAVAILABLE",startTime:"12:00",endTime:"13:00"}]);m.bookings.mockResolvedValue([{serviceStaffId:"A",startTime:"13:00",endTime:"14:00"}]);
+ const r=await getSpaAvailableProviders({date:"2026-09-11",startTime:"12:00",treatmentIds:["T"]});expect(r.success).toBe(true);if(!r.success)return;expect(r.reason).toContain("休息");expect(r.people).toEqual([]);expect(r.suggestions[0]).toEqual({startTime:"14:00",endTime:"15:00"});expect(r.suggestions.every(s=>s.endTime<="16:00")).toBe(true);
+});
+it("rejects a foreign location before changing any service fields",async()=>{
+ const update=vi.fn();m.staffCount.mockResolvedValue(1);m.tx.mockImplementation(async fn=>fn({$executeRaw:vi.fn(),spaTreatment:{findFirst:vi.fn().mockResolvedValue({id:"T"}),update},spaServiceLocation:{count:vi.fn().mockResolvedValue(0)}}));
+ const r=await saveSpaServiceDetails({id:"T",baseName:"美容",variantLabel:"",price:500,serviceMinutes:60,bufferMinutes:0,isActive:true,publicVisible:false,staffIds:["A"],locationIds:["foreign"]});expect(r.success).toBe(false);expect(update).not.toHaveBeenCalled();
 });

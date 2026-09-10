@@ -82,6 +82,7 @@ async function saveBooking(storeId: string, data: CreateSpaBookingInput, edit?: 
       const duplicate = await tx.spaBooking.findFirst({ where: { storeId, requestKey: data.requestKey } });
       if (duplicate) return { id: duplicate.id };
     }
+    if (!await prisma.staff.findFirst({ where: { id: data.serviceStaffId, storeId, status: "ACTIVE" }, select: { id: true } })) throw new AppError("CONFLICT", "此人員已停用，請重新選擇服務人員");
     const treatments = await tx.spaTreatment.findMany({
       where: { storeId, id: { in: data.treatmentIds }, isActive: true },
       include: { skills: true, serviceLocations: true },

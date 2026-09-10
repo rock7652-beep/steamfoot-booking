@@ -28,3 +28,24 @@ export async function createSpaPerson(input:z.infer<typeof schema>){
   return{success:true as const,staffId};
  }catch(e){const r=handleActionError(e);return{success:false as const,error:r.success?"新增失敗":r.error};}
 }
+
+const personEdit=z.object({staffId:z.string().min(1),name:z.string().trim().min(1,"請填姓名").max(100),phone:z.string().trim().max(20),deactivate:z.boolean()});
+export async function updateSpaPerson(input:z.infer<typeof personEdit>){
+ try{
+  const user=await requirePermission("duty.manage");
+  if(user.role!=="OWNER")throw new AppError("FORBIDDEN","僅店長可修改服務人員");
+  const storeId=await spaResourceStore("duty.manage"),d=personEdit.parse(input);
+  await prisma.$transaction(async tx=>{
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
+   const person=await tx.staff.findFirst({where:{id:d.staffId,storeId,status:"ACTIVE"},include:{user:true}});
+   if(!person||person.isOwner||!person.id.startsWith(`spa-person:${storeId}:`)||person.user.status!=="SUSPENDED"||person.user.passwordHash||person.user.email)throw new AppError("FORBIDDEN","此處僅能修改新增的服務人員；登入帳號需由帳號管理調整");
+   if(d.deactivate){
+    const bookings=await tx.$queryRaw<{id:string}[]>`SELECT "id" FROM "SpaBooking" WHERE "storeId"=${storeId} AND "serviceStaffId"=${d.staffId} AND "status" IN ('PENDING','CONFIRMED')`;
+    if(bookings.length)throw new AppError("CONFLICT",`此人員仍有 ${bookings.length} 筆未完成預約，請先改派或取消後再停用`);
+   }
+   await tx.user.update({where:{id:person.userId},data:{name:d.name,phone:d.phone||null}});
+   await tx.staff.update({where:{id:person.id},data:{displayName:d.name,...(d.deactivate?{status:"INACTIVE" as const}:{})}});
+  });
+  revalidatePath("/dashboard/spa-staff");revalidatePath("/dashboard/plans");revalidatePath("/dashboard/spa-schedule");return{success:true as const};
+ }catch(e){const r=handleActionError(e);return{success:false as const,error:r.success?"修改失敗":r.error};}
+}

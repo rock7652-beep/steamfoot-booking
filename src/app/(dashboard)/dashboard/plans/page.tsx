@@ -1,3 +1,4 @@
+import { spaPrisma } from "@/lib/spa-db";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getSpaServiceStaff } from "@/server/queries/spa-service-staff";
 import { SpaSkillsManager } from "./_components/spa-skills-manager";
@@ -35,6 +36,8 @@ export default async function PlansPage() {
 
   const isSpa = plansStoreId ? await getStoreIndustryModule(plansStoreId) === "spa" : false;
   const spaAssignments = isSpa && plansStoreId ? await getSpaServiceStaff(plansStoreId) : {people:[],services:[]};
+
+  const spaLocations = isSpa && plansStoreId ? await spaPrisma.spaServiceLocation.findMany({where:{storeId:plansStoreId},select:{id:true,name:true,isActive:true}}) : [];
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。
@@ -83,7 +86,7 @@ export default async function PlansPage() {
           }
         />
 
-        {isSpa && <SpaSkillsManager {...spaAssignments} canManage={canManage}/> }
+        {isSpa && <SpaSkillsManager locations={spaLocations} {...spaAssignments} canManage={canManage}/> }
         <PlansManager
           initialPlans={planRows}
           canManage={canManage}

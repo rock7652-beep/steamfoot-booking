@@ -31,7 +31,7 @@ export function SpaScheduleWorkspace(props: Props) {
     const timer = window.setInterval(() => setClock(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  const [providerResult, setProviderResult] = useState<{key:string;people:Named[];error?:string}>({key:"",people:[]});
+  const [providerResult, setProviderResult] = useState<{key:string;people:Named[];error?:string;reason?:string;suggestions?:{startTime:string;endTime:string}[]}>({key:"",people:[]});
   const providerKey = draft && (!editing || ["PENDING", "CONFIRMED"].includes(editing.status)) && draft.treatmentIds.length ? JSON.stringify([draft.bookingDate,draft.startTime,[...draft.treatmentIds].sort(),editing?.id]) : "";
   useEffect(()=>{
     if(!providerKey)return;
@@ -40,7 +40,7 @@ export function SpaScheduleWorkspace(props: Props) {
     getSpaAvailableProviders({date:requestedDate,startTime,treatmentIds,bookingId}).then(result=>{
       if(!current)return;
       if(!result.success){setProviderResult({key:providerKey,people:[],error:result.error});return;}
-      setProviderResult({key:providerKey,people:result.people});
+      setProviderResult({key:providerKey,people:result.people,reason:result.reason,suggestions:result.suggestions});
       setDraft(previous=>previous?{...previous,serviceStaffId:result.people.some(p=>p.id===previous.serviceStaffId)?previous.serviceStaffId:result.people.length===1?result.people[0].id:""}:previous);
     }).catch(()=>{if(current)setProviderResult({key:providerKey,people:[],error:"無法取得可服務人員，請調整時間重試"});});
     return()=>{current=false;};
@@ -123,8 +123,9 @@ export function SpaScheduleWorkspace(props: Props) {
           {step === 1 && <div className="space-y-4">
             <label className="block">日期<input type="date" className={inputClass} value={draft.bookingDate} onChange={e => setDraft({ ...draft, bookingDate: e.target.value })} /></label>
             <label className="block">開始時間<input type="time" className={inputClass} value={draft.startTime} onChange={e => setDraft({ ...draft, startTime: e.target.value })} /></label>
+            {!checkingProviders&&providerResult.key===providerKey&&!!providerResult.suggestions?.length&&<div className="rounded-lg bg-earth-50 p-3"><p className="mb-2 text-sm">當日接下來有人員可服務的時段（服務位置於送出時確認）</p><div className="flex flex-wrap gap-2">{providerResult.suggestions.map(s=><button key={s.startTime} type="button" className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm" onClick={()=>setDraft({...draft,startTime:s.startTime,serviceStaffId:""})}>{s.startTime}–{s.endTime}</button>)}</div></div>}
             <label className="block">服務人員<select disabled={checkingProviders} className={inputClass} value={availableProviders.some(p=>p.id===draft.serviceStaffId)?draft.serviceStaffId:""} onChange={e => setDraft({ ...draft, serviceStaffId: e.target.value })}><option value="">{checkingProviders?"查詢中…":"請選擇可服務人員"}</option>{availableProviders.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-            {!checkingProviders&&<p className="text-sm text-earth-500">{!providerKey?"請先選擇服務。":providerResult.error??(availableProviders.length?"僅顯示可提供所選服務、有排班且時段空閒的人員。":"此時段沒有可服務人員，請選擇其他時間。")}</p>}
+            {!checkingProviders&&<p className="text-sm text-earth-500">{!providerKey?"請先選擇服務。":providerResult.error??(availableProviders.length?"僅顯示可提供所選服務、有排班且時段空閒的人員。":providerResult.reason||"此時段沒有可服務人員，請選擇其他時間。")}</p>}
 
             <label className="block">服務位置<select className={inputClass} value={effectiveLocation} onChange={e => setDraft({ ...draft, serviceLocationId: e.target.value || undefined })}><option value="">請選擇</option>{allowed.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
             {!allowed.length && <p className="text-sm text-amber-800">請先選擇服務；若仍無適用位置，需先設定服務與位置的對應。</p>}
