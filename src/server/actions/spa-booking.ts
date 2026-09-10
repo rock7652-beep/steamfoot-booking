@@ -6,9 +6,10 @@ import { prisma } from "@/lib/db";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import { handleActionError, AppError } from "@/lib/errors";
 import { requireSpaStore } from "@/lib/industry-module-server";
-import { requireWritablePermission } from "@/lib/permissions";
+import { checkPermission, isStaffRole } from "@/lib/permissions";
 import { spaPrisma } from "@/lib/spa-db";
-import { getActiveStoreForRead } from "@/lib/store";
+import { getCurrentUser } from "@/lib/session";
+import { getStoreContext } from "@/lib/store-context";
 import { applicableLocations, spaEndTime, staffAvailable, validSpaDate } from "@/lib/spa-scheduling";
 import type { ActionResult } from "@/types";
 
@@ -27,11 +28,27 @@ const cancelSchema = z.object({ bookingId: z.string().min(1), expectedUpdatedAt:
 const active = ["PENDING", "CONFIRMED"] as const;
 
 async function authorizedStore(permission: "booking.create" | "booking.update") {
-  const user = await requireWritablePermission(permission);
-  // SPA routes are store-slug scoped; server actions must resolve the same
-  // authorised route/cookie context as the schedule page, not only JWT storeId.
-  const storeId = await getActiveStoreForRead(user);
-  if (!storeId) throw new AppError("UNAUTHORIZED", "缺少目前店舖，請重新開啟 SPA 排程頁");
+  const user = await getCurrentUser();
+  if (!user || !isStaffRole(user.role)) throw new AppError("UNAUTHORIZED", "請先以店員帳號登入");
+  if (!(await checkPermission(user.role, user.staffId, permission))) {
+    throw new AppError("FORBIDDEN", "您沒有此操作的權限");
+  }
+
+  // A Server Action request does not reliably retain the rewritten pathname,
+  // so obtain its route-scoped store from the proxy cookie.  The cookie is
+  // only a requested context: the signed-in user must also own an active Staff
+  // row in that exact store before any SPA data can be touched.
+  const context = await getStoreContext();
+  if (!context) throw new AppError("UNAUTHORIZED", "缺少目前店舖，請重新開啟 SPA 排程頁");
+  if (user.role !== "ADMIN") {
+    const staff = await prisma.staff.findFirst({
+      where: { id: user.staffId ?? undefined, userId: user.id, storeId: context.storeId, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (!staff) throw new AppError("FORBIDDEN", "您無權操作目前店舖");
+  }
+
+  const storeId = context.storeId;
   await requireSpaStore(storeId);
   const installation = await prisma.storeModuleInstallation.findUnique({ where: { storeId }, select: { status: true } });
   if (installation?.status !== "ACTIVE") throw new AppError("FORBIDDEN", "此店尚未完成服務模組設定");

@@ -6,8 +6,9 @@ const m = vi.hoisted(() => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findFirst: m.customer }, staff: { findFirst: m.staff }, storeModuleInstallation: { findUnique: m.installation } } }));
-vi.mock("@/lib/permissions", () => ({ requireWritablePermission: m.permission }));
-vi.mock("@/lib/store", () => ({ resolveWriteStoreId: m.store }));
+vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission, isStaffRole: () => true }));
+vi.mock("@/lib/session", () => ({ getCurrentUser: m.store }));
+vi.mock("@/lib/store-context", () => ({ getStoreContext: m.guard }));
 vi.mock("@/lib/industry-module-server", () => ({ requireSpaStore: m.guard }));
 vi.mock("@/lib/spa-db", () => ({ spaPrisma: { $transaction: m.tx } }));
 import { createSpaBookingAction, updateSpaBookingAction, cancelSpaBookingAction } from "@/server/actions/spa-booking";
@@ -15,7 +16,7 @@ const input = { customerId: "customer", serviceStaffId: "staff", treatmentIds: [
 const existing = { id: "booking", status: "CONFIRMED", updatedAt: new Date("2026-09-10T00:00:00.000Z") };
 beforeEach(() => {
   vi.resetAllMocks();
-  m.permission.mockResolvedValue({}); m.store.mockResolvedValue("spa-store"); m.guard.mockResolvedValue(undefined);
+  m.permission.mockResolvedValue(true); m.store.mockResolvedValue({ id: "user", role: "OWNER", staffId: "staff" }); m.guard.mockResolvedValue({ storeId: "spa-store", storeSlug: "spa" });
   m.installation.mockResolvedValue({ status: "ACTIVE" }); m.customer.mockResolvedValue({ id: "customer" }); m.staff.mockResolvedValue({ id: "staff" });
   m.bookingFind.mockResolvedValue(null); m.create.mockResolvedValue({ id: "booking" }); m.update.mockResolvedValue({ id: "booking" });
   m.treatment.mockResolvedValue([{ id: "treatment", name: "服務", price: 100, serviceMinutes: 60, bufferMinutes: 15, skills: [{ skillId: "skill" }], serviceLocations: [{ serviceLocationId: "location" }] }]);
