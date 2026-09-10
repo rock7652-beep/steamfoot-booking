@@ -596,13 +596,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const provider = account.provider; // "google" or "line"
 
-        // Gate before account-link handshakes and all identity writes. Credentials
-        // (including LIFF) have already returned above and never enter this gate.
-        if (provider === "line") {
-          const { allowWebLinePilot } = await import("@/server/services/web-line-pilot");
-          if (!(await allowWebLinePilot(account.providerAccountId))) return false;
-        }
-
         // Account settings uses a separately signed, short-lived HttpOnly
         // handshake. It is issued only to an authenticated CUSTOMER and binds
         // the verified OAuth identity back to that exact central User. This

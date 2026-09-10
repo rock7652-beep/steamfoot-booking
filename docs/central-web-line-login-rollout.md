@@ -40,26 +40,3 @@ history. Live same-member two-entry verification remains pending: use a dedicate
 Preview member with a verified LINE identity link, verify identical Customer IDs
 and booking/plan records from both entry points, and verify no duplicate member.
 Do not point Preview at production data or claim this audit completes that gate.
-
-## Restricted production pilot
-
-Production web LINE sign-in fails closed unless WEB_LINE_LOGIN_MODE is explicitly
-`pilot` or `all`. Preview retains its existing default when the mode is absent.
-For the owner-only pilot set mode `pilot`, WEB_LINE_LOGIN_PILOT_USER_ID to the
-verified production central User ID, and WEB_LINE_LOGIN_PILOT_STORE_ID to the
-verified production store ID. These are server-only environment variables; no
-personal identifiers are committed. Both WEB channel credentials must also be
-configured for Production before deployment.
-
-The gate runs after verified LINE OAuth and before any signIn identity writes,
-including account-link handshakes. It requires the exact subject/store identity
-link, the specified active CUSTOMER user, unmerged store membership, and no
-conflicting legacy owner. LIFF credentials bypass this OAuth-only gate. This is
-an access restriction, not a simulated identity or a copied production database.
-The existing store page remains the entry; only the allowed identity can finish
-web LINE sign-in during the pilot. Other web LINE identities are rejected.
-
-Disable by setting mode `disabled` and redeploying, or roll back the deployment.
-Do not enable `all` until actual web/LIFF member history comparison passes.
-No production deployment, credential changes, or real-user acceptance has been
-performed as part of this pilot preparation.
