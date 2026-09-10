@@ -1,7 +1,7 @@
 "use server";
 
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
-import { dateShiftExceptions } from "@/lib/spa-roster";
+import { dateShiftExceptions, effectiveShifts, previousWeekDates } from "@/lib/spa-roster";
 import { validSpaDate, staffAvailable } from "@/lib/spa-scheduling";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -59,19 +59,35 @@ export async function saveSpaStaffSchedule(input:z.infer<typeof staffSchema>){
 }
 
 const dateRosterSchema=z.object({staffId:z.string().min(1),date:z.string().refine(validSpaDate,"日期不正確"),shifts:z.array(z.object({startTime:time,endTime:z.string().regex(/^(?:([01]\d|2[0-3]):[0-5]\d|24:00)$/)}).refine(s=>s.startTime<s.endTime,"結束時間必須晚於開始時間")).max(12).refine(rows=>{const sorted=[...rows].sort((a,b)=>a.startTime.localeCompare(b.startTime));return sorted.every((s,i)=>i===0||sorted[i-1].endTime<=s.startTime);},"班別不可重疊")});
+const rosterBatchSchema=z.object({staffId:z.string().min(1),days:z.array(dateRosterSchema.omit({staffId:true})).min(1).max(31).refine(rows=>new Set(rows.map(r=>r.date)).size===rows.length,"日期不可重複")});
 export async function saveSpaDateRoster(input:z.infer<typeof dateRosterSchema>){
+ return saveSpaRosterBatch({staffId:input.staffId,days:[{date:input.date,shifts:input.shifts}]});
+}
+export async function saveSpaRosterBatch(input:z.infer<typeof rosterBatchSchema>){
  try{
-  const storeId=await spaResourceStore("duty.manage");const data=dateRosterSchema.parse(input);
+  const storeId=await spaResourceStore("duty.manage");const data=rosterBatchSchema.parse(input);
   if(!await prisma.staff.findFirst({where:{id:data.staffId,storeId,status:"ACTIVE"}}))throw new AppError("FORBIDDEN","找不到本店有效人員");
-  const date=parseTaiwanDateToDbDate(data.date);const exceptions=dateShiftExceptions(data.shifts);
+  const days=data.days.map(day=>({...day,dbDate:parseTaiwanDateToDbDate(day.date),exceptions:dateShiftExceptions(day.shifts)}));
   await spaPrisma.$transaction(async tx=>{
    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
-   const bookings=await tx.spaBooking.findMany({where:{storeId,serviceStaffId:data.staffId,bookingDate:date,status:{in:["PENDING","CONFIRMED"]}},select:{startTime:true,endTime:true}});
-   if(bookings.some(b=>!staffAvailable(b.startTime,b.endTime,null,exceptions)))throw new AppError("VALIDATION","新班別未涵蓋既有預約，請先改期或調整班別");
-   await tx.spaStaffAvailabilityException.deleteMany({where:{storeId,staffId:data.staffId,date}});
-   await tx.spaStaffAvailabilityException.createMany({data:exceptions.map(e=>({...e,storeId,staffId:data.staffId,date,reason:"月曆排班"}))});
+   // Validate every target before replacing any date; a conflict preserves the entire batch.
+   const bookings=await tx.spaBooking.findMany({where:{storeId,serviceStaffId:data.staffId,bookingDate:{in:days.map(d=>d.dbDate)},status:{in:["PENDING","CONFIRMED"]}},select:{bookingDate:true,startTime:true,endTime:true}});
+   for(const day of days){
+    if(bookings.some(b=>b.bookingDate.getTime()===day.dbDate.getTime()&&!staffAvailable(b.startTime,b.endTime,null,day.exceptions)))throw new AppError("VALIDATION",`${day.date} 的班別未涵蓋既有預約，整批尚未儲存`);
+   }
+   await tx.spaStaffAvailabilityException.deleteMany({where:{storeId,staffId:data.staffId,date:{in:days.map(d=>d.dbDate)}}});
+   await tx.spaStaffAvailabilityException.createMany({data:days.flatMap(day=>day.exceptions.map(e=>({...e,storeId,staffId:data.staffId,date:day.dbDate,reason:"月曆排班"})))});
   });revalidatePath("/dashboard/spa-staff");revalidatePath("/dashboard/spa-schedule");return{success:true as const};
  }catch(error){return handleActionError(error);}
+}
+export async function previewSpaPreviousWeek(input:{staffId:string;date:string}){
+ try{
+  const storeId=await spaResourceStore("duty.manage");const d=z.object({staffId:z.string().min(1),date:z.string().refine(validSpaDate)}).parse(input);
+  if(!await prisma.staff.findFirst({where:{id:d.staffId,storeId,status:"ACTIVE"}}))throw new AppError("FORBIDDEN","找不到本店有效人員");
+  const dates=previousWeekDates(d.date);
+  const [regular,exceptions]=await Promise.all([spaPrisma.spaStaffAvailability.findMany({where:{storeId,staffId:d.staffId}}),spaPrisma.spaStaffAvailabilityException.findMany({where:{storeId,staffId:d.staffId,date:{in:dates.map(day=>parseTaiwanDateToDbDate(day.source))}}})]);
+  return {success:true as const,days:dates.map(day=>({date:day.target,shifts:effectiveShifts(regular.find(r=>r.dayOfWeek===parseTaiwanDateToDbDate(day.source).getUTCDay())??null,exceptions.filter(e=>e.date.getTime()===parseTaiwanDateToDbDate(day.source).getTime()))}))};
+ }catch(error){const r=handleActionError(error);return{success:false as const,error:r.success?"讀取失敗":r.error};}
 }
 const skillSchema=z.object({id:z.string().optional(),name:z.string().trim().min(1,"請填專業項目名稱").max(60),remove:z.boolean().optional()});
 export async function saveSpaSkill(input:z.infer<typeof skillSchema>){

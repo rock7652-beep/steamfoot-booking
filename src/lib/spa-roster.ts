@@ -1,3 +1,4 @@
+import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import { staffAvailable } from "@/lib/spa-scheduling";
 export type Shift = { startTime: string; endTime: string };
 export type RosterException = { type: string; startTime: string | null; endTime: string | null };
@@ -23,4 +24,11 @@ export function effectiveShifts(regular: (Shift & {isActive:boolean}) | null, ex
     if(last?.endTime===startTime)last.endTime=endTime;else result.push({startTime,endTime});
   }
   return result;
+}
+
+export function previousWeekDates(anchor:string){
+ const date=parseTaiwanDateToDbDate(anchor);
+ const monday=new Date(date);monday.setUTCDate(date.getUTCDate()-((date.getUTCDay()+6)%7));
+ const format=(d:Date)=>`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
+ return Array.from({length:7},(_,i)=>{const target=new Date(monday);target.setUTCDate(monday.getUTCDate()+i);const source=new Date(target);source.setUTCDate(target.getUTCDate()-7);return{target:format(target),source:format(source)};});
 }

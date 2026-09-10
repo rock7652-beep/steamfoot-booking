@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dateShiftExceptions, effectiveShifts } from "@/lib/spa-roster";
+import { dateShiftExceptions, effectiveShifts, previousWeekDates } from "@/lib/spa-roster";
 import { staffAvailable } from "@/lib/spa-scheduling";
 const regular={startTime:"09:00",endTime:"21:00",isActive:true};
 describe("date roster and breaks",()=>{
@@ -15,4 +15,10 @@ describe("date roster and breaks",()=>{
  it("all-day rest overrides the weekly template",()=>{const exceptions=dateShiftExceptions([]);expect(staffAvailable("10:00","11:00",regular,exceptions)).toBe(false);expect(effectiveShifts(regular,exceptions)).toEqual([]);});
  it("allows date shifts without a weekly template and merges adjoining ranges",()=>{const exceptions=dateShiftExceptions([{startTime:"10:00",endTime:"12:00"},{startTime:"12:00",endTime:"14:00"}]);expect(staffAvailable("11:00","13:00",null,exceptions)).toBe(true);});
  it("keeps existing partial leave visible",()=>{expect(effectiveShifts(regular,[{type:"UNAVAILABLE",startTime:"12:00",endTime:"14:00"}])).toEqual([{startTime:"09:00",endTime:"12:00"},{startTime:"14:00",endTime:"21:00"}]);});
+});
+
+it("copies Monday through Sunday across year boundaries",()=>{
+ const dates=previousWeekDates("2027-01-01");expect(dates).toHaveLength(7);
+ expect(dates[0]).toEqual({target:"2026-12-28",source:"2026-12-21"});
+ expect(dates[6]).toEqual({target:"2027-01-03",source:"2026-12-27"});
 });
