@@ -191,6 +191,8 @@ beforeEach(() => {
   mockCompareSync.mockReset();
   vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "channel-123");
   vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", "channel-123");
+  vi.stubEnv("WEB_LINE_LOGIN_CHANNEL_ID", "web-channel-only");
+  vi.stubEnv("WEB_LINE_LOGIN_CHANNEL_SECRET", "web-secret-only");
   mockVerifyLiffIdToken.mockResolvedValue({
     lineUserId: LINE_USER_ID,
     displayName: "LINE User",
@@ -633,5 +635,28 @@ describe("auth.ts liff-token provider", () => {
         where: { storeId: STORE.id, lineUserId: LINE_USER_ID },
       }),
     );
+  });
+});
+
+
+describe("web LINE credential isolation", () => {
+  it("uses the web pair while keeping LIFF independently configured", async () => {
+    await getLiffAuthorize();
+    const config = mockNextAuth.mock.calls.at(-1)?.[0];
+    const provider = config.providers.find((p: { id: string }) => p.id === "line");
+    expect(provider.clientId).toBe("web-channel-only");
+    expect(provider.clientSecret).toBe("web-secret-only");
+  });
+
+  it("does not fall back to legacy credentials when the web pair is absent", async () => {
+    vi.stubEnv("WEB_LINE_LOGIN_CHANNEL_ID", "");
+    vi.stubEnv("WEB_LINE_LOGIN_CHANNEL_SECRET", "");
+    vi.stubEnv("LINE_LOGIN_CHANNEL_SECRET", "legacy-secret");
+    const authorize = await getLiffAuthorize();
+    expect(authorize).toBeTypeOf("function");
+    const config = mockNextAuth.mock.calls.at(-1)?.[0];
+    const provider = config.providers.find((p: { id: string }) => p.id === "line");
+    expect(provider.clientId).toBe("");
+    expect(provider.clientSecret).toBe("");
   });
 });

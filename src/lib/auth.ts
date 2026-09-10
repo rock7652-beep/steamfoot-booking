@@ -395,8 +395,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       id: "line",
       name: "LINE",
       type: "oauth" as const,
-      clientId: process.env.LINE_LOGIN_CHANNEL_ID!,
-      clientSecret: process.env.LINE_LOGIN_CHANNEL_SECRET!,
+      // Web OAuth credentials are independent of LIFF and legacy channels.
+      // Never fall back to a different channel when the web pair is missing.
+      clientId: process.env.WEB_LINE_LOGIN_CHANNEL_ID?.trim() || "",
+      clientSecret: process.env.WEB_LINE_LOGIN_CHANNEL_SECRET?.trim() || "",
       // LINE 要求 state 參數；不使用 PKCE（LINE 不支援）
       checks: ["state"],
       // 告訴 oauth4webapi 用 client_secret_post（把 client_id/secret 放在 POST body）
