@@ -754,6 +754,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             select: { userId: true, customer: true },
           });
           if (verifiedLink) {
+            if (verifiedLink.customer.userId === null) {
+              const { resolveWebLineLinkedMember } = await import(
+                "@/server/services/web-line-linked-member"
+              );
+              const centralUserId = await resolveWebLineLinkedMember({
+                storeId: targetStoreId,
+                subject: lineUserId,
+                expectedUserId: verifiedLink.userId,
+                expectedCustomerId: verifiedLink.customer.id,
+              });
+              if (!centralUserId) return false;
+              user.id = centralUserId;
+              return true;
+            }
             // An exact store-scoped Login mapping is authoritative only when
             // its Customer and User ownership agree. Never fall back to, or
             // compare against, the Messaging API Customer.lineUserId here.

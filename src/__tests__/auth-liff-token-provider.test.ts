@@ -711,3 +711,32 @@ describe("web LINE and LIFF membership parity", () => {
     },
   );
 });
+
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
+
+describe("web signIn identity-link-only member", () => {
+  it("reuses the central owner without entering legacy binding or creating a User", async () => {
+    await getLiffAuthorize();
+    const config = mockNextAuth.mock.calls.at(-1)![0];
+    const { prisma } = await import("@/lib/db");
+    const link = {
+      userId: "central-linked-user", customerId: "linked-customer",
+      customer: { id: "linked-customer", userId: null, storeId: STORE.id, mergedIntoCustomerId: null },
+      user: { id: "central-linked-user", role: "CUSTOMER", status: "ACTIVE" },
+    };
+    mockIdentityLinkFindUnique.mockResolvedValue(link);
+    vi.mocked(prisma.account.findUnique).mockResolvedValue({ userId: link.userId } as never);
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: unknown) =>
+      (fn as (tx: unknown) => Promise<unknown>)(prisma) as never);
+    vi.mocked(prisma.user.create).mockClear();
+    vi.mocked(prisma.account.create).mockClear();
+    const user = { id: "oauth-profile", name: "Changed LINE nickname", email: null };
+    expect(await config.callbacks.signIn({ user, account: {
+      type: "oauth", provider: "line", providerAccountId: LINE_USER_ID,
+    } })).toBe(true);
+    expect(user.id).toBe(link.userId);
+    expect(prisma.user.create).not.toHaveBeenCalled();
+    expect(prisma.account.create).not.toHaveBeenCalled();
+    expect(mockRepairCustomerIdentityOnLogin).not.toHaveBeenCalled();
+  });
+});

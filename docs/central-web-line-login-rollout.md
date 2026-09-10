@@ -23,9 +23,12 @@ Customer and store IDs when that mapping exists, even if the legacy User
 relation points to another store. They do not exercise live OAuth signIn,
 LINE token verification, database history queries or the complete LIFF UI.
 
-The paths are not equivalent for all legacy records: web signIn requires
-Customer.userId to equal the explicit link owner, while LIFF token authorization
-uses the link's User even when Customer.userId is null. Web legacy fallback
+The identity-link-only mismatch is now fixed: web signIn re-reads the exact
+link in a Serializable transaction and reuses its active CUSTOMER User when
+Customer.userId is null. Conflicting Account ownership, legacy ownership,
+store drift and merged Customers are rejected. Only a missing OAuth Account
+is created; no Customer, history, notification ID or legacy owner is changed.
+LIFF behavior is unchanged. Web legacy fallback
 uses the verified Account owner; LIFF retains a legacy lineUserId lookup.
 Do not copy the LIFF fallback into web OAuth or match by display name to hide
 missing links. These cases need targeted owner-consistency verification before
