@@ -1,0 +1,126 @@
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { RightSheet } from "@/components/admin/right-sheet";
+import { toLocalDateStr } from "@/lib/date-utils";
+import { applicableLocations, minutesOf, timeOf } from "@/lib/spa-scheduling";
+import { createSpaBookingAction, updateSpaBookingAction, cancelSpaBookingAction, type CreateSpaBookingInput } from "@/server/actions/spa-booking";
+import type { SpaScheduleBooking } from "@/server/queries/spa-schedule";
+
+type Named = { id: string; name: string };
+type Treatment = Named & { price: number; serviceMinutes: number; bufferMinutes: number; locationIds: string[] };
+type Props = { date: string; bookings: SpaScheduleBooking[]; staff: Named[]; customers: (Named & { phone: string })[];
+  treatments: Treatment[]; locations: Named[]; canCreate: boolean; canUpdate: boolean };
+const statusNames: Record<string, string> = { PENDING: "待確認", CONFIRMED: "已預約", CANCELLED: "已取消", COMPLETED: "已完成", NO_SHOW: "未到" };
+const inputClass = "mt-1 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
+
+export function SpaScheduleWorkspace(props: Props) {
+  const { date, bookings, staff, customers, treatments, locations, canCreate, canUpdate } = props;
+  const router = useRouter();
+  const [interval, setIntervalMinutes] = useState<15 | 30>(30);
+  const [clock, setClock] = useState<Date | null>(null);
+  const [draft, setDraft] = useState<CreateSpaBookingInput | null>(null);
+  const [editing, setEditing] = useState<SpaScheduleBooking | null>(null);
+  const [step, setStep] = useState(0);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [pending, startTransition] = useTransition();
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const selected = treatments.filter(t => draft?.treatmentIds.includes(t.id));
+  const allowed = selected.length ? applicableLocations(locations, selected.map(t => t.locationIds)) : [];
+  const effectiveLocation = draft?.serviceLocationId || (allowed.length === 1 ? allowed[0].id : "");
+  const openNew = (time = "10:00", staffId = staff[0]?.id ?? "") => {
+    if (!canCreate) return;
+    setEditing(null); setStep(0); setError("");
+    setDraft({ customerId: "", serviceStaffId: staffId, treatmentIds: [], bookingDate: date,
+      startTime: time, requestKey: crypto.randomUUID(), notes: "" });
+  };
+  const openEdit = (booking: SpaScheduleBooking) => {
+    setEditing(booking); setStep(0); setError("");
+    setDraft({ customerId: booking.customerId, serviceStaffId: booking.serviceStaffId,
+      serviceLocationId: booking.serviceLocationId ?? undefined, treatmentIds: booking.treatmentIds,
+      bookingDate: date, startTime: booking.startTime, requestKey: crypto.randomUUID(), notes: booking.notes });
+  };
+  const editable = editing ? canUpdate && ["PENDING", "CONFIRMED"].includes(editing.status) : canCreate;
+  function submit(cancel = false) {
+    if (!draft || pending) return;
+    setError("");
+    startTransition(async () => {
+      try {
+        const data = { ...draft, serviceLocationId: effectiveLocation || undefined };
+        const result = cancel && editing ? await cancelSpaBookingAction({ bookingId: editing.id, expectedUpdatedAt: editing.updatedAt })
+          : editing ? await updateSpaBookingAction({ ...data, bookingId: editing.id, expectedUpdatedAt: editing.updatedAt })
+          : await createSpaBookingAction(data);
+        if (!result.success) { setError(result.error); return; }
+        setNotice(cancel ? "預約已取消，時段已釋放" : editing ? "預約已更新" : "預約已建立");
+        setDraft(null); setEditing(null);
+        if (!cancel && data.bookingDate !== date) router.replace(`/dashboard/spa-schedule?date=${data.bookingDate}`);
+        else router.refresh();
+      } catch { setError("連線失敗，輸入已保留，請重試"); }
+    });
+  }
+  const rowHeight = 44;
+  const slots = Array.from({ length: 1440 / interval }, (_, i) => timeOf(i * interval));
+  const nowTime = clock ? new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Taipei", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(clock) : null;
+  return <>
+    <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div><h1 className="text-2xl font-bold text-earth-900">預約排程</h1><p className="mt-1 text-sm text-earth-500">查看人員與服務位置，點選空白時段安排預約</p></div>
+      <div className="flex items-center gap-2">
+        <input aria-label="排程日期" type="date" value={date} onChange={e => e.target.value && router.push(`/dashboard/spa-schedule?date=${e.target.value}`)} className="rounded-lg border border-earth-200 px-3 py-2" />
+        <select aria-label="時間間隔" value={interval} onChange={e => setIntervalMinutes(Number(e.target.value) as 15 | 30)} className="rounded-lg border border-earth-200 px-3 py-2"><option value={15}>15 分鐘</option><option value={30}>30 分鐘</option></select>
+        {canCreate && <button onClick={() => openNew()} className="rounded-lg bg-earth-800 px-4 py-2 text-white">新增預約</button>}
+      </div>
+    </header>
+    {notice && <p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-green-800">{notice}</p>}
+    {!staff.length ? <p className="rounded-xl border p-8">尚無可安排的服務人員，請先完成人員設定。</p> :
+      <div className="max-h-[70vh] overflow-auto rounded-xl border border-earth-200 bg-white" ref={node => { if (node && node.dataset.positioned !== "yes") { node.scrollTop = 9 * 60 / interval * rowHeight; node.dataset.positioned = "yes"; } }}>
+        <div style={{ minWidth: Math.max(680, staff.length * 210 + 70) }}>
+          <div className="sticky top-0 z-20 grid border-b bg-earth-50" style={{ gridTemplateColumns: `70px repeat(${staff.length}, 1fr)` }}><div className="p-3 text-xs">時間</div>{staff.map(s => <div key={s.id} className="border-l p-3 font-semibold">{s.name}</div>)}</div>
+          <div className="relative grid" style={{ gridTemplateColumns: `70px repeat(${staff.length}, 1fr)` }}>
+            <div>{slots.map(time => <div key={time} style={{ height: rowHeight }} className="border-b px-2 py-2 text-xs text-earth-500">{time}</div>)}</div>
+            {staff.map(s => <div key={s.id} className="relative border-l">
+              {slots.map(time => <button key={time} disabled={!canCreate} aria-label={`${s.name} ${time} 新增預約`} onClick={() => openNew(time, s.id)} style={{ height: rowHeight }} className="block w-full border-b border-earth-100 text-left hover:bg-earth-50 focus:bg-earth-100" />)}
+              {bookings.filter(b => b.serviceStaffId === s.id && b.status !== "CANCELLED" && b.status !== "NO_SHOW").map(b => <button key={b.id} onClick={() => openEdit(b)} style={{ top: minutesOf(b.startTime) / interval * rowHeight, height: Math.max(28, (minutesOf(b.endTime) - minutesOf(b.startTime)) / interval * rowHeight - 2) }} className="absolute inset-x-1 overflow-hidden rounded-lg border border-teal-200 bg-teal-50 p-2 text-left text-xs text-teal-950 hover:bg-teal-100">
+                <strong>{customers.find(c => c.id === b.customerId)?.name ?? "顧客"} · {b.startTime}–{b.endTime}</strong><div>{b.serviceName}</div><div>{locations.find(l => l.id === b.serviceLocationId)?.name ?? (b.serviceLocationId ? "已停用位置" : "待安排位置")} · {statusNames[b.status]}</div>
+              </button>)}
+            </div>)}
+            {clock && toLocalDateStr(clock) === date && nowTime && <div aria-label={`現在時間 ${nowTime}`} className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-red-500" style={{ top: minutesOf(nowTime) / interval * rowHeight }}><span className="bg-red-500 px-1 text-xs text-white">{nowTime}</span></div>}
+          </div>
+        </div>
+      </div>}
+    <details className="mt-4 rounded-xl border border-earth-200 bg-white p-4"><summary className="cursor-pointer">當日預約紀錄（{bookings.length}）</summary>
+      {bookings.map(b => <button key={b.id} onClick={() => openEdit(b)} className="flex w-full justify-between gap-3 border-b py-3 text-left text-sm"><span>{b.startTime} {customers.find(c => c.id === b.customerId)?.name ?? "顧客"} · {b.serviceName}</span><span>{statusNames[b.status]}</span></button>)}
+    </details>
+    {draft && <RightSheet open onClose={() => { if (!pending) setDraft(null); }} width={520} labelledById="spa-panel-title">
+      <header className="flex items-center justify-between border-b p-5"><h2 id="spa-panel-title" className="text-xl font-bold">{editing ? "預約詳情" : "新增預約"}</h2><button disabled={pending} onClick={() => setDraft(null)} aria-label="關閉預約面板">✕</button></header>
+      <div className="flex-1 overflow-y-auto p-5">
+        {editing && <p className="mb-4 text-sm">{statusNames[editing.status]}{!editing.serviceLocationId && " · 待安排位置"}</p>}
+        <nav aria-label="預約步驟" className="mb-5 grid grid-cols-4 gap-1">{["服務", "時間", "顧客", "確認"].map((label, i) => <button key={label} onClick={() => setStep(i)} className={`rounded-lg py-2 text-sm ${i === step ? "bg-earth-800 text-white" : "bg-earth-50"}`}>{i + 1} {label}</button>)}</nav>
+        <fieldset disabled={pending || !editable}>
+          {step === 0 && <div className="space-y-2"><h3 className="font-semibold">選擇服務</h3>{treatments.map(t => <label key={t.id} className="flex items-center gap-3 rounded-lg border border-earth-200 p-3"><input type="checkbox" checked={draft.treatmentIds.includes(t.id)} onChange={e => setDraft({ ...draft, serviceLocationId: undefined, treatmentIds: e.target.checked ? [...draft.treatmentIds, t.id] : draft.treatmentIds.filter(id => id !== t.id) })} /><span className="flex-1">{t.name}<small className="block text-earth-500">{t.serviceMinutes} 分鐘{t.bufferMinutes > 0 && `＋緩衝 ${t.bufferMinutes} 分鐘`}</small></span><span>${t.price.toLocaleString()}</span></label>)}</div>}
+          {step === 1 && <div className="space-y-4">
+            <label className="block">日期<input type="date" className={inputClass} value={draft.bookingDate} onChange={e => setDraft({ ...draft, bookingDate: e.target.value })} /></label>
+            <label className="block">開始時間<input type="time" className={inputClass} value={draft.startTime} onChange={e => setDraft({ ...draft, startTime: e.target.value })} /></label>
+            <label className="block">服務人員<select className={inputClass} value={draft.serviceStaffId} onChange={e => setDraft({ ...draft, serviceStaffId: e.target.value })}>{staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+            <label className="block">服務位置<select className={inputClass} value={effectiveLocation} onChange={e => setDraft({ ...draft, serviceLocationId: e.target.value || undefined })}><option value="">請選擇</option>{allowed.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
+            {!allowed.length && <p className="text-sm text-amber-800">請先選擇服務；若仍無適用位置，需先設定服務與位置的對應。</p>}
+            {allowed.length === 1 && <p className="text-sm text-earth-500">已自動帶入唯一適用位置，送出時會確認是否有空位。</p>}
+          </div>}
+          {step === 2 && <div className="space-y-4"><label className="block">顧客<select className={inputClass} value={draft.customerId} onChange={e => setDraft({ ...draft, customerId: e.target.value })}><option value="">請選擇顧客</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name} · {c.phone}</option>)}</select></label><label className="block">備註<textarea className={inputClass} maxLength={500} value={draft.notes} onChange={e => setDraft({ ...draft, notes: e.target.value })} /></label></div>}
+          {step === 3 && <div className="space-y-3 rounded-xl bg-earth-50 p-4"><p>{selected.map(t => t.name).join("＋") || "尚未選擇服務"}</p><p>{draft.bookingDate} {draft.startTime} · 共 {selected.reduce((n, t) => n + t.serviceMinutes + t.bufferMinutes, 0)} 分鐘</p><p>{staff.find(s => s.id === draft.serviceStaffId)?.name} · {locations.find(l => l.id === effectiveLocation)?.name ?? "尚未選擇位置"}</p><p>{customers.find(c => c.id === draft.customerId)?.name ?? "尚未選擇顧客"}</p><p className="font-bold">NT${selected.reduce((n, t) => n + t.price, 0).toLocaleString()}</p><p className="text-sm">{draft.notes}</p></div>}
+        </fieldset>
+        {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      </div>
+      <footer className="flex flex-wrap items-center gap-2 border-t p-5">
+        {editing && editable && <button disabled={pending} onClick={() => { if (window.confirm("確認取消這筆預約？取消後將釋放人員與服務位置時段。")) submit(true); }} className="mr-auto rounded-lg border border-red-200 px-3 py-2 text-red-700">取消預約</button>}
+        {step > 0 && <button disabled={pending} onClick={() => setStep(step - 1)} className="rounded-lg border px-3 py-2">上一步</button>}
+        {step < 3 ? <button onClick={() => setStep(step + 1)} className="rounded-lg bg-earth-800 px-4 py-2 text-white">下一步</button>
+          : editable && <button disabled={pending} onClick={() => submit()} className="rounded-lg bg-earth-800 px-4 py-2 text-white disabled:opacity-50">{pending ? "處理中…" : editing ? "儲存修改" : "確認預約"}</button>}
+      </footer>
+    </RightSheet>}
+  </>;
+}
