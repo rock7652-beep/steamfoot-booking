@@ -1,3 +1,4 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getTrialSettings } from "@/lib/shop-config";
@@ -80,6 +81,8 @@ export default async function SettingsIndexPage() {
       </PageShell>
     );
   }
+
+  const isSpa = await getStoreIndustryModule(activeStoreId) === "spa";
 
   const canManageTrial = await checkPermission(
     user.role,
@@ -164,10 +167,7 @@ export default async function SettingsIndexPage() {
           : []),
       ],
     },
-    {
-      title: "人員與權限",
-      items: [{ label: "人員管理", href: "/dashboard/staff" }],
-    },
+    ...(!isSpa ? [{ title: "人員與權限", items: [{ label: "人員管理", href: "/dashboard/staff" }] }] : []),
   ];
 
   // ==== 付款設定 summary ====
@@ -230,7 +230,7 @@ export default async function SettingsIndexPage() {
         }
       >
         {/* 1. 人員管理 */}
-        <SettingsActionCard
+        {!isSpa && <SettingsActionCard
           title="人員管理"
           description="建立員工、指派角色與可視範圍"
           iconPath="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
@@ -245,7 +245,7 @@ export default async function SettingsIndexPage() {
               ]}
             />
           }
-        />
+        />}
 
         {/* 3. 預約開放設定 */}
         <SettingsActionCard

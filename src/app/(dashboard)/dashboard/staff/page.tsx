@@ -1,3 +1,4 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { listStaff } from "@/server/queries/staff";
 import { createStaff } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
@@ -44,6 +45,7 @@ export default async function StaffPage({
     sp.status === "active" || sp.status === "inactive" ? sp.status : "all";
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const isSpa = activeStoreId ? await getStoreIndustryModule(activeStoreId) === "spa" : false;
   const adminActiveStoreCookie =
     user.role === "ADMIN"
       ? (await cookies()).get("active-store-id")?.value ?? null
@@ -136,10 +138,10 @@ export default async function StaffPage({
           subtitle="建立員工、指派角色與可視範圍"
           actions={
             <Link
-              href="/dashboard/settings"
+              href={isSpa ? "/dashboard/spa-staff" : "/dashboard/settings"}
               className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
             >
-              ← 返回設定
+              {isSpa ? "← 返回人員班表" : "← 返回設定"}
             </Link>
           }
         />

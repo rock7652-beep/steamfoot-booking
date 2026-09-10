@@ -721,6 +721,7 @@ export default function DashboardShell({
   }, [mobileOpen]);
 
   function isActive(href: string) {
+    if (industryModule === "spa" && href === "/dashboard/spa-staff" && pathname.startsWith("/dashboard/staff")) return true;
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   }
@@ -893,8 +894,8 @@ export default function DashboardShell({
     <div className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
-        className={`sidebar-transition hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-20 border-r border-earth-200 bg-white ${
-          collapsed ? "lg:w-(--sidebar-collapsed-width)" : "lg:w-(--sidebar-width)"
+        className={`sidebar-transition ${industryModule === "spa" ? "hidden md:flex md:flex-col md:fixed md:inset-y-0 md:z-20" : "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-20"} border-r border-earth-200 bg-white ${
+          industryModule === "spa" ? (collapsed ? "md:w-(--sidebar-collapsed-width)" : "md:w-(--sidebar-width)") : (collapsed ? "lg:w-(--sidebar-collapsed-width)" : "lg:w-(--sidebar-width)")
         }`}
       >
         <div className="flex h-14 items-center justify-between border-b border-earth-200 px-3">
@@ -939,7 +940,7 @@ export default function DashboardShell({
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div className={industryModule === "spa" ? "fixed inset-0 z-40 md:hidden" : "fixed inset-0 z-40 lg:hidden"}>
           <div
             className="absolute inset-0 bg-earth-900/30 backdrop-blur-[2px]"
             onClick={() => setMobileOpen(false)}
@@ -979,7 +980,7 @@ export default function DashboardShell({
       {/* Main area — offset by sidebar on desktop */}
       <div
         className={`sidebar-transition ${
-          collapsed ? "lg:pl-(--sidebar-collapsed-width)" : "lg:pl-(--sidebar-width)"
+          industryModule === "spa" ? (collapsed ? "md:pl-(--sidebar-collapsed-width)" : "md:pl-(--sidebar-width)") : (collapsed ? "lg:pl-(--sidebar-collapsed-width)" : "lg:pl-(--sidebar-width)")
         }`}
       >
         {/* Header — 層級導向：系統層級 > 店別 > 使用者 */}
@@ -989,17 +990,17 @@ export default function DashboardShell({
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800"
+              className={industryModule === "spa" ? "md:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800" : "lg:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800"}
               aria-label="開啟選單"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div className="lg:hidden min-w-0">
+            <div className={industryModule === "spa" ? "md:hidden min-w-0" : "lg:hidden min-w-0"}>
               <DashboardBreadcrumb mobile />
             </div>
-            <div className="hidden lg:block">
+            <div className={industryModule === "spa" ? "hidden md:block" : "hidden lg:block"}>
               <DashboardBreadcrumb />
             </div>
           </div>
