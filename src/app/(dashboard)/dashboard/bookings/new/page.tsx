@@ -15,9 +15,8 @@ import { redirect } from "next/navigation";
 import { CustomerAndPlanFields } from "./customer-and-plan-fields";
 import { DashboardBookingForm } from "./booking-form";
 import { FormErrorToast } from "@/components/form-error-toast";
-import { SubmitButton } from "@/components/submit-button";
 import { BookingRequestKeyField } from "@/components/booking-request-key-field";
-import { BookingCreateForm } from "./booking-create-form";
+import { BookingCreateForm, BookingCreateSubmit } from "./booking-create-form";
 import { SpaBookingFields } from "./spa-booking-fields";
 import {
   PageShell,
@@ -158,6 +157,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       .filter(Boolean);
 
     if (!customerId) {
+      if (!isSpaStore) return { error: "請選擇顧客" };
       redirect(
         `/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent("請選擇顧客")}`,
       );
@@ -197,9 +197,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       : await createBooking(bookingInput);
 
     if (!result.success) {
-      redirect(
-        `/dashboard/bookings/new?date=${bookingDate}&error=${encodeURIComponent(result.error || "預約建立失敗")}`,
-      );
+      return { error: result.error || "預約建立失敗" };
     }
 
     redirect(
@@ -229,8 +227,8 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
       />
 
       <FormShell width="lg">
-        <BookingCreateForm action={handleCreate}>
-          <BookingRequestKeyField />
+        <BookingCreateForm action={handleCreate} preserveOnFailure={!isSpaStore}>
+          {isSpaStore && <BookingRequestKeyField />}
           <div className={isSpaStore ? "space-y-6" : "grid grid-cols-1 gap-6 md:grid-cols-2"}>
             {/* 左欄：預約資訊 */}
             <div className="space-y-6">
@@ -312,11 +310,7 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
             >
               取消
             </Link>
-            <SubmitButton
-              label="確認建立"
-              pendingLabel="建立中..."
-              className="bg-primary-600 text-white hover:bg-primary-700"
-            />
+            <BookingCreateSubmit />
           </StickyFormActions>
         </BookingCreateForm>
       </FormShell>
