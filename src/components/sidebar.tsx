@@ -639,7 +639,7 @@ export default function DashboardShell({
           label: "",
           defaultOpen: true,
           icon: <></>,
-          items: industryModule === "spa" ? [...STORE_ADMIN_NAV.map((item) => item.href === "/dashboard/bookings" ? { ...item, href: "/dashboard/spa-schedule" } : item), { href: "/dashboard/spa-staff", label: "人員排班", permission: "duty.manage", ownerOnly: true, icon: <span aria-hidden="true">♙</span> }, { href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <span aria-hidden="true">▦</span> }] : STORE_ADMIN_NAV,
+          items: industryModule === "spa" ? [...STORE_ADMIN_NAV.map((item) => item.href === "/dashboard/bookings" ? { ...item, href: "/dashboard/spa-schedule" } : item), { href: "/dashboard/spa-staff", label: "人員管理", permission: "duty.manage", ownerOnly: true, icon: <span aria-hidden="true">♙</span> }, { href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <span aria-hidden="true">▦</span> }] : STORE_ADMIN_NAV,
         },
       ];
     }
@@ -651,7 +651,7 @@ export default function DashboardShell({
         label: "",
         defaultOpen: true,
         icon: <></>,
-        items: industryModule === "spa" ? [...STORE_ADMIN_NAV.map((item) => item.href === "/dashboard/bookings" ? { ...item, href: "/dashboard/spa-schedule" } : item), { href: "/dashboard/spa-staff", label: "人員排班", permission: "duty.manage", ownerOnly: true, icon: <span aria-hidden="true">♙</span> }, { href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <span aria-hidden="true">▦</span> }] : STORE_ADMIN_NAV,
+        items: industryModule === "spa" ? [...STORE_ADMIN_NAV.map((item) => item.href === "/dashboard/bookings" ? { ...item, href: "/dashboard/spa-schedule" } : item), { href: "/dashboard/spa-staff", label: "人員管理", permission: "duty.manage", ownerOnly: true, icon: <span aria-hidden="true">♙</span> }, { href: "/dashboard/spa-resources", label: "服務位置", permission: "business_hours.manage", icon: <span aria-hidden="true">▦</span> }] : STORE_ADMIN_NAV,
       },
     ];
   }, [isHqRoute, isStoreAdminRoute, isAdmin, industryModule]);

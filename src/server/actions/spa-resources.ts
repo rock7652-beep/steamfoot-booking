@@ -1,5 +1,8 @@
 "use server";
 
+import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
+import { dateShiftExceptions } from "@/lib/spa-roster";
+import { validSpaDate, staffAvailable } from "@/lib/spa-scheduling";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -53,4 +56,63 @@ export async function saveSpaStaffSchedule(input:z.infer<typeof staffSchema>){
       await tx.spaStaffAvailability.createMany({data:d.shifts.map(shift=>({storeId,staffId:d.staffId,...shift,isActive:true}))});
     });revalidatePath("/dashboard/spa-staff");revalidatePath("/dashboard/spa-schedule");return{success:true as const};
   }catch(error){return handleActionError(error);}
+}
+
+const dateRosterSchema=z.object({staffId:z.string().min(1),date:z.string().refine(validSpaDate,"日期不正確"),shifts:z.array(z.object({startTime:time,endTime:z.string().regex(/^(?:([01]\d|2[0-3]):[0-5]\d|24:00)$/)}).refine(s=>s.startTime<s.endTime,"結束時間必須晚於開始時間")).max(12).refine(rows=>{const sorted=[...rows].sort((a,b)=>a.startTime.localeCompare(b.startTime));return sorted.every((s,i)=>i===0||sorted[i-1].endTime<=s.startTime);},"班別不可重疊")});
+export async function saveSpaDateRoster(input:z.infer<typeof dateRosterSchema>){
+ try{
+  const storeId=await spaResourceStore("duty.manage");const data=dateRosterSchema.parse(input);
+  if(!await prisma.staff.findFirst({where:{id:data.staffId,storeId,status:"ACTIVE"}}))throw new AppError("FORBIDDEN","找不到本店有效人員");
+  const date=parseTaiwanDateToDbDate(data.date);const exceptions=dateShiftExceptions(data.shifts);
+  await spaPrisma.$transaction(async tx=>{
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
+   const bookings=await tx.spaBooking.findMany({where:{storeId,serviceStaffId:data.staffId,bookingDate:date,status:{in:["PENDING","CONFIRMED"]}},select:{startTime:true,endTime:true}});
+   if(bookings.some(b=>!staffAvailable(b.startTime,b.endTime,null,exceptions)))throw new AppError("VALIDATION","新班別未涵蓋既有預約，請先改期或調整班別");
+   await tx.spaStaffAvailabilityException.deleteMany({where:{storeId,staffId:data.staffId,date}});
+   await tx.spaStaffAvailabilityException.createMany({data:exceptions.map(e=>({...e,storeId,staffId:data.staffId,date,reason:"月曆排班"}))});
+  });revalidatePath("/dashboard/spa-staff");revalidatePath("/dashboard/spa-schedule");return{success:true as const};
+ }catch(error){return handleActionError(error);}
+}
+const skillSchema=z.object({id:z.string().optional(),name:z.string().trim().min(1,"請填專業項目名稱").max(60),remove:z.boolean().optional()});
+export async function saveSpaSkill(input:z.infer<typeof skillSchema>){
+ try{
+  const storeId=await spaResourceStore("wallet.create");const d=skillSchema.parse(input);
+  await spaPrisma.$transaction(async tx=>{
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
+   if(d.id&&!await tx.spaSkill.findFirst({where:{id:d.id,storeId}}))throw new AppError("NOT_FOUND","找不到專業項目");
+   if(d.remove){
+    if(!d.id)throw new AppError("VALIDATION","請選擇專業項目");
+    if(await tx.spaTreatmentSkill.count({where:{storeId,skillId:d.id}}))throw new AppError("VALIDATION","仍有療程使用此項目，請先調整療程的專業需求再移除");
+    await tx.spaStaffSkill.deleteMany({where:{storeId,skillId:d.id}});
+    await tx.spaSkill.delete({where:{id_storeId:{id:d.id,storeId}}});
+   }else if(d.id){await tx.spaSkill.update({where:{id_storeId:{id:d.id,storeId}},data:{name:d.name}});}
+   else{await tx.spaSkill.create({data:{storeId,name:d.name}});}
+  });revalidatePath("/dashboard/spa-staff");revalidatePath("/dashboard/plans");return{success:true as const};
+ }catch(error){return handleActionError(error);}
+}
+export async function saveSpaPersonSkills(input:{staffId:string;skillIds:string[]}){
+ try{
+  const storeId=await spaResourceStore("duty.manage");const d=z.object({staffId:z.string().min(1),skillIds:z.array(z.string()).max(200)}).parse(input);
+  if(!await prisma.staff.findFirst({where:{id:d.staffId,storeId,status:"ACTIVE"}}))throw new AppError("FORBIDDEN","找不到本店有效人員");
+  await spaPrisma.$transaction(async tx=>{
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
+   const ids=[...new Set(d.skillIds)];
+   if(await tx.spaSkill.count({where:{storeId,id:{in:ids},isActive:true}})!==ids.length)throw new AppError("VALIDATION","專業項目不屬於本店");
+   await tx.spaStaffSkill.deleteMany({where:{storeId,staffId:d.staffId}});
+   await tx.spaStaffSkill.createMany({data:ids.map(skillId=>({storeId,staffId:d.staffId,skillId}))});
+  });revalidatePath("/dashboard/spa-staff");revalidatePath("/dashboard/spa-schedule");return{success:true as const};
+ }catch(error){return handleActionError(error);}
+}
+export async function saveSpaTreatmentSkills(input:{treatmentId:string;skillIds:string[]}){
+ try{
+  const storeId=await spaResourceStore("wallet.create");const d=z.object({treatmentId:z.string().min(1),skillIds:z.array(z.string()).max(200)}).parse(input);
+  await spaPrisma.$transaction(async tx=>{
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
+   if(!await tx.spaTreatment.findFirst({where:{storeId,id:d.treatmentId}}))throw new AppError("FORBIDDEN","找不到本店療程");
+   const ids=[...new Set(d.skillIds)];
+   if(await tx.spaSkill.count({where:{storeId,id:{in:ids},isActive:true}})!==ids.length)throw new AppError("VALIDATION","專業項目不屬於本店");
+   await tx.spaTreatmentSkill.deleteMany({where:{storeId,treatmentId:d.treatmentId}});
+   await tx.spaTreatmentSkill.createMany({data:ids.map(skillId=>({storeId,treatmentId:d.treatmentId,skillId}))});
+  });revalidatePath("/dashboard/plans");revalidatePath("/dashboard/spa-schedule");return{success:true as const};
+ }catch(error){return handleActionError(error);}
 }
