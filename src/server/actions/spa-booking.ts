@@ -124,11 +124,16 @@ async function saveBooking(storeId: string, data: CreateSpaBookingInput, edit?: 
       sortOrder,
     }));
     if (edit) {
-      return tx.spaBooking.update({
+      const booking = await tx.spaBooking.update({
         where: { id_storeId: { id: edit.bookingId, storeId } },
-        data: { ...values, items: { deleteMany: {}, create: itemRows } },
+        data: values,
         select: { id: true },
       });
+      await tx.spaBookingItem.deleteMany({ where: { bookingId: booking.id, storeId } });
+      await tx.spaBookingItem.createMany({
+        data: itemRows.map(item => ({ ...item, bookingId: booking.id })),
+      });
+      return booking;
     }
     // Prisma's checked create input cannot mix this composite relation's scalar
     // keys (storeId/serviceLocationId) with a nested item create.  Persist the
