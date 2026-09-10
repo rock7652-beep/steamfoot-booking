@@ -33,6 +33,7 @@ yarn-error.log*
 # env files (.env.example 可提交，.env 不提交)
 .env
 .env.local
+.env.spa-preview
 .env.production
 prisma/dev.db
 
