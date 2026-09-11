@@ -472,6 +472,7 @@ async function computeMonthBookingSummary(
         id: true,
         bookingDate: true,
         slotTime: true,
+        notes: true,
         bookingStatus: true,
         isMakeup: true,
         isCheckedIn: true,
@@ -625,6 +626,7 @@ async function computeMonthBookingSummary(
     collectedAmount: number | null;
     // 成功扣堂交易實際使用的方案名稱（可能因多人 FEFO 跨多個 wallet）。
     deductedPlanNames: string[];
+    notes?: string | null;
     // 前端 calendar strip 用的扁平欄位（避免每筆都做 nested optional chain）
     customerName: string;
     staffId: string | null;
@@ -681,6 +683,7 @@ async function computeMonthBookingSummary(
     entry.bookings.push({
       id: b.id,
       slotTime: b.slotTime,
+      notes: b.notes,
       bookingStatus: b.bookingStatus,
       isMakeup: b.isMakeup,
       isCheckedIn: b.isCheckedIn,

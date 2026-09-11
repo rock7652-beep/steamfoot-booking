@@ -52,6 +52,7 @@ interface BookingEntry {
   collected: boolean;
   collectedAmount: number | null;
   deductedPlanNames?: string[];
+  notes?: string | null;
   customerName: string;
   staffId: string | null;
   staffName: string | null;
@@ -279,6 +280,7 @@ export function BookingsManager({
     if (!day?.bookings) return [];
     return day.bookings.map((b) => ({
       id: b.id,
+      notes: b.notes,
       slotTime: b.slotTime,
       people: b.people,
       recurrenceIndex: b.recurrenceIndex,
