@@ -121,6 +121,7 @@ export default function PrivacyPage() {
 
           <section className="rounded-xl bg-earth-50 p-5">
             <h2 className="text-xl font-semibold text-earth-900">九、聯絡我們</h2>
+<p className="mt-3 leading-7 text-earth-700"><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc（加入官方 LINE）</a></p>
             <p className="mt-3 leading-7 text-earth-700">
               隱私權、資料查詢或刪除申請，請寄至：
               <a
