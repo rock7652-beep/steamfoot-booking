@@ -182,16 +182,20 @@ export default async function DashboardLayout({
           : undefined
       }
       industryModuleId={industryModuleId}
+      notices={
+        <>
+          {storeViewContext?.isViewMode && viewedStore ? (
+            <ViewModeBanner viewedStoreName={viewedStore.name} />
+          ) : null}
+          {operatingStatus ? (
+            <StoreOperatingStatusBanner status={operatingStatus} />
+          ) : null}
+          {subBannerState ? (
+            <SubscriptionStatusBanner state={subBannerState} />
+          ) : null}
+        </>
+      }
     >
-      {storeViewContext?.isViewMode && viewedStore ? (
-        <ViewModeBanner viewedStoreName={viewedStore.name} />
-      ) : null}
-      {operatingStatus ? (
-        <StoreOperatingStatusBanner status={operatingStatus} />
-      ) : null}
-      {subBannerState ? (
-        <SubscriptionStatusBanner state={subBannerState} />
-      ) : null}
       {children}
     </DashboardShell>
   );
