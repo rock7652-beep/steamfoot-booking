@@ -1,3 +1,4 @@
+import { SpaCustomerDrawerButton } from "../../customers/_components/spa-customer-drawer-button";
 import { SpaRevenueActions } from "./spa-revenue-actions";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
@@ -272,12 +273,7 @@ export async function SpaRevenue({
                   </td>
                   <td className="p-3">
                     <SpaRevenueActions row={r} canManage={canManage} />
-                    <Link
-                      href={`/dashboard/customers?search=${encodeURIComponent(r.customerPhone ?? r.customerName ?? r.customerId)}`}
-                      className="mt-2 block whitespace-nowrap text-earth-500 underline"
-                    >
-                      查看顧客
-                    </Link>
+                    <SpaCustomerDrawerButton customerId={r.customerId} />
                   </td>
                 </tr>
               ))}

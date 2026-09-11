@@ -112,7 +112,7 @@ export function SpaCustomersWorkspace({
     </main>
   );
 }
-function AccountPanel({
+export function AccountPanel({
   customer,
   permissions,
   profileRequest,
