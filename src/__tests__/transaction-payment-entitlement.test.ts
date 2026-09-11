@@ -20,8 +20,12 @@ vi.mock("@/lib/db", () => ({
     $transaction: (cb: (tx: unknown) => Promise<unknown>) => runTransaction(cb),
   },
 }));
-vi.mock("@/lib/permissions", () => ({ requirePermission: vi.fn(async () => ({ role: "OWNER" })) }));
+vi.mock("@/lib/permissions", () => ({
+  requirePermission: vi.fn(async () => ({ role: "OWNER" })),
+}));
 vi.mock("@/lib/manager-visibility", () => ({ assertStoreAccess: vi.fn() }));
+// These action tests supply authorization above; do not load real Auth.js sessions.
+vi.mock("@/lib/session", () => ({ getCurrentUser: vi.fn(), requireSession: vi.fn() }));
 vi.mock("@/lib/revalidation", () => ({ revalidateTransactions: vi.fn() }));
 vi.mock("@/server/services/referral-points", () => ({ awardFirstTopupReferralPointsIfEligible: vi.fn() }));
 vi.mock("@/server/services/wallet-session", () => ({ seedWalletSessions: (...args: unknown[]) => seedWalletSessions(...args) }));
@@ -55,6 +59,7 @@ beforeEach(() => {
     customerPlanWallet: { create: walletCreate, findUnique: walletFindUnique, update: walletUpdate },
     walletSession: { groupBy: sessionGroupBy, updateMany: sessionUpdateMany },
     customer: { findUnique: customerFindUnique, update: customerUpdate },
+    $queryRaw: vi.fn().mockResolvedValue([{ id: "customer_1" }]),
   }));
 });
 

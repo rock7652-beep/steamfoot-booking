@@ -2,6 +2,11 @@ import type { LineMessage, LineTextMessage } from "@/lib/line";
 
 const INVISIBLE_LINE_TEXT = /[\s\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\u2800\u3164\uFE00-\uFE0F\uFEFF\uFFA0]/gu;
 const FALLBACK_QUICK_REPLY_CARRIER = "請選擇：";
+const ACTIVE_REPLY_OUTCOMES = new Set(["WAITING_INPUT", "VALIDATION_FAILED", "INFORMATION_ANSWERED"]);
+const ESCAPE_QUICK_REPLIES: NonNullable<LineTextMessage["quickReply"]>["items"] = [
+  { type: "action", action: { type: "message", label: "聯絡真人", text: "真人客服" } },
+  { type: "action", action: { type: "message", label: "結束數位管家", text: "結束" } },
+];
 
 export type DigitalButlerReplyDiagnostics = {
   storeId: string;
@@ -73,6 +78,31 @@ export function sanitizeDigitalButlerReplyMessages(messages: LineMessage[]): Lin
   }
 
   return sanitized;
+}
+
+/** Keep a visible escape hatch on every LINE reply that is waiting for input. */
+export function addDigitalButlerEscapeQuickReplies(
+  messages: LineMessage[],
+  outcome: string,
+): LineMessage[] {
+  if (!ACTIVE_REPLY_OUTCOMES.has(outcome)) return messages;
+
+  const targetIndex = messages.findLastIndex((message) => message.type === "text");
+  if (targetIndex < 0) {
+    return [
+      ...messages,
+      { type: "text", text: FALLBACK_QUICK_REPLY_CARRIER, quickReply: { items: ESCAPE_QUICK_REPLIES } },
+    ];
+  }
+
+  return messages.map((message, index) => {
+    if (index !== targetIndex || message.type !== "text") return message;
+    const existing = message.quickReply?.items ?? [];
+    return {
+      ...message,
+      quickReply: { items: [...existing.slice(0, 11), ...ESCAPE_QUICK_REPLIES] },
+    };
+  });
 }
 
 export function digitalButlerReplyDiagnostics(

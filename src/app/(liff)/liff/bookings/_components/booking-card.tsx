@@ -76,11 +76,6 @@ export function BookingCard({
         <span className="rounded-md bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-700">
           {liffTypeLabel(booking.bookingType, booking.isMakeup)}
         </span>
-        {booking.staffName && (
-          <span className="text-xs text-earth-600">
-            服務店長：{booking.staffName}
-          </span>
-        )}
       </div>
 
       {!isCancelled && (
@@ -121,9 +116,9 @@ export function BookingCard({
                   upcoming non-cancelled 才顯示（與 cancel button 同條件）。
                   純 <a> 開 LINE OA，零 server / DB / auth。
                   PR-E：href 改自 server-resolved per-store contactUrl
-                  （ShopConfig.lineOfficialUrl，缺值 fallback 到常數）。*/}
+                  （僅使用本店聯絡資料）。*/}
               <a
-                href={contactUrl}
+                href={contactUrl || undefined} aria-disabled={!contactUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
@@ -136,14 +131,15 @@ export function BookingCard({
                   顧客「出發前」最自然位置；按下 Google Maps deep link 跳原生 Maps app。
                   地址為店家專屬 listing 短網址（含評論 / 照片 / 營業時間），體感優於通用搜尋。
                   PR-E：address / mapUrl 改自 server-resolved per-store
-                  （ShopConfig.address / mapUrl，缺值 fallback 到常數）。*/}
+                  （缺值不使用其他店資料）。*/}
               <div className="flex flex-col gap-1">
-                <p className="text-xs text-earth-600">{storeAddress}</p>
+                <p className="text-xs text-earth-600">{storeAddress || "地址請洽店家確認"}</p>
                 <a
-                  href={storeMapUrl}
+                  href={storeMapUrl || undefined}
+                  aria-disabled={!storeMapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#4285F4] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#3367d6] active:scale-[0.98]"
+                  className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#4285F4] aria-disabled:opacity-40 aria-disabled:cursor-not-allowed px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#3367d6] active:scale-[0.98]"
                 >
                   <MapPinIcon />
                   {liffMessages.bookings.navigateCta}

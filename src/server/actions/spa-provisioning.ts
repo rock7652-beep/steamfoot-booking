@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { handleActionError } from "@/lib/errors";
+import { requirePermission } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/session";
 import { spaPrisma } from "@/lib/spa-db";
 import type { ActionResult } from "@/types";
@@ -17,6 +18,7 @@ const STARTER_TREATMENTS = [
 /** HQ-only, retry-safe SPA setup. It only writes Spa* tables and marks ACTIVE last. */
 export async function provisionSpaStoreAction(storeId: string): Promise<ActionResult<void>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
   try {
     const store = await prisma.store.findUnique({
       where: { id: storeId },

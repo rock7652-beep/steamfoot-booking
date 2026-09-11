@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { spaPrisma } from "@/lib/spa-db";
 import { requireStaffSession } from "@/lib/session";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireStoreFeature } from "@/lib/feature-gate";
@@ -18,6 +19,13 @@ import { resolveWriteStoreId } from "@/lib/store";
 import { revalidateStaff, revalidateStaffPermissions } from "@/lib/revalidation";
 import type { UserRole } from "@prisma/client";
 import type { ActionResult } from "@/types";
+import { normalizeEmail, normalizePhone } from "@/lib/normalize";
+import { isSpaCompensationSchemaReady, isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
+import { requireSpaStore } from "@/lib/industry-module-server";
+import { SPA_SKILLS, spaSkillId } from "@/lib/spa-store-identifiers";
+
+const spaSkillKeys = ["body", "head", "foot", "face"] as const;
+const spaTimePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /**
  * 要求可管理人員的身份：OWNER（店長）或 ADMIN（系統管理者，需已選定分店）。
@@ -86,14 +94,41 @@ async function assertCanManageStaff(
 
 const createStaffSchema = z.object({
   name: z.string().min(1).max(100),
-  email: z.string().email(),
-  phone: z.string().min(8).max(20).optional(),
+  email: z.preprocess(
+    (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().email().optional(),
+  ),
+  phone: z.string().transform(normalizePhone).pipe(
+    z.string().regex(/^09\d{8}$/, "請輸入 09 開頭的 10 碼手機號碼"),
+  ),
   password: z.string().min(6),
   displayName: z.string().min(1).max(100),
   colorCode: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   monthlySpaceFee: z.number().int().min(0).optional(),
   spaceFeeEnabled: z.boolean().optional(),
   role: z.enum(["OWNER", "PARTNER"]).optional(),
+  spaCompensation: z.object({
+    mode: z.enum(["PERCENTAGE", "FIXED"]),
+    value: z.number().min(0).max(1_000_000),
+  }).optional(),
+  spaSkillKeys: z.array(z.enum(spaSkillKeys)).min(1).optional(),
+  spaWeeklyAvailability: z.array(z.object({
+    dayOfWeek: z.number().int().min(0).max(6),
+    startTime: z.string().regex(spaTimePattern),
+    endTime: z.string().regex(spaTimePattern),
+  })).max(7).optional(),
+}).superRefine((data, context) => {
+  if (data.spaCompensation?.mode === "PERCENTAGE" && data.spaCompensation.value > 100) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["spaCompensation", "value"], message: "百分比不可超過 100" });
+  }
+  if (data.spaWeeklyAvailability) {
+    if (new Set(data.spaWeeklyAvailability.map((item) => item.dayOfWeek)).size !== data.spaWeeklyAvailability.length) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["spaWeeklyAvailability"], message: "同一天只能設定一個固定班表" });
+    }
+    if (data.spaWeeklyAvailability.some((item) => item.startTime >= item.endTime)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["spaWeeklyAvailability"], message: "結束時間必須晚於開始時間" });
+    }
+  }
 });
 
 const updateStaffSchema = z.object({
@@ -120,7 +155,17 @@ export async function createStaff(
     const sessionUser = await requireStaffManageSession();
     const data = createStaffSchema.parse(input);
     const writeStoreId = await resolveWriteStoreId(sessionUser);
+    const hasSpaSetup = Boolean(data.spaCompensation || data.spaSkillKeys || data.spaWeeklyAvailability);
+    if (hasSpaSetup) await requireSpaStore(writeStoreId);
+    if (hasSpaSetup && !(await isSpaOperationalSchemaReady())) {
+      throw new AppError("CONFLICT", "SPA 人員設定功能更新中，請稍後再試");
+    }
+    if (data.spaCompensation && !(await isSpaCompensationSchemaReady())) {
+      throw new AppError("CONFLICT", "抽成設定功能更新中，請稍後再試");
+    }
     await requireStoreFeature(writeStoreId, FEATURES.STAFF_MANAGEMENT);
+
+    const normalizedEmail = data.email ? normalizeEmail(data.email) : undefined;
 
     // 用量限制：檢查員工數量上限
     const { checkStaffLimitOrThrow } = await import("@/lib/usage-gate");
@@ -130,32 +175,64 @@ export async function createStaff(
     await checkStaffLimitOrThrow(currentStaffCount);
 
     // 檢查 email 是否已存在
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
-    if (existing) throw new AppError("CONFLICT", "此 Email 已被使用");
+    if (normalizedEmail) {
+      const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (existing) throw new AppError("CONFLICT", "此 Email 已被使用");
+    }
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone: data.phone, role: data.role ?? "PARTNER" },
+      select: { id: true },
+    });
+    if (existingPhone) throw new AppError("CONFLICT", "此手機號碼已建立相同身分的帳號");
 
     const passwordHash = hashSync(data.password, 10);
     const staffRole: UserRole = data.role ?? "OWNER";
 
-    const user = await prisma.user.create({
-      data: {
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        passwordHash,
-        role: staffRole,
-        staff: {
-          create: {
-            displayName: data.displayName,
-            colorCode: data.colorCode ?? "#6366f1",
-            isOwner: false,
-            monthlySpaceFee: data.monthlySpaceFee ?? 0,
-            spaceFeeEnabled: data.spaceFeeEnabled ?? true,
-            storeId: writeStoreId,
+    if (data.spaSkillKeys) {
+      await spaPrisma.$transaction(async (tx) => {
+        for (const [sortOrder, skill] of SPA_SKILLS.entries()) {
+          if (!data.spaSkillKeys?.includes(skill.key)) continue;
+          const id = spaSkillId(writeStoreId, skill.key);
+          await tx.spaSkill.upsert({
+            where: { id },
+            create: { id, storeId: writeStoreId, name: skill.name, sortOrder },
+            update: { name: skill.name, sortOrder, isActive: true },
+          });
+        }
+      });
+    }
+
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          name: data.name,
+          email: normalizedEmail,
+          phone: data.phone,
+          passwordHash,
+          role: staffRole,
+          staff: {
+            create: {
+              displayName: data.displayName,
+              colorCode: data.colorCode ?? "#6366f1",
+              isOwner: false,
+              monthlySpaceFee: data.monthlySpaceFee ?? 0,
+              spaceFeeEnabled: data.spaceFeeEnabled ?? true,
+              storeId: writeStoreId,
+            },
           },
         },
-      },
-      include: { staff: true },
+        include: { staff: true },
+      });
+      return created;
     });
+
+    if (user.staff && hasSpaSetup) {
+      await spaPrisma.$transaction(async (tx) => {
+        if (data.spaSkillKeys?.length) await tx.spaStaffSkill.createMany({ data: data.spaSkillKeys.map((key) => ({ storeId: writeStoreId, staffId: user.staff!.id, skillId: spaSkillId(writeStoreId, key) })) });
+        if (data.spaWeeklyAvailability?.length) await tx.spaStaffAvailability.createMany({ data: data.spaWeeklyAvailability.map((availability) => ({ ...availability, storeId: writeStoreId, staffId: user.staff!.id })) });
+        if (data.spaCompensation) await tx.spaStaffCompensation.create({ data: { storeId: writeStoreId, staffId: user.staff!.id, mode: data.spaCompensation.mode, value: data.spaCompensation.value } });
+      });
+    }
 
     // 根據角色建立預設權限
     if (user.staff) {

@@ -5,7 +5,10 @@ const mocks = vi.hoisted(() => ({
   requireStaffSession: vi.fn(),
   resolveWriteStoreId: vi.fn(),
   bookingCount: vi.fn(),
+  bookingGroupBy: vi.fn(),
   specialUpsert: vi.fn(),
+  txSpecialUpsert: vi.fn(),
+  txSlotOverrideDeleteMany: vi.fn(),
   storeFindFirst: vi.fn(),
   hoursFindMany: vi.fn(),
   slotsFindMany: vi.fn(),
@@ -26,11 +29,13 @@ const tx = {
     deleteMany: mocks.txSlotsDeleteMany,
     createMany: mocks.txSlotsCreateMany,
   },
+  specialBusinessDay: { upsert: mocks.txSpecialUpsert },
+  slotOverride: { deleteMany: mocks.txSlotOverrideDeleteMany },
 };
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    booking: { count: mocks.bookingCount },
+    booking: { count: mocks.bookingCount, groupBy: mocks.bookingGroupBy },
     specialBusinessDay: { upsert: mocks.specialUpsert },
     store: { findFirst: mocks.storeFindFirst },
     businessHours: { findMany: mocks.hoursFindMany },
@@ -58,7 +63,58 @@ describe("business-hours store isolation", () => {
     mocks.requirePermission.mockResolvedValue({ role: "ADMIN", storeId: null });
     mocks.resolveWriteStoreId.mockResolvedValue("branch-a");
     mocks.bookingCount.mockResolvedValue(0);
+    mocks.bookingGroupBy.mockResolvedValue([]);
     mocks.specialUpsert.mockResolvedValue({ id: "special-a" });
+  });
+
+  it("replaces a custom day's legacy slot overrides only after booking validation", async () => {
+    const result = await addSpecialDay({
+      date: "2026-08-24",
+      type: "custom",
+      openTime: "09:00",
+      closeTime: "17:30",
+      defaultCapacity: 6,
+      periods: [
+        { openTime: "09:00", closeTime: "12:00", slotInterval: 60, defaultCapacity: 6 },
+        { openTime: "14:30", closeTime: "17:30", slotInterval: 60, defaultCapacity: 6 },
+      ],
+      resetSlotOverrides: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mocks.txSpecialUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { storeId_date: { storeId: "branch-a", date: new Date("2026-08-24") } },
+      }),
+    );
+    expect(mocks.txSlotOverrideDeleteMany).toHaveBeenCalledWith({
+      where: { storeId: "branch-a", date: new Date("2026-08-24") },
+    });
+  });
+
+  it("keeps legacy overrides when a booked time would disappear from the new schedule", async () => {
+    mocks.bookingGroupBy.mockResolvedValue([
+      { bookingDate: new Date("2026-08-24"), slotTime: "13:00", _sum: { people: 1 } },
+    ]);
+
+    const result = await addSpecialDay({
+      date: "2026-08-24",
+      type: "custom",
+      openTime: "09:00",
+      closeTime: "12:00",
+      defaultCapacity: 6,
+      periods: [
+        { openTime: "09:00", closeTime: "12:00", slotInterval: 60, defaultCapacity: 6 },
+      ],
+      resetSlotOverrides: true,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "2026-08-24 13:00 已有預約，請先把這個時間保留在營業時段內",
+    });
+    expect(mocks.txSpecialUpsert).not.toHaveBeenCalled();
+    expect(mocks.txSlotOverrideDeleteMany).not.toHaveBeenCalled();
   });
 
   it("uses the resolved store for conflict checks and special-day upsert", async () => {

@@ -18,6 +18,17 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  getStoreIndustryModule: vi.fn(async () => "steamfoot"),
+}));
+
+// STEAMFOOT contract must never query the separate SPA database.
+vi.mock("@/lib/spa-db", () => ({
+  spaPrisma: new Proxy({}, {
+    get() { throw new Error("STEAMFOOT contract unexpectedly accessed SPA database"); },
+  }),
+}));
+
 const STORE_A = "store-zhubei";
 const STORE_B = "store-demo";
 const REAL_CUSTOMER_ID = "ck0000000000000000000001";
@@ -77,6 +88,7 @@ function matchWhere(row: BookingRow, where: Record<string, unknown>): boolean {
 }
 
 const mockPrisma = {
+  account: { findFirst: vi.fn(async () => null) },
   booking: {
     create: vi.fn(async ({ data }: { data: Partial<BookingRow> }) => {
       const row: BookingRow = {
@@ -208,6 +220,10 @@ vi.mock("@/lib/store", () => ({
   currentStoreId: (u: { storeId?: string | null }) => u.storeId ?? STORE_A,
   DEFAULT_STORE_ID: "default-store",
   getActiveStoreForRead: vi.fn(async (u: { storeId?: string | null }) => u.storeId ?? STORE_A),
+  validateStoreAccess: vi.fn(async (u: { storeId?: string | null }, storeId: string) => {
+    if (u.storeId !== storeId) throw new Error("Cross-store access denied");
+    return storeId;
+  }),
 }));
 
 vi.mock("@/lib/manager-visibility", () => ({
@@ -225,6 +241,8 @@ vi.mock("@/lib/shop-config", () => ({
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
   // 本檔不測「可預約到日期」上限 → 回足夠遠的日期，不擋
   resolveBookableUntilDate: () => "2099-12-31",
+  resolveCustomerBookableUntilDate: () => "2099-12-31",
+  isCustomerSlotWithinBookingWindow: () => true,
 }));
 
 vi.mock("@/lib/usage-gate", () => ({

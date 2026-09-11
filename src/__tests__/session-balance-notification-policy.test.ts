@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { decideSessionBalanceNotification } from "@/server/services/session-balance-notification-policy";
+import {
+  decideCustomerSessionBalanceNotification,
+  decideSessionBalanceNotification,
+  shouldDispatchCustomerSessionBalanceNotification,
+} from "@/server/services/session-balance-notification-policy";
 
 describe("decideSessionBalanceNotification", () => {
   it("does not notify merely because future bookings reserve sessions", () => {
@@ -28,5 +32,29 @@ describe("decideSessionBalanceNotification", () => {
       remainingSessions: 0,
       hasContinuationPlan: true,
     })).toEqual({ type: null, reason: "HAS_CONTINUATION_PLAN" });
+  });
+});
+
+describe("customer-level session balance notifications", () => {
+  it("uses the total across valid plans", () => {
+    expect(decideCustomerSessionBalanceNotification({ totalRemainingSessions: 6 }))
+      .toEqual({ type: null, reason: "BALANCE_NOT_RELEVANT" });
+    expect(decideCustomerSessionBalanceNotification({ totalRemainingSessions: 1 }))
+      .toEqual({ type: "LAST_SESSION" });
+    expect(decideCustomerSessionBalanceNotification({ totalRemainingSessions: 0 }))
+      .toEqual({ type: "PLAN_USED_UP" });
+  });
+
+  it("rechecks the total immediately before sending", () => {
+    expect(shouldDispatchCustomerSessionBalanceNotification({
+      type: "PLAN_USED_UP",
+      notificationWalletId: "wallet-1",
+      validWallets: [{ id: "wallet-2", remainingSessions: 5 }],
+    })).toBe(false);
+    expect(shouldDispatchCustomerSessionBalanceNotification({
+      type: "PLAN_USED_UP",
+      notificationWalletId: "wallet-1",
+      validWallets: [],
+    })).toBe(true);
   });
 });

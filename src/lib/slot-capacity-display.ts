@@ -48,7 +48,7 @@ export function getSlotCapacityDisplay(
       capacityStatus,
       selectionStatus: "insufficient",
       canFitRequestedPeople: false,
-      label: "不可預約",
+      label: "名額不足",
     };
   }
 

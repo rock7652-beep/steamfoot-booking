@@ -37,10 +37,34 @@ export interface CentralMemberHealthIssue {
   customerIds: string[];
 }
 
+export type CentralMemberResolution =
+  | "MERGE_REVIEW"
+  | "MANUAL_REVIEW";
+
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.startsWith("886") && digits.length === 12) return `0${digits.slice(3)}`;
   return digits;
+}
+
+/**
+ * Read-only resolution classifier.  It recommends a lane but never changes an
+ * identity. OTP is allowed only when the customer, phone and candidate LINE
+ * identity are unique inside the affected store.
+ */
+export function classifyCentralMemberResolution(
+  _activeStoreId: string,
+  issue: CentralMemberHealthIssue,
+  _customers: CentralMemberHealthCustomer[],
+  _links: CentralMemberHealthLink[],
+): CentralMemberResolution {
+  void _activeStoreId;
+  void _customers;
+  void _links;
+  if (issue.reason === "duplicate_phone" || issue.reason === "multiple_customers_in_store") {
+    return "MERGE_REVIEW";
+  }
+  return "MANUAL_REVIEW";
 }
 
 /**
@@ -114,19 +138,10 @@ export function detectCentralMemberHealthIssues(
         customerIds: [customer.id],
       });
     }
-    if (
-      link.provider === "line" &&
-      customer.lineUserId !== null &&
-      customer.lineUserId !== (link.lineUserId ?? link.providerAccountId)
-    ) {
-      issues.push({
-        id: `line:${link.id}`,
-        category: "LINE",
-        severity: "BLOCKED",
-        reason: "line_identity_mismatch",
-        customerIds: [customer.id],
-      });
-    }
+    // Legacy provider="line" is a LINE Login identity. Customer.lineUserId
+    // belongs to the store's Messaging API channel. LINE can assign different
+    // subjects across providers, so comparing them would create a false
+    // conflict and could lead to a destructive rebind.
     if (
       link.provider === "google" &&
       customer.googleId !== null &&

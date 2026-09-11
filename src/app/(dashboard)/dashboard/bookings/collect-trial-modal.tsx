@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { collectTrialPayment } from "@/server/actions/trial-booking";
 import { PaymentSplitFields } from "@/components/admin/payment-split-fields";
@@ -84,6 +84,26 @@ export function CollectTrialModal({
   const [discountReason, setDiscountReason] = useState("");
   const [note, setNote] = useState("");
   const [pending, startTransition] = useTransition();
+  const submitting = useRef(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  function runCheckout(action: () => Promise<void>) {
+    
+    if (submitting.current || pending) return;
+    submitting.current = true;
+    setSubmitError(null);
+    startTransition(async () => {
+      try {
+        await action();
+      } catch {
+        const message = "尚未確認收款結果，請先返回預約核對收款狀態，避免重複收款。";
+        setSubmitError(message);
+        toast.error(message);
+      } finally {
+        submitting.current = false;
+      }
+    });
+  }
 
   const displayedAmount = settings.allowEdit ? Math.round(Number(amount)) : totalDefaultByActual;
 
@@ -93,7 +113,7 @@ export function CollectTrialModal({
     const amountNum = settings.allowEdit
       ? Math.round(Number(amount))
       : totalDefaultByActual;
-    startTransition(async () => {
+    runCheckout(async () => {
       const r = await collectTrialPayment({
         bookingId,
         paymentMethod: method as
@@ -115,6 +135,7 @@ export function CollectTrialModal({
         toast.success(r.data.serviceCompleted ? "已收款並完成服務" : "已確認收款");
         onCollected(r.data.serviceCompleted);
       } else {
+        setSubmitError(r.error ?? "收款失敗，請核對資料後再試。");
         toast.error(r.error ?? "收款失敗");
       }
     });
@@ -126,15 +147,14 @@ export function CollectTrialModal({
       onClick={() => !pending && onClose()}
     >
       <div
-        className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-xl"
+        className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-xl bg-white p-5 shadow-xl [&_input:not([type=checkbox])]:min-h-11 [&_input]:text-base [&_select]:min-h-11 [&_select]:text-base [&_textarea]:text-base [&_button]:min-h-11 [&_button]:text-base [&_label]:text-sm"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 text-lg font-semibold text-earth-900">
           收款並完成服務
         </h3>
         <p className="mb-3 text-sm text-earth-600">
-          請確認顧客已完成服務並付款。送出後會一次建立體驗營收並完成服務，
-          不會開通堂數，也不影響正式方案。
+          請核對本次金額與付款方式，收到款項後再確認。
         </p>
 
         <div className="mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm">
@@ -234,11 +254,18 @@ export function CollectTrialModal({
         </select>
         <PaymentSplitFields totalAmount={Number.isFinite(displayedAmount) ? displayedAmount : 0} primaryMethod={method as PaymentSplitInput["paymentMethod"]} disabled={pending} onChange={setPaymentSplits} onValidityChange={setPaymentSplitsValid} />
 
+        <details className="mb-4">
+          <summary className="mb-3 cursor-pointer text-sm font-medium text-earth-700">折扣原因與備註（選填）</summary>
         <label className="mb-1 block text-xs font-medium text-earth-600">折扣原因（選填）</label>
         <input value={discountReason} disabled={pending} onChange={(e) => setDiscountReason(e.target.value)} maxLength={500} placeholder="例：好友介紹優惠" className="mb-3 w-full rounded-lg border border-earth-300 px-3 py-2 text-sm" />
         <label className="mb-1 block text-xs font-medium text-earth-600">備註（選填）</label>
         <textarea value={note} disabled={pending} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} placeholder="其他收款說明，可留空" className="mb-4 w-full resize-none rounded-lg border border-earth-300 px-3 py-2 text-sm" />
 
+        </details>
+
+        {submitError && (
+          <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm leading-relaxed text-red-700">{submitError}</p>
+        )}
         <div className="flex justify-end gap-2">
           <button
             type="button"

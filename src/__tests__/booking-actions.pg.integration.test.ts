@@ -26,6 +26,10 @@ vi.mock("@/server/services/referral-events", () => ({
   createBookingCreatedEvent: boundary.createBookingCreatedEvent,
   createBookingCompletedEvent: boundary.createBookingCompletedEvent,
 }));
+vi.mock("@/server/services/session-balance-notifications", () => ({
+  enqueueSessionBalanceNotifications: vi.fn(async () => []),
+  dispatchSessionBalanceNotifications: vi.fn(async () => undefined),
+}));
 
 const testDatabaseUrl = resolveBookingIntegrationTestDatabaseUrl(process.env);
 const describeWithPostgres = testDatabaseUrl ? describe : describe.skip;
@@ -38,7 +42,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
     if (!prisma) throw new Error("Booking integration test database is not configured");
     return prisma;
   };
-  let actions: Pick<BookingActions, "createBooking" | "updateBooking">;
+  let actions: Pick<BookingActions, "createBooking" | "updateBooking" | "markCompleted">;
   const stores = new Set<string>();
 
   const date = "2099-01-05";
@@ -205,6 +209,8 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
       await tx.specialBusinessDay.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.businessHours.deleteMany({ where: { storeId: { in: storeIds } } });
       await tx.shopConfig.deleteMany({ where: { storeId: { in: storeIds } } });
+      await tx.staff.deleteMany({ where: { storeId: { in: storeIds } } });
+      await tx.pointRecord.deleteMany({ where: { customerId: { in: customerIds } } });
       await tx.customer.deleteMany({ where: { id: { in: customerIds } } });
       await tx.store.deleteMany({ where: { id: { in: storeIds } } });
     });
@@ -325,15 +331,17 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
   it("moves a production booking across both date and slot", async () => {
     const base = await createStore("cross-date-move", 2);
     const holder = await createCustomerWallet(base, "holder");
-    const sourceDate = "2026-07-20";
-    const targetDate = "2026-07-27";
+    // Match the suite's future booking day and wallet validity. A historical
+    // date fails creation before the cross-date reschedule contract is tested.
+    const sourceDate = date;
+    const targetDate = "2099-01-12";
     const sourceDateObj = new Date(`${sourceDate}T00:00:00Z`);
     const targetDateObj = new Date(`${targetDate}T00:00:00Z`);
     const source = await actions.createBooking({
       ...createInput(base, holder, "10:00"),
       bookingDate: sourceDate,
     });
-    expect(source.success).toBe(true);
+    expect(source.success, JSON.stringify(source)).toBe(true);
     if (!source.success) return;
 
     const reservedBefore = await db().walletSession.findFirstOrThrow({
@@ -601,6 +609,71 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
     expect(await db().booking.count({ where: { storeId: base.storeId } })).toBe(1);
     expect(await db().bookingSubmission.count({ where: { storeId: base.storeId } })).toBe(1);
     expect(await db().walletSession.count({ where: { walletId: holder.wallet.id, status: "RESERVED" } })).toBe(1);
+  });
+
+  it("serializes parallel markCompleted calls for one reserved session", async () => {
+    const base = await createStore("parallel-complete", 1);
+    const holder = await createCustomerWallet(base, "holder", { remaining: 1, ledger: 1 });
+    const created = await actions.createBooking(createInput(base, holder, "10:00"));
+    expect(created.success, JSON.stringify(created)).toBe(true);
+    if (!created.success) return;
+
+    const staffUser = await db().user.create({
+      data: { id: `${base.prefix}_staff_user`, name: "Completion test owner", role: "OWNER" },
+    });
+    const staff = await db().staff.create({
+      data: {
+        id: `${base.prefix}_staff`,
+        userId: staffUser.id,
+        storeId: base.storeId,
+        displayName: "Completion test owner",
+        isOwner: true,
+      },
+    });
+    const completionUser = {
+      id: staffUser.id,
+      role: "OWNER",
+      storeId: base.storeId,
+      storeSlug: null,
+      staffId: staff.id,
+      customerId: null,
+      email: null,
+    };
+    await db().booking.update({
+      where: { id: created.data.bookingId },
+      data: { revenueStaffId: staff.id },
+    });
+    boundary.requireSession.mockResolvedValue(completionUser);
+    boundary.requireWritablePermission.mockResolvedValue(completionUser);
+
+    const results = await startTogether(
+      () => actions.markCompleted(created.data.bookingId),
+      () => actions.markCompleted(created.data.bookingId),
+    );
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect(results.filter((result) => !result.success)).toHaveLength(1);
+
+    expect(await db().booking.findUniqueOrThrow({ where: { id: created.data.bookingId } }))
+      .toMatchObject({ bookingStatus: "COMPLETED" });
+    expect(await db().customerPlanWallet.findUniqueOrThrow({ where: { id: holder.wallet.id } }))
+      .toMatchObject({ remainingSessions: 0 });
+    expect(await db().walletSession.count({
+      where: { walletId: holder.wallet.id, bookingId: created.data.bookingId, status: "COMPLETED" },
+    })).toBe(1);
+    expect(await db().transaction.count({
+      where: { bookingId: created.data.bookingId, transactionType: "SESSION_DEDUCTION", status: "SUCCESS" },
+    })).toBe(1);
+
+    const replay = await actions.markCompleted(created.data.bookingId);
+    expect(replay).toMatchObject({ success: false, error: "已標記為出席" });
+    expect(await db().customerPlanWallet.findUniqueOrThrow({ where: { id: holder.wallet.id } }))
+      .toMatchObject({ remainingSessions: 0 });
+    expect(await db().walletSession.count({
+      where: { walletId: holder.wallet.id, bookingId: created.data.bookingId, status: "COMPLETED" },
+    })).toBe(1);
+    expect(await db().transaction.count({
+      where: { bookingId: created.data.bookingId, transactionType: "SESSION_DEDUCTION", status: "SUCCESS" },
+    })).toBe(1);
   });
 
   it("fails closed on a malformed replay snapshot without creating another booking", async () => {

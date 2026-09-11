@@ -87,6 +87,7 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
     listStaffSelectOptions(),
   ]);
   const canInit = !isViewMode && (user.role === "ADMIN" || user.role === "OWNER");
+  const canReopen = canInit && canClose;
   const canAssignStaff = !isViewMode && user.role === "ADMIN";
 
   return (
@@ -112,6 +113,7 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
         canInit={canInit}
         canOpen={canOpen}
         canClose={canClose}
+        canReopen={canReopen}
         canAddEntry={canAddEntry}
         canCreateCashbook={canCreateCashbook}
         closedDates={closedDates}

@@ -21,6 +21,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockVerify = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
 const mockBindLine = vi.fn();
+const mockAuthorizedLiffRebind = vi.fn();
+const mockAutoLiffMigration = vi.fn();
+const mockAuthorizedFirstCapture = vi.fn();
 
 vi.mock("@/lib/liff/verify-id-token", async () => {
   // 保留真正的 LiffIdTokenError class，讓 action 用 instanceof 判型
@@ -43,6 +46,15 @@ vi.mock("@/server/services/bind-line-to-customer", () => ({
 
 vi.mock("@/server/services/customer-identity-link", () => ({
   upsertCustomerIdentityLink: vi.fn(),
+}));
+
+vi.mock("@/server/services/liff-login-rebind", () => ({
+  tryExecuteAuthorizedLiffLoginRebind: (...args: unknown[]) =>
+    mockAuthorizedLiffRebind(...args),
+  tryAutoMigrateRecentLiffLoginIdentity: (...args: unknown[]) =>
+    mockAutoLiffMigration(...args),
+  tryExecuteAuthorizedLiffLoginFirstCapture: (...args: unknown[]) =>
+    mockAuthorizedFirstCapture(...args),
 }));
 
 import { submitOnboarding } from "@/app/(liff)/liff/onboarding/actions";
@@ -70,10 +82,16 @@ function verifiedOk(overrides: { displayName?: string | null } = {}) {
 
 describe("submitOnboarding action (PR-C2)", () => {
   beforeEach(() => {
-    vi.stubEnv("LINE_LOGIN_CHANNEL_ID", CHANNEL);
+    vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", CHANNEL);
     mockVerify.mockReset();
     mockResolveStoreBySlug.mockReset();
     mockBindLine.mockReset();
+    mockAuthorizedLiffRebind.mockReset();
+    mockAuthorizedLiffRebind.mockResolvedValue({ status: "not_authorized" });
+    mockAutoLiffMigration.mockReset();
+    mockAutoLiffMigration.mockResolvedValue({ status: "not_eligible" });
+    mockAuthorizedFirstCapture.mockReset();
+    mockAuthorizedFirstCapture.mockResolvedValue({ status: "not_authorized" });
   });
 
   afterEach(() => {
@@ -167,6 +185,81 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(r).toEqual({ status: "bound_other" });
   });
 
+  it("allows authorized first capture when a legacy notification recipient blocks binding", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({
+      status: "already_bound_to_other_line",
+      customerId: "cust-y",
+      existingLineUserId: "U_messaging_recipient",
+    });
+    mockAuthorizedFirstCapture.mockResolvedValueOnce({ status: "executed", requestId: "capture-1" });
+    expect(await submitOnboarding(VALID_INPUT)).toEqual({ status: "ok" });
+    expect(mockAuthorizedFirstCapture).toHaveBeenCalledWith({
+      storeId: STORE.id,
+      customerId: "cust-y",
+      phone: VALID_INPUT.phone,
+      candidateLineUserId: LINE_USER_ID,
+    });
+  });
+
+  it("keeps a conflicting first-capture identity blocked", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({
+      status: "already_bound_to_other_line", customerId: "cust-y", existingLineUserId: "U_other",
+    });
+    mockAuthorizedFirstCapture.mockResolvedValueOnce({ status: "rejected", code: "LOGIN_IDENTITY_CONFLICT" });
+    expect(await submitOnboarding(VALID_INPUT)).toEqual({ status: "bound_other" });
+  });
+
+  it("owner-authorized LIFF Login migration → ok without changing notification identity", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({
+      status: "already_bound_to_other_line",
+      customerId: "cust-y",
+      existingLineUserId: "U_messaging_recipient",
+    });
+    mockAuthorizedLiffRebind.mockResolvedValueOnce({
+      status: "executed",
+      requestId: "request-1",
+    });
+
+    const r = await submitOnboarding(VALID_INPUT);
+
+    expect(r).toEqual({ status: "ok" });
+    expect(mockAuthorizedLiffRebind).toHaveBeenCalledWith({
+      storeId: STORE.id,
+      customerId: "cust-y",
+      phone: VALID_INPUT.phone,
+      candidateLineUserId: LINE_USER_ID,
+    });
+  });
+
+  it("recent exact new-customer LIFF migration → ok without staff interruption", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({
+      status: "already_bound_to_other_line",
+      customerId: "cust-recent",
+      existingLineUserId: "U_retired_liff",
+    });
+    mockAutoLiffMigration.mockResolvedValueOnce({ status: "executed" });
+
+    const r = await submitOnboarding(VALID_INPUT);
+
+    expect(r).toEqual({ status: "ok" });
+    expect(mockAutoLiffMigration).toHaveBeenCalledWith({
+      storeId: STORE.id,
+      customerId: "cust-recent",
+      phone: VALID_INPUT.phone,
+      name: VALID_INPUT.name,
+      candidateLineUserId: LINE_USER_ID,
+    });
+    expect(mockAuthorizedLiffRebind).not.toHaveBeenCalled();
+  });
+
   it("phone_taken_by_other_user → phone_taken_by_login_account", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
@@ -177,6 +270,33 @@ describe("submitOnboarding action (PR-C2)", () => {
     });
     const r = await submitOnboarding(VALID_INPUT);
     expect(r).toEqual({ status: "phone_taken_by_login_account" });
+    expect(mockAuthorizedLiffRebind).toHaveBeenCalled();
+    expect(mockAuthorizedFirstCapture).toHaveBeenCalled();
+  });
+
+  it("owner-authorized old-LIFF rebind also repairs phone_taken_by_other_user", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({
+      status: "phone_taken_by_other_user",
+      customerId: "cust-jian",
+      sameLineUserId: false,
+    });
+    mockAuthorizedLiffRebind.mockResolvedValueOnce({
+      status: "executed",
+      requestId: "request-jian",
+    });
+
+    const r = await submitOnboarding(VALID_INPUT);
+
+    expect(r).toEqual({ status: "ok" });
+    expect(mockAuthorizedLiffRebind).toHaveBeenCalledWith({
+      storeId: STORE.id,
+      customerId: "cust-jian",
+      phone: VALID_INPUT.phone,
+      candidateLineUserId: LINE_USER_ID,
+    });
+    expect(mockAuthorizedFirstCapture).not.toHaveBeenCalled();
   });
 
   it("ambiguous_multiple_candidates → ambiguous", async () => {
@@ -256,13 +376,6 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(mockBindLine).not.toHaveBeenCalled();
   });
 
-  it("missing LINE_LOGIN_CHANNEL_ID env → service_unavailable", async () => {
-    vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "");
-    const r = await submitOnboarding(VALID_INPUT);
-    expect(r).toEqual({ status: "service_unavailable" });
-    expect(mockVerify).not.toHaveBeenCalled();
-  });
-
   // ────────────────────────────────────────────────────────
   // Input shape edges
   // ────────────────────────────────────────────────────────
@@ -310,11 +423,34 @@ describe("submitOnboarding action (PR-C2)", () => {
       lineName: "DisplayName from LINE",
       phone: VALID_INPUT.phone,
       name: VALID_INPUT.name,
-      allowCreate: false,
+      allowCreate: true,
     });
   });
 
-  it("verifies idToken with LINE_LOGIN_CHANNEL_ID env", async () => {
+  it.each([
+    { id: "store-zhubei", slug: "zhubei", name: "暖暖蒸足" },
+    { id: "store-hsinchu", slug: "hsinchu", name: "以斯帖蒸足坊" },
+    { id: "store-taichung", slug: "taichung", name: "暖沐蒸足" },
+    { id: "store-future", slug: "future-store", name: "未來新門市" },
+  ])("allows atomic new-member creation for $name", async (store) => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(store);
+    mockBindLine.mockResolvedValueOnce({
+      status: "created_new",
+      customerId: `customer-${store.slug}`,
+      userId: `user-${store.slug}`,
+      lineAccountSync: "created",
+    });
+
+    await expect(
+      submitOnboarding({ ...VALID_INPUT, storeSlug: store.slug }),
+    ).resolves.toEqual({ status: "ok" });
+    expect(mockBindLine).toHaveBeenLastCalledWith(
+      expect.objectContaining({ storeId: store.id, allowCreate: true }),
+    );
+  });
+
+  it("verifies idToken with the central member LINE channel", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
     mockBindLine.mockResolvedValueOnce({

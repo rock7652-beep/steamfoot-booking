@@ -63,6 +63,26 @@ export function computeAmount(
     return display == null ? "—" : `NT$ ${display.toLocaleString()}`;
   }
 
+  // SPA 單次服務的應收金額必須以「預約成立時的價格快照」為準。
+  // ServicePlan.price 是目前價目表價格，療程日後調價時不可回寫既有預約，
+  // 否則同一張預約的詳情與現場結帳會顯示不同金額。
+  if (
+    booking.bookingType === "SINGLE" &&
+    booking.treatmentPriceSnapshot != null &&
+    booking.treatmentPriceSnapshot > 0
+  ) {
+    return `NT$ ${booking.treatmentPriceSnapshot.toLocaleString()}`;
+  }
+
+  // 蒸足「方案扣堂 → 單次」使用轉換當下的 expectedAmount 快照。
+  if (
+    booking.bookingType === "SINGLE" &&
+    booking.expectedAmount != null &&
+    booking.expectedAmount > 0
+  ) {
+    return `NT$ ${booking.expectedAmount.toLocaleString()}`;
+  }
+
   if (!booking.servicePlan) return "—";
   const price = booking.servicePlan.price;
   if (!price) return "—";

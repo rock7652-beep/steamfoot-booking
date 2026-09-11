@@ -242,7 +242,7 @@ export default async function ProfilePage({ searchParams }: PageProps) {
 
         <div
           id="phone-login-settings"
-          className="scroll-mt-6 rounded-2xl border border-earth-200 bg-white p-6 shadow-sm"
+          className="scroll-mt-6 rounded-2xl border border-earth-200 bg-white p-4 shadow-sm sm:p-6"
         >
           <h2 className="mb-5 text-lg font-bold text-earth-900">基本資料</h2>
           <ProfileForm

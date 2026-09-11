@@ -40,8 +40,16 @@ const mockPrisma = {
   store: {
     findUnique: vi.fn(),
   },
+  shopConfig: {
+    findUnique: vi.fn(),
+    upsert: vi.fn(async ({ create, update }) => ({ ...create, ...update })),
+  },
   messageTemplate: {
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(async ({ data }) => ({ id: "card-reminder-setting-1", ...data })),
+    update: vi.fn(async ({ data }) => ({ id: "card-reminder-setting-1", ...data })),
+    upsert: vi.fn(async ({ create, update }) => ({ ...create, ...update })),
   },
   messageLog: {
     findFirst: vi.fn(),
@@ -52,6 +60,7 @@ const mockPrisma = {
   },
   reminderRule: {
     findFirst: vi.fn(),
+    update: vi.fn(),
   },
   auditLog: {
     create: vi.fn(async ({ data }) => ({ id: "audit-log-1", ...data })),
@@ -82,6 +91,7 @@ vi.mock("@/lib/line", async () => {
     pushSteamButlerMessage: (lineUserId: string, messages: unknown[]) =>
       pushSteamButlerMessageMock(lineUserId, messages),
     probeStoreLineRecipient: vi.fn(async () => ({ status: "COMPATIBLE" })),
+    probeSteamButlerLineRecipient: vi.fn(async () => ({ status: "COMPATIBLE" })),
   };
 });
 
@@ -123,6 +133,14 @@ vi.mock("@/lib/shop-config", () => ({
   getShopConfig: vi.fn(async () => ({ shopName: "以斯帖蒸足坊" })),
 }));
 
+vi.mock("@/lib/store-resolver", () => ({
+  resolveStorePresentation: vi.fn(async () => ({
+    name: "暖暖蒸足",
+    address: "新竹縣竹北市科大一路80號",
+    mapUrl: "https://maps.app.goo.gl/b5yPNKj8jt6DfzZo9?g_st=ic",
+  })),
+}));
+
 vi.mock("@/lib/base-url", () => ({
   deriveBaseUrl: () => "https://example.test",
 }));
@@ -148,10 +166,66 @@ describe("LINE sending actions are store-aware", () => {
     });
     previewMessengerUtilityTestReminderMock.mockResolvedValue({ code: "READY" });
     sendMessengerUtilityTestReminderMock.mockResolvedValue({ code: "SENT", quotaConsumed: true });
+    mockPrisma.messageTemplate.findFirst.mockResolvedValue(null);
+    mockPrisma.messageTemplate.findUnique.mockResolvedValue(null);
+    mockPrisma.shopConfig.findUnique.mockResolvedValue(null);
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("rejects the reserved card setting as the formal reminder template", async () => {
+    mockPrisma.reminderRule.findFirst.mockResolvedValueOnce({ id: "rule-1" });
+    mockPrisma.messageTemplate.findUnique.mockResolvedValueOnce({
+      storeId: "store-hsinchu",
+      name: "__SYSTEM_PACKAGE_LINE_CARD_REMINDER__",
+    });
+
+    const { setReminderTemplate } = await import("@/server/actions/reminder");
+    const result = await setReminderTemplate("package-line-card-reminder:store-hsinchu");
+
+    expect(result.success).toBe(false);
+    expect(mockPrisma.reminderRule.update).not.toHaveBeenCalled();
+  });
+
+  it("atomically stores concurrent package LINE card reminder saves in one active-store record", async () => {
+    const { savePackageLineCardReminderSetting } = await import("@/server/actions/reminder");
+    const results = await Promise.all([
+      savePackageLineCardReminderSetting({
+        body: "請穿著輕便服裝，並提前 5 分鐘抵達。",
+      }),
+      savePackageLineCardReminderSetting({
+        body: "請攜帶毛巾。",
+      }),
+    ]);
+
+    expect(results).toEqual([
+      { success: true, data: undefined },
+      { success: true, data: undefined },
+    ]);
+    expect(mockPrisma.messageTemplate.upsert).toHaveBeenCalledTimes(2);
+    for (const call of mockPrisma.messageTemplate.upsert.mock.calls) {
+      expect(call[0]).toEqual(expect.objectContaining({
+        where: { id: "package-line-card-reminder:store-hsinchu" },
+        create: expect.objectContaining({
+          id: "package-line-card-reminder:store-hsinchu",
+          storeId: "store-hsinchu",
+          name: "__SYSTEM_PACKAGE_LINE_CARD_REMINDER__",
+          channel: "LINE",
+          isDefault: false,
+        }),
+      }));
+    }
+    expect(mockPrisma.reminderRule.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects package LINE card reminders longer than 150 characters", async () => {
+    const { savePackageLineCardReminderSetting } = await import("@/server/actions/reminder");
+    const result = await savePackageLineCardReminderSetting({ body: "提".repeat(151) });
+
+    expect(result.success).toBe(false);
+    expect(mockPrisma.messageTemplate.upsert).not.toHaveBeenCalled();
   });
 
   it("testSendLineMessage passes the customer's storeId to pushMessage", async () => {
@@ -332,6 +406,7 @@ describe("LINE sending actions are store-aware", () => {
       trialBookingChannel: null,
       bookingDate: new Date("2026-07-24T00:00:00.000Z"),
       slotTime: "16:30",
+      store: { slug: "hsinchu" },
       customer: {
         id: "customer-1",
         name: "黃彥陸",
@@ -357,7 +432,32 @@ describe("LINE sending actions are store-aware", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "U_store_customer",
-      [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
+      [expect.objectContaining({
+        type: "flex",
+        altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
+        contents: expect.objectContaining({
+          footer: expect.objectContaining({
+            contents: expect.arrayContaining([
+              expect.objectContaining({
+                contents: expect.arrayContaining([expect.objectContaining({
+                  action: {
+                    type: "uri",
+                    label: "改時段",
+                    uri: "https://example.test/s/hsinchu/my-bookings/booking-1/reschedule",
+                  },
+                })]),
+              }),
+              expect.objectContaining({
+                action: {
+                  type: "uri",
+                  label: "取消前往",
+                  uri: "https://example.test/s/hsinchu/my-bookings/booking-1/cancel",
+                },
+              }),
+            ]),
+          }),
+        }),
+      })],
     );
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
     expect(mockPrisma.messageLog.create).toHaveBeenCalledWith({
@@ -417,23 +517,22 @@ describe("LINE sending actions are store-aware", () => {
     };
     expect(message).toMatchObject({
       type: "flex",
-      altText: "體驗預約管理：確認、取消或改期",
+      altText: expect.stringContaining("黃彥陸 的預約提醒"),
     });
-    expect(message.contents.body.contents[0]?.text).toContain("體驗預約提醒");
-    expect(message.contents.body.contents[0]?.text).not.toContain("/trial-booking/manage?token=");
-    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
-      "確認預約",
+    expect(message.contents.body.contents[0]?.text).toBe("黃彥陸 您好");
+    expect(cardButtons(message.contents.footer.contents).map((button) => button.action.label)).toEqual([
+      "確認會到",
+      "需要改期",
       "取消預約",
-      "改期預約",
     ]);
-    for (const button of message.contents.footer.contents) {
+    for (const button of cardButtons(message.contents.footer.contents)) {
       expect(button.action.uri).toContain("/trial-booking/manage?token=");
       expect(button.action.uri).not.toContain("/my-bookings");
     }
-    expect(message.contents.footer.contents.map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
+    expect(cardButtons(message.contents.footer.contents).map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
       "confirm",
-      "cancel",
       "reschedule",
+      "cancel",
     ]);
   });
 
@@ -450,6 +549,7 @@ describe("LINE sending actions are store-aware", () => {
       bookingStatus: "CONFIRMED",
       bookingDate: new Date("2026-07-24T00:00:00.000Z"),
       slotTime: "16:30",
+      store: { slug: "hsinchu" },
       customer: {
         id: "customer-1",
         name: "黃彥陸",
@@ -460,6 +560,14 @@ describe("LINE sending actions are store-aware", () => {
     });
     mockPrisma.messageLog.findFirst.mockResolvedValueOnce(null);
     mockPrisma.reminderRule.findFirst.mockResolvedValueOnce(null);
+    pushSteamButlerMessageMock.mockResolvedValueOnce({
+      success: false,
+      error: 'LINE API 400: {"message":"Failed to send messages"}',
+      httpStatus: 400,
+      errorType: "line_api_rejected",
+    });
+    // Keep the central route rejected so the existing verified store-route
+    // fallback is exercised. The store route starts its own safe Flex attempt.
     pushSteamButlerMessageMock.mockResolvedValueOnce({
       success: false,
       error: 'LINE API 400: {"message":"Failed to send messages"}',
@@ -477,7 +585,10 @@ describe("LINE sending actions are store-aware", () => {
     expect(pushMessageMock).toHaveBeenCalledWith(
       "store-hsinchu",
       "U_store_customer",
-      [{ type: "text", text: expect.stringContaining("【測試提醒｜不影響正式排程】") }],
+      [expect.objectContaining({
+        type: "flex",
+        altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
+      })],
     );
     expect(mockPrisma.messageLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ lineRoute: "STORE", status: "SENT" }),
@@ -538,6 +649,182 @@ describe("LINE sending actions are store-aware", () => {
     expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_line", expect.any(Array));
   });
 
+  it("allows a package booking to use its verified same-store LINE reminder route", async () => {
+    const booking = {
+      id: "package-booking-1", storeId: "store-hsinchu", customerId: "customer-package",
+      bookingStatus: "CONFIRMED", bookingType: "PACKAGE_SESSION", trialBookingChannel: null,
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "14:30", people: 1,
+      store: { slug: "zhubei" },
+      customer: {
+        id: "customer-package", name: "方案顧客", lineUserId: "U_package",
+        lineLinkStatus: "LINKED", assignedStaff: null,
+      },
+    };
+    mockPrisma.booking.findFirst.mockResolvedValue(booking);
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue({
+      id: "rule-package",
+      templateId: "template-package",
+      template: { body: "自訂提醒：{{customerName}} 請於 {{bookingTime}} 準時抵達 {{shopName}}" },
+    });
+    mockPrisma.messageTemplate.findUnique.mockResolvedValue({
+      body: "請穿著輕便服裝，並提前 5 分鐘抵達。",
+    });
+
+    const { previewBookingTestReminder, sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: booking.id })).resolves.toEqual({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
+    });
+    await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
+    });
+    expect(pushMessageMock).toHaveBeenCalledWith(
+      "store-hsinchu",
+      "U_package",
+      [expect.objectContaining({
+        type: "flex",
+        altText: expect.stringContaining("【測試提醒｜不影響正式排程】"),
+        contents: expect.objectContaining({
+          header: expect.objectContaining({
+            backgroundColor: "#153F33",
+            contents: expect.arrayContaining([
+              expect.objectContaining({ text: "蒸管家｜預約提醒", color: "#FFFFFF" }),
+              expect.objectContaining({
+                backgroundColor: "#E9D9B9",
+                contents: expect.arrayContaining([
+                  expect.objectContaining({
+                    text: "測試提醒｜不影響正式排程",
+                    color: "#5A421F",
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+          body: expect.any(Object),
+          footer: expect.objectContaining({
+            contents: expect.arrayContaining([
+              expect.objectContaining({
+                style: "primary",
+                color: "#153F33",
+                action: expect.objectContaining({
+                  label: "開啟 Google Maps 導航",
+                  uri: "https://maps.app.goo.gl/b5yPNKj8jt6DfzZo9?g_st=ic",
+                }),
+              }),
+              expect.objectContaining({
+                borderColor: "#153F33",
+                contents: expect.arrayContaining([expect.objectContaining({
+                  style: "link",
+                  color: "#153F33",
+                  action: expect.objectContaining({
+                    label: "改時段",
+                    uri: "https://example.test/s/zhubei/my-bookings/package-booking-1/reschedule",
+                  }),
+                })]),
+              }),
+              expect.objectContaining({
+                style: "link",
+                color: "#666666",
+                action: expect.objectContaining({
+                  label: "取消前往",
+                  uri: "https://example.test/s/zhubei/my-bookings/package-booking-1/cancel",
+                }),
+              }),
+            ]),
+          }),
+        }),
+      })],
+    );
+    const packageCardJson = JSON.stringify(pushMessageMock.mock.calls.at(-1)?.[2]?.[0]);
+    expect(packageCardJson).toContain("方案預約");
+    expect(packageCardJson).toContain("請穿著輕便服裝，並提前 5 分鐘抵達。");
+    expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+    expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+  });
+
+  it("labels a single booking as a single booking in the Flex card", async () => {
+    const booking = {
+      id: "single-booking-1", storeId: "store-hsinchu", customerId: "customer-single",
+      bookingStatus: "CONFIRMED", bookingType: "SINGLE", trialBookingChannel: null,
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "15:30", people: 1,
+      store: { slug: "zhubei" },
+      customer: {
+        id: "customer-single", name: "單次顧客", lineUserId: "U_single",
+        lineLinkStatus: "LINKED", assignedStaff: null,
+      },
+    };
+    mockPrisma.booking.findFirst.mockResolvedValue(booking);
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue({
+      id: "rule-standard",
+      templateId: "template-standard",
+      template: {
+        body: "{{customerName}} 您好！\n\n明天 ({{bookingDate}}) {{bookingTime}} 有一筆蒸足預約，請記得準時到店。\n\n如需取消或改期，請點擊：{{bookingLink}}\n\n{{shopName}} 敬上",
+      },
+    });
+
+    const { sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
+    });
+    const message = pushMessageMock.mock.calls.at(-1)?.[2]?.[0] as {
+      type: string;
+      contents: { body: { contents: Array<{ text?: string }> } };
+    };
+    expect(message.type).toBe("flex");
+    const messageJson = JSON.stringify(message);
+    expect(messageJson).toContain("單次預約");
+    expect(messageJson).toContain("暖暖蒸足");
+    expect(messageJson).toContain("45 分鐘");
+    expect(messageJson).toContain("新竹縣竹北市科大一路80號");
+    expect(messageJson).toContain("請記得準時到店。");
+    expect(messageJson).not.toContain("方案預約");
+    expect(messageJson).not.toContain("單次顧客 您好！");
+  });
+
+  it("uses the store card reminder without changing the formal reminder template", async () => {
+    const booking = {
+      id: "single-booking-custom", storeId: "store-hsinchu", customerId: "customer-single-custom",
+      bookingStatus: "CONFIRMED", bookingType: "SINGLE", trialBookingChannel: null,
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "15:30", people: 1,
+      store: { slug: "zhubei" },
+      customer: {
+        id: "customer-single-custom", name: "自訂提醒顧客", lineUserId: "U_single_custom",
+        lineLinkStatus: "LINKED", assignedStaff: null,
+      },
+    };
+    mockPrisma.booking.findFirst.mockResolvedValue(booking);
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue({
+      id: "rule-standard",
+      templateId: "template-standard",
+      template: {
+        body: "{{customerName}} 您好！\n\n明天 ({{bookingDate}}) {{bookingTime}} 有一筆蒸足預約，請記得準時到店。\n\n請攜帶毛巾。\n\n如需取消或改期，請點擊：{{bookingLink}}\n\n{{shopName}} 敬上",
+      },
+    });
+    mockPrisma.messageTemplate.findUnique.mockResolvedValue({
+      body: "請攜帶毛巾。",
+    });
+
+    const { sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
+    });
+    const message = pushMessageMock.mock.calls.at(-1)?.[2]?.[0] as {
+      type: string;
+      contents: { body: { contents: Array<{ text?: string }> } };
+    };
+    expect(message.type).toBe("flex");
+    const messageJson = JSON.stringify(message);
+    expect(messageJson).toContain("單次預約");
+    expect(messageJson).toContain("暖暖蒸足");
+    expect(messageJson).toContain("45 分鐘");
+    expect(messageJson).toContain("新竹縣竹北市科大一路80號");
+    expect(messageJson).toContain("請攜帶毛巾。");
+    expect(messageJson).not.toContain("方案預約");
+    expect(messageJson).not.toContain("自訂提醒顧客 您好！");
+  });
+
   it("selects Messenger Utility only for a valid Messenger source", async () => {
     vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
     const booking = {
@@ -567,19 +854,99 @@ describe("LINE sending actions are store-aware", () => {
     expect(logData).not.toHaveProperty("triggerAt");
   });
 
-  it("does not send when the booking has no original chat source", async () => {
-    mockPrisma.booking.findFirst.mockResolvedValue({
-      id: "no-source", storeId: "store-hsinchu", customerId: "customer-1",
+  it("uses the unique verified same-store LINE binding when the original source is missing", async () => {
+    vi.stubEnv("TRIAL_BOOKING_ACTION_SECRET", "test-secret");
+    const booking = {
+      id: "no-source-same-store", storeId: "store-hsinchu", customerId: "customer-1",
       bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: null,
-      customer: { name: "無來源顧客" }, store: { slug: "zhubei" },
+      bookingDate: new Date("2026-08-14T00:00:00.000Z"), slotTime: "14:30", people: 1,
+      store: { slug: "zhubei" },
+      customer: {
+        id: "customer-1", name: "同店 LINE 顧客", lineUserId: "U_same_store",
+        lineLinkStatus: "LINKED", assignedStaff: null,
+      },
+    };
+    mockPrisma.booking.findFirst.mockResolvedValue(booking);
+    mockPrisma.messageLog.findFirst.mockResolvedValue(null);
+    mockPrisma.reminderRule.findFirst.mockResolvedValue(null);
+
+    const { previewBookingTestReminder, sendBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: booking.id })).resolves.toEqual({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
     });
-    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
-    await expect(previewBookingTestReminder({ bookingId: "no-source" })).resolves.toEqual({
-      success: false,
-      error: "這筆預約沒有可驗證的原始聊天來源，無法傳送測試提醒",
+    await expect(sendBookingTestReminder({ bookingId: booking.id })).resolves.toMatchObject({
+      success: true, data: { channel: "LINE", channelLabel: "分店 LINE" },
     });
+    expect(pushMessageMock).toHaveBeenCalledWith("store-hsinchu", "U_same_store", expect.any(Array));
+    expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
     expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a source-less booking when a LINE binding is only available outside the booking store", async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "no-source-cross-store", storeId: "store-hsinchu", customerId: "customer-cross-store",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: null,
+      customer: {
+        name: "跨店 LINE 顧客", lineUserId: null, lineLinkStatus: "UNLINKED", assignedStaff: null,
+      },
+      store: { slug: "zhubei" },
+    });
+    resolveCentralLineRecipientForCustomerMock.mockResolvedValueOnce(null);
+
+    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: "no-source-cross-store" })).resolves.toEqual({
+      success: false,
+      error: "LINE 收件人無法使用（CUSTOMER_NOT_FOUND）",
+    });
+    expect(resolveCentralLineRecipientForCustomerMock).toHaveBeenCalledWith(
+      "customer-cross-store",
+      "store-hsinchu",
+    );
+    expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a source-less booking when verified LINE identities conflict", async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "no-source-multiple", storeId: "store-hsinchu", customerId: "customer-multiple",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: null,
+      customer: {
+        name: "多身分顧客", lineUserId: null, lineLinkStatus: "UNLINKED", assignedStaff: null,
+      },
+      store: { slug: "zhubei" },
+    });
+    resolveCentralLineRecipientForCustomerMock.mockResolvedValueOnce({
+      status: "CENTRAL_USER_CONFLICT",
+      deliverable: false,
+      recipientLineUserId: null,
+    });
+
+    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: "no-source-multiple" })).resolves.toEqual({
+      success: false,
+      error: "LINE 收件人無法使用（CENTRAL_USER_CONFLICT）",
+    });
+    expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a source-less booking without a verified LINE binding", async () => {
+    mockPrisma.booking.findFirst.mockResolvedValue({
+      id: "no-source-no-line", storeId: "store-hsinchu", customerId: "customer-no-line",
+      bookingStatus: "PENDING", bookingType: "FIRST_TRIAL", trialBookingChannel: null,
+      customer: {
+        name: "無 LINE 綁定顧客", lineUserId: null, lineLinkStatus: "UNLINKED", assignedStaff: null,
+      },
+      store: { slug: "zhubei" },
+    });
+
+    const { previewBookingTestReminder } = await import("@/server/actions/reminder");
+    await expect(previewBookingTestReminder({ bookingId: "no-source-no-line" })).resolves.toEqual({
+      success: false,
+      error: "LINE 收件人無法使用（NO_CENTRAL_LINE）",
+    });
     expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+    expect(previewMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
+    expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
   });
 
   it("rejects a Messenger identity scoped to another store without falling back to LINE", async () => {
@@ -654,3 +1021,10 @@ describe("LINE sending actions are store-aware", () => {
     expect(sendMessengerUtilityTestReminderMock).not.toHaveBeenCalled();
   });
 });
+
+/** Unwrap outlined controls while keeping action assertions independent of presentation. */
+function cardButtons<T>(items: T[]): T[] {
+  return items.flatMap((item) => item && typeof item === "object" && "contents" in item
+    ? (item as { contents: T[] }).contents
+    : [item]);
+}

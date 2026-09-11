@@ -7,12 +7,47 @@ import { getStoreSlugById } from "@/lib/store-resolver";
 import { clearStoreContextCookies } from "@/server/auth/clear-store-context";
 import { resolveLoginRedirect } from "@/server/auth/resolve-login-redirect";
 import { logoutRedirectForStore } from "@/lib/logout-redirect";
+import { normalizePhone } from "@/lib/normalize";
 
 // ============================================================
 // hqLoginAction — 後台登入（/hq/login）
 // ============================================================
 
 export type LoginState = { error: string | null };
+
+export async function serviceStaffLoginAction(
+  _prev: LoginState,
+  formData: FormData,
+): Promise<LoginState> {
+  const phone = normalizePhone(String(formData.get("phone") ?? ""));
+  const password = String(formData.get("password") ?? "");
+  const storeSlug = String(formData.get("storeSlug") ?? "");
+
+  if (!/^09\d{8}$/.test(phone) || password.length < 6 || !storeSlug) {
+    return { error: "請輸入正確手機號碼與至少 6 碼密碼" };
+  }
+
+  try {
+    await signIn("service-staff-phone", {
+      phone,
+      password,
+      storeSlug,
+      redirectTo: `/s/${storeSlug}/staff/my-bookings`,
+    });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return { error: "手機號碼或密碼不正確" };
+    }
+    throw error;
+  }
+  return { error: null };
+}
+
+export async function serviceStaffLogoutAction(formData: FormData) {
+  const storeSlug = String(formData.get("storeSlug") ?? "demo");
+  await clearStoreContextCookies();
+  await signOut({ redirectTo: `/s/${storeSlug}/staff/login` });
+}
 
 export async function hqLoginAction(
   _prev: LoginState,

@@ -6,7 +6,7 @@ const mockPageConfig = vi.fn();
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ prisma: { auditLog: { create: (...args: unknown[]) => mockAuditCreate(...args) } } }));
-vi.mock("@/lib/messenger-config", () => ({ getMessengerPageConfig: (...args: unknown[]) => mockPageConfig(...args) }));
+vi.mock("@/lib/messenger-config", () => ({ getMessengerAppAccessToken: () => process.env.MESSENGER_APP_ACCESS_TOKEN ?? null, getMessengerPageConfig: (...args: unknown[]) => mockPageConfig(...args) }));
 vi.mock("@/server/services/messenger-production-audit", () => ({ createMessengerAuditRun: (...args: unknown[]) => mockCreateAuditRun(...args) }));
 
 const secrets = { pageId: "536890669508668", appId: "1019175470965183", pageToken: "page-token-never-leak", appToken: "app-token-never-leak" };

@@ -1,8 +1,9 @@
 "use server";
 
+import { spaPrisma } from "@/lib/spa-db";
 import { prisma } from "@/lib/db";
 import { hashSync } from "bcryptjs";
-import { createDefaultPermissions } from "@/lib/permissions";
+import { createDefaultPermissions, requirePermission } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/session";
 import { deriveBaseUrl } from "@/lib/base-url";
 import { revalidatePath } from "next/cache";
@@ -31,6 +32,7 @@ export async function createStoreAction(
   input: CreateStoreInput
 ): Promise<ActionResult<StoreDeliverySummary>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
 
   // ── 輸入驗證 ──
   const errors = validateCreateStoreInput(input);
@@ -249,6 +251,7 @@ export async function activateStoreAction(
   storeId: string
 ): Promise<ActionResult<{ planStatus: string }>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
 
   const store = await prisma.store.findUnique({
     where: { id: storeId },
@@ -303,6 +306,7 @@ export async function verifyStoreAction(
   storeId: string
 ): Promise<ActionResult<ChecklistItem[]>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
   const checklist = await verifyStoreSetup(storeId);
   return { success: true, data: checklist };
 }
@@ -315,6 +319,7 @@ export async function getStoreDeliverySummary(
   storeId: string
 ): Promise<ActionResult<StoreDeliverySummary>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
 
   const store = await prisma.store.findUnique({
     where: { id: storeId },
@@ -396,6 +401,7 @@ export async function listStoresAction(): Promise<
   >
 > {
   await requireAdminSession();
+  await requirePermission("staff.manage");
 
   const stores = await prisma.store.findMany({
     select: {
@@ -440,6 +446,7 @@ export async function updateStoreOperatingStatusAction(
   status: StoreOperatingStatus,
 ): Promise<ActionResult<{ operatingStatus: StoreOperatingStatus }>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
 
   if (!STORE_OPERATING_STATUSES.includes(status)) {
     return { success: false, error: "無效的店舖營運狀態" };
@@ -592,7 +599,9 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
     items.push({
       key: "booking-slots",
       label: "SPA 專屬排程已建立",
-      status: "fail",
+      status: (await spaPrisma.spaTreatment.count({ where: { storeId, isActive: true } })) > 0
+        && (await spaPrisma.spaSkill.count({ where: { storeId, isActive: true } })) > 0
+        && store.moduleInstallation?.status === "ACTIVE" ? "pass" : "fail",
     });
   }
 

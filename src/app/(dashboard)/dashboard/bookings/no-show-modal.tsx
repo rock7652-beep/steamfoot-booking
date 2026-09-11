@@ -17,6 +17,8 @@ interface NoShowModalProps {
   // 補課預約（isMakeup）未到：server 不扣堂、不發新券，故不顯示扣堂/補課選項，
   // 僅允許標記未到，避免店長誤以為系統有扣堂或發券。
   isMakeup?: boolean;
+  affectedPeople?: number;
+  partial?: boolean;
 }
 
 const OPTIONS: Array<{
@@ -42,6 +44,8 @@ export function NoShowModal({
   onConfirm,
   loading = false,
   isMakeup = false,
+  affectedPeople,
+  partial = false,
 }: NoShowModalProps) {
   const [choice, setChoice] = useState<NoShowChoice>("DEDUCTED");
 
@@ -78,9 +82,15 @@ export function NoShowModal({
         className="relative w-[400px] max-w-[92vw] rounded-lg bg-white shadow-[0_8px_32px_rgba(20,24,31,0.18)]"
       >
         <div className="border-b border-earth-200 px-5 py-3">
-          <h3 className="text-base font-semibold text-earth-900">標記未到</h3>
+          <h3 className="text-base font-semibold text-earth-900">
+            {partial ? `處理未到的 ${affectedPeople ?? 1} 人` : "標記未到"}
+          </h3>
           <p className="mt-0.5 text-xs text-earth-500">
-            {isMakeup ? "補課預約未到" : "這筆預約要怎麼處理？"}
+            {isMakeup
+              ? "補課預約未到"
+              : partial
+                ? "到場者會正常完成服務"
+                : "這筆預約要怎麼處理？"}
           </p>
         </div>
         {isMakeup ? (
@@ -118,7 +128,13 @@ export function NoShowModal({
                     <p className="text-sm font-semibold text-earth-900">
                       {opt.label}
                     </p>
-                    <p className="mt-0.5 text-xs text-earth-500">{opt.hint}</p>
+                    <p className="mt-0.5 text-xs text-earth-500">
+                      {partial && affectedPeople
+                        ? opt.value === "DEDUCTED"
+                          ? `未到的 ${affectedPeople} 人照常扣堂，不發補課`
+                          : `未到的 ${affectedPeople} 人照常扣堂，並發 ${affectedPeople} 張 ${NO_SHOW_MAKEUP_VALID_DAYS} 日補課券`
+                        : opt.hint}
+                    </p>
                   </div>
                 </label>
               );

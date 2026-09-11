@@ -14,6 +14,7 @@ import {
   LINE_SECRET_NOT_CONFIGURED_ERROR,
   LINE_TOKEN_NOT_CONFIGURED_ERROR,
 } from "@/lib/line-config";
+import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 
 const LINE_API_BASE = "https://api.line.me/v2/bot";
 const LINE_BOT_INFO_TIMEOUT_MS = 8_000;
@@ -34,14 +35,14 @@ export type LineReplyResult =
       success: false;
       error: string;
       httpStatus: number | null;
-      errorType: "token_not_configured" | "line_api_rejected" | "network_error";
+      errorType: "token_not_configured" | "line_api_rejected" | "network_error" | "preview_blocked";
     };
 
 export type LinePushResult = {
   success: boolean;
   error?: string;
   httpStatus?: number;
-  errorType?: "line_api_rejected";
+  errorType?: "line_api_rejected" | "preview_blocked";
 };
 
 export type StoreLineRecipientProbe =
@@ -140,6 +141,13 @@ async function pushMessageWithAccessToken(
   messages: LineMessage[],
 ): Promise<LinePushResult> {
   try {
+    if (isPreviewExternalIntegrationBlocked()) {
+      return {
+        success: false,
+        error: "Preview outbound LINE delivery is blocked",
+        errorType: "preview_blocked",
+      };
+    }
     if (!token) {
       return { success: false, error: LINE_TOKEN_NOT_CONFIGURED_ERROR };
     }
@@ -196,6 +204,14 @@ async function replyMessageWithAccessToken(
   messages: LineMessage[]
 ): Promise<LineReplyResult> {
   try {
+    if (isPreviewExternalIntegrationBlocked()) {
+      return {
+        success: false,
+        error: "Preview outbound LINE delivery is blocked",
+        httpStatus: null,
+        errorType: "preview_blocked",
+      };
+    }
     if (!token) {
       return {
         success: false,
@@ -269,7 +285,30 @@ export async function probeStoreLineRecipient(
   storeId: string,
   lineUserId: string,
 ): Promise<StoreLineRecipientProbe> {
-  const token = getLineAccessTokenForStore(storeId);
+  return probeLineRecipientWithAccessToken(
+    getLineAccessTokenForStore(storeId),
+    lineUserId,
+  );
+}
+
+/**
+ * Verifies that a LINE Login subject is also reachable by the Steam Butler
+ * Messaging API channel. LINE Login and Messaging API ids are provider scoped,
+ * so an Auth.js Account id is never considered deliverable without this probe.
+ */
+export async function probeSteamButlerLineRecipient(
+  lineUserId: string,
+): Promise<StoreLineRecipientProbe> {
+  return probeLineRecipientWithAccessToken(
+    getSteamButlerLineAccessToken(),
+    lineUserId,
+  );
+}
+
+async function probeLineRecipientWithAccessToken(
+  token: string | null,
+  lineUserId: string,
+): Promise<StoreLineRecipientProbe> {
   if (!token) return { status: "UNAVAILABLE", httpStatus: null };
   try {
     const res = await fetch(`${LINE_API_BASE}/profile/${lineUserId}`, {

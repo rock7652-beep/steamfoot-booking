@@ -14,8 +14,9 @@
  *   ✅ 7 天內到期 badge
  *   ✅ Defensive 分類：ACTIVE+0 視同 USED_UP；ACTIVE+過期 視同 EXPIRED
  *   ✅ 空狀態 + 聯絡店家 CTA
- *   ❌ 不做購買 / 續約 / 付款 / 延長 / 註銷 / 編輯
- *   ❌ 不顯示 WalletSession 明細（/my-plans 桌面版才有）
+ *   ✅ 購買 / 續購留在 LIFF 專屬頁面，共用既有付款與通知後端
+ *   ❌ 不導向顧客網頁版；延長 / 註銷 / 編輯仍由店家處理
+ *   ❌ 不顯示 WalletSession 明細
  *   ❌ 不從預約頁加入口（PR-E2 拍板）
  *
  * Mobile-first：max-w-md。文案一律 `liffMessages.wallets.*` / `liffMessages.error.*`，不寫 inline 中文。
@@ -202,9 +203,16 @@ function ReadyView({
   return (
     <>
       {isEmpty ? (
-        <EmptyState contactUrl={contactUrl} />
+        <EmptyState storeSlug={storeSlug} contactUrl={contactUrl} />
       ) : (
         <>
+          <Link
+            href={`/s/${storeSlug}/liff/wallets/shop`}
+            className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+          >
+            {liffMessages.wallets.ctaRenewPlan}
+          </Link>
+
           {active.length > 0 && (
             <Section title={liffMessages.wallets.activeSectionTitle}>
               {active.map((w) => (
@@ -258,7 +266,7 @@ function ReadyView({
           顧客有問題（剩餘堂數 / 過期 / 用完）能直接找店家確認。 */}
       <div className={`${showBookNow ? "mt-2" : "mt-4"} flex gap-2`}>
         <a
-          href={contactUrl}
+          href={contactUrl || undefined} aria-disabled={!contactUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-1 min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
@@ -420,17 +428,29 @@ function MakeupCreditCard({ credit }: { credit: LiffMakeupCreditRow }) {
   );
 }
 
-function EmptyState({ contactUrl }: { contactUrl: string }) {
+function EmptyState({
+  storeSlug,
+  contactUrl,
+}: {
+  storeSlug: string;
+  contactUrl: string;
+}) {
   const m = liffMessages.wallets;
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-dashed border-earth-300 bg-white px-4 py-10 text-center">
       <p className="text-base font-semibold text-earth-900">{m.emptyTitle}</p>
       <p className="text-sm text-earth-600">{m.emptyBody}</p>
+      <Link
+        href={`/s/${storeSlug}/liff/wallets/shop`}
+        className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
+      >
+        {m.ctaPurchasePlan}
+      </Link>
       <a
-        href={contactUrl}
+        href={contactUrl || undefined} aria-disabled={!contactUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-2 inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
+        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
       >
         <LineIcon />
         {liffMessages.bookings.contactStoreCta}
@@ -508,7 +528,7 @@ function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactUrl}
+            href={contactUrl || undefined} aria-disabled={!contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"

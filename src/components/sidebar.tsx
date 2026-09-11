@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
-import UpdateBanner from "@/components/update-banner";
 import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature-gate";
 import { DashboardBreadcrumb } from "@/components/breadcrumb";
 import type { TrialStatus } from "@/lib/shop-config";
@@ -16,6 +15,8 @@ import type { PricingPlan } from "@prisma/client";
 import StoreSwitcher from "@/components/store-switcher";
 import { StoreViewModeSwitcher } from "@/components/store-view-mode-switcher";
 import { MVP_HIDDEN_ROUTES } from "@/lib/mvp-hidden-features";
+import type { IndustryModuleId } from "@/lib/industry-modules";
+import { bookingDashboardPath } from "@/lib/industry-dashboard-routes";
 
 // 修改密碼 modal 一年用不到一次，但每次切後台頁都被掛在 sidebar 樹裡 → 浪費 ~20KB JS。
 // 改 next/dynamic + 條件 mount，只有 user menu 點擊「修改密碼」才會 fetch chunk + render。
@@ -52,7 +53,7 @@ export interface NavGroup {
 // ============================================================
 // Store Admin Navigation — 店家後台 v1（OWNER / PARTNER / Staff）
 // ============================================================
-// 扁平 7 個一級入口：首頁 / 預約管理 / 顧客管理 / 顧客經營 / 營運 / 分析 / 設定
+// 店家主要工作入口採一級導覽；人員管理不藏在設定內。
 // ADMIN 進入時另以 NAV_GROUPS 呈現完整總部視角。
 // 原有獨立路徑（bonus-rules、cashbook、reconciliation、transactions、
 // store-revenue、staff、plans、settings/*、reminders、duty）保留，由
@@ -83,6 +84,18 @@ export const STORE_ADMIN_NAV: NavItem[] = [
     href: "/dashboard/customers",
     label: "顧客管理",
     permission: "customer.read",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/staff",
+    label: "人員管理",
+    permission: "staff.view",
+    requiredFeature: FEATURES.STAFF_MANAGEMENT,
+    upgradeTo: "BASIC",
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -559,6 +572,8 @@ interface DashboardShellProps {
     viewedStoreId: string;
     multiStoreEnabled: boolean;
   };
+  /** Store-scoped industry UI. Formal stores always remain steamfoot. */
+  industryModuleId?: IndustryModuleId;
 }
 
 export default function DashboardShell({
@@ -576,6 +591,7 @@ export default function DashboardShell({
   storeOptions,
   activeStoreId,
   viewMode,
+  industryModuleId = "steamfoot",
 }: DashboardShellProps) {
   const rawPathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -631,7 +647,7 @@ export default function DashboardShell({
   const isStoreAdminRoute = /^\/s\/[^/]+\/admin(\/|$)/.test(rawPathname);
 
   const spaNavigation = useMemo<NavItem[]>(() => {
-    const items: NavItem[] = [...STORE_ADMIN_NAV.map(item=>item.href === "/dashboard/bookings" ? {...item,href:"/dashboard/spa-schedule"}:item),
+    const items: NavItem[] = [...STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff").map(item=>item.href === "/dashboard/bookings" ? {...item,href:"/dashboard/spa-schedule"}:item),
       {href:"/dashboard/spa-staff",label:"人員管理",permission:"duty.manage",ownerOnly:true,icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0116 0v2"/></svg>},
       {href:"/dashboard/spa-resources",label:"服務位置",permission:"business_hours.manage",icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg>},
     ];
@@ -640,7 +656,17 @@ export default function DashboardShell({
   },[]);
 
   const navGroupsToRender: NavGroup[] = useMemo(() => {
-    if (isHqRoute) return NAV_GROUPS;
+    if (isHqRoute) {
+      if (industryModuleId !== "spa") return NAV_GROUPS;
+      return NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.map((item) =>
+          item.href === "/dashboard/bookings"
+            ? { ...item, href: bookingDashboardPath("spa"), label: "芳療師排程" }
+            : item,
+        ),
+      }));
+    }
     if (isStoreAdminRoute) {
       return [
         {
@@ -648,7 +674,7 @@ export default function DashboardShell({
           label: "",
           defaultOpen: true,
           icon: <></>,
-          items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV,
+          items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
         },
       ];
     }
@@ -660,10 +686,10 @@ export default function DashboardShell({
         label: "",
         defaultOpen: true,
         icon: <></>,
-        items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV,
+        items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
       },
     ];
-  }, [isHqRoute, isStoreAdminRoute, isAdmin, industryModule, spaNavigation]);
+  }, [isHqRoute, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, spaNavigation]);
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {
@@ -1098,7 +1124,6 @@ export default function DashboardShell({
 
         {/* Content */}
         <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
-          <UpdateBanner />
           {trialStatus && trialStatus.isFree && trialStatus.stage !== "normal" && (
             <div className="mb-4 mt-3">
               <TrialProgressBar trial={trialStatus} />

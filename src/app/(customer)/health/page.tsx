@@ -1,33 +1,31 @@
 import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
-import { getHealthCardData } from "@/server/queries/health-card";
+import { getNativeHealthSummaryForMemberships } from "@/lib/native-health-service";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { HealthflowEntryButton } from "./healthflow-entry-button";
+import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 
 /**
- * 顧客 Web 健康評估頁（PR-Frontend-2）
- *
- * 資訊架構歸位：AI 健康簡易數據從 /my-bookings 搬到這裡。
- *   - 上方：標題 + 輔助文字 + 「前往量測」主按鈕（signed SteamFoot → HealthFlow bridge）
- *   - 下方：AI 健康評估簡易數據卡（最近量測日期只在卡片內出現一次）
- *
- * 「前往量測」由頁面上方單一主按鈕負責跳轉，並透過 server action
- * 產生 signed bridge state；卡片不傳 customerId 以隱藏其內建外部連結。
+ * 顧客 Web 健康紀錄頁。量測、歷史與曲線皆由蒸管家原生提供。
  *
  * 權限：沿用 (customer)/layout.tsx 的 role/store/完成註冊 gate。
  * AI 健康評估入口與摘要共用 `ai_health_summary` 店舖功能開關。
  */
-export default async function HealthPage() {
+export default async function HealthPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
 
   const storeCtx = await getStoreContext();
   const prefix = `/s/${storeCtx?.storeSlug ?? "zhubei"}`;
+  const { saved } = await searchParams;
 
   if (
     !storeCtx?.storeId ||
@@ -47,29 +45,64 @@ export default async function HealthPage() {
   const customerId = resolved.customer?.id ?? null;
   if (!customerId) redirect("/");
 
-  // getHealthCardData 內部已 try/catch；這層多包一道防止意外，整頁不掛
-  const healthCard = await getHealthCardData(customerId).catch(
-    () =>
-      ({ available: false, reason: "error" }) as Awaited<
-        ReturnType<typeof getHealthCardData>
-      >,
+  const centralMemberships = await resolveCentralMembershipsForUser(user.id);
+  const verifiedMemberships = centralMemberships.memberships.map((membership) => ({
+    storeId: membership.storeId,
+    customerId: membership.customerId,
+    storeName: membership.storeName,
+    storeSlug: membership.storeSlug,
+  }));
+  if (
+    !verifiedMemberships.some(
+      (membership) =>
+        membership.storeId === storeCtx.storeId && membership.customerId === customerId,
+    )
+  ) {
+    verifiedMemberships.push({
+      storeId: storeCtx.storeId,
+      customerId,
+      // 正常情況中央會員解析器一定會提供正式店名；此 fail-safe 只在
+      // 舊會員尚未回填 identity link 時使用，不拿姓名或電話猜跨店身分。
+      storeName: storeCtx.storeSlug,
+      storeSlug: storeCtx.storeSlug,
+    });
+  }
+
+  const summary = await getNativeHealthSummaryForMemberships(verifiedMemberships).catch(
+    () => null,
   );
 
   return (
     <div>
       <HealthPageHeader prefix={prefix} />
 
-      {/* 前往量測（主按鈕，signed bridge entry；不直接傳 customerId 給 HealthFlow） */}
-      <HealthflowEntryButton storeSlug={storeCtx.storeSlug} />
+      {verifiedMemberships.length > 1 && (
+        <div className="mb-5 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+          已整合您在 {verifiedMemberships.length} 家已驗證門市的健康紀錄；每筆仍保留原始量測門市。
+        </div>
+      )}
+
+      {saved === "1" && (
+        <div role="status" className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800">
+          量測已儲存，以下是最新健康紀錄。
+        </div>
+      )}
+
+      <Link
+        href={`${prefix}/health/new`}
+        className="mb-5 flex min-h-[48px] w-full items-center justify-center rounded-xl bg-primary-600 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+      >
+        新增量測
+      </Link>
 
       {/* 簡易數據卡 — 不傳 customerId 以隱藏卡片內重複的「查看完整評估」連結 */}
-      {healthCard.available ? (
-        <HealthAssessmentCard summary={healthCard.summary} />
+      {summary?.latest ? (
+        <HealthAssessmentCard summary={summary} />
       ) : (
         <div className="rounded-2xl border border-earth-200 bg-white p-5 text-center shadow-sm">
           <p className="text-base font-semibold text-earth-900">尚無量測紀錄</p>
           <p className="mt-2 text-sm leading-relaxed text-earth-700">
-            點上方「前往量測」完成第一次 AI 健康評估，這裡就會顯示你的身體數據摘要。
+            點上方「新增量測」完成第一次紀錄，這裡就會顯示你的身體數據摘要。
           </p>
         </div>
       )}
@@ -87,8 +120,8 @@ function HealthPageHeader({ prefix }: { prefix: string }) {
         &larr;
       </Link>
       <div>
-        <h1 className="text-2xl font-bold text-earth-900">健康評估</h1>
-        <p className="mt-1 text-sm text-earth-700">掌握最近一次身體狀態與 AI 建議</p>
+        <h1 className="text-2xl font-bold text-earth-900">健康紀錄</h1>
+        <p className="mt-1 text-sm text-earth-700">量測、歷史紀錄與身體數據趨勢</p>
       </div>
     </div>
   );

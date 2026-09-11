@@ -10,6 +10,8 @@ export type CustomerFlowCounts = {
   newVisitors: number;
   returningVisitors: number;
   trialCustomers: number;
+  trialAttendees: number;
+  trialBookingGroups: number;
 };
 
 export type CustomerFlowComparison = {
@@ -29,12 +31,16 @@ export type CustomerFlowMetrics = {
   newVisitors: CustomerFlowMetric;
   returningVisitors: CustomerFlowMetric;
   trialCustomers: CustomerFlowMetric;
+  trialAttendees: CustomerFlowMetric;
+  trialBookingGroups: CustomerFlowMetric;
 };
 
 type CompletedBooking = {
   customerId: string;
   bookingDate: Date;
   bookingType: "FIRST_TRIAL" | "SINGLE" | "PACKAGE_SESSION";
+  people?: number;
+  attendedPeople?: number | null;
 };
 
 function shiftMonth(month: string, offset: number): string {
@@ -46,6 +52,10 @@ function shiftMonth(month: string, offset: number): string {
 function rangeForMonth(month: string) {
   const [year, mon] = month.split("-").map(Number);
   return bookingMonthRange(year, mon);
+}
+
+function actualAttendance(booking: CompletedBooking): number {
+  return booking.attendedPeople ?? booking.people ?? 1;
 }
 
 export type CustomerFlowSelection = {
@@ -97,12 +107,19 @@ function countsForMonth(
   bookings: CompletedBooking[],
   firstCompletedByCustomer: Map<string, Date>,
 ): CustomerFlowCounts {
+  const { start, end } = rangeForMonth(month);
+  const inMonth = bookings.filter(
+    (booking) => booking.bookingDate >= start && booking.bookingDate <= end,
+  );
+  const trialBookings = inMonth.filter((booking) => booking.bookingType === "FIRST_TRIAL");
   const selection = selectCustomerFlowCustomerIds(month, bookings, firstCompletedByCustomer);
   return {
     uniqueVisitors: selection.uniqueVisitorIds.size,
     newVisitors: selection.newVisitorIds.size,
     returningVisitors: selection.returningVisitorIds.size,
     trialCustomers: selection.trialCustomerIds.size,
+    trialAttendees: trialBookings.reduce((sum, booking) => sum + actualAttendance(booking), 0),
+    trialBookingGroups: trialBookings.length,
   };
 }
 
@@ -136,14 +153,14 @@ export function buildCustomerFlowMetrics(
     newVisitors: metric("newVisitors"),
     returningVisitors: metric("returningVisitors"),
     trialCustomers: metric("trialCustomers"),
+    trialAttendees: metric("trialAttendees"),
+    trialBookingGroups: metric("trialBookingGroups"),
   };
 }
 
 /**
- * 月度客流只計 COMPLETED Booking 的唯一 customerId。
- *
- * FIRST_TRIAL 多人同行限制：Booking 只有一個 customerId，因此體驗顧客數不使用
- * people / attendedPeople。同行者若未各自建立 Customer 與 Booking，本指標不納入。
+ * 唯一顧客 KPI 仍以 customerId 去重；體驗另外提供「實際到店人次」與「預約組數」。
+ * FIRST_TRIAL 多人同行若沒有各自建 Customer，會計入 trialAttendees，但不會虛構成可點擊的顧客身份。
  */
 export async function getCustomerFlowMetrics(
   storeId: string,
@@ -157,7 +174,13 @@ export async function getCustomerFlowMetrics(
       bookingStatus: "COMPLETED",
       OR: ranges.map(({ start, end }) => ({ bookingDate: { gte: start, lte: end } })),
     },
-    select: { customerId: true, bookingDate: true, bookingType: true },
+    select: {
+      customerId: true,
+      bookingDate: true,
+      bookingType: true,
+      people: true,
+      attendedPeople: true,
+    },
   });
 
   const customerIds = [...new Set(periodBookings.map((booking) => booking.customerId))];
@@ -189,7 +212,7 @@ export async function getCustomerFlowCustomers(
   const { start, end } = rangeForMonth(month);
   const bookings = await prisma.booking.findMany({
     where: { storeId, bookingStatus: "COMPLETED", bookingDate: { gte: start, lte: end } },
-    select: { customerId: true, bookingDate: true, bookingType: true },
+    select: { customerId: true, bookingDate: true, bookingType: true, people: true, attendedPeople: true },
   });
   const customerIds = [...new Set(bookings.map((booking) => booking.customerId))];
   const firstCompleted = customerIds.length

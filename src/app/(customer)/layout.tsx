@@ -22,6 +22,9 @@ import { resolveCentralMembershipsForUser } from "@/server/services/central-memb
 import { CENTRAL_MEMBER_STORE_COOKIE } from "@/lib/central-member-store";
 import { CentralMemberStoreSwitcher } from "./central-member-store-switcher";
 import { decideCustomerStoreAccess } from "@/lib/customer-store-onboarding";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
+import { getCustomerPortalNavItems } from "@/lib/customer-portal-navigation";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
 const ICON_PATHS: Record<string, string[]> = {
@@ -83,16 +86,6 @@ function NavIcon({ name, className = "" }: { name: string; className?: string })
     </svg>
   );
 }
-
-// 主選單 5 項：首頁 / 預約與方案（含購買方案 tab）/ 我的好康 / 健康評估 / 我的資料
-// 健康評估改為 Web 內部頁 /health（PR-Frontend-2）；量測入口在該頁內導向 HealthFlow。
-const NAV_ITEMS_BASE = [
-  { href: "/book", label: "首頁", icon: "home" },
-  { href: "/my-bookings", label: "預約與方案", icon: "calendar" },
-  { href: "/my-referrals", label: "我的好康", icon: "trophy" },
-  { href: "/health", label: "健康評估", icon: "heart" },
-  { href: "/profile", label: "我的資料", icon: "user" },
-];
 
 export default async function CustomerLayout({
   children,
@@ -227,6 +220,10 @@ export default async function CustomerLayout({
 
   const currentStore = await resolveStoreBySlug(storeCtx.storeSlug);
   const customerFacingStoreName = getCustomerFacingStoreName(currentStore);
+  const healthAssessmentEnabled = await hasStoreFeature(
+    storeCtx.storeId,
+    FEATURES.AI_HEALTH_SUMMARY,
+  ).catch(() => false);
 
   // ── 完成註冊 gate ──────────────────────────────────────
   // 顧客若尚未完成必要資料（姓名／電話），強制導至 /profile 補齊
@@ -246,7 +243,9 @@ export default async function CustomerLayout({
     redirect(`${prefix}/profile?${params.toString()}`);
   }
 
-  const NAV_ITEMS = NAV_ITEMS_BASE.map((item) => ({
+  const navItems = getCustomerPortalNavItems({
+    healthAssessmentEnabled,
+  }).map((item) => ({
     ...item,
     fullHref: `${prefix}${item.href}`,
   }));
@@ -263,6 +262,7 @@ export default async function CustomerLayout({
         storeName={customerFacingStoreName}
         storeSlug={storeCtx.storeSlug}
         stores={membershipStores}
+        healthAssessmentEnabled={healthAssessmentEnabled}
       />
 
       <div className="lg:flex">
@@ -286,7 +286,7 @@ export default async function CustomerLayout({
 
           {/* Nav */}
           <nav className="flex-1 px-2.5 py-1">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const isActive =
                 item.href === "/book"
                   ? pathname === "/book"

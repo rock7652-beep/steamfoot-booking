@@ -389,21 +389,38 @@ export default async function MyBookingsPage({ searchParams }: PageProps) {
                     const bookingTime = new Date(`${dateStr}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00+08:00`);
                     const hoursLeft = (bookingTime.getTime() - Date.now()) / (1000 * 60 * 60);
                     const canCancel = hoursLeft >= 12;
+                    const canReschedule =
+                      canCancel &&
+                      (b.bookingType === "PACKAGE_SESSION" || b.bookingType === "SINGLE") &&
+                      !b.isMakeup &&
+                      b.customerRescheduleCount < 1;
 
-                    return canCancel ? (
-                      <Link
-                        href={`${prefix}/my-bookings/${b.id}/cancel`}
-                        className="flex min-h-[32px] items-center rounded-md px-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:underline"
-                      >
-                        取消
-                      </Link>
-                    ) : (
-                      <span
-                        className="text-sm text-earth-500 cursor-not-allowed"
-                        title="開課前 12 小時內無法取消"
-                      >
-                        取消
-                      </span>
+                    return (
+                      <div className="flex flex-col items-end gap-1">
+                        {canReschedule && (
+                          <Link
+                            href={`${prefix}/my-bookings/${b.id}/reschedule`}
+                            className="flex min-h-[32px] items-center rounded-md px-2 text-sm font-medium text-primary-700 hover:bg-primary-50 hover:underline"
+                          >
+                            更改時間
+                          </Link>
+                        )}
+                        {canCancel ? (
+                          <Link
+                            href={`${prefix}/my-bookings/${b.id}/cancel`}
+                            className="flex min-h-[32px] items-center rounded-md px-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:underline"
+                          >
+                            取消
+                          </Link>
+                        ) : (
+                          <span
+                            className="text-sm text-earth-500 cursor-not-allowed"
+                            title="開課前 12 小時內無法取消"
+                          >
+                            取消
+                          </span>
+                        )}
+                      </div>
                     );
                   })()}
                 </div>

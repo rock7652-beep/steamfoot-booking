@@ -99,7 +99,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
     <div className={`mx-auto ${containerWidth} space-y-6 px-4 py-4`}>
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-earth-500">
-        <Link href="/dashboard/staff" className="hover:text-earth-700">店長管理</Link>
+        <Link href="/dashboard/staff" className="hover:text-earth-700">人員管理</Link>
         <span>/</span>
         <span className="text-earth-700">編輯</span>
       </div>
@@ -208,6 +208,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
             </Link>
           </div>
         </form>
+
       </div>
 
       {/* 權限設定（僅非 Owner 員工、且操作者具店員管理權限時顯示） */}

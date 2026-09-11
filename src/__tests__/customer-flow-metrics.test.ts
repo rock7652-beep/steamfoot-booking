@@ -82,7 +82,7 @@ describe("buildCustomerFlowMetrics", () => {
 });
 
 describe("getCustomerFlowMetrics", () => {
-  it("queries only COMPLETED bookings for the active store and ignores people fields", async () => {
+  it("queries only COMPLETED bookings for the active store and includes booked and attended people", async () => {
     mockFindMany.mockResolvedValue([
       booking("customer-1", "2026-07-03", "FIRST_TRIAL"),
     ]);
@@ -102,7 +102,7 @@ describe("getCustomerFlowMetrics", () => {
           storeId: "store-active",
           bookingStatus: "COMPLETED",
         }),
-        select: { customerId: true, bookingDate: true, bookingType: true },
+        select: { customerId: true, bookingDate: true, bookingType: true, people: true, attendedPeople: true },
       }),
     );
     expect(mockGroupBy).toHaveBeenCalledWith(

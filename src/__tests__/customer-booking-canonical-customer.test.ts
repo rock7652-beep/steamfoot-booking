@@ -18,6 +18,10 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  getStoreIndustryModule: vi.fn(async () => "steamfoot"),
+}));
+
 const STORE_A = "store-zhubei";
 const REAL_CUSTOMER_ID = "ck0000000000000000000001"; // session 對應的真顧客
 const STALE_SESSION_CUSTOMER_ID = "ck0000000000000000000099"; // session 殘留的舊 ID
@@ -107,6 +111,8 @@ vi.mock("@/lib/shop-config", () => ({
   isDutySchedulingEnabled: vi.fn(async () => false),
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
   // 本檔不測「可預約到日期」上限 → 回足夠遠的日期，不擋
+  resolveCustomerBookableUntilDate: () => "2099-12-31",
+  isCustomerSlotWithinBookingWindow: () => true,
   resolveBookableUntilDate: () => "2099-12-31",
 }));
 

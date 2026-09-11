@@ -1,10 +1,16 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { requirePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
-import { generateSlots, validateTimeRange } from "@/lib/slot-generator";
+import {
+  generateSlots,
+  validateBusinessPeriods,
+  validateTimeRange,
+  type BusinessPeriodInput,
+} from "@/lib/slot-generator";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
 import { getCachedMonthScheduleSummary } from "@/lib/query-cache";
@@ -16,6 +22,55 @@ import type { ActionResult } from "@/types";
 import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
 
 const DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+
+const periodsJson = (periods: BusinessPeriodInput[]): Prisma.InputJsonValue =>
+  periods.map((period) => ({ ...period })) as Prisma.InputJsonValue;
+
+async function assertBookingsFitSchedule(
+  storeId: string,
+  dates: Date[],
+  periods: BusinessPeriodInput[],
+) {
+  const capacityByTime = new Map<string, number>();
+  for (const period of periods) {
+    for (const slot of generateSlots(
+      period.openTime,
+      period.closeTime,
+      period.slotInterval,
+      period.defaultCapacity,
+    )) {
+      capacityByTime.set(slot.startTime, slot.capacity);
+    }
+  }
+
+  const bookedSlots = await prisma.booking.groupBy({
+    by: ["bookingDate", "slotTime"],
+    where: {
+      storeId,
+      bookingDate: { in: dates },
+      bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+    },
+    _sum: { people: true },
+  });
+
+  for (const booked of bookedSlots) {
+    const dateStr = booked.bookingDate.toISOString().slice(0, 10);
+    const capacity = capacityByTime.get(booked.slotTime);
+    const people = booked._sum.people ?? 0;
+    if (capacity == null) {
+      throw new AppError(
+        "VALIDATION",
+        `${dateStr} ${booked.slotTime} 已有預約，請先把這個時間保留在營業時段內`,
+      );
+    }
+    if (people > capacity) {
+      throw new AppError(
+        "VALIDATION",
+        `${dateStr} ${booked.slotTime} 已預約 ${people} 人，名額不可低於此數`,
+      );
+    }
+  }
+}
 
 // ============================================================
 // 查詢
@@ -42,6 +97,7 @@ export async function getBusinessHours() {
   });
   return rows.map((r) => ({
     ...r,
+    periods: r.segments,
     dayName: DAY_NAMES[r.dayOfWeek],
   }));
 }
@@ -122,8 +178,10 @@ export async function getDaySlotDetails(dateStr: string) {
   // 後台需要 templateCapacity（覆寫前的容量），故沿用 generateSlots 計算原始容量做對照
   const templateMap = new Map<string, number>();
   if (rule.openTime && rule.closeTime) {
-    for (const g of generateSlots(rule.openTime, rule.closeTime, rule.slotInterval, rule.defaultCapacity)) {
-      templateMap.set(g.startTime, g.capacity);
+    for (const period of rule.periods) {
+      for (const g of generateSlots(period.openTime, period.closeTime, period.slotInterval, period.defaultCapacity)) {
+        templateMap.set(g.startTime, g.capacity);
+      }
     }
   }
 
@@ -147,6 +205,7 @@ export async function getDaySlotDetails(dateStr: string) {
     dayName: DAY_NAMES[dow],
     slotInterval: rule.slotInterval,
     defaultCapacity: rule.defaultCapacity,
+    periods: rule.periods,
     slots: filteredSlots,
     hasWeeklyDefault: !!businessHour,
     weeklyDefault: businessHour ? {
@@ -155,6 +214,7 @@ export async function getDaySlotDetails(dateStr: string) {
       closeTime: businessHour.closeTime,
       slotInterval: businessHour.slotInterval,
       defaultCapacity: businessHour.defaultCapacity,
+      periods: rule.source === "weekly" ? rule.periods : undefined,
     } : null,
   };
 }
@@ -191,6 +251,7 @@ export async function updateBusinessHours(
     closeTime: string | null;
     slotInterval?: number;
     defaultCapacity?: number;
+    periods?: BusinessPeriodInput[];
   }
 ): Promise<ActionResult<void>> {
   try {
@@ -199,7 +260,7 @@ export async function updateBusinessHours(
 
     // 基本規則驗證（時間範圍、間隔、名額）
     if (input.isOpen) {
-      const v = validateTimeRange({
+      const v = input.periods ? validateBusinessPeriods(input.periods) : validateTimeRange({
         openTime: input.openTime,
         closeTime: input.closeTime,
         slotInterval: input.slotInterval,
@@ -236,8 +297,15 @@ export async function updateBusinessHours(
 
     // ③ 間隔/時段範圍變更：檢查未來是否有預約會落在新規則之外
     if (input.isOpen && input.openTime && input.closeTime) {
-      const newInterval = input.slotInterval ?? 60;
-      const newSlots = generateSlots(input.openTime, input.closeTime, newInterval, 1);
+      const periods = input.periods ?? [{
+        openTime: input.openTime,
+        closeTime: input.closeTime,
+        slotInterval: input.slotInterval ?? 60,
+        defaultCapacity: input.defaultCapacity ?? 6,
+      }];
+      const newSlots = periods.flatMap((period) =>
+        generateSlots(period.openTime!, period.closeTime!, period.slotInterval, 1),
+      );
       const validTimes = new Set(newSlots.map((s) => s.startTime));
 
       const today = new Date();
@@ -313,6 +381,7 @@ export async function updateBusinessHours(
         closeTime: input.isOpen ? input.closeTime : null,
         ...(input.slotInterval != null ? { slotInterval: input.slotInterval } : {}),
         ...(input.defaultCapacity != null ? { defaultCapacity: input.defaultCapacity } : {}),
+        segments: input.isOpen && input.periods ? periodsJson(input.periods) : undefined,
       },
       create: {
         storeId,
@@ -322,6 +391,7 @@ export async function updateBusinessHours(
         closeTime: input.isOpen ? input.closeTime : null,
         slotInterval: input.slotInterval ?? 60,
         defaultCapacity: input.defaultCapacity ?? 6,
+        segments: input.isOpen && input.periods ? periodsJson(input.periods) : undefined,
       },
     });
 
@@ -363,6 +433,9 @@ export async function addSpecialDay(input: {
   openTime?: string;
   closeTime?: string;
   defaultCapacity?: number;
+  periods?: BusinessPeriodInput[];
+  /** 儲存新版日排程時，清除同日舊的逐格微調，避免舊規則繼續蓋掉新時段。 */
+  resetSlotOverrides?: boolean;
 }): Promise<ActionResult<void>> {
   try {
     const user = await requirePermission("business_hours.manage");
@@ -373,7 +446,7 @@ export async function addSpecialDay(input: {
 
     // 基本規則驗證（自訂時段必須合理）
     if (isCustom) {
-      const v = validateTimeRange({
+      const v = input.periods ? validateBusinessPeriods(input.periods) : validateTimeRange({
         openTime: input.openTime,
         closeTime: input.closeTime,
         defaultCapacity: input.defaultCapacity,
@@ -381,8 +454,20 @@ export async function addSpecialDay(input: {
       if (!v.valid) throw new AppError("VALIDATION", v.error!);
     }
 
+    // 重新產生日排程前，先確認既有預約仍落在新時段內且名額足夠。
+    // 通過後才可清除舊 SlotOverride，避免既有預約變成孤兒資料。
+    if (isCustom && input.resetSlotOverrides) {
+      const periods = input.periods ?? [{
+        openTime: input.openTime!,
+        closeTime: input.closeTime!,
+        slotInterval: 60,
+        defaultCapacity: input.defaultCapacity ?? 6,
+      }];
+      await assertBookingsFitSchedule(storeId, [dateObj], periods);
+    }
+
     // ② 容量下限防呆：custom 模式降容量時，檢查該日最大已預約人數
-    if (isCustom && input.defaultCapacity != null) {
+    if (isCustom && input.defaultCapacity != null && !input.resetSlotOverrides) {
       const maxBookedSlot = await prisma.booking.groupBy({
         by: ["slotTime"],
         where: {
@@ -422,7 +507,7 @@ export async function addSpecialDay(input: {
       }
     }
 
-    await prisma.specialBusinessDay.upsert({
+    const upsertArgs = {
       where: { storeId_date: { storeId, date: dateObj } },
       update: {
         type: input.type,
@@ -430,6 +515,7 @@ export async function addSpecialDay(input: {
         openTime: isCustom ? (input.openTime ?? null) : null,
         closeTime: isCustom ? (input.closeTime ?? null) : null,
         defaultCapacity: isCustom && input.defaultCapacity != null ? input.defaultCapacity : null,
+        segments: isCustom && input.periods ? periodsJson(input.periods) : undefined,
       },
       create: {
         storeId,
@@ -439,8 +525,18 @@ export async function addSpecialDay(input: {
         openTime: isCustom ? (input.openTime ?? null) : null,
         closeTime: isCustom ? (input.closeTime ?? null) : null,
         defaultCapacity: isCustom && input.defaultCapacity != null ? input.defaultCapacity : null,
+        segments: isCustom && input.periods ? periodsJson(input.periods) : undefined,
       },
-    });
+    } satisfies Prisma.SpecialBusinessDayUpsertArgs;
+
+    if (input.resetSlotOverrides) {
+      await prisma.$transaction(async (tx) => {
+        await tx.specialBusinessDay.upsert(upsertArgs);
+        await tx.slotOverride.deleteMany({ where: { storeId, date: dateObj } });
+      });
+    } else {
+      await prisma.specialBusinessDay.upsert(upsertArgs);
+    }
 
     revalidateSpecialDays();
     return { success: true, data: undefined };
@@ -497,7 +593,9 @@ export async function copySettingsToFutureWeeks(input: {
   openTime?: string;
   closeTime?: string;
   defaultCapacity?: number;
+  periods?: BusinessPeriodInput[];
   weeks: number;       // 複製到未來幾週（1-52）
+  resetSlotOverrides?: boolean;
 }): Promise<ActionResult<{ count: number }>> {
   try {
     const user = await requirePermission("business_hours.manage");
@@ -509,7 +607,7 @@ export async function copySettingsToFutureWeeks(input: {
 
     // 基本規則驗證
     if (input.type === "custom") {
-      const v = validateTimeRange({
+      const v = input.periods ? validateBusinessPeriods(input.periods) : validateTimeRange({
         openTime: input.openTime,
         closeTime: input.closeTime,
         defaultCapacity: input.defaultCapacity,
@@ -527,6 +625,16 @@ export async function copySettingsToFutureWeeks(input: {
       dates.push(d);
     }
 
+    if (isCustom && input.resetSlotOverrides) {
+      const periods = input.periods ?? [{
+        openTime: input.openTime!,
+        closeTime: input.closeTime!,
+        slotInterval: 60,
+        defaultCapacity: input.defaultCapacity ?? 6,
+      }];
+      await assertBookingsFitSchedule(storeId, dates, periods);
+    }
+
     // 批次 upsert
     const upserts = dates.map((d) =>
       prisma.specialBusinessDay.upsert({
@@ -537,6 +645,7 @@ export async function copySettingsToFutureWeeks(input: {
           openTime: isCustom ? (input.openTime ?? null) : null,
           closeTime: isCustom ? (input.closeTime ?? null) : null,
           defaultCapacity: isCustom && input.defaultCapacity != null ? input.defaultCapacity : null,
+          segments: isCustom && input.periods ? periodsJson(input.periods) : undefined,
         },
         create: {
           storeId,
@@ -546,11 +655,19 @@ export async function copySettingsToFutureWeeks(input: {
           openTime: isCustom ? (input.openTime ?? null) : null,
           closeTime: isCustom ? (input.closeTime ?? null) : null,
           defaultCapacity: isCustom && input.defaultCapacity != null ? input.defaultCapacity : null,
+          segments: isCustom && input.periods ? periodsJson(input.periods) : undefined,
         },
       })
     );
 
-    await prisma.$transaction(upserts);
+    await prisma.$transaction([
+      ...upserts,
+      ...(input.resetSlotOverrides ? [
+        prisma.slotOverride.deleteMany({
+          where: { storeId, date: { in: dates } },
+        }),
+      ] : []),
+    ]);
 
     revalidateSpecialDays();
     return { success: true, data: { count: dates.length } };
@@ -711,6 +828,7 @@ export async function applyWeeklyTemplate(input: {
   closeTime: string | null;
   slotInterval: number;
   defaultCapacity: number;
+  periods?: BusinessPeriodInput[];
   weeks: number;         // 套用到未來幾週（1-52）
 }): Promise<ActionResult<{ count: number }>> {
   try {
@@ -726,7 +844,7 @@ export async function applyWeeklyTemplate(input: {
 
     // 1. 更新 BusinessHours
     if (input.isOpen) {
-      const v = validateTimeRange({
+      const v = input.periods ? validateBusinessPeriods(input.periods) : validateTimeRange({
         openTime: input.openTime,
         closeTime: input.closeTime,
         slotInterval: input.slotInterval,
@@ -743,6 +861,7 @@ export async function applyWeeklyTemplate(input: {
         closeTime: input.isOpen ? input.closeTime : null,
         slotInterval: input.slotInterval,
         defaultCapacity: input.defaultCapacity,
+        segments: input.isOpen && input.periods ? periodsJson(input.periods) : undefined,
       },
       create: {
         storeId,
@@ -752,6 +871,7 @@ export async function applyWeeklyTemplate(input: {
         closeTime: input.isOpen ? input.closeTime : null,
         slotInterval: input.slotInterval,
         defaultCapacity: input.defaultCapacity,
+        segments: input.isOpen && input.periods ? periodsJson(input.periods) : undefined,
       },
     });
 

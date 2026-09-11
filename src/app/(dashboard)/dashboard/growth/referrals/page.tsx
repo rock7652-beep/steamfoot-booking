@@ -16,6 +16,7 @@ import { formatTWTime } from "@/lib/date-utils";
 import { RelativeLink } from "../_components/relative-link";
 import { TALENT_STAGE_LABELS } from "@/types/talent";
 import type { ReferralStatus } from "@prisma/client";
+import { getLiffStoreShareFunnel } from "@/server/queries/referral-events";
 
 interface PageProps {
   searchParams: Promise<{ page?: string }>;
@@ -68,6 +69,10 @@ export default async function GrowthReferralsPage({ searchParams }: PageProps) {
         <p className="mt-0.5 text-sm text-earth-500">推薦 → 到店 → 轉化 的完整流程</p>
       </div>
 
+      <Suspense fallback={<SummaryFallback count={3} />}>
+        <LiffShareFunnelBlock activeStoreId={activeStoreId} />
+      </Suspense>
+
       {/* 摘要 */}
       <Suspense fallback={<SummaryFallback />}>
         <SummaryBlock activeStoreId={activeStoreId} />
@@ -86,13 +91,49 @@ export default async function GrowthReferralsPage({ searchParams }: PageProps) {
   );
 }
 
-function SummaryFallback() {
+function SummaryFallback({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
+    <div className={`grid grid-cols-1 gap-2 ${count === 3 ? "sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
+      {Array.from({ length: count }).map((_, i) => (
         <KpiCardSkeleton key={i} />
       ))}
     </div>
+  );
+}
+
+async function LiffShareFunnelBlock({
+  activeStoreId,
+}: {
+  activeStoreId: string | null;
+}) {
+  const funnel = await getLiffStoreShareFunnel(activeStoreId);
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-base font-semibold text-earth-900">好友分享成效</h2>
+        <p className="text-xs text-earth-500">最近 30 天・LIFF 店家分享</p>
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <KpiCard
+          label="成功分享"
+          value={funnel.successfulShares}
+          unit="次"
+          color="primary"
+        />
+        <KpiCard
+          label="好友開啟"
+          value={funnel.friendOpens}
+          unit="次"
+          color="blue"
+        />
+        <KpiCard
+          label="體驗預約"
+          value={funnel.trialBookings}
+          unit="筆"
+          color="green"
+        />
+      </div>
+    </section>
   );
 }
 

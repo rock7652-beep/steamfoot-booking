@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 import { ZHUBEI_EXPERIENCE_BOOKING_URL } from "@/lib/booking-links";
 import type { DigitalButlerOutboundMessageIntent } from "@/server/services/digital-butler-channel";
 
@@ -138,6 +139,9 @@ export async function sendMessengerMessages(input: {
   recipientId: string;
   messages: MessengerMessage[];
 }): Promise<{ success: boolean; error?: string }> {
+  if (isPreviewExternalIntegrationBlocked()) {
+    return { success: false, error: "Preview outbound Messenger delivery is blocked" };
+  }
   for (const message of input.messages) {
     const response = await fetch(
       `https://graph.facebook.com/${GRAPH_API_VERSION}/${encodeURIComponent(input.pageId)}/messages`,
@@ -185,7 +189,10 @@ export async function sendMessengerUtilityTemplate(input: {
   pageAccessToken: string;
   recipientId: string;
   template: MessengerUtilityTemplate;
-}): Promise<{ success: boolean; failureCode?: "FAILED_META_REJECTED" | "FAILED_TRANSPORT" }> {
+}): Promise<{ success: boolean; failureCode?: "FAILED_META_REJECTED" | "FAILED_TRANSPORT" | "FAILED_PREVIEW_BLOCKED" }> {
+  if (isPreviewExternalIntegrationBlocked()) {
+    return { success: false, failureCode: "FAILED_PREVIEW_BLOCKED" };
+  }
   try {
     const response = await fetch(
       `https://graph.facebook.com/${GRAPH_API_VERSION}/${encodeURIComponent(input.pageId)}/messages`,

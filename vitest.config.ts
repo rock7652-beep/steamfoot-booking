@@ -9,7 +9,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      "@spa-client": path.resolve(__dirname, "./generated/spa-client"),
       "@": path.resolve(__dirname, "./src"),
+      "server-only": path.resolve(__dirname, "./src/__tests__/server-only-stub.ts"),
     },
   },
 });

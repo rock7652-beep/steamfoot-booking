@@ -1,0 +1,27 @@
+name: Prepare one-time LIFF Login rebind
+on:
+  push:
+    branches: [main]
+    paths: [.github/guanting-liff-login-rebind-request.json]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Verify exact mutation boundary
+        run: |
+          test "$(grep -Ec 'customer\.(update|delete|create)|customerIdentityLink\.(update|delete|create)|account\.(update|delete|create)' scripts/prepare-guanting-liff-login-rebind.ts)" -eq 0
+      - run: npx tsx scripts/prepare-guanting-liff-login-rebind.ts

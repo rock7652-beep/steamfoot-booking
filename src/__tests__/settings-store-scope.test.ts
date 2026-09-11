@@ -2,22 +2,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   cookieValue: null as string | null,
-  findUnique: vi.fn(),
+  findMany: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => new Headers()),
   cookies: vi.fn(async () => ({
-    get: vi.fn(() =>
-      mocks.cookieValue ? { value: mocks.cookieValue } : undefined,
+    get: vi.fn((name: string) =>
+      name === "active-store-id" && mocks.cookieValue ? { value: mocks.cookieValue } : undefined,
     ),
   })),
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    store: { findUnique: mocks.findUnique },
+    store: { findMany: mocks.findMany },
   },
 }));
+
+vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: vi.fn(async () => false) }));
+vi.mock("react", () => ({ cache: <T,>(fn: T) => fn }));
 
 import {
   ALL_STORES_ID,
@@ -30,9 +34,9 @@ describe("settings active-store authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.cookieValue = null;
-    mocks.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => ({
-      id: where.id,
-    }));
+    mocks.findMany.mockResolvedValue([{
+      id: "branch-a", slug: "branch-a", name: "Branch A", parentStoreId: null, isDefault: true,
+    }]);
   });
 
   it("ADMIN reads and writes the same validated active store", async () => {
@@ -41,10 +45,9 @@ describe("settings active-store authorization", () => {
 
     await expect(getActiveStoreForRead(user)).resolves.toBe("branch-a");
     await expect(resolveWriteStoreId(user)).resolves.toBe("branch-a");
-    expect(mocks.findUnique).toHaveBeenCalledWith({
-      where: { id: "branch-a" },
-      select: { id: true },
-    });
+    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { operatingStatus: { in: ["ACTIVE", "TRIAL"] } },
+    }));
   });
 
   it("allows all stores only for aggregate reads and rejects mutation", async () => {
@@ -57,11 +60,11 @@ describe("settings active-store authorization", () => {
 
   it("does not fall back when the cookie store does not exist", async () => {
     mocks.cookieValue = "missing-store";
-    mocks.findUnique.mockResolvedValue(null);
+    mocks.findMany.mockResolvedValue([]);
 
     await expect(
       resolveWriteStoreId({ role: "ADMIN", storeId: null }),
-    ).rejects.toThrow("店舖不存在或已無法存取");
+    ).rejects.toThrow("店舖不存在、已停用或無權存取");
   });
 
   it("pins non-ADMIN staff to the session store and rejects another store", async () => {
@@ -71,7 +74,7 @@ describe("settings active-store authorization", () => {
     await expect(getActiveStoreForRead(owner)).resolves.toBe("branch-a");
     await expect(resolveWriteStoreId(owner)).resolves.toBe("branch-a");
     await expect(validateStoreAccess(owner, "branch-b", "write")).rejects.toThrow(
-      "無權操作此店舖",
+      "店舖不存在、已停用或無權存取",
     );
   });
 });

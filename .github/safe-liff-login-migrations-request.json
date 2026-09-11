@@ -1,0 +1,10 @@
+{
+  "authorizedBy": "owner",
+  "authorizedAt": "2026-08-28T22:25:00+08:00",
+  "mode": "prepare-only-on-exact-read-only-snapshot",
+  "candidateCount": 70,
+  "candidateFingerprint": "3eba26ee07b4d2cad196eb465c9bba296abfa8ce5262a0e048ac3ecfbb7fba52",
+  "excludedCustomersMustRemainUnchanged": 69,
+  "retryAt": "2026-08-28T22:39:00+08:00",
+  "retryReason": "reuse-clean-completed-request-rows-after-atomic-rollback"
+}

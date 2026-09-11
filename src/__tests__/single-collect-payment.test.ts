@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  requireSteamfootStore: vi.fn(async () => undefined),
+}));
+
 // 單次（SINGLE，不扣堂）現場收款 — collectSinglePayment 行為保證：
 //  - 只在「真的收款」時建立 1 筆 SINGLE_PURCHASE 交易
 //  - status=SUCCESS（snapshot）+ paymentStatus=SUCCESS（明確）+ paidAt 有值
@@ -8,6 +12,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 //    prisma.customerPlanWallet.* / walletSession.* 會 throw → 測試會 fail
 //    （= wallet-free / 不扣堂保證）
 //  - 防重複收款、型別/狀態/跨店 guard、歸屬快照、金額上限校驗
+
+vi.mock("@/server/services/paid-booking-completion", () => ({
+  completePaidBookingInTransaction: vi.fn(async () => undefined),
+}));
+vi.mock("@/server/services/referral-events", () => ({
+  createBookingCompletedEvent: vi.fn(async () => undefined),
+}));
 
 const h = vi.hoisted(() => {
   const txCreate = vi.fn(async () => ({ id: "tx_1" }));
@@ -45,7 +56,10 @@ const h = vi.hoisted(() => {
       }),
     ),
     buildSnapshot: vi.fn(
-      async (_tx: unknown, params: { grossAmount: number; netAmount: number }) => ({
+      async (
+        _tx: unknown,
+        params: { grossAmount: number; netAmount: number },
+      ) => ({
         transactionNo: "TXN-1",
         transactionDate: new Date(),
         status: "SUCCESS" as const,
@@ -256,6 +270,45 @@ describe("collectSinglePayment — type / status / store guards", () => {
 });
 
 describe("collectSinglePayment — original-price source + amount", () => {
+  it("uses Steamfoot expectedAmount snapshot before the retained package price", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_converted",
+      bookingType: "SINGLE",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      revenueStaffId: null,
+      servicePlanId: "plan_package",
+      expectedAmount: 799,
+      treatmentPriceSnapshot: null,
+      servicePlan: { price: 5990 },
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+
+    await collectSinglePayment({ ...base, bookingId: "bk_converted" });
+
+    expect(lastTx().grossAmount).toBe(799);
+    expect(lastTx().amount).toBe(799);
+  });
+
+  it("uses the Steamfoot expectedAmount without reading retired SPA fields", async () => {
+    h.bookingFindFirst.mockResolvedValue({
+      id: "bk_spa",
+      bookingType: "SINGLE",
+      bookingStatus: "PENDING",
+      customerId: "cust_1",
+      revenueStaffId: null,
+      serviceStaffId: "spa_staff_10",
+      servicePlanId: null,
+      expectedAmount: 1680,
+      servicePlan: null,
+      customer: { assignedStaffId: null },
+    } as unknown as never);
+    await collectSinglePayment({ ...base, bookingId: "bk_spa", amount: 1680 });
+    expect(lastTx().grossAmount).toBe(1680);
+    expect(lastTx().amount).toBe(1680);
+    expect(lastTx().serviceStaffId).toBe("spa_staff_10");
+  });
+
   it("no amount + servicePlan.price=899 → originalAmount=899, netAmount=899 (default = full)", async () => {
     h.bookingFindFirst.mockResolvedValue({
       id: "bk_1",
@@ -292,7 +345,11 @@ describe("collectSinglePayment — original-price source + amount", () => {
   });
 
   it("amount=600 with original=799 → discountAmount=199 reflected via snapshot", async () => {
-    const r = await collectSinglePayment({ ...base, amount: 600, discountReason: "好友介紹" });
+    const r = await collectSinglePayment({
+      ...base,
+      amount: 600,
+      discountReason: "好友介紹",
+    });
     expect(r.success).toBe(true);
     const t = lastTx();
     expect(t.amount).toBe(600);
@@ -363,9 +420,8 @@ describe("collectSinglePayment — revenue staff attribution snapshot", () => {
 // discountReason / note bounded.
 describe("collectSinglePaymentSchema", () => {
   it("accepts non-cuid bookingId + valid method + optional discountReason", async () => {
-    const { collectSinglePaymentSchema } = await import(
-      "@/lib/validators/single-booking"
-    );
+    const { collectSinglePaymentSchema } =
+      await import("@/lib/validators/single-booking");
     expect(() =>
       collectSinglePaymentSchema.parse({
         bookingId: "staging-bk-001",
@@ -376,17 +432,18 @@ describe("collectSinglePaymentSchema", () => {
     ).not.toThrow();
   });
   it("rejects empty bookingId", async () => {
-    const { collectSinglePaymentSchema } = await import(
-      "@/lib/validators/single-booking"
-    );
+    const { collectSinglePaymentSchema } =
+      await import("@/lib/validators/single-booking");
     expect(() =>
-      collectSinglePaymentSchema.parse({ bookingId: "", paymentMethod: "CASH" }),
+      collectSinglePaymentSchema.parse({
+        bookingId: "",
+        paymentMethod: "CASH",
+      }),
     ).toThrow();
   });
   it("rejects UNPAID payment method (SUCCESS-only)", async () => {
-    const { collectSinglePaymentSchema } = await import(
-      "@/lib/validators/single-booking"
-    );
+    const { collectSinglePaymentSchema } =
+      await import("@/lib/validators/single-booking");
     expect(() =>
       collectSinglePaymentSchema.parse({
         bookingId: "bk_1",
@@ -394,10 +451,9 @@ describe("collectSinglePaymentSchema", () => {
       }),
     ).toThrow();
   });
-  it("rejects amount=0 (SINGLE is paid service; no 0元 success)", async () => {
-    const { collectSinglePaymentSchema } = await import(
-      "@/lib/validators/single-booking"
-    );
+  it("rejects amount=0 without full-discount reason and completion", async () => {
+    const { collectSinglePaymentSchema } =
+      await import("@/lib/validators/single-booking");
     expect(() =>
       collectSinglePaymentSchema.parse({
         bookingId: "bk_1",
@@ -407,9 +463,8 @@ describe("collectSinglePaymentSchema", () => {
     ).toThrow();
   });
   it("rejects discountReason > 500 chars", async () => {
-    const { collectSinglePaymentSchema } = await import(
-      "@/lib/validators/single-booking"
-    );
+    const { collectSinglePaymentSchema } =
+      await import("@/lib/validators/single-booking");
     expect(() =>
       collectSinglePaymentSchema.parse({
         bookingId: "bk_1",
@@ -417,5 +472,35 @@ describe("collectSinglePaymentSchema", () => {
         discountReason: "x".repeat(501),
       }),
     ).toThrow();
+  });
+});
+
+
+describe("full discount completion", () => {
+  it("records gross 799, discount 799, net 0 and completes once without wallet deduction", async () => {
+    const { completePaidBookingInTransaction } = await import("@/server/services/paid-booking-completion");
+    const result = await collectSinglePayment({ ...base, amount: 0, discountReason: "  轉介紹免費券  ", completeService: true });
+    expect(result).toMatchObject({ success: true, data: { serviceCompleted: true } });
+    expect(h.txCreate).toHaveBeenCalledTimes(1);
+    expect(lastTx()).toMatchObject({ grossAmount: 799, discountAmount: 799, netAmount: 0, amount: 0, discountReason: "轉介紹免費券", paymentMethod: "OTHER" });
+    expect(completePaidBookingInTransaction).toHaveBeenCalledTimes(1);
+    h.txFindFirstInTx.mockResolvedValue({ id: "tx_1" });
+    expect((await collectSinglePayment({ ...base, amount: 0, discountReason: "免費券", completeService: true })).success).toBe(false);
+    expect(h.txCreate).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    { amount: 0, discountReason: "   ", completeService: true },
+    { amount: 0, discountReason: "免費券", completeService: false },
+    { amount: -1, discountReason: "免費券", completeService: true },
+    { amount: 0.5, discountReason: "免費券", completeService: true },
+    { amount: 0, discountReason: "免費券", completeService: true, paymentSplits: [{ paymentMethod: "CASH" as const, amount: 1 }, { paymentMethod: "OTHER" as const, amount: 1 }] },
+  ])("rejects invalid free completion %# without writing", async (input) => {
+    expect((await collectSinglePayment({ ...base, ...input })).success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
+  });
+  it("does not bypass the reason check when omitted amount resolves to zero", async () => {
+    h.bookingFindFirst.mockResolvedValue({ id: "bk_1", bookingType: "SINGLE", bookingStatus: "PENDING", expectedAmount: 0, customer: { assignedStaffId: null } });
+    expect((await collectSinglePayment({ ...base, completeService: true })).success).toBe(false);
+    expect(h.txCreate).not.toHaveBeenCalled();
   });
 });

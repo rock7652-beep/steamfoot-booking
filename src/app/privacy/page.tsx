@@ -38,7 +38,7 @@ const sections = [
     title: "四、資料分享與第三方服務",
     paragraphs: [
       "我們只會在提供服務所需的範圍內，讓您選擇的門市及經授權人員存取資料。除法律要求、保護權益或取得您的同意外，我們不會出售您的個人資料。",
-      "系統可能使用 Meta（Messenger）、LINE、網站託管、資料庫、電子郵件及其他必要技術服務。這些服務商僅在執行其服務所需的範圍內處理資料，並受其各自條款與隱私政策約束。",
+      "系統可能使用 Meta（Messenger）、LINE、Google 表單資料處理服務、綠界科技（金流啟用並付款時）、網站託管、資料庫、電子郵件及其他必要技術服務。這些服務商僅在執行其服務所需的範圍內處理資料，並受其各自條款與隱私政策約束。",
     ],
   },
   {
@@ -51,7 +51,7 @@ const sections = [
   {
     title: "六、您的權利與資料刪除",
     paragraphs: [
-      "您可依法請求查詢、閱覽、更正、停止使用或刪除個人資料，也可以停止接收非必要通知。",
+      "您可依法請求查詢、閱覽、製給複製本、補充或更正、停止蒐集、處理或利用，以及刪除個人資料，也可以停止接收非必要通知。",
       "如需刪除 Messenger、LINE 或蒸管家帳號相關資料，請來信至下方聯絡信箱，主旨註明「蒸管家資料刪除申請」，並提供可供核對的姓名、手機末三碼、使用門市及使用的平台。我們只會要求完成身分核對所必要的資訊，並在確認後處理及回覆；依法或為處理既有交易所必須保留的資料可能不會立即刪除。",
     ],
   },
@@ -79,7 +79,7 @@ export default function PrivacyPage() {
             隱私權政策
           </h1>
           <p className="mt-3 text-sm leading-6 text-earth-500">
-            最後更新日期：2026 年 8 月 12 日
+            最後更新日期：2026 年 9 月 11 日
           </p>
         </header>
 
@@ -89,6 +89,17 @@ export default function PrivacyPage() {
               蒸管家重視您的隱私。本政策說明我們在提供預約、會員、提醒及顧客服務時，如何蒐集、使用、保存與保護資料。
             </p>
           </section>
+
+          <section id="store-application">
+<h2 className="text-xl font-semibold text-earth-900">店家申請個人資料告知</h2>
+<p className="mt-3 leading-7 text-earth-700">陸比音樂工作室｜統一編號：31789116；聯絡地址：新竹縣竹北市科大一路116號；聯絡信箱：steambutler500@gmail.com。</p>
+<p className="mt-3 leading-7 text-earth-700">申請資料用於需求評估、安排示範或體驗、回覆聯繫、後續建置及契約與帳務處理；來源參數及技術紀錄用於分析申請來源、維護安全與排除送出異常。送出申請不代表同意接收一般行銷訊息或授權付款。</p>
+<p className="mt-3 leading-7 text-earth-700">蒐集類別包括店家名稱、聯絡人稱呼、電話或 LINE ID、產業與門市規模、員工及顧客人數區間、現有系統、需求與聯繫偏好，以及頁面網址、來源網址、活動參數、裝置類型及申請識別碼。請勿於自由填寫欄位提供顧客名冊、健康資料或付款卡號。</p>
+<p className="mt-3 leading-7 text-earth-700">使用期間以處理申請、後續服務關係、爭議與依法保存所必要期間為限；目的消失後刪除、去識別化或停止利用。利用地區為臺灣及所使用雲端服務商提供儲存、備援或支援服務的境外地區。</p>
+<p className="mt-3 leading-7 text-earth-700">使用對象為本工作室授權人員及受委託的必要服務商（包括承接申請資料的 Google 雲端服務、網站託管與通訊服務商），以電子儲存、內部查詢及您提供的聯絡方式處理；不出售資料，不為不相容目的任意提供第三方。</p>
+<p className="mt-3 leading-7 text-earth-700">您可來信行使查詢、閱覽、製給複製本、補充或更正、停止蒐集／處理／利用、刪除等法定權利；依法須保留部分資料時，會說明原因。</p>
+<p className="mt-3 leading-7 text-earth-700">您可自由決定是否提供資料；標示必填的需求資料，以及電話或 LINE ID 至少一項，是完成本次申請及聯繫所必要。不提供將無法完成表單申請或安排服務，仍可直接來信洽詢；選填資料不影響基本申請。若另提供行銷訂閱，將另行徵求選填同意、不預先勾選，並提供退出方式。</p>
+</section>
 
           {sections.map((section) => (
             <section key={section.title}>
@@ -110,13 +121,14 @@ export default function PrivacyPage() {
 
           <section className="rounded-xl bg-earth-50 p-5">
             <h2 className="text-xl font-semibold text-earth-900">九、聯絡我們</h2>
+<p className="mt-3 leading-7 text-earth-700"><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc（加入官方 LINE）</a></p>
             <p className="mt-3 leading-7 text-earth-700">
               隱私權、資料查詢或刪除申請，請寄至：
               <a
                 className="ml-1 font-medium text-primary-700 underline underline-offset-4"
-                href="mailto:rock7652@gmail.com"
+                href="mailto:steambutler500@gmail.com"
               >
-                rock7652@gmail.com
+                steambutler500@gmail.com
               </a>
             </p>
             <p className="mt-2 leading-7 text-earth-700">
@@ -125,12 +137,12 @@ export default function PrivacyPage() {
           </section>
         </div>
 
-        <footer className="mt-10 border-t border-earth-200 pt-6 text-center">
+        <footer className="mt-10 border-t border-earth-200 pt-6 text-center"><p className="mb-4 text-sm leading-7 text-earth-700"><a href="/pricing/terms.html">服務條款</a> · <a href="/pricing/refunds.html">取消與退費政策</a></p>
           <Link
-            href="/"
+            href="/pricing/business"
             className="text-sm font-medium text-primary-700 hover:text-primary-800"
           >
-            返回蒸管家
+            返回蒸管家首頁
           </Link>
         </footer>
       </article>

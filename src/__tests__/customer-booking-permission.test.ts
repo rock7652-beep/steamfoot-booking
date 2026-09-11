@@ -13,6 +13,10 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  getStoreIndustryModule: vi.fn(async () => "steamfoot"),
+}));
+
 // ── Mock prisma ──
 const mockBusinessHoursFindMany = vi.fn();
 const mockBusinessHoursFindFirst = vi.fn();
@@ -72,6 +76,10 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/store-view-context-server", () => ({
+  resolveStoreViewContextFromCookie: vi.fn(async () => null),
+}));
+
 // ── Mock session：CUSTOMER 角色（自助預約） ──
 const STORE_A = "store-zhubei";
 const CUSTOMER_ID = "ck0000000000000000000001";
@@ -110,6 +118,8 @@ vi.mock("@/lib/shop-config", () => ({
   checkBookingLimit: vi.fn(async () => ({ allowed: true, current: 0, limit: 100 })),
   resolveBookableUntilDate: (bookableUntilDate: Date | null | undefined) =>
     bookableUntilDate ? bookableUntilDate.toISOString().slice(0, 10) : "2026-05-10",
+  resolveCustomerBookableUntilDate: () => "2026-05-10",
+  isCustomerSlotWithinBookingWindow: () => true,
 }));
 
 vi.mock("@/lib/usage-gate", () => ({

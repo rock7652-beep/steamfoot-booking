@@ -13,6 +13,8 @@ const mockGetIDToken = vi.fn();
 const mockGetProfile = vi.fn();
 const mockOpenWindow = vi.fn();
 const mockCloseWindow = vi.fn();
+const mockIsApiAvailable = vi.fn();
+const mockShareTargetPicker = vi.fn();
 
 vi.mock("@line/liff", () => ({
   liff: {
@@ -22,6 +24,8 @@ vi.mock("@line/liff", () => ({
     getProfile: mockGetProfile,
     openWindow: mockOpenWindow,
     closeWindow: mockCloseWindow,
+    isApiAvailable: mockIsApiAvailable,
+    shareTargetPicker: mockShareTargetPicker,
   },
 }));
 
@@ -33,6 +37,7 @@ import {
   isInLineClient,
   LiffInitError,
   openWindow,
+  shareViaTargetPicker,
 } from "@/lib/liff/client";
 
 describe("liff client wrapper", () => {
@@ -44,6 +49,8 @@ describe("liff client wrapper", () => {
     mockGetProfile.mockReset();
     mockOpenWindow.mockReset();
     mockCloseWindow.mockReset();
+    mockIsApiAvailable.mockReset();
+    mockShareTargetPicker.mockReset();
   });
 
   afterEach(() => {
@@ -154,6 +161,43 @@ describe("liff client wrapper", () => {
       await initLiff("liff-123");
       closeWindow();
       expect(mockCloseWindow).toHaveBeenCalledTimes(1);
+    });
+
+    it("share target picker only reports explicit SDK success", async () => {
+      mockInit.mockResolvedValueOnce(undefined);
+      mockIsApiAvailable.mockReturnValue(true);
+      mockShareTargetPicker.mockResolvedValueOnce({ status: "success" });
+      await initLiff("liff-123");
+
+      await expect(
+        shareViaTargetPicker([{ type: "text", text: "hello" }]),
+      ).resolves.toBe("success");
+      expect(mockShareTargetPicker).toHaveBeenCalledWith(
+        [{ type: "text", text: "hello" }],
+        { isMultiple: true },
+      );
+    });
+
+    it("share target picker does not count cancellation as success", async () => {
+      mockInit.mockResolvedValueOnce(undefined);
+      mockIsApiAvailable.mockReturnValue(true);
+      mockShareTargetPicker.mockResolvedValueOnce(undefined);
+      await initLiff("liff-123");
+
+      await expect(
+        shareViaTargetPicker([{ type: "text", text: "hello" }]),
+      ).resolves.toBe("cancelled");
+    });
+
+    it("share target picker returns unavailable when LINE disables the API", async () => {
+      mockInit.mockResolvedValueOnce(undefined);
+      mockIsApiAvailable.mockReturnValue(false);
+      await initLiff("liff-123");
+
+      await expect(
+        shareViaTargetPicker([{ type: "text", text: "hello" }]),
+      ).resolves.toBe("unavailable");
+      expect(mockShareTargetPicker).not.toHaveBeenCalled();
     });
   });
 });

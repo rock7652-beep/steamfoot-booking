@@ -82,13 +82,13 @@ export default async function SettingsIndexPage() {
     );
   }
 
-  const isSpa = await getStoreIndustryModule(activeStoreId) === "spa";
 
   const canManageTrial = await checkPermission(
     user.role,
     user.staffId,
     "trial.manage",
   );
+  const isSpaStore = (await getStoreIndustryModule(activeStoreId)) === "spa";
 
   // 並行拉 summary（皆為既有 query）
   const [plan, shopConfig, staffList, rules, weeklyHours, store, trialSettings, hasDigitalButler] =
@@ -145,7 +145,10 @@ export default async function SettingsIndexPage() {
     {
       title: "店務設定",
       items: [
-        { label: "預約開放設定", href: "/dashboard/settings/hours" },
+        {
+          label: isSpaStore ? "營業與預約時間" : "預約開放設定",
+          href: "/dashboard/settings/hours",
+        },
         { label: "值班排班設定", href: "/dashboard/settings/duty" },
       ],
     },
@@ -167,7 +170,6 @@ export default async function SettingsIndexPage() {
           : []),
       ],
     },
-    ...(!isSpa ? [{ title: "人員與權限", items: [{ label: "人員管理", href: "/dashboard/staff" }] }] : []),
   ];
 
   // ==== 付款設定 summary ====
@@ -178,6 +180,9 @@ export default async function SettingsIndexPage() {
 
   // ==== 右欄資料 ====
   const quickActions = [
+    ...(isSpaStore
+      ? [{ label: "設定 15／30 分鐘", href: "/dashboard/settings/hours" }]
+      : []),
     { label: "新增預約", href: "/dashboard/bookings/new" },
     { label: "新增顧客", href: "/dashboard/customers/new" },
     { label: "預約月曆", href: "/dashboard/bookings" },
@@ -229,31 +234,14 @@ export default async function SettingsIndexPage() {
           </SettingsSidePanel>
         }
       >
-        {/* 1. 人員管理 */}
-        {!isSpa && <SettingsActionCard
-          title="人員管理"
-          description="建立員工、指派角色與可視範圍"
-          iconPath="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-          primaryHref="/dashboard/staff"
-          primaryLabel="管理人員"
-          summary={
-            <InfoList
-              density="compact"
-              items={[
-                { label: "員工總數", value: `${staffCount} 位` },
-                { label: "啟用中", value: `${activeStaffCount} 位` },
-              ]}
-            />
-          }
-        />}
 
-        {/* 3. 預約開放設定 */}
+        {/* 3. 營業與預約時間 */}
         <SettingsActionCard
-          title="預約開放設定"
-          description="營業時間、可預約時段與休假"
+          title={isSpaStore ? "營業與預約時間" : "預約開放設定"}
+          description={isSpaStore ? "設定營業時間、15／30 分鐘預約單位與休假" : "營業時間、可預約時段與休假"}
           iconPath="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
           primaryHref="/dashboard/settings/hours"
-          primaryLabel="編輯預約設定"
+          primaryLabel={isSpaStore ? "設定營業與時間單位" : "編輯預約設定"}
           summary={
             <InfoList
               density="compact"

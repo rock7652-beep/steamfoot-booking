@@ -15,6 +15,13 @@ export const createBookingSchema = z.object({
   // createBooking 內的 customer.findUnique + 跨店檢查 + 顧客自有 wallet 範圍
   // 配堂控制。empty string 仍被 .min(1) 擋；optional 行為不變。
   servicePlanId: z.string().min(1).optional(),
+  // SPA 芳療師排程從「人員 × 時間」空格建立預約時帶入。
+  // 不限制 cuid：Demo seed / 匯入資料可能使用固定 ID；安全邊界由
+  // createBooking 內的同店、啟用狀態驗證負責。
+  serviceStaffId: z.string().min(1).optional(),
+  // SPA Demo：本次實際執行的服務，可複選；與 servicePlanId（付款權益）分離。
+  // 正式三店既有呼叫不帶此欄位，行為完全不變。
+  treatmentIds: z.array(z.string().min(1)).min(1).max(8).optional(),
   customerPlanWalletId: z.string().min(1).optional(),
   people: z.number().int().min(1).max(4).optional(),
   isMakeup: z.boolean().optional(),
@@ -49,9 +56,12 @@ export const updateBookingSchema = z.object({
 
 export const completeBookingSchema = z.object({
   serviceStaffId: z.string().cuid().optional(),
-  // PR-3d：實際到店人數（FIRST_TRIAL 部分到店流程）。
+  // 實際到店人數（多人預約的部分到店流程）。
   // 1..people；省略則維持 null（向後相容，顯示與收款皆視為全到）。
   // server 端再驗證 attendedPeople ≤ booking.people；
-  // attendedPeople < booking.people 只接受 FIRST_TRIAL。
   attendedPeople: z.number().int().min(1).max(4).optional(),
+  // 套餐部分到店時，未到者仍扣原預約堂數；此欄只決定是否發補課券。
+  partialNoShowChoice: z
+    .enum(["DEDUCTED", "DEDUCTED_WITH_MAKEUP"])
+    .optional(),
 });

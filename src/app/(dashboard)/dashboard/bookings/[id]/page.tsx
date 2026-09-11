@@ -1,3 +1,4 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -70,6 +71,12 @@ export default async function BookingDetailPage({ params }: PageProps) {
   const isViewMode = storeViewContext?.isViewMode === true;
   const booking = await getBooking(id, readUser, bookingStoreId);
   if (!booking) notFound();
+
+  // Preserve existing authorization, then use the same detail flow as the day list.
+  // SPA keeps its independent entry and existing behavior.
+  if (await getStoreIndustryModule(booking.storeId) === "steamfoot") {
+    redirect(`/dashboard/bookings?bookingId=${encodeURIComponent(booking.id)}`);
+  }
 
   const isActive =
     booking.bookingStatus === "CONFIRMED" || booking.bookingStatus === "PENDING";
@@ -173,7 +180,14 @@ export default async function BookingDetailPage({ params }: PageProps) {
           </div>
           <div>
             <dt className="text-earth-500">預約人數</dt>
-            <dd className="font-medium">{booking.people} 人</dd>
+            <dd className="font-medium">
+              {booking.people} 人
+              {booking.attendedPeople != null && booking.attendedPeople < booking.people && (
+                <span className="ml-2 text-amber-700">
+                  （實到 {booking.attendedPeople}、未到 {booking.people - booking.attendedPeople}）
+                </span>
+              )}
+            </dd>
           </div>
           <div>
             <dt className="text-earth-500">歸屬店長</dt>
@@ -201,7 +215,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
             </div>
           )}
           {/* 此預約產生的補課資格（people=N 可能有多張） */}
-          {booking.bookingStatus === "NO_SHOW" && booking.generatedCredits.length > 0 && (
+          {booking.generatedCredits.length > 0 && (
             <div className="col-span-2">
               <dt className="text-earth-500">
                 補課資格（共 {booking.generatedCredits.length} 張）

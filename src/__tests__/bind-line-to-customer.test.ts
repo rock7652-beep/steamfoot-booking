@@ -224,6 +224,55 @@ describe("bindLineToCustomerInStore", () => {
     expect(mockSyncLineAccount).not.toHaveBeenCalled();
   });
 
+  it("activates a notification-prebound Customer without replacing its store LINE recipient", async () => {
+    mockCustomerFindMany.mockResolvedValueOnce([{
+      id: "cust-prebound",
+      userId: null,
+      lineUserId: "U_store_messaging",
+      lineLinkStatus: "LINKED",
+      lineName: "門市 LINE 暱稱",
+    }]);
+    const txAccountCreate = vi.fn().mockResolvedValueOnce({ id: "account-login" });
+    const txCustomerUpdateMany = vi.fn().mockResolvedValueOnce({ count: 1 });
+    mockTx.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => cb({
+      user: { create: vi.fn().mockResolvedValueOnce({ id: "user-login" }) },
+      account: { create: txAccountCreate },
+      customer: { updateMany: txCustomerUpdateMany },
+    }));
+
+    const result = await bindLineToCustomerInStore(makeValidInput());
+
+    expect(result).toMatchObject({
+      status: "bound_existing",
+      customerId: "cust-prebound",
+      userId: "user-login",
+      userCreated: true,
+      lineAccountSync: "created",
+    });
+    expect(txAccountCreate).toHaveBeenCalledWith({
+      data: {
+        userId: "user-login",
+        provider: "line",
+        providerAccountId: LINE_USER_ID,
+        type: "oauth",
+      },
+    });
+    expect(txCustomerUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: "cust-prebound",
+        storeId: STORE_ID,
+        userId: null,
+        lineUserId: "U_store_messaging",
+        mergedIntoCustomerId: null,
+      },
+      data: {
+        userId: "user-login",
+        name: NAME,
+        authSource: "LINE",
+      },
+    });
+  });
+
   // ─────────────────────────────────────────────────────
   // 3. created_new (候選 = 0)
   // ─────────────────────────────────────────────────────

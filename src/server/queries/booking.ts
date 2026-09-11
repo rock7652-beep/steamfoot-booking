@@ -1,19 +1,26 @@
 import { prisma } from "@/lib/db";
+import { linkedWalletRemainingForBooking } from "@/lib/wallet-booking-integrity";
+import { spaPrisma } from "@/lib/spa-db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
-import { getManagerCustomerFilter, getStoreFilter } from "@/lib/manager-visibility";
+import {
+  getManagerCustomerFilter,
+  getStoreFilter,
+} from "@/lib/manager-visibility";
 import {
   resolveStoreViewContextFromCookie,
   storeIdForViewContext,
   userForViewContext,
 } from "@/lib/store-view-context-server";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";
+import { validateStoreAccess } from "@/lib/store";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { TRIAL_DEFAULTS } from "@/lib/shop-config";
-import { todayRange, dayRange } from "@/lib/date-utils";
+import { todayRange, dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { unstable_cache } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import type { BookingStatus, Prisma } from "@prisma/client";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 export interface ListBookingsOptions {
   dateFrom?: string; // "YYYY-MM-DD"
@@ -31,12 +38,25 @@ export interface ListBookingsOptions {
 // Customer: 只有自己的預約
 // ============================================================
 
-export async function listBookings(options: ListBookingsOptions & { activeStoreId?: string | null } = {}) {
+export async function listBookings(
+  options: ListBookingsOptions & { activeStoreId?: string | null } = {},
+) {
   const user = await requireSession();
-  const { dateFrom, dateTo, status, customerId, activeStoreId, page = 1, pageSize = 30 } = options;
+  const {
+    dateFrom,
+    dateTo,
+    status,
+    customerId,
+    activeStoreId,
+    page = 1,
+    pageSize = 30,
+  } = options;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const readUser = userForViewContext(user, storeViewContext);
-  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
+  const readStoreId = storeIdForViewContext(
+    activeStoreId ?? null,
+    storeViewContext,
+  );
 
   // 後端強制資料隔離（讀取型：受 visibility mode 控制）
   let whereCustomer: Record<string, unknown> = {};
@@ -53,7 +73,8 @@ export async function listBookings(options: ListBookingsOptions & { activeStoreI
     );
     // getManagerCustomerFilter 回傳 { customer: { assignedStaffId: ... } } 或 {}
     // 這裡需要取出 customer 層級的 where
-    const nested = customerFilter.customer as Record<string, unknown> | undefined;
+    const nested = customerFilter.customer as
+      Record<string, unknown> | undefined;
     whereCustomer = nested ?? {};
   }
 
@@ -76,12 +97,16 @@ export async function listBookings(options: ListBookingsOptions & { activeStoreI
   const isCustomer = readUser.role === "CUSTOMER";
   const includeFields = isCustomer
     ? {
-        revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+        revenueStaff: {
+          select: { id: true, displayName: true, colorCode: true },
+        },
         servicePlan: { select: { id: true, name: true } },
       }
     : {
         customer: { select: { id: true, name: true, phone: true } },
-        revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+        revenueStaff: {
+          select: { id: true, displayName: true, colorCode: true },
+        },
         serviceStaff: { select: { id: true, displayName: true } },
         servicePlan: { select: { id: true, name: true } },
       };
@@ -131,7 +156,9 @@ export async function getBookingDetailForUser(
           serviceNote: true, // 內部服務備註（後台限定）— 預約詳情顧客資訊顯示
         },
       },
-      revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+      revenueStaff: {
+        select: { id: true, displayName: true, colorCode: true },
+      },
       serviceStaff: { select: { id: true, displayName: true } },
       servicePlan: true,
       customerPlanWallet: {
@@ -159,11 +186,22 @@ export async function getBookingDetailForUser(
 // getDayBookings — 取某天的完整預約清單（後台日曆用）
 // ============================================================
 
-export async function getDayBookings(date: string, activeStoreId?: string | null) {
+export async function getDayBookings(
+  date: string,
+  activeStoreId?: string | null,
+) {
   const user = await requireStaffSession();
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
-  const readUser = userForViewContext(user, storeViewContext);
-  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
+  const hasExplicitStoreScope = activeStoreId !== undefined;
+  const readStoreId = hasExplicitStoreScope
+    ? activeStoreId
+      ? await validateStoreAccess(user, activeStoreId, "read")
+      : null
+    : storeIdForViewContext(null, storeViewContext);
+  const readUser =
+    hasExplicitStoreScope && readStoreId && user.role !== "ADMIN"
+      ? { ...user, storeId: readStoreId }
+      : userForViewContext(user, storeViewContext);
 
   const dateObj = new Date(date + "T00:00:00Z");
 
@@ -180,10 +218,14 @@ export async function getDayBookings(date: string, activeStoreId?: string | null
           id: true,
           name: true,
           phone: true,
-          assignedStaff: { select: { id: true, displayName: true, colorCode: true } },
+          assignedStaff: {
+            select: { id: true, displayName: true, colorCode: true },
+          },
         },
       },
-      revenueStaff: { select: { id: true, displayName: true, colorCode: true } },
+      revenueStaff: {
+        select: { id: true, displayName: true, colorCode: true },
+      },
       serviceStaff: { select: { id: true, displayName: true } },
       servicePlan: { select: { name: true } },
     },
@@ -196,7 +238,11 @@ export async function getDayBookings(date: string, activeStoreId?: string | null
 // Owner: 全部 / Manager: 自己的
 // ============================================================
 
-export async function getMonthlyRevenueSummary(year: number, month: number, activeStoreId?: string | null) {
+export async function getMonthlyRevenueSummary(
+  year: number,
+  month: number,
+  activeStoreId?: string | null,
+) {
   const user = await requireStaffSession();
 
   const startDate = new Date(Date.UTC(year, month - 1, 1));
@@ -214,7 +260,12 @@ export async function getMonthlyRevenueSummary(year: number, month: number, acti
       ...staffFilter,
       createdAt: { gte: startDate, lte: endDate },
       transactionType: {
-        in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "PACKAGE_PURCHASE", "SUPPLEMENT"],
+        in: [
+          "TRIAL_PURCHASE",
+          "SINGLE_PURCHASE",
+          "PACKAGE_PURCHASE",
+          "SUPPLEMENT",
+        ],
       },
     },
     _sum: { amount: true },
@@ -256,14 +307,96 @@ export async function getMonthBookingSummary(
 ) {
   const user = await requireStaffSession();
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
-  const readUser = userForViewContext(user, storeViewContext);
-  const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
+  const hasExplicitStoreScope = activeStoreId !== undefined;
+  const readStoreId = hasExplicitStoreScope
+    ? activeStoreId
+      ? await validateStoreAccess(user, activeStoreId, "read")
+      : null
+    : storeIdForViewContext(null, storeViewContext);
+  const readUser =
+    hasExplicitStoreScope && readStoreId && user.role !== "ADMIN"
+      ? { ...user, storeId: readStoreId }
+      : userForViewContext(user, storeViewContext);
   // getStoreFilter 回 { storeId } 或 {}（ADMIN __all__）。抽出 scope 當 cache key；
   // null = 跨店（ADMIN 未指定 store）。重建 where 與原本 spread 行為完全一致。
   const filter = getStoreFilter(readUser, readStoreId);
   const scopeStoreId = (filter.storeId as string | undefined) ?? null;
+  if (scopeStoreId && (await getStoreIndustryModule(scopeStoreId)) === "spa") {
+    return computeSpaMonthBookingSummary(scopeStoreId, year, month);
+  }
   const todayDateStr = todayRange().dateStr;
   return getCachedMonthBookingSummary(scopeStoreId, year, month, todayDateStr);
+}
+
+async function computeSpaMonthBookingSummary(storeId: string, year: number, month: number) {
+  const startDate = new Date(Date.UTC(year, month - 1, 1));
+  const endDate = new Date(Date.UTC(year, month, 0));
+  const bookings = await spaPrisma.spaBooking.findMany({
+    where: { storeId, bookingDate: { gte: startDate, lte: endDate }, status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] } },
+    include: { items: { orderBy: { sortOrder: "asc" } }, payments: { where: { refundOfPaymentId: null, status: "SUCCESS" }, take: 1 } },
+    orderBy: [{ bookingDate: "asc" }, { startTime: "asc" }],
+  });
+  const customerIds = [...new Set(bookings.map((booking) => booking.customerId))];
+  const staffIds = [...new Set(bookings.flatMap((booking) => [booking.serviceStaffId, booking.revenueStaffId]).filter((id): id is string => Boolean(id)))];
+  const [customers, staff, entitlements] = await Promise.all([
+    prisma.customer.findMany({ where: { id: { in: customerIds }, storeId }, select: { id: true, name: true, phone: true, serviceNote: true, assignedStaff: { select: { id: true, displayName: true, colorCode: true } } } }),
+    prisma.staff.findMany({ where: { id: { in: staffIds }, storeId }, select: { id: true, displayName: true, colorCode: true } }),
+    spaPrisma.spaEntitlement.findMany({ where: { storeId, customerId: { in: customerIds }, status: "ACTIVE", remainingUses: { gt: 0 }, OR: [{ expiryDate: null }, { expiryDate: { gte: dayRange(toLocalDateStr()).start } }] }, select: { customerId: true, remainingUses: true } }),
+  ]);
+  const customerMap = new Map(customers.map((customer) => [customer.id, customer]));
+  const staffMap = new Map(staff.map((person) => [person.id, person]));
+  const remainingByCustomer = new Map<string, number>();
+  for (const entitlement of entitlements) remainingByCustomer.set(entitlement.customerId, (remainingByCustomer.get(entitlement.customerId) ?? 0) + entitlement.remainingUses);
+  const days = Array.from({ length: endDate.getUTCDate() }, (_, index) => {
+    const date = `${year}-${String(month).padStart(2, "0")}-${String(index + 1).padStart(2, "0")}`;
+    const dayBookings = bookings.filter((booking) => booking.bookingDate.toISOString().slice(0, 10) === date);
+    const counts = new Map<string, number>();
+    for (const booking of dayBookings) counts.set(booking.revenueStaffId ?? booking.serviceStaffId, (counts.get(booking.revenueStaffId ?? booking.serviceStaffId) ?? 0) + 1);
+    return {
+      date,
+      totalBookingCount: dayBookings.length,
+      totalPeople: dayBookings.reduce((sum, booking) => sum + booking.people, 0),
+      staffBookings: [...counts.entries()].map(([id, count]) => ({ staffName: staffMap.get(id)?.displayName ?? "Unknown", colorCode: staffMap.get(id)?.colorCode ?? "#999", count })),
+      bookings: dayBookings.flatMap((booking) => {
+        const customer = customerMap.get(booking.customerId);
+        if (!customer) return [];
+        const revenueStaff = booking.revenueStaffId ? staffMap.get(booking.revenueStaffId) ?? null : null;
+        const serviceStaff = staffMap.get(booking.serviceStaffId) ?? null;
+        const payment = booking.payments[0] ?? null;
+        return [{
+          id: booking.id,
+          slotTime: booking.startTime,
+          bookingStatus: booking.status,
+          isMakeup: false,
+          isCheckedIn: booking.checkedInAt != null,
+          people: booking.people,
+          recurrenceIndex: null,
+          recurrenceTotalOccurrences: null,
+          customerConfirmedAt: booking.status === "CONFIRMED" ? booking.updatedAt : null,
+          attendedPeople: null,
+          bookingType: "SINGLE",
+          expectedAmount: Number(booking.totalPriceSnapshot),
+          treatmentNameSnapshot: booking.serviceNameSnapshot,
+          treatmentServiceMinutesSnapshot: booking.items.reduce((sum, item) => sum + item.serviceMinutes, 0),
+          treatmentBufferMinutesSnapshot: booking.items.reduce((sum, item) => sum + item.bufferMinutes, 0),
+          trialDefaultPrice: null,
+          collected: payment != null,
+          collectedAmount: payment ? Number(payment.netAmount) : null,
+          deductedPlanNames: [],
+          customerName: customer.name,
+          staffId: revenueStaff?.id ?? serviceStaff?.id ?? null,
+          staffName: revenueStaff?.displayName ?? serviceStaff?.displayName ?? null,
+          staffColor: revenueStaff?.colorCode ?? serviceStaff?.colorCode ?? null,
+          customer: { ...customer, validPackageSessions: remainingByCustomer.get(customer.id) ?? 0 },
+          revenueStaff,
+          serviceStaff: serviceStaff ? { id: serviceStaff.id, displayName: serviceStaff.displayName } : null,
+          servicePlan: { name: booking.serviceNameSnapshot },
+          customerPlanWallet: null,
+        }];
+      }),
+    };
+  });
+  return days;
 }
 
 function getCachedMonthBookingSummary(
@@ -342,6 +475,8 @@ async function computeMonthBookingSummary(
         isMakeup: true,
         isCheckedIn: true,
         people: true,
+        recurrenceIndex: true,
+        recurrenceGroup: { select: { totalOccurrences: true } },
         customerConfirmedAt: true,
         // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；day-panel 行尾顯示「實到 N/M」）
         attendedPeople: true,
@@ -379,33 +514,52 @@ async function computeMonthBookingSummary(
         // 後台預約建立流程不寫 servicePlanId，PACKAGE_SESSION 是用 wallet 帶方案，
         // 真正方案名稱要從 wallet.plan 取（servicePlan 幾乎一律 null）。
         customerPlanWallet: {
-          select: { plan: { select: { name: true } } },
+          select: {
+            status: true,
+            remainingSessions: true,
+            expiryDate: true,
+            plan: { select: { name: true } },
+          },
         },
       },
       orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
     }),
   ]);
 
-  // 體驗 499 PR-3：FIRST_TRIAL 預約是否「已收款」— 一次 batch 查詢
-  // （TRIAL_PURCHASE + status=SUCCESS 的交易），non-collected 不會有任何
-  // Transaction（PR-2 保證），collected 才有一筆。不是新欄位、純 derived。
-  const trialBookingIds = monthBookings
-    .filter((b) => b.bookingType === "FIRST_TRIAL")
-    .map((b) => b.id);
+  // 預約工作台的「已結清」狀態必須涵蓋所有結帳方式：首次體驗、單次收款／
+  // 儲值金，以及療程扣次。這裡以成功交易作為同一個 source of truth，避免
+  // Drawer 已完成結帳、排程卻仍顯示待收費。
+  const monthBookingIds = monthBookings.map((booking) => booking.id);
   const collectedTx =
-    trialBookingIds.length > 0
+    monthBookingIds.length > 0
       ? await prisma.transaction.findMany({
           where: {
-            bookingId: { in: trialBookingIds },
-            transactionType: "TRIAL_PURCHASE",
+            bookingId: { in: monthBookingIds },
+            transactionType: {
+              in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "SESSION_DEDUCTION"],
+            },
             status: "SUCCESS",
           },
-          select: { bookingId: true, amount: true },
+          select: {
+            bookingId: true,
+            amount: true,
+            transactionType: true,
+            customerPlanWallet: {
+              select: { plan: { select: { name: true } } },
+            },
+          },
         })
       : [];
   const collectedMap = new Map<string, number>();
+  const deductedPlanNamesByBooking = new Map<string, Set<string>>();
   for (const t of collectedTx) {
-    if (t.bookingId) collectedMap.set(t.bookingId, Number(t.amount));
+    if (!t.bookingId) continue;
+    collectedMap.set(t.bookingId, Number(t.amount));
+    if (t.transactionType === "SESSION_DEDUCTION" && t.customerPlanWallet) {
+      const names = deductedPlanNamesByBooking.get(t.bookingId) ?? new Set<string>();
+      names.add(t.customerPlanWallet.plan.name);
+      deductedPlanNamesByBooking.set(t.bookingId, names);
+    }
   }
 
   // PR-D1D：FIRST_TRIAL badge fallback — 用 storeId 批次撈 ShopConfig.trialDefaultPrice。
@@ -430,13 +584,16 @@ async function computeMonthBookingSummary(
   }
 
   // 取涉及的 staff 名稱
-  const staffIds = [...new Set(staffCounts.map((s) => s.revenueStaffId!).filter(Boolean))];
-  const staffList = staffIds.length > 0
-    ? await prisma.staff.findMany({
-        where: { id: { in: staffIds } },
-        select: { id: true, displayName: true, colorCode: true },
-      })
-    : [];
+  const staffIds = [
+    ...new Set(staffCounts.map((s) => s.revenueStaffId!).filter(Boolean)),
+  ];
+  const staffList =
+    staffIds.length > 0
+      ? await prisma.staff.findMany({
+          where: { id: { in: staffIds } },
+          select: { id: true, displayName: true, colorCode: true },
+        })
+      : [];
   const staffMap = new Map(staffList.map((s) => [s.id, s]));
 
   // 組裝每日資料 — 每筆 booking 一次寫入完整 detail，讓前端 day panel
@@ -448,18 +605,24 @@ async function computeMonthBookingSummary(
     isMakeup: boolean;
     isCheckedIn: boolean;
     people: number;
+    recurrenceIndex: number | null;
+    recurrenceTotalOccurrences: number | null;
     customerConfirmedAt: Date | null;
     // PR-3d：實際到店人數（FIRST_TRIAL 部分到店；null = 未記錄／全到）
     attendedPeople: number | null;
     bookingType: string;
     expectedAmount: number | null;
+    treatmentNameSnapshot: string | null;
+    treatmentServiceMinutesSnapshot: number | null;
+    treatmentBufferMinutesSnapshot: number | null;
     // PR-D1D：FIRST_TRIAL badge fallback 用，僅 FIRST_TRIAL 有值；其他 type = null。
     // 為 LIFF 建立的體驗（expectedAmount=null）退回 store 預設體驗價。
     trialDefaultPrice: number | null;
-    // 體驗 499 PR-3：是否已現場收款 + 實收金額（derived from TRIAL_PURCHASE
-    // SUCCESS tx；badge 由「未收款」翻成「已收款」）
+    // 是否已完成收費／扣次（derived from SUCCESS transaction）。
     collected: boolean;
     collectedAmount: number | null;
+    // 成功扣堂交易實際使用的方案名稱（可能因多人 FEFO 跨多個 wallet）。
+    deductedPlanNames: string[];
     // 前端 calendar strip 用的扁平欄位（避免每筆都做 nested optional chain）
     customerName: string;
     staffId: string | null;
@@ -482,7 +645,12 @@ async function computeMonthBookingSummary(
     revenueStaff: { id: string; displayName: string; colorCode: string } | null;
     serviceStaff: { id: string; displayName: string } | null;
     servicePlan: { name: string } | null;
-    customerPlanWallet: { plan: { name: string } } | null;
+    customerPlanWallet: {
+      status: string;
+      remainingSessions: number;
+      expiryDate: Date | null;
+      plan: { name: string };
+    } | null;
   }
   interface DayEntry {
     total: number;
@@ -494,7 +662,12 @@ async function computeMonthBookingSummary(
 
   for (let day = 1; day <= endDate.getUTCDate(); day++) {
     const dateKey = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    dailyMap.set(dateKey, { total: 0, totalPeople: 0, staffBookings: [], bookings: [] });
+    dailyMap.set(dateKey, {
+      total: 0,
+      totalPeople: 0,
+      staffBookings: [],
+      bookings: [],
+    });
   }
 
   // 將完整 booking list groupBy date 後塞入 dailyMap
@@ -509,17 +682,25 @@ async function computeMonthBookingSummary(
       isMakeup: b.isMakeup,
       isCheckedIn: b.isCheckedIn,
       people: b.people,
+      recurrenceIndex: b.recurrenceIndex,
+      recurrenceTotalOccurrences: b.recurrenceGroup?.totalOccurrences ?? null,
       customerConfirmedAt: b.customerConfirmedAt,
       attendedPeople: b.attendedPeople,
       bookingType: b.bookingType,
       // Decimal → number 在 server 邊界轉換，避免 RSC 序列化問題
-      expectedAmount: b.expectedAmount == null ? null : Number(b.expectedAmount),
+      expectedAmount:
+        b.expectedAmount == null ? null : Number(b.expectedAmount),
+      treatmentNameSnapshot: null,
+      treatmentServiceMinutesSnapshot: null,
+      treatmentBufferMinutesSnapshot: null,
       trialDefaultPrice:
         b.bookingType === "FIRST_TRIAL"
-          ? trialDefaultByStore.get(b.storeId) ?? TRIAL_DEFAULTS.trialDefaultPrice
+          ? (trialDefaultByStore.get(b.storeId) ??
+            TRIAL_DEFAULTS.trialDefaultPrice)
           : null,
       collected: collectedMap.has(b.id),
       collectedAmount: collectedMap.get(b.id) ?? null,
+      deductedPlanNames: [...(deductedPlanNamesByBooking.get(b.id) ?? [])],
       customerName: b.customer.name,
       staffId: b.revenueStaff?.id ?? null,
       staffName: b.revenueStaff?.displayName ?? null,
@@ -536,10 +717,13 @@ async function computeMonthBookingSummary(
               colorCode: b.customer.assignedStaff.colorCode,
             }
           : null,
-        // server-side reduce 成單一數字，不把 wallet 陣列送到 client
-        validPackageSessions: b.customer.planWallets.reduce(
-          (sum, w) => sum + w.remainingSessions,
-          0,
+        // 當日列以這筆預約實際綁定的 wallet 為準，不能用顧客名下
+        // PACKAGE category 加總反推。點數會員方案也會扣堂，但 category
+        // 未必是 PACKAGE；舊邏輯因此誤顯示「無有效方案」。
+        validPackageSessions: linkedWalletRemainingForBooking(
+          b.bookingType,
+          b.bookingDate,
+          b.customerPlanWallet,
         ),
       },
       revenueStaff: b.revenueStaff
@@ -557,7 +741,12 @@ async function computeMonthBookingSummary(
         : null,
       servicePlan: b.servicePlan ? { name: b.servicePlan.name } : null,
       customerPlanWallet: b.customerPlanWallet
-        ? { plan: { name: b.customerPlanWallet.plan.name } }
+        ? {
+            status: b.customerPlanWallet.status,
+            remainingSessions: b.customerPlanWallet.remainingSessions,
+            expiryDate: b.customerPlanWallet.expiryDate,
+            plan: { name: b.customerPlanWallet.plan.name },
+          }
         : null,
     });
   }
@@ -582,14 +771,16 @@ async function computeMonthBookingSummary(
   for (const [dateKey, staffCountMap] of staffByDate) {
     const entry = dailyMap.get(dateKey);
     if (!entry) continue;
-    entry.staffBookings = Array.from(staffCountMap.entries()).map(([sid, count]) => {
-      const staff = staffMap.get(sid);
-      return {
-        staffName: staff?.displayName ?? "Unknown",
-        colorCode: staff?.colorCode ?? "#999",
-        count,
-      };
-    });
+    entry.staffBookings = Array.from(staffCountMap.entries()).map(
+      ([sid, count]) => {
+        const staff = staffMap.get(sid);
+        return {
+          staffName: staff?.displayName ?? "Unknown",
+          colorCode: staff?.colorCode ?? "#999",
+          count,
+        };
+      },
+    );
   }
 
   return Array.from(dailyMap.entries()).map(([dateStr, data]) => ({

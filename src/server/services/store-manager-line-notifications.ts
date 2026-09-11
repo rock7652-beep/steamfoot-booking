@@ -94,20 +94,20 @@ function formatCurrency(value: number): string {
   return `NT$${new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 }).format(value)}`;
 }
 
-function managerUrl(path: string): string {
-  return `${deriveBaseUrl()}${path}`;
+function managerUrl(storeSlug: string, path: string): string {
+  return `${deriveBaseUrl()}/s/${encodeURIComponent(storeSlug)}/admin/dashboard${path}`;
 }
 
-function supportLeadUrl(leadId: string): string {
-  return managerUrl(`/dashboard/digital-butler/leads?leadId=${encodeURIComponent(leadId)}`);
+function supportLeadUrl(storeSlug: string, leadId: string): string {
+  return managerUrl(storeSlug, `/digital-butler/leads?leadId=${encodeURIComponent(leadId)}`);
 }
 
-function waitingHumanSupportUrl(): string {
-  return managerUrl("/dashboard/digital-butler/leads?handoff=waiting");
+function waitingHumanSupportUrl(storeSlug: string): string {
+  return managerUrl(storeSlug, "/digital-butler/leads?handoff=waiting");
 }
 
-function bookingUrl(bookingId: string): string {
-  return managerUrl(`/dashboard/bookings?bookingId=${encodeURIComponent(bookingId)}`);
+function bookingUrl(storeSlug: string, bookingId: string): string {
+  return managerUrl(storeSlug, `/bookings?bookingId=${encodeURIComponent(bookingId)}`);
 }
 
 export function buildStoreManagerNotificationMessage(
@@ -127,7 +127,7 @@ export function buildStoreManagerNotificationMessage(
           `店別：${event.storeName}`,
           "目前進度：已留下聯絡資料",
           "",
-          `查看名單：${supportLeadUrl(event.leadId)}`,
+          `查看名單：${supportLeadUrl(event.storeSlug, event.leadId)}`,
         ].join("\n"),
       }];
 
@@ -145,7 +145,7 @@ export function buildStoreManagerNotificationMessage(
           `應收：${formatCurrency(event.expectedAmount)}`,
           "來源：官網公開預約",
           "",
-          `查看預約：${bookingUrl(event.bookingId)}`,
+          `查看預約：${bookingUrl(event.storeSlug, event.bookingId)}`,
         ].join("\n"),
       }];
 
@@ -160,7 +160,7 @@ export function buildStoreManagerNotificationMessage(
           `金額：${formatCurrency(event.amount)}`,
           `後四碼：${event.lastFourDigits?.trim() || "尚未提供"}`,
           "",
-          `前往後台確認：${managerUrl(`/dashboard/payments?transactionId=${encodeURIComponent(event.paymentId)}`)}`,
+          `前往後台確認：${managerUrl(event.storeSlug, `/payments?transactionId=${encodeURIComponent(event.paymentId)}`)}`,
         ].join("\n"),
       }];
 
@@ -173,7 +173,7 @@ export function buildStoreManagerNotificationMessage(
           `來源：${providerNotificationLabel(event.provider)}`,
           "狀態：等待門市夥伴接手",
           "",
-          `前往後台接手：${waitingHumanSupportUrl()}`,
+          `前往後台接手：${waitingHumanSupportUrl(event.storeSlug)}`,
         ].join("\n"),
       }];
 
@@ -186,7 +186,7 @@ export function buildStoreManagerNotificationMessage(
           "已等待超過 30 分鐘。",
           "這是最後一次即時提醒，後續會保留在今日待辦。",
           "",
-          `前往後台接手：${waitingHumanSupportUrl()}`,
+          `前往後台接手：${waitingHumanSupportUrl(event.storeSlug)}`,
         ].join("\n"),
       }];
 
@@ -201,7 +201,7 @@ export function buildStoreManagerNotificationMessage(
           `預約時間：${event.slotTime}`,
           "狀態：服務時段結束後仍未完成",
           "",
-          `前往後台處理：${bookingUrl(event.bookingId)}`,
+          `前往後台處理：${bookingUrl(event.storeSlug, event.bookingId)}`,
         ].join("\n"),
       }];
 
@@ -216,8 +216,8 @@ export function buildStoreManagerNotificationMessage(
         lines.push(`・${item.name}｜${providerNotificationLabel(item.provider)}｜想找真人客服${item.lastMessageAt ? `｜${item.lastMessageAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}` : ""}`);
       }
       lines.push("", `共 ${total} 件待處理`);
-      if (waitingSupportCount > 0) lines.push(``, `前往接手客服：${waitingHumanSupportUrl()}`);
-      else lines.push("", `前往後台：${managerUrl("/dashboard")}`);
+      if (waitingSupportCount > 0) lines.push(``, `前往接手客服：${waitingHumanSupportUrl(event.storeSlug)}`);
+      else lines.push("", `前往後台：${managerUrl(event.storeSlug, "")}`);
       return [{ type: "text", text: lines.join("\n") }];
     }
   }

@@ -176,10 +176,15 @@ export async function assignPlanToCustomer(
     // 例如店長已核對轉帳時應立即發堂；只有選擇「尚待確認」才進付款清單。
     const isPending = data.paymentStatus === "PENDING";
     const paymentStatus = isPending ? "PENDING" : "SUCCESS";
-    const paidAt = isPending ? null : now;
-
     // 使用 Prisma transaction 確保原子性
     const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Customer" WHERE id = ${data.customerId} FOR UPDATE`;
+      const activationTime = new Date();
+      const lockedCustomer = await tx.customer.findUnique({
+        where: { id: data.customerId },
+      });
+      if (!lockedCustomer) throw new AppError("NOT_FOUND", "顧客不存在");
+
       // 待確認付款絕不可先發堂；已收款方式維持既有立即開通行為。
       const wallet = isPending ? null : await tx.customerPlanWallet.create({
         data: {
@@ -197,7 +202,7 @@ export async function assignPlanToCustomer(
       if (wallet) await seedWalletSessions(tx, wallet.id, plan.sessionCount);
 
       // 2. 建立交易紀錄
-      const revenueStaffId = customer.assignedStaffId ?? user.staffId!;
+      const revenueStaffId = lockedCustomer.assignedStaffId ?? user.staffId!;
       const storeId = operationStoreId;
 
       const snapshot = await buildTransactionSnapshot(tx, {
@@ -209,6 +214,7 @@ export async function assignPlanToCustomer(
         netAmount: finalAmount,
       });
 
+      const isFirstPurchase = !lockedCustomer.convertedAt;
       const transaction = await tx.transaction.create({
         data: {
           customerId: data.customerId,
@@ -218,7 +224,16 @@ export async function assignPlanToCustomer(
           paymentMethod: data.paymentMethod,
           ...paymentSplitCreateData(paymentSplits),
           paymentStatus,                          // PR-3：PENDING (TRANSFER/UNPAID) or SUCCESS
-          paidAt,                                  // PR-3：null (PENDING) or now
+          paidAt: isPending ? null : activationTime,
+          conversionEffectsApplied: !isPending,
+          conversionSnapshotCaptured: true,
+          firstTopupRewardsApplied: false,
+          preConversionCustomerStage: !isPending ? lockedCustomer.customerStage : null,
+          preConversionSelfBookingEnabled: !isPending ? lockedCustomer.selfBookingEnabled : null,
+          preConversionConvertedAt: !isPending ? lockedCustomer.convertedAt : null,
+          conversionAppliedConvertedAt: !isPending
+            ? (lockedCustomer.convertedAt ?? activationTime)
+            : null,
           referenceNo: data.referenceNo ?? null,   // PR-3：轉帳參考號
           bankLast5: data.bankLast5 ?? null,       // PR-3：轉帳帳號末五碼
           amount: finalAmount,                    // 實收金額
@@ -242,25 +257,34 @@ export async function assignPlanToCustomer(
       // 3. 更新顧客狀態 + 發首儲推薦獎勵
       // PR-3：PENDING 交易（轉帳待確認 / 未付款）先不鎖 convertedAt、不升等、不發獎勵
       // 這些邏輯留給 PR-4 confirmTransactionPayment 在 PENDING → CONFIRMED 時統一觸發
-      const isFirstPurchase = !customer.convertedAt;
       if (!isPending) {
         await tx.customer.update({
           where: { id: data.customerId },
           data: {
             customerStage: "ACTIVE",
             selfBookingEnabled: true,
-            ...(isFirstPurchase && { convertedAt: now }),
+            ...(isFirstPurchase && { convertedAt: activationTime }),
           },
         });
 
         // 推薦獎勵：首次購課 + 有 sponsor → 邀請者 +15、被邀請者 +5
         // sourceKey 以 customerId 為主鍵；靜默失敗
-        await awardFirstTopupReferralPointsIfEligible({
+        const rewards = await awardFirstTopupReferralPointsIfEligible({
           customerId: data.customerId,
           storeId: currentStoreId(user),
           isFirstPurchase,
           tx,
         });
+        if (rewards?.referrerAwarded || rewards?.selfAwarded) {
+          await tx.transaction.update({
+            where: { id: transaction.id },
+            data: {
+              firstTopupRewardsApplied: true,
+              firstTopupReferrerRewardApplied: rewards?.referrerAwarded ?? false,
+              firstTopupSelfRewardApplied: rewards?.selfAwarded ?? false,
+            },
+          });
+        }
       }
 
       return { wallet, transaction };

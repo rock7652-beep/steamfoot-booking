@@ -115,7 +115,7 @@ export function AdjustCheckoutModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 text-lg font-semibold text-earth-900">
-          調整本次預約結帳方式
+          {isToSingle ? "調整本次預約結帳方式" : "補選本次預約方案"}
         </h3>
 
         {isToSingle ? (
@@ -165,8 +165,8 @@ export function AdjustCheckoutModal({
         ) : (
           <>
             <p className="mb-3 text-sm text-earth-600">
-              將此預約由「單次收款」改為「方案扣堂」。送出後不會收款、不會重約，
-              實際扣堂於「完成服務」時才發生。
+              此預約尚未連結使用方案。系統已優先選擇最快到期的方案；
+              送出後立即保留一堂，取消預約才會退回。
             </p>
 
             <div className="mb-4 space-y-1.5 rounded-lg bg-earth-50 p-3 text-sm">
@@ -254,7 +254,7 @@ export function AdjustCheckoutModal({
             disabled={pending || (!isToSingle && !walletId)}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            {pending ? "處理中..." : "確認調整"}
+            {pending ? "處理中..." : isToSingle ? "確認調整" : "確認使用此方案"}
           </button>
         </div>
       </div>

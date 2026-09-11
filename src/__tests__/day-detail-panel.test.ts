@@ -36,6 +36,7 @@ function booking(overrides: Partial<DayBooking>): DayBooking {
     trialDefaultPrice: null,
     collected: false,
     collectedAmount: null,
+    deductedPlanNames: [],
     customer: {
       name: "陳沛妍",
       phone: "0912345678",
@@ -65,5 +66,64 @@ describe("DayDetailPanel summary", () => {
 
     expect(text).toMatch(/未到人數\s+2/);
     expect(text).not.toMatch(/未到\s+1/);
+  });
+
+  it("counts partial attendance as attended and absent people", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(DayDetailPanel, {
+        date: "2026-06-26",
+        bookings: [
+          booking({
+            bookingStatus: "COMPLETED",
+            people: 2,
+            attendedPeople: 1,
+          }),
+        ],
+        slots: [],
+      }),
+    );
+    const text = textFromHtml(html);
+    expect(text).toMatch(/完成人數\s+1/);
+    expect(text).toMatch(/未到人數\s+1/);
+  });
+
+  it("shows the plan recorded by the successful deduction", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(DayDetailPanel, {
+        date: "2026-06-26",
+        bookings: [booking({
+          bookingStatus: "COMPLETED",
+          collected: true,
+          deductedPlanNames: ["$299會員限定(250點)"],
+        })],
+        slots: [],
+      }),
+    );
+
+    expect(textFromHtml(html)).toContain("已扣堂｜方案：$299會員限定(250點)");
+  });
+
+  it("accepts cached rows created before deducted plan names existed", () => {
+    expect(() => renderToStaticMarkup(
+      React.createElement(DayDetailPanel, {
+        date: "2026-06-26",
+        bookings: [booking({ deductedPlanNames: undefined })],
+        slots: [],
+      }),
+    )).not.toThrow();
+  });
+});
+describe("trial service label", () => {
+  it.each([null, { name: "體驗課" }])("uses the same service label with or without a linked name (%j)", (servicePlan) => {
+    const text = textFromHtml(renderToStaticMarkup(
+      React.createElement(DayDetailPanel, {
+        date: "2026-09-11",
+        bookings: [booking({ bookingType: "FIRST_TRIAL", servicePlan, expectedAmount: 499 })],
+        slots: [],
+      }),
+    ));
+    expect(text).toContain("服務：首次體驗");
+    expect(text).not.toContain("方案：");
+    expect(text).toContain("NT$499");
   });
 });

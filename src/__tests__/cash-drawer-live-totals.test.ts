@@ -14,17 +14,22 @@ import { Prisma } from "@prisma/client";
 
 const {
   mockTxAggregate,
+  mockPaymentSplitAggregate,
   mockEntryFindMany,
   mockCashbookGroupBy,
   dbMock,
 } = vi.hoisted(() => {
   const fns = {
     mockTxAggregate: vi.fn(),
+    mockPaymentSplitAggregate: vi.fn(),
     mockEntryFindMany: vi.fn(),
     mockCashbookGroupBy: vi.fn(),
   };
   const db: Record<string, unknown> = {
     transaction: { aggregate: (...a: unknown[]) => fns.mockTxAggregate(...a) },
+    transactionPaymentSplit: {
+      aggregate: (...a: unknown[]) => fns.mockPaymentSplitAggregate(...a),
+    },
     cashDrawerEntry: {
       findMany: (...a: unknown[]) => fns.mockEntryFindMany(...a),
     },
@@ -79,6 +84,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   // 預設無現金帳異動，個別測試可覆寫
   mockCashbookGroupBy.mockResolvedValue([]);
+  // 既有情境皆為 legacy 單一付款；混合付款拆分預設無資料。
+  mockPaymentSplitAggregate.mockResolvedValue({ _sum: { amount: null } });
 });
 
 describe("computeLiveTotalsForOpenSession", () => {

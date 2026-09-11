@@ -13,6 +13,8 @@ describe("classifyDigitalButlerGlobalCommand", () => {
     ["真人客服", "HANDOFF"],
     ["轉真人", "HANDOFF"],
     ["找客服", "HANDOFF"],
+    ["聯絡真人", "HANDOFF"],
+    ["人工客服", "HANDOFF"],
     ["回主選單", "MAIN_MENU"],
   ] as const)("classifies %s as %s", (text, expected) => {
     expect(classifyDigitalButlerGlobalCommand(text)).toBe(expected);

@@ -18,7 +18,6 @@
  *   ✅ upcoming / history 兩 tab (D2)
  *   ✅ status badge（reuse STATUS_LABEL / STATUS_COLOR）(D2)
  *   ✅ type badge（LIFF-specific：體驗預約 / 課程 / 單次 / 補課）(D2)
- *   ✅ 服務店長（null → 整行不顯示，不 fallback「未指派」）(D2)
  *   ✅ 「需改時間請聯絡店家」hint —— 營運訊號收集器 (D2，D4A-2 保留)
  *   ✅ 「取消此次預約」按鈕 + inline confirm modal (D4A-2)
  *   ✅ < 12h cutoff → 按鈕 disabled + 子文（client-derive，mirror server 規則）(D4A-2)

@@ -542,7 +542,7 @@ export function TransactionDrawer({
                 canRefund && (
                   <Section title="退款">
                     <p className="mb-2 text-xs text-earth-500">
-                      建立一筆負向 REFUND 交易，原交易不變。
+                      適用於顧客確實付過款、現在要退錢；保留原交易，新增一筆負數退款紀錄。
                     </p>
                     <button
                       type="button"
@@ -557,6 +557,9 @@ export function TransactionDrawer({
               {/* 危險區（VOIDED 不顯示） */}
               {!isVoided && canVoid && (
                 <Section title="危險操作" tone="danger">
+                  <p className="mb-2 text-xs text-earth-500">
+                    適用於 Key 錯、重複建單或未實際收款；作廢原交易並扣回營收與未使用堂數。
+                  </p>
                   <button
                     type="button"
                     onClick={() => setView("void-confirm")}
@@ -601,19 +604,10 @@ export function TransactionDrawer({
           {data && view === "void-confirm" && (
             <div>
               <Section title="確認取消交易" tone="danger">
-                <div className="mb-3 space-y-2 text-sm text-earth-700">
-                  <p>取消後將同步：</p>
-                  <ul className="ml-4 list-disc space-y-1 text-earth-600">
-                    <li>本筆收入從營收統計扣除</li>
-                    {data.transactionType === "PACKAGE_PURCHASE" && (
-                      <>
-                        <li>顧客方案堂數同步扣回（錢包標為 CANCELLED）</li>
-                        <li>前台「我的方案」會同步更新</li>
-                      </>
-                    )}
-                    <li>此操作會留下異動紀錄，不可刪除</li>
-                  </ul>
-                </div>
+                <p className="mb-3 text-sm text-earth-700">
+                  確定取消這筆交易？系統會自動扣回營收
+                  {data.customerPlanWallet ? "與未使用堂數" : ""}。
+                </p>
                 <textarea
                   value={voidReason}
                   onChange={(e) => setVoidReason(e.target.value)}

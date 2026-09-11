@@ -67,6 +67,7 @@ vi.mock("@/lib/session", () => ({
   getCurrentUser: () => mockRequireSession(),
 }));
 vi.mock("@/lib/permissions", () => ({
+  requireWritablePermission: (...a: unknown[]) => mockRequirePermission(...a),
   requirePermission: (...a: unknown[]) => mockRequirePermission(...a),
   checkPermission: () => mockCheckPermission(),
 }));

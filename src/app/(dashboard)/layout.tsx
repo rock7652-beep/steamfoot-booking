@@ -22,6 +22,7 @@ import {
   type StoreViewContext,
   type ViewableStoreOption,
 } from "@/lib/store-organization";
+import type { IndustryModuleId } from "@/lib/industry-modules";
 
 export default async function DashboardLayout({
   children,
@@ -68,6 +69,7 @@ export default async function DashboardLayout({
       : ("EXPERIENCE" as const);
   const effectiveFeatures = effectiveStoreId
     ? {
+        [FEATURES.BASIC_REPORTS]: await hasStoreFeature(effectiveStoreId, FEATURES.BASIC_REPORTS),
         [FEATURES.LINE_REMINDER]: await hasStoreFeature(
           effectiveStoreId,
           FEATURES.LINE_REMINDER,
@@ -77,7 +79,7 @@ export default async function DashboardLayout({
           FEATURES.DIGITAL_BUTLER,
         ),
       }
-    : {};
+    : { [FEATURES.BASIC_REPORTS]: isAdmin };
 
   // 讀取 store-slug 用於 logout redirect（ADMIN 不帶 slug，回 /）
   const ckStore = await cookies();
@@ -92,6 +94,7 @@ export default async function DashboardLayout({
   let storeViewContext: StoreViewContext | null = null;
   let viewableStores: ViewableStoreOption[] = [];
   let multiStoreEnabled = false;
+  let industryModuleId: IndustryModuleId = "steamfoot";
   if (effectiveStoreId) {
     try {
       const store = await prisma.store.findUnique({
@@ -100,6 +103,7 @@ export default async function DashboardLayout({
       });
       storeName = store?.name ?? null;
       operatingStatus = store?.operatingStatus ?? null;
+      industryModuleId = await getStoreIndustryModule(effectiveStoreId);
     } catch {
       // 忽略：店名/營運狀態失敗時使用 UI fallback
     }
@@ -179,6 +183,7 @@ export default async function DashboardLayout({
             }
           : undefined
       }
+      industryModuleId={industryModuleId}
     >
       {storeViewContext?.isViewMode && viewedStore ? (
         <ViewModeBanner viewedStoreName={viewedStore.name} />

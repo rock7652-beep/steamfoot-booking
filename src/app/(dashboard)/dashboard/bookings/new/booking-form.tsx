@@ -8,10 +8,13 @@ import { getSlotCapacityDisplay } from "@/lib/slot-capacity-display";
 import type { SlotAvailability } from "@/types";
 import { useBookingFormValidation } from "./booking-create-form";
 import { shouldClearSelectedSlot } from "./booking-submit-validation";
+import { SteamfootBookingCalendar } from "@/components/steamfoot-booking-calendar";
 
 interface Props {
   days: string[];
   defaultDate: string;
+  defaultSlotTime?: string;
+  lockScheduleSelection?: boolean;
   todayStr: string;
   /** SSR 預載的「初始日期」時段（= defaultDate，或不在 days 內時的 days[0]）。
    *  有值 → 第一屏直接顯示、不打 client；undefined（過去日期 / SSR 失敗）→ client fallback。 */
@@ -36,16 +39,19 @@ interface Props {
 export function DashboardBookingForm({
   days,
   defaultDate,
+  defaultSlotTime,
+  lockScheduleSelection = false,
   todayStr,
   initialSlots,
 }: Props) {
-  const { errors, clearError } = useBookingFormValidation();
+  const { errors, clearError, calendarCustomerId, setCalendarDate } = useBookingFormValidation();
   const initialDate = days.includes(defaultDate) ? defaultDate : (days[0] ?? "");
   const [selectedDate, setSelectedDate] = useState(initialDate);
+  useEffect(() => { setCalendarDate(selectedDate); }, [selectedDate, setCalendarDate]);
   // SSR 已帶初始日時段 → 首屏直接顯示、loading=false；否則沿用原本 client 載入。
   const [slots, setSlots] = useState<SlotAvailability[]>(initialSlots ?? []);
   const [loading, setLoading] = useState(initialSlots === undefined);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(defaultSlotTime ?? null);
   const [people, setPeople] = useState(1);
   const [slotResetMessage, setSlotResetMessage] = useState(false);
   // 把 SSR 時段種進 cache → mount effect 的 loadSlots 直接 cache hit，不打 server、不閃 skeleton。
@@ -59,14 +65,14 @@ export function DashboardBookingForm({
 
   // 載入時段（cache hit 秒開、cache miss 走 server + race guard）
   const loadSlots = useCallback(async (date: string) => {
-    setSelectedSlot(null);
+    if (!lockScheduleSelection) setSelectedSlot(null);
+    const requestId = ++requestIdRef.current;
     const cached = slotCacheRef.current.get(date);
     if (cached) {
       setSlots(cached);
       setLoading(false);
       return;
     }
-    const requestId = ++requestIdRef.current;
     setLoading(true);
     try {
       const result = await fetchDaySlots(date);
@@ -79,19 +85,24 @@ export function DashboardBookingForm({
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, []);
+  }, [lockScheduleSelection]);
 
   // 初次載入 + 切換日期時重新載入
   useEffect(() => {
+    if (lockScheduleSelection) {
+      setLoading(false);
+      return;
+    }
     if (selectedDate && !isPastDate) {
       loadSlots(selectedDate);
     } else {
       setSlots([]);
       setLoading(false);
     }
-  }, [selectedDate, isPastDate, loadSlots]);
+  }, [selectedDate, isPastDate, loadSlots, lockScheduleSelection]);
 
-  const isClosed = !loading && !isPastDate && slots.length === 0;
+  const isClosed =
+    !lockScheduleSelection && !loading && !isPastDate && slots.length === 0;
 
   const handlePeopleChange = (nextPeople: number) => {
     setPeople(nextPeople);
@@ -114,11 +125,15 @@ export function DashboardBookingForm({
           <p className="mt-1.5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
             店鋪目前沒有開放可預約日期，請先到營業時間設定開放日期。
           </p>
+        ) : !lockScheduleSelection ? (
+          <SteamfootBookingCalendar days={days} value={selectedDate} customerId={calendarCustomerId}
+            onChange={(date) => { setSelectedSlot(null); setSelectedDate(date); setCalendarDate(date); }} />
         ) : (
           <select
-            name="bookingDate"
+            name={lockScheduleSelection ? undefined : "bookingDate"}
             required
             value={selectedDate}
+            disabled={lockScheduleSelection}
             onChange={(e) => setSelectedDate(e.target.value)}
             className="mt-1.5 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
           >
@@ -128,6 +143,9 @@ export function DashboardBookingForm({
               </option>
             ))}
           </select>
+        )}
+        {lockScheduleSelection && (
+          <input type="hidden" name="bookingDate" value={selectedDate} />
         )}
       </div>
 
@@ -171,7 +189,13 @@ export function DashboardBookingForm({
           時段 <span className="text-red-500">*</span>
         </label>
 
-        {loading ? (
+        {lockScheduleSelection && defaultSlotTime ? (
+          <div className="mt-1.5 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3">
+            <input type="hidden" name="slotTime" value={defaultSlotTime} />
+            <p className="text-sm font-semibold text-primary-800">{defaultSlotTime}</p>
+            <p className="mt-0.5 text-xs text-primary-700">已從芳療師排程帶入</p>
+          </div>
+        ) : loading ? (
           // Slot skeleton：8 個 placeholder tile（同 grid-cols-4 兩列），保持版面高度
           // 不跳動，比 spinner 視覺上更明確且不打斷店長視線。
           <div
@@ -245,7 +269,8 @@ export function DashboardBookingForm({
         )}
 
         {/* 若今天所有時段都已過或已滿 */}
-        {selectedDate === todayStr &&
+        {!lockScheduleSelection &&
+          selectedDate === todayStr &&
           !loading &&
           slots.length > 0 &&
           slots.every((s) => isSlotPastToday(selectedDate, s.startTime) || s.available <= 0) && (

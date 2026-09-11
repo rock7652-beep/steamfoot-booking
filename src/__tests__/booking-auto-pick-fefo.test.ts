@@ -14,6 +14,10 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/industry-module-server", () => ({
+  getStoreIndustryModule: vi.fn(async () => "steamfoot"),
+}));
+
 const STORE_A = "store-zhubei";
 const CUSTOMER_ID = "ck0000000000000000000002";
 const STAFF_ID = "ck0000000000000000000050";
@@ -243,6 +247,39 @@ beforeEach(() => {
 });
 
 describe("createBooking auto-pick — FEFO（最早到期優先）", () => {
+  it("蒸足 SINGLE 預約若已有方案，自動改為方案扣堂並選最快到期", async () => {
+    mockCustomerFindUnique.mockResolvedValue(
+      customerWith([
+        {
+          id: WALLET_LATE_EXPIRY,
+          remainingSessions: 3,
+          expiryDate: new Date("2026-08-31T00:00:00Z"),
+          createdAt: new Date("2026-02-01T00:00:00Z"),
+        },
+        {
+          id: WALLET_EARLY_EXPIRY,
+          remainingSessions: 3,
+          expiryDate: new Date("2026-06-30T00:00:00Z"),
+          createdAt: new Date("2026-03-01T00:00:00Z"),
+        },
+      ]),
+    );
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const result = await createBooking({
+      customerId: CUSTOMER_ID,
+      bookingDate: "2026-04-27",
+      slotTime: "11:00",
+      bookingType: "SINGLE",
+      people: 1,
+    });
+
+    expect(result.success, JSON.stringify(result)).toBe(true);
+    const createCall = mockBookingCreate.mock.calls[0][0];
+    expect(createCall.data.bookingType).toBe("PACKAGE_SESSION");
+    expect(createCall.data.customerPlanWalletId).toBe(WALLET_EARLY_EXPIRY);
+  });
+
   it("先買無期限 vs 後買快到期 → 自動選快到期（不再 FIFO）", async () => {
     mockCustomerFindUnique.mockResolvedValue(
       customerWith([
@@ -383,5 +420,42 @@ describe("createBooking auto-pick — FEFO（最早到期優先）", () => {
     expect(mockBookingCreate.mock.calls[0][0].data.customerPlanWalletId).toBe(
       WALLET_NO_EXPIRY_OLD,
     );
+  });
+
+  it("明確指定已在上課日前到期的 wallet → 即使另有有效 wallet 也拒絕", async () => {
+    const expiredWalletId = "ck0000000000000000000x02";
+    mockCustomerFindUnique.mockResolvedValue(
+      customerWith([
+        {
+          id: expiredWalletId,
+          remainingSessions: 1,
+          expiryDate: new Date("2026-04-20T00:00:00Z"),
+          createdAt: new Date("2026-01-01T00:00:00Z"),
+        },
+        {
+          id: WALLET_LATE_EXPIRY,
+          remainingSessions: 3,
+          expiryDate: new Date("2026-08-31T00:00:00Z"),
+          createdAt: new Date("2026-02-01T00:00:00Z"),
+        },
+      ]),
+    );
+
+    const { createBooking } = await import("@/server/actions/booking");
+    const result = await createBooking({
+      customerId: CUSTOMER_ID,
+      bookingDate: "2026-04-27",
+      slotTime: "11:00",
+      bookingType: "PACKAGE_SESSION",
+      customerPlanWalletId: expiredWalletId,
+      people: 1,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain("所選方案有效期限至 2026-04-20");
+      expect(result.error).toContain("無法預約 2026-04-27");
+    }
+    expect(mockBookingCreate).not.toHaveBeenCalled();
   });
 });

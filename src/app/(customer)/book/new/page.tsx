@@ -7,8 +7,8 @@ import { BookingCalendarView } from "./booking-calendar-view";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import { walletAvailableToBook } from "@/lib/wallet-availability";
-import { resolveBookableUntilDate } from "@/lib/shop-config";
-import { toLocalDateStr } from "@/lib/date-utils";
+import { bookingDateToday, toLocalDateStr } from "@/lib/date-utils";
+import { BOOKING_UPCOMING } from "@/lib/booking-constants";
 
 export default async function NewBookingPage() {
   const user = await getCurrentUser();
@@ -36,7 +36,7 @@ export default async function NewBookingPage() {
   // 與後端 createBooking gate 同源：currentStoreId(user) = user.storeId
   const bookingStoreId = user.storeId ?? storeCtx?.storeId ?? null;
 
-  const [customer, makeupCredits, shopConfig] = await Promise.all([
+  const [customer, makeupCredits, shopConfig, upcomingBookings] = await Promise.all([
     prisma.customer.findUnique({
       where: { id: customerId },
       select: {
@@ -84,17 +84,30 @@ export default async function NewBookingPage() {
           where: { storeId: bookingStoreId },
           select: {
             bookableUntilDate: true,
+            bookingOpensAt: true,
+            bookingWindowDays: true,
             weeklyRecurrenceEnabled: true,
             weeklyRecurrenceMaxWeeks: true,
           },
         })
       : Promise.resolve(null),
+    prisma.booking.findMany({
+      where: {
+        customerId,
+        ...(bookingStoreId ? { storeId: bookingStoreId } : {}),
+        bookingStatus: { in: [...BOOKING_UPCOMING] },
+        bookingDate: { gte: bookingDateToday() },
+      },
+      select: { bookingDate: true, slotTime: true },
+      orderBy: [{ bookingDate: "asc" }, { slotTime: "asc" }],
+    }),
   ]);
   if (!customer) return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
 
   // 顧客自助預約可預約到日期（含當日）；null = 預設今天 +14 天。
   // 與後端 createBooking gate 共用 resolveBookableUntilDate，避免前後端分裂。
-  const bookableUntil = resolveBookableUntilDate(shopConfig?.bookableUntilDate);
+  const { resolveCustomerBookableUntilDate } = await import("@/lib/shop-config");
+  const bookableUntil = resolveCustomerBookableUntilDate(shopConfig);
 
   // 可預約堂數一律走 wallet-availability helper（與首頁 / my-plans 一致）
   const walletsWithRemaining = customer.planWallets.map((w) => ({
@@ -160,6 +173,7 @@ export default async function NewBookingPage() {
         <BookingCalendarView
           customerId={customerId}
           bookableUntil={bookableUntil}
+          bookingOpensAt={shopConfig?.bookingOpensAt?.toISOString() ?? null}
           weeklyRecurrenceEnabled={shopConfig?.weeklyRecurrenceEnabled === true}
           weeklyRecurrenceMaxWeeks={shopConfig?.weeklyRecurrenceMaxWeeks ?? 0}
           activeWallets={activeWallets.map((w) => ({
@@ -174,6 +188,10 @@ export default async function NewBookingPage() {
             id: c.id,
             // timestamp → 台灣日期字串（避免 UTC off-by-one）
             expiredAt: c.expiredAt ? toLocalDateStr(c.expiredAt) : null,
+          }))}
+          upcomingBookings={upcomingBookings.map((booking) => ({
+            bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+            slotTime: booking.slotTime,
           }))}
         />
       )}

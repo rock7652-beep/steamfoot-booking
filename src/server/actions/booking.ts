@@ -15,7 +15,11 @@ import {
   updateBookingSchema,
   completeBookingSchema,
 } from "@/lib/validators/booking";
-import { getNowTaipeiHHmm, toLocalDateStr, dayRange } from "@/lib/date-utils";
+import {
+  getNowTaipeiHHmm,
+  toLocalDateStr,
+  dayRange,
+} from "@/lib/date-utils";
 import {
   getBookingDateTime,
   PENDING_STATUSES,
@@ -74,10 +78,12 @@ import {
   reReserveSessionsFefo,
 } from "@/server/services/wallet-session";
 import { Prisma } from "@prisma/client";
+import { isWalletUsableForServiceDate } from "@/lib/wallet-booking-integrity";
 // PR-1.5a：Booking.revenueStaffId 快照規則 helper（鎖定 + 防回歸）。
 // 規則與禁止項見該 helper 的 JSDoc 與 spec §3.4。
 import { snapshotRevenueStaffForBooking } from "./booking-helpers";
 import type { z } from "zod";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 async function assertStaffBookingWritable(
   user: Awaited<ReturnType<typeof requireSession>>,
@@ -185,7 +191,20 @@ async function loadCreateBookingEligibility(params: {
     where: { storeId },
     select: { bookableUntilDate: true },
   });
-  const bookableUntil = resolveBookableUntilDate(sc?.bookableUntilDate);
+  let bookableUntil = resolveBookableUntilDate(sc?.bookableUntilDate);
+  let customerWindowConfig: {
+    bookableUntilDate: Date | null;
+    bookingOpensAt: Date | null;
+    bookingWindowDays: number;
+  } | null = null;
+  if (user.role === "CUSTOMER") {
+    const { resolveCustomerBookableUntilDate } = await import("@/lib/shop-config");
+    customerWindowConfig = await prisma.shopConfig.findUnique({
+      where: { storeId },
+      select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
+    });
+    bookableUntil = resolveCustomerBookableUntilDate(customerWindowConfig);
+  }
   if (bookingDate > bookableUntil) {
     throw new AppError(
       "BUSINESS_RULE",
@@ -193,6 +212,12 @@ async function loadCreateBookingEligibility(params: {
         ? "次月預約時段尚未開放，請等候店長通知。"
         : `店鋪目前僅開放預約至 ${bookableUntil}，請先到營業時間設定開放日期。`,
     );
+  }
+  if (user.role === "CUSTOMER") {
+    const { isCustomerSlotWithinBookingWindow } = await import("@/lib/shop-config");
+    if (!isCustomerSlotWithinBookingWindow(bookingDate, slotTime, customerWindowConfig)) {
+      throw new AppError("BUSINESS_RULE", "此時段尚未開放預約，請重新選擇時間。");
+    }
   }
 
   const dayCtx = await loadDayBusinessHoursContext(storeId, bookingDate);
@@ -216,11 +241,12 @@ async function loadCreateBookingEligibility(params: {
 // ============================================================
 // createBooking
 //
-// 新邏輯（出席才扣堂制）：
+// 新邏輯（預約即保留堂數）：
 // 1. 建立預約，狀態 = PENDING（「待到店」）
-// 2. 不扣堂（堂數在 markCompleted 時才扣）
-// 3. 補課預約：標記 credit 為已使用
-// 4. 預約數限制：remainingSessions - count(PENDING bookings) > 0
+// 2. 蒸足門市的 SINGLE 預約若已有可用方案，自動改用最快到期方案並保留堂數
+// 3. 取消預約才退回；markCompleted 將保留堂數轉為正式完成
+// 4. 補課預約：標記 credit 為已使用
+// 5. 預約數限制：remainingSessions - count(PENDING bookings) > 0
 // ============================================================
 
 export async function createBooking(
@@ -235,6 +261,13 @@ export async function createBooking(
     await assertStaffBookingWritable(user);
     const data = createBookingSchema.parse(input);
     const storeId = currentStoreId(user);
+    const industryModule = await getStoreIndustryModule(storeId);
+    if (industryModule === "spa") {
+      throw new AppError("FORBIDDEN", "SPA 預約必須使用獨立的 SPA 預約流程");
+    }
+    if (data.treatmentIds?.length) {
+      throw new AppError("FORBIDDEN", "蒸足門市不可使用 SPA 療程欄位");
+    }
     const bookingPeople = data.people ?? 1;
     const requestedMakeup = data.isMakeup ?? false;
     // 補課券有效性以「預約日期」當天 00:00（台灣）為界，而非操作當下 now。
@@ -275,6 +308,25 @@ export async function createBooking(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
 
+    // 蒸足規則：顧客只要已有能涵蓋預約日的有效方案，建立預約時就直接
+    // 依 FEFO（到期日 ASC → 建立時間 ASC → id ASC）保留一堂。
+    // SPA 模組仍保留 SINGLE / 儲值 / 療程等不同結帳方式，不套用此規則。
+    if (data.bookingType === "SINGLE") {
+      const bookingDateForWallet = new Date(`${data.bookingDate}T00:00:00Z`);
+      const autoWallet = sortWalletsByFEFO(
+        customer.planWallets.filter(
+          (wallet) =>
+            wallet.remainingSessions > 0 &&
+            (!wallet.expiryDate || wallet.expiryDate >= bookingDateForWallet),
+        ),
+      )[0];
+
+      if (autoWallet) {
+        data.bookingType = "PACKAGE_SESSION";
+        data.customerPlanWalletId = autoWallet.id;
+      }
+    }
+
     // ── 2. 權限檢查
     // CUSTOMER：身份已由 resolveCustomerForUser 驗過；自助預約入口能否使用，
     // 由下方 PACKAGE_SESSION wallet / 期限 / 人數驗證決定，不再用 customer.selfBookingEnabled 擋
@@ -288,10 +340,24 @@ export async function createBooking(
     if (data.servicePlanId) {
       const servicePlan = await prisma.servicePlan.findUnique({
         where: { id: data.servicePlanId },
-        select: { id: true, storeId: true },
+        select: { id: true, storeId: true, name: true },
       });
       if (!servicePlan) throw new AppError("NOT_FOUND", "課程方案不存在");
       assertSameStore("ServicePlan", servicePlan.storeId, storeId);
+    }
+
+    if (data.serviceStaffId) {
+      const serviceStaff = await prisma.staff.findFirst({
+        where: {
+          id: data.serviceStaffId,
+          storeId,
+          status: "ACTIVE",
+        },
+        select: { id: true },
+      });
+      if (!serviceStaff) {
+        throw new AppError("FORBIDDEN", "指定的服務人員不屬於目前店舖或已停用");
+      }
     }
 
     // Explicit wallet selection is part of the user's operation intent. Validate
@@ -333,6 +399,7 @@ export async function createBooking(
         canonicalCustomerId: effectiveCustomerId,
         bookingType: data.bookingType,
         servicePlanId: data.servicePlanId,
+        treatmentIds: data.treatmentIds,
         bookingDate: data.bookingDate,
         slotTime: data.slotTime,
         people: bookingPeople,
@@ -413,6 +480,12 @@ export async function createBooking(
     const makeupPeople = Math.min(validMakeupCount, bookingPeople);
     const walletPeople = bookingPeople - makeupPeople;
     const willUseMakeup = makeupPeople > 0;
+    const bookingDateObj2 = new Date(data.bookingDate + "T00:00:00Z");
+    const walletsCoveringBookingDate = customer.planWallets.filter(
+      (wallet) =>
+        wallet.remainingSessions > 0 &&
+        (!wallet.expiryDate || wallet.expiryDate >= bookingDateObj2),
+    );
 
     // ── 4. 一般預約：需有有效課程 + 票券期限 + 人數檢查
     // 不信任 client 傳入的 customerPlanWalletId — 必須屬於 effectiveCustomerId
@@ -439,12 +512,7 @@ export async function createBooking(
       }
 
       // 票券期限檢查：所有 ACTIVE wallet 都過期 → 阻擋
-      const bookingDateObj2 = new Date(data.bookingDate + "T00:00:00Z");
-      const hasWalletCoveringDate = customer.planWallets.some(
-        (w) =>
-          w.remainingSessions > 0 &&
-          (!w.expiryDate || w.expiryDate >= bookingDateObj2)
-      );
+      const hasWalletCoveringDate = walletsCoveringBookingDate.length > 0;
       if (!hasWalletCoveringDate) {
         // 找最晚到期日用於提示
         const latestExpiry = customer.planWallets
@@ -460,8 +528,27 @@ export async function createBooking(
         );
       }
 
+      // 明確指定的 wallet 也必須覆蓋「實際上課日」。先前只檢查顧客名下
+      // 是否另有任一張有效 wallet，卻保留 client 指定的過期 wallet，造成
+      // 預約成功後仍綁定過期方案。
+      if (
+        data.customerPlanWalletId &&
+        !walletsCoveringBookingDate.some((wallet) => wallet.id === data.customerPlanWalletId)
+      ) {
+        const selectedWallet = customer.planWallets.find(
+          (wallet) => wallet.id === data.customerPlanWalletId,
+        );
+        const selectedExpiry = selectedWallet?.expiryDate?.toISOString().slice(0, 10);
+        throw new AppError(
+          "BUSINESS_RULE",
+          selectedExpiry
+            ? `所選方案有效期限至 ${selectedExpiry}，無法預約 ${data.bookingDate}`
+            : "所選方案在預約日期不可使用，請改選其他有效方案",
+        );
+      }
+
       // 人數 vs 剩餘堂數檢查
-      const totalRemaining = customer.planWallets.reduce(
+      const totalRemaining = walletsCoveringBookingDate.reduce(
         (sum, w) => sum + w.remainingSessions,
         0
       );
@@ -477,11 +564,7 @@ export async function createBooking(
       // 排序規則：expiryDate ASC（NULL 排最後）→ createdAt ASC → id ASC（穩定）
       if (!data.customerPlanWalletId) {
         const firstUsable = sortWalletsByFEFO(
-          customer.planWallets.filter(
-            (w) =>
-              w.remainingSessions > 0 &&
-              (!w.expiryDate || w.expiryDate >= bookingDateObj2)
-          )
+          walletsCoveringBookingDate
         )[0];
         if (!firstUsable) {
           throw new AppError(
@@ -514,12 +597,11 @@ export async function createBooking(
         where: {
           status: "RESERVED",
           wallet: {
-            customerId: effectiveCustomerId,
-            status: "ACTIVE",
+            id: { in: walletsCoveringBookingDate.map((wallet) => wallet.id) },
           },
         },
       });
-      const totalRemaining = customer.planWallets.reduce(
+      const totalRemaining = walletsCoveringBookingDate.reduce(
         (sum, w) => sum + w.remainingSessions,
         0
       );
@@ -567,7 +649,6 @@ export async function createBooking(
 
     // 取得該時段的實際容量（applySlotOverrides 已處理 capacity_change）
     const slotCapacity = matchedSlot.capacity;
-
     // ── 8. 決定 bookedByType / bookedByStaffId
     let bookedByType: "CUSTOMER" | "STAFF" | "ADMIN";
     let bookedByStaffId: string | null = null;
@@ -587,9 +668,14 @@ export async function createBooking(
       // 取得鎖後才重新讀取容量，避免兩個請求同時通過
       // transaction 外的舊快照後造成超賣。同一顧客可以在同時段
       // 建立多筆預約（例如 4+1 拆單或後續追加同行者），只由總人數容量限制。
-      await acquireBookingSlotLocks(tx, [
-        { storeId, bookingDate: data.bookingDate, slotTime: data.slotTime },
-      ]);
+      await acquireBookingSlotLocks(
+        tx,
+        [{
+          storeId,
+          bookingDate: data.bookingDate,
+          slotTime: data.slotTime,
+        }],
+      );
 
       const slotTimeVariants = bookingSlotTimeVariants(data.slotTime);
       const bookedAgg = await tx.booking.aggregate({
@@ -650,6 +736,7 @@ export async function createBooking(
           // PR-1.5a 設計鎖定：快照來源只能是 customer.assignedStaffId。
           // 完整規則與禁止項見 snapshotRevenueStaffForBooking 的 JSDoc。
           revenueStaffId: snapshotRevenueStaffForBooking(customer.assignedStaffId),
+          serviceStaffId: data.serviceStaffId ?? null,
           bookedByType,
           bookedByStaffId,
           bookingType: data.bookingType,
@@ -684,9 +771,9 @@ export async function createBooking(
       // PR #194: people=N 一張 wallet 不夠時，依 FEFO 順序橫跨多張補足
       //   - preferredWalletId = data.customerPlanWalletId (auto-pick FEFO 第一張或 user 明選)
       //   - 跨 wallet 後若實際 primary 與 preferred 不同（preferred 0 堂被略過）→ 更新 booking 欄位
-      if (walletPeople > 0 && data.customerPlanWalletId && customer.planWallets.length > 0) {
+      if (walletPeople > 0 && data.customerPlanWalletId && walletsCoveringBookingDate.length > 0) {
         const { primaryWalletId } = await allocateSessionsFefo(tx, {
-          candidates: customer.planWallets.map((w) => ({
+          candidates: walletsCoveringBookingDate.map((w) => ({
             id: w.id,
             expiryDate: w.expiryDate,
             createdAt: w.createdAt,
@@ -1156,11 +1243,11 @@ export async function markCompleted(
     const serviceStaffId =
       data.serviceStaffId ?? booking.serviceStaffId ?? null;
 
-    // PR-3d：實際到店人數（FIRST_TRIAL 部分到店）。
+    // 實際到店人數（首次體驗或套餐部分到店）。
     //   - 未傳 → 維持向後相容（attendedPeople 不寫，視為全到）
     //   - 1..booking.people → 寫入
     //   - > booking.people → 拒絕（VALIDATION）
-    //   - < booking.people 且 非 FIRST_TRIAL → 拒絕（BUSINESS_RULE，部分到店僅體驗）
+    //   - PACKAGE_SESSION 部分到店必須同時選擇未到者處理方式
     // 不會收到 0（zod min(1)）；0 走 markNoShow 路徑（既有流程）。
     let attendedPeopleToWrite: number | null = null;
     if (data.attendedPeople != null) {
@@ -1172,21 +1259,112 @@ export async function markCompleted(
       }
       if (
         data.attendedPeople < booking.people &&
-        booking.bookingType !== "FIRST_TRIAL"
+        booking.bookingType === "PACKAGE_SESSION" &&
+        !data.partialNoShowChoice
       ) {
         throw new AppError(
-          "BUSINESS_RULE",
-          "部分到店目前僅支援體驗預約",
+          "VALIDATION",
+          "請選擇未到者要扣堂或扣堂並給補課資格",
         );
+      }
+      if (
+        data.attendedPeople < booking.people &&
+        booking.bookingType === "SINGLE"
+      ) {
+        throw new AppError("BUSINESS_RULE", "單次服務目前不支援部分到店");
       }
       attendedPeopleToWrite = data.attendedPeople;
     }
 
+    const partialAbsentPeople =
+      attendedPeopleToWrite != null
+        ? Math.max(0, booking.people - attendedPeopleToWrite)
+        : 0;
+    const partialGrantMakeup =
+      partialAbsentPeople > 0 &&
+      booking.bookingType === "PACKAGE_SESSION" &&
+      data.partialNoShowChoice === "DEDUCTED_WITH_MAKEUP";
+
     let sessionBalanceNotificationIds: string[] = [];
     await prisma.$transaction(async (tx) => {
-      // 1. 標記出席
-      await tx.booking.update({
-        where: { id: bookingId },
+      // 完成服務前重新核對「預約綁定方案＋堂數＋期限」。建立預約時的
+      // 驗證不能取代此處：兩者之間方案可能被調整、停用或產生 ledger drift。
+      // 期限以實際服務日判斷（DATE 欄位），避免事後補登完成時誤擋合法服務。
+      if (
+        booking.bookingType === "PACKAGE_SESSION" &&
+        fallbackWalletPeople > 0
+      ) {
+        const reservedSessions = await tx.walletSession.findMany({
+          where: { bookingId, status: "RESERVED" },
+          select: {
+            walletId: true,
+            wallet: {
+              select: {
+                status: true,
+                remainingSessions: true,
+                expiryDate: true,
+              },
+            },
+          },
+        });
+
+        if (
+          reservedSessions.length > 0 &&
+          reservedSessions.length !== fallbackWalletPeople
+        ) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            `此預約應扣 ${fallbackWalletPeople} 堂，但目前只保留 ${reservedSessions.length} 堂，請先修正方案資料`,
+          );
+        }
+
+        const invalidReservedWallet = reservedSessions.find(
+          ({ wallet }) =>
+            !isWalletUsableForServiceDate(wallet, booking.bookingDate),
+        );
+        if (invalidReservedWallet) {
+          throw new AppError(
+            "BUSINESS_RULE",
+            "此預約綁定的方案已失效、堂數不足或無法涵蓋服務日期，尚未完成也未扣堂，請先修正方案資料",
+          );
+        }
+
+        // 舊資料可能沒有 WalletSession ledger，仍允許走既有 counter fallback，
+        // 但必須重新讀取 primary wallet 並通過同一組有效性檢查。
+        if (reservedSessions.length === 0) {
+          const currentWallet = booking.customerPlanWalletId
+            ? await tx.customerPlanWallet.findUnique({
+                where: { id: booking.customerPlanWalletId },
+                select: {
+                  status: true,
+                  remainingSessions: true,
+                  expiryDate: true,
+                },
+              })
+            : null;
+          if (
+            !currentWallet ||
+            !isWalletUsableForServiceDate(
+              currentWallet,
+              booking.bookingDate,
+              fallbackWalletPeople,
+            )
+          ) {
+            throw new AppError(
+              "BUSINESS_RULE",
+              "此預約綁定的方案已失效、堂數不足或無法涵蓋服務日期，尚未完成也未扣堂，請先修正方案資料",
+            );
+          }
+        }
+      }
+
+      // 1. 標記出席。transaction 外的讀取可能讓兩個請求都看到 PENDING；
+      // 這個條件更新是唯一勝者閘門，避免第二個請求誤走 legacy fallback 再扣堂。
+      const statusUpdate = await tx.booking.updateMany({
+        where: {
+          id: bookingId,
+          bookingStatus: { notIn: ["COMPLETED", "CANCELLED"] },
+        },
         data: {
           bookingStatus: "COMPLETED",
           isCheckedIn: true, // 向後相容
@@ -1195,8 +1373,27 @@ export async function markCompleted(
           ...(attendedPeopleToWrite != null
             ? { attendedPeople: attendedPeopleToWrite }
             : {}),
+          ...(partialAbsentPeople > 0 && booking.bookingType === "PACKAGE_SESSION"
+            ? {
+                noShowPolicy: "DEDUCTED",
+                noShowMakeupGranted: partialGrantMakeup,
+              }
+            : {}),
         },
       });
+      if (statusUpdate.count !== 1) {
+        const current = await tx.booking.findUnique({
+          where: { id: bookingId },
+          select: { bookingStatus: true },
+        });
+        if (current?.bookingStatus === "COMPLETED") {
+          throw new AppError("VALIDATION", "已標記為出席");
+        }
+        if (current?.bookingStatus === "CANCELLED") {
+          throw new AppError("BUSINESS_RULE", "已取消的預約無法標記出席");
+        }
+        throw new AppError("CONFLICT", "預約狀態已變更，請重新整理後再試一次");
+      }
 
       // 2. 扣堂 + 寫使用紀錄（只完成已保留的 WalletSession；補課券部分不扣方案）
       // multi-person + multi-wallet：對該 booking 的全部 RESERVED row 操作；
@@ -1213,7 +1410,11 @@ export async function markCompleted(
 
         const dateStr = booking.bookingDate.toISOString().slice(0, 10);
         const peopleSuffix =
-          booking.people > 1 ? `（${booking.people} 人預約）` : "";
+          partialAbsentPeople > 0 && attendedPeopleToWrite != null
+            ? `（實到 ${attendedPeopleToWrite}/${booking.people}；未到 ${partialAbsentPeople}）`
+            : booking.people > 1
+              ? `（${booking.people} 人預約）`
+              : "";
 
         if (completed > 0) {
           // 每個 session row 各寫 1 筆 SESSION_DEDUCTION，customerPlanWalletId 對應該 session 所屬 wallet
@@ -1293,6 +1494,31 @@ export async function markCompleted(
             storeId: booking.storeId,
           },
         );
+      }
+
+      // 套餐部分到店：原預約名額仍全數扣堂，只針對未到人數發補課券。
+      // 混合補課預約最多只補「方案堂數」部分，避免補課券再次複製。
+      if (partialGrantMakeup) {
+        const walletBackedPeople = Math.max(
+          0,
+          bookingPeopleForLedger - makeupLinkCount,
+        );
+        const creditCount = Math.min(partialAbsentPeople, walletBackedPeople);
+        if (creditCount > 0) {
+          const expiredAt = new Date();
+          expiredAt.setDate(expiredAt.getDate() + NO_SHOW_MAKEUP_VALID_DAYS);
+          for (let i = 0; i < creditCount; i++) {
+            await tx.makeupCredit.create({
+              data: {
+                customerId: booking.customerId,
+                originalBookingId: booking.id,
+                isUsed: false,
+                expiredAt,
+                storeId: booking.storeId,
+              },
+            });
+          }
+        }
       }
       // 🆕 自動給分：出席 +5（在同一事務內）
       try {
@@ -1574,6 +1800,21 @@ export async function revertBookingStatus(
     await prisma.$transaction(async (tx) => {
       // ── COMPLETED → PENDING ──
       if (st === "COMPLETED") {
+        // 部分到店若曾發補課券，回退前必須確認尚未被使用，再整組移除。
+        if (booking.noShowMakeupGranted) {
+          const credits = await tx.makeupCredit.findMany({
+            where: { originalBookingId: booking.id },
+          });
+          if (credits.some((c) => c.isUsed)) {
+            throw new AppError(
+              "BUSINESS_RULE",
+              "此筆部分未到產生的補課資格已被使用，請先取消補課預約後再修正。",
+            );
+          }
+          await tx.makeupCredit.deleteMany({
+            where: { originalBookingId: booking.id },
+          });
+        }
         // 退回堂數（非補課才退）
         // multi-person：對該 booking 的全部 COMPLETED row 回退
         const wallet = booking.customerPlanWallet;
@@ -1616,6 +1857,8 @@ export async function revertBookingStatus(
             // PR-3d：還原 COMPLETED → PENDING 時清空實到人數，避免下次完成
             // 時殘留舊值；店長需在 AttendanceModal 重新選擇。
             attendedPeople: null,
+            noShowPolicy: null,
+            noShowMakeupGranted: null,
           },
         });
       }

@@ -21,12 +21,15 @@ vi.mock("@/lib/session", () => ({
   getCurrentUser: vi.fn(),
 }));
 
+vi.mock("@/lib/spa-db", () => ({spaPrisma:{spaTreatment:{count:vi.fn()},spaSkill:{count:vi.fn()}}}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
 vi.mock("@/lib/permissions", () => ({
   createDefaultPermissions: vi.fn(),
+  requirePermission: vi.fn().mockResolvedValue({id:"admin",role:"ADMIN"}),
   ALL_PERMISSIONS: ["customer.read", "booking.read"],
 }));
 
@@ -369,6 +372,35 @@ describe("產業模組隔離", () => {
       error: "產業模組尚未完成佈建，暫時不可啟用店舖",
     });
     expect(prisma.staff.findMany).not.toHaveBeenCalled();
+    expect(prisma.store.update).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("SPA HQ readiness", () => {
+  async function readyStore() {
+    const {prisma}=await import("@/lib/db");
+    const {spaPrisma}=await import("@/lib/spa-db");
+    vi.mocked(prisma.store.findUnique).mockResolvedValue({id:"ready",slug:"ready",industryModule:"SPA",shopConfig:{},moduleInstallation:{status:"ACTIVE"},isDemo:false,planStatus:"TRIAL"} as never);
+    vi.mocked(prisma.staff.findMany).mockResolvedValue([{id:"owner",user:{status:"ACTIVE"}}] as never);
+    vi.mocked(prisma.staffPermission.count).mockResolvedValue(1);
+    vi.mocked(spaPrisma.spaTreatment.count).mockResolvedValue(1);
+    vi.mocked(spaPrisma.spaSkill.count).mockResolvedValue(1);
+    return {prisma,spaPrisma};
+  }
+  it("active provisioning and ready catalog allow activation", async () => {
+    const {prisma}=await readyStore();
+    vi.mocked(prisma.store.update).mockResolvedValue({planStatus:"ACTIVE"} as never);
+    const {activateStoreAction}=await import("@/server/actions/store-onboarding");
+    expect((await activateStoreAction("ready")).success).toBe(true);
+    expect(prisma.store.update).toHaveBeenCalled();
+  });
+  it("missing catalog still blocks activation", async () => {
+    const {prisma,spaPrisma}=await readyStore();
+    vi.mocked(prisma.store.update).mockClear();
+    vi.mocked(spaPrisma.spaTreatment.count).mockResolvedValue(0);
+    const {activateStoreAction}=await import("@/server/actions/store-onboarding");
+    expect((await activateStoreAction("ready")).success).toBe(false);
     expect(prisma.store.update).not.toHaveBeenCalled();
   });
 });

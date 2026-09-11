@@ -28,7 +28,7 @@ vi.mock("@/lib/permissions", () => ({
 
 vi.mock("@/lib/feature-gate", () => ({
   requireStoreFeature: (...args: unknown[]) => mockRequireStoreFeature(...args),
-  hasStoreFeature: vi.fn(),
+  hasStoreFeature: vi.fn(async () => true),
 }));
 
 vi.mock("@/lib/db", () => ({

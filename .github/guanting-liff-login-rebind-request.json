@@ -1,0 +1,13 @@
+{
+  "authorized": "owner",
+  "scope": "single-customer-liff-login-channel-migration",
+  "customer": "cmpqlf5qj0002kw04elnysjw5",
+  "preserves": [
+    "Customer.lineUserId",
+    "plans",
+    "bookings",
+    "health-records"
+  ],
+  "expiresHours": 24,
+  "authorizedAt": "2026-08-28"
+}

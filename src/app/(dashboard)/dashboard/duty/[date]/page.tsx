@@ -10,15 +10,17 @@ import { DutyDayEditor } from "./duty-day-editor";
 
 interface PageProps {
   params: Promise<{ date: string }>;
+  searchParams: Promise<{ staff?: string }>;
 }
 
-export default async function DutyDayPage({ params }: PageProps) {
+export default async function DutyDayPage({ params, searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "duty.read"))) {
     redirect("/dashboard");
   }
 
   const { date } = await params;
+  const { staff: requestedStaffId } = await searchParams;
   const canManage = user.role === "ADMIN" || await checkPermission(user.role, user.staffId, "duty.manage");
   const activeStoreId = await getActiveStoreForRead(user);
   const storeFilter = getStoreFilter(user, activeStoreId);
@@ -176,6 +178,7 @@ export default async function DutyDayPage({ params }: PageProps) {
         }))}
         canManage={canManage}
         weekDayInfo={weekDayInfo}
+        preferredStaffId={staffList.some((staff) => staff.id === requestedStaffId) ? requestedStaffId : undefined}
       />
     </div>
   );

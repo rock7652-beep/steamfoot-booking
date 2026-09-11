@@ -1,5 +1,5 @@
 /**
- * AI 健康評估卡片 — 客戶端顯示用
+ * 健康量測卡片 — 客戶端顯示用
  *
  * 用於 `/my-bookings`、`/book` 等顧客 web 頁面。
  *
@@ -11,17 +11,15 @@
  */
 
 import type { HealthSummary } from "@/lib/health-service";
-import { getHealthAssessmentUrl } from "@/lib/health-assessment";
+import { HEALTH_DISPLAY_METRICS } from "@/lib/health-display-metrics";
+import { HealthHistoryList } from "@/components/health-history-list";
+import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
 
 interface HealthAssessmentCardProps {
   summary: HealthSummary;
-  customerId?: string | null;
 }
 
-export function HealthAssessmentCard({
-  summary,
-  customerId,
-}: HealthAssessmentCardProps) {
+export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
   const latest = summary.latest;
   if (!latest) {
     // 不應發生（getHealthCardData 已 gate `!summary.latest`），保險空態
@@ -38,6 +36,9 @@ export function HealthAssessmentCard({
     : "bg-amber-50 border-amber-200 text-amber-700";
 
   const official = summary.official;
+  const previous = summary.trend.length >= 2
+    ? summary.trend[summary.trend.length - 2]
+    : null;
   // 官方分數配色（HealthFlow 端字串 → tailwind class；未知值 fallback earth）
   const officialColor =
     official?.riskLevel === "good"
@@ -53,19 +54,9 @@ export function HealthAssessmentCard({
       {/* Header */}
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold text-earth-900">AI 健康評估</h3>
+          <h3 className="text-lg font-bold text-earth-900">健康量測</h3>
           <p className="mt-1 text-sm text-earth-700">最近一次量測摘要</p>
         </div>
-        {customerId && (
-          <a
-            href={getHealthAssessmentUrl(customerId)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex min-h-[44px] items-center rounded-md px-2 text-sm font-semibold text-primary-700 hover:bg-earth-50 hover:underline"
-          >
-            查看完整評估 &rarr;
-          </a>
-        )}
       </div>
 
       {/* Official score (HealthFlow PR #5) — 有官方分數才顯示，沒回則整段省略 */}
@@ -84,27 +75,60 @@ export function HealthAssessmentCard({
       )}
 
       {/* Latest measured date */}
-      <div className="mb-4 flex items-baseline justify-between rounded-xl bg-earth-50 px-4 py-3">
-        <span className="text-xs text-earth-500">最近量測</span>
-        <span className="text-sm">
-          <span className="font-semibold text-earth-900">
-            {formatDate(latest.measuredAt)}
-          </span>
-          {daysAgo !== null && (
-            <span className="ml-1 text-xs text-earth-500">
-              （{daysAgo} 天前）
+      <div className="mb-4 rounded-xl bg-earth-50 px-4 py-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-xs text-earth-500">最近量測</span>
+          <span className="text-sm">
+            <span className="font-semibold text-earth-900">
+              {formatDate(latest.measuredAt)}
             </span>
-          )}
-        </span>
+            {daysAgo !== null && (
+              <span className="ml-1 text-xs text-earth-500">
+                （{daysAgo} 天前）
+              </span>
+            )}
+          </span>
+        </div>
+        {latest.storeName && (
+          <p className="mt-2 border-t border-earth-100 pt-2 text-right text-xs text-earth-600">
+            量測門市：<span className="font-medium text-earth-800">{latest.storeName}</span>
+          </p>
+        )}
       </div>
 
-      {/* 4 主指標 inline */}
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        <MetricCell label="體重" value={latest.weight} unit="kg" />
-        <MetricCell label="BMI" value={latest.bmi} unit="" />
-        <MetricCell label="體脂肪" value={latest.bodyFat} unit="%" />
-        <MetricCell label="內臟脂肪" value={latest.visceralFat} unit="" />
+      <HealthChange latest={latest} previous={previous} />
+
+      {/* 首頁先保留四項核心指標，其餘指標按需展開。 */}
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {HEALTH_DISPLAY_METRICS.filter((metric) =>
+          ["weight", "bodyFat", "muscleMass", "visceralFat"].includes(metric.key),
+        ).map((metric) => (
+          <MetricCell
+            key={metric.key}
+            label={metric.label}
+            value={latest[metric.key]}
+            unit={metric.unit}
+          />
+        ))}
       </div>
+
+      <details className="mb-4 rounded-xl border border-earth-100 bg-earth-50/40">
+        <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-earth-700">
+          查看全部指標
+        </summary>
+        <div className="grid grid-cols-2 gap-2 border-t border-earth-100 p-3 sm:grid-cols-3">
+          {HEALTH_DISPLAY_METRICS.filter((metric) =>
+            !["weight", "bodyFat", "muscleMass", "visceralFat"].includes(metric.key),
+          ).map((metric) => (
+            <MetricCell
+              key={metric.key}
+              label={metric.label}
+              value={latest[metric.key]}
+              unit={metric.unit}
+            />
+          ))}
+        </div>
+      </details>
 
       {/* Alerts badge — 任何 warning/danger 集中顯示一行 */}
       {alertsAbnormal.length > 0 && (
@@ -120,11 +144,22 @@ export function HealthAssessmentCard({
         </div>
       )}
 
-      {/* 引導語 — 沒官方分數時提示去 HealthFlow 看；有官方分數時改提資料來源 */}
+      {summary.trend.length > 0 && (
+        <div className="mb-4 border-t border-earth-100 pt-4">
+          <h4 className="mb-3 text-sm font-semibold text-earth-900">身體數據曲線</h4>
+          <HealthTrendChartLoader trend={summary.trend} totalRecords={summary.meta.totalRecords} />
+        </div>
+      )}
+
+      {summary.trend.length > 0 && (
+        <HealthHistoryList
+          trend={summary.trend}
+          totalRecords={summary.meta.totalRecords}
+        />
+      )}
+
       <p className="text-[11px] leading-relaxed text-earth-500">
-        {official
-          ? "資料來源：HealthFlow AI 健康評估；點「查看完整評估」看完整報告與建議。"
-          : "完整健康分數與評估，請點「查看完整評估」前往 HealthFlow 原站。"}
+        量測資料已安全保存於蒸管家。本人可查看已驗證門市的個人歷史；工作人員仍僅能查看本店資料。
       </p>
     </div>
   );
@@ -158,6 +193,103 @@ function MetricCell({
       </p>
     </div>
   );
+}
+
+const CHANGE_METRICS = [
+  { key: "weight", label: "體重", unit: "kg", precision: 1 },
+  { key: "bodyFat", label: "體脂肪", unit: "%", precision: 1 },
+  { key: "muscleMass", label: "肌肉量", unit: "kg", precision: 1 },
+  { key: "visceralFat", label: "內臟脂肪", unit: "", precision: 1 },
+] as const;
+
+function HealthChange({
+  latest,
+  previous,
+}: {
+  latest: NonNullable<HealthSummary["latest"]>;
+  previous: HealthSummary["trend"][number] | null;
+}) {
+  if (!previous) {
+    return (
+      <div className="mb-4 rounded-xl border border-earth-200 bg-white px-4 py-3">
+        <h4 className="text-sm font-bold text-earth-900">本次變化</h4>
+        <p className="mt-1 text-xs text-earth-500">首次量測，尚無上次紀錄可比較</p>
+      </div>
+    );
+  }
+
+  const changes = CHANGE_METRICS.map((metric) => {
+    const current = latest[metric.key];
+    const before = previous[metric.key];
+    return {
+      ...metric,
+      delta: current == null || before == null ? null : current - before,
+    };
+  });
+  const meaningful = changes.some(({ key, delta }) => {
+    if (delta == null) return false;
+    const threshold = key === "visceralFat" ? 1 : key === "bodyFat" ? 0.5 : 0.3;
+    return Math.abs(delta) >= threshold;
+  });
+
+  return (
+    <div className="mb-4 rounded-xl border border-primary-100 bg-primary-50/40 px-4 py-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h4 className="text-sm font-bold text-earth-900">本次變化</h4>
+          <p className="mt-1 text-xs text-earth-600">
+            與 {formatDate(previous.measuredAt)} 的上次量測相比
+          </p>
+        </div>
+        <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-earth-700">
+          {meaningful ? "近期有波動" : "變化不大"}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-3">
+        {changes.map((change) => (
+          <div key={change.key} className="flex items-baseline justify-between gap-2 border-t border-primary-100 pt-2">
+            <span className="text-xs text-earth-600">{change.label}</span>
+            <span className="font-bold tabular-nums text-earth-900">
+              {formatDelta(change.delta, change.precision)}
+              {change.delta != null && change.unit && (
+                <span className="ml-0.5 text-[10px] font-normal text-earth-500">{change.unit}</span>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+      <details className="mt-3 border-t border-primary-100 pt-3">
+        <summary className="min-h-10 cursor-pointer text-center text-xs font-semibold text-primary-700">
+          查看全部變化
+        </summary>
+        <div className="grid grid-cols-2 gap-x-5 gap-y-2 pt-2">
+          {HEALTH_DISPLAY_METRICS.filter((metric) =>
+            ["bmi", "boneMass", "bmr", "bodyWater"].includes(metric.key),
+          ).map((metric) => {
+            const current = latest[metric.key];
+            const before = previous[metric.key];
+            const delta = current == null || before == null ? null : current - before;
+            return (
+              <div key={metric.key} className="flex items-baseline justify-between gap-2 text-xs">
+                <span className="text-earth-600">{metric.label}</span>
+                <span className="font-semibold tabular-nums text-earth-800">
+                  {formatDelta(delta, metric.key === "bmr" ? 0 : 1)}
+                  {delta != null && metric.unit && <span className="ml-0.5 text-[10px] font-normal">{metric.unit}</span>}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function formatDelta(value: number | null, precision: number): string {
+  if (value == null) return "—";
+  if (Math.abs(value) < 10 ** -precision / 2) return "無變化";
+  const rounded = Math.abs(value).toFixed(precision).replace(/\.0$/, "");
+  return `${value > 0 ? "+" : "−"}${rounded}`;
 }
 
 function formatDate(s: string): string {

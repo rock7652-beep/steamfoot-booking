@@ -5,13 +5,13 @@
  *
  * 流程：
  *   1. mount → initLiff → isInLineClient → fetchLiffHealthSummary → ready / not_linked / error
- *   2. linked + summary → 顯示 6 指標 + 評分卡 + 趨勢摘要 + 醫療免責 + 外部完整評估 / 聯絡店家
+ *   2. linked + summary → 顯示中央健康摘要、原始量測門市，並可在 LIFF 內展開歷史與曲線
  *   3. linked + 無量測 → 「尚無量測紀錄」+ 「開始量測」(外部 HealthFlow)
  *   4. unlinked / not_found → 「尚未完成 AI 健康評估」+ 「開始 AI 健康評估」(外部 HealthFlow)
  *   5. service_unavailable / no_customer → 友善錯誤 + retry / 聯絡店家
  *
- * 與 dashboard 的差異（per PR-H2 spec：唯讀且輕量）：
- *   - 不顯示歷次評估列表 / 完整趨勢圖（dashboard 才有）
+ * 與 dashboard 的差異（唯讀且輕量）：
+ *   - 歷史列表 / 趨勢圖預設收合，顧客需要時才載入圖表
  *   - 不接 link / unlink / autoLink（dashboard 是 SoT，本 view 純讀）
  *   - 加 LIFF 友善的醫療免責 disclaimer
  *
@@ -22,25 +22,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { HealthHistoryList } from "@/components/health-history-list";
+import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
 import {
   initLiff,
   isInLineClient,
   getIDToken,
   LiffInitError,
 } from "@/lib/liff/client";
-import {
-  createHealthflowEntryUrl,
-  fetchLiffHealthSummary,
-  type FetchLiffHealthSummaryResult,
-} from "@/server/actions/liff-health";
+import { loadHealthWithSessionRefresh } from "@/lib/liff/health-loader";
 import {
   liffMessages,
 } from "@/lib/liff/messages";
 import type { HealthSummary, HealthAlert } from "@/lib/health-service";
-import {
-  createHealthflowEntryAttemptId,
-  createHealthflowEntryErrorCode,
-} from "@/lib/healthflow-entry-correlation";
 
 // PR-H2c：移除 self-computed score 顯示 — HealthFlow API 不回官方 score，
 // Steamfoot 自算與 HealthFlow 原站不一致，會誤導顧客。改顯示 metrics + alerts +
@@ -54,6 +49,7 @@ type State =
   | {
       kind: "linked";
       summary: HealthSummary;
+      verifiedStoreCount: number;
     }
   | { kind: "not_linked"; reason: "unlinked" | "not_found" | "error" };
 
@@ -66,6 +62,7 @@ interface Props {
 }
 
 export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) {
+  const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
 
   useEffect(() => {
@@ -95,9 +92,9 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
         return;
       }
 
-      let result: FetchLiffHealthSummaryResult;
+      let result: Awaited<ReturnType<typeof loadHealthWithSessionRefresh>>;
       try {
-        result = await fetchLiffHealthSummary();
+        result = await loadHealthWithSessionRefresh({ idToken, storeSlug });
       } catch (err) {
         if (cancelled) return;
         console.warn("[health-view] fetch failed", err);
@@ -107,11 +104,18 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
       if (cancelled) return;
 
       switch (result.status) {
+        case "need_onboarding":
+          router.replace(`/s/${storeSlug}/liff/onboarding`);
+          return;
+        case "expired":
+          setState({ kind: "expired" });
+          return;
         case "ok":
           if (result.linked) {
             setState({
               kind: "linked",
               summary: result.summary,
+              verifiedStoreCount: result.verifiedStoreCount,
             });
           } else {
             setState({ kind: "not_linked", reason: result.reason });
@@ -128,7 +132,7 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
     return () => {
       cancelled = true;
     };
-  }, [liffId]);
+  }, [liffId, storeSlug, router]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
@@ -199,6 +203,7 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
         <LinkedView
           storeSlug={storeSlug}
           summary={state.summary}
+          verifiedStoreCount={state.verifiedStoreCount}
           contactUrl={contactUrl}
         />
       )}
@@ -215,14 +220,17 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
 function LinkedView({
   storeSlug,
   summary,
+  verifiedStoreCount,
   contactUrl,
 }: {
   storeSlug: string;
   summary: HealthSummary;
+  verifiedStoreCount: number;
   /** PR-E：per-store LINE OA 連結，傳給 ContactStoreButton。 */
   contactUrl: string;
 }) {
   const m = liffMessages.health;
+  const [showHistory, setShowHistory] = useState(false);
 
   // 已綁定但 HealthFlow 還沒任何量測
   if (!summary.latest) {
@@ -232,7 +240,7 @@ function LinkedView({
           <p className="font-medium">{m.noMeasurementTitle}</p>
           <p className="mt-2 text-xs text-amber-800/85">{m.noMeasurementBody}</p>
         </div>
-        <StartHealthFlowButton variant="primary" storeSlug={storeSlug} />
+        <StartHealthFlowButton storeSlug={storeSlug} />
         <ContactStoreButton contactUrl={contactUrl} />
         <BackHomeLink storeSlug={storeSlug} />
       </>
@@ -244,6 +252,12 @@ function LinkedView({
 
   return (
     <>
+      {verifiedStoreCount > 1 && (
+        <div className="rounded-xl border border-primary-100 bg-primary-50/40 px-4 py-3 text-xs leading-relaxed text-earth-700">
+          已整合您在 {verifiedStoreCount} 家已驗證門市的健康紀錄；每筆仍保留原始量測門市。
+        </div>
+      )}
+      <StartHealthFlowButton storeSlug={storeSlug} />
       {/* ── 官方 score 卡 (HealthFlow PR #5) / fallback 為 LatestSnapshot ──
           summary.official 由 health-service normalizeOfficial 填；若 HealthFlow
           API 沒回 score（舊版 / 部分 env），顯示原本 PR-H2c 的「最近量測卡」。*/}
@@ -252,9 +266,14 @@ function LinkedView({
           official={summary.official}
           measuredAt={measuredAtLabel}
           daysAgo={daysAgo}
+          storeName={summary.latest.storeName}
         />
       ) : (
-        <LatestSnapshot measuredAt={measuredAtLabel} daysAgo={daysAgo} />
+        <LatestSnapshot
+          measuredAt={measuredAtLabel}
+          daysAgo={daysAgo}
+          storeName={summary.latest.storeName}
+        />
       )}
 
       {/* ── 指標 grid (6 主指標) ── */}
@@ -263,8 +282,34 @@ function LinkedView({
       {/* ── 趨勢摘要 (近 N 次) ── */}
       {summary.trend.length >= 2 && <TrendBrief summary={summary} />}
 
-      {/* ── 外部完整評估 / 聯絡店家 ── */}
-      <ViewFullButton storeSlug={storeSlug} />
+      {/* ── LIFF 內查看歷史與曲線，不再跳到網頁會員前台 ── */}
+      <button
+        type="button"
+        aria-expanded={showHistory}
+        aria-controls="liff-health-history"
+        onClick={() => setShowHistory((visible) => !visible)}
+        className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
+      >
+        {showHistory ? "收合歷史與曲線" : m.viewFullCta}
+      </button>
+      {showHistory && (
+        <section
+          id="liff-health-history"
+          className="rounded-xl border border-earth-200 bg-white px-3 py-4"
+        >
+          <h2 className="mb-4 text-base font-semibold text-earth-900">健康趨勢</h2>
+          <HealthTrendChartLoader
+            trend={summary.trend}
+            totalRecords={summary.meta.totalRecords}
+          />
+          <HealthHistoryList
+            trend={summary.trend}
+            totalRecords={summary.meta.totalRecords}
+            editBasePath={`/s/${storeSlug}/liff/health`}
+            recordIds={summary.meta.recordIds}
+          />
+        </section>
+      )}
       <ContactStoreButton contactUrl={contactUrl} />
       <BackHomeLink storeSlug={storeSlug} />
     </>
@@ -281,10 +326,12 @@ function OfficialScoreCard({
   official,
   measuredAt,
   daysAgo,
+  storeName,
 }: {
   official: NonNullable<HealthSummary["official"]>;
   measuredAt: string;
   daysAgo: number | null;
+  storeName?: string;
 }) {
   const m = liffMessages.health;
   const riskClass =
@@ -316,6 +363,11 @@ function OfficialScoreCard({
           )}
         </p>
       </div>
+      {storeName && (
+        <p className="mt-2 border-t border-current/10 pt-2 text-right text-xs opacity-80">
+          量測門市：<span className="font-medium">{storeName}</span>
+        </p>
+      )}
       <div className="mt-2 flex items-end gap-3">
         <span className={`text-4xl font-bold tabular-nums ${scoreColor}`}>
           {official.score}
@@ -356,9 +408,11 @@ function OfficialScoreCard({
 function LatestSnapshot({
   measuredAt,
   daysAgo,
+  storeName,
 }: {
   measuredAt: string;
   daysAgo: number | null;
+  storeName?: string;
 }) {
   const m = liffMessages.health;
   return (
@@ -376,6 +430,11 @@ function LatestSnapshot({
           )}
         </p>
       </div>
+      {storeName && (
+        <p className="mt-2 border-t border-earth-100 pt-2 text-right text-xs text-earth-600">
+          量測門市：<span className="font-medium text-earth-800">{storeName}</span>
+        </p>
+      )}
       <p className="mt-2 text-[11px] text-earth-500">{m.scoreOnHealthFlowHint}</p>
     </div>
   );
@@ -531,7 +590,7 @@ function NotLinkedCard({
         <p className="font-medium">{m.notLinkedTitle}</p>
         <p className="mt-2 text-xs text-earth-700">{body}</p>
       </div>
-      <StartHealthFlowButton variant="primary" storeSlug={storeSlug} />
+      <StartHealthFlowButton storeSlug={storeSlug} />
       <ContactStoreButton contactUrl={contactUrl} />
       <BackHomeLink storeSlug={storeSlug} />
     </>
@@ -554,92 +613,25 @@ function Disclaimer() {
 // CTAs
 // ──────────────────────────────────────────────────────────
 
-/**
- * 外部跳轉到 HealthFlow LIFF — 用 button + window.location.href
- * （PR-F1A / PR #184 教訓：LINE iOS webview 對這組合最穩）。
- */
 function StartHealthFlowButton({
-  variant,
   storeSlug,
-  label = liffMessages.health.startHealthFlowCta,
 }: {
-  variant: "primary" | "outline";
   storeSlug: string;
-  label?: string;
 }) {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const cls =
-    variant === "primary"
-      ? "flex w-full min-h-[48px] items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
-      : "flex w-full min-h-[44px] items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50";
-  const handleClick = async () => {
-    if (pending) return;
-    setPending(true);
-    setError(null);
-    const attemptId = createHealthflowEntryAttemptId();
-    const transportErrorCode = createHealthflowEntryErrorCode(attemptId);
-    try {
-      const result = await createHealthflowEntryUrl(storeSlug, attemptId);
-      if (result.status === "ok") {
-        window.location.href = result.url;
-        return;
-      }
-      console.warn("healthflow_entry_client_result", {
-        requestId: result.requestId,
-        attemptId: result.attemptId,
-        errorCode: result.errorCode,
-        resultStatus: result.status,
-      });
-      setError(`${liffMessages.health.linkStartFailed} 錯誤代碼：${result.errorCode}`);
-    } catch (err) {
-      console.error("healthflow_entry_client_exception", {
-        requestId: null,
-        attemptId,
-        errorCode: transportErrorCode,
-        resultStatus: "transport_exception",
-        exceptionName: err instanceof Error ? err.name : "UnknownClientException",
-      });
-      setError(
-        `${liffMessages.health.linkStartFailed} 錯誤代碼：${transportErrorCode}`,
-      );
-    } finally {
-      setPending(false);
-    }
-  };
   return (
-    <>
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={pending}
-        className={`${cls} disabled:cursor-wait disabled:opacity-70`}
-      >
-        {pending ? liffMessages.health.linkStartLoading : label}
-      </button>
-      {error && (
-        <p className="text-center text-xs leading-relaxed text-red-600">
-          {error}
-        </p>
-      )}
-    </>
-  );
-}
-
-function ViewFullButton({ storeSlug }: { storeSlug: string }) {
-  return (
-    <StartHealthFlowButton
-      variant="outline"
-      storeSlug={storeSlug}
-      label={liffMessages.health.viewFullCta}
-    />
+    <Link
+      href={`/s/${storeSlug}/liff/health/new`}
+      className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
+    >
+      {liffMessages.health.startHealthFlowCta}
+    </Link>
   );
 }
 
 function ContactStoreButton({ contactUrl }: { contactUrl: string }) {
   return (
     <a
-      href={contactUrl}
+      href={contactUrl || undefined} aria-disabled={!contactUrl}
       target="_blank"
       rel="noopener noreferrer"
       className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#06C755] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#05b54d] active:scale-[0.98]"
@@ -721,7 +713,7 @@ function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactUrl}
+            href={contactUrl || undefined} aria-disabled={!contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"

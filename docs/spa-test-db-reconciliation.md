@@ -1,5 +1,7 @@
 # SPA test database reconciliation
 
+Historical record below. As of 2026-09-11, main history is integrated and the three PR-only migrations are archived. Use `docs/spa-release-readiness-20260911.md` for the current complete deployment path; do not execute this historical pending list.
+
 This document records the 2026-09-10 reconciliation for the SPA test database.
 It is deliberately not a Prisma migration: the database migration ledger has a
 historical branch divergence and must not be edited or reset.

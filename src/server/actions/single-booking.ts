@@ -11,9 +11,13 @@ import { buildTransactionSnapshot } from "@/lib/transaction-snapshot";
 import { revalidateBookings, revalidateTransactions } from "@/lib/revalidation";
 import { completePaidBookingInTransaction } from "@/server/services/paid-booking-completion";
 import { createBookingCompletedEvent } from "@/server/services/referral-events";
-import { normalizePaymentSplits, paymentSplitCreateData } from "@/lib/payment-splits";
+import {
+  normalizePaymentSplits,
+  paymentSplitCreateData,
+} from "@/lib/payment-splits";
 import type { ActionResult } from "@/types";
 import type { PaymentMethod, TransactionType } from "@prisma/client";
+import { requireSteamfootStore } from "@/lib/industry-module-server";
 
 // ============================================================
 // collectSinglePayment — 單次（SINGLE，不扣堂）現場收款
@@ -27,7 +31,7 @@ import type { PaymentMethod, TransactionType } from "@prisma/client";
 //   - bookingType 必須是 SINGLE（不接受 FIRST_TRIAL / PACKAGE_SESSION）
 //   - 透過 booking.update 權限把關（規格）：能完成預約 → 才能完成收款；
 //     避免「可完成但不能收款」造成漏帳
-//   - 原價來自 booking.servicePlan?.price ?? 799（不走 shop-config）
+//   - 原價優先使用療程／單次快照，再 fallback servicePlan.price ?? 799
 //   - 不寫 CustomerPlanWallet / WalletSession / 不扣堂（wallet-free）
 //
 // 重複收款：同 booking 已有 SINGLE_PURCHASE + SUCCESS → 拒絕
@@ -43,6 +47,7 @@ export async function collectSinglePayment(
     const data = collectSinglePaymentSchema.parse(input);
     const completeService = data.completeService === true;
     const storeId = currentStoreId(user);
+    await requireSteamfootStore(storeId);
     // 訂閱到期保護：到期店家不可收款（無訂閱店不擋）
     await assertStoreSubscriptionWritable(storeId);
 
@@ -55,7 +60,9 @@ export async function collectSinglePayment(
         bookingStatus: true,
         customerId: true,
         revenueStaffId: true,
+        serviceStaffId: true,
         servicePlanId: true,
+        expectedAmount: true,
         bookingDate: true,
         slotTime: true,
         servicePlan: { select: { price: true } },
@@ -77,13 +84,18 @@ export async function collectSinglePayment(
       );
     }
 
-    // 原價：servicePlan.price 優先（未來改方案價直接生效），fallback 799。
     // 實收：未傳 amount → 預設等於原價（= 全價）。
     const originalAmount =
-      booking.servicePlan?.price != null
-        ? Number(booking.servicePlan.price)
-        : SINGLE_DEFAULT_PRICE;
+      booking.expectedAmount != null
+          ? Number(booking.expectedAmount)
+          : booking.servicePlan?.price != null
+            ? Number(booking.servicePlan.price)
+            : SINGLE_DEFAULT_PRICE;
     const netAmount = data.amount ?? originalAmount;
+    // Revalidate the resolved amount too: omitted input may resolve to a zero-price snapshot.
+    if (netAmount === 0 && (!data.discountReason || !completeService || data.paymentSplits)) {
+      throw new AppError("VALIDATION", "全額折抵須填寫原因並完成服務，不需拆分付款");
+    }
     const paymentSplits = normalizePaymentSplits(data.paymentSplits, netAmount);
 
     if (netAmount > originalAmount) {
@@ -95,6 +107,7 @@ export async function collectSinglePayment(
     // 體驗客有「必須有直屬店長」的硬規則，店家可能臨櫃單收）。
     const revenueStaffId =
       booking.revenueStaffId ??
+      booking.serviceStaffId ??
       booking.customer.assignedStaffId ??
       user.staffId ??
       (() => {
@@ -142,10 +155,10 @@ export async function collectSinglePayment(
           customerId: booking.customerId,
           bookingId: booking.id,
           revenueStaffId,
-          serviceStaffId: user.staffId ?? null,
+          serviceStaffId: booking.serviceStaffId ?? user.staffId ?? null,
           soldByStaffId: user.staffId ?? null,
           transactionType: "SINGLE_PURCHASE" as TransactionType,
-          paymentMethod: data.paymentMethod as PaymentMethod,
+          paymentMethod: netAmount === 0 ? "OTHER" : data.paymentMethod as PaymentMethod,
           ...paymentSplitCreateData(paymentSplits),
           paymentStatus: "SUCCESS",
           paidAt: new Date(),
@@ -165,7 +178,7 @@ export async function collectSinglePayment(
           storeId,
           bookingDate: booking.bookingDate,
           slotTime: booking.slotTime,
-          serviceStaffId: user.staffId ?? null,
+          serviceStaffId: booking.serviceStaffId ?? user.staffId ?? null,
         });
       }
 

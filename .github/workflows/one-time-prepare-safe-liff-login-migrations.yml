@@ -1,0 +1,32 @@
+name: Prepare safe LIFF Login migrations
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/safe-liff-login-migrations-request.json]
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      EXPECTED_CANDIDATE_COUNT: "70"
+      EXPECTED_CANDIDATE_FINGERPRINT: 3eba26ee07b4d2cad196eb465c9bba296abfa8ce5262a0e048ac3ecfbb7fba52
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Verify mutation boundary
+        run: |
+          test "$(grep -Ec 'customer\.(update|delete|create)|customerIdentityLink\.(update|delete|create)|account\.(update|delete|create)|customerPlanWallet\.(update|delete|create)|booking\.(update|delete|create)' scripts/prepare-safe-liff-login-migrations.ts)" -eq 0
+      - run: npx tsx scripts/prepare-safe-liff-login-migrations.ts

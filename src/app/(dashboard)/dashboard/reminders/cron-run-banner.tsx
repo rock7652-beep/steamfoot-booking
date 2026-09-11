@@ -80,8 +80,8 @@ export function CronRunBanner({ data }: { data: CronRunBannerData }) {
 
     case "PARTIAL":
       style = STYLES.amber;
-      title = `今日 ${formatTWTime(run!.finishedAt ?? run!.startedAt, { style: "short" })} 提醒已送，其他子任務有失敗`;
-      detail = `送出 ${run!.sent ?? 0} / 失敗 ${run!.failed ?? 0}（報表快照 / 降級 / 試用到期等子任務未全部成功，請聯絡工程）`;
+      title = `今日 ${formatTWTime(run!.finishedAt ?? run!.startedAt, { style: "short" })} 提醒批次完成，部分發送失敗`;
+      detail = `掃描 ${run!.bookingsScanned ?? 0} 筆 / 送出 ${run!.sent ?? 0} / 跳過 ${run!.skipped ?? 0} / 失敗 ${run!.failed ?? 0}；請查看發送紀錄並協助顧客重新綁定 LINE。`;
       break;
 
     case "FAILED":

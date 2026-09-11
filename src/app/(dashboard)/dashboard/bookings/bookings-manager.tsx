@@ -18,7 +18,6 @@ import {
 } from "./booking-detail-drawer";
 import {
   createBookingDetailCache,
-  type BookingDetailCache,
 } from "./booking-detail-cache";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -40,6 +39,8 @@ interface BookingEntry {
   isMakeup: boolean;
   isCheckedIn: boolean;
   people: number;
+  recurrenceIndex: number | null;
+  recurrenceTotalOccurrences: number | null;
   customerConfirmedAt: Date | null;
   /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。 */
   attendedPeople: number | null;
@@ -50,6 +51,7 @@ interface BookingEntry {
   trialDefaultPrice: number | null;
   collected: boolean;
   collectedAmount: number | null;
+  deductedPlanNames?: string[];
   customerName: string;
   staffId: string | null;
   staffName: string | null;
@@ -70,7 +72,12 @@ interface BookingEntry {
   revenueStaff: { id: string; displayName: string; colorCode: string } | null;
   serviceStaff: { id: string; displayName: string } | null;
   servicePlan: { name: string } | null;
-  customerPlanWallet: { plan: { name: string } } | null;
+  customerPlanWallet: {
+    status: string;
+    remainingSessions: number;
+    expiryDate: Date | null;
+    plan: { name: string };
+  } | null;
 }
 
 interface MonthSummaryDay {
@@ -126,21 +133,25 @@ const EMPTY_FILTERS: BookingFilters = {
 };
 
 interface BookingsManagerProps {
+  storeId?: string;
   year: number;
   month: number;
   monthData: MonthSummaryDay[];
   monthSchedule: MonthScheduleMap;
   servicePlans: ServicePlanOption[];
   readOnly?: boolean;
+  initialBookingId?: string | null;
 }
 
 export function BookingsManager({
+  storeId,
   year,
   month,
   monthData: initialMonthData,
   monthSchedule,
   servicePlans,
   readOnly = false,
+  initialBookingId = null,
 }: BookingsManagerProps) {
   // monthData lifted into client state so we can patch a single booking
   // optimistically (status flip / cancel) without re-fetching the entire
@@ -168,7 +179,9 @@ export function BookingsManager({
   const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useState<BookingFilters>(EMPTY_FILTERS);
-  const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
+  const [activeBookingId, setActiveBookingId] = useState<string | null>(
+    initialBookingId,
+  );
   const [activeSummary, setActiveSummary] = useState<BookingSummary | null>(
     null,
   );
@@ -179,11 +192,7 @@ export function BookingsManager({
   );
   // Shared client-side detail cache (SWR + dedupe), stable across renders.
   // Owned here so drawer actions can invalidate it centrally after mutations.
-  const detailCacheRef = useRef<BookingDetailCache | null>(null);
-  if (!detailCacheRef.current) {
-    detailCacheRef.current = createBookingDetailCache();
-  }
-  const detailCache = detailCacheRef.current;
+  const detailCache = useMemo(() => createBookingDetailCache(storeId), [storeId]);
 
   // Batch / inline action state
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
@@ -240,6 +249,24 @@ export function BookingsManager({
     return map;
   }, [monthData]);
 
+  const appliedDeepLinkIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialBookingId) {
+      if (appliedDeepLinkIdRef.current !== null) {
+        setActiveBookingId(null);
+        setActiveSummary(null);
+        setActivePrefill(null);
+      }
+      appliedDeepLinkIdRef.current = null;
+      return;
+    }
+    if (appliedDeepLinkIdRef.current === initialBookingId) return;
+    appliedDeepLinkIdRef.current = initialBookingId;
+    setActiveBookingId(initialBookingId);
+    setActiveSummary(summaryById.get(initialBookingId) ?? null);
+    setActivePrefill(prefillById.get(initialBookingId) ?? null);
+  }, [initialBookingId, prefillById, summaryById]);
+
   /**
    * Day panel bookings — derived from already-loaded `monthData`. Switching
    * date is now a pure client-side `useMemo` (no server round-trip), which
@@ -253,6 +280,8 @@ export function BookingsManager({
       id: b.id,
       slotTime: b.slotTime,
       people: b.people,
+      recurrenceIndex: b.recurrenceIndex,
+      recurrenceTotalOccurrences: b.recurrenceTotalOccurrences,
       customerConfirmedAt: b.customerConfirmedAt,
       attendedPeople: b.attendedPeople,
       isMakeup: b.isMakeup,
@@ -263,6 +292,7 @@ export function BookingsManager({
       trialDefaultPrice: b.trialDefaultPrice,
       collected: b.collected,
       collectedAmount: b.collectedAmount,
+      deductedPlanNames: b.deductedPlanNames,
       customer: b.customer,
       revenueStaff: b.revenueStaff,
       serviceStaff: b.serviceStaff,
@@ -628,6 +658,7 @@ export function BookingsManager({
       <BookingDetailDrawer
         open={!!activeBookingId}
         bookingId={activeBookingId}
+        resolvedStoreId={storeId}
         summary={activeSummary}
         prefill={activePrefill}
         cache={detailCache}

@@ -46,14 +46,14 @@ export function BirthdayFields({
   );
   const fieldClass =
     className ||
-    "h-12 w-full rounded-xl border border-earth-300 bg-white px-3 text-base text-earth-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500";
+    "h-12 min-w-0 w-full rounded-xl border border-earth-300 bg-white px-2 text-base text-earth-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 sm:px-3";
 
   return (
     <fieldset>
       <legend className="sr-only">生日年月日</legend>
       <input type="hidden" name="birthday" value={birthday} />
-      <div className="grid grid-cols-[1.3fr_1fr_1fr] gap-2">
-        <div>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2">
+        <div className="min-w-0">
           <label htmlFor="birthday-year" className="mb-1 block text-xs text-earth-500">年</label>
           <input
             id="birthday-year"
@@ -71,7 +71,7 @@ export function BirthdayFields({
             {years.map((value) => <option key={value} value={value}>{value}（民國 {value - 1911} 年）</option>)}
           </datalist>
         </div>
-        <div>
+        <div className="min-w-0">
           <label htmlFor="birthday-month" className="mb-1 block text-xs text-earth-500">月</label>
           <select
             id="birthday-month"
@@ -89,7 +89,7 @@ export function BirthdayFields({
             ))}
           </select>
         </div>
-        <div>
+        <div className="min-w-0">
           <label htmlFor="birthday-day" className="mb-1 block text-xs text-earth-500">日</label>
           <select
             id="birthday-day"

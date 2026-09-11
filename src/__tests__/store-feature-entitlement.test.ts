@@ -52,6 +52,19 @@ beforeEach(() => {
 });
 
 describe("hasStoreFeature", () => {
+  it("opens every registered feature for the isolated SPA Demo store", async () => {
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+
+    await expect(
+      hasStoreFeature("demo-store", FEATURES.DIGITAL_BUTLER),
+    ).resolves.toBe(true);
+    await expect(
+      hasStoreFeature("demo-store", FEATURES.BASIC_REPORTS),
+    ).resolves.toBe(true);
+    expect(mockGetStoreForPlanByStoreId).not.toHaveBeenCalled();
+    expect(mockEntitlementFindUnique).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["BASIC", false],
     ["GROWTH", true],
@@ -149,7 +162,7 @@ describe("hasStoreFeature", () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 
     await expect(
-      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+      hasStoreFeature("store-1", FEATURES.BASIC_REPORTS),
     ).resolves.toBe(true);
   });
 
@@ -158,17 +171,17 @@ describe("hasStoreFeature", () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 
     await expect(
-      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+      hasStoreFeature("store-1", FEATURES.BASIC_REPORTS),
     ).resolves.toBe(false);
   });
 
-  it("展店版進階報表無 entitlement 時，依方案預設可用", async () => {
+  it("展店版分析無 entitlement 時不可用", async () => {
     mockStore("ALLIANCE");
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 
     await expect(
-      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
-    ).resolves.toBe(true);
+      hasStoreFeature("store-1", FEATURES.BASIC_REPORTS),
+    ).resolves.toBe(false);
   });
 
   it("展店版進階報表被 HQ 關閉 entitlement 時，不可用", async () => {
@@ -177,7 +190,7 @@ describe("hasStoreFeature", () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 
     await expect(
-      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+      hasStoreFeature("store-1", FEATURES.BASIC_REPORTS),
     ).resolves.toBe(false);
   });
 
@@ -189,7 +202,7 @@ describe("hasStoreFeature", () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 
     await expect(
-      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+      hasStoreFeature("store-1", FEATURES.BASIC_REPORTS),
     ).resolves.toBe(false);
   });
 
@@ -201,7 +214,7 @@ describe("hasStoreFeature", () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 
     await expect(
-      hasStoreFeature("store-1", FEATURES.ADVANCED_REPORTS),
+      hasStoreFeature("store-1", FEATURES.BASIC_REPORTS),
     ).resolves.toBe(false);
   });
 

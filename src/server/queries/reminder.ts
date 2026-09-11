@@ -1,16 +1,40 @@
 import { prisma } from "@/lib/db";
 import type { CronRunStatus } from "@prisma/client";
 import { requireStaffSession } from "@/lib/session";
-import { dayRange, toLocalDateStr } from "@/lib/date-utils";
+import { addTaiwanDuration, dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { getActiveStoreForRead, validateStoreAccess } from "@/lib/store";
 import { AppError } from "@/lib/errors";
-import { todayReminderTriggerAt, tomorrowBookingDate } from "@/server/reminder-engine";
+import {
+  reminderTriggerAtForDate,
+  todayReminderTriggerAt,
+  tomorrowBookingDate,
+} from "@/server/reminder-engine";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 import {
   DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
   type SessionBalanceNotificationSettingValue,
 } from "@/lib/session-balance-notification-settings";
+import {
+  DEFAULT_PACKAGE_LINE_CARD_REMINDER,
+  PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
+  packageLineCardReminderSettingId,
+} from "@/lib/package-line-card-reminder-setting";
+import {
+  DEFAULT_TRIAL_LINE_CARD_REMINDER,
+  TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME,
+  trialLineCardReminderSettingId,
+} from "@/lib/trial-line-card-reminder-setting";
+import {
+  bookingReminderTypeSettingId,
+  parseBookingReminderTypeEnabled,
+  PACKAGE_REMINDER_ENABLED_TEMPLATE_NAME,
+  TRIAL_REMINDER_ENABLED_TEMPLATE_NAME,
+} from "@/lib/booking-reminder-type-setting";
+import {
+  parsePlanExpiryReminderEnabled,
+  planExpiryReminderSettingId,
+} from "@/lib/plan-expiry-reminder-setting";
 
 // ============================================================
 // ReminderRule queries
@@ -41,17 +65,31 @@ export async function listReminderRules(storeId: string) {
  */
 export async function getStoreReminderState(storeId: string): Promise<{
   enabled: boolean;
+  packageBookingEnabled: boolean;
+  trialBookingEnabled: boolean;
   canonicalTemplateId: string | null;
 }> {
   const authorizedStoreId = await resolveReminderReadStore(storeId);
-  const rules = await prisma.reminderRule.findMany({
-    where: { storeId: authorizedStoreId },
-    orderBy: { createdAt: "asc" },
-    select: { isEnabled: true, templateId: true },
-  });
+  const [rules, packageSetting, trialSetting] = await Promise.all([
+    prisma.reminderRule.findMany({
+      where: { storeId: authorizedStoreId },
+      orderBy: { createdAt: "asc" },
+      select: { isEnabled: true, templateId: true },
+    }),
+    prisma.messageTemplate.findUnique({
+      where: { id: bookingReminderTypeSettingId(authorizedStoreId, "PACKAGE") },
+      select: { body: true },
+    }),
+    prisma.messageTemplate.findUnique({
+      where: { id: bookingReminderTypeSettingId(authorizedStoreId, "TRIAL") },
+      select: { body: true },
+    }),
+  ]);
   const canonical = rules.find((r) => r.isEnabled) ?? rules[0] ?? null;
   return {
     enabled: rules.some((r) => r.isEnabled),
+    packageBookingEnabled: parseBookingReminderTypeEnabled(packageSetting?.body),
+    trialBookingEnabled: parseBookingReminderTypeEnabled(trialSetting?.body),
     canonicalTemplateId: canonical?.templateId ?? null,
   };
 }
@@ -74,6 +112,15 @@ export async function getSessionBalanceNotificationSetting(
     },
   });
   return setting ?? { ...DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING };
+}
+
+export async function getPlanExpiryReminderEnabled(storeId: string): Promise<boolean> {
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
+  const setting = await prisma.messageTemplate.findUnique({
+    where: { id: planExpiryReminderSettingId(authorizedStoreId) },
+    select: { body: true },
+  });
+  return parsePlanExpiryReminderEnabled(setting?.body);
 }
 
 export async function getLineSmokeTestContext(storeId: string): Promise<{
@@ -108,7 +155,10 @@ export async function getLineSmokeTestContext(storeId: string): Promise<{
 export async function listMessageTemplates(storeId: string) {
   const authorizedStoreId = await resolveReminderReadStore(storeId);
   return prisma.messageTemplate.findMany({
-    where: { storeId: authorizedStoreId },
+    where: {
+      storeId: authorizedStoreId,
+      name: { notIn: [PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME, TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME, PACKAGE_REMINDER_ENABLED_TEMPLATE_NAME, TRIAL_REMINDER_ENABLED_TEMPLATE_NAME] },
+    },
     include: { _count: { select: { logs: true, rules: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -121,6 +171,43 @@ export async function getMessageTemplate(id: string, storeId: string) {
     include: { rules: { select: { id: true, name: true } } },
   });
   return template;
+}
+
+export async function getPackageLineCardReminderSetting(
+  storeId: string,
+): Promise<string> {
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
+  const setting = await prisma.messageTemplate.findUnique({
+    where: {
+      id: packageLineCardReminderSettingId(authorizedStoreId),
+      storeId: authorizedStoreId,
+    },
+    select: { body: true },
+  });
+  return setting?.body ?? DEFAULT_PACKAGE_LINE_CARD_REMINDER;
+}
+
+export async function getTrialLineCardReminderSetting(
+  storeId: string,
+): Promise<{ body: string; mapUrl: string }> {
+  const authorizedStoreId = await resolveReminderReadStore(storeId);
+  const [setting, config] = await Promise.all([
+    prisma.messageTemplate.findUnique({
+      where: {
+        id: trialLineCardReminderSettingId(authorizedStoreId),
+        storeId: authorizedStoreId,
+      },
+      select: { body: true },
+    }),
+    prisma.shopConfig.findUnique({
+      where: { storeId: authorizedStoreId },
+      select: { mapUrl: true },
+    }),
+  ]);
+  return {
+    body: setting?.body?.trim() || DEFAULT_TRIAL_LINE_CARD_REMINDER,
+    mapUrl: config?.mapUrl?.trim() || "",
+  };
 }
 
 // ============================================================
@@ -214,13 +301,22 @@ export async function getReminderStats(activeStoreId?: string | null) {
   const today = toLocalDateStr();
   const { start: todayStart, end: todayEnd } = dayRange(today);
 
-  const [enabledRules, todaySent, todayFailed] = await Promise.all([
+  const automaticLogFilter = {
+    createdAt: { gte: todayStart, lte: todayEnd },
+    ruleId: { not: null },
+    channel: "LINE" as const,
+    ...storeFilter,
+  };
+  const [enabledRules, todaySent, todaySkipped, todayFailed] = await Promise.all([
     prisma.reminderRule.count({ where: { isEnabled: true, ...storeFilter } }),
     prisma.messageLog.count({
-      where: { status: "SENT", createdAt: { gte: todayStart, lte: todayEnd }, ...storeFilter },
+      where: { status: "SENT", ...automaticLogFilter },
     }),
     prisma.messageLog.count({
-      where: { status: "FAILED", createdAt: { gte: todayStart, lte: todayEnd }, ...storeFilter },
+      where: { status: "SKIPPED", ...automaticLogFilter },
+    }),
+    prisma.messageLog.count({
+      where: { status: "FAILED", ...automaticLogFilter },
     }),
   ]);
 
@@ -276,7 +372,44 @@ export async function getReminderStats(activeStoreId?: string | null) {
     }
   }
 
-  return { enabledRules, todayPending, todaySent, todayFailed };
+  return { enabledRules, todayPending, todaySent, todaySkipped, todayFailed };
+}
+
+export async function getStoreReminderHealthResult(activeStoreId?: string | null) {
+  const storeId = await resolveReminderReadStore(activeStoreId);
+  const now = new Date();
+  const today = toLocalDateStr(now);
+  const todayTrigger = todayReminderTriggerAt(now);
+  const batchDate = now < todayTrigger
+    ? addTaiwanDuration(today, -1, "DAY")
+    : today;
+  const triggerAt = reminderTriggerAtForDate(batchDate);
+  const { start: batchStart, end: batchEnd } = dayRange(batchDate);
+  const baseWhere = {
+    storeId,
+    triggerAt,
+    ruleId: { not: null },
+    channel: "LINE" as const,
+  };
+  const [sent, skipped, failed, run] = await Promise.all([
+    prisma.messageLog.count({ where: { ...baseWhere, status: "SENT" } }),
+    prisma.messageLog.count({ where: { ...baseWhere, status: "SKIPPED" } }),
+    prisma.messageLog.count({ where: { ...baseWhere, status: "FAILED" } }),
+    prisma.cronRunLog.findFirst({
+      where: {
+        jobName: REMINDER_JOB_NAME,
+        startedAt: { gte: batchStart, lte: batchEnd },
+      },
+      orderBy: { startedAt: "desc" },
+      select: { status: true },
+    }),
+  ]);
+  const phase: CronRunBannerPhase = !run
+    ? "MISSING"
+    : run.status === "STARTED"
+      ? "STARTED_STUCK"
+      : run.status;
+  return { batchDate, sent, skipped, failed, phase };
 }
 
 async function resolveReminderReadStore(

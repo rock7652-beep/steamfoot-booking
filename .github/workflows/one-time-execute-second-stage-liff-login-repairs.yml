@@ -1,0 +1,33 @@
+name: Execute second-stage LIFF login repairs
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/second-stage-liff-login-repair-request.json]
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      SECOND_STAGE_EXPECTED_COUNT: "43"
+      SECOND_STAGE_EXPECTED_FINGERPRINT: 5793c471f1a99b877081e77b4ec97f8abf39cf5da657579af2c6e3111142076b
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Verify protected data is outside mutation boundary
+        run: |
+          test "$(grep -Ec 'customerPlanWallet\.(create|update|delete)|booking\.(create|update|delete)|customerHealthRecord\.(create|update|delete)' scripts/execute-second-stage-liff-login-repairs.ts)" -eq 0
+          test "$(grep -Ec 'tx\.customer\.(update|updateMany).*lineUserId|data:.*lineUserId.*tx\.customer' scripts/execute-second-stage-liff-login-repairs.ts)" -eq 0
+      - run: npx tsx scripts/execute-second-stage-liff-login-repairs.ts

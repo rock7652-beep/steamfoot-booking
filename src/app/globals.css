@@ -57,6 +57,21 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* LIFF customer experience 2.0 — calm, consistent, 40+ friendly typography. */
+.liff-customer-ui {
+  --liff-text-title: 24px;
+  --liff-text-section: 18px;
+  --liff-text-body: 16px;
+  --liff-text-supporting: 14px;
+  font-size: var(--liff-text-body);
+  line-height: 1.6;
+}
+
+.liff-customer-ui .liff-supporting-text {
+  font-size: var(--liff-text-supporting);
+  line-height: 1.55;
+}
+
 /* Smooth sidebar transition */
 .sidebar-transition {
   transition: width 200ms ease, transform 200ms ease;

@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeWebStoreSlug } from "@/lib/line-oauth/web-store-context";
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 
@@ -7,17 +8,14 @@ export function OAuthButtons({ storeSlug = "zhubei" }: { storeSlug?: string }) {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
 
   async function handleSignIn(provider: string) {
+    const loginSlug = provider === "line" ? normalizeWebStoreSlug(storeSlug) : storeSlug;
     setLoadingProvider(provider);
     try {
-      // Taiwan owns a separate LINE Login channel.  Do not set the legacy
-      // global store cookie or call Auth.js's global `line` provider here.
-      if (provider === "line" && storeSlug === "taichung") {
-        window.location.assign("/api/line-oauth/taichung/start");
-        return;
-      }
+      // All store web logins use the central LINE provider. Preserve the
+      // originating store for the verified, store-scoped member resolver.
       // B7-4: 設定 cookie 讓 auth signIn callback 知道 store context
-      document.cookie = `oauth-store-slug=${storeSlug};path=/;max-age=600;samesite=lax`;
-      await signIn(provider, { callbackUrl: `/s/${storeSlug}/book` });
+      document.cookie = `oauth-store-slug=${loginSlug};path=/;max-age=600;samesite=lax`;
+      await signIn(provider, { callbackUrl: `/s/${loginSlug}/book` });
     } catch {
       setLoadingProvider(null);
     }

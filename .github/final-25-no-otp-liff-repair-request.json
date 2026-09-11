@@ -1,0 +1,9 @@
+{
+  "authorizedBy": "owner",
+  "authorizedAt": "2026-08-29T00:22:00+08:00",
+  "mode": "atomic-exact-snapshot-no-otp-repair",
+  "candidateCount": 25,
+  "candidateFingerprint": "120979251f07d2efe6329ba8ff83fe0cbc65f5fc493184580fb7b97a8d466bd9",
+  "manualCount": 0,
+  "preserve": ["plans", "bookings", "healthRecords", "notificationBinding"]
+}

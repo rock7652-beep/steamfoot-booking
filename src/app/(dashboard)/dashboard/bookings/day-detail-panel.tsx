@@ -8,12 +8,16 @@ import { TrialBookingDrawer } from "../_components/trial-booking-drawer";
 import { resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { remainingSessionsState } from "@/lib/remaining-sessions-label";
+import { bookingPlanBadge } from "@/lib/wallet-booking-integrity";
+import { bookingPlanExpiry } from "@/lib/booking-plan-expiry";
 import type { SlotAvailability } from "@/types";
 
 export interface DayBooking {
   id: string;
   slotTime: string;
   people: number;
+  recurrenceIndex?: number | null;
+  recurrenceTotalOccurrences?: number | null;
   /** 顧客透過提醒連結確認會到；有值時門市預約清單顯示確認標記。 */
   customerConfirmedAt?: Date | null;
   /** PR-3d：實際到店人數（FIRST_TRIAL；null = 未記錄／全到）。
@@ -31,6 +35,8 @@ export interface DayBooking {
   trialDefaultPrice: number | null;
   collected: boolean;
   collectedAmount: number | null;
+  /** 本次成功 SESSION_DEDUCTION 實際扣除的方案名稱；交易紀錄為準。 */
+  deductedPlanNames?: string[];
   customer: {
     name: string;
     phone: string;
@@ -46,7 +52,12 @@ export interface DayBooking {
   servicePlan: { name: string } | null;
   /** PACKAGE_SESSION 預約實際使用的方案 — 來自 wallet 關聯（後台建立流程
    *  不寫 servicePlanId，正解走 customerPlanWallet.plan.name）。 */
-  customerPlanWallet: { plan: { name: string } } | null;
+  customerPlanWallet: {
+    status: string;
+    remainingSessions: number;
+    expiryDate: Date | null;
+    plan: { name: string };
+  } | null;
 }
 
 /** Statuses that can still be moved to COMPLETED — defines who shows the
@@ -154,12 +165,12 @@ export function DayDetailPanel({
     <div className="flex h-full flex-col">
       {/* 頂部：精簡 KPI chip 列（固定，不跟著清單捲動）。
           日期已在 Drawer 標題顯示，這裡不再重複，把高度讓給名單。
-          窄版用 overflow-x-auto + whitespace-nowrap 橫向滑動，不換多排。 */}
+          六項統計固定三欄兩排；欄內可換行，放大文字時仍完整顯示。 */}
       <div className="shrink-0 px-4 pt-3">
-        <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-1">
+        <div className="grid grid-cols-3 gap-2 pb-1">
           <KpiChip label="預約" value={stats.total} />
           <KpiChip label="到店" value={stats.checkedIn} />
-          <KpiChip label="完成" value={stats.completed} />
+          <KpiChip label="完成人數" value={stats.completed} />
           <KpiChip
             label="未到人數"
             value={stats.noShow}
@@ -172,7 +183,7 @@ export function DayDetailPanel({
             tone={stats.makeup > 0 ? "warning" : "default"}
           />
           {filteredFrom != null && (
-            <span className="ml-auto inline-flex h-[22px] shrink-0 items-center rounded-full bg-primary-50 px-2 text-[11px] font-semibold text-primary-700">
+            <span className="col-span-3 justify-self-end rounded-full bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700">
               篩選中 {stats.total}/{filteredFrom}
             </span>
           )}
@@ -340,6 +351,13 @@ function TimelineItem({
   const meta = bookingStatusMeta(booking.bookingStatus, booking.isCheckedIn);
   // 有效 PACKAGE 堂數提醒（複用 PR #280 顧客清單同款 helper，定義一致）。
   const sessions = remainingSessionsState(booking.customer?.validPackageSessions ?? 0);
+  const planBadge = bookingPlanBadge({
+    bookingType: booking.bookingType,
+    bookingStatus: booking.bookingStatus,
+    collected: booking.collected,
+    linkedWalletRemaining: booking.customer?.validPackageSessions ?? 0,
+    isMakeup: booking.isMakeup,
+  });
   const borderColor =
     meta.variant === "success"
       ? "border-l-green-500"
@@ -372,14 +390,21 @@ function TimelineItem({
     if (display != null) trialAmountText = display.toLocaleString();
   }
   // 方案來源 fallback chain：
-  //   1) servicePlan.name — 罕見，僅在 caller 明確指定 servicePlanId 時有值
-  //   2) customerPlanWallet.plan.name — 後台 PACKAGE_SESSION 正解（FEFO 綁定的 wallet）
+  //   1) customerPlanWallet.plan.name — 與剩餘堂數、到期日使用相同的綁定方案
+  //   2) servicePlan.name — 未綁定 wallet 時的服務名稱
   //   3) 補課（沒方案）→ 「補課」
   //   4) 其他 → 「—」
   const planLabel =
-    booking.servicePlan?.name
-    ?? booking.customerPlanWallet?.plan?.name
+    booking.customerPlanWallet?.plan?.name
+    ?? booking.servicePlan?.name
     ?? (booking.isMakeup ? "補課" : "—");
+  const expiry = booking.bookingType === "PACKAGE_SESSION" && !booking.isMakeup
+    ? bookingPlanExpiry(booking.customerPlanWallet?.expiryDate)
+    : null;
+  const deductedPlanNames = booking.deductedPlanNames ?? [];
+  const deductedPlanLabel = deductedPlanNames.length > 0
+    ? deductedPlanNames.join("＋")
+    : planLabel;
 
   function handleBodyClick() {
     if (isActing) return;
@@ -416,11 +441,12 @@ function TimelineItem({
       <button
         type="button"
         onClick={handleBodyClick}
+        aria-label={`查看 ${booking.slotTime} ${booking.customer?.name ?? "預約"} 的預約詳情`}
         disabled={!onClick || isActing}
-        className="flex min-w-0 flex-1 flex-col gap-1 py-2.5 text-left disabled:cursor-default"
+        className="flex min-w-0 flex-1 flex-col gap-2 py-3 text-left disabled:cursor-default"
       >
-        <div className="flex items-center gap-2">
-          <span className="shrink-0 text-sm font-bold tabular-nums text-earth-900">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <span className="shrink-0 text-base font-bold tabular-nums text-earth-900">
             {booking.slotTime}
           </span>
           {booking.people > 1 && (
@@ -431,61 +457,81 @@ function TimelineItem({
           {booking.people > 1 &&
             booking.attendedPeople != null &&
             booking.attendedPeople < booking.people && (
-              <span className="shrink-0 text-[11px] font-medium text-amber-700">
+              <span className="shrink-0 text-sm font-medium text-amber-700">
                 （實到 {booking.attendedPeople}/{booking.people}）
               </span>
             )}
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-earth-900">
+          <span className="min-w-0 flex-1 basis-24 break-words text-base font-semibold text-earth-900">
             {booking.customer?.name ?? "—"}
           </span>
           <span className="shrink-0 text-xs text-earth-500">
             {assignedStaffName}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
           </StatusBadge>
           {booking.customerConfirmedAt ? (
-            <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-800">
+            <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-sm font-medium text-sky-800">
               顧客已確認會到
+            </span>
+          ) : null}
+          {booking.recurrenceIndex && booking.recurrenceTotalOccurrences ? (
+            <span className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-sm font-medium text-violet-800">
+              每週固定・第 {booking.recurrenceIndex}/{booking.recurrenceTotalOccurrences} 次
             </span>
           ) : null}
           {booking.bookingType === "FIRST_TRIAL" ? (
             booking.collected ? (
-              <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800">
+              <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-sm font-medium text-emerald-800">
                 體驗·已收款｜NT${trialAmountText}
               </span>
             ) : (
-              <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
+              <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800">
                 體驗·未收款｜NT${trialAmountText}
               </span>
             )
           ) : null}
-          {/* 有效堂數提醒（緊接狀態，讀作「預約中｜剩 N 堂」）。輕量呈現：
-              1–3 堂亮黃「提醒儲值」；≥4 堂淡色「剩 N 堂」；無有效方案極淡灰字。 */}
-          {sessions.hasValid ? (
+          {/* 只有待到店的套餐預約才顯示目前剩餘堂數；歷史預約顯示本次
+              是否已扣堂。體驗／單次不顯示方案警示。 */}
+          {planBadge.kind === "remaining" ? (
             <span
               className={
                 sessions.isLow
-                  ? "shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800"
-                  : "shrink-0 text-[11px] font-medium text-earth-600"
+                  ? "shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800"
+                  : "shrink-0 text-sm font-medium text-earth-600"
               }
             >
               {sessions.isLow
-                ? `剩 ${sessions.total} 堂｜提醒儲值`
-                : `剩 ${sessions.total} 堂`}
+                ? `剩 ${planBadge.sessions} 堂｜提醒儲值`
+                : `剩 ${planBadge.sessions} 堂`}
             </span>
-          ) : (
-            <span className="shrink-0 text-[11px] text-earth-300">無有效方案</span>
-          )}
-          <span className="min-w-0 flex-1 truncate text-xs text-earth-500">
-            {planLabel}
-          </span>
+          ) : planBadge.kind === "deducted" ? (
+            <span className="w-full break-words text-sm font-medium text-emerald-700">
+              已扣堂｜方案：{deductedPlanLabel}
+            </span>
+          ) : planBadge.kind === "not_deducted" ? (
+            <span className="shrink-0 text-sm text-earth-500">未扣堂</span>
+          ) : planBadge.kind === "needs_review" ? (
+            <span className="shrink-0 rounded bg-red-50 px-1.5 py-0.5 text-sm font-medium text-red-700">
+              方案待核對
+            </span>
+          ) : null}
         </div>
+        {booking.bookingType === "FIRST_TRIAL" ? (
+          <span className="w-full text-sm leading-relaxed text-earth-600">
+            服務：首次體驗
+          </span>
+        ) : planBadge.kind !== "deducted" && planLabel !== "—" ? (
+          <span className="flex w-full min-w-0 items-baseline gap-1 text-sm leading-relaxed text-earth-600">
+            <span className="min-w-0 truncate" title={planLabel}>{planLabel}</span>
+            {expiry && <span className={`shrink-0 whitespace-nowrap ${expiry.className}`}>· {expiry.compact}</span>}
+          </span>
+        ) : null}
         {/* 內部服務備註提醒（後台限定）— 有值才顯示一行截斷，沒值不佔空間 */}
         {booking.customer?.serviceNote ? (
-          <div className="flex items-center gap-1 text-[11px] text-amber-700">
+          <div className="flex items-center gap-1 text-sm text-amber-700">
             <span aria-hidden>📝</span>
             <span className="min-w-0 flex-1 truncate">
               {booking.customer.serviceNote}
@@ -494,9 +540,8 @@ function TimelineItem({
         ) : null}
       </button>
 
-      {/* Inline actions — show 完成 only on actionable rows, 查看 always
-          (acts as a backup affordance to the body click). */}
-      <div className="flex shrink-0 items-center gap-1.5 py-2.5">
+      {/* 整列可開啟詳情時不重複放查看按鈕；無 callback 時保留連結。 */}
+      <div className="flex shrink-0 flex-col justify-center gap-2 py-3">
         {actionable && onCompleteSingle ? (
           <button
             type="button"
@@ -505,31 +550,19 @@ function TimelineItem({
               if (!isActing) onCompleteSingle(booking.id);
             }}
             disabled={isActing}
-            className="inline-flex h-7 items-center rounded-md bg-primary-600 px-2.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md bg-primary-600 px-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
           >
             {isActing ? "..." : "完成"}
           </button>
         ) : null}
-        {onClick ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isActing) onClick(booking.id);
-            }}
-            disabled={isActing}
-            className="inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50 disabled:opacity-60"
-          >
-            查看
-          </button>
-        ) : (
+        {!onClick ? (
           <Link
             href={`/dashboard/bookings/${booking.id}`}
-            className="inline-flex h-7 items-center rounded-md border border-earth-300 bg-white px-2.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
+            className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
             查看
           </Link>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -553,9 +586,9 @@ function KpiChip({
         ? "text-amber-600"
         : "text-earth-900";
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-earth-200 bg-earth-50 px-2.5 py-1 text-xs">
+    <span className="inline-flex min-w-0 flex-wrap items-center justify-between gap-x-1 gap-y-0.5 rounded-lg border border-earth-200 bg-earth-50 px-2.5 py-1.5 text-xs">
       <span className="text-earth-500">{label}</span>
-      <span className={`font-bold tabular-nums ${valueColor}`}>{value}</span>
+      <span className={`min-w-0 break-all font-bold tabular-nums ${valueColor}`}>{value}</span>
     </span>
   );
 }
@@ -680,9 +713,13 @@ function computeStats(bookings: DayBooking[]) {
   for (const b of bookings) {
     stats.people += b.people;
     if (b.isCheckedIn) stats.checkedIn++;
-    if (b.bookingStatus === "COMPLETED") stats.completed++;
+    if (b.bookingStatus === "COMPLETED") {
+      stats.completed += b.attendedPeople ?? b.people;
+      stats.noShow += Math.max(0, b.people - (b.attendedPeople ?? b.people));
+    }
     if (b.bookingStatus === "NO_SHOW") stats.noShow += b.people;
     if (b.isMakeup) stats.makeup++;
   }
   return stats;
 }
+

@@ -1,8 +1,10 @@
+import { LINE_CARD_COLORS, LINE_CARD_STYLES } from "@/lib/line-card-theme";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { deriveBaseUrl } from "@/lib/base-url";
 import {
   DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+  extractSessionBalanceCustomCopy,
   renderSessionBalanceTemplate,
   type SessionBalanceNotificationSettingValue,
 } from "@/lib/session-balance-notification-settings";
@@ -12,7 +14,11 @@ import {
   type LineMessage,
 } from "@/lib/line";
 import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
-import { decideSessionBalanceNotification } from "@/server/services/session-balance-notification-policy";
+import { todayRange } from "@/lib/date-utils";
+import {
+  decideCustomerSessionBalanceNotification,
+  shouldDispatchCustomerSessionBalanceNotification,
+} from "@/server/services/session-balance-notification-policy";
 import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
 
 type Tx = Prisma.TransactionClient;
@@ -28,7 +34,8 @@ export async function enqueueSessionBalanceNotifications(
   const walletIds = [...new Set(input.walletIds)];
   if (walletIds.length === 0) return [];
 
-  const [wallets, activeContinuationWallets, setting] = await Promise.all([
+  const { start: todayStart } = todayRange();
+  const [wallets, validWallets, setting] = await Promise.all([
     tx.customerPlanWallet.findMany({
       where: {
         id: { in: walletIds },
@@ -43,8 +50,10 @@ export async function enqueueSessionBalanceNotifications(
         storeId: input.storeId,
         status: "ACTIVE",
         remainingSessions: { gt: 0 },
+        plan: { category: "PACKAGE" },
+        OR: [{ expiryDate: null }, { expiryDate: { gte: todayStart } }],
       },
-      select: { id: true },
+      select: { id: true, remainingSessions: true },
     }),
     tx.sessionBalanceNotificationSetting.findUnique({
       where: { storeId: input.storeId },
@@ -57,32 +66,28 @@ export async function enqueueSessionBalanceNotifications(
   ]);
   const effectiveSetting = setting ?? DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING;
   if (!effectiveSetting.isEnabled) return [];
-  const activeContinuationIds = new Set(
-    activeContinuationWallets.map((wallet) => wallet.id),
+  const totalRemainingSessions = validWallets.reduce(
+    (sum, wallet) => sum + wallet.remainingSessions,
+    0,
   );
-
-  const candidates = wallets.flatMap((wallet) => {
-    const decision = decideSessionBalanceNotification({
-      remainingSessions: wallet.remainingSessions,
-      hasContinuationPlan: [...activeContinuationIds].some(
-        (walletId) => walletId !== wallet.id,
-      ),
-    });
-    const typeEnabled =
-      decision.type === "LAST_SESSION"
-        ? effectiveSetting.lastSessionEnabled
-        : decision.type === "PLAN_USED_UP"
-          ? effectiveSetting.planUsedUpEnabled
-          : false;
-    return decision.type && typeEnabled
-      ? [{
-          storeId: input.storeId,
-          customerId: input.customerId,
-          walletId: wallet.id,
-          type: decision.type,
-        }]
-      : [];
-  });
+  const decision = decideCustomerSessionBalanceNotification({ totalRemainingSessions });
+  const typeEnabled =
+    decision.type === "LAST_SESSION"
+      ? effectiveSetting.lastSessionEnabled
+      : decision.type === "PLAN_USED_UP"
+        ? effectiveSetting.planUsedUpEnabled
+        : false;
+  const notificationWallet = decision.type === "LAST_SESSION"
+    ? validWallets.find((wallet) => wallet.remainingSessions === 1)
+    : wallets.find((wallet) => wallet.remainingSessions === 0);
+  const candidates = decision.type && typeEnabled && notificationWallet
+    ? [{
+        storeId: input.storeId,
+        customerId: input.customerId,
+        walletId: notificationWallet.id,
+        type: decision.type,
+      }]
+    : [];
   if (candidates.length === 0) return [];
 
   await tx.sessionBalanceNotification.createMany({
@@ -101,7 +106,9 @@ export async function enqueueSessionBalanceNotifications(
   return pending.map((notification) => notification.id);
 }
 
-function buildMessages(input: {
+const SESSION_BALANCE_CARD_COLORS = LINE_CARD_COLORS;
+
+export function buildSessionBalanceLineMessages(input: {
   type: "LAST_SESSION" | "PLAN_USED_UP";
   customerName: string;
   planName: string;
@@ -121,44 +128,137 @@ function buildMessages(input: {
     const template = input.reservedBooking
       ? input.setting.lastSessionBookedTemplate
       : input.setting.lastSessionUnbookedTemplate;
-    const body = renderSessionBalanceTemplate(template, variables);
-    return { body, messages: [{ type: "text", text: body }] };
+    const body = renderSessionBalanceTemplate(
+      extractSessionBalanceCustomCopy(template),
+      variables,
+    );
+    return {
+      body,
+      messages: [{
+        type: "flex",
+        altText: `${input.customerName} 您好，您的「${input.planName}」剩下最後 1 堂。`,
+        contents: {
+          type: "bubble",
+      styles: LINE_CARD_STYLES,
+          header: {
+            type: "box",
+            layout: "vertical",
+            backgroundColor: SESSION_BALANCE_CARD_COLORS.headerBackground,
+            paddingAll: "16px",
+            contents: [
+              { type: "text", text: "蒸管家｜堂數提醒", color: SESSION_BALANCE_CARD_COLORS.headerText, weight: "bold", size: "lg", wrap: true },
+              { type: "text", text: "方案剩餘最後 1 堂", color: SESSION_BALANCE_CARD_COLORS.headerSubtext, size: "sm", margin: "sm" },
+            ],
+          },
+          body: {
+            type: "box",
+            layout: "vertical",
+            spacing: "md",
+            contents: [
+              { type: "text", text: `${input.customerName} 您好`, color: LINE_CARD_COLORS.primary, wrap: true, weight: "bold", size: "lg" },
+              { type: "separator" },
+              { type: "text", text: "方案名稱", color: LINE_CARD_COLORS.label, size: "sm" },
+              { type: "text", text: input.planName, color: LINE_CARD_COLORS.text, size: "md", weight: "bold", wrap: true },
+              ...(input.reservedBooking
+                ? [
+                    { type: "text" as const, text: "已預約時間", color: LINE_CARD_COLORS.label, size: "sm" as const },
+                    { type: "text" as const, text: variables.bookingDateTime, color: LINE_CARD_COLORS.text, size: "md" as const, wrap: true },
+                  ]
+                : []),
+              { type: "separator" },
+              { type: "text", text: body, color: LINE_CARD_COLORS.text, size: "sm", wrap: true },
+            ],
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: [
+              ...(!input.reservedBooking
+                ? [{
+                    type: "button" as const,
+                    style: "primary" as const,
+                    color: SESSION_BALANCE_CARD_COLORS.primary,
+                    action: { type: "uri" as const, label: "立即預約", uri: variables.bookingUrl },
+                  }]
+                : []),
+              {
+                type: "button",
+                style: "link",
+                color: SESSION_BALANCE_CARD_COLORS.secondary,
+                action: { type: "message", label: "諮詢店長", text: SESSION_BALANCE_VIP_COMMAND },
+              },
+            ],
+          },
+        },
+      }],
+    };
   }
 
   const body = renderSessionBalanceTemplate(
-    input.setting.planUsedUpTemplate,
+    extractSessionBalanceCustomCopy(input.setting.planUsedUpTemplate),
     variables,
   );
+  const topUpButtonLabel = input.setting.learnMoreButtonLabel === "了解蒸足 VIP 方案"
+    ? "我要儲值"
+    : input.setting.learnMoreButtonLabel;
   return {
     body,
     messages: [{
-      type: "text",
-      text: body,
-      quickReply: {
-        items: [
+      type: "flex",
+      altText: `${input.customerName} 您好，您的「${input.planName}」方案已使用完畢。`,
+      contents: {
+        type: "bubble",
+      styles: LINE_CARD_STYLES,
+        header: {
+          type: "box",
+          layout: "vertical",
+          backgroundColor: SESSION_BALANCE_CARD_COLORS.headerBackground,
+          paddingAll: "16px",
+          contents: [
+            { type: "text", text: "蒸管家｜方案提醒", color: SESSION_BALANCE_CARD_COLORS.headerText, weight: "bold", size: "lg", wrap: true },
+            { type: "text", text: "本期方案已完成", color: SESSION_BALANCE_CARD_COLORS.headerSubtext, size: "sm", margin: "sm" },
+          ],
+        },
+        body: {
+          type: "box",
+          layout: "vertical",
+          spacing: "md",
+          contents: [
+            { type: "text", text: `${input.customerName} 您好`, color: LINE_CARD_COLORS.primary, wrap: true, weight: "bold", size: "lg" },
+            { type: "separator" },
+            { type: "text", text: "已完成方案", color: LINE_CARD_COLORS.label, size: "sm" },
+            { type: "text", text: input.planName, color: LINE_CARD_COLORS.text, size: "md", weight: "bold", wrap: true },
+            { type: "separator" },
+            { type: "text", text: body, color: LINE_CARD_COLORS.text, size: "sm", wrap: true },
+          ],
+        },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          spacing: "sm",
+          contents: [
           {
-            type: "action",
-            action: {
-              type: "message",
-              label: input.setting.learnMoreButtonLabel,
-              text: "了解蒸足 VIP 方案",
-            },
+            type: "button",
+            style: "primary",
+            color: SESSION_BALANCE_CARD_COLORS.primary,
+            action: { type: "message", label: topUpButtonLabel, text: SESSION_BALANCE_TOP_UP_COMMAND },
           },
           {
-            type: "action",
-            action: {
-              type: "message",
-              label: input.setting.laterButtonLabel,
-              text: "之後再看看",
-            },
+            type: "button",
+            style: "link",
+            color: SESSION_BALANCE_CARD_COLORS.secondary,
+            action: { type: "message", label: "諮詢店長", text: SESSION_BALANCE_VIP_COMMAND },
           },
-        ],
+          ],
+        },
       },
     }],
   };
 }
 
 export const SESSION_BALANCE_VIP_COMMAND = "了解蒸足 VIP 方案";
+export const SESSION_BALANCE_TOP_UP_COMMAND = "我要儲值";
 export const SESSION_BALANCE_LATER_COMMAND = "之後再看看";
 
 export type SessionBalanceResponseResult =
@@ -175,7 +275,7 @@ export async function handleSessionBalanceLineResponse(input: {
   text: string;
 }): Promise<SessionBalanceResponseResult> {
   const response =
-    input.text === SESSION_BALANCE_VIP_COMMAND
+    input.text === SESSION_BALANCE_VIP_COMMAND || input.text === SESSION_BALANCE_TOP_UP_COMMAND
       ? "VIP_INTEREST"
       : input.text === SESSION_BALANCE_LATER_COMMAND
         ? "LATER"
@@ -389,6 +489,33 @@ export async function dispatchSessionBalanceNotifications(
       });
       if (!notification) continue;
 
+      const { start: todayStart } = todayRange();
+      const validWallets = await prisma.customerPlanWallet.findMany({
+        where: {
+          customerId: notification.customerId,
+          storeId: notification.storeId,
+          status: "ACTIVE",
+          remainingSessions: { gt: 0 },
+          plan: { category: "PACKAGE" },
+          OR: [{ expiryDate: null }, { expiryDate: { gte: todayStart } }],
+        },
+        select: { id: true, remainingSessions: true },
+      });
+      if (!shouldDispatchCustomerSessionBalanceNotification({
+        type: notification.type,
+        notificationWalletId: notification.walletId,
+        validWallets,
+      })) {
+        await prisma.sessionBalanceNotification.update({
+          where: { id },
+          data: {
+            status: "SKIPPED",
+            errorMessage: "顧客有效方案總堂數已變更，未發送續購提醒",
+          },
+        });
+        continue;
+      }
+
       const setting =
         notification.store.sessionBalanceNotificationSetting ??
         DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING;
@@ -418,7 +545,7 @@ export async function dispatchSessionBalanceNotifications(
           : null,
         centralRecipient,
       );
-      const content = buildMessages({
+      const content = buildSessionBalanceLineMessages({
         type: notification.type,
         customerName: notification.customer.name,
         planName: notification.wallet.plan.name,

@@ -33,7 +33,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
     checkPermission(user.role, user.staffId, "booking.update"),
     checkPermission(user.role, user.staffId, "transaction.create"),
   ]);
-  return <PageShell className="px-4 py-6">
+  return <PageShell className="max-w-none px-4 py-6">
     <SpaScheduleWorkspace key={date} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}
       locations={locations} canCreate={canCreate} canUpdate={canUpdate} canCheckout={canCheckout&&canUpdate}
       treatments={treatments.map(t => ({ id: t.id, name: t.name, price: Number(t.price), serviceMinutes: t.serviceMinutes,

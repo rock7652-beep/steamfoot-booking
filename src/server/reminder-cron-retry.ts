@@ -113,7 +113,7 @@ export type { CronRunStatus };
  *   2. result === null → OK_EMPTY（防御性：retry path 理論上一定 await runReminders，
  *      但若某天有 bug 讓 result 缺失，給 EMPTY 比 OK 安全）
  *   3. total === 0 → OK_EMPTY（engine 真的沒掃到任何 eligible booking）
- *   4. failed > 0 → FAILED（讓 18:30 backup cron 重試個別傳送失敗）
+ *   4. failed > 0 → PARTIAL（批次完成但有個別傳送失敗，不盲目重跑整批）
  *   5. 其他（包含 total > 0 + sent=0 + skipped=N + failed=0） → OK
  *
  * 關鍵 invariant：**OK_EMPTY 只用在 total === 0**。
@@ -123,8 +123,8 @@ export type { CronRunStatus };
  *   dedupe skip」。total > 0 → 必須回 OK，audit 才看得出「retry 有掃到 6 筆
  *   booking 但無新發送」，不會被誤判成「今天無 eligible booking」。
  *
- * 個別 LINE 發送失敗（result.failed > 0）不視為批次 FAILED，跟主 cron 同款處理
- * （route 層的 500 hardening 是給 engine throw 用的，個別 push 失敗仍是 OK）。
+ * 個別 LINE 發送失敗（result.failed > 0）不視為批次 FAILED。FAILED 保留給
+ * engine throw / DB / cron 中斷；個別失敗以 PARTIAL 呈現並由後台引導重綁。
  */
 export function computeRetryStatus(
   result: { total: number; sent: number; failed: number } | null,
@@ -132,6 +132,6 @@ export function computeRetryStatus(
 ): CronRunStatus {
   if (errorMessage) return "FAILED";
   if (!result || result.total === 0) return "OK_EMPTY";
-  if (result.failed > 0) return "FAILED";
+  if (result.failed > 0) return "PARTIAL";
   return "OK";
 }

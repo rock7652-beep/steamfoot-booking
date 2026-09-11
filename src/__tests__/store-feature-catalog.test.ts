@@ -35,7 +35,7 @@ describe("store feature catalog", () => {
     expect(grouped).toEqual({
       顧客經營: ["digital_butler", "customer_care", "line_reminder", "member_portal", "referral_share"],
       營運: ["cash_drawer", "service_fee_calculator", "data_export"],
-      分析: ["basic_reports", "advanced_reports"],
+      分析: ["basic_reports"],
       健康: ["ai_health_summary"],
       展店: ["multi_store"],
     });
@@ -58,21 +58,22 @@ describe("store feature catalog", () => {
   it("keeps analysis display names and technical identifiers aligned", () => {
     expect(FEATURES.BASIC_REPORTS).toBe("basic_reports");
     expect(FEATURES.ADVANCED_REPORTS).toBe("advanced_reports");
-    expect(getStoreFeatureLabel(FEATURES.BASIC_REPORTS)).toBe("營運分析");
-    expect(getStoreFeatureLabel(FEATURES.ADVANCED_REPORTS)).toBe("經營診斷");
+    expect(getStoreFeatureLabel(FEATURES.BASIC_REPORTS)).toBe("分析");
+    expect(MANAGEABLE_STORE_FEATURES.some((item) => item.key === FEATURES.ADVANCED_REPORTS)).toBe(false);
   });
 
-  it("shows ai_health_summary as 健康評估／摘要 without changing the feature key", () => {
+  it("shows ai_health_summary as 健康評估 without changing the feature key", () => {
     const feature = MANAGEABLE_STORE_FEATURES.find(
       (item) => item.key === FEATURES.AI_HEALTH_SUMMARY,
     );
 
     expect(feature).toMatchObject({
       key: "ai_health_summary",
-      label: "健康評估／摘要",
+      label: "健康評估與體態追蹤",
       module: "健康",
-      description: "顧客健康評估入口與店長後台健康摘要。",
+      description:
+        "量測紀錄、歷史數據與變化趨勢；控制顧客 LIFF 與店長後台健康功能。關閉不刪除歷史資料，不作醫療診斷。",
     });
-    expect(getStoreFeatureLabel(FEATURES.AI_HEALTH_SUMMARY)).toBe("健康評估／摘要");
+    expect(getStoreFeatureLabel(FEATURES.AI_HEALTH_SUMMARY)).toBe("健康評估與體態追蹤");
   });
 });

@@ -20,12 +20,40 @@ import type { ActionResult } from "@/types";
 import { getShopConfig } from "@/lib/shop-config";
 import { deriveBaseUrl } from "@/lib/base-url";
 import { resolveWriteStoreId } from "@/lib/store";
+import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
+import { resolveStorePresentation } from "@/lib/store-resolver";
 import { resolveCentralLineRecipientForCustomer } from "@/server/services/central-line-recipient-loader";
-import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import {
+  resolveVerifiedCentralReminderLineRoute,
+  resolveVerifiedReminderLineRoute,
+} from "@/server/services/verified-reminder-line-route";
 import { getAllActiveStoreIds } from "@/lib/store";
 import { DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING } from "@/lib/session-balance-notification-settings";
+import {
+  DEFAULT_PACKAGE_LINE_CARD_REMINDER,
+  PACKAGE_LINE_CARD_REMINDER_MAX_LENGTH,
+  PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
+  packageLineCardReminderSettingId,
+} from "@/lib/package-line-card-reminder-setting";
+import {
+  DEFAULT_TRIAL_LINE_CARD_REMINDER,
+  TRIAL_LINE_CARD_MAP_URL_MAX_LENGTH,
+  TRIAL_LINE_CARD_REMINDER_MAX_LENGTH,
+  TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME,
+  isSystemLineCardReminderTemplate,
+  trialLineCardReminderSettingId,
+} from "@/lib/trial-line-card-reminder-setting";
+import {
+  bookingReminderTypeSettingId,
+  bookingReminderTypeSettingName,
+} from "@/lib/booking-reminder-type-setting";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
-import { buildTrialBookingReminderLineMessages } from "@/server/services/trial-booking-reminder-line-message";
+import {
+  buildPackageBookingTestReminderLineMessages,
+  buildTrialBookingReminderLineMessages,
+  buildTrialBookingReminderTextFallback,
+  canFallbackToTextReminder,
+} from "@/server/services/trial-booking-reminder-line-message";
 import {
   previewMessengerUtilityTestReminder,
   sendMessengerUtilityTestReminder,
@@ -81,6 +109,34 @@ const bookingLineTestSchema = z.object({
 
 const bookingTestReminderSchema = bookingLineTestSchema;
 
+const packageLineCardReminderSettingSchema = z.object({
+  body: z.string().trim().min(1).max(PACKAGE_LINE_CARD_REMINDER_MAX_LENGTH),
+});
+
+const trialLineCardReminderSettingSchema = z.object({
+  body: z.string().trim().min(1).max(TRIAL_LINE_CARD_REMINDER_MAX_LENGTH),
+  mapUrl: z.string().trim().max(TRIAL_LINE_CARD_MAP_URL_MAX_LENGTH),
+}).superRefine((data, ctx) => {
+  if (!data.mapUrl) return;
+  try {
+    const url = new URL(data.mapUrl);
+    const host = url.hostname.toLowerCase();
+    const isGoogleMapsHost =
+      url.protocol === "https:" &&
+      (host === "maps.app.goo.gl" ||
+        host === "goo.gl" ||
+        host === "google.com" ||
+        host.endsWith(".google.com"));
+    if (!isGoogleMapsHost) throw new Error("invalid map host");
+  } catch {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["mapUrl"],
+      message: "請貼上 HTTPS Google Maps 分享網址",
+    });
+  }
+});
+
 const sessionBalanceSettingSchema = z.object({
   isEnabled: z.boolean(),
   lastSessionEnabled: z.boolean(),
@@ -90,35 +146,6 @@ const sessionBalanceSettingSchema = z.object({
   planUsedUpTemplate: z.string().min(1).max(1500),
   learnMoreButtonLabel: z.string().min(1).max(20),
   laterButtonLabel: z.string().min(1).max(20),
-}).superRefine((data, ctx) => {
-  const required: Array<{
-    field: "lastSessionUnbookedTemplate" | "lastSessionBookedTemplate" | "planUsedUpTemplate";
-    variables: string[];
-  }> = [
-    {
-      field: "lastSessionUnbookedTemplate",
-      variables: ["{customerName}", "{planName}", "{bookingUrl}"],
-    },
-    {
-      field: "lastSessionBookedTemplate",
-      variables: ["{customerName}", "{planName}", "{bookingDateTime}"],
-    },
-    {
-      field: "planUsedUpTemplate",
-      variables: ["{customerName}", "{planName}"],
-    },
-  ];
-  for (const requirement of required) {
-    for (const variable of requirement.variables) {
-      if (!data[requirement.field].includes(variable)) {
-        ctx.addIssue({
-          code: "custom",
-          path: [requirement.field],
-          message: `必須保留變數 ${variable}`,
-        });
-      }
-    }
-  }
 });
 
 const BOOKING_LINE_TEST_PREFIX = "【測試提醒｜不影響正式排程】";
@@ -139,6 +166,7 @@ const MESSENGER_TEST_ERROR: Record<Exclude<MessengerUtilityReminderCode, "SENT">
   SKIPPED_MISSING_IDENTITY: "這筆預約沒有可驗證的 Messenger 身分，因此未發送",
   FAILED_META_REJECTED: "Meta 拒絕此次 Messenger 測試提醒，未標記為成功",
   FAILED_TRANSPORT: "Messenger 傳輸失敗，未標記為成功",
+  FAILED_PREVIEW_BLOCKED: "Preview 已封鎖對外 Messenger 發送，未標記為成功",
   FAILED_CONFIGURATION: "Messenger Page 設定不完整，因此未發送",
   FAILED_IDENTITY_SCOPE: "Messenger 身分與此分店不一致，因此未發送",
 };
@@ -159,9 +187,6 @@ async function loadBookingTestReminderTarget(bookingId: string, storeId: string)
   if (!["PENDING", "CONFIRMED"].includes(booking.bookingStatus)) {
     throw new AppError("BUSINESS_RULE", "只有待服務或已確認的預約可以發送測試提醒");
   }
-  if (booking.bookingType !== "FIRST_TRIAL" || !booking.trialBookingChannel) {
-    throw new AppError("BUSINESS_RULE", "這筆預約沒有可驗證的原始聊天來源，無法傳送測試提醒");
-  }
   return booking;
 }
 
@@ -173,9 +198,9 @@ function createTestBookingLink(booking: { id: string; storeId: string }): string
 }
 
 /**
- * Resolves exactly one delivery provider from the immutable chat source saved
- * with the booking.  There is intentionally no LINE fallback for Messenger,
- * nor any ability for a manager to choose a channel in the UI.
+ * Resolves exactly one delivery provider. Messenger is allowed only for a
+ * first-trial booking whose original source is explicitly Messenger. Every
+ * other booking uses the existing same-store, uniquely verified LINE route.
  */
 export async function previewBookingTestReminder(
   input: z.input<typeof bookingTestReminderSchema>,
@@ -186,7 +211,7 @@ export async function previewBookingTestReminder(
     const { bookingId } = bookingTestReminderSchema.parse(input);
     const booking = await loadBookingTestReminderTarget(bookingId, storeId);
 
-    if (booking.trialBookingChannel === "LINE") {
+    if (booking.bookingType !== "FIRST_TRIAL" || booking.trialBookingChannel !== "MESSENGER") {
       const line = await previewBookingLineTestReminder({ bookingId });
       if (!line.success) return line;
       return {
@@ -232,7 +257,7 @@ export async function sendBookingTestReminder(
     const { bookingId } = bookingTestReminderSchema.parse(input);
     const booking = await loadBookingTestReminderTarget(bookingId, storeId);
 
-    if (booking.trialBookingChannel === "LINE") {
+    if (booking.bookingType !== "FIRST_TRIAL" || booking.trialBookingChannel !== "MESSENGER") {
       const line = await sendBookingLineTestReminder({ bookingId });
       if (!line.success) return line;
       return {
@@ -551,9 +576,13 @@ export async function setReminderTemplate(
     if (templateId !== null) {
       const tpl = await prisma.messageTemplate.findUnique({
         where: { id: templateId },
-        select: { storeId: true },
+        select: { storeId: true, name: true },
       });
-      if (!tpl || tpl.storeId !== storeId) {
+      if (
+        !tpl ||
+        tpl.storeId !== storeId ||
+        isSystemLineCardReminderTemplate(tpl.name)
+      ) {
         throw new AppError("NOT_FOUND", "訊息模板不存在");
       }
     }
@@ -563,6 +592,63 @@ export async function setReminderTemplate(
       data: { templateId },
     });
 
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export async function setBookingReminderTypeEnabled(
+  type: "PACKAGE" | "TRIAL",
+  enabled: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const settingId = bookingReminderTypeSettingId(storeId, type);
+    await prisma.messageTemplate.upsert({
+      where: { id: settingId },
+      create: {
+        id: settingId,
+        storeId,
+        name: bookingReminderTypeSettingName(type),
+        channel: "LINE",
+        body: enabled ? "enabled" : "disabled",
+        isDefault: false,
+      },
+      update: { body: enabled ? "enabled" : "disabled" },
+    });
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export async function setPlanExpiryReminderEnabled(
+  enabled: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const { PLAN_EXPIRY_REMINDER_TEMPLATE_NAME, planExpiryReminderSettingId } =
+      await import("@/lib/plan-expiry-reminder-setting");
+    const settingId = planExpiryReminderSettingId(storeId);
+    await prisma.messageTemplate.upsert({
+      where: { id: settingId },
+      create: {
+        id: settingId,
+        storeId,
+        name: PLAN_EXPIRY_REMINDER_TEMPLATE_NAME,
+        channel: "LINE",
+        body: enabled ? "enabled" : "disabled",
+        isDefault: false,
+      },
+      update: { body: enabled ? "enabled" : "disabled" },
+    });
     revalidatePath("/dashboard/reminders");
     return { success: true, data: undefined };
   } catch (e) {
@@ -599,23 +685,6 @@ const sessionBalanceTemplateSettingSchema = z.object({
   planUsedUpTemplate: z.string().min(1).max(1500),
   learnMoreButtonLabel: z.string().min(1).max(20),
   laterButtonLabel: z.string().min(1).max(20),
-}).superRefine((data, ctx) => {
-  const required = [
-    { field: "lastSessionUnbookedTemplate" as const, variables: ["{customerName}", "{planName}", "{bookingUrl}"] },
-    { field: "lastSessionBookedTemplate" as const, variables: ["{customerName}", "{planName}", "{bookingDateTime}"] },
-    { field: "planUsedUpTemplate" as const, variables: ["{customerName}", "{planName}"] },
-  ];
-  for (const requirement of required) {
-    for (const variable of requirement.variables) {
-      if (!data[requirement.field].includes(variable)) {
-        ctx.addIssue({
-          code: "custom",
-          path: [requirement.field],
-          message: `必須保留變數 ${variable}`,
-        });
-      }
-    }
-  }
 });
 
 export async function saveSessionBalanceRuleSetting(
@@ -767,6 +836,74 @@ export async function applySessionBalanceSettingToAllStores(
   }
 }
 
+export async function savePackageLineCardReminderSetting(
+  input: z.input<typeof packageLineCardReminderSettingSchema>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const { body } = packageLineCardReminderSettingSchema.parse(input);
+
+    const settingId = packageLineCardReminderSettingId(storeId);
+    await prisma.messageTemplate.upsert({
+      where: { id: settingId },
+      create: {
+        id: settingId,
+        storeId,
+        name: PACKAGE_LINE_CARD_REMINDER_TEMPLATE_NAME,
+        channel: "LINE",
+        body,
+        isDefault: false,
+      },
+      update: {
+        body,
+      },
+    });
+
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export async function saveTrialLineCardReminderSetting(
+  input: z.input<typeof trialLineCardReminderSettingSchema>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
+    const { body, mapUrl } = trialLineCardReminderSettingSchema.parse(input);
+
+    await prisma.$transaction([
+      prisma.messageTemplate.upsert({
+        where: { id: trialLineCardReminderSettingId(storeId) },
+        create: {
+          id: trialLineCardReminderSettingId(storeId),
+          storeId,
+          name: TRIAL_LINE_CARD_REMINDER_TEMPLATE_NAME,
+          channel: "LINE",
+          body,
+          isDefault: false,
+        },
+        update: { body },
+      }),
+      prisma.shopConfig.upsert({
+        where: { storeId },
+        create: { storeId, mapUrl: mapUrl || null },
+        update: { mapUrl: mapUrl || null },
+      }),
+    ]);
+
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
 // ============================================================
 // MessageTemplate CRUD
 // ============================================================
@@ -777,6 +914,9 @@ export async function createMessageTemplate(
   try {
     const user = await requireStaffSession();
     const data = createTemplateSchema.parse(input);
+    if (isSystemLineCardReminderTemplate(data.name)) {
+      throw new AppError("VALIDATION", "此模板名稱由系統保留");
+    }
     const storeId = await resolveWriteStoreId(user);
     await requireStoreFeature(storeId, FEATURES.LINE_REMINDER);
 
@@ -817,8 +957,15 @@ export async function updateMessageTemplate(
 
     // Ownership check
     const existing = await prisma.messageTemplate.findUnique({ where: { id: templateId } });
-    if (!existing || existing.storeId !== storeId) {
+    if (
+      !existing ||
+      existing.storeId !== storeId ||
+      isSystemLineCardReminderTemplate(existing.name)
+    ) {
       throw new AppError("NOT_FOUND", "訊息模板不存在");
+    }
+    if (data.name && isSystemLineCardReminderTemplate(data.name)) {
+      throw new AppError("VALIDATION", "此模板名稱由系統保留");
     }
 
     if (data.isDefault) {
@@ -863,7 +1010,9 @@ export async function testSendLineMessage(
     const shopConfig = customer ? await getShopConfig(customer.storeId) : null;
 
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
-    if (!template) throw new AppError("NOT_FOUND", "模板不存在");
+    if (!template || isSystemLineCardReminderTemplate(template.name)) {
+      throw new AppError("NOT_FOUND", "模板不存在");
+    }
     const recipient = await resolveCentralLineRecipientForCustomer(customer.id, customer.storeId);
     const route = await resolveVerifiedReminderLineRoute(
       customer.storeId,
@@ -999,6 +1148,7 @@ export async function sendBookingLineTestReminder(
       where: { id: bookingId, storeId },
       include: {
         customer: { include: { assignedStaff: true } },
+        store: { select: { slug: true, name: true } },
       },
     });
     if (!booking) {
@@ -1040,13 +1190,47 @@ export async function sendBookingLineTestReminder(
       throw new AppError("BUSINESS_RULE", `LINE 收件人無法使用（${route.reason}）`);
     }
 
-    const [rule, shopConfig] = await Promise.all([
+    const [
+      rule,
+      shopConfig,
+      storePresentation,
+      cardReminderSetting,
+      trialCardReminderSetting,
+      trialMapConfig,
+    ] = await Promise.all([
       prisma.reminderRule.findFirst({
         where: { storeId, isEnabled: true },
         orderBy: { createdAt: "asc" },
         include: { template: true },
       }),
       getShopConfig(storeId),
+      booking.bookingType === "FIRST_TRIAL" || !booking.store?.slug
+        ? Promise.resolve(null)
+        : resolveStorePresentation(booking.store.slug),
+      booking.bookingType === "FIRST_TRIAL"
+        ? Promise.resolve(null)
+        : prisma.messageTemplate.findUnique({
+            where: {
+              id: packageLineCardReminderSettingId(storeId),
+              storeId,
+            },
+            select: { body: true },
+          }),
+      booking.bookingType === "FIRST_TRIAL"
+        ? prisma.messageTemplate.findUnique({
+            where: {
+              id: trialLineCardReminderSettingId(storeId),
+              storeId,
+            },
+            select: { body: true },
+          })
+        : Promise.resolve(null),
+      booking.bookingType === "FIRST_TRIAL"
+        ? prisma.shopConfig.findUnique({
+            where: { storeId },
+            select: { mapUrl: true },
+          })
+        : Promise.resolve(null),
     ]);
     const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
     if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
@@ -1070,12 +1254,18 @@ export async function sendBookingLineTestReminder(
 {{shopName}} 敬上`;
     const bookingLink = isLineTrialBooking
       ? `${deriveBaseUrl()}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`
-      : `${deriveBaseUrl()}/my-bookings`;
+      : `${deriveBaseUrl()}/s/${encodeURIComponent(booking.store.slug)}/my-bookings`;
+    const customerFacingShopName = isLineTrialBooking
+      ? shopConfig.shopName
+      : storePresentation?.name ?? getCustomerFacingStoreName({
+          slug: booking.store?.slug,
+          name: shopConfig.shopName,
+        });
     const renderedReminder = renderTemplate(templateBody, {
       customerName: booking.customer.name,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),
       bookingTime: booking.slotTime,
-      shopName: shopConfig.shopName,
+      shopName: customerFacingShopName,
       staffName: booking.customer.assignedStaff?.displayName ?? "店長",
       bookingLink,
     });
@@ -1083,26 +1273,69 @@ export async function sendBookingLineTestReminder(
 這是管理者手動發送的通知測試，無須回覆。
 
 ${renderedReminder}`;
-    const messages = isLineTrialBooking
-      ? buildTrialBookingReminderLineMessages(renderedBody, bookingLink)
+    const card = {
+      customerName: booking.customer.name,
+      bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+      bookingTime: booking.slotTime,
+      shopName: customerFacingShopName,
+      serviceName: "首次體驗",
+      reminderText:
+        trialCardReminderSetting?.body?.trim() ||
+        DEFAULT_TRIAL_LINE_CARD_REMINDER,
+      mapUrl: trialMapConfig?.mapUrl?.trim() || undefined,
+    };
+    const flexMessages = isLineTrialBooking
+      ? buildTrialBookingReminderLineMessages(card, bookingLink)
+      : buildPackageBookingTestReminderLineMessages({
+        customerName: booking.customer.name,
+        bookingDate: booking.bookingDate.toISOString().slice(0, 10),
+        bookingTime: booking.slotTime,
+        shopName: customerFacingShopName,
+        serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
+        serviceDuration: "45 分鐘",
+        address: storePresentation?.address,
+        mapUrl: storePresentation?.mapUrl,
+        reminderText:
+          cardReminderSetting?.body ??
+          DEFAULT_PACKAGE_LINE_CARD_REMINDER,
+      }, bookingLink, booking.id);
+    const textMessages = isLineTrialBooking
+      ? buildTrialBookingReminderTextFallback(card, bookingLink, `${BOOKING_LINE_TEST_PREFIX}\n這是管理者手動發送的通知測試，無須回覆。\n\n`)
       : [{ type: "text" as const, text: renderedBody }];
     let actualRoute = route.channel;
     let result =
       route.channel === "STORE"
-        ? await pushMessage(storeId, route.recipientLineUserId, messages)
-        : await pushSteamButlerMessage(route.recipientLineUserId, messages);
-    const storeRecipient =
-      booking.customer.lineLinkStatus === "LINKED"
-        ? booking.customer.lineUserId?.trim()
-        : null;
+        ? await pushMessage(storeId, route.recipientLineUserId, flexMessages)
+        : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages);
+    if (canFallbackToTextReminder(result)) {
+      result = route.channel === "STORE"
+        ? await pushMessage(storeId, route.recipientLineUserId, textMessages)
+        : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
+    }
     if (
-      route.channel === "CENTRAL" &&
+      route.channel === "STORE" &&
       !result.success &&
-      result.httpStatus === 400 &&
-      storeRecipient
+      result.httpStatus === 400
     ) {
-      result = await pushMessage(storeId, storeRecipient, messages);
-      actualRoute = "STORE";
+      const fallbackRoute = await resolveVerifiedCentralReminderLineRoute(recipient);
+      if (fallbackRoute.status === "READY") {
+        result = await pushSteamButlerMessage(
+          fallbackRoute.recipientLineUserId,
+          flexMessages,
+        );
+        if (canFallbackToTextReminder(result)) {
+          result = await pushSteamButlerMessage(
+            fallbackRoute.recipientLineUserId,
+            textMessages,
+          );
+        }
+        actualRoute = "CENTRAL";
+      } else {
+        result = {
+          ...result,
+          error: [result.error, fallbackRoute.reason].filter(Boolean).join("; "),
+        };
+      }
     }
 
     const [log] = await prisma.$transaction([

@@ -30,7 +30,32 @@ import {
   isInLineClient,
 } from "@/lib/liff/client";
 import { liffMessages } from "@/lib/liff/messages";
-import { fetchLiffWallets } from "@/server/actions/liff-my-wallets";
+import {
+  fetchLiffWallets,
+  type LiffWalletRow,
+  type LiffMakeupCreditRow,
+} from "@/server/actions/liff-my-wallets";
+import {
+  fetchLiffBookings,
+  type LiffBookingRow,
+} from "@/server/actions/liff-my-bookings";
+import { fetchLiffHealthSummary } from "@/server/actions/liff-health";
+import {
+  fetchLiffMemberStoreContext,
+  type LiffMemberStoreOption,
+} from "@/server/actions/liff-member-stores";
+import type { HealthSummary } from "@/lib/health-service";
+import { getMemberPlanSummary } from "@/lib/liff/member-plan-summary";
+import {
+  fetchLiffReferralShareContext,
+  type LiffReferralShareContext,
+} from "@/server/actions/liff-referral-share";
+import { LiffStoreSwitcher } from "./liff-store-switcher";
+import { LiffStoreShareCard } from "./liff-store-share-card";
+import {
+  STEAMFOOT_INDUSTRY_MODULE,
+  type MemberHomeTerminology,
+} from "@/lib/industry-modules";
 
 type State =
   | { kind: "initializing" }
@@ -47,18 +72,34 @@ interface LiffShellProps {
   liffId: string;
   /** PR-E：per-store LINE OA 連結。Server 端 resolveStorePresentation 解析後注入。 */
   contactUrl: string;
+  healthAssessmentEnabled: boolean;
 }
 
 /**
- * PR-G4 wallet summary：signed_in 後 lazy fetch；totalAvailable > 0 才在 home
+ * PR-G4 wallet summary：signed_in 後 lazy fetch；totalBookable > 0 才在 home
  * 露「課程預約」CTA。null 表示尚未載 / 載失敗 → CTA 不出（不擋既有 4 顆 CTA）。
  */
-type WalletSummary = { totalAvailable: number; hasMakeup: boolean };
+export type MemberHomeSummary = {
+  walletsStatus: "ok" | "error";
+  activeWallets: LiffWalletRow[];
+  makeupCredits: LiffMakeupCreditRow[];
+  upcomingBookings: LiffBookingRow[];
+  nextBooking: LiffBookingRow | null;
+  healthSummary: HealthSummary | null;
+  referralShare: LiffReferralShareContext | null;
+};
 
-export function LiffShell({ storeName, storeSlug, liffId, contactUrl }: LiffShellProps) {
+export function LiffShell({
+  storeName,
+  storeSlug,
+  liffId,
+  contactUrl,
+  healthAssessmentEnabled,
+}: LiffShellProps) {
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-G4：lazy fetch — signed_in 後 fire-and-forget，不擋 home 既有渲染
-  const [walletSummary, setWalletSummary] = useState<WalletSummary | null>(null);
+  const [memberSummary, setMemberSummary] = useState<MemberHomeSummary | "error" | null>(null);
+  const [memberStores, setMemberStores] = useState<LiffMemberStoreOption[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +120,61 @@ export function LiffShell({ storeName, storeSlug, liffId, contactUrl }: LiffShel
         setState({ kind: "not_in_line_app" });
         return;
       }
+
+      const loadMemberHome = async () => {
+        try {
+          const [wallets, bookings, health, referralShare] = await Promise.all([
+            fetchLiffWallets(),
+            fetchLiffBookings(),
+            healthAssessmentEnabled
+              ? fetchLiffHealthSummary()
+              : Promise.resolve(null),
+            fetchLiffReferralShareContext(),
+          ]);
+          if (cancelled) return;
+          setMemberSummary({
+            walletsStatus: wallets?.status === "ok" ? "ok" : "error",
+            activeWallets: wallets?.status === "ok" ? wallets.active : [],
+            makeupCredits:
+              wallets?.status === "ok" ? wallets.makeupCredits : [],
+            upcomingBookings:
+              bookings.status === "ok" ? bookings.upcoming : [],
+            nextBooking:
+              bookings.status === "ok" ? (bookings.upcoming[0] ?? null) : null,
+            healthSummary:
+              health?.status === "ok" && health.linked
+                ? health.summary
+                : null,
+            referralShare:
+              referralShare.status === "ok"
+                ? referralShare.context
+                : null,
+          });
+        } catch (err) {
+          console.warn("[liff-shell] member home summary failed (silent)", err);
+          if (!cancelled) setMemberSummary("error");
+        }
+      };
+
+      // A central-member session can safely follow an internal store switch
+      // without repeating LINE exchange for each store. The server action
+      // validates the URL store against verified memberships before returning.
+      try {
+        const memberContext = await fetchLiffMemberStoreContext();
+        if (cancelled) return;
+        if (memberContext.status === "signed_in") {
+          setMemberStores(memberContext.stores);
+          setState({
+            kind: "signed_in",
+            displayName: memberContext.displayName,
+          });
+          void loadMemberHome();
+          return;
+        }
+      } catch (err) {
+        console.warn("[liff-shell] existing member session check failed", err);
+      }
+
       const idToken = getIDToken();
       if (!idToken) {
         setState({ kind: "expired" });
@@ -106,31 +202,22 @@ export function LiffShell({ storeName, storeSlug, liffId, contactUrl }: LiffShel
         }
 
         if (body.status === "session_created") {
-          setState({ kind: "signed_in", displayName: body.displayName });
-          // PR-G4：lazy fetch wallet summary — 不 await，現有 CTA 先渲染；
-          // 載完 setState 追加「課程預約」CTA。失敗靜默（CTA 不出，其他 CTA 不影響）。
-          void (async () => {
-            try {
-              const w = await fetchLiffWallets();
-              if (cancelled) return;
-              if (w.status === "ok") {
-                const totalAvailable = w.active.reduce(
-                  (sum, x) => sum + x.availableToBook,
-                  0,
-                );
-                // PR-NoShow-2：只有補課券、無方案堂數的顧客也能預約 → CTA 要露出。
-                setWalletSummary({
-                  totalAvailable,
-                  hasMakeup: w.makeupCredits.length > 0,
-                });
-              }
-            } catch (err) {
-              console.warn(
-                "[liff-shell] fetchLiffWallets failed (silent)",
-                err,
-              );
-            }
-          })();
+          const memberContext = await fetchLiffMemberStoreContext().catch(
+            () => null,
+          );
+          if (cancelled) return;
+          if (memberContext?.status === "signed_in") {
+            setMemberStores(memberContext.stores);
+          }
+          setState({
+            kind: "signed_in",
+            displayName:
+              memberContext?.status === "signed_in"
+                ? memberContext.displayName
+                : body.displayName,
+          });
+          // 會員首頁摘要採 lazy fetch，不阻擋首頁殼層；任一摘要來源失敗都 graceful fallback。
+          void loadMemberHome();
           return;
         }
         if (body.status === "need_onboarding") {
@@ -156,12 +243,26 @@ export function LiffShell({ storeName, storeSlug, liffId, contactUrl }: LiffShel
     return () => {
       cancelled = true;
     };
-  }, [liffId, storeSlug]);
+  }, [healthAssessmentEnabled, liffId, storeSlug]);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
-      <header className="text-center">
-        <p className="text-xs uppercase tracking-widest text-earth-500">{storeName}</p>
+    <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
+      <header className="flex items-center justify-between">
+        <div>
+          {state.kind === "signed_in" ? (
+            <LiffStoreSwitcher
+              currentStoreSlug={storeSlug}
+              currentStoreName={storeName}
+              stores={memberStores}
+            />
+          ) : (
+            <p className="text-sm font-semibold tracking-[0.12em] text-primary-700">{storeName}</p>
+          )}
+          <p className="mt-0.5 text-sm text-earth-500">{liffMessages.shell.memberHomeLabel}</p>
+        </div>
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-100 text-primary-700 shadow-sm" aria-hidden>
+          <LeafIcon />
+        </div>
       </header>
 
       {state.kind === "initializing" && (
@@ -208,7 +309,8 @@ export function LiffShell({ storeName, storeSlug, liffId, contactUrl }: LiffShel
         <WelcomeBack
           storeSlug={storeSlug}
           displayName={state.displayName}
-          walletSummary={walletSummary}
+          memberSummary={memberSummary}
+          healthAssessmentEnabled={healthAssessmentEnabled}
         />
       )}
     </div>
@@ -256,7 +358,7 @@ function InfoBlock({
   return (
     <div className={`flex flex-col gap-3 rounded-xl border px-4 py-5 text-sm ${toneClasses[tone]}`}>
       {title && <p className="font-medium">{title}</p>}
-      <p className="text-xs break-words opacity-90">{body}</p>
+      <p className="liff-supporting-text break-words opacity-90">{body}</p>
       <div className="flex flex-wrap gap-2">
         {showRetry && (
           <button
@@ -271,7 +373,7 @@ function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactUrl}
+            href={contactUrl || undefined} aria-disabled={!contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"
@@ -293,142 +395,259 @@ function WelcomeCta({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-xl border border-earth-200 bg-white px-4 py-5">
-        <h2 className="text-lg font-semibold text-earth-900">
+      <div className="rounded-3xl bg-white px-5 py-6 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
+        <h2 className="text-2xl font-semibold leading-snug text-earth-900">
           {liffMessages.shell.welcomeTitle}
           {displayName ? `，${displayName}` : ""}
         </h2>
-        <p className="mt-2 text-sm text-earth-700">
+        <p className="mt-3 text-base leading-relaxed text-earth-600">
           {liffMessages.shell.welcomeBody}
         </p>
       </div>
       <Link
         href={`/s/${storeSlug}/liff/onboarding`}
-        className="inline-flex w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
+        className="inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.22)] transition hover:bg-primary-700 active:scale-[0.98]"
       >
         {liffMessages.shell.welcomeCta}
       </Link>
-      <p className="px-1 text-center text-xs text-earth-500">
+      <p className="liff-supporting-text px-1 text-center text-earth-500">
         {liffMessages.shell.welcomeFootnote}
       </p>
     </div>
   );
 }
 
-function WelcomeBack({
+export function WelcomeBack({
   storeSlug,
   displayName,
-  walletSummary,
+  memberSummary,
+  healthAssessmentEnabled,
+  terminology,
+  bookingHref,
+  memberLinks,
 }: {
   storeSlug: string;
   displayName: string | null;
-  /** PR-G4: lazy 載入結果；null 表示尚未到 / 失敗 → 不出「課程預約」CTA */
-  walletSummary: WalletSummary | null;
+  memberSummary: MemberHomeSummary | "error" | null;
+  healthAssessmentEnabled: boolean;
+  terminology?: MemberHomeTerminology;
+  bookingHref?: string;
+  memberLinks?: {
+    bookings: string;
+    wallets: string;
+    profile: string;
+  };
 }) {
-  // PR-G4 (Option B)：有剩餘堂數的會員主流程是「課程預約」，所以：
-  //   - 「課程預約」dark primary 排第一（顧客主路徑）
-  //   - 「體驗預約」降 outlined（仍保留，會員可幫朋友 / 自己想另約體驗）
-  // 沒堂數 / 載入未回 / 載失敗 → 體驗預約維持 dark primary（新客主路徑）
-  const showMemberBooking =
-    walletSummary !== null &&
-    (walletSummary.totalAvailable > 0 || walletSummary.hasMakeup);
-  const trialClass = showMemberBooking
-    ? "flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
-    : "flex w-full items-center justify-between rounded-xl bg-earth-800 px-4 py-3 text-left text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]";
+  if (!memberSummary) {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="px-1 text-sm font-medium text-earth-600">
+          {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
+        </p>
+        <MemberHomeSummaryLoading />
+      </div>
+    );
+  }
+
+  if (memberSummary === "error") {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="px-1 text-sm font-medium text-earth-600">
+          {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
+        </p>
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-6 text-center text-amber-900">
+          <p className="text-sm font-semibold">目前無法讀取門市資料</p>
+          <p className="mt-2 text-xs text-amber-800">請重新整理後再試一次，您的方案與堂數不會受到影響。</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 min-h-11 rounded-xl border border-amber-300 bg-white px-5 text-sm font-semibold"
+          >
+            重新整理
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const wallets = memberSummary?.activeWallets ?? [];
+  const { totalUsable, totalBooked, totalBookable } = getMemberPlanSummary(
+    wallets,
+    memberSummary?.upcomingBookings ?? [],
+  );
+  const nextBooking = memberSummary?.nextBooking ?? null;
+  const makeupCredits = memberSummary?.makeupCredits ?? [];
+  const nearestWalletExpiry = wallets.map((wallet) => wallet.expiryDate).find(Boolean) ?? null;
+  const nearestMakeupExpiry = makeupCredits.map((credit) => credit.expiredAt).find(Boolean) ?? null;
+  const healthChange = getHealthChange(memberSummary?.healthSummary ?? null);
+  const walletsAvailable = memberSummary.walletsStatus === "ok";
+  const labels = terminology ?? STEAMFOOT_INDUSTRY_MODULE.customer;
+  const resolvedBookingHref = bookingHref ?? `/s/${storeSlug}/liff/member-booking`;
+  const resolvedMemberLinks = memberLinks ?? {
+    bookings: `/s/${storeSlug}/liff/bookings`,
+    wallets: `/s/${storeSlug}/liff/wallets`,
+    profile: `/s/${storeSlug}/liff/profile`,
+  };
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-900">
-        <p className="font-medium">
-          {liffMessages.shell.signedInTitle}
-          {displayName ? `，${displayName}` : ""}
-        </p>
-        <p className="mt-1 text-xs text-green-800/80">
-          {liffMessages.shell.signedInBody}
-        </p>
-      </div>
-      {/* PR-E3：簡短 helper copy 讓顧客知道 3 顆 CTA 可以做什麼。
-          muted secondary tone — 不搶 primary CTA 焦點；mobile-first 小字。*/}
-      <p className="px-1 text-sm text-earth-700">
-        {liffMessages.shell.welcomeHomeHint}
+    <div className="flex flex-col gap-4">
+      <p className="px-1 text-sm font-medium text-earth-600">
+        {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>
-      {/* PR-G4：有剩餘堂數的會員 home 出「課程預約」dark primary 排第一。
-          totalAvailable 加總 = active.reduce(availableToBook)（不含 reserved / used）。
-          連 /liff/member-booking (PR-G3 #195)。 */}
-      {showMemberBooking && (
-        <Link
-          href={`/s/${storeSlug}/liff/member-booking`}
-          className="flex w-full items-center justify-between rounded-xl bg-earth-800 px-4 py-3 text-left text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
-        >
-          <span>{liffMessages.shell.comingSoon.memberBooking}</span>
-          <ChevronRightIcon />
+
+      <section className="rounded-3xl bg-earth-900 px-5 py-4 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
+        <p className="text-sm font-medium text-earth-300">下一次預約</p>
+        {nextBooking ? (
+          <div className="mt-3 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-2xl font-semibold">{formatBookingDateLabel(nextBooking.bookingDate)}</p>
+              <p className="mt-1 text-base text-earth-200">{nextBooking.slotTime}</p>
+            </div>
+            <Link href={resolvedMemberLinks.bookings} className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-earth-100">預約詳情</Link>
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <p className="text-base text-earth-200">目前沒有預約</p>
+            <Link href={resolvedBookingHref} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-earth-900">立即預約</Link>
+          </div>
+        )}
+      </section>
+
+      {walletsAvailable ? (
+        <>
+          <section className="rounded-3xl bg-white px-5 py-4 shadow-[0_8px_24px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-earth-900">{labels.summaryTitle}</h2>
+              {nearestWalletExpiry && <span className="text-xs text-earth-500">有效至 {formatFullDateLabel(nearestWalletExpiry)}</span>}
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+              <SummaryMetric label="可使用" value={totalUsable} unit={labels.sessionUnit} />
+              <SummaryMetric label="已預約" value={totalBooked} unit={labels.sessionUnit} />
+              <SummaryMetric label="尚可預約" value={totalBookable} unit={labels.sessionUnit} emphasized />
+            </div>
+            {makeupCredits.length > 0 && (
+              <div className="mt-4 flex items-center justify-between border-t border-earth-100 pt-3 text-sm">
+                <span className="font-medium text-earth-800">{labels.makeupLabel} {makeupCredits.length} {labels.sessionUnit}</span>
+                <span className="text-earth-500">{nearestMakeupExpiry ? `有效至 ${formatFullDateLabel(nearestMakeupExpiry)}` : "無期限"}</span>
+              </div>
+            )}
+          </section>
+
+          {totalBookable > 0 || makeupCredits.length > 0 ? (
+            <Link href={resolvedBookingHref} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
+              立即預約
+            </Link>
+          ) : (
+            <Link href={`/s/${storeSlug}/liff/wallets/shop`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
+              {labels.buyLabel}
+            </Link>
+          )}
+        </>
+      ) : (
+        <section className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-5 text-amber-900">
+          <p className="text-sm font-semibold">方案資料暫時無法讀取</p>
+          <p className="mt-2 text-xs text-amber-800">請重新整理後再試一次；您的方案、堂數與既有預約不會受到影響。</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 min-h-11 rounded-xl border border-amber-300 bg-white px-5 text-sm font-semibold"
+          >
+            重新整理
+          </button>
+        </section>
+      )}
+
+      <nav className="grid grid-cols-2 gap-3" aria-label="會員功能">
+        <HomeTile href={resolvedMemberLinks.bookings} label="我的預約" detail={nextBooking ? "查看與管理" : "目前無預約"} />
+        <HomeTile
+          href={resolvedMemberLinks.wallets}
+          label={labels.walletLabel}
+          detail={walletsAvailable ? `${totalUsable} ${labels.sessionUnit}可使用` : "請重新讀取資料"}
+        />
+        {healthAssessmentEnabled && (
+          <HomeTile href={`/s/${storeSlug}/liff/health`} label="健康紀錄" detail="查看量測與變化" />
+        )}
+        <HomeTile href={resolvedMemberLinks.profile} label="我的資料" detail="會員基本資料" />
+      </nav>
+
+      {healthAssessmentEnabled && healthChange && (
+        <Link href={`/s/${storeSlug}/liff/health`} className="rounded-3xl bg-primary-50 px-5 py-4 ring-1 ring-primary-100 transition active:scale-[0.99]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-primary-700">最近健康變化</p>
+              <p className="mt-1 text-base font-semibold text-earth-900">{healthChange.detail}</p>
+            </div>
+            <ChevronRightIcon />
+          </div>
         </Link>
       )}
-      {/* PR-D1B：體驗預約 CTA 從 disabled 改為 Link → /liff/trial-booking。
-          PR-G4：showMemberBooking 時降為 outlined（會員主路徑是課程預約）；
-          否則維持 dark primary（新客主路徑）。 */}
-      <Link
-        href={`/s/${storeSlug}/liff/trial-booking`}
-        className={trialClass}
-      >
-        <span>{liffMessages.shell.comingSoon.booking}</span>
-        <ChevronRightIcon />
-      </Link>
-      {/* PR-D2：我的預約 CTA 從 disabled 改為 Link → /liff/bookings */}
-      <Link
-        href={`/s/${storeSlug}/liff/bookings`}
-        className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
-      >
-        <span>{liffMessages.shell.comingSoon.myBookings}</span>
-        <ChevronRightIcon />
-      </Link>
-      {/* PR-E2b：剩餘堂數 / 我的方案 CTA 從 disabled 改為 Link → /liff/wallets (PR-E2 page 已 ship) */}
-      <Link
-        href={`/s/${storeSlug}/liff/wallets`}
-        className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
-      >
-        <span>{liffMessages.shell.comingSoon.remainingSessions}</span>
-        <ChevronRightIcon />
-      </Link>
 
-      {/* PR-F1A → PR-H2：AI 健康評估 CTA 從外部 HealthFlow LIFF 直跳，
-          改為先進站內 /liff/health（PR-H2 我的健康紀錄唯讀頁）。
-          /liff/health 內部負責再分流：
-            - 已綁定 + 有量測 → 顯示摘要 + 「查看完整評估」外部跳轉
-            - 未綁定 / not_found → 顯示「開始 AI 健康評估」CTA 跳外部 HealthFlow
-          為什麼這樣切：
-            1. 站內先看到醫療免責 disclaimer 後才出去
-            2. 顧客在 LINE 內就能看自己摘要（不必每次都跳外部）
-            3. 與其他 LIFF 入口 (預約/方案) 一致用 next/link same-page nav
-          視覺維持「次要 / 外部服務」分隔 — border-t + pt-3 + mt-1。
-          注意：HealthFlow URL 仍然不傳 query string，由 /liff/health 內的 button 觸發。*/}
-      <div className="mt-1 flex flex-col gap-2 border-t border-earth-200 pt-3">
-        <Link
-          href={`/s/${storeSlug}/liff/health`}
-          className="flex w-full items-center justify-between rounded-xl border border-earth-300 bg-white px-4 py-3 text-left text-base font-medium text-earth-900 shadow-sm transition hover:bg-earth-50 active:scale-[0.98]"
-        >
-          <span>{liffMessages.shell.healthAssessmentCta}</span>
-          <ChevronRightIcon />
-        </Link>
-        <p className="px-1 text-xs text-earth-600">
-          {liffMessages.shell.healthAssessmentHint}
-        </p>
-      </div>
-
-      {/* PR-LIFF-profile：低調 utility 入口（我的資料）。
-          視覺刻意比 4 顆核心 CTA + AI 健康評估都更低調：
-            - text-only 連結而非 CTA button 形狀
-            - text-sm 偏小 / text-earth-700 not -900
-            - 不用 ChevronRightIcon（保留給 primary/secondary CTA）
-          目的：顧客需要查資料時找得到，但不會分散主路徑注意力。 */}
-      <Link
-        href={`/s/${storeSlug}/liff/profile`}
-        className="mt-1 px-1 text-center text-sm text-earth-700 underline-offset-4 hover:underline"
-      >
-        {liffMessages.profile.homeEntryCta}
-      </Link>
+      {memberSummary.referralShare ? (
+        <LiffStoreShareCard context={memberSummary.referralShare} />
+      ) : null}
     </div>
   );
+}
+
+function MemberHomeSummaryLoading() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-3xl bg-white px-5 py-8 text-center shadow-[0_8px_24px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70"
+    >
+      <div
+        className="h-8 w-8 animate-spin rounded-full border-2 border-earth-200 border-t-primary-700"
+        aria-hidden
+      />
+      <p className="text-sm font-medium text-earth-600">正在讀取目前門市資料…</p>
+      <p className="text-xs text-earth-500">完成後會顯示正確堂數與預約</p>
+    </div>
+  );
+}
+
+function SummaryMetric({ label, value, unit, emphasized = false }: { label: string; value: number; unit: string; emphasized?: boolean }) {
+  return <div className={`rounded-2xl px-2 py-3 ${emphasized ? "bg-primary-50" : "bg-earth-50"}`}><p className="text-xs text-earth-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-earth-900">{value}<span className="ml-0.5 text-xs font-medium text-earth-500">{unit}</span></p></div>;
+}
+
+function HomeTile({ href, label, detail }: { href: string; label: string; detail: string }) {
+  return <Link href={href} className="flex min-h-20 flex-col justify-between rounded-2xl bg-white p-4 shadow-[0_6px_18px_rgba(74,66,53,0.05)] ring-1 ring-earth-200/70 transition hover:bg-earth-50 active:scale-[0.98]"><div className="flex items-start justify-between gap-2"><span className="font-semibold text-earth-900">{label}</span><ChevronRightIcon /></div><span className="text-xs text-earth-500">{detail}</span></Link>;
+}
+
+function parseDateParts(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return { year, month, day };
+}
+
+function formatBookingDateLabel(date: string) {
+  const { year, month, day } = parseDateParts(date);
+  const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+  const weekday = weekdays[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  return `${month}/${day}（${weekday}）`;
+}
+
+function formatFullDateLabel(date: string) {
+  const { year, month, day } = parseDateParts(date);
+  return `${year}/${month}/${day}`;
+}
+
+function getHealthChange(summary: HealthSummary | null): { short: string; detail: string } | null {
+  if (!summary || summary.trend.length < 2) return null;
+  const latest = summary.trend.at(-1);
+  const previous = summary.trend.at(-2);
+  if (!latest || !previous) return null;
+  const metrics = [
+    { label: "體重", latest: latest.weight, previous: previous.weight, unit: "kg", lowerIsPositive: true },
+    { label: "體脂", latest: latest.bodyFat, previous: previous.bodyFat, unit: "%", lowerIsPositive: true },
+    { label: "肌肉量", latest: latest.muscleMass, previous: previous.muscleMass, unit: "kg", lowerIsPositive: false },
+  ];
+  const changed = metrics.find((metric) => metric.latest != null && metric.previous != null && metric.latest !== metric.previous);
+  if (!changed || changed.latest == null || changed.previous == null) return null;
+  const delta = Number((changed.latest - changed.previous).toFixed(1));
+  const positive = changed.lowerIsPositive ? delta < 0 : delta > 0;
+  const direction = delta > 0 ? "增加" : "下降";
+  const value = Math.abs(delta);
+  return { short: `${changed.label}${direction} ${value}${changed.unit}`, detail: `${changed.label}${direction} ${value}${changed.unit}${positive ? "，持續保持" : "，一起留意變化"}` };
 }
 
 function ChevronRightIcon() {
@@ -444,6 +663,24 @@ function ChevronRightIcon() {
       aria-hidden
     >
       <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+function LeafIcon() {
+  return (
+    <svg
+      width="23"
+      height="23"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.8 3.2C12.5 3.4 6.5 6.5 5.2 12.1c-.8 3.5 1.3 6.8 4.8 6.8 6.2 0 9.8-7 10.8-15.7Z" />
+      <path d="M4 21c2.4-5.3 6.6-9.2 12.5-11.7" />
     </svg>
   );
 }

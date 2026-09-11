@@ -76,7 +76,7 @@ export function InfoBlock({
         )}
         {showContactStore && (
           <a
-            href={contactUrl}
+            href={contactUrl || undefined} aria-disabled={!contactUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md border border-current bg-white/70 px-3 py-1.5 text-xs font-medium hover:bg-white"

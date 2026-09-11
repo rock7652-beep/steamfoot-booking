@@ -101,11 +101,12 @@ describe("trial reminder convergence contract", () => {
     expect(engine).not.toContain("sendMessengerUtilityReminder({");
   });
 
-  it("marks a batch with individual failures as retryable", () => {
+  it("keeps individual delivery failures separate from cron failure", () => {
     const route = source("src/app/api/cron/reminders/route.ts");
     const retry = source("src/server/reminder-cron-retry.ts");
-    expect(route).toContain("reminderFailed || (reminderResult?.failed ?? 0) > 0");
-    expect(retry).toContain("if (result.failed > 0) return \"FAILED\"");
+    expect(route).toContain("if (reminderFailed)");
+    expect(route).toContain("(reminderResult?.failed ?? 0) > 0 || otherFailed");
+    expect(retry).toContain("if (result.failed > 0) return \"PARTIAL\"");
   });
 
   it("persists a consumed chat link and channel in the booking transaction", () => {
@@ -114,6 +115,30 @@ describe("trial reminder convergence contract", () => {
     expect(booking).toContain("trialBookingChannel: chatLink.channel");
     expect(booking).toContain("tx.trialBookingLink.updateMany");
     expect(booking).toContain("bookingId: created.id");
+  });
+
+  it("opens the public trial form from one LIFF rich-menu tap with a verified entry", () => {
+    const bridge = source("src/app/(liff)/liff/public-trial/public-trial-liff-bridge.tsx");
+    const route = source("src/app/api/liff/public-trial-entry/route.ts");
+    const page = source("src/app/(liff)/liff/public-trial/page.tsx");
+    const config = source("src/lib/liff/public-trial-config.ts");
+    expect(bridge).toContain("initLiff(liffId)");
+    expect(bridge).toContain("getIDToken()");
+    expect(bridge).toContain('fetch("/api/liff/public-trial-entry"');
+    expect(bridge).toContain("window.location.replace");
+    expect(route).toContain("verifyLiffIdToken");
+    expect(route).toContain("probeStoreLineRecipient");
+    expect(route).toContain("createTrialBookingChatLink");
+    expect(route).toContain("resolvePublicTrialLiffConfig");
+    expect(page).toContain("resolvePublicTrialLiffConfig");
+    expect(config).toContain('SHARED_PUBLIC_TRIAL_LINE_LOGIN_CHANNEL_ID = "2010761154"');
+    expect(config).toContain('ZHUBEI_PUBLIC_TRIAL_LIFF_ID = "2010761154-i4DO3oFO"');
+    expect(config).toContain('hsinchu: "2010761154-irZGuDty"');
+    expect(config).toContain('taichung: "2010761154-mupiLvI6"');
+    expect(bridge).toContain('`/pricing/experience/${storeSlug}/book`');
+    expect(bridge).toContain('publicBooking.hash = "booking-form"');
+    expect(bridge).toContain('body.code === "IDENTITY_SCOPE_MISMATCH"');
+    expect(bridge).toContain("openPublicBooking();");
   });
 
   it("routes a public trial through LINE when the existing customer is already verified", () => {
@@ -132,25 +157,31 @@ describe("trial reminder convergence contract", () => {
   it("scopes calendar and slots to the same chat entry as submission", () => {
     const booking = source("src/server/actions/public-trial-booking.ts");
     const form = source("src/app/pricing/experience/zhubei/book/zhubei-trial-booking-form.tsx");
-    expect(booking).toContain("resolveAvailabilityStore(entry)");
-    expect(form).toContain("fetchPublicTrialMonth(viewYear, viewMonth, entry)");
-    expect(form).toContain("fetchPublicTrialSlots(date, entry)");
+    expect(booking).toContain("resolveAvailabilityStore(storeSlug, entry)");
+    expect(form).toContain("fetchPublicTrialMonth(viewYear, viewMonth, entry, storeSlug)");
+    expect(form).toContain("fetchPublicTrialSlots(date, entry, storeSlug)");
   });
 
-  it("keeps the Zhubei presentation from accepting another store's chat entry", () => {
+  it("keeps every store presentation from accepting another store's chat entry", () => {
     const booking = source("src/server/actions/public-trial-booking.ts");
     const chatLink = source("src/server/services/trial-booking-chat-link.ts");
-    expect(booking).toContain("store?.slug === STORE_SLUG ? store : null");
-    expect(booking).toContain("chatLink && store?.slug !== STORE_SLUG");
-    expect(chatLink).toContain('SUPPORTED_PUBLIC_BOOKING_STORE_SLUG = "zhubei"');
+    expect(booking).toContain("store?.slug === storeSlug ? store : null");
+    expect(booking).toContain("chatLink && store?.slug !== data.storeSlug");
+    expect(chatLink).toContain("SUPPORTED_PUBLIC_BOOKING_STORE_SLUGS");
+    expect(chatLink).toContain('"hsinchu"');
+    expect(chatLink).toContain('"taichung"');
     expect(chatLink).toContain("TRIAL_BOOKING_STORE_NOT_SUPPORTED");
   });
 
-  it("never falls back from a LINE chat link to an unrelated phone owner", () => {
+  it("repairs a same-phone legacy id only through the store-signed LINE entry policy", () => {
     const booking = source("src/server/actions/public-trial-booking.ts");
-    expect(booking).toContain("A phone number typed into a public form is not proof");
-    expect(booking).toContain("此手機已有顧客資料");
-    expect(booking).not.toContain("customer = { id: phoneCustomer.id");
+    const resolver = source("src/server/services/public-trial-line-customer.ts");
+    expect(booking).toContain("resolvePublicTrialLineCustomer");
+    expect(resolver).toContain("probeStoreLineRecipient");
+    expect(resolver).toContain('probe.status === "COMPATIBLE"');
+    expect(resolver).toContain('probe.status === "UNAVAILABLE"');
+    expect(resolver).toContain("prisma.customer.updateMany");
+    expect(resolver).toContain("lineUserId: candidate.lineUserId");
   });
 
   it("removes the shared booking URL on both secure-link success and failure", () => {

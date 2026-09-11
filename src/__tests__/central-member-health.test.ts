@@ -51,7 +51,7 @@ describe("detectCentralMemberHealthIssues", () => {
     }]);
   });
 
-  it("blocks mismatched LINE and Google identities without suggesting a merge", () => {
+  it("does not compare Messaging API and LINE Login subjects", () => {
     const issues = detectCentralMemberHealthIssues("store-1", [
       customer(),
       customer({ id: "customer-2", userId: "user-2", phone: "0987654321", googleId: "google-customer", lineUserId: null }),
@@ -59,10 +59,7 @@ describe("detectCentralMemberHealthIssues", () => {
       link({ providerAccountId: "other-line", lineUserId: "other-line" }),
       link({ id: "link-2", customerId: "customer-2", userId: "user-2", provider: "google", providerAccountId: "other-google", lineUserId: null }),
     ]);
-    expect(issues.map((issue) => issue.reason)).toEqual([
-      "google_identity_mismatch",
-      "line_identity_mismatch",
-    ]);
+    expect(issues.map((issue) => issue.reason)).toEqual(["google_identity_mismatch"]);
     expect(issues.every((issue) => issue.severity === "BLOCKED")).toBe(true);
   });
 

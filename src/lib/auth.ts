@@ -74,6 +74,59 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
 
   providers: [
+    // ── SPA 服務人員登入（手機 + 密碼）──
+    // 與店長 Email 後台、顧客前台完全分流；目前只開放 SPA Demo。
+    Credentials({
+      id: "service-staff-phone",
+      name: "service-staff-phone",
+      credentials: {
+        phone: { label: "手機", type: "tel" },
+        password: { label: "密碼", type: "password" },
+        storeSlug: { label: "店舖", type: "text" },
+      },
+      async authorize(credentials) {
+        const phone = normalizePhone(String(credentials?.phone ?? ""));
+        const password = String(credentials?.password ?? "");
+        const storeSlug = String(credentials?.storeSlug ?? "");
+        if (!/^09\d{8}$/.test(phone) || password.length < 6 || !storeSlug) return null;
+
+        const user = await prisma.user.findFirst({
+          where: {
+            phone,
+            role: "PARTNER",
+            status: "ACTIVE",
+            staff: {
+              status: "ACTIVE",
+              store: { slug: storeSlug, id: "demo-store" },
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            passwordHash: true,
+            role: true,
+            staff: {
+              select: { id: true, storeId: true, store: { select: { slug: true } } },
+            },
+          },
+        });
+        if (!user?.passwordHash || !user.staff) return null;
+        if (!compareSync(password, user.passwordHash)) return null;
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email ?? null,
+          role: user.role,
+          staffId: user.staff.id,
+          customerId: null,
+          storeId: user.staff.storeId,
+          storeSlug: user.staff.store.slug,
+        };
+      },
+    }),
+
     // ── Staff 登入（Email + 密碼）──
     Credentials({
       id: "credentials",
@@ -342,8 +395,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       id: "line",
       name: "LINE",
       type: "oauth" as const,
-      clientId: process.env.LINE_LOGIN_CHANNEL_ID!,
-      clientSecret: process.env.LINE_LOGIN_CHANNEL_SECRET!,
+      // Web OAuth credentials are independent of LIFF and legacy channels.
+      // Never fall back to a different channel when the web pair is missing.
+      clientId: process.env.WEB_LINE_LOGIN_CHANNEL_ID?.trim() || "",
+      clientSecret: process.env.WEB_LINE_LOGIN_CHANNEL_SECRET?.trim() || "",
       // LINE 要求 state 參數；不使用 PKCE（LINE 不支援）
       checks: ["state"],
       // 告訴 oauth4webapi 用 client_secret_post（把 client_id/secret 放在 POST body）
@@ -428,11 +483,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const storeSlug = credentials?.storeSlug as string | undefined;
         if (!idToken || !storeSlug) return null;
 
-        const expectedChannelId = process.env.LINE_LOGIN_CHANNEL_ID;
-        if (!expectedChannelId) {
-          console.error("[auth][liff-token] LINE_LOGIN_CHANNEL_ID env not set");
-          return null;
-        }
+        const { resolveCentralMemberLineLoginChannelId } = await import(
+          "@/lib/liff/central-member-config"
+        );
+        const expectedChannelId = resolveCentralMemberLineLoginChannelId();
 
         const { verifyLiffIdToken, LiffIdTokenError } = await import(
           "@/lib/liff/verify-id-token"
@@ -700,6 +754,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             select: { userId: true, customer: true },
           });
           if (verifiedLink) {
+            if (verifiedLink.customer.userId === null) {
+              const { resolveWebLineLinkedMember } = await import(
+                "@/server/services/web-line-linked-member"
+              );
+              const centralUserId = await resolveWebLineLinkedMember({
+                storeId: targetStoreId,
+                subject: lineUserId,
+                expectedUserId: verifiedLink.userId,
+                expectedCustomerId: verifiedLink.customer.id,
+              });
+              if (!centralUserId) return false;
+              user.id = centralUserId;
+              return true;
+            }
             // An exact store-scoped Login mapping is authoritative only when
             // its Customer and User ownership agree. Never fall back to, or
             // compare against, the Messaging API Customer.lineUserId here.

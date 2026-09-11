@@ -53,7 +53,26 @@ describe("store manager LINE notifications", () => {
       text: expect.stringContaining("應收：NT$998"),
     });
     expect(messages[0]).toMatchObject({
-      text: expect.stringContaining("/dashboard/bookings?bookingId=booking_1"),
+      text: expect.stringContaining("/s/zhubei/admin/dashboard/bookings?bookingId=booking_1"),
+    });
+  });
+
+  it("renders a lead notification with a direct store-scoped deep link", () => {
+    const [message] = buildStoreManagerNotificationMessage({
+      type: "DIGITAL_BUTLER_LEAD_CREATED",
+      eventKey: "lead:lead_1",
+      storeId: "store_1",
+      storeSlug: "zhubei",
+      customerName: "蔡小姐",
+      phone: "0934487682",
+      leadId: "lead_1",
+      provider: "LINE",
+      requestType: "預約體驗",
+      storeName: "暖暖蒸足",
+    });
+
+    expect(message).toMatchObject({
+      text: expect.stringContaining("/s/zhubei/admin/dashboard/digital-butler/leads?leadId=lead_1"),
     });
   });
 
@@ -185,7 +204,7 @@ describe("store manager LINE notifications", () => {
     });
 
     expect(messages[0]).toMatchObject({
-      text: expect.stringContaining("/dashboard/digital-butler/leads?handoff=waiting"),
+      text: expect.stringContaining("/s/zhubei/admin/dashboard/digital-butler/leads?handoff=waiting"),
     });
   });
 

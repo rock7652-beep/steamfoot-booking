@@ -125,11 +125,20 @@ export async function customerRegisterAction(
   // 檢查手機是否已有顧客帳號（同店）
   const existingCustomer = await prisma.customer.findFirst({ where: { phone, storeId } });
   if (existingCustomer) {
-    if (!existingCustomer.userId) {
+    if (existingCustomer.userId) {
+      return { error: "此手機號碼已註冊，請直接登入" };
+    }
+    // Official LINE phone binding is notification-only. It intentionally
+    // creates/updates Customer without reserving a login User. Let the real
+    // customer finish password registration while preserving that recipient.
+    if (
+      !existingCustomer.lineUserId ||
+      !existingCustomer.lineLinkedAt ||
+      existingCustomer.lineLinkStatus !== "LINKED"
+    ) {
       // 後台建立的顧客，導向帳號開通
       return { error: "NEEDS_ACTIVATION" };
     }
-    return { error: "此手機號碼已註冊，請直接登入" };
   }
 
   // 也檢查 User 表（跨店同手機的 CUSTOMER User）
@@ -182,19 +191,25 @@ export async function customerRegisterAction(
     // 建立 User + Customer（sponsorId 先留空，由 bindReferralToCustomer 在下方補）
     const created = existingUser
       ? await prisma.$transaction(async (tx) => {
-          const customer = await tx.customer.create({
-            data: {
-              name,
-              phone,
-              gender,
-              birthday,
-              notes,
-              authSource: "EMAIL",
-              customerStage: "LEAD",
-              storeId,
-            },
-            select: { id: true },
-          });
+          const customer = existingCustomer
+            ? await tx.customer.update({
+                where: { id: existingCustomer.id },
+                data: { name, gender, birthday, notes, authSource: "EMAIL" },
+                select: { id: true },
+              })
+            : await tx.customer.create({
+                data: {
+                  name,
+                  phone,
+                  gender,
+                  birthday,
+                  notes,
+                  authSource: "EMAIL",
+                  customerStage: "LEAD",
+                  storeId,
+                },
+                select: { id: true },
+              });
           await tx.customerIdentityLink.create({
             data: {
               userId: existingUser.id,
@@ -219,6 +234,42 @@ export async function customerRegisterAction(
           });
           return { customer };
         })
+      : existingCustomer
+        ? await prisma.$transaction(async (tx) => {
+            const user = await tx.user.create({
+              data: { name, phone, passwordHash, role: "CUSTOMER", status: "ACTIVE" },
+              select: { id: true },
+            });
+            const activated = await tx.customer.updateMany({
+              where: {
+                id: existingCustomer.id,
+                storeId,
+                phone,
+                userId: null,
+                lineUserId: existingCustomer.lineUserId,
+                lineLinkStatus: "LINKED",
+              },
+              data: {
+                userId: user.id,
+                name,
+                gender,
+                birthday,
+                notes,
+                authSource: "EMAIL",
+              },
+            });
+            if (activated.count !== 1) throw new Error("PREBOUND_CUSTOMER_STALE");
+            await tx.auditLog.create({
+              data: {
+                actorUserId: user.id,
+                targetType: "Customer",
+                targetId: existingCustomer.id,
+                action: "ACTIVATE_NOTIFICATION_PREBIND",
+                afterJson: { storeId, entryPoint: "phone_password" },
+              },
+            });
+            return { customer: { id: existingCustomer.id } };
+          })
       : await prisma.user.create({
           data: {
             name,

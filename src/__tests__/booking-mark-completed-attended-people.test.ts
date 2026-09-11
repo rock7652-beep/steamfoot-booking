@@ -6,7 +6,8 @@
  *   - FIRST_TRIAL people=2 + attendedPeople=2 → 寫入 attendedPeople=2（Decision D：明確寫入）
  *   - FIRST_TRIAL people=2 + 無 attendedPeople → 不寫此欄位（向後相容）
  *   - attendedPeople > booking.people → VALIDATION 拒絕
- *   - PACKAGE_SESSION + attendedPeople < people → BUSINESS_RULE 拒絕（部分到店僅 FIRST_TRIAL）
+ *   - PACKAGE_SESSION + attendedPeople < people → 必須選未到處理方式
+ *   - PACKAGE_SESSION 部分到店可選只扣堂或扣堂＋補課
  *   - PACKAGE_SESSION + attendedPeople == people → 接受（完整到店允許所有型別）
  *
  * Mock 策略：unit-style；FIRST_TRIAL 無 wallet → wallet 分支 skip，
@@ -20,8 +21,14 @@ const STORE = "store_1";
 
 const mockBookingFindUnique = vi.fn();
 const mockTxBookingUpdate = vi.fn();
+const mockTxBookingUpdateMany = vi.fn();
 const mockTxTransactionFindFirst = vi.fn();
 const mockTransaction = vi.fn();
+const mockMakeupCreate = vi.fn();
+const mockMakeupFindMany = vi.fn();
+const mockMakeupDeleteMany = vi.fn();
+const mockWalletFindUnique = vi.fn();
+const mockReservedSessions = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -31,6 +38,7 @@ vi.mock("@/lib/db", () => ({
     transaction: {
       findFirst: (...a: unknown[]) => mockTxTransactionFindFirst(...a),
     },
+    customerPlanWallet: { findMany: vi.fn(async () => []) },
     $transaction: (cb: (tx: unknown) => Promise<unknown>) => mockTransaction(cb),
   },
 }));
@@ -81,6 +89,11 @@ vi.mock("@/server/services/wallet-session", () => ({
 vi.mock("@/server/services/referral-points", () => ({
   awardFirstBookingReferralPointsIfEligible: vi.fn(),
 }));
+// 通知發送另有專屬測試；本檔只驗證完成、扣堂及補課分流。
+vi.mock("@/server/services/session-balance-notifications", () => ({
+  enqueueSessionBalanceNotifications: vi.fn(async () => []),
+  dispatchSessionBalanceNotifications: vi.fn(),
+}));
 vi.mock("./booking-helpers", () => ({
   snapshotRevenueStaffForBooking: (s: string | null) => s ?? null,
 }));
@@ -98,23 +111,38 @@ vi.mock("@/lib/errors", () => ({
   }),
 }));
 
-import { markCompleted } from "@/server/actions/booking";
+import { markCompleted, revertBookingStatus } from "@/server/actions/booking";
 
-type UpdateArg = { where: { id: string }; data: Record<string, unknown> };
-const lastUpdateData = (): Record<string, unknown> =>
-  (mockTxBookingUpdate.mock.calls.at(-1) as unknown as [UpdateArg])[0].data;
+type UpdateArg = { where: Record<string, unknown>; data: Record<string, unknown> };
+const lastUpdateData = (): Record<string, unknown> => {
+  const calls = mockTxBookingUpdateMany.mock.calls.length
+    ? mockTxBookingUpdateMany.mock.calls
+    : mockTxBookingUpdate.mock.calls;
+  return (calls.at(-1) as unknown as [UpdateArg])[0].data;
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockTxBookingUpdate.mockResolvedValue({});
+  mockTxBookingUpdateMany.mockResolvedValue({ count: 1 });
   // FIRST_TRIAL 必須已有成功收款，才能單獨走 markCompleted（提前收款情境）。
   mockTxTransactionFindFirst.mockResolvedValue({ id: "tx_paid" });
+  mockMakeupFindMany.mockResolvedValue([]);
+  mockMakeupDeleteMany.mockResolvedValue({ count: 0 });
+  mockWalletFindUnique.mockResolvedValue({ status: "ACTIVE", remainingSessions: 5, expiryDate: null });
+  mockReservedSessions.mockResolvedValue([]);
   mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
     return cb({
-      booking: { update: mockTxBookingUpdate },
-      transaction: { create: vi.fn() },
+      booking: { update: mockTxBookingUpdate, updateMany: mockTxBookingUpdateMany, findUnique: vi.fn() },
+      transaction: { create: vi.fn(), findMany: vi.fn(async () => []) },
+      walletSession: { findMany: mockReservedSessions },
       customer: { update: vi.fn() },
-      customerPlanWallet: { update: vi.fn() },
+      customerPlanWallet: { update: vi.fn(), findUnique: mockWalletFindUnique, count: vi.fn(async () => 1) },
+      makeupCredit: {
+        create: mockMakeupCreate,
+        findMany: mockMakeupFindMany,
+        deleteMany: mockMakeupDeleteMany,
+      },
     });
   });
 });
@@ -146,6 +174,7 @@ function packageBooking(people: number) {
     isMakeup: false,
     customerId: "c1",
     customer: { id: "c1", customerStage: "ACTIVE" },
+    customerPlanWalletId: "w1",
     // 必須有 wallet，否則 P0 guard 會拒絕完成 PACKAGE_SESSION
     customerPlanWallet: {
       id: "w1",
@@ -162,6 +191,34 @@ function packageBooking(people: number) {
 }
 
 describe("markCompleted — PR-3d attendedPeople write semantics", () => {
+  it.each([
+    ["方案過期", { status: "ACTIVE", remainingSessions: 5, expiryDate: new Date("2026-06-06") }],
+    ["堂數不足", { status: "ACTIVE", remainingSessions: 1, expiryDate: null }],
+  ])("%s → 拒絕完成且不發補課", async (_label, wallet) => {
+    mockBookingFindUnique.mockResolvedValue(packageBooking(2));
+    mockWalletFindUnique.mockResolvedValue(wallet);
+    const r = await markCompleted("bk_pkg", {
+      attendedPeople: 1,
+      partialNoShowChoice: "DEDUCTED_WITH_MAKEUP",
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/失效、堂數不足/);
+    expect(mockTxBookingUpdateMany).not.toHaveBeenCalled();
+    expect(mockMakeupCreate).not.toHaveBeenCalled();
+  });
+
+  it("保留堂數與方案人數不符 → 拒絕完成", async () => {
+    mockBookingFindUnique.mockResolvedValue(packageBooking(2));
+    mockReservedSessions.mockResolvedValue([{
+      walletId: "w1",
+      wallet: { status: "ACTIVE", remainingSessions: 5, expiryDate: null },
+    }]);
+    const r = await markCompleted("bk_pkg", { attendedPeople: 2 });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error).toMatch(/應扣 2 堂.*只保留 1 堂/);
+    expect(mockTxBookingUpdateMany).not.toHaveBeenCalled();
+  });
+
   it("FIRST_TRIAL people=2 + attendedPeople=1 → writes attendedPeople=1", async () => {
     mockBookingFindUnique.mockResolvedValue(trialBooking(2));
     const r = await markCompleted("bk_1", { attendedPeople: 1 });
@@ -189,14 +246,78 @@ describe("markCompleted — PR-3d attendedPeople write semantics", () => {
     mockBookingFindUnique.mockResolvedValue(trialBooking(2));
     const r = await markCompleted("bk_1", { attendedPeople: 3 });
     expect(r.success).toBe(false);
-    expect(mockTxBookingUpdate).not.toHaveBeenCalled();
+    expect(mockTxBookingUpdateMany).not.toHaveBeenCalled();
   });
 
-  it("PACKAGE_SESSION people=2 + attendedPeople=1 → BUSINESS_RULE reject (only trial supports partial)", async () => {
+  it("PACKAGE_SESSION people=2 + attendedPeople=1 without policy → rejects", async () => {
     mockBookingFindUnique.mockResolvedValue(packageBooking(2));
     const r = await markCompleted("bk_pkg", { attendedPeople: 1 });
     expect(r.success).toBe(false);
-    if (!r.success) expect(r.error).toMatch(/體驗預約/);
-    expect(mockTxBookingUpdate).not.toHaveBeenCalled();
+    if (!r.success) expect(r.error).toMatch(/未到者/);
+    expect(mockTxBookingUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("PACKAGE_SESSION 2 人實到 1 人＋只扣堂 → 完成且不發補課", async () => {
+    mockBookingFindUnique.mockResolvedValue(packageBooking(2));
+    const r = await markCompleted("bk_pkg", {
+      attendedPeople: 1,
+      partialNoShowChoice: "DEDUCTED",
+    });
+    expect(r.success).toBe(true);
+    expect(lastUpdateData()).toMatchObject({
+      bookingStatus: "COMPLETED",
+      attendedPeople: 1,
+      noShowPolicy: "DEDUCTED",
+      noShowMakeupGranted: false,
+    });
+    expect(mockMakeupCreate).not.toHaveBeenCalled();
+  });
+
+  it("PACKAGE_SESSION 2 人實到 1 人＋補課 → 只發未到 1 張", async () => {
+    mockBookingFindUnique.mockResolvedValue(packageBooking(2));
+    const r = await markCompleted("bk_pkg", {
+      attendedPeople: 1,
+      partialNoShowChoice: "DEDUCTED_WITH_MAKEUP",
+    });
+    expect(r.success).toBe(true);
+    expect(mockMakeupCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("部分到店回退 → 移除未使用補課並清空部分到店欄位", async () => {
+    mockBookingFindUnique.mockResolvedValue({
+      ...packageBooking(2),
+      bookingStatus: "COMPLETED",
+      attendedPeople: 1,
+      noShowPolicy: "DEDUCTED",
+      noShowMakeupGranted: true,
+      makeupCreditLinks: [],
+    });
+    mockMakeupFindMany.mockResolvedValue([{ id: "credit-1", isUsed: false }]);
+    const r = await revertBookingStatus("bk_pkg");
+    expect(r.success).toBe(true);
+    expect(mockMakeupDeleteMany).toHaveBeenCalledWith({
+      where: { originalBookingId: "bk_pkg" },
+    });
+    expect(lastUpdateData()).toMatchObject({
+      bookingStatus: "PENDING",
+      attendedPeople: null,
+      noShowPolicy: null,
+      noShowMakeupGranted: null,
+    });
+  });
+
+  it("部分到店補課已被使用 → 拒絕回退", async () => {
+    mockBookingFindUnique.mockResolvedValue({
+      ...packageBooking(2),
+      bookingStatus: "COMPLETED",
+      attendedPeople: 1,
+      noShowPolicy: "DEDUCTED",
+      noShowMakeupGranted: true,
+      makeupCreditLinks: [],
+    });
+    mockMakeupFindMany.mockResolvedValue([{ id: "credit-1", isUsed: true }]);
+    const r = await revertBookingStatus("bk_pkg");
+    expect(r.success).toBe(false);
+    expect(mockMakeupDeleteMany).not.toHaveBeenCalled();
   });
 });

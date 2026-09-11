@@ -65,6 +65,14 @@ export const liffMessages = {
     welcomeFootnote: "只需一次，完成後下次從 LINE 進入即可直接使用。",
     signedInTitle: "歡迎回來",
     signedInBody: "您已啟用暖暖蒸足 LINE 會員服務。",
+    memberHomeLabel: "會員中心",
+    availableSessionsLabel: "目前可預約",
+    availableSessionsSuffix: "堂",
+    makeupAvailableLabel: "另有補課資格",
+    serviceSectionTitle: "常用服務",
+    serviceSectionHint: "需要的功能都在這裡",
+    designPreviewName: "彥陸",
+    designPreviewStoreName: "暖暖蒸足",
     // PR-E3：3 個 CTA 已全 live (E2b)，加 helper copy 一行讓顧客知道入口在做什麼。
     // 對應 3 顆 CTA：「快速預約」→體驗預約 / 「查詢預約」→我的預約 / 「剩餘堂數」→我的方案
     welcomeHomeHint: "快速預約、查詢預約與剩餘堂數。",
@@ -143,7 +151,7 @@ export const liffMessages = {
   // 從 /liff/wallets ReadyView「立即預約」進來；mirror trialBooking 結構但拿掉
   // already_has_trial / 體驗收費 footnote / SuccessCard 的 store label。
   // 主視覺差異：加 walletSummary 摘要列；submit label = 使用堂數預約；
-  // SuccessCard 只兩顆 CTA（查看我的預約 / 回我的方案）。
+  // SuccessCard 提供再次預約、查看預約與回方案頁。
   memberBooking: {
     // page header
     title: "使用堂數預約",
@@ -198,7 +206,9 @@ export const liffMessages = {
     successMakeupUsed: "已使用 {count} 張補課資格，本次不扣堂。",
     successDateLabel: "日期",
     successSlotLabel: "時段",
-    /** SuccessCard primary CTA — 與 trialBooking 一致 */
+    /** SuccessCard primary CTA — 保留本次人數，再選下一個日期與時段 */
+    successBookNextCta: "再預約下一次",
+    /** SuccessCard secondary CTA — 與 trialBooking 一致 */
     successMyBookingsCta: "查看我的預約",
     /** SuccessCard secondary CTA — 回方案頁 */
     successWalletsCta: "回我的方案",
@@ -259,7 +269,7 @@ export const liffMessages = {
     calendarCta: "加入行事曆",
   },
   // ── PR-H2 我的健康紀錄 ──
-  // LIFF 顧客在 LINE 內看 HealthFlow 健康摘要的唯讀頁。
+  // LIFF 顧客在 LINE 內看蒸管家原生健康摘要的唯讀頁。
   // 不取代 dashboard 端 health-summary / health-history（那些是後台店長視角）；
   // 本 namespace 是「顧客自己看的版本」，文案更友善、加醫療免責。
   // 不寫醫療性語言（不用「診斷 / 治療 / 預防」），用「保養 / 追蹤 / 觀察」。
@@ -277,9 +287,9 @@ export const liffMessages = {
     /** @deprecated PR-H2c 後不顯示 self-computed score；留 key 避免別處意外引用報錯 */
     scoreSuffix: "/ 100",
     /** PR-H2c：在最近量測卡底下提示「正式分數請至 HealthFlow」（fallback 用，當 HealthFlow API 沒回 official score 時顯示） */
-    scoreOnHealthFlowHint: "完整健康分數與評估，請點下方「查看完整評估」前往 HealthFlow 原站。",
+    scoreOnHealthFlowHint: "完整健康分數與評估會直接顯示在蒸管家，不需前往外部網站。",
     /** PR feat/liff-health-official-score：官方分數卡底下資料來源歸屬 */
-    officialScoreAttribution: "資料來源：HealthFlow AI 健康評估",
+    officialScoreAttribution: "資料來源：蒸管家健康紀錄",
 
     // 指標 labels
     metric: {
@@ -295,29 +305,29 @@ export const liffMessages = {
     /** {n} = trend length，e.g. "近 5 次變化" */
     trendLabel: "近 {n} 次變化",
 
-    // 已綁定但 HealthFlow 還沒任何量測
+    // 尚無量測
     noMeasurementTitle: "尚無量測紀錄",
     noMeasurementBody:
-      "您已連結 AI 健康評估系統，但目前還沒有任何量測資料。下次到店時，歡迎請店家為您安排一次身體組成量測。",
+      "目前還沒有任何量測資料。您可以直接在蒸管家新增紀錄，或下次到店時請店家協助量測。",
 
     // 未綁定 / 找不到對應帳號
-    notLinkedTitle: "尚未完成 AI 健康評估",
+    notLinkedTitle: "尚無健康紀錄",
     notLinkedUnlinkedBody:
-      "您目前尚未建立 AI 健康評估資料。點擊下方按鈕，可在 AI 健康評估系統中完成評估，幫助店家更了解您的身體狀況。",
+      "您目前尚未建立健康評估資料。點擊下方按鈕，即可在蒸管家完成第一次量測。",
     notLinkedNotFoundBody:
-      "目前查無對應的健康評估資料。可能是您使用了不同的 Email 或手機號碼建立帳號，或尚未完成評估。請點下方開始 AI 健康評估，或聯繫店家協助。",
+      "目前查無對應的健康評估資料。您可以直接在蒸管家新增量測；若曾有舊紀錄但未顯示，請聯繫店家協助核對。",
     notLinkedErrorBody:
-      "AI 健康評估連結暫時無法載入，請稍後再試，或聯繫店家協助處理。",
+      "健康紀錄暫時無法載入，請稍後再試，或聯繫店家協助處理。",
 
     // CTAs
-    /** primary CTA — 跳轉外部 HealthFlow */
-    startHealthFlowCta: "開始 AI 健康評估",
+    /** primary CTA — 蒸管家站內量測 */
+    startHealthFlowCta: "新增量測",
     /** CTA loading — 產生 SteamFoot signed bridge state */
     linkStartLoading: "正在前往 AI 健康評估…",
     /** CTA error — signed bridge state could not be created */
     linkStartFailed: "暫時無法前往 AI 健康評估，請稍後再試或聯繫店家協助。",
-    /** outline CTA — 已綁定狀態下，跳轉外部完整評估系統 */
-    viewFullCta: "查看完整評估 ↗",
+    /** outline CTA — 已綁定狀態下，查看蒸管家完整評估 */
+    viewFullCta: "查看歷史與曲線",
     /** LINE-green CTA */
     contactStoreCta: "聯絡店家",
     /** outline CTA — 回 LIFF 首頁 */
@@ -391,11 +401,13 @@ export const liffMessages = {
 
     // empty state
     emptyTitle: "目前沒有可使用的方案",
-    emptyBody: "若您已購買方案，請聯絡店家協助確認。",
+    emptyBody: "您可以直接購買方案；若已完成購買但尚未顯示，請聯絡店家協助確認。",
 
     // PR-G3：「立即預約」CTA — 露在 ReadyView footer
     // 只有 active 加總 availableToBook > 0 才顯示；連到 /liff/member-booking
     ctaBookNow: "立即預約",
+    ctaPurchasePlan: "購買方案",
+    ctaRenewPlan: "購買／續購方案",
 
     // 回首頁
     backHomeCta: "回首頁",
@@ -420,7 +432,7 @@ export const liffMessages = {
     // booking card cta
     cardCta: "取消此次預約",
     // 與 cancelBooking action 內的 12 小時 cutoff 訊息一致；D4A 拍板沿用 web 12h
-    cardHint: "開課前 12 小時可自行取消",
+    cardHint: "預約時間前 12 小時可自行取消",
 
     // success
     successTitle: "預約已取消",
@@ -429,7 +441,7 @@ export const liffMessages = {
     // error states — 對應 cancelLiffBooking 的 status enum
     errorNotFound: "找不到此預約，可能已被取消或調整。",
     errorForbidden: "此預約無法由您取消。",
-    errorCutoffBreach: "開課前 12 小時內無法自行取消，請聯繫店家協助。",
+    errorCutoffBreach: "預約時間前 12 小時內無法自行取消，請聯繫店家協助。",
     errorStatusBlocked: "此預約目前狀態無法取消。",
     errorServiceUnavailable: "目前無法完成取消，請稍後再試。",
   },

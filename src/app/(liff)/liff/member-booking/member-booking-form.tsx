@@ -7,7 +7,7 @@
  *   1. mount → initLiff → isInLineClient → fetchLiffWallets (拿 active 摘要) → ready
  *   2. 選日 → fetchDaySlots → 顯示 slot 列表
  *   3. 選 slot → submit → submitLiffMemberBooking
- *      - ok → success card (查看我的預約 / 回我的方案)
+ *      - ok → success card (再預約下一次 / 查看我的預約 / 回我的方案)
  *      - no_wallet_available / wallet_expired / insufficient_sessions
  *        → blocked + 聯繫店家
  *      - slot_full / slot_unavailable → reload slots（讓顧客重選）
@@ -19,10 +19,10 @@
  *   - 移除 already_has_trial / ExistingTrialCard
  *   - 移除 footnote「店家會於現場收取體驗費用」（會員預約不收費）
  *   - 移除 SuccessCard 內 storeName label
- *   - 移除 successHomeCta / contactStoreCta (SuccessCard 只兩顆 CTA)
+ *   - 移除 successHomeCta / contactStoreCta
  *   - 新增 Wallet summary 摘要列：「目前可預約 X 堂」+ 多張顯示「共 N 張方案」
  *   - Submit button label 改「使用堂數預約」
- *   - SuccessCard 2 CTA：查看我的預約 / 回我的方案
+ *   - SuccessCard 3 CTA：再預約下一次 / 查看我的預約 / 回我的方案
  *
  * Mobile-first：max-w-md / min-h-[44px] tap target / 月曆 cell min-h-[72px]。
  * 不寫 inline 中文（一律從 liffMessages.memberBooking.* / liffMessages.error.*）。
@@ -36,7 +36,7 @@
  *   _components/success-card.tsx                   ← SuccessCard
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   initLiff,
   isInLineClient,
@@ -56,6 +56,7 @@ import {
   type LiffWalletRow,
   type LiffMakeupCreditRow,
 } from "@/server/actions/liff-my-wallets";
+import { fetchLiffBookings } from "@/server/actions/liff-my-bookings";
 import { liffMessages } from "@/lib/liff/messages";
 import { loadProfileWithSessionRefresh } from "@/lib/liff/profile-loader";
 import type { SlotAvailability } from "@/types";
@@ -73,6 +74,10 @@ import { NoWalletCard } from "./_components/no-wallet-card";
 import { BlockedBlock } from "./_components/blocked-block";
 import { SuccessCard } from "./_components/success-card";
 import { useBookingRequestKey } from "@/hooks/use-booking-request-key";
+import {
+  buildMemberBookingNextPath,
+  parseMemberBookingNextPeople,
+} from "@/lib/liff/member-booking-next";
 
 type State =
   | { kind: "initializing" }
@@ -86,6 +91,7 @@ type State =
       kind: "success";
       bookingDate: string;
       slotTime: string;
+      people: number;
       usedMakeupCount: number;
     }
   | {
@@ -107,11 +113,20 @@ interface Props {
 
 export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: Props) {
   const requestKey = useBookingRequestKey();
+  const [bookingNextPeople] = useState(() =>
+    typeof window === "undefined"
+      ? null
+      : parseMemberBookingNextPeople(window.location.search),
+  );
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-NoShow-2：有效補課券（最早到期優先）。people=N 時券 >= N 即自動使用 N 張。
   const [makeupCredits, setMakeupCredits] = useState<LiffMakeupCreditRow[]>([]);
   // 預約人數（1~4）。
-  const [people, setPeople] = useState(1);
+  const [people, setPeople] = useState(bookingNextPeople ?? 1);
+  const [upcomingBookings, setUpcomingBookings] = useState<
+    Array<{ bookingDate: string; slotTime: string }>
+  >([]);
+  const slotSectionRef = useRef<HTMLElement>(null);
 
   // calendar state — 台灣今日（client clock；server gate 才是 source of truth）
   const today = (() => {
@@ -122,7 +137,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
   const [monthData, setMonthData] = useState<Record<string, MonthDayInfo>>({});
-  const [loadingMonth, setLoadingMonth] = useState(false);
+  const [loadingMonth, setLoadingMonth] = useState(true);
 
   // day + slot selection
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -150,7 +165,19 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
         // 取會員方案摘要 — active 加總 availableToBook（不含過期 / 已用完）
         let walletResult;
         try {
-          walletResult = await fetchLiffWallets();
+          const [walletResponse, bookingResponse] = await Promise.all([
+            fetchLiffWallets(),
+            fetchLiffBookings(),
+          ]);
+          walletResult = walletResponse;
+          if (bookingResponse.status === "ok") {
+            setUpcomingBookings(
+              bookingResponse.upcoming.map(({ bookingDate, slotTime }) => ({
+                bookingDate,
+                slotTime,
+              })),
+            );
+          }
         } catch (err) {
           if (cancelled) return;
           console.warn("[member-booking-form] fetchLiffWallets threw", err);
@@ -218,7 +245,6 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
   useEffect(() => {
     if (!monthLoadable) return;
     let cancelled = false;
-    setLoadingMonth(true);
     (async () => {
       try {
         const result = await fetchMonthAvailability(calYear, calMonth + 1);
@@ -261,6 +287,11 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     void loadSlots(dateStr);
   }
 
+  useEffect(() => {
+    if (!selectedDate || loadingSlots) return;
+    slotSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loadingSlots, selectedDate]);
+
   function handlePrevMonth() {
     const nd = new Date(calYear, calMonth - 1, 1);
     setCalYear(nd.getFullYear());
@@ -268,6 +299,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     setSelectedDate(null);
     setSlots([]);
     setSelectedSlot(null);
+    setLoadingMonth(true);
   }
 
   function handleNextMonth() {
@@ -277,6 +309,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     setSelectedDate(null);
     setSlots([]);
     setSelectedSlot(null);
+    setLoadingMonth(true);
   }
 
   // ── 4. submit ──────────────────────────────────────
@@ -308,6 +341,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           kind: "success",
           bookingDate: result.bookingDate,
           slotTime: result.slotTime,
+          people,
           // 補課券是 server 自選 N 張（= people）；result.usedMakeup 為真才顯示。
           usedMakeupCount: result.usedMakeup ? people : 0,
         });
@@ -458,6 +492,10 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     setState({ kind: "ready", wallet: state.wallet });
   }
 
+  function handleBookNext(bookingPeople: number) {
+    window.location.assign(buildMemberBookingNextPath(storeSlug, bookingPeople));
+  }
+
   // ── render ─────────────────────────────────────────
   // 補課券不足以覆蓋人數、且方案可預約堂數也不足 → 無法成立此人數，停用送出，
   // 讓「補課資格不足」提示引導顧客改人數（避免送出後落到「沒有方案」死路）。
@@ -468,7 +506,24 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
       ? state.wallet.totalAvailable
       : 0;
   const cannotCoverPeople =
-    makeupCredits.length < people && walletAvail < people;
+    makeupCredits.length + walletAvail < people;
+  const maxBookablePeople = Math.min(4, makeupCredits.length + walletAvail);
+  const bookedDates = useMemo(
+    () => [...new Set(upcomingBookings.map((booking) => booking.bookingDate))],
+    [upcomingBookings],
+  );
+  const bookedSlotTimes = useMemo(
+    () => upcomingBookings
+      .filter((booking) => booking.bookingDate === selectedDate)
+      .map((booking) => booking.slotTime),
+    [selectedDate, upcomingBookings],
+  );
+  const makeupCount = Math.min(makeupCredits.length, people);
+  const planSessionCount = people - makeupCount;
+  const deductionSummary = [
+    planSessionCount > 0 ? `使用 ${planSessionCount} 堂` : null,
+    makeupCount > 0 ? `補課 ${makeupCount} 張` : null,
+  ].filter(Boolean).join("＋");
   const submitDisabled =
     state.kind === "submitting" ||
     !selectedDate ||
@@ -476,15 +531,15 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     cannotCoverPeople;
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-5 px-4 py-8">
+    <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
       <header className="text-center">
         <p className="text-xs uppercase tracking-widest text-earth-500">
           {storeName}
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-earth-900">
+        <h1 className="mt-1.5 text-2xl font-semibold text-earth-900">
           {liffMessages.memberBooking.title}
         </h1>
-        <p className="mt-2 text-sm text-earth-600">
+        <p className="mt-1 text-sm text-earth-600">
           {liffMessages.memberBooking.body}
         </p>
       </header>
@@ -536,6 +591,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           bookingDate={state.bookingDate}
           slotTime={state.slotTime}
           usedMakeupCount={state.usedMakeupCount}
+          onBookNext={() => handleBookNext(state.people)}
         />
       )}
 
@@ -557,7 +613,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           )}
 
           {/* 預約人數選擇器（PR-NoShow-2：LIFF 也支援多人） */}
-          <div className="flex items-center gap-3 rounded-xl border border-earth-200 bg-white px-4 py-3">
+          <div className="flex items-center gap-2 rounded-xl border border-earth-200 bg-white px-4 py-2.5">
             <span className="text-sm font-semibold text-earth-800">
               {liffMessages.memberBooking.peopleLabel}
             </span>
@@ -574,13 +630,16 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             </span>
             <button
               type="button"
-              onClick={() => setPeople((p) => Math.min(4, p + 1))}
-              disabled={people >= 4 || state.kind === "submitting"}
+              onClick={() => {
+                setPeople((p) => Math.min(maxBookablePeople, p + 1));
+                setSelectedSlot(null);
+              }}
+              disabled={people >= maxBookablePeople || state.kind === "submitting"}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-earth-300 text-lg disabled:opacity-40"
             >
               +
             </button>
-            <span className="text-xs text-earth-500">
+            <span className="ml-auto text-xs text-earth-500">
               {liffMessages.memberBooking.peopleHint}
             </span>
           </div>
@@ -614,44 +673,64 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
             </div>
           )}
 
-          <MonthCalendar
-            calYear={calYear}
-            calMonth={calMonth}
-            today={today}
-            monthData={monthData}
-            loadingMonth={loadingMonth}
-            selectedDate={selectedDate}
-            onSelectDate={handleSelectDate}
-            onPrevMonth={handlePrevMonth}
-            onNextMonth={handleNextMonth}
-            disabled={state.kind === "submitting"}
-            requestedPeople={people}
-            labels={{
-              monthPrev: liffMessages.memberBooking.monthPrev,
-              monthNext: liffMessages.memberBooking.monthNext,
-              weekLabels: liffMessages.memberBooking.weekLabels,
-              todayLabel: liffMessages.memberBooking.todayLabel,
-              closedDayLabel: liffMessages.memberBooking.closedDayLabel,
-              fullDayLabel: liffMessages.memberBooking.slotFullLabel,
-            }}
-          />
-
-          {selectedDate && (
-            <SlotPicker
-              date={selectedDate}
-              slots={slots}
-              loading={loadingSlots}
-              selectedSlot={selectedSlot}
-              onSelectSlot={setSelectedSlot}
+          <section aria-labelledby="member-booking-date-heading">
+            <h2 id="member-booking-date-heading" className="mb-2 text-sm font-semibold text-earth-800">
+              1. 選擇日期
+            </h2>
+            <MonthCalendar
+              calYear={calYear}
+              calMonth={calMonth}
+              today={today}
+              monthData={monthData}
+              loadingMonth={loadingMonth}
+              selectedDate={selectedDate}
+              onSelectDate={handleSelectDate}
+              onPrevMonth={handlePrevMonth}
+              onNextMonth={handleNextMonth}
               disabled={state.kind === "submitting"}
               requestedPeople={people}
+              compact
+              bookedDates={bookedDates}
               labels={{
-                loadingText: liffMessages.memberBooking.slotsLoading,
-                emptyText: liffMessages.memberBooking.noSlotsForDay,
-                pastLabel: liffMessages.memberBooking.slotPastLabel,
-                fullLabel: liffMessages.memberBooking.slotFullLabel,
+                monthPrev: liffMessages.memberBooking.monthPrev,
+                monthNext: liffMessages.memberBooking.monthNext,
+                weekLabels: liffMessages.memberBooking.weekLabels,
+                todayLabel: liffMessages.memberBooking.todayLabel,
+                closedDayLabel: liffMessages.memberBooking.closedDayLabel,
+                fullDayLabel: liffMessages.memberBooking.slotFullLabel,
               }}
             />
+          </section>
+
+          {selectedDate && (
+            <section ref={slotSectionRef} aria-labelledby="member-booking-slot-heading" className="scroll-mt-16">
+              <h2 id="member-booking-slot-heading" className="mb-2 text-sm font-semibold text-earth-800">
+                2. 選擇時段
+              </h2>
+              <SlotPicker
+                date={selectedDate}
+                slots={slots}
+                loading={loadingSlots}
+                selectedSlot={selectedSlot}
+                onSelectSlot={setSelectedSlot}
+                disabled={state.kind === "submitting"}
+                requestedPeople={people}
+                bookedSlotTimes={bookedSlotTimes}
+                labels={{
+                  loadingText: liffMessages.memberBooking.slotsLoading,
+                  emptyText: liffMessages.memberBooking.noSlotsForDay,
+                  pastLabel: liffMessages.memberBooking.slotPastLabel,
+                  fullLabel: liffMessages.memberBooking.slotFullLabel,
+                }}
+              />
+            </section>
+          )}
+
+          {selectedDate && selectedSlot && (
+            <div className="rounded-xl border border-earth-200 bg-white px-4 py-3 text-sm text-earth-800">
+              <span className="font-semibold">預約確認：</span>
+              {selectedDate.replaceAll("-", "/")}・{selectedSlot}・{people} 人・{deductionSummary}
+            </div>
           )}
 
           <button
@@ -662,8 +741,10 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
           >
             {state.kind === "submitting"
               ? liffMessages.memberBooking.submitting
-              : !selectedDate || !selectedSlot
-                ? liffMessages.memberBooking.submitPlaceholder
+              : !selectedDate
+                ? "請選擇日期"
+                : !selectedSlot
+                  ? "請選擇時段"
                 : liffMessages.memberBooking.submit}
           </button>
         </>

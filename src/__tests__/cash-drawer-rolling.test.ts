@@ -27,6 +27,7 @@ const {
   mockSessionUpdate,
   mockEntryFindMany,
   mockTxAggregate,
+  mockPaymentSplitAggregate,
   mockCashbookGroupBy,
   dbMock,
 } = vi.hoisted(() => {
@@ -38,6 +39,7 @@ const {
     mockEntryFindMany: vi.fn(),
     mockEntryCreate: vi.fn(),
     mockTxAggregate: vi.fn(),
+    mockPaymentSplitAggregate: vi.fn(),
     mockCashbookGroupBy: vi.fn(),
   };
   const db: Record<string, unknown> = {
@@ -55,6 +57,9 @@ const {
       groupBy: (...a: unknown[]) => fns.mockCashbookGroupBy(...a),
     },
     transaction: { aggregate: (...a: unknown[]) => fns.mockTxAggregate(...a) },
+    transactionPaymentSplit: {
+      aggregate: (...a: unknown[]) => fns.mockPaymentSplitAggregate(...a),
+    },
   };
   db.$transaction = (cb: (tx: unknown) => Promise<unknown>) => cb(db);
   return { ...fns, dbMock: db };
@@ -69,6 +74,7 @@ const D = (n: number) => new Prisma.Decimal(n);
 beforeEach(() => {
   vi.clearAllMocks();
   mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
+  mockPaymentSplitAggregate.mockResolvedValue({ _sum: { amount: null } });
   mockEntryFindMany.mockResolvedValue([]);
   // PR-3：滾動場景無現金帳異動，現金帳 groupBy 回空
   mockCashbookGroupBy.mockResolvedValue([]);

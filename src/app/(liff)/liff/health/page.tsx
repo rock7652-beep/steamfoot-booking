@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import {
+  resolveCentralMemberLiffId,
   resolveStorePresentation,
   resolveStoreSlugForLiff,
 } from "@/lib/store-resolver";
@@ -14,7 +15,7 @@ import { HealthView } from "./health-view";
  * 流程：mirror trial-booking / member-booking page pattern
  *   1. resolveStoreSlugForLiff() → header；無 → 安全錯誤畫面
  *   2. resolveStorePresentation → name / liffId / per-store presentation
- *   3. `ai_health_summary` 關閉時直接顯示鎖定狀態，不初始化 LIFF、不打 HealthFlow
+ *   3. `ai_health_summary` 關閉時直接顯示鎖定狀態，不初始化 LIFF
  *   4. 把 storeSlug / storeName / liffId / contactUrl 傳給 client HealthView
  */
 
@@ -34,13 +35,14 @@ export default async function LiffHealthPage() {
   if (!(await hasStoreFeature(presentation.id, FEATURES.AI_HEALTH_SUMMARY))) {
     return (
       <NotOpenForLiff
-        title="健康評估尚未開通"
-        message="此店目前未開通 AI 健康評估與摘要功能。"
+        title="健康紀錄尚未開通"
+        message="此店目前未開通健康量測與紀錄功能。"
       />
     );
   }
 
-  if (!presentation.liffId) {
+  const liffId = await resolveCentralMemberLiffId(storeSlug);
+  if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
 
@@ -48,7 +50,7 @@ export default async function LiffHealthPage() {
     <HealthView
       storeSlug={presentation.slug}
       storeName={presentation.name}
-      liffId={presentation.liffId}
+      liffId={liffId}
       contactUrl={presentation.contactUrl}
     />
   );

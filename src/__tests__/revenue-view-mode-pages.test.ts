@@ -17,7 +17,7 @@ describe("revenue child-store view mode pages", () => {
       "const revenueStoreId = storeIdForViewContext(activeStoreId, storeViewContext)",
     );
     expect(source.match(/activeStoreId: revenueStoreId/g)?.length).toBe(3);
-    expect(source).toContain("目前正在檢視分店營收，資料與明細皆為唯讀");
+    expect(source).toContain("目前正在檢視分店營運資料。可以查看交易詳情，但無法修改、作廢或退款。");
     expect(source).toContain("...(!isViewMode");
     expect(source).toContain('href: "/dashboard/reconciliation"');
   });

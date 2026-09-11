@@ -38,6 +38,8 @@ export function FeatureEntitlementForm({
     initialState,
   );
 
+  const isAnalysis = featureKey === "basic_reports";
+
   return (
     <form
       action={action}
@@ -47,16 +49,16 @@ export function FeatureEntitlementForm({
       <input type="hidden" name="featureKey" value={featureKey} />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="單店覆寫" htmlFor={`${featureKey}-override`}>
+        <Field label={isAnalysis ? "分析功能" : "單店覆寫"} htmlFor={`${featureKey}-override`}>
           <select
             id={`${featureKey}-override`}
             name="override"
-            defaultValue={override}
+            defaultValue={isAnalysis && override === "INHERIT" ? "DISABLED" : override}
             className="h-10 w-full rounded-md border border-earth-200 bg-white px-2 text-xs text-earth-800 focus:border-primary-500 focus:outline-none"
           >
-            <option value="INHERIT">跟隨方案</option>
-            <option value="ENABLED">強制開啟</option>
-            <option value="DISABLED">強制關閉</option>
+            {!isAnalysis && <option value="INHERIT">跟隨方案</option>}
+            <option value="ENABLED">{isAnalysis ? "開啟分析" : "強制開啟"}</option>
+            <option value="DISABLED">{isAnalysis ? "關閉分析" : "強制關閉"}</option>
           </select>
         </Field>
 

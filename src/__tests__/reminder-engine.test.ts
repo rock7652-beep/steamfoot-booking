@@ -35,10 +35,15 @@ type BookingRow = {
   trialBookingChannel?: "LINE" | "MESSENGER" | null;
   bookingType?: "FIRST_TRIAL" | "PACKAGE_SESSION" | "SINGLE";
   bookingStatus: string;
+  store: {
+    slug: string;
+    name: string;
+  };
   customer: {
     id: string;
     name: string;
     lineUserId: string | null;
+    lineLinkedAt: Date | null;
     lineLinkStatus: string;
     assignedStaff: { displayName: string } | null;
   };
@@ -84,6 +89,12 @@ let centralRecipientOverrides = new Map<string, {
   deliverable: boolean;
   recipientLineUserId: string | null;
 }>();
+let shopConfigPresentation: { address: string | null; mapUrl: string | null } | null = {
+  address: "302 新竹縣竹北市中崙里科大一路 80 號",
+  mapUrl: "https://maps.example.com/test-shop",
+};
+let packageCardReminderSettings = new Map<string, string>();
+const bookingReminderEnabledSettings = new Map<string, string>();
 const mockHasStoreFeature = vi.fn();
 const sendMessengerUtilityReminderMock = vi.fn();
 const checkReminderSendLimitMock = vi.fn();
@@ -105,6 +116,16 @@ vi.mock("@prisma/client", () => ({
 
 // ── Mock prisma client ──
 const mockPrisma = {
+  messageTemplate: {
+    findUnique: vi.fn(async (args: { where: { id: string; storeId?: string } }) => {
+      if (args.where.id.startsWith("booking-reminder-enabled:")) {
+        const body = bookingReminderEnabledSettings.get(args.where.id);
+        return body ? { body } : null;
+      }
+      const body = packageCardReminderSettings.get(args.where.storeId ?? "");
+      return body ? { body } : null;
+    }),
+  },
   reminderRule: {
     findMany: vi.fn(async (args: { where?: Record<string, unknown> }) => {
       const where = args.where ?? {};
@@ -210,6 +231,13 @@ const mockPrisma = {
       return messageLogs.filter((l) => {
         if (where.status && l.status !== where.status) return false;
         if (where.storeId && l.storeId !== where.storeId) return false;
+        if (where.customerId && l.customerId !== where.customerId) return false;
+        if (where.channel && (l.channel ?? "LINE") !== where.channel) return false;
+        if (where.lineRoute && l.lineRoute !== where.lineRoute) return false;
+        const errorFilter = where.errorMessage as { startsWith?: string } | undefined;
+        if (errorFilter?.startsWith && !l.errorMessage?.toLowerCase().startsWith(errorFilter.startsWith.toLowerCase())) {
+          return false;
+        }
         const sentAtFilter = where.sentAt as { gte?: Date; lt?: Date; lte?: Date } | undefined;
         if (sentAtFilter) {
           if (sentAtFilter.gte && (!l.sentAt || l.sentAt < sentAtFilter.gte)) return false;
@@ -262,6 +290,9 @@ const mockPrisma = {
   store: {
     findUnique: vi.fn(async () => null), // null = 跳過 usage gate
   },
+  shopConfig: {
+    findUnique: vi.fn(async () => shopConfigPresentation),
+  },
 };
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
@@ -286,7 +317,12 @@ const pushMessageMock = vi.fn(
     storeId: string,
     lineUserId: string,
     messages: unknown[],
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    httpStatus?: number;
+    errorType?: "line_api_rejected";
+  }> => {
     void storeId;
     void lineUserId;
     void messages;
@@ -308,12 +344,18 @@ const pushSteamButlerMessageMock = vi.fn(
     return { success: true };
   },
 );
+const probeSteamButlerLineRecipientMock = vi.fn(
+  async (): Promise<{ status: "COMPATIBLE" | "INCOMPATIBLE" | "UNAVAILABLE"; httpStatus?: number }> => ({
+    status: "COMPATIBLE",
+  }),
+);
 vi.mock("@/lib/line", () => ({
   pushMessage: (storeId: string, lineUserId: string, messages: unknown[]) =>
     pushMessageMock(storeId, lineUserId, messages),
   pushSteamButlerMessage: (lineUserId: string, messages: unknown[]) =>
     pushSteamButlerMessageMock(lineUserId, messages),
   probeStoreLineRecipient: vi.fn(async () => ({ status: "COMPATIBLE" })),
+  probeSteamButlerLineRecipient: () => probeSteamButlerLineRecipientMock(),
   renderTemplate: (body: string) => body,
 }));
 vi.mock("@/lib/shop-config", () => ({
@@ -376,10 +418,15 @@ function makeBooking(opts: {
     trialBookingChannel: opts.channel ?? null,
     bookingType: opts.bookingType ?? "SINGLE",
     bookingStatus: opts.status ?? "CONFIRMED",
+    store: {
+      slug: opts.storeId ?? STORE_ID,
+      name: "Test Shop",
+    },
     customer: {
       id: opts.customerId ?? CUSTOMER_ID,
       name: "Alice",
       lineUserId: opts.hasLine === false ? null : LINE_USER_ID,
+      lineLinkedAt: new Date("2026-01-01T00:00:00.000Z"),
       lineLinkStatus: opts.hasLine === false ? "UNLINKED" : "LINKED",
       assignedStaff: { displayName: "Bob" },
     },
@@ -411,10 +458,19 @@ beforeEach(() => {
   rules = [];
   messageLogs = [];
   centralRecipientOverrides = new Map();
+  packageCardReminderSettings = new Map();
+  bookingReminderEnabledSettings.clear();
+  shopConfigPresentation = {
+    address: "302 新竹縣竹北市中崙里科大一路 80 號",
+    mapUrl: "https://maps.example.com/test-shop",
+  };
+  mockPrisma.shopConfig.findUnique.mockClear();
   pushMessageMock.mockClear();
   pushMessageMock.mockResolvedValue({ success: true });
   pushSteamButlerMessageMock.mockClear();
   pushSteamButlerMessageMock.mockResolvedValue({ success: true });
+  probeSteamButlerLineRecipientMock.mockClear();
+  probeSteamButlerLineRecipientMock.mockResolvedValue({ status: "COMPATIBLE" });
   // Reset call records on prisma mocks（讓 not.toHaveBeenCalled() 斷言可靠）
   mockPrisma.reminderRule.findMany.mockClear();
   mockPrisma.reminderRule.count.mockClear();
@@ -513,11 +569,139 @@ describe("runReminders (daily next-day batch)", () => {
     expect(messageLogs[0].triggerAt?.toISOString()).toBe("2026-05-11T10:00:00.000Z");
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushMessageMock).toHaveBeenCalledWith(STORE_ID, LINE_USER_ID, [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
+    ]);
+    expect(JSON.stringify(pushMessageMock.mock.calls[0]?.[2]?.[0])).toContain(
+      "請記得準時到店。",
+    );
+  });
+
+  it("方案與首次體驗提醒可獨立關閉，互不影響", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+        bookingType: "PACKAGE_SESSION",
+      }),
+      makeBooking({
+        id: "trial-booking",
+        customerId: "trial-customer",
+        bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+        bookingType: "FIRST_TRIAL",
+      }),
+    );
+    rules.push({
+      ...makeRule(),
+    });
+    bookingReminderEnabledSettings.set(
+      `booking-reminder-enabled:package:${STORE_ID}`,
+      "disabled",
+    );
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result).toMatchObject({ sent: 1, skipped: 1, failed: 0 });
+    expect(result.details).toContainEqual(expect.objectContaining({
+      bookingId: BOOKING_ID,
+      status: "SKIPPED",
+      error: "PACKAGE_REMINDER_DISABLED",
+    }));
+    expect(pushMessageMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("方案預約於前一日 18:00 使用正式 Flex 卡且不帶測試標示", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(makeBooking({
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      bookingType: "PACKAGE_SESSION",
+    }));
+    rules.push({
+      ...makeRule(),
+      templateId: "scheduled-template",
+      template: { body: "正式排程自訂提醒" },
+    });
+    packageCardReminderSettings.set(STORE_ID, "請提前五分鐘到店。");
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
+
+    const message = pushMessageMock.mock.calls[0]?.[2]?.[0] as {
+      type: string;
+      altText: string;
+      contents: {
+        header: { contents: Array<{ text?: string }> };
+        body: { contents: Array<{ text?: string; contents?: Array<{ text?: string }> }> };
+        footer: { contents: Array<{ action: { label: string; uri: string } }> };
+      };
+    };
+    expect(message.type).toBe("flex");
+    expect(message.altText).not.toContain("測試提醒");
+    expect(message.contents.header.contents).toHaveLength(1);
+    expect(message.contents.body.contents.flatMap((item) =>
+      item.contents?.map((child) => child.text) ?? [item.text],
+    )).toEqual(expect.arrayContaining([
+      "Alice 您好",
+      "日期時間",
+      "2026-05-12 14:00",
+      "店名",
+      "Test Shop",
+      "預約項目",
+      "方案預約",
+      "服務時間",
+      "45 分鐘",
+      "地址",
+      "302 新竹縣竹北市中崙里科大一路 80 號",
+    ]));
+    expect(cardButtons(message.contents.footer.contents).map((button) => button.action.label)).toEqual([
+      "開啟 Google Maps 導航",
+      "改時段",
+      "取消前往",
+    ]);
+    expect(JSON.stringify(message)).toContain("請提前五分鐘到店。");
+    expect(JSON.stringify(message)).not.toContain("正式排程自訂提醒");
+    expect(messageLogs[0]?.renderedBody).toBe("正式排程自訂提醒");
+    expect(cardButtons(message.contents.footer.contents)[1]?.action.uri).toContain(
+      "/s/store-test/my-bookings/booking-1/reschedule",
+    );
+    expect(cardButtons(message.contents.footer.contents)[2]?.action.uri).toContain(
+      "/s/store-test/my-bookings/booking-1/cancel",
+    );
+    expect(messageLogs).toHaveLength(1);
+    expect(messageLogs[0]).toMatchObject({
+      ruleId: RULE_ID,
+      bookingId: BOOKING_ID,
+      status: "SENT",
+    });
+  });
+
+  it("分店未設定地址或地圖時不顯示其他分店資料與導航按鈕", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    shopConfigPresentation = { address: null, mapUrl: null };
+    bookings.push(makeBooking({
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      bookingType: "SINGLE",
+    }));
+    rules.push(makeRule());
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
+
+    const message = pushMessageMock.mock.calls[0]?.[2]?.[0] as {
+      contents: {
+        body: { contents: Array<{ text?: string; contents?: Array<{ text?: string }> }> };
+        footer: { contents: Array<{ action: { label: string } }> };
+      };
+    };
+    const bodyText = JSON.stringify(message.contents.body);
+    expect(bodyText).not.toContain("302 新竹縣竹北市");
+    expect(cardButtons(message.contents.footer.contents).map((button) => button.action.label)).toEqual([
+      "改時段",
+      "取消前往",
     ]);
   });
 
-  it("體驗預約使用管理按鈕，不在 LINE 文字裸露簽章網址", async () => {
+  it("體驗預約以蒸管家單張 Flex 卡顯示資訊與管理按鈕", async () => {
     vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
     bookings.push(makeBooking({
       bookingDate: new Date("2026-05-12T00:00:00.000Z"),
@@ -531,25 +715,63 @@ describe("runReminders (daily next-day batch)", () => {
     const message = pushMessageMock.mock.calls[0]?.[2]?.[0] as {
       type: string;
       contents: {
-        body: { contents: Array<{ text?: string }> };
+        body: { contents: Array<{ text?: string; contents?: Array<{ text?: string }> }> };
         footer: { contents: Array<{ action: { label: string; uri: string } }> };
       };
     };
     expect(message.type).toBe("flex");
-    expect(message.contents.body.contents[0]?.text).not.toContain("/trial-booking/manage?token=");
-    expect(message.contents.footer.contents.map((button) => button.action.label)).toEqual([
-      "確認預約",
+    expect(message.contents.body.contents[0]?.text).toBe("Alice 您好");
+    expect(message.contents.body.contents[2]?.contents?.map((item) => item.text)).toEqual(["日期時間", "2026-05-12 14:00"]);
+    expect(message.contents.body.contents[3]?.contents?.map((item) => item.text)).toEqual(["店名", "Test Shop"]);
+    expect(message.contents.body.contents[4]?.contents?.map((item) => item.text)).toEqual(["預約項目", "首次體驗"]);
+    expect(cardButtons(message.contents.footer.contents).map((button) => button.action.label)).toEqual([
+      "開啟 Google Maps 導航",
+      "確認會到",
+      "需要改期",
       "取消預約",
-      "改期預約",
     ]);
-    for (const button of message.contents.footer.contents) {
+    expect(cardButtons(message.contents.footer.contents)[0]?.action.uri).toBe(
+      "https://maps.example.com/test-shop",
+    );
+    for (const button of cardButtons(message.contents.footer.contents).slice(1)) {
       expect(button.action.uri).toContain("/trial-booking/manage?token=");
     }
-    expect(message.contents.footer.contents.map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
+    expect(cardButtons(message.contents.footer.contents).slice(1).map((button) => new URL(button.action.uri).searchParams.get("action"))).toEqual([
       "confirm",
-      "cancel",
       "reschedule",
+      "cancel",
     ]);
+  });
+
+  it("Flex 被 LINE 明確拒絕時只降級一次文字提醒，且只寫一筆成功紀錄", async () => {
+    vi.setSystemTime(new Date("2026-05-11T04:00:00.000Z"));
+    bookings.push(makeBooking({
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+      bookingType: "FIRST_TRIAL",
+    }));
+    rules.push(makeRule());
+    pushMessageMock
+      .mockResolvedValueOnce({
+        success: false,
+        error: "LINE API 400: invalid Flex payload",
+        httpStatus: 400,
+        errorType: "line_api_rejected",
+      })
+      .mockResolvedValueOnce({ success: true });
+
+    const { engine } = await loadModules();
+    await expect(engine.runReminders()).resolves.toMatchObject({ sent: 1, failed: 0 });
+
+    expect(pushMessageMock).toHaveBeenCalledTimes(2);
+    expect(pushMessageMock.mock.calls[0]?.[2]?.[0]).toMatchObject({ type: "flex" });
+    expect(pushMessageMock.mock.calls[1]?.[2]).toEqual([
+      { type: "text", text: expect.stringContaining("請開啟以下安全連結") },
+    ]);
+    expect(pushMessageMock.mock.calls[1]?.[2]?.[0]).toMatchObject({
+      text: expect.stringContaining("/trial-booking/manage?token="),
+    });
+    expect(messageLogs).toHaveLength(1);
+    expect(messageLogs[0]).toMatchObject({ status: "SENT" });
   });
 
   it("line_reminder 未授權時 → SKIPPED，不發 LINE並寫入稽核紀錄", async () => {
@@ -615,7 +837,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(result.skipped).toBe(1);
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushMessageMock).toHaveBeenCalledWith(OTHER_STORE_ID, LINE_USER_ID, [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
     ]);
     expect(messageLogs).toHaveLength(2);
     expect(messageLogs).toEqual(
@@ -763,7 +985,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(result.sent).toBe(1);
     expect(pushMessageMock).not.toHaveBeenCalled();
     expect(pushSteamButlerMessageMock).toHaveBeenCalledWith("U-central-only", [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
     ]);
     expect(messageLogs[0].lineRoute).toBe("CENTRAL");
   });
@@ -789,7 +1011,7 @@ describe("runReminders (daily next-day batch)", () => {
     expect(result.sent).toBe(1);
     expect(pushMessageMock).toHaveBeenCalledTimes(1);
     expect(pushMessageMock).toHaveBeenCalledWith("store-test", "U1234567890", [
-      { type: "text", text: expect.any(String) },
+      expect.objectContaining({ type: "flex" }),
     ]);
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
     expect(messageLogs[0].lineRoute).toBe("STORE");
@@ -857,6 +1079,86 @@ describe("runReminders (daily next-day batch)", () => {
     });
   });
 
+  it("分店 LINE 明確拒絕後改用已驗證的中央 LINE", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(makeBooking({
+      customerId: "store-400-central-ready",
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+    }));
+    centralRecipientOverrides.set("store-400-central-ready", {
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U-central-ready",
+    });
+    rules.push(makeRule());
+    pushMessageMock
+      .mockResolvedValueOnce({
+        success: false,
+        error: 'LINE API 400: {"message":"Failed to send messages"}',
+        httpStatus: 400,
+        errorType: "line_api_rejected",
+      })
+      .mockResolvedValueOnce({
+        success: false,
+        error: 'LINE API 400: {"message":"Failed to send messages"}',
+        httpStatus: 400,
+        errorType: "line_api_rejected",
+      });
+    pushSteamButlerMessageMock.mockResolvedValueOnce({ success: true });
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result).toMatchObject({ sent: 1, failed: 0 });
+    expect(pushSteamButlerMessageMock).toHaveBeenCalledWith(
+      "U-central-ready",
+      [expect.objectContaining({ type: "flex" })],
+    );
+    expect(messageLogs[0]).toMatchObject({ status: "SENT", lineRoute: "CENTRAL" });
+  });
+
+  it("中央 LINE Login 身分未通過 Messaging 驗證時不重送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(makeBooking({
+      customerId: "store-400-central-incompatible",
+      bookingDate: new Date("2026-05-12T00:00:00.000Z"),
+    }));
+    centralRecipientOverrides.set("store-400-central-incompatible", {
+      status: "READY",
+      deliverable: true,
+      recipientLineUserId: "U-login-only",
+    });
+    rules.push(makeRule());
+    pushMessageMock
+      .mockResolvedValueOnce({
+        success: false,
+        error: "LINE API 400",
+        httpStatus: 400,
+        errorType: "line_api_rejected",
+      })
+      .mockResolvedValueOnce({
+        success: false,
+        error: "LINE API 400",
+        httpStatus: 400,
+        errorType: "line_api_rejected",
+      });
+    probeSteamButlerLineRecipientMock.mockResolvedValueOnce({
+      status: "INCOMPATIBLE",
+      httpStatus: 404,
+    });
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result).toMatchObject({ sent: 0, failed: 1 });
+    expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs[0]).toMatchObject({
+      status: "FAILED",
+      lineRoute: "STORE",
+      errorMessage: "LINE API 400; CENTRAL_LINE_NOT_MESSAGING_REACHABLE",
+    });
+  });
+
   it("idempotent：同一天重跑兩次 → 第二次 SKIPPED 不重複寫入", async () => {
     vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z")); // 剛好 18:00 TW
     bookings.push(
@@ -910,6 +1212,88 @@ describe("runReminders (daily next-day batch)", () => {
     expect(pushSteamButlerMessageMock).not.toHaveBeenCalled();
     expect(messageLogs).toHaveLength(2);
     expect(messageLogs[1]).toMatchObject({ status: "SENT" });
+  });
+
+  it("同店同路由已有兩次 LINE 400 時停止盲目重試並要求重新綁定", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    bookings.push(
+      makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z") }),
+    );
+    rules.push(makeRule());
+    messageLogs.push(
+      {
+        id: "line-400-1",
+        ruleId: RULE_ID,
+        bookingId: "old-booking-1",
+        customerId: CUSTOMER_ID,
+        triggerAt: new Date("2026-05-01T10:00:00.000Z"),
+        status: "FAILED",
+        storeId: STORE_ID,
+        createdAt: new Date("2026-05-01T10:00:00.000Z"),
+        sentAt: null,
+        channel: "LINE",
+        lineRoute: "STORE",
+        errorMessage: 'LINE API 400: {"message":"Failed to send messages"}',
+      },
+      {
+        id: "line-400-2",
+        ruleId: RULE_ID,
+        bookingId: "old-booking-2",
+        customerId: CUSTOMER_ID,
+        triggerAt: new Date("2026-05-05T10:00:00.000Z"),
+        status: "FAILED",
+        storeId: STORE_ID,
+        createdAt: new Date("2026-05-05T10:00:00.000Z"),
+        sentAt: null,
+        channel: "LINE",
+        lineRoute: "STORE",
+        errorMessage: 'LINE API 400: {"message":"Failed to send messages"}',
+      },
+    );
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result).toMatchObject({ sent: 0, skipped: 1, failed: 0 });
+    expect(pushMessageMock).not.toHaveBeenCalled();
+    expect(messageLogs.at(-1)).toMatchObject({
+      status: "SKIPPED",
+      errorMessage: "LINE recipient unavailable: REPEATED_LINE_400_REBIND_REQUIRED",
+    });
+  });
+
+  it("重新綁定後只計算新綁定時間以後的 LINE 400 並恢復發送", async () => {
+    vi.setSystemTime(new Date("2026-05-11T10:00:00.000Z"));
+    const booking = makeBooking({ bookingDate: new Date("2026-05-12T00:00:00.000Z") });
+    booking.customer.lineLinkedAt = new Date("2026-05-10T00:00:00.000Z");
+    bookings.push(booking);
+    rules.push(makeRule());
+    for (const [id, date] of [
+      ["line-400-before-rebind-1", "2026-05-01T10:00:00.000Z"],
+      ["line-400-before-rebind-2", "2026-05-05T10:00:00.000Z"],
+    ] as const) {
+      messageLogs.push({
+        id,
+        ruleId: RULE_ID,
+        bookingId: id,
+        customerId: CUSTOMER_ID,
+        triggerAt: new Date(date),
+        status: "FAILED",
+        storeId: STORE_ID,
+        createdAt: new Date(date),
+        sentAt: null,
+        channel: "LINE",
+        lineRoute: "STORE",
+        errorMessage: "LINE API 400",
+      });
+    }
+
+    const { engine } = await loadModules();
+    const result = await engine.runReminders();
+
+    expect(result).toMatchObject({ sent: 1, skipped: 0, failed: 0 });
+    expect(pushMessageMock).toHaveBeenCalledTimes(1);
+    expect(messageLogs.at(-1)).toMatchObject({ status: "SENT" });
   });
 
   it("並行 race（unique constraint P2002）→ SKIPPED 不 throw", async () => {
@@ -1081,3 +1465,10 @@ describe("getReminderStats (daily-batch model)", () => {
     expect(stats.todayPending).toBe(1); // 只有 b3
   });
 });
+
+/** Unwrap outlined controls while keeping action assertions independent of presentation. */
+function cardButtons<T>(items: T[]): T[] {
+  return items.flatMap((item) => item && typeof item === "object" && "contents" in item
+    ? (item as { contents: T[] }).contents
+    : [item]);
+}

@@ -135,18 +135,18 @@ export async function awardFirstTopupReferralPointsIfEligible(opts: {
    */
   isFirstPurchase: boolean;
   tx: TxClient;
-}): Promise<void> {
-  if (!opts.isFirstPurchase) return;
+}): Promise<{ referrerAwarded: boolean; selfAwarded: boolean }> {
+  if (!opts.isFirstPurchase) return { referrerAwarded: false, selfAwarded: false };
 
   try {
     const customer = await opts.tx.customer.findUnique({
       where: { id: opts.customerId },
       select: { sponsorId: true },
     });
-    if (!customer?.sponsorId) return;
+    if (!customer?.sponsorId) return { referrerAwarded: false, selfAwarded: false };
 
     // 邀請者 +15
-    await awardPoints({
+    const referrerAwarded = await awardPoints({
       customerId: customer.sponsorId,
       storeId: opts.storeId,
       type: "REFERRAL_CONVERTED",
@@ -157,7 +157,7 @@ export async function awardFirstTopupReferralPointsIfEligible(opts: {
     });
 
     // 被邀請者 +5
-    await awardPoints({
+    const selfAwarded = await awardPoints({
       customerId: opts.customerId,
       storeId: opts.storeId,
       type: "REFERRAL_CONVERTED_SELF",
@@ -166,10 +166,12 @@ export async function awardFirstTopupReferralPointsIfEligible(opts: {
       sourceKey: opts.customerId,
       tx: opts.tx,
     });
+    return { referrerAwarded, selfAwarded };
   } catch (err) {
     console.warn("[awardFirstTopupReferralPointsIfEligible] silent failure", {
       customerId: opts.customerId,
       error: err instanceof Error ? err.message : String(err),
     });
+    return { referrerAwarded: false, selfAwarded: false };
   }
 }

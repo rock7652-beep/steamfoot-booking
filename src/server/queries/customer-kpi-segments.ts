@@ -25,8 +25,10 @@ export const CUSTOMER_KPI_SEGMENTS: Record<
   "monthly-new": { title: "本月新客", description: "首次完成服務發生在本月的顧客。" },
   "monthly-returning": { title: "本月舊客", description: "本月以前已有完成服務紀錄的顧客。" },
   "monthly-trial": { title: "本月體驗顧客", description: "本月完成體驗服務的唯一顧客。" },
-  "monthly-converted": { title: "本月開卡顧客", description: "體驗完成當天成功開卡的顧客。" },
-  "monthly-unconverted": { title: "本月體驗未開卡", description: "本月完成體驗但未於當天開卡的顧客。" },
+  "monthly-converted": { title: "本月總開卡顧客", description: "本月首次成功購買正式方案的體驗顧客。" },
+  "monthly-current-trial-converted": { title: "本月體驗開卡", description: "本月完成體驗，並於本月首次成功購買正式方案的顧客。" },
+  "monthly-tracked-converted": { title: "過往體驗追蹤開卡", description: "過往月份完成體驗，本月才首次成功購買正式方案的顧客。" },
+  "monthly-unconverted": { title: "本月體驗未開卡", description: "本月完成體驗，但截至目前仍未成功購買正式方案的顧客。" },
   "monthly-returned": { title: "本月回流顧客", description: "上月來客中，本月再次完成服務的顧客。" },
   "monthly-not-returned": { title: "本月未回流顧客", description: "上月來客中，本月尚未再次完成服務的顧客。" },
 };
@@ -40,7 +42,12 @@ export async function getCustomerKpiSegmentCustomers(
   month: string,
   segment: CustomerKpiSegment,
 ): Promise<CustomerSegmentCustomer[]> {
-  if (segment === "monthly-converted" || segment === "monthly-unconverted") {
+  if (
+    segment === "monthly-converted" ||
+    segment === "monthly-current-trial-converted" ||
+    segment === "monthly-tracked-converted" ||
+    segment === "monthly-unconverted"
+  ) {
     return getConversionCustomers(storeId, month, segment as ConversionCustomerSegment);
   }
   if (segment === "monthly-returned" || segment === "monthly-not-returned") {

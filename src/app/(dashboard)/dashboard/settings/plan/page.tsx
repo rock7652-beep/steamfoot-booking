@@ -1,4 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
+import { PlanPackageNotes } from "@/components/plan-package-notes";
 import { prisma } from "@/lib/db";
 import { Fragment } from "react";
 import { redirect, notFound } from "next/navigation";
@@ -13,7 +15,6 @@ import {
 } from "@/lib/upgrade-copy";
 import { getPendingUpgradeRequest } from "@/server/queries/upgrade-request";
 import type { PricingPlan } from "@prisma/client";
-import { PricingPlanSwitcher } from "./pricing-plan-switcher";
 import { UpgradeRequestForm } from "@/components/upgrade-request-form";
 import { StoreRequestHistory } from "./store-request-history";
 import { StorePlanHistory } from "./store-plan-history";
@@ -39,6 +40,7 @@ export default async function PlanSettingsPage() {
   if (user.role !== "ADMIN" && user.role !== "OWNER" && user.role !== "PARTNER") {
     notFound();
   }
+  if (!(await checkPermission(user.role, user.staffId, "plans.edit"))) notFound();
 
   const activeStoreId = await getActiveStoreForRead(user);
   if (!activeStoreId) {
@@ -59,9 +61,9 @@ export default async function PlanSettingsPage() {
   /** Plan highlights for the hero cards */
   const PLAN_HIGHLIGHTS: Record<PricingPlan, string[]> = {
     EXPERIENCE: ["基礎預約管理", "顧客資料管理", "教練排班"],
-    BASIC: ["LINE 提醒通知", "金流與帳務", "營運分析"],
-    GROWTH: ["經營診斷", "AI 健康摘要", "人才管道與 KPI"],
-    ALLIANCE: ["多店管理", "聯盟分析", "完整開店準備度"],
+    BASIC: ["LINE 顧客入口（LIFF）", "預約、堂數與收款", "可選 1 個 $500 工具型模組"],
+    GROWTH: ["基本版＋顧客經營、現金抽屜", "可選 1 個 $500 工具型模組", "可選 1 個 $800 經營型模組"],
+    ALLIANCE: ["總部管理 + 1 家分店", "多店與月結管理", "第二家分店起，每家 +$1,000/月分店營運費"],
   };
 
   /** Feature comparison groups for the table */
@@ -71,6 +73,7 @@ export default async function PlanSettingsPage() {
       features: [
         { key: "basic_booking", label: "預約管理" },
         { key: "customer_management", label: "顧客管理" },
+        { key: "member_portal", label: "LINE 顧客入口（LIFF）" },
         { key: "staff_management", label: "教練管理" },
         { key: "duty_scheduling", label: "值班排程" },
       ],
@@ -83,14 +86,13 @@ export default async function PlanSettingsPage() {
         { key: "plan_management", label: "方案管理" },
         { key: "cashbook", label: "帳簿" },
         { key: "reconciliation", label: "對帳" },
-        { key: "basic_reports", label: "營運分析" },
       ],
     },
     {
       group: "進階分析",
       features: [
-        { key: "advanced_reports", label: "經營診斷" },
-        { key: "ai_health_summary", label: "AI 健康摘要" },
+        { key: "basic_reports", label: "分析（NT$800／月獨立加購）" },
+        { key: "ai_health_summary", label: "健康評估與體態追蹤" },
         { key: "kpi_dashboard", label: "KPI 儀表板" },
         { key: "talent_pipeline", label: "人才管道" },
         { key: "retention_reminder", label: "回訪提醒" },
@@ -146,6 +148,7 @@ export default async function PlanSettingsPage() {
       </section>
 
       {/* ── Plan Hero Cards ── */}
+      <PlanPackageNotes />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {plans.map((plan) => {
           const info = PRICING_PLAN_INFO[plan];
@@ -242,7 +245,7 @@ export default async function PlanSettingsPage() {
       {/* ── Feature Comparison Table ── */}
       <div className="rounded-xl border border-earth-200 bg-white overflow-hidden">
         <div className="border-b border-earth-100 px-5 py-3">
-          <h3 className="text-sm font-semibold text-earth-800">功能比較</h3>
+          <h3 className="text-sm font-semibold text-earth-800">方案預設權限（不含門市選配與個別開關）</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

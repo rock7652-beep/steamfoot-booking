@@ -1,0 +1,33 @@
+name: One-time future booking expiry audit
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/future-booking-expiry-audit-request.json]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Enforce read-only
+        run: |
+          ! grep -En 'prisma\..*\.(create|createMany|update|updateMany|upsert|delete|deleteMany|executeRaw|queryRaw)' scripts/audit-future-bookings-after-wallet-expiry.ts
+      - run: npx tsx scripts/audit-future-bookings-after-wallet-expiry.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: private-future-booking-expiry-audit
+          path: future-bookings-after-wallet-expiry.json
+          retention-days: 1

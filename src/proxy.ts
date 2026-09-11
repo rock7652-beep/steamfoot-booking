@@ -2,7 +2,10 @@ import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isStaffRole } from "@/lib/permissions";
-import { buildStoreRewriteRequestHeaders } from "@/lib/proxy-helpers";
+import {
+  buildStoreRewriteRequestHeaders,
+  legacyRedirectUrl,
+} from "@/lib/proxy-helpers";
 
 // ============================================================
 // B7-4.5: 正式流程不依賴靜態 map
@@ -86,6 +89,12 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     return withDomainCookie(NextResponse.next(), domainStoreId);
   }
 
+  // Reminder links authenticate the exact booking/store with a signed token.
+  // Allow both page loads and Server Action POSTs without a login session.
+  if (pathname === "/trial-booking/manage") {
+    return withDomainCookie(NextResponse.next(), domainStoreId);
+  }
+
   if (pathname === "/store-select") return withDomainCookie(NextResponse.next(), domainStoreId);
 
   if (pathname === "/book/zhubei") {
@@ -104,6 +113,31 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
 
     // 去掉 /s/[slug] 前綴後的子路徑
     const subPath = pathname.slice(`/s/${storeSlug}`.length) || "/";
+
+    // ── SPA 服務人員專用入口 ──
+    if (subPath === "/staff/login") {
+      if (isLoggedIn && role === "PARTNER" && sessionStoreId) {
+        return NextResponse.redirect(new URL(`/s/${storeSlug}/staff/my-bookings`, req.url));
+      }
+      return storeRewrite(req, "/staff-login", storeSlug, domainStoreId);
+    }
+    if (subPath === "/staff/my-bookings") {
+      if (!isLoggedIn) {
+        return NextResponse.redirect(new URL(`/s/${storeSlug}/staff/login`, req.url));
+      }
+      if (role !== "PARTNER" || !sessionStoreId) {
+        return NextResponse.redirect(new URL(`/s/${storeSlug}/staff/login`, req.url));
+      }
+      return storeRewrite(req, "/staff-schedule", storeSlug, domainStoreId);
+    }
+
+    // Compatibility entry for LIFF apps that were configured with the legacy
+    // `/s/[storeSlug]/trial-booking` endpoint. Keep the browser on the exact
+    // LINE Developers endpoint while serving the native public-trial bridge;
+    // this preserves LIFF state and avoids falling through to the store home.
+    if (subPath === "/trial-booking") {
+      return storeRewrite(req, "/liff/public-trial", storeSlug, domainStoreId);
+    }
 
     // ── 分店 admin routes (/s/[slug]/admin/*) ──
     if (subPath.startsWith("/admin")) {
@@ -321,12 +355,16 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   if (pathname.startsWith("/dashboard")) {
     if (isLoggedIn && role === "ADMIN") {
       const rest = pathname.slice("/dashboard".length);
-      return NextResponse.redirect(new URL(`/hq/dashboard${rest}`, req.url));
+      return NextResponse.redirect(
+        legacyRedirectUrl(req.nextUrl, `/hq/dashboard${rest}`),
+      );
     }
     if (isLoggedIn && sessionStoreId) {
       const slug = userSlug;
       const rest = pathname.slice("/dashboard".length);
-      return NextResponse.redirect(new URL(`/s/${slug}/admin/dashboard${rest}`, req.url));
+      return NextResponse.redirect(
+        legacyRedirectUrl(req.nextUrl, `/s/${slug}/admin/dashboard${rest}`),
+      );
     }
     return NextResponse.redirect(new URL("/hq/login", req.url));
   }
@@ -334,6 +372,12 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   // Public legal documents must remain accessible without a session so
   // platform reviewers and users can read them directly.
   if (pathname === "/privacy" || pathname.startsWith("/privacy/")) {
+    return withDomainCookie(NextResponse.next(), domainStoreId);
+  }
+
+  // SPA Demo has its own direct Preview entries. Do not let the generic
+  // legacy fallback send these routes through the default Steamfoot store.
+  if (pathname === "/spa-preview" || pathname.startsWith("/spa-preview/")) {
     return withDomainCookie(NextResponse.next(), domainStoreId);
   }
 

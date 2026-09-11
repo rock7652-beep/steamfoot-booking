@@ -20,18 +20,18 @@ const purchase = (
 });
 
 describe("buildConversionMetrics", () => {
-  it("uses one selection for KPI counts and the unconverted customer list", () => {
+  it("separates current-month and tracked openings by the actual purchase month", () => {
     const trials = [
       trial("unconverted", "2026-07-03"),
-      trial("unconverted", "2026-07-04"),
       trial("converted", "2026-07-03"),
       trial("next-day", "2026-07-03"),
+      trial("tracked", "2026-06-03"),
       trial("cancelled-wallet", "2026-07-03"),
     ];
     const purchases = [
       purchase("converted", "2026-07-03T03:00:00.000Z"),
-      purchase("converted", "2026-07-03T04:00:00.000Z"),
       purchase("next-day", "2026-07-04T03:00:00.000Z"),
+      purchase("tracked", "2026-07-20T03:00:00.000Z"),
       purchase("cancelled-wallet", "2026-07-03T03:00:00.000Z", "CANCELLED"),
     ];
     const selection = selectConversionCustomerIds("2026-07", trials, purchases);
@@ -39,26 +39,55 @@ describe("buildConversionMetrics", () => {
 
     expect([...selection.unconvertedCustomerIds].sort()).toEqual([
       "cancelled-wallet",
-      "next-day",
       "unconverted",
     ]);
-    expect(metrics.unconvertedCustomers.current).toBe(selection.unconvertedCustomerIds.size);
+    expect([...selection.currentTrialConvertedCustomerIds].sort()).toEqual(["converted", "next-day"]);
+    expect([...selection.trackedConvertedCustomerIds]).toEqual(["tracked"]);
+    expect(metrics.currentTrialConversions.current).toBe(2);
+    expect(metrics.trackedConversions.current).toBe(1);
     expect(metrics.convertedCustomers.current).toBe(selection.convertedCustomerIds.size);
   });
-  it("counts a same-Taipei-day purchase once and excludes a later purchase", () => {
+  it("counts a later purchase in the same month and attributes a next-month purchase to next month", () => {
     const metrics = buildConversionMetrics(
       "2026-07",
       [trial("same-day", "2026-07-10"), trial("later", "2026-07-10")],
       [
         purchase("same-day", "2026-07-10T15:59:59.000Z"),
         purchase("same-day", "2026-07-10T08:00:00.000Z"),
-        purchase("later", "2026-07-10T16:00:00.000Z"),
+        purchase("later", "2026-08-31T03:00:00.000Z"),
       ],
     );
 
     expect(metrics.convertedCustomers.current).toBe(1);
     expect(metrics.conversionRate.current).toBe(50);
     expect(metrics.unconvertedCustomers.current).toBe(1);
+
+    const august = buildConversionMetrics(
+      "2026-08",
+      [trial("same-day", "2026-07-10"), trial("later", "2026-07-10")],
+      [
+        purchase("same-day", "2026-07-10T08:00:00.000Z"),
+        purchase("later", "2026-08-31T03:00:00.000Z"),
+      ],
+    );
+    expect(august.currentTrialConversions.current).toBe(0);
+    expect(august.trackedConversions.current).toBe(1);
+    expect(august.convertedCustomers.current).toBe(1);
+  });
+
+  it("attributes a deferred payment to the month it was actually confirmed", () => {
+    const deferred = {
+      customerId: "bank-transfer",
+      transactionDate: new Date("2026-07-31T03:00:00.000Z"),
+      paidAt: new Date("2026-08-02T03:00:00.000Z"),
+      customerPlanWallet: { status: "ACTIVE" },
+    };
+    const trials = [trial("bank-transfer", "2026-07-01")];
+
+    expect(buildConversionMetrics("2026-07", trials, [deferred]).convertedCustomers.current).toBe(0);
+    const august = buildConversionMetrics("2026-08", trials, [deferred]);
+    expect(august.trackedConversions.current).toBe(1);
+    expect(august.convertedCustomers.current).toBe(1);
   });
 
   it("excludes cancelled or missing wallet rights but retains partially refunded rights", () => {
@@ -80,7 +109,7 @@ describe("buildConversionMetrics", () => {
     expect(metrics.unconvertedCustomers.current).toBe(2);
   });
 
-  it("deduplicates trials and does not use a booking people count", () => {
+  it("deduplicates opening customers while retaining every completed trial attendee", () => {
     const metrics = buildConversionMetrics(
       "2026-07",
       [trial("customer-1", "2026-07-03"), trial("customer-1", "2026-07-04")],
@@ -89,7 +118,7 @@ describe("buildConversionMetrics", () => {
 
     expect(metrics.convertedCustomers.current).toBe(0);
     expect(metrics.conversionRate.current).toBe(0);
-    expect(metrics.unconvertedCustomers.current).toBe(1);
+    expect(metrics.unconvertedCustomers.current).toBe(2);
   });
 
   it("calculates MoM and YoY and handles zero baselines", () => {

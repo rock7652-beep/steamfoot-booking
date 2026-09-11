@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findMany } = vi.hoisted(() => ({
+const { findMany, findFirst } = vi.hoisted(() => ({
   findMany: vi.fn(),
+  findFirst: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
-  prisma: { digitalButlerLead: { findMany } },
+  prisma: { digitalButlerLead: { findMany, findFirst } },
 }));
 vi.mock("@/lib/digital-butler-entitlement", () => ({
   requireDigitalButlerEntitlement: vi.fn(),
@@ -47,6 +48,8 @@ describe("Digital Butler lead source filters", () => {
   beforeEach(() => {
     findMany.mockReset();
     findMany.mockResolvedValue([]);
+    findFirst.mockReset();
+    findFirst.mockResolvedValue(null);
   });
 
   it("combines Messenger with existing status and assignee filters", async () => {
@@ -117,5 +120,18 @@ describe("Digital Butler lead source filters", () => {
     expect(lead.isHumanSupportHandoff).toBe(false);
     expect(lead.submittedAnswers).toEqual({ name: "黃彥陸", requestType: "HUMAN_SUPPORT" });
     expect(lead).not.toHaveProperty("completionActionKey");
+  });
+
+  it("includes a store-scoped focused lead when it falls outside the 200-row list", async () => {
+    const focused = leadRow({ id: "lead-old" });
+    findMany.mockResolvedValueOnce([leadRow({ id: "lead-new" })]);
+    findFirst.mockResolvedValueOnce(focused);
+
+    const leads = await listDigitalButlerLeads("store-a", { focusedLeadId: "lead-old" });
+
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "lead-old", storeId: "store-a" },
+    }));
+    expect(leads.map((lead) => lead.id)).toEqual(["lead-old", "lead-new"]);
   });
 });

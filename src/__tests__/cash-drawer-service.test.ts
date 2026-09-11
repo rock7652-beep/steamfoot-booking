@@ -29,6 +29,7 @@ const {
   mockCashbookCreate,
   mockCashbookUpdate,
   mockCashbookGroupBy,
+  mockAuditLogCreate,
   dbMock,
 } = vi.hoisted(() => {
   const fns = {
@@ -45,6 +46,7 @@ const {
     mockCashbookCreate: vi.fn(),
     mockCashbookUpdate: vi.fn(),
     mockCashbookGroupBy: vi.fn(),
+    mockAuditLogCreate: vi.fn(),
   };
   const db: Record<string, unknown> = {
     cashDrawerSession: {
@@ -70,6 +72,9 @@ const {
       update: (...a: unknown[]) => fns.mockCashbookUpdate(...a),
       groupBy: (...a: unknown[]) => fns.mockCashbookGroupBy(...a),
     },
+    auditLog: {
+      create: (...a: unknown[]) => fns.mockAuditLogCreate(...a),
+    },
   };
   db.$transaction = (cb: (tx: unknown) => Promise<unknown>) => cb(db);
   return { ...fns, dbMock: db };
@@ -82,6 +87,7 @@ import {
   openCashDrawer,
   addCashDrawerEntry,
   closeCashDrawer,
+  reopenCashDrawer,
   computeCashIncomeForSession,
   computeTransactionNonCashIncomeForSession,
   computeCashbookIncomeOverviewForSession,
@@ -117,6 +123,7 @@ beforeEach(() => {
   mockTxAggregate.mockResolvedValue({ _sum: { amount: null } });
   mockPaymentSplitAggregate.mockResolvedValue({ _sum: { amount: null } });
   mockEntryFindMany.mockResolvedValue([]);
+  mockAuditLogCreate.mockResolvedValue({ id: "audit-1" });
   // PR-3：預設無現金帳異動，個別測試可覆寫
   mockCashbookGroupBy.mockResolvedValue([]);
 });
@@ -445,6 +452,74 @@ describe("closeCashDrawer", () => {
     expect((call.data.closingDifference as Prisma.Decimal).toNumber()).toBe(-5470);
     // 不再用 7765（不會每天越差越多）
     expect((call.data.finalBookBalance as Prisma.Decimal).toNumber()).toBe(2295);
+  });
+});
+
+// ============================================================
+// reopenCashDrawer
+// ============================================================
+
+describe("reopenCashDrawer", () => {
+  const closedSession = () =>
+    makeSession({
+      status: "CLOSED",
+      cashIncomeTotal: D(8000),
+      cashExpenseTotal: D(0),
+      cashWithdrawalTotal: D(2000),
+      cashDepositTotal: D(0),
+      cashAdjustmentTotal: D(0),
+      expectedClosingCash: D(11000),
+      closingActualCash: D(11000),
+      closingDifference: D(0),
+      closingNote: null,
+      closedByUserId: USER_OWNER,
+      closedAt: new Date("2026-05-13T13:00:00.000Z"),
+      finalBookBalance: D(11000),
+    });
+
+  it("後續尚未開店時恢復 OPEN、清除閉店快照並留下 audit", async () => {
+    mockSessionFindUnique.mockResolvedValue(closedSession());
+    mockSessionFindFirst.mockResolvedValue(null);
+    mockSessionUpdate.mockResolvedValue(makeSession());
+
+    await reopenCashDrawer({
+      sessionId: "sess-1",
+      reason: "閉店實點金額輸入錯誤",
+      actorUserId: USER_OWNER,
+    });
+
+    const update = mockSessionUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(update.data.status).toBe("OPEN");
+    expect(update.data.closingActualCash).toBeNull();
+    expect(update.data.finalBookBalance).toBeNull();
+
+    const audit = mockAuditLogCreate.mock.calls[0][0] as {
+      data: { action: string; beforeJson: Record<string, unknown>; afterJson: Record<string, unknown> };
+    };
+    expect(audit.data.action).toBe("REOPEN");
+    expect(audit.data.beforeJson.closingActualCash).toBe("11000");
+    expect(audit.data.afterJson.reason).toBe("閉店實點金額輸入錯誤");
+  });
+
+  it("同店已有後續營業日時拒絕，避免破壞滾動結餘", async () => {
+    mockSessionFindUnique.mockResolvedValue(closedSession());
+    mockSessionFindFirst.mockResolvedValue({ id: "later-session" });
+
+    await expect(
+      reopenCashDrawer({
+        sessionId: "sess-1",
+        reason: "金額錯誤",
+        actorUserId: USER_OWNER,
+      }),
+    ).rejects.toThrow(/後續營業日已經開店/);
+    expect(mockSessionUpdate).not.toHaveBeenCalled();
+    expect(mockAuditLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("空白原因拒絕", async () => {
+    await expect(
+      reopenCashDrawer({ sessionId: "sess-1", reason: "   ", actorUserId: USER_OWNER }),
+    ).rejects.toThrow(/撤銷閉店原因/);
   });
 });
 

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requirePermission, requireWritablePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
-import { currentStoreId } from "@/lib/store";
+import { currentStoreId, resolveWriteStoreId } from "@/lib/store";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { FEATURES } from "@/lib/feature-flags";
 import { requireStoreFeature } from "@/lib/feature-gate";
@@ -20,6 +20,7 @@ import {
   getCurrentCashDrawer,
   addCashDrawerEntry,
   closeCashDrawer,
+  reopenCashDrawer,
 } from "@/server/services/cash-drawer";
 
 // ============================================================
@@ -57,6 +58,11 @@ const closeSchema = z.object({
   sessionId: z.string().min(1),
   closingActualCash: z.number().min(0, "金額必須 >= 0"),
   note: z.string().optional(),
+});
+
+const reopenSchema = z.object({
+  sessionId: z.string().min(1),
+  reason: z.string().trim().min(1, "請填寫撤銷閉店原因").max(200, "原因不可超過 200 字"),
 });
 
 const querySchema = z.object({
@@ -231,6 +237,43 @@ export async function closeCashDrawerAction(
     revalidatePath("/dashboard/cash-drawer");
     // PR-8: 現金抽屜工作台已嵌入 /dashboard/cashbook（現金管理主頁），
     // 同時 revalidate 以保證從任一入口操作後另一個入口的快取也更新。
+    revalidatePath("/dashboard/cashbook");
+    return { success: true, data: { sessionId: session.id } };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/** 撤銷閉店：限總部或店主，且後續營業日尚未開店。 */
+export async function reopenCashDrawerAction(
+  input: z.infer<typeof reopenSchema>,
+): Promise<ActionResult<{ sessionId: string }>> {
+  try {
+    const user = await requireWritablePermission("cashDrawer.close");
+    if (user.role !== "ADMIN" && user.role !== "OWNER") {
+      throw new AppError("FORBIDDEN", "僅限店主或總部可以撤銷閉店");
+    }
+    const data = reopenSchema.parse(input);
+    await requireCashDrawerFeatureForSession(data.sessionId);
+    const [writeStoreId, target] = await Promise.all([
+      resolveWriteStoreId(user),
+      prisma.cashDrawerSession.findUnique({
+        where: { id: data.sessionId },
+        select: { storeId: true },
+      }),
+    ]);
+    if (!target) {
+      throw new AppError("NOT_FOUND", "找不到指定的現金抽屜 session");
+    }
+    if (target.storeId !== writeStoreId) {
+      throw new AppError("FORBIDDEN", "不可撤銷其他分店的閉店紀錄");
+    }
+    const session = await reopenCashDrawer({
+      sessionId: data.sessionId,
+      reason: data.reason,
+      actorUserId: user.id,
+    });
+    revalidatePath("/dashboard/cash-drawer");
     revalidatePath("/dashboard/cashbook");
     return { success: true, data: { sessionId: session.id } };
   } catch (e) {

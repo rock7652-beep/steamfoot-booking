@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>蒸管家｜1 分鐘門市健檢</title>
+<meta name="description" content="填寫門市需求，申請蒸管家體驗帳號，由專人聯繫安排開通。">
+<style>
+:root{--green:#0F3B2E;--gold:#C89A3C;--cream:#F7F4EF;--ink:#18332B;--muted:#6E7773;--line:#DED8CF}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;background:linear-gradient(180deg,#F7F4EF,#EFEAE1);color:var(--ink)}
+.wrap{max-width:760px;margin:auto;padding:28px 16px 56px}.card{background:#fff;border-radius:28px;overflow:hidden;box-shadow:0 18px 48px rgba(15,59,46,.10)}
+.hero{padding:22px 28px 20px;background:radial-gradient(circle at 88% 20%,rgba(200,154,60,.16),transparent 28%),linear-gradient(135deg,#fff,#FBF8F2);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:16px}.mark{width:48px;height:48px;flex-shrink:0}.brand-name{font-size:25px;font-weight:800;letter-spacing:.08em;color:var(--green)}.brand-en{font-size:12px;letter-spacing:.32em;color:var(--gold);margin-top:4px}
+.badge{display:inline-block;margin-top:14px;padding:8px 12px;border-radius:999px;background:#F2F6F3;border:1px solid #DCE8E1;font-size:13px;font-weight:700;color:var(--green)}
+h1{font-size:34px;line-height:1.25;margin:16px 0 10px;color:var(--green)}.lead{line-height:1.8;color:var(--muted);margin:0}
+form{padding:16px 28px 34px}form>.section:first-child{margin-top:8px}.entry-note{margin:6px 0 0;font-size:14px;line-height:1.7;color:var(--muted)}.section{margin-top:28px;font-size:18px;font-weight:800;color:var(--green)}.field{margin:18px 0}label{display:block;font-size:15px;font-weight:700;margin-bottom:9px}.req{color:#B75C48}
+input,select,textarea{width:100%;padding:14px;border:1px solid var(--line);border-radius:14px;font-size:16px}textarea{min-height:100px}
+.options{display:grid;grid-template-columns:1fr 1fr;gap:10px}.opt{position:relative}.opt input{position:absolute;opacity:0}.opt label{border:1px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer;font-weight:400}.opt input:checked+label{border-color:var(--green);background:#EEF5F1;color:var(--green);font-weight:750;box-shadow:inset 0 0 0 1px var(--green)}
+.conditional{display:none;padding:18px;background:#FAF7F1;border:1px solid #E8DFD0;border-radius:18px}.conditional.show{display:block}
+button{width:100%;margin-top:24px;padding:16px;border:0;border-radius:16px;background:var(--green);color:#fff;font-size:17px;font-weight:800;cursor:pointer}
+button[disabled]{opacity:.55;cursor:not-allowed}.hint,.privacy{font-size:12px;color:var(--muted);line-height:1.6}.privacy{text-align:center;margin-top:12px}
+.success{display:none;padding:48px 28px;text-align:center}.success.show{display:block}.success h2{color:var(--green);font-size:28px}.check{width:72px;height:72px;border-radius:50%;background:#EEF5F1;color:var(--green);display:grid;place-items:center;font-size:36px;font-weight:800;margin:auto}
+.error{display:none;margin-top:14px;padding:12px;border-radius:12px;background:#FFF2EF;color:#A04332;font-size:14px}.error.show{display:block}
+@media(max-width:560px){.options{grid-template-columns:1fr}.hero,form{padding-left:20px;padding-right:20px}h1{font-size:29px}}
+nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justify-content:space-between;gap:16px;font-size:16px}nav.site-nav a{color:var(--green);text-underline-offset:5px;padding:8px 0}.opt input:focus-visible+label{outline:2px solid var(--green);outline-offset:3px}
+</style>
+</head>
+<body>
+<nav class="site-nav" aria-label="網站導覽"><a href="/pricing/business#main">← 返回蒸管家</a><a href="/pricing">方案價格</a></nav>
+<div class="wrap"><div class="card">
+<div id="formView">
+<header class="hero">
+<div class="brand">
+<svg class="mark" viewBox="0 0 100 100" aria-label="蒸管家標誌"><path d="M72 17C42 8 15 28 14 57c-1 25 18 40 40 38 14-1 25-8 31-19-10 8-23 11-35 7-16-5-24-21-19-37 6-18 23-28 41-29z" fill="#0F3B2E"/><circle cx="61" cy="51" r="10.5" fill="#C89A3C"/></svg>
+<div><div class="brand-name">蒸管家</div><div class="brand-en">STEAM BUTLER</div></div>
+</div>
+<span class="badge" id="entryBadge">1 分鐘門市健檢</span>
+<h1 id="entryTitle">讓蒸管家先認識你的店</h1>
+<p class="lead" id="entryLead">回答幾個簡單問題，我們會依照你的店型、規模與需求，準備更適合你的功能建議與示範內容。也可在下方選擇申請體驗帳號，由我們聯繫確認後安排開通。</p>
+<p class="entry-note" id="entryNote" hidden>確認體驗內容與期限後，提供登入方式。</p>
+</header>
+
+<form id="storeForm">
+<div class="section">基本資料</div>
+<div class="field"><label for="field-storeName">店家／品牌名稱 <span class="req">*</span></label><input id="field-storeName" name="storeName" required></div>
+<div class="field"><label for="field-contactName">您的稱呼 <span class="req">*</span></label><input id="field-contactName" name="contactName" required></div>
+<div class="field"><label for="field-industry">產業類型 <span class="req">*</span></label><select id="field-industry" name="industry" required><option value="">請選擇</option><option>美容／美體／SPA</option><option>按摩／蒸足／健康服務</option><option>運動教室／健身／瑜伽</option><option>音樂／才藝／教育服務</option><option>寵物美容／寵物服務</option><option>顧問／教練／專業服務</option><option>其他服務型門市</option></select></div>
+
+<div class="section">目前經營規模</div>
+<div class="field"><label>目前門市數量 <span class="req">*</span></label><div class="options">
+<div class="opt"><input id="s1" type="radio" name="storeCount" value="1 間" required><label for="s1">1 間</label></div>
+<div class="opt"><input id="s2" type="radio" name="storeCount" value="2～3 間"><label for="s2">2～3 間</label></div>
+<div class="opt"><input id="s3" type="radio" name="storeCount" value="4～10 間"><label for="s3">4～10 間</label></div>
+<div class="opt"><input id="s4" type="radio" name="storeCount" value="10 間以上"><label for="s4">10 間以上</label></div>
+</div></div>
+<div class="field"><label for="field-staffCount">目前員工人數 <span class="req">*</span></label><select id="field-staffCount" name="staffCount" required><option value="">請選擇</option><option>只有我</option><option>2～5 位</option><option>6～10 位</option><option>11 位以上</option></select></div>
+<div class="field"><label for="field-members">目前會員／顧客人數 <span class="req">*</span></label><select id="field-members" name="members" required><option value="">請選擇區間</option><option>100 人以下</option><option>101～300 人</option><option>301～1,000 人</option><option>1,001～3,000 人</option><option>3,000 人以上</option><option>目前尚未整理</option></select></div>
+
+<div class="section">目前管理方式</div>
+<div class="field"><label>目前是否正在使用管理系統？ <span class="req">*</span></label><div class="options">
+<div class="opt"><input id="no" type="radio" name="hasSystem" value="沒有" required><label for="no">沒有，目前用 LINE／紙本／Excel</label></div>
+<div class="opt"><input id="yes" type="radio" name="hasSystem" value="有"><label for="yes">有，正在使用其他系統</label></div>
+</div></div>
+<div id="systemFields" class="conditional">
+<div class="field"><label for="field-systemName">目前使用哪一套系統？</label><input id="field-systemName" name="systemName"></div>
+<div class="field"><label>考慮更換的主要原因（可複選）</label><div class="options">
+<div class="opt"><input id="r1" type="checkbox" name="replaceReason" value="功能不足"><label for="r1">功能不足</label></div>
+<div class="opt"><input id="r2" type="checkbox" name="replaceReason" value="操作太複雜"><label for="r2">操作太複雜</label></div>
+<div class="opt"><input id="r3" type="checkbox" name="replaceReason" value="價格不合適"><label for="r3">價格不合適</label></div>
+<div class="opt"><input id="r4" type="checkbox" name="replaceReason" value="客服支援不足"><label for="r4">客服支援不足</label></div>
+<div class="opt"><input id="r5" type="checkbox" name="replaceReason" value="會員經營功能不足"><label for="r5">會員經營功能不足</label></div>
+<div class="opt"><input id="r6" type="checkbox" name="replaceReason" value="想整合更多營運流程"><label for="r6">想整合更多營運流程</label></div>
+</div></div></div>
+
+<div class="section">最想改善的事情</div>
+<div class="field"><label>最希望蒸管家協助的三項需求 <span class="req">*</span></label><div class="options">
+<div class="opt"><input id="n1" type="checkbox" name="needs" value="預約與時段管理"><label for="n1">預約與時段管理</label></div>
+<div class="opt"><input id="n2" type="checkbox" name="needs" value="顧客資料整合"><label for="n2">顧客資料整合</label></div>
+<div class="opt"><input id="n3" type="checkbox" name="needs" value="會員／套票／堂數管理"><label for="n3">會員／套票／堂數管理</label></div>
+<div class="opt"><input id="n4" type="checkbox" name="needs" value="顧客追蹤與回訪"><label for="n4">顧客追蹤與回訪</label></div>
+<div class="opt"><input id="n5" type="checkbox" name="needs" value="收款與每日對帳"><label for="n5">收款與每日對帳</label></div>
+<div class="opt"><input id="n6" type="checkbox" name="needs" value="員工與權限管理"><label for="n6">員工與權限管理</label></div>
+<div class="opt"><input id="n7" type="checkbox" name="needs" value="營運數據分析"><label for="n7">營運數據分析</label></div>
+<div class="opt"><input id="n8" type="checkbox" name="needs" value="多門市管理"><label for="n8">多門市管理</label></div>
+</div><div class="hint">最多選擇三項。</div></div>
+<div class="field"><label for="field-otherNeed">其他想解決的問題</label><textarea id="field-otherNeed" name="otherNeed"></textarea></div>
+
+<div class="section">聯繫方式</div>
+<div class="field"><label>希望如何進一步了解蒸管家？ <span class="req">*</span></label><select id="contactWay" name="contactWay" required><option value="">請選擇</option><option value="申請體驗帳號">申請體驗帳號</option><option>先透過 LINE 了解</option><option>預約 20 分鐘線上示範</option><option>希望電話聯繫</option><option>先看方案與案例</option></select></div>
+<div class="field"><label for="field-time">方便聯繫的時段</label><select id="field-time" name="time"><option value="">請選擇（選填）</option><option>平日上午</option><option>平日下午</option><option>平日晚上</option><option>週末</option><option>先用 LINE 留言即可</option></select></div>
+<div class="field"><label for="field-lineId">LINE ID</label><input id="field-lineId" name="lineId" type="text" placeholder="例如：yenlu123（選填）"><div class="hint">電話與 LINE ID 至少填寫一項，方便我們後續聯繫。</div></div>
+<div class="field"><label for="field-phone">聯絡電話</label><input id="field-phone" name="phone" type="tel" placeholder="例如：0912-345-678（選填）"></div>
+<div class="field" style="padding:16px;border:1px solid #DCE8E1;background:#F4F8F5;border-radius:16px">
+  <label style="color:#0F3B2E;margin-bottom:6px">也可以主動加入蒸管家官方 LINE</label>
+  <div class="hint" style="font-size:14px;color:#18332B">LINE ID：<strong>@329rmywc</strong></div>
+  <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener"
+     style="display:inline-block;margin-top:10px;padding:11px 16px;border-radius:12px;background:#06C755;color:#fff;text-decoration:none;font-weight:800">
+     加入蒸管家 LINE
+  </a>
+</div>
+
+<p class="hint" id="trialHint" hidden>收到需求後，我們會透過您留下的 LINE 或電話聯繫，確認體驗內容與期限，再安排開通。</p>
+<div style="margin-top:20px;padding:16px;background:#F4F8F5;border-radius:14px;font-size:14px;line-height:1.8" aria-label="個人資料告知"><strong>送出前請閱讀個人資料告知</strong><p>陸比音樂工作室將使用您提供的店家、聯絡及需求資料，評估需求並安排聯繫、示範或體驗；亦記錄申請來源及必要技術資料。資料類別、使用期間、地區、對象、方式及您的權利，請見<a href="/privacy#store-application" target="_blank" rel="noopener" style="color:#0f5940">隱私權政策與店家申請個資告知（另開分頁）</a>。</p><p>必填資料與至少一項聯絡方式為處理申請所需；選填項目可留空。送出申請不會扣款，也不代表訂閱行銷訊息。客服：<a href="mailto:steambutler500@gmail.com" style="color:#0f5940;overflow-wrap:anywhere">steambutler500@gmail.com</a>。</p></div>
+<button id="submitBtn" type="submit">完成門市健檢</button>
+<p id="submitStatus" class="hint" role="status" aria-live="polite"></p>
+<div id="errorBox" class="error" role="alert" tabindex="-1"></div>
+<div class="privacy">資料依隱私權政策供申請處理及必要服務商使用。</div>
+</form>
+</div>
+
+<div id="successView" class="success" role="status" tabindex="-1">
+<div class="check">✓</div>
+<h2>我們已經大致了解你的店</h2>
+<p>蒸管家會依照你的需求，整理適合的功能與示範內容，再與你聯繫。</p>
+<p style="margin-top:28px;color:#0F3B2E;font-weight:800">每一家店，都值得擁有一位數位管家。</p>
+<a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener"
+   style="display:inline-block;margin-top:18px;padding:12px 18px;border-radius:12px;background:#06C755;color:#fff;text-decoration:none;font-weight:800">
+   加入蒸管家官方 LINE
+</a>
+<p style="margin-top:10px;color:#6E7773;font-size:13px">LINE ID：@329rmywc</p>
+</div>
+</div></div>
+
+<footer style="padding:0 16px 28px;text-align:center;font-size:14px;line-height:1.8;color:#4C6259"><p>陸比音樂工作室｜統一編號：31789116<br>聯絡地址：新竹縣竹北市科大一路116號<br>客服信箱：<a href="mailto:steambutler500@gmail.com">steambutler500@gmail.com</a><br><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" style="color:inherit;text-underline-offset:4px">官方 LINE：@329rmywc（加入官方 LINE）</a></p><nav aria-label="相關政策"><a href="/pricing">方案價格</a> · <a href="/privacy">隱私權政策</a> · <a href="/pricing/terms.html">服務條款</a> · <a href="/pricing/refunds.html">取消與退費政策</a></nav></footer>
+<script>
+const SUBMIT_URL = '/pricing/submit';
+let submissionId;
+let submissionUnconfirmed = false;
+const receiptKey = 'steam-butler-application';
+let receipt;
+try { receipt = JSON.parse(sessionStorage.getItem(receiptKey) || 'null'); } catch {}
+function keepReceipt(value) {
+  receipt = value;
+  try { sessionStorage.setItem(receiptKey, JSON.stringify(value)); } catch {}
+}
+function showUnconfirmed() {
+  submissionUnconfirmed = true;
+  submitBtn.disabled = true;
+  submitBtn.textContent = '請先確認申請結果';
+  document.getElementById('submitStatus').textContent = '';
+  errorBox.textContent = '目前還無法確認是否送出成功。您填寫的內容仍在本頁，請先不要重新送出。加入官方 LINE，提供店名，讓我們協助確認。';
+  const link = document.createElement('a');
+  link.href = 'https://lin.ee/SGy5UBz';
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = ' 加 LINE 確認申請';
+  link.style.textDecoration = 'underline';
+  errorBox.appendChild(link);
+  errorBox.classList.add('show');
+  errorBox.focus();
+}
+function showSuccess(payload) {
+  const view = document.getElementById('successView');
+  const trial = payload.contactWay === '申請體驗帳號';
+  const via = payload.phone && payload.lineId ? 'LINE 或電話' : payload.lineId ? 'LINE' : '電話';
+  view.querySelector('h2').textContent = trial ? '已收到您的體驗申請' : '已收到您的門市健檢';
+  view.querySelector('p').textContent = trial
+    ? '資料已保存。我們會透過您留下的' + via + '聯繫您，確認體驗內容與期限，再安排開通。'
+    : '資料已保存。我們會透過您留下的' + via + '聯繫您，提供適合店內需求的功能建議。';
+  document.getElementById('formView').style.display = 'none';
+  view.classList.add('show');
+  view.focus();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+const form = document.getElementById('storeForm');
+const systemFields = document.getElementById('systemFields');
+const errorBox = document.getElementById('errorBox');
+const submitBtn = document.getElementById('submitBtn');
+const contactWay = document.getElementById('contactWay');
+function updateTrialChoice() {
+  const trial = contactWay.value === '申請體驗帳號';
+  document.getElementById('trialHint').hidden = !trial;
+  document.getElementById('entryNote').hidden = !trial;
+  document.title = trial ? '申請體驗帳號｜蒸管家' : '蒸管家｜1 分鐘門市健檢';
+  document.getElementById('entryBadge').textContent = trial ? '體驗帳號申請' : '1 分鐘門市健檢';
+  document.getElementById('entryTitle').textContent = trial ? '申請蒸管家體驗帳號' : '讓蒸管家先認識你的店';
+  document.getElementById('entryLead').textContent = trial
+    ? '填寫資料 → 專人聯繫 → 安排體驗'
+    : '回答幾個簡單問題，依照你的店型與需求，準備適合的功能建議與示範內容。';
+  if (submitBtn.disabled || submissionUnconfirmed) return;
+  submitBtn.textContent = trial ? '送出體驗申請' : '完成門市健檢';
+}
+contactWay.addEventListener('change', updateTrialChoice);
+const entryParams = new URLSearchParams(window.location.search);
+if (entryParams.get('intent') === 'trial' || entryParams.get('campaign') === 'trial-interest') {
+  contactWay.value = '申請體驗帳號';
+}
+updateTrialChoice();
+if (receipt && receipt.payload && typeof receipt.payload.requestId === 'string') {
+  submissionId = receipt.payload.requestId;
+  if (receipt.state === 'saved') {
+    showSuccess(receipt.payload);
+  } else if (receipt.state === 'pending') {
+    for (const field of form.elements) {
+      if (!field.name || !(field.name in receipt.payload)) continue;
+      const value = receipt.payload[field.name];
+      if (field.type === 'checkbox' || field.type === 'radio') {
+        field.checked = Array.isArray(value) ? value.includes(field.value) : value === field.value;
+      } else if (typeof value === 'string') field.value = value;
+    }
+    updateTrialChoice();
+    systemFields.classList.toggle('show', document.getElementById('yes').checked);
+    showUnconfirmed();
+  }
+}
+
+document.querySelectorAll('input[name="hasSystem"]').forEach(x=>x.addEventListener('change',()=>{
+  systemFields.classList.toggle('show', document.getElementById('yes').checked);
+}));
+
+document.querySelectorAll('input[name="needs"]').forEach(el=>el.addEventListener('change',()=>{
+  const checked=[...document.querySelectorAll('input[name="needs"]:checked')];
+  if(checked.length>3){el.checked=false;alert('最多選擇三項需求');}
+}));
+
+form.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (submitBtn.disabled || submissionUnconfirmed) return;
+  errorBox.classList.remove('show');
+
+  const needs=[...document.querySelectorAll('input[name="needs"]:checked')].map(x=>x.value);
+  if(!needs.length){alert('請至少選擇一項需求');return;}
+
+  const fd = new FormData(form);
+  const payload = Object.fromEntries(fd.entries());
+  payload.phone = (payload.phone || '').trim();
+  payload.lineId = (payload.lineId || '').trim();
+
+  if(!(payload.phone || '').trim() && !(payload.lineId || '').trim()){
+    alert('請至少填寫聯絡電話或 LINE ID 其中一項');
+    return;
+  }
+  submissionId ||= crypto.randomUUID();
+  payload.requestId = submissionId;
+  payload.needs = needs;
+  payload.replaceReason = [...document.querySelectorAll('input[name="replaceReason"]:checked')].map(x=>x.value);
+
+  const params = new URLSearchParams(window.location.search);
+  payload.source = params.get('source') || params.get('utm_source') || 'direct';
+  payload.medium = params.get('utm_medium') || '';
+  payload.campaign = params.get('campaign') || params.get('utm_campaign') || '';
+  payload.content = params.get('content') || params.get('utm_content') || '';
+  payload.landing = params.get('landing') || 'v1';
+  payload.pageUrl = window.location.href;
+  payload.referrer = document.referrer || '';
+  payload.device = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    ? 'iOS'
+    : /Android/i.test(navigator.userAgent)
+      ? 'Android'
+      : 'Desktop';
+
+  keepReceipt({state:'pending',payload});
+  submitBtn.disabled=true;
+  submitBtn.textContent='正在送出…';
+  form.setAttribute('aria-busy', 'true');
+  document.getElementById('submitStatus').textContent='正在確認資料是否保存，請稍候。';
+
+  try{
+    const response = await fetch(SUBMIT_URL,{
+      method:'POST',
+      signal: AbortSignal.timeout(65000),
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+    if (response.status === 400 && result.code === 'INVALID_INPUT') {
+      try { sessionStorage.removeItem(receiptKey); } catch {}
+      receipt = null;
+      document.getElementById('submitStatus').textContent = '';
+      errorBox.textContent = '請確認店名、稱呼、店家類型、聯絡方式與需求是否填寫完整，文字是否過長。';
+      errorBox.classList.add('show');
+      submitBtn.disabled = false;
+      updateTrialChoice();
+      return;
+    }
+    if (!response.ok || result.ok !== true || result.saved !== true || result.requestId !== submissionId) {
+      throw new Error('Save unconfirmed');
+    }
+
+    keepReceipt({state:'saved',payload:{requestId:submissionId,contactWay:payload.contactWay,phone:Boolean(payload.phone),lineId:Boolean(payload.lineId)}});
+    showSuccess(payload);
+  }catch(err){
+    showUnconfirmed();
+  }finally{
+    form.removeAttribute('aria-busy');
+  }
+});
+</script>
+</body>
+</html>

@@ -22,6 +22,19 @@ import {
   type TemplateVariables,
 } from "@/lib/line";
 import { getShopConfig } from "@/lib/shop-config";
+import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
+import {
+  DEFAULT_PACKAGE_LINE_CARD_REMINDER,
+  packageLineCardReminderSettingId,
+} from "@/lib/package-line-card-reminder-setting";
+import {
+  DEFAULT_TRIAL_LINE_CARD_REMINDER,
+  trialLineCardReminderSettingId,
+} from "@/lib/trial-line-card-reminder-setting";
+import {
+  bookingReminderTypeSettingId,
+  parseBookingReminderTypeEnabled,
+} from "@/lib/booking-reminder-type-setting";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
 import type { StorePlanFields } from "@/lib/store-plan";
 import { deriveBaseUrl } from "@/lib/base-url";
@@ -35,9 +48,17 @@ import {
   parseTaiwanDateToDbDate,
 } from "@/lib/date-utils";
 import { resolveCentralLineRecipientsForCustomers } from "@/server/services/central-line-recipient-loader";
-import { resolveVerifiedReminderLineRoute } from "@/server/services/verified-reminder-line-route";
+import {
+  resolveVerifiedCentralReminderLineRoute,
+  resolveVerifiedReminderLineRoute,
+} from "@/server/services/verified-reminder-line-route";
 import { createTrialBookingActionToken } from "@/server/services/trial-booking-self-service";
-import { buildTrialBookingReminderLineMessages } from "@/server/services/trial-booking-reminder-line-message";
+import {
+  buildPackageBookingReminderLineMessages,
+  buildTrialBookingReminderLineMessages,
+  buildTrialBookingReminderTextFallback,
+  canFallbackToTextReminder,
+} from "@/server/services/trial-booking-reminder-line-message";
 
 const DEFAULT_TEMPLATE = `{{customerName}} 您好！
 
@@ -54,6 +75,10 @@ const TRIAL_TEMPLATE = `{{customerName}} 您好！
 請使用下方按鈕確認會到、取消或改期。
 
 {{shopName}} 敬上`;
+
+const REPEATED_LINE_400_THRESHOLD = 2;
+const REPEATED_LINE_400_REBIND_REASON =
+  "LINE recipient unavailable: REPEATED_LINE_400_REBIND_REQUIRED";
 
 export interface SendResult {
   total: number;
@@ -79,9 +104,12 @@ export interface SendResult {
  * 公開導出供 dashboard stats 重用。
  */
 export function todayReminderTriggerAt(now: Date = new Date()): Date {
-  const todayStr = toLocalDateStr(now);
+  return reminderTriggerAtForDate(toLocalDateStr(now));
+}
+
+export function reminderTriggerAtForDate(date: string): Date {
   // 台灣 18:00 = UTC 10:00（offset -8 小時）
-  return new Date(`${todayStr}T10:00:00.000Z`);
+  return new Date(`${date}T10:00:00.000Z`);
 }
 
 /**
@@ -216,12 +244,30 @@ export async function runReminders(): Promise<SendResult> {
 
   const baseUrl = deriveBaseUrl();
   const shopNameCache = new Map<string, string>();
+  const storeMapDetailsCache = new Map<
+    string,
+    { address: string | null; mapUrl: string | null }
+  >();
+  const packageCardReminderCache = new Map<string, string>();
+  const trialCardReminderCache = new Map<string, string>();
   const storePlanCache = new Map<string, StorePlanFields>();
   const storeSendCountCache = new Map<string, number>();
   const storeLineReminderFeatureCache = new Map<string, boolean>();
   const { start: monthStart, end: monthEnd } = taiwanReminderMonthRange(now);
 
   for (const rule of rules) {
+    const [packageSetting, trialSetting] = await Promise.all([
+      prisma.messageTemplate.findUnique({
+        where: { id: bookingReminderTypeSettingId(rule.storeId, "PACKAGE") },
+        select: { body: true },
+      }),
+      prisma.messageTemplate.findUnique({
+        where: { id: bookingReminderTypeSettingId(rule.storeId, "TRIAL") },
+        select: { body: true },
+      }),
+    ]);
+    const packageBookingEnabled = parseBookingReminderTypeEnabled(packageSetting?.body);
+    const trialBookingEnabled = parseBookingReminderTypeEnabled(trialSetting?.body);
     if (!storeLineReminderFeatureCache.has(rule.storeId)) {
       storeLineReminderFeatureCache.set(
         rule.storeId,
@@ -238,6 +284,8 @@ export async function runReminders(): Promise<SendResult> {
       },
       include: {
         customer: { include: { assignedStaff: true } },
+        store: { select: { slug: true, name: true } },
+        recurrenceGroup: { select: { totalOccurrences: true } },
       },
     });
 
@@ -251,6 +299,21 @@ export async function runReminders(): Promise<SendResult> {
     for (const booking of bookings) {
       const customer = booking.customer;
       const bookingStoreId = booking.storeId;
+      const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
+      if (
+        (isLineTrialBooking && !trialBookingEnabled) ||
+        (!isLineTrialBooking && !packageBookingEnabled)
+      ) {
+        result.skipped++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "SKIPPED",
+          error: isLineTrialBooking ? "TRIAL_REMINDER_DISABLED" : "PACKAGE_REMINDER_DISABLED",
+        });
+        continue;
+      }
 
       // Messenger scheduled delivery is intentionally isolated from this PR.
       // Messenger can still issue a chat-bound booking link, but only LINE is
@@ -381,16 +444,53 @@ export async function runReminders(): Promise<SendResult> {
         continue;
       }
 
+      // LINE 400 is a deterministic recipient/channel mismatch, not a
+      // transient transport failure. After two failures on the same store and
+      // resolved route, stop blindly retrying until the customer rebinds LINE.
+      // lineLinkedAt resets the failure window after a successful rebind.
+      const repeatedLine400Count = await prisma.messageLog.count({
+        where: {
+          customerId: customer.id,
+          storeId: bookingStoreId,
+          channel: "LINE",
+          lineRoute: route.channel,
+          status: "FAILED",
+          errorMessage: { startsWith: "LINE API 400", mode: "insensitive" },
+          ...(customer.lineLinkedAt
+            ? { createdAt: { gte: customer.lineLinkedAt } }
+            : {}),
+        },
+      });
+      if (repeatedLine400Count >= REPEATED_LINE_400_THRESHOLD) {
+        await recordSkippedReminder({
+          ruleId: rule.id,
+          templateId: rule.templateId,
+          customerId: customer.id,
+          bookingId: booking.id,
+          triggerAt,
+          storeId: bookingStoreId,
+          reason: REPEATED_LINE_400_REBIND_REASON,
+        });
+        result.skipped++;
+        result.details.push({
+          customerId: customer.id,
+          bookingId: booking.id,
+          ruleName: rule.name,
+          status: "SKIPPED",
+          error: REPEATED_LINE_400_REBIND_REASON,
+        });
+        continue;
+      }
+
       // 渲染模板
       if (!shopNameCache.has(bookingStoreId)) {
         const sc = await getShopConfig(bookingStoreId);
         shopNameCache.set(bookingStoreId, sc.shopName);
       }
       const bookingDateStr = booking.bookingDate.toISOString().slice(0, 10);
-      let bookingLink = `${baseUrl}/my-bookings`;
+      let bookingLink = `${baseUrl}/s/${encodeURIComponent(booking.store.slug)}/my-bookings`;
       // Messenger bookings already continued above; a channel-null legacy
       // first trial that reaches a verified LINE route must use self-service.
-      const isLineTrialBooking = booking.bookingType === "FIRST_TRIAL";
       if (isLineTrialBooking && !process.env.TRIAL_BOOKING_ACTION_SECRET) {
         await recordFailedReminder({
           ruleId: rule.id,
@@ -415,36 +515,124 @@ export async function runReminders(): Promise<SendResult> {
       if (isLineTrialBooking) {
         bookingLink = `${baseUrl}/trial-booking/manage?token=${encodeURIComponent(createTrialBookingActionToken(booking))}`;
       }
+      if (!storeMapDetailsCache.has(bookingStoreId)) {
+        const [config, packageCardReminderSetting, trialCardReminderSetting] = await Promise.all([
+          prisma.shopConfig.findUnique({
+            where: { storeId: bookingStoreId },
+            select: { address: true, mapUrl: true },
+          }),
+          prisma.messageTemplate.findUnique({
+            where: {
+              id: packageLineCardReminderSettingId(bookingStoreId),
+              storeId: bookingStoreId,
+            },
+            select: { body: true },
+          }),
+          prisma.messageTemplate.findUnique({
+            where: {
+              id: trialLineCardReminderSettingId(bookingStoreId),
+              storeId: bookingStoreId,
+            },
+            select: { body: true },
+          }),
+        ]);
+        storeMapDetailsCache.set(bookingStoreId, {
+          address: config?.address?.trim() || null,
+          mapUrl: config?.mapUrl?.trim() || null,
+        });
+        packageCardReminderCache.set(
+          bookingStoreId,
+          packageCardReminderSetting?.body?.trim() || DEFAULT_PACKAGE_LINE_CARD_REMINDER,
+        );
+        trialCardReminderCache.set(
+          bookingStoreId,
+          trialCardReminderSetting?.body?.trim() || DEFAULT_TRIAL_LINE_CARD_REMINDER,
+        );
+      }
+      const storeMapDetails = storeMapDetailsCache.get(bookingStoreId);
+      const customerFacingShopName = isLineTrialBooking
+        ? shopNameCache.get(bookingStoreId) ?? "蒸足"
+        : getCustomerFacingStoreName({
+            slug: booking.store.slug,
+            name: shopNameCache.get(bookingStoreId) ?? booking.store.name,
+          });
       const vars: TemplateVariables = {
         customerName: customer.name,
         bookingDate: bookingDateStr,
         bookingTime: booking.slotTime,
-        shopName: shopNameCache.get(bookingStoreId) ?? "蒸足",
+        shopName: customerFacingShopName,
         staffName: customer.assignedStaff?.displayName ?? "店長",
         bookingLink,
       };
       const renderedBody = renderTemplate(isLineTrialBooking ? TRIAL_TEMPLATE : templateBody, vars);
 
       // 發送 LINE push
-      const messages = isLineTrialBooking
-        ? buildTrialBookingReminderLineMessages(renderedBody, bookingLink)
+      const card = {
+        customerName: customer.name,
+        bookingDate: bookingDateStr,
+        bookingTime: booking.slotTime,
+        shopName: customerFacingShopName,
+        serviceName: "首次體驗",
+        reminderText:
+          trialCardReminderCache.get(bookingStoreId) ??
+          DEFAULT_TRIAL_LINE_CARD_REMINDER,
+        mapUrl: storeMapDetails?.mapUrl ?? undefined,
+      };
+      const flexMessages = isLineTrialBooking
+        ? buildTrialBookingReminderLineMessages(card, bookingLink)
+        : buildPackageBookingReminderLineMessages({
+            customerName: customer.name,
+            bookingDate: bookingDateStr,
+            bookingTime: booking.slotTime,
+            shopName: customerFacingShopName,
+            serviceName: booking.bookingType === "PACKAGE_SESSION" ? "方案預約" : "單次預約",
+            serviceDuration: "45 分鐘",
+            address: storeMapDetails?.address ?? undefined,
+            mapUrl: storeMapDetails?.mapUrl ?? undefined,
+            reminderText:
+              packageCardReminderCache.get(bookingStoreId) ??
+              DEFAULT_PACKAGE_LINE_CARD_REMINDER,
+            recurrenceIndex: booking.recurrenceIndex ?? undefined,
+            recurrenceTotalOccurrences: booking.recurrenceGroup?.totalOccurrences ?? undefined,
+          }, bookingLink, booking.id);
+      const textMessages = isLineTrialBooking
+        ? buildTrialBookingReminderTextFallback(card, bookingLink)
         : [{ type: "text" as const, text: renderedBody }];
       let actualRoute = route.channel;
       let sendResult = route.channel === "STORE"
-        ? await pushMessage(bookingStoreId, route.recipientLineUserId, messages)
-        : await pushSteamButlerMessage(route.recipientLineUserId, messages);
-      const storeRecipient =
-        customer.lineLinkStatus === "LINKED"
-          ? customer.lineUserId?.trim()
-          : null;
+        ? await pushMessage(bookingStoreId, route.recipientLineUserId, flexMessages)
+        : await pushSteamButlerMessage(route.recipientLineUserId, flexMessages);
+      if (canFallbackToTextReminder(sendResult)) {
+        sendResult = route.channel === "STORE"
+          ? await pushMessage(bookingStoreId, route.recipientLineUserId, textMessages)
+          : await pushSteamButlerMessage(route.recipientLineUserId, textMessages);
+      }
       if (
-        route.channel === "CENTRAL" &&
+        route.channel === "STORE" &&
         !sendResult.success &&
-        sendResult.httpStatus === 400 &&
-        storeRecipient
+        sendResult.httpStatus === 400
       ) {
-        sendResult = await pushMessage(bookingStoreId, storeRecipient, messages);
-        actualRoute = "STORE";
+        const fallbackRoute = await resolveVerifiedCentralReminderLineRoute(recipient);
+        if (fallbackRoute.status === "READY") {
+          sendResult = await pushSteamButlerMessage(
+            fallbackRoute.recipientLineUserId,
+            flexMessages,
+          );
+          if (canFallbackToTextReminder(sendResult)) {
+            sendResult = await pushSteamButlerMessage(
+              fallbackRoute.recipientLineUserId,
+              textMessages,
+            );
+          }
+          actualRoute = "CENTRAL";
+        } else {
+          sendResult = {
+            ...sendResult,
+            error: [sendResult.error, fallbackRoute.reason]
+              .filter(Boolean)
+              .join("; "),
+          };
+        }
       }
 
       // 寫入 MessageLog（unique 索引為 race condition 保險）

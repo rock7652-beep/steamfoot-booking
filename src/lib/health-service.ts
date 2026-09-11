@@ -6,6 +6,7 @@
  * 2. getHealthSummary(profileId) — 取得健康評估摘要（帶 5 分鐘快取）
  * 3. generateBusinessInsights(summary) — 生成經營提示
  */
+import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 
 const HEALTH_API_BASE = process.env.HEALTH_API_URL || "";
 const HEALTH_API_KEY = process.env.HEALTH_API_KEY || "";
@@ -38,15 +39,25 @@ export interface HealthRecord {
   bodyWater: number | null;
   metabolicAge: number | null;
   note: string | null;
+  /** 原始量測門市；只有顧客本人跨店檢視時提供。 */
+  storeName?: string;
+  storeSlug?: string;
 }
 
 export interface TrendPoint {
   measuredAt: string;
   weight: number | null;
-  bodyFat: number | null;
   bmi: number | null;
+  bodyFat: number | null;
   muscleMass: number | null;
+  boneMass: number | null;
   visceralFat: number | null;
+  bmr: number | null;
+  bodyWater: number | null;
+  metabolicAge: number | null;
+  /** 原始量測門市；曲線計算不使用此欄位。 */
+  storeName?: string;
+  storeSlug?: string;
 }
 
 export interface HealthAlert {
@@ -91,6 +102,8 @@ export interface HealthSummary {
     totalRecords: number;
     daysSinceLastMeasure: number | null;
     firstMeasuredAt: string | null;
+    /** 與 trend 同順序的原生紀錄 ID；只在顧客本人流程提供。 */
+    recordIds?: string[];
   };
   /**
    * HealthFlow PR #5 (2026-05-25) additive：官方 score + 風險判讀 + 建議摘要。
@@ -155,6 +168,9 @@ class HealthApiError extends Error {
 }
 
 async function healthFetch<T>(path: string): Promise<T> {
+  if (isPreviewExternalIntegrationBlocked()) {
+    throw new HealthApiError("Preview HealthFlow lookup is blocked");
+  }
   if (!HEALTH_API_BASE || !HEALTH_API_KEY) {
     throw new HealthApiError("HEALTH_API_URL or HEALTH_API_KEY not configured");
   }

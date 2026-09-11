@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { getNowTaipeiHHmm, toLocalDateStr } from "@/lib/date-utils";
@@ -12,6 +13,7 @@ import {
   loadDayBusinessHoursContext,
   loadMonthBusinessHoursContext,
 } from "@/lib/business-hours-resolver";
+import { isCustomerSlotWithinBookingWindow } from "@/lib/shop-config";
 import {
   checkBookingLimit,
   checkCustomerLimit,
@@ -23,19 +25,31 @@ import { isStoreBookable } from "@/lib/store-operating-status";
 import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-trial-manager-notification";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
+import { resolvePublicTrialLineCustomer } from "@/server/services/public-trial-line-customer";
+import { bindReferralToCustomer } from "@/server/services/referral-binding";
+import {
+  createBookingCreatedEvent,
+  createRegisterEvent,
+} from "@/server/services/referral-events";
 import type { SlotAvailability } from "@/types";
 
-const STORE_SLUG = "zhubei";
-const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶"];
+const PUBLIC_TRIAL_STORE_SLUGS = ["zhubei", "hsinchu", "taichung"] as const;
+type PublicTrialStoreSlug = (typeof PUBLIC_TRIAL_STORE_SLUGS)[number];
+const DEFAULT_STORE_SLUG: PublicTrialStoreSlug = "zhubei";
+const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶", "未命名"];
 
 const InputSchema = z.object({
-  name: z.string().trim().min(1, "請輸入姓名").max(50),
+  name: z.string().trim().min(1, "請輸入姓名").max(50).refine(
+    (name) => !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(name),
+    "請輸入您的真實姓名",
+  ),
   phone: z.string().transform(normalizePhone).pipe(z.string().regex(/^09\d{8}$/, "請輸入正確手機號碼")),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   slotTime: z.string().regex(/^\d{2}:\d{2}$/),
   people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(2, "單次最多預約 2 人"),
   website: z.string().max(0).optional().default(""),
   entry: z.string().max(512).optional(),
+  storeSlug: z.enum(PUBLIC_TRIAL_STORE_SLUGS).optional().default(DEFAULT_STORE_SLUG),
 });
 
 export type PublicTrialDayStatus =
@@ -63,15 +77,15 @@ export type PublicTrialBookingResult =
   | { status: "limit_reached" }
   | { status: "service_unavailable" };
 
-async function resolvePublicStore() {
+async function resolvePublicStore(storeSlug: PublicTrialStoreSlug = DEFAULT_STORE_SLUG) {
   return prisma.store.findUnique({
-    where: { slug: STORE_SLUG },
+    where: { slug: storeSlug },
     select: { id: true, slug: true },
   });
 }
 
-async function resolveAvailabilityStore(entry?: string) {
-  if (!entry) return resolvePublicStore();
+async function resolveAvailabilityStore(storeSlug: PublicTrialStoreSlug, entry?: string) {
+  if (!entry) return resolvePublicStore(storeSlug);
   if (entry.length > 512) return null;
   const chatLink = await resolveTrialBookingChatLink(entry);
   if (!chatLink) return null;
@@ -79,15 +93,20 @@ async function resolveAvailabilityStore(entry?: string) {
     where: { id: chatLink.storeId },
     select: { id: true, slug: true },
   });
-  return store?.slug === STORE_SLUG ? store : null;
+  return store?.slug === storeSlug ? store : null;
 }
 
-export async function fetchPublicTrialMonth(year: number, month: number, entry?: string): Promise<{
+export async function fetchPublicTrialMonth(
+  year: number,
+  month: number,
+  entry?: string,
+  storeSlug: PublicTrialStoreSlug = DEFAULT_STORE_SLUG,
+): Promise<{
   days: PublicTrialCalendarDay[];
 }> {
   if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return { days: [] };
 
-  const store = await resolveAvailabilityStore(entry);
+  const store = await resolveAvailabilityStore(storeSlug, entry);
   const dates = enumerateMonthDates(year, month);
   if (!store || !(await isStoreBookable(store.id)) || (await isStoreSubscriptionWriteBlocked(store.id))) {
     return { days: dates.map(({ dateStr }) => ({ date: dateStr, status: "store_unavailable", availableSlots: 0 })) };
@@ -95,7 +114,7 @@ export async function fetchPublicTrialMonth(year: number, month: number, entry?:
 
   const context = await loadMonthBusinessHoursContext(store.id, year, month);
   const dutyEnabled = await isDutySchedulingEnabled(store.id);
-  const [bookings, dutyRows] = await Promise.all([
+  const [bookings, dutyRows, bookingWindowConfig] = await Promise.all([
     prisma.booking.groupBy({
       by: ["bookingDate", "slotTime"],
       where: {
@@ -112,6 +131,10 @@ export async function fetchPublicTrialMonth(year: number, month: number, entry?:
           distinct: ["date", "slotTime"],
         })
       : Promise.resolve([]),
+    prisma.shopConfig?.findUnique({
+      where: { storeId: store.id },
+      select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
+    }),
   ]);
 
   const bookingMap = new Map(
@@ -147,7 +170,10 @@ export async function fetchPublicTrialMonth(year: number, month: number, entry?:
     }
 
     const resolved = applySlotOverrides(rule, overridesByDate.get(dateStr) ?? []).filter((slot) => slot.isEnabled);
-    const bookableSlots = resolved.filter((slot) => !dutyEnabled || dutySet.has(`${dateStr}|${slot.startTime}`));
+    const bookableSlots = resolved.filter((slot) =>
+      isCustomerSlotWithinBookingWindow(dateStr, slot.startTime, bookingWindowConfig)
+      && (!dutyEnabled || dutySet.has(`${dateStr}|${slot.startTime}`)),
+    );
     if (bookableSlots.length === 0) {
       days.push({ date: dateStr, status: dutyEnabled ? "no_duty" : "closed", availableSlots: 0 });
       continue;
@@ -169,12 +195,16 @@ export async function fetchPublicTrialMonth(year: number, month: number, entry?:
   return { days };
 }
 
-export async function fetchPublicTrialSlots(date: string, entry?: string): Promise<{
+export async function fetchPublicTrialSlots(
+  date: string,
+  entry?: string,
+  storeSlug: PublicTrialStoreSlug = DEFAULT_STORE_SLUG,
+): Promise<{
   slots: SlotAvailability[];
   dayStatus: PublicTrialDayStatus;
 }> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { slots: [], dayStatus: "past" };
-  const store = await resolveAvailabilityStore(entry);
+  const store = await resolveAvailabilityStore(storeSlug, entry);
   if (!store || !(await isStoreBookable(store.id))) return { slots: [], dayStatus: "store_unavailable" };
   if (await isStoreSubscriptionWriteBlocked(store.id)) return { slots: [], dayStatus: "store_unavailable" };
 
@@ -190,7 +220,7 @@ export async function fetchPublicTrialSlots(date: string, entry?: string): Promi
   if (resolved.length === 0) return { slots: [], dayStatus: "closed" };
 
   const dutyEnabled = await isDutySchedulingEnabled(store.id);
-  const [bookings, dutyRows] = await Promise.all([
+  const [bookings, dutyRows, bookingWindowConfig] = await Promise.all([
     prisma.booking.groupBy({
       by: ["slotTime"],
       where: { storeId: store.id, bookingDate: ctx.dateObj, bookingStatus: { in: [...PENDING_STATUSES] } },
@@ -203,6 +233,10 @@ export async function fetchPublicTrialSlots(date: string, entry?: string): Promi
           distinct: ["slotTime"],
         })
       : Promise.resolve([]),
+    prisma.shopConfig?.findUnique({
+      where: { storeId: store.id },
+      select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
+    }),
   ]);
 
   const booked = new Map(bookings.map((row) => [row.slotTime, row._sum.people ?? 0]));
@@ -211,6 +245,7 @@ export async function fetchPublicTrialSlots(date: string, entry?: string): Promi
   const now = isToday ? getNowTaipeiHHmm() : null;
 
   const slots = resolved
+    .filter((slot) => isCustomerSlotWithinBookingWindow(date, slot.startTime, bookingWindowConfig))
     .filter((slot) => !dutyEnabled || duty.has(slot.startTime))
     .map((slot) => {
       const bookedCount = booked.get(slot.startTime) ?? 0;
@@ -238,6 +273,8 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
   }
 
   const data = parsed.data;
+  const cookieStore = await cookies();
+  const pendingRef = cookieStore.get("pending-ref")?.value?.trim() || null;
   try {
     const chatLink = data.entry ? await resolveTrialBookingChatLink(data.entry) : null;
     if (data.entry && !chatLink) {
@@ -245,9 +282,9 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     }
     const store = chatLink
       ? await prisma.store.findUnique({ where: { id: chatLink.storeId }, select: { id: true, slug: true } })
-      : await resolvePublicStore();
-    if (chatLink && store?.slug !== STORE_SLUG) {
-      return { status: "invalid_input", message: "此連結不適用於竹北店預約頁，請回到原本的聊天視窗重新取得正確門市連結。" };
+      : await resolvePublicStore(data.storeSlug);
+    if (chatLink && store?.slug !== data.storeSlug) {
+      return { status: "invalid_input", message: "此連結不適用於目前門市的預約頁，請回到原本的聊天視窗重新取得正確門市連結。" };
     }
     if (!store || !(await isStoreBookable(store.id))) return { status: "store_unavailable" };
     if (await isStoreSubscriptionWriteBlocked(store.id)) return { status: "store_unavailable" };
@@ -269,6 +306,13 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       (candidate) => candidate.startTime === data.slotTime && candidate.isEnabled,
     );
     if (!slot) return { status: "slot_unavailable" };
+    const bookingWindowConfig = await prisma.shopConfig?.findUnique({
+      where: { storeId: store.id },
+      select: { bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true },
+    });
+    if (!isCustomerSlotWithinBookingWindow(data.bookingDate, data.slotTime, bookingWindowConfig)) {
+      return { status: "slot_unavailable" };
+    }
     if (data.bookingDate === today && data.slotTime <= getNowTaipeiHHmm()) return { status: "slot_unavailable" };
 
     if (await isDutySchedulingEnabled(store.id)) {
@@ -281,25 +325,32 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
 
     const trialPlan = await ensureTrialPlan(store.id, settings.trialDefaultPrice);
 
-    let customer = await prisma.customer.findFirst({
-      where: chatLink?.channel === "LINE"
-        ? { storeId: store.id, lineUserId: chatLink.chatIdentity, mergedIntoCustomerId: null }
-        : { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
-      select: { id: true, name: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
-    });
-    let reusedLineIdentityCustomer = Boolean(customer && chatLink?.channel === "LINE");
-    if (!customer && chatLink?.channel === "LINE") {
-      const phoneCustomer = await prisma.customer.findFirst({
-        where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
-        select: { id: true, name: true, assignedStaffId: true, lineUserId: true },
-      });
-      if (phoneCustomer) {
-        // A phone number typed into a public form is not proof that the sender
-        // owns the existing customer row. Never attach or route a reminder to
-        // that row unless it was already linked to this exact LINE sender.
-        return { status: "invalid_input", message: "此手機已有顧客資料，請聯繫門市協助確認 LINE 身分後再預約。" };
-      }
+    const lineCustomerResult = chatLink?.channel === "LINE"
+      ? await resolvePublicTrialLineCustomer({
+          storeId: store.id,
+          phone: data.phone,
+          messagingLineUserId: chatLink.chatIdentity,
+        })
+      : null;
+    if (lineCustomerResult?.status === "conflict") {
+      return { status: "invalid_input", message: "此手機或 LINE 身分已有其他綁定，請聯繫門市協助確認。" };
     }
+    if (lineCustomerResult?.status === "verification_unavailable") {
+      return { status: "invalid_input", message: "LINE 身分驗證暫時無法完成，請稍後再試。" };
+    }
+
+    let customerCreated = false;
+    let customer = lineCustomerResult && "customer" in lineCustomerResult
+      ? lineCustomerResult.customer
+      : chatLink?.channel === "LINE"
+        ? null
+        : await prisma.customer.findFirst({
+            where: { storeId: store.id, phone: data.phone, mergedIntoCustomerId: null },
+            select: { id: true, name: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
+          });
+    let reusedLineIdentityCustomer = Boolean(
+      lineCustomerResult && "customer" in lineCustomerResult,
+    );
     if (!customer) {
       try {
         customer = await prisma.customer.create({
@@ -316,6 +367,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
           },
           select: { id: true, name: true, assignedStaffId: true, lineUserId: true, lineLinkStatus: true },
         });
+        customerCreated = true;
       } catch (error) {
         if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
         const concurrent = await prisma.customer.findFirst({
@@ -335,15 +387,17 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       }
     }
 
-    // A valid one-time LINE booking link proves the sender's same-store LINE
-    // identity, but only system placeholder names may be replaced by the
-    // submitted public-form name. The conditional update keeps formal names,
-    // phone-only matches, other stores, and identity fields untouched.
-    if (
-      reusedLineIdentityCustomer &&
-      chatLink?.channel === "LINE" &&
+    // Only system placeholder names may be replaced by the submitted public-
+    // form name. A verified LINE entry can be repaired immediately. A plain
+    // public entry is repaired later inside the successful booking transaction,
+    // so an already-booked or full-slot request cannot mutate the CRM record.
+    const shouldReplacePlaceholderName =
       SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(customer.name) &&
-      !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(data.name)
+      !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(data.name);
+    if (
+      shouldReplacePlaceholderName &&
+      reusedLineIdentityCustomer &&
+      chatLink?.channel === "LINE"
     ) {
       await prisma.customer.updateMany({
         where: {
@@ -389,6 +443,19 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
         });
         if ((aggregate._sum.people ?? 0) + data.people > slot.capacity) return null;
 
+        if (shouldReplacePlaceholderName && !reusedLineIdentityCustomer) {
+          await tx.customer.updateMany({
+            where: {
+              id: customer.id,
+              storeId: store.id,
+              phone: data.phone,
+              mergedIntoCustomerId: null,
+              name: { in: SYSTEM_PLACEHOLDER_CUSTOMER_NAMES },
+            },
+            data: { name: data.name },
+          });
+        }
+
         const created = await tx.booking.create({
           data: {
             storeId: store.id,
@@ -431,6 +498,44 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
     );
 
     if (!booking) return { status: "slot_full" };
+    if (pendingRef) {
+      const binding = await bindReferralToCustomer({
+        customerId: customer.id,
+        storeId: store.id,
+        referrerRef: pendingRef,
+        source: "liff-store-share",
+      });
+      const referrerId = binding.referrerCustomerId ?? null;
+      cookieStore.delete("pending-ref");
+      if (referrerId) {
+        try {
+          await Promise.all([
+            customerCreated
+              ? createRegisterEvent({
+                  storeId: store.id,
+                  customerId: customer.id,
+                  referrerId,
+                  source: "liff-store-share",
+                })
+              : Promise.resolve(null),
+            createBookingCreatedEvent({
+              storeId: store.id,
+              customerId: customer.id,
+              referrerId,
+              bookingId: booking.id,
+              source: "liff-store-share",
+            }),
+          ]);
+        } catch (error) {
+          console.error("[public-trial-booking] referral tracking failed", {
+            storeId: store.id,
+            bookingId: booking.id,
+            error,
+          });
+        }
+      }
+    }
+
     await notifyManagerOfPublicTrialBooking({
       storeId: store.id,
       storeSlug: store.slug,

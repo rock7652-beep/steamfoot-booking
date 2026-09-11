@@ -1,3 +1,5 @@
+import { FEATURES } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
@@ -33,6 +35,14 @@ export async function GET(req: NextRequest) {
   const storeFilter = getStoreFilter(readUser, reportsStoreId);
 
   const sp = req.nextUrl.searchParams;
+  const analysisStoreId = user.role === "ADMIN" && !storeViewContext?.isViewMode
+    ? sp.get("storeId") ?? reportsStoreId
+    : reportsStoreId;
+  if ((!analysisStoreId && user.role !== "ADMIN") ||
+      (analysisStoreId && !(await hasStoreFeature(analysisStoreId, FEATURES.BASIC_REPORTS)))) {
+    return NextResponse.json({ error: "分析尚未開通，NT$800／月獨立加購" }, { status: 403 });
+  }
+
   const startDate = sp.get("startDate");
   const endDate = sp.get("endDate");
 

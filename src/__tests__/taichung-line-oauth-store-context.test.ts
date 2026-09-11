@@ -9,7 +9,7 @@ describe("Taichung LINE OAuth store context", () => {
     const route = read("src/app/api/auth/[...nextauth]/route.ts");
 
     expect(route).toContain('response.cookies.set("store-slug", "taichung"');
-    expect(route).toContain("preserveTaichungStore(NextResponse.redirect(url))");
+    expect(route).toContain("preserveTaichungStore(NextResponse.redirect(destination, 303))");
     expect(route).toContain("preserveTaichungStore(");
     expect(route).toContain('/oauth-confirm?callbackUrl=%2Fs%2Ftaichung%2Fbook');
   });

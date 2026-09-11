@@ -30,7 +30,12 @@ export function formatReminderSendResult(
   if (MESSENGER_RESULT_LABEL[detail]) return MESSENGER_RESULT_LABEL[detail];
   if (/NO_CENTRAL_(USER|LINE)/.test(detail)) return "未綁定 LINE";
   if (detail === "CENTRAL_USER_INACTIVE") return "中央會員已停用或不存在";
-  if (/LINE API 400/i.test(detail)) return "已綁定但無法送達";
+  if (/CENTRAL_LINE_NOT_MESSAGING_REACHABLE/.test(detail)) {
+    return "LINE 通知身分尚未完成，請由分店 LINE 重新綁定";
+  }
+  if (/REPEATED_LINE_400_REBIND_REQUIRED/.test(detail) || /LINE API 400/i.test(detail)) {
+    return "LINE 身分與發送帳號不相容，請重新綁定";
+  }
   if (
     detail === "LINE token not configured for store" ||
     detail === "TRIAL_BOOKING_ACTION_SECRET_NOT_CONFIGURED" ||
@@ -44,7 +49,7 @@ export function formatReminderSendResult(
 
   if (status === "SKIPPED") {
     if (!detail) return "已跳過";
-    if (detail.startsWith("store_channel_verification_unavailable:")) {
+    if (/^(store|central)_channel_verification_unavailable:/.test(detail)) {
       return "LINE 驗證暫時無法完成，請稍後重試";
     }
     if (detail === "Feature not enabled") return "此功能尚未啟用";

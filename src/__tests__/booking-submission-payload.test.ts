@@ -71,4 +71,21 @@ describe("booking submission payload", () => {
     expect(intent).not.toHaveProperty("primaryWalletId");
     expect(intent).not.toHaveProperty("timestamp");
   });
+
+  it("includes SPA service composition without changing ordinary booking intent", () => {
+    const ordinary = buildBookingCreatePayloadHash(base);
+    const composed = buildBookingCreatePayloadHash({
+      ...base,
+      treatmentIds: ["head-30", "body-90"],
+    });
+    const sameComposition = buildBookingCreatePayloadHash({
+      ...base,
+      treatmentIds: ["body-90", "head-30"],
+    });
+
+    expect(ordinary.intent.treatmentIds).toBeNull();
+    expect(composed.intent.treatmentIds).toEqual(["body-90", "head-30"]);
+    expect(composed.payloadHash).toBe(sameComposition.payloadHash);
+    expect(composed.payloadHash).not.toBe(ordinary.payloadHash);
+  });
 });

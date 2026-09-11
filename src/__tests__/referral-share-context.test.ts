@@ -51,7 +51,12 @@ describe("getReferralShareContext", () => {
         name: "暖沐蒸足",
         slug: "taichung",
         operatingStatus: "ACTIVE",
-        shopConfig: { lineOfficialUrl: "https://lin.ee/taichung" },
+        shopConfig: {
+          lineOfficialUrl: "https://lin.ee/taichung",
+          referralShareTemplate: null,
+          address: "台中市北區測試路 1 號",
+          mapUrl: "https://maps.google.com/taichung",
+        },
       },
     });
 
@@ -65,7 +70,11 @@ describe("getReferralShareContext", () => {
       available: true,
       storeName: "暖沐蒸足",
       referralUrl: "/s/taichung/line-entry?ref=ABC234",
+      publicTrialReferralUrl:
+        "/s/taichung/line-entry?ref=ABC234&destination=public-trial&source=liff-store-share",
       shareTemplate: null,
+      address: "台中市北區測試路 1 號",
+      mapUrl: "https://maps.google.com/taichung",
     });
   });
 
@@ -98,7 +107,12 @@ describe("getReferralShareContext", () => {
         name: "暖暖蒸足",
         slug: "zhubei",
         operatingStatus: "ACTIVE",
-        shopConfig: { lineOfficialUrl: "https://lin.ee/zhubei" },
+        shopConfig: {
+          lineOfficialUrl: "https://lin.ee/zhubei",
+          referralShareTemplate: null,
+          address: null,
+          mapUrl: null,
+        },
       },
     });
 
@@ -112,7 +126,11 @@ describe("getReferralShareContext", () => {
       available: true,
       storeName: "暖暖蒸足",
       referralUrl: "/s/zhubei/line-entry?ref=legacy-customer-id",
+      publicTrialReferralUrl:
+        "/s/zhubei/line-entry?ref=legacy-customer-id&destination=public-trial&source=liff-store-share",
       shareTemplate: null,
+      address: null,
+      mapUrl: null,
     });
   });
 });

@@ -238,6 +238,27 @@ describe("applySlotOverrides — 套用 SlotOverride", () => {
     ]);
     expect(slots.map((s) => s.startTime)).toEqual(["08:00", "10:00", "11:00", "12:00", "23:00"]);
   });
+
+  it("多個營業區段各自使用不同起始分鐘與間隔，中間自動休息", () => {
+    const multiRule = resolveDayRule({
+      dateStr: "2026-05-05",
+      dow: 2,
+      specialDayMap: new Map(),
+      businessHoursMap: buildBusinessHoursMap([{
+        ...bh(2, true, "09:30", "21:15", 60, 6),
+        segments: [
+          { openTime: "09:30", closeTime: "12:00", slotInterval: 30, defaultCapacity: 6 },
+          { openTime: "14:00", closeTime: "17:00", slotInterval: 60, defaultCapacity: 6 },
+          { openTime: "18:15", closeTime: "21:15", slotInterval: 90, defaultCapacity: 4 },
+        ],
+      }]),
+    });
+    expect(applySlotOverrides(multiRule, []).map((slot) => slot.startTime)).toEqual([
+      "09:30", "10:00", "10:30", "11:00", "11:30",
+      "14:00", "15:00", "16:00",
+      "18:15", "19:45",
+    ]);
+  });
 });
 
 // ── enumerateMonthDates ──

@@ -6,7 +6,7 @@
 
 1. `Store.industryModule` 是執行期唯一授權來源；不得用 slug、Demo 標記或前端選項推斷模組。
 2. 一家店只允許一筆 `StoreModuleInstallation`，建立後不得從 SPA 直接切回蒸足或反向切換。
-3. 既有店在 migration 中回填為 `STEAMFOOT` 與 `ACTIVE`，所以既有蒸足流程的資料和預設時段不變。
+3. 保留既有店的模組；僅補齊缺少的 installation。蒸足為 `ACTIVE`，SPA 為 `PROVISIONING`，不覆寫已有狀態。
 4. SPA 使用 provider availability、treatment 與 SPA booking；不得建立或讀取蒸足 `BookingSlot`／legacy `Booking` 作為 SPA 的營運資料。
 5. `StoreModuleInstallation.status !== ACTIVE` 時，HQ 不得啟用店舖，也不得開放對外預約。
 
@@ -16,7 +16,7 @@
 
 ## 上線順序
 
-1. 在隔離的 Preview / staging DB 套用 `20260910090000_add_store_module_governance`，確認所有現有店都有一筆 active Steamfoot installation。
+1. 依 `docs/spa-release-readiness-20260911.md` 使用完整 SPA reconciliation 腳本，先演練再依授權部署。原三份 PR migration 已封存，不再作為部署入口；確認既有蒸足 installation 為 ACTIVE，保留 SPA 原模組與狀態。
 2. 驗收蒸足回歸：店家登入、顧客預約、既有 Booking、方案、付款、報表各至少一條完整流程。
 3. 建立一間新的 SPA demo 店，確認它是 `PROVISIONING`、沒有 legacy `BookingSlot` 與 `BusinessHours`，且 HQ 無法啟用它。
 4. 導入 SPA 專屬 schema、佈建器及 SPA 讀寫鏈；SPA 月／日排程必須只查 SPA booking，不能再呼叫 legacy `getMonthBookingSummary`。

@@ -69,7 +69,7 @@ function row(overrides: Partial<{
   bookingStatus: string;
   bookingType: string;
   isMakeup: boolean;
-  revenueStaff: { displayName: string } | null;
+  people: number;
 }> = {}) {
   return {
     id: "bk-default",
@@ -78,7 +78,7 @@ function row(overrides: Partial<{
     bookingStatus: "PENDING",
     bookingType: "FIRST_TRIAL",
     isMakeup: false,
-    revenueStaff: null,
+    people: 1,
     ...overrides,
   };
 }
@@ -196,8 +196,8 @@ describe("fetchLiffBookings action (PR-D2)", () => {
         "bookingType",
         "id",
         "isMakeup",
+        "people",
         "slotTime",
-        "staffName",
       ]);
     });
 
@@ -214,26 +214,11 @@ describe("fetchLiffBookings action (PR-D2)", () => {
       expect(r.history[0].bookingDate).toBe("2026-06-15");
     });
 
-    it("staffName: revenueStaff null → null（不 fallback 「未指派」）", async () => {
-      mockBookingFindMany.mockResolvedValue([
-        row({ id: "bk-1", bookingStatus: "COMPLETED", revenueStaff: null }),
-      ]);
-      const r = await fetchLiffBookings();
-      if (r.status !== "ok") throw new Error("expected ok");
-      expect(r.history[0].staffName).toBeNull();
-    });
-
-    it("staffName: revenueStaff 有值 → 帶 displayName", async () => {
-      mockBookingFindMany.mockResolvedValue([
-        row({
-          id: "bk-1",
-          bookingStatus: "COMPLETED",
-          revenueStaff: { displayName: "Amy" },
-        }),
-      ]);
-      const r = await fetchLiffBookings();
-      if (r.status !== "ok") throw new Error("expected ok");
-      expect(r.history[0].staffName).toBe("Amy");
+    it("顧客端 query 不取得營收歸屬店長", async () => {
+      mockBookingFindMany.mockResolvedValue([]);
+      await fetchLiffBookings();
+      const args = mockBookingFindMany.mock.calls[0][0];
+      expect(args.select).not.toHaveProperty("revenueStaff");
     });
   });
 });

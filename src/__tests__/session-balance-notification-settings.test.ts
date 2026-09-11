@@ -13,9 +13,15 @@ vi.mock("@/lib/base-url", () => ({
 
 import {
   DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+  extractSessionBalanceCustomCopy,
   renderSessionBalanceTemplate,
 } from "@/lib/session-balance-notification-settings";
-import { enqueueSessionBalanceNotifications } from "@/server/services/session-balance-notifications";
+import {
+  buildSessionBalanceLineMessages,
+  enqueueSessionBalanceNotifications,
+  SESSION_BALANCE_TOP_UP_COMMAND,
+  SESSION_BALANCE_VIP_COMMAND,
+} from "@/server/services/session-balance-notifications";
 
 function makeTx(input: {
   setting: {
@@ -25,6 +31,7 @@ function makeTx(input: {
   } | null;
   remainingSessions: number;
   continuationWalletIds?: string[];
+  validWallets?: Array<{ id: string; remainingSessions: number }>;
 }) {
   const createMany = vi.fn().mockResolvedValue({ count: 1 });
   const findNotifications = vi.fn().mockResolvedValue([{ id: "notification-1" }]);
@@ -34,7 +41,15 @@ function makeTx(input: {
       { id: "wallet-1", remainingSessions: input.remainingSessions },
     ])
     .mockResolvedValueOnce(
-      (input.continuationWalletIds ?? []).map((id) => ({ id })),
+      input.validWallets ?? [
+        ...(input.remainingSessions > 0
+          ? [{ id: "wallet-1", remainingSessions: input.remainingSessions }]
+          : []),
+        ...(input.continuationWalletIds ?? []).map((id) => ({
+          id,
+          remainingSessions: 1,
+        })),
+      ],
     );
   return {
     tx: {
@@ -52,6 +67,51 @@ function makeTx(input: {
 }
 
 describe("session balance notification settings", () => {
+  it("keeps custom copy but removes system variables and inline URLs", () => {
+    expect(extractSessionBalanceCustomCopy(
+      "{customerName} 您好，您的「{planName}」目前剩下最後 1 堂囉。\n\n這是門市自訂提醒。\n\n查看可預約時段：{bookingUrl}",
+    )).toBe("這是門市自訂提醒。");
+  });
+
+  it("renders the last-session notification as a Flex card with booking and consultation actions", () => {
+    const result = buildSessionBalanceLineMessages({
+      type: "LAST_SESSION",
+      customerName: "王小美",
+      planName: "蒸足保養 5 堂",
+      storeSlug: "zhubei",
+      reservedBooking: null,
+      setting: DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+    });
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]).toMatchObject({ type: "flex" });
+    expect(JSON.stringify(result.messages[0])).toContain("立即預約");
+    expect(JSON.stringify(result.messages[0])).toContain("諮詢店長");
+    expect(JSON.stringify(result.messages[0])).toContain(SESSION_BALANCE_VIP_COMMAND);
+  });
+
+  it("renders the used-up notification as a Flex card and preserves the store template", () => {
+    const result = buildSessionBalanceLineMessages({
+      type: "PLAN_USED_UP",
+      customerName: "王小美",
+      planName: "蒸足保養 5 堂",
+      storeSlug: "zhubei",
+      reservedBooking: null,
+      setting: {
+        ...DEFAULT_SESSION_BALANCE_NOTIFICATION_SETTING,
+        planUsedUpTemplate: "{customerName}，這是門市自訂的續購說明。",
+        learnMoreButtonLabel: "我要儲值",
+      },
+    });
+
+    expect(result.messages[0]).toMatchObject({ type: "flex" });
+    const serialized = JSON.stringify(result.messages[0]);
+    expect(serialized).toContain("這是門市自訂的續購說明");
+    expect(serialized).toContain("我要儲值");
+    expect(serialized).toContain(SESSION_BALANCE_TOP_UP_COMMAND);
+    expect(serialized).toContain("諮詢店長");
+  });
+
   it("keeps the database migration additive and store scoped", () => {
     const sql = readFileSync(
       resolve(
@@ -155,5 +215,35 @@ describe("session balance notification settings", () => {
       ),
     ).resolves.toEqual([]);
     expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it("does not enqueue a used-up prompt when another valid plan has sessions", async () => {
+    const { tx, createMany } = makeTx({
+      setting: null,
+      remainingSessions: 0,
+      validWallets: [{ id: "wallet-2", remainingSessions: 5 }],
+    });
+    await expect(
+      enqueueSessionBalanceNotifications(
+        tx as never,
+        { walletIds: ["wallet-1"], customerId: "customer-1", storeId: "store-1" },
+      ),
+    ).resolves.toEqual([]);
+    expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it("uses the customer's total valid balance for the last-session reminder", async () => {
+    const { tx, createMany } = makeTx({
+      setting: null,
+      remainingSessions: 0,
+      validWallets: [{ id: "wallet-2", remainingSessions: 1 }],
+    });
+    await enqueueSessionBalanceNotifications(
+      tx as never,
+      { walletIds: ["wallet-1"], customerId: "customer-1", storeId: "store-1" },
+    );
+    expect(createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({ walletId: "wallet-2", type: "LAST_SESSION" })],
+    }));
   });
 });

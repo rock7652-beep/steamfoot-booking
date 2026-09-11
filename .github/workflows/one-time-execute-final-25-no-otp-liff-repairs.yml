@@ -1,0 +1,31 @@
+name: Execute final 25 no-OTP LIFF repairs
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/final-25-no-otp-liff-repair-request.json]
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: Production – steamfoot-booking
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      FINAL_25_EXPECTED_FINGERPRINT: 120979251f07d2efe6329ba8ff83fe0cbc65f5fc493184580fb7b97a8d466bd9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Verify protected data is outside mutation boundary
+        run: |
+          test "$(grep -Ec 'customerPlanWallet\.(create|update|delete)|booking\.(create|update|delete)|customerHealthRecord\.(create|update|delete)|tx\.customer\.(update|updateMany|delete)' scripts/execute-final-25-no-otp-liff-repairs.ts)" -eq 0
+      - run: npx tsx scripts/execute-final-25-no-otp-liff-repairs.ts

@@ -37,8 +37,11 @@ interface Props {
   makeupCredits?: MakeupCreditInfo[];
   /** 顧客可預約到的日期（含當日，"YYYY-MM-DD"，台灣時間）。與後端 gate 同源。 */
   bookableUntil: string;
+  /** 指定開放時間；null 代表立即開放。 */
+  bookingOpensAt: string | null;
   weeklyRecurrenceEnabled: boolean;
   weeklyRecurrenceMaxWeeks: number;
+  upcomingBookings: Array<{ bookingDate: string; slotTime: string }>;
 }
 
 export function BookingCalendarView({
@@ -46,8 +49,10 @@ export function BookingCalendarView({
   activeWallets,
   makeupCredits = [],
   bookableUntil,
+  bookingOpensAt,
   weeklyRecurrenceEnabled,
   weeklyRecurrenceMaxWeeks,
+  upcomingBookings,
 }: Props) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -55,6 +60,8 @@ export function BookingCalendarView({
   // 可預約到日期（含當日）。超過此日的時段尚未開放。
   const maxDate = parseLocalDate(bookableUntil);
   maxDate.setHours(0, 0, 0, 0);
+  const scheduledOpenAt = bookingOpensAt ? new Date(bookingOpensAt) : null;
+  const bookingHasOpened = !scheduledOpenAt || new Date() >= scheduledOpenAt;
 
   const [people, setPeople] = useState(1);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -64,6 +71,10 @@ export function BookingCalendarView({
   const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
   const [monthData, setMonthData] = useState<Record<string, MonthDayAvailability>>({});
   const [loadingMonth, setLoadingMonth] = useState(false);
+  const maxBookablePeople = Math.min(
+    4,
+    activeWallets.reduce((sum, wallet) => sum + wallet.remainingSessions, 0) + makeupCredits.length,
+  );
 
   // 載入整月可預約概覽
   const loadMonth = useCallback(async (year: number, month: number) => {
@@ -162,8 +173,8 @@ export function BookingCalendarView({
         <span className="min-w-[2rem] text-center text-2xl font-bold text-earth-900">{people}</span>
         <button
           type="button"
-          onClick={() => setPeople((p) => Math.min(4, p + 1))}
-          disabled={people >= 4}
+          onClick={() => setPeople((p) => Math.min(maxBookablePeople, p + 1))}
+          disabled={people >= maxBookablePeople}
           className="flex h-11 w-11 items-center justify-center rounded-lg border border-earth-300 text-xl text-earth-800 hover:bg-earth-100 disabled:opacity-40"
           aria-label="增加人數"
         >
@@ -208,9 +219,10 @@ export function BookingCalendarView({
               const display = getSlotCapacityDisplay(slot.capacity, slot.booked, people);
               return display.canFitRequestedPeople;
             });
-            const disabled = isPast || isBeyond || loadingMonth || !dayInfo || isClosed || isTraining || isFull;
+            const disabled = !bookingHasOpened || isPast || isBeyond || loadingMonth || !dayInfo || isClosed || isTraining || isFull;
             const isSelected = dateStr === selectedDate;
             const isToday = dateObj.getTime() === today.getTime();
+            const hasBooking = upcomingBookings.some((booking) => booking.bookingDate === dateStr);
 
             return (
               <button
@@ -236,6 +248,9 @@ export function BookingCalendarView({
                   {isToday && !isSelected && (
                     <span className="ml-auto rounded bg-primary-100 px-1 text-xs font-bold leading-none text-primary-800">今</span>
                   )}
+                  {hasBooking && !isSelected && (
+                    <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden />
+                  )}
                 </div>
 
                 {(isClosed || isTraining) && !isPast && !isBeyond && (
@@ -243,6 +258,11 @@ export function BookingCalendarView({
                     isTraining ? "bg-amber-50 text-amber-800" : "bg-earth-100 text-earth-700"
                   }`}>
                     {isTraining ? "進修" : "公休"}
+                  </span>
+                )}
+                {hasBooking && !isSelected && (
+                  <span className="mt-2 rounded bg-blue-50 px-1.5 py-0.5 text-xs font-semibold leading-tight text-blue-700">
+                    已預約
                   </span>
                 )}
               </button>
@@ -254,11 +274,30 @@ export function BookingCalendarView({
 
       {/* 可預約範圍提示 */}
       <div className="mb-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        目前開放預約至{" "}
-        <strong>
-          {maxDate.toLocaleDateString("zh-TW", { year: "numeric", month: "long", day: "numeric" })}
-        </strong>
-        。次月預約時段尚未開放，請等候店長通知。
+        {!bookingHasOpened && scheduledOpenAt ? (
+          <>
+            尚未開放預約，將於{" "}
+            <strong>
+              {scheduledOpenAt.toLocaleString("zh-TW", {
+                timeZone: "Asia/Taipei",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </strong>
+            開放。
+          </>
+        ) : (
+          <>
+            目前開放預約至{" "}
+            <strong>
+              {maxDate.toLocaleDateString("zh-TW", { year: "numeric", month: "long", day: "numeric" })}
+            </strong>
+            。超過此範圍的時段尚未開放。
+          </>
+        )}
       </div>
 
       {/* 時段選擇 — 由下方滑出的 bottom sheet */}
@@ -315,6 +354,9 @@ export function BookingCalendarView({
                   bookableUntil={bookableUntil}
                   weeklyRecurrenceEnabled={weeklyRecurrenceEnabled}
                   weeklyRecurrenceMaxWeeks={weeklyRecurrenceMaxWeeks}
+                  bookedSlotTimes={upcomingBookings
+                    .filter((booking) => booking.bookingDate === selectedDate)
+                    .map((booking) => booking.slotTime)}
                 />
               )}
             </div>
@@ -373,6 +415,7 @@ function SlotBookingForm({
   bookableUntil,
   weeklyRecurrenceEnabled,
   weeklyRecurrenceMaxWeeks,
+  bookedSlotTimes,
 }: {
   customerId: string;
   selectedDate: string;
@@ -383,6 +426,7 @@ function SlotBookingForm({
   bookableUntil: string;
   weeklyRecurrenceEnabled: boolean;
   weeklyRecurrenceMaxWeeks: number;
+  bookedSlotTimes: string[];
 }) {
   const requestKey = useBookingRequestKey();
   const storeSlug = useStoreSlugRequired();
@@ -545,6 +589,10 @@ function SlotBookingForm({
 
   // 人數 vs 剩餘堂數
   const hasEnoughSessions = totalRemaining >= recurrenceRequiredSessions;
+  const maxAffordableWeeks = Math.min(
+    recurrenceOptions.at(-1) ?? 0,
+    Math.floor(totalRemaining / Math.max(people, 1)),
+  );
 
   // 最晚到期日（用於提示）
   const latestExpiry = activeWallets
@@ -560,7 +608,9 @@ function SlotBookingForm({
         : "票券已超過可使用期限，請聯繫店家協助")
     : recurrenceRequiredSessions > 0 && !hasEnoughSessions
     ? isRecurringActive
-      ? `方案次數不足，循環預約共需 ${recurrenceRequiredSessions} 堂，目前方案次數僅剩 ${totalRemaining} 次`
+      ? maxAffordableWeeks >= 2
+        ? `目前方案最多可保留 ${maxAffordableWeeks} 週（共 ${maxAffordableWeeks * people} 堂）`
+        : `方案次數不足，固定時段至少需 ${people * 2} 堂，目前方案僅剩 ${totalRemaining} 堂`
       : `方案次數不足，無法預約 ${people} 人。目前可用補課 ${makeupToUse} 張、方案次數僅剩 ${totalRemaining} 次，請調整預約人數或聯繫店家`
     : null;
 
@@ -575,7 +625,7 @@ function SlotBookingForm({
         </h2>
         {state.recurringDates.length > 0 ? (
           <div className="mt-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-left text-sm text-green-900">
-            <p className="font-semibold">共建立 {state.recurringDates.length} 筆預約，扣除 {state.recurringDates.length * state.bookedPeople} 堂</p>
+            <p className="font-semibold">共保留 {state.recurringDates.length} 個固定時段，預留 {state.recurringDates.length * state.bookedPeople} 堂方案額度</p>
             <ul className="mt-2 space-y-1">
               {state.recurringDates.map((date) => (
                 <li key={date}>✓ {date.replaceAll("-", "/")}（{formatWeekdayZh(date).replace("週", "")}）{state.bookedTime}</li>
@@ -654,44 +704,6 @@ function SlotBookingForm({
         <span className="text-sm text-earth-700">（可於上方月曆區調整）</span>
       </div>
 
-      {weeklyRecurrenceEnabled && recurrenceOptions.length > 0 && (
-        <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
-          <label className="flex cursor-pointer items-center gap-3 text-base font-semibold text-primary-900">
-            <input
-              type="checkbox"
-              checked={isRecurring}
-              disabled={pending}
-              onChange={(event) => {
-                setIsRecurring(event.target.checked);
-                setLoadedRecurringPreviewKey(null);
-              }}
-              className="h-5 w-5 rounded border-primary-400 text-primary-600 focus:ring-primary-500"
-            />
-            每週重複預約
-          </label>
-          <p className="mt-1 text-sm text-primary-800">同一人數、同一時段，連續預約數週</p>
-
-          {isRecurringActive && (
-            <div className="mt-4">
-              <label className="mb-2 block text-sm font-medium text-primary-900" htmlFor="recurrence-weeks">重複週數</label>
-              <select
-                id="recurrence-weeks"
-                value={weeks}
-                disabled={pending}
-                onChange={(event) => {
-                  setWeeks(Number(event.target.value));
-                  setLoadedRecurringPreviewKey(null);
-                }}
-                className="h-11 w-full rounded-lg border border-primary-300 bg-white px-3 text-base text-earth-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                {recurrenceOptions.map((option) => <option key={option} value={option}>{option} 週</option>)}
-              </select>
-              <p className="mt-2 text-sm text-primary-800">循環預約僅使用方案堂數，補課資格不會列入本次扣抵。</p>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* 時段卡片 */}
       <div>
         <p className="mb-2 text-base font-semibold text-earth-800">選擇時段</p>
@@ -700,8 +712,11 @@ function SlotBookingForm({
             const isPast = !!slot.isPast;
             const display = getSlotCapacityDisplay(slot.capacity, slot.bookedCount, people);
             const disabled = isPast || !display.canFitRequestedPeople;
+            const alreadyBooked = bookedSlotTimes.includes(slot.startTime);
             const statusText = isPast
               ? "已過時段"
+              : alreadyBooked
+                ? "您已預約"
               : display.selectionStatus === "available"
                 ? "名額充足"
                 : display.label;
@@ -711,9 +726,11 @@ function SlotBookingForm({
                 className={`relative flex min-h-[72px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-colors ${
                   isPast || display.selectionStatus === "insufficient"
                     ? "cursor-not-allowed border-earth-200 bg-earth-50 opacity-60"
+                    : alreadyBooked
+                      ? "border-blue-300 bg-blue-50 text-blue-900 hover:border-blue-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                     : display.selectionStatus === "full"
                       ? "cursor-not-allowed border-red-200 bg-red-50 text-red-700 opacity-75"
-                    : display.capacityStatus === "low"
+                    : display.remainingCapacity <= 2
                       ? "border-yellow-300 bg-yellow-50 text-yellow-900 hover:border-yellow-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                       : "border-green-200 bg-green-50 text-green-900 hover:border-green-400 has-[:checked]:border-primary-600 has-[:checked]:bg-primary-600 has-[:checked]:text-white"
                 }`}
@@ -722,6 +739,7 @@ function SlotBookingForm({
                   type="radio"
                   name="slotTime"
                   value={slot.startTime}
+                  checked={selectedSlot === slot.startTime}
                   disabled={disabled}
                   className="sr-only"
                   required
@@ -732,7 +750,7 @@ function SlotBookingForm({
                 />
                 <span className="text-lg font-bold">{slot.startTime}</span>
                 {statusText && (
-                  <span className={`mt-1 text-sm font-medium ${isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.selectionStatus === "low" ? "text-yellow-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
+                  <span className={`mt-1 text-sm font-medium ${selectedSlot === slot.startTime ? "text-white/90" : alreadyBooked ? "text-blue-700" : isPast || display.selectionStatus === "insufficient" ? "text-earth-700" : display.remainingCapacity <= 2 ? "text-yellow-800" : display.selectionStatus === "full" ? "text-red-600" : "text-green-700"}`}>
                     {statusText}
                   </span>
                 )}
@@ -755,6 +773,44 @@ function SlotBookingForm({
           </div>
         </div>
       </div>
+
+      {selectedSlot && weeklyRecurrenceEnabled && recurrenceOptions.length > 0 && (
+        <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-4">
+          <label className="flex cursor-pointer items-center gap-3 text-base font-semibold text-primary-900">
+            <input
+              type="checkbox"
+              checked={isRecurring}
+              disabled={pending}
+              onChange={(event) => {
+                setIsRecurring(event.target.checked);
+                setLoadedRecurringPreviewKey(null);
+              }}
+              className="h-5 w-5 rounded border-primary-400 text-primary-600 focus:ring-primary-500"
+            />
+            保留每週固定時段
+          </label>
+          <p className="mt-1 text-sm text-primary-800">喜歡這個時段嗎？可一次保留未來 2～{recurrenceOptions.at(-1)} 週。</p>
+
+          {isRecurringActive && (
+            <div className="mt-4">
+              <label className="mb-2 block text-sm font-medium text-primary-900" htmlFor="recurrence-weeks">保留週數</label>
+              <select
+                id="recurrence-weeks"
+                value={weeks}
+                disabled={pending}
+                onChange={(event) => {
+                  setWeeks(Number(event.target.value));
+                  setLoadedRecurringPreviewKey(null);
+                }}
+                className="h-11 w-full rounded-lg border border-primary-300 bg-white px-3 text-base text-earth-900 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {recurrenceOptions.map((option) => <option key={option} value={option}>{option} 週</option>)}
+              </select>
+              <p className="mt-2 text-sm text-primary-800">方案堂數會先保留，完成每次服務後才核銷；補課資格不列入固定時段。</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {availableSlots.length === 0 && (
         <p className="text-center text-base text-earth-700">今日所有時段已額滿</p>
@@ -797,7 +853,7 @@ function SlotBookingForm({
             </ul>
           )}
           <p className="mt-3 font-semibold">
-            共建立 {weeks} 筆預約，共扣除 {weeks * people} 堂（此方案可用 {totalRemaining} 堂）
+            共保留 {weeks} 個時段，預留 {weeks * people} 堂方案額度（此方案可用 {totalRemaining} 堂）
           </p>
           {!loadingRecurringPreview && recurrenceHasUnavailableDate && (
             <p className="mt-2 font-semibold text-red-700">無法建立循環預約；請選擇其他日期、時段或週數。</p>
@@ -826,6 +882,18 @@ function SlotBookingForm({
       {blockingError && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
           <p className="text-base font-semibold text-red-700">{blockingError}</p>
+          {isRecurringActive && !hasEnoughSessions && maxAffordableWeeks >= 2 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setWeeks(maxAffordableWeeks);
+                setLoadedRecurringPreviewKey(null);
+              }}
+              className="mt-2 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700"
+            >
+              改為保留 {maxAffordableWeeks} 週
+            </button>
+          ) : null}
         </div>
       )}
 
