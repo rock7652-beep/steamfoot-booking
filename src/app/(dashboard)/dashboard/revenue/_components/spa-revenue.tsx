@@ -92,93 +92,111 @@ export async function SpaRevenue({
           </Link>
         ))}
       </div>
-      <form
-        key={from + to + method + search + kind + status}
-        className="mb-5 grid gap-3 rounded-xl border border-earth-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        <label className="min-w-0 text-sm text-earth-600">
-          開始日期
-          <input
-            type="date"
-            name="dateFrom"
-            defaultValue={from}
-            required
-            className="mt-1 block min-w-0 max-w-full w-full rounded-lg border border-earth-200 p-2"
-          />
-        </label>
-        <label className="min-w-0 text-sm text-earth-600">
-          結束日期
-          <input
-            type="date"
-            name="dateTo"
-            defaultValue={to}
-            required
-            className="mt-1 block min-w-0 max-w-full w-full rounded-lg border border-earth-200 p-2"
-          />
-        </label>
-        <label className="min-w-0 text-sm text-earth-600">
-          付款方式
-          <select
-            name="method"
-            defaultValue={method}
-            className="mt-1 block w-full rounded-lg border border-earth-200 p-2"
-          >
-            <option value="">全部付款方式</option>
-            {SPA_CHECKOUT_PAYMENT_METHODS.map((m) => (
-              <option key={m} value={m}>
-                {SPA_PAYMENT_LABELS[m]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="min-w-0 text-sm text-earth-600">
-          顧客
-          <input
-            name="search"
-            defaultValue={search}
-            placeholder="姓名／電話"
-            maxLength={100}
-            className="mt-1 block w-full min-w-0 rounded-lg border border-earth-200 p-2"
-          />
-        </label>
-        <label className="min-w-0 text-sm text-earth-600">
-          交易類型
-          <select
-            name="kind"
-            defaultValue={kind}
-            className="mt-1 block w-full rounded-lg border border-earth-200 p-2"
-          >
-            <option value="">全部類型</option>
-            <option value="SERVICE">服務結帳</option>
-            <option value="PACKAGE">購買方案</option>
-            <option value="TOPUP">儲值</option>
-            <option value="REFUND">退款</option>
-          </select>
-        </label>
-        <label className="min-w-0 text-sm text-earth-600">
-          紀錄狀態
-          <select
-            name="status"
-            defaultValue={status}
-            className="mt-1 block w-full rounded-lg border border-earth-200 p-2"
-          >
-            <option value="ACTIVE">有效紀錄</option>
-            <option value="VOIDED">已刪除／作廢</option>
-            <option value="ALL">包含作廢紀錄</option>
-          </select>
-        </label>
-        <div className="flex gap-3 items-center sm:col-span-2 lg:col-span-3">
-          <button className="self-end rounded-lg bg-[#596D45] hover:bg-[#4B5E3B] p-3 text-white">
-            套用篩選
-          </button>
-          <Link
-            href="/dashboard/revenue"
-            className="text-sm text-earth-500 underline"
-          >
-            重設
-          </Link>
-        </div>
-      </form>
+      <details className="mb-5 rounded-xl border border-earth-200 bg-white p-4">
+        <summary className="cursor-pointer text-sm font-medium text-[#596D45]">
+          篩選條件
+          <span className="ml-2 font-normal text-earth-500">
+            {from} ～ {to}
+            {method ? ` · ${SPA_PAYMENT_LABELS[method] ?? method}` : ""}
+            {search ? ` · ${search}` : ""}
+            {kind
+              ? ` · ${{ SERVICE: "服務結帳", PACKAGE: "購買方案", TOPUP: "儲值", REFUND: "退款" }[kind] ?? kind}`
+              : ""}
+            {status === "VOIDED"
+              ? " · 已作廢"
+              : status === "ALL"
+                ? " · 包含作廢"
+                : " · 有效紀錄"}
+          </span>
+        </summary>
+        <form
+          key={from + to + method + search + kind + status}
+          className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          <label className="min-w-0 text-sm text-earth-600">
+            開始日期
+            <input
+              type="date"
+              name="dateFrom"
+              defaultValue={from}
+              required
+              className="mt-1 block min-w-0 max-w-full w-full box-border appearance-none [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left rounded-lg border border-earth-200 p-2"
+            />
+          </label>
+          <label className="min-w-0 text-sm text-earth-600">
+            結束日期
+            <input
+              type="date"
+              name="dateTo"
+              defaultValue={to}
+              required
+              className="mt-1 block min-w-0 max-w-full w-full box-border appearance-none [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left rounded-lg border border-earth-200 p-2"
+            />
+          </label>
+          <label className="min-w-0 text-sm text-earth-600">
+            付款方式
+            <select
+              name="method"
+              defaultValue={method}
+              className="mt-1 block w-full rounded-lg border border-earth-200 p-2"
+            >
+              <option value="">全部付款方式</option>
+              {SPA_CHECKOUT_PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>
+                  {SPA_PAYMENT_LABELS[m]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-0 text-sm text-earth-600">
+            顧客
+            <input
+              name="search"
+              defaultValue={search}
+              placeholder="姓名／電話"
+              maxLength={100}
+              className="mt-1 block w-full min-w-0 rounded-lg border border-earth-200 p-2"
+            />
+          </label>
+          <label className="min-w-0 text-sm text-earth-600">
+            交易類型
+            <select
+              name="kind"
+              defaultValue={kind}
+              className="mt-1 block w-full rounded-lg border border-earth-200 p-2"
+            >
+              <option value="">全部類型</option>
+              <option value="SERVICE">服務結帳</option>
+              <option value="PACKAGE">購買方案</option>
+              <option value="TOPUP">儲值</option>
+              <option value="REFUND">退款</option>
+            </select>
+          </label>
+          <label className="min-w-0 text-sm text-earth-600">
+            紀錄狀態
+            <select
+              name="status"
+              defaultValue={status}
+              className="mt-1 block w-full rounded-lg border border-earth-200 p-2"
+            >
+              <option value="ACTIVE">有效紀錄</option>
+              <option value="VOIDED">已刪除／作廢</option>
+              <option value="ALL">包含作廢紀錄</option>
+            </select>
+          </label>
+          <div className="flex gap-3 items-center sm:col-span-2 lg:col-span-3">
+            <button className="self-end rounded-lg bg-[#596D45] hover:bg-[#4B5E3B] p-3 text-white">
+              套用篩選
+            </button>
+            <Link
+              href="/dashboard/revenue"
+              className="text-sm text-earth-500 underline"
+            >
+              重設
+            </Link>
+          </div>
+        </form>
+      </details>
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           ["本期收款", money(data.collected)],

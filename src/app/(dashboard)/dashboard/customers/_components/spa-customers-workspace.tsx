@@ -341,85 +341,100 @@ export function AccountPanel({
           className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5"
         >
           {tab === "history" && (
-            <div className="space-y-2 rounded-xl bg-earth-50 p-3">
-              <div className="grid grid-cols-2 gap-3">
-                <label className="min-w-0 text-xs text-earth-600">
-                  開始日期
-                  <input
-                    aria-label="紀錄開始日期"
-                    type="date"
-                    value={dateFrom}
-                    max={dateTo || undefined}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="mt-1 block w-full min-w-0 rounded-lg border border-earth-200 bg-white p-2 text-sm"
-                  />
-                </label>
-                <label className="min-w-0 text-xs text-earth-600">
-                  結束日期
-                  <input
-                    aria-label="紀錄結束日期"
-                    type="date"
-                    value={dateTo}
-                    min={dateFrom || undefined}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="mt-1 block w-full min-w-0 rounded-lg border border-earth-200 bg-white p-2 text-sm"
-                  />
-                </label>
-              </div>
-              <div className="flex items-center gap-3">
-                {historyTab !== "refunds" && (
-                  <select
-                    aria-label="紀錄狀態"
-                    value={historyStatus}
-                    onChange={(e) => setHistoryStatus(e.target.value)}
-                    className="min-w-0 flex-1 rounded-lg border border-earth-200 bg-white p-2 text-sm"
-                  >
-                    <option value="">
-                      全部{historyTab === "wallet" ? "異動" : "狀態"}
-                    </option>
-                    {(historyTab === "service"
-                      ? [
-                          ["CONFIRMED", "已預約"],
-                          ["PENDING", "待確認"],
-                          ["COMPLETED", "已完成"],
-                          ["CANCELLED", "已取消"],
-                          ["NO_SHOW", "未到"],
-                        ]
-                      : historyTab === "wallet"
-                        ? [
-                            ["IN", "增加額度"],
-                            ["OUT", "扣除額度"],
-                          ]
-                        : [
-                            ["ACTIVE", "未退款"],
-                            ["REFUNDED", "已退款"],
-                          ]
-                    ).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
+            <details className="rounded-xl bg-earth-50 p-3">
+              <summary className="cursor-pointer py-2 text-sm font-medium text-[#596D45]">
+                篩選條件
+                <span className="ml-2 text-xs font-normal text-earth-500">
+                  {dateFrom || dateTo
+                    ? `${dateFrom || "不限起日"} ～ ${dateTo || "不限迄日"}`
+                    : "全部日期"}
+                  {historyStatus
+                    ? ` · ${{ CONFIRMED: "已預約", PENDING: "待確認", COMPLETED: "已完成", CANCELLED: "已取消", NO_SHOW: "未到", IN: "增加額度", OUT: "扣除額度", ACTIVE: "未退款", REFUNDED: "已退款" }[historyStatus] ?? historyStatus}`
+                    : ""}
+                </span>
+              </summary>
+              <div className="space-y-3 pt-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="min-w-0 text-xs text-earth-600">
+                    開始日期
+                    <input
+                      aria-label="紀錄開始日期"
+                      type="date"
+                      value={dateFrom}
+                      max={dateTo || undefined}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="mt-1 block w-full min-w-0 max-w-full box-border appearance-none rounded-lg border border-earth-200 bg-white p-2 text-sm [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left"
+                    />
+                  </label>
+                  <label className="min-w-0 text-xs text-earth-600">
+                    結束日期
+                    <input
+                      aria-label="紀錄結束日期"
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom || undefined}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="mt-1 block w-full min-w-0 max-w-full box-border appearance-none rounded-lg border border-earth-200 bg-white p-2 text-sm [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left"
+                    />
+                  </label>
+                </div>
+                <div className="flex items-center gap-3">
+                  {historyTab !== "refunds" && (
+                    <select
+                      aria-label="紀錄狀態"
+                      value={historyStatus}
+                      onChange={(e) => setHistoryStatus(e.target.value)}
+                      className="min-w-0 flex-1 rounded-lg border border-earth-200 bg-white p-2 text-sm"
+                    >
+                      <option value="">
+                        全部{historyTab === "wallet" ? "異動" : "狀態"}
                       </option>
-                    ))}
-                  </select>
-                )}
-                <button
-                  type="button"
-                  className="shrink-0 px-2 py-2 text-sm text-[#596D45]"
-                  onClick={() => {
-                    setDateFrom("");
-                    setDateTo("");
-                    setHistoryStatus("");
-                  }}
-                >
-                  清除篩選
-                </button>
-              </div>
-              <p className="text-xs text-earth-500">篩選目前已載入的最近紀錄</p>
-              {dateFrom && dateTo && dateFrom > dateTo && (
-                <p role="alert" className="text-sm text-red-700">
-                  結束日期不可早於開始日期
+                      {(historyTab === "service"
+                        ? [
+                            ["CONFIRMED", "已預約"],
+                            ["PENDING", "待確認"],
+                            ["COMPLETED", "已完成"],
+                            ["CANCELLED", "已取消"],
+                            ["NO_SHOW", "未到"],
+                          ]
+                        : historyTab === "wallet"
+                          ? [
+                              ["IN", "增加額度"],
+                              ["OUT", "扣除額度"],
+                            ]
+                          : [
+                              ["ACTIVE", "未退款"],
+                              ["REFUNDED", "已退款"],
+                            ]
+                      ).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    className="shrink-0 px-2 py-2 text-sm text-[#596D45]"
+                    onClick={() => {
+                      setDateFrom("");
+                      setDateTo("");
+                      setHistoryStatus("");
+                    }}
+                  >
+                    清除篩選
+                  </button>
+                </div>
+                <p className="text-xs text-earth-500">
+                  篩選目前已載入的最近紀錄
                 </p>
-              )}
-            </div>
+                {dateFrom && dateTo && dateFrom > dateTo && (
+                  <p role="alert" className="text-sm text-red-700">
+                    結束日期不可早於開始日期
+                  </p>
+                )}
+              </div>
+            </details>
           )}
           {tab === "history" && historyTab === "service" && canReadBookings && (
             <SpaServiceHistory
@@ -948,8 +963,18 @@ export function AccountPanel({
                           key={e.id}
                           className="border-b border-earth-100 py-2 text-sm"
                         >
-                          {date(e.createdAt)} · {e.amount >= 0 ? "+" : ""}
-                          {money(e.amount)} · 餘額 {money(e.balanceAfter)}
+                          <span className="block text-xs text-earth-500">
+                            {date(e.createdAt)}
+                          </span>
+                          <span className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
+                            <strong className="tabular-nums text-[#596D45]">
+                              {e.amount >= 0 ? "+" : "−"}
+                              {money(Math.abs(e.amount))}
+                            </strong>
+                            <span className="text-earth-500">
+                              異動後餘額 {money(e.balanceAfter)}
+                            </span>
+                          </span>
                         </p>
                       ))}
                   </section>
@@ -967,14 +992,27 @@ export function AccountPanel({
                           key={r.id}
                           className="border-b border-earth-100 py-2 text-sm"
                         >
-                          {date(r.createdAt)} ·{" "}
-                          {methodName[r.paymentMethod] ?? r.paymentMethod} ·{" "}
-                          {r.paymentMethod === "ENTITLEMENT"
-                            ? `${r.uses} 次`
-                            : money(r.amount)}{" "}
-                          · {r.reason}
-                          {r.transferLast4 &&
-                            ` · 原轉帳後四碼 ${r.transferLast4}`}
+                          <span className="block text-xs text-earth-500">
+                            {date(r.createdAt)}
+                          </span>
+                          <span className="mt-1 flex flex-wrap justify-between gap-2">
+                            <span>
+                              {methodName[r.paymentMethod] ?? r.paymentMethod}
+                            </span>
+                            <strong className="tabular-nums text-red-700">
+                              {r.paymentMethod === "ENTITLEMENT"
+                                ? `${r.uses} 次`
+                                : money(r.amount)}
+                            </strong>
+                          </span>
+                          <span className="mt-1 block break-words text-earth-600">
+                            {r.reason}
+                          </span>
+                          {r.transferLast4 && (
+                            <span className="block text-xs text-earth-500">
+                              原轉帳後四碼 {r.transferLast4}
+                            </span>
+                          )}
                         </p>
                       ))}
                   </section>

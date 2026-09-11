@@ -33,28 +33,15 @@ export function SpaCustomerOverview({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <section className="rounded-xl bg-earth-50 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-bold">基本資料</h3>
-                <p className="mt-2">{profile.customer.name}</p>
-                <p className="text-sm text-earth-500">
-                  {profile.customer.phone?.startsWith("_")
-                    ? "未填電話"
-                    : profile.customer.phone || "未填電話"}
-                </p>
-              </div>
-              {canEdit && (
-                <DashboardLink
-                  href={`/dashboard/customers/${encodeURIComponent(customer.id)}/edit`}
-                  className="text-sm underline"
-                >
-                  編輯資料
-                </DashboardLink>
-              )}
-            </div>
-          </section>
+        <div className="space-y-3">
+          {canEdit && (
+            <DashboardLink
+              href={`/dashboard/customers/${encodeURIComponent(customer.id)}/edit`}
+              className="inline-block py-2 text-sm text-[#596D45] underline"
+            >
+              編輯基本資料
+            </DashboardLink>
+          )}
           <section
             hidden={!canReadBookings}
             className="rounded-xl border border-earth-200 p-4"
