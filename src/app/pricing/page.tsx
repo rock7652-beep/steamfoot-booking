@@ -35,7 +35,7 @@ const groups = [
   ] },
   { title: "經營功能", note: "基本版：依需求加購。專業版：顧客經營已含，健康／月結／分析再選 1 項。展店版：全部內含。", rows: [
     { label: "顧客經營", values: ["加購", "內含", "內含"] },
-    { label: "健康評估與體態追蹤", values: ["加購", "可選", "內含"] },
+    { label: "健康評估", values: ["加購", "可選", "內含"] },
     { label: "月結管理", values: ["加購", "可選", "內含"] },
     { label: "分析", values: ["加購", "可選", "內含"] },
   ] },
@@ -52,7 +52,7 @@ function FeatureComparison() {
         <tr><th scope="col" className="rounded-tl-xl bg-[#123E32] px-2 py-4 text-left font-medium text-white sm:px-4">功能</th>{plans.map((plan, i) => <th key={plan.id} scope="col" className={"bg-[#123E32] px-1 py-4 font-medium text-white " + (i === 2 ? "rounded-tr-xl" : "")}>{plan.name}</th>)}</tr>
       </thead>
       {groups.map(group => <tbody key={group.title}>
-        <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-4 text-left sm:px-4"><span className="block text-base font-semibold">{group.title}</span><span className="mt-1 block text-sm font-normal leading-6 text-[#4C6259]">{group.note}</span></th></tr>
+        <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-4 text-left sm:px-4"><span className="block text-base font-semibold">{group.title}</span><span className="mt-1 block text-sm font-normal leading-6 text-[#4C6259]">{group.note.split("。").filter(Boolean).map(note => <span key={note} className="block">{note}。</span>)}</span></th></tr>
         {group.rows.map(row => <tr key={row.label}>
           <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-4 text-left font-normal leading-6 sm:px-4">{row.label}</th>
           {row.values.map((value, i) => <td key={i} className={"border-b border-[#153B31]/10 px-1 py-4 text-center " + (i === 1 ? "bg-[#F0F5F1] " : "bg-white ") + (value === "加購" ? "text-[#64756D]" : "font-medium")}>{value}</td>)}
@@ -83,16 +83,16 @@ export default function PricingPage() {
         <p className="mt-3 text-base leading-7 text-[#4C6259]">從日常店務、顧客回訪到多店管理，依你的經營需要選擇。</p>
       </div>
       <section aria-label="方案價格" className="grid gap-4 md:grid-cols-3">
-        {plans.map(plan => <article key={plan.id} aria-labelledby={plan.id} className={"flex flex-col rounded-2xl border border-[#153B31]/20 p-5 " + (plan.id === "GROWTH" ? "bg-[#E9F1EB]" : "bg-white")}>
+        {plans.map(plan => <article key={plan.id} aria-labelledby={plan.id} className={"flex flex-col rounded-2xl border border-[#153B31]/20 p-4 sm:p-5 " + (plan.id === "GROWTH" ? "bg-[#E9F1EB]" : "bg-white")}>
           <h2 id={plan.id} className="flex items-center gap-3 text-xl font-semibold"><MarketingIcon kind={plan.icon} />{plan.name}</h2>
-          <p className="mt-2 text-lg font-medium">{plan.purpose}</p>
+          <p className="mt-1 text-base font-medium sm:text-lg">{plan.purpose}</p>
           <p className="mt-1 text-base leading-6 text-[#4C6259]">適合{plan.audience}</p>
-          <div className="mt-4 border-t border-[#153B31]/15 pt-4">
+          <div className="mt-3 border-t border-[#153B31]/15 pt-3">
             <p className="text-sm text-[#64756D] line-through">原價 NT${plan.original}／月{plan.id === "ALLIANCE" ? "起" : ""}</p>
             <p className="mt-1"><span className="text-3xl font-semibold tracking-tight">NT${plan.price}</span><span className="ml-1 text-sm">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
-            <p className="mt-2 text-sm leading-6">年繳 NT${plan.annual}{plan.id === "ALLIANCE" ? "起" : ""}，使用 14 個月</p>
+            <p className="mt-1 text-sm leading-6">年繳 NT${plan.annual}{plan.id === "ALLIANCE" ? "起" : ""}，使用 14 個月</p>
           </div>
-          <div className="mt-auto pt-4"><TrialLink /></div>
+          <div className="mt-auto pt-3"><TrialLink /></div>
         </article>)}
       </section>
       <FeatureComparison />
