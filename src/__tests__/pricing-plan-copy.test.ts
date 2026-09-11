@@ -27,7 +27,8 @@ describe("pricing and growth plan copy", () => {
     expect(source).not.toContain("另購 NT$800／月");
     expect(source).toContain('scope="col"');
     expect(source).toContain('scope="row"');
-    expect(source).toContain("sticky top-0");
+    expect(source).toContain("sticky top-20");
+    expect(readSource("src/components/marketing-navigation.tsx")).toContain("h-20");
     expect(source).not.toContain("展店版亦不包含");
     expect(source).not.toContain("經營診斷");
     expect(source).not.toContain("基本收款・營運分析");
@@ -35,9 +36,11 @@ describe("pricing and growth plan copy", () => {
   it("uses the official LINE link for consultation and footer contact", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
 
-    expect(source.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(2);
-    expect(source).toContain("官方 LINE：@329rmywc");
-    expect(source).not.toContain("lin.ee/placeholder");
+    expect(source).toContain("<MarketingFooter />");
+    const renderedSources = source + readSource("src/components/marketing-footer.tsx");
+    expect(renderedSources.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(2);
+    expect(renderedSources).toContain("官方 LINE：@329rmywc");
+    expect(renderedSources).not.toContain("lin.ee/placeholder");
   });
 
   it.each(PLAN_PAGES)("bundles health assessment and summary on %s", (path) => {

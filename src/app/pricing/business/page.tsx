@@ -1,4 +1,5 @@
-import { MarketingBrand } from "@/components/marketing-brand";
+import { MarketingNavigation } from "@/components/marketing-navigation";
+import { MarketingFooter } from "@/components/marketing-footer";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
@@ -24,15 +25,7 @@ export default function BusinessPage() {
   return (
     <div className="bg-[#F8F5EE] text-[#153B31] selection:bg-[#DFC99D]">
       <a href="#main" className="sr-only focus:not-sr-only focus:block focus:p-4">跳至主要內容</a>
-      <header className="border-b border-[#153B31]/15">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-8">
-          <MarketingBrand />
-          <nav aria-label="主要導覽" className="flex gap-5 text-sm sm:gap-8">
-            <a href="#how-it-works" className="hover:underline">怎麼運作</a>
-            <Link href="/pricing" className="hover:underline">方案價格</Link>
-          </nav>
-        </div>
-      </header>
+      <MarketingNavigation />
       <main id="main">
         <section aria-labelledby="hero-title" className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
           <div className="space-y-4">
@@ -54,16 +47,16 @@ export default function BusinessPage() {
         </section>
 
         <BookingOverview />
-        <details id="how-it-works" className="group mx-auto max-w-6xl scroll-mt-4 px-5 pb-7 sm:px-8">
+        <details id="how-it-works" className="group mx-auto max-w-6xl scroll-mt-24 px-5 pb-7 sm:px-8">
           <summary className="cursor-pointer border-y border-[#153B31]/15 py-4 text-base font-semibold">想看操作畫面？展開店長的一天</summary>
           <div className="pt-5"><DayStory /></div>
         </details>
 
-        <section aria-labelledby="cases-title" className="border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-7 sm:px-8 sm:py-8">
+        <section id="brands" aria-labelledby="cases-title" className="scroll-mt-24 border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-7 sm:px-8 sm:py-8">
           <div className="mx-auto max-w-6xl">
-            <p className="text-sm font-medium tracking-widest text-[#74603C]">店家案例</p>
+            <p className="text-sm font-medium tracking-widest text-[#74603C]">真實店家，實際使用</p>
             <div className="mt-3 grid gap-4">
-              <div><h2 id="cases-title" className="text-2xl font-semibold leading-snug">真實店家，實際使用。</h2>
+              <div><h2 id="cases-title" className="text-2xl font-semibold leading-snug">使用蒸管家的品牌</h2>
                 
               </div>
               <div className="grid items-start gap-4 md:grid-cols-2">
@@ -149,12 +142,7 @@ export default function BusinessPage() {
           </div>
         </section>
       </main>
-      <footer className="border-t border-[#153B31]/15 px-5 py-7 text-sm text-[#4C6259] sm:px-8">
-        <div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-4">
-          <p>蒸管家｜店務少一點忙，顧客多一點照顧。</p>
-          <a href={TRIAL_URL} className="underline underline-offset-4">申請體驗帳號</a>
-        </div>
-      <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a><a href="/terms" className="underline underline-offset-4">服務條款</a><a href="/refunds" className="underline underline-offset-4">取消與退費政策</a><p className="w-full text-center">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p></div></footer>
+      <MarketingFooter />
     </div>
   );
 }

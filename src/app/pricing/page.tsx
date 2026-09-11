@@ -1,4 +1,5 @@
-import { MarketingBrand } from "@/components/marketing-brand";
+import { MarketingNavigation } from "@/components/marketing-navigation";
+import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingIcon } from "./marketing-icon";
 import { PLAN_LIMITS } from "@/lib/feature-flags";
 
@@ -47,12 +48,12 @@ const groups = [
 
 function FeatureComparison() {
   return <section aria-labelledby="comparison" className="mt-8">
-    <h2 id="comparison" className="text-2xl font-semibold">每個方案，包含什麼？</h2>
+    <h2 id="comparison" className="scroll-mt-24 text-2xl font-semibold">每個方案，包含什麼？</h2>
     <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]">內含：直接使用。可選：使用內含名額，不另收費。加購：另付月費。</p>
     <table aria-describedby="comparison-help" className="mt-4 w-full table-fixed border-separate border-spacing-0 text-sm sm:text-base">
       <caption className="sr-only">蒸管家三方案功能與使用規模比較</caption>
       <colgroup><col className="w-[37%] sm:w-[43%]" /><col /><col /><col /></colgroup>
-      <thead className="sticky top-0 z-10">
+      <thead className="sticky top-20 z-10">
         <tr><th scope="col" className="rounded-tl-xl bg-[#123E32] px-2 py-4 text-left font-medium text-white sm:px-4">功能</th>{plans.map((plan, i) => <th key={plan.id} scope="col" className={"bg-[#123E32] px-1 py-4 font-medium text-white " + (i === 2 ? "rounded-tr-xl" : "")}>{plan.name}</th>)}</tr>
       </thead>
       {groups.map(group => <tbody key={group.title}>
@@ -75,11 +76,7 @@ function FeatureComparison() {
 }
 export default function PricingPage() {
   return <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
-    <header className="border-b border-[#153B31]/15 bg-white">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <MarketingBrand /><TrialLink />
-      </div>
-    </header>
+    <MarketingNavigation active="pricing" />
     <main id="plans" className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
       <div className="mb-6">
         <p className="text-sm text-[#74603C]">方案與價格</p>
@@ -129,6 +126,6 @@ export default function PricingPage() {
       <p className="mx-auto mt-3 max-w-4xl text-base leading-7 text-[#D4E0D8]">預約、堂數、收款一次整理，專心照顧顧客。</p>
       <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center rounded-full border border-white/50 px-5 py-3 font-medium">還不確定？加 LINE 聊聊</a>
     </section>
-    <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-5 text-sm text-[#4C6259] sm:px-8"><p>蒸管家｜店務管理系統</p><a href={TRIAL_URL} className="py-2 underline underline-offset-4">申請體驗帳號</a><div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a><a href="/terms" className="underline underline-offset-4">服務條款</a><a href="/refunds" className="underline underline-offset-4">取消與退費政策</a><p className="w-full text-center">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p></div></footer>
+    <MarketingFooter />
   </div>;
 }

@@ -1,4 +1,5 @@
-import { MarketingBrand } from "@/components/marketing-brand";
+import { MarketingNavigation } from "@/components/marketing-navigation";
+import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingIcon } from "../marketing-icon";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -135,12 +136,7 @@ export default async function StoreGuidesPage({ searchParams }: { searchParams: 
   const selected = guides.find(guide => guide.id === selectedId) ?? guides[0];
   return (
     <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
-      <header className="border-b border-[#153B31]/15">
-        <nav aria-label="網站導覽" className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-8">
-          <MarketingBrand />
-          <Link href="/pricing" className="py-2 text-base underline underline-offset-4">方案價格</Link>
-        </nav>
-      </header>
+      <MarketingNavigation active="guides" />
       <main id="main" className="mx-auto max-w-7xl px-5 py-7 sm:px-8 sm:py-10">
         <div className="max-w-2xl">
           <div>
@@ -156,7 +152,7 @@ export default async function StoreGuidesPage({ searchParams }: { searchParams: 
 
         </div>
         <div className="mt-8 hidden items-start gap-8 lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="sticky top-6" aria-label="指南目錄">
+          <aside className="sticky top-24" aria-label="指南目錄">
             <p className="mb-3 text-sm font-medium text-[#74603C]">選擇閱讀主題</p>
             <nav className="space-y-2">
               {guides.map((guide, index) => (
@@ -179,7 +175,7 @@ export default async function StoreGuidesPage({ searchParams }: { searchParams: 
         </div>
         <div className="mt-5 space-y-3 lg:hidden">
           {guides.map((guide, index) => (
-            <details key={guide.id} id={guide.id} name="store-guide" className="group scroll-mt-6 rounded-2xl border border-[#153B31]/20 bg-white open:border-[#153B31]/50">
+            <details key={guide.id} id={guide.id} name="store-guide" className="group scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white open:border-[#153B31]/50">
               <summary className="cursor-pointer list-none rounded-2xl px-5 py-4 focus-visible:outline-2 focus-visible:outline-offset-4 sm:px-6 sm:py-5 [&::-webkit-details-marker]:hidden">
                 <span className="flex items-center gap-3 text-sm font-medium text-[#74603C]"><MarketingIcon kind={guide.icon} />0{index + 1} · {guide.category}</span>
                 <h2 className="mt-2 text-xl font-semibold leading-snug sm:text-2xl">{guide.title}</h2>
@@ -197,7 +193,7 @@ export default async function StoreGuidesPage({ searchParams }: { searchParams: 
           <a href="/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=guides" className="mt-4 inline-flex min-h-12 items-center rounded-full bg-[#F8F5EE] px-6 py-3 text-base font-semibold text-[#153B31]">申請體驗帳號</a>
         </section>
       </main>
-      <footer className="border-t border-[#153B31]/15 px-5 py-5 text-center text-sm leading-6 text-[#4C6259]">蒸管家｜每一家店，都值得擁有一位數位管家。<div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a><a href="/terms" className="underline underline-offset-4">服務條款</a><a href="/refunds" className="underline underline-offset-4">取消與退費政策</a><p className="w-full text-center">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p></div></footer>
+      <MarketingFooter />
     </div>
   );
 }
