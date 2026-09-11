@@ -187,7 +187,10 @@ export async function cancelSpaBookingAction(input: z.infer<typeof cancelSchema>
       if (!booking) throw new AppError("NOT_FOUND", "預約不存在");
       if (booking.status === "CANCELLED") return;
       if (!active.includes(booking.status as typeof active[number]) || booking.updatedAt.toISOString() !== parsed.data.expectedUpdatedAt) throw new AppError("CONFLICT", "預約已變更或無法取消，請重新開啟");
-      await tx.spaBooking.update({ where: { id_storeId: { id: booking.id, storeId } }, data: { status: "CANCELLED" } });
+      await tx.spaBooking.update({
+        where: { id_storeId: { id: booking.id, storeId } },
+        data: { status: "CANCELLED", cancelledAt: new Date() },
+      });
     });
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: parsed.data.bookingId } };

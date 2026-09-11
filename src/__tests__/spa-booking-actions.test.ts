@@ -65,7 +65,10 @@ describe("SPA booking actions", () => {
   it("cancels without deleting history or location assignment", async () => {
     m.bookingFind.mockResolvedValueOnce(existing);
     expect((await cancelSpaBookingAction({ bookingId: "booking", expectedUpdatedAt: existing.updatedAt.toISOString() })).success).toBe(true);
-    expect(m.update.mock.calls[0][0].data).toEqual({ status: "CANCELLED" });
+    expect(m.update.mock.calls[0][0].data).toMatchObject({
+      status: "CANCELLED",
+      cancelledAt: expect.any(Date),
+    });
   });
   it("treats repeated cancellation as success", async () => {
     m.bookingFind.mockResolvedValueOnce({ ...existing, status: "CANCELLED" });
