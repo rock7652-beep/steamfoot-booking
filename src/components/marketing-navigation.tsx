@@ -12,21 +12,32 @@ export const marketingLinks = [
   { id: "contact", href: "#contact", label: "聯繫我們" },
 ] as const;
 
-function subscribeToHash(onChange: () => void) {
+function subscribeToContactVisibility(onChange: () => void) {
+  const contact = document.getElementById("contact");
+  const observer = new IntersectionObserver(onChange, { rootMargin: "-80px 0px 0px 0px" });
+  if (contact) observer.observe(contact);
+  window.addEventListener("scroll", onChange, { passive: true });
+  window.addEventListener("resize", onChange);
   window.addEventListener("hashchange", onChange);
   window.addEventListener("popstate", onChange);
   return () => {
+    observer.disconnect();
+    window.removeEventListener("scroll", onChange);
+    window.removeEventListener("resize", onChange);
     window.removeEventListener("hashchange", onChange);
     window.removeEventListener("popstate", onChange);
   };
 }
-const getHash = () => window.location.hash;
-const getServerHash = () => "";
+const isContactVisible = () => {
+  const bounds = document.getElementById("contact")?.getBoundingClientRect();
+  return !!bounds && bounds.top < window.innerHeight && bounds.bottom > 80;
+};
+const getServerContactVisibility = () => false;
 
 export function MarketingNavigation({ active }: { active?: string }) {
   const [open, setOpen] = useState(false);
-  const hash = useSyncExternalStore(subscribeToHash, getHash, getServerHash);
-  const selected = hash === "#contact" ? "contact" : active;
+  const contactVisible = useSyncExternalStore(subscribeToContactVisibility, isContactVisible, getServerContactVisibility);
+  const selected = contactVisible ? "contact" : active;
   const toggle = useRef<HTMLButtonElement>(null);
   const links = marketingLinks.map(item => {
     const NavigationLink = item.id === "contact" ? "a" : Link;
