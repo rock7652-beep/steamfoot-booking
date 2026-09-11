@@ -4,9 +4,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { updateCustomerNotesAction } from "@/server/actions/customer";
 
-export function BookingServiceNoteEditor({ customerId, value, canEdit, onSaved }: {
+export function BookingServiceNoteEditor({ customerId, value, serviceNote, canEdit, onSaved }: {
   customerId: string;
   value: string | null;
+  serviceNote?: string | null;
   canEdit: boolean;
   onSaved: () => void;
 }) {
@@ -42,19 +43,19 @@ export function BookingServiceNoteEditor({ customerId, value, canEdit, onSaved }
   }
 
   return (
-    <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-earth-600">服務注意事項與備註</p>
+    <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 px-3 py-2">
+      <div className="flex min-h-11 items-center justify-between gap-3">
+        <p className="text-sm font-medium text-earth-600">{!editing && !savedValue?.trim() && !serviceNote?.trim() ? "尚無顧客注意事項" : "顧客注意事項"}</p>
         {canEdit && !editing && (
           <button type="button" className="min-h-11 px-3 text-sm font-medium text-primary-700" onClick={() => {
             setDraft(savedValue ?? "");
             setEditing(true);
-          }}>{savedValue ? "編輯" : "新增備註"}</button>
+          }}>{savedValue?.trim() ? "編輯" : "＋新增"}</button>
         )}
       </div>
       {editing && canEdit ? (
         <div className="space-y-2">
-          <textarea aria-label="服務注意事項與備註" value={draft} onChange={(event) => setDraft(event.target.value)}
+          <textarea aria-label="顧客注意事項" value={draft} onChange={(event) => setDraft(event.target.value)}
             maxLength={1000} rows={4} disabled={saving}
             className="w-full rounded-lg border border-earth-300 bg-white p-3 text-base leading-relaxed focus:outline-primary-600"
             placeholder="例如：怕冷，請避開冷氣出風口" />
@@ -66,8 +67,14 @@ export function BookingServiceNoteEditor({ customerId, value, canEdit, onSaved }
             </div>
           </div>
         </div>
-      ) : (
-        <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{savedValue || "尚無備註"}</p>
+      ) : savedValue?.trim() ? (
+        <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{savedValue}</p>
+      ) : null}
+      {serviceNote?.trim() && (
+        <div className="mt-2 border-t border-earth-200 pt-2">
+          <p className="mb-1 text-sm font-medium text-earth-600">顧客服務備註</p>
+          <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{serviceNote}</p>
+        </div>
       )}
     </div>
   );
