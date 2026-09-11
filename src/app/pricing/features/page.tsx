@@ -133,7 +133,7 @@ export default function FeaturesPage() {
     <MarketingNavigation active="features" />
     <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
       <p className="text-sm text-[#74603C]">功能介紹｜從店裡的一天開始</p>
-      <h1 className="mt-3 max-w-4xl text-3xl font-semibold leading-snug sm:text-4xl lg:text-5xl">從預約到回訪，店裡的日常有人幫你整理。</h1>
+      <h1 className="mt-3 max-w-4xl text-3xl font-semibold leading-snug sm:text-4xl lg:text-5xl"><span className="block">從預約到回訪，</span><span className="block"><span className="inline-block">店裡日常，</span><span className="inline-block">一處管理。</span></span></h1>
       <p className="mt-4 max-w-2xl text-base leading-7 text-[#4C6259]">先把預約、顧客、堂數與收款管好，再依店裡需要，加上提醒、追蹤與分析。</p>
       <nav aria-label="功能介紹閱讀導覽" className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm">
         <a href="#daily" className="inline-flex min-h-11 items-center underline underline-offset-4">日常基本功能 ↓</a>
@@ -151,7 +151,7 @@ export default function FeaturesPage() {
             { icon: "store", name: "基本收款", context: "這次服務，收了多少錢？", benefit: "記錄服務收款，留下可查詢的交易紀錄。" },
             { icon: "chat", name: "LINE 顧客入口", context: "顧客想預約，不用等你回訊息。", benefit: "從店家 LINE 預約、依規則取消與查詢堂數。" },
           ].map(item => <article key={item.name} className="flex items-start gap-3 rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><MarketingIcon kind={item.icon as "calendar" | "return" | "checklist" | "store" | "chat"} /><div><h3 className="text-lg font-semibold">{item.name}</h3><p className="mt-1 text-sm font-medium leading-6">{item.context}</p><p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.benefit}</p></div></article>)}
-          <div className="flex flex-col justify-center rounded-xl bg-[#E9F1EB] p-5"><p className="text-lg font-semibold">先用基本功能，把日常整理好。</p><p className="mt-2 text-sm leading-6 text-[#4C6259]">各方案的使用規模與進階功能名額不同。</p><Link href="/pricing#comparison" className="mt-2 inline-flex min-h-11 items-center font-medium underline underline-offset-4">查看方案差異 →</Link></div>
+          <div className="flex flex-col justify-center rounded-xl bg-[#E9F1EB] p-5"><p className="text-lg font-semibold">顧客方便預約，店長清楚掌握。</p><p className="mt-2 text-sm leading-6 text-[#4C6259]">預約、資料、堂數與收款，接起每天的工作。</p></div>
         </div>
         <p className="mt-3 text-sm leading-6 text-[#4C6259]">LINE 顧客入口需完成串接並開通；自動提醒是下方的進階功能。</p>
       </section>
