@@ -1,3 +1,5 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 import { liffMessages } from "@/lib/liff/messages";
 
 /**
@@ -20,6 +22,7 @@ import { liffMessages } from "@/lib/liff/messages";
 export default function LiffLoading() {
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
+      <LoadingStatus />
       <div className="flex flex-col items-center gap-3 rounded-xl border border-earth-200 bg-white px-4 py-8 text-center">
         <div
           className="h-8 w-8 animate-spin rounded-full border-2 border-earth-300 border-t-earth-700"

@@ -3,7 +3,7 @@ import { getStoreContext } from "@/lib/store-context";
 import { getNativeHealthSummaryForMemberships } from "@/lib/native-health-service";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { HealthAssessmentCard } from "@/components/health-assessment-card";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";

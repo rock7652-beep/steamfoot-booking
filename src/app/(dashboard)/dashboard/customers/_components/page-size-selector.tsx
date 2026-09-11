@@ -1,5 +1,7 @@
 "use client";
 
+import { NavigationNotice } from "@/components/navigation-notice";
+
 import { useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
@@ -28,6 +30,7 @@ export function PageSizeSelector({ pageSize }: Props) {
 
   return (
     <label className="flex items-center gap-1.5 text-[11px] text-earth-500">
+      {isPending && <NavigationNotice />}
       每頁顯示
       <select
         value={pageSize}

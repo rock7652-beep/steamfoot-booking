@@ -4,7 +4,7 @@ import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 
 import { useState } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { logoutAction } from "@/server/actions/auth";
 import { LogoutButton } from "@/components/logout-button";
 import {

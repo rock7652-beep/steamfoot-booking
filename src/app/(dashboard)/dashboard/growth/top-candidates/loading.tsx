@@ -1,3 +1,5 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /**
  * 潛力名單 TOP 10 skeleton — 對齊實際頁面：
  *   max-w-4xl → 麵包屑 → 標題卡 → 排行卡片列 ×10
@@ -5,6 +7,7 @@
 export default function Loading() {
   return (
     <div className="mx-auto max-w-4xl animate-pulse space-y-5 px-4 py-4">
+      <LoadingStatus />
       {/* 麵包屑 */}
       <div className="h-3 w-20 rounded bg-earth-100" />
 

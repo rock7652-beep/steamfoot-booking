@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** Dashboard 首頁 skeleton — PageShell + KpiStrip + 8+4 grid + summary bar */
 export default function Loading() {
   return (
     <div className="mx-auto flex max-w-[1440px] animate-pulse flex-col gap-4 px-6 py-6">
+      <LoadingStatus />
       {/* PageHeader */}
       <div className="flex items-center justify-between pb-1">
         <div className="space-y-1.5">

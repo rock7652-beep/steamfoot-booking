@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** 現金簿列表 skeleton */
 export default function Loading() {
   return (
     <div className="animate-pulse space-y-4">
+      <LoadingStatus />
       <div className="flex items-center justify-between">
         <div className="h-6 w-20 rounded bg-earth-200" />
         <div className="h-8 w-24 rounded-lg bg-primary-100" />

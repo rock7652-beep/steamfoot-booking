@@ -1,6 +1,9 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 export default function ProfileLoading() {
   return (
     <div className="animate-pulse space-y-4">
+      <LoadingStatus />
       <div className="h-7 w-28 rounded bg-earth-200" />
 
       {/* Profile form skeleton */}

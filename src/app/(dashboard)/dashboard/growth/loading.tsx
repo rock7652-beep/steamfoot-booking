@@ -1,6 +1,9 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 export default function TalentLoading() {
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-4 animate-pulse">
+      <LoadingStatus />
       {/* Title */}
       <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="h-5 w-24 rounded bg-earth-200" />

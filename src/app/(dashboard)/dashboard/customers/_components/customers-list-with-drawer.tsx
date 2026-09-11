@@ -14,6 +14,9 @@ import {
 } from "@/server/actions/customer";
 import type { getCustomerDrawerDetail } from "@/server/queries/customer";
 
+import { createLatestRequestGate } from "@/lib/latest-request-gate";
+import { createClientReadCache } from "@/lib/client-read-cache";
+
 type DrawerDetail = Awaited<ReturnType<typeof getCustomerDrawerDetail>>;
 
 interface Plan {
@@ -66,14 +69,22 @@ export function CustomersListWithDrawer({
   // open 的唯一來源 = URL ?customerId= 的「實際變化」（整列 <Link> 點擊 /
   // 「查看」鈕 router.push / 初次 deep-link）；close = 純 client state +
   // history.replaceState（不 soft-nav、不 router.refresh、不重刷列表）。
-  const cacheRef = useRef<Map<string, DrawerDetail>>(new Map());
+  // Owned by this route/store instance; refreshed server rows discard cached details.
+  const cache = useMemo(() => createClientReadCache<DrawerDetail>(async (customerId) => {
+    const result = await getCustomerDrawerDetailAction(customerId);
+    if (!result.success) throw new Error(result.error ?? "讀取顧客資料失敗");
+    return result.data;
+  // Rows/store changes intentionally reset the cache even with the same fetcher.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [rows, pathname]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DrawerDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [focus, setFocus] = useState<"plan" | null>(null);
 
   // 競態防護：只套用「最後一次請求」的結果（快速連點不同顧客時）
-  const reqIdRef = useRef(0);
+  const [requestGate] = useState(createLatestRequestGate);
+  const lastCacheRef = useRef(cache);
   // 記錄「上次已處理的 URL customerId」。effect 只在此值「實際改變」時動作，
   // 故 close（history.replaceState，不更新 Next searchParams）造成的 stale
   // 殘值不會觸發重開（取代了 closedIdRef 的職責，且更穩：close 後重設為
@@ -81,54 +92,59 @@ export function CustomersListWithDrawer({
   const lastUrlCidRef = useRef<string | null>(null);
 
   const fetchDetail = useCallback(async (customerId: string) => {
-    const myReq = ++reqIdRef.current;
+    const myReq = requestGate.issue();
     setLoading(true);
-    const res = await getCustomerDrawerDetailAction(customerId);
-    if (myReq !== reqIdRef.current) return; // 已被更新的請求取代 → 丟棄
-    setLoading(false);
-    if (!res.success) {
-      toast.error(res.error ?? "讀取顧客資料失敗");
-      // 取不到（已合併 / 停用 / 跨店 / 不存在）→ 關閉 drawer，不卡 skeleton
+    try {
+      const data = await cache.load(customerId);
+      if (!requestGate.isCurrent(myReq)) return;
+      setDetail(data);
+    } catch {
+      if (!requestGate.isCurrent(myReq)) return;
+      cache.invalidate(customerId);
+      toast.error("讀取顧客資料失敗，請重新開啟再試");
       setOpenId(null);
       setDetail(null);
-      return;
+    } finally {
+      if (requestGate.isCurrent(myReq)) setLoading(false);
     }
-    cacheRef.current.set(customerId, res.data);
-    setDetail(res.data);
-  }, []);
+  }, [cache, requestGate]);
+
+  useEffect(() => {
+    return () => { requestGate.invalidate(); cache.clear(); };
+  }, [cache, requestGate]);
+
+  const prefetchDetail = useCallback((customerId: string) => {
+    // Hover/focus failures stay silent; an actual open always allows retry.
+    void cache.load(customerId).catch(() => {});
+  }, [cache]);
 
   // 開啟：cache 命中即時填入；未命中先 skeleton + 背景 fetch。
   const applyOpen = useCallback(
     (customerId: string, f: "plan" | null) => {
       setOpenId(customerId);
       setFocus(f);
-      const cached = cacheRef.current.get(customerId);
+      const cached = cache.get(customerId);
       if (cached) {
         setDetail(cached);
         setLoading(false);
-        reqIdRef.current++; // 取消在途請求，避免覆蓋 cache
+        requestGate.invalidate(); // 取消在途請求，避免覆蓋 cache
       } else {
         setDetail(null);
         void fetchDetail(customerId);
       }
     },
-    [fetchDetail],
+    [cache, fetchDetail, requestGate],
   );
 
   // 單一 open 來源：把「外部系統 URL ?customerId=」的實際變化同步成 client
   // state（涵蓋整列 <Link> 點擊、「查看」鈕 router.push、初次 deep-link）。
   //
-  // 這正是 react 文件允許的 effect 用途：「subscribe to an external system,
-  // call setState when it changes」。`lastUrlCidRef` early-return 讓本 effect
-  // 對同一 cid 冪等，不會 cascading render（rule 真正擔心的事不會發生）；且必須
-  // 用 effect 而非「render 時 setState」pattern：close 走 history.replaceState
-  // 不改 Next searchParams 物件，effect 不會因 close 重跑 → 重設 ref 安全；
-  // render-time pattern 則會在 close 後的 re-render 用 stale searchParams 誤重開。
-  // 因此於此處 scoped 關閉 set-state-in-effect（已用 guard 消除其風險）。
-  /* eslint-disable react-hooks/set-state-in-effect */
+  // URL and cache scope changes are external inputs; reopening after a scope
+  // change revalidates even when the same customerId remains in the URL.
   useEffect(() => {
     const cid = searchParams.get("customerId");
-    if (cid === lastUrlCidRef.current) return; // URL cid 沒真的變 → 忽略
+    if (cid === lastUrlCidRef.current && cache === lastCacheRef.current) return; // URL cid 沒真的變 → 忽略
+    lastCacheRef.current = cache;
     lastUrlCidRef.current = cid;
     const f = searchParams.get("drawerFocus") === "plan" ? "plan" : null;
     if (cid) {
@@ -139,8 +155,7 @@ export function CustomersListWithDrawer({
       setDetail(null);
       setFocus(null);
     }
-  }, [searchParams, applyOpen]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  }, [searchParams, applyOpen, cache]);
 
   // 整列 <Link>（cmd / 中鍵新分頁）與 router.push 共用：保留既有篩選參數。
   const buildHref = useCallback(
@@ -194,7 +209,7 @@ export function CustomersListWithDrawer({
     setOpenId(null);
     setDetail(null);
     setFocus(null);
-    reqIdRef.current++; // 丟棄在途請求
+    requestGate.invalidate(); // 丟棄在途請求
     lastUrlCidRef.current = null;
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -207,7 +222,7 @@ export function CustomersListWithDrawer({
         qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
       );
     }
-  }, []);
+  }, [requestGate]);
 
   // Back / Forward 同步：openCustomer 用 history.pushState 開 Drawer，瀏覽器
   // 上一頁/下一頁需據網址重開/關閉對應 Drawer（取代原 router.push 的 Back 行為），
@@ -224,21 +239,21 @@ export function CustomersListWithDrawer({
         setOpenId(null);
         setDetail(null);
         setFocus(null);
-        reqIdRef.current++; // 丟棄在途請求
+        requestGate.invalidate(); // 丟棄在途請求
       }
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [applyOpen]);
+  }, [applyOpen, requestGate]);
 
   // drawer 內成功操作（指派方案 / 歸屬設定）後刷新本人資料，
   // 不整頁 refresh、不重刷列表（列表 _count 短暫 stale 為已知取捨）。
   const refreshDrawer = useCallback(() => {
     if (openId) {
-      cacheRef.current.delete(openId);
+      cache.invalidate(openId);
       void fetchDetail(openId);
     }
-  }, [openId, fetchDetail]);
+  }, [openId, cache, fetchDetail]);
 
   // ── 批次選取 state（僅 canAssign 才啟用） ─────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -332,10 +347,11 @@ export function CustomersListWithDrawer({
           description: detailLines.join("\n"),
         });
       }
+      cache.clear();
       clearSelection();
       router.refresh();
     },
-    [readOnly, selectedIds, staffOptions, clearSelection, router],
+    [readOnly, selectedIds, staffOptions, clearSelection, router, cache],
   );
 
   const canWriteAssign = canAssign && !readOnly;
@@ -348,6 +364,7 @@ export function CustomersListWithDrawer({
         hasActiveFilters={hasActiveFilters}
         basePath={basePath}
         onView={(row) => openCustomer(row.id)}
+        onPrefetch={(row) => prefetchDetail(row.id)}
         buildViewHref={(row) => buildHref(row.id, null)}
         onQuickAssign={canWriteAssign ? (row) => openCustomer(row.id, "plan") : undefined}
         selectionEnabled={canWriteAssign}

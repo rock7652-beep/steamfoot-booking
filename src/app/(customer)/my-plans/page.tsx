@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import type { WalletStatus } from "@prisma/client";
 import {
   WALLET_STATUS_LABEL,

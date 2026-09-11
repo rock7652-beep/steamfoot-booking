@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 
 /**
  * 我的進度 — 條件式顯示

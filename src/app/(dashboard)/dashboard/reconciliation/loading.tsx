@@ -1,9 +1,12 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 import { KpiSkeleton, SectionSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 
 /** 對帳中心 skeleton */
 export default function Loading() {
   return (
     <div className="mx-auto max-w-3xl animate-pulse space-y-6">
+      <LoadingStatus />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

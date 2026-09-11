@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
 import { resolveCustomerForUser } from "@/server/queries/customer-completion";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { BookingCalendarView } from "./booking-calendar-view";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";

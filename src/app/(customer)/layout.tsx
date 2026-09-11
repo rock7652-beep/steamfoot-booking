@@ -3,9 +3,8 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { MobileNav } from "./mobile-nav";
-import { NavProgress } from "./nav-progress";
 import BuildFooter from "@/components/build-footer";
 import { LogoutButton } from "@/components/logout-button";
 import { getStoreContext } from "@/lib/store-context";
@@ -253,9 +252,6 @@ export default async function CustomerLayout({
 
   return (
     <div className="min-h-screen bg-earth-50 text-base leading-normal text-[color:var(--color-text-primary)]">
-      {/* Navigation progress bar */}
-      <NavProgress />
-
       {/* Mobile hamburger menu */}
       <MobileNav
         userName={user.name ?? "顧客"}

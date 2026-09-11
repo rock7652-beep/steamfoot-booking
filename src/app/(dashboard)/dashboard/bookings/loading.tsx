@@ -1,3 +1,5 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /**
  * 預約管理 skeleton — 對齊實際頁面：
  *   PageShell（max-w-1440 px-6 py-6 gap-4）
@@ -9,6 +11,7 @@
 export default function Loading() {
   return (
     <div className="mx-auto flex max-w-[1440px] animate-pulse flex-col gap-4 px-6 py-6">
+      <LoadingStatus />
       {/* PageHeader */}
       <div className="flex items-center justify-between pb-1">
         <div className="space-y-1.5">

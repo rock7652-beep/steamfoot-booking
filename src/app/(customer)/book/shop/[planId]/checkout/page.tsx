@@ -3,7 +3,7 @@ import { getStoreContext } from "@/lib/store-context";
 import { getShopConfig } from "@/lib/shop-config";
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import type { PlanCategory } from "@prisma/client";
 import { PurchaseButton } from "./purchase-button";
 import { CopyButton } from "./copy-button";

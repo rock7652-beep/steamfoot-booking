@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { ProfileForm } from "./profile-form";
 import { missingRequiredFields } from "@/lib/customer-completion";
 import { getStoreContext } from "@/lib/store-context";
