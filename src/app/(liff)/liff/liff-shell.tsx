@@ -508,7 +508,9 @@ export function WelcomeBack({
         ) : (
           <div className="mt-3 flex items-center justify-between gap-4">
             <p className="text-base text-earth-200">目前沒有預約</p>
-            <Link href={resolvedBookingHref} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-earth-900">立即預約</Link>
+            {!(walletsAvailable && (totalBookable > 0 || makeupCredits.length > 0)) && (
+              <Link href={resolvedBookingHref} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-earth-900">立即預約</Link>
+            )}
           </div>
         )}
       </section>

@@ -7,7 +7,6 @@ import { Suspense } from "react";
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { hqLoginAction } from "@/server/actions/auth";
-import { APP_VERSION, APP_VERSION_DATE } from "@/lib/version";
 
 const initialState = { error: null as string | null };
 
@@ -34,13 +33,12 @@ function HqLoginForm() {
   const storeSlug = searchParams.get("store");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-earth-50 px-4">
+    <div className="flex min-h-dvh items-start justify-center bg-earth-50 px-4 pb-8 pt-8 sm:items-center sm:py-8">
       <div className="w-full max-w-sm rounded-xl border border-earth-200 bg-white p-6 shadow-sm sm:p-8">
         <SteamButlerLogo className="mb-3 w-48" />
       <h1 className="sr-only">蒸管家</h1>
         <div className="mb-6 flex items-center gap-2">
           <p className="text-sm text-earth-500">後台登入</p>
-          <span className="text-[10px] text-earth-300">v{APP_VERSION} · {APP_VERSION_DATE}</span>
         </div>
 
         {urlErrorMessage && (
