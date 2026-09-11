@@ -15,6 +15,7 @@ import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
+import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { FormSuccessToast } from "@/components/form-success-toast";
 import { BookingsManager } from "./bookings-manager";
 import { BookingLoadError } from "./booking-load-error";
@@ -164,6 +165,8 @@ export default async function BookingsPage({ searchParams }: PageProps) {
               查看模式不可新增預約
             </span>
           ) : (
+            <div className="flex items-center gap-2">
+            <CashbookShortcut readOnly={isViewMode} />
             <Link
               href="/dashboard/bookings/new"
               prefetch={false}
@@ -171,6 +174,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
             >
               ＋ 新增預約
             </Link>
+            </div>
           )
         }
       />

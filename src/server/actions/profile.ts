@@ -293,7 +293,6 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
   const birthdayStr = (formData.get("birthday") as string)?.trim() || "";
   const addressInput = (formData.get("address") as string)?.trim() || "";
   const address: string | null = addressInput || null;
-  const notes = (formData.get("notes") as string)?.trim() || null;
   const passwordInput = (formData.get("password") as string) ?? "";
 
   // 必填欄位：name / phone（密碼必填規則在拿到 User 後才能判斷，見下方）
@@ -671,7 +670,6 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
                   gender,
                   birthday,
                   address,
-                  notes,
                   storeId,
                   userId: null,
                   authSource: "LINE",
@@ -805,7 +803,6 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
               gender,
               birthday,
               address,
-              notes,
             },
           });
           console.info("[updateProfileAction] Case A merge result", {
@@ -880,7 +877,6 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
             gender,
             birthday,
             address,
-            notes,
             storeId,
           },
         });
@@ -902,7 +898,6 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
             gender,
             birthday,
             address,
-            notes,
             storeId,
           },
         });
@@ -930,7 +925,6 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
           gender,
           birthday,
           address,
-          notes,
           storeId,
           userId: user.id,
           authSource,
@@ -1140,7 +1134,6 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
             gender,
             birthday,
             address,
-            notes,
           },
         });
 
@@ -1214,7 +1207,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     const safeName = preventPlaceholderNameOverwrite(resolved.customer.name, name);
     await prisma.customer.update({
       where: { id: customerId },
-      data: { name: safeName, phone, email, gender, birthday, address, notes },
+      data: { name: safeName, phone, email, gender, birthday, address },
     });
 
     // 同步 User.name；登入預填的系統佔位名稱不可覆蓋既有正式姓名。

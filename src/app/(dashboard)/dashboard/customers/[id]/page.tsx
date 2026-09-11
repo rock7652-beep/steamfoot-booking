@@ -349,10 +349,11 @@ export default async function CustomerDetailPage({ params }: PageProps) {
               <Link href={`/dashboard/customers/${id}/edit`} className="flex min-h-11 items-center justify-center rounded-lg border border-earth-200 bg-white px-4 py-2 text-base font-medium text-earth-700">編輯資料</Link>
             </div>
           )}
-          {customer.notes && (
+          {customer.serviceNote && (
             <section className="border-l-2 border-primary-600 bg-earth-50 px-4 py-3">
-              <h2 className="mb-2 text-base font-semibold text-earth-800">服務注意事項與備註</h2>
-              <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{customer.notes}</p>
+              <h2 className="mb-2 text-base font-semibold text-earth-800">店內備註</h2>
+              <p className="mb-2 text-xs text-earth-500">僅店內可見，每次服務都適用</p>
+              <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{customer.serviceNote}</p>
             </section>
           )}
         </header>
@@ -910,7 +911,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
             derivedSource={derivedSource}
             createdAt={customer.createdAt}
             assignedStaff={customer.assignedStaff}
-            notes={simplified ? null : customer.notes}
+            notes={simplified ? null : customer.serviceNote}
           />
 
 </CustomerDetailSection>

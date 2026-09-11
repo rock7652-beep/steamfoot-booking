@@ -128,7 +128,7 @@ export async function createCustomer(
         gender: data.gender ?? null,
         birthday: data.birthday ? birthdayToDate(data.birthday) : null,
         lineName: data.lineName,
-        notes: data.notes,
+        serviceNote: data.serviceNote,
         assignedStaffId: assignedStaffId || null,
         customerStage: "LEAD",
         selfBookingEnabled: false,
@@ -218,7 +218,7 @@ export async function updateCustomer(
       height: data.height ?? null,
     };
     if (data.lineName !== undefined) prismaData.lineName = data.lineName;
-    if (data.notes !== undefined) prismaData.notes = data.notes;
+    if (data.serviceNote !== undefined) prismaData.serviceNote = data.serviceNote;
     if (data.customerStage !== undefined) prismaData.customerStage = data.customerStage;
     if (data.selfBookingEnabled !== undefined)
       prismaData.selfBookingEnabled = data.selfBookingEnabled;
@@ -273,6 +273,7 @@ export async function updateCustomerServiceNoteAction(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
+    await assertStoreSubscriptionWritable(customer.storeId);
 
     await prisma.customer.update({
       where: { id: customerId },
@@ -290,6 +291,8 @@ export async function updateCustomerServiceNoteAction(
       },
     });
 
+    updateTag(CACHE_TAGS.bookingsSummary);
+    revalidatePath("/dashboard/bookings/[id]", "page");
     revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard/customers");
     revalidatePath(`/dashboard/customers/${customerId}`);
@@ -299,44 +302,16 @@ export async function updateCustomerServiceNoteAction(
   }
 }
 
-// 預約側欄只更新顧客基本備註，保留其他欄位。
+// Retired public customer-note endpoint: old tabs must refresh instead of writing another field.
 export async function updateCustomerNotesAction(
-  input: { customerId: string; notes: string | null },
+  _input: { customerId: string; notes: string | null },
 ): Promise<ActionResult<undefined>> {
+  void _input;
   try {
-    const user = await requireWritablePermission("customer.update");
-    const { customerId, notes } = z.object({ customerId: z.string().min(1), notes: z.string().trim().max(1000).nullable() }).parse(input);
-
-    const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
-      select: { id: true, storeId: true },
-    });
-    if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
-    assertStoreAccess(user, customer.storeId);
-    await assertStoreSubscriptionWritable(customer.storeId);
-
-    await prisma.customer.update({
-      where: { id: customerId },
-      data: { notes: notes || null },
-    });
-
-    // Audit：content-free —— 只記「誰、對哪位顧客、做了什麼」，**不**存備註全文
-    // （刻意不帶 beforeJson / afterJson）。
-    await prisma.auditLog.create({
-      data: {
-        actorUserId: user.id,
-        targetType: "Customer",
-        targetId: customerId,
-        action: "CUSTOMER_NOTES_UPDATED",
-      },
-    });
-
-    revalidatePath("/dashboard/bookings");
-    revalidatePath("/dashboard/customers");
-    revalidatePath(`/dashboard/customers/${customerId}`);
-    return { success: true, data: undefined };
-  } catch (e) {
-    return handleActionError(e);
+    await requireWritablePermission("customer.update");
+    return { success: false, error: "顧客資料備註已停用，請重新整理後使用店內備註。" };
+  } catch (error) {
+    return handleActionError(error);
   }
 }
 

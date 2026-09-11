@@ -22,7 +22,7 @@ interface CustomerData {
   gender: string;
   birthday: string;
   height: number | null;
-  notes: string;
+  serviceNote: string;
   lineName: string;
 }
 
@@ -57,7 +57,7 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
         birthday: birthdayRaw || undefined,
         height: Number.isFinite(heightParsed) ? heightParsed : undefined,
         lineName: ((formData.get("lineName") as string) ?? "") || null,
-        notes: ((formData.get("notes") as string) ?? "") || null,
+        serviceNote: ((formData.get("serviceNote") as string) ?? "") || null,
       };
 
       const result = await updateCustomer(customer.id, input);
@@ -192,13 +192,13 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
         </div>
 
         {/* 備註 — 滿版 */}
-        <FormSection title="備註">
+        <FormSection title="店內備註">
           <textarea
-            name="notes"
+            name="serviceNote"
             rows={4}
-            defaultValue={customer.notes}
+            defaultValue={customer.serviceNote}
             className={inputCls}
-            placeholder="特殊需求、健康狀況、偏好時段（選填）"
+            placeholder="僅店內可見，每次服務都適用。例如：怕冷、座位偏好（選填）"
           />
         </FormSection>
 

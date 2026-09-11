@@ -14,6 +14,7 @@ import type { SlotAvailability } from "@/types";
 
 export interface DayBooking {
   id: string;
+  notes?: string | null;
   slotTime: string;
   people: number;
   recurrenceIndex?: number | null;
@@ -526,14 +527,17 @@ function TimelineItem({
             {expiry && <span className={`shrink-0 whitespace-nowrap ${expiry.className}`}>· {expiry.compact}</span>}
           </span>
         ) : null}
-        {(booking.customer?.notes?.trim() || booking.customer?.serviceNote?.trim()) ? (
-          <div className="flex min-w-0 items-center gap-1 text-sm text-amber-700">
-            <span aria-hidden>📝</span>
-            <span className="min-w-0 flex-1 truncate" title={[booking.customer.notes?.trim(), booking.customer.serviceNote?.trim()].filter(Boolean).join("｜")}>
-              {[booking.customer.notes?.trim(), booking.customer.serviceNote?.trim()].filter(Boolean).join("｜")}
+        {[
+          { label: "本次", value: booking.notes },
+          { label: "店內", value: booking.customer?.serviceNote },
+        ].filter((note) => note.value?.trim()).map((note) => (
+          <div key={note.label} className="flex min-w-0 items-center gap-1 text-sm text-amber-700">
+            <span className="shrink-0">{note.label}：</span>
+            <span className="min-w-0 flex-1 truncate" title={note.value ?? undefined}>
+              {note.value}
             </span>
           </div>
-        ) : null}
+        ))}
       </button>
 
       {/* 整列可開啟詳情時不重複放查看按鈕；無 callback 時保留連結。 */}

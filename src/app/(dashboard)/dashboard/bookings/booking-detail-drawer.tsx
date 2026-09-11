@@ -14,6 +14,7 @@ import {
   fetchBookingDetail,
   type BookingDrawerPayload,
 } from "@/server/actions/booking-drawer";
+import type { BookingNotePatch } from "./booking-note-state";
 import type { BookingDetailCache } from "./booking-detail-cache";
 import {
   markCompleted,
@@ -22,6 +23,7 @@ import {
   revertBookingStatus,
   updateBooking,
 } from "@/server/actions/booking";
+import { BookingNoteEditor } from "./booking-note-editor";
 import { BookingServiceNoteEditor } from "./booking-service-note-editor";
 import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { RescheduleModal } from "./reschedule-modal";
@@ -36,7 +38,23 @@ import { packageUsageSummary } from "./package-usage-summary";
 import { bookingPlanExpiry } from "@/lib/booking-plan-expiry";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
-const STEAM_DETAIL_BODY_CLASS = "grid min-h-0 flex-1 grid-cols-1 content-start overflow-y-auto md:grid-cols-2 md:items-start";
+/** Keep pending and loaded content in the same independently flowing columns. */
+function DetailBody({ spaMode = false, busy, appointment, customer, payment, notes }: {
+  spaMode?: boolean;
+  busy?: boolean;
+  appointment: React.ReactNode;
+  customer: React.ReactNode;
+  payment: React.ReactNode;
+  notes?: React.ReactNode;
+}) {
+  if (spaMode) return <div className="flex-1 overflow-y-auto">{appointment}{customer}{payment}{notes}</div>;
+  return (
+    <div aria-busy={busy} className="grid min-h-0 flex-1 grid-cols-1 content-start overflow-y-auto md:grid-cols-2 md:items-start">
+      <div className="min-w-0">{appointment}{payment}</div>
+      <div className="min-w-0 md:border-l md:border-earth-100">{customer}{notes}</div>
+    </div>
+  );
+}
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   CASH: "現金",
@@ -92,7 +110,6 @@ export interface BookingPrefill {
   customerName: string;
   customerPhone: string;
   /** 內部服務備註（後台限定）— prefill 即可即時顯示。 */
-  customerNotes?: string | null;
   serviceNote: string | null;
   revenueStaff: { displayName: string; colorCode: string } | null;
   serviceStaffName: string | null;
@@ -127,6 +144,7 @@ interface BookingDetailDrawerProps {
    * cached month / day data without refetching the whole month.
    */
   onUpdated?: (bookingId: string, newStatus: string | null) => void;
+  onNotesUpdated?: (patch: BookingNotePatch) => void;
   readOnly?: boolean;
   /** Optional prefilled "book this customer again" destination. */
   rebookHref?: string;
@@ -145,6 +163,7 @@ export function BookingDetailDrawer({
   cache,
   onClose,
   onUpdated,
+  onNotesUpdated,
   readOnly = false,
   rebookHref,
   durationMinutes,
@@ -550,7 +569,16 @@ export function BookingDetailDrawer({
         ) : hasFullData && data ? (
           <DrawerContent
             payload={data}
-            onNoteSaved={() => {
+            onNoteSaved={(patch) => {
+              setData((previous) => {
+                if (!previous || previous.booking.id !== patch.bookingId) return previous;
+                return { ...previous, booking: { ...previous.booking,
+                  ...(patch.kind === "booking" ? { notes: patch.value } : {
+                    customer: { ...previous.booking.customer, serviceNote: patch.value },
+                  }),
+                } };
+              });
+              onNotesUpdated?.(patch);
               if (bookingId) {
                 cache?.invalidate(bookingId);
                 onUpdated?.(bookingId, null);
@@ -782,7 +810,7 @@ function DrawerContent({
   spaMode = false,
 }: {
   payload: BookingDrawerPayload;
-  onNoteSaved: () => void;
+  onNoteSaved: (patch: BookingNotePatch) => void;
   isActing: boolean;
   onClose: () => void;
   actions: DrawerActions;
@@ -865,8 +893,7 @@ function DrawerContent({
       </div>
 
       {/* Body — scrollable */}
-      <div className={spaMode ? "flex-1 overflow-y-auto" : STEAM_DETAIL_BODY_CLASS}>
-        {/* Section A: 預約資訊 */}
+      <DetailBody spaMode={spaMode} appointment={
         <Section readable={!spaMode} title="預約資訊">
           <KV readable={!spaMode} label={spaMode ? "日期" : "日期時間"} value={spaMode ? dateLabel : `${dateLabel} ${booking.slotTime}${endTime ? ` - ${endTime}` : ""}`} />
           {spaMode && <KV readable={!spaMode}
@@ -918,8 +945,8 @@ function DrawerContent({
           )}
         </Section>
 
-        {/* Section B: 顧客資訊 */}
-        <Section readable={!spaMode} order={spaMode ? undefined : 3} title="顧客資訊">
+        } customer={
+        <Section readable={!spaMode} title="顧客資訊">
           {spaMode && <KV label="姓名" value={booking.customer.name} />}
           <KV readable={!spaMode}
             label="電話"
@@ -940,25 +967,13 @@ function DrawerContent({
             <BookingServiceNoteEditor
               key={booking.customer.id}
               customerId={booking.customer.id}
-              value={booking.customer.notes ?? null}
+              value={booking.customer.serviceNote}
               canEdit={!readOnly && payload.canEditServiceNote === true}
-              onSaved={onNoteSaved}
+              onSaved={(value) => onNoteSaved({ kind: "customer", bookingId: booking.id, customerId: booking.customer.id, value })}
             />
-          ) : booking.customer.notes?.trim() ? (
-            <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3">
-              <p className="mb-1 text-sm font-medium text-earth-600">服務注意事項與備註</p>
-              <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{booking.customer.notes}</p>
-            </div>
           ) : null}
-          {booking.customer.serviceNote ? (
-            spaMode ? (
-              <KV label="服務備註" value={<span className="whitespace-pre-wrap text-amber-800">{booking.customer.serviceNote}</span>} />
-            ) : (
-              <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3">
-                <p className="mb-1 text-sm font-medium text-earth-600">服務備註</p>
-                <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{booking.customer.serviceNote}</p>
-              </div>
-            )
+          {spaMode && booking.customer.serviceNote ? (
+            <KV label="服務備註" value={<span className="whitespace-pre-wrap text-amber-800">{booking.customer.serviceNote}</span>} />
           ) : null}
           <KV readable={!spaMode} label="累積完成" value={`${customerSummary.totalBookings} 次`} />
           <KV readable={!spaMode}
@@ -987,8 +1002,8 @@ function DrawerContent({
           </div>
         </Section>
 
-        {/* Section C: 方案 / 付款 */}
-        <Section readable={!spaMode} order={spaMode ? undefined : 2} title={spaMode ? "方案 / 付款" : "收款與扣堂"}>
+        } payment={
+        <Section readable={!spaMode} title={spaMode ? "方案 / 付款" : "收款與扣堂"}>
           {!spaMode && booking.bookingType === "FIRST_TRIAL" ? (
             <KV readable label="金額" value={amount} />
           ) : (spaMode || booking.bookingType !== "PACKAGE_SESSION") ? (
@@ -1119,15 +1134,21 @@ function DrawerContent({
           ) : null}
         </Section>
 
-        {/* Section D: 備註 */}
-        {booking.notes && (
-          <Section readable={!spaMode} order={spaMode ? undefined : 4} title={spaMode ? "備註" : "預約備註"}>
-            <div className={spaMode ? "col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700" : "col-span-2 whitespace-pre-wrap break-words rounded-lg border border-earth-200 bg-earth-50 p-3 text-base leading-relaxed text-earth-800"}>
-              {booking.notes}
-            </div>
+        } notes={spaMode ? (booking.notes ? (
+          <Section title="備註">
+            <div className="col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700">{booking.notes}</div>
           </Section>
-        )}
-      </div>
+        ) : null) : (
+          <div className="border-b border-earth-100 p-4">
+            <BookingNoteEditor
+              key={booking.id}
+              bookingId={booking.id}
+              value={booking.notes}
+              canEdit={!readOnly && payload.canEditBookingNote === true}
+              onSaved={(value) => onNoteSaved({ kind: "booking", bookingId: booking.id, value })}
+            />
+          </div>
+        )} />
 
       {/* Section E: Actions */}
       {readOnly ? (
@@ -1195,7 +1216,7 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
         </div>
         <button type="button" onClick={onClose} aria-label="關閉" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100">✕</button>
       </div>
-      <div className={STEAM_DETAIL_BODY_CLASS} aria-busy={!error}>
+      <DetailBody busy={!error} appointment={
         <Section readable title="預約資訊">
           <KV readable label="日期時間" value={known ? `${formatDateLabel(known.bookingDate)} ${known.slotTime}${durationMinutes != null ? ` - ${computeEndTime(known.slotTime, durationMinutes)}` : ""}` : pending} />
           <KV readable label="教練" value={prefill ? prefill.revenueStaff?.displayName ?? "未指派" : pending} icon={prefill?.revenueStaff?.colorCode && <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{backgroundColor:prefill.revenueStaff.colorCode}} />} />
@@ -1204,23 +1225,25 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
           <KV readable label="人數" value={known ? `${known.people} 人` : pending} />
           {prefill?.attendedPeople != null && prefill.attendedPeople < prefill.people && <KV readable label="實際到店" value={`${prefill.attendedPeople} / ${prefill.people} 人`} />}
         </Section>
-        <Section readable order={3} title="顧客資訊">
+        } customer={
+        <Section readable title="顧客資訊">
           <KV readable label="電話" value={prefill ? prefill.customerPhone ? <a href={`tel:${prefill.customerPhone}`} className="inline-flex min-h-11 items-center break-all text-primary-700 underline decoration-primary-300 underline-offset-4">{prefill.customerPhone}</a> : "—" : pending} />
-          <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-earth-600">服務注意事項與備註</p>
+          <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 px-3 py-2">
+            <div className="flex min-h-11 items-center justify-between gap-3">
+              <p className="text-sm font-medium text-earth-600">店內備註</p>
               <button disabled type="button" className="min-h-11 px-3 text-sm text-earth-500">讀取中…</button>
             </div>
-            <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{prefill?.customerNotes?.trim() || pending}</p>
+            <p className="text-xs text-earth-500">僅店內可見，每次服務都適用</p>
+            {prefill?.serviceNote?.trim() && <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{prefill.serviceNote}</p>}
           </div>
-          {prefill?.serviceNote && <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3"><p className="mb-1 text-sm font-medium text-earth-600">服務備註</p><p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{prefill.serviceNote}</p></div>}
           <KV readable label="累積完成" value={pending} />
           <KV readable label="最近到店" value={pending} />
           <div className="col-span-2 mt-2 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
             {["查看顧客資料", "查看歷史預約"].map(label => <button key={label} disabled type="button" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 px-3 py-2 text-base text-earth-500">{label}</button>)}
           </div>
         </Section>
-        <Section readable order={2} title="收款與扣堂">
+        } payment={
+        <Section readable title="收款與扣堂">
           {prefill?.bookingType === "FIRST_TRIAL" || prefill?.bookingType === "SINGLE" ? <>
             <KV readable label="金額" value={prefillAmount(prefill)} />
             <KV readable label="付款狀態" value={pending} />
@@ -1233,7 +1256,7 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
             <KV readable label={active ? "本次使用" : "結帳方式"} value={pending} />
           </>}
         </Section>
-      </div>
+      } />
       <div className={`shrink-0 border-t border-earth-200 bg-earth-50 px-4 py-3 ${active ? "min-h-[116px]" : "min-h-[76px]"}`}>
         {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : <LoadingStatus>讀取完整資料中，請稍候…</LoadingStatus>}
         <div className="mt-2 flex gap-2">
@@ -1469,9 +1492,6 @@ function PrefillDrawerContent({
               )
             }
           />
-          {prefill.customerNotes?.trim() ? (
-            <KV label="服務注意事項與備註" value={<span className="whitespace-pre-wrap break-words text-amber-800">{prefill.customerNotes}</span>} />
-          ) : null}
           {prefill.serviceNote ? (
             <KV
               label="服務備註"
@@ -1708,15 +1728,13 @@ function Section({
   title,
   children,
   readable = false,
-  order,
 }: {
   title: string;
   children: React.ReactNode;
   readable?: boolean;
-  order?: number;
 }) {
   return (
-    <div style={order ? { order } : undefined} className={readable ? `min-w-0 border-b border-earth-100 px-4 py-2 ${title === "顧客資訊" ? "md:col-start-2 md:row-start-1 md:row-span-2 md:border-l" : title === "收款與扣堂" ? "md:col-start-1 md:row-start-2" : title === "預約備註" ? "md:col-start-2 md:row-start-3 md:border-l" : "md:col-start-1 md:row-start-1"}` : "border-b border-earth-100 px-4 py-3"}>
+    <div className={readable ? "min-w-0 border-b border-earth-100 px-4 py-2" : "border-b border-earth-100 px-4 py-3"}>
       <h3 className={readable ? "mb-2 text-base font-semibold text-earth-800" : "mb-2 text-xs font-semibold uppercase tracking-wide text-earth-500"}>
         {title}
       </h3>

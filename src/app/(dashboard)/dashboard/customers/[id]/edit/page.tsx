@@ -53,7 +53,7 @@ export default async function EditCustomerPage({ params }: PageProps) {
           gender: customer.gender ?? "",
           birthday: birthdayStr,
           height: customer.height ?? null,
-          notes: customer.notes ?? "",
+          serviceNote: customer.serviceNote ?? "",
           lineName: customer.lineName ?? "",
         }}
       />
