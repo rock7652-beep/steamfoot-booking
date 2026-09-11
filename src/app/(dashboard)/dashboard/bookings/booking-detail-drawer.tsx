@@ -1,5 +1,7 @@
 "use client";
 
+import { LoadingStatus } from "@/components/loading-status";
+
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { CustomerPageLink as Link } from "@/components/customer-page-link";
@@ -1217,7 +1219,7 @@ function SummaryDrawerContent({
         ) : (
           <>
             {loading && (
-              <p className="text-[11px] text-earth-400">載入詳細資料…</p>
+              <LoadingStatus>讀取詳細資料中，請稍候…</LoadingStatus>
             )}
             {Array.from({ length: 3 }).map((_, i) => (
               <div
@@ -1392,7 +1394,7 @@ function PrefillDrawerContent({
         {/* 顧客近況 / 完整付款明細 / 操作 —— 等 authoritative payload 補齊 */}
         <div className="space-y-3 p-4">
           {loading && (
-            <p className="text-[11px] text-earth-400">完整資料載入中…</p>
+            <LoadingStatus>讀取完整資料中，請稍候…</LoadingStatus>
           )}
           {Array.from({ length: 2 }).map((_, i) => (
             <div

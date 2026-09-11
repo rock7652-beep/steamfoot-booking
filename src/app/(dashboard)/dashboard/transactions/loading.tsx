@@ -1,3 +1,5 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /**
  * 交易紀錄 skeleton — 對齊實際頁面：
  *   返回鏈 + 標題 → 篩選表單 → 指定期間營業額 banner → DataTable
@@ -8,6 +10,7 @@
 export default function Loading() {
   return (
     <div className="animate-pulse">
+      <LoadingStatus />
       {/* Header：← 首頁 + 標題 */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">

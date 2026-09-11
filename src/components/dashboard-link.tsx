@@ -25,7 +25,7 @@
  */
 
 import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { AppLink as Link } from "./app-link";
 import type { ComponentProps, ReactNode } from "react";
 
 function extractPrefix(pathname: string): string {

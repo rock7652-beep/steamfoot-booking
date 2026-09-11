@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** 數據分析 skeleton */
 export default function Loading() {
   return (
     <div className="animate-pulse space-y-4">
+      <LoadingStatus />
       <div className="h-6 w-24 rounded bg-earth-200" />
       <div className="flex gap-2">
         <div className="h-8 w-28 rounded-lg bg-earth-100" />

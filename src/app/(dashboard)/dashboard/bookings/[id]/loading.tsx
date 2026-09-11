@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** 預約詳情 skeleton */
 export default function Loading() {
   return (
     <div className="mx-auto max-w-2xl animate-pulse space-y-4">
+      <LoadingStatus />
       <div className="h-4 w-16 rounded bg-earth-100" />
       <div className="rounded-xl border border-earth-200 bg-white p-5 space-y-4">
         <div className="h-6 w-32 rounded bg-earth-200" />

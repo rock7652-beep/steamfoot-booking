@@ -24,7 +24,7 @@ export function LinkPendingLabel({ children }: { children: React.ReactNode }) {
           className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent opacity-70"
         />
       )}
-      <span className={pending ? "opacity-70" : undefined}>{children}</span>
+      <span aria-live="polite" className={pending ? "opacity-70" : undefined}>{pending ? "讀取中…" : children}</span>
     </span>
   );
 }

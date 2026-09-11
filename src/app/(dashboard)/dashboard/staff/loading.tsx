@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** 員工列表 skeleton — 卡片式佈局 */
 export default function Loading() {
   return (
     <div className="animate-pulse">
+      <LoadingStatus />
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="h-6 w-20 rounded bg-earth-200" />

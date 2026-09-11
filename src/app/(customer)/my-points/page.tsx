@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { getStoreContext } from "@/lib/store-context";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { CUSTOMER_POINT_LABELS } from "@/lib/points-config";
 import { getMyPointHistory, getMyMonthlyPoints } from "@/server/queries/customer-points";
 import { getActiveBonusRules } from "@/server/queries/bonus-rule";

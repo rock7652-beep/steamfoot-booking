@@ -1,7 +1,9 @@
 "use client";
 
+import { LoadingStatus } from "@/components/loading-status";
+
 import { useEffect, useState, useTransition } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { useStoreSlugRequired } from "@/lib/store-context";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
 import {
@@ -136,6 +138,7 @@ export function CustomerBookingRescheduleManager({ bookingId }: Props) {
       <div className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
         <h1 className="text-2xl font-bold text-earth-900">更改預約時間</h1>
         <p className="mt-2 text-sm text-earth-600">每筆預約可自行改期一次，且須在原預約與新時段的 12 小時以前完成。</p>
+        {!current && !message && <LoadingStatus>讀取預約資料中，請稍候…</LoadingStatus>}
         {current && <p className="mt-4 rounded-xl bg-earth-50 p-3 text-earth-800">目前預約：<strong>{current}</strong></p>}
         {message && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{message}</p>}
 

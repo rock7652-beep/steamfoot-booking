@@ -1,3 +1,5 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /**
  * Auth route-group loading fallback.
  *
@@ -9,6 +11,7 @@
 export default function AuthLoading() {
   return (
     <div className="w-full max-w-sm animate-pulse rounded-xl border border-earth-200 bg-white p-6 shadow-sm sm:p-8">
+      <LoadingStatus />
       {/* Title */}
       <div className="mb-1 h-7 w-40 rounded bg-earth-200" />
       <div className="mb-6 h-3 w-24 rounded bg-earth-100" />

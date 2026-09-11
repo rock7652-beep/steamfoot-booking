@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** 系統狀態 skeleton */
 export default function Loading() {
   return (
     <div className="mx-auto max-w-2xl animate-pulse space-y-6">
+      <LoadingStatus />
       <div className="flex items-center gap-3">
         <div className="h-8 w-8 rounded-full bg-earth-200" />
         <div className="space-y-1">

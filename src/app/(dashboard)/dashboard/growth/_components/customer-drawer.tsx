@@ -1,5 +1,7 @@
 "use client";
 
+import { LoadingStatus } from "@/components/loading-status";
+
 import { useEffect, useState } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -225,6 +227,7 @@ function DrawerSections({
 function SkeletonBody() {
   return (
     <div className="space-y-3">
+      <LoadingStatus />
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={i}

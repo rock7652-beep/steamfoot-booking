@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** 營業時間設定 skeleton */
 export default function Loading() {
   return (
     <div className="mx-auto max-w-xl animate-pulse space-y-4">
+      <LoadingStatus />
       <div className="h-6 w-28 rounded bg-earth-200" />
       <div className="space-y-2">
         {Array.from({ length: 7 }).map((_, i) => (

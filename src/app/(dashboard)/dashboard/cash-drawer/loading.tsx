@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** Cash Drawer 頁 skeleton */
 export default function Loading() {
   return (
     <div className="max-w-3xl animate-pulse space-y-6">
+      <LoadingStatus />
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <div className="h-6 w-24 rounded bg-earth-200" />

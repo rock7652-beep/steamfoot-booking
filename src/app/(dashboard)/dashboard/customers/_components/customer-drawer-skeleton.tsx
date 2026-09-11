@@ -1,5 +1,7 @@
 "use client";
 
+import { LoadingStatus } from "@/components/loading-status";
+
 /**
  * 顧客 Drawer 載入骨架（PR-4）
  * 點顧客 → drawer 立即滑出時先顯示，資料到位後由 CustomerDetailDrawerContent 取代。
@@ -35,6 +37,7 @@ export function CustomerDrawerSkeleton({
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+      <LoadingStatus />
         <div className="grid grid-cols-2 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-9 animate-pulse rounded-md bg-earth-100" />

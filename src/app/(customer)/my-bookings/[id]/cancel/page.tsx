@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { cancelBooking } from "@/server/actions/booking";
 import { prisma } from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { getStoreContext } from "@/lib/store-context";
 import { FormErrorToast } from "@/components/form-error-toast";
 import { getCanonicalCustomerIdForSession } from "@/lib/customer-identity";

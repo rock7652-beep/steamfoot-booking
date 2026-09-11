@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** 方案設定 skeleton */
 export default function Loading() {
   return (
     <div className="mx-auto max-w-2xl animate-pulse space-y-4">
+      <LoadingStatus />
       <div className="h-6 w-24 rounded bg-earth-200" />
       <div className="grid gap-3 sm:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (

@@ -6,7 +6,7 @@ import { resolveCustomerForUser } from "@/server/queries/customer-completion";
 import { getFrontendPlans } from "@/server/queries/plan";
 import { getShopConfig } from "@/lib/shop-config";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import type { PlanCategory } from "@prisma/client";
 import {
   STATUS_LABEL,

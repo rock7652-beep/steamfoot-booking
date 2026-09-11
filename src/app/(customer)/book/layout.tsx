@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { getCurrentCustomer, getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { logoutAction } from "@/server/actions/auth";
