@@ -880,6 +880,38 @@ describe("wallet-session service", () => {
       expect(invariantFor(tx2, WB).remaining).toBe(10);
     });
 
+    it("splits across wallets when remaining includes an existing reservation", async () => {
+      const tx2 = setupTwoWallets(2, 10);
+      await seedWalletSessions(tx2, WA, 2);
+      await seedWalletSessions(tx2, WB, 10);
+      await allocateSessions(tx2, WA, "existing", 1);
+
+      const result = await allocateSessionsFefo(tx2, {
+        candidates: [{ ...FEFO_A, remainingSessions: 2 }, FEFO_B],
+        bookingId: "new-two-people",
+        count: 2,
+      });
+
+      expect(result.allocations).toEqual([
+        { walletId: WA, count: 1 },
+        { walletId: WB, count: 1 },
+      ]);
+      expect(invariantFor(tx2, WA)).toEqual({ remaining: 2, available: 0, reserved: 2 });
+      expect(invariantFor(tx2, WB)).toEqual({ remaining: 10, available: 9, reserved: 1 });
+      expect(tx2._sessions.filter((s: SessionRow) => s.bookingId === "existing")).toHaveLength(1);
+    });
+
+    it("rejects aggregate shortage even when counters include reserved sessions", async () => {
+      const tx2 = setupTwoWallets(2, 0);
+      await seedWalletSessions(tx2, WA, 2);
+      await allocateSessions(tx2, WA, "existing", 1);
+      await expect(allocateSessionsFefo(tx2, {
+        candidates: [{ ...FEFO_A, remainingSessions: 2 }],
+        bookingId: "new-two-people",
+        count: 2,
+      })).rejects.toThrow(WalletSessionError);
+    });
+
     it("allocateSessionsFefo: preferred 排第一，無視 FEFO 順序", async () => {
       const tx2 = setupTwoWallets(5, 5);
       await seedWalletSessions(tx2, WA, 5);
