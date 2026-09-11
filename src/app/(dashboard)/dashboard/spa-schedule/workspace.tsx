@@ -2,7 +2,7 @@
 
 import { SpaCheckoutPanel } from "./checkout-panel";
 import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { getSpaAvailableProviders } from "@/server/actions/spa-service-staff";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -22,6 +22,7 @@ const inputClass = "mt-1 w-full rounded-lg border border-earth-200 bg-white px-3
 export function SpaScheduleWorkspace(props: Props) {
   const { date, bookings, staff, customers, treatments, locations, canCreate, canUpdate,canCheckout } = props;
   const router = useRouter();
+  const pathname = usePathname();
   const [interval, setIntervalMinutes] = useState<15 | 30>(30);
   const [clock, setClock] = useState<Date | null>(null);
   const [checkout,setCheckout]=useState<SpaScheduleBooking|null>(null);
@@ -90,7 +91,7 @@ export function SpaScheduleWorkspace(props: Props) {
         if (!result.success) { setError(result.error); return; }
         setNotice(cancel ? "預約已取消，時段已釋放" : editing ? "預約已更新" : "預約已建立");
         setDraft(null);setCompanions([]); setEditing(null);
-        if (!cancel && data.bookingDate !== date) router.replace(`/dashboard/spa-schedule?date=${data.bookingDate}`);
+        if (!cancel && data.bookingDate !== date) router.replace(`${pathname}?date=${data.bookingDate}`);
         else router.refresh();
       } catch { setError("連線失敗，輸入已保留，請重試"); }
     });
@@ -102,7 +103,7 @@ export function SpaScheduleWorkspace(props: Props) {
     <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div><h1 className="text-2xl font-bold text-earth-900">預約排程</h1><p className="mt-1 text-sm text-earth-500">查看人員與服務位置，點選空白時段安排預約</p></div>
       <div className="flex max-w-full flex-wrap items-center gap-2 [&>input]:min-h-11 [&>select]:min-h-11 [&>button]:min-h-11">
-        <input aria-label="排程日期" type="date" value={date} onChange={e => e.target.value && router.push(`/dashboard/spa-schedule?date=${e.target.value}`)} className="rounded-lg border border-earth-200 px-3 py-2" />
+        <input aria-label="排程日期" type="date" value={date} onChange={e => e.target.value && router.push(`${pathname}?date=${e.target.value}`)} className="rounded-lg border border-earth-200 px-3 py-2" />
         <select aria-label="時間間隔" value={interval} onChange={e => setIntervalMinutes(Number(e.target.value) as 15 | 30)} className="rounded-lg border border-earth-200 px-3 py-2"><option value={15}>15 分鐘</option><option value={30}>30 分鐘</option></select>
         {canCreate && <button onClick={() => openNew()} className="rounded-lg bg-earth-800 px-4 py-2 text-white">新增預約</button>}
       </div>

@@ -17,4 +17,12 @@ describe("SPA schedule isolation", () => {
     expect(action).toContain("requireSpaStore");
     expect(action).not.toContain("prisma.booking.create");
   });
+
+  it("keeps date navigation inside the active scoped dashboard", () => {
+    const workspace = readFileSync("src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx", "utf8");
+    expect(workspace).toContain("const pathname = usePathname()");
+    expect(workspace).toContain("router.replace(`${pathname}?date=${data.bookingDate}`)");
+    expect(workspace).toContain("router.push(`${pathname}?date=${e.target.value}`)");
+    expect(workspace).not.toContain("router.replace(`/dashboard/spa-schedule");
+  });
 });
