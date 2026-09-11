@@ -25,6 +25,7 @@ interface PageShellProps {
 export function PageShell({ children, className }: PageShellProps) {
   return (
     <div
+      data-page-shell
       className={
         className ??
         "mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6"

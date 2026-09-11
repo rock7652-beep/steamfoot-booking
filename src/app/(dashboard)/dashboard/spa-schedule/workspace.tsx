@@ -408,6 +408,7 @@ export function SpaScheduleWorkspace(props: Props) {
         </p>
       ) : (
         <div
+          data-spa-timeline
           className="min-w-0 max-w-full max-h-[70dvh] overscroll-contain overflow-auto rounded-xl border border-earth-200 bg-white"
           ref={(node) => {
             if (node && node.dataset.positioned !== "yes") {
@@ -416,11 +417,11 @@ export function SpaScheduleWorkspace(props: Props) {
             }
           }}
         >
-          <div style={{ minWidth: Math.max(350, staff.length * 210 + 70) }}>
+          <div style={{ minWidth: Math.max(350, staff.length * 210 + 70), width: "100%" }}>
             <div
               className="sticky top-0 z-20 grid border-b border-earth-200 bg-earth-50"
               style={{
-                gridTemplateColumns: `70px repeat(${staff.length}, 1fr)`,
+                gridTemplateColumns: `70px repeat(${staff.length}, minmax(210px, 320px))`,
               }}
             >
               <div className="p-3 text-xs">時間</div>
@@ -440,7 +441,7 @@ export function SpaScheduleWorkspace(props: Props) {
             <div
               className="relative grid"
               style={{
-                gridTemplateColumns: `70px repeat(${staff.length}, 1fr)`,
+                gridTemplateColumns: `70px repeat(${staff.length}, minmax(210px, 320px))`,
               }}
             >
               <div>
@@ -598,7 +599,7 @@ export function SpaScheduleWorkspace(props: Props) {
           onClose={() => {
             if (!pending) setDraft(null);
           }}
-          width={520}
+          width={600}
           labelledById="spa-panel-title"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-5">
@@ -732,7 +733,7 @@ export function SpaScheduleWorkspace(props: Props) {
                     </div>
                   )}
                   {step === 1 && (
-                    <div className="space-y-4">
+                    <div className="spa-booking-fields">
                       <label className="block">
                         日期
                         <input

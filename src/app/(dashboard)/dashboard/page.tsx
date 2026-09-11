@@ -48,7 +48,6 @@ import {
   EmptyRow,
   type Column,
 } from "@/components/desktop";
-import { redirect } from "next/navigation";
 
 /**
  * 店家後台首頁 — Decision Page（桌機版）
@@ -75,27 +74,41 @@ export default async function DashboardHomePage() {
   if (!user) return null;
 
   const activeStoreId = await getActiveStoreForRead(user);
-  if (
-    activeStoreId &&
-    (await getStoreIndustryModule(activeStoreId)) === "spa"
-  ) {
-    redirect("/dashboard/spa-schedule");
-  }
   let storeViewContext: StoreViewContext | null = null;
   if (user.role !== "ADMIN" && user.storeId) {
     storeViewContext = await resolveStoreViewContext(user, { viewedStoreId: activeStoreId });
   }
   const isViewMode = storeViewContext?.isViewMode ?? false;
   if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "spa") {
-    const canReadBookings = await checkPermission(user.role, user.staffId, "booking.read");
-    const canReadCustomers = await checkPermission(user.role, user.staffId, "customer.read");
-    const canReadPlans = await checkPermission(user.role, user.staffId, "wallet.read");
-    return <PageShell><PageHeader title="店務首頁" subtitle="安排服務與查看顧客帳務" />
-      <div className="grid gap-4 md:grid-cols-3">
-        {canReadBookings && <Link className="rounded-xl border bg-white p-6" href="/dashboard/spa-schedule">預約排程 →</Link>}
-        {canReadCustomers && <Link className="rounded-xl border bg-white p-6" href="/dashboard/customers">顧客方案與儲值 →</Link>}
-        {canReadPlans && <Link className="rounded-xl border bg-white p-6" href="/dashboard/plans">服務與方案設定 →</Link>}
+    const [canReadBookings, canReadCustomers, canReadPlans, canManageStaff, canReadLocations, canReadRevenue] = await Promise.all([
+      checkPermission(user.role, user.staffId, "booking.read"),
+      checkPermission(user.role, user.staffId, "customer.read"),
+      checkPermission(user.role, user.staffId, "wallet.read"),
+      checkPermission(user.role, user.staffId, "duty.manage"),
+      checkPermission(user.role, user.staffId, "business_hours.manage"),
+      checkPermission(user.role, user.staffId, "transaction.read"),
+    ]);
+    const canReadStaff = user.role === "OWNER" && canManageStaff;
+    const entries = [
+      { visible: canReadBookings, href: "/dashboard/spa-schedule", title: "預約管理", description: "查看今日排程，安排、改期與完成服務。" },
+      { visible: canReadCustomers, href: "/dashboard/customers", title: "顧客管理", description: "查看服務紀錄、顧客需求、方案與儲值。" },
+      { visible: canReadPlans, href: "/dashboard/plans", title: "方案管理", description: "設定服務價格、適用人員與次數方案。" },
+      { visible: canReadStaff, href: "/dashboard/spa-staff", title: "人員管理", description: "安排月曆班表、多段班別與可提供服務。" },
+      { visible: canReadLocations, href: "/dashboard/spa-resources", title: "服務位置", description: "管理美容床、美甲桌與各位置適用服務。" },
+      { visible: canReadRevenue, href: "/dashboard/revenue", title: "營運", description: "查看收款、退款與交易明細，核對每日帳務。" },
+    ].filter(entry => entry.visible);
+    return <PageShell>
+      <PageHeader title="首頁" subtitle={`${formatTWTime(new Date(), { dateOnly: true })} · 店務工作台`} />
+      <div className="spa-home-intro">
+        <div><h2>開始今天的店務</h2><p>從排程安排服務，或選擇下方功能管理店務。</p></div>
+        {canReadBookings && <Link className="spa-primary-action" href="/dashboard/spa-schedule">開啟預約排程 →</Link>}
       </div>
+      <div className="spa-home-grid">
+        {entries.map(entry => <Link key={entry.href} className="spa-home-card" href={entry.href}>
+          <h3>{entry.title}<span aria-hidden="true">↗</span></h3><p>{entry.description}</p>
+        </Link>)}
+      </div>
+      {entries.length === 0 && <p>目前沒有可使用的店務功能，請聯絡店長確認權限。</p>}
     </PageShell>;
   }
   const dashboardStoreId = activeStoreId;

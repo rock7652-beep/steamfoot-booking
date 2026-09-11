@@ -926,7 +926,7 @@ export default function DashboardShell({
   );
 
   return (
-    <div className="min-h-dvh bg-earth-50">
+    <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
         className={`sidebar-transition ${industryModule === "spa" ? "hidden md:flex md:flex-col md:fixed md:inset-y-0 md:z-20" : "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-20"} border-r border-earth-200 bg-white ${
@@ -1123,7 +1123,7 @@ export default function DashboardShell({
         </header>
 
         {/* Content */}
-        <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
+        <main data-dashboard-content className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
           {trialStatus && trialStatus.isFree && trialStatus.stage !== "normal" && (
             <div className="mb-4 mt-3">
               <TrialProgressBar trial={trialStatus} />

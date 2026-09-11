@@ -103,7 +103,7 @@ export function SpaCustomerList({
         aria-busy={pending}
         className="overflow-hidden rounded-xl border border-earth-200 bg-white"
       >
-        <div className="hidden grid-cols-[1.1fr_1fr_1fr_1.2fr] gap-4 bg-earth-50 px-4 py-3 text-sm text-earth-500 lg:grid">
+        <div className="spa-customer-columns hidden grid-cols-[1.1fr_1fr_1fr_1.2fr] gap-4 bg-earth-50 px-4 py-3 text-sm text-earth-500 lg:grid">
           <span>顧客</span>
           <span>來店與預約</span>
           <span>方案與儲值</span>
@@ -116,7 +116,7 @@ export function SpaCustomerList({
               onClick={() => onOpen(c)}
               onPointerEnter={() => onPrefetch(c.id)}
               onFocus={() => onPrefetch(c.id)}
-              className="grid w-full grid-cols-1 gap-2 px-4 py-4 text-left hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-earth-600 sm:grid-cols-2 lg:grid-cols-[1.1fr_1fr_1fr_1.2fr] lg:gap-4"
+              className="spa-customer-row grid w-full grid-cols-1 gap-2 px-4 py-4 text-left hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-earth-600 sm:grid-cols-2 lg:grid-cols-[1.1fr_1fr_1fr_1.2fr] lg:gap-4"
             >
               <span className="min-w-0">
                 <strong className="block truncate">{c.name}</strong>
