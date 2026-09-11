@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MarketingBrand } from "@/components/marketing-brand";
+import { MarketingNavigation } from "@/components/marketing-navigation";
+import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingIcon } from "../marketing-icon";
 
 export const metadata: Metadata = {
@@ -129,7 +130,7 @@ function BeforeExample({ id }: { id: FeatureId }) {
 
 export default function FeaturesPage() {
   return <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
-    <header className="border-b border-[#153B31]/15 bg-white"><nav aria-label="網站導覽" className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-8"><MarketingBrand /><Link href="/pricing" className="py-3 text-base underline underline-offset-4">比較方案與價格</Link></nav></header>
+    <MarketingNavigation active="features" />
     <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
       <p className="text-sm text-[#74603C]">功能介紹｜從店裡的一天開始</p>
       <h1 className="mt-3 max-w-3xl text-3xl font-semibold leading-snug sm:text-5xl">這些事，<br />你還在一件件手動處理嗎？</h1>
@@ -139,7 +140,7 @@ export default function FeaturesPage() {
       </nav>
       <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能不另收費。<Link href="/pricing#comparison" className="underline underline-offset-4">查看哪些功能已包含</Link></p>
       <div className="mt-10 space-y-10">
-        {features.map((feature, index) => <article key={feature.id} id={feature.id} aria-labelledby={feature.id + "-title"} className="scroll-mt-5 border-t border-[#153B31]/20 pt-6">
+        {features.map((feature, index) => <article key={feature.id} id={feature.id} aria-labelledby={feature.id + "-title"} className="scroll-mt-24 border-t border-[#153B31]/20 pt-6">
           <p className="flex items-center gap-3 text-base font-semibold"><MarketingIcon kind={feature.icon} /><span className="text-[#74603C]">0{index + 1}</span>{feature.name}</p>
           <h2 id={feature.id + "-title"} className="mt-3 text-2xl font-semibold leading-snug sm:text-3xl">{feature.title}</h2>
           <div className={"mt-5 grid gap-3 " + (feature.id === "analysis" ? "items-start md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]" : "md:grid-cols-2")}>
@@ -159,6 +160,6 @@ export default function FeaturesPage() {
       </div>
       <section aria-labelledby="next-step" className="mt-12 rounded-2xl bg-[#123E32] p-6 text-white sm:p-8"><h2 id="next-step" className="text-2xl font-semibold">先從店裡最花時間的那件事開始。</h2><p className="mt-3 text-base leading-7 text-[#D4E0D8]">依需求選功能，已包含的不用重複買。選定後由總部協助確認與開通。</p><div className="mt-5 flex flex-wrap gap-3"><Link href="/pricing#comparison" className="rounded-full bg-white px-5 py-3 text-base font-semibold text-[#123E32]">比較方案與價格</Link><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/50 px-5 py-3 text-base">聊聊店裡的需求</a></div></section>
     </main>
-    <footer className="border-t border-[#153B31]/15 px-5 py-6 text-center text-sm leading-6 text-[#4C6259]"><p>蒸管家｜每一家店，都值得擁有一位數位管家。</p><nav aria-label="頁尾導覽" className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-2"><Link href="/pricing" className="underline underline-offset-4">方案價格</Link><Link href="/pricing/cases" className="underline underline-offset-4">真實店家案例</Link><Link href="/privacy" className="underline underline-offset-4">隱私權政策</Link><Link href="/terms" className="underline underline-offset-4">服務條款</Link></nav></footer>
+    <MarketingFooter />
   </div>;
 }

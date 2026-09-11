@@ -1,4 +1,5 @@
-import { MarketingBrand } from "@/components/marketing-brand";
+import { MarketingNavigation } from "@/components/marketing-navigation";
+import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingIcon } from "../marketing-icon";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -47,12 +48,7 @@ export default async function StoreCasesPage({
 
   return (
     <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
-      <header className="border-b border-[#153B31]/15">
-        <nav aria-label="網站導覽" className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-8">
-          <MarketingBrand />
-          <Link href="/pricing" className="py-2 text-base underline underline-offset-4">方案價格</Link>
-        </nav>
-      </header>
+      <MarketingNavigation active="cases" />
       <main className="mx-auto max-w-5xl px-5 py-7 sm:px-8 sm:py-10">
         <p className="text-sm text-[#74603C]">真實店家案例</p>
         <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">每一次來回確認，都是店長的時間。</h1>
@@ -157,7 +153,7 @@ export default async function StoreCasesPage({
           </div>
         </section>
       </main>
-      <footer className="border-t border-[#153B31]/15 px-5 py-5 text-center text-sm leading-6 text-[#4C6259]">蒸管家｜每一家店，都值得擁有一位數位管家。<div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a><a href="/terms" className="underline underline-offset-4">服務條款</a><a href="/refunds" className="underline underline-offset-4">取消與退費政策</a><p className="w-full text-center">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p></div></footer>
+      <MarketingFooter />
     </div>
   );
 }
