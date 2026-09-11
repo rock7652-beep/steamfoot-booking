@@ -156,7 +156,7 @@ export default async function StoreCasesPage({
           </div>
         </section>
       </main>
-      <footer className="border-t border-[#153B31]/15 px-5 py-5 text-center text-sm leading-6 text-[#4C6259]">蒸管家｜每一家店，都值得擁有一位數位管家。<div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:lubymusic1009@gmail.com" className="break-all underline underline-offset-4">客服信箱：lubymusic1009@gmail.com</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a></div></footer>
+      <footer className="border-t border-[#153B31]/15 px-5 py-5 text-center text-sm leading-6 text-[#4C6259]">蒸管家｜每一家店，都值得擁有一位數位管家。<div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a></div></footer>
     </div>
   );
 }

@@ -153,7 +153,7 @@ export default function BusinessPage() {
           <p>蒸管家｜店務少一點忙，顧客多一點照顧。</p>
           <a href={TRIAL_URL} className="underline underline-offset-4">申請體驗帳號</a>
         </div>
-      <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:lubymusic1009@gmail.com" className="break-all underline underline-offset-4">客服信箱：lubymusic1009@gmail.com</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a></div></footer>
+      <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a></div></footer>
     </div>
   );
 }
