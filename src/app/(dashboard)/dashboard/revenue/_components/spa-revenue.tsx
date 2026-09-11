@@ -1,3 +1,4 @@
+import { SpaRevenueActions } from "./spa-revenue-actions";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { getSpaRevenue } from "@/server/queries/spa-revenue";
@@ -15,12 +16,17 @@ const money = (v: number) => `NT$ ${v.toLocaleString()}`;
 export async function SpaRevenue({
   storeId,
   params,
+  canManage,
 }: {
   storeId: string;
+  canManage: boolean;
   params: {
     dateFrom?: string;
     dateTo?: string;
     method?: string;
+    search?: string;
+    kind?: string;
+    status?: string;
     page?: string;
   };
 }) {
@@ -48,12 +54,25 @@ export async function SpaRevenue({
         </Link>
       </PageShell>
     );
-  const data = await getSpaRevenue(storeId, from, to, method, page);
+  const search = params.search?.trim().slice(0, 100) ?? "";
+  const kind = ["SERVICE", "PACKAGE", "TOPUP", "REFUND"].includes(
+    params.kind ?? "",
+  )
+    ? params.kind!
+    : "";
+  const status = ["ALL", "VOIDED"].includes(params.status ?? "")
+    ? params.status!
+    : "ACTIVE";
+  const data = await getSpaRevenue(storeId, from, to, method, page, {
+    search,
+    kind,
+    status,
+  });
   const week = parseTaiwanDateToDbDate(today);
   week.setUTCDate(week.getUTCDate() - ((week.getUTCDay() + 6) % 7));
   const weekStart = week.toISOString().slice(0, 10);
   const href = (a: string, b: string, p = 1) =>
-    `/dashboard/revenue?${new URLSearchParams({ dateFrom: a, dateTo: b, method, page: String(p) })}`;
+    `/dashboard/revenue?${new URLSearchParams({ dateFrom: a, dateTo: b, method, search, kind, status, page: String(p) })}`;
   return (
     <PageShell>
       <PageHeader title="營運" subtitle="查看 SPA 實際收款、退款與額度使用" />
@@ -66,39 +85,42 @@ export async function SpaRevenue({
           <Link
             key={label}
             href={href(start, today)}
-            className={`rounded-lg border px-4 py-2 ${from === start && to === today ? "bg-earth-800 text-white" : "bg-white"}`}
+            className={`rounded-lg border border-earth-200 px-4 py-2 ${from === start && to === today ? "bg-[#596D45] hover:bg-[#4B5E3B] text-white" : "bg-white"}`}
           >
             {label}
           </Link>
         ))}
       </div>
-      <form key={from+to+method} className="mb-5 grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2 xl:grid-cols-4">
-        <label>
+      <form
+        key={from + to + method + search + kind + status}
+        className="mb-5 grid gap-3 rounded-xl border border-earth-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        <label className="min-w-0 text-sm text-earth-600">
           開始日期
           <input
             type="date"
             name="dateFrom"
             defaultValue={from}
             required
-            className="mt-1 block min-w-0 w-full rounded-lg border p-2"
+            className="mt-1 block min-w-0 max-w-full w-full rounded-lg border border-earth-200 p-2"
           />
         </label>
-        <label>
+        <label className="min-w-0 text-sm text-earth-600">
           結束日期
           <input
             type="date"
             name="dateTo"
             defaultValue={to}
             required
-            className="mt-1 block min-w-0 w-full rounded-lg border p-2"
+            className="mt-1 block min-w-0 max-w-full w-full rounded-lg border border-earth-200 p-2"
           />
         </label>
-        <label>
+        <label className="min-w-0 text-sm text-earth-600">
           付款方式
           <select
             name="method"
             defaultValue={method}
-            className="mt-1 block w-full rounded-lg border p-2"
+            className="mt-1 block w-full rounded-lg border border-earth-200 p-2"
           >
             <option value="">全部付款方式</option>
             {SPA_CHECKOUT_PAYMENT_METHODS.map((m) => (
@@ -108,9 +130,53 @@ export async function SpaRevenue({
             ))}
           </select>
         </label>
-        <button className="self-end rounded-lg bg-earth-800 p-3 text-white">
-          查詢
-        </button>
+        <label className="min-w-0 text-sm text-earth-600">
+          顧客
+          <input
+            name="search"
+            defaultValue={search}
+            placeholder="姓名／電話"
+            maxLength={100}
+            className="mt-1 block w-full min-w-0 rounded-lg border border-earth-200 p-2"
+          />
+        </label>
+        <label className="min-w-0 text-sm text-earth-600">
+          交易類型
+          <select
+            name="kind"
+            defaultValue={kind}
+            className="mt-1 block w-full rounded-lg border border-earth-200 p-2"
+          >
+            <option value="">全部類型</option>
+            <option value="SERVICE">服務結帳</option>
+            <option value="PACKAGE">購買方案</option>
+            <option value="TOPUP">儲值</option>
+            <option value="REFUND">退款</option>
+          </select>
+        </label>
+        <label className="min-w-0 text-sm text-earth-600">
+          紀錄狀態
+          <select
+            name="status"
+            defaultValue={status}
+            className="mt-1 block w-full rounded-lg border border-earth-200 p-2"
+          >
+            <option value="ACTIVE">有效紀錄</option>
+            <option value="VOIDED">已刪除／作廢</option>
+            <option value="ALL">包含作廢紀錄</option>
+          </select>
+        </label>
+        <div className="flex gap-3 items-center sm:col-span-2 lg:col-span-3">
+          <button className="self-end rounded-lg bg-[#596D45] hover:bg-[#4B5E3B] p-3 text-white">
+            套用篩選
+          </button>
+          <Link
+            href="/dashboard/revenue"
+            className="text-sm text-earth-500 underline"
+          >
+            重設
+          </Link>
+        </div>
       </form>
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
@@ -119,9 +185,14 @@ export async function SpaRevenue({
           ["淨收款", money(data.collected - data.refunded)],
           ["完成服務", `${data.completed} 筆`],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border bg-white p-4">
+          <div
+            key={label}
+            className="rounded-xl border border-earth-200 bg-white p-4"
+          >
             <p className="text-sm text-earth-500">{label}</p>
-            <strong className="text-xl">{value}</strong>
+            <strong className="text-xl text-[#596D45] tabular-nums">
+              {value}
+            </strong>
           </div>
         ))}
       </div>
@@ -129,14 +200,14 @@ export async function SpaRevenue({
         {from} ～ {to}
         。收款包含服務付款、購買方案與儲值；扣次、儲值扣款及額度退回不重複計入。完成服務按結帳時間統計，不受付款方式篩選影響。
       </p>
-      <section className="overflow-hidden rounded-xl border bg-white">
+      <section className="overflow-hidden rounded-xl border border-earth-200 bg-white">
         <header className="flex justify-between p-4">
           <h2 className="font-bold">交易紀錄</h2>
           <span>共 {data.count} 筆</span>
         </header>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[680px] text-left text-sm">
-            <thead className="border-y bg-earth-50">
+            <thead className="border-y border-earth-100 bg-earth-50">
               <tr>
                 {["日期／類型", "項目", "付款方式", "金額／額度", "明細"].map(
                   (t) => (
@@ -149,9 +220,12 @@ export async function SpaRevenue({
             </thead>
             <tbody>
               {data.rows.map((r) => (
-                <tr key={r.kind + r.id} className="border-b align-top">
+                <tr
+                  key={r.kind + r.id}
+                  className="border-b border-earth-100 align-top hover:bg-earth-50/50"
+                >
                   <td className="p-3 whitespace-nowrap">
-                    {toLocalDateStr(r.at)} {formatTWTime(r.at)}
+                    {formatTWTime(r.at)}
                     <p className="text-earth-500">
                       {(
                         {
@@ -174,7 +248,9 @@ export async function SpaRevenue({
                     {SPA_PAYMENT_LABELS[r.method] ?? r.method}
                     {r.last4 && <p>後四碼 {r.last4}</p>}
                   </td>
-                  <td className="p-3 whitespace-nowrap">
+                  <td
+                    className={`p-3 whitespace-nowrap tabular-nums ${r.voided ? "text-earth-400 line-through" : ""}`}
+                  >
                     {r.method === "ENTITLEMENT"
                       ? `${r.uses ?? 0} 次`
                       : money(r.amount)}
@@ -183,19 +259,22 @@ export async function SpaRevenue({
                         r.kind === "REFUND" ? "text-red-700" : "text-earth-500"
                       }
                     >
-                      {!r.external
-                        ? r.kind === "REFUND"
-                          ? "額度退回"
-                          : "使用既有額度"
-                        : r.kind === "REFUND"
-                          ? "退款"
-                          : "收款"}
+                      {r.voided
+                        ? "已作廢，不計入收款"
+                        : !r.external
+                          ? r.kind === "REFUND"
+                            ? "額度退回"
+                            : "使用既有額度"
+                          : r.kind === "REFUND"
+                            ? "退款"
+                            : "收款"}
                     </p>
                   </td>
                   <td className="p-3">
+                    <SpaRevenueActions row={r} canManage={canManage} />
                     <Link
                       href={`/dashboard/customers?search=${encodeURIComponent(r.customerPhone ?? r.customerName ?? r.customerId)}`}
-                      className="underline"
+                      className="mt-2 block whitespace-nowrap text-earth-500 underline"
                     >
                       查看顧客
                     </Link>

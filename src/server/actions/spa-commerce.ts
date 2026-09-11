@@ -23,6 +23,7 @@ async function activeStore(
     | "wallet.create"
     | "transaction.create"
     | "transaction.refund"
+    | "transaction.void"
     | "customer.read",
 ) {
   const storeId = await spaResourceStore(permission);
@@ -284,9 +285,19 @@ const refundSchema = z.object({
   reason: z.string().trim().min(1, "請填退款原因").max(300),
 });
 export async function refundSpaPayment(input: z.infer<typeof refundSchema>) {
+  return reverseSpaPayment(input, false);
+}
+export async function voidSpaPayment(input: z.infer<typeof refundSchema>) {
+  return reverseSpaPayment(input, true);
+}
+async function reverseSpaPayment(
+  input: z.infer<typeof refundSchema>,
+  voidEntry: boolean,
+) {
   try {
-    const user = await requirePermission("transaction.refund"),
-      storeId = await activeStore("transaction.refund"),
+    const permission = voidEntry ? "transaction.void" : "transaction.refund";
+    const user = await requirePermission(permission),
+      storeId = await activeStore(permission),
       d = refundSchema.parse(input);
     const refund = await spaPrisma.$transaction(
       async (tx) => {
@@ -297,7 +308,19 @@ export async function refundSpaPayment(input: z.infer<typeof refundSchema>) {
             ...(d.kind === "SALE" ? { saleId: d.id } : { receiptId: d.id }),
           },
         });
-        if (previous) return previous;
+        if (previous) {
+          if (voidEntry) {
+            const voided = await tx.$queryRaw<
+              { id: string }[]
+            >`SELECT id FROM "SpaPaymentRevision" WHERE "storeId"=${storeId} AND kind=${d.kind} AND "sourceId"=${d.id} AND action='VOID' AND "refundId"=${previous.id}`;
+            if (!voided.length)
+              throw new AppError(
+                "CONFLICT",
+                "此筆已退款，不能再刪除；請查看退款紀錄",
+              );
+          }
+          return previous;
+        }
         const id = randomUUID();
         let transferLast4: string | null = null;
         let customerId: string,
@@ -365,7 +388,7 @@ export async function refundSpaPayment(input: z.infer<typeof refundSchema>) {
               );
           }
         }
-        return tx.spaRefund.create({
+        const reversal = await tx.spaRefund.create({
           data: {
             id,
             storeId,
@@ -379,12 +402,94 @@ export async function refundSpaPayment(input: z.infer<typeof refundSchema>) {
             recordedByUserId: user.id,
           },
         });
+        if (voidEntry) {
+          const before = JSON.stringify({
+            amount: Number(amount),
+            paymentMethod,
+            transferLast4,
+            uses,
+          });
+          await tx.$executeRaw`INSERT INTO "SpaPaymentRevision" (id,"storeId",kind,"sourceId",action,"refundId",before,after,reason,"recordedByUserId") VALUES (${randomUUID()},${storeId},${d.kind},${d.id},'VOID',${reversal.id},${before}::jsonb,'{"status":"VOIDED"}'::jsonb,${d.reason},${user.id})`;
+        }
+        return reversal;
       },
       { timeout: 15000 },
     );
     revalidatePath("/dashboard/customers");
     revalidatePath("/dashboard/spa-schedule");
+    revalidatePath("/dashboard/revenue");
     return { success: true as const, refundId: refund.id };
+  } catch (e) {
+    return failed(e);
+  }
+}
+
+const paymentEditSchema = z
+  .object({
+    kind: z.enum(["SALE", "RECEIPT"]),
+    id: z.string().min(1),
+    paymentMethod: z.enum(SPA_EXTERNAL_PAYMENT_METHODS),
+    transferLast4: z.string().optional(),
+    expectedMethod: z.string(),
+    expectedLast4: z.string().nullable(),
+    reason: z.string().trim().min(1, "請填修改原因").max(300),
+  })
+  .refine((d) => validSpaTransferReference(d), "轉帳請填四位數字");
+export async function editSpaPayment(input: z.infer<typeof paymentEditSchema>) {
+  try {
+    const user = await requirePermission("transaction.void");
+    const storeId = await activeStore("transaction.void");
+    const d = paymentEditSchema.parse(input);
+    await spaPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`},0))`;
+      const original =
+        d.kind === "SALE"
+          ? await tx.spaCreditSale.findFirst({ where: { id: d.id, storeId } })
+          : await tx.spaReceipt.findFirst({ where: { id: d.id, storeId } });
+      if (!original) throw new AppError("NOT_FOUND", "找不到本店收款紀錄");
+      if (
+        !SPA_EXTERNAL_PAYMENT_METHODS.some((m) => m === original.paymentMethod)
+      )
+        throw new AppError(
+          "CONFLICT",
+          "扣次或儲值扣款不能直接改付款方式；可使用刪除錯帳還原額度",
+        );
+      if (
+        await tx.spaRefund.findFirst({
+          where: {
+            storeId,
+            ...(d.kind === "SALE" ? { saleId: d.id } : { receiptId: d.id }),
+          },
+        })
+      )
+        throw new AppError("CONFLICT", "此筆已退款或作廢，不能再編輯");
+      const data = {
+        paymentMethod: d.paymentMethod,
+        transferLast4: d.transferLast4 ?? null,
+      };
+      if (
+        original.paymentMethod === data.paymentMethod &&
+        (original.transferLast4 ?? null) === data.transferLast4
+      )
+        return;
+      if (
+        original.paymentMethod !== d.expectedMethod ||
+        (original.transferLast4 ?? null) !== d.expectedLast4
+      )
+        throw new AppError("CONFLICT", "這筆資料已被修改，請重新整理後再編輯");
+      const before = JSON.stringify({
+        paymentMethod: original.paymentMethod,
+        transferLast4: original.transferLast4 ?? null,
+      });
+      if (d.kind === "SALE")
+        await tx.spaCreditSale.update({ where: { id: d.id }, data });
+      else await tx.spaReceipt.update({ where: { id: d.id }, data });
+      await tx.$executeRaw`INSERT INTO "SpaPaymentRevision" (id,"storeId",kind,"sourceId",action,before,after,reason,"recordedByUserId") VALUES (${randomUUID()},${storeId},${d.kind},${d.id},'EDIT',${before}::jsonb,${JSON.stringify(data)}::jsonb,${d.reason},${user.id})`;
+    });
+    revalidatePath("/dashboard/revenue");
+    revalidatePath("/dashboard/customers");
+    revalidatePath("/dashboard/spa-schedule");
+    return { success: true as const };
   } catch (e) {
     return failed(e);
   }

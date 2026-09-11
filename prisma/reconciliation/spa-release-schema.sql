@@ -1531,3 +1531,23 @@ ALTER TABLE "SpaCreditSale" DROP CONSTRAINT IF EXISTS "SpaCreditSale_release_val
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaCreditSale"'::regclass AND conname='SpaCreditSale_release_values') THEN ALTER TABLE "SpaCreditSale" ADD CONSTRAINT "SpaCreditSale_release_values" CHECK (amount>=0 AND kind IN ('PACKAGE','TOPUP') AND "paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT')); END IF; END $$;
 ALTER TABLE "SpaRefund" DROP CONSTRAINT IF EXISTS "SpaRefund_release_values";
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaRefund"'::regclass AND conname='SpaRefund_release_values') THEN ALTER TABLE "SpaRefund" ADD CONSTRAINT "SpaRefund_release_values" CHECK (amount>=0 AND (uses IS NULL OR uses>0) AND length(trim(reason))>0 AND (("saleId" IS NULL) <> ("receiptId" IS NULL)) AND "paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT','STORED_VALUE','ENTITLEMENT')); END IF; END $$;
+
+-- SPA-only correction journal. Apply only after verifying the target database.
+CREATE TABLE IF NOT EXISTS "SpaPaymentRevision" (
+  id TEXT PRIMARY KEY,
+  "storeId" TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('SALE','RECEIPT')),
+  "sourceId" TEXT NOT NULL,
+  action TEXT NOT NULL CHECK (action IN ('EDIT','VOID')),
+  "refundId" TEXT,
+  before JSONB NOT NULL,
+  after JSONB NOT NULL,
+  reason TEXT NOT NULL,
+  "recordedByUserId" TEXT NOT NULL,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK ((action='VOID') = ("refundId" IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS "SpaPaymentRevision_source_idx" ON "SpaPaymentRevision" ("storeId",kind,"sourceId","createdAt");
+CREATE UNIQUE INDEX IF NOT EXISTS "SpaPaymentRevision_void_key" ON "SpaPaymentRevision" ("storeId",kind,"sourceId") WHERE action='VOID';
+ALTER TABLE "SpaPaymentRevision" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON "SpaPaymentRevision" FROM anon, authenticated;

@@ -15,8 +15,11 @@ beforeEach(() => {
   m.guard.mockResolvedValue(undefined);
   m.count.mockResolvedValue(3);
   m.query
-    .mockResolvedValueOnce([{ collected: 1500, refunded: 500, count: BigInt(4) }])
-    .mockResolvedValueOnce([]);
+    .mockResolvedValueOnce([
+      { collected: 1500, refunded: 500, count: BigInt(4) },
+    ])
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([{ count: BigInt(3) }]);
 });
 it("guards the SPA store and scopes each ledger source, local date range and payment filter", async () => {
   const result = await getSpaRevenue(
@@ -33,7 +36,7 @@ it("guards the SPA store and scopes each ledger source, local date range and pay
     completed: 3,
   });
   expect(m.guard).toHaveBeenCalledWith("test-store");
-  for (const [sql] of m.query.mock.calls) {
+  for (const [sql] of m.query.mock.calls.slice(0, 2)) {
     expect(
       sql.values.filter((v: unknown) => v === "test-store").length,
     ).toBeGreaterThanOrEqual(3);

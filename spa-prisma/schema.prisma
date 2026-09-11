@@ -445,3 +445,19 @@ model SpaStaffCompensation {
 
   @@index([storeId, isActive])
 }
+
+// Append-only journal; partial VOID uniqueness and RLS are installed by reconciliation SQL.
+model SpaPaymentRevision {
+  id String @id
+  storeId String
+  kind String
+  sourceId String
+  action String
+  refundId String?
+  before Json
+  after Json
+  reason String
+  recordedByUserId String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  @@index([storeId, kind, sourceId, createdAt], map: "SpaPaymentRevision_source_idx")
+}

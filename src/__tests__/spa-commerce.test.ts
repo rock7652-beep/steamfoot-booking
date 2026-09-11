@@ -15,6 +15,7 @@ const m = vi.hoisted(() => ({
   refundFind: vi.fn(),
   refundCreate: vi.fn(),
   receipt: vi.fn(),
+  update: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: m.permission }));
@@ -31,6 +32,8 @@ vi.mock("@/lib/spa-db", () => ({ spaPrisma: { $transaction: m.tx } }));
 import {
   purchaseSpaCredit,
   refundSpaPayment,
+  voidSpaPayment,
+  editSpaPayment,
 } from "@/server/actions/spa-commerce";
 const topup = {
   customerId: "C",
@@ -69,11 +72,12 @@ beforeEach(() => {
         findUnique: m.saleFind,
         findFirst: m.saleFind,
         create: m.saleCreate,
+        update: m.update,
       },
       spaPackage: { findFirst: m.pack },
       spaTreatment: { findFirst: m.treatment },
       spaRefund: { findFirst: m.refundFind, create: m.refundCreate },
-      spaReceipt: { findFirst: m.receipt },
+      spaReceipt: { findFirst: m.receipt, update: m.update },
     }),
   );
 });
@@ -323,4 +327,123 @@ it("preserves original transfer digits on receipt refunds without a wallet credi
     }),
   });
   expect(m.query).not.toHaveBeenCalled();
+});
+
+describe("SPA revenue corrections", () => {
+  const receipt = {
+    id: "R",
+    storeId: "S",
+    bookingId: "B",
+    booking: { customerId: "C" },
+    amount: 1200,
+    paymentMethod: "CASH",
+    transferLast4: null,
+    uses: null,
+  };
+  const edit = {
+    kind: "RECEIPT" as const,
+    id: "R",
+    paymentMethod: "TRANSFER" as const,
+    transferLast4: "0123",
+    expectedMethod: "CASH",
+    expectedLast4: null,
+    reason: "誤選付款方式",
+  };
+  it("edits external payment info and journals before/after without changing amount", async () => {
+    m.receipt.mockResolvedValue(receipt);
+    expect((await editSpaPayment(edit)).success).toBe(true);
+    expect(m.permission).toHaveBeenCalledWith("transaction.void");
+    expect(m.update).toHaveBeenCalledWith({
+      where: { id: "R" },
+      data: { paymentMethod: "TRANSFER", transferLast4: "0123" },
+    });
+    expect(
+      m.execute.mock.calls.some((c) =>
+        c[0].join("").includes('INSERT INTO "SpaPaymentRevision"'),
+      ),
+    ).toBe(true);
+    expect(m.refundCreate).not.toHaveBeenCalled();
+  });
+  it("rejects stale edits without writing", async () => {
+    m.receipt.mockResolvedValue({ ...receipt, paymentMethod: "CARD" });
+    expect((await editSpaPayment(edit)).success).toBe(false);
+    expect(m.update).not.toHaveBeenCalled();
+  });
+  it("rejects foreign records and malformed transfer reference", async () => {
+    m.receipt.mockResolvedValue(null);
+    expect((await editSpaPayment(edit)).success).toBe(false);
+    expect(
+      (await editSpaPayment({ ...edit, transferLast4: "123" })).success,
+    ).toBe(false);
+    expect(m.update).not.toHaveBeenCalled();
+  });
+  it("rejects editing refunded payments or converting credit deductions", async () => {
+    m.receipt.mockResolvedValue(receipt);
+    m.refundFind.mockResolvedValue({ id: "F" });
+    expect((await editSpaPayment(edit)).success).toBe(false);
+    m.refundFind.mockResolvedValue(null);
+    m.receipt.mockResolvedValue({ ...receipt, paymentMethod: "STORED_VALUE" });
+    expect((await editSpaPayment(edit)).success).toBe(false);
+    expect(m.update).not.toHaveBeenCalled();
+  });
+  it("voids receipt with reversal and a linked journal inside one transaction", async () => {
+    m.receipt.mockResolvedValue(receipt);
+    expect(
+      (await voidSpaPayment({ kind: "RECEIPT", id: "R", reason: "重複登記" }))
+        .success,
+    ).toBe(true);
+    expect(m.refundCreate).toHaveBeenCalledOnce();
+    expect(m.refundCreate.mock.calls[0][0].data).toMatchObject({
+      receiptId: "R",
+      amount: 1200,
+      storeId: "S",
+    });
+    expect(
+      m.execute.mock.calls.some((c) => c[0].join("").includes("'VOID'")),
+    ).toBe(true);
+  });
+  it("does not reverse an already refunded payment again", async () => {
+    m.refundFind.mockResolvedValue({ id: "F" });
+    m.query.mockResolvedValue([]);
+    expect(
+      (await voidSpaPayment({ kind: "RECEIPT", id: "R", reason: "重複登記" }))
+        .success,
+    ).toBe(false);
+    expect(m.refundCreate).not.toHaveBeenCalled();
+  });
+  it("retries a completed void without another reversal", async () => {
+    m.refundFind.mockResolvedValue({ id: "F" });
+    m.query.mockResolvedValue([{ id: "V" }]);
+    expect(
+      (await voidSpaPayment({ kind: "RECEIPT", id: "R", reason: "重複登記" }))
+        .success,
+    ).toBe(true);
+    expect(m.refundCreate).not.toHaveBeenCalled();
+  });
+  it("blocks void if stored value cannot be recovered", async () => {
+    m.saleFind.mockResolvedValue({
+      id: "SALE",
+      storeId: "S",
+      customerId: "C",
+      kind: "TOPUP",
+      sourceId: "W",
+      amount: 1000,
+      paymentMethod: "CASH",
+    });
+    m.query.mockResolvedValue([]);
+    expect(
+      (await voidSpaPayment({ kind: "SALE", id: "SALE", reason: "誤登" }))
+        .success,
+    ).toBe(false);
+    expect(m.refundCreate).not.toHaveBeenCalled();
+  });
+  it("rejects unauthorized requests before entering a transaction", async () => {
+    m.permission.mockRejectedValue(new Error("forbidden"));
+    expect((await editSpaPayment(edit)).success).toBe(false);
+    expect(
+      (await voidSpaPayment({ kind: "RECEIPT", id: "R", reason: "錯帳" }))
+        .success,
+    ).toBe(false);
+    expect(m.tx).not.toHaveBeenCalled();
+  });
 });

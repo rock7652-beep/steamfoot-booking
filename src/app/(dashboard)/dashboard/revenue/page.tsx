@@ -67,6 +67,9 @@ type TxRow = Awaited<
 interface PageProps {
   searchParams: Promise<{
     method?: string;
+    search?: string;
+    kind?: string;
+    status?: string;
     dateFrom?: string;
     dateTo?: string;
     transactionType?: TransactionType;
@@ -107,7 +110,16 @@ export default async function RevenuePage({ searchParams }: PageProps) {
     revenueStoreId &&
     (await getStoreIndustryModule(revenueStoreId)) === "spa"
   )
-    return <SpaRevenue storeId={revenueStoreId} params={params} />;
+    return (
+      <SpaRevenue
+        storeId={revenueStoreId}
+        params={params}
+        canManage={
+          !isViewMode &&
+          (await checkPermission(user.role, user.staffId, "transaction.void"))
+        }
+      />
+    );
   const today = toLocalDateStr();
   const month = today.slice(0, 7);
   const firstDayOfMonth = `${month}-01`;
