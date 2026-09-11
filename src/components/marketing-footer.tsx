@@ -8,12 +8,16 @@ export function MarketingFooter() {
         <a href="/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=footer" className="inline-flex min-h-11 items-center rounded-full bg-[#123E32] px-5 font-semibold text-white">申請體驗</a>
       </div>
       <nav aria-label="頁尾導覽" className="my-5 grid grid-cols-2 gap-x-6 sm:flex sm:flex-wrap">
-        {[["/pricing/features", "功能介紹"], ["/pricing", "方案價格"], ["/cases", "店家案例"], ["/guides", "經營指南"], ["/#brands", "使用蒸管家的品牌"]].map(([href, label]) => <Link key={href} href={href} className="inline-flex min-h-11 items-center underline underline-offset-4">{label}</Link>)}
+        {[["/pricing/features", "功能介紹"], ["/pricing", "方案價格"], ["/cases", "店家案例"], ["/guides", "經營指南"], ["/#brands", "使用蒸管家的品牌"], ["#contact", "聯繫我們"]].map(([href, label]) => <Link key={href} href={href} className="inline-flex min-h-11 items-center underline underline-offset-4">{label}</Link>)}
       </nav>
-      <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-[#153B31]/15 pt-5">
+      <section id="contact" aria-labelledby="contact-heading" className="scroll-mt-24 border-t border-[#153B31]/15 pt-5">
+        <h2 id="contact-heading" className="text-lg font-semibold text-[#153B31]">聯繫我們</h2>
+        <p className="mt-2">想了解功能或討論店裡的需求？歡迎來信或加 LINE 聊聊。</p>
+        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
         <a href="mailto:steambutler500@gmail.com" className="break-all py-2">客服信箱：steambutler500@gmail.com</a>
         <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="py-2 underline underline-offset-4">官方 LINE：@329rmywc</a>
-      </div>
+        </div>
+      </section>
       <nav aria-label="政策與條款" className="flex flex-wrap gap-x-5">
         {[["/privacy", "隱私權政策"], ["/terms", "服務條款"], ["/refunds", "取消與退費政策"]].map(([href, label]) => <a key={href} href={href} className="inline-flex min-h-11 items-center underline underline-offset-4">{label}</a>)}
       </nav>

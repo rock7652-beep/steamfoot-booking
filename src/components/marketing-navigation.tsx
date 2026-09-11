@@ -9,6 +9,7 @@ export const marketingLinks = [
   { id: "pricing", href: "/pricing", label: "方案價格" },
   { id: "cases", href: "/cases", label: "店家案例" },
   { id: "guides", href: "/guides", label: "經營指南" },
+  { id: "contact", href: "#contact", label: "聯繫我們" },
 ] as const;
 
 export function MarketingNavigation({ active }: { active?: string }) {
