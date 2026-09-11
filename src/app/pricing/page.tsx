@@ -8,9 +8,9 @@ export const metadata = {
 };
 const TRIAL_URL = "/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=pricing";
 const plans = [
-  { id: "BASIC", name: "基本版", icon: "store", purpose: "管好日常", audience: "個人工作室、小型單店", price: "1,490", original: "2,100", annual: "17,880", difference: "預約、顧客、堂數、收款集中管理", tools: "任選 1 個工具功能，月費已含", management: "經營功能可另外加購", stores: "單店使用" },
-  { id: "GROWTH", name: "專業版", icon: "return", purpose: "做好回訪", audience: "重視回訪、續購與帳務的單店", price: "2,490", original: "3,600", annual: "29,880", difference: "基本版功能＋顧客經營、現金抽屜", tools: "任選 1 個工具功能，月費已含", management: "任選 1 個經營功能，月費已含", stores: "單店使用" },
-  { id: "ALLIANCE", name: "展店版", icon: "stores", purpose: "管理多店", audience: "多店品牌、準備展店的店家", price: "4,990", original: "7,100", annual: "59,880", difference: "專業版功能＋多店管理、月結管理", tools: "下列工具功能全部內含", management: "下列經營功能全部內含", stores: "總部管理 + 1 家分店" },
+  { id: "BASIC", name: "基本版", icon: "store", purpose: "管好日常", audience: "個人工作室、小型單店", price: "1,490", original: "2,100", annual: "17,880", difference: "預約、顧客、堂數、收款集中管理", highlights: ["預約與顧客管理", "方案堂數與基本收款"], tools: "工具功能任選 1 項，月費已含", management: "經營功能可另外加購", stores: "單店使用" },
+  { id: "GROWTH", name: "專業版", icon: "return", purpose: "做好回訪", audience: "重視回訪、續購與帳務的單店", price: "2,490", original: "3,600", annual: "29,880", difference: "基本版功能＋顧客經營、現金抽屜", highlights: ["包含基本版功能", "顧客經營與現金抽屜"], tools: "工具功能任選 1 項，月費已含", management: "經營功能任選 1 項（分析另購）", stores: "單店使用" },
+  { id: "ALLIANCE", name: "展店版", icon: "stores", purpose: "管理多店", audience: "多店品牌、準備展店的店家", price: "4,990", original: "7,100", annual: "59,880", difference: "專業版功能＋多店管理、月結管理", highlights: ["包含專業版功能", "多店管理與月結管理"], tools: "下列工具功能全部內含", management: "下列經營功能全部內含", stores: "總部管理 + 1 家分店" },
 ] as const;
 const limits = [
   { label: "員工帳號", field: "maxStaff", unit: "位" },
@@ -22,14 +22,14 @@ function TrialLink() {
 }
 function PlanDetails({ plan }: { plan: (typeof plans)[number] }) {
   return <>
-          <div className="mx-5 border-t border-[#153B31]/15 py-4">
+          <div className="mx-5 border-t border-[#153B31]/15 py-3">
             <p className="text-sm text-[#64756D] line-through">原價 NT${plan.original}／月{plan.id === "ALLIANCE" ? "起" : ""}</p>
             <p className="mt-1"><span className="text-3xl font-semibold tracking-tight">NT${plan.price}</span><span className="ml-1 text-sm">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
             <p className="mt-2 text-sm font-medium">年繳 NT${plan.annual}{plan.id === "ALLIANCE" ? "起" : ""}，使用 14 個月</p>
           </div>
-          <div className="mx-5 border-t border-[#153B31]/15 py-4"><h3 className="text-sm text-[#4C6259]">功能差異</h3><p className="mt-2 text-base leading-7 font-medium">{plan.difference}</p></div>
-          <div className="mx-5 border-t border-[#153B31]/15 py-4"><h3 className="text-sm text-[#4C6259]">可選哪些功能</h3><p className="mt-2 leading-7">{plan.tools}</p><p className="leading-7">{plan.management}</p></div>
-          <div className="mx-5 border-t border-[#153B31]/15 py-4"><h3 className="mb-2 text-sm text-[#4C6259]">使用規模</h3><dl className="space-y-2">{limits.map(item => {
+          <div className="mx-5 border-t border-[#153B31]/15 py-3"><h3 className="text-sm text-[#4C6259]">功能差異</h3><ul className="mt-1 space-y-1 text-base font-medium">{plan.highlights.map(item => <li key={item} className="flex gap-2"><span aria-hidden="true">✓</span>{item}</li>)}</ul></div>
+          <div className="mx-5 border-t border-[#153B31]/15 py-3"><h3 className="text-sm text-[#4C6259]">可選哪些功能</h3><p className="mt-1 leading-6">{plan.tools}</p><p className="leading-6">{plan.management}</p><div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#153B31]/5 px-3 py-2 text-sm"><span className="font-semibold">分析</span><span className="font-medium">{plan.id === "ALLIANCE" ? "✓ 已包含" : "另購 NT$800／月"}</span></div></div>
+          <div className="mx-5 border-t border-[#153B31]/15 py-3"><h3 className="mb-2 text-sm text-[#4C6259]">使用規模</h3><dl className="space-y-2">{limits.map(item => {
             const value = PLAN_LIMITS[plan.id][item.field];
             return <div key={item.field} className="flex justify-between gap-2 text-base"><dt className="text-[#4C6259]">{item.label}</dt><dd className="font-medium">{value === null ? "無限制" : `${value.toLocaleString()} ${item.unit}`}</dd></div>;
           })}</dl><p className="mt-3 border-t border-[#153B31]/10 pt-3 text-sm">{plan.stores}</p>{plan.id === "ALLIANCE" && <p className="mt-2 text-sm leading-6 text-[#4C6259]">第二家分店起，每家 +$1,000/月分店營運費。實際門市數量與開通範圍於申請時確認。</p>}</div>
@@ -68,19 +68,13 @@ export default function PricingPage() {
       </section>
       <section aria-label="方案比較" className="hidden gap-4 lg:grid lg:grid-cols-3 lg:gap-x-4 lg:gap-y-0">
         {plans.map(plan => <article key={plan.id} aria-labelledby={plan.id} className={"grid gap-0 overflow-hidden rounded-2xl border border-[#153B31]/20 lg:row-span-6 lg:grid-rows-subgrid " + (plan.id === "GROWTH" ? "bg-[#E9F1EB]" : "bg-white")}>
-          <div className="p-5 pb-4">
+          <div className="px-5 py-3">
             <h2 id={plan.id} className="flex items-center gap-3 text-xl font-semibold"><MarketingIcon kind={plan.icon} />{plan.name}</h2>
-            <p className="mt-2 text-lg font-medium">{plan.purpose}</p>
-            <p className="mt-2 text-base leading-7 text-[#4C6259]">適合{plan.audience}</p>
+            <p className="mt-1 text-lg font-medium">{plan.purpose}</p>
+            <p className="mt-1 text-base leading-6 text-[#4C6259]">適合{plan.audience}</p>
           </div>
           <PlanDetails plan={plan} />
         </article>)}
-      </section>
-      <section aria-label="分析功能方案比較" className="mt-4 overflow-hidden rounded-xl border border-[#153B31]/15 bg-white">
-        <table className="w-full table-fixed text-center text-sm">
-          <thead className="bg-[#E9F1EB]"><tr><th scope="col" className="w-1/5 px-2 py-3 text-left sm:px-3">功能</th>{plans.map(plan => <th scope="col" key={plan.id} className="p-3 font-medium">{plan.name}</th>)}</tr></thead>
-          <tbody><tr className="border-t border-[#153B31]/15"><th scope="row" className="p-3 text-left font-semibold">分析</th>{plans.map(plan => <td key={plan.id} className="px-1 py-3 leading-6 sm:px-3">{plan.id === "ALLIANCE" ? <span className="font-semibold">✓ 已包含</span> : <><span className="block">加購</span><span className="inline-block">NT$800／月</span></>}</td>)}</tr></tbody>
-        </table>
       </section>
       <p className="mt-4 text-sm leading-6 text-[#4C6259]">限時優惠｜主方案繳 12 個月，使用 14 個月。額外模組與分店營運費另計；優惠結束後依正式原價調整。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
@@ -93,10 +87,10 @@ export default function PricingPage() {
           </details>
           <details open className="rounded-xl border border-[#153B31]/15 bg-white p-4">
             <summary className="cursor-pointer text-base font-semibold">經營型模組 <span className="ml-2 font-normal">每個 $800／月</span></summary>
-            <ul className="mt-3 space-y-3 text-base leading-7">{([{ name: "顧客經營", icon: "return" }, { name: "健康評估與體態追蹤", icon: "checklist" }, { name: "月結管理", icon: "calendar" }, { name: "分析", icon: "checklist" }] as const).map(item => <li key={item.name} className="flex items-start gap-3"><MarketingIcon kind={item.icon} /><div><span>{item.name}</span>{item.name === "分析" && <p className="text-sm leading-6 text-[#4C6259]">基本版、專業版另購 NT$800／月；展店版內含。<br />不占方案選配額度。</p>}</div></li>)}</ul>
+            <ul className="mt-3 space-y-3 text-base leading-7">{([{ name: "顧客經營", icon: "return" }, { name: "健康評估與體態追蹤", icon: "checklist" }, { name: "月結管理", icon: "calendar" }, { name: "分析", icon: "checklist" }] as const).map(item => <li key={item.name} className="flex items-start gap-3"><MarketingIcon kind={item.icon} /><div><span>{item.name}</span>{item.name === "分析" && <p className="text-sm leading-6 text-[#4C6259]"><span className="inline-block rounded-full bg-[#E9F1EB] px-2 py-0.5">獨立加購・展店版內含</span></p>}</div></li>)}</ul>
           </details>
         </div>
-        <details className="mt-4 border-t border-[#153B31]/15 py-4"><summary className="cursor-pointer font-medium">申請前須知</summary>
+        <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">申請前須知</summary>
           <dl className="mt-3 grid gap-4 text-base leading-7 sm:grid-cols-3">
             <div><dt className="font-medium">體驗怎麼開始？</dt><dd className="mt-1 text-[#4C6259]">填寫門市需求後，由專人聯繫，確認體驗內容與期限，再提供登入方式。</dd></div>
             <div><dt className="font-medium">開通前確認哪些費用？</dt><dd className="mt-1 text-[#4C6259]">確認選用項目、額外費用與優惠期間後再開通；數位管家另行確認開通，LINE 訊息等第三方費用另外確認。</dd></div>
