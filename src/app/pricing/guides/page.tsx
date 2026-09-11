@@ -43,7 +43,7 @@ const guides = [
     note: "顧客要完成預約並送出才算約好。只在 LINE 留言詢問，還不會排進預約。店長要收到通知，也需要先完成 LINE 連接與通知設定。",
     image: "/pricing/business-assets/booking-time-original.png", width: 1532, height: 1364,
     alt: "暖暖蒸足體驗預約頁的可約日期與時段", caption: "暖暖蒸足預約畫面・點圖放大",
-    caseUrl: "/pricing/cases?store=nuannuan", caseLabel: "看看暖暖蒸足怎麼用",
+    caseUrl: "/cases?store=nuannuan", caseLabel: "看看暖暖蒸足怎麼用",
   },
   {
     id: "arrival-reminder", icon: "bell" as const, category: "到店提醒", title: "到店提醒，交給蒸管家。",
@@ -55,7 +55,7 @@ const guides = [
     note: "不同預約和店內設定，卡片按鈕可能不同。下圖是改期和取消的示意，顧客要完成操作才算更改成功。提醒發出了，也不代表顧客一定會到。",
     image: "/pricing/business-assets/brand-reminder-example.jpeg", width: 1058, height: 1487,
     alt: "林小姐的蒸管家預約提醒示意卡片，包含日期時間、店名與改時段及取消前往選項", caption: "新版提醒示意・姓名與預約資料為範例・點圖放大",
-    caseUrl: "/pricing/cases?store=nuanmu", caseLabel: "看看暖沐蒸足怎麼用",
+    caseUrl: "/cases?store=nuanmu", caseLabel: "看看暖沐蒸足怎麼用",
   },
   {
     id: "plan-expiry", icon: "calendar-clock" as const, category: "方案到期", title: "方案快到期，提早提醒顧客。",
@@ -74,7 +74,7 @@ export default function StoreGuidesPage() {
     <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
       <header className="border-b border-[#153B31]/15">
         <nav aria-label="網站導覽" className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-8">
-          <Link href="/pricing/business" className="text-xl font-bold tracking-widest">蒸管家</Link>
+          <Link href="/" className="text-xl font-bold tracking-widest">蒸管家</Link>
           <Link href="/pricing" className="py-2 text-base underline underline-offset-4">方案價格</Link>
         </nav>
       </header>
@@ -165,10 +165,10 @@ export default function StoreGuidesPage() {
         <section aria-labelledby="guide-contact" className="mt-6 rounded-2xl bg-[#123E32] p-5 text-white sm:p-6">
           <h2 id="guide-contact" className="text-xl font-semibold">你最想先少忙哪件事？</h2>
           <p className="mt-2 text-base leading-7 text-[#D4E0D8]">告訴我們店裡最忙的是什麼，我們會聯繫你，安排適合的體驗。</p>
-          <a href="/pricing/apply.html?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=guides" className="mt-4 inline-flex min-h-12 items-center rounded-full bg-[#F8F5EE] px-6 py-3 text-base font-semibold text-[#153B31]">申請體驗帳號</a>
+          <a href="/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=guides" className="mt-4 inline-flex min-h-12 items-center rounded-full bg-[#F8F5EE] px-6 py-3 text-base font-semibold text-[#153B31]">申請體驗帳號</a>
         </section>
       </main>
-      <footer className="border-t border-[#153B31]/15 px-5 py-5 text-center text-sm leading-6 text-[#4C6259]">蒸管家｜每一家店，都值得擁有一位數位管家。<div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a><a href="/pricing/terms.html" className="underline underline-offset-4">服務條款</a><a href="/pricing/refunds.html" className="underline underline-offset-4">取消與退費政策</a><p className="w-full text-center">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p></div></footer>
+      <footer className="border-t border-[#153B31]/15 px-5 py-5 text-center text-sm leading-6 text-[#4C6259]">蒸管家｜每一家店，都值得擁有一位數位管家。<div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a><a href="/terms" className="underline underline-offset-4">服務條款</a><a href="/refunds" className="underline underline-offset-4">取消與退費政策</a><p className="w-full text-center">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p></div></footer>
     </div>
   );
 }
