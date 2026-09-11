@@ -1,3 +1,4 @@
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { OAuthButtons } from "./oauth-buttons";
@@ -46,6 +47,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     <main className="flex min-h-dvh flex-col items-center justify-center bg-earth-50 px-4">
       <RefCapture />
       <div className="w-full max-w-sm">
+        <div className="mb-4 flex justify-center"><SteamButlerLogo className="w-40" /></div>
         {/* Store brand + product brand */}
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-earth-900">{storeName}</h1>
