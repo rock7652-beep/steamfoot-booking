@@ -79,7 +79,7 @@ export default function PrivacyPage() {
             隱私權政策
           </h1>
           <p className="mt-3 text-sm leading-6 text-earth-500">
-            最後更新日期：2026 年 8 月 12 日
+            最後更新日期：2026 年 9 月 11 日
           </p>
         </header>
 
@@ -114,9 +114,9 @@ export default function PrivacyPage() {
               隱私權、資料查詢或刪除申請，請寄至：
               <a
                 className="ml-1 font-medium text-primary-700 underline underline-offset-4"
-                href="mailto:rock7652@gmail.com"
+                href="mailto:lubymusic1009@gmail.com"
               >
-                rock7652@gmail.com
+                lubymusic1009@gmail.com
               </a>
             </p>
             <p className="mt-2 leading-7 text-earth-700">
