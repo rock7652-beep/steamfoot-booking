@@ -107,6 +107,18 @@ export async function allocateSessions(
     throw new WalletSessionError("VALIDATION", `allocateSessions count 必須為正整數，收到 ${count}`);
   }
 
+  return reserveAvailableSessions(tx, walletId, bookingId, count, false);
+}
+
+// FEFO may fill only part of the request from one wallet. The caller must
+// reject any aggregate shortfall inside the same transaction.
+async function reserveAvailableSessions(
+  tx: Tx,
+  walletId: string,
+  bookingId: string,
+  count: number,
+  allowPartial: boolean,
+): Promise<{ allocated: number }> {
   const reservedAt = new Date();
   let allocated = 0;
   // 最多重試 count*2 次以容忍並行搶占；正常 1 次完成
@@ -127,7 +139,7 @@ export async function allocateSessions(
     allocated += result.count;
   }
 
-  if (allocated > 0 && allocated < count) {
+  if (!allowPartial && allocated > 0 && allocated < count) {
     // 部分配到 — 呼叫端 capacity check 失靈或並行嚴重；交由 transaction rollback
     throw new WalletSessionError(
       "NOT_AVAILABLE",
@@ -371,17 +383,10 @@ export async function allocateSessionsFefo(
     if (need === 0) break;
     if (w.remainingSessions <= 0) continue;
     const take = Math.min(need, w.remainingSessions);
-    const { allocated } = await allocateSessions(tx, w.id, bookingId, take);
+    const { allocated } = await reserveAvailableSessions(tx, w.id, bookingId, take, true);
     if (allocated === 0) {
       // legacy wallet 無 ledger → 跨 wallet 分配下無法 fallback；略過往下一張
       continue;
-    }
-    if (allocated < take) {
-      // 不該發生（precheck 已過）；保險丟錯 → rollback
-      throw new WalletSessionError(
-        "NOT_AVAILABLE",
-        `wallet ${w.id} 預期配 ${take} 堂只配到 ${allocated}`,
-      );
     }
     allocations.push({ walletId: w.id, count: allocated });
     if (primaryWalletId === null) primaryWalletId = w.id;
