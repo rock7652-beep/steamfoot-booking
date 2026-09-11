@@ -95,7 +95,7 @@ export const MANAGEABLE_STORE_FEATURES: StoreFeatureCatalogItem[] = [
     key: FEATURES.BASIC_REPORTS,
     label: "分析",
     module: "分析",
-    description: "基本版、專業版加購 NT$800／月；展店版內含。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
+    description: "基本版加購 NT$800／月；專業版可使用經營型模組名額選用，超出名額才加購；展店版內含。保留門市獨立開關。查看來客、營收、轉換、回店與趨勢；關閉保留歷史資料。",
   },
   {
     key: FEATURES.AI_HEALTH_SUMMARY,
