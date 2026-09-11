@@ -475,22 +475,22 @@ function TimelineItem({
           </StatusBadge>
           {booking.customerConfirmedAt ? (
             <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-sm font-medium text-sky-800">
-              已確認會到
+              顧客已確認會到
             </span>
           ) : null}
           {booking.recurrenceIndex && booking.recurrenceTotalOccurrences ? (
             <span className="shrink-0 rounded bg-violet-100 px-1.5 py-0.5 text-sm font-medium text-violet-800">
-              每週 {booking.recurrenceIndex}/{booking.recurrenceTotalOccurrences} 次
+              每週固定・第 {booking.recurrenceIndex}/{booking.recurrenceTotalOccurrences} 次
             </span>
           ) : null}
           {booking.bookingType === "FIRST_TRIAL" ? (
             booking.collected ? (
               <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-sm font-medium text-emerald-800">
-                首次體驗·已收款 NT${trialAmountText}
+                服務：首次體驗·已收款 NT${trialAmountText}
               </span>
             ) : (
               <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800">
-                首次體驗·未收款 NT${trialAmountText}
+                服務：首次體驗·未收款 NT${trialAmountText}
               </span>
             )
           ) : null}
