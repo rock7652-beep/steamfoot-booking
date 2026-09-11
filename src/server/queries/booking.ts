@@ -153,6 +153,7 @@ export async function getBookingDetailForUser(
           name: true,
           phone: true,
           assignedStaffId: true,
+          notes: true,
           serviceNote: true, // 內部服務備註（後台限定）— 預約詳情顧客資訊顯示
         },
       },
@@ -491,6 +492,7 @@ async function computeMonthBookingSummary(
             id: true,
             name: true,
             phone: true,
+            notes: true,
             serviceNote: true, // 內部服務備註（後台限定）— 當日清單提醒 + 預約詳情顯示
             assignedStaff: {
               select: { id: true, displayName: true, colorCode: true },
@@ -633,6 +635,7 @@ async function computeMonthBookingSummary(
       id: string;
       name: string;
       phone: string;
+      notes?: string | null;
       serviceNote: string | null;
       assignedStaff: {
         id: string;
@@ -709,6 +712,7 @@ async function computeMonthBookingSummary(
         id: b.customer.id,
         name: b.customer.name,
         phone: b.customer.phone,
+        notes: b.customer.notes,
         serviceNote: b.customer.serviceNote,
         assignedStaff: b.customer.assignedStaff
           ? {

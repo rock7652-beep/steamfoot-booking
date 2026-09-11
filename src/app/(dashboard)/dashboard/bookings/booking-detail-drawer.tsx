@@ -87,6 +87,7 @@ export interface BookingPrefill {
   customerName: string;
   customerPhone: string;
   /** 內部服務備註（後台限定）— prefill 即可即時顯示。 */
+  customerNotes?: string | null;
   serviceNote: string | null;
   revenueStaff: { displayName: string; colorCode: string } | null;
   serviceStaffName: string | null;
@@ -920,6 +921,12 @@ function DrawerContent({
               )
             }
           />
+          {booking.customer.notes?.trim() ? (
+            <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3">
+              <p className="mb-1 text-sm font-medium text-earth-600">服務注意事項與備註</p>
+              <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{booking.customer.notes}</p>
+            </div>
+          ) : null}
           {booking.customer.serviceNote ? (
             spaMode ? (
               <KV label="服務備註" value={<span className="whitespace-pre-wrap text-amber-800">{booking.customer.serviceNote}</span>} />
@@ -1349,6 +1356,9 @@ function PrefillDrawerContent({
               )
             }
           />
+          {prefill.customerNotes?.trim() ? (
+            <KV label="服務注意事項與備註" value={<span className="whitespace-pre-wrap break-words text-amber-800">{prefill.customerNotes}</span>} />
+          ) : null}
           {prefill.serviceNote ? (
             <KV
               label="服務備註"

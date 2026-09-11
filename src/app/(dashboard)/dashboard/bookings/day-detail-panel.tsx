@@ -41,6 +41,7 @@ export interface DayBooking {
     name: string;
     phone: string;
     /** 內部服務備註（後台限定）。有值時當日清單顯示一行截斷提醒。 */
+    notes?: string | null;
     serviceNote?: string | null;
     assignedStaff?: { displayName: string; colorCode: string } | null;
     /** 有效 PACKAGE 剩餘堂數加總（ACTIVE + 未過期 + 尚有剩餘；排除 TRIAL/SINGLE/點數/用完）。
@@ -528,6 +529,14 @@ function TimelineItem({
             <span className="min-w-0 truncate" title={planLabel}>{planLabel}</span>
             {expiry && <span className={`shrink-0 whitespace-nowrap ${expiry.className}`}>· {expiry.compact}</span>}
           </span>
+        ) : null}
+        {booking.customer?.notes?.trim() ? (
+          <div className="flex items-center gap-1 text-sm text-amber-700">
+            <span aria-hidden>📝</span>
+            <span className="min-w-0 flex-1 truncate" title={booking.customer.notes}>
+              {booking.customer.notes}
+            </span>
+          </div>
         ) : null}
         {/* 內部服務備註提醒（後台限定）— 有值才顯示一行截斷，沒值不佔空間 */}
         {booking.customer?.serviceNote ? (
