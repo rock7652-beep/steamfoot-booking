@@ -1,4 +1,11 @@
 "use client";
+import {
+  SPA_PAYMENT_LABELS,
+  SPA_EXTERNAL_PAYMENT_METHODS,
+  SPA_COLLECTION_HINTS,
+  isSpaExternalPayment,
+  type SpaExternalPaymentMethod,
+} from "@/lib/spa-payment-methods";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SpaCustomerList } from "./spa-customer-list";
@@ -23,12 +30,7 @@ type Account = Extract<
   { success: true }
 >;
 const money = (n: number) => `NT$${n.toLocaleString()}`;
-const methodName: Record<string, string> = {
-  CASH: "現金",
-  CARD: "刷卡",
-  STORED_VALUE: "儲值",
-  ENTITLEMENT: "方案扣次",
-};
+const methodName = SPA_PAYMENT_LABELS;
 const date = (s: string) =>
   new Intl.DateTimeFormat("zh-TW", {
     timeZone: "Asia/Taipei",
@@ -165,10 +167,11 @@ function AccountPanel({
     [notice, setNotice] = useState("");
   const [revision, setRevision] = useState(0),
     [pending, start] = useTransition();
+  const [transferLast4, setTransferLast4] = useState("");
   const [mode, setMode] = useState<"PACKAGE" | "TOPUP" | null>(null),
     [packageId, setPackageId] = useState(""),
     [amount, setAmount] = useState(""),
-    [method, setMethod] = useState<"CASH" | "CARD">("CASH"),
+    [method, setMethod] = useState<SpaExternalPaymentMethod>("CASH"),
     [confirmed, setConfirmed] = useState(false),
     [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [refund, setRefund] = useState<{
@@ -398,6 +401,9 @@ function AccountPanel({
                                   ? (pack?.price ?? -1)
                                   : Number(amount),
                               paymentMethod: method,
+                              ...(method === "TRANSFER"
+                                ? { transferLast4 }
+                                : {}),
                               requestKey,
                               ...(mode === "PACKAGE"
                                 ? {
@@ -483,13 +489,14 @@ function AccountPanel({
                         <fieldset className="space-y-2">
                           <legend>收款方式</legend>
                           <div className="grid grid-cols-2 gap-3">
-                            {(["CASH", "CARD"] as const).map((value) => (
+                            {SPA_EXTERNAL_PAYMENT_METHODS.map((value) => (
                               <button
                                 key={value}
                                 type="button"
                                 aria-pressed={method === value}
                                 onClick={() => {
                                   setMethod(value);
+                                  setTransferLast4("");
                                   setConfirmed(false);
                                 }}
                                 className={`rounded-lg border p-3 ${method === value ? "border-earth-800 bg-earth-800 text-white" : "bg-white"}`}
@@ -499,9 +506,31 @@ function AccountPanel({
                             ))}
                           </div>
                         </fieldset>
-                        {method === "CARD" && (
-                          <p className="text-sm">請先在店內刷卡機完成收款。</p>
+                        {method === "TRANSFER" && (
+                          <label className="block">
+                            轉出帳號後四碼
+                            <input
+                              required
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]{4}"
+                              minLength={4}
+                              maxLength={4}
+                              value={transferLast4}
+                              onChange={(e) => {
+                                setTransferLast4(
+                                  e.target.value.replace(/[^0-9]/g, ""),
+                                );
+                                setConfirmed(false);
+                              }}
+                              placeholder="例如 0123"
+                              className="mt-1 w-full rounded-lg border p-3"
+                            />
+                          </label>
                         )}
+                        <p className="text-sm text-earth-500">
+                          {SPA_COLLECTION_HINTS[method]}
+                        </p>
                         <label className="flex gap-2">
                           <input
                             type="checkbox"
@@ -560,8 +589,8 @@ function AccountPanel({
                         全額退款 · {refund.label}
                       </legend>
                       <p>
-                        {refund.method === "CASH" || refund.method === "CARD"
-                          ? "請確認已透過原付款方式退回款項；刷卡退款需先在刷卡機操作。"
+                        {isSpaExternalPayment(refund.method)
+                          ? "請先透過原付款方式退回款項（現金、刷卡機、銀行或支付平台），再記錄退款；此操作不會自動退款至外部帳戶。"
                           : "將退回原儲值帳戶或原方案堂數，保留原有效期限。"}
                       </p>
                       <label className="block">
@@ -665,6 +694,8 @@ function AccountPanel({
                           </summary>
                           <p className="mt-2 text-xs text-earth-500">
                             {date(r.createdAt)}
+                            {r.transferLast4 &&
+                              ` · 轉帳後四碼 ${r.transferLast4}`}
                           </p>
                           {canRefund &&
                             !r.refunded &&
@@ -737,10 +768,13 @@ function AccountPanel({
                     {account.refunds.map((r) => (
                       <p key={r.id} className="border-b py-2 text-sm">
                         {date(r.createdAt)} ·{" "}
+                        {methodName[r.paymentMethod] ?? r.paymentMethod} ·{" "}
                         {r.paymentMethod === "ENTITLEMENT"
                           ? `${r.uses} 次`
                           : money(r.amount)}{" "}
                         · {r.reason}
+                        {r.transferLast4 &&
+                          ` · 原轉帳後四碼 ${r.transferLast4}`}
                       </p>
                     ))}
                   </section>

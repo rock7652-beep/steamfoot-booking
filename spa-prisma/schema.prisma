@@ -207,6 +207,7 @@ model SpaReceipt {
   amount Decimal @db.Decimal(10, 0)
   currency String @default("TWD")
   paymentMethod String
+  transferLast4 String? @db.VarChar(4)
   sourceId String?
   balanceAfter Decimal? @db.Decimal(10, 0)
   uses Int?
@@ -242,6 +243,7 @@ model SpaCreditSale {
   name String
   amount Decimal @db.Decimal(10,0)
   paymentMethod String
+  transferLast4 String? @db.VarChar(4)
   sourceId String
   recordedByUserId String
   createdAt DateTime @default(now())
@@ -258,6 +260,7 @@ model SpaRefund {
   receiptId String?
   amount Decimal @db.Decimal(10,0)
   paymentMethod String
+  transferLast4 String? @db.VarChar(4)
   uses Int?
   reason String
   recordedByUserId String

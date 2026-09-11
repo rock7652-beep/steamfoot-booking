@@ -1372,13 +1372,13 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaStore
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaStoredValueEntry"'::regclass AND conname='SpaStoredValueEntry_release_balance') THEN ALTER TABLE "SpaStoredValueEntry" ADD CONSTRAINT "SpaStoredValueEntry_release_balance" CHECK ("balanceAfter">=0); END IF; END $$;
 
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaReceipt"'::regclass AND conname='SpaReceipt_release_values') THEN ALTER TABLE "SpaReceipt" ADD CONSTRAINT "SpaReceipt_release_values" CHECK (amount>=0 AND currency='TWD' AND (("paymentMethod" IN ('CASH','CARD') AND "sourceId" IS NULL AND "balanceAfter" IS NULL AND uses IS NULL) OR ("paymentMethod"='STORED_VALUE' AND "sourceId" IS NOT NULL AND "balanceAfter">=0 AND "balanceAfter" IS NOT NULL AND uses IS NULL) OR ("paymentMethod"='ENTITLEMENT' AND "sourceId" IS NOT NULL AND "balanceAfter">=0 AND "balanceAfter" IS NOT NULL AND uses>0 AND uses IS NOT NULL))); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaReceipt"'::regclass AND conname='SpaReceipt_release_values') THEN ALTER TABLE "SpaReceipt" ADD CONSTRAINT "SpaReceipt_release_values" CHECK (amount>=0 AND currency='TWD' AND (("paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT') AND "sourceId" IS NULL AND "balanceAfter" IS NULL AND uses IS NULL) OR ("paymentMethod"='STORED_VALUE' AND "sourceId" IS NOT NULL AND "balanceAfter">=0 AND "balanceAfter" IS NOT NULL AND uses IS NULL) OR ("paymentMethod"='ENTITLEMENT' AND "sourceId" IS NOT NULL AND "balanceAfter">=0 AND "balanceAfter" IS NOT NULL AND uses>0 AND uses IS NOT NULL))); END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaPackage"'::regclass AND conname='SpaPackage_release_values') THEN ALTER TABLE "SpaPackage" ADD CONSTRAINT "SpaPackage_release_values" CHECK (price>=0 AND uses>0 AND "validityDays">0); END IF; END $$;
 
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaCreditSale"'::regclass AND conname='SpaCreditSale_release_values') THEN ALTER TABLE "SpaCreditSale" ADD CONSTRAINT "SpaCreditSale_release_values" CHECK (amount>=0 AND kind IN ('PACKAGE','TOPUP') AND "paymentMethod" IN ('CASH','CARD')); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaCreditSale"'::regclass AND conname='SpaCreditSale_release_values') THEN ALTER TABLE "SpaCreditSale" ADD CONSTRAINT "SpaCreditSale_release_values" CHECK (amount>=0 AND kind IN ('PACKAGE','TOPUP') AND "paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT')); END IF; END $$;
 
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaRefund"'::regclass AND conname='SpaRefund_release_values') THEN ALTER TABLE "SpaRefund" ADD CONSTRAINT "SpaRefund_release_values" CHECK (amount>=0 AND (uses IS NULL OR uses>0) AND length(trim(reason))>0 AND (("saleId" IS NULL) <> ("receiptId" IS NULL)) AND "paymentMethod" IN ('CASH','CARD','STORED_VALUE','ENTITLEMENT')); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaRefund"'::regclass AND conname='SpaRefund_release_values') THEN ALTER TABLE "SpaRefund" ADD CONSTRAINT "SpaRefund_release_values" CHECK (amount>=0 AND (uses IS NULL OR uses>0) AND length(trim(reason))>0 AND (("saleId" IS NULL) <> ("receiptId" IS NULL)) AND "paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT','STORED_VALUE','ENTITLEMENT')); END IF; END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "SpaReceipt_id_storeId_key" ON "SpaReceipt"(id,"storeId");
 
@@ -1508,3 +1508,26 @@ REVOKE ALL ON "SpaStaffCompensation" FROM PUBLIC, anon, authenticated;
 INSERT INTO "StoreModuleInstallation" (id,"storeId",module,status,"provisionedAt","updatedAt")
 SELECT 'store-module-'||id,id,"industryModule",CASE WHEN "industryModule"='STEAMFOOT' THEN 'ACTIVE' ELSE 'PROVISIONING' END::"StoreModuleInstallationStatus",CASE WHEN "industryModule"='STEAMFOOT' THEN CURRENT_TIMESTAMP ELSE NULL END,CURRENT_TIMESTAMP FROM "Store"
 ON CONFLICT ("storeId") DO NOTHING;
+
+-- Expanded external collection and transfer references.
+ALTER TABLE "SpaReceipt" ADD COLUMN IF NOT EXISTS "transferLast4" VARCHAR(4) CHECK ("transferLast4" IS NULL OR ("paymentMethod" = 'TRANSFER' AND "transferLast4" ~ '^[0-9]{4}$'));
+ALTER TABLE "SpaCreditSale" ADD COLUMN IF NOT EXISTS "transferLast4" VARCHAR(4) CHECK ("transferLast4" IS NULL OR ("paymentMethod" = 'TRANSFER' AND "transferLast4" ~ '^[0-9]{4}$'));
+ALTER TABLE "SpaRefund" ADD COLUMN IF NOT EXISTS "transferLast4" VARCHAR(4) CHECK ("transferLast4" IS NULL OR ("paymentMethod" = 'TRANSFER' AND "transferLast4" ~ '^[0-9]{4}$'));
+
+ALTER TABLE "SpaReceipt" DROP CONSTRAINT IF EXISTS "SpaReceipt_paymentMethod_check";
+ALTER TABLE "SpaReceipt" ADD CONSTRAINT "SpaReceipt_paymentMethod_check" CHECK ("paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT','STORED_VALUE','ENTITLEMENT'));
+ALTER TABLE "SpaCreditSale" DROP CONSTRAINT IF EXISTS "SpaCreditSale_paymentMethod_check";
+ALTER TABLE "SpaCreditSale" ADD CONSTRAINT "SpaCreditSale_paymentMethod_check" CHECK ("paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT'));
+ALTER TABLE "SpaRefund" DROP CONSTRAINT IF EXISTS "SpaRefund_paymentMethod_check";
+ALTER TABLE "SpaRefund" ADD CONSTRAINT "SpaRefund_paymentMethod_check" CHECK ("paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT','STORED_VALUE','ENTITLEMENT'));
+ALTER TABLE "SpaReceipt" DROP CONSTRAINT IF EXISTS "SpaReceipt_credit_check";
+ALTER TABLE "SpaReceipt" ADD CONSTRAINT "SpaReceipt_credit_check" CHECK (
+ ("paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT') AND "sourceId" IS NULL AND "balanceAfter" IS NULL AND uses IS NULL)
+ OR ("paymentMethod"='STORED_VALUE' AND "sourceId" IS NOT NULL AND "balanceAfter" IS NOT NULL AND "balanceAfter">=0 AND uses IS NULL)
+ OR ("paymentMethod"='ENTITLEMENT' AND "sourceId" IS NOT NULL AND "balanceAfter" IS NOT NULL AND "balanceAfter">=0 AND uses IS NOT NULL AND uses>0));
+ALTER TABLE "SpaReceipt" DROP CONSTRAINT IF EXISTS "SpaReceipt_release_values";
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaReceipt"'::regclass AND conname='SpaReceipt_release_values') THEN ALTER TABLE "SpaReceipt" ADD CONSTRAINT "SpaReceipt_release_values" CHECK (amount>=0 AND currency='TWD' AND (("paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT') AND "sourceId" IS NULL AND "balanceAfter" IS NULL AND uses IS NULL) OR ("paymentMethod"='STORED_VALUE' AND "sourceId" IS NOT NULL AND "balanceAfter">=0 AND "balanceAfter" IS NOT NULL AND uses IS NULL) OR ("paymentMethod"='ENTITLEMENT' AND "sourceId" IS NOT NULL AND "balanceAfter">=0 AND "balanceAfter" IS NOT NULL AND uses>0 AND uses IS NOT NULL))); END IF; END $$;
+ALTER TABLE "SpaCreditSale" DROP CONSTRAINT IF EXISTS "SpaCreditSale_release_values";
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaCreditSale"'::regclass AND conname='SpaCreditSale_release_values') THEN ALTER TABLE "SpaCreditSale" ADD CONSTRAINT "SpaCreditSale_release_values" CHECK (amount>=0 AND kind IN ('PACKAGE','TOPUP') AND "paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT')); END IF; END $$;
+ALTER TABLE "SpaRefund" DROP CONSTRAINT IF EXISTS "SpaRefund_release_values";
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='"SpaRefund"'::regclass AND conname='SpaRefund_release_values') THEN ALTER TABLE "SpaRefund" ADD CONSTRAINT "SpaRefund_release_values" CHECK (amount>=0 AND (uses IS NULL OR uses>0) AND length(trim(reason))>0 AND (("saleId" IS NULL) <> ("receiptId" IS NULL)) AND "paymentMethod" IN ('CASH','CARD','TRANSFER','DIGITAL_PAYMENT','STORED_VALUE','ENTITLEMENT')); END IF; END $$;

@@ -40,3 +40,21 @@ Preview only. PR remains unmerged; Production untouched.
 - SPA new-customer form uses “負責人員”; other modules retain their existing label.
 - TypeScript, changed-file ESLint and the same 25 targeted tests passed. No schema or financial server-action changes.
 - Browser setup succeeded, but tab discovery/navigation repeatedly timed out. Interactive iPad acceptance and screenshots remain unverified for this refinement.
+
+## Payment methods and screenshot review — 2026-09-11
+
+- Added TRANSFER and DIGITAL_PAYMENT to SPA purchase, top-up, individual and group checkout. These record externally confirmed collection, without initiating bank or payment-provider transactions.
+- Transfer requires a four-digit sender-account reference. Leading zeroes are preserved; changing payment method clears the reference. Receipts, sales and refund history retain the original reference; retries cannot silently change it.
+- Reviewed IMG_1448–IMG_1455. Adjusted the SPA customer editor so birthday controls have a full column and personal details use the previously underused right column. Save/cancel returns to the same store's customer search. Checkout content scrolls with the expanded payment options.
+- Targeted verification: four files, 61 tests passed. Changed-file ESLint, TypeScript and Next production build passed (build run directly, without the migration script). Existing Prisma tracing warnings remain. Runtime browser acceptance is not complete.
+- Test project independently verified through Supabase project metadata: steamfoot-preview / ttworfzgwejdeolegkxl / db.ttworfzgwejdeolegkxl.supabase.co. Production ref qijlnhtpbintanzpxkvf is excluded.
+- Three nullable transferLast4 columns were added on the test DB. A rollback-only check exposed existing payment-method constraints that reject TRANSFER.
+- Prepared scripts/sql/spa-transfer-last-four.sql and updated the release reconciliation path. The script replaces SPA payment allowlists while retaining monetary/credit/refund validation in one transaction; it does not delete rows or modify legacy tables.
+- Automatic approval review rejected applying those constraint replacements, including after test-project identity verification, requiring explicit authorization for this persistent schema adjustment. No alternate execution path was attempted. Payment changes remain local and have not been pushed or deployed.
+
+### Authorized test DB rollout
+
+- User explicitly authorized the test DB payment-constraint update and Preview rollout. Supabase project metadata again confirmed steamfoot-preview / ttworfzgwejdeolegkxl.
+- Applied the prepared SPA-only constraint reconciliation successfully. No legacy tables, Production, or existing financial rows changed.
+- Rollback-only verification cloned all current checks for SpaReceipt, SpaCreditSale and SpaRefund into temporary tables. TRANSFER with reference 0123 and DIGITAL_PAYMENT succeeded; malformed references and unknown payment methods failed as expected. All verification fixtures were rolled back.
+- The previous approval blocker is resolved. This commit is for PR #970 Preview only; interactive browser acceptance remains separate from the passing code/build/database checks.
