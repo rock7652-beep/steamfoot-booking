@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { MarketingBrand } from "./marketing-brand";
 
 export const marketingLinks = [
@@ -12,13 +12,29 @@ export const marketingLinks = [
   { id: "contact", href: "#contact", label: "聯繫我們" },
 ] as const;
 
+function subscribeToHash(onChange: () => void) {
+  window.addEventListener("hashchange", onChange);
+  window.addEventListener("popstate", onChange);
+  return () => {
+    window.removeEventListener("hashchange", onChange);
+    window.removeEventListener("popstate", onChange);
+  };
+}
+const getHash = () => window.location.hash;
+const getServerHash = () => "";
+
 export function MarketingNavigation({ active }: { active?: string }) {
   const [open, setOpen] = useState(false);
+  const hash = useSyncExternalStore(subscribeToHash, getHash, getServerHash);
+  const selected = hash === "#contact" ? "contact" : active;
   const toggle = useRef<HTMLButtonElement>(null);
-  const links = marketingLinks.map(item => <Link key={item.id} href={item.href}
-    aria-current={active === item.id ? "page" : undefined}
+  const links = marketingLinks.map(item => {
+    const NavigationLink = item.id === "contact" ? "a" : Link;
+    return <NavigationLink key={item.id} href={item.href}
+    aria-current={selected === item.id ? (item.id === "contact" ? "location" : "page") : undefined}
     onClick={() => setOpen(false)}
-    className={"flex min-h-12 items-center rounded-lg px-4 text-base transition-colors hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2 " + (active === item.id ? "bg-[#E9F1EB] font-semibold text-[#123E32]" : "text-[#4C6259]")}>{item.label}</Link>);
+    className={"flex min-h-12 items-center rounded-lg px-4 text-base transition-colors hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2 " + (selected === item.id ? "bg-[#E9F1EB] font-semibold text-[#123E32]" : "text-[#4C6259]")}>{item.label}</NavigationLink>;
+  });
   return <header className="sticky top-0 z-40 border-b border-[#153B31]/15 bg-[#F8F5EE] text-[#153B31]"
     onKeyDown={event => { if (event.key === "Escape" && open) { setOpen(false); toggle.current?.focus(); } }}
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
