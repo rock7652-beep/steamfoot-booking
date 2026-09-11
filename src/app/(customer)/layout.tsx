@@ -272,7 +272,7 @@ export default async function CustomerLayout({
           {/* Brand */}
           <div className="px-4 pb-3 pt-5">
             <Link href={`${prefix}/book`} aria-label="蒸管家會員首頁" className="text-base font-bold tracking-tight text-earth-900">
-              <SteamButlerLogo className="w-36" />
+              <SteamButlerLogo compact />
             </Link>
             <p className="mt-1 text-sm text-earth-700 truncate">{user.name}</p>
             <div className="mt-3">
@@ -331,7 +331,6 @@ export default async function CustomerLayout({
         </main>
       </div>
 
-      <div className="flex justify-center py-2 lg:hidden"><SteamButlerLogo className="w-28" /></div>
       <BuildFooter />
     </div>
   );
