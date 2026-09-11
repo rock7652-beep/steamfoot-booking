@@ -3,7 +3,8 @@
  *
  * This does not assume Customer.lineUserId must equal the LINE Login subject:
  * Customer.lineUserId is the Messaging API recipient and may legitimately differ.
- * A row is only "eligible" when an active-plan customer has one internally
+ * All unmerged members are scanned, including expired/exhausted plans.
+ * A row is only "eligible" when a customer has one internally
  * consistent legacy LINE Login account/link that can later be compared with a
  * freshly verified current-LIFF subject.
  */
@@ -11,6 +12,7 @@ import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { PrismaClient } from "@prisma/client";
 import { normalizePhone } from "../src/lib/normalize";
+import { toLocalDateStr } from "../src/lib/date-utils";
 
 const prisma = new PrismaClient();
 const reportPath = process.env.LIFF_MIGRATION_AUDIT_REPORT_PATH ?? "liff-migration-audit.json";
@@ -20,18 +22,12 @@ const sha256 = (value: string) => createHash("sha256").update(value, "utf8").dig
 
 async function main() {
   const now = new Date();
+  const today = toLocalDateStr();
   const [stores, customers, links, accounts, rebindRequests] = await Promise.all([
     prisma.store.findMany({ select: { id: true, name: true, slug: true } }),
     prisma.customer.findMany({
       where: {
         mergedIntoCustomerId: null,
-        planWallets: {
-          some: {
-            status: "ACTIVE",
-            remainingSessions: { gt: 0 },
-            OR: [{ expiryDate: null }, { expiryDate: { gte: now } }],
-          },
-        },
       },
       select: {
         id: true,
@@ -41,6 +37,12 @@ async function main() {
         userId: true,
         lineUserId: true,
         user: { select: { id: true, status: true } },
+        planWallets: { select: { status: true, remainingSessions: true, expiryDate: true } },
+        bookings: {
+          where: { bookedByType: "CUSTOMER" },
+          orderBy: { createdAt: "desc" }, take: 1,
+          select: { createdAt: true },
+        },
       },
     }),
     prisma.customerIdentityLink.findMany({
@@ -52,6 +54,8 @@ async function main() {
         userId: true,
         providerAccountId: true,
         lineUserId: true,
+        createdAt: true,
+        updatedAt: true,
       },
     }),
     prisma.account.findMany({
@@ -97,9 +101,9 @@ async function main() {
     }
 
     const customerLinks = links.filter((link) =>
-      link.storeId === customer.storeId && link.customerId === customer.id && link.userId === customer.userId
+      link.storeId === customer.storeId && link.customerId === customer.id
     );
-    if (customerLinks.length !== 1 || customerLinks[0].lineUserId !== customerLinks[0].providerAccountId) {
+    if (customerLinks.length !== 1 || customerLinks[0].userId !== customer.userId || customerLinks[0].lineUserId !== customerLinks[0].providerAccountId) {
       addExcluded(customer, "LEGACY_LOGIN_LINK_NOT_EXACT"); continue;
     }
     const oldLoginId = customerLinks[0].providerAccountId;
@@ -131,6 +135,11 @@ async function main() {
       phoneHash: sha256(phone),
       oldLoginUserIdHash: sha256(oldLoginId),
       messagingUserIdHash: customer.lineUserId ? sha256(customer.lineUserId) : null,
+      identityRecordedAt: customerLinks[0].createdAt.toISOString(),
+      identityUpdatedAt: customerLinks[0].updatedAt.toISOString(),
+      lastSelfBookingAt: customer.bookings[0]?.createdAt.toISOString() ?? null,
+      hasMigrationHistory: existingRequest !== undefined,
+      identityMismatchConfirmed: false,
       existingAuthorizedRequestId: activeRequest?.id ?? null,
       existingAuthorizedRequestExpiresAt: activeRequest?.expiresAt.toISOString() ?? null,
       reusableHistoricalRequestId: existingRequest && !activeRequest ? existingRequest.id : null,
@@ -152,14 +161,19 @@ async function main() {
     eligible.filter((row) => row.storeId === store.id).length,
   ]).filter(([, count]) => Number(count) > 0));
   const summary = {
-    activePlanCustomersAudited: customers.length,
+    allUnmergedCustomersAudited: customers.length,
+    activePlanCustomersAudited: customers.filter((customer) => customer.planWallets.some((wallet) =>
+      wallet.status === "ACTIVE" && wallet.remainingSessions > 0 &&
+      (!wallet.expiryDate || wallet.expiryDate.toISOString().slice(0, 10) >= today)
+    )).length,
+    consistentIdentityCandidates: eligible.length,
     safelyPreauthorizable: eligible.length,
     excludedForManualReview: excluded.length,
     alreadyPreauthorized: eligible.filter((row) => row.existingAuthorizedRequestId).length,
     byStore,
     exclusionReasons: Object.fromEntries([...reasonCounts.entries()].sort()),
     candidateFingerprint,
-    note: "Eligibility is not proof of a LIFF mismatch; migration occurs only after a fresh current-LIFF subject differs and passes transaction-time conflict checks.",
+    note: "All unmerged members are audited regardless of plan status. Missing migration history and provider=line are not proof of an obsolete identity or login failure. Identity dates and self-booking history are context only. No authorization or identity is changed by this audit. The preparation script has a separate scope and must not consume this report automatically; a fresh current-LIFF subject and transaction-time conflict checks are still required.",
   };
   await writeFile(reportPath, JSON.stringify({ generatedAt: now.toISOString(), summary, eligible, excluded }, null, 2));
   console.log(JSON.stringify(summary));
