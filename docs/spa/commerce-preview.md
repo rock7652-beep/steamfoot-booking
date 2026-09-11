@@ -39,3 +39,12 @@ Not passed: cancellation/rebooking final browser flow (native confirmation block
 - Inline cancellation now isolates its two choices from checkout/edit/navigation while confirmation is active.
 - Tablet layout changes: toolbar wraps, one-provider grid no longer forces 680px minimum, schedule scroll is contained, sheet body can shrink/scroll, footer does not shrink and includes bottom safe-area padding, primary controls have 44px minimum height.
 - TypeScript and targeted lint passed. Browser refresh-tabs still times out from the prior native confirm. These layout and inline-confirm changes remain visually unverified; database/action coverage must not be represented as iPad/browser acceptance.
+
+## Final fix recheck — 2026-09-11
+
+Preview deployment `dpl_5xEU4HUd2USqazDziiyvmgXGKsGb` was READY and its Git metadata resolved to commit `0dbb7d91ce9a18a8c07dc0b160b07f8f76510eff` on `codex/hq-module-foundation`.
+
+- Scoped schedule navigation passed in the authenticated SPA test store. The retained cancellation fixture was changed from 15:00 to 16:00 through the right-side edit flow; the UI displayed `預約已更新` and remained at `/s/spa-module-qa-20260903/admin/dashboard/spa-schedule` rather than falling back to HQ or an unscoped dashboard route.
+- The same fixture was restored to 15:00 after the route check. A full browser reload showed exactly one 15:00–16:00 confirmed booking and no 16:00–17:00 confirmed booking, so this recheck left the fixture at its original time.
+- The customer account panel passed at a 768×1024 viewport. Its dedicated scroll container reported `clientHeight=1024`, `scrollHeight=1230`, and reached `scrollTop=206` (the maximum). At the bottom, `儲值明細` and `退款紀錄` were reachable; opening `退款紀錄` displayed the historical refund rows, proving the lower controls remain operable after scrolling.
+- Browser screenshots were captured for the bottom-of-account-panel state and the scoped schedule state during this run. No Production deployment, legacy table mutation, real notification, or real payment action was performed.
