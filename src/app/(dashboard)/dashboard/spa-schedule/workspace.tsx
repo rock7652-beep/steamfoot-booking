@@ -31,6 +31,7 @@ export function SpaScheduleWorkspace(props: Props) {
   const [editing, setEditing] = useState<SpaScheduleBooking | null>(null);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
+  const [confirmCancel,setConfirmCancel]=useState(false);
   const [notice, setNotice] = useState("");
   const [pending, startTransition] = useTransition();
   useEffect(() => {
@@ -64,12 +65,12 @@ export function SpaScheduleWorkspace(props: Props) {
   const effectiveLocation = allowed.some(l=>l.id===draft?.serviceLocationId)?draft?.serviceLocationId : (allowed.length === 1 ? allowed[0].id : "");
   const openNew = (time = "10:00", staffId = staff[0]?.id ?? "") => {
     if (!canCreate) return;
-    setCompanions([]);setGroupKey(crypto.randomUUID());setEditing(null); setStep(0); setError("");
+    setConfirmCancel(false);setCompanions([]);setGroupKey(crypto.randomUUID());setEditing(null); setStep(0); setError("");
     setDraft({ customerId: "", serviceStaffId: staffId, treatmentIds: [], bookingDate: date,
       startTime: time, requestKey: crypto.randomUUID(), notes: "" });
   };
   const openEdit = (booking: SpaScheduleBooking) => {
-    setCompanions([]);setEditing(booking); setStep(0); setError("");
+    setConfirmCancel(false);setCompanions([]);setEditing(booking); setStep(0); setError("");
     setDraft({ customerId: booking.customerId, serviceStaffId: booking.serviceStaffId,
       serviceLocationId: booking.serviceLocationId ?? undefined, treatmentIds: booking.treatmentIds,
       bookingDate: date, startTime: booking.startTime, requestKey: crypto.randomUUID(), notes: booking.notes });
@@ -158,11 +159,11 @@ export function SpaScheduleWorkspace(props: Props) {
       </div>
       <footer className="flex flex-wrap items-center gap-2 border-t p-5">
         {editing&&editable&&canCheckout&&<button disabled={pending} className="rounded-lg bg-teal-800 px-3 py-2 text-white" onClick={()=>{setCheckout(editing);setDraft(null);}}>完成並結帳</button>}
-        {editing && editable && <button disabled={pending} onClick={() => { if (window.confirm("確認取消這筆預約？取消後將釋放人員與服務位置時段。")) submit(true); }} className="mr-auto rounded-lg border border-red-200 px-3 py-2 text-red-700">取消預約</button>}
+        {editing && editable && (confirmCancel ? <div className="w-full rounded-lg border border-red-200 p-3" role="group" aria-label="取消預約確認"><p className="mb-2 text-sm">確認取消這筆預約？取消後將釋放人員與服務位置時段。</p><button disabled={pending} onClick={()=>submit(true)} className="mr-2 rounded-lg bg-red-700 px-3 py-2 text-white">確認取消預約</button><button disabled={pending} onClick={()=>setConfirmCancel(false)} className="rounded-lg border px-3 py-2">保留預約</button></div> : <button disabled={pending} onClick={() => setConfirmCancel(true)} className="mr-auto rounded-lg border border-red-200 px-3 py-2 text-red-700">取消預約</button>)}
         {!editing&&step===3&&companions.length<2&&<button disabled={pending||!draft.customerId||!draft.treatmentIds.length||!effectiveLocation||!availableProviders.some(p=>p.id===draft.serviceStaffId)} className="rounded-lg border px-3 py-2" onClick={()=>{setCompanions(prev=>[...prev,{...draft,serviceLocationId:effectiveLocation}]);setDraft({...draft,treatmentIds:[],serviceStaffId:"",serviceLocationId:undefined,requestKey:crypto.randomUUID(),notes:""});setStep(0);setError("");}}>＋加入下一位同行</button>}
         {step > 0 && <button disabled={pending} onClick={() => setStep(step - 1)} className="rounded-lg border px-3 py-2">上一步</button>}
-        {step < 3 ? <button onClick={() => setStep(step + 1)} className="rounded-lg bg-earth-800 px-4 py-2 text-white">下一步</button>
-          : editable && <button disabled={pending} onClick={() => submit()} className="rounded-lg bg-earth-800 px-4 py-2 text-white disabled:opacity-50">{pending ? "處理中…" : editing ? "儲存修改" : companions.length?`確認 ${companions.length+1} 位預約`:"確認預約"}</button>}
+        {step < 3 ? <button disabled={pending || (editable && (step===0 ? !draft.treatmentIds.length : step===1 ? checkingProviders || !effectiveLocation || !availableProviders.some(p=>p.id===draft.serviceStaffId) : !draft.customerId))} onClick={() => setStep(step + 1)} className="rounded-lg bg-earth-800 px-4 py-2 text-white disabled:opacity-50">下一步</button>
+          : editable && <button disabled={pending || checkingProviders || !draft.customerId || !draft.treatmentIds.length || !effectiveLocation || !availableProviders.some(p=>p.id===draft.serviceStaffId)} onClick={() => submit()} className="rounded-lg bg-earth-800 px-4 py-2 text-white disabled:opacity-50">{pending ? "處理中…" : editing ? "儲存修改" : companions.length?`確認 ${companions.length+1} 位預約`:"確認預約"}</button>}
       </footer>
     </RightSheet>}
   </>;
