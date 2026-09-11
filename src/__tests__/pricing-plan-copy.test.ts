@@ -23,10 +23,11 @@ describe("pricing and growth plan copy", () => {
     expect(source).not.toContain("經營診斷");
     expect(source).not.toContain("基本收款・營運分析");
   });
-  it("uses the official LINE link for consultation calls to action", () => {
+  it("uses the official LINE link for consultation and footer contact", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
 
-    expect(source.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(1);
+    expect(source.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(2);
+    expect(source).toContain("官方 LINE：@329rmywc");
     expect(source).not.toContain("lin.ee/placeholder");
   });
 
