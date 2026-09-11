@@ -8,7 +8,7 @@ export function BookingNoteEditor({ bookingId, value, canEdit, onSaved }: {
   bookingId: string;
   value: string | null;
   canEdit: boolean;
-  onSaved: () => void;
+  onSaved: (value: string | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
@@ -33,7 +33,7 @@ export function BookingNoteEditor({ bookingId, value, canEdit, onSaved }: {
       setSavedValue(draft.trim() || null);
       setEditing(false);
       toast.success("已儲存本次備註");
-      onSaved();
+      onSaved(draft.trim() || null);
     } catch {
       toast.error("儲存失敗，內容已保留，請重試");
     } finally {

@@ -19,6 +19,7 @@ import {
 import {
   createBookingDetailCache,
 } from "./booking-detail-cache";
+import { applyBookingNotePatch, type BookingNotePatch } from "./booking-note-state";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { formatWeekdayZh } from "@/lib/date-utils";
@@ -454,6 +455,21 @@ export function BookingsManager({
     [detailCache],
   );
 
+  const handleNotesUpdated = useCallback((patch: BookingNotePatch) => {
+    // A customer note applies to every booking for that customer.
+    for (const day of monthData) {
+      for (const booking of day.bookings ?? []) {
+        if (patch.kind === "booking" ? booking.id === patch.bookingId : booking.customer.id === patch.customerId) {
+          detailCache.invalidate(booking.id);
+        }
+      }
+    }
+    setMonthData((previous) => previous.map((day) => ({
+      ...day,
+      bookings: day.bookings?.map((booking) => applyBookingNotePatch(booking, patch)),
+    })));
+  }, [detailCache, monthData]);
+
   // ── Batch / inline complete wiring ────────────────────────────
 
   const toggleSelect = useCallback((id: string) => {
@@ -667,6 +683,7 @@ export function BookingsManager({
         cache={detailCache}
         onClose={closeBooking}
         onUpdated={handleBookingUpdated}
+        onNotesUpdated={handleNotesUpdated}
         readOnly={readOnly}
       />
     </div>

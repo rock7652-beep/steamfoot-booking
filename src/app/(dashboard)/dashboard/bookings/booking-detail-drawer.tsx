@@ -14,6 +14,7 @@ import {
   fetchBookingDetail,
   type BookingDrawerPayload,
 } from "@/server/actions/booking-drawer";
+import type { BookingNotePatch } from "./booking-note-state";
 import type { BookingDetailCache } from "./booking-detail-cache";
 import {
   markCompleted,
@@ -143,6 +144,7 @@ interface BookingDetailDrawerProps {
    * cached month / day data without refetching the whole month.
    */
   onUpdated?: (bookingId: string, newStatus: string | null) => void;
+  onNotesUpdated?: (patch: BookingNotePatch) => void;
   readOnly?: boolean;
   /** Optional prefilled "book this customer again" destination. */
   rebookHref?: string;
@@ -161,6 +163,7 @@ export function BookingDetailDrawer({
   cache,
   onClose,
   onUpdated,
+  onNotesUpdated,
   readOnly = false,
   rebookHref,
   durationMinutes,
@@ -566,7 +569,16 @@ export function BookingDetailDrawer({
         ) : hasFullData && data ? (
           <DrawerContent
             payload={data}
-            onNoteSaved={() => {
+            onNoteSaved={(patch) => {
+              setData((previous) => {
+                if (!previous || previous.booking.id !== patch.bookingId) return previous;
+                return { ...previous, booking: { ...previous.booking,
+                  ...(patch.kind === "booking" ? { notes: patch.value } : {
+                    customer: { ...previous.booking.customer, serviceNote: patch.value },
+                  }),
+                } };
+              });
+              onNotesUpdated?.(patch);
               if (bookingId) {
                 cache?.invalidate(bookingId);
                 onUpdated?.(bookingId, null);
@@ -798,7 +810,7 @@ function DrawerContent({
   spaMode = false,
 }: {
   payload: BookingDrawerPayload;
-  onNoteSaved: () => void;
+  onNoteSaved: (patch: BookingNotePatch) => void;
   isActing: boolean;
   onClose: () => void;
   actions: DrawerActions;
@@ -957,7 +969,7 @@ function DrawerContent({
               customerId={booking.customer.id}
               value={booking.customer.serviceNote}
               canEdit={!readOnly && payload.canEditServiceNote === true}
-              onSaved={onNoteSaved}
+              onSaved={(value) => onNoteSaved({ kind: "customer", bookingId: booking.id, customerId: booking.customer.id, value })}
             />
           ) : null}
           {spaMode && booking.customer.serviceNote ? (
@@ -1133,7 +1145,7 @@ function DrawerContent({
               bookingId={booking.id}
               value={booking.notes}
               canEdit={!readOnly && payload.canEditBookingNote === true}
-              onSaved={onNoteSaved}
+              onSaved={(value) => onNoteSaved({ kind: "booking", bookingId: booking.id, value })}
             />
           </div>
         )} />
