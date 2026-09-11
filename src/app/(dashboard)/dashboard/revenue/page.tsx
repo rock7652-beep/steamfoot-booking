@@ -1,3 +1,5 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { SpaRevenue } from "./_components/spa-revenue";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -9,7 +11,10 @@ import { listTransactions } from "@/server/queries/transaction";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { monthlyStoreSummary } from "@/server/queries/report";
 import { toLocalDateStr, formatTWTime } from "@/lib/date-utils";
-import { isVoidedTransaction, transactionStatusLabel } from "@/lib/transaction-display";
+import {
+  isVoidedTransaction,
+  transactionStatusLabel,
+} from "@/lib/transaction-display";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import type { TransactionType } from "@prisma/client";
@@ -55,10 +60,13 @@ const PAY_METHOD_LABEL: Record<string, string> = {
   UNPAID: "未付款",
 };
 
-type TxRow = Awaited<ReturnType<typeof listTransactions>>["transactions"][number];
+type TxRow = Awaited<
+  ReturnType<typeof listTransactions>
+>["transactions"][number];
 
 interface PageProps {
   searchParams: Promise<{
+    method?: string;
     dateFrom?: string;
     dateTo?: string;
     transactionType?: TransactionType;
@@ -70,22 +78,36 @@ interface PageProps {
 export default async function RevenuePage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
   if (!user) return null;
-  const allowed = await checkPermission(user.role, user.staffId, "transaction.read");
+  const allowed = await checkPermission(
+    user.role,
+    user.staffId,
+    "transaction.read",
+  );
   if (!allowed) redirect("/dashboard");
 
   const params = await searchParams;
   const requestedPage = Number(params.page ?? 1);
-  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? Math.floor(requestedPage) : 1;
+  const page =
+    Number.isFinite(requestedPage) && requestedPage > 0
+      ? Math.floor(requestedPage)
+      : 1;
 
-  const [activeStoreId, canCustomerExport, canReportExport] = await Promise.all([
-    getActiveStoreForRead(user),
-    checkPermission(user.role, user.staffId, "customer.export"),
-    checkPermission(user.role, user.staffId, "report.export"),
-  ]);
+  const [activeStoreId, canCustomerExport, canReportExport] = await Promise.all(
+    [
+      getActiveStoreForRead(user),
+      checkPermission(user.role, user.staffId, "customer.export"),
+      checkPermission(user.role, user.staffId, "report.export"),
+    ],
+  );
   const canDataExport = canCustomerExport || canReportExport;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const revenueStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  if (
+    revenueStoreId &&
+    (await getStoreIndustryModule(revenueStoreId)) === "spa"
+  )
+    return <SpaRevenue storeId={revenueStoreId} params={params} />;
   const today = toLocalDateStr();
   const month = today.slice(0, 7);
   const firstDayOfMonth = `${month}-01`;
@@ -117,24 +139,54 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       activeStoreId: revenueStoreId,
     }),
     monthlyStoreSummary(month, { activeStoreId: revenueStoreId }),
-    revenueStoreId ? listStaffSelectOptions(revenueStoreId) : Promise.resolve([]),
-    isViewMode ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "transaction.void"),
-    isViewMode ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "transaction.create"),
-    isViewMode ? Promise.resolve(false) : checkPermission(user.role, user.staffId, "transaction.refund"),
+    revenueStoreId
+      ? listStaffSelectOptions(revenueStoreId)
+      : Promise.resolve([]),
+    isViewMode
+      ? Promise.resolve(false)
+      : checkPermission(user.role, user.staffId, "transaction.void"),
+    isViewMode
+      ? Promise.resolve(false)
+      : checkPermission(user.role, user.staffId, "transaction.create"),
+    isViewMode
+      ? Promise.resolve(false)
+      : checkPermission(user.role, user.staffId, "transaction.refund"),
   ]);
 
   const { transactions, total, pageSize, periodRevenue } = transactionResult;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const monthOrderCount = monthSummary.staffBreakdown.reduce((sum, row) => sum + row.transactionCount, 0);
-  const monthAvgOrder = monthOrderCount > 0 ? Math.round(monthSummary.netCourseRevenue / monthOrderCount) : 0;
+  const monthOrderCount = monthSummary.staffBreakdown.reduce(
+    (sum, row) => sum + row.transactionCount,
+    0,
+  );
+  const monthAvgOrder =
+    monthOrderCount > 0
+      ? Math.round(monthSummary.netCourseRevenue / monthOrderCount)
+      : 0;
   const todayNet = todaySummary.netCourseRevenue + todaySummary.cashbookIncome;
   const monthNet = monthSummary.netCourseRevenue + monthSummary.cashbookIncome;
 
   const kpis = [
-    { label: "今日營收", value: `NT$ ${todayNet.toLocaleString()}`, tone: "primary" as const },
-    { label: "本月營收", value: `NT$ ${monthNet.toLocaleString()}`, tone: "green" as const },
-    { label: "本月訂單", value: `${monthOrderCount} 筆`, tone: "blue" as const },
-    { label: "平均客單價", value: `NT$ ${monthAvgOrder.toLocaleString()}`, tone: "earth" as const },
+    {
+      label: "今日營收",
+      value: `NT$ ${todayNet.toLocaleString()}`,
+      tone: "primary" as const,
+    },
+    {
+      label: "本月營收",
+      value: `NT$ ${monthNet.toLocaleString()}`,
+      tone: "green" as const,
+    },
+    {
+      label: "本月訂單",
+      value: `${monthOrderCount} 筆`,
+      tone: "blue" as const,
+    },
+    {
+      label: "平均客單價",
+      value: `NT$ ${monthAvgOrder.toLocaleString()}`,
+      tone: "earth" as const,
+    },
   ];
 
   const columns: Column<TxRow>[] = [
@@ -142,7 +194,9 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       key: "date",
       header: "日期",
       accessor: (transaction) => (
-        <span className={`tabular-nums text-sm ${isVoidedTransaction(transaction) ? "text-earth-400" : "text-earth-800"}`}>
+        <span
+          className={`tabular-nums text-sm ${isVoidedTransaction(transaction) ? "text-earth-400" : "text-earth-800"}`}
+        >
           {formatTWTime(transaction.createdAt, { dateOnly: true })}
         </span>
       ),
@@ -151,7 +205,9 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       key: "customer",
       header: "顧客",
       accessor: (transaction) => (
-        <span className={`text-sm font-medium ${isVoidedTransaction(transaction) ? "text-earth-400" : "text-earth-900"}`}>
+        <span
+          className={`text-sm font-medium ${isVoidedTransaction(transaction) ? "text-earth-400" : "text-earth-900"}`}
+        >
           {transaction.customer.name}
         </span>
       ),
@@ -162,10 +218,12 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       accessor: (transaction) => (
         <span
           className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
-            TX_TYPE_COLOR[transaction.transactionType] ?? "bg-earth-100 text-earth-600"
+            TX_TYPE_COLOR[transaction.transactionType] ??
+            "bg-earth-100 text-earth-600"
           } ${isVoidedTransaction(transaction) ? "opacity-60" : ""}`}
         >
-          {TX_TYPE_LABEL[transaction.transactionType] ?? transaction.transactionType}
+          {TX_TYPE_LABEL[transaction.transactionType] ??
+            transaction.transactionType}
         </span>
       ),
     },
@@ -179,7 +237,11 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         return (
           <span
             className={`font-medium tabular-nums ${
-              isVoided ? "text-earth-400 line-through" : amount < 0 ? "text-red-600" : "text-earth-900"
+              isVoided
+                ? "text-earth-400 line-through"
+                : amount < 0
+                  ? "text-red-600"
+                  : "text-earth-900"
             }`}
           >
             {amount < 0 ? "-" : ""}NT$ {Math.abs(amount).toLocaleString()}
@@ -209,7 +271,8 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       accessor: (transaction) =>
         transaction.paymentSplits.length > 0
           ? "混合付款"
-          : PAY_METHOD_LABEL[transaction.paymentMethod] ?? transaction.paymentMethod,
+          : (PAY_METHOD_LABEL[transaction.paymentMethod] ??
+            transaction.paymentMethod),
     },
     {
       key: "staff",
@@ -235,16 +298,31 @@ export default async function RevenuePage({ searchParams }: PageProps) {
   ];
 
   const quickLinks: Array<{ href: string; label: string; hint: string }> = [
-    { href: "/dashboard/store-revenue", label: "收入總覽", hint: "月 / 季 / 年報表" },
-    { href: "/dashboard/cashbook", label: "現金帳", hint: "零售、其他收支與現金管理" },
+    {
+      href: "/dashboard/store-revenue",
+      label: "收入總覽",
+      hint: "月 / 季 / 年報表",
+    },
+    {
+      href: "/dashboard/cashbook",
+      label: "現金帳",
+      hint: "零售、其他收支與現金管理",
+    },
     ...(!isViewMode
-      ? [{ href: "/dashboard/reconciliation", label: "對帳中心", hint: "系統對帳差異" }]
+      ? [
+          {
+            href: "/dashboard/reconciliation",
+            label: "對帳中心",
+            hint: "系統對帳差異",
+          },
+        ]
       : []),
   ];
 
   const buildPageHref = (targetPage: number) => {
     const query = new URLSearchParams({ dateFrom, dateTo });
-    if (params.transactionType) query.set("transactionType", params.transactionType);
+    if (params.transactionType)
+      query.set("transactionType", params.transactionType);
     if (params.staff) query.set("staff", params.staff);
     if (targetPage > 1) query.set("page", String(targetPage));
     return `/dashboard/revenue?${query.toString()}`;
@@ -289,13 +367,18 @@ export default async function RevenuePage({ searchParams }: PageProps) {
           <section className="overflow-hidden rounded-xl border border-earth-200 bg-white">
             <div className="border-b border-earth-100 px-3 py-3">
               <div>
-                <h2 className="text-sm font-semibold text-earth-800">交易工作台</h2>
+                <h2 className="text-sm font-semibold text-earth-800">
+                  交易工作台
+                </h2>
                 <p className="mt-0.5 text-[11px] text-earth-400">
                   直接篩選完整交易；點最右側「⋯」即可在右側修改、作廢或退款，不需跳頁。
                 </p>
               </div>
 
-              <form method="GET" className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.15fr_1.15fr_auto_auto] xl:items-end">
+              <form
+                method="GET"
+                className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.15fr_1.15fr_auto_auto] xl:items-end"
+              >
                 <label className="text-[11px] text-earth-500">
                   開始日期
                   <input
@@ -323,7 +406,9 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                   >
                     <option value="">所有類型</option>
                     {Object.entries(TX_TYPE_LABEL).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -336,7 +421,9 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                   >
                     <option value="">全部店長</option>
                     {staffOptions.map((staff) => (
-                      <option key={staff.id} value={staff.id}>{staff.displayName}</option>
+                      <option key={staff.id} value={staff.id}>
+                        {staff.displayName}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -356,7 +443,8 @@ export default async function RevenuePage({ searchParams }: PageProps) {
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-800">
                 <span>
-                  指定期間營業額 <strong>NT$ {periodRevenue.toLocaleString()}</strong>
+                  指定期間營業額{" "}
+                  <strong>NT$ {periodRevenue.toLocaleString()}</strong>
                 </span>
                 <span className="text-primary-600">共 {total} 筆交易</span>
               </div>
@@ -366,7 +454,11 @@ export default async function RevenuePage({ searchParams }: PageProps) {
               <EmptyRow
                 title="沒有符合條件的交易"
                 hint="調整上方日期或篩選條件即可重新查詢"
-                cta={isViewMode ? undefined : { label: "記一筆收支", href: "/dashboard/cashbook" }}
+                cta={
+                  isViewMode
+                    ? undefined
+                    : { label: "記一筆收支", href: "/dashboard/cashbook" }
+                }
               />
             ) : (
               <DataTable
@@ -374,7 +466,9 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                 rows={transactions}
                 rowKey={(transaction) => transaction.id}
                 rowClassName={(transaction) =>
-                  isVoidedTransaction(transaction) ? "bg-earth-50/60 text-earth-400" : ""
+                  isVoidedTransaction(transaction)
+                    ? "bg-earth-50/60 text-earth-400"
+                    : ""
                 }
                 className="rounded-none border-0"
               />
@@ -382,21 +476,33 @@ export default async function RevenuePage({ searchParams }: PageProps) {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-earth-100 px-3 py-2 text-xs text-earth-500">
-                <span>第 {Math.min(page, totalPages)} / {totalPages} 頁</span>
+                <span>
+                  第 {Math.min(page, totalPages)} / {totalPages} 頁
+                </span>
                 <div className="flex items-center gap-2">
                   {page > 1 ? (
-                    <Link href={buildPageHref(page - 1)} className="rounded-md border border-earth-200 px-3 py-1.5 hover:bg-earth-50">
+                    <Link
+                      href={buildPageHref(page - 1)}
+                      className="rounded-md border border-earth-200 px-3 py-1.5 hover:bg-earth-50"
+                    >
                       上一頁
                     </Link>
                   ) : (
-                    <span className="rounded-md border border-earth-100 px-3 py-1.5 text-earth-300">上一頁</span>
+                    <span className="rounded-md border border-earth-100 px-3 py-1.5 text-earth-300">
+                      上一頁
+                    </span>
                   )}
                   {page < totalPages ? (
-                    <Link href={buildPageHref(page + 1)} className="rounded-md border border-earth-200 px-3 py-1.5 hover:bg-earth-50">
+                    <Link
+                      href={buildPageHref(page + 1)}
+                      className="rounded-md border border-earth-200 px-3 py-1.5 hover:bg-earth-50"
+                    >
                       下一頁
                     </Link>
                   ) : (
-                    <span className="rounded-md border border-earth-100 px-3 py-1.5 text-earth-300">下一頁</span>
+                    <span className="rounded-md border border-earth-100 px-3 py-1.5 text-earth-300">
+                      下一頁
+                    </span>
                   )}
                 </div>
               </div>
@@ -405,7 +511,10 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         </div>
 
         <aside className="col-span-12 space-y-3 lg:col-span-3">
-          <SideCard title="相關工具" subtitle={isViewMode ? "唯讀營運工具" : "需要時再進入"}>
+          <SideCard
+            title="相關工具"
+            subtitle={isViewMode ? "唯讀營運工具" : "需要時再進入"}
+          >
             <div className="flex flex-col gap-1">
               {quickLinks.map((link) => (
                 <Link
@@ -414,8 +523,12 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                   className="flex items-center justify-between rounded-md border border-earth-200 px-3 py-1.5 hover:bg-earth-50"
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-earth-800">{link.label}</p>
-                    <p className="truncate text-[10px] text-earth-400">{link.hint}</p>
+                    <p className="text-xs font-medium text-earth-800">
+                      {link.label}
+                    </p>
+                    <p className="truncate text-[10px] text-earth-400">
+                      {link.hint}
+                    </p>
                   </div>
                   <span className="text-[11px] text-earth-400">→</span>
                 </Link>
@@ -425,17 +538,30 @@ export default async function RevenuePage({ searchParams }: PageProps) {
 
           <SideCard title="本月概況" subtitle={`${month} 累積`}>
             <div className="flex flex-col gap-2 text-[12px]">
-              <SummaryRow label="系統收入" value={`NT$ ${monthSummary.totalCourseRevenue.toLocaleString()}`} />
+              <SummaryRow
+                label="系統收入"
+                value={`NT$ ${monthSummary.totalCourseRevenue.toLocaleString()}`}
+              />
               {monthSummary.cashbookIncome > 0 && (
-                <SummaryRow label="手動收入" value={`NT$ ${monthSummary.cashbookIncome.toLocaleString()}`} />
+                <SummaryRow
+                  label="手動收入"
+                  value={`NT$ ${monthSummary.cashbookIncome.toLocaleString()}`}
+                />
               )}
               <SummaryRow
                 label="退款"
                 value={`${monthSummary.totalRefund < 0 ? "-" : ""}NT$ ${Math.abs(monthSummary.totalRefund).toLocaleString()}`}
                 tone="red"
               />
-              <SummaryRow label="本月營收" value={`NT$ ${monthNet.toLocaleString()}`} tone="primary" />
-              <SummaryRow label="完成服務" value={`${monthSummary.completedBookings} 筆`} />
+              <SummaryRow
+                label="本月營收"
+                value={`NT$ ${monthNet.toLocaleString()}`}
+                tone="primary"
+              />
+              <SummaryRow
+                label="完成服務"
+                value={`${monthSummary.completedBookings} 筆`}
+              />
             </div>
           </SideCard>
         </aside>

@@ -486,60 +486,74 @@ function AccountPanel({
                             />
                           </label>
                         )}
-                        <fieldset className="space-y-2">
-                          <legend>收款方式</legend>
-                          <div className="grid grid-cols-2 gap-3">
-                            {SPA_EXTERNAL_PAYMENT_METHODS.map((value) => (
-                              <button
-                                key={value}
-                                type="button"
-                                aria-pressed={method === value}
-                                onClick={() => {
-                                  setMethod(value);
-                                  setTransferLast4("");
-                                  setConfirmed(false);
-                                }}
-                                className={`rounded-lg border p-3 ${method === value ? "border-earth-800 bg-earth-800 text-white" : "bg-white"}`}
-                              >
-                                {methodName[value]}
-                              </button>
-                            ))}
-                          </div>
-                        </fieldset>
-                        {method === "TRANSFER" && (
-                          <label className="block">
-                            轉出帳號後四碼
-                            <input
-                              required
-                              type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]{4}"
-                              minLength={4}
-                              maxLength={4}
-                              value={transferLast4}
-                              onChange={(e) => {
-                                setTransferLast4(
-                                  e.target.value.replace(/[^0-9]/g, ""),
-                                );
-                                setConfirmed(false);
-                              }}
-                              placeholder="例如 0123"
-                              className="mt-1 w-full rounded-lg border p-3"
-                            />
-                          </label>
+                        {(mode !== "PACKAGE" || pack) && (
+                          <>
+                            <div className="rounded-lg bg-earth-50 p-3">
+                              <span>應收金額</span>
+                              <strong className="ml-3 text-xl">
+                                {money(
+                                  mode === "PACKAGE"
+                                    ? pack!.price
+                                    : Number(amount) || 0,
+                                )}
+                              </strong>
+                            </div>
+                            <fieldset className="space-y-2">
+                              <legend>收款方式</legend>
+                              <div className="grid grid-cols-2 gap-3">
+                                {SPA_EXTERNAL_PAYMENT_METHODS.map((value) => (
+                                  <button
+                                    key={value}
+                                    type="button"
+                                    aria-pressed={method === value}
+                                    onClick={() => {
+                                      setMethod(value);
+                                      setTransferLast4("");
+                                      setConfirmed(false);
+                                    }}
+                                    className={`rounded-lg border p-3 ${method === value ? "border-earth-800 bg-earth-800 text-white" : "bg-white"}`}
+                                  >
+                                    {methodName[value]}
+                                  </button>
+                                ))}
+                              </div>
+                            </fieldset>
+                            {method === "TRANSFER" && (
+                              <label className="block">
+                                轉出帳號後四碼
+                                <input
+                                  required
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]{4}"
+                                  minLength={4}
+                                  maxLength={4}
+                                  value={transferLast4}
+                                  onChange={(e) => {
+                                    setTransferLast4(
+                                      e.target.value.replace(/[^0-9]/g, ""),
+                                    );
+                                    setConfirmed(false);
+                                  }}
+                                  placeholder="例如 0123"
+                                  className="mt-1 w-full rounded-lg border p-3"
+                                />
+                              </label>
+                            )}
+                            <p className="text-sm text-earth-500">
+                              {SPA_COLLECTION_HINTS[method]}
+                            </p>
+                            <label className="flex gap-2">
+                              <input
+                                type="checkbox"
+                                required
+                                checked={confirmed}
+                                onChange={(e) => setConfirmed(e.target.checked)}
+                              />
+                              確認已收到上述金額
+                            </label>
+                          </>
                         )}
-                        <p className="text-sm text-earth-500">
-                          {SPA_COLLECTION_HINTS[method]}
-                        </p>
-                        <label className="flex gap-2">
-                          <input
-                            type="checkbox"
-                            required
-                            checked={confirmed}
-                            onChange={(e) => setConfirmed(e.target.checked)}
-                          />
-                          確認已收到上述金額
-                        </label>
                         <div className="flex gap-3">
                           <button
                             disabled={
