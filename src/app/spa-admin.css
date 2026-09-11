@@ -57,7 +57,7 @@
 [data-spa-admin="true"] .bg-earth-800 { background-color: var(--spa-green); }
 [data-spa-admin="true"] .bg-earth-50 { background-color: #f8f8f4; }
 
-[data-spa-admin="true"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]), select) {
+[data-spa-admin="true"] :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]), select) {
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
@@ -138,7 +138,7 @@
   .spa-home-intro { align-items: flex-start; flex-direction: column; }
 }
 @media (pointer: coarse) {
-  [data-spa-admin="true"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]), select) { min-height: 44px; }
+  [data-spa-admin="true"] :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]), select) { min-height: 44px; }
   [data-spa-admin="true"] :is(button, a):is(.rounded-lg, .rounded-xl, .rounded-full):not([data-spa-timeline] *):not(.spa-customer-row) { min-height: 44px; }
 }
 @media (max-width: 767px) {

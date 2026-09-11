@@ -936,7 +936,7 @@ export default function DashboardShell({
         <div className="flex h-14 items-center justify-between border-b border-earth-200 px-3">
           {!collapsed && (
             <div className="flex items-center gap-2 min-w-0">
-              <Link href="/dashboard" className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
+              <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
                 {headerTitle}
               </Link>
               <PlanBadge plan={pricingPlan} />
@@ -983,7 +983,7 @@ export default function DashboardShell({
           <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
             <div className="flex h-14 items-center justify-between border-b border-earth-200 px-4">
               <div className="flex items-center gap-2 min-w-0">
-                <Link href="/dashboard" className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
+                <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
                   {headerTitle}
                 </Link>
                 <PlanBadge plan={pricingPlan} />
