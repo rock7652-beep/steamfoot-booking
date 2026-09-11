@@ -138,10 +138,10 @@ export default function PrivacyPage() {
 
         <footer className="mt-10 border-t border-earth-200 pt-6 text-center"><p className="mb-4 text-sm leading-7 text-earth-700"><a href="/pricing/terms.html">服務條款</a> · <a href="/pricing/refunds.html">取消與退費政策</a></p>
           <Link
-            href="/"
+            href="/pricing/business"
             className="text-sm font-medium text-primary-700 hover:text-primary-800"
           >
-            返回蒸管家
+            返回蒸管家首頁
           </Link>
         </footer>
       </article>
