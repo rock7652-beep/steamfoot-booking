@@ -1,4 +1,5 @@
 import {beforeEach,describe,it,expect,vi} from "vitest";
+import {readFileSync} from "node:fs";
 const m=vi.hoisted(()=>({permission:vi.fn(),store:vi.fn(),installation:vi.fn(),customer:vi.fn(),tx:vi.fn(),query:vi.fn(),execute:vi.fn(),saleFind:vi.fn(),saleCreate:vi.fn(),pack:vi.fn(),treatment:vi.fn(),refundFind:vi.fn(),refundCreate:vi.fn(),receipt:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/lib/permissions",()=>({requirePermission:m.permission}));
@@ -26,4 +27,10 @@ describe("SPA refunds",()=>{
  it("rejects top-up refund if remaining balance is insufficient",async()=>{m.saleFind.mockResolvedValue({id:"A",customerId:"C",kind:"TOPUP",amount:2000,paymentMethod:"CASH",sourceId:"W"});m.query.mockResolvedValue([]);expect((await refundSpaPayment({kind:"SALE",id:"A",reason:"退購"})).success).toBe(false);expect(m.refundCreate).not.toHaveBeenCalled();});
  it("restores stored value and preserves the original receipt",async()=>{m.receipt.mockResolvedValue({id:"R",bookingId:"B",booking:{customerId:"C"},amount:1800,paymentMethod:"STORED_VALUE",sourceId:"W",uses:null});expect((await refundSpaPayment({kind:"RECEIPT",id:"R",reason:"服務退款"})).success).toBe(true);expect(m.refundCreate).toHaveBeenCalledWith({data:expect.objectContaining({receiptId:"R",customerId:"C",amount:1800,paymentMethod:"STORED_VALUE"})});});
  it("does not restore more sessions than were originally deducted",async()=>{m.receipt.mockResolvedValue({id:"R",bookingId:"B",booking:{customerId:"C"},amount:1800,paymentMethod:"ENTITLEMENT",sourceId:"E",uses:1});m.query.mockResolvedValueOnce([{id:"use",uses:1}]).mockResolvedValueOnce([]);expect((await refundSpaPayment({kind:"RECEIPT",id:"R",reason:"退次"})).success).toBe(false);expect(m.refundCreate).not.toHaveBeenCalled();});
+});
+describe("SPA customer account workspace",()=>{
+ it("keeps long payment histories scrollable inside the right sheet",()=>{
+  const workspace=readFileSync("src/app/(dashboard)/dashboard/customers/_components/spa-customers-workspace.tsx","utf8");
+  expect(workspace).toContain("min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain");
+ });
 });
