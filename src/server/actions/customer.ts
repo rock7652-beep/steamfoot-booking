@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { requireSession } from "@/lib/session";
@@ -237,6 +238,9 @@ export async function updateCustomer(
       data: prismaData,
     });
 
+    updateTag(CACHE_TAGS.bookingsSummary);
+    revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard/bookings/[id]", "page");
     revalidatePath("/dashboard/customers");
     revalidatePath(`/dashboard/customers/${customerId}`);
     return { success: true, data: undefined };
