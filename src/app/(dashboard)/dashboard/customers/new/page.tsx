@@ -3,6 +3,7 @@ import { createCustomer } from "@/server/actions/customer";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
+import { getStoreContext } from "@/lib/store-context";
 import { normalizeEmail, normalizePhone } from "@/lib/normalize";
 import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -39,6 +40,8 @@ export default async function NewCustomerPage({
 
   const staffOptions = await listStaffSelectOptions();
   const { existingCustomerId } = await searchParams;
+  const storeContext = await getStoreContext();
+  const dashboardBase = storeContext ? `/s/${storeContext.storeSlug}/admin/dashboard` : "/dashboard";
 
   async function handleSubmit(formData: FormData) {
     "use server";
@@ -70,10 +73,10 @@ export default async function NewCustomerPage({
       if (result.existingCustomerId) {
         params.set("existingCustomerId", result.existingCustomerId);
       }
-      redirect(`/dashboard/customers/new?${params.toString()}`);
+      redirect(`${dashboardBase}/customers/new?${params.toString()}`);
     }
 
-    redirect(`/dashboard/customers?saved=${encodeURIComponent("已新增顧客")}`);
+    redirect(`${dashboardBase}/customers?saved=${encodeURIComponent("已新增顧客")}`);
   }
 
   return (
