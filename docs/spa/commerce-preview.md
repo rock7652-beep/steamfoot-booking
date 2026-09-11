@@ -32,3 +32,10 @@ Authenticated SPA test manager; branch Preview 30442c4c.
 - Desktop account panel screenshot: evidence/account-20260911.jpg.
 
 Not passed: cancellation/rebooking final browser flow (native confirmation blocked browser control; replaced with inline confirmation, awaiting browser recheck), iPad-specific viewport, simultaneous multi-browser submissions, simultaneous multi-provider group. Current test store has one provider/location; group UI tested sequential times. No real money or external payment gateway used. Test financial records retained for audit; 15:00 fixture remains CONFIRMED per DB read; cancellation did not execute. Do not label whole acceptance complete.
+
+## Cancellation and tablet follow-up
+- Added action coverage for stale cancellation rejection, completed-booking rejection and cancellation followed by creation with a new request key (19 booking action tests pass).
+- Ran scripts/test-spa-cancel-rebook.sql on verified test project: existing staff/location overlap rejected, cancellation releases both, exact-slot replacement succeeds, reactivating original conflicts, original cancellation history retained. Entire transaction rolled back; no fixture retained.
+- Inline cancellation now isolates its two choices from checkout/edit/navigation while confirmation is active.
+- Tablet layout changes: toolbar wraps, one-provider grid no longer forces 680px minimum, schedule scroll is contained, sheet body can shrink/scroll, footer does not shrink and includes bottom safe-area padding, primary controls have 44px minimum height.
+- TypeScript and targeted lint passed. Browser refresh-tabs still times out from the prior native confirm. These layout and inline-confirm changes remain visually unverified; database/action coverage must not be represented as iPad/browser acceptance.
