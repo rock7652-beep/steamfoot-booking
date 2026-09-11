@@ -11,7 +11,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getSpaScheduleForDay } from "@/server/queries/spa-schedule";
 
-type PageProps = { searchParams: Promise<{ date?: string }> };
+type PageProps = { searchParams: Promise<{ date?: string; customerId?: string; new?: string }> };
 
 /** SPA schedule is intentionally backed only by SpaBooking. */
 export default async function SpaSchedulePage({ searchParams }: PageProps) {
@@ -21,7 +21,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
   if (!storeId) redirect("/dashboard");
   await requireSpaStore(storeId).catch(() => redirect("/dashboard/bookings"));
 
-  const { date: requestedDate } = await searchParams;
+  const { date: requestedDate, customerId, new: openNew } = await searchParams;
   const date = requestedDate && validSpaDate(requestedDate) ? requestedDate : toLocalDateStr();
   const [bookings, staff, customers, treatments, locations, canCreate, canUpdate,canCheckout] = await Promise.all([
     getSpaScheduleForDay(storeId, date),
@@ -34,7 +34,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
     checkPermission(user.role, user.staffId, "transaction.create"),
   ]);
   return <PageShell className="max-w-none px-4 py-6">
-    <SpaScheduleWorkspace key={date} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}
+    <SpaScheduleWorkspace key={`${date}:${customerId??""}:${openNew??""}`} initialCustomerId={openNew==="1"&&canCreate&&customers.some(c=>c.id===customerId)?customerId:undefined} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}
       locations={locations} canCreate={canCreate} canUpdate={canUpdate} canCheckout={canCheckout&&canUpdate}
       treatments={treatments.map(t => ({ id: t.id, name: t.name, price: Number(t.price), serviceMinutes: t.serviceMinutes,
         bufferMinutes: t.bufferMinutes, locationIds: t.serviceLocations.map(l => l.serviceLocationId) }))} />

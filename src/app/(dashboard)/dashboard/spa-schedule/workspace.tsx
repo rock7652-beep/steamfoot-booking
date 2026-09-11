@@ -13,7 +13,7 @@ import type { SpaScheduleBooking } from "@/server/queries/spa-schedule";
 
 type Named = { id: string; name: string };
 type Treatment = Named & { price: number; serviceMinutes: number; bufferMinutes: number; locationIds: string[] };
-type Props = { date: string; bookings: SpaScheduleBooking[]; staff: (Named & {colorCode?:string})[]; customers: (Named & { phone: string })[];
+type Props = { initialCustomerId?: string; date: string; bookings: SpaScheduleBooking[]; staff: (Named & {colorCode?:string})[]; customers: (Named & { phone: string })[];
   treatments: Treatment[]; locations: Named[]; canCreate: boolean; canUpdate: boolean;canCheckout:boolean };
 const statusNames: Record<string, string> = { PENDING: "待確認", CONFIRMED: "已預約", CANCELLED: "已取消", COMPLETED: "已完成", NO_SHOW: "未到" };
 const statusStyles:Record<string,string>={PENDING:"border-amber-300 bg-amber-50 text-amber-950",CONFIRMED:"border-teal-300 bg-teal-50 text-teal-950",COMPLETED:"border-slate-300 bg-slate-100 text-slate-800"};
@@ -26,7 +26,7 @@ export function SpaScheduleWorkspace(props: Props) {
   const [interval, setIntervalMinutes] = useState<15 | 30>(30);
   const [clock, setClock] = useState<Date | null>(null);
   const [checkout,setCheckout]=useState<SpaScheduleBooking|null>(null);
-  const [draft, setDraft] = useState<CreateSpaBookingInput | null>(null);
+  const [draft, setDraft] = useState<CreateSpaBookingInput | null>(()=>props.initialCustomerId&&canCreate?{customerId:props.initialCustomerId,serviceStaffId:"",treatmentIds:[],bookingDate:date,startTime:"10:00",requestKey:crypto.randomUUID(),notes:""}:null);
   const [companions,setCompanions]=useState<CreateSpaBookingInput[]>([]);
   const [groupKey,setGroupKey]=useState(()=>crypto.randomUUID());
   const [editing, setEditing] = useState<SpaScheduleBooking | null>(null);
@@ -67,7 +67,7 @@ export function SpaScheduleWorkspace(props: Props) {
   const openNew = (time = "10:00", staffId = staff[0]?.id ?? "") => {
     if (!canCreate) return;
     setConfirmCancel(false);setCompanions([]);setGroupKey(crypto.randomUUID());setEditing(null); setStep(0); setError("");
-    setDraft({ customerId: "", serviceStaffId: staffId, treatmentIds: [], bookingDate: date,
+    setDraft({ customerId: props.initialCustomerId??"", serviceStaffId: staffId, treatmentIds: [], bookingDate: date,
       startTime: time, requestKey: crypto.randomUUID(), notes: "" });
   };
   const openEdit = (booking: SpaScheduleBooking) => {
