@@ -18,6 +18,10 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/app/(liff)/liff/manager-preview/page.tsx",
   "src/app/(liff)/liff/staff-preview/page.tsx",
   "src/app/(service-workspace)/staff-schedule/page.tsx",
+  // HQ has one reviewed SPA boundary: its delivery screen renders the
+  // SPA-only provisioning control. The action itself retains HQ permission
+  // checks and does not route through legacy booking data.
+  "src/app/hq/dashboard/stores/[storeId]/page.tsx",
   "src/lib/digital-butler-entitlement.ts",
   "src/lib/feature-gate.ts",
   "src/lib/permissions.ts",
