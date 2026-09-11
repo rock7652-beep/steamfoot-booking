@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { editSpaPayment, voidSpaPayment } from "@/server/actions/spa-commerce";
@@ -35,6 +35,7 @@ export function SpaRevenueActions({
   row: Row;
   canManage: boolean;
 }) {
+  const menu = useRef<HTMLDetailsElement>(null);
   const router = useRouter();
   const [mode, setMode] = useState<"EDIT" | "VOID" | "HISTORY" | null>(null);
   const [method, setMethod] = useState(row.method);
@@ -49,42 +50,57 @@ export function SpaRevenueActions({
     setLast4(row.last4 ?? "");
     setReason("");
     setError("");
+    if (menu.current) menu.current.open = false;
     setMode(next);
   };
   return (
     <>
-      <div className="flex flex-wrap gap-2 whitespace-nowrap">
-        {editable && (
-          <>
-            {row.external && (
+      {editable || !!row.revisions?.length ? (
+        <details ref={menu} className="group relative whitespace-nowrap">
+          <summary
+            aria-label="交易操作"
+            className="cursor-pointer list-none rounded-lg px-3 py-2 text-lg text-[#596D45] hover:bg-earth-50"
+          >
+            ⋯
+          </summary>
+          <div className="flex flex-wrap gap-2 rounded-lg bg-earth-50 p-2 text-sm">
+            {editable && (
+              <>
+                {row.external && (
+                  <button
+                    className="rounded-lg border border-earth-200 px-3 py-2 text-[#596D45]"
+                    onClick={() => open("EDIT")}
+                  >
+                    編輯
+                  </button>
+                )}
+                <button
+                  className="rounded-lg px-3 py-2 text-red-700 hover:bg-red-50"
+                  onClick={() => open("VOID")}
+                >
+                  刪除
+                </button>
+              </>
+            )}
+            {row.voided && <span className="text-earth-500">已作廢</span>}
+            {!row.voided && row.reversed && (
+              <span className="text-earth-500">已退款</span>
+            )}
+            {!!row.revisions?.length && (
               <button
-                className="rounded-lg border border-earth-200 px-3 py-2 text-[#596D45]"
-                onClick={() => open("EDIT")}
+                className="text-earth-500 underline"
+                onClick={() => open("HISTORY")}
               >
-                編輯
+                修改紀錄
               </button>
             )}
-            <button
-              className="rounded-lg px-3 py-2 text-red-700 hover:bg-red-50"
-              onClick={() => open("VOID")}
-            >
-              刪除
-            </button>
-          </>
-        )}
-        {row.voided && <span className="text-earth-500">已作廢</span>}
-        {!row.voided && row.reversed && (
-          <span className="text-earth-500">已退款</span>
-        )}
-        {!!row.revisions?.length && (
-          <button
-            className="text-earth-500 underline"
-            onClick={() => open("HISTORY")}
-          >
-            修改紀錄
-          </button>
-        )}
-      </div>
+          </div>
+        </details>
+      ) : (
+        <span className="text-xs text-earth-500">
+          {row.voided ? "已作廢" : row.reversed ? "已退款" : ""}
+        </span>
+      )}
       {mode && (
         <RightSheet
           open

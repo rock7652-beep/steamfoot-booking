@@ -69,7 +69,7 @@ export function SpaCustomerOverview({
             {canBook && (
               <DashboardLink
                 href={`/dashboard/spa-schedule?customerId=${encodeURIComponent(customer.id)}&new=1`}
-                className="mt-4 inline-block rounded-lg bg-earth-800 px-4 py-3 text-white"
+                className="mt-4 inline-block rounded-lg bg-[#596D45] px-4 py-3 text-white"
               >
                 ＋為這位顧客預約
               </DashboardLink>
@@ -120,7 +120,7 @@ export function SpaCustomerOverview({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="例如：喜歡輕力道，服務前先確認當天需求。"
-                className="w-full resize-none rounded-xl border p-3"
+                className="w-full resize-none rounded-xl border border-earth-200 p-3"
               />
             </>
           ) : (
@@ -163,13 +163,13 @@ export function SpaCustomerOverview({
         </form>
       </div>
       {canEdit && (
-        <div className="flex shrink-0 items-center justify-between gap-3 border-t bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-earth-100 bg-white px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <span className="text-xs text-earth-500">{note.length}/2000</span>
           <button
             type="submit"
             form="spa-note-form"
             disabled={pending || note === (previous ?? "")}
-            className="rounded-lg bg-earth-800 px-4 py-2 text-white disabled:opacity-50"
+            className="rounded-lg bg-[#596D45] px-4 py-2 text-white disabled:opacity-50"
           >
             {pending ? "儲存中…" : "儲存備註"}
           </button>
@@ -180,9 +180,22 @@ export function SpaCustomerOverview({
 }
 export function SpaServiceHistory({
   profile,
+  dateFrom = "",
+  dateTo = "",
+  status = "",
 }: {
   profile: SpaCustomerProfile | null;
+  dateFrom?: string;
+  dateTo?: string;
+  status?: string;
 }) {
+  const bookings =
+    profile?.bookings.filter(
+      (b) =>
+        (!dateFrom || b.date >= dateFrom) &&
+        (!dateTo || b.date <= dateTo) &&
+        (!status || b.status === status),
+    ) ?? [];
   const labels: Record<string, string> = {
     PENDING: "待確認",
     CONFIRMED: "已預約",
@@ -194,9 +207,9 @@ export function SpaServiceHistory({
     <section>
       <h3 className="mb-3 font-bold">服務紀錄（最近 100 筆）</h3>
       {profile ? (
-        profile.bookings.length ? (
-          profile.bookings.map((b) => (
-            <details key={b.id} className="border-b py-3">
+        bookings.length ? (
+          bookings.map((b) => (
+            <details key={b.id} className="border-b border-earth-100 py-3">
               <summary className="cursor-pointer text-sm">
                 {b.date} {b.startTime} · {b.service} ·{" "}
                 {labels[b.status] ?? b.status}
@@ -207,7 +220,7 @@ export function SpaServiceHistory({
             </details>
           ))
         ) : (
-          <p className="text-sm text-earth-500">尚無服務紀錄</p>
+          <p className="text-sm text-earth-500">沒有符合條件的服務紀錄</p>
         )
       ) : (
         <p role="status">讀取服務紀錄中…</p>

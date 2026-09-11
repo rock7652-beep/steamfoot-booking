@@ -226,7 +226,12 @@ export async function SpaRevenue({
                   className="border-b border-earth-100 align-top hover:bg-earth-50/50"
                 >
                   <td className="p-3 whitespace-nowrap">
-                    {formatTWTime(r.at)}
+                    <span className="block">
+                      {formatTWTime(r.at).split(" ")[0]}
+                    </span>
+                    <span className="text-xs text-earth-500">
+                      {formatTWTime(r.at).split(" ").slice(1).join(" ")}
+                    </span>
                     <p className="text-earth-500">
                       {(
                         {
@@ -250,7 +255,7 @@ export async function SpaRevenue({
                     {r.last4 && <p>後四碼 {r.last4}</p>}
                   </td>
                   <td
-                    className={`p-3 whitespace-nowrap tabular-nums ${r.voided ? "text-earth-400 line-through" : ""}`}
+                    className={`p-3 text-right whitespace-nowrap tabular-nums ${r.voided ? "text-earth-400 line-through" : ""}`}
                   >
                     {r.method === "ENTITLEMENT"
                       ? `${r.uses ?? 0} 次`
@@ -272,8 +277,10 @@ export async function SpaRevenue({
                     </p>
                   </td>
                   <td className="p-3">
-                    <SpaRevenueActions row={r} canManage={canManage} />
-                    <SpaCustomerDrawerButton customerId={r.customerId} />
+                    <div className="flex items-center gap-2">
+                      <SpaCustomerDrawerButton customerId={r.customerId} />
+                      <SpaRevenueActions row={r} canManage={canManage} />
+                    </div>
                   </td>
                 </tr>
               ))}
