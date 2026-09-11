@@ -16,5 +16,6 @@ export function spaReceiptStatus(
   if (receipt.paymentMethod === "ENTITLEMENT")
     return `${prefix}已退回 ${receipt.refundUses ?? receipt.uses ?? 0} 次`;
   const amount = `NT$${(receipt.refundAmount ?? receipt.amount).toLocaleString("zh-TW")}`;
+  if (receipt.voided && receipt.paymentMethod !== "STORED_VALUE") return `已作廢 · 收款紀錄已沖銷 ${amount}`;
   return `${prefix}${receipt.paymentMethod === "STORED_VALUE" ? "已退回儲值" : "已退款"} ${amount}`;
 }

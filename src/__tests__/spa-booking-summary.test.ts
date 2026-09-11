@@ -38,7 +38,7 @@ describe("SPA historical booking summary", () => {
     ).toBe("已退回 1 次");
     expect(
       spaReceiptStatus({ ...receipt, voided: true, refundAmount: 1000 }),
-    ).toBe("已作廢 · 已退款 NT$1,000");
+    ).toBe("已作廢 · 收款紀錄已沖銷 NT$1,000");
     expect(spaReceiptStatus({ ...receipt, refunded: false })).toBe("已結帳");
   });
   it("labels the first party member as contact and numbers companions from one", () => {
