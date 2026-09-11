@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client'
-import { buildDatabaseUrl } from '@/lib/database-url'
+import { PrismaClient } from "@prisma/client";
+import { buildDatabaseUrl } from "@/lib/database-url";
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
+  prisma: PrismaClient | undefined;
+};
 
 /**
  * Append connection-pool params to DATABASE_URL.
@@ -26,10 +26,12 @@ export const prisma =
     datasources: {
       db: { url: buildDatabaseUrl() },
     },
-    log:
-      process.env.NODE_ENV === 'development'
-        ? ['warn', 'error']
-        : ['error'],
-  })
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+  });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+if (
+  process.env.NODE_ENV !== "production" ||
+  (process.env.VERCEL_ENV === "preview" &&
+    process.env.VERCEL_GIT_COMMIT_REF === "codex/hq-module-foundation")
+)
+  globalForPrisma.prisma = prisma;
