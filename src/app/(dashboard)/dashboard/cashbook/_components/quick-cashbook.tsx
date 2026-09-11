@@ -55,6 +55,7 @@ export function QuickCashbook({ storeId }: { storeId: string }) {
     finally { locked.current = false; setBusy(false); }
   }
   const entry = editing && editing !== "new" ? editing : null;
+  const drawerNeedsAttention = data?.balanceLabel?.includes("尚未關帳") ?? false;
   return <>
     <button type="button" className={button} onClick={() => { setOpen(true); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
     {open && <RightSheet open onClose={close} width={640} labelledById="quick-cashbook-title">
@@ -69,7 +70,7 @@ export function QuickCashbook({ storeId }: { storeId: string }) {
         {error && <div role="alert" className="mb-3 rounded-lg border border-red-100 bg-red-50 p-3 text-red-700">{error} <button type="button" onClick={() => void refresh()} className={button}>重試</button></div>}
         {loading && <p role="status" className="mb-3 text-primary-700">讀取中…</p>}
         {data && <>
-          {data.canDrawer && <div className="steamfoot-brand-gold-accent mb-4 rounded-xl border p-4 shadow-sm"><p className="text-sm font-medium text-earth-600">{data.balanceLabel}</p>{data.balance !== null && <p className="mt-1 text-2xl font-semibold tracking-tight text-primary-800">{money(data.balance)}</p>}</div>}
+          {data.canDrawer && <div className={`${drawerNeedsAttention ? "border-amber-300 bg-amber-50/80" : "steamfoot-brand-gold-accent"} mb-4 rounded-xl border p-4 shadow-sm`}><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${drawerNeedsAttention ? "bg-amber-500" : "bg-gold-500"}`} aria-hidden="true" /><p className={`text-sm font-medium ${drawerNeedsAttention ? "text-amber-800" : "text-earth-600"}`}>{data.balanceLabel}</p></div>{data.balance !== null && <p className={`mt-1 text-2xl font-semibold tracking-tight ${drawerNeedsAttention ? "text-amber-900" : "text-primary-800"}`}>{money(data.balance)}</p>}</div>}
           {editing ? <form onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="steamfoot-brand-card space-y-4 rounded-xl border p-4">
             <h3 className="font-semibold text-primary-900">{entry ? "編輯收支" : "新增收支"}</h3>
             <p className="text-sm text-earth-500">登記日期：{data.today}。補登其他日期請至完整現金管理。</p>
