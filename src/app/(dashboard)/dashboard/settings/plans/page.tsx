@@ -111,7 +111,7 @@ const COMPARE_ROWS: {
   { label: "顧客管理", basic: "內含", professional: "內含", scale: "內含" },
   { label: "方案 / 堂數管理", basic: "內含", professional: "內含", scale: "內含" },
   { label: "基本收款紀錄", basic: "內含", professional: "內含", scale: "內含" },
-  { label: "分析", basic: "$800／月加購", professional: "$800／月加購", scale: "$800／月加購" },
+  { label: "分析", basic: "$800／月加購", professional: "$800／月加購", scale: "內含" },
   { label: "LINE 顧客入口（LIFF）", basic: "內含", professional: "內含", scale: "內含" },
   { label: "LINE 綁定狀態", basic: "內含", professional: "內含", scale: "內含" },
   { label: "LINE 自動提醒", basic: "$500 工具模組", professional: "$500 工具模組", scale: "內含" },

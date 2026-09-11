@@ -81,7 +81,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     return (
       <UpgradeNoticePage
         title="營運分析尚未開通"
-        description="分析為 NT$800／月獨立加購，請聯絡總部開通。"
+        description="基本版、專業版可加購分析 NT$800／月，展店版已包含；目前門市尚未開通，請聯絡總部確認。"
       />
     );
   }

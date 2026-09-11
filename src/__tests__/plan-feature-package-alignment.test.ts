@@ -54,18 +54,27 @@ describe("plan feature package alignment", () => {
     ]);
   });
 
-  it("includes every plan-managed HQ feature in 展店版 while Digital Butler and analysis remain entitlement-only", () => {
+  it("includes every plan-managed HQ feature in 展店版 while Digital Butler remains entitlement-only", () => {
     for (const feature of MANAGEABLE_STORE_FEATURES.filter(
-      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.BASIC_REPORTS, FEATURES.ADVANCED_REPORTS])).has(feature.key),
+      (feature) => !(new Set<FeatureKey>([FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS])).has(feature.key),
     )) {
       expect(
         hasFeature("ALLIANCE", feature.key),
         `ALLIANCE should include ${feature.key}`,
       ).toBe(true);
     }
-    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.BASIC_REPORTS, FEATURES.ADVANCED_REPORTS]) {
+    for (const feature of [FEATURES.DIGITAL_BUTLER, FEATURES.ADVANCED_REPORTS]) {
       expect(hasFeature("ALLIANCE", feature)).toBe(false);
     }
+  });
+
+  it.each(["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"] as const)("resolves analysis plan defaults and store overrides for %s", (plan) => {
+    const included = hasFeature(plan, FEATURES.BASIC_REPORTS);
+    expect(included).toBe(plan === "ALLIANCE");
+    expect(resolveEffectiveEntitlement(included, null).enabled).toBe(included);
+    expect(resolveEffectiveEntitlement(included, { status: "ENABLED", startsAt: null, expiresAt: null }).enabled).toBe(true);
+    expect(resolveEffectiveEntitlement(included, { status: "DISABLED", startsAt: null, expiresAt: null }).enabled).toBe(false);
+    expect(resolveEffectiveEntitlement(included, { status: "ENABLED", startsAt: null, expiresAt: new Date("2000-01-01") }).enabled).toBe(included);
   });
 
   it("uses 展店版 as the ALLIANCE display label", () => {
