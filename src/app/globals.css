@@ -110,11 +110,35 @@ form[method="GET"] button[type="submit"].bg-earth-800:hover {
    without changing booking status colours. */
 [role="button"].bg-primary-50.ring-primary-500 {
   background: linear-gradient(145deg, #f7fbf8 0%, #eef6f1 72%, #fbf8f0 100%) !important;
-  box-shadow: inset 0 0 0 1px rgb(184 155 94 / 0.28), 0 2px 8px rgb(47 93 80 / 0.05);
+  box-shadow: inset 0 3px 0 var(--brand-gold), inset 0 0 0 1px rgb(184 155 94 / 0.22), 0 2px 8px rgb(47 93 80 / 0.05);
 }
 
 [role="button"].bg-primary-50.ring-primary-500:focus-visible {
-  box-shadow: inset 0 0 0 1px rgb(184 155 94 / 0.4), 0 0 0 3px rgb(78 122 104 / 0.14);
+  box-shadow: inset 0 3px 0 var(--brand-gold), inset 0 0 0 1px rgb(184 155 94 / 0.34), 0 0 0 3px rgb(78 122 104 / 0.14);
+}
+
+/* Booking filter bar: reduce the boxed-in feeling while keeping controls clear. */
+.flex.flex-wrap.items-center.justify-between.gap-3.rounded-md.border.border-earth-200.bg-white.px-4.py-2 {
+  border-color: #eee8de;
+  background: rgb(255 253 252 / 0.88);
+  box-shadow: 0 1px 2px rgb(63 58 52 / 0.025);
+}
+
+/* Manager sidebar plan badge: champagne rather than promotional yellow. */
+aside.sidebar-transition > div:first-child .bg-amber-100.text-amber-700,
+.fixed.inset-0.z-40 aside > div:first-child .bg-amber-100.text-amber-700 {
+  border: 1px solid var(--brand-gold-soft);
+  background: var(--brand-cream) !important;
+  color: var(--color-gold-700) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55);
+}
+
+/* Transaction detail uses a 520px RightSheet and a px-5/py-4 header.
+   Give only that header a restrained green-gold layer; day booking drawers keep their own styling. */
+aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.border-earth-200.px-5.py-4 {
+  border-color: #eee8de;
+  background: linear-gradient(100deg, #f7fbf8 0%, #fffdfc 62%, #fbf8f0 100%);
+  box-shadow: inset 0 2px 0 rgb(184 155 94 / 0.48);
 }
 
 /* LIFF customer experience 2.0 — calm, consistent, 40+ friendly typography. */
