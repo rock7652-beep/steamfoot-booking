@@ -1,4 +1,5 @@
 import "server-only";
+import { Prisma } from "../../../generated/spa-client";
 
 import { spaPrisma } from "@/lib/spa-db";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
@@ -27,6 +28,9 @@ export type SpaScheduleBooking = {
     balanceAfter?: number | null;
     uses?: number | null;
     refunded?: boolean;
+    voided?: boolean;
+    refundAmount?: number;
+    refundUses?: number | null;
   } | null;
 };
 
@@ -71,9 +75,18 @@ export async function getSpaScheduleForDay(
       storeId,
       receiptId: { in: rows.flatMap((r) => (r.receipt ? [r.receipt.id] : [])) },
     },
-    select: { receiptId: true },
+    select: { receiptId: true, amount: true, uses: true },
   });
-  const refunded = new Set(refunds.map((r) => r.receiptId));
+  const refunded = new Map(refunds.map((r) => [r.receiptId, r]));
+  const receiptIds = rows.flatMap((r) => (r.receipt ? [r.receipt.id] : []));
+  const voids = receiptIds.length
+    ? await spaPrisma.$queryRaw<{ sourceId: string }[]>(Prisma.sql`
+    SELECT "sourceId" FROM "SpaPaymentRevision"
+    WHERE "storeId"=${storeId} AND kind='RECEIPT' AND action='VOID'
+      AND "sourceId" IN (${Prisma.join(receiptIds)})
+  `)
+    : [];
+  const voided = new Set(voids.map((r) => r.sourceId));
   return rows.map((row) => ({
     partyGroupId: row.partyGroupId,
     guestIndex: row.guestIndex,
@@ -90,6 +103,11 @@ export async function getSpaScheduleForDay(
               : Number(row.receipt.balanceAfter),
           uses: row.receipt.uses,
           refunded: refunded.has(row.receipt.id),
+          voided: voided.has(row.receipt.id),
+          refundAmount: refunded.has(row.receipt.id)
+            ? Number(refunded.get(row.receipt.id)!.amount)
+            : undefined,
+          refundUses: refunded.get(row.receipt.id)?.uses,
         }
       : null,
     id: row.id,

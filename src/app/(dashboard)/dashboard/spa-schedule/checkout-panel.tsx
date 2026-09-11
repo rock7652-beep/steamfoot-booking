@@ -119,7 +119,7 @@ export function SpaCheckoutPanel({
       labelledById="spa-checkout-title"
     >
       <form
-        className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5"
+        className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onSubmit={(e) => {
           e.preventDefault();
           if (!confirmed || !valid) return;
@@ -188,7 +188,7 @@ export function SpaCheckoutPanel({
                   setScope("PERSON");
                   setConfirmed(false);
                 }}
-                className={`rounded-lg border p-3 ${scope === "PERSON" ? "bg-earth-100" : ""}`}
+                className={`rounded-lg border border-earth-200 p-3 ${scope === "PERSON" ? "bg-earth-100" : ""}`}
               >
                 只結這位（第 {booking.guestIndex} 位）
               </button>
@@ -199,7 +199,7 @@ export function SpaCheckoutPanel({
                   setScope("GROUP");
                   choose("CASH");
                 }}
-                className={`rounded-lg border p-3 ${scope === "GROUP" ? "bg-earth-100" : ""}`}
+                className={`rounded-lg border border-earth-200 p-3 ${scope === "GROUP" ? "bg-earth-100" : ""}`}
               >
                 整組未結帳（{unpaid.length} 位）
               </button>
@@ -227,7 +227,7 @@ export function SpaCheckoutPanel({
             ).map((value) => (
               <label
                 key={value}
-                className={`rounded-lg border p-3 ${method === value ? "border-earth-700 bg-earth-50" : "border-earth-200"}`}
+                className={`rounded-lg border border-earth-200 p-3 ${method === value ? "border-primary-500 bg-primary-50" : "border-earth-200"}`}
               >
                 <input
                   type="radio"
@@ -255,7 +255,7 @@ export function SpaCheckoutPanel({
                   setConfirmed(false);
                 }}
                 placeholder="例如 0123"
-                className="mt-1 w-full rounded-lg border p-3"
+                className="mt-1 w-full rounded-lg border border-earth-200 p-3"
               />
             </label>
           )}
@@ -280,7 +280,7 @@ export function SpaCheckoutPanel({
                 <label className="block">
                   使用方案
                   <select
-                    className="mt-2 w-full rounded-lg border p-3"
+                    className="mt-2 w-full rounded-lg border border-earth-200 p-3"
                     value={effectiveSourceId}
                     onChange={(e) => {
                       setSourceId(e.target.value);
@@ -343,7 +343,7 @@ export function SpaCheckoutPanel({
         )}
         <button
           disabled={pending || !confirmed || !valid}
-          className="w-full rounded-lg bg-earth-800 p-3 font-semibold text-white disabled:opacity-50"
+          className="w-full rounded-lg bg-primary-700 p-3 font-semibold text-white disabled:opacity-50"
         >
           {pending
             ? "處理中…"

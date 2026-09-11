@@ -1,5 +1,6 @@
 "use client";
-import { SPA_PAYMENT_LABELS } from "@/lib/spa-payment-methods";
+import { SpaBookingSummary } from "./booking-summary";
+import { spaPartyLabel, spaReceiptStatus } from "@/lib/spa-booking-display";
 
 import { SpaCheckoutPanel } from "./checkout-panel";
 import { useEffect, useState, useTransition } from "react";
@@ -260,6 +261,7 @@ export function SpaScheduleWorkspace(props: Props) {
   const editable = editing
     ? canUpdate && ["PENDING", "CONFIRMED"].includes(editing.status)
     : canCreate;
+  const summaryOnly = !!editing && !editable;
   function submit(cancel = false) {
     if (!draft || pending) return;
     if (!cancel && !effectiveLocation) {
@@ -368,7 +370,7 @@ export function SpaScheduleWorkspace(props: Props) {
           {canCreate && (
             <button
               onClick={() => openNew()}
-              className="rounded-lg bg-earth-800 px-4 py-2 text-white"
+              className="rounded-lg bg-primary-700 px-4 py-2 text-white"
             >
               新增預約
             </button>
@@ -398,7 +400,7 @@ export function SpaScheduleWorkspace(props: Props) {
         </div>
       )}
       {!staff.length ? (
-        <p className="rounded-xl border p-8">
+        <p className="rounded-xl border border-earth-200 p-8">
           尚無可安排的服務人員。
           <Link className="ml-2 underline" href="/dashboard/spa-staff">
             新增人員與排班 →
@@ -416,14 +418,17 @@ export function SpaScheduleWorkspace(props: Props) {
         >
           <div style={{ minWidth: Math.max(350, staff.length * 210 + 70) }}>
             <div
-              className="sticky top-0 z-20 grid border-b bg-earth-50"
+              className="sticky top-0 z-20 grid border-b border-earth-200 bg-earth-50"
               style={{
                 gridTemplateColumns: `70px repeat(${staff.length}, 1fr)`,
               }}
             >
               <div className="p-3 text-xs">時間</div>
               {staff.map((s) => (
-                <div key={s.id} className="border-l p-3 font-semibold">
+                <div
+                  key={s.id}
+                  className="border-l border-earth-200 p-3 font-semibold"
+                >
                   <span
                     className="mr-2 inline-block h-3 w-3 rounded-full"
                     style={{ backgroundColor: s.colorCode ?? "#6366f1" }}
@@ -443,14 +448,14 @@ export function SpaScheduleWorkspace(props: Props) {
                   <div
                     key={time}
                     style={{ height: rowHeight }}
-                    className="border-b px-2 py-2 text-xs text-earth-500"
+                    className="border-b border-earth-100 px-2 py-2 text-xs text-earth-500"
                   >
                     {time}
                   </div>
                 ))}
               </div>
               {staff.map((s) => (
-                <div key={s.id} className="relative border-l">
+                <div key={s.id} className="relative border-l border-earth-200">
                   {slots.map((time) => (
                     <button
                       key={time}
@@ -471,7 +476,7 @@ export function SpaScheduleWorkspace(props: Props) {
                     .map((b) => (
                       <button
                         key={b.id}
-                        title={`${customers.find((c) => c.id === b.customerId)?.name ?? "顧客"} · ${b.serviceName} · ${b.startTime}–${b.endTime} · ${locations.find((l) => l.id === b.serviceLocationId)?.name ?? "待安排位置"} · ${statusNames[b.status]}`}
+                        title={`${customers.find((c) => c.id === b.customerId)?.name ?? "顧客"} · ${b.serviceName} · ${b.startTime}–${b.endTime} · ${locations.find((l) => l.id === b.serviceLocationId)?.name ?? "待安排位置"} · ${statusNames[b.status]}${b.receipt ? ` · ${spaReceiptStatus(b.receipt)}` : ""}`}
                         onClick={() => openEdit(b)}
                         style={{
                           top: (minutesOf(b.startTime) / interval) * rowHeight,
@@ -485,14 +490,23 @@ export function SpaScheduleWorkspace(props: Props) {
                         }}
                         className={`absolute inset-x-1 overflow-hidden rounded-lg border p-2 text-left text-xs hover:brightness-95 ${statusStyles[b.status] ?? statusStyles.CONFIRMED}`}
                       >
-                        <div className="flex justify-between gap-1 font-semibold">
+                        <div className="flex flex-wrap justify-between gap-x-2 font-semibold">
                           <span>
                             {customers.find((c) => c.id === b.customerId)
                               ?.name ?? "顧客"}
+                            {spaPartyLabel(b) && (
+                              <span className="ml-1 font-normal">
+                                · {spaPartyLabel(b)}
+                              </span>
+                            )}
                           </span>
                           <span>
-                            {b.partyGroupId ? `同行 ${b.guestIndex} · ` : ""}
                             {statusNames[b.status]}
+                            {b.receipt && (
+                              <span className="ml-1 font-normal">
+                                · {spaReceiptStatus(b.receipt)}
+                              </span>
+                            )}
                           </span>
                         </div>
                         <div>
@@ -533,7 +547,7 @@ export function SpaScheduleWorkspace(props: Props) {
           <button
             key={b.id}
             onClick={() => openEdit(b)}
-            className="flex w-full justify-between gap-3 border-b py-3 text-left text-sm"
+            className="flex w-full justify-between gap-3 border-b border-earth-100 py-3 text-left text-sm"
           >
             <span>
               {b.startTime}–{b.endTime}{" "}
@@ -547,7 +561,14 @@ export function SpaScheduleWorkspace(props: Props) {
                   "待安排位置"}
               </small>
             </span>
-            <span>{statusNames[b.status]}</span>
+            <span>
+              {statusNames[b.status]}
+              {b.receipt && (
+                <span className="ml-1 font-normal">
+                  · {spaReceiptStatus(b.receipt)}
+                </span>
+              )}
+            </span>
           </button>
         ))}
       </details>
@@ -580,7 +601,7 @@ export function SpaScheduleWorkspace(props: Props) {
           width={520}
           labelledById="spa-panel-title"
         >
-          <header className="flex shrink-0 items-center justify-between border-b p-5">
+          <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-5">
             <h2 id="spa-panel-title" className="text-xl font-bold">
               {editing ? "預約詳情" : "新增預約"}
             </h2>
@@ -599,328 +620,334 @@ export function SpaScheduleWorkspace(props: Props) {
                 {!editing.serviceLocationId && " · 待安排位置"}
               </p>
             )}
-            {editing?.receipt && (
-              <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm">
-                {editing.receipt.refunded ? "已退款／退回堂數" : "已結帳"} ·{" "}
-                {SPA_PAYMENT_LABELS[editing.receipt.paymentMethod] ??
-                  editing.receipt.paymentMethod}{" "}
-                ·{" "}
-                {editing.receipt.paymentMethod === "ENTITLEMENT"
-                  ? `${editing.receipt.uses} 次`
-                  : `NT$${editing.receipt.amount.toLocaleString()}`}{" "}
-                {editing.receipt.balanceAfter != null && (
-                  <p>
-                    {editing.receipt.paymentMethod === "ENTITLEMENT"
-                      ? `方案剩餘 ${editing.receipt.balanceAfter} 次（含已保留）`
-                      : `扣款後餘額 NT$${editing.receipt.balanceAfter.toLocaleString()}`}
-                  </p>
+            {summaryOnly && editing ? (
+              <SpaBookingSummary
+                booking={editing}
+                date={date}
+                customer={
+                  customers.find((c) => c.id === editing.customerId)?.name ??
+                  "顧客"
+                }
+                staff={
+                  staff.find((s) => s.id === editing.serviceStaffId)?.name ??
+                  "未指定人員"
+                }
+                location={
+                  locations.find((l) => l.id === editing.serviceLocationId)
+                    ?.name ??
+                  (editing.serviceLocationId ? "已停用位置" : "待安排位置")
+                }
+              />
+            ) : (
+              <>
+                {!editing && companions.length > 0 && (
+                  <section className="mb-3 rounded-lg bg-earth-50 p-3 text-sm">
+                    <strong>
+                      正在安排第 {companions.length + 1} 位（最多 3 位）
+                    </strong>
+                    {companions.map((c, i) => (
+                      <p key={c.requestKey}>
+                        第 {i + 1} 位 ·{" "}
+                        {c.treatmentIds
+                          .map(
+                            (id) => treatments.find((t) => t.id === id)?.name,
+                          )
+                          .join("＋")}{" "}
+                        · {c.startTime} ·{" "}
+                        {staff.find((s) => s.id === c.serviceStaffId)?.name}{" "}
+                        <button
+                          disabled={pending}
+                          onClick={() =>
+                            setCompanions((prev) =>
+                              prev.filter((_, j) => j !== i),
+                            )
+                          }
+                          className="underline"
+                        >
+                          移除
+                        </button>
+                      </p>
+                    ))}
+                    <p>整組一起送出，有衝突時全組保留，不會建立半套預約。</p>
+                  </section>
                 )}
-                {editing.receipt.transferLast4 && (
-                  <p>轉帳後四碼：{editing.receipt.transferLast4}</p>
-                )}
-                <p>
-                  結帳時間：
-                  {new Intl.DateTimeFormat("zh-TW", {
-                    timeZone: "Asia/Taipei",
-                    dateStyle: "short",
-                    timeStyle: "short",
-                  }).format(new Date(editing.receipt.paidAt))}
-                </p>
-                <p className="break-all text-xs">
-                  結帳編號：{editing.receipt.id}
-                </p>
-              </div>
-            )}
-            {!editing && companions.length > 0 && (
-              <section className="mb-3 rounded-lg bg-earth-50 p-3 text-sm">
-                <strong>
-                  正在安排第 {companions.length + 1} 位（最多 3 位）
-                </strong>
-                {companions.map((c, i) => (
-                  <p key={c.requestKey}>
-                    第 {i + 1} 位 ·{" "}
-                    {c.treatmentIds
-                      .map((id) => treatments.find((t) => t.id === id)?.name)
-                      .join("＋")}{" "}
-                    · {c.startTime} ·{" "}
-                    {staff.find((s) => s.id === c.serviceStaffId)?.name}{" "}
-                    <button
-                      disabled={pending}
-                      onClick={() =>
-                        setCompanions((prev) => prev.filter((_, j) => j !== i))
-                      }
-                      className="underline"
-                    >
-                      移除
-                    </button>
-                  </p>
-                ))}
-                <p>整組一起送出，有衝突時全組保留，不會建立半套預約。</p>
-              </section>
-            )}
-            <nav aria-label="預約步驟" className="mb-5 grid grid-cols-4 gap-1">
-              {["服務", "時間", "顧客", "確認"].map((label, i) => (
-                <button
-                  key={label}
-                  disabled={pending || confirmCancel}
-                  onClick={() => setStep(i)}
-                  className={`min-h-11 rounded-lg py-2 text-sm ${i === step ? "bg-earth-800 text-white" : "bg-earth-50"}`}
+                <nav
+                  aria-label="預約步驟"
+                  className="mb-5 grid grid-cols-4 gap-1"
                 >
-                  {i + 1} {label}
-                </button>
-              ))}
-            </nav>
-            <fieldset disabled={pending || confirmCancel || !editable}>
-              {step === 0 && (
-                <div className="space-y-2">
-                  <h3 className="font-semibold">選擇服務</h3>
-                  {!treatments.length && (
-                    <Link
-                      href="/dashboard/plans"
-                      className="block rounded-lg bg-amber-50 p-3 underline"
+                  {["服務", "時間", "顧客", "確認"].map((label, i) => (
+                    <button
+                      key={label}
+                      disabled={pending || confirmCancel}
+                      onClick={() => setStep(i)}
+                      className={`min-h-11 rounded-lg py-2 text-sm ${i === step ? "bg-primary-700 text-white" : "bg-earth-50"}`}
                     >
-                      尚無啟用服務，前往方案管理 →
-                    </Link>
-                  )}
-                  {treatments.map((t) => (
-                    <label
-                      key={t.id}
-                      className="flex items-center gap-3 rounded-lg border border-earth-200 p-3"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={draft.treatmentIds.includes(t.id)}
-                        onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            serviceLocationId: undefined,
-                            treatmentIds: e.target.checked
-                              ? [...draft.treatmentIds, t.id]
-                              : draft.treatmentIds.filter((id) => id !== t.id),
-                          })
-                        }
-                      />
-                      <span className="flex-1">
-                        {t.name}
-                        <small className="block text-earth-500">
-                          {t.serviceMinutes} 分鐘
-                          {t.bufferMinutes > 0 &&
-                            `＋緩衝 ${t.bufferMinutes} 分鐘`}
-                        </small>
-                      </span>
-                      <span>${t.price.toLocaleString()}</span>
-                    </label>
+                      {i + 1} {label}
+                    </button>
                   ))}
-                </div>
-              )}
-              {step === 1 && (
-                <div className="space-y-4">
-                  <label className="block">
-                    日期
-                    <input
-                      type="date"
-                      disabled={companions.length > 0}
-                      className={inputClass}
-                      value={draft.bookingDate}
-                      onChange={(e) =>
-                        setDraft({ ...draft, bookingDate: e.target.value })
-                      }
-                    />
-                  </label>
-                  <label className="block">
-                    開始時間
-                    <input
-                      type="time"
-                      className={inputClass}
-                      value={draft.startTime}
-                      onChange={(e) =>
-                        setDraft({ ...draft, startTime: e.target.value })
-                      }
-                    />
-                  </label>
-                  {!checkingProviders &&
-                    providerResult.key === providerKey &&
-                    !!providerResult.suggestions?.length && (
-                      <div className="rounded-lg bg-earth-50 p-3">
-                        <p className="mb-2 text-sm">
-                          當日接下來可預約的時段（人員與位置皆有空檔）
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {providerResult.suggestions.map((s) => (
-                            <button
-                              key={s.startTime}
-                              type="button"
-                              className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"
-                              onClick={() =>
-                                setDraft({
-                                  ...draft,
-                                  startTime: s.startTime,
-                                  serviceStaffId: "",
-                                })
-                              }
-                            >
-                              {s.startTime}–{s.endTime}
-                            </button>
+                </nav>
+                <fieldset disabled={pending || confirmCancel || !editable}>
+                  {step === 0 && (
+                    <div className="space-y-2">
+                      <h3 className="font-semibold">選擇服務</h3>
+                      {!treatments.length && (
+                        <Link
+                          href="/dashboard/plans"
+                          className="block rounded-lg bg-amber-50 p-3 underline"
+                        >
+                          尚無啟用服務，前往方案管理 →
+                        </Link>
+                      )}
+                      {treatments.map((t) => (
+                        <label
+                          key={t.id}
+                          className="flex items-center gap-3 rounded-lg border border-earth-200 p-3"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={draft.treatmentIds.includes(t.id)}
+                            onChange={(e) =>
+                              setDraft({
+                                ...draft,
+                                serviceLocationId: undefined,
+                                treatmentIds: e.target.checked
+                                  ? [...draft.treatmentIds, t.id]
+                                  : draft.treatmentIds.filter(
+                                      (id) => id !== t.id,
+                                    ),
+                              })
+                            }
+                          />
+                          <span className="flex-1">
+                            {t.name}
+                            <small className="block text-earth-500">
+                              {t.serviceMinutes} 分鐘
+                              {t.bufferMinutes > 0 &&
+                                `＋緩衝 ${t.bufferMinutes} 分鐘`}
+                            </small>
+                          </span>
+                          <span>${t.price.toLocaleString()}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {step === 1 && (
+                    <div className="space-y-4">
+                      <label className="block">
+                        日期
+                        <input
+                          type="date"
+                          disabled={companions.length > 0}
+                          className={inputClass}
+                          value={draft.bookingDate}
+                          onChange={(e) =>
+                            setDraft({ ...draft, bookingDate: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="block">
+                        開始時間
+                        <input
+                          type="time"
+                          className={inputClass}
+                          value={draft.startTime}
+                          onChange={(e) =>
+                            setDraft({ ...draft, startTime: e.target.value })
+                          }
+                        />
+                      </label>
+                      {!checkingProviders &&
+                        providerResult.key === providerKey &&
+                        !!providerResult.suggestions?.length && (
+                          <div className="rounded-lg bg-earth-50 p-3">
+                            <p className="mb-2 text-sm">
+                              當日接下來可預約的時段（人員與位置皆有空檔）
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {providerResult.suggestions.map((s) => (
+                                <button
+                                  key={s.startTime}
+                                  type="button"
+                                  className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"
+                                  onClick={() =>
+                                    setDraft({
+                                      ...draft,
+                                      startTime: s.startTime,
+                                      serviceStaffId: "",
+                                    })
+                                  }
+                                >
+                                  {s.startTime}–{s.endTime}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      <label className="block">
+                        服務人員
+                        <select
+                          disabled={checkingProviders}
+                          className={inputClass}
+                          value={
+                            availableProviders.some(
+                              (p) => p.id === draft.serviceStaffId,
+                            )
+                              ? draft.serviceStaffId
+                              : ""
+                          }
+                          onChange={(e) =>
+                            setDraft({
+                              ...draft,
+                              serviceStaffId: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="">
+                            {checkingProviders ? "查詢中…" : "請選擇可服務人員"}
+                          </option>
+                          {availableProviders.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
                           ))}
-                        </div>
-                      </div>
-                    )}
-                  <label className="block">
-                    服務人員
-                    <select
-                      disabled={checkingProviders}
-                      className={inputClass}
-                      value={
-                        availableProviders.some(
-                          (p) => p.id === draft.serviceStaffId,
-                        )
-                          ? draft.serviceStaffId
-                          : ""
-                      }
-                      onChange={(e) =>
-                        setDraft({ ...draft, serviceStaffId: e.target.value })
-                      }
-                    >
-                      <option value="">
-                        {checkingProviders ? "查詢中…" : "請選擇可服務人員"}
-                      </option>
-                      {availableProviders.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {!checkingProviders && (
-                    <p className="text-sm text-earth-500">
-                      {!providerKey
-                        ? "請先選擇服務。"
-                        : (providerResult.error ??
-                          (availableProviders.length
-                            ? "僅顯示可提供所選服務、有排班且人員與位置皆有空檔的選項。"
-                            : providerResult.reason ||
-                              "此時段無法安排，請選擇其他時間。"))}
-                    </p>
-                  )}
+                        </select>
+                      </label>
+                      {!checkingProviders && (
+                        <p className="text-sm text-earth-500">
+                          {!providerKey
+                            ? "請先選擇服務。"
+                            : (providerResult.error ??
+                              (availableProviders.length
+                                ? "僅顯示可提供所選服務、有排班且人員與位置皆有空檔的選項。"
+                                : providerResult.reason ||
+                                  "此時段無法安排，請選擇其他時間。"))}
+                        </p>
+                      )}
 
-                  {!checkingProviders &&
-                    providerResult.key === providerKey &&
-                    providerResult.setupHref && (
-                      <Link
-                        href={providerResult.setupHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block rounded-lg border border-earth-200 px-3 py-2 text-sm"
+                      {!checkingProviders &&
+                        providerResult.key === providerKey &&
+                        providerResult.setupHref && (
+                          <Link
+                            href={providerResult.setupHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block rounded-lg border border-earth-200 px-3 py-2 text-sm"
+                          >
+                            {providerResult.setupLabel} ↗
+                          </Link>
+                        )}
+                      <button
+                        type="button"
+                        disabled={checkingProviders}
+                        className="text-sm underline disabled:opacity-50"
+                        onClick={() => setAvailabilityRevision((v) => v + 1)}
                       >
-                        {providerResult.setupLabel} ↗
-                      </Link>
-                    )}
-                  <button
-                    type="button"
-                    disabled={checkingProviders}
-                    className="text-sm underline disabled:opacity-50"
-                    onClick={() => setAvailabilityRevision((v) => v + 1)}
-                  >
-                    重新檢查空檔與設定
-                  </button>
-                  <label className="block">
-                    服務位置
-                    <select
-                      disabled={checkingProviders}
-                      className={inputClass}
-                      value={effectiveLocation}
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          serviceLocationId: e.target.value || undefined,
-                        })
-                      }
-                    >
-                      <option value="">請選擇</option>
-                      {allowed.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {!allowed.length && (
-                    <p className="text-sm text-amber-800">
-                      此時段沒有可用位置，請調整時間或檢查位置設定。
-                    </p>
+                        重新檢查空檔與設定
+                      </button>
+                      <label className="block">
+                        服務位置
+                        <select
+                          disabled={checkingProviders}
+                          className={inputClass}
+                          value={effectiveLocation}
+                          onChange={(e) =>
+                            setDraft({
+                              ...draft,
+                              serviceLocationId: e.target.value || undefined,
+                            })
+                          }
+                        >
+                          <option value="">請選擇</option>
+                          {allowed.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {!allowed.length && (
+                        <p className="text-sm text-amber-800">
+                          此時段沒有可用位置，請調整時間或檢查位置設定。
+                        </p>
+                      )}
+                      {allowed.length === 1 && (
+                        <p className="text-sm text-earth-500">
+                          已自動帶入唯一可用位置。送出時會再次確認，避免同時預約衝突。
+                        </p>
+                      )}
+                    </div>
                   )}
-                  {allowed.length === 1 && (
-                    <p className="text-sm text-earth-500">
-                      已自動帶入唯一可用位置。送出時會再次確認，避免同時預約衝突。
-                    </p>
+                  {step === 2 && (
+                    <div className="space-y-4">
+                      <label className="block">
+                        主要聯絡人
+                        <select
+                          disabled={
+                            companions.length > 0 || !!editing?.partyGroupId
+                          }
+                          className={inputClass}
+                          value={draft.customerId}
+                          onChange={(e) =>
+                            setDraft({ ...draft, customerId: e.target.value })
+                          }
+                        >
+                          <option value="">請選擇顧客</option>
+                          {customers.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} · {c.phone}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block">
+                        備註
+                        <textarea
+                          className={inputClass}
+                          maxLength={500}
+                          value={draft.notes}
+                          onChange={(e) =>
+                            setDraft({ ...draft, notes: e.target.value })
+                          }
+                        />
+                      </label>
+                    </div>
                   )}
-                </div>
-              )}
-              {step === 2 && (
-                <div className="space-y-4">
-                  <label className="block">
-                    主要聯絡人
-                    <select
-                      disabled={
-                        companions.length > 0 || !!editing?.partyGroupId
-                      }
-                      className={inputClass}
-                      value={draft.customerId}
-                      onChange={(e) =>
-                        setDraft({ ...draft, customerId: e.target.value })
-                      }
-                    >
-                      <option value="">請選擇顧客</option>
-                      {customers.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} · {c.phone}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    備註
-                    <textarea
-                      className={inputClass}
-                      maxLength={500}
-                      value={draft.notes}
-                      onChange={(e) =>
-                        setDraft({ ...draft, notes: e.target.value })
-                      }
-                    />
-                  </label>
-                </div>
-              )}
-              {step === 3 && (
-                <div className="space-y-3 rounded-xl bg-earth-50 p-4">
-                  <p>
-                    {selected.map((t) => t.name).join("＋") || "尚未選擇服務"}
-                  </p>
-                  <p>
-                    {draft.bookingDate} {draft.startTime} · 共{" "}
-                    {selected.reduce(
-                      (n, t) => n + t.serviceMinutes + t.bufferMinutes,
-                      0,
-                    )}{" "}
-                    分鐘
-                  </p>
-                  <p>
-                    {staff.find((s) => s.id === draft.serviceStaffId)?.name} ·{" "}
-                    {locations.find((l) => l.id === effectiveLocation)?.name ??
-                      "尚未選擇位置"}
-                  </p>
-                  <p>
-                    {customers.find((c) => c.id === draft.customerId)?.name ??
-                      "尚未選擇顧客"}
-                  </p>
-                  <p className="font-bold">
-                    NT$
-                    {selected.reduce((n, t) => n + t.price, 0).toLocaleString()}
-                  </p>
-                  <p className="text-sm">{draft.notes}</p>
-                </div>
-              )}
-            </fieldset>
+                  {step === 3 && (
+                    <div className="space-y-3 rounded-xl bg-earth-50 p-4">
+                      <p>
+                        {selected.map((t) => t.name).join("＋") ||
+                          "尚未選擇服務"}
+                      </p>
+                      <p>
+                        {draft.bookingDate} {draft.startTime} · 共{" "}
+                        {selected.reduce(
+                          (n, t) => n + t.serviceMinutes + t.bufferMinutes,
+                          0,
+                        )}{" "}
+                        分鐘
+                      </p>
+                      <p>
+                        {staff.find((s) => s.id === draft.serviceStaffId)?.name}{" "}
+                        ·{" "}
+                        {locations.find((l) => l.id === effectiveLocation)
+                          ?.name ?? "尚未選擇位置"}
+                      </p>
+                      <p>
+                        {customers.find((c) => c.id === draft.customerId)
+                          ?.name ?? "尚未選擇顧客"}
+                      </p>
+                      <p className="font-bold">
+                        NT$
+                        {selected
+                          .reduce((n, t) => n + t.price, 0)
+                          .toLocaleString()}
+                      </p>
+                      <p className="text-sm">{draft.notes}</p>
+                    </div>
+                  )}
+                </fieldset>
+              </>
+            )}
             {error && (
               <p
                 role="alert"
@@ -930,11 +957,27 @@ export function SpaScheduleWorkspace(props: Props) {
               </p>
             )}
           </div>
-          <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] [&>button]:min-h-11">
+          <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t border-earth-200 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] [&>button]:min-h-11">
+            {summaryOnly && editing && (
+              <Link
+                href={`/dashboard/customers?search=${encodeURIComponent(customers.find((c) => c.id === editing.customerId)?.phone ?? customers.find((c) => c.id === editing.customerId)?.name ?? "")}`}
+                className="inline-flex min-h-11 items-center text-primary-700"
+              >
+                查看顧客帳務 →
+              </Link>
+            )}
+            {summaryOnly && (
+              <button
+                onClick={() => setDraft(null)}
+                className="ml-auto rounded-lg bg-primary-700 px-4 py-2 text-white"
+              >
+                關閉摘要
+              </button>
+            )}
             {!confirmCancel && editing && editable && canCheckout && (
               <button
                 disabled={pending}
-                className="rounded-lg bg-teal-800 px-3 py-2 text-white"
+                className="rounded-lg bg-primary-700 px-3 py-2 text-white"
                 onClick={() => {
                   setCheckout(editing);
                   setDraft(null);
@@ -964,7 +1007,7 @@ export function SpaScheduleWorkspace(props: Props) {
                   <button
                     disabled={pending}
                     onClick={() => setConfirmCancel(false)}
-                    className="min-h-11 rounded-lg border px-3 py-2"
+                    className="min-h-11 rounded-lg border border-earth-200 px-3 py-2"
                   >
                     保留預約
                   </button>
@@ -992,7 +1035,7 @@ export function SpaScheduleWorkspace(props: Props) {
                       (p) => p.id === draft.serviceStaffId,
                     )
                   }
-                  className="rounded-lg border px-3 py-2"
+                  className="rounded-lg border border-earth-200 px-3 py-2"
                   onClick={() => {
                     setCompanions((prev) => [
                       ...prev,
@@ -1013,16 +1056,17 @@ export function SpaScheduleWorkspace(props: Props) {
                   ＋加入下一位同行
                 </button>
               )}
-            {!confirmCancel && step > 0 && (
+            {!summaryOnly && !confirmCancel && step > 0 && (
               <button
                 disabled={pending}
                 onClick={() => setStep(step - 1)}
-                className="rounded-lg border px-3 py-2"
+                className="rounded-lg border border-earth-200 px-3 py-2"
               >
                 上一步
               </button>
             )}
-            {!confirmCancel &&
+            {!summaryOnly &&
+              !confirmCancel &&
               (step < 3 ? (
                 <button
                   disabled={
@@ -1039,7 +1083,7 @@ export function SpaScheduleWorkspace(props: Props) {
                           : !draft.customerId))
                   }
                   onClick={() => setStep(step + 1)}
-                  className="rounded-lg bg-earth-800 px-4 py-2 text-white disabled:opacity-50"
+                  className="rounded-lg bg-primary-700 px-4 py-2 text-white disabled:opacity-50"
                 >
                   下一步
                 </button>
@@ -1057,7 +1101,7 @@ export function SpaScheduleWorkspace(props: Props) {
                       )
                     }
                     onClick={() => submit()}
-                    className="rounded-lg bg-earth-800 px-4 py-2 text-white disabled:opacity-50"
+                    className="rounded-lg bg-primary-700 px-4 py-2 text-white disabled:opacity-50"
                   >
                     {pending
                       ? "處理中…"
