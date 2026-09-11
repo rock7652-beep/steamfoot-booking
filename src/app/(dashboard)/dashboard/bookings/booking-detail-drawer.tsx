@@ -20,6 +20,7 @@ import {
   revertBookingStatus,
   updateBooking,
 } from "@/server/actions/booking";
+import { BookingServiceNoteEditor } from "./booking-service-note-editor";
 import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { RescheduleModal } from "./reschedule-modal";
 import { CollectTrialModal } from "./collect-trial-modal";
@@ -543,6 +544,13 @@ export function BookingDetailDrawer({
         ) : hasFullData && data ? (
           <DrawerContent
             payload={data}
+            onNoteSaved={() => {
+              if (bookingId) {
+                cache?.invalidate(bookingId);
+                onUpdated?.(bookingId, null);
+              }
+              setReloadNonce((n) => n + 1);
+            }}
             isActing={isActing}
             onClose={onClose}
             readOnly={readOnly}
@@ -758,6 +766,7 @@ interface DrawerActions {
 
 function DrawerContent({
   payload,
+  onNoteSaved,
   isActing,
   onClose,
   actions,
@@ -767,6 +776,7 @@ function DrawerContent({
   spaMode = false,
 }: {
   payload: BookingDrawerPayload;
+  onNoteSaved: () => void;
   isActing: boolean;
   onClose: () => void;
   actions: DrawerActions;
@@ -920,15 +930,16 @@ function DrawerContent({
               )
             }
           />
-          {booking.customer.serviceNote ? (
-            spaMode ? (
-              <KV label="服務備註" value={<span className="whitespace-pre-wrap text-amber-800">{booking.customer.serviceNote}</span>} />
-            ) : (
-              <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3">
-                <p className="mb-1 text-sm font-medium text-earth-600">服務備註</p>
-                <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{booking.customer.serviceNote}</p>
-              </div>
-            )
+          {!spaMode ? (
+            <BookingServiceNoteEditor
+              key={booking.customer.id}
+              customerId={booking.customer.id}
+              value={booking.customer.serviceNote}
+              canEdit={!readOnly && payload.canEditServiceNote === true}
+              onSaved={onNoteSaved}
+            />
+          ) : booking.customer.serviceNote ? (
+            <KV label="服務備註" value={<span className="whitespace-pre-wrap text-amber-800">{booking.customer.serviceNote}</span>} />
           ) : null}
           <KV readable={!spaMode} label="累積完成" value={`${customerSummary.totalBookings} 次`} />
           <KV readable={!spaMode}

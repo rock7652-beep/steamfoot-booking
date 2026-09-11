@@ -45,6 +45,7 @@ async function findCollectedSingleTransaction(
 }
 
 export interface BookingDrawerPayload {
+  canEditServiceNote?: boolean;
   booking: {
     id: string;
     bookingDate: string;
@@ -306,6 +307,7 @@ export async function fetchBookingDetail(
     completedAgg,
     lastVisit,
     firstBookingCount,
+    canEditServiceNote,
   ] = await Promise.all([
     isTrial
       ? prisma.transaction.findFirst({
@@ -373,9 +375,11 @@ export async function fetchBookingDetail(
         ...storeFilter,
       },
     }),
+    !isViewMode ? checkPermission(user.role, user.staffId, "customer.update") : Promise.resolve(false),
   ]);
 
   return {
+    canEditServiceNote,
     booking: {
       id: booking.id,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),

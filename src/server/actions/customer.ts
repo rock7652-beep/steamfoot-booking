@@ -285,6 +285,7 @@ export async function updateCustomerServiceNoteAction(
       },
     });
 
+    revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard/customers");
     revalidatePath(`/dashboard/customers/${customerId}`);
     return { success: true, data: undefined };

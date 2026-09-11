@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
-import { getCustomerDetail } from "@/server/queries/customer";
+import { getCustomerEditForUser } from "@/server/queries/customer";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageShell, PageHeader } from "@/components/desktop";
@@ -24,7 +24,7 @@ export default async function EditCustomerPage({ params }: PageProps) {
     redirect(`/dashboard/customers/${id}`);
   }
 
-  const customer = await getCustomerDetail(id);
+  const customer = await getCustomerEditForUser(user, id);
   const birthdayStr = customer.birthday
     ? customer.birthday.toISOString().slice(0, 10)
     : "";
