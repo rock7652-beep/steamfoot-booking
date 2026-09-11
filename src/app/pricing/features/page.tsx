@@ -65,11 +65,11 @@ const features = [
   },
   {
     id: "analysis", name: "分析", icon: "bar-chart", fee: 800,
-    title: "客人有來、有成交，也有再回來嗎？",
-    before: "預約看起來很滿，卻不知道增加的是新客還是舊客；體驗後有沒有開卡、上月顧客有沒有回來，還得逐筆翻資料。",
-    after: "把來客、新客、體驗、開卡、回流與方案購買收入放在一起看，再比較上月與去年同月。從吸引新客到成交、留住顧客，每一段都有數據可追。",
+    title: "客人變多了嗎？體驗成交了嗎？舊客回來了嗎？",
+    before: "店裡很忙，經營狀況卻要翻好幾份紀錄才知道。",
+    after: "來客、成交、回流與方案購買收入，集中看清楚。",
     manual: ["看預約量，感覺最近很忙", "另外加總每月收入", "新客有回來嗎？再翻紀錄"],
-    takeaway: "看懂客人從哪裡增加、在哪一段流失，才知道下一步該關心什麼。",
+    takeaway: "看客源、看成交、看回流，找到下一步該關心的事。",
     detail: "數據依實際完成服務與交易等紀錄計算；趨勢協助判斷，不代表原因或未來營收保證。",
   },
 ] as const;
@@ -111,6 +111,9 @@ function Example({ id }: { id: FeatureId }) {
 }
 
 function BeforeExample({ id }: { id: FeatureId }) {
+  if (id === "analysis") return <ul className="divide-y divide-[#B48A42]/20 rounded-xl border border-[#B48A42]/20 bg-white px-4">
+    {["翻預約，才知道新客有沒有增加", "對體驗與交易，才知道誰開卡了", "找上月名單，才知道誰還沒回來"].map(item => <li key={item} className="py-3 text-base leading-6">{item}</li>)}
+  </ul>;
   if (id === "reminders" || id === "care") return <div className="space-y-3 rounded-xl border border-[#153B31]/15 bg-[#E6E4DF] p-4">
     <p className="text-sm text-[#64756D]">分散在不同對話裡</p>
     {(id === "reminders" ? [["顧客 A", "明天 14:00 記得來喔！"], ["顧客 B", "可以改時間嗎？"], ["店長", "還有誰沒回覆？"]] : [["店長", "她上次來是什麼時候？"], ["同事", "我找一下聊天紀錄。"], ["店長", "有人聯繫過她嗎？"]]).map(([name, message], i) => <div key={name} className={"max-w-[90%] rounded-xl bg-white p-3 " + (i === 1 ? "ml-auto" : "")}><p className="text-sm text-[#74603C]">{name}</p><p className="mt-1 text-base leading-6">{message}</p></div>)}
@@ -120,7 +123,6 @@ function BeforeExample({ id }: { id: FeatureId }) {
     cash: [["開店紀錄", "零用金　NT$2,000"], ["臨時支出便條", "耗材　NT$200　待登記"], ["關帳清點", "實際 NT$8,000　／　差額？"]],
     health: [["8 月的照片", "體重 68.0 kg"], ["另一本量測紀錄", "67.6 kg　／　日期？"], ["聊天裡的紀錄", "上次是傳在哪個對話？"]],
     settlement: [["服務金額表", "本月 NT$30,000"], ["合作條件", "分潤 20%　＋　固定月費"], ["加扣項便條", "另扣 NT$500，記得重算"]],
-    analysis: [["預約名單", "這個月看起來很忙"], ["體驗名單", "哪些人後來開卡了？"], ["交易紀錄", "方案購買收入要另外加總"], ["上月顧客名單", "哪些人這個月沒回來？"]],
   } as const;
   return <div className="space-y-3">{sheets[id].map(([title, content], i) => <div key={title} className={"rounded-lg border border-[#B48A42]/25 bg-white p-4 shadow-sm " + (i % 2 ? "ml-4" : "mr-4")}><p className="border-b border-[#153B31]/10 pb-2 text-sm font-medium text-[#74603C]">{title}</p><p className="mt-2 text-base leading-6">{content}</p></div>)}</div>;
 }
@@ -152,7 +154,6 @@ export default function FeaturesPage() {
             </section>
           </div>
           <p className="mt-4 border-l-4 border-[#967039] pl-4 text-lg font-medium leading-7">{feature.takeaway}</p>
-          {feature.id === "analysis" && <div className="mt-4 grid gap-3 sm:grid-cols-3">{[["新客有沒有增加？", "比較來客、新舊客與體驗數，了解客源組成。"], ["體驗有沒有成交？", "查看本月體驗開卡、追蹤開卡與開卡率，再核對方案購買收入。"], ["舊客有沒有回來？", "查看回流人數、回流率與未回流名單，安排後續關心。"]].map(([question, answer]) => <div key={question} className="rounded-xl bg-white p-4"><h3 className="font-semibold">{question}</h3><p className="mt-2 text-sm leading-6 text-[#4C6259]">{answer}</p></div>)}</div>}
           <details className="mt-3 text-sm leading-6 text-[#4C6259]"><summary className="cursor-pointer">功能使用說明</summary><p className="mt-2">{feature.detail}</p></details>
         </article>)}
       </div>
