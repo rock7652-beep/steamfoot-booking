@@ -36,6 +36,8 @@ import { packageUsageSummary } from "./package-usage-summary";
 import { bookingPlanExpiry } from "@/lib/booking-plan-expiry";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
+const STEAM_DETAIL_BODY_CLASS = "grid min-h-0 flex-1 grid-cols-1 content-start overflow-y-auto md:grid-cols-2 md:items-start";
+
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   CASH: "現金",
   TRANSFER: "轉帳",
@@ -593,7 +595,7 @@ export function BookingDetailDrawer({
             onClose={onClose}
           />
         ) : (
-          <DrawerSkeleton onClose={onClose} error={error} />
+          spaMode ? <DrawerSkeleton onClose={onClose} error={error} /> : <PendingSteamDetail onClose={onClose} error={error} />
         )}
       </RightSheet>
       {!readOnly && (
@@ -863,7 +865,7 @@ function DrawerContent({
       </div>
 
       {/* Body — scrollable */}
-      <div className={spaMode ? "flex-1 overflow-y-auto" : "grid min-h-0 flex-1 grid-cols-1 content-start overflow-y-auto md:grid-cols-2 md:items-start"}>
+      <div className={spaMode ? "flex-1 overflow-y-auto" : STEAM_DETAIL_BODY_CLASS}>
         {/* Section A: 預約資訊 */}
         <Section readable={!spaMode} title="預約資訊">
           <KV readable={!spaMode} label={spaMode ? "日期" : "日期時間"} value={spaMode ? dateLabel : `${dateLabel} ${booking.slotTime}${endTime ? ` - ${endTime}` : ""}`} />
@@ -1154,6 +1156,94 @@ function DrawerContent({
  * `summary` already in memory — appears instantly on click. The body slot
  * shows skeleton placeholders until `fetchBookingDetail` resolves.
  */
+
+/** Read-only first paint. Unknown fields never masquerade as empty data.
+ * Uses the same body grid, Section/KV typography and reserved footer as full data.
+ * No mutation callbacks are passed to this component. */
+function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose }: {
+  prefill?: BookingPrefill;
+  summary?: BookingSummary;
+  durationMinutes?: number;
+  error: string | null;
+  onClose: () => void;
+}) {
+  const known = prefill ?? summary;
+  const pending = <span className="text-earth-500">讀取中…</span>;
+  const meta = known ? bookingStatusMeta(known.bookingStatus, prefill?.isCheckedIn ?? false) : null;
+  const service = prefill
+    ? prefill.bookingType === "FIRST_TRIAL" ? "首次體驗" : prefill.isMakeup ? "補課" : prefill.servicePlanName ?? (prefill.bookingType === "SINGLE" ? "單次蒸足" : prefill.bookingType === "PACKAGE_SESSION" ? "方案服務" : null)
+    : summary?.isMakeup ? "補課" : summary?.servicePlanName;
+  const subtitle = prefill?.bookingType === "PACKAGE_SESSION" && !prefill.servicePlanName && !prefill.isMakeup ? null : service;
+  const active = !known || ["PENDING", "CONFIRMED"].includes(known.bookingStatus);
+  return (
+    <>
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {meta ? <StatusBadge variant={meta.variant}>{meta.label}</StatusBadge> : pending}
+            <span className="text-sm font-semibold tabular-nums text-earth-700">
+              {known ? `${known.bookingDate.slice(5).replace("-", "/")} ${known.slotTime}` : pending}
+            </span>
+          </div>
+          <h2 id="booking-drawer-title" className="mt-2 break-words text-xl font-bold text-earth-900">
+            {known?.customerName ?? "讀取預約中…"}
+            {known && known.people > 1 && <PeopleBadge people={known.people} />}
+          </h2>
+          <p className="mt-1 break-words text-base text-earth-600">
+            {subtitle}{subtitle && durationMinutes != null ? " · " : ""}{durationMinutes != null ? `${durationMinutes} 分鐘` : ""}
+          </p>
+        </div>
+        <button type="button" onClick={onClose} aria-label="關閉" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-earth-500 hover:bg-earth-100">✕</button>
+      </div>
+      <div className={STEAM_DETAIL_BODY_CLASS} aria-busy={!error}>
+        <Section readable title="預約資訊">
+          <KV readable label="日期時間" value={known ? `${formatDateLabel(known.bookingDate)} ${known.slotTime}${durationMinutes != null ? ` - ${computeEndTime(known.slotTime, durationMinutes)}` : ""}` : pending} />
+          <KV readable label="教練" value={prefill ? prefill.revenueStaff?.displayName ?? "未指派" : pending} icon={prefill?.revenueStaff?.colorCode && <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{backgroundColor:prefill.revenueStaff.colorCode}} />} />
+          {prefill?.serviceStaffName && prefill.serviceStaffName !== prefill.revenueStaff?.displayName && <KV readable label="值班店長" value={prefill.serviceStaffName} />}
+          <KV readable label="服務" value={service ?? pending} />
+          <KV readable label="人數" value={known ? `${known.people} 人` : pending} />
+          {prefill?.attendedPeople != null && prefill.attendedPeople < prefill.people && <KV readable label="實際到店" value={`${prefill.attendedPeople} / ${prefill.people} 人`} />}
+        </Section>
+        <Section readable order={3} title="顧客資訊">
+          <KV readable label="電話" value={prefill ? prefill.customerPhone ? <a href={`tel:${prefill.customerPhone}`} className="inline-flex min-h-11 items-center break-all text-primary-700 underline decoration-primary-300 underline-offset-4">{prefill.customerPhone}</a> : "—" : pending} />
+          <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-earth-600">服務注意事項與備註</p>
+              <button disabled type="button" className="min-h-11 px-3 text-sm text-earth-500">讀取中…</button>
+            </div>
+            <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{prefill?.customerNotes?.trim() || pending}</p>
+          </div>
+          {prefill?.serviceNote && <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3"><p className="mb-1 text-sm font-medium text-earth-600">服務備註</p><p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{prefill.serviceNote}</p></div>}
+          <KV readable label="累積完成" value={pending} />
+          <KV readable label="最近到店" value={pending} />
+          <div className="col-span-2 mt-2 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
+            {["查看顧客資料", "查看歷史預約"].map(label => <button key={label} disabled type="button" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-earth-300 px-3 py-2 text-base text-earth-500">{label}</button>)}
+          </div>
+        </Section>
+        <Section readable order={2} title="收款與扣堂">
+          {prefill?.bookingType === "FIRST_TRIAL" || prefill?.bookingType === "SINGLE" ? <>
+            <KV readable label="金額" value={prefillAmount(prefill)} />
+            <KV readable label="付款狀態" value={pending} />
+            <KV readable label="付款方式" value={pending} />
+            <KV readable label="收款日期" value={pending} />
+          </> : <>
+            <KV readable label="方案" value={pending} />
+            <KV readable label="到期日" value={pending} />
+            <KV readable label="剩餘堂數" value={pending} />
+            <KV readable label={active ? "本次使用" : "結帳方式"} value={pending} />
+          </>}
+        </Section>
+      </div>
+      <div className={`shrink-0 border-t border-earth-200 bg-earth-50 px-4 py-3 ${active ? "min-h-[116px]" : "min-h-[76px]"}`}>
+        {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : <LoadingStatus>讀取完整資料中，請稍候…</LoadingStatus>}
+        <div className="mt-2 flex gap-2">
+          <button disabled type="button" className="inline-flex min-h-11 items-center rounded-md border border-earth-300 px-3 text-sm text-earth-500">{active ? "確認資料後開放操作" : "讀取操作權限中…"}</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function SummaryDrawerContent({
   summary,
   durationMinutes,
@@ -1172,6 +1262,8 @@ function SummaryDrawerContent({
   const meta = bookingStatusMeta(summary.bookingStatus, false);
   const duration =
     durationMinutes ?? (spaMode ? (summary.servicePlanCategory === "TRIAL" ? 30 : 60) : null);
+
+  if (!spaMode) return <PendingSteamDetail summary={summary} durationMinutes={durationMinutes} error={error} onClose={onClose} />;
 
   return (
     <>
@@ -1262,6 +1354,8 @@ function PrefillDrawerContent({
   const showServiceStaff =
     !!prefill.serviceStaffName &&
     prefill.serviceStaffName !== prefill.revenueStaff?.displayName;
+
+  if (!spaMode) return <PendingSteamDetail prefill={prefill} durationMinutes={durationMinutes} error={error} onClose={onClose} />;
 
   return (
     <>
@@ -1556,7 +1650,7 @@ function ActionFooter({
   }
 
   return (
-    <div className="shrink-0 border-t border-earth-200 bg-earth-50 px-4 py-3">
+    <div className={`shrink-0 border-t border-earth-200 bg-earth-50 px-4 py-3 ${spaMode ? "" : ["PENDING", "CONFIRMED"].includes(status) ? "min-h-[116px]" : "min-h-[76px]"}`}>
       {primaries.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {primaries.map((a, i) => (
