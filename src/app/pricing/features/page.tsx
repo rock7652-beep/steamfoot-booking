@@ -138,11 +138,11 @@ export default function FeaturesPage() {
         {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4"><p className="text-base font-semibold">{fee === 500 ? "工具功能" : "經營功能"}<span className="ml-2 text-sm font-normal text-[#4C6259]">加購每項 NT$ {fee}／月</span></p><div className="mt-3 flex flex-wrap gap-2">{features.filter(item => item.fee === fee).map(item => <a key={item.id} href={"#" + item.id} className="rounded-full border border-[#153B31]/20 px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name} ↓</a>)}</div></div>)}
       </nav>
       <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能不另收費。<Link href="/pricing#comparison" className="underline underline-offset-4">查看哪些功能已包含</Link></p>
-      <div className="mt-10 space-y-10 sm:space-y-14">
+      <div className="mt-10 space-y-10">
         {features.map((feature, index) => <article key={feature.id} id={feature.id} aria-labelledby={feature.id + "-title"} className="scroll-mt-5 border-t border-[#153B31]/20 pt-6">
           <p className="flex items-center gap-3 text-base font-semibold"><MarketingIcon kind={feature.icon} /><span className="text-[#74603C]">0{index + 1}</span>{feature.name}</p>
           <h2 id={feature.id + "-title"} className="mt-3 text-2xl font-semibold leading-snug sm:text-3xl">{feature.title}</h2>
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <div className={"mt-5 grid gap-3 " + (feature.id === "analysis" ? "items-start md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]" : "md:grid-cols-2")}>
             <section aria-label={feature.name + "原本的做法"} className="rounded-2xl border border-[#B48A42]/20 bg-[#F0EBE1] p-4 sm:p-6">
               <h3 className="text-sm font-semibold text-[#74603C]">原本｜店長一件件處理</h3>
               <p className="mt-2 text-base leading-7">{feature.before}</p>
