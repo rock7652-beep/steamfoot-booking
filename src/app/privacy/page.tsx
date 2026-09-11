@@ -1,5 +1,5 @@
+import { MarketingBrand } from "@/components/marketing-brand";
 import type { Metadata } from "next";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "隱私權政策｜蒸管家",
@@ -74,7 +74,7 @@ export default function PrivacyPage() {
     <main className="min-h-dvh bg-earth-50 px-4 py-10 sm:py-14">
       <article className="mx-auto max-w-3xl rounded-2xl border border-earth-200 bg-white p-6 shadow-sm sm:p-10">
         <header className="border-b border-earth-200 pb-6">
-          <p className="text-sm font-medium text-primary-600">蒸管家</p>
+          <MarketingBrand />
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-earth-900">
             隱私權政策
           </h1>

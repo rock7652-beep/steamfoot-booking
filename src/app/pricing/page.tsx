@@ -1,5 +1,5 @@
+import { MarketingBrand } from "@/components/marketing-brand";
 import { MarketingIcon } from "./marketing-icon";
-import Link from "next/link";
 import { PLAN_LIMITS } from "@/lib/feature-flags";
 
 export const metadata = {
@@ -40,7 +40,7 @@ export default function PricingPage() {
   return <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
     <header className="border-b border-[#153B31]/15 bg-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <Link href="/#main" className="text-xl font-bold">蒸管家</Link><TrialLink />
+        <MarketingBrand /><TrialLink />
       </div>
     </header>
     <main id="plans" className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
