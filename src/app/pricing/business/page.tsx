@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 const LINE_URL = "https://lin.ee/SGy5UBz";
-const TRIAL_URL = "/pricing/apply.html?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=business";
+const TRIAL_URL = "/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=business";
 function ConsultLink({ light = false }: { light?: boolean }) {
   return <a href={TRIAL_URL}
     className={`inline-flex min-h-12 items-center justify-center rounded-full px-6 py-3 text-center text-base font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#B58C43] ${light ? "bg-[#F5EFE3] text-[#123E32] hover:bg-white" : "bg-[#123E32] text-white hover:bg-[#245A49]"}`}>
@@ -80,7 +80,7 @@ export default function BusinessPage() {
                       className="mx-auto h-64 w-full rounded-md object-contain sm:h-80" />
                     <span className="mt-3 block text-center text-sm leading-6 text-[#4C6259]">提醒卡片示意・點圖放大</span>
                   </a>
-                  <a href="/pricing/cases?store=nuanmu" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖沐完整案例 →</a>
+                  <a href="/cases?store=nuanmu" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖沐完整案例 →</a>
                 </article>
                 <article className="flex flex-col rounded-xl border border-[#153B31]/15 bg-white/60 p-5">
                   <p className="text-sm text-[#74603C]">案例 B・體驗預約</p>
@@ -93,7 +93,7 @@ export default function BusinessPage() {
                     <Image src="/pricing/business-assets/booking-time-original.png" width={1532} height={1364} sizes="(min-width: 768px) 480px, 100vw" alt="暖暖蒸足真實預約畫面：顧客自行選擇日期與時段" className="mx-auto h-64 w-full object-contain sm:h-80" />
                     <span className="mt-3 block text-center text-sm leading-6 text-[#4C6259]">真實預約畫面・點圖放大</span>
                   </a>
-                  <Link href="/pricing/cases?store=nuannuan" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖暖完整案例 →</Link>
+                  <Link href="/cases?store=nuannuan" className="mt-4 inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">查看暖暖完整案例 →</Link>
                 </article>
               </div>
             </div>
@@ -106,7 +106,7 @@ export default function BusinessPage() {
               <h2 id="guides-title" className="text-2xl font-semibold">店長經營指南</h2>
               <p className="mt-2 text-base leading-7 text-[#4C6259]">一個人顧店，預約怎麼排？每天開店先看什麼？這裡有可以照做的小方法。</p>
             </div>
-            <Link href="/pricing/guides" className="inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">閱讀店長實用指南 →</Link>
+            <Link href="/guides" className="inline-flex min-h-12 items-center text-base font-medium underline underline-offset-4">閱讀店長實用指南 →</Link>
           </div>
         </section>
 
@@ -153,7 +153,7 @@ export default function BusinessPage() {
           <p>蒸管家｜店務少一點忙，顧客多一點照顧。</p>
           <a href={TRIAL_URL} className="underline underline-offset-4">申請體驗帳號</a>
         </div>
-      <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a><a href="/pricing/terms.html" className="underline underline-offset-4">服務條款</a><a href="/pricing/refunds.html" className="underline underline-offset-4">取消與退費政策</a><p className="w-full text-center">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p></div></footer>
+      <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a><a href="/terms" className="underline underline-offset-4">服務條款</a><a href="/refunds" className="underline underline-offset-4">取消與退費政策</a><p className="w-full text-center">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p></div></footer>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { marketingRoute } from "@/lib/marketing-routes";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -66,6 +67,17 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   // ── 自訂網域路由 — 設定 domain-store-id cookie ──
   const host = req.headers.get("host")?.split(":")[0] ?? "";
   const domainStoreId = DOMAIN_STORE_MAP[host];
+
+  // Only public marketing paths are remapped. Store rewrites still render
+  // the original customer page internally without re-entering this proxy.
+  const marketing = marketingRoute(pathname, Boolean(domainStoreId));
+  if (marketing) {
+    const url = req.nextUrl.clone();
+    url.pathname = marketing.destination;
+    return marketing.kind === "redirect"
+      ? NextResponse.redirect(url, 308)
+      : NextResponse.rewrite(url);
+  }
 
   // Exact public completion endpoint for Taiwan's server-coordinated LINE
   // login. Do not broaden this to /line-oauth/*: only this page needs to run
@@ -387,7 +399,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
   }
 
   // / → root redirect
-  if (pathname === "/") {
+  if (pathname === "/" || pathname === "/entry") {
     if (isLoggedIn) {
       if (role === "CUSTOMER") {
         return NextResponse.redirect(new URL(`/s/${customerRouteSlug}/book`, req.url));
@@ -397,7 +409,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
       }
       return NextResponse.redirect(new URL(`/s/${userSlug}/admin/dashboard`, req.url));
     }
-    return NextResponse.redirect(new URL(`/s/${DEFAULT_STORE_SLUG}/`, req.url));
+    return NextResponse.redirect(legacyRedirectUrl(req.nextUrl, `/s/${DEFAULT_STORE_SLUG}/`));
   }
 
   // ── 其他未知路由 ──
