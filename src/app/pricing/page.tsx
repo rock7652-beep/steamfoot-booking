@@ -76,19 +76,30 @@ export default function PricingPage() {
           <PlanDetails plan={plan} />
         </article>)}
       </section>
+      <section aria-label="分析功能方案比較" className="mt-4 overflow-hidden rounded-xl border border-[#153B31]/15 bg-white">
+        <table className="w-full table-fixed text-center text-sm">
+          <thead className="bg-[#E9F1EB]"><tr><th scope="col" className="w-1/5 px-2 py-3 text-left sm:px-3">功能</th>{plans.map(plan => <th scope="col" key={plan.id} className="p-3 font-medium">{plan.name}</th>)}</tr></thead>
+          <tbody><tr className="border-t border-[#153B31]/15"><th scope="row" className="p-3 text-left font-semibold">分析</th>{plans.map(plan => <td key={plan.id} className="px-1 py-3 leading-6 sm:px-3">{plan.id === "ALLIANCE" ? <span className="font-semibold">✓ 已包含</span> : <><span className="block">加購</span><span className="inline-block">NT$800／月</span></>}</td>)}</tr></tbody>
+        </table>
+      </section>
       <p className="mt-4 text-sm leading-6 text-[#4C6259]">限時優惠｜主方案繳 12 個月，使用 14 個月。額外模組與分店營運費另計；優惠結束後依正式原價調整。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">先用方案內含的功能；需要更多時，再按項目加購。</p>
         <div className="mt-4 grid items-start gap-4 sm:grid-cols-2">
-          <details className="rounded-xl border border-[#153B31]/15 bg-white p-4"><summary className="cursor-pointer text-base font-semibold">工具型模組 <span className="ml-2 font-normal">每個 $500／月</span></summary><p className="mt-3 leading-7 text-[#4C6259]">LINE 自動提醒、資料匯出、現金抽屜。</p></details>
-          <details className="rounded-xl border border-[#153B31]/15 bg-white p-4"><summary className="cursor-pointer text-base font-semibold">經營型模組 <span className="ml-2 font-normal">每個 $800／月</span></summary><p className="mt-3 leading-7 text-[#4C6259]">顧客經營、健康評估與體態追蹤、月結管理。</p></details>
+          <details open className="rounded-xl border border-[#153B31]/15 bg-white p-4">
+            <summary className="cursor-pointer text-base font-semibold">工具型模組 <span className="ml-2 font-normal">每個 $500／月</span></summary>
+            <ul className="mt-3 space-y-3 text-base leading-7">{([{ name: "LINE 自動提醒", icon: "bell" }, { name: "資料匯出", icon: "checklist" }, { name: "現金抽屜", icon: "store" }] as const).map(item => <li key={item.name} className="flex items-center gap-3"><MarketingIcon kind={item.icon} /><span>{item.name}</span></li>)}</ul>
+          </details>
+          <details open className="rounded-xl border border-[#153B31]/15 bg-white p-4">
+            <summary className="cursor-pointer text-base font-semibold">經營型模組 <span className="ml-2 font-normal">每個 $800／月</span></summary>
+            <ul className="mt-3 space-y-3 text-base leading-7">{([{ name: "顧客經營", icon: "return" }, { name: "健康評估與體態追蹤", icon: "checklist" }, { name: "月結管理", icon: "calendar" }, { name: "分析", icon: "checklist" }] as const).map(item => <li key={item.name} className="flex items-start gap-3"><MarketingIcon kind={item.icon} /><div><span>{item.name}</span>{item.name === "分析" && <p className="text-sm leading-6 text-[#4C6259]">基本版、專業版另購 NT$800／月；展店版內含。<br />不占方案選配額度。</p>}</div></li>)}</ul>
+          </details>
         </div>
-        <p className="mt-3 text-sm leading-6 text-[#4C6259]">分析 NT$800／月獨立加購，由總部依門市開關，不占方案選配額度；展店版亦不包含。數位管家另行確認開通。</p>
         <details className="mt-4 border-t border-[#153B31]/15 py-4"><summary className="cursor-pointer font-medium">申請前須知</summary>
           <dl className="mt-3 grid gap-4 text-base leading-7 sm:grid-cols-3">
             <div><dt className="font-medium">體驗怎麼開始？</dt><dd className="mt-1 text-[#4C6259]">填寫門市需求後，由專人聯繫，確認體驗內容與期限，再提供登入方式。</dd></div>
-            <div><dt className="font-medium">開通前確認哪些費用？</dt><dd className="mt-1 text-[#4C6259]">確認選用項目、額外費用與優惠期間後再開通；LINE 訊息等第三方費用另外確認。</dd></div>
+            <div><dt className="font-medium">開通前確認哪些費用？</dt><dd className="mt-1 text-[#4C6259]">確認選用項目、額外費用與優惠期間後再開通；數位管家另行確認開通，LINE 訊息等第三方費用另外確認。</dd></div>
             <div><dt className="font-medium">健康評估提供什麼？</dt><dd className="mt-1 text-[#4C6259]">量測紀錄、歷史數據與變化趨勢，協助體態追蹤；不作醫療診斷或效果保證。</dd></div>
           </dl></details>
       </section>

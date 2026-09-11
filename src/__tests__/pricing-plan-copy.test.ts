@@ -16,10 +16,13 @@ const PLAN_PAGES = [
 const PUBLIC_PRICING_PAGE = "src/app/pricing/page.tsx";
 
 describe("pricing and growth plan copy", () => {
-  it("presents analysis as an independent paid addon", () => {
+  it("presents analysis in management modules and includes it in alliance", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
-    expect(source).toContain("分析 NT$800／月獨立加購");
-    expect(source).toContain("不占方案選配額度；展店版亦不包含");
+    expect(source).toContain("分析功能方案比較");
+    expect(source).toContain('name: "分析"');
+    expect(source).toContain("基本版、專業版另購 NT$800／月；展店版內含。");
+    expect(source).toContain("✓ 已包含");
+    expect(source).not.toContain("展店版亦不包含");
     expect(source).not.toContain("經營診斷");
     expect(source).not.toContain("基本收款・營運分析");
   });
