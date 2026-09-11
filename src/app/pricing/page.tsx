@@ -39,7 +39,7 @@ function PlanDetails({ plan }: { plan: (typeof plans)[number] }) {
 export default function PricingPage() {
   return <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
     <header className="border-b border-[#153B31]/15 bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
         <MarketingBrand /><TrialLink />
       </div>
     </header>
