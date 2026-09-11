@@ -1,5 +1,8 @@
 "use client";
 
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
+
+
 import { Suspense } from "react";
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -33,7 +36,8 @@ function HqLoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-earth-50 px-4">
       <div className="w-full max-w-sm rounded-xl border border-earth-200 bg-white p-6 shadow-sm sm:p-8">
-        <h1 className="mb-1 text-2xl font-bold text-earth-900">蒸管家</h1>
+        <SteamButlerLogo className="mb-3 w-48" />
+      <h1 className="sr-only">蒸管家</h1>
         <div className="mb-6 flex items-center gap-2">
           <p className="text-sm text-earth-500">後台登入</p>
           <span className="text-[10px] text-earth-300">v{APP_VERSION} · {APP_VERSION_DATE}</span>
