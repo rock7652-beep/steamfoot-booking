@@ -87,7 +87,7 @@ export default function PricingPage() {
           </details>
           <details open className="rounded-xl border border-[#153B31]/15 bg-white p-4">
             <summary className="cursor-pointer text-base font-semibold">經營型模組 <span className="ml-2 font-normal">每個 $800／月</span></summary>
-            <ul className="mt-3 space-y-3 text-base leading-7">{([{ name: "顧客經營", icon: "return" }, { name: "健康評估與體態追蹤", icon: "checklist" }, { name: "月結管理", icon: "calendar" }, { name: "分析", icon: "checklist" }] as const).map(item => <li key={item.name} className="flex items-start gap-3"><MarketingIcon kind={item.icon} /><div><span>{item.name}</span>{item.name === "分析" && <p className="text-sm leading-6 text-[#4C6259]"><span className="inline-block rounded-full bg-[#E9F1EB] px-2 py-0.5">獨立加購・展店版內含</span></p>}</div></li>)}</ul>
+            <ul className="mt-3 space-y-3 text-base leading-7">{([{ name: "顧客經營", icon: "return" }, { name: "健康評估與體態追蹤", icon: "checklist" }, { name: "月結管理", icon: "calendar" }, { name: "分析", icon: "bar-chart" }] as const).map(item => <li key={item.name} className="flex items-start gap-3"><MarketingIcon kind={item.icon} /><div><span>{item.name}</span>{item.name === "分析" && <p className="text-sm leading-6 text-[#4C6259]"><span className="inline-block rounded-full bg-[#E9F1EB] px-2 py-0.5">獨立加購・展店版內含</span></p>}</div></li>)}</ul>
           </details>
         </div>
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">申請前須知</summary>

@@ -1,7 +1,8 @@
-type IconKind = "store" | "return" | "stores" | "chat" | "calendar" | "clock" | "checklist" | "bell" | "calendar-clock";
+type IconKind = "store" | "return" | "stores" | "chat" | "calendar" | "clock" | "checklist" | "bell" | "calendar-clock" | "bar-chart";
 
 export function MarketingIcon({ kind }: { kind: IconKind }) {
   return <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8 shrink-0 text-[#153B31]">
+    {kind === "bar-chart" && <><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" rx="0.5" /><rect x="12" y="8" width="3" height="10" rx="0.5" /><rect x="17" y="4" width="3" height="14" rx="0.5" stroke="#967039" /></>}
     {kind === "store" && <><path d="M3 10h18l-2-6H5l-2 6ZM5 10v10h14V10M10 20v-6h4v6" /><path stroke="#967039" d="M8 4v6m8-6v6" /></>}
     {kind === "return" && <><circle cx="12" cy="9" r="3" /><path d="M7 18c0-5 10-5 10 0" /><path stroke="#967039" d="M20 7a9 9 0 1 1-7-4m4 0h4v4" /></>}
     {kind === "stores" && <><path d="M2 11h8V4H2v7Zm12 0h8V4h-8v7ZM6 11v4h12v-4M12 15v5" /><path stroke="#967039" d="M9 20h6M5 7h2m10 0h2" /></>}
