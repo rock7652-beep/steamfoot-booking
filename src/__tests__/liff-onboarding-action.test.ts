@@ -24,6 +24,7 @@ const mockBindLine = vi.fn();
 const mockAuthorizedLiffRebind = vi.fn();
 const mockAutoLiffMigration = vi.fn();
 const mockAuthorizedFirstCapture = vi.fn();
+const mockIdentitySync = vi.fn();
 
 vi.mock("@/lib/liff/verify-id-token", async () => {
   // 保留真正的 LiffIdTokenError class，讓 action 用 instanceof 判型
@@ -45,7 +46,7 @@ vi.mock("@/server/services/bind-line-to-customer", () => ({
 }));
 
 vi.mock("@/server/services/customer-identity-link", () => ({
-  upsertCustomerIdentityLink: vi.fn(),
+  upsertCustomerIdentityLink: (...args: unknown[]) => mockIdentitySync(...args),
 }));
 
 vi.mock("@/server/services/liff-login-rebind", () => ({
@@ -81,8 +82,17 @@ function verifiedOk(overrides: { displayName?: string | null } = {}) {
 }
 
 describe("submitOnboarding action (PR-C2)", () => {
+  it("does not report successful login when the store link fails to persist", async () => {
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockBindLine.mockResolvedValue({ status: "already_synced", userId: "user-1", customerId: "customer-1" });
+    mockIdentitySync.mockResolvedValue({ status: "error", error: "write_failed" });
+    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({ status: "service_unavailable" });
+  });
+
   beforeEach(() => {
     vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", CHANNEL);
+    mockIdentitySync.mockReset().mockResolvedValue({ status: "upserted" });
     mockVerify.mockReset();
     mockResolveStoreBySlug.mockReset();
     mockBindLine.mockReset();

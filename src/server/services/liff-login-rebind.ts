@@ -273,6 +273,37 @@ export async function tryExecuteAuthorizedLiffLoginRebind(input: {
       ) {
         throw new RebindRejected("CUSTOMER_STATE_CHANGED");
       }
+      // A reviewed phone-based migration may encounter a legacy Account whose
+      // store link was never persisted. Recover only that exact authorized
+      // Account snapshot inside this transaction; never infer ownership from
+      // a submitted phone or display name alone.
+      if (oldLinks.length === 0 && customer.userId === ownerUserId) {
+        const accounts = await tx.account.findMany({
+          where: { userId: ownerUserId, provider: "line" },
+          select: { id: true, providerAccountId: true }, take: 2,
+        });
+        const phoneCount = await tx.customer.count({
+          where: { storeId: input.storeId, phone, mergedIntoCustomerId: null },
+        });
+        if (accounts.length !== 1 || phoneCount !== 1 ||
+            request.oldUserIdHash !== sha256(accounts[0].providerAccountId)) {
+          throw new RebindRejected("OLD_LOGIN_IDENTITY_CHANGED");
+        }
+        const conflicts = await tx.customerIdentityLink.findMany({
+          where: { provider: "line", providerAccountId: accounts[0].providerAccountId },
+          select: { userId: true, storeId: true, customerId: true },
+        });
+        if (conflicts.some((link) => link.userId !== ownerUserId ||
+            (link.storeId === input.storeId && link.customerId !== customer.id))) {
+          throw new RebindRejected("LOGIN_IDENTITY_CONFLICT");
+        }
+        oldLinks.push(await tx.customerIdentityLink.create({
+          data: { userId: ownerUserId, storeId: input.storeId, customerId: customer.id,
+            provider: "line", providerAccountId: accounts[0].providerAccountId,
+            lineUserId: accounts[0].providerAccountId },
+          select: { id: true, userId: true, providerAccountId: true, lineUserId: true },
+        }));
+      }
       if (
         oldLinks.length !== 1 ||
         oldLinks[0].userId !== ownerUserId ||
