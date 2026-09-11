@@ -136,6 +136,30 @@ describe("authorized LIFF Login rebind", () => {
     expect(tx().customer).not.toHaveProperty("updateMany");
   });
 
+  it("recovers a missing store link only from the authorized Account snapshot", async () => {
+    h.linksFind.mockReset().mockResolvedValue([]);
+    h.accountsFind.mockReset()
+      .mockResolvedValueOnce([{ id: "account-old", providerAccountId: oldLoginId }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "account-old" }]);
+    h.customerCount.mockResolvedValue(1);
+    h.linkCreate.mockResolvedValue({ id: "recovered-link", userId: "user-1", providerAccountId: oldLoginId, lineUserId: oldLoginId });
+    await expect(tryExecuteAuthorizedLiffLoginRebind({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId }))
+      .resolves.toEqual({ status: "executed", requestId: "request-1" });
+    expect(h.linkCreate).toHaveBeenCalledOnce();
+    expect(h.linkUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "recovered-link" }) }));
+  });
+
+  it("rejects missing-link recovery when the Account no longer matches authorization", async () => {
+    h.linksFind.mockReset().mockResolvedValue([]);
+    h.accountsFind.mockReset().mockResolvedValue([{ id: "account-other", providerAccountId: "changed" }]);
+    h.customerCount.mockResolvedValue(1);
+    await expect(tryExecuteAuthorizedLiffLoginRebind({ storeId: "store-1", customerId: "customer-1", phone, candidateLineUserId: newLoginId }))
+      .resolves.toEqual({ status: "rejected", code: "OLD_LOGIN_IDENTITY_CHANGED" });
+    expect(h.linkCreate).not.toHaveBeenCalled();
+    expect(h.accountUpdate).not.toHaveBeenCalled();
+  });
+
   it("does nothing without an active exact authorization", async () => {
     h.queryRaw.mockReset();
     h.queryRaw.mockResolvedValue([]);
