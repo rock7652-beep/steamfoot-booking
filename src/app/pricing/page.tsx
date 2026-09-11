@@ -7,6 +7,10 @@ export const metadata = {
   description: "蒸管家｜店務管理系統，適用於預約制門市、工作室與服務品牌。比較適合店家、價格與功能差異。",
 };
 const TRIAL_URL = "/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=pricing";
+const featureLinks: Record<string, string> = {
+  "LINE 自動提醒": "reminders", "資料匯出": "export", "現金抽屜": "cash",
+  "顧客經營": "care", "健康追蹤": "health", "月結管理": "settlement", "分析": "analysis",
+};
 const plans = [
   { id: "BASIC", name: "基本版", icon: "store", purpose: "管好日常", audience: "個人工作室、小型單店", price: "1,490", original: "2,100", annual: "17,880" },
   { id: "GROWTH", name: "專業版", icon: "return", purpose: "做好回訪", audience: "重視回訪、續購與帳務的單店", price: "2,490", original: "3,600", annual: "29,880" },
@@ -54,7 +58,7 @@ function FeatureComparison() {
       {groups.map(group => <tbody key={group.title}>
         <tr><th colSpan={4} scope="rowgroup" className="bg-[#E9F1EB] px-3 py-4 text-left sm:px-4"><span className="block text-base font-semibold">{group.title}</span><span className="mt-1 block text-sm font-normal leading-6 text-[#4C6259]">{group.note.split("。").filter(Boolean).map(note => <span key={note} className="block">{note}。</span>)}</span></th></tr>
         {group.rows.map(row => <tr key={row.label}>
-          <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-4 text-left font-normal leading-6 sm:px-4">{row.label}</th>
+          <th scope="row" className="border-b border-[#153B31]/10 bg-white px-2 py-4 text-left font-normal leading-6 sm:px-4">{featureLinks[row.label] ? <a href={"/pricing/features#" + featureLinks[row.label]} className="underline decoration-[#153B31]/30 underline-offset-4 hover:decoration-current">{row.label}</a> : row.label}</th>
           {row.values.map((value, i) => <td key={i} className={"border-b border-[#153B31]/10 px-1 py-4 text-center " + (i === 1 ? "bg-[#F0F5F1] " : "bg-white ") + (value === "加購" ? "text-[#64756D]" : "font-medium")}>{value}</td>)}
         </tr>)}
       </tbody>)}
@@ -98,6 +102,7 @@ export default function PricingPage() {
       <FeatureComparison />
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>
+        <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <p className="rounded-xl border border-[#153B31]/15 bg-white p-4 text-base"><span className="font-semibold">工具功能</span><span className="ml-3">每項 NT$500／月</span></p>
           <p className="rounded-xl border border-[#153B31]/15 bg-white p-4 text-base"><span className="font-semibold">經營功能</span><span className="ml-3">每項 NT$800／月</span></p>
