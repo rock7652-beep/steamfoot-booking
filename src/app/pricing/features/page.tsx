@@ -6,7 +6,7 @@ import { MarketingIcon } from "../marketing-icon";
 
 export const metadata: Metadata = {
   title: "功能介紹｜少一點手動，多一點照顧 — 蒸管家",
-  description: "用店家日常情境，了解 LINE 自動提醒、資料匯出、現金抽屜、顧客經營、健康追蹤、月結管理與分析。原本怎麼做，使用蒸管家後有什麼不同？",
+  description: "先了解預約、顧客資料、方案堂數與基本收款，再用店家日常情境認識提醒、健康追蹤、月結與分析等進階功能。原本怎麼做，使用蒸管家後有什麼不同？",
 };
 
 const features = [
@@ -133,12 +133,36 @@ export default function FeaturesPage() {
     <MarketingNavigation active="features" />
     <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
       <p className="text-sm text-[#74603C]">功能介紹｜從店裡的一天開始</p>
-      <h1 className="mt-3 max-w-3xl text-3xl font-semibold leading-snug sm:text-5xl">這些事，<br />你還在一件件手動處理嗎？</h1>
-      <p className="mt-4 max-w-2xl text-base leading-7 text-[#4C6259]">傳提醒、找紀錄、對現金、算月結。看看原本怎麼做，使用蒸管家後，又能少掉哪些來回。</p>
-      <nav aria-label="選擇功能情境" className="mt-6 grid gap-4 sm:grid-cols-2">
-        {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4"><p className="text-base font-semibold">{fee === 500 ? "工具功能" : "經營功能"}<span className="ml-2 text-sm font-normal text-[#4C6259]">加購每項 NT$ {fee}／月</span></p><div className="mt-3 flex flex-wrap gap-2">{features.filter(item => item.fee === fee).map(item => <a key={item.id} href={"#" + item.id} className="rounded-full border border-[#153B31]/20 px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name} ↓</a>)}</div></div>)}
+      <h1 className="mt-3 max-w-4xl text-3xl font-semibold leading-snug sm:text-4xl lg:text-5xl">從預約到回訪，店裡的日常有人幫你整理。</h1>
+      <p className="mt-4 max-w-2xl text-base leading-7 text-[#4C6259]">先把預約、顧客、堂數與收款管好，再依店裡需要，加上提醒、追蹤與分析。</p>
+      <nav aria-label="功能介紹閱讀導覽" className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+        <a href="#daily" className="inline-flex min-h-11 items-center underline underline-offset-4">日常基本功能 ↓</a>
+        <a href="#more" className="inline-flex min-h-11 items-center underline underline-offset-4">看看進階功能 ↓</a>
+        <Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">比較方案 →</Link>
       </nav>
-      <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能不另收費。<Link href="/pricing#comparison" className="underline underline-offset-4">查看哪些功能已包含</Link></p>
+      <section id="daily" aria-labelledby="daily-title" className="mt-7 scroll-mt-24">
+        <div className="flex flex-wrap items-center gap-3"><h2 id="daily-title" className="text-2xl font-semibold">先把每天的店務，放在一起。</h2><span className="rounded-full bg-[#E9F1EB] px-3 py-1 text-sm font-medium">三個方案皆包含</span></div>
+        <p className="mt-2 text-base leading-7 text-[#4C6259]">從顧客預約，到店長查資料、確認堂數與收款，接起每天會做的事。</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { icon: "calendar", name: "預約管理", context: "今天誰要來？幾點有空？", benefit: "集中查看預約，安排店裡的服務時間。" },
+            { icon: "return", name: "顧客資料", context: "這位顧客，上次聊了什麼？", benefit: "查詢聯絡資料、備註與服務紀錄，接續照顧。" },
+            { icon: "checklist", name: "方案堂數", context: "還剩幾次？什麼時候到期？", benefit: "查看方案剩餘堂數與期限，服務完成後核對扣堂。" },
+            { icon: "store", name: "基本收款", context: "這次服務，收了多少錢？", benefit: "記錄服務收款，留下可查詢的交易紀錄。" },
+            { icon: "chat", name: "LINE 顧客入口", context: "顧客想預約，不用等你回訊息。", benefit: "從店家 LINE 預約、依規則取消與查詢堂數。" },
+          ].map(item => <article key={item.name} className="flex items-start gap-3 rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><MarketingIcon kind={item.icon as "calendar" | "return" | "checklist" | "store" | "chat"} /><div><h3 className="text-lg font-semibold">{item.name}</h3><p className="mt-1 text-sm font-medium leading-6">{item.context}</p><p className="mt-1 text-sm leading-6 text-[#4C6259]">{item.benefit}</p></div></article>)}
+          <div className="flex flex-col justify-center rounded-xl bg-[#E9F1EB] p-5"><p className="text-lg font-semibold">先用基本功能，把日常整理好。</p><p className="mt-2 text-sm leading-6 text-[#4C6259]">各方案的使用規模與進階功能名額不同。</p><Link href="/pricing#comparison" className="mt-2 inline-flex min-h-11 items-center font-medium underline underline-offset-4">查看方案差異 →</Link></div>
+        </div>
+        <p className="mt-3 text-sm leading-6 text-[#4C6259]">LINE 顧客入口需完成串接並開通；自動提醒是下方的進階功能。</p>
+      </section>
+      <section id="more" aria-labelledby="more-title" className="mt-10 scroll-mt-24 border-t border-[#153B31]/20 pt-7 sm:mt-12">
+        <h2 id="more-title" className="text-2xl font-semibold">哪件事，最想有人幫你分擔？</h2>
+        <p className="mt-2 text-base leading-7 text-[#4C6259]">選一項看看：原本怎麼做，使用蒸管家後有什麼不同。</p>
+        <nav aria-label="選擇功能情境" className="mt-4 grid gap-3 md:grid-cols-2">
+          {[500, 800].map(fee => <div key={fee} className="rounded-xl border border-[#153B31]/15 bg-white p-4 sm:p-5"><h3 className="text-lg font-semibold">{fee === 500 ? "省下日常作業" : "掌握顧客與經營"}</h3><div className="mt-3 grid grid-cols-2 gap-2">{features.filter(item => item.fee === fee).map(item => <a key={item.id} href={"#" + item.id} className="flex min-h-11 items-center justify-between gap-1 rounded-lg bg-[#F8F5EE] px-3 py-2 text-sm hover:bg-[#E9F1EB] focus-visible:outline-2 focus-visible:outline-offset-2">{item.name}<span aria-hidden="true">↓</span></a>)}</div><p className="mt-3 text-sm leading-6 text-[#4C6259]">{fee === 500 ? "工具型模組" : "經營型模組"}・額外加購每項 NT${fee}／月</p></div>)}
+        </nav>
+        <p className="mt-3 text-sm leading-6 text-[#4C6259]">方案已內含或使用任選名額的功能，不另收費。<Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">查看哪些功能已包含 →</Link></p>
+      </section>
       <div className="mt-10 space-y-10">
         {features.map((feature, index) => <article key={feature.id} id={feature.id} aria-labelledby={feature.id + "-title"} className="scroll-mt-24 border-t border-[#153B31]/20 pt-6">
           <p className="flex items-center gap-3 text-base font-semibold"><MarketingIcon kind={feature.icon} /><span className="text-[#74603C]">0{index + 1}</span>{feature.name}</p>
@@ -158,7 +182,7 @@ export default function FeaturesPage() {
           <details className="mt-3 text-sm leading-6 text-[#4C6259]"><summary className="cursor-pointer">功能使用說明</summary><p className="mt-2">{feature.detail}</p></details>
         </article>)}
       </div>
-      <section aria-labelledby="next-step" className="mt-12 rounded-2xl bg-[#123E32] p-6 text-white sm:p-8"><h2 id="next-step" className="text-2xl font-semibold">先從店裡最花時間的那件事開始。</h2><p className="mt-3 text-base leading-7 text-[#D4E0D8]">依需求選功能，已包含的不用重複買。選定後由總部協助確認與開通。</p><div className="mt-5 flex flex-wrap gap-3"><Link href="/pricing#comparison" className="rounded-full bg-white px-5 py-3 text-base font-semibold text-[#123E32]">比較方案與價格</Link><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/50 px-5 py-3 text-base">聊聊店裡的需求</a></div></section>
+      <section aria-labelledby="next-step" className="mt-12 rounded-2xl bg-[#123E32] p-6 text-white sm:p-8"><h2 id="next-step" className="text-2xl font-semibold">找到需要的功能，再選適合的方案。</h2><p className="mt-3 text-base leading-7 text-[#D4E0D8]">依需求選功能，已包含的不用重複買。選定後由總部協助確認與開通。</p><div className="mt-5 flex flex-wrap gap-3"><Link href="/pricing#comparison" className="rounded-full bg-white px-5 py-3 text-base font-semibold text-[#123E32]">比較方案與價格</Link><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/50 px-5 py-3 text-base">聊聊店裡的需求</a></div></section>
     </main>
     <MarketingFooter />
   </div>;
