@@ -97,7 +97,11 @@ export function SpaCustomersWorkspace({
           onChanged={() => {
             cache.requests.delete(customer.id);
             const request = loadProfile(customer.id);
-            setSelected(current => current?.id === customer.id ? {id: customer.id, request} : current);
+            setSelected((current) =>
+              current?.id === customer.id
+                ? { id: customer.id, request }
+                : current,
+            );
             router.refresh();
           }}
           onClose={() => setSelected(null)}
@@ -129,6 +133,9 @@ function AccountPanel({
     canBook,
   } = permissions;
   const [tab, setTab] = useState<"overview" | "credit" | "history">("overview");
+  const [historyTab, setHistoryTab] = useState<
+    "service" | "payments" | "wallet" | "refunds"
+  >(canReadBookings ? "service" : "payments");
   const [profile, setProfile] = useState<SpaCustomerProfile | null>(null),
     [profileError, setProfileError] = useState("");
   const [profileRetry, setProfileRetry] = useState(0);
@@ -190,6 +197,10 @@ function AccountPanel({
       live = false;
     };
   }, [customerId, revision, canReadAccounts, tab]);
+  const historyScroll = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    historyScroll.current?.scrollTo({ top: 0 });
+  }, [tab, historyTab]);
   const refundForm = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (refund)
@@ -217,39 +228,72 @@ function AccountPanel({
       width={620}
       labelledById="spa-account-title"
     >
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
-        <header className="flex items-center justify-between">
-          <h2 id="spa-account-title" className="text-xl font-bold">
-            {customer.name}
-          </h2>
-          <button disabled={pending} onClick={onClose}>
-            關閉
-          </button>
-        </header>
-        <nav
-          aria-label="顧客資料分頁"
-          className="sticky top-0 z-10 flex gap-1 border-b bg-white pb-2"
-        >
-          {(
-            [
-              ["overview", "顧客概況"],
-              ...(canReadAccounts ? [["credit", "方案與儲值"]] : []),
-              ...(canReadAccounts || canReadBookings
-                ? [["history", "服務與帳務紀錄"]]
-                : []),
-            ] as [typeof tab, string][]
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              disabled={pending || !!mode || !!refund}
-              aria-pressed={tab === value}
-              onClick={() => setTab(value)}
-              className={`flex-1 rounded-lg px-2 py-3 text-sm ${tab === value ? "bg-earth-100 font-bold" : "text-earth-500"}`}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 border-b bg-white px-5 pt-5">
+          <header className="flex items-center justify-between gap-3 pb-3">
+            <h2
+              id="spa-account-title"
+              className="min-w-0 break-words text-xl font-bold"
             >
-              {label}
+              {customer.name}
+            </h2>
+            <button
+              className="shrink-0 rounded-lg px-3 py-2"
+              disabled={pending}
+              onClick={onClose}
+            >
+              關閉
             </button>
-          ))}
-        </nav>
+          </header>
+          <nav aria-label="顧客資料分頁" className="flex gap-1 bg-white pb-2">
+            {(
+              [
+                ["overview", "顧客概況"],
+                ...(canReadAccounts ? [["credit", "方案與儲值"]] : []),
+                ...(canReadAccounts || canReadBookings
+                  ? [["history", "服務與帳務紀錄"]]
+                  : []),
+              ] as [typeof tab, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                disabled={pending || !!mode || !!refund}
+                aria-pressed={tab === value}
+                onClick={() => setTab(value)}
+                className={`flex-1 rounded-lg px-2 py-3 text-sm ${tab === value ? "bg-earth-100 font-bold" : "text-earth-500"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          {tab === "history" && (
+            <nav aria-label="紀錄分類" className="flex gap-2 pb-3">
+              {(
+                [
+                  ...(canReadBookings ? [["service", "服務"]] : []),
+                  ...(canReadAccounts
+                    ? [
+                        ["payments", "收款"],
+                        ["wallet", "儲值"],
+                        ["refunds", "退款"],
+                      ]
+                    : []),
+                ] as [typeof historyTab, string][]
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={pending || !!refund}
+                  aria-pressed={historyTab === value}
+                  onClick={() => setHistoryTab(value)}
+                  className={`flex-1 rounded-lg px-2 py-2 text-sm ${historyTab === value ? "bg-earth-800 text-white" : "bg-earth-50"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
         {profileError && (
           <p role="alert" className="text-red-700">
             {profileError}{" "}
@@ -258,7 +302,7 @@ function AccountPanel({
             </button>
           </p>
         )}
-        <div hidden={tab !== "overview"}>
+        <div hidden={tab !== "overview"} className="min-h-0 flex-1">
           {profile ? (
             <SpaCustomerOverview
               customer={customer}
@@ -272,409 +316,438 @@ function AccountPanel({
             <p role="status">讀取顧客資料中…</p>
           )}
         </div>
-        {tab === "history" && canReadBookings && (
-          <SpaServiceHistory profile={profile} />
-        )}
         <div
-          hidden={tab === "overview" || !canReadAccounts}
-          className="space-y-5"
+          ref={historyScroll}
+          hidden={tab === "overview"}
+          className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5"
         >
-          {error && (
-            <p role="alert" className="text-red-700">
-              {error}{" "}
-              <button onClick={() => setRevision((v) => v + 1)}>
-                重新讀取
-              </button>
-            </p>
+          {tab === "history" && historyTab === "service" && canReadBookings && (
+            <SpaServiceHistory profile={profile} />
           )}
-          {notice && (
-            <p role="status" className="rounded-lg bg-green-50 p-3">
-              {notice}
-            </p>
-          )}
-          {!account ? (
-            <p>讀取中…</p>
-          ) : (
-            <>
-              <div hidden={tab !== "credit"} className="space-y-5">
-                <section className="rounded-xl bg-earth-50 p-4">
-                  <p>儲值餘額</p>
-                  <strong className="text-2xl">
-                    {money(account.wallet?.balance ?? 0)}
-                  </strong>
-                  {account.wallet && account.wallet.status !== "ACTIVE" && (
-                    <p>帳戶已停用</p>
+          <div
+            hidden={
+              tab === "overview" ||
+              !canReadAccounts ||
+              (tab === "history" && historyTab === "service")
+            }
+            className="space-y-5"
+          >
+            {error && (
+              <p role="alert" className="text-red-700">
+                {error}{" "}
+                <button onClick={() => setRevision((v) => v + 1)}>
+                  重新讀取
+                </button>
+              </p>
+            )}
+            {notice && (
+              <p role="status" className="rounded-lg bg-green-50 p-3">
+                {notice}
+              </p>
+            )}
+            {!account ? (
+              <p>讀取中…</p>
+            ) : (
+              <>
+                <div hidden={tab !== "credit"} className="space-y-5">
+                  <section className="rounded-xl bg-earth-50 p-4">
+                    <p>儲值餘額</p>
+                    <strong className="text-2xl">
+                      {money(account.wallet?.balance ?? 0)}
+                    </strong>
+                    {account.wallet && account.wallet.status !== "ACTIVE" && (
+                      <p>帳戶已停用</p>
+                    )}
+                  </section>
+                  {canSell && !mode && !refund && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        className="rounded-lg bg-earth-800 p-3 text-white"
+                        onClick={() => {
+                          setMode("PACKAGE");
+                          setConfirmed(false);
+                        }}
+                      >
+                        購買方案
+                      </button>
+                      <button
+                        className="rounded-lg border p-3"
+                        onClick={() => {
+                          setMode("TOPUP");
+                          setConfirmed(false);
+                        }}
+                      >
+                        儲值加值
+                      </button>
+                    </div>
                   )}
-                </section>
-                {canSell && !mode && !refund && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      className="rounded-lg bg-earth-800 p-3 text-white"
-                      onClick={() => {
-                        setMode("PACKAGE");
-                        setConfirmed(false);
+                  {mode && (
+                    <form
+                      className="space-y-3 rounded-xl border p-4"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!confirmed) return;
+                        setError("");
+                        start(async () => {
+                          try {
+                            const r = await purchaseSpaCredit({
+                              customerId,
+                              kind: mode,
+                              amount:
+                                mode === "PACKAGE"
+                                  ? (pack?.price ?? -1)
+                                  : Number(amount),
+                              paymentMethod: method,
+                              requestKey,
+                              ...(mode === "PACKAGE"
+                                ? {
+                                    packageId,
+                                    expectedPackageUpdatedAt: pack?.updatedAt,
+                                  }
+                                : {}),
+                            });
+                            if (!r.success) {
+                              setError(r.error);
+                              return;
+                            }
+                            setNotice(
+                              mode === "PACKAGE"
+                                ? "方案已購買，堂數已入帳。"
+                                : "加值完成，餘額已更新。",
+                            );
+                            reset();
+                          } catch {
+                            setError("連線失敗，請重試同一筆；不會重複入帳。");
+                          }
+                        });
                       }}
                     >
-                      購買方案
-                    </button>
-                    <button
-                      className="rounded-lg border p-3"
-                      onClick={() => {
-                        setMode("TOPUP");
-                        setConfirmed(false);
-                      }}
-                    >
-                      儲值加值
-                    </button>
-                  </div>
-                )}
-                {mode && (
+                      <fieldset disabled={pending} className="space-y-3">
+                        <legend className="font-bold">
+                          {mode === "PACKAGE" ? "購買方案" : "儲值加值"}
+                        </legend>
+                        {mode === "PACKAGE" ? (
+                          <>
+                            <label className="block">
+                              方案
+                              <select
+                                required
+                                value={packageId}
+                                onChange={(e) => {
+                                  setPackageId(e.target.value);
+                                  setConfirmed(false);
+                                }}
+                                className="mt-1 w-full rounded-lg border p-3"
+                              >
+                                <option value="">請選擇方案</option>
+                                {account.packages.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} · {p.uses} 次 · {money(p.price)}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            {pack && (
+                              <p>
+                                今日起生效，有效 {pack.validityDays}{" "}
+                                天（含今日）。應收 {money(pack.price)}。
+                              </p>
+                            )}
+                            {!account.packages.length && (
+                              <DashboardLink
+                                href="/dashboard/plans"
+                                className="underline"
+                              >
+                                先到方案管理建立方案
+                              </DashboardLink>
+                            )}
+                          </>
+                        ) : (
+                          <label className="block">
+                            加值金額
+                            <input
+                              required
+                              type="number"
+                              min={1}
+                              max={9999999}
+                              step={1}
+                              value={amount}
+                              onChange={(e) => {
+                                setAmount(e.target.value);
+                                setConfirmed(false);
+                              }}
+                              className="mt-1 w-full rounded-lg border p-3"
+                            />
+                          </label>
+                        )}
+                        <fieldset className="space-y-2">
+                          <legend>收款方式</legend>
+                          <div className="grid grid-cols-2 gap-3">
+                            {(["CASH", "CARD"] as const).map((value) => (
+                              <button
+                                key={value}
+                                type="button"
+                                aria-pressed={method === value}
+                                onClick={() => {
+                                  setMethod(value);
+                                  setConfirmed(false);
+                                }}
+                                className={`rounded-lg border p-3 ${method === value ? "border-earth-800 bg-earth-800 text-white" : "bg-white"}`}
+                              >
+                                {methodName[value]}
+                              </button>
+                            ))}
+                          </div>
+                        </fieldset>
+                        {method === "CARD" && (
+                          <p className="text-sm">請先在店內刷卡機完成收款。</p>
+                        )}
+                        <label className="flex gap-2">
+                          <input
+                            type="checkbox"
+                            required
+                            checked={confirmed}
+                            onChange={(e) => setConfirmed(e.target.checked)}
+                          />
+                          確認已收到上述金額
+                        </label>
+                        <div className="flex gap-3">
+                          <button
+                            disabled={
+                              !confirmed || (mode === "PACKAGE" && !pack)
+                            }
+                            className="rounded-lg bg-earth-800 p-3 text-white"
+                          >
+                            {pending ? "處理中…" : "確認收款並入帳"}
+                          </button>
+                          <button type="button" onClick={() => setMode(null)}>
+                            返回
+                          </button>
+                        </div>
+                      </fieldset>
+                    </form>
+                  )}
+                </div>
+                {refund && (
                   <form
-                    className="space-y-3 rounded-xl border p-4"
+                    ref={refundForm}
+                    className="space-y-3 rounded-xl border border-red-200 p-4"
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (!confirmed) return;
                       setError("");
                       start(async () => {
                         try {
-                          const r = await purchaseSpaCredit({
-                            customerId,
-                            kind: mode,
-                            amount:
-                              mode === "PACKAGE"
-                                ? (pack?.price ?? -1)
-                                : Number(amount),
-                            paymentMethod: method,
-                            requestKey,
-                            ...(mode === "PACKAGE"
-                              ? {
-                                  packageId,
-                                  expectedPackageUpdatedAt: pack?.updatedAt,
-                                }
-                              : {}),
+                          const r = await refundSpaPayment({
+                            kind: refund.kind,
+                            id: refund.id,
+                            reason,
                           });
                           if (!r.success) {
                             setError(r.error);
                             return;
                           }
-                          setNotice(
-                            mode === "PACKAGE"
-                              ? "方案已購買，堂數已入帳。"
-                              : "加值完成，餘額已更新。",
-                          );
+                          setNotice("已完成全額退款／退回堂數，紀錄已保留。");
                           reset();
                         } catch {
-                          setError("連線失敗，請重試同一筆；不會重複入帳。");
+                          setError("連線失敗，請重試；不會重複退款。");
                         }
                       });
                     }}
                   >
                     <fieldset disabled={pending} className="space-y-3">
                       <legend className="font-bold">
-                        {mode === "PACKAGE" ? "購買方案" : "儲值加值"}
+                        全額退款 · {refund.label}
                       </legend>
-                      {mode === "PACKAGE" ? (
-                        <>
-                          <label className="block">
-                            方案
-                            <select
-                              required
-                              value={packageId}
-                              onChange={(e) => {
-                                setPackageId(e.target.value);
-                                setConfirmed(false);
-                              }}
-                              className="mt-1 w-full rounded-lg border p-3"
-                            >
-                              <option value="">請選擇方案</option>
-                              {account.packages.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} · {p.uses} 次 · {money(p.price)}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          {pack && (
-                            <p>
-                              今日起生效，有效 {pack.validityDays}{" "}
-                              天（含今日）。應收 {money(pack.price)}。
-                            </p>
-                          )}
-                          {!account.packages.length && (
-                            <DashboardLink
-                              href="/dashboard/plans"
-                              className="underline"
-                            >
-                              先到方案管理建立方案
-                            </DashboardLink>
-                          )}
-                        </>
-                      ) : (
-                        <label className="block">
-                          加值金額
-                          <input
-                            required
-                            type="number"
-                            min={1}
-                            max={9999999}
-                            step={1}
-                            value={amount}
-                            onChange={(e) => {
-                              setAmount(e.target.value);
-                              setConfirmed(false);
-                            }}
-                            className="mt-1 w-full rounded-lg border p-3"
-                          />
-                        </label>
-                      )}
+                      <p>
+                        {refund.method === "CASH" || refund.method === "CARD"
+                          ? "請確認已透過原付款方式退回款項；刷卡退款需先在刷卡機操作。"
+                          : "將退回原儲值帳戶或原方案堂數，保留原有效期限。"}
+                      </p>
                       <label className="block">
-                        收款方式
-                        <select
-                          value={method}
-                          onChange={(e) => {
-                            setMethod(e.target.value as "CASH" | "CARD");
-                            setConfirmed(false);
-                          }}
-                          className="ml-3 rounded border p-2"
-                        >
-                          <option value="CASH">現金</option>
-                          <option value="CARD">刷卡</option>
-                        </select>
+                        退款原因
+                        <input
+                          required
+                          maxLength={300}
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          className="mt-1 w-full rounded border p-3"
+                        />
                       </label>
-                      {method === "CARD" && (
-                        <p className="text-sm">請先在店內刷卡機完成收款。</p>
-                      )}
                       <label className="flex gap-2">
                         <input
-                          type="checkbox"
                           required
+                          type="checkbox"
                           checked={confirmed}
                           onChange={(e) => setConfirmed(e.target.checked)}
                         />
-                        確認已收到上述金額
+                        確認退款內容
                       </label>
-                      <div className="flex gap-3">
-                        <button
-                          disabled={!confirmed || (mode === "PACKAGE" && !pack)}
-                          className="rounded-lg bg-earth-800 p-3 text-white"
-                        >
-                          {pending ? "處理中…" : "確認收款並入帳"}
-                        </button>
-                        <button type="button" onClick={() => setMode(null)}>
-                          返回
-                        </button>
-                      </div>
+                      <button
+                        disabled={!confirmed}
+                        className="rounded-lg bg-red-700 p-3 text-white"
+                      >
+                        確認全額退回
+                      </button>
+                      <button
+                        type="button"
+                        className="ml-3"
+                        onClick={() => setRefund(null)}
+                      >
+                        返回
+                      </button>
                     </fieldset>
                   </form>
                 )}
-              </div>
-              {refund && (
-                <form
-                  ref={refundForm}
-                  className="space-y-3 rounded-xl border border-red-200 p-4"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!confirmed) return;
-                    setError("");
-                    start(async () => {
-                      try {
-                        const r = await refundSpaPayment({
-                          kind: refund.kind,
-                          id: refund.id,
-                          reason,
-                        });
-                        if (!r.success) {
-                          setError(r.error);
-                          return;
-                        }
-                        setNotice("已完成全額退款／退回堂數，紀錄已保留。");
-                        reset();
-                      } catch {
-                        setError("連線失敗，請重試；不會重複退款。");
-                      }
-                    });
-                  }}
-                >
-                  <fieldset disabled={pending} className="space-y-3">
-                    <legend className="font-bold">
-                      全額退款 · {refund.label}
-                    </legend>
-                    <p>
-                      {refund.method === "CASH" || refund.method === "CARD"
-                        ? "請確認已透過原付款方式退回款項；刷卡退款需先在刷卡機操作。"
-                        : "將退回原儲值帳戶或原方案堂數，保留原有效期限。"}
-                    </p>
-                    <label className="block">
-                      退款原因
-                      <input
-                        required
-                        maxLength={300}
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        className="mt-1 w-full rounded border p-3"
-                      />
-                    </label>
-                    <label className="flex gap-2">
-                      <input
-                        required
-                        type="checkbox"
-                        checked={confirmed}
-                        onChange={(e) => setConfirmed(e.target.checked)}
-                      />
-                      確認退款內容
-                    </label>
-                    <button
-                      disabled={!confirmed}
-                      className="rounded-lg bg-red-700 p-3 text-white"
-                    >
-                      確認全額退回
-                    </button>
-                    <button
-                      type="button"
-                      className="ml-3"
-                      onClick={() => setRefund(null)}
-                    >
-                      返回
-                    </button>
-                  </fieldset>
-                </form>
-              )}
-              <section hidden={tab !== "credit"}>
-                <h3 className="mb-2 font-bold">顧客方案</h3>
-                <div className="space-y-2">
-                  {account.entitlements.map((e) => (
-                    <div key={e.id} className="rounded-lg border p-3">
-                      <strong>{e.name}</strong>
-                      <p>
-                        剩餘 {e.remaining} 次 · 已保留 {e.reserved} 次 · 可用{" "}
-                        {e.status === "ACTIVE" &&
-                        (!e.expiryDate || e.expiryDate >= toLocalDateStr())
-                          ? Math.max(0, e.remaining - e.reserved)
-                          : 0}{" "}
-                        次
-                      </p>
-                      <p className="text-sm text-earth-500">
-                        {e.expiryDate ? `到期日 ${e.expiryDate}` : "無到期日"} ·{" "}
-                        {e.status === "VOIDED"
-                          ? "已退購／作廢"
-                          : e.expiryDate && e.expiryDate < toLocalDateStr()
-                            ? "已到期"
-                            : e.status === "EXHAUSTED"
-                              ? "已用完"
-                              : "方案紀錄"}
-                      </p>
-                    </div>
-                  ))}
-                  {!account.entitlements.length && <p>尚無方案</p>}
-                </div>
-              </section>
-              <div hidden={tab !== "history"} className="space-y-5">
-                <section>
-                  <h3 className="mb-2 font-bold">
-                    收款與結帳紀錄（最近 100 筆）
-                  </h3>
-                  {[
-                    ...account.sales.map((s) => ({
-                      ...s,
-                      kind: "SALE" as const,
-                      uses: null,
-                    })),
-                    ...account.receipts.map((r) => ({
-                      ...r,
-                      kind: "RECEIPT" as const,
-                    })),
-                  ]
-                    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-                    .map((r) => (
-                      <details key={r.id} className="border-b py-3">
-                        <summary className="cursor-pointer">
-                          <strong>{r.name}</strong>
-                          <span className="block text-sm">
-                            {methodName[r.paymentMethod]} ·{" "}
-                            {r.paymentMethod === "ENTITLEMENT"
-                              ? `${r.uses} 次`
-                              : money(r.amount)}{" "}
-                            · {r.refunded ? "已退款" : "已完成"}
-                          </span>
-                        </summary>
-                        <p className="mt-2 text-xs text-earth-500">
-                          {date(r.createdAt)}
+                <section hidden={tab !== "credit"}>
+                  <h3 className="mb-2 font-bold">顧客方案</h3>
+                  <div className="space-y-2">
+                    {account.entitlements.map((e) => (
+                      <div key={e.id} className="rounded-lg border p-3">
+                        <strong>{e.name}</strong>
+                        <p>
+                          剩餘 {e.remaining} 次 · 已保留 {e.reserved} 次 · 可用{" "}
+                          {e.status === "ACTIVE" &&
+                          (!e.expiryDate || e.expiryDate >= toLocalDateStr())
+                            ? Math.max(0, e.remaining - e.reserved)
+                            : 0}{" "}
+                          次
                         </p>
-                        {canRefund &&
-                          !r.refunded &&
-                          !mode &&
-                          !refund &&
-                          !(
-                            r.kind === "SALE" &&
-                            "sourceId" in r &&
-                            "kind" in r &&
-                            account.sales.find((s) => s.id === r.id)?.kind ===
-                              "PACKAGE" &&
-                            (() => {
-                              const e = account.entitlements.find(
-                                (e) => e.id === r.sourceId,
-                              );
-                              return (
-                                !e ||
-                                e.remaining !== e.total ||
-                                e.reserved > 0 ||
-                                e.status === "VOIDED"
-                              );
-                            })()
-                          ) &&
-                          !(
-                            r.kind === "SALE" &&
-                            account.sales.find((s) => s.id === r.id)?.kind ===
-                              "TOPUP" &&
-                            (account.wallet?.balance ?? 0) < r.amount
-                          ) && (
-                            <button
-                              className="mt-1 text-sm text-red-700 underline"
-                              onClick={() => {
-                                setRefund({
-                                  kind: r.kind,
-                                  id: r.id,
-                                  label: `${r.name} · ${r.paymentMethod === "ENTITLEMENT" ? `${r.uses} 次` : money(r.amount)}`,
-                                  method: r.paymentMethod,
-                                });
-                                setReason("");
-                                setConfirmed(false);
-                              }}
-                            >
-                              全額退款／退回
-                            </button>
-                          )}
-                      </details>
+                        <p className="text-sm text-earth-500">
+                          {e.expiryDate ? `到期日 ${e.expiryDate}` : "無到期日"}{" "}
+                          ·{" "}
+                          {e.status === "VOIDED"
+                            ? "已退購／作廢"
+                            : e.expiryDate && e.expiryDate < toLocalDateStr()
+                              ? "已到期"
+                              : e.status === "EXHAUSTED"
+                                ? "已用完"
+                                : "方案紀錄"}
+                        </p>
+                      </div>
                     ))}
+                    {!account.entitlements.length && <p>尚無方案</p>}
+                  </div>
                 </section>
-                <details>
-                  <summary className="cursor-pointer font-bold">
-                    儲值明細
-                  </summary>
-                  {account.entries.map((e) => (
-                    <p key={e.id} className="border-b py-2 text-sm">
-                      {date(e.createdAt)} · {e.amount >= 0 ? "+" : ""}
-                      {money(e.amount)} · 餘額 {money(e.balanceAfter)}
-                    </p>
-                  ))}
-                </details>
-                <details>
-                  <summary className="cursor-pointer font-bold">
-                    退款紀錄
-                  </summary>
-                  {account.refunds.map((r) => (
-                    <p key={r.id} className="border-b py-2 text-sm">
-                      {date(r.createdAt)} ·{" "}
-                      {r.paymentMethod === "ENTITLEMENT"
-                        ? `${r.uses} 次`
-                        : money(r.amount)}{" "}
-                      · {r.reason}
-                    </p>
-                  ))}
-                </details>
-              </div>
-            </>
-          )}
+                <div hidden={tab !== "history"} className="space-y-5">
+                  <section hidden={historyTab !== "payments"}>
+                    <h3 className="mb-2 font-bold">
+                      收款與結帳紀錄（最近 100 筆）
+                    </h3>
+                    {!account.sales.length && !account.receipts.length && (
+                      <p className="py-3 text-sm text-earth-500">
+                        尚無收款紀錄
+                      </p>
+                    )}
+                    {[
+                      ...account.sales.map((s) => ({
+                        ...s,
+                        kind: "SALE" as const,
+                        uses: null,
+                      })),
+                      ...account.receipts.map((r) => ({
+                        ...r,
+                        kind: "RECEIPT" as const,
+                      })),
+                    ]
+                      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                      .map((r) => (
+                        <details key={r.id} className="border-b py-3">
+                          <summary className="cursor-pointer">
+                            <strong>{r.name}</strong>
+                            <span className="block text-sm">
+                              {methodName[r.paymentMethod]} ·{" "}
+                              {r.paymentMethod === "ENTITLEMENT"
+                                ? `${r.uses} 次`
+                                : money(r.amount)}{" "}
+                              · {r.refunded ? "已退款" : "已完成"}
+                            </span>
+                          </summary>
+                          <p className="mt-2 text-xs text-earth-500">
+                            {date(r.createdAt)}
+                          </p>
+                          {canRefund &&
+                            !r.refunded &&
+                            !mode &&
+                            !refund &&
+                            !(
+                              r.kind === "SALE" &&
+                              "sourceId" in r &&
+                              "kind" in r &&
+                              account.sales.find((s) => s.id === r.id)?.kind ===
+                                "PACKAGE" &&
+                              (() => {
+                                const e = account.entitlements.find(
+                                  (e) => e.id === r.sourceId,
+                                );
+                                return (
+                                  !e ||
+                                  e.remaining !== e.total ||
+                                  e.reserved > 0 ||
+                                  e.status === "VOIDED"
+                                );
+                              })()
+                            ) &&
+                            !(
+                              r.kind === "SALE" &&
+                              account.sales.find((s) => s.id === r.id)?.kind ===
+                                "TOPUP" &&
+                              (account.wallet?.balance ?? 0) < r.amount
+                            ) && (
+                              <button
+                                className="mt-1 text-sm text-red-700 underline"
+                                onClick={() => {
+                                  setRefund({
+                                    kind: r.kind,
+                                    id: r.id,
+                                    label: `${r.name} · ${r.paymentMethod === "ENTITLEMENT" ? `${r.uses} 次` : money(r.amount)}`,
+                                    method: r.paymentMethod,
+                                  });
+                                  setReason("");
+                                  setConfirmed(false);
+                                }}
+                              >
+                                全額退款／退回
+                              </button>
+                            )}
+                        </details>
+                      ))}
+                  </section>
+                  <section hidden={historyTab !== "wallet"}>
+                    <h3 className="font-bold">儲值明細</h3>
+                    {!account.entries.length && (
+                      <p className="py-3 text-sm text-earth-500">
+                        尚無儲值明細
+                      </p>
+                    )}
+                    {account.entries.map((e) => (
+                      <p key={e.id} className="border-b py-2 text-sm">
+                        {date(e.createdAt)} · {e.amount >= 0 ? "+" : ""}
+                        {money(e.amount)} · 餘額 {money(e.balanceAfter)}
+                      </p>
+                    ))}
+                  </section>
+                  <section hidden={historyTab !== "refunds"}>
+                    <h3 className="font-bold">退款紀錄</h3>
+                    {!account.refunds.length && (
+                      <p className="py-3 text-sm text-earth-500">
+                        尚無退款紀錄
+                      </p>
+                    )}
+                    {account.refunds.map((r) => (
+                      <p key={r.id} className="border-b py-2 text-sm">
+                        {date(r.createdAt)} ·{" "}
+                        {r.paymentMethod === "ENTITLEMENT"
+                          ? `${r.uses} 次`
+                          : money(r.amount)}{" "}
+                        · {r.reason}
+                      </p>
+                    ))}
+                  </section>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </RightSheet>

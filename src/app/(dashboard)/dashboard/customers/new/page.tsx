@@ -1,3 +1,5 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { getActiveStoreForRead } from "@/lib/store";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { createCustomer } from "@/server/actions/customer";
 import { getCurrentUser } from "@/lib/session";
@@ -38,14 +40,20 @@ export default async function NewCustomerPage({
     redirect("/dashboard/customers");
   }
 
+  const activeStoreId = await getActiveStoreForRead(user);
+  const isSpa =
+    !!activeStoreId && (await getStoreIndustryModule(activeStoreId)) === "spa";
   const staffOptions = await listStaffSelectOptions();
   const { existingCustomerId } = await searchParams;
   const storeContext = await getStoreContext();
-  const dashboardBase = storeContext ? `/s/${storeContext.storeSlug}/admin/dashboard` : "/dashboard";
+  const dashboardBase = storeContext
+    ? `/s/${storeContext.storeSlug}/admin/dashboard`
+    : "/dashboard";
 
   async function handleSubmit(formData: FormData) {
     "use server";
-    const assignedStaffIdRaw = (formData.get("assignedStaffId") as string) || "";
+    const assignedStaffIdRaw =
+      (formData.get("assignedStaffId") as string) || "";
     const lineNameRaw = (formData.get("lineName") as string) || "";
     const notesRaw = (formData.get("notes") as string) || "";
     const emailRaw = normalizeEmail((formData.get("email") as string) ?? "");
@@ -76,7 +84,9 @@ export default async function NewCustomerPage({
       redirect(`${dashboardBase}/customers/new?${params.toString()}`);
     }
 
-    redirect(`${dashboardBase}/customers?saved=${encodeURIComponent("已新增顧客")}`);
+    redirect(
+      `${dashboardBase}/customers?saved=${encodeURIComponent("已新增顧客")}`,
+    );
   }
 
   return (
@@ -116,7 +126,10 @@ export default async function NewCustomerPage({
       <FormShell width="md">
         <form action={handleSubmit} className="space-y-6 pb-4">
           {/* 快速建立 — 預設顯示，10 秒可建一筆 */}
-          <FormSection title="快速建立" description="只需姓名 + 手機，其餘可稍後補">
+          <FormSection
+            title="快速建立"
+            description="只需姓名 + 手機，其餘可稍後補"
+          >
             <div>
               <label className={labelCls}>
                 姓名 <span className="text-red-500">*</span>
@@ -191,7 +204,9 @@ export default async function NewCustomerPage({
 
               <FormSection title="系統關聯" description="可稍後再指派">
                 <div>
-                  <label className={labelCls}>直屬店長 / 教練</label>
+                  <label className={labelCls}>
+                    {isSpa ? "負責人員" : "直屬店長 / 教練"}
+                  </label>
                   <select name="assignedStaffId" className={`mt-1 ${inputCls}`}>
                     <option value="">暫不指派</option>
                     {staffOptions.map((s) => (
@@ -224,9 +239,7 @@ export default async function NewCustomerPage({
             </div>
           </details>
 
-          <StickyFormActions
-            info={<span>儲存後會回到顧客列表</span>}
-          >
+          <StickyFormActions info={<span>儲存後會回到顧客列表</span>}>
             <Link
               href="/dashboard/customers"
               className="rounded-lg border border-earth-300 bg-white px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"

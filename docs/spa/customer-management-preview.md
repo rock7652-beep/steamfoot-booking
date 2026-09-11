@@ -30,3 +30,13 @@ Based on PR #970 head ecf485383570c581cb9e4bb177688ebdda84f542.
 4. Switch the three sections; expand transaction/refund history; verify existing purchase/refund forms remain accessible.
 
 Preview only. PR remains unmerged; Production untouched.
+
+## iPad refinement — 2026-09-11
+
+- Compact two-column overview at tablet/desktop widths, three-row note input and a separate fixed save footer linked to the same form.
+- Customer name, close control and navigation stay outside the scroll area.
+- History switches between service, payment, wallet and refund records; switching returns to the top. Empty histories have clear messages.
+- Available package uses are never truncated with the name. Cash/card are explicit selection buttons; changing the method clears the receipt confirmation.
+- SPA new-customer form uses “負責人員”; other modules retain their existing label.
+- TypeScript, changed-file ESLint and the same 25 targeted tests passed. No schema or financial server-action changes.
+- Browser setup succeeded, but tab discovery/navigation repeatedly timed out. Interactive iPad acceptance and screenshots remain unverified for this refinement.

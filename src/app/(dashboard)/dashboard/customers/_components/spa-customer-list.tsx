@@ -143,10 +143,22 @@ export function SpaCustomerList({
               <span className="min-w-0 text-sm">
                 {permissions.canReadAccounts ? (
                   <>
-                    <span className="block truncate">
-                      {c.packages[0]
-                        ? `${c.packages[0].name} · 可用 ${c.packages[0].available} 次`
-                        : "無有效方案"}
+                    <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                      {c.packages[0] ? (
+                        <>
+                          <span
+                            className="min-w-0 max-w-full truncate"
+                            title={c.packages[0].name}
+                          >
+                            {c.packages[0].name}
+                          </span>
+                          <strong className="shrink-0 whitespace-nowrap">
+                            可用 {c.packages[0].available} 次
+                          </strong>
+                        </>
+                      ) : (
+                        "無有效方案"
+                      )}
                     </span>
                     <span className="block text-earth-500">
                       {c.packages.length > 1
