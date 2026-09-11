@@ -1,8 +1,8 @@
 /**
- * updateCustomerNotesAction — 內部服務備註寫入 action 安全邊界
+ * updateCustomerServiceNoteAction — 內部服務備註寫入 action 安全邊界
  *
  * 內部服務備註是「後台限定」欄位，安全邊界比 UI 更關鍵，本測試聚焦：
- *   1. 有 customer.update 權限者可更新 notes
+ *   1. 有 customer.update 權限者可更新店內 serviceNote
  *   2. 無 update 權限（requirePermission throw）→ 不可更新
  *   3. trim 後空字串 → 存 null
  *   4. 超過 1000 字 → validation 擋下、不寫 DB
@@ -51,12 +51,13 @@ vi.mock("@/lib/manager-visibility", () => ({
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
   unstable_cache: <T,>(callback: T) => callback,
 }));
 
 vi.mock("@/lib/subscription-guard", () => ({ assertStoreSubscriptionWritable: vi.fn(async () => undefined) }));
 
-import { updateCustomerNotesAction } from "@/server/actions/customer";
+import { updateCustomerServiceNoteAction, updateCustomerNotesAction } from "@/server/actions/customer";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -68,18 +69,18 @@ beforeEach(() => {
   mockAuditCreate.mockResolvedValue({});
 });
 
-describe("updateCustomerNotesAction — 安全邊界", () => {
-  it("1) 有 customer.update → 可更新 notes", async () => {
-    const r = await updateCustomerNotesAction({
+describe("updateCustomerServiceNoteAction — 安全邊界", () => {
+  it("1) 有 customer.update → 可更新店內 serviceNote", async () => {
+    const r = await updateCustomerServiceNoteAction({
       customerId: "c1",
-      notes: "怕熱，溫度不要太高",
+      serviceNote: "怕熱，溫度不要太高",
     });
     expect(r.success).toBe(true);
     // gate 走 customer.update
     expect(mockRequirePermission).toHaveBeenCalledWith("customer.update");
     expect(mockCustomerUpdate).toHaveBeenCalledWith({
       where: { id: "c1" },
-      data: { notes: "怕熱，溫度不要太高" },
+      data: { serviceNote: "怕熱，溫度不要太高" },
     });
   });
 
@@ -87,9 +88,9 @@ describe("updateCustomerNotesAction — 安全邊界", () => {
     mockRequirePermission.mockRejectedValueOnce(
       new AppError("FORBIDDEN", "無權限"),
     );
-    const r = await updateCustomerNotesAction({
+    const r = await updateCustomerServiceNoteAction({
       customerId: "c1",
-      notes: "x",
+      serviceNote: "x",
     });
     expect(r).toMatchObject({ success: false, error: "無權限" });
     expect(mockCustomerFindUnique).not.toHaveBeenCalled();
@@ -97,42 +98,42 @@ describe("updateCustomerNotesAction — 安全邊界", () => {
   });
 
   it("3) trim 後空字串 → 存 null", async () => {
-    const r = await updateCustomerNotesAction({
+    const r = await updateCustomerServiceNoteAction({
       customerId: "c1",
-      notes: "   \n  ",
+      serviceNote: "   \n  ",
     });
     expect(r.success).toBe(true);
     expect(mockCustomerUpdate).toHaveBeenCalledWith({
       where: { id: "c1" },
-      data: { notes: null },
+      data: { serviceNote: null },
     });
   });
 
-  it("3b) notes = null → 存 null（清除）", async () => {
-    const r = await updateCustomerNotesAction({
+  it("3b) serviceNote = null → 存 null（清除）", async () => {
+    const r = await updateCustomerServiceNoteAction({
       customerId: "c1",
-      notes: null,
+      serviceNote: null,
     });
     expect(r.success).toBe(true);
     expect(mockCustomerUpdate).toHaveBeenCalledWith({
       where: { id: "c1" },
-      data: { notes: null },
+      data: { serviceNote: null },
     });
   });
 
   it("4) 超過 1000 字 → validation 擋下、不寫 DB", async () => {
-    const r = await updateCustomerNotesAction({
+    const r = await updateCustomerServiceNoteAction({
       customerId: "c1",
-      notes: "a".repeat(1001),
+      serviceNote: "a".repeat(1001),
     });
     expect(r.success).toBe(false);
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
   });
 
   it("4b) 剛好 1000 字 → 通過", async () => {
-    const r = await updateCustomerNotesAction({
+    const r = await updateCustomerServiceNoteAction({
       customerId: "c1",
-      notes: "a".repeat(1000),
+      serviceNote: "a".repeat(1000),
     });
     expect(r.success).toBe(true);
     expect(mockCustomerUpdate).toHaveBeenCalledTimes(1);
@@ -143,14 +144,14 @@ describe("updateCustomerNotesAction — 安全邊界", () => {
       id: "staging-cust-001",
       storeId: "store-a",
     });
-    const r = await updateCustomerNotesAction({
+    const r = await updateCustomerServiceNoteAction({
       customerId: "staging-cust-001",
-      notes: "備註",
+      serviceNote: "備註",
     });
     expect(r.success).toBe(true);
     expect(mockCustomerUpdate).toHaveBeenCalledWith({
       where: { id: "staging-cust-001" },
-      data: { notes: "備註" },
+      data: { serviceNote: "備註" },
     });
   });
 
@@ -162,9 +163,9 @@ describe("updateCustomerNotesAction — 安全邊界", () => {
     mockAssertStoreAccess.mockImplementationOnce(() => {
       throw new AppError("FORBIDDEN", "跨店不可操作");
     });
-    const r = await updateCustomerNotesAction({
+    const r = await updateCustomerServiceNoteAction({
       customerId: "c1",
-      notes: "x",
+      serviceNote: "x",
     });
     expect(r.success).toBe(false);
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
@@ -172,9 +173,9 @@ describe("updateCustomerNotesAction — 安全邊界", () => {
 
   it("6b) 顧客不存在 → NOT_FOUND，不寫 DB", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(null);
-    const r = await updateCustomerNotesAction({
+    const r = await updateCustomerServiceNoteAction({
       customerId: "nope",
-      notes: "x",
+      serviceNote: "x",
     });
     expect(r.success).toBe(false);
     expect(mockCustomerUpdate).not.toHaveBeenCalled();
@@ -182,14 +183,14 @@ describe("updateCustomerNotesAction — 安全邊界", () => {
 
   it("7) Audit 為 content-free：只記 action/targetId，不含備註全文", async () => {
     const secret = "顧客超敏感備註內容請勿外洩";
-    const r = await updateCustomerNotesAction({
+    const r = await updateCustomerServiceNoteAction({
       customerId: "c1",
-      notes: secret,
+      serviceNote: secret,
     });
     expect(r.success).toBe(true);
     expect(mockAuditCreate).toHaveBeenCalledTimes(1);
     const arg = mockAuditCreate.mock.calls[0][0] as { data: Record<string, unknown> };
-    expect(arg.data.action).toBe("CUSTOMER_NOTES_UPDATED");
+    expect(arg.data.action).toBe("SERVICE_NOTE_UPDATED");
     expect(arg.data.targetType).toBe("Customer");
     expect(arg.data.targetId).toBe("c1");
     // 不可有 before/after 快照欄位
@@ -200,10 +201,17 @@ describe("updateCustomerNotesAction — 安全邊界", () => {
   });
 
   it("8) 成功回傳 ActionResult（success:true, data:undefined）", async () => {
-    const r = await updateCustomerNotesAction({
+    const r = await updateCustomerServiceNoteAction({
       customerId: "c1",
-      notes: "ok",
+      serviceNote: "ok",
     });
     expect(r).toEqual({ success: true, data: undefined });
   });
+});
+
+// A stale tab must not overwrite the new private note or revive the retired field.
+it("rejects the retired note endpoint without writing any customer fields", async () => {
+  const result = await updateCustomerNotesAction({ customerId: "c1", notes: "obsolete" });
+  expect(result.success).toBe(false);
+  expect(mockCustomerUpdate).not.toHaveBeenCalled();
 });

@@ -44,7 +44,7 @@ export default async function NewCustomerPage({
     "use server";
     const assignedStaffIdRaw = (formData.get("assignedStaffId") as string) || "";
     const lineNameRaw = (formData.get("lineName") as string) || "";
-    const notesRaw = (formData.get("notes") as string) || "";
+    const serviceNoteRaw = (formData.get("serviceNote") as string) || "";
     const emailRaw = normalizeEmail((formData.get("email") as string) ?? "");
     const genderRaw = (formData.get("gender") as string) || "";
     const birthdayRaw = ((formData.get("birthday") as string) ?? "").trim();
@@ -60,7 +60,7 @@ export default async function NewCustomerPage({
           : undefined,
       birthday: birthdayRaw || undefined,
       lineName: lineNameRaw || undefined,
-      notes: notesRaw || undefined,
+      serviceNote: serviceNoteRaw || undefined,
       assignedStaffId: assignedStaffIdRaw || undefined,
     });
 
@@ -210,12 +210,12 @@ export default async function NewCustomerPage({
                 </div>
               </FormSection>
 
-              <FormSection title="備註">
+              <FormSection title="店內備註">
                 <textarea
-                  name="notes"
+                  name="serviceNote"
                   rows={4}
                   className={inputCls}
-                  placeholder="特殊需求、健康狀況、偏好時段"
+                  placeholder="僅店內可見，每次服務都適用。例如：怕冷、座位偏好"
                 />
               </FormSection>
             </div>

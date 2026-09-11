@@ -709,7 +709,6 @@ function monthEntryToPrefill(b: BookingEntry, date: string): BookingPrefill {
     serviceStaffName: b.serviceStaff?.displayName ?? null,
     servicePlanName:
       b.servicePlan?.name ?? b.customerPlanWallet?.plan.name ?? null,
-    customerNotes: b.customer.notes,
     serviceNote: b.customer.serviceNote,
     collected: b.collected,
     collectedAmount: b.collectedAmount,

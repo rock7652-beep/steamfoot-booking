@@ -526,11 +526,11 @@ function TimelineItem({
             {expiry && <span className={`shrink-0 whitespace-nowrap ${expiry.className}`}>· {expiry.compact}</span>}
           </span>
         ) : null}
-        {(booking.customer?.notes?.trim() || booking.customer?.serviceNote?.trim()) ? (
+        {booking.customer?.serviceNote?.trim() ? (
           <div className="flex min-w-0 items-center gap-1 text-sm text-amber-700">
             <span aria-hidden>📝</span>
-            <span className="min-w-0 flex-1 truncate" title={[booking.customer.notes?.trim(), booking.customer.serviceNote?.trim()].filter(Boolean).join("｜")}>
-              {[booking.customer.notes?.trim(), booking.customer.serviceNote?.trim()].filter(Boolean).join("｜")}
+            <span className="min-w-0 flex-1 truncate" title={booking.customer.serviceNote}>
+              {booking.customer.serviceNote}
             </span>
           </div>
         ) : null}

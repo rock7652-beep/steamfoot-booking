@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { updateCustomerNotesAction } from "@/server/actions/customer";
+import { updateCustomerServiceNoteAction } from "@/server/actions/customer";
 
-export function BookingServiceNoteEditor({ customerId, value, serviceNote, canEdit, onSaved }: {
+export function BookingServiceNoteEditor({ customerId, value, canEdit, onSaved }: {
   customerId: string;
   value: string | null;
-  serviceNote?: string | null;
   canEdit: boolean;
   onSaved: () => void;
 }) {
@@ -26,14 +25,14 @@ export function BookingServiceNoteEditor({ customerId, value, serviceNote, canEd
     if (saving) return;
     setSaving(true);
     try {
-      const result = await updateCustomerNotesAction({ customerId, notes: draft.trim() || null });
+      const result = await updateCustomerServiceNoteAction({ customerId, serviceNote: draft.trim() || null });
       if (!result.success) {
         toast.error(result.error ?? "儲存失敗，請重試");
         return;
       }
       setSavedValue(draft.trim() || null);
       setEditing(false);
-      toast.success("已儲存顧客備註");
+      toast.success("已儲存店內備註");
       onSaved();
     } catch {
       toast.error("儲存失敗，內容已保留，請重試");
@@ -45,7 +44,7 @@ export function BookingServiceNoteEditor({ customerId, value, serviceNote, canEd
   return (
     <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 px-3 py-2">
       <div className="flex min-h-11 items-center justify-between gap-3">
-        <p className="text-sm font-medium text-earth-600">{!editing && !savedValue?.trim() && !serviceNote?.trim() ? "尚無顧客注意事項" : "顧客注意事項"}</p>
+        <p className="text-sm font-medium text-earth-600">{!editing && !savedValue?.trim() ? "尚無店內備註" : "店內備註"}</p>
         {canEdit && !editing && (
           <button type="button" className="min-h-11 px-3 text-sm font-medium text-primary-700" onClick={() => {
             setDraft(savedValue ?? "");
@@ -53,9 +52,10 @@ export function BookingServiceNoteEditor({ customerId, value, serviceNote, canEd
           }}>{savedValue?.trim() ? "編輯" : "＋新增"}</button>
         )}
       </div>
+      {(editing || savedValue?.trim()) && <p className="mb-2 text-xs text-earth-500">僅店內可見，每次服務都適用</p>}
       {editing && canEdit ? (
         <div className="space-y-2">
-          <textarea aria-label="顧客注意事項" value={draft} onChange={(event) => setDraft(event.target.value)}
+          <textarea aria-label="店內備註" value={draft} onChange={(event) => setDraft(event.target.value)}
             maxLength={1000} rows={4} disabled={saving}
             className="w-full rounded-lg border border-earth-300 bg-white p-3 text-base leading-relaxed focus:outline-primary-600"
             placeholder="例如：怕冷，請避開冷氣出風口" />
@@ -70,12 +70,7 @@ export function BookingServiceNoteEditor({ customerId, value, serviceNote, canEd
       ) : savedValue?.trim() ? (
         <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{savedValue}</p>
       ) : null}
-      {serviceNote?.trim() && (
-        <div className="mt-2 border-t border-earth-200 pt-2">
-          <p className="mb-1 text-sm font-medium text-earth-600">顧客服務備註</p>
-          <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{serviceNote}</p>
-        </div>
-      )}
+
     </div>
   );
 }

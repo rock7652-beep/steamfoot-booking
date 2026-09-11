@@ -51,6 +51,7 @@ vi.mock("@/lib/manager-visibility", () => ({
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
   unstable_cache: <T,>(callback: T) => callback,
 }));
 

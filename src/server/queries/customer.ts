@@ -280,7 +280,7 @@ export async function getCustomerEditForUser(
       gender: true,
       birthday: true,
       height: true,
-      notes: true,
+      serviceNote: true,
       lineName: true,
       mergedIntoCustomerId: true,
       user: { select: { status: true } },

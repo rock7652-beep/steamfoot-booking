@@ -84,7 +84,6 @@ describe("birthday profile UI contract", () => {
           gender: null,
           birthday: null,
           address: null,
-          notes: null,
         },
         age: null,
         hasPassword: true,
@@ -94,6 +93,8 @@ describe("birthday profile UI contract", () => {
     );
     expect(html).toContain("完成註冊並開始使用");
     expect(html).toContain('name="birthday"');
+    expect(html).not.toContain('name="notes"');
+    expect(html).not.toContain('name="serviceNote"');
     expect(html).toContain('id="birthday-year"');
     expect(html).toContain('id="birthday-month"');
     expect(html).toContain('id="birthday-day"');

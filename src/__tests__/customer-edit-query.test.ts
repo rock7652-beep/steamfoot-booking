@@ -12,13 +12,13 @@ const staff: User = { id: "staff-user", name: "Test", email: null, role: "OWNER"
 beforeEach(() => {
   vi.clearAllMocks();
   h.storeFilter.mockReturnValue({ storeId: "store-a" });
-  h.findFirst.mockResolvedValue({ id: "customer-a", notes: "保留備註", mergedIntoCustomerId: null, user: null });
+  h.findFirst.mockResolvedValue({ id: "customer-a", serviceNote: "保留備註", mergedIntoCustomerId: null, user: null });
 });
 
 describe("customer edit query", () => {
-  it("keeps store filtering and notes without fetching history", async () => {
+  it("keeps store filtering and serviceNote without fetching history", async () => {
     const result = await getCustomerEditForUser(staff, "customer-a");
-    expect(result.notes).toBe("保留備註");
+    expect(result.serviceNote).toBe("保留備註");
     const query = h.findFirst.mock.calls[0][0];
     expect(query.where).toEqual({ id: "customer-a", storeId: "store-a" });
     expect(query.include).toBeUndefined();

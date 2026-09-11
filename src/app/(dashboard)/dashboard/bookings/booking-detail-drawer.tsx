@@ -108,7 +108,6 @@ export interface BookingPrefill {
   customerName: string;
   customerPhone: string;
   /** 內部服務備註（後台限定）— prefill 即可即時顯示。 */
-  customerNotes?: string | null;
   serviceNote: string | null;
   revenueStaff: { displayName: string; colorCode: string } | null;
   serviceStaffName: string | null;
@@ -955,16 +954,10 @@ function DrawerContent({
             <BookingServiceNoteEditor
               key={booking.customer.id}
               customerId={booking.customer.id}
-              value={booking.customer.notes ?? null}
-              serviceNote={booking.customer.serviceNote}
+              value={booking.customer.serviceNote}
               canEdit={!readOnly && payload.canEditServiceNote === true}
               onSaved={onNoteSaved}
             />
-          ) : booking.customer.notes?.trim() ? (
-            <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3">
-              <p className="mb-1 text-sm font-medium text-earth-600">服務注意事項與備註</p>
-              <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{booking.customer.notes}</p>
-            </div>
           ) : null}
           {spaMode && booking.customer.serviceNote ? (
             <KV label="服務備註" value={<span className="whitespace-pre-wrap text-amber-800">{booking.customer.serviceNote}</span>} />
@@ -1129,8 +1122,9 @@ function DrawerContent({
         </Section>
 
         } notes={booking.notes && (
-          <Section readable={!spaMode} title={spaMode ? "備註" : "本次預約備註"}>
+          <Section readable={!spaMode} title={spaMode ? "備註" : "本次備註"}>
             <div className={spaMode ? "col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700" : "col-span-2 whitespace-pre-wrap break-words rounded-lg border border-earth-200 bg-earth-50 p-3 text-base leading-relaxed text-earth-800"}>
+              {!spaMode && <p className="mb-1 text-xs text-earth-500">僅適用這次預約</p>}
               {booking.notes}
             </div>
           </Section>
@@ -1216,11 +1210,11 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
           <KV readable label="電話" value={prefill ? prefill.customerPhone ? <a href={`tel:${prefill.customerPhone}`} className="inline-flex min-h-11 items-center break-all text-primary-700 underline decoration-primary-300 underline-offset-4">{prefill.customerPhone}</a> : "—" : pending} />
           <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 px-3 py-2">
             <div className="flex min-h-11 items-center justify-between gap-3">
-              <p className="text-sm font-medium text-earth-600">顧客注意事項</p>
+              <p className="text-sm font-medium text-earth-600">店內備註</p>
               <button disabled type="button" className="min-h-11 px-3 text-sm text-earth-500">讀取中…</button>
             </div>
-            {prefill?.customerNotes?.trim() && <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{prefill.customerNotes}</p>}
-            {prefill?.serviceNote?.trim() && <div className="mt-2 border-t border-earth-200 pt-2"><p className="mb-1 text-sm font-medium text-earth-600">顧客服務備註</p><p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{prefill.serviceNote}</p></div>}
+            <p className="text-xs text-earth-500">僅店內可見，每次服務都適用</p>
+            {prefill?.serviceNote?.trim() && <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{prefill.serviceNote}</p>}
           </div>
           <KV readable label="累積完成" value={pending} />
           <KV readable label="最近到店" value={pending} />
@@ -1478,9 +1472,6 @@ function PrefillDrawerContent({
               )
             }
           />
-          {prefill.customerNotes?.trim() ? (
-            <KV label="服務注意事項與備註" value={<span className="whitespace-pre-wrap break-words text-amber-800">{prefill.customerNotes}</span>} />
-          ) : null}
           {prefill.serviceNote ? (
             <KV
               label="服務備註"
