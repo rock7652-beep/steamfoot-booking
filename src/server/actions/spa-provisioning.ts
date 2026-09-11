@@ -33,6 +33,11 @@ export async function provisionSpaStoreAction(storeId: string): Promise<ActionRe
       create: { storeId, name, sortOrder }, update: { isActive: true, sortOrder },
     })));
     const skillByName = new Map(skills.map((skill) => [skill.name, skill]));
+    const serviceLocation = await spaPrisma.spaServiceLocation.upsert({
+      where: { storeId_name: { storeId, name: "服務位置 1" } },
+      create: { storeId, name: "服務位置 1", isActive: true, sortOrder: 0 },
+      update: { isActive: true, sortOrder: 0 },
+    });
     for (const [sortOrder, treatment] of STARTER_TREATMENTS.entries()) {
       const { skill: skillName, ...treatmentData } = treatment;
       const saved = await spaPrisma.spaTreatment.upsert({
@@ -45,7 +50,13 @@ export async function provisionSpaStoreAction(storeId: string): Promise<ActionRe
         where: { treatmentId_skillId: { treatmentId: saved.id, skillId: skill.id } },
         create: { storeId, treatmentId: saved.id, skillId: skill.id }, update: {},
       });
+      await spaPrisma.spaTreatmentServiceLocation.upsert({
+        where: { treatmentId_serviceLocationId: { treatmentId: saved.id, serviceLocationId: serviceLocation.id } },
+        create: { storeId, treatmentId: saved.id, serviceLocationId: serviceLocation.id },
+        update: {},
+      });
     }
+    if (store.staff.length === 0) throw new Error("SPA 佈建需要至少一位啟用中的服務人員");
     for (const staff of store.staff) {
       await spaPrisma.spaStaffSkill.createMany({ data: skills.map((skill) => ({ storeId, staffId: staff.id, skillId: skill.id })), skipDuplicates: true });
       await Promise.all(Array.from({ length: 7 }, (_, dayOfWeek) => spaPrisma.spaStaffAvailability.upsert({

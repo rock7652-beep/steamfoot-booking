@@ -10,6 +10,7 @@ import {
   STORE_OPERATING_STATUS_LABELS,
   type StoreOperatingStatus,
 } from "@/lib/store-operating-status";
+import { SpaProvisionButton } from "./spa-provision-button";
 
 interface PageProps {
   params: Promise<{ storeId: string }>;
@@ -73,9 +74,12 @@ export default async function StoreDetailPage({ params }: PageProps) {
             value={summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
           />
           {summary.store.industryModule === "SPA" && !summary.canActivate && (
-            <p className="mt-2 text-xs leading-relaxed text-amber-700">
-              SPA 專屬資料與排程尚在佈建，因此此店不會啟用，也不會使用蒸足預約資料。
-            </p>
+            <>
+              <p className="mt-2 text-xs leading-relaxed text-amber-700">
+                SPA 專屬資料與排程尚在佈建，因此此店不會啟用，也不會使用蒸足預約資料。
+              </p>
+              <SpaProvisionButton storeId={storeId} />
+            </>
           )}
         </Section>
 
