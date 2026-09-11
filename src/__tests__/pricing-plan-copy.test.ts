@@ -43,7 +43,7 @@ describe("pricing and growth plan copy", () => {
   it.each(PLAN_PAGES)("bundles health assessment and summary on %s", (path) => {
     const source = readSource(path);
 
-    expect(source).toContain(path === PUBLIC_PRICING_PAGE ? 'label: "健康評估"' : "健康評估與體態追蹤");
+    expect(source).toContain(path === PUBLIC_PRICING_PAGE ? 'label: "健康追蹤"' : "健康評估與體態追蹤");
     expect(source).toContain("LINE 顧客入口（LIFF）");
     expect(source).toContain(path === PUBLIC_PRICING_PAGE ? "申請前須知" : "<PlanPackageNotes />");
     expect(source).not.toContain("AI 健康評估入口");

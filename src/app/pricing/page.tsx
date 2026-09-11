@@ -35,7 +35,7 @@ const groups = [
   ] },
   { title: "經營功能", note: "基本版：依需求加購。專業版：顧客經營已含，健康／月結／分析再選 1 項。展店版：全部內含。", rows: [
     { label: "顧客經營", values: ["加購", "內含", "內含"] },
-    { label: "健康評估", values: ["加購", "可選", "內含"] },
+    { label: "健康追蹤", values: ["加購", "可選", "內含"] },
     { label: "月結管理", values: ["加購", "可選", "內含"] },
     { label: "分析", values: ["加購", "可選", "內含"] },
   ] },
@@ -115,7 +115,7 @@ export default function PricingPage() {
           <dl className="mt-3 grid gap-4 text-base leading-7 sm:grid-cols-3">
             <div><dt className="font-medium">體驗怎麼開始？</dt><dd className="mt-1 text-[#4C6259]">填寫門市需求後，由專人聯繫，確認體驗內容與期限，再提供登入方式。</dd></div>
             <div><dt className="font-medium">開通前確認哪些費用？</dt><dd className="mt-1 text-[#4C6259]">確認選用項目、額外費用與優惠期間後再開通；數位管家另行確認開通，LINE 訊息等第三方費用另外確認。</dd></div>
-            <div><dt className="font-medium">健康評估提供什麼？</dt><dd className="mt-1 text-[#4C6259]">量測紀錄、歷史數據與變化趨勢，協助體態追蹤；不作醫療診斷或效果保證。</dd></div>
+            <div><dt className="font-medium">健康追蹤提供什麼？</dt><dd className="mt-1 text-[#4C6259]">量測紀錄、歷史數據與變化趨勢，協助體態追蹤；不作醫療診斷或效果保證。</dd></div>
           </dl></details>
       </section>
     </main>
