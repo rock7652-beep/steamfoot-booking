@@ -140,7 +140,7 @@ export function MobileNav({
       >
         <div className="flex items-center justify-between border-b border-earth-200 px-5 py-4">
           <div>
-            <SteamButlerLogo className="w-36" />
+            <SteamButlerLogo compact />
             <p className="sr-only">蒸管家</p>
             <p className="mt-1 text-sm text-earth-700">{userName}</p>
           </div>

@@ -1,4 +1,4 @@
-import { SteamButlerLogo } from "@/components/steam-butler-logo";
+import { LiffBrandHeader } from "./liff-brand-header";
 import BuildFooter from "@/components/build-footer";
 
 /**
@@ -11,7 +11,7 @@ import BuildFooter from "@/components/build-footer";
 export default function LiffLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="liff-customer-ui flex min-h-screen flex-col bg-[linear-gradient(180deg,#f5f2eb_0%,#faf8f5_34%,#faf8f5_100%)]">
-      <div className="flex justify-center px-4 pt-2"><SteamButlerLogo className="w-32" /></div>
+      <LiffBrandHeader />
       <main className="flex-1">{children}</main>
       <BuildFooter />
     </div>

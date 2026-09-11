@@ -28,7 +28,8 @@ describe("蒸管家 product brand copy", () => {
     const source = readSource("src/app/page.tsx");
 
     expect(source).toContain("{storeName}");
-    expect(source).toContain("蒸管家｜會員預約系統");
-    expect(source).not.toContain(">會員預約系統</p>");
+    expect(source).toContain("<SteamButlerLogo");
+    expect(source).toContain(">會員預約系統</p>");
+    expect(source).not.toContain("蒸管家｜會員預約系統");
   });
 });

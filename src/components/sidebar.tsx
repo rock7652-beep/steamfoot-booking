@@ -954,7 +954,7 @@ export default function DashboardShell({
           {!collapsed && (
             <div className="flex items-center gap-2 min-w-0">
               <Link href="/dashboard" className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                <SteamButlerLogo className="w-28" />
+                <SteamButlerLogo compact />
               </Link>
               <PlanBadge plan={pricingPlan} />
             </div>
@@ -1001,7 +1001,7 @@ export default function DashboardShell({
             <div className="flex h-14 items-center justify-between border-b border-earth-200 px-4">
               <div className="flex items-center gap-2 min-w-0">
                 <Link href="/dashboard" className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                  <SteamButlerLogo className="w-28" />
+                  <SteamButlerLogo compact />
                 </Link>
                 <PlanBadge plan={pricingPlan} />
               </div>
