@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { MarketingBrand } from "@/components/marketing-brand";
 import type { Metadata } from "next";
 
