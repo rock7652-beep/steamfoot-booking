@@ -517,6 +517,7 @@ export function BookingDetailDrawer({
         open={open}
         onClose={onClose}
         labelledById="booking-drawer-title"
+        width={spaMode ? undefined : 860}
       >
         {hasFullData &&
         data &&
@@ -862,18 +863,18 @@ function DrawerContent({
       </div>
 
       {/* Body — scrollable */}
-      <div className={spaMode ? "flex-1 overflow-y-auto" : "flex min-h-0 flex-1 flex-col overflow-y-auto"}>
+      <div className={spaMode ? "flex-1 overflow-y-auto" : "grid min-h-0 flex-1 grid-cols-1 content-start overflow-y-auto md:grid-cols-2 md:items-start"}>
         {/* Section A: 預約資訊 */}
         <Section readable={!spaMode} title="預約資訊">
-          <KV readable={!spaMode} label="日期" value={dateLabel} />
-          <KV readable={!spaMode}
+          <KV readable={!spaMode} label={spaMode ? "日期" : "日期時間"} value={spaMode ? dateLabel : `${dateLabel} ${booking.slotTime}${endTime ? ` - ${endTime}` : ""}`} />
+          {spaMode && <KV readable={!spaMode}
             label="時間"
             value={
               <span className="tabular-nums">
                 {booking.slotTime}{endTime ? ` - ${endTime}` : ""}
               </span>
             }
-          />
+          />}
           <KV readable={!spaMode}
             label="教練"
             value={booking.revenueStaff?.displayName ?? "未指派"}
@@ -917,7 +918,7 @@ function DrawerContent({
 
         {/* Section B: 顧客資訊 */}
         <Section readable={!spaMode} order={spaMode ? undefined : 3} title="顧客資訊">
-          <KV readable={!spaMode} label="姓名" value={booking.customer.name} />
+          {spaMode && <KV label="姓名" value={booking.customer.name} />}
           <KV readable={!spaMode}
             label="電話"
             value={
@@ -1031,9 +1032,7 @@ function DrawerContent({
             }
           />
           {!spaMode && booking.bookingType === "PACKAGE_SESSION" && ["PENDING", "CONFIRMED"].includes(booking.bookingStatus) && (
-            <p className="col-span-2 text-sm leading-relaxed text-earth-500">
-              依本筆預約名額顯示，完成時仍會核對方案與堂數；部分未到依選擇的處理方式辦理。
-            </p>
+            <details className="col-span-2 text-sm leading-relaxed text-earth-500"><summary className="cursor-pointer py-1">扣堂說明</summary><p>依本筆預約名額顯示，完成時仍會核對方案與堂數；部分未到依選擇的處理方式辦理。</p></details>
           )}
           {trial && trial.collected && (
             <>
@@ -1557,7 +1556,7 @@ function ActionFooter({
   }
 
   return (
-    <div className="border-t border-earth-200 bg-earth-50 px-4 py-3">
+    <div className="shrink-0 border-t border-earth-200 bg-earth-50 px-4 py-3">
       {primaries.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {primaries.map((a, i) => (
@@ -1623,11 +1622,11 @@ function Section({
   order?: number;
 }) {
   return (
-    <div style={order ? { order } : undefined} className={readable ? "shrink-0 border-b border-earth-100 px-4 py-4" : "border-b border-earth-100 px-4 py-3"}>
-      <h3 className={readable ? "mb-3 text-base font-semibold text-earth-800" : "mb-2 text-xs font-semibold uppercase tracking-wide text-earth-500"}>
+    <div style={order ? { order } : undefined} className={readable ? `min-w-0 border-b border-earth-100 px-4 py-2 ${title === "顧客資訊" ? "md:col-start-2 md:row-start-1 md:row-span-2 md:border-l" : title === "收款與扣堂" ? "md:col-start-1 md:row-start-2" : title === "預約備註" ? "md:col-start-2 md:row-start-3 md:border-l" : "md:col-start-1 md:row-start-1"}` : "border-b border-earth-100 px-4 py-3"}>
+      <h3 className={readable ? "mb-2 text-base font-semibold text-earth-800" : "mb-2 text-xs font-semibold uppercase tracking-wide text-earth-500"}>
         {title}
       </h3>
-      <div className={readable ? "grid grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-3" : "grid grid-cols-[auto_1fr] gap-x-3 gap-y-2"}>
+      <div className={readable ? "grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-2 gap-y-1.5" : "grid grid-cols-[auto_1fr] gap-x-3 gap-y-2"}>
         {children}
       </div>
     </div>
