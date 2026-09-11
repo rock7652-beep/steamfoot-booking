@@ -6,7 +6,6 @@ import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { loginAction } from "@/server/actions/auth";
-import { APP_VERSION, APP_VERSION_DATE } from "@/lib/version";
 
 const initialState = { error: null as string | null };
 
@@ -26,7 +25,6 @@ export default function LoginPage() {
       <h1 className="sr-only">蒸管家</h1>
       <div className="mb-6 flex items-center gap-2">
         <p className="text-sm text-earth-500">後台登入</p>
-        <span className="text-[10px] text-earth-300">v{APP_VERSION} · {APP_VERSION_DATE}</span>
       </div>
 
       {urlErrorMessage && (
