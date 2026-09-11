@@ -96,7 +96,8 @@ export function SpaCustomersWorkspace({
           profileRequest={profileRequest}
           onChanged={() => {
             cache.requests.delete(customer.id);
-            setSelected({ id: customer.id, request: loadProfile(customer.id) });
+            const request = loadProfile(customer.id);
+            setSelected(current => current?.id === customer.id ? {id: customer.id, request} : current);
             router.refresh();
           }}
           onClose={() => setSelected(null)}
