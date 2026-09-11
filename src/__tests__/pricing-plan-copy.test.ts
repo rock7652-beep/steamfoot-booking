@@ -19,11 +19,15 @@ describe("pricing and growth plan copy", () => {
   it("presents analysis in management modules and includes it in alliance", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
     expect(source).not.toContain('aria-label="分析功能方案比較"');
-    expect(source).toContain('name: "分析"');
-    expect(source).toContain("另購 NT$800／月");
-    expect(source).toContain("經營功能任選 1 項（分析另購）");
-    expect(source).toContain("獨立加購・展店版內含");
-    expect(source).toContain("✓ 已包含");
+    expect(source).toContain('{ label: "分析", values: ["加購", "可選", "內含"] }');
+    expect(source).toContain("健康／月結／分析再選 1 項");
+    expect(source).toContain("提醒／匯出再選 1 項");
+    expect(source).not.toContain("分析另購");
+    expect(source).not.toContain("獨立加購・展店版內含");
+    expect(source).not.toContain("另購 NT$800／月");
+    expect(source).toContain('scope="col"');
+    expect(source).toContain('scope="row"');
+    expect(source).toContain("sticky top-0");
     expect(source).not.toContain("展店版亦不包含");
     expect(source).not.toContain("經營診斷");
     expect(source).not.toContain("基本收款・營運分析");
