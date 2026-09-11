@@ -22,6 +22,7 @@ import {
   revertBookingStatus,
   updateBooking,
 } from "@/server/actions/booking";
+import { BookingNoteEditor } from "./booking-note-editor";
 import { BookingServiceNoteEditor } from "./booking-service-note-editor";
 import { NoShowModal, type NoShowChoice } from "./no-show-modal";
 import { RescheduleModal } from "./reschedule-modal";
@@ -1121,13 +1122,20 @@ function DrawerContent({
           ) : null}
         </Section>
 
-        } notes={booking.notes && (
-          <Section readable={!spaMode} title={spaMode ? "備註" : "本次備註"}>
-            <div className={spaMode ? "col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700" : "col-span-2 whitespace-pre-wrap break-words rounded-lg border border-earth-200 bg-earth-50 p-3 text-base leading-relaxed text-earth-800"}>
-              {!spaMode && <p className="mb-1 text-xs text-earth-500">僅適用這次預約</p>}
-              {booking.notes}
-            </div>
+        } notes={spaMode ? (booking.notes ? (
+          <Section title="備註">
+            <div className="col-span-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-earth-700">{booking.notes}</div>
           </Section>
+        ) : null) : (
+          <div className="border-b border-earth-100 p-4">
+            <BookingNoteEditor
+              key={booking.id}
+              bookingId={booking.id}
+              value={booking.notes}
+              canEdit={!readOnly && payload.canEditBookingNote === true}
+              onSaved={onNoteSaved}
+            />
+          </div>
         )} />
 
       {/* Section E: Actions */}
