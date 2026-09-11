@@ -1,5 +1,5 @@
 import { formatTWTime } from "@/lib/date-utils";
-import { DashboardLink as Link } from "@/components/dashboard-link";
+import { CustomerPageLink as Link } from "@/components/customer-page-link";
 import { SideCard, InfoList, type InfoListItem } from "@/components/desktop";
 import type { CustomerStage, LineLinkStatus, TalentStage } from "@prisma/client";
 import type { DerivedCustomerSource } from "@/lib/customer-source";

@@ -47,14 +47,14 @@ export function NoShowModal({
   affectedPeople,
   partial = false,
 }: NoShowModalProps) {
-  const [choice, setChoice] = useState<NoShowChoice>("DEDUCTED");
+  const [choice, setChoice] = useState<NoShowChoice>("DEDUCTED_WITH_MAKEUP");
 
   // 每次開啟時重設為預設選項（render 階段調整 state，避免在 effect 內 setState
   // 觸發 cascading render；符合 react-hooks/set-state-in-effect）。
   const [wasOpen, setWasOpen] = useState(false);
   if (open && !wasOpen) {
     setWasOpen(true);
-    setChoice("DEDUCTED");
+    setChoice("DEDUCTED_WITH_MAKEUP");
   } else if (!open && wasOpen) {
     setWasOpen(false);
   }

@@ -14,7 +14,7 @@ import { prisma } from "@/lib/db";
 import { enumerateBookableDates } from "@/lib/bookable-window";
 import { resolveBookableUntilDate } from "@/lib/shop-config";
 import { notFound, redirect } from "next/navigation";
-import { DashboardLink as Link } from "@/components/dashboard-link";
+import { CustomerPageLink as Link } from "@/components/customer-page-link";
 import {
   PageShell,
   PageHeader,

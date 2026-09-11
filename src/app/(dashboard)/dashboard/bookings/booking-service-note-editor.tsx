@@ -1,0 +1,74 @@
+"use client";
+
+import { useState } from "react";
+import { toast } from "sonner";
+import { updateCustomerNotesAction } from "@/server/actions/customer";
+
+export function BookingServiceNoteEditor({ customerId, value, canEdit, onSaved }: {
+  customerId: string;
+  value: string | null;
+  canEdit: boolean;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const [saving, setSaving] = useState(false);
+  const [savedValue, setSavedValue] = useState(value);
+  const [previousValue, setPreviousValue] = useState(value);
+  if (previousValue !== value) {
+    setPreviousValue(value);
+    setSavedValue(value);
+    if (!editing) setDraft(value ?? "");
+  }
+
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const result = await updateCustomerNotesAction({ customerId, notes: draft.trim() || null });
+      if (!result.success) {
+        toast.error(result.error ?? "儲存失敗，請重試");
+        return;
+      }
+      setSavedValue(draft.trim() || null);
+      setEditing(false);
+      toast.success("已儲存顧客備註");
+      onSaved();
+    } catch {
+      toast.error("儲存失敗，內容已保留，請重試");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-earth-600">服務注意事項與備註</p>
+        {canEdit && !editing && (
+          <button type="button" className="min-h-11 px-3 text-sm font-medium text-primary-700" onClick={() => {
+            setDraft(savedValue ?? "");
+            setEditing(true);
+          }}>{savedValue ? "編輯" : "新增備註"}</button>
+        )}
+      </div>
+      {editing && canEdit ? (
+        <div className="space-y-2">
+          <textarea aria-label="服務注意事項與備註" value={draft} onChange={(event) => setDraft(event.target.value)}
+            maxLength={1000} rows={4} disabled={saving}
+            className="w-full rounded-lg border border-earth-300 bg-white p-3 text-base leading-relaxed focus:outline-primary-600"
+            placeholder="例如：怕冷，請避開冷氣出風口" />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-earth-500">{draft.length} / 1000 字</span>
+            <div className="flex gap-2">
+              <button type="button" disabled={saving} onClick={() => setEditing(false)} className="min-h-11 rounded-lg border border-earth-300 px-4 text-sm disabled:opacity-50">取消</button>
+              <button type="button" disabled={saving} onClick={save} className="min-h-11 rounded-lg bg-primary-600 px-4 text-sm text-white disabled:opacity-50">{saving ? "儲存中…" : "儲存"}</button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="whitespace-pre-wrap break-words text-base leading-relaxed text-earth-800">{savedValue || "尚無備註"}</p>
+      )}
+    </div>
+  );
+}
