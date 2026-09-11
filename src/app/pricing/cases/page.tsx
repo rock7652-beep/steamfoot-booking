@@ -1,3 +1,4 @@
+import { MarketingBrand } from "@/components/marketing-brand";
 import { MarketingIcon } from "../marketing-icon";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -47,8 +48,8 @@ export default async function StoreCasesPage({
   return (
     <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
       <header className="border-b border-[#153B31]/15">
-        <nav aria-label="網站導覽" className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-5 sm:px-8">
-          <Link href="/#main" className="text-xl font-bold tracking-widest">蒸管家</Link>
+        <nav aria-label="網站導覽" className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-8">
+          <MarketingBrand />
           <Link href="/pricing" className="py-2 text-base underline underline-offset-4">方案價格</Link>
         </nav>
       </header>

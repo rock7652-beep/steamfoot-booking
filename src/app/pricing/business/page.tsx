@@ -1,3 +1,4 @@
+import { MarketingBrand } from "@/components/marketing-brand";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
@@ -24,8 +25,8 @@ export default function BusinessPage() {
     <div className="bg-[#F8F5EE] text-[#153B31] selection:bg-[#DFC99D]">
       <a href="#main" className="sr-only focus:not-sr-only focus:block focus:p-4">跳至主要內容</a>
       <header className="border-b border-[#153B31]/15">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5 sm:px-8">
-          <a href="#main" className="text-xl font-bold tracking-widest">蒸管家<span className="ml-2 text-[#967039]" aria-hidden="true">·</span></a>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-8">
+          <MarketingBrand />
           <nav aria-label="主要導覽" className="flex gap-5 text-sm sm:gap-8">
             <a href="#how-it-works" className="hover:underline">怎麼運作</a>
             <Link href="/pricing" className="hover:underline">方案價格</Link>
