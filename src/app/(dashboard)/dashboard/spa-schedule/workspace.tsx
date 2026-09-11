@@ -44,7 +44,7 @@ export function SpaScheduleWorkspace(props: Props) {
     if(!providerKey)return;
     let current=true;
     const [requestedDate,startTime,treatmentIds,bookingId]=JSON.parse(providerKey) as [string,string,string[],string?];
-    getSpaAvailableProviders({date:requestedDate,startTime,treatmentIds,bookingId}).then(result=>{
+    getSpaAvailableProviders({date:requestedDate,startTime,treatmentIds,bookingId:bookingId??undefined}).then(result=>{
       if(!current)return;
       if(!result.success){setProviderResult({key:providerKey,people:[],error:result.error});return;}
       setProviderResult({key:providerKey,people:result.people,reason:result.reason,suggestions:result.suggestions,locations:result.locations,setupHref:result.setupHref,setupLabel:result.setupLabel});

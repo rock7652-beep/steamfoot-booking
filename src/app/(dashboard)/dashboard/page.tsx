@@ -1,4 +1,5 @@
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreFilter } from "@/lib/manager-visibility";
@@ -78,6 +79,18 @@ export default async function DashboardHomePage() {
     storeViewContext = await resolveStoreViewContext(user, { viewedStoreId: activeStoreId });
   }
   const isViewMode = storeViewContext?.isViewMode ?? false;
+  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "spa") {
+    const canReadBookings = await checkPermission(user.role, user.staffId, "booking.read");
+    const canReadCustomers = await checkPermission(user.role, user.staffId, "customer.read");
+    const canReadPlans = await checkPermission(user.role, user.staffId, "wallet.read");
+    return <PageShell><PageHeader title="店務首頁" subtitle="安排服務與查看顧客帳務" />
+      <div className="grid gap-4 md:grid-cols-3">
+        {canReadBookings && <Link className="rounded-xl border bg-white p-6" href="/dashboard/spa-schedule">預約排程 →</Link>}
+        {canReadCustomers && <Link className="rounded-xl border bg-white p-6" href="/dashboard/customers">顧客方案與儲值 →</Link>}
+        {canReadPlans && <Link className="rounded-xl border bg-white p-6" href="/dashboard/plans">服務與方案設定 →</Link>}
+      </div>
+    </PageShell>;
+  }
   const dashboardStoreId = activeStoreId;
   const dashboardUser = dashboardStoreId
     ? { ...user, storeId: dashboardStoreId }
