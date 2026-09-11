@@ -10,7 +10,7 @@ describe("SPA release target guard", () => {
   ])("refuses %s connections before opening a database", (_, database, direct) => {
     const result = spawnSync(process.execPath, ["scripts/spa-release.mjs", "--apply-preview"], {
       encoding: "utf8",
-      env: { PATH: process.env.PATH, DATABASE_URL: database, DIRECT_URL: direct },
+      env: { NODE_ENV: "test", PATH: process.env.PATH, DATABASE_URL: database, DIRECT_URL: direct },
     });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("SPA release refused");
