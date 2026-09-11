@@ -133,12 +133,12 @@ aside.sidebar-transition > div:first-child .bg-amber-100.text-amber-700,
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55);
 }
 
-/* Transaction detail uses a 520px RightSheet and a px-5/py-4 header.
-   Give only that header a restrained green-gold layer; day booking drawers keep their own styling. */
-aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.border-earth-200.px-5.py-4 {
+/* Transaction detail uses a 520px RightSheet. Give only that header a
+   restrained green-gold layer; day booking drawers keep their own styling. */
+aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.border-earth-200 {
   border-color: #eee8de;
   background: linear-gradient(100deg, #f7fbf8 0%, #fffdfc 62%, #fbf8f0 100%);
-  box-shadow: inset 0 2px 0 rgb(184 155 94 / 0.48);
+  box-shadow: inset 0 2px 0 rgb(157 129 73 / 0.58);
 }
 
 /* LIFF customer experience 2.0 — calm, consistent, 40+ friendly typography. */

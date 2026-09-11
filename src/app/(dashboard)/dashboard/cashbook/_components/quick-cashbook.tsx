@@ -12,7 +12,7 @@ const button = "min-h-11 rounded-lg border border-earth-200 bg-white px-4 py-2 t
 const input = "mt-1 w-full rounded-lg border border-earth-200 bg-white p-3 text-base text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
 const money = (value: number) => `NT$ ${value.toLocaleString("zh-TW")}`;
 
-export function QuickCashbook({ storeId }: { storeId: string }) {
+export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; triggerClassName?: string }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);
@@ -57,7 +57,7 @@ export function QuickCashbook({ storeId }: { storeId: string }) {
   const entry = editing && editing !== "new" ? editing : null;
   const drawerNeedsAttention = data?.balanceLabel?.includes("尚未關帳") ?? false;
   return <>
-    <button type="button" className={button} onClick={() => { setOpen(true); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
+    <button type="button" className={`${button} ${triggerClassName ?? ""}`} onClick={() => { setOpen(true); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
     {open && <RightSheet open onClose={close} width={640} labelledById="quick-cashbook-title">
       <header className="flex items-center justify-between border-b border-earth-200 bg-gradient-to-r from-primary-50 to-gold-50 px-5 py-4">
         <div>
