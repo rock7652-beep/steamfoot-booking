@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { updateCustomerServiceNoteAction } from "@/server/actions/customer";
+import { updateCustomerNotesAction } from "@/server/actions/customer";
 
 export function BookingServiceNoteEditor({ customerId, value, canEdit, onSaved }: {
   customerId: string;
@@ -25,7 +25,7 @@ export function BookingServiceNoteEditor({ customerId, value, canEdit, onSaved }
     if (saving) return;
     setSaving(true);
     try {
-      const result = await updateCustomerServiceNoteAction({ customerId, serviceNote: draft });
+      const result = await updateCustomerNotesAction({ customerId, notes: draft.trim() || null });
       if (!result.success) {
         toast.error(result.error ?? "儲存失敗，請重試");
         return;

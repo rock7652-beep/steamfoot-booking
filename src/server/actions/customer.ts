@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { requireSession } from "@/lib/session";
@@ -33,7 +34,7 @@ import {
   userForViewContext,
 } from "@/lib/store-view-context-server";
 import { normalizePhone } from "@/lib/normalize";
-import type { z } from "zod";
+import { z } from "zod";
 import { birthdayToDate } from "@/lib/birthday";
 
 // ============================================================
@@ -237,6 +238,10 @@ export async function updateCustomer(
       data: prismaData,
     });
 
+    updateTag(CACHE_TAGS.bookingsSummary);
+    revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard/bookings/[id]", "page");
+    revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard/customers");
     revalidatePath(`/dashboard/customers/${customerId}`);
     return { success: true, data: undefined };
@@ -282,6 +287,47 @@ export async function updateCustomerServiceNoteAction(
         targetType: "Customer",
         targetId: customerId,
         action: "SERVICE_NOTE_UPDATED",
+      },
+    });
+
+    revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard/customers");
+    revalidatePath(`/dashboard/customers/${customerId}`);
+    return { success: true, data: undefined };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+// 預約側欄只更新顧客基本備註，保留其他欄位。
+export async function updateCustomerNotesAction(
+  input: { customerId: string; notes: string | null },
+): Promise<ActionResult<undefined>> {
+  try {
+    const user = await requireWritablePermission("customer.update");
+    const { customerId, notes } = z.object({ customerId: z.string().min(1), notes: z.string().trim().max(1000).nullable() }).parse(input);
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true, storeId: true },
+    });
+    if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+    assertStoreAccess(user, customer.storeId);
+    await assertStoreSubscriptionWritable(customer.storeId);
+
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: { notes: notes || null },
+    });
+
+    // Audit：content-free —— 只記「誰、對哪位顧客、做了什麼」，**不**存備註全文
+    // （刻意不帶 beforeJson / afterJson）。
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: user.id,
+        targetType: "Customer",
+        targetId: customerId,
+        action: "CUSTOMER_NOTES_UPDATED",
       },
     });
 
