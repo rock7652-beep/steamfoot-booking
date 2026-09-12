@@ -97,6 +97,7 @@ vi.mock("@/lib/session", () => ({
 
 vi.mock("@/lib/store", () => ({
   currentStoreId: (u: { storeId?: string | null }) => u.storeId ?? "default",
+  resolveWriteStoreId: async (u: { storeId?: string | null }) => u.storeId ?? "default",
   getActiveStoreForRead: vi.fn(),
   DEFAULT_STORE_ID: "default-store",
 }));

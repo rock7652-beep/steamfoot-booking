@@ -11,6 +11,7 @@ const WALLET_ID = "wallet-taichung";
 const PLAN_ID = "plan-taichung";
 
 const h = vi.hoisted(() => ({
+  resolveWriteStoreId: vi.fn(),
   errorLog: vi.fn(),
   requireSession: vi.fn(),
   checkBookingLimit: vi.fn(),
@@ -56,6 +57,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/session", () => ({ requireSession: h.requireSession }));
 vi.mock("@/lib/store", () => ({
   currentStoreId: (u: { storeId?: string | null }) => u.storeId ?? "store-taichung",
+  resolveWriteStoreId: h.resolveWriteStoreId,
 }));
 vi.mock("@/lib/date-utils", () => ({
   getNowTaipeiHHmm: () => "00:00",
@@ -125,6 +127,7 @@ function customer(storeId = "store-taichung", walletStoreId = "store-taichung") 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.resolveWriteStoreId.mockResolvedValue("store-taichung");
   h.requireSession.mockResolvedValue({
     id: USER_ID,
     role: "ADMIN",
@@ -166,6 +169,24 @@ beforeEach(() => {
 });
 
 describe("createBooking — store consistency", () => {
+  it("creates an HQ booking in the authorized selected store without a session store", async () => {
+    h.requireSession.mockResolvedValue({ id: USER_ID, role: "ADMIN", storeId: null, staffId: null });
+    const { createBooking } = await import("@/server/actions/booking");
+    const result = await createBooking({ customerId: CUSTOMER_ID, bookingDate: "2026-07-11", slotTime: "10:00", bookingType: "PACKAGE_SESSION", skipDutyCheck: true });
+    expect(result.success, JSON.stringify(result)).toBe(true);
+    expect(h.resolveWriteStoreId).toHaveBeenCalledWith(expect.objectContaining({ role: "ADMIN", storeId: null }));
+    expect(h.bookingCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ storeId: "store-taichung", customerPlanWalletId: WALLET_ID }) }));
+  });
+
+  it("does not write when the selected store is rejected by authorization", async () => {
+    h.resolveWriteStoreId.mockRejectedValueOnce(new Error("selected store denied"));
+    const { createBooking } = await import("@/server/actions/booking");
+    const result = await createBooking({ customerId: CUSTOMER_ID, bookingDate: "2026-07-11", slotTime: "10:00", bookingType: "PACKAGE_SESSION", skipDutyCheck: true });
+    expect(result.success).toBe(false);
+    expect(h.bookingCreate).not.toHaveBeenCalled();
+    expect(h.allocateSessionsFefo).not.toHaveBeenCalled();
+  });
+
   it("allows same-store staff/admin single booking", async () => {
     // Existing STEAMFOOT rule converts SINGLE to PACKAGE_SESSION when a usable
     // wallet exists. A genuine single-payment case must have no active wallet.
