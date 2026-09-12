@@ -23,6 +23,8 @@
  *   - 不寫 inline 中文（一律從 liffMessages.trialBooking.* / liffMessages.error.*）
  */
 
+import { useRouter } from "next/navigation";
+import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -85,6 +87,7 @@ interface Props {
 
 export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: Props) {
   const requestKey = useBookingRequestKey();
+  const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
 
   // calendar state — 台灣今日（client clock；server gate 才是 source of truth）
@@ -122,6 +125,16 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
           setState({ kind: "expired" });
           return;
         }
+        const session = await refreshLiffSession({ idToken, storeSlug });
+        if (cancelled) return;
+        if (session.status === "need_onboarding") {
+          router.replace(`/s/${storeSlug}/liff/onboarding`);
+          return;
+        }
+        if (session.status !== "session_created") {
+          setState({ kind: session.status });
+          return;
+        }
         setState({ kind: "ready" });
       } catch (err) {
         if (cancelled) return;
@@ -136,7 +149,7 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
     return () => {
       cancelled = true;
     };
-  }, [liffId]);
+  }, [liffId, storeSlug, router]);
 
   // ── 2. load month data ─────────────────────────────
   const monthLoadable =

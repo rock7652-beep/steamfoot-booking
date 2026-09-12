@@ -1,5 +1,6 @@
 "use client";
 
+import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 /**
@@ -158,25 +159,6 @@ export function LiffShell({
         }
       };
 
-      // A central-member session can safely follow an internal store switch
-      // without repeating LINE exchange for each store. The server action
-      // validates the URL store against verified memberships before returning.
-      try {
-        const memberContext = await fetchLiffMemberStoreContext();
-        if (cancelled) return;
-        if (memberContext.status === "signed_in") {
-          setMemberStores(memberContext.stores);
-          setState({
-            kind: "signed_in",
-            displayName: memberContext.displayName,
-          });
-          void loadMemberHome();
-          return;
-        }
-      } catch (err) {
-        console.warn("[liff-shell] existing member session check failed", err);
-      }
-
       const idToken = getIDToken();
       if (!idToken) {
         setState({ kind: "expired" });
@@ -186,22 +168,8 @@ export function LiffShell({
       // ── 3. /api/liff/exchange ──
       setState({ kind: "exchanging" });
       try {
-        const res = await fetch("/api/liff/exchange", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken, storeSlug }),
-        });
+        const body = await refreshLiffSession({ idToken, storeSlug });
         if (cancelled) return;
-        const body = (await res.json().catch(() => null)) as
-          | { status: "session_created"; displayName: string | null }
-          | { status: "need_onboarding"; displayName: string | null }
-          | { status: "error"; code?: string }
-          | null;
-
-        if (!body) {
-          setState({ kind: "service_unavailable" });
-          return;
-        }
 
         if (body.status === "session_created") {
           const memberContext = await fetchLiffMemberStoreContext().catch(
@@ -229,8 +197,7 @@ export function LiffShell({
 
         // error path — 只區分 expired vs service_unavailable（顧客面）
         if (
-          body.status === "error" &&
-          (body.code === "ID_TOKEN_EXPIRED" || body.code === "ID_TOKEN_INVALID")
+          body.status === "expired"
         ) {
           setState({ kind: "expired" });
           return;

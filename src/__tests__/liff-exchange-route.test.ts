@@ -19,22 +19,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockSignIn = vi.fn();
 const mockVerify = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
-const mockCustomerFindFirst = vi.fn();
-const mockIdentityLinkFindUnique = vi.fn();
-
-vi.mock("@/lib/auth", () => ({
-  signIn: (...args: unknown[]) => mockSignIn(...args),
-}));
-
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    customer: {
-      findFirst: (...args: unknown[]) => mockCustomerFindFirst(...args),
-    },
-    customerIdentityLink: {
-      findUnique: (...args: unknown[]) => mockIdentityLinkFindUnique(...args),
-    },
-  },
+const mockResolveCustomer = vi.fn();
+vi.mock("@/lib/auth", () => ({ signIn: (...args: unknown[]) => mockSignIn(...args) }));
+vi.mock("@/server/services/verified-line-customer", () => ({
+  resolveVerifiedLineCustomer: (...args: unknown[]) => mockResolveCustomer(...args),
 }));
 
 vi.mock("@/lib/store-resolver", () => ({
@@ -84,9 +72,7 @@ describe("POST /api/liff/exchange", () => {
     mockSignIn.mockReset();
     mockVerify.mockReset();
     mockResolveStoreBySlug.mockReset();
-    mockCustomerFindFirst.mockReset();
-    mockIdentityLinkFindUnique.mockReset();
-    mockIdentityLinkFindUnique.mockResolvedValue(null);
+    mockResolveCustomer.mockReset();
   });
 
   afterEach(() => {
@@ -98,7 +84,7 @@ describe("POST /api/liff/exchange", () => {
   it("[plan path 1] success: Customer 命中 → signIn + session_created", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk({ displayName: "Alice" }));
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
-    mockCustomerFindFirst.mockResolvedValueOnce({
+    mockResolveCustomer.mockResolvedValueOnce({
       id: "cust-1",
       userId: "user-1",
       name: "Alice",
@@ -125,13 +111,11 @@ describe("POST /api/liff/exchange", () => {
   it("PR-1: identity link 命中且 Customer.userId=null → 用 link.userId 建立 session", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk({ displayName: "Alice" }));
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
-    mockIdentityLinkFindUnique.mockResolvedValueOnce({
+    mockResolveCustomer.mockResolvedValueOnce({
       userId: "user-line",
-      customer: {
-        id: "cust-hsinchu",
-        name: "Alice Hsinchu",
-        lineName: null,
-      },
+      id: "cust-hsinchu",
+      name: "Alice Hsinchu",
+      lineName: null,
     });
     mockSignIn.mockResolvedValueOnce("http://localhost:3001/");
 
@@ -141,7 +125,7 @@ describe("POST /api/liff/exchange", () => {
       status: "session_created",
       customerId: "cust-hsinchu",
     });
-    expect(mockCustomerFindFirst).not.toHaveBeenCalled();
+    expect(mockResolveCustomer).toHaveBeenCalledWith(STORE.id, LINE_USER_ID);
     expect(mockSignIn).toHaveBeenCalledWith("liff-token", {
       idToken: "tok",
       storeSlug: "zhubei",
@@ -177,7 +161,7 @@ describe("POST /api/liff/exchange", () => {
   it("[plan path 4] customer 未找到 → 200 need_onboarding", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk({ displayName: "Bob" }));
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
-    mockCustomerFindFirst.mockResolvedValueOnce(null);
+    mockResolveCustomer.mockResolvedValueOnce(null);
 
     const res = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
     expect(res.status).toBe(200);
@@ -218,7 +202,7 @@ describe("POST /api/liff/exchange", () => {
     vi.stubEnv("LINE_LOGIN_CHANNEL_ID", "legacy-web-oauth-channel");
     mockVerify.mockResolvedValueOnce(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
-    mockCustomerFindFirst.mockResolvedValueOnce(null);
+    mockResolveCustomer.mockResolvedValueOnce(null);
 
     await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
 
@@ -249,14 +233,14 @@ describe("POST /api/liff/exchange", () => {
     const res = await POST(postReq({ idToken: "tok", storeSlug: "ghost" }));
     expect(res.status).toBe(404);
     expect((await res.json()).code).toBe("STORE_NOT_FOUND");
-    expect(mockCustomerFindFirst).not.toHaveBeenCalled();
+    expect(mockResolveCustomer).not.toHaveBeenCalled();
   });
 
   it("customer 存在但 userId=null → need_onboarding", async () => {
     // 後台建檔但未綁 User 的 Customer（race window）
     mockVerify.mockResolvedValueOnce(verifiedOk({ displayName: "Charlie" }));
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
-    mockCustomerFindFirst.mockResolvedValueOnce({
+    mockResolveCustomer.mockResolvedValueOnce({
       id: "cust-2",
       userId: null,
       name: "Charlie",
@@ -271,7 +255,7 @@ describe("POST /api/liff/exchange", () => {
   it("signIn 失敗（authorize 回 null）→ 401 SESSION_MINT_FAILED", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk());
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
-    mockCustomerFindFirst.mockResolvedValueOnce({
+    mockResolveCustomer.mockResolvedValueOnce({
       id: "cust-1",
       userId: "user-1",
       name: "Alice",
@@ -286,7 +270,7 @@ describe("POST /api/liff/exchange", () => {
   it("displayName fallback: verify 沒給 → 用 customer.lineName", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk({ displayName: null }));
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
-    mockCustomerFindFirst.mockResolvedValueOnce({
+    mockResolveCustomer.mockResolvedValueOnce({
       id: "cust-3",
       userId: "user-3",
       name: "DB Name",
@@ -301,7 +285,7 @@ describe("POST /api/liff/exchange", () => {
   it("displayName fallback: verify 沒給且無 lineName → 用 customer.name", async () => {
     mockVerify.mockResolvedValueOnce(verifiedOk({ displayName: null }));
     mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
-    mockCustomerFindFirst.mockResolvedValueOnce({
+    mockResolveCustomer.mockResolvedValueOnce({
       id: "cust-4",
       userId: "user-4",
       name: "DB Name",

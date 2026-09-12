@@ -22,7 +22,7 @@
 
 import { z } from "zod";
 import { signIn } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import {
   LiffIdTokenError,
   verifyLiffIdToken,
@@ -147,25 +147,14 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // ── 5. Customer lookup ──
-  const identityLink = await prisma.customerIdentityLink.findUnique({
-    where: {
-      uq_customer_identity_provider_store: {
-        provider: "line",
-        providerAccountId: verified.lineUserId,
-        storeId: store.id,
-      },
-    },
-    select: {
-      userId: true,
-      customer: { select: { id: true, name: true, lineName: true } },
-    },
-  });
-  const customer = identityLink
-    ? { ...identityLink.customer, userId: identityLink.userId }
-    : await prisma.customer.findFirst({
-        where: { storeId: store.id, lineUserId: verified.lineUserId },
-        select: { id: true, userId: true, name: true, lineName: true },
-      });
+  let customer;
+  try {
+    customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId);
+  } catch {
+    logLineBindEvent({ path: "liff-exchange", status: "unexpected_error",
+      storeId: store.id, storeSlug: store.slug, errorCode: "IDENTITY_LOOKUP_FAILED" });
+    return json({ status: "error", code: "INTERNAL", message: "identity lookup unavailable" }, 503);
+  }
 
   if (!customer || !customer.userId) {
     // 沒 customer 或 customer 還沒綁 user → 走 onboarding 補手機 (PR-C)

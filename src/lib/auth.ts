@@ -1,3 +1,4 @@
+import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
@@ -514,46 +515,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const identityLink = await prisma.customerIdentityLink.findUnique({
-          where: {
-            uq_customer_identity_provider_store: {
-              provider: "line",
-              providerAccountId: verified.lineUserId,
-              storeId: store.id,
-            },
-          },
-          select: {
-            customer: {
-              select: {
-                id: true,
-                storeId: true,
-                store: { select: { slug: true } },
-              },
-            },
-            user: {
-              select: { id: true, name: true, email: true, role: true, status: true },
-            },
-          },
-        });
-
-        // Customer 必須先以同店 identity link 命中；legacy fallback 才看
-        // Customer(storeId, lineUserId, userId)。
-        const customer = identityLink
-          ? {
-              ...identityLink.customer,
-              user: identityLink.user,
-            }
-          : await prisma.customer.findFirst({
-              where: { storeId: store.id, lineUserId: verified.lineUserId },
-              select: {
-                id: true,
-                storeId: true,
-                store: { select: { slug: true } },
-                user: {
-                  select: { id: true, name: true, email: true, role: true, status: true },
-                },
-              },
-            });
+        const customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId);
 
         if (!customer || !customer.user || customer.user.status !== "ACTIVE") {
           // race condition：exchange route 確認過後 customer 被解綁；視為認證失敗
