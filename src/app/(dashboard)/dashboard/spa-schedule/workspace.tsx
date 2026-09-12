@@ -491,7 +491,7 @@ export function SpaScheduleWorkspace(props: Props) {
                         }}
                         className={`absolute inset-x-1 overflow-hidden rounded-lg border p-2 text-left text-xs hover:brightness-95 ${statusStyles[b.status] ?? statusStyles.CONFIRMED}`}
                       >
-                        <div className="flex flex-wrap justify-between gap-x-2 font-semibold">
+                        <div className="flex flex-wrap items-center gap-x-3 font-semibold">
                           <span>
                             {customers.find((c) => c.id === b.customerId)
                               ?.name ?? "顧客"}

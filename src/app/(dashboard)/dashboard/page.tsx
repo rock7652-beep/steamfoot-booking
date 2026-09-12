@@ -1,3 +1,4 @@
+import { SpaHome } from "./spa-home";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
@@ -80,37 +81,14 @@ export default async function DashboardHomePage() {
   }
   const isViewMode = storeViewContext?.isViewMode ?? false;
   if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "spa") {
-    const [canReadBookings, canReadCustomers, canReadPlans, canManageStaff, canReadLocations, canReadRevenue] = await Promise.all([
+    const [canBookings, canCustomers, canRevenue] = await Promise.all([
       checkPermission(user.role, user.staffId, "booking.read"),
       checkPermission(user.role, user.staffId, "customer.read"),
-      checkPermission(user.role, user.staffId, "wallet.read"),
-      checkPermission(user.role, user.staffId, "duty.manage"),
-      checkPermission(user.role, user.staffId, "business_hours.manage"),
       checkPermission(user.role, user.staffId, "transaction.read"),
     ]);
-    const canReadStaff = user.role === "OWNER" && canManageStaff;
-    const entries = [
-      { visible: canReadBookings, href: "/dashboard/spa-schedule", title: "預約管理", description: "查看今日排程，安排、改期與完成服務。" },
-      { visible: canReadCustomers, href: "/dashboard/customers", title: "顧客管理", description: "查看服務紀錄、顧客需求、方案與儲值。" },
-      { visible: canReadPlans, href: "/dashboard/plans", title: "方案管理", description: "設定服務價格、適用人員與次數方案。" },
-      { visible: canReadStaff, href: "/dashboard/spa-staff", title: "人員管理", description: "安排月曆班表、多段班別與可提供服務。" },
-      { visible: canReadLocations, href: "/dashboard/spa-resources", title: "服務位置", description: "管理美容床、美甲桌與各位置適用服務。" },
-      { visible: canReadRevenue, href: "/dashboard/revenue", title: "營運", description: "查看收款、退款與交易明細，核對每日帳務。" },
-    ].filter(entry => entry.visible);
-    return <PageShell>
-      <PageHeader title="首頁" subtitle={`${formatTWTime(new Date(), { dateOnly: true })} · 店務工作台`} />
-      <div className="spa-home-intro">
-        <div><h2>開始今天的店務</h2><p>從排程安排服務，或選擇下方功能管理店務。</p></div>
-        {canReadBookings && <Link className="spa-primary-action" href="/dashboard/spa-schedule">開啟預約排程 →</Link>}
-      </div>
-      <div className="spa-home-grid">
-        {entries.map(entry => <Link key={entry.href} className="spa-home-card" href={entry.href}>
-          <h3>{entry.title}<span aria-hidden="true">↗</span></h3><p>{entry.description}</p>
-        </Link>)}
-      </div>
-      {entries.length === 0 && <p>目前沒有可使用的店務功能，請聯絡店長確認權限。</p>}
-    </PageShell>;
+    return <SpaHome storeId={activeStoreId} canBookings={canBookings} canCustomers={canCustomers} canRevenue={canRevenue} />;
   }
+
   const dashboardStoreId = activeStoreId;
   const dashboardUser = dashboardStoreId
     ? { ...user, storeId: dashboardStoreId }

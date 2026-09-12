@@ -5,7 +5,8 @@
  * 資料來源：next.config.ts 注入的 NEXT_PUBLIC_* 環境變數
  */
 
-const BUILD_VERSION = process.env.NEXT_PUBLIC_BUILD_VERSION || "dev";
+import { APP_VERSION } from "@/lib/version";
+const BUILD_VERSION = APP_VERSION;
 const BUILD_TIME = process.env.NEXT_PUBLIC_BUILD_TIME || "";
 const BUILD_ENV = process.env.NEXT_PUBLIC_BUILD_ENV || "dev";
 
