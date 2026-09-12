@@ -3,7 +3,7 @@ import {
   resolveStorePresentation,
   resolveStoreSlugForLiff,
 } from "@/lib/store-resolver";
-import { SpaMemberStaffMobilePreview } from "./spa-member-staff-mobile-preview";
+import { SpaMemberStaffMobilePreview } from "./mobile-preview";
 
 export const dynamic = "force-dynamic";
 
