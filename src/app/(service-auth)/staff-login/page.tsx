@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { serviceStaffLoginAction } from "@/server/actions/auth";
 
 const initialState = { error: null as string | null };
@@ -10,10 +11,10 @@ export default function ServiceStaffLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-earth-50 px-4 py-10">
+    <main className="flex min-h-dvh items-center justify-center bg-earth-50 px-4 py-10">
       <section className="w-full max-w-sm rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-medium text-primary-700">蒸管家 SPA</p>
-        <h1 className="mt-1 text-2xl font-bold text-earth-900">服務人員登入</h1>
+        <SteamButlerLogo className="mb-4 w-40" />
+        <h1 className="mt-1 text-xl font-semibold text-[#0F3B2E]">服務人員登入</h1>
         <p className="mt-2 text-sm text-earth-500">查看自己的今日工作與未來預約</p>
 
         <form action={action} className="mt-6 space-y-4">

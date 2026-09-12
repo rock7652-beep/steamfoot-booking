@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
 import Link from "next/link";
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { OAuthButtons } from "./oauth-buttons";
 import { CustomerLoginForm } from "./customer-login-form";
 import { RefCapture } from "@/components/ref-capture";
@@ -43,13 +44,14 @@ export default async function HomePage({ searchParams }: PageProps) {
     : null;
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-earth-50 px-4">
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-earth-50 px-4 py-8">
       <RefCapture />
       <div className="w-full max-w-sm">
         {/* Store brand + product brand */}
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-earth-900">{storeName}</h1>
-          <p className="mt-1 text-sm text-earth-500">蒸管家｜會員預約系統</p>
+          <SteamButlerLogo className="mx-auto mb-4 w-40" />
+          <h1 className="text-xl font-semibold text-[#0F3B2E]">{storeName}</h1>
+          <p className="mt-1 text-sm text-earth-500">會員登入與預約</p>
         </div>
 
         {/* 登入表單 */}
