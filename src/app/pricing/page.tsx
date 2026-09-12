@@ -97,6 +97,7 @@ export default function PricingPage() {
         </article>)}
       </section>
       <FeatureComparison />
+      <p className="mt-4 text-base leading-7 text-[#4C6259]">付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。試用版仍有使用限制，訊息與金流等外部費用另依服務規則計算。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>
         <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>

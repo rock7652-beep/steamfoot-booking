@@ -3,6 +3,7 @@ export function PlanPackageNotes() {
   return (
     <section className="rounded-xl border border-earth-200 bg-white p-5 text-sm leading-relaxed text-earth-700">
       <h3 className="font-semibold text-earth-900">限時優惠｜一次繳一年，再送 2 個月</h3>
+      <p className="mt-2">付費方案不設每月預約筆數上限，依功能模組與人員額度分級，不按預約筆數自動加收費用。試用版限制保留，訊息與金流等外部費用另計。</p>
       <p className="mt-2">主方案一次支付 12 個月費用，共可使用 14 個月。基本版 NT$17,880、專業版 NT$29,880、展店版 NT$59,880 起。</p>
       <p className="mt-2">三個付費方案皆內含 LINE 顧客入口（LIFF），可預約、取消及查詢方案堂數；保留各門市獨立開關。入口開啟不代表其他模組全部開通。</p>
       <p className="mt-3">展店版 NT$4,990/月含總部管理與首家分店串接，第 2 家起每家 NT$1,000/月，可擴充至 30 家以上。各分店另購基礎版或專業版，不因加入總部自動升級。</p>
