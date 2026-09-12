@@ -679,14 +679,34 @@ export function SpaScheduleWorkspace(props: Props) {
                   className="spa-booking-form space-y-5"
                   disabled={pending || confirmCancel || !editable}
                 >
-                  <SpaCustomerPicker
-                    customers={customers}
-                    value={draft.customerId}
-                    locked={companions.length > 0 || !!editing?.partyGroupId}
-                    onChange={(customerId) =>
-                      setDraft({ ...draft, customerId })
-                    }
-                  />
+                  <section className="space-y-2" aria-label="預約時間">
+                    <h3 className="font-semibold">預約時間</h3>
+                    <div className="spa-booking-fields">
+                      <label className="block">
+                        日期
+                        <input
+                          type="date"
+                          disabled={companions.length > 0}
+                          className={inputClass}
+                          value={draft.bookingDate}
+                          onChange={(e) =>
+                            setDraft({ ...draft, bookingDate: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="block">
+                        開始時間
+                        <input
+                          type="time"
+                          className={inputClass}
+                          value={draft.startTime}
+                          onChange={(e) =>
+                            setDraft({ ...draft, startTime: e.target.value })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </section>
                   <div className="space-y-2">
                     <h3 className="font-semibold">選擇服務</h3>
                     {!treatments.length && (
@@ -729,30 +749,7 @@ export function SpaScheduleWorkspace(props: Props) {
                       </label>
                     ))}
                   </div>
-                  <div className="spa-booking-fields">
-                    <label className="block">
-                      日期
-                      <input
-                        type="date"
-                        disabled={companions.length > 0}
-                        className={inputClass}
-                        value={draft.bookingDate}
-                        onChange={(e) =>
-                          setDraft({ ...draft, bookingDate: e.target.value })
-                        }
-                      />
-                    </label>
-                    <label className="block">
-                      開始時間
-                      <input
-                        type="time"
-                        className={inputClass}
-                        value={draft.startTime}
-                        onChange={(e) =>
-                          setDraft({ ...draft, startTime: e.target.value })
-                        }
-                      />
-                    </label>
+                  <div className="space-y-3">
                     {!checkingProviders &&
                       providerResult.key === providerKey &&
                       !!providerResult.suggestions?.length && (
@@ -873,6 +870,14 @@ export function SpaScheduleWorkspace(props: Props) {
                       </p>
                     )}
                   </div>
+                  <SpaCustomerPicker
+                    customers={customers}
+                    value={draft.customerId}
+                    locked={companions.length > 0 || !!editing?.partyGroupId}
+                    onChange={(customerId) =>
+                      setDraft({ ...draft, customerId })
+                    }
+                  />
                   <details className="rounded-lg border border-earth-200 p-3">
                     <summary className="cursor-pointer font-medium">
                       備註（選填）
