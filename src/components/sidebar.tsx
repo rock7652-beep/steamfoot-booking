@@ -927,7 +927,9 @@ export default function DashboardShell({
     );
   };
 
-  const renderNavGroups = () => (
+  // The mobile drawer is a navigation overlay, not a compact sidebar. Keep its
+  // rendering mode independent from the desktop sidebar's collapse preference.
+  const renderNavGroups = (isCollapsed: boolean) => (
     <nav className="sidebar-scroll flex flex-1 flex-col overflow-y-auto px-2 py-2">
       {readingPage && <NavigationNotice />}
       <div className="space-y-1">
@@ -940,7 +942,7 @@ export default function DashboardShell({
               {/* Core group: no header; other groups: collapsible header */}
               {!isCore && (
                 <>
-                  {collapsed ? (
+                  {isCollapsed ? (
                     <div
                       className="mx-auto my-1 flex h-8 w-8 items-center justify-center rounded-lg text-earth-400 hover:bg-earth-100 hover:text-earth-600 cursor-pointer"
                       title={group.label}
@@ -975,7 +977,7 @@ export default function DashboardShell({
               )}
 
               {/* Items — core group has no indentation; others are indented */}
-              {!collapsed && (
+              {!isCollapsed && (
                 <div className={isCore ? "open" : `nav-group-items ${isOpen ? "open" : ""}`}>
                   <ul className="overflow-hidden space-y-0.5">
                     {categorizedItems.map((c) => renderNavItem(c, { indented: !isCore }))}
@@ -984,7 +986,7 @@ export default function DashboardShell({
               )}
 
               {/* Collapsed mode: show items as icon-only when group is expanded */}
-              {collapsed && isOpen && (
+              {isCollapsed && isOpen && (
                 <ul className="space-y-0.5">
                   {categorizedItems.map((c) => renderNavItemCollapsed(c))}
                 </ul>
@@ -1039,7 +1041,7 @@ export default function DashboardShell({
             collapsed={collapsed}
           />
         ) : null}
-        {renderNavGroups()}
+        {renderNavGroups(collapsed)}
         {/* Sidebar version footer */}
         <div className="border-t border-earth-100 px-3 py-2 text-center">
           {collapsed ? (
@@ -1084,7 +1086,7 @@ export default function DashboardShell({
                 multiStoreEnabled={viewMode.multiStoreEnabled}
               />
             ) : null}
-            {renderNavGroups()}
+            {renderNavGroups(false)}
           </aside>
         </div>
       )}
