@@ -42,11 +42,14 @@ export function BookingNoteEditor({ bookingId, value, canEdit, onSaved }: {
   }
 
   return (
-    <div className="col-span-2 rounded-lg border border-earth-200 bg-earth-50 px-3 py-2">
+    <div className="steamfoot-brand-gold-accent col-span-2 rounded-xl border px-3 py-2.5">
       <div className="flex min-h-11 items-center justify-between gap-3">
-        <p className="text-sm font-medium text-earth-600">{!editing && !savedValue?.trim() ? "尚無本次備註" : "本次備註"}</p>
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-gold-500" aria-hidden="true" />
+          <p className="text-sm font-semibold text-earth-700">{!editing && !savedValue?.trim() ? "尚無本次備註" : "本次備註"}</p>
+        </div>
         {canEdit && !editing && (
-          <button type="button" className="min-h-11 px-3 text-sm font-medium text-primary-700" onClick={() => {
+          <button type="button" className="min-h-11 rounded-lg px-3 text-sm font-semibold text-gold-700 hover:bg-gold-100/70" onClick={() => {
             setDraft(savedValue ?? "");
             setEditing(true);
           }}>{savedValue?.trim() ? "編輯" : "＋新增"}</button>
@@ -57,13 +60,13 @@ export function BookingNoteEditor({ bookingId, value, canEdit, onSaved }: {
         <div className="space-y-2">
           <textarea aria-label="本次備註" value={draft} onChange={(event) => setDraft(event.target.value)}
             maxLength={500} rows={4} disabled={saving}
-            className="w-full rounded-lg border border-earth-300 bg-white p-3 text-base leading-relaxed focus:outline-primary-600"
+            className="w-full rounded-lg border border-gold-200 bg-white p-3 text-base leading-relaxed shadow-sm focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-100"
             placeholder="例如：今天會晚到 10 分鐘" />
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-earth-500">{draft.length} / 500 字</span>
             <div className="flex gap-2">
-              <button type="button" disabled={saving} onClick={() => setEditing(false)} className="min-h-11 rounded-lg border border-earth-300 px-4 text-sm disabled:opacity-50">取消</button>
-              <button type="button" disabled={saving} onClick={save} className="min-h-11 rounded-lg bg-primary-600 px-4 text-sm text-white disabled:opacity-50">{saving ? "儲存中…" : "儲存"}</button>
+              <button type="button" disabled={saving} onClick={() => setEditing(false)} className="min-h-11 rounded-lg border border-earth-300 bg-white px-4 text-sm text-earth-700 hover:bg-earth-50 disabled:opacity-50">取消</button>
+              <button type="button" disabled={saving} onClick={save} className="min-h-11 rounded-lg bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800 disabled:opacity-50">{saving ? "儲存中…" : "儲存"}</button>
             </div>
           </div>
         </div>

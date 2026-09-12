@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const mockVerifiedLineCustomer = vi.fn();
+vi.mock("@/server/services/verified-line-customer", () => ({
+  resolveVerifiedLineCustomer: (...args: unknown[]) => mockVerifiedLineCustomer(...args),
+}));
+
 const mockNextAuth = vi.fn();
 const mockCredentials = vi.fn((config: Record<string, unknown>) => config);
 const mockGoogle = vi.fn((config: Record<string, unknown>) => ({
@@ -168,6 +173,8 @@ const LINE_USER_ID = "U_same_line_user";
 const STORE = { id: "store-hsinchu", slug: "hsinchu" };
 
 beforeEach(() => {
+  mockVerifiedLineCustomer.mockReset();
+  mockVerifiedLineCustomer.mockResolvedValue(null);
   mockNextAuth.mockReset();
   mockCredentials.mockReset();
   mockCredentials.mockImplementation((config: Record<string, unknown>) => config);
@@ -556,88 +563,25 @@ describe("auth.ts line-taichung-coordinator provider", () => {
 });
 
 describe("auth.ts liff-token provider", () => {
-  it("uses CustomerIdentityLink first and returns that store's customer, ignoring legacy Customer.userId elsewhere", async () => {
+  it("uses the shared verified resolver and returns its exact store/customer", async () => {
     const authorize = await getLiffAuthorize();
-    mockIdentityLinkFindUnique.mockResolvedValueOnce({
-      customer: {
-        id: "cust-hsinchu",
-        storeId: STORE.id,
-        store: { slug: STORE.slug },
-      },
-      user: {
-        id: "user-line",
-        name: "LINE User",
-        email: null,
-        role: "CUSTOMER",
-        status: "ACTIVE",
-      },
+    mockVerifiedLineCustomer.mockResolvedValue({
+      id: "cust-hsinchu", storeId: STORE.id, store: { slug: STORE.slug },
+      user: { id: "user-line", name: "Member", email: null, role: "CUSTOMER", status: "ACTIVE" },
     });
-    mockCustomerFindFirst.mockResolvedValueOnce({
-      id: "cust-zhubei-legacy",
-      storeId: "store-zhubei",
-      store: { slug: "zhubei" },
-      user: {
-        id: "user-line",
-        name: "Legacy",
-        email: null,
-        role: "CUSTOMER",
-        status: "ACTIVE",
-      },
+    expect(await authorize({ idToken: "tok", storeSlug: STORE.slug })).toMatchObject({
+      id: "user-line", customerId: "cust-hsinchu", storeId: STORE.id, storeSlug: STORE.slug,
     });
-
-    const result = await authorize({ idToken: "tok", storeSlug: STORE.slug });
-
-    expect(result).toMatchObject({
-      id: "user-line",
-      customerId: "cust-hsinchu",
-      storeId: STORE.id,
-      storeSlug: STORE.slug,
-    });
-    expect(mockIdentityLinkFindUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          uq_customer_identity_provider_store: {
-            provider: "line",
-            providerAccountId: LINE_USER_ID,
-            storeId: STORE.id,
-          },
-        },
-      }),
-    );
+    expect(mockVerifyLiffIdToken).toHaveBeenCalledWith("tok", "channel-123");
+    expect(mockVerifiedLineCustomer).toHaveBeenCalledWith(STORE.id, LINE_USER_ID);
     expect(mockCustomerFindFirst).not.toHaveBeenCalled();
   });
-
-  it("falls back to legacy Customer(storeId,lineUserId) only when no identity link exists", async () => {
+  it("rejects unresolved identity without using an old cookie or legacy alternate", async () => {
     const authorize = await getLiffAuthorize();
-    mockIdentityLinkFindUnique.mockResolvedValueOnce(null);
-    mockCustomerFindFirst.mockResolvedValueOnce({
-      id: "cust-hsinchu-legacy",
-      storeId: STORE.id,
-      store: { slug: STORE.slug },
-      user: {
-        id: "user-line",
-        name: "LINE User",
-        email: null,
-        role: "CUSTOMER",
-        status: "ACTIVE",
-      },
-    });
-
-    const result = await authorize({ idToken: "tok", storeSlug: STORE.slug });
-
-    expect(result).toMatchObject({
-      customerId: "cust-hsinchu-legacy",
-      storeId: STORE.id,
-      storeSlug: STORE.slug,
-    });
-    expect(mockCustomerFindFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { storeId: STORE.id, lineUserId: LINE_USER_ID },
-      }),
-    );
+    expect(await authorize({ idToken: "tok", storeSlug: STORE.slug })).toBeNull();
+    expect(mockCustomerFindFirst).not.toHaveBeenCalled();
   });
 });
-
 
 describe("web LINE credential isolation", () => {
   it("uses the web pair while keeping LIFF independently configured", async () => {
@@ -694,6 +638,7 @@ describe("web LINE and LIFF membership parity", () => {
         customer: { id: "legacy-other", storeId: "other-store", store: { slug: "other" } },
       } as never);
 
+      mockVerifiedLineCustomer.mockResolvedValue({ ...customer, user, userId: user.id });
       const liff = await authorize({ idToken: "synthetic-verified-token", storeSlug: slug }) as Record<string, unknown>;
       const web = await jwt({
         token: {}, user: { id: user.id },
@@ -701,7 +646,8 @@ describe("web LINE and LIFF membership parity", () => {
       });
       expect(liff).toMatchObject({ id: user.id, customerId: customer.id, storeId: store.id, storeSlug: slug });
       expect(web).toMatchObject({ sub: liff.id, customerId: liff.customerId, storeId: liff.storeId, storeSlug: liff.storeSlug });
-      expect(mockIdentityLinkFindUnique).toHaveBeenCalledTimes(2);
+      expect(mockIdentityLinkFindUnique).toHaveBeenCalledTimes(1);
+      expect(mockVerifiedLineCustomer).toHaveBeenCalledWith(store.id, LINE_USER_ID);
       for (const [query] of mockIdentityLinkFindUnique.mock.calls) {
         expect(query.where.uq_customer_identity_provider_store).toEqual({
           provider: "line", providerAccountId: LINE_USER_ID, storeId: store.id,

@@ -36,6 +36,8 @@
  *   _components/success-card.tsx                   ← SuccessCard
  */
 
+import { useRouter } from "next/navigation";
+import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   initLiff,
@@ -118,6 +120,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
       ? null
       : parseMemberBookingNextPeople(window.location.search),
   );
+  const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-NoShow-2：有效補課券（最早到期優先）。people=N 時券 >= N 即自動使用 N 張。
   const [makeupCredits, setMakeupCredits] = useState<LiffMakeupCreditRow[]>([]);
@@ -159,6 +162,17 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
         const idToken = getIDToken();
         if (!idToken) {
           setState({ kind: "expired" });
+          return;
+        }
+
+        const session = await refreshLiffSession({ idToken, storeSlug });
+        if (cancelled) return;
+        if (session.status === "need_onboarding") {
+          router.replace(`/s/${storeSlug}/liff/onboarding`);
+          return;
+        }
+        if (session.status !== "session_created") {
+          setState({ kind: session.status });
           return;
         }
 
@@ -234,7 +248,7 @@ export function MemberBookingForm({ storeSlug, storeName, liffId, contactUrl }: 
     return () => {
       cancelled = true;
     };
-  }, [liffId]);
+  }, [liffId, storeSlug, router]);
 
   // ── 2. load month data ─────────────────────────────
   const monthLoadable =

@@ -49,7 +49,7 @@ export function RightSheet({
         aria-modal="true"
         aria-labelledby={labelledById}
         style={{ width }}
-        className={`absolute right-0 top-0 flex h-full max-w-full flex-col bg-white shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 ${
+        className={`absolute right-0 top-0 flex h-full max-w-full flex-col bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >

@@ -98,7 +98,7 @@ export function DataTable<Row>({
 
   return (
     <div className={`overflow-x-auto rounded-xl border border-earth-200 bg-white ${className ?? ""}`}>
-      <table className="w-full text-left text-sm">
+      <table className="min-w-[720px] w-full text-left text-sm">
         <thead className="bg-earth-50 text-[11px] font-medium text-earth-500">
           <tr>
             {columns.map((c) => (

@@ -2,29 +2,41 @@
 @import "./spa-admin.css";
 
 @theme {
-  /* Earth tone palette */
-  --color-earth-50: #faf8f5;
-  --color-earth-100: #f3efe8;
-  --color-earth-200: #e8e0d4;
-  --color-earth-300: #d4c8b8;
-  --color-earth-400: #b8a68e;
-  --color-earth-500: #9c8b72;
-  --color-earth-600: #7d6e58;
-  --color-earth-700: #655a48;
-  --color-earth-800: #4a4235;
-  --color-earth-900: #342f27;
+  /* Warm neutral palette */
+  --color-earth-50: #faf8f4;
+  --color-earth-100: #f5f1ea;
+  --color-earth-200: #e7e0d4;
+  --color-earth-300: #d8cfc1;
+  --color-earth-400: #b9ad9d;
+  --color-earth-500: #8f8375;
+  --color-earth-600: #71675d;
+  --color-earth-700: #5b534b;
+  --color-earth-800: #3f3a34;
+  --color-earth-900: #302c28;
 
-  /* Primary accent — warm olive/sage */
-  --color-primary-50: #f6f7f4;
-  --color-primary-100: #e8ebe2;
-  --color-primary-200: #d1d8c5;
-  --color-primary-300: #b0bc9e;
-  --color-primary-400: #8fa17a;
-  --color-primary-500: #6f8558;
-  --color-primary-600: #5a6c47;
-  --color-primary-700: #475639;
-  --color-primary-800: #3a4530;
-  --color-primary-900: #2d3526;
+  /* Primary accent — Steam Butler logo green */
+  --color-primary-50: #f2f7f4;
+  --color-primary-100: #dce8e1;
+  --color-primary-200: #c5d9cf;
+  --color-primary-300: #a2c1b2;
+  --color-primary-400: #7fa691;
+  --color-primary-500: #5f8a76;
+  --color-primary-600: #4e7a68;
+  --color-primary-700: #3f6959;
+  --color-primary-800: #2f5d50;
+  --color-primary-900: #25483f;
+
+  /* Premium accent — muted champagne gold */
+  --color-gold-50: #fbf8f0;
+  --color-gold-100: #f7f1e4;
+  --color-gold-200: #e6d8b5;
+  --color-gold-300: #d8c59a;
+  --color-gold-400: #cbb27a;
+  --color-gold-500: #b89b5e;
+  --color-gold-600: #9d8149;
+  --color-gold-700: #80683d;
+  --color-gold-800: #685536;
+  --color-gold-900: #56472f;
 
   /* Sidebar width tokens */
   --sidebar-width: 15rem;
@@ -40,22 +52,94 @@
   --line-height-heading: 1.3;
 
   /* Text color — readability first */
-  --color-text-primary: #1a1a1a;
-  --color-text-secondary: #444444;
+  --color-text-primary: #3f3a34;
+  --color-text-secondary: #7a7268;
 
   /* Touch target / spacing */
   --touch-target-min: 44px;
 }
 
 :root {
-  --background: #faf8f5;
-  --foreground: #342f27;
+  --background: #faf8f4;
+  --foreground: #3f3a34;
+  --brand-green: #4e7a68;
+  --brand-green-deep: #2f5d50;
+  --brand-green-wash: #f2f7f4;
+  --brand-gold: #b89b5e;
+  --brand-gold-soft: #e6d8b5;
+  --brand-cream: #f7f1e4;
+  --brand-card: #fffdfc;
+  --brand-border: #e7e0d4;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Shared premium surfaces for the manager dashboard. */
+.steamfoot-brand-card {
+  background: var(--brand-card);
+  border-color: var(--brand-border);
+  box-shadow: 0 1px 2px rgb(47 93 80 / 0.04), 0 8px 24px rgb(63 58 52 / 0.035);
+}
+
+.steamfoot-brand-gold-accent {
+  border-color: var(--brand-gold-soft);
+  background: linear-gradient(135deg, #fffdfc 0%, var(--brand-cream) 100%);
+}
+
+.steamfoot-brand-green-accent {
+  border-color: #c5d9cf;
+  background: linear-gradient(135deg, #fffdfc 0%, var(--brand-green-wash) 100%);
+}
+
+/* Second-pass refinements scoped to the steamfoot manager views.
+   Keep SPA service workspace untouched until its dedicated visual pass. */
+form[method="GET"] button[type="submit"].bg-earth-800 {
+  background: var(--brand-green-deep) !important;
+  border-color: var(--brand-green-deep) !important;
+  box-shadow: 0 1px 2px rgb(47 93 80 / 0.12), 0 4px 12px rgb(47 93 80 / 0.08);
+}
+
+form[method="GET"] button[type="submit"].bg-earth-800:hover {
+  background: #25483f !important;
+}
+
+/* Booking month calendar: selected date gets a richer green + champagne detail
+   without changing booking status colours. */
+[role="button"].bg-primary-50.ring-primary-500 {
+  background: linear-gradient(145deg, #f7fbf8 0%, #eef6f1 72%, #fbf8f0 100%) !important;
+  box-shadow: inset 0 3px 0 var(--brand-gold), inset 0 0 0 1px rgb(184 155 94 / 0.22), 0 2px 8px rgb(47 93 80 / 0.05);
+}
+
+[role="button"].bg-primary-50.ring-primary-500:focus-visible {
+  box-shadow: inset 0 3px 0 var(--brand-gold), inset 0 0 0 1px rgb(184 155 94 / 0.34), 0 0 0 3px rgb(78 122 104 / 0.14);
+}
+
+/* Booking filter bar: reduce the boxed-in feeling while keeping controls clear. */
+.flex.flex-wrap.items-center.justify-between.gap-3.rounded-md.border.border-earth-200.bg-white.px-4.py-2 {
+  border-color: #eee8de;
+  background: rgb(255 253 252 / 0.88);
+  box-shadow: 0 1px 2px rgb(63 58 52 / 0.025);
+}
+
+/* Manager sidebar plan badge: champagne rather than promotional yellow. */
+aside.sidebar-transition > div:first-child .bg-amber-100.text-amber-700,
+.fixed.inset-0.z-40 aside > div:first-child .bg-amber-100.text-amber-700 {
+  border: 1px solid var(--brand-gold-soft);
+  background: var(--brand-cream) !important;
+  color: var(--color-gold-700) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55);
+}
+
+/* Transaction detail uses a 520px RightSheet. Give only that header a
+   restrained green-gold layer; day booking drawers keep their own styling. */
+aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.border-earth-200 {
+  border-color: #eee8de;
+  background: linear-gradient(100deg, #f7fbf8 0%, #fffdfc 62%, #fbf8f0 100%);
+  box-shadow: inset 0 2px 0 rgb(157 129 73 / 0.58);
 }
 
 /* LIFF customer experience 2.0 — calm, consistent, 40+ friendly typography. */
