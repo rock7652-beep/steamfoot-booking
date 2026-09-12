@@ -70,16 +70,20 @@ export function CustomersListWithDrawer({
   // 「查看」鈕 router.push / 初次 deep-link）；close = 純 client state +
   // history.replaceState（不 soft-nav、不 router.refresh、不重刷列表）。
   // Owned by this route/store instance; refreshed server rows discard cached details.
+  // Server Actions may return fresh row objects without changing their contents.
+  // Compare values so an in-flight read does not invalidate and restart itself.
+  const rowsKey = JSON.stringify(rows);
   const cache = useMemo(() => createClientReadCache<DrawerDetail>(async (customerId) => {
     const result = await getCustomerDrawerDetailAction(customerId);
     if (!result.success) throw new Error(result.error ?? "讀取顧客資料失敗");
     return result.data;
   // Rows/store changes intentionally reset the cache even with the same fetcher.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [rows, pathname]);
+  }), [rowsKey, pathname]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DrawerDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [focus, setFocus] = useState<"plan" | null>(null);
 
   // 競態防護：只套用「最後一次請求」的結果（快速連點不同顧客時）
@@ -94,17 +98,24 @@ export function CustomersListWithDrawer({
   const fetchDetail = useCallback(async (customerId: string) => {
     const myReq = requestGate.issue();
     setLoading(true);
+    setLoadError(null);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      const data = await cache.load(customerId);
+      const data = await Promise.race([
+        cache.load(customerId),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error("讀取逾時")), 15_000);
+        }),
+      ]);
       if (!requestGate.isCurrent(myReq)) return;
       setDetail(data);
     } catch {
       if (!requestGate.isCurrent(myReq)) return;
       cache.invalidate(customerId);
-      toast.error("讀取顧客資料失敗，請重新開啟再試");
-      setOpenId(null);
+      setLoadError("顧客資料暫時無法載入，請重試。");
       setDetail(null);
     } finally {
+      clearTimeout(timeout);
       if (requestGate.isCurrent(myReq)) setLoading(false);
     }
   }, [cache, requestGate]);
@@ -122,6 +133,7 @@ export function CustomersListWithDrawer({
   const applyOpen = useCallback(
     (customerId: string, f: "plan" | null) => {
       setOpenId(customerId);
+      setLoadError(null);
       setFocus(f);
       const cached = cache.get(customerId);
       if (cached) {
@@ -395,6 +407,15 @@ export function CustomersListWithDrawer({
             onMutated={refreshDrawer}
             titleId={titleId}
           />
+        ) : openId && loadError ? (
+          <div className="space-y-4 p-5">
+            <h2 id={titleId} className="font-semibold">顧客資料</h2>
+            <p role="alert">{loadError}</p>
+            <div className="flex gap-3">
+              <button type="button" className="rounded border px-4 py-2" onClick={() => void fetchDetail(openId)}>重新讀取</button>
+              <button type="button" className="rounded border px-4 py-2" onClick={closeDrawer}>關閉</button>
+            </div>
+          </div>
         ) : openId ? (
           <CustomerDrawerSkeleton titleId={titleId} loading={loading} onClose={closeDrawer} />
         ) : null}
