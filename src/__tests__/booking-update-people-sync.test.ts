@@ -73,6 +73,7 @@ vi.mock("@/lib/permissions", () => ({
 }));
 vi.mock("@/lib/store", () => ({
   currentStoreId: (u: { storeId?: string | null }) => u.storeId ?? STORE_A,
+  resolveWriteStoreId: async (u: { storeId?: string | null }) => u.storeId ?? STORE_A,
   DEFAULT_STORE_ID: "default-store",
 }));
 vi.mock("@/lib/manager-visibility", () => ({

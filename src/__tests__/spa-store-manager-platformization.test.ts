@@ -39,18 +39,20 @@ describe("SPA store manager platformization", () => {
       file.includes("/actions/"),
     )) {
       const source = readFileSync(file, "utf8");
-      expect(source, file).toContain("requireSpaStore");
+      expect(source, file).toContain(file.endsWith("/spa-checkout.ts") ? "spaResourceStore" : "requireSpaStore");
+      if (file.endsWith("/spa-checkout.ts")) expect(readFileSync("src/server/actions/spa-resources.ts", "utf8")).toContain("requireSpaStore");
     }
   });
 
-  it("limits the SPA store sidebar to the five manager modules", () => {
+  it("includes the approved SPA scheduling and resource modules", () => {
     const sidebar = readFileSync("src/components/sidebar.tsx", "utf8");
-    expect(sidebar).toContain("spaManagerRoutes");
+    expect(sidebar).toContain("spaNavigation");
     for (const path of [
       "/dashboard/bookings",
       "/dashboard/customers",
       "/dashboard/plans",
-      "/dashboard/staff",
+      "/dashboard/spa-staff",
+      "/dashboard/spa-resources",
       "/dashboard/settings",
     ]) {
       expect(sidebar).toContain(`"${path}"`);

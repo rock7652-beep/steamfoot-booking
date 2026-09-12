@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   staffFindUnique: vi.fn(),
   checkCustomerLimit: vi.fn(),
   checkCustomerLimitOrThrow: vi.fn(),
+  resolveWriteStoreId: vi.fn(),
   revalidatePath: vi.fn(),
   updateTag: vi.fn(),
 }));
@@ -50,6 +51,7 @@ vi.mock("@/lib/usage-gate", () => ({
 }));
 vi.mock("@/lib/store", () => ({
   currentStoreId: (u: { storeId?: string | null }) => u.storeId ?? "store-taichung",
+  resolveWriteStoreId: h.resolveWriteStoreId,
   getActiveStoreForRead: vi.fn(),
 }));
 vi.mock("@/lib/manager-visibility", () => ({
@@ -97,6 +99,9 @@ beforeEach(() => {
   }));
   h.checkCustomerLimit.mockResolvedValue({ allowed: true, limit: 100 });
   h.checkCustomerLimitOrThrow.mockResolvedValue(undefined);
+  h.resolveWriteStoreId.mockImplementation(async (user: { storeId?: string | null }) =>
+    user.storeId ?? "store-taichung",
+  );
 });
 
 describe("customer actions — store consistency", () => {

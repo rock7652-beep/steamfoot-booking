@@ -35,7 +35,8 @@ describe("industry module migration contract", () => {
       expect(readFileSync(resolve(root, file), "utf8")).toContain("requireSteamfootStore");
     }
     for (const file of spaFiles) {
-      expect(readFileSync(resolve(root, file), "utf8")).toContain("requireSpaStore");
+      expect(readFileSync(resolve(root, file), "utf8")).toContain(file.endsWith("/spa-checkout.ts") ? "spaResourceStore" : "requireSpaStore");
+      if (file.endsWith("/spa-checkout.ts")) expect(readFileSync(resolve(root, "src/server/actions/spa-resources.ts"), "utf8")).toContain("requireSpaStore");
     }
   });
 });

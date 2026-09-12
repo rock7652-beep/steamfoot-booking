@@ -28,7 +28,7 @@ describe("SPA 店長入口使用正式管理頁", () => {
   });
 
   it("正式管理頁沿用既有完整元件", () => {
-    expect(read("src/app/(dashboard)/dashboard/spa-schedule/page.tsx")).toContain("<SpaProviderSchedule");
+    expect(read("src/app/(dashboard)/dashboard/spa-schedule/page.tsx")).toContain("<SpaScheduleWorkspace");
     expect(read("src/app/(dashboard)/dashboard/customers/page.tsx")).toContain("<CustomersListWithDrawer");
     expect(read("src/app/(dashboard)/dashboard/plans/page.tsx")).toContain("<TreatmentWorkspace");
     expect(read("src/app/(dashboard)/dashboard/staff/page.tsx")).toContain("<StaffWorkspace");

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./spa-admin.css";
 
 @theme {
   /* Warm neutral palette */

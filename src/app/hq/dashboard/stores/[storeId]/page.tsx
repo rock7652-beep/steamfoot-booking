@@ -10,6 +10,7 @@ import {
   STORE_OPERATING_STATUS_LABELS,
   type StoreOperatingStatus,
 } from "@/lib/store-operating-status";
+import { SpaProvisionButton } from "./spa-provision-button";
 
 interface PageProps {
   params: Promise<{ storeId: string }>;
@@ -42,6 +43,8 @@ export default async function StoreDetailPage({ params }: PageProps) {
           <h1 className="text-2xl font-bold text-earth-900">{summary.store.name}</h1>
           <p className="mt-1 text-sm text-earth-500">
             <span className="font-mono">{summary.store.slug}</span> · {summary.store.plan} ·{" "}
+            <span>{summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>
+            {" · "}
             <span className={summary.store.planStatus === "ACTIVE" ? "text-green-600" : "text-amber-600"}>
               {summary.store.planStatus}
             </span>
@@ -64,6 +67,22 @@ export default async function StoreDetailPage({ params }: PageProps) {
       </div>
 
       <div className="space-y-6">
+        {/* URLs — 前台 */}
+        <Section title="產業模組">
+          <InfoRow
+            label="已選模組"
+            value={summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
+          />
+          {summary.store.industryModule === "SPA" && !summary.canActivate && (
+            <>
+              <p className="mt-2 text-xs leading-relaxed text-amber-700">
+                SPA 專屬資料與排程尚在佈建，因此此店不會啟用，也不會使用蒸足預約資料。
+              </p>
+              <SpaProvisionButton storeId={storeId} />
+            </>
+          )}
+        </Section>
+
         {/* URLs — 前台 */}
         <Section title="前台網址">
           <InfoRow label="顧客登入" value={summary.urls.storefront} link />

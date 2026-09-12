@@ -12,7 +12,7 @@ const migration = readFileSync(
 
 describe("isolated SPA data model", () => {
   it("uses a dedicated generated Prisma client", () => {
-    expect(spaSchema).toContain('output   = "../src/generated/spa-client"');
+    expect(spaSchema).toContain('output   = "../generated/spa-client"');
     expect(spaSchema).toContain("model SpaBooking");
     expect(spaSchema).toContain("model SpaEntitlement");
     expect(spaSchema).toContain("model SpaPayment");

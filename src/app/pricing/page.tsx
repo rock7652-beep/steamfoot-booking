@@ -49,7 +49,7 @@ const groups = [
 function FeatureComparison() {
   return <section aria-labelledby="comparison" className="mt-8">
     <h2 id="comparison" className="scroll-mt-24 text-2xl font-semibold">每個方案，包含什麼？</h2>
-    <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]">內含：直接使用。可選：使用內含名額，不另收費。加購：另付月費。</p>
+    <p id="comparison-help" className="mt-2 text-base leading-7 text-[#4C6259]">內含：直接使用。可選：使用內含名額，不另收費。加購：另付月費。展店版欄位指總部本身，旗下分店須各自購買基本版或專業版，功能不隨總部方案自動升級。</p>
     <table aria-describedby="comparison-help" className="mt-4 w-full table-fixed border-separate border-spacing-0 text-sm sm:text-base">
       <caption className="sr-only">蒸管家三方案功能與使用規模比較</caption>
       <colgroup><col className="w-[37%] sm:w-[43%]" /><col /><col /><col /></colgroup>
@@ -69,7 +69,7 @@ function FeatureComparison() {
           const value = PLAN_LIMITS[plan.id][item.field];
           return <td key={plan.id} className={"border-b border-[#153B31]/10 px-1 py-4 text-center " + (plan.id === "GROWTH" ? "bg-[#F0F5F1]" : "bg-white")}>{value === null ? "不限" : value.toLocaleString("zh-TW")}</td>;
         })}</tr>)}
-        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-4 text-left font-normal sm:px-4">多店管理</th><td className="bg-white px-1 py-4 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-4 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-4 text-center leading-6">總部＋<br />1 家分店</td></tr>
+        <tr><th scope="row" className="rounded-bl-xl bg-white px-2 py-4 text-left font-normal sm:px-4">多店管理</th><td className="bg-white px-1 py-4 text-center">單店</td><td className="bg-[#F0F5F1] px-1 py-4 text-center">單店</td><td className="rounded-br-xl bg-white px-1 py-4 text-center leading-6">總部＋首家<br />分店串接</td></tr>
       </tbody>
     </table>
   </section>;
@@ -97,6 +97,7 @@ export default function PricingPage() {
         </article>)}
       </section>
       <FeatureComparison />
+      <p className="mt-4 text-base leading-7 text-[#4C6259]">付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。試用版仍有使用限制，訊息與金流等外部費用另依服務規則計算。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>
         <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
@@ -108,8 +109,8 @@ export default function PricingPage() {
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li>限時優惠：主方案繳 12 個月，使用 14 個月；優惠結束後依正式原價調整。</li>
-            <li>展店版包含總部管理 + 1 家分店。第二家分店起，每家 +$1,000/月分店營運費；實際門市數量與開通範圍於申請時確認。</li>
-            <li>年繳總額僅計主方案，額外模組與分店營運費另計，贈送期間於開通前確認。</li>
+            <li>展店版包含總部管理＋首家分店串接額度（分店系統月費另計）。第二家分店起，每家 +$1,000/月分店串接管理費；無固定 3 家上限，可擴充至 30 家以上。各分店另購基本版 $1,490/月或專業版 $2,490/月。</li>
+            <li>年繳總額僅計主方案，額外模組與分店串接管理費另計，贈送期間於開通前確認。</li>
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>
         </details>

@@ -136,6 +136,14 @@ beforeEach(() => {
 });
 
 describe("markNoShow — DEDUCTED_WITH_MAKEUP", () => {
+  it("records no-show deductions in the booking store", async () => {
+    const original = await h.outerBookingFindUnique();
+    h.outerBookingFindUnique.mockResolvedValueOnce({ ...original, storeId: "selected-store" });
+    const { markNoShow } = await import("@/server/actions/booking");
+    const result = await markNoShow("bk_1", "DEDUCTED");
+    expect(result.success).toBe(true);
+    expect(h.txTransactionCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ storeId: "selected-store" }) }));
+  });
   it("people=2 → 建 2 張補課券，each isUsed=false、expiredAt≈now+7天", async () => {
     const before = Date.now();
     const r = await markNoShow("bk_1", "DEDUCTED_WITH_MAKEUP");

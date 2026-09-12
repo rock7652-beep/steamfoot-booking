@@ -10,7 +10,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import { PrismaClient as SpaPrismaClient } from "../src/generated/spa-client";
+import { PrismaClient as SpaPrismaClient } from "../generated/spa-client";
 import { hashSync } from "bcryptjs";
 import { parseTaiwanDateToDbDate } from "../src/lib/date-utils";
 import { SPA_INDUSTRY_MODULE } from "../src/lib/industry-modules";

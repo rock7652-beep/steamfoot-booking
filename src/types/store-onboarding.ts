@@ -104,3 +104,5 @@ export interface ChecklistItem {
   label: string;
   status: "pass" | "fail" | "skip";
 }
+
+export type StoreIndustryModule = PersistedIndustryModule;

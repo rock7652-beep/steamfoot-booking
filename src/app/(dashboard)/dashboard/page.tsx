@@ -1,4 +1,6 @@
+import { SpaHome } from "./spa-home";
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreFilter } from "@/lib/manager-visibility";
@@ -47,8 +49,6 @@ import {
   EmptyRow,
   type Column,
 } from "@/components/desktop";
-import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { redirect } from "next/navigation";
 
 /**
  * 店家後台首頁 — Decision Page（桌機版）
@@ -75,17 +75,20 @@ export default async function DashboardHomePage() {
   if (!user) return null;
 
   const activeStoreId = await getActiveStoreForRead(user);
-  if (
-    activeStoreId &&
-    (await getStoreIndustryModule(activeStoreId)) === "spa"
-  ) {
-    redirect("/dashboard/spa-schedule");
-  }
   let storeViewContext: StoreViewContext | null = null;
   if (user.role !== "ADMIN" && user.storeId) {
     storeViewContext = await resolveStoreViewContext(user, { viewedStoreId: activeStoreId });
   }
   const isViewMode = storeViewContext?.isViewMode ?? false;
+  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "spa") {
+    const [canBookings, canCustomers, canRevenue] = await Promise.all([
+      checkPermission(user.role, user.staffId, "booking.read"),
+      checkPermission(user.role, user.staffId, "customer.read"),
+      checkPermission(user.role, user.staffId, "transaction.read"),
+    ]);
+    return <SpaHome storeId={activeStoreId} canBookings={canBookings} canCustomers={canCustomers} canRevenue={canRevenue} />;
+  }
+
   const dashboardStoreId = activeStoreId;
   const dashboardUser = dashboardStoreId
     ? { ...user, storeId: dashboardStoreId }

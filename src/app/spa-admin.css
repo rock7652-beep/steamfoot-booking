@@ -1,0 +1,160 @@
+/* SPA desktop workspace. Scoped to the authorised store module, including its
+   in-tree drawers. Consumer pages and the steamfoot module retain their theme. */
+[data-spa-admin="true"] {
+  --sidebar-width: 216px;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.6;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --color-earth-400: #827867;
+  --color-earth-500: #756d60;
+  --spa-line: #e7e3d9;
+  --spa-green: #52643f;
+  --spa-gold: #9c8152;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #34382f;
+  background: #f8f8f4;
+}
+
+[data-spa-admin="true"] [data-dashboard-content] {
+  width: 100%;
+  max-width: 1440px;
+  min-width: 0;
+  padding: 24px 28px;
+}
+
+/* One page gutter; several older pages supplied a second outer container. */
+[data-spa-admin="true"] [data-dashboard-content] > :is(main, [data-page-shell]) {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+}
+
+[data-spa-admin="true"] h1 {
+  font-size: 24px;
+  line-height: 1.35;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+[data-spa-admin="true"] h2 { font-size: 18px; line-height: 1.45; font-weight: 650; }
+[data-spa-admin="true"] h3 { font-size: 16px; line-height: 1.5; font-weight: 600; }
+[data-spa-admin="true"] h1 + p { margin-top: 6px; font-size: 14px; line-height: 1.6; }
+[data-spa-admin="true"] [data-dashboard-content] :is(.text-\[10px\], .text-\[11px\], .text-\[12px\]) { font-size: 13px; }
+[data-spa-admin="true"] small { font-size: 13px; line-height: 1.5; }
+
+/* Bare borders previously inherited dark text. Preserve coloured status edges. */
+[data-spa-admin="true"] :is(.border, .border-b, .border-t, .border-l, .border-r):not([class*="border-earth-"]):not([class*="border-primary-"]):not([class*="border-red-"]):not([class*="border-amber-"]):not([class*="border-teal-"]):not([class*="border-slate-"]) {
+  border-color: var(--spa-line);
+}
+[data-spa-admin="true"] :is(.border-earth-100, .border-earth-200) { border-color: var(--spa-line); }
+[data-spa-admin="true"] .divide-y > :not(:last-child) { border-color: var(--spa-line); }
+[data-spa-admin="true"] .bg-earth-800 { background-color: var(--spa-green); }
+[data-spa-admin="true"] .bg-earth-50 { background-color: #f8f8f4; }
+
+[data-spa-admin="true"] :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]), select) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  height: 40px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--spa-line);
+  border-radius: 8px;
+  background-color: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+}
+[data-spa-admin="true"] textarea {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid var(--spa-line);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+[data-spa-admin="true"] :is(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--spa-green);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+[data-spa-admin="true"] :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--spa-green);
+  outline-offset: 3px;
+}
+
+/* Standard actions only; calendar cells and positioned booking blocks keep their
+   measured geometry. Do not apply generic padding/height to timeline buttons. */
+[data-spa-admin="true"] :is(button, a):is(.rounded-lg, .rounded-xl, .rounded-full):not([data-spa-timeline] *):not(.spa-customer-row) {
+  min-height: 40px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  border-radius: 8px;
+}
+[data-spa-admin="true"] button:disabled { cursor: not-allowed; }
+[data-spa-admin="true"] table { font-size: 14px; line-height: 1.5; }
+[data-spa-admin="true"] :is(th, td) { padding: 12px 16px; vertical-align: middle; }
+[data-spa-admin="true"] th { background: #f5f6f0; color: #626b55; font-size: 13px; font-weight: 600; }
+[data-spa-admin="true"] tbody tr { border-color: var(--spa-line); }
+[data-spa-admin="true"] tbody tr:hover { background: #f8faf5; }
+[data-spa-admin="true"] [role="dialog"] { font-size: 14px; line-height: 1.6; }
+[data-spa-admin="true"] [role="dialog"] > :is(header, footer) { padding: 16px 24px; }
+[data-spa-admin="true"] [role="dialog"] > footer { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+[data-spa-admin="true"] [role="dialog"] > .overflow-y-auto { padding: 20px 24px; }
+[data-spa-admin="true"] [role="dialog"] h2 { font-size: 20px; }
+[data-spa-admin="true"] [data-spa-timeline] { background: #f5f6f0; }
+[data-spa-admin="true"] [data-spa-timeline] .relative.grid { background: #fff; }
+
+.spa-booking-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.spa-booking-fields > :nth-child(n+3) { grid-column: 1 / -1; }
+.spa-booking-fields > label { min-width: 0; font-size: 14px; }
+.spa-home-intro { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px; border: 1px solid #dce3d2; border-left: 3px solid #9c8152; border-radius: 12px; background: #f0f4e9; }
+.spa-home-intro p, .spa-home-card p { margin-top: 8px; color: #756d60; font-size: 14px; }
+.spa-primary-action { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-height: 40px; padding: 8px 16px; border-radius: 8px; background: #52643f; color: white; }
+.spa-home-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.spa-home-card { padding: 20px; border: 1px solid #e7e3d9; border-radius: 12px; background: #fff; transition: border-color 150ms, background-color 150ms; }
+.spa-home-card h3 { display: flex; justify-content: space-between; gap: 12px; }
+.spa-home-card h3 span { color: #9c8152; }
+.spa-home-card:hover { border-color: #a9b59b; background: #fafcf7; }
+
+@media (min-width: 1024px) {
+  [data-spa-admin="true"] .spa-customer-columns,
+  [data-spa-admin="true"] .spa-customer-row { display: grid; grid-template-columns: 1.1fr 1fr 1fr 1.2fr; gap: 16px; padding: 12px 16px; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  [data-spa-admin="true"] { --sidebar-width: 184px; }
+  [data-spa-admin="true"] [data-dashboard-content] { padding: 20px; }
+  .spa-home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .spa-home-intro { align-items: flex-start; flex-direction: column; }
+}
+@media (pointer: coarse) {
+  [data-spa-admin="true"] :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]), select) { min-height: 44px; }
+  [data-spa-admin="true"] :is(button, a):is(.rounded-lg, .rounded-xl, .rounded-full):not([data-spa-timeline] *):not(.spa-customer-row) { min-height: 44px; }
+}
+@media (max-width: 767px) {
+  [data-spa-admin="true"] [data-dashboard-content] { padding: 16px; }
+  [data-spa-admin="true"] :is(input, select, textarea) { font-size: 16px; }
+  [data-spa-admin="true"] [role="dialog"] > :is(header, footer, .overflow-y-auto) { padding-left: 16px; padding-right: 16px; }
+  .spa-home-grid { grid-template-columns: 1fr; }
+  .spa-home-intro { align-items: stretch; flex-direction: column; padding: 20px; }
+}
+
+/* Booking and checkout share a readable drawer scale. */
+[data-spa-admin="true"] :is(.spa-booking-form, .spa-checkout-form) { font-size: 16px; line-height: 1.5; }
+[data-spa-admin="true"] :is(.spa-booking-form, .spa-checkout-form) :is(label, input, select, textarea) { font-size: 16px; }
+[data-spa-admin="true"] :is(.spa-booking-form, .spa-checkout-form) :is(small, .text-sm) { font-size: 14px; }
+[data-spa-admin="true"] .spa-checkout-form .spa-checkout-customer { font-size: 18px; line-height: 1.5; }
+[data-spa-admin="true"] .spa-checkout-form .spa-checkout-total { font-size: 24px; line-height: 1.35; }
+@media (max-width: 479px) {
+  .spa-booking-fields { grid-template-columns: 1fr; }
+}

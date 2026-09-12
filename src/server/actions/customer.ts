@@ -23,7 +23,7 @@ import type { ActionResult } from "@/types";
 import { getCustomerDrawerDetailForUser } from "@/server/queries/customer";
 import { checkCustomerLimit } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
-import { currentStoreId, getActiveStoreForRead } from "@/lib/store";
+import { currentStoreId, getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
 import {
   assertSameStore,
   assertStaffInCustomerStore,
@@ -53,13 +53,14 @@ export async function createCustomer(
 ): Promise<CreateCustomerResult> {
   try {
     const user = await requireWritablePermission("customer.create");
+    const storeId = await resolveWriteStoreId(user);
     // 訂閱到期保護：EXPIRED 店唯讀（無訂閱店不擋）
-    await assertStoreSubscriptionWritable(currentStoreId(user));
+    await assertStoreSubscriptionWritable(storeId);
     // schema.parse 內含 normalizePhone transform — data.phone 一律 09xxxxxxxx
     const data = createCustomerSchema.parse(input);
 
     // FREE 方案顧客數限制
-    const customerLimit = await checkCustomerLimit(currentStoreId(user));
+    const customerLimit = await checkCustomerLimit(storeId);
     if (!customerLimit.allowed) {
       return {
         success: false,
@@ -70,11 +71,9 @@ export async function createCustomer(
     // PricingPlan 顧客數限制
     const { checkCustomerLimitOrThrow } = await import("@/lib/usage-gate");
     const currentCustomerCount = await prisma.customer.count({
-      where: { storeId: currentStoreId(user) },
+      where: { storeId },
     });
     await checkCustomerLimitOrThrow(currentCustomerCount);
-
-    const storeId = currentStoreId(user);
 
     // assignedStaffId 現在是選填
     let assignedStaffId: string | undefined;

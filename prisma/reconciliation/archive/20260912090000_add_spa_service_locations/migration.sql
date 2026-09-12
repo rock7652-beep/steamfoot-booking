@@ -1,0 +1,12 @@
+CREATE TABLE "SpaServiceLocation" ("id" TEXT NOT NULL, "storeId" TEXT NOT NULL, "name" TEXT NOT NULL, "isActive" BOOLEAN NOT NULL DEFAULT true, "sortOrder" INTEGER NOT NULL DEFAULT 0, CONSTRAINT "SpaServiceLocation_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "SpaTreatmentServiceLocation" ("storeId" TEXT NOT NULL, "treatmentId" TEXT NOT NULL, "serviceLocationId" TEXT NOT NULL, CONSTRAINT "SpaTreatmentServiceLocation_pkey" PRIMARY KEY ("treatmentId", "serviceLocationId"));
+ALTER TABLE "SpaBooking" ADD COLUMN "serviceLocationId" TEXT;
+CREATE UNIQUE INDEX "SpaServiceLocation_id_storeId_key" ON "SpaServiceLocation"("id", "storeId");
+CREATE UNIQUE INDEX "SpaServiceLocation_storeId_name_key" ON "SpaServiceLocation"("storeId", "name");
+CREATE INDEX "SpaServiceLocation_storeId_isActive_sortOrder_idx" ON "SpaServiceLocation"("storeId", "isActive", "sortOrder");
+CREATE INDEX "SpaTreatmentServiceLocation_storeId_serviceLocationId_idx" ON "SpaTreatmentServiceLocation"("storeId", "serviceLocationId");
+CREATE INDEX "SpaBooking_storeId_serviceLocationId_bookingDate_idx" ON "SpaBooking"("storeId", "serviceLocationId", "bookingDate");
+ALTER TABLE "SpaServiceLocation" ADD CONSTRAINT "SpaServiceLocation_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE CASCADE;
+ALTER TABLE "SpaBooking" ADD CONSTRAINT "SpaBooking_serviceLocationId_storeId_fkey" FOREIGN KEY ("serviceLocationId", "storeId") REFERENCES "SpaServiceLocation"("id", "storeId") ON DELETE RESTRICT;
+ALTER TABLE "SpaTreatmentServiceLocation" ADD CONSTRAINT "SpaTreatmentServiceLocation_treatment_fkey" FOREIGN KEY ("treatmentId", "storeId") REFERENCES "SpaTreatment"("id", "storeId") ON DELETE CASCADE;
+ALTER TABLE "SpaTreatmentServiceLocation" ADD CONSTRAINT "SpaTreatmentServiceLocation_location_fkey" FOREIGN KEY ("serviceLocationId", "storeId") REFERENCES "SpaServiceLocation"("id", "storeId") ON DELETE CASCADE;

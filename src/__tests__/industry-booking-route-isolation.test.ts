@@ -41,7 +41,7 @@ describe("Steamfoot and SPA booking route isolation", () => {
       "utf8",
     );
     expect(spaPage).toContain("await requireSpaStore(storeId)");
-    expect(spaPage).toContain("getMonthBookingSummary(year, month, storeId)");
+    expect(spaPage).toContain("getSpaScheduleForDay(storeId, date)");
     expect(spaPage).toContain("where: { storeId }");
     expect(spaPage).not.toContain("SPA_DEMO_STORE");
 
@@ -52,12 +52,20 @@ describe("Steamfoot and SPA booking route isolation", () => {
     expect(spaSchedule).not.toContain("/dashboard/bookings");
   });
 
-  it("routes every SPA store home into the SPA schedule", () => {
+  it("keeps the authorized SPA home separate from its schedule and legacy dashboard queries", () => {
     const dashboard = readFileSync(
       "src/app/(dashboard)/dashboard/page.tsx",
       "utf8",
     );
     expect(dashboard).toContain('getStoreIndustryModule(activeStoreId)');
-    expect(dashboard).toContain('redirect("/dashboard/spa-schedule")');
+    expect(dashboard).not.toContain('redirect("/dashboard/spa-schedule")');
+    const spaReturn = dashboard.indexOf("return <SpaHome");
+    expect(spaReturn).toBeGreaterThan(dashboard.indexOf("await getActiveStoreForRead(user)"));
+    expect(spaReturn).toBeLessThan(dashboard.indexOf("const dashboardStoreId"));
+    const boundary = dashboard.slice(dashboard.indexOf("if (activeStoreId &&"), spaReturn);
+    for (const permission of ["booking.read", "customer.read", "transaction.read"]) {
+      expect(boundary).toContain(`checkPermission(user.role, user.staffId, "${permission}")`);
+    }
+    expect(dashboard).toContain("storeId={activeStoreId}");
   });
 });

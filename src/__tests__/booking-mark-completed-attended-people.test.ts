@@ -20,6 +20,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const STORE = "store_1";
 
 const mockBookingFindUnique = vi.fn();
+const mockDeductionCreate = vi.fn();
 const mockTxBookingUpdate = vi.fn();
 const mockTxBookingUpdateMany = vi.fn();
 const mockTxTransactionFindFirst = vi.fn();
@@ -134,7 +135,7 @@ beforeEach(() => {
   mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
     return cb({
       booking: { update: mockTxBookingUpdate, updateMany: mockTxBookingUpdateMany, findUnique: vi.fn() },
-      transaction: { create: vi.fn(), findMany: vi.fn(async () => []) },
+      transaction: { create: mockDeductionCreate, findMany: vi.fn(async () => []) },
       walletSession: { findMany: mockReservedSessions },
       customer: { update: vi.fn() },
       customerPlanWallet: { update: vi.fn(), findUnique: mockWalletFindUnique, count: vi.fn(async () => 1) },
@@ -191,6 +192,13 @@ function packageBooking(people: number) {
 }
 
 describe("markCompleted — PR-3d attendedPeople write semantics", () => {
+  it("records deductions in the authorized booking store, not the session store", async () => {
+    mockBookingFindUnique.mockResolvedValue({ ...packageBooking(1), storeId: "selected-store" });
+    const result = await markCompleted("bk_pkg");
+    expect(result.success).toBe(true);
+    expect(mockDeductionCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ storeId: "selected-store", transactionType: "SESSION_DEDUCTION" }) }));
+  });
+
   it.each([
     ["方案過期", { status: "ACTIVE", remainingSessions: 5, expiryDate: new Date("2026-06-06") }],
     ["堂數不足", { status: "ACTIVE", remainingSessions: 1, expiryDate: null }],

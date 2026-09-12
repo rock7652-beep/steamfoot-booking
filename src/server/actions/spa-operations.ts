@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import type { Prisma as SpaPrisma } from "@/generated/spa-client";
+import type { Prisma as SpaPrisma } from "@spa-client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";

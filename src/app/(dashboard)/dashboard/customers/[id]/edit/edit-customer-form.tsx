@@ -30,7 +30,17 @@ const inputCls =
   "block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const labelCls = "block text-sm font-medium text-earth-700";
 
-export function EditCustomerForm({ customer }: { customer: CustomerData }) {
+export function EditCustomerForm({
+  customer,
+  isSpa = false,
+  returnHref,
+  returnUrl,
+}: {
+  customer: CustomerData;
+  isSpa?: boolean;
+  returnHref?: string;
+  returnUrl?: string;
+}) {
   const router = useRouter();
 
   const [state, action, pending] = useActionState(
@@ -63,7 +73,7 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
       const result = await updateCustomer(customer.id, input);
       if (result.success) {
         toast.success("已儲存");
-        router.push(`/dashboard/customers/${customer.id}`);
+        router.push(returnUrl ?? `/dashboard/customers/${customer.id}`);
         router.refresh();
         return { error: null, existingCustomerId: null };
       }
@@ -79,10 +89,19 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
   return (
     <FormShell width="md">
       <form action={action} className="space-y-6 pb-4">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div
+          className={
+            isSpa
+              ? "grid grid-cols-1 gap-4 md:grid-cols-2"
+              : "grid grid-cols-1 gap-6 md:grid-cols-2"
+          }
+        >
           {/* 左欄 */}
           <div className="space-y-6">
-            <FormSection title="基本資料" description="姓名與電話為必填，其餘欄位可稍後補">
+            <FormSection
+              title="基本資料"
+              description="姓名與電話為必填，其餘欄位可稍後補"
+            >
               <div>
                 <label className={labelCls}>
                   姓名 <span className="text-red-500">*</span>
@@ -114,7 +133,9 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
                 <div>
                   <label className={labelCls}>
                     Email
-                    <span className="ml-1 text-xs text-earth-400">（選填）</span>
+                    <span className="ml-1 text-xs text-earth-400">
+                      （選填）
+                    </span>
                   </label>
                   <input
                     name="email"
@@ -126,52 +147,116 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
               </FormGrid>
             </FormSection>
 
-            <FormSection title="個人資訊">
-              <FormGrid>
+            {!isSpa && (
+              <FormSection title="個人資訊">
+                <FormGrid>
+                  <div>
+                    <label className={labelCls}>
+                      性別
+                      <span className="ml-1 text-xs text-earth-400">
+                        （選填）
+                      </span>
+                    </label>
+                    <select
+                      name="gender"
+                      defaultValue={customer.gender}
+                      className={`mt-1 ${inputCls}`}
+                    >
+                      <option value="">未填寫</option>
+                      <option value="male">男</option>
+                      <option value="female">女</option>
+                      <option value="other">其他</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>
+                      生日
+                      <span className="ml-1 text-xs text-earth-400">
+                        （選填）
+                      </span>
+                    </label>
+                    <BirthdayFields
+                      defaultValue={customer.birthday}
+                      className={inputCls}
+                    />
+                  </div>
+                </FormGrid>
                 <div>
                   <label className={labelCls}>
-                    性別
-                    <span className="ml-1 text-xs text-earth-400">（選填）</span>
+                    身高 (cm)
+                    <span className="ml-1 text-xs text-earth-400">
+                      （選填）
+                    </span>
                   </label>
-                  <select
-                    name="gender"
-                    defaultValue={customer.gender}
+                  <input
+                    name="height"
+                    type="number"
+                    step="0.1"
+                    min="50"
+                    max="250"
+                    defaultValue={customer.height ?? ""}
                     className={`mt-1 ${inputCls}`}
-                  >
-                    <option value="">未填寫</option>
-                    <option value="male">男</option>
-                    <option value="female">女</option>
-                    <option value="other">其他</option>
-                  </select>
+                  />
                 </div>
-                <div>
-                  <label className={labelCls}>
-                    生日
-                    <span className="ml-1 text-xs text-earth-400">（選填）</span>
-                  </label>
-                  <BirthdayFields defaultValue={customer.birthday} className={inputCls} />
-                </div>
-              </FormGrid>
-              <div>
-                <label className={labelCls}>
-                  身高 (cm)
-                  <span className="ml-1 text-xs text-earth-400">（選填）</span>
-                </label>
-                <input
-                  name="height"
-                  type="number"
-                  step="0.1"
-                  min="50"
-                  max="250"
-                  defaultValue={customer.height ?? ""}
-                  className={`mt-1 ${inputCls}`}
-                />
-              </div>
-            </FormSection>
+              </FormSection>
+            )}
           </div>
 
           {/* 右欄 */}
           <div className="space-y-6">
+            {isSpa && (
+              <FormSection title="個人資訊">
+                <div className="space-y-4">
+                  <div>
+                    <label className={labelCls}>
+                      性別
+                      <span className="ml-1 text-xs text-earth-400">
+                        （選填）
+                      </span>
+                    </label>
+                    <select
+                      name="gender"
+                      defaultValue={customer.gender}
+                      className={`mt-1 ${inputCls}`}
+                    >
+                      <option value="">未填寫</option>
+                      <option value="male">男</option>
+                      <option value="female">女</option>
+                      <option value="other">其他</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>
+                      生日
+                      <span className="ml-1 text-xs text-earth-400">
+                        （選填）
+                      </span>
+                    </label>
+                    <BirthdayFields
+                      defaultValue={customer.birthday}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>
+                    身高 (cm)
+                    <span className="ml-1 text-xs text-earth-400">
+                      （選填）
+                    </span>
+                  </label>
+                  <input
+                    name="height"
+                    type="number"
+                    step="0.1"
+                    min="50"
+                    max="250"
+                    defaultValue={customer.height ?? ""}
+                    className={`mt-1 ${inputCls}`}
+                  />
+                </div>
+              </FormSection>
+            )}
             <FormSection title="系統關聯">
               <div>
                 <label className={labelCls}>
@@ -216,9 +301,15 @@ export function EditCustomerForm({ customer }: { customer: CustomerData }) {
           </div>
         ) : null}
 
-        <StickyFormActions info={<span>儲存後會回到顧客詳情</span>}>
+        <StickyFormActions
+          info={
+            <span>
+              {isSpa ? "儲存後回到此顧客的搜尋結果" : "儲存後會回到顧客詳情"}
+            </span>
+          }
+        >
           <Link
-            href={`/dashboard/customers/${customer.id}`}
+            href={returnHref ?? `/dashboard/customers/${customer.id}`}
             className="rounded-lg border border-earth-300 bg-white px-4 py-2 text-sm font-medium text-earth-700 hover:bg-earth-50"
           >
             取消

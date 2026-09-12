@@ -6,6 +6,13 @@ const root = resolve(__dirname, "../..");
 const sourceRoot = resolve(root, "src");
 
 const EXISTING_SHARED_SPA_DEPENDENCIES = [
+  // Reviewed 2026-09-12: industry-gated home returns before legacy queries;
+  // permission and tenant behavior covered by spa-home-boundary.test.ts.
+  "src/app/(dashboard)/dashboard/page.tsx",
+  // Reviewed 2026-09-12: pure URL normalization, restricted to the exact
+  // Preview branch + test endpoint. Production negatives covered by
+  // spa-preview-pool.test.ts through the shared buildDatabaseUrl entry point.
+  "src/lib/database-url.ts",
   "src/app/(dashboard)/dashboard/bookings/collect-single-modal.tsx",
   "src/app/(dashboard)/dashboard/bookings/new/page.tsx",
   "src/app/(dashboard)/dashboard/bookings/page.tsx",
@@ -18,6 +25,10 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/app/(liff)/liff/manager-preview/page.tsx",
   "src/app/(liff)/liff/staff-preview/page.tsx",
   "src/app/(service-workspace)/staff-schedule/page.tsx",
+  // HQ has one reviewed SPA boundary: its delivery screen renders the
+  // SPA-only provisioning control. The action itself retains HQ permission
+  // checks and does not route through legacy booking data.
+  "src/app/hq/dashboard/stores/[storeId]/page.tsx",
   "src/lib/digital-butler-entitlement.ts",
   "src/lib/feature-gate.ts",
   "src/lib/permissions.ts",

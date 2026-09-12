@@ -12,14 +12,16 @@ describe("蒸管家 product brand copy", () => {
   it("uses 蒸管家 on the legacy admin login page", () => {
     const source = readSource("src/app/(auth)/login/page.tsx");
 
-    expect(source).toContain(">蒸管家</h1>");
+    expect(source).toContain("<SteamButlerLogo");
+    expect(source).toContain(">後台登入</h1>");
     expect(source).not.toContain("蒸足管理系統");
   });
 
   it("uses 蒸管家 on the actual HQ admin login page", () => {
     const source = readSource("src/app/hq/login/page.tsx");
 
-    expect(source).toContain(">蒸管家</h1>");
+    expect(source).toContain("<SteamButlerLogo");
+    expect(source).toContain(">後台登入</h1>");
     expect(source).toContain("後台登入");
     expect(source).not.toContain("蒸足管理系統");
   });
@@ -29,7 +31,7 @@ describe("蒸管家 product brand copy", () => {
 
     expect(source).toContain("{storeName}");
     expect(source).toContain("<SteamButlerLogo");
-    expect(source).toContain(">會員預約系統</p>");
+    expect(source).toContain(">會員登入與預約</p>");
     expect(source).not.toContain("蒸管家｜會員預約系統");
   });
 });

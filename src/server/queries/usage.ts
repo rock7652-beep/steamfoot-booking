@@ -1,9 +1,11 @@
+import { requireAdminSession } from "@/lib/session";
+import { organizationSubscriptionRows } from "@/lib/alliance-subscription";
 /**
  * 店舖用量查詢 — 供方案管理 UI 與 usage gate 使用
  */
 
 import { prisma } from "@/lib/db";
-import { getPlanLimits, PRICING_PLAN_INFO, type PlanLimits } from "@/lib/feature-flags";
+import { getPlanLimits, type PlanLimits } from "@/lib/feature-flags";
 import type { PricingPlan } from "@prisma/client";
 
 export interface UsageMetric {
@@ -135,29 +137,11 @@ export async function getAllStoresUsage(): Promise<StoreUsage[]> {
   return results.filter((r): r is StoreUsage => r !== null);
 }
 
-/**
- * 取得平台級分店統計（供方案設定頁顯示）
- */
-export async function getPlatformStoreStats(): Promise<{
-  totalStores: number;
-  maxStores: number | null;
-  bestPlanLabel: string;
-}> {
+/** Separate subscription usage for each subscribed HQ; ADMIN-only caller. */
+export async function getOrganizationSubscriptionStats() {
+  await requireAdminSession();
   const stores = await prisma.store.findMany({
-    select: { plan: true, maxStoresOverride: true },
+    select: { id: true, name: true, parentStoreId: true, plan: true, maxStoresOverride: true },
   });
-  const totalStores = stores.length;
-
-  // 以最高方案的 maxStores 為平台上限
-  const bestStore = stores.reduce((best, s) => {
-    const order: PricingPlan[] = ["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"];
-    return order.indexOf(s.plan) > order.indexOf(best.plan) ? s : best;
-  }, stores[0]);
-
-  const limits = getPlanLimits(bestStore as Parameters<typeof getPlanLimits>[0]);
-  return {
-    totalStores,
-    maxStores: limits.maxStores,
-    bestPlanLabel: PRICING_PLAN_INFO[bestStore.plan].label,
-  };
+  return organizationSubscriptionRows(stores);
 }

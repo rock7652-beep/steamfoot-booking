@@ -31,6 +31,7 @@ vi.mock("@/lib/session", () => ({
 
 vi.mock("@/lib/store", () => ({
   currentStoreId: (u: { storeId?: string | null }) => u.storeId ?? "default",
+  resolveWriteStoreId: async (u: { storeId?: string | null }) => u.storeId ?? "default",
   DEFAULT_STORE_ID: "default-store",
   getActiveStoreForRead: vi.fn(),
 }));
@@ -54,6 +55,11 @@ beforeEach(() => {
 });
 
 describe("checkMonthlyBookingLimitOrThrow — storeId path skips staff session", () => {
+  it.each(["BASIC", "GROWTH", "ALLIANCE"])("付費 %s 超過舊額度仍可預約", async plan => {
+    mockStoreFindUnique.mockResolvedValue({ id: STORE_A, plan, maxMonthlyBookingsOverride: 500 });
+    const { checkMonthlyBookingLimitOrThrow } = await import("@/lib/usage-gate");
+    await expect(checkMonthlyBookingLimitOrThrow(10000, STORE_A)).resolves.not.toThrow();
+  });
   it("帶 storeId 呼叫不觸發 requireStaffSession", async () => {
     const { checkMonthlyBookingLimitOrThrow } = await import("@/lib/usage-gate");
     await expect(

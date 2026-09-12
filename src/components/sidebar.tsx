@@ -573,6 +573,7 @@ interface StoreViewOption {
 }
 
 interface DashboardShellProps {
+  industryModule?: "spa" | "steamfoot";
   isOwner: boolean;
   permissions: string[];
   pricingPlan: PricingPlan;
@@ -602,6 +603,7 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({
+  industryModule = "steamfoot",
   isOwner,
   permissions,
   pricingPlan,
@@ -689,31 +691,14 @@ export default function DashboardShell({
   const isHqRoute = rawPathname.startsWith("/hq");
   const isStoreAdminRoute = /^\/s\/[^/]+\/admin(\/|$)/.test(rawPathname);
 
-  const storeAdminNav = useMemo(() => {
-    // 蒸足目前先收起人員管理；SPA 仍需要技師、技能與排班入口。
-    // 僅隱藏導覽，不刪除頁面或既有人員資料，方便日後重新開放。
-    if (industryModuleId !== "spa") {
-      return STORE_ADMIN_NAV.filter((item) => item.href !== "/dashboard/staff");
-    }
-    const labels: Partial<Record<string, string>> = {
-      "/dashboard/plans": "療程管理",
-      "/dashboard/settings": "營運設定",
-    };
-    const spaManagerRoutes = new Set([
-      "/dashboard/bookings",
-      "/dashboard/customers",
-      "/dashboard/plans",
-      "/dashboard/staff",
-      "/dashboard/settings",
-    ]);
-    return STORE_ADMIN_NAV
-      .filter((item) => spaManagerRoutes.has(item.href))
-      .map((item) =>
-        item.href === "/dashboard/bookings"
-          ? { ...item, href: bookingDashboardPath("spa"), label: "預約管理" }
-          : { ...item, label: labels[item.href] ?? item.label },
-      );
-  }, [industryModuleId]);
+  const spaNavigation = useMemo<NavItem[]>(() => {
+    const items: NavItem[] = [...STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff").map(item=>item.href === "/dashboard/bookings" ? {...item,href:"/dashboard/spa-schedule"}:item),
+      {href:"/dashboard/spa-staff",label:"人員管理",permission:"duty.manage",ownerOnly:true,icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0116 0v2"/></svg>},
+      {href:"/dashboard/spa-resources",label:"服務位置",permission:"business_hours.manage",icon:<svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><rect x="3" y="8" width="18" height="10" rx="2"/><path d="M5 18v3m14-3v3M6 8V4h12v4"/></svg>},
+    ];
+    const order=["/dashboard","/dashboard/spa-schedule","/dashboard/customers","/dashboard/plans","/dashboard/spa-staff","/dashboard/spa-resources","/dashboard/revenue","/dashboard/reports","/dashboard/growth","/dashboard/digital-butler/leads","/dashboard/settings"];
+    return items.sort((a,b)=>order.indexOf(a.href)-order.indexOf(b.href));
+  },[]);
 
   const navGroupsToRender: NavGroup[] = useMemo(() => {
     if (isHqRoute) {
@@ -734,7 +719,7 @@ export default function DashboardShell({
           label: "",
           defaultOpen: true,
           icon: <></>,
-          items: storeAdminNav,
+          items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
         },
       ];
     }
@@ -746,10 +731,10 @@ export default function DashboardShell({
         label: "",
         defaultOpen: true,
         icon: <></>,
-        items: storeAdminNav,
+        items: industryModule === "spa" ? spaNavigation : STORE_ADMIN_NAV.filter(item=>item.href!=="/dashboard/staff"),
       },
     ];
-  }, [industryModuleId, isHqRoute, isStoreAdminRoute, isAdmin, storeAdminNav]);
+  }, [isHqRoute, isStoreAdminRoute, isAdmin, industryModule, industryModuleId, spaNavigation]);
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {
@@ -820,6 +805,7 @@ export default function DashboardShell({
   }, [mobileOpen]);
 
   function isActive(href: string) {
+    if (industryModule === "spa" && href === "/dashboard/spa-staff" && pathname.startsWith("/dashboard/staff")) return true;
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   }
@@ -1005,20 +991,20 @@ export default function DashboardShell({
   }
 
   return (
-    <div className="min-h-dvh bg-earth-50">
+    <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
-        className={`sidebar-transition hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-20 border-r border-earth-200 bg-white ${
-          collapsed ? "lg:w-(--sidebar-collapsed-width)" : "lg:w-(--sidebar-width)"
+        className={`sidebar-transition ${industryModule === "spa" ? "hidden md:flex md:flex-col md:fixed md:inset-y-0 md:z-20" : "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-20"} border-r border-earth-200 bg-white ${
+          industryModule === "spa" ? (collapsed ? "md:w-(--sidebar-collapsed-width)" : "md:w-(--sidebar-width)") : (collapsed ? "lg:w-(--sidebar-collapsed-width)" : "lg:w-(--sidebar-width)")
         }`}
       >
         <div className="flex h-14 items-center justify-between border-b border-earth-200 px-3">
           {!collapsed && (
             <div className="flex items-center gap-2 min-w-0">
-              <Link href="/dashboard" className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                <SteamButlerLogo compact />
+              <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
+                {industryModule === "spa" ? <SteamButlerLogo className="w-28 lg:w-32" /> : <SteamButlerLogo compact />}
               </Link>
-              <PlanBadge plan={pricingPlan} />
+              {industryModule !== "spa" && <PlanBadge plan={pricingPlan} />}
             </div>
           )}
           <button
@@ -1044,6 +1030,7 @@ export default function DashboardShell({
         {renderNavGroups(collapsed)}
         {/* Sidebar version footer */}
         <div className="border-t border-earth-100 px-3 py-2 text-center">
+          {industryModule === "spa" && !collapsed && <div className="mb-2 flex justify-center"><PlanBadge plan={pricingPlan} /></div>}
           {collapsed ? (
             <span className="text-[9px] text-earth-300">v{APP_VERSION}</span>
           ) : (
@@ -1054,7 +1041,7 @@ export default function DashboardShell({
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div className={industryModule === "spa" ? "fixed inset-0 z-40 md:hidden" : "fixed inset-0 z-40 lg:hidden"}>
           <div
             className="absolute inset-0 bg-earth-900/30 backdrop-blur-[2px]"
             onClick={() => setMobileOpen(false)}
@@ -1062,10 +1049,10 @@ export default function DashboardShell({
           <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
             <div className="flex h-14 items-center justify-between border-b border-earth-200 px-4">
               <div className="flex items-center gap-2 min-w-0">
-                <Link href="/dashboard" className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                  <SteamButlerLogo compact />
+                <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
+                  {industryModule === "spa" ? <SteamButlerLogo className="w-32" /> : <SteamButlerLogo compact />}
                 </Link>
-                <PlanBadge plan={pricingPlan} />
+                {industryModule !== "spa" && <PlanBadge plan={pricingPlan} />}
               </div>
               <button
                 type="button"
@@ -1087,6 +1074,7 @@ export default function DashboardShell({
               />
             ) : null}
             {renderNavGroups(false)}
+            {industryModule === "spa" && <div className="flex justify-center border-t border-earth-100 px-3 py-3"><PlanBadge plan={pricingPlan} /></div>}
           </aside>
         </div>
       )}
@@ -1094,7 +1082,7 @@ export default function DashboardShell({
       {/* Main area — offset by sidebar on desktop */}
       <div
         className={`sidebar-transition ${
-          collapsed ? "lg:pl-(--sidebar-collapsed-width)" : "lg:pl-(--sidebar-width)"
+          industryModule === "spa" ? (collapsed ? "md:pl-(--sidebar-collapsed-width)" : "md:pl-(--sidebar-width)") : (collapsed ? "lg:pl-(--sidebar-collapsed-width)" : "lg:pl-(--sidebar-width)")
         }`}
       >
         {/* Header — 層級導向：系統層級 > 店別 > 使用者 */}
@@ -1104,17 +1092,17 @@ export default function DashboardShell({
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800"
+              className={industryModule === "spa" ? "md:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800" : "lg:hidden shrink-0 rounded-lg p-1.5 text-earth-600 hover:bg-earth-100 hover:text-earth-800"}
               aria-label="開啟選單"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div className="lg:hidden min-w-0">
-              <DashboardBreadcrumb mobile />
+            <div className={industryModule === "spa" ? "md:hidden min-w-0" : "lg:hidden min-w-0"}>
+              {industryModule === "spa" ? <Link href={`${dashboardPrefix}/dashboard`}><SteamButlerLogo compact /></Link> : <DashboardBreadcrumb mobile />}
             </div>
-            <div className="hidden lg:block">
+            <div className={industryModule === "spa" ? "hidden md:block" : "hidden lg:block"}>
               <DashboardBreadcrumb />
             </div>
           </div>
@@ -1202,7 +1190,7 @@ export default function DashboardShell({
         </header>
 
         {/* Content */}
-        <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
+        <main data-dashboard-content className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
           {trialStatus && trialStatus.isFree && trialStatus.stage !== "normal" && (
             <div className="mb-4 mt-3">
               <TrialProgressBar trial={trialStatus} />

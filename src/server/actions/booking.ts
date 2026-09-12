@@ -35,7 +35,7 @@ import {
 import type { ActionResult } from "@/types";
 import { checkBookingLimit, resolveBookableUntilDate } from "@/lib/shop-config";
 import { assertStoreAccess } from "@/lib/manager-visibility";
-import { currentStoreId } from "@/lib/store";
+import { currentStoreId, resolveWriteStoreId } from "@/lib/store";
 import {
   assertCustomerInOperationStore,
   assertSameStore,
@@ -260,7 +260,7 @@ export async function createBooking(
     const user = await requireSession();
     await assertStaffBookingWritable(user);
     const data = createBookingSchema.parse(input);
-    const storeId = currentStoreId(user);
+    const storeId = await resolveWriteStoreId(user);
     const industryModule = await getStoreIndustryModule(storeId);
     if (industryModule === "spa") {
       throw new AppError("FORBIDDEN", "SPA 預約必須使用獨立的 SPA 預約流程");
@@ -1440,7 +1440,7 @@ export async function markCompleted(
                 amount: 0,
                 quantity: 1,
                 note: `出席（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
-                storeId: currentStoreId(user),
+                storeId: booking.storeId,
               },
             });
           }
@@ -1473,7 +1473,7 @@ export async function markCompleted(
                   amount: 0,
                   quantity: 1,
                   note: `出席（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
-                  storeId: currentStoreId(user),
+                  storeId: booking.storeId,
                 },
               });
             }
@@ -1689,7 +1689,7 @@ export async function markNoShow(
                 amount: 0,
                 quantity: 1,
                 note: `${noteBase}（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
-                storeId: currentStoreId(user),
+                storeId: booking.storeId,
               },
             });
           }
@@ -1719,7 +1719,7 @@ export async function markNoShow(
                   amount: 0,
                   quantity: 1,
                   note: `${noteBase}（${dateStr} ${booking.slotTime}）${peopleSuffix}`,
-                  storeId: currentStoreId(user),
+                  storeId: booking.storeId,
                 },
               });
             }

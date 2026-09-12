@@ -1,3 +1,5 @@
+import {getStoreIndustryModule} from "@/lib/industry-module-server";
+import {SpaCustomers} from "./_components/spa-customers";
 import { listCustomersForUser } from "@/server/queries/customer";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCachedPlans } from "@/lib/query-cache";
@@ -76,6 +78,18 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const customersStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const customersUser = userForViewContext(user, storeViewContext);
+  if(customersStoreId && await getStoreIndustryModule(customersStoreId)==="spa") {
+    const canSell=!isViewMode && await checkPermission(user.role,user.staffId,"wallet.create") && await checkPermission(user.role,user.staffId,"transaction.create");
+    const canRefund=!isViewMode && await checkPermission(user.role,user.staffId,"transaction.refund");
+    const [canEdit,canCreate,canBook,canReadBookings,canReadWallet,canReadTransactions]=await Promise.all([
+      checkPermission(user.role,user.staffId,"customer.update"),checkPermission(user.role,user.staffId,"customer.create"),
+      checkPermission(user.role,user.staffId,"booking.create"),checkPermission(user.role,user.staffId,"booking.read"),
+      checkPermission(user.role,user.staffId,"wallet.read"),checkPermission(user.role,user.staffId,"transaction.read"),
+    ]);
+    return <SpaCustomers storeId={customersStoreId} search={params.search??""} canSell={canSell} canRefund={canRefund}
+      canEdit={!isViewMode&&canEdit} canCreate={!isViewMode&&canCreate} canBook={!isViewMode&&canBook&&canReadBookings}
+      canReadBookings={canReadBookings} canReadAccounts={canReadWallet&&canReadTransactions}/>;
+  }
   const logCtx = {
     page: "customers" as const,
     activeStoreId: customersStoreId,

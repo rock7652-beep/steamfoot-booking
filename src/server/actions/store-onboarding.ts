@@ -1,9 +1,9 @@
 "use server";
 
-import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
+import { prisma } from "@/lib/db";
 import { hashSync } from "bcryptjs";
-import { createDefaultPermissions } from "@/lib/permissions";
+import { createDefaultPermissions, requirePermission } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/session";
 import { deriveBaseUrl } from "@/lib/base-url";
 import { revalidatePath } from "next/cache";
@@ -13,14 +13,9 @@ import type {
   StoreDeliverySummary,
   ChecklistItem,
   AccountSummary,
+  StoreIndustryModule,
 } from "@/types/store-onboarding";
 import type { StoreOperatingStatus, UserRole } from "@prisma/client";
-import {
-  buildInitialBusinessHours,
-  buildSteamfootBookingSlots,
-  SPA_STARTER_SKILLS,
-  SPA_STARTER_TREATMENTS,
-} from "@/lib/store-module-onboarding";
 
 const STORE_OPERATING_STATUSES: StoreOperatingStatus[] = [
   "TRIAL",
@@ -34,9 +29,10 @@ const STORE_OPERATING_STATUSES: StoreOperatingStatus[] = [
 // ============================================================
 
 export async function createStoreAction(
-  input: CreateStoreInput,
+  input: CreateStoreInput
 ): Promise<ActionResult<StoreDeliverySummary>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
 
   // ── 輸入驗證 ──
   const errors = validateCreateStoreInput(input);
@@ -45,36 +41,25 @@ export async function createStoreAction(
   }
 
   // ── 唯一性檢查 ──
-  const existingSlug = await prisma.store.findUnique({
-    where: { slug: input.slug },
-  });
+  const existingSlug = await prisma.store.findUnique({ where: { slug: input.slug } });
   if (existingSlug) {
     return { success: false, error: `slug「${input.slug}」已被使用` };
   }
 
-  const existingOwnerEmail = await prisma.user.findUnique({
-    where: { email: input.owner.email },
-  });
+  const existingOwnerEmail = await prisma.user.findUnique({ where: { email: input.owner.email } });
   if (existingOwnerEmail) {
-    return {
-      success: false,
-      error: `OWNER email「${input.owner.email}」已被使用`,
-    };
+    return { success: false, error: `OWNER email「${input.owner.email}」已被使用` };
   }
 
   if (input.domain) {
-    const existingDomain = await prisma.store.findUnique({
-      where: { domain: input.domain },
-    });
+    const existingDomain = await prisma.store.findUnique({ where: { domain: input.domain } });
     if (existingDomain) {
       return { success: false, error: `domain「${input.domain}」已被使用` };
     }
   }
 
   for (const staff of input.initialStaff ?? []) {
-    const existing = await prisma.user.findUnique({
-      where: { email: staff.email },
-    });
+    const existing = await prisma.user.findUnique({ where: { email: staff.email } });
     if (existing) {
       return { success: false, error: `STAFF email「${staff.email}」已被使用` };
     }
@@ -83,6 +68,7 @@ export async function createStoreAction(
   // ── 建店 Transaction ──
   try {
     const storeId = `store-${input.slug}`;
+    const industryModule: StoreIndustryModule = input.industryModule ?? "STEAMFOOT";
     const passwordHash = hashSync(input.owner.password, 10);
     const ownerRole: UserRole = "OWNER";
 
@@ -96,7 +82,7 @@ export async function createStoreAction(
         lineDestination: input.lineDestination ?? null,
         isDefault: false,
         isDemo: input.isDemo,
-        industryModule: input.industryModule,
+        industryModule,
         plan: input.plan,
         operatingStatus: "TRIAL",
         planStatus: "TRIAL", // ★ 一律 TRIAL（規格強制）
@@ -104,6 +90,14 @@ export async function createStoreAction(
           create: {
             shopName: input.name,
             dutySchedulingEnabled: input.dutySchedulingEnabled ?? false,
+          },
+        },
+        moduleInstallation: {
+          create: {
+            module: industryModule,
+            // SPA 的專屬資料與排程尚未完成前，絕不可讓 HQ 誤啟用一間半成品店。
+            status: industryModule === "SPA" ? "PROVISIONING" : "ACTIVE",
+            provisionedAt: industryModule === "STEAMFOOT" ? new Date() : null,
           },
         },
       },
@@ -138,8 +132,7 @@ export async function createStoreAction(
     // 3. Initial STAFF（mapping: MANAGER→OWNER, STAFF→PARTNER）
     const staffAccounts: AccountSummary[] = [];
     for (const staffInput of input.initialStaff ?? []) {
-      const dbRole: UserRole =
-        staffInput.role === "MANAGER" ? "OWNER" : "PARTNER";
+      const dbRole: UserRole = staffInput.role === "MANAGER" ? "OWNER" : "PARTNER";
       const staffPwHash = hashSync(`${input.slug}-staff-temp`, 10); // 臨時密碼
       const staffUser = await prisma.user.create({
         data: {
@@ -171,39 +164,17 @@ export async function createStoreAction(
       });
     }
 
-    // 4. 模組專屬初始化：蒸足使用容量時段；SPA 使用技師可用時段，不建立蒸足 BookingSlot。
-    if (input.industryModule === "STEAMFOOT") {
-      await prisma.bookingSlot.createMany({
-        data: buildSteamfootBookingSlots(storeId),
-      });
-    } else {
-      const skillRows = SPA_STARTER_SKILLS.map((skill, sortOrder) => ({
-        id: `${storeId}-spa-skill-${skill.key}`,
-        storeId,
-        name: skill.name,
-        sortOrder,
-      }));
-      await spaPrisma.spaSkill.createMany({ data: skillRows });
-
-      for (const [sortOrder, treatment] of SPA_STARTER_TREATMENTS.entries()) {
-        const treatmentId = `${storeId}-spa-treatment-${treatment.key}`;
-        await spaPrisma.spaTreatment.create({
-          data: {
-            id: treatmentId,
-            storeId,
-            name: treatment.name,
-            price: treatment.price,
-            serviceMinutes: treatment.serviceMinutes,
-            publicVisible: false,
-            sortOrder,
-            skills: {
-              create: {
-                skillId: `${storeId}-spa-skill-${treatment.skillKey}`,
-              },
-            },
-          },
-        });
+    // 4. 蒸足預設時段（8 slots × 7 days）。SPA 必須只由自己的 provider
+    // availability / treatment schema 佈建，不能寫入這組 legacy BookingSlot。
+    if (industryModule === "STEAMFOOT") {
+      const slotTimes = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
+      const slotData = [];
+      for (let day = 0; day <= 6; day++) {
+        for (const time of slotTimes) {
+          slotData.push({ storeId, dayOfWeek: day, startTime: time, capacity: 6, isEnabled: true });
+        }
       }
+      await prisma.bookingSlot.createMany({ data: slotData });
     }
 
     // 5. Default weekly BusinessHours（7 天，全部營業）
@@ -216,13 +187,25 @@ export async function createStoreAction(
     //   每天 10:00–21:00、slotInterval 60 分、每時段 6 名額。
     // 店長之後可於後台「營業時間設定」自行調整；@@unique(storeId,dayOfWeek)
     // 確保不重複（此處為全新店，createMany 安全）。
-    await prisma.businessHours.createMany({
-      data: buildInitialBusinessHours(storeId, input.industryModule),
-    });
+    if (industryModule === "STEAMFOOT") {
+      const businessHoursData = [];
+      for (let dow = 0; dow <= 6; dow++) {
+        businessHoursData.push({
+          storeId,
+          dayOfWeek: dow,
+          isOpen: true,
+          openTime: "10:00",
+          closeTime: "21:00",
+          slotInterval: 60,
+          defaultCapacity: 6,
+        });
+      }
+      await prisma.businessHours.createMany({ data: businessHoursData });
+    }
 
     // ── 產出交付摘要 ──
     const baseUrl = deriveBaseUrl();
-    const checklist = buildDeliveryChecklist(input);
+    const checklist = buildDeliveryChecklist(input, industryModule);
 
     const summary: StoreDeliverySummary = {
       store: {
@@ -233,7 +216,7 @@ export async function createStoreAction(
         planStatus: store.planStatus,
         operatingStatus: store.operatingStatus,
         isDemo: store.isDemo,
-        industryModule: store.industryModule,
+        industryModule,
       },
       urls: buildStoreUrls(baseUrl, store.slug, store.id),
       accounts: {
@@ -249,7 +232,7 @@ export async function createStoreAction(
         email: process.env.RESEND_API_KEY ? "configured" : "not_configured",
       },
       checklist,
-      canActivate: !input.isDemo && checklist.every((c) => c.status !== "fail"),
+      canActivate: !input.isDemo && industryModule === "STEAMFOOT" && checklist.every((c) => c.status !== "fail"),
     };
 
     return { success: true, data: summary };
@@ -265,14 +248,16 @@ export async function createStoreAction(
 // ============================================================
 
 export async function activateStoreAction(
-  storeId: string,
+  storeId: string
 ): Promise<ActionResult<{ planStatus: string }>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
 
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     include: {
       shopConfig: true,
+      moduleInstallation: true,
       staff: { include: { user: true } },
     },
   });
@@ -283,23 +268,22 @@ export async function activateStoreAction(
 
   // ★ Demo 店禁止啟用（規格強制）
   if (store.isDemo) {
-    return {
-      success: false,
-      error: "Demo 店無法啟用為正式店，請建立新的正式店",
-    };
+    return { success: false, error: "Demo 店無法啟用為正式店，請建立新的正式店" };
   }
 
   if (store.planStatus === "ACTIVE") {
     return { success: false, error: "店舖已經是 ACTIVE 狀態" };
   }
 
+  if (store.moduleInstallation?.status !== "ACTIVE") {
+    return { success: false, error: "產業模組尚未完成佈建，暫時不可啟用店舖" };
+  }
+
   // 啟用前驗證
   const checklist = await verifyStoreSetup(storeId);
   const hasFailure = checklist.some((c) => c.status === "fail");
   if (hasFailure) {
-    const failures = checklist
-      .filter((c) => c.status === "fail")
-      .map((c) => c.label);
+    const failures = checklist.filter((c) => c.status === "fail").map((c) => c.label);
     return { success: false, error: `啟用前驗證失敗：${failures.join("、")}` };
   }
 
@@ -319,9 +303,10 @@ export async function activateStoreAction(
 // ============================================================
 
 export async function verifyStoreAction(
-  storeId: string,
+  storeId: string
 ): Promise<ActionResult<ChecklistItem[]>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
   const checklist = await verifyStoreSetup(storeId);
   return { success: true, data: checklist };
 }
@@ -331,14 +316,16 @@ export async function verifyStoreAction(
 // ============================================================
 
 export async function getStoreDeliverySummary(
-  storeId: string,
+  storeId: string
 ): Promise<ActionResult<StoreDeliverySummary>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
 
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     include: {
       shopConfig: true,
+      moduleInstallation: true,
       staff: {
         include: { user: { select: { name: true, email: true, role: true } } },
       },
@@ -386,7 +373,7 @@ export async function getStoreDeliverySummary(
       email: process.env.RESEND_API_KEY ? "configured" : "not_configured",
     },
     checklist,
-    canActivate: !store.isDemo && checklist.every((c) => c.status !== "fail"),
+    canActivate: !store.isDemo && store.moduleInstallation?.status === "ACTIVE" && checklist.every((c) => c.status !== "fail"),
   };
 
   return { success: true, data: summary };
@@ -406,7 +393,7 @@ export async function listStoresAction(): Promise<
       planStatus: string;
       operatingStatus: StoreOperatingStatus;
       isDemo: boolean;
-      industryModule: "STEAMFOOT" | "SPA";
+      industryModule: StoreIndustryModule;
       staffCount: number;
       customerCount: number;
       createdAt: Date;
@@ -414,6 +401,7 @@ export async function listStoresAction(): Promise<
   >
 > {
   await requireAdminSession();
+  await requirePermission("staff.manage");
 
   const stores = await prisma.store.findMany({
     select: {
@@ -458,6 +446,7 @@ export async function updateStoreOperatingStatusAction(
   status: StoreOperatingStatus,
 ): Promise<ActionResult<{ operatingStatus: StoreOperatingStatus }>> {
   await requireAdminSession();
+  await requirePermission("staff.manage");
 
   if (!STORE_OPERATING_STATUSES.includes(status)) {
     return { success: false, error: "無效的店舖營運狀態" };
@@ -503,62 +492,33 @@ function buildStoreUrls(baseUrl: string, slug: string, storeId: string) {
 // 交付 Checklist（建店後回傳，業務導向）
 // ============================================================
 
-function buildDeliveryChecklist(input: CreateStoreInput): ChecklistItem[] {
+function buildDeliveryChecklist(
+  input: CreateStoreInput,
+  industryModule: StoreIndustryModule,
+): ChecklistItem[] {
   return [
     // ① 店舖基本資料
     { key: "store_record", label: "店舖基本資料已建立", status: "pass" },
-    {
-      key: "industry_module",
-      label: `${input.industryModule === "SPA" ? "SPA" : "蒸足"}模組已設定並鎖定`,
-      status: "pass",
-    },
+    { key: "module_installation", label: `${industryModule === "SPA" ? "SPA" : "蒸足"}模組已完成佈建`,
+      status: industryModule === "STEAMFOOT" ? "pass" : "fail" },
     // ② 路由入口
-    {
-      key: "route_entry",
-      label: "路由入口 /s/[slug]/ 已可存取",
-      status: "pass",
-    },
+    { key: "route_entry", label: "路由入口 /s/[slug]/ 已可存取", status: "pass" },
     // ③ OWNER / STAFF 登入
     { key: "owner_login", label: "OWNER 帳號可登入後台", status: "pass" },
-    {
-      key: "staff_created",
-      label: "初始 STAFF 已建立",
-      status: (input.initialStaff?.length ?? 0) > 0 ? "pass" : "skip",
-    },
+    { key: "staff_created", label: "初始 STAFF 已建立",
+      status: (input.initialStaff?.length ?? 0) > 0 ? "pass" : "skip" },
     // ④ 顧客前台主流程
-    {
-      key: "booking_page",
-      label: "預約頁 /s/[slug]/book 可開啟",
-      status: "pass",
-    },
-    {
-      key: "register_page",
-      label: "顧客註冊頁 /s/[slug]/register 可開啟",
-      status: "pass",
-    },
-    {
-      key: "first_booking",
-      label: "可完成一筆預約（需人工驗證）",
-      status: "skip",
-    },
+    { key: "booking_page", label: "預約頁 /s/[slug]/book 可開啟", status: "pass" },
+    { key: "register_page", label: "顧客註冊頁 /s/[slug]/register 可開啟", status: "pass" },
+    { key: "first_booking", label: "可完成一筆預約（需人工驗證）", status: "skip" },
     // ⑤ 權限與隔離
     { key: "owner_permissions", label: "OWNER 權限已設定", status: "pass" },
-    {
-      key: "store_isolation",
-      label: "資料隔離（storeId 綁定）",
-      status: "pass",
-    },
+    { key: "store_isolation", label: "資料隔離（storeId 綁定）", status: "pass" },
     // ⑥ 第三方服務
-    {
-      key: "line_config",
-      label: "LINE 入口可導流",
-      status: input.lineDestination ? "pass" : "skip",
-    },
-    {
-      key: "email_service",
-      label: "Email 服務",
-      status: process.env.RESEND_API_KEY ? "pass" : "skip",
-    },
+    { key: "line_config", label: "LINE 入口可導流",
+      status: input.lineDestination ? "pass" : "skip" },
+    { key: "email_service", label: "Email 服務",
+      status: process.env.RESEND_API_KEY ? "pass" : "skip" },
   ];
 }
 
@@ -572,7 +532,7 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
   // ① 店舖基本資料
   const store = await prisma.store.findUnique({
     where: { id: storeId },
-    include: { shopConfig: true },
+    include: { shopConfig: true, moduleInstallation: true },
   });
 
   items.push({
@@ -582,6 +542,12 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
   });
 
   if (!store) return items;
+
+  items.push({
+    key: "module-installation",
+    label: "產業模組已完成佈建",
+    status: store.moduleInstallation?.status === "ACTIVE" ? "pass" : "fail",
+  });
 
   items.push({
     key: "shop-config",
@@ -622,22 +588,20 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
   }
 
   // ④ 顧客前台主流程
-  if (store.industryModule === "SPA") {
-    const [skillCount, treatmentCount] = await Promise.all([
-      spaPrisma.spaSkill.count({ where: { storeId } }),
-      spaPrisma.spaTreatment.count({ where: { storeId } }),
-    ]);
-    items.push({
-      key: "spa-module-config",
-      label: "SPA 技能與療程範本已建立",
-      status: skillCount > 0 && treatmentCount > 0 ? "pass" : "fail",
-    });
-  } else {
+  if (store.industryModule === "STEAMFOOT") {
     const slotCount = await prisma.bookingSlot.count({ where: { storeId } });
     items.push({
       key: "booking-slots",
       label: "蒸足預約時段已建立",
       status: slotCount > 0 ? "pass" : "fail",
+    });
+  } else {
+    items.push({
+      key: "booking-slots",
+      label: "SPA 專屬排程已建立",
+      status: (await spaPrisma.spaTreatment.count({ where: { storeId, isActive: true } })) > 0
+        && (await spaPrisma.spaSkill.count({ where: { storeId, isActive: true } })) > 0
+        && store.moduleInstallation?.status === "ACTIVE" ? "pass" : "fail",
     });
   }
 
@@ -659,19 +623,16 @@ function validateCreateStoreInput(input: CreateStoreInput): string[] {
   const errors: string[] = [];
 
   if (!input.name?.trim()) errors.push("店名不可為空");
-  if (input.industryModule !== "STEAMFOOT" && input.industryModule !== "SPA") {
-    errors.push("請選擇店舖模組");
-  }
   if (!input.slug?.trim()) errors.push("slug 不可為空");
-  if (!/^[a-z0-9-]+$/.test(input.slug))
-    errors.push("slug 只能包含小寫英數字和短橫線");
-  if (input.slug.length < 2 || input.slug.length > 30)
-    errors.push("slug 長度需 2-30 字元");
+  if (!/^[a-z0-9-]+$/.test(input.slug)) errors.push("slug 只能包含小寫英數字和短橫線");
+  if (input.slug.length < 2 || input.slug.length > 30) errors.push("slug 長度需 2-30 字元");
+  if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "SPA") {
+    errors.push("產業模組不正確");
+  }
 
   if (!input.owner.name?.trim()) errors.push("OWNER 姓名不可為空");
   if (!input.owner.email?.trim()) errors.push("OWNER Email 不可為空");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.owner.email))
-    errors.push("OWNER Email 格式不正確");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.owner.email)) errors.push("OWNER Email 格式不正確");
   if (!input.owner.password) errors.push("OWNER 密碼不可為空");
   if (input.owner.password.length < 6) errors.push("OWNER 密碼至少 6 字元");
 

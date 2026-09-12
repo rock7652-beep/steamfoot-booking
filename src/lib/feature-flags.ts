@@ -181,7 +181,7 @@ export const PLAN_LIMITS: Record<PricingPlan, PlanLimits> = {
   BASIC: {
     maxStaff: 5,
     maxCustomers: 500,
-    maxMonthlyBookings: 500,
+    maxMonthlyBookings: null,
     maxMonthlyReports: 0,
     maxReminderSends: 500,
     maxStores: 1,
@@ -189,7 +189,7 @@ export const PLAN_LIMITS: Record<PricingPlan, PlanLimits> = {
   GROWTH: {
     maxStaff: 15,
     maxCustomers: 3000,
-    maxMonthlyBookings: 3000,
+    maxMonthlyBookings: null,
     maxMonthlyReports: 200,
     maxReminderSends: 3000,
     maxStores: 1,
@@ -200,7 +200,7 @@ export const PLAN_LIMITS: Record<PricingPlan, PlanLimits> = {
     maxMonthlyBookings: null,
     maxMonthlyReports: null,
     maxReminderSends: null,
-    maxStores: 3,
+    maxStores: 2, // 總部本身 + 首家分店；加購後由 maxStoresOverride 擴充，無固定 3 家上限
   },
 };
 
@@ -290,7 +290,10 @@ export function getPlanLimits(
   return {
     maxStaff: store.maxStaffOverride ?? base.maxStaff,
     maxCustomers: store.maxCustomersOverride ?? base.maxCustomers,
-    maxMonthlyBookings: store.maxMonthlyBookingsOverride ?? base.maxMonthlyBookings,
+    // Paid subscriptions are feature-based; legacy overrides must not block bookings.
+    maxMonthlyBookings: store.plan === "EXPERIENCE"
+      ? store.maxMonthlyBookingsOverride ?? base.maxMonthlyBookings
+      : null,
     maxMonthlyReports: store.maxMonthlyReportsOverride ?? base.maxMonthlyReports,
     maxReminderSends: store.maxReminderSendsOverride ?? base.maxReminderSends,
     maxStores: store.maxStoresOverride ?? base.maxStores,

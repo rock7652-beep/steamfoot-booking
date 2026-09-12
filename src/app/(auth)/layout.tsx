@@ -15,8 +15,8 @@ export default async function AuthLayout({
     redirect(user.role === "CUSTOMER" ? `/s/${slug}/book` : `/s/${slug}/admin/dashboard`);
   }
   return (
-    <div className="flex min-h-screen flex-col bg-earth-50">
-      <div className="flex flex-1 items-center justify-center">
+    <div className="flex min-h-dvh flex-col bg-earth-50">
+      <div className="flex flex-1 items-center justify-center px-4 py-8">
         {children}
       </div>
       <BuildFooter />

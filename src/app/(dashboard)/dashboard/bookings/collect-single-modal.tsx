@@ -13,7 +13,7 @@ import {
   settleSpaBookingWithPackage,
   settleSpaBookingWithPayment,
   settleSpaBookingWithStoredValue,
-} from "@/server/actions/spa-checkout";
+} from "@/server/actions/spa-checkout-compat";
 
 /**
  * 單次（SINGLE，不扣堂）現場收款 Modal（drawer-only 入口）。

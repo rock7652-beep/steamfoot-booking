@@ -1,3 +1,8 @@
+import {SpaPackagesManager} from "./_components/spa-packages-manager";
+import { spaPrisma } from "@/lib/spa-db";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { getSpaServiceStaff } from "@/server/queries/spa-service-staff";
+import { SpaSkillsManager } from "./_components/spa-skills-manager";
 import { listPlans } from "@/server/queries/plan";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -16,9 +21,7 @@ import { PlansManager } from "./_components/plans-manager";
 import type { PlanRow } from "./_components/plan-form-drawer";
 import { TreatmentWorkspace } from "./_components/treatment-workspace";
 import type { TreatmentRow } from "@/lib/spa-treatment-defaults";
-import { spaPrisma } from "@/lib/spa-db";
 import { isSpaOperationalSchemaReady } from "@/lib/spa-schema-readiness";
-import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { spaSkillKeyFromId } from "@/lib/spa-store-identifiers";
 
 export default async function PlansPage() {
@@ -39,6 +42,16 @@ export default async function PlansPage() {
     ? (await getStoreIndustryModule(plansStoreId)) === "spa"
     : false;
   const spaSchemaReady = isSpaStore ? await isSpaOperationalSchemaReady() : false;
+
+  const isSpa = plansStoreId ? await getStoreIndustryModule(plansStoreId) === "spa" : false;
+  const spaAssignments = isSpa && plansStoreId ? await getSpaServiceStaff(plansStoreId) : {people:[],services:[]};
+
+  const spaLocations = isSpa && plansStoreId ? await spaPrisma.spaServiceLocation.findMany({where:{storeId:plansStoreId},select:{id:true,name:true,isActive:true}}) : [];
+
+  if(isSpa && plansStoreId){
+    const packages=await spaPrisma.spaPackage.findMany({where:{storeId:plansStoreId},orderBy:{name:"asc"}});
+    return <PageShell><PageHeader title="方案管理" subtitle="設定服務、人員與次數方案"/><SpaSkillsManager services={spaAssignments.services} people={spaAssignments.people} locations={spaLocations} canManage={canManage}/><SpaPackagesManager packages={packages.map(p=>({...p,price:Number(p.price)}))} services={spaAssignments.services} canManage={canManage}/></PageShell>;
+  }
 
   // 桌機版 manager 自己處理 status / category / visibility 篩選，所以
   // 一律抓 includeInactive，client 再 filter — 不再依賴 ?showAll 參數。

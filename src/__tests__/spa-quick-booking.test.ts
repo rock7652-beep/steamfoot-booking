@@ -52,7 +52,7 @@ describe("SPA quick booking", () => {
   });
 
   it("keeps on-site checkout inside the current SPA store boundary", () => {
-    const checkout = readFileSync("src/server/actions/spa-checkout.ts", "utf8");
+    const checkout = readFileSync("src/server/actions/spa-checkout-compat.ts", "utf8");
     const drawer = readFileSync(
       "src/app/(dashboard)/dashboard/bookings/collect-single-modal.tsx",
       "utf8",

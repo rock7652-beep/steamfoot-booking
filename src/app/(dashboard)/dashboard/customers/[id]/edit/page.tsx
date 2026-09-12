@@ -1,3 +1,6 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { getActiveStoreForRead } from "@/lib/store";
+import { getStoreContext } from "@/lib/store-context";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -25,6 +28,16 @@ export default async function EditCustomerPage({ params }: PageProps) {
   }
 
   const customer = await getCustomerEditForUser(user, id);
+  const activeStoreId = await getActiveStoreForRead(user);
+  const isSpa =
+    !!activeStoreId && (await getStoreIndustryModule(activeStoreId)) === "spa";
+  const storeContext = await getStoreContext();
+  const returnHref = isSpa
+    ? `/dashboard/customers?search=${encodeURIComponent(customer.name ?? "")}`
+    : `/dashboard/customers/${id}`;
+  const returnUrl = storeContext
+    ? `/s/${storeContext.storeSlug}/admin${returnHref}`
+    : returnHref;
   const birthdayStr = customer.birthday
     ? customer.birthday.toISOString().slice(0, 10)
     : "";
@@ -36,15 +49,18 @@ export default async function EditCustomerPage({ params }: PageProps) {
         subtitle={customer.name}
         actions={
           <Link
-            href={`/dashboard/customers/${id}`}
+            href={returnHref}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
-            ← 返回詳情
+            {isSpa ? "← 返回顧客清單" : "← 返回詳情"}
           </Link>
         }
       />
 
       <EditCustomerForm
+        isSpa={isSpa}
+        returnHref={returnHref}
+        returnUrl={returnUrl}
         customer={{
           id: customer.id,
           name: customer.name ?? "",
