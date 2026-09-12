@@ -1,5 +1,24 @@
 
 -- PostgreSQL-derived fingerprint: reject incompatible existing columns/indexes instead of silently accepting drift.
+-- Compensation constraints and indexes are part of the release contract too.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+    WHERE conrelid=format('%I.%I',current_schema(),'SpaStaffCompensation')::regclass
+      AND conname='SpaStaffCompensation_value_check' AND convalidated
+      AND pg_get_constraintdef(oid)='CHECK ((((mode = ''PERCENTAGE''::text) AND (value >= (0)::numeric) AND (value <= (100)::numeric)) OR ((mode = ''FIXED''::text) AND (value >= (0)::numeric))))') THEN
+    RAISE EXCEPTION 'SPA fingerprint mismatch: SpaStaffCompensation_value_check';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname=current_schema()
+    AND indexname='SpaStaffCompensation_staffId_isActive_idx'
+    AND replace(indexdef,quote_ident(current_schema())||'.','')='CREATE INDEX "SpaStaffCompensation_staffId_isActive_idx" ON "SpaStaffCompensation" USING btree ("staffId", "isActive")') THEN
+    RAISE EXCEPTION 'SPA fingerprint mismatch: SpaStaffCompensation_staffId_isActive_idx';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname=current_schema()
+    AND indexname='SpaStaffCompensation_staffId_storeId_key'
+    AND replace(indexdef,quote_ident(current_schema())||'.','')='CREATE UNIQUE INDEX "SpaStaffCompensation_staffId_storeId_key" ON "SpaStaffCompensation" USING btree ("staffId", "storeId")') THEN
+    RAISE EXCEPTION 'SPA fingerprint mismatch: SpaStaffCompensation_staffId_storeId_key';
+  END IF;
+END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute a JOIN pg_type t ON t.oid=a.atttypid WHERE a.attrelid=format('%I.%I',current_schema(),'SpaBooking')::regclass AND a.attname='id' AND NOT a.attisdropped AND t.typname='text' AND a.atttypmod=-1 AND a.attnotnull=true) THEN RAISE EXCEPTION 'SPA fingerprint mismatch: SpaBooking.id'; END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute a JOIN pg_type t ON t.oid=a.atttypid WHERE a.attrelid=format('%I.%I',current_schema(),'SpaBooking')::regclass AND a.attname='storeId' AND NOT a.attisdropped AND t.typname='text' AND a.atttypmod=-1 AND a.attnotnull=true) THEN RAISE EXCEPTION 'SPA fingerprint mismatch: SpaBooking.storeId'; END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_attribute a JOIN pg_type t ON t.oid=a.atttypid WHERE a.attrelid=format('%I.%I',current_schema(),'SpaBooking')::regclass AND a.attname='customerId' AND NOT a.attisdropped AND t.typname='text' AND a.atttypmod=-1 AND a.attnotnull=true) THEN RAISE EXCEPTION 'SPA fingerprint mismatch: SpaBooking.customerId'; END IF; END $$;

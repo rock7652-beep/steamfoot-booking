@@ -74,6 +74,17 @@ healthy project, WAL setting or successful Preview with a recoverable backup.
 
 ## Release-script gap
 
+Update: the compensation constraint and both missing indexes are now included
+in release SQL, with a row preflight before replacement. The fingerprint checks
+the exact validated constraint and index definitions. Five release-guard tests
+pass. An isolated transaction on Preview replayed this compensation section
+twice against a synthetic legacy table, retained three valid rows and the
+updatedAt default, and rejected percentage 101 and fixed -1. The transaction
+was rolled back. This is a targeted rehearsal, not a full restored-Production
+rehearsal or backup restoration evidence. No Production changes were made.
+
+Original finding (resolved by the update above):
+
 `spa-release-schema.sql` does not currently define the strengthened
 SpaStaffCompensation_value_check or the two additional compensation indexes.
 The fingerprint does not assert them either. Therefore an empty-schema replay

@@ -1551,3 +1551,22 @@ CREATE INDEX IF NOT EXISTS "SpaPaymentRevision_source_idx" ON "SpaPaymentRevisio
 CREATE UNIQUE INDEX IF NOT EXISTS "SpaPaymentRevision_void_key" ON "SpaPaymentRevision" ("storeId",kind,"sourceId") WHERE action='VOID';
 ALTER TABLE "SpaPaymentRevision" ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON "SpaPaymentRevision" FROM anon, authenticated;
+
+-- BEGIN compensation reconciliation (must run inside the release transaction).
+-- Reject incompatible rows before replacing the legacy nonnegative-only check.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM "SpaStaffCompensation"
+    WHERE NOT ((mode='PERCENTAGE' AND value BETWEEN 0 AND 100)
+      OR (mode='FIXED' AND value>=0))) THEN
+    RAISE EXCEPTION 'SPA release blocked: incompatible compensation values';
+  END IF;
+END $$;
+ALTER TABLE "SpaStaffCompensation" DROP CONSTRAINT IF EXISTS "SpaStaffCompensation_value_check";
+ALTER TABLE "SpaStaffCompensation" ADD CONSTRAINT "SpaStaffCompensation_value_check"
+  CHECK ((mode='PERCENTAGE' AND value>=0 AND value<=100) OR (mode='FIXED' AND value>=0));
+CREATE INDEX IF NOT EXISTS "SpaStaffCompensation_staffId_isActive_idx"
+  ON "SpaStaffCompensation" ("staffId","isActive");
+CREATE UNIQUE INDEX IF NOT EXISTS "SpaStaffCompensation_staffId_storeId_key"
+  ON "SpaStaffCompensation" ("staffId","storeId");
+-- Preserve existing updatedAt defaults and all existing data.
+-- END compensation reconciliation.
