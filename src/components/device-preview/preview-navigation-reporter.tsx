@@ -12,7 +12,11 @@ export function PreviewNavigationReporter() {
   const isDevicePreview = searchParams.get("devicePreview") === "1";
 
   useEffect(() => {
-    if (!isDevicePreview || window.parent === window) return;
+    // App Router navigation can replace a link's query string. The iframe is
+    // still the preview surface in that case, so frame ownership—not only the
+    // query flag—must keep route reporting alive.
+    const isEmbeddedPreview = window.parent !== window;
+    if (!isDevicePreview && !isEmbeddedPreview) return;
 
     const query = searchParams.toString();
     window.parent.postMessage(
@@ -25,7 +29,7 @@ export function PreviewNavigationReporter() {
   }, [isDevicePreview, pathname, searchParams]);
 
   useEffect(() => {
-    if (!isDevicePreview) return;
+    if (!isDevicePreview && window.parent === window) return;
 
     const preservePreviewMode = (event: MouseEvent) => {
       if (
