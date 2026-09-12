@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { usePathname } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
 import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature-gate";
@@ -937,9 +938,9 @@ export default function DashboardShell({
           {!collapsed && (
             <div className="flex items-center gap-2 min-w-0">
               <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                {headerTitle}
+                {industryModule === "spa" ? <SteamButlerLogo className="w-28 lg:w-32" /> : headerTitle}
               </Link>
-              <PlanBadge plan={pricingPlan} />
+              {industryModule !== "spa" && <PlanBadge plan={pricingPlan} />}
             </div>
           )}
           <button
@@ -965,6 +966,7 @@ export default function DashboardShell({
         {renderNavGroups()}
         {/* Sidebar version footer */}
         <div className="border-t border-earth-100 px-3 py-2 text-center">
+          {industryModule === "spa" && !collapsed && <div className="mb-2 flex justify-center"><PlanBadge plan={pricingPlan} /></div>}
           {collapsed ? (
             <span className="text-[9px] text-earth-300">v{APP_VERSION}</span>
           ) : (
@@ -984,9 +986,9 @@ export default function DashboardShell({
             <div className="flex h-14 items-center justify-between border-b border-earth-200 px-4">
               <div className="flex items-center gap-2 min-w-0">
                 <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                  {headerTitle}
+                  {industryModule === "spa" ? <SteamButlerLogo className="w-32" /> : headerTitle}
                 </Link>
-                <PlanBadge plan={pricingPlan} />
+                {industryModule !== "spa" && <PlanBadge plan={pricingPlan} />}
               </div>
               <button
                 type="button"
@@ -1008,6 +1010,7 @@ export default function DashboardShell({
               />
             ) : null}
             {renderNavGroups()}
+            {industryModule === "spa" && <div className="flex justify-center border-t border-earth-100 px-3 py-3"><PlanBadge plan={pricingPlan} /></div>}
           </aside>
         </div>
       )}
@@ -1033,7 +1036,7 @@ export default function DashboardShell({
               </svg>
             </button>
             <div className={industryModule === "spa" ? "md:hidden min-w-0" : "lg:hidden min-w-0"}>
-              <DashboardBreadcrumb mobile />
+              {industryModule === "spa" ? <Link href={`${dashboardPrefix}/dashboard`}><SteamButlerLogo compact /></Link> : <DashboardBreadcrumb mobile />}
             </div>
             <div className={industryModule === "spa" ? "hidden md:block" : "hidden lg:block"}>
               <DashboardBreadcrumb />
