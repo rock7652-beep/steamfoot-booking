@@ -81,9 +81,9 @@ export function createDevicePreviewUrl(path: string) {
 
 export function getDevicePreviewPageForPath(path: string) {
   const pathname = path.split("?", 1)[0];
-  return DEVICE_PREVIEW_PAGES.find(
-    (page) => pathname === page.path || pathname.startsWith(`${page.path}/`),
-  );
+  return DEVICE_PREVIEW_PAGES
+    .filter((page) => pathname === page.path || pathname.startsWith(`${page.path}/`))
+    .sort((left, right) => right.path.length - left.path.length)[0];
 }
 
 export function isPreviewableDashboardPath(path: string) {

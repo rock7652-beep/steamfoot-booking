@@ -4,7 +4,7 @@ import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 
-import { useState, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
+import { useState, useEffect, useMemo, useRef, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -621,6 +621,12 @@ export default function DashboardShell({
   const rawPathname = usePathname();
   const searchParams = useSearchParams();
   const isDevicePreviewMode = searchParams.get("devicePreview") === "1";
+  const isEmbeddedPreview = useSyncExternalStore(
+    () => () => {},
+    () => window.parent !== window,
+    () => false,
+  );
+  const isIframePreview = isDevicePreviewMode || isEmbeddedPreview;
   const [collapsed, setCollapsed] = useState(false);
   const [readingPage, setReadingPage] = useState<string | null>(null);
   useEffect(() => {
@@ -752,7 +758,7 @@ export default function DashboardShell({
         .filter(
           (item) =>
             !MVP_HIDDEN_ROUTES.includes(item.href) &&
-            !(isDevicePreviewMode && item.href === "/dashboard/device-preview"),
+            !(isIframePreview && item.href === "/dashboard/device-preview"),
         )
         .map((item) => {
         if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
@@ -780,7 +786,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isDevicePreviewMode]);
+  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
@@ -818,6 +824,11 @@ export default function DashboardShell({
     return pathname.startsWith(href);
   }
 
+  function navHref(href: string) {
+    const path = `${dashboardPrefix}${href}`;
+    return isIframePreview ? `${path}?devicePreview=1` : path;
+  }
+
   function toggleGroup(groupId: string) {
     setOpenGroups((prev) => {
       const next = new Set(prev);
@@ -852,7 +863,7 @@ export default function DashboardShell({
     return (
       <li key={item.href}>
         <a
-          href={`${dashboardPrefix}${item.href}`}
+          href={navHref(item.href)}
           onClick={(event) => showReadFeedback(event, item.label)}
           // 後台跨頁刻意使用原生導頁。Next 16 的 client navigation 偶發在 RSC
           // 已回 200 後仍不 commit，導致導頁指示永久 pending；完整導頁可確保
@@ -899,7 +910,7 @@ export default function DashboardShell({
     return (
       <li key={item.href}>
         <a
-          href={`${dashboardPrefix}${item.href}`}
+          href={navHref(item.href)}
           onClick={(event) => showReadFeedback(event, item.label)}
           className={`group relative flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active

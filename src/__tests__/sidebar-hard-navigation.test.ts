@@ -9,7 +9,8 @@ describe("dashboard sidebar navigation", () => {
   );
 
   it("uses full-page navigation for expanded and collapsed sidebar items", () => {
-    expect(source.match(/<a\s+href=\{`\$\{dashboardPrefix\}\$\{item\.href\}`\}/g)).toHaveLength(2);
+    expect(source.match(/<a\s+href=\{navHref\(item\.href\)\}/g)).toHaveLength(2);
+    expect(source).toContain('return isIframePreview ? `${path}?devicePreview=1` : path;');
     expect(source).not.toContain("useLinkStatus");
     expect(source).not.toContain("NavItemPending");
   });
