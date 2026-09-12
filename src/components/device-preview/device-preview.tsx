@@ -11,6 +11,7 @@ import {
   getDevicePreviewPageForPath,
   isDevicePresetId,
   isDevicePreviewPageId,
+  resolveDashboardPreviewPath,
   type DevicePresetId,
   type DevicePreviewPageId,
 } from "@/lib/device-preview";
@@ -33,8 +34,12 @@ export function DevicePreview() {
     : DEFAULT_DEVICE_PRESET;
 
   const initialPage = getDevicePreviewPage(page);
-  const [framePath, setFramePath] = useState<string>(initialPage.path);
-  const [frameSrc, setFrameSrc] = useState(() => createDevicePreviewUrl(initialPage.path));
+  const [framePath, setFramePath] = useState<string>(() =>
+    resolveDashboardPreviewPath(initialPage.path, pathname),
+  );
+  const [frameSrc, setFrameSrc] = useState(() =>
+    createDevicePreviewUrl(resolveDashboardPreviewPath(initialPage.path, pathname)),
+  );
   const quickPage = getDevicePreviewPageForPath(framePath)?.id ?? page;
 
   const updateUrl = useCallback((nextPage: DevicePreviewPageId, nextDevice: DevicePresetId) => {
@@ -45,7 +50,7 @@ export function DevicePreview() {
   }, [pathname, router]);
 
   const handlePageChange = (nextPage: DevicePreviewPageId) => {
-    const nextPath = getDevicePreviewPage(nextPage).path;
+    const nextPath = resolveDashboardPreviewPath(getDevicePreviewPage(nextPage).path, pathname);
     setFramePath(nextPath);
     setFrameSrc(createDevicePreviewUrl(nextPath));
     updateUrl(nextPage, device);
@@ -61,7 +66,7 @@ export function DevicePreview() {
             <p className="mt-1 text-sm text-earth-600">在手機、平板與桌機尺寸下操作並檢查蒸管家介面。</p>
           </div>
           <Link
-            href="/dashboard"
+            href={resolveDashboardPreviewPath("/dashboard", pathname)}
             className="inline-flex min-h-10 items-center self-start rounded-lg border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 transition hover:bg-earth-100"
           >
             ← 返回後台

@@ -79,15 +79,43 @@ export function createDevicePreviewUrl(path: string) {
   return `${pathname}?${params.toString()}`;
 }
 
-export function getDevicePreviewPageForPath(path: string) {
+/**
+ * Converts a browser-visible dashboard route to its internal dashboard form.
+ * Store routes are rewritten by proxy.ts, but client components see the
+ * browser route (`/s/:slug/admin/dashboard/...`), not the internal one.
+ */
+export function normalizeDashboardPath(path: string) {
+  const [pathname, query = ""] = path.split("?", 2);
+  const scopedRoute = pathname.match(/^(?:\/s\/[^/]+\/admin|\/hq)(\/dashboard(?:\/.*)?|\/dashboard)?$/);
+  const canonicalPath = scopedRoute?.[1] ?? pathname;
+  return query ? `${canonicalPath}?${query}` : canonicalPath;
+}
+
+/** Returns the browser-route prefix that scopes a dashboard to one store or HQ. */
+export function getDashboardRoutePrefix(path: string) {
   const pathname = path.split("?", 1)[0];
+  const match = pathname.match(/^(\/s\/[^/]+\/admin|\/hq)\/dashboard(?:\/|$)/);
+  return match?.[1] ?? "";
+}
+
+/**
+ * Resolves a canonical dashboard route into the current browser route scope.
+ * The canonical path is used for feature matching; this result is used for
+ * iframe navigation so a store preview never escapes its current store.
+ */
+export function resolveDashboardPreviewPath(canonicalPath: string, contextPath: string) {
+  return `${getDashboardRoutePrefix(contextPath)}${normalizeDashboardPath(canonicalPath)}`;
+}
+
+export function getDevicePreviewPageForPath(path: string) {
+  const pathname = normalizeDashboardPath(path).split("?", 1)[0];
   return DEVICE_PREVIEW_PAGES
     .filter((page) => pathname === page.path || pathname.startsWith(`${page.path}/`))
     .sort((left, right) => right.path.length - left.path.length)[0];
 }
 
 export function isPreviewableDashboardPath(path: string) {
-  const pathname = path.split("?", 1)[0];
+  const pathname = normalizeDashboardPath(path).split("?", 1)[0];
   return (
     (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) &&
     pathname !== "/dashboard/device-preview" &&

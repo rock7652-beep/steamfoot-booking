@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { isPreviewableDashboardPath } from "@/lib/device-preview";
+import { isPreviewableDashboardPath, normalizeDashboardPath } from "@/lib/device-preview";
 
 const PREVIEW_NAVIGATION_MESSAGE = "steamfoot-device-preview:navigation";
 
@@ -46,7 +46,7 @@ export function PreviewNavigationReporter() {
 
       const destination = new URL(anchor.href, window.location.origin);
       if (destination.origin !== window.location.origin) return;
-      if (destination.pathname === "/dashboard/device-preview") {
+      if (normalizeDashboardPath(destination.pathname) === "/dashboard/device-preview") {
         event.preventDefault();
         return;
       }
