@@ -749,7 +749,11 @@ export default function DashboardShell({
   const { visibleGroups, activeGroupId } = useMemo(() => {
     const groups = navGroupsToRender.map((group) => {
       const categorizedItems = group.items
-        .filter((item) => !MVP_HIDDEN_ROUTES.includes(item.href))
+        .filter(
+          (item) =>
+            !MVP_HIDDEN_ROUTES.includes(item.href) &&
+            !(isDevicePreviewMode && item.href === "/dashboard/device-preview"),
+        )
         .map((item) => {
         if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
         if (item.permission && !isOwner && !permissions.includes(item.permission))
@@ -776,7 +780,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender]);
+  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isDevicePreviewMode]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
@@ -981,9 +985,9 @@ export default function DashboardShell({
     </nav>
   );
 
-  // The device-preview iframe must render the actual page at its own viewport,
-  // without nesting the dashboard's sidebar, header, or status chrome.
-  if (isDevicePreviewMode) {
+  // The studio itself owns the screen. Iframe pages use devicePreview=1 and
+  // deliberately retain this shell for real dashboard navigation.
+  if (pathname === "/dashboard/device-preview" && !isDevicePreviewMode) {
     return <div className="min-h-dvh bg-earth-50">{children}</div>;
   }
 

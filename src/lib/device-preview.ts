@@ -1,5 +1,10 @@
 export const DEVICE_PREVIEW_PAGES = [
   {
+    id: "dashboard",
+    label: "首頁",
+    path: "/dashboard",
+  },
+  {
     id: "bookings",
     label: "預約管理",
     path: "/dashboard/bookings",
@@ -10,9 +15,24 @@ export const DEVICE_PREVIEW_PAGES = [
     path: "/dashboard/customers",
   },
   {
+    id: "plans",
+    label: "方案管理",
+    path: "/dashboard/plans",
+  },
+  {
+    id: "growth",
+    label: "顧客經營",
+    path: "/dashboard/growth",
+  },
+  {
     id: "revenue",
     label: "營運",
     path: "/dashboard/revenue",
+  },
+  {
+    id: "settings",
+    label: "設定",
+    path: "/dashboard/settings",
   },
 ] as const;
 
@@ -53,5 +73,24 @@ export function getDevicePreviewPage(id: DevicePreviewPageId) {
 }
 
 export function createDevicePreviewUrl(path: string) {
-  return `${path}?devicePreview=1`;
+  const [pathname, query = ""] = path.split("?", 2);
+  const params = new URLSearchParams(query);
+  params.set("devicePreview", "1");
+  return `${pathname}?${params.toString()}`;
+}
+
+export function getDevicePreviewPageForPath(path: string) {
+  const pathname = path.split("?", 1)[0];
+  return DEVICE_PREVIEW_PAGES.find(
+    (page) => pathname === page.path || pathname.startsWith(`${page.path}/`),
+  );
+}
+
+export function isPreviewableDashboardPath(path: string) {
+  const pathname = path.split("?", 1)[0];
+  return (
+    (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) &&
+    pathname !== "/dashboard/device-preview" &&
+    !pathname.startsWith("/dashboard/device-preview/")
+  );
 }

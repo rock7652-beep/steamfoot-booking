@@ -2,17 +2,19 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DevicePresetId } from "@/lib/device-preview";
-import { DEVICE_PRESETS } from "@/lib/device-preview";
+import { DEVICE_PRESETS, isPreviewableDashboardPath } from "@/lib/device-preview";
+import { PREVIEW_NAVIGATION_MESSAGE } from "./preview-navigation-reporter";
 
 interface DeviceFrameProps {
   device: DevicePresetId;
   src: string;
   refreshKey: number;
+  onRouteChange: (path: string) => void;
 }
 
 type FrameState = "loading" | "ready" | "error" | "session-expired";
 
-export function DeviceFrame({ device, src, refreshKey }: DeviceFrameProps) {
+export function DeviceFrame({ device, src, refreshKey, onRouteChange }: DeviceFrameProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
@@ -40,12 +42,30 @@ export function DeviceFrame({ device, src, refreshKey }: DeviceFrameProps) {
     return () => window.clearTimeout(timeout);
   }, []);
 
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent<unknown>) => {
+      if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) return;
+      if (!event.data || typeof event.data !== "object") return;
+
+      const message = event.data as { type?: unknown; path?: unknown };
+      if (message.type !== PREVIEW_NAVIGATION_MESSAGE || typeof message.path !== "string") return;
+      if (isPreviewableDashboardPath(message.path)) onRouteChange(message.path);
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [onRouteChange]);
+
   const handleLoad = () => {
     try {
-      const loadedPath = iframeRef.current?.contentWindow?.location.pathname;
+      const location = iframeRef.current?.contentWindow?.location;
+      const loadedPath = location?.pathname;
       if (loadedPath?.includes("/login")) {
         setFrameState("session-expired");
         return;
+      }
+      if (loadedPath && isPreviewableDashboardPath(loadedPath)) {
+        onRouteChange(`${loadedPath}${location?.search ?? ""}`);
       }
     } catch {
       // The preview is same-origin in production. Keep a successfully loaded

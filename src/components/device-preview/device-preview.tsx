@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   createDevicePreviewUrl,
   DEFAULT_DEVICE_PRESET,
   DEFAULT_DEVICE_PREVIEW_PAGE,
   getDevicePreviewPage,
+  getDevicePreviewPageForPath,
   isDevicePresetId,
   isDevicePreviewPageId,
   type DevicePresetId,
@@ -30,8 +32,10 @@ export function DevicePreview() {
     ? requestedDevice
     : DEFAULT_DEVICE_PRESET;
 
-  const selectedPage = getDevicePreviewPage(page);
-  const previewUrl = useMemo(() => createDevicePreviewUrl(selectedPage.path), [selectedPage.path]);
+  const initialPage = getDevicePreviewPage(page);
+  const [framePath, setFramePath] = useState<string>(initialPage.path);
+  const [frameSrc, setFrameSrc] = useState(() => createDevicePreviewUrl(initialPage.path));
+  const quickPage = getDevicePreviewPageForPath(framePath)?.id ?? page;
 
   const updateUrl = useCallback((nextPage: DevicePreviewPageId, nextDevice: DevicePresetId) => {
     const params = new URLSearchParams();
@@ -40,37 +44,56 @@ export function DevicePreview() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [pathname, router]);
 
-  const handlePageChange = (nextPage: DevicePreviewPageId) => updateUrl(nextPage, device);
-  const handleDeviceChange = (nextDevice: DevicePresetId) => updateUrl(page, nextDevice);
+  const handlePageChange = (nextPage: DevicePreviewPageId) => {
+    const nextPath = getDevicePreviewPage(nextPage).path;
+    setFramePath(nextPath);
+    setFrameSrc(createDevicePreviewUrl(nextPath));
+    updateUrl(nextPage, device);
+  };
+  const handleDeviceChange = (nextDevice: DevicePresetId) => updateUrl(quickPage, nextDevice);
 
   return (
-    <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-5 sm:px-6 sm:py-6">
-      <div className="min-w-0">
-        <h1 className="text-lg font-bold text-earth-900">裝置預覽</h1>
-        <p className="mt-1 text-sm text-earth-600">快速查看蒸管家在手機、平板與桌機上的實際呈現。</p>
+    <div className="min-h-dvh bg-earth-50">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-5 sm:px-6 sm:py-6">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-earth-900">裝置預覽</h1>
+            <p className="mt-1 text-sm text-earth-600">在手機、平板與桌機尺寸下操作並檢查蒸管家介面。</p>
+          </div>
+          <Link
+            href="/dashboard"
+            className="inline-flex min-h-10 items-center self-start rounded-lg border border-earth-300 bg-white px-3 text-sm font-medium text-earth-700 transition hover:bg-earth-100"
+          >
+            ← 返回後台
+          </Link>
+        </div>
+
+        <div className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2.5 text-sm text-primary-800">
+          預覽模式：此畫面使用目前測試資料，用於檢查不同裝置的實際操作與版面。
+        </div>
+
+        <DeviceToolbar
+          page={quickPage}
+          device={device}
+          onPageChange={handlePageChange}
+          onDeviceChange={handleDeviceChange}
+          onRefresh={() => {
+            setFrameSrc(createDevicePreviewUrl(framePath));
+            setRefreshKey((key) => key + 1);
+          }}
+          onOpenInNewPage={() => window.open(framePath, "_blank", "noopener,noreferrer")}
+        />
+
+        <p className="text-xs text-earth-500 lg:hidden">建議使用平板或桌機進行完整裝置預覽。</p>
+
+        <DeviceFrame
+          key={`${frameSrc}-${refreshKey}`}
+          device={device}
+          src={frameSrc}
+          refreshKey={refreshKey}
+          onRouteChange={setFramePath}
+        />
       </div>
-
-      <div className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2.5 text-sm text-primary-800">
-        預覽模式：此畫面用於檢查不同裝置的版面呈現。
-      </div>
-
-      <DeviceToolbar
-        page={page}
-        device={device}
-        onPageChange={handlePageChange}
-        onDeviceChange={handleDeviceChange}
-        onRefresh={() => setRefreshKey((key) => key + 1)}
-        onOpenInNewPage={() => window.open(selectedPage.path, "_blank", "noopener,noreferrer")}
-      />
-
-      <p className="text-xs text-earth-500 lg:hidden">建議使用平板或桌機進行完整裝置預覽。</p>
-
-      <DeviceFrame
-        key={`${previewUrl}-${refreshKey}`}
-        device={device}
-        src={previewUrl}
-        refreshKey={refreshKey}
-      />
     </div>
   );
 }
