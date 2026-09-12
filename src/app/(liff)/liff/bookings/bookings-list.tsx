@@ -37,6 +37,7 @@
  *   _components/ready-view.tsx                     ← ReadyView / Tabs / EmptyState + Tab type
  */
 
+import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -255,6 +256,17 @@ export function BookingsList({
         return;
       }
 
+      const session = await refreshLiffSession({ idToken, storeSlug });
+      if (cancelled) return;
+      if (session.status === "need_onboarding") {
+        router.replace(`/s/${storeSlug}/liff/onboarding`);
+        return;
+      }
+      if (session.status !== "session_created") {
+        setState({ kind: session.status });
+        return;
+      }
+
       // ── 2. fetch bookings ──
       // fetchLiffBookings 不收 client 參數；session 在 server side 解
       let result;
@@ -286,7 +298,7 @@ export function BookingsList({
     return () => {
       cancelled = true;
     };
-  }, [liffId]);
+  }, [liffId, storeSlug, router]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">

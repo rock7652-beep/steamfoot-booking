@@ -226,10 +226,8 @@ describe("exchange short-circuits — loadProfile NEVER called (CROSS-CUSTOMER L
 
     expect(r).toEqual({ kind: "service_unavailable" });
     expect(loadProfile).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
-      "[loadProfileWithSessionRefresh] exchange fetch threw",
-      expect.any(Error),
-    );
+    // Shared exchange deliberately does not log token-bearing transport errors.
+    expect(warnSpy).not.toHaveBeenCalled();
 
     warnSpy.mockRestore();
   });

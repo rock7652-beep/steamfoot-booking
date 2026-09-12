@@ -22,8 +22,10 @@
  * Mobile-first：max-w-md。文案一律 `liffMessages.wallets.*` / `liffMessages.error.*`，不寫 inline 中文。
  */
 
+import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { initLiff, isInLineClient, getIDToken } from "@/lib/liff/client";
 import {
   fetchLiffWallets,
@@ -55,6 +57,7 @@ interface Props {
 }
 
 export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props) {
+  const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
 
   useEffect(() => {
@@ -78,6 +81,17 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props)
       const idToken = getIDToken();
       if (!idToken) {
         setState({ kind: "expired" });
+        return;
+      }
+
+      const session = await refreshLiffSession({ idToken, storeSlug });
+      if (cancelled) return;
+      if (session.status === "need_onboarding") {
+        router.replace(`/s/${storeSlug}/liff/onboarding`);
+        return;
+      }
+      if (session.status !== "session_created") {
+        setState({ kind: session.status });
         return;
       }
 
@@ -113,7 +127,7 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props)
     return () => {
       cancelled = true;
     };
-  }, [liffId]);
+  }, [liffId, storeSlug, router]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">

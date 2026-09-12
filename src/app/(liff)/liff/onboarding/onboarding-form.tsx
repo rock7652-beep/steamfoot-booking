@@ -7,19 +7,19 @@
  *   1. mount → initLiff(liffId) + getIDToken() + getProfile().displayName (預填姓名)
  *   2. 顯示姓名 / 手機表單（兩欄都有值才能 submit；plan §3.5）
  *   3. submit → submitOnboarding(...) (server action)
- *      - ok → signIn("liff-token", { idToken, storeSlug, redirect: false })
+ *      - ok → refreshLiffSession verifies and creates the session
  *             → router.replace(`/s/{slug}/liff`) → LiffShell 重跑 → signed_in
  *      - invalid_phone → inline form error
  *      - bound_other / phone_taken_by_login_account / ambiguous → 阻擋 + 聯繫店家
  *      - expired → 阻擋 + 重新整理
  *      - service_unavailable → 阻擋 + 重新整理 + 聯繫店家
  *
- * 不做：不直接呼 /api/liff/exchange / helper / refrral / password
+ * Uses the same session refresh as the member entry pages.
  */
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import {
   initLiff,
   isInLineClient,
@@ -145,18 +145,10 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
     switch (result.status) {
       case "ok": {
         setState({ kind: "completing" });
-        try {
-          const signInResult = await signIn("liff-token", {
-            idToken,
-            storeSlug,
-            redirect: false,
-          });
-          if (signInResult?.error) {
-            console.warn("[onboarding-form] signIn returned error", signInResult.error);
-            // Customer 已建好，cookie 可能沒寫；router.replace 回 LiffShell 自然 retry
-          }
-        } catch (err) {
-          console.warn("[onboarding-form] signIn throw", err);
+        const session = await refreshLiffSession({ idToken, storeSlug });
+        if (session.status !== "session_created") {
+          setState({ kind: session.status === "expired" ? "expired" : "service_unavailable" });
+          return;
         }
         router.replace(`/s/${storeSlug}/liff`);
         return;

@@ -1,37 +1,4 @@
-/**
- * loadProfileWithSessionRefresh — PR #257 round 4 (Codex P2 cross-customer leak fix)
- *
- * Wraps the LIFF profile-page load sequence so that the NextAuth session is
- * ALWAYS refreshed via `/api/liff/exchange` BEFORE `fetchLiffCustomerProfile`
- * is invoked. This prevents the cross-customer data-leak risk where:
- *
- *   - Customer A logged in to LIFF earlier → NextAuth cookie set for A
- *   - LINE WebView later swaps to customer B (multi-LINE-account on
- *     same device, or A logged out of LINE) without clearing Steamfoot
- *     cookies
- *   - Customer B opens /s/{slug}/liff/profile → page reads cached
- *     cookie session → returns customer A's name / phone / email
- *
- * The exchange call verifies the CURRENT LIFF `idToken` against
- * `verifyLiffIdToken` and resets the NextAuth session to match the
- * current LINE user. Only after `session_created` (or equivalent
- * success) is it safe to read the customer profile via the existing
- * server action.
- *
- * This helper is INJECTABLE for testing: both the exchange call and
- * the profile load can be overridden via the `deps.exchange` /
- * `deps.loadProfile` options. Production calls use the defaults
- * (`fetch("/api/liff/exchange", ...)` + `fetchLiffCustomerProfile`).
- *
- * Out of scope (per PR #257 brief):
- *   - Does NOT touch `auth.ts` / D3 / D5 / webhook / oauth-confirm
- *   - Does NOT add a new `syncLineAccountForUser` caller
- *   - Does NOT modify `fetchLiffCustomerProfile`'s read-only contract
- *   - Does NOT write DB / modify schema / migration / env
- *   - Does NOT change UI copy (caller's view component already handles
- *     all of the returned `kind` states via its existing state machine)
- */
-
+import { refreshLiffSession } from "./session-refresh";
 import {
   fetchLiffCustomerProfile,
   type FetchLiffCustomerProfileResult,
@@ -119,60 +86,12 @@ export interface LoadProfileDeps {
 export async function loadProfileWithSessionRefresh(
   deps: LoadProfileDeps,
 ): Promise<LoadProfileResult> {
-  const exchange = deps.exchange ?? defaultExchange;
   const loadProfile = deps.loadProfile ?? fetchLiffCustomerProfile;
+  const session = await refreshLiffSession(
+    { idToken: deps.idToken, storeSlug: deps.storeSlug }, deps.exchange,
+  );
+  if (session.status !== "session_created") return { kind: session.status };
 
-  // ── STEP 1: refresh NextAuth session via /api/liff/exchange ──
-  // MUST run before any cookie-reading data fetch. The exchange route
-  // verifies the LIFF idToken server-side and re-signs the NextAuth
-  // session for the CURRENT LINE user. Without this step, the next
-  // statement (loadProfile) would read whatever cookie happens to be
-  // in the browser — possibly a different customer's session.
-  let exchangeBody: ExchangeResponse | null;
-  try {
-    exchangeBody = await exchange({
-      idToken: deps.idToken,
-      storeSlug: deps.storeSlug,
-    });
-  } catch (err) {
-    // Network / parse error during the exchange — surface as
-    // service_unavailable so the view shows a retry CTA. Crucially,
-    // we do NOT proceed to loadProfile here (would expose stale data).
-    console.warn(
-      "[loadProfileWithSessionRefresh] exchange fetch threw",
-      err,
-    );
-    return { kind: "service_unavailable" };
-  }
-  if (!exchangeBody) {
-    return { kind: "service_unavailable" };
-  }
-
-  // ── STEP 2: dispatch on exchange result ──
-  // ONLY `session_created` proceeds to STEP 3. Every other branch
-  // short-circuits — the helper MUST NOT read profile data under any
-  // session that wasn't just verified against the current LIFF token.
-  if (exchangeBody.status === "need_onboarding") {
-    return { kind: "need_onboarding" };
-  }
-  if (exchangeBody.status === "error") {
-    // Customer-facing partition: token expiry / invalidity → "expired"
-    // (view shows retry hint). Any other error code → service_unavailable.
-    // Matches the partition used by liff-shell.tsx exchange-error block.
-    if (
-      exchangeBody.code === "ID_TOKEN_EXPIRED" ||
-      exchangeBody.code === "ID_TOKEN_INVALID"
-    ) {
-      return { kind: "expired" };
-    }
-    return { kind: "service_unavailable" };
-  }
-  // exchangeBody.status === "session_created" (the only success branch)
-
-  // ── STEP 3: now safe to load profile ──
-  // The NextAuth session has just been refreshed to match the current
-  // LIFF identity; `fetchLiffCustomerProfile`'s `requireSession` will
-  // resolve the correct customer.
   let profileResult: FetchLiffCustomerProfileResult;
   try {
     profileResult = await loadProfile();
@@ -195,21 +114,4 @@ export async function loadProfileWithSessionRefresh(
   }
   // profileResult.status === "service_unavailable"
   return { kind: "service_unavailable" };
-}
-
-/**
- * Default exchange implementation — POST `/api/liff/exchange` with
- * `{idToken, storeSlug}`. Production callers use this; tests inject
- * their own via `deps.exchange`.
- */
-async function defaultExchange(input: {
-  idToken: string;
-  storeSlug: string;
-}): Promise<ExchangeResponse | null> {
-  const res = await fetch("/api/liff/exchange", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  return (await res.json().catch(() => null)) as ExchangeResponse | null;
 }
