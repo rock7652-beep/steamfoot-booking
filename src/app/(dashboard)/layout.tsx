@@ -23,6 +23,7 @@ import {
 } from "@/lib/store-organization";
 import type { IndustryModuleId } from "@/lib/industry-modules";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { PreviewNavigationReporter } from "@/components/device-preview/preview-navigation-reporter";
 
 export default async function DashboardLayout({
   children,
@@ -182,16 +183,21 @@ export default async function DashboardLayout({
           : undefined
       }
       industryModuleId={industryModuleId}
+      notices={
+        <>
+          {storeViewContext?.isViewMode && viewedStore ? (
+            <ViewModeBanner viewedStoreName={viewedStore.name} />
+          ) : null}
+          {operatingStatus ? (
+            <StoreOperatingStatusBanner status={operatingStatus} />
+          ) : null}
+          {subBannerState ? (
+            <SubscriptionStatusBanner state={subBannerState} />
+          ) : null}
+        </>
+      }
     >
-      {storeViewContext?.isViewMode && viewedStore ? (
-        <ViewModeBanner viewedStoreName={viewedStore.name} />
-      ) : null}
-      {operatingStatus ? (
-        <StoreOperatingStatusBanner status={operatingStatus} />
-      ) : null}
-      {subBannerState ? (
-        <SubscriptionStatusBanner state={subBannerState} />
-      ) : null}
+      <PreviewNavigationReporter />
       {children}
     </DashboardShell>
   );

@@ -4,10 +4,10 @@ import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 
-import { useState, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
+import { useState, useEffect, useMemo, useRef, useSyncExternalStore, type MouseEvent as ReactMouseEvent } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
 import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature-gate";
 import { DashboardBreadcrumb } from "@/components/breadcrumb";
@@ -171,6 +171,16 @@ export const STORE_ADMIN_NAV: NavItem[] = [
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/device-preview",
+    label: "裝置預覽",
+    permission: "booking.read",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17.25h4.5m-7.5 3h10.5a3 3 0 003-3V6.75a3 3 0 00-3-3H6.75a3 3 0 00-3 3v10.5a3 3 0 003 3z" />
       </svg>
     ),
   },
@@ -461,6 +471,16 @@ export const NAV_GROUPS: NavGroup[] = [
           </svg>
         ),
       },
+      {
+        href: "/dashboard/device-preview",
+        label: "裝置預覽",
+        permission: "booking.read",
+        icon: (
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17.25h4.5m-7.5 3h10.5a3 3 0 003-3V6.75a3 3 0 00-3-3H6.75a3 3 0 00-3 3v10.5a3 3 0 003 3z" />
+          </svg>
+        ),
+      },
     ],
   },
   // ── 第四層：其他（低頻功能，預設收起） ──
@@ -562,6 +582,8 @@ interface DashboardShellProps {
   roleLabel: string;
   logoutButton: React.ReactNode;
   children: React.ReactNode;
+  /** Layout-level status UI. Kept out of iframe preview mode with the shell chrome. */
+  notices?: React.ReactNode;
   trialStatus?: TrialStatus;
   /** OWNER/STAFF 的店名（ADMIN 為 null，由 storeOptions 動態決定） */
   storeName?: string | null;
@@ -588,6 +610,7 @@ export default function DashboardShell({
   roleLabel,
   logoutButton,
   children,
+  notices,
   trialStatus,
   storeName,
   storeOptions,
@@ -596,6 +619,14 @@ export default function DashboardShell({
   industryModuleId = "steamfoot",
 }: DashboardShellProps) {
   const rawPathname = usePathname();
+  const searchParams = useSearchParams();
+  const isDevicePreviewMode = searchParams.get("devicePreview") === "1";
+  const isEmbeddedPreview = useSyncExternalStore(
+    () => () => {},
+    () => window.parent !== window,
+    () => false,
+  );
+  const isIframePreview = isDevicePreviewMode || isEmbeddedPreview;
   const [collapsed, setCollapsed] = useState(false);
   const [readingPage, setReadingPage] = useState<string | null>(null);
   useEffect(() => {
@@ -724,7 +755,11 @@ export default function DashboardShell({
   const { visibleGroups, activeGroupId } = useMemo(() => {
     const groups = navGroupsToRender.map((group) => {
       const categorizedItems = group.items
-        .filter((item) => !MVP_HIDDEN_ROUTES.includes(item.href))
+        .filter(
+          (item) =>
+            !MVP_HIDDEN_ROUTES.includes(item.href) &&
+            !(isIframePreview && item.href === "/dashboard/device-preview"),
+        )
         .map((item) => {
         if (item.ownerOnly && !isOwner) return { item, visible: false, locked: false };
         if (item.permission && !isOwner && !permissions.includes(item.permission))
@@ -751,7 +786,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender]);
+  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
@@ -789,6 +824,11 @@ export default function DashboardShell({
     return pathname.startsWith(href);
   }
 
+  function navHref(href: string) {
+    const path = `${dashboardPrefix}${href}`;
+    return isIframePreview ? `${path}?devicePreview=1` : path;
+  }
+
   function toggleGroup(groupId: string) {
     setOpenGroups((prev) => {
       const next = new Set(prev);
@@ -823,7 +863,7 @@ export default function DashboardShell({
     return (
       <li key={item.href}>
         <a
-          href={`${dashboardPrefix}${item.href}`}
+          href={navHref(item.href)}
           onClick={(event) => showReadFeedback(event, item.label)}
           // 後台跨頁刻意使用原生導頁。Next 16 的 client navigation 偶發在 RSC
           // 已回 200 後仍不 commit，導致導頁指示永久 pending；完整導頁可確保
@@ -870,7 +910,7 @@ export default function DashboardShell({
     return (
       <li key={item.href}>
         <a
-          href={`${dashboardPrefix}${item.href}`}
+          href={navHref(item.href)}
           onClick={(event) => showReadFeedback(event, item.label)}
           className={`group relative flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active
@@ -887,7 +927,9 @@ export default function DashboardShell({
     );
   };
 
-  const renderNavGroups = () => (
+  // The mobile drawer is a navigation overlay, not a compact sidebar. Keep its
+  // rendering mode independent from the desktop sidebar's collapse preference.
+  const renderNavGroups = (isCollapsed: boolean) => (
     <nav className="sidebar-scroll flex flex-1 flex-col overflow-y-auto px-2 py-2">
       {readingPage && <NavigationNotice />}
       <div className="space-y-1">
@@ -900,7 +942,7 @@ export default function DashboardShell({
               {/* Core group: no header; other groups: collapsible header */}
               {!isCore && (
                 <>
-                  {collapsed ? (
+                  {isCollapsed ? (
                     <div
                       className="mx-auto my-1 flex h-8 w-8 items-center justify-center rounded-lg text-earth-400 hover:bg-earth-100 hover:text-earth-600 cursor-pointer"
                       title={group.label}
@@ -935,7 +977,7 @@ export default function DashboardShell({
               )}
 
               {/* Items — core group has no indentation; others are indented */}
-              {!collapsed && (
+              {!isCollapsed && (
                 <div className={isCore ? "open" : `nav-group-items ${isOpen ? "open" : ""}`}>
                   <ul className="overflow-hidden space-y-0.5">
                     {categorizedItems.map((c) => renderNavItem(c, { indented: !isCore }))}
@@ -944,7 +986,7 @@ export default function DashboardShell({
               )}
 
               {/* Collapsed mode: show items as icon-only when group is expanded */}
-              {collapsed && isOpen && (
+              {isCollapsed && isOpen && (
                 <ul className="space-y-0.5">
                   {categorizedItems.map((c) => renderNavItemCollapsed(c))}
                 </ul>
@@ -955,6 +997,12 @@ export default function DashboardShell({
       </div>
     </nav>
   );
+
+  // The studio itself owns the screen. Iframe pages use devicePreview=1 and
+  // deliberately retain this shell for real dashboard navigation.
+  if (pathname === "/dashboard/device-preview" && !isDevicePreviewMode) {
+    return <div className="min-h-dvh bg-earth-50">{children}</div>;
+  }
 
   return (
     <div className="min-h-dvh bg-earth-50">
@@ -993,7 +1041,7 @@ export default function DashboardShell({
             collapsed={collapsed}
           />
         ) : null}
-        {renderNavGroups()}
+        {renderNavGroups(collapsed)}
         {/* Sidebar version footer */}
         <div className="border-t border-earth-100 px-3 py-2 text-center">
           {collapsed ? (
@@ -1038,7 +1086,7 @@ export default function DashboardShell({
                 multiStoreEnabled={viewMode.multiStoreEnabled}
               />
             ) : null}
-            {renderNavGroups()}
+            {renderNavGroups(false)}
           </aside>
         </div>
       )}
@@ -1160,6 +1208,7 @@ export default function DashboardShell({
               <TrialProgressBar trial={trialStatus} />
             </div>
           )}
+          {notices}
           {children}
         </main>
 
