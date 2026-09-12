@@ -39,14 +39,14 @@ const TONE_MAP: Record<KpiTone, string> = {
 
 export function KpiStrip({ items }: KpiStripProps) {
   return (
-    <div className="flex h-10 items-center gap-x-1 overflow-x-auto border-b border-earth-200 text-sm">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-earth-200 bg-earth-200 text-sm sm:flex sm:h-10 sm:items-center sm:gap-x-1 sm:overflow-x-auto sm:rounded-none sm:border-x-0 sm:border-t-0 sm:bg-transparent">
       {items.map((it, i) => {
         const toneClass = TONE_MAP[it.tone ?? "earth"];
         return (
-          <div key={it.label} className="flex items-center gap-1 whitespace-nowrap">
-            {i > 0 && <span className="px-2 text-earth-200">｜</span>}
-            <span className="text-[11px] text-earth-500">{it.label}</span>
-            <span className={`text-[15px] font-bold tabular-nums ${toneClass}`}>
+          <div key={it.label} className="flex min-h-[76px] flex-col justify-center gap-1 bg-white px-3 sm:min-h-0 sm:flex-row sm:items-center sm:gap-1 sm:bg-transparent sm:px-0 sm:whitespace-nowrap">
+            {i > 0 && <span className="hidden px-2 text-earth-200 sm:inline">｜</span>}
+            <span className="text-[10px] text-earth-500 sm:text-[11px]">{it.label}</span>
+            <span className={`text-lg font-bold tabular-nums sm:text-[15px] ${toneClass}`}>
               {it.value}
             </span>
           </div>

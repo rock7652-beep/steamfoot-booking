@@ -268,10 +268,10 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-3 border-b border-earth-200 pb-3">
-        <span className="border-b-2 border-primary-600 px-3 py-2 font-medium text-primary-700">營收明細</span>
-        <CashbookShortcut readOnly={isViewMode} />
-        <Link href="/dashboard/cashbook" className="px-3 py-2 text-sm text-primary-700">完整現金管理 →</Link>
+      <div aria-label="營運頁籤" className="grid grid-cols-2 items-center gap-2 border-b border-earth-200 pb-3 md:flex md:flex-wrap md:gap-3">
+        <span className="flex min-h-11 items-center justify-center rounded-lg border-b-2 border-primary-600 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 md:min-h-0 md:bg-transparent md:py-1.5">營收明細</span>
+        <CashbookShortcut readOnly={isViewMode} triggerClassName="w-full justify-center md:min-h-0 md:w-auto md:px-3 md:py-1.5" />
+        <Link href="/dashboard/cashbook" className="col-span-2 flex min-h-11 items-center justify-center rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 md:col-span-1 md:min-h-0 md:border-0 md:bg-transparent md:py-1.5">完整現金管理 →</Link>
       </div>
 
       {canDataExport ? (
@@ -291,10 +291,10 @@ export default async function RevenuePage({ searchParams }: PageProps) {
 
       <KpiStrip items={kpis} />
 
-      <div className="grid grid-cols-12 gap-3">
+      <div className="grid grid-cols-12 gap-2.5 sm:gap-3">
         <div className="col-span-12 lg:col-span-9">
           <section className="overflow-hidden rounded-xl border border-earth-200 bg-white">
-            <div className="border-b border-earth-100 px-3 py-3">
+            <div className="border-b border-earth-100 px-2.5 py-2.5 sm:px-3 sm:py-3">
               <div>
                 <h2 className="text-sm font-semibold text-earth-800">交易工作台</h2>
                 <p className="mt-0.5 text-[11px] text-earth-400">
@@ -302,14 +302,14 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                 </p>
               </div>
 
-              <form method="GET" className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.15fr_1.15fr_auto_auto] xl:items-end">
+              <form method="GET" className="mt-2.5 grid gap-1.5 sm:mt-3 sm:gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1.15fr_1.15fr_auto_auto] xl:items-end">
                 <label className="text-[11px] text-earth-500">
                   開始日期
                   <input
                     name="dateFrom"
                     type="date"
                     defaultValue={dateFrom}
-                    className="mt-1 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   />
                 </label>
                 <label className="text-[11px] text-earth-500">
@@ -318,7 +318,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                     name="dateTo"
                     type="date"
                     defaultValue={dateTo}
-                    className="mt-1 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   />
                 </label>
                 <label className="text-[11px] text-earth-500">
@@ -326,7 +326,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                   <select
                     name="transactionType"
                     defaultValue={params.transactionType ?? ""}
-                    className="mt-1 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   >
                     <option value="">所有類型</option>
                     {Object.entries(TX_TYPE_LABEL).map(([value, label]) => (
@@ -339,7 +339,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                   <select
                     name="staff"
                     defaultValue={params.staff ?? ""}
-                    className="mt-1 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200"
+                    className="mt-0.5 block min-h-10 w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-200 sm:mt-1"
                   >
                     <option value="">全部店長</option>
                     {staffOptions.map((staff) => (
@@ -361,7 +361,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
                 </Link>
               </form>
 
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-800">
+              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 rounded-lg bg-primary-50 px-2.5 py-2 text-xs text-primary-800 sm:mt-3 sm:gap-2 sm:px-3">
                 <span>
                   指定期間營業額 <strong>NT$ {periodRevenue.toLocaleString()}</strong>
                 </span>

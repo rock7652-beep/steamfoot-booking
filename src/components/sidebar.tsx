@@ -868,7 +868,7 @@ export default function DashboardShell({
           // 後台跨頁刻意使用原生導頁。Next 16 的 client navigation 偶發在 RSC
           // 已回 200 後仍不 commit，導致導頁指示永久 pending；完整導頁可確保
           // 每次點擊都由瀏覽器完成並清除舊頁狀態。
-          className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+          className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active
               ? "bg-primary-100 text-primary-800"
               : isHighlighted

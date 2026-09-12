@@ -237,7 +237,7 @@ export function TrialLimitModal({
 export function PlanBadge({ plan }: { plan: PricingPlan }) {
   const info = PRICING_PLAN_INFO[plan];
   return (
-    <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ${info.bgColor} ${info.color}`}>
+    <span className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-medium ${info.bgColor} ${info.color}`}>
       {info.label}
     </span>
   );

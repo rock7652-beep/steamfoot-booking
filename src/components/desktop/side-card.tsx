@@ -35,7 +35,7 @@ export function SideCard({
 }: SideCardProps) {
   return (
     <section
-      className={`rounded-xl border border-earth-200 bg-white ${className ?? ""}`}
+      className={`rounded-xl border border-earth-100 bg-[#fffdfc] shadow-[0_1px_2px_rgb(63_58_52_/_0.025),0_8px_24px_rgb(47_93_80_/_0.025)] ${className ?? ""}`}
     >
       <div
         className={`flex items-center justify-between px-3 py-2 ${
