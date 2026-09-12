@@ -23,7 +23,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
 
   const { date: requestedDate, customerId, new: openNew } = await searchParams;
   const date = requestedDate && validSpaDate(requestedDate) ? requestedDate : toLocalDateStr();
-  const [bookings, staff, customers, treatments, locations, canCreate, canUpdate,canCheckout] = await Promise.all([
+  const [bookings, staff, customers, treatments, locations, canCreate, canUpdate,canCheckout,canCreateCustomer] = await Promise.all([
     getSpaScheduleForDay(storeId, date),
     prisma.staff.findMany({ where: { storeId, status: "ACTIVE" }, select: { id: true, displayName: true, colorCode: true }, orderBy: { displayName: "asc" } }),
     prisma.customer.findMany({ where: { storeId }, select: { id: true, name: true, phone: true }, orderBy: { name: "asc" } }),
@@ -32,10 +32,11 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
     checkPermission(user.role, user.staffId, "booking.create"),
     checkPermission(user.role, user.staffId, "booking.update"),
     checkPermission(user.role, user.staffId, "transaction.create"),
+    checkPermission(user.role, user.staffId, "customer.create"),
   ]);
   return <PageShell className="max-w-none px-4 py-6">
     <SpaScheduleWorkspace key={`${date}:${customerId??""}:${openNew??""}`} initialCustomerId={openNew==="1"&&canCreate&&customers.some(c=>c.id===customerId)?customerId:undefined} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}
-      locations={locations} canCreate={canCreate} canUpdate={canUpdate} canCheckout={canCheckout&&canUpdate}
+      locations={locations} canCreateCustomer={canCreateCustomer} canCreate={canCreate} canUpdate={canUpdate} canCheckout={canCheckout&&canUpdate}
       treatments={treatments.map(t => ({ id: t.id, name: t.name, price: Number(t.price), serviceMinutes: t.serviceMinutes,
         bufferMinutes: t.bufferMinutes, locationIds: t.serviceLocations.map(l => l.serviceLocationId) }))} />
   </PageShell>;

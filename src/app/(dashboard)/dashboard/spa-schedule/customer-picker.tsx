@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizePhone } from "@/lib/normalize";
 import { useState } from "react";
 
 type Customer = { id: string; name: string; phone: string };
@@ -9,11 +10,17 @@ export function SpaCustomerPicker({
   value,
   locked,
   onChange,
+  newCustomer,
+  onNewCustomerChange,
+  hasCompanions,
 }: {
   customers: Customer[];
   value: string;
   locked: boolean;
   onChange: (id: string) => void;
+  newCustomer?: { name: string; phone: string } | null;
+  onNewCustomerChange?: (value: { name: string; phone: string } | null) => void;
+  hasCompanions?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -23,10 +30,79 @@ export function SpaCustomerPicker({
     `${c.name} ${c.phone}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
   function select(customer: Customer) {
+    onNewCustomerChange?.(null);
     onChange(customer.id);
     setQuery("");
     setOpen(false);
   }
+  const existingPhone = newCustomer
+    ? customers.find(
+        (c) =>
+          normalizePhone(c.phone) === normalizePhone(newCustomer.phone) &&
+          !!newCustomer.phone.trim(),
+      )
+    : undefined;
+  if (newCustomer && onNewCustomerChange)
+    return (
+      <section
+        aria-label="新顧客資料"
+        className="space-y-3 rounded-lg bg-primary-50 p-4"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="font-semibold">新顧客聯絡資料</h3>
+          <button
+            type="button"
+            className="text-primary-700 underline"
+            onClick={() => onNewCustomerChange(null)}
+          >
+            改選既有顧客
+          </button>
+        </div>
+        <label className="block">
+          聯絡電話
+          <input
+            type="tel"
+            autoComplete="tel"
+            value={newCustomer.phone}
+            onChange={(e) =>
+              onNewCustomerChange({ ...newCustomer, phone: e.target.value })
+            }
+            placeholder="09 開頭，共 10 碼"
+            className="mt-1 w-full rounded-lg border border-earth-200 bg-white px-3 py-2"
+          />
+        </label>
+        {existingPhone && (
+          <div
+            role="status"
+            className="rounded-lg border border-primary-200 bg-white p-3"
+          >
+            <p>此電話已有顧客：{existingPhone.name}</p>
+            <button
+              type="button"
+              className="mt-2 text-primary-700 underline"
+              onClick={() => select(existingPhone)}
+            >
+              使用這位顧客
+            </button>
+          </div>
+        )}
+        <label className="block">
+          顧客稱呼
+          <input
+            value={newCustomer.name}
+            maxLength={100}
+            onChange={(e) =>
+              onNewCustomerChange({ ...newCustomer, name: e.target.value })
+            }
+            placeholder="例如：陳小姐、林先生"
+            className="mt-1 w-full rounded-lg border border-earth-200 bg-white px-3 py-2"
+          />
+        </label>
+        <p className="text-sm text-earth-500">
+          只需一位代表人的稱呼與電話。確認預約時一併建立顧客資料。
+        </p>
+      </section>
+    );
   return (
     <section
       className="relative space-y-2"
@@ -48,7 +124,7 @@ export function SpaCustomerPicker({
           open && matches[active] ? `spa-customer-option-${active}` : undefined
         }
         autoComplete="off"
-        placeholder="輸入姓名或電話，直接選擇顧客"
+        placeholder="輸入電話或稱呼，直接選擇顧客"
         disabled={locked}
         className="w-full rounded-lg border border-earth-200 bg-white px-3 py-2"
         value={selected ? `${selected.name} · ${selected.phone}` : query}
@@ -118,9 +194,25 @@ export function SpaCustomerPicker({
           )}
         </div>
       )}
-      {locked && (
+      {!locked && onNewCustomerChange && (
+        <button
+          type="button"
+          className="text-primary-700 underline"
+          onClick={() => {
+            onChange("");
+            onNewCustomerChange({
+              name: /[a-zA-Z\u4e00-\u9fff]/.test(query) ? query : "",
+              phone: /^[+\d\s()-]+$/.test(query) ? query : "",
+            });
+            setOpen(false);
+          }}
+        >
+          ＋新顧客：填稱呼與電話
+        </button>
+      )}
+      {(locked || hasCompanions) && (
         <p className="text-sm text-earth-500">
-          這組預約由 {selected?.name ?? "已選顧客"} 聯絡，同行者共用此聯絡資料。
+          整組只需一位代表人的稱呼與電話，同行者共用此聯絡資料。
         </p>
       )}
     </section>

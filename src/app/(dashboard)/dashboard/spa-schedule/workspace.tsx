@@ -1,4 +1,6 @@
 "use client";
+import { createCustomer } from "@/server/actions/customer";
+import { normalizePhone } from "@/lib/normalize";
 import { SpaCustomerPicker } from "./customer-picker";
 import { SpaBookingSummary } from "./booking-summary";
 import { spaPartyLabel, spaReceiptStatus } from "@/lib/spa-booking-display";
@@ -36,6 +38,7 @@ type Props = {
   treatments: Treatment[];
   locations: Named[];
   canCreate: boolean;
+  canCreateCustomer?: boolean;
   canUpdate: boolean;
   canCheckout: boolean;
 };
@@ -59,13 +62,24 @@ export function SpaScheduleWorkspace(props: Props) {
     date,
     bookings,
     staff,
-    customers,
+    customers: initialCustomers,
     treatments,
     locations,
     canCreate,
     canUpdate,
     canCheckout,
   } = props;
+  const [addedCustomers, setAddedCustomers] = useState<Props["customers"]>([]);
+  const customers = [
+    ...initialCustomers,
+    ...addedCustomers.filter(
+      (c) => !initialCustomers.some((x) => x.id === c.id),
+    ),
+  ];
+  const [newCustomer, setNewCustomer] = useState<{
+    name: string;
+    phone: string;
+  } | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const [interval, setIntervalMinutes] = useState<15 | 30>(30);
@@ -84,6 +98,10 @@ export function SpaScheduleWorkspace(props: Props) {
         }
       : null,
   );
+  const customerReady =
+    !!draft?.customerId ||
+    (!!newCustomer?.name.trim() &&
+      /^09\d{8}$/.test(normalizePhone(newCustomer.phone)));
   const [companions, setCompanions] = useState<CreateSpaBookingInput[]>([]);
   const [groupKey, setGroupKey] = useState(() => crypto.randomUUID());
   const [editing, setEditing] = useState<SpaScheduleBooking | null>(null);
@@ -205,6 +223,13 @@ export function SpaScheduleWorkspace(props: Props) {
     (p) =>
       !companions.some((c) => c.serviceStaffId === p.id && queuedConflict(c)),
   );
+  const effectiveStaff = availableProviders.some(
+    (p) => p.id === draft?.serviceStaffId,
+  )
+    ? (draft?.serviceStaffId ?? "")
+    : availableProviders.length === 1
+      ? availableProviders[0].id
+      : "";
   const selected = treatments.filter((t) => draft?.treatmentIds.includes(t.id));
   const allowed = (
     providerKey && providerResult.key === providerKey
@@ -225,6 +250,7 @@ export function SpaScheduleWorkspace(props: Props) {
       : "";
   const openNew = (time = "10:00", staffId = staff[0]?.id ?? "") => {
     if (!canCreate) return;
+    setNewCustomer(null);
     setConfirmCancel(false);
     setCompanions([]);
     setGroupKey(crypto.randomUUID());
@@ -241,6 +267,7 @@ export function SpaScheduleWorkspace(props: Props) {
     });
   };
   const openEdit = (booking: SpaScheduleBooking) => {
+    setNewCustomer(null);
     setConfirmCancel(false);
     setCompanions([]);
     setEditing(booking);
@@ -266,19 +293,54 @@ export function SpaScheduleWorkspace(props: Props) {
       setError("請選擇此時段可用的服務位置");
       return;
     }
-    if (
-      !cancel &&
-      (checkingProviders ||
-        !availableProviders.some((p) => p.id === draft.serviceStaffId))
-    ) {
+    if (!cancel && (checkingProviders || !effectiveStaff)) {
       setError("請選擇此時段可服務的人員");
       return;
     }
     setError("");
     startTransition(async () => {
       try {
+        let customerId = draft.customerId;
+        if (!cancel && !editing && !customerId && newCustomer) {
+          const created = await createCustomer(newCustomer);
+          if (!created.success) {
+            if (created.existingCustomerId) {
+              setAddedCustomers((prev) => [
+                ...prev,
+                {
+                  id: created.existingCustomerId!,
+                  name: "既有顧客",
+                  phone: normalizePhone(newCustomer.phone),
+                },
+              ]);
+              setDraft((prev) =>
+                prev
+                  ? { ...prev, customerId: created.existingCustomerId! }
+                  : prev,
+              );
+              setNewCustomer(null);
+              setError(
+                "此電話已有顧客資料，已改用既有顧客；請確認後再送出預約。",
+              );
+            } else setError(created.error);
+            return;
+          }
+          customerId = created.data.customerId;
+          setAddedCustomers((prev) => [
+            ...prev,
+            {
+              id: customerId,
+              name: newCustomer.name.trim(),
+              phone: normalizePhone(newCustomer.phone),
+            },
+          ]);
+          setDraft((prev) => (prev ? { ...prev, customerId } : prev));
+          setNewCustomer(null);
+        }
         const data = {
           ...draft,
+          customerId,
+          serviceStaffId: effectiveStaff,
           serviceLocationId: effectiveLocation || undefined,
         };
         const result =
@@ -297,7 +359,10 @@ export function SpaScheduleWorkspace(props: Props) {
                 ? await createSpaGroupBookingAction({
                     requestKey: groupKey,
                     customerId: data.customerId,
-                    guests: [...companions, data],
+                    guests: [...companions, data].map((guest) => ({
+                      ...guest,
+                      customerId: data.customerId,
+                    })),
                   })
                 : await createSpaBookingAction(data);
         if (!result.success) {
@@ -782,13 +847,7 @@ export function SpaScheduleWorkspace(props: Props) {
                       <select
                         disabled={checkingProviders}
                         className={inputClass}
-                        value={
-                          availableProviders.some(
-                            (p) => p.id === draft.serviceStaffId,
-                          )
-                            ? draft.serviceStaffId
-                            : ""
-                        }
+                        value={effectiveStaff}
                         onChange={(e) =>
                           setDraft({
                             ...draft,
@@ -873,7 +932,10 @@ export function SpaScheduleWorkspace(props: Props) {
                   <SpaCustomerPicker
                     customers={customers}
                     value={draft.customerId}
-                    locked={companions.length > 0 || !!editing?.partyGroupId}
+                    locked={!!editing?.partyGroupId}
+                    newCustomer={newCustomer}
+                    onNewCustomerChange={!editing && props.canCreateCustomer ? setNewCustomer : undefined}
+                    hasCompanions={companions.length > 0}
                     onChange={(customerId) =>
                       setDraft({ ...draft, customerId })
                     }
@@ -910,7 +972,8 @@ export function SpaScheduleWorkspace(props: Props) {
             {!summaryOnly && !confirmCancel && (
               <div className="w-full space-y-1 text-sm" aria-label="預約摘要">
                 <p className="truncate">
-                  {customers.find((c) => c.id === draft.customerId)?.name ??
+                  {(customers.find((c) => c.id === draft.customerId)?.name ??
+                    newCustomer?.name.trim()) ||
                     "尚未選擇顧客"}{" "}
                   · {selected.map((t) => t.name).join("＋") || "尚未選擇服務"}
                 </p>
@@ -1006,25 +1069,30 @@ export function SpaScheduleWorkspace(props: Props) {
               <button
                 disabled={
                   pending ||
-                  !draft.customerId ||
+                  checkingProviders ||
                   !draft.treatmentIds.length ||
                   !effectiveLocation ||
-                  !availableProviders.some((p) => p.id === draft.serviceStaffId)
+                  !effectiveStaff
                 }
                 className="rounded-lg border border-earth-200 px-3 py-2"
                 onClick={() => {
                   setCompanions((prev) => [
                     ...prev,
-                    { ...draft, serviceLocationId: effectiveLocation },
+                    {
+                      ...draft,
+                      serviceStaffId: effectiveStaff,
+                      serviceLocationId: effectiveLocation,
+                    },
                   ]);
                   setDraft({
                     ...draft,
-                    treatmentIds: [],
+                    treatmentIds: [...draft.treatmentIds],
                     serviceStaffId: "",
                     serviceLocationId: undefined,
                     requestKey: crypto.randomUUID(),
                     notes: "",
                   });
+                  setAvailabilityRevision((n) => n + 1);
                   setError("");
                 }}
               >
@@ -1036,10 +1104,10 @@ export function SpaScheduleWorkspace(props: Props) {
                 disabled={
                   pending ||
                   checkingProviders ||
-                  !draft.customerId ||
+                  !customerReady ||
                   !draft.treatmentIds.length ||
                   !effectiveLocation ||
-                  !availableProviders.some((p) => p.id === draft.serviceStaffId)
+                  !effectiveStaff
                 }
                 onClick={() => submit()}
                 className="ml-auto rounded-lg bg-primary-700 px-4 py-2 text-white disabled:opacity-50"
