@@ -115,11 +115,11 @@ export function SpaCheckoutPanel({
       onClose={() => {
         if (!pending) onClose();
       }}
-      width={520}
+      width={600}
       labelledById="spa-checkout-title"
     >
       <form
-        className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        className="spa-checkout-form min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onSubmit={(e) => {
           e.preventDefault();
           if (!confirmed || !valid) return;
@@ -167,13 +167,13 @@ export function SpaCheckoutPanel({
             關閉
           </button>
         </header>
-        <section className="rounded-xl bg-earth-50 p-4">
-          <p className="font-semibold">{customerName}</p>
+        <section className="spa-checkout-summary space-y-2 rounded-xl border border-earth-200 bg-earth-50 p-4">
+          <p className="spa-checkout-customer font-semibold">{customerName}</p>
           <p>{booking.serviceName}</p>
           <p>
             {booking.startTime}–{booking.endTime}
           </p>
-          <p className="mt-3 text-2xl font-bold">
+          <p className="spa-checkout-total mt-3 text-2xl font-bold text-primary-800">
             服務金額 NT${chargeAmount.toLocaleString()}
           </p>
         </section>

@@ -148,3 +148,13 @@
   .spa-home-grid { grid-template-columns: 1fr; }
   .spa-home-intro { align-items: stretch; flex-direction: column; padding: 20px; }
 }
+
+/* Booking and checkout share a readable drawer scale. */
+[data-spa-admin="true"] :is(.spa-booking-form, .spa-checkout-form) { font-size: 16px; line-height: 1.5; }
+[data-spa-admin="true"] :is(.spa-booking-form, .spa-checkout-form) :is(label, input, select, textarea) { font-size: 16px; }
+[data-spa-admin="true"] :is(.spa-booking-form, .spa-checkout-form) :is(small, .text-sm) { font-size: 14px; }
+[data-spa-admin="true"] .spa-checkout-form .spa-checkout-customer { font-size: 18px; line-height: 1.5; }
+[data-spa-admin="true"] .spa-checkout-form .spa-checkout-total { font-size: 24px; line-height: 1.35; }
+@media (max-width: 479px) {
+  .spa-booking-fields { grid-template-columns: 1fr; }
+}

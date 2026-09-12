@@ -86,7 +86,7 @@ export function SpaScheduleWorkspace(props: Props) {
   const [companions, setCompanions] = useState<CreateSpaBookingInput[]>([]);
   const [groupKey, setGroupKey] = useState(() => crypto.randomUUID());
   const [editing, setEditing] = useState<SpaScheduleBooking | null>(null);
-  const [step, setStep] = useState(0);
+  const [customerSearch, setCustomerSearch] = useState("");
   const [error, setError] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [notice, setNotice] = useState("");
@@ -229,7 +229,7 @@ export function SpaScheduleWorkspace(props: Props) {
     setCompanions([]);
     setGroupKey(crypto.randomUUID());
     setEditing(null);
-    setStep(0);
+    setCustomerSearch("");
     setError("");
     setDraft({
       customerId: props.initialCustomerId ?? "",
@@ -245,7 +245,7 @@ export function SpaScheduleWorkspace(props: Props) {
     setConfirmCancel(false);
     setCompanions([]);
     setEditing(booking);
-    setStep(0);
+    setCustomerSearch("");
     setError("");
     setDraft({
       customerId: booking.customerId,
@@ -417,7 +417,12 @@ export function SpaScheduleWorkspace(props: Props) {
             }
           }}
         >
-          <div style={{ minWidth: Math.max(350, staff.length * 210 + 70), width: "100%" }}>
+          <div
+            style={{
+              minWidth: Math.max(350, staff.length * 210 + 70),
+              width: "100%",
+            }}
+          >
             <div
               className="sticky top-0 z-20 grid border-b border-earth-200 bg-earth-50"
               style={{
@@ -599,7 +604,7 @@ export function SpaScheduleWorkspace(props: Props) {
           onClose={() => {
             if (!pending) setDraft(null);
           }}
-          width={600}
+          width={680}
           labelledById="spa-panel-title"
         >
           <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-5">
@@ -672,280 +677,250 @@ export function SpaScheduleWorkspace(props: Props) {
                     <p>整組一起送出，有衝突時全組保留，不會建立半套預約。</p>
                   </section>
                 )}
-                <nav
-                  aria-label="預約步驟"
-                  className="mb-5 grid grid-cols-4 gap-1"
+                <fieldset
+                  className="spa-booking-form space-y-5"
+                  disabled={pending || confirmCancel || !editable}
                 >
-                  {["服務", "時間", "顧客", "確認"].map((label, i) => (
-                    <button
-                      key={label}
-                      disabled={pending || confirmCancel}
-                      onClick={() => setStep(i)}
-                      className={`min-h-11 rounded-lg py-2 text-sm ${i === step ? "bg-primary-700 text-white" : "bg-earth-50"}`}
-                    >
-                      {i + 1} {label}
-                    </button>
-                  ))}
-                </nav>
-                <fieldset disabled={pending || confirmCancel || !editable}>
-                  {step === 0 && (
-                    <div className="space-y-2">
-                      <h3 className="font-semibold">選擇服務</h3>
-                      {!treatments.length && (
-                        <Link
-                          href="/dashboard/plans"
-                          className="block rounded-lg bg-amber-50 p-3 underline"
-                        >
-                          尚無啟用服務，前往方案管理 →
-                        </Link>
-                      )}
-                      {treatments.map((t) => (
-                        <label
-                          key={t.id}
-                          className="flex items-center gap-3 rounded-lg border border-earth-200 p-3"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={draft.treatmentIds.includes(t.id)}
-                            onChange={(e) =>
-                              setDraft({
-                                ...draft,
-                                serviceLocationId: undefined,
-                                treatmentIds: e.target.checked
-                                  ? [...draft.treatmentIds, t.id]
-                                  : draft.treatmentIds.filter(
-                                      (id) => id !== t.id,
-                                    ),
-                              })
-                            }
-                          />
-                          <span className="flex-1">
-                            {t.name}
-                            <small className="block text-earth-500">
-                              {t.serviceMinutes} 分鐘
-                              {t.bufferMinutes > 0 &&
-                                `＋緩衝 ${t.bufferMinutes} 分鐘`}
-                            </small>
-                          </span>
-                          <span>${t.price.toLocaleString()}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                  {step === 1 && (
-                    <div className="spa-booking-fields">
-                      <label className="block">
-                        日期
-                        <input
-                          type="date"
-                          disabled={companions.length > 0}
-                          className={inputClass}
-                          value={draft.bookingDate}
-                          onChange={(e) =>
-                            setDraft({ ...draft, bookingDate: e.target.value })
-                          }
-                        />
-                      </label>
-                      <label className="block">
-                        開始時間
-                        <input
-                          type="time"
-                          className={inputClass}
-                          value={draft.startTime}
-                          onChange={(e) =>
-                            setDraft({ ...draft, startTime: e.target.value })
-                          }
-                        />
-                      </label>
-                      {!checkingProviders &&
-                        providerResult.key === providerKey &&
-                        !!providerResult.suggestions?.length && (
-                          <div className="rounded-lg bg-earth-50 p-3">
-                            <p className="mb-2 text-sm">
-                              當日接下來可預約的時段（人員與位置皆有空檔）
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {providerResult.suggestions.map((s) => (
-                                <button
-                                  key={s.startTime}
-                                  type="button"
-                                  className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"
-                                  onClick={() =>
-                                    setDraft({
-                                      ...draft,
-                                      startTime: s.startTime,
-                                      serviceStaffId: "",
-                                    })
-                                  }
-                                >
-                                  {s.startTime}–{s.endTime}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      <label className="block">
-                        服務人員
-                        <select
-                          disabled={checkingProviders}
-                          className={inputClass}
-                          value={
-                            availableProviders.some(
-                              (p) => p.id === draft.serviceStaffId,
-                            )
-                              ? draft.serviceStaffId
-                              : ""
-                          }
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              serviceStaffId: e.target.value,
-                            })
-                          }
-                        >
-                          <option value="">
-                            {checkingProviders ? "查詢中…" : "請選擇可服務人員"}
-                          </option>
-                          {availableProviders.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {!checkingProviders && (
-                        <p className="text-sm text-earth-500">
-                          {!providerKey
-                            ? "請先選擇服務。"
-                            : (providerResult.error ??
-                              (availableProviders.length
-                                ? "僅顯示可提供所選服務、有排班且人員與位置皆有空檔的選項。"
-                                : providerResult.reason ||
-                                  "此時段無法安排，請選擇其他時間。"))}
-                        </p>
-                      )}
-
-                      {!checkingProviders &&
-                        providerResult.key === providerKey &&
-                        providerResult.setupHref && (
-                          <Link
-                            href={providerResult.setupHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block rounded-lg border border-earth-200 px-3 py-2 text-sm"
-                          >
-                            {providerResult.setupLabel} ↗
-                          </Link>
-                        )}
-                      <button
-                        type="button"
-                        disabled={checkingProviders}
-                        className="text-sm underline disabled:opacity-50"
-                        onClick={() => setAvailabilityRevision((v) => v + 1)}
+                  <section className="space-y-2" aria-label="預約顧客">
+                    <h3 className="font-semibold">顧客</h3>
+                    <input
+                      aria-label="搜尋預約顧客"
+                      placeholder="搜尋姓名或電話"
+                      className={inputClass}
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.target.value)}
+                    />
+                    <label className="block">
+                      主要聯絡人
+                      <select
+                        disabled={
+                          companions.length > 0 || !!editing?.partyGroupId
+                        }
+                        className={inputClass}
+                        value={draft.customerId}
+                        onChange={(e) =>
+                          setDraft({ ...draft, customerId: e.target.value })
+                        }
                       >
-                        重新檢查空檔與設定
-                      </button>
-                      <label className="block">
-                        服務位置
-                        <select
-                          disabled={checkingProviders}
-                          className={inputClass}
-                          value={effectiveLocation}
-                          onChange={(e) =>
-                            setDraft({
-                              ...draft,
-                              serviceLocationId: e.target.value || undefined,
-                            })
-                          }
-                        >
-                          <option value="">請選擇</option>
-                          {allowed.map((l) => (
-                            <option key={l.id} value={l.id}>
-                              {l.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {!allowed.length && (
-                        <p className="text-sm text-amber-800">
-                          此時段沒有可用位置，請調整時間或檢查位置設定。
-                        </p>
-                      )}
-                      {allowed.length === 1 && (
-                        <p className="text-sm text-earth-500">
-                          已自動帶入唯一可用位置。送出時會再次確認，避免同時預約衝突。
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {step === 2 && (
-                    <div className="space-y-4">
-                      <label className="block">
-                        主要聯絡人
-                        <select
-                          disabled={
-                            companions.length > 0 || !!editing?.partyGroupId
-                          }
-                          className={inputClass}
-                          value={draft.customerId}
-                          onChange={(e) =>
-                            setDraft({ ...draft, customerId: e.target.value })
-                          }
-                        >
-                          <option value="">請選擇顧客</option>
-                          {customers.map((c) => (
+                        <option value="">請選擇顧客</option>
+                        {customers
+                          .filter(
+                            (c) =>
+                              c.id === draft.customerId ||
+                              `${c.name} ${c.phone}`
+                                .toLowerCase()
+                                .includes(customerSearch.toLowerCase()),
+                          )
+                          .map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.name} · {c.phone}
                             </option>
                           ))}
-                        </select>
-                      </label>
-                      <label className="block">
-                        備註
-                        <textarea
-                          className={inputClass}
-                          maxLength={500}
-                          value={draft.notes}
+                      </select>
+                    </label>
+                  </section>
+                  <div className="space-y-2">
+                    <h3 className="font-semibold">選擇服務</h3>
+                    {!treatments.length && (
+                      <Link
+                        href="/dashboard/plans"
+                        className="block rounded-lg bg-amber-50 p-3 underline"
+                      >
+                        尚無啟用服務，前往方案管理 →
+                      </Link>
+                    )}
+                    {treatments.map((t) => (
+                      <label
+                        key={t.id}
+                        className="flex items-center gap-3 rounded-lg border border-earth-200 p-3"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={draft.treatmentIds.includes(t.id)}
                           onChange={(e) =>
-                            setDraft({ ...draft, notes: e.target.value })
+                            setDraft({
+                              ...draft,
+                              serviceLocationId: undefined,
+                              treatmentIds: e.target.checked
+                                ? [...draft.treatmentIds, t.id]
+                                : draft.treatmentIds.filter(
+                                    (id) => id !== t.id,
+                                  ),
+                            })
                           }
                         />
+                        <span className="flex-1">
+                          {t.name}
+                          <small className="block text-earth-500">
+                            {t.serviceMinutes} 分鐘
+                            {t.bufferMinutes > 0 &&
+                              `＋緩衝 ${t.bufferMinutes} 分鐘`}
+                          </small>
+                        </span>
+                        <span>${t.price.toLocaleString()}</span>
                       </label>
-                    </div>
-                  )}
-                  {step === 3 && (
-                    <div className="space-y-3 rounded-xl bg-earth-50 p-4">
-                      <p>
-                        {selected.map((t) => t.name).join("＋") ||
-                          "尚未選擇服務"}
+                    ))}
+                  </div>
+                  <div className="spa-booking-fields">
+                    <label className="block">
+                      日期
+                      <input
+                        type="date"
+                        disabled={companions.length > 0}
+                        className={inputClass}
+                        value={draft.bookingDate}
+                        onChange={(e) =>
+                          setDraft({ ...draft, bookingDate: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label className="block">
+                      開始時間
+                      <input
+                        type="time"
+                        className={inputClass}
+                        value={draft.startTime}
+                        onChange={(e) =>
+                          setDraft({ ...draft, startTime: e.target.value })
+                        }
+                      />
+                    </label>
+                    {!checkingProviders &&
+                      providerResult.key === providerKey &&
+                      !!providerResult.suggestions?.length && (
+                        <div className="rounded-lg bg-earth-50 p-3">
+                          <p className="mb-2 text-sm">
+                            當日接下來可預約的時段（人員與位置皆有空檔）
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {providerResult.suggestions.map((s) => (
+                              <button
+                                key={s.startTime}
+                                type="button"
+                                className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"
+                                onClick={() =>
+                                  setDraft({
+                                    ...draft,
+                                    startTime: s.startTime,
+                                    serviceStaffId: "",
+                                  })
+                                }
+                              >
+                                {s.startTime}–{s.endTime}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    <label className="block">
+                      服務人員
+                      <select
+                        disabled={checkingProviders}
+                        className={inputClass}
+                        value={
+                          availableProviders.some(
+                            (p) => p.id === draft.serviceStaffId,
+                          )
+                            ? draft.serviceStaffId
+                            : ""
+                        }
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            serviceStaffId: e.target.value,
+                          })
+                        }
+                      >
+                        <option value="">
+                          {checkingProviders ? "查詢中…" : "請選擇可服務人員"}
+                        </option>
+                        {availableProviders.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {!checkingProviders && (
+                      <p className="text-sm text-earth-500">
+                        {!providerKey
+                          ? "請先選擇服務。"
+                          : (providerResult.error ??
+                            (availableProviders.length
+                              ? "僅顯示可提供所選服務、有排班且人員與位置皆有空檔的選項。"
+                              : providerResult.reason ||
+                                "此時段無法安排，請選擇其他時間。"))}
                       </p>
-                      <p>
-                        {draft.bookingDate} {draft.startTime} · 共{" "}
-                        {selected.reduce(
-                          (n, t) => n + t.serviceMinutes + t.bufferMinutes,
-                          0,
-                        )}{" "}
-                        分鐘
+                    )}
+
+                    {!checkingProviders &&
+                      providerResult.key === providerKey &&
+                      providerResult.setupHref && (
+                        <Link
+                          href={providerResult.setupHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block rounded-lg border border-earth-200 px-3 py-2 text-sm"
+                        >
+                          {providerResult.setupLabel} ↗
+                        </Link>
+                      )}
+                    <button
+                      type="button"
+                      disabled={checkingProviders}
+                      className="text-sm underline disabled:opacity-50"
+                      onClick={() => setAvailabilityRevision((v) => v + 1)}
+                    >
+                      重新檢查空檔與設定
+                    </button>
+                    <label className="block">
+                      服務位置
+                      <select
+                        disabled={checkingProviders}
+                        className={inputClass}
+                        value={effectiveLocation}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            serviceLocationId: e.target.value || undefined,
+                          })
+                        }
+                      >
+                        <option value="">請選擇</option>
+                        {allowed.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {!allowed.length && (
+                      <p className="text-sm text-amber-800">
+                        此時段沒有可用位置，請調整時間或檢查位置設定。
                       </p>
-                      <p>
-                        {staff.find((s) => s.id === draft.serviceStaffId)?.name}{" "}
-                        ·{" "}
-                        {locations.find((l) => l.id === effectiveLocation)
-                          ?.name ?? "尚未選擇位置"}
+                    )}
+                    {allowed.length === 1 && (
+                      <p className="text-sm text-earth-500">
+                        已自動帶入唯一可用位置。送出時會再次確認，避免同時預約衝突。
                       </p>
-                      <p>
-                        {customers.find((c) => c.id === draft.customerId)
-                          ?.name ?? "尚未選擇顧客"}
-                      </p>
-                      <p className="font-bold">
-                        NT$
-                        {selected
-                          .reduce((n, t) => n + t.price, 0)
-                          .toLocaleString()}
-                      </p>
-                      <p className="text-sm">{draft.notes}</p>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <details className="rounded-lg border border-earth-200 p-3">
+                    <summary className="cursor-pointer font-medium">
+                      備註（選填）
+                    </summary>
+                    <label className="block">
+                      備註
+                      <textarea
+                        className={inputClass}
+                        maxLength={500}
+                        value={draft.notes}
+                        onChange={(e) =>
+                          setDraft({ ...draft, notes: e.target.value })
+                        }
+                      />
+                    </label>
+                  </details>
                 </fieldset>
               </>
             )}
@@ -959,6 +934,38 @@ export function SpaScheduleWorkspace(props: Props) {
             )}
           </div>
           <footer className="flex shrink-0 flex-wrap items-center gap-2 border-t border-earth-200 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] [&>button]:min-h-11">
+            {!summaryOnly && !confirmCancel && (
+              <div className="w-full space-y-1 text-sm" aria-label="預約摘要">
+                <p className="truncate">
+                  {customers.find((c) => c.id === draft.customerId)?.name ??
+                    "尚未選擇顧客"}{" "}
+                  · {selected.map((t) => t.name).join("＋") || "尚未選擇服務"}
+                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <span>
+                    {draft.bookingDate} {draft.startTime} ·{" "}
+                    {selected.reduce(
+                      (n, t) => n + t.serviceMinutes + t.bufferMinutes,
+                      0,
+                    )}{" "}
+                    分鐘
+                  </span>
+                  <strong className="text-lg text-primary-800">
+                    {companions.length > 0 && "整組 "}NT$
+                    {[...companions, draft]
+                      .reduce(
+                        (sum, item) =>
+                          sum +
+                          treatments
+                            .filter((t) => item.treatmentIds.includes(t.id))
+                            .reduce((n, t) => n + t.price, 0),
+                        0,
+                      )
+                      .toLocaleString()}
+                  </strong>
+                </div>
+              </div>
+            )}
             {summaryOnly && editing && (
               <Link
                 href={`/dashboard/customers?search=${encodeURIComponent(customers.find((c) => c.id === editing.customerId)?.phone ?? customers.find((c) => c.id === editing.customerId)?.name ?? "")}`}
@@ -1022,98 +1029,58 @@ export function SpaScheduleWorkspace(props: Props) {
                   取消預約
                 </button>
               ))}
-            {!confirmCancel &&
-              !editing &&
-              step === 3 &&
-              companions.length < 2 && (
-                <button
-                  disabled={
-                    pending ||
-                    !draft.customerId ||
-                    !draft.treatmentIds.length ||
-                    !effectiveLocation ||
-                    !availableProviders.some(
-                      (p) => p.id === draft.serviceStaffId,
-                    )
-                  }
-                  className="rounded-lg border border-earth-200 px-3 py-2"
-                  onClick={() => {
-                    setCompanions((prev) => [
-                      ...prev,
-                      { ...draft, serviceLocationId: effectiveLocation },
-                    ]);
-                    setDraft({
-                      ...draft,
-                      treatmentIds: [],
-                      serviceStaffId: "",
-                      serviceLocationId: undefined,
-                      requestKey: crypto.randomUUID(),
-                      notes: "",
-                    });
-                    setStep(0);
-                    setError("");
-                  }}
-                >
-                  ＋加入下一位同行
-                </button>
-              )}
-            {!summaryOnly && !confirmCancel && step > 0 && (
+            {!confirmCancel && !editing && companions.length < 2 && (
               <button
-                disabled={pending}
-                onClick={() => setStep(step - 1)}
+                disabled={
+                  pending ||
+                  !draft.customerId ||
+                  !draft.treatmentIds.length ||
+                  !effectiveLocation ||
+                  !availableProviders.some((p) => p.id === draft.serviceStaffId)
+                }
                 className="rounded-lg border border-earth-200 px-3 py-2"
+                onClick={() => {
+                  setCompanions((prev) => [
+                    ...prev,
+                    { ...draft, serviceLocationId: effectiveLocation },
+                  ]);
+                  setDraft({
+                    ...draft,
+                    treatmentIds: [],
+                    serviceStaffId: "",
+                    serviceLocationId: undefined,
+                    requestKey: crypto.randomUUID(),
+                    notes: "",
+                  });
+                  setCustomerSearch("");
+                  setError("");
+                }}
               >
-                上一步
+                ＋加入下一位同行
               </button>
             )}
-            {!summaryOnly &&
-              !confirmCancel &&
-              (step < 3 ? (
-                <button
-                  disabled={
-                    pending ||
-                    (editable &&
-                      (step === 0
-                        ? !draft.treatmentIds.length
-                        : step === 1
-                          ? checkingProviders ||
-                            !effectiveLocation ||
-                            !availableProviders.some(
-                              (p) => p.id === draft.serviceStaffId,
-                            )
-                          : !draft.customerId))
-                  }
-                  onClick={() => setStep(step + 1)}
-                  className="rounded-lg bg-primary-700 px-4 py-2 text-white disabled:opacity-50"
-                >
-                  下一步
-                </button>
-              ) : (
-                editable && (
-                  <button
-                    disabled={
-                      pending ||
-                      checkingProviders ||
-                      !draft.customerId ||
-                      !draft.treatmentIds.length ||
-                      !effectiveLocation ||
-                      !availableProviders.some(
-                        (p) => p.id === draft.serviceStaffId,
-                      )
-                    }
-                    onClick={() => submit()}
-                    className="rounded-lg bg-primary-700 px-4 py-2 text-white disabled:opacity-50"
-                  >
-                    {pending
-                      ? "處理中…"
-                      : editing
-                        ? "儲存修改"
-                        : companions.length
-                          ? `確認 ${companions.length + 1} 位預約`
-                          : "確認預約"}
-                  </button>
-                )
-              ))}
+            {!summaryOnly && !confirmCancel && editable && (
+              <button
+                disabled={
+                  pending ||
+                  checkingProviders ||
+                  !draft.customerId ||
+                  !draft.treatmentIds.length ||
+                  !effectiveLocation ||
+                  !availableProviders.some((p) => p.id === draft.serviceStaffId)
+                }
+                onClick={() => submit()}
+                className="ml-auto rounded-lg bg-primary-700 px-4 py-2 text-white disabled:opacity-50"
+              >
+                {pending
+                  ? "處理中…"
+                  : editing
+                    ? "儲存修改"
+                    : companions.length
+                      ? `確認 ${companions.length + 1} 位預約`
+                      : "確認預約"}
+              </button>
+            )}
           </footer>
         </RightSheet>
       )}
