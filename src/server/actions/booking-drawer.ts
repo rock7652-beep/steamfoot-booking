@@ -45,6 +45,8 @@ async function findCollectedSingleTransaction(
 }
 
 export interface BookingDrawerPayload {
+  canEditServiceNote?: boolean;
+  canEditBookingNote?: boolean;
   booking: {
     id: string;
     bookingDate: string;
@@ -64,6 +66,7 @@ export interface BookingDrawerPayload {
       name: string;
       phone: string;
       // 內部服務備註（後台限定）— 顧客資訊區顯示（display-only）
+      notes?: string | null;
       serviceNote: string | null;
     };
     revenueStaff: {
@@ -306,6 +309,8 @@ export async function fetchBookingDetail(
     completedAgg,
     lastVisit,
     firstBookingCount,
+    canEditServiceNote,
+    canEditBookingNote,
   ] = await Promise.all([
     isTrial
       ? prisma.transaction.findFirst({
@@ -373,9 +378,13 @@ export async function fetchBookingDetail(
         ...storeFilter,
       },
     }),
+    !isViewMode ? checkPermission(user.role, user.staffId, "customer.update") : Promise.resolve(false),
+    !isViewMode ? checkPermission(user.role, user.staffId, "booking.update") : Promise.resolve(false),
   ]);
 
   return {
+    canEditServiceNote,
+    canEditBookingNote,
     booking: {
       id: booking.id,
       bookingDate: booking.bookingDate.toISOString().slice(0, 10),
@@ -394,6 +403,7 @@ export async function fetchBookingDetail(
         id: booking.customer.id,
         name: booking.customer.name,
         phone: booking.customer.phone,
+        notes: booking.customer.notes,
         serviceNote: booking.customer.serviceNote,
       },
       revenueStaff: booking.revenueStaff

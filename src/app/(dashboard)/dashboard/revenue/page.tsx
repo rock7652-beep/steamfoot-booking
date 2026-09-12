@@ -1,5 +1,6 @@
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { SpaRevenue } from "./_components/spa-revenue";
+import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -356,6 +357,12 @@ export default async function RevenuePage({ searchParams }: PageProps) {
           ) : null
         }
       />
+
+      <div className="flex flex-wrap items-center gap-3 border-b border-earth-200 pb-3">
+        <span className="border-b-2 border-primary-600 px-3 py-2 font-medium text-primary-700">營收明細</span>
+        <CashbookShortcut readOnly={isViewMode} />
+        <Link href="/dashboard/cashbook" className="px-3 py-2 text-sm text-primary-700">完整現金管理 →</Link>
+      </div>
 
       {canDataExport ? (
         <Link

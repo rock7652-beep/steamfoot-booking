@@ -124,7 +124,7 @@ export async function submitOnboarding(
     helperResult.status === "bound_existing" ||
     helperResult.status === "already_synced"
   ) {
-    await upsertCustomerIdentityLink({
+    const identitySync = await upsertCustomerIdentityLink({
       userId: helperResult.userId,
       storeId: store.id,
       customerId: helperResult.customerId,
@@ -132,6 +132,9 @@ export async function submitOnboarding(
       providerAccountId: verified.lineUserId,
       lineUserId: verified.lineUserId,
     });
+    // A successful bind without its store link cannot complete login. Let the
+    // same verified member retry the idempotent sync instead of reporting ok.
+    if (identitySync.status !== "upserted") return { status: "service_unavailable" };
   }
 
   // ── 7. Map to 顧客面 status ───────────────────────────

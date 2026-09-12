@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { formatTWTime } from "@/lib/date-utils";
 
 interface PageProps {

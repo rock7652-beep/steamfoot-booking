@@ -848,6 +848,12 @@ export async function createBooking(
         });
       }
     }
+    if (e instanceof Error && e.name === "WalletSessionError" && "code" in e && e.code === "NOT_AVAILABLE") {
+      return handleActionError(new AppError(
+        "BUSINESS_RULE",
+        "方案次數不足，可預約堂數可能已被其他預約保留，請重新整理後調整人數或聯繫店家",
+      ));
+    }
     return handleActionError(e);
   }
 }

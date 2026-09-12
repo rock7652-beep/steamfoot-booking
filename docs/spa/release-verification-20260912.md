@@ -18,3 +18,10 @@ Latest-commit create/reschedule/cancel-rebook/settlement/refund/group write acce
 
 ## Release preparation
 Resolve conflicts while preserving current Steamfoot changes and approved SPA behavior, repair the two failing gates, then verify the resulting Preview. The release runner documented in docs/spa-release-readiness-20260911.md is test-project guarded; Production schema rollout, backup/recovery readiness and HQ provisioning still require explicit evidence. Cloudflare remains excluded per user scope. Do not use schema reset, ledger rewriting or table removal as rollback.
+
+## Integration repair — 2026-09-12
+- Integrated main `0f91a605c9f22c1031b5ce4bfc3cb04cf2af70d1` into the PR branch in an isolated worktree. The six conflicts are resolved, preserving SPA scoped navigation and approved login branding alongside main's navigation feedback, HQ mobile positioning, authorized customer edit query and Steamfoot cashbook shortcut.
+- Replaced the obsolete SPA-home redirect assertion with the approved separate-home contract. Reviewed the two shared boundaries explicitly; the import freeze remains exhaustive. Added runtime home tests covering denied permissions, authorized store scoping, identity restriction and unavailable-data display. Added shared database-URL negative tests for Production/development/other branches without connecting to a database.
+- Main's three older brand-copy assertions now check the approved Logo component and login headings/copy.
+- Targeted SPA/industry suite: 40 files, 266 tests passed. Full Vitest: 469 files passed, 3 skipped; 4,245 tests passed, 32 skipped. ESLint on conflict resolutions and new boundary tests passed. Typecheck passed after generating the isolated SPA client (generation only; no migration).
+- No database writes, credentials changes, Production deployment or PR merge. Preview runtime checks follow the pushed integration commit; this section alone is not a Production-readiness approval.

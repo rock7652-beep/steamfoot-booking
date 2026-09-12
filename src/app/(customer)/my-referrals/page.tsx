@@ -4,7 +4,7 @@ import {
   getMyReferralSummary,
   type MyReferralSummary,
 } from "@/server/queries/my-referral-summary";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { ShareReferral } from "@/components/share-referral";
 import { getReferralShareContext } from "@/server/queries/referral-share-context";
 

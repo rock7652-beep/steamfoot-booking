@@ -1,3 +1,5 @@
+
+import { LoadingStatus } from "@/components/loading-status";
 /**
  * 統一的 section skeleton（Suspense fallback 用）
  *
@@ -17,6 +19,7 @@ export function SectionSkeleton({
 }: SectionSkeletonProps) {
   return (
     <div className="rounded-2xl border border-earth-100 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <LoadingStatus />
       {showHeader && (
         <div className="mb-3 flex items-center gap-2">
           <div className="h-3 w-20 animate-pulse rounded bg-earth-100" />

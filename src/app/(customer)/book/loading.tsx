@@ -1,6 +1,9 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 export default function BookLoading() {
   return (
     <div className="animate-pulse space-y-4">
+      <LoadingStatus />
       {/* Greeting skeleton */}
       <div className="rounded-2xl bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="h-6 w-40 rounded bg-earth-200" />

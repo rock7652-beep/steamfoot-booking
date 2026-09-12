@@ -127,3 +127,34 @@ describe("trial service label", () => {
     expect(text).toContain("NT$499");
   });
 });
+
+
+describe("當日清單備註", () => {
+  function renderNotes(notes: string | null, serviceNote: string | null) {
+    const entry = booking({ notes });
+    entry.customer.serviceNote = serviceNote;
+    entry.customer.notes = "已停用的顧客資料備註";
+    return renderToStaticMarkup(React.createElement(DayDetailPanel, {
+      date: "2026-09-10", bookings: [entry], slots: [],
+    }));
+  }
+  it("shows this booking's note before the store note with distinct labels", () => {
+    const html = renderNotes("今天晚到", "怕冷");
+    const text = textFromHtml(html);
+    expect(text).toMatch(/本次：\s*今天晚到/);
+    expect(text).toMatch(/店內：\s*怕冷/);
+    expect(text.indexOf("本次：")).toBeLessThan(text.indexOf("店內："));
+    expect(text).not.toContain("已停用的顧客資料備註");
+    expect(html).toContain('truncate');
+  });
+  it.each([[null, null], ["  ", "  "]])("omits empty notes", (notes, serviceNote) => {
+    const text = textFromHtml(renderNotes(notes, serviceNote));
+    expect(text).not.toContain("本次：");
+    expect(text).not.toContain("店內：");
+  });
+  it("shows a booking note even without a store note", () => {
+    const text = textFromHtml(renderNotes("驗收完成扣堂test", null));
+    expect(text).toMatch(/本次：\s*驗收完成扣堂test/);
+    expect(text).not.toContain("店內：");
+  });
+});

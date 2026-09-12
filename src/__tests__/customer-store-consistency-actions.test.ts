@@ -18,6 +18,7 @@ const h = vi.hoisted(() => ({
   checkCustomerLimitOrThrow: vi.fn(),
   resolveWriteStoreId: vi.fn(),
   revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -64,7 +65,7 @@ vi.mock("@/lib/store-view-context-server", () => ({
   storeIdForViewContext: vi.fn(),
   userForViewContext: vi.fn(),
 }));
-vi.mock("next/cache", () => ({ revalidatePath: h.revalidatePath }));
+vi.mock("next/cache", () => ({ revalidatePath: h.revalidatePath, updateTag: h.updateTag }));
 
 beforeEach(() => {
   vi.clearAllMocks();

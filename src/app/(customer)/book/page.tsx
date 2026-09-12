@@ -4,7 +4,7 @@ import { getStoreContext } from "@/lib/store-context";
 import { getHealthCardData } from "@/server/queries/health-card";
 import { getMyReferralSummary } from "@/server/queries/my-referral-summary";
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { ShareContactActions } from "./share-contact-actions";
 import { getReferralShareContext } from "@/server/queries/referral-share-context";
 import { totalAvailableToBook } from "@/lib/wallet-availability";

@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** 值班排班 skeleton — 週檢視 */
 export default function Loading() {
   return (
     <div className="animate-pulse">
+      <LoadingStatus />
       {/* Header + week nav */}
       <div className="mb-4 flex items-center justify-between">
         <div className="h-6 w-28 rounded bg-earth-200" />

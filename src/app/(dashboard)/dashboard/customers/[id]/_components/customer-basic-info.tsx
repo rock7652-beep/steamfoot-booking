@@ -106,7 +106,7 @@ export function CustomerBasicInfo({
       value: formatTWTime(createdAt, { dateOnly: true }),
     },
     ...(notes
-      ? [{ label: "備註", value: notes, full: true } as InfoListItem]
+      ? [{ label: "店內備註", value: notes, full: true } as InfoListItem]
       : []),
   ];
 

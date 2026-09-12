@@ -1,3 +1,5 @@
+import { MarketingNavigation } from "@/components/marketing-navigation";
+import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingIcon } from "../marketing-icon";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -43,7 +45,7 @@ const guides = [
     note: "顧客要完成預約並送出才算約好。只在 LINE 留言詢問，還不會排進預約。店長要收到通知，也需要先完成 LINE 連接與通知設定。",
     image: "/pricing/business-assets/booking-time-original.png", width: 1532, height: 1364,
     alt: "暖暖蒸足體驗預約頁的可約日期與時段", caption: "暖暖蒸足預約畫面・點圖放大",
-    caseUrl: "/pricing/cases?store=nuannuan", caseLabel: "看看暖暖蒸足怎麼用",
+    caseUrl: "/cases?store=nuannuan", caseLabel: "看看暖暖蒸足怎麼用",
   },
   {
     id: "arrival-reminder", icon: "bell" as const, category: "到店提醒", title: "到店提醒，交給蒸管家。",
@@ -55,7 +57,7 @@ const guides = [
     note: "不同預約和店內設定，卡片按鈕可能不同。下圖是改期和取消的示意，顧客要完成操作才算更改成功。提醒發出了，也不代表顧客一定會到。",
     image: "/pricing/business-assets/brand-reminder-example.jpeg", width: 1058, height: 1487,
     alt: "林小姐的蒸管家預約提醒示意卡片，包含日期時間、店名與改時段及取消前往選項", caption: "新版提醒示意・姓名與預約資料為範例・點圖放大",
-    caseUrl: "/pricing/cases?store=nuanmu", caseLabel: "看看暖沐蒸足怎麼用",
+    caseUrl: "/cases?store=nuanmu", caseLabel: "看看暖沐蒸足怎麼用",
   },
   {
     id: "plan-expiry", icon: "calendar-clock" as const, category: "方案到期", title: "方案快到期，提早提醒顧客。",
@@ -69,42 +71,10 @@ const guides = [
   },
 ];
 
-export default function StoreGuidesPage() {
-  return (
-    <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
-      <header className="border-b border-[#153B31]/15">
-        <nav aria-label="網站導覽" className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-8">
-          <Link href="/pricing/business" className="text-xl font-bold tracking-widest">蒸管家</Link>
-          <Link href="/pricing" className="py-2 text-base underline underline-offset-4">方案價格</Link>
-        </nav>
-      </header>
-      <main id="main" className="mx-auto max-w-5xl px-5 py-7 sm:px-8 sm:py-10">
-        <div className="max-w-2xl">
-          <div>
-            <p className="flex items-center gap-2 text-sm text-[#74603C]">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 shrink-0">
-                <path d="M12 5v15M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Z" />
-              </svg>
-              店長經營指南
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">一個人顧店，<br />也能少忙一點。</h1>
-            <p className="mt-3 text-base leading-7 text-[#4C6259]">排時間、看預約、做提醒。選一篇，把方法帶回店裡。</p>
-          </div>
-
-        </div>
-        <div className="mt-5 space-y-3">
-          {guides.map((guide, index) => (
-            <details key={guide.id} id={guide.id} name="store-guide" className="group scroll-mt-6 rounded-2xl border border-[#153B31]/20 bg-white open:border-[#153B31]/50">
-              <summary className="cursor-pointer list-none rounded-2xl px-5 py-4 focus-visible:outline-2 focus-visible:outline-offset-4 sm:px-6 sm:py-5 [&::-webkit-details-marker]:hidden">
-                <span className="flex items-center gap-3 text-sm font-medium text-[#74603C]"><MarketingIcon kind={guide.icon} />0{index + 1} · {guide.category}</span>
-                <h2 className="mt-2 text-xl font-semibold leading-snug sm:text-2xl">{guide.title}</h2>
-
-                <span className="mt-2 block text-base font-medium group-open:hidden">閱讀做法 ＋</span>
-                <span className="mt-2 hidden text-base font-medium group-open:block">收起文章 −</span>
-              </summary>
-              <article aria-label={guide.title} className="border-t border-[#153B31]/15 p-5 sm:p-6">
+function GuideArticle({ guide }: { guide: (typeof guides)[number] }) {
+  return (<article aria-label={guide.title} className="p-5 sm:p-7 lg:p-8">
                 <p className="mb-5 text-base leading-7 text-[#4C6259]">{guide.summary}</p>
-                <div className="grid gap-5 md:grid-cols-2">
+                <div className="grid gap-5 xl:grid-cols-2">
                   <section>
                     <h3 className="text-lg font-semibold">時間花在哪裡？</h3>
                     <p className="mt-2 text-base leading-7 text-[#4C6259]">{guide.cost}</p>
@@ -114,7 +84,7 @@ export default function StoreGuidesPage() {
                     <p className="mt-2 text-base leading-7">{guide.action}</p>
                   </section>
                 </div>
-                <div className="mt-5 grid items-start gap-5 md:grid-cols-2">
+                <div className="mt-5 grid items-start gap-5 xl:grid-cols-2">
                   {guide.checklist ? (
                     <section className="rounded-xl border border-[#153B31]/15 bg-[#FAF8F2] p-4">
                       <h3 className="text-lg font-semibold">{guide.checklistTitle}</h3>
@@ -158,17 +128,72 @@ export default function StoreGuidesPage() {
                 </div>
                 <p className="mt-5 border-l-4 border-[#C4A45C] bg-[#EEF4F0] p-4 text-base font-medium leading-7">{guide.takeaway}</p>
                 <p className="mt-3 text-sm leading-6 text-[#4C6259]">{guide.note}</p>
-              </article>
+              </article>);
+}
+
+export default async function StoreGuidesPage({ searchParams }: { searchParams: Promise<{ guide?: string | string[] }> }) {
+  const selectedId = (await searchParams).guide;
+  const selected = guides.find(guide => guide.id === selectedId) ?? guides[0];
+  return (
+    <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
+      <MarketingNavigation active="guides" />
+      <main id="main" className="mx-auto max-w-7xl px-5 py-7 sm:px-8 sm:py-10">
+        <div className="max-w-2xl">
+          <div>
+            <p className="flex items-center gap-2 text-sm text-[#74603C]">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 shrink-0">
+                <path d="M12 5v15M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Z" />
+              </svg>
+              店長經營指南
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">一個人顧店，<br className="sm:hidden" />也能少忙一點。</h1>
+            <p className="mt-3 text-base leading-7 text-[#4C6259]">排時間、看預約、做提醒。選一篇，把方法帶回店裡。</p>
+          </div>
+
+        </div>
+        <div className="mt-8 hidden items-start gap-8 lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="sticky top-24" aria-label="指南目錄">
+            <p className="mb-3 text-sm font-medium text-[#74603C]">選擇閱讀主題</p>
+            <nav className="space-y-2">
+              {guides.map((guide, index) => (
+                <Link key={guide.id} href={`/guides?guide=${guide.id}`} scroll={false}
+                  aria-current={selected.id === guide.id ? "page" : undefined}
+                  className={`block rounded-xl border p-4 transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 ${selected.id === guide.id ? "border-[#153B31] bg-[#153B31] text-white" : "border-[#153B31]/15 bg-white hover:bg-[#EEF4F0]"}`}>
+                  <span className="flex items-center gap-2 text-sm opacity-80"><MarketingIcon kind={guide.icon} />0{index + 1} · {guide.category}</span>
+                  <span className="mt-2 block text-base font-semibold leading-7">{guide.title}</span>
+                </Link>
+              ))}
+            </nav>
+          </aside>
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-[#153B31]/20 bg-white" aria-label="文章閱讀區">
+            <header className="border-b border-[#153B31]/15 px-8 pb-6 pt-8">
+              <p className="text-sm font-medium text-[#74603C]">{selected.category}</p>
+              <h2 className="mt-2 text-3xl font-semibold leading-snug">{selected.title}</h2>
+            </header>
+            <GuideArticle guide={selected} />
+          </div>
+        </div>
+        <div className="mt-5 space-y-3 lg:hidden">
+          {guides.map((guide, index) => (
+            <details key={guide.id} id={guide.id} name="store-guide" className="group scroll-mt-24 rounded-2xl border border-[#153B31]/20 bg-white open:border-[#153B31]/50">
+              <summary className="cursor-pointer list-none rounded-2xl px-5 py-4 focus-visible:outline-2 focus-visible:outline-offset-4 sm:px-6 sm:py-5 [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-3 text-sm font-medium text-[#74603C]"><MarketingIcon kind={guide.icon} />0{index + 1} · {guide.category}</span>
+                <h2 className="mt-2 text-xl font-semibold leading-snug sm:text-2xl">{guide.title}</h2>
+
+                <span className="mt-2 block text-base font-medium group-open:hidden">閱讀做法 ＋</span>
+                <span className="mt-2 hidden text-base font-medium group-open:block">收起文章 −</span>
+              </summary>
+              <GuideArticle guide={guide} />
             </details>
           ))}
         </div>
         <section aria-labelledby="guide-contact" className="mt-6 rounded-2xl bg-[#123E32] p-5 text-white sm:p-6">
           <h2 id="guide-contact" className="text-xl font-semibold">你最想先少忙哪件事？</h2>
           <p className="mt-2 text-base leading-7 text-[#D4E0D8]">告訴我們店裡最忙的是什麼，我們會聯繫你，安排適合的體驗。</p>
-          <a href="/pricing/apply.html?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=guides" className="mt-4 inline-flex min-h-12 items-center rounded-full bg-[#F8F5EE] px-6 py-3 text-base font-semibold text-[#153B31]">申請體驗帳號</a>
+          <a href="/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=guides" className="mt-4 inline-flex min-h-12 items-center rounded-full bg-[#F8F5EE] px-6 py-3 text-base font-semibold text-[#153B31]">申請體驗帳號</a>
         </section>
       </main>
-      <footer className="border-t border-[#153B31]/15 px-5 py-5 text-center text-sm leading-6 text-[#4C6259]">蒸管家｜每一家店，都值得擁有一位數位管家。<div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc（加入官方 LINE）</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a><a href="/pricing/terms.html" className="underline underline-offset-4">服務條款</a><a href="/pricing/refunds.html" className="underline underline-offset-4">取消與退費政策</a><p className="w-full text-center">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p></div></footer>
+      <MarketingFooter />
     </div>
   );
 }

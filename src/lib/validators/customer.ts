@@ -41,7 +41,7 @@ export const createCustomerSchema = z.object({
   birthday: optionalBirthday,
   // lineName / notes 可空
   lineName: z.string().max(100).optional(),
-  notes: z.string().max(1000).optional(),
+  serviceNote: z.string().max(1000).optional(),
   // 後台建立時可稍後指派。
   // ⚠️ 用 .min(1) 非 .cuid()（與本檔 §"ID 欄位用 min(1) 非 cuid" 慣例一致）：
   // 既有/匯入/staging seed 的 staff ID 未必是 cuid（例：staging-staff-owner）。
@@ -78,7 +78,7 @@ export const updateCustomerSchema = z.object({
   ),
   // lineName / notes 仍可空
   lineName: z.string().max(100).nullable().optional(),
-  notes: z.string().max(1000).nullable().optional(),
+  serviceNote: z.string().max(1000).nullable().optional(),
   // 非基本資料，保留可選
   customerStage: z.enum(["LEAD", "TRIAL", "ACTIVE", "INACTIVE"]).optional(),
   selfBookingEnabled: z.boolean().optional(),

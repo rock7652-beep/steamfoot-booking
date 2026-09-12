@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { ProfileForm } from "./profile-form";
 import { missingRequiredFields } from "@/lib/customer-completion";
 import { getStoreContext } from "@/lib/store-context";
@@ -69,7 +69,6 @@ export default async function ProfilePage({ searchParams }: PageProps) {
     gender: string | null;
     birthday: Date | null;
     address: string | null;
-    notes: string | null;
   };
   let customer: ProfileCustomer | null = null;
   // 表單需要知道 User 是否已有 passwordHash —— 控制密碼欄位是必填還是「留空＝不變更」
@@ -112,7 +111,6 @@ export default async function ProfilePage({ searchParams }: PageProps) {
             gender: true,
             birthday: true,
             address: true,
-            notes: true,
           },
         });
         if (full) customer = full;
@@ -150,7 +148,6 @@ export default async function ProfilePage({ searchParams }: PageProps) {
         gender: customer.gender,
         birthday: birthdayStr,
         address: customer.address,
-        notes: customer.notes,
       }
     : {
         name: user?.name ?? "",
@@ -159,7 +156,6 @@ export default async function ProfilePage({ searchParams }: PageProps) {
         gender: null,
         birthday: null,
         address: null,
-        notes: null,
       };
 
   const missing = missingRequiredFields({

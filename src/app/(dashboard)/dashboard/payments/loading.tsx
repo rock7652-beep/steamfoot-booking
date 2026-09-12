@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** 待確認付款清單 skeleton */
 export default function Loading() {
   return (
     <div className="animate-pulse">
+      <LoadingStatus />
       <div className="mb-4 flex items-center gap-3">
         <div className="h-4 w-12 rounded bg-earth-200" />
         <div className="h-6 w-32 rounded bg-earth-200" />

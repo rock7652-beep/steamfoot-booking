@@ -1,7 +1,10 @@
 "use client";
 
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
+
+
 import { useState } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { logoutAction } from "@/server/actions/auth";
 import { LogoutButton } from "@/components/logout-button";
 import {
@@ -137,7 +140,8 @@ export function MobileNav({
       >
         <div className="flex items-center justify-between border-b border-earth-200 px-5 py-4">
           <div>
-            <p className="text-lg font-bold text-earth-900">蒸管家</p>
+            <SteamButlerLogo compact />
+            <p className="sr-only">蒸管家</p>
             <p className="mt-1 text-sm text-earth-700">{userName}</p>
           </div>
           <button

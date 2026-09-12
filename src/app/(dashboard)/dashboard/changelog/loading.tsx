@@ -1,7 +1,10 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 /** 更新日誌 skeleton */
 export default function Loading() {
   return (
     <div className="mx-auto max-w-2xl animate-pulse space-y-6">
+      <LoadingStatus />
       <div className="h-6 w-28 rounded bg-earth-200" />
       {Array.from({ length: 3 }).map((_, i) => (
         <div key={i} className="rounded-xl border border-earth-200 bg-white p-5 space-y-3">

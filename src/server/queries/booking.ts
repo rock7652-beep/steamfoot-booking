@@ -153,6 +153,7 @@ export async function getBookingDetailForUser(
           name: true,
           phone: true,
           assignedStaffId: true,
+          notes: true,
           serviceNote: true, // 內部服務備註（後台限定）— 預約詳情顧客資訊顯示
         },
       },
@@ -471,6 +472,7 @@ async function computeMonthBookingSummary(
         id: true,
         bookingDate: true,
         slotTime: true,
+        notes: true,
         bookingStatus: true,
         isMakeup: true,
         isCheckedIn: true,
@@ -491,6 +493,7 @@ async function computeMonthBookingSummary(
             id: true,
             name: true,
             phone: true,
+            notes: true,
             serviceNote: true, // 內部服務備註（後台限定）— 當日清單提醒 + 預約詳情顯示
             assignedStaff: {
               select: { id: true, displayName: true, colorCode: true },
@@ -623,6 +626,7 @@ async function computeMonthBookingSummary(
     collectedAmount: number | null;
     // 成功扣堂交易實際使用的方案名稱（可能因多人 FEFO 跨多個 wallet）。
     deductedPlanNames: string[];
+    notes?: string | null;
     // 前端 calendar strip 用的扁平欄位（避免每筆都做 nested optional chain）
     customerName: string;
     staffId: string | null;
@@ -633,6 +637,7 @@ async function computeMonthBookingSummary(
       id: string;
       name: string;
       phone: string;
+      notes?: string | null;
       serviceNote: string | null;
       assignedStaff: {
         id: string;
@@ -678,6 +683,7 @@ async function computeMonthBookingSummary(
     entry.bookings.push({
       id: b.id,
       slotTime: b.slotTime,
+      notes: b.notes,
       bookingStatus: b.bookingStatus,
       isMakeup: b.isMakeup,
       isCheckedIn: b.isCheckedIn,
@@ -709,6 +715,7 @@ async function computeMonthBookingSummary(
         id: b.customer.id,
         name: b.customer.name,
         phone: b.customer.phone,
+        notes: b.customer.notes,
         serviceNote: b.customer.serviceNote,
         assignedStaff: b.customer.assignedStaff
           ? {

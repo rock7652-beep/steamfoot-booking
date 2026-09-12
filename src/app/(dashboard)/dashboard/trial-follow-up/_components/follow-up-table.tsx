@@ -1,5 +1,7 @@
 "use client";
 
+import { NavigationNotice } from "@/components/navigation-notice";
+
 /**
  * Trial Follow-Up Table — client component for /dashboard/trial-follow-up
  *
@@ -193,6 +195,7 @@ export function FollowUpTable({
 
   return (
     <div className="flex flex-col gap-3">
+      {isPending && <NavigationNotice />}
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-earth-200 bg-white px-3 py-2 text-xs">
         <div className="flex items-center gap-1.5">

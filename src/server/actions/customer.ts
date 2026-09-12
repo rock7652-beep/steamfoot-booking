@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-tags";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { requireSession } from "@/lib/session";
@@ -33,7 +34,7 @@ import {
   userForViewContext,
 } from "@/lib/store-view-context-server";
 import { normalizePhone } from "@/lib/normalize";
-import type { z } from "zod";
+import { z } from "zod";
 import { birthdayToDate } from "@/lib/birthday";
 
 // ============================================================
@@ -126,7 +127,7 @@ export async function createCustomer(
         gender: data.gender ?? null,
         birthday: data.birthday ? birthdayToDate(data.birthday) : null,
         lineName: data.lineName,
-        notes: data.notes,
+        serviceNote: data.serviceNote,
         assignedStaffId: assignedStaffId || null,
         customerStage: "LEAD",
         selfBookingEnabled: false,
@@ -216,7 +217,7 @@ export async function updateCustomer(
       height: data.height ?? null,
     };
     if (data.lineName !== undefined) prismaData.lineName = data.lineName;
-    if (data.notes !== undefined) prismaData.notes = data.notes;
+    if (data.serviceNote !== undefined) prismaData.serviceNote = data.serviceNote;
     if (data.customerStage !== undefined) prismaData.customerStage = data.customerStage;
     if (data.selfBookingEnabled !== undefined)
       prismaData.selfBookingEnabled = data.selfBookingEnabled;
@@ -236,6 +237,10 @@ export async function updateCustomer(
       data: prismaData,
     });
 
+    updateTag(CACHE_TAGS.bookingsSummary);
+    revalidatePath("/dashboard/bookings");
+    revalidatePath("/dashboard/bookings/[id]", "page");
+    revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard/customers");
     revalidatePath(`/dashboard/customers/${customerId}`);
     return { success: true, data: undefined };
@@ -267,6 +272,7 @@ export async function updateCustomerServiceNoteAction(
     });
     if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
     assertStoreAccess(user, customer.storeId);
+    await assertStoreSubscriptionWritable(customer.storeId);
 
     await prisma.customer.update({
       where: { id: customerId },
@@ -284,11 +290,27 @@ export async function updateCustomerServiceNoteAction(
       },
     });
 
+    updateTag(CACHE_TAGS.bookingsSummary);
+    revalidatePath("/dashboard/bookings/[id]", "page");
+    revalidatePath("/dashboard/bookings");
     revalidatePath("/dashboard/customers");
     revalidatePath(`/dashboard/customers/${customerId}`);
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
+  }
+}
+
+// Retired public customer-note endpoint: old tabs must refresh instead of writing another field.
+export async function updateCustomerNotesAction(
+  _input: { customerId: string; notes: string | null },
+): Promise<ActionResult<undefined>> {
+  void _input;
+  try {
+    await requireWritablePermission("customer.update");
+    return { success: false, error: "顧客資料備註已停用，請重新整理後使用店內備註。" };
+  } catch (error) {
+    return handleActionError(error);
   }
 }
 

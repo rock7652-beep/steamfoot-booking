@@ -1,10 +1,10 @@
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { MobileNav } from "./mobile-nav";
-import { NavProgress } from "./nav-progress";
 import BuildFooter from "@/components/build-footer";
 import { LogoutButton } from "@/components/logout-button";
 import { getStoreContext } from "@/lib/store-context";
@@ -252,9 +252,6 @@ export default async function CustomerLayout({
 
   return (
     <div className="min-h-screen bg-earth-50 text-base leading-normal text-[color:var(--color-text-primary)]">
-      {/* Navigation progress bar */}
-      <NavProgress />
-
       {/* Mobile hamburger menu */}
       <MobileNav
         userName={user.name ?? "顧客"}
@@ -270,8 +267,8 @@ export default async function CustomerLayout({
         <aside className="hidden lg:flex lg:w-[200px] lg:flex-shrink-0 lg:flex-col lg:border-r lg:border-earth-100 lg:bg-white lg:min-h-screen">
           {/* Brand */}
           <div className="px-4 pb-3 pt-5">
-            <Link href={`${prefix}/book`} className="text-base font-bold tracking-tight text-earth-900">
-              蒸管家
+            <Link href={`${prefix}/book`} aria-label="蒸管家會員首頁" className="text-base font-bold tracking-tight text-earth-900">
+              <SteamButlerLogo compact />
             </Link>
             <p className="mt-1 text-sm text-earth-700 truncate">{user.name}</p>
             <div className="mt-3">

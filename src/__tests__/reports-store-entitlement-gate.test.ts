@@ -423,7 +423,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(mockMonthlyStoreSummary).not.toHaveBeenCalled();
     expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();
     expect(html).toContain("營運分析尚未開通");
-    expect(html).toContain("分析為 NT$800／月獨立加購，請聯絡總部開通。");
+    expect(html).toContain("分析可依方案選用或加購；目前門市尚未開通，請聯絡總部確認任選名額與開通設定。");
     expect(html).not.toContain("經營診斷");
     expect(html).not.toContain("成長版");
   });

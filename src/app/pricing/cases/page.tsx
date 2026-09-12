@@ -1,3 +1,5 @@
+import { MarketingNavigation } from "@/components/marketing-navigation";
+import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingIcon } from "../marketing-icon";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -42,23 +44,18 @@ export default async function StoreCasesPage({
 }) {
   const selected = (await searchParams).store;
   const current = cases.find((item) => item.id === selected) ?? cases[0];
-  const trialUrl = "/pricing/apply.html?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=case-" + current.id;
+  const trialUrl = "/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=case-" + current.id;
 
   return (
     <div className="min-h-screen bg-[#F8F5EE] text-[#153B31]">
-      <header className="border-b border-[#153B31]/15">
-        <nav aria-label="網站導覽" className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-5 sm:px-8">
-          <Link href="/pricing/business#main" className="text-xl font-bold tracking-widest">蒸管家</Link>
-          <Link href="/pricing" className="py-2 text-base underline underline-offset-4">方案價格</Link>
-        </nav>
-      </header>
+      <MarketingNavigation active="cases" />
       <main className="mx-auto max-w-5xl px-5 py-7 sm:px-8 sm:py-10">
         <p className="text-sm text-[#74603C]">真實店家案例</p>
         <h1 className="mt-2 text-3xl font-semibold leading-snug sm:text-4xl">每一次來回確認，都是店長的時間。</h1>
         <p className="mt-3 text-base leading-7 text-[#4C6259]">確認時段、重複建檔、到店提醒，讓蒸管家接手例行工作。</p>
         <nav aria-label="選擇店家案例" className="mt-5 grid grid-cols-2 gap-3">
           {cases.map((item) => (
-            <Link key={item.id} href={"/pricing/cases?store=" + item.id} scroll={false}
+            <Link key={item.id} href={"/cases?store=" + item.id} scroll={false}
               aria-current={current.id === item.id ? "page" : undefined}
               className={"rounded-xl border p-4 focus-visible:outline-2 focus-visible:outline-offset-4 " + (current.id === item.id ? "border-[#123E32] bg-[#123E32] text-white" : "border-[#153B31]/20 bg-white hover:bg-[#EEE9DD]")}>
               <span className="block text-base font-semibold">{item.label}・{item.name}</span>
@@ -141,7 +138,7 @@ export default async function StoreCasesPage({
           <p className="mt-4 text-base leading-7 text-[#4C6259]">{current.fit}</p>
           {current.id === "nuanmu" ? (
             <p className="mt-4 text-sm leading-6 text-[#4C6259]">
-              想先了解介面？<Link href="/pricing/business#how-it-works" className="underline underline-offset-4">查看功能示意</Link>，切換「提醒與回訪」。
+              想先了解介面？<Link href="/#how-it-works" className="underline underline-offset-4">查看功能示意</Link>，切換「提醒與回訪」。
             </p>
           ) : null}
         </article>
@@ -152,11 +149,11 @@ export default async function StoreCasesPage({
           <div className="mt-4 flex flex-wrap items-center gap-5">
             <a href={trialUrl} className="inline-flex min-h-12 items-center rounded-full bg-[#123E32] px-6 py-3 text-base font-semibold text-white hover:bg-[#245A49]">申請體驗帳號</a>
             <Link href="/pricing" className="py-3 text-base underline underline-offset-4">查看方案價格</Link>
-            <Link href="/pricing/guides" className="py-3 text-base underline underline-offset-4">閱讀店長經營指南</Link>
+            <Link href="/guides" className="py-3 text-base underline underline-offset-4">閱讀店長經營指南</Link>
           </div>
         </section>
       </main>
-      <footer className="border-t border-[#153B31]/15 px-5 py-5 text-center text-sm leading-6 text-[#4C6259]">蒸管家｜每一家店，都值得擁有一位數位管家。<div className="mt-3 flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm leading-6"><a href="mailto:steambutler500@gmail.com" className="break-all underline underline-offset-4">客服信箱：steambutler500@gmail.com</a><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc（加入官方 LINE）</a><a href="/privacy" className="underline underline-offset-4">隱私權政策</a><a href="/pricing/terms.html" className="underline underline-offset-4">服務條款</a><a href="/pricing/refunds.html" className="underline underline-offset-4">取消與退費政策</a><p className="w-full text-center">陸比音樂工作室｜統一編號：31789116<br />聯絡地址：新竹縣竹北市科大一路116號</p></div></footer>
+      <MarketingFooter />
     </div>
   );
 }

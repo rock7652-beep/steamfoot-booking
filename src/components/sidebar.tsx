@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { NavigationNotice } from "./navigation-notice";
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
+
+
+import { useState, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { SteamButlerLogo } from "@/components/steam-butler-logo";
 import { usePathname } from "next/navigation";
 import BuildFooter from "@/components/build-footer";
 import { PlanBadge, LockedNavItem, TrialProgressBar } from "@/components/feature-gate";
@@ -596,6 +599,16 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const rawPathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [readingPage, setReadingPage] = useState<string | null>(null);
+  useEffect(() => {
+    const reset = () => setReadingPage(null);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
+  const showReadFeedback = (event: ReactMouseEvent<HTMLAnchorElement>, label: string) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    setReadingPage(label);
+  };
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [pwModalOpen, setPwModalOpen] = useState(false);
@@ -797,6 +810,7 @@ export default function DashboardShell({
       <li key={item.href}>
         <a
           href={`${dashboardPrefix}${item.href}`}
+          onClick={(event) => showReadFeedback(event, item.label)}
           // 後台跨頁刻意使用原生導頁。Next 16 的 client navigation 偶發在 RSC
           // 已回 200 後仍不 commit，導致導頁指示永久 pending；完整導頁可確保
           // 每次點擊都由瀏覽器完成並清除舊頁狀態。
@@ -815,7 +829,7 @@ export default function DashboardShell({
           }`}>
             {item.icon}
           </span>
-          <span>{item.label}</span>
+          <span>{readingPage === item.label ? "讀取中…" : item.label}</span>
           {isHighlighted && <span className="ml-auto text-xs text-amber-400">&#9733;</span>}
         </a>
       </li>
@@ -843,6 +857,7 @@ export default function DashboardShell({
       <li key={item.href}>
         <a
           href={`${dashboardPrefix}${item.href}`}
+          onClick={(event) => showReadFeedback(event, item.label)}
           className={`group relative flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
             active
               ? "bg-primary-100 text-primary-800"
@@ -860,6 +875,7 @@ export default function DashboardShell({
 
   const renderNavGroups = () => (
     <nav className="sidebar-scroll flex flex-1 flex-col overflow-y-auto px-2 py-2">
+      {readingPage && <NavigationNotice />}
       <div className="space-y-1">
         {visibleGroups.map(({ group, categorizedItems }) => {
           const isCore = group.id === "core";
@@ -938,7 +954,7 @@ export default function DashboardShell({
           {!collapsed && (
             <div className="flex items-center gap-2 min-w-0">
               <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                {industryModule === "spa" ? <SteamButlerLogo className="w-28 lg:w-32" /> : headerTitle}
+                {industryModule === "spa" ? <SteamButlerLogo className="w-28 lg:w-32" /> : <SteamButlerLogo compact />}
               </Link>
               {industryModule !== "spa" && <PlanBadge plan={pricingPlan} />}
             </div>
@@ -986,7 +1002,7 @@ export default function DashboardShell({
             <div className="flex h-14 items-center justify-between border-b border-earth-200 px-4">
               <div className="flex items-center gap-2 min-w-0">
                 <Link href={`${dashboardPrefix}/dashboard`} className="text-sm font-bold text-earth-800 truncate" title={headerTitle}>
-                  {industryModule === "spa" ? <SteamButlerLogo className="w-32" /> : headerTitle}
+                  {industryModule === "spa" ? <SteamButlerLogo className="w-32" /> : <SteamButlerLogo compact />}
                 </Link>
                 {industryModule !== "spa" && <PlanBadge plan={pricingPlan} />}
               </div>

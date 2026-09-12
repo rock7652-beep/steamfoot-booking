@@ -1728,10 +1728,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // 這是 NextAuth v5 預設行為的顯式版本 — 若未來被錯誤 env（例如誤設的
     // NEXTAUTH_URL）或惡意參數觸發跨 host 跳轉，log 會明確提示。
     async redirect({ url, baseUrl }) {
+      if (url === "/" || url.startsWith("/?")) return `${baseUrl}/entry${url.slice(1)}`;
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       try {
         const parsed = new URL(url);
-        if (parsed.origin === baseUrl) return url;
+        if (parsed.origin === baseUrl) {
+          if (parsed.pathname === "/") parsed.pathname = "/entry";
+          return parsed.toString();
+        }
       } catch {
         // fallthrough
       }
@@ -1741,12 +1745,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   pages: {
-    // B7-4.5: 導向根路徑，由 proxy 依身份分流：
+    // B7-4.5: 導向 /entry，由 proxy 依身份分流：
     //   未登入 → /s/zhubei/（顧客登入）
     //   已登入 CUSTOMER → /s/{slug}/book
     //   已登入 Staff → /s/{slug}/admin/dashboard
-    signIn: "/",
-    error: "/",
+    signIn: "/entry",
+    error: "/entry",
   },
 
   // 僅保留 error logger，warn/debug 使用 NextAuth 預設

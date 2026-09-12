@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useCallback, useEffect, useActionState, useMemo } from "react";
+import { createLatestRequestGate } from "@/lib/latest-request-gate";
+import { createClientReadCache } from "@/lib/client-read-cache";
+import { LoadingStatus } from "@/components/loading-status";
 import { fetchDaySlots } from "@/server/actions/slots";
 import { fetchMonthAvailability } from "@/server/actions/slots";
 import { createBooking } from "@/server/actions/booking";
@@ -54,6 +57,18 @@ export function BookingCalendarView({
   weeklyRecurrenceMaxWeeks,
   upcomingBookings,
 }: Props) {
+  const storeSlug = useStoreSlugRequired();
+  const monthCache = useMemo(() => createClientReadCache(async (key) => {
+    const [year, month] = JSON.parse(key) as [number, number];
+    return fetchMonthAvailability(year, month);
+  }, { ttlMs: 15_000, maxEntries: 6 }),
+  // Authentication/store changes must discard the component cache.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [customerId, storeSlug]);
+  const [monthRequest] = useState(createLatestRequestGate);
+  const [slotRequest] = useState(createLatestRequestGate);
+  const [monthError, setMonthError] = useState(false);
+  const [slotError, setSlotError] = useState(false);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -70,43 +85,54 @@ export function BookingCalendarView({
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth()); // 0-based
   const [monthData, setMonthData] = useState<Record<string, MonthDayAvailability>>({});
-  const [loadingMonth, setLoadingMonth] = useState(false);
+  const [loadingMonth, setLoadingMonth] = useState(true);
   const maxBookablePeople = Math.min(
     4,
     activeWallets.reduce((sum, wallet) => sum + wallet.remainingSessions, 0) + makeupCredits.length,
   );
 
-  // 載入整月可預約概覽
+  // Cache the overview briefly; exact slots are always fetched before selection.
   const loadMonth = useCallback(async (year: number, month: number) => {
-    setLoadingMonth(true);
+    const request = monthRequest.issue();
+    const key = JSON.stringify([year, month + 1]);
+    const cached = monthCache.get(key);
+    setMonthError(false);
+    setLoadingMonth(!cached);
+    if (cached) setMonthData(cached.days);
+    else setMonthData({});
     try {
-      const result = await fetchMonthAvailability(year, month + 1);
-      setMonthData(result.days);
+      const result = await monthCache.load(key);
+      if (monthRequest.isCurrent(request)) setMonthData(result.days);
     } catch {
-      setMonthData({});
+      if (monthRequest.isCurrent(request)) { setMonthData({}); setMonthError(true); }
     } finally {
-      setLoadingMonth(false);
+      if (monthRequest.isCurrent(request)) setLoadingMonth(false);
     }
-  }, []);
+  }, [monthCache, monthRequest]);
 
   useEffect(() => {
-    loadMonth(calYear, calMonth);
-  }, [calYear, calMonth, loadMonth]);
+    void loadMonth(calYear, calMonth);
+    return () => { monthRequest.invalidate(); };
+  }, [calYear, calMonth, loadMonth, monthRequest]);
 
   const loadSlots = useCallback(async (date: string) => {
+    const request = slotRequest.issue();
     setLoadingSlots(true);
+    setSlotError(false);
+    setSlots([]);
     try {
       const result = await fetchDaySlots(date);
-      setSlots(result.slots);
+      if (slotRequest.isCurrent(request)) setSlots(result.slots);
     } catch {
-      setSlots([]);
+      if (slotRequest.isCurrent(request)) { setSlots([]); setSlotError(true); }
     } finally {
-      setLoadingSlots(false);
+      if (slotRequest.isCurrent(request)) setLoadingSlots(false);
     }
-  }, []);
+  }, [slotRequest]);
 
   const handleSelectDate = (dateStr: string) => {
     if (selectedDate === dateStr) {
+      slotRequest.invalidate();
       setSelectedDate(null);
       setSlots([]);
       return;
@@ -117,9 +143,10 @@ export function BookingCalendarView({
 
   // 沿用原 teardown：關閉 bottom sheet
   const closeSheet = useCallback(() => {
+    slotRequest.invalidate();
     setSelectedDate(null);
     setSlots([]);
-  }, []);
+  }, [slotRequest]);
 
   // bottom sheet 開啟時鎖定背景捲動
   useEffect(() => {
@@ -144,12 +171,18 @@ export function BookingCalendarView({
   const monthLabel = `${calYear} 年 ${calMonth + 1} 月`;
 
   const prevMonth = () => {
+    monthRequest.invalidate();
+    slotRequest.invalidate();
+    setLoadingMonth(true);
     if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); }
     else setCalMonth(calMonth - 1);
     setSelectedDate(null);
     setSlots([]);
   };
   const nextMonth = () => {
+    monthRequest.invalidate();
+    slotRequest.invalidate();
+    setLoadingMonth(true);
     if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); }
     else setCalMonth(calMonth + 1);
     setSelectedDate(null);
@@ -196,6 +229,11 @@ export function BookingCalendarView({
           </button>
         </div>
 
+        {loadingMonth && <div className="px-4"><LoadingStatus>讀取月份中，請稍候…</LoadingStatus></div>}
+        {monthError && <div role="alert" className="px-4 py-3 text-sm text-red-700">
+          讀取月份失敗，請再試一次。
+          <button type="button" className="ml-2 underline" onClick={() => void loadMonth(calYear, calMonth)}>重新讀取</button>
+        </div>}
         {/* 星期標頭 */}
         <div className="grid grid-cols-7 border-b border-earth-100 bg-earth-50">
           {weekLabels.map((w) => (
@@ -337,7 +375,12 @@ export function BookingCalendarView({
             <div className="overflow-y-auto px-4 py-4">
               {loadingSlots ? (
                 <div className="rounded-2xl border border-earth-200 bg-white py-10 text-center text-base text-earth-700">
-                  載入時段中...
+                  <LoadingStatus>讀取時段中，請稍候…</LoadingStatus>
+                </div>
+              ) : slotError ? (
+                <div role="alert" className="py-6 text-center text-earth-700">
+                  讀取時段失敗，請再試一次。
+                  <button type="button" className="ml-2 underline" onClick={() => void loadSlots(selectedDate)}>重新讀取</button>
                 </div>
               ) : slots.length === 0 ? (
                 <div className="rounded-2xl border border-earth-200 bg-white py-10 text-center text-base text-earth-700">
@@ -345,6 +388,8 @@ export function BookingCalendarView({
                 </div>
               ) : (
                 <SlotBookingForm
+                  key={selectedDate}
+                  onBooked={() => { monthCache.clear(); void loadMonth(calYear, calMonth); }}
                   customerId={customerId}
                   selectedDate={selectedDate}
                   slots={slots}
@@ -406,6 +451,7 @@ function friendlyError(msg: string): string {
 
 // ── 時段選擇 + 預約表單（含補課支援） ──
 function SlotBookingForm({
+  onBooked,
   customerId,
   selectedDate,
   slots,
@@ -427,6 +473,7 @@ function SlotBookingForm({
   weeklyRecurrenceEnabled: boolean;
   weeklyRecurrenceMaxWeeks: number;
   bookedSlotTimes: string[];
+  onBooked: () => void;
 }) {
   const requestKey = useBookingRequestKey();
   const storeSlug = useStoreSlugRequired();
@@ -537,6 +584,7 @@ function SlotBookingForm({
         }, { requestKey: requestKey.current(), source: "web-customer" });
       if (result.success) {
         requestKey.complete();
+        onBooked();
         return {
           error: null,
           success: true,

@@ -57,6 +57,9 @@ vi.mock("@/server/actions/slots", () => ({
   fetchDaySlots: vi.fn(),
 }));
 
+// 改期 wiring 測試不執行備註寫入或頁面導覽。
+vi.mock("@/app/(dashboard)/dashboard/bookings/booking-service-note-editor", () => ({ BookingServiceNoteEditor: () => null }));
+vi.mock("@/components/customer-page-link", () => ({ CustomerPageLink: () => null }));
 vi.mock("@/components/dashboard-link", () => ({ DashboardLink: () => null }));
 vi.mock("@/components/admin/right-sheet", () => ({ RightSheet: () => null }));
 vi.mock("@/components/admin/status-badge", () => ({

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { DashboardLink as Link } from "@/components/dashboard-link";
+import { CustomerPageLink as Link } from "@/components/customer-page-link";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
 import { TrialBookingDrawer } from "../../_components/trial-booking-drawer";
@@ -40,7 +40,7 @@ interface Props {
   canDiscount: boolean;
   staffOptions: StaffOption[];
   canAssign: boolean;
-  /** 內部服務備註可編輯（= customer.update）。false → 只顯示不可改。 */
+  /** 店內備註可編輯（= customer.update）。false → 只顯示不可改。 */
   canEditNote: boolean;
   /** View Mode: full read, zero write. */
   readOnly?: boolean;
@@ -112,7 +112,7 @@ export function CustomerDetailDrawerContent({
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
 
-  // 內部服務備註（後台限定）。component 以 key={detail.id} 重掛 → 初值依當前顧客。
+  // 店內備註（後台限定）。component 以 key={detail.id} 重掛 → 初值依當前顧客。
   const SERVICE_NOTE_MAX = 1000;
   const [noteDraft, setNoteDraft] = useState(customer.serviceNote ?? "");
   const [savingNote, setSavingNote] = useState(false);
@@ -127,10 +127,10 @@ export function CustomerDetailDrawerContent({
         serviceNote: noteDraft, // action 內 trim → 空字串存 null
       });
       if (!res.success) {
-        toast.error(res.error ?? "儲存內部服務備註失敗");
+        toast.error(res.error ?? "儲存店內備註失敗");
         return;
       }
-      toast.success("已儲存內部服務備註");
+      toast.success("已儲存店內備註");
       onMutated(); // 父層 refetch 本人 slim 資料（drawer cache invalidate）
     } finally {
       setSavingNote(false);
@@ -287,12 +287,12 @@ export function CustomerDetailDrawerContent({
           </dl>
         </section>
 
-        {/* 內部服務備註（後台限定，店長 / 合作店長交接用） */}
+        {/* 店內備註（後台限定，店長 / 合作店長交接用） */}
         <section>
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-earth-800">
-            內部服務備註
+            店內備註
             <span className="rounded bg-earth-100 px-1.5 py-0.5 text-[10px] font-normal text-earth-500">
-              僅後台可見
+              僅店內可見，每次服務都適用
             </span>
           </h3>
           {canEditNote ? (

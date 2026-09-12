@@ -1,6 +1,9 @@
+import { LoadingStatus } from "@/components/loading-status";
+
 export default function NewBookingLoading() {
   return (
     <div className="animate-pulse space-y-4">
+      <LoadingStatus />
       <div className="h-7 w-28 rounded bg-earth-200" />
 
       {/* Quota bar */}

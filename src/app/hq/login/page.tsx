@@ -1,10 +1,12 @@
 "use client";
 
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
+
+
 import { Suspense } from "react";
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { hqLoginAction } from "@/server/actions/auth";
-import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 const initialState = { error: null as string | null };
 
@@ -31,7 +33,7 @@ function HqLoginForm() {
   const storeSlug = searchParams.get("store");
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-earth-50 px-4 py-8">
+    <div className="flex min-h-dvh items-start justify-center bg-earth-50 px-4 pb-8 pt-8 sm:items-center sm:py-8">
       <div className="w-full max-w-sm rounded-2xl border border-earth-200 bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-6">
           <SteamButlerLogo className="mb-4 w-40" />

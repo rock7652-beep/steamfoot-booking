@@ -1,7 +1,9 @@
 "use client";
 
+import { NavigationNotice } from "@/components/navigation-notice";
+
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 interface MonthFilterProps {
   month: string;
@@ -9,6 +11,7 @@ interface MonthFilterProps {
 
 export function MonthFilter({ month }: MonthFilterProps) {
   const router = useRouter();
+  const [reading, startReading] = useTransition();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [selectedMonth, setSelectedMonth] = useState(month);
@@ -28,11 +31,12 @@ export function MonthFilter({ month }: MonthFilterProps) {
       params.delete("month");
     }
     const query = params.toString();
-    router.push(query ? `${pathname}?${query}` : pathname);
+    startReading(() => router.push(query ? `${pathname}?${query}` : pathname));
   }
 
   return (
     <form className="flex items-center gap-2" onSubmit={submit}>
+      {reading && <NavigationNotice />}
       <label className="text-[11px] font-medium text-earth-500" htmlFor="month">
         月份
       </label>
@@ -46,6 +50,7 @@ export function MonthFilter({ month }: MonthFilterProps) {
       />
       <button
         type="submit"
+        disabled={reading}
         className="h-8 rounded-md border border-earth-200 bg-white px-3 text-xs font-medium text-earth-700 hover:bg-earth-50"
       >
         套用

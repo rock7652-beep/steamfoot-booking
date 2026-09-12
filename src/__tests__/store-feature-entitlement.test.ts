@@ -175,13 +175,13 @@ describe("hasStoreFeature", () => {
     ).resolves.toBe(false);
   });
 
-  it("展店版分析無 entitlement 時不可用", async () => {
+  it("展店版分析無 entitlement 時由方案內含", async () => {
     mockStore("ALLIANCE");
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 
     await expect(
       hasStoreFeature("store-1", FEATURES.BASIC_REPORTS),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
   });
 
   it("展店版進階報表被 HQ 關閉 entitlement 時，不可用", async () => {

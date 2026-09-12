@@ -48,6 +48,24 @@ describe("isolated SPA Preview pool repair", () => {
     expect(configureSpaPreviewPool(url)).toBe(false);
     expect(url.port).toBe("5432");
   });
+  it.each([
+    ["production", "codex/hq-module-foundation"],
+    ["development", "codex/hq-module-foundation"],
+    ["preview", "other"],
+  ])("keeps the shared runtime endpoint unchanged for %s / %s", (environment, branch) => {
+    vi.stubEnv("VERCEL_ENV", environment);
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", branch);
+    vi.stubEnv("DATABASE_URL", testUrl + "&connection_limit=7");
+    vi.stubEnv("DIRECT_URL", testUrl);
+    const actual = new URL(buildDatabaseUrl());
+    const original = new URL(testUrl);
+    for (const field of ["hostname", "port", "username", "password", "pathname"] as const) {
+      expect(actual[field]).toBe(original[field]);
+    }
+    expect(actual.searchParams.get("connection_limit")).toBe("7");
+    expect(actual.searchParams.get("sslmode")).toBe("require");
+    expect(process.env.DIRECT_URL).toBe(testUrl);
+  });
   it("applies to the main runtime client without changing DIRECT_URL", () => {
     vi.stubEnv("DATABASE_URL", testUrl);
     vi.stubEnv("DIRECT_URL", testUrl);

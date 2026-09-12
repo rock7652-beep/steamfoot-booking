@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import { MarketingBrand } from "@/components/marketing-brand";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "隱私權政策｜蒸管家",
@@ -74,7 +75,7 @@ export default function PrivacyPage() {
     <main className="min-h-dvh bg-earth-50 px-4 py-10 sm:py-14">
       <article className="mx-auto max-w-3xl rounded-2xl border border-earth-200 bg-white p-6 shadow-sm sm:p-10">
         <header className="border-b border-earth-200 pb-6">
-          <p className="text-sm font-medium text-primary-600">蒸管家</p>
+          <MarketingBrand />
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-earth-900">
             隱私權政策
           </h1>
@@ -121,7 +122,7 @@ export default function PrivacyPage() {
 
           <section className="rounded-xl bg-earth-50 p-5">
             <h2 className="text-xl font-semibold text-earth-900">九、聯絡我們</h2>
-<p className="mt-3 leading-7 text-earth-700"><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc（加入官方 LINE）</a></p>
+<p className="mt-3 leading-7 text-earth-700"><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">官方 LINE：@329rmywc</a></p>
             <p className="mt-3 leading-7 text-earth-700">
               隱私權、資料查詢或刪除申請，請寄至：
               <a
@@ -137,9 +138,9 @@ export default function PrivacyPage() {
           </section>
         </div>
 
-        <footer className="mt-10 border-t border-earth-200 pt-6 text-center"><p className="mb-4 text-sm leading-7 text-earth-700"><a href="/pricing/terms.html">服務條款</a> · <a href="/pricing/refunds.html">取消與退費政策</a></p>
+        <footer className="mt-10 border-t border-earth-200 pt-6 text-center"><p className="mb-4 text-sm leading-7 text-earth-700"><a href="/terms">服務條款</a> · <a href="/refunds">取消與退費政策</a></p>
           <Link
-            href="/pricing/business"
+            href="/"
             className="text-sm font-medium text-primary-700 hover:text-primary-800"
           >
             返回蒸管家首頁

@@ -194,16 +194,16 @@ describe("updateCustomerSchema — 必填欄位放寬（後台店長編輯）", 
     expect(r.data.birthday).toBe("1990-01-15");
   });
 
-  it("lineName / notes 維持選填，null 可清空", () => {
+  it("lineName / serviceNote 維持選填，null 可清空", () => {
     const r = updateCustomerSchema.safeParse({
       name: "張三",
       phone: "0912345678",
       lineName: null,
-      notes: null,
+      serviceNote: null,
     });
     expect(r.success).toBe(true);
     if (!r.success) return;
     expect(r.data.lineName).toBeNull();
-    expect(r.data.notes).toBeNull();
+    expect(r.data.serviceNote).toBeNull();
   });
 });

@@ -1,9 +1,11 @@
 "use client";
 
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
+
+
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { loginAction } from "@/server/actions/auth";
-import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
 const initialState = { error: null as string | null };
 

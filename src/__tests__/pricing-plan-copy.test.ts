@@ -16,25 +16,37 @@ const PLAN_PAGES = [
 const PUBLIC_PRICING_PAGE = "src/app/pricing/page.tsx";
 
 describe("pricing and growth plan copy", () => {
-  it("presents analysis as an independent paid addon", () => {
+  it("presents analysis in management modules and includes it in alliance", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
-    expect(source).toContain("分析 NT$800／月獨立加購");
-    expect(source).toContain("不占方案選配額度；展店版亦不包含");
+    expect(source).not.toContain('aria-label="分析功能方案比較"');
+    expect(source).toContain('{ label: "分析", values: ["加購", "可選", "內含"] }');
+    expect(source).toContain("健康／月結／分析再選 1 項");
+    expect(source).toContain("提醒／匯出再選 1 項");
+    expect(source).not.toContain("分析另購");
+    expect(source).not.toContain("獨立加購・展店版內含");
+    expect(source).not.toContain("另購 NT$800／月");
+    expect(source).toContain('scope="col"');
+    expect(source).toContain('scope="row"');
+    expect(source).toContain("sticky top-20");
+    expect(readSource("src/components/marketing-navigation.tsx")).toContain("h-20");
+    expect(source).not.toContain("展店版亦不包含");
     expect(source).not.toContain("經營診斷");
     expect(source).not.toContain("基本收款・營運分析");
   });
   it("uses the official LINE link for consultation and footer contact", () => {
     const source = readSource(PUBLIC_PRICING_PAGE);
 
-    expect(source.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(2);
-    expect(source).toContain("官方 LINE：@329rmywc");
-    expect(source).not.toContain("lin.ee/placeholder");
+    expect(source).toContain("<MarketingFooter />");
+    const renderedSources = source + readSource("src/components/marketing-footer.tsx");
+    expect(renderedSources.match(/href="https:\/\/lin\.ee\/SGy5UBz"/g)).toHaveLength(2);
+    expect(renderedSources).toContain("官方 LINE：@329rmywc");
+    expect(renderedSources).not.toContain("lin.ee/placeholder");
   });
 
   it.each(PLAN_PAGES)("bundles health assessment and summary on %s", (path) => {
     const source = readSource(path);
 
-    expect(source).toContain("健康評估與體態追蹤");
+    expect(source).toContain(path === PUBLIC_PRICING_PAGE ? 'label: "健康追蹤"' : "健康評估與體態追蹤");
     expect(source).toContain("LINE 顧客入口（LIFF）");
     expect(source).toContain(path === PUBLIC_PRICING_PAGE ? "申請前須知" : "<PlanPackageNotes />");
     expect(source).not.toContain("AI 健康評估入口");

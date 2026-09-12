@@ -37,7 +37,7 @@ export interface CustomerRow {
   mergedIntoCustomerId: string | null;
   /** 對應 NextAuth User 狀態；SUSPENDED 視同 disabled，避免店長誤操作 placeholder/duplicate。 */
   userStatus: UserStatus | null;
-  /** 內部服務備註（後台限定）。列表只顯示一行截斷摘要，完整內容在 Drawer。 */
+  /** 內部店內備註（後台限定）。列表只顯示一行截斷摘要，完整內容在 Drawer。 */
   serviceNote: string | null;
   /**
    * 有效 PACKAGE 剩餘堂數加總（ACTIVE + 未過期 + 尚有剩餘；排除 TRIAL/SINGLE/點數/用完）。
@@ -58,6 +58,7 @@ interface Props {
   basePath: string;
   /** 「查看」→ 開啟顧客詳情 drawer */
   onView: (row: CustomerRow) => void;
+  onPrefetch?: (row: CustomerRow) => void;
   /** 整 row 點擊用的 href（同步 ?customerId=）；點擊後 page 會重抓並打開 drawer */
   buildViewHref: (row: CustomerRow) => string;
   /** 「＋指派」→ 開啟同一個 drawer，並展開方案區 */
@@ -106,6 +107,7 @@ export function CustomersTable({
   hasActiveFilters,
   basePath,
   onView,
+  onPrefetch,
   buildViewHref,
   onQuickAssign,
   selectionEnabled = false,
@@ -329,6 +331,8 @@ export function CustomersTable({
             ) : null}
             <button
               type="button"
+              onMouseEnter={() => onPrefetch?.(c)}
+              onFocus={() => onPrefetch?.(c)}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();

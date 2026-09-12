@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { updateProfileAction, type ProfileState } from "@/server/actions/profile";
 import { useOneShotActionState } from "@/hooks/use-one-shot-action-state";
 import { useStoreSlugRequired } from "@/lib/store-context";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { BirthdayFields } from "@/components/birthday-fields";
 import { resolveProfileSuccessDestination } from "@/lib/profile-success-destination";
 
@@ -18,7 +18,6 @@ interface Props {
     gender: string | null;
     birthday: string | null;
     address: string | null;
-    notes: string | null;
   };
   age: number | null;
   /** 是否已設定登入密碼 — 控制密碼欄位是必填還是「留空＝不變更」 */
@@ -184,16 +183,6 @@ export function ProfileForm({
           defaultValue={customer.address ?? ""}
           placeholder="請輸入地址"
           className={inputCls}
-        />
-      </div>
-
-      <div>
-        <label htmlFor="notes" className={labelCls}>備註（選填）</label>
-        <textarea
-          id="notes" name="notes" rows={3}
-          defaultValue={customer.notes ?? ""}
-          placeholder="個人備註（若資料有缺請忽略必填，可先提交其他欄位）"
-          className="w-full rounded-xl border border-earth-300 px-4 py-3 text-base text-earth-900 placeholder:text-earth-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
       </div>
 

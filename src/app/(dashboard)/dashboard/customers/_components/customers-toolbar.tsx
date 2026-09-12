@@ -1,5 +1,7 @@
 "use client";
 
+import { NavigationNotice } from "@/components/navigation-notice";
+
 import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -105,6 +107,7 @@ export function CustomersToolbar({ staffOptions, basePath }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-earth-200 pb-3">
+      {isPending && <NavigationNotice />}
       <form onSubmit={onSearchSubmit} className="flex min-w-[220px] flex-1 items-center gap-1.5">
         <input
           name="search"

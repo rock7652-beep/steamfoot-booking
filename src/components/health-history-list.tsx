@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { HEALTH_DISPLAY_METRICS } from "@/lib/health-display-metrics";
 import type { TrendPoint } from "@/lib/health-service";
 

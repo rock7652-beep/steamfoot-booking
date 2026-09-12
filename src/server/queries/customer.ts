@@ -261,6 +261,41 @@ export async function searchCustomers(query: string, limit = 10, activeStoreId?:
 // Customer: 只有自己
 // ============================================================
 
+// 編輯表單只讀基本資料，避免等待方案逐堂、交易與預約歷史。
+// 使用頁面已驗證的 session，保留詳情查詢的店別與帳號安全邊界。
+export async function getCustomerEditForUser(
+  user: Awaited<ReturnType<typeof requireSession>>,
+  customerId: string,
+) {
+  if (user.role === "CUSTOMER" && user.customerId !== customerId) {
+    throw new AppError("FORBIDDEN", "只能查看自己的資料");
+  }
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, ...getStoreFilter(user) },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      gender: true,
+      birthday: true,
+      height: true,
+      serviceNote: true,
+      lineName: true,
+      mergedIntoCustomerId: true,
+      user: { select: { status: true } },
+    },
+  });
+  if (!customer) throw new AppError("NOT_FOUND", "顧客不存在");
+  if (customer.mergedIntoCustomerId) {
+    throw new AppError("NOT_FOUND", "此顧客已合併進其他顧客");
+  }
+  if (customer.user?.status === "SUSPENDED") {
+    throw new AppError("NOT_FOUND", "此顧客的登入帳號已停用");
+  }
+  return customer;
+}
+
 export async function getCustomerDetail(customerId: string) {
   const user = await requireSession();
   return getCustomerDetailForUser(user, customerId);

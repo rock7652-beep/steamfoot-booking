@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/app-link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { getStoreContext } from "@/lib/store-context";

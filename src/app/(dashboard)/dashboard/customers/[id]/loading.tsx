@@ -2,6 +2,7 @@
 export default function Loading() {
   return (
     <div className="mx-auto flex max-w-[1440px] animate-pulse flex-col gap-4 px-6 py-6">
+      <p role="status" className="text-sm text-earth-600">正在開啟顧客資料…</p>
       {/* 麵包屑 */}
       <div className="h-3 w-28 rounded bg-earth-100" />
 

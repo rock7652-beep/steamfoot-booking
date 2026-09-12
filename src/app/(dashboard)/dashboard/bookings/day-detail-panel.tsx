@@ -14,6 +14,7 @@ import type { SlotAvailability } from "@/types";
 
 export interface DayBooking {
   id: string;
+  notes?: string | null;
   slotTime: string;
   people: number;
   recurrenceIndex?: number | null;
@@ -41,6 +42,7 @@ export interface DayBooking {
     name: string;
     phone: string;
     /** 內部服務備註（後台限定）。有值時當日清單顯示一行截斷提醒。 */
+    notes?: string | null;
     serviceNote?: string | null;
     assignedStaff?: { displayName: string; colorCode: string } | null;
     /** 有效 PACKAGE 剩餘堂數加總（ACTIVE + 未過期 + 尚有剩餘；排除 TRIAL/SINGLE/點數/用完）。
@@ -162,12 +164,12 @@ export function DayDetailPanel({
     actionableCount > 0 && selectedCount === actionableCount;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="@container flex h-full flex-col">
       {/* 頂部：精簡 KPI chip 列（固定，不跟著清單捲動）。
           日期已在 Drawer 標題顯示，這裡不再重複，把高度讓給名單。
-          六項統計固定三欄兩排；欄內可換行，放大文字時仍完整顯示。 */}
+          統計依面板寬度排列；iPad 六項同列，窄螢幕與放大文字時換行。 */}
       <div className="shrink-0 px-4 pt-3">
-        <div className="grid grid-cols-3 gap-2 pb-1">
+        <div className="grid grid-cols-3 gap-1.5 pb-1 @[30rem]:grid-cols-6">
           <KpiChip label="預約" value={stats.total} />
           <KpiChip label="到店" value={stats.checkedIn} />
           <KpiChip label="完成人數" value={stats.completed} />
@@ -183,7 +185,7 @@ export function DayDetailPanel({
             tone={stats.makeup > 0 ? "warning" : "default"}
           />
           {filteredFrom != null && (
-            <span className="col-span-3 justify-self-end rounded-full bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700">
+            <span className="col-span-full justify-self-end rounded-full bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700">
               篩選中 {stats.total}/{filteredFrom}
             </span>
           )}
@@ -191,9 +193,9 @@ export function DayDetailPanel({
       </div>
 
       {/* 中段：當日清單，填滿剩餘高度並可獨立捲動 */}
-      <div className="min-h-0 flex-1 p-4">
+      <div className="min-h-0 flex-1 px-3 py-2">
       <div className="flex h-full min-h-0 flex-col rounded-lg border border-earth-200 bg-white">
-        <div className="flex items-center justify-between border-b border-earth-200 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-earth-200 px-3 py-2">
           <h3 className="text-base font-semibold text-earth-900">今日預約</h3>
           {readOnly ? (
             <span className="text-xs font-medium text-amber-700">
@@ -443,9 +445,9 @@ function TimelineItem({
         onClick={handleBodyClick}
         aria-label={`查看 ${booking.slotTime} ${booking.customer?.name ?? "預約"} 的預約詳情`}
         disabled={!onClick || isActing}
-        className="flex min-w-0 flex-1 flex-col gap-2 py-3 text-left disabled:cursor-default"
+        className="flex min-w-0 flex-1 flex-col gap-1 py-2 text-left disabled:cursor-default"
       >
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="shrink-0 text-base font-bold tabular-nums text-earth-900">
             {booking.slotTime}
           </span>
@@ -461,14 +463,14 @@ function TimelineItem({
                 （實到 {booking.attendedPeople}/{booking.people}）
               </span>
             )}
-          <span className="min-w-0 flex-1 basis-24 break-words text-base font-semibold text-earth-900">
+          <span className="min-w-0 flex-1 break-words text-base font-semibold text-earth-900">
             {booking.customer?.name ?? "—"}
           </span>
           <span className="shrink-0 text-xs text-earth-500">
             {assignedStaffName}
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <StatusBadge variant={meta.variant} dot={false}>
             {meta.label}
           </StatusBadge>
@@ -485,11 +487,11 @@ function TimelineItem({
           {booking.bookingType === "FIRST_TRIAL" ? (
             booking.collected ? (
               <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-sm font-medium text-emerald-800">
-                體驗·已收款｜NT${trialAmountText}
+                服務：首次體驗·已收款 NT${trialAmountText}
               </span>
             ) : (
               <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-medium text-amber-800">
-                體驗·未收款｜NT${trialAmountText}
+                服務：首次體驗·未收款 NT${trialAmountText}
               </span>
             )
           ) : null}
@@ -519,29 +521,27 @@ function TimelineItem({
             </span>
           ) : null}
         </div>
-        {booking.bookingType === "FIRST_TRIAL" ? (
-          <span className="w-full text-sm leading-relaxed text-earth-600">
-            服務：首次體驗
-          </span>
-        ) : planBadge.kind !== "deducted" && planLabel !== "—" ? (
+        {booking.bookingType !== "FIRST_TRIAL" && planBadge.kind !== "deducted" && planLabel !== "—" ? (
           <span className="flex w-full min-w-0 items-baseline gap-1 text-sm leading-relaxed text-earth-600">
             <span className="min-w-0 truncate" title={planLabel}>{planLabel}</span>
             {expiry && <span className={`shrink-0 whitespace-nowrap ${expiry.className}`}>· {expiry.compact}</span>}
           </span>
         ) : null}
-        {/* 內部服務備註提醒（後台限定）— 有值才顯示一行截斷，沒值不佔空間 */}
-        {booking.customer?.serviceNote ? (
-          <div className="flex items-center gap-1 text-sm text-amber-700">
-            <span aria-hidden>📝</span>
-            <span className="min-w-0 flex-1 truncate">
-              {booking.customer.serviceNote}
+        {[
+          { label: "本次", value: booking.notes },
+          { label: "店內", value: booking.customer?.serviceNote },
+        ].filter((note) => note.value?.trim()).map((note) => (
+          <div key={note.label} className="flex min-w-0 items-center gap-1 text-sm text-amber-700">
+            <span className="shrink-0">{note.label}：</span>
+            <span className="min-w-0 flex-1 truncate" title={note.value ?? undefined}>
+              {note.value}
             </span>
           </div>
-        ) : null}
+        ))}
       </button>
 
       {/* 整列可開啟詳情時不重複放查看按鈕；無 callback 時保留連結。 */}
-      <div className="flex shrink-0 flex-col justify-center gap-2 py-3">
+      <div className="flex shrink-0 flex-col justify-center gap-2 py-2">
         {actionable && onCompleteSingle ? (
           <button
             type="button"
@@ -586,7 +586,7 @@ function KpiChip({
         ? "text-amber-600"
         : "text-earth-900";
   return (
-    <span className="inline-flex min-w-0 flex-wrap items-center justify-between gap-x-1 gap-y-0.5 rounded-lg border border-earth-200 bg-earth-50 px-2.5 py-1.5 text-xs">
+    <span className="inline-flex min-w-0 flex-wrap items-center justify-between gap-x-1 gap-y-0.5 rounded-lg border border-earth-200 bg-earth-50 px-2 py-1 text-xs">
       <span className="text-earth-500">{label}</span>
       <span className={`min-w-0 break-all font-bold tabular-nums ${valueColor}`}>{value}</span>
     </span>

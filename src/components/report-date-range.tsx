@@ -1,7 +1,9 @@
 "use client";
 
+import { NavigationNotice } from "@/components/navigation-notice";
+
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 const PRESETS = [
   { key: "today", label: "今日" },
@@ -21,6 +23,7 @@ export default function ReportDateRange({
   endDate,
 }: ReportDateRangeProps) {
   const router = useRouter();
+  const [reading, startReading] = useTransition();
   const searchParams = useSearchParams();
   const [showCustom, setShowCustom] = useState(activePreset === "custom");
   const [customStart, setCustomStart] = useState(startDate);
@@ -37,7 +40,7 @@ export default function ReportDateRange({
     params.delete("startDate");
     params.delete("endDate");
     params.set("preset", key);
-    router.push(`?${params.toString()}`);
+    startReading(() => router.push(`?${params.toString()}`));
   }
 
   const [dateError, setDateError] = useState<string | null>(null);
@@ -52,11 +55,12 @@ export default function ReportDateRange({
     const params = new URLSearchParams();
     params.set("startDate", customStart);
     params.set("endDate", customEnd);
-    router.push(`?${params.toString()}`);
+    startReading(() => router.push(`?${params.toString()}`));
   }
 
   return (
     <div className="space-y-3">
+      {reading && <NavigationNotice />}
       {/* Preset pills */}
       <div className="flex flex-wrap gap-2">
         {PRESETS.map((p) => {
@@ -106,6 +110,7 @@ export default function ReportDateRange({
             <button
               type="button"
               onClick={handleCustomSubmit}
+              disabled={reading}
               className="rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
             >
               查詢
