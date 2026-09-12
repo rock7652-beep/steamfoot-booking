@@ -1,4 +1,5 @@
 "use client";
+import { SpaCustomerPicker } from "./customer-picker";
 import { SpaBookingSummary } from "./booking-summary";
 import { spaPartyLabel, spaReceiptStatus } from "@/lib/spa-booking-display";
 
@@ -86,7 +87,6 @@ export function SpaScheduleWorkspace(props: Props) {
   const [companions, setCompanions] = useState<CreateSpaBookingInput[]>([]);
   const [groupKey, setGroupKey] = useState(() => crypto.randomUUID());
   const [editing, setEditing] = useState<SpaScheduleBooking | null>(null);
-  const [customerSearch, setCustomerSearch] = useState("");
   const [error, setError] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [notice, setNotice] = useState("");
@@ -229,7 +229,6 @@ export function SpaScheduleWorkspace(props: Props) {
     setCompanions([]);
     setGroupKey(crypto.randomUUID());
     setEditing(null);
-    setCustomerSearch("");
     setError("");
     setDraft({
       customerId: props.initialCustomerId ?? "",
@@ -245,7 +244,6 @@ export function SpaScheduleWorkspace(props: Props) {
     setConfirmCancel(false);
     setCompanions([]);
     setEditing(booking);
-    setCustomerSearch("");
     setError("");
     setDraft({
       customerId: booking.customerId,
@@ -681,44 +679,14 @@ export function SpaScheduleWorkspace(props: Props) {
                   className="spa-booking-form space-y-5"
                   disabled={pending || confirmCancel || !editable}
                 >
-                  <section className="space-y-2" aria-label="預約顧客">
-                    <h3 className="font-semibold">顧客</h3>
-                    <input
-                      aria-label="搜尋預約顧客"
-                      placeholder="搜尋姓名或電話"
-                      className={inputClass}
-                      value={customerSearch}
-                      onChange={(e) => setCustomerSearch(e.target.value)}
-                    />
-                    <label className="block">
-                      主要聯絡人
-                      <select
-                        disabled={
-                          companions.length > 0 || !!editing?.partyGroupId
-                        }
-                        className={inputClass}
-                        value={draft.customerId}
-                        onChange={(e) =>
-                          setDraft({ ...draft, customerId: e.target.value })
-                        }
-                      >
-                        <option value="">請選擇顧客</option>
-                        {customers
-                          .filter(
-                            (c) =>
-                              c.id === draft.customerId ||
-                              `${c.name} ${c.phone}`
-                                .toLowerCase()
-                                .includes(customerSearch.toLowerCase()),
-                          )
-                          .map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name} · {c.phone}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-                  </section>
+                  <SpaCustomerPicker
+                    customers={customers}
+                    value={draft.customerId}
+                    locked={companions.length > 0 || !!editing?.partyGroupId}
+                    onChange={(customerId) =>
+                      setDraft({ ...draft, customerId })
+                    }
+                  />
                   <div className="space-y-2">
                     <h3 className="font-semibold">選擇服務</h3>
                     {!treatments.length && (
@@ -894,7 +862,7 @@ export function SpaScheduleWorkspace(props: Props) {
                         ))}
                       </select>
                     </label>
-                    {!allowed.length && (
+                    {!!providerKey && !checkingProviders && !allowed.length && (
                       <p className="text-sm text-amber-800">
                         此時段沒有可用位置，請調整時間或檢查位置設定。
                       </p>
@@ -1052,7 +1020,6 @@ export function SpaScheduleWorkspace(props: Props) {
                     requestKey: crypto.randomUUID(),
                     notes: "",
                   });
-                  setCustomerSearch("");
                   setError("");
                 }}
               >
