@@ -200,7 +200,7 @@ export const PLAN_LIMITS: Record<PricingPlan, PlanLimits> = {
     maxMonthlyBookings: null,
     maxMonthlyReports: null,
     maxReminderSends: null,
-    maxStores: 3,
+    maxStores: 2, // 總部本身 + 首家分店；加購後由 maxStoresOverride 擴充，無固定 3 家上限
   },
 };
 
