@@ -421,7 +421,7 @@ export function SpaScheduleWorkspace(props: Props) {
             <div
               className="sticky top-0 z-20 grid border-b border-earth-200 bg-earth-50"
               style={{
-                gridTemplateColumns: `70px repeat(${staff.length}, minmax(210px, 320px))`,
+                gridTemplateColumns: `70px repeat(${staff.length}, minmax(210px, 1fr))`,
               }}
             >
               <div className="p-3 text-xs">時間</div>
@@ -441,7 +441,7 @@ export function SpaScheduleWorkspace(props: Props) {
             <div
               className="relative grid"
               style={{
-                gridTemplateColumns: `70px repeat(${staff.length}, minmax(210px, 320px))`,
+                gridTemplateColumns: `70px repeat(${staff.length}, minmax(210px, 1fr))`,
               }}
             >
               <div>

@@ -90,6 +90,41 @@ export default async function SettingsIndexPage() {
   );
   const isSpaStore = (await getStoreIndustryModule(activeStoreId)) === "spa";
 
+  if (isSpaStore) {
+    const [canHours, canPayment, canBooking, canDuty, spaDigitalButler] = await Promise.all([
+      checkPermission(user.role, user.staffId, "business_hours.manage"),
+      checkPermission(user.role, user.staffId, "plans.edit"),
+      checkPermission(user.role, user.staffId, "booking.read"),
+      checkPermission(user.role, user.staffId, "duty.manage"),
+      hasStoreFeature(activeStoreId, FEATURES.DIGITAL_BUTLER).catch(() => false),
+    ]);
+    const entries = [
+      { title: "營業與預約時間", description: "設定店舖營業時間、休假與預約時間單位。", href: "/dashboard/settings/hours", allowed: canHours },
+      { title: "付款設定", description: "管理銀行轉帳資訊與付款聯繫方式。", href: "/dashboard/settings/payment", allowed: canPayment },
+      { title: "人員與排班", description: "按日期安排多段班別，並設定人員可提供的服務。", href: "/dashboard/spa-staff", allowed: canDuty && user.role === "OWNER" },
+      { title: "數位管家流程", description: "管理數位管家的互動流程。", href: "/dashboard/settings/digital-butler", allowed: spaDigitalButler },
+      { title: "數位管家名單", description: "查看數位管家收集的顧客名單。", href: "/dashboard/digital-butler/leads", allowed: spaDigitalButler },
+      { title: "成長方案中心", description: "查看店舖方案與可使用功能。", href: "/dashboard/settings/plans", allowed: true },
+      { title: "推薦分享文案", description: "編輯顧客分享給朋友的推薦文字。", href: "/dashboard/settings/referral-share", allowed: true },
+      { title: "體驗課設定", description: "管理體驗服務的預設價格與可調整範圍。", href: "/dashboard/settings/trial", allowed: canManageTrial },
+      { title: "提醒管理", description: "管理提醒規則與通知內容。", href: "/dashboard/reminders", allowed: true },
+      { title: "預約排程", description: "查看當日預約，安排人員與服務位置。", href: "/dashboard/spa-schedule", allowed: canBooking },
+    ].filter((entry) => entry.allowed);
+    return (
+      <PageShell>
+        <PageHeader title="設定" subtitle="管理店舖營業與付款設定，快速前往人員及預約排程" />
+        <div className="spa-home-grid">
+          {entries.map((entry) => (
+            <Link key={entry.href} href={entry.href} className="spa-home-card">
+              <h2>{entry.title} <span aria-hidden="true">→</span></h2>
+              <p>{entry.description}</p>
+            </Link>
+          ))}
+        </div>
+      </PageShell>
+    );
+  }
+
   // 並行拉 summary（皆為既有 query）
   const [plan, shopConfig, staffList, rules, weeklyHours, store, trialSettings, hasDigitalButler] =
     await Promise.all([

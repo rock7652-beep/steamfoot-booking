@@ -77,7 +77,7 @@ export async function SpaRevenue({
   return (
     <PageShell>
       <PageHeader title="營運" subtitle="查看 SPA 實際收款、退款與額度使用" />
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         {[
           ["今天", today],
           ["本週", weekStart],
@@ -92,7 +92,7 @@ export async function SpaRevenue({
           </Link>
         ))}
       </div>
-      <details className="mb-5 rounded-xl border border-earth-200 bg-white p-4">
+      <details className="rounded-xl border border-earth-200 bg-white p-4">
         <summary className="cursor-pointer text-sm font-medium text-[#596D45]">
           篩選條件
           <span className="ml-2 font-normal text-earth-500">
@@ -197,7 +197,7 @@ export async function SpaRevenue({
           </div>
         </form>
       </details>
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           ["本期收款", money(data.collected)],
           ["退款", money(data.refunded)],
@@ -215,7 +215,7 @@ export async function SpaRevenue({
           </div>
         ))}
       </div>
-      <p className="mb-5 text-sm text-earth-500">
+      <p className="text-sm text-earth-500">
         {from} ～ {to}
         。收款包含服務付款、購買方案與儲值；扣次、儲值扣款及額度退回不重複計入。完成服務按結帳時間統計，不受付款方式篩選影響。
       </p>
