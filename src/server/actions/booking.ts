@@ -578,8 +578,9 @@ export async function createBooking(
 
     const bookingDateObj = new Date(data.bookingDate + "T00:00:00Z");
 
-    // 同日已過時段不可預約（後端強制擋）
-    if (data.bookingDate === todayStr) {
+    // 顧客端不得預約已過時段；有既有 booking.create 權限的店內人員可
+    // 補登今天。補登仍完整通過下方容量、值班與方案扣堂檢查，狀態維持 PENDING。
+    if (user.role === "CUSTOMER" && data.bookingDate === todayStr) {
       const nowHHmm = getNowTaipeiHHmm();
       if (data.slotTime <= nowHHmm) {
         throw new AppError(
