@@ -8,6 +8,7 @@ import { spaPrisma } from "@/lib/spa-db";
 import { AppError, handleActionError } from "@/lib/errors";
 import { requireSession } from "@/lib/session";
 import { requireSpaStore } from "@/lib/industry-module-server";
+import { isStoreBookableStatus, type StoreOperatingStatus } from "@/lib/store-operating-status";
 import {
   getNowTaipeiHHmm,
   parseTaipeiDateTime,
@@ -75,7 +76,11 @@ async function requireCustomerBookingContext(): Promise<CustomerBookingContext> 
     }),
   ]);
   if (!membership) throw new AppError("FORBIDDEN", "此 LINE 帳號尚未連結本店會員");
-  if (!store || store.operatingStatus !== "ACTIVE" || store.moduleInstallation?.status !== "ACTIVE") {
+  if (
+    !store ||
+    !isStoreBookableStatus(store.operatingStatus as StoreOperatingStatus) ||
+    store.moduleInstallation?.status !== "ACTIVE"
+  ) {
     throw new AppError("FORBIDDEN", "本店預約功能尚未開放");
   }
 
