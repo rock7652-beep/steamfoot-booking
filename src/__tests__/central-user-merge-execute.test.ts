@@ -4,16 +4,18 @@ const source = {
   id: "source-user", name: "來源", role: "CUSTOMER", status: "ACTIVE", passwordHash: null,
   accounts: [{ id: "line-account", provider: "line", providerAccountId: "line-source" }],
   customerIdentityLinks: [{ id: "line-link", storeId: "store-a", customerId: "customer-a", provider: "line", providerAccountId: "line-source" }],
+  staffMemberLinks: [{ id: "staff-link", storeId: "store-a", staffId: "staff-a" }],
   customer: null,
 };
 const target = {
   id: "target-user", name: "主要", role: "CUSTOMER", status: "ACTIVE", passwordHash: "hash",
-  accounts: [], customerIdentityLinks: [], customer: null,
+  accounts: [], customerIdentityLinks: [], staffMemberLinks: [], customer: null,
 };
 const tx = {
   user: { findUnique: vi.fn(), update: vi.fn() },
   account: { updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
   customerIdentityLink: { updateMany: vi.fn(), count: vi.fn() },
+  staffMemberLink: { updateMany: vi.fn(), count: vi.fn() },
   customer: { update: vi.fn(), findMany: vi.fn(), count: vi.fn() },
   centralMemberLinkReviewRequest: { updateMany: vi.fn() },
   session: { deleteMany: vi.fn(), count: vi.fn() },
@@ -28,6 +30,7 @@ beforeEach(() => {
   tx.customer.findMany.mockResolvedValue([{ id: "customer-a", storeId: "store-a", lineUserId: "line-source", lineLinkStatus: "LINKED", planWallets: [], bookings: [], transactions: [] }]);
   tx.account.count.mockImplementation(({ where }: { where: { userId: string } }) => where.userId === source.id ? 0 : 1);
   tx.customerIdentityLink.count.mockResolvedValue(0);
+  tx.staffMemberLink.count.mockResolvedValue(0);
   tx.session.count.mockResolvedValue(0);
   tx.customer.count.mockResolvedValue(0);
 });
@@ -47,6 +50,7 @@ describe("executeCentralUserMerge", () => {
     });
     expect(tx.account.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["line-account"] } }, data: { userId: target.id } });
     expect(tx.customerIdentityLink.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["line-link"] } }, data: { userId: target.id } });
+    expect(tx.staffMemberLink.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["staff-link"] } }, data: { userId: target.id } });
     expect(tx.session.deleteMany).toHaveBeenCalledWith({ where: { userId: source.id } });
     expect(tx.user.update).toHaveBeenCalledWith({
       where: { id: source.id },
