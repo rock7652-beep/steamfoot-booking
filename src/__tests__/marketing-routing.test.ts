@@ -3,8 +3,8 @@ import { NextRequest } from "next/server";
 vi.mock("@/lib/auth", () => ({ auth: (handler: unknown) => handler }));
 import { proxy } from "@/proxy";
 
-function route(path: string, role?: string, host = "www.steamfoot.com") {
-  const req = new NextRequest(`https://${host}${path}`, { headers: { host } });
+function route(path: string, role?: string, host = "www.steamfoot.com", cookie?: string) {
+  const req = new NextRequest(`https://${host}${path}`, { headers: { host, ...(cookie ? { cookie } : {}) } });
   Object.assign(req, { auth: role ? { user: { role, storeSlug: "taichung", storeId: "store-2" } } : null });
   return (proxy as unknown as (req: NextRequest) => Response)(req);
 }
@@ -33,6 +33,8 @@ describe("marketing URLs preserve store routing", () => {
   });
   it("retains role-based auth return and error parameters", () => {
     expect(route("/entry?error=AccessDenied").headers.get("location")).toBe("https://www.steamfoot.com/s/zhubei/?error=AccessDenied");
+    expect(route("/entry?error=OAuthCallbackError", undefined, "www.steamfoot.com", "oauth-store-slug=spa-module-qa-20260903").headers.get("location"))
+      .toBe("https://www.steamfoot.com/s/spa-module-qa-20260903/?error=OAuthCallbackError");
     expect(route("/entry", "CUSTOMER").headers.get("location")).toBe("https://www.steamfoot.com/s/taichung/book");
     expect(route("/entry", "OWNER").headers.get("location")).toBe("https://www.steamfoot.com/s/taichung/admin/dashboard");
     expect(route("/entry", "ADMIN").headers.get("location")).toBe("https://www.steamfoot.com/hq/dashboard");

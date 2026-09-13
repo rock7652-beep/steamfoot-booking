@@ -11,10 +11,9 @@ export function OAuthButtons({ storeSlug = "zhubei" }: { storeSlug?: string }) {
     const loginSlug = provider === "line" ? normalizeWebStoreSlug(storeSlug) : storeSlug;
     setLoadingProvider(provider);
     try {
-      // All store web logins use the central LINE provider. Preserve the
-      // originating store for the verified, store-scoped member resolver.
-      // B7-4: 設定 cookie 讓 auth signIn callback 知道 store context
-      document.cookie = `oauth-store-slug=${loginSlug};path=/;max-age=600;samesite=lax`;
+      // The authorization endpoint derives and DB-validates the originating
+      // store from this exact callback path, then sets the routing cookie on
+      // the same response as Auth.js state. Do not mint that cookie in JS.
       await signIn(provider, { callbackUrl: `/s/${loginSlug}/book` });
     } catch {
       setLoadingProvider(null);

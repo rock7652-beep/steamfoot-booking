@@ -34,7 +34,24 @@ export async function withWebLineStoreContext(
   // and all cookies; add the DB-validated store on the same response as state.
   const response = await handler(request);
   if (response.status >= 200 && response.status < 400) {
-    response.headers.append("Set-Cookie", `oauth-store-slug=${encodeURIComponent(store.slug)}; Path=/; Max-Age=600; SameSite=Lax${requestUrl.protocol === "https:" ? "; Secure" : ""}`);
+    // A LINE return can happen inside an embedded browser. In that context a
+    // Lax cookie is not guaranteed to accompany the cross-site callback, so
+    // use SameSite=None on HTTPS. This is still only a DB-validated routing
+    // hint; membership and staff authorization remain server-side checks.
+    const headers = new Headers(response.headers);
+    headers.append(
+      "Set-Cookie",
+      `oauth-store-slug=${encodeURIComponent(store.slug)}; Path=/; Max-Age=600; SameSite=${requestUrl.protocol === "https:" ? "None; Secure" : "Lax"}`,
+    );
+
+    // Auth.js may return immutable headers (notably on an error response).
+    // Clone instead of mutating its response so its state/callback cookies are
+    // always preserved alongside our store handoff cookie.
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   }
   return response;
 }
