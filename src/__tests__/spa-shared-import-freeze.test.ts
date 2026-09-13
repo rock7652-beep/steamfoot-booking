@@ -26,6 +26,7 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   // legacy Booking, Transaction or CustomerPlanWallet models.
   "src/app/(customer)/book/page.tsx",
   "src/app/(customer)/book/new/page.tsx",
+  "src/app/(customer)/layout.tsx",
   "src/app/(liff)/liff/bookings/bookings-list.tsx",
   "src/app/(liff)/liff/liff-shell.tsx",
   "src/app/(liff)/liff/wallets/wallets-list.tsx",

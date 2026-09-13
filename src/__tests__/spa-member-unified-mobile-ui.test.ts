@@ -54,4 +54,16 @@ describe("SPA member unified mobile UI", () => {
     expect(form).toContain("fetchSpaCustomerAvailability");
     expect(form).toContain("cancelSpaCustomerBooking");
   });
+
+  it("allows the same SPA detail pages from an authenticated web session", () => {
+    const bookingsPage = read("src/app/(liff)/liff/bookings/page.tsx");
+    const bookingsList = read("src/app/(liff)/liff/bookings/bookings-list.tsx");
+    const walletsPage = read("src/app/(liff)/liff/wallets/page.tsx");
+    const walletsList = read("src/app/(liff)/liff/wallets/wallets-list.tsx");
+
+    expect(bookingsPage).toContain("allowBrowserSession={Boolean(webUser)}");
+    expect(walletsPage).toContain("allowBrowserSession={Boolean(webUser)}");
+    expect(bookingsList).toContain('dataSource !== "spa"');
+    expect(walletsList).toContain('dataSource !== "spa"');
+  });
 });

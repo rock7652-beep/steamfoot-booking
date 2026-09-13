@@ -84,6 +84,7 @@ interface Props {
   /** PR-E：per-store Google Maps 短網址。 */
   storeMapUrl: string;
   dataSource: IndustryModuleId;
+  allowBrowserSession?: boolean;
 }
 
 export function BookingsList({
@@ -94,6 +95,7 @@ export function BookingsList({
   storeAddress,
   storeMapUrl,
   dataSource,
+  allowBrowserSession = false,
 }: Props) {
   const router = useRouter(); // PR-D4B-1：reschedule 成功後 push 到 trial-booking
   const [state, setState] = useState<State>({ kind: "initializing" });
@@ -281,25 +283,28 @@ export function BookingsList({
       if (cancelled) return;
 
       if (!isInLineClient()) {
-        setState({ kind: "not_in_line_app" });
-        return;
-      }
-      // 沒有 idToken（LINE session 失效）= expired；與 trial-booking 同處理
-      const idToken = getIDToken();
-      if (!idToken) {
-        setState({ kind: "expired" });
-        return;
-      }
+        if (!allowBrowserSession || dataSource !== "spa") {
+          setState({ kind: "not_in_line_app" });
+          return;
+        }
+      } else {
+        // 沒有 idToken（LINE session 失效）= expired；與 trial-booking 同處理
+        const idToken = getIDToken();
+        if (!idToken) {
+          setState({ kind: "expired" });
+          return;
+        }
 
-      const session = await refreshLiffSession({ idToken, storeSlug });
-      if (cancelled) return;
-      if (session.status === "need_onboarding") {
-        router.replace(`/s/${storeSlug}/liff/onboarding`);
-        return;
-      }
-      if (session.status !== "session_created") {
-        setState({ kind: session.status });
-        return;
+        const session = await refreshLiffSession({ idToken, storeSlug });
+        if (cancelled) return;
+        if (session.status === "need_onboarding") {
+          router.replace(`/s/${storeSlug}/liff/onboarding`);
+          return;
+        }
+        if (session.status !== "session_created") {
+          setState({ kind: session.status });
+          return;
+        }
       }
 
       // ── 2. fetch bookings ──
@@ -335,7 +340,7 @@ export function BookingsList({
     return () => {
       cancelled = true;
     };
-  }, [dataSource, liffId, storeSlug, router]);
+  }, [allowBrowserSession, dataSource, liffId, storeSlug, router]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">

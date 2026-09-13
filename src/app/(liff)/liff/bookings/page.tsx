@@ -7,6 +7,7 @@ import {
 import { liffMessages } from "@/lib/liff/messages";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { BookingsList } from "./bookings-list";
+import { getCurrentUser } from "@/lib/session";
 
 /**
  * /s/[storeSlug]/liff/bookings — LIFF 顧客「我的預約」頁 (PR-D2)
@@ -45,6 +46,7 @@ export default async function LiffMyBookingsPage() {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
   const industryModule = await getStoreIndustryModule(presentation.id);
+  const webUser = industryModule === "spa" ? await getCurrentUser() : null;
 
   return (
     <BookingsList
@@ -55,6 +57,7 @@ export default async function LiffMyBookingsPage() {
       storeAddress={presentation.address}
       storeMapUrl={presentation.mapUrl}
       dataSource={industryModule}
+      allowBrowserSession={Boolean(webUser)}
     />
   );
 }

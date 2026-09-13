@@ -57,9 +57,10 @@ interface Props {
   /** PR-E：per-store LINE OA 連結。 */
   contactUrl: string;
   dataSource: IndustryModuleId;
+  allowBrowserSession?: boolean;
 }
 
-export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSource }: Props) {
+export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSource, allowBrowserSession = false }: Props) {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
 
@@ -78,24 +79,27 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
       if (cancelled) return;
 
       if (!isInLineClient()) {
-        setState({ kind: "not_in_line_app" });
-        return;
-      }
-      const idToken = getIDToken();
-      if (!idToken) {
-        setState({ kind: "expired" });
-        return;
-      }
+        if (!allowBrowserSession || dataSource !== "spa") {
+          setState({ kind: "not_in_line_app" });
+          return;
+        }
+      } else {
+        const idToken = getIDToken();
+        if (!idToken) {
+          setState({ kind: "expired" });
+          return;
+        }
 
-      const session = await refreshLiffSession({ idToken, storeSlug });
-      if (cancelled) return;
-      if (session.status === "need_onboarding") {
-        router.replace(`/s/${storeSlug}/liff/onboarding`);
-        return;
-      }
-      if (session.status !== "session_created") {
-        setState({ kind: session.status });
-        return;
+        const session = await refreshLiffSession({ idToken, storeSlug });
+        if (cancelled) return;
+        if (session.status === "need_onboarding") {
+          router.replace(`/s/${storeSlug}/liff/onboarding`);
+          return;
+        }
+        if (session.status !== "session_created") {
+          setState({ kind: session.status });
+          return;
+        }
       }
 
       // ── 2. fetch wallets ──
@@ -132,7 +136,7 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
     return () => {
       cancelled = true;
     };
-  }, [dataSource, liffId, storeSlug, router]);
+  }, [allowBrowserSession, dataSource, liffId, storeSlug, router]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">

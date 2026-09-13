@@ -7,6 +7,7 @@ import {
 import { liffMessages } from "@/lib/liff/messages";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { WalletsList } from "./wallets-list";
+import { getCurrentUser } from "@/lib/session";
 
 /**
  * /s/[storeSlug]/liff/wallets — LIFF 顧客「我的方案 / 剩餘堂數」頁
@@ -45,6 +46,7 @@ export default async function LiffMyWalletsPage() {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
   const industryModule = await getStoreIndustryModule(presentation.id);
+  const webUser = industryModule === "spa" ? await getCurrentUser() : null;
 
   return (
     <WalletsList
@@ -53,6 +55,7 @@ export default async function LiffMyWalletsPage() {
       liffId={liffId}
       contactUrl={presentation.contactUrl}
       dataSource={industryModule}
+      allowBrowserSession={Boolean(webUser)}
     />
   );
 }
