@@ -7,6 +7,8 @@ import {
 import { liffMessages } from "@/lib/liff/messages";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { getIndustryModule } from "@/lib/industry-modules";
 import { LiffShell } from "./liff-shell";
 
 /**
@@ -44,10 +46,15 @@ export default async function LiffEntryPage() {
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
-  const healthAssessmentEnabled = await hasStoreFeature(
-    presentation.id,
-    FEATURES.AI_HEALTH_SUMMARY,
-  ).catch(() => false);
+  const industryModule = getIndustryModule(
+    await getStoreIndustryModule(presentation.id),
+  );
+  const healthAssessmentEnabled = industryModule.features.healthAssessment
+    ? await hasStoreFeature(
+        presentation.id,
+        FEATURES.AI_HEALTH_SUMMARY,
+      ).catch(() => false)
+    : false;
 
   return (
     <LiffShell
@@ -56,6 +63,12 @@ export default async function LiffEntryPage() {
       liffId={liffId}
       contactUrl={presentation.contactUrl}
       healthAssessmentEnabled={healthAssessmentEnabled}
+      terminology={industryModule.customer}
+      bookingHref={
+        industryModule.id === "spa"
+          ? `/s/${presentation.slug}/book/new`
+          : undefined
+      }
     />
   );
 }

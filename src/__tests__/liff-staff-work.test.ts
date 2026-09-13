@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 
 const requireSession = vi.hoisted(() => vi.fn());
 const resolveAccess = vi.hoisted(() => vi.fn());
@@ -73,5 +74,15 @@ describe("LIFF staff work projection", () => {
     requireSession.mockResolvedValue({ id: "owner", role: "OWNER", storeId: "store-1" });
     await fetchLiffStaffWork();
     expect(resolveAccess).toHaveBeenCalledWith("owner", "store-1");
+  });
+
+  it("keeps the complete month calendar compact on a phone", () => {
+    const source = readFileSync(
+      "src/app/(liff)/liff/spa-work/staff-work-screen.tsx",
+      "utf8",
+    );
+    expect(source).toContain('className="flex size-9');
+    expect(source).toContain("min-h-10");
+    expect(source).not.toContain("min-h-12 flex-col items-center");
   });
 });

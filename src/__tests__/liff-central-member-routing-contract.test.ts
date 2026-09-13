@@ -83,4 +83,16 @@ describe("central-member LIFF routing contract", () => {
     expect(shell).toContain('setMemberSummary("error")');
     expect(shell).toContain("您的方案與堂數不會受到影響");
   });
+
+  it("uses the store module for member terminology and feature visibility", () => {
+    const page = source("src/app/(liff)/liff/page.tsx");
+    const shell = source("src/app/(liff)/liff/liff-shell.tsx");
+
+    expect(page).toContain("getStoreIndustryModule(presentation.id)");
+    expect(page).toContain("industryModule.features.healthAssessment");
+    expect(page).toContain('industryModule.id === "spa"');
+    expect(page).toContain("/book/new");
+    expect(shell).toContain("terminology={terminology}");
+    expect(shell).toContain("bookingHref={bookingHref}");
+  });
 });

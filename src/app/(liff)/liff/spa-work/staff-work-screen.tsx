@@ -91,23 +91,22 @@ export function StaffWorkScreen({ storeName, storeSlug, liffId, today }: { store
   };
   return <main className="mx-auto min-h-screen max-w-md bg-[#f8f5ee] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] text-earth-900">
     <header><p className="text-xs font-semibold tracking-[0.12em] text-primary-700">{storeName}</p><div className="mt-2 flex items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">我的工作</h1><p className="mt-1 text-sm text-earth-500">{state.staffName}</p></div><Link href={`/s/${storeSlug}/book`} onClick={() => localStorage.setItem(`spa-member-mode:${storeSlug}`, "member")} className="rounded-full border border-earth-300 bg-white px-4 py-2 text-sm font-medium">會員專區</Link></div></header>
-    <section aria-label="工作月曆" className="mt-5 rounded-2xl bg-white p-3 shadow-sm">
+    <section aria-label="工作月曆" className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
       <div className="flex items-center justify-between gap-2 px-1">
-        <button aria-label="上個月" disabled={pending} onClick={() => chooseDate(monthTarget(state.selectedDate, -1))} className="flex size-10 items-center justify-center rounded-xl border border-earth-200 text-xl">‹</button>
-        <h2 className="text-lg font-bold">{selectedYear} 年 {selectedMonth} 月</h2>
-        <button aria-label="下個月" disabled={pending} onClick={() => chooseDate(monthTarget(state.selectedDate, 1))} className="flex size-10 items-center justify-center rounded-xl border border-earth-200 text-xl">›</button>
+        <button aria-label="上個月" disabled={pending} onClick={() => chooseDate(monthTarget(state.selectedDate, -1))} className="flex size-9 items-center justify-center rounded-xl border border-earth-200 text-xl">‹</button>
+        <div className="flex items-center gap-2"><h2 className="text-base font-bold">{selectedYear} 年 {selectedMonth} 月</h2><button disabled={pending || state.selectedDate === today} onClick={() => chooseDate(today)} className="rounded-full px-2 py-1 text-xs font-medium text-primary-700 disabled:text-earth-300">回到今天</button></div>
+        <button aria-label="下個月" disabled={pending} onClick={() => chooseDate(monthTarget(state.selectedDate, 1))} className="flex size-9 items-center justify-center rounded-xl border border-earth-200 text-xl">›</button>
       </div>
-      <button disabled={pending || state.selectedDate === today} onClick={() => chooseDate(today)} className="mx-auto mt-2 block rounded-full px-4 py-1.5 text-sm font-medium text-primary-700 disabled:text-earth-300">回到今天</button>
-      <div className="mt-2 grid grid-cols-7 text-center text-xs font-medium text-earth-400">{["日","一","二","三","四","五","六"].map((label) => <span key={label} className="py-2">{label}</span>)}</div>
+      <div className="mt-1 grid grid-cols-7 text-center text-xs font-medium text-earth-400">{["日","一","二","三","四","五","六"].map((label) => <span key={label} className="py-1.5">{label}</span>)}</div>
       <div className="grid grid-cols-7 gap-1">{Array.from({ length: firstWeekday }, (_, index) => <span aria-hidden="true" key={`blank-${index}`} />)}{state.calendarDays.map((day) => {
         const selected = day.date === state.selectedDate;
         const isToday = day.date === today;
-        return <button key={day.date} aria-label={`${day.date}${day.isLeave ? " 休假日" : ""}${day.bookingCount ? ` ${day.bookingCount} 筆預約` : ""}`} aria-pressed={selected} disabled={pending} onClick={() => chooseDate(day.date)} className={`relative flex min-h-12 flex-col items-center justify-center rounded-xl border text-sm transition-colors ${selected ? "border-primary-800 bg-primary-800 font-semibold text-white" : isToday ? "border-2 border-primary-600 bg-white text-earth-900" : day.isLeave ? "border-transparent bg-earth-100 text-earth-400" : "border-transparent bg-white text-earth-800"}`}>
+        return <button key={day.date} aria-label={`${day.date}${day.isLeave ? " 休假日" : ""}${day.bookingCount ? ` ${day.bookingCount} 筆預約` : ""}`} aria-pressed={selected} disabled={pending} onClick={() => chooseDate(day.date)} className={`relative flex min-h-10 flex-col items-center justify-center rounded-xl border text-sm transition-colors ${selected ? "border-primary-800 bg-primary-800 font-semibold text-white" : isToday ? "border-2 border-primary-600 bg-white text-earth-900" : day.isLeave ? "border-transparent bg-earth-100 text-earth-400" : "border-transparent bg-white text-earth-800"}`}>
           <span>{Number(day.date.slice(-2))}</span>
-          <span aria-hidden="true" className={`mt-1 size-1.5 rounded-full ${day.bookingCount ? selected ? "bg-white" : "bg-blue-500" : "bg-transparent"}`} />
+          <span aria-hidden="true" className={`mt-0.5 size-1.5 rounded-full ${day.bookingCount ? selected ? "bg-white" : "bg-blue-500" : "bg-transparent"}`} />
         </button>;
       })}</div>
-      <div className="mt-3 flex items-center justify-center gap-4 border-t border-earth-100 pt-3 text-xs text-earth-500"><span className="flex items-center gap-1.5"><i className="size-2 rounded-full bg-blue-500" />有預約</span><span className="rounded bg-earth-100 px-2 py-1">休假日</span></div>
+      <div className="mt-2 flex items-center justify-center gap-4 border-t border-earth-100 pt-2 text-xs text-earth-500"><span className="flex items-center gap-1.5"><i className="size-2 rounded-full bg-blue-500" />有預約</span><span className="rounded bg-earth-100 px-2 py-0.5">休假日</span></div>
     </section>
     <section className="mt-5"><div><p className="text-sm font-medium text-primary-700">{state.selectedDate === today ? "今日工作" : "當日工作"}{selectedDay?.isLeave ? "・休假日" : ""}</p><div className="mt-1 flex items-baseline justify-between gap-3"><h2 className="text-xl font-bold">{state.selectedDate.replaceAll("-", " / ")}</h2><span className="text-sm text-earth-500">{state.rows.length} 筆預約</span></div></div>
       <div className="mt-4 space-y-3">{state.rows.length ? state.rows.map((row) => {

@@ -77,6 +77,8 @@ interface LiffShellProps {
   /** PR-E：per-store LINE OA 連結。Server 端 resolveStorePresentation 解析後注入。 */
   contactUrl: string;
   healthAssessmentEnabled: boolean;
+  terminology: MemberHomeTerminology;
+  bookingHref?: string;
 }
 
 /**
@@ -99,6 +101,8 @@ export function LiffShell({
   liffId,
   contactUrl,
   healthAssessmentEnabled,
+  terminology,
+  bookingHref,
 }: LiffShellProps) {
   const [state, setState] = useState<State>({ kind: "initializing" });
   // PR-G4：lazy fetch — signed_in 後 fire-and-forget，不擋 home 既有渲染
@@ -288,6 +292,8 @@ export function LiffShell({
           memberSummary={memberSummary}
           healthAssessmentEnabled={healthAssessmentEnabled}
           hasWorkAccess={hasWorkAccess}
+          terminology={terminology}
+          bookingHref={bookingHref}
         />
       )}
     </div>
