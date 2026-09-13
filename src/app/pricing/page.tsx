@@ -18,7 +18,7 @@ const plans = [
   { id: "ALLIANCE", name: "展店版", icon: "stores", purpose: "管理多店", audience: "多店品牌、準備展店的店家", price: "4,990", original: "7,100", annual: "59,880" },
 ] as const;
 const limits = [
-  { label: "員工帳號", field: "maxStaff", unit: "位" },
+  { label: "可啟用人員", field: "maxStaff", unit: "位" },
   { label: "顧客資料", field: "maxCustomers", unit: "筆" },
   { label: "每月預約", field: "maxMonthlyBookings", unit: "筆" },
 ] as const;
@@ -97,6 +97,7 @@ export default function PricingPage() {
         </article>)}
       </section>
       <FeatureComparison />
+      <p className="mt-4 text-base leading-7 text-[#4C6259]">可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
       <p className="mt-4 text-base leading-7 text-[#4C6259]">付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。試用版仍有使用限制，訊息與金流等外部費用另依服務規則計算。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>

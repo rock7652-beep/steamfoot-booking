@@ -226,7 +226,7 @@ export default async function SettingsIndexPage() {
   const systemInfo: InfoListItem[] = [
     { label: "目前店別", value: storeName },
     { label: "目前方案", value: planLabel },
-    { label: "員工數", value: `${activeStaffCount} / ${staffCount}` },
+    { label: "人員（啟用／全部）", value: `${activeStaffCount} / ${staffCount}` },
   ];
 
   // 使用提示（右欄最下）— 有警示才顯示

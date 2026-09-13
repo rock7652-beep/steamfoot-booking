@@ -44,7 +44,7 @@ export async function checkStaffLimitOrThrow(
     const label = PRICING_PLAN_INFO[store.plan].label;
     throw new AppError(
       "FORBIDDEN",
-      `「${label}」方案最多 ${limits.maxStaff} 位員工，請升級方案`
+      `「${label}」方案最多 ${limits.maxStaff} 位可啟用人員（含店長、後台員工及服務人員），請升級方案`
     );
   }
 }
