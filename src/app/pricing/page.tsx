@@ -110,7 +110,7 @@ export default function PricingPage() {
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li>限時優惠：主方案繳 12 個月，使用 14 個月；優惠結束後依正式原價調整。</li>
-            <li>展店版包含總部管理＋首家分店串接額度（分店系統月費另計）。第二家分店起，每家 +$1,000/月分店串接管理費；無固定 3 家上限，可擴充至 30 家以上。各分店另購基本版 $1,490/月或專業版 $2,490/月。</li>
+            <li>展店版包含總部管理＋首家分店串接額度（分店系統月費另計）。第二家分店起，每家 +$1,000/月分店串接管理費，可擴充至 30 家以上。各分店另購基本版 $1,490/月或專業版 $2,490/月。</li>
             <li>年繳總額僅計主方案，額外模組與分店串接管理費另計，贈送期間於開通前確認。</li>
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>
