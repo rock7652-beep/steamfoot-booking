@@ -86,6 +86,14 @@
 - 停用前若有 PENDING／CONFIRMED 預約會阻擋並提示先改派；完成後停用會撤銷 link，顧客身分與歷史資料保留。
 - 新表已啟用 RLS 並撤銷 `anon`／`authenticated` 直接表權限；應用程式只由 server Prisma 存取。
 
+## 2026-09-13 Preview 操作驗收紀錄
+
+- Preview 店長頁已以 `SPA 驗收店長` 登入，店別為 `spa-module-qa-20260903`。
+- 「從本店會員加入人員」可搜尋本店會員，顯示遮罩手機與 LINE 綁定狀態；`SPA 測試顧客` 已從顧客詳情成功加入服務人員。
+- 「連結既有人員」已把原 `驗收人員2・美容` 的既有 Staff 紀錄連到 `Spa測試員` 會員。資料庫核對顯示 Staff id 與 2026-09-12 的建立時間均保留；畫面名稱依會員資料更新為 `Spa測試員`。
+- 測試 DB 核對只有兩筆有效 `StaffMemberLink`，兩筆均為 ACTIVE、未撤銷，沒有重複 link。
+- 目前兩個可用驗收會員皆顯示 `LINE 未綁定`，因此尚不能把 Preview 的「一般網頁 LINE 登入／LIFF 登入 → 會員專區／我的工作切換」標為通過。需要先準備一個此店的 LINE 已綁定測試會員；不得用 server action、SQL 或偽造 cookie 冒充該畫面驗收。
+
 ## 上線與回滾
 
 - schema 只新增 relation table 與索引，不改 legacy Booking／Transaction／Treatment。
