@@ -466,6 +466,10 @@ export async function requirePermission(permission: PermissionCode) {
   if (user.role === "ADMIN") return user;
   const allowed = await checkPermission(user.role, user.staffId, permission);
   if (!allowed) throw new AppError("FORBIDDEN", "您沒有此操作的權限");
+  if (!/\.(read|view|export)$/.test(permission) && user.storeId) {
+    const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
+    await assertStoreSubscriptionWritable(user.storeId);
+  }
   return user;
 }
 

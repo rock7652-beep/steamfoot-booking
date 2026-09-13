@@ -27,7 +27,8 @@ export async function isStoreSubscriptionWriteBlocked(
 
   let sub: { status: string; expiresAt: Date | null } | null = null;
   try {
-    sub = await prisma.storeSubscription.findFirst({
+    const store = await prisma.store.findUnique({ where: { id: storeId }, select: { currentSubscription: { select: { status: true, expiresAt: true } } } });
+    sub = store?.currentSubscription ?? await prisma.storeSubscription.findFirst({
       where: { storeId },
       orderBy: { createdAt: "desc" },
       select: { status: true, expiresAt: true },
@@ -41,7 +42,7 @@ export async function isStoreSubscriptionWriteBlocked(
     { status: sub.status, expiresAt: sub.expiresAt },
     toLocalDateStr(),
   );
-  return lc.state === "EXPIRED" || lc.state === "SUSPENDED";
+  return lc.state === "EXPIRED" || lc.state === "SUSPENDED" || lc.state === "CANCELLED";
 }
 
 /**

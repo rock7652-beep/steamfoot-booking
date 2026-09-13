@@ -340,7 +340,7 @@ export default function RegisterPage() {
           </div>
 
           <p className={`rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-700 ${showExistingMember ? "hidden" : ""}`}>
-            完成註冊後，我們會透過 LINE 通知你預約資訊
+            完成註冊後即可使用網頁會員專區。店家已開通 LINE 通知時，可再依指引完成綁定。
           </p>
 
           <button

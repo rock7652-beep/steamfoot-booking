@@ -24,6 +24,8 @@ const storeFindMany = vi.fn();
 
 // 建立 transaction proxy：所有 tx.xxx 呼叫導向同一組 mock
 const txProxy = {
+  $executeRaw: vi.fn(),
+  staff: { count: vi.fn().mockResolvedValue(1) },
   store: { findUnique: storeFindUnique, update: storeUpdate },
   storeSubscription: {
     create: storeSubscriptionCreate,
@@ -95,11 +97,14 @@ vi.mock("@/lib/feature-flags", () => ({
   },
 }));
 
+vi.mock("@/lib/permissions", () => ({ requirePermission: vi.fn().mockResolvedValue({ id: "admin-1", role: "ADMIN" }) }));
+
 vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
   updateTag: vi.fn(),
 }));
 
-vi.mock("react", () => ({ cache: (fn: Function) => fn }));
+vi.mock("react", () => ({ cache: <T,>(fn: T) => fn }));
 
 // ── Helpers ──
 
@@ -164,8 +169,8 @@ describe("2. 手動專業版 → 基本版 (adminChangeStorePlan)", () => {
 // ============================================================
 
 describe("3. 試用開通 (adminStartTrial)", () => {
-  it("Store.plan = trialPlan", async () => {
-    storeFindUnique.mockResolvedValue({ plan: "EXPERIENCE", planStatus: "ACTIVE" });
+  it("所有試用方案統一為完整單店 EXPERIENCE", async () => {
+    storeFindUnique.mockResolvedValue({ id: "store-1", plan: "EXPERIENCE", planStatus: "TRIAL", moduleInstallation: { status: "ACTIVE" } });
 
     const { adminStartTrial } = await import("@/server/actions/upgrade-request");
     const result = await adminStartTrial({
@@ -176,11 +181,11 @@ describe("3. 試用開通 (adminStartTrial)", () => {
     });
 
     expect(result.success).toBe(true);
-    expectStoreUpdated("store-1", "GROWTH");
+    expectStoreUpdated("store-1", "EXPERIENCE");
   });
 
   it("EXPERIENCE 試用", async () => {
-    storeFindUnique.mockResolvedValue({ plan: "BASIC", planStatus: "ACTIVE" });
+    storeFindUnique.mockResolvedValue({ id: "store-1", plan: "EXPERIENCE", planStatus: "TRIAL", moduleInstallation: { status: "ACTIVE" } });
 
     const { adminStartTrial } = await import("@/server/actions/upgrade-request");
     const result = await adminStartTrial({
@@ -199,7 +204,8 @@ describe("3. 試用開通 (adminStartTrial)", () => {
 // ============================================================
 
 describe("4. 試用到期 (processExpiredTrials)", () => {
-  it("回退 EXPERIENCE", async () => {
+  it("標記到期並保留原訂閱，不建立無限期免費方案", async () => {
+    storeFindUnique.mockResolvedValue({ id: "store-1", plan: "EXPERIENCE", planStatus: "TRIAL", currentSubscription: { id: "sub-old", status: "TRIAL", expiresAt: new Date("2020-01-01") } });
     storeFindMany.mockResolvedValue([
       { id: "store-1", name: "測試店", plan: "GROWTH", currentSubscriptionId: "sub-old" },
     ]);
@@ -210,7 +216,9 @@ describe("4. 試用到期 (processExpiredTrials)", () => {
     const result = await processExpiredTrials();
 
     expect(result.processed).toBe(1);
-    expectStoreUpdated("store-1", "EXPERIENCE");
+    expect(storeUpdate).toHaveBeenCalledWith({ where: { id: "store-1" }, data: { planStatus: "EXPIRED" } });
+    expect(storeSubscriptionUpdate).toHaveBeenCalledWith({ where: { id: "sub-old" }, data: { status: "EXPIRED" } });
+    expect(storeSubscriptionCreate).not.toHaveBeenCalled();
   });
 });
 

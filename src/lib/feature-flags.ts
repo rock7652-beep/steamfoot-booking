@@ -7,6 +7,7 @@
  * 唯一方案分級系統，綁定 Store.plan。
  */
 
+import { isSingleStoreTrial, type TrialStore, SINGLE_STORE_TRIAL_STAFF } from "@/lib/single-store-trial";
 import type { PricingPlan, Store } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 
@@ -171,7 +172,7 @@ export type PlanLimits = {
 
 export const PLAN_LIMITS: Record<PricingPlan, PlanLimits> = {
   EXPERIENCE: {
-    maxStaff: 2,
+    maxStaff: 3,
     maxCustomers: 100,
     maxMonthlyBookings: 100,
     maxMonthlyReports: 0,
@@ -284,9 +285,14 @@ export function getPlanLimits(
     | "maxMonthlyReportsOverride"
     | "maxReminderSendsOverride"
     | "maxStoresOverride"
-  >
+  > & Partial<TrialStore>
 ): PlanLimits {
   const base = PLAN_LIMITS[store.plan];
+  if (isSingleStoreTrial(store)) return {
+    maxStaff: SINGLE_STORE_TRIAL_STAFF, maxCustomers: base.maxCustomers,
+    maxMonthlyBookings: base.maxMonthlyBookings, maxMonthlyReports: null,
+    maxReminderSends: base.maxReminderSends, maxStores: 1,
+  };
   return {
     maxStaff: store.maxStaffOverride ?? base.maxStaff,
     maxCustomers: store.maxCustomersOverride ?? base.maxCustomers,

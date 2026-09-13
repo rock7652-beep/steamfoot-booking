@@ -5,12 +5,13 @@
  * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
  */
 
+import { isSingleStoreTrial, isSingleStoreFeature } from "@/lib/single-store-trial";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
 import { CACHE_TAGS } from "@/lib/cache-tags";
 import { AppError } from "@/lib/errors";
 import { resolveEffectiveEntitlement } from "@/lib/effective-entitlement";
-import { requireFeature, getPlanLimits, hasFeature, FEATURES } from "@/lib/feature-flags";
+import { getPlanLimits, hasFeature, FEATURES } from "@/lib/feature-flags";
 import { getCurrentStoreForPlan, getStoreForPlanByStoreId } from "@/lib/store-plan";
 import type { FeatureKey, PlanLimits } from "@/lib/feature-flags";
 import type { StorePlanFields } from "@/lib/store-plan";
@@ -75,6 +76,7 @@ export async function hasStoreFeature(
   if (isSpaDemoStoreId(storeId)) return true;
 
   const store = await getStoreForPlanByStoreId(storeId);
+  if (isSingleStoreTrial(store)) return isSingleStoreFeature(feature);
   const baseAllowed = hasFeature(store.plan, feature);
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
   return resolveEffectiveEntitlement(baseAllowed, entitlement).enabled;
@@ -97,7 +99,7 @@ export async function requireStoreFeature(
 /** 檢查當前 store 是否有某功能，不通過則 throw */
 export async function checkCurrentStoreFeature(feature: FeatureKey): Promise<StorePlanFields> {
   const store = await getCurrentStoreForPlan();
-  requireFeature(store.plan, feature);
+  if (store.id !== "__all__") await requireStoreFeature(store.id, feature);
   return store;
 }
 
@@ -117,4 +119,9 @@ export async function getCurrentStoreLimits(): Promise<PlanLimits> {
 export async function getStoreLimitsByStoreId(storeId: string): Promise<PlanLimits> {
   const store = await getStoreForPlanByStoreId(storeId);
   return getPlanLimits(store);
+}
+
+export async function hasCurrentStoreFeature(feature: FeatureKey): Promise<boolean> {
+  const store = await getCurrentStoreForPlan();
+  return store.id === "__all__" || hasStoreFeature(store.id, feature);
 }

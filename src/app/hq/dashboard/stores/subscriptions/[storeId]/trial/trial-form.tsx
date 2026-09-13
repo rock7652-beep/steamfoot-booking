@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { addTaiwanDuration } from "@/lib/date-utils";
 import { createTrialSubscription } from "@/server/actions/store-subscription";
 import {
-  PLAN_OPTIONS,
   TRIAL_DEFAULT_DAYS,
   TRIAL_MIN_DAYS,
   TRIAL_MAX_DAYS,
@@ -28,7 +27,7 @@ export function TrialForm({
   defaultStart: string;
 }) {
   const router = useRouter();
-  const [plan, setPlan] = useState("GROWTH");
+  const plan = "EXPERIENCE";
   const [startDate, setStartDate] = useState(defaultStart);
   const [trialDays, setTrialDays] = useState<number>(TRIAL_DEFAULT_DAYS);
   const [pending, setPending] = useState(false);
@@ -84,17 +83,7 @@ export function TrialForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>方案</label>
-          <select
-            className={inputCls}
-            value={plan}
-            onChange={(e) => setPlan(e.target.value)}
-          >
-            {PLAN_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <p className="mt-1 text-sm">完整單店試用（含店長共 3 位）</p>
         </div>
 
         <div>
@@ -117,6 +106,8 @@ export function TrialForm({
           <label className={labelCls}>開始日</label>
           <input
             type="date"
+            min={defaultStart}
+            max={defaultStart}
             className={inputCls}
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}

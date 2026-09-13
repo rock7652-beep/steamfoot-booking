@@ -80,7 +80,7 @@ export default async function StoreSubscriptionFormPage({
     <PageShell className="mx-auto flex max-w-[760px] flex-col gap-4 px-5 py-4">
       <PageHeader
         title={`${isEdit ? "編輯" : "建立"}訂閱 · ${store.name}`}
-        subtitle={`${store.slug}　目前方案：${store.plan}（Store.plan，本頁不改動）`}
+        subtitle={`${store.slug}　目前方案：${store.plan}`}
         actions={
           <Link
             href="/hq/dashboard/stores/subscriptions"
@@ -90,6 +90,7 @@ export default async function StoreSubscriptionFormPage({
           </Link>
         }
       />
+      {store.plan === "EXPERIENCE" && <Link href={`/hq/dashboard/stores/subscriptions/${store.id}/trial`} className="text-sm text-primary-700 underline">開通或延長單店試用</Link>}
       <SubscriptionForm storeId={store.id} isEdit={isEdit} initial={initial} />
     </PageShell>
   );

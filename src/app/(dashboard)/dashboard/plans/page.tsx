@@ -1,3 +1,4 @@
+import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 import {SpaPackagesManager} from "./_components/spa-packages-manager";
 import { spaPrisma } from "@/lib/spa-db";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -104,7 +105,7 @@ export default async function PlansPage() {
       }));
 
   return (
-    <FeatureGate plan={storePlan} feature={FEATURES.PLAN_MANAGEMENT}>
+    <FeatureGate plan={storePlan} feature={FEATURES.PLAN_MANAGEMENT} enabled={await hasCurrentStoreFeature(FEATURES.PLAN_MANAGEMENT)}>
       <PageShell>
         <PageHeader
           title={isSpaStore ? "療程管理" : "方案管理"}

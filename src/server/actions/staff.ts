@@ -172,7 +172,7 @@ export async function createStaff(
     const currentStaffCount = await prisma.staff.count({
       where: { storeId: writeStoreId, status: "ACTIVE" },
     });
-    await checkStaffLimitOrThrow(currentStaffCount);
+    await checkStaffLimitOrThrow(currentStaffCount, writeStoreId);
 
     // 檢查 email 是否已存在
     if (normalizedEmail) {
@@ -203,6 +203,8 @@ export async function createStaff(
     }
 
     const user = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${writeStoreId}`}, 0))`;
+      await checkStaffLimitOrThrow(await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } }), writeStoreId);
       const created = await tx.user.create({
         data: {
           name: data.name,
@@ -416,10 +418,16 @@ export async function activateStaff(staffId: string): Promise<ActionResult<void>
       user: { role: staff.user.role },
     });
 
-    await prisma.$transaction([
-      prisma.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: { status: "ACTIVE" } }),
-      prisma.user.update({ where: { id: staff.userId }, data: { status: "ACTIVE" } }),
-    ]);
+    await prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${writeStoreId}`}, 0))`;
+      const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId } });
+      if (current.status !== "ACTIVE") {
+        const { checkStaffLimitOrThrow } = await import("@/lib/usage-gate");
+        await checkStaffLimitOrThrow(await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } }), writeStoreId);
+      }
+      await tx.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: { status: "ACTIVE" } });
+      await tx.user.update({ where: { id: staff.userId }, data: { status: "ACTIVE" } });
+    });
 
     revalidateStaff();
     return { success: true, data: undefined };
