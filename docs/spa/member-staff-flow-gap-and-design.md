@@ -119,6 +119,16 @@
 - 畫面驗收使用的 2026-09-16 預約及 2026-09-17 休假 fixture 均以固定 ID／booking ID 精確清理；清理後兩者 remaining count 均為 0，既有測試會員、人員、排班及取消歷史未刪除。
 - 返回前景會沿用 `selectedDateRef` 重新驗證工作權限並更新同一選取日期；一般瀏覽器程式路徑已驗證。LINE App 內嵌 LIFF 從其他 App 返回的實機行為仍待手機驗收，未標記為通過。
 
+## 2026-09-13 SPA Web LINE 返回修正驗收
+
+- 手機舊版畫面證實登入由 `spa-module-qa-20260903` 發起，LINE 返回後卻顯示竹北品牌與一般登入錯誤。Vercel runtime 同時記錄 `InvalidCheck: state cookie was missing`；竹北店名是 `/entry` 未登入 fallback，不是帳號被授予竹北權限。
+- `7b20bb60` 將 HTTPS 上的 Auth.js state 與 DB 驗證後店別 handoff cookie 改為 `SameSite=None; Secure`，並複製 Auth.js response headers 後追加 cookie，避免 immutable response 或跨站內嵌返回遺失 state。一般登入頁不再由 JavaScript 自行寫入店別 cookie。
+- 同一提交讓 `/entry?error=...` 優先返回 DB 驗證後的 OAuth 店別；以隔離 cookie jar 故意送出無效 callback，結果為 `/s/spa-module-qa-20260903/?error=Configuration`，未再誤導到 `zhubei`。
+- Preview deployment `dpl_EZN2pmJexDhLCd62VjKvmP9adop4` Ready 後，以真實 LINE 帳號完成瀏覽器登入。Callback 為 302，runtime 記錄同店 `oauth_linked_existing`，storeId 為 `store-spa-module-qa-20260903`、Customer 為 `spa-module-qa-customer-0900000003`。
+- 畫面返回精確路徑 `/s/spa-module-qa-20260903/liff/spa-work`，顯示「SPA 空白模組驗收店」、「我的工作」及「SPA 測試顧客」，無紅字、無竹北品牌。工作頁可切到會員專區，會員頁顯示中央帳號「黃彥陸」、目前門市仍為 SPA 驗收店，且可再切回工作頁；兩次切換均無 console error。
+- 驗收當日與 2026-09-12 均為 0 筆工作預約，因此本輪只確認真實空白狀態，不以它重複宣稱預約卡資料通過；預約卡、藍點與清理證據沿用上一節未受登入修正影響的 `764ec320` 驗收。
+- 本輪沒有 migration、會員綁定寫入或店家資料修改。LINE App 內嵌 LIFF 從其他 App 返回前景後保留日期並刷新資料，仍需獨立實機驗收，未標記通過。
+
 ## 上線與回滾
 
 - schema 只新增 relation table 與索引，不改 legacy Booking／Transaction／Treatment。
