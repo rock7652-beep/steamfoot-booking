@@ -35,6 +35,11 @@ async function SpaNewBookingPage({
   const latest = new Date(`${today}T00:00:00Z`);
   latest.setUTCDate(latest.getUTCDate() + 60);
   const latestDate = latest.toISOString().slice(0, 10);
+  const quickDates = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(`${today}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + index + 1);
+    return date.toISOString().slice(0, 10);
+  });
   const [treatments, spaBookings] = await Promise.all([
     spaPrisma.spaTreatment.findMany({
       where: { storeId, isActive: true, publicVisible: true },
@@ -85,6 +90,7 @@ async function SpaNewBookingPage({
         <SpaCustomerBookingForm
           today={today}
           latestDate={latestDate}
+          quickDates={quickDates}
           treatments={treatments.map((treatment) => ({
             id: treatment.id,
             name: treatment.name,

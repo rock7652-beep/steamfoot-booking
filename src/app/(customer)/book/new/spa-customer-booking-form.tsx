@@ -36,11 +36,13 @@ export function SpaCustomerBookingForm({
   initialBookings,
   today,
   latestDate,
+  quickDates,
 }: {
   treatments: Treatment[];
   initialBookings: Booking[];
   today: string;
   latestDate: string;
+  quickDates: string[];
 }) {
   const [selectedTreatmentIds, setSelectedTreatmentIds] = useState<string[]>([]);
   const [date, setDate] = useState("");
@@ -172,9 +174,23 @@ export function SpaCustomerBookingForm({
       <section className="rounded-3xl bg-white p-5 shadow-[0_8px_28px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70">
         <p className="text-xs font-semibold tracking-[0.18em] text-primary-700">步驟 2</p>
         <h2 className="mt-1 text-xl font-bold text-earth-900">選擇日期與時間</h2>
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          {quickDates.map((quickDate) => (
+            <button
+              key={quickDate}
+              type="button"
+              onClick={() => { setDate(quickDate); resetSchedule(); }}
+              aria-pressed={date === quickDate}
+              className={`min-h-11 shrink-0 rounded-xl border px-3 text-sm font-semibold ${date === quickDate ? "border-primary-700 bg-primary-700 text-white" : "border-earth-200 bg-white text-earth-700"}`}
+            >
+              {quickDate.slice(5).replace("-", "/")}
+            </button>
+          ))}
+        </div>
         <div className="mt-4 flex gap-2">
           <input
             type="date"
+            aria-label="預約日期"
             min={today}
             max={latestDate}
             value={date}
