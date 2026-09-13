@@ -39,6 +39,7 @@ const DEFAULT_STORE_SLUG: PublicTrialStoreSlug = "zhubei";
 const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶", "未命名"];
 
 const InputSchema = z.object({
+  noticeAccepted: z.literal(true, { errorMap: () => ({ message: "請先閱讀並勾選蒸足前須知與貼心提醒。" }) }),
   name: z.string().trim().min(1, "請輸入姓名").max(50).refine(
     (name) => !SYSTEM_PLACEHOLDER_CUSTOMER_NAMES.includes(name),
     "請輸入您的真實姓名",
