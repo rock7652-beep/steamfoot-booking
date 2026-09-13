@@ -25,6 +25,8 @@ import { decideCustomerStoreAccess } from "@/lib/customer-store-onboarding";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getCustomerPortalNavItems } from "@/lib/customer-portal-navigation";
+import { resolveActiveStaffMemberForStore } from "@/server/services/staff-member-access";
+import { IdentityModeSwitcher } from "./identity-mode-switcher";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
 const ICON_PATHS: Record<string, string[]> = {
@@ -243,6 +245,11 @@ export default async function CustomerLayout({
     redirect(`${prefix}/profile?${params.toString()}`);
   }
 
+  const activeStaffMember = await resolveActiveStaffMemberForStore(
+    user.id,
+    storeCtx.storeId,
+  );
+
   const navItems = getCustomerPortalNavItems({
     healthAssessmentEnabled,
   }).map((item) => ({
@@ -323,7 +330,12 @@ export default async function CustomerLayout({
 
         {/* Main content */}
         <main className="flex-1 px-4 pt-4 pb-20 lg:px-8 lg:py-8">
-          <div className="mx-auto max-w-2xl">{children}</div>
+          <div className="mx-auto max-w-2xl">
+            {activeStaffMember && (
+              <IdentityModeSwitcher storeSlug={storeCtx.storeSlug} />
+            )}
+            {children}
+          </div>
         </main>
       </div>
 
