@@ -24,6 +24,7 @@ button[disabled]{opacity:.55;cursor:not-allowed}.hint,.privacy{font-size:12px;co
 .trial-info{margin-top:22px;padding:18px;border:1px solid #DCE8E1;border-radius:18px;background:#F4F8F5;font-size:14px;line-height:1.8}.trial-info h2{margin:0 0 10px;font-size:20px;color:var(--green)}.trial-info ul{margin:0;padding-left:20px}.trial-info li+li{margin-top:8px}.trial-info p{margin:12px 0 0}.trial-info a{color:var(--green);text-underline-offset:3px}
 @media(max-width:560px){.options{grid-template-columns:1fr}.hero,form{padding-left:20px;padding-right:20px}h1{font-size:29px}}
 nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justify-content:space-between;gap:16px;font-size:16px}nav.site-nav a{color:var(--green);text-underline-offset:5px;padding:8px 0}.opt input:focus-visible+label{outline:2px solid var(--green);outline-offset:3px}
+.options.needs-options{grid-template-columns:repeat(2,minmax(0,1fr))}.needs-options .opt label{display:flex;align-items:center;gap:8px;min-height:48px;margin-bottom:0;padding:12px 10px;font-size:14px}.needs-options .opt label::before{content:"";width:16px;height:16px;flex-shrink:0;border:1px solid var(--muted);border-radius:4px;text-align:center;line-height:16px}.needs-options .opt input:checked+label::before{content:"✓";background:var(--green);border-color:var(--green);color:white}
 </style>
 </head>
 <body>
@@ -62,12 +63,7 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
 <div class="field"><label for="field-industry">產業類型 <span class="req">*</span></label><select id="field-industry" name="industry" required><option value="">請選擇</option><option>美容／美體／SPA</option><option>按摩／蒸足／健康服務</option><option>運動教室／健身／瑜伽</option><option>音樂／才藝／教育服務</option><option>寵物美容／寵物服務</option><option>顧問／教練／專業服務</option><option>其他服務型門市</option></select></div>
 
 <div class="section">目前經營規模</div>
-<div class="field"><label>目前門市數量（選填）</label><div class="options">
-<div class="opt"><input id="s1" type="radio" name="storeCount" value="1 間"><label for="s1">1 間</label></div>
-<div class="opt"><input id="s2" type="radio" name="storeCount" value="2～3 間"><label for="s2">2～3 間</label></div>
-<div class="opt"><input id="s3" type="radio" name="storeCount" value="4～10 間"><label for="s3">4～10 間</label></div>
-<div class="opt"><input id="s4" type="radio" name="storeCount" value="10 間以上"><label for="s4">10 間以上</label></div>
-</div></div>
+<div class="field"><label for="field-storeCount">目前門市數量（選填）</label><select id="field-storeCount" name="storeCount"><option value="">請選擇</option><option>1 間</option><option>2～3 間</option><option>4～10 間</option><option>10 間以上</option></select></div>
 <div class="field"><label for="field-staffCount">店內人員（含自己） <span class="req">*</span></label><select id="field-staffCount" name="staffCount" required><option value="">請選擇</option><option>只有我</option><option>2～5 位</option><option>6～10 位</option><option>11 位以上</option></select></div>
 <div class="field"><label for="field-members">目前會員／顧客人數（選填）</label><select id="field-members" name="members"><option value="">請選擇區間</option><option>100 人以下</option><option>101～300 人</option><option>301～1,000 人</option><option>1,001～3,000 人</option><option>3,000 人以上</option><option>目前尚未整理</option></select></div>
 
@@ -91,15 +87,15 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
 </div></div></div>
 
 <div class="section">最想改善的事情</div>
-<div class="field"><label>最希望蒸管家協助的需求（最多選 3 項） <span class="req">*</span></label><div class="options">
-<div class="opt"><input id="n1" type="checkbox" name="needs" value="預約與時段管理"><label for="n1">預約與時段管理</label></div>
-<div class="opt"><input id="n2" type="checkbox" name="needs" value="顧客資料整合"><label for="n2">顧客資料整合</label></div>
-<div class="opt"><input id="n3" type="checkbox" name="needs" value="會員／套票／堂數管理"><label for="n3">會員／套票／堂數管理</label></div>
-<div class="opt"><input id="n4" type="checkbox" name="needs" value="顧客追蹤與回訪"><label for="n4">顧客追蹤與回訪</label></div>
-<div class="opt"><input id="n5" type="checkbox" name="needs" value="收款與每日對帳"><label for="n5">收款與每日對帳</label></div>
-<div class="opt"><input id="n6" type="checkbox" name="needs" value="員工與權限管理"><label for="n6">員工與權限管理</label></div>
-<div class="opt"><input id="n7" type="checkbox" name="needs" value="營運數據分析"><label for="n7">營運數據分析</label></div>
-<div class="opt"><input id="n8" type="checkbox" name="needs" value="多門市管理"><label for="n8">多門市管理</label></div>
+<div class="field"><label>最希望蒸管家協助的需求（最多選 3 項） <span class="req">*</span></label><div class="options needs-options">
+<div class="opt"><input id="n1" type="checkbox" name="needs" value="預約與時段管理"><label for="n1">預約管理</label></div>
+<div class="opt"><input id="n2" type="checkbox" name="needs" value="顧客資料整合"><label for="n2">顧客管理</label></div>
+<div class="opt"><input id="n3" type="checkbox" name="needs" value="會員／套票／堂數管理"><label for="n3">方案／堂數</label></div>
+<div class="opt"><input id="n4" type="checkbox" name="needs" value="顧客追蹤與回訪"><label for="n4">追蹤回訪</label></div>
+<div class="opt"><input id="n5" type="checkbox" name="needs" value="收款與每日對帳"><label for="n5">收款對帳</label></div>
+<div class="opt"><input id="n6" type="checkbox" name="needs" value="員工與權限管理"><label for="n6">人員權限</label></div>
+<div class="opt"><input id="n7" type="checkbox" name="needs" value="營運數據分析"><label for="n7">營運分析</label></div>
+<div class="opt"><input id="n8" type="checkbox" name="needs" value="多門市管理"><label for="n8">多店管理</label></div>
 </div><div class="hint">最多選擇三項。</div></div>
 <div class="field"><label for="field-otherNeed">其他想解決的問題</label><textarea id="field-otherNeed" name="otherNeed"></textarea></div>
 
@@ -108,16 +104,9 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
 <div class="field"><label for="field-time">方便聯繫的時段</label><select id="field-time" name="time"><option value="">請選擇（選填）</option><option>平日上午</option><option>平日下午</option><option>平日晚上</option><option>週末</option><option>先用 LINE 留言即可</option></select></div>
 <div class="field"><label for="field-lineId">LINE ID</label><input id="field-lineId" name="lineId" type="text" placeholder="例如：yenlu123（選填）"><div class="hint">電話與 LINE ID 至少填寫一項，方便我們後續聯繫。</div></div>
 <div class="field"><label for="field-phone">聯絡電話</label><input id="field-phone" name="phone" type="tel" placeholder="例如：0912-345-678（選填）"></div>
-<div class="field" style="padding:16px;border:1px solid #DCE8E1;background:#F4F8F5;border-radius:16px">
-  <label style="color:#0F3B2E;margin-bottom:6px">也可以主動加入蒸管家官方 LINE</label>
-  <div class="hint" style="font-size:14px;color:#18332B">LINE ID：<strong>@329rmywc</strong></div>
-  <a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener"
-     style="display:inline-block;margin-top:10px;padding:11px 16px;border-radius:12px;background:#06C755;color:#fff;text-decoration:none;font-weight:800">
-     加入蒸管家 LINE
-  </a>
-</div>
+<p class="entry-note">有問題？<a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener" style="color:var(--green)">聯繫蒸管家官方 LINE</a></p>
 
-<p class="entry-note" id="trialHint" hidden>收到需求後，我們會透過您留下的 LINE 或電話聯繫，確認模組與開通日期。體驗為 30 天完整單店功能，含店長共 3 位人員，另有上述資料與使用額度；轉正式可沿用原帳號與資料，免重新建立。</p>
+<p class="entry-note" id="trialHint" hidden>開通後享 30 天體驗，轉正式可沿用原帳號與資料。</p>
 <div style="margin-top:20px;padding:16px;background:#F4F8F5;border-radius:14px;font-size:14px;line-height:1.8" aria-label="個人資料告知"><strong>送出前請閱讀個人資料告知</strong><p>陸比音樂工作室將使用您提供的店家、聯絡及需求資料，評估需求並安排聯繫、示範或體驗；亦記錄申請來源及必要技術資料。資料類別、使用期間、地區、對象、方式及您的權利，請見<a href="/privacy#store-application" target="_blank" rel="noopener" style="color:#0f5940">隱私權政策與店家申請個資告知（另開分頁）</a>。</p><p>必填資料與至少一項聯絡方式為處理申請所需；選填項目可留空。送出申請不會扣款，也不代表訂閱行銷訊息。客服：<a href="mailto:steambutler500@gmail.com" style="color:#0f5940;overflow-wrap:anywhere">steambutler500@gmail.com</a>。</p></div>
 <button id="submitBtn" type="submit">完成門市健檢</button>
 <p id="submitStatus" class="hint" role="status" aria-live="polite"></p>
