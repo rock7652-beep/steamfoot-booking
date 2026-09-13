@@ -115,6 +115,12 @@ export async function createSpaQuickBooking(
       // pg_advisory_xact_lock returns PostgreSQL's void type.  Read queries
       // cannot deserialize it through Prisma, so issue it as a command.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${storeId}:${data.bookingDate}:spa-booking`}, 0))`;
+      const serviceLocation = await tx.spaServiceLocation.findFirst({
+        where: { storeId, isActive: true, treatments: { some: { treatmentId: { in: data.treatmentIds } } } },
+        select: { id: true },
+        orderBy: { sortOrder: "asc" },
+      });
+      if (!serviceLocation) throw new AppError("CONFLICT", "沒有可安排所選療程的服務位置");
       const endTime = addMinutes(data.slotTime, composition.occupiedMinutes);
       const overlaps = await tx.spaBooking.findMany({
         where: {
@@ -126,11 +132,15 @@ export async function createSpaQuickBooking(
         },
         select: {
           serviceStaffId: true,
+          serviceLocationId: true,
           items: { select: { treatmentId: true, treatmentNameSnapshot: true } },
         },
       });
       if (overlaps.some((existing) => existing.serviceStaffId === data.serviceStaffId)) {
         throw new AppError("CONFLICT", "此芳療師在所選時段已有預約");
+      }
+      if (overlaps.some((existing) => existing.serviceLocationId === serviceLocation.id)) {
+        throw new AppError("CONFLICT", "此服務位置在所選時段已有預約");
       }
       const occupiedResourceCount = overlaps.filter((existing) =>
         inferSpaDemoResourceType({
@@ -140,18 +150,6 @@ export async function createSpaQuickBooking(
       ).length;
       if (occupiedResourceCount >= SPA_DEMO_RESOURCE_CAPACITY[composition.resourceType]) {
         throw new AppError("CONFLICT", `${spaResourceLabel(composition.resourceType)}在所選時間已滿`);
-      }
-      const serviceLocation = await tx.spaServiceLocation.findFirst({
-        where: {
-          storeId,
-          isActive: true,
-          treatments: { some: { treatmentId: { in: data.treatmentIds } } },
-        },
-        select: { id: true },
-        orderBy: { sortOrder: "asc" },
-      });
-      if (!serviceLocation) {
-        throw new AppError("CONFLICT", "沒有可安排所選療程的服務位置");
       }
       return tx.spaBooking.create({
         data: {
