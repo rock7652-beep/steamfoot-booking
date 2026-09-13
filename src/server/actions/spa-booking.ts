@@ -28,7 +28,7 @@ export type UpdateSpaBookingInput = z.infer<typeof editSchema>;
 const cancelSchema = z.object({ bookingId: z.string().min(1), expectedUpdatedAt: z.string().datetime() });
 const active = ["PENDING", "CONFIRMED"] as const;
 
-async function authorizedStore(permission: "booking.create" | "booking.update") {
+export async function authorizedSpaStore(permission: "booking.create" | "booking.update") {
   const user = await getCurrentUser();
   if (!user || !isStaffRole(user.role)) throw new AppError("UNAUTHORIZED", "請先以店員帳號登入");
   if (!(await checkPermission(user.role, user.staffId, permission))) {
@@ -158,7 +158,7 @@ export async function createSpaBookingAction(input: CreateSpaBookingInput): Prom
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "預約資料不完整" };
   try {
-    const storeId = await authorizedStore("booking.create");
+    const storeId = await authorizedSpaStore("booking.create");
     const booking = await saveBooking(storeId, parsed.data);
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: booking.id } };
@@ -169,7 +169,7 @@ export async function updateSpaBookingAction(input: UpdateSpaBookingInput): Prom
   const parsed = editSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "預約資料不完整" };
   try {
-    const storeId = await authorizedStore("booking.update");
+    const storeId = await authorizedSpaStore("booking.update");
     const booking = await saveBooking(storeId, parsed.data, parsed.data);
     revalidatePath("/dashboard/spa-schedule");
     return { success: true, data: { bookingId: booking.id } };
@@ -180,7 +180,7 @@ export async function cancelSpaBookingAction(input: z.infer<typeof cancelSchema>
   const parsed = cancelSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: "預約資料不完整" };
   try {
-    const storeId = await authorizedStore("booking.update");
+    const storeId = await authorizedSpaStore("booking.update");
     await spaPrisma.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
       const booking = await tx.spaBooking.findFirst({ where: { id: parsed.data.bookingId, storeId } });
@@ -199,8 +199,8 @@ export async function cancelSpaBookingAction(input: z.infer<typeof cancelSchema>
 
 const groupSchema=z.object({requestKey:z.string().uuid(),customerId:z.string().min(1),guests:z.array(inputSchema).min(2).max(3)}).refine(d=>d.guests.every(g=>g.customerId===d.customerId&&g.bookingDate===d.guests[0].bookingDate),"同行預約須使用同一主要聯絡人與日期").refine(d=>new Set(d.guests.map(g=>g.requestKey)).size===d.guests.length,"同行預約不可重複");
 export async function createSpaGroupBookingAction(input:z.infer<typeof groupSchema>){
- try{
-  const d=groupSchema.parse(input),storeId=await authorizedStore("booking.create"),fingerprint=JSON.stringify(d);
+  try{
+  const d=groupSchema.parse(input),storeId=await authorizedSpaStore("booking.create"),fingerprint=JSON.stringify(d);
   const group=await spaPrisma.$transaction(async tx=>{
    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`},0))`;
    const previous=await tx.spaBookingGroup.findUnique({where:{storeId_requestKey:{storeId,requestKey:d.requestKey}}});
