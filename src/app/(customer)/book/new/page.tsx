@@ -7,8 +7,111 @@ import { BookingCalendarView } from "./booking-calendar-view";
 import { NoPlanEmptyState } from "@/components/no-plan-empty-state";
 import { sortWalletsByFEFO } from "@/lib/wallet-sort";
 import { walletAvailableToBook } from "@/lib/wallet-availability";
-import { bookingDateToday, toLocalDateStr } from "@/lib/date-utils";
+import { bookingDateToday, parseTaiwanDateToDbDate, toLocalDateStr } from "@/lib/date-utils";
 import { BOOKING_UPCOMING } from "@/lib/booking-constants";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { spaPrisma } from "@/lib/spa-db";
+import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
+import { SpaCustomerBookingForm } from "./spa-customer-booking-form";
+
+async function SpaNewBookingPage({
+  userId,
+  storeId,
+}: {
+  userId: string;
+  storeId: string;
+}) {
+  const membership = await resolveCentralMemberCustomerForStore(userId, storeId);
+  if (!membership) {
+    return (
+      <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
+        <h1 className="text-xl font-bold text-earth-900">尚未連結本店會員</h1>
+        <p className="mt-2 text-sm text-earth-700">請先完成會員資料，再回來預約服務。</p>
+      </div>
+    );
+  }
+
+  const today = toLocalDateStr();
+  const latest = new Date(`${today}T00:00:00Z`);
+  latest.setUTCDate(latest.getUTCDate() + 60);
+  const latestDate = latest.toISOString().slice(0, 10);
+  const [treatments, spaBookings] = await Promise.all([
+    spaPrisma.spaTreatment.findMany({
+      where: { storeId, isActive: true, publicVisible: true },
+      select: {
+        id: true,
+        name: true,
+        variantLabel: true,
+        price: true,
+        serviceMinutes: true,
+      },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+    spaPrisma.spaBooking.findMany({
+      where: {
+        storeId,
+        customerId: membership.customerId,
+        bookingDate: { gte: parseTaiwanDateToDbDate(today) },
+        status: { in: ["PENDING", "CONFIRMED", "CANCELLED"] },
+      },
+      select: {
+        id: true,
+        bookingDate: true,
+        startTime: true,
+        endTime: true,
+        serviceNameSnapshot: true,
+        serviceStaffId: true,
+        status: true,
+        serviceLocation: { select: { name: true } },
+      },
+      orderBy: [{ bookingDate: "asc" }, { startTime: "asc" }],
+      take: 20,
+    }),
+  ]);
+  const staff = await prisma.staff.findMany({
+    where: { storeId, id: { in: [...new Set(spaBookings.map((booking) => booking.serviceStaffId))] } },
+    select: { id: true, displayName: true },
+  });
+  const staffNames = new Map(staff.map((person) => [person.id, person.displayName]));
+
+  return (
+    <div>
+      <div className="mb-5">
+        <p className="text-sm font-semibold text-primary-700">會員預約</p>
+        <h1 className="mt-1 text-2xl font-bold text-earth-900">安排你的 SPA 時間</h1>
+        <p className="mt-2 text-sm leading-relaxed text-earth-700">依序選擇服務、日期、時間與服務人員；送出前系統會再次確認人員及服務位置。</p>
+      </div>
+      {treatments.length > 0 ? (
+        <SpaCustomerBookingForm
+          today={today}
+          latestDate={latestDate}
+          treatments={treatments.map((treatment) => ({
+            id: treatment.id,
+            name: treatment.name,
+            variantLabel: treatment.variantLabel,
+            price: Number(treatment.price),
+            serviceMinutes: treatment.serviceMinutes,
+          }))}
+          initialBookings={spaBookings.map((booking) => ({
+            id: booking.id,
+            date: booking.bookingDate.toISOString().slice(0, 10),
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            serviceName: booking.serviceNameSnapshot,
+            staffName: staffNames.get(booking.serviceStaffId) ?? "服務人員",
+            locationName: booking.serviceLocation?.name ?? "待安排位置",
+            status: booking.status as "PENDING" | "CONFIRMED" | "CANCELLED",
+          }))}
+        />
+      ) : (
+        <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
+          <p className="font-semibold text-earth-900">目前沒有開放線上預約的服務</p>
+          <p className="mt-2 text-sm text-earth-700">請聯繫店家確認服務項目。</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default async function NewBookingPage() {
   const user = await getCurrentUser();
@@ -18,6 +121,10 @@ export default async function NewBookingPage() {
 
   if (!user) {
     return <NoPlanEmptyState title="新增預約" shopHref={shopHref} />;
+  }
+
+  if (storeCtx && await getStoreIndustryModule(storeCtx.storeId) === "spa") {
+    return <SpaNewBookingPage userId={user.id} storeId={storeCtx.storeId} />;
   }
 
   // session.customerId 可能 stale；走 resolver 拿到後台指派方案所附的 canonical customer
