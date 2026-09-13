@@ -141,9 +141,20 @@ export async function createSpaQuickBooking(
       if (occupiedResourceCount >= SPA_DEMO_RESOURCE_CAPACITY[composition.resourceType]) {
         throw new AppError("CONFLICT", `${spaResourceLabel(composition.resourceType)}在所選時間已滿`);
       }
+      const serviceLocation = await tx.spaServiceLocation.findFirst({
+        where: {
+          storeId,
+          isActive: true,
+          treatments: { some: { treatmentId: { in: data.treatmentIds } } },
+        },
+        select: { id: true },
+        orderBy: { sortOrder: "asc" },
+      });
+      if (!serviceLocation) {
+        throw new AppError("CONFLICT", "沒有可安排所選療程的服務位置");
+      }
       return tx.spaBooking.create({
         data: {
-          storeId,
           customerId,
           serviceStaffId: data.serviceStaffId,
           revenueStaffId: data.serviceStaffId,
@@ -155,7 +166,8 @@ export async function createSpaQuickBooking(
           totalPriceSnapshot: composition.totalPrice,
           requestKey: data.requestKey,
           notes: data.notes || null,
-          items: { create: treatments.map((treatment, sortOrder) => ({ storeId, treatmentId: treatment.id, treatmentNameSnapshot: treatment.name, variantSnapshot: treatment.variantLabel, priceSnapshot: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, sortOrder })) },
+          serviceLocation: { connect: { id_storeId: { id: serviceLocation.id, storeId } } },
+          items: { create: treatments.map((treatment, sortOrder) => ({ treatmentId: treatment.id, treatmentNameSnapshot: treatment.name, variantSnapshot: treatment.variantLabel, priceSnapshot: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, sortOrder })) },
         },
       });
     });
