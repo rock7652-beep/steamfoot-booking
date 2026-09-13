@@ -5,6 +5,7 @@ import {
   resolveStoreSlugForLiff,
 } from "@/lib/store-resolver";
 import { liffMessages } from "@/lib/liff/messages";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { BookingsList } from "./bookings-list";
 
 /**
@@ -43,6 +44,7 @@ export default async function LiffMyBookingsPage() {
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
+  const industryModule = await getStoreIndustryModule(presentation.id);
 
   return (
     <BookingsList
@@ -52,6 +54,7 @@ export default async function LiffMyBookingsPage() {
       contactUrl={presentation.contactUrl}
       storeAddress={presentation.address}
       storeMapUrl={presentation.mapUrl}
+      dataSource={industryModule}
     />
   );
 }

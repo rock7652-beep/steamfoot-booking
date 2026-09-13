@@ -64,6 +64,7 @@ export default async function LiffEntryPage() {
       contactUrl={presentation.contactUrl}
       healthAssessmentEnabled={healthAssessmentEnabled}
       terminology={industryModule.customer}
+      memberDataSource={industryModule.id}
       bookingHref={
         industryModule.id === "spa"
           ? `/s/${presentation.slug}/book/new`

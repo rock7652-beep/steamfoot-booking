@@ -52,6 +52,11 @@ import {
   type LiffBookingRow,
 } from "@/server/actions/liff-my-bookings";
 import { cancelLiffBooking } from "@/server/actions/liff-cancel-booking";
+import {
+  fetchSpaLiffBookings,
+} from "@/server/actions/spa-liff-member";
+import { cancelSpaCustomerBooking } from "@/server/actions/spa-customer-booking";
+import type { IndustryModuleId } from "@/lib/industry-modules";
 import { mapCancelStatusToMessage } from "./_helpers";
 import { InfoBlock, Loading } from "./_components/boundary-blocks";
 import { ReadyView, type Tab } from "./_components/ready-view";
@@ -78,6 +83,7 @@ interface Props {
   storeAddress: string;
   /** PR-E：per-store Google Maps 短網址。 */
   storeMapUrl: string;
+  dataSource: IndustryModuleId;
 }
 
 export function BookingsList({
@@ -87,6 +93,7 @@ export function BookingsList({
   contactUrl,
   storeAddress,
   storeMapUrl,
+  dataSource,
 }: Props) {
   const router = useRouter(); // PR-D4B-1：reschedule 成功後 push 到 trial-booking
   const [state, setState] = useState<State>({ kind: "initializing" });
@@ -119,7 +126,9 @@ export function BookingsList({
    */
   async function refetchBookings() {
     try {
-      const r = await fetchLiffBookings();
+      const r = dataSource === "spa"
+        ? await fetchSpaLiffBookings()
+        : await fetchLiffBookings();
       if (r.status === "ok") {
         setState({
           kind: "ready",
@@ -167,6 +176,18 @@ export function BookingsList({
     setCancelStatus("submitting");
     setCancelError(null);
     try {
+      if (dataSource === "spa") {
+        const r = await cancelSpaCustomerBooking({ bookingId: cancelTarget.id });
+        if (r.success) {
+          setCancelTarget(null);
+          setCancelStatus("idle");
+          await refetchBookings();
+          return;
+        }
+        setCancelStatus("error");
+        setCancelError(r.error);
+        return;
+      }
       const r = await cancelLiffBooking({ bookingId: cancelTarget.id });
       if (r.status === "ok") {
         // close 在 refetch 完成前先做，讓 modal 立刻消失；卡片靠 refetch 移到 history
@@ -209,6 +230,20 @@ export function BookingsList({
     setCancelStatus("submitting");
     setCancelError(null);
     try {
+      if (dataSource === "spa") {
+        const r = await cancelSpaCustomerBooking({ bookingId: cancelTarget.id });
+        if (r.success) {
+          await refetchBookings();
+          setCancelTarget(null);
+          setCancelStatus("idle");
+          setCancelError(null);
+          router.push(`/s/${storeSlug}/book/new`);
+          return;
+        }
+        setCancelStatus("error");
+        setCancelError(r.error);
+        return;
+      }
       const r = await cancelLiffBooking({ bookingId: cancelTarget.id });
       if (r.status === "ok") {
         await refetchBookings();
@@ -271,7 +306,9 @@ export function BookingsList({
       // fetchLiffBookings 不收 client 參數；session 在 server side 解
       let result;
       try {
-        result = await fetchLiffBookings();
+        result = dataSource === "spa"
+          ? await fetchSpaLiffBookings()
+          : await fetchLiffBookings();
       } catch (err) {
         if (cancelled) return;
         console.warn("[liff-my-bookings] fetchLiffBookings threw", err);
@@ -298,7 +335,7 @@ export function BookingsList({
     return () => {
       cancelled = true;
     };
-  }, [liffId, storeSlug, router]);
+  }, [dataSource, liffId, storeSlug, router]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">

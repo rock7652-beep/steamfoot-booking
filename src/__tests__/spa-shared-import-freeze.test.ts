@@ -20,6 +20,14 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/app/(dashboard)/dashboard/plans/page.tsx",
   "src/app/(dashboard)/dashboard/staff/page.tsx",
   "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
+  // Reviewed 2026-09-14: these shared customer/LIFF surfaces select the SPA
+  // read/write adapter only after the authoritative store module lookup. The
+  // SPA adapter itself enforces exact store membership and never queries the
+  // legacy Booking, Transaction or CustomerPlanWallet models.
+  "src/app/(customer)/book/new/page.tsx",
+  "src/app/(liff)/liff/bookings/bookings-list.tsx",
+  "src/app/(liff)/liff/liff-shell.tsx",
+  "src/app/(liff)/liff/wallets/wallets-list.tsx",
   "src/app/(liff)/liff/design-preview/booking/page.tsx",
   "src/app/(liff)/liff/design-preview/page.tsx",
   "src/app/(liff)/liff/manager-preview/page.tsx",

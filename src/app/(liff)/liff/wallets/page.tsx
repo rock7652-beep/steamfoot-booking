@@ -5,6 +5,7 @@ import {
   resolveStoreSlugForLiff,
 } from "@/lib/store-resolver";
 import { liffMessages } from "@/lib/liff/messages";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { WalletsList } from "./wallets-list";
 
 /**
@@ -43,6 +44,7 @@ export default async function LiffMyWalletsPage() {
   if (!liffId) {
     return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
   }
+  const industryModule = await getStoreIndustryModule(presentation.id);
 
   return (
     <WalletsList
@@ -50,6 +52,7 @@ export default async function LiffMyWalletsPage() {
       storeName={presentation.name}
       liffId={liffId}
       contactUrl={presentation.contactUrl}
+      dataSource={industryModule}
     />
   );
 }

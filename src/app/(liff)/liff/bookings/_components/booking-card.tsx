@@ -73,9 +73,19 @@ export function BookingCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="rounded-md bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-700">
-          {liffTypeLabel(booking.bookingType, booking.isMakeup)}
-        </span>
+        {booking.serviceName ? (
+          <div className="w-full text-sm text-earth-700">
+            <p className="font-medium text-earth-900">{booking.serviceName}</p>
+            <p className="mt-1 text-xs text-earth-500">
+              {booking.endTime ? `${booking.slotTime}–${booking.endTime} · ` : ""}
+              {booking.staffName ?? "待確認人員"} · {booking.locationName ?? "待安排位置"}
+            </p>
+          </div>
+        ) : (
+          <span className="rounded-md bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-700">
+            {liffTypeLabel(booking.bookingType, booking.isMakeup)}
+          </span>
+        )}
       </div>
 
       {!isCancelled && (

@@ -60,6 +60,12 @@ import {
   type MemberHomeTerminology,
 } from "@/lib/industry-modules";
 import { fetchLiffStaffAccess } from "@/server/actions/liff-staff-access";
+import {
+  fetchSpaLiffBookings,
+  fetchSpaLiffEntitlements,
+} from "@/server/actions/spa-liff-member";
+import type { IndustryModuleId } from "@/lib/industry-modules";
+import { STATUS_LABEL } from "@/lib/booking-constants";
 
 type State =
   | { kind: "initializing" }
@@ -78,6 +84,7 @@ interface LiffShellProps {
   contactUrl: string;
   healthAssessmentEnabled: boolean;
   terminology: MemberHomeTerminology;
+  memberDataSource: IndustryModuleId;
   bookingHref?: string;
 }
 
@@ -102,6 +109,7 @@ export function LiffShell({
   contactUrl,
   healthAssessmentEnabled,
   terminology,
+  memberDataSource,
   bookingHref,
 }: LiffShellProps) {
   const [state, setState] = useState<State>({ kind: "initializing" });
@@ -133,8 +141,12 @@ export function LiffShell({
       const loadMemberHome = async () => {
         try {
           const [wallets, bookings, health, referralShare] = await Promise.all([
-            fetchLiffWallets(),
-            fetchLiffBookings(),
+            memberDataSource === "spa"
+              ? fetchSpaLiffEntitlements()
+              : fetchLiffWallets(),
+            memberDataSource === "spa"
+              ? fetchSpaLiffBookings()
+              : fetchLiffBookings(),
             healthAssessmentEnabled
               ? fetchLiffHealthSummary()
               : Promise.resolve(null),
@@ -225,7 +237,7 @@ export function LiffShell({
     return () => {
       cancelled = true;
     };
-  }, [healthAssessmentEnabled, liffId, storeSlug]);
+  }, [healthAssessmentEnabled, liffId, memberDataSource, storeSlug]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
@@ -293,6 +305,7 @@ export function LiffShell({
           healthAssessmentEnabled={healthAssessmentEnabled}
           hasWorkAccess={hasWorkAccess}
           terminology={terminology}
+          memberDataSource={memberDataSource}
           bookingHref={bookingHref}
         />
       )}
@@ -406,6 +419,7 @@ export function WelcomeBack({
   memberSummary,
   healthAssessmentEnabled,
   terminology,
+  memberDataSource = "steamfoot",
   bookingHref,
   memberLinks,
   hasWorkAccess = false,
@@ -415,6 +429,7 @@ export function WelcomeBack({
   memberSummary: MemberHomeSummary | "error" | null;
   healthAssessmentEnabled: boolean;
   terminology?: MemberHomeTerminology;
+  memberDataSource?: IndustryModuleId;
   bookingHref?: string;
   memberLinks?: {
     bookings: string;
@@ -468,6 +483,8 @@ export function WelcomeBack({
   const walletsAvailable = memberSummary.walletsStatus === "ok";
   const labels = terminology ?? STEAMFOOT_INDUSTRY_MODULE.customer;
   const resolvedBookingHref = bookingHref ?? `/s/${storeSlug}/liff/member-booking`;
+  const canCreateBooking =
+    memberDataSource === "spa" || totalBookable > 0 || makeupCredits.length > 0;
   const resolvedMemberLinks = memberLinks ?? {
     bookings: `/s/${storeSlug}/liff/bookings`,
     wallets: `/s/${storeSlug}/liff/wallets`,
@@ -492,14 +509,16 @@ export function WelcomeBack({
           <div className="mt-3 flex items-end justify-between gap-4">
             <div>
               <p className="text-2xl font-semibold">{formatBookingDateLabel(nextBooking.bookingDate)}</p>
-              <p className="mt-1 text-base text-earth-200">{nextBooking.slotTime}</p>
+              <p className="mt-1 text-base text-earth-200">
+                {nextBooking.slotTime} · {STATUS_LABEL[nextBooking.bookingStatus] ?? nextBooking.bookingStatus}
+              </p>
             </div>
             <Link href={resolvedMemberLinks.bookings} className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-earth-100">預約詳情</Link>
           </div>
         ) : (
           <div className="mt-3 flex items-center justify-between gap-4">
             <p className="text-base text-earth-200">目前沒有預約</p>
-            {!(walletsAvailable && (totalBookable > 0 || makeupCredits.length > 0)) && (
+            {!canCreateBooking && (
               <Link href={resolvedBookingHref} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-earth-900">立即預約</Link>
             )}
           </div>
@@ -526,7 +545,7 @@ export function WelcomeBack({
             )}
           </section>
 
-          {totalBookable > 0 || makeupCredits.length > 0 ? (
+          {canCreateBooking ? (
             <Link href={resolvedBookingHref} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
               立即預約
             </Link>

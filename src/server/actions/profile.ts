@@ -336,7 +336,7 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
   });
   const existingPasswordHash = userPasswordRow?.passwordHash ?? null;
   const linkedProviders =
-    userPasswordRow?.accounts.map((account) => account.provider) ?? [];
+    (userPasswordRow?.accounts ?? []).map((account) => account.provider);
   const passwordRequired = requiresProfilePassword({
     hasPassword: !!existingPasswordHash,
     providers: linkedProviders,

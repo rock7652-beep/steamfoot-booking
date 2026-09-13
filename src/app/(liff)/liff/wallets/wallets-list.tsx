@@ -34,6 +34,8 @@ import {
 } from "@/server/actions/liff-my-wallets";
 import { isExpiringSoon } from "@/lib/liff/my-wallets";
 import { liffMessages } from "@/lib/liff/messages";
+import { fetchSpaLiffEntitlements } from "@/server/actions/spa-liff-member";
+import type { IndustryModuleId } from "@/lib/industry-modules";
 
 type State =
   | { kind: "initializing" }
@@ -54,9 +56,10 @@ interface Props {
   liffId: string;
   /** PR-E：per-store LINE OA 連結。 */
   contactUrl: string;
+  dataSource: IndustryModuleId;
 }
 
-export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props) {
+export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSource }: Props) {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "initializing" });
 
@@ -99,7 +102,9 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props)
       // fetchLiffWallets 零 client 參數；session 在 server side 解
       let result;
       try {
-        result = await fetchLiffWallets();
+        result = dataSource === "spa"
+          ? await fetchSpaLiffEntitlements()
+          : await fetchLiffWallets();
       } catch (err) {
         if (cancelled) return;
         console.warn("[liff-my-wallets] fetchLiffWallets threw", err);
@@ -127,7 +132,7 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props)
     return () => {
       cancelled = true;
     };
-  }, [liffId, storeSlug, router]);
+  }, [dataSource, liffId, storeSlug, router]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
@@ -136,7 +141,7 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props)
           {storeName}
         </p>
         <h1 className="mt-1 text-xl font-bold text-earth-900">
-          {liffMessages.wallets.title}
+          {dataSource === "spa" ? "我的療程" : liffMessages.wallets.title}
         </h1>
       </header>
 
@@ -181,6 +186,7 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl }: Props)
           makeupCredits={state.makeupCredits}
           storeSlug={storeSlug}
           contactUrl={contactUrl}
+          dataSource={dataSource}
         />
       )}
     </div>
@@ -198,6 +204,7 @@ function ReadyView({
   makeupCredits,
   storeSlug,
   contactUrl,
+  dataSource,
 }: {
   active: LiffWalletRow[];
   expired: LiffWalletRow[];
@@ -206,6 +213,7 @@ function ReadyView({
   storeSlug: string;
   /** PR-E：per-store LINE OA 連結。 */
   contactUrl: string;
+  dataSource: IndustryModuleId;
 }) {
   const totalCount =
     active.length + expired.length + history.length + makeupCredits.length;
@@ -217,15 +225,17 @@ function ReadyView({
   return (
     <>
       {isEmpty ? (
-        <EmptyState storeSlug={storeSlug} contactUrl={contactUrl} />
+        <EmptyState storeSlug={storeSlug} contactUrl={contactUrl} dataSource={dataSource} />
       ) : (
         <>
-          <Link
-            href={`/s/${storeSlug}/liff/wallets/shop`}
-            className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
-          >
-            {liffMessages.wallets.ctaRenewPlan}
-          </Link>
+          {dataSource !== "spa" && (
+            <Link
+              href={`/s/${storeSlug}/liff/wallets/shop`}
+              className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-700 active:scale-[0.98]"
+            >
+              {liffMessages.wallets.ctaRenewPlan}
+            </Link>
+          )}
 
           {active.length > 0 && (
             <Section title={liffMessages.wallets.activeSectionTitle}>
@@ -268,7 +278,7 @@ function ReadyView({
           連 /liff/member-booking (PR-G3 主體 page)。 */}
       {showBookNow && (
         <Link
-          href={`/s/${storeSlug}/liff/member-booking`}
+          href={dataSource === "spa" ? `/s/${storeSlug}/book/new` : `/s/${storeSlug}/liff/member-booking`}
           className="mt-4 inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-earth-800 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-earth-700 active:scale-[0.98]"
         >
           {liffMessages.wallets.ctaBookNow}
@@ -345,7 +355,7 @@ function WalletCard({
   const statusBadge = (() => {
     if (variant === "expired") return m.expiredBadge;
     if (variant === "history") {
-      if (wallet.status === "CANCELLED") return m.cancelledBadge;
+      if (wallet.status === "CANCELLED" || wallet.status === "VOIDED") return m.cancelledBadge;
       return m.usedUpBadge; // USED_UP 或 ACTIVE+0 defensive 都歸這
     }
     return null; // active section 不顯示 badge（除非 expiringSoon 才顯紅字）
@@ -445,21 +455,25 @@ function MakeupCreditCard({ credit }: { credit: LiffMakeupCreditRow }) {
 function EmptyState({
   storeSlug,
   contactUrl,
+  dataSource,
 }: {
   storeSlug: string;
   contactUrl: string;
+  dataSource: IndustryModuleId;
 }) {
   const m = liffMessages.wallets;
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-dashed border-earth-300 bg-white px-4 py-10 text-center">
       <p className="text-base font-semibold text-earth-900">{m.emptyTitle}</p>
       <p className="text-sm text-earth-600">{m.emptyBody}</p>
-      <Link
-        href={`/s/${storeSlug}/liff/wallets/shop`}
-        className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
-      >
-        {m.ctaPurchasePlan}
-      </Link>
+      {dataSource !== "spa" && (
+        <Link
+          href={`/s/${storeSlug}/liff/wallets/shop`}
+          className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-earth-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-earth-700 active:scale-[0.98]"
+        >
+          {m.ctaPurchasePlan}
+        </Link>
+      )}
       <a
         href={contactUrl || undefined} aria-disabled={!contactUrl}
         target="_blank"

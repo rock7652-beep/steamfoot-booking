@@ -25,6 +25,8 @@ describe("central-member LIFF routing contract", () => {
 
     expect(resolver).toContain("NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID");
     expect(resolver).toContain("CENTRAL_MEMBER_LIFF_ENTRY_STORE_SLUG");
+    expect(resolver).toContain("resolveStorePresentation(storeSlug)");
+    expect(resolver).toContain("replaceRetiredCentralMemberLiffId(targetStoreLiffId)");
     expect(resolver).toContain('?? "zhubei"');
     expect(resolver).toContain("resolveStorePresentation(entryStoreSlug)");
     expect(resolver).toContain("replaceRetiredCentralMemberLiffId(configured)");

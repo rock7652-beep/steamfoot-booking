@@ -135,3 +135,22 @@
 - code deploy 前先套 additive migration；舊程式不讀新表，可安全並存。
 - 若新入口失敗，回滾應用程式即可；保留 relation 與所有歷史資料，不 drop table。
 - 正式資料 migration、合併與部署須在 Preview 驗收結果明確後另行確認。
+
+## 2026-09-14 SPA 會員預約與療程讀取鏈
+
+- SPA 會員首頁與「我的預約」改讀獨立 `SpaBooking`；首頁下一筆與明細使用同一 server projection，狀態只取 `SpaBooking.status`，並補齊服務、人員、服務位置與結束時間。
+- SPA 會員首頁與「我的療程」改讀獨立 `SpaEntitlement`；首頁與明細使用同一批 active projection。剩餘次數以 `remainingUses` 為準，尚可預約次數再扣除 `SpaEntitlementUse.RESERVED`，到期日以 `expiryDate` 的 date-only 值呈現。
+- `EXHAUSTED`、`VOIDED` 與 `EXPIRED` 均在顧客畫面 fail closed，不會被誤列為可用療程；SPA 頁不再顯示會寫入 legacy 方案錢包的購買入口。
+- 每次 action 都由網址解析實際店別，驗證該店為 SPA，再以固定中央會員關聯解析同店 Customer；不接受 client 傳入 storeId 或 customerId。`SpaBooking`／`SpaEntitlement` 查詢同時包含 `storeId + customerId`。
+- 蒸足仍走原 `fetchLiffBookings`、`fetchLiffWallets`、legacy 取消與會員預約流程；本次沒有 schema、migration 或資料寫入。
+- LIFF 新店解析補上 `Store.liffId` 優先路徑。已在中央 LIFF 對照表中的三家蒸足店保持原固定 ID；其他新店可在測試 DB 設定自己的 LIFF app，不再被全域 fallback 蓋過。
+
+### 測試店獨立 LIFF 一次性設定
+
+1. 在目前中央會員使用的 LINE Login channel 內新增一個 LIFF app（獨立 LIFF app，不另建 LINE Login channel，否則 OIDC `sub`／`aud` 會改變而需另做跨渠道身分遷移）。
+2. LIFF app 設為 Full，Endpoint URL 填固定 Preview alias：`https://steamfoot-booking-git-codex-spa-b1b96e-rock7652-2111s-projects.vercel.app/s/spa-module-qa-20260903/liff`。
+3. Scopes 勾選 `openid`、`profile`；不要求 `email`，也不啟用外部瀏覽器模式。
+4. 將產生的 LIFF ID 寫入測試 DB 該店 `Store.liffId`；只改 `store-spa-module-qa-20260903`，不改三家正式店。
+5. 若同時驗一般瀏覽器 LINE OAuth，在同一 LINE Login channel 登記 `https://steamfoot-booking-git-codex-spa-b1b96e-rock7652-2111s-projects.vercel.app/api/auth/callback/line`。LIFF SDK 本身使用上一步 Endpoint URL，不以 callback URL 取代。
+6. Preview runtime 的 `CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID` 必須等於該 LIFF app 所屬 channel ID；若沿用目前中央會員 channel 不需改值。不得把 channel secret、access token 或使用者 token 寫進 DB、PR 或對話。
+7. 設定後以 `https://liff.line.me/{LIFF_ID}` 從手機 LINE 開啟，依序驗入口店名、會員／工作切換、我的預約、我的療程，以及切到其他 App 返回後保留日期並刷新資料。

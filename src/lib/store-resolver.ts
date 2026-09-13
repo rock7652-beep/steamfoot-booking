@@ -276,8 +276,9 @@ export const resolveStorePresentation = cache(
  *
  * Resolution order:
  *   1. explicit per-store member LIFF map;
- *   2. explicit central-member LIFF env (legacy/new-store fallback);
- *   3. configured LIFF ID of the central entry store (defaults to zhubei).
+ *   2. target store's configured Store.liffId (new-store path);
+ *   3. explicit central-member LIFF env (temporary fallback);
+ *   4. configured LIFF ID of the central entry store (defaults to zhubei).
  *
  * The store switcher still resolves only verified memberships. A LIFF entry ID
  * selects the initial store; it never grants membership or cross-store access.
@@ -287,6 +288,14 @@ export const resolveCentralMemberLiffId = cache(async (
 ): Promise<string | null> => {
   const storeLiffId = resolveCentralMemberLiffIdForStore(storeSlug);
   if (storeLiffId) return storeLiffId;
+
+  if (storeSlug) {
+    const targetStore = await resolveStorePresentation(storeSlug);
+    const targetStoreLiffId = emptyToNull(targetStore?.liffId);
+    if (targetStoreLiffId) {
+      return replaceRetiredCentralMemberLiffId(targetStoreLiffId);
+    }
+  }
 
   const configured = emptyToNull(process.env.NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID);
   if (configured) return replaceRetiredCentralMemberLiffId(configured);
