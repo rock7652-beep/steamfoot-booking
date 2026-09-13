@@ -326,7 +326,6 @@ export function ZhubeiTrialBookingForm({
           <li>腳部有傷口、破皮或尚未癒合的部位。</li>
           <li>近期接受手術，仍在術後療養中。</li>
           <li>腳部有香港腳、黴菌感染或其他皮膚疾病，正在治療中。</li>
-          <li>有糖尿病、高血壓或其他需留意的慢性病。</li>
         </ul>
         <p className="mt-3 text-sm leading-6 text-earth-700">若有上述狀況，請於預約前先聯繫門市，並諮詢醫療人員是否適合蒸足；請勿僅因已告知或勾選就直接進行體驗。體驗中如有任何不適，請立即停止並告知現場人員。</p>
         <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 underline underline-offset-4">有上述狀況？先用 LINE 聯繫門市</a>
