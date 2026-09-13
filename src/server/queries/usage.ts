@@ -87,7 +87,7 @@ export async function getStoreUsage(storeId: string): Promise<StoreUsage | null>
   // 分店數為平台級指標，不放在 per-store metrics 中
   const metrics: UsageMetric[] = [
     {
-      label: "員工數",
+      label: "可啟用人員",
       current: staffCount,
       limit: limits.maxStaff,
       pct: calcPct(staffCount, limits.maxStaff),

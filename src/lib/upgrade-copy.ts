@@ -12,7 +12,7 @@ import { PRICING_PLAN_INFO, PLAN_LIMITS } from "@/lib/feature-flags";
 // 用量指標升級文案
 // ============================================================
 
-type MetricKey = "員工數" | "顧客數" | "本月預約";
+type MetricKey = "可啟用人員" | "顧客數" | "本月預約";
 
 const METRIC_COPY: Record<
   MetricKey,
@@ -21,14 +21,14 @@ const METRIC_COPY: Record<
     danger: { message: string; valueProp: string };
   }
 > = {
-  員工數: {
+  可啟用人員: {
     warning: {
-      message: "員工數接近上限，建議升級以確保排班彈性",
-      valueProp: "升級後可新增更多員工，靈活調度人力",
+      message: "可啟用人員接近上限，建議升級以確保排班彈性",
+      valueProp: "升級後可新增更多人員，靈活調度人力",
     },
     danger: {
-      message: "員工數已達上限，無法新增排班人力。升級可擴充員工名額。",
-      valueProp: "升級後立即解鎖更多員工名額",
+      message: "可啟用人員已達上限，店長、後台員工與服務人員共用額度。升級可擴充人員名額。",
+      valueProp: "升級後立即解鎖更多人員名額",
     },
   },
   顧客數: {
