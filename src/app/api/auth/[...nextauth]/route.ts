@@ -10,6 +10,7 @@ import {
   isMobileCoordinatorState,
   MobileLineOAuthError,
 } from "@/lib/line-oauth/mobile-coordinator";
+import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 
 function preserveTaichungStore(response: NextResponse): NextResponse {
   response.cookies.set("store-slug", "taichung", {
@@ -53,10 +54,15 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Invalid LINE callback host" }, { status: 400 });
       }
       const callback = await consumeMobileCallback({ state, code, callbackUrl });
-      const customer = await resolveTaichungLinkedCustomer({
-        storeId: callback.storeId,
-        lineUserId: callback.profile.userId,
-      });
+      // `consumeMobileCallback` has verified this subject against the Web LINE
+      // Login channel. Resolve it through the canonical `line` Account/link
+      // namespace and require an active membership in the signed store. This
+      // deliberately does not fall back to phone/name or grant cross-store
+      // access.
+      const customer = await resolveVerifiedLineCustomer(
+        callback.storeId,
+        callback.profile.userId,
+      );
       if (!customer) {
         const destination = new URL(`/s/${callback.storeSlug}/`, request.url);
         destination.searchParams.set("error", "OAuthAccountNotLinked");

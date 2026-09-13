@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 const handlersGet = vi.hoisted(() => vi.fn());
 const signIn = vi.hoisted(() => vi.fn());
 const consumeMobileCallback = vi.hoisted(() => vi.fn());
-const resolveLinkedCustomer = vi.hoisted(() => vi.fn());
+const resolveVerifiedCustomer = vi.hoisted(() => vi.fn());
 const issueSession = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({
@@ -19,8 +19,11 @@ vi.mock("@/lib/line-oauth/mobile-coordinator", () => ({
 vi.mock("@/lib/line-oauth/taichung-coordinator", () => ({
   isTaichungCoordinatorState: () => false,
   consumeTaichungCallback: vi.fn(),
-  resolveTaichungLinkedCustomer: (...args: unknown[]) => resolveLinkedCustomer(...args),
+  resolveTaichungLinkedCustomer: vi.fn(),
   TaichungOAuthError: class TaichungOAuthError extends Error {},
+}));
+vi.mock("@/server/services/verified-line-customer", () => ({
+  resolveVerifiedLineCustomer: (...args: unknown[]) => resolveVerifiedCustomer(...args),
 }));
 vi.mock("@/lib/line-oauth/taichung-session", () => ({
   issueTaichungLineSession: (...args: unknown[]) => issueSession(...args),
@@ -40,7 +43,7 @@ describe("mobile LINE OAuth callback", () => {
       returnPath: "/s/spa-test/liff/spa-work",
       profile: { userId: "line-user", displayName: "LINE User" },
     });
-    resolveLinkedCustomer.mockResolvedValue({ id: "customer-spa", userId: "user-spa" });
+    resolveVerifiedCustomer.mockResolvedValue({ id: "customer-spa", userId: "user-spa" });
     issueSession.mockReturnValue("signed-ticket");
     signIn.mockResolvedValue("https://preview.example/s/spa-test/liff/spa-work");
   });
@@ -51,10 +54,7 @@ describe("mobile LINE OAuth callback", () => {
       "https://preview.example/api/auth/callback/line?state=wm1.signed&code=code",
     ));
 
-    expect(resolveLinkedCustomer).toHaveBeenCalledWith({
-      storeId: "store-spa",
-      lineUserId: "line-user",
-    });
+    expect(resolveVerifiedCustomer).toHaveBeenCalledWith("store-spa", "line-user");
     expect(signIn).toHaveBeenCalledWith("line-taichung-coordinator", {
       redirect: false,
       redirectTo: "https://preview.example/s/spa-test/liff/spa-work",
@@ -68,7 +68,7 @@ describe("mobile LINE OAuth callback", () => {
   });
 
   it("fails closed to the same store when the LINE identity is not linked", async () => {
-    resolveLinkedCustomer.mockResolvedValue(null);
+    resolveVerifiedCustomer.mockResolvedValue(null);
     const { GET } = await import("@/app/api/auth/[...nextauth]/route");
     const response = await GET(new NextRequest(
       "https://preview.example/api/auth/callback/line?state=wm1.signed&code=code",
