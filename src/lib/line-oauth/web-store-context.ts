@@ -18,7 +18,11 @@ export async function withWebLineStoreContext(
   let slug: string | undefined;
   try {
     const url = new URL(typeof callback === "string" ? callback : "", requestUrl);
-    const match = url.pathname.match(/^\/s\/([^/]+)\/book\/?$/);
+    // Web LINE sign-in is shared by the member booking page and the
+    // store-scoped staff workspace. Keep this allowlist exact: accepting an
+    // arbitrary path under /s/:slug would let an unrelated callback mint the
+    // routing cookie for a store it did not originate from.
+    const match = url.pathname.match(/^\/s\/([^/]+)\/(?:book|liff\/spa-work)\/?$/);
     if (url.origin === requestUrl.origin && match) {
       slug = normalizeWebStoreSlug(decodeURIComponent(match[1]));
     }
