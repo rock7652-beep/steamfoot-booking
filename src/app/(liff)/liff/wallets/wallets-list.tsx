@@ -140,6 +140,11 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
+      {dataSource === "spa" && (
+        <Link href={`/s/${storeSlug}/book`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700">
+          ← 返回會員專區
+        </Link>
+      )}
       <header className="text-center">
         <p className="text-xs uppercase tracking-widest text-earth-500">
           {storeName}
@@ -303,7 +308,7 @@ function ReadyView({
           {liffMessages.bookings.contactStoreCta}
         </a>
         <Link
-          href={`/s/${storeSlug}/liff`}
+          href={dataSource === "spa" ? `/s/${storeSlug}/book` : `/s/${storeSlug}/liff`}
           className="flex flex-1 items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
         >
           {liffMessages.wallets.backHomeCta}

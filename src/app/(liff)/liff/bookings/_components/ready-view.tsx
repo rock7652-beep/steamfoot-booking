@@ -29,6 +29,7 @@ export function ReadyView({
   contactUrl,
   storeAddress,
   storeMapUrl,
+  homeHref,
 }: {
   upcoming: LiffBookingRow[];
   history: LiffBookingRow[];
@@ -45,6 +46,7 @@ export function ReadyView({
   storeAddress: string;
   /** PR-E：per-store Google Maps 短網址，傳給 BookingCard。 */
   storeMapUrl: string;
+  homeHref: string;
 }) {
   const displayed = tab === "upcoming" ? upcoming : history;
   return (
@@ -72,7 +74,7 @@ export function ReadyView({
       )}
 
       <Link
-        href={`/s/${storeSlug}/liff`}
+        href={homeHref}
         className="mt-4 inline-flex items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
       >
         {liffMessages.bookings.backHomeCta}

@@ -40,6 +40,7 @@
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   initLiff,
   isInLineClient,
@@ -344,6 +345,11 @@ export function BookingsList({
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-6">
+      {dataSource === "spa" && (
+        <Link href={`/s/${storeSlug}/book`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-700">
+          ← 返回會員專區
+        </Link>
+      )}
       <header className="text-center">
         <p className="text-xs uppercase tracking-widest text-earth-500">
           {storeName}
@@ -398,6 +404,7 @@ export function BookingsList({
           contactUrl={contactUrl}
           storeAddress={storeAddress}
           storeMapUrl={storeMapUrl}
+          homeHref={dataSource === "spa" ? `/s/${storeSlug}/book` : `/s/${storeSlug}/liff`}
         />
       )}
 

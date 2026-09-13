@@ -65,5 +65,7 @@ describe("SPA member unified mobile UI", () => {
     expect(walletsPage).toContain("allowBrowserSession={Boolean(webUser)}");
     expect(bookingsList).toContain('dataSource !== "spa"');
     expect(walletsList).toContain('dataSource !== "spa"');
+    expect(bookingsList).toContain("← 返回會員專區");
+    expect(walletsList).toContain("← 返回會員專區");
   });
 });
