@@ -13,6 +13,7 @@ const payloadSchema = z.object({
   industry: z.string().trim().min(1).max(200),
   storeCount: text, staffCount: text, members: text, hasSystem: text,
   systemName: text, otherNeed: text, contactWay: text, time: text,
+  bookingMode: z.enum(["固定時段，每個時段可接待固定人數", "依服務項目，安排技師／芳療師與服務時間", "不確定，希望協助判斷"]).optional(),
   phone: text, lineId: text, source: text, medium: text, campaign: text,
   content: text, landing: text, pageUrl: text, referrer: text, device: text,
   needs: z.array(z.string().max(200)).min(1).max(3),
@@ -43,7 +44,10 @@ export async function POST(request: Request) {
     const response = await fetch(RECEIVER, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
+      // Keep the answer visible in the existing receiver's notes column too.
+      body: JSON.stringify({ ...payload, otherNeed: payload.bookingMode
+        ? [`預約方式：${payload.bookingMode}`, payload.otherNeed].filter(Boolean).join("\n")
+        : payload.otherNeed }),
       cache: "no-store",
       signal: AbortSignal.timeout(50000),
     });

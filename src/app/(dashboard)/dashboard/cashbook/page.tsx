@@ -1,3 +1,4 @@
+import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 /**
  * /dashboard/cashbook — 現金管理（一頁式工作台）
  *
@@ -173,7 +174,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <FeatureGate plan={plan} feature={FEATURES.CASHBOOK}>
+    <FeatureGate plan={plan} feature={FEATURES.CASHBOOK} enabled={await hasCurrentStoreFeature(FEATURES.CASHBOOK)}>
       <PageShell>
         <FormErrorToast />
 

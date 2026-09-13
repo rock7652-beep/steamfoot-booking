@@ -3,6 +3,11 @@ import type {Prisma} from "../../../generated/spa-client";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
+import { getStoreForPlanByStoreId } from "@/lib/store-plan";
+import { isSingleStoreTrial } from "@/lib/single-store-trial";
+import { getPlanLimits } from "@/lib/feature-flags";
+import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
 import { prisma } from "@/lib/db";
 import { parseTaiwanDateToDbDate } from "@/lib/date-utils";
 import { handleActionError, AppError } from "@/lib/errors";
@@ -51,6 +56,7 @@ async function authorizedStore(permission: "booking.create" | "booking.update") 
 
   const storeId = context.storeId;
   await requireSpaStore(storeId);
+  await assertStoreSubscriptionWritable(storeId);
   const installation = await prisma.storeModuleInstallation.findUnique({ where: { storeId }, select: { status: true } });
   if (installation?.status !== "ACTIVE") throw new AppError("FORBIDDEN", "此店尚未完成服務模組設定");
   return storeId;
@@ -83,6 +89,13 @@ async function saveBooking(storeId: string, data: CreateSpaBookingInput, edit?: 
     if (!edit) {
       const duplicate = await tx.spaBooking.findFirst({ where: { storeId, requestKey: data.requestKey } });
       if (duplicate) return { id: duplicate.id };
+      const store = await getStoreForPlanByStoreId(storeId);
+      if (isSingleStoreTrial(store)) {
+        const range = monthRange(toLocalMonthStr());
+        const count = await tx.spaBooking.count({ where: { storeId, createdAt: { gte: range.start, lte: range.end } } });
+        const limit = getPlanLimits(store).maxMonthlyBookings;
+        if (limit !== null && count >= limit) throw new AppError("FORBIDDEN", `本月試用預約已達 ${limit} 筆，請聯繫總部轉正式`);
+      }
     }
     if (!await prisma.staff.findFirst({ where: { id: data.serviceStaffId, storeId, status: "ACTIVE" }, select: { id: true } })) throw new AppError("CONFLICT", "此人員已停用，請重新選擇服務人員");
     const treatments = await tx.spaTreatment.findMany({

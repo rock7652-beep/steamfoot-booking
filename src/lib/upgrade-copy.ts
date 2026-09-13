@@ -12,7 +12,7 @@ import { PRICING_PLAN_INFO, PLAN_LIMITS } from "@/lib/feature-flags";
 // 用量指標升級文案
 // ============================================================
 
-type MetricKey = "員工數" | "顧客數" | "本月預約";
+type MetricKey = "可啟用人員" | "顧客數" | "本月預約";
 
 const METRIC_COPY: Record<
   MetricKey,
@@ -21,14 +21,14 @@ const METRIC_COPY: Record<
     danger: { message: string; valueProp: string };
   }
 > = {
-  員工數: {
+  可啟用人員: {
     warning: {
-      message: "員工數接近上限，建議升級以確保排班彈性",
-      valueProp: "升級後可新增更多員工，靈活調度人力",
+      message: "可啟用人員接近上限，建議升級以確保排班彈性",
+      valueProp: "升級後可新增更多人員，靈活調度人力",
     },
     danger: {
-      message: "員工數已達上限，無法新增排班人力。升級可擴充員工名額。",
-      valueProp: "升級後立即解鎖更多員工名額",
+      message: "可啟用人員已達上限，店長、後台員工與服務人員共用額度。升級可擴充人員名額。",
+      valueProp: "升級後立即解鎖更多人員名額",
     },
   },
   顧客數: {
@@ -86,7 +86,7 @@ export function getPlatformOverLimitCopy(stats: {
 
 export function getPlatformNearLimitCopy() {
   return {
-    message: "分店即將額滿，升級聯盟版可擴充至 3 間店並解鎖跨店管理",
+    message: "分店串接額度即將用滿，可加購額度；請聯絡平台管理員確認並開通",
   };
 }
 
@@ -96,13 +96,13 @@ export function getPlatformNearLimitCopy() {
 
 export const TRIAL_CONVERSION_COPY = {
   /** warning / blocked 時的副標題 */
-  expiryWarning: "到期後將降為體驗版，部分功能將無法使用",
+  expiryWarning: "試用到期後保留資料並改為唯讀，選購正式方案後可繼續使用",
   /** blocked 時 badge 旁的文字 */
   blockedAction: "升級即可繼續使用",
   /** CTA 文字 */
   retainCta: "升級保留完整功能",
   /** 進度條下方提示 */
-  retainHint: "升級後所有限制立即解除，資料完整保留",
+  retainHint: "轉正式後依所購方案開通功能與額度，資料完整保留",
   /** TrialLimitModal 的加強文案 */
   modalCta: "立即升級，繼續使用",
   modalRetainNote: "升級後立即生效，現有資料完整保留",

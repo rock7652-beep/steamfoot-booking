@@ -95,9 +95,10 @@ export async function createSpaPerson(input:z.infer<typeof schema>){
   const staffId=`spa-person:${storeId}:${d.requestKey}`;
   await prisma.$transaction(async tx=>{
    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${storeId}`}, 0))`;
    if(await tx.staff.findFirst({where:{id:staffId,storeId}}))return;
    const count=await tx.staff.count({where:{storeId,status:"ACTIVE"}});
-   if(limits.maxStaff!==null&&count>=limits.maxStaff)throw new AppError("FORBIDDEN","已達方案可用人員數量上限");
+   if(limits.maxStaff!==null&&count>=limits.maxStaff)throw new AppError("FORBIDDEN","已達方案可啟用人員上限；店長、後台員工及服務人員共用額度，停用人員不計入");
    await tx.user.create({data:{id:`spa-person-user:${storeId}:${d.requestKey}`,name:d.name,phone:d.phone||null,role:"CUSTOMER",status:"SUSPENDED",email:null,passwordHash:null,staff:{create:{id:staffId,storeId,displayName:d.name,colorCode:["#6366f1","#0d9488","#e11d48","#d97706","#7c3aed","#2563eb"][count%6],isOwner:false,status:"ACTIVE",spaceFeeEnabled:false}}}});
   });
   revalidatePath("/dashboard/spa-staff");revalidatePath("/dashboard/plans");revalidatePath("/dashboard/spa-schedule");

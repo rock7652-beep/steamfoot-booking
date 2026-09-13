@@ -6,7 +6,7 @@ import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import type { PricingPlan } from "@prisma/client";
 import { toast } from "sonner";
 
-const PLANS: PricingPlan[] = ["EXPERIENCE", "BASIC", "GROWTH", "ALLIANCE"];
+const PLANS: PricingPlan[] = ["EXPERIENCE"];
 
 interface Props {
   storeId: string;
@@ -14,8 +14,8 @@ interface Props {
 }
 
 export function AdminTrialStart({ storeId, storeName }: Props) {
-  const [selected, setSelected] = useState<PricingPlan>("BASIC");
-  const [days, setDays] = useState(14);
+  const [selected, setSelected] = useState<PricingPlan>("EXPERIENCE");
+  const [days, setDays] = useState(30);
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
   const [open, setOpen] = useState(false);

@@ -6,8 +6,9 @@
  */
 
 import { prisma } from "@/lib/db";
-import { addTaiwanDuration, toLocalDateStr } from "@/lib/date-utils";
-import { PLAN_LIMITS } from "@/lib/feature-flags";
+import { addTaiwanDuration, toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
+import { isSingleStoreTrial, trialDateState } from "@/lib/single-store-trial";
+import { getPlanLimits, PLAN_LIMITS } from "@/lib/feature-flags";
 import type { PricingPlan } from "@prisma/client";
 
 // ============================================================
@@ -289,7 +290,7 @@ export interface TrialStatus {
   canCreateCustomer: boolean;
 }
 
-const TRIAL_DAYS = 14;
+const TRIAL_DAYS = 14; // Legacy undated stores keep their existing behavior.
 
 /**
  * 取得 EXPERIENCE 方案完整試用狀態（讀 Store.plan）。
@@ -310,6 +311,28 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
       stage: "normal",
       canCreateBooking: true,
       canCreateCustomer: true,
+    };
+  }
+  const trialStore = await (await import("@/lib/store-plan")).getStoreForPlanByStoreId(storeId);
+  if (isSingleStoreTrial(trialStore)) {
+    const limits = getPlanLimits(trialStore);
+    const { started, expired } = trialDateState(trialStore);
+    const start = trialStore.planEffectiveAt!, end = trialStore.planExpiresAt!;
+    const trialDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+    const todayDate = new Date(toLocalDateStr() + "T00:00:00Z");
+    const daysRemaining = expired ? 0 : Math.max(0, Math.round((end.getTime() - todayDate.getTime()) / 86400000) + 1);
+    const [customers, bookings] = await Promise.all([
+      prisma.customer.count({ where: { storeId } }),
+      (await (await import("@/lib/industry-module-server")).getStoreIndustryModule(storeId) === "spa" ? (await import("@/lib/spa-db")).spaPrisma.spaBooking.count({ where: { storeId, createdAt: { gte: monthRange(toLocalMonthStr()).start, lte: monthRange(toLocalMonthStr()).end } } }) : prisma.booking.count({ where: { storeId, createdAt: { gte: monthRange(toLocalMonthStr()).start, lte: monthRange(toLocalMonthStr()).end } } })),
+    ]);
+    const customerLimit = limits.maxCustomers ?? Infinity, bookingLimit = limits.maxMonthlyBookings ?? Infinity;
+    const pct = Math.max(Math.round((1 - daysRemaining / trialDays) * 100), customers / customerLimit * 100, bookings / bookingLimit * 100);
+    return { isFree: true, daysRemaining, trialDays, trialExpired: expired,
+      customers: { current: customers, limit: customerLimit, pct: customers / customerLimit * 100 },
+      bookings: { current: bookings, limit: bookingLimit, pct: bookings / bookingLimit * 100 },
+      overallPct: pct, stage: expired || !started || pct >= 100 ? "blocked" : pct >= 80 ? "warning" : pct >= 60 ? "light" : "normal",
+      canCreateBooking: started && !expired && bookings < bookingLimit,
+      canCreateCustomer: started && !expired && customers < customerLimit,
     };
   }
   const plan = await getStorePlan(storeId);
@@ -385,6 +408,11 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
 // ============================================================
 
 export async function checkCustomerLimit(storeId: string): Promise<{ allowed: boolean; current: number; limit: number }> {
+  const trialStore = await (await import("@/lib/store-plan")).getStoreForPlanByStoreId(storeId);
+  if (isSingleStoreTrial(trialStore)) {
+    const status = await getTrialStatus(storeId);
+    return { allowed: status.canCreateCustomer, current: status.customers.current, limit: status.customers.limit };
+  }
   const plan = await getStorePlan(storeId);
   if (plan !== "EXPERIENCE") return { allowed: true, current: 0, limit: Infinity };
 
@@ -404,6 +432,11 @@ export async function checkCustomerLimit(storeId: string): Promise<{ allowed: bo
 }
 
 export async function checkBookingLimit(storeId: string): Promise<{ allowed: boolean; current: number; limit: number }> {
+  const trialStore = await (await import("@/lib/store-plan")).getStoreForPlanByStoreId(storeId);
+  if (isSingleStoreTrial(trialStore)) {
+    const status = await getTrialStatus(storeId);
+    return { allowed: status.canCreateBooking, current: status.bookings.current, limit: status.bookings.limit };
+  }
   const plan = await getStorePlan(storeId);
   if (plan !== "EXPERIENCE") return { allowed: true, current: 0, limit: Infinity };
 

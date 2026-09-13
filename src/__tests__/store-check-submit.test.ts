@@ -13,6 +13,12 @@ function request(body: object = payload, origin = "https://www.steamfoot.com") {
 }
 afterEach(() => vi.unstubAllGlobals());
 describe("store check save acknowledgement", () => {
+  it("forwards booking style into existing notes without losing free text", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetch);
+    expect((await POST(request({ ...payload, bookingMode: "不確定，希望協助判斷", otherNeed: "需要排班" }))).status).toBe(200);
+    expect(JSON.parse(fetch.mock.calls[0][1].body).otherNeed).toBe("預約方式：不確定，希望協助判斷\n需要排班");
+  });
   it.each([
     { ok: true },
     { version: 2, ok: true, saved: true, requestId: payload.requestId, notification: "sent" },

@@ -177,7 +177,7 @@ export default function NewStorePage() {
               {result.store.isDemo
                 ? "ℹ️ Demo 店不可啟用為正式店"
                 : result.canActivate
-                  ? "✅ 可正式啟用（TRIAL → ACTIVE）"
+                  ? "✅ 設定完成，請至店舖詳情開通 30 天單店試用"
                   : "⚠️ 部分項目未通過，建議先修正"}
             </p>
           </div>

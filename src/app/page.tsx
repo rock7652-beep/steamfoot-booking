@@ -77,7 +77,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <CustomerLoginForm storeSlug={storeSlug} />
+          <CustomerLoginForm storeSlug={storeSlug} storeId={store?.id} />
 
           <div className="mt-4 text-center">
             <Link

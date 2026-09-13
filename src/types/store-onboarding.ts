@@ -57,6 +57,7 @@ export interface StaffInput {
 
 export interface StoreDeliverySummary {
   store: {
+    currentSubscriptionId?: string | null;
     id: string;
     name: string;
     slug: string;

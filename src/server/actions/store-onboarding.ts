@@ -287,15 +287,12 @@ export async function activateStoreAction(
     return { success: false, error: `啟用前驗證失敗：${failures.join("、")}` };
   }
 
-  await prisma.store.update({
-    where: { id: storeId },
-    data: {
-      planStatus: "ACTIVE",
-      planEffectiveAt: new Date(),
-    },
-  });
-
-  return { success: true, data: { planStatus: "ACTIVE" } };
+  if (store.currentSubscriptionId) return { success: false, error: "已有訂閱，請至訂閱管理轉正式或續約" };
+  const { createTrialSubscription } = await import("@/server/actions/store-subscription");
+  const { toLocalDateStr } = await import("@/lib/date-utils");
+  const result = await createTrialSubscription({ storeId, plan: "EXPERIENCE", startDate: toLocalDateStr(), trialDays: 30 });
+  if (!result.success) return result;
+  return { success: true, data: { planStatus: "TRIAL" } };
 }
 
 // ============================================================
@@ -349,6 +346,7 @@ export async function getStoreDeliverySummary(
       slug: store.slug,
       plan: store.plan,
       planStatus: store.planStatus,
+      currentSubscriptionId: store.currentSubscriptionId,
       operatingStatus: store.operatingStatus,
       isDemo: store.isDemo,
       industryModule: store.industryModule,

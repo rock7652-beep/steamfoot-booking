@@ -18,7 +18,7 @@ const plans = [
   { id: "ALLIANCE", name: "展店版", icon: "stores", purpose: "管理多店", audience: "多店品牌、準備展店的店家", price: "4,990", original: "7,100", annual: "59,880" },
 ] as const;
 const limits = [
-  { label: "員工帳號", field: "maxStaff", unit: "位" },
+  { label: "可啟用人員", field: "maxStaff", unit: "位" },
   { label: "顧客資料", field: "maxCustomers", unit: "筆" },
   { label: "每月預約", field: "maxMonthlyBookings", unit: "筆" },
 ] as const;
@@ -96,8 +96,10 @@ export default function PricingPage() {
           <div className="mt-auto pt-3"><TrialLink /></div>
         </article>)}
       </section>
+      <section aria-label="試用說明" className="mt-6 rounded-xl bg-white p-5 text-base leading-7"><h2 className="text-xl font-semibold">30 天完整單店體驗</h2><p className="mt-2">30 天完整單店試用，含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。從帳號可正常使用當天開通起算；網頁前台可先使用，LINE／LIFF 完成設定後接上。到期後保留資料、後台改為唯讀；轉正式沿用原帳號與資料，功能及額度依購買方案。</p><p className="mt-2">試用不含跨店總部管理或代辦金流申請與串接；自動提醒每月最多 50 次，外部訊息費用於開通前確認。</p></section>
       <FeatureComparison />
-      <p className="mt-4 text-base leading-7 text-[#4C6259]">付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。試用版仍有使用限制，訊息與金流等外部費用另依服務規則計算。</p>
+      <p className="mt-4 text-base leading-7 text-[#4C6259]">可啟用人員包含店長、後台員工及技師／芳療師等服務人員，共用人數額度；僅供排班、未開通登入的人員也計入，停用人員不計入。</p>
+      <p className="mt-4 text-base leading-7 text-[#4C6259]">付費方案不設每月預約筆數上限，依功能模組與人員額度分級；不因預約筆數增加而自動加收費用。訊息與金流等外部費用於開通前確認。</p>
       <section aria-labelledby="addons" className="mt-8 border-t border-[#153B31]/15 pt-6">
         <h2 id="addons" className="text-2xl font-semibold">需要更多功能，再加就好。</h2>
         <p className="mt-3 text-base leading-7"><a href="/pricing/features" className="underline underline-offset-4">看看每項功能，能幫店裡少做哪些事 →</a></p>
@@ -109,7 +111,7 @@ export default function PricingPage() {
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li>限時優惠：主方案繳 12 個月，使用 14 個月；優惠結束後依正式原價調整。</li>
-            <li>展店版包含總部管理＋首家分店串接額度（分店系統月費另計）。第二家分店起，每家 +$1,000/月分店串接管理費；無固定 3 家上限，可擴充至 30 家以上。各分店另購基本版 $1,490/月或專業版 $2,490/月。</li>
+            <li>展店版包含總部管理＋首家分店串接額度（分店系統月費另計）。第二家分店起，每家 +$1,000/月分店串接管理費，可擴充至 30 家以上。各分店另購基本版 $1,490/月或專業版 $2,490/月。</li>
             <li>年繳總額僅計主方案，額外模組與分店串接管理費另計，贈送期間於開通前確認。</li>
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>

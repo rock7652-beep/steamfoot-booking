@@ -9,8 +9,9 @@ describe("digital butler dashboard entry entitlement contract", () => {
     const sidebar = read("src/components/sidebar.tsx");
 
     expect(layout).toContain(
-      "hasStoreFeature(\n          effectiveStoreId,\n          FEATURES.DIGITAL_BUTLER",
+      "Object.values(FEATURES).map",
     );
+    expect(layout).toContain("hasStoreFeature(effectiveStoreId, feature)");
     expect(layout).toContain("effectiveFeatures={effectiveFeatures}");
     expect(sidebar).toContain("requiredFeature: FEATURES.DIGITAL_BUTLER");
     expect(sidebar).toContain(

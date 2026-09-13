@@ -126,7 +126,7 @@ export default async function StoreSubscriptionsListPage({
     <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-4 px-5 py-4">
       <PageHeader
         title="店家訂閱管理"
-        subtitle="記錄各店方案、付款方式、付款狀態與到期日（不影響既有方案判斷）"
+        subtitle="管理各店目前訂閱、試用期限與正式方案"
         actions={
           <Link
             href="/hq/dashboard/stores"
@@ -138,12 +138,9 @@ export default async function StoreSubscriptionsListPage({
       />
 
       <section className="rounded-lg border border-earth-100 bg-earth-50/40 px-4 py-2.5 text-[12px] leading-relaxed text-earth-600">
-        「狀態」為依到期日計算的生命週期（
-        <span className="font-medium text-earth-800">無寬限期</span>，
-        到期就是到期），不存 DB、不改既有方案判斷。
-        <span className="font-medium text-earth-800">today &gt; 到期日 → 已到期</span>，
-        店長端進入唯讀模式。恢復 = 編輯訂閱把到期日改到未來。
-        SUSPENDED 保留為未來 HQ 手動停用。
+        到期日當天仍可使用；次日起後台為唯讀，停止新增預約。
+        轉正式請編輯目前訂閱，選擇購買方案及「使用中」，確認有效期限後儲存。
+        原帳號與營運資料保留；延長試用請使用試用開通入口。
       </section>
 
       {/* §7 篩選 */}

@@ -129,6 +129,7 @@ export async function reviewUpgradeRequest(input: {
         where: { id: requestId },
       });
       if (!request) throw new AppError("NOT_FOUND", "申請不存在");
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`subscription:${request.storeId}`}, 0))`;
       if (request.status !== "PENDING") throw new AppError("CONFLICT", "此申請已被其他管理員處理");
 
       if (action === "APPROVED") {
@@ -345,6 +346,7 @@ export async function confirmUpgradePayment(input: {
         where: { id: requestId },
       });
       if (!request) throw new AppError("NOT_FOUND", "申請不存在");
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`subscription:${request.storeId}`}, 0))`;
       if (request.status !== "APPROVED") throw new AppError("VALIDATION", "此申請尚未核准");
       if (request.billingStatus !== "PENDING") throw new AppError("VALIDATION", "此申請無需付款確認或已確認");
 
@@ -593,49 +595,26 @@ export async function processScheduledDowngrades(): Promise<{ processed: number;
 // ============================================================
 
 export async function processExpiredTrials(): Promise<{ processed: number; errors: string[] }> {
-  const stores = await prisma.store.findMany({
-    where: { planStatus: "TRIAL", planExpiresAt: { lte: new Date() } },
-    select: { id: true, name: true, plan: true, currentSubscriptionId: true },
-  });
-
+  const { toLocalDateStr } = await import("@/lib/date-utils");
+  const { computeLifecycle } = await import("@/lib/subscription-lifecycle");
+  const stores = await prisma.store.findMany({ where: { planStatus: { in: ["TRIAL", "PAYMENT_PENDING"] }, planExpiresAt: { not: null } }, select: { id: true } });
   let processed = 0;
   const errors: string[] = [];
-
   for (const store of stores) {
     try {
-      await prisma.$transaction(async (tx) => {
-        // 結束 trial subscription
-        if (store.currentSubscriptionId) {
-          await tx.storeSubscription.update({
-            where: { id: store.currentSubscriptionId },
-            data: { status: "EXPIRED", cancelledAt: new Date() },
-          });
-        }
-
-        // 建新 EXPERIENCE subscription（回退最低方案）
-        const newSub = await tx.storeSubscription.create({
-          data: { storeId: store.id, plan: "EXPERIENCE", status: "ACTIVE", startedAt: new Date(), billingStatus: "NOT_REQUIRED", note: "試用到期，回退體驗版" },
-        });
-
-        // 更新 Store
-        await tx.store.update({
-          where: { id: store.id },
-          data: { plan: "EXPERIENCE", planStatus: "EXPIRED", planEffectiveAt: new Date(), planExpiresAt: null, currentSubscriptionId: newSub.id },
-        });
-
-        // 寫 change log
-        await tx.storePlanChange.create({
-          data: { storeId: store.id, changeType: "PLAN_CANCELLED", fromPlan: store.plan, toPlan: "EXPERIENCE", fromStatus: "TRIAL", toStatus: "EXPIRED", subscriptionId: newSub.id, reason: "試用到期，自動回退體驗版" },
-        });
+      const expired = await prisma.$transaction(async tx => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`subscription:${store.id}`}, 0))`;
+        const current = await tx.store.findUnique({ where: { id: store.id }, include: { currentSubscription: true } });
+        if (!current || !["TRIAL", "PAYMENT_PENDING"].includes(current.planStatus) || !current.currentSubscription) return false;
+        if (current.currentSubscription.status !== "TRIAL") return false;
+        if (!computeLifecycle(current.currentSubscription, toLocalDateStr()).isExpired) return false;
+        await tx.storeSubscription.update({ where: { id: current.currentSubscription.id }, data: { status: "EXPIRED" } });
+        await tx.store.update({ where: { id: store.id }, data: { planStatus: "EXPIRED" } });
+        return true;
       });
-
-      processed++;
-      console.log(`[Trial Expired] OK: ${store.name}`);
-    } catch (e) {
-      errors.push(`${store.name}: ${e instanceof Error ? e.message : "unknown"}`);
-    }
+      if (expired) processed++;
+    } catch (e) { errors.push(`${store.id}: ${e instanceof Error ? e.message : "unknown"}`); }
   }
-
   return { processed, errors };
 }
 
@@ -650,32 +629,16 @@ export async function adminStartTrial(input: {
   reason?: string;
 }): Promise<ActionResult<void>> {
   try {
-    const admin = await requireAdminSession();
-    const { storeId, trialPlan, trialDays, reason } = input;
+    await requireAdminSession();
+    const { storeId, trialPlan, trialDays } = input;
 
     if (!VALID_PLANS.includes(trialPlan)) return { success: false, error: "無效的方案" };
     if (trialDays < 1 || trialDays > 90) return { success: false, error: "試用天數須介於 1~90 天" };
 
-    await prisma.$transaction(async (tx) => {
-      const store = await tx.store.findUnique({ where: { id: storeId }, select: { plan: true, planStatus: true } });
-      if (!store) throw new AppError("NOT_FOUND", "店舖不存在");
-
-      const expiresAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
-
-      const subscription = await tx.storeSubscription.create({
-        data: { storeId, plan: trialPlan, status: "TRIAL", isTrial: true, startedAt: new Date(), expiresAt, billingStatus: "NOT_REQUIRED", createdBy: admin.id, note: reason?.trim() || `試用 ${trialDays} 天` },
-      });
-
-      await tx.store.update({
-        where: { id: storeId },
-        data: { plan: trialPlan, planStatus: "TRIAL", planEffectiveAt: new Date(), planExpiresAt: expiresAt, currentSubscriptionId: subscription.id },
-      });
-
-      await tx.storePlanChange.create({
-        data: { storeId, changeType: "TRIAL_STARTED", fromPlan: store.plan, toPlan: trialPlan, fromStatus: store.planStatus ?? "ACTIVE", toStatus: "TRIAL", subscriptionId: subscription.id, operatorUserId: admin.id, reason: reason?.trim() || `試用 ${trialDays} 天` },
-      });
-    });
-
+    const { createTrialSubscription } = await import("@/server/actions/store-subscription");
+    const { toLocalDateStr } = await import("@/lib/date-utils");
+    const result = await createTrialSubscription({ storeId, plan: "EXPERIENCE", startDate: toLocalDateStr(), trialDays });
+    if (!result.success) return result;
     revalidateStorePlan();
     revalidateShopConfig();
     return { success: true, data: undefined };
