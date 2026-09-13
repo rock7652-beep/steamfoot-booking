@@ -86,7 +86,7 @@ export function getPlatformOverLimitCopy(stats: {
 
 export function getPlatformNearLimitCopy() {
   return {
-    message: "分店即將額滿，升級聯盟版可擴充至 3 間店並解鎖跨店管理",
+    message: "分店串接額度即將用滿，可加購額度；請聯絡平台管理員確認並開通",
   };
 }
 
