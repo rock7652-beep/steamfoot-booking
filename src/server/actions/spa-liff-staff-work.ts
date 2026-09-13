@@ -31,8 +31,13 @@ export type FetchLiffStaffWorkResult =
   | { status: "service_unavailable" };
 
 export async function fetchLiffStaffWork(input?: { date?: string }): Promise<FetchLiffStaffWorkResult> {
+  let user;
   try {
-    const user = await requireSession();
+    user = await requireSession();
+  } catch {
+    return { status: "no_access" };
+  }
+  try {
     const storeId = await resolveMemberRequestStoreId(user.storeId);
     if (!storeId) return { status: "no_access" };
     const access = await resolveActiveStaffMemberForStore(user.id, storeId);

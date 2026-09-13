@@ -34,6 +34,11 @@ describe("LIFF staff work projection", () => {
     expect(await fetchLiffStaffWork()).toEqual({ status: "no_access" });
     expect(bookingFindMany).not.toHaveBeenCalled();
   });
+  it("treats a signed-out browser as no access instead of a service failure", async () => {
+    requireSession.mockRejectedValue(new Error("not signed in"));
+    expect(await fetchLiffStaffWork()).toEqual({ status: "no_access" });
+    expect(bookingFindMany).not.toHaveBeenCalled();
+  });
   it("allows an owner session only through the same verified store link", async () => {
     requireSession.mockResolvedValue({ id: "owner", role: "OWNER", storeId: "store-1" });
     await fetchLiffStaffWork();
