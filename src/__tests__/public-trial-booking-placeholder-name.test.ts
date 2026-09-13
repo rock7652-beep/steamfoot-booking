@@ -92,6 +92,7 @@ function customer() {
 }
 
 const input = {
+  noticeAccepted: true,
   name: "高巧",
   phone: "0911689313",
   bookingDate: "2026-08-19",
@@ -221,5 +222,14 @@ describe("submitPublicTrialBooking — LINE placeholder customer name", () => {
     expect(state.customerName).toBe("顧客");
     expect(state.customerUpdateMany).not.toHaveBeenCalled();
     expect(state.bookingCreate).not.toHaveBeenCalled();
+  });
+});
+
+ describe("public trial notice confirmation", () => {
+  it.each([undefined, false, "true", 1, null])("rejects unconfirmed or invalid acknowledgement %s before creating a booking", async (noticeAccepted) => {
+    const result = await submitPublicTrialBooking({ ...input, noticeAccepted });
+    expect(result).toEqual({ status: "invalid_input", message: "請先閱讀並勾選蒸足前須知與貼心提醒。" });
+    expect(state.bookingCreate).not.toHaveBeenCalled();
+    expect(state.customerUpdateMany).not.toHaveBeenCalled();
   });
 });

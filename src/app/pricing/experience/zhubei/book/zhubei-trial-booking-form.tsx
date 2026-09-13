@@ -93,6 +93,7 @@ export function ZhubeiTrialBookingForm({
   const [people, setPeople] = useState(1);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [noticeAccepted, setNoticeAccepted] = useState(false);
   const [website, setWebsite] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -173,10 +174,14 @@ export function ZhubeiTrialBookingForm({
 
   async function submit() {
     if (!bookingDate || !slotTime || !people || !name.trim() || !phone.trim() || submitting) return;
+    if (!noticeAccepted) {
+      setMessage("請先閱讀並勾選蒸足前須知與貼心提醒。");
+      return;
+    }
     setSubmitting(true);
     setMessage("");
     try {
-      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website, entry, storeSlug });
+      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website, entry, storeSlug, noticeAccepted });
       if (result.status === "ok") {
         setSuccess({
           date: result.bookingDate,
@@ -215,7 +220,7 @@ export function ZhubeiTrialBookingForm({
 
   const firstDow = new Date(Date.UTC(viewYear, viewMonth - 1, 1)).getUTCDay();
   const isCurrentMonth = viewYear === initialMonth.year && viewMonth === initialMonth.month;
-  const ready = bookingDate && slotTime && people && name.trim() && phone.trim();
+  const ready = bookingDate && slotTime && people && name.trim() && phone.trim() && noticeAccepted;
   const expectedAmount = 499 * people;
 
   return (
@@ -312,6 +317,35 @@ export function ZhubeiTrialBookingForm({
         <div><label className="block text-sm font-medium text-earth-800" htmlFor="trial-name">4. 姓名</label><input id="trial-name" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="請輸入姓名" className="mt-2 h-12 w-full rounded-xl border border-earth-200 px-3 text-base outline-none focus:border-primary-500" /></div>
         <div><label className="block text-sm font-medium text-earth-800" htmlFor="trial-phone">5. 手機</label><input id="trial-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="例如 0912-345-678" className="mt-2 h-12 w-full rounded-xl border border-earth-200 px-3 text-base outline-none focus:border-primary-500" /></div>
       </div>
+
+      <section aria-labelledby="trial-notice-title" className="mt-6 rounded-2xl border border-primary-100 bg-primary-50/60 p-4 sm:p-5">
+        <h3 id="trial-notice-title" className="font-semibold text-primary-800">6. 蒸足前須知與貼心提醒</h3>
+        <p className="mt-3 text-sm font-semibold text-earth-800">預約前，請先留意自己是否有以下狀況：</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-earth-700">
+          <li>目前懷孕中。</li>
+          <li>腳部有傷口、破皮或尚未癒合的部位。</li>
+          <li>近期接受手術，仍在術後療養中。</li>
+          <li>腳部有香港腳、黴菌感染或其他皮膚疾病，正在治療中。</li>
+          <li>有糖尿病、高血壓或其他需留意的慢性病。</li>
+        </ul>
+        <p className="mt-3 text-sm leading-6 text-earth-700">若有上述狀況，請於預約前先聯繫門市，並諮詢醫療人員是否適合蒸足；請勿僅因已告知或勾選就直接進行體驗。體驗中如有任何不適，請立即停止並告知現場人員。</p>
+        <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-primary-700 underline underline-offset-4">有上述狀況？先用 LINE 聯繫門市</a>
+        <div className="mt-4 border-t border-primary-100 pt-4">
+          <h4 className="text-sm font-semibold text-earth-800">貼心提醒｜建議攜帶物品</h4>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-earth-700">
+            <li>可依個人衛生與穿著習慣，自備短袖、短褲，於蒸足時穿著。</li>
+            <li>女性顧客可依需要，多準備一件內衣替換。</li>
+            <li>攜帶襪子、長褲或長內搭褲，於蒸足後換穿。</li>
+          </ul>
+          <p className="mt-2 text-sm leading-6 text-earth-700">蒸足後可先擦乾汗水、更換乾爽衣物，並依個人感受適度保暖。</p>
+        </div>
+        {people > 1 && <p className="mt-4 text-sm font-medium leading-6 text-primary-800">兩人同行：請將以上須知與攜帶物品提醒轉告同行者；每位體驗者如有上述狀況，都需事先告知門市。</p>}
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-primary-200 bg-white p-4 text-sm leading-6 text-earth-800">
+          <input type="checkbox" checked={noticeAccepted} disabled={submitting} onChange={(event) => setNoticeAccepted(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-[#557969]" />
+          <span>我已閱讀蒸足前須知與貼心提醒，若有上述身體狀況，會於體驗前主動告知門市。<span className="ml-1 font-semibold text-primary-700">（必填）</span></span>
+        </label>
+        {!noticeAccepted && <p className="mt-2 text-xs leading-5 text-earth-600">請先勾選閱讀確認，才可送出預約。</p>}
+      </section>
 
       <div className="hidden" aria-hidden="true"><label htmlFor="website">網站</label><input id="website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></div>
       {message && <div className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">{message}</div>}
