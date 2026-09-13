@@ -187,6 +187,54 @@ async function loadAssignmentResources(
 
 type AssignmentResources = Awaited<ReturnType<typeof loadAssignmentResources>>;
 
+async function reserveMatchingEntitlement(
+  tx: Prisma.TransactionClient,
+  input: {
+    storeId: string;
+    customerId: string;
+    bookingId: string;
+    bookingDate: Date;
+    treatments: TreatmentWithRules[];
+  },
+) {
+  if (input.treatments.length !== 1) return;
+  const treatmentId = input.treatments[0].id;
+  const today = parseTaiwanDateToDbDate(toLocalDateStr());
+  const candidates = await tx.spaEntitlement.findMany({
+    where: {
+      storeId: input.storeId,
+      customerId: input.customerId,
+      treatmentId,
+      status: "ACTIVE",
+      remainingUses: { gte: 1 },
+      startDate: { lte: today },
+      OR: [{ expiryDate: null }, { expiryDate: { gte: input.bookingDate } }],
+    },
+    select: {
+      id: true,
+      remainingUses: true,
+      uses: { where: { status: "RESERVED" }, select: { uses: true } },
+    },
+    orderBy: [{ expiryDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
+  });
+  const entitlement = candidates.find(
+    (candidate) =>
+      candidate.remainingUses -
+        candidate.uses.reduce((sum, use) => sum + use.uses, 0) >=
+      1,
+  );
+  if (!entitlement) return;
+  await tx.spaEntitlementUse.create({
+    data: {
+      storeId: input.storeId,
+      entitlementId: entitlement.id,
+      bookingId: input.bookingId,
+      uses: 1,
+      status: "RESERVED",
+    },
+  });
+}
+
 function findAssignments(
   resources: AssignmentResources,
   input: {
@@ -349,6 +397,7 @@ export async function createSpaCustomerBooking(
       }
 
       const serviceName = treatments.map((treatment) => treatment.name).join("＋");
+      const bookingDate = parseTaiwanDateToDbDate(data.date);
       const booking = await tx.spaBooking.create({
         data: {
           storeId: context.storeId,
@@ -356,7 +405,7 @@ export async function createSpaCustomerBooking(
           serviceStaffId: assignment.staffId,
           revenueStaffId: assignment.staffId,
           serviceLocationId: assignment.locationId,
-          bookingDate: parseTaiwanDateToDbDate(data.date),
+          bookingDate,
           startTime: data.startTime,
           endTime: assignment.endTime,
           status: "CONFIRMED",
@@ -381,6 +430,13 @@ export async function createSpaCustomerBooking(
           bufferMinutes: treatment.bufferMinutes,
           sortOrder,
         })),
+      });
+      await reserveMatchingEntitlement(tx, {
+        storeId: context.storeId,
+        customerId: context.customerId,
+        bookingId: booking.id,
+        bookingDate,
+        treatments,
       });
       return {
         bookingId: booking.id,
@@ -436,6 +492,14 @@ export async function cancelSpaCustomerBooking(
       await tx.spaBooking.update({
         where: { id_storeId: { id: booking.id, storeId: context.storeId } },
         data: { status: "CANCELLED", cancelledAt: new Date() },
+      });
+      await tx.spaEntitlementUse.updateMany({
+        where: {
+          storeId: context.storeId,
+          bookingId: booking.id,
+          status: "RESERVED",
+        },
+        data: { status: "RELEASED", releasedAt: new Date() },
       });
     });
 

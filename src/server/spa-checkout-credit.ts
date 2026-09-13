@@ -20,7 +20,8 @@ export async function readSpaCreditOptions(tx: Tx, b: Booking): Promise<SpaCredi
   const entitlements = await tx.$queryRaw<{ id: string; name: string; available: number; uses: number }[]>`
     SELECT e.id, e."nameSnapshot" AS name,
       (e."remainingUses" - COALESCE((SELECT SUM(u.uses) FROM "SpaEntitlementUse" u
-        WHERE u."entitlementId"=e.id AND u."storeId"=e."storeId" AND u.status='RESERVED'),0))::int AS available,
+        WHERE u."entitlementId"=e.id AND u."storeId"=e."storeId" AND u.status='RESERVED'
+          AND u."bookingId"<>${b.id}),0))::int AS available,
       (SELECT COUNT(*)::int FROM "SpaBookingItem" i WHERE i."bookingId"=${b.id} AND i."storeId"=${b.storeId}) AS uses
     FROM "SpaEntitlement" e
     WHERE e."storeId"=${b.storeId} AND e."customerId"=${b.customerId} AND e.status='ACTIVE'
@@ -36,7 +37,7 @@ export async function readSpaCreditOptions(tx: Tx, b: Booking): Promise<SpaCredi
 export async function assertNoPriorSpaSettlement(tx: Tx, b: Booking) {
   const rows = await tx.$queryRaw<{ found: boolean }[]>`
     SELECT EXISTS(SELECT 1 FROM "SpaPayment" WHERE "storeId"=${b.storeId} AND "bookingId"=${b.id} AND status::text='SUCCESS')
-      OR EXISTS(SELECT 1 FROM "SpaEntitlementUse" WHERE "storeId"=${b.storeId} AND "bookingId"=${b.id} AND status IN ('RESERVED','COMPLETED'))
+      OR EXISTS(SELECT 1 FROM "SpaEntitlementUse" WHERE "storeId"=${b.storeId} AND "bookingId"=${b.id} AND status='COMPLETED')
       OR EXISTS(SELECT 1 FROM "SpaStoredValueEntry" WHERE "storeId"=${b.storeId} AND "bookingId"=${b.id} AND "entryType"='DEBIT') AS found`;
   if (rows[0]?.found) throw new AppError("CONFLICT", "此預約已有扣款或保留堂數紀錄，請先核對帳務，避免重複扣款");
 }
@@ -65,7 +66,13 @@ export async function deductSpaCredit(tx: Tx, b: Booking, method: "STORED_VALUE"
     WHERE id=${sourceId} AND "storeId"=${b.storeId} AND "customerId"=${b.customerId} AND status='ACTIVE'
       AND "remainingUses">=${option.uses} RETURNING "remainingUses"`;
   if (!updated[0]) throw new AppError("CONFLICT", "方案堂數已變更，請重新開啟結帳");
-  await tx.$executeRaw`INSERT INTO "SpaEntitlementUse" (id,"storeId","entitlementId","bookingId",uses,status,"completedAt")
-    VALUES (${randomUUID()},${b.storeId},${sourceId},${b.id},${option.uses},'COMPLETED',CURRENT_TIMESTAMP)`;
+  const reserved = await tx.$queryRaw<{ id: string }[]>`
+    UPDATE "SpaEntitlementUse" SET status='COMPLETED', "completedAt"=CURRENT_TIMESTAMP, "releasedAt"=NULL
+    WHERE "storeId"=${b.storeId} AND "entitlementId"=${sourceId} AND "bookingId"=${b.id}
+      AND status='RESERVED' RETURNING id`;
+  if (reserved.length === 0) {
+    await tx.$executeRaw`INSERT INTO "SpaEntitlementUse" (id,"storeId","entitlementId","bookingId",uses,status,"completedAt")
+      VALUES (${randomUUID()},${b.storeId},${sourceId},${b.id},${option.uses},'COMPLETED',CURRENT_TIMESTAMP)`;
+  }
   return { balanceAfter: updated[0].remainingUses, uses: option.uses };
 }

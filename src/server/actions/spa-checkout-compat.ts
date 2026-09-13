@@ -123,7 +123,13 @@ export async function settleSpaBookingWithPackage(input: z.infer<typeof packageS
       const entitlement = await tx.spaEntitlement.findFirst({ where: { id: data.walletId, storeId, customerId: booking.customerId, status: "ACTIVE", remainingUses: { gte: 1 } } });
       if (!entitlement) throw new AppError("BUSINESS_RULE", "此療程已無可用次數");
       const now = new Date();
-      await tx.spaEntitlementUse.create({ data: { storeId, entitlementId: entitlement.id, bookingId: booking.id, uses: 1, status: "COMPLETED", completedAt: now } });
+      const reservation = await tx.spaEntitlementUse.updateMany({
+        where: { storeId, entitlementId: entitlement.id, bookingId: booking.id, status: "RESERVED" },
+        data: { status: "COMPLETED", completedAt: now, releasedAt: null },
+      });
+      if (reservation.count === 0) {
+        await tx.spaEntitlementUse.create({ data: { storeId, entitlementId: entitlement.id, bookingId: booking.id, uses: 1, status: "COMPLETED", completedAt: now } });
+      }
       const remainingUses = entitlement.remainingUses - 1;
       await tx.spaEntitlement.update({ where: { id: entitlement.id }, data: { remainingUses, status: remainingUses === 0 ? "EXHAUSTED" : "ACTIVE" } });
       await tx.spaPayment.create({ data: { storeId, customerId: booking.customerId, bookingId: booking.id, revenueStaffId: booking.revenueStaffId ?? booking.serviceStaffId, soldByStaffId: user.staffId ?? null, grossAmount: booking.totalPriceSnapshot, netAmount: 0, paymentMethod: "ENTITLEMENT", status: "SUCCESS", paidAt: now, note: `扣療程｜${entitlement.nameSnapshot}` } });
