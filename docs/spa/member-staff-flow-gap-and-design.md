@@ -154,3 +154,13 @@
 5. 若同時驗一般瀏覽器 LINE OAuth，在同一 LINE Login channel 登記 `https://steamfoot-booking-git-codex-spa-b1b96e-rock7652-2111s-projects.vercel.app/api/auth/callback/line`。LIFF SDK 本身使用上一步 Endpoint URL，不以 callback URL 取代。
 6. Preview runtime 的 `CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID` 必須等於該 LIFF app 所屬 channel ID；若沿用目前中央會員 channel 不需改值。不得把 channel secret、access token 或使用者 token 寫進 DB、PR 或對話。
 7. 設定後以 `https://liff.line.me/{LIFF_ID}` 從手機 LINE 開啟，依序驗入口店名、會員／工作切換、我的預約、我的療程，以及切到其他 App 返回後保留日期並刷新資料。
+
+## 2026-09-14 SPA 會員預約、占用與取消 Preview 驗收
+
+- Draft PR #1001 的固定 Preview alias 已部署 `ab2f3b53`；Vercel check 為 Ready。Cloudflare Workers check 仍失敗，依本期範圍不處理，也沒有合併或部署 Production。
+- 以真實會員畫面在 `spa-module-qa-20260903` 建立 2026-09-17 10:00–11:00 的全身芳療，指定 `SPA 測試顧客` 與 `床1`。會員首頁、我的預約及人員工作月曆均顯示同一筆確認中預約。
+- 建立後，方案仍為 2 / 2 堂、待到店為 1、尚可預約為 1；證實只建立 `RESERVED` 占用，沒有提前扣次或重複扣次。同一人員與位置的 10:00 時段不再出現在可選清單。
+- 第一次取消後，預約保留在歷史並標示已取消，會員首頁回到 0 筆、工作月曆移除 9/17 藍點，方案回到 2 / 2 堂且尚可預約 2；原 10:00 時段重新可選。
+- 隨即以相同服務、人員、位置與時段重新預約成功；會員與人員端再次同步，方案占用再次正確為 1。完成核對後第二次取消，最終 10:00 時段再次開放、工作頁為 0 筆、方案為 2 / 2 且待到店為 0。
+- 本輪只留下兩筆可追溯的 `CANCELLED` 預約歷史及其已釋放占用紀錄，未刪除既有會員、StaffMemberLink、療程、排班或其他測試資料；沒有 legacy `Booking`／`Transaction`／`Treatment` 寫入。
+- 全套 Vitest 結果為 484 個檔案通過、3 個跳過；4,340 項通過、32 項跳過。店長排程的既有登入版本亦顯示測試人員 10:00 為可新增狀態；本次變更不修改店長排程查詢鏈。
