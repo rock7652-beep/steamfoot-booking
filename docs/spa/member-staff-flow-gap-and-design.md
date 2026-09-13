@@ -92,7 +92,9 @@
 - 「從本店會員加入人員」可搜尋本店會員，顯示遮罩手機與 LINE 綁定狀態；`SPA 測試顧客` 已從顧客詳情成功加入服務人員。
 - 「連結既有人員」已把原 `驗收人員2・美容` 的既有 Staff 紀錄連到 `Spa測試員` 會員。資料庫核對顯示 Staff id 與 2026-09-12 的建立時間均保留；畫面名稱依會員資料更新為 `Spa測試員`。
 - 測試 DB 核對只有兩筆有效 `StaffMemberLink`，兩筆均為 ACTIVE、未撤銷，沒有重複 link。
-- 目前兩個可用驗收會員皆顯示 `LINE 未綁定`，因此尚不能把 Preview 的「一般網頁 LINE 登入／LIFF 登入 → 會員專區／我的工作切換」標為通過。需要先準備一個此店的 LINE 已綁定測試會員；不得用 server action、SQL 或偽造 cookie 冒充該畫面驗收。
+- 工作頁最初因 OAuth callback allowlist 只接受 `/s/{store}/book` 而回傳 `OAuthStoreContextLost`；`7fa77c2c` 已精確加入 `/s/{store}/liff/spa-work`，並保留同 origin、實際店別查詢與路徑 allowlist。新版 Preview 實測已能導向 LINE authorize。
+- LINE authorize 目前回傳 `400 Invalid redirect_uri`：此 Preview branch alias 尚未登記在 LINE Developers 的 Web Login callback。依 `docs/deployment.md`，Preview OAuth 原本不在既有 callback allowlist；需由 LINE channel 管理員新增此固定 branch alias callback，或配置獨立 Preview LINE channel 後才能繼續真實 OAuth 驗收。
+- 兩個可用驗收會員目前亦皆顯示 `LINE 未綁定`。完成 callback 設定後仍須準備一個此店的 LINE 已綁定測試會員，才能把「一般網頁 LINE 登入／LIFF 登入 → 會員專區／我的工作切換」標為通過；不得用 server action、SQL 或偽造 cookie 冒充該畫面驗收。
 
 ## 上線與回滾
 
