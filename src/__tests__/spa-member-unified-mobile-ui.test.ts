@@ -6,11 +6,13 @@ const read = (path: string) => readFileSync(path, "utf8");
 describe("SPA member unified mobile UI", () => {
   it("removes the functional rail only for SPA member pages", () => {
     const layout = read("src/app/(customer)/layout.tsx");
+    const returnLink = read("src/app/(customer)/spa-member-return-link.tsx");
 
     expect(layout).toContain('const isSpaMemberPortal = industryModule === "spa"');
     expect(layout).toContain("!isSpaMemberPortal && <aside");
-    expect(layout).toContain('pathname !== "/book"');
-    expect(layout).toContain("返回會員專區");
+    expect(layout).toContain("SpaMemberReturnLink");
+    expect(returnLink).toContain("usePathname");
+    expect(returnLink).toContain("返回會員專區");
     expect(layout).toContain("<MobileNav");
   });
 

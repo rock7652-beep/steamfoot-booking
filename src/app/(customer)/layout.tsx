@@ -28,6 +28,7 @@ import { getCustomerPortalNavItems } from "@/lib/customer-portal-navigation";
 import { resolveActiveStaffMemberForStore } from "@/server/services/staff-member-access";
 import { IdentityModeSwitcher } from "./identity-mode-switcher";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { SpaMemberReturnLink } from "./spa-member-return-link";
 
 // SVG icon paths (Heroicons outline, 24x24 viewBox) — 拆成多段 path 確保正確渲染
 const ICON_PATHS: Record<string, string[]> = {
@@ -364,14 +365,8 @@ export default async function CustomerLayout({
                 <IdentityModeSwitcher storeSlug={storeCtx.storeSlug} />
               </div>
             )}
-            {isSpaMemberPortal && pathname !== "/book" && completion.isComplete && (
-              <Link
-                href={`${prefix}/book`}
-                className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-semibold text-primary-700"
-              >
-                <span aria-hidden="true">←</span>
-                返回會員專區
-              </Link>
+            {isSpaMemberPortal && completion.isComplete && (
+              <SpaMemberReturnLink storeSlug={storeCtx.storeSlug} />
             )}
             {children}
           </div>
