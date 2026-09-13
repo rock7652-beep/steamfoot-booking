@@ -9,6 +9,7 @@ export type SpaCustomerPermissions = {
   canBook: boolean;
   canReadBookings: boolean;
   canReadAccounts: boolean;
+  canManageStaff: boolean;
 };
 export async function SpaCustomers({
   storeId,

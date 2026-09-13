@@ -133,6 +133,7 @@ export function AccountPanel({
     canReadBookings,
     canEdit,
     canBook,
+    canManageStaff,
   } = permissions;
   const [tab, setTab] = useState<"overview" | "credit" | "history">("overview");
   const [historyTab, setHistoryTab] = useState<
@@ -329,6 +330,7 @@ export function AccountPanel({
               canEdit={canEdit}
               canBook={canBook}
               canReadBookings={canReadBookings}
+              canManageStaff={canManageStaff}
               onSaved={onChanged}
             />
           ) : (

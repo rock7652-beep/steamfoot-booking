@@ -59,6 +59,7 @@ import {
   STEAMFOOT_INDUSTRY_MODULE,
   type MemberHomeTerminology,
 } from "@/lib/industry-modules";
+import { fetchLiffStaffAccess } from "@/server/actions/liff-staff-access";
 
 type State =
   | { kind: "initializing" }
@@ -103,6 +104,7 @@ export function LiffShell({
   // PR-G4：lazy fetch — signed_in 後 fire-and-forget，不擋 home 既有渲染
   const [memberSummary, setMemberSummary] = useState<MemberHomeSummary | "error" | null>(null);
   const [memberStores, setMemberStores] = useState<LiffMemberStoreOption[]>([]);
+  const [hasWorkAccess, setHasWorkAccess] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,13 +174,16 @@ export function LiffShell({
         if (cancelled) return;
 
         if (body.status === "session_created") {
-          const memberContext = await fetchLiffMemberStoreContext().catch(
-            () => null,
-          );
+          const [memberContext, workAccess] = await Promise.all([
+            fetchLiffMemberStoreContext().catch(() => null),
+            fetchLiffStaffAccess().catch(() => ({ status: "no_access" as const })),
+          ]);
           if (cancelled) return;
           if (memberContext?.status === "signed_in") {
             setMemberStores(memberContext.stores);
           }
+          const canWork = workAccess.status === "ok";
+          setHasWorkAccess(canWork);
           setState({
             kind: "signed_in",
             displayName:
@@ -186,6 +191,10 @@ export function LiffShell({
                 ? memberContext.displayName
                 : body.displayName,
           });
+          if (canWork && localStorage.getItem(`spa-member-mode:${storeSlug}`) === "work") {
+            window.location.replace(`/s/${storeSlug}/liff/spa-work`);
+            return;
+          }
           // 會員首頁摘要採 lazy fetch，不阻擋首頁殼層；任一摘要來源失敗都 graceful fallback。
           void loadMemberHome();
           return;
@@ -278,6 +287,7 @@ export function LiffShell({
           displayName={state.displayName}
           memberSummary={memberSummary}
           healthAssessmentEnabled={healthAssessmentEnabled}
+          hasWorkAccess={hasWorkAccess}
         />
       )}
     </div>
@@ -392,6 +402,7 @@ export function WelcomeBack({
   terminology,
   bookingHref,
   memberLinks,
+  hasWorkAccess = false,
 }: {
   storeSlug: string;
   displayName: string | null;
@@ -404,6 +415,7 @@ export function WelcomeBack({
     wallets: string;
     profile: string;
   };
+  hasWorkAccess?: boolean;
 }) {
   if (!memberSummary) {
     return (
@@ -458,6 +470,12 @@ export function WelcomeBack({
 
   return (
     <div className="flex flex-col gap-4">
+      {hasWorkAccess && (
+        <nav aria-label="身分切換" className="grid grid-cols-2 rounded-2xl bg-earth-100 p-1 text-sm font-semibold">
+          <span className="rounded-xl bg-white px-4 py-3 text-center text-earth-900 shadow-sm">會員專區</span>
+          <Link href={`/s/${storeSlug}/liff/spa-work`} onClick={() => localStorage.setItem(`spa-member-mode:${storeSlug}`, "work")} className="rounded-xl px-4 py-3 text-center text-earth-600">我的工作</Link>
+        </nav>
+      )}
       <p className="px-1 text-sm font-medium text-earth-600">
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>

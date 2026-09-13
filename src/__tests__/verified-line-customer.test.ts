@@ -47,8 +47,12 @@ describe("verified LINE customer resolution", () => {
     membership.mockResolvedValue(null);
     expect(await resolveVerifiedLineCustomer("s", "line")).toBeNull();
   });
-  it.each([{ role: "OWNER", status: "ACTIVE" }, { role: "CUSTOMER", status: "INACTIVE" }])("rejects inactive/staff users %j", async (user) => {
-    db.user.findUnique.mockResolvedValue({ id: "u", ...user });
+  it("allows an active owner account to enter the verified member context", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "u", role: "OWNER", status: "ACTIVE" });
+    expect(await resolveVerifiedLineCustomer("s", "line")).toMatchObject({ id: "c", userId: "u" });
+  });
+  it("rejects inactive users", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "u", role: "CUSTOMER", status: "INACTIVE" });
     expect(await resolveVerifiedLineCustomer("s", "line")).toBeNull();
   });
   it("preserves a unique verified legacy identity", async () => {

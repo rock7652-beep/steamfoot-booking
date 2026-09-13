@@ -526,20 +526,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        // 員工帳號不該透過 LIFF 登入（與 OAuth signIn callback line 313-321 同理）
-        if (customer.user.role !== "CUSTOMER") {
-          console.warn("[auth][liff-token] non-customer role blocked", {
-            userId: customer.user.id,
-            role: customer.user.role,
-          });
-          return null;
-        }
-
         return {
           id: customer.user.id,
           name: customer.user.name,
           email: customer.user.email ?? null,
-          role: customer.user.role,
+          // LIFF always runs in member context. Persisted OWNER/PARTNER role is
+          // retained in DB and is never overwritten by this session.
+          role: "CUSTOMER" as UserRole,
           staffId: null,
           customerId: customer.id,
           storeId: customer.storeId,

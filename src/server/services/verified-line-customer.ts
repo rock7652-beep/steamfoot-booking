@@ -47,6 +47,10 @@ export async function resolveVerifiedLineCustomer(storeId: string, lineUserId: s
   const member = await resolveCentralMemberCustomerForStore(userId, storeId);
   if (!member || member.customerId !== customer.id) return null;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: userSelect });
-  if (!user || user.role !== "CUSTOMER" || user.status !== "ACTIVE") return null;
+  // A central account may also be an OWNER/PARTNER.  LIFF is a member-context
+  // session, so store membership (not the account's dashboard role) is the
+  // authorization boundary.  The credentials provider deliberately mints a
+  // CUSTOMER-context session without mutating the persisted role.
+  if (!user || user.status !== "ACTIVE") return null;
   return { ...customer, userId, user };
 }
