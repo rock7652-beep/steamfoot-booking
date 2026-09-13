@@ -27,6 +27,16 @@ describe("SPA member unified mobile UI", () => {
     expect(work).toContain('activeMode="work"');
   });
 
+  it("refreshes the selected work date when LINE returns to the foreground", () => {
+    const work = read("src/app/(liff)/liff/spa-work/staff-work-screen.tsx");
+
+    expect(work).toContain("load(selectedDateRef.current)");
+    expect(work).toContain('document.addEventListener("visibilitychange", refresh)');
+    expect(work).toContain('window.addEventListener("pageshow", refresh)');
+    expect(work).toContain('window.addEventListener("focus", refresh)');
+    expect(work).toContain("lastResumeRefreshAtRef");
+  });
+
   it("progressively reveals compact booking steps and auto-loads slots", () => {
     const form = read(
       "src/app/(customer)/book/new/spa-customer-booking-form.tsx",

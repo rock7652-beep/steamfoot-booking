@@ -42,6 +42,7 @@ export function StaffWorkScreen({ storeName, storeSlug, liffId, today }: { store
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const selectedDateRef = useRef<string | undefined>(undefined);
+  const lastResumeRefreshAtRef = useRef(0);
 
   const load = useCallback(async (date?: string) => {
     const result = await fetchLiffStaffWork(date ? { date } : undefined);
@@ -70,9 +71,22 @@ export function StaffWorkScreen({ storeName, storeSlug, liffId, today }: { store
         if (!cancelled) setState("unavailable");
       }
     })();
-    const refresh = () => { if (document.visibilityState === "visible") void load(selectedDateRef.current); };
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastResumeRefreshAtRef.current < 400) return;
+      lastResumeRefreshAtRef.current = now;
+      void load(selectedDateRef.current);
+    };
     document.addEventListener("visibilitychange", refresh);
-    return () => { cancelled = true; document.removeEventListener("visibilitychange", refresh); };
+    window.addEventListener("pageshow", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("pageshow", refresh);
+      window.removeEventListener("focus", refresh);
+    };
   }, [liffId, load, storeSlug]);
 
   if (state === "loading") return <Boundary title="正在讀取工作行程" />;
