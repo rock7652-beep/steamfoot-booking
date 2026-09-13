@@ -24,6 +24,7 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   // read/write adapter only after the authoritative store module lookup. The
   // SPA adapter itself enforces exact store membership and never queries the
   // legacy Booking, Transaction or CustomerPlanWallet models.
+  "src/app/(customer)/book/page.tsx",
   "src/app/(customer)/book/new/page.tsx",
   "src/app/(liff)/liff/bookings/bookings-list.tsx",
   "src/app/(liff)/liff/liff-shell.tsx",

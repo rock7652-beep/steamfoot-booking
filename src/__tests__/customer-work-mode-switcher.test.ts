@@ -12,7 +12,7 @@ describe("customer portal work mode switcher", () => {
 
   it("links the shared member portal to the SPA work page", () => {
     const source = readFileSync(
-      "src/app/(customer)/identity-mode-switcher.tsx",
+      "src/components/spa-identity-mode-switcher.tsx",
       "utf8",
     );
 
@@ -20,5 +20,6 @@ describe("customer portal work mode switcher", () => {
     expect(source).toContain("會員專區");
     expect(source).toContain("我的工作");
     expect(source).toContain("/liff/spa-work");
+    expect(source).toContain('activeMode: "member" | "work"');
   });
 });

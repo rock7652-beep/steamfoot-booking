@@ -9,6 +9,7 @@ import {
 } from "@/server/actions/spa-liff-staff-work";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { getIDToken, initLiff, isInLineClient } from "@/lib/liff/client";
+import { SpaIdentityModeSwitcher } from "@/components/spa-identity-mode-switcher";
 
 type ReadyState = {
   staffName: string;
@@ -90,7 +91,7 @@ export function StaffWorkScreen({ storeName, storeSlug, liffId, today }: { store
     startTransition(() => { void load(date); });
   };
   return <main className="mx-auto min-h-screen max-w-md bg-[#f8f5ee] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] text-earth-900">
-    <header><p className="text-xs font-semibold tracking-[0.12em] text-primary-700">{storeName}</p><div className="mt-2 flex items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">我的工作</h1><p className="mt-1 text-sm text-earth-500">{state.staffName}</p></div><Link href={`/s/${storeSlug}/book`} onClick={() => localStorage.setItem(`spa-member-mode:${storeSlug}`, "member")} className="rounded-full border border-earth-300 bg-white px-4 py-2 text-sm font-medium">會員專區</Link></div></header>
+    <header><p className="text-xs font-semibold tracking-[0.12em] text-primary-700">{storeName}</p><div className="mt-2"><h1 className="text-2xl font-bold">我的工作</h1><p className="mt-1 text-sm text-earth-500">{state.staffName}</p></div><div className="mt-4"><SpaIdentityModeSwitcher storeSlug={storeSlug} activeMode="work" /></div></header>
     <section aria-label="工作月曆" className="mt-4 rounded-2xl bg-white p-3 shadow-sm">
       <div className="flex items-center justify-between gap-2 px-1">
         <button aria-label="上個月" disabled={pending} onClick={() => chooseDate(monthTarget(state.selectedDate, -1))} className="flex size-9 items-center justify-center rounded-xl border border-earth-200 text-xl">‹</button>

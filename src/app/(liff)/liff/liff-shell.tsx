@@ -66,6 +66,7 @@ import {
 } from "@/server/actions/spa-liff-member";
 import type { IndustryModuleId } from "@/lib/industry-modules";
 import { STATUS_LABEL } from "@/lib/booking-constants";
+import { SpaIdentityModeSwitcher } from "@/components/spa-identity-mode-switcher";
 
 type State =
   | { kind: "initializing" }
@@ -494,10 +495,7 @@ export function WelcomeBack({
   return (
     <div className="flex flex-col gap-4">
       {hasWorkAccess && (
-        <nav aria-label="身分切換" className="grid grid-cols-2 rounded-2xl bg-earth-100 p-1 text-sm font-semibold">
-          <span className="rounded-xl bg-white px-4 py-3 text-center text-earth-900 shadow-sm">會員專區</span>
-          <Link href={`/s/${storeSlug}/liff/spa-work`} onClick={() => localStorage.setItem(`spa-member-mode:${storeSlug}`, "work")} className="rounded-xl px-4 py-3 text-center text-earth-600">我的工作</Link>
-        </nav>
+        <SpaIdentityModeSwitcher storeSlug={storeSlug} activeMode="member" />
       )}
       <p className="px-1 text-sm font-medium text-earth-600">
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
