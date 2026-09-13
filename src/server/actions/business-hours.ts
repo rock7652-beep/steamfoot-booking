@@ -20,11 +20,20 @@ import {
 } from "@/lib/business-hours-resolver";
 import type { ActionResult } from "@/types";
 import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 const DAY_NAMES = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 
 const periodsJson = (periods: BusinessPeriodInput[]): Prisma.InputJsonValue =>
   periods.map((period) => ({ ...period })) as Prisma.InputJsonValue;
+
+async function assertModuleIntervals(storeId: string, periods?: BusinessPeriodInput[], interval?: number) {
+  if ((await getStoreIndustryModule(storeId)) !== "steamfoot") return;
+  const values = periods?.map((period) => period.slotInterval) ?? (interval == null ? [] : [interval]);
+  if (values.some((value) => ![30, 60, 90, 120].includes(value))) {
+    throw new AppError("VALIDATION", "蒸足的預約時段間隔限用 30／60／90／120 分鐘");
+  }
+}
 
 async function assertBookingsFitSchedule(
   storeId: string,
@@ -257,6 +266,7 @@ export async function updateBusinessHours(
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    await assertModuleIntervals(storeId, input.periods, input.slotInterval);
 
     // 基本規則驗證（時間範圍、間隔、名額）
     if (input.isOpen) {
@@ -440,6 +450,7 @@ export async function addSpecialDay(input: {
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    await assertModuleIntervals(storeId, input.periods);
 
     const dateObj = new Date(input.date);
     const isCustom = input.type === "custom";
