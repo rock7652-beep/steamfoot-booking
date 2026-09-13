@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   fetchLiffStaffWork,
@@ -77,7 +76,11 @@ export function StaffWorkScreen({ storeName, storeSlug, liffId, today }: { store
 
   if (state === "loading") return <Boundary title="正在讀取工作行程" />;
   if (state === "unavailable") return <Boundary title="目前無法讀取工作資料" retry />;
-  if (state === "no_access") return <Boundary title="尚未取得本店工作權限"><p className="text-sm text-earth-600">請由店長從本店會員加入服務人員；若剛完成設定，請重新登入。</p><button onClick={() => signIn("line", { callbackUrl: `/s/${storeSlug}/liff/spa-work` })} className="mt-4 min-h-12 w-full rounded-xl bg-primary-700 px-4 font-semibold text-white">使用 LINE 登入</button><Link href={`/s/${storeSlug}/book`} className="mt-3 block text-center text-sm text-primary-700">返回會員專區</Link></Boundary>;
+  if (state === "no_access") {
+    const returnTo = `/s/${storeSlug}/liff/spa-work`;
+    const loginUrl = `/api/line-oauth/mobile/start?storeSlug=${encodeURIComponent(storeSlug)}&returnTo=${encodeURIComponent(returnTo)}`;
+    return <Boundary title="尚未取得本店工作權限"><p className="text-sm text-earth-600">請由店長從本店會員加入服務人員；若剛完成設定，請重新登入。</p><a href={loginUrl} className="mt-4 block min-h-12 w-full rounded-xl bg-primary-700 px-4 py-3 font-semibold text-white">使用 LINE 登入</a><Link href={`/s/${storeSlug}/book`} className="mt-3 block text-center text-sm text-primary-700">返回會員專區</Link></Boundary>;
+  }
 
   const firstWeekday = state.calendarDays[0] ? weekday(state.calendarDays[0].date) : 0;
   const selectedDay = state.calendarDays.find((day) => day.date === state.selectedDate);
