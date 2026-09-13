@@ -346,6 +346,7 @@ export async function getStoreDeliverySummary(
       slug: store.slug,
       plan: store.plan,
       planStatus: store.planStatus,
+      currentSubscriptionId: store.currentSubscriptionId,
       operatingStatus: store.operatingStatus,
       isDemo: store.isDemo,
       industryModule: store.industryModule,

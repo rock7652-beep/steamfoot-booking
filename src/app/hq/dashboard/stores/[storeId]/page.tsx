@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
 import {
-  activateStoreAction,
   getStoreDeliverySummary,
   updateStoreOperatingStatusAction,
 } from "@/server/actions/store-onboarding";
@@ -10,6 +9,7 @@ import {
   STORE_OPERATING_STATUS_LABELS,
   type StoreOperatingStatus,
 } from "@/lib/store-operating-status";
+import { ActivateTrialButton } from "./activate-trial-button";
 import { SpaProvisionButton } from "./spa-provision-button";
 
 interface PageProps {
@@ -34,7 +34,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
   }
 
   const summary = result.data;
-  const canShowActivate = !summary.store.isDemo && summary.store.planStatus !== "ACTIVE" && summary.canActivate;
+  const canShowActivate = !summary.store.currentSubscriptionId && !summary.store.isDemo && summary.store.planStatus !== "ACTIVE" && summary.canActivate;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -60,8 +60,9 @@ export default async function StoreDetailPage({ params }: PageProps) {
           >
             功能設定
           </Link>
+          <Link href={`/hq/dashboard/stores/subscriptions/${storeId}`} className="text-sm text-primary-700 underline">訂閱管理</Link>
           {canShowActivate && (
-            <ActivateButton storeId={storeId} />
+            <ActivateTrialButton storeId={storeId} />
           )}
         </div>
       </div>
@@ -155,8 +156,10 @@ export default async function StoreDetailPage({ params }: PageProps) {
             <p className={`text-sm font-medium ${summary.canActivate ? "text-green-700" : "text-amber-700"}`}>
               {summary.store.planStatus === "ACTIVE"
                 ? "✅ 已正式啟用"
-                : summary.canActivate
-                  ? "✅ 可正式啟用（TRIAL → ACTIVE）"
+                : summary.store.currentSubscriptionId
+                  ? "已建立訂閱；延長試用或轉正式請至訂閱管理"
+                  : summary.canActivate
+                  ? "✅ 設定完成，可開通 30 天單店試用"
                   : "⚠️ 部分項目未通過，建議先修正"}
             </p>
           </div>
@@ -169,25 +172,6 @@ export default async function StoreDetailPage({ params }: PageProps) {
         </Link>
       </div>
     </div>
-  );
-}
-
-// ── Activate Button (Client Component) ──
-function ActivateButton({ storeId }: { storeId: string }) {
-  return (
-    <form action={async () => {
-      "use server";
-      await activateStoreAction(storeId);
-      const { revalidatePath } = await import("next/cache");
-      revalidatePath(`/hq/dashboard/stores/${storeId}`);
-    }}>
-      <button
-        type="submit"
-        className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-      >
-        開通 30 天單店試用
-      </button>
-    </form>
   );
 }
 
