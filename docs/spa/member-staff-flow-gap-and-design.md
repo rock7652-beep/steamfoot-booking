@@ -109,7 +109,7 @@
 
 ## 2026-09-13 我的工作月曆 Preview 驗收
 
-- 提交 `764ec320` 的 Vercel Preview 已 Ready；固定 branch alias 指向 deployment `dpl_5bncdAnXSzfDULaPGSg7AUjaPgmS`。
+- 提交 `764ec320` 的 Vercel Preview 已 Ready，並以固定 branch alias 完成以下實測。
 - 以真實會員預約畫面建立 2026-09-16 10:00–11:00 的 SPA 測試預約；工作頁月曆顯示 1 筆預約藍點，選取後下方同步顯示顧客、全身芳療、床1與已預約狀態。
 - 驗收備註加入後，精簡卡片顯示「有備註」提示；展開後顯示服務 60 分鐘與完整備註。畫面證據：[月曆與預約卡](evidence/spa-work-calendar-20260913.jpg)、[展開服務明細](evidence/spa-work-card-detail-20260913.jpg)。
 - 以可精確識別的 2026-09-17 全日休假 fixture 驗證淡灰休假樣式、可點擊查看、「當日無預約」與「休假日」提示；沒有預約的正常排班日不會被誤判為休假。
