@@ -114,6 +114,7 @@ export function SubscriptionForm({
       onSubmit={handleSubmit}
       className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm"
     >
+      <p className="mb-4 text-sm text-earth-600">轉正式：選擇購買方案及「使用中」，確認起迄日與付款紀錄後儲存，沿用原店家帳號及資料。試用開通或延長請使用試用入口。</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>方案</label>

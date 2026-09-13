@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       where: { id: user.storeId },
       select: {
         id: true, plan: true,
-        maxStaffOverride: true, maxCustomersOverride: true,
+        planStatus: true, planEffectiveAt: true, planExpiresAt: true, maxStaffOverride: true, maxCustomersOverride: true,
         maxMonthlyBookingsOverride: true, maxMonthlyReportsOverride: true,
         maxReminderSendsOverride: true, maxStoresOverride: true,
       },

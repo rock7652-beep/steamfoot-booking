@@ -72,6 +72,9 @@ export function computeLifecycle(
   if (!status) {
     return { state: "NONE", remainingDays: null, isExpired: false, isSuspended: false };
   }
+  if (status === "EXPIRED" || status === "SUSPENDED") {
+    return { state: status, remainingDays: 0, isExpired: status === "EXPIRED", isSuspended: status === "SUSPENDED" };
+  }
   // 終態：CANCELLED 直接呈現
   if (status === "CANCELLED") {
     return { state: "CANCELLED", remainingDays: null, isExpired: false, isSuspended: false };

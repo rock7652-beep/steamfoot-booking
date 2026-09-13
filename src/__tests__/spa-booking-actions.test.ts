@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
-  groupFind:vi.fn(),groupCreate:vi.fn(),count:vi.fn(),permission: vi.fn(), store: vi.fn(), guard: vi.fn(), installation: vi.fn(),
+  writable: vi.fn(), plan: vi.fn(), groupFind:vi.fn(),groupCreate:vi.fn(),count:vi.fn(),permission: vi.fn(), store: vi.fn(), guard: vi.fn(), installation: vi.fn(),
   customer: vi.fn(), staff: vi.fn(), bookingFind: vi.fn(), create: vi.fn(), update: vi.fn(),
   treatment: vi.fn(), locations: vi.fn(), skills: vi.fn(), shift: vi.fn(), exceptions: vi.fn(), lock: vi.fn(), itemCreateMany: vi.fn(), itemDeleteMany: vi.fn(), tx: vi.fn(),
 }));
+vi.mock("@/lib/subscription-guard", () => ({ assertStoreSubscriptionWritable: m.writable }));
+vi.mock("@/lib/store-plan", () => ({ getStoreForPlanByStoreId: m.plan }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findFirst: m.customer }, staff: { findFirst: m.staff }, storeModuleInstallation: { findUnique: m.installation } } }));
 vi.mock("@/lib/permissions", () => ({ checkPermission: m.permission, isStaffRole: () => true }));
@@ -16,6 +18,7 @@ const input = { customerId: "customer", serviceStaffId: "staff", treatmentIds: [
 const existing = { id: "booking", status: "CONFIRMED", updatedAt: new Date("2026-09-10T00:00:00.000Z") };
 beforeEach(() => {
   vi.resetAllMocks();
+  m.plan.mockResolvedValue({ plan: "BASIC" });
   m.groupFind.mockResolvedValue(null);m.groupCreate.mockResolvedValue({id:"G"});m.count.mockResolvedValue(0);
   m.permission.mockResolvedValue(true); m.store.mockResolvedValue({ id: "user", role: "OWNER", staffId: "staff" }); m.guard.mockResolvedValue({ storeId: "spa-store", storeSlug: "spa" });
   m.installation.mockResolvedValue({ status: "ACTIVE" }); m.customer.mockResolvedValue({ id: "customer" }); m.staff.mockResolvedValue({ id: "staff" });
@@ -26,6 +29,17 @@ beforeEach(() => {
   m.tx.mockImplementation(async fn => fn({ $executeRaw: m.lock, spaBookingGroup:{findUnique:m.groupFind,create:m.groupCreate},spaBooking: { count:m.count,findFirst: m.bookingFind, create: m.create, update: m.update }, spaBookingItem: { createMany: m.itemCreateMany, deleteMany: m.itemDeleteMany }, spaTreatment: { findMany: m.treatment }, spaServiceLocation: { findMany: m.locations }, spaStaffSkill: { findMany: m.skills }, spaStaffAvailability: { findUnique: m.shift }, spaStaffAvailabilityException: { findMany: m.exceptions } }));
 });
 describe("SPA booking actions", () => {
+  it("blocks expired-store writes before touching SPA data", async () => {
+    m.writable.mockRejectedValue(new Error("系統使用期限已到期"));
+    expect((await createSpaBookingAction(input)).success).toBe(false);
+    expect(m.tx).not.toHaveBeenCalled();
+  });
+  it("blocks the 101st monthly trial booking inside the schedule lock", async () => {
+    m.plan.mockResolvedValue({ plan: "EXPERIENCE", planStatus: "TRIAL", planEffectiveAt: new Date(), planExpiresAt: new Date() });
+    m.count.mockResolvedValue(100);
+    expect((await createSpaBookingAction(input)).success).toBe(false);
+    expect(m.create).not.toHaveBeenCalled();
+  });
   it("auto assigns one compatible location and snapshots buffer in the end time", async () => {
     expect((await createSpaBookingAction(input)).success).toBe(true);
     expect(m.create.mock.calls[0][0].data).toMatchObject({ serviceLocationId: "location", endTime: "11:15", storeId: "spa-store" });

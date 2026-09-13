@@ -1,3 +1,4 @@
+import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 import { listStaff } from "@/server/queries/staff";
 import { createStaff } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
@@ -156,7 +157,7 @@ export default async function StaffPage({
   }
 
   return (
-    <FeatureGate plan={plan} feature={FEATURES.STAFF_MANAGEMENT}>
+    <FeatureGate plan={plan} feature={FEATURES.STAFF_MANAGEMENT} enabled={await hasCurrentStoreFeature(FEATURES.STAFF_MANAGEMENT)}>
       <PageShell>
         <PageHeader
           title="人員管理"

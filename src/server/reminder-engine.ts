@@ -338,7 +338,7 @@ export async function runReminders(): Promise<SendResult> {
           where: { id: bookingStoreId },
           select: {
             id: true, plan: true,
-            maxStaffOverride: true, maxCustomersOverride: true,
+            planStatus: true, planEffectiveAt: true, planExpiresAt: true, maxStaffOverride: true, maxCustomersOverride: true,
             maxMonthlyBookingsOverride: true, maxMonthlyReportsOverride: true,
             maxReminderSendsOverride: true, maxStoresOverride: true,
           },

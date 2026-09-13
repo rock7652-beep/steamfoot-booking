@@ -96,13 +96,13 @@ export function getPlatformNearLimitCopy() {
 
 export const TRIAL_CONVERSION_COPY = {
   /** warning / blocked 時的副標題 */
-  expiryWarning: "到期後將降為體驗版，部分功能將無法使用",
+  expiryWarning: "試用到期後保留資料並改為唯讀，選購正式方案後可繼續使用",
   /** blocked 時 badge 旁的文字 */
   blockedAction: "升級即可繼續使用",
   /** CTA 文字 */
   retainCta: "升級保留完整功能",
   /** 進度條下方提示 */
-  retainHint: "升級後所有限制立即解除，資料完整保留",
+  retainHint: "轉正式後依所購方案開通功能與額度，資料完整保留",
   /** TrialLimitModal 的加強文案 */
   modalCta: "立即升級，繼續使用",
   modalRetainNote: "升級後立即生效，現有資料完整保留",

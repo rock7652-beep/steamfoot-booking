@@ -101,6 +101,9 @@ export async function customerRegisterAction(
     return { error: getStoreUnavailableMessage(operatingStatus) };
   }
 
+  const { isStoreSubscriptionWriteBlocked } = await import("@/lib/subscription-guard");
+  if (await isStoreSubscriptionWriteBlocked(storeId)) return { error: "本店系統使用期限已到期，暫時無法註冊，請聯繫店家" };
+
   // 必填驗證（除 notes 外皆必填）
   if (!name) return { error: "請輸入姓名" };
   if (!phone) return { error: "請輸入手機號碼" };
@@ -139,6 +142,11 @@ export async function customerRegisterAction(
       // 後台建立的顧客，導向帳號開通
       return { error: "NEEDS_ACTIVATION" };
     }
+  }
+
+  if (!existingCustomer) {
+  const { checkCustomerLimit } = await import("@/lib/shop-config");
+  if (!(await checkCustomerLimit(storeId)).allowed) return { error: "本店暫時無法新增會員，請聯繫店家" };
   }
 
   // 也檢查 User 表（跨店同手機的 CUSTOMER User）

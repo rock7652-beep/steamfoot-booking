@@ -16,6 +16,9 @@ export type StorePlanFields = Pick<
   Store,
   | "id"
   | "plan"
+  | "planStatus"
+  | "planEffectiveAt"
+  | "planExpiresAt"
   | "maxStaffOverride"
   | "maxCustomersOverride"
   | "maxMonthlyBookingsOverride"
@@ -27,6 +30,9 @@ export type StorePlanFields = Pick<
 const STORE_PLAN_SELECT = {
   id: true,
   plan: true,
+  planStatus: true,
+  planEffectiveAt: true,
+  planExpiresAt: true,
   maxStaffOverride: true,
   maxCustomersOverride: true,
   maxMonthlyBookingsOverride: true,
@@ -60,6 +66,7 @@ export async function getCurrentStoreForPlan(): Promise<StorePlanFields> {
     return {
       id: "__all__",
       plan: "ALLIANCE",
+      planStatus: "ACTIVE", planEffectiveAt: null, planExpiresAt: null,
       maxStaffOverride: null,
       maxCustomersOverride: null,
       maxMonthlyBookingsOverride: null,
@@ -73,6 +80,7 @@ export async function getCurrentStoreForPlan(): Promise<StorePlanFields> {
     return {
       id: SPA_DEMO_STORE.id,
       plan: "ALLIANCE",
+      planStatus: "ACTIVE", planEffectiveAt: null, planExpiresAt: null,
       maxStaffOverride: null,
       maxCustomersOverride: null,
       maxMonthlyBookingsOverride: null,
@@ -116,6 +124,7 @@ export async function getStoreForPlanByStoreId(storeId: string): Promise<StorePl
     return {
       id: SPA_DEMO_STORE.id,
       plan: "ALLIANCE",
+      planStatus: "ACTIVE", planEffectiveAt: null, planExpiresAt: null,
       maxStaffOverride: null,
       maxCustomersOverride: null,
       maxMonthlyBookingsOverride: null,

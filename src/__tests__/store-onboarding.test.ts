@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from "vitest";
 
+vi.mock("@/server/actions/store-subscription", () => ({ createTrialSubscription: vi.fn().mockResolvedValue({success:true,data:{id:"trial"}}) }));
 // ── Mocks ──
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -393,7 +394,8 @@ describe("SPA HQ readiness", () => {
     vi.mocked(prisma.store.update).mockResolvedValue({planStatus:"ACTIVE"} as never);
     const {activateStoreAction}=await import("@/server/actions/store-onboarding");
     expect((await activateStoreAction("ready")).success).toBe(true);
-    expect(prisma.store.update).toHaveBeenCalled();
+    const {createTrialSubscription}=await import("@/server/actions/store-subscription");
+    expect(createTrialSubscription).toHaveBeenCalledWith(expect.objectContaining({storeId:"ready",plan:"EXPERIENCE",trialDays:30}));
   });
   it("missing catalog still blocks activation", async () => {
     const {prisma,spaPrisma}=await readyStore();

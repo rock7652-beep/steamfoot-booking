@@ -1,3 +1,4 @@
+import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentStorePlan } from "@/lib/store-plan";
@@ -65,7 +66,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
   const failedChecks = displayRun?.checks.filter((c) => c.status !== "pass") ?? [];
 
   return (
-    <FeatureGate plan={plan} feature={FEATURES.RECONCILIATION}>
+    <FeatureGate plan={plan} feature={FEATURES.RECONCILIATION} enabled={await hasCurrentStoreFeature(FEATURES.RECONCILIATION)}>
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">

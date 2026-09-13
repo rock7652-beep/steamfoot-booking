@@ -1,3 +1,4 @@
+import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 import { getCurrentUser } from "@/lib/session";
 import { getCurrentStorePlan } from "@/lib/store-plan";
 import { redirect, notFound } from "next/navigation";
@@ -16,7 +17,7 @@ export default async function TrainingPage() {
   const plan = await getCurrentStorePlan();
 
   return (
-    <FeatureGate plan={plan} feature={FEATURES.TRAINING_CONTENT}>
+    <FeatureGate plan={plan} feature={FEATURES.TRAINING_CONTENT} enabled={await hasCurrentStoreFeature(FEATURES.TRAINING_CONTENT)}>
       <div className="space-y-5">
         <h1 className="text-lg font-bold text-earth-900">學習中心</h1>
         <p className="text-sm text-earth-500">店務 SOP、營運技巧、系統教學</p>

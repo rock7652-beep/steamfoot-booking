@@ -1,3 +1,4 @@
+import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 import { listTransactions } from "@/server/queries/transaction";
 import { listStaffSelectOptions } from "@/server/queries/staff";
 import { getCurrentUser } from "@/lib/session";
@@ -148,7 +149,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const activeFilterCount = [params.transactionType, params.staff].filter(Boolean).length;
 
   return (
-    <FeatureGate plan={plan} feature={FEATURES.TRANSACTION_MANAGEMENT}>
+    <FeatureGate plan={plan} feature={FEATURES.TRANSACTION_MANAGEMENT} enabled={await hasCurrentStoreFeature(FEATURES.TRANSACTION_MANAGEMENT)}>
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">

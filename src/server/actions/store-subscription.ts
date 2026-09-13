@@ -2,17 +2,20 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { requirePermission } from "@/lib/permissions";
+import { openSingleStoreTrial } from "@/server/services/single-store-trial";
+import { revalidateStorePlan, revalidateShopConfig } from "@/lib/revalidation";
 import { prisma } from "@/lib/db";
 import { requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
-import { parseTaiwanDateToDbDate, addTaiwanDuration } from "@/lib/date-utils";
+import { parseTaiwanDateToDbDate, toLocalDateStr, parseTaipeiDateTime } from "@/lib/date-utils";
 import type { ActionResult } from "@/types";
 
 /**
  * 店家訂閱管理 — 建立 / 編輯 StoreSubscription（第一版）
  *
  * 原則（docs/store-subscription-planning.md v2）：
- *   - 只寫 StoreSubscription，**完全不碰 Store.plan / currentSubscriptionId**（不動既有方案判斷）
+ *   - 正式啟用同步 Store.plan / currentSubscriptionId；歷史訂閱編輯不影響現行方案
  *   - 不碰 UpgradeRequest 流程、不自動停權、不接金流
  *   - createdBy / updatedBy 寫入操作者（userId）
  *   - 權限：後端強制 ADMIN / OWNER（不只前端隱藏）
@@ -70,6 +73,11 @@ export async function upsertStoreSubscription(
     });
     if (!store) throw new AppError("NOT_FOUND", "店舖不存在");
 
+    for (const date of [data.startedAt, data.effectiveAt, data.expiresAt].filter(Boolean)) {
+      if (!parseTaipeiDateTime(date!, "00:00")) throw new AppError("VALIDATION", "日期無效");
+    }
+    if (data.status === "ACTIVE" && (data.effectiveAt || data.startedAt) > toLocalDateStr()) throw new AppError("VALIDATION", "正式啟用日期不可晚於今天");
+    if (data.expiresAt && data.expiresAt < (data.effectiveAt || data.startedAt)) throw new AppError("VALIDATION", "到期日不可早於開始日");
     const startedAt = parseTaiwanDateToDbDate(data.startedAt);
     const effectiveAt = data.effectiveAt
       ? parseTaiwanDateToDbDate(data.effectiveAt)
@@ -94,35 +102,40 @@ export async function upsertStoreSubscription(
       note,
     };
 
-    if (data.subscriptionId) {
-      // 編輯：確認該訂閱屬於此店
-      const existing = await prisma.storeSubscription.findUnique({
-        where: { id: data.subscriptionId },
-        select: { id: true, storeId: true },
-      });
-      if (!existing || existing.storeId !== data.storeId) {
-        throw new AppError("NOT_FOUND", "訂閱紀錄不存在");
+    await requirePermission("staff.manage");
+    if (data.status === "TRIAL") throw new AppError("VALIDATION", "請使用開通試用入口設定試用或延長天數");
+    if (data.status === "ACTIVE" && data.plan === "EXPERIENCE") throw new AppError("VALIDATION", "轉正式請選基本版、專業版或展店版");
+    const result = await prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`subscription:${data.storeId}`}, 0))`;
+      const currentStore = await tx.store.findUniqueOrThrow({ where: { id: data.storeId } });
+      const existing = data.subscriptionId ? await tx.storeSubscription.findUnique({ where: { id: data.subscriptionId } }) : null;
+      if (data.subscriptionId && (!existing || existing.storeId !== data.storeId)) throw new AppError("NOT_FOUND", "訂閱紀錄不存在");
+      const saved = existing
+        ? await tx.storeSubscription.update({ where: { id: existing.id }, data: { ...common, isTrial: false, updatedBy: user.id } })
+        : await tx.storeSubscription.create({ data: { storeId: data.storeId, ...common, isTrial: false, createdBy: user.id, updatedBy: user.id } });
+      // Historical edits never replace a newer current subscription.
+      const isCurrent = !existing || !currentStore.currentSubscriptionId || currentStore.currentSubscriptionId === existing.id;
+      if (isCurrent && data.status === "ACTIVE") {
+        if (currentStore.currentSubscriptionId && currentStore.currentSubscriptionId !== saved.id) await tx.storeSubscription.update({ where: { id: currentStore.currentSubscriptionId }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+        await tx.store.update({ where: { id: data.storeId }, data: {
+          plan: data.plan, planStatus: "ACTIVE", planEffectiveAt: effectiveAt ?? startedAt,
+          planExpiresAt: expiresAt, currentSubscriptionId: saved.id,
+        } });
+        await tx.storePlanChange.create({ data: {
+          storeId: data.storeId, changeType: "PLAN_ACTIVATED", fromPlan: currentStore.plan, toPlan: data.plan,
+          fromStatus: currentStore.planStatus, toStatus: "ACTIVE", subscriptionId: saved.id,
+          operatorUserId: user.id, reason: "原店家帳號轉正式／續約，保留營運資料",
+        } });
       }
-      await prisma.storeSubscription.update({
-        where: { id: data.subscriptionId },
-        data: { ...common, updatedBy: user.id },
-      });
-      revalidatePath("/hq/dashboard/stores/subscriptions");
-      return { success: true, data: { id: data.subscriptionId } };
-    }
-
-    // 建立：只 insert StoreSubscription，不動 Store
-    const created = await prisma.storeSubscription.create({
-      data: {
-        storeId: data.storeId,
-        ...common,
-        createdBy: user.id,
-        updatedBy: user.id,
-      },
-      select: { id: true },
+      if (isCurrent && (data.status === "EXPIRED" || data.status === "CANCELLED")) {
+        await tx.store.update({ where: { id: data.storeId }, data: { planStatus: data.status } });
+      }
+      return { id: saved.id };
     });
+    revalidateStorePlan();
+    revalidateShopConfig();
     revalidatePath("/hq/dashboard/stores/subscriptions");
-    return { success: true, data: { id: created.id } };
+    return { success: true, data: result };
   } catch (e) {
     if (e instanceof AppError) return { success: false, error: e.message };
     if (e instanceof z.ZodError) {
@@ -146,15 +159,15 @@ const trialSchema = z.object({
   storeId: z.string().min(1),
   plan: z.enum(["BASIC", "GROWTH", "ALLIANCE", "EXPERIENCE"]),
   startDate: z.string().regex(DATE_RE, "開始日格式須為 YYYY-MM-DD"),
-  // 預設有制度（前端 14 天），天數保留商業彈性：HQ 可自訂 1–90 天
-  trialDays: z.number().int().min(1).max(90),
+  // 預設有制度（前端 30 天），天數保留商業彈性：HQ 可自訂 1–90 天
+  trialDays: z.number().int().min(1).max(90).default(30),
 });
 
 /**
  * HQ 替店家建立一筆 TRIAL 訂閱（MVP）。
  *   - status=TRIAL / isTrial=true / billingStatus=NOT_REQUIRED（體驗免收）
  *   - expiresAt = startDate + trialDays − 1 天（最後一天仍可使用）
- *   - 只寫 StoreSubscription，不碰 Store.plan / UpgradeRequest / 金流
+ *   - 共用開通服務同步 Store.plan 與到期日，不接金流
  *   - 轉正式方案走既有「編輯訂閱」（改 status=ACTIVE + 付款資訊）
  *   - 權限：後端僅 ADMIN（店長不可建立 Trial）
  */
@@ -169,37 +182,12 @@ export async function createTrialSubscription(
 
     const data = trialSchema.parse(input);
 
-    const store = await prisma.store.findUnique({
-      where: { id: data.storeId },
-      select: { id: true },
-    });
-    if (!store) throw new AppError("NOT_FOUND", "店舖不存在");
-
-    const startedAt = parseTaiwanDateToDbDate(data.startDate);
-    // 到期日 = 開始日 + 天數 − 1（含開始當天）
-    const expiresStr = addTaiwanDuration(data.startDate, data.trialDays - 1, "DAY");
-    const expiresAt = parseTaiwanDateToDbDate(expiresStr);
-
-    const created = await prisma.storeSubscription.create({
-      data: {
-        storeId: data.storeId,
-        plan: data.plan,
-        status: "TRIAL",
-        isTrial: true,
-        billingCycle: null,
-        startedAt,
-        expiresAt,
-        billingStatus: "NOT_REQUIRED",
-        paymentMethod: null,
-        priceAmount: null,
-        note: `體驗 ${data.trialDays} 天`,
-        createdBy: user.id,
-        updatedBy: user.id,
-      },
-      select: { id: true },
-    });
+    await requirePermission("staff.manage");
+    const created = await openSingleStoreTrial({ storeId: data.storeId, actorId: user.id, startDate: data.startDate, days: data.trialDays });
+    revalidateStorePlan();
+    revalidateShopConfig();
     revalidatePath("/hq/dashboard/stores/subscriptions");
-    return { success: true, data: { id: created.id } };
+    return { success: true, data: created };
   } catch (e) {
     if (e instanceof AppError) return { success: false, error: e.message };
     if (e instanceof z.ZodError) {

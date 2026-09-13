@@ -19,6 +19,7 @@ export async function createSpaPerson(input:z.infer<typeof schema>){
   const staffId=`spa-person:${storeId}:${d.requestKey}`;
   await prisma.$transaction(async tx=>{
    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`}, 0))`;
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${storeId}`}, 0))`;
    if(await tx.staff.findFirst({where:{id:staffId,storeId}}))return;
    const count=await tx.staff.count({where:{storeId,status:"ACTIVE"}});
    if(limits.maxStaff!==null&&count>=limits.maxStaff)throw new AppError("FORBIDDEN","已達方案可啟用人員上限；店長、後台員工及服務人員共用額度，停用人員不計入");

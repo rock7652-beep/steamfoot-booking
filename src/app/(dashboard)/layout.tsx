@@ -69,18 +69,9 @@ export default async function DashboardLayout({
       ? await getCachedStorePlan(effectiveStoreId)
       : ("EXPERIENCE" as const);
   const effectiveFeatures = effectiveStoreId
-    ? {
-        [FEATURES.BASIC_REPORTS]: await hasStoreFeature(effectiveStoreId, FEATURES.BASIC_REPORTS),
-        [FEATURES.LINE_REMINDER]: await hasStoreFeature(
-          effectiveStoreId,
-          FEATURES.LINE_REMINDER,
-        ),
-        [FEATURES.DIGITAL_BUTLER]: await hasStoreFeature(
-          effectiveStoreId,
-          FEATURES.DIGITAL_BUTLER,
-        ),
-      }
+    ? Object.fromEntries(await Promise.all(Object.values(FEATURES).map(async feature => [feature, await hasStoreFeature(effectiveStoreId, feature)])))
     : { [FEATURES.BASIC_REPORTS]: isAdmin };
+
 
   // 讀取 store-slug 用於 logout redirect（ADMIN 不帶 slug，回 /）
   const ckStore = await cookies();
@@ -110,7 +101,11 @@ export default async function DashboardLayout({
     }
 
     try {
-      const sub = await prisma.storeSubscription.findFirst({
+      const current = await prisma.store.findUnique({
+        where: { id: effectiveStoreId },
+        select: { currentSubscription: { select: { status: true, expiresAt: true } } },
+      });
+      const sub = current?.currentSubscription ?? await prisma.storeSubscription.findFirst({
         where: { storeId: effectiveStoreId },
         orderBy: { createdAt: "desc" },
         select: { status: true, expiresAt: true },

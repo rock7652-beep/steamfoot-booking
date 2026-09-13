@@ -185,7 +185,7 @@ function ActivateButton({ storeId }: { storeId: string }) {
         type="submit"
         className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
       >
-        啟用店舖
+        開通 30 天單店試用
       </button>
     </form>
   );

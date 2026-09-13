@@ -212,7 +212,13 @@ export async function resolveWriteStoreId(user: SessionLike): Promise<string> {
     throw new AppError("UNAUTHORIZED", "缺少 storeId，請重新登入");
   }
   const routeStore = await resolveAuthorizedRouteStore(user, "write");
-  if (routeStore) return routeStore.id;
+  if (routeStore) {
+    if (user.role !== "ADMIN") {
+      const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
+      await assertStoreSubscriptionWritable(routeStore.id);
+    }
+    return routeStore.id;
+  }
 
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
@@ -224,7 +230,12 @@ export async function resolveWriteStoreId(user: SessionLike): Promise<string> {
   if (!cookieStoreId) {
     throw new AppError("VALIDATION", "請先在上方切換到指定分店，再執行此操作");
   }
-  return (await validateStoreAccess(user, cookieStoreId, "write"))!;
+  const target = (await validateStoreAccess(user, cookieStoreId, "write"))!;
+  if (user.role !== "ADMIN") {
+    const { assertStoreSubscriptionWritable } = await import("@/lib/subscription-guard");
+    await assertStoreSubscriptionWritable(target);
+  }
+  return target;
 }
 
 /**
