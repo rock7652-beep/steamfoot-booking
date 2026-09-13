@@ -1,6 +1,6 @@
 # SPA 會員、服務人員與店長三端流程
 
-狀態：主要版面方向已確認；第二階段已完成程式與測試 DB additive migration，等待 Preview 操作驗收。此文件不是 Production 上線證明。
+狀態：主要版面方向已確認；第二階段程式、測試 DB additive migration 與一般瀏覽器 LINE Preview 流程已驗收。LINE App 內嵌 LIFF 尚待獨立實機驗收；此文件不是 Production 上線證明。
 
 ## 現況與具體缺口
 
@@ -94,7 +94,17 @@
 - 測試 DB 核對只有兩筆有效 `StaffMemberLink`，兩筆均為 ACTIVE、未撤銷，沒有重複 link。
 - 工作頁最初因 OAuth callback allowlist 只接受 `/s/{store}/book` 而回傳 `OAuthStoreContextLost`；`7fa77c2c` 已精確加入 `/s/{store}/liff/spa-work`，並保留同 origin、實際店別查詢與路徑 allowlist。新版 Preview 實測已能導向 LINE authorize。
 - LINE authorize 目前回傳 `400 Invalid redirect_uri`：此 Preview branch alias 尚未登記在 LINE Developers 的 Web Login callback。依 `docs/deployment.md`，Preview OAuth 原本不在既有 callback allowlist；需由 LINE channel 管理員新增此固定 branch alias callback，或配置獨立 Preview LINE channel 後才能繼續真實 OAuth 驗收。
-- 兩個可用驗收會員目前亦皆顯示 `LINE 未綁定`。完成 callback 設定後仍須準備一個此店的 LINE 已綁定測試會員，才能把「一般網頁 LINE 登入／LIFF 登入 → 會員專區／我的工作切換」標為通過；不得用 server action、SQL 或偽造 cookie 冒充該畫面驗收。
+- 當時兩個可用驗收會員皆顯示 `LINE 未綁定`，因此此段只記錄為 blocker；後續真實 LINE OAuth 與一般瀏覽器畫面結果見下一節。不得用 server action、SQL 或偽造 cookie 冒充畫面驗收。
+
+## 2026-09-13 LINE OAuth 與雙重身分續驗
+
+- LINE Developers 已加入固定 branch Preview callback；一般瀏覽器以真實 LINE OAuth 完成登入，callback 正確回到 `spa-module-qa-20260903`，未再發生 `Invalid redirect_uri` 或店別 context 遺失。
+- OAuth-only 會員補資料不再要求新增密碼；畫面不渲染密碼欄，後端亦忽略偽造表單夾帶的首次密碼。純手機登入與既有密碼修改規則保持不變。
+- 指定 LINE 帳號與既有 `SPA 測試顧客（0900•••003）` 的安全整合已先執行 dry-run；結果無 blocker，只移轉該 Customer、phone identity link 與同店 StaffMemberLink。執行後舊測試登入 User 已停用、session 已清除，方案／預約／付款 fingerprint 未變，且寫入 `MERGE_CENTRAL_USER` audit。
+- 中央會員整合已補齊 StaffMemberLink 移轉與同店不同 Staff 衝突阻擋，避免舊人員連結在帳號整合後失去工作權限。
+- 最新 Preview 實際顯示「會員專區／我的工作」切換；會員頁可進工作頁，工作頁可回共用 `/book` 會員入口，一般瀏覽器不再被導到僅限 LINE client 的 `/liff` 邊界。
+- 以獨立 `SpaBooking` 建立一筆可精確識別的驗收資料，瀏覽器工作頁正確顯示日期、10:00–11:00、顧客、全身芳療、床1、已預約及備註。資料庫核對後已刪除該筆本輪 fixture（remaining=0），保留既有會員、人員與連結。
+- 尚未宣稱通過：LINE App 內嵌 LIFF 實機返回前景更新、不同 LINE 渠道 subject 對應，以及第三階段真實 SPA 顧客預約流程。
 
 ## 上線與回滾
 
