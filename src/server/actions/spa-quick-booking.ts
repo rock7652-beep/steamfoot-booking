@@ -5,8 +5,10 @@ import { z } from "zod";
 import { createCustomer } from "@/server/actions/customer";
 import { spaPrisma } from "@/lib/spa-db";
 import { prisma } from "@/lib/db";
+import { requireWritablePermission } from "@/lib/permissions";
+import { resolveWriteStoreId } from "@/lib/store";
 import { AppError, handleActionError } from "@/lib/errors";
-import { authorizedSpaStore } from "@/server/actions/spa-booking";
+import { requireSpaStore } from "@/lib/industry-module-server";
 import { fetchSpaBookingAvailability } from "@/server/actions/spa-booking-availability";
 import { composeSpaBookingTreatments } from "@/lib/spa-booking-composition";
 import {
@@ -53,7 +55,9 @@ export async function createSpaQuickBooking(
   }
 
   try {
-    const storeId = await authorizedSpaStore("booking.create");
+    const user = await requireWritablePermission("booking.create");
+    const storeId = await resolveWriteStoreId(user);
+    await requireSpaStore(storeId);
 
     const data = parsed.data;
     let customerId = data.customerId;
