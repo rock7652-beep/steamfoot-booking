@@ -1,6 +1,6 @@
 "use server";
 
-import { AppError, handleActionError } from "@/lib/errors";
+import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { requireSpaStore } from "@/lib/industry-module-server";
 import { checkPermission, isStaffRole } from "@/lib/permissions";
@@ -30,6 +30,6 @@ export async function fetchSpaScheduleDaySnapshot(date: string) {
     await requireSpaStore(context.storeId);
     return { bookings: await getSpaScheduleForDay(context.storeId, date) };
   } catch (error) {
-    throw new Error(handleActionError(error).error ?? "無法更新排程");
+    throw new Error(error instanceof Error ? error.message : "無法更新排程");
   }
 }
