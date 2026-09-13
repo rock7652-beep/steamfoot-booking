@@ -54,6 +54,9 @@ vi.mock("@/lib/revalidation", () => ({
   revalidateSpecialDays: mocks.revalidateSpecialDays,
 }));
 vi.mock("@/lib/query-cache", () => ({ getCachedMonthScheduleSummary: vi.fn() }));
+vi.mock("@/lib/industry-module-server", () => ({
+  getStoreIndustryModule: vi.fn().mockResolvedValue("steamfoot"),
+}));
 
 import { addSpecialDay, syncFromHeadquarters } from "@/server/actions/business-hours";
 

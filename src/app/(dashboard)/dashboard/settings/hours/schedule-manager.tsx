@@ -107,6 +107,7 @@ interface Props {
   initialMonth: number;
   canManage: boolean;
   isHeadquarters: boolean;
+  isSpaStore: boolean;
 }
 
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
@@ -123,7 +124,12 @@ export function ScheduleManager({
   initialMonth,
   canManage,
   isHeadquarters,
+  isSpaStore,
 }: Props) {
+  // 蒸足採 30/60/90/120；SPA 保留既有 15/30 排程設定，不受此頁變更影響。
+  const intervalOptions = isSpaStore
+    ? SLOT_INTERVAL_OPTIONS.filter((option) => option.value === 15 || option.value === 30)
+    : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
   const [year, setYear] = useState(initialYear);
   const [month, setMonth] = useState(initialMonth);
   const [specialDays, setSpecialDays] = useState<SpecialDay[]>(initialSpecialDays);
@@ -754,6 +760,7 @@ export function ScheduleManager({
                     day={w}
                     canManage={canManage}
                     isPending={isPending}
+                    isSpaStore={isSpaStore}
                     onSave={saveWeeklyDay}
                   />
                 ))}
@@ -857,11 +864,11 @@ export function ScheduleManager({
                             className="mt-1 w-full rounded border border-earth-300 px-2 py-1.5 text-xs" />
                         </label>
                         <label className="text-[11px] text-earth-500">
-                          每隔多久開放
+                          預約時段間隔
                           <select value={period.slotInterval} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item))}
                             className="mt-1 w-full rounded border border-earth-300 px-2 py-1.5 text-xs">
-                            {SLOT_INTERVAL_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.value} 分鐘</option>)}
+                            {intervalOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.value} 分鐘</option>)}
                           </select>
                         </label>
                         <label className="text-[11px] text-earth-500">
@@ -1211,13 +1218,18 @@ function WeeklyDayRow({
   day,
   canManage,
   isPending,
+  isSpaStore,
   onSave,
 }: {
   day: WeeklyHour;
   canManage: boolean;
   isPending: boolean;
+  isSpaStore: boolean;
   onSave: (dow: number, isOpen: boolean, periods: BusinessPeriod[]) => void;
 }) {
+  const intervalOptions = isSpaStore
+    ? SLOT_INTERVAL_OPTIONS.filter((option) => option.value === 15 || option.value === 30)
+    : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
   const [isOpen, setIsOpen] = useState(day.isOpen);
   const [periods, setPeriods] = useState<BusinessPeriod[]>(day.periods?.length ? day.periods : [{
     openTime: day.openTime ?? "10:00",
@@ -1292,7 +1304,7 @@ function WeeklyDayRow({
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: e.target.value } : item)); setDirty(true); }} />
               <select value={period.slotInterval} disabled={!canManage} className="rounded border px-1 py-1 text-[11px]"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item)); setDirty(true); }}>
-                {SLOT_INTERVAL_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.value}分鐘</option>)}
+                {intervalOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.value}分鐘</option>)}
               </select>
               <div className="flex gap-1">
                 <select value={period.defaultCapacity} disabled={!canManage} className="min-w-0 flex-1 rounded border px-1 py-1 text-[11px]"
