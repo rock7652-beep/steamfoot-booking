@@ -760,6 +760,7 @@ export function ScheduleManager({
                     day={w}
                     canManage={canManage}
                     isPending={isPending}
+                    isSpaStore={isSpaStore}
                     onSave={saveWeeklyDay}
                   />
                 ))}
@@ -1217,13 +1218,18 @@ function WeeklyDayRow({
   day,
   canManage,
   isPending,
+  isSpaStore,
   onSave,
 }: {
   day: WeeklyHour;
   canManage: boolean;
   isPending: boolean;
+  isSpaStore: boolean;
   onSave: (dow: number, isOpen: boolean, periods: BusinessPeriod[]) => void;
 }) {
+  const intervalOptions = isSpaStore
+    ? SLOT_INTERVAL_OPTIONS.filter((option) => option.value === 15 || option.value === 30)
+    : SLOT_INTERVAL_OPTIONS.filter((option) => option.value !== 15);
   const [isOpen, setIsOpen] = useState(day.isOpen);
   const [periods, setPeriods] = useState<BusinessPeriod[]>(day.periods?.length ? day.periods : [{
     openTime: day.openTime ?? "10:00",
