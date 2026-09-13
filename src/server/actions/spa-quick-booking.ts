@@ -112,9 +112,7 @@ export async function createSpaQuickBooking(
     const booking = await spaPrisma.$transaction(async (tx) => {
       // Serialize writes for one SPA store/date, then recheck provider and
       // room capacity inside the same transaction to prevent double booking.
-      // pg_advisory_xact_lock returns PostgreSQL's void type.  Read queries
-      // cannot deserialize it through Prisma, so issue it as a command.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${storeId}:${data.bookingDate}:spa-booking`}, 0))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${storeId}:${data.bookingDate}:spa-booking`}, 0))`;
       const endTime = addMinutes(data.slotTime, composition.occupiedMinutes);
       const overlaps = await tx.spaBooking.findMany({
         where: {
