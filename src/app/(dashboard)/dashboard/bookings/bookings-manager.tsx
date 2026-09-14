@@ -390,9 +390,18 @@ export function BookingsManager({
     const result = await toggleSlotOverride({ date: selectedDate, startTime: extraSlotTime, action: "enable" });
     if (!result.success) { toast.error(result.error ?? "新增時段失敗"); return; }
     toast.success(`已新增 ${extraSlotTime} 當日時段`);
-    setSlotsCache((previous) => { const next = new Map(previous); next.delete(selectedDate); return next; });
-    void loadSlots(selectedDate);
-  }, [extraSlotTime, loadSlots, selectedDate]);
+    setSlotsLoadingDate(selectedDate);
+    try {
+      const refreshed = await fetchDaySlots(selectedDate);
+      setSlotsCache((previous) => {
+        const next = new Map(previous);
+        next.set(selectedDate, refreshed.slots);
+        return next;
+      });
+    } finally {
+      setSlotsLoadingDate((current) => current === selectedDate ? null : current);
+    }
+  }, [extraSlotTime, selectedDate]);
 
   const openBooking = useCallback(
     (id: string) => {
