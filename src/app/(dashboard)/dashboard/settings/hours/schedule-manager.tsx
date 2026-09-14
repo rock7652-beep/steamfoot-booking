@@ -205,8 +205,8 @@ export function ScheduleManager({
   const removedTimes = [...currentTimes].filter((time) => !previewTimes.has(time));
   const scopeLabel = applyMode === "day" ? `只改 ${selectedDate}，其他日期不變`
     : applyMode === "copy" ? `${selectedDate}，以及未來 ${copyWeeks} 週的${dayDetail?.dayName}`
-    : applyMode === "permanent" ? `更新每週${dayDetail?.dayName}固定服務時間`
-    : `更新每週${dayDetail?.dayName}固定排班（${templateWeeks} 週）`;
+    : applyMode === "permanent" ? `更新每${dayDetail?.dayName}固定時段`
+    : `更新每${dayDetail?.dayName}固定排班（${templateWeeks} 週）`;
 
   useEffect(() => {
     if (!dayDraftDirty) return;
@@ -977,7 +977,7 @@ export function ScheduleManager({
                             className="accent-primary-600"
                           />
                           <span>
-                            更新每週{dayDetail?.dayName}固定服務時間
+                            更新每{dayDetail?.dayName}固定時段
                             <span className="ml-1 text-[10px] text-earth-400">不會覆蓋其他日期的特殊設定</span>
                           </span>
                         </label>
@@ -992,7 +992,7 @@ export function ScheduleManager({
                             className="accent-primary-600"
                           />
                           <div>
-                            <span>設定每週{dayDetail?.dayName}固定排班</span>
+                            <span>設定每{dayDetail?.dayName}固定排班</span>
                             <span className="ml-1 text-[10px] text-earth-400">含時段開關</span>
                             <div className="mt-0.5 text-[10px] text-earth-400">依選擇週數套用</div>
                           </div>
@@ -1028,7 +1028,7 @@ export function ScheduleManager({
                         <p>新增開放：{addedTimes.join("、") || "無"}</p>
                         <p>停止開放：{removedTimes.join("、") || "無"}</p>
                         <p className="text-xs text-amber-800">重新設定服務時間會清除套用日期原有的臨時時段調整，以上方預覽為準。</p>
-                      </> : <p>{editStatus === "closed" || editStatus === "training" ? "全天停止接受新預約。" : applyMode === "day" ? "使用每週固定時段；當日單格時段調整仍保留。" : `固定服務時間：${editPeriods.map((period) => `${period.openTime}–${period.closeTime}`).join("、")}。各日期的特殊設定與時段調整依既有套用規則處理。`}</p>}
+                      </> : <p>{editStatus === "closed" || editStatus === "training" ? "全天停止接受新預約。" : applyMode === "day" ? "使用每週固定時段；當日單格時段調整仍保留。" : `固定時段：${editPeriods.map((period) => `${period.openTime}–${period.closeTime}`).join("、")}。各日期的特殊設定與時段調整依既有套用規則處理。`}</p>}
                       {applyMode !== "day" && <p className="text-xs text-amber-800">這次不只影響一天，請再次確認套用範圍。</p>}
                       <p className="text-xs text-earth-600">既有預約不會自動取消，收款與扣堂不會變動；如無法服務，請另行聯繫顧客。</p>
                       <button type="button" disabled={isPending} onClick={() => setReviewedDraft(null)} className="underline text-primary-800">返回修改</button>
