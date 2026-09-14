@@ -21,9 +21,6 @@ describe("service hours review", () => {
   });
 
   const source = readFileSync("src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx", "utf8");
-  it("keeps saved slots visible outside advanced controls", () => {
-    expect(source.indexOf('aria-label="目前已儲存的時段"')).toBeLessThan(source.indexOf("{/* 狀態選擇 */}"));
-  });
   it("requires review of the current draft before saving and blocks pending edits", () => {
     expect(source).toContain("reviewedDraft === draftKey");
     expect(source).toContain("if (reviewing) void saveDay(); else setReviewedDraft(draftKey)");

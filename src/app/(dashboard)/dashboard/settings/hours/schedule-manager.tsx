@@ -203,7 +203,7 @@ export function ScheduleManager({
   const previewTimes = new Set(draftSlotPreview.map((slot) => slot.startTime));
   const addedTimes = [...previewTimes].filter((time) => !currentTimes.has(time));
   const removedTimes = [...currentTimes].filter((time) => !previewTimes.has(time));
-  const scopeLabel = applyMode === "day" ? `只修改 ${selectedDate}`
+  const scopeLabel = applyMode === "day" ? `只改 ${selectedDate}，其他日期不變`
     : applyMode === "copy" ? `${selectedDate}，以及未來 ${copyWeeks} 週的${dayDetail?.dayName}`
     : applyMode === "permanent" ? `更新每週${dayDetail?.dayName}固定服務時間`
     : `更新每週${dayDetail?.dayName}固定排班（${templateWeeks} 週）`;
@@ -675,25 +675,6 @@ export function ScheduleManager({
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr),minmax(400px,0.8fr)]">
       {/* ===== 左側：月曆 ===== */}
       <div className="space-y-4">
-        {/* 套用總部設定（僅非總部店顯示） */}
-        {canManage && !isHeadquarters && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-amber-800">同步總部設定</p>
-                <p className="text-xs text-amber-600">清除本店設定，套用總部的營業時間與時段</p>
-              </div>
-              <button
-                onClick={handleSync}
-                disabled={syncing}
-                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
-              >
-                {syncing ? "同步中..." : "套用總部設定"}
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className="relative rounded-xl border bg-white p-4 shadow-sm">
           {/* 月份切換 — loading 時 disable 防止快速連點造成 race */}
           <div className="mb-3 flex items-center justify-between">
@@ -788,37 +769,7 @@ export function ScheduleManager({
           )}
         </div>
 
-        {/* ===== 每週固定規則（可摺疊）===== */}
-        <div className="rounded-xl border bg-white shadow-sm">
-          <button
-            type="button"
-            onClick={() => setShowWeekly(!showWeekly)}
-            className="flex w-full items-center justify-between p-4 text-left"
-          >
-            <h3 className="text-sm font-semibold text-earth-800">每週固定服務時間</h3>
-            <svg className={`h-4 w-4 text-earth-400 transition ${showWeekly ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
 
-          {showWeekly && (
-            <div className="border-t px-4 pb-4">
-              <p className="mb-3 pt-3 text-xs text-green-700">✓ 設定一次永久套用，每週自動循環，不需每月重新設定</p>
-              <div className="space-y-2">
-                {weeklyHours.map((w) => (
-                  <WeeklyDayRow
-                    key={w.dayOfWeek}
-                    day={w}
-                    canManage={canManage}
-                    isPending={isPending}
-                    isSpaStore={isSpaStore}
-                    onSave={saveWeeklyDay}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* ===== 右側：日設定面板 =====
@@ -826,7 +777,7 @@ export function ScheduleManager({
           loadingDay 不再 short-circuit 整面成 spinner — slot 區自己用 skeleton 撐版面，
           上半部用 monthSummary 預覽資訊立即顯示，店長不會看到空白。
           fallback：preview 也組不出來時（極少見）才走全 spinner。 */}
-      <div className="min-w-0 xl:sticky xl:top-20 xl:self-start">
+      <div className="min-w-0 xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:self-start">
         {!selectedDate ? (
           <div className="rounded-xl border bg-white p-6 shadow-sm">
             <p className="text-center text-sm text-earth-400">← 點選月曆上的日期來檢視或設定</p>
@@ -845,27 +796,12 @@ export function ScheduleManager({
           <div className="space-y-3">
             <div className="rounded-xl border bg-white p-4 shadow-sm">
               <h3 className="mb-2 text-base font-bold text-earth-900">
-                {selectedDate} ({dayDetail.dayName})
+                {selectedDate.slice(5).replace("-", "/")}（{dayDetail.dayName}）當日時段
               </h3>
 
               <p className="mb-3 text-[11px] text-earth-500">
-                選日期 → 調整時間 → 檢查開放時段 → 確認儲存
+                {applyMode === "day" ? "只改這天，其他日期不變" : "已選擇多日套用"}
               </p>
-
-              <section className="mb-4 rounded-lg border border-primary-100 bg-primary-50 p-3" aria-label="目前已儲存的時段">
-                <h4 className="text-sm font-semibold text-primary-800">目前開放時段</h4>
-                {loadingDay ? <p className="mt-2 text-xs" role="status">讀取當日時段中…</p> : (
-                  <>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {dayDetail.slots.filter((slot) => slot.isEnabled).map((slot) => (
-                        <span key={slot.startTime} className="rounded-md border border-primary-200 bg-white px-2 py-1 text-sm text-primary-800">{slot.startTime}<span className="ml-1 text-xs text-earth-500">{slot.capacity} 位</span></span>
-                      ))}
-                    </div>
-                    {!currentTimes.size && <p className="mt-2 text-sm text-earth-500">目前沒有開放時段</p>}
-                    <p className="mt-2 text-xs text-earth-500">這是已儲存的安排；下方調整需確認儲存才會生效。</p>
-                  </>
-                )}
-              </section>
 
               <fieldset disabled={isPending || loadingDay} className="min-w-0">
               {/* 狀態選擇 */}
@@ -899,8 +835,8 @@ export function ScheduleManager({
               {(editStatus === "custom" || (editStatus === "open" && (applyMode === "permanent" || applyMode === "template"))) && (
                 <div className="mb-3 space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
                   <div>
-                    <p className="text-xs font-semibold text-blue-900">今天開放哪些時間？</p>
-                    <p className="mt-0.5 text-[11px] text-blue-700">中間沒有設定的時間會自動視為休息，不必逐格關閉。</p>
+                    <p className="text-xs font-semibold text-blue-900">服務時間</p>
+                    <p className="mt-0.5 text-[11px] text-blue-700">可分多段，空檔為休息。</p>
                   </div>
                   {editPeriods.map((period, index) => (
                     <div key={index} className="rounded-lg border border-blue-100 bg-white p-2.5">
@@ -917,24 +853,24 @@ export function ScheduleManager({
                           </button>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        <label className="text-[11px] text-earth-500">
+                      <div className="grid min-w-0 grid-cols-2 gap-2">
+                        <label className="col-span-2 min-w-0 text-xs text-earth-500 sm:col-span-1">
                           開始
                           <input type="time" value={period.openTime} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, openTime: e.target.value } : item))}
-                            className="mt-1 w-full rounded border border-earth-300 px-2 py-1.5 text-xs" />
+                            className="mt-1 block min-h-10 w-full min-w-0 max-w-full rounded border border-earth-300 bg-white px-2 py-1.5 text-base" />
                         </label>
-                        <label className="text-[11px] text-earth-500">
+                        <label className="col-span-2 min-w-0 text-xs text-earth-500 sm:col-span-1">
                           結束
                           <input type="time" value={period.closeTime} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: e.target.value } : item))}
-                            className="mt-1 w-full rounded border border-earth-300 px-2 py-1.5 text-xs" />
+                            className="mt-1 block min-h-10 w-full min-w-0 max-w-full rounded border border-earth-300 bg-white px-2 py-1.5 text-base" />
                         </label>
                         <label className="text-[11px] text-earth-500">
                           預約時段間隔
                           <select value={period.slotInterval} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item))}
-                            className="mt-1 w-full rounded border border-earth-300 px-2 py-1.5 text-xs">
+                            className="mt-1 block min-h-10 w-full min-w-0 max-w-full rounded border border-earth-300 bg-white px-2 py-1.5 text-base">
                             {intervalOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.value} 分鐘</option>)}
                           </select>
                         </label>
@@ -942,7 +878,7 @@ export function ScheduleManager({
                           每時段名額
                           <select value={period.defaultCapacity} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, defaultCapacity: Number(e.target.value) } : item))}
-                            className="mt-1 w-full rounded border border-earth-300 px-2 py-1.5 text-xs">
+                            className="mt-1 block min-h-10 w-full min-w-0 max-w-full rounded border border-earth-300 bg-white px-2 py-1.5 text-base">
                             {CAPACITY_OPTIONS.map((c) => <option key={c} value={c}>{c} 位</option>)}
                           </select>
                         </label>
@@ -955,19 +891,24 @@ export function ScheduleManager({
                     onClick={() => setEditPeriods((items) => [...items, { openTime: "14:00", closeTime: "18:00", slotInterval: 60, defaultCapacity: editCapacity }])}
                     className="w-full rounded-lg border border-dashed border-blue-300 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                   >
-                    ＋ 新增一段服務時間
+                    ＋ 新增一段
                   </button>
-                  {editStatus === "custom" && draftSlotPreview.length > 0 && (
-                    <div className="rounded-lg border border-blue-100 bg-white px-2.5 py-2">
-                      <p className="text-sm font-medium text-earth-700">調整後的預約開始時間</p>
-                      {!periodValidation.valid ? <p role="alert" className="mt-2 text-sm text-red-700">{periodValidation.error}</p> : <div className="mt-2 flex flex-wrap gap-2">
-                        {draftSlotPreview.map((slot) => <span key={slot.startTime} className="rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-sm text-primary-800">{slot.startTime} <span className="text-xs">{slot.capacity} 位</span></span>)}
-                      </div>}
-                      <p className="mt-2 text-xs text-earth-500">間隔決定幾點可預約，不會改變每位顧客的服務長度。</p>
-                    </div>
-                  )}
+
                 </div>
               )}
+
+              <section aria-label="開放時段預覽" className="mb-3 rounded-lg border border-primary-100 bg-primary-50 p-3">
+                <h4 className="text-sm font-semibold text-primary-800">{dayDraftDirty ? "儲存後時段" : "目前開放時段"}</h4>
+                {loadingDay ? <p role="status" className="mt-2 text-xs">讀取中…</p>
+                  : !periodValidation.valid ? <p className="mt-2 text-xs text-earth-600">請先修正服務時間</p>
+                  : editStatus === "closed" || editStatus === "training" ? <p className="mt-2 text-sm">全天休息</p>
+                  : dayDraftDirty && editStatus === "open" ? <p className="mt-2 text-xs">{applyMode === "day" ? "沿用每週固定時段，保留當日時段微調。" : "依上方時間更新每週安排。"}</p>
+                  : <div className="mt-2 flex flex-wrap gap-2">
+                    {(dayDraftDirty && editStatus === "custom" ? draftSlotPreview : dayDetail.slots.filter((slot) => slot.isEnabled)).map((slot) => (
+                      <span key={slot.startTime} className="rounded-md border border-primary-200 bg-white px-2 py-1 text-sm text-primary-800">{slot.startTime}<span className="ml-1 text-xs text-earth-500">{slot.capacity} 位</span></span>
+                    ))}
+                  </div>}
+              </section>
 
               {/* 原因 */}
               {(editStatus === "closed" || editStatus === "training" || editStatus === "custom") && (
@@ -987,9 +928,9 @@ export function ScheduleManager({
 
               {/* 套用範圍 */}
               {canManage && (
-                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                  <label className="mb-2 block text-xs font-medium text-amber-800">套用範圍</label>
-                  <div className="space-y-1.5">
+                <details className="mb-3 rounded-lg border border-earth-200 p-3">
+                  <summary className="cursor-pointer text-xs text-earth-700">{applyMode === "day" ? "只改這天" : scopeLabel} · 更改範圍</summary>
+                  <div className="mt-3 space-y-3">
                     <label className="flex items-center gap-2 text-xs text-earth-700">
                       <input
                         type="radio"
@@ -1053,14 +994,14 @@ export function ScheduleManager({
                           <div>
                             <span>設定每週{dayDetail?.dayName}固定排班</span>
                             <span className="ml-1 text-[10px] text-earth-400">含時段開關</span>
-                            <div className="mt-0.5 text-[10px] text-earth-400">會套用到未來所有週</div>
+                            <div className="mt-0.5 text-[10px] text-earth-400">依選擇週數套用</div>
                           </div>
                           <select
                             value={templateWeeks}
                             onChange={(e) => { setTemplateWeeks(Number(e.target.value)); setApplyMode("template"); }}
                             className="ml-auto rounded border border-earth-300 px-1.5 py-0.5 text-xs"
                           >
-                            <option value={52}>無限</option>
+                            <option value={52}>52 週</option>
                             <option value={4}>4 週</option>
                             <option value={8}>8 週</option>
                             <option value={12}>12 週</option>
@@ -1071,7 +1012,7 @@ export function ScheduleManager({
                       </>
                     )}
                   </div>
-                </div>
+                </details>
               )}
 
               {/* 儲存 / 回復按鈕 */}
@@ -1087,13 +1028,13 @@ export function ScheduleManager({
                         <p>新增開放：{addedTimes.join("、") || "無"}</p>
                         <p>停止開放：{removedTimes.join("、") || "無"}</p>
                         <p className="text-xs text-amber-800">重新設定服務時間會清除套用日期原有的臨時時段調整，以上方預覽為準。</p>
-                      </> : <p>{editStatus === "closed" || editStatus === "training" ? "全天停止接受新預約。" : applyMode === "day" ? "使用每週固定服務時間；當日單格時段調整仍保留。" : `固定服務時間：${editPeriods.map((period) => `${period.openTime}–${period.closeTime}`).join("、")}。各日期的特殊設定與時段調整依既有套用規則處理。`}</p>}
+                      </> : <p>{editStatus === "closed" || editStatus === "training" ? "全天停止接受新預約。" : applyMode === "day" ? "使用每週固定時段；當日單格時段調整仍保留。" : `固定服務時間：${editPeriods.map((period) => `${period.openTime}–${period.closeTime}`).join("、")}。各日期的特殊設定與時段調整依既有套用規則處理。`}</p>}
                       {applyMode !== "day" && <p className="text-xs text-amber-800">這次不只影響一天，請再次確認套用範圍。</p>}
                       <p className="text-xs text-earth-600">既有預約不會自動取消，收款與扣堂不會變動；如無法服務，請另行聯繫顧客。</p>
                       <button type="button" disabled={isPending} onClick={() => setReviewedDraft(null)} className="underline text-primary-800">返回修改</button>
                     </section>
                   )}
-                  {dayDraftDirty && <p className="mb-2 text-xs font-medium text-amber-700">尚未儲存：先確認預覽與套用範圍，再儲存。</p>}
+                  {dayDraftDirty && <p className="mb-2 text-xs font-medium text-amber-700">尚未儲存</p>}
                   <div className="flex gap-2">
                   <button
                     type="button"
@@ -1135,9 +1076,9 @@ export function ScheduleManager({
                 className="flex w-full items-center justify-between gap-3 p-4 text-left"
               >
                 <span>
-                  <span className="block text-xs font-semibold text-earth-700">進階：單一時段微調</span>
+                  <span className="block text-xs font-semibold text-earth-700">個別時段名額</span>
                   <span className="mt-0.5 block text-[11px] text-earth-400">
-                    僅供設定頁調整單格名額；開關請從預約管理的「管理時段」草稿操作
+                    臨時開關請至預約管理 → 管理時段
                   </span>
                 </span>
                 <span className="shrink-0 text-right text-[11px] text-earth-500">
@@ -1296,6 +1237,61 @@ export function ScheduleManager({
           </div>
         ) : null}
       </div>
+      <div className="min-w-0 space-y-3 xl:col-start-1">
+        {/* ===== 每週固定規則（可摺疊）===== */}
+        <div className="rounded-xl border bg-white shadow-sm">
+          <button
+            type="button"
+            aria-expanded={showWeekly}
+            onClick={() => setShowWeekly(!showWeekly)}
+            className="flex w-full items-center justify-between p-4 text-left"
+          >
+            <h3 className="text-sm font-semibold text-earth-800">每週固定時段</h3>
+            <svg className={`h-4 w-4 text-earth-400 transition ${showWeekly ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {showWeekly && (
+            <div className="border-t px-4 pb-4">
+              <p className="mb-3 pt-3 text-xs text-green-700">週一至週日分別設定，每週自動沿用。</p>
+              <div className="space-y-2">
+                {weeklyHours.map((w) => (
+                  <WeeklyDayRow
+                    key={w.dayOfWeek}
+                    day={w}
+                    canManage={canManage}
+                    isPending={isPending}
+                    isSpaStore={isSpaStore}
+                    onSave={saveWeeklyDay}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* 套用總部設定（僅非總部店顯示） */}
+        {canManage && !isHeadquarters && (
+          <details className="rounded-xl border bg-white p-4">
+            <summary className="cursor-pointer text-sm font-medium text-earth-600">總部設定</summary>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-amber-800">同步總部設定</p>
+                <p className="text-xs text-amber-600">清除本店設定，套用總部的營業時間與時段</p>
+              </div>
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {syncing ? "同步中..." : "套用總部設定"}
+              </button>
+            </div>
+          </details>
+        )}
+
+
+      </div>
     </div>
   );
 }
@@ -1358,7 +1354,7 @@ function WeeklyDayRow({
               type="button"
               onClick={() => setExpanded(!expanded)}
               className="ml-auto text-[10px] text-earth-400 hover:text-earth-600"
-              title="調整每週固定服務時間"
+              title="調整每週固定時段"
             >
               {expanded ? "收合 ▲" : "調整 ▼"}
             </button>
@@ -1387,10 +1383,10 @@ function WeeklyDayRow({
         <div className="mt-2 space-y-2 border-t border-earth-200 pt-2">
           <p className="text-[10px] text-earth-500">中間未設定的時間會自動視為休息。</p>
           {periods.map((period, index) => (
-            <div key={index} className="grid grid-cols-2 gap-1.5 rounded border border-earth-200 bg-white p-2 sm:grid-cols-4">
-              <input type="time" value={period.openTime} disabled={!canManage} className="rounded border px-1 py-1 text-[11px]"
+            <div key={index} className="grid min-w-0 grid-cols-2 gap-2 rounded border border-earth-200 bg-white p-2">
+              <input type="time" aria-label="開始時間" value={period.openTime} disabled={!canManage} className="col-span-2 block min-h-10 w-full min-w-0 max-w-full rounded border px-2 py-1 text-base sm:col-span-1"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, openTime: e.target.value } : item)); setDirty(true); }} />
-              <input type="time" value={period.closeTime} disabled={!canManage} className="rounded border px-1 py-1 text-[11px]"
+              <input type="time" aria-label="結束時間" value={period.closeTime} disabled={!canManage} className="col-span-2 block min-h-10 w-full min-w-0 max-w-full rounded border px-2 py-1 text-base sm:col-span-1"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: e.target.value } : item)); setDirty(true); }} />
               <select value={period.slotInterval} disabled={!canManage} className="rounded border px-1 py-1 text-[11px]"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item)); setDirty(true); }}>
@@ -1408,7 +1404,7 @@ function WeeklyDayRow({
           <button type="button" disabled={!canManage || periods.length >= 8}
             onClick={() => { setPeriods((items) => [...items, { openTime: "14:00", closeTime: "18:00", slotInterval: 60, defaultCapacity: day.defaultCapacity }]); setDirty(true); }}
             className="w-full rounded border border-dashed border-earth-300 py-1.5 text-[11px] text-earth-600">
-            ＋ 增加營業時段
+            ＋ 新增一段
           </button>
         </div>
       )}
