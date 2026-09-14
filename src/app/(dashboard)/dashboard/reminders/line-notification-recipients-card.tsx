@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   createStoreLineNotificationRecipient,
+  setSameDayBookingReminder,
   removeStoreLineNotificationRecipient,
   setStoreLineNotificationRecipientActive,
 } from "@/server/actions/store-line-notification-recipients";
@@ -13,6 +14,7 @@ type Recipient = {
   displayName: string;
   roleLabel: string;
   isActive: boolean;
+  sameDayBookingEnabled: boolean;
   linkedAt: Date | null;
 };
 
@@ -49,6 +51,24 @@ export function LineNotificationRecipientsCard({ recipients }: { recipients: Rec
               <p className="text-sm font-medium text-earth-900">{item.displayName}・{item.roleLabel}</p>
               <p className="text-xs text-earth-500">{item.linkedAt ? (item.isActive ? "已啟用" : "已暫停") : "等待 LINE 綁定"}</p>
             </div>
+            <label className="flex w-full items-center gap-2 text-sm text-earth-900">
+              <input
+                type="checkbox"
+                role="switch"
+                checked={item.sameDayBookingEnabled}
+                disabled={pending || !item.linkedAt || !item.isActive}
+                onChange={(event) => {
+                  const enabled = event.target.checked;
+                  startTransition(async () => {
+                    const result = await setSameDayBookingReminder(item.id, enabled);
+                    if (result.success) toast.success(enabled ? "已開啟當日新預約提醒" : "已關閉當日新預約提醒");
+                    else toast.error(result.error);
+                  });
+                }}
+              />
+              當日新預約提醒
+            </label>
+            <p className="w-full text-xs text-earth-500">顧客自行預約今天的服務時，以 LINE 即時提醒。每位人員可獨立開關。</p>
             <div className="flex gap-2">
               {item.linkedAt && (
                 <button

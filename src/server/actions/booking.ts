@@ -1,5 +1,6 @@
 "use server";
 
+import { notifySameDayBookingManagers } from "@/server/services/same-day-booking-manager-notification";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/session";
 import {
@@ -822,6 +823,9 @@ export async function createBooking(
       // 埋點失敗不影響主流程
     }
 
+    if (user.role === "CUSTOMER") {
+      await notifySameDayBookingManagers(booking.storeId, booking.id);
+    }
     revalidateAll(effectiveCustomerId);
     return { success: true, data: { bookingId: booking.id } };
   } catch (e) {
