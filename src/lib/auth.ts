@@ -64,12 +64,31 @@ interface LineUserInfoProfile {
   pictureUrl?: string | null;
 }
 
+const useSecureAuthCookies = process.env.NODE_ENV === "production";
+
 // ============================================================
 // NextAuth config
 // ============================================================
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  // LINE Login may return to an embedded browser (LIFF or the QA browser).
+  // `Lax` state cookies are omitted from cross-site iframe callbacks, which
+  // makes Auth.js reject a legitimate return as `state cookie was missing`.
+  // Keep local HTTP development on Lax; HTTPS deployments use None + Secure.
+  useSecureCookies: useSecureAuthCookies,
+  cookies: {
+    state: {
+      name: `${useSecureAuthCookies ? "__Secure-" : ""}authjs.state`,
+      options: {
+        httpOnly: true,
+        sameSite: useSecureAuthCookies ? "none" : "lax",
+        path: "/",
+        secure: useSecureAuthCookies,
+        maxAge: 60 * 15,
+      },
+    },
+  },
   // 不使用 PrismaAdapter — OAuth 帳號管理由 signIn callback 手動處理
   // 若使用 adapter + 自訂 signIn callback 會造成 User/Account 重複建立衝突
   session: { strategy: "jwt" },
@@ -526,20 +545,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        // 員工帳號不該透過 LIFF 登入（與 OAuth signIn callback line 313-321 同理）
-        if (customer.user.role !== "CUSTOMER") {
-          console.warn("[auth][liff-token] non-customer role blocked", {
-            userId: customer.user.id,
-            role: customer.user.role,
-          });
-          return null;
-        }
-
         return {
           id: customer.user.id,
           name: customer.user.name,
           email: customer.user.email ?? null,
-          role: customer.user.role,
+          // LIFF always runs in member context. Persisted OWNER/PARTNER role is
+          // retained in DB and is never overwritten by this session.
+          role: "CUSTOMER" as UserRole,
           staffId: null,
           customerId: customer.id,
           storeId: customer.storeId,

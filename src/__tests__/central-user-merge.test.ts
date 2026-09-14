@@ -13,6 +13,7 @@ function user(overrides: Partial<CentralUserMergeSnapshot> = {}): CentralUserMer
     hasPassword: true,
     accounts: [],
     identityLinks: [],
+    staffMemberLinks: [],
     customer: null,
     ...overrides,
   };
@@ -33,7 +34,7 @@ describe("buildCentralUserMergePlan", () => {
     expect(buildCentralUserMergePlan(source, target)).toMatchObject({
       executable: true,
       blockers: [],
-      moves: { accounts: 1, identityLinks: 1, directCustomer: 0 },
+      moves: { accounts: 1, identityLinks: 1, staffMemberLinks: 0, directCustomer: 0 },
     });
   });
 
@@ -157,5 +158,34 @@ describe("buildCentralUserMergePlan", () => {
       "只能整合顧客帳號；總部與店員帳號不可合併",
       "來源會員不是啟用狀態",
     ]));
+  });
+
+  it("moves an existing work identity when the target has no staff link in that store", () => {
+    const source = user({
+      staffMemberLinks: [{ id: "staff-link-a", storeId: "store-a", staffId: "staff-a" }],
+    });
+    const target = user({
+      id: "user-2",
+      accounts: [{ id: "account-line", provider: "line", providerAccountId: "line-a" }],
+    });
+
+    expect(buildCentralUserMergePlan(source, target)).toMatchObject({
+      executable: true,
+      moves: { staffMemberLinks: 1 },
+    });
+  });
+
+  it("blocks two different work identities in the same store", () => {
+    const source = user({
+      staffMemberLinks: [{ id: "staff-link-a", storeId: "store-a", staffId: "staff-a" }],
+    });
+    const target = user({
+      id: "user-2",
+      staffMemberLinks: [{ id: "staff-link-b", storeId: "store-a", staffId: "staff-b" }],
+    });
+
+    expect(buildCentralUserMergePlan(source, target).blockers).toContain(
+      "分店 store-a 已有另一個工作身分；請先由店長確認人員資料",
+    );
   });
 });

@@ -167,6 +167,8 @@ export default async function ProfilePage({ searchParams }: PageProps) {
   });
   const needsCompletion = missing.length > 0;
   const showOnboardingBanner = onboardingMode || needsCompletion;
+  const hasExternalLogin =
+    loginMethods.line.linked || loginMethods.google.linked;
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
@@ -245,6 +247,7 @@ export default async function ProfilePage({ searchParams }: PageProps) {
             customer={customerForForm}
             age={age}
             hasPassword={hasPassword}
+            hasExternalLogin={hasExternalLogin}
             onboardingMode={showOnboardingBanner}
             nextPath={nextPath}
           />

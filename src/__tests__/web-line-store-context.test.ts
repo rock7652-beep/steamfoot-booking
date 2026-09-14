@@ -15,7 +15,40 @@ describe("web LINE store handoff", () => {
     expect(resolve).toHaveBeenCalledWith(slug.toLowerCase());
     expect(result.headers.getSetCookie()).toHaveLength(2);
     expect(result.headers.getSetCookie()[1]).toContain(`oauth-store-slug=${slug.toLowerCase()};`);
+    expect(result.headers.getSetCookie()[1]).toContain("SameSite=None; Secure");
     expect(await result.text()).toBe("oauth");
+  });
+  it("accepts the exact store-scoped SPA work callback", async () => {
+    const handler = vi.fn(async () => new Response("oauth"));
+    const resolve = vi.fn(async (value: string) => ({ slug: value }));
+    const result = await withWebLineStoreContext(request("/s/spa-module-qa-20260903/liff/spa-work"), handler, resolve);
+    expect(result.status).toBe(200);
+    expect(resolve).toHaveBeenCalledWith("spa-module-qa-20260903");
+    expect(result.headers.getSetCookie()[0]).toContain("oauth-store-slug=spa-module-qa-20260903;");
+  });
+  it("clones immutable Auth.js responses before adding the store cookie", async () => {
+    const upstream = Response.redirect("https://access.line.me/oauth2/v2.1/authorize", 302);
+    // Response.redirect headers are immutable in the Fetch implementation.
+    expect(() => upstream.headers.append("Set-Cookie", "test=1")).toThrow();
+    const handler = vi.fn(async () => upstream);
+    const result = await withWebLineStoreContext(
+      request("/s/spa-module-qa-20260903/liff/spa-work"),
+      handler,
+      async value => ({ slug: value }),
+    );
+    expect(result.status).toBe(302);
+    expect(result.headers.get("location")).toBe("https://access.line.me/oauth2/v2.1/authorize");
+    expect(result.headers.getSetCookie()[0]).toContain("oauth-store-slug=spa-module-qa-20260903");
+  });
+  it.each([
+    "/s/spa-module-qa-20260903/liff",
+    "/s/spa-module-qa-20260903/liff/spa-work/other",
+    "/s/spa-module-qa-20260903/admin/dashboard",
+  ])("rejects non-allowlisted store callback %s", async callback => {
+    const handler = vi.fn();
+    const result = await withWebLineStoreContext(request(callback), handler, async value => ({ slug: value }));
+    expect(result.status).toBe(400);
+    expect(handler).not.toHaveBeenCalled();
   });
   it.each(["https://evil.example/s/zhubei/book", "/book", "/s/%2F/book", ""])("rejects invalid hint %s", async callback => {
     const handler = vi.fn();

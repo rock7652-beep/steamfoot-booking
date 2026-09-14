@@ -61,6 +61,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
    * cookie 只決定導向；實際 membership 仍由 customer layout / server resolver 驗證。
    */
   const cookieStoreSlug = req.cookies.get("store-slug")?.value;
+  const oauthStoreSlug = req.cookies.get("oauth-store-slug")?.value;
   const customerRouteSlug =
     cookieStoreSlug && cookieStoreSlug !== "__hq__" ? cookieStoreSlug : userSlug;
 
@@ -409,7 +410,16 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
       }
       return NextResponse.redirect(new URL(`/s/${userSlug}/admin/dashboard`, req.url));
     }
-    return NextResponse.redirect(legacyRedirectUrl(req.nextUrl, `/s/${DEFAULT_STORE_SLUG}/`));
+    // Auth errors must return to the store that initiated OAuth. The cookie is
+    // a routing hint only (authorization still happens in page/actions), and
+    // it was DB-validated by the sign-in endpoint before being issued.
+    const errorStoreSlug =
+      req.nextUrl.searchParams.has("error") &&
+      oauthStoreSlug &&
+      /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$/.test(oauthStoreSlug)
+        ? oauthStoreSlug
+        : DEFAULT_STORE_SLUG;
+    return NextResponse.redirect(legacyRedirectUrl(req.nextUrl, `/s/${errorStoreSlug}/`));
   }
 
   // ── 其他未知路由 ──

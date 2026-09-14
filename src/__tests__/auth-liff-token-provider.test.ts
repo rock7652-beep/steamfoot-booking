@@ -576,6 +576,16 @@ describe("auth.ts liff-token provider", () => {
     expect(mockVerifiedLineCustomer).toHaveBeenCalledWith(STORE.id, LINE_USER_ID);
     expect(mockCustomerFindFirst).not.toHaveBeenCalled();
   });
+  it("mints member context for an owner without overwriting the persisted role", async () => {
+    const authorize = await getLiffAuthorize();
+    mockVerifiedLineCustomer.mockResolvedValue({
+      id: "cust-owner", storeId: STORE.id, store: { slug: STORE.slug },
+      user: { id: "owner-line", name: "Owner Member", email: null, role: "OWNER", status: "ACTIVE" },
+    });
+    expect(await authorize({ idToken: "tok", storeSlug: STORE.slug })).toMatchObject({
+      id: "owner-line", role: "CUSTOMER", customerId: "cust-owner", storeId: STORE.id,
+    });
+  });
   it("rejects unresolved identity without using an old cookie or legacy alternate", async () => {
     const authorize = await getLiffAuthorize();
     expect(await authorize({ idToken: "tok", storeSlug: STORE.slug })).toBeNull();

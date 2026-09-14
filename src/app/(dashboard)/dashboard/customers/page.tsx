@@ -81,14 +81,15 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   if(customersStoreId && await getStoreIndustryModule(customersStoreId)==="spa") {
     const canSell=!isViewMode && await checkPermission(user.role,user.staffId,"wallet.create") && await checkPermission(user.role,user.staffId,"transaction.create");
     const canRefund=!isViewMode && await checkPermission(user.role,user.staffId,"transaction.refund");
-    const [canEdit,canCreate,canBook,canReadBookings,canReadWallet,canReadTransactions]=await Promise.all([
+    const [canEdit,canCreate,canBook,canReadBookings,canReadWallet,canReadTransactions,canManageStaff]=await Promise.all([
       checkPermission(user.role,user.staffId,"customer.update"),checkPermission(user.role,user.staffId,"customer.create"),
       checkPermission(user.role,user.staffId,"booking.create"),checkPermission(user.role,user.staffId,"booking.read"),
       checkPermission(user.role,user.staffId,"wallet.read"),checkPermission(user.role,user.staffId,"transaction.read"),
+      checkPermission(user.role,user.staffId,"duty.manage"),
     ]);
     return <SpaCustomers storeId={customersStoreId} search={params.search??""} canSell={canSell} canRefund={canRefund}
       canEdit={!isViewMode&&canEdit} canCreate={!isViewMode&&canCreate} canBook={!isViewMode&&canBook&&canReadBookings}
-      canReadBookings={canReadBookings} canReadAccounts={canReadWallet&&canReadTransactions}/>;
+      canReadBookings={canReadBookings} canReadAccounts={canReadWallet&&canReadTransactions} canManageStaff={!isViewMode&&user.role==="OWNER"&&canManageStaff}/>;
   }
   const logCtx = {
     page: "customers" as const,

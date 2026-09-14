@@ -512,6 +512,8 @@ model User {
   staff                           Staff?
   customer                        Customer?
   customerIdentityLinks           CustomerIdentityLink[]
+  staffMemberLinks                StaffMemberLink[]                @relation("StaffMemberLinkUser")
+  staffMemberLinksCreated         StaffMemberLink[]                @relation("StaffMemberLinkCreator")
   healthHistoryGrants             CustomerHealthHistoryGrant[]
   centralMemberLinkReviewRequests CentralMemberLinkReviewRequest[]
   lineRebindRequestsCreated       LineRebindRequest[]              @relation("LineRebindRequestCreatedBy")
@@ -634,6 +636,7 @@ model Store {
   digitalButlerExecutionLogs  DigitalButlerExecutionLog[]
 
   staff                             Staff[]
+  staffMemberLinks                  StaffMemberLink[]
   customers                         Customer[]
   customerIdentityLinks             CustomerIdentityLink[]
   healthHistoryGrantsReceived       CustomerHealthHistoryGrant[]
@@ -676,7 +679,7 @@ model Store {
   lineNotificationRecipients        StoreLineNotificationRecipient[]
   messengerAuditRuns                MessengerAuditRun[]
   customerHealthRecords             CustomerHealthRecord[]
-  moduleInstallation StoreModuleInstallation?
+  moduleInstallation                StoreModuleInstallation?
 
   cashDrawerSessions CashDrawerSession[]
   cashDrawerEntries  CashDrawerEntry[]
@@ -1025,11 +1028,38 @@ model Staff {
   dutyAssignments DutyAssignment[] @relation("DutyStaff")
   dutyCreatedBy   DutyAssignment[] @relation("DutyCreatedBy")
 
+  // 會員登入與營運人員紀錄分離。連結不改寫 Staff.userId，避免破壞舊預約、排班與結算關係。
+  memberLink StaffMemberLink?
+
   // 註銷的單堂明細
   voidedSessions WalletSession[] @relation("VoidedSessions")
 
   @@unique([id, storeId])
   @@index([storeId])
+}
+
+// 同一個中央會員可在不同店具有不同工作身分。所有授權必須同時核對
+// userId + storeId + staffId；姓名與電話只用於顯示／搜尋，絕不授權。
+model StaffMemberLink {
+  id             String    @id @default(cuid())
+  userId         String
+  storeId        String
+  staffId        String
+  linkedByUserId String?
+  linkedAt       DateTime  @default(now())
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user     User  @relation("StaffMemberLinkUser", fields: [userId], references: [id], onDelete: Restrict)
+  linkedBy User? @relation("StaffMemberLinkCreator", fields: [linkedByUserId], references: [id], onDelete: SetNull)
+  store    Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  staff    Staff @relation(fields: [staffId, storeId], references: [id, storeId], onDelete: Restrict)
+
+  @@unique([staffId, storeId], name: "uq_staff_member_link_staff_store")
+  @@unique([userId, storeId], name: "uq_staff_member_link_user_store")
+  @@index([storeId, revokedAt])
+  @@index([userId])
 }
 
 // ============================================================
@@ -2868,16 +2898,16 @@ enum StoreModuleInstallationStatus {
 }
 
 model StoreModuleInstallation {
-  id              String                        @id @default(cuid())
-  storeId         String                        @unique
-  module          IndustryModule
-  version         Int                           @default(1)
-  status          StoreModuleInstallationStatus @default(PROVISIONING)
-  failureCode     String?
-  failureDetail   String?
-  provisionedAt   DateTime?
-  createdAt       DateTime                      @default(now())
-  updatedAt       DateTime                      @updatedAt
+  id            String                        @id @default(cuid())
+  storeId       String                        @unique
+  module        IndustryModule
+  version       Int                           @default(1)
+  status        StoreModuleInstallationStatus @default(PROVISIONING)
+  failureCode   String?
+  failureDetail String?
+  provisionedAt DateTime?
+  createdAt     DateTime                      @default(now())
+  updatedAt     DateTime                      @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 

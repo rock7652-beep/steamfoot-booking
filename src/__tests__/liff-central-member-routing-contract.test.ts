@@ -25,6 +25,8 @@ describe("central-member LIFF routing contract", () => {
 
     expect(resolver).toContain("NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID");
     expect(resolver).toContain("CENTRAL_MEMBER_LIFF_ENTRY_STORE_SLUG");
+    expect(resolver).toContain("resolveStorePresentation(storeSlug)");
+    expect(resolver).toContain("replaceRetiredCentralMemberLiffId(targetStoreLiffId)");
     expect(resolver).toContain('?? "zhubei"');
     expect(resolver).toContain("resolveStorePresentation(entryStoreSlug)");
     expect(resolver).toContain("replaceRetiredCentralMemberLiffId(configured)");
@@ -82,5 +84,17 @@ describe("central-member LIFF routing contract", () => {
     expect(shell).toContain("正在讀取目前門市資料…");
     expect(shell).toContain('setMemberSummary("error")');
     expect(shell).toContain("您的方案與堂數不會受到影響");
+  });
+
+  it("uses the store module for member terminology and feature visibility", () => {
+    const page = source("src/app/(liff)/liff/page.tsx");
+    const shell = source("src/app/(liff)/liff/liff-shell.tsx");
+
+    expect(page).toContain("getStoreIndustryModule(presentation.id)");
+    expect(page).toContain("industryModule.features.healthAssessment");
+    expect(page).toContain('industryModule.id === "spa"');
+    expect(page).toContain("/book/new");
+    expect(shell).toContain("terminology={terminology}");
+    expect(shell).toContain("bookingHref={bookingHref}");
   });
 });

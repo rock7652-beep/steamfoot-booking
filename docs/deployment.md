@@ -43,9 +43,11 @@
 
 一般沒有 schema 變更的 PR 不需要、也不得設定 `PRODUCTION_MIGRATION_TARGET`；因此合併後的 Production build 不會連線 Production DB。
 
-只有已由程式碼固定 allowlist 的**單一精確 migration ID**才能作為 target。target 不接受多筆值、glob 或任意 migration 名稱；任何不符、連線驗證、status 或 deploy 失敗都會 fail closed。設定 target 前須由維運人員獨立審核並在 migration 成功後移除，避免後續一般部署再次連線資料庫。
+只有已由程式碼固定 allowlist 的**單一精確 migration ID 或固定 release target**才能作為 target。target 不接受多筆值、glob 或任意 migration 名稱；任何不符、連線驗證、status 或 deploy 失敗都會 fail closed。設定 target 前須由維運人員獨立審核並在 migration 成功後移除，避免後續一般部署再次連線資料庫。
 
 每個 target 必須各自固定 migration SQL checksum、唯一允許的 pending migration，以及套用前後的 schema fingerprint。`20260802090000_add_digital_butler_human_support_summary` 只允許在 7 個摘要欄位與店別索引完全不存在、且沒有其他 pending migration 時執行；完成後必須核對欄位型別、nullable、索引欄位及 migration ledger。部分 schema、額外 pending migration 或 checksum 不符均會中止部署。
+
+`spa_member_staff_release_20260914` 是唯一例外的固定 release target：它只接受依時間排序的 `20260826143000_add_recurring_confirmation_notification` 與 `20260913090000_add_staff_member_link`，或前者已精確套用後只剩後者。兩份 SQL checksum、前置空白結構、完成後欄位／索引／外鍵／RLS／browser-role grants、migration ledger 與最終無 pending 狀態都必須相符；執行期間另取得 transaction-level advisory lock。任何其他 pending migration、部分結構或非正式 Supabase project ref 都會中止。
 
 ---
 

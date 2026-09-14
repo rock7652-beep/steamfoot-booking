@@ -49,6 +49,7 @@ export async function getSpaCustomerDrawer(customerId: string) {
         canEdit: false,
         canCreate: false,
         canBook: false,
+        canManageStaff: false,
       },
     };
   } catch (error) {

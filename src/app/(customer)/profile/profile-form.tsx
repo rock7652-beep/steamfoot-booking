@@ -22,6 +22,8 @@ interface Props {
   age: number | null;
   /** 是否已設定登入密碼 — 控制密碼欄位是必填還是「留空＝不變更」 */
   hasPassword: boolean;
+  /** LINE / Google 已驗證登入，不要求另設一組密碼。 */
+  hasExternalLogin?: boolean;
   onboardingMode?: boolean;
   nextPath?: string | null;
 }
@@ -30,6 +32,7 @@ export function ProfileForm({
   customer,
   age,
   hasPassword,
+  hasExternalLogin = false,
   onboardingMode = false,
   nextPath = null,
 }: Props) {
@@ -113,26 +116,32 @@ export function ProfileForm({
         <p className={hintCls}>09 開頭共 10 碼，無需輸入空格或連字號</p>
       </div>
 
-      <div>
-        <label htmlFor="password" className={labelCls}>
-          登入密碼{!hasPassword && <span className="text-red-600"> *</span>}
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required={!hasPassword}
-          minLength={6}
-          autoComplete={hasPassword ? "new-password" : "new-password"}
-          placeholder={hasPassword ? "留空表示不變更" : "至少 6 碼"}
-          className={inputCls}
-        />
-        <p className={hintCls}>
-          {hasPassword
-            ? "已設定手機登入。密碼留空表示不變更。"
-            : "設定後即可使用上方手機號碼＋密碼登入。"}
-        </p>
-      </div>
+      {!hasPassword && hasExternalLogin ? (
+        <div className="rounded-xl border border-primary-100 bg-primary-50/60 px-4 py-3 text-sm text-primary-800">
+          已使用 LINE 或 Google 登入，不需另設密碼。
+        </div>
+      ) : (
+        <div>
+          <label htmlFor="password" className={labelCls}>
+            登入密碼{!hasPassword && <span className="text-red-600"> *</span>}
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required={!hasPassword}
+            minLength={6}
+            autoComplete="new-password"
+            placeholder={hasPassword ? "留空表示不變更" : "至少 6 碼"}
+            className={inputCls}
+          />
+          <p className={hintCls}>
+            {hasPassword
+              ? "已設定手機登入。密碼留空表示不變更。"
+              : "設定後即可使用上方手機號碼＋密碼登入。"}
+          </p>
+        </div>
+      )}
 
       <div>
         <label htmlFor="email" className={labelCls}>

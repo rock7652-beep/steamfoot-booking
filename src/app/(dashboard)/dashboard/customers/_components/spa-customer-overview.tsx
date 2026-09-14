@@ -6,6 +6,7 @@ import {
   getSpaCustomerProfile,
 } from "@/server/actions/spa-customer-profile";
 import type { SpaCustomerSummary } from "@/server/queries/spa-customer-summary";
+import { AddSpaStaffButton } from "./add-spa-staff-button";
 export type SpaCustomerProfile = Extract<
   Awaited<ReturnType<typeof getSpaCustomerProfile>>,
   { success: true }
@@ -16,6 +17,7 @@ export function SpaCustomerOverview({
   canEdit,
   canBook,
   canReadBookings,
+  canManageStaff,
   onSaved,
 }: {
   customer: SpaCustomerSummary;
@@ -23,6 +25,7 @@ export function SpaCustomerOverview({
   canEdit: boolean;
   canBook: boolean;
   canReadBookings: boolean;
+  canManageStaff: boolean;
   onSaved: () => void;
 }) {
   const [note, setNote] = useState(profile.customer.serviceNote ?? ""),
@@ -42,6 +45,7 @@ export function SpaCustomerOverview({
               編輯基本資料
             </DashboardLink>
           )}
+          {canManageStaff && <AddSpaStaffButton customerId={customer.id} />}
           <section
             hidden={!canReadBookings}
             className="rounded-xl border border-earth-200 p-4"

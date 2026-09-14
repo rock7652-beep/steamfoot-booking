@@ -16,6 +16,7 @@ import {
 import { bindReferralToCustomer } from "@/server/services/referral-binding";
 import { normalizePhone } from "@/lib/normalize";
 import { parseBirthday } from "@/lib/birthday";
+import { requiresProfilePassword } from "@/lib/profile-password-policy";
 import { Prisma, type UserRole } from "@prisma/client";
 
 // ============================================================
@@ -318,16 +319,33 @@ async function updateProfileActionInner(formData: FormData): Promise<ProfileStat
     birthday = parsedBirthday.value;
   }
 
-  // 密碼：首次設定（User 還沒有 passwordHash）必填，已有 hash 則留空＝不變更。
+  // 密碼：LINE / Google 使用者沿用既有 OAuth 身分，不要求再建立密碼。
+  // 純手機登入使用者首次設定仍必填；已有 hash 則留空＝不變更。
   // 規則統一在後端：≥ 6 碼。實際 hash 寫入點在 customer 建立／更新成功之後（見下方）。
   // 注意：existingPasswordHash 在這裡只查 User row 一次，避免重複往返。
   const userPasswordRow = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { passwordHash: true },
+    select: {
+      passwordHash: true,
+      accounts: {
+        where: { provider: { in: ["line", "google"] } },
+        select: { provider: true },
+        take: 1,
+      },
+    },
   });
   const existingPasswordHash = userPasswordRow?.passwordHash ?? null;
-  const password = passwordInput.trim();
-  if (!existingPasswordHash) {
+  const linkedProviders =
+    (userPasswordRow?.accounts ?? []).map((account) => account.provider);
+  const passwordRequired = requiresProfilePassword({
+    hasPassword: !!existingPasswordHash,
+    providers: linkedProviders,
+  });
+  const hasExternalLogin = !passwordRequired && !existingPasswordHash;
+  // 防止自製表單替 OAuth-only 帳號偷偷建立密碼；這條路徑一律忽略該欄位。
+  const password =
+    !existingPasswordHash && hasExternalLogin ? "" : passwordInput.trim();
+  if (passwordRequired) {
     if (!password) {
       return {
         error: "請設定至少 6 碼密碼，之後可用手機號碼登入。",

@@ -5,9 +5,26 @@ import { consumeTaichungCallback, isTaichungCoordinatorState, resolveTaichungLin
 import { issueTaichungLineSession } from "@/lib/line-oauth/taichung-session";
 import { setOAuthTempSession } from "@/lib/server/oauth-temp-session";
 import { resolveTaichungCallbackUrl } from "@/lib/line-oauth/callback-url";
+import {
+  consumeMobileCallback,
+  isMobileCoordinatorState,
+  MobileLineOAuthError,
+} from "@/lib/line-oauth/mobile-coordinator";
+import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 
 function preserveTaichungStore(response: NextResponse): NextResponse {
   response.cookies.set("store-slug", "taichung", {
+    path: "/",
+    httpOnly: false,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24,
+  });
+  return response;
+}
+
+function preserveStore(response: NextResponse, storeSlug: string): NextResponse {
+  response.cookies.set("store-slug", storeSlug, {
     path: "/",
     httpOnly: false,
     secure: true,
@@ -26,6 +43,66 @@ function lineIdentityFingerprint(value: string): { suffix: string; sha256Prefix:
 
 export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
+  if (isMobileCoordinatorState(state)) {
+    const code = request.nextUrl.searchParams.get("code");
+    if (!code || !state) {
+      return NextResponse.json({ error: "Invalid LINE callback" }, { status: 400 });
+    }
+    try {
+      const callbackUrl = resolveTaichungCallbackUrl(request.nextUrl.host);
+      if (!callbackUrl) {
+        return NextResponse.json({ error: "Invalid LINE callback host" }, { status: 400 });
+      }
+      const callback = await consumeMobileCallback({ state, code, callbackUrl });
+      // `consumeMobileCallback` has verified this subject against the Web LINE
+      // Login channel. Resolve it through the canonical `line` Account/link
+      // namespace and require an active membership in the signed store. This
+      // deliberately does not fall back to phone/name or grant cross-store
+      // access.
+      const customer = await resolveVerifiedLineCustomer(
+        callback.storeId,
+        callback.profile.userId,
+      );
+      if (!customer) {
+        const destination = new URL(`/s/${callback.storeSlug}/`, request.url);
+        destination.searchParams.set("error", "OAuthAccountNotLinked");
+        return preserveStore(NextResponse.redirect(destination, 303), callback.storeSlug);
+      }
+
+      const ticket = issueTaichungLineSession({
+        attemptId: callback.attemptId,
+        userId: customer.userId,
+        customerId: customer.id,
+        storeId: callback.storeId,
+        lineUserId: callback.profile.userId,
+      });
+      const redirectTo = new URL(callback.returnPath, request.url).toString();
+      const responseUrl = await signIn("line-taichung-coordinator", {
+        redirect: false,
+        redirectTo,
+        ticket,
+      });
+      const destination = new URL(String(responseUrl), request.url);
+      if (
+        destination.origin !== request.nextUrl.origin ||
+        destination.pathname !== callback.returnPath
+      ) {
+        return NextResponse.json({ error: "LINE callback failed" }, { status: 400 });
+      }
+      console.info("[line-oauth][web-mobile] session created", {
+        attemptId: callback.attemptId,
+        storeId: callback.storeId,
+        returnPath: callback.returnPath,
+      });
+      return preserveStore(NextResponse.redirect(destination, 303), callback.storeSlug);
+    } catch (error) {
+      const message = error instanceof MobileLineOAuthError
+        ? error.message
+        : "LINE callback failed";
+      console.warn("[line-oauth][web-mobile] callback failed", { message });
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
   // `tc1.` is coordinator-owned. Invalid coordinator state must fail closed
   // here; it must never be passed to the legacy global LINE provider.
   if (!isTaichungCoordinatorState(state)) return handlers.GET(request);

@@ -42,6 +42,11 @@ export interface LiffBookingRow {
   isMakeup: boolean;
   /** 預約人數；首頁方案摘要以所有未來預約人數加總。 */
   people: number;
+  /** SPA-only display fields. Legacy rows intentionally omit them. */
+  endTime?: string;
+  serviceName?: string;
+  staffName?: string;
+  locationName?: string;
 }
 
 export type FetchLiffBookingsResult =

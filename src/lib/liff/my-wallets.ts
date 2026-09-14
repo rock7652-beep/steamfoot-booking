@@ -42,7 +42,12 @@ export function splitLiffWallets<
 
   for (const w of wallets) {
     // 終態 — 直接 history
-    if (w.status === "USED_UP" || w.status === "CANCELLED") {
+    if (
+      w.status === "USED_UP" ||
+      w.status === "CANCELLED" ||
+      w.status === "EXHAUSTED" ||
+      w.status === "VOIDED"
+    ) {
       history.push(w);
       continue;
     }

@@ -10,6 +10,7 @@ export type CentralUserMergeSnapshot = {
   hasPassword: boolean;
   accounts: Array<{ id: string; provider: string; providerAccountId: string }>;
   identityLinks: Array<{ id: string; storeId: string; customerId: string; provider: string; providerAccountId: string }>;
+  staffMemberLinks: Array<{ id: string; storeId: string; staffId: string }>;
   customer: { id: string; storeId: string; name: string; phone: string } | null;
 };
 
@@ -22,6 +23,7 @@ export type CentralUserMergePlan = {
   moves: {
     accounts: number;
     identityLinks: number;
+    staffMemberLinks: number;
     directCustomer: number;
   };
 };
@@ -79,6 +81,16 @@ export function buildCentralUserMergePlan(
     }
   }
 
+  const targetStaffLinks = new Map(
+    target.staffMemberLinks.map((link) => [link.storeId, link]),
+  );
+  for (const link of source.staffMemberLinks) {
+    const existing = targetStaffLinks.get(link.storeId);
+    if (existing && existing.staffId !== link.staffId) {
+      blockers.push(`分店 ${link.storeId} 已有另一個工作身分；請先由店長確認人員資料`);
+    }
+  }
+
   if (source.customer && target.customer) {
     blockers.push("兩個會員都直接連到顧客資料；請先完成店內重複顧客處理");
   }
@@ -119,6 +131,9 @@ export function buildCentralUserMergePlan(
       identityLinks: source.identityLinks.filter(
         (link) => !targetLinks.has(`${link.storeId}\u0000${link.provider}`),
       ).length,
+      staffMemberLinks: source.staffMemberLinks.filter(
+        (link) => !targetStaffLinks.has(link.storeId),
+      ).length,
       directCustomer: source.customer && !target.customer ? 1 : 0,
     },
   };
@@ -134,6 +149,10 @@ const snapshotSelect = {
   customerIdentityLinks: {
     select: { id: true, storeId: true, customerId: true, provider: true, providerAccountId: true },
   },
+  staffMemberLinks: {
+    where: { revokedAt: null },
+    select: { id: true, storeId: true, staffId: true },
+  },
   customer: { select: { id: true, storeId: true, name: true, phone: true } },
 } satisfies Prisma.UserSelect;
 
@@ -146,6 +165,7 @@ function toSnapshot(row: Prisma.UserGetPayload<{ select: typeof snapshotSelect }
     hasPassword: row.passwordHash !== null,
     accounts: row.accounts,
     identityLinks: row.customerIdentityLinks,
+    staffMemberLinks: row.staffMemberLinks,
     customer: row.customer,
   };
 }
@@ -224,6 +244,12 @@ export async function executeCentralUserMerge(input: {
     const movableLinks = source.identityLinks.filter(
       (link) => !targetLinkKeys.has(`${link.storeId}\u0000${link.provider}`),
     );
+    const targetStaffStores = new Set(
+      target.staffMemberLinks.map((link) => link.storeId),
+    );
+    const movableStaffLinks = source.staffMemberLinks.filter(
+      (link) => !targetStaffStores.has(link.storeId),
+    );
 
     if (movableAccounts.length) {
       await tx.account.updateMany({ where: { id: { in: movableAccounts.map((row) => row.id) } }, data: { userId: target.id } });
@@ -234,6 +260,9 @@ export async function executeCentralUserMerge(input: {
     if (movableLinks.length) {
       await tx.customerIdentityLink.updateMany({ where: { id: { in: movableLinks.map((row) => row.id) } }, data: { userId: target.id } });
     }
+    if (movableStaffLinks.length) {
+      await tx.staffMemberLink.updateMany({ where: { id: { in: movableStaffLinks.map((row) => row.id) } }, data: { userId: target.id } });
+    }
     if (source.customer && !target.customer) {
       await tx.customer.update({ where: { id: source.customer.id }, data: { userId: target.id } });
     }
@@ -243,10 +272,11 @@ export async function executeCentralUserMerge(input: {
       where: { id: source.id },
       data: { status: "SUSPENDED", email: null, phone: null, passwordHash: null },
     });
-    const [afterOperations, sourceAccounts, sourceLinks, sourceSessions, sourceCustomers, targetAccounts] = await Promise.all([
+    const [afterOperations, sourceAccounts, sourceLinks, sourceStaffLinks, sourceSessions, sourceCustomers, targetAccounts] = await Promise.all([
       operationalFingerprint(tx, affectedCustomerIds),
       tx.account.count({ where: { userId: source.id } }),
       tx.customerIdentityLink.count({ where: { userId: source.id } }),
+      tx.staffMemberLink.count({ where: { userId: source.id, revokedAt: null } }),
       tx.session.count({ where: { userId: source.id } }),
       tx.customer.count({ where: { userId: source.id } }),
       tx.account.count({ where: { userId: target.id } }),
@@ -254,7 +284,7 @@ export async function executeCentralUserMerge(input: {
     if (beforeOperations.hash !== afterOperations.hash) {
       throw new Error("中央會員整合驗收失敗：方案、堂數、預約、付款或 LINE 綁定發生變化，已回滾");
     }
-    if (sourceAccounts !== 0 || sourceLinks !== 0 || sourceSessions !== 0 || sourceCustomers !== 0) {
+    if (sourceAccounts !== 0 || sourceLinks !== 0 || sourceStaffLinks !== 0 || sourceSessions !== 0 || sourceCustomers !== 0) {
       throw new Error("中央會員整合驗收失敗：來源登入或會員關聯尚未清除，已回滾");
     }
     const targetLoginMethods = targetAccounts + (target.hasPassword ? 1 : 0);
