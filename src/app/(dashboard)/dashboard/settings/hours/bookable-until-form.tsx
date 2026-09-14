@@ -30,6 +30,7 @@ export function BookableUntilForm({
   const [savedMode, setSavedMode] = useState<"fixed" | "rolling">(initialMode);
   const [savedDate, setSavedDate] = useState(initialDate);
   const [savedDays, setSavedDays] = useState(initialDays);
+  const [expanded, setExpanded] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -61,16 +62,23 @@ export function BookableUntilForm({
 
   return (
     <section className="rounded-xl border border-earth-200 bg-white px-5 py-4 shadow-sm">
-      <header className="mb-2">
-        <h2 className="text-sm font-semibold text-earth-900">
-          顧客預約開放範圍
-        </h2>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-earth-500">
-          直接設定顧客最遠可以預約到哪一天。後台代客預約不受影響。
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-semibold text-earth-900">預約開放期限</h2>
+          <p className="mt-0.5 text-[11px] text-earth-500">
+            {savedMode === "fixed" && savedDate
+              ? `開放至 ${formatDateZh(savedDate)}`
+              : `自動開放未來 ${savedDays} 天`}
+          </p>
+        </div>
+        {canManage && (
+          <button type="button" onClick={() => setExpanded((value) => !value)} className="shrink-0 rounded border border-earth-300 px-2.5 py-1 text-xs font-medium text-earth-700 hover:bg-earth-50">
+            {expanded ? "收合" : "修改"}
+          </button>
+        )}
       </header>
 
-      <fieldset className="space-y-2 text-xs text-earth-600">
+      {expanded && <fieldset className="mt-3 space-y-2 text-xs text-earth-600">
         <legend className="mb-1">顧客可以預約到何時？</legend>
         <label
           className={`block cursor-pointer rounded-lg border px-3 py-3 ${mode === "fixed" ? "border-primary-400 bg-primary-50" : "border-earth-300 bg-white"}`}
@@ -133,8 +141,8 @@ export function BookableUntilForm({
             範圍會每天自動往後延伸，不需要店長重新設定。
           </span>
         </label>
-      </fieldset>
-      {canManage && (
+      </fieldset>}
+      {canManage && expanded && (
         <div className="mt-3">
           <button
             type="button"
@@ -147,17 +155,11 @@ export function BookableUntilForm({
         </div>
       )}
 
-      <p className="mt-2 text-[11px] text-earth-500">
+      {expanded && <p className="mt-2 text-[11px] text-earth-500">
         目前開放預約至：
-        <span className="font-semibold text-earth-800">
-          {` ${formatDateZh(
-            savedMode === "fixed" && savedDate
-              ? savedDate
-              : addTaiwanDuration(today, savedDays, "DAY"),
-          )}`}
-        </span>
+        <span className="font-semibold text-earth-800">{` ${formatDateZh(savedMode === "fixed" && savedDate ? savedDate : addTaiwanDuration(today, savedDays, "DAY"))}`}</span>
         {savedMode === "rolling" && `（未來 ${savedDays} 天，自動延長）`}
-      </p>
+      </p>}
     </section>
   );
 }

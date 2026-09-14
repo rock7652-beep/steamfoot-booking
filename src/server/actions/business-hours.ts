@@ -703,7 +703,90 @@ export async function getDaySlotOverrides(dateStr: string) {
   });
 }
 
-/** 切換單一時段的開/關（toggle） */
+/**
+ * 儲存單日多個時段覆寫。這是設定頁與預約管理共用的唯一寫入入口；
+ * 關閉只停止新預約，絕不變更既有 booking、收款或扣堂資料。
+ */
+export async function applyDaySlotOverrides(input: {
+  date: string;
+  changes: Array<{
+    startTime: string;
+    action: "disable" | "enable" | "remove";
+    reason?: string;
+  }>;
+}): Promise<ActionResult<{ changed: number; bookedPeopleKept: number }>> {
+  try {
+    const user = await requirePermission("business_hours.manage");
+    const storeId = await resolveWriteStoreId(user);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
+      throw new AppError("VALIDATION", "日期格式不正確");
+    }
+    if (input.changes.length < 1 || input.changes.length > 48) {
+      throw new AppError("VALIDATION", "請選擇 1–48 個時段");
+    }
+    const times = new Set<string>();
+    for (const change of input.changes) {
+      if (!/^\d{2}:\d{2}$/.test(change.startTime) || times.has(change.startTime)) {
+        throw new AppError("VALIDATION", "時段資料不正確或重複");
+      }
+      times.add(change.startTime);
+    }
+
+    const dateObj = new Date(input.date + "T00:00:00Z");
+    const booked = await prisma.booking.groupBy({
+      by: ["slotTime"],
+      where: {
+        storeId,
+        bookingDate: dateObj,
+        slotTime: { in: [...times] },
+        bookingStatus: { in: ["PENDING", "CONFIRMED"] },
+      },
+      _sum: { people: true },
+    });
+    const bookedByTime = new Map(booked.map((row) => [row.slotTime, row._sum.people ?? 0]));
+
+    await prisma.$transaction(async (tx) => {
+      for (const change of input.changes) {
+        if (change.action === "remove") {
+          await tx.slotOverride.deleteMany({
+            where: { storeId, date: dateObj, startTime: change.startTime },
+          });
+          continue;
+        }
+        await tx.slotOverride.upsert({
+          where: { storeId_date_startTime: { storeId, date: dateObj, startTime: change.startTime } },
+          update: {
+            type: change.action === "disable" ? "disabled" : "enabled",
+            capacity: null,
+            reason: change.reason ?? null,
+          },
+          create: {
+            storeId,
+            date: dateObj,
+            startTime: change.startTime,
+            type: change.action === "disable" ? "disabled" : "enabled",
+            reason: change.reason ?? null,
+          },
+        });
+      }
+    });
+
+    revalidateSpecialDays();
+    return {
+      success: true,
+      data: {
+        changed: input.changes.length,
+        bookedPeopleKept: input.changes
+          .filter((change) => change.action === "disable")
+          .reduce((total, change) => total + (bookedByTime.get(change.startTime) ?? 0), 0),
+      },
+    };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+/** 切換單一時段的開/關（設定頁的快速操作；與批次操作共用相同規則） */
 export async function toggleSlotOverride(input: {
   date: string;       // YYYY-MM-DD
   startTime: string;  // HH:mm
@@ -715,23 +798,6 @@ export async function toggleSlotOverride(input: {
     const storeId = await resolveWriteStoreId(user);
 
     const dateObj = new Date(input.date + "T00:00:00Z");
-
-    // ② 關閉時段前檢查是否有預約
-    if (input.action === "disable") {
-      const bookedAgg = await prisma.booking.aggregate({
-        where: {
-          storeId,
-          bookingDate: dateObj,
-          slotTime: input.startTime,
-          bookingStatus: { in: ["PENDING", "CONFIRMED"] },
-        },
-        _sum: { people: true },
-      });
-      const bookedCount = bookedAgg._sum.people ?? 0;
-      if (bookedCount > 0) {
-        throw new AppError("VALIDATION", `${input.startTime} 尚有 ${bookedCount} 人預約，無法關閉。請先取消該時段預約`);
-      }
-    }
 
     if (input.action === "remove") {
       await prisma.slotOverride.deleteMany({
