@@ -13,6 +13,11 @@ import {
   PAYMENT_SPLIT_RLS_MIGRATION,
   TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM,
   TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
+  RECURRING_CONFIRMATION_CHECKSUM,
+  RECURRING_CONFIRMATION_MIGRATION,
+  STAFF_MEMBER_LINK_CHECKSUM,
+  STAFF_MEMBER_LINK_MIGRATION,
+  SPA_MEMBER_STAFF_RELEASE_TARGET,
   APPROVED_PRODUCTION_MIGRATION_TARGETS,
   PRODUCTION_MIGRATION_TARGET_ENV,
   classifyMessengerMigration,
@@ -24,6 +29,7 @@ import {
   hasOnlyHumanSupportSummaryPending,
   hasOnlyPaymentSplitRlsPending,
   hasOnlyTransactionConversionSnapshotPending,
+  hasAllowedSpaMemberStaffReleasePending,
   hasNoHumanSupportSummaryObjects,
   hasExpectedHumanSupportSummarySchema,
   isAppliedPaymentSplitMigration,
@@ -33,6 +39,10 @@ import {
   hasNoTransactionConversionSnapshotColumns,
   hasExpectedTransactionConversionSnapshotColumns,
   hasExpectedPaymentSplitRls,
+  hasNoRecurringConfirmationColumns,
+  hasExpectedRecurringConfirmationColumns,
+  hasNoStaffMemberLinkObjects,
+  hasExpectedStaffMemberLinkSchema,
   awaitsManualReconciliation,
   migrationChecksum,
   projectRefFromConnectionString,
@@ -60,6 +70,14 @@ const paymentSplitRlsMigration = resolve(
 const transactionConversionSnapshotMigration = resolve(
   process.cwd(),
   `prisma/migrations/${TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION}/migration.sql`,
+);
+const recurringConfirmationMigration = resolve(
+  process.cwd(),
+  `prisma/migrations/${RECURRING_CONFIRMATION_MIGRATION}/migration.sql`,
+);
+const staffMemberLinkMigration = resolve(
+  process.cwd(),
+  `prisma/migrations/${STAFF_MEMBER_LINK_MIGRATION}/migration.sql`,
 );
 const completeMessengerSnapshot = {
   enumValues: ["RUNNING", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED"],
@@ -134,11 +152,13 @@ describe("Production migration recovery guard", () => {
       HUMAN_SUPPORT_SUMMARY_MIGRATION,
       PAYMENT_SPLIT_RLS_MIGRATION,
       TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
+      SPA_MEMBER_STAFF_RELEASE_TARGET,
     ]);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_MIGRATION)).toBe(PAYMENT_SPLIT_MIGRATION);
     expect(resolveProductionMigrationTarget(HUMAN_SUPPORT_SUMMARY_MIGRATION)).toBe(HUMAN_SUPPORT_SUMMARY_MIGRATION);
     expect(resolveProductionMigrationTarget(PAYMENT_SPLIT_RLS_MIGRATION)).toBe(PAYMENT_SPLIT_RLS_MIGRATION);
     expect(resolveProductionMigrationTarget(TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION)).toBe(TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION);
+    expect(resolveProductionMigrationTarget(SPA_MEMBER_STAFF_RELEASE_TARGET)).toBe(SPA_MEMBER_STAFF_RELEASE_TARGET);
 
     const result = spawnSync(process.execPath, [scriptPath], {
       encoding: "utf8",
@@ -171,6 +191,8 @@ describe("Production migration recovery guard", () => {
     expect(migrationChecksum(humanSupportSummaryMigration)).toBe(HUMAN_SUPPORT_SUMMARY_CHECKSUM);
     expect(migrationChecksum(paymentSplitRlsMigration)).toBe(PAYMENT_SPLIT_RLS_CHECKSUM);
     expect(migrationChecksum(transactionConversionSnapshotMigration)).toBe(TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM);
+    expect(migrationChecksum(recurringConfirmationMigration)).toBe(RECURRING_CONFIRMATION_CHECKSUM);
+    expect(migrationChecksum(staffMemberLinkMigration)).toBe(STAFF_MEMBER_LINK_CHECKSUM);
   });
 
   it("supports the applied Messenger path without resolve", () => {
@@ -298,6 +320,61 @@ describe("Production migration recovery guard", () => {
     ))).toBe(false);
   });
 
+  it("allows only the exact ordered SPA member/staff release pending set", () => {
+    const pair = `${PENDING}\n${RECURRING_CONFIRMATION_MIGRATION}\n${STAFF_MEMBER_LINK_MIGRATION}\n`;
+    const staffOnly = `${PENDING_SINGULAR}\n${STAFF_MEMBER_LINK_MIGRATION}\n`;
+    expect(hasAllowedSpaMemberStaffReleasePending(pair)).toBe(true);
+    expect(hasAllowedSpaMemberStaffReleasePending(staffOnly)).toBe(true);
+    expect(hasAllowedSpaMemberStaffReleasePending(`${PENDING}\n${RECURRING_CONFIRMATION_MIGRATION}\n`)).toBe(false);
+    expect(hasAllowedSpaMemberStaffReleasePending(`${pair}20269999999999_unapproved\n`)).toBe(false);
+  });
+
+  it("pins the recurring-confirmation preflight and final schema", () => {
+    const columns = [
+      ["confirmationNotificationClaimedAt", "timestamp without time zone", "timestamp", "YES", null, 3],
+      ["confirmationNotificationError", "text", "text", "YES", null, null],
+      ["confirmationNotificationSentAt", "timestamp without time zone", "timestamp", "YES", null, 3],
+      ["confirmationNotificationStatus", "text", "text", "NO", "'PENDING'::text", null],
+    ].map(([columnName, dataType, udtName, isNullable, columnDefault, datetimePrecision]) => ({
+      columnName, dataType, udtName, isNullable, columnDefault, datetimePrecision,
+    }));
+    expect(hasNoRecurringConfirmationColumns([])).toBe(true);
+    expect(hasNoRecurringConfirmationColumns(columns.slice(0, 1))).toBe(false);
+    expect(hasExpectedRecurringConfirmationColumns(columns)).toBe(true);
+    expect(hasExpectedRecurringConfirmationColumns(columns.slice(1))).toBe(false);
+    expect(hasExpectedRecurringConfirmationColumns(columns.map((column) =>
+      column.columnName === "confirmationNotificationStatus" ? { ...column, columnDefault: "'DONE'::text" } : column
+    ))).toBe(false);
+  });
+
+  it("rejects partial StaffMemberLink objects and accepts only the server-only final schema", () => {
+    const absent = { tableExists: false, columns: [], constraints: [], indexes: [], rowCount: 0, prerequisiteValid: true };
+    const columns = [
+      ["createdAt", "timestamp without time zone", "timestamp", "NO", "CURRENT_TIMESTAMP"],
+      ["id", "text", "text", "NO", null],
+      ["linkedAt", "timestamp without time zone", "timestamp", "NO", "CURRENT_TIMESTAMP"],
+      ["linkedByUserId", "text", "text", "YES", null],
+      ["revokedAt", "timestamp without time zone", "timestamp", "YES", null],
+      ["staffId", "text", "text", "NO", null],
+      ["storeId", "text", "text", "NO", null],
+      ["updatedAt", "timestamp without time zone", "timestamp", "NO", null],
+      ["userId", "text", "text", "NO", null],
+    ].map(([columnName, dataType, udtName, isNullable, columnDefault]) => ({ columnName, dataType, udtName, isNullable, columnDefault }));
+    const complete = {
+      tableExists: true,
+      columns,
+      constraints: ["StaffMemberLink_linkedByUserId_fkey", "StaffMemberLink_pkey", "StaffMemberLink_staffId_storeId_fkey", "StaffMemberLink_storeId_fkey", "StaffMemberLink_userId_fkey"],
+      indexes: ["StaffMemberLink_storeId_revokedAt_idx", "StaffMemberLink_userId_idx", "uq_staff_member_link_staff_store", "uq_staff_member_link_user_store"],
+      rlsEnabled: true, rlsForced: false, policyCount: 0, clientGrantCount: 0, rowCount: 0, prerequisiteValid: true,
+    };
+    expect(hasNoStaffMemberLinkObjects(absent)).toBe(true);
+    expect(hasNoStaffMemberLinkObjects({ ...absent, tableExists: true })).toBe(false);
+    expect(hasExpectedStaffMemberLinkSchema(complete)).toBe(true);
+    expect(hasExpectedStaffMemberLinkSchema({ ...complete, clientGrantCount: 1 })).toBe(false);
+    expect(hasExpectedStaffMemberLinkSchema({ ...complete, prerequisiteValid: false })).toBe(false);
+    expect(hasExpectedStaffMemberLinkSchema({ ...complete, columns: columns.slice(1) })).toBe(false);
+  });
+
   it("pins the exact payment-split RLS preflight and final states", () => {
     const baseline = { rlsEnabled: false, rlsForced: false, policyCount: 0, clientGrantCount: 0 };
     expect(hasExpectedPaymentSplitRls(baseline, false)).toBe(true);
@@ -373,6 +450,9 @@ describe("Production migration recovery guard", () => {
     expect(script).toContain("payment_split_rls_preflight_verified");
     expect(script).toContain("payment_split_rls_final_schema_verified");
     expect(script).toContain("payment_split_rls_already_applied_verified");
+    expect(script).toContain("spa_member_staff_preflight_verified");
+    expect(script).toContain("spa_member_staff_final_schema_verified");
+    expect(script).toContain("pg_try_advisory_xact_lock");
   });
 });
 

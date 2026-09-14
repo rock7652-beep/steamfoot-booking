@@ -16,12 +16,19 @@ export const PAYMENT_SPLIT_RLS_MIGRATION =
   "20260808090000_enable_transaction_payment_split_rls";
 export const TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION =
   "20260814183000_add_transaction_conversion_snapshot";
+export const RECURRING_CONFIRMATION_MIGRATION =
+  "20260826143000_add_recurring_confirmation_notification";
+export const STAFF_MEMBER_LINK_MIGRATION =
+  "20260913090000_add_staff_member_link";
+export const SPA_MEMBER_STAFF_RELEASE_TARGET =
+  "spa_member_staff_release_20260914";
 export const PRODUCTION_MIGRATION_TARGET_ENV = "PRODUCTION_MIGRATION_TARGET";
 export const APPROVED_PRODUCTION_MIGRATION_TARGETS = [
   PAYMENT_SPLIT_MIGRATION,
   HUMAN_SUPPORT_SUMMARY_MIGRATION,
   PAYMENT_SPLIT_RLS_MIGRATION,
   TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION,
+  SPA_MEMBER_STAFF_RELEASE_TARGET,
 ];
 export const MESSENGER_CHECKSUM =
   "6edbd88d9fd2ab9e368b963d21f7d90ef2ed1f8e8c467a29c20f9a3c8d8e1488";
@@ -33,6 +40,10 @@ export const PAYMENT_SPLIT_RLS_CHECKSUM =
   "bdc2cd86ea67507df334271b3589c7e416bad4ec2c1cddc96da23b7f3d0f2064";
 export const TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM =
   "71f451fb1a4830543ab32c6d7f6ed2ef88be7b0fd6a9bbd5ffe69e0e50148e13";
+export const RECURRING_CONFIRMATION_CHECKSUM =
+  "c1acba47d93b5f2b0e0e5f8fb1dbc54837640d8c2b2f64b2da0a2366ee74fa2c";
+export const STAFF_MEMBER_LINK_CHECKSUM =
+  "97bc01e987723d307f895f54282636c441919a70584a660f6ab9f45c6b3be180";
 const PENDING_MIGRATIONS_HEADER =
   /Following migrations? have not yet been applied:/;
 const MESSENGER_MIGRATION_FILE =
@@ -45,6 +56,41 @@ const PAYMENT_SPLIT_RLS_MIGRATION_FILE =
   `prisma/migrations/${PAYMENT_SPLIT_RLS_MIGRATION}/migration.sql`;
 const TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION_FILE =
   `prisma/migrations/${TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION}/migration.sql`;
+const RECURRING_CONFIRMATION_MIGRATION_FILE =
+  `prisma/migrations/${RECURRING_CONFIRMATION_MIGRATION}/migration.sql`;
+const STAFF_MEMBER_LINK_MIGRATION_FILE =
+  `prisma/migrations/${STAFF_MEMBER_LINK_MIGRATION}/migration.sql`;
+const SPA_MEMBER_STAFF_RELEASE_LOCK = 2026091309n;
+const recurringConfirmationColumns = [
+  "confirmationNotificationClaimedAt",
+  "confirmationNotificationError",
+  "confirmationNotificationSentAt",
+  "confirmationNotificationStatus",
+];
+const expectedStaffMemberLinkColumns = [
+  ["createdAt", "timestamp without time zone", "timestamp", "NO", "CURRENT_TIMESTAMP"],
+  ["id", "text", "text", "NO", null],
+  ["linkedAt", "timestamp without time zone", "timestamp", "NO", "CURRENT_TIMESTAMP"],
+  ["linkedByUserId", "text", "text", "YES", null],
+  ["revokedAt", "timestamp without time zone", "timestamp", "YES", null],
+  ["staffId", "text", "text", "NO", null],
+  ["storeId", "text", "text", "NO", null],
+  ["updatedAt", "timestamp without time zone", "timestamp", "NO", null],
+  ["userId", "text", "text", "NO", null],
+];
+const expectedStaffMemberLinkConstraints = [
+  "StaffMemberLink_linkedByUserId_fkey",
+  "StaffMemberLink_pkey",
+  "StaffMemberLink_staffId_storeId_fkey",
+  "StaffMemberLink_storeId_fkey",
+  "StaffMemberLink_userId_fkey",
+];
+const expectedStaffMemberLinkIndexes = [
+  "StaffMemberLink_storeId_revokedAt_idx",
+  "StaffMemberLink_userId_idx",
+  "uq_staff_member_link_staff_store",
+  "uq_staff_member_link_user_store",
+];
 const transactionConversionSnapshotColumns = [
   "conversionEffectsApplied", "conversionSnapshotCaptured",
   "firstTopupRewardsApplied", "firstTopupReferrerRewardApplied",
@@ -176,11 +222,16 @@ function assertApprovedMigrationTarget(value) {
     [HUMAN_SUPPORT_SUMMARY_MIGRATION]: [HUMAN_SUPPORT_SUMMARY_MIGRATION_FILE, HUMAN_SUPPORT_SUMMARY_CHECKSUM],
     [PAYMENT_SPLIT_RLS_MIGRATION]: [PAYMENT_SPLIT_RLS_MIGRATION_FILE, PAYMENT_SPLIT_RLS_CHECKSUM],
     [TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION]: [TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION_FILE, TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM],
+    [SPA_MEMBER_STAFF_RELEASE_TARGET]: null,
   };
-  const [targetFile, targetChecksum] = targetFiles[value];
-  if (migrationChecksum(targetFile) !== targetChecksum) {
+  const target = targetFiles[value];
+  if (target && migrationChecksum(target[0]) !== target[1]) {
     abort("migration_target_checksum_mismatch");
   }
+  if (value === SPA_MEMBER_STAFF_RELEASE_TARGET && (
+    migrationChecksum(RECURRING_CONFIRMATION_MIGRATION_FILE) !== RECURRING_CONFIRMATION_CHECKSUM ||
+    migrationChecksum(STAFF_MEMBER_LINK_MIGRATION_FILE) !== STAFF_MEMBER_LINK_CHECKSUM
+  )) abort("migration_target_checksum_mismatch");
 }
 
 function runPrisma(args) {
@@ -190,6 +241,10 @@ function runPrisma(args) {
       output: execFileSync("npx", ["prisma", ...args], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          PGOPTIONS: "-c lock_timeout=5s -c statement_timeout=120s",
+        },
       }),
     };
   } catch (error) {
@@ -235,6 +290,17 @@ export function hasOnlyPaymentSplitRlsPending(statusOutput) {
 export function hasOnlyTransactionConversionSnapshotPending(statusOutput) {
   const pending = pendingMigrations(statusOutput);
   return pending.length === 1 && pending[0] === TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION;
+}
+
+export function hasAllowedSpaMemberStaffReleasePending(statusOutput) {
+  const pending = pendingMigrations(statusOutput);
+  return (
+    pending.length === 2 &&
+    pending[0] === RECURRING_CONFIRMATION_MIGRATION &&
+    pending[1] === STAFF_MEMBER_LINK_MIGRATION
+  ) || (
+    pending.length === 1 && pending[0] === STAFF_MEMBER_LINK_MIGRATION
+  );
 }
 
 export function classifyMessengerMigration(input, failedMigrationNames) {
@@ -500,6 +566,164 @@ async function readTransactionConversionSnapshotLedger(prisma) {
   return rows.length === 1 ? rows[0] : null;
 }
 
+async function readNamedMigrationLedger(prisma, migrationName) {
+  const rows = await prisma.$queryRaw`SELECT checksum, finished_at AS "finishedAt", rolled_back_at AS "rolledBackAt" FROM "_prisma_migrations" WHERE migration_name = ${migrationName}`;
+  return rows.length === 1 ? rows[0] : null;
+}
+
+async function readRecurringConfirmationSnapshot(prisma) {
+  return prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault", datetime_precision AS "datetimePrecision" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'BookingRecurrenceGroup' AND column_name IN ('confirmationNotificationStatus', 'confirmationNotificationClaimedAt', 'confirmationNotificationSentAt', 'confirmationNotificationError') ORDER BY column_name`;
+}
+
+export function hasNoRecurringConfirmationColumns(columns) {
+  return columns.length === 0;
+}
+
+export function hasExpectedRecurringConfirmationColumns(columns) {
+  if (columns.length !== recurringConfirmationColumns.length) return false;
+  const byName = new Map(columns.map((column) => [column.columnName, column]));
+  return recurringConfirmationColumns.every((name) => byName.has(name)) &&
+    ["confirmationNotificationClaimedAt", "confirmationNotificationSentAt"].every((name) => {
+      const column = byName.get(name);
+      return column.dataType === "timestamp without time zone" &&
+        column.udtName === "timestamp" && column.isNullable === "YES" &&
+        column.columnDefault === null && column.datetimePrecision === 3;
+    }) &&
+    byName.get("confirmationNotificationError")?.dataType === "text" &&
+    byName.get("confirmationNotificationError")?.isNullable === "YES" &&
+    byName.get("confirmationNotificationError")?.columnDefault === null &&
+    byName.get("confirmationNotificationStatus")?.dataType === "text" &&
+    byName.get("confirmationNotificationStatus")?.isNullable === "NO" &&
+    normalizeDefault(byName.get("confirmationNotificationStatus")?.columnDefault) === "'PENDING'::text";
+}
+
+async function readStaffMemberLinkSnapshot(prisma) {
+  const table = await prisma.$queryRaw`SELECT to_regclass('public."StaffMemberLink"') IS NOT NULL AS "exists"`;
+  const tableExists = table[0]?.exists === true;
+  const [columns, constraints, indexes, rls, policies, clientGrants, rows, prerequisiteColumns, staffUniqueIndex, invalidStaffRows] = await Promise.all([
+    prisma.$queryRaw`SELECT column_name AS "columnName", data_type AS "dataType", udt_name AS "udtName", is_nullable AS "isNullable", column_default AS "columnDefault" FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'StaffMemberLink' ORDER BY column_name`,
+    prisma.$queryRaw`SELECT conname AS "name" FROM pg_constraint WHERE conrelid = to_regclass('public."StaffMemberLink"') ORDER BY conname`,
+    prisma.$queryRaw`SELECT indexname AS "name" FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'StaffMemberLink' AND indexname <> 'StaffMemberLink_pkey' ORDER BY indexname`,
+    prisma.$queryRaw`SELECT c.relrowsecurity AS "enabled", c.relforcerowsecurity AS "forced" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'StaffMemberLink' AND c.relkind = 'r'`,
+    prisma.$queryRaw`SELECT count(*)::int AS "count" FROM pg_policies WHERE schemaname = 'public' AND tablename = 'StaffMemberLink'`,
+    prisma.$queryRaw`SELECT count(*)::int AS "count" FROM information_schema.role_table_grants WHERE table_schema = 'public' AND table_name = 'StaffMemberLink' AND grantee IN ('anon', 'authenticated')`,
+    tableExists ? prisma.$queryRaw`SELECT count(*)::int AS "count" FROM "StaffMemberLink"` : Promise.resolve([{ count: 0 }]),
+    prisma.$queryRaw`SELECT table_name AS "tableName", column_name AS "columnName", data_type AS "dataType", is_nullable AS "isNullable" FROM information_schema.columns WHERE table_schema = 'public' AND ((table_name = 'User' AND column_name = 'id') OR (table_name = 'Store' AND column_name = 'id') OR (table_name = 'Staff' AND column_name IN ('id', 'storeId'))) ORDER BY table_name, column_name`,
+    prisma.$queryRaw`SELECT count(*)::int AS "count" FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'Staff' AND indexname = 'Staff_id_storeId_key' AND indexdef LIKE 'CREATE UNIQUE INDEX%'`,
+    prisma.$queryRaw`SELECT (count(*) FILTER (WHERE "storeId" IS NULL) + count(*) - count(DISTINCT (id, "storeId")))::int AS "count" FROM "Staff"`,
+  ]);
+  return {
+    tableExists,
+    columns,
+    constraints: constraints.map((row) => row.name),
+    indexes: indexes.map((row) => row.name),
+    rlsEnabled: rls[0]?.enabled ?? null,
+    rlsForced: rls[0]?.forced ?? null,
+    policyCount: policies[0]?.count ?? null,
+    clientGrantCount: clientGrants[0]?.count ?? null,
+    rowCount: rows[0]?.count ?? null,
+    prerequisiteValid:
+      prerequisiteColumns.length === 4 &&
+      prerequisiteColumns.every((column) => column.dataType === "text" && column.isNullable === "NO") &&
+      staffUniqueIndex[0]?.count === 1 && invalidStaffRows[0]?.count === 0,
+  };
+}
+
+export function hasNoStaffMemberLinkObjects(snapshot) {
+  return snapshot.tableExists === false && snapshot.columns.length === 0 &&
+    snapshot.constraints.length === 0 && snapshot.indexes.length === 0 &&
+    snapshot.rowCount === 0 && snapshot.prerequisiteValid === true;
+}
+
+export function hasExpectedStaffMemberLinkSchema(snapshot) {
+  const columnsMatch = snapshot.columns.length === expectedStaffMemberLinkColumns.length &&
+    expectedStaffMemberLinkColumns.every((expected, index) => {
+      const actual = snapshot.columns[index];
+      return actual?.columnName === expected[0] && actual.dataType === expected[1] &&
+        actual.udtName === expected[2] && actual.isNullable === expected[3] &&
+        normalizeDefault(actual.columnDefault) === normalizeDefault(expected[4]);
+    });
+  return snapshot.tableExists === true && columnsMatch &&
+    sameValues(snapshot.constraints, expectedStaffMemberLinkConstraints) &&
+    sameValues(snapshot.indexes, expectedStaffMemberLinkIndexes) &&
+    snapshot.rlsEnabled === true && snapshot.rlsForced === false &&
+    snapshot.policyCount === 0 && snapshot.clientGrantCount === 0 &&
+    snapshot.prerequisiteValid === true;
+}
+
+function isAppliedNamedMigration(row, checksum) {
+  return row?.checksum === checksum && row.finishedAt !== null && row.rolledBackAt === null;
+}
+
+async function withProductionMigrationLock(prisma, action) {
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw`SELECT pg_try_advisory_xact_lock(${SPA_MEMBER_STAFF_RELEASE_LOCK}) AS "locked"`;
+    if (rows[0]?.locked !== true) abort("production_migration_lock_unavailable");
+    return action();
+  }, { maxWait: 5_000, timeout: 180_000 });
+}
+
+async function runSpaMemberStaffRelease(prisma) {
+  const initialStatus = runPrisma(["migrate", "status"]);
+  const [recurringBefore, staffBefore, recurringLedgerBefore, staffLedgerBefore] = await Promise.all([
+    readRecurringConfirmationSnapshot(prisma),
+    readStaffMemberLinkSnapshot(prisma),
+    readNamedMigrationLedger(prisma, RECURRING_CONFIRMATION_MIGRATION),
+    readNamedMigrationLedger(prisma, STAFF_MEMBER_LINK_MIGRATION),
+  ]);
+
+  if (isStatusUpToDate(initialStatus)) {
+    if (!hasExpectedRecurringConfirmationColumns(recurringBefore) ||
+        !hasExpectedStaffMemberLinkSchema(staffBefore) ||
+        !isAppliedNamedMigration(recurringLedgerBefore, RECURRING_CONFIRMATION_CHECKSUM) ||
+        !isAppliedNamedMigration(staffLedgerBefore, STAFF_MEMBER_LINK_CHECKSUM)) {
+      abort("spa_member_staff_applied_state_rejected");
+    }
+    log("spa_member_staff_already_applied_verified");
+    return;
+  }
+
+  if (initialStatus.exitCode !== 1 || !hasAllowedSpaMemberStaffReleasePending(initialStatus.output)) {
+    abort("spa_member_staff_pending_allowlist_rejected");
+  }
+
+  const recurringAlreadyApplied = isAppliedNamedMigration(
+    recurringLedgerBefore,
+    RECURRING_CONFIRMATION_CHECKSUM,
+  );
+  const recurringStateValid = recurringAlreadyApplied
+    ? hasExpectedRecurringConfirmationColumns(recurringBefore)
+    : hasNoRecurringConfirmationColumns(recurringBefore) && recurringLedgerBefore === null;
+  if (!recurringStateValid || !hasNoStaffMemberLinkObjects(staffBefore) || staffLedgerBefore !== null) {
+    abort("spa_member_staff_preflight_rejected");
+  }
+
+  log("spa_member_staff_preflight_verified");
+  log("spa_member_staff_deploy_started");
+  await withProductionMigrationLock(prisma, () => {
+    if (runPrisma(["migrate", "deploy"]).exitCode !== 0) {
+      abort("spa_member_staff_deploy_failed");
+    }
+  });
+  log("spa_member_staff_deploy_succeeded");
+
+  const finalStatus = runPrisma(["migrate", "status"]);
+  if (!isStatusUpToDate(finalStatus)) abort("spa_member_staff_final_status_rejected");
+  const [recurringAfter, staffAfter, recurringLedgerAfter, staffLedgerAfter] = await Promise.all([
+    readRecurringConfirmationSnapshot(prisma),
+    readStaffMemberLinkSnapshot(prisma),
+    readNamedMigrationLedger(prisma, RECURRING_CONFIRMATION_MIGRATION),
+    readNamedMigrationLedger(prisma, STAFF_MEMBER_LINK_MIGRATION),
+  ]);
+  if (!hasExpectedRecurringConfirmationColumns(recurringAfter) ||
+      !hasExpectedStaffMemberLinkSchema(staffAfter) || staffAfter.rowCount !== 0 ||
+      !isAppliedNamedMigration(recurringLedgerAfter, RECURRING_CONFIRMATION_CHECKSUM) ||
+      !isAppliedNamedMigration(staffLedgerAfter, STAFF_MEMBER_LINK_CHECKSUM)) {
+    abort("spa_member_staff_final_schema_rejected");
+  }
+  log("spa_member_staff_final_schema_verified");
+}
+
 export function isAppliedTransactionConversionSnapshotMigration(row) {
   return row?.checksum === TRANSACTION_CONVERSION_SNAPSHOT_CHECKSUM &&
     row.finishedAt !== null && row.rolledBackAt === null;
@@ -674,6 +898,10 @@ async function main() {
     }
     if (target === TRANSACTION_CONVERSION_SNAPSHOT_MIGRATION) {
       await runTransactionConversionSnapshotMigration(prisma);
+      return;
+    }
+    if (target === SPA_MEMBER_STAFF_RELEASE_TARGET) {
+      await runSpaMemberStaffRelease(prisma);
       return;
     }
     const ledger = await readMessengerLedger(prisma);
