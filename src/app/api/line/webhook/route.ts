@@ -505,10 +505,12 @@ async function replyDigitalButlerMessages(
       console.error("[LINE Webhook] booking link issue failed", { storeId });
       return {
         ...intent,
-        text: intent.text.replace(
-          ZHUBEI_EXPERIENCE_BOOKING_URL,
-          "專屬預約連結暫時無法建立，請稍後再輸入「我想體驗蒸足」。",
-        ),
+        text: [
+          intent.text.includes("將由門市夥伴接手")
+            ? "好的，已停止自動流程，將由門市夥伴接手協助您。"
+            : "目前暫時無法開啟預約表單。",
+          "專屬預約連結暫時無法建立，請稍後再輸入「我想體驗蒸足」，或留言請店家協助預約。",
+        ].join("\n\n"),
         urlButton: undefined,
       };
     }
