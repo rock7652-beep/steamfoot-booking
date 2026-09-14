@@ -22,7 +22,6 @@ import {
 } from "@/lib/shop-config";
 import { isStoreSubscriptionWriteBlocked } from "@/lib/subscription-guard";
 import { isStoreBookable } from "@/lib/store-operating-status";
-import { notifySameDayBookingManagers } from "@/server/services/same-day-booking-manager-notification";
 import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-trial-manager-notification";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
@@ -538,7 +537,6 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       }
     }
 
-    await notifySameDayBookingManagers(store.id, booking.id);
     await notifyManagerOfPublicTrialBooking({
       storeId: store.id,
       storeSlug: store.slug,

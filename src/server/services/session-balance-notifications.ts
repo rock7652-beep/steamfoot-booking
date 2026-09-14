@@ -1,3 +1,4 @@
+import { deliverManagerNotification } from "./manager-notification-delivery";
 import { LINE_CARD_COLORS, LINE_CARD_STYLES } from "@/lib/line-card-theme";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -358,51 +359,6 @@ async function notifyManagerOfVipInterest(input: {
   planName: string;
   storeName: string;
 }) {
-  const [staff, configuredRecipients] = await Promise.all([
-    prisma.staff.findMany({
-      where: {
-        storeId: input.storeId,
-        status: "ACTIVE",
-        ...(input.assignedStaffId
-          ? { OR: [{ id: input.assignedStaffId }, { isOwner: true }] }
-          : { isOwner: true }),
-      },
-      orderBy: [{ isOwner: "desc" }, { createdAt: "asc" }],
-      select: {
-        id: true,
-        user: {
-          select: {
-            accounts: {
-              where: { provider: "line" },
-              select: { providerAccountId: true },
-            },
-          },
-        },
-      },
-    }),
-    prisma.storeLineNotificationRecipient.findMany({
-      where: { storeId: input.storeId, isActive: true, lineUserId: { not: null } },
-      select: { lineUserId: true },
-    }),
-  ]);
-  const managerLineIds = [
-    ...new Set(
-      [
-        ...configuredRecipients.flatMap((item) => item.lineUserId ? [item.lineUserId] : []),
-        ...staff
-          .sort((a, b) =>
-            a.id === input.assignedStaffId
-              ? -1
-              : b.id === input.assignedStaffId
-                ? 1
-                : 0,
-          )
-          .flatMap((item) =>
-            item.user.accounts.map((account) => account.providerAccountId.trim()),
-          ),
-      ],
-    ),
-  ].filter(Boolean);
   const managerMessage: LineMessage = {
     type: "text",
     text: [
@@ -417,21 +373,14 @@ async function notifyManagerOfVipInterest(input: {
     ].join("\n"),
   };
 
-  let sent = false;
-  let lastError = managerLineIds.length === 0 ? "店長尚未綁定可接收通知的 LINE" : null;
-  for (const managerLineId of managerLineIds) {
-    const result = await pushMessage(input.storeId, managerLineId, [managerMessage]);
-    if (result.success) {
-      sent = true;
-      lastError = null;
-      continue;
-    }
-    lastError = result.error ?? "LINE 店長通知失敗";
-  }
+  const delivery = await deliverManagerNotification({ storeId: input.storeId,
+    eventKey: `vip-interest:${input.notificationId}`, type: "VIP_INTEREST", messages: [managerMessage], assignedStaffId: input.assignedStaffId });
+  const sent = delivery.status === "sent";
+  const lastError = delivery.status === "failed" ? delivery.error : delivery.status === "skipped" ? "通知已關閉或尚未綁定" : null;
   await prisma.sessionBalanceNotification.update({
     where: { id: input.notificationId },
     data: {
-      managerNotificationStatus: sent ? "SENT" : "FAILED",
+      managerNotificationStatus: sent ? "SENT" : delivery.status === "skipped" ? "SKIPPED" : "FAILED",
       managerNotificationError: sent ? null : lastError,
       managerNotifiedAt: sent ? new Date() : null,
     },

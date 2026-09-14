@@ -46,7 +46,7 @@ describe("settings store-scope source contracts", () => {
     expect(hoursPage).toContain('key={`bookable-until-${effectiveStoreId}`}');
     expect(hoursPage).toContain('key={`schedule-${effectiveStoreId}`}');
     expect(dutyPage).toContain("key={storeId}");
-    expect(remindersPage.match(/key=\{activeStoreId\}/g)?.length).toBe(3);
+    expect(remindersPage.match(/key=\{storeId\}/g)?.length).toBe(3);
   });
 
   it("keeps reminder reads and final updates store-scoped", () => {
