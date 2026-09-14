@@ -115,12 +115,14 @@ function verifyLineSignatureWithSecret(body: string, signature: string, secret: 
 export async function pushMessage(
   storeId: string,
   lineUserId: string,
-  messages: LineMessage[]
+  messages: LineMessage[],
+  retryKey?: string,
 ): Promise<LinePushResult> {
   return pushMessageWithAccessToken(
     getLineAccessTokenForStore(storeId),
     lineUserId,
     messages,
+    retryKey,
   );
 }
 
@@ -139,6 +141,7 @@ async function pushMessageWithAccessToken(
   token: string | null,
   lineUserId: string,
   messages: LineMessage[],
+  retryKey?: string,
 ): Promise<LinePushResult> {
   try {
     if (isPreviewExternalIntegrationBlocked()) {
@@ -156,6 +159,7 @@ async function pushMessageWithAccessToken(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        ...(retryKey ? { "X-Line-Retry-Key": retryKey } : {}),
       },
       body: JSON.stringify({
         to: lineUserId,
@@ -163,6 +167,7 @@ async function pushMessageWithAccessToken(
       }),
     });
 
+    if (retryKey && res.status === 409 && res.headers.get("x-line-accepted-request-id")) return { success: true };
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       return {

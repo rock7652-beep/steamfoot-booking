@@ -591,6 +591,8 @@ model VerificationToken {
 // ============================================================
 
 model Store {
+  managerRecipientsMigrated Boolean @default(false)
+  managerNotificationLogs ManagerNotificationLog[]
   id                         String               @id @default(cuid())
   name                       String
   slug                       String               @unique
@@ -690,6 +692,8 @@ model Store {
 }
 
 model StoreLineNotificationRecipient {
+  preferences Json @default("{}")
+  legacyStaffId String?
   sameDayBookingEnabled Boolean @default(false)
   id                   String    @id @default(cuid())
   storeId              String
@@ -2913,4 +2917,21 @@ model StoreModuleInstallation {
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@index([module, status])
+}
+
+model ManagerNotificationLog {
+  id String @id @default(cuid())
+  storeId String
+  recipientId String
+  recipientName String
+  eventKey String
+  type String
+  status String @default("PENDING")
+  renderedBody String
+  errorMessage String?
+  createdAt DateTime @default(now())
+  sentAt DateTime?
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  @@unique([storeId, recipientId, eventKey])
+  @@index([storeId, createdAt])
 }

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findFirst, updateMany, update, staffFindMany, recipientFindMany, pushMessage } = vi.hoisted(
+const { findFirst, updateMany, update, staffFindMany, recipientFindMany, pushMessage, deliver } = vi.hoisted(
   () => ({
     findFirst: vi.fn(),
     updateMany: vi.fn(),
@@ -8,6 +8,7 @@ const { findFirst, updateMany, update, staffFindMany, recipientFindMany, pushMes
     staffFindMany: vi.fn(),
     recipientFindMany: vi.fn(),
     pushMessage: vi.fn(),
+    deliver: vi.fn(),
   }),
 );
 
@@ -22,6 +23,7 @@ vi.mock("@/lib/line", () => ({
   pushMessage,
   pushSteamButlerMessage: vi.fn(),
 }));
+vi.mock("@/server/services/manager-notification-delivery", () => ({ deliverManagerNotification: deliver }));
 vi.mock("@/lib/base-url", () => ({
   deriveBaseUrl: () => "https://www.steamfoot.com",
 }));
@@ -61,7 +63,7 @@ describe("session balance LINE response closure", () => {
       },
     ]);
     recipientFindMany.mockResolvedValue([]);
-    pushMessage.mockResolvedValue({ success: true });
+    deliver.mockResolvedValue({ status: "sent", sentCount: 1, failedCount: 0 });
   });
 
   it("treats a top-up card action as purchase interest", async () => {
@@ -72,7 +74,7 @@ describe("session balance LINE response closure", () => {
     });
 
     expect(result).toMatchObject({ handled: true, response: "VIP_INTEREST" });
-    expect(pushMessage).toHaveBeenCalled();
+    expect(deliver).toHaveBeenCalled();
   });
 
   it("ignores the command when no same-store sent reminder belongs to the LINE user", async () => {
@@ -85,7 +87,7 @@ describe("session balance LINE response closure", () => {
       }),
     ).resolves.toEqual({ handled: false });
     expect(updateMany).not.toHaveBeenCalled();
-    expect(pushMessage).not.toHaveBeenCalled();
+    expect(deliver).not.toHaveBeenCalled();
   });
 
   it("records VIP interest, replies immediately and notifies the same-store manager", async () => {
@@ -107,10 +109,8 @@ describe("session balance LINE response closure", () => {
         responseAt: expect.any(Date),
       },
     });
-    expect(pushMessage).toHaveBeenCalledWith(
-      "store-1",
-      "U-manager",
-      [expect.objectContaining({ type: "text" })],
+    expect(deliver).toHaveBeenCalledWith(
+      expect.objectContaining({ storeId: "store-1", type: "VIP_INTEREST", assignedStaffId: "staff-1", messages: [expect.objectContaining({ type: "text" })] }),
     );
     expect(update).toHaveBeenCalledWith({
       where: { id: "notification-1" },
@@ -129,7 +129,7 @@ describe("session balance LINE response closure", () => {
       text: SESSION_BALANCE_LATER_COMMAND,
     });
     expect(result).toMatchObject({ handled: true, response: "LATER" });
-    expect(pushMessage).not.toHaveBeenCalled();
+    expect(deliver).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
   });
 
@@ -146,6 +146,6 @@ describe("session balance LINE response closure", () => {
         data: expect.objectContaining({ responseAction: "VIP_INTEREST" }),
       }),
     );
-    expect(pushMessage).toHaveBeenCalledTimes(1);
+    expect(deliver).toHaveBeenCalledTimes(1);
   });
 });

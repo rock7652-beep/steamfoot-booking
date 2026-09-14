@@ -24,14 +24,14 @@ describe("incomplete service reminder contract", () => {
     expect(worker).toContain("concurrent completion, cancellation, or no-show wins");
   });
 
-  it("keeps the worker endpoint protected but unscheduled on Vercel Hobby", () => {
+  it("keeps the worker endpoint protected and schedules it on the verified Pro team", () => {
     const route = source("src/app/api/cron/incomplete-service-reminders/route.ts");
     const vercel = source("vercel.json");
     const messages = source("src/server/services/store-manager-line-notifications.ts");
 
     expect(route).toContain("CRON_SECRET");
     expect(route).toContain("Bearer ${cronSecret}");
-    expect(vercel).not.toContain('"path": "/api/cron/incomplete-service-reminders"');
+    expect(vercel).toContain('"path": "/api/cron/incomplete-service-reminders"');
     expect(messages).toContain("🔔 服務尚未完成");
     expect(messages).toContain("前往後台處理");
   });

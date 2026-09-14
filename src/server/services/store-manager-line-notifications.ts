@@ -1,6 +1,7 @@
 import { deriveBaseUrl } from "@/lib/base-url";
-import { pushMessage, type LineMessage } from "@/lib/line";
-import { prisma } from "@/lib/db";
+import { type LineMessage } from "@/lib/line";
+import { deliverManagerNotification } from "./manager-notification-delivery";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { providerNotificationLabel } from "@/lib/digital-butler-provider";
 
 type StoreManagerNotificationEvent =
@@ -112,7 +113,7 @@ function bookingUrl(storeSlug: string, bookingId: string): string {
 
 export function buildStoreManagerNotificationMessage(
   event: StoreManagerNotificationEvent,
-): LineMessage[] {
+): Extract<LineMessage, { type: "text" }>[] {
   switch (event.type) {
     case "DIGITAL_BUTLER_LEAD_CREATED":
       return [{
@@ -232,47 +233,11 @@ export function buildStoreManagerNotificationMessage(
 export async function notifyStoreManagerOnLine(
   event: StoreManagerNotificationEvent,
 ): Promise<StoreManagerNotificationResult> {
-  const configured = await prisma.storeLineNotificationRecipient.findMany({
-    where: { storeId: event.storeId, isActive: true, lineUserId: { not: null } },
-    select: { lineUserId: true },
+  return deliverManagerNotification({
+    storeId: event.storeId,
+    eventKey: event.type === "PUBLIC_TRIAL_BOOKING_CREATED" ? `booking-created:${event.bookingId}` : event.eventKey,
+    type: event.type,
+    sameDayTrial: event.type === "PUBLIC_TRIAL_BOOKING_CREATED" && event.bookingDate === toLocalDateStr(),
+    messages: buildStoreManagerNotificationMessage(event),
   });
-  const legacyRecipient = resolveStoreManagerLineRecipient(event.storeSlug);
-  const recipientLineUserIds = [
-    ...new Set([
-      ...configured.flatMap((item) => item.lineUserId ? [item.lineUserId] : []),
-      ...(legacyRecipient ? [legacyRecipient] : []),
-    ]),
-  ];
-  if (recipientLineUserIds.length === 0) {
-    console.warn("[StoreManagerLineNotification] recipient not configured", {
-      eventType: event.type,
-      eventKey: event.eventKey,
-      storeId: event.storeId,
-      storeSlug: event.storeSlug,
-      envKey: recipientEnvKey(event.storeSlug),
-    });
-    return { status: "skipped", reason: "recipient_not_configured" };
-  }
-
-  let sentCount = 0;
-  const errors: string[] = [];
-  for (const recipientLineUserId of recipientLineUserIds) {
-    try {
-      const result = await pushMessage(
-        event.storeId,
-        recipientLineUserId,
-        buildStoreManagerNotificationMessage(event),
-      );
-      if (result.success) sentCount += 1;
-      else errors.push(result.error ?? "LINE delivery failed");
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : "Unknown LINE delivery error");
-    }
-  }
-  if (sentCount > 0) return { status: "sent", sentCount, failedCount: errors.length };
-  const error = errors[0] ?? "LINE delivery failed";
-  console.error("[StoreManagerLineNotification] delivery failed", {
-    eventType: event.type, eventKey: event.eventKey, storeId: event.storeId, error,
-  });
-  return { status: "failed", error };
 }

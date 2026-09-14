@@ -1,5 +1,7 @@
 "use server";
 
+import { migrateManagerRecipients } from "@/server/services/manager-notification-delivery";
+import { managerPreferences, MANAGER_NOTIFICATION_OPTIONS } from "@/lib/manager-notification-preferences";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -24,6 +26,7 @@ async function requireStore() {
 
 export async function listStoreLineNotificationRecipients() {
   const storeId = await requireStore();
+  await migrateManagerRecipients(storeId);
   return prisma.storeLineNotificationRecipient.findMany({
     where: { storeId },
     orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
@@ -33,6 +36,8 @@ export async function listStoreLineNotificationRecipients() {
       roleLabel: true,
       isActive: true,
       sameDayBookingEnabled: true,
+      preferences: true,
+      legacyStaffId: true,
       linkedAt: true,
       bindingCode: true,
       bindingCodeExpiresAt: true,
@@ -122,4 +127,24 @@ export async function setSameDayBookingReminder(
   } catch (error) {
     return handleActionError(error);
   }
+}
+
+export async function setManagerNotificationPreference(id: string, key: string, enabled: boolean): Promise<ActionResult> {
+  try {
+    const storeId = await requireStore();
+    z.object({ id: z.string().min(1), key: z.enum(MANAGER_NOTIFICATION_OPTIONS.map(o => o.key) as [string, ...string[]]), enabled: z.boolean() }).parse({ id, key, enabled });
+    await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "StoreLineNotificationRecipient" WHERE id = ${id} AND "storeId" = ${storeId} FOR UPDATE`;
+      const recipient = await tx.storeLineNotificationRecipient.findFirst({ where: { id, storeId } });
+      if (!recipient) throw new AppError("NOT_FOUND", "找不到通知人員");
+      if (enabled && (!recipient.isActive || !recipient.lineUserId)) throw new AppError("BUSINESS_RULE", "請先綁定 LINE 並開啟接收通知");
+      const preferences = managerPreferences(recipient.preferences, recipient.sameDayBookingEnabled);
+      await tx.storeLineNotificationRecipient.update({ where: { id }, data: {
+        preferences: { ...preferences, [key]: enabled },
+        ...(key === "sameDay" ? { sameDayBookingEnabled: enabled } : {}),
+      } });
+    });
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (error) { return handleActionError(error); }
 }
