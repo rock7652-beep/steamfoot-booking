@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  loadDayBusinessHoursContext: vi.fn(),
   requirePermission: vi.fn(),
   requireStaffSession: vi.fn(),
   resolveWriteStoreId: vi.fn(),
@@ -9,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   specialUpsert: vi.fn(),
   txSpecialUpsert: vi.fn(),
   txSlotOverrideDeleteMany: vi.fn(),
+  txSlotOverrideUpsert: vi.fn(),
   storeFindFirst: vi.fn(),
   hoursFindMany: vi.fn(),
   slotsFindMany: vi.fn(),
@@ -30,7 +32,10 @@ const tx = {
     createMany: mocks.txSlotsCreateMany,
   },
   specialBusinessDay: { upsert: mocks.txSpecialUpsert },
-  slotOverride: { deleteMany: mocks.txSlotOverrideDeleteMany },
+  slotOverride: {
+    deleteMany: mocks.txSlotOverrideDeleteMany,
+    upsert: mocks.txSlotOverrideUpsert,
+  },
 };
 
 vi.mock("@/lib/db", () => ({
@@ -42,6 +47,10 @@ vi.mock("@/lib/db", () => ({
     bookingSlot: { findMany: mocks.slotsFindMany },
     $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
   },
+}));
+vi.mock("@/lib/business-hours-resolver", () => ({
+  loadDayBusinessHoursContext: mocks.loadDayBusinessHoursContext,
+  applySlotOverrides: vi.fn(),
 }));
 vi.mock("@/lib/session", () => ({ requireStaffSession: mocks.requireStaffSession }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.requirePermission }));
@@ -58,16 +67,28 @@ vi.mock("@/lib/industry-module-server", () => ({
   getStoreIndustryModule: vi.fn().mockResolvedValue("steamfoot"),
 }));
 
-import { addSpecialDay, syncFromHeadquarters } from "@/server/actions/business-hours";
+import { addSpecialDay, applyDaySlotOverrides, syncFromHeadquarters } from "@/server/actions/business-hours";
 
 describe("business-hours store isolation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: false } });
     mocks.requirePermission.mockResolvedValue({ role: "ADMIN", storeId: null });
     mocks.resolveWriteStoreId.mockResolvedValue("branch-a");
     mocks.bookingCount.mockResolvedValue(0);
     mocks.bookingGroupBy.mockResolvedValue([]);
     mocks.specialUpsert.mockResolvedValue({ id: "special-a" });
+  });
+
+  it("rejects reopening a closed day without writing misleading slot overrides", async () => {
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: true } });
+    const result = await applyDaySlotOverrides({
+      date: "2026-09-21",
+      changes: [{ startTime: "09:30", action: "enable" }],
+    });
+    expect(result.success).toBe(false);
+    expect(mocks.txSlotOverrideUpsert).not.toHaveBeenCalled();
+    expect(mocks.loadDayBusinessHoursContext).toHaveBeenCalledWith("branch-a", "2026-09-21");
   });
 
   it("replaces a custom day's legacy slot overrides only after booking validation", async () => {
@@ -137,6 +158,29 @@ describe("business-hours store isolation", () => {
         create: expect.objectContaining({ storeId: "branch-a" }),
       }),
     );
+  });
+
+  it("closes multiple slots without altering booked reservations", async () => {
+    mocks.bookingGroupBy.mockResolvedValue([
+      { slotTime: "09:30", _sum: { people: 2 } },
+    ]);
+
+    const result = await applyDaySlotOverrides({
+      date: "2026-08-24",
+      changes: [
+        { startTime: "09:30", action: "disable" },
+        { startTime: "10:30", action: "disable" },
+      ],
+    });
+
+    expect(result).toEqual({ success: true, data: { changed: 2, bookedPeopleKept: 2 } });
+    expect(mocks.bookingGroupBy).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ storeId: "branch-a", slotTime: { in: ["09:30", "10:30"] } }),
+    }));
+    expect(mocks.txSlotOverrideUpsert).toHaveBeenCalledTimes(2);
+    expect(mocks.txSlotOverrideUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ storeId: "branch-a", startTime: "09:30", type: "disabled" }),
+    }));
   });
 
   it("copies from the validated headquarters into the resolved destination", async () => {

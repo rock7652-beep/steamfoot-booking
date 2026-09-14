@@ -6,7 +6,6 @@ import { refreshBookingManagement } from "@/server/actions/booking-refresh";
 import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { fetchDaySlots } from "@/server/actions/slots";
-import { toggleSlotOverride } from "@/server/actions/business-hours";
 import {
   markCompleted,
   markCompletedBatch,
@@ -23,9 +22,10 @@ import {
   createBookingDetailCache,
 } from "./booking-detail-cache";
 import { applyBookingNotePatch, type BookingNotePatch } from "./booking-note-state";
-import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
+import { ACTIVE_BOOKING_STATUSES, PENDING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { formatWeekdayZh, toLocalDateStr } from "@/lib/date-utils";
+import { formatWeekdayZh } from "@/lib/date-utils";
+import { DaySlotManager } from "./day-slot-manager";
 
 const COMPLETABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 
@@ -146,6 +146,7 @@ interface BookingsManagerProps {
   monthSchedule: MonthScheduleMap;
   servicePlans: ServicePlanOption[];
   readOnly?: boolean;
+  canManageHours?: boolean;
   initialBookingId?: string | null;
 }
 
@@ -157,6 +158,7 @@ export function BookingsManager({
   monthSchedule: initialMonthSchedule,
   servicePlans,
   readOnly = false,
+  canManageHours = false,
   initialBookingId = null,
 }: BookingsManagerProps) {
   // monthData lifted into client state so we can patch a single booking
@@ -185,7 +187,6 @@ export function BookingsManager({
     slotsCacheRef.current = slotsCache;
   }, [slotsCache]);
   const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
-  const [extraSlotTime, setExtraSlotTime] = useState("19:30");
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useState<BookingFilters>(EMPTY_FILTERS);
   const [activeBookingId, setActiveBookingId] = useState<string | null>(
@@ -211,14 +212,13 @@ export function BookingsManager({
     () => new Set(),
   );
   const [batchActing, setBatchActing] = useState(false);
-  const [addingSlot, setAddingSlot] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [syncFailed, setSyncFailed] = useState(false);
   const refreshRef = useRef<(() => Promise<void>) | null>(null);
   const refreshGate = useRef(createBookingRefreshGate());
   const refreshPaused = !!activeBookingId || batchActing || actingIds.size > 0 ||
-    selectedIds.size > 0 || addingSlot || slotsLoadingDate !== null;
+    selectedIds.size > 0 || slotsLoadingDate !== null;
 
   useEffect(() => {
     setSyncing(false);
@@ -454,26 +454,30 @@ export function BookingsManager({
     [],
   );
 
-  const addTodaySlot = useCallback(async () => {
-    if (!selectedDate || selectedDate !== toLocalDateStr()) return;
-    setAddingSlot(true);
+  const refreshDaySlots = useCallback(async (date: string) => {
+    setSlotsLoadingDate(date);
     try {
-      const result = await toggleSlotOverride({ date: selectedDate, startTime: extraSlotTime, action: "enable" });
-      if (!result.success) { toast.error(result.error ?? "新增時段失敗"); return; }
-      toast.success(`已新增 ${extraSlotTime} 當日時段`);
-      setSlotsLoadingDate(selectedDate);
-      try {
-        const refreshed = await fetchDaySlots(selectedDate);
-        setSlotsCache((previous) => {
-          const next = new Map(previous);
-          next.set(selectedDate, refreshed.slots);
-          return next;
-        });
-      } finally {
-        setSlotsLoadingDate((current) => current === selectedDate ? null : current);
-      }
-    } finally { setAddingSlot(false); }
-  }, [extraSlotTime, selectedDate]);
+      const refreshed = await fetchDaySlots(date);
+      setSlotsCache((previous) => {
+        const next = new Map(previous);
+        next.set(date, refreshed.slots);
+        return next;
+      });
+    } finally {
+      setSlotsLoadingDate((current) => current === date ? null : current);
+    }
+  }, []);
+
+  const bookedPeopleBySlot = useMemo(() => {
+    const result = new Map<string, number>();
+    for (const booking of dayBookings) {
+      // 關閉時段只需提示仍會占用未來名額的預約；已完成／未到的
+      // 歷史紀錄不應讓店長誤以為仍需保留該名額。
+      if (!PENDING_STATUSES.includes(booking.bookingStatus as typeof PENDING_STATUSES[number])) continue;
+      result.set(booking.slotTime, (result.get(booking.slotTime) ?? 0) + booking.people);
+    }
+    return result;
+  }, [dayBookings]);
 
   const openBooking = useCallback(
     (id: string) => {
@@ -727,11 +731,12 @@ export function BookingsManager({
               : "當日預約"}
           </h2>
           <div className="flex items-center gap-2">
-            {selectedDate === toLocalDateStr() && !readOnly && (
-              <>
-                <input aria-label="新增當日時段" type="time" value={extraSlotTime} onChange={(event) => setExtraSlotTime(event.target.value)} className="rounded border border-earth-300 px-1.5 py-1 text-xs" />
-                <button type="button" onClick={() => void addTodaySlot()} className="rounded border border-primary-300 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50">＋時段</button>
-              </>
+            {!readOnly && canManageHours && selectedDate && (
+              <DaySlotManager
+                date={selectedDate}
+                bookedPeopleBySlot={bookedPeopleBySlot}
+                onSaved={() => refreshDaySlots(selectedDate)}
+              />
             )}
           <button
             type="button"
@@ -752,7 +757,12 @@ export function BookingsManager({
             slotsKnown={slotsKnown}
             slotsLoading={slotsLoadingForSelected}
             daySchedule={
-              selectedDate ? (monthSchedule[selectedDate] ?? null) : null
+              selectedDate && monthSchedule[selectedDate]
+                ? {
+                    ...monthSchedule[selectedDate],
+                    slotCount: slotsKnown ? daySlots.length : monthSchedule[selectedDate].slotCount,
+                  }
+                : null
             }
             monthHasAnyBookings={monthData.some(
               (d) => d.totalBookingCount > 0,

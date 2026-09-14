@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition, useEffect, useRef } from "react";
+import { useState, useCallback, useTransition, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import {
   updateBusinessHours,
@@ -15,7 +15,7 @@ import {
   applyWeeklyTemplate,
   syncFromHeadquarters,
 } from "@/server/actions/business-hours";
-import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS } from "@/lib/slot-generator";
+import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS, generateSlots } from "@/lib/slot-generator";
 
 // ============================================================
 // Types
@@ -112,6 +112,12 @@ interface Props {
 
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 
+function editablePeriods(periods: BusinessPeriod[], fallbackInterval: number, fallbackCapacity: number) {
+  return periods.length > 0 ? periods.map((period) => ({ ...period })) : [
+    { openTime: "10:00", closeTime: "22:00", slotInterval: fallbackInterval, defaultCapacity: fallbackCapacity },
+  ];
+}
+
 // ============================================================
 // Component
 // ============================================================
@@ -172,6 +178,31 @@ export function ScheduleManager({
   const monthCacheRef = useRef<Map<string, MonthCacheEntry>>(new Map());
   const requestIdRef = useRef(0);
   const [isMonthLoading, setIsMonthLoading] = useState(false);
+
+  const dayDraftDirty = useMemo(() => {
+    if (!dayDetail) return false;
+    return applyMode !== "day"
+      || editStatus !== dayDetail.status
+      || editReason !== (dayDetail.reason ?? "")
+      || JSON.stringify(editPeriods) !== JSON.stringify(editablePeriods(dayDetail.periods, dayDetail.slotInterval, dayDetail.defaultCapacity));
+  }, [applyMode, dayDetail, editPeriods, editReason, editStatus]);
+
+  const draftSlotPreview = useMemo(() => {
+    if (editStatus !== "custom") return [];
+    return editPeriods.flatMap((period) =>
+      generateSlots(period.openTime, period.closeTime, period.slotInterval, period.defaultCapacity),
+    );
+  }, [editPeriods, editStatus]);
+
+  useEffect(() => {
+    if (!dayDraftDirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dayDraftDirty]);
 
   /** 失效並強制重抓「目前月份」cache（mutation 後使用） */
   const invalidateAndReloadCurrentMonth = useCallback(async () => {
@@ -333,6 +364,7 @@ export function ScheduleManager({
 
   // ── 換月 ──
   const changeMonth = useCallback(async (dir: 1 | -1) => {
+    if (dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換月份嗎？")) return;
     let newMonth = month + dir;
     let newYear = year;
     if (newMonth < 1) { newMonth = 12; newYear--; }
@@ -343,7 +375,7 @@ export function ScheduleManager({
     setDayDetail(null);
     // cache hit: 立即同步顯示；cache miss: loadMonth 內部走 server + race guard
     await loadMonth(newYear, newMonth);
-  }, [year, month, loadMonth]);
+  }, [year, month, loadMonth, dayDraftDirty]);
 
   // ── 選擇日期 ──
   // 流程：
@@ -354,6 +386,7 @@ export function ScheduleManager({
   //     回來後 race-guard 過濾、寫 cache、覆蓋 dayDetail
   const selectDate = useCallback(
     async (dateStr: string, opts: { bypassCache?: boolean } = {}) => {
+      if (selectedDate && selectedDate !== dateStr && dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換日期嗎？")) return;
       setSelectedDate(dateStr);
       setSelectedSlot(null);
 
@@ -370,6 +403,7 @@ export function ScheduleManager({
           setEditReason(cached.reason ?? "");
           setEditInterval(cached.slotInterval);
           setEditCapacity(cached.defaultCapacity);
+          setEditPeriods(editablePeriods(cached.periods, cached.slotInterval, cached.defaultCapacity));
           setCopyWeeks(0);
           setApplyMode("day");
           setLoadingDay(false);
@@ -389,6 +423,7 @@ export function ScheduleManager({
         setEditReason(preview.reason ?? "");
         setEditInterval(preview.slotInterval);
         setEditCapacity(preview.defaultCapacity);
+        setEditPeriods(editablePeriods(preview.periods, preview.slotInterval, preview.defaultCapacity));
         setCopyWeeks(0);
         setApplyMode("day");
       }
@@ -406,6 +441,7 @@ export function ScheduleManager({
         setEditReason(detail.reason ?? "");
         setEditInterval(detail.slotInterval);
         setEditCapacity(detail.defaultCapacity);
+        setEditPeriods(editablePeriods(detail.periods, detail.slotInterval, detail.defaultCapacity));
       } catch {
         if (requestId === requestIdRef.current) {
           toast.error("載入日期設定失敗");
@@ -414,7 +450,7 @@ export function ScheduleManager({
         if (requestId === requestIdRef.current) setLoadingDay(false);
       }
     },
-    [buildPreviewDayDetail],
+    [buildPreviewDayDetail, dayDraftDirty, selectedDate],
   );
 
   // ── 儲存日設定 ──
@@ -744,7 +780,7 @@ export function ScheduleManager({
             onClick={() => setShowWeekly(!showWeekly)}
             className="flex w-full items-center justify-between p-4 text-left"
           >
-            <h3 className="text-sm font-semibold text-earth-800">平常營業時間</h3>
+            <h3 className="text-sm font-semibold text-earth-800">每週固定服務時間</h3>
             <svg className={`h-4 w-4 text-earth-400 transition ${showWeekly ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
@@ -890,6 +926,14 @@ export function ScheduleManager({
                   >
                     ＋ 增加營業時段
                   </button>
+                  {editStatus === "custom" && draftSlotPreview.length > 0 && (
+                    <div className="rounded-lg border border-blue-100 bg-white px-2.5 py-2">
+                      <p className="text-[11px] font-medium text-earth-700">儲存後預覽（服務時間不是服務長度）</p>
+                      <p className="mt-1 break-words text-[11px] leading-relaxed text-earth-500">
+                        {draftSlotPreview.map((slot) => `${slot.startTime}（${slot.capacity}位）`).join("、")}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -960,8 +1004,8 @@ export function ScheduleManager({
                             className="accent-primary-600"
                           />
                           <span>
-                            更新每週{dayDetail?.dayName}營業時間
-                            <span className="ml-1 text-[10px] text-earth-400">僅時間/名額</span>
+                            更新每週{dayDetail?.dayName}固定服務時間
+                            <span className="ml-1 text-[10px] text-earth-400">不會覆蓋其他日期的特殊設定</span>
                           </span>
                         </label>
                         {showAdvancedSlots && (
@@ -1000,11 +1044,13 @@ export function ScheduleManager({
 
               {/* 儲存 / 回復按鈕 */}
               {canManage && (
-                <div className="flex gap-2">
+                <div>
+                  {dayDraftDirty && <p className="mb-2 text-xs font-medium text-amber-700">尚未儲存：先確認預覽與套用範圍，再儲存。</p>}
+                  <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={saveDay}
-                    disabled={isPending}
+                    disabled={isPending || !dayDraftDirty}
                     className="flex-1 rounded-lg bg-primary-600 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
                   >
                     {isPending ? "儲存中..." : "儲存設定"}
@@ -1021,6 +1067,7 @@ export function ScheduleManager({
                       回復預設
                     </button>
                   )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1041,7 +1088,7 @@ export function ScheduleManager({
                 <span>
                   <span className="block text-xs font-semibold text-earth-700">進階：單一時段微調</span>
                   <span className="mt-0.5 block text-[11px] text-earth-400">
-                    只有臨時關閉一個時段或調整單格名額時才需要使用
+                    僅供設定頁調整單格名額；開關請從預約管理的「管理時段」草稿操作
                   </span>
                 </span>
                 <span className="shrink-0 text-right text-[11px] text-earth-500">
@@ -1060,7 +1107,7 @@ export function ScheduleManager({
                 {loadingDay && dayDetail.slots.length === 0 ? (
                   <span className="text-[10px] text-earth-400">載入中…</span>
                 ) : canManage && dayDetail.slots.length > 0 && editStatus !== "closed" && editStatus !== "training" ? (
-                  <span className="text-[10px] text-earth-400">點擊切換開/關</span>
+                  <span className="text-[10px] text-earth-400">名額調整請點選時段</span>
                 ) : null}
               </div>
               {editStatus === "closed" || editStatus === "training" ? (
@@ -1094,17 +1141,11 @@ export function ScheduleManager({
                       <SlotToggleButton
                         key={s.startTime}
                         slot={s}
-                        date={selectedDate}
                         editStatus={editStatus}
                         editOpenTime={editOpenTime}
                         editCloseTime={editCloseTime}
                         canManage={canManage}
                         isSelected={selectedSlot === s.startTime}
-                        onToggled={() => {
-                          setSelectedSlot(null);
-                          // mutation 已落 DB，本地 day cache 過時 → bypass
-                          selectDate(selectedDate, { bypassCache: true });
-                        }}
                         onSelect={(startTime) => {
                           if (selectedSlot === startTime) {
                             setSelectedSlot(null);
@@ -1197,7 +1238,7 @@ export function ScheduleManager({
               )}
               {dayDetail.slots.some((s) => s.override) && (
                 <p className="mt-2 text-[10px] text-amber-600">
-                  ⚡ 有手動覆寫的時段（黃框 = 強制開放，紅框 = 手動關閉，右鍵選取調整名額）
+                  ⚡ 有手動覆寫的時段（黃框 = 強制開放，紅框 = 手動關閉；點選時段可調整名額）
                 </p>
               )}
               </div>
@@ -1268,7 +1309,7 @@ function WeeklyDayRow({
               type="button"
               onClick={() => setExpanded(!expanded)}
               className="ml-auto text-[10px] text-earth-400 hover:text-earth-600"
-              title="調整平常營業時段"
+              title="調整每週固定服務時間"
             >
               {expanded ? "收合 ▲" : "調整 ▼"}
             </button>
@@ -1327,18 +1368,16 @@ function WeeklyDayRow({
 }
 
 // ============================================================
-// 時段開關按鈕（支援三態切換：預設 → 關閉 → 強制開放 → 移除覆寫）
+// 時段名額選取按鈕；開關與新增時段統一由預約管理的「管理時段」處理。
 // ============================================================
 
 function SlotToggleButton({
   slot,
-  date,
   editStatus,
   editOpenTime,
   editCloseTime,
   canManage,
   isSelected,
-  onToggled,
   onSelect,
 }: {
   slot: {
@@ -1350,17 +1389,13 @@ function SlotToggleButton({
     override: string | null;
     overrideReason: string | null;
   };
-  date: string;
   editStatus: string;
   editOpenTime: string;
   editCloseTime: string;
   canManage: boolean;
   isSelected: boolean;
-  onToggled: () => void;
   onSelect: (startTime: string) => void;
 }) {
-  const [toggling, setToggling] = useState(false);
-
   // 計算此時段的顯示狀態
   const wouldBeActive = editStatus === "open"
     ? slot.isEnabled
@@ -1373,55 +1408,9 @@ function SlotToggleButton({
     : slot.override === "enabled" ? true
     : wouldBeActive;
 
-  const handleClick = async () => {
-    if (!canManage || toggling) return;
-
-    setToggling(true);
-    try {
-      let action: "disable" | "enable" | "remove";
-
-      if (slot.override === "disabled") {
-        // 已關閉 → 移除覆寫（回到預設）
-        action = "remove";
-      } else if (slot.override === "enabled") {
-        // 已強制開放 → 移除覆寫（回到預設）
-        action = "remove";
-      } else if (isActive) {
-        // 預設開放 → 手動關閉
-        action = "disable";
-      } else {
-        // 預設關閉（超出範圍）→ 強制開放
-        action = "enable";
-      }
-
-      const result = await toggleSlotOverride({
-        date,
-        startTime: slot.startTime,
-        action,
-      });
-      if (!result.success) {
-        toast.error(result.error);
-      } else {
-        const msgs: Record<string, string> = {
-          disable: `${slot.startTime} 已關閉`,
-          enable: `${slot.startTime} 已強制開放`,
-          remove: `${slot.startTime} 已回復預設`,
-        };
-        toast.success(msgs[action]);
-        onToggled();
-      }
-    } catch {
-      toast.error("操作失敗");
-    } finally {
-      setToggling(false);
-    }
-  };
-
   // 樣式：根據狀態和 override 類型決定
   let className = "rounded-lg px-2 py-1.5 text-center text-xs font-medium transition ";
-  if (toggling) {
-    className += "bg-earth-50 text-earth-300 animate-pulse";
-  } else if (slot.override === "disabled") {
+  if (slot.override === "disabled") {
     className += "bg-red-50 text-red-400 line-through ring-1 ring-red-300";
   } else if (slot.override === "enabled") {
     className += "bg-amber-50 text-amber-700 ring-1 ring-amber-400";
@@ -1440,21 +1429,17 @@ function SlotToggleButton({
   return (
     <button
       type="button"
-      onClick={handleClick}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        if (canManage) onSelect(slot.startTime);
-      }}
-      disabled={!canManage || toggling}
+      onClick={() => onSelect(slot.startTime)}
+      disabled={!canManage}
       className={className}
       title={
         slot.override === "disabled"
-          ? `手動關閉${slot.overrideReason ? `：${slot.overrideReason}` : ""}（點擊回復）`
+          ? `手動關閉${slot.overrideReason ? `：${slot.overrideReason}` : ""}（請在預約管理的「管理時段」重新開放）`
           : slot.override === "enabled"
-            ? `強制開放${slot.overrideReason ? `：${slot.overrideReason}` : ""}（點擊回復）`
+            ? `強制開放${slot.overrideReason ? `：${slot.overrideReason}` : ""}（請在預約管理的「管理時段」調整）`
             : isActive
-              ? `${slot.startTime}（${slot.capacity}位）— 左鍵切換開/關，右鍵調整名額`
-              : `${slot.startTime}（超出範圍）— 點擊強制開放`
+              ? `${slot.startTime}（${slot.capacity}位）— 點選調整名額`
+              : `${slot.startTime}（目前未開放）`
       }
     >
       {slot.startTime}
