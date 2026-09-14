@@ -195,6 +195,19 @@ describe("Production migration recovery guard", () => {
     expect(migrationChecksum(staffMemberLinkMigration)).toBe(STAFF_MEMBER_LINK_CHECKSUM);
   });
 
+  it("runs the SPA inspect and confirmed history reconciliation before the two real migrations", () => {
+    const inspect = script.indexOf('log("spa_history_inspection_started")');
+    const reconcile = script.indexOf('log("spa_history_reconciliation_started")');
+    const release = script.indexOf("await runSpaMemberStaffRelease(prisma)");
+
+    expect(inspect).toBeGreaterThan(-1);
+    expect(reconcile).toBeGreaterThan(inspect);
+    expect(release).toBeGreaterThan(reconcile);
+    expect(script).toContain('"--inspect"');
+    expect(script).toContain('"--reconcile-superseded"');
+    expect(script).toContain('`--confirm=${SPA_HISTORY_RECONCILIATION_CONFIRMATION}`');
+  });
+
   it("supports the applied Messenger path without resolve", () => {
     const applied = { checksum: MESSENGER_CHECKSUM, finishedAt: new Date(), rolledBackAt: null, appliedStepsCount: 0 };
     expect(classifyMessengerMigration(applied, [])).toBe("applied");

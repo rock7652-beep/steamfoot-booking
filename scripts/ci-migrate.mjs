@@ -60,6 +60,10 @@ const RECURRING_CONFIRMATION_MIGRATION_FILE =
   `prisma/migrations/${RECURRING_CONFIRMATION_MIGRATION}/migration.sql`;
 const STAFF_MEMBER_LINK_MIGRATION_FILE =
   `prisma/migrations/${STAFF_MEMBER_LINK_MIGRATION}/migration.sql`;
+const SPA_PRODUCTION_READINESS_SCRIPT =
+  "scripts/spa-production-migration-readiness.mjs";
+const SPA_HISTORY_RECONCILIATION_CONFIRMATION =
+  "RECONCILE_SUPERSEDED_SPA_HISTORY";
 const SPA_MEMBER_STAFF_RELEASE_LOCK = 2026091309n;
 const recurringConfirmationColumns = [
   "confirmationNotificationClaimedAt",
@@ -253,6 +257,39 @@ function runPrisma(args) {
       output: `${error.stdout ?? ""}${error.stderr ?? ""}`,
     };
   }
+}
+
+function runSpaProductionReadiness(args, failureCode) {
+  try {
+    execFileSync(process.execPath, [SPA_PRODUCTION_READINESS_SCRIPT, ...args], {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        PGOPTIONS: "-c lock_timeout=5s -c statement_timeout=120s",
+      },
+    });
+  } catch {
+    abort(failureCode);
+  }
+}
+
+function prepareSpaProductionHistory() {
+  log("spa_history_inspection_started");
+  runSpaProductionReadiness(
+    ["--inspect"],
+    "spa_history_inspection_failed",
+  );
+  log("spa_history_inspection_verified");
+
+  log("spa_history_reconciliation_started");
+  runSpaProductionReadiness(
+    [
+      "--reconcile-superseded",
+      `--confirm=${SPA_HISTORY_RECONCILIATION_CONFIRMATION}`,
+    ],
+    "spa_history_reconciliation_failed",
+  );
+  log("spa_history_reconciliation_verified");
 }
 
 export function migrationChecksum(path) {
@@ -882,6 +919,10 @@ async function main() {
     migrationChecksum(PAYMENT_SPLIT_MIGRATION_FILE) !== PAYMENT_SPLIT_CHECKSUM
   ) {
     abort("migration_checksum_mismatch");
+  }
+
+  if (target === SPA_MEMBER_STAFF_RELEASE_TARGET) {
+    prepareSpaProductionHistory();
   }
 
   const prisma = new PrismaClient({

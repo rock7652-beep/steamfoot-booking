@@ -64,12 +64,14 @@ The following is the future runbook, not authorization to run it now:
 
 1. Freeze writes that can create the first SPA tenant; record the current
    Production deployment and recoverable backup/PITR point.
-2. In an authorized Production environment, confirm both URLs identify
-   `qijlnhtpbintanzpxkvf`, then run the readiness script with `--inspect`.
-3. With explicit release authorization, run the confirmed superseded-history
-   reconciliation. Re-run inspect and require all eight ledger entries applied.
-4. Set `PRODUCTION_MIGRATION_TARGET=spa_member_staff_release_20260914` for one
-   controlled build. The build applies only the two real migrations and aborts
+2. Set `PRODUCTION_MIGRATION_TARGET=spa_member_staff_release_20260914` for one
+   controlled Production build. Sensitive Vercel database variables remain
+   write-only outside that build.
+3. The guarded build first confirms both URLs identify
+   `qijlnhtpbintanzpxkvf`, runs the read-only inspection, and only then runs the
+   confirmed superseded-history reconciliation. It requires all eight ledger
+   entries to be exactly applied before continuing.
+4. The same guarded build applies only the two real migrations and aborts
    before application deployment on any mismatch.
 5. Verify no Prisma migrations remain pending, the four notification columns
    match, `StaffMemberLink` is empty and server-only, and Steamfoot store/module
