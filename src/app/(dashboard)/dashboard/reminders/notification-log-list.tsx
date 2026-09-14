@@ -44,7 +44,7 @@ export function NotificationLogList({
     <section className="space-y-3">
       <form className="grid grid-cols-2 items-end gap-3 rounded-xl border border-earth-200 bg-white p-3 lg:grid-cols-6">
         <input type="hidden" name="tab" value="logs" />
-        <label className="min-w-0 space-y-1 text-xs text-earth-500 col-span-2 lg:col-span-1">
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-earth-500 col-span-2 lg:col-span-1">
           <span>搜尋收件人</span>
           <input
             aria-label="搜尋收件人"
@@ -54,7 +54,7 @@ export function NotificationLogList({
             className="h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white p-2 text-sm"
           />
         </label>
-        <label className="min-w-0 space-y-1 text-xs text-earth-500">
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-earth-500">
           <span>通知對象</span>
           <select
             aria-label="通知對象"
@@ -67,7 +67,7 @@ export function NotificationLogList({
             <option value="customer">顧客</option>
           </select>
         </label>
-        <label className="min-w-0 space-y-1 text-xs text-earth-500">
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-earth-500">
           <span>通知類型</span>
           <select
             aria-label="通知類型"
@@ -94,17 +94,17 @@ export function NotificationLogList({
             ))}
           </select>
         </label>
-        <label className="min-w-0 space-y-1 text-xs text-earth-500">
+        <label className="col-span-2 flex min-w-0 flex-col gap-1 text-xs text-earth-500 lg:col-span-1">
           <span>發送日期</span>
           <input
             aria-label="發送日期"
             name="date"
             type="date"
             defaultValue={params.date}
-            className="h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white p-2 text-sm"
+            className="block h-11 min-h-0 w-full min-w-0 max-w-full appearance-none rounded-lg border border-earth-200 bg-white p-2 text-sm [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left"
           />
         </label>
-        <label className="min-w-0 space-y-1 text-xs text-earth-500">
+        <label className="col-span-2 flex min-w-0 flex-col gap-1 text-xs text-earth-500 lg:col-span-1">
           <span>發送狀態</span>
           <select
             aria-label="發送狀態"
