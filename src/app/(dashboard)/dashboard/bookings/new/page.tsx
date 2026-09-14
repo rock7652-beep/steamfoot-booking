@@ -258,7 +258,6 @@ export default async function NewBookingPage({ searchParams }: PageProps) {
                     lockScheduleSelection={lockSpaSchedule}
                     todayStr={todayStr}
                     initialSlots={initialSlots}
-                    allowPastSlotsToday
                   />
                 </FormSection>
               )}

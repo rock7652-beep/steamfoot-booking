@@ -21,7 +21,6 @@ import {
 } from "@/lib/business-hours-resolver";
 import type { SlotAvailability } from "@/types";
 import type { DayStatus } from "@/lib/business-hours-resolver";
-import { getDayBookings } from "@/server/queries/booking";
 
 /**
  * 解析當前讀取視角的 storeId：
@@ -260,19 +259,6 @@ export async function fetchDaySlots(date: string): Promise<{ slots: SlotAvailabi
     return { slots: result.filter((s) => dutySlotSet.has(s.startTime)) };
   }
   return { slots: result };
-}
-
-/** Lightweight, authoritative payload for the selected management day. */
-export async function fetchBookingManagementDaySnapshot(date: string) {
-  const user = await requireSession();
-  if (user.role === "CUSTOMER") {
-    throw new AppError("FORBIDDEN", "僅店內人員可查看預約管理資料");
-  }
-  const [slotResult, bookings] = await Promise.all([
-    fetchDaySlots(date),
-    getDayBookings(date),
-  ]);
-  return { slots: slotResult.slots, bookings };
 }
 
 // ============================================================

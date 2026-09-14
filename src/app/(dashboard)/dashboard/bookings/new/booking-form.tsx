@@ -19,8 +19,6 @@ interface Props {
   /** SSR 預載的「初始日期」時段（= defaultDate，或不在 days 內時的 days[0]）。
    *  有值 → 第一屏直接顯示、不打 client；undefined（過去日期 / SSR 失敗）→ client fallback。 */
   initialSlots?: SlotAvailability[];
-  /** 店內人員可補登今天已過時段；顧客端不傳此旗標。 */
-  allowPastSlotsToday?: boolean;
 }
 
 /**
@@ -45,7 +43,6 @@ export function DashboardBookingForm({
   lockScheduleSelection = false,
   todayStr,
   initialSlots,
-  allowPastSlotsToday = false,
 }: Props) {
   const { errors, clearError, calendarCustomerId, setCalendarDate } = useBookingFormValidation();
   const initialDate = days.includes(defaultDate) ? defaultDate : (days[0] ?? "");
@@ -222,13 +219,13 @@ export function DashboardBookingForm({
             {slots.map((s) => {
               const isPast = isSlotPastToday(selectedDate, s.startTime);
               const display = getSlotCapacityDisplay(s.capacity, s.bookedCount, people);
-              const disabled = (!allowPastSlotsToday && isPast) || !display.canFitRequestedPeople || isPastDate;
+              const disabled = isPast || !display.canFitRequestedPeople || isPastDate;
 
               return (
                 <label
                   key={s.startTime}
                   title={
-                    isPast && !allowPastSlotsToday
+                    isPast
                       ? "已過時段"
                       : !display.canFitRequestedPeople
                         ? display.selectionStatus === "full" ? "此時段已額滿" : "此時段無法容納目前預約人數"
@@ -257,7 +254,7 @@ export function DashboardBookingForm({
                   />
                   <span>{s.startTime}</span>
                   <span className={`mt-0.5 text-[10px] ${disabled ? "text-earth-400" : display.capacityStatus === "low" ? "text-yellow-800" : "text-earth-500"}`}>
-                    {isPast ? (allowPastSlotsToday ? "補登" : "已過") : display.label ?? "可預約"}
+                    {isPast ? "已過" : display.label ?? "可預約"}
                   </span>
                 </label>
               );

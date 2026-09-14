@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { fetchBookingManagementDaySnapshot, fetchDaySlots } from "@/server/actions/slots";
+import { fetchDaySlots } from "@/server/actions/slots";
 import { toggleSlotOverride } from "@/server/actions/business-hours";
 import {
   markCompleted,
@@ -97,8 +97,6 @@ interface ServicePlanOption {
   name: string;
 }
 
-type DaySnapshotBooking = Awaited<ReturnType<typeof fetchBookingManagementDaySnapshot>>["bookings"][number];
-
 /**
  * 該日營業狀態摘要 — 從 server 端 getCachedMonthScheduleSummary 來。
  * status: open / custom = 開放預約；closed / training = 不開放
@@ -183,10 +181,6 @@ export function BookingsManager({
     slotsCacheRef.current = slotsCache;
   }, [slotsCache]);
   const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const syncInFlightDatesRef = useRef(new Set<string>());
-  const syncRequestRef = useRef(0);
   const [extraSlotTime, setExtraSlotTime] = useState("19:30");
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useState<BookingFilters>(EMPTY_FILTERS);
@@ -391,71 +385,14 @@ export function BookingsManager({
     [],
   );
 
-  const syncSelectedDay = useCallback(async (silent = true) => {
-    if (!selectedDate || syncInFlightDatesRef.current.has(selectedDate)) return;
-    const date = selectedDate;
-    const request = ++syncRequestRef.current;
-    syncInFlightDatesRef.current.add(date);
-    setSyncing(true);
-    try {
-      const snapshot = await fetchBookingManagementDaySnapshot(date);
-      // 日期已切換或頁面已離開時，不能讓舊回應蓋掉新選取資料。
-      if (request !== syncRequestRef.current || date !== selectedDate) return;
-      setSlotsCache((previous) => {
-        const current = previous.get(date) ?? [];
-        if (slotSignature(current) === slotSignature(snapshot.slots)) return previous;
-        const next = new Map(previous);
-        next.set(date, snapshot.slots);
-        return next;
-      });
-      setMonthData((previous) => previous.map((day) => {
-        if (day.date !== date) return day;
-        const bookings = snapshot.bookings.map((booking) =>
-          mergeSnapshotBooking(booking, day.bookings ?? []),
-        );
-        if (bookingSignature(day.bookings ?? []) === bookingSignature(bookings)) return day;
-        const byStaff = new Map<string, { colorCode: string; count: number }>();
-        for (const booking of bookings) {
-          const name = booking.revenueStaff?.displayName ?? booking.serviceStaff?.displayName ?? booking.customer.assignedStaff?.displayName;
-          if (!name) continue;
-          const existing = byStaff.get(name);
-          byStaff.set(name, { colorCode: booking.revenueStaff?.colorCode ?? booking.customer.assignedStaff?.colorCode ?? "#999", count: (existing?.count ?? 0) + 1 });
-        }
-        return { ...day, bookings, totalBookingCount: bookings.length, totalPeople: bookings.reduce((sum, booking) => sum + booking.people, 0), staffBookings: [...byStaff.entries()].map(([staffName, value]) => ({ staffName, ...value })) };
-      }));
-      setLastSyncedAt(new Date());
-    } catch {
-      if (!silent && request === syncRequestRef.current) toast.error("更新失敗，已保留目前名單");
-    } finally {
-      syncInFlightDatesRef.current.delete(date);
-      if (request === syncRequestRef.current) setSyncing(false);
-    }
-  }, [selectedDate]);
-
-  // 僅在可見頁籤進行 30 秒背景同步；回到前景或網路恢復時立即同步。
-  useEffect(() => {
-    if (!selectedDate) return;
-    const resume = () => { if (!document.hidden) void syncSelectedDay(true); };
-    const interval = window.setInterval(resume, 30_000);
-    document.addEventListener("visibilitychange", resume);
-    window.addEventListener("online", resume);
-    void syncSelectedDay(true);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", resume);
-      window.removeEventListener("online", resume);
-      syncRequestRef.current += 1;
-    };
-  }, [selectedDate, syncSelectedDay]);
-
   const addTodaySlot = useCallback(async () => {
     if (!selectedDate || selectedDate !== toLocalDateStr()) return;
     const result = await toggleSlotOverride({ date: selectedDate, startTime: extraSlotTime, action: "enable" });
     if (!result.success) { toast.error(result.error ?? "新增時段失敗"); return; }
     toast.success(`已新增 ${extraSlotTime} 當日時段`);
     setSlotsCache((previous) => { const next = new Map(previous); next.delete(selectedDate); return next; });
-    void syncSelectedDay(false);
-  }, [extraSlotTime, selectedDate, syncSelectedDay]);
+    void loadSlots(selectedDate);
+  }, [extraSlotTime, loadSlots, selectedDate]);
 
   const openBooking = useCallback(
     (id: string) => {
@@ -714,7 +651,6 @@ export function BookingsManager({
                 <button type="button" onClick={() => void addTodaySlot()} className="rounded border border-primary-300 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50">＋時段</button>
               </>
             )}
-            <button type="button" onClick={() => void syncSelectedDay(false)} disabled={syncing} className="rounded border border-earth-300 px-2 py-1 text-xs text-earth-600 hover:bg-earth-50 disabled:opacity-50">{syncing ? "更新中" : "更新"}</button>
           <button
             type="button"
             onClick={closeDay}
@@ -725,7 +661,6 @@ export function BookingsManager({
           </button>
           </div>
         </div>
-        <p className="border-b border-earth-100 px-4 py-1.5 text-[11px] text-earth-400">{lastSyncedAt ? `最後更新 ${lastSyncedAt.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "開啟後會自動更新"}</p>
         <div className="min-h-0 flex-1">
           <DayDetailPanel
             date={selectedDate}
@@ -772,47 +707,6 @@ export function BookingsManager({
       />
     </div>
   );
-}
-
-function slotSignature(slots: SlotAvailability[]) {
-  return slots.map((slot) => `${slot.startTime}:${slot.capacity}:${slot.bookedCount}:${slot.available}:${slot.isPast}`).join("|");
-}
-
-function bookingSignature(bookings: BookingEntry[]) {
-  return bookings.map((booking) => `${booking.id}:${booking.slotTime}:${booking.bookingStatus}:${booking.people}:${booking.notes ?? ""}`).join("|");
-}
-
-function mergeSnapshotBooking(snapshot: DaySnapshotBooking, existing: BookingEntry[]): BookingEntry {
-  const prior = existing.find((booking) => booking.id === snapshot.id);
-  if (prior) {
-    return {
-      ...prior,
-      slotTime: snapshot.slotTime,
-      people: snapshot.people,
-      bookingStatus: snapshot.bookingStatus,
-      isMakeup: snapshot.isMakeup,
-      isCheckedIn: snapshot.isCheckedIn,
-      customerName: snapshot.customer.name,
-      notes: prior.notes,
-      customer: { ...prior.customer, ...snapshot.customer, serviceNote: prior.customer.serviceNote },
-      revenueStaff: snapshot.revenueStaff,
-      serviceStaff: snapshot.serviceStaff,
-      servicePlan: snapshot.servicePlan,
-    };
-  }
-  return {
-    id: snapshot.id, slotTime: snapshot.slotTime, bookingStatus: snapshot.bookingStatus,
-    isMakeup: snapshot.isMakeup, isCheckedIn: snapshot.isCheckedIn, people: snapshot.people,
-    recurrenceIndex: null, recurrenceTotalOccurrences: null, customerConfirmedAt: null,
-    attendedPeople: null, bookingType: "SINGLE", expectedAmount: null, trialDefaultPrice: null,
-    collected: false, collectedAmount: null, notes: snapshot.notes, customerName: snapshot.customer.name,
-    staffId: snapshot.revenueStaff?.id ?? snapshot.serviceStaff?.id ?? null,
-    staffName: snapshot.revenueStaff?.displayName ?? snapshot.serviceStaff?.displayName ?? null,
-    staffColor: snapshot.revenueStaff?.colorCode ?? null,
-    customer: { ...snapshot.customer, serviceNote: null, validPackageSessions: 0 },
-    revenueStaff: snapshot.revenueStaff, serviceStaff: snapshot.serviceStaff,
-    servicePlan: snapshot.servicePlan, customerPlanWallet: null,
-  };
 }
 
 function monthEntryToSummary(b: BookingEntry, date: string): BookingSummary {
