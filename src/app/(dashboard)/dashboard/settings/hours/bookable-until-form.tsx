@@ -34,6 +34,15 @@ export function BookableUntilForm({
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
+  const dirty = mode !== savedMode || (mode === "fixed" ? fixedDate !== savedDate : days !== savedDays);
+
+  function cancel() {
+    setMode(savedMode);
+    setFixedDate(savedDate ?? "");
+    setDays(savedDays);
+    setExpanded(false);
+  }
+
   function save() {
     startTransition(async () => {
       if (mode === "fixed" && !fixedDate) {
@@ -53,6 +62,7 @@ export function BookableUntilForm({
             ? `已開放預約至 ${formatDateZh(fixedDate)}`
             : `已設定自動開放未來 ${days} 天`,
         );
+        setExpanded(false);
         router.refresh();
       } else {
         toast.error(result.error ?? "儲存失敗");
@@ -66,18 +76,19 @@ export function BookableUntilForm({
         <div>
           <h2 className="text-sm font-semibold text-earth-900">預約開放期限</h2>
           <p className="mt-0.5 text-[11px] text-earth-500">
-            {savedMode === "fixed" && savedDate
+            目前生效：{savedMode === "fixed" && savedDate
               ? `開放至 ${formatDateZh(savedDate)}`
               : `自動開放未來 ${savedDays} 天`}
           </p>
         </div>
         {canManage && (
-          <button type="button" onClick={() => setExpanded((value) => !value)} className="shrink-0 rounded border border-earth-300 px-2.5 py-1 text-xs font-medium text-earth-700 hover:bg-earth-50">
-            {expanded ? "收合" : "修改"}
+          <button type="button" disabled={pending} onClick={() => expanded ? cancel() : setExpanded(true)} className="shrink-0 rounded border border-earth-300 px-2.5 py-1 text-xs font-medium text-earth-700 hover:bg-earth-50">
+            {expanded ? "取消" : "修改"}
           </button>
         )}
       </header>
 
+      {expanded && dirty && <p role="status" className="mt-3 text-xs font-medium text-amber-700">尚未儲存</p>}
       {expanded && <fieldset className="mt-3 space-y-2 text-xs text-earth-600">
         <legend className="mb-1">顧客可以預約到何時？</legend>
         <label
@@ -105,7 +116,7 @@ export function BookableUntilForm({
             />
           )}
           <span className="mt-1 block text-[11px] leading-relaxed text-earth-500">
-            適合排好當月班表後，直接選擇月底或指定日期。
+            適合每月排班。
           </span>
         </label>
 
@@ -138,7 +149,7 @@ export function BookableUntilForm({
             </select>
           )}
           <span className="mt-1 block text-[11px] leading-relaxed text-earth-500">
-            範圍會每天自動往後延伸，不需要店長重新設定。
+            每天自動延長。
           </span>
         </label>
       </fieldset>}
@@ -146,17 +157,17 @@ export function BookableUntilForm({
         <div className="mt-3">
           <button
             type="button"
-            disabled={pending}
+            disabled={pending || !dirty || (mode === "fixed" && !fixedDate)}
             onClick={save}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            {pending ? "儲存中..." : "儲存"}
+            {pending ? "儲存中..." : "確認儲存"}
           </button>
         </div>
       )}
 
       {expanded && <p className="mt-2 text-[11px] text-earth-500">
-        目前開放預約至：
+        目前生效至：
         <span className="font-semibold text-earth-800">{` ${formatDateZh(savedMode === "fixed" && savedDate ? savedDate : addTaiwanDuration(today, savedDays, "DAY"))}`}</span>
         {savedMode === "rolling" && `（未來 ${savedDays} 天，自動延長）`}
       </p>}
