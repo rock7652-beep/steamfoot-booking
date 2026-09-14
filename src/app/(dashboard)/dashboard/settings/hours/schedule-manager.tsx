@@ -181,10 +181,11 @@ export function ScheduleManager({
 
   const dayDraftDirty = useMemo(() => {
     if (!dayDetail) return false;
-    return editStatus !== dayDetail.status
+    return applyMode !== "day"
+      || editStatus !== dayDetail.status
       || editReason !== (dayDetail.reason ?? "")
       || JSON.stringify(editPeriods) !== JSON.stringify(editablePeriods(dayDetail.periods, dayDetail.slotInterval, dayDetail.defaultCapacity));
-  }, [dayDetail, editPeriods, editReason, editStatus]);
+  }, [applyMode, dayDetail, editPeriods, editReason, editStatus]);
 
   const draftSlotPreview = useMemo(() => {
     if (editStatus !== "custom") return [];

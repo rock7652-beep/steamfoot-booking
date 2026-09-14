@@ -30,6 +30,7 @@ interface Props {
 export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [dayClosed, setDayClosed] = useState(true);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [changes, setChanges] = useState<Map<string, ChangeAction>>(new Map());
   const [newTime, setNewTime] = useState("19:30");
@@ -38,9 +39,13 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   async function openManager() {
     setOpen(true);
     setLoading(true);
+    setDayClosed(true);
+    setSlots([]);
+    setChanges(new Map());
     try {
       const detail = await getDaySlotDetails(date);
       setSlots(detail.slots);
+      setDayClosed(detail.status === "closed" || detail.status === "training");
       setChanges(new Map());
     } catch {
       toast.error("載入時段失敗");
@@ -84,7 +89,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   }
 
   function addSlot() {
-    if (!/^\d{2}:\d{2}$/.test(newTime)) return;
+    if (dayClosed || pending || !/^\d{2}:\d{2}$/.test(newTime)) return;
     const existing = slots.find((slot) => slot.startTime === newTime);
     if (!existing) {
       setSlots((previous) => [...previous, {
@@ -99,7 +104,8 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   }
 
   function requestClose() {
-    if (!changedCount || pending) {
+    if (pending) return;
+    if (!changedCount) {
       setOpen(false);
       return;
     }
@@ -150,11 +156,12 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
 
             {loading ? <p className="py-8 text-center text-sm text-earth-400">載入時段中…</p> : (
               <>
+                {dayClosed && <p className="mt-3 text-sm text-amber-800">此日為全天休息，請先在服務時間設定開放當日，再新增或重新開放時段。</p>}
                 <div className="mt-4 flex flex-wrap items-end gap-2 rounded-lg bg-primary-50 p-3">
                   <label className="text-xs font-medium text-earth-700">新增當日時段
                     <input aria-label="新增時段時間" type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} className="ml-2 rounded border border-earth-300 bg-white px-2 py-1 text-sm" />
                   </label>
-                  <button type="button" onClick={addSlot} className="rounded border border-primary-300 bg-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100">加入草稿</button>
+                  <button type="button" onClick={addSlot} disabled={dayClosed || pending} className="rounded border border-primary-300 bg-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100">加入草稿</button>
                 </div>
 
                 <p className="mt-3 text-xs text-earth-500">點選時段可關閉或重新開放；關閉只停止新預約，已有預約會保留。</p>
@@ -162,7 +169,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
                   {previewSlots.map((slot) => {
                     const people = bookedPeopleBySlot.get(slot.startTime) ?? 0;
                     return (
-                      <button key={slot.startTime} type="button" onClick={() => toggle(slot)} className={`rounded-lg border p-2 text-left text-xs ${slot.isOpen ? "border-green-200 bg-green-50 text-green-800" : "border-earth-200 bg-earth-50 text-earth-500"}`}>
+                      <button key={slot.startTime} type="button" onClick={() => toggle(slot)} disabled={dayClosed || pending} className={`rounded-lg border p-2 text-left text-xs ${slot.isOpen ? "border-green-200 bg-green-50 text-green-800" : "border-earth-200 bg-earth-50 text-earth-500"}`}>
                         <span className="block font-semibold">{slot.startTime} · {slot.isOpen ? "開放" : "關閉"}</span>
                         <span className="mt-0.5 block text-[11px]">名額 {slot.capacity || "依原設定"} 位{people > 0 ? ` · 已預約 ${people} 人` : ""}</span>
                       </button>

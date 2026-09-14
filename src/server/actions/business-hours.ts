@@ -732,6 +732,11 @@ export async function applyDaySlotOverrides(input: {
       times.add(change.startTime);
     }
 
+    const context = await loadDayBusinessHoursContext(storeId, input.date);
+    if (context.rule.closed && input.changes.some((change) => change.action !== "disable")) {
+      throw new AppError("VALIDATION", "此日為全天休息，請先在服務時間設定開放當日，再新增或重新開放時段");
+    }
+
     const dateObj = new Date(input.date + "T00:00:00Z");
     const booked = await prisma.booking.groupBy({
       by: ["slotTime"],

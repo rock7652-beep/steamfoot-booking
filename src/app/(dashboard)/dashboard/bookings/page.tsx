@@ -40,6 +40,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
   ) {
     redirect("/dashboard");
   }
+  const canManageHours = await checkPermission(user.role, user.staffId, "business_hours.manage");
   const params = await searchParams;
 
   // getActiveStoreForRead() already gives an authorized route-first store scope.
@@ -187,6 +188,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         monthSchedule={monthSchedule}
         servicePlans={servicePlans}
         readOnly={isViewMode}
+        canManageHours={canManageHours}
         initialBookingId={deepLinkedBooking?.id ?? null}
       />
       )}

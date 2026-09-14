@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  loadDayBusinessHoursContext: vi.fn(),
   requirePermission: vi.fn(),
   requireStaffSession: vi.fn(),
   resolveWriteStoreId: vi.fn(),
@@ -47,6 +48,10 @@ vi.mock("@/lib/db", () => ({
     $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
   },
 }));
+vi.mock("@/lib/business-hours-resolver", () => ({
+  loadDayBusinessHoursContext: mocks.loadDayBusinessHoursContext,
+  applySlotOverrides: vi.fn(),
+}));
 vi.mock("@/lib/session", () => ({ requireStaffSession: mocks.requireStaffSession }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.requirePermission }));
 vi.mock("@/lib/store", () => ({
@@ -67,11 +72,23 @@ import { addSpecialDay, applyDaySlotOverrides, syncFromHeadquarters } from "@/se
 describe("business-hours store isolation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: false } });
     mocks.requirePermission.mockResolvedValue({ role: "ADMIN", storeId: null });
     mocks.resolveWriteStoreId.mockResolvedValue("branch-a");
     mocks.bookingCount.mockResolvedValue(0);
     mocks.bookingGroupBy.mockResolvedValue([]);
     mocks.specialUpsert.mockResolvedValue({ id: "special-a" });
+  });
+
+  it("rejects reopening a closed day without writing misleading slot overrides", async () => {
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: true } });
+    const result = await applyDaySlotOverrides({
+      date: "2026-09-21",
+      changes: [{ startTime: "09:30", action: "enable" }],
+    });
+    expect(result.success).toBe(false);
+    expect(mocks.txSlotOverrideUpsert).not.toHaveBeenCalled();
+    expect(mocks.loadDayBusinessHoursContext).toHaveBeenCalledWith("branch-a", "2026-09-21");
   });
 
   it("replaces a custom day's legacy slot overrides only after booking validation", async () => {

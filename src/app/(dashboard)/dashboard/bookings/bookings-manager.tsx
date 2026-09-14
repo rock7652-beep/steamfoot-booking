@@ -144,6 +144,7 @@ interface BookingsManagerProps {
   monthSchedule: MonthScheduleMap;
   servicePlans: ServicePlanOption[];
   readOnly?: boolean;
+  canManageHours?: boolean;
   initialBookingId?: string | null;
 }
 
@@ -155,6 +156,7 @@ export function BookingsManager({
   monthSchedule,
   servicePlans,
   readOnly = false,
+  canManageHours = false,
   initialBookingId = null,
 }: BookingsManagerProps) {
   // monthData lifted into client state so we can patch a single booking
@@ -660,7 +662,7 @@ export function BookingsManager({
               : "當日預約"}
           </h2>
           <div className="flex items-center gap-2">
-            {!readOnly && selectedDate && (
+            {!readOnly && canManageHours && selectedDate && (
               <DaySlotManager
                 date={selectedDate}
                 bookedPeopleBySlot={bookedPeopleBySlot}
