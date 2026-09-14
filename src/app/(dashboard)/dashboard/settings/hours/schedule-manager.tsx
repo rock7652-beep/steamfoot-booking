@@ -39,6 +39,12 @@ interface BusinessPeriod {
   defaultCapacity: number;
 }
 
+function validateServicePeriods(periods: BusinessPeriod[]) {
+  const incomplete = periods.findIndex((period) => !period.openTime || !period.closeTime);
+  if (incomplete >= 0) return { valid: false, error: `第 ${incomplete + 1} 段：請選擇開始與結束時間` };
+  return validateBusinessPeriods(periods);
+}
+
 interface SpecialDay {
   id: string;
   date: string;
@@ -198,7 +204,7 @@ export function ScheduleManager({
   const draftKey = JSON.stringify([selectedDate, editStatus, editPeriods, editReason, applyMode, copyWeeks, templateWeeks, dayDetail?.slots]);
   const reviewing = reviewedDraft === draftKey;
   const periodValidation = editStatus === "custom" || (editStatus === "open" && applyMode !== "day")
-    ? validateBusinessPeriods(editPeriods) : { valid: true };
+    ? validateServicePeriods(editPeriods) : { valid: true };
   const currentTimes = new Set(dayDetail?.slots.filter((slot) => slot.isEnabled).map((slot) => slot.startTime));
   const previewTimes = new Set(draftSlotPreview.map((slot) => slot.startTime));
   const addedTimes = [...previewTimes].filter((time) => !currentTimes.has(time));
@@ -352,27 +358,28 @@ export function ScheduleManager({
 
   const specialMap = new Map(specialDays.map((s) => [s.date, s]));
 
-  function getDayColor(dateStr: string, dow: number): string {
+  function getCalendarStatus(dateStr: string, dow: number) {
+    const summary = monthSummary[dateStr];
+    if (summary) return summary.status;
     const special = specialMap.get(dateStr);
-    if (special) {
-      if (special.type === "closed") return "bg-earth-200 text-earth-500";
-      if (special.type === "training") return "bg-red-100 text-red-600";
-      if (special.type === "custom") return "bg-blue-100 text-blue-700";
-    }
+    if (special) return special.type;
     const weekly = weeklyHours.find((w) => w.dayOfWeek === dow);
-    if (weekly && !weekly.isOpen) return "bg-earth-200 text-earth-500";
+    return weekly?.isOpen ? "open" : "closed";
+  }
+
+  function getDayColor(dateStr: string, dow: number): string {
+    const status = getCalendarStatus(dateStr, dow);
+    if (status === "closed") return "bg-earth-200 text-earth-500";
+    if (status === "training") return "bg-red-100 text-red-600";
+    if (status === "custom") return "bg-blue-100 text-blue-700";
     return "bg-green-50 text-green-700";
   }
 
   function getDayLabel(dateStr: string, dow: number): string {
-    const special = specialMap.get(dateStr);
-    if (special) {
-      if (special.type === "closed") return "休";
-      if (special.type === "training") return "修";
-      if (special.type === "custom") return "特";
-    }
-    const weekly = weeklyHours.find((w) => w.dayOfWeek === dow);
-    if (weekly && !weekly.isOpen) return "休";
+    const status = getCalendarStatus(dateStr, dow);
+    if (status === "closed") return "休";
+    if (status === "training") return "修";
+    if (status === "custom") return "特";
     return "";
   }
 
@@ -610,7 +617,7 @@ export function ScheduleManager({
   const saveWeeklyDay = useCallback(async (
     dow: number, isOpen: boolean, periods: BusinessPeriod[],
   ) => {
-    if (!canManage || (isOpen && !validateBusinessPeriods(periods).valid)) return false;
+    if (!canManage || (isOpen && !validateServicePeriods(periods).valid)) return false;
     try {
       const sorted = [...periods].sort((a, b) => a.openTime.localeCompare(b.openTime));
       const first = sorted[0];
@@ -677,7 +684,7 @@ export function ScheduleManager({
   }, []);
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr),minmax(400px,0.8fr)] xl:grid-rows-[min-content_1fr]">
+    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] xl:grid-rows-[min-content_1fr]">
       {/* ===== 左側：月曆 ===== */}
       <div className="space-y-4">
         <div className="relative rounded-xl border bg-white p-4 shadow-sm">
@@ -745,7 +752,7 @@ export function ScheduleManager({
                   }`}
                 >
                   <span className="leading-tight">{day}</span>
-                  {summary?.openTime && summary?.closeTime ? (
+                  {summary?.status !== "closed" && summary?.status !== "training" && summary?.openTime && summary?.closeTime ? (
                     <span className="text-[9px] leading-tight opacity-70">
                       {summary.openTime.slice(0, 5)}–{summary.closeTime.slice(0, 5)}
                     </span>
@@ -893,7 +900,7 @@ export function ScheduleManager({
                   <button
                     type="button"
                     disabled={!canManage || editPeriods.length >= 8}
-                    onClick={() => setEditPeriods((items) => [...items, { openTime: "14:00", closeTime: "18:00", slotInterval: 60, defaultCapacity: editCapacity }])}
+                    onClick={() => setEditPeriods((items) => [...items, { openTime: "", closeTime: "", slotInterval: 60, defaultCapacity: editCapacity }])}
                     className="w-full rounded-lg border border-dashed border-blue-300 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                   >
                     ＋ 新增一段
@@ -904,7 +911,7 @@ export function ScheduleManager({
 
               <section aria-label="開放時段預覽" className="mb-3 rounded-lg border border-primary-100 bg-primary-50 p-3">
                 <h4 className="text-sm font-semibold text-primary-800">{dayDraftDirty ? "儲存後時段" : "目前開放時段"}</h4>
-                {canManage && <button type="button" disabled={dayDraftDirty || loadingDay || isPending}
+                {canManage && editStatus !== "closed" && editStatus !== "training" && <button type="button" disabled={dayDraftDirty || loadingDay || isPending}
                   aria-expanded={showAdvancedSlots && !dayDraftDirty}
                   onClick={() => { setShowAdvancedSlots(!showAdvancedSlots); setSelectedSlot(null); }}
                   className="mt-1 text-xs text-primary-700 underline disabled:opacity-40">
@@ -1315,7 +1322,7 @@ function WeeklyDayRow({
   const [expanded, setExpanded] = useState(false);
 
   const [saving, startSave] = useTransition();
-  const validation = isOpen ? validateBusinessPeriods(periods) : { valid: true };
+  const validation = isOpen ? validateServicePeriods(periods) : { valid: true };
 
   function handleToggle() {
     setIsOpen(!isOpen);
@@ -1394,7 +1401,7 @@ function WeeklyDayRow({
             </div>
           ))}
           <button type="button" disabled={!canManage || periods.length >= 8}
-            onClick={() => { setPeriods((items) => [...items, { openTime: "14:00", closeTime: "18:00", slotInterval: 60, defaultCapacity: day.defaultCapacity }]); setDirty(true); }}
+            onClick={() => { setPeriods((items) => [...items, { openTime: "", closeTime: "", slotInterval: 60, defaultCapacity: day.defaultCapacity }]); setDirty(true); }}
             className="w-full rounded border border-dashed border-earth-300 py-1.5 text-[11px] text-earth-600">
             ＋ 新增一段
           </button>
