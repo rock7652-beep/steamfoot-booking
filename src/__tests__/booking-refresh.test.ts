@@ -24,7 +24,7 @@ describe("booking background refresh", () => {
     s.resolve("complete server snapshot");
     await request;
     expect(s.apply).toHaveBeenCalledWith("complete server snapshot");
-    expect(s.onBusy).toHaveBeenLastCalledWith(false);
+    expect(s.onBusy).not.toHaveBeenCalled();
   });
 
   it("never applies an old date/store response after disposal", async () => {
@@ -61,7 +61,7 @@ describe("booking background refresh", () => {
     await request;
     expect(s.apply).not.toHaveBeenCalled();
     expect(s.onError).toHaveBeenCalledOnce();
-    const retry = s.controller.refresh();
+    const retry = s.controller.refresh(true);
     s.resolve("recovered");
     await retry;
     expect(s.apply).toHaveBeenCalledWith("recovered");
