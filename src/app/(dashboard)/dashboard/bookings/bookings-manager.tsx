@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { fetchDaySlots } from "@/server/actions/slots";
+import { toggleSlotOverride } from "@/server/actions/business-hours";
 import {
   markCompleted,
   markCompletedBatch,
@@ -22,7 +23,7 @@ import {
 import { applyBookingNotePatch, type BookingNotePatch } from "./booking-note-state";
 import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { formatWeekdayZh } from "@/lib/date-utils";
+import { formatWeekdayZh, toLocalDateStr } from "@/lib/date-utils";
 
 const COMPLETABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 
@@ -180,6 +181,7 @@ export function BookingsManager({
     slotsCacheRef.current = slotsCache;
   }, [slotsCache]);
   const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
+  const [extraSlotTime, setExtraSlotTime] = useState("19:30");
   const [, startTransition] = useTransition();
   const [filters, setFilters] = useState<BookingFilters>(EMPTY_FILTERS);
   const [activeBookingId, setActiveBookingId] = useState<string | null>(
@@ -382,6 +384,24 @@ export function BookingsManager({
     },
     [],
   );
+
+  const addTodaySlot = useCallback(async () => {
+    if (!selectedDate || selectedDate !== toLocalDateStr()) return;
+    const result = await toggleSlotOverride({ date: selectedDate, startTime: extraSlotTime, action: "enable" });
+    if (!result.success) { toast.error(result.error ?? "新增時段失敗"); return; }
+    toast.success(`已新增 ${extraSlotTime} 當日時段`);
+    setSlotsLoadingDate(selectedDate);
+    try {
+      const refreshed = await fetchDaySlots(selectedDate);
+      setSlotsCache((previous) => {
+        const next = new Map(previous);
+        next.set(selectedDate, refreshed.slots);
+        return next;
+      });
+    } finally {
+      setSlotsLoadingDate((current) => current === selectedDate ? null : current);
+    }
+  }, [extraSlotTime, selectedDate]);
 
   const openBooking = useCallback(
     (id: string) => {
@@ -633,6 +653,13 @@ export function BookingsManager({
                 )}（${formatWeekdayZh(selectedDate)}） 當日預約`
               : "當日預約"}
           </h2>
+          <div className="flex items-center gap-2">
+            {selectedDate === toLocalDateStr() && !readOnly && (
+              <>
+                <input aria-label="新增當日時段" type="time" value={extraSlotTime} onChange={(event) => setExtraSlotTime(event.target.value)} className="rounded border border-earth-300 px-1.5 py-1 text-xs" />
+                <button type="button" onClick={() => void addTodaySlot()} className="rounded border border-primary-300 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50">＋時段</button>
+              </>
+            )}
           <button
             type="button"
             onClick={closeDay}
@@ -641,6 +668,7 @@ export function BookingsManager({
           >
             ✕
           </button>
+          </div>
         </div>
         <div className="min-h-0 flex-1">
           <DayDetailPanel
