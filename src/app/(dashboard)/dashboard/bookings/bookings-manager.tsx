@@ -20,7 +20,7 @@ import {
   createBookingDetailCache,
 } from "./booking-detail-cache";
 import { applyBookingNotePatch, type BookingNotePatch } from "./booking-note-state";
-import { ACTIVE_BOOKING_STATUSES } from "@/lib/booking-constants";
+import { ACTIVE_BOOKING_STATUSES, PENDING_STATUSES } from "@/lib/booking-constants";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { formatWeekdayZh } from "@/lib/date-utils";
 import { DaySlotManager } from "./day-slot-manager";
@@ -401,7 +401,9 @@ export function BookingsManager({
   const bookedPeopleBySlot = useMemo(() => {
     const result = new Map<string, number>();
     for (const booking of dayBookings) {
-      if (!ACTIVE_BOOKING_STATUSES.includes(booking.bookingStatus as typeof ACTIVE_BOOKING_STATUSES[number])) continue;
+      // 關閉時段只需提示仍會占用未來名額的預約；已完成／未到的
+      // 歷史紀錄不應讓店長誤以為仍需保留該名額。
+      if (!PENDING_STATUSES.includes(booking.bookingStatus as typeof PENDING_STATUSES[number])) continue;
       result.set(booking.slotTime, (result.get(booking.slotTime) ?? 0) + booking.people);
     }
     return result;

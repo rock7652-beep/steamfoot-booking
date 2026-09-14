@@ -1237,7 +1237,7 @@ export function ScheduleManager({
               )}
               {dayDetail.slots.some((s) => s.override) && (
                 <p className="mt-2 text-[10px] text-amber-600">
-                  ⚡ 有手動覆寫的時段（黃框 = 強制開放，紅框 = 手動關閉，右鍵選取調整名額）
+                  ⚡ 有手動覆寫的時段（黃框 = 強制開放，紅框 = 手動關閉；點選時段可調整名額）
                 </p>
               )}
               </div>
@@ -1367,7 +1367,7 @@ function WeeklyDayRow({
 }
 
 // ============================================================
-// 時段開關按鈕（支援三態切換：預設 → 關閉 → 強制開放 → 移除覆寫）
+// 時段名額選取按鈕；開關與新增時段統一由預約管理的「管理時段」處理。
 // ============================================================
 
 function SlotToggleButton({
@@ -1433,9 +1433,9 @@ function SlotToggleButton({
       className={className}
       title={
         slot.override === "disabled"
-          ? `手動關閉${slot.overrideReason ? `：${slot.overrideReason}` : ""}（點擊回復）`
+          ? `手動關閉${slot.overrideReason ? `：${slot.overrideReason}` : ""}（請在預約管理的「管理時段」重新開放）`
           : slot.override === "enabled"
-            ? `強制開放${slot.overrideReason ? `：${slot.overrideReason}` : ""}（點擊回復）`
+            ? `強制開放${slot.overrideReason ? `：${slot.overrideReason}` : ""}（請在預約管理的「管理時段」調整）`
             : isActive
               ? `${slot.startTime}（${slot.capacity}位）— 點選調整名額`
               : `${slot.startTime}（目前未開放）`
