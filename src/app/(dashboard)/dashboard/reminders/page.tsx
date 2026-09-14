@@ -1,3 +1,4 @@
+import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCurrentStorePlan } from "@/lib/store-plan";
@@ -65,11 +66,16 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           params.tab === "templates"
         ? "customer"
         : "manager";
-  const health = await getCurrentLineOfficialAccountStatus().catch(() => null);
+  const previewBlocked = isPreviewExternalIntegrationBlocked();
+  const health = previewBlocked
+    ? null
+    : await getCurrentLineOfficialAccountStatus().catch(() => null);
   let content;
   if (activeTab === "manager") {
     const recipients = await listStoreLineNotificationRecipients();
-    content = <LineNotificationRecipientsCard key={storeId} recipients={recipients} />;
+    content = (
+      <LineNotificationRecipientsCard key={storeId} recipients={recipients} />
+    );
   } else if (activeTab === "logs") {
     content = (
       <NotificationLogList
@@ -88,7 +94,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         getTodayCronRunStatus(),
       ]);
     content = (
-      <section className="space-y-3">
+      <section key={`${storeId}-customer`} className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold text-earth-900">顧客提醒</h2>
           <p className="mt-1 text-sm text-earth-500">
@@ -109,10 +115,13 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             initialEnabled={state.trialBookingEnabled}
           />
           <SimpleSessionBalanceReminders
-            key={storeId}
+            key={`${storeId}-balance`}
             initialSetting={balance}
           />
-          <PlanExpiryReminderSettingCard key={storeId} initialEnabled={expiry} />
+          <PlanExpiryReminderSettingCard
+            key={`${storeId}-expiry`}
+            initialEnabled={expiry}
+          />
         </div>
       </section>
     );
@@ -142,12 +151,18 @@ export default async function RemindersPage({ searchParams }: PageProps) {
                   : "text-earth-500"
             }
           >
-            LINE{" "}
-            {health?.status === "NORMAL"
-              ? "連線正常"
-              : health
-                ? "連線需要處理"
-                : "暫時無法確認連線"}
+            {previewBlocked ? (
+              "預覽環境：不會實際發送 LINE 通知"
+            ) : (
+              <>
+                LINE{" "}
+                {health?.status === "NORMAL"
+                  ? "連線正常"
+                  : health
+                    ? "連線需要處理"
+                    : "暫時無法確認連線"}
+              </>
+            )}
           </span>
           <Link
             href="/dashboard/reminders?tab=logs&status=FAILED"

@@ -163,6 +163,11 @@ export function LineNotificationRecipientsCard({
           每位人員獨立設定，關閉總開關即停止接收所有店長通知。
         </p>
       </div>
+      {recipients.length === 0 && (
+        <p className="rounded-lg bg-earth-50 p-3 text-sm text-earth-600">
+          尚未綁定通知人員。完成綁定後，即可設定總開關與 8 項個別提醒。
+        </p>
+      )}
       {recipients.map((item) => (
         <RecipientCard key={item.id} item={item} />
       ))}

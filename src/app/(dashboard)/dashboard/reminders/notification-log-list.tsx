@@ -42,70 +42,85 @@ export function NotificationLogList({
   }
   return (
     <section className="space-y-3">
-      <form className="grid gap-2 rounded-xl border border-earth-200 bg-white p-3 sm:grid-cols-3 lg:grid-cols-6">
+      <form className="grid grid-cols-2 items-end gap-3 rounded-xl border border-earth-200 bg-white p-3 lg:grid-cols-6">
         <input type="hidden" name="tab" value="logs" />
-        <input
-          aria-label="搜尋收件人"
-          name="search"
-          defaultValue={params.search}
-          placeholder="搜尋收件人"
-          className="min-w-0 rounded border p-2 text-sm"
-        />
-        <select
-          aria-label="通知對象"
-          name="audience"
-          defaultValue={params.audience ?? ""}
-          className="rounded border p-2 text-sm"
-        >
-          <option value="">全部對象</option>
-          <option value="manager">店長</option>
-          <option value="customer">顧客</option>
-        </select>
-        <select
-          aria-label="通知類型"
-          name="type"
-          defaultValue={params.type ?? ""}
-          className="min-w-0 rounded border p-2 text-sm"
-        >
-          <option value="">全部類型</option>
-          {[
-            ...Object.entries(labels),
-            ...[
-              ...new Set([
-                ...data.typeOptions,
-                ...data.rows.map((r) => r.type),
-                ...(params.type ? [params.type] : []),
-              ]),
-            ]
-              .filter((k) => !labels[k])
-              .map((k) => [k, k]),
-          ].map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <input
-          aria-label="發送日期"
-          name="date"
-          type="date"
-          defaultValue={params.date}
-          className="min-w-0 rounded border p-2 text-sm"
-        />
-        <select
-          aria-label="發送狀態"
-          name="status"
-          defaultValue={params.status ?? ""}
-          className="rounded border p-2 text-sm"
-        >
-          <option value="">全部狀態</option>
-          {Object.entries(statuses).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <button className="rounded-lg bg-primary-700 p-2 text-sm text-white">
+        <label className="min-w-0 space-y-1 text-xs text-earth-500 col-span-2 lg:col-span-1">
+          <span>搜尋收件人</span>
+          <input
+            aria-label="搜尋收件人"
+            name="search"
+            defaultValue={params.search}
+            placeholder="搜尋收件人"
+            className="h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white p-2 text-sm"
+          />
+        </label>
+        <label className="min-w-0 space-y-1 text-xs text-earth-500">
+          <span>通知對象</span>
+          <select
+            aria-label="通知對象"
+            name="audience"
+            defaultValue={params.audience ?? ""}
+            className="h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white p-2 text-sm"
+          >
+            <option value="">全部對象</option>
+            <option value="manager">店長</option>
+            <option value="customer">顧客</option>
+          </select>
+        </label>
+        <label className="min-w-0 space-y-1 text-xs text-earth-500">
+          <span>通知類型</span>
+          <select
+            aria-label="通知類型"
+            name="type"
+            defaultValue={params.type ?? ""}
+            className="h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white p-2 text-sm"
+          >
+            <option value="">全部類型</option>
+            {[
+              ...Object.entries(labels),
+              ...[
+                ...new Set([
+                  ...data.typeOptions,
+                  ...data.rows.map((r) => r.type),
+                  ...(params.type ? [params.type] : []),
+                ]),
+              ]
+                .filter((k) => !labels[k])
+                .map((k) => [k, k]),
+            ].map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="min-w-0 space-y-1 text-xs text-earth-500">
+          <span>發送日期</span>
+          <input
+            aria-label="發送日期"
+            name="date"
+            type="date"
+            defaultValue={params.date}
+            className="h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white p-2 text-sm"
+          />
+        </label>
+        <label className="min-w-0 space-y-1 text-xs text-earth-500">
+          <span>發送狀態</span>
+          <select
+            aria-label="發送狀態"
+            name="status"
+            defaultValue={params.status ?? ""}
+            className="h-11 w-full min-w-0 rounded-lg border border-earth-200 bg-white p-2 text-sm"
+          >
+            <option value="">全部狀態</option>
+            {Object.entries(statuses).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button className="col-span-2 h-11 rounded-lg bg-primary-700 p-2 text-sm text-white lg:col-span-1">
           篩選
         </button>
       </form>
