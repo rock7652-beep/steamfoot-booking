@@ -1,4 +1,5 @@
 import type { LineMessage, LineTextMessage } from "@/lib/line";
+import { classifyDigitalButlerGlobalCommand } from "@/lib/digital-butler-global-command";
 
 const INVISIBLE_LINE_TEXT = /[\s\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\u2800\u3164\uFE00-\uFE0F\uFEFF\uFFA0]/gu;
 const FALLBACK_QUICK_REPLY_CARRIER = "請選擇：";
@@ -96,8 +97,19 @@ export function addDigitalButlerEscapeQuickReplies(
   }
 
   return messages.map((message, index) => {
-    if (index !== targetIndex || message.type !== "text") return message;
-    const existing = message.quickReply?.items ?? [];
+    if (message.type !== "text") return message;
+    // Published menus may already contain legacy support/exit commands.
+    // Remove only those message actions before appending the canonical pair.
+    // Keep booking, contact collection, URI and postback actions untouched.
+    const existing = (message.quickReply?.items ?? []).filter((item) => {
+      if (item.action.type !== "message") return true;
+      const command = classifyDigitalButlerGlobalCommand(item.action.text)
+        ?? classifyDigitalButlerGlobalCommand(item.action.label ?? "");
+      return command !== "HANDOFF" && command !== "CANCEL";
+    });
+    if (index !== targetIndex) {
+      return { ...message, quickReply: existing.length ? { items: existing } : undefined };
+    }
     return {
       ...message,
       quickReply: { items: [...existing.slice(0, 11), ...ESCAPE_QUICK_REPLIES] },
