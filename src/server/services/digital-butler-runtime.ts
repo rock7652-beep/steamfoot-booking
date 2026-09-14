@@ -34,6 +34,24 @@ const DIRECT_TRIAL_BOOKING_TEXT = [
   "請點選下方連結，直接選擇方便的體驗時間：",
 ].join("\n");
 
+const LINE_DIRECT_BOOKING_TRIGGERS = new Set([
+  "我想預約體驗",
+  "預約體驗",
+  "立即預約體驗",
+]);
+
+function directBookingResult(): DigitalButlerRuntimeResult {
+  return {
+    handled: true,
+    messages: [{
+      type: "text",
+      text: DIRECT_TRIAL_BOOKING_TEXT,
+      urlButton: { label: "立即預約體驗", url: ZHUBEI_EXPERIENCE_BOOKING_URL },
+    }],
+    outcome: "DIRECT_BOOKING",
+  };
+}
+
 function prismaBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(value);
 }
@@ -761,25 +779,24 @@ export class DigitalButlerRuntime {
 
     if (
       (input.provider === "LINE" || input.provider === "MESSENGER")
-      && TRIAL_EXPERIENCE_TRIGGER_ALIASES.has(normalizeTriggerText(input.text))
+      && (TRIAL_EXPERIENCE_TRIGGER_ALIASES.has(normalizeTriggerText(input.text))
+        || (input.provider === "LINE" && LINE_DIRECT_BOOKING_TRIGGERS.has(normalizeTriggerText(input.text))))
     ) {
       if (conversation && !(await this.repository.cancelConversation(input.storeId, conversation.id))) {
         return finish({ handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" }, conversation.id);
       }
-      return finish({
-        handled: true,
-        messages: [{
-          type: "text",
-          text: DIRECT_TRIAL_BOOKING_TEXT,
-          urlButton: { label: "立即預約體驗", url: ZHUBEI_EXPERIENCE_BOOKING_URL },
-        }],
-        outcome: "DIRECT_BOOKING",
-      }, conversation?.id);
+      return finish(directBookingResult(), conversation?.id);
     }
 
     if (!conversation) {
       const flow = await this.repository.findTriggeredFlow(input.storeId, input.text);
       if (!flow?.publishedVersion) return finish({ handled: false, messages: [], outcome: "NO_MATCH" });
+      // A menu value (for example BOOKING) is meaningful only after it has
+      // matched this store's published menu. Never collect contact details
+      // before opening the LINE booking form.
+      if (input.provider === "LINE" && isBookingRequest(flow.initialAnswer?.value)) {
+        return finish(directBookingResult());
+      }
       const first = flow.publishedVersion.steps[0] ?? null;
       const startStepIndex = flow.startStepKey
         ? flow.publishedVersion.steps.findIndex((step) => step.stepKey === flow.startStepKey)
@@ -862,6 +879,12 @@ export class DigitalButlerRuntime {
       }
       return finish({ handled: true, messages: [questionMessage(step, answer.error)], outcome: "VALIDATION_FAILED" }, conversation.id);
     }
+    if (input.provider === "LINE" && step.type === "SINGLE_CHOICE" && isBookingRequest(answer.value)) {
+      const cancelled = await this.repository.cancelConversation(input.storeId, conversation.id);
+      return finish(cancelled ? directBookingResult() : {
+        handled: true, messages: [], outcome: "INACTIVE_CONVERSATION",
+      }, conversation.id);
+    }
     const saved = await this.repository.saveAnswer({
       storeId: input.storeId, conversationId: conversation.id, step,
       value: answer.value, phone: answer.phone,
@@ -926,7 +949,15 @@ export class DigitalButlerRuntime {
       if (!cancelled) return { handled: true, messages: [], outcome: "INACTIVE_CONVERSATION" };
       return {
         handled: true,
-        messages: [{ type: "text", text: "好的，已停止自動流程，將由門市夥伴接手協助您。" }],
+        messages: [{
+          type: "text",
+          text: conversation.provider === "LINE"
+            ? "好的，已停止自動流程，將由門市夥伴接手協助您。\n\n若您想直接預約體驗，也可以點選下方按鈕選擇時間，不必等候回覆。"
+            : "好的，已停止自動流程，將由門市夥伴接手協助您。",
+          ...(conversation.provider === "LINE" ? {
+            urlButton: { label: "立即預約體驗", url: ZHUBEI_EXPERIENCE_BOOKING_URL },
+          } : {}),
+        }],
         outcome: "HANDOFF_REQUESTED",
       };
     }
@@ -944,7 +975,9 @@ export class DigitalButlerRuntime {
       if (!chatBookingCompletionPending) return;
       messages.push({
         type: "text",
-        text: CHAT_BOOKING_COMPLETION_TEXT,
+        text: conversation.provider === "LINE"
+          ? "已收到您的資料，請點選下方按鈕選擇體驗日期與時間，完成預約。\n\n如有問題，也可以在這裡詢問店家。"
+          : CHAT_BOOKING_COMPLETION_TEXT,
         urlButton: { label: "立即預約體驗", url: ZHUBEI_EXPERIENCE_BOOKING_URL },
       });
       chatBookingCompletionPending = false;
