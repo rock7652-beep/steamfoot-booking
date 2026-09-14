@@ -32,6 +32,7 @@ export async function listStoreLineNotificationRecipients() {
       displayName: true,
       roleLabel: true,
       isActive: true,
+      sameDayBookingEnabled: true,
       linkedAt: true,
       bindingCode: true,
       bindingCodeExpiresAt: true,
@@ -90,6 +91,32 @@ export async function removeStoreLineNotificationRecipient(id: string): Promise<
   try {
     const storeId = await requireStore();
     await prisma.storeLineNotificationRecipient.deleteMany({ where: { id, storeId } });
+    revalidatePath("/dashboard/reminders");
+    return { success: true, data: undefined };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+export async function setSameDayBookingReminder(
+  id: string,
+  enabled: boolean,
+): Promise<ActionResult> {
+  try {
+    const storeId = await requireStore();
+    const values = z.object({ id: z.string().min(1), enabled: z.boolean() }).parse({ id, enabled });
+    const recipient = await prisma.storeLineNotificationRecipient.findFirst({
+      where: { id: values.id, storeId },
+      select: { lineUserId: true, isActive: true },
+    });
+    if (!recipient) throw new AppError("NOT_FOUND", "找不到通知人員");
+    if (values.enabled && (!recipient.lineUserId || !recipient.isActive)) {
+      throw new AppError("BUSINESS_RULE", "請先完成 LINE 綁定並啟用通知人員");
+    }
+    await prisma.storeLineNotificationRecipient.updateMany({
+      where: { id: values.id, storeId },
+      data: { sameDayBookingEnabled: values.enabled },
+    });
     revalidatePath("/dashboard/reminders");
     return { success: true, data: undefined };
   } catch (error) {

@@ -690,6 +690,7 @@ model Store {
 }
 
 model StoreLineNotificationRecipient {
+  sameDayBookingEnabled Boolean @default(false)
   id                   String    @id @default(cuid())
   storeId              String
   displayName          String
