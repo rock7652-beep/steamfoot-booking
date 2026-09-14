@@ -15,7 +15,7 @@ import {
   applyWeeklyTemplate,
   syncFromHeadquarters,
 } from "@/server/actions/business-hours";
-import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS, generateSlots } from "@/lib/slot-generator";
+import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS, generateSlots, validateBusinessPeriods } from "@/lib/slot-generator";
 
 // ============================================================
 // Types
@@ -144,6 +144,7 @@ export function ScheduleManager({
   const [weeklyHours, setWeeklyHours] = useState(initialWeekly);
   const [isPending, startTransition] = useTransition();
   const [loadingDay, setLoadingDay] = useState(false);
+  const [reviewedDraft, setReviewedDraft] = useState<string | null>(null);
 
   // 每週固定設定展開/收合
   const [showWeekly, setShowWeekly] = useState(false);
@@ -193,6 +194,19 @@ export function ScheduleManager({
       generateSlots(period.openTime, period.closeTime, period.slotInterval, period.defaultCapacity),
     );
   }, [editPeriods, editStatus]);
+
+  const draftKey = JSON.stringify([selectedDate, editStatus, editPeriods, editReason, applyMode, copyWeeks, templateWeeks, dayDetail?.slots]);
+  const reviewing = reviewedDraft === draftKey;
+  const periodValidation = editStatus === "custom" || (editStatus === "open" && applyMode !== "day")
+    ? validateBusinessPeriods(editPeriods) : { valid: true };
+  const currentTimes = new Set(dayDetail?.slots.filter((slot) => slot.isEnabled).map((slot) => slot.startTime));
+  const previewTimes = new Set(draftSlotPreview.map((slot) => slot.startTime));
+  const addedTimes = [...previewTimes].filter((time) => !currentTimes.has(time));
+  const removedTimes = [...currentTimes].filter((time) => !previewTimes.has(time));
+  const scopeLabel = applyMode === "day" ? `只修改 ${selectedDate}`
+    : applyMode === "copy" ? `${selectedDate}，以及未來 ${copyWeeks} 週的${dayDetail?.dayName}`
+    : applyMode === "permanent" ? `更新每週${dayDetail?.dayName}固定服務時間`
+    : `更新每週${dayDetail?.dayName}固定排班（${templateWeeks} 週）`;
 
   useEffect(() => {
     if (!dayDraftDirty) return;
@@ -455,7 +469,7 @@ export function ScheduleManager({
 
   // ── 儲存日設定 ──
   const saveDay = useCallback(async () => {
-    if (!selectedDate || !canManage) return;
+    if (!selectedDate || !canManage || isPending || loadingDay || !periodValidation.valid) return;
 
     startTransition(async () => {
       try {
@@ -585,11 +599,12 @@ export function ScheduleManager({
         // 失效當月 cache 並重抓（其他月份保留 cache，不必清）
         await invalidateAndReloadCurrentMonth();
         await selectDate(selectedDate, { bypassCache: true });
+        setReviewedDraft(null);
       } catch {
         toast.error("儲存失敗");
       }
     });
-  }, [selectedDate, canManage, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, editPeriods, applyMode, copyWeeks, templateWeeks, selectDate, dayDetail, invalidateAndReloadCurrentMonth]);
+  }, [selectedDate, canManage, isPending, loadingDay, periodValidation.valid, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, editPeriods, applyMode, copyWeeks, templateWeeks, selectDate, dayDetail, invalidateAndReloadCurrentMonth]);
 
   // ── 儲存每週固定設定 ──
   const saveWeeklyDay = useCallback(async (
@@ -657,7 +672,7 @@ export function ScheduleManager({
   }, []);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr,360px]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr),minmax(400px,0.8fr)]">
       {/* ===== 左側：月曆 ===== */}
       <div className="space-y-4">
         {/* 套用總部設定（僅非總部店顯示） */}
@@ -811,7 +826,7 @@ export function ScheduleManager({
           loadingDay 不再 short-circuit 整面成 spinner — slot 區自己用 skeleton 撐版面，
           上半部用 monthSummary 預覽資訊立即顯示，店長不會看到空白。
           fallback：preview 也組不出來時（極少見）才走全 spinner。 */}
-      <div className="lg:sticky lg:top-20 lg:self-start">
+      <div className="min-w-0 xl:sticky xl:top-20 xl:self-start">
         {!selectedDate ? (
           <div className="rounded-xl border bg-white p-6 shadow-sm">
             <p className="text-center text-sm text-earth-400">← 點選月曆上的日期來檢視或設定</p>
@@ -834,9 +849,25 @@ export function ScheduleManager({
               </h3>
 
               <p className="mb-3 text-[11px] text-earth-500">
-                臨時訓練、旅遊或休息直接修改這一天即可。
+                選日期 → 調整時間 → 檢查開放時段 → 確認儲存
               </p>
 
+              <section className="mb-4 rounded-lg border border-primary-100 bg-primary-50 p-3" aria-label="目前已儲存的時段">
+                <h4 className="text-sm font-semibold text-primary-800">目前開放時段</h4>
+                {loadingDay ? <p className="mt-2 text-xs" role="status">讀取當日時段中…</p> : (
+                  <>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {dayDetail.slots.filter((slot) => slot.isEnabled).map((slot) => (
+                        <span key={slot.startTime} className="rounded-md border border-primary-200 bg-white px-2 py-1 text-sm text-primary-800">{slot.startTime}<span className="ml-1 text-xs text-earth-500">{slot.capacity} 位</span></span>
+                      ))}
+                    </div>
+                    {!currentTimes.size && <p className="mt-2 text-sm text-earth-500">目前沒有開放時段</p>}
+                    <p className="mt-2 text-xs text-earth-500">這是已儲存的安排；下方調整需確認儲存才會生效。</p>
+                  </>
+                )}
+              </section>
+
+              <fieldset disabled={isPending || loadingDay} className="min-w-0">
               {/* 狀態選擇 */}
               <div className="mb-3">
                 <label className="mb-1 block text-xs font-medium text-earth-600">當日狀態</label>
@@ -874,7 +905,7 @@ export function ScheduleManager({
                   {editPeriods.map((period, index) => (
                     <div key={index} className="rounded-lg border border-blue-100 bg-white p-2.5">
                       <div className="mb-2 flex items-center justify-between">
-                        <span className="text-xs font-medium text-earth-700">營業時段 {index + 1}</span>
+                        <span className="text-sm font-medium text-earth-700">服務時間 {index + 1}</span>
                         {editPeriods.length > 1 && (
                           <button
                             type="button"
@@ -924,14 +955,15 @@ export function ScheduleManager({
                     onClick={() => setEditPeriods((items) => [...items, { openTime: "14:00", closeTime: "18:00", slotInterval: 60, defaultCapacity: editCapacity }])}
                     className="w-full rounded-lg border border-dashed border-blue-300 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                   >
-                    ＋ 增加營業時段
+                    ＋ 新增一段服務時間
                   </button>
                   {editStatus === "custom" && draftSlotPreview.length > 0 && (
                     <div className="rounded-lg border border-blue-100 bg-white px-2.5 py-2">
-                      <p className="text-[11px] font-medium text-earth-700">儲存後預覽（服務時間不是服務長度）</p>
-                      <p className="mt-1 break-words text-[11px] leading-relaxed text-earth-500">
-                        {draftSlotPreview.map((slot) => `${slot.startTime}（${slot.capacity}位）`).join("、")}
-                      </p>
+                      <p className="text-sm font-medium text-earth-700">調整後的預約開始時間</p>
+                      {!periodValidation.valid ? <p role="alert" className="mt-2 text-sm text-red-700">{periodValidation.error}</p> : <div className="mt-2 flex flex-wrap gap-2">
+                        {draftSlotPreview.map((slot) => <span key={slot.startTime} className="rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-sm text-primary-800">{slot.startTime} <span className="text-xs">{slot.capacity} 位</span></span>)}
+                      </div>}
+                      <p className="mt-2 text-xs text-earth-500">間隔決定幾點可預約，不會改變每位顧客的服務長度。</p>
                     </div>
                   )}
                 </div>
@@ -976,12 +1008,12 @@ export function ScheduleManager({
                           name="applyMode"
                           value="copy"
                           checked={applyMode === "copy"}
-                          onChange={() => setApplyMode("copy")}
+                          onChange={() => { setApplyMode("copy"); setCopyWeeks((weeks) => weeks || 2); }}
                           className="accent-primary-600"
                         />
                         複製到未來
                         <select
-                          value={copyWeeks}
+                          value={copyWeeks || 2}
                           onChange={(e) => { setCopyWeeks(Number(e.target.value)); setApplyMode("copy"); }}
                           className="rounded border border-earth-300 px-1.5 py-0.5 text-xs"
                         >
@@ -1045,15 +1077,31 @@ export function ScheduleManager({
               {/* 儲存 / 回復按鈕 */}
               {canManage && (
                 <div>
+                  {!periodValidation.valid && <p role="alert" className="mb-2 text-sm text-red-700">{periodValidation.error}</p>}
+                  {reviewing && (
+                    <section aria-label="儲存前確認" className="mb-3 space-y-2 rounded-lg border border-primary-300 bg-primary-50 p-3 text-sm">
+                      <h4 className="font-bold text-primary-900">請確認這次調整</h4>
+                      <p className="font-medium">{scopeLabel}</p>
+                      {editStatus === "custom" && (applyMode === "day" || applyMode === "copy") ? <>
+                        <p>服務時間：{editPeriods.map((period) => `${period.openTime}–${period.closeTime}`).join("、")}</p>
+                        <p>新增開放：{addedTimes.join("、") || "無"}</p>
+                        <p>停止開放：{removedTimes.join("、") || "無"}</p>
+                        <p className="text-xs text-amber-800">重新設定服務時間會清除套用日期原有的臨時時段調整，以上方預覽為準。</p>
+                      </> : <p>{editStatus === "closed" || editStatus === "training" ? "全天停止接受新預約。" : applyMode === "day" ? "使用每週固定服務時間；當日單格時段調整仍保留。" : `固定服務時間：${editPeriods.map((period) => `${period.openTime}–${period.closeTime}`).join("、")}。各日期的特殊設定與時段調整依既有套用規則處理。`}</p>}
+                      {applyMode !== "day" && <p className="text-xs text-amber-800">這次不只影響一天，請再次確認套用範圍。</p>}
+                      <p className="text-xs text-earth-600">既有預約不會自動取消，收款與扣堂不會變動；如無法服務，請另行聯繫顧客。</p>
+                      <button type="button" disabled={isPending} onClick={() => setReviewedDraft(null)} className="underline text-primary-800">返回修改</button>
+                    </section>
+                  )}
                   {dayDraftDirty && <p className="mb-2 text-xs font-medium text-amber-700">尚未儲存：先確認預覽與套用範圍，再儲存。</p>}
                   <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={saveDay}
-                    disabled={isPending || !dayDraftDirty}
+                    onClick={() => { if (reviewing) void saveDay(); else setReviewedDraft(draftKey); }}
+                    disabled={isPending || loadingDay || !dayDraftDirty || !periodValidation.valid}
                     className="flex-1 rounded-lg bg-primary-600 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
                   >
-                    {isPending ? "儲存中..." : "儲存設定"}
+                    {isPending ? "儲存中..." : reviewing ? "確認並儲存" : "檢查變更"}
                   </button>
                   {dayDetail.specialDayId && (
                     <button
@@ -1070,6 +1118,7 @@ export function ScheduleManager({
                   </div>
                 </div>
               )}
+              </fieldset>
             </div>
 
             {/* 單一時段微調屬於進階功能，預設收合，避免成為店長的主要操作流程。 */}
