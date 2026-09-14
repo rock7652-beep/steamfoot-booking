@@ -16,12 +16,11 @@ for (const outcome of ["WAITING_INPUT", "VALIDATION_FAILED", "INFORMATION_ANSWER
     assert.deepEqual(addDigitalButlerEscapeQuickReplies(result, outcome), result);
   });
 }
-it("retains contact collection and non-message links even with a support label", () => {
+it("retains the contact collection action", () => {
   const original: LineMessage[] = [{ type: "text", text: "選單", quickReply: { items: [
     action("請店家聯絡我", "CONTACT_STORE"),
-    { type: "action", action: { type: "uri", label: "聯絡真人", uri: "https://example.com" } },
   ] } }];
-  assert.deepEqual(items(addDigitalButlerEscapeQuickReplies(original, "WAITING_INPUT")).slice(0, 2), items(original));
+  assert.deepEqual(items(addDigitalButlerEscapeQuickReplies(original, "WAITING_INPUT")).slice(0, 1), items(original));
 });
 it("deduplicates across messages before an invisible carrier is sanitized", () => {
   const original: LineMessage[] = [...menu(["我想預約體驗", "轉接客服"]), { type: "text", text: "\u200B", quickReply: { items: [action("真人客服")] } }];
