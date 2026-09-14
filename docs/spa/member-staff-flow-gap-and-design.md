@@ -164,3 +164,18 @@
 - 隨即以相同服務、人員、位置與時段重新預約成功；會員與人員端再次同步，方案占用再次正確為 1。完成核對後第二次取消，最終 10:00 時段再次開放、工作頁為 0 筆、方案為 2 / 2 且待到店為 0。
 - 本輪只留下兩筆可追溯的 `CANCELLED` 預約歷史及其已釋放占用紀錄，未刪除既有會員、StaffMemberLink、療程、排班或其他測試資料；沒有 legacy `Booking`／`Transaction`／`Treatment` 寫入。
 - 全套 Vitest 結果為 484 個檔案通過、3 個跳過；4,340 項通過、32 項跳過。店長排程的既有登入版本亦顯示測試人員 10:00 為可新增狀態；本次變更不修改店長排程查詢鏈。
+
+## 2026-09-14 LINE App 返回前景更新實機驗收
+
+- 固定 Preview alias 已包含 `091e0fda` 的 LIFF resume refresh 修正，以及與最新主分支整合後的 `948e7abf`；本輪未重跑先前已通過且未受影響的資料庫測試。
+- 手機 LINE App 的「我的工作」先選取非今天的 2026-09-17，再切換至其他 App；切換期間由桌面會員畫面建立 2026-09-17 10:00–11:00 的全身芳療測試預約，指定 `SPA 測試顧客` 與 `床1`。
+- 建立畫面回報「預約成功」，會員端顯示同筆 `CONFIRMED` 預約。返回手機 LINE App 後，驗收者確認選取日期仍停在 2026-09-17，沒有跳回今天，且 10:00–11:00 預約不需手動重新整理即自動出現。
+- 因此 LIFF `pageshow`／`focus`／`visibilitychange` 返回前景更新與選取日期保留，已完成真實 LINE App 實機驗收；桌面瀏覽器結果未被用來替代此項實機證據。
+- 本節建立的測試預約需在保留上述結果後精確取消；取消屬另一項具副作用操作，須另取得執行時確認。既有會員、人員、排班、取消歷史及其他測試資料均不得刪除。
+
+## PR #1001 合併前部署條件
+
+- PR 程式與 Preview 驗收已涵蓋會員加入／連結人員、雙重身分、SPA 會員預約與療程讀取、三端同步，以及 LINE App 返回前景更新；PR 仍維持 Draft，未合併、未部署 Production。
+- 正式部署前必須先安全套用 additive migration `prisma/migrations/20260913090000_add_staff_member_link/migration.sql`。目前 `scripts/ci-migrate.mjs` 的 Production allowlist 尚未包含此 migration，因此在補齊可審查的部署機制前不得直接上線。
+- Production 的 `DATABASE_URL` 與 `DIRECT_URL` 必須同時核對為正式資料庫，且 `NEXTAUTH_URL`、穩定的 `NEXTAUTH_SECRET`、LINE Login callback 與各 SPA 店 `Store.liffId` 必須在同一待上線版本完成檢查；不得沿用 Preview 測試 DB 或測試店設定。
+- 建議部署順序為 migration → 應用程式 → 真實店型 smoke test → HQ 啟用。回滾時只回滾應用程式，保留新增 relation table 與歷史資料，不刪表、不回退 legacy 資料。
