@@ -687,7 +687,12 @@ export function BookingsManager({
             slotsKnown={slotsKnown}
             slotsLoading={slotsLoadingForSelected}
             daySchedule={
-              selectedDate ? (monthSchedule[selectedDate] ?? null) : null
+              selectedDate && monthSchedule[selectedDate]
+                ? {
+                    ...monthSchedule[selectedDate],
+                    slotCount: slotsKnown ? daySlots.length : monthSchedule[selectedDate].slotCount,
+                  }
+                : null
             }
             monthHasAnyBookings={monthData.some(
               (d) => d.totalBookingCount > 0,
