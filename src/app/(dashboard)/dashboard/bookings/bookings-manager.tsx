@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { createBookingRefresh } from "@/lib/booking-refresh";
+import { createBookingRefresh, createBookingRefreshGate } from "@/lib/booking-refresh";
 import { refreshBookingManagement } from "@/server/actions/booking-refresh";
 import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -216,14 +216,14 @@ export function BookingsManager({
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [syncFailed, setSyncFailed] = useState(false);
   const refreshRef = useRef<(() => Promise<void>) | null>(null);
+  const refreshGate = useRef(createBookingRefreshGate());
   const refreshPaused = !!activeBookingId || batchActing || actingIds.size > 0 ||
     selectedIds.size > 0 || addingSlot || slotsLoadingDate !== null;
 
   useEffect(() => {
     setSyncing(false);
-    setLastSyncedAt(null);
-    setSyncFailed(false);
     const controller = createBookingRefresh({
+      gate: refreshGate.current,
       paused: () => refreshPaused || document.hidden || !navigator.onLine ||
         document.activeElement?.matches("input, textarea, select, [contenteditable='true']") === true ||
         Array.from(document.querySelectorAll('[role="dialog"]')).some((dialog) =>
@@ -245,12 +245,11 @@ export function BookingsManager({
       onError: () => setSyncFailed(true),
       onBusy: setSyncing,
     });
-    refreshRef.current = controller.refresh;
+    refreshRef.current = () => controller.refresh(true);
     const resume = () => { void controller.refresh(); };
     const timer = window.setInterval(resume, 60_000);
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("online", resume);
-    window.addEventListener("focus", resume);
     resume();
     return () => {
       controller.dispose();
@@ -258,9 +257,9 @@ export function BookingsManager({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", resume);
       window.removeEventListener("online", resume);
-      window.removeEventListener("focus", resume);
     };
-  }, [year, month, storeId, selectedDate, refreshPaused, initialMonthData]);
+  // A new server-prop array must not restart polling or trigger another read.
+  }, [year, month, storeId, selectedDate, refreshPaused]);
 
   const syncStatus = refreshPaused ? "操作中，完成後自動更新" :
     syncFailed ? "更新失敗，已保留名單，稍後重試" :
