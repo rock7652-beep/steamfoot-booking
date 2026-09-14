@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { createBookingRefresh, createBookingRefreshGate } from "@/lib/booking-refresh";
+import { refreshBookingManagement } from "@/server/actions/booking-refresh";
 import { toast } from "sonner";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { fetchDaySlots } from "@/server/actions/slots";
@@ -153,7 +155,7 @@ export function BookingsManager({
   year,
   month,
   monthData: initialMonthData,
-  monthSchedule,
+  monthSchedule: initialMonthSchedule,
   servicePlans,
   readOnly = false,
   canManageHours = false,
@@ -163,6 +165,8 @@ export function BookingsManager({
   // optimistically (status flip / cancel) without re-fetching the entire
   // month. Sync back from prop whenever year / month / server data changes.
   const [monthData, setMonthData] = useState(initialMonthData);
+  const [monthSchedule, setMonthSchedule] = useState(initialMonthSchedule);
+  useEffect(() => { setMonthSchedule(initialMonthSchedule); }, [initialMonthSchedule]);
   useEffect(() => {
     setMonthData(initialMonthData);
   }, [initialMonthData]);
@@ -208,6 +212,70 @@ export function BookingsManager({
     () => new Set(),
   );
   const [batchActing, setBatchActing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [syncFailed, setSyncFailed] = useState(false);
+  const refreshRef = useRef<(() => Promise<void>) | null>(null);
+  const refreshGate = useRef(createBookingRefreshGate());
+  const refreshPaused = !!activeBookingId || batchActing || actingIds.size > 0 ||
+    selectedIds.size > 0 || slotsLoadingDate !== null;
+
+  useEffect(() => {
+    setSyncing(false);
+    const controller = createBookingRefresh({
+      gate: refreshGate.current,
+      paused: () => refreshPaused || document.hidden || !navigator.onLine ||
+        document.activeElement?.matches("input, textarea, select, [contenteditable='true']") === true ||
+        Array.from(document.querySelectorAll('[role="dialog"]')).some((dialog) =>
+          dialog.getAttribute("aria-labelledby") !== "day-detail-sheet-title" &&
+          !dialog.closest('[aria-hidden="true"]') && dialog.getClientRects().length > 0),
+      load: () => refreshBookingManagement({ year, month, storeId, date: selectedDate }),
+      apply: (snapshot) => {
+        setMonthData(snapshot.monthData);
+        setMonthSchedule(snapshot.monthSchedule);
+        // Expire other days' slot caches as well. Keep the selected day's
+        // authoritative slots without remounting the day panel or its scroll.
+        const next = new Map<string, SlotAvailability[]>();
+        if (selectedDate && snapshot.slots) next.set(selectedDate, snapshot.slots);
+        slotsCacheRef.current = next;
+        setSlotsCache(next);
+        setLastSyncedAt(new Date());
+        setSyncFailed(false);
+      },
+      onError: () => setSyncFailed(true),
+      onBusy: setSyncing,
+    });
+    refreshRef.current = () => controller.refresh(true);
+    const resume = () => { void controller.refresh(); };
+    const timer = window.setInterval(resume, 60_000);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
+    resume();
+    return () => {
+      controller.dispose();
+      refreshRef.current = null;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
+    };
+  // A new server-prop array must not restart polling or trigger another read.
+  }, [year, month, storeId, selectedDate, refreshPaused]);
+
+  const syncStatus = refreshPaused ? "操作中，完成後自動更新" :
+    syncFailed ? "更新失敗，已保留名單，稍後重試" :
+    syncing ? "更新中…" : lastSyncedAt
+      ? `最後更新 ${lastSyncedAt.toLocaleTimeString("zh-TW", { timeZone: "Asia/Taipei", hour: "2-digit", minute: "2-digit", second: "2-digit" })} · 每 60 秒自動更新`
+      : "每 60 秒自動更新";
+  const syncControl = (
+    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-earth-500">
+      <span role="status">{syncStatus}</span>
+      <button type="button" disabled={syncing || refreshPaused}
+        onClick={() => void refreshRef.current?.()}
+        className="shrink-0 rounded border border-earth-300 px-2 py-1 hover:bg-earth-50 disabled:opacity-50">
+        {syncing ? "更新中…" : "立即更新"}
+      </button>
+    </div>
+  );
 
   useEffect(() => {
     if (readOnly) {
@@ -615,6 +683,7 @@ export function BookingsManager({
 
   return (
     <div className="flex flex-col gap-4">
+      {syncControl}
       <Toolbar
         year={year}
         month={month}
@@ -679,6 +748,7 @@ export function BookingsManager({
           </button>
           </div>
         </div>
+        <div className="border-b border-earth-100 px-4 py-2">{syncControl}</div>
         <div className="min-h-0 flex-1">
           <DayDetailPanel
             date={selectedDate}

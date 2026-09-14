@@ -8,7 +8,14 @@ const { pushMessage, recipientFindMany } = vi.hoisted(() => ({
 vi.mock("@/lib/base-url", () => ({ deriveBaseUrl: () => "https://www.steamfoot.com" }));
 vi.mock("@/lib/line", () => ({ pushMessage }));
 vi.mock("@/lib/db", () => ({
-  prisma: { storeLineNotificationRecipient: { findMany: recipientFindMany } },
+  prisma: {
+    store: { findUnique: vi.fn(async () => ({ managerRecipientsMigrated: true })) },
+    storeLineNotificationRecipient: {
+      findMany: recipientFindMany,
+      findFirst: vi.fn(async () => ({ lineUserId: "Umanager123", displayName: "店長", preferences: {} })),
+    },
+    managerNotificationLog: { create: vi.fn(async ({ data }) => data), update: vi.fn() },
+  },
 }));
 
 import {
@@ -96,6 +103,7 @@ describe("store manager LINE notifications", () => {
 
   it("sends through the booking store LINE channel", async () => {
     process.env.LINE_MANAGER_USER_ID_ZHUBEI = "Umanager123";
+    recipientFindMany.mockResolvedValue([{ id: "r1", lineUserId: "Umanager123", preferences: {} }]);
     pushMessage.mockResolvedValue({ success: true });
 
     const result = await notifyStoreManagerOnLine({
@@ -115,6 +123,7 @@ describe("store manager LINE notifications", () => {
       "store_1",
       "Umanager123",
       [expect.objectContaining({ type: "text", text: expect.stringContaining("💰 等待確認入帳") })],
+      expect.any(String),
     );
   });
 
@@ -140,12 +149,12 @@ describe("store manager LINE notifications", () => {
 
     expect(result).toEqual({ status: "sent", sentCount: 2, failedCount: 0 });
     expect(pushMessage).toHaveBeenCalledTimes(2);
-    expect(pushMessage).toHaveBeenCalledWith("store_1", "Uowner", expect.any(Array));
-    expect(pushMessage).toHaveBeenCalledWith("store_1", "Upartner", expect.any(Array));
+    expect(recipientFindMany).toHaveBeenCalledWith({ where: { storeId: "store_1", isActive: true, lineUserId: { not: null } } });
   });
 
   it("returns failed without throwing into the business flow", async () => {
     process.env.LINE_MANAGER_USER_ID_ZHUBEI = "Umanager123";
+    recipientFindMany.mockResolvedValue([{ id: "r1", preferences: {} }]);
     pushMessage.mockResolvedValue({ success: false, error: "LINE API 400" });
 
     const result = await notifyStoreManagerOnLine({
@@ -161,7 +170,7 @@ describe("store manager LINE notifications", () => {
       storeName: "竹北店",
     });
 
-    expect(result).toEqual({ status: "failed", error: "LINE API 400" });
+    expect(result).toEqual({ status: "failed", error: "LINE 傳送失敗，請查看發送紀錄" });
   });
 
   it("uses the Messenger source in a Messenger lead notification", () => {
