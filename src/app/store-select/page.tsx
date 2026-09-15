@@ -50,10 +50,10 @@ export default async function StoreSelectPage() {
         </div>
       ) : (
         <Link
-          href="/"
+          href="/hq/login"
           className="mx-auto mt-7 inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary-600 px-6 text-sm font-semibold text-white hover:bg-primary-700"
         >
-          回首頁
+          後台登入
         </Link>
       )}
 
