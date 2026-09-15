@@ -36,24 +36,9 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
 <span class="badge" id="entryBadge">1 分鐘門市健檢</span>
 <h1 id="entryTitle">讓蒸管家先認識你的店</h1>
 <p class="lead" id="entryLead">回答幾個簡單問題，我們會依照你的店型、規模與需求，準備更適合你的功能建議與示範內容。也可在下方選擇申請體驗帳號，由我們聯繫確認後安排開通。</p>
-<p class="entry-note" id="entryNote" hidden>專人確認店型與模組後安排開通，從帳號可正常使用當天起算 30 天。</p>
-<section class="trial-info" aria-labelledby="trial-info-title">
-<h2 id="trial-info-title">30 天完整單店體驗</h2>
-<p><strong>含店長共 3 位人員 · 店長後台＋網頁前台<br>轉正式沿用原帳號與資料</strong></p>
-<p>功能開放體驗，仍有人員及使用額度限制；LINE 相關功能需完成設定。</p>
-<p>顧客最多 100 筆 · 每月新預約 100 筆 · 自動提醒 50 次</p>
-<details><summary style="cursor:pointer;font-weight:700;padding:12px 0">查看完整試用說明</summary>
-<ul>
-<li><strong>可用功能：</strong>開通所選模組已提供的完整單店功能，包含店長後台與顧客網頁前台。可操作預約、顧客資料、方案與營運管理；人員操作權限仍依店長設定。</li>
-<li><strong>使用額度：</strong>最多 3 位啟用人員，含店長、技師／芳療師及服務人員；顧客資料最多 100 筆、每月新建預約最多 100 筆、自動提醒每月最多 50 次。</li>
-<li><strong>前台與 LINE：</strong>開通即可使用網頁前台，可自行操作或請員工模擬顧客預約。需要測試 LINE 流程時，再協助設定 LIFF；LINE 相關功能須完成設定後才能使用。</li>
-<li><strong>不包含項目：</strong>跨店總部管理、代辦金流申請與串接。訊息與金流等外部服務費用另依服務規則計算，使用前確認。</li>
-<li><strong>到期處理：</strong>保留原資料，後台改為唯讀，停止新增預約及其他寫入操作。</li>
-<li><strong>轉正式可直接接續：</strong>沿用原店家、帳號、顧客、預約與方案資料，免重新註冊或搬移資料；正式啟用後，功能及額度依購買方案調整。</li>
-</ul>
-</details>
-<p>填寫申請不會立即起算試用，也不會扣款。<a href="/pricing">查看正式方案與價格</a></p>
-</section>
+<p class="entry-note" id="entrySummary" hidden>含店長共 3 位人員，轉正式沿用帳號與資料。</p>
+<p class="entry-note" id="entryNote" hidden><strong>送出不扣款，開通後才起算 30 天。</strong></p>
+
 </header>
 
 <form id="storeForm">
@@ -69,7 +54,7 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
 
 <div class="section">預約方式</div>
 <div class="field"><label for="bookingMode">你的店通常怎麼安排預約？ <span class="req">*</span></label>
-<select id="bookingMode" name="bookingMode" required><option value="">請選擇</option><option>固定時段，每個時段可接待固定人數</option><option>依服務項目，安排技師／芳療師與服務時間</option><option>不確定，希望協助判斷</option></select></div>
+<select id="bookingMode" name="bookingMode" required aria-describedby="bookingModeDetail"><option value="">請選擇</option><option value="固定時段，每個時段可接待固定人數">固定時段與接待人數</option><option value="依服務項目，安排技師／芳療師與服務時間">依服務項目安排人員</option><option>不確定，希望協助判斷</option></select><p id="bookingModeDetail" class="entry-note" hidden></p></div>
 <div class="section">目前管理方式（選填）</div>
 <div class="field"><label>目前是否正在使用管理系統？（選填）</label><div class="options">
 <div class="opt"><input id="no" type="radio" name="hasSystem" value="沒有"><label for="no">沒有，目前用 LINE／紙本／Excel</label></div>
@@ -106,7 +91,21 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
 <div class="field"><label for="field-phone">聯絡電話</label><input id="field-phone" name="phone" type="tel" placeholder="例如：0912-345-678（選填）"></div>
 <p class="entry-note">有問題？<a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener" style="color:var(--green)">聯繫蒸管家官方 LINE</a></p>
 
-<p class="entry-note" id="trialHint" hidden>開通後享 30 天體驗，轉正式可沿用原帳號與資料。</p>
+<section class="trial-info" aria-labelledby="trial-info-title">
+<h2 id="trial-info-title">體驗內容與使用限制</h2>
+<p>功能開放體驗，仍有人員及使用額度限制；LINE 相關功能需完成設定。</p>
+<details><summary style="cursor:pointer;font-weight:700;padding:12px 0">查看完整體驗說明</summary>
+<ul>
+<li><strong>可用功能：</strong>開通所選模組已提供的完整單店功能，包含店長後台與顧客網頁前台。可操作預約、顧客資料、方案與營運管理；人員操作權限仍依店長設定。</li>
+<li><strong>使用額度：</strong>最多 3 位啟用人員，含店長、技師／芳療師及服務人員；顧客資料最多 100 筆、每月新建預約最多 100 筆、自動提醒每月最多 50 次。</li>
+<li><strong>前台與 LINE：</strong>開通即可使用網頁前台，可自行操作或請員工模擬顧客預約。需要測試 LINE 流程時，再協助設定 LIFF；LINE 相關功能須完成設定後才能使用。</li>
+<li><strong>不包含項目：</strong>跨店總部管理、代辦金流申請與串接。訊息與金流等外部服務費用另依服務規則計算，使用前確認。</li>
+<li><strong>到期處理：</strong>保留原資料，後台改為唯讀，停止新增預約及其他寫入操作。</li>
+<li><strong>轉正式可直接接續：</strong>沿用原店家、帳號、顧客、預約與方案資料，免重新註冊或搬移資料；正式啟用後，功能及額度依購買方案調整。</li>
+</ul>
+</details>
+<p>填寫申請不會立即起算試用，也不會扣款。<a href="/pricing">查看正式方案與價格</a></p>
+</section>
 <div style="margin-top:20px;padding:16px;background:#F4F8F5;border-radius:14px;font-size:14px;line-height:1.8" aria-label="個人資料告知"><strong>送出前請閱讀個人資料告知</strong><p>陸比音樂工作室將使用您提供的店家、聯絡及需求資料，評估需求並安排聯繫、示範或體驗；亦記錄申請來源及必要技術資料。資料類別、使用期間、地區、對象、方式及您的權利，請見<a href="/privacy#store-application" target="_blank" rel="noopener" style="color:#0f5940">隱私權政策與店家申請個資告知（另開分頁）</a>。</p><p>必填資料與至少一項聯絡方式為處理申請所需；選填項目可留空。送出申請不會扣款，也不代表訂閱行銷訊息。客服：<a href="mailto:steambutler500@gmail.com" style="color:#0f5940;overflow-wrap:anywhere">steambutler500@gmail.com</a>。</p></div>
 <button id="submitBtn" type="submit">完成門市健檢</button>
 <p id="submitStatus" class="hint" role="status" aria-live="polite"></p>
@@ -174,15 +173,28 @@ const systemFields = document.getElementById('systemFields');
 const errorBox = document.getElementById('errorBox');
 const submitBtn = document.getElementById('submitBtn');
 const contactWay = document.getElementById('contactWay');
+const bookingMode = document.getElementById('bookingMode');
+function updateBookingMode() {
+  const detail = document.getElementById('bookingModeDetail');
+  detail.textContent = bookingMode.value;
+  detail.hidden = !bookingMode.value;
+}
+bookingMode.addEventListener('change', updateBookingMode);
+function updateSystemFields() {
+  const enabled = document.getElementById('yes').checked;
+  systemFields.classList.toggle('show', enabled);
+  systemFields.querySelectorAll('input').forEach(field => { field.disabled = !enabled; });
+}
+
 function updateTrialChoice() {
   const trial = contactWay.value === '申請體驗帳號';
-  document.getElementById('trialHint').hidden = !trial;
+  document.getElementById('entrySummary').hidden = !trial;
   document.getElementById('entryNote').hidden = !trial;
   document.title = trial ? '申請體驗帳號｜蒸管家' : '蒸管家｜1 分鐘門市健檢';
   document.getElementById('entryBadge').textContent = trial ? '體驗帳號申請' : '1 分鐘門市健檢';
-  document.getElementById('entryTitle').textContent = trial ? '申請蒸管家體驗帳號' : '讓蒸管家先認識你的店';
+  document.getElementById('entryTitle').textContent = trial ? '申請蒸管家 30 天體驗' : '讓蒸管家先認識你的店';
   document.getElementById('entryLead').textContent = trial
-    ? '填寫資料 → 專人聯繫 → 安排體驗'
+    ? '填寫需求，專人確認後安排開通。'
     : '回答幾個簡單問題，依照你的店型與需求，準備適合的功能建議與示範內容。';
   if (submitBtn.disabled || submissionUnconfirmed) return;
   submitBtn.textContent = trial ? '送出體驗申請' : '完成門市健檢';
@@ -207,13 +219,16 @@ if (receipt && receipt.payload && typeof receipt.payload.requestId === 'string')
       } else if (typeof value === 'string') field.value = value;
     }
     updateTrialChoice();
-    systemFields.classList.toggle('show', document.getElementById('yes').checked);
+    updateSystemFields();
     showUnconfirmed();
   }
 }
 
+updateBookingMode();
+updateSystemFields();
+
 document.querySelectorAll('input[name="hasSystem"]').forEach(x=>x.addEventListener('change',()=>{
-  systemFields.classList.toggle('show', document.getElementById('yes').checked);
+  updateSystemFields();
 }));
 
 document.querySelectorAll('input[name="needs"]').forEach(el=>el.addEventListener('change',()=>{
@@ -241,7 +256,9 @@ form.addEventListener('submit', async (e)=>{
   submissionId ||= crypto.randomUUID();
   payload.requestId = submissionId;
   payload.needs = needs;
-  payload.replaceReason = [...document.querySelectorAll('input[name="replaceReason"]:checked')].map(x=>x.value);
+  payload.systemName = payload.hasSystem === '有' ? (payload.systemName || '') : '';
+  payload.replaceReason = payload.hasSystem === '有'
+    ? [...document.querySelectorAll('input[name="replaceReason"]:checked')].map(x=>x.value) : [];
 
   const params = new URLSearchParams(window.location.search);
   payload.source = params.get('source') || params.get('utm_source') || 'direct';
