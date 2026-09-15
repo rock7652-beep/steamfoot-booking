@@ -6,6 +6,7 @@
   const status = document.getElementById('submitStatus');
   const key = 'steam-butler-fitness-intake-v1';
   const options = {
+    courseTypes: ['瑜珈', '墊上皮拉提斯', '器械皮拉提斯', '肌力／重量訓練', '有氧／舞蹈', '拳擊／拳擊有氧', 'TRX／懸吊訓練', '伸展／活動度', '其他課程'],
     classModes: ['團課自由預約', '固定期課／班級', '私人課／一對一', '其他上課方式'],
     planTypes: ['點數方案', '堂數卡', '月費／訂閱', '整期收費', '單堂付費', '其他收費方式'],
     management: ['LINE 訊息', '紙本／手寫', 'Excel／試算表', '其他管理系統'],
@@ -21,6 +22,17 @@
       document.getElementById(name).append(label);
     }
   }
+  const otherCourseInput = document.getElementById('courseNames');
+  const otherCourseField = document.getElementById('otherCourseField');
+  const otherCourseChoice = form.querySelector('[name="courseTypes"][value="其他課程"]');
+  otherCourseChoice.setAttribute('aria-controls', 'otherCourseField');
+  function updateOtherCourse() {
+    const selected = otherCourseChoice.checked;
+    otherCourseField.hidden = !selected;
+    otherCourseInput.disabled = !selected;
+    otherCourseChoice.setAttribute('aria-expanded', String(selected));
+  }
+  updateOtherCourse();
   let locked = false;
   let requestId;
   button.disabled = false;
@@ -30,15 +42,22 @@
     const fd = new FormData(form);
     const data = Object.fromEntries(fd);
     for (const name of Object.keys(options)) data[name] = fd.getAll(name);
+    // Retain text in drafts when Other is unchecked; only selected values are submitted.
+    data.courseNames = otherCourseInput.value;
     return data;
   }
   function restore(data) {
+    // Older drafts stored all course names as free text.
+    if (!Array.isArray(data.courseTypes) && data.courseNames) {
+      data = { ...data, courseTypes: ['其他課程'] };
+    }
     for (const field of form.elements) {
       if (!field.name) continue;
       const value = data[field.name];
       if (field.type === 'checkbox') field.checked = Array.isArray(value) && value.includes(field.value);
       else if (typeof value === 'string') field.value = value;
     }
+    updateOtherCourse();
   }
   function showError(message, focusTarget) {
     error.textContent = message; error.hidden = false;
@@ -74,6 +93,7 @@
   }
   form.addEventListener('input', () => { if (!locked) save({state: 'draft', data: values()}); });
   form.addEventListener('change', (event) => {
+    if (event.target.name === 'courseTypes') updateOtherCourse();
     if (event.target.name === 'needs') {
       const selected = form.querySelectorAll('[name="needs"]:checked');
       if (selected.length > 3) event.target.checked = false;
@@ -106,8 +126,11 @@
     for (const name of ['storeName', 'contactName', 'phone', 'lineId']) data[name] = data[name].trim();
     if (!data.storeName || !data.contactName) { showError('請填寫教室名稱與您的稱呼。'); return; }
     if (!data.phone && !data.lineId) { showError('LINE ID 與電話至少填一項。', form.elements.lineId); return; }
+    const courseNames = data.courseTypes.map(course => course === '其他課程'
+      ? (data.courseNames.trim() ? '其他：' + data.courseNames.trim() : course)
+      : course).join('、');
     const noteFields = [
-      ['所在縣市', data.city], ['課程', data.courseNames], ['上課方式', data.classModes.join('、')],
+      ['所在縣市', data.city], ['課程', courseNames], ['上課方式', data.classModes.join('、')],
       ['收費方式', data.planTypes.join('、')], ['期限與扣點', data.planDetails], ['上課空間', data.spaces],
       ['空間與分店補充', data.spaceDetails], ['每週堂數', data.weekly], ['管理與資料來源', data.management.join('、')],
       ['目前流程與困擾', data.painDetails], ['預約取消期限', data.bookingDeadline], ['未到處理', data.absence], ['停課規則', data.cancelClass],

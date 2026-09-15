@@ -30,7 +30,7 @@
 <section aria-labelledby="classesTitle">
 <h2 id="classesTitle"><span class="num">02</span>課程與收費怎麼安排</h2>
 <fieldset aria-describedby="modeWhy"><legend>1 平常怎麼上課？可複選 *</legend><p class="why" id="modeWhy">確認要安排自由預約、固定班級，或個別教練的時間。</p><div class="choices" id="classModes"></div></fieldset>
-<div class="field"><label for="courseNames">有哪些課程？ <span class="optional">選填</span></label><input id="courseNames" name="courseNames" maxlength="100" placeholder="例如：瑜珈、皮拉提斯、肌力"></div>
+<fieldset><legend>有哪些課程？ <span class="optional">可複選，選填</span></legend><div class="choices" id="courseTypes"></div><div class="field" id="otherCourseField" hidden><label for="courseNames">其他課程名稱 <span class="optional">選填</span></label><input id="courseNames" name="courseNames" maxlength="100" placeholder="請填寫其他課程名稱，可填多項" disabled></div></fieldset>
 <fieldset aria-describedby="planWhy"><legend>2 目前怎麼收費？可複選 *</legend><p class="why" id="planWhy">依照您原本的方案設計，不需要為了系統改賣法。</p><div class="choices" id="planTypes"></div></fieldset>
 <div class="field"><label for="planDetails">期限與扣點／扣堂方式 <span class="optional">選填</span></label><textarea id="planDetails" name="planDetails" maxlength="220" placeholder="例如：20 點效期 3 個月；瑜珈扣 2 點、器械課扣 3 點。月費或期課也可直接說明。"></textarea></div>
 <div class="field"><label for="spaces">3 有幾個上課空間？會同時開課嗎？ *</label><p class="why" id="spaceWhy">協助安排場地，避免不同課程占用同一個空間。</p><select id="spaces" name="spaces" required aria-describedby="spaceWhy"><option value="">請選擇</option><option>1 個空間，同時間只開 1 堂</option><option>多個空間，會同時開不同課</option><option>同一大空間，會分區同時上課</option><option>借用場地／沒有固定空間</option><option>其他，想再說明</option></select></div>
