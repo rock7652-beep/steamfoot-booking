@@ -1,6 +1,7 @@
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { redirect, notFound } from "next/navigation";
+import { AppError } from "@/lib/errors";
+import { cookies, headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS } from "@/lib/permissions";
@@ -52,9 +53,20 @@ export default async function DashboardLayout({
     await Promise.all([
       getUserPermissions(user.role, user.staffId),
       getStoreOptions(user),
-      getActiveStoreForRead(user),
+      getActiveStoreForRead(user).catch(error => {
+        if (error instanceof AppError && (error.code === "FORBIDDEN" || error.code === "NOT_FOUND")) notFound();
+        throw error;
+      }),
     ]);
   const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : "steamfoot";
+  // Course stores must not enter legacy Steamfoot/SPA dashboard reads while
+  // the remaining course-specific areas are being delivered.
+  if (industryModule === "course") {
+    const requestedPath = (await headers()).get("x-next-pathname") ?? "";
+    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:courses(?:\/|$)|staff(?:\/[^/]+\/edit)?\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$)/.test(requestedPath)) {
+      redirect("/dashboard/courses");
+    }
+  }
   const trialStatus = await getCachedTrialStatus(activeStoreId ?? undefined);
 
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）

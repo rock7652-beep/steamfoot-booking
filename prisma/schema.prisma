@@ -367,6 +367,7 @@ enum StoreOperatingStatus {
 enum IndustryModule {
   STEAMFOOT
   SPA
+  COURSE
 }
 
 enum StoreFeatureEntitlementStatus {
@@ -1046,6 +1047,7 @@ model Staff {
 // 同一個中央會員可在不同店具有不同工作身分。所有授權必須同時核對
 // userId + storeId + staffId；姓名與電話只用於顯示／搜尋，絕不授權。
 model StaffMemberLink {
+  courseMemberEnabled Boolean @default(true) // Course-only member/work identity switch; SPA ignores this flag.
   id             String    @id @default(cuid())
   userId         String
   storeId        String

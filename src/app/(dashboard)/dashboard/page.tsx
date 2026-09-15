@@ -1,3 +1,5 @@
+import { CourseTodaySummary } from "./courses/today-summary";
+import CashDrawerPage from "./cash-drawer/page";
 import { SpaHome } from "./spa-home";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -75,6 +77,10 @@ export default async function DashboardHomePage() {
   if (!user) return null;
 
   const activeStoreId = await getActiveStoreForRead(user);
+  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") {
+    if (!(await checkPermission(user.role, user.staffId, "cashDrawer.read"))) return <PageShell><PageHeader title="首頁" /><CourseTodaySummary /></PageShell>;
+    return <CashDrawerPage searchParams={Promise.resolve({})} courseHome />;
+  }
   let storeViewContext: StoreViewContext | null = null;
   if (user.role !== "ADMIN" && user.storeId) {
     storeViewContext = await resolveStoreViewContext(user, { viewedStoreId: activeStoreId });

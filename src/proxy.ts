@@ -523,7 +523,10 @@ function hqRewrite(
 ): NextResponse {
   const url = new URL(internalPath, req.url);
   url.search = req.nextUrl.search;
-  const response = NextResponse.rewrite(url);
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-next-pathname", req.nextUrl.pathname);
+  requestHeaders.delete("x-store-slug");
+  const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   response.cookies.set("store-slug", "__hq__", {
     path: "/",
     httpOnly: false,
