@@ -18,6 +18,42 @@ import {
   updateCourseSession,
 } from "@/server/actions/course";
 
+type IconProps = { size?: number; className?: string };
+function makeIcon(path: string) {
+  return function CourseIcon({ size = 20, className }: IconProps) {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        aria-hidden="true"
+      >
+        <path d={path} />
+      </svg>
+    );
+  };
+}
+const BookOpen = makeIcon(
+  "M12 5v16M12 5C8 2 4 3 2 4v15c4-1 7-1 10 2 3-3 6-3 10-2V4c-2-1-6-2-10 1",
+);
+const DoorOpen = makeIcon("M3 21h18M5 21V3h12v18M17 3l-8 3v15M13 12h.01");
+const Search = makeIcon("M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0");
+const Pencil = makeIcon("m15 5 4 4M3 21l5-1L21 7l-4-4L4 16z");
+const Clock3 = makeIcon("M12 7v5l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0");
+const Users = makeIcon(
+  "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M22 21v-2a4 4 0 0 0-3-4M17 3a4 4 0 0 1 0 8",
+);
+const Coins = makeIcon(
+  "M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0M12 7v10M15 9h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9",
+);
+const Plus = makeIcon("M12 5v14M5 12h14");
+
 type Room = { id: string; name: string };
 type Template = Room & {
   durationMinutes: number;
@@ -71,6 +107,7 @@ export function CourseWorkspace({
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | null
   >(null);
+  const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [chosen, setChosen] = useState("");
@@ -260,75 +297,236 @@ export function CourseWorkspace({
         </>
       )}
       {view !== "schedule" && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-earth-600">
-              {view === "rooms"
-                ? `${rooms.length} 間教室`
-                : `${templates.length} 種課程`}
-            </p>
+        <section className="space-y-6">
+          <div className="flex flex-col gap-4 rounded-2xl border border-earth-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
+                {view === "rooms" ? (
+                  <DoorOpen size={23} />
+                ) : (
+                  <BookOpen size={23} />
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-earth-900">
+                  {view === "rooms" ? "上課空間" : "你的課程"}
+                  <span className="ml-3 rounded-full bg-earth-100 px-2.5 py-1 text-xs text-earth-600">
+                    {view === "rooms"
+                      ? `${rooms.length} 間`
+                      : `${templates.length} 種`}
+                  </span>
+                </p>
+                <p className="mt-1.5 text-sm text-earth-500">
+                  {view === "rooms"
+                    ? "整理教室名稱，排課時快速選用。"
+                    : "設定一次，每次排課都能直接帶入。"}
+                </p>
+              </div>
+            </div>
             {canCreate && (
-              <button className={primary} onClick={() => open("catalog")}>
-                {view === "rooms" ? "＋ 新增教室" : "＋ 新增課程"}
+              <button
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-700 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-primary-800 disabled:opacity-50"
+                disabled={pending}
+                onClick={() => open("catalog")}
+              >
+                <Plus size={17} />
+                {view === "rooms" ? "新增教室" : "新增課程"}
               </button>
             )}
           </div>
-          <div className="rounded-xl border border-earth-200 bg-white p-4 sm:p-5">
-            {view !== "rooms" &&
-              templates.map((t) => (
-                <div key={t.id} className="border-b border-earth-100 pb-3">
-                  <h3>{t.name}</h3>
-                  <p className="text-sm text-earth-500">
-                    {t.durationMinutes} 分鐘 · {t.pointCost} 點 · 上限{" "}
-                    {t.capacity} 人
-                  </p>
-                  {canEdit && (
-                    <button
-                      className={`${button} mt-2`}
-                      disabled={pending}
-                      onClick={() => {
-                        setEditing({ kind: "template", value: t });
-                        open("edit");
-                      }}
-                    >
-                      編輯課程
-                    </button>
-                  )}
-                </div>
-              ))}
-            {view === "rooms" && (
-              <div className="space-y-2">
-                {rooms.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <span>{r.name}</span>
-                    {canEdit && (
-                      <button
-                        className={button}
-                        disabled={pending}
-                        onClick={() => {
-                          setEditing({ kind: "room", value: r });
-                          open("edit");
-                        }}
-                      >
-                        編輯教室
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {(view === "rooms" ? rooms.length : templates.length) === 0 && (
-              <p className="py-6 text-center text-earth-500">
-                尚未建立{view === "rooms" ? "教室" : "課程"}
-              </p>
-            )}
+          <div className="relative max-w-md">
+            <Search
+              aria-hidden="true"
+              size={18}
+              className="pointer-events-none absolute left-3.5 top-3.5 text-earth-400"
+            />
+            <input
+              aria-label={view === "rooms" ? "搜尋教室" : "搜尋課程"}
+              placeholder={view === "rooms" ? "搜尋教室名稱" : "搜尋課程名稱"}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-11 w-full rounded-xl border border-earth-200 bg-white pl-11 pr-4 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+            />
           </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {view === "catalog" &&
+              templates
+                .filter((t) =>
+                  t.name
+                    .toLocaleLowerCase()
+                    .includes(query.trim().toLocaleLowerCase()),
+                )
+                .map((t) => (
+                  <article
+                    key={t.id}
+                    className="overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-sm transition hover:border-primary-200"
+                  >
+                    <div className="p-5 sm:p-6">
+                      <div className="mb-5 flex items-start justify-between gap-3">
+                        <h3 className="min-w-0 break-words text-lg font-semibold leading-relaxed text-primary-900">
+                          {t.name}
+                        </h3>
+                        <BookOpen
+                          aria-hidden="true"
+                          size={20}
+                          className="mt-1 shrink-0 text-earth-400"
+                        />
+                      </div>
+                      <dl className="grid grid-cols-3 divide-x divide-earth-200 rounded-xl bg-earth-50 py-4">
+                        {[
+                          {
+                            label: "課程時長",
+                            value: t.durationMinutes,
+                            unit: "分鐘",
+                            Icon: Clock3,
+                          },
+                          {
+                            label: "每人點數",
+                            value: t.pointCost,
+                            unit: "點",
+                            Icon: Coins,
+                          },
+                          {
+                            label: "人數上限",
+                            value: t.capacity,
+                            unit: "人",
+                            Icon: Users,
+                          },
+                        ].map(({ label, value, unit, Icon }) => (
+                          <div key={label} className="px-2 text-center">
+                            <dt className="flex items-center justify-center gap-1.5 text-xs text-earth-500">
+                              <Icon size={13} aria-hidden="true" />
+                              {label}
+                            </dt>
+                            <dd className="mt-2 text-xl font-semibold tabular-nums text-earth-900">
+                              {value}
+                              <span className="ml-1 text-xs font-normal text-earth-500">
+                                {unit}
+                              </span>
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-earth-100 px-5 py-3 sm:px-6">
+                      <p className="flex min-w-0 items-center gap-2 text-sm text-earth-600">
+                        <DoorOpen
+                          size={15}
+                          className="shrink-0 text-earth-400"
+                        />
+                        <span className="break-words">
+                          <span className="mr-2 text-earth-400">預設</span>
+                          {rooms.find((r) => r.id === t.defaultRoomId)?.name ??
+                            "尚未指定教室"}
+                        </span>
+                      </p>
+                      {canEdit && (
+                        <button
+                          className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:opacity-50"
+                          disabled={pending}
+                          onClick={() => {
+                            setEditing({ kind: "template", value: t });
+                            open("edit");
+                          }}
+                        >
+                          <Pencil size={14} />
+                          編輯課程
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                ))}
+            {view === "rooms" &&
+              rooms
+                .filter((r) =>
+                  r.name
+                    .toLocaleLowerCase()
+                    .includes(query.trim().toLocaleLowerCase()),
+                )
+                .map((r) => {
+                  const linked = templates.filter(
+                    (t) => t.defaultRoomId === r.id,
+                  );
+                  return (
+                    <article
+                      key={r.id}
+                      className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm sm:p-6"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-earth-200 bg-earth-50 text-primary-700">
+                          <DoorOpen size={23} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="break-words text-lg font-semibold text-primary-900">
+                            {r.name}
+                          </h3>
+                          <p className="mt-1 text-sm text-earth-500">
+                            {linked.length
+                              ? `${linked.length} 種課程設為預設教室`
+                              : "可於排課時選用"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-5 flex min-h-16 flex-wrap content-start gap-2">
+                        {linked.length ? (
+                          linked.map((t) => (
+                            <span
+                              key={t.id}
+                              className="max-w-full break-words rounded-lg bg-primary-50 px-3 py-1.5 text-xs text-primary-700"
+                            >
+                              {t.name}
+                            </span>
+                          ))
+                        ) : (
+                          <p className="text-sm text-earth-400">
+                            尚無課程使用此預設教室
+                          </p>
+                        )}
+                      </div>
+                      <div className="mt-3 flex justify-end border-t border-earth-100 pt-3">
+                        {canEdit && (
+                          <button
+                            className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:opacity-50"
+                            disabled={pending}
+                            onClick={() => {
+                              setEditing({ kind: "room", value: r });
+                              open("edit");
+                            }}
+                          >
+                            <Pencil size={14} />
+                            編輯教室
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+          </div>
+          {(view === "rooms" ? rooms : templates).filter((item) =>
+            item.name
+              .toLocaleLowerCase()
+              .includes(query.trim().toLocaleLowerCase()),
+          ).length === 0 && (
+            <div className="rounded-2xl border border-dashed border-earth-300 bg-white px-6 py-12 text-center">
+              <p className="font-medium text-earth-700">
+                {query.trim()
+                  ? "找不到符合的結果"
+                  : view === "rooms"
+                    ? "建立第一間教室"
+                    : "建立第一種課程"}
+              </p>
+              <p className="mt-2 text-sm text-earth-500">
+                {query.trim()
+                  ? "試試其他名稱，或清除搜尋。"
+                  : "使用上方新增按鈕開始設定。"}
+              </p>
+            </div>
+          )}
           {notice && (
-            <p role="status" className="text-sm text-primary-700">
+            <p
+              role="status"
+              className="rounded-xl bg-primary-50 px-4 py-3 text-sm text-primary-700"
+            >
               {notice}
             </p>
           )}
@@ -343,8 +541,21 @@ export function CourseWorkspace({
           width={520}
           labelledById="course-panel-title"
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-earth-200 p-5">
-            <h2 id="course-panel-title" className="font-medium">
+          <div
+            className={
+              view === "schedule"
+                ? "flex shrink-0 items-center justify-between border-b border-earth-200 p-5"
+                : "flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-6 py-6"
+            }
+          >
+            <h2
+              id="course-panel-title"
+              className={
+                view === "schedule"
+                  ? "font-medium"
+                  : "text-xl font-semibold text-primary-900"
+              }
+            >
               {panel === "edit"
                 ? editing?.kind === "session"
                   ? "編輯單堂排課"
@@ -371,7 +582,20 @@ export function CourseWorkspace({
               </button>
             }
           </div>
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+          <div
+            className={
+              view === "schedule"
+                ? "min-h-0 flex-1 space-y-4 overflow-y-auto p-5"
+                : "min-h-0 flex-1 space-y-6 overflow-y-auto p-6 [&_label]:space-y-2 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input]:min-h-12 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-12 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-5"
+            }
+          >
+            {view !== "schedule" && panel === "catalog" && (
+              <p className="rounded-xl border border-earth-200 bg-earth-50 p-4 text-sm leading-relaxed text-earth-600">
+                {view === "rooms"
+                  ? "為上課空間取一個容易辨識的名稱，例如：一樓教室、瑜珈教室。"
+                  : "填寫課程的基本設定，之後排課會自動帶入，也能依每一堂課調整。"}
+              </p>
+            )}
             {error && (
               <p role="alert" className="text-sm text-red-700">
                 {error}
