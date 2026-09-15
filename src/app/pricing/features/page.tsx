@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
+import { BookingTypes } from "../booking-types";
 import { MarketingIcon } from "../marketing-icon";
 
 export const metadata: Metadata = {
@@ -140,6 +141,7 @@ export default function FeaturesPage() {
         <a href="#more" className="inline-flex min-h-11 items-center underline underline-offset-4">看看進階功能 ↓</a>
         <Link href="/pricing#comparison" className="inline-flex min-h-11 items-center underline underline-offset-4">比較方案 →</Link>
       </nav>
+      <BookingTypes compact />
       <section id="daily" aria-labelledby="daily-title" className="mt-7 scroll-mt-24">
         <div className="flex flex-wrap items-center gap-3"><h2 id="daily-title" className="text-2xl font-semibold">先把每天的店務，放在一起。</h2><span className="rounded-full bg-[#E9F1EB] px-3 py-1 text-sm font-medium">三個方案皆包含</span></div>
         <p className="mt-2 text-base leading-7 text-[#4C6259]">從顧客預約，到店長查資料、確認堂數與收款，接起每天會做的事。</p>

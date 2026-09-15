@@ -3,8 +3,7 @@ import { MarketingFooter } from "@/components/marketing-footer";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { BookingOverview } from "./booking-overview";
-import { DayStory } from "./day-story";
+import { BookingTypes } from "../booking-types";
 
 export const metadata: Metadata = {
   title: "蒸管家｜每一家店，都值得擁有一位數位管家",
@@ -46,11 +45,7 @@ export default function BusinessPage() {
           </div>
         </section>
 
-        <BookingOverview />
-        <details id="how-it-works" className="group mx-auto max-w-6xl scroll-mt-24 px-5 pb-7 sm:px-8">
-          <summary className="cursor-pointer border-y border-[#153B31]/15 py-4 text-base font-semibold">想看操作畫面？展開店長的一天</summary>
-          <div className="pt-5"><DayStory /></div>
-        </details>
+        <BookingTypes />
 
         <section id="brands" aria-labelledby="cases-title" className="scroll-mt-24 border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-7 sm:px-8 sm:py-8">
           <div className="mx-auto max-w-6xl">
