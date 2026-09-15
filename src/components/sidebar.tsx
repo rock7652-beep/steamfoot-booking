@@ -706,6 +706,8 @@ export default function DashboardShell({
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses", label: "課表排程" },
 { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=catalog", label: "課程設定" },
 { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=rooms", label: "教室管理" },
+        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,
+        { ...NAV_GROUPS.flatMap(group => group.items).find(item => item.href === "/dashboard/cashbook")!, label: "現金收支" },
       ] }];
     }
     if (isHqRoute) {
