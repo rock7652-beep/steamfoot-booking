@@ -15,6 +15,7 @@ model CourseRoom {
   id        String @id @default(cuid())
   storeId   String
   name      String
+  category  String @default("")
   isActive  Boolean @default(true)
   createdAt DateTime @default(now())
   templates CourseTemplate[]
@@ -32,6 +33,7 @@ model CourseTemplate {
   pointCost       Int
   capacity        Int
   defaultRoomId   String
+  category        String @default("")
   isActive        Boolean @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

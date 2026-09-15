@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   room: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
+  catalogUpdate: vi.fn(),
   revalidate: vi.fn(),
 }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
@@ -30,12 +31,12 @@ vi.mock("@/lib/course-db", () => ({
           createMany: mocks.create,
           update: mocks.update,
         },
-        courseTemplate: { findFirst: mocks.template },
-        courseRoom: { findFirst: mocks.room },
+        courseTemplate: { findFirst: mocks.template, updateMany: mocks.catalogUpdate },
+        courseRoom: { findFirst: mocks.room, updateMany: mocks.catalogUpdate },
       }),
   },
 }));
-import { createCourseSchedule, updateCourseSession } from "@/server/actions/course";
+import { createCourseSchedule, updateCourseSession, setCourseCatalogStatus } from "@/server/actions/course";
 import { AppError } from "@/lib/errors";
 const input = {
   templateId: "yoga",
@@ -156,6 +157,35 @@ describe("copy course schedule", () => {
   });
   it("refuses a missing or foreign source before creating copies", async () => {
     expect(await createCourseSchedule({ ...input, sourceSessionId: "foreign" })).toMatchObject({ success: false });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("catalogue availability", () => {
+  it("changes only a record in the authorized course store and preserves sessions", async () => {
+    mocks.catalogUpdate.mockResolvedValue({ count: 1 });
+    expect(await setCourseCatalogStatus({ kind: "template", id: "yoga", isActive: false, storeId: "foreign" })).toEqual({ success: true });
+    expect(mocks.permission).toHaveBeenCalledWith("booking.update");
+    expect(mocks.catalogUpdate).toHaveBeenCalledWith({ where: { id: "yoga", storeId: "store-a" }, data: { isActive: false } });
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(await setCourseCatalogStatus({ kind: "template", id: "yoga", isActive: true })).toEqual({ success: true });
+  });
+  it("rejects foreign records and unauthorized changes", async () => {
+    mocks.catalogUpdate.mockResolvedValue({ count: 0 });
+    expect(await setCourseCatalogStatus({ kind: "room", id: "foreign", isActive: false })).toMatchObject({ success: false });
+    mocks.catalogUpdate.mockClear();
+    mocks.permission.mockRejectedValue(new AppError("FORBIDDEN", "no permission"));
+    expect(await setCourseCatalogStatus({ kind: "room", id: "a", isActive: false })).toMatchObject({ success: false });
+    expect(mocks.catalogUpdate).not.toHaveBeenCalled();
+  });
+  it("does not schedule an unpublished template or hidden room", async () => {
+    mocks.template.mockResolvedValue(null);
+    expect(await createCourseSchedule(input)).toMatchObject({ success: false });
+    expect(mocks.template).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "yoga", storeId: "store-a", isActive: true } }));
+    mocks.template.mockResolvedValue({ id: "yoga", name: "Yoga", pointCost: 2 });
+    mocks.room.mockResolvedValue(null);
+    expect(await createCourseSchedule(input)).toMatchObject({ success: false });
     expect(mocks.create).not.toHaveBeenCalled();
   });
 });

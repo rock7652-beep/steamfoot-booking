@@ -16,6 +16,7 @@ import {
   updateCourseRoom,
   updateCourseTemplate,
   updateCourseSession,
+  setCourseCatalogStatus,
 } from "@/server/actions/course";
 
 type IconProps = { size?: number; className?: string };
@@ -54,7 +55,7 @@ const Coins = makeIcon(
 );
 const Plus = makeIcon("M12 5v14M5 12h14");
 
-type Room = { id: string; name: string };
+type Room = { id: string; name: string; category: string; isActive: boolean };
 type Template = Room & {
   durationMinutes: number;
   capacity: number;
@@ -78,7 +79,7 @@ type Props = {
   rooms: Room[];
   templates: Template[];
   sessions: Session[];
-  coaches: { id: string; displayName: string }[];
+  coaches: { id: string; displayName: string; status: string }[];
   canCreate: boolean;
   canEdit: boolean;
   view: "schedule" | "catalog" | "rooms";
@@ -92,14 +93,17 @@ const field =
 export function CourseWorkspace({
   selectedDate,
   today,
-  rooms,
-  templates,
+  rooms: allRooms,
+  templates: allTemplates,
   sessions,
-  coaches,
+  coaches: allCoaches,
   canCreate,
   canEdit,
   view,
 }: Props) {
+  const coaches = allCoaches.filter((c) => c.status === "ACTIVE");
+  const rooms = allRooms.filter((r) => r.isActive);
+  const templates = allTemplates.filter((t) => t.isActive);
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
@@ -108,6 +112,48 @@ export function CourseWorkspace({
     "day" | "schedule" | "catalog" | "edit" | null
   >(null);
   const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
+  const [category, setCategory] = useState("all");
+  const [roomFilter, setRoomFilter] = useState("all");
+  const catalogItems = view === "rooms" ? allRooms : allTemplates;
+  const categories = [
+    ...new Set(catalogItems.map((item) => item.category)),
+  ].sort();
+  const filteredItems = catalogItems.filter(
+    (item) =>
+      item.name
+        .toLocaleLowerCase()
+        .includes(query.trim().toLocaleLowerCase()) &&
+      (status === "all" || item.isActive === (status === "active")) &&
+      (category === "all" || item.category === category) &&
+      (view === "rooms" ||
+        roomFilter === "all" ||
+        ("defaultRoomId" in item && item.defaultRoomId === roomFilter)),
+  );
+  function changeStatus(item: Room) {
+    if (pending) return;
+    setError("");
+    setNotice("");
+    startTransition(async () => {
+      try {
+        const result = await setCourseCatalogStatus({
+          id: item.id,
+          kind: view === "rooms" ? "room" : "template",
+          isActive: !item.isActive,
+        });
+        if (!result.success) {
+          setError(result.error ?? "更新失敗");
+          return;
+        }
+        setNotice(
+          item.isActive ? "已下架／隱藏；既有排課仍保留。" : "已恢復使用。",
+        );
+        router.refresh();
+      } catch {
+        setError("連線失敗，請重試。");
+      }
+    });
+  }
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [chosen, setChosen] = useState("");
@@ -296,238 +342,232 @@ export function CourseWorkspace({
           </p>
         </>
       )}
+      <datalist id="course-category-options">
+        {categories.filter(Boolean).map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
       {view !== "schedule" && (
-        <section className="space-y-6">
-          <div className="flex flex-col gap-4 rounded-2xl border border-earth-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700">
-                {view === "rooms" ? (
-                  <DoorOpen size={23} />
-                ) : (
-                  <BookOpen size={23} />
-                )}
-              </div>
-              <div>
-                <p className="font-medium text-earth-900">
-                  {view === "rooms" ? "上課空間" : "你的課程"}
-                  <span className="ml-3 rounded-full bg-earth-100 px-2.5 py-1 text-xs text-earth-600">
-                    {view === "rooms"
-                      ? `${rooms.length} 間`
-                      : `${templates.length} 種`}
-                  </span>
-                </p>
-                <p className="mt-1.5 text-sm text-earth-500">
-                  {view === "rooms"
-                    ? "整理教室名稱，排課時快速選用。"
-                    : "設定一次，每次排課都能直接帶入。"}
-                </p>
-              </div>
-            </div>
+        <section
+          className="space-y-3"
+          aria-label={view === "rooms" ? "教室清單" : "課程清單"}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="min-w-48 flex-1">
+              <span className="sr-only">搜尋名稱</span>
+              <input
+                className={field}
+                placeholder={view === "rooms" ? "搜尋教室名稱" : "搜尋課程名稱"}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </label>
+            <select
+              aria-label="篩選分類"
+              className={button}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="all">全部分類</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c || "未分類"}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="篩選狀態"
+              className={button}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="all">全部狀態</option>
+              <option value="active">
+                {view === "rooms" ? "使用中" : "已上架"}
+              </option>
+              <option value="inactive">
+                {view === "rooms" ? "已隱藏" : "已下架"}
+              </option>
+            </select>
+            {view === "catalog" && (
+              <select
+                aria-label="篩選預設教室"
+                className={button}
+                value={roomFilter}
+                onChange={(e) => setRoomFilter(e.target.value)}
+              >
+                <option value="all">全部教室</option>
+                {allRooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              className={button}
+              onClick={() => {
+                setQuery("");
+                setStatus("all");
+                setCategory("all");
+                setRoomFilter("all");
+              }}
+            >
+              清除篩選
+            </button>
             {canCreate && (
               <button
-                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-700 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-primary-800 disabled:opacity-50"
+                className={primary}
                 disabled={pending}
                 onClick={() => open("catalog")}
               >
-                <Plus size={17} />
-                {view === "rooms" ? "新增教室" : "新增課程"}
+                ＋ {view === "rooms" ? "新增教室" : "新增課程"}
               </button>
             )}
           </div>
-          <div className="relative max-w-md">
-            <Search
-              aria-hidden="true"
-              size={18}
-              className="pointer-events-none absolute left-3.5 top-3.5 text-earth-400"
-            />
-            <input
-              aria-label={view === "rooms" ? "搜尋教室" : "搜尋課程"}
-              placeholder={view === "rooms" ? "搜尋教室名稱" : "搜尋課程名稱"}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-11 w-full rounded-xl border border-earth-200 bg-white pl-11 pr-4 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {view === "catalog" &&
-              templates
-                .filter((t) =>
-                  t.name
-                    .toLocaleLowerCase()
-                    .includes(query.trim().toLocaleLowerCase()),
-                )
-                .map((t) => (
-                  <article
-                    key={t.id}
-                    className="overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-sm transition hover:border-primary-200"
-                  >
-                    <div className="p-5 sm:p-6">
-                      <div className="mb-5 flex items-start justify-between gap-3">
-                        <h3 className="min-w-0 break-words text-lg font-semibold leading-relaxed text-primary-900">
-                          {t.name}
-                        </h3>
-                        <BookOpen
-                          aria-hidden="true"
-                          size={20}
-                          className="mt-1 shrink-0 text-earth-400"
-                        />
-                      </div>
-                      <dl className="grid grid-cols-3 divide-x divide-earth-200 rounded-xl bg-earth-50 py-4">
-                        {[
-                          {
-                            label: "課程時長",
-                            value: t.durationMinutes,
-                            unit: "分鐘",
-                            Icon: Clock3,
-                          },
-                          {
-                            label: "每人點數",
-                            value: t.pointCost,
-                            unit: "點",
-                            Icon: Coins,
-                          },
-                          {
-                            label: "人數上限",
-                            value: t.capacity,
-                            unit: "人",
-                            Icon: Users,
-                          },
-                        ].map(({ label, value, unit, Icon }) => (
-                          <div key={label} className="px-2 text-center">
-                            <dt className="flex items-center justify-center gap-1.5 text-xs text-earth-500">
-                              <Icon size={13} aria-hidden="true" />
-                              {label}
-                            </dt>
-                            <dd className="mt-2 text-xl font-semibold tabular-nums text-earth-900">
-                              {value}
-                              <span className="ml-1 text-xs font-normal text-earth-500">
-                                {unit}
-                              </span>
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-earth-100 px-5 py-3 sm:px-6">
-                      <p className="flex min-w-0 items-center gap-2 text-sm text-earth-600">
-                        <DoorOpen
-                          size={15}
-                          className="shrink-0 text-earth-400"
-                        />
-                        <span className="break-words">
-                          <span className="mr-2 text-earth-400">預設</span>
-                          {rooms.find((r) => r.id === t.defaultRoomId)?.name ??
-                            "尚未指定教室"}
-                        </span>
-                      </p>
-                      {canEdit && (
-                        <button
-                          className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:opacity-50"
-                          disabled={pending}
-                          onClick={() => {
-                            setEditing({ kind: "template", value: t });
-                            open("edit");
-                          }}
-                        >
-                          <Pencil size={14} />
-                          編輯課程
-                        </button>
-                      )}
-                    </div>
-                  </article>
-                ))}
-            {view === "rooms" &&
-              rooms
-                .filter((r) =>
-                  r.name
-                    .toLocaleLowerCase()
-                    .includes(query.trim().toLocaleLowerCase()),
-                )
-                .map((r) => {
-                  const linked = templates.filter(
-                    (t) => t.defaultRoomId === r.id,
-                  );
-                  return (
-                    <article
-                      key={r.id}
-                      className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm sm:p-6"
+          <p className="text-sm text-earth-500">
+            共 {filteredItems.length} 筆／全部 {catalogItems.length} 筆 ·
+            下架或隱藏後不再提供新排課選用，既有排課保留。
+          </p>
+          <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead className="bg-earth-50 text-earth-600">
+                <tr>
+                  {(view === "rooms"
+                    ? ["教室名稱", "分類", "預設課程數", "狀態", "操作"]
+                    : [
+                        "課程名稱",
+                        "分類",
+                        "時長",
+                        "每人點數",
+                        "人數上限",
+                        "預設教室",
+                        "狀態",
+                        "操作",
+                      ]
+                  ).map((label) => (
+                    <th
+                      key={label}
+                      scope="col"
+                      className="whitespace-nowrap px-4 py-3 font-medium"
                     >
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-earth-200 bg-earth-50 text-primary-700">
-                          <DoorOpen size={23} />
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-earth-100">
+                {filteredItems.map((item) => {
+                  const template =
+                    "durationMinutes" in item ? (item as Template) : null;
+                  const room = template
+                    ? allRooms.find((r) => r.id === template.defaultRoomId)
+                    : null;
+                  return (
+                    <tr key={item.id} className="hover:bg-primary-50/40">
+                      <th
+                        scope="row"
+                        className="max-w-64 px-4 py-3 font-medium text-primary-900"
+                      >
+                        {item.name}
+                      </th>
+                      <td className="px-4 py-3">{item.category || "未分類"}</td>
+                      {template ? (
+                        <>
+                          <td className="whitespace-nowrap px-4 py-3 tabular-nums">
+                            {template.durationMinutes} 分
+                          </td>
+                          <td className="px-4 py-3 tabular-nums">
+                            {template.pointCost}
+                          </td>
+                          <td className="px-4 py-3 tabular-nums">
+                            {template.capacity}
+                          </td>
+                          <td className="px-4 py-3">
+                            {room?.name ?? "—"}
+                            {room && !room.isActive && (
+                              <span className="block text-xs text-amber-700">
+                                教室已隱藏，排課時請另選
+                              </span>
+                            )}
+                          </td>
+                        </>
+                      ) : (
+                        <td className="px-4 py-3 tabular-nums">
+                          {
+                            allTemplates.filter(
+                              (t) => t.defaultRoomId === item.id,
+                            ).length
+                          }
+                        </td>
+                      )}
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <span
+                          className={`rounded-md px-2 py-1 text-xs ${item.isActive ? "bg-primary-50 text-primary-700" : "bg-earth-100 text-earth-500"}`}
+                        >
+                          {item.isActive
+                            ? template
+                              ? "已上架"
+                              : "使用中"
+                            : template
+                              ? "已下架"
+                              : "已隱藏"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-2 whitespace-nowrap">
+                          {canEdit && (
+                            <>
+                              <button
+                                className={button}
+                                disabled={pending}
+                                onClick={() => {
+                                  setEditing(
+                                    template
+                                      ? { kind: "template", value: template }
+                                      : { kind: "room", value: item },
+                                  );
+                                  open("edit");
+                                }}
+                              >
+                                編輯{template ? "課程" : "教室"}
+                              </button>
+                              <button
+                                className={button}
+                                disabled={pending}
+                                onClick={() => changeStatus(item)}
+                              >
+                                {item.isActive
+                                  ? template
+                                    ? "下架"
+                                    : "隱藏"
+                                  : template
+                                    ? "上架"
+                                    : "恢復使用"}
+                              </button>
+                            </>
+                          )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="break-words text-lg font-semibold text-primary-900">
-                            {r.name}
-                          </h3>
-                          <p className="mt-1 text-sm text-earth-500">
-                            {linked.length
-                              ? `${linked.length} 種課程設為預設教室`
-                              : "可於排課時選用"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-5 flex min-h-16 flex-wrap content-start gap-2">
-                        {linked.length ? (
-                          linked.map((t) => (
-                            <span
-                              key={t.id}
-                              className="max-w-full break-words rounded-lg bg-primary-50 px-3 py-1.5 text-xs text-primary-700"
-                            >
-                              {t.name}
-                            </span>
-                          ))
-                        ) : (
-                          <p className="text-sm text-earth-400">
-                            尚無課程使用此預設教室
-                          </p>
-                        )}
-                      </div>
-                      <div className="mt-3 flex justify-end border-t border-earth-100 pt-3">
-                        {canEdit && (
-                          <button
-                            className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:opacity-50"
-                            disabled={pending}
-                            onClick={() => {
-                              setEditing({ kind: "room", value: r });
-                              open("edit");
-                            }}
-                          >
-                            <Pencil size={14} />
-                            編輯教室
-                          </button>
-                        )}
-                      </div>
-                    </article>
+                      </td>
+                    </tr>
                   );
                 })}
+              </tbody>
+            </table>
+            {!filteredItems.length && (
+              <p className="p-8 text-center text-earth-500">
+                沒有符合條件的資料，請調整篩選或新增資料。
+              </p>
+            )}
           </div>
-          {(view === "rooms" ? rooms : templates).filter((item) =>
-            item.name
-              .toLocaleLowerCase()
-              .includes(query.trim().toLocaleLowerCase()),
-          ).length === 0 && (
-            <div className="rounded-2xl border border-dashed border-earth-300 bg-white px-6 py-12 text-center">
-              <p className="font-medium text-earth-700">
-                {query.trim()
-                  ? "找不到符合的結果"
-                  : view === "rooms"
-                    ? "建立第一間教室"
-                    : "建立第一種課程"}
-              </p>
-              <p className="mt-2 text-sm text-earth-500">
-                {query.trim()
-                  ? "試試其他名稱，或清除搜尋。"
-                  : "使用上方新增按鈕開始設定。"}
-              </p>
-            </div>
-          )}
           {notice && (
-            <p
-              role="status"
-              className="rounded-xl bg-primary-50 px-4 py-3 text-sm text-primary-700"
-            >
+            <p role="status" className="text-sm text-primary-700">
               {notice}
+            </p>
+          )}
+          {error && !panel && (
+            <p role="alert" className="text-sm text-red-700">
+              {error}
             </p>
           )}
         </section>
@@ -632,10 +672,11 @@ export function CourseWorkspace({
                       {s.nameSnapshot}
                     </h3>
                     <p className="mt-1 text-sm text-earth-600">
-                      {coaches.find((c) => c.id === s.coachId)?.displayName ??
-                        "教練"}{" "}
-                      · {rooms.find((r) => r.id === s.roomId)?.name ?? "教室"} ·
-                      每人 {s.pointCost} 點 · 上限 {s.capacity} 人
+                      {allCoaches.find((c) => c.id === s.coachId)
+                        ?.displayName ?? "教練"}{" "}
+                      ·{" "}
+                      {allRooms.find((r) => r.id === s.roomId)?.name ?? "教室"}{" "}
+                      · 每人 {s.pointCost} 點 · 上限 {s.capacity} 人
                     </p>
                     {canCreate && (
                       <button
@@ -677,10 +718,13 @@ export function CourseWorkspace({
                         id="course-room-create-form"
                         onSubmit={(e) =>
                           submit(e, async (data) =>
-                            createCourseRoom(data.get("name")),
+                            createCourseRoom({
+                              name: data.get("name"),
+                              category: data.get("category"),
+                            }),
                           )
                         }
-                        className="flex items-end gap-2"
+                        className="grid gap-3"
                       >
                         <label className="flex-1">
                           教室名稱
@@ -689,6 +733,16 @@ export function CourseWorkspace({
                             name="name"
                             required
                             maxLength={80}
+                          />
+                        </label>
+                        <label className="col-span-full">
+                          分類
+                          <input
+                            className={field}
+                            name="category"
+                            maxLength={40}
+                            list="course-category-options"
+                            placeholder="輸入或選擇分類"
                           />
                         </label>
                       </form>
@@ -701,6 +755,7 @@ export function CourseWorkspace({
                           submit(e, (data) =>
                             createCourseTemplate({
                               name: data.get("name"),
+                              category: data.get("category"),
                               defaultRoomId: data.get("roomId"),
                               durationMinutes: Number(data.get("duration")),
                               pointCost: Number(data.get("cost")),
@@ -716,6 +771,16 @@ export function CourseWorkspace({
                             name="name"
                             required
                             maxLength={80}
+                          />
+                        </label>
+                        <label className="col-span-full">
+                          分類
+                          <input
+                            className={field}
+                            name="category"
+                            maxLength={40}
+                            list="course-category-options"
+                            placeholder="輸入或選擇分類"
                           />
                         </label>
                         <label>
@@ -781,6 +846,7 @@ export function CourseWorkspace({
                       const common = {
                         id: editing.value.id,
                         name: data.get("name"),
+                        category: data.get("category"),
                       };
                       if (editing.kind === "room")
                         return updateCourseRoom(common);
@@ -835,6 +901,19 @@ export function CourseWorkspace({
                     }
                   />
                 </label>
+                {editing.kind !== "session" && (
+                  <label className="col-span-full">
+                    分類
+                    <input
+                      className={field}
+                      name="category"
+                      maxLength={40}
+                      defaultValue={editing.value.category}
+                      list="course-category-options"
+                      placeholder="輸入或選擇分類"
+                    />
+                  </label>
+                )}
                 {editing.kind === "session" && (
                   <>
                     <label>

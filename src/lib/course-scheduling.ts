@@ -10,6 +10,7 @@ const date = z
   .refine((value) => !!parseTaipeiDateTime(value, "00:00"), "請填寫有效日期");
 export const courseTemplateInput = z.object({
   name: z.string().trim().min(1, "請填寫課程名稱").max(80),
+  category: z.string().trim().max(40).default(""),
   defaultRoomId: id,
   durationMinutes: z.number().int().min(1).max(480),
   pointCost: z.number().int().min(1).max(10000),

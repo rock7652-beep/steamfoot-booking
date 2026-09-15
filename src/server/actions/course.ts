@@ -30,11 +30,12 @@ export async function updateCourseRoom(input: unknown) {
       .object({
         id: z.string().min(1),
         name: z.string().trim().min(1, "請填寫教室名稱").max(80),
+        category: z.string().trim().max(40).default(""),
       })
       .parse(input);
     const result = await coursePrisma.courseRoom.updateMany({
-      where: { id: data.id, storeId, isActive: true },
-      data: { name: data.name },
+      where: { id: data.id, storeId },
+      data: { name: data.name, category: data.category },
     });
     if (!result.count)
       throw new AppError("VALIDATION", "找不到本店教室，請重新整理");
@@ -57,7 +58,7 @@ export async function updateCourseTemplate(input: unknown) {
     });
     if (!room) throw new AppError("VALIDATION", "請選擇本店可使用的教室");
     const result = await coursePrisma.courseTemplate.updateMany({
-      where: { id, storeId, isActive: true },
+      where: { id, storeId },
       data,
     });
     if (!result.count)
@@ -147,14 +148,14 @@ export async function updateCourseSession(input: unknown) {
 export async function createCourseRoom(input: unknown) {
   try {
     const { storeId } = await writableStore();
-    const name = z
-      .string()
-      .trim()
-      .min(1, "請填寫教室名稱")
-      .max(80)
-      .parse(input);
+    const { name, category } = z
+      .object({
+        name: z.string().trim().min(1, "請填寫教室名稱").max(80),
+        category: z.string().trim().max(40).default(""),
+      })
+      .parse(typeof input === "string" ? { name: input } : input);
     const room = await coursePrisma.courseRoom.create({
-      data: { name, storeId },
+      data: { name, category, storeId },
       select: { id: true, name: true },
     });
     revalidatePath("/dashboard/courses");
@@ -300,6 +301,44 @@ export async function createCourseSchedule(input: unknown) {
     );
     revalidatePath("/dashboard/courses");
     return { success: true as const, data: result };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+/** Reversible catalogue visibility. Session snapshots and history are never deleted. */
+export async function setCourseCatalogStatus(input: unknown) {
+  try {
+    const { storeId } = await writableStore("booking.update");
+    const data = z
+      .object({
+        id: z.string().min(1).max(100),
+        kind: z.enum(["room", "template"]),
+        isActive: z.boolean(),
+      })
+      .parse(input);
+    await coursePrisma.$transaction(async (tx) => {
+      const stores = await tx.$queryRaw<
+        Array<{ id: string }>
+      >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE`;
+      if (!stores.length)
+        throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
+      const result =
+        data.kind === "room"
+          ? await tx.courseRoom.updateMany({
+              where: { id: data.id, storeId },
+              data: { isActive: data.isActive },
+            })
+          : await tx.courseTemplate.updateMany({
+              where: { id: data.id, storeId },
+              data: { isActive: data.isActive },
+            });
+      if (!result.count)
+        throw new AppError("NOT_FOUND", "找不到本店資料，請重新整理");
+    });
+    revalidatePath("/dashboard/courses");
+    revalidatePath("/hq/dashboard/courses");
+    return { success: true as const };
   } catch (error) {
     return handleActionError(error);
   }

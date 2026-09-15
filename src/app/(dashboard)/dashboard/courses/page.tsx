@@ -46,15 +46,17 @@ export default async function CoursesPage({
   const [rooms, templates, sessions, coaches, canCreate, canEdit] =
     await Promise.all([
       coursePrisma.courseRoom.findMany({
-        where: { storeId, isActive: true },
-        select: { id: true, name: true },
+        where: { storeId },
+        select: { id: true, name: true, category: true, isActive: true },
         orderBy: { name: "asc" },
       }),
       coursePrisma.courseTemplate.findMany({
-        where: { storeId, isActive: true },
+        where: { storeId },
         select: {
           id: true,
           name: true,
+          category: true,
+          isActive: true,
           durationMinutes: true,
           capacity: true,
           pointCost: true,
@@ -82,8 +84,8 @@ export default async function CoursesPage({
         orderBy: { startsAt: "asc" },
       }),
       prisma.staff.findMany({
-        where: { storeId, status: "ACTIVE" },
-        select: { id: true, displayName: true },
+        where: { storeId },
+        select: { id: true, displayName: true, status: true },
         orderBy: { displayName: "asc" },
       }),
       checkPermission(user.role, user.staffId, "booking.create"),
