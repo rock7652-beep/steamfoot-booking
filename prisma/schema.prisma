@@ -367,6 +367,7 @@ enum StoreOperatingStatus {
 enum IndustryModule {
   STEAMFOOT
   SPA
+  COURSE
 }
 
 enum StoreFeatureEntitlementStatus {

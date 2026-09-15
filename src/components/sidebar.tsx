@@ -573,7 +573,7 @@ interface StoreViewOption {
 }
 
 interface DashboardShellProps {
-  industryModule?: "spa" | "steamfoot";
+  industryModule?: IndustryModuleId;
   isOwner: boolean;
   permissions: string[];
   pricingPlan: PricingPlan;
@@ -701,6 +701,11 @@ export default function DashboardShell({
   },[]);
 
   const navGroupsToRender: NavGroup[] = useMemo(() => {
+    if (industryModuleId === "course") {
+      return [{ id: "course", label: "", defaultOpen: true, icon: <></>, items: [
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses", label: "課程管理" },
+      ] }];
+    }
     if (isHqRoute) {
       if (industryModuleId !== "spa") return NAV_GROUPS;
       return NAV_GROUPS.map((group) => ({

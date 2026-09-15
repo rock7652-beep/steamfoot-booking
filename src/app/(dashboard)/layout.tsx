@@ -1,6 +1,6 @@
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS } from "@/lib/permissions";
@@ -55,6 +55,14 @@ export default async function DashboardLayout({
       getActiveStoreForRead(user),
     ]);
   const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : "steamfoot";
+  // Course stores must not enter legacy Steamfoot/SPA dashboard reads while
+  // the remaining course-specific areas are being delivered.
+  if (industryModule === "course") {
+    const requestedPath = (await headers()).get("x-next-pathname") ?? "";
+    if (!/\/dashboard\/courses(?:\/|$)/.test(requestedPath)) {
+      redirect("/dashboard/courses");
+    }
+  }
   const trialStatus = await getCachedTrialStatus(activeStoreId ?? undefined);
 
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）

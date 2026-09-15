@@ -1,0 +1,69 @@
+generator courseClient {
+  provider = "prisma-client-js"
+  output   = "../generated/course-client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Identity foreign keys to Store and Staff are managed in the additive SQL
+// migration. This client cannot address Steamfoot or SPA commerce tables.
+model CourseRoom {
+  id        String @id @default(cuid())
+  storeId   String
+  name      String
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  templates CourseTemplate[]
+  sessions  CourseSession[]
+
+  @@unique([id, storeId])
+  @@unique([storeId, name])
+}
+
+model CourseTemplate {
+  id              String @id @default(cuid())
+  storeId         String
+  name            String
+  durationMinutes Int
+  pointCost       Int
+  capacity        Int
+  defaultRoomId   String
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  defaultRoom     CourseRoom @relation(fields: [defaultRoomId, storeId], references: [id, storeId])
+  sessions        CourseSession[]
+
+  @@unique([id, storeId])
+  @@unique([storeId, name])
+}
+
+model CourseSession {
+  id             String @id @default(cuid())
+  storeId        String
+  templateId     String
+  roomId         String
+  coachId        String
+  nameSnapshot   String
+  startsAt       DateTime @db.Timestamptz(3)
+  endsAt         DateTime @db.Timestamptz(3)
+  pointCost      Int
+  capacity       Int
+  cancelledAt    DateTime? @db.Timestamptz(3)
+  requestKey     String
+  requestIndex   Int
+  createdById    String
+  createdAt      DateTime @default(now())
+  template       CourseTemplate @relation(fields: [templateId, storeId], references: [id, storeId])
+  room           CourseRoom @relation(fields: [roomId, storeId], references: [id, storeId])
+
+  @@unique([id, storeId])
+  @@unique([storeId, requestKey, requestIndex])
+  @@index([storeId, startsAt])
+  @@index([storeId, coachId, startsAt])
+  @@index([storeId, roomId, startsAt])
+}
