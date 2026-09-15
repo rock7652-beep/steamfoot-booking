@@ -25,6 +25,7 @@ export const courseScheduleInput = z.object({
   durationMinutes: z.number().int().min(1).max(480),
   capacity: z.number().int().min(1).max(500),
   repeatUntil: date.optional(),
+  additionalDates: z.array(date).max(52).optional(),
   requestKey: z.string().uuid(),
 });
 export type CourseScheduleInput = z.infer<typeof courseScheduleInput>;
@@ -33,11 +34,13 @@ export function buildCourseOccurrences(input: CourseScheduleInput) {
   const parsed = courseScheduleInput.parse(input);
   if (parsed.repeatUntil && parsed.repeatUntil < parsed.date)
     throw new Error("結束日期不能早於開始日期");
+  if (parsed.repeatUntil && parsed.additionalDates?.length)
+    throw new Error("請選擇每週重複或指定日期其中一種方式");
   const dates = parsed.repeatUntil
     ? generateWeeklyDateStrings(parsed.date, 53).filter(
         (day) => day <= parsed.repeatUntil!,
       )
-    : [parsed.date];
+    : [...new Set([parsed.date, ...(parsed.additionalDates ?? [])])].sort();
   const maxDate = generateWeeklyDateStrings(parsed.date, 53)[52];
   if (parsed.repeatUntil && parsed.repeatUntil > maxDate)
     throw new Error("一次最多安排 53 週課程");

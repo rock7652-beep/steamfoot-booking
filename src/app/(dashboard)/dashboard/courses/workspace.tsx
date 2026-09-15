@@ -173,9 +173,11 @@ export function CourseWorkspace({
   }
   function open(next: typeof panel) {
     setPanel(next);
+    setExtraDates([]);
     setError("");
     setNotice("");
   }
+  const [extraDates, setExtraDates] = useState<string[]>([]);
   const [copySource, setCopySource] = useState<Session | null>(null);
   function openSchedule() {
     setCopySource(null);
@@ -257,13 +259,6 @@ export function CourseWorkspace({
             </div>
             {(canCreate || canEdit) && (
               <div className="flex gap-2">
-                <button
-                  className={button}
-                  disabled={pending}
-                  onClick={() => router.push(`${pathname}?view=catalog`)}
-                >
-                  課程設定
-                </button>
                 {canCreate && (
                   <button
                     className={primary}
@@ -1062,6 +1057,7 @@ export function CourseWorkspace({
                             time: data.get("time"),
                             durationMinutes: Number(data.get("duration")),
                             capacity: Number(data.get("capacity")),
+                            additionalDates: repeat ? undefined : extraDates.filter(Boolean),
                             repeatUntil: repeat ? data.get("until") : undefined,
                             requestKey,
                           }),
@@ -1207,6 +1203,14 @@ export function CourseWorkspace({
                         <option value="weekly">每週重複</option>
                       </select>
                     </label>
+                    {!repeat && <div className="col-span-full space-y-2">
+                      {extraDates.map((value, index) => <div key={index} className="flex items-center gap-2">
+                        <label className="flex-1">其他日期 {index + 1}<input className={field} aria-label={`其他日期 ${index + 1}`} type="date" required value={value} onChange={e => setExtraDates(current => current.map((day, i) => i === index ? e.target.value : day))} /></label>
+                        <button type="button" className={button} onClick={() => setExtraDates(current => current.filter((_, i) => i !== index))}>移除</button>
+                      </div>)}
+                      <button type="button" className={button} disabled={extraDates.length >= 52} onClick={() => setExtraDates(current => [...current, ""])}>＋ 加入排課日期</button>
+                      {extraDates.length > 0 && <p className="text-sm text-earth-500">以上日期使用相同時間、教練與教室；重複日期只建立一堂。如有撞期，整批不會建立。</p>}
+                    </div>}
                     {repeat && (
                       <label className="col-span-full">
                         結束日期

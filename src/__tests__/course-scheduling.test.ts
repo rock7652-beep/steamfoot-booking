@@ -39,6 +39,16 @@ describe("course scheduling", () => {
       buildCourseOccurrences({ ...base, repeatUntil: "2028-01-01" }),
     ).toThrow();
   });
+  it("copies to selected dates once each in chronological order", () => {
+    const result = buildCourseOccurrences({ ...base, additionalDates: ["2026-10-01", "2026-09-22", "2026-09-25", "2026-09-25"] });
+    expect(result.map(s => toLocalDateStr(s.startsAt))).toEqual(["2026-09-22", "2026-09-25", "2026-10-01"]);
+    expect(result.every(s => s.endsAt.getTime() - s.startsAt.getTime() === 3600000)).toBe(true);
+  });
+  it("rejects mixed repeat modes and invalid extra dates", () => {
+    expect(() => buildCourseOccurrences({ ...base, repeatUntil: "2026-10-01", additionalDates: ["2026-09-25"] })).toThrow();
+    expect(() => buildCourseOccurrences({ ...base, additionalDates: ["2026-02-30"] })).toThrow();
+    expect(() => buildCourseOccurrences({ ...base, additionalDates: Array(53).fill("2026-09-25") })).toThrow();
+  });
   it("handles midnight and half-open adjacent courses", () => {
     const [a] = buildCourseOccurrences({ ...base, time: "23:30" });
     const [b] = buildCourseOccurrences({
