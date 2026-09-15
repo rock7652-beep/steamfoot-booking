@@ -48,7 +48,8 @@ vi.mock("@/lib/revalidation", () => ({
   revalidateStaff: vi.fn(),
   revalidateStaffPermissions: vi.fn(),
 }));
-vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: vi.fn() }));
+const mockGetLimits = vi.fn();
+vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: vi.fn(), getStoreLimitsByStoreId: (...a: unknown[]) => mockGetLimits(...a) }));
 vi.mock("@/lib/feature-flags", () => ({ FEATURES: {} }));
 
 const mockCheckPermission = vi.fn();
@@ -186,5 +187,39 @@ describe("ADMIN 最高權限", () => {
     );
     const r = await deactivate("s-adm");
     expect(r.success).toBe(false);
+  });
+});
+
+describe("staff reactivation transaction", () => {
+  it("resolves limits before opening the transaction, retaining atomic capacity checks", async () => {
+    mockRequireStaffSession.mockResolvedValue(ADMIN);
+    let inTransaction = false;
+    mockGetLimits.mockImplementation(async () => { expect(inTransaction).toBe(false); return { maxStaff: 3 }; });
+    const count = vi.fn().mockResolvedValue(1);
+    mockTx.mockImplementationOnce(async (callback: unknown) => {
+      inTransaction = true;
+      return (callback as (tx: unknown) => Promise<unknown>)({
+        $executeRaw: vi.fn(),
+        staff: { findUniqueOrThrow: vi.fn().mockResolvedValue({ status: "INACTIVE" }), count, update: mockStaffUpdate },
+        user: { update: mockUserUpdate },
+      });
+    });
+    const { activateStaff } = await import("@/server/actions/staff");
+    expect(await activateStaff("s-ggg")).toMatchObject({ success: true });
+    expect(count).toHaveBeenCalledWith({ where: { storeId: STORE, status: "ACTIVE" } });
+    expect(mockStaffUpdate).toHaveBeenCalledWith({ where: { id: "s-ggg", storeId: STORE }, data: { status: "ACTIVE" } });
+  });
+  it("keeps the limit enforced and writes nothing when capacity is full", async () => {
+    mockRequireStaffSession.mockResolvedValue(ADMIN);
+    mockGetLimits.mockResolvedValue({ maxStaff: 3 });
+    mockTx.mockImplementationOnce(async (callback: unknown) => (callback as (tx: unknown) => Promise<unknown>)({
+      $executeRaw: vi.fn(),
+      staff: { findUniqueOrThrow: vi.fn().mockResolvedValue({ status: "INACTIVE" }), count: vi.fn().mockResolvedValue(3), update: mockStaffUpdate },
+      user: { update: mockUserUpdate },
+    }));
+    const { activateStaff } = await import("@/server/actions/staff");
+    expect(await activateStaff("s-ggg")).toMatchObject({ success: false });
+    expect(mockStaffUpdate).not.toHaveBeenCalled();
+    expect(mockUserUpdate).not.toHaveBeenCalled();
   });
 });
