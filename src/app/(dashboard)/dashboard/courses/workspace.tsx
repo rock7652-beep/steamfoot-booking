@@ -221,11 +221,11 @@ export function CourseWorkspace({
                   go(date);
                   open("day");
                 }}
-                className={`min-h-24 border-t border-earth-100 p-2 text-left align-top sm:min-h-28 sm:p-3 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
+                className={`flex h-[clamp(56px,calc((100dvh-320px)/6),80px)] min-h-14 flex-col items-start justify-start border-t border-earth-100 p-2 text-left sm:px-3 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
               >
                 <span>{i + 1}</span>
                 {list.length > 0 && (
-                  <span className="mt-3 block text-xs sm:text-sm">
+                  <span className="mt-1 block text-xs sm:text-sm">
                     {list.length} 堂課
                   </span>
                 )}
@@ -247,7 +247,7 @@ export function CourseWorkspace({
           width={520}
           labelledById="course-panel-title"
         >
-          <div className="flex items-center justify-between border-b border-earth-200 p-5">
+          <div className="flex shrink-0 items-center justify-between border-b border-earth-200 p-5">
             <h2 id="course-panel-title" className="font-medium">
               {panel === "edit"
                 ? editing?.kind === "session"
@@ -269,7 +269,7 @@ export function CourseWorkspace({
               關閉
             </button>
           </div>
-          <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
             {error && (
               <p role="alert" className="text-sm text-red-700">
                 {error}
@@ -414,6 +414,7 @@ export function CourseWorkspace({
                       </form>
                     )}
                     <form
+                      id="course-template-create-form"
                       className="grid grid-cols-2 gap-3"
                       onSubmit={(e) =>
                         submit(e, (data) =>
@@ -482,12 +483,7 @@ export function CourseWorkspace({
                           ))}
                         </select>
                       </label>
-                      <button
-                        className={`${primary} col-span-2`}
-                        disabled={pending || !rooms.length}
-                      >
-                        {pending ? "儲存中…" : "建立課程"}
-                      </button>
+
                     </form>
                   </>
                 )}
@@ -848,6 +844,13 @@ export function CourseWorkspace({
               </>
             )}
           </div>
+          {panel === "catalog" && canCreate && (
+            <div className="shrink-0 border-t border-earth-200 bg-white p-4">
+              <button type="submit" form="course-template-create-form" className={`${primary} w-full`} disabled={pending || !rooms.length}>
+                {pending ? "儲存中…" : "建立課程"}
+              </button>
+            </div>
+          )}
         </RightSheet>
       )}
     </>
