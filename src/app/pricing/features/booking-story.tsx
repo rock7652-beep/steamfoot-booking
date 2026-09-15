@@ -33,7 +33,7 @@ export function BookingStory({ kind }: { kind: keyof typeof stories }) {
         <Link href="/pricing/fitness.html" className="inline-flex min-h-11 items-center px-2 underline underline-offset-4">課程預約・籌備中 →</Link>
       </nav>
       <p className="mt-8 text-sm font-medium text-[#74603C]">{story.name}</p>
-      <h1 className="mt-3 text-balance text-3xl font-semibold leading-snug sm:text-4xl">{story.title}</h1>
+      <h1 className="mt-3 text-balance text-3xl font-semibold leading-snug sm:text-4xl">{kind === "services" ? <><span className="inline-block">服務、人員與時間，</span><span className="inline-block">一起安排。</span></> : story.title}</h1>
       <p className="mt-4 max-w-2xl text-base leading-7 text-[#4C6259]">{story.intro}</p>
       <div className="mt-8 space-y-5">
         {story.scenes.map((scene, i) => <section key={scene.question} aria-labelledby={`scene-${i}`} className="grid items-center gap-4 sm:gap-6 rounded-2xl border border-[#153B31]/15 bg-white/70 p-5 sm:p-7 md:grid-cols-2">
