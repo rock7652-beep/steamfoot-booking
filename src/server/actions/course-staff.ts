@@ -3,6 +3,7 @@ import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { courseManager } from "@/server/services/course-access";
+import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import {
@@ -10,7 +11,10 @@ import {
   requireStoreFeature,
 } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
-import { revalidateStaff, revalidateStaffPermissions } from "@/lib/revalidation";
+import {
+  revalidateStaff,
+  revalidateStaffPermissions,
+} from "@/lib/revalidation";
 import { revalidatePath } from "next/cache";
 const id = z.string().min(1).max(180);
 const colors = [
@@ -157,7 +161,7 @@ export async function saveCourseStaff(input: unknown) {
             },
           });
         if (d.kind === "manager") {
-          const granted = d.permissions ?? [...ALL_PERMISSIONS];
+          const granted = d.permissions ?? [...COURSE_PERMISSIONS];
           for (const permission of ALL_PERMISSIONS)
             await tx.staffPermission.upsert({
               where: { staffId_permission: { staffId, permission } },

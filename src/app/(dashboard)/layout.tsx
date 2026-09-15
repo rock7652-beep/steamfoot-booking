@@ -1,5 +1,6 @@
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
+import { AppError } from "@/lib/errors";
 import { cookies, headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
@@ -52,7 +53,10 @@ export default async function DashboardLayout({
     await Promise.all([
       getUserPermissions(user.role, user.staffId),
       getStoreOptions(user),
-      getActiveStoreForRead(user),
+      getActiveStoreForRead(user).catch(error => {
+        if (error instanceof AppError && (error.code === "FORBIDDEN" || error.code === "NOT_FOUND")) notFound();
+        throw error;
+      }),
     ]);
   const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : "steamfoot";
   // Course stores must not enter legacy Steamfoot/SPA dashboard reads while

@@ -3,9 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { coursePrisma } from "@/lib/course-db";
-import { requireCourseStore } from "@/lib/industry-module-server";
-import { requirePermission } from "@/lib/permissions";
-import { resolveWriteStoreId } from "@/lib/store";
+import { courseManager } from "@/server/services/course-access";
 import { AppError, handleActionError } from "@/lib/errors";
 import {
   buildCourseOccurrences,
@@ -17,10 +15,7 @@ import { formatTWDateTime } from "@/lib/date-utils";
 async function writableStore(
   permission: "booking.create" | "booking.update" = "booking.create",
 ) {
-  const user = await requirePermission(permission);
-  const storeId = await resolveWriteStoreId(user);
-  await requireCourseStore(storeId);
-  return { user, storeId };
+  return courseManager(permission);
 }
 
 export async function updateCourseRoom(input: unknown) {

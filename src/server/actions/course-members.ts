@@ -321,12 +321,16 @@ export async function cancelCourseSession(input: unknown) {
 
 export async function loadCourseSessionDetail(sessionId: string) {
   try {
-    const { storeId } = await courseManager("booking.read");
+    const { user, storeId } = await courseManager("booking.read");
     id.parse(sessionId);
     const { getCourseRoster, getCourseCards } =
       await import("@/server/queries/course-members");
     const { checkPermission } = await import("@/lib/permissions");
-    const { user } = await courseManager("booking.read");
+    const canReadCards = await checkPermission(
+      user.role,
+      user.staffId,
+      "wallet.read",
+    );
     const canCreate = await checkPermission(
       user.role,
       user.staffId,
@@ -336,7 +340,16 @@ export async function loadCourseSessionDetail(sessionId: string) {
       getCourseRoster(storeId, sessionId),
       canCreate ? getCourseCards(storeId) : [],
     ]);
-    return { success: true as const, data: { roster, cards } };
+    return {
+      success: true as const,
+      data: {
+        roster,
+        cards: cards.map((card) => ({
+          ...card,
+          entries: canReadCards ? card.entries : [],
+        })),
+      },
+    };
   } catch (error) {
     return handleActionError(error);
   }

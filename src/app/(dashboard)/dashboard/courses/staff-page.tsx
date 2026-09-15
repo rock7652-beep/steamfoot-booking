@@ -1,3 +1,7 @@
+import {
+  COURSE_PERMISSIONS,
+  COURSE_PERMISSION_LABELS,
+} from "@/lib/course-permissions";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import {
@@ -47,13 +51,18 @@ export async function CourseStaffPage() {
       <PageHeader title="人員管理" />
       <CourseStaffWorkspace
         canManage={canManage}
-        permissionGroups={Object.values(PERMISSION_GROUPS).map((g) => ({
-          label: g.label,
-          codes: g.codes.map((code) => ({
-            code,
-            label: PERMISSION_LABELS[code],
-          })),
-        }))}
+        permissionGroups={Object.values(PERMISSION_GROUPS)
+          .map((g) => ({
+            label: g.label,
+            codes: g.codes
+              .filter((code) => COURSE_PERMISSIONS.includes(code))
+              .map((code) => ({
+                code,
+                label:
+                  COURSE_PERMISSION_LABELS[code] ?? PERMISSION_LABELS[code],
+              })),
+          }))
+          .filter((g) => g.codes.length)}
         staff={staff.map((s) => ({
           id: s.id,
           name: s.displayName,

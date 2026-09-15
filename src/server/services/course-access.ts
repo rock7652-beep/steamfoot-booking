@@ -31,7 +31,10 @@ export async function courseManager(permission: PermissionCode) {
 
 export async function courseMember() {
   const user = await requireSession();
-  if (!await prisma.user.findFirst({ where: { id: user.id, status: "ACTIVE" } })) throw new AppError("FORBIDDEN", "帳號已停用");
+  if (
+    !(await prisma.user.findFirst({ where: { id: user.id, status: "ACTIVE" } }))
+  )
+    throw new AppError("FORBIDDEN", "帳號已停用");
   const storeId = await resolveMemberRequestStoreId(user.storeId);
   if (!storeId) throw new AppError("FORBIDDEN", "請從課程店家入口登入");
   await requireCourseStore(storeId);
@@ -41,10 +44,7 @@ export async function courseMember() {
         where: { id: linked.customerId, storeId, mergedIntoCustomerId: null },
         select: { id: true, name: true },
       })
-    : await prisma.customer.findFirst({
-        where: { userId: user.id, storeId, mergedIntoCustomerId: null },
-        select: { id: true, name: true },
-      });
+    : null;
   if (!customer) throw new AppError("FORBIDDEN", "帳號尚未連結本店顧客");
   return { user, storeId, customer };
 }

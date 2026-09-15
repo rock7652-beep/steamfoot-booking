@@ -15,6 +15,14 @@ const mocks = vi.hoisted(() => ({
   catalogUpdate: vi.fn(),
   revalidate: vi.fn(),
 }));
+vi.mock("@/server/services/course-access", () => ({
+  courseManager: async (permission: string) => {
+    const user = await mocks.permission(permission);
+    const storeId = await mocks.store(user);
+    await mocks.module(storeId);
+    return { user, storeId };
+  },
+}));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
 vi.mock("@/lib/store", () => ({ resolveWriteStoreId: mocks.store }));
 vi.mock("@/lib/industry-module-server", () => ({
@@ -33,12 +41,19 @@ vi.mock("@/lib/course-db", () => ({
           update: mocks.update,
         },
         courseBooking: { findMany: mocks.bookings },
-        courseTemplate: { findFirst: mocks.template, updateMany: mocks.catalogUpdate },
+        courseTemplate: {
+          findFirst: mocks.template,
+          updateMany: mocks.catalogUpdate,
+        },
         courseRoom: { findFirst: mocks.room, updateMany: mocks.catalogUpdate },
       }),
   },
 }));
-import { createCourseSchedule, updateCourseSession, setCourseCatalogStatus } from "@/server/actions/course";
+import {
+  createCourseSchedule,
+  updateCourseSession,
+  setCourseCatalogStatus,
+} from "@/server/actions/course";
 import { AppError } from "@/lib/errors";
 const input = {
   templateId: "yoga",
@@ -65,31 +80,71 @@ beforeEach(() => {
   mocks.create.mockResolvedValue({ count: 3 });
 });
 describe("course editing", () => {
-  const edit = { ...input, id: "session-a", nameSnapshot: "新課名", pointCost: 3, capacity: 12 };
+  const edit = {
+    ...input,
+    id: "session-a",
+    nameSnapshot: "新課名",
+    pointCost: 3,
+    capacity: 12,
+  };
   it("updates only the selected store session and excludes itself from conflicts", async () => {
-    mocks.conflict.mockResolvedValueOnce({ id: "session-a" }).mockResolvedValueOnce(null);
+    mocks.conflict
+      .mockResolvedValueOnce({ id: "session-a" })
+      .mockResolvedValueOnce(null);
     expect(await updateCourseSession(edit)).toEqual({ success: true });
     expect(mocks.permission).toHaveBeenCalledWith("booking.update");
-    expect(mocks.conflict.mock.calls[1][0].where).toMatchObject({ storeId: "store-a", id: { not: "session-a" } });
-    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "session-a", storeId: "store-a" }, data: expect.objectContaining({ capacity: 12, nameSnapshot: "新課名", pointCost: 3 }) }));
+    expect(mocks.conflict.mock.calls[1][0].where).toMatchObject({
+      storeId: "store-a",
+      id: { not: "session-a" },
+    });
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "session-a", storeId: "store-a" },
+        data: expect.objectContaining({
+          capacity: 12,
+          nameSnapshot: "新課名",
+          pointCost: 3,
+        }),
+      }),
+    );
     expect(mocks.create).not.toHaveBeenCalled();
   });
   it("preserves the original session when a new time conflicts", async () => {
-    mocks.conflict.mockResolvedValueOnce({ id: "session-a" }).mockResolvedValueOnce({ startsAt: new Date("2026-09-22T10:00:00Z"), roomId: "room-a" });
-    expect(await updateCourseSession(edit)).toMatchObject({ success: false, error: expect.stringContaining("尚未儲存修改") });
+    mocks.conflict
+      .mockResolvedValueOnce({ id: "session-a" })
+      .mockResolvedValueOnce({
+        startsAt: new Date("2026-09-22T10:00:00Z"),
+        roomId: "room-a",
+      });
+    expect(await updateCourseSession(edit)).toMatchObject({
+      success: false,
+      error: expect.stringContaining("尚未儲存修改"),
+    });
     expect(mocks.update).not.toHaveBeenCalled();
   });
   it("preserves completed attendance history and card expiry on rescheduling", async () => {
-    mocks.conflict.mockResolvedValue({id: "session-a", pointCost: 3});
-    mocks.bookings.mockResolvedValue([{status: "ATTENDED", card: {expiresAt: new Date("2027-01-01")}}]);
-    expect(await updateCourseSession(edit)).toMatchObject({success: false, error: expect.stringContaining("已完成點名")});
-    mocks.bookings.mockResolvedValue([{status: "RESERVED", card: {expiresAt: new Date("2026-09-21")}}]);
-    expect(await updateCourseSession(edit)).toMatchObject({success: false, error: expect.stringContaining("方案期限")});
+    mocks.conflict.mockResolvedValue({ id: "session-a", pointCost: 3 });
+    mocks.bookings.mockResolvedValue([
+      { status: "ATTENDED", card: { expiresAt: new Date("2027-01-01") } },
+    ]);
+    expect(await updateCourseSession(edit)).toMatchObject({
+      success: false,
+      error: expect.stringContaining("已完成點名"),
+    });
+    mocks.bookings.mockResolvedValue([
+      { status: "RESERVED", card: { expiresAt: new Date("2026-09-21") } },
+    ]);
+    expect(await updateCourseSession(edit)).toMatchObject({
+      success: false,
+      error: expect.stringContaining("方案期限"),
+    });
     expect(mocks.update).not.toHaveBeenCalled();
   });
   it("rejects foreign sessions and invalid capacity", async () => {
     expect(await updateCourseSession(edit)).toMatchObject({ success: false });
-    expect(await updateCourseSession({ ...edit, capacity: 0 })).toMatchObject({ success: false });
+    expect(await updateCourseSession({ ...edit, capacity: 0 })).toMatchObject({
+      success: false,
+    });
     expect(mocks.update).not.toHaveBeenCalled();
   });
 });
@@ -162,12 +217,26 @@ describe("course scheduling action", () => {
 
 describe("copy course schedule", () => {
   it("copies the selected session snapshot instead of changed template defaults", async () => {
-    mocks.conflict.mockResolvedValueOnce({ id: "source", templateId: "yoga", nameSnapshot: "單堂調整名稱", pointCost: 4 }).mockResolvedValueOnce(null);
-    expect(await createCourseSchedule({ ...input, sourceSessionId: "source" })).toMatchObject({ success: true });
-    expect(mocks.create.mock.calls[0][0].data[0]).toMatchObject({ nameSnapshot: "單堂調整名稱", pointCost: 4 });
+    mocks.conflict
+      .mockResolvedValueOnce({
+        id: "source",
+        templateId: "yoga",
+        nameSnapshot: "單堂調整名稱",
+        pointCost: 4,
+      })
+      .mockResolvedValueOnce(null);
+    expect(
+      await createCourseSchedule({ ...input, sourceSessionId: "source" }),
+    ).toMatchObject({ success: true });
+    expect(mocks.create.mock.calls[0][0].data[0]).toMatchObject({
+      nameSnapshot: "單堂調整名稱",
+      pointCost: 4,
+    });
   });
   it("refuses a missing or foreign source before creating copies", async () => {
-    expect(await createCourseSchedule({ ...input, sourceSessionId: "foreign" })).toMatchObject({ success: false });
+    expect(
+      await createCourseSchedule({ ...input, sourceSessionId: "foreign" }),
+    ).toMatchObject({ success: false });
     expect(mocks.create).not.toHaveBeenCalled();
   });
 });
@@ -175,26 +244,60 @@ describe("copy course schedule", () => {
 describe("catalogue availability", () => {
   it("changes only a record in the authorized course store and preserves sessions", async () => {
     mocks.catalogUpdate.mockResolvedValue({ count: 1 });
-    expect(await setCourseCatalogStatus({ kind: "template", id: "yoga", isActive: false, storeId: "foreign" })).toEqual({ success: true });
+    expect(
+      await setCourseCatalogStatus({
+        kind: "template",
+        id: "yoga",
+        isActive: false,
+        storeId: "foreign",
+      }),
+    ).toEqual({ success: true });
     expect(mocks.permission).toHaveBeenCalledWith("booking.update");
-    expect(mocks.catalogUpdate).toHaveBeenCalledWith({ where: { id: "yoga", storeId: "store-a" }, data: { isActive: false } });
+    expect(mocks.catalogUpdate).toHaveBeenCalledWith({
+      where: { id: "yoga", storeId: "store-a" },
+      data: { isActive: false },
+    });
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.create).not.toHaveBeenCalled();
-    expect(await setCourseCatalogStatus({ kind: "template", id: "yoga", isActive: true })).toEqual({ success: true });
+    expect(
+      await setCourseCatalogStatus({
+        kind: "template",
+        id: "yoga",
+        isActive: true,
+      }),
+    ).toEqual({ success: true });
   });
   it("rejects foreign records and unauthorized changes", async () => {
     mocks.catalogUpdate.mockResolvedValue({ count: 0 });
-    expect(await setCourseCatalogStatus({ kind: "room", id: "foreign", isActive: false })).toMatchObject({ success: false });
+    expect(
+      await setCourseCatalogStatus({
+        kind: "room",
+        id: "foreign",
+        isActive: false,
+      }),
+    ).toMatchObject({ success: false });
     mocks.catalogUpdate.mockClear();
-    mocks.permission.mockRejectedValue(new AppError("FORBIDDEN", "no permission"));
-    expect(await setCourseCatalogStatus({ kind: "room", id: "a", isActive: false })).toMatchObject({ success: false });
+    mocks.permission.mockRejectedValue(
+      new AppError("FORBIDDEN", "no permission"),
+    );
+    expect(
+      await setCourseCatalogStatus({ kind: "room", id: "a", isActive: false }),
+    ).toMatchObject({ success: false });
     expect(mocks.catalogUpdate).not.toHaveBeenCalled();
   });
   it("does not schedule an unpublished template or hidden room", async () => {
     mocks.template.mockResolvedValue(null);
     expect(await createCourseSchedule(input)).toMatchObject({ success: false });
-    expect(mocks.template).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "yoga", storeId: "store-a", isActive: true } }));
-    mocks.template.mockResolvedValue({ id: "yoga", name: "Yoga", pointCost: 2 });
+    expect(mocks.template).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "yoga", storeId: "store-a", isActive: true },
+      }),
+    );
+    mocks.template.mockResolvedValue({
+      id: "yoga",
+      name: "Yoga",
+      pointCost: 2,
+    });
     mocks.room.mockResolvedValue(null);
     expect(await createCourseSchedule(input)).toMatchObject({ success: false });
     expect(mocks.create).not.toHaveBeenCalled();
