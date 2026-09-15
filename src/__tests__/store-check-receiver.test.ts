@@ -55,10 +55,23 @@ describe("prepared Apps Script receiver", () => {
   it("escapes user HTML and uses trial-specific subject, stacked fields and a fixed recipient", () => {
     const r = receiver();
     const n = r.notification({ ...data, storeName: '<img src=x onerror="bad">' });
-    expect(n.subject).toContain("新的體驗帳號申請｜");
+    expect(n.subject).toContain("一般店家體驗申請｜");
+    expect(n.body).toContain("#gid=2026091501");
     expect(n.htmlBody).toContain("&lt;img"); expect(n.htmlBody).not.toContain("<img");
     expect(n.htmlBody.indexOf("LINE ID")).toBeLessThan(n.htmlBody.indexOf("主要需求"));
     r.post({ ...data, to: "untrusted@example.com" });
     expect(r.mail.mock.calls[0]).toEqual([expect.objectContaining({ to: "rock7652@gmail.com" })]);
+  });
+  it("routes course enquiries to their own subject and tab regardless of trial choice", () => {
+    const r = receiver();
+    for (const contactWay of ["申請體驗帳號", "先透過 LINE 了解", "目前暫不考慮"]) {
+      const n = r.notification({ ...data, source: "fitness-intake", contactWay });
+      expect(n.subject).toContain("課程教室需求與體驗｜");
+      expect(n.body).toContain("#gid=2026091502");
+      expect(n.htmlBody).toContain("#gid=2026091502");
+    }
+    const legacy = r.notification({ ...data, contactWay: "先透過 LINE 了解" });
+    expect(legacy.subject).toContain("新的門市健檢｜");
+    expect(legacy.body).toContain("#gid=1690370556");
   });
 });
