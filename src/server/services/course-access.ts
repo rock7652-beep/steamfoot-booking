@@ -29,7 +29,7 @@ export async function courseManager(permission: PermissionCode) {
   return { user, storeId };
 }
 
-export async function courseMember() {
+export async function courseAccount() {
   const user = await requireSession();
   if (
     !(await prisma.user.findFirst({ where: { id: user.id, status: "ACTIVE" } }))
@@ -47,6 +47,25 @@ export async function courseMember() {
     : null;
   if (!customer) throw new AppError("FORBIDDEN", "帳號尚未連結本店顧客");
   return { user, storeId, customer };
+}
+
+export async function courseMember() {
+  const actor = await courseAccount();
+  const link = await prisma.staffMemberLink.findUnique({
+    where: {
+      uq_staff_member_link_user_store: {
+        userId: actor.user.id,
+        storeId: actor.storeId,
+      },
+    },
+    select: { courseMemberEnabled: true },
+  });
+  if (link?.courseMemberEnabled === false)
+    throw new AppError(
+      "FORBIDDEN",
+      "此帳號目前僅開放教練工作，會員操作請聯絡店家啟用",
+    );
+  return actor;
 }
 
 // Every course balance, seat and membership mutation takes this same lock.

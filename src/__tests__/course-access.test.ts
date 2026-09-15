@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
+  link: vi.fn(),
   session: vi.fn(),
   account: vi.fn(),
   customer: vi.fn(),
@@ -13,6 +14,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findFirst: m.account },
     customer: { findFirst: m.customer },
+    staffMemberLink: { findUnique: m.link },
   },
 }));
 vi.mock("@/lib/session", () => ({ requireSession: m.session }));
@@ -27,9 +29,10 @@ vi.mock("@/server/services/member-request-store", () => ({
 vi.mock("@/server/services/central-member-resolver", () => ({
   resolveCentralMemberCustomerForStore: m.resolve,
 }));
-import { courseMember } from "@/server/services/course-access";
+import { courseMember, courseAccount } from "@/server/services/course-access";
 beforeEach(() => {
   vi.clearAllMocks();
+  m.link.mockResolvedValue(null);
   m.session.mockResolvedValue({ id: "a", storeId: "store-a" });
   m.account.mockResolvedValue({ id: "a" });
   m.store.mockResolvedValue("store-a");
@@ -52,6 +55,11 @@ describe("course fixed member access", () => {
     m.resolve.mockResolvedValue(null);
     await expect(courseMember()).rejects.toThrow("帳號尚未連結");
     expect(m.customer).not.toHaveBeenCalled();
+  });
+  it("allows fixed coach identity but rejects member operations for coach-only mode", async () => {
+    m.link.mockResolvedValue({ courseMemberEnabled: false });
+    expect((await courseAccount()).user.id).toBe("a");
+    await expect(courseMember()).rejects.toThrow("僅開放教練工作");
   });
   it("rejects suspended accounts before resolving membership", async () => {
     m.account.mockResolvedValue(null);

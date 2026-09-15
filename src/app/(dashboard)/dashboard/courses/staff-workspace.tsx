@@ -10,6 +10,7 @@ type Person = {
   kind: "manager" | "coach";
   email: string;
   active: boolean;
+  memberEnabled: boolean;
   permissions: string[];
   customerId: string;
 };
@@ -110,7 +111,11 @@ export function CourseStaffWorkspace({
               >
                 <td className="p-3">{p.name}</td>
                 <td className="p-3">
-                  {p.kind === "manager" ? "店長（後台）" : "教練（我的工作）"}
+                  {p.kind === "manager"
+                    ? "店長（後台）"
+                    : p.memberEnabled
+                      ? "教練兼顧客"
+                      : "教練（僅我的工作）"}
                 </td>
                 <td className="p-3">
                   {p.kind === "manager"
@@ -181,6 +186,10 @@ export function CourseStaffWorkspace({
                           ? d.get("customerId") || undefined
                           : undefined,
                       active: d.get("active") === "yes",
+                      memberEnabled:
+                        kind === "coach"
+                          ? d.get("memberEnabled") === "yes"
+                          : true,
                       permissions:
                         kind === "manager" ? d.getAll("permission") : undefined,
                       requestKey: key,
@@ -261,6 +270,24 @@ export function CourseStaffWorkspace({
                     </label>
                   </>
                 )
+              )}
+              {kind === "coach" && (
+                <label className="block">
+                  前台身分
+                  <select
+                    className={field}
+                    name="memberEnabled"
+                    defaultValue={
+                      person?.memberEnabled === false ? "no" : "yes"
+                    }
+                  >
+                    <option value="yes">教練兼顧客：會員專區／我的工作</option>
+                    <option value="no">僅教練：我的工作</option>
+                  </select>
+                  <span className="text-sm text-earth-500">
+                    沿用同一個固定帳號。切換身分不刪除顧客與歷史紀錄。
+                  </span>
+                </label>
               )}
               <label className="block">
                 狀態

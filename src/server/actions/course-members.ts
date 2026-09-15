@@ -8,6 +8,7 @@ import { dayRange, parseTaipeiDateTime } from "@/lib/date-utils";
 import {
   courseManager,
   courseMember,
+  courseAccount,
   courseTransaction,
 } from "@/server/services/course-access";
 import {
@@ -357,7 +358,7 @@ export async function loadCourseSessionDetail(sessionId: string) {
 
 export async function markCourseCoachAttendance(input: unknown) {
   try {
-    const { user, storeId } = await courseMember();
+    const { user, storeId } = await courseAccount();
     const { bookingId } = z.object({ bookingId: id }).parse(input);
     await courseTransaction(storeId, async (tx) => {
       const allowed = await tx.$queryRaw<Array<{ id: string }>>`

@@ -481,7 +481,6 @@ export function CourseWorkspace({
                         "時長",
                         "每人點數",
                         "人數上限",
-                        "預設教室",
                         "狀態",
                         "操作",
                       ]
@@ -500,9 +499,6 @@ export function CourseWorkspace({
                 {filteredItems.map((item) => {
                   const template =
                     "durationMinutes" in item ? (item as Template) : null;
-                  const room = template
-                    ? allRooms.find((r) => r.id === template.defaultRoomId)
-                    : null;
                   return (
                     <tr
                       key={item.id}
@@ -529,14 +525,6 @@ export function CourseWorkspace({
                           </td>
                           <td className="px-4 py-3 tabular-nums">
                             {template.capacity}
-                          </td>
-                          <td className="px-4 py-3">
-                            {room?.name ?? "—"}
-                            {room && !room.isActive && (
-                              <span className="block text-xs text-amber-700">
-                                教室已隱藏，排課時請另選
-                              </span>
-                            )}
                           </td>
                         </>
                       ) : (
@@ -1156,14 +1144,24 @@ export function CourseWorkspace({
                   </>
                 ) : !coaches.length ? (
                   <p>本店尚無可排課的教練，請先完成人員建檔。</p>
+                ) : !rooms.length ? (
+                  <p>
+                    目前沒有可使用的教室，請至左側「教室管理」新增或恢復使用後再排課。
+                  </p>
                 ) : (
                   <form
                     id="course-schedule-form"
                     onChange={(e) => {
                       setSchedulePreview(null);
                       const fields = new FormData(e.currentTarget);
-                      const limit = rooms.find(r => r.id === fields.get("roomId"))?.capacity;
-                      setRoomCapacityNotice(limit && Number(fields.get("capacity")) > limit ? `人數上限超過教室容納 ${limit} 人，請確認容量` : "");
+                      const limit = rooms.find(
+                        (r) => r.id === fields.get("roomId"),
+                      )?.capacity;
+                      setRoomCapacityNotice(
+                        limit && Number(fields.get("capacity")) > limit
+                          ? `人數上限超過教室容納 ${limit} 人，請確認容量`
+                          : "",
+                      );
                     }}
                     className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2"
                     onSubmit={(e) =>
@@ -1320,7 +1318,14 @@ export function CourseWorkspace({
                         />
                       </div>
                     )}
-                    {roomCapacityNotice && <p role="status" className="col-span-full text-sm text-amber-700">{roomCapacityNotice}</p>}
+                    {roomCapacityNotice && (
+                      <p
+                        role="status"
+                        className="col-span-full text-sm text-amber-700"
+                      >
+                        {roomCapacityNotice}
+                      </p>
+                    )}
                     <label className="col-span-full">
                       重複
                       <select
@@ -1335,7 +1340,10 @@ export function CourseWorkspace({
                     {!repeat && (
                       <div className="col-span-full space-y-2">
                         {extraDateKeys.map((dateKey, index) => (
-                          <div key={dateKey} className="flex items-center gap-2">
+                          <div
+                            key={dateKey}
+                            className="flex items-center gap-2"
+                          >
                             <label className="flex-1">
                               其他日期 {index + 1}
                               <input
@@ -1367,7 +1375,10 @@ export function CourseWorkspace({
                           disabled={extraDateKeys.length >= 52}
                           onClick={() => {
                             setSchedulePreview(null);
-                            setExtraDateKeys((current) => [...current, crypto.randomUUID()]);
+                            setExtraDateKeys((current) => [
+                              ...current,
+                              crypto.randomUUID(),
+                            ]);
                           }}
                         >
                           ＋ 加入排課日期

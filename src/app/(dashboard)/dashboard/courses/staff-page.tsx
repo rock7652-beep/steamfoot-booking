@@ -31,7 +31,9 @@ export async function CourseStaffPage() {
       include: {
         user: { select: { role: true, email: true } },
         permissions: { where: { granted: true }, select: { permission: true } },
-        memberLink: { select: { userId: true, revokedAt: true } },
+        memberLink: {
+          select: { userId: true, revokedAt: true, courseMemberEnabled: true },
+        },
       },
       orderBy: { displayName: "asc" },
     }),
@@ -69,6 +71,7 @@ export async function CourseStaffPage() {
           kind: s.user.role === "CUSTOMER" ? "coach" : "manager",
           email: s.user.email ?? "",
           active: s.status === "ACTIVE",
+          memberEnabled: s.memberLink?.courseMemberEnabled ?? true,
           permissions: s.permissions.map((p) => p.permission),
           customerId:
             customers.find(

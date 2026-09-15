@@ -37,6 +37,7 @@ type Booking = {
 };
 export function CoursePortalClient({
   hasWork,
+  memberEnabled,
   work,
   customerId,
   customerName,
@@ -45,6 +46,7 @@ export function CoursePortalClient({
   bookings,
 }: {
   hasWork: boolean;
+  memberEnabled: boolean;
   work: {
     id: string;
     name: string;
@@ -57,11 +59,11 @@ export function CoursePortalClient({
   sessions: Session[];
   bookings: Booking[];
 }) {
-  const [mode, setMode] = useState("member");
+  const [mode, setMode] = useState(memberEnabled ? "member" : "work");
   const router = useRouter();
   const [pending, start] = useTransition();
   const [session, setSession] = useState<Session | null>(null);
-  const [cardId, setCardId] = useState(cards.find(c => !c.expired)?.id ?? "");
+  const [cardId, setCardId] = useState(cards.find((c) => !c.expired)?.id ?? "");
   const [requestKey, setRequestKey] = useState("");
   const [message, setMessage] = useState("");
   const card = cards.find((c) => c.id === cardId);
@@ -83,9 +85,11 @@ export function CoursePortalClient({
   }
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-4">
-      <h1 className="text-xl font-semibold">{customerName} 的會員專區</h1>
+      <h1 className="text-xl font-semibold">
+        {customerName} 的{memberEnabled ? "會員專區" : "我的工作"}
+      </h1>
       {message && <p role="status">{message}</p>}
-      {hasWork && (
+      {hasWork && memberEnabled && (
         <nav className="flex gap-2">
           <button className={button} onClick={() => setMode("member")}>
             會員專區
@@ -95,7 +99,7 @@ export function CoursePortalClient({
           </button>
         </nav>
       )}
-      {mode === "work" && hasWork ? (
+      {(!memberEnabled || mode === "work") && hasWork ? (
         <section>
           <h2 className="font-semibold">我的工作</h2>
           {work.map((s) => (
@@ -130,6 +134,8 @@ export function CoursePortalClient({
             </article>
           ))}
         </section>
+      ) : !memberEnabled ? (
+        <p role="status">工作存取已停用，請聯絡店家。</p>
       ) : (
         <>
           <section>
@@ -140,7 +146,9 @@ export function CoursePortalClient({
                 className={`mb-2 rounded-lg border p-3 ${c.expired ? "bg-earth-50 text-earth-400" : "bg-white"}`}
               >
                 <summary className="cursor-pointer">
-                  {c.name}{c.expired ? "（已到期）" : ""} · 可用 {c.available} 點／占用 {c.held} 點
+                  {c.name}
+                  {c.expired ? "（已到期）" : ""} · 可用 {c.available} 點／占用{" "}
+                  {c.held} 點
                 </summary>
                 <div className="pt-3">
                   <CourseCardSummary card={c} />
@@ -168,11 +176,14 @@ export function CoursePortalClient({
                   <button
                     className={button}
                     disabled={
-                      pending || s.occupied >= s.capacity || !cards.some(c => !c.expired)
+                      pending ||
+                      s.occupied >= s.capacity ||
+                      !cards.some((c) => !c.expired)
                     }
                     onClick={() => {
                       setMessage("");
-                      if (!cards.some(c => c.id === cardId && !c.expired)) setCardId(cards.find(c => !c.expired)?.id ?? "");
+                      if (!cards.some((c) => c.id === cardId && !c.expired))
+                        setCardId(cards.find((c) => !c.expired)?.id ?? "");
                       setRequestKey(crypto.randomUUID());
                       setSession(s);
                     }}
@@ -276,7 +287,8 @@ export function CoursePortalClient({
                 >
                   {cards.map((c) => (
                     <option key={c.id} value={c.id} disabled={c.expired}>
-                      {c.name}{c.expired ? "（已到期）" : ""} · 可用 {c.available} 點
+                      {c.name}
+                      {c.expired ? "（已到期）" : ""} · 可用 {c.available} 點
                     </option>
                   ))}
                 </select>

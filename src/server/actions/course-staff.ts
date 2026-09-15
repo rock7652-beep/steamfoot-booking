@@ -40,6 +40,7 @@ export async function saveCourseStaff(input: unknown) {
         password: z.string().min(8).max(100).optional(),
         customerId: id.optional(),
         active: z.boolean().default(true),
+        memberEnabled: z.boolean().default(true),
         permissions: z.array(z.enum(ALL_PERMISSIONS)).optional(),
         requestKey: z.string().uuid(),
       })
@@ -147,7 +148,7 @@ export async function saveCourseStaff(input: unknown) {
               email: d.kind === "manager" ? d.email : null,
               passwordHash: d.kind === "manager" ? passwordHash : null,
               role: d.kind === "manager" ? "OWNER" : "CUSTOMER",
-              status: d.kind === "manager" ? "ACTIVE" : "SUSPENDED",
+              status: d.kind === "manager" && d.active ? "ACTIVE" : "SUSPENDED",
               staff: {
                 create: {
                   id: staffId,
@@ -181,9 +182,11 @@ export async function saveCourseStaff(input: unknown) {
               staffId,
               userId: memberUserId,
               linkedByUserId: user.id,
+              courseMemberEnabled: d.memberEnabled,
             },
             update: {
               userId: memberUserId,
+              courseMemberEnabled: d.memberEnabled,
               revokedAt: d.active ? null : new Date(),
               linkedByUserId: user.id,
             },

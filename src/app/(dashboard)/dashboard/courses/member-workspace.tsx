@@ -253,7 +253,9 @@ export function CourseMemberWorkspace({
                 }}
               >
                 <span>
-                  {c.name}{c.expired ? "（已到期）" : ""} · {c.members.map((m) => m.name).join("、")}
+                  {c.name}
+                  {c.expired ? "（已到期）" : ""} ·{" "}
+                  {c.members.map((m) => m.name).join("、")}
                 </span>
                 <span>
                   剩餘 {c.remaining}／占用 {c.held}／可用 {c.available} · 到期{" "}
