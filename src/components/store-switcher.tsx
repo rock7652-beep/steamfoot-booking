@@ -53,7 +53,9 @@ export default function StoreSwitcher({
     startTransition(async () => {
       const result = await switchActiveStore(value);
       if (result.success) {
-        router.refresh();
+        // A store change can switch the entire module layout and redirect.
+        // Request a fresh document so the old router tree cannot leave a blank view.
+        window.location.reload();
       } else {
         toast.error(result.error ?? "切換店舖失敗，已保留原店舖");
         router.refresh();
