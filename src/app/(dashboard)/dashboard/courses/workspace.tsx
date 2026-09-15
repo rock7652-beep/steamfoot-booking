@@ -44,16 +44,6 @@ const BookOpen = makeIcon(
   "M12 5v16M12 5C8 2 4 3 2 4v15c4-1 7-1 10 2 3-3 6-3 10-2V4c-2-1-6-2-10 1",
 );
 const DoorOpen = makeIcon("M3 21h18M5 21V3h12v18M17 3l-8 3v15M13 12h.01");
-const Search = makeIcon("M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0");
-const Pencil = makeIcon("m15 5 4 4M3 21l5-1L21 7l-4-4L4 16z");
-const Clock3 = makeIcon("M12 7v5l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0");
-const Users = makeIcon(
-  "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M22 21v-2a4 4 0 0 0-3-4M17 3a4 4 0 0 1 0 8",
-);
-const Coins = makeIcon(
-  "M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0M12 7v10M15 9h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9",
-);
-const Plus = makeIcon("M12 5v14M5 12h14");
 
 type Room = { id: string; name: string; category: string; isActive: boolean };
 type Template = Room & {
@@ -948,6 +938,7 @@ export function CourseWorkspace({
                         required
                         defaultValue={editing.value.coachId}
                       >
+                        {allCoaches.filter((c) => c.status !== "ACTIVE" && c.id === editing.value.coachId).map((c) => <option key={c.id} value={c.id} disabled>{c.displayName}（已停用，請另選教練）</option>)}
                         {coaches.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.displayName}
@@ -1013,6 +1004,7 @@ export function CourseWorkspace({
                             : editing.value.roomId
                         }
                       >
+                        {allRooms.filter((r) => !r.isActive && r.id === (editing.kind === "template" ? editing.value.defaultRoomId : editing.value.roomId)).map((r) => <option key={r.id} value={r.id} disabled>{r.name}（已隱藏，請另選教室）</option>)}
                         {rooms.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name}

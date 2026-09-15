@@ -331,7 +331,7 @@ export function StaffWorkspace({
       </section>
 
       {courseBasicOnly ? (
-        <section className="space-y-3" aria-label="人員清單">
+        <section className="space-y-3 [&_button]:min-h-11" aria-label="人員清單">
           <div className="flex flex-wrap gap-3">
             <input
               aria-label="搜尋人員"
