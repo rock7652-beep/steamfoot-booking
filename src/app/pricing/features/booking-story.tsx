@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DayStory } from "../business/day-story";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
 
@@ -41,6 +42,10 @@ export function BookingStory({ kind }: { kind: keyof typeof stories }) {
           <figure className="min-w-0 rounded-xl bg-[#E9F1EB] p-4 sm:p-5"><p className="font-semibold">{scene.caption}</p><dl className="mt-3 divide-y divide-[#153B31]/15">{scene.rows.map(([label, value]) => <div key={label} className="flex flex-wrap justify-between gap-x-3 gap-y-1 py-3 text-sm"><dt>{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl><figcaption className="mt-2 text-xs leading-5 text-[#4C6259]">功能示意・範例資料，非實際預約畫面</figcaption></figure>
         </section>)}
       </div>
+      {kind === "slots" ? <details id="slot-walkthrough" className="mt-6 scroll-mt-24 border-y border-[#153B31]/15 py-3">
+        <summary className="cursor-pointer py-2 font-semibold">想看操作畫面？展開店長的一天</summary>
+        <div className="pt-5"><DayStory /></div>
+      </details> : null}
       <details className="mt-6 border-y border-[#153B31]/15 py-3"><summary className="cursor-pointer py-2 font-medium">還有哪些安排方式？</summary><p className="pb-2 pt-3 text-base leading-7 text-[#4C6259]">{story.details}</p></details>
       <div className="py-7"><h2 className="text-xl font-semibold">日常店務，也一起照顧。</h2><p className="mt-2 text-base leading-7 text-[#4C6259]">顧客資料、預約紀錄、方案次數與基本收款，接起每天的工作。操作方式依所選模組提供。</p><Link href="/pricing/features#daily" className="mt-2 inline-flex min-h-11 items-center underline underline-offset-4">查看共用與進階功能 →</Link></div>
       <section className="rounded-2xl bg-[#123E32] p-6 text-white sm:p-8"><h2 className="text-2xl font-semibold">這和你的店很像嗎？</h2><p className="mt-3 leading-7 text-[#D4E0D8]">先聊聊現有的安排方式，再確認適合的體驗內容。</p><div className="mt-4 flex flex-wrap items-center gap-4"><Link href={`/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=${kind}`} className="inline-flex min-h-12 items-center rounded-full bg-[#F5EFE3] px-6 py-3 font-semibold text-[#123E32]">申請體驗 →</Link><a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline underline-offset-4">先加 LINE 聊聊 ↗</a></div><Link href="/pricing" className="mt-4 inline-flex min-h-11 items-center text-sm underline underline-offset-4">查看方案與價格 →</Link></section>

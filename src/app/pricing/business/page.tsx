@@ -3,6 +3,7 @@ import { MarketingFooter } from "@/components/marketing-footer";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { BookingOverview } from "./booking-overview";
 import { BookingTypes } from "../booking-types";
 
 export const metadata: Metadata = {
@@ -45,6 +46,7 @@ export default function BusinessPage() {
           </div>
         </section>
 
+        <BookingOverview />
         <BookingTypes />
 
         <section id="brands" aria-labelledby="cases-title" className="scroll-mt-24 border-y border-[#153B31]/15 bg-[#EEE9DD] px-5 py-7 sm:px-8 sm:py-8">
