@@ -1,27 +1,16 @@
 import Image from "next/image";
 
-/** Product identity only; navigation remains owned by each portal. */
+/** Use the approved originals without redrawing the mark or typesetting the wordmark. */
 export function SteamButlerLogo({ className = "w-32", compact = false }: { className?: string; compact?: boolean }) {
-  if (compact) {
-    return (
-      <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap" aria-label="蒸管家">
-        <span className="relative block h-8 w-7 shrink-0 overflow-hidden mix-blend-multiply" aria-hidden="true">
-          <Image src="/pricing/brand/steam-butler-logo.png" alt="" width={536} height={220} unoptimized
-            className="absolute left-[-10px] top-[-13px] h-[55px] w-[134px] max-w-none" />
-        </span>
-        <span className="text-base font-bold tracking-wide text-[#0F3B2E]">蒸管家</span>
-      </span>
-    );
-  }
   return (
     <Image
-      src="/pricing/brand/steam-butler-logo.png"
-      alt="蒸管家 Steam Butler"
-      width={536}
-      height={220}
+      src={compact ? "/pricing/brand/steam-butler-mark.png" : "/pricing/brand/steam-butler-logo.png"}
+      alt="蒸管家"
+      width={compact ? 1254 : 1920}
+      height={compact ? 1254 : 819}
       unoptimized
       loading="eager"
-      className={`block h-auto max-w-full mix-blend-multiply ${className}`}
+      className={compact ? "block h-10 w-10 shrink-0 object-contain" : `block h-auto max-w-full ${className}`}
     />
   );
 }

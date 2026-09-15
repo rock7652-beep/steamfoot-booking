@@ -7,11 +7,11 @@ export function MarketingBrand() {
       <Image
         src="/pricing/brand/steam-butler-logo.png"
         alt="蒸管家 Steam Butler"
-        width={536}
-        height={220}
+        width={1920}
+        height={819}
         unoptimized
         loading="eager"
-        className="h-auto w-[150px] mix-blend-multiply sm:w-[200px]"
+        className="h-auto w-[150px] sm:w-[200px]"
       />
     </Link>
   );
