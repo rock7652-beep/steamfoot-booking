@@ -97,6 +97,7 @@ jobs:
           tests+=(src/__tests__/same-day-booking-manager-notification.test.ts)
           tests+=(src/__tests__/same-day-booking-reminder-settings.test.ts)
           tests+=(src/__tests__/session-balance-line-response.test.ts)
+          tests+=(src/__tests__/staff-session-security.test.ts)
           if [ "${#tests[@]}" -eq 0 ]; then
             echo "No targeted tests found."
             exit 0
