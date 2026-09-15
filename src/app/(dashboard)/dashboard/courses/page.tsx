@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -27,7 +27,7 @@ export default async function CoursesPage({
     redirect("/dashboard");
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
-    notFound();
+    redirect("/dashboard");
   const requested = (await searchParams).date;
   const selected =
     requested && parseTaipeiDateTime(requested, "00:00")
