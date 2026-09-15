@@ -147,3 +147,15 @@ describe("course scheduling action", () => {
     expect(mocks.create).not.toHaveBeenCalled();
   });
 });
+
+describe("copy course schedule", () => {
+  it("copies the selected session snapshot instead of changed template defaults", async () => {
+    mocks.conflict.mockResolvedValueOnce({ id: "source", templateId: "yoga", nameSnapshot: "單堂調整名稱", pointCost: 4 }).mockResolvedValueOnce(null);
+    expect(await createCourseSchedule({ ...input, sourceSessionId: "source" })).toMatchObject({ success: true });
+    expect(mocks.create.mock.calls[0][0].data[0]).toMatchObject({ nameSnapshot: "單堂調整名稱", pointCost: 4 });
+  });
+  it("refuses a missing or foreign source before creating copies", async () => {
+    expect(await createCourseSchedule({ ...input, sourceSessionId: "foreign" })).toMatchObject({ success: false });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+});
