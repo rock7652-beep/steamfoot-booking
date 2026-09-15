@@ -703,7 +703,9 @@ export default function DashboardShell({
   const navGroupsToRender: NavGroup[] = useMemo(() => {
     if (industryModuleId === "course") {
       return [{ id: "course", label: "", defaultOpen: true, icon: <></>, items: [
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses", label: "課程管理" },
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses", label: "課表排程" },
+{ ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=catalog", label: "課程設定" },
+{ ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=rooms", label: "教室管理" },
       ] }];
     }
     if (isHqRoute) {
@@ -810,6 +812,7 @@ export default function DashboardShell({
   }, [mobileOpen]);
 
   function isActive(href: string) {
+    if (href.startsWith("/dashboard/courses")) return pathname === "/dashboard/courses" && (new URLSearchParams(href.split("?")[1] || "").get("view") || "schedule") === (searchParams.get("view") || "schedule");
     if (industryModule === "spa" && href === "/dashboard/spa-staff" && pathname.startsWith("/dashboard/staff")) return true;
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
