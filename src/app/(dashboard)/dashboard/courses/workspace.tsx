@@ -176,11 +176,13 @@ export function CourseWorkspace({
   function open(next: typeof panel) {
     setPanel(next);
     setSchedulePreview(null);
-    setExtraDates([]);
+    setExtraDateKeys([]);
+    setRoomCapacityNotice("");
     setError("");
     setNotice("");
   }
-  const [extraDates, setExtraDates] = useState<string[]>([]);
+  const [roomCapacityNotice, setRoomCapacityNotice] = useState("");
+  const [extraDateKeys, setExtraDateKeys] = useState<string[]>([]);
   const [copySource, setCopySource] = useState<Session | null>(null);
   function openSchedule() {
     setCopySource(null);
@@ -1157,7 +1159,12 @@ export function CourseWorkspace({
                 ) : (
                   <form
                     id="course-schedule-form"
-                    onChange={() => setSchedulePreview(null)}
+                    onChange={(e) => {
+                      setSchedulePreview(null);
+                      const fields = new FormData(e.currentTarget);
+                      const limit = rooms.find(r => r.id === fields.get("roomId"))?.capacity;
+                      setRoomCapacityNotice(limit && Number(fields.get("capacity")) > limit ? `人數上限超過教室容納 ${limit} 人，請確認容量` : "");
+                    }}
                     className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2"
                     onSubmit={(e) =>
                       submit(
@@ -1174,7 +1181,7 @@ export function CourseWorkspace({
                             capacity: Number(data.get("capacity")),
                             additionalDates: repeat
                               ? undefined
-                              : extraDates.filter(Boolean),
+                              : data.getAll("additionalDates").map(String),
                             repeatUntil: repeat ? data.get("until") : undefined,
                             weekdays:
                               repeat && data.getAll("weekday").length
@@ -1313,6 +1320,7 @@ export function CourseWorkspace({
                         />
                       </div>
                     )}
+                    {roomCapacityNotice && <p role="status" className="col-span-full text-sm text-amber-700">{roomCapacityNotice}</p>}
                     <label className="col-span-full">
                       重複
                       <select
@@ -1326,8 +1334,8 @@ export function CourseWorkspace({
                     </label>
                     {!repeat && (
                       <div className="col-span-full space-y-2">
-                        {extraDates.map((value, index) => (
-                          <div key={index} className="flex items-center gap-2">
+                        {extraDateKeys.map((dateKey, index) => (
+                          <div key={dateKey} className="flex items-center gap-2">
                             <label className="flex-1">
                               其他日期 {index + 1}
                               <input
@@ -1335,14 +1343,8 @@ export function CourseWorkspace({
                                 aria-label={`其他日期 ${index + 1}`}
                                 type="date"
                                 required
-                                value={value}
-                                onChange={(e) =>
-                                  setExtraDates((current) =>
-                                    current.map((day, i) =>
-                                      i === index ? e.target.value : day,
-                                    ),
-                                  )
-                                }
+                                name="additionalDates"
+                                defaultValue=""
                               />
                             </label>
                             <button
@@ -1350,7 +1352,7 @@ export function CourseWorkspace({
                               className={button}
                               onClick={() => {
                                 setSchedulePreview(null);
-                                setExtraDates((current) =>
+                                setExtraDateKeys((current) =>
                                   current.filter((_, i) => i !== index),
                                 );
                               }}
@@ -1362,15 +1364,15 @@ export function CourseWorkspace({
                         <button
                           type="button"
                           className={button}
-                          disabled={extraDates.length >= 52}
+                          disabled={extraDateKeys.length >= 52}
                           onClick={() => {
                             setSchedulePreview(null);
-                            setExtraDates((current) => [...current, ""]);
+                            setExtraDateKeys((current) => [...current, crypto.randomUUID()]);
                           }}
                         >
                           ＋ 加入排課日期
                         </button>
-                        {extraDates.length > 0 && (
+                        {extraDateKeys.length > 0 && (
                           <p className="text-sm text-earth-500">
                             以上日期使用相同時間、教練與教室；重複日期只建立一堂。如有撞期，整批不會建立。
                           </p>
@@ -1429,7 +1431,7 @@ export function CourseWorkspace({
                             capacity: Number(data.get("capacity")),
                             additionalDates: repeat
                               ? undefined
-                              : extraDates.filter(Boolean),
+                              : data.getAll("additionalDates").map(String),
                             repeatUntil: repeat ? data.get("until") : undefined,
                             weekdays:
                               repeat && data.getAll("weekday").length
