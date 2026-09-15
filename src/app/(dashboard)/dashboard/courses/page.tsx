@@ -18,10 +18,10 @@ import { CourseWorkspace } from "./workspace";
 export default async function CoursesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; view?: string }>;
+  searchParams: Promise<{ date?: string; view?: string; month?: string }>;
 }) {
   const query = await searchParams;
-  if (query.view === "settings" || query.view === "operations" || query.view === "analytics") return <CourseSharedHub view={query.view} />;
+  if (query.view === "settings" || query.view === "operations" || query.view === "analytics") return <CourseSharedHub view={query.view} month={query.month} />;
   const user = await getCurrentUser();
   if (
     !user ||

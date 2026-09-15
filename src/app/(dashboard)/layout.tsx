@@ -59,7 +59,7 @@ export default async function DashboardLayout({
   // the remaining course-specific areas are being delivered.
   if (industryModule === "course") {
     const requestedPath = (await headers()).get("x-next-pathname") ?? "";
-    if (!/\/dashboard\/(?:courses(?:\/|$)|staff(?:\/[^/]+\/edit)?\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$)/.test(requestedPath)) {
+    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:courses(?:\/|$)|staff(?:\/[^/]+\/edit)?\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$)/.test(requestedPath)) {
       redirect("/dashboard/courses");
     }
   }

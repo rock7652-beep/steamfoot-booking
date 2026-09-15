@@ -1,4 +1,4 @@
-import CoursesPage from "./courses/page";
+import CashDrawerPage from "./cash-drawer/page";
 import { SpaHome } from "./spa-home";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -77,7 +77,8 @@ export default async function DashboardHomePage() {
 
   const activeStoreId = await getActiveStoreForRead(user);
   if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") {
-    return <CoursesPage searchParams={Promise.resolve({})} />;
+    if (!(await checkPermission(user.role, user.staffId, "cashDrawer.read"))) return <div className="p-6">請從左側選單選擇可使用的功能。</div>;
+    return <CashDrawerPage searchParams={Promise.resolve({})} courseHome />;
   }
   let storeViewContext: StoreViewContext | null = null;
   if (user.role !== "ADMIN" && user.storeId) {

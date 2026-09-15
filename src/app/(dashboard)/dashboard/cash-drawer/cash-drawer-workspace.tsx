@@ -1,3 +1,4 @@
+import { OpeningFields } from "./opening-fields";
 /**
  * CashDrawerWorkspace — 現金抽屜工作台共用元件
  *
@@ -77,6 +78,7 @@ function formatDateSlash(todayStr: string): string {
 }
 
 interface CashDrawerWorkspaceProps {
+  compactSetup?: boolean;
   view: CashDrawerView;
   todayStr: string;
   /** OWNER / ADMIN 才能首次啟用 */
@@ -107,6 +109,7 @@ interface CashDrawerWorkspaceProps {
 }
 
 export function CashDrawerWorkspace({
+  compactSetup = false,
   view,
   todayStr,
   canInit,
@@ -125,7 +128,7 @@ export function CashDrawerWorkspace({
       {/* State A: 未啟用 — 單卡置中 */}
       {view.state === "EMPTY" && (
         <div className="mx-auto w-full max-w-2xl">
-          <EmptyStateCard canInit={canInit} todayStr={todayStr} returnPath={returnPath} />
+          <EmptyStateCard compact={compactSetup} canInit={canInit} todayStr={todayStr} returnPath={returnPath} />
         </div>
       )}
 
@@ -219,10 +222,12 @@ function TodayStatusCard({
 // ============================================================
 
 function EmptyStateCard({
+  compact = false,
   canInit,
   todayStr,
   returnPath,
 }: {
+  compact?: boolean;
   canInit: boolean;
   todayStr: string;
   returnPath: string;
@@ -240,7 +245,7 @@ function EmptyStateCard({
     });
   }
 
-  return (
+  const body = (
     <div className="rounded-xl border border-earth-200 bg-white p-4">
       <h2 className="text-base font-semibold text-earth-900">啟用現金抽屜</h2>
       <p className="mt-2 text-sm text-earth-600">
@@ -268,6 +273,7 @@ function EmptyStateCard({
           submitClassName="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
           className="mt-6 space-y-4"
         >
+          {compact ? <OpeningFields /> : <>
           <div>
             <label className="block text-sm font-medium text-earth-700">
               初始帳面金額（NT$）
@@ -307,10 +313,12 @@ function EmptyStateCard({
               placeholder="若帳面與實際不同，請說明原因（例：含零錢盒 NT$ 50）"
             />
           </div>
+          </>}
         </CashDrawerActionForm>
       )}
     </div>
   );
+  return compact ? <details className="rounded-lg border border-earth-200 bg-white"><summary className="cursor-pointer px-4 py-3 font-medium">現金抽屜尚未啟用 · 點此設定起始現金</summary>{body}</details> : body;
 }
 
 // ============================================================

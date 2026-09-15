@@ -31,10 +31,11 @@ import { listStaffSelectOptions } from "@/server/queries/staff";
 import { CashDrawerWorkspace } from "./cash-drawer-workspace";
 
 interface PageProps {
+  courseHome?: boolean;
   searchParams: Promise<{ error?: string; cashDrawerError?: string }>;
 }
 
-export default async function CashDrawerPage({ searchParams }: PageProps) {
+export default async function CashDrawerPage({ searchParams, courseHome = false }: PageProps) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "cashDrawer.read"))) {
     redirect("/dashboard");
@@ -95,19 +96,20 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
       <FormErrorToast />
 
       <PageHeader
-        title="現金抽屜"
+        title={courseHome ? "首頁" : "現金抽屜"}
         subtitle="每日開店點錢 / 閉店點錢 / 滾動結餘核對"
         actions={
           <Link
-            href="/dashboard/cashbook#cash-drawer-workspace"
+            href="/dashboard/cashbook"
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
-            ↑ 回現金管理
+            查看收支明細
           </Link>
         }
       />
 
       <CashDrawerWorkspace
+        compactSetup={courseHome}
         view={view}
         todayStr={todayStr}
         canInit={canInit}
@@ -119,7 +121,7 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
         closedDates={closedDates}
         canAssignStaff={canAssignStaff}
         staffOptions={staffOptions}
-        returnPath="/dashboard/cash-drawer"
+        returnPath={courseHome ? "/dashboard" : "/dashboard/cash-drawer"}
       />
     </PageShell>
   );

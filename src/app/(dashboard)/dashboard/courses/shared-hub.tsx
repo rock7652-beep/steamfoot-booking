@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { CourseMonthPicker } from "./month-picker";
+import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -7,47 +8,28 @@ import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
 import { PageShell, PageHeader } from "@/components/desktop";
-import { DashboardLink as Link } from "@/components/dashboard-link";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 
 export type CourseHubView = "settings" | "operations" | "analytics";
 const card = "rounded-lg border border-earth-200 bg-white p-4";
-function Entry({
-  title,
-  description,
-  href,
-  action = "開啟",
-}: {
-  title: string;
-  description: string;
-  href: string;
-  action?: string;
-}) {
-  return (
-    <section className="flex items-center justify-between gap-4 border-b border-earth-200 bg-white px-4 py-4">
-      <div className="min-w-0">
-        <h2 className="text-sm font-semibold text-primary-900">{title}</h2>
-        <p className="mt-1 text-sm text-earth-500">{description}</p>
-      </div>
-      <Link
-        href={href}
-        className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-earth-200 px-4 text-sm font-medium text-primary-700 hover:bg-primary-50"
-      >
-        {action} →
-      </Link>
-    </section>
-  );
-}
 function Pending({ children }: { children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-earth-200 bg-earth-50 p-5">
-      <h2 className="text-sm font-medium text-earth-700">尚未接通的功能</h2>
+    <details className="rounded-lg border border-earth-200 bg-earth-50 p-3">
+      <summary className="cursor-pointer text-sm font-medium text-earth-700">
+        目前功能與資料範圍
+      </summary>
       <p className="mt-2 text-sm leading-relaxed text-earth-500">{children}</p>
-    </section>
+    </details>
   );
 }
-export async function CourseSharedHub({ view }: { view: CourseHubView }) {
+export async function CourseSharedHub({
+  view,
+  month: requestedMonth,
+}: {
+  view: CourseHubView;
+  month?: string;
+}) {
   const user = await getCurrentUser();
   if (!user) notFound();
   const permission =
@@ -62,22 +44,17 @@ export async function CourseSharedHub({ view }: { view: CourseHubView }) {
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     notFound();
-  const title =
-    view === "settings" ? "設定" : view === "operations" ? "營運" : "分析";
+  if (view === "operations") redirect("/dashboard/cashbook");
+  const title = view === "settings" ? "設定" : "分析";
   const subtitle =
-    view === "settings"
-      ? "集中管理課程、人員與店家資訊"
-      : view === "operations"
-        ? "管理店內收支，與課程報名及扣點分開核對"
-        : "以已排定的課程資料了解排課狀況";
+    view === "settings" ? "店家基本資訊" : "以已排定的課程資料了解排課狀況";
   let body: React.ReactNode;
   if (view === "settings") {
-    const [store, canStaff] = await Promise.all([
+    const [store] = await Promise.all([
       prisma.store.findUnique({
         where: { id: storeId },
         select: { name: true, slug: true },
       }),
-      checkPermission(user.role, user.staffId, "staff.view"),
     ]);
     body = (
       <>
@@ -91,49 +68,8 @@ export async function CourseSharedHub({ view }: { view: CourseHubView }) {
             目前提供資訊核對；店家資料編輯尚未接入。
           </p>
         </section>
-        <div className="overflow-hidden rounded-lg border border-earth-200">
-          <Entry
-            title="課程與教室"
-            description="調整課程名稱、時長、人數、點數與預設教室。"
-            href="/dashboard/courses?view=catalog"
-            action="課程設定"
-          />
-          <Entry
-            title="上課空間"
-            description="新增或編輯教室，排課時直接選用。"
-            href="/dashboard/courses?view=rooms"
-            action="教室管理"
-          />
-          {canStaff && (
-            <Entry
-              title="人員與帳號權限"
-              description="管理教練基本資料；權限編輯依登入角色開放。"
-              href="/dashboard/staff"
-              action="人員管理"
-            />
-          )}
-        </div>
         <Pending>
           顧客預約／取消規則與課程通知仍待報名流程接通；這裡不套用蒸足的時段與扣堂設定。
-        </Pending>
-      </>
-    );
-  } else if (view === "operations") {
-    const enabled = await hasCurrentStoreFeature(FEATURES.CASHBOOK);
-    body = (
-      <>
-        <Entry
-          title="現金收支"
-          description={
-            enabled
-              ? "開啟既有收支工作台，查閱紀錄與登記收支；可用操作依角色權限顯示。"
-              : "目前付費方案未包含現金收支；課程體驗版可使用此功能。"
-          }
-          href="/dashboard/cashbook"
-          action={enabled ? "管理收支" : "查看使用資格"}
-        />
-        <Pending>
-          課程方案銷售、報名收款、退款及點數流水尚未接通。現金帳不是課程營收報表，請勿用排課堂數推算實收。
         </Pending>
       </>
     );
@@ -152,7 +88,10 @@ export async function CourseSharedHub({ view }: { view: CourseHubView }) {
       </section>
     );
   } else {
-    const month = toLocalMonthStr(),
+    const month =
+        requestedMonth && /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)
+          ? requestedMonth
+          : toLocalMonthStr(),
       bounds = monthRange(month);
     const [sessions, staff] = await Promise.all([
       coursePrisma.courseSession.findMany({
@@ -177,10 +116,11 @@ export async function CourseSharedHub({ view }: { view: CourseHubView }) {
       counts.set(s.coachId, (counts.get(s.coachId) ?? 0) + 1);
     body = (
       <>
+        <CourseMonthPicker month={month} />
         <p className="text-sm text-earth-600">
           {month} · 依台灣時間計算，排除已取消課程，包含本月尚未上課的排程。
         </p>
-        <div className="overflow-hidden rounded-lg border border-earth-200 bg-white">
+        <div className="grid grid-cols-3 overflow-hidden rounded-lg border border-earth-200 bg-white">
           {[
             ["已排課堂數", sessions.length, "堂"],
             ["排定授課時數", Math.round((minutes / 60) * 10) / 10, "小時"],
