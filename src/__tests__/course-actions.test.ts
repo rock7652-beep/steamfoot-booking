@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   template: vi.fn(),
   room: vi.fn(),
   create: vi.fn(),
+  update: vi.fn(),
   revalidate: vi.fn(),
 }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: mocks.permission }));
@@ -27,13 +28,14 @@ vi.mock("@/lib/course-db", () => ({
           findMany: mocks.existing,
           findFirst: mocks.conflict,
           createMany: mocks.create,
+          update: mocks.update,
         },
         courseTemplate: { findFirst: mocks.template },
         courseRoom: { findFirst: mocks.room },
       }),
   },
 }));
-import { createCourseSchedule } from "@/server/actions/course";
+import { createCourseSchedule, updateCourseSession } from "@/server/actions/course";
 import { AppError } from "@/lib/errors";
 const input = {
   templateId: "yoga",
@@ -57,6 +59,27 @@ beforeEach(() => {
   mocks.template.mockResolvedValue({ id: "yoga", name: "瑜珈", pointCost: 2 });
   mocks.room.mockResolvedValue({ id: "room-a" });
   mocks.create.mockResolvedValue({ count: 3 });
+});
+describe("course editing", () => {
+  const edit = { ...input, id: "session-a", nameSnapshot: "新課名", pointCost: 3, capacity: 12 };
+  it("updates only the selected store session and excludes itself from conflicts", async () => {
+    mocks.conflict.mockResolvedValueOnce({ id: "session-a" }).mockResolvedValueOnce(null);
+    expect(await updateCourseSession(edit)).toEqual({ success: true });
+    expect(mocks.permission).toHaveBeenCalledWith("booking.update");
+    expect(mocks.conflict.mock.calls[1][0].where).toMatchObject({ storeId: "store-a", id: { not: "session-a" } });
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "session-a", storeId: "store-a" }, data: expect.objectContaining({ capacity: 12, nameSnapshot: "新課名", pointCost: 3 }) }));
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it("preserves the original session when a new time conflicts", async () => {
+    mocks.conflict.mockResolvedValueOnce({ id: "session-a" }).mockResolvedValueOnce({ startsAt: new Date("2026-09-22T10:00:00Z"), roomId: "room-a" });
+    expect(await updateCourseSession(edit)).toMatchObject({ success: false, error: expect.stringContaining("尚未儲存修改") });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it("rejects foreign sessions and invalid capacity", async () => {
+    expect(await updateCourseSession(edit)).toMatchObject({ success: false });
+    expect(await updateCourseSession({ ...edit, capacity: 0 })).toMatchObject({ success: false });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
 });
 describe("course scheduling action", () => {
   it("derives store and cost on the server, and writes one batch", async () => {
