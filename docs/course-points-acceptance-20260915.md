@@ -1,8 +1,8 @@
 # 課程點數、共卡與排課 Preview 驗收
 
 日期：2026-09-15（Asia/Taipei）。Draft PR #1022，分支 `codex/course-scheduling-stage1`。
-程式驗收版本：`3f6c00278b4802bdf5db259a3bc22c669abf8153`。
-Vercel READY：`2fpXDFzydiGH6HH8jesR1dii7jiG`。
+核心流程驗收版本：`3f6c00278b4802bdf5db259a3bc22c669abf8153`。
+最終程式版本：`4e19eda3`（僅追加月曆版面修復），Vercel READY：`AvZtKFMguKBvQqM7EaSisy9Gpa3j`。
 後續文件提交不改動程式；實際部署版本以 PR 最新 Vercel check 為準。
 
 Preview：[課程完整驗收店 0915](https://steamfoot-booking-git-codex-cour-7f6935-rock7652-2111s-projects.vercel.app/s/course-e2e-20260915)。由專屬入口的「後台登入」登入店長；會員使用手機登入。測試密碼不存入 repository。
@@ -64,6 +64,7 @@ Preview：[課程完整驗收店 0915](https://steamfoot-booking-git-codex-cour-
 - 真實 Chrome 及 In-app Browser 網頁，1024×768：人員側窗儲存按鈕 top 708／bottom 752，高 44；背景 overflow hidden。
 - 十月完整月曆最後一列 bottom 731，小於畫面 768，沒有文件橫向溢出；換月份保留教練篩選。
 - 分店清單搜尋「課程完整」成功篩選。畫面驗證獨立捲軸；鍵盤聚焦最下方分店後清單內部捲動，背景課程表位置保持，搜尋欄保留在頂部。
+- 最後截圖發現三堂日期的文字因 flex shrink 被壓在一起，已修復固定行高及縮小工具列留白。於 `4e19eda3` 真實 Preview 重測：九月三堂格文字不重疊，八月六週月曆完整落在 1024×768 畫面內。這兩筆提交只調整月曆 CSS，無資料或預約邏輯變更。
 - 此為桌面瀏覽器 iPad 尺寸驗證，**不是實體 iPad Safari 觸控慣性／邊界滑動驗收**。
 
 ## 蒸足／SPA 實際回歸
