@@ -62,3 +62,19 @@ Verified code 5e678e1c39b82196ded1ee6721bc78e297aa0abd, deployment dpl_FDpHmZ3p5
 - Copy form requires a new date and permits time adjustment and existing weekly repetition.
 - TypeScript passed; 14 course scheduling/action tests passed, including original snapshot copying and foreign-source rejection.
 - Previous compact calendar and fixed create footer remain. No production merge.
+
+## Desktop management lists — 2026-09-15
+
+Verified code: 27b1ef43acec0740a03671cebd21b073c2eb4b24.
+Final preview deployment: dpl_6GnTRqhhHxmQ7eHfFcvGKHhoxdPT (READY).
+
+- Course and room management use tables with name search, category/status filters, editable persisted categories, and reversible availability. Course lists also filter by default room. Staff uses a table with name/contact search, role/status filters, and existing account controls. Other modules retain their existing staff layout.
+- Settings/operations/analytics hubs use row layouts. Course EXPERIENCE stores pass recognized feature gates; role/store authorization and usage quotas remain enforced. Steamfoot/SPA and paid plan policies are unchanged.
+- Browser: edited synthetic course category to 團體課程, filtered, unpublished, verified absent from new scheduling choices, and restored publication. Edited synthetic room category to 團課教室, filtered, hid, verified absent from scheduling choices, and restored.
+- Browser: staff search/role/status filters worked. Reactivation initially failed with a 5-second expired transaction. Fixed by resolving plan limits before acquiring the transaction connection, retaining the locked active-count check. Final deployment successfully restored the synthetic coach through the UI.
+- Browser: trial cashbook opened its records table and available actions without upgrade blocking. Analytics showed 8 September sessions / 7.5 scheduled hours / 2 coaches. Settings links rendered as rows. These checks do not claim unimplemented enrollment, sales or deduction flows.
+- Browser: desktop viewport 1363px had document width 1363px (no document overflow). New-course submit button remained visible and 44px high. iPad hardware/touch testing was not performed; tables provide local horizontal scrolling when needed.
+- Final database verification: 9 total sessions, zero cancelled, 3 active rooms, 4 active templates, 2 active coaches. No sessions modified in this pass. Categories remain as test examples; availability restored.
+- TypeScript passed; 32 tests passed across course scheduling/actions, trial feature gating and staff management RBAC/reactivation. Includes foreign-store/no-permission checks and full-capacity/no-write behavior.
+- Category SQL was generated with Supabase CLI and applied ONLY to steamfoot-preview (ttworfzgwejdeolegkxl). The SQL in supabase/migrations/20260915082019_course_catalog_categories.sql requires the existing CourseRoom/CourseTemplate tables; do not run it before the original course schema. Category columns verified NOT NULL/default empty; existing course RLS retained. Production migration/release remains separate and unapproved.
+- Draft PR only. No production merge, production data mutation or customer notification.
