@@ -14,11 +14,134 @@ import {
 } from "@/lib/course-scheduling";
 import { formatTWDateTime } from "@/lib/date-utils";
 
-async function writableStore() {
-  const user = await requirePermission("booking.create");
+async function writableStore(
+  permission: "booking.create" | "booking.update" = "booking.create",
+) {
+  const user = await requirePermission(permission);
   const storeId = await resolveWriteStoreId(user);
   await requireCourseStore(storeId);
   return { user, storeId };
+}
+
+export async function updateCourseRoom(input: unknown) {
+  try {
+    const { storeId } = await writableStore("booking.update");
+    const data = z
+      .object({
+        id: z.string().min(1),
+        name: z.string().trim().min(1, "請填寫教室名稱").max(80),
+      })
+      .parse(input);
+    const result = await coursePrisma.courseRoom.updateMany({
+      where: { id: data.id, storeId, isActive: true },
+      data: { name: data.name },
+    });
+    if (!result.count)
+      throw new AppError("VALIDATION", "找不到本店教室，請重新整理");
+    revalidatePath("/dashboard/courses");
+    revalidatePath("/hq/dashboard/courses");
+    return { success: true as const };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+export async function updateCourseTemplate(input: unknown) {
+  try {
+    const { storeId } = await writableStore("booking.update");
+    const { id, ...data } = courseTemplateInput
+      .extend({ id: z.string().min(1) })
+      .parse(input);
+    const room = await coursePrisma.courseRoom.findFirst({
+      where: { id: data.defaultRoomId, storeId, isActive: true },
+    });
+    if (!room) throw new AppError("VALIDATION", "請選擇本店可使用的教室");
+    const result = await coursePrisma.courseTemplate.updateMany({
+      where: { id, storeId, isActive: true },
+      data,
+    });
+    if (!result.count)
+      throw new AppError("VALIDATION", "找不到本店課程，請重新整理");
+    revalidatePath("/dashboard/courses");
+    revalidatePath("/hq/dashboard/courses");
+    return { success: true as const };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+export async function updateCourseSession(input: unknown) {
+  try {
+    const { storeId } = await writableStore("booking.update");
+    const data = courseScheduleInput
+      .omit({ templateId: true, requestKey: true, repeatUntil: true })
+      .extend({
+        id: z.string().min(1),
+        nameSnapshot: z.string().trim().min(1, "請填寫課程名稱").max(80),
+        pointCost: z.number().int().min(1).max(10000),
+      })
+      .parse(input);
+    const [range] = buildCourseOccurrences({
+      ...data,
+      templateId: "edit",
+      requestKey: "00000000-0000-4000-8000-000000000000",
+    });
+    await coursePrisma.$transaction(
+      async (tx) => {
+        const stores = await tx.$queryRaw<
+          Array<{ id: string }>
+        >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE`;
+        if (!stores.length)
+          throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
+        const [session, room, coaches] = await Promise.all([
+          tx.courseSession.findFirst({
+            where: { id: data.id, storeId, cancelledAt: null },
+          }),
+          tx.courseRoom.findFirst({
+            where: { id: data.roomId, storeId, isActive: true },
+          }),
+          tx.$queryRaw<
+            Array<{ id: string }>
+          >`SELECT id FROM "Staff" WHERE id = ${data.coachId} AND "storeId" = ${storeId} AND status::text = 'ACTIVE'`,
+        ]);
+        if (!session || !room || !coaches.length)
+          throw new AppError("VALIDATION", "請選擇本店有效的排課、教室與教練");
+        const conflict = await tx.courseSession.findFirst({
+          where: {
+            storeId,
+            id: { not: data.id },
+            cancelledAt: null,
+            startsAt: { lt: range.endsAt },
+            endsAt: { gt: range.startsAt },
+            OR: [{ roomId: data.roomId }, { coachId: data.coachId }],
+          },
+          orderBy: { startsAt: "asc" },
+        });
+        if (conflict)
+          throw new AppError(
+            "CONFLICT",
+            `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，尚未儲存修改`,
+          );
+        await tx.courseSession.update({
+          where: { id: session.id, storeId },
+          data: {
+            ...range,
+            nameSnapshot: data.nameSnapshot,
+            roomId: data.roomId,
+            coachId: data.coachId,
+            capacity: data.capacity,
+            pointCost: data.pointCost,
+          },
+        });
+      },
+      { timeout: 15000 },
+    );
+    revalidatePath("/dashboard/courses");
+    revalidatePath("/hq/dashboard/courses");
+    return { success: true as const };
+  } catch (error) {
+    return handleActionError(error);
+  }
 }
 
 export async function createCourseRoom(input: unknown) {
