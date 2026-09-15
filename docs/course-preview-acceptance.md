@@ -37,3 +37,19 @@ Select 課程排課驗收店 using the test HQ account.
 This is Stage 1 staff scheduling. Points purchases, shared cards, learner bookings and attendance deductions remain later work. Mobile end-to-end acceptance and complete legacy payment/deduction regression are not claimed by this report. A production release requires its own final integration check against current main.
 
 No production migration, merge, real customer notification or production data mutation was performed by this course task.
+
+
+## Editing acceptance — 2026-09-15
+Verified commit: 8f4d379bbca1ddee496974859790c83a12bdcfc6.
+Preview deployment: dpl_6XHk9DfVo6qhuaLADMo13GAcce42 (READY).
+
+- Course defaults: UI edited core-training name, duration 60→45, capacity 10→12; saved values displayed.
+- Room: UI renamed room B; selector and catalog reflect new name.
+- Single session: Sep 17 session moved to Sep 18 17:30–18:15, coach 2, room B, 3 points, capacity 8, custom name; UI and reload confirm persistence.
+- Attempt to move that session into Sep 16 18:00 conflict rejected; form retained input and no successful update reported.
+- Cancel capacity change 8→9 left saved capacity 8.
+- Template editing updates defaults only; existing session snapshots are not rewritten.
+- Editing requires booking.update and derives the store on the server. Transaction and room/coach conflict constraints retained.
+- TypeScript noEmit passed; 12 tests passed across course-actions and course-scheduling, including edit permission, self-exclusion, conflict/no-write and invalid/foreign session cases.
+- Fixtures intentionally retain edited names and the Sep 18 session for user review. User-created Sep 21 session was not edited.
+- No production merge or migration. This supplements desktop scheduling acceptance; later module work and prior release limitations remain.
