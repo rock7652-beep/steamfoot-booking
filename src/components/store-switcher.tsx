@@ -31,6 +31,36 @@ export default function StoreSwitcher({
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuHeight, setMenuHeight] = useState(320);
+  const [search, setSearch] = useState("");
+  const visibleStores = stores.filter(store => store.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+
+  useEffect(() => {
+    if (!open) { setSearch(""); return; }
+    const viewport = window.visualViewport;
+    function resize() {
+      const bottom = (viewport?.height ?? window.innerHeight) + (viewport?.offsetTop ?? 0);
+      setMenuHeight(Math.max(80, Math.min(400, bottom - (ref.current?.getBoundingClientRect().bottom ?? 0) - 12)));
+    }
+    function stopBackgroundTouch(event: TouchEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) event.preventDefault();
+    }
+    function onKey(event: KeyboardEvent) { if (event.key === "Escape") setOpen(false); }
+    resize();
+    window.addEventListener("resize", resize);
+    viewport?.addEventListener("resize", resize);
+    viewport?.addEventListener("scroll", resize);
+    document.addEventListener("touchmove", stopBackgroundTouch, { passive: false });
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", resize);
+      viewport?.removeEventListener("resize", resize);
+      viewport?.removeEventListener("scroll", resize);
+      document.removeEventListener("touchmove", stopBackgroundTouch);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -69,6 +99,7 @@ export default function StoreSwitcher({
       <div ref={ref} className="relative">
         <button
           type="button"
+          aria-expanded={open}
           onClick={() => setOpen(!open)}
           disabled={isPending}
           className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-earth-600 hover:bg-earth-100 hover:text-earth-800 disabled:opacity-50 transition-colors"
@@ -87,11 +118,12 @@ export default function StoreSwitcher({
         </button>
 
         {open && (
-          <div className="absolute right-0 top-full mt-1 w-52 overflow-hidden rounded-lg border border-earth-200 bg-white shadow-lg z-30">
+          <div ref={menuRef} role="region" aria-label="分店清單" style={{ maxHeight: menuHeight, WebkitOverflowScrolling: "touch" }} className="absolute right-0 top-full mt-1 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain touch-pan-y rounded-lg border border-earth-200 bg-white shadow-lg z-30">
+            <div className="sticky top-0 z-10 border-b border-earth-100 bg-white p-2"><input aria-label="搜尋分店" placeholder="搜尋分店名稱" value={search} onChange={event => setSearch(event.target.value)} className="min-h-11 w-full rounded-md border border-earth-200 px-3 text-base" /></div>
             <button
               type="button"
               onClick={() => handleSelect(ALL_STORES_VALUE)}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-earth-50 ${
+              className={`flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-earth-50 ${
                 activeStoreId === null ? "bg-primary-50 font-medium text-primary-700" : "text-earth-600"
               }`}
             >
@@ -99,12 +131,12 @@ export default function StoreSwitcher({
               全部分店
             </button>
             <div className="border-t border-earth-100" />
-            {stores.map((store) => (
+            {visibleStores.map((store) => (
               <button
                 key={store.id}
                 type="button"
                 onClick={() => handleSelect(store.id)}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-earth-50 ${
+                className={`flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-earth-50 ${
                   activeStoreId === store.id ? "bg-primary-50 font-medium text-primary-700" : "text-earth-600"
                 }`}
               >
@@ -131,6 +163,7 @@ export default function StoreSwitcher({
       <div className="flex justify-center px-1 py-1.5">
         <button
           type="button"
+          aria-expanded={open}
           onClick={() => setOpen(!open)}
           className="rounded-md p-1.5 text-earth-400 hover:bg-earth-100 hover:text-earth-600"
           aria-label="切換分店"
@@ -148,7 +181,8 @@ export default function StoreSwitcher({
     <div ref={ref} className="relative px-3 py-2">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+          onClick={() => setOpen(!open)}
         disabled={isPending}
         className="flex w-full items-center justify-between rounded-lg border border-earth-200 bg-earth-50 px-2.5 py-1.5 text-left text-xs text-earth-700 hover:bg-earth-100 disabled:opacity-50"
       >
@@ -171,12 +205,13 @@ export default function StoreSwitcher({
       </button>
 
       {open && (
-        <div className="absolute left-3 right-3 top-full z-30 mt-1 overflow-hidden rounded-lg border border-earth-200 bg-white shadow-lg">
+        <div ref={menuRef} role="region" aria-label="分店清單" style={{ maxHeight: menuHeight, WebkitOverflowScrolling: "touch" }} className="absolute left-3 right-3 top-full z-30 mt-1 overflow-y-auto overscroll-contain touch-pan-y rounded-lg border border-earth-200 bg-white shadow-lg">
+          <div className="sticky top-0 z-10 border-b border-earth-100 bg-white p-2"><input aria-label="搜尋分店" placeholder="搜尋分店名稱" value={search} onChange={event => setSearch(event.target.value)} className="min-h-11 w-full rounded-md border border-earth-200 px-3 text-base" /></div>
           {/* All stores option */}
           <button
             type="button"
             onClick={() => handleSelect(ALL_STORES_VALUE)}
-            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-earth-50 ${
+            className={`flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-earth-50 ${
               activeStoreId === null ? "bg-primary-50 font-medium text-primary-700" : "text-earth-600"
             }`}
           >
@@ -184,12 +219,12 @@ export default function StoreSwitcher({
             全部分店
           </button>
           <div className="border-t border-earth-100" />
-          {stores.map((store) => (
+          {visibleStores.map((store) => (
             <button
               key={store.id}
               type="button"
               onClick={() => handleSelect(store.id)}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-earth-50 ${
+              className={`flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-earth-50 ${
                 activeStoreId === store.id ? "bg-primary-50 font-medium text-primary-700" : "text-earth-600"
               }`}
             >
