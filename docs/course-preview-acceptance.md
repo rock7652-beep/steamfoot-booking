@@ -78,3 +78,15 @@ Final preview deployment: dpl_6GnTRqhhHxmQ7eHfFcvGKHhoxdPT (READY).
 - TypeScript passed; 32 tests passed across course scheduling/actions, trial feature gating and staff management RBAC/reactivation. Includes foreign-store/no-permission checks and full-capacity/no-write behavior.
 - Category SQL was generated with Supabase CLI and applied ONLY to steamfoot-preview (ttworfzgwejdeolegkxl). The SQL in supabase/migrations/20260915082019_course_catalog_categories.sql requires the existing CourseRoom/CourseTemplate tables; do not run it before the original course schema. Category columns verified NOT NULL/default empty; existing course RLS retained. Production migration/release remains separate and unapproved.
 - Draft PR only. No production merge, production data mutation or customer notification.
+
+## 2026-09-15：首頁現金抽屜與原頁面操作
+
+- Code: `59a42af61cac07e4c5944b01c3fb698c21afa810`; Preview READY: `dpl_EttCtsZqoV8ULkyns2ya6VjVNAAw`.
+- 課程首頁恢復現金抽屜，營運直接顯示收支清單；既有其他模組入口不變。
+- 收支新增／編輯右側面板，固定儲存按鈕、失敗保留輸入、沿用權限與關帳確認；成功 refresh 保留目前 URL。
+- 課程人員基本資料直接編輯，低頻角色與權限保留進階入口；分析加入月份原地切換，設定移除重複入口。
+- `tsc --noEmit` 通過；course/actions/scheduling/trial、staff RBAC、cashbook closed guard 共 43 項通過；cash drawer page state/feature gate 與 closed guard 共 23 項通過（兩組包含重複測試）。
+- 瀏覽器已驗證：首頁選單與抽屜、起始金額相同隱藏差額原因／不同顯示、營運直接進入收支、新增非現金收入 1 元→同頁編輯 2 元，儲存後 URL 仍為 cashbook。
+- 本次建立的測試收支 `cmu2gii6v0001kz04ism3ql44` 已精確清除，未動其他紀錄或現金抽屜。
+- 限制：刪除確認框導致雲端瀏覽器連線逾時，標準恢復未成功。人員儲存、分析月份互動及 iPad 實機尚未完成本輪瀏覽器驗收，不列為已通過。首頁抽屜未實際初始化，僅驗證入口及表單互動。
+- 仍為草稿 PR #1022／Preview；未合併正式站。
