@@ -32,6 +32,6 @@ describe("central member store selection fallback", () => {
 
     expect(page).toContain("目前找不到可選擇的門市");
     expect(page).toContain("部分門市連結需要店家協助確認");
-    expect(page).toContain('href="/"');
+    expect(page).toContain('href="/hq/login"');
   });
 });
