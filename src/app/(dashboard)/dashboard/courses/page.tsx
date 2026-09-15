@@ -17,7 +17,7 @@ import { CourseWorkspace } from "./workspace";
 export default async function CoursesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; view?: string }>;
 }) {
   const user = await getCurrentUser();
   if (
@@ -28,7 +28,12 @@ export default async function CoursesPage({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     redirect("/dashboard");
-  const requested = (await searchParams).date;
+  const query = await searchParams;
+  const view =
+    query.view === "catalog" || query.view === "rooms"
+      ? query.view
+      : "schedule";
+  const requested = query.date;
   const selected =
     requested && parseTaipeiDateTime(requested, "00:00")
       ? requested
@@ -64,6 +69,7 @@ export default async function CoursesPage({
         select: {
           id: true,
           nameSnapshot: true,
+          templateId: true,
           startsAt: true,
           endsAt: true,
           coachId: true,
@@ -86,11 +92,24 @@ export default async function CoursesPage({
   return (
     <PageShell>
       <PageHeader
-        title="課程管理"
-        subtitle="月曆總覽 · 選擇日期查看或安排課程"
+        title={
+          view === "catalog"
+            ? "課程設定"
+            : view === "rooms"
+              ? "教室管理"
+              : "課表排程"
+        }
+        subtitle={
+          view === "schedule"
+            ? "選擇日期查看、安排或複製課程"
+            : view === "catalog"
+              ? "管理課程名稱、人數與排課預設"
+              : "管理上課教室"
+        }
       />
       <CourseWorkspace
-        key={storeId}
+        key={`${storeId}:${view}`}
+        view={view}
         selectedDate={selected}
         today={toLocalDateStr()}
         rooms={rooms}
