@@ -246,14 +246,14 @@ export function CourseMemberWorkspace({
             {cards.map((c) => (
               <button
                 key={c.id}
-                className="flex min-h-14 w-full flex-wrap items-center justify-between gap-2 p-3 text-left text-sm"
+                className={`flex min-h-14 w-full flex-wrap items-center justify-between gap-2 p-3 text-left text-sm ${c.expired ? "bg-earth-50 text-earth-400" : ""}`}
                 onClick={() => {
                   setCardId(c.id);
                   open("card");
                 }}
               >
                 <span>
-                  {c.name} · {c.members.map((m) => m.name).join("、")}
+                  {c.name}{c.expired ? "（已到期）" : ""} · {c.members.map((m) => m.name).join("、")}
                 </span>
                 <span>
                   剩餘 {c.remaining}／占用 {c.held}／可用 {c.available} · 到期{" "}

@@ -61,7 +61,7 @@ export function CoursePortalClient({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [session, setSession] = useState<Session | null>(null);
-  const [cardId, setCardId] = useState(cards[0]?.id ?? "");
+  const [cardId, setCardId] = useState(cards.find(c => !c.expired)?.id ?? "");
   const [requestKey, setRequestKey] = useState("");
   const [message, setMessage] = useState("");
   const card = cards.find((c) => c.id === cardId);
@@ -137,10 +137,10 @@ export function CoursePortalClient({
             {cards.map((c) => (
               <details
                 key={c.id}
-                className="mb-2 rounded-lg border bg-white p-3"
+                className={`mb-2 rounded-lg border p-3 ${c.expired ? "bg-earth-50 text-earth-400" : "bg-white"}`}
               >
                 <summary className="cursor-pointer">
-                  {c.name} · 可用 {c.available} 點／占用 {c.held} 點
+                  {c.name}{c.expired ? "（已到期）" : ""} · 可用 {c.available} 點／占用 {c.held} 點
                 </summary>
                 <div className="pt-3">
                   <CourseCardSummary card={c} />
@@ -168,10 +168,11 @@ export function CoursePortalClient({
                   <button
                     className={button}
                     disabled={
-                      pending || s.occupied >= s.capacity || !cards.length
+                      pending || s.occupied >= s.capacity || !cards.some(c => !c.expired)
                     }
                     onClick={() => {
                       setMessage("");
+                      if (!cards.some(c => c.id === cardId && !c.expired)) setCardId(cards.find(c => !c.expired)?.id ?? "");
                       setRequestKey(crypto.randomUUID());
                       setSession(s);
                     }}
@@ -274,8 +275,8 @@ export function CoursePortalClient({
                   }}
                 >
                   {cards.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} · 可用 {c.available} 點
+                    <option key={c.id} value={c.id} disabled={c.expired}>
+                      {c.name}{c.expired ? "（已到期）" : ""} · 可用 {c.available} 點
                     </option>
                   ))}
                 </select>

@@ -173,7 +173,7 @@ export function CourseRoster({
             >
               <option value="">請選擇</option>
               {cards.map((c) => (
-                <option key={c.id} value={c.id}>
+                <option key={c.id} value={c.id} disabled={c.expired}>
                   {c.name} · {c.members.map((m) => m.name).join("、")} · 可用{" "}
                   {c.available}
                 </option>
