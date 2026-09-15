@@ -53,3 +53,12 @@ Preview deployment: dpl_6XHk9DfVo6qhuaLADMo13GAcce42 (READY).
 - TypeScript noEmit passed; 12 tests passed across course-actions and course-scheduling, including edit permission, self-exclusion, conflict/no-write and invalid/foreign session cases.
 - Fixtures intentionally retain edited names and the Sep 18 session for user review. User-created Sep 21 session was not edited.
 - No production merge or migration. This supplements desktop scheduling acceptance; later module work and prior release limitations remain.
+
+
+## Copy and navigation acceptance
+Verified code 5e678e1c39b82196ded1ee6721bc78e297aa0abd, deployment dpl_FDpHmZ3p53PWswXbUeYiDyqiyZhA READY.
+- Sidebar now exposes 課表排程, 課程設定, 教室管理; real UI confirmed each shows only its relevant controls.
+- Copied Sep18 edited session to Sep25 16:00–16:45; retained source name, 3 points, coach2, roomB, 8 capacity. Source Sep18 17:30 remains.
+- Copy form requires a new date and permits time adjustment and existing weekly repetition.
+- TypeScript passed; 14 course scheduling/action tests passed, including original snapshot copying and foreign-source rejection.
+- Previous compact calendar and fixed create footer remain. No production merge.
