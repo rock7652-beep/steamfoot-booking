@@ -16,8 +16,12 @@ function escapeHtml(value) {
 function joined(value) { return Array.isArray(value) ? value.join('、') : (value || ''); }
 
 function buildNotification(data) {
+  const fitness = data.source === 'fitness-intake'
+    || /\/pricing\/fitness[.]html(?:[?#]|$)/.test(String(data.pageUrl || ''))
+    || String(data.otherNeed || '').includes('【運動教室需求與體驗意願】');
   const trial = data.contactWay === '申請體驗帳號';
-  const title = trial ? '新的體驗帳號申請' : '新的門市健檢';
+  const title = fitness ? '課程教室需求與體驗' : trial ? '一般店家體驗申請' : '新的門市健檢';
+  const sheetId = fitness ? '2026091502' : trial ? '2026091501' : '1690370556';
   const fields = [
     ['店家名稱', data.storeName], ['聯絡人', data.contactName],
     ['LINE ID', data.lineId], ['聯絡電話', data.phone],
@@ -34,7 +38,7 @@ function buildNotification(data) {
       + '<div style="font-size:14px;color:#64736c;margin-bottom:6px">' + escapeHtml(field[0]) + '</div>'
       + '<div style="font-size:17px;color:#153f33;line-height:1.7">' + escapeHtml(field[1]) + '</div></td></tr>';
   }).join('');
-  const url = 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '/edit';
+  const url = 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '/edit#gid=' + sheetId;
   return {
     subject: '【蒸管家】' + title + '｜' + String(data.storeName || '未填店名').replace(/[\r\n]/g, ' '),
     body: title + '\n\n' + fields.map(function (field) { return field[0] + '：' + (field[1] || '—'); }).join('\n') + '\n\n開啟申請名單：' + url,
