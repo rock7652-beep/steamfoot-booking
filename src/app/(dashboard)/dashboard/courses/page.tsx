@@ -36,49 +36,51 @@ export default async function CoursesPage({
   const bounds = monthRange(
     toLocalMonthStr(parseTaipeiDateTime(selected, "12:00")!),
   );
-  const [rooms, templates, sessions, coaches, canCreate] = await Promise.all([
-    coursePrisma.courseRoom.findMany({
-      where: { storeId, isActive: true },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    coursePrisma.courseTemplate.findMany({
-      where: { storeId, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        durationMinutes: true,
-        capacity: true,
-        pointCost: true,
-        defaultRoomId: true,
-      },
-      orderBy: { name: "asc" },
-    }),
-    coursePrisma.courseSession.findMany({
-      where: {
-        storeId,
-        cancelledAt: null,
-        startsAt: { gte: bounds.start, lte: bounds.end },
-      },
-      select: {
-        id: true,
-        nameSnapshot: true,
-        startsAt: true,
-        endsAt: true,
-        coachId: true,
-        roomId: true,
-        capacity: true,
-        pointCost: true,
-      },
-      orderBy: { startsAt: "asc" },
-    }),
-    prisma.staff.findMany({
-      where: { storeId, status: "ACTIVE" },
-      select: { id: true, displayName: true },
-      orderBy: { displayName: "asc" },
-    }),
-    checkPermission(user.role, user.staffId, "booking.create"),
-  ]);
+  const [rooms, templates, sessions, coaches, canCreate, canEdit] =
+    await Promise.all([
+      coursePrisma.courseRoom.findMany({
+        where: { storeId, isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      coursePrisma.courseTemplate.findMany({
+        where: { storeId, isActive: true },
+        select: {
+          id: true,
+          name: true,
+          durationMinutes: true,
+          capacity: true,
+          pointCost: true,
+          defaultRoomId: true,
+        },
+        orderBy: { name: "asc" },
+      }),
+      coursePrisma.courseSession.findMany({
+        where: {
+          storeId,
+          cancelledAt: null,
+          startsAt: { gte: bounds.start, lte: bounds.end },
+        },
+        select: {
+          id: true,
+          nameSnapshot: true,
+          startsAt: true,
+          endsAt: true,
+          coachId: true,
+          roomId: true,
+          capacity: true,
+          pointCost: true,
+        },
+        orderBy: { startsAt: "asc" },
+      }),
+      prisma.staff.findMany({
+        where: { storeId, status: "ACTIVE" },
+        select: { id: true, displayName: true },
+        orderBy: { displayName: "asc" },
+      }),
+      checkPermission(user.role, user.staffId, "booking.create"),
+      checkPermission(user.role, user.staffId, "booking.update"),
+    ]);
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   return (
@@ -95,6 +97,7 @@ export default async function CoursesPage({
         templates={templates}
         coaches={coaches}
         canCreate={writable}
+        canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
         sessions={sessions.map((s) => ({
           ...s,
           startsAt: s.startsAt.toISOString(),
