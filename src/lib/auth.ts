@@ -1538,7 +1538,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (dbUser) {
             // A customer token must never acquire staff privileges via update().
             // Staff roles require a fresh credentials login and security stamp.
-            if (isStaffSessionRole(dbUser.role)) return null;
+            // A staff member may intentionally use LIFF in CUSTOMER context.
+            // Keep that member session; do not turn it into a dashboard session.
+            if (isStaffSessionRole(dbUser.role)) return token;
             appToken.role = dbUser.role;
             if (dbUser.role === "ADMIN") {
               appToken.staffId = null;

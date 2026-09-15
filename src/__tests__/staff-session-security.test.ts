@@ -106,6 +106,7 @@ describe("staff session revocation through the real auth callbacks", () => {
   });
   it("does not elevate a customer session through client update", async () => {
     mocks.findUnique.mockResolvedValue(state({ role: "ADMIN" }));
-    expect(await config.callbacks.jwt({ token: { sub: "customer-a", role: "CUSTOMER" }, trigger: "update" })).toBeNull();
+    const memberToken = { sub: "customer-a", role: "CUSTOMER", customerId: "member-a", storeId: "store-a" };
+    expect(await config.callbacks.jwt({ token: memberToken, trigger: "update" })).toEqual(memberToken);
   });
 });
