@@ -1,5 +1,7 @@
 # Course Stage 1 Preview acceptance
 
+> Historical Stage 1 report. The later points/shared-card implementation and real Preview acceptance are recorded in [course-points-acceptance-20260915.md](course-points-acceptance-20260915.md). Stage 1 scope limits below describe that older version.
+
 2026-09-15: Desktop scheduling acceptance passed. Draft PR only; no production merge.
 
 Verified code: d49c84fb9597695e06e5ab75f59cb70f3240c503.
