@@ -42,7 +42,19 @@
   }
   function showError(message, focusTarget) {
     error.textContent = message; error.hidden = false;
-    (focusTarget || error).focus();
+    // Keep the explanation beside the field when mobile focus scrolls the page.
+    if (focusTarget) {
+      const group = focusTarget.closest('fieldset, .field');
+      group.after(error);
+      const descriptions = new Set((focusTarget.getAttribute('aria-describedby') || '').split(' ').filter(Boolean));
+      descriptions.add(error.id);
+      focusTarget.setAttribute('aria-describedby', [...descriptions].join(' '));
+      focusTarget.focus({preventScroll: true});
+      error.scrollIntoView({block: 'center'});
+    } else {
+      status.after(error);
+      error.focus();
+    }
   }
   function uncertain() {
     locked = true; button.disabled = true; button.textContent = '請先確認送出結果';
@@ -80,6 +92,11 @@
     event.preventDefault();
     if (locked) return;
     error.hidden = true;
+    form.querySelectorAll('[aria-describedby]').forEach(field => {
+      const ids = field.getAttribute('aria-describedby').split(' ').filter(id => id !== error.id);
+      if (ids.length) field.setAttribute('aria-describedby', ids.join(' '));
+      else field.removeAttribute('aria-describedby');
+    });
     const data = values();
     for (const [name, message] of [['classModes', '請至少選一種上課方式。'], ['planTypes', '請至少選一種收費方式。'], ['management', '請至少選一種目前管理方式。'], ['needs', '請選 1～3 項最想改善的事情。']]) {
       if (!data[name].length || (name === 'needs' && data[name].length > 3)) {
