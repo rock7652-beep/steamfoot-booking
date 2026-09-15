@@ -119,7 +119,7 @@ export function CourseWorkspace({
       (view === "rooms" ||
         roomFilter === "all" ||
         ("defaultRoomId" in item && item.defaultRoomId === roomFilter)),
-  );
+  ).sort((a, b) => Number(b.isActive) - Number(a.isActive));
   function changeStatus(item: Room) {
     if (pending) return;
     setError("");
@@ -454,7 +454,7 @@ export function CourseWorkspace({
                     ? allRooms.find((r) => r.id === template.defaultRoomId)
                     : null;
                   return (
-                    <tr key={item.id} className="hover:bg-primary-50/40">
+                    <tr key={item.id} className={item.isActive ? "hover:bg-primary-50/40" : "bg-earth-50 opacity-60 hover:opacity-100 focus-within:opacity-100"}>
                       <th
                         scope="row"
                         className="max-w-64 px-4 py-3 font-medium text-primary-900"

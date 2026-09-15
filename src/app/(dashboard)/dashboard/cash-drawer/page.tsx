@@ -9,6 +9,7 @@
  * 本頁只負責 fetch + 權限 + render workspace。
  */
 
+import { CourseTodaySummary } from "../courses/today-summary";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/session";
@@ -97,7 +98,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
 
       <PageHeader
         title={courseHome ? "首頁" : "現金抽屜"}
-        subtitle="每日開店點錢 / 閉店點錢 / 滾動結餘核對"
+        subtitle={courseHome ? "今日課程與現金管理" : "每日開店點錢 / 閉店點錢 / 滾動結餘核對"}
         actions={
           <Link
             href="/dashboard/cashbook"
@@ -108,6 +109,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
         }
       />
 
+      {courseHome && <CourseTodaySummary />}
       <CashDrawerWorkspace
         compactSetup={courseHome}
         view={view}

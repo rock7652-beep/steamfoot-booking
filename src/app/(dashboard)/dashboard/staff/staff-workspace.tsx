@@ -116,6 +116,7 @@ export function StaffWorkspace({
       (roleFilter === "all" || p.roleLabel === roleFilter) &&
       (statusFilter === "all" || p.status === statusFilter),
   );
+  if (courseBasicOnly) filteredPeople.sort((a, b) => Number(b.status === "ACTIVE") - Number(a.status === "ACTIVE"));
   const [editor, setEditor] = useState<Editor>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -402,7 +403,7 @@ export function StaffWorkspace({
               </thead>
               <tbody className="divide-y divide-earth-100">
                 {filteredPeople.map((person) => (
-                  <tr key={person.id} className="hover:bg-primary-50/40">
+                  <tr key={person.id} className={courseBasicOnly && person.status !== "ACTIVE" ? "bg-earth-50 opacity-60 hover:opacity-100 focus-within:opacity-100" : "hover:bg-primary-50/40"}>
                     <th
                       scope="row"
                       className="px-4 py-3 font-medium text-primary-900"
