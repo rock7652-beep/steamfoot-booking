@@ -12,6 +12,7 @@ import {
   toLocalDateStr,
   toLocalMonthStr,
 } from "@/lib/date-utils";
+import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
 
 export default async function CoursesPage({
@@ -19,6 +20,8 @@ export default async function CoursesPage({
 }: {
   searchParams: Promise<{ date?: string; view?: string }>;
 }) {
+  const query = await searchParams;
+  if (query.view === "settings" || query.view === "operations" || query.view === "analytics") return <CourseSharedHub view={query.view} />;
   const user = await getCurrentUser();
   if (
     !user ||
@@ -28,7 +31,6 @@ export default async function CoursesPage({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     redirect("/dashboard");
-  const query = await searchParams;
   const view =
     query.view === "catalog" || query.view === "rooms"
       ? query.view
