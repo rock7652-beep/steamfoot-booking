@@ -1,3 +1,4 @@
+import CoursesPage from "./courses/page";
 import { SpaHome } from "./spa-home";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
@@ -75,6 +76,9 @@ export default async function DashboardHomePage() {
   if (!user) return null;
 
   const activeStoreId = await getActiveStoreForRead(user);
+  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") {
+    return <CoursesPage searchParams={Promise.resolve({})} />;
+  }
   let storeViewContext: StoreViewContext | null = null;
   if (user.role !== "ADMIN" && user.storeId) {
     storeViewContext = await resolveStoreViewContext(user, { viewedStoreId: activeStoreId });
