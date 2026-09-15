@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ReactNode, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
@@ -70,7 +70,7 @@ export function CourseWorkspace({
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | null
-  >(view === "schedule" ? null : "catalog");
+  >(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [chosen, setChosen] = useState("");
@@ -141,14 +141,13 @@ export function CourseWorkspace({
         );
         form.reset();
         after?.(data);
+        if (panel === "catalog") setPanel(null);
         router.refresh();
       } catch {
         setError("連線失敗，請重試；重複送出不會重複排課。");
       }
     });
   }
-  const Sheet =
-    panel === "catalog" && view !== "schedule" ? InlineCoursePanel : RightSheet;
   const template = templates.find((t) => t.id === chosen);
   return (
     <>
@@ -260,11 +259,86 @@ export function CourseWorkspace({
           </p>
         </>
       )}
+      {view !== "schedule" && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-earth-600">
+              {view === "rooms"
+                ? `${rooms.length} 間教室`
+                : `${templates.length} 種課程`}
+            </p>
+            {canCreate && (
+              <button className={primary} onClick={() => open("catalog")}>
+                {view === "rooms" ? "＋ 新增教室" : "＋ 新增課程"}
+              </button>
+            )}
+          </div>
+          <div className="rounded-xl border border-earth-200 bg-white p-4 sm:p-5">
+            {view !== "rooms" &&
+              templates.map((t) => (
+                <div key={t.id} className="border-b border-earth-100 pb-3">
+                  <h3>{t.name}</h3>
+                  <p className="text-sm text-earth-500">
+                    {t.durationMinutes} 分鐘 · {t.pointCost} 點 · 上限{" "}
+                    {t.capacity} 人
+                  </p>
+                  {canEdit && (
+                    <button
+                      className={`${button} mt-2`}
+                      disabled={pending}
+                      onClick={() => {
+                        setEditing({ kind: "template", value: t });
+                        open("edit");
+                      }}
+                    >
+                      編輯課程
+                    </button>
+                  )}
+                </div>
+              ))}
+            {view === "rooms" && (
+              <div className="space-y-2">
+                {rooms.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span>{r.name}</span>
+                    {canEdit && (
+                      <button
+                        className={button}
+                        disabled={pending}
+                        onClick={() => {
+                          setEditing({ kind: "room", value: r });
+                          open("edit");
+                        }}
+                      >
+                        編輯教室
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {(view === "rooms" ? rooms.length : templates.length) === 0 && (
+              <p className="py-6 text-center text-earth-500">
+                尚未建立{view === "rooms" ? "教室" : "課程"}
+              </p>
+            )}
+          </div>
+          {notice && (
+            <p role="status" className="text-sm text-primary-700">
+              {notice}
+            </p>
+          )}
+        </section>
+      )}
       {panel && (
-        <Sheet
+        <RightSheet
           open
           onClose={() => {
-            if (!pending) setPanel(view === "schedule" ? null : "catalog");
+            if (!pending) setPanel(null);
           }}
           width={520}
           labelledById="course-panel-title"
@@ -279,23 +353,23 @@ export function CourseWorkspace({
                     : "編輯課程預設"
                 : panel === "catalog"
                   ? view === "rooms"
-                    ? "教室管理"
-                    : "課程設定"
+                    ? "新增教室"
+                    : "新增課程"
                   : panel === "schedule"
                     ? copySource
                       ? "複製排課"
                       : "新增排課"
                     : selectedDate}
             </h2>
-            {!(panel === "catalog" && view !== "schedule") && (
+            {
               <button
                 className={button}
                 disabled={pending}
-                onClick={() => setPanel(view === "schedule" ? null : "catalog")}
+                onClick={() => setPanel(null)}
               >
                 關閉
               </button>
-            )}
+            }
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
             {error && (
@@ -372,63 +446,14 @@ export function CourseWorkspace({
             )}
             {panel === "catalog" && (
               <>
-                {view !== "rooms" &&
-                  templates.map((t) => (
-                    <div key={t.id} className="border-b border-earth-100 pb-3">
-                      <h3>{t.name}</h3>
-                      <p className="text-sm text-earth-500">
-                        {t.durationMinutes} 分鐘 · {t.pointCost} 點 · 上限{" "}
-                        {t.capacity} 人
-                      </p>
-                      {canEdit && (
-                        <button
-                          className={`${button} mt-2`}
-                          disabled={pending}
-                          onClick={() => {
-                            setEditing({ kind: "template", value: t });
-                            open("edit");
-                          }}
-                        >
-                          編輯課程
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                {view === "rooms" && (
-                  <div className="space-y-2">
-                    {rooms.map((r) => (
-                      <div
-                        key={r.id}
-                        className="flex items-center justify-between gap-2"
-                      >
-                        <span>{r.name}</span>
-                        {canEdit && (
-                          <button
-                            className={button}
-                            disabled={pending}
-                            onClick={() => {
-                              setEditing({ kind: "room", value: r });
-                              open("edit");
-                            }}
-                          >
-                            編輯教室
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
                 {canCreate && (
                   <>
-                    <h3 className="font-medium">
-                      {view === "rooms" ? "新增教室" : "新增課程"}
-                    </h3>
                     {view === "rooms" && (
                       <form
+                        id="course-room-create-form"
                         onSubmit={(e) =>
-                          submit(
-                            e,
-                            async (data) => createCourseRoom(data.get("name")),
+                          submit(e, async (data) =>
+                            createCourseRoom(data.get("name")),
                           )
                         }
                         className="flex items-end gap-2"
@@ -442,15 +467,12 @@ export function CourseWorkspace({
                             maxLength={80}
                           />
                         </label>
-                        <button className={button} disabled={pending}>
-                          加入
-                        </button>
                       </form>
                     )}
                     {view !== "rooms" && (
                       <form
                         id="course-template-create-form"
-                        className="grid grid-cols-2 gap-3"
+                        className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2"
                         onSubmit={(e) =>
                           submit(e, (data) =>
                             createCourseTemplate({
@@ -463,7 +485,7 @@ export function CourseWorkspace({
                           )
                         }
                       >
-                        <label className="col-span-2">
+                        <label className="col-span-full">
                           課程名稱
                           <input
                             className={field}
@@ -527,7 +549,7 @@ export function CourseWorkspace({
             {panel === "edit" && editing && canEdit && (
               <form
                 key={`${editing.kind}-${editing.value.id}`}
-                className="grid grid-cols-2 gap-3"
+                className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2"
                 onSubmit={(event) =>
                   submit(
                     event,
@@ -562,20 +584,20 @@ export function CourseWorkspace({
                     (data) => {
                       if (editing.kind === "session")
                         go(String(data.get("date")));
-                      setPanel(editing.kind === "session" ? "day" : "catalog");
+                      setPanel(editing.kind === "session" ? "day" : null);
                       setEditing(null);
                     },
                   )
                 }
               >
-                <p className="col-span-2 text-sm text-earth-600">
+                <p className="col-span-full text-sm text-earth-600">
                   {editing.kind === "session"
                     ? "僅修改這一堂，其他日期的排課維持原設定。"
                     : editing.kind === "template"
                       ? "修改後套用於新排課；已排課程請從日期內編輯。"
                       : "名稱會同步顯示於使用此教室的課程。"}
                 </p>
-                <label className="col-span-2">
+                <label className="col-span-full">
                   {editing.kind === "room" ? "教室名稱" : "課程名稱"}
                   <input
                     className={field}
@@ -615,7 +637,7 @@ export function CourseWorkspace({
                         ).slice(11)}
                       />
                     </label>
-                    <label className="col-span-2">
+                    <label className="col-span-full">
                       教練
                       <select
                         className={field}
@@ -697,13 +719,13 @@ export function CourseWorkspace({
                     </label>
                   </>
                 )}
-                <div className="sticky bottom-0 col-span-2 flex gap-2 bg-white py-3">
+                <div className="sticky bottom-0 col-span-full flex gap-2 bg-white py-3">
                   <button
                     className={button}
                     type="button"
                     disabled={pending}
                     onClick={() => {
-                      open(editing.kind === "session" ? "day" : "catalog");
+                      open(editing.kind === "session" ? "day" : null);
                       setEditing(null);
                     }}
                   >
@@ -731,7 +753,7 @@ export function CourseWorkspace({
                   <p>本店尚無可排課的教練，請先完成人員建檔。</p>
                 ) : (
                   <form
-                    className="grid grid-cols-2 gap-3"
+                    className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2"
                     onSubmit={(e) =>
                       submit(
                         e,
@@ -756,13 +778,13 @@ export function CourseWorkspace({
                     }
                   >
                     {copySource ? (
-                      <p className="col-span-2">
+                      <p className="col-span-full">
                         {copySource.nameSnapshot} · 每人 {copySource.pointCost}{" "}
                         點<br />
                         選擇新日期並確認時間後建立，原課程會保留。
                       </p>
                     ) : (
-                      <label className="col-span-2">
+                      <label className="col-span-full">
                         課程
                         <select
                           className={field}
@@ -879,7 +901,7 @@ export function CourseWorkspace({
                         />
                       </div>
                     )}
-                    <label className="col-span-2">
+                    <label className="col-span-full">
                       重複
                       <select
                         className={field}
@@ -891,7 +913,7 @@ export function CourseWorkspace({
                       </select>
                     </label>
                     {repeat && (
-                      <label className="col-span-2">
+                      <label className="col-span-full">
                         結束日期
                         <input
                           className={field}
@@ -902,7 +924,7 @@ export function CourseWorkspace({
                       </label>
                     )}
                     <button
-                      className={`${primary} col-span-2`}
+                      className={`${primary} col-span-full`}
                       disabled={pending}
                     >
                       {pending ? "建立中…" : "建立排課"}
@@ -912,36 +934,28 @@ export function CourseWorkspace({
               </>
             )}
           </div>
-          {panel === "catalog" && view !== "rooms" && canCreate && (
+          {panel === "catalog" && canCreate && (
             <div className="shrink-0 border-t border-earth-200 bg-white p-4">
               <button
                 type="submit"
-                form="course-template-create-form"
+                form={
+                  view === "rooms"
+                    ? "course-room-create-form"
+                    : "course-template-create-form"
+                }
                 className={`${primary} w-full`}
-                disabled={pending || !rooms.length}
+                disabled={pending || (view !== "rooms" && !rooms.length)}
               >
-                {pending ? "儲存中…" : "建立課程"}
+                {pending
+                  ? "儲存中…"
+                  : view === "rooms"
+                    ? "建立教室"
+                    : "建立課程"}
               </button>
             </div>
           )}
-        </Sheet>
+        </RightSheet>
       )}
     </>
-  );
-}
-
-function InlineCoursePanel({
-  children,
-}: {
-  children: ReactNode;
-  open?: boolean;
-  onClose?: () => void;
-  width?: number;
-  labelledById?: string;
-}) {
-  return (
-    <section className="flex h-[calc(100dvh-220px)] min-h-80 flex-col overflow-hidden rounded-xl border border-earth-200 bg-white">
-      {children}
-    </section>
   );
 }
