@@ -2,11 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
-import {
-  ALL_PERMISSIONS,
-  PERMISSION_GROUPS,
-  PERMISSION_LABELS,
-} from "@/lib/permissions";
+
 import { saveCourseStaff } from "@/server/actions/course-staff";
 type Person = {
   id: string;
@@ -24,10 +20,12 @@ export function CourseStaffWorkspace({
   staff,
   customers,
   canManage,
+  permissionGroups,
 }: {
   staff: Person[];
   customers: { id: string; name: string }[];
   canManage: boolean;
+  permissionGroups: { label: string; codes: { code: string; label: string }[] }[];
 }) {
   const [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
@@ -275,10 +273,10 @@ export function CourseStaffWorkspace({
               {kind === "manager" && (
                 <details open>
                   <summary>店內管理權限</summary>
-                  {Object.entries(PERMISSION_GROUPS).map(([group, g]) => (
-                    <fieldset key={group} className="mt-3">
+                  {permissionGroups.map((g) => (
+                    <fieldset key={g.label} className="mt-3">
                       <legend className="font-medium">{g.label}</legend>
-                      {g.codes.map((code) => (
+                      {g.codes.map(({code, label}) => (
                         <label
                           key={code}
                           className="flex min-h-11 items-center gap-2 text-sm"
@@ -290,10 +288,10 @@ export function CourseStaffWorkspace({
                             defaultChecked={
                               person
                                 ? person.permissions.includes(code)
-                                : ALL_PERMISSIONS.includes(code)
+                                : true
                             }
                           />
-                          {PERMISSION_LABELS[code]}
+                          {label}
                         </label>
                       ))}
                     </fieldset>

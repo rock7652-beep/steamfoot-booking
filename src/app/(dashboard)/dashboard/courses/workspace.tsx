@@ -1101,7 +1101,7 @@ export function CourseWorkspace({
                       <select
                         className={field}
                         name="roomId"
-                        required
+                        required={editing.kind === "session"}
                         defaultValue={
                           editing.kind === "template"
                             ? (editing.value.defaultRoomId ?? "")

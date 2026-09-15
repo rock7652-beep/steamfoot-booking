@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
-import { checkPermission } from "@/lib/permissions";
+import { checkPermission, PERMISSION_GROUPS, PERMISSION_LABELS } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
 import { requireCourseStore } from "@/lib/industry-module-server";
 import { prisma } from "@/lib/db";
@@ -43,6 +43,7 @@ export async function CourseStaffPage() {
       <PageHeader title="人員管理" />
       <CourseStaffWorkspace
         canManage={canManage}
+        permissionGroups={Object.values(PERMISSION_GROUPS).map(g => ({ label: g.label, codes: g.codes.map(code => ({ code, label: PERMISSION_LABELS[code] })) }))}
         staff={staff.map((s) => ({
           id: s.id,
           name: s.displayName,
