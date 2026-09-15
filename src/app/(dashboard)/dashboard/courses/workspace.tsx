@@ -232,7 +232,7 @@ export function CourseWorkspace({
   return (
     <>
       {view === "schedule" && (
-        <>
+        <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <h2 className="mr-2 font-medium">
@@ -276,7 +276,7 @@ export function CourseWorkspace({
               </div>
             )}
           </div>
-          <div className="my-3 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             <select
               aria-label="教練篩選"
               className={button}
@@ -325,7 +325,7 @@ export function CourseWorkspace({
               {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
                 <div
                   key={day}
-                  className="py-3 text-center text-sm text-earth-600"
+                  className="py-2 text-center text-sm text-earth-600"
                 >
                   {day}
                 </div>
@@ -380,7 +380,7 @@ export function CourseWorkspace({
           >
             {pending ? "處理中…" : notice}
           </p>
-        </>
+        </div>
       )}
       <datalist id="course-category-options">
         {categories.filter(Boolean).map((c) => (
