@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 const source = readFileSync("scripts/store-check/Code.gs", "utf8");
 function receiver(failMail = false, failSave = false) {
   const rows: unknown[][] = [Array(30).fill("")];
-  const mail = vi.fn(() => { if (failMail) throw new Error("Mail quota"); });
+  const mail = vi.fn((message: unknown) => { void message; if (failMail) throw new Error("Mail quota"); });
   const range = (row: number, col: number, count = 1, width = 1): object => ({
     getValues: () => rows.slice(row - 1, row - 1 + count).map(r => r.slice(col - 1, col - 1 + width)),
     getValue: () => rows[row - 1]?.[col - 1],
@@ -31,6 +31,25 @@ function receiver(failMail = false, failSave = false) {
 }
 const data = { requestId: "f2170225-17f8-4ad7-8031-f305afba256f", storeName: "測試店", contactName: "測試", industry: "服務", lineId: "TEST-DO-NOT-CONTACT", needs: ["預約"], contactWay: "申請體驗帳號" };
 describe("prepared Apps Script receiver", () => {
+  it("saves four fitness needs, priority and a no-contact status without personal details", () => {
+    const r = receiver();
+    const input = { ...data, formVersion: "fitness-v2", source: "fitness-intake", needs: ["1", "2", "3", "4"], priorityNeed: "3", contactWay: "目前暫不考慮" };
+    expect(r.post(input)).toMatchObject({ saved: true });
+    expect(r.rows[1][10]).toBe("1、2、3、4"); expect(r.rows[1][16]).toBe("不需聯繫");
+    expect(r.rows[1][2]).toBe(""); expect(r.rows[1][14]).toBe(""); expect(r.rows[1][18]).toBe("");
+    const mail = r.mail.mock.calls[0][0] as unknown as { subject: string; body: string; htmlBody: string };
+    expect(mail.subject).toContain("不需聯絡"); expect(mail.body).toContain("最優先改善：3");
+    expect(mail.htmlBody).toContain("請勿主動聯繫");
+  });
+  it("rejects five fitness needs and keeps legacy contact/three-need limits", () => {
+    const r = receiver();
+    for (const input of [
+      { ...data, formVersion: "fitness-v2", source: "fitness-intake", needs: ["1", "2", "3", "4", "5"], priorityNeed: "1" },
+      { ...data, needs: ["1", "2", "3", "4"] },
+      { ...data, contactWay: "目前暫不考慮", contactName: "", lineId: "" },
+    ]) expect(r.post(input)).toMatchObject({ saved: false });
+    expect(r.rows).toHaveLength(1); expect(r.mail).not.toHaveBeenCalled();
+  });
   it("saves one row and sends one notification for identical repeated requests", () => {
     const r = receiver();
     expect(r.post(data)).toMatchObject({ saved: true, requestId: data.requestId, notification: "sent" });
