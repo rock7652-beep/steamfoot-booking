@@ -184,7 +184,9 @@ export async function createCourseTemplate(input: unknown) {
 export async function createCourseSchedule(input: unknown) {
   try {
     const { user, storeId } = await writableStore();
-    const data = courseScheduleInput.parse(input);
+    const data = courseScheduleInput
+      .extend({ sourceSessionId: z.string().min(1).optional() })
+      .parse(input);
     let occurrences: ReturnType<typeof buildCourseOccurrences>;
     try {
       occurrences = buildCourseOccurrences(data);
@@ -229,6 +231,19 @@ export async function createCourseSchedule(input: unknown) {
             );
           return { count: existing.length };
         }
+        const source = data.sourceSessionId
+          ? await tx.courseSession.findFirst({
+              where: { id: data.sourceSessionId, storeId, cancelledAt: null },
+            })
+          : null;
+        if (
+          data.sourceSessionId &&
+          (!source || source.templateId !== data.templateId)
+        )
+          throw new AppError(
+            "VALIDATION",
+            "找不到可複製的本店課程，請重新整理",
+          );
         const [template, room, coaches] = await Promise.all([
           tx.courseTemplate.findFirst({
             where: { id: data.templateId, storeId, isActive: true },
@@ -269,10 +284,10 @@ export async function createCourseSchedule(input: unknown) {
             ...range,
             storeId,
             templateId: template.id,
-            nameSnapshot: template.name,
+            nameSnapshot: source?.nameSnapshot ?? template.name,
             roomId: room.id,
             coachId: data.coachId,
-            pointCost: template.pointCost,
+            pointCost: source?.pointCost ?? template.pointCost,
             capacity: data.capacity,
             requestKey: data.requestKey,
             requestIndex,
