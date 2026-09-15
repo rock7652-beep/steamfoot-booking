@@ -41,6 +41,15 @@ export default function StoreSwitcher({
   useEffect(() => {
     if (!open) return;
     const viewport = window.visualViewport;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function stopBackgroundWheel(event: WheelEvent) {
+      const menu = menuRef.current;
+      if (event.ctrlKey) return;
+      if (!menu?.contains(event.target as Node) ||
+          (event.deltaY < 0 && menu.scrollTop <= 0) ||
+          (event.deltaY > 0 && menu.scrollTop + menu.clientHeight >= menu.scrollHeight - 1)) event.preventDefault();
+    }
     function resize() {
       const bottom =
         (viewport?.height ?? window.innerHeight) + (viewport?.offsetTop ?? 0);
@@ -69,7 +78,10 @@ export default function StoreSwitcher({
       passive: false,
     });
     document.addEventListener("keydown", onKey);
+    document.addEventListener("wheel", stopBackgroundWheel, { passive: false });
     return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("wheel", stopBackgroundWheel);
       window.removeEventListener("resize", resize);
       viewport?.removeEventListener("resize", resize);
       viewport?.removeEventListener("scroll", resize);
@@ -110,12 +122,14 @@ export default function StoreSwitcher({
   }
 
   // Inline header mode: compact dropdown
-  if (inline) {
+  if (inline || collapsed) {
     return (
       <div ref={ref} className="relative">
         <button
           type="button"
           aria-expanded={open}
+          aria-label={collapsed ? "切換分店" : undefined}
+          title={collapsed ? currentLabel : undefined}
           onClick={() => {
             setSearch("");
             setOpen(!open);
@@ -124,7 +138,7 @@ export default function StoreSwitcher({
           className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-earth-600 hover:bg-earth-100 hover:text-earth-800 disabled:opacity-50 transition-colors"
         >
           <span className="max-w-[140px] truncate font-medium">
-            {currentLabel}
+            {collapsed ? "店" : currentLabel}
           </span>
           {isPending ? (
             <svg
@@ -169,7 +183,7 @@ export default function StoreSwitcher({
             role="region"
             aria-label="分店清單"
             style={{ maxHeight: menuHeight, WebkitOverflowScrolling: "touch" }}
-            className="absolute right-0 top-full mt-1 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain touch-pan-y rounded-lg border border-earth-200 bg-white shadow-lg z-30"
+            className={`absolute ${collapsed ? "left-0" : "right-0"} top-full mt-1 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain touch-pan-y rounded-lg border border-earth-200 bg-white shadow-lg z-30`}
           >
             <div className="sticky top-0 z-10 border-b border-earth-100 bg-white p-2">
               <input
@@ -221,39 +235,6 @@ export default function StoreSwitcher({
             ))}
           </div>
         )}
-      </div>
-    );
-  }
-
-  // Collapsed: show icon only
-  if (collapsed) {
-    return (
-      <div className="flex justify-center px-1 py-1.5">
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => {
-            setSearch("");
-            setOpen(!open);
-          }}
-          className="rounded-md p-1.5 text-earth-400 hover:bg-earth-100 hover:text-earth-600"
-          aria-label="切換分店"
-          title={currentLabel}
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.8}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72"
-            />
-          </svg>
-        </button>
       </div>
     );
   }

@@ -86,7 +86,7 @@ export function CoursePortalClient({
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-4">
       <h1 className="text-xl font-semibold">
-        {customerName} 的{memberEnabled ? "會員專區" : "我的工作"}
+        {customerName} · {memberEnabled ? "會員專區" : "我的工作"}
       </h1>
       {message && <p role="status">{message}</p>}
       {hasWork && memberEnabled && (
