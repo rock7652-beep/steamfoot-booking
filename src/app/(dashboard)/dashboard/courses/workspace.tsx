@@ -348,20 +348,20 @@ export function CourseWorkspace({
                       go(date);
                       open("day");
                     }}
-                    className={`flex h-[clamp(56px,calc((100dvh-320px)/6),80px)] min-h-14 flex-col items-start justify-start border-t border-earth-100 p-2 text-left sm:px-3 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
+                    className={`flex h-[clamp(68px,calc((100dvh-320px)/6),80px)] min-h-[68px] flex-col items-start justify-start border-t border-earth-100 px-2 py-1 text-left sm:px-3 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
                   >
-                    <span>{i + 1}</span>
+                    <span className="shrink-0 text-xs leading-4">{i + 1}</span>
                     {list.slice(0, 2).map((s) => (
                       <span
                         key={s.id}
-                        className="block w-full truncate text-[10px] leading-tight sm:text-xs"
+                        className="block w-full shrink-0 truncate text-[10px] leading-[14px] sm:text-[11px]"
                       >
                         {formatTWDateTime(new Date(s.startsAt)).slice(11)}{" "}
                         {s.nameSnapshot}
                       </span>
                     ))}
                     {list.length > 2 && (
-                      <span className="text-[10px] sm:text-xs">
+                      <span className="shrink-0 text-[10px] leading-[14px] sm:text-[11px]">
                         ＋{list.length - 2} 堂
                       </span>
                     )}
