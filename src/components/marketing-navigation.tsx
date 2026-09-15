@@ -50,7 +50,7 @@ export function MarketingNavigation({ active }: { active?: string }) {
     onKeyDown={event => { if (event.key === "Escape" && open) { setOpen(false); toggle.current?.focus(); } }}
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
     <div className="mx-auto flex h-20 max-w-6xl items-center justify-between gap-2 px-4 sm:px-8">
-      <div onClick={() => setOpen(false)} className="[&_img]:w-[120px] sm:[&_img]:w-[160px]"><MarketingBrand /></div>
+      <div onClick={() => setOpen(false)}><MarketingBrand /></div>
       <nav aria-label="主要導覽" className="hidden items-center gap-1 lg:flex">{links}</nav>
       <div className="flex shrink-0 items-center gap-2">
         <a href="/apply?intent=trial&utm_source=website&utm_medium=organic&utm_campaign=trial-interest&utm_content=navigation" className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#123E32] px-4 text-sm font-semibold text-white hover:bg-[#245A49] focus-visible:outline-2 focus-visible:outline-offset-4">申請體驗</a>

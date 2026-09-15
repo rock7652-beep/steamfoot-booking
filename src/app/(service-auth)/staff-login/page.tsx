@@ -11,10 +11,10 @@ export default function ServiceStaffLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-earth-50 px-4 py-10">
-      <section className="w-full max-w-sm rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
-        <SteamButlerLogo className="mb-4 w-40" />
-        <h1 className="mt-1 text-xl font-semibold text-[#0F3B2E]">服務人員登入</h1>
+    <main className="flex min-h-dvh items-center justify-center bg-[radial-gradient(ellipse_at_top_left,#e7eee7_0%,#f8f5ee_55%,#f3ebdd_100%)] px-4 py-10">
+      <section className="w-full max-w-md rounded-[28px] border border-[#ded8ca] border-t-[3px] border-t-[#bd974e] bg-white p-7 shadow-[0_20px_70px_-30px_rgba(15,59,46,0.22)] sm:p-10">
+        <SteamButlerLogo className="mx-auto mb-6 w-60 max-w-full" />
+        <h1 className="mt-1 text-2xl font-semibold text-[#0F3B2E]">服務人員登入</h1>
         <p className="mt-2 text-sm text-earth-500">查看自己的今日工作與未來預約</p>
 
         <form action={action} className="mt-6 space-y-4">
