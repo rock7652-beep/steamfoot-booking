@@ -10,7 +10,7 @@ export function SteamButlerLogo({ className = "w-32", compact = false }: { class
       height={compact ? 1254 : 819}
       unoptimized
       loading="eager"
-      className={compact ? "block h-10 w-10 shrink-0 object-contain" : `block h-auto max-w-full ${className}`}
+      className={compact ? "block h-10 w-10 shrink-0 object-contain mix-blend-multiply" : `block h-auto max-w-full mix-blend-multiply ${className}`}
     />
   );
 }
