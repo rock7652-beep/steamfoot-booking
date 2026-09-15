@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { CourseRoster } from "./roster";
-import { formatTWTime } from "@/lib/date-utils";
+import { formatTWDateTime } from "@/lib/date-utils";
 type Row = {
   id: string;
   nameSnapshot: string;
@@ -47,8 +47,8 @@ export function CourseTodayList({
             {sessions.map((s) => (
               <tr key={s.id}>
                 <td className="whitespace-nowrap px-4 py-3">
-                  {formatTWTime(new Date(s.startsAt))}–
-                  {formatTWTime(new Date(s.endsAt))}
+                  {formatTWDateTime(new Date(s.startsAt)).slice(11)}–
+                  {formatTWDateTime(new Date(s.endsAt)).slice(11)}
                 </td>
                 <td className="px-4 py-3">
                   <button
