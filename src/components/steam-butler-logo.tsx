@@ -1,16 +1,18 @@
 import Image from "next/image";
 
-/** Use the approved originals without redrawing the mark or typesetting the wordmark. */
+/** Preserve the approved mark and original wordmark in every portal. */
 export function SteamButlerLogo({ className = "w-32", compact = false }: { className?: string; compact?: boolean }) {
   return (
-    <Image
-      src={compact ? "/pricing/brand/steam-butler-mark.png" : "/pricing/brand/steam-butler-logo.png"}
-      alt="蒸管家"
-      width={compact ? 1254 : 1920}
-      height={compact ? 1254 : 819}
-      unoptimized
-      loading="eager"
-      className={compact ? "block h-10 w-10 shrink-0 object-contain mix-blend-multiply" : `block h-auto max-w-full mix-blend-multiply ${className}`}
-    />
+    <span className={`relative block aspect-[3.45/1] shrink-0 overflow-hidden ${compact ? "w-32" : className}`}>
+      <Image
+        src="/pricing/brand/steam-butler-logo.png"
+        alt="蒸管家"
+        width={1920}
+        height={819}
+        unoptimized
+        loading="eager"
+        className="absolute left-[-10.5%] top-[-34%] h-auto w-[118%] max-w-none mix-blend-multiply"
+      />
+    </span>
   );
 }
