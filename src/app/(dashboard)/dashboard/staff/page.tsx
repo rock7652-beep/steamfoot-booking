@@ -36,6 +36,7 @@ export default async function StaffPage({
     getCurrentStorePlan(),
   ]);
   const canManage = canManagePermission && !adminMissingStore;
+  const isCourseStore = Boolean(activeStoreId && (await getStoreIndustryModule(activeStoreId)) === "course");
   const isSpaStore = Boolean(
     activeStoreId &&
     (await getStoreIndustryModule(activeStoreId)) === "spa",
@@ -161,7 +162,7 @@ export default async function StaffPage({
       <PageShell>
         <PageHeader
           title="人員管理"
-          subtitle="管理人員、專業項目、接客時段與休假例外"
+          subtitle={isCourseStore ? "管理教練與人員帳號；上課時間請至課表排程安排" : "管理人員、專業項目、接客時段與休假例外"}
         />
         {adminMissingStore ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -180,6 +181,7 @@ export default async function StaffPage({
               </div>
             ) : null}
             <StaffWorkspace
+              courseBasicOnly={isCourseStore}
               people={people}
               today={toLocalDateStr()}
               canManage={canManage}
