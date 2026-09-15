@@ -62,6 +62,12 @@ export default async function CoursesPage({
           isActive: true,
           capacity: true,
           details: true,
+          sessions: {
+            where: { cancelledAt: null, endsAt: { gte: new Date() } },
+            select: { nameSnapshot: true, startsAt: true },
+            orderBy: { startsAt: "asc" },
+            take: 20,
+          },
         },
         orderBy: { name: "asc" },
       }),
@@ -133,7 +139,10 @@ export default async function CoursesPage({
         view={view}
         selectedDate={selected}
         today={toLocalDateStr()}
-        rooms={rooms}
+        rooms={rooms.map(({ sessions: uses, ...room }) => ({
+          ...room,
+          uses: uses.map((u) => ({ ...u, startsAt: u.startsAt.toISOString() })),
+        }))}
         templates={templates}
         coaches={coaches}
         canCreate={writable}

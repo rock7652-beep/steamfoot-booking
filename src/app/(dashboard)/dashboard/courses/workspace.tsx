@@ -29,6 +29,7 @@ type Room = {
   isActive: boolean;
   capacity: number | null;
   details?: string;
+  uses?: { nameSnapshot: string; startsAt: string }[];
 };
 type Template = Omit<Room, "capacity"> & {
   durationMinutes: number;
@@ -125,7 +126,9 @@ export function CourseWorkspace({
           return;
         }
         setNotice(
-          item.isActive ? "已下架／隱藏；既有排課仍保留。" : "已恢復使用。",
+          item.isActive
+            ? `已下架／隱藏；既有排課仍保留。${item.uses?.length ? "仍使用此教室：" + item.uses.map((u) => `${formatTWDateTime(new Date(u.startsAt))} ${u.nameSnapshot}`).join("、") : ""}`
+            : "已恢復使用。",
         );
         router.refresh();
       } catch {
@@ -890,6 +893,7 @@ export function CourseWorkspace({
             )}
             {panel === "edit" && editing && canEdit && (
               <form
+                id="course-edit-form"
                 key={`${editing.kind}-${editing.value.id}`}
                 className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2"
                 onSubmit={(event) =>
@@ -1134,22 +1138,6 @@ export function CourseWorkspace({
                     </label>
                   </>
                 )}
-                <div className="sticky bottom-0 col-span-full flex gap-2 bg-white py-3">
-                  <button
-                    className={button}
-                    type="button"
-                    disabled={pending}
-                    onClick={() => {
-                      open(editing.kind === "session" ? "day" : null);
-                      setEditing(null);
-                    }}
-                  >
-                    取消修改
-                  </button>
-                  <button className={`${primary} flex-1`} disabled={pending}>
-                    {pending ? "儲存中…" : "儲存修改"}
-                  </button>
-                </div>
               </form>
             )}
             {panel === "schedule" && (
@@ -1360,11 +1348,12 @@ export function CourseWorkspace({
                             <button
                               type="button"
                               className={button}
-                              onClick={() =>
+                              onClick={() => {
+                                setSchedulePreview(null);
                                 setExtraDates((current) =>
                                   current.filter((_, i) => i !== index),
-                                )
-                              }
+                                );
+                              }}
                             >
                               移除
                             </button>
@@ -1374,9 +1363,10 @@ export function CourseWorkspace({
                           type="button"
                           className={button}
                           disabled={extraDates.length >= 52}
-                          onClick={() =>
-                            setExtraDates((current) => [...current, ""])
-                          }
+                          onClick={() => {
+                            setSchedulePreview(null);
+                            setExtraDates((current) => [...current, ""]);
+                          }}
                         >
                           ＋ 加入排課日期
                         </button>
@@ -1494,6 +1484,28 @@ export function CourseWorkspace({
                 }
               >
                 {pending ? "建立中…" : "確認建立排課"}
+              </button>
+            </footer>
+          )}
+          {panel === "edit" && editing && (
+            <footer className="flex shrink-0 gap-2 border-t bg-white p-4">
+              <button
+                className={button}
+                disabled={pending}
+                onClick={() => {
+                  open(editing.kind === "session" ? "day" : null);
+                  setEditing(null);
+                }}
+              >
+                取消修改
+              </button>
+              <button
+                form="course-edit-form"
+                type="submit"
+                className={`${primary} flex-1`}
+                disabled={pending}
+              >
+                儲存修改
               </button>
             </footer>
           )}

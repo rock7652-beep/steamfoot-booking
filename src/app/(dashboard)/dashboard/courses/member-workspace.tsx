@@ -9,6 +9,7 @@ import {
   assignCoursePointCard,
   setCourseCardMembers,
 } from "@/server/actions/course-members";
+import { saveCourseStaff } from "@/server/actions/course-staff";
 import type { getCourseCards } from "@/server/queries/course-members";
 
 type Person = { id: string; name: string; phone: string };
@@ -31,6 +32,8 @@ export function CourseMemberWorkspace({
   plans,
   cards,
   canEdit,
+  canCreate,
+  canManageStaff,
   canAssign,
 }: {
   view: "customers" | "plans";
@@ -38,6 +41,8 @@ export function CourseMemberWorkspace({
   plans: Plan[];
   cards: CourseCardView[];
   canEdit: boolean;
+  canCreate: boolean;
+  canManageStaff: boolean;
   canAssign: boolean;
 }) {
   const router = useRouter();
@@ -45,7 +50,7 @@ export function CourseMemberWorkspace({
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [panel, setPanel] = useState<
-    "person" | "plan" | "assign" | "card" | null
+    "person" | "plan" | "assign" | "card" | "coach" | null
   >(null);
   const [person, setPerson] = useState<Person | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -56,6 +61,8 @@ export function CourseMemberWorkspace({
   const [notice, setNotice] = useState("");
   const card = cards.find((c) => c.id === cardId);
   function open(value: typeof panel) {
+    if (value === "assign" && !plans.some((p) => p.id === planId && p.isActive))
+      setPlanId(plans.find((p) => p.isActive)?.id ?? "");
     setError("");
     setNotice("");
     setRequestKey(crypto.randomUUID());
@@ -115,7 +122,7 @@ export function CourseMemberWorkspace({
             <option value="inactive">下架</option>
           </select>
         )}
-        {canEdit && (
+        {canCreate && (
           <button
             className={button}
             onClick={() => {
@@ -190,6 +197,17 @@ export function CourseMemberWorkspace({
                           編輯
                         </button>
                       )}
+                      {canManageStaff && (
+                        <button
+                          className={button}
+                          onClick={() => {
+                            setPerson(p);
+                            open("coach");
+                          }}
+                        >
+                          加入為教練
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -261,7 +279,9 @@ export function CourseMemberWorkspace({
                   ? "點數方案"
                   : panel === "assign"
                     ? "指派方案"
-                    : "方案與共卡"}
+                    : panel === "coach"
+                      ? "加入為教練"
+                      : "方案與共卡"}
             </h2>
             <button
               type="button"
@@ -277,6 +297,26 @@ export function CourseMemberWorkspace({
               <p role="alert" className="mb-3 text-red-700">
                 {error}
               </p>
+            )}
+            {panel === "coach" && person && (
+              <form
+                id="course-member-form"
+                onSubmit={(e) =>
+                  submit(e, () =>
+                    saveCourseStaff({
+                      name: person.name,
+                      kind: "coach",
+                      customerId: person.id,
+                      requestKey,
+                    }),
+                  )
+                }
+              >
+                <p>
+                  {person.name}{" "}
+                  將使用已綁定的會員帳號存取「我的工作」，不建立後台密碼。
+                </p>
+              </form>
             )}
             {panel === "person" && (
               <form

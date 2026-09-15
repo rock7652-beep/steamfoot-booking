@@ -36,28 +36,37 @@ export async function CourseMemberPage({
     user.staffId,
     "customer.read",
   );
-  const [people, plans, cards, canEdit, canAssign] = await Promise.all([
-    canReadPeople
-      ? prisma.customer.findMany({
-          where: { storeId, mergedIntoCustomerId: null },
-          select: { id: true, name: true, phone: true },
-          orderBy: { name: "asc" },
-        })
-      : [],
-    canReadCards
-      ? coursePrisma.coursePointPlan.findMany({
-          where: { storeId },
-          orderBy: { name: "asc" },
-        })
-      : [],
-    canReadCards ? getCourseCards(storeId) : [],
-    checkPermission(
-      user.role,
-      user.staffId,
-      view === "customers" ? "customer.update" : "plans.edit",
-    ),
-    checkPermission(user.role, user.staffId, "wallet.create"),
-  ]);
+  const [people, plans, cards, canEdit, canAssign, canCreate, canManageStaff] =
+    await Promise.all([
+      canReadPeople
+        ? prisma.customer.findMany({
+            where: { storeId, mergedIntoCustomerId: null },
+            select: { id: true, name: true, phone: true },
+            orderBy: { name: "asc" },
+          })
+        : [],
+      canReadCards
+        ? coursePrisma.coursePointPlan.findMany({
+            where: { storeId },
+            orderBy: { name: "asc" },
+          })
+        : [],
+      canReadCards ? getCourseCards(storeId) : [],
+      checkPermission(
+        user.role,
+        user.staffId,
+        view === "customers" ? "customer.update" : "plans.edit",
+      ),
+      checkPermission(user.role, user.staffId, "wallet.create"),
+      checkPermission(
+        user.role,
+        user.staffId,
+        view === "customers" ? "customer.create" : "plans.edit",
+      ),
+      user.role === "OWNER"
+        ? checkPermission(user.role, user.staffId, "staff.manage")
+        : false,
+    ]);
   return (
     <PageShell>
       <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} />
@@ -67,6 +76,8 @@ export async function CourseMemberPage({
         plans={plans}
         cards={cards}
         canEdit={canEdit}
+        canCreate={canCreate}
+        canManageStaff={canManageStaff}
         canAssign={canAssign && canReadCards && canReadPeople}
       />
     </PageShell>

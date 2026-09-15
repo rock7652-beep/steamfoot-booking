@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  bookings: vi.fn(),
   permission: vi.fn(),
   store: vi.fn(),
   module: vi.fn(),
@@ -31,7 +32,7 @@ vi.mock("@/lib/course-db", () => ({
           createMany: mocks.create,
           update: mocks.update,
         },
-        courseBooking: { findMany: async () => [] },
+        courseBooking: { findMany: mocks.bookings },
         courseTemplate: { findFirst: mocks.template, updateMany: mocks.catalogUpdate },
         courseRoom: { findFirst: mocks.room, updateMany: mocks.catalogUpdate },
       }),
@@ -52,6 +53,7 @@ const input = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.bookings.mockResolvedValue([]);
   mocks.permission.mockResolvedValue({ id: "owner-a" });
   mocks.store.mockResolvedValue("store-a");
   mocks.module.mockResolvedValue(undefined);
@@ -75,6 +77,14 @@ describe("course editing", () => {
   it("preserves the original session when a new time conflicts", async () => {
     mocks.conflict.mockResolvedValueOnce({ id: "session-a" }).mockResolvedValueOnce({ startsAt: new Date("2026-09-22T10:00:00Z"), roomId: "room-a" });
     expect(await updateCourseSession(edit)).toMatchObject({ success: false, error: expect.stringContaining("尚未儲存修改") });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it("preserves completed attendance history and card expiry on rescheduling", async () => {
+    mocks.conflict.mockResolvedValue({id: "session-a", pointCost: 3});
+    mocks.bookings.mockResolvedValue([{status: "ATTENDED", card: {expiresAt: new Date("2027-01-01")}}]);
+    expect(await updateCourseSession(edit)).toMatchObject({success: false, error: expect.stringContaining("已完成點名")});
+    mocks.bookings.mockResolvedValue([{status: "RESERVED", card: {expiresAt: new Date("2026-09-21")}}]);
+    expect(await updateCourseSession(edit)).toMatchObject({success: false, error: expect.stringContaining("方案期限")});
     expect(mocks.update).not.toHaveBeenCalled();
   });
   it("rejects foreign sessions and invalid capacity", async () => {

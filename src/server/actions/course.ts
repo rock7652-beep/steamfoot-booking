@@ -123,7 +123,18 @@ export async function updateCourseSession(input: unknown) {
             sessionId: session.id,
             status: { not: "CANCELLED" },
           },
+          include: { card: { select: { expiresAt: true } } },
         });
+        if (bookings.some((b) => b.status === "ATTENDED"))
+          throw new AppError(
+            "CONFLICT",
+            "已完成點名的課程保留歷史，不可修改排課",
+          );
+        if (bookings.some((b) => b.card.expiresAt < range.startsAt))
+          throw new AppError(
+            "CONFLICT",
+            "新日期超過已預約方案期限，尚未修改排課",
+          );
         if (data.capacity < bookings.length)
           throw new AppError("CONFLICT", "人數上限不能少於已預約人數");
         if (bookings.length && data.pointCost !== session.pointCost)
@@ -458,7 +469,12 @@ export async function updateCourseSeries(input: unknown) {
             startsAt: { gte: source.startsAt },
             cancelledAt: null,
           },
-          include: { bookings: { where: { status: { not: "CANCELLED" } } } },
+          include: {
+            bookings: {
+              where: { status: { not: "CANCELLED" } },
+              include: { card: { select: { expiresAt: true } } },
+            },
+          },
           orderBy: { startsAt: "asc" },
         }),
       ]);
@@ -473,6 +489,17 @@ export async function updateCourseSeries(input: unknown) {
         ),
       }));
       for (const change of changes) {
+        if (change.session.bookings.some((b) => b.status === "ATTENDED"))
+          throw new AppError("CONFLICT", "包含已完成點名的課程，整批尚未修改");
+        if (
+          change.session.bookings.some(
+            (b) => b.card.expiresAt < change.startsAt,
+          )
+        )
+          throw new AppError(
+            "CONFLICT",
+            "新日期超過已預約方案期限，整批尚未修改",
+          );
         if (
           change.session.bookings.length > d.capacity ||
           (change.session.bookings.length &&

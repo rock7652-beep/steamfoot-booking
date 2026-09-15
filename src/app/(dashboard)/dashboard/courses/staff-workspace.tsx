@@ -25,7 +25,10 @@ export function CourseStaffWorkspace({
   staff: Person[];
   customers: { id: string; name: string }[];
   canManage: boolean;
-  permissionGroups: { label: string; codes: { code: string; label: string }[] }[];
+  permissionGroups: {
+    label: string;
+    codes: { code: string; label: string }[];
+  }[];
 }) {
   const [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
@@ -276,7 +279,7 @@ export function CourseStaffWorkspace({
                   {permissionGroups.map((g) => (
                     <fieldset key={g.label} className="mt-3">
                       <legend className="font-medium">{g.label}</legend>
-                      {g.codes.map(({code, label}) => (
+                      {g.codes.map(({ code, label }) => (
                         <label
                           key={code}
                           className="flex min-h-11 items-center gap-2 text-sm"
@@ -286,9 +289,7 @@ export function CourseStaffWorkspace({
                             name="permission"
                             value={code}
                             defaultChecked={
-                              person
-                                ? person.permissions.includes(code)
-                                : true
+                              person ? person.permissions.includes(code) : true
                             }
                           />
                           {label}
