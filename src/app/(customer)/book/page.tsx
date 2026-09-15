@@ -1,3 +1,4 @@
+import { CoursePortal } from "./course-portal";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { getStoreContext } from "@/lib/store-context";
@@ -66,6 +67,8 @@ export default async function CustomerHomePage() {
   const industryModule = storeId
     ? await getStoreIndustryModule(storeId)
     : "steamfoot";
+
+  if (industryModule === "course") return <CoursePortal />;
 
   if (industryModule === "spa") {
     const [entitlements, bookings] = await Promise.all([

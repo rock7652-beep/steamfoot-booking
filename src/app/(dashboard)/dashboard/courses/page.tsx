@@ -1,3 +1,4 @@
+import { CourseMemberPage } from "./member-page";
 import { redirect } from "next/navigation";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { getCurrentUser } from "@/lib/session";
@@ -21,7 +22,14 @@ export default async function CoursesPage({
   searchParams: Promise<{ date?: string; view?: string; month?: string }>;
 }) {
   const query = await searchParams;
-  if (query.view === "settings" || query.view === "operations" || query.view === "analytics") return <CourseSharedHub view={query.view} month={query.month} />;
+  if (query.view === "customers" || query.view === "plans")
+    return <CourseMemberPage view={query.view} />;
+  if (
+    query.view === "settings" ||
+    query.view === "operations" ||
+    query.view === "analytics"
+  )
+    return <CourseSharedHub view={query.view} month={query.month} />;
   const user = await getCurrentUser();
   if (
     !user ||
@@ -47,7 +55,14 @@ export default async function CoursesPage({
     await Promise.all([
       coursePrisma.courseRoom.findMany({
         where: { storeId },
-        select: { id: true, name: true, category: true, isActive: true },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          isActive: true,
+          capacity: true,
+          details: true,
+        },
         orderBy: { name: "asc" },
       }),
       coursePrisma.courseTemplate.findMany({
@@ -61,6 +76,8 @@ export default async function CoursesPage({
           capacity: true,
           pointCost: true,
           defaultRoomId: true,
+          description: true,
+          precautions: true,
         },
         orderBy: { name: "asc" },
       }),

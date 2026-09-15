@@ -1,3 +1,4 @@
+import { CourseStaffPage } from "../courses/staff-page";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 import { listStaff } from "@/server/queries/staff";
 import { createStaff } from "@/server/actions/staff";
@@ -28,6 +29,7 @@ export default async function StaffPage({
   if (!(await checkPermission(user.role, user.staffId, "staff.view"))) notFound();
 
   const activeStoreId = await getActiveStoreForRead(user);
+  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") return <CourseStaffPage />;
   const adminMissingStore = user.role === "ADMIN"
     && !activeStoreId;
   const [canManagePermission, staffList, plan] = await Promise.all([

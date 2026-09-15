@@ -57,3 +57,8 @@ audit-*.csv
 *-backfill-*.csv
 plan-amortization-*.csv
 wallet-review-*.csv
+
+# Isolated course acceptance environment
+.env.course-preview
+
+/supabase/.temp/

@@ -31,6 +31,7 @@ vi.mock("@/lib/course-db", () => ({
           createMany: mocks.create,
           update: mocks.update,
         },
+        courseBooking: { findMany: async () => [] },
         courseTemplate: { findFirst: mocks.template, updateMany: mocks.catalogUpdate },
         courseRoom: { findFirst: mocks.room, updateMany: mocks.catalogUpdate },
       }),

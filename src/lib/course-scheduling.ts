@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   generateWeeklyDateStrings,
+  addTaiwanDuration,
   parseTaipeiDateTime,
 } from "@/lib/date-utils";
 
@@ -11,7 +12,9 @@ const date = z
 export const courseTemplateInput = z.object({
   name: z.string().trim().min(1, "請填寫課程名稱").max(80),
   category: z.string().trim().max(40).default(""),
-  defaultRoomId: id,
+  defaultRoomId: id.nullable().default(null),
+  description: z.string().trim().max(5000).default(""),
+  precautions: z.string().trim().max(5000).default(""),
   durationMinutes: z.number().int().min(1).max(480),
   pointCost: z.number().int().min(1).max(10000),
   capacity: z.number().int().min(1).max(500),
@@ -25,6 +28,7 @@ export const courseScheduleInput = z.object({
   durationMinutes: z.number().int().min(1).max(480),
   capacity: z.number().int().min(1).max(500),
   repeatUntil: date.optional(),
+  weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
   additionalDates: z.array(date).max(52).optional(),
   requestKey: z.string().uuid(),
 });
@@ -36,7 +40,7 @@ export function buildCourseOccurrences(input: CourseScheduleInput) {
     throw new Error("結束日期不能早於開始日期");
   if (parsed.repeatUntil && parsed.additionalDates?.length)
     throw new Error("請選擇每週重複或指定日期其中一種方式");
-  const dates = parsed.repeatUntil
+  let dates = parsed.repeatUntil
     ? generateWeeklyDateStrings(parsed.date, 53).filter(
         (day) => day <= parsed.repeatUntil!,
       )
@@ -44,6 +48,17 @@ export function buildCourseOccurrences(input: CourseScheduleInput) {
   const maxDate = generateWeeklyDateStrings(parsed.date, 53)[52];
   if (parsed.repeatUntil && parsed.repeatUntil > maxDate)
     throw new Error("一次最多安排 53 週課程");
+  if (parsed.repeatUntil && parsed.weekdays) {
+    dates = Array.from({ length: 365 }, (_, i) =>
+      addTaiwanDuration(parsed.date, i, "DAY"),
+    ).filter(
+      (day) =>
+        day <= parsed.repeatUntil! &&
+        parsed.weekdays!.includes(new Date(`${day}T12:00:00Z`).getUTCDay()),
+    );
+    if (!dates.length) throw new Error("指定期間沒有符合星期的日期");
+    if (dates.length > 53) throw new Error("一次最多安排 53 堂課程");
+  }
   return dates.map((day) => {
     const startsAt = parseTaipeiDateTime(day, parsed.time)!;
     return {

@@ -1,3 +1,4 @@
+import { CourseSettingsEditor } from "./settings-editor";
 import { CourseMonthPicker } from "./month-picker";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
@@ -50,28 +51,21 @@ export async function CourseSharedHub({
     view === "settings" ? "店家基本資訊" : "以已排定的課程資料了解排課狀況";
   let body: React.ReactNode;
   if (view === "settings") {
-    const [store] = await Promise.all([
+    const [store, rule, canEdit] = await Promise.all([
       prisma.store.findUnique({
         where: { id: storeId },
-        select: { name: true, slug: true },
+        select: { name: true },
       }),
+      coursePrisma.courseBookingRule.findUnique({ where: { storeId } }),
+      checkPermission(user.role, user.staffId, "business_hours.manage"),
     ]);
     body = (
-      <>
-        <section className={card}>
-          <h2 className="text-sm font-medium text-earth-500">目前店家</h2>
-          <p className="mt-2 text-xl font-semibold text-primary-900">
-            {store?.name}
-          </p>
-          <p className="mt-1 text-sm text-earth-500">店家代碼：{store?.slug}</p>
-          <p className="mt-3 text-xs text-earth-500">
-            目前提供資訊核對；店家資料編輯尚未接入。
-          </p>
-        </section>
-        <Pending>
-          顧客預約／取消規則與課程通知仍待報名流程接通；這裡不套用蒸足的時段與扣堂設定。
-        </Pending>
-      </>
+      <CourseSettingsEditor
+        name={store?.name ?? ""}
+        bookingLeadMinutes={rule?.bookingLeadMinutes ?? 0}
+        cancellationLeadMinutes={rule?.cancellationLeadMinutes ?? 0}
+        canEdit={canEdit}
+      />
     );
   } else if (!(await hasCurrentStoreFeature(FEATURES.BASIC_REPORTS))) {
     body = (
@@ -100,7 +94,12 @@ export async function CourseSharedHub({
           cancelledAt: null,
           startsAt: { gte: bounds.start, lte: bounds.end },
         },
-        select: { coachId: true, startsAt: true, endsAt: true },
+        select: {
+          coachId: true,
+          startsAt: true,
+          endsAt: true,
+          bookings: { select: { status: true } },
+        },
       }),
       prisma.staff.findMany({
         where: { storeId },
@@ -123,6 +122,20 @@ export async function CourseSharedHub({
         <div className="grid grid-cols-3 overflow-hidden rounded-lg border border-earth-200 bg-white">
           {[
             ["已排課堂數", sessions.length, "堂"],
+            [
+              "預約人數",
+              sessions
+                .flatMap((s) => s.bookings)
+                .filter((b) => b.status !== "CANCELLED").length,
+              "人",
+            ],
+            [
+              "已出席人數",
+              sessions
+                .flatMap((s) => s.bookings)
+                .filter((b) => b.status === "ATTENDED").length,
+              "人",
+            ],
             ["排定授課時數", Math.round((minutes / 60) * 10) / 10, "小時"],
             ["排課教練", counts.size, "位"],
           ].map(([label, value, unit]) => (
@@ -164,7 +177,7 @@ export async function CourseSharedHub({
           )}
         </section>
         <Pending>
-          報名人數、滿班率、出席率、熱門課程與實收營收尚無完整資料，暫不顯示。
+          預約與出席依本月課程的實際紀錄計算，已取消預約不計入預約人數。
         </Pending>
       </>
     );

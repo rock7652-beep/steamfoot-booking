@@ -1,0 +1,66 @@
+import "server-only";
+import { coursePrisma } from "@/lib/course-db";
+import { prisma } from "@/lib/db";
+
+export async function getCourseCards(storeId: string, customerId?: string) {
+  const cards = await coursePrisma.coursePointCard.findMany({
+    where: {
+      storeId,
+      ...(customerId ? { members: { some: { customerId } } } : {}),
+    },
+    include: {
+      members: true,
+      bookings: { where: { status: "RESERVED" }, select: { pointCost: true } },
+      entries: { orderBy: { createdAt: "desc" }, take: 100 },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  const people = await prisma.customer.findMany({
+    where: {
+      storeId,
+      id: {
+        in: [
+          ...new Set(cards.flatMap((c) => c.members.map((m) => m.customerId))),
+        ],
+      },
+    },
+    select: { id: true, name: true },
+  });
+  return cards.map((c) => {
+    const held = c.bookings.reduce((sum, b) => sum + b.pointCost, 0);
+    return {
+      id: c.id,
+      name: c.nameSnapshot,
+      remaining: c.remaining,
+      held,
+      available: c.remaining - held,
+      expiresAt: c.expiresAt.toISOString(),
+      members: c.members.map((m) => ({
+        id: m.customerId,
+        name: people.find((p) => p.id === m.customerId)?.name ?? "學員",
+      })),
+      entries: c.entries.map((e) => ({
+        id: e.id,
+        kind: e.kind,
+        points: e.points,
+        createdAt: e.createdAt.toISOString(),
+      })),
+    };
+  });
+}
+
+export async function getCourseRoster(storeId: string, sessionId: string) {
+  return coursePrisma.courseBooking.findMany({
+    where: { storeId, sessionId },
+    select: {
+      id: true,
+      customerId: true,
+      operatorCustomerId: true,
+      operatorName: true,
+      customerName: true,
+      status: true,
+      pointCost: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}

@@ -15,6 +15,8 @@ model CourseRoom {
   id        String @id @default(cuid())
   storeId   String
   name      String
+  capacity Int?
+  details String @default("")
   category  String @default("")
   isActive  Boolean @default(true)
   createdAt DateTime @default(now())
@@ -32,12 +34,14 @@ model CourseTemplate {
   durationMinutes Int
   pointCost       Int
   capacity        Int
-  defaultRoomId   String
+  defaultRoomId   String?
+  description String @default("")
+  precautions String @default("")
   category        String @default("")
   isActive        Boolean @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  defaultRoom     CourseRoom @relation(fields: [defaultRoomId, storeId], references: [id, storeId])
+  defaultRoom     CourseRoom? @relation(fields: [defaultRoomId, storeId], references: [id, storeId])
   sessions        CourseSession[]
 
   @@unique([id, storeId])
@@ -60,6 +64,7 @@ model CourseSession {
   requestIndex   Int
   createdById    String
   createdAt      DateTime @default(now())
+  bookings       CourseBooking[]
   template       CourseTemplate @relation(fields: [templateId, storeId], references: [id, storeId])
   room           CourseRoom @relation(fields: [roomId, storeId], references: [id, storeId])
 
@@ -68,4 +73,89 @@ model CourseSession {
   @@index([storeId, startsAt])
   @@index([storeId, coachId, startsAt])
   @@index([storeId, roomId, startsAt])
+}
+
+model CoursePointPlan {
+  id String @id @default(cuid())
+  storeId String
+  name String
+  points Int
+  price Int @default(0)
+  validDays Int
+  isActive Boolean @default(true)
+  cards CoursePointCard[]
+  @@unique([id, storeId])
+  @@unique([storeId, name])
+}
+
+model CoursePointCard {
+  id String @id @default(cuid())
+  storeId String
+  planId String
+  nameSnapshot String
+  remaining Int
+  expiresAt DateTime @db.Timestamptz(3)
+  requestKey String
+  createdAt DateTime @default(now())
+  plan CoursePointPlan @relation(fields: [planId, storeId], references: [id, storeId])
+  members CourseCardMember[]
+  bookings CourseBooking[]
+  entries CoursePointEntry[]
+  @@unique([id, storeId])
+  @@unique([storeId, requestKey])
+}
+
+model CourseCardMember {
+  cardId String
+  storeId String
+  customerId String
+  card CoursePointCard @relation(fields: [cardId, storeId], references: [id, storeId])
+  @@id([cardId, customerId])
+  @@index([storeId, customerId])
+}
+
+model CourseBooking {
+  id String @id @default(cuid())
+  storeId String
+  sessionId String
+  cardId String
+  customerId String
+  operatorUserId String
+  operatorCustomerId String?
+  operatorName String
+  customerName String
+  pointCost Int
+  status String @default("RESERVED")
+  requestKey String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  card CoursePointCard @relation(fields: [cardId, storeId], references: [id, storeId])
+  session CourseSession @relation(fields: [sessionId, storeId], references: [id, storeId])
+  entries CoursePointEntry[]
+  @@unique([id, storeId])
+  @@unique([storeId, requestKey])
+  @@index([storeId, sessionId, status])
+  @@index([storeId, cardId, status])
+}
+
+model CoursePointEntry {
+  id String @id @default(cuid())
+  storeId String
+  cardId String
+  bookingId String?
+  kind String
+  points Int
+  actorUserId String
+  createdAt DateTime @default(now())
+  card CoursePointCard @relation(fields: [cardId, storeId], references: [id, storeId])
+  booking CourseBooking? @relation(fields: [bookingId, storeId], references: [id, storeId])
+  @@unique([bookingId, kind])
+  @@index([storeId, cardId, createdAt])
+}
+
+model CourseBookingRule {
+  storeId String @id
+  bookingLeadMinutes Int @default(0)
+  cancellationLeadMinutes Int @default(0)
+  @@map("CourseBookingRule")
 }

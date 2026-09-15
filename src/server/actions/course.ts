@@ -31,11 +31,18 @@ export async function updateCourseRoom(input: unknown) {
         id: z.string().min(1),
         name: z.string().trim().min(1, "請填寫教室名稱").max(80),
         category: z.string().trim().max(40).default(""),
+        capacity: z.number().int().min(1).max(500).nullable().default(null),
+        details: z.string().trim().max(5000).default(""),
       })
       .parse(input);
     const result = await coursePrisma.courseRoom.updateMany({
       where: { id: data.id, storeId },
-      data: { name: data.name, category: data.category },
+      data: {
+        name: data.name,
+        category: data.category,
+        capacity: data.capacity,
+        details: data.details,
+      },
     });
     if (!result.count)
       throw new AppError("VALIDATION", "找不到本店教室，請重新整理");
@@ -53,10 +60,13 @@ export async function updateCourseTemplate(input: unknown) {
     const { id, ...data } = courseTemplateInput
       .extend({ id: z.string().min(1) })
       .parse(input);
-    const room = await coursePrisma.courseRoom.findFirst({
-      where: { id: data.defaultRoomId, storeId, isActive: true },
-    });
-    if (!room) throw new AppError("VALIDATION", "請選擇本店可使用的教室");
+    const room = data.defaultRoomId
+      ? await coursePrisma.courseRoom.findFirst({
+          where: { id: data.defaultRoomId, storeId, isActive: true },
+        })
+      : null;
+    if (data.defaultRoomId && !room)
+      throw new AppError("VALIDATION", "請選擇本店可使用的教室");
     const result = await coursePrisma.courseTemplate.updateMany({
       where: { id, storeId },
       data,
@@ -107,6 +117,20 @@ export async function updateCourseSession(input: unknown) {
         ]);
         if (!session || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的排課、教室與教練");
+        const bookings = await tx.courseBooking.findMany({
+          where: {
+            storeId,
+            sessionId: session.id,
+            status: { not: "CANCELLED" },
+          },
+        });
+        if (data.capacity < bookings.length)
+          throw new AppError("CONFLICT", "人數上限不能少於已預約人數");
+        if (bookings.length && data.pointCost !== session.pointCost)
+          throw new AppError(
+            "CONFLICT",
+            "已有預約不能改動每人點數，請先處理預約",
+          );
         const conflict = await tx.courseSession.findFirst({
           where: {
             storeId,
@@ -148,14 +172,16 @@ export async function updateCourseSession(input: unknown) {
 export async function createCourseRoom(input: unknown) {
   try {
     const { storeId } = await writableStore();
-    const { name, category } = z
+    const { name, category, capacity, details } = z
       .object({
         name: z.string().trim().min(1, "請填寫教室名稱").max(80),
         category: z.string().trim().max(40).default(""),
+        capacity: z.number().int().min(1).max(500).nullable().default(null),
+        details: z.string().trim().max(5000).default(""),
       })
       .parse(typeof input === "string" ? { name: input } : input);
     const room = await coursePrisma.courseRoom.create({
-      data: { name, category, storeId },
+      data: { name, category, capacity, details, storeId },
       select: { id: true, name: true },
     });
     revalidatePath("/dashboard/courses");
@@ -169,11 +195,14 @@ export async function createCourseTemplate(input: unknown) {
   try {
     const { storeId } = await writableStore();
     const data = courseTemplateInput.parse(input);
-    const room = await coursePrisma.courseRoom.findFirst({
-      where: { id: data.defaultRoomId, storeId, isActive: true },
-      select: { id: true },
-    });
-    if (!room) throw new AppError("VALIDATION", "請選擇本店可使用的教室");
+    const room = data.defaultRoomId
+      ? await coursePrisma.courseRoom.findFirst({
+          where: { id: data.defaultRoomId, storeId, isActive: true },
+          select: { id: true },
+        })
+      : null;
+    if (data.defaultRoomId && !room)
+      throw new AppError("VALIDATION", "請選擇本店可使用的教室");
     await coursePrisma.courseTemplate.create({ data: { ...data, storeId } });
     revalidatePath("/dashboard/courses");
     return { success: true as const };
@@ -341,5 +370,167 @@ export async function setCourseCatalogStatus(input: unknown) {
     return { success: true as const };
   } catch (error) {
     return handleActionError(error);
+  }
+}
+
+export async function previewCourseSchedule(input: unknown) {
+  try {
+    const { storeId } = await writableStore();
+    const d = courseScheduleInput.parse(input);
+    const dates = buildCourseOccurrences(d);
+    const [conflicts, room] = await Promise.all([
+      coursePrisma.courseSession.findMany({
+        where: {
+          storeId,
+          cancelledAt: null,
+          AND: [
+            { OR: [{ roomId: d.roomId }, { coachId: d.coachId }] },
+            {
+              OR: dates.map((r) => ({
+                startsAt: { lt: r.endsAt },
+                endsAt: { gt: r.startsAt },
+              })),
+            },
+          ],
+        },
+        select: { startsAt: true, endsAt: true, roomId: true },
+      }),
+      coursePrisma.courseRoom.findFirst({
+        where: { id: d.roomId, storeId },
+        select: { capacity: true },
+      }),
+    ]);
+    return {
+      success: true as const,
+      data: {
+        dates: dates.map((r) => ({
+          startsAt: r.startsAt.toISOString(),
+          conflict: conflicts.some(
+            (c) => c.startsAt < r.endsAt && c.endsAt > r.startsAt,
+          ),
+        })),
+        capacityWarning:
+          room?.capacity && d.capacity > room.capacity
+            ? `排課 ${d.capacity} 人超過教室容納 ${room.capacity} 人，請確認容量`
+            : null,
+      },
+    };
+  } catch (e) {
+    return handleActionError(e);
+  }
+}
+
+export async function updateCourseSeries(input: unknown) {
+  try {
+    const { storeId } = await writableStore("booking.update");
+    const d = courseScheduleInput
+      .omit({ templateId: true, requestKey: true, repeatUntil: true })
+      .extend({
+        id: z.string().min(1),
+        nameSnapshot: z.string().trim().min(1).max(80),
+        pointCost: z.number().int().min(1).max(10000),
+      })
+      .parse(input);
+    const [range] = buildCourseOccurrences({
+      ...d,
+      additionalDates: undefined,
+      templateId: "series",
+      requestKey: "00000000-0000-4000-8000-000000000000",
+    });
+    const { courseTransaction } =
+      await import("@/server/services/course-access");
+    await courseTransaction(storeId, async (tx) => {
+      const source = await tx.courseSession.findFirst({
+        where: { id: d.id, storeId, cancelledAt: null },
+      });
+      if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
+      const [room, coaches, sessions] = await Promise.all([
+        tx.courseRoom.findFirst({
+          where: { id: d.roomId, storeId, isActive: true },
+        }),
+        tx.$queryRaw<
+          Array<{ id: string }>
+        >`SELECT id FROM "Staff" WHERE id = ${d.coachId} AND "storeId" = ${storeId} AND status::text = 'ACTIVE'`,
+        tx.courseSession.findMany({
+          where: {
+            storeId,
+            requestKey: source.requestKey,
+            startsAt: { gte: source.startsAt },
+            cancelledAt: null,
+          },
+          include: { bookings: { where: { status: { not: "CANCELLED" } } } },
+          orderBy: { startsAt: "asc" },
+        }),
+      ]);
+      if (!room || !coaches.length)
+        throw new AppError("VALIDATION", "請選擇本店啟用的教室與教練");
+      const shift = range.startsAt.getTime() - source.startsAt.getTime();
+      const changes = sessions.map((s) => ({
+        session: s,
+        startsAt: new Date(s.startsAt.getTime() + shift),
+        endsAt: new Date(
+          s.startsAt.getTime() + shift + d.durationMinutes * 60000,
+        ),
+      }));
+      for (const change of changes) {
+        if (
+          change.session.bookings.length > d.capacity ||
+          (change.session.bookings.length &&
+            change.session.pointCost !== d.pointCost)
+        )
+          throw new AppError(
+            "CONFLICT",
+            "後續課程已有預約，容量或點數修改不適用；整批尚未修改",
+          );
+        const conflict = await tx.courseSession.findFirst({
+          where: {
+            storeId,
+            id: { notIn: sessions.map((s) => s.id) },
+            cancelledAt: null,
+            startsAt: { lt: change.endsAt },
+            endsAt: { gt: change.startsAt },
+            OR: [{ roomId: d.roomId }, { coachId: d.coachId }],
+          },
+        });
+        if (
+          conflict ||
+          changes.some(
+            (other) =>
+              other !== change &&
+              other.startsAt < change.endsAt &&
+              other.endsAt > change.startsAt,
+          )
+        )
+          throw new AppError(
+            "CONFLICT",
+            `${formatTWDateTime(change.startsAt)} 撞期，整批尚未修改`,
+          );
+      }
+      // Exclusion constraints are immediate. Temporarily release only these
+      // rows inside the same transaction; other writers use the store lock.
+      await tx.courseSession.updateMany({
+        where: { storeId, id: { in: sessions.map((s) => s.id) } },
+        data: { cancelledAt: new Date() },
+      });
+      for (const c of changes)
+        await tx.courseSession.update({
+          where: { id: c.session.id },
+          data: {
+            startsAt: c.startsAt,
+            endsAt: c.endsAt,
+            roomId: d.roomId,
+            coachId: d.coachId,
+            pointCost: d.pointCost,
+            capacity: d.capacity,
+            nameSnapshot: d.nameSnapshot,
+            cancelledAt: null,
+          },
+        });
+    });
+    revalidatePath("/dashboard/courses");
+    revalidatePath("/book");
+    return { success: true as const };
+  } catch (e) {
+    return handleActionError(e);
   }
 }
