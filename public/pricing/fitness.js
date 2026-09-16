@@ -9,11 +9,10 @@
   const categories = [
     ['student', '學員預約與上課', ['預約、改期都靠訊息，回覆很花時間', '學員常問剩幾堂、什麼時候到期', '臨時取消、沒到或補課，不好處理', '其他學員相關困擾']],
     ['coach', '教練排課與點名', ['排課、調課、找代課很花時間', '點名、請假紀錄容易漏掉', '教練上課堂數、鐘點費不好核對', '其他教練相關困擾']],
-    ['operations', '店務與收款', ['預約、扣堂、收款要重複登記', '教室、器材或教練時段容易撞期', '學員資料、繳費紀錄散在不同地方', '其他店務相關困擾']],
+    ['operations', '店務與收款', ['預約、扣堂、收款要重複登記', '教室、器材或教練時段容易撞期', '學員資料、繳費紀錄散在不同地方', '想換系統，但擔心學員資料、剩餘堂數和預約不好搬過來', '各店資料分散，想看整體狀況得分別查詢或整理', '其他店務相關困擾']],
     ['business', '招生與續報', ['不清楚新學員從哪裡來', '不清楚體驗預約、實際到場、體驗後買課各有多少人', '體驗後沒買課，常忘記跟進', '學員快到期或很久沒來，常忘記關心', '知道招生或續報不理想，但不知道怎麼改善', '其他招生或續報困擾']],
   ];
   const options = {
-    courseTypes: ['瑜珈', '墊上皮拉提斯', '器械皮拉提斯', '肌力／重量訓練', '有氧／舞蹈', '拳擊／拳擊有氧', 'TRX／懸吊訓練', '伸展／活動度', '其他課程'],
     classModes: ['團課，每堂自由預約', '固定班級，每週固定上課', '私人課，一對一或小班', '其他上課方式', '尚未確定'],
     management: ['LINE／社群訊息', '紙本／手寫', 'Excel／Google 試算表', '管理系統', '其他方式', '尚未確定'],
   };
@@ -137,6 +136,7 @@
       if (data.needs.length > 1 && !data.priorityNeed) return showError('請選出最想先解決的一件事。', form.querySelector('[name="priorityNeed"]'));
     }
     if (index === 1) {
+      if (!data.storeCount) return showError('請選擇目前的店／教室據點數。', $('storeCount'));
       for (const [name, title] of [['classModes', '上課方式'], ['management', '管理方式']]) {
         if (!data[name].length) return showError('請選擇' + title + '，尚未決定可選「尚未確定」。', form.querySelector('[name="' + name + '"]'));
       }
@@ -169,14 +169,14 @@
       ['最優先改善', primary || '尚未確定'],
       // Keep priority and category-specific Other answers visible in the existing Sheets view.
       ['目前流程與困擾', ['最優先：' + (primary || '尚未確定'), supplement].filter(Boolean).join('；')],
-      ['課程', serialized('courseTypes', data)],
+      ['空間與分店補充', '據點數：' + data.storeCount],
       ['上課方式', serialized('classModes', data)],
       ['管理與資料來源', serialized('management', data)],
       ['聯繫意願', data.contactWay === noContact ? '只分享需求，不需聯絡' : data.contactWay],
     ];
     const otherNeed = ['【運動教室需求與體驗意願】', ...lines.filter(([, value]) => value).map(([label, value]) => label + '：' + value)].join('\n');
     return {
-      requestId, formVersion: 'fitness-v2', storeName: data.storeName.trim(),
+      requestId, formVersion: 'fitness-v2', storeName: data.storeName.trim(), storeCount: data.storeCount,
       contactName: (data.contactName || '').trim(), phone: (data.phone || '').trim(), lineId: (data.lineId || '').trim(),
       industry: '運動教室／健身／瑜伽', hasSystem: data.management.includes('管理系統') ? '有' : data.management.includes('尚未確定') ? '尚未確定' : '沒有',
       systemName: data.systemName || '', needs: data.needs, priorityNeed: primary, replaceReason: [], otherNeed,

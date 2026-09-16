@@ -38,7 +38,7 @@
 <section data-step="1" aria-labelledby="classesTitle" hidden>
 <h2 id="classesTitle" tabindex="-1"><span class="num">02</span>教室怎麼運作？</h2>
 <p class="why">還在籌備也沒關係，依預計的方式填寫即可。</p>
-<fieldset><legend>4．有哪些課程？ <span class="optional">選填，可複選</span></legend><div class="choices" id="courseTypes"></div></fieldset>
+<div class="field"><label for="storeCount">4．目前有幾家店／教室據點？ <span class="optional">必填，單選</span></label><select id="storeCount" name="storeCount" required aria-describedby="storeCountHint"><option value="">請選擇</option><option>籌備中，尚未開店</option><option>1 家</option><option>2～3 家</option><option>4 家以上</option></select><p class="note" id="storeCountHint">以不同營業據點計算，同一店內有多間教室算 1 家。</p></div>
 <fieldset><legend>5．平常怎麼上課？ <span class="optional">必填，可複選</span></legend><div class="choices" id="classModes"></div></fieldset>
 <fieldset><legend>6．目前用什麼管理預約、堂數和收款？ <span class="optional">必填，可複選</span></legend><div class="choices" id="management"></div></fieldset>
 <div class="field" id="systemField" hidden><label for="systemName">使用哪套管理系統？ <span class="optional">選填</span></label><input id="systemName" name="systemName" maxlength="100" disabled></div>
