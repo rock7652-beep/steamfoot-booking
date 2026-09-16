@@ -91,6 +91,17 @@ describe("operation guide preview", () => {
     expect(host.textContent).toContain("顧客想改時間");
     expect(host.querySelector("dialog")!.open).toBe(true);
   });
+  it("answers explanatory questions before actions without empty warning or success boxes", () => {
+    act(() => root.render(createElement(OperationGuideShell, { enabled: true, access: { module: "steamfoot", permissions: [], features: {multi_store: true} } }, createElement(OperationGuideTrigger))));
+    click("？操作指南"); click("全部分類"); click("門市"); click("切換分店後");
+    const scroll = host.querySelector("[data-guide-scroll]")!;
+    expect(scroll.querySelector("h2")?.nextElementSibling?.textContent).toContain("切換分店是查看模式");
+    expect(scroll.textContent).toContain("可以怎麼做");
+    expect(scroll.textContent).not.toContain("完成確認：");
+    expect(scroll.textContent).not.toContain("操作前留意");
+    click("返回問題列表");
+    expect(host.querySelector('input[type="search"]')).not.toBeNull();
+  });
   it("does not send Escape to the underlying booking drawer", () => {
     const outerListener = vi.fn();
     document.addEventListener("keydown", outerListener);

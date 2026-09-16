@@ -48,10 +48,12 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
     <div ref={scrollBody} data-guide-scroll={full ? undefined : ""} className={full ? "space-y-5" : "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] touch-pan-y"} style={full ? undefined : { WebkitOverflowScrolling: "touch" }}>
     {article ? <>
       <h2 className="text-xl font-semibold text-primary-900">{article.title}</h2>
+      <p className="text-base leading-relaxed text-earth-700">{article.answer}</p>
       <p className="rounded-lg border border-gold-200 bg-white p-3 text-sm leading-relaxed">操作位置：{article.path}</p>
+      <h3 className="font-semibold text-primary-900">{article.kind === "explanation" ? "可以怎麼做" : article.kind === "troubleshooting" ? "依序檢查" : "操作步驟"}</h3>
       <ol className="list-decimal space-y-4 pl-6 text-base leading-relaxed">{article.steps.map((step) => <li key={step}>{step}</li>)}</ol>
-      <div className="rounded-lg border border-gold-300 bg-gold-50 p-3 text-sm leading-relaxed"><p className="mb-1 font-semibold text-primary-900">操作前留意</p>{article.important}</div>
-      <p className="rounded-lg bg-primary-50 p-3 text-sm leading-relaxed">完成確認：{article.success}</p>
+      {article.important && <div className="rounded-lg border border-gold-300 bg-gold-50 p-3 text-sm leading-relaxed"><p className="mb-1 font-semibold text-primary-900">操作前留意</p>{article.important}</div>}
+      {article.success && <p className="rounded-lg bg-primary-50 p-3 text-sm leading-relaxed">完成確認：{article.success}</p>}
       {(article.details.length > 0 || article.id === "A01") && <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="min-h-11 font-semibold text-primary-800 underline underline-offset-4">{expanded ? "收起詳細說明" : "查看詳細說明"}</button>}
       {expanded && <>
         <ul className="list-disc space-y-3 pl-5 text-sm leading-relaxed">{article.details.map((detail) => <li key={detail}>{detail}</li>)}</ul>

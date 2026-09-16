@@ -81,12 +81,13 @@ import { additionalGuides, guideCategories } from "./operation-guide-catalog";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
 export const operationGuides: OperationGuide[] = [
-  ...bookingGuides.map((guide): OperationGuide => ({ ...guide, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx"], verification: "source-reviewed" })),
+  ...bookingGuides.map((guide): OperationGuide => ({ ...guide, kind: "howto", answer: guide.summary, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/server/actions/booking.ts"], verification: "source-reviewed" })),
   ...additionalGuides,
 ];
 export function availableGuides(access: GuideAccess) {
   return operationGuides.filter(g => g.modules.includes(access.module) &&
     (!g.permission || access.permissions.includes(g.permission)) &&
+    (!g.additionalPermissions || g.additionalPermissions.every(p => access.permissions.includes(p))) &&
     (!g.feature || access.features[g.feature] === true));
 }
 export function guideCategoryForPath(pathname: string) {
@@ -101,7 +102,7 @@ export function guideCategoryForPath(pathname: string) {
 export function findOperationGuides(query: string, access: GuideAccess) {
   const terms = query.trim().toLocaleLowerCase().split(/[\s、，,]+/).filter(Boolean);
   return availableGuides(access).filter(g => {
-    const text = [g.title, g.summary, g.keywords, g.path, ...g.steps, g.important, ...g.details].join(" ").toLocaleLowerCase();
+    const text = [g.title, g.summary, g.answer, g.keywords, g.path, ...g.steps, g.important, ...g.details].join(" ").toLocaleLowerCase();
     return terms.every(term => text.includes(term));
   });
 }

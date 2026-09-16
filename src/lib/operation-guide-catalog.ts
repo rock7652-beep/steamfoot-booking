@@ -72,6 +72,7 @@ export const guideCategories: GuideCategory[] = [
     "routes": [
       "/dashboard/reports",
       "/dashboard/advanced-reports",
+      "/dashboard/data-export",
       "/dashboard/store-revenue"
     ]
   },
@@ -122,7 +123,7 @@ export const additionalGuides: OperationGuide[] = [
     "id": "S01",
     "category": "start",
     "title": "第一次使用，要先設定什麼？",
-    "summary": "先確認頂欄門市正確，再到「設定」確認營業與預約時間。",
+    "summary": "先完成營業時間、方案與收款設定，再安排人員和提醒；設定後用測試資料走一次預約流程。",
     "path": "設定 → 店務設定／營運設定",
     "steps": [
       "先確認頂欄門市正確，再到「設定」確認營業與預約時間。",
@@ -130,7 +131,7 @@ export const additionalGuides: OperationGuide[] = [
       "使用測試顧客走一次預約、到店與收款流程，再開放給顧客。"
     ],
     "important": "試走流程也可能建立交易或發出通知，請使用隔離測試店及測試收件人。",
-    "success": "能確認每個必要設定的位置與尚未完成的項目。",
+    "success": "",
     "keywords": "新手 開店 初次 初始化",
     "details": [],
     "modules": [
@@ -142,13 +143,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "先完成營業時間、方案與收款設定，再安排人員和提醒；設定後用測試資料走一次預約流程。"
   },
   {
     "id": "S02",
     "category": "start",
     "title": "首頁的待處理事項，要從哪裡開始？",
-    "summary": "先看「今天待處理」，確認收款或回訪項目。",
+    "summary": "先處理需要確認的收款，再查看要回訪的顧客；首頁列出待辦，不代表已完成收款或聯繫。",
     "path": "首頁 → 今天待處理",
     "steps": [
       "先看「今天待處理」，確認收款或回訪項目。",
@@ -156,7 +159,7 @@ export const additionalGuides: OperationGuide[] = [
       "返回首頁查看更新結果；看不完可點「查看全部」。"
     ],
     "important": "顯示待確認收款不代表款項已入帳，請先核對。",
-    "success": "處理結果能在對應顧客或交易紀錄核對。",
+    "success": "",
     "keywords": "首頁 儀表板 待辦",
     "details": [],
     "modules": [
@@ -168,13 +171,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "先處理需要確認的收款，再查看要回訪的顧客；首頁列出待辦，不代表已完成收款或聯繫。"
   },
   {
     "id": "S03",
     "category": "start",
     "title": "系統顯示上一個營業日尚未閉店怎麼辦？",
-    "summary": "點「查看現金抽屜」，先確認未閉店的營業日。",
+    "summary": "要先完成上一個營業日的現金核對與閉店，才能接續開店。請核對畫面上的營業日。",
     "path": "首頁 → 今日開店檢查 → 查看現金抽屜",
     "steps": [
       "點「查看現金抽屜」，先確認未閉店的營業日。",
@@ -182,7 +187,7 @@ export const additionalGuides: OperationGuide[] = [
       "完成前一筆閉店後，再處理今日開店點錢。"
     ],
     "important": "不要用今天的現金金額代填過去營業日。",
-    "success": "首頁不再顯示該筆未閉店提示。",
+    "success": "",
     "keywords": "開店 跨日 尚未閉店",
     "details": [],
     "modules": [
@@ -194,13 +199,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "要先完成上一個營業日的現金核對與閉店，才能接續開店。請核對畫面上的營業日。"
   },
   {
     "id": "A04",
     "category": "booking",
     "title": "如何替顧客新增預約？",
-    "summary": "先找到正確顧客，避免為既有顧客重複建檔。",
+    "summary": "新增預約時先選對顧客，再選日期、人數與可用時段。",
     "path": "預約管理 → 新增預約",
     "steps": [
       "先找到正確顧客，避免為既有顧客重複建檔。",
@@ -221,13 +228,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
       "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "新增預約時先選對顧客，再選日期、人數與可用時段。"
   },
   {
     "id": "A05",
     "category": "booking",
     "title": "怎麼查看今天或其他日期的預約？",
-    "summary": "在日期區選今天或要查看的日期。",
+    "summary": "在預約管理切換日期即可查看當天預約，不必回首頁重新進入。",
     "path": "預約管理",
     "steps": [
       "在日期區選今天或要查看的日期。",
@@ -235,7 +244,7 @@ export const additionalGuides: OperationGuide[] = [
       "若找不到資料，先確認門市、日期及目前篩選。"
     ],
     "important": "畫面上的日期與門市會影響清單範圍。",
-    "success": "清單日期與要查的日期一致。",
+    "success": "",
     "keywords": "月曆 今天 明天 查詢",
     "details": [],
     "modules": [
@@ -248,13 +257,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
       "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "在預約管理切換日期即可查看當天預約，不必回首頁重新進入。"
   },
   {
     "id": "A06",
     "category": "booking",
     "title": "服務完成前，要核對哪些資料？",
-    "summary": "核對顧客、實際到店人數、方案與到期日。",
+    "summary": "完成服務會影響堂數與收款紀錄。送出前要核對顧客、實際到店人數、方案與付款狀態。",
     "path": "預約管理 → 預約明細",
     "steps": [
       "核對顧客、實際到店人數、方案與到期日。",
@@ -262,7 +273,7 @@ export const additionalGuides: OperationGuide[] = [
       "確認無誤再完成服務，回查預約狀態及收款／堂數紀錄。"
     ],
     "important": "完成服務可能影響收款與堂數，送出失敗時先核對紀錄，不要重複建立交易。",
-    "success": "狀態顯示完成，且紀錄與實際服務相符。",
+    "success": "",
     "keywords": "完成 結帳 報到",
     "details": [],
     "modules": [
@@ -275,18 +286,20 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
       "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "完成服務會影響堂數與收款紀錄。送出前要核對顧客、實際到店人數、方案與付款狀態。"
   },
   {
     "id": "A08",
     "category": "booking",
     "title": "顧客沒來，如何標記未到？",
-    "summary": "先確認這筆預約確實未到，核對預約人數。",
+    "summary": "未到可選「扣堂」或「扣堂並給 7 日補課資格」；補課預約未到不會再扣一次堂數或再發補課券。",
     "path": "預約管理 → 預約明細 → 標記未到",
     "steps": [
-      "先確認這筆預約確實未到，核對預約人數。",
-      "查看未到視窗，選擇扣堂或扣堂並給補課資格。",
-      "確認後回查未到狀態、扣堂與補課紀錄。"
+      "在預約管理點開該筆預約，核對顧客、日期與預約人數。",
+      "點「未到」，依本次處理方式選「扣堂」或「扣堂並給 7 日補課資格」。",
+      "確認提示中的扣堂與補課安排後送出，再核對預約狀態。"
     ],
     "important": "補課預約未到僅標記未到，不再扣方案堂數或產生新的補課資格。",
     "success": "預約顯示未到，結果符合確認時選擇的處理方式。",
@@ -298,24 +311,25 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "booking.update",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
-      "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
-      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
+      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx",
+      "src/server/actions/booking.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "未到可選「扣堂」或「扣堂並給 7 日補課資格」；補課預約未到不會再扣一次堂數或再發補課券。"
   },
   {
     "id": "A09",
     "category": "booking",
     "title": "同行預約只來一部分的人，怎麼處理？",
-    "summary": "先核對原本預約人數與實際到店人數。",
+    "summary": "部分同行者未到時，原預約保留的方案堂數仍會扣除；缺席者是否取得補課資格，依本次選擇處理。",
     "path": "預約管理 → 預約明細 → 實際到店",
     "steps": [
-      "先核對原本預約人數與實際到店人數。",
-      "依完成流程處理到場者，並核對未到人數。",
-      "在部分未到視窗確認扣堂或補課方式，再回查紀錄。"
+      "點開預約，核對原預約人數與實際到店人數。",
+      "完成服務時填入實際到店人數，核對缺席者的補課安排。",
+      "確認後送出，再核對實際到店紀錄、扣堂與補課結果。"
     ],
-    "important": "不要把整筆直接取消；部分未到的處理可能影響堂數及補課資格。",
+    "important": "原預約保留的方案堂數仍會扣除，不是只扣實際到店人數。補課券另有期限。",
     "success": "實際到店與未到人數合計符合原預約。",
     "keywords": "兩人 一人 同行 部分未到",
     "details": [],
@@ -326,16 +340,17 @@ export const additionalGuides: OperationGuide[] = [
     "feature": null,
     "sources": [
       "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
-      "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
-      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
+      "src/server/actions/booking.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "部分同行者未到時，原預約保留的方案堂數仍會扣除；缺席者是否取得補課資格，依本次選擇處理。"
   },
   {
     "id": "A10",
     "category": "booking",
     "title": "操作後沒看到更新，要再按一次嗎？",
-    "summary": "先看是否仍在儲存或顯示錯誤，保留未儲存內容。",
+    "summary": "先確認上一次是否已成功，再決定要不要重送，避免產生兩筆預約或收款。",
     "path": "預約管理 → 更新狀態",
     "steps": [
       "先看是否仍在儲存或顯示錯誤，保留未儲存內容。",
@@ -343,7 +358,7 @@ export const additionalGuides: OperationGuide[] = [
       "若仍不一致，記下日期、顧客及操作時間再聯繫支援。"
     ],
     "important": "畫面未更新不代表送出失敗；先查紀錄，避免重複預約或收款。",
-    "success": "能確認該次操作是否已成功，或保留足夠的排查資訊。",
+    "success": "",
     "keywords": "刷新 重新整理 卡住 更新",
     "details": [],
     "modules": [
@@ -356,13 +371,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
       "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "先確認上一次是否已成功，再決定要不要重送，避免產生兩筆預約或收款。"
   },
   {
     "id": "B01",
     "category": "hours",
     "title": "每週固定營業時間怎麼設定？",
-    "summary": "展開每週固定時段，選要調整的星期。",
+    "summary": "固定每週的開放時間在營業與預約時間設定；單日例外另外調整。",
     "path": "設定 → 預約開放設定 → 每週固定時段",
     "steps": [
       "展開每週固定時段，選要調整的星期。",
@@ -381,13 +398,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "固定每週的開放時間在營業與預約時間設定；單日例外另外調整。"
   },
   {
     "id": "B02",
     "category": "hours",
     "title": "中午休息或一天分兩段營業怎麼設定？",
-    "summary": "選日期，在服務時間設定多段起訖時間。",
+    "summary": "一天可以分成多段服務時間，兩段之間的空檔就能保留作為午休。",
     "path": "設定 → 預約開放設定 → 選日期 → 服務時間",
     "steps": [
       "選日期，在服務時間設定多段起訖時間。",
@@ -406,13 +425,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "一天可以分成多段服務時間，兩段之間的空檔就能保留作為午休。"
   },
   {
     "id": "B03",
     "category": "hours",
     "title": "某天臨時休息，怎麼停止新預約？",
-    "summary": "選需要休息的日期，調整當日狀態。",
+    "summary": "將指定日期設為休息，可以停止新預約；原本已成立的預約仍需另行安排。",
     "path": "設定 → 預約開放設定 → 選日期",
     "steps": [
       "選需要休息的日期，調整當日狀態。",
@@ -431,13 +452,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "將指定日期設為休息，可以停止新預約；原本已成立的預約仍需另行安排。"
   },
   {
     "id": "B04",
     "category": "hours",
     "title": "臨時增開、關閉或重開時段怎麼做？",
-    "summary": "選要處理的日期，開啟當日時段管理。",
+    "summary": "當日時段管理可增開或調整單一時段，不必為一天的變動修改整週設定。",
     "path": "預約管理 → 當日時段管理",
     "steps": [
       "選要處理的日期，開啟當日時段管理。",
@@ -454,15 +477,17 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "business_hours.manage",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx"
+      "src/app/(dashboard)/dashboard/bookings/day-slot-manager.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "當日時段管理可增開或調整單一時段，不必為一天的變動修改整週設定。"
   },
   {
     "id": "B06",
     "category": "hours",
     "title": "單一時段想多接幾位，在哪裡調整？",
-    "summary": "選日期並展開單一時段開放與名額。",
+    "summary": "可在指定日期調整單一時段的名額。增加名額前，先確認當班人力與服務容量。",
     "path": "設定 → 預約開放設定 → 單一時段開放與名額",
     "steps": [
       "選日期並展開單一時段開放與名額。",
@@ -481,13 +506,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "可在指定日期調整單一時段的名額。增加名額前，先確認當班人力與服務容量。"
   },
   {
     "id": "B10",
     "category": "hours",
     "title": "明明還有空位，為什麼顧客約不到？",
-    "summary": "確認日期已開放、時段尚未過時且未被關閉。",
+    "summary": "有剩餘名額仍可能無法預約：日期未開放、時段已過、值班不足或方案不適用都可能影響。",
     "path": "預約管理／設定 → 預約開放設定",
     "steps": [
       "確認日期已開放、時段尚未過時且未被關閉。",
@@ -495,7 +522,7 @@ export const additionalGuides: OperationGuide[] = [
       "再查顧客有效方案、可預約堂數與到期日。"
     ],
     "important": "有空位不代表該顧客一定符合預約條件；先查限制，不要直接加堂數。",
-    "success": "找到是時段、人數、值班還是方案限制。",
+    "success": "",
     "keywords": "不能預約 約不到 空位",
     "details": [],
     "modules": [
@@ -506,13 +533,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "有剩餘名額仍可能無法預約：日期未開放、時段已過、值班不足或方案不適用都可能影響。"
   },
   {
     "id": "C01",
     "category": "customers",
     "title": "怎麼找到顧客，避免重複建檔？",
-    "summary": "先用電話搜尋，再用姓名確認是否已有紀錄。",
+    "summary": "先以電話搜尋，再核對姓名與紀錄；確認找不到既有顧客後才新增。",
     "path": "顧客管理",
     "steps": [
       "先用電話搜尋，再用姓名確認是否已有紀錄。",
@@ -520,7 +549,7 @@ export const additionalGuides: OperationGuide[] = [
       "確定查無資料時，才使用新增顧客。"
     ],
     "important": "同名不代表同一人；不要只憑姓名修改別人的資料。",
-    "success": "找到正確的顧客紀錄。",
+    "success": "",
     "keywords": "搜尋 電話 同名 重複",
     "details": [],
     "modules": [
@@ -532,13 +561,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "先以電話搜尋，再核對姓名與紀錄；確認找不到既有顧客後才新增。"
   },
   {
     "id": "C03",
     "category": "customers",
     "title": "顧客姓名或電話填錯，怎麼修正？",
-    "summary": "找到顧客，先核對目前的姓名與電話。",
+    "summary": "顧客基本資料可以編輯，但修改姓名或電話不會自動更換 LINE 綁定。",
     "path": "顧客管理 → 顧客資料 → 編輯",
     "steps": [
       "找到顧客，先核對目前的姓名與電話。",
@@ -558,13 +589,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "顧客基本資料可以編輯，但修改姓名或電話不會自動更換 LINE 綁定。"
   },
   {
     "id": "C04",
     "category": "customers",
     "title": "哪裡可以看顧客的預約與消費紀錄？",
-    "summary": "打開顧客資料，找到過往紀錄。",
+    "summary": "顧客資料頁集中列出預約與消費紀錄，可先選定顧客再核對每筆內容。",
     "path": "顧客管理 → 顧客資料 → 過往紀錄",
     "steps": [
       "打開顧客資料，找到過往紀錄。",
@@ -572,7 +605,7 @@ export const additionalGuides: OperationGuide[] = [
       "需要更多資訊時，開啟對應預約或交易明細。"
     ],
     "important": "預約次數與交易筆數不同，不能直接當作相同統計。",
-    "success": "能找到指定日期的預約或消費。",
+    "success": "",
     "keywords": "歷史 歷次 消費 紀錄",
     "details": [],
     "modules": [
@@ -584,13 +617,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "顧客資料頁集中列出預約與消費紀錄，可先選定顧客再核對每筆內容。"
   },
   {
     "id": "C05",
     "category": "customers",
     "title": "店內備註和本次預約備註有什麼不同？",
-    "summary": "長期服務需求放在顧客的店內／服務備註。",
+    "summary": "店內／服務備註用來保留長期需求；本次預約備註只記錄這一次的交代。",
     "path": "顧客資料／預約明細",
     "steps": [
       "長期服務需求放在顧客的店內／服務備註。",
@@ -598,7 +633,7 @@ export const additionalGuides: OperationGuide[] = [
       "修改後確認儲存結果，避免把一次性事項留在長期備註。"
     ],
     "important": "例如「今天晚到」適合本次備註；不要把敏感資訊寫進不必要的欄位。",
-    "success": "下一次服務能區分長期需求與單次交代。",
+    "success": "",
     "keywords": "註記 長期 晚到 備註",
     "details": [],
     "modules": [
@@ -610,13 +645,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "explanation",
+    "answer": "店內／服務備註用來保留長期需求；本次預約備註只記錄這一次的交代。"
   },
   {
     "id": "C07",
     "category": "customers",
     "title": "顧客登入後看不到原本方案，先查什麼？",
-    "summary": "確認顧客開啟的是正確門市入口。",
+    "summary": "先核對門市入口與顧客身分；看不到方案不一定是方案消失，也可能登入了另一筆顧客資料。",
     "path": "顧客管理 → 顧客資料 → LINE 與通知設定",
     "steps": [
       "確認顧客開啟的是正確門市入口。",
@@ -624,7 +661,7 @@ export const additionalGuides: OperationGuide[] = [
       "若疑似登入另一身分，保留錯誤畫面與時間，交由有權限的人員核對。"
     ],
     "important": "不要先新增同名顧客或重發方案，避免把資料分散到另一個身分。",
-    "success": "能確認是入口、身分還是方案狀態問題。",
+    "success": "",
     "keywords": "登入 找不到 舊資料 LINE 綁定",
     "details": [],
     "modules": [
@@ -636,13 +673,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "先核對門市入口與顧客身分；看不到方案不一定是方案消失，也可能登入了另一筆顧客資料。"
   },
   {
     "id": "C08",
     "category": "customers",
     "title": "顧客換 LINE 或綁定有衝突怎麼辦？",
-    "summary": "先核對顧客本人、電話及目前綁定紀錄。",
+    "summary": "LINE 綁定衝突要先確認本人及原資料，再由有權限的人員處理，不能只憑同名就合併或重綁。",
     "path": "顧客管理 → 顧客資料 → 管理 LINE 綁定",
     "steps": [
       "先核對顧客本人、電話及目前綁定紀錄。",
@@ -650,7 +689,7 @@ export const additionalGuides: OperationGuide[] = [
       "依畫面處理；無法唯一確認身分時，整理資料請支援協助。"
     ],
     "important": "不能因為同名就直接移轉身分；重新綁定不等於新建會員。",
-    "success": "正確身分與舊資料的關係經核對後再處理。",
+    "success": "",
     "keywords": "換帳號 重綁 衝突",
     "details": [],
     "modules": [
@@ -662,13 +701,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "LINE 綁定衝突要先確認本人及原資料，再由有權限的人員處理，不能只憑同名就合併或重綁。"
   },
   {
     "id": "D02",
     "category": "plans",
     "title": "顧客買了方案，如何登記？",
-    "summary": "選方案與付款方式，核對款項狀態。",
+    "summary": "從顧客資料指派方案並選付款狀態；尚待確認的款項，要確認入帳後才發放方案。",
     "path": "顧客管理 → 顧客資料 → 指派課程方案",
     "steps": [
       "選方案與付款方式，核對款項狀態。",
@@ -689,13 +730,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/customers/[id]/extend-wallet-expiry-form.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "從顧客資料指派方案並選付款狀態；尚待確認的款項，要確認入帳後才發放方案。"
   },
   {
     "id": "D03",
     "category": "plans",
     "title": "在哪裡看剩餘堂數與到期日？",
-    "summary": "找到顧客目前方案，核對方案名稱。",
+    "summary": "剩餘堂數不一定全都能再預約，還要扣除已被預約保留的堂數，並確認到期日。",
     "path": "顧客管理 → 顧客資料 → 方案",
     "steps": [
       "找到顧客目前方案，核對方案名稱。",
@@ -703,7 +746,7 @@ export const additionalGuides: OperationGuide[] = [
       "有多張方案時逐張核對，不只看合計。"
     ],
     "important": "已預約堂數占用可預約額度；畫面提示明細不一致時先查紀錄。",
-    "success": "能分辨剩餘堂數與還能新增預約的堂數。",
+    "success": "",
     "keywords": "剩餘 可用 可預約 效期",
     "details": [],
     "modules": [
@@ -716,20 +759,22 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/customers/[id]/extend-wallet-expiry-form.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "剩餘堂數不一定全都能再預約，還要扣除已被預約保留的堂數，並確認到期日。"
   },
   {
     "id": "D04",
     "category": "plans",
     "title": "方案到期日填錯，怎麼修改？",
-    "summary": "點「編輯到期日」，選新的日期。",
+    "summary": "可用「編輯到期日」修正日期並留下原因；這個操作不會更改收款金額或剩餘堂數。",
     "path": "顧客資料 → 方案 → 編輯到期日",
     "steps": [
       "點「編輯到期日」，選新的日期。",
       "填寫必填的修改原因，確認是提前或延後。",
       "點「儲存到期日」，核對更新提示與新日期。"
     ],
-    "important": "到期日不可早於今天；無期限方案目前不提供此日期修改。",
+    "important": "需填寫修改原因；新日期不可早於今天。無期限方案不使用這個日期編輯入口。",
     "success": "看到方案到期日已更新，且日期正確。",
     "keywords": "展延 延長 提前 到期",
     "details": [],
@@ -739,17 +784,18 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "wallet.adjust",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/customers/[id]/assign-plan-form.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/extend-wallet-expiry-form.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form.tsx"
+      "src/server/actions/wallet.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "可用「編輯到期日」修正日期並留下原因；這個操作不會更改收款金額或剩餘堂數。"
   },
   {
     "id": "D07",
     "category": "plans",
     "title": "方案過期或可用堂數不足怎麼查？",
-    "summary": "逐張確認方案期限與狀態。",
+    "summary": "先查效期，再查可用與已預約堂數；取消預約會釋放保留堂數，但不會延長原方案期限。",
     "path": "顧客管理 → 顧客資料 → 方案",
     "steps": [
       "逐張確認方案期限與狀態。",
@@ -757,7 +803,7 @@ export const additionalGuides: OperationGuide[] = [
       "依實際購買或更正情況處理，完成後重新查詢。"
     ],
     "important": "取消預約釋放堂數，不會自動延長原方案期限。",
-    "success": "知道無法預約的具體原因。",
+    "success": "",
     "keywords": "過期 不足 扣堂",
     "details": [],
     "modules": [
@@ -770,21 +816,23 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/customers/[id]/extend-wallet-expiry-form.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "先查效期，再查可用與已預約堂數；取消預約會釋放保留堂數，但不會延長原方案期限。"
   },
   {
     "id": "D09",
     "category": "plans",
     "title": "堂數記錄不符，如何核對與更正？",
-    "summary": "先比對已完成、未到、取消與保留中的預約。",
+    "summary": "先查明差額原因，再輸入調整後應有的堂數；「調整為幾堂」不是本次要增加幾堂。",
     "path": "顧客資料 → 方案與堂數明細",
     "steps": [
-      "先比對已完成、未到、取消與保留中的預約。",
-      "確認是否為已預約占用，或重複查看不同方案。",
-      "確定需要更正且有權限時，輸入「調整為幾堂」與原因並儲存。"
+      "先比對方案堂數明細、已預約及已完成紀錄，確認差額原因。",
+      "需更正時點「調整堂數」，在「調整為幾堂」輸入更正後的數量，並記下原因。",
+      "核對輸入的最終數量後點「確認」，回到方案資料確認堂數。"
     ],
-    "important": "調整欄位是目標堂數，不是直接輸入增加幾堂；務必保留原因。",
-    "success": "出現「堂數已更新」，明細符合核對結果。",
+    "important": "補登紙本已使用紀錄時，應使用「補登已使用堂數」，保留實際使用日期與原因。",
+    "success": "出現「堂數已更新」，方案顯示調整後的堂數。",
     "keywords": "補堂 調整 錯誤 堂數",
     "details": [],
     "modules": [
@@ -793,17 +841,18 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "wallet.adjust",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/customers/[id]/assign-plan-form.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/extend-wallet-expiry-form.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form.tsx"
+      "src/app/(dashboard)/dashboard/customers/[id]/adjust-wallet-form.tsx",
+      "src/server/actions/wallet.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "先查明差額原因，再輸入調整後應有的堂數；「調整為幾堂」不是本次要增加幾堂。"
   },
   {
     "id": "E01",
     "category": "money",
     "title": "顧客說已匯款，如何確認收款？",
-    "summary": "找到待確認交易，核對顧客、方案與金額。",
+    "summary": "店家需先查到實際入帳，再確認系統收款；顧客說已匯款不等於款項已核實。",
     "path": "首頁待處理／營運 → 該筆交易",
     "steps": [
       "找到待確認交易，核對顧客、方案與金額。",
@@ -824,48 +873,51 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/revenue/page.tsx",
       "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "店家需先查到實際入帳，再確認系統收款；顧客說已匯款不等於款項已核實。"
   },
   {
     "id": "E06",
     "category": "money",
     "title": "收款資料登記錯誤，從哪裡修正？",
-    "summary": "篩選日期並找到原交易，核對顧客與金額。",
-    "path": "營運 → 營收明細 → 交易詳情",
+    "summary": "可從原交易修正備註、付款方式或歸屬店長；這些操作不會直接改變交易金額。",
+    "path": "營運 → 營運明細 → 原交易 → ⋯",
     "steps": [
-      "篩選日期並找到原交易，核對顧客與金額。",
-      "查看該交易可用的更正操作，再修改允許的欄位。",
-      "完成後回查交易詳情；沒有修正入口時請具權限人員處理。"
+      "找到原交易，核對顧客、金額與交易狀態，點「⋯」開啟明細。",
+      "依錯誤欄位修改備註，或使用「更正付款方式」「更正歸屬店長」。",
+      "更正付款方式或歸屬店長時填寫原因，儲存後重新核對交易。"
     ],
-    "important": "付款方式更正、作廢與退款是不同操作，不要新增反向交易代替。",
+    "important": "金額登錯、重複登記或實際退款，不能只用更正付款方式處理。",
     "success": "原交易資料或對應修正紀錄能查到。",
     "keywords": "更正 付款方式 作廢",
     "details": [],
     "modules": [
-      "steamfoot",
-      "spa"
+      "steamfoot"
     ],
     "permission": "transaction.void",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/revenue/page.tsx",
-      "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx"
+      "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+      "src/server/actions/transaction.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "可從原交易修正備註、付款方式或歸屬店長；這些操作不會直接改變交易金額。"
   },
   {
     "id": "E07",
     "category": "money",
     "title": "取消預約後，款項也會自動退嗎？",
-    "summary": "先核對原交易是否已實際收款。",
+    "summary": "不會。取消預約處理的是名額與預約狀態；已收款項需要另外處理退款，也不會自動匯回顧客帳戶。",
     "path": "營運 → 交易詳情",
     "steps": [
-      "先核對原交易是否已實際收款。",
-      "查看可用的退款操作與影響範圍。",
-      "核對系統退款紀錄及實際退還款項，兩者都確認完成。"
+      "先查原交易是否已收款，以及預約是否已取消。",
+      "若有實際收款，再依該模組的退款流程核對可退金額、剩餘權益與退款原因。",
+      "另外完成實際退還款項，保留退款紀錄供雙方核對。"
     ],
-    "important": "取消預約不等於退費；系統記錄退款也不代表銀行自動匯出款項。",
-    "success": "交易退款紀錄與實際退款一致。",
+    "important": "請勿把取消預約當成已退款，或因重複操作而退還兩次。",
+    "success": "",
     "keywords": "退費 退款 取消",
     "details": [],
     "modules": [
@@ -878,13 +930,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/revenue/page.tsx",
       "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "explanation",
+    "answer": "不會。取消預約處理的是名額與預約狀態；已收款項需要另外處理退款，也不會自動匯回顧客帳戶。"
   },
   {
     "id": "E08",
     "category": "money",
     "title": "要登記收入或支出，從哪裡操作？",
-    "summary": "點「記一筆收支」，選收入或支出。",
+    "summary": "在「記一筆收支」選收入或支出，輸入金額及付款方式，即可留下收支紀錄。",
     "path": "營運 → 記一筆收支／完整現金管理",
     "steps": [
       "點「記一筆收支」，選收入或支出。",
@@ -905,13 +959,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/revenue/page.tsx",
       "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "在「記一筆收支」選收入或支出，輸入金額及付款方式，即可留下收支紀錄。"
   },
   {
     "id": "E09",
     "category": "money",
     "title": "開店與閉店怎麼核對現金？",
-    "summary": "開店時輸入實際點到金額；若與帳面不同，填寫原因。",
+    "summary": "開店與閉店都要填實際點到的現金；若有差額，記錄原因後再確認。",
     "path": "現金抽屜",
     "steps": [
       "開店時輸入實際點到金額；若與帳面不同，填寫原因。",
@@ -932,13 +988,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/revenue/page.tsx",
       "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "開店與閉店都要填實際點到的現金；若有差額，記錄原因後再確認。"
   },
   {
     "id": "E10",
     "category": "money",
     "title": "提領現金、補入現金和支出有何不同？",
-    "summary": "店內費用使用「記一筆收支」登記支出。",
+    "summary": "提領與補入記錄現金移動；店內費用則記為支出。提領現金本身不代表發生費用。",
     "path": "現金抽屜 → 日常操作",
     "steps": [
       "店內費用使用「記一筆收支」登記支出。",
@@ -946,7 +1004,7 @@ export const additionalGuides: OperationGuide[] = [
       "放入找零金或備用金使用「補入現金」，核對紀錄。"
     ],
     "important": "提領不算店內支出，補入也不等於服務營收。",
-    "success": "現金變動分類符合實際用途。",
+    "success": "",
     "keywords": "備用金 找零 提領 補入",
     "details": [],
     "modules": [
@@ -959,20 +1017,22 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/revenue/page.tsx",
       "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "explanation",
+    "answer": "提領與補入記錄現金移動；店內費用則記為支出。提領現金本身不代表發生費用。"
   },
   {
     "id": "E11",
     "category": "money",
     "title": "閉店金額填錯，可以重做嗎？",
-    "summary": "確認錯誤的營業日與閉店紀錄。",
+    "summary": "店長或管理員可在下一個營業日尚未開店前撤銷閉店，再重新核對；已接續開店時不能直接撤銷。",
     "path": "現金抽屜 → 已完成今日結帳 → 撤銷閉店",
     "steps": [
-      "確認錯誤的營業日與閉店紀錄。",
-      "有撤銷入口時填寫撤銷原因，恢復營業中。",
-      "核對資料後重新閉店，不要另記假收入補平。"
+      "確認錯誤營業日，並確認下一個營業日尚未開店。",
+      "由店長或管理員開啟該筆閉店紀錄，選「撤銷閉店」並填寫原因。",
+      "撤銷後重新核對實際現金與差額，再完成閉店。"
     ],
-    "important": "撤銷與重結帳受權限及目前紀錄狀態限制。",
+    "important": "下一個營業日已開店時不能直接撤銷；原閉店及撤銷紀錄會保留。",
     "success": "新的閉店實點與差額正確，保留原因。",
     "keywords": "撤銷閉店 差額 填錯",
     "details": [],
@@ -983,16 +1043,17 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "cashDrawer.close",
     "feature": "cash_drawer",
     "sources": [
-      "src/app/(dashboard)/dashboard/revenue/page.tsx",
       "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "店長或管理員可在下一個營業日尚未開店前撤銷閉店，再重新核對；已接續開店時不能直接撤銷。"
   },
   {
     "id": "F01",
     "category": "care",
     "title": "顧客提醒與店長通知在哪裡分開設定？",
-    "summary": "切到「顧客提醒」設定傳給顧客的訊息。",
+    "summary": "顧客提醒與店長通知分開設定，修改其中一邊不代表另一邊也已開啟。",
     "path": "設定 → 提醒管理",
     "steps": [
       "切到「顧客提醒」設定傳給顧客的訊息。",
@@ -1013,13 +1074,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/reminders/page.tsx",
       "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "顧客提醒與店長通知分開設定，修改其中一邊不代表另一邊也已開啟。"
   },
   {
     "id": "F03",
     "category": "care",
     "title": "當日臨時預約，要怎麼通知店長？",
-    "summary": "找到當日預約相關通知設定。",
+    "summary": "當日預約的店長通知需開啟對應設定，並確認收件店長已完成 LINE 綁定。",
     "path": "提醒管理 → 店長通知",
     "steps": [
       "找到當日預約相關通知設定。",
@@ -1040,13 +1103,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/reminders/page.tsx",
       "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "當日預約的店長通知需開啟對應設定，並確認收件店長已完成 LINE 綁定。"
   },
   {
     "id": "F04",
     "category": "care",
     "title": "LINE 沒收到通知，先檢查什麼？",
-    "summary": "用發送紀錄確認該訊息是成功、失敗還是尚未發送。",
+    "summary": "先找發送紀錄：沒有紀錄時查是否符合觸發條件；有失敗紀錄時依錯誤原因處理。",
     "path": "提醒管理 → 發送紀錄",
     "steps": [
       "用發送紀錄確認該訊息是成功、失敗還是尚未發送。",
@@ -1054,7 +1119,7 @@ export const additionalGuides: OperationGuide[] = [
       "若失敗，保留原因，檢查綁定與官方帳號狀態後處理。"
     ],
     "important": "沒有紀錄與發送失敗不是同一件事；不要直接重複發送。",
-    "success": "能說明未收到的階段與原因。",
+    "success": "",
     "keywords": "收不到 漏發 失敗 紀錄",
     "details": [],
     "modules": [
@@ -1067,13 +1132,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/reminders/page.tsx",
       "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "先找發送紀錄：沒有紀錄時查是否符合觸發條件；有失敗紀錄時依錯誤原因處理。"
   },
   {
     "id": "F06",
     "category": "care",
     "title": "如何啟用體驗後自動關懷？",
-    "summary": "打開整組關懷，檢查每一階段的開關。",
+    "summary": "啟用並儲存後，符合條件的新完成體驗才會進入關懷流程；不會補發所有歷史體驗。",
     "path": "提醒管理 → 顧客提醒 → 體驗客後續關懷",
     "steps": [
       "打開整組關懷，檢查每一階段的開關。",
@@ -1081,7 +1148,7 @@ export const additionalGuides: OperationGuide[] = [
       "確認文案並啟用，再查看已儲存狀態。"
     ],
     "important": "只處理啟用後新完成的體驗，不補發歷史體驗。",
-    "success": "顯示整組已啟用，依已儲存設定發送。",
+    "success": "畫面顯示整組已啟用與設定已儲存。",
     "keywords": "隔日 四天 自動 回訪 體驗 關懷",
     "details": [],
     "modules": [
@@ -1094,13 +1161,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/reminders/page.tsx",
       "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "啟用並儲存後，符合條件的新完成體驗才會進入關懷流程；不會補發所有歷史體驗。"
   },
   {
     "id": "F07",
     "category": "care",
     "title": "關懷文案與時間可以自己調整嗎？",
-    "summary": "展開要調整的階段，修改天數與時間。",
+    "summary": "每階段可調整天數、時間與文案，階段之間至少相隔 3 天；預覽不會實際發送訊息。",
     "path": "體驗客後續關懷 → 展開階段",
     "steps": [
       "展開要調整的階段，修改天數與時間。",
@@ -1121,23 +1190,26 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/reminders/page.tsx",
       "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "每階段可調整天數、時間與文案，階段之間至少相隔 3 天；預覽不會實際發送訊息。"
   },
   {
     "id": "F08",
     "category": "care",
     "title": "顧客已購買或預約，還會收到體驗邀請嗎？",
-    "summary": "查看該顧客是否已購買方案、儲值或有預約。",
+    "summary": "已購買或已有預約的顧客，後續體驗邀請階段會依條件略過；第一階段關心訊息不適用這項略過條件。",
     "path": "體驗客後續關懷 → 發送規則與避免打擾",
     "steps": [
-      "查看該顧客是否已購買方案、儲值或有預約。",
-      "展開最近關懷紀錄，核對階段與略過原因。",
-      "需要停止時，使用「停止此顧客關懷」。"
+      "查看該顧客的購買及預約紀錄，確認是否已完成購買或已有預約。",
+      "在體驗關懷發送紀錄確認是哪一階段，以及是否被略過。"
     ],
-    "important": "已購買方案或儲值停止邀請；已預約略過該次邀請。每階段只發一次。",
-    "success": "能查到已發送、略過或停止的紀錄。",
+    "important": "第一階段關心與後續邀請的條件不同；關閉整組關懷、單一階段或停止個別顧客也會影響發送。",
+    "success": "",
     "keywords": "買課 預約 停止 打擾",
-    "details": [],
+    "details": [
+      "後續邀請階段會檢查購買與預約條件。第一階段仍依其他啟用、時間及停止關懷條件判斷。"
+    ],
     "modules": [
       "steamfoot",
       "spa"
@@ -1145,16 +1217,19 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "business_hours.manage",
     "feature": "line_reminder",
     "sources": [
-      "src/app/(dashboard)/dashboard/reminders/page.tsx",
+      "src/lib/trial-care.ts",
+      "src/server/services/trial-care.ts",
       "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "explanation",
+    "answer": "已購買或已有預約的顧客，後續體驗邀請階段會依條件略過；第一階段關心訊息不適用這項略過條件。"
   },
   {
     "id": "F09",
     "category": "care",
     "title": "顧客退訂關懷，預約提醒會一起停嗎？",
-    "summary": "先確認停止的是體驗關懷這類訊息。",
+    "summary": "不會一起停。停止體驗關懷只影響該流程，預約提醒仍依自己的設定處理。",
     "path": "體驗關懷卡片／最近關懷紀錄",
     "steps": [
       "先確認停止的是體驗關懷這類訊息。",
@@ -1162,7 +1237,7 @@ export const additionalGuides: OperationGuide[] = [
       "預約提醒仍到顧客提醒的對應設定核對。"
     ],
     "important": "停止體驗關懷不影響預約通知，不代表封鎖所有 LINE 訊息。",
-    "success": "能區分體驗關懷與預約通知的開關。",
+    "success": "",
     "keywords": "退訂 不再接收 停止",
     "details": [],
     "modules": [
@@ -1175,13 +1250,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/reminders/page.tsx",
       "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "explanation",
+    "answer": "不會一起停。停止體驗關懷只影響該流程，預約提醒仍依自己的設定處理。"
   },
   {
     "id": "F10",
     "category": "customers",
     "title": "如何找到久未到店或需要續約關心的顧客？",
-    "summary": "打開顧客經營，選「好久不見」「建議安排回店」或「建議續約」。",
+    "summary": "顧客經營會整理久未到店、建議回店與建議續約名單，讓店家找出需要關心的人。",
     "path": "顧客經營",
     "steps": [
       "打開顧客經營，選「好久不見」「建議安排回店」或「建議續約」。",
@@ -1189,7 +1266,7 @@ export const additionalGuides: OperationGuide[] = [
       "依實際狀況聯絡並記錄追蹤情形。"
     ],
     "important": "名單是經營參考，不代表已自動完成聯絡。",
-    "success": "找到需要關心的人，並可核對其紀錄。",
+    "success": "",
     "keywords": "留存 久未到店 續約 回訪",
     "details": [],
     "modules": [
@@ -1201,26 +1278,27 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "顧客經營會整理久未到店、建議回店與建議續約名單，讓店家找出需要關心的人。"
   },
   {
     "id": "G01",
     "category": "staff",
     "title": "新增服務人員時，要準備什麼？",
-    "summary": "準備真實姓名、顯示名稱、手機與初始密碼。",
+    "summary": "新增帳號前，準備人員姓名、手機與初始密碼，再依工作需求設定角色與權限。",
     "path": "人員管理 → 新增人員",
     "steps": [
-      "準備真實姓名、顯示名稱、手機與初始密碼。",
-      "依門市模組設定可服務項目、班表等欄位。",
-      "建立後核對角色與人員狀態，請本人登入確認。"
+      "點「＋ 新增人員」，填寫真實姓名、顯示名稱、手機與初始密碼。",
+      "核對輸入內容後建立人員，再確認人員列表與角色。",
+      "依工作需要另行確認權限，請本人登入確認。"
     ],
     "important": "建立人員與設定可操作權限不同，須另外核對授權範圍。",
     "success": "人員列表能看到正確資料與角色。",
     "keywords": "新增員工 教練 芳療師 帳號",
     "details": [],
     "modules": [
-      "steamfoot",
-      "spa"
+      "steamfoot"
     ],
     "permission": "staff.manage",
     "feature": null,
@@ -1228,13 +1306,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
       "src/lib/permissions.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "新增帳號前，準備人員姓名、手機與初始密碼，再依工作需求設定角色與權限。"
   },
   {
     "id": "G03",
     "category": "staff",
     "title": "員工看不到某個功能，是系統壞了嗎？",
-    "summary": "確認登入者身分及目前門市。",
+    "summary": "功能是否出現會受角色權限、門市模組與方案開通狀態影響，先依序核對這三項。",
     "path": "人員管理／設定",
     "steps": [
       "確認登入者身分及目前門市。",
@@ -1242,7 +1322,7 @@ export const additionalGuides: OperationGuide[] = [
       "請有管理權限的人員調整；未開通功能需先確認方案。"
     ],
     "important": "有選單不代表有修改權限；操作指南不會代替權限授權。",
-    "success": "找出角色、權限或功能開通的差異。",
+    "success": "",
     "keywords": "沒有按鈕 權限 看不到",
     "details": [],
     "modules": [
@@ -1255,13 +1335,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
       "src/lib/permissions.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "功能是否出現會受角色權限、門市模組與方案開通狀態影響，先依序核對這三項。"
   },
   {
     "id": "G04",
     "category": "staff",
     "title": "員工忘記密碼或離職，怎麼處理？",
-    "summary": "選正確人員，核對手機與角色。",
+    "summary": "忘記密碼可重設；離職則停用帳號，保留既有服務及交易紀錄。",
     "path": "人員管理 → 人員基本資料",
     "steps": [
       "選正確人員，核對手機與角色。",
@@ -1273,8 +1355,7 @@ export const additionalGuides: OperationGuide[] = [
     "keywords": "忘記密碼 停用 離職",
     "details": [],
     "modules": [
-      "steamfoot",
-      "spa"
+      "steamfoot"
     ],
     "permission": "staff.manage",
     "feature": null,
@@ -1282,13 +1363,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
       "src/lib/permissions.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "忘記密碼可重設；離職則停用帳號，保留既有服務及交易紀錄。"
   },
   {
     "id": "H01",
     "category": "analysis",
     "title": "怎麼查看本月或其他期間的營收？",
-    "summary": "選擇要看的月份或期間。",
+    "summary": "在營運分析選期間查看營收；核對數字時也要確認門市與交易狀態。",
     "path": "分析 → 營運分析",
     "steps": [
       "選擇要看的月份或期間。",
@@ -1296,7 +1379,7 @@ export const additionalGuides: OperationGuide[] = [
       "需要追查時回到營運明細，使用相同日期範圍核對。"
     ],
     "important": "營收、完成服務人次與訂單筆數是不同指標。",
-    "success": "能在同一期間核對摘要與明細。",
+    "success": "",
     "keywords": "月報 營收 報表",
     "details": [],
     "modules": [
@@ -1308,13 +1391,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/reports/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "在營運分析選期間查看營收；核對數字時也要確認門市與交易狀態。"
   },
   {
     "id": "H03",
     "category": "analysis",
     "title": "體驗、到場與買方案，要怎麼看？",
-    "summary": "選月份並查看體驗及顧客相關指標。",
+    "summary": "體驗預約、實際到場與購買方案是不同階段，應分別查看，不能把預約數當成到場數。",
     "path": "分析 → 營運分析",
     "steps": [
       "選月份並查看體驗及顧客相關指標。",
@@ -1322,7 +1407,7 @@ export const additionalGuides: OperationGuide[] = [
       "以該名單與實際預約、交易核對，不只看單一比率。"
     ],
     "important": "人數、組數與交易筆數不能混用；不同指標的期間歸屬需依畫面說明核對。",
-    "success": "能找到指標背後的顧客與交易資料。",
+    "success": "",
     "keywords": "開卡率 體驗率 轉換 新生 人數 組數",
     "details": [],
     "modules": [
@@ -1334,13 +1419,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/reports/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "體驗預約、實際到場與購買方案是不同階段，應分別查看，不能把預約數當成到場數。"
   },
   {
     "id": "H09",
     "category": "analysis",
     "title": "報表跟預約清單數字不同，怎麼核對？",
-    "summary": "先把門市、期間與篩選調成一致。",
+    "summary": "先對齊門市、日期、狀態及統計單位；預約筆數、服務人次與不重複顧客數本來就可能不同。",
     "path": "分析／營運／預約管理",
     "steps": [
       "先把門市、期間與篩選調成一致。",
@@ -1348,7 +1435,7 @@ export const additionalGuides: OperationGuide[] = [
       "找差異顧客，核對取消、未到、退款及付款狀態。"
     ],
     "important": "不要為了讓報表相同就修改原始交易；先查統計口徑。",
-    "success": "差異可追溯到明細或統計條件。",
+    "success": "",
     "keywords": "對不上 數字 差異 分析",
     "details": [],
     "modules": [
@@ -1360,13 +1447,15 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/reports/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "先對齊門市、日期、狀態及統計單位；預約筆數、服務人次與不重複顧客數本來就可能不同。"
   },
   {
     "id": "I02",
     "category": "settings",
     "title": "店家匯款帳號與 LINE 連結在哪設定？",
-    "summary": "進入付款設定，核對銀行名稱、代碼與帳號。",
+    "summary": "銀行收款資料與店家 LINE 連結在付款設定管理，儲存前逐項核對內容。",
     "path": "設定 → 付款設定",
     "steps": [
       "進入付款設定，核對銀行名稱、代碼與帳號。",
@@ -1387,13 +1476,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/settings/page.tsx",
       "src/components/store-view-mode-switcher.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "銀行收款資料與店家 LINE 連結在付款設定管理，儲存前逐項核對內容。"
   },
   {
     "id": "I03",
     "category": "settings",
     "title": "體驗價格或可調整範圍在哪裡改？",
-    "summary": "確認體驗單功能狀態。",
+    "summary": "體驗價格及可調整範圍由體驗課設定控制，是否可修改也取決於帳號權限。",
     "path": "設定 → 體驗課設定",
     "steps": [
       "確認體驗單功能狀態。",
@@ -1413,23 +1504,26 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/settings/page.tsx",
       "src/components/store-view-mode-switcher.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "體驗價格及可調整範圍由體驗課設定控制，是否可修改也取決於帳號權限。"
   },
   {
     "id": "I05",
     "category": "settings",
     "title": "切換分店後，為什麼只能查看？",
-    "summary": "確認頂欄與門市選單目前選的是哪家店。",
+    "summary": "切換分店是查看模式，供你閱讀該店資料；修改、收款與完成服務仍由該店有權限的帳號操作。",
     "path": "左側門市切換 → 查看分店",
     "steps": [
-      "確認頂欄與門市選單目前選的是哪家店。",
-      "跨店查看時閱讀唯讀提示，查詢該店資料。",
-      "要修改時回到自己可操作的門市，或請該店處理。"
+      "核對頂欄目前正在查看的門市。",
+      "要操作自己的店時，從門市選單切回「我的店」；分店資料需由該店有權限的帳號處理。"
     ],
-    "important": "串接不等於可替所有分店改資料；實際可見門市依授權。",
-    "success": "清楚知道目前店別與可操作範圍。",
+    "important": "",
+    "success": "",
     "keywords": "串接 多店 分店 查看 唯讀",
-    "details": [],
+    "details": [
+      "查看分店不會取得該店的修改權限；教學入口也不會改變這項限制。"
+    ],
     "modules": [
       "steamfoot",
       "spa"
@@ -1437,16 +1531,19 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "",
     "feature": "multi_store",
     "sources": [
-      "src/app/(dashboard)/dashboard/settings/page.tsx",
-      "src/components/store-view-mode-switcher.tsx"
+      "src/components/store-view-mode-switcher.tsx",
+      "src/server/actions/store-view-mode.ts",
+      "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "explanation",
+    "answer": "切換分店是查看模式，供你閱讀該店資料；修改、收款與完成服務仍由該店有權限的帳號操作。"
   },
   {
     "id": "I09",
     "category": "settings",
     "title": "目前用什麼方案？為什麼有些功能沒開？",
-    "summary": "先確認目前門市與方案名稱。",
+    "summary": "成長方案中心顯示目前方案與開通功能；方案有包含的功能，仍可能需要相應員工權限才能使用。",
     "path": "設定 → 成長方案中心",
     "steps": [
       "先確認目前門市與方案名稱。",
@@ -1454,7 +1551,7 @@ export const additionalGuides: OperationGuide[] = [
       "若功能與預期不同，提供店名與功能名稱請管理者核對。"
     ],
     "important": "員工權限與門市功能開通是兩個條件，都符合才可操作。",
-    "success": "能確認目前方案與需要核對的功能。",
+    "success": "",
     "keywords": "加購 方案 展店版 專業版 功能",
     "details": [],
     "modules": [
@@ -1467,13 +1564,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/settings/page.tsx",
       "src/components/store-view-mode-switcher.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "explanation",
+    "answer": "成長方案中心顯示目前方案與開通功能；方案有包含的功能，仍可能需要相應員工權限才能使用。"
   },
   {
     "id": "M01",
     "category": "health",
     "title": "如何查看顧客最近量測與歷史曲線？",
-    "summary": "找到正確顧客並進入健康紀錄。",
+    "summary": "顧客健康紀錄可查看最近量測與歷史曲線，先確認正在查看的是本人資料。",
     "path": "顧客管理 → 顧客資料 → 健康紀錄",
     "steps": [
       "找到正確顧客並進入健康紀錄。",
@@ -1481,7 +1580,7 @@ export const additionalGuides: OperationGuide[] = [
       "需要查全店時，點「本店健康總覽」再依條件篩選。"
     ],
     "important": "健康紀錄的可見範圍受門市開通與身分驗證影響。",
-    "success": "能找到該顧客的量測日期與資料。",
+    "success": "",
     "keywords": "體重 體脂 健康 曲線",
     "details": [],
     "modules": [
@@ -1494,13 +1593,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/health/page.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/health/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "顧客健康紀錄可查看最近量測與歷史曲線，先確認正在查看的是本人資料。"
   },
   {
     "id": "M02",
     "category": "health",
     "title": "怎麼找某段期間或特定項目的量測？",
-    "summary": "用顧客、日期與量測項目篩選。",
+    "summary": "健康總覽可用日期、顧客與量測項目縮小範圍，再進入個別紀錄查看。",
     "path": "本店健康總覽",
     "steps": [
       "用顧客、日期與量測項目篩選。",
@@ -1508,7 +1609,7 @@ export const additionalGuides: OperationGuide[] = [
       "點顧客進入完整健康紀錄；要重查可清除篩選。"
     ],
     "important": "先確認單位與日期，避免把不同指標當成同一數據比較。",
-    "success": "列表只呈現指定篩選條件的紀錄。",
+    "success": "",
     "keywords": "體重 BMI 體脂 篩選 歷史",
     "details": [],
     "modules": [
@@ -1521,13 +1622,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/health/page.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/health/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "健康總覽可用日期、顧客與量測項目縮小範圍，再進入個別紀錄查看。"
   },
   {
     "id": "M03",
     "category": "health",
     "title": "健康歷史不見了，要先查什麼？",
-    "summary": "確認門市、姓名、電話與登入身分是否一致。",
+    "summary": "先檢查身分、門市與日期篩選；沒有查到紀錄時，不要先假設資料已刪除。",
     "path": "顧客資料 → 健康紀錄",
     "steps": [
       "確認門市、姓名、電話與登入身分是否一致。",
@@ -1535,7 +1638,7 @@ export const additionalGuides: OperationGuide[] = [
       "提供最後看見紀錄的日期及目前畫面請支援核對。"
     ],
     "important": "不要重複建會員或以猜測數字補登；跨店歷史僅在符合驗證與權限時可見。",
-    "success": "能提供明確範圍排查，保留現有紀錄。",
+    "success": "",
     "keywords": "遺失 不見 舊紀錄 同步",
     "details": [],
     "modules": [
@@ -1548,13 +1651,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/health/page.tsx",
       "src/app/(dashboard)/dashboard/customers/[id]/health/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "先檢查身分、門市與日期篩選；沒有查到紀錄時，不要先假設資料已刪除。"
   },
   {
     "id": "N01",
     "category": "digital",
     "title": "數位管家草稿怎麼修改與發布？",
-    "summary": "選流程並編輯內容。",
+    "summary": "先修改草稿並預覽，再發布；只儲存草稿不會更換顧客正在使用的流程。",
     "path": "設定 → 數位管家流程",
     "steps": [
       "選流程並編輯內容。",
@@ -1575,13 +1680,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/settings/digital-butler/flow-editor.tsx",
       "src/app/(dashboard)/dashboard/digital-butler/leads/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "先修改草稿並預覽，再發布；只儲存草稿不會更換顧客正在使用的流程。"
   },
   {
     "id": "N02",
     "category": "digital",
     "title": "顧客留言轉真人後，在哪裡追蹤？",
-    "summary": "查看顧客需求與目前處理狀態。",
+    "summary": "轉真人的需求會列在數位管家名單，可指派負責人與更新狀態；更新狀態不代表已回覆顧客。",
     "path": "數位管家名單",
     "steps": [
       "查看顧客需求與目前處理狀態。",
@@ -1589,7 +1696,7 @@ export const additionalGuides: OperationGuide[] = [
       "處理後回查狀態，避免不同人重複跟進。"
     ],
     "important": "名單狀態不代表已完成實際對話，仍需確認聯絡結果。",
-    "success": "負責人與處理進度清楚可查。",
+    "success": "",
     "keywords": "轉真人 名單 需求 跟進",
     "details": [],
     "modules": [
@@ -1602,13 +1709,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/settings/digital-butler/flow-editor.tsx",
       "src/app/(dashboard)/dashboard/digital-butler/leads/page.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "轉真人的需求會列在數位管家名單，可指派負責人與更新狀態；更新狀態不代表已回覆顧客。"
   },
   {
     "id": "J01",
     "category": "spa",
     "title": "服務名稱、價格與時間在哪裡設定？",
-    "summary": "選療程，修改名稱、規格、售價與服務時間。",
+    "summary": "療程的售價、服務時間與整理時間在方案管理設定；排程會把整理時間一起納入占用。",
     "path": "方案管理 → 療程 → 設定",
     "steps": [
       "選療程，修改名稱、規格、售價與服務時間。",
@@ -1629,13 +1738,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
       "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "療程的售價、服務時間與整理時間在方案管理設定；排程會把整理時間一起納入占用。"
   },
   {
     "id": "J03",
     "category": "spa",
     "title": "美容床、美甲桌或服務位置怎麼新增？",
-    "summary": "輸入可辨識的位置名稱。",
+    "summary": "服務位置用來管理美容床或美甲桌等資源，新增後要設定可提供的療程。",
     "path": "服務位置 → 新增位置",
     "steps": [
       "輸入可辨識的位置名稱。",
@@ -1656,13 +1767,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
       "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "服務位置用來管理美容床或美甲桌等資源，新增後要設定可提供的療程。"
   },
   {
     "id": "J04",
     "category": "spa",
     "title": "怎麼看芳療師當日排程與空檔？",
-    "summary": "選排程日期，依需要切換 15 或 30 分鐘間隔。",
+    "summary": "排程按人員顯示預約與空檔；15／30 分鐘是畫面刻度，不是療程固定長度。",
     "path": "預約排程",
     "steps": [
       "選排程日期，依需要切換 15 或 30 分鐘間隔。",
@@ -1670,7 +1783,7 @@ export const additionalGuides: OperationGuide[] = [
       "點預約看摘要；新增前先核對服務與可承接人員。"
     ],
     "important": "時間顯示間隔與療程實際占用時間不同。",
-    "success": "能辨識指定日期的預約位置與空檔。",
+    "success": "",
     "keywords": "芳療師 時刻表 排程 空檔",
     "details": [],
     "modules": [
@@ -1683,13 +1796,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
       "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "explanation",
+    "answer": "排程按人員顯示預約與空檔；15／30 分鐘是畫面刻度，不是療程固定長度。"
   },
   {
     "id": "J07",
     "category": "spa",
     "title": "多人同行選不同服務，怎麼安排？",
-    "summary": "選顧客與時間，逐位設定需要的服務。",
+    "summary": "多人同行可以逐位安排不同服務；整組有衝突時不會只建立其中一部分。",
     "path": "預約排程 → 新增預約",
     "steps": [
       "選顧客與時間，逐位設定需要的服務。",
@@ -1710,13 +1825,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
       "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "多人同行可以逐位安排不同服務；整組有衝突時不會只建立其中一部分。"
   },
   {
     "id": "J08",
     "category": "spa",
     "title": "人員或服務位置衝突時怎麼處理？",
-    "summary": "讀取衝突提示，確認是人員還是服務位置。",
+    "summary": "系統會檢查人員、位置及整段服務占用時間，空白格不一定足夠容納服務與整理時間。",
     "path": "預約排程 → 預約面板",
     "steps": [
       "讀取衝突提示，確認是人員還是服務位置。",
@@ -1724,7 +1841,7 @@ export const additionalGuides: OperationGuide[] = [
       "改用可用的人員、位置或時段後，重新核對摘要再送出。"
     ],
     "important": "空白格不一定足以容納整段服務時間，不應忽略衝突提示。",
-    "success": "送出成功且沒有重疊排程。",
+    "success": "",
     "keywords": "撞期 衝突 床位 重疊",
     "details": [],
     "modules": [
@@ -1737,40 +1854,46 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
       "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "系統會檢查人員、位置及整段服務占用時間，空白格不一定足夠容納服務與整理時間。"
   },
   {
     "id": "J09",
     "category": "spa",
     "title": "服務人員請假，怎麼調整？",
-    "summary": "選人員與日期，選整天請假、時段請假或臨時加班。",
-    "path": "人員管理 → 請假／臨時加班",
+    "summary": "在人員的日期班表調整當天班別，整天請假可選「整天休息」；變更必須先避開既有預約。",
+    "path": "人員管理 → 選擇排班人員 → 日期排班",
     "steps": [
-      "選人員與日期，選整天請假、時段請假或臨時加班。",
-      "依類型填起訖時間與原因。",
-      "有既有預約時先安排更換芳療師，再儲存例外並查排程。"
+      "選擇排班人員，點開要調整的日期。",
+      "部分時段休息時修改或移除班別；整天請假則點「整天休息」。",
+      "核對日期與班別後點「套用至 1 天」。若提示班別未涵蓋既有預約，先安排那些預約再重新儲存。"
     ],
-    "important": "請假不應直接讓已預約顧客失去安排，先核對既有預約。",
-    "success": "班表例外與當日排程一致。",
+    "important": "班表調整不會自動取消既有預約。發生衝突時整批不會儲存。",
+    "success": "日期班表顯示新的班別或休息，重新開啟該日仍可看到儲存結果。",
     "keywords": "請假 代班 換班 臨時加班",
-    "details": [],
+    "details": [
+      "一天可設定多段班別，中間空檔不接受預約。",
+      "多選日期會把相同班別套用到所選日期，取代各日原班表。"
+    ],
     "modules": [
       "spa"
     ],
     "permission": "duty.manage",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
-      "src/app/(dashboard)/dashboard/spa-resources/workspace.tsx",
-      "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx"
+      "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
+      "src/server/actions/spa-resources.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "在人員的日期班表調整當天班別，整天請假可選「整天休息」；變更必須先避開既有預約。"
   },
   {
     "id": "L01",
     "category": "support",
     "title": "找不到按鈕或畫面跟教學不同怎麼辦？",
-    "summary": "確認使用的是時段預約、SPA 服務或其他模組。",
+    "summary": "先核對門市模組、帳號權限與目前紀錄狀態，再比對教學；不同模組不一定有相同按鈕。",
     "path": "操作指南／目前功能頁",
     "steps": [
       "確認使用的是時段預約、SPA 服務或其他模組。",
@@ -1778,7 +1901,7 @@ export const additionalGuides: OperationGuide[] = [
       "若仍不同，保留畫面與功能名稱請支援核對。"
     ],
     "important": "不同模組不能共用所有操作步驟；未開放功能不會因教學而取得權限。",
-    "success": "能指出差異發生在哪個頁面與身分。",
+    "success": "",
     "keywords": "沒有按鈕 教學不同 操作問題",
     "details": [],
     "modules": [
@@ -1791,13 +1914,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/lib/permissions.ts",
       "src/lib/mvp-hidden-features.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "先核對門市模組、帳號權限與目前紀錄狀態，再比對教學；不同模組不一定有相同按鈕。"
   },
   {
     "id": "L02",
     "category": "support",
     "title": "畫面一直讀取或儲存失敗怎麼辦？",
-    "summary": "先保留未儲存文字與錯誤提示。",
+    "summary": "先保留未儲存內容，並查明剛才是否已送出成功，再決定是否重新操作。",
     "path": "目前操作頁",
     "steps": [
       "先保留未儲存文字與錯誤提示。",
@@ -1805,7 +1930,7 @@ export const additionalGuides: OperationGuide[] = [
       "確認網路後重試；持續失敗時記下門市、時間及操作步驟。"
     ],
     "important": "收款、發訊息或預約請先核對結果，再決定是否重送。",
-    "success": "未儲存內容保留，能確認結果或提供支援資訊。",
+    "success": "",
     "keywords": "卡住 讀取中 失聯 儲存失敗",
     "details": [],
     "modules": [
@@ -1818,13 +1943,15 @@ export const additionalGuides: OperationGuide[] = [
       "src/lib/permissions.ts",
       "src/lib/mvp-hidden-features.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "先保留未儲存內容，並查明剛才是否已送出成功，再決定是否重新操作。"
   },
   {
     "id": "L03",
     "category": "support",
     "title": "要請客服協助，提供什麼資訊最快？",
-    "summary": "整理店名、發生時間、功能名稱與預期結果。",
+    "summary": "提供發生在哪家店、哪個功能、操作時間及重現步驟，客服就能更快定位問題。",
     "path": "目前操作頁 → 聯繫支援",
     "steps": [
       "整理店名、發生時間、功能名稱與預期結果。",
@@ -1832,7 +1959,7 @@ export const additionalGuides: OperationGuide[] = [
       "說明是否已送出、是否重試，以及紀錄目前的狀態。"
     ],
     "important": "不要提供密碼、驗證碼、完整銀行資料或不相關的顧客資訊。",
-    "success": "支援能重現問題並定位到正確操作。",
+    "success": "",
     "keywords": "客服 求助 回報 錯誤",
     "details": [],
     "modules": [
@@ -1845,6 +1972,269 @@ export const additionalGuides: OperationGuide[] = [
       "src/lib/permissions.ts",
       "src/lib/mvp-hidden-features.ts"
     ],
-    "verification": "source-reviewed"
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "提供發生在哪家店、哪個功能、操作時間及重現步驟，客服就能更快定位問題。"
+  },
+  {
+    "id": "D01",
+    "category": "plans",
+    "title": "新方案要怎麼新增或修改？",
+    "summary": "先在方案管理建立方案，再從顧客資料指派；方案設定與顧客已持有的方案紀錄分開管理。",
+    "path": "方案管理 → 新增方案／編輯方案",
+    "steps": [
+      "點「新增方案」，或打開要修改的方案。",
+      "填寫名稱、類別、售價、堂數與有效期限，核對是否上架及提供顧客購買。",
+      "新增時點「新增」；修改時點「儲存變更」。"
+    ],
+    "important": "",
+    "success": "方案列表顯示儲存後的內容。",
+    "keywords": "新方案要怎麼新增或修改？ 先在方案管理建立方案，再從顧客資料指派；方案設定與顧客已持有的方案紀錄分開管理。",
+    "details": [],
+    "modules": [
+      "steamfoot"
+    ],
+    "permission": "plans.edit",
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/plans/_components/plan-form-drawer.tsx",
+      "src/server/actions/plan.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "先在方案管理建立方案，再從顧客資料指派；方案設定與顧客已持有的方案紀錄分開管理。"
+  },
+  {
+    "id": "D05",
+    "category": "plans",
+    "title": "不想讓顧客購買，應下架還是關閉公開購買？",
+    "summary": "「僅後台指派」仍可由店家登記；「已下架」停止新增使用，但既有顧客錢包不受影響。",
+    "path": "方案管理 → 方案列表",
+    "steps": [
+      "只想停止顧客自行購買時，將「顧客可購買」切換為「僅後台指派」。",
+      "要停止新增使用時，將「上架中」切換為「已下架」，再核對列表狀態。"
+    ],
+    "important": "下架也會關閉公開購買。",
+    "success": "",
+    "keywords": "不想讓顧客購買，應下架還是關閉公開購買？ 「僅後台指派」仍可由店家登記；「已下架」停止新增使用，但既有顧客錢包不受影響。",
+    "details": [],
+    "modules": [
+      "steamfoot"
+    ],
+    "permission": "plans.edit",
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/plans/plan-publish-toggle.tsx",
+      "src/app/(dashboard)/dashboard/plans/plan-active-toggle.tsx"
+    ],
+    "verification": "source-reviewed",
+    "kind": "explanation",
+    "answer": "「僅後台指派」仍可由店家登記；「已下架」停止新增使用，但既有顧客錢包不受影響。"
+  },
+  {
+    "id": "D06",
+    "category": "plans",
+    "title": "紙本舊客的剩餘堂數，怎麼轉進系統？",
+    "summary": "使用「紙本舊客轉入」登記原方案及已使用堂數，不會新增當期營收、現金收支或推薦獎勵。",
+    "path": "顧客管理 → 顧客資料 → 紙本舊客轉入",
+    "steps": [
+      "核對本人及紙本紀錄，選對應方案。",
+      "填入原購買金額、總堂數、已使用堂數與到期日，並記錄必要備註。",
+      "檢查預覽中的剩餘堂數與期限，再點「確認送出」。"
+    ],
+    "important": "需由店長或管理員且具堂數調整權限的帳號操作；勿再當成新購買重複收款。",
+    "success": "顧客方案顯示轉入的剩餘堂數與期限。",
+    "keywords": "紙本舊客的剩餘堂數，怎麼轉進系統？ 使用「紙本舊客轉入」登記原方案及已使用堂數，不會新增當期營收、現金收支或推薦獎勵。",
+    "details": [],
+    "modules": [
+      "steamfoot"
+    ],
+    "permission": "wallet.adjust",
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/customers/[id]/migrate-paper-plan-dialog.tsx",
+      "src/server/actions/wallet.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "使用「紙本舊客轉入」登記原方案及已使用堂數，不會新增當期營收、現金收支或推薦獎勵。"
+  },
+  {
+    "id": "D08",
+    "category": "plans",
+    "title": "已建好的方案，漏記紙本已使用堂數怎麼辦？",
+    "summary": "用「補登已使用堂數」留下使用日期與原因；這項補登不會新增預約、營收或教練業績。",
+    "path": "顧客管理 → 顧客資料 → 方案 → 補登已使用堂數",
+    "steps": [
+      "核對方案與紙本使用紀錄，點「補登已使用堂數」。",
+      "輸入補登堂數、使用日期與原因，檢查剩餘堂數預覽。",
+      "點「確認補登」，再查看補登提示與方案明細。"
+    ],
+    "important": "只能使用尚可用的堂數，不會動到預約保留堂數；日期須介於方案開始日與今天。",
+    "success": "出現已補登堂數及剩餘堂數提示。",
+    "keywords": "已建好的方案，漏記紙本已使用堂數怎麼辦？ 用「補登已使用堂數」留下使用日期與原因；這項補登不會新增預約、營收或教練業績。",
+    "details": [],
+    "modules": [
+      "steamfoot"
+    ],
+    "permission": "wallet.adjust",
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/customers/[id]/backfill-used-sessions-form.tsx",
+      "src/server/actions/wallet.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "用「補登已使用堂數」留下使用日期與原因；這項補登不會新增預約、營收或教練業績。"
+  },
+  {
+    "id": "E03",
+    "category": "money",
+    "title": "方案還有剩餘堂數，怎麼登記退款？",
+    "summary": "退款會保留原交易，另新增退款紀錄並處理剩餘權益；實際退還款項仍由店家完成。",
+    "path": "營運 → 營運明細 → 方案購買交易 → ⋯",
+    "steps": [
+      "找到已成功收款的方案購買交易，核對顧客與原金額。",
+      "選全額退款或退剩餘堂數，檢查試算中的已使用、已預約、可退堂數及金額。",
+      "填入退款原因，確認金額後點「確認退款」，再核對退款紀錄。"
+    ],
+    "important": "有未完成預約保留堂數時，須先處理相關預約；已使用或補登使用的方案不能當作全未使用退款。",
+    "success": "原交易仍保留，並出現對應退款紀錄。",
+    "keywords": "方案還有剩餘堂數，怎麼登記退款？ 退款會保留原交易，另新增退款紀錄並處理剩餘權益；實際退還款項仍由店家完成。",
+    "details": [],
+    "modules": [
+      "steamfoot"
+    ],
+    "permission": "transaction.refund",
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/transactions/_components/TransactionDrawer.tsx",
+      "src/server/actions/transaction.ts",
+      "src/lib/refund-plan.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "退款會保留原交易，另新增退款紀錄並處理剩餘權益；實際退還款項仍由店家完成。"
+  },
+  {
+    "id": "H04",
+    "category": "analysis",
+    "title": "上個月體驗、這個月買方案，算在哪個月？",
+    "summary": "購買方案歸在實際購買月份；本月購買再區分本月體驗與過往體驗追蹤，不能把兩者都算成本月體驗轉換。",
+    "path": "分析 → 營運分析",
+    "steps": [
+      "選實際購買的月份，查看本月開卡相關指標。",
+      "分別核對本月體驗開卡與過往體驗追蹤開卡，再比對原交易日期。"
+    ],
+    "important": "",
+    "success": "",
+    "keywords": "上個月體驗、這個月買方案，算在哪個月？ 購買方案歸在實際購買月份；本月購買再區分本月體驗與過往體驗追蹤，不能把兩者都算成本月體驗轉換。",
+    "details": [],
+    "modules": [
+      "steamfoot"
+    ],
+    "permission": "report.read",
+    "feature": "basic_reports",
+    "sources": [
+      "src/app/(dashboard)/dashboard/reports/page.tsx",
+      "src/server/queries/conversion-metrics.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "explanation",
+    "answer": "購買方案歸在實際購買月份；本月購買再區分本月體驗與過往體驗追蹤，不能把兩者都算成本月體驗轉換。"
+  },
+  {
+    "id": "J10",
+    "category": "spa",
+    "title": "多天班表一樣，能一次設定嗎？",
+    "summary": "可以。多選日期會套用同一組班別；複製上一週則會連休息日一起取代本週班表。",
+    "path": "人員管理 → 選擇排班人員 → 日期班表",
+    "steps": [
+      "選「多選日期」，勾選日期後點「設定選取日期」。",
+      "設定班別或整天休息，逐項核對所選日期。",
+      "點「套用至 N 天」。如果任一天與既有預約衝突，整批都不會儲存。"
+    ],
+    "important": "會取代所選日期的原班表。",
+    "success": "重新查看各選取日期，班別與設定相符。",
+    "keywords": "多天班表一樣，能一次設定嗎？ 可以。多選日期會套用同一組班別；複製上一週則會連休息日一起取代本週班表。",
+    "details": [
+      "要複製上一週，先點開本週日期，再選「此週套用上一週班表」。逐日核對預覽七天後，點「確認套用這七天」。"
+    ],
+    "modules": [
+      "spa"
+    ],
+    "permission": "duty.manage",
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/spa-staff/workspace.tsx",
+      "src/server/actions/spa-resources.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "可以。多選日期會套用同一組班別；複製上一週則會連休息日一起取代本週班表。"
+  },
+  {
+    "id": "J11",
+    "category": "spa",
+    "title": "SPA 服務完成後，怎麼收款或扣方案？",
+    "summary": "從預約明細進入結帳，核對服務與付款方式後才完成；使用方案或儲值金需核對本人可用權益。",
+    "path": "預約排程 → 預約明細 → 完成並結帳",
+    "steps": [
+      "點開預約，核對顧客與實際服務，選「完成並結帳」。",
+      "選付款方式；使用方案或儲值金時核對適用服務、可用次數或餘額。",
+      "確認實際收款或扣款／扣次後，勾選確認欄並送出結帳。"
+    ],
+    "important": "整組現金、刷卡或匯款可依畫面處理；各人使用方案或儲值金需逐人結帳。",
+    "success": "預約顯示完成，結帳資料與所選付款或權益相符。",
+    "keywords": "SPA 服務完成後，怎麼收款或扣方案？ 從預約明細進入結帳，核對服務與付款方式後才完成；使用方案或儲值金需核對本人可用權益。",
+    "details": [],
+    "modules": [
+      "spa"
+    ],
+    "permission": "booking.update",
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/spa-schedule/workspace.tsx",
+      "src/app/(dashboard)/dashboard/spa-schedule/checkout-panel.tsx",
+      "src/server/actions/spa-checkout.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "從預約明細進入結帳，核對服務與付款方式後才完成；使用方案或儲值金需核對本人可用權益。",
+    "additionalPermissions": [
+      "transaction.create"
+    ]
+  },
+  {
+    "id": "H05",
+    "category": "analysis",
+    "title": "營運資料如何匯出 Excel？",
+    "summary": "選擇資料類型、期間與狀態，下載 Excel。",
+    "path": "營運 → 匯出資料",
+    "steps": [
+      "點「匯出資料」，選要下載的資料類型。",
+      "選本月、上月或自訂期間，需要時再選狀態。",
+      "核對門市與期間，點「匯出 Excel」，開啟下載檔確認範圍。"
+    ],
+    "important": "匯出內容不含健康評估、內部備註、LINE／Messenger ID 或憑證。",
+    "success": "下載到 Excel 檔，內容符合所選類型與期間。",
+    "keywords": "匯出 Excel 報表 下載 交易 預約 方案",
+    "details": [
+      "若有顧客匯出權限，也可選顧客資料；此時日期指顧客建立期間，不是到店或消費期間。"
+    ],
+    "modules": [
+      "steamfoot"
+    ],
+    "permission": "report.export",
+    "feature": "data_export",
+    "sources": [
+      "src/app/(dashboard)/dashboard/revenue/page.tsx",
+      "src/app/(dashboard)/dashboard/data-export/page.tsx",
+      "src/app/(dashboard)/dashboard/data-export/data-export-client.tsx",
+      "src/lib/data-export-gate.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "資料匯出可選交易、預約或方案明細，依期間與狀態下載 Excel；需開通匯出功能及相應權限。"
   }
 ];
