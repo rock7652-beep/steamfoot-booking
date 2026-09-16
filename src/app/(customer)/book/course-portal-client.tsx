@@ -97,6 +97,7 @@ export function CoursePortalClient({
     toLocalDateStr(new Date(serverNow)),
   );
   const [workSessionId, setWorkSessionId] = useState<string | null>(null);
+  const [cancelId, setCancelId] = useState<string | null>(null);
   const [view, setView] = useState("schedule");
   const selectedDate = chosenDate.startsWith(month)
     ? chosenDate
@@ -125,12 +126,14 @@ export function CoursePortalClient({
       )
       .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
     setCardId(eligible[0]?.id ?? "");
+    setLearners([customerId]);
     setRequestKey(crypto.randomUUID());
     setSession(s);
   }
   const [pending, start] = useTransition();
   const [session, setSession] = useState<Session | null>(null);
   const [cardId, setCardId] = useState(cards.find((c) => !c.expired)?.id ?? "");
+  const [learners, setLearners] = useState<string[]>([customerId]);
   const [requestKey, setRequestKey] = useState("");
   const [message, setMessage] = useState("");
   const card = cards.find((c) => c.id === cardId);
@@ -505,28 +508,11 @@ export function CoursePortalClient({
                                 </p>
                                 {b.notes && <p>本次預約備註：{b.notes}</p>}
                               </div>
-                              {b.status === "RESERVED" && (
-                                <button
-                                  className={button}
-                                  disabled={pending}
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(
-                                        `取消 ${b.customerName} 的「${b.name}」預約？將釋放 ${b.cost} 點占用。`,
-                                      )
-                                    )
-                                      run(() =>
-                                        updateCourseBookingStatus({
-                                          bookingId: b.id,
-                                          status: "CANCELLED",
-                                          member: true,
-                                        }),
-                                      );
-                                  }}
-                                >
-                                  取消 {b.customerName}
-                                </button>
-                              )}
+                              {b.status === "RESERVED" && (cancelId === b.id ? <div role="group" aria-label="確認取消預約" className="w-full space-y-2 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                                <p>取消 {b.customerName} 的「{b.name}」預約？將釋放 {b.cost} 點占用。</p>
+                                <div className="flex gap-2"><button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "CANCELLED", member: true }))}>確認取消</button>
+                                <button className={button} disabled={pending} onClick={() => setCancelId(null)}>保留預約</button></div>
+                              </div> : <button className={button} disabled={pending} onClick={() => setCancelId(b.id)}>取消 {b.customerName}</button>)}
                             </div>
                           ))}
                         </article>
@@ -680,7 +666,7 @@ export function CoursePortalClient({
                   createMemberCourseBooking({
                     sessionId: session.id,
                     cardId,
-                    customerId: data.get("learner"),
+                    customerIds: learners,
                     requestKey,
                     notes: data.get("notes"),
                   }),
@@ -695,6 +681,7 @@ export function CoursePortalClient({
                   value={cardId}
                   onChange={(e) => {
                     setCardId(e.target.value);
+                    setLearners([customerId]);
                     setRequestKey(crypto.randomUUID());
                   }}
                 >
@@ -730,23 +717,48 @@ export function CoursePortalClient({
                   沒有點數足夠且涵蓋上課日期的方案，請聯絡店家。
                 </p>
               )}
-              <label className="block">
-                實際上課人
-                <select
-                  className={`${button} w-full`}
-                  key={cardId}
-                  name="learner"
-                  required
-                  defaultValue={customerId}
-                >
-                  {card?.members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                      {m.id === customerId ? "（自己上課）" : "（共卡代約）"}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <fieldset className="space-y-2">
+                <legend className="font-medium">誰要上課？</legend>
+                {card?.members.map((m) => (
+                  <label
+                    key={m.id}
+                    className="flex min-h-11 items-center gap-3 rounded-lg border p-3"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={learners.includes(m.id)}
+                      onChange={(e) => {
+                        setLearners((current) =>
+                          e.target.checked
+                            ? [...current, m.id]
+                            : current.filter((id) => id !== m.id),
+                        );
+                        setRequestKey(crypto.randomUUID());
+                      }}
+                    />
+                    {m.name}（{m.id === customerId ? "本人" : "共卡學員"}）
+                  </label>
+                ))}
+                <p className="text-sm">
+                  共 {learners.length} 位 · 本次保留{" "}
+                  {learners.length * session.cost} 點 · 預約後可用{" "}
+                  {Math.max(
+                    0,
+                    (card?.available ?? 0) - learners.length * session.cost,
+                  )}{" "}
+                  點
+                </p>
+                {learners.length > session.capacity - session.occupied && (
+                  <p role="alert" className="text-sm text-red-700">
+                    剩餘名額不足，整筆不會建立。
+                  </p>
+                )}
+                {card && learners.length * session.cost > card.available && (
+                  <p role="alert" className="text-sm text-red-700">
+                    可用點數不足，整筆不會建立。
+                  </p>
+                )}
+              </fieldset>
               <label className="block">
                 本次預約備註
                 <textarea
@@ -757,7 +769,7 @@ export function CoursePortalClient({
               </label>
               <p className="text-sm">
                 操作人：{customerName}
-                。只為選定的上課人保留一個名額；選擇其他共卡成員時，你自己不會被加入課程。
+                。只為勾選的上課人保留名額；取消勾選本人即可只替共卡學員預約。
               </p>
             </form>
           </div>
@@ -773,7 +785,13 @@ export function CoursePortalClient({
               type="submit"
               form="course-book-form"
               className={`${button} flex-1 bg-primary-700 text-white`}
-              disabled={pending || !cardId}
+              disabled={
+                pending ||
+                !cardId ||
+                !learners.length ||
+                learners.length > session.capacity - session.occupied ||
+                learners.length * session.cost > (card?.available ?? 0)
+              }
             >
               確認預約
             </button>

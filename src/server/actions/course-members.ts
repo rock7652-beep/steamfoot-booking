@@ -14,6 +14,7 @@ import {
 } from "@/server/services/course-access";
 import {
   reserveCourse,
+  reserveCourseMembers,
   settleCourseBooking,
   type CourseActor,
 } from "@/server/services/course-booking";
@@ -238,14 +239,17 @@ export async function createCourseBooking(input: unknown) {
 export async function createMemberCourseBooking(input: unknown) {
   try {
     const { user, storeId, customer } = await courseMember();
-    await reserveCourse(
+    await reserveCourseMembers(
       {
         userId: user.id,
         storeId,
         name: customer.name,
         customerId: customer.id,
       },
-      bookingInput.parse(input),
+      z.union([
+        bookingInput.omit({ customerId: true }).extend({ customerIds: z.array(id).min(1).max(20) }),
+        bookingInput.transform(({ customerId, ...rest }) => ({ ...rest, customerIds: [customerId] })),
+      ]).parse(input),
     );
     refresh();
     return { success: true as const };

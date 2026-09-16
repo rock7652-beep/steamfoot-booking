@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
 import "server-only";
@@ -27,101 +28,164 @@ export async function reserveCourse(
 ) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
   return courseTransaction(actor.storeId, async (tx) => {
-    const { storeId } = actor;
-    const previous = await tx.courseBooking.findUnique({
-      where: { storeId_requestKey: { storeId, requestKey: input.requestKey } },
-    });
-    if (previous) {
-      if (
-        previous.operatorUserId !== actor.userId ||
-        previous.sessionId !== input.sessionId ||
-        previous.cardId !== input.cardId ||
-        previous.customerId !== input.customerId
-      )
-        fail("預約請求已使用，請重新開啟表單");
-      return previous;
-    }
-    if (limits.maxMonthlyBookings !== null) {
-      const bounds = monthRange(toLocalMonthStr());
-      const used = await tx.courseBooking.count({
-        where: { storeId, createdAt: { gte: bounds.start, lte: bounds.end } },
-      });
-      if (used >= limits.maxMonthlyBookings)
-        throw new AppError("FORBIDDEN", "已達方案本月預約額度上限");
-    }
-    const [session, card, rule, customers] = await Promise.all([
-      tx.courseSession.findFirst({
-        where: { id: input.sessionId, storeId, cancelledAt: null },
-      }),
-      tx.coursePointCard.findFirst({
-        where: { id: input.cardId, storeId },
-        include: { members: true },
-      }),
-      tx.courseBookingRule.findUnique({ where: { storeId } }),
-      tx.$queryRaw<
-        Array<{ id: string; name: string }>
-      >`SELECT id, name FROM "Customer" WHERE id = ${input.customerId} AND "storeId" = ${storeId} AND "mergedIntoCustomerId" IS NULL`,
-    ]);
-    if (!session || !card || !customers.length)
-      return fail("請選擇本店有效課程、方案與上課人");
-    if (
-      !card.members.some((m) => m.customerId === input.customerId) ||
-      (actor.customerId &&
-        !card.members.some((m) => m.customerId === actor.customerId))
-    )
-      return fail("僅能替此共卡的授權成員預約");
-    const now = new Date();
-    if (
-      session.startsAt.getTime() <=
-      now.getTime() + (rule?.bookingLeadMinutes ?? 0) * 60000
-    )
-      return fail("已超過預約截止時間");
-    if (card.expiresAt < now || card.expiresAt < session.startsAt)
-      return fail("方案已到期或不涵蓋上課日期");
-    const [duplicate, occupied, held] = await Promise.all([
-      tx.courseBooking.findFirst({
-        where: {
-          storeId,
-          sessionId: session.id,
-          customerId: input.customerId,
-          status: { not: "CANCELLED" },
-        },
-      }),
-      tx.courseBooking.count({
-        where: { storeId, sessionId: session.id, status: { not: "CANCELLED" } },
-      }),
-      tx.courseBooking.aggregate({
-        where: { storeId, cardId: card.id, status: "RESERVED" },
-        _sum: { pointCost: true },
-      }),
-    ]);
-    if (duplicate) return fail("此上課人已預約本堂課");
-    if (occupied >= session.capacity) return fail("本堂課已滿班");
-    if (card.remaining - (held._sum.pointCost ?? 0) < session.pointCost)
-      return fail("方案可用點數不足");
-    const booking = await tx.courseBooking.create({
-      data: {
-        ...input,
-        storeId,
-        pointCost: session.pointCost,
-        operatorUserId: actor.userId,
-        operatorCustomerId: actor.customerId ?? null,
-        operatorName: actor.name,
-        customerName: customers[0].name,
-      },
-    });
-    await tx.coursePointEntry.create({
-      data: {
-        storeId,
-        cardId: card.id,
-        bookingId: booking.id,
-        kind: "RESERVE",
-        points: booking.pointCost,
-        actorUserId: actor.userId,
-      },
-    });
-    return booking;
+    return reserveCourseInTransaction(
+      tx,
+      actor,
+      input,
+      limits.maxMonthlyBookings,
+    );
   });
+}
+
+export async function reserveCourseMembers(
+  actor: CourseActor,
+  input: {
+    sessionId: string;
+    cardId: string;
+    customerIds: string[];
+    requestKey: string;
+    notes?: string;
+  },
+) {
+  const customers = [...new Set(input.customerIds)].sort();
+  if (
+    !customers.length ||
+    customers.length !== input.customerIds.length ||
+    customers.length > 20
+  )
+    return fail("請選擇 1 至 20 位不重複的上課人");
+  const limits = await getStoreLimitsByStoreId(actor.storeId);
+  const batchKey = createHash("sha256")
+    .update(JSON.stringify([input.requestKey, customers]))
+    .digest("hex");
+  return courseTransaction(actor.storeId, async (tx) => {
+    const bookings = [];
+    for (const customerId of customers) {
+      bookings.push(
+        await reserveCourseInTransaction(
+          tx,
+          actor,
+          {
+            sessionId: input.sessionId,
+            cardId: input.cardId,
+            customerId,
+            requestKey: `${batchKey}:${customerId}`,
+            notes: input.notes,
+          },
+          limits.maxMonthlyBookings,
+        ),
+      );
+    }
+    return bookings;
+  });
+}
+
+async function reserveCourseInTransaction(
+  tx: Prisma.TransactionClient,
+  actor: CourseActor,
+  input: {
+    sessionId: string;
+    cardId: string;
+    customerId: string;
+    requestKey: string;
+    notes?: string;
+  },
+  maxMonthlyBookings: number | null,
+) {
+  const { storeId } = actor;
+  const previous = await tx.courseBooking.findUnique({
+    where: { storeId_requestKey: { storeId, requestKey: input.requestKey } },
+  });
+  if (previous) {
+    if (
+      previous.operatorUserId !== actor.userId ||
+      previous.sessionId !== input.sessionId ||
+      previous.cardId !== input.cardId ||
+      previous.customerId !== input.customerId
+    )
+      fail("預約請求已使用，請重新開啟表單");
+    return previous;
+  }
+  if (maxMonthlyBookings !== null) {
+    const bounds = monthRange(toLocalMonthStr());
+    const used = await tx.courseBooking.count({
+      where: { storeId, createdAt: { gte: bounds.start, lte: bounds.end } },
+    });
+    if (used >= maxMonthlyBookings)
+      throw new AppError("FORBIDDEN", "已達方案本月預約額度上限");
+  }
+  const [session, card, rule, customers] = await Promise.all([
+    tx.courseSession.findFirst({
+      where: { id: input.sessionId, storeId, cancelledAt: null },
+    }),
+    tx.coursePointCard.findFirst({
+      where: { id: input.cardId, storeId },
+      include: { members: true },
+    }),
+    tx.courseBookingRule.findUnique({ where: { storeId } }),
+    tx.$queryRaw<
+      Array<{ id: string; name: string }>
+    >`SELECT id, name FROM "Customer" WHERE id = ${input.customerId} AND "storeId" = ${storeId} AND "mergedIntoCustomerId" IS NULL`,
+  ]);
+  if (!session || !card || !customers.length)
+    return fail("請選擇本店有效課程、方案與上課人");
+  if (
+    !card.members.some((m) => m.customerId === input.customerId) ||
+    (actor.customerId &&
+      !card.members.some((m) => m.customerId === actor.customerId))
+  )
+    return fail("僅能替此共卡的授權成員預約");
+  const now = new Date();
+  if (
+    session.startsAt.getTime() <=
+    now.getTime() + (rule?.bookingLeadMinutes ?? 0) * 60000
+  )
+    return fail("已超過預約截止時間");
+  if (card.expiresAt < now || card.expiresAt < session.startsAt)
+    return fail("方案已到期或不涵蓋上課日期");
+  const [duplicate, occupied, held] = await Promise.all([
+    tx.courseBooking.findFirst({
+      where: {
+        storeId,
+        sessionId: session.id,
+        customerId: input.customerId,
+        status: { not: "CANCELLED" },
+      },
+    }),
+    tx.courseBooking.count({
+      where: { storeId, sessionId: session.id, status: { not: "CANCELLED" } },
+    }),
+    tx.courseBooking.aggregate({
+      where: { storeId, cardId: card.id, status: "RESERVED" },
+      _sum: { pointCost: true },
+    }),
+  ]);
+  if (duplicate) return fail("此上課人已預約本堂課");
+  if (occupied >= session.capacity) return fail("本堂課已滿班");
+  if (card.remaining - (held._sum.pointCost ?? 0) < session.pointCost)
+    return fail("方案可用點數不足");
+  const booking = await tx.courseBooking.create({
+    data: {
+      ...input,
+      storeId,
+      pointCost: session.pointCost,
+      operatorUserId: actor.userId,
+      operatorCustomerId: actor.customerId ?? null,
+      operatorName: actor.name,
+      customerName: customers[0].name,
+    },
+  });
+  await tx.coursePointEntry.create({
+    data: {
+      storeId,
+      cardId: card.id,
+      bookingId: booking.id,
+      kind: "RESERVE",
+      points: booking.pointCost,
+      actorUserId: actor.userId,
+    },
+  });
+  return booking;
 }
 
 export async function settleCourseBooking(
@@ -150,7 +214,8 @@ export async function settleCourseBooking(
     if (target === "CHECKED_IN") {
       if (booking.checkedInAt) return booking;
       return tx.courseBooking.update({
-        where: { id: booking.id }, data: { checkedInAt: new Date() },
+        where: { id: booking.id },
+        data: { checkedInAt: new Date() },
       });
     }
   }

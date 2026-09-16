@@ -1,4 +1,6 @@
-vi.mock("@/lib/feature-gate", () => ({ getStoreLimitsByStoreId: async () => ({ maxMonthlyBookings: null }) }));
+vi.mock("@/lib/feature-gate", () => ({
+  getStoreLimitsByStoreId: async () => ({ maxMonthlyBookings: null }),
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   transaction: vi.fn(),
@@ -24,6 +26,7 @@ vi.mock("@/server/services/course-access", () => ({
 }));
 import {
   reserveCourse,
+  reserveCourseMembers,
   settleCourseBooking,
 } from "@/server/services/course-booking";
 import type { Prisma } from "../../generated/course-client";
@@ -223,12 +226,18 @@ describe("course attendance stages", () => {
   it("check-in preserves reservation and does not debit or release points", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
     await settleCourseBooking(tx, manager, "booking", "CHECKED_IN");
-    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({ where: { id: "booking" }, data: { checkedInAt: expect.any(Date) } });
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({
+      where: { id: "booking" },
+      data: { checkedInAt: expect.any(Date) },
+    });
     expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
     expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();
   });
   it("repeating check-in makes no additional change", async () => {
-    m.tx.courseBooking.findFirst.mockResolvedValue({ ...reserved(), checkedInAt: new Date() });
+    m.tx.courseBooking.findFirst.mockResolvedValue({
+      ...reserved(),
+      checkedInAt: new Date(),
+    });
     await settleCourseBooking(tx, manager, "booking", "CHECKED_IN");
     expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
   });
@@ -236,17 +245,84 @@ describe("course attendance stages", () => {
     m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
     await settleCourseBooking(tx, manager, "booking", "NO_SHOW");
     expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
-    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({ data: expect.objectContaining({ kind: "RELEASE", points: 3 }) });
-    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({ where: { id: "booking" }, data: { status: "NO_SHOW" } });
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ kind: "RELEASE", points: 3 }),
+    });
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({
+      where: { id: "booking" },
+      data: { status: "NO_SHOW" },
+    });
   });
   it("members cannot check in or mark no-show", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
-    for (const status of ["CHECKED_IN", "NO_SHOW"] as const) await expect(settleCourseBooking(tx, actor, "booking", status)).rejects.toThrow("僅限有權限");
+    for (const status of ["CHECKED_IN", "NO_SHOW"] as const)
+      await expect(
+        settleCourseBooking(tx, actor, "booking", status),
+      ).rejects.toThrow("僅限有權限");
     expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
   });
   it("no-show cannot be recorded before class starts", async () => {
-    m.tx.courseBooking.findFirst.mockResolvedValue({ ...reserved(), session: { startsAt: new Date("2026-09-16T00:00:00Z") } });
-    await expect(settleCourseBooking(tx, manager, "booking", "NO_SHOW")).rejects.toThrow("尚未開始");
+    m.tx.courseBooking.findFirst.mockResolvedValue({
+      ...reserved(),
+      session: { startsAt: new Date("2026-09-16T00:00:00Z") },
+    });
+    await expect(
+      settleCourseBooking(tx, manager, "booking", "NO_SHOW"),
+    ).rejects.toThrow("尚未開始");
     expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("atomic multi-learner reservations", () => {
+  const batch = {
+    sessionId: "session",
+    cardId: "card",
+    customerIds: ["a", "b"],
+    requestKey: "batch",
+  };
+  it("creates all learners inside one store transaction", async () => {
+    await reserveCourseMembers(actor, batch);
+    expect(m.transaction).toHaveBeenCalledOnce();
+    expect(
+      m.tx.courseBooking.create.mock.calls.map(([x]) => x.data.customerId),
+    ).toEqual(["a", "b"]);
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledTimes(2);
+  });
+  it.each(["points", "capacity"])(
+    "propagates the second learner failure to roll back the entire %s transaction",
+    async (reason) => {
+      if (reason === "points")
+        m.tx.courseBooking.aggregate
+          .mockResolvedValueOnce({ _sum: { pointCost: 0 } })
+          .mockResolvedValueOnce({ _sum: { pointCost: 3 } });
+      else
+        m.tx.courseBooking.count
+          .mockResolvedValueOnce(1)
+          .mockResolvedValueOnce(2);
+      await expect(reserveCourseMembers(actor, batch)).rejects.toThrow(
+        reason === "points" ? "點數不足" : "滿班",
+      );
+      expect(m.transaction).toHaveBeenCalledOnce();
+      expect(m.tx.courseBooking.create).toHaveBeenCalledOnce();
+    },
+  );
+  it("reuses stable per-learner keys regardless of checkbox order", async () => {
+    await reserveCourseMembers(actor, batch);
+    const records = m.tx.courseBooking.create.mock.calls.map(([{ data }]) => ({
+      id: data.customerId,
+      ...data,
+    }));
+    m.tx.courseBooking.findUnique.mockImplementation(({ where }) =>
+      records.find((b) => b.requestKey === where.storeId_requestKey.requestKey),
+    );
+    m.tx.courseBooking.create.mockClear();
+    await reserveCourseMembers(actor, { ...batch, customerIds: ["b", "a"] });
+    expect(m.tx.courseBooking.create).not.toHaveBeenCalled();
+  });
+  it("rejects duplicate checkbox identities", async () => {
+    await expect(
+      reserveCourseMembers(actor, { ...batch, customerIds: ["b", "b"] }),
+    ).rejects.toThrow("不重複");
+    expect(m.transaction).not.toHaveBeenCalled();
   });
 });
