@@ -2,7 +2,28 @@
 
 Status: NOT ready to merge. No production mutations or deployment.
 
-## Current acceptance status — after LINE device retest
+## Release preparation closeout — latest status
+
+**Not ready for an immediate merge that triggers production deployment.** Code/CI and merge conflicts are resolved; production still needs the explicitly approved schema/history rollout described in `course-database-rollout-plan-20260916.md`. No production writes, merge or production deployment occurred.
+
+- Integrated main `e69323f4` into the course branch, preserving its membership verification and trial contact changes. Resolved three LIFF conflicts without discarding course atomic onboarding or Logo/viewport fixes. PR is mergeable (no Git conflicts).
+- General CI run [35116149096](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/35116149096): Typecheck, 398 targeted tests, 4,714 full-suite tests, changed-file ESLint all passed. The ordinary suite skips the 32 DB tests by design; they are now covered by the separate successful job below.
+- PG17.6 run [35116385976](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/35116385976), code `bf901be1`: **32 passed, zero skipped**. Previously the branch condition excluded this PR. Enabling it exposed absent request context in older action tests; a PG-only request module alias fixes the harness while real authorization, transactions and assertions remain intact. Initial failed runs are superseded, not hidden.
+- Full-repository lint is still baseline debt, not repaired repository-wide. Earlier manual dispatch ran all files and failed with 1,305 errors; manual course runs now use the same changed-file scope as PR lint. Latest scope has zero errors / four warnings. No lint rule was disabled.
+- Seven migration hashes match the passed isolated rehearsal; refreshed production catalog remains at the expected pre-course baseline. Latest completed daily physical backup is 2026-09-16 01:26:58 Asia/Taipei. PITR is not enabled; backup listing is not evidence of successful restore.
+- User-accepted LINE/device/member/transaction checks remain accepted and were not repeated. Conflict integration received 61 focused automated identity tests and a local typecheck.
+
+### Concrete release dependency and retained limits
+
+1. **Release dependency:** production lacks the Course schema/shared columns; production build rejects unallowlisted pending course migrations. Obtain explicit approval for the ordered seven-file transaction, verify structure and register exactly three Prisma/four Supabase history entries before merging into an automatically deployed branch. The rollout and rollback plan is ready; the authorized scope of this turn excludes carrying it out.
+2. Cloud history registration on a full production clone, actual backup restore and production-volume lock timing remain unverified. Daily backup availability and transaction rollback are verified separately. Do not claim PITR or full restore success.
+3. Cloudflare remains explicitly waived. The pre-existing PR634 temporary push workflow has unrelated YAML validation failure; this is disclosed, not repaired or marked passed. Physical keyboard confirmation remains with the user.
+4. Identical purchase-confirmation HTTP replay and the entire Steamfoot/SPA browser write lifecycle were not rerun; prior transaction acceptance remains valid, and the 32 real PostgreSQL scenarios now supplement shared booking regression coverage.
+5. Keep Draft and preserve fixtures. No new feature work, role grants or member relinking.
+
+The following sections are historical evidence; the closeout above supersedes older pending LINE and skipped PostgreSQL statements.
+
+## Historical acceptance status — after LINE device retest
 
 - User confirms real LINE login, all four member tabs and the complete Logo now work. This supersedes the earlier pending/failed LINE observations below; no repeat of those accepted checks is requested.
 - Read-only database verification matches the reported member to its original active LINE Account and exactly one membership in the isolated store. Cards, attendee reservations (including history), operator reservations and purchases are all zero. Staff records and StaffMemberLink records for that account/store are also zero. The empty state and absence of work access are correct; no association with the dual-role test account was made, and no member data or permissions were changed.

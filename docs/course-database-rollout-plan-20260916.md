@@ -51,7 +51,7 @@ python3 scripts/course-migration-rehearsal.py
 - NO_SHOW 與點名更正異動格式可寫入。
 - 模擬 anon／authenticated 有寬鬆預設表權限時，RLS 仍阻擋直接讀取點數卡與新增教室；購買表權限已撤銷。
 
-**範圍限制：**這是依已核對前置結構建立的合成相依基底，不是正式資料庫完整複本，不驗證正式資料量下的鎖等待、PITR 備份還原、雲端角色差異，亦不替代應用程式的預約／付款驗收或既有 `postgres-integration` CI。後者因 workflow 僅針對 `fix/test-audit-recovery` 執行，在本 PR 為 SKIPPED。
+**範圍限制：**這是依已核對前置結構建立的合成相依基底，不是正式資料庫完整複本，不驗證正式資料量下的鎖等待、PITR 備份還原、雲端角色差異，亦不替代應用程式的預約／付款驗收或既有 `postgres-integration` CI。後者已開放課程分支，PG17.6 隔離 CI 實跑 32 項全部通過、零跳過（run 35116385976）；兩者證據互補。
 
 ## 取得明確上線授權後的執行順序
 
@@ -69,3 +69,20 @@ python3 scripts/course-migration-rehearsal.py
 - 若發現資料完整性問題，暫停受影響的課程操作，使用獨立恢復副本分析與可稽核的修正；任何正式修復仍須明確授權。
 
 參考：[Supabase migration 指引](https://supabase.com/docs/guides/local-development/database-migrations)、[環境管理](https://supabase.com/docs/guides/deployment/managing-environments)。本輪沒有修改正式資料庫、正式部署或合併。
+
+
+## 發布準備收尾核對（2026-09-16）
+
+- 再次唯讀查詢正式系統目錄：PG17.6、btree_gist 1.7；Course 表及七筆遷移歷史仍不存在；Staff 三欄、StaffMemberLink.courseMemberEnabled 仍缺少。相依複合唯一索引仍存在。
+- 七份 SQL 的 SHA-256 全部與既有演練紀錄一致；沿用原子提交、失敗 ROLLBACK 及 RLS 證據，沒有重跑已通過演練。
+- 沿用 SPA 發布任務「盤點 SPA 模組上線前項目」的備份查核方式。本次登入管理台唯讀確認七份 COMPLETED 實體備份；最新為 **2026-09-16 01:26:58 Asia/Taipei**，舊 SPA 證據中的 2026-09-14 01:24:13 備份亦仍列出。COMPLETED 是備份完成，不是還原完成。
+- PITR 頁面顯示尚未啟用附加方案。Restore to new project 有可用備份入口，但沒有可引用的已完成還原紀錄；本輪未按 Restore、未啟用付費功能或建立正式資料複本。不能宣稱 PITR／完整雲端還原已驗證。
+- 沒有找到可沿用的實際還原成功證據。日備份不涵蓋該備份之後的交易，不能作為直接覆蓋正式庫的回退方案。預設回復仍為交易內 ROLLBACK，或提交後回退應用、保留新增結構與資料。
+
+### 合併與部署必須分開安排
+
+目前 `npm run build` 會先執行 `scripts/ci-migrate.mjs`；課程三份 Prisma migration 不在正式 pending allowlist。**不能現在直接合併並期待正式部署自動完成課程更新。** 不擴大 allowlist 來繞過此保護。
+
+需使用者核准本文件的維護窗口後，先按上列 1–5 步完成精準 DDL 與兩套歷史核對，再核准合併／正式發布。這是待授權的正式操作，不是本輪已完成項目。若要先合併，須先有明確且已核對的正式自動部署暫停安排，不能假設合併不會觸發部署。
+
+歷史登錄只允許上述三個 Prisma 名稱與四個 Supabase 版本。使用固定 lockfile 的 Prisma `migrate resolve --applied <完整名稱>`，Supabase `migration repair <版本> --status applied`；必須在已核對的正式連線／project 範圍執行，不可依賴目前 CLI 預設連結。Prisma 登錄後核對名稱、checksum、finished_at、rolled_back_at；Supabase 核對 version/name。單筆中斷只補缺少且結構一致的歷史，絕不重跑七份 DDL。此工具登錄步驟尚未在正式完整複本演練，保留為發布限制，不將本機 SQL 演練冒充該項證據。
