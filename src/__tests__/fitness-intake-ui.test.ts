@@ -38,9 +38,21 @@ function setup(saved?: object) {
 }
 function reachContact(r: ReturnType<typeof setup>) {
   r.fill("storeName", "TEST 教室"); r.check("needs", r.needs[0]); r.next();
+  r.fill("storeCount", "1 家");
   r.check("classModes", "尚未確定"); r.check("management", "尚未確定"); r.next();
 }
 describe("fitness intake three-step DOM interactions (not a visual browser test)", () => {
+  it.each(["籌備中，尚未開店", "1 家", "2～3 家", "4 家以上"])("requires and preserves the selected store count: %s", async count => {
+    const r = setup(); r.fill("storeName", "TEST");
+    const migration = "想換系統，但擔心學員資料、剩餘堂數和預約不好搬過來";
+    const multiStore = "各店資料分散，想看整體狀況得分別查詢或整理";
+    r.check("needs", migration); r.check("needs", multiStore); r.check("priorityNeed", multiStore); r.next();
+    r.check("classModes", "尚未確定"); r.check("management", "尚未確定"); r.next();
+    expect(r.active()).toBe("1"); expect(r.doc.getElementById("error")!.textContent).toContain("據點數");
+    r.fill("storeCount", count); r.next(); r.select("目前暫不考慮"); await r.submit();
+    expect(r.sent[0]).toMatchObject({ storeCount: count, needs: [migration, multiStore], priorityNeed: multiStore });
+    expect(r.doc.getElementById("courseTypes")).toBeNull();
+  });
   it("caps choices at four, supports replacement and clears a removed priority", () => {
     const r = setup();
     for (const index of [0, 1, 4, 8]) r.check("needs", r.needs[index]);
@@ -73,12 +85,12 @@ describe("fitness intake three-step DOM interactions (not a visual browser test)
   it("preserves answers on back navigation and restores step/priority from a draft", () => {
     const r = setup(); r.fill("storeName", "TEST");
     r.check("needs", r.needs[0]); r.check("needs", r.needs[4]); r.check("priorityNeed", r.needs[4]); r.next();
-    r.check("courseTypes", "瑜珈"); r.back(); r.next();
+    r.fill("storeCount", "2～3 家"); r.back(); r.next();
     const stored = JSON.parse(r.w.sessionStorage.getItem("steam-butler-fitness-intake-v2"));
     const restored = setup(stored);
     expect(restored.active()).toBe("1");
     expect(restored.doc.querySelector<HTMLInputElement>('[name="priorityNeed"]:checked')!.value).toBe(r.needs[4]);
-    expect(restored.doc.querySelector<HTMLInputElement>('[name="courseTypes"]:checked')!.value).toBe("瑜珈");
+    expect(restored.input("storeCount").value).toBe("2～3 家");
   });
   it("requires contact for trial but clears and omits it after opting out", async () => {
     const r = setup(); reachContact(r); r.select("申請體驗帳號");
@@ -90,18 +102,20 @@ describe("fitness intake three-step DOM interactions (not a visual browser test)
     expect(r.sent[0]).toMatchObject({ contactName: "", lineId: "", phone: "", priorityNeed: r.needs[0], formVersion: "fitness-v2" });
     expect(r.doc.getElementById("success")!.hidden).toBe(false);
   });
-  it("serializes all four categories, selected Other text and course details without hidden stale text", async () => {
+  it("serializes all four categories, store count and selected Other text without hidden stale text", async () => {
     const r = setup(); r.fill("storeName", "TEST");
     for (const value of ["其他學員相關困擾", "其他教練相關困擾", "其他店務相關困擾", "其他招生或續報困擾"]) r.check("needs", value);
     for (const name of ["studentOther", "coachOther", "operationsOther", "businessOther"]) r.fill(name, name + " 測試內容");
     r.check("priorityNeed", "其他教練相關困擾"); r.next();
-    r.check("courseTypes", "其他課程"); r.fill("courseTypesOther", "不應送出的舊課程"); r.check("courseTypes", "其他課程"); r.check("courseTypes", "瑜珈");
+    r.fill("storeCount", "4 家以上");
+    r.check("management", "其他方式"); r.fill("managementOther", "不應送出的舊方式"); r.check("management", "其他方式");
     r.check("classModes", "其他上課方式"); r.fill("classModesOther", "預約包班");
     r.check("management", "管理系統"); r.fill("systemName", "TEST 系統"); r.next(); r.select("目前暫不考慮"); await r.submit();
     expect(r.sent).toHaveLength(1); expect(r.sent[0].needs).toHaveLength(4);
     expect(r.sent[0].otherNeed).toContain("最優先改善：其他教練相關困擾");
     expect(r.sent[0].otherNeed).toContain("businessOther 測試內容");
-    expect(r.sent[0].otherNeed).toContain("課程：瑜珈");
+    expect(r.sent[0].storeCount).toBe("4 家以上");
+    expect(r.sent[0].otherNeed).toContain("空間與分店補充：據點數：4 家以上");
     expect(r.sent[0].otherNeed).not.toContain("不應送出");
   });
   it("blocks repeated submission while uncertain, including after reload", async () => {
