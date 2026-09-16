@@ -21,7 +21,7 @@ type Recipient = {
   preferences: unknown;
   legacyStaffId?: string | null;
 };
-function RecipientCard({ item }: { item: Recipient }) {
+function RecipientCard({ item, expanded, onExpand }: { item: Recipient; expanded: boolean; onExpand: () => void }) {
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState("");
   const p = managerPreferences(item.preferences, item.sameDayBookingEnabled);
@@ -61,7 +61,7 @@ function RecipientCard({ item }: { item: Recipient }) {
               const on = e.target.checked;
               save(() => setStoreLineNotificationRecipientActive(item.id, on));
             }}
-            className="h-5 w-5 accent-emerald-700"
+            className="h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-earth-200 p-0.5 transition-colors before:block before:h-5 before:w-5 before:rounded-full before:bg-white before:shadow-sm before:transition-transform checked:bg-primary-700 checked:before:translate-x-5 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-primary-600"
           />
         </label>
         <details className="relative">
@@ -90,15 +90,15 @@ function RecipientCard({ item }: { item: Recipient }) {
       <div className="mt-2 flex justify-between text-xs text-earth-500">
         <span>
           {item.isActive
-            ? `已開啟 ${Object.values(p).filter(Boolean).length} 項提醒`
-            : "已暫停接收 · 保留原設定"}
+            && item.linkedAt ? `已開啟 ${Object.values(p).filter(Boolean).length} 項提醒`
+            : !item.linkedAt ? "完成 LINE 綁定後才能接收" : "已暫停接收 · 保留原設定"}
         </span>
         <span role="status">{pending ? "儲存中…" : saved}</span>
       </div>
-      <details className="mt-3 border-t border-earth-100 pt-3">
-        <summary className="cursor-pointer text-sm font-medium text-primary-700">
-          設定提醒
-        </summary>
+      <button type="button" aria-expanded={expanded} aria-controls={`recipient-${item.id}`} onClick={onExpand} className="mt-2 text-sm font-medium text-primary-700">
+        {expanded ? "收合設定 ⌃" : "設定提醒 ⌄"}
+      </button>
+      {expanded && <div id={`recipient-${item.id}`} className="mt-3 border-t border-earth-100 pt-3">
         <div
           className={`mt-4 grid gap-5 md:grid-cols-3 ${!item.isActive ? "opacity-50" : ""}`}
         >
@@ -141,7 +141,7 @@ function RecipientCard({ item }: { item: Recipient }) {
             </section>
           ))}
         </div>
-      </details>
+      </div>}
     </article>
   );
 }
@@ -150,6 +150,17 @@ export function LineNotificationRecipientsCard({
 }: {
   recipients: Recipient[];
 }) {
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("ALL");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const filtered = recipients.filter(item =>
+    item.displayName.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) &&
+    (!roleFilter || item.roleLabel === roleFilter) &&
+    (status === "ALL" || (status === "WAITING" ? !item.linkedAt : status === "ACTIVE" ? !!item.linkedAt && item.isActive : !!item.linkedAt && !item.isActive)));
+  const lastPage = Math.max(0, Math.ceil(filtered.length / 10) - 1);
+  const currentPage = Math.min(page, lastPage);
   const [name, setName] = useState("");
   const [role, setRole] = useState<"店長" | "店主" | "合夥人" | "值班主管">(
     "店長",
@@ -160,7 +171,7 @@ export function LineNotificationRecipientsCard({
       <div>
         <h2 className="text-lg font-semibold text-earth-900">店長 LINE 通知</h2>
         <p className="mt-1 text-sm text-earth-500">
-          每位人員獨立設定，關閉總開關即停止接收所有店長通知。
+          僅顯示本店通知人員。點選「設定提醒」編輯各自接收的通知。
         </p>
       </div>
       {recipients.length === 0 && (
@@ -168,9 +179,19 @@ export function LineNotificationRecipientsCard({
           尚未綁定通知人員。完成綁定後，即可設定總開關與 8 項個別提醒。
         </p>
       )}
-      {recipients.map((item) => (
-        <RecipientCard key={item.id} item={item} />
-      ))}
+      {recipients.length > 0 && <>
+        <div className="flex flex-wrap gap-2" aria-label="通知接收狀態">
+          {[["ALL", "全部", recipients.length], ["ACTIVE", "接收中", recipients.filter(r => r.linkedAt && r.isActive).length], ["PAUSED", "已暫停", recipients.filter(r => r.linkedAt && !r.isActive).length], ["WAITING", "待綁定", recipients.filter(r => !r.linkedAt).length]].map(([value, label, count]) => <button key={value} type="button" aria-pressed={status === value} onClick={() => { setStatus(String(value)); setPage(0); }} className={`rounded-full border px-3 py-2 text-sm ${status === value ? "border-primary-700 bg-primary-700 text-white" : "border-earth-200 bg-white text-earth-600"}`}>{label} {count}</button>)}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input aria-label="搜尋通知人員" placeholder="搜尋姓名" value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} className="min-w-0 flex-1 rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm" />
+          <select aria-label="篩選人員身分" value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(0); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"><option value="">全部身分</option>{Array.from(new Set(recipients.map(r => r.roleLabel))).map(role => <option key={role}>{role}</option>)}</select>
+        </div>
+        <p className="text-xs text-earth-500" role="status">符合 {filtered.length} 位，每頁最多顯示 10 位</p>
+        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
+        {!filtered.length && <div className="rounded-xl border border-earth-200 bg-white p-5 text-sm text-earth-500">沒有符合條件的人員。<button type="button" onClick={() => { setQuery(""); setStatus("ALL"); setRoleFilter(""); setPage(0); }} className="ml-3 text-primary-700 underline">清除篩選</button></div>}
+        {lastPage > 0 && <div className="flex items-center justify-end gap-4 text-sm"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">上一頁</button><span>{currentPage + 1} / {lastPage + 1}</span><button type="button" disabled={currentPage === lastPage} onClick={() => setPage(currentPage + 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">下一頁</button></div>}
+      </>}
       <details
         open={recipients.length === 0}
         className="rounded-xl border border-earth-200 bg-white p-4"
