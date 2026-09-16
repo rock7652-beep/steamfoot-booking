@@ -84,7 +84,7 @@ export function TrialCareCard({ storeId, storeName, hasOfferLink, initialEnabled
         </div>)}
         <details className="px-1 py-2 text-xs text-earth-500"><summary className="cursor-pointer">發送規則與避免打擾</summary><p className="mt-2 leading-6">台灣時間，每 5 分鐘檢查。各階段至少間隔 3 天。已購買方案或儲值停止邀請；已預約略過該次邀請。每階段只發一次，不補發、不循環。重新啟用整組關懷只處理新體驗。</p></details>
       </div>
-      <div className="sticky bottom-0 z-10 mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-earth-200 bg-white/95 px-5 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.03)] backdrop-blur-sm">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-earth-200 bg-white px-5 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
         <p role="status" className="text-sm text-earth-600">{message || (dirty ? "有尚未儲存的變更" : "設定與文案修改後，請儲存生效")}</p><button disabled={pending || !dirty} type="submit" className="rounded-lg bg-primary-700 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">{pending ? "儲存中…" : enabled && !saved.enabled ? "確認文案並啟用" : "儲存設定"}</button>
       </div>
     </form>
