@@ -168,7 +168,7 @@ export default async function CheckoutPage({ params }: PageProps) {
       </section>
 
       {/* Submit + 顧客自填欄位 */}
-      <PurchaseButton planId={plan.id} routePrefix={prefix} />
+      {shopConfig.bankAccountNumber?.trim() ? <PurchaseButton planId={plan.id} routePrefix={prefix} /> : shopConfig.lineOfficialUrl ? <a href={shopConfig.lineOfficialUrl} className="text-primary-700">聯繫本店 LINE</a> : null}
 
       <p className="mt-3 text-center text-xs text-earth-400">
         送出後可到「預約與方案」查看購買紀錄

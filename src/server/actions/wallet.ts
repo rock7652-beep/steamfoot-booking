@@ -983,6 +983,9 @@ export async function initiateCustomerPlanPurchase(
       throw new AppError("FORBIDDEN", "此方案不屬於您的店別");
     }
 
+    const paymentConfig = await prisma.shopConfig.findUnique({ where: { storeId: urlStoreId }, select: { bankAccountNumber: true } });
+    if (!paymentConfig?.bankAccountNumber?.trim()) throw new AppError("BUSINESS_RULE", "店家尚未設定轉帳資訊，請先聯繫店家");
+
     const originalPrice = Number(plan.price);
     // 自助購買沒有自訂效期選項，仍在申請當下封存方案規則解析出的確切日期。
     const pendingExpiryDate = plan.validityDays == null

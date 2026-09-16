@@ -11,6 +11,7 @@ const USER_ID = "ck0000000000000000000002";
 const CUSTOMER_ID = "ck0000000000000000000001";
 const PLAN_ID = "ck0000000000000000000003";
 
+const mockPaymentConfig = vi.fn();
 const mockStoreFindUnique = vi.fn();
 const mockUserCreate = vi.fn();
 const mockServicePlanFindFirst = vi.fn();
@@ -21,6 +22,7 @@ const mockCustomerFindUnique = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    shopConfig: { findUnique: (...args: unknown[]) => mockPaymentConfig(...args) },
     store: {
       findUnique: (...args: unknown[]) => mockStoreFindUnique(...args),
     },
@@ -147,6 +149,7 @@ function registerFormData() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockPaymentConfig.mockResolvedValue({ bankAccountNumber: "123456" });
   mockStoreFindUnique.mockResolvedValue({ operatingStatus: "ACTIVE" });
   mockServicePlanFindFirst.mockResolvedValue({
     id: PLAN_ID,
@@ -231,4 +234,12 @@ describe("store operating status customer-facing guards", () => {
     expect(isStoreCustomerPortalBlocked("PAUSED")).toBe(false);
     expect(isStoreCustomerPortalBlocked("INACTIVE")).toBe(true);
   });
+});
+
+it("blocks self-purchase when the receiving account is missing", async () => {
+  const { initiateCustomerPlanPurchase } = await import("@/server/actions/wallet");
+  mockPaymentConfig.mockResolvedValue({ bankAccountNumber: " " });
+  const result = await initiateCustomerPlanPurchase({ planId: PLAN_ID, transferLastFour: "1234" });
+  expect(result).toEqual({ success: false, error: "店家尚未設定轉帳資訊，請先聯繫店家" });
+  expect(mockDbTransaction).not.toHaveBeenCalled();
 });

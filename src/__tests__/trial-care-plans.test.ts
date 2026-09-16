@@ -1,13 +1,15 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ store: vi.fn(), plans: vi.fn(), packages: vi.fn(), treatments: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: { store: { findFirst: m.store }, servicePlan: { findMany: m.plans } } }));
+const m = vi.hoisted(() => ({ store: vi.fn(), plans: vi.fn(), packages: vi.fn(), treatments: vi.fn(), payment: vi.fn() }));
+vi.mock("@/lib/db", () => ({ prisma: { store: { findFirst: m.store }, shopConfig: { findUnique: m.payment }, servicePlan: { findMany: m.plans } } }));
 vi.mock("@/lib/spa-db", () => ({ spaPrisma: { spaPackage: { findMany: m.packages }, spaTreatment: { findMany: m.treatments } } }));
 import { publicPlanMessages } from "@/server/services/trial-care-plans";
+vi.mock("@/lib/base-url", () => ({ deriveBaseUrl: () => "https://preview.example.test" }));
 const token = "a".repeat(48);
 beforeEach(() => {
   vi.resetAllMocks();
-  m.store.mockResolvedValue({ name: "本店", industryModule: "STEAMFOOT" });
-  m.plans.mockResolvedValue([{ name: "五堂卡", price: 2000, sessionCount: 5, validityDays: 90, description: "方案內容" }]);
+  m.store.mockResolvedValue({ name: "本店", slug: "store-a", industryModule: "STEAMFOOT" });
+  m.payment.mockResolvedValue({ bankAccountNumber: "123456" });
+  m.plans.mockResolvedValue([{ id: "plan-a", name: "五堂卡", price: 2000, sessionCount: 5, validityDays: 90, description: "方案內容" }]);
 });
 it("reads only the active store's published packages, with fresh price on every click", async () => {
   expect(JSON.stringify(await publicPlanMessages("A", token, 0))).toContain("2,000");
@@ -43,4 +45,22 @@ it("does not read another module or an inactive store", async () => {
   await publicPlanMessages("C", token, 0);
   m.store.mockResolvedValue(null); await publicPlanMessages("closed", token, 0);
   expect(m.plans).not.toHaveBeenCalled(); expect(m.packages).not.toHaveBeenCalled();
+});
+
+it("links a purchase to the current store and plan without exposing the care token", async () => {
+  const result = JSON.stringify(await publicPlanMessages("A", token, 0));
+  expect(result).toContain("https://preview.example.test/s/store-a/liff/wallets/shop/plan-a");
+  expect(result).toContain("購買此方案");
+  expect(result).not.toContain(token);
+  expect(m.payment).toHaveBeenCalledWith({ where: { storeId: "A" }, select: { bankAccountNumber: true } });
+});
+it("does not offer checkout without receiving details or for SPA packages", async () => {
+  m.payment.mockResolvedValue({ bankAccountNumber: " " });
+  expect(JSON.stringify(await publicPlanMessages("A", token, 0))).not.toContain("購買此方案");
+  m.store.mockResolvedValue({ name: "SPA", slug: "spa", industryModule: "SPA" });
+  m.treatments.mockResolvedValue([{ id: "t" }]);
+  m.packages.mockResolvedValue([{ id: "p", name: "按摩", price: 100, uses: 1, validityDays: 90 }]);
+  m.payment.mockClear();
+  expect(JSON.stringify(await publicPlanMessages("S", token, 0))).not.toContain("購買此方案");
+  expect(m.payment).not.toHaveBeenCalled();
 });

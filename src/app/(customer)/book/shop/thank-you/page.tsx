@@ -3,6 +3,8 @@ import { getStoreContext } from "@/lib/store-context";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { AppLink as Link } from "@/components/app-link";
+import { PurchaseReceipt } from "@/components/purchase-receipt";
+import { getShopConfig } from "@/lib/shop-config";
 import { formatTWTime } from "@/lib/date-utils";
 
 interface PageProps {
@@ -30,6 +32,8 @@ export default async function ThankYouPage({ searchParams }: PageProps) {
           },
           select: {
             id: true,
+            transactionNo: true,
+            transferLastFour: true,
             amount: true,
             paymentStatus: true,
             createdAt: true,
@@ -40,6 +44,7 @@ export default async function ThankYouPage({ searchParams }: PageProps) {
         })
       : null;
 
+  const config = await getShopConfig(storeId);
   const prefix = `/s/${storeSlug}`;
   const planName = tx?.planNameSnapshot ?? tx?.servicePlan?.name ?? "—";
 
@@ -88,6 +93,8 @@ export default async function ThankYouPage({ searchParams }: PageProps) {
           您的購買申請已送出，店長確認入帳後，方案就會啟用。
         </section>
       )}
+
+      {tx && <PurchaseReceipt receipt={{ ...tx, amount: Number(tx.amount) }} contactUrl={config.lineOfficialUrl} />}
 
       {/* Next steps */}
       <section className="mb-5 rounded-xl border border-primary-200 bg-primary-50 p-4">
