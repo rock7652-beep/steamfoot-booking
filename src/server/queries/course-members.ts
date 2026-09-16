@@ -32,6 +32,8 @@ export async function getCourseCards(storeId: string, customerId?: string) {
     return {
       id: c.id,
       name: c.nameSnapshot,
+      unit: c.unit,
+      templateIds: c.templateIds,
       remaining: c.remaining,
       held,
       available: expired ? 0 : Math.max(0, c.remaining - held),
@@ -43,12 +45,12 @@ export async function getCourseCards(storeId: string, customerId?: string) {
       })),
       entries: c.entries.map((e) => ({
         id: e.id,
-        kind: e.kind,
+        kind: e.kind.startsWith("CORRECT:") ? e.kind : e.kind.split(":")[0],
         points: e.points,
         createdAt: e.createdAt.toISOString(),
       })),
     };
-  }).sort((a, b) => Number(a.expired) - Number(b.expired));
+  }).sort((a, b) => Number(a.expired) - Number(b.expired) || a.expiresAt.localeCompare(b.expiresAt));
 }
 
 export async function getCourseRoster(storeId: string, sessionId: string) {

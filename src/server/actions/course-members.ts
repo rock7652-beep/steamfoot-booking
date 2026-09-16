@@ -87,9 +87,12 @@ export async function saveCoursePointPlan(input: unknown) {
         price: z.number().int().min(0).max(10000000),
         validDays: z.number().int().min(1).max(3650),
         isActive: z.boolean().default(true),
+        unit: z.enum(["POINT", "SESSION"]).default("POINT"),
+        templateIds: z.array(id).max(200).default([]),
       })
       .parse(input);
     const { storeId } = await courseManager("plans.edit");
+    if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
     if (planId) {
       const result = await coursePrisma.coursePointPlan.updateMany({
         where: { id: planId, storeId },
@@ -146,6 +149,8 @@ export async function assignCoursePointCard(input: unknown) {
           storeId,
           planId: plan.id,
           nameSnapshot: plan.name,
+          unit: plan.unit,
+          templateIds: plan.templateIds,
           remaining: plan.points,
           expiresAt,
           requestKey: data.requestKey,

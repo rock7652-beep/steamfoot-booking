@@ -59,11 +59,12 @@ export async function CourseSharedHub({
       }),
       coursePrisma.courseBookingRule.findUnique({ where: { storeId } }),
       checkPermission(user.role, user.staffId, "business_hours.manage"),
-      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, mapUrl: true, lineOfficialUrl: true } }),
+      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, mapUrl: true, lineOfficialUrl: true, bankName: true, bankCode: true, bankAccountNumber: true } }),
     ]);
     body = (
       <CourseSettingsEditor
         name={store?.name ?? ""}
+        bankName={config?.bankName??""} bankCode={config?.bankCode??""} bankAccountNumber={config?.bankAccountNumber??""}
         address={config?.address ?? ""} mapUrl={config?.mapUrl ?? ""} lineOfficialUrl={config?.lineOfficialUrl ?? ""}
         bookingLeadMinutes={rule?.bookingLeadMinutes ?? 0}
         cancellationLeadMinutes={rule?.cancellationLeadMinutes ?? 0}

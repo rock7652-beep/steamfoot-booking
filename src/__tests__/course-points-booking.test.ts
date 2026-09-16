@@ -16,7 +16,7 @@ const m = vi.hoisted(() => ({
     coursePointCard: { findFirst: vi.fn(), updateMany: vi.fn() },
     courseSession: { findFirst: vi.fn() },
     courseBookingRule: { findUnique: vi.fn() },
-    coursePointEntry: { create: vi.fn() },
+    coursePointEntry: { create: vi.fn(), findUnique: vi.fn() },
     $queryRaw: vi.fn(),
   },
 }));

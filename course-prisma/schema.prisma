@@ -83,6 +83,8 @@ model CoursePointPlan {
   price Int @default(0)
   validDays Int
   isActive Boolean @default(true)
+  unit String @default("POINT")
+  templateIds String[] @default([])
   cards CoursePointCard[]
   @@unique([id, storeId])
   @@unique([storeId, name])
@@ -93,6 +95,8 @@ model CoursePointCard {
   storeId String
   planId String
   nameSnapshot String
+  unit String @default("POINT")
+  templateIds String[] @default([])
   remaining Int
   expiresAt DateTime @db.Timestamptz(3)
   requestKey String
@@ -160,4 +164,26 @@ model CourseBookingRule {
   bookingLeadMinutes Int @default(0)
   cancellationLeadMinutes Int @default(0)
   @@map("CourseBookingRule")
+}
+
+model CoursePurchase {
+  id String @id @default(cuid())
+  storeId String
+  customerId String
+  planId String
+  name String
+  unit String
+  points Int
+  price Int
+  validDays Int
+  templateIds String[]
+  status String @default("PENDING")
+  transferLastFive String
+  requestKey String
+  cardId String?
+  createdAt DateTime @default(now())
+  confirmedAt DateTime?
+  confirmedBy String?
+  @@unique([storeId, requestKey])
+  @@index([storeId, customerId, createdAt])
 }

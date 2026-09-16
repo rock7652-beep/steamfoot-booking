@@ -23,6 +23,8 @@ type Plan = {
   price: number;
   validDays: number;
   isActive: boolean;
+  unit: string;
+  templateIds: string[];
 };
 export type CourseCardView = Awaited<ReturnType<typeof getCourseCards>>[number];
 const field =
@@ -31,6 +33,7 @@ const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function CourseMemberWorkspace({
   view,
+  templates,
   people,
   plans,
   cards,
@@ -41,6 +44,7 @@ export function CourseMemberWorkspace({
   canReadBookings,
 }: {
   view: "customers" | "plans";
+  templates: {id:string;name:string}[];
   people: Person[];
   plans: Plan[];
   cards: CourseCardView[];
@@ -392,6 +396,8 @@ export function CourseMemberWorkspace({
                       price: Number(d.get("price")),
                       validDays: Number(d.get("days")),
                       isActive: d.get("active") === "yes",
+                      unit: d.get("unit"),
+                      templateIds: d.getAll("templateIds"),
                     }),
                   )
                 }
@@ -405,8 +411,10 @@ export function CourseMemberWorkspace({
                     required
                   />
                 </label>
+                <label className="block">額度單位<select className={field} name="unit" defaultValue={plan?.unit??"POINT"}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>
+                <fieldset className="space-y-2"><legend>適用課程（未勾選表示全部課程）</legend>{templates.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="templateIds" value={t.id} defaultChecked={plan?.templateIds.includes(t.id)}/>{t.name}</label>)}</fieldset>
                 {[
-                  ["點數", "points", plan?.points ?? 10, 1],
+                  ["額度", "points", plan?.points ?? 10, 1],
                   ["售價", "price", plan?.price ?? 0, 0],
                   ["有效天數", "days", plan?.validDays ?? 90, 1],
                 ].map(([label, name, value, min]) => (
@@ -568,7 +576,7 @@ export function CourseCardSummary({ card }: { card: CourseCardView }) {
       <h3 className="font-semibold">{card.name}</h3>
       <p>
         剩餘 {card.remaining} · 已預約占用 {card.held} · 可用 {card.available}{" "}
-        點
+        {card.unit === "SESSION" ? "堂" : "點"}
       </p>
       <p>
         期限：{toLocalDateStr(new Date(card.expiresAt))}
@@ -580,19 +588,19 @@ export function CourseCardSummary({ card }: { card: CourseCardView }) {
 }
 export function CourseCardEntries({ card }: { card: CourseCardView }) {
   const labels: Record<string, string> = {
-    GRANT: "指派入點",
+    GRANT: "取得額度",
     RESERVE: "預約占用",
     RELEASE: "釋放占用",
-    DEBIT: "點名扣點",
+    DEBIT: "出席使用",
   };
   return (
     <section className="mt-5">
-      <h3 className="font-medium">最近點數紀錄</h3>
+      <h3 className="font-medium">最近額度紀錄</h3>
       <ul className="divide-y text-sm">
         {card.entries.map((e) => (
           <li key={e.id} className="py-2">
             {formatTWDateTime(new Date(e.createdAt))} ·{" "}
-            {labels[e.kind] ?? e.kind} {e.points} 點
+            {e.kind.startsWith("CORRECT:") ? "點名更正" : labels[e.kind] ?? e.kind} {e.points} {card.unit === "SESSION" ? "堂" : "點"}
           </li>
         ))}
       </ul>

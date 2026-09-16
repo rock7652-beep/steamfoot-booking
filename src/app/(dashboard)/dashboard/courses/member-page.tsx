@@ -7,6 +7,7 @@ import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import { getCourseCards } from "@/server/queries/course-members";
 import { PageShell, PageHeader } from "@/components/desktop";
+import { CoursePurchaseReview } from "./purchase-review";
 import { CourseMemberWorkspace } from "./member-workspace";
 export async function CourseMemberPage({
   view,
@@ -67,10 +68,15 @@ export async function CourseMemberPage({
         ? checkPermission(user.role, user.staffId, "staff.manage")
         : false,
     ]);
+  const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true}});
+  const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
+  const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
       <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} />
+      {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
       <CourseMemberWorkspace
+        templates={templates}
         view={view}
         canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}
         people={people.map((p) => ({ ...p, birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}

@@ -45,7 +45,9 @@ if (
     await checkClient.$queryRawUnsafe('SELECT "capacity", "details" FROM "CourseRoom" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "courseMemberEnabled" FROM "StaffMemberLink" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT phone, "emergencyContactName", "emergencyContactPhone" FROM "Staff" LIMIT 1');
-    console.info("[course-preview-preflight] course_schema_readable=true; points_schema=20260916024857");
+    await checkClient.$queryRawUnsafe('SELECT "unit", "templateIds" FROM "CoursePointCard" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT id FROM "CoursePurchase" LIMIT 1');
+    console.info("[course-preview-preflight] course_schema_readable=true; points_schema=20260916090234");
   } catch {
     throw new Error("Course Preview test database connection or course schema check failed.");
   } finally { await checkClient.$disconnect(); }

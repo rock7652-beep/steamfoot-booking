@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
-import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
+import { monthRange, toLocalMonthStr, toLocalDateStr } from "@/lib/date-utils";
 import "server-only";
 import { AppError } from "@/lib/errors";
 import { courseTransaction } from "./course-access";
@@ -135,12 +135,17 @@ async function reserveCourseInTransaction(
       !card.members.some((m) => m.customerId === actor.customerId))
   )
     return fail("僅能替此共卡的授權成員預約");
+  if (card.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
+  const bookingCost = card.unit === "SESSION" ? 1 : session.pointCost;
   const now = new Date();
   if (
     session.startsAt.getTime() <=
     now.getTime() + (rule?.bookingLeadMinutes ?? 0) * 60000
   )
     return fail("已超過預約截止時間");
+  const sessionDay = toLocalDateStr(session.startsAt);
+  const closed = await tx.$queryRaw<Array<{closed:boolean}>>`SELECT COALESCE((SELECT type <> 'custom' FROM "SpecialBusinessDay" WHERE "storeId"=${storeId} AND date=${new Date(sessionDay+'T00:00:00Z')}::date), (SELECT NOT "isOpen" FROM "BusinessHours" WHERE "storeId"=${storeId} AND "dayOfWeek"=EXTRACT(DOW FROM ${new Date(sessionDay+'T00:00:00Z')}::date)::int), false) AS closed`;
+  if (closed[0]?.closed) return fail("店家公休日無法新增預約");
   if (card.expiresAt < now || card.expiresAt < session.startsAt)
     return fail("方案已到期或不涵蓋上課日期");
   const [duplicate, occupied, held] = await Promise.all([
@@ -162,13 +167,13 @@ async function reserveCourseInTransaction(
   ]);
   if (duplicate) return fail("此上課人已預約本堂課");
   if (occupied >= session.capacity) return fail("本堂課已滿班");
-  if (card.remaining - (held._sum.pointCost ?? 0) < session.pointCost)
+  if (card.remaining - (held._sum.pointCost ?? 0) < bookingCost)
     return fail("方案可用點數不足");
   const booking = await tx.courseBooking.create({
     data: {
       ...input,
       storeId,
-      pointCost: session.pointCost,
+      pointCost: bookingCost,
       operatorUserId: actor.userId,
       operatorCustomerId: actor.customerId ?? null,
       operatorName: actor.name,
@@ -246,15 +251,36 @@ export async function settleCourseBooking(
     where: { id: booking.id },
     data: { status: target },
   });
+  const kind = target === "ATTENDED" ? "DEBIT" : "RELEASE";
+  const previousEntry = await tx.coursePointEntry.findUnique({where:{bookingId_kind:{bookingId:booking.id,kind}}});
   await tx.coursePointEntry.create({
     data: {
       storeId: actor.storeId,
       cardId: booking.cardId,
       bookingId: booking.id,
-      kind: target === "ATTENDED" ? "DEBIT" : "RELEASE",
+      kind: previousEntry ? `${kind}:${crypto.randomUUID()}` : kind,
       points: booking.pointCost,
       actorUserId: actor.userId,
     },
   });
   return updated;
+}
+
+// Caller must hold the course store lock and independently authorize the coach.
+export async function correctCourseAttendance(
+  tx: Prisma.TransactionClient, actor: CourseActor, bookingId: string,
+  target: "RESERVED" | "ATTENDED" | "NO_SHOW", expectedStatus: string,
+) {
+  const b = await tx.courseBooking.findFirst({ where: { id: bookingId, storeId: actor.storeId }, include: { session: true, card: true } });
+  if (!b || b.status === "CANCELLED" || b.session.cancelledAt) return fail("此預約無法更正");
+  if (b.status === target) return b;
+  if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
+  if (b.session.startsAt > new Date()) return fail("課程尚未開始，不能點名");
+  const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
+  const remaining = b.card.remaining + (b.status === "ATTENDED" ? b.pointCost : 0);
+  if ((target === "ATTENDED" || target === "RESERVED") && remaining - (held._sum.pointCost ?? 0) < b.pointCost) return fail("方案可用額度不足，無法更正");
+  const delta = (b.status === "ATTENDED" ? b.pointCost : 0) - (target === "ATTENDED" ? b.pointCost : 0);
+  if (delta) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { remaining: { increment: delta } } });
+  await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: b.cardId, bookingId: b.id, actorUserId: actor.userId, kind: `CORRECT:${b.status}:${target}:${crypto.randomUUID()}`, points: b.pointCost } });
+  return tx.courseBooking.update({ where: { id: b.id }, data: { status: target, checkedInAt: target === "ATTENDED" ? new Date() : null } });
 }
