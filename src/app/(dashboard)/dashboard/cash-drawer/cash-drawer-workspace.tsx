@@ -1012,8 +1012,8 @@ function DailyActionsArea({
               </div>
 
               <dl className="grid grid-cols-2 gap-2 rounded-lg bg-white px-3 py-2 text-xs sm:grid-cols-3">
-                <SummaryItem label="今日現金收入" value={`+ NT$ ${liveTotals.cashIncomeTotal.toString()}`} tone="text-green-700" />
-                <SummaryItem label="今日現金退款" value={`− NT$ ${liveTotals.cashExpenseTotal.toString()}`} tone="text-orange-700" />
+                <SummaryItem label="今日現金流入" value={`+ NT$ ${liveTotals.cashIncomeTotal.add(liveTotals.cashbookCashIncome).toString()}`} tone="text-green-700" />
+                <SummaryItem label="今日現金支出" value={`− NT$ ${liveTotals.cashExpenseTotal.add(liveTotals.cashbookCashOut).toString()}`} tone="text-orange-700" />
                 <SummaryItem label="今日提領" value={`− NT$ ${liveTotals.cashWithdrawalTotal.toString()}`} tone="text-orange-700" />
                 <SummaryItem label="今日補入" value={`+ NT$ ${liveTotals.cashDepositTotal.toString()}`} tone="text-green-700" />
                 <SummaryItem label="現金調整" value={`NT$ ${liveTotals.cashAdjustmentTotal.toString()}`} tone="text-earth-700" />
