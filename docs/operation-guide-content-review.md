@@ -159,3 +159,8 @@
 - `src/server/actions/store-view-mode.ts`
 - `src/components/store-view-mode-switcher.tsx`
 
+
+
+## 2026-09-16 正式發布授權
+
+使用者授權將現有操作指南合併正式上線；開啟 production 入口，沿用原有模組及權限過濾。既有手機滑動與桌機視覺由使用者確認 pass；83 篇的程式來源已核對，但逐篇實際交易操作及補充截圖尚未全部完成，不宣稱全系統驗收通過。每日 Asia/Taipei 08:00 自動盤點已建立，後續內容變動先送草稿 PR 與預覽，不自動合併。
