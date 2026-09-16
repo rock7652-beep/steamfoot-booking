@@ -27,6 +27,8 @@ import {
   purchaseCoursePlan,
 } from "@/server/actions/course-portal";
 import type { CoursePortalData } from "./course-portal";
+import { HealthHistoryList } from "@/components/health-history-list";
+import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
 import "./course-portal.css";
 type Session = CoursePortalData["sessions"][number];
 type Work = CoursePortalData["work"][number];
@@ -67,6 +69,23 @@ function Sheet({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(close);
+  const [viewport, setViewport] = useState<{
+    height: number;
+    top: number;
+  } | null>(null);
+  useEffect(() => {
+    const view = window.visualViewport;
+    if (!view) return;
+    const update = () =>
+      setViewport({ height: view.height, top: view.offsetTop });
+    update();
+    view.addEventListener("resize", update);
+    view.addEventListener("scroll", update);
+    return () => {
+      view.removeEventListener("resize", update);
+      view.removeEventListener("scroll", update);
+    };
+  }, []);
   useEffect(() => {
     closeRef.current = close;
   }, [close]);
@@ -96,6 +115,11 @@ function Sheet({
   return (
     <div
       className="cp-overlay"
+      style={
+        viewport
+          ? { top: viewport.top, height: viewport.height, bottom: "auto" }
+          : undefined
+      }
       onKeyDown={(e) => {
         if (e.key === "Escape" && !busy) closeRef.current();
         if (e.key === "Tab") {
@@ -118,6 +142,11 @@ function Sheet({
       <div
         ref={ref}
         className="cp-sheet"
+        style={
+          viewport
+            ? { maxHeight: Math.max(0, viewport.height - 12) }
+            : undefined
+        }
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -147,8 +176,7 @@ export function CoursePortalClient(p: CoursePortalData) {
     [roster, setRoster] = useState<string | null>(null),
     [search, setSearch] = useState(""),
     [limit, setLimit] = useState(20),
-    [recordFilter, setRecordFilter] = useState("all"),
-    [collapsed, setCollapsed] = useState(false);
+    [recordFilter, setRecordFilter] = useState("all");
   const [session, setSession] = useState<Session | null>(null),
     [cardId, setCardId] = useState(""),
     [learners, setLearners] = useState<string[]>([]),
@@ -183,6 +211,33 @@ export function CoursePortalClient(p: CoursePortalData) {
     selected = date.startsWith(p.month) ? date : p.month + "-01",
     card = p.cards.find((c) => c.id === cardId),
     modal = !!(session || attendance || cancelId || buy);
+  const refreshGuard = useRef({ modal, pending });
+  useEffect(() => {
+    refreshGuard.current = { modal, pending };
+  }, [modal, pending]);
+  useEffect(() => {
+    let lastRefresh = Date.now();
+    const refresh = () => {
+      if (
+        document.visibilityState !== "visible" ||
+        refreshGuard.current.modal ||
+        refreshGuard.current.pending ||
+        busyRef.current ||
+        Date.now() - lastRefresh < 15000
+      )
+        return;
+      lastRefresh = Date.now();
+      start(() => router.refresh());
+    };
+    const timer = setInterval(refresh, 60000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [router]);
   const nav = coach
     ? [
         ["home", "今日工作", "⌂"],
@@ -504,7 +559,7 @@ export function CoursePortalClient(p: CoursePortalData) {
                 <div className="cp-person" key={b.id}>
                   <div className="cp-line">
                     <strong>{b.customerName}</strong>
-                    <span className="cp-badge">
+                    <span className="cp-badge" data-status={b.status}>
                       {b.status === "RESERVED"
                         ? "待點名"
                         : statusName(b.status)}
@@ -600,17 +655,10 @@ export function CoursePortalClient(p: CoursePortalData) {
       plan.templateIds.includes(session.templateId),
   );
   return (
-    <div className={`course-portal ${collapsed ? "cp-collapsed" : ""}`}>
+    <div className="course-portal">
       <div inert={modal}>
         <header className="cp-top">
           <SteamButlerLogo compact />
-          <button
-            className="cp-collapse"
-            aria-label="收合功能列"
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            ☰
-          </button>
           {p.hasWork && p.memberEnabled ? (
             <select
               aria-label="身分"
@@ -644,6 +692,15 @@ export function CoursePortalClient(p: CoursePortalData) {
           ))}
         </nav>
         <main className="cp-main">
+          <div className="cp-refresh">
+            <span>更新於 {time(new Date(p.serverNow).toISOString())}</span>
+            <button
+              disabled={pending}
+              onClick={() => start(() => router.refresh())}
+            >
+              {pending ? "更新中…" : "更新"}
+            </button>
+          </div>
           {message && (
             <p role="status" className="cp-toast">
               {message}
@@ -784,7 +841,7 @@ export function CoursePortalClient(p: CoursePortalData) {
                             {b.customerId === p.customerId ? "🔵 " : "🟠 "}
                             {b.customerName}
                           </strong>
-                          <span className="cp-badge">
+                          <span className="cp-badge" data-status={b.status}>
                             {statusName(b.status)}
                           </span>
                           {b.status === "RESERVED" && (
@@ -991,19 +1048,23 @@ export function CoursePortalClient(p: CoursePortalData) {
           )}
           {page === "health" && p.healthEnabled && (
             <>
-              {heading("健康追蹤", "最近 100 筆本人量測")}
-              {p.health.slice(0, limit).map((h) => (
-                <article className="cp-card cp-pad" key={h.id}>
-                  <strong>{h.date}</strong>
-                  <p>
-                    體重 {h.weight ?? "—"} kg · 體脂 {h.bodyFat ?? "—"}% · BMI{" "}
-                    {h.bmi ?? "—"}
-                  </p>
-                </article>
-              ))}
-              {!p.health.length && <p>尚無量測紀錄</p>}
-              {p.health.length > limit && (
-                <button onClick={() => setLimit(limit + 20)}>顯示更多</button>
+              {heading("健康追蹤")}
+              {p.health.length ? (
+                <>
+                  <HealthTrendChartLoader
+                    trend={p.health.slice().reverse()}
+                    totalRecords={p.healthCount}
+                  />
+                  <HealthHistoryList
+                    trend={p.health.slice().reverse()}
+                    totalRecords={p.healthCount}
+                  />
+                  {p.healthCount > p.health.length && (
+                    <p>目前載入最近 100 筆量測，較早紀錄仍保留於後台。</p>
+                  )}
+                </>
+              ) : (
+                <p>尚無量測紀錄</p>
               )}
             </>
           )}
@@ -1053,6 +1114,7 @@ export function CoursePortalClient(p: CoursePortalData) {
               <div className="cp-actions">
                 {[
                   ["all", "全部"],
+                  ["ATTENDED", "出席"],
                   ["NO_SHOW", "未到"],
                   ["RESERVED", "待點名"],
                 ].map(([v, t]) => (
@@ -1065,17 +1127,24 @@ export function CoursePortalClient(p: CoursePortalData) {
                   </button>
                 ))}
               </div>
-              {p.work
-                .filter(
-                  (s) =>
-                    new Date(s.startsAt).getTime() <= now &&
-                    (recordFilter === "all" ||
-                      s.bookings.some((b) => b.status === recordFilter)),
-                )
-                .map((s) => (
-                  <section key={s.id}>
-                    <h2>{courseDate(s.startsAt)}</h2>
-                    {workRows([s])}
+              {Object.entries(
+                p.work
+                  .filter(
+                    (s) =>
+                      new Date(s.startsAt).getTime() <= now &&
+                      (recordFilter === "all" ||
+                        s.bookings.some((b) => b.status === recordFilter)),
+                  )
+                  .reduce<Record<string, Work[]>>((days, s) => {
+                    (days[courseDate(s.startsAt)] ??= []).push(s);
+                    return days;
+                  }, {}),
+              )
+                .sort(([a], [b]) => b.localeCompare(a))
+                .map(([day, sessions]) => (
+                  <section key={day}>
+                    <h2>{day}</h2>
+                    {workRows(sessions ?? [])}
                   </section>
                 ))}
             </>

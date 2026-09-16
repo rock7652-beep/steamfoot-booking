@@ -2,6 +2,10 @@
   background: #f6f7f2;
   color: #244437;
   min-height: 100dvh;
+  width: 100%;
+  max-width: 430px;
+  margin-inline: auto;
+  overflow-wrap: anywhere;
   font-size: 15px;
 }
 .course-portal * {
@@ -47,7 +51,7 @@
   border-bottom: 1px solid #c2ad72;
 }
 .cp-main {
-  max-width: 760px;
+  max-width: 430px;
   margin: auto;
   padding: 20px 16px calc(100px + env(safe-area-inset-bottom));
 }
@@ -137,6 +141,9 @@
   bottom: 0;
   left: 0;
   right: 0;
+  width: 100%;
+  max-width: 430px;
+  margin-inline: auto;
   background: white;
   border-top: 1px solid #d4ddd0;
   padding: 5px 6px max(8px, env(safe-area-inset-bottom));
@@ -336,7 +343,7 @@
   background: white;
   border-radius: 16px 16px 0 0;
   width: 100%;
-  max-width: 500px;
+  max-width: 430px;
   max-height: calc(100dvh - 12px);
   display: flex;
   flex-direction: column;
@@ -401,59 +408,41 @@
   padding: 0;
   margin: 12px 0;
 }
-@media (min-width: 900px) {
-  .cp-collapse {
-    display: block;
-  }
-  .cp-nav {
-    top: 90px;
-    right: auto;
-    width: 190px;
-    display: block;
-    padding: 16px 10px;
-    border-top: 0;
-    border-right: 1px solid #d4ddd0;
-  }
-  .cp-nav button {
-    width: 100%;
-    flex-direction: row;
-    gap: 12px;
-    justify-content: flex-start;
-    margin-bottom: 8px;
-    font-size: 15px;
-  }
-  .cp-main {
-    max-width: 1180px;
-    margin-left: 214px;
-    margin-right: 24px;
-    padding-bottom: 40px;
-  }
-  .cp-collapsed .cp-nav {
-    width: 90px;
-  }
-  .cp-collapsed .cp-nav button {
-    flex-direction: column;
-    font-size: 11px;
-  }
-  .cp-collapsed .cp-main {
-    margin-left: 114px;
-  }
-  .cp-overlay {
-    justify-content: flex-end;
-    align-items: stretch;
-  }
-  .cp-sheet {
-    border-radius: 16px 0 0 16px;
-    max-height: 100dvh;
-  }
-  .cp-schedule {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 20px;
-    align-items: start;
-  }
-  .cp-calendar {
-    position: sticky;
-    top: 12px;
-  }
+
+.cp-sheet-body {
+  min-height: 0;
+}
+.cp-toast {
+  width: max-content;
+  max-width: min(398px, calc(100vw - 32px));
+}
+.cp-badge[data-status="NO_SHOW"] {
+  background: #fff0e6;
+  color: #874119;
+}
+.cp-badge[data-status="RESERVED"] {
+  background: #fff7d8;
+  color: #705815;
+}
+.cp-badge[data-status="CANCELLED"] {
+  background: #f0f0ee;
+  color: #666b62;
+}
+.cp-refresh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #61715c;
+}
+/* Shared health widgets keep the same two-column layout at every screen width. */
+.course-portal #health-history-records .grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.course-portal button[aria-pressed="true"] {
+  background: #315b49;
+  color: white;
 }

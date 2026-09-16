@@ -90,6 +90,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     orders,
     templates,
     health,
+    healthCount,
     nextBooking,
     nextWork,
   ] = await Promise.all([
@@ -161,6 +162,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
           take: 100,
         })
       : [],
+    memberEnabled && healthEnabled
+      ? prisma.customerHealthRecord.count({
+          where: { storeId, customerId: customer.id },
+        })
+      : 0,
     memberEnabled
       ? coursePrisma.courseBooking.findFirst({
           where: {
@@ -283,12 +289,19 @@ export async function loadCoursePortal(requestedMonth?: string) {
       createdAt: o.createdAt.toISOString(),
       confirmedAt: o.confirmedAt?.toISOString() ?? null,
     })),
+    healthCount,
     health: health.map((h) => ({
       id: h.id,
-      date: h.measuredAt.toISOString().slice(0, 10),
+      measuredAt: h.measuredAt.toISOString().slice(0, 10),
       weight: h.weight,
       bodyFat: h.bodyFat,
       bmi: h.bmi,
+      muscleMass: h.muscleMass,
+      boneMass: h.boneMass,
+      visceralFat: h.visceralFat,
+      bmr: h.bmr,
+      bodyWater: h.bodyWater,
+      metabolicAge: h.metabolicAge,
     })),
   };
 }

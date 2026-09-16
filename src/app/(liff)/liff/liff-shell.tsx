@@ -191,6 +191,12 @@ export function LiffShell({
         if (cancelled) return;
 
         if (body.status === "session_created") {
+          // Course uses the same authenticated mobile portal in LINE and browsers.
+          // Branch before legacy summaries/work routing to avoid steamfoot/SPA data.
+          if (memberDataSource === "course") {
+            window.location.replace(`/s/${storeSlug}/book`);
+            return;
+          }
           const [memberContext, workAccess] = await Promise.all([
             fetchLiffMemberStoreContext().catch(() => null),
             fetchLiffStaffAccess().catch(() => ({ status: "no_access" as const })),

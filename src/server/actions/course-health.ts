@@ -40,6 +40,7 @@ export async function saveCourseHealth(input: unknown) {
       }
     });
     revalidatePath("/dashboard/courses");
+    revalidatePath("/book");
     return { success: true as const };
   } catch (e) { return handleActionError(e); }
 }
