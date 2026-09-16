@@ -452,3 +452,30 @@
 .course-portal input, .course-portal select, .course-portal textarea { font-size: 16px; }
 .cp-refresh button { border: 0; padding: 8px 4px; background: transparent; font-size: 12px; }
 .cp-logout { margin-top: 16px; }
+
+/* Keep attendance status and correction together on narrow phones. */
+.cp-attendance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cp-attendance-row > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cp-attendance-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  white-space: nowrap;
+}
+.cp-attendance-actions button {
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.cp-attendance-actions .cp-badge {
+  padding: 3px 5px;
+}

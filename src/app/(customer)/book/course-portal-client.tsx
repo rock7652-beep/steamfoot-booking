@@ -559,60 +559,60 @@ export function CoursePortalClient(p: CoursePortalData) {
               )}
               {filtered.slice(0, limit).map((b) => (
                 <div className="cp-person" key={b.id}>
-                  <div className="cp-line">
+                  <div className="cp-attendance-row">
                     <strong>{b.customerName}</strong>
-                    <span className="cp-badge" data-status={b.status}>
-                      {b.status === "RESERVED"
-                        ? "待點名"
-                        : statusName(b.status)}
-                    </span>
-                  </div>
-                  <div className="cp-actions">
-                    {b.status === "RESERVED" ? (
-                      <>
+                    <div className="cp-attendance-actions">
+                      <span className="cp-badge" data-status={b.status}>
+                        {b.status === "RESERVED"
+                          ? "待點名"
+                          : statusName(b.status)}
+                      </span>
+                      {b.status === "RESERVED" ? (
+                        <>
+                          <button
+                            className="primary"
+                            disabled={!ended || pending}
+                            onClick={() => {
+                              setError("");
+                              setAttendance({
+                                session: s,
+                                ids: [b.id],
+                                target: "ATTENDED",
+                              });
+                            }}
+                          >
+                            出席
+                          </button>
+                          <button
+                            disabled={!ended || pending}
+                            onClick={() => {
+                              setError("");
+                              setAttendance({
+                                session: s,
+                                ids: [b.id],
+                                target: "NO_SHOW",
+                              });
+                            }}
+                          >
+                            未到
+                          </button>
+                        </>
+                      ) : (
                         <button
-                          className="primary"
-                          disabled={!ended || pending}
+                          disabled={pending}
                           onClick={() => {
                             setError("");
                             setAttendance({
                               session: s,
                               ids: [b.id],
-                              target: "ATTENDED",
+                              target: b.status as "ATTENDED" | "NO_SHOW",
                             });
                           }}
                         >
-                          出席
+                          更正
                         </button>
-                        <button
-                          disabled={!ended || pending}
-                          onClick={() => {
-                            setError("");
-                            setAttendance({
-                              session: s,
-                              ids: [b.id],
-                              target: "NO_SHOW",
-                            });
-                          }}
-                        >
-                          未到
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        disabled={pending}
-                        onClick={() => {
-                          setError("");
-                          setAttendance({
-                            session: s,
-                            ids: [b.id],
-                            target: b.status as "ATTENDED" | "NO_SHOW",
-                          });
-                        }}
-                      >
-                        更正
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </div>
                   {b.notes && <p className="cp-important">{b.notes}</p>}
                 </div>
@@ -660,7 +660,7 @@ export function CoursePortalClient(p: CoursePortalData) {
     <div className="course-portal">
       <div inert={modal}>
         <header className="cp-top">
-          <div className="cp-brand"><SteamButlerLogo compact /><small>{p.storeName}</small></div>
+          <div className="cp-brand"><SteamButlerLogo className="w-28" /><small>{p.storeName}</small></div>
           {p.hasWork && p.memberEnabled ? (
             <select
               aria-label="身分"
