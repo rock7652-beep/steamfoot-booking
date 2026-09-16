@@ -52,7 +52,8 @@ describe("trial care delivery", () => {
   it("rechecks purchases immediately before an invitation", async () => {
     m.bookings.mockResolvedValue([{ id: "b", customerId: "c", trialCareCompletedAt: new Date("2026-09-13T03:00:00Z") }]);
     m.findLog.mockImplementation(({ where }) => where.storeId_customerId_stage.stage === 0 ? { id: "old" } : null);
-    m.purchase.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    let paidReads = 0;
+    m.purchase.mockImplementation(({ where }) => Promise.resolve(where.paymentStatus !== "PENDING" && ++paidReads > 1 ? 1 : 0));
     await runTrialCare(now); expect(m.push).not.toHaveBeenCalled();
   });
   it("fails closed on an unverified LINE identity", async () => { m.probe.mockResolvedValue({ status: "INCOMPATIBLE" }); await runTrialCare(now); expect(m.push).not.toHaveBeenCalled(); });
@@ -99,4 +100,28 @@ describe("customer-controlled stop", () => {
     expect(m.prefUpdate.mock.calls[0][0].where.OR).toContainEqual({ lastEventAt: { lt: now } });
     expect(JSON.stringify(reply)).toContain("預約通知不受影響"); expect(m.setting).not.toHaveBeenCalled();
   });
+});
+
+it("skips invitations while a same-store package purchase awaits confirmation", async () => {
+  m.bookings.mockResolvedValue([{ id: "b", customerId: "c", trialCareCompletedAt: new Date("2026-09-13T03:00:00Z") }]);
+  m.findLog.mockImplementation(({ where }) => where.storeId_customerId_stage.stage === 0 ? { id: "old" } : null);
+  m.purchase.mockImplementation(({ where }) => Promise.resolve(where.paymentStatus === "PENDING" ? 1 : 0));
+  await runTrialCare(now);
+  expect(m.push).not.toHaveBeenCalled();
+  expect(m.updateLog).toHaveBeenCalledWith(expect.objectContaining({ data: { status: "SKIPPED", reason: "購買申請待核帳，略過本次邀請" } }));
+  expect(m.purchase).toHaveBeenCalledWith({ where: { storeId: "A", customerId: "c", transactionType: "PACKAGE_PURCHASE", status: "SUCCESS", paymentStatus: "PENDING" } });
+});
+it("catches a pending application submitted immediately before delivery", async () => {
+  m.bookings.mockResolvedValue([{ id: "b", customerId: "c", trialCareCompletedAt: new Date("2026-09-13T03:00:00Z") }]);
+  m.findLog.mockImplementation(({ where }) => where.storeId_customerId_stage.stage === 0 ? { id: "old" } : null);
+  let pendingReads = 0;
+  m.purchase.mockImplementation(({ where }) => Promise.resolve(where.paymentStatus === "PENDING" && ++pendingReads > 1 ? 1 : 0));
+  await runTrialCare(now);
+  expect(m.push).not.toHaveBeenCalled();
+});
+
+it("counts only settled payments as purchased, and keeps pending and cancelled states distinct", async () => {
+  await runTrialCare(now);
+  expect(m.purchase).toHaveBeenCalledWith({ where: { storeId: "A", customerId: "c", transactionType: "PACKAGE_PURCHASE", status: { in: ["SUCCESS", "REFUNDED"] }, paymentStatus: { in: ["SUCCESS", "CONFIRMED"] } } });
+  expect(m.purchase).toHaveBeenCalledWith({ where: { storeId: "A", customerId: "c", transactionType: "PACKAGE_PURCHASE", status: "SUCCESS", paymentStatus: "PENDING" } });
 });

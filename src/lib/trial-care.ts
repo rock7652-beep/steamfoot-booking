@@ -36,12 +36,13 @@ export function renderTrialCareBody(body: string, customerName: string, storeNam
 }
 export function trialCareSkipReason(input: {
   now: Date; dueAt: Date; updatedAt: Date; enabled: boolean;
-  stopped: boolean; stage: number; purchased: boolean; booked: boolean; alreadySentToday: boolean;
+  stopped: boolean; stage: number; purchased: boolean; pendingPayment?: boolean; booked: boolean; alreadySentToday: boolean;
 }): string | null {
   if (input.stopped) return "顧客已停止接收";
   if (!input.enabled) return "此階段已關閉";
   if (input.updatedAt > input.dueAt) return "設定修改前已錯過，不補發";
   if (input.now.getTime() - input.dueAt.getTime() >= 15 * 60000) return "已錯過發送時間，不補發";
+  if (input.stage > 0 && input.pendingPayment) return "購買申請待核帳，略過本次邀請";
   if (input.stage > 0 && input.purchased) return "已購買方案或儲值";
   if (input.stage > 0 && input.booked) return "已預約下次到店";
   if (input.alreadySentToday) return "今日已有體驗關懷";

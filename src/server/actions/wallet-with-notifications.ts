@@ -26,6 +26,7 @@ async function notifyPendingPaymentBestEffort(transactionId: string): Promise<vo
         customerId: true,
         planId: true,
         amount: true,
+        planNameSnapshot: true,
         paymentStatus: true,
         bankLast5: true,
         transferLastFour: true,
@@ -67,7 +68,7 @@ async function notifyPendingPaymentBestEffort(transactionId: string): Promise<vo
       storeSlug: store.slug,
       customerName: customer.name,
       paymentId: transaction.id,
-      planName: plan?.name ?? "未指定方案",
+      planName: transaction.planNameSnapshot ?? plan?.name ?? "未指定方案",
       amount: Number(transaction.amount),
       lastFourDigits: transaction.transferLastFour ?? transaction.bankLast5,
     });

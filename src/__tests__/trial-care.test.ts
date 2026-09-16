@@ -15,6 +15,7 @@ describe("trial care policy", () => {
   });
   it.each([
     [{ stopped: true }, "顧客已停止接收"], [{ purchased: true }, "已購買方案或儲值"],
+    [{ pendingPayment: true }, "購買申請待核帳，略過本次邀請"],
     [{ booked: true }, "已預約下次到店"], [{ alreadySentToday: true }, "今日已有體驗關懷"],
     [{ enabled: false }, "此階段已關閉"],
     [{ updatedAt: new Date(now.getTime() + 1) }, "設定修改前已錯過，不補發"],
@@ -28,4 +29,10 @@ describe("trial care policy", () => {
     expect(trialCareRulesSchema.safeParse(rules).success).toBe(false);
   });
   it("renders names literally without replacement-string interpolation", () => expect(renderTrialCareBody("{{customerName}} {{storeName}}", "$&", "店A")).toBe("$& 店A"));
+});
+
+it("keeps the first check-in and resumes only future invitations after a pending application is cancelled", () => {
+  expect(trialCareSkipReason({ ...base, stage: 0, pendingPayment: true })).toBeNull();
+  expect(trialCareSkipReason({ ...base, pendingPayment: false })).toBeNull();
+  expect(trialCareSkipReason({ ...base, pendingPayment: false, now: new Date(now.getTime() + 3600000) })).toBe("已錯過發送時間，不補發");
 });
