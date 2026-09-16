@@ -24,6 +24,7 @@ describe("health session refresh", () => {
 
   it.each([
     [{ status: "need_onboarding" }, "need_onboarding"],
+    [{ status: "error", code: "IDENTITY_REVIEW_REQUIRED" }, "identity_review_required"],
     [{ status: "error", code: "ID_TOKEN_EXPIRED" }, "expired"],
     [{ status: "error", code: "ID_TOKEN_INVALID" }, "expired"],
     [{ status: "error", code: "CONFIG_ERROR" }, "service_unavailable"],

@@ -77,6 +77,7 @@ export async function resolveLineLogin(input: {
       userId: true,
       lineUserId: true,
       totalPoints: true,
+      identityLinks: { select: { userId: true }, take: 1 },
       user: { select: { passwordHash: true } },
       _count: {
         select: { planWallets: true, bookings: true, transactions: true },
@@ -85,6 +86,9 @@ export async function resolveLineLogin(input: {
   });
 
   if (byPhone) {
+    if (!byPhone.userId && byPhone.identityLinks?.length) {
+      return { status: "BLOCKED_NEEDS_STAFF", customerId: byPhone.id };
+    }
     // 防呆：此 phone Customer 已綁「不同的」LINE 帳號 → 拒絕
     // （Step 0 已處理同 lineUserId 的情況，這裡只會撞到不同的 lineUserId）
     if (byPhone.lineUserId && byPhone.lineUserId !== session.lineUserId) {

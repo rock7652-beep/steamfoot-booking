@@ -30,7 +30,6 @@
 
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
-import { syncLineAccountForUser } from "@/server/services/line-account-sync";
 import { repairCustomerIdentityOnLogin } from "@/lib/identity-repair";
 import { awardLineJoinReferrerIfEligible } from "@/server/services/referral-points";
 import { logLineBindEvent, maskId, maskLineUserId } from "@/lib/line-bind-log";
@@ -181,6 +180,8 @@ export async function bindLineToCustomerInStore(
       lineUserId: true,
       lineLinkStatus: true,
       lineName: true,
+      mergedIntoCustomerId: true,
+      identityLinks: { select: { userId: true, provider: true, providerAccountId: true } },
     },
     take: 2,
   });
@@ -205,6 +206,12 @@ export async function bindLineToCustomerInStore(
         phone: normalizedPhone,
       };
     }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { phone_role: { phone: normalizedPhone, role: "CUSTOMER" } },
+      select: { id: true },
+    });
+    if (existingUser) return { status: "unique_conflict", conflictTarget: "phone,role" };
 
     let user: { id: string };
     let customer: { id: string };
@@ -233,6 +240,9 @@ export async function bindLineToCustomerInStore(
           },
           select: { id: true },
         });
+        await tx.account.create({ data: {
+          userId: u.id, provider: "line", providerAccountId: input.lineUserId, type: "oauth",
+        } });
         return { user: u, customer: c };
       });
       user = created.user;
@@ -259,13 +269,6 @@ export async function bindLineToCustomerInStore(
       throw err;
     }
 
-    // Account 同步：放 tx 外接受小幅 race window（per project-line-account-sync-rule
-    // memory，這是已知妥協；syncLineAccountForUser 為 idempotent，多次呼叫安全）
-    const syncResult = await syncLineAccountForUser({
-      userId: user.id,
-      lineUserId: input.lineUserId,
-    });
-
     // post-tx best-effort
     await runPostBindBestEffort({
       customerId: customer.id,
@@ -279,17 +282,20 @@ export async function bindLineToCustomerInStore(
       status: "created_new",
       customerId: customer.id,
       userId: user.id,
-      lineAccountSync:
-        syncResult.status === "created"
-          ? "created"
-          : syncResult.status === "noop_already_synced"
-            ? "noop_already_synced"
-            : "error",
+      lineAccountSync: "created",
     };
   }
 
   // ── 3b. 候選 = 1：根據既有狀態分支 ───────────────
   const real = candidates[0];
+  if (real.mergedIntoCustomerId) return { status: "ambiguous_multiple_candidates", candidateIds: [real.id] };
+  if (!real.userId && !real.lineUserId && real.identityLinks?.length) {
+    const lineLinks = real.identityLinks.filter((link) => link.provider === "line");
+    if (lineLinks.length === 1 && lineLinks[0].providerAccountId !== input.lineUserId) {
+      return { status: "already_bound_to_other_line", customerId: real.id, existingLineUserId: lineLinks[0].providerAccountId };
+    }
+    return { status: "phone_taken_by_other_user", customerId: real.id, sameLineUserId: false };
+  }
 
   // 已綁同一個 lineUserId → already_synced (idempotent)
   if (
@@ -329,7 +335,7 @@ export async function bindLineToCustomerInStore(
       where: { phone_role: { phone: normalizedPhone, role: "CUSTOMER" } },
       select: { id: true },
     });
-    if (existingLinks.length > 0 || existingUser) {
+    if (existingLinks.length > 0 || real.identityLinks?.length || existingUser) {
       return {
         status: "phone_taken_by_other_user",
         customerId: real.id,
@@ -360,6 +366,7 @@ export async function bindLineToCustomerInStore(
             id: real.id,
             storeId: input.storeId,
             userId: null,
+            identityLinks: { none: {} },
             lineUserId: real.lineUserId,
             mergedIntoCustomerId: null,
           },
@@ -2192,6 +2199,7 @@ function buildActivationCustomerWhere(params: {
   id: string;
   storeId: string;
   userId: null;
+  identityLinks: { none: Record<string, never> };
   mergedIntoCustomerId: null;
   OR: Array<{ lineUserId: null } | { lineUserId: string }>;
 } {
@@ -2199,6 +2207,7 @@ function buildActivationCustomerWhere(params: {
     id: params.customerId,
     storeId: params.storeId,
     userId: null,
+    identityLinks: { none: {} },
     mergedIntoCustomerId: null,
     OR: [
       { lineUserId: null },
@@ -2469,6 +2478,7 @@ export async function activatePrecreatedCustomerWithLine(
       mergedIntoCustomerId: true,
       name: true,
       phone: true,
+      identityLinks: { select: { userId: true }, take: 1 },
     },
   });
   if (!customer) {
@@ -2493,6 +2503,9 @@ export async function activatePrecreatedCustomerWithLine(
       customerId: customer.id,
       userId: customer.userId,
     };
+  }
+  if (customer.identityLinks?.length) {
+    return { status: "customer_already_has_user", customerId: customer.id, userId: customer.identityLinks[0].userId };
   }
   // ── step 5: merged-source guard (no LINE binding for stale source) ─────
   if (customer.mergedIntoCustomerId) {
@@ -2555,6 +2568,7 @@ export async function activatePrecreatedCustomerWithLine(
             id: customer.id,
             storeId: input.storeId,
             userId: null,
+            identityLinks: { none: {} },
             mergedIntoCustomerId: null,
             // PR #243 Codex P2 round 6: accept BOTH "fresh" Customer
             // (lineUserId === null) AND "same-LINE placeholder"

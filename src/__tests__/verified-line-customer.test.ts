@@ -68,3 +68,18 @@ describe("verified LINE customer resolution", () => {
     expect(await resolveVerifiedLineCustomer("s", "legacy")).toBeNull();
   });
 });
+
+it("distinguishes identity conflicts from an unknown new customer for entry routing", async () => {
+  db.account.findUnique.mockResolvedValue({ userId: "other" });
+  await expect(resolveVerifiedLineCustomer("s", "line", { explainFailure: true })).rejects.toMatchObject({ reason: "account_owner_conflict" });
+});
+it("requires membership verification for an existing account at an unlinked store", async () => {
+  db.customerIdentityLink.findUnique.mockResolvedValue(null);
+  membership.mockResolvedValue(null);
+  await expect(resolveVerifiedLineCustomer("s", "line", { explainFailure: true })).rejects.toMatchObject({ reason: "store_membership_unconfirmed" });
+});
+it("keeps a genuine unknown identity eligible for onboarding", async () => {
+  db.customerIdentityLink.findUnique.mockResolvedValue(null);
+  db.account.findUnique.mockResolvedValue(null);
+  expect(await resolveVerifiedLineCustomer("s", "new", { explainFailure: true })).toBeNull();
+});

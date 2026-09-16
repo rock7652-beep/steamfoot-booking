@@ -1,3 +1,4 @@
+import { LineIdentityReviewError } from "@/server/services/line-identity-review";
 /**
  * POST /api/liff/exchange — Route Handler 行為測試 (PR-B)。
  *
@@ -79,6 +80,24 @@ describe("POST /api/liff/exchange", () => {
     vi.unstubAllEnvs();
   });
 
+  it("returns a review status without minting a session on identity conflicts", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockResolveCustomer.mockRejectedValueOnce(new LineIdentityReviewError("account_owner_conflict"));
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: "IDENTITY_REVIEW_REQUIRED" });
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
+  it("keeps database outages retryable without routing to onboarding", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockResolveCustomer.mockRejectedValueOnce(new Error("database unavailable"));
+    const response = await POST(postReq({ idToken: "tok", storeSlug: "zhubei" }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: "INTERNAL" });
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
   // ── plan §3 PR-B 4 條路徑 ──
 
   it("[plan path 1] success: Customer 命中 → signIn + session_created", async () => {
@@ -125,7 +144,7 @@ describe("POST /api/liff/exchange", () => {
       status: "session_created",
       customerId: "cust-hsinchu",
     });
-    expect(mockResolveCustomer).toHaveBeenCalledWith(STORE.id, LINE_USER_ID);
+    expect(mockResolveCustomer).toHaveBeenCalledWith(STORE.id, LINE_USER_ID, { explainFailure: true });
     expect(mockSignIn).toHaveBeenCalledWith("liff-token", {
       idToken: "tok",
       storeSlug: "zhubei",

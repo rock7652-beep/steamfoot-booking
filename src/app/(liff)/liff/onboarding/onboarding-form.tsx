@@ -37,6 +37,7 @@ type FormState =
   | { kind: "initializing" }
   | { kind: "not_in_line_app" }
   | { kind: "expired" }
+  | { kind: "identity_review_required" }
   | { kind: "service_unavailable" }
   | { kind: "ready"; idToken: string; defaultName: string; pictureUrl: string | null }
   | { kind: "submitting"; idToken: string; defaultName: string; pictureUrl: string | null }
@@ -48,7 +49,6 @@ type FormState =
       message: string;
       primaryCta: "reload" | null;
       contactStore: boolean;
-      reviewRequired?: boolean;
     }
   | { kind: "completing" };
 
@@ -70,7 +70,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
   // iOS may retain the keyboard's viewport offset after the form is replaced
   // by a result. Release focus and reveal the result/header in normal flow.
   useEffect(() => {
-    if (!["blocked", "service_unavailable", "expired", "completing"].includes(state.kind)) return;
+    if (!["blocked", "identity_review_required", "service_unavailable", "expired", "completing"].includes(state.kind)) return;
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     const frame = requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
     return () => cancelAnimationFrame(frame);
@@ -90,6 +90,16 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
         const idToken = getIDToken();
         if (!idToken) {
           setState({ kind: "expired" });
+          return;
+        }
+        const session = await refreshLiffSession({ idToken, storeSlug });
+        if (cancelled) return;
+        if (session.status === "session_created") {
+          router.replace(`/s/${storeSlug}/liff`);
+          return;
+        }
+        if (session.status !== "need_onboarding") {
+          setState({ kind: session.status });
           return;
         }
         let defaultName = "";
@@ -118,7 +128,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
     return () => {
       cancelled = true;
     };
-  }, [liffId]);
+  }, [liffId, storeSlug, router]);
 
   // ── 2. submit ──────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -157,7 +167,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
         setState({ kind: "completing" });
         const session = await refreshLiffSession({ idToken, storeSlug });
         if (session.status !== "session_created") {
-          setState({ kind: session.status === "expired" ? "expired" : "service_unavailable" });
+          setState({ kind: session.status === "identity_review_required" ? "identity_review_required" : session.status === "expired" ? "expired" : "service_unavailable" });
           return;
         }
         router.replace(`/s/${storeSlug}/liff`);
@@ -172,35 +182,9 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
       case "bound_other":
       case "phone_taken_by_login_account":
       case "not_found":
-        setState({
-          kind: "blocked",
-          idToken,
-          defaultName,
-          pictureUrl,
-          message: liffMessages.error.boundOther,
-          primaryCta: null,
-          contactStore: true,
-        });
-        return;
-
       case "identity_review_required":
-        setState({
-          kind: "blocked", idToken, defaultName, pictureUrl,
-          message: "LINE 與本店會員的帳號連結需要確認。原有會員與綁定已保留，請聯繫店家協助，不必重新註冊或重複送出。",
-          primaryCta: null, contactStore: true, reviewRequired: true,
-        });
-        return;
-
       case "ambiguous":
-        setState({
-          kind: "blocked",
-          idToken,
-          defaultName,
-          pictureUrl,
-          message: liffMessages.error.ambiguous,
-          primaryCta: null,
-          contactStore: true,
-        });
+        setState({ kind: "identity_review_required" });
         return;
 
       case "expired":
@@ -247,6 +231,15 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
         />
       )}
 
+      {state.kind === "identity_review_required" && (
+        <InfoBlock
+          tone="red"
+          body={liffMessages.error.identityReview}
+          showContactStore
+          contactUrl={contactUrl}
+        />
+      )}
+
       {state.kind === "service_unavailable" && (
         <InfoBlock
           tone="red"
@@ -286,7 +279,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
             </div>
           )}
 
-          {!(state.kind === "blocked" && state.reviewRequired) && <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-earth-700">
                 {liffMessages.onboarding.nameLabel}
@@ -348,7 +341,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
             <p className="text-center text-[11px] text-earth-500">
               {liffMessages.onboarding.privacyNote}
             </p>
-          </form>}
+          </form>
         </>
       )}
     </div>

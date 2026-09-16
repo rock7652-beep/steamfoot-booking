@@ -75,6 +75,7 @@ type State =
   | { kind: "need_onboarding"; displayName: string | null }
   | { kind: "signed_in"; displayName: string | null }
   | { kind: "expired" }
+  | { kind: "identity_review_required" }
   | { kind: "service_unavailable" };
 
 interface LiffShellProps {
@@ -227,6 +228,10 @@ export function LiffShell({
           return;
         }
 
+        if (body.status === "identity_review_required") {
+          setState({ kind: "identity_review_required" });
+          return;
+        }
         // error path — 只區分 expired vs service_unavailable（顧客面）
         if (
           body.status === "expired"
@@ -286,6 +291,15 @@ export function LiffShell({
           tone="yellow"
           body={liffMessages.error.expired}
           showRetry
+          contactUrl={contactUrl}
+        />
+      )}
+
+      {state.kind === "identity_review_required" && (
+        <InfoBlock
+          tone="red"
+          body={liffMessages.error.identityReview}
+          showContactStore
           contactUrl={contactUrl}
         />
       )}

@@ -241,6 +241,8 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
   }
 
   beforeAll(async () => {
+    // Resolve the dynamic request module before starting concurrent action calls.
+    await import("next/headers");
     vi.doMock("@/lib/db", () => ({ prisma: db() }));
     actions = await import("@/server/actions/booking");
   });
