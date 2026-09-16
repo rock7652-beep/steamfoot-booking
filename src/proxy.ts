@@ -49,6 +49,26 @@ type SessionUser = {
 // Next.js 16: proxy.ts（前身為 middleware.ts）
 export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
   const { pathname } = req.nextUrl;
+  // Isolated, fake-data layout review. Never expose this preview in production
+  // or broaden the exception to customer/admin/API routes.
+  if (pathname === "/course-mobile-review" || pathname.startsWith("/course-mobile-review/")) {
+    if (process.env.VERCEL_ENV !== "preview") {
+      return new NextResponse(null, { status: 404 });
+    }
+    if (pathname === "/course-mobile-review" || pathname === "/course-mobile-review/") {
+      const url = new URL("/course-mobile-review/index.html", req.url);
+      url.search = req.nextUrl.search;
+      return NextResponse.redirect(url);
+    }
+    const reviewFiles = new Set([
+      "index.html", "demo.html", "review.css", "review.js",
+      "member-390.png", "member-details-390.png", "coach-390.png",
+      "coach-roster-390.png", "member-comparison.png", "coach-comparison.png",
+    ]);
+    return reviewFiles.has(pathname.slice("/course-mobile-review/".length))
+      ? NextResponse.next()
+      : new NextResponse(null, { status: 404 });
+  }
   const session = req.auth;
   const isLoggedIn = !!session?.user;
   const role = session?.user?.role;
