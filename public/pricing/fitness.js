@@ -10,7 +10,7 @@
     ['student', '學員預約與上課', ['預約、改期都靠訊息，回覆很花時間', '學員常問剩幾堂、什麼時候到期', '臨時取消、沒到或補課，不好處理', '其他學員相關困擾']],
     ['coach', '教練排課與點名', ['排課、調課、找代課很花時間', '點名、請假紀錄容易漏掉', '教練上課堂數、鐘點費不好核對', '其他教練相關困擾']],
     ['operations', '店務與收款', ['預約、扣堂、收款要重複登記', '教室、器材或教練時段容易撞期', '學員資料、繳費紀錄散在不同地方', '想換系統，但擔心學員資料、剩餘堂數和預約不好搬過來', '各店資料分散，想看整體狀況得分別查詢或整理', '其他店務相關困擾']],
-    ['business', '招生與續報', ['不清楚新學員從哪裡來', '不清楚體驗預約、實際到場、體驗後買課各有多少人', '體驗後沒買課，常忘記跟進', '學員快到期或很久沒來，常忘記關心', '知道招生或續報不理想，但不知道怎麼改善', '其他招生或續報困擾']],
+    ['business', '顧客關係維護', ['學員很久沒來，常常沒有及時發現', '方案快到期、堂數快用完，容易漏掉提醒與關心', '體驗後的回訪與關心，常常漏掉跟進', '經營數據要花大把時間自己整理', '其他學員關係或經營分析困擾']],
   ];
   const options = {
     classModes: ['團課，每堂自由預約', '固定班級，每週固定上課', '私人課，一對一或小班', '其他上課方式', '尚未確定'],
@@ -99,7 +99,7 @@
     }
     const needs = selected('needs'), prior = selected('priorityNeed')[0];
     $('needsStatus').textContent = needs.includes(unknown) ? '已選「還不確定」，可直接進入下一步'
-      : '已選 ' + needs.length + '／4 項' + (needs.length === 4 ? '，取消其中一項即可更換。' : '');
+      : '已選 ' + needs.length + ' 項';
     $('priorityNeeds').replaceChildren();
     $('priorityField').hidden = needs.length < 2 || needs.includes(unknown);
     if (!$('priorityField').hidden) for (const value of needs) {
@@ -131,7 +131,7 @@
     const data = values();
     if (index === 0) {
       if (!$('storeName').value.trim()) return showError('請填寫教室／品牌名稱。', $('storeName'));
-      if (!data.needs.length || data.needs.length > 4) return showError('請選 1～4 項困擾，或選「還不確定，想先聊聊」。', form.querySelector('[name="needs"]'));
+      if (!data.needs.length) return showError('請勾選遇到的困擾，或選「還不確定，想先聊聊」。', form.querySelector('[name="needs"]'));
       if (data.needs.includes(unknown) && data.needs.length !== 1) return showError('「還不確定」不能與其他困擾同選。', form.querySelector('[name="needs"]'));
       if (data.needs.length > 1 && !data.priorityNeed) return showError('請選出最想先解決的一件事。', form.querySelector('[name="priorityNeed"]'));
     }
@@ -214,7 +214,6 @@
       const peers = [...form.querySelectorAll('[name="' + input.name + '"]')];
       if (input.value === exclusive) peers.forEach(peer => { if (peer !== input) peer.checked = false; });
       else peers.forEach(peer => { if (peer.value === exclusive) peer.checked = false; });
-      if (input.name === 'needs' && selected('needs').length > 4) input.checked = false;
     }
     sync(); draft();
   });

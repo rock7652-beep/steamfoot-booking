@@ -18,7 +18,7 @@ const payloadSchema = z.object({
   content: text, landing: text, pageUrl: text, referrer: text, device: text,
   formVersion: z.literal("fitness-v2").optional(),
   priorityNeed: z.string().trim().max(200).optional(),
-  needs: z.array(z.string().trim().min(1).max(200)).min(1).max(4),
+  needs: z.array(z.string().trim().min(1).max(200)).min(1),
   replaceReason: z.array(z.string().max(200)).max(20),
 }).superRefine((data, ctx) => {
   const fitness = data.formVersion === "fitness-v2" && data.source === "fitness-intake";
@@ -61,7 +61,8 @@ export async function POST(request: Request) {
       try {
         const health = await fetch(RECEIVER, { cache: "no-store", signal: AbortSignal.timeout(8000) });
         const info = await health.json();
-        ready = health.ok && info.ok === true && info.capabilities?.includes("fitness-v2");
+        ready = health.ok && info.ok === true && info.capabilities?.includes("fitness-v2")
+          && (payload.needs.length <= 4 || info.capabilities?.includes("fitness-unlimited-needs"));
       } catch { /* No POST has occurred; the caller may safely retry later. */ }
       if (!ready) return reply({ ok: false, code: "RECEIVER_UPDATE_REQUIRED" }, 503);
       if (payload.contactWay === "目前暫不考慮") {
