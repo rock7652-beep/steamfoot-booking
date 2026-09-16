@@ -119,6 +119,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
           <PackageLineCardReminderSettingCard
             key={`${storeId}-package`}
             initialBody={packageBody}
+            hasMapLink={!!trial.mapUrl}
             initialEnabled={state.packageBookingEnabled}
           />
           <TrialLineCardReminderSettingCard

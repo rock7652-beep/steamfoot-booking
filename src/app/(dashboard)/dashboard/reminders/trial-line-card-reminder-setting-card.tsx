@@ -1,4 +1,5 @@
 "use client";
+import { LineCardPreview } from "./line-card-preview";
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -126,19 +127,10 @@ export function TrialLineCardReminderSettingCard({ initialBody, initialMapUrl, i
           <p className="mt-1 text-[11px] leading-relaxed text-earth-400">
             此網址由分店共用，也會套用於方案／單次預約提醒；留空時不顯示導航按鈕。
           </p>
-          <details className="mt-3 rounded-xl border border-earth-200 p-3"><summary className="cursor-pointer text-sm font-medium text-earth-700">查看卡片預覽</summary><div className="mt-3 overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
-            <div className="bg-[#F3EDE5] p-3 text-sm font-semibold text-earth-800">蒸管家｜首次體驗提醒</div>
-            <div className="space-y-2 p-3 text-sm text-earth-700">
-              <p className="font-semibold">王小美 您好</p>
-              <p>日期時間　2026-08-26 14:00</p>
-              <p>{trimmedBody || DEFAULT_TRIAL_LINE_CARD_REMINDER}</p>
-            </div>
-            <div className="space-y-2 border-t border-earth-100 p-3 text-center text-xs font-semibold text-white">
-              {trimmedMapUrl && <div className="rounded-lg bg-primary-600 px-3 py-2">Google Maps 導航</div>}
-              <div className="rounded-lg bg-primary-600 px-3 py-2">確認會到</div>
-              <div className="rounded-lg bg-[#8B6B52] px-3 py-2">需要改期</div>
-              <div className="rounded-lg bg-[#AD5F58] px-3 py-2">取消預約</div>
-            </div>
+          <details className="mt-3 rounded-xl border border-earth-200 p-3"><summary className="cursor-pointer text-sm font-medium text-earth-700">查看卡片預覽</summary><div className="mt-3">
+            <LineCardPreview title="預約提醒" subtitle="請確認明日行程" actions={[...(trimmedMapUrl ? [{ label: "開啟 Google Maps 導航" }] : []), { label: "確認會到" }, { label: "需要改期", variant: "outline" }, { label: "取消預約", variant: "cancel" }]}>
+              <p className="font-semibold">王小美 您好</p><p>日期時間　2026-09-17 14:00</p><p>{trimmedBody || DEFAULT_TRIAL_LINE_CARD_REMINDER}</p>
+            </LineCardPreview>
           </div></details>
           <p className="mt-2 text-[11px] text-earth-400">確認、改期與取消為必要功能；填入地圖網址後才顯示導航按鈕。</p>
         </div>

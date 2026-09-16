@@ -1,4 +1,5 @@
 "use client";
+import { LineCardPreview } from "./line-card-preview";
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -10,10 +11,11 @@ import {
 
 interface Props {
   initialBody: string;
+  hasMapLink: boolean;
   initialEnabled: boolean;
 }
 
-export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled }: Props) {
+export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled, hasMapLink }: Props) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [body, setBody] = useState(initialBody);
   const [savedBody, setSavedBody] = useState(initialBody);
@@ -104,19 +106,9 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
         <details className="md:col-span-2 rounded-xl border border-earth-200 p-3">
           <summary className="cursor-pointer text-sm font-medium text-earth-700">查看卡片預覽</summary>
           <div className="mt-3">
-          <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
-            <div className="bg-[#F3EDE5] p-3 text-sm font-semibold text-earth-800">蒸管家｜預約提醒</div>
-            <div className="space-y-2 p-3 text-sm text-earth-700">
-              <p className="font-semibold">王小美 您好</p>
-              <p>日期時間　2026-08-26 14:00</p>
-              <p>{trimmedBody || DEFAULT_PACKAGE_LINE_CARD_REMINDER}</p>
-            </div>
-            <div className="space-y-2 border-t border-earth-100 p-3 text-center text-xs font-semibold">
-              <div className="rounded-lg bg-primary-600 px-3 py-2 text-white">Google Maps 導航</div>
-              <div className="rounded-lg bg-[#8B6B52] px-3 py-2 text-white">改時段</div>
-              <div className="rounded-lg bg-[#AD5F58] px-3 py-2 text-white">取消預約</div>
-            </div>
-          </div>
+          <LineCardPreview title="預約提醒" actions={[...(hasMapLink ? [{ label: "開啟 Google Maps 導航" }] : []), { label: "改時段", variant: "outline" }, { label: "取消前往", variant: "cancel" }]}>
+            <p className="font-semibold">王小美 您好</p><p>日期時間　2026-09-17 14:00</p><p>{trimmedBody || DEFAULT_PACKAGE_LINE_CARD_REMINDER}</p>
+          </LineCardPreview>
           <p className="mt-2 text-[11px] text-earth-400">改期與取消屬於必要功能；導航連結由首次體驗提醒中的分店地圖共用。</p></div>
         </details>
       </div>

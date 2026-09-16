@@ -1,4 +1,5 @@
 "use client";
+import { LineCardPreview } from "./line-card-preview";
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -43,20 +44,9 @@ export function PlanExpiryReminderSettingCard({ initialEnabled }: { initialEnabl
         </div>
       </summary>
       <div className="border-t border-earth-100 p-4">
-        <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
-          <div className="bg-[#F3EDE5] p-3 text-sm font-semibold text-earth-800">蒸管家｜方案提醒</div>
-          <div className="space-y-2 p-3 text-sm text-earth-700">
-            <p className="font-semibold">王小美 您好</p>
-            <p>方案名稱　蒸足保養 5 堂</p>
-            <p>剩餘堂數　2 堂</p>
-            <p>方案到期日　2026/09/30</p>
-            <p className="border-t border-earth-100 pt-2">課程需於方案有效期限內完成，預約日期不可晚於到期日。</p>
-          </div>
-          <div className="space-y-2 border-t border-earth-100 p-3 text-center text-xs font-semibold text-white">
-            <div className="rounded-lg bg-primary-600 px-3 py-2">立即預約</div>
-            <div className="rounded-lg bg-[#8B6B52] px-3 py-2">諮詢店長</div>
-          </div>
-        </div>
+        <LineCardPreview title="方案提醒" subtitle="方案將於 14 天後到期" actions={[{ label: "立即預約" }, { label: "諮詢店長", variant: "link" }]}>
+          <p className="font-semibold">王小美 您好</p><p>方案名稱　蒸足保養 5 堂</p><p>剩餘堂數　2 堂</p><p>方案到期日　2026/09/30</p><p>課程需於方案有效期限內完成，預約日期不可晚於到期日。</p>
+        </LineCardPreview>
         <p className="mt-3 text-xs leading-relaxed text-earth-500">卡片會自動帶入顧客姓名、方案、剩餘堂數與到期日；同一方案在每個提醒階段只發送一次。</p>
       </div>
     </details>
