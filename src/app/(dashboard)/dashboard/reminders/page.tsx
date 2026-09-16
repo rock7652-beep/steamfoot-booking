@@ -97,7 +97,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         getTodayCronRunStatus(),
         prisma.trialCareSetting.findUnique({ where: { storeId } }),
         prisma.trialCareLog.findMany({ where: { storeId }, orderBy: { createdAt: "desc" }, take: 50, include: { customer: { select: { name: true } } } }),
-        prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true } }),
+        prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true, shopConfig: { select: { lineOfficialUrl: true } } } }),
       ]);
     content = (
       <section key={`${storeId}-customer`} className="space-y-3">
@@ -128,7 +128,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             key={`${storeId}-expiry`}
             initialEnabled={expiry}
           />
-          <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
+          <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} hasOfferLink={/^https:\/\/(lin\.ee\/|line\.me\/)/.test(careStore.shopConfig?.lineOfficialUrl ?? "")} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
         </div>
       </section>
     );

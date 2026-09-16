@@ -19,9 +19,9 @@ export const trialCareRulesSchema = z.array(ruleSchema).length(3).superRefine((r
 export type TrialCareRule = z.infer<typeof ruleSchema>;
 export function defaultTrialCareRules(): TrialCareRule[] {
   return [
-    { enabled: true, days: 1, time: "10:00", body: "{{customerName}} 您好，謝謝您昨天來到 {{storeName}}！想關心您體驗後的感受，有任何問題都歡迎直接回覆我們。" },
+    { enabled: true, days: 1, time: "10:00", body: "{{customerName}} 您好，謝謝您日前來到 {{storeName}}！想關心您體驗後的感受，有任何問題都歡迎直接回覆我們。" },
     { enabled: true, days: 4, time: "10:00", body: "{{customerName}} 您好，還記得上次在 {{storeName}} 的體驗嗎？如果想再次安排一段放鬆時光，歡迎了解適合您的方案。有任何問題，我們很樂意協助。" },
-    { enabled: false, days: 10, time: "10:00", body: "{{customerName}} 您好，{{storeName}} 想再邀請您回來坐坐。若想了解目前的方案或優惠，歡迎與我們聊聊。這是本次體驗的最後一則邀請，期待有機會再次服務您。" },
+    { enabled: false, days: 10, time: "10:00", body: "{{customerName}} 您好，{{storeName}} 想再邀請您回來坐坐。若想了解目前的方案或優惠，歡迎與我們聊聊。期待有機會再次服務您。" },
   ];
 }
 export function readTrialCareRules(value: unknown): TrialCareRule[] {
