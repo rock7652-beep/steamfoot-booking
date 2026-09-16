@@ -360,7 +360,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                       NT$ {Number(e.amount).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-earth-600">
-                      {e.staff?.displayName ?? "未指定"}
+                      {e.staff?.displayName ?? (isCourse ? e.createdBy?.name : null) ?? "未指定"}
                     </td>
                     <td className="max-w-xs truncate px-4 py-3 text-earth-400">
                       {e.note ?? "—"}
