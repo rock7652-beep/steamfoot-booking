@@ -49,7 +49,7 @@ export async function CourseStaffPage() {
     checkPermission(user.role, user.staffId, "staff.manage"),
   ]);
   return (
-    <PageShell className="course-workspace">
+    <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
       <PageHeader title="人員管理" />
       <CourseStaffWorkspace
         canManage={canManage}

@@ -68,7 +68,7 @@ export async function CourseMemberPage({
         : false,
     ]);
   return (
-    <PageShell className="course-workspace">
+    <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
       <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} />
       <CourseMemberWorkspace
         view={view}

@@ -622,6 +622,7 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const rawPathname = usePathname();
   const searchParams = useSearchParams();
+  const routeQuery = searchParams.toString();
   const isDevicePreviewMode = searchParams.get("devicePreview") === "1";
   const isEmbeddedPreview = useSyncExternalStore(
     () => () => {},
@@ -655,7 +656,7 @@ export default function DashboardShell({
     const hqMatch = rawPathname.match(/^(\/hq)\/dashboard/);
     if (hqMatch) return hqMatch[1];
     return "";
-  }, [rawPathname, searchParams]);
+  }, [rawPathname, routeQuery]);
   const pathname = dashboardPrefix
     ? rawPathname.slice(dashboardPrefix.length)
     : rawPathname;
@@ -804,7 +805,7 @@ export default function DashboardShell({
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileOpen(false); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [rawPathname, searchParams]);
+  }, [rawPathname, routeQuery]);
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {

@@ -356,15 +356,16 @@ export function CourseMemberWorkspace({
                     name="phone"
                     defaultValue={person?.phone}
                     maxLength={30}
+                    required
                   />
                 </label>
                 <fieldset disabled={person ? !canEdit : !canCreate} className="space-y-3">
                   <label className="block">電子信箱<input className={field} name="email" type="email" defaultValue={person?.email ?? ""} /></label>
-                  <label className="block">性別<select className={field} name="gender" defaultValue={person?.gender ?? ""}><option value="">未填</option><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></select></label>
+                  <label className="block">性別<select className={field} name="gender" defaultValue={person?.gender ?? ""}><option value="">未填</option><option value="male">男</option><option value="female">女</option><option value="other">其他</option></select></label>
                   <div>生日<BirthdayFields defaultValue={person?.birthday} className={field} /></div>
-                  <label className="block">身高（cm）<input className={field} name="height" type="number" min={30} max={250} step="any" defaultValue={person?.height ?? ""} /></label>
+                  <label className="block">身高（cm）<input className={field} name="height" type="number" min={50} max={250} step="any" defaultValue={person?.height ?? ""} /></label>
                   <label className="block">LINE 名稱<input className={field} name="lineName" maxLength={100} defaultValue={person?.lineName ?? ""} /></label>
-                  <label className="block">顧客服務備註（後台限定）<textarea className={field} name="serviceNote" maxLength={2000} defaultValue={person?.serviceNote ?? ""} /></label>
+                  <label className="block">顧客服務備註（後台限定）<textarea className={field} name="serviceNote" maxLength={1000} defaultValue={person?.serviceNote ?? ""} /></label>
                 </fieldset>
               </form>
             )}

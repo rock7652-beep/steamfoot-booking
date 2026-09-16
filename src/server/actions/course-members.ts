@@ -1,5 +1,6 @@
 "use server";
 import { z } from "zod";
+import { updateCustomerSchema } from "@/lib/validators/customer";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
@@ -33,29 +34,17 @@ const bookingInput = z.object({
 
 export async function saveCourseCustomer(input: unknown) {
   try {
-    const data = z
-      .object({
-        id: id.optional(),
-        name: z.string().trim().min(1).max(80),
-        phone: z.string().trim().max(30).default(""),
-        email: z.union([z.string().email(), z.literal("")]).optional(),
-        gender: z.string().max(20).optional(),
-        birthday: z.string().optional(),
-        height: z.union([z.coerce.number().min(30).max(250), z.literal("")]).optional(),
-        lineName: z.string().trim().max(100).optional(),
-        serviceNote: z.string().trim().max(2000).optional(),
-      })
-      .parse(input);
+    const data = updateCustomerSchema.pick({ name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true }).extend({ id: id.optional() }).parse(input);
     const { storeId } = await courseManager(
       data.id ? "customer.update" : "customer.create",
     );
     if (data.birthday && !parseTaipeiDateTime(data.birthday, "00:00")) throw new AppError("VALIDATION", "生日格式不正確");
     const profile = {
       name: data.name, phone: data.phone,
-      ...(data.email !== undefined ? { email: data.email || null } : {}),
-      ...(data.gender !== undefined ? { gender: data.gender || null } : {}),
-      ...(data.birthday !== undefined ? { birthday: data.birthday ? new Date(`${data.birthday}T00:00:00.000Z`) : null } : {}),
-      ...(data.height !== undefined ? { height: data.height || null } : {}),
+      email: data.email ?? null,
+      gender: data.gender ?? null,
+      birthday: data.birthday ? new Date(`${data.birthday}T00:00:00.000Z`) : null,
+      height: data.height ?? null,
       ...(data.lineName !== undefined ? { lineName: data.lineName || null } : {}),
       ...(data.serviceNote !== undefined ? { serviceNote: data.serviceNote || null } : {}),
     };

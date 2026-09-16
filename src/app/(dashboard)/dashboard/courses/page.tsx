@@ -118,7 +118,7 @@ export default async function CoursesPage({
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   return (
-    <PageShell className="course-workspace">
+    <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
       <PageHeader
         title={
           view === "catalog"
