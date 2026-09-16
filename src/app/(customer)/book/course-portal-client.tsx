@@ -221,6 +221,7 @@ export function CoursePortalClient({
                         : b.status === "NO_SHOW" ? "未到，釋放" : b.checkedInAt ? "已報到，待完成，占用" : "已預約，占用"}{" "}
                     {b.cost} 點
                   </p>
+                  {b.notes && <p className="text-sm text-earth-600">本次預約備註：{b.notes}</p>}
                   {b.status === "RESERVED" && (
                     <button
                       className={button}

@@ -352,6 +352,7 @@ export function CourseMemberWorkspace({
                     className={field}
                     name="name"
                     defaultValue={person?.name}
+                    readOnly={person ? !canEdit : !canCreate}
                     required
                     maxLength={80}
                   />
@@ -362,6 +363,7 @@ export function CourseMemberWorkspace({
                     className={field}
                     name="phone"
                     defaultValue={person?.phone}
+                    readOnly={person ? !canEdit : !canCreate}
                     maxLength={30}
                     required
                   />
