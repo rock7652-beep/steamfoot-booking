@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BookingOperationHelp } from "../components/booking-operation-help";
 import { searchBookingGuides } from "../lib/operation-guide";
 
+vi.mock("@/components/dashboard-link", () => ({ DashboardLink: (props: Record<string, unknown>) => createElement("a", props) }));
+
 let host: HTMLDivElement;
 let root: Root;
 function click(text: string) {
@@ -36,10 +38,10 @@ describe("operation guide preview", () => {
     const draft = host.querySelector("textarea")!;
     click("操作說明");
     expect(host.textContent).toContain("你想處理什麼");
-    click("顧客取消預約怎麼處理");
+    click("取消預約");
     expect(host.querySelectorAll("ol li")).toHaveLength(3);
-    click("查看完整說明");
     expect(host.textContent).toContain("取消預約不等於退費");
+    click("查看完整說明");
     click("關閉");
     expect(host.querySelector("dialog")!.open).toBe(false);
     expect(host.querySelector("textarea")).toBe(draft);
@@ -49,10 +51,10 @@ describe("operation guide preview", () => {
     expect(host.querySelectorAll("ol li")).toHaveLength(0);
   });
   it("returns from an article without navigating away", () => {
-    click("操作說明"); click("如何新增或修改本次預約備註");
+    click("操作說明"); click("新增／修改本次備註");
     expect(host.textContent).toContain("已儲存本次備註");
     click("返回問題列表");
-    expect(host.textContent).toContain("如何幫顧客改預約時間");
+    expect(host.textContent).toContain("更改預約時間");
     expect(host.querySelector("dialog")!.open).toBe(true);
   });
   it("does not send Escape to the underlying booking drawer", () => {

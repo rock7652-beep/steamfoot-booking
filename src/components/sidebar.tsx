@@ -573,6 +573,7 @@ interface StoreViewOption {
 }
 
 interface DashboardShellProps {
+  operationGuidePreview?: boolean;
   industryModule?: "spa" | "steamfoot";
   isOwner: boolean;
   permissions: string[];
@@ -603,6 +604,7 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({
+  operationGuidePreview = false,
   industryModule = "steamfoot",
   isOwner,
   permissions,
@@ -738,8 +740,11 @@ export default function DashboardShell({
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {
-    const groups = navGroupsToRender.map((group) => {
-      const categorizedItems = group.items
+    const groups = navGroupsToRender.map((group, index) => {
+      const guideItems: NavItem[] = operationGuidePreview && !isHqRoute && industryModule === "steamfoot" && index === 0
+        ? [{ href: "/dashboard/guide", label: "操作指南", permission: "booking.read", icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h6a3 3 0 013 3v14a4 4 0 00-4-2H4V4zm16 0h-4a3 3 0 00-3 3v14a4 4 0 014-2h3V4z" /></svg> }]
+        : [];
+      const categorizedItems = [...group.items, ...guideItems]
         .filter(
           (item) =>
             !MVP_HIDDEN_ROUTES.includes(item.href) &&
@@ -771,7 +776,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview]);
+  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview, operationGuidePreview, isHqRoute, industryModule]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {

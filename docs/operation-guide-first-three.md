@@ -49,6 +49,15 @@ cancelBooking 使用 requireSession + assertStaffBookingWritable + assertStoreAc
 
 ## Preview 與實際畫面（2026-09-16）
 
+### 第二輪優化（待新版瀏覽器驗收）
+
+- 縮短為「更改預約時間」「取消預約」「新增／修改本次備註」。
+- 重要提醒直接顯示在三步驟下方，取消不等於退費不再藏在收合內容中。
+- 集中式 /dashboard/guide 與當頁面板共用 OperationGuideContent；預覽環境的時段模組選單加入「操作指南」，沿用 booking.read 檢查。SPA 不提供未核實的時段教學；正式環境入口與頁面皆關閉。
+- 當頁面板可另開完整指南，保留目前操作頁面與未送出內容。
+- 改期文章嵌入先前取得的實際測試截圖，用畫面上的 ①日期、②時段、③確認標記對應操作，可點圖放大。標記是前端覆蓋，原始截圖不變。
+- 重試瀏覽器連線與 Escape 恢復均逾時，未改用其他方式繞過。下列截圖是第一輪版本，不能視為新版已驗收。
+
 - 草稿 PR：https://github.com/rock7652-beep/steamfoot-booking/pull/1036
 - 受測提交：2cbe8cd8971ee5a87126204231761ee6958d4b86。Vercel dpl_68NHxu8gkrMYQdfRhFXyYWhVekt5 部署成功。
 - GitHub CI 35062769198 成功；Booking isolated database audit 為 skipped，不能當成通過。

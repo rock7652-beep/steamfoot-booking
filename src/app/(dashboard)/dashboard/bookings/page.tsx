@@ -21,6 +21,7 @@ import { BookingsManager } from "./bookings-manager";
 import { BookingLoadError } from "./booking-load-error";
 import { bookingDashboardPathForStoreModule } from "@/lib/industry-dashboard-routes";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { isOperationGuidePreview } from "@/lib/operation-guide-preview";
 import { BookingOperationHelp } from "@/components/booking-operation-help";
 
 /**
@@ -42,8 +43,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
   const canManageHours = await checkPermission(user.role, user.staffId, "business_hours.manage");
-  const operationGuidePreview = process.env.VERCEL_ENV === "preview" ||
-    (process.env.NODE_ENV === "development" && process.env.OPERATION_GUIDE_PREVIEW === "true");
+  const operationGuidePreview = isOperationGuidePreview();
   const params = await searchParams;
 
   // getActiveStoreForRead() already gives an authorized route-first store scope.
