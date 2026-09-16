@@ -1,3 +1,6 @@
+import { TrialCareCard } from "./trial-care-card";
+import { prisma } from "@/lib/db";
+import { defaultTrialCareRules, readTrialCareRules } from "@/lib/trial-care";
 import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -84,7 +87,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
       />
     );
   } else {
-    const [state, balance, packageBody, trial, expiry, cron] =
+    const [state, balance, packageBody, trial, expiry, cron, care, careLogs, careStore] =
       await Promise.all([
         getStoreReminderState(storeId),
         getSessionBalanceNotificationSetting(storeId),
@@ -92,13 +95,16 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         getTrialLineCardReminderSetting(storeId),
         getPlanExpiryReminderEnabled(storeId),
         getTodayCronRunStatus(),
+        prisma.trialCareSetting.findUnique({ where: { storeId } }),
+        prisma.trialCareLog.findMany({ where: { storeId }, orderBy: { createdAt: "desc" }, take: 50, include: { customer: { select: { name: true } } } }),
+        prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true } }),
       ]);
     content = (
       <section key={`${storeId}-customer`} className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold text-earth-900">顧客提醒</h2>
           <p className="mt-1 text-sm text-earth-500">
-            開關立即儲存；展開卡片編輯通知內容與預覽。
+            展開卡片編輯通知內容與預覽；體驗關懷須按儲存後才生效。
           </p>
         </div>
         <CronRunBanner data={cron} />
@@ -122,6 +128,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             key={`${storeId}-expiry`}
             initialEnabled={expiry}
           />
+          <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
         </div>
       </section>
     );
