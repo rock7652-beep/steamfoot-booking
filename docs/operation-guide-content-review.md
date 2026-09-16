@@ -122,3 +122,40 @@
 - `src/app/(dashboard)/dashboard/spa-schedule/checkout-panel.tsx`
 - `src/server/actions/spa-checkout.ts`
 
+
+## 接續核對的六題
+
+### D10 每一堂是預約中、已使用還是被註銷，在哪裡查？
+
+- `src/app/(dashboard)/dashboard/customers/[id]/page.tsx`
+- `src/components/wallet-session-detail.tsx`
+
+### D11 只想作廢一堂未使用的堂數，怎麼處理？
+
+- `src/app/(dashboard)/dashboard/customers/[id]/void-session-button.tsx`
+- `src/components/wallet-session-detail.tsx`
+- `src/server/actions/wallet.ts`
+
+### F11 關懷紀錄顯示「已略過」，需要重新發送嗎？
+
+- `src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx`
+- `src/lib/trial-care.ts`
+
+### J12 顧客有 SPA 方案，為什麼結帳時不能扣次？
+
+- `src/server/spa-checkout-credit.ts`
+- `src/app/(dashboard)/dashboard/spa-schedule/checkout-panel.tsx`
+- `src/server/actions/spa-checkout.ts`
+
+### J13 SPA 結帳顯示餘額不足或已經扣款，怎麼辦？
+
+- `src/server/spa-checkout-credit.ts`
+- `src/server/actions/spa-checkout.ts`
+- `src/app/(dashboard)/dashboard/spa-schedule/checkout-panel.tsx`
+
+### I06 分店選單為什麼沒有我想看的店？
+
+- `src/lib/store.ts`
+- `src/server/actions/store-view-mode.ts`
+- `src/components/store-view-mode-switcher.tsx`
+

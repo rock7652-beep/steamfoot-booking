@@ -2236,5 +2236,192 @@ export const additionalGuides: OperationGuide[] = [
     "verification": "source-reviewed",
     "kind": "howto",
     "answer": "資料匯出可選交易、預約或方案明細，依期間與狀態下載 Excel；需開通匯出功能及相應權限。"
+  },
+  {
+    "id": "D10",
+    "category": "plans",
+    "title": "每一堂是預約中、已使用還是被註銷，在哪裡查？",
+    "summary": "方案的「堂數明細」可逐堂查看狀態及日期；紙本補登顯示「已使用（補登）」，不會有對應預約。",
+    "path": "顧客管理 → 顧客資料 → 方案 → 管理 → 堂數明細",
+    "steps": [
+      "找到正確顧客與方案，展開「管理」；唯讀畫面則展開「堂數明細」。",
+      "逐堂核對「可使用」「已預約」「已使用」「已註銷」與「已使用（補登）」狀態。",
+      "有疑問時比對預約日期、來店日期或註銷原因，確認原因後再決定是否更正。"
+    ],
+    "important": "",
+    "success": "",
+    "keywords": "每一堂是預約中、已使用還是被註銷，在哪裡查？ 方案的「堂數明細」可逐堂查看狀態及日期；紙本補登顯示「已使用（補登）」，不會有對應預約。",
+    "details": [
+      "「已預約」表示該堂已保留給預約使用，不能同時拿去另約。",
+      "舊方案若尚未建立逐堂明細，畫面會提示；請保留方案資訊交由支援核對，不要重複建立方案。"
+    ],
+    "modules": [
+      "steamfoot"
+    ],
+    "permission": "wallet.read",
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
+      "src/components/wallet-session-detail.tsx"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "方案的「堂數明細」可逐堂查看狀態及日期；紙本補登顯示「已使用（補登）」，不會有對應預約。"
+  },
+  {
+    "id": "D11",
+    "category": "plans",
+    "title": "只想作廢一堂未使用的堂數，怎麼處理？",
+    "summary": "可在堂數明細註銷單一可使用堂數。註銷會立即減少剩餘堂數，不會自動產生退款。",
+    "path": "顧客管理 → 顧客資料 → 方案 → 管理 → 堂數明細",
+    "steps": [
+      "核對方案與堂次，確認該堂狀態為「可使用」。",
+      "點「註銷此堂」，填寫註銷原因。",
+      "確認堂次、方案及減少堂數的影響後，點「確認註銷」。"
+    ],
+    "important": "註銷不可復原。已有預約保留、已使用或已註銷的堂數不能直接註銷；需要退款時請使用相應退款流程，避免先註銷後失去可退堂數。",
+    "success": "出現「已註銷第 N 堂」，明細顯示註銷狀態、日期與原因。",
+    "keywords": "只想作廢一堂未使用的堂數，怎麼處理？ 可在堂數明細註銷單一可使用堂數。註銷會立即減少剩餘堂數，不會自動產生退款。",
+    "details": [],
+    "modules": [
+      "steamfoot"
+    ],
+    "permission": "wallet.adjust",
+    "feature": null,
+    "sources": [
+      "src/app/(dashboard)/dashboard/customers/[id]/void-session-button.tsx",
+      "src/components/wallet-session-detail.tsx",
+      "src/server/actions/wallet.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto",
+    "answer": "可在堂數明細註銷單一可使用堂數。註銷會立即減少剩餘堂數，不會自動產生退款。"
+  },
+  {
+    "id": "F11",
+    "category": "care",
+    "title": "關懷紀錄顯示「已略過」，需要重新發送嗎？",
+    "summary": "不一定。「已略過」通常代表沒有符合發送條件；先看紀錄中的原因，不要直接重複發送。",
+    "path": "提醒管理 → 顧客提醒 → 體驗客後續關懷 → 最近關懷紀錄",
+    "steps": [
+      "找到顧客與對應階段，核對時間、狀態與原因。",
+      "若因已購買、已預約或顧客停止接收而略過，依原因處理，不另補相同邀請。",
+      "若顯示階段關閉或錯過發送時間，確認目前已儲存的設定；重新啟用不會補發歷史體驗。"
+    ],
+    "important": "",
+    "success": "",
+    "keywords": "關懷紀錄顯示「已略過」，需要重新發送嗎？ 不一定。「已略過」通常代表沒有符合發送條件；先看紀錄中的原因，不要直接重複發送。",
+    "details": [
+      "「今日已有體驗關懷」代表當天已發過此類關懷。",
+      "「發送失敗」與「已略過」不同；失敗時保留顧客、階段、時間及錯誤文字供支援核對。",
+      "第一階段關心與後續邀請適用的條件不同，請一併查看「顧客已購買或預約，還會收到體驗邀請嗎？」。"
+    ],
+    "modules": [
+      "steamfoot",
+      "spa"
+    ],
+    "permission": "business_hours.manage",
+    "feature": "line_reminder",
+    "sources": [
+      "src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx",
+      "src/lib/trial-care.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "不一定。「已略過」通常代表沒有符合發送條件；先看紀錄中的原因，不要直接重複發送。"
+  },
+  {
+    "id": "J12",
+    "category": "spa",
+    "title": "顧客有 SPA 方案，為什麼結帳時不能扣次？",
+    "summary": "方案必須屬於本店及該顧客、狀態有效、日期適用、可用次數足夠，且適用這筆預約的全部服務，才會列為可扣次方案。",
+    "path": "預約排程 → 預約明細 → 完成並結帳",
+    "steps": [
+      "先核對預約顧客與門市，確認使用的是該顧客的方案。",
+      "核對方案的開始日與到期日，同時涵蓋預約日和今天；再查是否已被其他預約保留次數。",
+      "確認方案適用這筆預約的所有療程；不符合時，先與顧客確認其他可用付款方式。"
+    ],
+    "important": "多人同行使用各自方案或儲值金時，需逐人結帳，不能把其中一人的權益當成整組付款來源。",
+    "success": "",
+    "keywords": "顧客有 SPA 方案，為什麼結帳時不能扣次？ 方案必須屬於本店及該顧客、狀態有效、日期適用、可用次數足夠，且適用這筆預約的全部服務，才會列為可扣次方案。",
+    "details": [],
+    "modules": [
+      "spa"
+    ],
+    "permission": "booking.update",
+    "feature": null,
+    "sources": [
+      "src/server/spa-checkout-credit.ts",
+      "src/app/(dashboard)/dashboard/spa-schedule/checkout-panel.tsx",
+      "src/server/actions/spa-checkout.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "方案必須屬於本店及該顧客、狀態有效、日期適用、可用次數足夠，且適用這筆預約的全部服務，才會列為可扣次方案。",
+    "additionalPermissions": [
+      "transaction.create"
+    ]
+  },
+  {
+    "id": "J13",
+    "category": "spa",
+    "title": "SPA 結帳顯示餘額不足或已經扣款，怎麼辦？",
+    "summary": "先核對該筆預約的付款與扣款結果，再處理差額；不要為了略過錯誤另建一筆相同預約。",
+    "path": "預約排程 → 預約明細 → 完成並結帳",
+    "steps": [
+      "保存錯誤提示，核對顧客、預約與所選方案或儲值帳戶。",
+      "餘額不足或帳戶停用時，與顧客確認其他付款方式；堂數已變更時，重新開啟結帳核對可用次數。",
+      "若提示已有扣款或收款紀錄，先查看原預約及帳務結果；仍不一致時，把時間與錯誤內容交給支援。"
+    ],
+    "important": "連線失敗不代表一定沒入帳；重新操作前先確認結果。",
+    "success": "",
+    "keywords": "SPA 結帳顯示餘額不足或已經扣款，怎麼辦？ 先核對該筆預約的付款與扣款結果，再處理差額；不要為了略過錯誤另建一筆相同預約。",
+    "details": [],
+    "modules": [
+      "spa"
+    ],
+    "permission": "booking.update",
+    "feature": null,
+    "sources": [
+      "src/server/spa-checkout-credit.ts",
+      "src/server/actions/spa-checkout.ts",
+      "src/app/(dashboard)/dashboard/spa-schedule/checkout-panel.tsx"
+    ],
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "先核對該筆預約的付款與扣款結果，再處理差額；不要為了略過錯誤另建一筆相同預約。",
+    "additionalPermissions": [
+      "transaction.create"
+    ]
+  },
+  {
+    "id": "I06",
+    "category": "settings",
+    "title": "分店選單為什麼沒有我想看的店？",
+    "summary": "目前只有已開通多店功能的母店店長可查看所屬下層店舖；分店帳號與一般員工不會自動取得整個體系的查看權限。",
+    "path": "頂欄 → 門市選單",
+    "steps": [
+      "核對登入帳號是否為母店店長，以及目前門市是否已開通多店功能。",
+      "核對目標店是否在該母店的下層組織內，且店舖狀態允許存取。",
+      "若組織歸屬有誤，提供母店與目標店名稱請支援核對；不要共用其他店家的登入帳號。"
+    ],
+    "important": "下層範圍包含再往下的店舖，不只直屬第一層；查看不等於可修改。",
+    "success": "",
+    "keywords": "分店選單為什麼沒有我想看的店？ 目前只有已開通多店功能的母店店長可查看所屬下層店舖；分店帳號與一般員工不會自動取得整個體系的查看權限。",
+    "details": [],
+    "modules": [
+      "steamfoot",
+      "spa"
+    ],
+    "permission": "",
+    "feature": "multi_store",
+    "sources": [
+      "src/lib/store.ts",
+      "src/server/actions/store-view-mode.ts",
+      "src/components/store-view-mode-switcher.tsx"
+    ],
+    "verification": "source-reviewed",
+    "kind": "troubleshooting",
+    "answer": "目前只有已開通多店功能的母店店長可查看所屬下層店舖；分店帳號與一般員工不會自動取得整個體系的查看權限。"
   }
 ];
