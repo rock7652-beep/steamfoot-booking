@@ -70,6 +70,20 @@ describe("operation guide preview", () => {
     expect(searchBookingGuides("", "COMPLETED").map((item) => item.id)).toEqual(["A03", "A01", "A02"]);
     expect(searchBookingGuides("取消", "CANCELLED").map((item) => item.id)).toEqual(["A02"]);
   });
+  it("keeps controls outside the scrolling body in lists and articles", () => {
+    click("？操作指南");
+    const scroll = host.querySelector("[data-guide-scroll]")!;
+    const controls = host.querySelector("[data-guide-controls]")!;
+    expect(scroll.contains(controls)).toBe(false);
+    expect(scroll.parentElement).toBe(controls.parentElement);
+    click("全部分類");
+    click("預約與到店");
+    expect(host.querySelector("[data-guide-scroll] h2")).toBeNull();
+    click("顧客想改時間");
+    expect(scroll.querySelector("ol")).not.toBeNull();
+    expect(controls.textContent).toContain("返回問題列表");
+    expect(scroll.contains(host.querySelector("[data-guide-controls]"))).toBe(false);
+  });
   it("returns from an article without navigating away", () => {
     click("？操作指南"); click("這次預約有事情要交代");
     expect(host.textContent).toContain("已儲存本次備註");

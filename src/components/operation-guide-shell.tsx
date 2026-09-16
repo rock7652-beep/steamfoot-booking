@@ -6,7 +6,6 @@ import { OperationGuideContent } from "./operation-guide-content";
 import { GuideAccessContext } from "./operation-guide-access";
 import type { GuideAccess } from "@/lib/operation-guide-types";
 import { lockGuideBackground } from "@/lib/operation-guide-scroll";
-import { DashboardLink } from "./dashboard-link";
 
 const GuideContext = createContext<{ open: () => void; register: (status?: string) => void } | null>(null);
 
@@ -66,13 +65,12 @@ export function OperationGuideShell({ enabled, children, access = { module: "ste
       <dialog ref={panel} aria-labelledby={heading} onCancel={close} onClose={() => { if (!panel.current?.open) setOpened(false); }}
         onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}
         className="fixed inset-x-0 bottom-0 top-auto z-[80] m-0 h-[85dvh] max-h-[85dvh] w-full max-w-none overflow-hidden rounded-t-2xl border border-gold-200 bg-earth-50 p-0 text-earth-900 shadow-xl backdrop:bg-black/30 lg:bottom-0 lg:left-auto lg:right-0 lg:top-14 lg:h-[calc(100dvh-3.5rem)] lg:max-h-none lg:w-[360px] min-[1440px]:w-[380px] lg:rounded-none">
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-gold-200 px-5">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-gold-200 px-5">
           <h2 id={heading} className="font-semibold text-primary-900">操作指南</h2>
           <button autoFocus type="button" onClick={close} className="min-h-11 px-3 text-primary-800">關閉</button>
         </div>
-        <div data-guide-scroll className="h-[calc(100%-4rem)] min-h-0 space-y-4 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
+        <div className="h-[calc(100%-3.5rem)] min-h-0 overflow-hidden">
           <OperationGuideContent pathname={pathname} context={bookingPage ? (status ? "booking-detail" : "booking-list") : "general"} bookingStatus={status} />
-          <DashboardLink href="/dashboard/guide" target="_blank" rel="noreferrer" className="block border-t border-gold-200 pt-4 text-sm font-semibold text-primary-800 underline underline-offset-4">查看全部教學（另開分頁）</DashboardLink>
         </div>
       </dialog>
     </div>

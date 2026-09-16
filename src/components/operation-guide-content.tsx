@@ -3,13 +3,15 @@
 import { useContext, useId, useRef, useState } from "react";
 import Image from "next/image";
 import { availableGuides, findOperationGuides, guideCategories, relatedOperationGuides, type GuideContext } from "@/lib/operation-guide";
+import { DashboardLink } from "./dashboard-link";
 import { GuideAccessContext } from "./operation-guide-access";
 
 export function OperationGuideContent({ full = false, context = "booking-list", bookingStatus, pathname = "/dashboard/bookings" }: { full?: boolean; context?: GuideContext; bookingStatus?: string; pathname?: string }) {
   const searchId = useId();
   const content = useRef<HTMLDivElement>(null);
+  const scrollBody = useRef<HTMLDivElement>(null);
   function resetScroll() {
-    const scroll = content.current?.closest("[data-guide-scroll]");
+    const scroll = full ? null : scrollBody.current;
     if (scroll) scroll.scrollTo({ top: 0 });
     else content.current?.scrollIntoView?.({ block: "start" });
   }
@@ -29,8 +31,8 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
     setSection(next); setCategory(null); setQuery(""); setArticleId(null); setExpanded(false); resetScroll();
   }
 
-  return <div ref={content} className={full ? `w-full min-w-0 space-y-6${article ? " max-w-3xl" : ""}` : "space-y-5"}>
-    <div data-guide-controls className={full ? "sticky top-14 z-10 space-y-2 border-b border-earth-200 bg-earth-50 py-3" : "sticky top-0 z-10 -mx-5 -mt-5 space-y-2 border-b border-earth-200 bg-earth-50 px-5 py-3"}>
+  return <div ref={content} className={full ? `w-full min-w-0 space-y-6${article ? " max-w-3xl" : ""}` : "flex h-full min-h-0 flex-col"}>
+    <div data-guide-controls className={full ? "sticky top-14 z-10 space-y-2 border-b border-earth-200 bg-earth-50 py-3" : "shrink-0 space-y-2 border-b border-earth-200 bg-earth-50 px-4 py-2"}>
       {article ? <button type="button" onClick={() => { setArticleId(null); setExpanded(false); resetScroll(); }} className="min-h-11 text-sm font-semibold text-primary-800">← 返回問題列表</button> : <>
         <label className="sr-only" htmlFor={searchId}>搜尋操作問題</label>
         <input id={searchId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setArticleId(null); setExpanded(false); resetScroll(); }} placeholder="搜尋問題：改時間、到期日…" className="min-h-11 w-full rounded-lg border border-earth-300 bg-white px-3 text-base" />
@@ -43,6 +45,7 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
         </div>}
       </>}
     </div>
+    <div ref={scrollBody} data-guide-scroll={full ? undefined : ""} className={full ? "space-y-5" : "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] touch-pan-y"} style={full ? undefined : { WebkitOverflowScrolling: "touch" }}>
     {article ? <>
       <h2 className="text-xl font-semibold text-primary-900">{article.title}</h2>
       <p className="rounded-lg border border-gold-200 bg-white p-3 text-sm leading-relaxed">操作位置：{article.path}</p>
@@ -71,10 +74,12 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
         <div className={full ? "grid gap-2 sm:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-2 gap-2"}>
           {categories.map(c => <button key={c.id} type="button" onClick={() => { setCategory(c.id); resetScroll(); }} className="min-h-16 rounded-xl border border-earth-200 bg-white p-3 text-left text-sm font-semibold text-primary-900">{c.label}<span className="mt-1 block text-xs font-normal text-earth-500">{guides.filter(g => g.category === c.id).length} 篇</span></button>)}
         </div>
-      </> : <h2 className="text-base font-semibold text-primary-900">{searching ? `搜尋結果（${results.length}）` : section === "related" ? "本頁常見問題" : guideCategories.find(c => c.id === category)?.label ?? "相關教學"}</h2>}
+      </> : (searching || section === "related") && <h2 className="text-base font-semibold text-primary-900">{searching ? `搜尋結果（${results.length}）` : section === "related" ? "本頁常見問題" : guideCategories.find(c => c.id === category)?.label ?? "相關教學"}</h2>}
       {!searching && context === "booking-detail" && section === "related" && (bookingStatus === "COMPLETED" || bookingStatus === "CANCELLED") && <p className="text-sm leading-relaxed text-earth-600">這筆預約已{bookingStatus === "COMPLETED" ? "完成" : "取消"}，不能直接改時間或再次取消；可先查看本次備註教學。</p>}
       <div className={full ? "grid gap-4 lg:grid-cols-3" : "space-y-2"}>{results.map((item) => <button key={item.id} type="button" onClick={() => { setArticleId(item.id); setExpanded(false); resetScroll(); }} className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-earth-200 bg-white px-3 py-3 text-left text-sm leading-relaxed font-medium text-primary-900 hover:border-gold-400"><span><span className="block">{item.title}</span>{searching && <span className="mt-1 block text-xs font-normal text-earth-600">{guideCategories.find(c => c.id === item.category)?.label}</span>}{full && <span className="mt-2 block text-sm font-normal leading-relaxed text-earth-600">{item.summary}</span>}</span><span aria-hidden="true">›</span></button>)}</div>
       {results.length === 0 && (searching || section === "related" || category) && <p role="status" className="text-sm leading-relaxed text-earth-600">{searching ? "沒有符合的教學，請縮短關鍵字，或從全部分類尋找。" : "本頁尚無適用教學，可用搜尋或全部分類找答案。"}</p>}
     </>}
+    {!full && <DashboardLink href="/dashboard/guide" target="_blank" rel="noreferrer" className="block border-t border-gold-200 pt-4 text-sm font-semibold text-primary-800 underline underline-offset-4">查看全部教學（另開分頁）</DashboardLink>}
+    </div>
   </div>;
 }
