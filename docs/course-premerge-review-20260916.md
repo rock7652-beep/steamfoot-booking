@@ -2,6 +2,21 @@
 
 Status: NOT ready to merge. No production mutations or deployment.
 
+## Current acceptance status — after LINE device retest
+
+- User confirms real LINE login, all four member tabs and the complete Logo now work. This supersedes the earlier pending/failed LINE observations below; no repeat of those accepted checks is requested.
+- Read-only database verification matches the reported member to its original active LINE Account and exactly one membership in the isolated store. Cards, attendee reservations (including history), operator reservations and purchases are all zero. Staff records and StaffMemberLink records for that account/store are also zero. The empty state and absence of work access are correct; no association with the dual-role test account was made, and no member data or permissions were changed.
+- Member home with no upcoming reservation now says “預約課程” and opens the course schedule. Existing-reservation and coach actions keep their original behavior.
+- Latest LINE repair's local full Vitest: 525 files / 4,691 tests passed; 3 PostgreSQL integration files / 32 tests skipped without a test DB. Manual CI Typecheck, targeted tests and Full Vitest passed. Its lint step runs the entire repository on workflow_dispatch and failed with 1,305 errors; changed files passed separately. This is not an all-green CI report.
+
+### Remaining pre-merge gaps (do not repeat accepted transaction/device checks)
+
+1. Production release preparation: full cloud migration-history registration, backup/PITR recovery and production-volume lock timing remain unverified. Local PG17.6 exact migration rehearsal passed; this does not authorize a production migration.
+2. CI: postgres-integration remains skipped; full-repository lint remains failed. Cloudflare is explicitly waived. The existing temporary PR634 push workflow also fails validation and is unrelated to this change; it has not been repaired in this scope.
+3. Physical keyboard behavior remains for the user's confirmation; the latest message confirms login/tabs/Logo, not keyboard behavior.
+4. Previously disclosed coverage limits remain: identical purchase-confirmation HTTP replay was not exercised (action tests exist); the complete Steamfoot/SPA write lifecycle was not replayed in this round. Attendance replay and purchase/accounting transactions already passed and do not need repeating for this label change.
+5. Explicit user acceptance and merge/production authorization remain outstanding. Keep Draft, preserve fixtures, no production mutation/deployment/merge.
+
 ## Verified
 - User accepted latest test-site UI; this is user acceptance, not an automated browser replay.
 - 52 targeted booking, attendance correction, purchase action, access and LIFF routing tests passed on 5d852f8.

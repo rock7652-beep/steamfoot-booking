@@ -738,7 +738,7 @@ export function CoursePortalClient(p: CoursePortalData) {
                 <button
                   className="primary"
                   onClick={() => {
-                    go(coach ? "schedule" : "bookings");
+                    go(coach || !p.nextBooking ? "schedule" : "bookings");
                     const next = coach ? p.nextWork : p.nextBooking;
                     if (next) {
                       setDate(courseDate(next.startsAt));
@@ -748,7 +748,7 @@ export function CoursePortalClient(p: CoursePortalData) {
                     }
                   }}
                 >
-                  查看
+                  {!coach && !p.nextBooking ? "預約課程" : "查看"}
                 </button>
               </section>
               {coach ? (
