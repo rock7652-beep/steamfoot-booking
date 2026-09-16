@@ -543,7 +543,7 @@ export function BookingDetailDrawer({
         labelledById="booking-drawer-title"
         width={spaMode ? undefined : 860}
       >
-        {open && operationGuidePreview && !spaMode && <div className="flex shrink-0 justify-end border-b border-gold-200 bg-earth-50 px-4 py-2"><BookingOperationHelp /></div>}
+        {open && operationGuidePreview && !spaMode && <div className="flex shrink-0 justify-end border-b border-gold-200 bg-earth-50 px-4 py-2"><BookingOperationHelp context="booking-detail" bookingStatus={hasFullData ? data?.booking.bookingStatus : undefined} /></div>}
         {hasFullData &&
         data &&
         spaMode &&

@@ -15,7 +15,7 @@ export default async function OperationGuidePage() {
   if (!storeId || await getStoreIndustryModule(storeId) !== "steamfoot") notFound();
   return <PageShell>
     <PageHeader title="操作指南" subtitle="從遇到的事情，找到操作步驟。" />
-    <div className="mx-auto max-w-3xl rounded-2xl border border-gold-200 bg-earth-50 p-5 sm:p-8">
+    <div className="w-full min-w-0 rounded-2xl border border-gold-200 bg-earth-50 p-5 sm:p-8">
       <OperationGuideContent full />
     </div>
   </PageShell>;

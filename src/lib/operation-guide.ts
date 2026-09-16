@@ -4,7 +4,8 @@
 export const bookingGuides = [
   {
     id: "A01",
-    title: "更改預約時間",
+    title: "顧客想改時間，怎麼處理？",
+    summary: "調整原預約的日期與時段，不必重新新增。",
     important: "已完成或已取消的預約不能直接改時間。改好後，請另與顧客確認新時間。",
     keywords: "改期 改時間 換時間 更改日期",
     path: "預約管理 → 點選預約 → 改時間",
@@ -23,7 +24,8 @@ export const bookingGuides = [
   },
   {
     id: "A02",
-    title: "取消預約",
+    title: "顧客不來了，怎麼取消預約？",
+    summary: "確認取消方式，以及堂數與款項如何處理。",
     important: "取消預約不等於退費，已收款項需要另外核對處理。",
     keywords: "取消 刪除 退堂 退費 補課",
     path: "預約管理 → 點選預約 → 取消預約",
@@ -42,7 +44,8 @@ export const bookingGuides = [
   },
   {
     id: "A03",
-    title: "新增／修改本次備註",
+    title: "這次預約有事情要交代，怎麼記錄？",
+    summary: "新增或修改本次備註，保留這次服務的提醒。",
     important: "本次備註最多 500 字，只用於這筆預約；看到儲存成功提示才算完成。",
     keywords: "備註 本次備註 註記 晚到 修改 留言",
     path: "預約管理 → 點選預約 → 本次備註",
@@ -61,10 +64,15 @@ export const bookingGuides = [
   },
 ] as const;
 
-export function searchBookingGuides(query: string) {
+export type GuideContext = "booking-list" | "booking-detail";
+
+export function searchBookingGuides(query: string, bookingStatus?: string) {
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  return bookingGuides.filter((guide) => {
-    const text = `${guide.title} ${guide.keywords} ${guide.path}`.toLocaleLowerCase();
+  const guides = bookingStatus === "COMPLETED" || bookingStatus === "CANCELLED"
+    ? [bookingGuides[2], bookingGuides[0], bookingGuides[1]]
+    : bookingGuides;
+  return guides.filter((guide) => {
+    const text = `${guide.title} ${guide.summary} ${guide.keywords} ${guide.path}`.toLocaleLowerCase();
     return terms.every((term) => text.includes(term));
   });
 }

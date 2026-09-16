@@ -37,24 +37,28 @@ describe("operation guide preview", () => {
   it("opens questions first, expands cancellation consequences, and preserves page drafts", () => {
     const draft = host.querySelector("textarea")!;
     click("操作說明");
-    expect(host.textContent).toContain("你想處理什麼");
+    expect(host.textContent).toContain("你現在想處理什麼");
     click("取消預約");
     expect(host.querySelectorAll("ol li")).toHaveLength(3);
     expect(host.textContent).toContain("取消預約不等於退費");
-    click("查看完整說明");
+    click("查看詳細說明");
     click("關閉");
     expect(host.querySelector("dialog")!.open).toBe(false);
     expect(host.querySelector("textarea")).toBe(draft);
     expect(draft.value).toBe("草稿保留");
     click("操作說明");
-    expect(host.textContent).toContain("你想處理什麼");
+    expect(host.textContent).toContain("你現在想處理什麼");
     expect(host.querySelectorAll("ol li")).toHaveLength(0);
   });
+  it("prioritizes notes for completed or cancelled bookings while keeping rules searchable", () => {
+    expect(searchBookingGuides("", "COMPLETED").map((item) => item.id)).toEqual(["A03", "A01", "A02"]);
+    expect(searchBookingGuides("取消", "CANCELLED").map((item) => item.id)).toEqual(["A02"]);
+  });
   it("returns from an article without navigating away", () => {
-    click("操作說明"); click("新增／修改本次備註");
+    click("操作說明"); click("這次預約有事情要交代");
     expect(host.textContent).toContain("已儲存本次備註");
     click("返回問題列表");
-    expect(host.textContent).toContain("更改預約時間");
+    expect(host.textContent).toContain("顧客想改時間");
     expect(host.querySelector("dialog")!.open).toBe(true);
   });
   it("does not send Escape to the underlying booking drawer", () => {

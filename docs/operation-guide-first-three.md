@@ -73,3 +73,13 @@ cancelBooking 使用 requireSession + assertStaffBookingWritable + assertStoreAc
 ![改時間教學內容](operation-guide-evidence/operation-guide-a01.jpg)
 
 ![測試預約的實際改期視窗](operation-guide-evidence/operation-guide-reschedule-ui.jpg)
+
+
+## 第三輪：情境與版面優化
+
+- 完整指南容器明確設為全寬，桌機三張問題卡、手機單欄；文章限制閱讀寬度。
+- 題目改為店長問句，問題卡附一行摘要。
+- 預約清單與明細共用內容，明細顯示「這筆預約的操作說明」。已完成／取消預約優先列備註，明示不能直接改時間或再取消；其餘規則仍能搜尋。
+- 完整頁與面板都先提供三步驟、重要提醒、完成確認；詳細說明預設收合。
+- 5 檔 21 項本機測試通過；最新視覺／手機實測仍待完成，不沿用上一版截圖作為本版通過證據。
+- 保持三題、預覽開關與原權限，不改預約與扣堂規則。

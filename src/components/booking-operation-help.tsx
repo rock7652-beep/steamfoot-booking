@@ -2,10 +2,11 @@
 
 import { useId, useRef, useState } from "react";
 import { OperationGuideContent } from "@/components/operation-guide-content";
+import type { GuideContext } from "@/lib/operation-guide";
 import { DashboardLink } from "@/components/dashboard-link";
 
 /** Native dialog preserves the page tree, traps focus and restores trigger focus. */
-export function BookingOperationHelp() {
+export function BookingOperationHelp({ context = "booking-list", bookingStatus }: { context?: GuideContext; bookingStatus?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useId();
   const [session, setSession] = useState(0);
@@ -28,7 +29,7 @@ export function BookingOperationHelp() {
         <button type="button" autoFocus onClick={() => dialog.current?.close()} className="min-h-11 rounded-lg px-3 text-sm font-semibold text-primary-800">關閉</button>
       </div>
       <div className="space-y-5 p-5 pb-8">
-        <OperationGuideContent key={session} />
+        <OperationGuideContent key={session} context={context} bookingStatus={bookingStatus} />
         <DashboardLink href="/dashboard/guide" target="_blank" rel="noreferrer" className="block border-t border-gold-200 pt-4 text-sm font-semibold text-primary-800 underline underline-offset-4">開啟完整操作指南（另開分頁）</DashboardLink>
       </div>
     </dialog>
