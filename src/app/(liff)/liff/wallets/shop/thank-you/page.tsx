@@ -24,10 +24,10 @@ export default async function LiffPurchaseThankYouPage({ searchParams }: { searc
         <p className="mt-2 text-sm leading-6 text-green-800">店長確認款項後開通堂數，請依下方訂單狀態確認，勿重複轉帳。</p>
       </div>
       <PurchaseReceipt receipt={{ ...receipt, amount: Number(receipt.amount) }} contactUrl={config.lineOfficialUrl} />
-      <Link href={`/s/${store.slug}/liff/wallets`} className="inline-flex min-h-[52px] items-center justify-center rounded-xl bg-primary-600 px-4 py-3 font-semibold text-white">
+      <Link href={`/s/${store.slug}/my-plans`} className="inline-flex min-h-[52px] items-center justify-center rounded-xl bg-primary-600 px-4 py-3 font-semibold text-white">
         回到我的方案
       </Link>
-      <Link href={`/s/${store.slug}/liff`} className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-3 font-medium text-earth-700">
+      <Link href={`/s/${store.slug}/book`} className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-3 font-medium text-earth-700">
         回首頁
       </Link>
     </div>
