@@ -194,14 +194,42 @@
     setLocked(true); button.textContent = '請先確認送出結果'; status.textContent = '';
     showError('目前無法確認資料是否已保存，請不要重複送出。請透過官方 LINE 提供教室名稱，讓我們協助確認。');
   }
+  function configureLineHandoff(data) {
+    const box = document.getElementById('lineHandoff');
+    box.hidden = data.contactWay === '目前暫不考慮';
+    if (box.hidden) return;
+    const trial = data.contactWay === '申請體驗帳號';
+    const phone = data.contactWay === '希望電話聯繫';
+    const name = typeof data.storeName === 'string' ? data.storeName.trim() : '';
+    const message = (trial ? '我已申請體驗' : '我已填寫需求表單') + '，店名：' + (name || '（請填寫店名）');
+    const link = document.getElementById('lineHandoffLink');
+    link.href = 'https://line.me/R/oaMessage/%40329rmywc/?' + encodeURIComponent(message);
+    link.textContent = trial ? '回 LINE，確認體驗申請' : '回 LINE，接續聊需求';
+    document.getElementById('lineHandoffHint').textContent = phone
+      ? '我們會依您留下的電話聯繫；若想先用 LINE 留言，也可以傳送店名，方便我們核對資料。'
+      : '請回到官方 LINE 傳送店名，方便我們核對資料並接續協助，不用重新填表。';
+    const field = document.getElementById('lineHandoffMessage');
+    field.value = message;
+    document.getElementById('lineHandoffCopy').onclick = async () => {
+      const status = document.getElementById('lineHandoffCopyStatus');
+      try {
+        await navigator.clipboard.writeText(message);
+        status.textContent = '已複製，請到官方 LINE 貼上並送出。';
+      } catch {
+        field.focus(); field.select();
+        status.textContent = '請長按或使用鍵盤複製已選取的文字，再到官方 LINE 貼上並送出。';
+      }
+    };
+  }
   function success(data) {
     locked = true; form.hidden = true; document.querySelector('.progress').hidden = true;
     $('success').hidden = false;
     $('successText').textContent = data.contactWay === noContact
       ? '謝謝你分享教室需求。我們已保存回覆，不會主動聯絡或開通體驗。'
       : data.contactWay === '申請體驗帳號'
-        ? '需求與體驗意願已保存。我們會聯繫確認適合的功能及開通安排；現在尚未開始計算體驗期間。'
-        : '需求已保存。我們會依你選擇的方式，聯繫安排示範或進一步了解需求。';
+        ? '需求與體驗意願已保存，接下來確認適合的功能及開通安排；現在尚未開始計算體驗期間。'
+        : '需求已保存，接下來依你的選擇安排示範或進一步了解需求。';
+    configureLineHandoff(data);
     $('receiptId').textContent = '回覆編號：' + data.requestId;
     $('success').focus();
   }
@@ -260,7 +288,7 @@
           : '請確認必填欄位與文字長度後，再送出一次。'); return;
       }
       if (!response.ok || result.ok !== true || result.saved !== true || result.requestId !== requestId) throw new Error('Unconfirmed');
-      const receipt = {requestId, contactWay: data.contactWay}; save({state: 'saved', data: receipt}); success(receipt);
+      const receipt = {requestId, contactWay: data.contactWay, storeName: data.storeName}; save({state: 'saved', data: receipt}); success(receipt);
     } catch { uncertain(); }
     finally { form.removeAttribute('aria-busy'); }
   });
