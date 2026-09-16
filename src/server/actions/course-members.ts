@@ -391,3 +391,14 @@ export async function markCourseCoachAttendance(input: unknown) {
     return handleActionError(e);
   }
 }
+
+export async function loadCourseCustomerBookings(customerId: string) {
+  try {
+    const { storeId } = await courseManager("customer.read");
+    await courseManager("booking.read");
+    const customer = await prisma.customer.findFirst({ where: { id: id.parse(customerId), storeId, mergedIntoCustomerId: null }, select: { id: true } });
+    if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
+    const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId }, include: { session: { select: { startsAt: true, nameSnapshot: true } }, card: { select: { nameSnapshot: true, expiresAt: true } } }, orderBy: { session: { startsAt: "desc" } }, take: 100 });
+    return { success: true as const, data: bookings.map((b) => ({ id: b.id, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card.nameSnapshot, expiresAt: b.card.expiresAt.toISOString(), points: b.pointCost, notes: b.notes, operator: b.operatorName })) };
+  } catch (e) { return handleActionError(e); }
+}

@@ -12,6 +12,7 @@ import {
 import { saveCourseStaff } from "@/server/actions/course-staff";
 import type { getCourseCards } from "@/server/queries/course-members";
 
+import { CourseCustomerBookings } from "./customer-bookings";
 import { BirthdayFields } from "@/components/birthday-fields";
 import { CourseCustomerHealth } from "./customer-health";
 type Person = { id: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; height: number | null; lineName: string | null; serviceNote: string | null };
@@ -37,6 +38,7 @@ export function CourseMemberWorkspace({
   canCreate,
   canManageStaff,
   canAssign,
+  canReadBookings,
 }: {
   view: "customers" | "plans";
   people: Person[];
@@ -46,10 +48,12 @@ export function CourseMemberWorkspace({
   canCreate: boolean;
   canManageStaff: boolean;
   canAssign: boolean;
+  canReadBookings: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
   const [status, setStatus] = useState("all");
   const [panel, setPanel] = useState<
     "person" | "plan" | "assign" | "card" | "coach" | "health" | null
@@ -102,6 +106,8 @@ export function CourseMemberWorkspace({
         (status === "all" || p.isActive === (status === "active")),
     )
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
+  const totalRows = view === "customers" ? filteredPeople.length : filteredPlans.length;
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -110,14 +116,14 @@ export function CourseMemberWorkspace({
           aria-label="搜尋"
           placeholder={view === "customers" ? "搜尋姓名／電話" : "搜尋方案"}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
         />
         {view === "plans" && (
           <select
             className={`${field} max-w-36`}
             aria-label="狀態篩選"
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => { setStatus(e.target.value); setPage(0); }}
           >
             <option value="all">全部狀態</option>
             <option value="active">上架</option>
@@ -167,7 +173,7 @@ export function CourseMemberWorkspace({
           </thead>
           <tbody className="divide-y divide-earth-100">
             {view === "customers"
-              ? filteredPeople.map((p) => (
+              ? filteredPeople.slice(currentPage * 20, (currentPage + 1) * 20).map((p) => (
                   <tr key={p.id}>
                     <td className="p-3"><button className="min-h-11 font-medium text-primary-700 underline" onClick={() => { setPerson(p); open("person"); }}>{p.name}</button></td>
                     <td className="p-3">{p.phone || "—"}</td>
@@ -214,7 +220,7 @@ export function CourseMemberWorkspace({
                     </td>
                   </tr>
                 ))
-              : filteredPlans.map((p) => (
+              : filteredPlans.slice(currentPage * 20, (currentPage + 1) * 20).map((p) => (
                   <tr
                     key={p.id}
                     className={p.isActive ? "" : "bg-earth-50 text-earth-400"}
@@ -269,6 +275,7 @@ export function CourseMemberWorkspace({
           </div>
         </section>
       )}
+      {totalRows > 20 && <nav aria-label="清單分頁" className="flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
       {panel && (
         <RightSheet
           open
@@ -369,6 +376,7 @@ export function CourseMemberWorkspace({
                 </fieldset>
               </form>
             )}
+            {panel === "person" && person && canReadBookings && <CourseCustomerBookings customerId={person.id} />}
             {panel === "plan" && (
               <form
                 id="course-member-form"

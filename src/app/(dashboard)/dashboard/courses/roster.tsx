@@ -126,7 +126,7 @@ export function CourseRoster({
                   : "共卡代約"
                 : "店長代約"}
             </p>
-            <p className="text-primary-800">使用方案：{b.planName} · 到期日 {formatTWDateTime(new Date(b.expiresAt)).slice(0, 10)}</p>
+            <p className="text-primary-800">使用方案：{b.planName} · 可用 {b.available} 點 · 到期日 {formatTWDateTime(new Date(b.expiresAt)).slice(0, 10)}</p>
             <p className="text-earth-600">顧客服務備註：{b.serviceNote || "無"}</p>
             <p className="text-earth-600">本次預約備註：{b.notes || "無"}</p>
             {canEdit && b.status === "RESERVED" && (

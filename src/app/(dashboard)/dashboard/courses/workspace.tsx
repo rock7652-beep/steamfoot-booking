@@ -8,6 +8,7 @@ import {
   addTaiwanDuration,
   formatTWDateTime,
   parseLocalDate,
+  parseTaipeiDateTime,
   toLocalDateStr,
 } from "@/lib/date-utils";
 import {
@@ -69,7 +70,7 @@ const field =
   "min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
 
 export function CourseWorkspace({
-  selectedDate,
+  selectedDate: loadedDate,
   today,
   rooms: allRooms,
   templates: allTemplates,
@@ -85,6 +86,8 @@ export function CourseWorkspace({
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
+  const requestedDate = params.get("date");
+  const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
@@ -171,9 +174,11 @@ export function CourseWorkspace({
   function go(date: string) {
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
-    startTransition(() =>
-      router.replace(`${pathname}?${next}`, { scroll: false }),
-    );
+    if (date.slice(0, 7) === loadedDate.slice(0, 7)) {
+      // All sessions for this month are already loaded. Keep the open sheet,
+      // filters and scroll position instead of remounting through navigation.
+      window.history.replaceState(null, "", `${pathname}?${next}`);
+    } else startTransition(() => router.replace(`${pathname}?${next}`, { scroll: false }));
   }
   function open(next: typeof panel) {
     setPanel(next);

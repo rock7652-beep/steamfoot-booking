@@ -72,6 +72,7 @@ export async function CourseMemberPage({
       <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} />
       <CourseMemberWorkspace
         view={view}
+        canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}
         people={people.map((p) => ({ ...p, birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
         plans={plans}
         cards={cards}
