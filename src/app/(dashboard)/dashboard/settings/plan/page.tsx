@@ -1,3 +1,4 @@
+import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { PlanPackageNotes } from "@/components/plan-package-notes";
@@ -61,7 +62,7 @@ export default async function PlanSettingsPage() {
     EXPERIENCE: ["基礎預約管理", "顧客資料管理", "教練排班"],
     BASIC: ["LINE 顧客入口（LIFF）", "預約、堂數與收款", "可選 1 個 $500 工具型模組"],
     GROWTH: ["基本版＋顧客經營、現金抽屜", "可選 1 個 $500 工具型模組", "可選 1 個 $800 經營型模組"],
-    ALLIANCE: ["總部管理＋首家分店串接額度（分店系統月費另計）", "多店與月結管理", "第二家分店起，每家 +$1,000/月分店串接管理費"],
+    ALLIANCE: ["總部管理＋首間分店串接（分店系統月費另計）", "多店與月結管理", ALLIANCE_BRANCH_PRICING_COPY],
   };
 
   /** Feature comparison groups for the table */
@@ -347,16 +348,16 @@ async function StorePlanSection() {
           <h2 className="text-base font-bold text-earth-900">平台方案（總部）</h2>
         </div>
         <p className="mt-1 text-xs text-earth-400">
-          各總部獨立計算已購串接額度，可加購至 30 家以上；分店依自己的方案使用功能。
+          依各總部實際串接的分店間數計費，16 間起另行報價；分店依自己的方案使用功能。
         </p>
 
         <div className="mt-3 space-y-3">
           {platformStats.length === 0 && <p className="text-sm text-earth-500">尚無展店版總部。</p>}
           {platformStats.map(stats => <div key={stats.storeId} className="rounded-xl border border-earth-200 bg-white p-4 text-sm">
             <p className="font-semibold text-earth-800">{stats.storeName}</p>
-            <p className="mt-2">已串接 {stats.branchCount} 家／已購額度 {stats.purchasedBranches} 家</p>
-            <p>總部管理月費 NT${stats.monthlyFee.toLocaleString("zh-TW")}，分店系統月費另計。</p>
-            {stats.branchCount > stats.purchasedBranches && <p className="mt-2 text-amber-700">現有串接超過已購額度，請核對合約；既有資料保留。</p>}
+            <p className="mt-2">已串接 {stats.branchCount} 間／已開通可串接 {stats.purchasedBranches} 間</p>
+            <p>主店展店版 NT$4,990／月；串接費 {stats.connectionFee === null ? "另行報價" : `NT$${stats.connectionFee.toLocaleString("zh-TW")}／月`}；合計 {stats.monthlyFee === null ? "另行報價" : `NT$${stats.monthlyFee.toLocaleString("zh-TW")}／月`}。各分店系統月費另計。</p>
+            {stats.branchCount > stats.purchasedBranches && <p className="mt-2 text-amber-700">目前分店數超過已開通間數，請聯絡平台確認。</p>}
           </div>)}
           <DashLink href="/hq/dashboard/stores/organization" className="inline-block text-primary-700 underline">管理總部串接額度</DashLink>
         </div>

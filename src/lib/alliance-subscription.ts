@@ -1,6 +1,7 @@
 /** HQ subscription is separate from each branch subscription. No inherited plan. */
 export const ALLIANCE_BASE_MONTHLY = 4990;
-export const ALLIANCE_EXTRA_BRANCH_MONTHLY = 1000;
+export const ALLIANCE_STANDARD_BRANCH_LIMIT = 15;
+export const ALLIANCE_BRANCH_PRICING_COPY = "首間免串接費，第 2～5 間每間 $500／月，第 6～15 間每間 $300／月，分段計算。各分店系統月費另計，16 間起另行報價。";
 export type OrganizationStore = {
   id: string; name: string; parentStoreId: string | null;
   plan: string; maxStoresOverride: number | null;
@@ -10,8 +11,15 @@ export type OrganizationStore = {
 export function branchCapacity(store: OrganizationStore): number {
   return Math.max(0, (store.maxStoresOverride ?? (store.plan === "ALLIANCE" ? 2 : 1)) - 1);
 }
-export function managementMonthlyFee(branchSlots: number): number {
-  return ALLIANCE_BASE_MONTHLY + Math.max(0, branchSlots - 1) * ALLIANCE_EXTRA_BRANCH_MONTHLY;
+/** null means a custom quote is required; never extrapolate beyond 15 branches. */
+export function branchConnectionMonthlyFee(branchCount: number): number | null {
+  if (!Number.isSafeInteger(branchCount) || branchCount < 0) throw new Error("請輸入有效的分店間數");
+  if (branchCount > ALLIANCE_STANDARD_BRANCH_LIMIT) return null;
+  return Math.max(0, Math.min(branchCount, 5) - 1) * 500 + Math.max(0, branchCount - 5) * 300;
+}
+export function managementMonthlyFee(branchCount: number): number | null {
+  const fee = branchConnectionMonthlyFee(branchCount);
+  return fee === null ? null : ALLIANCE_BASE_MONTHLY + fee;
 }
 export function organizationDescendants(stores: OrganizationStore[], rootId: string): Set<string> {
   const children = new Map<string, string[]>();
@@ -29,12 +37,16 @@ export function organizationDescendants(stores: OrganizationStore[], rootId: str
   return seen;
 }
 export function organizationSubscriptionRows(stores: OrganizationStore[]) {
-  return stores.filter(s => s.plan === "ALLIANCE").map(s => ({
+  return stores.filter(s => s.plan === "ALLIANCE").map(s => {
+    const branchCount = organizationDescendants(stores, s.id).size;
+    return {
     storeId: s.id, storeName: s.name,
-    branchCount: organizationDescendants(stores, s.id).size,
+    branchCount,
     purchasedBranches: branchCapacity(s),
-    monthlyFee: managementMonthlyFee(branchCapacity(s)),
-  }));
+    monthlyFee: managementMonthlyFee(branchCount),
+    connectionFee: branchConnectionMonthlyFee(branchCount),
+    };
+  });
 }
 /** Validate only receiving ancestors; unrelated organizations never consume capacity. */
 export function assertOrganizationCapacity(stores: OrganizationStore[], parentId: string | null): void {
@@ -50,7 +62,7 @@ export function assertOrganizationCapacity(stores: OrganizationStore[], parentId
     if (parent.plan === "ALLIANCE") {
       subscribed = true;
       const count = organizationDescendants(stores, id).size;
-      if (count > branchCapacity(parent)) throw new Error(`${parent.name}的分店串接額度不足，請先由平台管理員確認加購並開通額度`);
+      if (count > branchCapacity(parent)) throw new Error(`${parent.name}的分店串接額度不足，請聯絡平台管理員確認費用並開通；16 間起另行報價`);
     }
     id = parent.parentStoreId;
   }
