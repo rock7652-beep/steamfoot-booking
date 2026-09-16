@@ -4,18 +4,22 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   postgres-integration:
-    if: github.head_ref == 'fix/test-audit-recovery'
+    if: >-
+      github.head_ref == 'fix/test-audit-recovery' ||
+      github.head_ref == 'codex/course-scheduling-stage1' ||
+      (github.event_name == 'workflow_dispatch' && github.ref_name == 'codex/course-scheduling-stage1')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17.6
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: disposable-test-only
@@ -35,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24

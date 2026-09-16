@@ -43,12 +43,19 @@ jobs:
 
       - name: Lint changed source files
         shell: bash
+        env:
+          COURSE_RELEASE_BRANCH: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "$COURSE_RELEASE_BRANCH" == "codex/course-scheduling-stage1" ]; then
+            git fetch origin main
+            base=$(git merge-base origin/main HEAD)
+            mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$base" HEAD -- '*.js' '*.jsx' '*.ts' '*.tsx')
+          elif [ "${{ github.event_name }}" != "pull_request" ]; then
             npm run lint
             exit 0
+          else
+            mapfile -t files < <(git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.js' '*.jsx' '*.ts' '*.tsx')
           fi
-          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.js' '*.jsx' '*.ts' '*.tsx')
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No changed JavaScript or TypeScript files to lint."
             exit 0
