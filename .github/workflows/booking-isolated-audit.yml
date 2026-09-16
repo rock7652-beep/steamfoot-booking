@@ -49,7 +49,7 @@ jobs:
         run: npx prisma db push --skip-generate
       - name: Run all 32 PostgreSQL scenarios
         run: >-
-          npx vitest run
+          npx vitest run --config vitest.pg.config.ts
           src/__tests__/booking-actions.pg.integration.test.ts
           src/__tests__/booking-slot-concurrency.pg.test.ts
           src/__tests__/weekly-recurring-bookings.pg.integration.test.ts

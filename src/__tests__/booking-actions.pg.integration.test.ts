@@ -1,3 +1,4 @@
+import { setPgRequestStore } from "@/__tests__/helpers/pg-request-context";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
@@ -5,23 +6,12 @@ import { resolveBookingIntegrationTestDatabaseUrl } from "@/__tests__/helpers/bo
 import { buildBookingCreatePayloadHash } from "@/server/services/booking-submission-payload";
 
 const boundary = vi.hoisted(() => ({
-  activeStoreId: "",
   requireSession: vi.fn(),
   requireWritablePermission: vi.fn(),
   checkMonthlyBookingLimitOrThrow: vi.fn(),
   revalidateBookings: vi.fn(),
   createBookingCreatedEvent: vi.fn(),
   createBookingCompletedEvent: vi.fn(),
-}));
-
-// Supply only the request boundary; store authorization and all DB transactions stay real.
-vi.mock("next/headers", () => ({
-  headers: async () => new Headers(),
-  cookies: async () => ({
-    get: (name: string) => name === "active-store-id" && boundary.activeStoreId
-      ? { value: boundary.activeStoreId }
-      : undefined,
-  }),
 }));
 
 vi.mock("@/lib/session", () => ({ requireSession: boundary.requireSession }));
@@ -65,7 +55,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
   }
 
   function admin(storeId: string) {
-    boundary.activeStoreId = storeId;
+    setPgRequestStore(storeId);
     const user = {
       id: `admin_${storeId}`,
       role: "ADMIN",
@@ -241,8 +231,6 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
   }
 
   beforeAll(async () => {
-    // Resolve the dynamic request module before starting concurrent action calls.
-    await import("next/headers");
     vi.doMock("@/lib/db", () => ({ prisma: db() }));
     actions = await import("@/server/actions/booking");
   });

@@ -1,26 +1,16 @@
+import { setPgRequestStore } from "@/__tests__/helpers/pg-request-context";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { resolveBookingIntegrationTestDatabaseUrl } from "@/__tests__/helpers/booking-integration-test-db";
 
 const boundary = vi.hoisted(() => ({
-  activeStoreId: "",
   requireSession: vi.fn(),
   requireWritablePermission: vi.fn(),
   revalidateBookings: vi.fn(),
   checkMonthlyBookingLimitOrThrow: vi.fn(),
   createBookingCreatedEvent: vi.fn(),
   createBookingCompletedEvent: vi.fn(),
-}));
-
-// Supply only the request boundary; store authorization and all DB transactions stay real.
-vi.mock("next/headers", () => ({
-  headers: async () => new Headers(),
-  cookies: async () => ({
-    get: (name: string) => name === "active-store-id" && boundary.activeStoreId
-      ? { value: boundary.activeStoreId }
-      : undefined,
-  }),
 }));
 
 vi.mock("@/lib/session", () => ({ requireSession: boundary.requireSession }));
@@ -59,7 +49,7 @@ describeWithPostgres("weekly recurring bookings — real PostgreSQL", () => {
     const prefix = key("fixture");
     const storeId = `${prefix}_store`;
     stores.add(storeId);
-    boundary.activeStoreId = storeId;
+    setPgRequestStore(storeId);
     const weeks = options.weeks ?? 2;
     await db().store.create({ data: { id: storeId, name: prefix, slug: `${prefix}_slug`, plan: "ALLIANCE" } });
     await db().shopConfig.create({ data: {
@@ -142,8 +132,6 @@ describeWithPostgres("weekly recurring bookings — real PostgreSQL", () => {
   }
 
   beforeAll(async () => {
-    // Resolve the dynamic request module before starting concurrent action calls.
-    await import("next/headers");
     vi.doMock("@/lib/db", () => ({ prisma: db() }));
     ({ createRecurringBookings } = await import("@/server/actions/recurring-booking"));
     ({ createBooking } = await import("@/server/actions/booking"));
