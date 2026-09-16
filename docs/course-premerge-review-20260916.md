@@ -92,3 +92,13 @@ The sections above are chronological observations; the correct 0916 owner subseq
 - Shared cashbook change is limited to a course-only display fallback. Full CI passes; this run did not replay the entire steamfoot/SPA write lifecycle.
 - Production course schema rollout and its two migration histories remain deployment prerequisites, as listed above. No production migration authorization is implied.
 - Preserve the new purchase, card, completed class and all cancelled test history for user review. Wait for explicit user acceptance and merge authorization.
+
+## Release-readiness follow-up — 2026-09-16
+
+- Public PR description replaced with a sanitized summary: no test accounts, passwords, store names, transaction details or preview URLs.
+- PostgreSQL 17.6 isolated rehearsal passed using exact source migrations and a synthetic dependency baseline. Late-failure rollback, missing dependency rollback, partial/repeated rollout refusal, tenant constraints, overlap constraints and browser-role RLS were exercised. See `course-database-rollout-plan-20260916.md` and the checksummed result JSON. This is not a production clone or a replacement for the skipped postgres-integration job.
+- Read-only production catalog/history inspection confirms prerequisites and no course migrations applied. Production was not mutated; CI production migration allowlist remains unchanged. Full cloud history registration, production-volume lock timing and backup/PITR restoration remain unverified.
+- LINE Developers console inspection found the fallback member LIFF endpoint belongs to an existing production store. Created a separate Preview-only LIFF with openid/profile, without messaging scope or friend-add promotion; changed only the isolated test store's previously null LIFF setting. Existing LIFF endpoints and production store settings were not changed.
+- New isolated LIFF initializes in the desktop browser and displays the intended in-LINE guard. User has been given the private test entry and asked to complete actual mobile LINE authorization. No LINE in-app authentication result is claimed yet.
+- Physical keyboard acceptance belongs to the user. Cloudflare stays waived; postgres-integration stays SKIPPED.
+- Status remains NOT ready to merge: actual LINE result, remaining release prerequisites and explicit user acceptance are required.
