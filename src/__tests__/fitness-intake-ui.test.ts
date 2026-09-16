@@ -42,6 +42,21 @@ function reachContact(r: ReturnType<typeof setup>) {
   r.check("classModes", "尚未確定"); r.check("management", "尚未確定"); r.next();
 }
 describe("fitness intake three-step DOM interactions (not a visual browser test)", () => {
+  it("submits every concrete need, including the five customer relationship choices", async () => {
+    const r = setup(); r.fill("storeName", "TEST");
+    const choices = r.needs.filter(value => value !== "還不確定，想先聊聊");
+    for (const value of choices) r.check("needs", value);
+    for (const name of ["studentOther", "coachOther", "operationsOther", "businessOther"]) r.fill(name, "測試補充");
+    const relationship = ["學員很久沒來，常常沒有及時發現", "方案快到期、堂數快用完，容易漏掉提醒與關心", "體驗後的回訪與關心，常常漏掉跟進", "經營數據要花大把時間自己整理", "其他學員關係或經營分析困擾"];
+    const group = [...r.doc.querySelectorAll('.pain-group')].find(el => el.querySelector('h3')!.textContent === "顧客關係維護")!;
+    expect([...group.querySelectorAll<HTMLInputElement>('[name="needs"]')].map(i => i.value)).toEqual(relationship);
+    expect(r.doc.getElementById('needs')!.textContent).not.toMatch(/招生|續報/);
+    expect(r.doc.getElementById('needsWhy')!.textContent).not.toContain('最多');
+    expect(r.doc.getElementById('needsStatus')!.textContent).toBe('已選 ' + choices.length + ' 項');
+    r.check('priorityNeed', relationship[3]); r.next(); r.fill('storeCount', '1 家');
+    r.check('classModes', '尚未確定'); r.check('management', '尚未確定'); r.next(); r.select('目前暫不考慮'); await r.submit();
+    expect(r.sent[0]).toMatchObject({ needs: choices, priorityNeed: relationship[3] });
+  });
   it.each(["籌備中，尚未開店", "1 家", "2～3 家", "4 家以上"])("requires and preserves the selected store count: %s", async count => {
     const r = setup(); r.fill("storeName", "TEST");
     const migration = "想換系統，但擔心學員資料、剩餘堂數和預約不好搬過來";
@@ -53,14 +68,14 @@ describe("fitness intake three-step DOM interactions (not a visual browser test)
     expect(r.sent[0]).toMatchObject({ storeCount: count, needs: [migration, multiStore], priorityNeed: multiStore });
     expect(r.doc.getElementById("courseTypes")).toBeNull();
   });
-  it("caps choices at four, supports replacement and clears a removed priority", () => {
+  it("allows more than four choices and clears a removed priority", () => {
     const r = setup();
     for (const index of [0, 1, 4, 8]) r.check("needs", r.needs[index]);
     r.check("priorityNeed", r.needs[0]);
-    expect(r.check("needs", r.needs[12]).checked).toBe(false);
-    expect(r.doc.querySelectorAll('[name="needs"]:checked')).toHaveLength(4);
-    expect(r.doc.getElementById("needsStatus")!.textContent).toContain("已選 4／4");
-    r.check("needs", r.needs[0]); r.check("needs", r.needs[12]);
+    expect(r.check("needs", r.needs[12]).checked).toBe(true);
+    expect(r.doc.querySelectorAll('[name="needs"]:checked')).toHaveLength(5);
+    expect(r.doc.getElementById("needsStatus")!.textContent).toBe("已選 5 項");
+    r.check("needs", r.needs[0]);
     expect(r.doc.querySelector('[name="priorityNeed"]:checked')).toBeNull();
   });
   it("shows each category's other input only when checked and requires a description", () => {
@@ -104,7 +119,7 @@ describe("fitness intake three-step DOM interactions (not a visual browser test)
   });
   it("serializes all four categories, store count and selected Other text without hidden stale text", async () => {
     const r = setup(); r.fill("storeName", "TEST");
-    for (const value of ["其他學員相關困擾", "其他教練相關困擾", "其他店務相關困擾", "其他招生或續報困擾"]) r.check("needs", value);
+    for (const value of ["其他學員相關困擾", "其他教練相關困擾", "其他店務相關困擾", "其他學員關係或經營分析困擾"]) r.check("needs", value);
     for (const name of ["studentOther", "coachOther", "operationsOther", "businessOther"]) r.fill(name, name + " 測試內容");
     r.check("priorityNeed", "其他教練相關困擾"); r.next();
     r.fill("storeCount", "4 家以上");

@@ -73,7 +73,7 @@ function doPost(e) {
     const fitness = isFitnessV2(data);
     const noContact = isNoContact(data);
     if (!data.storeName || !data.industry || (!noContact && (!data.contactName || !(data.phone || data.lineId)))
-      || !Array.isArray(data.needs) || data.needs.length < 1 || data.needs.length > (fitness ? 4 : 3)) throw new Error('Invalid input');
+      || !Array.isArray(data.needs) || data.needs.length < 1 || (!fitness && data.needs.length > 3)) throw new Error('Invalid input');
     if (fitness) {
       if (['申請體驗帳號', '預約 20 分鐘線上示範', '先透過 LINE 了解', '目前暫不考慮'].indexOf(data.contactWay) < 0) throw new Error('Invalid intent');
       const unknown = data.needs.indexOf('還不確定，想先聊聊') >= 0;
@@ -141,5 +141,5 @@ function doPost(e) {
 }
 
 function doGet() {
-  return jsonResponse({ ok: true, version: 2, service: 'Steam Butler Store Check', capabilities: ['fitness-v2'] });
+  return jsonResponse({ ok: true, version: 2, service: 'Steam Butler Store Check', capabilities: ['fitness-v2', 'fitness-unlimited-needs'] });
 }

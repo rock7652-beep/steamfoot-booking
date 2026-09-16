@@ -14,6 +14,20 @@ function request(body: object = payload, origin = "https://www.steamfoot.com") {
 afterEach(() => vi.unstubAllGlobals());
 const fitness = { ...payload, formVersion: "fitness-v2", source: "fitness-intake", contactWay: "申請體驗帳號", needs: ["學員", "教練", "店務", "招生"], priorityNeed: "招生" };
 describe("fitness v2 contract", () => {
+  it("forwards every selected need when the receiver supports unlimited selections", async () => {
+    const needs = Array.from({length: 19}, (_, index) => '困擾' + index);
+    const fetch = vi.fn().mockResolvedValueOnce(Response.json({ok: true, capabilities: ['fitness-v2', 'fitness-unlimited-needs']}))
+      .mockResolvedValueOnce(Response.json({version: 2, ok: true, saved: true, requestId: payload.requestId}));
+    vi.stubGlobal('fetch', fetch);
+    expect((await POST(request({...fitness, needs, priorityNeed: needs[0]}))).status).toBe(200);
+    expect(JSON.parse(fetch.mock.calls[1][1].body).needs).toEqual(needs);
+  });
+  it("does not POST more than four selections to the old four-choice receiver", async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json({ok: true, capabilities: ['fitness-v2']})); vi.stubGlobal('fetch', fetch);
+    const response = await POST(request({...fitness, needs: ['1','2','3','4','5'], priorityNeed: '1'}));
+    expect(response.status).toBe(503); expect(fetch).toHaveBeenCalledTimes(1);
+    expect((await response.json()).code).toBe('RECEIVER_UPDATE_REQUIRED');
+  });
   it("accepts four needs after checking receiver capability", async () => {
     const fetch = vi.fn().mockResolvedValueOnce(Response.json({ ok: true, capabilities: ["fitness-v2"] }))
       .mockResolvedValueOnce(Response.json({ version: 2, ok: true, saved: true, requestId: payload.requestId }));
@@ -35,7 +49,6 @@ describe("fitness v2 contract", () => {
     expect((await POST(request({ ...fitness, contactWay: "目前暫不考慮", contactName: "", lineId: "", needs: ["還不確定，想先聊聊"], priorityNeed: "" }))).status).toBe(200);
   });
   it.each([
-    { ...fitness, needs: ["1", "2", "3", "4", "5"] },
     { ...fitness, priorityNeed: "未選的項目" },
     { ...fitness, priorityNeed: "" },
     { ...fitness, needs: ["還不確定，想先聊聊", "學員"] },
