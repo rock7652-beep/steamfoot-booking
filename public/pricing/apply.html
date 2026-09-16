@@ -25,6 +25,8 @@ button[disabled]{opacity:.55;cursor:not-allowed}.hint,.privacy{font-size:12px;co
 @media(max-width:560px){.options{grid-template-columns:1fr}.hero,form{padding-left:20px;padding-right:20px}h1{font-size:29px}}
 nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justify-content:space-between;gap:16px;font-size:16px}nav.site-nav a{color:var(--green);text-underline-offset:5px;padding:8px 0}.opt input:focus-visible+label{outline:2px solid var(--green);outline-offset:3px}
 .options.needs-options{grid-template-columns:repeat(2,minmax(0,1fr))}.needs-options .opt label{display:flex;align-items:center;gap:8px;min-height:48px;margin-bottom:0;padding:12px 10px;font-size:14px}.needs-options .opt label::before{content:"";width:16px;height:16px;flex-shrink:0;border:1px solid var(--muted);border-radius:4px;text-align:center;line-height:16px}.needs-options .opt input:checked+label::before{content:"✓";background:var(--green);border-color:var(--green);color:white}
+
+#lineHandoff{margin-top:24px;line-height:1.8}#lineHandoff .line-handoff-primary{display:block;padding:14px 18px;border-radius:12px;background:#0F3B2E;color:#fff;text-align:center;text-decoration:none;font-weight:700}#lineHandoff .hint{font-size:13px;color:#617268}.line-handoff-fallback{margin-top:20px;text-align:left;font-size:14px}.line-handoff-fallback summary{cursor:pointer;padding:10px 0}.line-handoff-fallback textarea{box-sizing:border-box;width:100%;font:inherit;resize:vertical;padding:12px;min-height:100px;border:1px solid #c9d4cc;border-radius:10px}.line-handoff-fallback button{margin:10px 0 0;min-height:44px}#lineHandoffCopyStatus:empty{display:none}
 </style>
 </head>
 <body>
@@ -118,12 +120,19 @@ nav.site-nav{max-width:760px;margin:auto;padding:20px 16px 0;display:flex;justif
 <div class="check">✓</div>
 <h2>我們已經大致了解你的店</h2>
 <p>蒸管家會依照你的需求，整理適合的功能與示範內容，再與你聯繫。</p>
+<div id="lineHandoff">
+<p id="lineHandoffHint">請回到官方 LINE 傳送店名，方便我們核對資料並接續協助，不用重新填表。</p>
+<a id="lineHandoffLink" href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer" class="line-handoff-primary">回 LINE，確認體驗申請</a>
+<p class="hint">開啟 LINE 後，請再按「送出」，我們才會收到訊息。</p>
+<details class="line-handoff-fallback"><summary>使用電腦，或訊息沒有自動帶入？</summary>
+<p>複製下方文字，開啟官方 LINE 後貼上並送出；也可以用手機加入官方帳號，直接傳送店名。</p>
+<textarea id="lineHandoffMessage" aria-label="要傳送給蒸管家的訊息" readonly rows="3"></textarea>
+<button id="lineHandoffCopy" type="button">複製訊息</button>
+<p id="lineHandoffCopyStatus" role="status" aria-live="polite"></p>
+<a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener noreferrer">開啟官方 LINE／顯示加入好友 QR Code</a>
+<p>LINE ID：@329rmywc</p>
+</details></div>
 <p style="margin-top:28px;color:#0F3B2E;font-weight:800">每一家店，都值得擁有一位數位管家。</p>
-<a href="https://lin.ee/SGy5UBz" target="_blank" rel="noopener"
-   style="display:inline-block;margin-top:18px;padding:12px 18px;border-radius:12px;background:#06C755;color:#fff;text-decoration:none;font-weight:800">
-   加入蒸管家官方 LINE
-</a>
-<p style="margin-top:10px;color:#6E7773;font-size:13px">LINE ID：@329rmywc</p>
 </div>
 </div></div>
 
@@ -155,14 +164,41 @@ function showUnconfirmed() {
   errorBox.classList.add('show');
   errorBox.focus();
 }
+function configureLineHandoff(data) {
+  const box = document.getElementById('lineHandoff');
+  box.hidden = data.contactWay === '目前暫不考慮';
+  if (box.hidden) return;
+  const trial = data.contactWay === '申請體驗帳號';
+  const phone = data.contactWay === '希望電話聯繫';
+  const name = typeof data.storeName === 'string' ? data.storeName.trim() : '';
+  const message = (trial ? '我已申請體驗' : '我已填寫需求表單') + '，店名：' + (name || '（請填寫店名）');
+  const link = document.getElementById('lineHandoffLink');
+  link.href = 'https://line.me/R/oaMessage/%40329rmywc/?' + encodeURIComponent(message);
+  link.textContent = trial ? '回 LINE，確認體驗申請' : '回 LINE，接續聊需求';
+  document.getElementById('lineHandoffHint').textContent = phone
+    ? '我們會依您留下的電話聯繫；若想先用 LINE 留言，也可以傳送店名，方便我們核對資料。'
+    : '請回到官方 LINE 傳送店名，方便我們核對資料並接續協助，不用重新填表。';
+  const field = document.getElementById('lineHandoffMessage');
+  field.value = message;
+  document.getElementById('lineHandoffCopy').onclick = async () => {
+    const status = document.getElementById('lineHandoffCopyStatus');
+    try {
+      await navigator.clipboard.writeText(message);
+      status.textContent = '已複製，請到官方 LINE 貼上並送出。';
+    } catch {
+      field.focus(); field.select();
+      status.textContent = '請長按或使用鍵盤複製已選取的文字，再到官方 LINE 貼上並送出。';
+    }
+  };
+}
 function showSuccess(payload) {
   const view = document.getElementById('successView');
   const trial = payload.contactWay === '申請體驗帳號';
-  const via = payload.phone && payload.lineId ? 'LINE 或電話' : payload.lineId ? 'LINE' : '電話';
   view.querySelector('h2').textContent = trial ? '已收到您的體驗申請' : '已收到您的門市健檢';
   view.querySelector('p').textContent = trial
-    ? '資料已保存。我們會透過您留下的' + via + '聯繫您，確認模組與開通日期。30 天體驗從帳號可正常使用當天起算；後續轉正式可沿用原帳號與資料。'
-    : '資料已保存。我們會透過您留下的' + via + '聯繫您，提供適合店內需求的功能建議。';
+    ? '資料已保存，接下來確認適合的模組與開通日期。30 天體驗從帳號可正常使用當天起算；後續轉正式可沿用原帳號與資料。'
+    : '資料已保存，接下來依照您的店內需求，提供適合的功能建議。';
+  configureLineHandoff(payload);
   document.getElementById('formView').style.display = 'none';
   view.classList.add('show');
   view.focus();
@@ -303,7 +339,7 @@ form.addEventListener('submit', async (e)=>{
       throw new Error('Save unconfirmed');
     }
 
-    keepReceipt({state:'saved',payload:{requestId:submissionId,contactWay:payload.contactWay,phone:Boolean(payload.phone),lineId:Boolean(payload.lineId)}});
+    keepReceipt({state:'saved',payload:{requestId:submissionId,contactWay:payload.contactWay,storeName:payload.storeName,phone:Boolean(payload.phone),lineId:Boolean(payload.lineId)}});
     showSuccess(payload);
   }catch(err){
     showUnconfirmed();
