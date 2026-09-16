@@ -75,6 +75,7 @@ it("preserves the exact purchase callback and rejects nested purchase paths", as
   const path = "/s/hsinchu/liff/wallets/shop/ck0000000000000000000003";
   expect((await withWebLineStoreContext(request(path), handler, resolve)).status).toBe(200);
   expect(resolve).toHaveBeenCalledWith("hsinchu");
+  expect((await withWebLineStoreContext(request("/s/staging/liff/wallets/shop/staging-plan-pkg10"), handler, resolve)).status).toBe(200);
   expect((await withWebLineStoreContext(request(path + "/other"), handler, resolve)).status).toBe(400);
   expect((await withWebLineStoreContext(request("https://evil.example" + path), handler, resolve)).status).toBe(400);
 });

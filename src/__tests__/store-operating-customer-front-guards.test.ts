@@ -243,3 +243,12 @@ it("blocks self-purchase when the receiving account is missing", async () => {
   expect(result).toEqual({ success: false, error: "店家尚未設定轉帳資訊，請先聯繫店家" });
   expect(mockDbTransaction).not.toHaveBeenCalled();
 });
+
+it("accepts seeded plan IDs while still resolving them within the current store", async () => {
+  const { initiateCustomerPlanPurchase } = await import("@/server/actions/wallet");
+  mockServicePlanFindFirst.mockResolvedValueOnce(null);
+  const result = await initiateCustomerPlanPurchase({ planId: "staging-plan-pkg10", transferLastFour: "1234" });
+  expect(result).toEqual({ success: false, error: "方案不存在或不屬於本店" });
+  expect(mockServicePlanFindFirst).toHaveBeenCalledWith({ where: { id: "staging-plan-pkg10", storeId: STORE_ID } });
+  expect(mockDbTransaction).not.toHaveBeenCalled();
+});

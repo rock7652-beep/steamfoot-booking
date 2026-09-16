@@ -928,7 +928,7 @@ export async function getLatestActiveWalletSummary(
 // ============================================================
 
 const initiateCustomerPurchaseSchema = z.object({
-  planId: z.string().cuid(),
+  planId: z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),
   // 顧客自填轉帳末四碼（必填，4 位數字）
   transferLastFour: z
     .string()
