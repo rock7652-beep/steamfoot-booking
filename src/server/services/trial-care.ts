@@ -1,4 +1,5 @@
 import "server-only";
+import { publicPlanMessages } from "./trial-care-plans";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -57,12 +58,8 @@ async function eligibility(storeId: string, module: string, candidate: Candidate
   ]);
   return booking ? { customer, purchased: !!customer.convertedAt || purchased + wallets > 0, booked: booked > 0 } : null;
 }
-export function trialCareMessages(body: string, stage: number, token: string, officialUrl: string | null): LineMessage[] {
-  const buttons: Record<string, unknown>[] = [];
-  // Only the store's configured official LINE link is accepted; no cross-store fallback.
-  if (stage > 0 && officialUrl && /^https:\/\/(lin\.ee\/|line\.me\/)/.test(officialUrl)) {
-    buttons.push({ type: "button", style: "primary", color: "#376452", action: { type: "uri", label: "了解方案／優惠", uri: officialUrl } });
-  }
+export function trialCareMessages(body: string, stage: number, token: string): LineMessage[] {
+  const buttons: Record<string, unknown>[] = [{ type: "button", style: "primary", color: "#376452", action: { type: "postback", label: "查看本店方案", data: `trial-care:plans:${token}:0` } }];
   buttons.push({ type: "button", style: "link", action: { type: "postback", label: "不再接收此類訊息", data: `trial-care:stop:${token}` } });
   return [{ type: "flex", altText: TRIAL_CARE_LABELS[stage], contents: {
     type: "bubble", body: { type: "box", layout: "vertical", contents: [{ type: "text", text: body, wrap: true, size: "md" }] },
@@ -71,6 +68,12 @@ export function trialCareMessages(body: string, stage: number, token: string, of
 }
 
 export async function handleTrialCarePostback(storeId: string, lineUserId: string, data: string, timestamp: number): Promise<LineMessage[] | null> {
+  const plans = /^trial-care:plans:([a-f0-9]{48}):(0|[1-9][0-9]{0,3})$/.exec(data);
+  if (plans && Number.isFinite(timestamp)) {
+    const owner = await prisma.trialCarePreference.findFirst({ where: { token: plans[1], storeId, customer: { storeId, lineUserId, mergedIntoCustomerId: null } }, select: { id: true } });
+    if (!owner) return [{ type: "text", text: "無法確認此通知的接收身分，請聯繫店家協助。" }];
+    return publicPlanMessages(storeId, plans[1], Number(plans[2]));
+  }
   const match = /^trial-care:(stop|resume):([a-f0-9]{48})$/.exec(data);
   if (!match || !Number.isFinite(timestamp)) return null;
   const preference = await prisma.trialCarePreference.findFirst({
@@ -141,8 +144,7 @@ export async function runTrialCare(now = new Date()) {
             if (!fresh || optedOut?.stoppedAt || (stage > 0 && (fresh.purchased || fresh.booked)) || fresh.customer.lineUserId !== state.customer.lineUserId) {
               await prisma.trialCareLog.update({ where: { id: log.id }, data: { status: "SKIPPED", reason: "發送前顧客狀態已變更" } }); result.skipped++; continue;
             }
-            const config = await prisma.shopConfig.findUnique({ where: { storeId: key.storeId }, select: { lineOfficialUrl: true } });
-            const delivery = await pushMessage(key.storeId, state.customer.lineUserId!, trialCareMessages(body, stage, preference.token, config?.lineOfficialUrl ?? null), randomUUID());
+            const delivery = await pushMessage(key.storeId, state.customer.lineUserId!, trialCareMessages(body, stage, preference.token), randomUUID());
             await prisma.$transaction([
               prisma.trialCareLog.update({ where: { id: log.id }, data: { status: delivery.success ? "SENT" : "FAILED", sentAt: delivery.success ? now : null, reason: delivery.success ? null : "LINE 發送失敗；不自動重送，請檢查連線" } }),
               prisma.messageLog.create({ data: { storeId: key.storeId, customerId: key.customerId, channel: "LINE", lineRoute: "STORE", status: delivery.success ? "SENT" : "FAILED", renderedBody: `[${TRIAL_CARE_LABELS[stage]}]\n${body}`, sentAt: delivery.success ? now : null, errorMessage: delivery.success ? null : "體驗關懷發送失敗" } }),

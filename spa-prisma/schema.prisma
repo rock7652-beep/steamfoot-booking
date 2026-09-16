@@ -221,6 +221,7 @@ model SpaReceipt {
 }
 
 model SpaPackage {
+  publicVisible Boolean @default(false)
   id String @id @default(cuid())
   storeId String
   treatmentId String

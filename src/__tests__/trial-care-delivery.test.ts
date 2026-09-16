@@ -19,6 +19,8 @@ vi.mock("@/lib/spa-db", () => ({ spaPrisma: { spaBooking: { findMany: m.spaBooki
 vi.mock("@/lib/line", () => ({ pushMessage: m.push, probeStoreLineRecipient: m.probe }));
 vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: m.feature }));
 vi.mock("@/lib/usage-gate", () => ({ checkReminderSendLimit: () => ({ allowed: true }) }));
+vi.mock("@/server/services/trial-care-plans", () => ({ publicPlanMessages: vi.fn().mockResolvedValue([{ type: "text", text: "本店方案" }]) }));
+import { publicPlanMessages } from "@/server/services/trial-care-plans";
 import { defaultTrialCareRules } from "@/lib/trial-care";
 import { runTrialCare, handleTrialCarePostback, trialCareMessages } from "@/server/services/trial-care";
 const now = new Date("2026-09-17T02:00:00Z");
@@ -62,10 +64,27 @@ describe("trial care delivery", () => {
     await runTrialCare(now); expect(m.bookings).not.toHaveBeenCalled(); expect(m.booking).not.toHaveBeenCalled(); expect(m.spaBookings.mock.calls[0][0].where).toMatchObject({ storeId: "A", isTrial: true, guestIndex: 1 });
   });
   it("unknown modules never guess their data source", async () => { m.settings.mockResolvedValue([{ ...setting, store: { ...setting.store, industryModule: "COURSE" } }]); await runTrialCare(now); expect(m.push).not.toHaveBeenCalled(); expect(m.bookings).not.toHaveBeenCalled(); });
-  it("places an offer link only in invitations and only on LINE domains", () => {
-    expect(JSON.stringify(trialCareMessages("hello", 1, token, "https://lin.ee/a"))).toContain("了解方案／優惠");
-    expect(JSON.stringify(trialCareMessages("hello", 1, token, "https://evil.test"))).not.toContain("evil.test");
+  it("offers direct plan viewing in all three stages", () => {
+    for (const stage of [0, 1, 2]) {
+      const card = JSON.stringify(trialCareMessages("hello", stage, token));
+      expect(card).toContain(`trial-care:plans:${token}:0`);
+      expect(card).toContain(`trial-care:stop:${token}`);
+    }
   });
+  it("rejects another store or sender before reading plans", async () => {
+    m.prefFirst.mockResolvedValue(null);
+    await handleTrialCarePostback("B", "other", `trial-care:plans:${token}:0`, now.getTime());
+    expect(publicPlanMessages).not.toHaveBeenCalled();
+    expect(m.prefFirst.mock.calls[0][0].where).toMatchObject({ storeId: "B", customer: { storeId: "B", lineUserId: "other" } });
+  });
+  it("viewing plans does not alter opt-out or send a proactive notification", async () => {
+    m.prefFirst.mockResolvedValue({ id: "p" });
+    await handleTrialCarePostback("A", "line-c", `trial-care:plans:${token}:2`, now.getTime());
+    expect(publicPlanMessages).toHaveBeenCalledWith("A", token, 2);
+    expect(m.prefUpdate).not.toHaveBeenCalled();
+    expect(m.push).not.toHaveBeenCalled();
+  });
+
 });
 describe("customer-controlled stop", () => {
   it("verifies both store and LINE sender before mutation", async () => {

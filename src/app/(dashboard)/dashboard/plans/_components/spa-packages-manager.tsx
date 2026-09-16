@@ -11,6 +11,7 @@ type Package = {
   uses: number;
   validityDays: number;
   isActive: boolean;
+  publicVisible: boolean;
 };
 export function SpaPackagesManager({
   packages,
@@ -54,6 +55,7 @@ export function SpaPackagesManager({
                 uses: 10,
                 validityDays: 180,
                 isActive: true,
+                publicVisible: false,
               });
             }}
             className="rounded-lg bg-[#596D45] hover:bg-[#4B5E3B] p-3 text-white"
@@ -142,7 +144,7 @@ export function SpaPackagesManager({
                 </td>
                 <td className="p-3 whitespace-nowrap">{p.validityDays} 天</td>
                 <td className="p-3 whitespace-nowrap">
-                  {p.isActive ? "上架" : "下架"}
+                  {p.isActive ? "上架" : "下架"}<p className="text-xs text-earth-500">{p.isActive && p.publicVisible ? "顧客可查看" : "未公開"}</p>
                 </td>
                 <td className="p-3">
                   {canManage && (
@@ -164,6 +166,7 @@ export function SpaPackagesManager({
                             id: undefined,
                             name: `${p.name.slice(0, 76)}（複本）`,
                             isActive: false,
+                            publicVisible: false,
                           });
                         }}
                         className="rounded-lg border border-earth-200 p-2"
@@ -281,6 +284,11 @@ export function SpaPackagesManager({
                 />
                 上架
               </label>
+              <label className="flex gap-2">
+                <input type="checkbox" checked={editing.publicVisible ?? false} onChange={e => setEditing({ ...editing, publicVisible: e.target.checked })} />
+                公開展示於 LINE 本店方案
+              </label>
+              <p className="text-xs text-earth-500">只有上架且設為公開的方案會提供給顧客查看。</p>
               <p className="text-sm">
                 修改只影響之後的購買，既有顧客的堂數、金額及期限保持原紀錄。
               </p>

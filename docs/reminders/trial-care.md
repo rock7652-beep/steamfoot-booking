@@ -35,3 +35,11 @@
 - TypeScript noEmit、Prisma schema validate、ESLint、git diff check。
 - Supabase steamfoot-preview：migration 已套用；transaction 內驗證跨店 FK 拒絕、同階段 unique 拒絕，測試資料 rollback。
 - 真實 LINE 外送尚未執行；不以 mock 測試冒充實際訊息收送驗收。
+
+## 2026-09-16 本店方案卡片
+
+三階段皆使用「查看本店方案」postback，核對店別、顧客 LINE 身分與通知 token 後，即時查詢公開資料。查看不修改退訂、不主動通知店長。每頁最多九個方案，另有查看更多；無公開方案顯示說明及聯繫入口。聯繫店長沿用「轉真人」訊息流程，實際接手依店家現有數位管家設定。
+
+蒸足只展示 ServicePlan 的 PACKAGE、isActive、publicVisible；SPA 只展示上架且 publicVisible 的 SpaPackage，且適用服務仍啟用。SPA 新增公開展示開關，既有方案預設 false，複製方案也預設 false。未上線課程模組不查其他模組資料。SPA 儲值金為自由金額帳務，沒有可公開的固定儲值商品，因此不臆造儲值優惠。
+
+部署前須先執行 20260916053215_trial_care_public_spa_packages migration。本次僅套用隔離預覽庫；正式庫未修改。LINE 真實收送尚待實測。

@@ -12,7 +12,7 @@ function CareSwitch({ checked, label, disabled, onChange }: { checked: boolean; 
   return <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)} className={`inline-flex h-9 w-14 shrink-0 items-center rounded-full p-1 transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-600 disabled:opacity-50 ${checked ? "bg-primary-600" : "bg-earth-200"}`}><span className={`h-7 w-7 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} /></button>;
 }
 
-export function TrialCareCard({ storeId, storeName, hasOfferLink, initialEnabled, initialRules, logs }: { storeId: string; storeName: string; hasOfferLink: boolean; initialEnabled: boolean; initialRules: TrialCareRule[]; logs: CareLog[] }) {
+export function TrialCareCard({ storeId, storeName, initialEnabled, initialRules, logs }: { storeId: string; storeName: string; initialEnabled: boolean; initialRules: TrialCareRule[]; logs: CareLog[] }) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [rules, setRules] = useState(initialRules);
   const [saved, setSaved] = useState({ enabled: initialEnabled, rules: initialRules });
@@ -77,9 +77,8 @@ export function TrialCareCard({ storeId, storeName, hasOfferLink, initialEnabled
                 <textarea id={`${id}-body-${i}`} aria-label={`${TRIAL_CARE_LABELS[i]}訊息內容`} ref={element => { textareas.current[i] = element; }} value={rule.body} maxLength={1000} required rows={6} onChange={e => update(i, { body: e.target.value })} className="w-full rounded-xl border border-earth-200 bg-white p-3 text-sm leading-7" />
                 <p className="mt-1 text-xs text-earth-500">姓名與店名會自動帶入。{i === 0 ? "這封以關心感受為主。" : "可加入本店優惠，顧客也能直接回覆 LINE 詢問。"}</p>
               </div>
-              {i > 0 && !hasOfferLink && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">尚未設定本店官方 LINE 連結，因此不顯示「了解方案／優惠」按鈕。請至店家設定補上連結；停止接收按鈕仍會保留。</p>}
             </fieldset>
-            <div className="min-w-0"><p className="mb-2 text-xs font-medium text-earth-500">LINE 卡片預覽 · 示意，按鈕不會發送訊息</p><div className="rounded-2xl bg-[#e5ece8] p-4"><p className="mb-2 text-xs text-earth-600">{storeName}</p><div className="mx-auto max-w-[320px] overflow-hidden rounded-2xl bg-white shadow-sm"><div className="whitespace-pre-wrap break-words p-5 text-sm leading-7 text-earth-800">{renderTrialCareBody(rule.body, "小雅", storeName) || "請輸入訊息內容"}</div><div className="space-y-2 px-4 pb-4">{i > 0 && hasOfferLink && <div className="rounded-lg bg-[#376452] px-3 py-3 text-center text-sm font-medium text-white">了解方案／優惠</div>}<div className="px-2 py-2 text-center text-sm text-primary-700">不再接收此類訊息</div></div></div></div><p className="mt-2 text-xs text-earth-500">停止接收為固定按鈕，不影響預約通知。</p></div>
+            <div className="min-w-0"><p className="mb-2 text-xs font-medium text-earth-500">LINE 卡片預覽 · 示意，按鈕不會發送訊息</p><div className="rounded-2xl bg-[#e5ece8] p-4"><p className="mb-2 text-xs text-earth-600">{storeName}</p><div className="mx-auto max-w-[320px] overflow-hidden rounded-2xl bg-white shadow-sm"><div className="whitespace-pre-wrap break-words p-5 text-sm leading-7 text-earth-800">{renderTrialCareBody(rule.body, "小雅", storeName) || "請輸入訊息內容"}</div><div className="space-y-2 px-4 pb-4">{<div className="rounded-lg bg-[#376452] px-3 py-3 text-center text-sm font-medium text-white">查看本店方案</div>}<div className="px-2 py-2 text-center text-sm text-primary-700">不再接收此類訊息</div></div></div></div><p className="mt-2 text-xs text-earth-500">查看方案會直接回傳本店公開方案，不會通知店長。停止接收不影響預約通知。</p></div>
           </div>}
         </div>)}
         <details className="px-1 py-2 text-xs text-earth-500"><summary className="cursor-pointer">發送規則與避免打擾</summary><p className="mt-2 leading-6">台灣時間，每 5 分鐘檢查。各階段至少間隔 3 天。已購買方案或儲值停止邀請；已預約略過該次邀請。每階段只發一次，不補發、不循環。重新啟用整組關懷只處理新體驗。</p></details>

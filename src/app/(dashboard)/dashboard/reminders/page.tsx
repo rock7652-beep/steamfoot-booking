@@ -131,7 +131,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         </section>
         <section id="trial-care" aria-labelledby="trial-care-title" className="scroll-mt-28 space-y-3">
           <div><h3 id="trial-care-title" className="font-semibold text-earth-900">體驗後關懷</h3><p className="mt-1 text-sm text-earth-500">完成體驗後，依序關心感受、邀請回訪。</p></div>
-          <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} hasOfferLink={/^https:\/\/(lin\.ee\/|line\.me\/)/.test(careStore.shopConfig?.lineOfficialUrl ?? "")} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
+          <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
         </section>
         <section id="plan-reminders" aria-labelledby="plan-reminders-title" className="scroll-mt-28 space-y-3">
           <div><h3 id="plan-reminders-title" className="font-semibold text-earth-900">方案使用提醒</h3><p className="mt-1 text-sm text-earth-500">依剩餘堂數與有效期限，提醒顧客安排後續服務。</p></div>
