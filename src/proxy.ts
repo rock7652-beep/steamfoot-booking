@@ -62,6 +62,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     }
     const reviewFiles = new Set([
       "index.html", "demo.html", "review.css", "review.js", "legacy.js",
+      "navigation.html", "navigation.css", "navigation.js",
       "member-390.png", "member-details-390.png", "coach-390.png",
       "coach-roster-390.png", "member-comparison.png", "coach-comparison.png",
       "booking-confirm-390.png", "points-insufficient-390.png",

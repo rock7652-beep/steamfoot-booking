@@ -16,6 +16,9 @@ describe("isolated course mobile review routing", () => {
   it("serves only named static review files on preview", () => {
     vi.stubEnv("VERCEL_ENV", "preview");
     expect(request("/course-mobile-review/demo.html").headers.get("x-middleware-next")).toBe("1");
+    for (const file of ["navigation.html", "navigation.css", "navigation.js"]) {
+      expect(request(`/course-mobile-review/${file}`).headers.get("x-middleware-next")).toBe("1");
+    }
     expect(request("/course-mobile-review/private.png").status).toBe(404);
     expect(request("/course-mobile-review/api/book").status).toBe(404);
   });
@@ -28,6 +31,9 @@ describe("isolated course mobile review routing", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     expect(request("/course-mobile-review/demo.html").status).toBe(404);
     expect(request("/course-mobile-review/").status).toBe(404);
+    for (const file of ["navigation.html", "navigation.css", "navigation.js"]) {
+      expect(request(`/course-mobile-review/${file}`).status).toBe(404);
+    }
   });
   it("keeps unauthenticated store admin and unrelated paths protected", () => {
     vi.stubEnv("VERCEL_ENV", "preview");
