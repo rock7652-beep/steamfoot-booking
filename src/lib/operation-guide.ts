@@ -12,7 +12,7 @@ export const bookingGuides = [
     steps: [
       "在預約管理選日期，點開要調整的預約，核對顧客與原時間。",
       "點「改時間」，選新的日期與可用時段。",
-      "點「確認」，看到「已改期」後，再核對新日期與時間。",
+      "核對新的日期與時段，點「確認」。",
     ],
     details: [
       "新時段必須開放、尚未過時，而且剩餘容量足夠容納這筆預約的人數。公休或尚未設定營業時間的日期不能改入。",
@@ -32,7 +32,7 @@ export const bookingGuides = [
     steps: [
       "點開預約，核對顧客、日期、時間與目前狀態。",
       "點「取消預約」，再次確認要取消的是這筆預約。",
-      "確認取消，看到「已取消預約」後，核對狀態已變成已取消。",
+      "在確認視窗確認取消。",
     ],
     details: [
       "已完成的預約不能直接取消；已取消的預約不用再取消。畫面上的操作會依預約狀態顯示。",
@@ -52,7 +52,7 @@ export const bookingGuides = [
     steps: [
       "點開要記錄的預約，找到「本次備註」；沒有內容時會顯示「尚無本次備註」。",
       "點「＋新增」或「編輯」，輸入這次預約需要提醒的事情。",
-      "點「儲存」，看到「已儲存本次備註」後，確認內容正確。",
+      "確認文字無誤後，點「儲存」。",
     ],
     details: [
       "最多 500 字，僅適用這次預約。例如：今天會晚到 10 分鐘。顧客長期的服務需求請與顧客服務備註區分。",
@@ -64,7 +64,7 @@ export const bookingGuides = [
   },
 ] as const;
 
-export type GuideContext = "booking-list" | "booking-detail";
+export type GuideContext = "booking-list" | "booking-detail" | "general";
 
 export function searchBookingGuides(query: string, bookingStatus?: string) {
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);

@@ -1,7 +1,7 @@
 "use client";
 
 import { LoadingStatus } from "@/components/loading-status";
-import { BookingOperationHelp } from "@/components/booking-operation-help";
+import { BookingGuideContext } from "@/components/operation-guide-shell";
 
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -543,7 +543,7 @@ export function BookingDetailDrawer({
         labelledById="booking-drawer-title"
         width={spaMode ? undefined : 860}
       >
-        {open && operationGuidePreview && !spaMode && <div className="flex shrink-0 justify-end border-b border-gold-200 bg-earth-50 px-4 py-2"><BookingOperationHelp context="booking-detail" bookingStatus={hasFullData ? data?.booking.bookingStatus : undefined} /></div>}
+        {open && operationGuidePreview && !spaMode && <BookingGuideContext status={hasFullData ? data?.booking.bookingStatus : undefined} />}
         {hasFullData &&
         data &&
         spaMode &&

@@ -1,21 +1,27 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import Image from "next/image";
 import { bookingGuides, searchBookingGuides, type GuideContext } from "@/lib/operation-guide";
 
 export function OperationGuideContent({ full = false, context = "booking-list", bookingStatus }: { full?: boolean; context?: GuideContext; bookingStatus?: string }) {
   const searchId = useId();
+  const content = useRef<HTMLDivElement>(null);
+  function resetScroll() {
+    const scroll = content.current?.closest("[data-guide-scroll]");
+    if (scroll) scroll.scrollTo({ top: 0 });
+    else content.current?.scrollIntoView?.({ block: "start" });
+  }
   const [query, setQuery] = useState("");
   const [articleId, setArticleId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const article = bookingGuides.find((item) => item.id === articleId);
   const results = searchBookingGuides(query, bookingStatus);
 
-  return <div className={full ? `w-full min-w-0 space-y-6${article ? " max-w-3xl" : ""}` : "space-y-5"}>
-    <p className="text-sm text-earth-500">{full ? "時段預約 · 3 篇操作教學" : context === "booking-detail" ? "這筆預約的操作說明" : "預約管理的操作說明"}</p>
+  return <div ref={content} className={full ? `w-full min-w-0 space-y-6${article ? " max-w-3xl" : ""}` : "space-y-5"}>
+    <p className="text-sm text-earth-500">{full ? "時段預約 · 3 篇操作教學" : context === "booking-detail" ? "這筆預約的操作說明" : context === "general" ? "目前提供：時段預約操作教學" : "預約管理的操作說明"}</p>
     {article ? <>
-      <button type="button" onClick={() => { setArticleId(null); setExpanded(false); }} className="min-h-11 text-sm font-semibold text-primary-800">← 返回問題列表</button>
+      <button type="button" onClick={() => { setArticleId(null); setExpanded(false); resetScroll(); }} className="min-h-11 text-sm font-semibold text-primary-800">← 返回問題列表</button>
       <h2 className="text-xl font-semibold text-primary-900">{article.title}</h2>
       <p className="rounded-lg border border-gold-200 bg-white p-3 text-sm leading-relaxed">操作位置：{article.path}</p>
       <ol className="list-decimal space-y-4 pl-6 text-base leading-relaxed">{article.steps.map((step) => <li key={step}>{step}</li>)}</ol>
@@ -40,9 +46,9 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
     </> : <>
       <h2 className="text-xl font-semibold text-primary-900">{full ? "你想處理什麼？" : "你現在想處理什麼？"}</h2>
       {!full && context === "booking-detail" && (bookingStatus === "COMPLETED" || bookingStatus === "CANCELLED") && <p className="text-sm leading-relaxed text-earth-600">這筆預約已{bookingStatus === "COMPLETED" ? "完成" : "取消"}，不能直接改時間或再次取消；可先查看本次備註教學。</p>}
-      <label className="block text-sm font-medium" htmlFor={searchId}>搜尋操作指南</label>
+      <label className="block text-sm font-medium" htmlFor={searchId}>搜尋預約操作教學</label>
       <input id={searchId} type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="例如：改期、取消、備註" className="min-h-11 w-full rounded-lg border border-earth-300 bg-white px-3 text-base" />
-      <div className={full ? "grid gap-4 lg:grid-cols-3" : "space-y-3"}>{results.map((item) => <button key={item.id} type="button" onClick={() => { setArticleId(item.id); setExpanded(false); }} className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-earth-200 bg-white p-4 text-left font-medium text-primary-900 hover:border-gold-400"><span><span className="block">{item.title}</span>{full && <span className="mt-2 block text-sm font-normal leading-relaxed text-earth-600">{item.summary}</span>}</span><span aria-hidden="true">›</span></button>)}</div>
+      <div className={full ? "grid gap-4 lg:grid-cols-3" : "space-y-3"}>{results.map((item) => <button key={item.id} type="button" onClick={() => { setArticleId(item.id); setExpanded(false); resetScroll(); }} className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-earth-200 bg-white p-4 text-left font-medium text-primary-900 hover:border-gold-400"><span><span className="block">{item.title}</span><span className="mt-1 block text-xs font-normal text-earth-600">{item.id === "A03" ? "本次備註" : item.id === "A01" ? "更改時間" : "取消預約"}</span>{full && <span className="mt-2 block text-sm font-normal leading-relaxed text-earth-600">{item.summary}</span>}</span><span aria-hidden="true">›</span></button>)}</div>
       {results.length === 0 && <p role="status" className="text-sm text-earth-600">目前沒有符合的教學，可試試「改期」「取消」或「備註」。</p>}
     </>}
   </div>;

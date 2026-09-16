@@ -1,5 +1,6 @@
 "use client";
 
+import { OperationGuideShell, OperationGuideTrigger } from "./operation-guide-shell";
 import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
@@ -740,11 +741,8 @@ export default function DashboardShell({
 
   // Determine which groups have visible items and which group contains the active item
   const { visibleGroups, activeGroupId } = useMemo(() => {
-    const groups = navGroupsToRender.map((group, index) => {
-      const guideItems: NavItem[] = operationGuidePreview && !isHqRoute && industryModule === "steamfoot" && index === 0
-        ? [{ href: "/dashboard/guide", label: "操作指南", permission: "booking.read", icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M4 4h6a3 3 0 013 3v14a4 4 0 00-4-2H4V4zm16 0h-4a3 3 0 00-3 3v14a4 4 0 014-2h3V4z" /></svg> }]
-        : [];
-      const categorizedItems = [...group.items, ...guideItems]
+    const groups = navGroupsToRender.map((group) => {
+      const categorizedItems = group.items
         .filter(
           (item) =>
             !MVP_HIDDEN_ROUTES.includes(item.href) &&
@@ -776,7 +774,7 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview, operationGuidePreview, isHqRoute, industryModule]);
+  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
@@ -989,6 +987,8 @@ export default function DashboardShell({
     </nav>
   );
 
+  const guideEnabled = operationGuidePreview && !isHqRoute && industryModule === "steamfoot" && (isOwner || permissions.includes("booking.read"));
+
   // The studio itself owns the screen. Iframe pages use devicePreview=1 and
   // deliberately retain this shell for real dashboard navigation.
   if (pathname === "/dashboard/device-preview" && !isDevicePreviewMode) {
@@ -996,6 +996,7 @@ export default function DashboardShell({
   }
 
   return (
+    <OperationGuideShell enabled={guideEnabled}>
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
@@ -1091,8 +1092,8 @@ export default function DashboardShell({
         }`}
       >
         {/* Header — 層級導向：系統層級 > 店別 > 使用者 */}
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-earth-200 bg-white/95 px-3 backdrop-blur-sm sm:px-6">
-          {/* Left: hamburger + breadcrumb */}
+        <header data-dashboard-header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-earth-200 bg-white/95 px-3 backdrop-blur-sm sm:px-6">
+          {/* Left: hamburger + breadcrumb + single guide entry */}
           <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
@@ -1104,7 +1105,8 @@ export default function DashboardShell({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div className={industryModule === "spa" ? "md:hidden min-w-0" : "lg:hidden min-w-0"}>
+            <OperationGuideTrigger />
+            <div className={industryModule === "spa" ? "md:hidden min-w-0" : guideEnabled ? "hidden" : "lg:hidden min-w-0"}>
               {industryModule === "spa" ? <Link href={`${dashboardPrefix}/dashboard`}><SteamButlerLogo compact /></Link> : <DashboardBreadcrumb mobile />}
             </div>
             <div className={industryModule === "spa" ? "hidden md:block" : "hidden lg:block"}>
@@ -1216,5 +1218,6 @@ export default function DashboardShell({
         />
       )}
     </div>
+    </OperationGuideShell>
   );
 }
