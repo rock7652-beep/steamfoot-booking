@@ -130,7 +130,20 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
     return withDomainCookie(NextResponse.next(), domainStoreId);
   }
 
-  if (pathname === "/store-select") return withDomainCookie(NextResponse.next(), domainStoreId);
+  if (pathname === "/store-select") {
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL("/hq/login", req.url));
+    }
+    if (role && isStaffRole(role)) {
+      const destination = role === "ADMIN"
+        ? "/hq/dashboard"
+        : sessionStoreId && session?.user?.storeSlug
+          ? `/s/${session.user.storeSlug}/admin/dashboard`
+          : "/hq/login?error=missing-store";
+      return NextResponse.redirect(new URL(destination, req.url));
+    }
+    return withDomainCookie(NextResponse.next(), domainStoreId);
+  }
 
   if (pathname === "/book/zhubei") {
     return NextResponse.redirect(
@@ -292,7 +305,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
         }
         // 已登入的 OWNER/STAFF 不應停留在 /hq/login，導回其店後台
         const slug = storeParam || userSlug;
-        if (sessionStoreId) {
+        if (role && isStaffRole(role) && sessionStoreId) {
           return NextResponse.redirect(new URL(`/s/${slug}/admin/dashboard`, req.url));
         }
       }

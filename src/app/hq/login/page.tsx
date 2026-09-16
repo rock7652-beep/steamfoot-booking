@@ -19,7 +19,7 @@ const URL_ERROR_MESSAGES: Record<string, string> = {
 
 export default function HqLoginPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-dvh items-center justify-center bg-earth-50"><p className="text-earth-400">載入中...</p></div>}>
+    <Suspense fallback={<div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(ellipse_at_top_left,#e7eee7_0%,#f8f5ee_55%,#f3ebdd_100%)]"><p className="text-earth-400">載入中...</p></div>}>
       <HqLoginForm />
     </Suspense>
   );
@@ -33,11 +33,11 @@ function HqLoginForm() {
   const storeSlug = searchParams.get("store");
 
   return (
-    <div className="flex min-h-dvh items-start justify-center bg-earth-50 px-4 pb-8 pt-8 sm:items-center sm:py-8">
-      <div className="w-full max-w-sm rounded-2xl border border-earth-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="mb-6">
-          <SteamButlerLogo className="mb-4 w-40" />
-          <h1 className="text-xl font-semibold text-[#0F3B2E]">後台登入</h1>
+    <div className="flex min-h-dvh items-start justify-center bg-[radial-gradient(ellipse_at_top_left,#e7eee7_0%,#f8f5ee_55%,#f3ebdd_100%)] px-4 pb-8 pt-8 sm:items-center sm:py-8">
+      <div className="w-full max-w-md rounded-[28px] border border-[#ded8ca] border-t-[3px] border-t-[#bd974e] bg-white p-7 shadow-[0_20px_70px_-30px_rgba(15,59,46,0.22)] sm:p-10">
+        <div className="mb-7 border-b border-[#e9e3d7] pb-6 text-center">
+          <SteamButlerLogo className="mx-auto mb-6 w-60 max-w-full" />
+          <h1 className="text-2xl font-semibold text-[#0F3B2E]">後台登入</h1>
           <p className="mt-1 text-sm text-earth-500">登入管理您的店務</p>
         </div>
 
@@ -60,7 +60,7 @@ function HqLoginForm() {
               type="email"
               autoComplete="email"
               required
-              className="mt-1 block w-full rounded-lg border border-earth-200 px-3 py-3 text-base focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="mt-1 block w-full rounded-xl border border-earth-200 bg-[#fcfbf8] px-4 py-3 text-base focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder="請輸入登入 Email"
             />
           </div>
@@ -75,7 +75,7 @@ function HqLoginForm() {
               type="password"
               autoComplete="current-password"
               required
-              className="mt-1 block w-full rounded-lg border border-earth-200 px-3 py-3 text-base focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="mt-1 block w-full rounded-xl border border-earth-200 bg-[#fcfbf8] px-4 py-3 text-base focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
               placeholder="••••••••"
             />
           </div>
@@ -89,7 +89,7 @@ function HqLoginForm() {
           <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-lg bg-primary-600 px-4 py-3 text-base font-medium text-white hover:bg-primary-700 disabled:opacity-60"
+            className="w-full rounded-xl bg-[#123E32] px-4 py-3 text-base font-medium text-white hover:bg-[#245A49] disabled:opacity-60"
           >
             {pending ? "登入中…" : "登入"}
           </button>

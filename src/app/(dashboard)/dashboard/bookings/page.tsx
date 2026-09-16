@@ -21,6 +21,7 @@ import { BookingsManager } from "./bookings-manager";
 import { BookingLoadError } from "./booking-load-error";
 import { bookingDashboardPathForStoreModule } from "@/lib/industry-dashboard-routes";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { isOperationGuidePreview } from "@/lib/operation-guide-preview";
 
 /**
  * 預約管理 — 桌機版（Phase 2 desktop family）
@@ -41,6 +42,7 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     redirect("/dashboard");
   }
   const canManageHours = await checkPermission(user.role, user.staffId, "business_hours.manage");
+  const operationGuidePreview = isOperationGuidePreview();
   const params = await searchParams;
 
   // getActiveStoreForRead() already gives an authorized route-first store scope.
@@ -161,6 +163,8 @@ export default async function BookingsPage({ searchParams }: PageProps) {
         title="預約管理"
         subtitle={`${year} 年 ${month} 月`}
         actions={
+          <div className="flex flex-wrap items-center gap-2">
+          {
           isViewMode ? (
             <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
               查看模式不可新增預約
@@ -177,10 +181,13 @@ export default async function BookingsPage({ searchParams }: PageProps) {
             </Link>
             </div>
           )
+          }
+          </div>
         }
       />
       {monthData === null ? <BookingLoadError /> : (
       <BookingsManager
+        operationGuidePreview={operationGuidePreview}
         storeId={bookingsStoreId ?? undefined}
         year={year}
         month={month}

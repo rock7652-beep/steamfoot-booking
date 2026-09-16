@@ -22,6 +22,7 @@ import { linkVerifiedOAuthAccount } from "@/server/services/link-oauth-account";
 import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
 import { resolveCentralUserForStoreCustomer } from "@/server/services/resolve-central-user-for-store-customer";
 import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
+import { createStaffSessionStamp, isStaffSessionRole, matchesStaffSessionStamp } from "@/lib/staff-session-security";
 
 // ============================================================
 // NextAuth v5 type augmentation
@@ -29,6 +30,7 @@ import { logTaichungLineHandoff } from "@/lib/line-oauth/taichung-handoff-log";
 
 declare module "next-auth" {
   interface User {
+    staffSessionStamp?: string;
     role: UserRole;
     staffId: string | null;
     customerId: string | null;
@@ -50,6 +52,7 @@ declare module "next-auth" {
 }
 
 interface AppJWT {
+  staffSessionStamp?: string;
   sub?: string;
   role: UserRole;
   staffId: string | null;
@@ -126,15 +129,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: true,
             passwordHash: true,
             role: true,
+            status: true,
+            updatedAt: true,
             staff: {
-              select: { id: true, storeId: true, store: { select: { slug: true } } },
+              select: { id: true, storeId: true, status: true, store: { select: { slug: true } } },
             },
           },
         });
         if (!user?.passwordHash || !user.staff) return null;
         if (!compareSync(password, user.passwordHash)) return null;
+        const staffSessionStamp = createStaffSessionStamp(user);
+        if (!staffSessionStamp) return null;
 
         return {
+          staffSessionStamp,
           id: user.id,
           name: user.name,
           email: user.email ?? null,
@@ -170,7 +178,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             passwordHash: true,
             role: true,
             status: true,
-            staff: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
+            updatedAt: true,
+            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true } } } },
             customer: { select: { id: true, storeId: true, store: { select: { slug: true } } } },
           },
         });
@@ -181,9 +190,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = compareSync(password, user.passwordHash);
         if (!valid) return null;
 
+        const staffSessionStamp = isStaffSessionRole(user.role) ? createStaffSessionStamp(user) : null;
+        if (isStaffSessionRole(user.role) && !staffSessionStamp) return null;
+
         // ADMIN 是平台管理者，不綁定任何 store — storeId/staffId 永遠為 null
         if (user.role === "ADMIN") {
           return {
+            staffSessionStamp: staffSessionStamp!,
             id: user.id,
             name: user.name,
             email: user.email ?? null,
@@ -200,6 +213,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           email: user.email ?? null,
           role: user.role,
+          ...(staffSessionStamp ? { staffSessionStamp } : {}),
           staffId: user.staff?.id ?? null,
           customerId: user.customer?.id ?? null,
           storeId: user.staff?.storeId ?? user.customer?.storeId ?? null,
@@ -1478,13 +1492,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     // Persist custom fields to JWT
-    // 🔧 效能優化：只在登入時寫入 JWT，後續請求直接從 token 讀取
-    // 不再每次 request 都查 DB。若需要即時反映 role 變更，使用者重新登入即可。
+    // Staff sessions are checked against current DB state on every auth call.
+    // Customer identity behavior remains unchanged.
     //
     // trigger === "update" 例外：client 呼叫 useSession().update() 時觸發，
     // 從 DB 重讀 customer 資訊刷新 JWT（profile 補資料成功後使用）。
     async jwt({ token, user, account, trigger }) {
       const appToken = token as unknown as AppJWT;
+
+      if (isStaffSessionRole(user?.role ?? appToken.role) || appToken.staffSessionStamp) {
+        const id = user?.id ?? appToken.sub;
+        // Never upgrade an existing/legacy token or a client-triggered update
+        // into a newly trusted session. Only authorize() can issue the stamp.
+        const stamp = user ? user.staffSessionStamp : appToken.staffSessionStamp;
+        if (!id || !stamp) return null;
+        const current = await prisma.user.findUnique({
+          where: { id },
+          select: {
+            id: true, role: true, status: true, passwordHash: true, updatedAt: true,
+            staff: { select: { id: true, storeId: true, status: true, store: { select: { slug: true } } } },
+          },
+        });
+        // DB failures propagate through Auth.js; never reuse stale privileges.
+        if (!current || !matchesStaffSessionStamp(stamp, current)) return null;
+        appToken.sub = current.id;
+        appToken.role = current.role;
+        appToken.staffSessionStamp = stamp;
+        appToken.staffId = current.role === "ADMIN" ? null : current.staff!.id;
+        appToken.customerId = null;
+        appToken.storeId = current.role === "ADMIN" ? null : current.staff!.storeId;
+        appToken.storeSlug = current.role === "ADMIN" ? null : current.staff!.store.slug;
+        return token;
+      }
 
       if (trigger === "update" && appToken.sub) {
         try {
@@ -1497,6 +1536,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
           });
           if (dbUser) {
+            // A customer token must never acquire staff privileges via update().
+            // Staff roles require a fresh credentials login and security stamp.
+            // A staff member may intentionally use LIFF in CUSTOMER context.
+            // Keep that member session; do not turn it into a dashboard session.
+            if (isStaffSessionRole(dbUser.role)) return token;
             appToken.role = dbUser.role;
             if (dbUser.role === "ADMIN") {
               appToken.staffId = null;

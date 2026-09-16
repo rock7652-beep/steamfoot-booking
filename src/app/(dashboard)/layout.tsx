@@ -1,3 +1,4 @@
+import { isOperationGuidePreview } from "@/lib/operation-guide-preview";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { redirect, notFound } from "next/navigation";
 import { AppError } from "@/lib/errors";
@@ -158,6 +159,7 @@ export default async function DashboardLayout({
 
   return (
     <DashboardShell
+      operationGuidePreview={isOperationGuidePreview()}
       industryModule={industryModule}
       isOwner={isOwnerLevel}
       permissions={permissions}

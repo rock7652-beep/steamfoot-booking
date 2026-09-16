@@ -309,6 +309,33 @@ export async function bindLineToCustomerInStore(
   // activate that same Customer without overwriting the notification
   // recipient: LINE Login and Messaging API ids can differ by provider.
   if (!real.userId && real.lineUserId) {
+    // A null direct userId does not mean this is a new login: cross-store
+    // members can already belong to a User through CustomerIdentityLink.
+    // Route that identity to the caller's authorized rebind flow before any
+    // User.create; phone equality alone must never grant account ownership.
+    const existingLinks = await prisma.customerIdentityLink.findMany({
+      where: { storeId: input.storeId, customerId: real.id, provider: "line" },
+      select: { providerAccountId: true },
+      take: 2,
+    });
+    if (existingLinks.length === 1 && existingLinks[0].providerAccountId !== input.lineUserId) {
+      return {
+        status: "already_bound_to_other_line",
+        customerId: real.id,
+        existingLineUserId: existingLinks[0].providerAccountId,
+      };
+    }
+    const existingUser = await prisma.user.findUnique({
+      where: { phone_role: { phone: normalizedPhone, role: "CUSTOMER" } },
+      select: { id: true },
+    });
+    if (existingLinks.length > 0 || existingUser) {
+      return {
+        status: "phone_taken_by_other_user",
+        customerId: real.id,
+        sameLineUserId: false,
+      };
+    }
     try {
       const activated = await prisma.$transaction(async (tx) => {
         const user = await tx.user.create({

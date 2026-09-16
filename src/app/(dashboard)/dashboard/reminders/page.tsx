@@ -1,3 +1,6 @@
+import { TrialCareCard } from "./trial-care-card";
+import { prisma } from "@/lib/db";
+import { defaultTrialCareRules, readTrialCareRules } from "@/lib/trial-care";
 import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -84,7 +87,7 @@ export default async function RemindersPage({ searchParams }: PageProps) {
       />
     );
   } else {
-    const [state, balance, packageBody, trial, expiry, cron] =
+    const [state, balance, packageBody, trial, expiry, cron, care, careLogs, careStore] =
       await Promise.all([
         getStoreReminderState(storeId),
         getSessionBalanceNotificationSetting(storeId),
@@ -92,20 +95,31 @@ export default async function RemindersPage({ searchParams }: PageProps) {
         getTrialLineCardReminderSetting(storeId),
         getPlanExpiryReminderEnabled(storeId),
         getTodayCronRunStatus(),
+        prisma.trialCareSetting.findUnique({ where: { storeId } }),
+        prisma.trialCareLog.findMany({ where: { storeId }, orderBy: { createdAt: "desc" }, take: 50, include: { customer: { select: { name: true } } } }),
+        prisma.store.findUniqueOrThrow({ where: { id: storeId }, select: { name: true, shopConfig: { select: { lineOfficialUrl: true } } } }),
       ]);
     content = (
-      <section key={`${storeId}-customer`} className="space-y-3">
+      <section key={`${storeId}-customer`} className="space-y-6">
         <div>
           <h2 className="text-lg font-semibold text-earth-900">顧客提醒</h2>
           <p className="mt-1 text-sm text-earth-500">
-            開關立即儲存；展開卡片編輯通知內容與預覽。
+            展開卡片編輯通知內容與預覽；體驗關懷須按儲存後才生效。
           </p>
         </div>
-        <CronRunBanner data={cron} />
-        <div className="grid items-start gap-3 md:grid-cols-2">
+        <nav aria-label="顧客提醒分類" className="flex flex-wrap gap-2">
+          {[["booking-reminders", "預約前提醒"], ["trial-care", "體驗後關懷"], ["plan-reminders", "方案使用提醒"]].map(([id, label]) => (
+            <a key={id} href={`#${id}`} className="rounded-full border border-earth-200 bg-white px-4 py-2 text-sm text-primary-700 hover:bg-primary-50">{label}</a>
+          ))}
+        </nav>
+        <section id="booking-reminders" aria-labelledby="booking-reminders-title" className="scroll-mt-28 space-y-3">
+          <div><h3 id="booking-reminders-title" className="font-semibold text-earth-900">預約前提醒</h3><p className="mt-1 text-sm text-earth-500">到店前提醒顧客預約時間與注意事項。</p></div>
+          <CronRunBanner data={cron} />
+          <div className="grid items-start gap-3 md:grid-cols-2">
           <PackageLineCardReminderSettingCard
             key={`${storeId}-package`}
             initialBody={packageBody}
+            hasMapLink={!!trial.mapUrl}
             initialEnabled={state.packageBookingEnabled}
           />
           <TrialLineCardReminderSettingCard
@@ -114,6 +128,15 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             initialMapUrl={trial.mapUrl}
             initialEnabled={state.trialBookingEnabled}
           />
+          </div>
+        </section>
+        <section id="trial-care" aria-labelledby="trial-care-title" className="scroll-mt-28 space-y-3">
+          <div><h3 id="trial-care-title" className="font-semibold text-earth-900">體驗後關懷</h3><p className="mt-1 text-sm text-earth-500">完成體驗後，依序關心感受、邀請回訪。</p></div>
+          <TrialCareCard key={`${storeId}-${care?.updatedAt.toISOString() ?? "new"}`} storeId={storeId} storeName={careStore.name} initialEnabled={care?.enabled ?? false} initialRules={care ? readTrialCareRules(care.rules) : defaultTrialCareRules()} logs={careLogs.map(log => ({ id: log.id, customerId: log.customerId, customerName: log.customer.name, stage: log.stage, status: log.status, reason: log.reason, createdAt: log.createdAt.toISOString() }))} />
+        </section>
+        <section id="plan-reminders" aria-labelledby="plan-reminders-title" className="scroll-mt-28 space-y-3">
+          <div><h3 id="plan-reminders-title" className="font-semibold text-earth-900">方案使用提醒</h3><p className="mt-1 text-sm text-earth-500">依剩餘堂數與有效期限，提醒顧客安排後續服務。</p></div>
+          <div className="grid items-start gap-3 lg:grid-cols-3">
           <SimpleSessionBalanceReminders
             key={`${storeId}-balance`}
             initialSetting={balance}
@@ -122,7 +145,8 @@ export default async function RemindersPage({ searchParams }: PageProps) {
             key={`${storeId}-expiry`}
             initialEnabled={expiry}
           />
-        </div>
+          </div>
+        </section>
       </section>
     );
   }

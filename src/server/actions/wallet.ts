@@ -928,7 +928,7 @@ export async function getLatestActiveWalletSummary(
 // ============================================================
 
 const initiateCustomerPurchaseSchema = z.object({
-  planId: z.string().cuid(),
+  planId: z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),
   // 顧客自填轉帳末四碼（必填，4 位數字）
   transferLastFour: z
     .string()
@@ -982,6 +982,9 @@ export async function initiateCustomerPlanPurchase(
     if (customer.storeId !== urlStoreId) {
       throw new AppError("FORBIDDEN", "此方案不屬於您的店別");
     }
+
+    const paymentConfig = await prisma.shopConfig.findUnique({ where: { storeId: urlStoreId }, select: { bankAccountNumber: true } });
+    if (!paymentConfig?.bankAccountNumber?.trim()) throw new AppError("BUSINESS_RULE", "店家尚未設定轉帳資訊，請先聯繫店家");
 
     const originalPrice = Number(plan.price);
     // 自助購買沒有自訂效期選項，仍在申請當下封存方案規則解析出的確切日期。

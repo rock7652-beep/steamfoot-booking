@@ -15,10 +15,22 @@ function escapeHtml(value) {
 
 function joined(value) { return Array.isArray(value) ? value.join('、') : (value || ''); }
 
+function isFitnessV2(data) { return data.formVersion === 'fitness-v2' && data.source === 'fitness-intake'; }
+function isNoContact(data) { return isFitnessV2(data) && data.contactWay === '目前暫不考慮'; }
+
 function buildNotification(data) {
+  const fitness = data.source === 'fitness-intake'
+    || /\/pricing\/fitness[.]html(?:[?#]|$)/.test(String(data.pageUrl || ''))
+    || String(data.otherNeed || '').includes('【運動教室需求與體驗意願】');
   const trial = data.contactWay === '申請體驗帳號';
-  const title = trial ? '新的體驗帳號申請' : '新的門市健檢';
+  const title = fitness ? '課程教室需求與體驗' : trial ? '一般店家體驗申請' : '新的門市健檢';
+  const sheetId = fitness ? '2026091502' : trial ? '2026091501' : '1690370556';
+  const noContact = isNoContact(data);
   const fields = [
+    ...(isFitnessV2(data) ? [
+      ['聯繫意願', noContact ? '只分享需求，不需聯絡；請勿主動聯繫或開通體驗' : data.contactWay],
+      ['最優先改善', data.priorityNeed]
+    ] : []),
     ['店家名稱', data.storeName], ['聯絡人', data.contactName],
     ['LINE ID', data.lineId], ['聯絡電話', data.phone],
     ['主要需求', joined(data.needs)], ['希望了解方式', data.contactWay],
@@ -34,16 +46,16 @@ function buildNotification(data) {
       + '<div style="font-size:14px;color:#64736c;margin-bottom:6px">' + escapeHtml(field[0]) + '</div>'
       + '<div style="font-size:17px;color:#153f33;line-height:1.7">' + escapeHtml(field[1]) + '</div></td></tr>';
   }).join('');
-  const url = 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '/edit';
+  const url = 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '/edit#gid=' + sheetId;
   return {
-    subject: '【蒸管家】' + title + '｜' + String(data.storeName || '未填店名').replace(/[\r\n]/g, ' '),
+    subject: '【蒸管家】' + (noContact ? '不需聯絡｜' : '') + title + '｜' + String(data.storeName || '未填店名').replace(/[\r\n]/g, ' '),
     body: title + '\n\n' + fields.map(function (field) { return field[0] + '：' + (field[1] || '—'); }).join('\n') + '\n\n開啟申請名單：' + url,
     htmlBody: '<!doctype html><html lang="zh-Hant"><body style="margin:0;background:#faf8f2;font-family:Arial,sans-serif">'
       + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:16px">'
       + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;table-layout:fixed;background:#ffffff">'
       + '<tr><td style="padding:24px;background:#153f33;border-bottom:3px solid #c4a45c;color:#ffffff">'
       + '<div style="font-size:14px;margin-bottom:8px">蒸管家</div><h1 style="font-size:24px;line-height:1.5;margin:0">' + title + '</h1></td></tr>'
-      + '<tr><td style="padding:8px 24px 24px"><p style="font-size:16px;line-height:1.7;color:#64736c">資料已保存，請依店家需求安排聯繫。</p>'
+      + '<tr><td style="padding:8px 24px 24px"><p style="font-size:16px;line-height:1.7;color:#64736c">' + (noContact ? '資料已保存。店家僅分享需求，請勿主動聯繫或開通體驗。' : '資料已保存，請依店家需求安排聯繫。') + '</p>'
       + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="table-layout:fixed">' + rows + '</table>'
       + '<p style="margin:24px 0 0"><a href="' + url + '" style="display:inline-block;padding:14px 20px;background:#153f33;color:#ffffff;font-size:16px;text-decoration:none;border-radius:8px">開啟申請名單</a></p>'
       + '</td></tr></table></td></tr></table></body></html>'
@@ -58,8 +70,16 @@ function doPost(e) {
     const raw = e && e.postData && e.postData.contents;
     if (!raw || raw.length > 24000) throw new Error('Invalid body');
     const data = JSON.parse(raw);
-    if (!data.storeName || !data.contactName || !data.industry || !(data.phone || data.lineId)
-      || !Array.isArray(data.needs) || data.needs.length < 1 || data.needs.length > 3) throw new Error('Invalid input');
+    const fitness = isFitnessV2(data);
+    const noContact = isNoContact(data);
+    if (!data.storeName || !data.industry || (!noContact && (!data.contactName || !(data.phone || data.lineId)))
+      || !Array.isArray(data.needs) || data.needs.length < 1 || (!fitness && data.needs.length > 3)) throw new Error('Invalid input');
+    if (fitness) {
+      if (['申請體驗帳號', '預約 20 分鐘線上示範', '先透過 LINE 了解', '目前暫不考慮'].indexOf(data.contactWay) < 0) throw new Error('Invalid intent');
+      const unknown = data.needs.indexOf('還不確定，想先聊聊') >= 0;
+      if (unknown ? data.needs.length !== 1 || !!data.priorityNeed : !data.priorityNeed || data.needs.indexOf(data.priorityNeed) < 0) throw new Error('Invalid priority');
+    }
+    if (noContact) { data.contactName = ''; data.phone = ''; data.lineId = ''; data.time = ''; }
     requestId = data.requestId || Utilities.getUuid();
     if (!/^[0-9a-f-]{36}$/i.test(requestId)) throw new Error('Invalid request ID');
     // Hash the submitted content so reusing an ID cannot silently discard changed data.
@@ -85,7 +105,7 @@ function doPost(e) {
       const values = [new Date(), data.storeName, data.contactName, data.industry, data.storeCount,
         data.staffCount, data.members, data.hasSystem, data.systemName, joined(data.replaceReason),
         joined(data.needs), data.otherNeed, data.contactWay, data.time, data.phone, data.source || 'direct',
-        '待聯繫', '', data.lineId, data.source || 'direct', data.medium, data.campaign, data.content,
+        noContact ? '不需聯繫' : '待聯繫', '', data.lineId, data.source || 'direct', data.medium, data.campaign, data.content,
         data.landing || 'v1', data.pageUrl, data.referrer, data.device, requestId, '待寄送', digest];
       sheet.appendRow(values.map(function (value) {
         if (value instanceof Date) return value;
@@ -121,5 +141,5 @@ function doPost(e) {
 }
 
 function doGet() {
-  return jsonResponse({ ok: true, version: 2, service: 'Steam Butler Store Check' });
+  return jsonResponse({ ok: true, version: 2, service: 'Steam Butler Store Check', capabilities: ['fitness-v2', 'fitness-unlimited-needs'] });
 }

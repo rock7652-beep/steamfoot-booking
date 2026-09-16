@@ -1,4 +1,5 @@
 "use client";
+import { LineCardPreview } from "./line-card-preview";
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -28,15 +29,7 @@ function Switch({ checked, onClick, disabled }: { checked: boolean; onClick: () 
 }
 
 function CardPreview({ title, body, buttons }: { title: string; body: string; buttons: string[] }) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm">
-      <div className="bg-[#F3EDE5] p-3 text-sm font-semibold text-earth-800">蒸管家｜{title}</div>
-      <div className="whitespace-pre-wrap p-3 text-sm leading-relaxed text-earth-700">{body}</div>
-      <div className="space-y-2 border-t border-earth-100 p-3 text-center text-xs font-semibold text-white">
-        {buttons.map((button, index) => <div key={button} className={`rounded-lg px-3 py-2 ${index === 0 ? "bg-primary-600" : "bg-[#8B6B52]"}`}>{button}</div>)}
-      </div>
-    </div>
-  );
+  return <LineCardPreview title={title} subtitle={title === "堂數提醒" ? "方案剩餘最後 1 堂" : "本期方案已完成"} actions={buttons.map(label => ({ label, variant: label === "諮詢店長" ? "link" as const : "primary" as const }))}>{body}</LineCardPreview>;
 }
 
 export function SimpleSessionBalanceReminders({ initialSetting }: { initialSetting: SessionBalanceNotificationSettingValue }) {

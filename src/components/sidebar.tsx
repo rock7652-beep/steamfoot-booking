@@ -1,5 +1,6 @@
 "use client";
 
+import { OperationGuideShell, OperationGuideTrigger } from "./operation-guide-shell";
 import { NavigationNotice } from "./navigation-notice";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
@@ -573,6 +574,7 @@ interface StoreViewOption {
 }
 
 interface DashboardShellProps {
+  operationGuidePreview?: boolean;
   industryModule?: IndustryModuleId;
   isOwner: boolean;
   permissions: string[];
@@ -603,6 +605,7 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({
+  operationGuidePreview = false,
   industryModule = "steamfoot",
   isOwner,
   permissions,
@@ -1000,6 +1003,8 @@ export default function DashboardShell({
     </nav>
   );
 
+  const guideEnabled = operationGuidePreview && industryModule !== "course" && !isHqRoute && permissions.length > 0;
+
   // The studio itself owns the screen. Iframe pages use devicePreview=1 and
   // deliberately retain this shell for real dashboard navigation.
   if (pathname === "/dashboard/device-preview" && !isDevicePreviewMode) {
@@ -1007,6 +1012,7 @@ export default function DashboardShell({
   }
 
   return (
+    <OperationGuideShell enabled={guideEnabled} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
@@ -1102,8 +1108,8 @@ export default function DashboardShell({
         }`}
       >
         {/* Header — 層級導向：系統層級 > 店別 > 使用者 */}
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-earth-200 bg-white/95 px-3 backdrop-blur-sm sm:px-6">
-          {/* Left: hamburger + breadcrumb */}
+        <header data-dashboard-header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-earth-200 bg-white/95 px-3 backdrop-blur-sm sm:px-6">
+          {/* Left: hamburger + breadcrumb + single guide entry */}
           <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
@@ -1115,7 +1121,8 @@ export default function DashboardShell({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <div className={industryModule === "spa" ? "md:hidden min-w-0" : "lg:hidden min-w-0"}>
+            <OperationGuideTrigger />
+            <div className={industryModule === "spa" ? "md:hidden min-w-0" : guideEnabled ? "hidden" : "lg:hidden min-w-0"}>
               {industryModule === "spa" ? <Link href={`${dashboardPrefix}/dashboard`}><SteamButlerLogo compact /></Link> : <DashboardBreadcrumb mobile />}
             </div>
             <div className={industryModule === "spa" ? "hidden md:block" : "hidden lg:block"}>
@@ -1227,5 +1234,6 @@ export default function DashboardShell({
         />
       )}
     </div>
+    </OperationGuideShell>
   );
 }

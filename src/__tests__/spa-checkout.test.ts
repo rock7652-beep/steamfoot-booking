@@ -90,7 +90,7 @@ describe("isolated SPA checkout", () => {
     });
     expect(m.update).toHaveBeenCalledWith({
       where: { id_storeId: { id: "B", storeId: "test" } },
-      data: { status: "COMPLETED" },
+      data: { status: "COMPLETED", completedAt: expect.any(Date) },
     });
   });
   it("returns the original receipt on an identical retry", async () => {

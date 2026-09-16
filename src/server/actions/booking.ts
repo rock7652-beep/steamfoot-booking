@@ -1377,6 +1377,7 @@ export async function markCompleted(
         },
         data: {
           bookingStatus: "COMPLETED",
+          trialCareCompletedAt: new Date(),
           isCheckedIn: true, // 向後相容
           serviceStaffId,
           // PR-3d：null 時不寫入（保留欄位現值）；明確值才寫入。

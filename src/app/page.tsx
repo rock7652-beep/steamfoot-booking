@@ -45,18 +45,18 @@ export default async function HomePage({ searchParams }: PageProps) {
     : null;
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-earth-50 px-4 py-8">
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-[radial-gradient(ellipse_at_top_left,#e7eee7_0%,#f8f5ee_55%,#f3ebdd_100%)] px-4 py-10">
       <RefCapture />
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-md rounded-[28px] border border-[#ded8ca] border-t-[3px] border-t-[#bd974e] bg-white p-7 shadow-[0_20px_70px_-30px_rgba(15,59,46,0.22)] sm:p-10">
         {/* Store brand + product brand */}
-        <div className="mb-8 text-center">
-          <SteamButlerLogo className="mx-auto mb-4 w-40" />
-          <h1 className="text-xl font-semibold text-[#0F3B2E]">{storeName}</h1>
+        <div className="mb-7 border-b border-[#e9e3d7] pb-7 text-center">
+          <SteamButlerLogo className="mx-auto mb-6 w-60 max-w-full" />
+          <h1 className="text-2xl font-semibold text-[#0F3B2E]">{storeName}</h1>
           <p className="mt-1 text-sm text-earth-500">會員登入與預約</p>
         </div>
 
         {/* 登入表單 */}
-        <div className="rounded-2xl border border-earth-200 bg-white p-6 shadow-sm">
+        <div className="">
           {errorMessage && (
             <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
               {errorMessage}
@@ -90,11 +90,11 @@ export default async function HomePage({ searchParams }: PageProps) {
         </div>
 
         {/* 後台入口 — 保留 store context */}
-        <div className="mt-8 text-center">
+        <div className="mt-6 border-t border-[#e9e3d7] pt-5 text-center">
           <Link
             href={storeSlug && storeSlug !== "__hq__" ? `/hq/login?store=${storeSlug}` : "/hq/login"}
             prefetch={false}
-            className="text-xs text-gray-400 hover:text-gray-500"
+            className="text-sm text-[#65776c] hover:text-[#0F3B2E]"
           >
             後台登入
           </Link>

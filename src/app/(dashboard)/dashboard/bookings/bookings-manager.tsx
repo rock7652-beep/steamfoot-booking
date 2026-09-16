@@ -139,6 +139,7 @@ const EMPTY_FILTERS: BookingFilters = {
 };
 
 interface BookingsManagerProps {
+  operationGuidePreview?: boolean;
   storeId?: string;
   year: number;
   month: number;
@@ -151,6 +152,7 @@ interface BookingsManagerProps {
 }
 
 export function BookingsManager({
+  operationGuidePreview = false,
   storeId,
   year,
   month,
@@ -787,6 +789,7 @@ export function BookingsManager({
       </RightSheet>
 
       <BookingDetailDrawer
+        operationGuidePreview={operationGuidePreview}
         open={!!activeBookingId}
         bookingId={activeBookingId}
         resolvedStoreId={storeId}

@@ -19,10 +19,10 @@ export async function withWebLineStoreContext(
   try {
     const url = new URL(typeof callback === "string" ? callback : "", requestUrl);
     // Web LINE sign-in is shared by the member booking page and the
-    // store-scoped staff workspace. Keep this allowlist exact: accepting an
+    // store-scoped staff workspace and exact plan checkout routes. Keep this allowlist exact: accepting an
     // arbitrary path under /s/:slug would let an unrelated callback mint the
     // routing cookie for a store it did not originate from.
-    const match = url.pathname.match(/^\/s\/([^/]+)\/(?:book|liff\/spa-work)\/?$/);
+    const match = url.pathname.match(/^\/s\/([^/]+)\/(?:book|liff\/spa-work|liff\/wallets\/shop\/[A-Za-z0-9_-]{1,128})\/?$/);
     if (url.origin === requestUrl.origin && match) {
       slug = normalizeWebStoreSlug(decodeURIComponent(match[1]));
     }

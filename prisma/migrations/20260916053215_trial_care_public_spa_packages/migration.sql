@@ -1,0 +1,1 @@
+ALTER TABLE "SpaPackage" ADD COLUMN "publicVisible" BOOLEAN NOT NULL DEFAULT false;

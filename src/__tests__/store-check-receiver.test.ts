@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 const source = readFileSync("scripts/store-check/Code.gs", "utf8");
 function receiver(failMail = false, failSave = false) {
   const rows: unknown[][] = [Array(30).fill("")];
-  const mail = vi.fn(() => { if (failMail) throw new Error("Mail quota"); });
+  const mail = vi.fn((message: unknown) => { void message; if (failMail) throw new Error("Mail quota"); });
   const range = (row: number, col: number, count = 1, width = 1): object => ({
     getValues: () => rows.slice(row - 1, row - 1 + count).map(r => r.slice(col - 1, col - 1 + width)),
     getValue: () => rows[row - 1]?.[col - 1],
@@ -31,6 +31,30 @@ function receiver(failMail = false, failSave = false) {
 }
 const data = { requestId: "f2170225-17f8-4ad7-8031-f305afba256f", storeName: "測試店", contactName: "測試", industry: "服務", lineId: "TEST-DO-NOT-CONTACT", needs: ["預約"], contactWay: "申請體驗帳號" };
 describe("prepared Apps Script receiver", () => {
+  it("stores all nineteen selections without truncation in the raw row and notification", () => {
+    const r = receiver(); const needs = Array.from({length: 19}, (_, i) => '困擾' + i);
+    expect(r.post({...data, formVersion: 'fitness-v2', source: 'fitness-intake', needs, priorityNeed: needs[0]})).toMatchObject({saved: true});
+    expect(r.rows[1][10]).toBe(needs.join('、'));
+    expect((r.mail.mock.calls[0][0] as {body: string}).body).toContain(needs.join('、'));
+  });
+  it("saves four fitness needs, priority and a no-contact status without personal details", () => {
+    const r = receiver();
+    const input = { ...data, formVersion: "fitness-v2", source: "fitness-intake", needs: ["1", "2", "3", "4"], priorityNeed: "3", contactWay: "目前暫不考慮" };
+    expect(r.post(input)).toMatchObject({ saved: true });
+    expect(r.rows[1][10]).toBe("1、2、3、4"); expect(r.rows[1][16]).toBe("不需聯繫");
+    expect(r.rows[1][2]).toBe(""); expect(r.rows[1][14]).toBe(""); expect(r.rows[1][18]).toBe("");
+    const mail = r.mail.mock.calls[0][0] as unknown as { subject: string; body: string; htmlBody: string };
+    expect(mail.subject).toContain("不需聯絡"); expect(mail.body).toContain("最優先改善：3");
+    expect(mail.htmlBody).toContain("請勿主動聯繫");
+  });
+  it("keeps legacy contact/three-need limits", () => {
+    const r = receiver();
+    for (const input of [
+      { ...data, needs: ["1", "2", "3", "4"] },
+      { ...data, contactWay: "目前暫不考慮", contactName: "", lineId: "" },
+    ]) expect(r.post(input)).toMatchObject({ saved: false });
+    expect(r.rows).toHaveLength(1); expect(r.mail).not.toHaveBeenCalled();
+  });
   it("saves one row and sends one notification for identical repeated requests", () => {
     const r = receiver();
     expect(r.post(data)).toMatchObject({ saved: true, requestId: data.requestId, notification: "sent" });
@@ -55,10 +79,23 @@ describe("prepared Apps Script receiver", () => {
   it("escapes user HTML and uses trial-specific subject, stacked fields and a fixed recipient", () => {
     const r = receiver();
     const n = r.notification({ ...data, storeName: '<img src=x onerror="bad">' });
-    expect(n.subject).toContain("新的體驗帳號申請｜");
+    expect(n.subject).toContain("一般店家體驗申請｜");
+    expect(n.body).toContain("#gid=2026091501");
     expect(n.htmlBody).toContain("&lt;img"); expect(n.htmlBody).not.toContain("<img");
     expect(n.htmlBody.indexOf("LINE ID")).toBeLessThan(n.htmlBody.indexOf("主要需求"));
     r.post({ ...data, to: "untrusted@example.com" });
     expect(r.mail.mock.calls[0]).toEqual([expect.objectContaining({ to: "rock7652@gmail.com" })]);
+  });
+  it("routes course enquiries to their own subject and tab regardless of trial choice", () => {
+    const r = receiver();
+    for (const contactWay of ["申請體驗帳號", "先透過 LINE 了解", "目前暫不考慮"]) {
+      const n = r.notification({ ...data, source: "fitness-intake", contactWay });
+      expect(n.subject).toContain("課程教室需求與體驗｜");
+      expect(n.body).toContain("#gid=2026091502");
+      expect(n.htmlBody).toContain("#gid=2026091502");
+    }
+    const legacy = r.notification({ ...data, contactWay: "先透過 LINE 了解" });
+    expect(legacy.subject).toContain("新的門市健檢｜");
+    expect(legacy.body).toContain("#gid=1690370556");
   });
 });

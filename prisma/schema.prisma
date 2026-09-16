@@ -592,6 +592,9 @@ model VerificationToken {
 // ============================================================
 
 model Store {
+  trialCareSetting TrialCareSetting?
+  trialCarePreferences TrialCarePreference[]
+  trialCareLogs TrialCareLog[]
   managerRecipientsMigrated Boolean @default(false)
   managerNotificationLogs ManagerNotificationLog[]
   id                         String               @id @default(cuid())
@@ -1077,6 +1080,8 @@ model StaffMemberLink {
 // ============================================================
 
 model Customer {
+  trialCarePreferences TrialCarePreference[]
+  trialCareLogs TrialCareLog[]
   id                       String         @id @default(cuid())
   userId                   String?        @unique // nullable: 有些顧客不一定有登入帳號
   storeId                  String
@@ -1699,6 +1704,7 @@ model Booking {
   attendedPeople          Int?
   isMakeup                Boolean              @default(false) // 是否為補課預約
   makeupCreditId          String?              @unique // 若為補課，關聯使用的補課資格
+  trialCareCompletedAt    DateTime? // Set only on new service completion; never backfill
   isCheckedIn             Boolean              @default(false) // 已棄用，保留向後相容
   bookingStatus           BookingStatus        @default(PENDING)
   noShowPolicy            String? // "DEDUCTED" | "NOT_DEDUCTED"；整筆或部分未到時使用
@@ -2938,5 +2944,46 @@ model ManagerNotificationLog {
   sentAt DateTime?
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
   @@unique([storeId, recipientId, eventKey])
+  @@index([storeId, createdAt])
+}
+
+// Independent, store-scoped trial care. No existing customers are enrolled by migration.
+model TrialCareSetting {
+  storeId String @id
+  enabled Boolean @default(false)
+  activatedAt DateTime?
+  rules Json
+  updatedAt DateTime @updatedAt
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+model TrialCarePreference {
+  id String @id @default(cuid())
+  storeId String
+  customerId String
+  token String @unique
+  stoppedAt DateTime?
+  lastEventAt DateTime?
+  createdAt DateTime @default(now())
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId, storeId], references: [id, storeId], onDelete: Cascade)
+  @@unique([storeId, customerId])
+}
+model TrialCareLog {
+  id String @id @default(cuid())
+  storeId String
+  customerId String
+  module String
+  bookingId String
+  stage Int
+  dueAt DateTime
+  status String
+  reason String?
+  body String?
+  sentAt DateTime?
+  createdAt DateTime @default(now())
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId, storeId], references: [id, storeId], onDelete: Cascade)
+  // A customer does not restart the promotional journey on another trial.
+  @@unique([storeId, customerId, stage])
   @@index([storeId, createdAt])
 }

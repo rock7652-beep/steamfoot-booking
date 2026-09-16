@@ -86,7 +86,7 @@ export function getPlatformOverLimitCopy(stats: {
 
 export function getPlatformNearLimitCopy() {
   return {
-    message: "分店串接額度即將用滿，可加購額度；請聯絡平台管理員確認並開通",
+    message: "可串接分店間數即將用滿；新增分店請聯絡平台確認費用並開通，16 間起另行報價",
   };
 }
 
