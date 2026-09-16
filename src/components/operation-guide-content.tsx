@@ -30,7 +30,7 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
   }
 
   return <div ref={content} className={full ? `w-full min-w-0 space-y-6${article ? " max-w-3xl" : ""}` : "space-y-5"}>
-    <div data-guide-controls className={full ? "sticky top-14 z-10 space-y-2 border-b border-earth-200 bg-earth-50 py-3" : "sticky -top-5 z-10 -mx-5 -mt-5 space-y-2 border-b border-earth-200 bg-earth-50 px-5 py-3"}>
+    <div data-guide-controls className={full ? "sticky top-14 z-10 space-y-2 border-b border-earth-200 bg-earth-50 py-3" : "sticky top-0 z-10 -mx-5 -mt-5 space-y-2 border-b border-earth-200 bg-earth-50 px-5 py-3"}>
       {article ? <button type="button" onClick={() => { setArticleId(null); setExpanded(false); resetScroll(); }} className="min-h-11 text-sm font-semibold text-primary-800">← 返回問題列表</button> : <>
         <label className="sr-only" htmlFor={searchId}>搜尋操作問題</label>
         <input id={searchId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setArticleId(null); setExpanded(false); resetScroll(); }} placeholder="搜尋問題：改時間、到期日…" className="min-h-11 w-full rounded-lg border border-earth-300 bg-white px-3 text-base" />
