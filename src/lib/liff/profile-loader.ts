@@ -42,6 +42,7 @@ export type LoadProfileResult =
       >["profile"];
     }
   | { kind: "need_onboarding" }
+  | { kind: "identity_review_required" }
   | { kind: "expired" }
   | { kind: "no_customer" }
   | { kind: "service_unavailable" };

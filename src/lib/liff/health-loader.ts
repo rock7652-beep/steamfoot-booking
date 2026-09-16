@@ -6,7 +6,7 @@ import {
 
 type SessionInput = { idToken: string; storeSlug: string };
 type RecoveryResult = {
-  status: "need_onboarding" | "expired" | "service_unavailable";
+  status: "need_onboarding" | "identity_review_required" | "expired" | "service_unavailable";
 };
 
 /** Verify the current LINE identity before any cookie-authenticated health read. */

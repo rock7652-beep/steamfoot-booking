@@ -145,3 +145,10 @@ describe("checkPhoneStatus — 三態判定", () => {
     expect(mockCustomerFindFirst).not.toHaveBeenCalled();
   });
 });
+
+it.each([
+  [null, "existing_login"], ["hashed-password", "active"],
+])("recognizes an indirect member with password %s", async (passwordHash, status) => {
+  mockCustomerFindFirst.mockResolvedValue({ name: "Existing", userId: null, user: null, identityLinks: [{ userId: "owner", user: { status: "ACTIVE", passwordHash } }] });
+  expect(await call(PHONE, STORE_A)).toMatchObject({ status });
+});

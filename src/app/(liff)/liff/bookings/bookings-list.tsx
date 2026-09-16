@@ -67,6 +67,7 @@ type State =
   | { kind: "initializing" }
   | { kind: "not_in_line_app" }
   | { kind: "expired" }
+  | { kind: "identity_review_required" }
   | { kind: "service_unavailable" }
   | {
       kind: "ready";
@@ -381,6 +382,16 @@ export function BookingsList({
           contactUrl={contactUrl}
         />
       )}
+      {state.kind === "identity_review_required" && (
+        <InfoBlock
+          tone="red"
+          body={liffMessages.bookings.loadFailed}
+          showContactStore
+          storeSlug={storeSlug}
+          contactUrl={contactUrl}
+        />
+      )}
+
       {state.kind === "service_unavailable" && (
         <InfoBlock
           tone="red"

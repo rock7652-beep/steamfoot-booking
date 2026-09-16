@@ -41,6 +41,7 @@ type State =
   | { kind: "initializing" }
   | { kind: "not_in_line_app" }
   | { kind: "expired" }
+  | { kind: "identity_review_required" }
   | { kind: "service_unavailable" }
   | {
       kind: "ready";
@@ -176,6 +177,16 @@ export function WalletsList({ storeSlug, storeName, liffId, contactUrl, dataSour
           showRetry
         />
       )}
+      {state.kind === "identity_review_required" && (
+        <InfoBlock
+          tone="red"
+          body={liffMessages.wallets.loadFailed}
+          storeSlug={storeSlug}
+          contactUrl={contactUrl}
+          showContactStore
+        />
+      )}
+
       {state.kind === "service_unavailable" && (
         <InfoBlock
           tone="red"

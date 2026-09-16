@@ -202,6 +202,12 @@ afterEach(() => {
 // ════════════════════════════════════════════════════════════════════════════
 
 describe("activated (happy path: User + Account + Customer all written in one tx)", () => {
+  it("rejects an existing indirect membership before creating any login rows", async () => {
+    mockCustomerFindUnique.mockResolvedValueOnce({ ...precreatedCustomerFixture(), identityLinks: [{ userId: "existing-owner" }] });
+    expect(await activatePrecreatedCustomerWithLine(makeValidInput())).toMatchObject({ status: "customer_already_has_user", userId: "existing-owner" });
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
   it("creates User, creates Account[line], updates Customer link metadata; returns activated", async () => {
     mockCustomerFindUnique.mockResolvedValueOnce(precreatedCustomerFixture());
     const { txUserCreate, txAccountCreate, txCustomerUpdateMany, getIsolationLevel } =
@@ -375,6 +381,7 @@ describe("byte-equivalent baseline vs auth.ts Case B (lines 620-687)", () => {
       id: CUSTOMER_ID,
       storeId: STORE_ID,
       userId: null,
+      identityLinks: { none: {} },
       mergedIntoCustomerId: null,
       // PR #243 Codex P2 round 6: lineUserId predicate accepts null
       // (fresh staff-precreated) OR input.lineUserId (same-LINE
@@ -1174,6 +1181,7 @@ describe("P1 round 1 (Codex): Customer.userId is set by the CAS, not by user.cre
       id: CUSTOMER_ID,
       storeId: STORE_ID,
       userId: null,
+      identityLinks: { none: {} },
       mergedIntoCustomerId: null,
       OR: [
         { lineUserId: null },
@@ -2363,6 +2371,7 @@ describe("P1 round 5 (Codex): in-tx Case-B guard fires BEFORE tx.user.create", (
       id: CUSTOMER_ID,
       storeId: STORE_ID,
       userId: null,
+      identityLinks: { none: {} },
       mergedIntoCustomerId: null,
       OR: [
         { lineUserId: null },
@@ -2526,6 +2535,7 @@ describe("PR #243 Codex P2 round 6: same-LINE placeholder activation", () => {
       id: CUSTOMER_ID,
       storeId: STORE_ID,
       userId: null,
+      identityLinks: { none: {} },
       mergedIntoCustomerId: null,
       OR: [
         { lineUserId: null },
@@ -2550,6 +2560,7 @@ describe("PR #243 Codex P2 round 6: same-LINE placeholder activation", () => {
       id: CUSTOMER_ID,
       storeId: STORE_ID,
       userId: null,
+      identityLinks: { none: {} },
       mergedIntoCustomerId: null,
       OR: [
         { lineUserId: null },

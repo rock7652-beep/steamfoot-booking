@@ -40,6 +40,8 @@ export default function ActivatePage() {
       if (result.status === "needs_activation") {
         setCustomerName(result.customerName);
         setVerified(true);
+      } else if (result.status === "existing_login") {
+        setError("您已有會員帳號，請使用原本的 LINE 登入方式，或聯繫店家協助確認。");
       } else if (result.status === "active") {
         setError("此帳號已開通，請直接登入");
       } else {

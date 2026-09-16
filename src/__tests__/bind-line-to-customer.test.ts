@@ -22,6 +22,7 @@ const mockCustomerCreate = vi.fn();
 const mockCustomerUpdateMany = vi.fn(); // PR-G5.2.b: B4 pre-update (name)
 const mockCustomerFindUnique = vi.fn(); // PR-G5.2.b: D5 preflight
 const mockUserCreate = vi.fn();
+const mockAccountCreate = vi.fn();
 const mockExistingUser = vi.fn().mockResolvedValue(null);
 const mockExistingLinks = vi.fn().mockResolvedValue([]);
 const mockTx = vi.fn();
@@ -83,6 +84,7 @@ function makeValidInput(overrides: Partial<Parameters<typeof bindLineToCustomerI
 function setupTransactionForCreate(newUserId: string, newCustomerId: string) {
   mockTx.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
     const tx = {
+      account: { create: mockAccountCreate },
       user: { create: mockUserCreate.mockResolvedValueOnce({ id: newUserId }) },
       customer: {
         create: mockCustomerCreate.mockResolvedValueOnce({ id: newCustomerId }),
@@ -142,6 +144,7 @@ describe("bindLineToCustomerInStore", () => {
     mockCustomerUpdateMany.mockReset();
     mockCustomerFindUnique.mockReset();
     mockUserCreate.mockReset();
+    mockAccountCreate.mockReset().mockResolvedValue({ id: "account" });
     mockExistingLinks.mockReset().mockResolvedValue([]);
     mockExistingUser.mockReset().mockResolvedValue(null);
     mockTx.mockReset();
@@ -159,6 +162,17 @@ describe("bindLineToCustomerInStore", () => {
     vi.clearAllMocks();
   });
 
+  it("does not recreate a central phone account when joining a different store", async () => {
+    mockCustomerFindMany.mockResolvedValue([]);
+    mockExistingUser.mockResolvedValue({ id: "existing-user" });
+    expect(await bindLineToCustomerInStore(makeValidInput())).toMatchObject({ status: "unique_conflict" });
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+  it("recognizes indirect membership without a notification recipient", async () => {
+    mockCustomerFindMany.mockResolvedValue([{ id: "c", userId: null, lineUserId: null, identityLinks: [{ userId: "u", provider: "phone", providerAccountId: PHONE }] }]);
+    expect(await bindLineToCustomerInStore(makeValidInput())).toMatchObject({ status: "phone_taken_by_other_user" });
+    expect(mockTx).not.toHaveBeenCalled();
+  });
   // ─────────────────────────────────────────────────────
   // 1. Validation errors
   // ─────────────────────────────────────────────────────
@@ -268,6 +282,7 @@ describe("bindLineToCustomerInStore", () => {
         id: "cust-prebound",
         storeId: STORE_ID,
         userId: null,
+        identityLinks: { none: {} },
         lineUserId: "U_store_messaging",
         mergedIntoCustomerId: null,
       },
@@ -362,14 +377,12 @@ describe("bindLineToCustomerInStore", () => {
       );
     });
 
-    it("calls syncLineAccountForUser after transaction", async () => {
+    it("creates LINE Account in the same transaction", async () => {
       mockCustomerFindMany.mockResolvedValueOnce([]);
       setupTransactionForCreate("user-new", "cust-new");
       await bindLineToCustomerInStore(makeValidInput());
-      expect(mockSyncLineAccount).toHaveBeenCalledWith({
-        userId: "user-new",
-        lineUserId: LINE_USER_ID,
-      });
+      expect(mockAccountCreate).toHaveBeenCalledWith({ data: { userId: "user-new", provider: "line", providerAccountId: LINE_USER_ID, type: "oauth" } });
+      expect(mockSyncLineAccount).not.toHaveBeenCalled();
     });
 
     it("calls identity-repair + referrer award best-effort", async () => {
@@ -415,16 +428,12 @@ describe("bindLineToCustomerInStore", () => {
       );
     });
 
-    it("reflects syncLineAccount error state in result", async () => {
+    it("does not report success or run post-bind effects when Account creation conflicts", async () => {
       mockCustomerFindMany.mockResolvedValueOnce([]);
       setupTransactionForCreate("user-new", "cust-new");
-      mockSyncLineAccount.mockResolvedValueOnce({ status: "error", error: "P2002" });
-      const r = await bindLineToCustomerInStore(makeValidInput());
-      if (r.status === "created_new") {
-        expect(r.lineAccountSync).toBe("error");
-      } else {
-        throw new Error(`expected created_new, got ${r.status}`);
-      }
+      mockAccountCreate.mockRejectedValueOnce({ code: "P2002", meta: { target: ["provider", "providerAccountId"] } });
+      expect(await bindLineToCustomerInStore(makeValidInput())).toEqual({ status: "unique_conflict", conflictTarget: "provider,providerAccountId" });
+      expect(mockRepair).not.toHaveBeenCalled();
     });
 
     // ── PR-F1: P2002 guardrail ──
