@@ -75,6 +75,7 @@ export function CoursePortalClient({
         const result = await action();
         if (!result.success) {
           setMessage(result.error ?? "操作失敗");
+          router.refresh();
           return;
         }
         setSession(null);

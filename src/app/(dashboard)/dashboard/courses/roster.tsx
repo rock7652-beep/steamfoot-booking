@@ -64,6 +64,8 @@ export function CourseRoster({
         const result = await action();
         if (!result.success) {
           setMessage(result.error ?? "操作失敗");
+          await load();
+          router.refresh();
           return;
         }
         setMessage("已完成");
