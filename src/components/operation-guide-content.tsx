@@ -2,7 +2,7 @@
 
 import { useContext, useId, useRef, useState } from "react";
 import Image from "next/image";
-import { availableGuides, findOperationGuides, guideCategories, guideCategoryForPath, type GuideContext } from "@/lib/operation-guide";
+import { availableGuides, findOperationGuides, guideCategories, relatedOperationGuides, type GuideContext } from "@/lib/operation-guide";
 import { GuideAccessContext } from "./operation-guide-access";
 
 export function OperationGuideContent({ full = false, context = "booking-list", bookingStatus, pathname = "/dashboard/bookings" }: { full?: boolean; context?: GuideContext; bookingStatus?: string; pathname?: string }) {
@@ -21,26 +21,29 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
   const article = guides.find((item) => item.id === articleId);
   const [section, setSection] = useState<"related" | "all">(full ? "all" : "related");
   const [category, setCategory] = useState<string | null>(null);
-  const related = guideCategoryForPath(pathname);
   const categories = guideCategories.filter(c => guides.some(g => g.category === c.id));
   const searching = query.trim().length > 0;
-  const results = searching ? findOperationGuides(query, access) : guides.filter(g => g.category === (section === "related" ? related : category));
+  const results = searching ? findOperationGuides(query, access) : section === "related" ? relatedOperationGuides(pathname, access) : guides.filter(g => g.category === category);
   if (!searching && context === "booking-detail" && (bookingStatus === "COMPLETED" || bookingStatus === "CANCELLED")) results.sort((a,b) => Number(b.id === "A03") - Number(a.id === "A03"));
   function selectSection(next: "related" | "all") {
     setSection(next); setCategory(null); setQuery(""); setArticleId(null); setExpanded(false); resetScroll();
   }
 
   return <div ref={content} className={full ? `w-full min-w-0 space-y-6${article ? " max-w-3xl" : ""}` : "space-y-5"}>
-    <div className="space-y-2">
-      <label className="block text-sm font-semibold text-primary-900" htmlFor={searchId}>搜尋操作問題</label>
-      <input id={searchId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setArticleId(null); setExpanded(false); }} placeholder="例如：改時間、到期日、LINE 提醒" className="min-h-11 w-full rounded-lg border border-earth-300 bg-white px-3 text-base" />
-      <p className="text-xs text-earth-500">搜尋本店適用的全部教學</p>
+    <div data-guide-controls className={full ? "sticky top-14 z-10 space-y-2 border-b border-earth-200 bg-earth-50 py-3" : "sticky -top-5 z-10 -mx-5 -mt-5 space-y-2 border-b border-earth-200 bg-earth-50 px-5 py-3"}>
+      {article ? <button type="button" onClick={() => { setArticleId(null); setExpanded(false); resetScroll(); }} className="min-h-11 text-sm font-semibold text-primary-800">← 返回問題列表</button> : <>
+        <label className="sr-only" htmlFor={searchId}>搜尋操作問題</label>
+        <input id={searchId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setArticleId(null); setExpanded(false); resetScroll(); }} placeholder="搜尋問題：改時間、到期日…" className="min-h-11 w-full rounded-lg border border-earth-300 bg-white px-3 text-base" />
+        <nav aria-label="教學範圍" className="grid grid-cols-2 gap-1 rounded-lg bg-earth-100 p-1">
+          {([ ["related", "本頁相關"], ["all", "全部分類"] ] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={!searching && section === value} onClick={() => selectSection(value)} className={`min-h-11 rounded-md text-sm font-semibold ${!searching && section === value ? "bg-white text-primary-900 shadow-sm" : "text-earth-600"}`}>{label}</button>)}
+        </nav>
+        {!searching && section === "all" && category && <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 text-sm">
+          <button type="button" onClick={() => { setCategory(null); resetScroll(); }} className="min-h-11 font-semibold text-primary-800">← 全部分類</button>
+          <span className="text-earth-600">{guideCategories.find(c => c.id === category)?.label}</span>
+        </div>}
+      </>}
     </div>
-    <nav aria-label="教學範圍" className="grid grid-cols-2 gap-1 rounded-lg bg-earth-100 p-1">
-      {([ ["related", "本頁相關"], ["all", "全部分類"] ] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={!searching && section === value} onClick={() => selectSection(value)} className={`min-h-11 rounded-md text-sm font-semibold ${!searching && section === value ? "bg-white text-primary-900 shadow-sm" : "text-earth-600"}`}>{label}</button>)}
-    </nav>
     {article ? <>
-      <button type="button" onClick={() => { setArticleId(null); setExpanded(false); resetScroll(); }} className="min-h-11 text-sm font-semibold text-primary-800">← 返回問題列表</button>
       <h2 className="text-xl font-semibold text-primary-900">{article.title}</h2>
       <p className="rounded-lg border border-gold-200 bg-white p-3 text-sm leading-relaxed">操作位置：{article.path}</p>
       <ol className="list-decimal space-y-4 pl-6 text-base leading-relaxed">{article.steps.map((step) => <li key={step}>{step}</li>)}</ol>
@@ -64,14 +67,13 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
       </>}
     </> : <>
       {!searching && section === "all" && !category ? <>
-        <h2 className="text-base font-semibold text-primary-900">依情境找教學</h2>
-        <div className={full ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-2 gap-3"}>
-          {categories.map(c => <button key={c.id} type="button" onClick={() => { setCategory(c.id); resetScroll(); }} className="min-h-20 rounded-xl border border-earth-200 bg-white p-3 text-left text-sm font-semibold text-primary-900">{c.label}<span className="mt-1 block text-xs font-normal text-earth-500">{guides.filter(g => g.category === c.id).length} 篇</span></button>)}
+        <h2 className="text-base font-semibold text-primary-900">選擇問題分類</h2>
+        <div className={full ? "grid gap-2 sm:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-2 gap-2"}>
+          {categories.map(c => <button key={c.id} type="button" onClick={() => { setCategory(c.id); resetScroll(); }} className="min-h-16 rounded-xl border border-earth-200 bg-white p-3 text-left text-sm font-semibold text-primary-900">{c.label}<span className="mt-1 block text-xs font-normal text-earth-500">{guides.filter(g => g.category === c.id).length} 篇</span></button>)}
         </div>
-      </> : <h2 className="text-base font-semibold text-primary-900">{searching ? `搜尋結果（${results.length}）` : guideCategories.find(c => c.id === (section === "related" ? related : category))?.label ?? "本頁相關教學"}</h2>}
-      {!searching && section === "all" && category && <button type="button" onClick={() => setCategory(null)} className="min-h-11 text-sm text-primary-800">← 返回全部分類</button>}
+      </> : <h2 className="text-base font-semibold text-primary-900">{searching ? `搜尋結果（${results.length}）` : section === "related" ? "本頁常見問題" : guideCategories.find(c => c.id === category)?.label ?? "相關教學"}</h2>}
       {!searching && context === "booking-detail" && section === "related" && (bookingStatus === "COMPLETED" || bookingStatus === "CANCELLED") && <p className="text-sm leading-relaxed text-earth-600">這筆預約已{bookingStatus === "COMPLETED" ? "完成" : "取消"}，不能直接改時間或再次取消；可先查看本次備註教學。</p>}
-      <div className={full ? "grid gap-4 lg:grid-cols-3" : "space-y-3"}>{results.map((item) => <button key={item.id} type="button" onClick={() => { setArticleId(item.id); setExpanded(false); resetScroll(); }} className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-earth-200 bg-white p-4 text-left font-medium text-primary-900 hover:border-gold-400"><span><span className="block">{item.title}</span><span className="mt-1 block text-xs font-normal text-earth-600">{guideCategories.find(c => c.id === item.category)?.label}</span>{full && <span className="mt-2 block text-sm font-normal leading-relaxed text-earth-600">{item.summary}</span>}</span><span aria-hidden="true">›</span></button>)}</div>
+      <div className={full ? "grid gap-4 lg:grid-cols-3" : "space-y-2"}>{results.map((item) => <button key={item.id} type="button" onClick={() => { setArticleId(item.id); setExpanded(false); resetScroll(); }} className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-earth-200 bg-white px-3 py-3 text-left text-sm leading-relaxed font-medium text-primary-900 hover:border-gold-400"><span><span className="block">{item.title}</span>{searching && <span className="mt-1 block text-xs font-normal text-earth-600">{guideCategories.find(c => c.id === item.category)?.label}</span>}{full && <span className="mt-2 block text-sm font-normal leading-relaxed text-earth-600">{item.summary}</span>}</span><span aria-hidden="true">›</span></button>)}</div>
       {results.length === 0 && (searching || section === "related" || category) && <p role="status" className="text-sm leading-relaxed text-earth-600">{searching ? "沒有符合的教學，請縮短關鍵字，或從全部分類尋找。" : "本頁尚無適用教學，可用搜尋或全部分類找答案。"}</p>}
     </>}
   </div>;

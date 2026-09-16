@@ -52,7 +52,9 @@ describe("operation guide preview", () => {
     expect(draft.value).toBe("草稿保留");
     click("？操作指南");
     expect(host.querySelectorAll("ol li")).toHaveLength(3);
-    click("本頁相關");
+    expect(host.querySelector('input[type="search"]')).toBeNull();
+    click("返回問題列表");
+    expect(host.querySelector('input[type="search"]')).not.toBeNull();
     expect(host.querySelectorAll("ol li")).toHaveLength(0);
   });
   it("has one header entry and receives the current booking context", () => {

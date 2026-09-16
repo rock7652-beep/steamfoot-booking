@@ -105,3 +105,15 @@ export function findOperationGuides(query: string, access: GuideAccess) {
     return terms.every(term => text.includes(term));
   });
 }
+
+/** Settings is an overview of several functions, so recommend across categories. */
+export function relatedOperationGuides(pathname: string, access: GuideAccess) {
+  const path = pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)/, "").replace(/\/$/, "");
+  const guides = availableGuides(access);
+  if (path === "/dashboard/settings") {
+    const ids = ["B01", "F01", "I02", "I03", "N01", "I09"];
+    return ids.flatMap(id => guides.filter(g => g.id === id));
+  }
+  const category = access.module === "spa" && path === "/dashboard/plans" ? "spa" : guideCategoryForPath(path);
+  return guides.filter(g => g.category === category);
+}

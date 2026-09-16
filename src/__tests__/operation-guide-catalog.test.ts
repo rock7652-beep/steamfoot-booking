@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { availableGuides, findOperationGuides, guideCategoryForPath, operationGuides, guideCategories } from "../lib/operation-guide";
+import { availableGuides, findOperationGuides, guideCategoryForPath, relatedOperationGuides, operationGuides, guideCategories } from "../lib/operation-guide";
 import type { GuideAccess } from "../lib/operation-guide-types";
 const access: GuideAccess = { module: "steamfoot", permissions: ["booking.read", "booking.update", "customer.read", "business_hours.manage", "business_hours.view"], features: { line_reminder: true } };
 describe("guide catalogue", () => {
@@ -25,6 +25,13 @@ describe("guide catalogue", () => {
     expect(availableGuides(access).some(g => g.id === "J04")).toBe(false);
     expect(availableGuides({...access, module: "spa"}).some(g => g.id === "A01")).toBe(false);
     expect(availableGuides({...access, module: "spa"}).some(g => g.id === "J04")).toBe(true);
+  });
+  it("recommends relevant settings across categories without bypassing access", () => {
+    const results = relatedOperationGuides("/s/staging/admin/dashboard/settings", access);
+    expect(results.some(g => g.id === "B01")).toBe(true);
+    expect(results.some(g => g.id === "F01")).toBe(true);
+    expect(results.every(g => availableGuides(access).includes(g))).toBe(true);
+    expect(relatedOperationGuides("/dashboard/settings", {...access, permissions: [], features: {}}).every(g => !g.permission && !g.feature)).toBe(true);
   });
   it("uses the current page rather than showing booking questions everywhere", () => {
     expect(guideCategoryForPath("/s/staging/admin/dashboard")).toBe("start");

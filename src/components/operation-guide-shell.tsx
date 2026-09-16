@@ -65,7 +65,7 @@ export function OperationGuideShell({ enabled, children, access = { module: "ste
       {children}
       <dialog ref={panel} aria-labelledby={heading} onCancel={close} onClose={() => { if (!panel.current?.open) setOpened(false); }}
         onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}
-        className="fixed inset-x-0 bottom-0 top-auto z-[80] m-0 h-[85dvh] max-h-[85dvh] w-full max-w-none overflow-hidden rounded-t-2xl border border-gold-200 bg-earth-50 p-0 text-earth-900 shadow-xl backdrop:bg-black/30 lg:bottom-0 lg:left-auto lg:right-0 lg:top-14 lg:h-[calc(100dvh-3.5rem)] lg:max-h-none lg:w-[380px] lg:rounded-none">
+        className="fixed inset-x-0 bottom-0 top-auto z-[80] m-0 h-[85dvh] max-h-[85dvh] w-full max-w-none overflow-hidden rounded-t-2xl border border-gold-200 bg-earth-50 p-0 text-earth-900 shadow-xl backdrop:bg-black/30 lg:bottom-0 lg:left-auto lg:right-0 lg:top-14 lg:h-[calc(100dvh-3.5rem)] lg:max-h-none lg:w-[360px] min-[1440px]:w-[380px] lg:rounded-none">
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-gold-200 px-5">
           <h2 id={heading} className="font-semibold text-primary-900">操作指南</h2>
           <button autoFocus type="button" onClick={close} className="min-h-11 px-3 text-primary-800">關閉</button>
@@ -79,7 +79,7 @@ export function OperationGuideShell({ enabled, children, access = { module: "ste
     <style>{`
       [data-operation-guide-shell] [data-dashboard-header] { z-index: 60; }
       [data-operation-guide-shell] [data-right-sheet] { top: 3.5rem; }
-      @media (min-width: 1024px) {
+      @media (min-width: 1440px) {
         [data-operation-guide-shell][data-guide-open="true"] { padding-right: 380px; }
         [data-operation-guide-shell][data-guide-open="true"] [data-right-sheet] { right: 380px; }
       }
