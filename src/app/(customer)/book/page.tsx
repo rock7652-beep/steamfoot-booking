@@ -56,7 +56,7 @@ function getReminderText(bookingDate: Date, slotTime: string): string {
  *   3. 回饋進度（totalPoints > 0 才顯示，第二屏）
  *   4. 我的進度（visitedCount >= 1 || totalPoints >= 100 才顯示，第二屏）
  */
-export default async function CustomerHomePage() {
+export default async function CustomerHomePage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
 
@@ -68,7 +68,7 @@ export default async function CustomerHomePage() {
     ? await getStoreIndustryModule(storeId)
     : "steamfoot";
 
-  if (industryModule === "course") return <CoursePortal />;
+  if (industryModule === "course") return <CoursePortal month={(await searchParams).month} />;
 
   if (industryModule === "spa") {
     const [entitlements, bookings] = await Promise.all([

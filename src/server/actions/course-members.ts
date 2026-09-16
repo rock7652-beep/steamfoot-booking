@@ -368,7 +368,7 @@ export async function loadCourseSessionDetail(sessionId: string) {
 export async function markCourseCoachAttendance(input: unknown) {
   try {
     const { user, storeId } = await courseAccount();
-    const { bookingId } = z.object({ bookingId: id }).parse(input);
+    const { bookingId, status } = z.object({ bookingId: id, status: z.enum(["ATTENDED", "CHECKED_IN", "NO_SHOW"]).default("ATTENDED") }).parse(input);
     await courseTransaction(storeId, async (tx) => {
       const allowed = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT b.id FROM "CourseBooking" b
@@ -382,7 +382,7 @@ export async function markCourseCoachAttendance(input: unknown) {
         tx,
         { storeId, userId: user.id, name: user.name ?? "教練" },
         bookingId,
-        "ATTENDED",
+        status,
       );
     });
     refresh();

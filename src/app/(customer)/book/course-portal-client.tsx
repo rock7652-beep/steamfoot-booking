@@ -1,6 +1,13 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { SteamButlerLogo } from "@/components/steam-butler-logo";
+import {
+  courseDate,
+  courseMemberMarkers,
+  courseMonthDays,
+  coursePeople,
+} from "@/lib/course-calendar";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
   createMemberCourseBooking,
@@ -12,9 +19,13 @@ import {
   CourseCardEntries,
   type CourseCardView,
 } from "@/app/(dashboard)/dashboard/courses/member-workspace";
-import { formatTWDateTime } from "@/lib/date-utils";
+import {
+  addTaiwanDuration,
+  toLocalDateStr,
+  formatTWDateTime,
+} from "@/lib/date-utils";
 const button =
-  "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+  "min-h-11 rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 type Session = {
   id: string;
   name: string;
@@ -26,6 +37,7 @@ type Session = {
 };
 type Booking = {
   id: string;
+  sessionId: string;
   name: string;
   startsAt: string;
   customerName: string;
@@ -38,6 +50,8 @@ type Booking = {
   notes: string;
 };
 export function CoursePortalClient({
+  month,
+  serverNow,
   hasWork,
   memberEnabled,
   work,
@@ -47,13 +61,21 @@ export function CoursePortalClient({
   sessions,
   bookings,
 }: {
+  month: string;
+  serverNow: number;
   hasWork: boolean;
   memberEnabled: boolean;
   work: {
     id: string;
     name: string;
     startsAt: string;
-    bookings: { id: string; customerName: string; status: string }[];
+    bookings: {
+      id: string;
+      customerId: string;
+      customerName: string;
+      status: string;
+      checkedInAt: string | null;
+    }[];
   }[];
   customerId: string;
   customerName: string;
@@ -61,8 +83,51 @@ export function CoursePortalClient({
   sessions: Session[];
   bookings: Booking[];
 }) {
+  const [now, setNow] = useState(serverNow);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const today = toLocalDateStr(new Date(now));
   const [mode, setMode] = useState(memberEnabled ? "member" : "work");
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const [chosenDate, setChosenDate] = useState(
+    toLocalDateStr(new Date(serverNow)),
+  );
+  const [workSessionId, setWorkSessionId] = useState<string | null>(null);
+  const [view, setView] = useState("schedule");
+  const selectedDate = chosenDate.startsWith(month)
+    ? chosenDate
+    : `${month}-01`;
+  const isWork = hasWork && (!memberEnabled || mode === "work");
+  const monthDays = courseMonthDays(month);
+  const daySessions = sessions.filter(
+    (s) => courseDate(s.startsAt) === selectedDate,
+  );
+  const dayBookings = bookings.filter(
+    (b) => courseDate(b.startsAt) === selectedDate,
+  );
+  const dayWork = work.filter((s) => courseDate(s.startsAt) === selectedDate);
+  const workSession = work.find((s) => s.id === workSessionId);
+  function changeMonth(next: string) {
+    const query = new URLSearchParams(params.toString());
+    query.set("month", next);
+    setWorkSessionId(null);
+    start(() => router.replace(`${pathname}?${query}`, { scroll: false }));
+  }
+  function openBooking(s: Session) {
+    setMessage("");
+    const eligible = cards
+      .filter(
+        (c) => !c.expired && c.available >= s.cost && c.expiresAt >= s.startsAt,
+      )
+      .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
+    setCardId(eligible[0]?.id ?? "");
+    setRequestKey(crypto.randomUUID());
+    setSession(s);
+  }
   const [pending, start] = useTransition();
   const [session, setSession] = useState<Session | null>(null);
   const [cardId, setCardId] = useState(cards.find((c) => !c.expired)?.id ?? "");
@@ -79,7 +144,7 @@ export function CoursePortalClient({
           return;
         }
         setSession(null);
-        setMessage("已完成，點數與名额已更新");
+        setMessage("已完成，點數與名額已更新");
         router.refresh();
       } catch {
         setMessage("連線中斷，請重試");
@@ -87,163 +152,506 @@ export function CoursePortalClient({
     });
   }
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-4">
-      <h1 className="text-xl font-semibold">
-        {customerName} · {memberEnabled ? "會員專區" : "我的工作"}
-      </h1>
-      {message && <p role="status">{message}</p>}
+    <main className="mx-auto max-w-5xl space-y-4 bg-[#f7f8f3] p-3 text-earth-800 sm:p-5">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#bcab71] pb-3">
+        <SteamButlerLogo compact />
+        <h1 className="text-lg font-semibold text-primary-900">
+          {customerName} · {isWork ? "我的工作" : "會員專區"}
+        </h1>
+      </header>
+      {message && (
+        <p
+          role="status"
+          className="rounded-lg bg-primary-50 p-3 text-sm text-primary-900"
+        >
+          {message}
+        </p>
+      )}
       {hasWork && memberEnabled && (
-        <nav className="flex gap-2">
-          <button className={button} onClick={() => setMode("member")}>
-            會員專區
-          </button>
-          <button className={button} onClick={() => setMode("work")}>
-            我的工作
-          </button>
+        <nav aria-label="身分切換" className="flex gap-2">
+          {[
+            ["member", "會員專區"],
+            ["work", "我的工作"],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              aria-pressed={mode === value}
+              className={`${button} ${mode === value ? "!bg-primary-800 !text-white" : ""}`}
+              onClick={() => {
+                setMode(value);
+                setWorkSessionId(null);
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </nav>
       )}
-      {(!memberEnabled || mode === "work") && hasWork ? (
-        <section>
-          <h2 className="font-semibold">我的工作</h2>
-          {work.map((s) => (
-            <article key={s.id} className="my-3 rounded-lg border bg-white p-3">
-              <h3>
-                {formatTWDateTime(new Date(s.startsAt))} · {s.name}
-              </h3>
-              {s.bookings.map((b) => (
-                <div
-                  key={b.id}
-                  className="flex items-center justify-between border-t py-2"
+      {!memberEnabled && !hasWork ? (
+        <p role="status">工作存取已停用，請聯絡店家。</p>
+      ) : (
+        <>
+          {!isWork && (
+            <details className="rounded-xl border border-earth-200 bg-white p-3">
+              <summary className="cursor-pointer font-medium text-primary-800">
+                我的點數與共卡 ·{" "}
+                {cards
+                  .filter((c) => !c.expired)
+                  .reduce((sum, c) => sum + c.available, 0)}{" "}
+                點可用
+              </summary>
+              <div className="mt-3 max-h-72 space-y-2 overflow-y-auto overscroll-contain">
+                {cards.map((c) => (
+                  <details
+                    key={c.id}
+                    className={`rounded-lg border p-3 ${c.expired ? "bg-earth-50 text-earth-500" : "bg-white"}`}
+                  >
+                    <summary className="cursor-pointer text-sm">
+                      {c.name}
+                      {c.expired ? "（已到期）" : ""} · 可用 {c.available}{" "}
+                      點／占用 {c.held} 點
+                    </summary>
+                    <div className="pt-3">
+                      <CourseCardSummary card={c} />
+                      <CourseCardEntries card={c} />
+                    </div>
+                  </details>
+                ))}
+                {!cards.length && <p>目前沒有可使用方案，請聯絡店家。</p>}
+              </div>
+            </details>
+          )}
+          <section
+            className="overflow-hidden rounded-xl border border-earth-200 bg-white"
+            aria-label={isWork ? "我的授課月曆" : "課程預約月曆"}
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-earth-100 p-3">
+              <button
+                className={button}
+                aria-label="上個月"
+                disabled={pending}
+                onClick={() =>
+                  changeMonth(
+                    addTaiwanDuration(`${month}-01`, -1, "MONTH").slice(0, 7),
+                  )
+                }
+              >
+                ‹
+              </button>
+              <h2 className="font-semibold text-primary-900">
+                {month.replace("-", " 年 ")} 月
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  className={button}
+                  disabled={pending}
+                  onClick={() => {
+                    setChosenDate(toLocalDateStr());
+                    changeMonth(toLocalDateStr().slice(0, 7));
+                  }}
                 >
-                  <span>
-                    {b.customerName} ·{" "}
-                    {b.status === "ATTENDED" ? "已完成" : b.status === "NO_SHOW" ? "未到" : "待完成"}
-                  </span>
-                  {b.status === "RESERVED" && (
+                  今天
+                </button>
+                <button
+                  className={button}
+                  aria-label="下個月"
+                  disabled={pending}
+                  onClick={() =>
+                    changeMonth(
+                      addTaiwanDuration(`${month}-01`, 1, "MONTH").slice(0, 7),
+                    )
+                  }
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-7 bg-primary-50 text-center text-sm text-primary-800">
+              {"日一二三四五六".split("").map((day) => (
+                <span key={day} className="py-2">
+                  {day}
+                </span>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-px bg-earth-100">
+              {Array.from({ length: monthDays.offset }, (_, i) => (
+                <div key={`empty-${i}`} className="bg-earth-50" />
+              ))}
+              {monthDays.dates.map((date) => {
+                const lessons = (isWork ? work : sessions).filter(
+                  (s) => courseDate(s.startsAt) === date,
+                );
+                const learners = isWork
+                  ? work
+                      .filter((s) => courseDate(s.startsAt) === date)
+                      .flatMap((s) => s.bookings)
+                  : bookings.filter((b) => courseDate(b.startsAt) === date);
+                const marks = courseMemberMarkers(learners, customerId);
+                const counts = coursePeople(learners);
+                return (
+                  <button
+                    key={date}
+                    aria-label={`${date}，${lessons.length} 堂課${isWork ? `，${counts.visits} 人次` : `${marks.self ? "，本人上課" : ""}${marks.shared ? "，共卡學員上課" : ""}`}`}
+                    aria-pressed={selectedDate === date}
+                    onClick={() => setChosenDate(date)}
+                    className={`flex min-h-20 flex-col items-center justify-start gap-1 px-1 py-2 text-sm sm:min-h-24 ${selectedDate === date ? "bg-primary-100 ring-2 ring-inset ring-primary-700" : lessons.length || learners.length ? "bg-white hover:bg-primary-50" : "bg-earth-50 text-earth-400"}`}
+                  >
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-full ${date === today ? "bg-primary-800 text-white" : ""}`}
+                    >
+                      {Number(date.slice(-2))}
+                    </span>
+                    {isWork ? (
+                      lessons.length > 0 && (
+                        <span className="text-[11px] sm:text-xs">
+                          {lessons.length} 堂課
+                          <br />
+                          {counts.visits} 人次
+                        </span>
+                      )
+                    ) : (
+                      <>
+                        {lessons.length > 0 && (
+                          <span className="text-[11px] text-earth-600">
+                            {lessons.length} 堂課
+                          </span>
+                        )}
+                        <span className="flex gap-1" aria-hidden="true">
+                          {marks.self && (
+                            <span className="h-2 w-2 rounded-full bg-blue-600" />
+                          )}
+                          {marks.shared && (
+                            <span className="h-2 w-2 rounded-full bg-orange-500" />
+                          )}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="border-t p-3 text-xs text-earth-600">
+              {isWork
+                ? "僅顯示你的授課；同一位學員跨堂參加，每堂計 1 人次。"
+                : "🔵 本人上課　🟠 共卡學員上課　淡色：無課程。點日期查看實際上課者。"}
+            </p>
+          </section>
+          <section
+            aria-label="當日課程"
+            className="rounded-xl border border-earth-200 bg-white"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#bcab71] p-3">
+              <h2 className="font-semibold text-primary-900">
+                {selectedDate} ·{" "}
+                {isWork
+                  ? `${dayWork.length} 堂課／${coursePeople(dayWork.flatMap((s) => s.bookings)).people} 人／${coursePeople(dayWork.flatMap((s) => s.bookings)).visits} 人次`
+                  : "當日課程"}
+              </h2>
+              {!isWork && (
+                <nav className="flex gap-2" aria-label="課程清單切換">
+                  {[
+                    ["schedule", "課表預約"],
+                    ["bookings", "我的預約"],
+                  ].map(([value, label]) => (
                     <button
-                      className={button}
-                      disabled={pending}
+                      key={value}
+                      className={`${button} ${view === value ? "!bg-primary-800 !text-white" : ""}`}
+                      aria-pressed={view === value}
+                      onClick={() => setView(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </nav>
+              )}
+            </div>
+            <div className="max-h-80 divide-y overflow-y-auto overscroll-contain">
+              {isWork ? (
+                <>
+                  {dayWork.map((s) => (
+                    <button
+                      key={s.id}
+                      className="flex min-h-16 w-full items-center justify-between gap-3 p-3 text-left hover:bg-primary-50"
+                      onClick={() => setWorkSessionId(s.id)}
+                    >
+                      <span>
+                        <strong>
+                          {formatTWDateTime(new Date(s.startsAt)).slice(-5)} ·{" "}
+                          {s.name}
+                        </strong>
+                        <span className="mt-1 block text-sm text-earth-600">
+                          {s.bookings.length} 位學員 ·{" "}
+                          {
+                            s.bookings.filter((b) => b.status === "RESERVED")
+                              .length
+                          }{" "}
+                          位待完成
+                        </span>
+                      </span>
+                      <span className="text-sm text-primary-700">
+                        名單／點名 ›
+                      </span>
+                    </button>
+                  ))}
+                  {!dayWork.length && (
+                    <p className="p-4 text-earth-500">當日沒有授課。</p>
+                  )}
+                </>
+              ) : view === "schedule" ? (
+                <>
+                  {daySessions.map((s) => (
+                    <div
+                      key={s.id}
+                      className="flex flex-wrap items-center justify-between gap-2 p-3"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {formatTWDateTime(new Date(s.startsAt)).slice(-5)} ·{" "}
+                          {s.name}
+                        </p>
+                        <p className="text-sm text-earth-600">
+                          {s.room} · {s.cost} 點 · {s.occupied}／{s.capacity} 人
+                        </p>
+                        {dayBookings
+                          .filter(
+                            (b) =>
+                              b.sessionId === s.id && b.status !== "CANCELLED",
+                          )
+                          .map((b) => (
+                            <p key={b.id} className="mt-1 text-sm">
+                              {b.customerId === customerId
+                                ? "🔵 本人"
+                                : "🟠 共卡學員"}
+                              ：{b.customerName} ·{" "}
+                              {b.status === "ATTENDED"
+                                ? "已完成"
+                                : b.status === "NO_SHOW"
+                                  ? "未到"
+                                  : b.checkedInAt
+                                    ? "已報到"
+                                    : "已預約"}
+                            </p>
+                          ))}
+                      </div>
+                      <button
+                        className={button}
+                        disabled={
+                          pending ||
+                          new Date(s.startsAt).getTime() <= now ||
+                          s.occupied >= s.capacity
+                        }
+                        onClick={() => openBooking(s)}
+                      >
+                        {new Date(s.startsAt).getTime() <= now
+                          ? "已開始"
+                          : s.occupied >= s.capacity
+                            ? "已滿班"
+                            : "預約／共卡代約"}
+                      </button>
+                    </div>
+                  ))}
+                  {!daySessions.length && (
+                    <p className="p-4 text-earth-500">
+                      當日沒有可預約課程；歷史紀錄可切換「我的預約」。
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  {[...new Set(dayBookings.map((b) => b.sessionId))].map(
+                    (id) => {
+                      const group = dayBookings.filter(
+                        (b) => b.sessionId === id,
+                      );
+                      return (
+                        <article key={id} className="p-3">
+                          <h3 className="font-semibold">
+                            {formatTWDateTime(
+                              new Date(group[0].startsAt),
+                            ).slice(-5)}{" "}
+                            · {group[0].name}
+                          </h3>
+                          {group.map((b) => (
+                            <div
+                              key={b.id}
+                              className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-earth-50 p-3 text-sm"
+                            >
+                              <div>
+                                <p className="font-medium">
+                                  {b.customerId === customerId
+                                    ? "🔵 本人上課"
+                                    : "🟠 共卡學員"}
+                                  ：{b.customerName}
+                                </p>
+                                <p>
+                                  操作人：{b.operatorName} ·{" "}
+                                  {b.operatorCustomerId === b.customerId
+                                    ? "自己預約"
+                                    : b.operatorCustomerId
+                                      ? "共卡代約"
+                                      : "店長代約"}
+                                </p>
+                                <p>
+                                  {b.status === "ATTENDED"
+                                    ? "已完成，扣除"
+                                    : b.status === "CANCELLED"
+                                      ? "已取消，釋放"
+                                      : b.status === "NO_SHOW"
+                                        ? "未到，釋放"
+                                        : b.checkedInAt
+                                          ? "已報到，尚未扣點，占用"
+                                          : "已預約，占用"}{" "}
+                                  {b.cost} 點
+                                </p>
+                                {b.notes && <p>本次預約備註：{b.notes}</p>}
+                              </div>
+                              {b.status === "RESERVED" && (
+                                <button
+                                  className={button}
+                                  disabled={pending}
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        `取消 ${b.customerName} 的「${b.name}」預約？將釋放 ${b.cost} 點占用。`,
+                                      )
+                                    )
+                                      run(() =>
+                                        updateCourseBookingStatus({
+                                          bookingId: b.id,
+                                          status: "CANCELLED",
+                                          member: true,
+                                        }),
+                                      );
+                                  }}
+                                >
+                                  取消 {b.customerName}
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </article>
+                      );
+                    },
+                  )}
+                  {!dayBookings.length && (
+                    <p className="p-4 text-earth-500">
+                      當日沒有本人或共卡預約紀錄。
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        </>
+      )}
+      {isWork && workSession && (
+        <RightSheet
+          open
+          onClose={() => !pending && setWorkSessionId(null)}
+          labelledById="course-coach-title"
+        >
+          <header className="shrink-0 border-b border-[#bcab71] p-4">
+            <h2
+              id="course-coach-title"
+              className="font-semibold text-primary-900"
+            >
+              {workSession.name} · 學員名單
+            </h2>
+            <p className="text-sm">
+              {formatTWDateTime(new Date(workSession.startsAt))}
+            </p>
+            <p className="mt-2 text-sm text-earth-600">
+              報到不扣點；完成才正式扣點。未到釋放占用，不加收費用。
+            </p>
+          </header>
+          <div className="min-h-0 flex-1 divide-y overflow-y-auto overscroll-contain p-4">
+            {message && (
+              <p role="status" className="py-2">
+                {message}
+              </p>
+            )}
+            {workSession.bookings.map((b) => (
+              <div key={b.id} className="py-3">
+                <p className="mb-2 font-medium">
+                  {b.customerName} ·{" "}
+                  {b.status === "ATTENDED"
+                    ? "已完成"
+                    : b.status === "NO_SHOW"
+                      ? "未到"
+                      : b.checkedInAt
+                        ? "已報到，待完成"
+                        : "待報到"}
+                </p>
+                {b.status === "RESERVED" && (
+                  <div className="flex flex-wrap gap-2">
+                    {!b.checkedInAt && (
+                      <button
+                        className={button}
+                        disabled={pending}
+                        onClick={() =>
+                          run(() =>
+                            markCourseCoachAttendance({
+                              bookingId: b.id,
+                              status: "CHECKED_IN",
+                            }),
+                          )
+                        }
+                      >
+                        報到
+                      </button>
+                    )}
+                    <button
+                      className={`${button} !bg-primary-800 !text-white`}
+                      disabled={
+                        pending ||
+                        new Date(workSession.startsAt).getTime() > now
+                      }
                       onClick={() =>
                         run(() =>
-                          markCourseCoachAttendance({ bookingId: b.id }),
+                          markCourseCoachAttendance({
+                            bookingId: b.id,
+                            status: "ATTENDED",
+                          }),
                         )
                       }
                     >
                       完成並扣點
                     </button>
-                  )}
-                </div>
-              ))}
-            </article>
-          ))}
-        </section>
-      ) : !memberEnabled ? (
-        <p role="status">工作存取已停用，請聯絡店家。</p>
-      ) : (
-        <>
-          <section>
-            <h2 className="mb-2 font-semibold">我的點數與共卡</h2>
-            {cards.map((c) => (
-              <details
-                key={c.id}
-                className={`mb-2 rounded-lg border p-3 ${c.expired ? "bg-earth-50 text-earth-400" : "bg-white"}`}
-              >
-                <summary className="cursor-pointer">
-                  {c.name}
-                  {c.expired ? "（已到期）" : ""} · 可用 {c.available} 點／占用{" "}
-                  {c.held} 點
-                </summary>
-                <div className="pt-3">
-                  <CourseCardSummary card={c} />
-                  <CourseCardEntries card={c} />
-                </div>
-              </details>
-            ))}
-            {!cards.length && <p>目前沒有可使用方案，請聯絡店家。</p>}
-          </section>
-          <section>
-            <h2 className="mb-2 font-semibold">可預約課程</h2>
-            <div className="divide-y rounded-lg border bg-white">
-              {sessions.map((s) => (
-                <div
-                  key={s.id}
-                  className="flex flex-wrap items-center justify-between gap-2 p-3"
-                >
-                  <div>
-                    <p className="font-medium">{s.name}</p>
-                    <p className="text-sm">
-                      {formatTWDateTime(new Date(s.startsAt))} · {s.room} ·{" "}
-                      {s.cost} 點 · {s.occupied}／{s.capacity} 人
-                    </p>
-                  </div>
-                  <button
-                    className={button}
-                    disabled={
-                      pending ||
-                      s.occupied >= s.capacity ||
-                      !cards.some((c) => !c.expired)
-                    }
-                    onClick={() => {
-                      setMessage("");
-                      if (!cards.some((c) => c.id === cardId && !c.expired))
-                        setCardId(cards.find((c) => !c.expired)?.id ?? "");
-                      setRequestKey(crypto.randomUUID());
-                      setSession(s);
-                    }}
-                  >
-                    {s.occupied >= s.capacity ? "已滿班" : "預約／共卡代約"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section>
-            <h2 className="mb-2 font-semibold">我的預約與共卡紀錄</h2>
-            <ul className="divide-y rounded-lg border bg-white">
-              {bookings.map((b) => (
-                <li key={b.id} className="space-y-2 p-3 text-sm">
-                  <p className="font-medium">
-                    {b.name} · {formatTWDateTime(new Date(b.startsAt))}
-                  </p>
-                  <p>
-                    上課人：{b.customerName} · 操作人：{b.operatorName} ·{" "}
-                    {b.operatorCustomerId
-                      ? b.operatorCustomerId === b.customerId
-                        ? "自己上課"
-                        : "共卡代約"
-                      : "店長代約"}
-                  </p>
-                  <p>
-                    {b.status === "ATTENDED"
-                      ? "已出席，扣除"
-                      : b.status === "CANCELLED"
-                        ? "已取消，釋放"
-                        : b.status === "NO_SHOW" ? "未到，釋放" : b.checkedInAt ? "已報到，待完成，占用" : "已預約，占用"}{" "}
-                    {b.cost} 點
-                  </p>
-                  {b.notes && <p className="text-sm text-earth-600">本次預約備註：{b.notes}</p>}
-                  {b.status === "RESERVED" && (
                     <button
                       className={button}
-                      disabled={pending}
+                      disabled={
+                        pending ||
+                        new Date(workSession.startsAt).getTime() > now
+                      }
                       onClick={() =>
                         run(() =>
-                          updateCourseBookingStatus({
+                          markCourseCoachAttendance({
                             bookingId: b.id,
-                            status: "CANCELLED",
-                            member: true,
+                            status: "NO_SHOW",
                           }),
                         )
                       }
                     >
-                      取消預約
+                      未到
                     </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        </>
+                  </div>
+                )}
+              </div>
+            ))}
+            {!workSession.bookings.length && (
+              <p className="py-4">尚無學員預約。</p>
+            )}
+          </div>
+          <footer className="shrink-0 border-t p-4">
+            <button
+              className={`${button} w-full`}
+              disabled={pending}
+              onClick={() => setWorkSessionId(null)}
+            >
+              返回當日課程
+            </button>
+          </footer>
+        </RightSheet>
       )}
       {session && (
         <RightSheet
@@ -290,14 +698,38 @@ export function CoursePortalClient({
                     setRequestKey(crypto.randomUUID());
                   }}
                 >
+                  <option value="" disabled>
+                    請選擇可用方案
+                  </option>
                   {cards.map((c) => (
-                    <option key={c.id} value={c.id} disabled={c.expired || c.available < session.cost || c.expiresAt < session.startsAt}>
+                    <option
+                      key={c.id}
+                      value={c.id}
+                      disabled={
+                        c.expired ||
+                        c.available < session.cost ||
+                        c.expiresAt < session.startsAt
+                      }
+                    >
                       {c.name}
-                      {c.expired ? "（已到期）" : c.available < session.cost ? "（點數不足）" : c.expiresAt < session.startsAt ? "（不涵蓋上課日期）" : ""} · 可用 {c.available} 點 · 到期 {formatTWDateTime(new Date(c.expiresAt)).slice(0, 10)}
+                      {c.expired
+                        ? "（已到期）"
+                        : c.available < session.cost
+                          ? "（點數不足）"
+                          : c.expiresAt < session.startsAt
+                            ? "（不涵蓋上課日期）"
+                            : ""}{" "}
+                      · 可用 {c.available} 點 · 到期{" "}
+                      {formatTWDateTime(new Date(c.expiresAt)).slice(0, 10)}
                     </option>
                   ))}
                 </select>
               </label>
+              {!cardId && (
+                <p role="alert" className="text-sm text-red-700">
+                  沒有點數足夠且涵蓋上課日期的方案，請聯絡店家。
+                </p>
+              )}
               <label className="block">
                 實際上課人
                 <select
@@ -315,10 +747,17 @@ export function CoursePortalClient({
                   ))}
                 </select>
               </label>
-              <label className="block">本次預約備註<textarea className={`${button} w-full`} name="notes" maxLength={1000} /></label>
+              <label className="block">
+                本次預約備註
+                <textarea
+                  className={`${button} w-full`}
+                  name="notes"
+                  maxLength={1000}
+                />
+              </label>
               <p className="text-sm">
                 操作人：{customerName}
-                。只為選定的上課人保留一個名额；選擇其他共卡成員時，你自己不會被加入課程。
+                。只為選定的上課人保留一個名額；選擇其他共卡成員時，你自己不會被加入課程。
               </p>
             </form>
           </div>
@@ -334,7 +773,7 @@ export function CoursePortalClient({
               type="submit"
               form="course-book-form"
               className={`${button} flex-1 bg-primary-700 text-white`}
-              disabled={pending}
+              disabled={pending || !cardId}
             >
               確認預約
             </button>

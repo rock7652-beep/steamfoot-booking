@@ -4,7 +4,16 @@ import { coursePrisma } from "@/lib/course-db";
 import { getCourseCards } from "@/server/queries/course-members";
 import { CoursePortalClient } from "./course-portal-client";
 import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
-export async function CoursePortal() {
+export async function CoursePortal({
+  month: requestedMonth,
+}: {
+  month?: string;
+}) {
+  const month =
+    typeof requestedMonth === "string" && /^20\d{2}-(0[1-9]|1[0-2])$/.test(requestedMonth)
+      ? requestedMonth
+      : toLocalMonthStr();
+  const range = monthRange(month);
   const { user, storeId, customer } = await courseAccount();
   const identityLink = await prisma.staffMemberLink.findUnique({
     where: { uq_staff_member_link_user_store: { userId: user.id, storeId } },
@@ -19,10 +28,8 @@ export async function CoursePortal() {
             storeId,
             cancelledAt: null,
             startsAt: {
-              gte: new Date(),
-              lte: monthRange(
-                toLocalMonthStr(new Date(new Date().getTime() + 90 * 86400000)),
-              ).end,
+              gte: range.start,
+              lte: range.end,
             },
           },
           include: {
@@ -35,10 +42,13 @@ export async function CoursePortal() {
         })
       : [],
     coursePrisma.courseBooking.findMany({
-      where: { storeId, cardId: { in: cards.map((c) => c.id) } },
+      where: {
+        storeId,
+        cardId: { in: cards.map((c) => c.id) },
+        session: { startsAt: { gte: range.start, lte: range.end } },
+      },
       include: { session: { select: { nameSnapshot: true, startsAt: true } } },
       orderBy: { createdAt: "desc" },
-      take: 150,
     }),
   ]);
   const link = await prisma.staffMemberLink.findFirst({
@@ -56,27 +66,37 @@ export async function CoursePortal() {
           storeId,
           coachId: link.staffId,
           cancelledAt: null,
-          startsAt: { gte: monthRange(toLocalMonthStr()).start },
+          startsAt: { gte: range.start, lte: range.end },
         },
         include: {
           bookings: {
             where: { status: { not: "CANCELLED" } },
-            select: { id: true, customerName: true, status: true },
+            select: {
+              id: true,
+              customerId: true,
+              customerName: true,
+              status: true,
+              checkedInAt: true,
+            },
           },
         },
         orderBy: { startsAt: "asc" },
-        take: 100,
       })
     : [];
   return (
     <CoursePortalClient
+      month={month}
+      serverNow={new Date().getTime()}
       hasWork={!!link}
       memberEnabled={memberEnabled}
       work={work.map((s) => ({
         id: s.id,
         name: s.nameSnapshot,
         startsAt: s.startsAt.toISOString(),
-        bookings: s.bookings,
+        bookings: s.bookings.map((b) => ({
+          ...b,
+          checkedInAt: b.checkedInAt?.toISOString() ?? null,
+        })),
       }))}
       customerId={customer.id}
       customerName={customer.name}
@@ -92,6 +112,7 @@ export async function CoursePortal() {
       }))}
       bookings={bookings.map((b) => ({
         id: b.id,
+        sessionId: b.sessionId,
         name: b.session.nameSnapshot,
         startsAt: b.session.startsAt.toISOString(),
         customerName: b.customerName,
