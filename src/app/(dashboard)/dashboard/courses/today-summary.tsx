@@ -29,7 +29,7 @@ export async function CourseTodaySummary() {
       coachId: true,
       capacity: true,
       room: { select: { name: true } },
-      bookings: { select: { status: true } },
+      bookings: { select: { status: true, customerId: true } },
     },
     orderBy: { startsAt: "asc" },
   });
@@ -75,6 +75,7 @@ export async function CourseTodaySummary() {
           capacity: s.capacity,
           coach: coachNames.get(s.coachId) ?? "—",
           room: s.room.name,
+          customerIds: s.bookings.filter((b) => b.status !== "CANCELLED").map((b) => b.customerId),
           booked: s.bookings.filter((b) => b.status !== "CANCELLED").length,
           unmarked: s.bookings.filter((b) => b.status === "RESERVED").length,
         }))}

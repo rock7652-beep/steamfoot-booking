@@ -99,6 +99,8 @@ export async function CoursePortal() {
         operatorCustomerId: b.operatorCustomerId,
         customerId: b.customerId,
         status: b.status,
+        checkedInAt: b.checkedInAt?.toISOString() ?? null,
+        notes: b.notes,
         cost: b.pointCost,
       }))}
     />

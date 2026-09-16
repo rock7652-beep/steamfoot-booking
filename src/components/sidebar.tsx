@@ -655,7 +655,7 @@ export default function DashboardShell({
     const hqMatch = rawPathname.match(/^(\/hq)\/dashboard/);
     if (hqMatch) return hqMatch[1];
     return "";
-  }, [rawPathname]);
+  }, [rawPathname, searchParams]);
   const pathname = dashboardPrefix
     ? rawPathname.slice(dashboardPrefix.length)
     : rawPathname;
@@ -709,7 +709,7 @@ export default function DashboardShell({
 { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=rooms", label: "教室管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/customers")!, href: "/dashboard/courses?view=customers", label: "顧客管理", permission: "customer.read" },
-        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=plans", label: "方案管理", permission: "wallet.read" },
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/plans")!, href: "/dashboard/courses?view=plans", label: "方案管理", permission: "wallet.read", requiredFeature: undefined },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/revenue")!, href: "/dashboard/cashbook", label: "營運", permission: "cashbook.read", requiredFeature: undefined },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/reports")!, href: "/dashboard/courses?view=analytics", label: "分析", requiredFeature: undefined },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/settings")!, href: "/dashboard/courses?view=settings", label: "設定" },
@@ -804,7 +804,7 @@ export default function DashboardShell({
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileOpen(false); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [rawPathname]);
+  }, [rawPathname, searchParams]);
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {

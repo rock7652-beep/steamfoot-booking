@@ -217,3 +217,36 @@ describe("course point settlement", () => {
     expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();
   });
 });
+
+describe("course attendance stages", () => {
+  const manager = { storeId: actor.storeId, userId: "manager", name: "店長" };
+  it("check-in preserves reservation and does not debit or release points", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
+    await settleCourseBooking(tx, manager, "booking", "CHECKED_IN");
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({ where: { id: "booking" }, data: { checkedInAt: expect.any(Date) } });
+    expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
+    expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();
+  });
+  it("repeating check-in makes no additional change", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue({ ...reserved(), checkedInAt: new Date() });
+    await settleCourseBooking(tx, manager, "booking", "CHECKED_IN");
+    expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
+  });
+  it("no-show releases the reservation without charging", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
+    await settleCourseBooking(tx, manager, "booking", "NO_SHOW");
+    expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({ data: expect.objectContaining({ kind: "RELEASE", points: 3 }) });
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({ where: { id: "booking" }, data: { status: "NO_SHOW" } });
+  });
+  it("members cannot check in or mark no-show", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
+    for (const status of ["CHECKED_IN", "NO_SHOW"] as const) await expect(settleCourseBooking(tx, actor, "booking", status)).rejects.toThrow("僅限有權限");
+    expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
+  });
+  it("no-show cannot be recorded before class starts", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue({ ...reserved(), session: { startsAt: new Date("2026-09-16T00:00:00Z") } });
+    await expect(settleCourseBooking(tx, manager, "booking", "NO_SHOW")).rejects.toThrow("尚未開始");
+    expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();
+  });
+});

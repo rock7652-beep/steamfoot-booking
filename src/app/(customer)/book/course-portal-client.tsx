@@ -34,6 +34,8 @@ type Booking = {
   customerId: string;
   status: string;
   cost: number;
+  checkedInAt: string | null;
+  notes: string;
 };
 export function CoursePortalClient({
   hasWork,
@@ -114,7 +116,7 @@ export function CoursePortalClient({
                 >
                   <span>
                     {b.customerName} ·{" "}
-                    {b.status === "ATTENDED" ? "已出席" : "待點名"}
+                    {b.status === "ATTENDED" ? "已完成" : b.status === "NO_SHOW" ? "未到" : "待完成"}
                   </span>
                   {b.status === "RESERVED" && (
                     <button
@@ -126,7 +128,7 @@ export function CoursePortalClient({
                         )
                       }
                     >
-                      出席並扣點
+                      完成並扣點
                     </button>
                   )}
                 </div>
@@ -215,7 +217,7 @@ export function CoursePortalClient({
                       ? "已出席，扣除"
                       : b.status === "CANCELLED"
                         ? "已取消，釋放"
-                        : "已預約，占用"}{" "}
+                        : b.status === "NO_SHOW" ? "未到，釋放" : b.checkedInAt ? "已報到，待完成，占用" : "已預約，占用"}{" "}
                     {b.cost} 點
                   </p>
                   {b.status === "RESERVED" && (
@@ -270,6 +272,7 @@ export function CoursePortalClient({
                     cardId,
                     customerId: data.get("learner"),
                     requestKey,
+                    notes: data.get("notes"),
                   }),
                 );
               }}
@@ -286,9 +289,9 @@ export function CoursePortalClient({
                   }}
                 >
                   {cards.map((c) => (
-                    <option key={c.id} value={c.id} disabled={c.expired}>
+                    <option key={c.id} value={c.id} disabled={c.expired || c.available < session.cost || c.expiresAt < session.startsAt}>
                       {c.name}
-                      {c.expired ? "（已到期）" : ""} · 可用 {c.available} 點
+                      {c.expired ? "（已到期）" : c.available < session.cost ? "（點數不足）" : c.expiresAt < session.startsAt ? "（不涵蓋上課日期）" : ""} · 可用 {c.available} 點 · 到期 {formatTWDateTime(new Date(c.expiresAt)).slice(0, 10)}
                     </option>
                   ))}
                 </select>
@@ -310,6 +313,7 @@ export function CoursePortalClient({
                   ))}
                 </select>
               </label>
+              <label className="block">本次預約備註<textarea className={`${button} w-full`} name="notes" maxLength={1000} /></label>
               <p className="text-sm">
                 操作人：{customerName}
                 。只為選定的上課人保留一個名额；選擇其他共卡成員時，你自己不會被加入課程。

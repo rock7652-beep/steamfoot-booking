@@ -103,6 +103,7 @@ export default async function CoursesPage({
           roomId: true,
           capacity: true,
           pointCost: true,
+          bookings: { where: { status: { not: "CANCELLED" } }, select: { customerId: true } },
         },
         orderBy: { startsAt: "asc" },
       }),
@@ -117,7 +118,7 @@ export default async function CoursesPage({
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   return (
-    <PageShell>
+    <PageShell className="course-workspace">
       <PageHeader
         title={
           view === "catalog"

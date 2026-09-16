@@ -15,9 +15,10 @@ import type { DayTrend } from "@/server/queries/ops-dashboard";
 interface TrendChartProps {
   data: DayTrend[];
   metric: "bookings" | "revenue" | "customers";
+  bookingLabels?: { booked: string; arrived: string };
 }
 
-export function TrendChart({ data, metric }: TrendChartProps) {
+export function TrendChart({ data, metric, bookingLabels }: TrendChartProps) {
   const formatted = data.map((d) => ({
     ...d,
     label: d.date.slice(5), // MM-DD
@@ -89,7 +90,7 @@ export function TrendChart({ data, metric }: TrendChartProps) {
         <Line
           type="monotone"
           dataKey="bookingCount"
-          name="預約數"
+          name={bookingLabels?.booked ?? "預約數"}
           stroke="#65a30d"
           strokeWidth={2}
           dot={{ r: 3 }}
@@ -97,7 +98,7 @@ export function TrendChart({ data, metric }: TrendChartProps) {
         <Line
           type="monotone"
           dataKey="arrivedCount"
-          name="到店數"
+          name={bookingLabels?.arrived ?? "到店數"}
           stroke="#059669"
           strokeWidth={2}
           dot={{ r: 3 }}

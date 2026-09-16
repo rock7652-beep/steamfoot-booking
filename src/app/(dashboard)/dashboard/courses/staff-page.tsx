@@ -49,7 +49,7 @@ export async function CourseStaffPage() {
     checkPermission(user.role, user.staffId, "staff.manage"),
   ]);
   return (
-    <PageShell>
+    <PageShell className="course-workspace">
       <PageHeader title="人員管理" />
       <CourseStaffWorkspace
         canManage={canManage}
@@ -68,6 +68,9 @@ export async function CourseStaffPage() {
         staff={staff.map((s) => ({
           id: s.id,
           name: s.displayName,
+          phone: s.phone,
+          emergencyContactName: s.emergencyContactName,
+          emergencyContactPhone: s.emergencyContactPhone,
           kind: s.user.role === "CUSTOMER" ? "coach" : "manager",
           email: s.user.email ?? "",
           active: s.status === "ACTIVE",

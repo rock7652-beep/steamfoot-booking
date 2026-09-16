@@ -40,6 +40,7 @@ type Template = Omit<Room, "capacity"> & {
   precautions?: string;
 };
 type Session = {
+  bookings: { customerId: string }[];
   id: string;
   templateId: string;
   nameSnapshot: string;
@@ -84,6 +85,7 @@ export function CourseWorkspace({
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | null
@@ -679,6 +681,7 @@ export function CourseWorkspace({
             )}
             {panel === "day" && (
               <>
+                <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">{(byDate.get(selectedDate) ?? []).length} 堂課 · 共 {new Set((byDate.get(selectedDate) ?? []).flatMap((s) => s.bookings.map((b) => b.customerId))).size} 人 · {(byDate.get(selectedDate) ?? []).reduce((n, s) => n + s.bookings.length, 0)} 人次</p>
                 {canCreate && (
                   <button
                     className={primary}
@@ -693,15 +696,15 @@ export function CourseWorkspace({
                 )}
                 {(byDate.get(selectedDate) ?? []).map((s) => (
                   <div key={s.id} className="border-b border-earth-100 py-3">
-                    <h3 className="font-medium">
+                    <h3 className="font-medium"><button className="min-h-11 text-left text-primary-800" aria-expanded={expandedSession === s.id} onClick={() => setExpandedSession(expandedSession === s.id ? null : s.id)}>
                       {formatTWDateTime(new Date(s.startsAt)).slice(11)}–
                       {formatTWDateTime(new Date(s.endsAt)).slice(0, 10) !==
                       selectedDate
                         ? "翌日 "
                         : ""}
                       {formatTWDateTime(new Date(s.endsAt)).slice(11)}　
-                      {s.nameSnapshot}
-                    </h3>
+                      {s.nameSnapshot} · {s.bookings.length}／{s.capacity} 人 {expandedSession === s.id ? "▾" : "▸"}
+                    </button></h3>
                     <p className="mt-1 text-sm text-earth-600">
                       {allCoaches.find((c) => c.id === s.coachId)
                         ?.displayName ?? "教練"}{" "}
@@ -736,12 +739,12 @@ export function CourseWorkspace({
                         編輯排課
                       </button>
                     )}
-                    <CourseRoster
+                    {expandedSession === s.id && <CourseRoster
                       sessionId={s.id}
                       capacity={s.capacity}
                       canCreate={canCreate}
                       canEdit={canEdit}
-                    />
+                    />}
                   </div>
                 ))}
               </>

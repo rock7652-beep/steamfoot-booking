@@ -52,7 +52,7 @@ export async function getCourseCards(storeId: string, customerId?: string) {
 }
 
 export async function getCourseRoster(storeId: string, sessionId: string) {
-  return coursePrisma.courseBooking.findMany({
+  const bookings = await coursePrisma.courseBooking.findMany({
     where: { storeId, sessionId },
     select: {
       id: true,
@@ -62,7 +62,21 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       customerName: true,
       status: true,
       pointCost: true,
+      notes: true,
+      checkedInAt: true,
+      card: { select: { nameSnapshot: true, expiresAt: true } },
     },
     orderBy: { createdAt: "asc" },
   });
+  const customers = await prisma.customer.findMany({
+    where: { storeId, id: { in: bookings.map((b) => b.customerId) } },
+    select: { id: true, serviceNote: true },
+  });
+  return bookings.map(({ card, checkedInAt, ...b }) => ({
+    ...b,
+    checkedInAt: checkedInAt?.toISOString() ?? null,
+    planName: card.nameSnapshot,
+    expiresAt: card.expiresAt.toISOString(),
+    serviceNote: customers.find((c) => c.id === b.customerId)?.serviceNote ?? "",
+  }));
 }

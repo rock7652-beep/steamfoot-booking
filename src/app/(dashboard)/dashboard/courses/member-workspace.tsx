@@ -12,7 +12,9 @@ import {
 import { saveCourseStaff } from "@/server/actions/course-staff";
 import type { getCourseCards } from "@/server/queries/course-members";
 
-type Person = { id: string; name: string; phone: string };
+import { BirthdayFields } from "@/components/birthday-fields";
+import { CourseCustomerHealth } from "./customer-health";
+type Person = { id: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; height: number | null; lineName: string | null; serviceNote: string | null };
 type Plan = {
   id: string;
   name: string;
@@ -50,7 +52,7 @@ export function CourseMemberWorkspace({
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [panel, setPanel] = useState<
-    "person" | "plan" | "assign" | "card" | "coach" | null
+    "person" | "plan" | "assign" | "card" | "coach" | "health" | null
   >(null);
   const [person, setPerson] = useState<Person | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -167,7 +169,7 @@ export function CourseMemberWorkspace({
             {view === "customers"
               ? filteredPeople.map((p) => (
                   <tr key={p.id}>
-                    <td className="p-3">{p.name}</td>
+                    <td className="p-3"><button className="min-h-11 font-medium text-primary-700 underline" onClick={() => { setPerson(p); open("person"); }}>{p.name}</button></td>
                     <td className="p-3">{p.phone || "—"}</td>
                     <td className="p-3">
                       {cards
@@ -197,6 +199,7 @@ export function CourseMemberWorkspace({
                           編輯
                         </button>
                       )}
+                      <button className={button} onClick={() => { setPerson(p); open("health"); }}>健康追蹤</button>
                       {canManageStaff && (
                         <button
                           className={button}
@@ -276,8 +279,8 @@ export function CourseMemberWorkspace({
           <header className="flex shrink-0 items-center justify-between border-b p-4">
             <h2 id="course-member-sheet" className="font-semibold">
               {panel === "person"
-                ? "顧客資料"
-                : panel === "plan"
+                ? "顧客詳細資料"
+                : panel === "health" ? "健康追蹤" : panel === "plan"
                   ? "點數方案"
                   : panel === "assign"
                     ? "指派方案"
@@ -320,6 +323,7 @@ export function CourseMemberWorkspace({
                 </p>
               </form>
             )}
+            {panel === "health" && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} />}
             {panel === "person" && (
               <form
                 id="course-member-form"
@@ -330,6 +334,7 @@ export function CourseMemberWorkspace({
                       id: person?.id,
                       name: d.get("name"),
                       phone: d.get("phone"),
+                      email: d.get("email"), gender: d.get("gender"), birthday: d.get("birthday"), height: d.get("height"), lineName: d.get("lineName"), serviceNote: d.get("serviceNote"),
                     }),
                   )
                 }
@@ -353,6 +358,14 @@ export function CourseMemberWorkspace({
                     maxLength={30}
                   />
                 </label>
+                <fieldset disabled={person ? !canEdit : !canCreate} className="space-y-3">
+                  <label className="block">電子信箱<input className={field} name="email" type="email" defaultValue={person?.email ?? ""} /></label>
+                  <label className="block">性別<select className={field} name="gender" defaultValue={person?.gender ?? ""}><option value="">未填</option><option value="男">男</option><option value="女">女</option><option value="其他">其他</option></select></label>
+                  <div>生日<BirthdayFields defaultValue={person?.birthday} className={field} /></div>
+                  <label className="block">身高（cm）<input className={field} name="height" type="number" min={30} max={250} step="any" defaultValue={person?.height ?? ""} /></label>
+                  <label className="block">LINE 名稱<input className={field} name="lineName" maxLength={100} defaultValue={person?.lineName ?? ""} /></label>
+                  <label className="block">顧客服務備註（後台限定）<textarea className={field} name="serviceNote" maxLength={2000} defaultValue={person?.serviceNote ?? ""} /></label>
+                </fieldset>
               </form>
             )}
             {panel === "plan" && (
@@ -521,7 +534,7 @@ export function CourseMemberWorkspace({
               </>
             )}
           </div>
-          {(panel !== "card" || canAssign) && (
+          {panel !== "health" && (panel !== "person" || (person ? canEdit : canCreate)) && (panel !== "card" || canAssign) && (
             <footer className="shrink-0 border-t bg-white p-4">
               <button
                 form="course-member-form"
@@ -558,7 +571,7 @@ export function CourseCardEntries({ card }: { card: CourseCardView }) {
   const labels: Record<string, string> = {
     GRANT: "指派入點",
     RESERVE: "預約占用",
-    RELEASE: "取消釋放",
+    RELEASE: "釋放占用",
     DEBIT: "點名扣點",
   };
   return (

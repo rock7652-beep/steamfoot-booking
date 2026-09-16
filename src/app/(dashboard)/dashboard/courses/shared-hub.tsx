@@ -1,3 +1,4 @@
+import { TrendChart } from "../ops/trend-chart";
 import { CourseSettingsEditor } from "./settings-editor";
 import { CourseMonthPicker } from "./month-picker";
 import { notFound, redirect } from "next/navigation";
@@ -7,7 +8,7 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
-import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
+import { monthRange, toLocalMonthStr, toLocalDateStr } from "@/lib/date-utils";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
@@ -51,17 +52,19 @@ export async function CourseSharedHub({
     view === "settings" ? "店家基本資訊" : "以已排定的課程資料了解排課狀況";
   let body: React.ReactNode;
   if (view === "settings") {
-    const [store, rule, canEdit] = await Promise.all([
+    const [store, rule, canEdit, config] = await Promise.all([
       prisma.store.findUnique({
         where: { id: storeId },
         select: { name: true },
       }),
       coursePrisma.courseBookingRule.findUnique({ where: { storeId } }),
       checkPermission(user.role, user.staffId, "business_hours.manage"),
+      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, mapUrl: true, lineOfficialUrl: true } }),
     ]);
     body = (
       <CourseSettingsEditor
         name={store?.name ?? ""}
+        address={config?.address ?? ""} mapUrl={config?.mapUrl ?? ""} lineOfficialUrl={config?.lineOfficialUrl ?? ""}
         bookingLeadMinutes={rule?.bookingLeadMinutes ?? 0}
         cancellationLeadMinutes={rule?.cancellationLeadMinutes ?? 0}
         canEdit={canEdit}
@@ -98,7 +101,7 @@ export async function CourseSharedHub({
           coachId: true,
           startsAt: true,
           endsAt: true,
-          bookings: { select: { status: true } },
+          bookings: { select: { status: true, customerId: true, checkedInAt: true, pointCost: true } },
         },
       }),
       prisma.staff.findMany({
@@ -113,6 +116,15 @@ export async function CourseSharedHub({
     const counts = new Map<string, number>();
     for (const s of sessions)
       counts.set(s.coachId, (counts.get(s.coachId) ?? 0) + 1);
+    const canReadCash = await checkPermission(user.role, user.staffId, "cashbook.read");
+    const cash = canReadCash ? await prisma.cashbookEntry.findMany({ where: { storeId, entryDate: { gte: new Date(`${month}-01T00:00:00Z`), lt: new Date(`${toLocalDateStr(new Date(bounds.end.getTime() + 1))}T00:00:00Z`) } }, select: { type: true, amount: true } }) : [];
+    const income = cash.filter((c) => c.type === "INCOME").reduce((n,c) => n+Number(c.amount),0);
+    const expense = cash.filter((c) => c.type === "EXPENSE").reduce((n,c) => n+Number(c.amount),0);
+    const dayKeys = [...new Set(sessions.map((s) => toLocalDateStr(s.startsAt)))].sort();
+    const daily = dayKeys.map((date) => {
+      const rows = sessions.filter((s) => toLocalDateStr(s.startsAt) === date).flatMap((s) => s.bookings);
+      return { date, bookingCount: rows.filter((b) => b.status !== "CANCELLED").length, arrivedCount: rows.filter((b) => b.status === "ATTENDED").length, revenue: 0, newCustomerCount: 0, returningCustomerCount: 0 };
+    });
     body = (
       <>
         <CourseMonthPicker month={month} />
@@ -122,19 +134,23 @@ export async function CourseSharedHub({
         <div className="grid grid-cols-3 overflow-hidden rounded-lg border border-earth-200 bg-white">
           {[
             ["已排課堂數", sessions.length, "堂"],
+            ["學員人數（去重）", new Set(sessions.flatMap((s) => s.bookings).filter((b) => b.status !== "CANCELLED").map((b) => b.customerId)).size, "人"],
+            ["報到待完成", sessions.flatMap((s) => s.bookings).filter((b) => b.status === "RESERVED" && b.checkedInAt).length, "人次"],
+            ["未到", sessions.flatMap((s) => s.bookings).filter((b) => b.status === "NO_SHOW").length, "人次"],
+            ["完成扣點", sessions.flatMap((s) => s.bookings).filter((b) => b.status === "ATTENDED").reduce((n,b) => n+b.pointCost,0), "點"],
             [
-              "預約人數",
+              "預約參與人次",
               sessions
                 .flatMap((s) => s.bookings)
                 .filter((b) => b.status !== "CANCELLED").length,
-              "人",
+              "人次",
             ],
             [
-              "已出席人數",
+              "已完成人次",
               sessions
                 .flatMap((s) => s.bookings)
                 .filter((b) => b.status === "ATTENDED").length,
-              "人",
+              "人次",
             ],
             ["排定授課時數", Math.round((minutes / 60) * 10) / 10, "小時"],
             ["排課教練", counts.size, "位"],
@@ -153,6 +169,8 @@ export async function CourseSharedHub({
             </section>
           ))}
         </div>
+        {canReadCash && <section className={card}><h2 className="font-semibold text-primary-900">本月實際收支</h2><p className="mt-2 text-sm">收入 NT$ {income.toLocaleString()} · 支出 NT$ {expense.toLocaleString()} · 淨收支 NT$ {(income-expense).toLocaleString()}</p><p className="mt-1 text-xs text-earth-500">依營運收支明細的記帳日期計算；指派點數本身不代表已收款。</p></section>}
+        <section className={card}><h2 className="mb-3 font-semibold text-primary-900">每日參與與完成</h2>{daily.length ? <TrendChart data={daily} metric="bookings" bookingLabels={{ booked: "參與人次", arrived: "完成人次" }} /> : <p className="text-sm">本月尚無課程。</p>}</section>
         <section className={card}>
           <h2 className="font-semibold text-primary-900">教練排課量</h2>
           {counts.size ? (
@@ -177,13 +195,13 @@ export async function CourseSharedHub({
           )}
         </section>
         <Pending>
-          預約與出席依本月課程的實際紀錄計算，已取消預約不計入預約人數。
+          依課程日期歸月，取消不計入參與。人數以實際上課者去重；同一人參加兩堂為一人、兩人次。報到仍占用點數，完成才扣點；未到不扣點。
         </Pending>
       </>
     );
   }
   return (
-    <PageShell>
+    <PageShell className="course-workspace">
       <PageHeader title={title} subtitle={subtitle} />
       <div className="space-y-5">{body}</div>
     </PageShell>

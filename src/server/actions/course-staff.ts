@@ -35,6 +35,9 @@ export async function saveCourseStaff(input: unknown) {
       .object({
         id: id.optional(),
         name: z.string().trim().min(1).max(80),
+        phone: z.string().trim().max(30).default(""),
+        emergencyContactName: z.string().trim().max(80).default(""),
+        emergencyContactPhone: z.string().trim().max(30).default(""),
         kind: z.enum(["manager", "coach"]),
         email: z.string().email().optional(),
         password: z.string().min(8).max(100).optional(),
@@ -45,6 +48,9 @@ export async function saveCourseStaff(input: unknown) {
         requestKey: z.string().uuid(),
       })
       .parse(input);
+    if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
+      throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
+    const contacts = { phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
     const limits = await getStoreLimitsByStoreId(storeId);
     if (!d.id && d.kind === "manager" && (!d.email || !d.password))
       throw new AppError("VALIDATION", "建立店長必須填登入信箱與密碼");
@@ -128,6 +134,7 @@ export async function saveCourseStaff(input: unknown) {
           await tx.staff.update({
             where: { id: existing.id },
             data: {
+              ...contacts,
               displayName: d.name,
               status: d.active ? "ACTIVE" : "INACTIVE",
               spaceFeeEnabled: false,
@@ -138,7 +145,7 @@ export async function saveCourseStaff(input: unknown) {
           if (d.kind === "manager")
             await tx.user.update({
               where: { id: existing.userId },
-              data: { name: d.name, status: d.active ? "ACTIVE" : "SUSPENDED" },
+              data: { name: d.name, status: d.active ? "ACTIVE" : "SUSPENDED", ...(d.email ? { email: d.email } : {}), ...(passwordHash ? { passwordHash } : {}) },
             });
         } else
           await tx.user.create({
@@ -153,7 +160,8 @@ export async function saveCourseStaff(input: unknown) {
                 create: {
                   id: staffId,
                   storeId,
-                  displayName: d.name,
+                  ...contacts,
+              displayName: d.name,
                   colorCode: colors[count % colors.length],
                   spaceFeeEnabled: false,
                   status: d.active ? "ACTIVE" : "INACTIVE",

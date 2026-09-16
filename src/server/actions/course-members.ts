@@ -25,6 +25,7 @@ function refresh() {
 }
 const bookingInput = z.object({
   sessionId: id,
+  notes: z.string().trim().max(1000).default(""),
   cardId: id,
   customerId: id,
   requestKey: z.string().uuid(),
@@ -37,15 +38,31 @@ export async function saveCourseCustomer(input: unknown) {
         id: id.optional(),
         name: z.string().trim().min(1).max(80),
         phone: z.string().trim().max(30).default(""),
+        email: z.union([z.string().email(), z.literal("")]).optional(),
+        gender: z.string().max(20).optional(),
+        birthday: z.string().optional(),
+        height: z.union([z.coerce.number().min(30).max(250), z.literal("")]).optional(),
+        lineName: z.string().trim().max(100).optional(),
+        serviceNote: z.string().trim().max(2000).optional(),
       })
       .parse(input);
     const { storeId } = await courseManager(
       data.id ? "customer.update" : "customer.create",
     );
+    if (data.birthday && !parseTaipeiDateTime(data.birthday, "00:00")) throw new AppError("VALIDATION", "生日格式不正確");
+    const profile = {
+      name: data.name, phone: data.phone,
+      ...(data.email !== undefined ? { email: data.email || null } : {}),
+      ...(data.gender !== undefined ? { gender: data.gender || null } : {}),
+      ...(data.birthday !== undefined ? { birthday: data.birthday ? new Date(`${data.birthday}T00:00:00.000Z`) : null } : {}),
+      ...(data.height !== undefined ? { height: data.height || null } : {}),
+      ...(data.lineName !== undefined ? { lineName: data.lineName || null } : {}),
+      ...(data.serviceNote !== undefined ? { serviceNote: data.serviceNote || null } : {}),
+    };
     if (data.id) {
       const result = await prisma.customer.updateMany({
         where: { id: data.id, storeId, mergedIntoCustomerId: null },
-        data: { name: data.name, phone: data.phone },
+        data: profile,
       });
       if (!result.count) throw new AppError("NOT_FOUND", "找不到本店顧客");
     } else {
@@ -59,7 +76,7 @@ export async function saveCourseCustomer(input: unknown) {
         if (limits.maxCustomers !== null && count >= limits.maxCustomers)
           throw new AppError("FORBIDDEN", "已達方案顧客額度上限");
         await tx.customer.create({
-          data: { storeId, name: data.name, phone: data.phone },
+          data: { storeId, ...profile },
         });
       });
     }
@@ -253,7 +270,7 @@ export async function updateCourseBookingStatus(input: unknown) {
     const data = z
       .object({
         bookingId: id,
-        status: z.enum(["CANCELLED", "ATTENDED"]),
+        status: z.enum(["CANCELLED", "ATTENDED", "CHECKED_IN", "NO_SHOW"]),
         member: z.boolean().default(false),
       })
       .parse(input);
@@ -301,7 +318,7 @@ export async function cancelCourseSession(input: unknown) {
         throw new AppError("CONFLICT", "預約人數已變動，請重新核對後取消");
       if (bookings.some((b) => b.status === "ATTENDED"))
         throw new AppError("CONFLICT", "此課已有完成點名紀錄，不能整堂取消");
-      for (const b of bookings)
+      for (const b of bookings.filter((b) => b.status === "RESERVED"))
         await settleCourseBooking(
           tx,
           { storeId, userId: user.id, name: user.name ?? "店長" },
@@ -337,6 +354,8 @@ export async function loadCourseSessionDetail(sessionId: string) {
       user.staffId,
       "booking.create",
     );
+    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true } });
+    if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const [roster, cards] = await Promise.all([
       getCourseRoster(storeId, sessionId),
       canCreate ? getCourseCards(storeId) : [],
@@ -345,6 +364,7 @@ export async function loadCourseSessionDetail(sessionId: string) {
       success: true as const,
       data: {
         roster,
+        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost },
         cards: cards.map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],

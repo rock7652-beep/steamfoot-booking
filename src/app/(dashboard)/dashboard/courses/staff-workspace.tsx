@@ -9,6 +9,9 @@ type Person = {
   name: string;
   kind: "manager" | "coach";
   email: string;
+  phone: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
   active: boolean;
   memberEnabled: boolean;
   permissions: string[];
@@ -39,18 +42,20 @@ export function CourseStaffWorkspace({
     [kind, setKind] = useState<"coach" | "manager">("coach"),
     [error, setError] = useState(""),
     [key, setKey] = useState("");
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [pending, start] = useTransition();
   const router = useRouter();
   const rows = staff
     .filter(
       (s) =>
-        `${s.name} ${s.email}`.includes(search) &&
+        `${s.name} ${s.phone} ${s.email}`.includes(search) &&
         (filter === "all" || s.active === (filter === "active")) &&
         (role === "all" || s.kind === role),
     )
     .sort((a, b) => Number(b.active) - Number(a.active));
   function edit(p: Person | null) {
     setPerson(p);
+    setPermissions(p?.permissions ?? permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
     setKind(p?.kind ?? "coach");
     setError("");
     setKey(crypto.randomUUID());
@@ -62,7 +67,7 @@ export function CourseStaffWorkspace({
         <input
           className={`${field} max-w-xs`}
           aria-label="搜尋人員"
-          placeholder="搜尋姓名／信箱"
+          placeholder="搜尋姓名／電話／信箱"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -173,13 +178,16 @@ export function CourseStaffWorkspace({
                       id: person?.id,
                       name: d.get("name"),
                       kind,
+                      phone: d.get("phone"),
+                      emergencyContactName: d.get("emergencyContactName"),
+                      emergencyContactPhone: d.get("emergencyContactPhone"),
                       email:
-                        !person && kind === "manager"
+                        kind === "manager"
                           ? d.get("email")
                           : undefined,
                       password:
-                        !person && kind === "manager"
-                          ? d.get("password")
+                        kind === "manager"
+                          ? d.get("password") || undefined
                           : undefined,
                       customerId:
                         kind === "coach"
@@ -191,7 +199,7 @@ export function CourseStaffWorkspace({
                           ? d.get("memberEnabled") === "yes"
                           : true,
                       permissions:
-                        kind === "manager" ? d.getAll("permission") : undefined,
+                        kind === "manager" ? permissions : undefined,
                       requestKey: key,
                     });
                     if (!r.success) setError(r.error);
@@ -226,6 +234,11 @@ export function CourseStaffWorkspace({
                   required
                 />
               </label>
+              {([
+                ["phone", "電話"],
+                ["emergencyContactName", "緊急聯絡人姓名"],
+                ["emergencyContactPhone", "緊急聯絡人電話"],
+              ] as const).map(([name, label]) => <label className="block" key={name}>{label}<input className={field} name={name} type={name.endsWith("Phone") || name === "phone" ? "tel" : "text"} defaultValue={person?.[name]} /></label>)}
               {kind === "coach" ? (
                 <label className="block">
                   連結既有顧客
@@ -246,7 +259,6 @@ export function CourseStaffWorkspace({
                   </span>
                 </label>
               ) : (
-                !person && (
                   <>
                     <label className="block">
                       登入信箱
@@ -254,22 +266,22 @@ export function CourseStaffWorkspace({
                         className={field}
                         name="email"
                         type="email"
+                        defaultValue={person?.email}
                         required
                       />
                     </label>
                     <label className="block">
-                      登入密碼
+                      {person ? "重設密碼（留空保留原密碼）" : "登入密碼"}
                       <input
                         className={field}
                         name="password"
                         type="password"
                         minLength={8}
-                        required
+                        required={!person}
                         autoComplete="new-password"
                       />
                     </label>
                   </>
-                )
               )}
               {kind === "coach" && (
                 <label className="block">
@@ -301,11 +313,11 @@ export function CourseStaffWorkspace({
                 </select>
               </label>
               {kind === "manager" && (
-                <details open>
-                  <summary>店內管理權限</summary>
+                <section>
+                  <h3 className="font-semibold text-primary-800">店內管理權限 · 已開啟 {permissions.length} 項</h3>
                   {permissionGroups.map((g) => (
-                    <fieldset key={g.label} className="mt-3">
-                      <legend className="font-medium">{g.label}</legend>
+                    <details key={g.label} className="mt-2 rounded-lg border border-earth-200 px-3">
+                      <summary className="cursor-pointer py-3 font-medium text-primary-800">{g.label} · {g.codes.filter((c) => permissions.includes(c.code)).length}／{g.codes.length} 已開啟</summary>
                       {g.codes.map(({ code, label }) => (
                         <label
                           key={code}
@@ -315,16 +327,15 @@ export function CourseStaffWorkspace({
                             type="checkbox"
                             name="permission"
                             value={code}
-                            defaultChecked={
-                              person ? person.permissions.includes(code) : true
-                            }
+                            checked={permissions.includes(code)}
+                            onChange={(e) => setPermissions((p) => e.target.checked ? [...p, code] : p.filter((v) => v !== code))}
                           />
                           {label}
                         </label>
                       ))}
-                    </fieldset>
+                    </details>
                   ))}
-                </details>
+                </section>
               )}
             </form>
           </div>

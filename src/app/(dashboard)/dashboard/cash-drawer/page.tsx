@@ -109,7 +109,6 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
         }
       />
 
-      {courseHome && <CourseTodaySummary />}
       <CashDrawerWorkspace
         compactSetup={courseHome}
         view={view}
@@ -125,6 +124,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
         staffOptions={staffOptions}
         returnPath={courseHome ? "/dashboard" : "/dashboard/cash-drawer"}
       />
+      {courseHome && <div className="mt-5"><CourseTodaySummary /></div>}
     </PageShell>
   );
 }

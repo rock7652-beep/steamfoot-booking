@@ -126,6 +126,8 @@ model CourseBooking {
   customerName String
   pointCost Int
   status String @default("RESERVED")
+  checkedInAt DateTime? @db.Timestamptz(3)
+  notes String @default("")
   requestKey String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

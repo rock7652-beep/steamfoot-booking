@@ -991,6 +991,9 @@ model StoreSettlement {
 // ============================================================
 
 model Staff {
+  phone String @default("")
+  emergencyContactName String @default("")
+  emergencyContactPhone String @default("")
   id              String      @id @default(cuid())
   userId          String      @unique
   storeId         String

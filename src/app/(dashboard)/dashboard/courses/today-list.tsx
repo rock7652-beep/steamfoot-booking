@@ -12,6 +12,7 @@ type Row = {
   coach: string;
   room: string;
   booked: number;
+  customerIds: string[];
   unmarked: number;
 };
 export function CourseTodayList({
@@ -28,9 +29,9 @@ export function CourseTodayList({
   return (
     <>
       <p className="border-b px-4 py-3 text-sm">
-        今日 {sessions.length} 堂 · 預約{" "}
-        {sessions.reduce((n, s) => n + s.booked, 0)} 人 · 未點名{" "}
-        {sessions.reduce((n, s) => n + s.unmarked, 0)} 人
+        今日 {sessions.length} 堂課 · 共 {new Set(sessions.flatMap((s) => s.customerIds)).size} 人 · 參與{" "}
+        {sessions.reduce((n, s) => n + s.booked, 0)} 人次 · 未完成{" "}
+        {sessions.reduce((n, s) => n + s.unmarked, 0)} 人次
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">

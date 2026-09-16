@@ -41,7 +41,7 @@ export async function CourseMemberPage({
       canReadPeople
         ? prisma.customer.findMany({
             where: { storeId, mergedIntoCustomerId: null },
-            select: { id: true, name: true, phone: true },
+            select: { id: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true },
             orderBy: { name: "asc" },
           })
         : [],
@@ -68,11 +68,11 @@ export async function CourseMemberPage({
         : false,
     ]);
   return (
-    <PageShell>
+    <PageShell className="course-workspace">
       <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} />
       <CourseMemberWorkspace
         view={view}
-        people={people}
+        people={people.map((p) => ({ ...p, birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
         plans={plans}
         cards={cards}
         canEdit={canEdit}

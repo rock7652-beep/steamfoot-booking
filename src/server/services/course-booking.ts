@@ -22,6 +22,7 @@ export async function reserveCourse(
     cardId: string;
     customerId: string;
     requestKey: string;
+    notes?: string;
   },
 ) {
   const limits = await getStoreLimitsByStoreId(actor.storeId);
@@ -127,7 +128,7 @@ export async function settleCourseBooking(
   tx: Prisma.TransactionClient,
   actor: CourseActor,
   bookingId: string,
-  target: "CANCELLED" | "ATTENDED",
+  target: "CANCELLED" | "ATTENDED" | "CHECKED_IN" | "NO_SHOW",
 ) {
   const booking = await tx.courseBooking.findFirst({
     where: { id: bookingId, storeId: actor.storeId },
@@ -142,6 +143,17 @@ export async function settleCourseBooking(
   if (booking.status === target) return booking;
   if (booking.status !== "RESERVED")
     return fail("此預約已結算或取消，不能重複操作");
+  if (target === "CHECKED_IN" || target === "NO_SHOW") {
+    if (actor.customerId) return fail("點名僅限有權限的人員");
+    if (target === "NO_SHOW" && booking.session.startsAt > new Date())
+      return fail("課程尚未開始，不能標記未到");
+    if (target === "CHECKED_IN") {
+      if (booking.checkedInAt) return booking;
+      return tx.courseBooking.update({
+        where: { id: booking.id }, data: { checkedInAt: new Date() },
+      });
+    }
+  }
   if (target === "ATTENDED") {
     if (actor.customerId) return fail("點名僅限有權限的人員");
     if (booking.session.startsAt > new Date())

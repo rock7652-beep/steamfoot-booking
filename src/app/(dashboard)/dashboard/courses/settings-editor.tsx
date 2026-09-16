@@ -4,11 +4,13 @@ import { useRouter } from "next/navigation";
 import { saveCourseSettings } from "@/server/actions/course-settings";
 export function CourseSettingsEditor({
   name,
+  address, mapUrl, lineOfficialUrl,
   bookingLeadMinutes,
   cancellationLeadMinutes,
   canEdit,
 }: {
   name: string;
+  address: string; mapUrl: string; lineOfficialUrl: string;
   bookingLeadMinutes: number;
   cancellationLeadMinutes: number;
   canEdit: boolean;
@@ -27,6 +29,7 @@ export function CourseSettingsEditor({
           try {
             const r = await saveCourseSettings({
               name: d.get("name"),
+              address: d.get("address"), mapUrl: d.get("mapUrl"), lineOfficialUrl: d.get("lineOfficialUrl"),
               bookingLeadMinutes: Number(d.get("booking")),
               cancellationLeadMinutes: Number(d.get("cancel")),
             });
@@ -48,6 +51,8 @@ export function CourseSettingsEditor({
           disabled={!canEdit}
         />
       </label>
+      {([ ["address", "店家地址", address], ["mapUrl", "地圖網址", mapUrl], ["lineOfficialUrl", "LINE 官方帳號網址", lineOfficialUrl] ] as const).map(([key, label, value]) => <label key={key} className="block">{label}<input className={field} name={key} type={key === "address" ? "text" : "url"} defaultValue={value} disabled={!canEdit} /></label>)}
+      <h2 className="border-b border-gold-300 pb-2 font-semibold text-primary-800">預約與取消規則</h2>
       <label className="block">
         上課前幾分鐘截止預約
         <input
@@ -76,7 +81,7 @@ export function CourseSettingsEditor({
       </label>
       <p className="text-sm text-earth-500">
         0
-        表示上課開始前可操作。預約占用點數，出席點名才扣點；取消未完成預約釋放占用。截止後請由店長處理，不另加取消費用。
+        表示上課開始前可操作。預約占用點數，報到不扣點，完成點名才扣點；取消或未到釋放占用。截止後請由店長處理，不另加取消費用。
       </p>
       {message && <p role="status">{message}</p>}
       {canEdit && (

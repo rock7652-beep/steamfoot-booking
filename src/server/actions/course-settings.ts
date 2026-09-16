@@ -12,12 +12,16 @@ export async function saveCourseSettings(input: unknown) {
     const d = z
       .object({
         name: z.string().trim().min(1).max(100),
+        address: z.string().trim().max(300).default(""),
+        mapUrl: z.union([z.string().url().refine((v) => v.startsWith("https://"), "請使用 HTTPS 網址"), z.literal("")]).default(""),
+        lineOfficialUrl: z.union([z.string().url().refine((v) => v.startsWith("https://"), "請使用 HTTPS 網址"), z.literal("")]).default(""),
         bookingLeadMinutes: z.number().int().min(0).max(43200),
         cancellationLeadMinutes: z.number().int().min(0).max(43200),
       })
       .parse(input);
     await courseTransaction(storeId, async (tx) => {
       await tx.$executeRaw`UPDATE "Store" SET name = ${d.name}, "updatedAt" = NOW() WHERE id = ${storeId}`;
+      await tx.$executeRaw`INSERT INTO "ShopConfig" (id, "storeId", "shopName", address, "mapUrl", "lineOfficialUrl", "updatedAt") VALUES (${`course-config:${storeId}`}, ${storeId}, ${d.name}, ${d.address || null}, ${d.mapUrl || null}, ${d.lineOfficialUrl || null}, NOW()) ON CONFLICT ("storeId") DO UPDATE SET "shopName" = EXCLUDED."shopName", address = EXCLUDED.address, "mapUrl" = EXCLUDED."mapUrl", "lineOfficialUrl" = EXCLUDED."lineOfficialUrl", "updatedAt" = NOW()`;
       const rules = {
         bookingLeadMinutes: d.bookingLeadMinutes,
         cancellationLeadMinutes: d.cancellationLeadMinutes,
