@@ -987,7 +987,7 @@ export default function DashboardShell({
     </nav>
   );
 
-  const guideEnabled = operationGuidePreview && !isHqRoute && industryModule === "steamfoot" && (isOwner || permissions.includes("booking.read"));
+  const guideEnabled = operationGuidePreview && !isHqRoute && permissions.length > 0;
 
   // The studio itself owns the screen. Iframe pages use devicePreview=1 and
   // deliberately retain this shell for real dashboard navigation.
@@ -996,7 +996,7 @@ export default function DashboardShell({
   }
 
   return (
-    <OperationGuideShell enabled={guideEnabled}>
+    <OperationGuideShell enabled={guideEnabled} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside

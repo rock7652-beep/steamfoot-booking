@@ -76,3 +76,32 @@ export function searchBookingGuides(query: string, bookingStatus?: string) {
     return terms.every((term) => text.includes(term));
   });
 }
+
+import { additionalGuides, guideCategories } from "./operation-guide-catalog";
+import type { GuideAccess, OperationGuide } from "./operation-guide-types";
+export { guideCategories };
+export const operationGuides: OperationGuide[] = [
+  ...bookingGuides.map((guide): OperationGuide => ({ ...guide, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx"], verification: "source-reviewed" })),
+  ...additionalGuides,
+];
+export function availableGuides(access: GuideAccess) {
+  return operationGuides.filter(g => g.modules.includes(access.module) &&
+    (!g.permission || access.permissions.includes(g.permission)) &&
+    (!g.feature || access.features[g.feature] === true));
+}
+export function guideCategoryForPath(pathname: string) {
+  const path = pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)/, "");
+  if (path === "/dashboard/guide") return null;
+  if (/^\/dashboard\/customers\/[^/]+\/health(?:\/|$)/.test(path)) return "health";
+  if (path.startsWith("/dashboard/growth")) return "customers";
+  return guideCategories.flatMap(c => c.routes.map(route => ({ category: c.id, route })))
+    .filter(({route}) => path === route || (route !== "/dashboard" && path.startsWith(route + "/")))
+    .sort((a,b) => b.route.length - a.route.length)[0]?.category ?? null;
+}
+export function findOperationGuides(query: string, access: GuideAccess) {
+  const terms = query.trim().toLocaleLowerCase().split(/[\s、，,]+/).filter(Boolean);
+  return availableGuides(access).filter(g => {
+    const text = [g.title, g.summary, g.keywords, g.path, ...g.steps, g.important, ...g.details].join(" ").toLocaleLowerCase();
+    return terms.every(term => text.includes(term));
+  });
+}

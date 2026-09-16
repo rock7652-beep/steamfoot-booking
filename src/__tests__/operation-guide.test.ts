@@ -25,7 +25,7 @@ beforeEach(() => {
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
   host = document.createElement("div"); document.body.append(host);
   root = createRoot(host);
-  act(() => root.render(createElement(OperationGuideShell, { enabled: true }, createElement("div", null,
+  act(() => root.render(createElement(OperationGuideShell, { enabled: true, access: { module: "steamfoot", permissions: ["booking.read", "booking.update"], features: {} } }, createElement("div", null,
     createElement("textarea", { "aria-label": "既有未儲存內容", defaultValue: "草稿保留" }),
     createElement(OperationGuideTrigger)))));
 });
@@ -41,7 +41,7 @@ describe("operation guide preview", () => {
   it("opens questions first, expands cancellation consequences, and preserves page drafts", () => {
     const draft = host.querySelector("textarea")!;
     click("？操作指南");
-    expect(host.textContent).toContain("你現在想處理什麼");
+    expect(host.textContent).toContain("搜尋操作問題");
     click("取消預約");
     expect(host.querySelectorAll("ol li")).toHaveLength(3);
     expect(host.textContent).toContain("取消預約不等於退費");
@@ -52,11 +52,11 @@ describe("operation guide preview", () => {
     expect(draft.value).toBe("草稿保留");
     click("？操作指南");
     expect(host.querySelectorAll("ol li")).toHaveLength(3);
-    click("查看此頁相關問題");
+    click("本頁相關");
     expect(host.querySelectorAll("ol li")).toHaveLength(0);
   });
   it("has one header entry and receives the current booking context", () => {
-    act(() => root.render(createElement(OperationGuideShell, { enabled: true }, createElement("div", null, createElement(OperationGuideTrigger), createElement(BookingGuideContext, { status: "COMPLETED" })))));
+    act(() => root.render(createElement(OperationGuideShell, { enabled: true, access: { module: "steamfoot", permissions: ["booking.read", "booking.update"], features: {} } }, createElement("div", null, createElement(OperationGuideTrigger), createElement(BookingGuideContext, { status: "COMPLETED" })))));
     expect([...host.querySelectorAll("button")].filter((b) => b.textContent === "？操作指南")).toHaveLength(1);
     click("？操作指南");
     expect(host.textContent).toContain("這筆預約已完成");
