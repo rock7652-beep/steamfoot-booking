@@ -229,7 +229,7 @@ export default async function CustomerLayout({
   const customerFacingStoreName = getCustomerFacingStoreName(currentStore);
   if (industryModule === "course" && !["/profile", "/member-stores", "/member-link"].some(p => pathname.startsWith(p))) {
     if (pathname !== "/book") redirect(`/s/${storeCtx.storeSlug}/book`);
-    return <div className="mx-auto min-h-screen w-full max-w-[430px] bg-earth-50"><header className="flex items-center justify-between gap-2 border-b bg-white px-4 py-1 text-sm"><span>{customerFacingStoreName}</span><form action={logoutAction}><input type="hidden" name="storeSlug" value={storeCtx.storeSlug} /><button className="min-h-11 px-3">登出</button></form></header>{children}</div>;
+    return <div className="mx-auto min-h-screen w-full max-w-[430px] bg-earth-50">{children}</div>;
   }
   const isSpaMemberPortal = industryModule === "spa";
   const healthAssessmentEnabled = await hasStoreFeature(

@@ -8,6 +8,8 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
+import { logoutAction } from "@/server/actions/auth";
+import { LogoutButton } from "@/components/logout-button";
 import {
   courseDate,
   courseMonthDays,
@@ -658,7 +660,7 @@ export function CoursePortalClient(p: CoursePortalData) {
     <div className="course-portal">
       <div inert={modal}>
         <header className="cp-top">
-          <SteamButlerLogo compact />
+          <div className="cp-brand"><SteamButlerLogo compact /><small>{p.storeName}</small></div>
           {p.hasWork && p.memberEnabled ? (
             <select
               aria-label="身分"
@@ -716,7 +718,7 @@ export function CoursePortalClient(p: CoursePortalData) {
           ) && <button onClick={back}>‹ 返回</button>}
           {page === "home" && (
             <>
-              {heading(coach ? "今天的工作" : "會員首頁", p.storeName)}
+              {heading(coach ? "今天的工作" : "會員首頁")}
               <section className="cp-card cp-next">
                 <div>
                   <small>{coach ? "下一堂課" : "下一次上課"}</small>
@@ -1148,6 +1150,12 @@ export function CoursePortalClient(p: CoursePortalData) {
                   </section>
                 ))}
             </>
+          )}
+          {(page === "account" || (coach && page === "home")) && (
+            <form action={logoutAction} className="cp-logout">
+              <input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""} />
+              <LogoutButton className="cp-menu" />
+            </form>
           )}
         </main>
       </div>

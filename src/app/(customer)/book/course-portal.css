@@ -45,15 +45,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   background: white;
-  padding: 10px 16px;
+  padding: 8px 16px;
   border-bottom: 1px solid #c2ad72;
 }
 .cp-main {
   max-width: 430px;
   margin: auto;
-  padding: 20px 16px calc(100px + env(safe-area-inset-bottom));
+  padding: 8px 16px calc(100px + env(safe-area-inset-bottom));
 }
 .cp-title {
   margin-bottom: 16px;
@@ -433,7 +433,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
   font-size: 12px;
   color: #61715c;
 }
@@ -446,3 +446,9 @@
   background: #315b49;
   color: white;
 }
+.cp-brand { min-width: 0; flex: 1; }
+.cp-brand small { display: block; font-size: 11px; line-height: 1.4; margin-top: 2px; color: #61715c; }
+.cp-top select { flex-shrink: 0; font-size: 16px; max-width: 48%; }
+.course-portal input, .course-portal select, .course-portal textarea { font-size: 16px; }
+.cp-refresh button { border: 0; padding: 8px 4px; background: transparent; font-size: 12px; }
+.cp-logout { margin-top: 16px; }

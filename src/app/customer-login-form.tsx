@@ -103,7 +103,7 @@ export function CustomerLoginForm({
                 handlePhoneCheck();
               }
             }}
-            className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2.5 text-base focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </div>
 
@@ -155,7 +155,9 @@ export function CustomerLoginForm({
 
   // ── Step: Password ──
   return (
-    <form action={loginAction} className="space-y-4">
+    <form action={loginAction} className="space-y-4" onSubmit={() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    }}>
       {loginState.error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
           {loginState.error}
@@ -187,7 +189,7 @@ export function CustomerLoginForm({
           required
           placeholder="請輸入密碼"
           autoFocus
-          className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2.5 text-base focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
       </div>
 
