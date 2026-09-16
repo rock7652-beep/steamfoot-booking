@@ -126,9 +126,9 @@ export async function customerRegisterAction(
   }
 
   // 檢查手機是否已有顧客帳號（同店）
-  const existingCustomer = await prisma.customer.findFirst({ where: { phone, storeId } });
+  const existingCustomer = await prisma.customer.findFirst({ where: { phone, storeId }, include: { identityLinks: { select: { userId: true }, take: 1 } } });
   if (existingCustomer) {
-    if (existingCustomer.userId) {
+    if (existingCustomer.userId || existingCustomer.identityLinks?.length) {
       return { error: "此手機號碼已註冊，請直接登入" };
     }
     // Official LINE phone binding is notification-only. It intentionally
@@ -155,7 +155,7 @@ export async function customerRegisterAction(
     include: {
       customer: { select: { storeId: true } },
       customerIdentityLinks: {
-        where: { storeId, provider: "phone" },
+        where: { storeId },
         select: { customerId: true },
         take: 1,
       },
@@ -254,6 +254,8 @@ export async function customerRegisterAction(
                 storeId,
                 phone,
                 userId: null,
+                identityLinks: { none: {} },
+                mergedIntoCustomerId: null,
                 lineUserId: existingCustomer.lineUserId,
                 lineLinkStatus: "LINKED",
               },

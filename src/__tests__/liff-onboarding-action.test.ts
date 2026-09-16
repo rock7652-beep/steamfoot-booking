@@ -18,6 +18,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── mocks (必須在 import action 之前) ──
+const mockMember = vi.fn();
+vi.mock("@/server/services/verified-line-customer", () => ({ resolveVerifiedLineCustomer: (...args: unknown[]) => mockMember(...args) }));
 const mockVerify = vi.fn();
 const mockResolveStoreBySlug = vi.fn();
 const mockBindLine = vi.fn();
@@ -91,6 +93,7 @@ describe("submitOnboarding action (PR-C2)", () => {
   });
 
   beforeEach(() => {
+    mockMember.mockReset().mockResolvedValue(null);
     vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", CHANNEL);
     mockIdentitySync.mockReset().mockResolvedValue({ status: "upserted" });
     mockVerify.mockReset();
@@ -112,6 +115,19 @@ describe("submitOnboarding action (PR-C2)", () => {
   // Helper success → ok
   // ────────────────────────────────────────────────────────
 
+  it("uses a verified existing membership before looking up the submitted phone", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockMember.mockResolvedValueOnce({ id: "existing", userId: "owner" });
+    expect(await submitOnboarding(VALID_INPUT)).toEqual({ status: "ok" });
+    expect(mockBindLine).not.toHaveBeenCalled();
+  });
+  it("does not suggest retrying a permanent identity collision", async () => {
+    mockVerify.mockResolvedValueOnce(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValueOnce(STORE);
+    mockBindLine.mockResolvedValueOnce({ status: "unique_conflict", conflictTarget: "phone,role" });
+    expect(await submitOnboarding(VALID_INPUT)).toEqual({ status: "ambiguous" });
+  });
   describe("helper success → ok", () => {
     it("created_new → ok", async () => {
       mockVerify.mockResolvedValueOnce(verifiedOk());

@@ -90,6 +90,12 @@ describe("customerRegisterAction notification prebind", () => {
     }));
   });
 
+  it("recognizes LINE-only membership before offering password activation", async () => {
+    mockCustomerFindFirst.mockResolvedValueOnce({ id: "existing", userId: null, lineUserId: null, identityLinks: [{ userId: "owner" }] });
+    const { customerRegisterAction } = await import("@/server/actions/customer-auth");
+    expect(await customerRegisterAction({ error: null }, formData())).toEqual({ error: "此手機號碼已註冊，請直接登入" });
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
   it("keeps ordinary back-office customers on the activation flow", async () => {
     mockCustomerFindFirst.mockResolvedValueOnce({
       id: "customer-manual",

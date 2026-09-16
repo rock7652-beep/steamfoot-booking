@@ -44,6 +44,7 @@ type State =
   | { kind: "initializing" }
   | { kind: "not_in_line_app" }
   | { kind: "expired" }
+  | { kind: "identity_review_required" }
   | { kind: "service_unavailable" }
   | { kind: "no_customer" }
   | {
@@ -106,6 +107,9 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
       switch (result.status) {
         case "need_onboarding":
           router.replace(`/s/${storeSlug}/liff/onboarding`);
+          return;
+        case "identity_review_required":
+          setState({ kind: "identity_review_required" });
           return;
         case "expired":
           setState({ kind: "expired" });
@@ -177,6 +181,16 @@ export function HealthView({ storeSlug, storeName, liffId, contactUrl }: Props) 
           storeSlug={storeSlug}
           contactUrl={contactUrl}
           showRetry
+        />
+      )}
+
+      {state.kind === "identity_review_required" && (
+        <InfoBlock
+          tone="red"
+          body={liffMessages.error.identityReview}
+          storeSlug={storeSlug}
+          contactUrl={contactUrl}
+          showContactStore
         />
       )}
 

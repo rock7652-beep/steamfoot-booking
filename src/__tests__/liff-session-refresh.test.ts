@@ -25,3 +25,7 @@ describe("shared LIFF session refresh", () => {
     expect((await refreshLiffSession(input, async () => ({ status: "error", code: "ID_TOKEN_EXPIRED" }))).status).toBe("expired");
   });
 });
+
+it("preserves identity review separately from retryable outages", async () => {
+  expect(await refreshLiffSession(input, async () => ({ status: "error", code: "IDENTITY_REVIEW_REQUIRED" }))).toEqual({ status: "identity_review_required" });
+});

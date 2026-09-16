@@ -22,6 +22,7 @@
 
 import { z } from "zod";
 import { signIn } from "@/lib/auth";
+import { LineIdentityReviewError } from "@/server/services/line-identity-review";
 import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
 import {
   LiffIdTokenError,
@@ -63,6 +64,7 @@ type ResponseBody =
         | "ID_TOKEN_ISS_MISMATCH"
         | "VERIFY_NETWORK"
         | "SESSION_MINT_FAILED"
+        | "IDENTITY_REVIEW_REQUIRED"
         | "INTERNAL";
       message: string;
     };
@@ -149,8 +151,12 @@ export async function POST(req: Request): Promise<Response> {
   // ── 5. Customer lookup ──
   let customer;
   try {
-    customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId);
-  } catch {
+    customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true });
+  } catch (error) {
+    if (error instanceof LineIdentityReviewError) {
+      console.warn("[liff/exchange] identity review required", { storeId: store.id, reason: error.reason });
+      return json({ status: "error", code: "IDENTITY_REVIEW_REQUIRED", message: "membership verification required" }, 409);
+    }
     logLineBindEvent({ path: "liff-exchange", status: "unexpected_error",
       storeId: store.id, storeSlug: store.slug, errorCode: "IDENTITY_LOOKUP_FAILED" });
     return json({ status: "error", code: "INTERNAL", message: "identity lookup unavailable" }, 503);

@@ -18,6 +18,8 @@
  *   - 不改 helper / exchange / OAuth / webhook
  */
 
+import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-customer";
+import { LineIdentityReviewError } from "@/server/services/line-identity-review";
 import { z } from "zod";
 import { verifyLiffIdToken, LiffIdTokenError } from "@/lib/liff/verify-id-token";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
@@ -86,6 +88,16 @@ export async function submitOnboarding(
   // ── 4. Resolve store ─────────────────────────────────
   const store = await resolveStoreBySlug(storeSlug);
   if (!store) {
+    return { status: "service_unavailable" };
+  }
+
+  // Recheck verified ownership even if this page was opened directly or left open.
+  try {
+    const member = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true });
+    if (member) return { status: "ok" };
+  } catch (error) {
+    if (error instanceof LineIdentityReviewError) return { status: "ambiguous" };
+    console.error("[liff/onboarding] identity lookup unavailable");
     return { status: "service_unavailable" };
   }
 
@@ -239,9 +251,8 @@ export async function submitOnboarding(
       return { status: "not_found" };
 
     case "unique_conflict":
-      // Concurrent bind beat us; user can retry — second attempt will hit the
-      // 1-candidate branch and resolve cleanly. Show generic retry message.
-      return { status: "service_unavailable" };
+      // A unique identity collision needs verification, not repeated registration.
+      return { status: "ambiguous" };
 
     case "validation_error":
       if (helperResult.reason === "invalid_phone") {

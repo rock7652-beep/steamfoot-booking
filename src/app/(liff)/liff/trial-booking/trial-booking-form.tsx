@@ -56,6 +56,7 @@ type State =
   | { kind: "initializing" }
   | { kind: "not_in_line_app" }
   | { kind: "expired" }
+  | { kind: "identity_review_required" }
   | { kind: "service_unavailable" }
   | { kind: "ready" }
   | { kind: "submitting" }
@@ -397,6 +398,15 @@ export function TrialBookingForm({ storeSlug, storeName, liffId, contactUrl }: P
           tone="yellow"
           body={liffMessages.error.expired}
           showRetry
+          contactUrl={contactUrl}
+        />
+      )}
+
+      {state.kind === "identity_review_required" && (
+        <InfoBlock
+          tone="red"
+          body={liffMessages.error.identityReview}
+          showContactStore
           contactUrl={contactUrl}
         />
       )}

@@ -32,6 +32,7 @@ const RESET_EXPIRY_MS = 60 * 60 * 1000; // 1h
 
 export type PhoneStatus =
   | { status: "not_found" }
+  | { status: "existing_login" }
   | { status: "needs_activation"; customerName: string; hasEmail: boolean }
   | { status: "active"; customerName: string };
 
@@ -69,6 +70,7 @@ export async function checkPhoneStatus(phone: string, storeId?: string): Promise
       email: true,
       userId: true,
       user: { select: { status: true, passwordHash: true } },
+      identityLinks: { select: { userId: true, user: { select: { status: true, passwordHash: true } } } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -76,6 +78,16 @@ export async function checkPhoneStatus(phone: string, storeId?: string): Promise
   // 1. Customer 不存在 — 才是真的「尚未註冊」
   if (!customer) {
     return { status: "not_found" };
+  }
+
+  // Indirect store memberships are existing accounts, including LINE-only accounts.
+  if (customer.identityLinks?.length) {
+    const owners = new Set(customer.identityLinks.map((link) => link.userId));
+    if (customer.userId) owners.add(customer.userId);
+    if (owners.size !== 1) return { status: "existing_login" };
+    const user = customer.identityLinks[0].user;
+    if (user.status === "ACTIVE" && user.passwordHash) return { status: "active", customerName: customer.name };
+    return { status: "existing_login" };
   }
 
   // 3. 完整可登入 — 有 userId、user ACTIVE、且設了密碼
@@ -119,7 +131,7 @@ export async function requestActivation(
     const effectiveStoreId = storeId || await getStoreIdFromCookie();
 
     const customer = await prisma.customer.findFirst({
-      where: { phone: normalizedPhone, userId: null, storeId: effectiveStoreId },
+      where: { phone: normalizedPhone, userId: null, storeId: effectiveStoreId, identityLinks: { none: {} }, mergedIntoCustomerId: null },
       orderBy: { createdAt: "desc" },
     });
 
@@ -248,12 +260,13 @@ export async function activateAccount(
 
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
+      include: { identityLinks: { select: { userId: true }, take: 1 } },
     });
 
     if (!customer) {
       return { success: false, error: "顧客資料不存在" };
     }
-    if (customer.userId) {
+    if (customer.userId || customer.identityLinks?.length || customer.mergedIntoCustomerId) {
       return { success: false, error: "此帳號已開通，請直接登入" };
     }
 
@@ -292,7 +305,7 @@ export async function activateAccount(
           role: "CUSTOMER",
           status: "ACTIVE",
           customer: {
-            connect: { id: customer.id },
+            connect: { id: customer.id, AND: { userId: null, identityLinks: { none: {} }, mergedIntoCustomerId: null } },
           },
         },
       }),

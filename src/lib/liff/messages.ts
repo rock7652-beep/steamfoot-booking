@@ -499,6 +499,7 @@ export const liffMessages = {
     homeEntryCta: "我的資料",
   },
   error: {
+    identityReview: "您的會員資料需要店家協助確認，請聯繫店家，不需要重新註冊或解除 LINE 綁定。",
     invalidPhone: "手機格式不正確，請輸入 09 開頭共 10 碼的手機號碼。",
     missingName: "請輸入您的姓名。",
     missingPhone: "請輸入您的手機號碼。",

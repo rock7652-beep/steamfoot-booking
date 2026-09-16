@@ -51,6 +51,9 @@ export function CustomerLoginForm({
       const result = await checkPhoneStatus(trimmed, storeId);
       setStatusInfo(result);
       switch (result.status) {
+        case "existing_login":
+          setPhoneError("您已有會員帳號，請使用原本的 LINE 登入方式，或聯繫店家協助確認。");
+          break;
         case "not_found":
           setPhoneError("此手機號碼尚未註冊");
           break;

@@ -37,6 +37,7 @@ type FormState =
   | { kind: "initializing" }
   | { kind: "not_in_line_app" }
   | { kind: "expired" }
+  | { kind: "identity_review_required" }
   | { kind: "service_unavailable" }
   | { kind: "ready"; idToken: string; defaultName: string; pictureUrl: string | null }
   | { kind: "submitting"; idToken: string; defaultName: string; pictureUrl: string | null }
@@ -82,6 +83,16 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
           setState({ kind: "expired" });
           return;
         }
+        const session = await refreshLiffSession({ idToken, storeSlug });
+        if (cancelled) return;
+        if (session.status === "session_created") {
+          router.replace(`/s/${storeSlug}/liff`);
+          return;
+        }
+        if (session.status !== "need_onboarding") {
+          setState({ kind: session.status });
+          return;
+        }
         let defaultName = "";
         let pictureUrl: string | null = null;
         try {
@@ -108,7 +119,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
     return () => {
       cancelled = true;
     };
-  }, [liffId]);
+  }, [liffId, storeSlug, router]);
 
   // ── 2. submit ──────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -147,7 +158,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
         setState({ kind: "completing" });
         const session = await refreshLiffSession({ idToken, storeSlug });
         if (session.status !== "session_created") {
-          setState({ kind: session.status === "expired" ? "expired" : "service_unavailable" });
+          setState({ kind: session.status === "identity_review_required" ? "identity_review_required" : session.status === "expired" ? "expired" : "service_unavailable" });
           return;
         }
         router.replace(`/s/${storeSlug}/liff`);
@@ -162,27 +173,8 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
       case "bound_other":
       case "phone_taken_by_login_account":
       case "not_found":
-        setState({
-          kind: "blocked",
-          idToken,
-          defaultName,
-          pictureUrl,
-          message: liffMessages.error.boundOther,
-          primaryCta: null,
-          contactStore: true,
-        });
-        return;
-
       case "ambiguous":
-        setState({
-          kind: "blocked",
-          idToken,
-          defaultName,
-          pictureUrl,
-          message: liffMessages.error.ambiguous,
-          primaryCta: null,
-          contactStore: true,
-        });
+        setState({ kind: "identity_review_required" });
         return;
 
       case "expired":
@@ -225,6 +217,15 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
           tone="yellow"
           body={liffMessages.error.expired}
           showRetry
+          contactUrl={contactUrl}
+        />
+      )}
+
+      {state.kind === "identity_review_required" && (
+        <InfoBlock
+          tone="red"
+          body={liffMessages.error.identityReview}
+          showContactStore
           contactUrl={contactUrl}
         />
       )}

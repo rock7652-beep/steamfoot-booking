@@ -35,6 +35,7 @@ type State =
   | { kind: "not_in_line_app" }
   | { kind: "expired" }
   | { kind: "no_customer" }
+  | { kind: "identity_review_required" }
   | { kind: "service_unavailable" }
   | { kind: "ready"; profile: LiffCustomerProfile };
 
@@ -99,6 +100,8 @@ export function ProfileView({
           // transition feedback.
           router.push(`/s/${storeSlug}/liff/onboarding`);
           return;
+        } else if (result.kind === "identity_review_required") {
+          setState({ kind: "identity_review_required" });
         } else if (result.kind === "expired") {
           setState({ kind: "expired" });
         } else if (result.kind === "no_customer") {
@@ -154,6 +157,15 @@ export function ProfileView({
           tone="earth"
           title={liffMessages.profile.noCustomerTitle}
           body={liffMessages.profile.noCustomerBody}
+          contactUrl={contactUrl}
+          showContactStore
+        />
+      )}
+
+      {state.kind === "identity_review_required" && (
+        <InfoBlock
+          tone="red"
+          body={liffMessages.error.identityReview}
           contactUrl={contactUrl}
           showContactStore
         />
