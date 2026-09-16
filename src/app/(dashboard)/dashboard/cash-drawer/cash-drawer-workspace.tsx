@@ -670,7 +670,7 @@ function OpenedTodayWorkspace({
     <div className="w-full space-y-3">
       {/* 第一屏：今日狀態（含摘要 glance）+ 今日收款總覽 + 今日其他異動 + 日常操作。
           桌機 3 欄（左 2 欄資訊、右 1 欄操作 sticky）；窄螢幕單欄靠 order 排序。 */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div data-cash-layout className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* A. 今日狀態卡 — 第一順位 */}
         <div className="order-1 lg:col-span-2 lg:col-start-1 lg:row-start-1">
           {!isClosed && liveTotals ? (
@@ -939,7 +939,7 @@ function DailyActionsArea({
       </p>
 
       {/* iPad（sm/md）full width → 2 欄大按鈕；桌機（lg）操作沉到 1/3 右欄 → 改回單欄直列，當作操作入口清單 */}
-      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
+      <div data-cash-actions className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
         {/* 1. 記一筆收支 — 原地展開現金帳 inline form（收入 / 支出），重用
             createCashbookEntry。受 cashbook.create 把關，與 cashDrawer.* 分開；
             類型限 INCOME / EXPENSE（提領走下方「提領」/ cashDrawer.entry）。 */}
@@ -1138,7 +1138,7 @@ function ClosedActionsArea({
   return (
     <div className="rounded-xl border border-earth-200 bg-white p-4">
       <h2 className="text-base font-semibold text-earth-900">日常操作</h2>
-      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
+      <div data-cash-actions className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
         <div className="flex min-h-[44px] flex-col justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/60 px-3 py-2.5">
           <span className="text-sm font-semibold text-earth-500">已完成今日結帳</span>
           <span className="mt-0.5 text-xs text-earth-400">
