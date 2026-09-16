@@ -42,6 +42,7 @@ export function CourseMemberWorkspace({
   canManageStaff,
   canAssign,
   canReadBookings,
+  healthEnabled,
 }: {
   view: "customers" | "plans";
   templates: {id:string;name:string}[];
@@ -53,6 +54,7 @@ export function CourseMemberWorkspace({
   canManageStaff: boolean;
   canAssign: boolean;
   canReadBookings: boolean;
+  healthEnabled: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -209,7 +211,7 @@ export function CourseMemberWorkspace({
                           編輯
                         </button>
                       )}
-                      <button className={button} onClick={() => { setPerson(p); open("health"); }}>健康追蹤</button>
+                      {healthEnabled && <button className={button} onClick={() => { setPerson(p); open("health"); }}>健康追蹤</button>}
                       {canManageStaff && (
                         <button
                           className={button}
@@ -334,7 +336,7 @@ export function CourseMemberWorkspace({
                 </p>
               </form>
             )}
-            {panel === "health" && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} />}
+            {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} />}
             {panel === "person" && (
               <form
                 id="course-member-form"

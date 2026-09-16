@@ -29,8 +29,7 @@ import {
   purchaseCoursePlan,
 } from "@/server/actions/course-portal";
 import type { CoursePortalData } from "./course-portal";
-import { HealthHistoryList } from "@/components/health-history-list";
-import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
+import { CourseHealthWorkspace } from "@/components/course-health-workspace";
 import "./course-portal.css";
 type Session = CoursePortalData["sessions"][number];
 type Work = CoursePortalData["work"][number];
@@ -1051,23 +1050,7 @@ export function CoursePortalClient(p: CoursePortalData) {
           {page === "health" && p.healthEnabled && (
             <>
               {heading("健康追蹤")}
-              {p.health.length ? (
-                <>
-                  <HealthTrendChartLoader
-                    trend={p.health.slice().reverse()}
-                    totalRecords={p.healthCount}
-                  />
-                  <HealthHistoryList
-                    trend={p.health.slice().reverse()}
-                    totalRecords={p.healthCount}
-                  />
-                  {p.healthCount > p.health.length && (
-                    <p>目前載入最近 100 筆量測，較早紀錄仍保留於後台。</p>
-                  )}
-                </>
-              ) : (
-                <p>尚無量測紀錄</p>
-              )}
+              <CourseHealthWorkspace member />
             </>
           )}
           {page === "store" && (

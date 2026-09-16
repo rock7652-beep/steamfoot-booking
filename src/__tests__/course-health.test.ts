@@ -1,16 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ manager: vi.fn(), customer: vi.fn(), update: vi.fn(), upsert: vi.fn(), records: vi.fn(), summary: vi.fn() }));
-vi.mock("@/server/services/course-access", () => ({ courseManager: m.manager }));
+const m = vi.hoisted(() => ({ manager: vi.fn(), member: vi.fn(), feature: vi.fn(), customer: vi.fn(), update: vi.fn(), upsert: vi.fn(), records: vi.fn(), summary: vi.fn() }));
+vi.mock("@/server/services/course-access", () => ({ courseManager: m.manager, courseMember: m.member }));
+vi.mock("@/lib/feature-gate", () => ({ requireStoreFeature: m.feature }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/native-health-service", () => ({ getNativeHealthSummary: m.summary, calculateNativeBmi: () => 23.4 }));
 vi.mock("@/lib/db", () => ({ prisma: {
   customer: { findFirst: m.customer }, customerHealthRecord: { findMany: m.records },
   $transaction: async (work: (tx: unknown) => unknown) => work({ customer: { findFirst: m.customer }, customerHealthRecord: { updateMany: m.update, upsert: m.upsert } }),
 } }));
-import { loadCourseHealth, saveCourseHealth } from "@/server/actions/course-health";
+import { loadCourseHealth, saveCourseHealth, loadCourseMemberHealth, saveCourseMemberHealth } from "@/server/actions/course-health";
 import { AppError } from "@/lib/errors";
 const input = { customerId: "customer-a", requestId: "8b8174b1-9514-4f3f-b10a-3b4e6dd801fa", measuredAt: "2026-01-01", weight: "60", note: "測試" };
-beforeEach(() => { vi.clearAllMocks(); m.manager.mockResolvedValue({ storeId: "store-a" }); m.customer.mockResolvedValue({ id: "customer-a", height: 160 }); m.update.mockResolvedValue({ count: 1 }); m.records.mockResolvedValue([]); m.summary.mockResolvedValue({ latest: null }); });
+beforeEach(() => { vi.clearAllMocks(); m.feature.mockResolvedValue(undefined); m.member.mockResolvedValue({ storeId: "store-a", customer: { id: "customer-a" } }); m.manager.mockResolvedValue({ storeId: "store-a" }); m.customer.mockResolvedValue({ id: "customer-a", height: 160 }); m.update.mockResolvedValue({ count: 1 }); m.records.mockResolvedValue([]); m.summary.mockResolvedValue({ latest: null }); });
 describe("course health scope", () => {
   it("reads health only for the authorized store and customer", async () => {
     expect((await loadCourseHealth("customer-a")).success).toBe(true);
@@ -36,5 +37,23 @@ describe("course health scope", () => {
     m.update.mockResolvedValue({ count: 0 });
     expect((await saveCourseHealth({ ...input, id: "foreign-record" })).success).toBe(false);
     expect(m.update.mock.calls[0][0].where).toEqual({ id: "foreign-record", storeId: "store-a", customerId: "customer-a" });
+  });
+});
+
+describe("course health feature and member identity", () => {
+  it("blocks disabled health for reads and writes before touching records", async () => {
+    m.feature.mockRejectedValue(new AppError("FORBIDDEN", "未開通"));
+    expect((await loadCourseHealth("customer-a")).success).toBe(false);
+    expect((await saveCourseHealth(input)).success).toBe(false);
+    expect((await loadCourseMemberHealth()).success).toBe(false);
+    expect((await saveCourseMemberHealth(input)).success).toBe(false);
+    expect(m.records).not.toHaveBeenCalled();
+    expect(m.upsert).not.toHaveBeenCalled();
+  });
+  it("ignores a submitted shared-card customer's identity for member writes", async () => {
+    expect((await saveCourseMemberHealth({ ...input, customerId: "shared-b" })).success).toBe(true);
+    expect(m.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ customerId: "customer-a", storeId: "store-a" }) }));
+    await loadCourseMemberHealth();
+    expect(m.records.mock.calls[0][0].where).toEqual({ customerId: "customer-a", storeId: "store-a" });
   });
 });
