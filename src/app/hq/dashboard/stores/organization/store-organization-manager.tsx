@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { branchCapacity, managementMonthlyFee } from "@/lib/alliance-subscription";
+import { ALLIANCE_BRANCH_PRICING_COPY, branchCapacity, branchConnectionMonthlyFee, managementMonthlyFee } from "@/lib/alliance-subscription";
 import { updateOrganizationCapacityAction, updateStoreParentAction, type StoreOrganizationRow } from "@/server/actions/store-organization";
 
 interface Props {
@@ -636,21 +636,24 @@ function OrganizationCapacityEditor({ store, count }: { store: StoreOrganization
   const [slots, setSlots] = useState(String(branchCapacity(store)));
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
+  const monthlyFee = managementMonthlyFee(count);
+  const connectionFee = branchConnectionMonthlyFee(count);
   const value = Number(slots);
   const valid = Number.isSafeInteger(value) && value >= Math.max(1, count) && value <= 2147483646;
   return <section className="space-y-3 rounded-lg border border-earth-200 bg-earth-50 p-3 text-sm">
     <h3 className="font-semibold text-earth-800">總部串接方案</h3>
-    <p>已串接 {count} 家／已購 {branchCapacity(store)} 家</p>
-    <label className="block">已購分店串接額度
-      <input aria-label="已購分店串接額度" type="number" min={Math.max(1, count)} step="1" value={slots} onChange={e => setSlots(e.target.value)} disabled={pending} className="mt-1 w-full rounded-lg border border-earth-200 bg-white px-3 py-2" />
+    <p>已串接 {count} 間／已開通可串接 {branchCapacity(store)} 間</p>
+    <label className="block">可串接分店間數
+      <input aria-label="可串接分店間數" type="number" min={Math.max(1, count)} step="1" value={slots} onChange={e => setSlots(e.target.value)} disabled={pending} className="mt-1 w-full rounded-lg border border-earth-200 bg-white px-3 py-2" />
     </label>
-    <p>總部管理月費：{valid ? `NT$${managementMonthlyFee(value).toLocaleString("zh-TW")}` : "請輸入有效額度"}</p>
-    <p className="text-xs leading-5 text-earth-600">含首家串接，第 2 家起每家 NT$1,000/月，可擴充至 30 家以上。分店系統月費另計，依各自方案使用功能。此處只登記已確認購買的額度，不會自動扣款。</p>
+    <p>依目前已串接 {count} 間計算：主店展店版 NT$4,990／月，串接費 {connectionFee === null ? "另行報價" : `NT$${connectionFee.toLocaleString("zh-TW")}／月`}，合計 {monthlyFee === null ? "另行報價" : `NT$${monthlyFee.toLocaleString("zh-TW")}／月`}。</p>
+    <p className="text-xs leading-5 text-earth-600">{ALLIANCE_BRANCH_PRICING_COPY} 此處設定可串接幾間，費用只按實際已串接間數計算，不會自動扣款。</p>
+    {valid && value > 15 && <p className="text-amber-700">16 間起須另行報價，請確認報價及開通安排後再儲存。</p>}
     <button type="button" disabled={pending || !valid} className="rounded-lg bg-primary-600 px-3 py-2 text-white disabled:opacity-50" onClick={() => startTransition(async () => {
       const result = await updateOrganizationCapacityAction({ storeId: store.id, purchasedBranches: value });
-      setMessage(result.success ? "已購串接額度已更新" : result.error);
+      setMessage(result.success ? "可串接間數已更新" : result.error);
       if (result.success) router.refresh();
-    })}>{pending ? "儲存中…" : "儲存已購額度"}</button>
+    })}>{pending ? "儲存中…" : "儲存開通間數"}</button>
     {message && <p role="status">{message}</p>}
   </section>;
 }

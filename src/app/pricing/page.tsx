@@ -1,3 +1,4 @@
+import { ALLIANCE_BRANCH_PRICING_COPY } from "@/lib/alliance-subscription";
 import { MarketingNavigation } from "@/components/marketing-navigation";
 import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingIcon } from "./marketing-icon";
@@ -93,7 +94,8 @@ export default function PricingPage() {
             <p className="mt-1"><span className="text-3xl font-semibold tracking-tight">NT${plan.price}</span><span className="ml-1 text-sm">／月{plan.id === "ALLIANCE" ? "起" : ""}</span></p>
             <p className="mt-1 text-sm leading-6">年繳 NT${plan.annual}{plan.id === "ALLIANCE" ? "起" : ""}，使用 14 個月</p>
           </div>
-          <div className="mt-auto pt-3"><TrialLink /></div>
+          {plan.id === "ALLIANCE" && <p className="mt-2 text-sm leading-6">含首間分店串接；各分店系統月費另計。</p>}
+           <div className="mt-auto pt-3"><TrialLink /></div>
         </article>)}
       </section>
       <section aria-label="試用說明" className="mt-6 rounded-xl bg-white p-5 text-base leading-7"><h2 className="text-xl font-semibold">30 天完整單店體驗</h2><p className="mt-2">30 天完整單店試用，含店長共 3 位可啟用人員、100 筆顧客資料及每月 100 筆預約。從帳號可正常使用當天開通起算；網頁前台可先使用，LINE／LIFF 完成設定後接上。到期後保留資料、後台改為唯讀；轉正式沿用原帳號與資料，功能及額度依購買方案。</p><p className="mt-2">試用不含跨店總部管理或代辦金流申請與串接；自動提醒每月最多 50 次，外部訊息費用於開通前確認。</p></section>
@@ -111,7 +113,7 @@ export default function PricingPage() {
         <details className="mt-4 border-t border-[#153B31]/15 py-3"><summary className="cursor-pointer font-medium">方案與費用說明</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base leading-7 text-[#4C6259]">
             <li>限時優惠：主方案繳 12 個月，使用 14 個月；優惠結束後依正式原價調整。</li>
-            <li>展店版包含總部管理＋首家分店串接額度（分店系統月費另計）。第二家分店起，每家 +$1,000/月分店串接管理費，可擴充至 30 家以上。各分店另購基本版 $1,490/月或專業版 $2,490/月。</li>
+            <li>展店版每月 $4,990，含總部管理及首間分店串接。{ALLIANCE_BRANCH_PRICING_COPY} 各分店另購基本版 $1,490／月或專業版 $2,490／月。串接幾間，就付幾間的串接費；例如 6 間分店的串接費共 $2,300／月。</li>
             <li>年繳總額僅計主方案，額外模組與分店串接管理費另計，贈送期間於開通前確認。</li>
             <li>LINE 顧客入口（LIFF）可預約、取消與查詢堂數；各門市保留獨立開關。數位管家不列入全含範圍，需另行確認開通。</li>
           </ul>

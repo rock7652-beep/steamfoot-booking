@@ -134,7 +134,7 @@ function normalizeParentStoreId(value: string | null | undefined): string | null
   return trimmed;
 }
 
-/** Platform admin records purchased slots only; this never charges a payment method. */
+/** Platform admin records approved connection capacity only; this never charges a payment method. */
 export async function updateOrganizationCapacityAction(input: {
   storeId: string; purchasedBranches: number;
 }): Promise<ActionResult<{ purchasedBranches: number }>> {
@@ -142,7 +142,7 @@ export async function updateOrganizationCapacityAction(input: {
     const admin = await requireAdminSession();
     await requirePermission("staff.manage");
     if (!input.storeId?.trim() || !Number.isSafeInteger(input.purchasedBranches) || input.purchasedBranches < 1 || input.purchasedBranches > 2147483646) {
-      throw new AppError("VALIDATION", "請輸入有效的已購分店數（至少 1 家）");
+      throw new AppError("VALIDATION", "請輸入有效的可串接分店間數（至少 1 家）");
     }
     await prisma.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(72819401)`;

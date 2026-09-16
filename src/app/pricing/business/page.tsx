@@ -112,7 +112,7 @@ export default function BusinessPage() {
               <p className="text-base">基本版・限時優惠</p>
               <p className="mt-3 text-base">每月 <span className="text-4xl font-semibold tracking-tight">NT$1,490</span></p>
               <p className="mt-5 text-base leading-7 text-[#D4E0D8]">三個付費方案皆內含 LINE 顧客入口（LIFF）；自動提醒等模組依方案選配。</p>
-              <p className="mt-3 text-sm leading-7 text-[#D4E0D8]">主方案一次繳一年送 2 個月；額外加購模組與分店費另計。</p>
+              <p className="mt-3 text-sm leading-7 text-[#D4E0D8]">主方案一次繳一年送 2 個月；額外加購模組與分店串接管理費另計。</p>
               <div className="mt-4"><ConsultLink light /></div>
               <Link href="/pricing" className="mt-5 inline-block py-2 text-base underline underline-offset-8">查看完整方案與加購說明</Link>
             </div>
@@ -129,7 +129,7 @@ export default function BusinessPage() {
                 ["原有顧客與剩餘堂數，要怎麼帶進來？", "先確認資料格式、方案期限與剩餘堂數，再安排建檔或評估匯入方式；核對完成後再開始使用。"],
                 ["顧客預約後，我還要手動抄名單嗎？", "顧客完成預約後，名單與時段會進入後台，減少重複抄寫。單純在 LINE 私訊詢問，仍須完成預約流程。"],
                 ["到店提醒、方案到期提醒都有嗎？", "可依門市功能與設定安排提醒。到店卡片可提供確認、改期或取消，方案到期卡片引導預約或諮詢店長；通知須完成 LINE 串接並啟用相關設定。"],
-                ["月費之外，還有哪些費用？", "額外模組與分店費依選擇另計。主方案年繳送 2 個月，優惠範圍與內含項目可查看方案頁；LINE 訊息等第三方費用需另外確認。"],
+                ["月費之外，還有哪些費用？", "額外模組與分店串接管理費依選擇另計。主方案年繳送 2 個月，優惠範圍與內含項目可查看方案頁；LINE 訊息等第三方費用需另外確認。"],
                 ["可以先看操作，再決定要不要用嗎？", "可以。點選「申請體驗帳號」，填寫門市需求後，由專人聯繫確認體驗內容與期限，再提供登入方式。也可以先加 LINE 預約免費介紹。"],
               ].map(([question, answer]) => <details key={question} name="business-faq" className="py-2">
                 <summary className="cursor-pointer py-2 font-medium">{question}</summary>
