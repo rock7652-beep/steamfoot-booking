@@ -46,6 +46,7 @@ const packageSchema = z.object({
   uses: z.number().int().min(1).max(999),
   validityDays: z.number().int().min(1).max(3650),
   isActive: z.boolean(),
+  publicVisible: z.boolean().optional(),
 });
 export async function saveSpaPackage(input: z.infer<typeof packageSchema>) {
   try {

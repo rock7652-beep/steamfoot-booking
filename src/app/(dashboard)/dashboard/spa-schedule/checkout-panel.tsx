@@ -34,6 +34,7 @@ export function SpaCheckoutPanel({
   const [method, setMethod] = useState<Method>("CASH");
   const [transferLast4, setTransferLast4] = useState("");
   const [sourceId, setSourceId] = useState("");
+  const [isTrial, setIsTrial] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [options, setOptions] = useState<
@@ -139,6 +140,7 @@ export function SpaCheckoutPanel({
                       })),
                     })
                   : await completeSpaBooking({
+                      isTrial,
                       bookingId: booking.id,
                       expectedUpdatedAt: booking.updatedAt,
                       expectedAmount: booking.totalPrice,
@@ -351,6 +353,7 @@ export function SpaCheckoutPanel({
               ? "確認扣款／扣次並完成"
               : "確認收款並完成"}
         </button>
+        {scope === "PERSON" && <label className="flex items-start gap-2 text-sm text-earth-700"><input type="checkbox" checked={isTrial} onChange={e => setIsTrial(e.target.checked)} disabled={pending} />本次為體驗服務（只對主要聯絡人啟用已設定的體驗關懷）</label>}
       </form>
     </RightSheet>
   );

@@ -19,6 +19,7 @@ import {
 } from "../spa-checkout-credit";
 const inputSchema = z
   .object({
+    isTrial: z.boolean().optional(),
     bookingId: z.string().min(1),
     expectedUpdatedAt: z.string().datetime(),
     expectedAmount: z.number().int().nonnegative(),
@@ -159,7 +160,7 @@ async function settleSpaBooking(
   });
   await tx.spaBooking.update({
     where: { id_storeId: { id: booking.id, storeId } },
-    data: { status: "COMPLETED" },
+    data: { status: "COMPLETED", completedAt: new Date(), ...(d.isTrial !== undefined ? { isTrial: d.isTrial } : {}) },
   });
   return created;
 }

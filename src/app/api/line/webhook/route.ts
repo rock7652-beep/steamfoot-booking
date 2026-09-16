@@ -242,6 +242,13 @@ async function handleLineEvent(event: LineWebhookEvent, storeId: string, destina
   if (!lineUserId) return;
 
   switch (event.type) {
+    case "postback": {
+      if (!event.postback?.data.startsWith("trial-care:")) break;
+      const { handleTrialCarePostback } = await import("@/server/services/trial-care");
+      const messages = await handleTrialCarePostback(storeId, lineUserId, event.postback?.data ?? "", event.timestamp ?? NaN);
+      if (messages && event.replyToken) await replyMessage(storeId, event.replyToken, messages);
+      break;
+    }
     case "follow":
       await handleFollow(lineUserId, storeId, event.replyToken);
       break;
@@ -948,6 +955,7 @@ async function handleBindingRequest(
 // ============================================================
 
 interface LineWebhookEvent {
+  postback?: { data: string };
   type: string;
   source?: { type: string; userId?: string };
   replyToken?: string;

@@ -26,6 +26,7 @@ enum SpaAvailabilityExceptionType {
 }
 
 model SpaBooking {
+  isTrial Boolean @default(false)
   id                  String           @id @default(cuid())
   storeId             String
   customerId          String
@@ -220,6 +221,7 @@ model SpaReceipt {
 }
 
 model SpaPackage {
+  publicVisible Boolean @default(false)
   id String @id @default(cuid())
   storeId String
   treatmentId String
