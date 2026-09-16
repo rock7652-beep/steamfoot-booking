@@ -2,7 +2,7 @@
 
 分支 `codex/course-scheduling-stage1`，Draft PR #1022。接續遠端 `2d333e54`，保留既有成果及使用者資料。
 
-本輪最終程式版本 `3d7eb8839470792fae34b81aaa202b5405857c14`，Vercel READY `dpl_6g8fF5MYRa5VkiEhzU9xTJzHE23F`。後續文件提交不改程式。
+本文件記錄後台回饋階段，程式版本 `3d7eb8839470792fae34b81aaa202b5405857c14`，Vercel READY `dpl_6g8fF5MYRa5VkiEhzU9xTJzHE23F`。追加的會員／教練月曆原稿追溯、多人預約及最新 `b4fc7cbb` 實測結果，見 [前台設計追溯與追加驗收](course-portal-design-recovery-20260916.md)；其中記錄後續測試造成的最新點數與統計，不以本文件較早的餘額當作現況。
 
 ## 入口與資料邊界
 
