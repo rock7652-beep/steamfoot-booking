@@ -20,9 +20,9 @@
 
 ## 待實際驗收與截圖（不能標成通過）
 
-- 自動審核拒絕推送 codex/help-inventory-20260916 到 rock7652-beep/steamfoot-booking，要求使用者明確同意新增程式與文件的提交目的地。未改用其他管道繞過，未建立遠端 PR 或部署此版本。
+- 使用者已明確授權提交至 rock7652-beep/steamfoot-booking。Git CLI 缺少登入憑證，改用已連接 GitHub 外掛提交相同檔案；草稿 PR #1036 已建立，尚未合併。
 
-- 目前瀏覽器沒有已登入的測試後台。需使用隔離測試門市與測試資料；確認資料庫隔離與通知設定後，才執行改期／取消／儲存。
+- 已透過安全登入進入 Steamfoot Staging / 測試店。僅核對畫面與教學互動；沒有提交改期、取消或備註儲存。資料寫入與權限驗收仍待完成。
 - 375px、390px、1440px：開啟、搜尋、三題切換、完整說明、關閉、Escape、焦點回復、捲動及背景不誤操作。
 - 編輯中的本次備註：開關說明後內容與原畫面位置不遺失。
 - A01 實際截圖：預約詳情與「改時間」位置、改期日期／時段選擇、成功後新時間。
@@ -46,3 +46,21 @@ cancelBooking 使用 requireSession + assertStaffBookingWritable + assertStoreAc
 - 新增互動測試涵蓋同義詞搜尋、文章返回、展開取消後果、關閉保留原頁草稿、重新開啟回到列表、Escape 不傳給底下抽屜。
 - jsdom 模擬 dialog 開關只驗 React 狀態，不能代替瀏覽器原生焦點、手機排版或實際資料寫入驗收。
 - Prisma client 在本機產生，沒有執行 migrate、seed 或連線修改資料庫。
+
+## Preview 與實際畫面（2026-09-16）
+
+- 草稿 PR：https://github.com/rock7652-beep/steamfoot-booking/pull/1036
+- 受測提交：2cbe8cd8971ee5a87126204231761ee6958d4b86。Vercel dpl_68NHxu8gkrMYQdfRhFXyYWhVekt5 部署成功。
+- GitHub CI 35062769198 成功；Booking isolated database audit 為 skipped，不能當成通過。
+- 已實際點選：預約管理頁說明入口、問題列表、搜尋「改期」、開啟 A01、展開完整說明、關閉、打開測試顧客 A 的詳情、打開「改時間」。核對日期與可用時段呈現。
+- 桌機實際視窗為 1363 × 936；尚未驗收 1440px。既有「裝置預覽」以 390 × 844 iframe 開啟教學列表；尚未完成手機截圖，未驗收 375px。
+- 擷取手機 fullPage 截圖時瀏覽器逾時；後續取消按鈕 click 與 CDP refresh 也逾時，不能判定確認框完整驗收通過。沒有呼叫確認取消的 accept。
+- 待補：A02／A03 完整截圖、備註草稿保留實測、Escape／焦點回復、手機視覺、隔離寫入及不同權限驗收。未達首三題全數通過門檻，暫不擴充其餘 12 題。
+
+### 實際截圖
+
+![測試後台的問題列表](operation-guide-evidence/operation-guide-desktop-open.jpg)
+
+![改時間教學內容](operation-guide-evidence/operation-guide-a01.jpg)
+
+![測試預約的實際改期視窗](operation-guide-evidence/operation-guide-reschedule-ui.jpg)
