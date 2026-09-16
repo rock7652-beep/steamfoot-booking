@@ -22,10 +22,14 @@ const mockCustomerCreate = vi.fn();
 const mockCustomerUpdateMany = vi.fn(); // PR-G5.2.b: B4 pre-update (name)
 const mockCustomerFindUnique = vi.fn(); // PR-G5.2.b: D5 preflight
 const mockUserCreate = vi.fn();
+const mockExistingUser = vi.fn().mockResolvedValue(null);
+const mockExistingLinks = vi.fn().mockResolvedValue([]);
 const mockTx = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    user: { findUnique: (...args: unknown[]) => mockExistingUser(...args) },
+    customerIdentityLink: { findMany: (...args: unknown[]) => mockExistingLinks(...args) },
     customer: {
       findMany: (...args: unknown[]) => mockCustomerFindMany(...args),
       // PR-G5.2.b: B4 path's name pre-update goes here.
@@ -138,6 +142,8 @@ describe("bindLineToCustomerInStore", () => {
     mockCustomerUpdateMany.mockReset();
     mockCustomerFindUnique.mockReset();
     mockUserCreate.mockReset();
+    mockExistingLinks.mockReset().mockResolvedValue([]);
+    mockExistingUser.mockReset().mockResolvedValue(null);
     mockTx.mockReset();
     mockSyncLineAccount.mockReset();
     mockRepair.mockReset();
@@ -271,6 +277,46 @@ describe("bindLineToCustomerInStore", () => {
         authSource: "LINE",
       },
     });
+  });
+
+  it("routes an existing linked member to authorized rebind instead of recreating their account", async () => {
+    mockCustomerFindMany.mockResolvedValueOnce([{
+      id: "cust-existing", userId: null, lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED", lineName: NAME,
+    }]);
+    mockExistingLinks.mockResolvedValueOnce([{ providerAccountId: "U_legacy_login" }]);
+    expect(await bindLineToCustomerInStore(makeValidInput())).toEqual({
+      status: "already_bound_to_other_line", customerId: "cust-existing",
+      existingLineUserId: "U_legacy_login",
+    });
+    expect(mockTx).not.toHaveBeenCalled();
+    expect(mockUserCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not claim an existing phone account when notification binding has no login link", async () => {
+    mockCustomerFindMany.mockResolvedValueOnce([{
+      id: "cust-prebound", userId: null, lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED", lineName: NAME,
+    }]);
+    mockExistingUser.mockResolvedValueOnce({ id: "unverified-owner" });
+    expect(await bindLineToCustomerInStore(makeValidInput())).toEqual({
+      status: "phone_taken_by_other_user", customerId: "cust-prebound", sameLineUserId: false,
+    });
+    expect(mockTx).not.toHaveBeenCalled();
+  });
+
+  it("does not choose between multiple legacy login links", async () => {
+    mockCustomerFindMany.mockResolvedValueOnce([{
+      id: "cust-prebound", userId: null, lineUserId: LINE_USER_ID,
+      lineLinkStatus: "LINKED", lineName: NAME,
+    }]);
+    mockExistingLinks.mockResolvedValueOnce([
+      { providerAccountId: "U_legacy_one" }, { providerAccountId: "U_legacy_two" },
+    ]);
+    expect(await bindLineToCustomerInStore(makeValidInput())).toMatchObject({
+      status: "phone_taken_by_other_user", customerId: "cust-prebound",
+    });
+    expect(mockTx).not.toHaveBeenCalled();
   });
 
   // ─────────────────────────────────────────────────────
