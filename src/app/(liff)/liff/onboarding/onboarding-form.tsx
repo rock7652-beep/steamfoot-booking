@@ -48,6 +48,7 @@ type FormState =
       message: string;
       primaryCta: "reload" | null;
       contactStore: boolean;
+      reviewRequired?: boolean;
     }
   | { kind: "completing" };
 
@@ -65,6 +66,15 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
   const [nameValue, setNameValue] = useState("");
   const [phoneValue, setPhoneValue] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
+
+  // iOS may retain the keyboard's viewport offset after the form is replaced
+  // by a result. Release focus and reveal the result/header in normal flow.
+  useEffect(() => {
+    if (!["blocked", "service_unavailable", "expired", "completing"].includes(state.kind)) return;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    const frame = requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    return () => cancelAnimationFrame(frame);
+  }, [state.kind]);
 
   // ── 1. mount: init LIFF + 取 idToken + profile ─────────
   useEffect(() => {
@@ -173,6 +183,14 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
         });
         return;
 
+      case "identity_review_required":
+        setState({
+          kind: "blocked", idToken, defaultName, pictureUrl,
+          message: "LINE 與本店會員的帳號連結需要確認。原有會員與綁定已保留，請聯繫店家協助，不必重新註冊或重複送出。",
+          primaryCta: null, contactStore: true, reviewRequired: true,
+        });
+        return;
+
       case "ambiguous":
         setState({
           kind: "blocked",
@@ -268,7 +286,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {!(state.kind === "blocked" && state.reviewRequired) && <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-earth-700">
                 {liffMessages.onboarding.nameLabel}
@@ -330,7 +348,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
             <p className="text-center text-[11px] text-earth-500">
               {liffMessages.onboarding.privacyNote}
             </p>
-          </form>
+          </form>}
         </>
       )}
     </div>

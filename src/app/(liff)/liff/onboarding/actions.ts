@@ -25,6 +25,8 @@ import { bindLineToCustomerInStore } from "@/server/services/bind-line-to-custom
 import { logLineBindEvent } from "@/lib/line-bind-log";
 import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
 import { resolveCentralMemberLineLoginChannelId } from "@/lib/liff/central-member-config";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { onboardCourseLineMember } from "@/server/services/course-line-onboarding";
 
 const InputSchema = z.object({
   idToken: z.string().min(1),
@@ -51,6 +53,7 @@ export type OnboardingActionResult =
   | { status: "phone_taken_by_login_account" }  // phone_taken_by_other_user
   | { status: "ambiguous" }                     // ambiguous_multiple_candidates
   | { status: "expired" }                       // ID token expired
+  | { status: "identity_review_required" }
   | { status: "service_unavailable" };          // network / config / store not found / unexpected
 
 export async function submitOnboarding(
@@ -87,6 +90,15 @@ export async function submitOnboarding(
   const store = await resolveStoreBySlug(storeSlug);
   if (!store) {
     return { status: "service_unavailable" };
+  }
+
+  if (await getStoreIndustryModule(store.id) === "course") {
+    const result = await onboardCourseLineMember({
+      storeId: store.id, lineUserId: verified.lineUserId,
+      lineName: verified.displayName, name, phone,
+    });
+    console.info("[course-line-onboarding] result", { status: result.status });
+    return result;
   }
 
   // ── 5. Call PR-C1 helper ─────────────────────────────
