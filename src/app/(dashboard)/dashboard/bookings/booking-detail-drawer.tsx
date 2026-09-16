@@ -1,6 +1,7 @@
 "use client";
 
 import { LoadingStatus } from "@/components/loading-status";
+import { BookingGuideContext } from "@/components/operation-guide-shell";
 
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -122,6 +123,7 @@ export interface BookingPrefill {
 }
 
 interface BookingDetailDrawerProps {
+  operationGuidePreview?: boolean;
   open: boolean;
   bookingId: string | null;
   resolvedStoreId?: string;
@@ -155,6 +157,7 @@ interface BookingDetailDrawerProps {
 }
 
 export function BookingDetailDrawer({
+  operationGuidePreview = false,
   open,
   bookingId,
   resolvedStoreId,
@@ -540,6 +543,7 @@ export function BookingDetailDrawer({
         labelledById="booking-drawer-title"
         width={spaMode ? undefined : 860}
       >
+        {open && operationGuidePreview && !spaMode && <BookingGuideContext status={hasFullData ? data?.booking.bookingStatus : undefined} />}
         {hasFullData &&
         data &&
         spaMode &&

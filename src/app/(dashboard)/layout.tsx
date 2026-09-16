@@ -1,3 +1,4 @@
+import { isOperationGuidePreview } from "@/lib/operation-guide-preview";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
@@ -146,6 +147,7 @@ export default async function DashboardLayout({
 
   return (
     <DashboardShell
+      operationGuidePreview={isOperationGuidePreview()}
       industryModule={industryModule}
       isOwner={isOwnerLevel}
       permissions={permissions}
