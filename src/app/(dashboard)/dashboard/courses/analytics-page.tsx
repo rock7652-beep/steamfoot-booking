@@ -26,7 +26,8 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
   const canReadRevenue=await checkPermission(user.role,user.staffId,"transaction.read");
   const canReadCustomers=await checkPermission(user.role,user.staffId,"customer.read");
   const canExport=!(await resolveStoreViewContextFromCookie(user))?.isViewMode && await checkPermission(user.role,user.staffId,"report.export") && await hasDataExportFeature(storeId);
-  const data=await getCourseAnalytics(storeId,range,canReadRevenue);
+  const canReadCash=await checkPermission(user.role,user.staffId,"cashbook.read");
+  const data=await getCourseAnalytics(storeId,range,canReadRevenue,canReadCash);
   const {current,prior,priorYear,revenue,priorRevenue}=data;
   const comparison=(now:number,before:number,unit:string)=>`${now-before>=0?"+":""}${now-before} ${unit}`;
   const metrics=[
@@ -39,7 +40,7 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
   const section="rounded-xl border border-earth-200 bg-white p-3";
   return <PageShell>
     <PageHeader title="營運分析" subtitle={`${range.startDate} ～ ${range.endDate} · 台灣時間`} actions={<>
-      {canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?startDate=${range.startDate}&endDate=${range.endDate}`} download>全店／教練 CSV</a>}
+      {canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?startDate=${range.startDate}&endDate=${range.endDate}`} download>全店／人員 CSV</a>}
       {canReadRevenue&&<DashboardLink href="/dashboard/store-revenue" className="rounded-md border border-earth-200 px-3 py-2 text-sm">收入總覽／匯出</DashboardLink>}
     </>}/>
     <ReportDateRange key={`${range.startDate}-${range.endDate}`} activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery/>
@@ -66,6 +67,31 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
         {label:"購買淨額",value:`NT$ ${revenue.kpi.netRevenue.toLocaleString()}`,tone:"primary"},
       ]}/><p className="mt-2 text-xs text-earth-500">購買依核帳日、退款依退款日；作廢排除。與收入總覽使用同一課程資料來源，不再加總連動現金帳。較前期購買淨額 {comparison(revenue.kpi.netRevenue,priorRevenue?.kpi.netRevenue??0,"元")}。</p></>:<p className="mt-3 text-sm text-earth-500">沒有交易檢視權限，購買金額不顯示。</p>}
       <details className="mt-2 text-xs text-earth-500"><summary className="min-h-11 cursor-pointer py-3">體驗轉換與月結的適用差異</summary><p>課程尚無可辨識的體驗成交歸因，因此不顯示體驗開卡率。蒸足空間費月結不適用課程；課程教練結算方式未約定，不代入蒸足費率。</p></details>
+    </section>
+    <section className={section}><h2 className="mb-3 text-sm font-semibold text-earth-800">營收分析</h2>
+      <p className="mb-3 text-xs text-earth-500">購買與退款依入帳時間，手動收支依登錄日期；排除購買、退款及作廢的連動現金帳，避免重複計算。收支淨額不等於會計利潤。</p>
+      <KpiStrip items={[
+        {label:"手動收入",value:data.financial.manualIncome===null?"無檢視權限":`NT$ ${data.financial.manualIncome.toLocaleString()}`,tone:"green"},
+        {label:"手動支出",value:data.financial.manualExpense===null?"無檢視權限":`NT$ ${data.financial.manualExpense.toLocaleString()}`,tone:"amber"},
+        {label:"總收入",value:data.financial.totalIncome===null?"資料權限不足":`NT$ ${data.financial.totalIncome.toLocaleString()}`,tone:"primary"},
+        {label:"收支淨額",value:data.financial.net===null?"資料權限不足":`NT$ ${data.financial.net.toLocaleString()}`,tone:"earth"},
+      ]}/>
+      {data.financial.net!==null&&data.priorFinancial.net!==null&&<p className="my-2 text-xs text-earth-500">較前期收支淨額 {comparison(data.financial.net,data.priorFinancial.net,"元")}。</p>}
+      <DataTable rows={data.financial.categories} rowKey={r=>r.name} columns={[
+        {key:"name",header:"分類",accessor:r=>r.name},{key:"income",header:"收入",align:"right",accessor:r=>r.income.toLocaleString()},
+        {key:"refunds",header:"退款",align:"right",accessor:r=>r.refunds.toLocaleString()},{key:"expense",header:"支出",align:"right",accessor:r=>r.expense.toLocaleString()},
+        {key:"net",header:"淨額",align:"right",accessor:r=>r.net.toLocaleString()},
+      ]}/>
+      {canReadCash&&<DashboardLink href="/dashboard/cashbook" className="inline-block min-h-11 py-3 text-sm text-primary-700">查看收支明細</DashboardLink>}
+    </section>
+    <section className={section}><h2 className="mb-3 text-sm font-semibold text-earth-800">店長／交易歸屬分析</h2><p className="mb-3 text-xs text-earth-500">依訂單歸屬店長（未指定時使用核帳人）與收支歸屬人員統計；未歸屬單獨列示。僅顯示有檢視權限的資料。</p>
+      <DataTable rows={data.financial.staff} rowKey={r=>r.id} columns={[
+        {key:"name",header:"歸屬人員",accessor:r=>r.id==="unassigned"?"未歸屬":data.staff.find(s=>s.id===r.id)?.displayName??"歷史人員"},
+        {key:"orders",header:"購買筆數",align:"right",accessor:r=>canReadRevenue?r.orders:"—"},
+        {key:"customers",header:"購買人數",align:"right",accessor:r=>canReadRevenue?r.customers:"—"},
+        {key:"purchases",header:"購買淨額",align:"right",accessor:r=>canReadRevenue?(r.purchaseIncome-r.refunds).toLocaleString():"—"},
+        {key:"cash",header:"手動收支淨額",align:"right",accessor:r=>canReadCash?(r.manualIncome-r.manualExpense).toLocaleString():"—"},
+      ]}/>
     </section>
     <section className={section}><h2 className="mb-3 text-sm font-semibold text-earth-800">每日參與與完成</h2>{data.daily.length?<TrendChart data={data.daily} metric="bookings" bookingLabels={{booked:"參與人次",arrived:"完成人次"}}/>:<p className="text-sm text-earth-500">本期尚無課程。</p>}</section>
     <section className={section}><h2 className="mb-3 text-sm font-semibold text-earth-800">近六個月參與與完成</h2><p className="mb-3 text-xs text-earth-500">最後一月統計至所選結束日，不補算尚未納入的日期。</p><TrendChart data={data.trend} metric="bookings" bookingLabels={{booked:"參與人次",arrived:"完成人次"}}/></section>

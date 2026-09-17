@@ -21,7 +21,7 @@ beforeEach(()=>{
 describe("course analysis export authorization",()=>{
  it("uses the authorized store, not URL storeId, and escapes spreadsheet formulas",async()=>{
   const result=await GET(request());expect(result.status).toBe(200);
-  expect(m.analytics).toHaveBeenCalledWith("authorized",{startDate:"2026-09-17",endDate:"2026-09-17"},true);
+  expect(m.analytics).toHaveBeenCalledWith("authorized",{startDate:"2026-09-17",endDate:"2026-09-17"},true,true);
   const csv=await result.text();expect(csv).toContain('"使用點數","3"');expect(csv).toContain('"使用堂數","1"');expect(csv).toContain("'=FORMULA");
  });
  it("rejects unauthenticated and permission-denied downloads",async()=>{
@@ -35,7 +35,18 @@ describe("course analysis export authorization",()=>{
  });
  it("does not read financial data without transaction permission",async()=>{
   m.permission.mockImplementation(async(_role,_staff,permission)=>permission!=="transaction.read");
-  expect((await GET(request())).status).toBe(200);expect(m.analytics).toHaveBeenCalledWith("authorized",expect.any(Object),false);
+  expect((await GET(request())).status).toBe(200);expect(m.analytics).toHaveBeenCalledWith("authorized",expect.any(Object),false,true);
+ });
+ it("keeps cash permissions separate and exports attribution without a misleading partial total",async()=>{
+  m.permission.mockImplementation(async(_role,_staff,permission)=>permission!=="cashbook.read");
+  const baseline=await m.analytics();
+  m.analytics.mockResolvedValue({...baseline,financial:{purchaseIncome:1000,manualIncome:null,manualExpense:null,totalIncome:null,net:null,categories:[{name:"點數方案",income:1000,refunds:0,expense:0,net:1000}],staff:[{id:"coach",orders:1,customers:1,purchaseIncome:1000,refunds:0,manualIncome:0,manualExpense:0}]}});
+  const result=await GET(request());
+  expect(m.analytics).toHaveBeenLastCalledWith("authorized",expect.any(Object),true,false);
+  const csv=await result.text();
+  expect(csv).toContain('"點數方案","1000","0","0","1000"');
+  expect(csv).toContain('"\'=FORMULA","1","1","1000","無檢視權限"');
+  expect(csv).not.toContain('"總收入"');expect(csv).not.toContain('"手動收入"');
  });
  it("rejects invalid dates before querying the report",async()=>{
   expect((await GET(new NextRequest("https://example.test/api/export/course-analysis?startDate=2026-02-30&endDate=2026-03-01"))).status).toBe(400);expect(m.analytics).not.toHaveBeenCalled();
