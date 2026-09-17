@@ -1,4 +1,5 @@
 "use server";
+import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
 import { after } from "next/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -66,6 +67,7 @@ export async function saveCourseAttendance(input: unknown) {
           b.status,
         );
     });
+    scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     refresh();
     return { success: true as const };
   } catch (e) {

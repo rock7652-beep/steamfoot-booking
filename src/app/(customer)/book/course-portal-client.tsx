@@ -923,6 +923,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           {page === "plans" && (
             <>
               {heading("我的方案")}
+              <a className="cp-btn" href={`${p.prefix}/book/reminders`}>低可用額度提醒接收設定</a>
               {p.cards.map((c) => (
                 <article className="cp-card cp-pad" key={c.id}>
                   <div className="cp-line">

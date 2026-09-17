@@ -1,19 +1,14 @@
 import "server-only";
+import {deliverCourseCardNotification} from "./course-card-notification-delivery";
 import {createHash} from "node:crypto";
 import {prisma} from "@/lib/db";
 import {coursePrisma} from "@/lib/course-db";
-import {addTaiwanDuration,dayRange,monthRange,toLocalDateStr,toLocalMonthStr} from "@/lib/date-utils";
+import {addTaiwanDuration,dayRange,toLocalDateStr} from "@/lib/date-utils";
 import {courseExpirySettingId} from "@/lib/course-expiry-reminder";
 import {hasStoreFeature} from "@/lib/feature-gate";
 import {FEATURES} from "@/lib/feature-flags";
 import {deriveBaseUrl} from "@/lib/base-url";
-import {isPreviewExternalIntegrationBlocked} from "@/lib/runtime-env";
-import {getStoreForPlanByStoreId} from "@/lib/store-plan";
-import {checkReminderSendLimit} from "@/lib/usage-gate";
-import {pushMessage,pushSteamButlerMessage} from "@/lib/line";
 import {buildPlanExpiryLineMessages} from "./plan-expiry-notifications";
-import {resolveCentralLineRecipientForCustomer} from "./central-line-recipient-loader";
-import {resolveVerifiedReminderLineRoute} from "./verified-reminder-line-route";
 
 export async function getCourseExpiryCandidates(storeId:string,now=new Date()) {
   if(!(await prisma.store.findFirst({where:{id:storeId,industryModule:"COURSE"},select:{id:true}}))) return [];
@@ -32,7 +27,6 @@ export async function runCourseExpiryReminders(now=new Date(),onlyStoreId?:strin
   for(const setting of settings) {
     const store=setting.store;
     if(!store || setting.id!==courseExpirySettingId(store.id) || !(await hasStoreFeature(store.id,FEATURES.LINE_REMINDER))) continue;
-    const plan=await getStoreForPlanByStoreId(store.id);
     for(const candidate of await getCourseExpiryCandidates(store.id,now)) {
       const people=await prisma.customer.findMany({where:{storeId:store.id,id:{in:candidate.card.members.map(m=>m.customerId)},mergedIntoCustomerId:null},select:{id:true,name:true,lineUserId:true,lineLinkStatus:true}});
       for(const person of people) {
@@ -50,17 +44,7 @@ export async function runCourseExpiryReminders(now=new Date(),onlyStoreId?:strin
             const url=new URL(`/s/${encodeURIComponent(store.slug)}`,deriveBaseUrl());url.searchParams.set("view","plans");
             const messages=buildPlanExpiryLineMessages({customerName:person.name,planName:candidate.card.nameSnapshot,remainingSessions:current[0].remaining-current[0].held,expiryDate:new Date(candidate.date+"T00:00:00Z"),daysUntilExpiry:candidate.days,storeSlug:store.slug,course:{unit:candidate.card.unit==="SESSION"?"SESSION":"POINT",remaining:current[0].remaining,held:current[0].held,url:url.toString()}});
             await tx.messageLog.upsert({where:{id},create:{id,templateId:setting.id,storeId:store.id,customerId:person.id,courseCardId:candidate.card.id,channel:"LINE",status:"PENDING",renderedBody:messages[0].altText},update:{status:"PENDING",errorMessage:null}});
-            const skip=async(reason:string)=>{await tx.messageLog.update({where:{id},data:{status:"SKIPPED",errorMessage:reason}});return "SKIPPED";};
-            if(isPreviewExternalIntegrationBlocked()) return skip("隔離預覽未向外發送；不代表 LINE 送達");
-            const range=monthRange(toLocalMonthStr(now));
-            const count=await tx.messageLog.count({where:{storeId:store.id,status:"SENT",sentAt:{gte:range.start,lte:range.end}}});
-            if(!checkReminderSendLimit(plan,count).allowed) return skip("已達本月提醒額度");
-            const recipient=await resolveCentralLineRecipientForCustomer(person.id,store.id);
-            const route=await resolveVerifiedReminderLineRoute(store.id,person.lineLinkStatus==="LINKED"?person.lineUserId:null,recipient);
-            if(route.status==="BLOCKED") return skip(`LINE 身分未確認：${route.reason}`);
-            const sent=route.channel==="STORE"?await pushMessage(store.id,route.recipientLineUserId,messages,key):await pushSteamButlerMessage(route.recipientLineUserId,messages,key);
-            await tx.messageLog.update({where:{id},data:{status:sent.success?"SENT":"FAILED",lineRoute:route.channel,sentAt:sent.success?now:null,errorMessage:sent.success?null:sent.error}});
-            return sent.success?"SENT":"FAILED";
+            return deliverCourseCardNotification(tx,{id,storeId:store.id,person,messages,retryKey:key,now});
           },{timeout:25000});
           if(status==="SENT")summary.sent++;else if(status==="FAILED")summary.failed++;else summary.skipped++;
         } catch {

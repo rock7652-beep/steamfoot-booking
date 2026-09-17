@@ -1,3 +1,5 @@
+import {CourseLowBalanceSettings} from "./low-balance-settings";
+import {getCourseLowBalanceSettings} from "@/server/actions/course-low-balance";
 import { LineNotificationRecipientsCard } from "../../reminders/line-notification-recipients-card";
 import { listStoreLineNotificationRecipients } from "@/server/actions/store-line-notification-recipients";
 import { notFound } from "next/navigation";
@@ -29,7 +31,7 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
     {!enabled ? <p className="rounded-xl border border-earth-200 bg-white p-4">此店家尚未開通 LINE 提醒功能，請聯絡有權限的管理者調整店家功能。</p> : <div className="space-y-4">
       <ReminderTabs active={active} explicit={!!params.tab} storeId={storeId} baseHref="/dashboard/courses/reminders" />
       {isPreviewExternalIntegrationBlocked() && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">隔離預覽不向外發送 LINE。設定可儲存，跳過紀錄不代表實機送達。</p>}
-      {active === "manager" ? <LineNotificationRecipientsCard recipients={await listStoreLineNotificationRecipients()} course /> : active === "logs" ? <NotificationLogList data={await listNotificationCenterLogs(params)} params={params} baseHref="/dashboard/courses/reminders" course /> : setting && <><PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={false} course /><PlanExpiryReminderSettingCard initialEnabled={(await getCourseExpiryReminderSetting()).enabled} course /></>}
+      {active === "manager" ? <LineNotificationRecipientsCard recipients={await listStoreLineNotificationRecipients()} course /> : active === "logs" ? <NotificationLogList data={await listNotificationCenterLogs(params)} params={params} baseHref="/dashboard/courses/reminders" course /> : setting && <><PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={false} course /><PlanExpiryReminderSettingCard initialEnabled={(await getCourseExpiryReminderSetting()).enabled} course /><CourseLowBalanceSettings plans={await getCourseLowBalanceSettings()}/></>}
     </div>}
   </PageShell>;
 }

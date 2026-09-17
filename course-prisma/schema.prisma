@@ -84,10 +84,22 @@ model CoursePointPlan {
   validDays Int
   isActive Boolean @default(true)
   unit String @default("POINT")
+  lowBalanceEnabled Boolean @default(false)
+  lowBalanceThreshold Int?
   templateIds String[] @default([])
   cards CoursePointCard[]
   @@unique([id, storeId])
   @@unique([storeId, name])
+}
+
+model CourseBalanceReminderPreference {
+  id String @id @default(cuid())
+  storeId String
+  customerId String
+  stoppedAt DateTime? @db.Timestamptz(3)
+  lastEventAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([storeId, customerId])
 }
 
 model CoursePointCard {

@@ -26,6 +26,7 @@ MIGRATIONS = [
     "supabase/migrations/20260917011137_course_customer_emergency_contacts.sql",
     "supabase/migrations/20260917030753_course_reminder_links.sql",
     "supabase/migrations/20260917081039_course_negotiated_refund.sql",
+    "supabase/migrations/20260917094700_course_low_balance_reminders.sql",
 ]
 
 BASELINE = '''
@@ -124,7 +125,7 @@ def main():
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Staff' AND column_name='phone';") == "0"
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Customer' AND column_name='emergencyContactName';") == "0"
         assert snapshot(db) == before
-        checks.append("late failure rolls back all twelve migrations, enum and shared-column changes")
+        checks.append("late failure rolls back all thirteen migrations, enum and shared-column changes")
         query(db, 'DROP INDEX "Customer_id_storeId_key";')
         query(db, bundle, "42830")
         assert query(db, "SELECT to_regclass('public.\"CourseRoom\"') IS NULL;") == "t"
@@ -140,7 +141,7 @@ def main():
         query(db, bundle, "Course rollout already applied or partial")
         assert snapshot(db) == before
         checks.append("replay fails closed without changes")
-        assert query(db, "SELECT count(*) FROM pg_class WHERE relname LIKE 'Course%' AND relkind='r' AND relrowsecurity;") == "11"
+        assert query(db, "SELECT count(*) FROM pg_class WHERE relname LIKE 'Course%' AND relkind='r' AND relrowsecurity;") == "12"
         assert query(db, 'SELECT "courseMemberEnabled" AND phone=\'\' AND "emergencyContactName"=\'\' AND "emergencyContactPhone"=\'\' FROM "StaffMemberLink" CROSS JOIN "Staff" LIMIT 1;') == "t"
         query(db, '''
 INSERT INTO "CourseRoom" (id,"storeId",name) VALUES ('room','steam','Room');
@@ -167,6 +168,13 @@ INSERT INTO "CoursePurchaseRefund" (id,"storeId","purchaseId",amount,points,meth
         query(db, '''UPDATE "CoursePurchaseRefund" SET points=-1 WHERE id='refund2';''', "23514")
         query(db, '''UPDATE "CoursePurchaseRefund" SET "requestKey"='refund-key-1' WHERE id='refund2';''', "23505")
         checks.append("refund methods and nonnegative retired quota validated; supplemental refund allowed; request keys remain unique")
+        assert query(db, 'SELECT "lowBalanceEnabled", "lowBalanceThreshold" IS NULL FROM "CoursePointPlan" WHERE id=\'plan\';') == "f|t"
+        query(db, 'UPDATE "CoursePointPlan" SET "lowBalanceEnabled"=true WHERE id=\'plan\';', "23514")
+        query(db, 'UPDATE "CoursePointPlan" SET "lowBalanceThreshold"=-1 WHERE id=\'plan\';', "23514")
+        query(db, 'INSERT INTO "CourseBalanceReminderPreference" (id,"storeId","customerId") VALUES (\'pref\',\'steam\',\'a\');')
+        query(db, 'INSERT INTO "CourseBalanceReminderPreference" (id,"storeId","customerId") VALUES (\'cross-pref\',\'steam\',\'b\');', "23503")
+        query(db, 'INSERT INTO "CourseBalanceReminderPreference" (id,"storeId","customerId") VALUES (\'duplicate-pref\',\'steam\',\'a\');', "23505")
+        checks.append("low balance defaults disabled with no threshold; invalid settings, cross-store preferences and duplicate preferences rejected")
         query(db, 'UPDATE "CoursePointCard" SET remaining=-1;', "23514")
         query(db, 'INSERT INTO "CourseCardMember" VALUES (\'card\',\'steam\',\'b\');', "23503")
         query(db, '''INSERT INTO "CourseBooking" SELECT 'duplicate',"storeId","sessionId","cardId","customerId","operatorUserId","operatorCustomerId","operatorName","customerName","pointCost",status,'different-request',"createdAt","updatedAt","checkedInAt",notes FROM "CourseBooking";''', "23505")
@@ -180,6 +188,7 @@ INSERT INTO "CoursePointEntry" (id,"storeId","cardId","bookingId",kind,points,"a
             query(db, f'SET ROLE {role}; INSERT INTO "CourseRoom" (id,"storeId",name) VALUES (\'browser\',\'steam\',\'Forbidden\');', "42501")
             query(db, f'SET ROLE {role}; SELECT * FROM "CoursePurchase";', "42501")
             query(db, f'SET ROLE {role}; SELECT * FROM "CoursePurchaseRefund";', "42501")
+            query(db, f'SET ROLE {role}; SELECT * FROM "CourseBalanceReminderPreference";', "42501")
         checks.append("both browser roles denied rows/writes under permissive default grants; purchase privileges revoked")
         print(json.dumps({"postgres": version, "checks": checks, "manifest": manifest,
                           "scope": "synthetic dependency baseline, not production clone or app transaction acceptance"}, indent=2))

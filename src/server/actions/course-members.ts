@@ -1,4 +1,5 @@
 "use server";
+import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
 import { after } from "next/server";
 import { z } from "zod";
 import { updateCustomerSchema } from "@/lib/validators/customer";
@@ -235,10 +236,11 @@ export async function setCourseCardMembers(input: unknown) {
 export async function createCourseBooking(input: unknown) {
   try {
     const { user, storeId } = await courseManager("booking.create");
-    await reserveCourse(
+    const booking = await reserveCourse(
       { userId: user.id, storeId, name: user.name ?? "店長" },
       bookingInput.parse(input),
     );
+    scheduleCourseLowBalanceCheck(storeId,[booking.id]);
     refresh();
     return { success: true as const };
   } catch (error) {
@@ -261,6 +263,7 @@ export async function createMemberCourseBooking(input: unknown) {
         bookingInput.transform(({ customerId, ...rest }) => ({ ...rest, customerIds: [customerId] })),
       ]).parse(input),
     );
+    scheduleCourseLowBalanceCheck(storeId,bookings.map(b=>b.id));
     after(async () => {
       const {notifyCourseBookingManagers}=await import("@/server/services/course-manager-notifications");
       await notifyCourseBookingManagers(storeId,bookings.map(b=>b.id));
@@ -299,6 +302,7 @@ export async function updateCourseBookingStatus(input: unknown) {
     await courseTransaction(actor.storeId, (tx) =>
       settleCourseBooking(tx, actor, data.bookingId, data.status),
     );
+    scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
     refresh();
     return { success: true as const };
   } catch (error) {
@@ -403,6 +407,7 @@ export async function markCourseCoachAttendance(input: unknown) {
         status,
       );
     });
+    scheduleCourseLowBalanceCheck(storeId,[bookingId]);
     refresh();
     return { success: true as const };
   } catch (e) {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mock = vi.hoisted(() => ({ account: vi.fn(), raw: vi.fn(), settle: vi.fn(), transaction: vi.fn(), refresh: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: {} }));
+vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: mock.refresh }));
 vi.mock("@/server/services/course-access", () => ({ courseAccount: mock.account, courseTransaction: mock.transaction, courseMember: vi.fn(), courseManager: vi.fn() }));
 vi.mock("@/server/services/course-booking", () => ({ reserveCourse: vi.fn(), settleCourseBooking: mock.settle }));
