@@ -302,7 +302,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     p.cards
       .filter(
         (c) =>
-          !c.expired &&
+          !c.expired && !c.closed &&
           c.expiresAt >= s.startsAt &&
           (!c.templateIds.length || c.templateIds.includes(s.templateId)),
       )
@@ -311,7 +311,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     c.unit === "SESSION" ? 1 : s.cost;
   function book(s: Session) {
     setSession(s);
-    setCardId(eligible(s)[0]?.id ?? "");
+    const options = eligible(s);
+    setCardId((options.find(c => c.available >= amount(s,c)) ?? options[0])?.id ?? "");
     setLearners([]);
     setNotes("");
     setConfirm(false);
@@ -773,7 +774,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       "我的方案",
                       "plans",
                       p.cards.length
-                        ? `${p.cards.filter((c) => !c.expired).length} 個有效方案`
+                        ? `${p.cards.filter((c) => !c.expired && !c.closed).length} 個有效方案`
                         : "尚無方案",
                     )}
                   </section>
