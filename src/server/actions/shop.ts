@@ -18,6 +18,8 @@ import {
 } from "@/lib/date-utils";
 import { updateTag, revalidatePath } from "next/cache";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { saveCourseBookingWindow } from "./course-booking-window";
 
 export async function updateDutyScheduling(
   enabled: boolean
@@ -231,6 +233,8 @@ export async function updateBookableUntilDate(
     const user = await requirePermission("business_hours.manage");
     const { date } = updateBookableUntilDateSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
+    if (await getStoreIndustryModule(storeId) === "course")
+      return saveCourseBookingWindow({mode:"fixed",date});
 
     if (!date) {
       throw new AppError("VALIDATION", "請選擇開放預約的截止日期");
@@ -273,6 +277,10 @@ export async function updateCustomerBookingWindow(
     const user = await requirePermission("business_hours.manage");
     const { opensAt, days } = updateCustomerBookingWindowSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
+    if (await getStoreIndustryModule(storeId) === "course") {
+      if (opensAt) throw new AppError("VALIDATION", "請由課程營業設定調整預約開放期限");
+      return saveCourseBookingWindow({mode:"rolling",days});
+    }
     await assertNoActiveBookingAfter(
       storeId,
       new Date(Date.now() + days * 24 * 60 * 60 * 1000),

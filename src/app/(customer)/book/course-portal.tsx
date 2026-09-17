@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { resolveCustomerBookingWindow } from "@/lib/shop-config";
 import { courseAccount } from "@/server/services/course-access";
 import { coursePrisma } from "@/lib/course-db";
 import { getCourseCards } from "@/server/queries/course-members";
@@ -47,6 +48,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       where: { storeId },
       select: {
         bankName: true,
+        bookableUntilDate: true, bookingOpensAt: true, bookingWindowDays: true,
         bankCode: true,
         bankAccountNumber: true,
         lineOfficialUrl: true,
@@ -220,6 +222,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     healthEnabled: memberEnabled && healthEnabled,
     config,
     cards,
+    bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
     plans,
     templates,
     hours,

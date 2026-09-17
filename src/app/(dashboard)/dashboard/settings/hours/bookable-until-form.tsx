@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { saveCourseBookingWindow } from "@/server/actions/course-booking-window";
 import { addTaiwanDuration, formatDateZh } from "@/lib/date-utils";
 import {
   updateBookableUntilDate,
@@ -10,6 +11,7 @@ import {
 } from "@/server/actions/shop";
 
 interface Props {
+  course?: boolean;
   /** 目前 ShopConfig.bookableUntilDate（"YYYY-MM-DD"）；null = 未設定 */
   initialDate: string | null;
   initialDays: number;
@@ -22,6 +24,7 @@ export function BookableUntilForm({
   initialDays,
   today,
   canManage,
+  course = false,
 }: Props) {
   const initialMode = initialDate ? "fixed" : "rolling";
   const [mode, setMode] = useState<"fixed" | "rolling">(initialMode);
@@ -49,7 +52,7 @@ export function BookableUntilForm({
         toast.error("請選擇開放預約的截止日期");
         return;
       }
-      const result =
+      const result = course ? await saveCourseBookingWindow(mode === "fixed" ? {mode,date:fixedDate} : {mode,days}) :
         mode === "fixed"
           ? await updateBookableUntilDate({ date: fixedDate })
           : await updateCustomerBookingWindow({ opensAt: null, days });

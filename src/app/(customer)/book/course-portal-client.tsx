@@ -454,6 +454,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
       </p>
     </section>
   );
+  const notOpenYet = (s: Session) => new Date(s.startsAt).getTime() > new Date(p.bookingWindow.closesAt).getTime() || (!!p.bookingWindow.opensAt && now < new Date(p.bookingWindow.opensAt).getTime());
   function lessonRows(list: Session[]) {
     return list.length ? (
       list.map((s) => (
@@ -474,7 +475,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               pending ||
               new Date(s.startsAt).getTime() <= now ||
               s.occupied >= s.capacity ||
-              closed(courseDate(s.startsAt))
+              closed(courseDate(s.startsAt)) || notOpenYet(s)
             }
             onClick={() => book(s)}
           >
@@ -482,7 +483,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               ? "已開始"
               : s.occupied >= s.capacity
                 ? "滿班"
-                : "預約"}
+                : notOpenYet(s) ? "尚未開放" : closed(courseDate(s.startsAt)) ? "公休" : "預約"}
           </button>
         </article>
       ))

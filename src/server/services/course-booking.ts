@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "@/lib/shop-config";
 import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { monthRange, toLocalMonthStr, toLocalDateStr } from "@/lib/date-utils";
 import "server-only";
@@ -144,6 +145,11 @@ async function reserveCourseInTransaction(
     now.getTime() + (rule?.bookingLeadMinutes ?? 0) * 60000
   )
     return fail("已超過預約截止時間");
+  if (actor.customerId) {
+    const configs = await tx.$queryRaw<CustomerBookingWindowConfig[]>`SELECT "bookableUntilDate", "bookingOpensAt", "bookingWindowDays" FROM "ShopConfig" WHERE "storeId"=${storeId}`;
+    const window = resolveCustomerBookingWindow(configs[0], now);
+    if ((window.opensAt && now < window.opensAt) || session.startsAt > window.closesAt) return fail("此課程尚未開放會員預約，請依店家開放期限預約");
+  }
   const sessionDay = toLocalDateStr(session.startsAt);
   const closed = await tx.$queryRaw<Array<{closed:boolean}>>`SELECT COALESCE((SELECT type <> 'custom' FROM "SpecialBusinessDay" WHERE "storeId"=${storeId} AND date=${new Date(sessionDay+'T00:00:00Z')}::date), (SELECT NOT "isOpen" FROM "BusinessHours" WHERE "storeId"=${storeId} AND "dayOfWeek"=EXTRACT(DOW FROM ${new Date(sessionDay+'T00:00:00Z')}::date)::int), false) AS closed`;
   if (closed[0]?.closed) return fail("店家公休日無法新增預約");

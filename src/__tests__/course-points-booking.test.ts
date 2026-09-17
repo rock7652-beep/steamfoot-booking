@@ -326,3 +326,17 @@ describe("atomic multi-learner reservations", () => {
     expect(m.transaction).not.toHaveBeenCalled();
   });
 });
+
+it("member booking cutoff is inclusive and blocks the first instant beyond without holding points", async () => {
+  m.tx.$queryRaw.mockImplementation(async (sql: TemplateStringsArray) => sql.join("").includes('"ShopConfig"') ? [{bookableUntilDate:new Date("2026-09-16T00:00:00Z")}] : [{id:"b",name:"B"}]);
+  m.tx.courseSession.findFirst.mockResolvedValue({id:"session",startsAt:new Date("2026-09-16T23:59:59.999+08:00"),capacity:2,pointCost:3});
+  await expect(reserveCourse(actor,input)).resolves.toBeDefined();
+  m.tx.courseSession.findFirst.mockResolvedValue({id:"session",startsAt:new Date("2026-09-17T00:00:00+08:00"),capacity:2,pointCost:3});
+  m.tx.courseBooking.create.mockClear(); m.tx.coursePointEntry.create.mockClear();
+  await expect(reserveCourse(actor,{...input,requestKey:"next"})).rejects.toThrow("尚未開放");
+  expect(m.tx.courseBooking.create).not.toHaveBeenCalled();expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();
+});
+it("manager proxy booking retains the mature exemption from member opening window", async () => {
+  m.tx.$queryRaw.mockImplementation(async (sql: TemplateStringsArray) => sql.join("").includes('"ShopConfig"') ? [{bookableUntilDate:new Date("2026-09-15T00:00:00Z")}] : [{id:"b",name:"B"}]);
+  await expect(reserveCourse({...actor,customerId:undefined},input)).resolves.toBeDefined();
+});
