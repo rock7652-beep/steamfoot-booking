@@ -31,7 +31,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     coursePrisma.coursePurchase.aggregate({ where: { storeId, status: { in: ["CONFIRMED", "REFUNDED"] }, confirmedAt: range }, _sum: { price: true }, _count: true }),
     coursePrisma.coursePurchaseRefund.aggregate({ where: { storeId, createdAt: range }, _sum: { amount: true } }),
     prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true, user: { select: { role: true } } } }),
-    coursePrisma.courseTrialPayment.aggregate({where:{storeId,status:"SUCCESS",createdAt:range},_sum:{amount:true}}),
+    coursePrisma.courseTrialPayment.findMany({where:{storeId,OR:[{createdAt:range},{voidedAt:range}]},select:{amount:true,createdAt:true,voidedAt:true}}),
   ]);
   const cardIds = orders.flatMap((order) => order.cardId ? [order.cardId] : []);
   const [customers, cards, held, attended] = await Promise.all([
@@ -67,7 +67,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   return <PageShell>
     <PageHeader title={basePath === "/dashboard/transactions" ? "交易明細" : "營運"} subtitle="課程購買、核帳、退款與收支" />
     <RevenueTabs readOnly={readOnly} />
-    <KpiStrip items={[{ label: "期間核帳收入", value: money(income), tone: "primary" }, { label: "體驗收款", value: money(trialIncome._sum.amount??0) }, { label: "期間退款", value: money(refund) }, { label: "方案淨收入", value: money(income - refund) }, { label: "核帳訂單", value: `${receipts._count} 筆` }]} />
+    <KpiStrip items={[{ label: "期間核帳收入", value: money(income), tone: "primary" }, { label: "體驗淨收入", value: money(trialIncome.reduce((sum,p)=>sum+(p.createdAt>=range.gte&&p.createdAt<=range.lte?p.amount:0)-(p.voidedAt&&p.voidedAt>=range.gte&&p.voidedAt<=range.lte?p.amount:0),0)) }, { label: "期間退款", value: money(refund) }, { label: "方案淨收入", value: money(income - refund) }, { label: "核帳訂單", value: `${receipts._count} 筆` }]} />
     <p className="text-xs text-earth-500">摘要依核帳／退款發生日計算；下表依購買日期篩選。方案淨收入不重複加計現金帳的連動紀錄，也不包含手動收支。</p>
     <CourseTrialTransactions storeId={storeId} range={range} readOnly={readOnly} page={Math.max(1,Number(params.trialPage)||1)} basePath={basePath} query={{dateFrom:from,dateTo:to,status:status??"",staff:staff??""}} status={status} staff={staff}/>
     <div className="grid grid-cols-12 gap-3"><section className="col-span-12 rounded-xl border border-earth-200 bg-white lg:col-span-9">

@@ -213,7 +213,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
       <div className="rounded-xl border border-earth-200 bg-earth-50/50 p-4 text-xs text-earth-500">
         <p className="font-medium text-earth-600">對帳說明</p>
         <ul className="mt-1.5 space-y-0.5 list-disc list-inside">
-          <li>{isCourse ? "課程檢查：核帳收入、退款支出與上限、額度餘額、預約占用、容量與取消狀態。" : "每次執行檢查 5 個項目：今日營收、本月營收、今日預約筆數、今日預約人數、CSV 合計列"}</li>
+          <li>{isCourse ? "課程檢查：核帳收入、退款支出與上限、額度餘額、預約占用、體驗收款／沖銷、容量與取消狀態。" : "每次執行檢查 5 個項目：今日營收、本月營收、今日預約筆數、今日預約人數、CSV 合計列"}</li>
           <li>數字比對容許誤差 = 0（必須完全一致）</li>
           <li>{isCourse ? "以同店一致快照，核對購買／退款、收支及額度與預約資料。" : "每項檢查從多個來源取值後交叉比對（aggregate vs groupBy vs 逐筆加總）"}</li>
           <li>點擊各項目的「Debug 資訊」可查看完整的日期範圍、公式、來源明細</li>

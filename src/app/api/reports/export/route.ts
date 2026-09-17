@@ -87,11 +87,11 @@ export async function GET(req: NextRequest) {
     if (analysisStoreId && await getStoreIndustryModule(analysisStoreId) === "course") {
       const report = await getCourseRevenueReport(analysisStoreId, filters);
       const summary = workbook.addWorksheet("課程收入總覽");
-      summary.addRow(["核帳收入","退款","淨收入","核帳筆數","購買人數"]);
+      summary.addRow(["收款登錄","退款／沖銷","淨收入","收款紀錄數","付款顧客數"]);
       summary.addRow([report.kpi.totalRevenue,report.kpi.refundAmount,report.kpi.netRevenue,report.kpi.txCount,report.kpi.customerCount]);
       const sheet = workbook.addWorksheet("課程收退款明細");
       sheet.addRow(["發生日","類型","顧客","方案","點數／堂數制","金額","歸屬人員","備註"]);
-      for (const row of report.data) sheet.addRow([row.transactionDate,row.refund?"退款":"核帳收入",row.customerName,row.planName,row.unit==="SESSION"?"堂數":"點數",row.netAmount,row.coachName??"",row.note??""]);
+      for (const row of report.data) sheet.addRow([row.transactionDate,row.refund?(row.unit==="TRIAL"?"體驗收款沖銷":"退款"):(row.unit==="TRIAL"?"體驗收款":"核帳收入"),row.customerName,row.planName,row.unit==="TRIAL"?"體驗（不使用方案）":row.unit==="SESSION"?"堂數":"點數",row.netAmount,row.coachName??"",row.note??""]);
       sheet.views=[{state:"frozen",ySplit:1,xSplit:0}];
       autoFitColumns(sheet); autoFitColumns(summary);
     } else if (reportType === "store") {
