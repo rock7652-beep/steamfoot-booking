@@ -1,3 +1,4 @@
+vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:async()=>"steamfoot"}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({ permission: vi.fn(), store: vi.fn(), find: vi.fn(), update: vi.fn(), revalidate: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: h.permission }));

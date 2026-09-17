@@ -1,4 +1,5 @@
 "use server";
+import { after } from "next/server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireWritablePermission } from "@/lib/permissions";
@@ -87,7 +88,7 @@ export async function purchaseCoursePlan(input: unknown) {
     });
     if (!config?.bankName || !config.bankAccountNumber)
       throw new AppError("VALIDATION", "店家尚未設定收款資訊，請聯絡店家");
-    await courseTransaction(storeId, async (tx) => {
+    const purchaseId = await courseTransaction(storeId, async (tx) => {
       const prior = await tx.coursePurchase.findUnique({
         where: { storeId_requestKey: { storeId, requestKey: data.requestKey } },
       });
@@ -98,13 +99,13 @@ export async function purchaseCoursePlan(input: unknown) {
           prior.transferLastFive !== data.transferLastFive
         )
           throw new AppError("CONFLICT", "購買請求已使用");
-        return;
+        return prior.id;
       }
       const plan = await tx.coursePointPlan.findFirst({
         where: { id: data.planId, storeId, isActive: true },
       });
       if (!plan) throw new AppError("NOT_FOUND", "此方案已下架");
-      await tx.coursePurchase.create({
+      const created = await tx.coursePurchase.create({
         data: {
           ...data,
           storeId,
@@ -117,6 +118,11 @@ export async function purchaseCoursePlan(input: unknown) {
           templateIds: plan.templateIds,
         },
       });
+      return created.id;
+    });
+    after(async () => {
+      const {notifyCoursePurchaseManagers}=await import("@/server/services/course-manager-notifications");
+      await notifyCoursePurchaseManagers(storeId,purchaseId);
     });
     refresh();
     return { success: true as const };

@@ -1,4 +1,5 @@
 "use server";
+import { after } from "next/server";
 import { z } from "zod";
 import { updateCustomerSchema } from "@/lib/validators/customer";
 import { revalidatePath } from "next/cache";
@@ -248,7 +249,7 @@ export async function createCourseBooking(input: unknown) {
 export async function createMemberCourseBooking(input: unknown) {
   try {
     const { user, storeId, customer } = await courseMember();
-    await reserveCourseMembers(
+    const bookings = await reserveCourseMembers(
       {
         userId: user.id,
         storeId,
@@ -260,6 +261,10 @@ export async function createMemberCourseBooking(input: unknown) {
         bookingInput.transform(({ customerId, ...rest }) => ({ ...rest, customerIds: [customerId] })),
       ]).parse(input),
     );
+    after(async () => {
+      const {notifyCourseBookingManagers}=await import("@/server/services/course-manager-notifications");
+      await notifyCourseBookingManagers(storeId,bookings.map(b=>b.id));
+    });
     refresh();
     return { success: true as const };
   } catch (error) {

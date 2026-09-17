@@ -73,6 +73,14 @@ const duplicate = () =>
   });
 
 describe("manager delivery preferences and durable deduplication", () => {
+  it("never creates course manager recipients from staff or legacy environment links", async () => {
+    h.store.mockResolvedValue({industryModule:"COURSE",managerRecipientsMigrated:false,slug:"course"});
+    await migrateManagerRecipients("course-store");
+    expect(h.claim).not.toHaveBeenCalled();
+    expect(h.staff).not.toHaveBeenCalled();
+    expect(h.createRecipient).not.toHaveBeenCalled();
+    expect(h.upsert).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.resetAllMocks();
     h.store.mockResolvedValue({

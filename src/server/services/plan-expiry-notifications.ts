@@ -103,6 +103,7 @@ export async function runPlanExpiryNotifications(now = new Date()) {
     const wallets = await prisma.customerPlanWallet.findMany({
       where: {
         status: "ACTIVE",
+        store: { industryModule: { not: "COURSE" } },
         remainingSessions: { gt: 0 },
         expiryDate,
         plan: { category: "PACKAGE" },

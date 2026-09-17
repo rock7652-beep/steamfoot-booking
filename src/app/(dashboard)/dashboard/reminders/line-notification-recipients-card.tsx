@@ -21,7 +21,7 @@ type Recipient = {
   preferences: unknown;
   legacyStaffId?: string | null;
 };
-function RecipientCard({ item, expanded, onExpand }: { item: Recipient; expanded: boolean; onExpand: () => void }) {
+function RecipientCard({ item, expanded, onExpand, course = false }: { item: Recipient; expanded: boolean; onExpand: () => void; course?: boolean }) {
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState("");
   const p = managerPreferences(item.preferences, item.sameDayBookingEnabled);
@@ -102,14 +102,14 @@ function RecipientCard({ item, expanded, onExpand }: { item: Recipient; expanded
         <div
           className={`mt-4 grid gap-5 md:grid-cols-3 ${!item.isActive ? "opacity-50" : ""}`}
         >
-          {["預約通知", "顧客需求", "店務提醒"].map((group) => (
+          {(course ? ["預約通知", "店務提醒"] : ["預約通知", "顧客需求", "店務提醒"]).map((group) => (
             <section key={group}>
               <h4 className="mb-3 text-sm font-semibold text-earth-800">
                 {group}
               </h4>
               <div className="space-y-4">
                 {MANAGER_NOTIFICATION_OPTIONS.filter(
-                  (o) => o.group === group,
+                  (o) => o.group === group && (!course || o.key === "sameDay" || o.key === "payment"),
                 ).map((o) => (
                   <label
                     key={o.key}
@@ -147,8 +147,10 @@ function RecipientCard({ item, expanded, onExpand }: { item: Recipient; expanded
 }
 export function LineNotificationRecipientsCard({
   recipients,
+  course = false,
 }: {
   recipients: Recipient[];
+  course?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -188,7 +190,7 @@ export function LineNotificationRecipientsCard({
           <select aria-label="篩選人員身分" value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(0); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"><option value="">全部身分</option>{Array.from(new Set(recipients.map(r => r.roleLabel))).map(role => <option key={role}>{role}</option>)}</select>
         </div>
         <p className="text-xs text-earth-500" role="status">符合 {filtered.length} 位，每頁最多顯示 10 位</p>
-        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
+        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard course={course} key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
         {!filtered.length && <div className="rounded-xl border border-earth-200 bg-white p-5 text-sm text-earth-500">沒有符合條件的人員。<button type="button" onClick={() => { setQuery(""); setStatus("ALL"); setRoleFilter(""); setPage(0); }} className="ml-3 text-primary-700 underline">清除篩選</button></div>}
         {lastPage > 0 && <div className="flex items-center justify-end gap-4 text-sm"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">上一頁</button><span>{currentPage + 1} / {lastPage + 1}</span><button type="button" disabled={currentPage === lastPage} onClick={() => setPage(currentPage + 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">下一頁</button></div>}
       </>}
