@@ -1,3 +1,6 @@
+import { AppError } from "@/lib/errors";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { getCourseRevenueReport } from "@/server/queries/course-revenue-report";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { NextRequest, NextResponse } from "next/server";
@@ -81,7 +84,17 @@ export async function GET(req: NextRequest) {
   try {
     const workbook = new ExcelJS.Workbook();
 
-    if (reportType === "store") {
+    if (analysisStoreId && await getStoreIndustryModule(analysisStoreId) === "course") {
+      const report = await getCourseRevenueReport(analysisStoreId, filters);
+      const summary = workbook.addWorksheet("課程收入總覽");
+      summary.addRow(["核帳收入","退款","淨收入","核帳筆數","購買人數"]);
+      summary.addRow([report.kpi.totalRevenue,report.kpi.refundAmount,report.kpi.netRevenue,report.kpi.txCount,report.kpi.customerCount]);
+      const sheet = workbook.addWorksheet("課程收退款明細");
+      sheet.addRow(["發生日","類型","顧客","方案","點數／堂數制","金額","歸屬人員","備註"]);
+      for (const row of report.data) sheet.addRow([row.transactionDate,row.refund?"退款":"核帳收入",row.customerName,row.planName,row.unit==="SESSION"?"堂數":"點數",row.netAmount,row.coachName??"",row.note??""]);
+      sheet.views=[{state:"frozen",ySplit:1,xSplit:0}];
+      autoFitColumns(sheet); autoFitColumns(summary);
+    } else if (reportType === "store") {
       await buildStoreRevenueWorkbook(workbook, filters, level);
     } else {
       await buildCoachRevenueWorkbook(workbook, filters, level);
@@ -108,6 +121,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (e) {
+    if (e instanceof AppError && e.code === "VALIDATION") return NextResponse.json({ error: e.message }, { status: 400 });
     console.error("Export error:", e);
     return new NextResponse("Internal server error", { status: 500 });
   }

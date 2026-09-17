@@ -215,7 +215,7 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
         <ul className="mt-1.5 space-y-0.5 list-disc list-inside">
           <li>{isCourse ? "課程檢查：核帳收入、退款支出與上限、額度餘額、預約占用、容量與取消狀態。" : "每次執行檢查 5 個項目：今日營收、本月營收、今日預約筆數、今日預約人數、CSV 合計列"}</li>
           <li>數字比對容許誤差 = 0（必須完全一致）</li>
-          <li>每項檢查從多個來源取值後交叉比對（aggregate vs groupBy vs 逐筆加總）</li>
+          <li>{isCourse ? "以同店一致快照，核對購買／退款、收支及額度與預約資料。" : "每項檢查從多個來源取值後交叉比對（aggregate vs groupBy vs 逐筆加總）"}</li>
           <li>點擊各項目的「Debug 資訊」可查看完整的日期範圍、公式、來源明細</li>
           {!isCourse && <li>異常時 Dashboard 首頁會顯示警示條（僅 Owner 可見）</li>}
         </ul>
@@ -244,7 +244,9 @@ interface CheckCardProps {
 
 function CheckDetailCard({ check }: CheckCardProps) {
   const config = STATUS_CONFIG[check.status];
-  const sources = check.sources as Record<string, number>;
+  const rawSources = check.sources as Record<string, number>;
+  const checkedCount = check.checkCode.startsWith("course_") ? rawSources["已檢查筆數"] : undefined;
+  const sources = checkedCount === undefined ? rawSources : { "允許不一致筆數": 0, "實際不一致筆數": rawSources["不一致筆數"] };
   const debug = check.debugPayload as Record<string, unknown>;
 
   // 計算來源值是否一致（用於顯示差異高亮）
@@ -284,6 +286,7 @@ function CheckDetailCard({ check }: CheckCardProps) {
         </p>
       )}
 
+      {checkedCount !== undefined && <p className="mt-2 text-xs text-earth-600">本次已檢查 {checkedCount} 筆</p>}
       {/* 第二層：來源比對表 */}
       {Object.keys(sources).length > 0 && (
         <div className="mt-3 overflow-x-auto">

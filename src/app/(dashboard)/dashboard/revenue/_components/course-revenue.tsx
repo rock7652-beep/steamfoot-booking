@@ -76,6 +76,6 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       </div>
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
       {pages > 1 && <div className="flex justify-between p-3 text-sm"><span>第 {page} / {pages} 頁</span><div className="flex gap-4">{page > 1 && <Link href={href(page - 1)}>上一頁</Link>}{page < pages && <Link href={href(page + 1)}>下一頁</Link>}</div></div>}
-    </section><aside className="col-span-12 space-y-3 lg:col-span-3"><SideCard title="相關工具"><div className="flex flex-col gap-3 text-sm"><Link href="/dashboard/reconciliation">對帳中心 →</Link><Link href="/dashboard/cashbook">現金帳與完整現金管理 →</Link><Link href="/dashboard/courses?view=plans">方案與待核帳訂單 →</Link></div></SideCard><SideCard title="退款規則"><p className="text-sm">未使用且無占用可退原實付金額。部分使用方案的退款金額待規則確認；保留原單及全部異動。</p></SideCard></aside></div>
+    </section><aside className="col-span-12 space-y-3 lg:col-span-3"><SideCard title="相關工具"><div className="flex flex-col gap-3 text-sm"><Link href="/dashboard/store-revenue">收入總覽與匯出 →</Link><Link href="/dashboard/reconciliation">對帳中心 →</Link><Link href="/dashboard/cashbook">現金帳與完整現金管理 →</Link><Link href="/dashboard/courses?view=plans">方案與待核帳訂單 →</Link></div></SideCard><SideCard title="退款規則"><p className="text-sm">未使用且無占用可退原實付金額。部分使用方案的退款金額待規則確認；保留原單及全部異動。</p></SideCard></aside></div>
   </PageShell>;
 }

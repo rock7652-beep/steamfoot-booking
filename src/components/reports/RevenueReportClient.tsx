@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExportButton } from "./ExportButton";
@@ -83,6 +84,7 @@ interface PaymentMethodSummary { paymentMethod: string; amount: number }
 type ReportMode = "store" | "coach";
 
 interface Props {
+  courseMode?: boolean;
   mode: ReportMode;
   stores: StoreOption[];
   coaches: CoachOption[];
@@ -104,7 +106,7 @@ function fmtMoney(n: number): string {
 
 function fmtPlanType(t: string | null): string {
   if (!t) return "-";
-  const m: Record<string, string> = { TRIAL: "體驗", SINGLE: "單次", PACKAGE: "套餐" };
+  const m: Record<string, string> = { TRIAL: "體驗", SINGLE: "單次", PACKAGE: "套餐", POINT: "點數方案", SESSION: "堂數方案" };
   return m[t] ?? t;
 }
 
@@ -138,6 +140,7 @@ function fmtDate(iso: string): string {
 
 export function RevenueReportClient({
   mode,
+  courseMode = false,
   stores,
   coaches,
   isAdmin,
@@ -275,6 +278,11 @@ export function RevenueReportClient({
   // Period type handlers
   function handlePeriodChange(type: "today" | "month" | "custom") {
     setPeriodType(type);
+    if (courseMode) {
+      if (type === "today") { const today = toLocalDateStr(); setStartDate(today); setEndDate(today); }
+      else if (type === "month") { const month = toLocalMonthStr(); setStartDate(month + "-01"); setEndDate(toLocalDateStr(monthRange(month).end)); }
+      return;
+    }
     const now = new Date();
     if (type === "today") {
       const today = now.toISOString().slice(0, 10);
@@ -294,6 +302,8 @@ export function RevenueReportClient({
 
   // Auto-fetch on mount
   useEffect(() => {
+    // Initialize the existing request loader once; later filter changes wait for Search.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -406,9 +416,7 @@ export function RevenueReportClient({
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             >
               <option value="">全部</option>
-              <option value="TRIAL">體驗</option>
-              <option value="SINGLE">單次</option>
-              <option value="PACKAGE">套餐</option>
+              {courseMode ? <><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option></>}
             </select>
           </div>
 
@@ -421,11 +429,11 @@ export function RevenueReportClient({
                 className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
                 <option value="">全部</option>
-                <option value="CASH">現金</option>
+                {courseMode ? <option value="OTHER">銀行匯款</option> : <><option value="CASH">現金</option>
                 <option value="TRANSFER">轉帳</option>
                 <option value="LINE_PAY">LINE Pay</option>
                 <option value="CREDIT_CARD">信用卡</option>
-                <option value="OTHER">其他</option>
+                <option value="OTHER">其他</option></>}
               </select>
             </div>
           )}
@@ -531,7 +539,7 @@ export function RevenueReportClient({
               <table className="min-w-full text-sm">
                 <thead className="bg-earth-50">
                   <tr>
-                    {["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"].map((h) => (
+                    {(courseMode ? ["分店名稱", "核帳收入", "退款金額", "方案淨收入", "核帳筆數", "購買人數", "平均客單價"] : ["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -546,10 +554,10 @@ export function RevenueReportClient({
                       <td className="px-3 py-2 text-right">{s.txCount}</td>
                       <td className="px-3 py-2 text-right">{s.customerCount}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.avgPerCustomer)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.trialRevenue)}</td>
+                      {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(s.trialRevenue)}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.packageRevenue)}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.singleRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.otherRevenue)}</td>
+                      <td className="px-3 py-2 text-right">{fmtMoney(s.otherRevenue)}</td></>}
                     </tr>
                   ))}
                 </tbody>
