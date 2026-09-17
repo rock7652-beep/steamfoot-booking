@@ -869,7 +869,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                             {b.unit === "TRIAL" ? `體驗 NT$ ${b.trialPrice} · ${b.trialPaid === null ? "尚未收款" : `已收款 NT$ ${b.trialPaid}`}` : b.planName}{b.expiresAt ? ` · ${courseDate(b.expiresAt)} 到期` : ""}
                           </p>
                           <p>
-                            {b.status === "ATTENDED"
+                            {b.unit === "TRIAL" ? "" : b.status === "ATTENDED"
                               ? "已使用"
                               : b.status === "RESERVED"
                                 ? "保留"

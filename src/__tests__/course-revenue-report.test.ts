@@ -44,5 +44,11 @@ it("keeps correction reversals on their posting date and preserves split methods
  expect(result.data).toHaveLength(2);
  expect(result.paymentMethods).toEqual([{paymentMethod:"TRANSFER",amount:450}]);
  const cash=await getCourseRevenueReport("a",{...filters,paymentMethod:"CASH"});
- expect(cash.data.map(r=>r.id)).toEqual(["old:void"]);
+ expect(cash.data.map(r=>r.id)).toEqual(["old:void"]);expect(cash.kpi.netRevenue).toBe(-200);
+});
+
+it("attributes a mixed receipt to only the selected payment method",async()=>{
+ m.orders.mockResolvedValue([]);m.trials.mockResolvedValue([{id:"mixed",amount:499,paymentMethod:"CASH",paymentSplits:[{paymentMethod:"CASH",amount:200},{paymentMethod:"TRANSFER",amount:299}],createdAt:new Date("2026-09-17T02:00Z"),actorUserId:"owner",note:"",booking:{customerId:"a",session:{nameSnapshot:"體驗"}}}]);
+ const result=await getCourseRevenueReport("a",{...filters,paymentMethod:"TRANSFER"});
+ expect(result.kpi.netRevenue).toBe(299);expect(result.data[0].netAmount).toBe(299);expect(result.paymentMethods).toEqual([{paymentMethod:"TRANSFER",amount:299}]);
 });

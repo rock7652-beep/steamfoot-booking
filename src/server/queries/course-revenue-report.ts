@@ -53,7 +53,7 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
     if(receipt.voidedAt && receipt.voidedAt>=range.gte && receipt.voidedAt<=range.lte) add(order,-receipt.amount,receipt.voidedAt,`${receipt.id}:void`,receipt.voidReason??"體驗收款更正沖銷",true,receipt.actorUserId,receipt.paymentMethod,splits.map(s=>({...s,amount:-s.amount})));
   }
   const keyword=filters.keyword?.trim().toLocaleLowerCase();
-  const data=rows.filter((r)=>(!filters.planType||r.unit===filters.planType)&&(!filters.paymentMethod||paymentMethodReportAmount({paymentMethod:r.paymentMethod,amount:r.netAmount,paymentSplits:r.paymentSplits},filters.paymentMethod)!==0)&&(!filters.coachId||r.staffId===filters.coachId)&&(!filters.coachRole||r.coachRole===filters.coachRole)&&(!keyword||[r.customerName,r.customerPhone,r.planName,r.note].some((s)=>s?.toLocaleLowerCase().includes(keyword)))).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id));
+  const data=rows.filter((r)=>(!filters.planType||r.unit===filters.planType)&&(!filters.paymentMethod||paymentMethodReportAmount({paymentMethod:r.paymentMethod,amount:r.netAmount,paymentSplits:r.paymentSplits},filters.paymentMethod)!==0)&&(!filters.coachId||r.staffId===filters.coachId)&&(!filters.coachRole||r.coachRole===filters.coachRole)&&(!keyword||[r.customerName,r.customerPhone,r.planName,r.note].some((s)=>s?.toLocaleLowerCase().includes(keyword)))).map(r=>filters.paymentMethod ? {...r,netAmount:paymentMethodReportAmount({paymentMethod:r.paymentMethod,amount:r.netAmount,paymentSplits:r.paymentSplits},filters.paymentMethod)} : r).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id));
   const totalRevenue=data.filter((r)=>!r.refund).reduce((n,r)=>n+r.netAmount,0);
   const refundAmount=Math.abs(data.filter((r)=>r.refund).reduce((n,r)=>n+r.netAmount,0));
   const netRevenue=totalRevenue-refundAmount;
@@ -61,7 +61,7 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
   const kpi={totalRevenue,refundAmount,netRevenue,txCount:data.filter((r)=>!r.refund).length,customerCount,avgPerCustomer:customerCount?Math.round(netRevenue/customerCount):0};
   const summary:StoreRevenueSummary[] = data.length ? [{...kpi,storeId,storeName:store.name,trialRevenue:data.filter(r=>r.unit==="TRIAL").reduce((n,r)=>n+r.netAmount,0),packageRevenue:data.filter(r=>r.unit!=="TRIAL"&&!r.refund).reduce((n,r)=>n+r.netAmount,0),singleRevenue:0,otherRevenue:0}] : [];
   const methods = new Map<string,number>();
-  for (const row of data.filter(r=>!r.refund)) for (const split of row.paymentSplits.length ? row.paymentSplits : [{paymentMethod:row.paymentMethod,amount:row.netAmount}]) methods.set(split.paymentMethod,(methods.get(split.paymentMethod)??0)+split.amount);
+  for (const row of data.filter(r=>!r.refund)) for (const split of filters.paymentMethod ? [{paymentMethod:filters.paymentMethod,amount:row.netAmount}] : row.paymentSplits.length ? row.paymentSplits : [{paymentMethod:row.paymentMethod,amount:row.netAmount}]) methods.set(split.paymentMethod,(methods.get(split.paymentMethod)??0)+split.amount);
   return {data,summary,kpi,paymentMethods:[...methods].map(([paymentMethod,amount])=>({paymentMethod,amount}))};
   }, { isolationLevel: "RepeatableRead", timeout: 15000 });
 }
