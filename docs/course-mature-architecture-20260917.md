@@ -85,3 +85,11 @@
 顧客批次重測：0ad00508 購買歷程只渲染一份、完成後無殘留載入文字；原購買／退款／作廢記錄分別保留。新建驗收顧客的緊急聯絡姓名／電話於後台實際儲存並唯讀核對同店資料庫一致。4238026e 在 1024×768 下 document scrollWidth=innerWidth=1024，右側查看按鈕範圍917–963px、高44px，固定右欄可操作。該提交 CI 型別／修改檔lint／完整Vitest／Targeted／postgres-integration 均通過；Cloudflare既有豁免。
 
 顧客歸屬追加：抽出蒸足 CustomerAttributionForm，原頁預設維持原 action；課程採專用 adapter，需 customer.assign，只可選同店啟用中的後台店長，推薦人僅同店未合併顧客，不賦予教練／總部權限，也不觸發蒸足獎勵。儲存失敗保留選取，搜尋錯誤明示。相關37項測試通過，涵蓋跨店／停用或教練指派／自己推薦自己／權限拒絕／遮罩電話；網頁驗證待部署。
+
+顧客歸屬實測（0ddaea42）：本輪自行建立顧客在側窗搜尋推薦人（電話遮罩）、選店長並儲存，清單即時更新。唯讀 SQL 確认歸屬店長為同店 OWNER、推薦人同店、未建立登入帳號；原顧客與身分綁定未修改。該版型別、lint、完整 Vitest、PostgreSQL CI 通過，Cloudflare維持豁免。本機完整測試 4,767 項通過／32項連線測試跳過，後者由獨立 PostgreSQL CI 補驗。
+
+### 批次四：分析資料與成熟報表操作（驗證中）
+
+共用 ReportDateRange、PageShell／PageHeader／KpiStrip／DataTable、TrendChart；課程查詢保留 CourseSession／Booking／Card，購買與退款直接沿用已驗證收入報表 adapter。今日／本月／自訂期間保留 view 參數，客流依實際上課者去重、首次完成日期判斷新舊客；參與人次、出席、點數／堂數分開。前期採相鄰同長期間（明示日期），去年同期採日曆年對應、閏日縮至月底；近六個月趨勢截止所選結束日。查看顧客受 customer.read，金額受 transaction.read，CSV 受 report.export／功能開通／既有限額與查看模式限制。
+
+尚未視為完整分析承接：現階段先接上課／購買／回流／教練量與匯出；課程沒有體驗成交歸因時不給假0或假開卡率。蒸足空間費月結不適用課程，教練結算方法未約定，不套既有空間費；手動收支與更完整店長業績分攤仍須核對承接。網頁與CSV驗證待部署。

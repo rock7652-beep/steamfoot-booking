@@ -12,6 +12,7 @@ const PRESETS = [
 ] as const;
 
 interface ReportDateRangeProps {
+  preserveQuery?: boolean;
   activePreset: string;
   startDate: string;
   endDate: string;
@@ -19,6 +20,7 @@ interface ReportDateRangeProps {
 
 export default function ReportDateRange({
   activePreset,
+  preserveQuery = false,
   startDate,
   endDate,
 }: ReportDateRangeProps) {
@@ -37,6 +39,7 @@ export default function ReportDateRange({
     setShowCustom(false);
     const params = new URLSearchParams(searchParams.toString());
     // Clear custom params
+    params.delete("month");
     params.delete("startDate");
     params.delete("endDate");
     params.set("preset", key);
@@ -52,7 +55,9 @@ export default function ReportDateRange({
       return;
     }
     setDateError(null);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(preserveQuery ? searchParams.toString() : undefined);
+    params.delete("preset");
+    params.delete("month");
     params.set("startDate", customStart);
     params.set("endDate", customEnd);
     startReading(() => router.push(`?${params.toString()}`));
