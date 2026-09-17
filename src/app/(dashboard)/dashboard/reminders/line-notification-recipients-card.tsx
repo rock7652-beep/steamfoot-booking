@@ -179,7 +179,7 @@ export function LineNotificationRecipientsCard({
       </div>
       {recipients.length === 0 && (
         <p className="rounded-lg bg-earth-50 p-3 text-sm text-earth-600">
-          尚未綁定通知人員。完成綁定後，即可設定總開關與 8 項個別提醒。
+          尚未綁定通知人員。完成綁定後，即可設定總開關與 {managerNotificationOptions(course).length} 項個別提醒。
         </p>
       )}
       {recipients.length > 0 && <>
