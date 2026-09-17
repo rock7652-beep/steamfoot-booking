@@ -1,5 +1,6 @@
 "use client";
 
+import { courseDutyIntervals } from "@/lib/course-duty";
 import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -10,6 +11,7 @@ import type { DutyWeekItem } from "@/server/queries/duty";
 type Assignment = DutyWeekItem;
 
 interface BusinessHourInfo {
+  segments?: unknown;
   dayOfWeek: number;
   isOpen: boolean;
   openTime: string | null;
@@ -19,6 +21,7 @@ interface BusinessHourInfo {
 }
 
 interface SpecialDayInfo {
+  segments?: unknown;
   date: string;
   type: string;
   reason: string | null;
@@ -34,6 +37,7 @@ interface Props {
   businessHours: BusinessHourInfo[];
   specialDays: SpecialDayInfo[];
   canManage: boolean;
+  course?: boolean;
 }
 
 const DAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
@@ -90,7 +94,7 @@ function getSlotsForDay(
   return slots;
 }
 
-export function DutyWeekView({ weekStart, assignments, businessHours, specialDays, canManage }: Props) {
+export function DutyWeekView({ weekStart, assignments, businessHours, specialDays, canManage, course = false }: Props) {
   const router = useRouter();
   const [navStart, setNavStart] = useState<number | null>(null);
 
@@ -106,7 +110,8 @@ export function DutyWeekView({ weekStart, assignments, businessHours, specialDay
   const daySlotsMap = new Map<string, Set<string> | "closed">();
   const allSlots = new Set<string>();
   for (const date of weekDates) {
-    const slots = getSlotsForDay(date, businessHours, specialDays);
+    const courseSlots = course ? courseDutyIntervals(date, businessHours.map(h=>({...h,segments:h.segments})), specialDays.map(s=>({...s,segments:s.segments,date:new Date(s.date+"T00:00:00Z")}))).map(s=>s.slotTime) : [];
+    const slots = course ? (courseSlots.length ? courseSlots : "closed") : getSlotsForDay(date, businessHours, specialDays);
     if (slots === "closed") {
       daySlotsMap.set(date, "closed");
     } else {

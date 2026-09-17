@@ -13,6 +13,8 @@ type Props={
   bankName:string;bankCode:string;bankAccountNumber:string;bookingLeadMinutes:number;cancellationLeadMinutes:number;
   canEdit:boolean;canPayment:boolean;canStaff:boolean;canPlans:boolean;
   canHours?: boolean;
+  canDutyRead?: boolean;
+  canDutyManage?: boolean;
   canReminders?: boolean;
   usageMetrics?: UsageMetric[];
 };
@@ -45,6 +47,7 @@ export function CourseSettingsWorkspace(props:Props) {
       ]}/>}/>} 
       <SettingsActionCard title="課程與教室" description="課程預設值、容量與排課；修改預設值不回寫已排課程" iconPath={clockIcon} primaryHref="/dashboard/courses?view=catalog" primaryLabel="課程設定" secondaryHref="/dashboard/courses?view=rooms" secondaryLabel="教室管理"/>
       {props.canHours && <SettingsActionCard title="營業與公休" description="月曆、每週多段營業、特殊休假與後續週次；與已排課程衝突時整批阻擋" iconPath={clockIcon} primaryHref="/dashboard/courses/hours" primaryLabel="管理營業時間"/>}
+      {props.canDutyRead && <SettingsActionCard title="值班管理" description="沿用每週值班、逐日編輯與批次複製；獨立開關控制課程排課聯動" iconPath={clockIcon} primaryHref="/dashboard/duty" primaryLabel="查看值班" secondaryHref={props.canDutyManage ? "/dashboard/settings/duty" : undefined} secondaryLabel={props.canDutyManage ? "聯動設定" : undefined}/> }
       {props.canReminders && <SettingsActionCard title="提醒管理" description="課程上課提醒、通知內容與發送紀錄" iconPath={clockIcon} primaryHref="/dashboard/courses/reminders" primaryLabel="管理提醒"/>}
       {canStaff&&<SettingsActionCard title="人員與權限" description="店長後台權限、教練授課身分與顧客連結" iconPath="M18 20v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m11-13a4 4 0 11-8 0 4 4 0 018 0z" primaryHref="/dashboard/staff" primaryLabel="管理人員"/>}
       {canPlans&&<SettingsActionCard title="課程方案" description="點數／堂數、期限、適用課程、共卡與上下架" iconPath="M2.25 8.25h19.5M6 15h6" primaryHref="/dashboard/courses?view=plans" primaryLabel="管理方案"/>}

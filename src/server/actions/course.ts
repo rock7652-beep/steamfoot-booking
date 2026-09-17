@@ -1,4 +1,5 @@
 "use server";
+import { assertCourseDutyCoverage } from "@/server/services/course-duty";
 import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 
 import { z } from "zod";
@@ -155,6 +156,7 @@ export async function updateCourseSession(input: unknown) {
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，尚未儲存修改`,
           );
         await assertCourseSessionsFitHours(tx,storeId,[range]);
+        await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
         await tx.courseSession.update({
           where: { id: session.id, storeId },
           data: {
@@ -318,6 +320,7 @@ export async function createCourseSchedule(input: unknown) {
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，整批尚未建立`,
           );
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
+        await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
             ...range,
@@ -532,6 +535,7 @@ export async function updateCourseSeries(input: unknown) {
           );
       }
       await assertCourseSessionsFitHours(tx,storeId,changes);
+      await assertCourseDutyCoverage(tx,storeId,changes.map(s=>({...s,coachId:d.coachId})));
       // Exclusion constraints are immediate. Temporarily release only these
       // rows inside the same transaction; other writers use the store lock.
       await tx.courseSession.updateMany({

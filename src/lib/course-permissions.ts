@@ -25,6 +25,8 @@ export const COURSE_PERMISSIONS: readonly PermissionCode[] = [
   "cashDrawer.open",
   "cashDrawer.close",
   "cashDrawer.entry",
+  "duty.read",
+  "duty.manage",
   "staff.view",
   "staff.manage",
 ];

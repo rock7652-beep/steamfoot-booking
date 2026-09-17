@@ -53,6 +53,7 @@ interface Props {
   canManage: boolean;
   weekDayInfo: WeekDayInfo[];
   preferredStaffId?: string;
+  course?: boolean;
 }
 
 const DAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -80,6 +81,7 @@ export function DutyDayEditor({
   canManage,
   weekDayInfo,
   preferredStaffId,
+  course = false,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -94,9 +96,11 @@ export function DutyDayEditor({
   const [formParticipation, setFormParticipation] = useState<ParticipationType>("PRIMARY");
   const [formNotes, setFormNotes] = useState("");
 
+  const roleLabels = course ? {...DUTY_ROLE_LABELS, INTERN_COACH: "教練"} : DUTY_ROLE_LABELS;
+
   function showMessage(type: "success" | "error", text: string) {
     setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
+    if (type === "success") setTimeout(() => setMessage(null), 3000);
   }
 
   function handleStaffChange(staffId: string) {
@@ -104,7 +108,7 @@ export function DutyDayEditor({
     // 自動帶入 DutyRole
     const staff = staffList.find((s) => s.id === staffId);
     if (staff) {
-      const defaultRole = DEFAULT_DUTY_ROLE_MAP[staff.userRole as UserRole];
+      const defaultRole = course && staff.userRole === "CUSTOMER" ? "INTERN_COACH" : DEFAULT_DUTY_ROLE_MAP[staff.userRole as UserRole];
       if (defaultRole) setFormDutyRole(defaultRole);
     }
   }
@@ -371,7 +375,7 @@ export function DutyDayEditor({
                           <div>
                             <div className="text-sm font-medium text-earth-800">{a.staffName}</div>
                             <div className="text-xs text-earth-500">
-                              身份：{DUTY_ROLE_LABELS[a.dutyRole]}　參與：{PARTICIPATION_TYPE_LABELS[a.participationType]}
+                              身份：{roleLabels[a.dutyRole]}　參與：{PARTICIPATION_TYPE_LABELS[a.participationType]}
                             </div>
                             {a.notes && (
                               <div className="mt-0.5 text-xs text-earth-400">{a.notes}</div>
@@ -421,7 +425,7 @@ export function DutyDayEditor({
                             className="w-full rounded-lg border border-earth-200 px-3 py-1.5 text-sm"
                           >
                             {DUTY_ROLES.map((r) => (
-                              <option key={r} value={r}>{DUTY_ROLE_LABELS[r]}</option>
+                              <option key={r} value={r}>{roleLabels[r]}</option>
                             ))}
                           </select>
                         </div>

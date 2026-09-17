@@ -1,3 +1,5 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { courseDutyIntervals } from "@/lib/course-duty";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
@@ -32,7 +34,8 @@ export default async function DutyDayPage({ params, searchParams }: PageProps) {
   const dateObj = new Date(date + "T00:00:00Z");
   const dow = dateObj.getUTCDay();
 
-  const storeId = user.storeId!;
+  const storeId = activeStoreId ?? user.storeId!;
+  const course = await getStoreIndustryModule(storeId) === "course";
   const [specialDay, businessHour, slotOverrides] = await Promise.all([
     prisma.specialBusinessDay.findFirst({ where: { date: dateObj, storeId } }),
     prisma.businessHours.findFirst({ where: { dayOfWeek: dow, storeId } }),
@@ -75,6 +78,12 @@ export default async function DutyDayPage({ params, searchParams }: PageProps) {
       isClosed = true;
       closedReason = "尚未設定營業時間";
     }
+  }
+
+  if (course) {
+    slots = courseDutyIntervals(date, businessHour ? [businessHour] : [], specialDay ? [specialDay] : []).map(s=>s.slotTime);
+    isClosed = slots.length === 0;
+    if (isClosed && !closedReason) closedReason = "尚未設定營業時間";
   }
 
   // 取所有 ACTIVE staff + 週範圍資料（合併查詢減少 round-trip）
@@ -156,6 +165,7 @@ export default async function DutyDayPage({ params, searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-3xl">
       <DutyDayEditor
+        course={course}
         date={date}
         isClosed={isClosed}
         closedReason={closedReason}

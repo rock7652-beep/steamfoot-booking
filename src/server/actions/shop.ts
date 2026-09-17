@@ -1,5 +1,6 @@
 "use server";
 
+import { withDutyMutation } from "@/server/services/course-duty-mutation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdminSession } from "@/lib/session";
@@ -30,10 +31,12 @@ export async function updateDutyScheduling(
     const user = await requirePermission("duty.manage");
     const storeId = await resolveWriteStoreId(user);
 
-    await prisma.shopConfig.upsert({
-      where: { storeId },
-      create: { storeId, dutySchedulingEnabled: enabled },
-      update: { dutySchedulingEnabled: enabled },
+    await withDutyMutation(storeId, async db => {
+      await db.shopConfig.upsert({
+        where: { storeId },
+        create: { storeId, dutySchedulingEnabled: enabled },
+        update: { dutySchedulingEnabled: enabled },
+      });
     });
 
     revalidateDutyScheduling();

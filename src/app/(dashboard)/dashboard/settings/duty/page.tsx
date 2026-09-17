@@ -1,3 +1,5 @@
+import { checkPermission } from "@/lib/permissions";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
 import { getShopConfig } from "@/lib/shop-config";
 import { redirect, notFound } from "next/navigation";
@@ -94,6 +96,7 @@ export default async function DutySettingsPage() {
     notFound();
   }
 
+  if (!(await checkPermission(user.role,user.staffId,"duty.manage"))) notFound();
   const { getActiveStoreForRead } = await import("@/lib/store");
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) {
@@ -118,6 +121,7 @@ export default async function DutySettingsPage() {
       </PageShell>
     );
   }
+  const course = await getStoreIndustryModule(storeId) === "course";
   const config = await getShopConfig(storeId);
   const weekInfo = await getUnscheduledDaysThisWeek(storeId);
   const enabled = config.dutySchedulingEnabled;
@@ -189,7 +193,7 @@ export default async function DutySettingsPage() {
             )}
           </div>
 
-          <DutySchedulingToggle key={storeId} enabled={enabled} compact />
+          <DutySchedulingToggle course={course} key={storeId} enabled={enabled} compact />
         </div>
       </section>
 
@@ -198,7 +202,7 @@ export default async function DutySettingsPage() {
         <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-earth-900">功能說明</h2>
           <p className="mt-1 text-[11px] text-earth-500">
-            開啟後，僅安排值班人員的時段才會出現在顧客預約頁
+            {course ? "新增／修改排課需由授課教練的值班涵蓋完整課程時段" : "開啟後，僅安排值班人員的時段才會出現在顧客預約頁"}
           </p>
 
           <ul className="mt-4 space-y-3 text-[13px] leading-relaxed text-earth-700">
@@ -206,26 +210,26 @@ export default async function DutySettingsPage() {
               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary-400" />
               <span>
                 <span className="font-medium text-earth-800">關閉狀態：</span>
-                所有營業時段均可接受預約，值班排班僅供內部參考
+                {course ? "值班僅供參考，課程依實際排課開放預約" : "所有營業時段均可接受預約，值班排班僅供內部參考"}
               </span>
             </li>
             <li className="flex gap-2">
               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary-400" />
               <span>
                 <span className="font-medium text-earth-800">開啟狀態：</span>
-                只有安排了值班人員的時段才會出現在預約頁面
+                {course ? "教練值班須涵蓋完整課程；教室與教練撞期檢查仍有效" : "只有安排了值班人員的時段才會出現在預約頁面"}
               </span>
             </li>
             <li className="flex gap-2">
               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
               <span>
-                <span className="font-medium text-earth-800">OWNER 例外：</span>
-                後台代客預約時可勾選「略過值班檢查」繞過此限制
+                <span className="font-medium text-earth-800">{course ? "衝突保護：" : "OWNER 例外："}</span>
+                {course ? "修改值班若影響已排課程，列出衝突並阻擋，不取消課程或預約" : "後台代客預約時可勾選「略過值班檢查」繞過此限制"}
               </span>
             </li>
             <li className="flex gap-2">
               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-earth-300" />
-              <span>可隨時關閉，關閉後所有營業時段立即恢復正常</span>
+              <span>{course ? "可關閉聯動；既有課程與學員預約均保留" : "可隨時關閉，關閉後所有營業時段立即恢復正常"}</span>
             </li>
           </ul>
         </section>

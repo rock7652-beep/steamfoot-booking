@@ -7,11 +7,12 @@ import { updateDutyScheduling } from "@/server/actions/shop";
 
 interface Props {
   enabled: boolean;
+  course?: boolean;
   /** Compact layout — switch only, no surrounding card. */
   compact?: boolean;
 }
 
-export function DutySchedulingToggle({ enabled, compact = false }: Props) {
+export function DutySchedulingToggle({ enabled, compact = false, course = false }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isEnabled, setIsEnabled] = useState(enabled);
@@ -21,7 +22,7 @@ export function DutySchedulingToggle({ enabled, compact = false }: Props) {
 
     if (newValue) {
       const confirmed = window.confirm(
-        "啟用後，未安排值班的時段將不對客戶開放預約。\n\n確定要啟用值班排班聯動？",
+        course ? "啟用後，新增及修改排課需由授課教練值班涵蓋完整時段；現有課程若有衝突將阻擋啟用。確定啟用？" : "啟用後，未安排值班的時段將不對客戶開放預約。\n\n確定要啟用值班排班聯動？",
       );
       if (!confirmed) return;
     }

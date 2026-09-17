@@ -7,6 +7,7 @@ import { courseManager, courseTransaction } from "@/server/services/course-acces
 import { handleActionError, AppError } from "@/lib/errors";
 import { revalidateBusinessHours, revalidateSpecialDays } from "@/lib/revalidation";
 import { revalidatePath } from "next/cache";
+import { assertCourseDutyCoverage } from "@/server/services/course-duty";
 import { resolvedCourseHours, assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 import { toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
 
@@ -76,6 +77,7 @@ export async function saveCourseDayHours(input:unknown) {
       }
       const sessions=await tx.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gte:new Date()}},select:{startsAt:true,endsAt:true}});
       await assertCourseSessionsFitHours(tx,storeId,sessions.filter(s=>{const date=toLocalDateStr(s.startsAt);return affected.has(date)||(weekday!==null&&new Date(date+"T00:00:00Z").getUTCDay()===weekday);}));
+      await assertCourseDutyCoverage(tx,storeId);
     });
     revalidateBusinessHours(); revalidateSpecialDays(); revalidatePath("/dashboard/courses"); revalidatePath("/book");
     return {success:true as const};
