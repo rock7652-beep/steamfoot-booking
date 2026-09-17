@@ -85,6 +85,7 @@ export function DigitalButlerLeadList({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+  const [filterPending, startFilterTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -98,7 +99,9 @@ export function DigitalButlerLeadList({
   function filter(key: "status" | "staff" | "provider", value: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (waitingForHumanSupport) params.delete("handoff");
-    router.push(digitalButlerLeadFilterHref(pathname, params, key, value));
+    startFilterTransition(() => {
+      router.push(digitalButlerLeadFilterHref(pathname, params, key, value), { scroll: false });
+    });
   }
 
   return (
@@ -111,6 +114,8 @@ export function DigitalButlerLeadList({
       )}
       <div className="flex flex-wrap gap-2 rounded-xl border border-earth-200 bg-white p-3">
         <select
+          aria-label="狀態篩選"
+          disabled={filterPending}
           value={selectedStatus}
           onChange={(event) => filter("status", event.target.value)}
           className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
@@ -119,6 +124,8 @@ export function DigitalButlerLeadList({
           {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{LABELS[status]}</option>)}
         </select>
         <select
+          aria-label="負責人篩選"
+          disabled={filterPending}
           value={selectedStaffId}
           onChange={(event) => filter("staff", event.target.value)}
           className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
@@ -127,6 +134,7 @@ export function DigitalButlerLeadList({
           {staff.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
         </select>
         <select
+          disabled={filterPending}
           value={selectedProvider}
           onChange={(event) => filter("provider", event.target.value)}
           className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
@@ -137,7 +145,7 @@ export function DigitalButlerLeadList({
             <option key={provider.value} value={provider.value}>{provider.label}</option>
           ))}
         </select>
-        <span className="self-center text-xs text-earth-500">共 {leads.length} 筆</span>
+        <span role="status" className="self-center text-xs text-earth-500">{filterPending ? "篩選中…" : `共 ${leads.length} 筆`}</span>
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
