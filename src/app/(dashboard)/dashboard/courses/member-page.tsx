@@ -11,6 +11,8 @@ import { getCourseCards } from "@/server/queries/course-members";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CoursePurchaseReview } from "./purchase-review";
 import { CourseMemberWorkspace } from "./member-workspace";
+import { hasDataExportFeature } from "@/lib/data-export-gate";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 export async function CourseMemberPage({
   view,
 }: {
@@ -90,9 +92,10 @@ export async function CourseMemberPage({
   const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true}});
   const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
   const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
+  const canExport = view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !(await resolveStoreViewContextFromCookie(user))?.isViewMode && await hasDataExportFeature(storeId);
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
-      <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} />
+      <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} actions={canExport ? <a href="/api/export/customers" download className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 bg-white px-3 text-sm text-earth-700">匯出全部顧客 CSV</a> : undefined} />
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
       <CourseMemberWorkspace
         customerRows={customerRows}

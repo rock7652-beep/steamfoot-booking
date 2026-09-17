@@ -14,6 +14,9 @@ const mockStoreFindMany = vi.fn();
 const mockGetStoreRevenueSummary = vi.fn();
 const mockGetCoachRevenueSummary = vi.fn();
 const mockGetTransactionDetails = vi.fn();
+const courseExport = vi.hoisted(()=>({module:vi.fn(),csv:vi.fn()}));
+vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:courseExport.module}));
+vi.mock("@/server/queries/course-customer-export",()=>({getCourseCustomerCsv:courseExport.csv}));
 
 let activeStoreCookie: string | null = "store-1";
 
@@ -75,6 +78,8 @@ function adminUser() {
 describe("data_export route gates", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    courseExport.module.mockResolvedValue("steamfoot");
+    courseExport.csv.mockResolvedValue("course-csv");
     activeStoreCookie = "store-1";
     mockAuth.mockResolvedValue({ user: adminUser() });
     mockCheckPermission.mockResolvedValue(true);
@@ -100,6 +105,24 @@ describe("data_export route gates", () => {
     expect(await response.text()).toBe(DATA_EXPORT_LOCKED_MESSAGE);
     expect(mockRequireStoreFeature).toHaveBeenCalledWith("store-1", "data_export");
     expect(mockCustomerFindMany).not.toHaveBeenCalled();
+  });
+
+  it("routes course customer exports to the authorized store and respects separate data permissions", async () => {
+    courseExport.module.mockResolvedValue("course");
+    mockCheckPermission.mockImplementation(async(_role,_staff,permission)=>permission!=="wallet.read");
+    const { GET } = await import("@/app/api/export/customers/route");
+    const response=await GET();
+    expect(response.status).toBe(200);expect(await response.text()).toBe("course-csv");
+    expect(courseExport.csv).toHaveBeenCalledWith("store-1",{cards:false,bookings:true});
+    expect(mockCustomerFindMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects a course export without customer.read even when export permission exists", async () => {
+    courseExport.module.mockResolvedValue("course");
+    mockCheckPermission.mockImplementation(async(_role,_staff,permission)=>permission!=="customer.read");
+    const { GET } = await import("@/app/api/export/customers/route");
+    expect((await GET()).status).toBe(403);
+    expect(courseExport.csv).not.toHaveBeenCalled();expect(mockCustomerFindMany).not.toHaveBeenCalled();
   });
 
   it("blocks direct report Excel export when data_export is disabled", async () => {
