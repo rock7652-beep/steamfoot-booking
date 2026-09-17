@@ -28,12 +28,15 @@ interface Props {
   /** 建議關心話術（依區塊不同,由 server 端帶入） */
   script: string;
   readOnly?: boolean;
+  courseMode?: boolean;
+  canFollowUp?: boolean;
+  canBook?: boolean;
 }
 
 const ACTION_CLASS =
   "rounded-md border border-earth-200 bg-white px-2 py-1 text-[11px] font-medium text-earth-700 transition hover:bg-earth-50";
 
-export function CareRowActions({ customerId, script, readOnly = false }: Props) {
+export function CareRowActions({ customerId, script, readOnly = false, courseMode = false, canFollowUp = true, canBook = true }: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
@@ -48,7 +51,7 @@ export function CareRowActions({ customerId, script, readOnly = false }: Props) 
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      // 剪貼簿不可用（非 https / 權限）時不擋 UI,靜默略過
+      setError("無法複製，請檢查瀏覽器剪貼簿權限後重試。");
     }
   }
 
@@ -75,25 +78,27 @@ export function CareRowActions({ customerId, script, readOnly = false }: Props) 
     <>
       <div className="flex flex-wrap items-center justify-end gap-1.5">
         <Link
-          href={`/dashboard/customers?customerId=${customerId}`}
+          href={courseMode ? `/dashboard/courses?view=customers&customerId=${customerId}` : `/dashboard/customers?customerId=${customerId}`}
           className="rounded-md bg-primary-600 px-2 py-1 text-[11px] font-medium text-white transition hover:bg-primary-700"
         >
           查看顧客
         </Link>
-        {!readOnly ? (
-          <Link href="/dashboard/bookings/new" className={ACTION_CLASS}>
-            建立預約
+        {!readOnly && canBook ? (
+          <Link href={courseMode ? "/dashboard/courses" : "/dashboard/bookings/new"} className={ACTION_CLASS}>
+            {courseMode ? "選擇課次預約" : "建立預約"}
           </Link>
         ) : null}
         <button type="button" onClick={copyScript} className={ACTION_CLASS}>
           {copied ? "已複製" : "複製話術"}
         </button>
-        {!readOnly ? (
+        {!readOnly && canFollowUp ? (
           <button type="button" onClick={() => setOpen(true)} className={ACTION_CLASS}>
             追蹤
           </button>
         ) : null}
       </div>
+
+      {error && !open ? <p role="alert" className="text-xs text-red-600">{error}</p> : null}
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4">

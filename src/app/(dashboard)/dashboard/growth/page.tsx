@@ -23,6 +23,8 @@ import {
 } from "@/lib/store-view-context-server";
 import { CareSection, type CareItem } from "./_components/care-section";
 import { formatRelativeDaysTW } from "@/lib/customer-follow-up";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { CourseCare } from "./_components/course-care";
 
 /**
  * /dashboard/growth — 顧客經營 MVP（PR-2B）
@@ -118,6 +120,13 @@ export default async function CustomerCarePage({
   }
 
   const workspaceMonth = requestedMonth ?? toLocalMonthStr();
+  if (viewedStoreId && await getStoreIndustryModule(viewedStoreId) === "course") {
+    const [canFollowUp, canBook] = await Promise.all([
+      checkPermission(user.role, user.staffId, "customer.update"),
+      checkPermission(user.role, user.staffId, "booking.create"),
+    ]);
+    return <CourseCare storeId={viewedStoreId} month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook}/>;
+  }
   if (isCustomerKpiSegment(params.segment)) {
     const selectedSegment = params.segment;
     const config = CUSTOMER_KPI_SEGMENTS[selectedSegment];

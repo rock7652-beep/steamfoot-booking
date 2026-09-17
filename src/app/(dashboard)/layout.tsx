@@ -64,7 +64,7 @@ export default async function DashboardLayout({
   // the remaining course-specific areas are being delivered.
   if (industryModule === "course") {
     const requestedPath = (await headers()).get("x-next-pathname") ?? "";
-    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/duty\/?$|staff(?:\/[^/]+\/edit)?\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|reconciliation\/?$|store-revenue\/?$|guide\/?$)/.test(requestedPath)) {
+    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/duty\/?$|staff(?:\/[^/]+\/edit)?\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth\/?$|reconciliation\/?$|store-revenue\/?$|guide\/?$)/.test(requestedPath)) {
       redirect("/dashboard/courses");
     }
   }

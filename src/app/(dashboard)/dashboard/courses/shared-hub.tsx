@@ -52,6 +52,7 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
         canEdit={canEdit && !readOnly}
         usageMetrics={usage?.metrics}
         canReminders={!readOnly && await checkPermission(user.role,user.staffId,"business_hours.manage")}
+        canCare={await checkPermission(user.role,user.staffId,"customer.read")}
         canDutyRead={await checkPermission(user.role,user.staffId,"duty.read")}
         canDutyManage={!readOnly && await checkPermission(user.role,user.staffId,"duty.manage")}
         canHours={!readOnly && await checkPermission(user.role,user.staffId,"business_hours.view")}
