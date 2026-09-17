@@ -1,4 +1,5 @@
 "use client";
+import { COURSE_REFUND_METHOD_LABELS } from "@/lib/course-refund-display";
 import {
   useEffect,
   useRef,
@@ -1027,9 +1028,10 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   <p>
                     {o.status === "CONFIRMED"
                       ? "已核帳並啟用"
-                      : o.status === "VOIDED" ? "已作廢，額度已收回" : o.status === "REFUNDED" ? "已退款，額度已收回" : "待店家核帳，尚未取得額度"}
+                      : o.status === "VOIDED" ? "已作廢，額度已收回" : o.status === "REFUNDED" ? "已登錄退款，卡片已停用" : "待店家核帳，尚未取得額度"}
                   </p>
                   <p>匯款後五碼：{o.transferLastFive}</p>
+                  {!!o.refunds.length&&<details><summary>退款紀錄 · 共 NT$ {o.refunds.reduce((sum,r)=>sum+r.amount,0).toLocaleString()}</summary>{o.refunds.map(r=><p key={r.id}>{formatTWDateTime(new Date(r.createdAt))} · NT$ {r.amount.toLocaleString()} · {COURSE_REFUND_METHOD_LABELS[r.method]??"其他非現金"}</p>)}<p>此為店家登錄紀錄，實際款項請向店家核對。</p></details>}
                 </article>
               ))}
               {!p.orders.length && <p>尚無購買紀錄</p>}

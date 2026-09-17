@@ -200,14 +200,16 @@ model CoursePurchase {
 model CoursePurchaseRefund {
   id String @id @default(cuid())
   storeId String
-  purchaseId String @unique
+  purchaseId String
   amount Int
   points Int
   reason String
+  method String @default("OTHER")
   actorUserId String
   requestKey String
   createdAt DateTime @default(now())
   purchase CoursePurchase @relation(fields: [purchaseId, storeId], references: [id, storeId])
   @@unique([storeId, requestKey])
   @@index([storeId, createdAt])
+  @@index([purchaseId])
 }

@@ -34,7 +34,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     prisma.customer.findMany({ where: { storeId, id: { in: orders.map((order) => order.customerId) } }, select: { id: true, name: true } }),
     coursePrisma.coursePointCard.findMany({ where: { storeId, id: { in: cardIds } } }),
     coursePrisma.courseBooking.groupBy({ by: ["cardId"], where: { storeId, cardId: { in: cardIds }, status: "RESERVED" }, _sum: { pointCost: true } }),
-    coursePrisma.courseBooking.groupBy({ by: ["cardId"], where: { storeId, cardId: { in: cardIds }, status: "ATTENDED" }, _count: true }),
+    coursePrisma.courseBooking.groupBy({ by: ["cardId"], where: { storeId, cardId: { in: cardIds }, status: "ATTENDED" }, _count: true, _sum: { pointCost: true } }),
   ]);
   const names = new Map(customers.map((c) => [c.id, c.name]));
   const rows = orders.map((order) => {
@@ -42,8 +42,9 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     return { ...order, date: formatTWTime(order.createdAt, { dateOnly: true }), customerName: names.get(order.customerId) ?? "顧客資料待核對", remaining: card?.remaining ?? null,
       reserved: held.find((b) => b.cardId === order.cardId)?._sum.pointCost ?? 0,
       attended: attended.find((b) => b.cardId === order.cardId)?._count ?? 0,
+      usedQuota: attended.find((b) => b.cardId === order.cardId)?._sum.pointCost ?? 0,
       expiresAt: card ? formatTWTime(card.expiresAt, { dateOnly: true }) : null,
-      refunds: order.refunds.map((r) => ({ amount: r.amount, reason: r.reason, date: formatTWTime(r.createdAt, { dateOnly: true }) })),
+      refunds: order.refunds.map((r) => ({ amount: r.amount, reason: r.reason, method: r.method, date: formatTWTime(r.createdAt, { dateOnly: true }) })),
     };
   });
   const labels: Record<string, string> = { PENDING: "待核帳", CONFIRMED: "已核帳並發卡", REFUNDED: "已退款", VOIDED: "已作廢" };

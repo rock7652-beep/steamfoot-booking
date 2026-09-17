@@ -25,6 +25,7 @@ MIGRATIONS = [
     "supabase/migrations/20260917002754_course_purchase_corrections.sql",
     "supabase/migrations/20260917011137_course_customer_emergency_contacts.sql",
     "supabase/migrations/20260917030753_course_reminder_links.sql",
+    "supabase/migrations/20260917081039_course_negotiated_refund.sql",
 ]
 
 BASELINE = '''
@@ -123,7 +124,7 @@ def main():
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Staff' AND column_name='phone';") == "0"
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Customer' AND column_name='emergencyContactName';") == "0"
         assert snapshot(db) == before
-        checks.append("late failure rolls back all eleven migrations, enum and shared-column changes")
+        checks.append("late failure rolls back all twelve migrations, enum and shared-column changes")
         query(db, 'DROP INDEX "Customer_id_storeId_key";')
         query(db, bundle, "42830")
         assert query(db, "SELECT to_regclass('public.\"CourseRoom\"') IS NULL;") == "t"
@@ -158,6 +159,14 @@ INSERT INTO "CourseBooking" (id,"storeId","sessionId","cardId","customerId","ope
         query(db, "INSERT INTO \"MessageLog\" (id,\"storeId\",\"courseBookingId\",\"bookingId\") VALUES ('mixed-reminder','steam','booking','legacy');", "23514")
         query(db, "INSERT INTO \"MessageLog\" (id,\"storeId\",\"courseCardId\") VALUES ('cross-card-reminder','spa','card');", "23503")
         checks.append("course notification links reject cross-store bookings/cards and mixed legacy booking models")
+        query(db, '''INSERT INTO "CoursePurchase" (id,"storeId","customerId","planId",name,unit,points,price,"validDays","templateIds","transferLastFive","requestKey","cardId",status) VALUES ('purchase','steam','a','plan','Plan','POINT',10,1000,30,'{}','12345','purchase-key','card','REFUNDED');
+INSERT INTO "CoursePurchaseRefund" (id,"storeId","purchaseId",amount,points,reason,"actorUserId","requestKey") VALUES ('refund1','steam','purchase',400,6,'Agreed','actor','refund-key-1');
+INSERT INTO "CoursePurchaseRefund" (id,"storeId","purchaseId",amount,points,method,reason,"actorUserId","requestKey") VALUES ('refund2','steam','purchase',100,0,'BANK_TRANSFER','Supplement','actor','refund-key-2');''')
+        assert query(db, '''SELECT method FROM "CoursePurchaseRefund" WHERE id='refund1';''') == "OTHER"
+        query(db, '''UPDATE "CoursePurchaseRefund" SET method='INVALID' WHERE id='refund2';''', "23514")
+        query(db, '''UPDATE "CoursePurchaseRefund" SET points=-1 WHERE id='refund2';''', "23514")
+        query(db, '''UPDATE "CoursePurchaseRefund" SET "requestKey"='refund-key-1' WHERE id='refund2';''', "23505")
+        checks.append("refund methods and nonnegative retired quota validated; supplemental refund allowed; request keys remain unique")
         query(db, 'UPDATE "CoursePointCard" SET remaining=-1;', "23514")
         query(db, 'INSERT INTO "CourseCardMember" VALUES (\'card\',\'steam\',\'b\');', "23503")
         query(db, '''INSERT INTO "CourseBooking" SELECT 'duplicate',"storeId","sessionId","cardId","customerId","operatorUserId","operatorCustomerId","operatorName","customerName","pointCost",status,'different-request',"createdAt","updatedAt","checkedInAt",notes FROM "CourseBooking";''', "23505")

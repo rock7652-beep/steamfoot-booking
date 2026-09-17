@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { loadCourseCustomerPurchases } from "@/server/actions/course-customer-history";
 import { formatTWDateTime } from "@/lib/date-utils";
+import { COURSE_REFUND_METHOD_LABELS } from "@/lib/course-refund-display";
 
 type Rows = Extract<Awaited<ReturnType<typeof loadCourseCustomerPurchases>>, { success: true }>['data'];
 const statuses: Record<string, string> = { PENDING: "待核帳", CONFIRMED: "已核帳發卡", REFUNDED: "已退款", VOIDED: "已作廢" };
@@ -33,7 +34,7 @@ export function CourseCustomerPurchases({ customerId }: { customerId: string }) 
       <p>{order.confirmedAt ? "原實付" : "訂單金額"} NT$ {order.price.toLocaleString()}{order.confirmedAt && ` · 核帳 ${formatTWDateTime(new Date(order.confirmedAt))}`}</p>
       {order.note && <p>交易備註：{order.note}</p>}
       {order.voidReason && <p>作廢原因：{order.voidReason}</p>}
-      {order.refunds.map(refund => <p key={refund.id}>{formatTWDateTime(new Date(refund.createdAt))} 退款 NT$ {refund.amount.toLocaleString()} · {refund.reason}</p>)}
+      {order.refunds.map(refund => <p key={refund.id}>{formatTWDateTime(new Date(refund.createdAt))} 登錄退款 NT$ {refund.amount.toLocaleString()} · {COURSE_REFUND_METHOD_LABELS[refund.method]??"其他非現金"} · {refund.reason}</p>)}
     </li>)}</ul>
   </details>;
 }

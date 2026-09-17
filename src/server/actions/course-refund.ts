@@ -12,6 +12,10 @@ export async function refundCoursePurchase(input: unknown) {
       purchaseId: z.string().min(1).max(100),
       reason: z.string().trim().min(1, "請填寫退款原因").max(1000),
       requestKey: z.string().uuid(),
+      amount: z.number().int().positive().max(2147483647),
+      method: z.enum(["CASH", "BANK_TRANSFER", "CARD", "OTHER"]),
+      expectedRemaining: z.number().int().min(0),
+      expectedRefundedAmount: z.number().int().min(0),
     }).parse(input);
     await requireWritablePermission("transaction.refund");
     const { user, storeId } = await courseManager("transaction.refund");

@@ -32,18 +32,18 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
   const staffById = new Map(staff.map((person) => [person.id,person]));
   const staffByUser = new Map(staff.map((person) => [person.userId,person]));
   const firstPurchaseIds = new Set(firstOrders.map((order) => order.id));
-  function add(order: typeof purchases[number], amount: number, date: Date, id: string, note: string, refund: boolean, actorId: string | null) {
+  function add(order: typeof purchases[number], amount: number, date: Date, id: string, note: string, refund: boolean, actorId: string | null, method = "OTHER") {
     const person = peopleById.get(order.customerId);
     const owner = order.revenueStaffId ? staffById.get(order.revenueStaffId) : staffByUser.get(order.confirmedBy ?? "");
     rows.push({ id,transactionNo:null,transactionDate:toLocalDateStr(date),storeName:store.name,
       customerName:person?.name??"顧客資料待核對",customerPhone:person?.phone??"",customerId:order.customerId,
       coachName:owner?.displayName??null,coachRole:owner?.user.role??null,staffId:owner?.id??null,
       planName:order.name,planType:order.unit,unit:order.unit,grossAmount:amount,discountAmount:0,netAmount:amount,
-      paymentMethod:"OTHER",status:refund?"REFUNDED":"SUCCESS",isFirstPurchase:!refund&&firstPurchaseIds.has(order.id),
+      paymentMethod:method === "CASH" ? "CASH" : "OTHER",status:refund?"REFUNDED":"SUCCESS",isFirstPurchase:!refund&&firstPurchaseIds.has(order.id),
       note,createdByName:staffByUser.get(actorId ?? "")?.displayName??null,createdAt:date.toISOString(),refund });
   }
   for (const order of orders) if (order.confirmedAt) add(order,order.price,order.confirmedAt,order.id,order.note,false,order.confirmedBy);
-  for (const refund of refunds) add(refund.purchase,-refund.amount,refund.createdAt,refund.id,refund.reason,true,refund.actorUserId);
+  for (const refund of refunds) add(refund.purchase,-refund.amount,refund.createdAt,refund.id,refund.reason,true,refund.actorUserId,refund.method);
   const keyword=filters.keyword?.trim().toLocaleLowerCase();
   const data=rows.filter((r)=>(!filters.planType||r.unit===filters.planType)&&(!filters.paymentMethod||r.paymentMethod===filters.paymentMethod)&&(!filters.coachId||r.staffId===filters.coachId)&&(!filters.coachRole||r.coachRole===filters.coachRole)&&(!keyword||[r.customerName,r.customerPhone,r.planName,r.note].some((s)=>s?.toLocaleLowerCase().includes(keyword)))).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id));
   const totalRevenue=data.filter((r)=>!r.refund).reduce((n,r)=>n+r.netAmount,0);

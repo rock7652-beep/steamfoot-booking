@@ -152,6 +152,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     memberEnabled
       ? coursePrisma.coursePurchase.findMany({
           where: { storeId, customerId: customer.id },
+          include: { refunds: { where: {storeId}, select:{id:true,amount:true,method:true,createdAt:true}, orderBy:{createdAt:"asc"} } },
           orderBy: { createdAt: "desc" },
         })
       : [],
@@ -292,6 +293,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     })),
     orders: orders.map((o) => ({
       ...o,
+      refunds: (o.refunds??[]).map(r=>({...r,createdAt:r.createdAt.toISOString()})),
       createdAt: o.createdAt.toISOString(),
       confirmedAt: o.confirmedAt?.toISOString() ?? null,
     })),

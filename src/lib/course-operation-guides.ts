@@ -43,13 +43,13 @@ export const courseOperationGuides: OperationGuide[] = [
     permission: "business_hours.manage", feature: null, sources: ["src/server/actions/course-business-hours.ts", "src/server/actions/course-booking-window.ts"], kind: "troubleshooting", modules: ["course"], verification: "source-reviewed",
   },
   {
-    id: "C105", category: "money", title: "尚未使用的課程方案如何全額退款？",
-    summary: "核對原購買、卡片使用與占用，再填寫退款原因。", answer: "目前支援未使用且無占用的全額退款；部分使用退款尚未開放。",
-    keywords: "退款 實付 退費 作廢 方案", path: "營運 → 購買明細 → 全額退款",
-    steps: ["找到原核帳購買，核對實付金額與使用方案。", "確認卡片未使用、無預約占用且符合畫面檢查，再填寫退款原因送出。", "核對訂單、卡片結清、退款紀錄與收支結果。"],
+    id: "C105", category: "money", title: "課程方案如何登錄協商退款？",
+    summary: "核對實付、已退款、剩餘與占用，再輸入協商金額。", answer: "有退款權限的店長可登錄實際退款金額，累計不得超過原實付。",
+    keywords: "退款 實付 退費 作廢 方案", path: "營運 → 購買明細 → 登錄退款",
+    steps: ["找到原核帳購買，核對實付、已退款及尚可退款金額。", "先處理預約占用；輸入協商金額、退款方式及原因，核對收回全部剩餘額度並停用卡片的確認文字。", "登錄後核對訂單、卡片結清、退款紀錄與收支結果；系統沒有自動退刷或轉帳。"],
     important: "累計退款不得超過實付。系統記錄退款不代表銀行已自動匯款，實際退款需另行核對。",
     success: "退款紀錄保留，該卡停用、可用額度為零，收支與訂單一致。",
-    details: ["額外贈送、額度異動、部分使用或收款不一致可能阻擋，請依錯誤說明核對。", "同一退款重送不會再次退款；不要為了繞過檢查另建購買。"],
+    details: ["贈送額度不折算現金。参考金額不強制限制協商結果，但累計退款上限仍是實付。", "同一退款重送不會再次退款；已結清卡若尚有可退款金額可補登，不會再次收回額度。現金方式需今日抽屜已開店。"],
     permission: "transaction.refund", additionalPermissions: ["transaction.read"], feature: null, sources: ["src/server/services/course-refund.ts", "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {

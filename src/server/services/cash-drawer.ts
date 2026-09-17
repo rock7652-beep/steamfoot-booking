@@ -651,7 +651,7 @@ export async function closeCashDrawer(input: CloseInput): Promise<CashDrawerSess
   // where: { id, status: "OPEN" } 提供 optimistic concurrency；
   // 若 race condition 期間 status 已被改 CLOSED，Prisma 丟 P2025 — caller 重試即可。
   return prisma.cashDrawerSession.update({
-    where: { id: session.id, status: "OPEN" },
+    where: { id: session.id, status: "OPEN", updatedAt: session.updatedAt },
     data: {
       status: "CLOSED",
       cashIncomeTotal,

@@ -19,9 +19,10 @@ describe("course revenue adapter",()=>{
   expect(m.people.mock.calls[0][0].where.storeId).toBe("a");
  });
  it("includes refunds by refund date without counting the original purchase twice",async()=>{
-  m.refunds.mockResolvedValue([{id:"r1",amount:800,createdAt:new Date("2026-09-17T01:00:00Z"),reason:"退款",actorUserId:"owner",purchase:{...purchase,id:"older",price:800,confirmedAt:new Date("2026-08-01T01:00:00Z")}}]);
+  m.refunds.mockResolvedValue([{id:"r1",amount:800,method:"CASH",createdAt:new Date("2026-09-17T01:00:00Z"),reason:"退款",actorUserId:"owner",purchase:{...purchase,id:"older",price:800,confirmedAt:new Date("2026-08-01T01:00:00Z")}}]);
   const result=await getCourseRevenueReport("a",filters);
   expect(result.kpi).toMatchObject({totalRevenue:1000,refundAmount:800,netRevenue:200,txCount:1,customerCount:1});
+  expect(result.data.find(row=>row.id==="r1")?.paymentMethod).toBe("CASH");
   expect(result.data).toHaveLength(2); expect(result.data[0].netAmount).toBe(-800);
  });
  it("filters by real plan unit and payment method",async()=>{

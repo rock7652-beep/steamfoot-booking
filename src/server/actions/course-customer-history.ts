@@ -20,7 +20,7 @@ export async function loadCourseCustomerPurchases(input: unknown) {
       select: {
         id: true, name: true, price: true, points: true, unit: true, status: true,
         createdAt: true, confirmedAt: true, note: true, voidReason: true,
-        refunds: { where: { storeId }, orderBy: { createdAt: "desc" }, select: { id: true, amount: true, reason: true, createdAt: true } },
+        refunds: { where: { storeId }, orderBy: { createdAt: "desc" }, select: { id: true, amount: true, method: true, reason: true, createdAt: true } },
       },
     });
     return { success: true as const, data: orders.map(order => ({
