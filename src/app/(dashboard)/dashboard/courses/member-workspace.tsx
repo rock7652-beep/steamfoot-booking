@@ -368,8 +368,8 @@ export function CourseMemberWorkspace({
                 </fieldset>
               </form>
             )}
-            {panel === "person" && person && canReadTransactions && <CourseCustomerPurchases key={person.id} customerId={person.id} />}
-            {panel === "person" && person && canReadBookings && <CourseCustomerBookings key={person.id} customerId={person.id} />}
+            {panel === "person" && person && canReadTransactions && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
+            {panel === "person" && person && canReadBookings && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
             {panel === "plan" && (
               <form
                 id="course-member-form"
