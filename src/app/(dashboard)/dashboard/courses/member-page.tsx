@@ -86,6 +86,7 @@ export async function CourseMemberPage({
     serviceNote:p.serviceNote,lastVisitAt:lastClassByCustomer.get(p.id)??null,
     validPackageSessions:0,
   }));
+  const assignmentStaff = view === "customers" ? await prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{role:"OWNER",status:"ACTIVE"}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}) : [];
   const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true}});
   const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
   const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
@@ -95,6 +96,8 @@ export async function CourseMemberPage({
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
       <CourseMemberWorkspace
         customerRows={customerRows}
+        assignmentStaff={assignmentStaff}
+        canAssignManager={await checkPermission(user.role, user.staffId, "customer.assign")}
         canReadCards={canReadCards}
         healthEnabled={await hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY)}
         templates={templates}

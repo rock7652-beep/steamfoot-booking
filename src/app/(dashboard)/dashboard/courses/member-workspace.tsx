@@ -12,6 +12,8 @@ import {
 import { saveCourseStaff } from "@/server/actions/course-staff";
 import type { getCourseCards } from "@/server/queries/course-members";
 
+import { CustomerAttributionForm } from "@/components/customer-attribution-form";
+import { saveCourseCustomerAttribution, searchCourseReferrerCandidates } from "@/server/actions/course-customer-attribution";
 import { CourseCustomerPurchases } from "./customer-purchases";
 import { CourseCustomerList } from "./customer-list";
 import type { CustomerRow } from "../customers/_components/customers-table";
@@ -49,6 +51,8 @@ export function CourseMemberWorkspace({
   healthEnabled,
   customerRows,
   canReadCards,
+  assignmentStaff,
+  canAssignManager,
 }: {
   view: "customers" | "plans";
   templates: {id:string;name:string}[];
@@ -64,6 +68,8 @@ export function CourseMemberWorkspace({
   healthEnabled: boolean;
   customerRows: CustomerRow[];
   canReadCards: boolean;
+  assignmentStaff: {id:string;displayName:string}[];
+  canAssignManager: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -312,9 +318,9 @@ export function CourseMemberWorkspace({
               </details>}
               <details><summary className="min-h-11 cursor-pointer py-2">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
                 <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
-                <div>直屬店長：{customerRows.find(c=>c.id===person.id)?.assignedStaff?.displayName ?? "未指派"}</div>
-                <div>推薦人：{customerRows.find(c=>c.id===person.id)?.sponsor?.name ?? "無"}</div>
-              </dl></details>
+              </dl>
+                <CustomerAttributionForm key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
+              </details>
             </section>}
             {panel !== "person" && view === "customers" && person && <button type="button" className={`${button} mb-3`} disabled={pending} onClick={()=>open("person")}>返回 {person.name} 詳情</button>}
             {panel === "person" && (
