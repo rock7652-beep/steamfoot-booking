@@ -1,4 +1,6 @@
 "use client";
+import { ShareReferral } from "@/components/share-referral";
+import { trackCourseShare } from "@/server/actions/course-referral-share";
 import { COURSE_REFUND_METHOD_LABELS } from "@/lib/course-refund-display";
 import {
   useEffect,
@@ -1065,6 +1067,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           {page === "store" && (
             <>
               {heading(p.storeName)}
+              {p.referralShare && <details className="cp-card cp-pad"><summary>推薦給朋友</summary><div className="mt-3"><ShareReferral storeName={p.storeName} referralUrl={p.referralShare.referralUrl} shareTemplate={p.referralShare.shareTemplate} source="course-member" trackAction={trackCourseShare}/></div></details>}
               <section className="cp-card cp-pad">
                 <p>{p.config?.address ?? "地址尚未提供"}</p>
                 {p.config?.mapUrl && /^https:\/\//.test(p.config.mapUrl) && (

@@ -2,6 +2,9 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const mockModule = vi.fn().mockResolvedValue("steamfoot");
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: (...args: unknown[]) => mockModule(...args) }));
+
 const mockGetCurrentUser = vi.fn();
 const mockCheckPermission = vi.fn();
 const mockGetActiveStoreForRead = vi.fn();

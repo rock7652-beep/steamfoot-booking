@@ -185,3 +185,6 @@ export const REFERRAL_SHARE_TEMPLATE_CATEGORIES = [
   { key: "OCCASION", label: "活動情境" },
   { key: "SEASONAL", label: "節慶季節" },
 ] as const;
+
+/** Reuse the existing mature course template as the course default. */
+export const COURSE_REFERRAL_SHARE_TEMPLATE = OFFICIAL_REFERRAL_SHARE_TEMPLATES.find(item => item.id === "industry-course")!.content;

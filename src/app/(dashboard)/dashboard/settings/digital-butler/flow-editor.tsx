@@ -45,19 +45,22 @@ const starterDefinition = {
 export function DigitalButlerFlowEditor({
   flows,
   leadCollectionUpgrade,
+  courseMode = false,
 }: {
   flows: Flow[];
+  courseMode?: boolean;
   leadCollectionUpgrade: { storeName: string; storeSlug: string } | null;
 }) {
+  const defaultDefinition = courseMode ? JSON.parse(JSON.stringify(starterDefinition).replaceAll("蒸足", "課程").replaceAll("預約體驗", "預約課程")) : starterDefinition;
   const [selectedId, setSelectedId] = useState(flows[0]?.id ?? "");
   const selected = flows.find((flow) => flow.id === selectedId);
   const [name, setName] = useState(selected?.name ?? "新流程");
   const [definition, setDefinition] = useState(
-    JSON.stringify(selected?.draftDefinition ?? starterDefinition, null, 2),
+    JSON.stringify(selected?.draftDefinition ?? defaultDefinition, null, 2),
   );
   const [persistedName, setPersistedName] = useState(selected?.name ?? "新流程");
   const [persistedDefinition, setPersistedDefinition] = useState(
-    JSON.stringify(selected?.draftDefinition ?? starterDefinition, null, 2),
+    JSON.stringify(selected?.draftDefinition ?? defaultDefinition, null, 2),
   );
   const [justPublished, setJustPublished] = useState<{
     id: string; version: number; publishedAt: string | null; menuLabels: string[];
@@ -68,7 +71,7 @@ export function DigitalButlerFlowEditor({
   function select(flow: Flow) {
     setSelectedId(flow.id);
     setName(flow.name);
-    const nextDefinition = JSON.stringify(flow.draftDefinition ?? starterDefinition, null, 2);
+    const nextDefinition = JSON.stringify(flow.draftDefinition ?? defaultDefinition, null, 2);
     setDefinition(nextDefinition);
     setPersistedName(flow.name);
     setPersistedDefinition(nextDefinition);

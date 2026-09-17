@@ -1,3 +1,4 @@
+import { getReferralShareContext } from "@/server/queries/referral-share-context";
 import { prisma } from "@/lib/db";
 import { resolveCustomerBookingWindow } from "@/lib/shop-config";
 import { courseAccount } from "@/server/services/course-access";
@@ -42,7 +43,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     }),
     prisma.store.findUniqueOrThrow({
       where: { id: storeId },
-      select: { name: true },
+      select: { name: true, slug: true },
     }),
     prisma.shopConfig.findUnique({
       where: { storeId },
@@ -210,7 +211,9 @@ export async function loadCoursePortal(requestedMonth?: string) {
         })
       : null,
   ]);
+  const referralShare = memberEnabled ? await getReferralShareContext({ customerId: customer.id, storeId, storeSlug: store.slug }) : null;
   return {
+    referralShare: referralShare?.available ? referralShare : null,
     month,
     serverNow: now.getTime(),
     customerId: customer.id,

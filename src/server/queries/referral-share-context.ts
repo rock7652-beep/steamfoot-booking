@@ -1,3 +1,4 @@
+import { COURSE_REFERRAL_SHARE_TEMPLATE } from "@/lib/referral-share-official-templates";
 import { prisma } from "@/lib/db";
 import { normalizeLineOfficialUrl } from "@/lib/line-official-url";
 import {
@@ -48,6 +49,7 @@ export async function getReferralShareContext(input: {
       store: {
         select: {
           name: true,
+          industryModule: true,
           slug: true,
           operatingStatus: true,
           shopConfig: {
@@ -81,11 +83,11 @@ export async function getReferralShareContext(input: {
       customer.store.slug,
       customer.referralCode ?? customer.id,
     ),
-    publicTrialReferralUrl: buildPublicTrialReferralEntryUrl(
+    publicTrialReferralUrl: (customer.store.industryModule === "COURSE" ? buildReferralEntryUrl : buildPublicTrialReferralEntryUrl)(
       customer.store.slug,
       customer.referralCode ?? customer.id,
     ),
-    shareTemplate: customer.store.shopConfig?.referralShareTemplate ?? null,
+    shareTemplate: customer.store.shopConfig?.referralShareTemplate ?? (customer.store.industryModule === "COURSE" ? COURSE_REFERRAL_SHARE_TEMPLATE : null),
     address: customer.store.shopConfig?.address ?? null,
     mapUrl: customer.store.shopConfig?.mapUrl ?? null,
   };

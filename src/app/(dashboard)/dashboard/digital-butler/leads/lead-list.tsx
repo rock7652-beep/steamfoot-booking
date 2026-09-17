@@ -69,6 +69,7 @@ export function DigitalButlerLeadList({
   waitingForHumanSupport,
   focusedLeadId,
   resolvedStoreId,
+  readOnly = false,
 }: {
   leads: Lead[];
   staff: Array<{ id: string; displayName: string }>;
@@ -78,6 +79,7 @@ export function DigitalButlerLeadList({
   waitingForHumanSupport: boolean;
   focusedLeadId: string | null;
   resolvedStoreId: string;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -159,6 +161,7 @@ export function DigitalButlerLeadList({
           }`}
           onSubmit={(event) => {
             event.preventDefault();
+            if (readOnly || pending) return;
             const form = new FormData(event.currentTarget);
             setError(null);
             startTransition(async () => {
@@ -224,7 +227,7 @@ export function DigitalButlerLeadList({
             )}
           </div>
 
-          <fieldset className="grid min-w-0 gap-2 border-0 p-0">
+          <fieldset disabled={readOnly || pending} className="grid min-w-0 gap-2 border-0 p-0">
             <legend className="mb-0.5 text-xs font-semibold text-earth-700">處理進度</legend>
             <div className="grid grid-cols-2 gap-2">
               <label className="grid gap-1 text-[11px] text-earth-500">

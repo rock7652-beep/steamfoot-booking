@@ -20,9 +20,9 @@ export default async function DigitalButlerSettingsPage() {
   if (!storeId) notFound();
   await requireDigitalButlerEntitlement(storeId).catch(() => notFound());
   const flows = await new DigitalButlerService().listFlows(storeId);
-  const store = await prisma.store.findUnique({ where: { id: storeId }, select: { name: true, slug: true } });
+  const store = await prisma.store.findUnique({ where: { id: storeId }, select: { name: true, slug: true, industryModule: true } });
   if (!store) notFound();
-  const canUpgradeLeadCollection = (user.role === "OWNER" || user.role === "ADMIN")
+  const canUpgradeLeadCollection = store.industryModule !== "COURSE" && (user.role === "OWNER" || user.role === "ADMIN")
     && flows.some((flow) => flow.enabled && flow.status === "PUBLISHED" && flow.publishedVersion
       && isLeadCollectionTrigger(flow.publishedVersion.definition)
       && !hasCompleteDigitalButlerLeadCollection(flow.publishedVersion.definition));
@@ -34,7 +34,7 @@ export default async function DigitalButlerSettingsPage() {
         subtitle="建立 LINE 自動互動流程；草稿不會影響已發布版本"
         actions={
           <Link
-            href="/dashboard/settings"
+            href={store.industryModule === "COURSE" ? "/dashboard/courses?view=settings" : "/dashboard/settings"}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600"
           >
             ← 返回設定
@@ -43,6 +43,7 @@ export default async function DigitalButlerSettingsPage() {
       />
       <DigitalButlerFlowEditor
         flows={flows}
+        courseMode={store.industryModule === "COURSE"}
         leadCollectionUpgrade={canUpgradeLeadCollection ? { storeName: store.name, storeSlug: store.slug } : null}
       />
     </PageShell>
