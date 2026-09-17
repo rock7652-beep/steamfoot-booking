@@ -47,7 +47,7 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
   const keyword=filters.keyword?.trim().toLocaleLowerCase();
   const data=rows.filter((r)=>(!filters.planType||r.unit===filters.planType)&&(!filters.paymentMethod||r.paymentMethod===filters.paymentMethod)&&(!filters.coachId||r.staffId===filters.coachId)&&(!filters.coachRole||r.coachRole===filters.coachRole)&&(!keyword||[r.customerName,r.customerPhone,r.planName,r.note].some((s)=>s?.toLocaleLowerCase().includes(keyword)))).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||a.id.localeCompare(b.id));
   const totalRevenue=data.filter((r)=>!r.refund).reduce((n,r)=>n+r.netAmount,0);
-  const refundAmount=-data.filter((r)=>r.refund).reduce((n,r)=>n+r.netAmount,0);
+  const refundAmount=Math.abs(data.filter((r)=>r.refund).reduce((n,r)=>n+r.netAmount,0));
   const netRevenue=totalRevenue-refundAmount;
   const customerCount=new Set(data.filter((r)=>!r.refund).map((r)=>r.customerId)).size;
   const kpi={totalRevenue,refundAmount,netRevenue,txCount:data.filter((r)=>!r.refund).length,customerCount,avgPerCustomer:customerCount?Math.round(netRevenue/customerCount):0};

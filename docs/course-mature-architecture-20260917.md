@@ -93,3 +93,11 @@
 共用 ReportDateRange、PageShell／PageHeader／KpiStrip／DataTable、TrendChart；課程查詢保留 CourseSession／Booking／Card，購買與退款直接沿用已驗證收入報表 adapter。今日／本月／自訂期間保留 view 參數，客流依實際上課者去重、首次完成日期判斷新舊客；參與人次、出席、點數／堂數分開。前期採相鄰同長期間（明示日期），去年同期採日曆年對應、閏日縮至月底；近六個月趨勢截止所選結束日。查看顧客受 customer.read，金額受 transaction.read，CSV 受 report.export／功能開通／既有限額與查看模式限制。
 
 尚未視為完整分析承接：現階段先接上課／購買／回流／教練量與匯出；課程沒有體驗成交歸因時不給假0或假開卡率。蒸足空間費月結不適用課程，教練結算方法未約定，不套既有空間費；手動收支與更完整店長業績分攤仍須核對承接。網頁與CSV驗證待部署。
+
+分析實测（f42533ce → 2a8d778e）：月報7堂、6參與人次、5完成／2人、使用13點／0堂，與唯讀 SQL 聚合一致；購買／退款／淨額與收入總覽一致。今日切換正常。自訂日期首次操作發現受控日期欄位沒有送出畫面值，修成原生表單 FormData，新增3項回歸，隔離重測成功保留 view=analytics 並套用單日；月／日不同統計數正確。CSV點擊已觸發瀏覽器下載事件，但內建瀏覽器沒有提供下載檔路徑，檔案內容仍未實際讀取，不列為完整檔案驗證。1024px無整頁水平溢出。另發現無退款日顯示 -0，已修成非負退款合計並補回歸。
+
+### 批次五：設定控制台與付款權限（驗證中）
+
+共用 SettingsShell、SettingsNavSection、SettingsActionCard、SettingsSidePanel；店家資訊、課程規則與付款採同頁 RightSheet。PaymentSettingsForm 加窄側窗配置與可注入服務，原蒸足預設 action 不變；課程 wrapper 先檢查 plans.edit、同店及啟用人員，再呼叫成熟 updateShopBankInfo。店家與預約規則仍走課程交易。舊合併表單僅要求 business_hours.manage 卻可改銀行，現補 plans.edit 與完整欄位檢查；一般設定不提交或更新銀行。查看模式不提供修改按鈕。
+
+此批不代表完整設定已承接：營業公休、值班聯動、方案中心、提醒、推薦分享與數位管家子頁仍須逐項適配。既有 business-hours 更新會查蒸足 Booking、duty 以蒸足 slot 為基準，不能直接接入課程當作完成。

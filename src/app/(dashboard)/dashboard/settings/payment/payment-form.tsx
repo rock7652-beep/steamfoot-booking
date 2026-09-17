@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { updateShopBankInfo } from "@/server/actions/shop";
 
 interface Props {
+  compact?: boolean;
+  saveAction?: typeof updateShopBankInfo;
   storeId: string;
   initial: {
     bankName: string | null;
@@ -19,7 +21,7 @@ const inputCls =
   "mt-1 block w-full rounded-lg border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800 placeholder:text-earth-400 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400";
 const labelCls = "block text-sm font-medium text-earth-700";
 
-export function PaymentSettingsForm({ storeId, initial }: Props) {
+export function PaymentSettingsForm({ storeId, initial, compact = false, saveAction = updateShopBankInfo }: Props) {
   const [bankName, setBankName] = useState(initial.bankName ?? "");
   const [bankCode, setBankCode] = useState(initial.bankCode ?? "");
   const [bankAccountNumber, setBankAccountNumber] = useState(initial.bankAccountNumber ?? "");
@@ -34,7 +36,8 @@ export function PaymentSettingsForm({ storeId, initial }: Props) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const result = await updateShopBankInfo({
+      try {
+      const result = await saveAction({
         bankName: bankName || null,
         bankCode: bankCode || null,
         bankAccountNumber: bankAccountNumber || null,
@@ -46,6 +49,7 @@ export function PaymentSettingsForm({ storeId, initial }: Props) {
       } else {
         toast.error(result.error ?? "儲存失敗");
       }
+      } catch { toast.error("連線失敗，已保留輸入內容，請重試"); }
     });
   }
 
@@ -61,10 +65,10 @@ export function PaymentSettingsForm({ storeId, initial }: Props) {
     <form
       data-store-id={storeId}
       onSubmit={handleSubmit}
-      className="grid grid-cols-1 gap-4 lg:grid-cols-12"
+      className={compact ? "space-y-4" : "grid grid-cols-1 gap-4 lg:grid-cols-12"}
     >
       {/* Left: form */}
-      <div className="lg:col-span-7">
+      <div className={compact ? "" : "lg:col-span-7"}>
         <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
           <header className="mb-4">
             <h2 className="text-sm font-semibold text-earth-900">付款資訊</h2>
@@ -79,6 +83,7 @@ export function PaymentSettingsForm({ storeId, initial }: Props) {
                 <label className={labelCls}>銀行名稱</label>
                 <input
                   type="text"
+                  aria-label="銀行名稱"
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
                   maxLength={100}
@@ -90,6 +95,7 @@ export function PaymentSettingsForm({ storeId, initial }: Props) {
                 <label className={labelCls}>銀行代號</label>
                 <input
                   type="text"
+                  aria-label="銀行代號"
                   value={bankCode}
                   onChange={(e) => setBankCode(e.target.value)}
                   maxLength={20}
@@ -103,7 +109,8 @@ export function PaymentSettingsForm({ storeId, initial }: Props) {
               <label className={labelCls}>銀行帳號</label>
               <input
                 type="text"
-                value={bankAccountNumber}
+                aria-label="銀行帳號"
+                  value={bankAccountNumber}
                 onChange={(e) => setBankAccountNumber(e.target.value)}
                 maxLength={50}
                 placeholder="例：19301800020681"
@@ -116,7 +123,8 @@ export function PaymentSettingsForm({ storeId, initial }: Props) {
               <label className={labelCls}>LINE@ 連結</label>
               <input
                 type="url"
-                value={lineOfficialUrl}
+                aria-label="LINE 官方帳號網址"
+                  value={lineOfficialUrl}
                 onChange={(e) => setLineOfficialUrl(e.target.value)}
                 maxLength={500}
                 placeholder="例：https://lin.ee/UvRnFFK"
@@ -128,14 +136,14 @@ export function PaymentSettingsForm({ storeId, initial }: Props) {
             </div>
           </div>
 
-          <div className="mt-6 flex items-center justify-end gap-3 border-t border-earth-100 pt-4">
+          <div className={`mt-6 flex items-center justify-end gap-3 border-t border-earth-100 pt-4 ${compact ? "sticky bottom-0 bg-white pb-3" : ""}`}>
             <span className="text-[11px] text-earth-400">
               {pending ? "儲存中..." : "變更後請儲存"}
             </span>
             <button
               type="submit"
               disabled={pending}
-              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
+              className="min-h-11 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
             >
               {pending ? "儲存中..." : "儲存"}
             </button>
@@ -144,7 +152,7 @@ export function PaymentSettingsForm({ storeId, initial }: Props) {
       </div>
 
       {/* Right: customer-facing preview */}
-      <div className="lg:col-span-5">
+      <div className={compact ? "" : "lg:col-span-5"}>
         <section className="lg:sticky lg:top-4 rounded-xl border border-earth-200 bg-earth-50/40 p-5 shadow-sm">
           <header className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-earth-900">前台預覽</h2>

@@ -3,13 +3,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveCourseSettings } from "@/server/actions/course-settings";
 export function CourseSettingsEditor({
-  name, bankName, bankCode, bankAccountNumber,
+  name,
   address, mapUrl, lineOfficialUrl,
   bookingLeadMinutes,
   cancellationLeadMinutes,
   canEdit,
 }: {
-  name: string; bankName: string; bankCode: string; bankAccountNumber: string;
+  name: string;
   address: string; mapUrl: string; lineOfficialUrl: string;
   bookingLeadMinutes: number;
   cancellationLeadMinutes: number;
@@ -28,7 +28,7 @@ export function CourseSettingsEditor({
         start(async () => {
           try {
             const r = await saveCourseSettings({
-              name: d.get("name"), bankName: d.get("bankName"), bankCode: d.get("bankCode"), bankAccountNumber: d.get("bankAccountNumber"),
+              name: d.get("name"),
               address: d.get("address"), mapUrl: d.get("mapUrl"), lineOfficialUrl: d.get("lineOfficialUrl"),
               bookingLeadMinutes: Number(d.get("booking")),
               cancellationLeadMinutes: Number(d.get("cancel")),
@@ -52,8 +52,6 @@ export function CourseSettingsEditor({
         />
       </label>
       {([ ["address", "店家地址", address], ["mapUrl", "地圖網址", mapUrl], ["lineOfficialUrl", "LINE 官方帳號網址", lineOfficialUrl] ] as const).map(([key, label, value]) => <label key={key} className="block">{label}<input className={field} name={key} type={key === "address" ? "text" : "url"} defaultValue={value} disabled={!canEdit} /></label>)}
-      <h2>線上購買收款資訊</h2>
-      {([["bankName","銀行名稱",bankName],["bankCode","銀行代碼",bankCode],["bankAccountNumber","收款帳號",bankAccountNumber]] as const).map(([key,label,value])=><label key={key} className="block">{label}<input className={field} name={key} defaultValue={value} disabled={!canEdit}/></label>)}
       <h2 className="border-b border-gold-300 pb-2 font-semibold text-primary-800">預約與取消規則</h2>
       <label className="block">
         上課前幾分鐘截止預約

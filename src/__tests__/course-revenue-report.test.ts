@@ -13,6 +13,7 @@ describe("course revenue adapter",()=>{
   const result=await getCourseRevenueReport("a",filters);
   expect(result.data[0].transactionDate).toBe("2026-09-17");
   expect(result.kpi.netRevenue).toBe(1000);
+  expect(result.kpi.refundAmount).toBe(0);
   for(const call of m.orders.mock.calls) expect(call[0].where.storeId).toBe("a");
   expect(m.refunds.mock.calls[0][0].where).toEqual({storeId:"a",createdAt:{gte:new Date("2026-09-16T16:00:00Z"),lte:new Date("2026-09-17T15:59:59.999Z")}});
   expect(m.people.mock.calls[0][0].where.storeId).toBe("a");
