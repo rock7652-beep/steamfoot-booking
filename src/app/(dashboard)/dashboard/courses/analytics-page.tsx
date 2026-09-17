@@ -42,7 +42,7 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
       {canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?startDate=${range.startDate}&endDate=${range.endDate}`} download>全店／教練 CSV</a>}
       {canReadRevenue&&<DashboardLink href="/dashboard/store-revenue" className="rounded-md border border-earth-200 px-3 py-2 text-sm">收入總覽／匯出</DashboardLink>}
     </>}/>
-    <ReportDateRange activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery/>
+    <ReportDateRange key={`${range.startDate}-${range.endDate}`} activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery/>
     <section aria-labelledby="course-operations-summary"><h2 id="course-operations-summary" className="mb-2 text-sm font-semibold text-earth-800">營運摘要</h2>
       <KpiStrip items={[
         {label:"排課",value:`${current.sessions} 堂`,tone:"primary"},

@@ -28,8 +28,6 @@ export default function ReportDateRange({
   const [reading, startReading] = useTransition();
   const searchParams = useSearchParams();
   const [showCustom, setShowCustom] = useState(activePreset === "custom");
-  const [customStart, setCustomStart] = useState(startDate);
-  const [customEnd, setCustomEnd] = useState(endDate);
 
   function handlePreset(key: string) {
     if (key === "custom") {
@@ -48,7 +46,10 @@ export default function ReportDateRange({
 
   const [dateError, setDateError] = useState<string | null>(null);
 
-  function handleCustomSubmit() {
+  function handleCustomSubmit(form: HTMLFormElement) {
+    const fields = new FormData(form);
+    const customStart = String(fields.get("startDate") ?? "");
+    const customEnd = String(fields.get("endDate") ?? "");
     if (!customStart || !customEnd) return;
     if (customEnd < customStart) {
       setDateError("結束日期不能早於起始日期");
@@ -93,13 +94,16 @@ export default function ReportDateRange({
       {/* Custom date range */}
       {showCustom && (
         <>
-          <div className="flex items-end gap-2">
+          <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); handleCustomSubmit(event.currentTarget); }}>
             <div className="flex-1">
               <label className="block text-xs text-earth-500 mb-0.5">起始</label>
               <input
                 type="date"
-                value={customStart}
-                onChange={(e) => { setCustomStart(e.target.value); setDateError(null); }}
+                name="startDate"
+                aria-label="起始日期"
+                defaultValue={startDate}
+                required
+                onChange={() => setDateError(null)}
                 className="block w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               />
             </div>
@@ -107,20 +111,22 @@ export default function ReportDateRange({
               <label className="block text-xs text-earth-500 mb-0.5">結束</label>
               <input
                 type="date"
-                value={customEnd}
-                onChange={(e) => { setCustomEnd(e.target.value); setDateError(null); }}
+                name="endDate"
+                aria-label="結束日期"
+                defaultValue={endDate}
+                required
+                onChange={() => setDateError(null)}
                 className="block w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               />
             </div>
             <button
-              type="button"
-              onClick={handleCustomSubmit}
+              type="submit"
               disabled={reading}
               className="rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
             >
               查詢
             </button>
-          </div>
+          </form>
           {dateError && (
             <p className="text-xs text-red-500">{dateError}</p>
           )}
