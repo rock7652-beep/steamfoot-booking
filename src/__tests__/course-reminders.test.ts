@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+vi.mock("@/server/services/course-expiry-reminders",()=>({runCourseExpiryReminders:vi.fn(async()=>({total:0,sent:0,skipped:0,failed:0}))}));
 const m = vi.hoisted(() => ({ rules:vi.fn(),store:vi.fn(),bookings:vi.fn(),customers:vi.fn(),feature:vi.fn(),plan:vi.fn(),limit:vi.fn(),blocked:vi.fn(),recipient:vi.fn(),route:vi.fn(),push:vi.fn(),central:vi.fn(),raw:vi.fn(),existing:vi.fn(),upsert:vi.fn(),update:vi.fn(),count:vi.fn(),currentRule:vi.fn(),manager:vi.fn(),requireFeature:vi.fn(),template:vi.fn(),ruleUpsert:vi.fn() }));
 vi.mock("@/lib/db",()=>({prisma:{store:{findFirst:m.store},customer:{findMany:m.customers},reminderRule:{findMany:m.rules,findFirst:m.currentRule},$transaction:async(fn: (tx:unknown)=>unknown)=>fn({$queryRaw:m.raw,messageLog:{findUnique:m.existing,upsert:m.upsert,update:m.update,count:m.count},reminderRule:{findFirst:m.currentRule,upsert:m.ruleUpsert},messageTemplate:{upsert:m.template}})}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{courseBooking:{findMany:m.bookings}}}));
@@ -13,7 +14,7 @@ vi.mock("@/server/services/verified-reminder-line-route",()=>({resolveVerifiedRe
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 import {getCourseReminderCandidates,runCourseReminders} from "@/server/services/course-reminders";
-import {saveCourseReminderBody,setCourseReminderEnabled} from "@/server/actions/course-reminders";
+import {saveCourseReminderBody,setCourseReminderEnabled,setCourseExpiryReminderEnabled} from "@/server/actions/course-reminders";
 const now=new Date("2026-09-17T18:00:00+08:00");
 beforeEach(()=>{
  vi.resetAllMocks();m.rules.mockResolvedValue([{id:"rule",storeId:"s",templateId:"template",template:{body:"請準時"}}]);m.store.mockResolvedValue({id:"s",slug:"course",name:"課程店"});
@@ -60,4 +61,11 @@ it("saving content does not opt the store into sending; authorization is checked
 });
 it("failed LINE delivery remains FAILED rather than reporting sent",async()=>{
  m.push.mockResolvedValue({success:false,error:"timeout"});expect(await runCourseReminders(now)).toMatchObject({failed:1,sent:0});expect(m.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"FAILED",sentAt:null})}));
+});
+
+it("course expiry opt-in is scoped and permission checked without changing legacy settings",async()=>{
+ expect(await setCourseExpiryReminderEnabled(true)).toMatchObject({success:true});
+ expect(m.manager).toHaveBeenCalledWith("business_hours.manage");
+ expect(m.template).toHaveBeenCalledWith(expect.objectContaining({where:{id:"course-expiry-reminder-enabled:s"},create:expect.objectContaining({storeId:"s",body:"enabled"})}));
+ m.manager.mockRejectedValue(new Error("denied"));expect(await setCourseExpiryReminderEnabled(false)).toMatchObject({success:false});expect(m.template).toHaveBeenCalledTimes(1);
 });

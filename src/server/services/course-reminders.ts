@@ -83,5 +83,7 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
    }
   }
  }
- return summary;
+ const {runCourseExpiryReminders}=await import("./course-expiry-reminders");
+ const expiry=await runCourseExpiryReminders(now,onlyStoreId);
+ return {total:summary.total+expiry.total,sent:summary.sent+expiry.sent,skipped:summary.skipped+expiry.skipped,failed:summary.failed+expiry.failed};
 }

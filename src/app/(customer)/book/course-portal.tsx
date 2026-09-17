@@ -314,5 +314,5 @@ export async function loadCoursePortal(requestedMonth?: string) {
 export type CoursePortalData = Awaited<ReturnType<typeof loadCoursePortal>>;
 export async function CoursePortal({ month, date, view }: { month?: string; date?: string; view?: string }) {
   const selectedDate = date && /^20\d{2}-\d{2}-\d{2}$/.test(date) && parseTaipeiDateTime(date, "00:00") ? date : undefined;
-  return <CoursePortalClient {...await loadCoursePortal(selectedDate?.slice(0,7) ?? month)} initialDate={selectedDate} initialView={view === "bookings" ? "bookings" : "home"} />;
+  return <CoursePortalClient {...await loadCoursePortal(selectedDate?.slice(0,7) ?? month)} initialDate={selectedDate} initialView={view === "bookings" ? "bookings" : view === "plans" ? "plans" : "home"} />;
 }

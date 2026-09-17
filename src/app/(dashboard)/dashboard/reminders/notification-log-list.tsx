@@ -35,6 +35,11 @@ export function NotificationLogList({
   baseHref?: string;
   course?: boolean;
 }) {
+  // Keep historical types discoverable, without advertising unimplemented course events.
+  const visibleLabels = course ? Object.fromEntries(Object.entries(labels).filter(([key]) =>
+    ["SAME_DAY_BOOKING_CREATED", "TRANSFER_PENDING_CONFIRMATION"].includes(key)
+    || data.typeOptions.includes(key) || data.rows.some(row => row.type === key) || params.type === key,
+  )) : labels;
   function pageUrl(page: number) {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -81,15 +86,16 @@ export function NotificationLogList({
           >
             <option value="">全部類型</option>
             {[
-              ...Object.entries(labels),
+              ...Object.entries(visibleLabels),
               ...[
                 ...new Set([
                   ...data.typeOptions,
+                  ...(course ? ["課程方案到期提醒"] : []),
                   ...data.rows.map((r) => r.type),
                   ...(params.type ? [params.type] : []),
                 ]),
               ]
-                .filter((k) => !labels[k])
+                .filter((k) => !visibleLabels[k])
                 .map((k) => [k, k]),
             ].map(([k, v]) => (
               <option key={k} value={k}>

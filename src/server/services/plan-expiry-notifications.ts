@@ -34,9 +34,10 @@ export function buildPlanExpiryLineMessages(input: {
   expiryDate: Date;
   daysUntilExpiry: 14 | 7;
   storeSlug: string;
+  course?: {unit:"POINT"|"SESSION";remaining:number;held:number;url:string};
 }): LineFlexMessage[] {
   const expiry = displayDate(input.expiryDate);
-  const bookingUrl = `${deriveBaseUrl()}/s/${input.storeSlug}/liff/member-booking`;
+  const bookingUrl = input.course?.url ?? `${deriveBaseUrl()}/s/${input.storeSlug}/liff/member-booking`;
   return [{
     type: "flex",
     altText: `${input.customerName} 您好，您的「${input.planName}」將於 ${expiry} 到期。`,
@@ -66,10 +67,11 @@ export function buildPlanExpiryLineMessages(input: {
             type: "box",
             layout: "horizontal",
             contents: [
-              { type: "text", text: "剩餘堂數", color: LINE_CARD_COLORS.label, size: "sm", flex: 4 },
-              { type: "text", text: `${input.remainingSessions} 堂`, color: LINE_CARD_COLORS.text, size: "sm", weight: "bold", align: "end", flex: 6 },
+              { type: "text", text: input.course?"可用額度":"剩餘堂數", color: LINE_CARD_COLORS.label, size: "sm", flex: 4 },
+              { type: "text", text: `${input.remainingSessions} ${input.course?.unit === "POINT"?"點":"堂"}`, color: LINE_CARD_COLORS.text, size: "sm", weight: "bold", align: "end", flex: 6 },
             ],
           },
+          ...(input.course ? [{type:"text",text:`剩餘 ${input.course.remaining}／預約占用 ${input.course.held} ${input.course.unit === "POINT"?"點":"堂"}；共卡成員共用同一額度。`,color:LINE_CARD_COLORS.label,size:"sm",wrap:true}] : []),
           {
             type: "box",
             layout: "horizontal",
@@ -87,7 +89,7 @@ export function buildPlanExpiryLineMessages(input: {
         layout: "vertical",
         spacing: "sm",
         contents: [
-          { type: "button", style: "primary", color: COLORS.primary, action: { type: "uri", label: "立即預約", uri: bookingUrl } },
+          { type: "button", style: "primary", color: COLORS.primary, action: { type: "uri", label: input.course?"查看方案與期限":"立即預約", uri: bookingUrl } },
           { type: "button", style: "link", color: COLORS.secondary, action: { type: "message", label: "諮詢店長", text: "我想詢問方案到期安排" } },
         ],
       },

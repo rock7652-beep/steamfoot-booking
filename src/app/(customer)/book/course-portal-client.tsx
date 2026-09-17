@@ -166,7 +166,7 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(p: CoursePortalData & { initialDate?: string; initialView?: "home" | "bookings" }) {
+export function CoursePortalClient(p: CoursePortalData & { initialDate?: string; initialView?: "home" | "bookings" | "plans" }) {
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
