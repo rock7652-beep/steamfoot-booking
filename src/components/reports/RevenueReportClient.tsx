@@ -477,11 +477,11 @@ export function RevenueReportClient({
       {/* ===== KPI Cards ===== */}
       {kpi && (
         <div className={`grid gap-3 ${mode === "coach" ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-8" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"}`}>
-          <KpiCard label="總營收" value={fmtMoney(kpi.totalRevenue)} color="primary" />
+          <KpiCard label={courseMode ? "核帳收入" : "總營收"} value={fmtMoney(kpi.totalRevenue)} color="primary" />
           <KpiCard label="退款金額" value={fmtMoney(kpi.refundAmount)} color="red" />
-          <KpiCard label="淨營收" value={fmtMoney(kpi.netRevenue)} color="green" />
-          <KpiCard label="交易筆數" value={kpi.txCount} color="blue" />
-          <KpiCard label="客戶數" value={kpi.customerCount} color="amber" />
+          <KpiCard label={courseMode ? "方案淨收入" : "淨營收"} value={fmtMoney(kpi.netRevenue)} color="green" />
+          <KpiCard label={courseMode ? "核帳筆數" : "交易筆數"} value={kpi.txCount} color="blue" />
+          <KpiCard label={courseMode ? "購買人數" : "客戶數"} value={kpi.customerCount} color="amber" />
           <KpiCard label="平均客單價" value={fmtMoney(kpi.avgPerCustomer)} color="earth" />
           {mode === "coach" && kpi.newCustomerRevenue != null && (
             <>
@@ -567,13 +567,13 @@ export function RevenueReportClient({
 
           {mode === "store" && (
             <section className="mt-4 rounded-xl border border-earth-200 bg-white p-4">
-              <h3 className="text-sm font-semibold text-earth-800">付款方式拆分</h3>
-              <p className="mt-1 text-xs text-earth-500">混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。</p>
+              <h3 className="text-sm font-semibold text-earth-800">{courseMode ? "收款方式" : "付款方式拆分"}</h3>
+              <p className="mt-1 text-xs text-earth-500">{courseMode ? "銀行匯款核帳收入；退款金額另列於上方摘要。" : "混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。"}</p>
               {paymentMethodSummary.length === 0 ? (
                 <p className="mt-3 text-sm text-earth-400">本期尚無付款資料</p>
               ) : (
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {paymentMethodSummary.map((row) => <div key={row.paymentMethod} className="rounded-lg bg-earth-50 px-3 py-2"><p className="text-xs text-earth-500">{fmtPayment(row.paymentMethod)}</p><p className="mt-1 font-semibold tabular-nums text-earth-900">NT$ {fmtMoney(row.amount)}</p></div>)}
+                  {paymentMethodSummary.map((row) => <div key={row.paymentMethod} className="rounded-lg bg-earth-50 px-3 py-2"><p className="text-xs text-earth-500">{courseMode && row.paymentMethod === "OTHER" ? "銀行匯款" : fmtPayment(row.paymentMethod)}</p><p className="mt-1 font-semibold tabular-nums text-earth-900">NT$ {fmtMoney(row.amount)}</p></div>)}
                 </div>
               )}
             </section>
@@ -632,7 +632,7 @@ export function RevenueReportClient({
                   <thead className="bg-earth-50">
                     <tr>
                       {(mode === "store"
-                        ? ["交易日期", "交易單號", "分店", "客戶", "電話", "方案", "類型", "原價", "折扣", "實收", "收款方式", "狀態", "備註", "建立人員", "建立時間"]
+                        ? (courseMode ? ["入帳日期", "分店", "客戶", "電話", "方案", "類型", "收退款金額", "收款方式", "狀態", "備註", "操作人員", "入帳時間"] : ["交易日期", "交易單號", "分店", "客戶", "電話", "方案", "類型", "原價", "折扣", "實收", "收款方式", "狀態", "備註", "建立人員", "建立時間"])
                         : ["交易日期", "交易單號", "分店", "教練", "角色", "客戶", "電話", "方案", "類型", "實收", "收款方式", "狀態", "新客", "備註", "建立時間"]
                       ).map((h) => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
@@ -645,16 +645,16 @@ export function RevenueReportClient({
                         {mode === "store" ? (
                           <>
                             <td className="px-3 py-2 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>
+                            {!courseMode && <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>}
                             <td className="px-3 py-2">{d.storeName}</td>
                             <td className="px-3 py-2">{d.customerName}</td>
                             <td className="px-3 py-2 text-xs">{d.customerPhone}</td>
                             <td className="px-3 py-2">{d.planName ?? "-"}</td>
                             <td className="px-3 py-2">{fmtPlanType(d.planType)}</td>
-                            <td className="px-3 py-2 text-right">{fmtMoney(d.grossAmount)}</td>
-                            <td className="px-3 py-2 text-right">{fmtMoney(d.discountAmount)}</td>
+                            {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(d.grossAmount)}</td>
+                            <td className="px-3 py-2 text-right">{fmtMoney(d.discountAmount)}</td></>}
                             <td className="px-3 py-2 text-right font-medium">{fmtMoney(d.netAmount)}</td>
-                            <td className="px-3 py-2">{fmtPayment(d.paymentMethod)}</td>
+                            <td className="px-3 py-2">{courseMode && d.paymentMethod === "OTHER" ? "銀行匯款" : fmtPayment(d.paymentMethod)}</td>
                             <td className="px-3 py-2">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                                 d.status === "SUCCESS" ? "bg-green-100 text-green-700" :
@@ -664,7 +664,7 @@ export function RevenueReportClient({
                             </td>
                             <td className="px-3 py-2 text-xs text-earth-500 max-w-[120px] truncate">{d.note ?? "-"}</td>
                             <td className="px-3 py-2 text-xs">{d.createdByName ?? "-"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{fmtDate(d.createdAt)}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{courseMode ? toLocalDateStr(new Date(d.createdAt)) : fmtDate(d.createdAt)}</td>
                           </>
                         ) : (
                           <>
