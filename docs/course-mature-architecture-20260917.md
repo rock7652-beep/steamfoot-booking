@@ -15,11 +15,11 @@
 |plans／購買|建立、編輯、上下架、適用課程、期限、指派、共卡、銀行資訊、訂單／核帳／發卡|course-members、course-portal、CoursePointCard／Purchase|核心已驗，待完整子頁／錯誤／排序對照|保留 Course 點數、占用及快到期優先；不能直接用 Steamfoot WalletSession|待驗|
 |revenue 營運|營收明細、現金收支側窗、現金管理、KPI、交易工作台、日期／類型／人員篩選、明細側窗、修改／作廢／退款、匯出|queries/transaction、report、TransactionDrawer、cashbook|已接 revenue 工作台、課程核帳／退款／作廢／歸屬更正；完整並行與共用回歸待補|抽出成熟營運布局；資料與操作注入課程交易 adapter；退款受使用／占用狀態約束|待接|
 |營運相關子頁|store-revenue（月季年）、reconciliation、data-export、transactions|報表、對帳、匯出服務|收入總覽／Excel 與對帳中心已适配；通用 data-export／transactions 尚未視為課程入口|課程購買和 Cashbook 去重；不能把同筆核帳收入加兩次|待接|
-|reports 分析|今日／本月／自訂、營運摘要、客流、成交、六個月趨勢、留存、營收／店長分析、同期比較、查看顧客、全店／店長 CSV、月結|customer-flow、conversion、retention、performance-trends、snapshot|已接成熟日期、摘要、客流、趨勢、留存及教練量；手動收支與店長分析等尚待接|共用成熟 report 展示與日期；替換課程查詢、快照命名／統計口徑，無來源不可回填假 0|待接|
+|reports 分析|今日／本月／自訂、營運摘要、客流、成交、六個月趨勢、留存、營收／店長分析、同期比較、查看顧客、全店／店長 CSV、月結|customer-flow、conversion、retention、performance-trends、snapshot|已接成熟日期、摘要、客流、趨勢、留存、教練量、手動收支與店長歸屬；CSV下載檔仍待讀取|共用成熟 report 展示與日期；替換課程查詢、快照命名／統計口徑，無來源不可回填假 0|部分實測通過，詳見批次四／十|
 |settings 控制台|分類導覽、狀態卡、編輯／次入口、快捷操作、系統資訊|SettingsShell/NavSection/ActionCard/SidePanel|已共用控制台、同頁店家規則／付款；其餘子頁尚待逐項適配|共用成熟控制台；逐個放行已適配子頁|待接|
-|settings/hours、duty、payment、plans|營業／公休／特殊日、預約開放日、排班啟用、銀行、成長方案中心|ShopConfig、BusinessHours、SpecialBusinessDay、Duty|付款與真實方案用量已接；營業／公休與值班寫入 adapter 待接，plans 靜態示意不列完成|公休標記及可約日期用同店既有設定；實際課次仍由 CourseSession|待接|
+|settings/hours、duty、payment、plans|營業／公休／特殊日、預約開放日、排班啟用、銀行、成長方案中心|ShopConfig、BusinessHours、SpecialBusinessDay、Duty|付款、真實方案用量、營業／公休、預約開放期限已接；值班適配待接，plans 靜態示意不列完成|公休標記及可約日期用同店既有設定；實際課次仍由 CourseSession|部分實測通過，詳見批次五／六／八|
 |settings/trial、referral-share、digital-butler|體驗价格範圍、分享模板、流程編輯、名單|trial settings、referral、digital-butler|課程尚未適配|逐项檢查現有模板／事件目的地；涉及新優惠／獎勵規則需明列，不自動套用|待接|
-|reminders、growth、操作指南|規則／模板／開關、觸發事件、對象、發送紀錄、重試、深層連結|通知工作流、顧客經營查詢、指南 catalog|課程指南目前關閉，提醒／經營路由阻擋|通知僅測試授權對象；Course 事件與方案，不用蒸足餘堂觸發條件|待接|
+|reminders、growth、操作指南|規則／模板／開關、觸發事件、對象、發送紀錄、重試、深層連結|通知工作流、顧客經營查詢、指南 catalog|課程上課提醒、店長當日預約／待核帳通知及紀錄、六篇課程指南已接；到期／餘額與其他經營仍待接|通知僅測試授權對象；Course 事件與方案，不用蒸足餘堂觸發條件|新版操作待驗，詳見批次七／九／十一|
 |LIFF 會員／教練|既有底部導覽、日曆、共卡、同堂逐人、原位名單、點名／更正／批次、健康／店家|course portal/actions、course booking|已驗核心保留；健康／資料子功能未完整；檢查桌機手機寬度和操作文案|保留已定案版面，套共用功能而非重畫前台|待接／驗|
 
 ## 真實頁面唯讀盤點
@@ -167,3 +167,5 @@
 - customer.export 與 customer.read 雙權限、查看模式阻擋；wallet.read／booking.read 分別控制是否查詢與輸出。CSV 文字防試算表公式注入，匯出不含登入帳號、健康量測或後台服務備註。
 - 權限、店別、模組、共卡、到期、占用、日期及原匯出 gate 相關8項測試通過；型別與修改檔 lint 通過。首次型別檢查發現測試 BigInt literal 不符合既有編譯目標，改為 BigInt() 後重測。尚未宣稱實際下載檔驗收通過。
 - 9216a431 指南 CI 型別／lint／Targeted／Full Vitest／postgres-integration 與隔離部署通過，Cloudflare豁免維持。
+
+新版分析畫面唯讀核對（9216a431）：月報手動收入250、總收入3550、收支淨額1250；分類列與店長歸屬均與原購買／退款及隔離SQL一致。這僅補齊資料呈現驗證；當前瀏覽器按鈕控制未生效，指南側窗開啟、提醒儲存／篩選及新增匯出下載仍不列為通過。
