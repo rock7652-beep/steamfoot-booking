@@ -390,6 +390,12 @@ export async function previewCourseSchedule(input: unknown) {
     const { storeId } = await writableStore();
     const d = courseScheduleInput.parse(input);
     const dates = buildCourseOccurrences(d);
+    // Preview follows the same business-hours and duty rules as the final save.
+    // Saving still rechecks under the store lock to protect concurrent edits.
+    await Promise.all([
+      assertCourseSessionsFitHours(coursePrisma, storeId, dates),
+      assertCourseDutyCoverage(coursePrisma, storeId, dates.map(r => ({ ...r, coachId: d.coachId }))),
+    ]);
     const [conflicts, room] = await Promise.all([
       coursePrisma.courseSession.findMany({
         where: {
