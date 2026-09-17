@@ -101,3 +101,7 @@
 共用 SettingsShell、SettingsNavSection、SettingsActionCard、SettingsSidePanel；店家資訊、課程規則與付款採同頁 RightSheet。PaymentSettingsForm 加窄側窗配置與可注入服務，原蒸足預設 action 不變；課程 wrapper 先檢查 plans.edit、同店及啟用人員，再呼叫成熟 updateShopBankInfo。店家與預約規則仍走課程交易。舊合併表單僅要求 business_hours.manage 卻可改銀行，現補 plans.edit 與完整欄位檢查；一般設定不提交或更新銀行。查看模式不提供修改按鈕。
 
 此批不代表完整設定已承接：營業公休、值班聯動、方案中心、提醒、推薦分享與數位管家子頁仍須逐項適配。既有 business-hours 更新會查蒸足 Booking、duty 以蒸足 slot 為基準，不能直接接入課程當作完成。
+
+設定實測（750bfe23）：1024px 同頁開啟付款與店家規則，原值儲存後唯讀 SQL 確認隔離銀行三欄及原預約／取消分鐘均保留，店家表單顯示已儲存。付款複製按鈕未取得剪貼簿一致證據，仍列未驗證。該版型別、修改檔 lint、完整 Vitest、postgres-integration CI 通過；Cloudflare 維持豁免。分析單日重測確認無退款顯示 NT$ 0，不再出現負零。
+
+方案用量追加：共用 getStoreUsage 原本只計蒸足 Booking，現依 COURSE 改讀同店 CourseBooking，以與課程額度限制一致的台灣月份／建立日計算，取消仍計入，未更動上限。設定用量摘要受 plans.edit 控制，不搬入既有 plans 示意頁的假續約資訊。三項資料來源／跨月邊界測試通過。另修正關閉設定側窗後的殘留控制項，以及共用報表切換日期後表單預設值重置。部署與新版用量畫面驗證待完成。

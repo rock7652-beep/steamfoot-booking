@@ -9,6 +9,7 @@ import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { PageShell, PageHeader } from "@/components/desktop";
+import { getStoreUsage } from "@/server/queries/usage";
 
 export type CourseHubView = "settings" | "operations";
 export async function CourseSharedHub({view}:{view:CourseHubView}) {
@@ -39,6 +40,7 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
       user.role === "OWNER" && checkPermission(user.role,user.staffId,"staff.view"),
       checkPermission(user.role,user.staffId,"wallet.read"),
     ]);
+    const usage = canPayment ? await getStoreUsage(storeId) : null;
     body = (
       <CourseSettingsWorkspace
         storeId={storeId} planLabel={store ? PRICING_PLAN_INFO[store.plan].label : "—"} canPayment={canPayment && !readOnly} canStaff={canStaff} canPlans={canPlans}
@@ -48,6 +50,7 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
         bookingLeadMinutes={rule?.bookingLeadMinutes ?? 0}
         cancellationLeadMinutes={rule?.cancellationLeadMinutes ?? 0}
         canEdit={canEdit && !readOnly}
+        usageMetrics={usage?.metrics}
       />
     );
 

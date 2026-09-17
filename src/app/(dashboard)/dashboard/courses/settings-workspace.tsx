@@ -6,11 +6,13 @@ import { RightSheet } from "@/components/admin/right-sheet";
 import { CourseSettingsEditor } from "./settings-editor";
 import { PaymentSettingsForm } from "../settings/payment/payment-form";
 import { saveCoursePaymentSettings } from "@/server/actions/course-settings";
+import type { UsageMetric } from "@/server/queries/usage";
 
 type Props={
   storeId:string; name:string; planLabel:string; address:string;mapUrl:string;lineOfficialUrl:string;
   bankName:string;bankCode:string;bankAccountNumber:string;bookingLeadMinutes:number;cancellationLeadMinutes:number;
   canEdit:boolean;canPayment:boolean;canStaff:boolean;canPlans:boolean;
+  usageMetrics?: UsageMetric[];
 };
 const clockIcon="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z";
 export function CourseSettingsWorkspace(props:Props) {
@@ -42,13 +44,18 @@ export function CourseSettingsWorkspace(props:Props) {
       <SettingsActionCard title="課程與教室" description="課程預設值、容量與排課；修改預設值不回寫已排課程" iconPath={clockIcon} primaryHref="/dashboard/courses?view=catalog" primaryLabel="課程設定" secondaryHref="/dashboard/courses?view=rooms" secondaryLabel="教室管理"/>
       {canStaff&&<SettingsActionCard title="人員與權限" description="店長後台權限、教練授課身分與顧客連結" iconPath="M18 20v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m11-13a4 4 0 11-8 0 4 4 0 018 0z" primaryHref="/dashboard/staff" primaryLabel="管理人員"/>}
       {canPlans&&<SettingsActionCard title="課程方案" description="點數／堂數、期限、適用課程、共卡與上下架" iconPath="M2.25 8.25h19.5M6 15h6" primaryHref="/dashboard/courses?view=plans" primaryLabel="管理方案"/>}
+      {props.usageMetrics && <section className="rounded-xl border border-earth-200 bg-white p-5" aria-labelledby="course-store-usage-title">
+        <h2 id="course-store-usage-title" className="font-semibold text-primary-900">店家方案與用量 · {props.planLabel}</h2>
+        <p className="mt-1 mb-4 text-sm text-earth-600">本月預約依台灣時間的建立日期計算，與課程預約額度檢查一致；取消仍計入已建立筆數。</p>
+        <InfoList density="compact" items={props.usageMetrics.map(metric=>({label:metric.label,value:`${metric.current.toLocaleString("zh-TW")} / ${metric.limit===null?"不限":metric.limit.toLocaleString("zh-TW")}`}))}/>
+      </section>}
     </SettingsShell>
-    <RightSheet open={panel!==null} onClose={()=>setPanel(null)} width={600} labelledById="course-settings-panel-title">
+    {panel && <RightSheet open onClose={()=>setPanel(null)} width={600} labelledById="course-settings-panel-title">
       <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-4"><h2 id="course-settings-panel-title" className="font-semibold text-primary-900">{panel==="payment"?"付款設定":"店家與預約規則"}</h2><button type="button" onClick={()=>setPanel(null)} className="min-h-11 rounded border px-3">關閉</button></header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
         {panel==="store"&&<CourseSettingsEditor name={name} address={props.address} mapUrl={props.mapUrl} lineOfficialUrl={props.lineOfficialUrl} bookingLeadMinutes={props.bookingLeadMinutes} cancellationLeadMinutes={props.cancellationLeadMinutes} canEdit={canEdit}/>}
         {panel==="payment"&&canPayment&&<PaymentSettingsForm key={storeId} storeId={storeId} initial={{bankName:props.bankName,bankCode:props.bankCode,bankAccountNumber:props.bankAccountNumber,lineOfficialUrl:props.lineOfficialUrl}} compact saveAction={saveCoursePaymentSettings}/>}
       </div>
-    </RightSheet>
+    </RightSheet>}
   </>;
 }
