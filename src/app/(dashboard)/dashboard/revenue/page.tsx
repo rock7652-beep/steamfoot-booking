@@ -124,6 +124,8 @@ export default async function RevenuePage({ searchParams }: PageProps) {
     );
   if (revenueStoreId && (await getStoreIndustryModule(revenueStoreId)) === "course")
     return <CourseRevenue storeId={revenueStoreId} params={params} readOnly={isViewMode}
+      canEdit={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.create")}
+      canVoid={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.void")}
       canRefund={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.refund")}
       canConfirm={!isViewMode && await checkPermission(user.role, user.staffId, "wallet.create")} />;
   const today = toLocalDateStr();

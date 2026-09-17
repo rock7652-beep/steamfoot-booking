@@ -1,5 +1,6 @@
 import {beforeEach,describe,it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({account:vi.fn(),member:vi.fn(),manager:vi.fn(),transaction:vi.fn(),correct:vi.fn(),config:vi.fn(),raw:vi.fn(),execute:vi.fn(),count:vi.fn(),order:vi.fn(),plan:vi.fn(),createOrder:vi.fn(),createCard:vi.fn(),updateOrder:vi.fn()}));
+const m=vi.hoisted(()=>({writable:vi.fn(),account:vi.fn(),member:vi.fn(),manager:vi.fn(),transaction:vi.fn(),correct:vi.fn(),config:vi.fn(),raw:vi.fn(),execute:vi.fn(),count:vi.fn(),order:vi.fn(),plan:vi.fn(),createOrder:vi.fn(),createCard:vi.fn(),updateOrder:vi.fn()}));
+vi.mock("@/lib/permissions",()=>({requireWritablePermission:m.writable}));
 vi.mock("@/lib/db",()=>({prisma:{shopConfig:{findUnique:m.config}}}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/server/services/course-access",()=>({courseAccount:m.account,courseMember:m.member,courseManager:m.manager,courseTransaction:m.transaction}));
@@ -9,6 +10,7 @@ const actor={storeId:"store-a",user:{id:"u",name:"教練"},customer:{id:"c"}};
 beforeEach(()=>{vi.clearAllMocks();m.account.mockResolvedValue(actor);m.member.mockResolvedValue(actor);m.manager.mockResolvedValue(actor);m.raw.mockResolvedValue([{id:"s"}]);m.count.mockResolvedValue(2);m.order.mockResolvedValue(null);m.config.mockResolvedValue({bankName:"test",bankAccountNumber:"test"});m.transaction.mockImplementation(async(_s,cb)=>cb({$queryRaw:m.raw,$executeRaw:m.execute,courseBooking:{count:m.count},coursePurchase:{findUnique:m.order,findFirst:m.order,create:m.createOrder,update:m.updateOrder},coursePointPlan:{findFirst:m.plan},coursePointCard:{create:m.createCard}}));});
 const attendance={sessionId:"s",target:"ATTENDED",bookings:[{id:"a",status:"RESERVED"},{id:"b",status:"RESERVED"}]};
 describe("course portal mutations",()=>{
+ it("rejects view-only confirmation before changing a purchase",async()=>{m.writable.mockRejectedValueOnce(new Error("read only"));expect(await confirmCoursePurchase({purchaseId:"p"})).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
  it("uses one store transaction for the full batch",async()=>{expect(await saveCourseAttendance(attendance)).toEqual({success:true});expect(m.transaction).toHaveBeenCalledTimes(1);expect(m.correct).toHaveBeenCalledTimes(2);});
  it("rejects cross-store/unassigned coaches and stale rosters before settlement",async()=>{m.raw.mockResolvedValue([]);expect(await saveCourseAttendance(attendance)).toMatchObject({success:false});expect(m.correct).not.toHaveBeenCalled();m.raw.mockResolvedValue([{id:"s"}]);m.count.mockResolvedValue(1);expect(await saveCourseAttendance(attendance)).toMatchObject({success:false});expect(m.correct).not.toHaveBeenCalled();});
  it("propagates batch failure to the transaction",async()=>{m.correct.mockRejectedValueOnce(new Error("insufficient"));expect(await saveCourseAttendance(attendance)).toMatchObject({success:false});expect(m.correct).toHaveBeenCalledTimes(1);});

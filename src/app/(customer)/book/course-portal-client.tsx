@@ -921,7 +921,7 @@ export function CoursePortalClient(p: CoursePortalData) {
               {p.cards.map((c) => (
                 <article className="cp-card cp-pad" key={c.id}>
                   <div className="cp-line">
-                    <h2>{c.name}</h2>
+                    <h2>{c.name}{c.closed ? " · 已結清停用" : ""}</h2>
                     <strong>
                       {c.available} {unit(c.unit)}可用
                     </strong>
@@ -953,6 +953,7 @@ export function CoursePortalClient(p: CoursePortalData) {
                           : ({
                               GRANT: "取得額度",
     REFUND: "退款收回額度",
+    VOID: "誤建作廢收回額度",
                               RESERVE: "預約保留",
                               DEBIT: "出席使用",
                               RELEASE: "釋放保留",
@@ -1023,7 +1024,7 @@ export function CoursePortalClient(p: CoursePortalData) {
                   <p>
                     {o.status === "CONFIRMED"
                       ? "已核帳並啟用"
-                      : o.status === "REFUNDED" ? "已退款，額度已收回" : "待店家核帳，尚未取得額度"}
+                      : o.status === "VOIDED" ? "已作廢，額度已收回" : o.status === "REFUNDED" ? "已退款，額度已收回" : "待店家核帳，尚未取得額度"}
                   </p>
                   <p>匯款後五碼：{o.transferLastFive}</p>
                 </article>
@@ -1041,7 +1042,7 @@ export function CoursePortalClient(p: CoursePortalData) {
                 .filter((c) => c.members.length > 1)
                 .map((c) => (
                   <article className="cp-card cp-pad" key={c.id}>
-                    <h2>{c.name}</h2>
+                    <h2>{c.name}{c.closed ? " · 已結清停用" : ""}</h2>
                     <p>{c.members.map((m) => m.name).join("、")}</p>
                     <p>可替以上授權成員預約，不會開放其他人的健康資料。</p>
                   </article>

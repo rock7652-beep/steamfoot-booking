@@ -22,6 +22,7 @@ MIGRATIONS = [
     "supabase/migrations/20260916024857_course_attendance_and_staff_contacts.sql",
     "supabase/migrations/20260916090234_course_portal_integration.sql",
     "supabase/migrations/20260917000515_course_purchase_refunds.sql",
+    "supabase/migrations/20260917002754_course_purchase_corrections.sql",
 ]
 
 BASELINE = '''
@@ -118,7 +119,7 @@ def main():
         assert query(db, "SELECT count(*) FROM pg_enum WHERE enumlabel='COURSE';") == "0"
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Staff' AND column_name='phone';") == "0"
         assert snapshot(db) == before
-        checks.append("late failure rolls back all eight migrations, enum and shared-column changes")
+        checks.append("late failure rolls back all nine migrations, enum and shared-column changes")
         query(db, 'DROP INDEX "Customer_id_storeId_key";')
         query(db, bundle, "42830")
         assert query(db, "SELECT to_regclass('public.\"CourseRoom\"') IS NULL;") == "t"

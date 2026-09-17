@@ -1,6 +1,7 @@
 "use server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { requireWritablePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import {
   courseMember,
@@ -126,6 +127,7 @@ export async function purchaseCoursePlan(input: unknown) {
 export async function confirmCoursePurchase(input: unknown) {
   try {
     const { purchaseId } = z.object({ purchaseId: id }).parse(input);
+    await requireWritablePermission("wallet.create");
     const { storeId, user } = await courseManager("wallet.create");
     await courseTransaction(storeId, async (tx) => {
       const order = await tx.coursePurchase.findFirst({
@@ -163,7 +165,7 @@ export async function confirmCoursePurchase(input: unknown) {
         },
       });
       if (order.price > 0)
-        await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") VALUES (${"course-purchase:" + order.id},${storeId},${new Date(toLocalDateStr() + "T00:00:00Z")},'INCOME','OTHER','課程方案',${order.price},${"線上購買：" + order.name + " / " + order.id},${user.id},NOW())`;
+        await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"staffId","createdByUserId","updatedAt") VALUES (${"course-purchase:" + order.id},${storeId},${new Date(toLocalDateStr() + "T00:00:00Z")},'INCOME','OTHER','課程方案',${order.price},${"線上購買：" + order.name + " / " + order.id + (order.note ? " / " + order.note : "")},${order.revenueStaffId},${user.id},NOW())`;
       await tx.coursePurchase.update({
         where: { id: order.id },
         data: {

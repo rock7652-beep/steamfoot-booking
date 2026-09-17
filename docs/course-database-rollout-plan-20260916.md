@@ -98,3 +98,5 @@ CoursePointCard.closedAt、購買 REFUNDED 狀態、不可覆寫的 CoursePurcha
 回復：未提交的八份 DDL 整批 ROLLBACK；已提交但尚未有退款可回退應用版本並保留新增欄表。
 一旦存在退款資料，禁止 DROP 表／恢復剩餘額度／刪除退款現金帳來回復；須保留帳本並以向前修復處理。
 既有備份證據只限當時資料時間點，不宣稱覆蓋新退款資料；正式執行仍需使用者確認及當次可用備份。
+
+同日再追加第九份 `supabase/migrations/20260917002754_course_purchase_corrections.sql`，承接交易備註、歸屬與誤建作廢。完整九份演練雜湊見 `course-corrections-migration-rehearsal-20260917.json`。新增作廢欄位与同店人員外鍵，不回填或改既有交易。作廢保留原訂單、額度收回與原記帳日的非現金沖銷，不冒充實際退款；已發生作廢亦只允許向前修復，不得刪除歷史。

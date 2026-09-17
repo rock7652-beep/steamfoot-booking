@@ -269,7 +269,7 @@ export function CourseMemberWorkspace({
               >
                 <span>
                   {c.name}
-                  {c.expired ? "（已到期）" : ""} ·{" "}
+                  {c.closed ? "（已結清停用）" : c.expired ? "（已到期）" : ""} ·{" "}
                   {c.members.map((m) => m.name).join("、")}
                 </span>
                 <span>
@@ -592,6 +592,7 @@ export function CourseCardEntries({ card }: { card: CourseCardView }) {
   const labels: Record<string, string> = {
     GRANT: "取得額度",
     REFUND: "退款收回額度",
+    VOID: "誤建作廢收回額度",
     RESERVE: "預約占用",
     RELEASE: "釋放占用",
     DEBIT: "出席使用",

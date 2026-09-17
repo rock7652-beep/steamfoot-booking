@@ -22,6 +22,8 @@ export async function refundUnusedCoursePurchase(
     where: { id: input.purchaseId, storeId }, include: { refunds: true },
   });
   if (!order) throw new AppError("NOT_FOUND", "找不到本店購買紀錄");
+  const refundedAmount = order.refunds.reduce((sum, refund) => sum + refund.amount, 0);
+  const maximumRefund = Math.max(0, order.price - refundedAmount);
   if (order.refunds.length || order.status === "REFUNDED")
     throw new AppError("BUSINESS_RULE", "此購買已退款，請查看原退款紀錄");
   if (order.status !== "CONFIRMED" || !order.cardId || order.price <= 0)
@@ -46,7 +48,7 @@ export async function refundUnusedCoursePurchase(
   if (!receipt || Number(receipt.amount) !== order.price || receipt.type !== "INCOME" || receipt.paymentMethod !== "OTHER")
     throw new AppError("BUSINESS_RULE", "原收款紀錄不一致，請先核對帳務，尚未退款。");
   const refund = await tx.coursePurchaseRefund.create({ data: {
-    storeId, purchaseId: order.id, amount: order.price, points: card.remaining,
+    storeId, purchaseId: order.id, amount: Math.min(order.price, maximumRefund), points: card.remaining,
     reason: input.reason, actorUserId: userId, requestKey: input.requestKey,
   } });
   await tx.coursePointCard.update({ where: { id: card.id }, data: { remaining: 0, closedAt: new Date() } });

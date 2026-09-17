@@ -7,9 +7,9 @@ import { RevenueTabs } from "./revenue-tabs";
 import { CourseTransactionActions } from "./course-transaction-actions";
 import type { Prisma } from "../../../../../../generated/course-client";
 const money = (amount: number) => `NT$ ${amount.toLocaleString()}`;
-export async function CourseRevenue({ storeId, params, readOnly, canRefund, canConfirm }: {
+export async function CourseRevenue({ storeId, params, readOnly, canRefund, canConfirm, canEdit, canVoid }: {
   storeId: string; params: { dateFrom?: string; dateTo?: string; page?: string; status?: string; staff?: string };
-  readOnly: boolean; canRefund: boolean; canConfirm: boolean;
+  canEdit: boolean; canVoid: boolean; readOnly: boolean; canRefund: boolean; canConfirm: boolean;
 }) {
   const today = toLocalDateStr();
   const validDate = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s).valueOf()) && new Date(s).toISOString().slice(0, 10) === s;
@@ -17,7 +17,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const to = validDate(params.dateTo) ? params.dateTo! : today;
   if (from > to) return <PageShell><PageHeader title="營運" /><p role="alert">開始日期不能晚於結束日期。</p><Link href="/dashboard/revenue">重設日期</Link></PageShell>;
   const range = { gte: dayRange(from).start, lte: dayRange(to).end };
-  const status = ["PENDING", "CONFIRMED", "REFUNDED"].includes(params.status ?? "") ? params.status : undefined;
+  const status = ["PENDING", "CONFIRMED", "REFUNDED", "VOIDED"].includes(params.status ?? "") ? params.status : undefined;
   const staff = params.staff?.slice(0, 100) || undefined;
   const where: Prisma.CoursePurchaseWhereInput = { storeId, createdAt: range, ...(status ? { status } : {}), ...(staff ? { confirmedBy: staff } : {}) };
   const count = await coursePrisma.coursePurchase.count({ where });
@@ -27,7 +27,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     coursePrisma.coursePurchase.findMany({ where, include: { refunds: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 30, take: 30 }),
     coursePrisma.coursePurchase.aggregate({ where: { storeId, status: { in: ["CONFIRMED", "REFUNDED"] }, confirmedAt: range }, _sum: { price: true }, _count: true }),
     coursePrisma.coursePurchaseRefund.aggregate({ where: { storeId, createdAt: range }, _sum: { amount: true } }),
-    prisma.staff.findMany({ where: { storeId }, select: { userId: true, displayName: true } }),
+    prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true } }),
   ]);
   const cardIds = orders.flatMap((order) => order.cardId ? [order.cardId] : []);
   const [customers, cards, held, attended] = await Promise.all([
@@ -46,7 +46,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       refunds: order.refunds.map((r) => ({ amount: r.amount, reason: r.reason, date: formatTWTime(r.createdAt, { dateOnly: true }) })),
     };
   });
-  const labels: Record<string, string> = { PENDING: "待核帳", CONFIRMED: "已核帳並發卡", REFUNDED: "已退款" };
+  const labels: Record<string, string> = { PENDING: "待核帳", CONFIRMED: "已核帳並發卡", REFUNDED: "已退款", VOIDED: "已作廢" };
   const columns: Column<(typeof rows)[number]>[] = [
     { key: "date", header: "購買日期", accessor: (r) => r.date },
     { key: "customer", header: "顧客", accessor: (r) => r.customerName },
@@ -54,7 +54,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     { key: "amount", header: "原金額", align: "right", accessor: (r) => money(r.price) },
     { key: "status", header: "狀態", accessor: (r) => labels[r.status] ?? "需核對" },
     { key: "staff", header: "核帳人員", accessor: (r) => staffRows.find((s) => s.userId === r.confirmedBy)?.displayName ?? "—" },
-    { key: "action", header: "處理", noLink: true, accessor: (r) => <CourseTransactionActions order={r} canRefund={canRefund} canConfirm={canConfirm} /> },
+    { key: "action", header: "處理", noLink: true, accessor: (r) => <CourseTransactionActions order={r} canRefund={canRefund} canConfirm={canConfirm} canEdit={canEdit} canVoid={canVoid} staffOptions={staffRows.filter((s) => s.status === "ACTIVE").map((s) => ({ id: s.id, name: s.displayName }))} /> },
   ];
   const income = receipts._sum.price ?? 0; const refund = refunds._sum.amount ?? 0;
   const field = "mt-1 min-h-11 w-full rounded border border-earth-300 bg-white px-2 text-sm";
@@ -76,6 +76,6 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       </div>
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
       {pages > 1 && <div className="flex justify-between p-3 text-sm"><span>第 {page} / {pages} 頁</span><div className="flex gap-4">{page > 1 && <Link href={href(page - 1)}>上一頁</Link>}{page < pages && <Link href={href(page + 1)}>下一頁</Link>}</div></div>}
-    </section><aside className="col-span-12 space-y-3 lg:col-span-3"><SideCard title="相關工具"><div className="flex flex-col gap-3 text-sm"><Link href="/dashboard/cashbook">現金帳與完整現金管理 →</Link><Link href="/dashboard/courses?view=plans">方案與待核帳訂單 →</Link></div></SideCard><SideCard title="退款規則"><p className="text-sm">未使用且無占用可退原實付金額。部分使用方案的退款金額待規則確認；保留原單及全部異動。</p></SideCard></aside></div>
+    </section><aside className="col-span-12 space-y-3 lg:col-span-3"><SideCard title="相關工具"><div className="flex flex-col gap-3 text-sm"><Link href="/dashboard/reconciliation">對帳中心 →</Link><Link href="/dashboard/cashbook">現金帳與完整現金管理 →</Link><Link href="/dashboard/courses?view=plans">方案與待核帳訂單 →</Link></div></SideCard><SideCard title="退款規則"><p className="text-sm">未使用且無占用可退原實付金額。部分使用方案的退款金額待規則確認；保留原單及全部異動。</p></SideCard></aside></div>
   </PageShell>;
 }

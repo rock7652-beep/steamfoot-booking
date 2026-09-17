@@ -185,6 +185,11 @@ model CoursePurchase {
   createdAt DateTime @default(now())
   confirmedAt DateTime?
   confirmedBy String?
+  note String @default("")
+  revenueStaffId String?
+  voidedAt DateTime? @db.Timestamptz(3)
+  voidedBy String?
+  voidReason String?
   refunds CoursePurchaseRefund[]
   @@unique([id, storeId])
   @@unique([storeId, requestKey])
