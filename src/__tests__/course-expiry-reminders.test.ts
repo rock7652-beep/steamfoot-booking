@@ -34,7 +34,7 @@ it("uses authorized same-store members, available points and course plan deep li
 it.each(["sent","disabled","closed-or-unlinked","all-held"])("rechecks %s before sending",async scenario=>{
  if(scenario==="sent")m.existing.mockResolvedValue({status:"SENT"});
  if(scenario==="disabled")m.setting.mockResolvedValue(null);
- if(scenario==="closed-or-unlinked")m.raw.mockResolvedValueOnce([{}]).mockResolvedValueOnce([]);
+ if(scenario==="closed-or-unlinked")m.raw.mockResolvedValue([]);
  if(scenario==="all-held")m.raw.mockResolvedValue([{remaining:3,held:3}]);
  expect(await runCourseExpiryReminders(now)).toMatchObject({sent:0,skipped:1});expect(m.push).not.toHaveBeenCalled();
 });

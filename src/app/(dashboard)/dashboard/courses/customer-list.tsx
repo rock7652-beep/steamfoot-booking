@@ -1,18 +1,29 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CustomersTable, type CustomerRow } from "../customers/_components/customers-table";
+import { useState } from "react";
+import { CustomersTable, isInactiveRow, type CustomerRow } from "../customers/_components/customers-table";
+import { BulkAssignBar } from "../customers/_components/bulk-assign-bar";
+import { bulkAssignCourseCustomers } from "@/server/actions/course-customer-attribution";
 import { CustomersToolbar } from "../customers/_components/customers-toolbar";
 import { filterCourseCustomers } from "@/lib/course-customer-list";
 import type { CourseCardView } from "./member-workspace";
+import { DashboardLink } from "@/components/dashboard-link";
 
-export function CourseCustomerList({ rows, cards, canReadCards, onView, onCreate, onAssign }: {
+export function CourseCustomerList({ rows, cards, canReadCards, onView, onCreate, onAssign, canAssignManager = false, assignmentStaff = [], canMerge = false }: {
   rows: CustomerRow[]; cards: CourseCardView[]; canReadCards: boolean;
   onView: (id: string) => void; onCreate?: () => void; onAssign?: (id: string) => void;
+  canAssignManager?: boolean; assignmentStaff?: Array<{ id: string; displayName: string }>;
+  canMerge?: boolean;
 }) {
   const params = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
+  const [selection, setSelection] = useState<{ scope: string; ids: Set<string> }>({ scope: "", ids: new Set() });
+  const [result, setResult] = useState("");
+  const scope = params.toString();
+  const selectedIds = selection.scope === scope ? selection.ids : new Set<string>();
+  const setSelected = (ids: Set<string>) => setSelection({ scope, ids });
   const points = new Map<string, number>();
   const sessions = new Map<string, number>();
   for (const card of cards) for (const member of card.members) {
@@ -28,13 +39,19 @@ export function CourseCustomerList({ rows, cards, canReadCards, onView, onCreate
     router.replace(`${pathname}?${next}`, { scroll: false });
   };
   const staff = [...new Map(rows.flatMap(row => row.assignedStaff ? [[row.assignedStaff.id, row.assignedStaff] as const] : [])).values()];
-  return <section className="space-y-3">
+  const pageRows = filtered.slice((page - 1) * 20, page * 20);
+  return <section className={`space-y-3 ${selectedIds.size ? "pb-40" : ""}`}>
     <CustomersToolbar staffOptions={staff} basePath="/dashboard/courses?view=customers" courseMode />
+    {canMerge && <DashboardLink href="/dashboard/customers/merge" className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 px-3 text-sm text-primary-700">處理重複顧客</DashboardLink>}
     <p className="text-xs text-earth-500">最近上課依已完成出席記錄。可用額度已扣除預約占用；共卡額度由授權成員共用。</p>
-    <CustomersTable stickyActions rows={filtered.slice((page - 1) * 20, page * 20)}
+    {result && <p role="status" className="text-sm text-earth-700">{result}</p>}
+    <CustomersTable stickyActions rows={pageRows}
+      selectionEnabled={canAssignManager} selectedIds={selectedIds}
+      onToggleRow={id => { const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next); }}
+      onToggleAll={() => { const ids = pageRows.filter(row => !isInactiveRow(row)).map(row => row.id); setSelected(ids.every(id => selectedIds.has(id)) ? new Set() : new Set(ids)); }}
       basePath="/dashboard/courses?view=customers" searchQuery={params.get("search") ?? ""}
       hasActiveFilters={["search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
-      onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate}
+      onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate && !canAssignManager && !onAssign}
       onQuickAssign={onAssign ? row => onAssign(row.id) : undefined}
       buildViewHref={row => { const next = new URLSearchParams(params.toString()); next.set("customerId", row.id); return `${pathname}?${next}`; }}
       lastVisitLabel="最近上課"
@@ -46,5 +63,13 @@ export function CourseCustomerList({ rows, cards, canReadCards, onView, onCreate
       <button className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一頁</button>
       <button className="min-h-11 rounded-lg border px-3 disabled:opacity-40" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>下一頁</button>
     </nav>}
+    {canAssignManager && selectedIds.size > 0 && <BulkAssignBar inlineConfirmation selectedCount={selectedIds.size} staffOptions={assignmentStaff}
+      onCancel={() => setSelected(new Set())}
+      onSubmit={async assignedStaffId => {
+        const response = await bulkAssignCourseCustomers({ customerIds: [...selectedIds], assignedStaffId });
+        if (!response.success) { setResult(response.error ?? "本批未儲存，請重試。"); return false; }
+        setResult(`已指派 ${response.data.count} 位顧客，推薦人與既有方案不變。`);
+        setSelected(new Set()); router.refresh();
+      }} />}
   </section>;
 }

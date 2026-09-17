@@ -9,6 +9,7 @@ import { AppError } from "@/lib/errors";
 import { resolveMemberRequestStoreId } from "./member-request-store";
 import { resolveCentralMemberCustomerForStore } from "./central-member-resolver";
 import type { Prisma } from "../../../generated/course-client";
+import { lockCourseStore } from "./course-store-lock";
 
 export async function courseManager(permission: PermissionCode) {
   const user = await requirePermission(permission);
@@ -76,11 +77,7 @@ export async function courseTransaction<T>(
 ) {
   return coursePrisma.$transaction(
     async (tx) => {
-      const stores = await tx.$queryRaw<
-        Array<{ id: string }>
-      >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE`;
-      if (!stores.length)
-        throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
+      await lockCourseStore(tx, storeId);
       return work(tx);
     },
     { timeout: 15000 },

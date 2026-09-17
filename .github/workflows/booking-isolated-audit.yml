@@ -69,3 +69,23 @@ jobs:
           name: booking-pg-results
           path: booking-pg-results.json
           retention-days: 3
+      # Course tests create/drop their own schema and invoke the real refund service.
+      - name: Verify concurrent course refunds and atomic rollback
+        run: >-
+          npx vitest run src/__tests__/course-refund.pg.test.ts
+          --reporter=default --reporter=json --outputFile=course-refund-pg-results.json
+      - name: Verify no course refund scenarios were skipped
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("course-refund-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 3 || r.numPassedTests !== 3 || r.numPendingTests !== 0) {
+              throw new Error("Expected all 3 course refund database scenarios to pass without skips");
+            }
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: course-refund-pg-results
+          path: course-refund-pg-results.json
+          retention-days: 3

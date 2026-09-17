@@ -53,6 +53,7 @@ export function CourseMemberWorkspace({
   canReadCards,
   assignmentStaff,
   canAssignManager,
+  canMerge = false,
 }: {
   view: "customers" | "plans";
   templates: {id:string;name:string}[];
@@ -70,6 +71,7 @@ export function CourseMemberWorkspace({
   canReadCards: boolean;
   assignmentStaff: {id:string;displayName:string}[];
   canAssignManager: boolean;
+  canMerge?: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -178,6 +180,8 @@ export function CourseMemberWorkspace({
         </p>
       )}
       {view === "customers" ? <CourseCustomerList rows={customerRows} cards={cards} canReadCards={canReadCards}
+        canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
+        canMerge={canMerge}
         onView={id => { setPerson(people.find(p => p.id === id) ?? null); open("person"); }}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
         onAssign={canAssign ? id => { setPerson(people.find(p => p.id === id) ?? null); open("assign"); } : undefined}

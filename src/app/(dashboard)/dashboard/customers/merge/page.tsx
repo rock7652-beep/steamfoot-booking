@@ -10,6 +10,7 @@ import { PageShell, PageHeader } from "@/components/desktop";
 import { MergeConfirmForm } from "./merge-confirm-form";
 import { prisma } from "@/lib/db";
 import { getActiveStoreForRead } from "@/lib/store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 /**
  * 重複顧客處理
@@ -45,6 +46,7 @@ export default async function CustomerMergePage({
   const targetId = (params.target ?? "").trim();
   const query = (params.q ?? "").trim();
   const activeStoreId = await getActiveStoreForRead(user);
+  const courseMode = !!activeStoreId && await getStoreIndustryModule(activeStoreId) === "course";
   const candidates = query && activeStoreId
     ? await prisma.customer.findMany({
         where: {
@@ -90,7 +92,7 @@ export default async function CustomerMergePage({
         subtitle="確認是同一人後，保留正確資料並安全整併重複帳號。"
         actions={
           <Link
-            href="/dashboard/customers"
+            href={courseMode ? "/dashboard/courses?view=customers" : "/dashboard/customers"}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 顧客列表
@@ -104,6 +106,7 @@ export default async function CustomerMergePage({
           <li>「被整併資料」會歸檔；預約、方案、交易及點數會完整移到「保留資料」。</li>
           <li>不允許跨店整併；資料只會在目前門市內處理。</li>
           <li>若兩邊綁定不同登入身分，系統會停止，不會自行覆蓋。</li>
+          {courseMode && <li>共卡授權合併，卡片餘額、購買／退款與預約姓名快照不變；健康紀錄只移給確認為同一人的保留顧客。同堂未取消紀錄或進行中的身分申請會阻擋合併。</li>}
         </ul>
       </div>
 
@@ -267,14 +270,14 @@ function PreviewCard({
         <dd>{row.hasUserId ? "已綁定" : "未綁定"}</dd>
         <dt className="text-earth-500">階段</dt>
         <dd>{row.customerStage}</dd>
-        <dt className="text-earth-500">點數</dt>
-        <dd>{row.totalPoints}</dd>
+        {!row.courseMode && <><dt className="text-earth-500">點數</dt><dd>{row.totalPoints}</dd></>}
         <dt className="text-earth-500">預約數</dt>
         <dd>{row.bookingCount}</dd>
         <dt className="text-earth-500">方案數</dt>
         <dd>{row.walletCount}</dd>
         <dt className="text-earth-500">交易數</dt>
         <dd>{row.transactionCount}</dd>
+        {row.courseMode && <><dt className="text-earth-500">健康紀錄</dt><dd>{row.healthCount}</dd></>}
       </dl>
     </div>
   );

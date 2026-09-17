@@ -1,4 +1,5 @@
 import "server-only";
+import { courseReminderAlreadySent } from "./course-reminder-merge-dedupe";
 import {deliverCourseCardNotification} from "./course-card-notification-delivery";
 import {createHash} from "node:crypto";
 import {prisma} from "@/lib/db";
@@ -38,7 +39,7 @@ export async function runCourseExpiryReminders(now=new Date(),onlyStoreId?:strin
           const status=await prisma.$transaction(async tx=>{
             await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${store.id} FOR UPDATE`;
             if(!(await tx.messageTemplate.findFirst({where:{id:setting.id,storeId:store.id,body:"enabled"}}))) return "SKIPPED";
-            if((await tx.messageLog.findUnique({where:{id}}))?.status==="SENT") return "SKIPPED";
+            if(await courseReminderAlreadySent(tx,store.id,person.id,customerId=>`course-expiry:${createHash("sha256").update(`${store.id}:${candidate.card.id}:${customerId}:${candidate.date}:${candidate.days}`).digest("hex")}`)) return "SKIPPED";
             const current=await tx.$queryRaw<Array<{remaining:number;held:number}>>`SELECT c.remaining,COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)::int AS held FROM "CoursePointCard" c WHERE c.id=${candidate.card.id} AND c."storeId"=${store.id} AND c."closedAt" IS NULL AND c."expiresAt"=${candidate.card.expiresAt} AND EXISTS(SELECT 1 FROM "CourseCardMember" m WHERE m."cardId"=c.id AND m."storeId"=c."storeId" AND m."customerId"=${person.id})`;
             if(!current[0] || current[0].remaining<=current[0].held) return "SKIPPED";
             const url=new URL(`/s/${encodeURIComponent(store.slug)}`,deriveBaseUrl());url.searchParams.set("view","plans");

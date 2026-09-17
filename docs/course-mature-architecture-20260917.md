@@ -292,3 +292,24 @@
 - 新低餘額堂數單位、過期／結清／無門檻、跨店／本人權限、已送出不重送等邊界沿用針對測試，未全部建立新的瀏覽器情境。
 - 原生確認曾使 IAB 失效；課程值班相關確認已改同頁面板並重測。新分頁加鍵盤可完成後台操作，未要求使用者代做交易。
 - 不修改正式庫、不執行正式遷移、不合併、不部署正式站；PR 維持 Draft。
+
+### 2026-09-17 本輪接續：缺漏清單與並行退款補驗
+
+接續基準 d1822929；遠端與本機一致、原工作區乾淨。低餘額、值班、協商退款前批網頁證據保留，不將未修改流程重做一次。
+
+|蒸足來源|課程對應／具體尚缺|本批處理|狀態|
+|---|---|---|---|
+|customers 勾選、BulkAssignBar、bulkUpdateCustomerAssignment|課程清單沒有批次指派；成熟 action 未區分教練與後台店長|共用勾選與操作列，課程 adapter 只選同店啟用 OWNER，整批驗證、稽核、保留篩選與失敗選取|已接入，尚待預覽實測|
+|customers/merge、customer-merge service|缺 CourseCardMember／CourseBooking 上課人及操作人／CoursePurchase／健康搬移；原預覽顯示蒸足數量|共用合併確認頁與原交易，課程使用同店鎖；同堂未取消紀錄、不同帳號／LINE／Google／健康帳戶、進行中身分申請阻擋。共卡只整併授權、不改餘額，姓名快照保留，健康只移同人。提醒停止接收與已送防重複延續|已接入，專用資料網頁與資料庫驗收尚待完成|
+|transactions、data-export|交易子頁尚未接課程來源，通用匯出仍讀蒸足模型|待共用完整操作與匯出介面並加入課程 adapter；不能只放入口|尚未完成|
+|growth 及 candidates／stagnation／referrals 子頁|查詢仍用蒸足 Booking、lastVisitAt、人才／推薦成長資料|逐項改接課程出席、購買與同店推薦；不以蒸足資料或缺來源的 0 代替|尚未完成|
+|settings/referral-share、trial、digital-butler 及 leads|原模板、體驗入口、流程 booking destination 尚需課程適配|保留成熟設定與操作，先核對實際事件、功能開關與目的地；尚未開放錯誤流程|尚未完成|
+
+並行退款證據：新增 `course-refund.pg.test.ts`，在只接受 loopback、名稱以 `_test` 結尾的獨立 PostgreSQL 17.6 執行；每次建立 UUID schema 並結束後移除。直接呼叫既有 `refundUnusedCoursePurchase` 及共用 `lockCourseStore`，不以記憶體 mock 代替交易。以另一交易先持有店家鎖，查 `pg_stat_activity` 確認所有競爭請求實際等待鎖，再釋放。
+
+- 六個同 requestKey 並行請求：六個回應成功，但退款、額度收回、現金帳支出、稽核均只一筆。
+- 不同 requestKey 同時各退 600／實付 1000：一筆成功、一筆拒絕；再同時補退 400 僅一筆成功，累計 1000；再退 1 拒絕。卡片只收回一次，帳務合計一致。
+- 刻意以測試庫 constraint 拒絕現金帳寫入：退款、額度、卡片停用及訂單全部回滾；以同 requestKey 修正重試成功。
+- 三項已在本機真實 PostgreSQL 通過；CI 追加獨立執行與零跳過檢查，尚待推送結果。這不是實際銀行退刷或 LINE 外發證據。
+
+本輪合併的提醒防重複調整會重測受影響提醒邏輯；仍不外發 LINE。通知送達維持未驗證。完整承接尚未完成，不以本節測試通過結案。

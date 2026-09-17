@@ -1,4 +1,5 @@
 import "server-only";
+import { courseReminderAlreadySent } from "./course-reminder-merge-dedupe";
 import {createHash,randomUUID} from "node:crypto";
 import {prisma} from "@/lib/db";
 import {coursePrisma} from "@/lib/course-db";
@@ -42,7 +43,7 @@ export async function runCourseLowBalanceReminders(now=new Date(),onlyStoreId?:s
         try {
           const status=await prisma.$transaction(async tx=>{
             await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${store.id} FOR UPDATE`;
-            if((await tx.messageLog.findUnique({where:{id}}))?.status==="SENT") return "SKIPPED";
+            if(await courseReminderAlreadySent(tx,store.id,person.id,customerId=>`course-low-balance:${createHash("sha256").update(`course-low-balance:${store.id}:${card.id}:${customerId}`).digest("hex")}`)) return "SKIPPED";
             const current=await tx.$queryRaw<{remaining:number;held:number;unit:string;nameSnapshot:string}[]>`
               SELECT c.remaining,c.unit,c."nameSnapshot",COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)::int AS held
               FROM "CoursePointCard" c JOIN "CoursePointPlan" p ON p.id=c."planId" AND p."storeId"=c."storeId"

@@ -1,17 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ manager: vi.fn(), customer: vi.fn(), staff: vi.fn(), update: vi.fn(), search: vi.fn() }));
+const m = vi.hoisted(() => ({ manager: vi.fn(), customer: vi.fn(), staff: vi.fn(), update: vi.fn(), search: vi.fn(), bulk: vi.fn(), list: vi.fn(), audit: vi.fn(), lock: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/permissions", () => ({ requireWritablePermission: vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({ courseManager: m.manager }));
 vi.mock("@/lib/db", () => ({ prisma: {
-  $transaction: async (fn: (tx: unknown) => unknown) => fn({ customer: { findFirst: m.customer, update: m.update }, staff: { findFirst: m.staff } }),
+  $transaction: async (fn: (tx: unknown) => unknown) => fn({ customer: { findFirst: m.customer, update: m.update, findMany: m.list, updateMany: m.bulk }, staff: { findFirst: m.staff }, auditLog: { create: m.audit }, $queryRaw: m.lock }),
   customer: { findMany: m.search },
 } }));
-import { saveCourseCustomerAttribution, searchCourseReferrerCandidates } from "@/server/actions/course-customer-attribution";
+import { saveCourseCustomerAttribution, searchCourseReferrerCandidates, bulkAssignCourseCustomers } from "@/server/actions/course-customer-attribution";
 import { AppError } from "@/lib/errors";
 const input = { customerId: "customer", assignedStaffId: "manager", referredByCustomerId: "sponsor" };
 beforeEach(() => {
   vi.clearAllMocks();
-  m.manager.mockResolvedValue({ storeId: "store" });
+  m.manager.mockResolvedValue({ storeId: "store", user: { id: "actor" } });
+  m.lock.mockResolvedValue([{ id: "store" }]);
+  m.list.mockResolvedValue([{ id: "customer", assignedStaffId: null }]);
+  m.bulk.mockResolvedValue({ count: 1 });
   m.customer.mockResolvedValue({ id: "customer" });
   m.staff.mockResolvedValue({ id: "manager" });
   m.update.mockResolvedValue({});
@@ -59,5 +63,30 @@ describe("course customer attribution", () => {
     expect(await searchCourseReferrerCandidates("推薦", "customer")).toEqual({ success: true, data: [{ id: "sponsor", name: "推薦人", phoneMasked: "0912•••678" }] });
     expect(m.manager).toHaveBeenCalledWith("customer.read");
     expect(m.search).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storeId: "store", mergedIntoCustomerId: null, id: { not: "customer" } }), take: 10 }));
+  });
+});
+
+describe("course batch assignment", () => {
+  const bulk = { customerIds: ["customer"], assignedStaffId: "manager" };
+  it("deduplicates selection, keeps sponsorship and records the old assignment", async () => {
+    expect(await bulkAssignCourseCustomers({ ...bulk, customerIds: ["customer", "customer"] })).toEqual({ success: true, data: { count: 1 } });
+    expect(m.manager).toHaveBeenCalledWith("customer.assign");
+    expect(m.bulk).toHaveBeenCalledWith({ where: { id: { in: ["customer"] }, storeId: "store" }, data: { assignedStaffId: "manager" } });
+    expect(m.audit).toHaveBeenCalledWith({ data: expect.objectContaining({ actorUserId: "actor", beforeJson: [{ id: "customer", assignedStaffId: null }] }) });
+  });
+  it("rejects the complete batch if any selected customer is foreign, merged or disabled", async () => {
+    expect(await bulkAssignCourseCustomers({ ...bulk, customerIds: ["customer", "foreign"] })).toMatchObject({ success: false });
+    expect(m.bulk).not.toHaveBeenCalled();
+    expect(m.list).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storeId: "store", mergedIntoCustomerId: null, OR: [{ userId: null }, { user: { status: "ACTIVE" } }] }) }));
+  });
+  it("rejects a coach-only or disabled assignee without modifying customers", async () => {
+    m.staff.mockResolvedValueOnce(null);
+    expect(await bulkAssignCourseCustomers(bulk)).toMatchObject({ success: false });
+    expect(m.bulk).not.toHaveBeenCalled();
+  });
+  it("rejects permission denial before starting the transaction", async () => {
+    m.manager.mockRejectedValueOnce(new AppError("FORBIDDEN", "無權限"));
+    expect(await bulkAssignCourseCustomers(bulk)).toMatchObject({ success: false });
+    expect(m.lock).not.toHaveBeenCalled();
   });
 });

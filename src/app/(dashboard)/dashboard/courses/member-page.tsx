@@ -98,6 +98,7 @@ export async function CourseMemberPage({
       <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} actions={canExport ? <a href="/api/export/customers" download className="inline-flex min-h-11 items-center rounded-lg border border-earth-200 bg-white px-3 text-sm text-earth-700">匯出全部顧客 CSV</a> : undefined} />
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
       <CourseMemberWorkspace
+        canMerge={(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
         customerRows={customerRows}
         assignmentStaff={assignmentStaff}
         canAssignManager={await checkPermission(user.role, user.staffId, "customer.assign")}

@@ -5,9 +5,35 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { normalizePhone } from "@/lib/normalize";
 import { AppError, handleActionError } from "@/lib/errors";
-import { updateCustomerAssignmentSchema } from "@/lib/validators/customer";
+import { updateCustomerAssignmentSchema, bulkUpdateCustomerAssignmentSchema } from "@/lib/validators/customer";
 import { courseManager } from "@/server/services/course-access";
+import { lockCourseStore } from "@/server/services/course-store-lock";
 import type { ActionResult } from "@/types";
+import { requireWritablePermission } from "@/lib/permissions";
+
+export async function bulkAssignCourseCustomers(input: z.infer<typeof bulkUpdateCustomerAssignmentSchema>): Promise<ActionResult<{ count: number }>> {
+  try {
+    await requireWritablePermission("customer.assign");
+    const data = bulkUpdateCustomerAssignmentSchema.parse(input);
+    const { storeId, user } = await courseManager("customer.assign");
+    const ids = [...new Set(data.customerIds)];
+    const count = await prisma.$transaction(async tx => {
+      await lockCourseStore(tx, storeId);
+      const staff = await tx.staff.findFirst({ where: { id: data.assignedStaffId, storeId, status: "ACTIVE", user: { role: "OWNER", status: "ACTIVE" } }, select: { id: true } });
+      if (!staff) throw new AppError("VALIDATION", "請選擇本店啟用中的店長，教練不具後台管理身分");
+      const customers = await tx.customer.findMany({
+        where: { id: { in: ids }, storeId, mergedIntoCustomerId: null, OR: [{ userId: null }, { user: { status: "ACTIVE" } }] },
+        select: { id: true, assignedStaffId: true },
+      });
+      if (customers.length !== ids.length) throw new AppError("CONFLICT", "選取資料包含已停用、已合併或非本店顧客，本批未儲存，請重新核對。");
+      const result = await tx.customer.updateMany({ where: { id: { in: ids }, storeId }, data: { assignedStaffId: staff.id } });
+      await tx.auditLog.create({ data: { actorUserId: user.id, targetType: "Customer", targetId: storeId, action: "COURSE_BULK_ASSIGN", beforeJson: customers, afterJson: { customerIds: ids, assignedStaffId: staff.id } } });
+      return result.count;
+    });
+    revalidatePath("/dashboard/courses");
+    return { success: true, data: { count } };
+  } catch (error) { return handleActionError(error); }
+}
 
 export async function saveCourseCustomerAttribution(input: z.infer<typeof updateCustomerAssignmentSchema>): Promise<ActionResult<void>> {
   try {
