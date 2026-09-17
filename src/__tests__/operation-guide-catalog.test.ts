@@ -4,6 +4,17 @@ import { availableGuides, findOperationGuides, guideCategoryForPath, relatedOper
 import type { GuideAccess } from "../lib/operation-guide-types";
 const access: GuideAccess = { module: "steamfoot", permissions: ["booking.read", "booking.update", "customer.read", "business_hours.manage", "business_hours.view"], features: { line_reminder: true } };
 describe("guide catalogue", () => {
+  it("separates course workflows and respects course page modes and refund permissions", () => {
+    const course: GuideAccess = {...access, module:"course"};
+    expect(availableGuides(course).every(g => g.modules.includes("course"))).toBe(true);
+    expect(findOperationGuides("共卡", course).some(g => g.id === "C101")).toBe(true);
+    expect(availableGuides(course).some(g => g.id === "A01")).toBe(false);
+    expect(availableGuides(course).some(g => g.id === "C105")).toBe(false);
+    expect(availableGuides({...course,permissions:["transaction.refund","transaction.read"]}).some(g => g.id === "C105")).toBe(true);
+    expect(guideCategoryForPath("/s/test/admin/dashboard/courses?view=customers")).toBe("customers");
+    expect(relatedOperationGuides("/dashboard/courses?view=settings",course).map(g=>g.id)).toEqual(["C104","C106"]);
+    expect(relatedOperationGuides("/dashboard/courses/reminders",{...course,features:{}})).toEqual([]);
+  });
   it("has unique articles with traceable source files and complete instructions", () => {
     expect(new Set(operationGuides.map(g => g.id)).size).toBe(operationGuides.length);
     for (const g of operationGuides) {

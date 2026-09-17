@@ -35,7 +35,7 @@ export function OperationGuideContent({ full = false, context = "booking-list", 
     <div data-guide-controls className={full ? "sticky top-14 z-10 space-y-2 border-b border-earth-200 bg-earth-50 py-3" : "shrink-0 space-y-2 border-b border-earth-200 bg-earth-50 px-4 py-2"}>
       {article ? <button type="button" onClick={() => { setArticleId(null); setExpanded(false); resetScroll(); }} className="min-h-11 text-sm font-semibold text-primary-800">← 返回問題列表</button> : <>
         <label className="sr-only" htmlFor={searchId}>搜尋操作問題</label>
-        <input id={searchId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setArticleId(null); setExpanded(false); resetScroll(); }} placeholder="搜尋問題：改時間、到期日…" className="min-h-11 w-full rounded-lg border border-earth-300 bg-white px-3 text-base" />
+        <input id={searchId} type="search" value={query} onChange={(event) => { setQuery(event.target.value); setArticleId(null); setExpanded(false); resetScroll(); }} placeholder={access.module === "course" ? "搜尋問題：共卡、點名、公休…" : "搜尋問題：改時間、到期日…"} className="min-h-11 w-full rounded-lg border border-earth-300 bg-white px-3 text-base" />
         <nav aria-label="教學範圍" className="grid grid-cols-2 gap-1 rounded-lg bg-earth-100 p-1">
           {([ ["related", "本頁相關"], ["all", "全部分類"] ] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={!searching && section === value} onClick={() => selectSection(value)} className={`min-h-11 rounded-md text-sm font-semibold ${!searching && section === value ? "bg-white text-primary-900 shadow-sm" : "text-earth-600"}`}>{label}</button>)}
         </nav>

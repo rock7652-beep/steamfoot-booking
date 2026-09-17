@@ -78,11 +78,13 @@ export function searchBookingGuides(query: string, bookingStatus?: string) {
 }
 
 import { additionalGuides, guideCategories } from "./operation-guide-catalog";
+import { courseOperationGuides } from "./course-operation-guides";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
 export const operationGuides: OperationGuide[] = [
   ...bookingGuides.map((guide): OperationGuide => ({ ...guide, kind: "howto", answer: guide.summary, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/server/actions/booking.ts"], verification: "source-reviewed" })),
   ...additionalGuides,
+  ...courseOperationGuides,
 ];
 export function availableGuides(access: GuideAccess) {
   return operationGuides.filter(g => g.modules.includes(access.module) &&
@@ -91,7 +93,13 @@ export function availableGuides(access: GuideAccess) {
     (!g.feature || access.features[g.feature] === true));
 }
 export function guideCategoryForPath(pathname: string) {
-  const path = pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)/, "");
+  const [path, query = ""] = pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)/, "").split("?");
+  if (path === "/dashboard/courses/hours") return "hours";
+  if (path === "/dashboard/courses/reminders") return "care";
+  if (path === "/dashboard/courses") {
+    const categories: Record<string, string> = {schedule:"booking",catalog:"booking",rooms:"booking",customers:"customers",plans:"plans",analytics:"analysis",settings:"settings"};
+    return categories[new URLSearchParams(query).get("view") ?? "schedule"] ?? null;
+  }
   if (path === "/dashboard/guide") return null;
   if (/^\/dashboard\/customers\/[^/]+\/health(?:\/|$)/.test(path)) return "health";
   if (path.startsWith("/dashboard/growth")) return "customers";
@@ -111,6 +119,9 @@ export function findOperationGuides(query: string, access: GuideAccess) {
 export function relatedOperationGuides(pathname: string, access: GuideAccess) {
   const path = pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)/, "").replace(/\/$/, "");
   const guides = availableGuides(access);
+  if (access.module === "course" && guideCategoryForPath(path) === "settings") {
+    return guides.filter(g => ["hours", "care", "money"].includes(g.category));
+  }
   if (path === "/dashboard/settings") {
     const ids = ["B01", "F01", "I02", "I03", "N01", "I09"];
     return ids.flatMap(id => guides.filter(g => g.id === id));
