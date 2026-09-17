@@ -3,7 +3,7 @@ import { courseAccount } from "@/server/services/course-access";
 import { coursePrisma } from "@/lib/course-db";
 import { getCourseCards } from "@/server/queries/course-members";
 import { CoursePortalClient } from "./course-portal-client";
-import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
+import { monthRange, toLocalMonthStr, parseTaipeiDateTime } from "@/lib/date-utils";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreContext } from "@/lib/store-context";
@@ -309,6 +309,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
   };
 }
 export type CoursePortalData = Awaited<ReturnType<typeof loadCoursePortal>>;
-export async function CoursePortal({ month }: { month?: string }) {
-  return <CoursePortalClient {...await loadCoursePortal(month)} />;
+export async function CoursePortal({ month, date, view }: { month?: string; date?: string; view?: string }) {
+  const selectedDate = date && /^20\d{2}-\d{2}-\d{2}$/.test(date) && parseTaipeiDateTime(date, "00:00") ? date : undefined;
+  return <CoursePortalClient {...await loadCoursePortal(selectedDate?.slice(0,7) ?? month)} initialDate={selectedDate} initialView={view === "bookings" ? "bookings" : "home"} />;
 }

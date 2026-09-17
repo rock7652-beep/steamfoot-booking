@@ -24,6 +24,7 @@ MIGRATIONS = [
     "supabase/migrations/20260917000515_course_purchase_refunds.sql",
     "supabase/migrations/20260917002754_course_purchase_corrections.sql",
     "supabase/migrations/20260917011137_course_customer_emergency_contacts.sql",
+    "supabase/migrations/20260917030753_course_reminder_links.sql",
 ]
 
 BASELINE = '''
@@ -35,6 +36,7 @@ CREATE UNIQUE INDEX "Staff_id_storeId_key" ON "Staff"(id,"storeId");
 CREATE TABLE "Customer" (id text PRIMARY KEY, "storeId" text NOT NULL);
 CREATE UNIQUE INDEX "Customer_id_storeId_key" ON "Customer"(id,"storeId");
 CREATE TABLE "StaffMemberLink" (id text PRIMARY KEY, "staffId" text, "storeId" text, "userId" text);
+CREATE TABLE "MessageLog" (id text PRIMARY KEY, "storeId" text NOT NULL, "bookingId" text, "spaBookingId" text);
 -- Synthetic sentinels, not a production clone or app-level regression test.
 CREATE TABLE legacy_outcomes (module text PRIMARY KEY, booking text, balance int, income int);
 INSERT INTO "Store" VALUES ('steam','STEAMFOOT'),('spa','SPA');
@@ -121,7 +123,7 @@ def main():
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Staff' AND column_name='phone';") == "0"
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Customer' AND column_name='emergencyContactName';") == "0"
         assert snapshot(db) == before
-        checks.append("late failure rolls back all ten migrations, enum and shared-column changes")
+        checks.append("late failure rolls back all eleven migrations, enum and shared-column changes")
         query(db, 'DROP INDEX "Customer_id_storeId_key";')
         query(db, bundle, "42830")
         assert query(db, "SELECT to_regclass('public.\"CourseRoom\"') IS NULL;") == "t"
@@ -151,6 +153,11 @@ INSERT INTO "CoursePointCard" (id,"storeId","planId","nameSnapshot",remaining,"e
 INSERT INTO "CourseCardMember" VALUES ('card','steam','a');
 INSERT INTO "CourseBooking" (id,"storeId","sessionId","cardId","customerId","operatorUserId","operatorName","customerName","pointCost","requestKey","updatedAt") VALUES ('booking','steam','session','card','a','actor','Operator','Attendee',3,'booking-request',now());
 ''')
+        query(db, "INSERT INTO \"MessageLog\" (id,\"storeId\",\"courseBookingId\") VALUES ('course-reminder','steam','booking');")
+        query(db, "INSERT INTO \"MessageLog\" (id,\"storeId\",\"courseBookingId\") VALUES ('cross-store-reminder','spa','booking');", "23503")
+        query(db, "INSERT INTO \"MessageLog\" (id,\"storeId\",\"courseBookingId\",\"bookingId\") VALUES ('mixed-reminder','steam','booking','legacy');", "23514")
+        query(db, "INSERT INTO \"MessageLog\" (id,\"storeId\",\"courseCardId\") VALUES ('cross-card-reminder','spa','card');", "23503")
+        checks.append("course notification links reject cross-store bookings/cards and mixed legacy booking models")
         query(db, 'UPDATE "CoursePointCard" SET remaining=-1;', "23514")
         query(db, 'INSERT INTO "CourseCardMember" VALUES (\'card\',\'steam\',\'b\');', "23503")
         query(db, '''INSERT INTO "CourseBooking" SELECT 'duplicate',"storeId","sessionId","cardId","customerId","operatorUserId","operatorCustomerId","operatorName","customerName","pointCost",status,'different-request',"createdAt","updatedAt","checkedInAt",notes FROM "CourseBooking";''', "23505")

@@ -166,13 +166,13 @@ function Sheet({
     </div>
   );
 }
-export function CoursePortalClient(p: CoursePortalData) {
+export function CoursePortalClient(p: CoursePortalData & { initialDate?: string; initialView?: "home" | "bookings" }) {
   const router = useRouter(),
     pathname = usePathname(),
     params = useSearchParams();
   const [role, setRole] = useState(p.memberEnabled ? "member" : "coach"),
-    [page, setPage] = useState<Page>("home"),
-    [date, setDate] = useState(toLocalDateStr(new Date(p.serverNow))),
+    [page, setPage] = useState<Page>(p.initialView ?? "home"),
+    [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
     [now, setNow] = useState(p.serverNow),
     [history, setHistory] = useState(false),
     [roster, setRoster] = useState<string | null>(null),

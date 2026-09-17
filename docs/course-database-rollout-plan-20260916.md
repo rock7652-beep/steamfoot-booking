@@ -102,3 +102,7 @@ CoursePointCard.closedAt、購買 REFUNDED 狀態、不可覆寫的 CoursePurcha
 同日再追加第九份 `supabase/migrations/20260917002754_course_purchase_corrections.sql`，承接交易備註、歸屬與誤建作廢。完整九份演練雜湊見 `course-corrections-migration-rehearsal-20260917.json`。新增作廢欄位与同店人員外鍵，不回填或改既有交易。作廢保留原訂單、額度收回與原記帳日的非現金沖銷，不冒充實際退款；已發生作廢亦只允許向前修復，不得刪除歷史。
 
 第十份 `supabase/migrations/20260917011137_course_customer_emergency_contacts.sql` 以 nullable 欄位補上 Customer 緊急聯絡姓名／電話，不回填、不更動身分連結。完整十份 PostgreSQL 17.6 本機演練雜湊與結果見 `course-contacts-migration-rehearsal-20260917.json`。預览只讀 schema preflight 已納入欄位檢查；正式 allowlist 不變。正式部署前須先依序完成十份 DDL 及相符遷移歷史，未獲授權前不得執行。回退應用時保留新欄及已填資料；不得以 DROP COLUMN 作回復。
+
+### 2026-09-17 提醒紀錄連結追加（第十一份，尚未正式執行）
+
+第十一份 `supabase/migrations/20260917030753_course_reminder_links.sql` 新增 MessageLog nullable `courseBookingId`／`courseCardId`、索引、同店複合外鍵及不可混用蒸足／SPA bookingId 的檢查約束。隔離 PostgreSQL 17.6 十一份 DDL 演練通過，證據見 `course-reminder-migration-rehearsal-20260917.json`；僅隔離測試庫套用，預覽 schema preflight 已加欄位檢查。正式 allowlist 未變。正式發布需先核對十一份順序與兩套歷史，仍待授權；回退應用時保留新增欄位、連結及發送紀錄，不刪除紀錄或重發已成功的訊息。

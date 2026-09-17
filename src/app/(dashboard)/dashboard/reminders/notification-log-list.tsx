@@ -22,6 +22,8 @@ const statuses: Record<string, string> = {
 export function NotificationLogList({
   data,
   params,
+  baseHref = "/dashboard/reminders",
+  course = false,
 }: {
   data: {
     rows: NotificationRow[];
@@ -30,6 +32,8 @@ export function NotificationLogList({
     typeOptions: string[];
   };
   params: Record<string, string | undefined>;
+  baseHref?: string;
+  course?: boolean;
 }) {
   function pageUrl(page: number) {
     const q = new URLSearchParams();
@@ -38,7 +42,7 @@ export function NotificationLogList({
     });
     q.set("tab", "logs");
     q.set("page", String(page));
-    return `/dashboard/reminders?${q}`;
+    return `${baseHref}?${q}`;
   }
   return (
     <section className="space-y-3">
@@ -169,7 +173,7 @@ export function NotificationLogList({
           <div className="mt-3 space-y-2 border-t border-earth-100 pt-3 text-sm">
             {r.customerId && (
               <Link
-                href={`/dashboard/customers/${r.customerId}`}
+                href={course ? `/dashboard/courses?view=customers&customerId=${encodeURIComponent(r.customerId)}` : `/dashboard/customers/${r.customerId}`}
                 className="text-primary-700"
               >
                 查看顧客 →

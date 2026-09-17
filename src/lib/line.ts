@@ -129,11 +129,13 @@ export async function pushMessage(
 export async function pushSteamButlerMessage(
   lineUserId: string,
   messages: LineMessage[],
+  retryKey?: string,
 ): Promise<LinePushResult> {
   return pushMessageWithAccessToken(
     getSteamButlerLineAccessToken(),
     lineUserId,
     messages,
+    retryKey,
   );
 }
 

@@ -2354,6 +2354,8 @@ model MessageLog {
   templateId   String?
   customerId   String
   bookingId    String?
+  courseBookingId String? // Course-specific link, scoped FK managed in SQL
+  courseCardId String? // Course card expiry/balance events
   spaBookingId String? // SPA 獨立預約識別碼；刻意不連到蒸足 Booking FK
   // 觸發時間（UTC）— 改期後 triggerAt 變更可重新發送
   // 規範：自動規則路徑（ruleId + bookingId 同時有值）必須寫入；純手動發送可為 NULL
@@ -2379,6 +2381,8 @@ model MessageLog {
   @@index([customerId])
   @@index([bookingId])
   @@index([spaBookingId])
+  @@index([courseBookingId])
+  @@index([courseCardId])
   @@index([status])
   @@index([storeId])
   @@index([lineRoute])

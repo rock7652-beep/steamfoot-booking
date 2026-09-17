@@ -233,7 +233,7 @@ export async function runReminders(): Promise<SendResult> {
   const result: SendResult = { total: 0, sent: 0, skipped: 0, failed: 0, details: [] };
 
   const rules = await prisma.reminderRule.findMany({
-    where: { isEnabled: true },
+    where: { isEnabled: true, triggerType: { not: "COURSE_NEXT_DAY" } },
     include: { template: true },
   });
   if (rules.length === 0) return result;
