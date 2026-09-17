@@ -12,6 +12,7 @@ import {
 import { saveCourseStaff } from "@/server/actions/course-staff";
 import type { getCourseCards } from "@/server/queries/course-members";
 
+import { CourseCustomerPurchases } from "./customer-purchases";
 import { CourseCustomerList } from "./customer-list";
 import type { CustomerRow } from "../customers/_components/customers-table";
 import { CourseCustomerBookings } from "./customer-bookings";
@@ -44,6 +45,7 @@ export function CourseMemberWorkspace({
   canManageStaff,
   canAssign,
   canReadBookings,
+  canReadTransactions,
   healthEnabled,
   customerRows,
   canReadCards,
@@ -58,6 +60,7 @@ export function CourseMemberWorkspace({
   canManageStaff: boolean;
   canAssign: boolean;
   canReadBookings: boolean;
+  canReadTransactions: boolean;
   healthEnabled: boolean;
   customerRows: CustomerRow[];
   canReadCards: boolean;
@@ -363,7 +366,8 @@ export function CourseMemberWorkspace({
                 </fieldset>
               </form>
             )}
-            {panel === "person" && person && canReadBookings && <CourseCustomerBookings customerId={person.id} />}
+            {panel === "person" && person && canReadTransactions && <CourseCustomerPurchases key={person.id} customerId={person.id} />}
+            {panel === "person" && person && canReadBookings && <CourseCustomerBookings key={person.id} customerId={person.id} />}
             {panel === "plan" && (
               <form
                 id="course-member-form"

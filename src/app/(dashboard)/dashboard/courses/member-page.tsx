@@ -99,6 +99,7 @@ export async function CourseMemberPage({
         healthEnabled={await hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY)}
         templates={templates}
         view={view}
+        canReadTransactions={await checkPermission(user.role, user.staffId, "transaction.read")}
         canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}
         people={people.map((p) => ({ id:p.id,name:p.name,phone:p.phone,email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
         plans={plans}
