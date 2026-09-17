@@ -27,6 +27,12 @@ beforeEach(() => {
   m.courseBooking.update.mockImplementation(async (x) => x.data);
 });
 describe("course attendance correction", () => {
+  it("cannot restore or spend quota after a refund", async () => {
+    m.courseBooking.findFirst.mockResolvedValue({ ...booking("NO_SHOW"), card: { remaining: 0, closedAt: new Date() } });
+    await expect(correctCourseAttendance(tx, actor, "b", "RESERVED", "NO_SHOW")).rejects.toThrow("已退款或結清");
+    expect(m.coursePointCard.update).not.toHaveBeenCalled();
+    expect(m.coursePointEntry.create).not.toHaveBeenCalled();
+  });
   it("refunds attendance before reserving again", async () => {
     m.courseBooking.findFirst.mockResolvedValue(booking("ATTENDED"));
     await correctCourseAttendance(tx, actor, "b", "RESERVED", "ATTENDED");

@@ -952,6 +952,7 @@ export function CoursePortalClient(p: CoursePortalData) {
                           ? `點名更正：${statusName(e.kind.split(":")[1])} → ${statusName(e.kind.split(":")[2])}`
                           : ({
                               GRANT: "取得額度",
+    REFUND: "退款收回額度",
                               RESERVE: "預約保留",
                               DEBIT: "出席使用",
                               RELEASE: "釋放保留",
@@ -1022,7 +1023,7 @@ export function CoursePortalClient(p: CoursePortalData) {
                   <p>
                     {o.status === "CONFIRMED"
                       ? "已核帳並啟用"
-                      : "待店家核帳，尚未取得額度"}
+                      : o.status === "REFUNDED" ? "已退款，額度已收回" : "待店家核帳，尚未取得額度"}
                   </p>
                   <p>匯款後五碼：{o.transferLastFive}</p>
                 </article>

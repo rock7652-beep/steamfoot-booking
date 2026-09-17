@@ -98,6 +98,7 @@ model CoursePointCard {
   unit String @default("POINT")
   templateIds String[] @default([])
   remaining Int
+  closedAt DateTime? @db.Timestamptz(3)
   expiresAt DateTime @db.Timestamptz(3)
   requestKey String
   createdAt DateTime @default(now())
@@ -184,6 +185,24 @@ model CoursePurchase {
   createdAt DateTime @default(now())
   confirmedAt DateTime?
   confirmedBy String?
+  refunds CoursePurchaseRefund[]
+  @@unique([id, storeId])
   @@unique([storeId, requestKey])
   @@index([storeId, customerId, createdAt])
+}
+
+// Immutable financial reversal. The original purchase and member history remain.
+model CoursePurchaseRefund {
+  id String @id @default(cuid())
+  storeId String
+  purchaseId String @unique
+  amount Int
+  points Int
+  reason String
+  actorUserId String
+  requestKey String
+  createdAt DateTime @default(now())
+  purchase CoursePurchase @relation(fields: [purchaseId, storeId], references: [id, storeId])
+  @@unique([storeId, requestKey])
+  @@index([storeId, createdAt])
 }

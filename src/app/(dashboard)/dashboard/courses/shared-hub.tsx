@@ -46,7 +46,7 @@ export async function CourseSharedHub({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     notFound();
-  if (view === "operations") redirect("/dashboard/cashbook");
+  if (view === "operations") redirect("/dashboard/revenue");
   const title = view === "settings" ? "設定" : "分析";
   const subtitle =
     view === "settings" ? "店家基本資訊" : "以已排定的課程資料了解排課狀況";

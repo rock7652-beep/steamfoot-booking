@@ -591,6 +591,7 @@ export function CourseCardSummary({ card }: { card: CourseCardView }) {
 export function CourseCardEntries({ card }: { card: CourseCardView }) {
   const labels: Record<string, string> = {
     GRANT: "取得額度",
+    REFUND: "退款收回額度",
     RESERVE: "預約占用",
     RELEASE: "釋放占用",
     DEBIT: "出席使用",

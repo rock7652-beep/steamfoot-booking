@@ -36,7 +36,8 @@ export async function getCourseCards(storeId: string, customerId?: string) {
       templateIds: c.templateIds,
       remaining: c.remaining,
       held,
-      available: expired ? 0 : Math.max(0, c.remaining - held),
+      closed: !!c.closedAt,
+      available: expired || c.closedAt ? 0 : Math.max(0, c.remaining - held),
       expired,
       expiresAt: c.expiresAt.toISOString(),
       members: c.members.map((m) => ({
@@ -50,7 +51,7 @@ export async function getCourseCards(storeId: string, customerId?: string) {
         createdAt: e.createdAt.toISOString(),
       })),
     };
-  }).sort((a, b) => Number(a.expired) - Number(b.expired) || a.expiresAt.localeCompare(b.expiresAt));
+  }).sort((a, b) => Number(a.expired || a.closed) - Number(b.expired || b.closed) || a.expiresAt.localeCompare(b.expiresAt));
 }
 
 export async function getCourseRoster(storeId: string, sessionId: string) {

@@ -21,6 +21,7 @@ MIGRATIONS = [
     "supabase/migrations/20260915123055_course_catalog_details.sql",
     "supabase/migrations/20260916024857_course_attendance_and_staff_contacts.sql",
     "supabase/migrations/20260916090234_course_portal_integration.sql",
+    "supabase/migrations/20260917000515_course_purchase_refunds.sql",
 ]
 
 BASELINE = '''
@@ -117,7 +118,7 @@ def main():
         assert query(db, "SELECT count(*) FROM pg_enum WHERE enumlabel='COURSE';") == "0"
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Staff' AND column_name='phone';") == "0"
         assert snapshot(db) == before
-        checks.append("late failure rolls back all seven migrations, enum and shared-column changes")
+        checks.append("late failure rolls back all eight migrations, enum and shared-column changes")
         query(db, 'DROP INDEX "Customer_id_storeId_key";')
         query(db, bundle, "42830")
         assert query(db, "SELECT to_regclass('public.\"CourseRoom\"') IS NULL;") == "t"
@@ -133,7 +134,7 @@ def main():
         query(db, bundle, "Course rollout already applied or partial")
         assert snapshot(db) == before
         checks.append("replay fails closed without changes")
-        assert query(db, "SELECT count(*) FROM pg_class WHERE relname LIKE 'Course%' AND relkind='r' AND relrowsecurity;") == "10"
+        assert query(db, "SELECT count(*) FROM pg_class WHERE relname LIKE 'Course%' AND relkind='r' AND relrowsecurity;") == "11"
         assert query(db, 'SELECT "courseMemberEnabled" AND phone=\'\' AND "emergencyContactName"=\'\' AND "emergencyContactPhone"=\'\' FROM "StaffMemberLink" CROSS JOIN "Staff" LIMIT 1;') == "t"
         query(db, '''
 INSERT INTO "CourseRoom" (id,"storeId",name) VALUES ('room','steam','Room');
@@ -159,6 +160,7 @@ INSERT INTO "CoursePointEntry" (id,"storeId","cardId","bookingId",kind,points,"a
             assert query(db, f'SET ROLE {role}; SELECT count(*) FROM "CoursePointCard";') == "0"
             query(db, f'SET ROLE {role}; INSERT INTO "CourseRoom" (id,"storeId",name) VALUES (\'browser\',\'steam\',\'Forbidden\');', "42501")
             query(db, f'SET ROLE {role}; SELECT * FROM "CoursePurchase";', "42501")
+            query(db, f'SET ROLE {role}; SELECT * FROM "CoursePurchaseRefund";', "42501")
         checks.append("both browser roles denied rows/writes under permissive default grants; purchase privileges revoked")
         print(json.dumps({"postgres": version, "checks": checks, "manifest": manifest,
                           "scope": "synthetic dependency baseline, not production clone or app transaction acceptance"}, indent=2))

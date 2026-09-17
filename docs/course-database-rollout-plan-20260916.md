@@ -86,3 +86,15 @@ python3 scripts/course-migration-rehearsal.py
 需使用者核准本文件的維護窗口後，先按上列 1–5 步完成精準 DDL 與兩套歷史核對，再核准合併／正式發布。這是待授權的正式操作，不是本輪已完成項目。若要先合併，須先有明確且已核對的正式自動部署暫停安排，不能假設合併不會觸發部署。
 
 歷史登錄只允許上述三個 Prisma 名稱與四個 Supabase 版本。使用固定 lockfile 的 Prisma `migrate resolve --applied <完整名稱>`，Supabase `migration repair <版本> --status applied`；必須在已核對的正式連線／project 範圍執行，不可依賴目前 CLI 預設連結。Prisma 登錄後核對名稱、checksum、finished_at、rolled_back_at；Supabase 核對 version/name。單筆中斷只補缺少且結構一致的歷史，絕不重跑七份 DDL。此工具登錄步驟尚未在正式完整複本演練，保留為發布限制，不將本機 SQL 演練冒充該項證據。
+
+## 2026-09-17 新增退款遷移（尚未授權正式執行）
+
+原七份遷移之後需追加 `supabase/migrations/20260917000515_course_purchase_refunds.sql`：
+CoursePointCard.closedAt、購買 REFUNDED 狀態、不可覆寫的 CoursePurchaseRefund、REFUND 額度異動。
+完整八份的來源雜湊及 PostgreSQL 17.6 本機隔離演練結果，見 `course-refund-migration-rehearsal-20260917.json`。
+本次同樣驗證整批 DDL 失敗全回滾、缺依賴／重複／部分套用拒絕與 RLS；不是正式備份還原或真實退款交易驗收。
+
+只將新檔套用到既有隔離預覽庫；正式資料庫、正式 CI 遷移 allowlist 均未更動。
+回復：未提交的八份 DDL 整批 ROLLBACK；已提交但尚未有退款可回退應用版本並保留新增欄表。
+一旦存在退款資料，禁止 DROP 表／恢復剩餘額度／刪除退款現金帳來回復；須保留帳本並以向前修復處理。
+既有備份證據只限當時資料時間點，不宣稱覆蓋新退款資料；正式執行仍需使用者確認及當次可用備份。

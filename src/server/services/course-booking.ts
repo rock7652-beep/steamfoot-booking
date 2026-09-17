@@ -135,6 +135,7 @@ async function reserveCourseInTransaction(
       !card.members.some((m) => m.customerId === actor.customerId))
   )
     return fail("僅能替此共卡的授權成員預約");
+  if (card.closedAt) return fail("此方案已退款或結清，不能預約");
   if (card.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
   const bookingCost = card.unit === "SESSION" ? 1 : session.pointCost;
   const now = new Date();
@@ -274,6 +275,7 @@ export async function correctCourseAttendance(
   const b = await tx.courseBooking.findFirst({ where: { id: bookingId, storeId: actor.storeId }, include: { session: true, card: true } });
   if (!b || b.status === "CANCELLED" || b.session.cancelledAt) return fail("此預約無法更正");
   if (b.status === target) return b;
+  if (b.card.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
   if (b.session.startsAt > new Date()) return fail("課程尚未開始，不能點名");
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
