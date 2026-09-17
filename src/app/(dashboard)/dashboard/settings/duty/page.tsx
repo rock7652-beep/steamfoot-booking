@@ -1,3 +1,4 @@
+import { courseDutyIntervals } from "@/lib/course-duty";
 import { checkPermission } from "@/lib/permissions";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
@@ -19,7 +20,7 @@ function formatDateShort(dateStr: string): string {
 }
 
 /** 取得本週（週一～週日）未排班營業日數量 */
-async function getUnscheduledDaysThisWeek(storeId: string): Promise<{
+async function getUnscheduledDaysThisWeek(storeId: string, course = false): Promise<{
   total: number;
   unscheduled: number;
   unscheduledDates: string[];
@@ -57,6 +58,7 @@ async function getUnscheduledDaysThisWeek(storeId: string): Promise<{
   );
 
   const businessDates = weekDates.filter((dateStr) => {
+    if (course) return courseDutyIntervals(dateStr,businessHours,specialDays).length > 0;
     const specialType = specialMap.get(dateStr);
     if (specialType === "closed") return false;
     if (specialType === "special_open") return true;
@@ -123,7 +125,7 @@ export default async function DutySettingsPage() {
   }
   const course = await getStoreIndustryModule(storeId) === "course";
   const config = await getShopConfig(storeId);
-  const weekInfo = await getUnscheduledDaysThisWeek(storeId);
+  const weekInfo = await getUnscheduledDaysThisWeek(storeId,course);
   const enabled = config.dutySchedulingEnabled;
   const scheduledDays = weekInfo.total - weekInfo.unscheduled;
 
@@ -293,14 +295,14 @@ export default async function DutySettingsPage() {
                 未排班日期：{weekInfo.unscheduledDates.map(formatDateShort).join("、")}
               </p>
               <p className="mt-1 text-[11px] text-amber-600">
-                這些日期的所有時段目前對客戶不可見
+                {course ? "這些日期尚未安排值班；啟用聯動後排課須符合教練值班。" : "這些日期的所有時段目前對客戶不可見"}
               </p>
             </div>
           )}
 
           {!enabled && (
             <p className="mt-4 rounded-lg bg-earth-50 p-3 text-[11px] leading-relaxed text-earth-500">
-              聯動目前停用中，所有營業時段均可預約。即使有未排班日期也不會影響顧客預約。
+              {course ? "聯動目前停用中，課程依實際排課開放預約。未排班日期不影響已排課程與學員預約。" : "聯動目前停用中，所有營業時段均可預約。即使有未排班日期也不會影響顧客預約。"}
             </p>
           )}
         </section>
