@@ -158,6 +158,7 @@ export function ScheduleManager({
   const [weeklyHours, setWeeklyHours] = useState(initialWeekly);
   const [isPending, startTransition] = useTransition();
   const [loadingDay, setLoadingDay] = useState(false);
+  const [saveError,setSaveError]=useState<string|null>(null);
   const [reviewedDraft, setReviewedDraft] = useState<string | null>(null);
 
   // 每週固定設定展開/收合
@@ -401,6 +402,7 @@ export function ScheduleManager({
     async (dateStr: string, opts: { bypassCache?: boolean } = {}) => {
       if (selectedDate && selectedDate !== dateStr && dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換日期嗎？")) return;
       if(selectedDate!==dateStr) setShowAdvancedSlots(false);
+      setSaveError(null);
       setSelectedDate(dateStr);
       setSelectedSlot(null);
 
@@ -478,7 +480,8 @@ export function ScheduleManager({
         const lastPeriod = sortedPeriods.at(-1);
         if (isCourseStore) {
           const result=await saveCourseDayHours({date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods});
-          if(!result.success){toast.error(result.error);return;}
+          if(!result.success){setSaveError(result.error??"儲存失敗");toast.error(result.error);return;}
+          setSaveError(null);
           if(applyMode==="permanent"||applyMode==="template") setWeeklyHours(prev=>prev.map(w=>w.dayOfWeek===dayDetail?.dayOfWeek?{...w,isOpen:editStatus==="open"||editStatus==="custom",openTime:firstPeriod?.openTime??null,closeTime:lastPeriod?.closeTime??null,periods:sortedPeriods}:w));
           dayDetailCacheRef.current.clear(); monthCacheRef.current.clear();
           await invalidateAndReloadCurrentMonth(); await selectDate(selectedDate,{bypassCache:true});setReviewedDraft(null);toast.success("營業設定已儲存");return;
@@ -811,7 +814,7 @@ export function ScheduleManager({
           <div className="space-y-3">
             <div className="rounded-xl border bg-white p-4 shadow-sm">
               <h3 className="mb-2 text-base font-bold text-earth-900">
-                {selectedDate.slice(5).replace("-", "/")}（{dayDetail.dayName}）當日時段
+                {selectedDate.slice(5).replace("-", "/")}（{dayDetail.dayName}）{isCourseStore?"營業設定":"當日時段"}
               </h3>
 
               <p className="mb-3 text-[11px] text-earth-500">
@@ -846,6 +849,7 @@ export function ScheduleManager({
                 </div>
               </div>
 
+              {saveError && <p role="alert" className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
               {/* 時段設定：custom 模式、permanent+open、template+open 都顯示 */}
               {(editStatus === "custom" || (editStatus === "open" && (applyMode === "permanent" || applyMode === "template"))) && (
                 <div className="mb-3 space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
@@ -1195,7 +1199,7 @@ export function ScheduleManager({
                         <p className="text-xs text-amber-800">重新設定服務時間會清除套用日期原有的臨時時段調整，以上方預覽為準。</p>
                       </> : <p>{editStatus === "closed" || editStatus === "training" ? "全天停止接受新預約。" : applyMode === "day" ? "使用每週固定時段；當日單格時段調整仍保留。" : `固定時段：${editPeriods.map((period) => `${period.openTime}–${period.closeTime}`).join("、")}。各日期的特殊設定與時段調整依既有套用規則處理。`}</p>}
                       {applyMode !== "day" && <p className="text-xs text-amber-800">這次不只影響一天，請再次確認套用範圍。</p>}
-                      <p className="text-xs text-earth-600">既有預約不會自動取消，收款與扣堂不會變動；如無法服務，請另行聯繫顧客。</p>
+                      <p className="text-xs text-earth-600">{isCourseStore?"若有已排課程衝突，本批不會儲存；請先調整課表。預約與額度紀錄保留。":"既有預約不會自動取消，收款與扣堂不會變動；如無法服務，請另行聯繫顧客。"}</p>
                       <button type="button" disabled={isPending} onClick={() => setReviewedDraft(null)} className="underline text-primary-800">返回修改</button>
                     </section>
                   )}
