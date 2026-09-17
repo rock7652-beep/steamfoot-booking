@@ -9,15 +9,15 @@
 |蒸足頁面／區塊|按鈕、側窗、子頁及開關|服務／資料|課程現況與缺漏|共用方式／必要差異|本輪結果|
 |---|---|---|---|---|---|
 |首頁 dashboard|現金開店／結帳／收支、今日預約名單、待辦、快捷入口|cash-drawer、booking、提醒|已有課程當日與現金抽屜；逐項核對排列與待辦|共用現金抽屜，名單保留 CourseBooking|待驗|
-|customers 清單／詳情|搜尋、狀態／到訪／推薦／人員篩選、分頁、drawer、資料修改、方案／購買／預約、健康、匯出、合併子頁|queries/customer、customer actions、CustomerIdentityLink|course member-workspace 自製清單，缺成熟篩選與多項詳情|抽出成熟清單／drawer 展示，課程方案與預約由 course queries 注入；不套蒸足 wallet/booking|待接|
+|customers 清單／詳情|搜尋、狀態／到訪／推薦／人員篩選、分頁、drawer、資料修改、方案／購買／預約、健康、匯出、合併子頁|queries/customer、customer actions、CustomerIdentityLink|已共用成熟篩選／清單／歸屬表單，接課程購買及上課；批次、匯出、合併仍待完整適配|抽出成熟清單／drawer 展示，課程方案與預約由 course queries 注入；不套蒸足 wallet/booking|待接|
 |staff|角色、基本資料、啟停用、分組權限、帳號、排班|staff、course-staff、StaffMemberLink|已有共用 staff-workspace 與角色連結|沿用現有，排班對照課程可授課時段；不授總部權限|待驗|
-|health、customers/id/health、前台 health/new|新增／編輯量測、摘要、完整量測、歷史／趨勢、已開通分析|HealthRecordForm、HealthAssessmentCard、native-health-service、健康功能 gate|課程後台簡易表單未做功能 gate；前台缺新增／編輯|共用成熟量測表單與摘要，courseMember 只解析本人，不用共卡查健康|待接|
+|health、customers/id/health、前台 health/new|新增／編輯量測、摘要、完整量測、歷史／趨勢、已開通分析|HealthRecordForm、HealthAssessmentCard、native-health-service、健康功能 gate|已接共用完整表單、歷史／趨勢及功能 gate；前台本人資料操作待登入實測|共用成熟量測表單與摘要，courseMember 只解析本人，不用共卡查健康|待接|
 |plans／購買|建立、編輯、上下架、適用課程、期限、指派、共卡、銀行資訊、訂單／核帳／發卡|course-members、course-portal、CoursePointCard／Purchase|核心已驗，待完整子頁／錯誤／排序對照|保留 Course 點數、占用及快到期優先；不能直接用 Steamfoot WalletSession|待驗|
-|revenue 營運|營收明細、現金收支側窗、現金管理、KPI、交易工作台、日期／類型／人員篩選、明細側窗、修改／作廢／退款、匯出|queries/transaction、report、TransactionDrawer、cashbook|目前導向 cashbook，缺整頁工作台|抽出成熟營運布局；資料與操作注入課程交易 adapter；退款受使用／占用狀態約束|待接|
-|營運相關子頁|store-revenue（月季年）、reconciliation、data-export、transactions|報表、對帳、匯出服務|路由 gate 阻擋，課程尚未適配|課程購買和 Cashbook 去重；不能把同筆核帳收入加兩次|待接|
-|reports 分析|今日／本月／自訂、營運摘要、客流、成交、六個月趨勢、留存、營收／店長分析、同期比較、查看顧客、全店／店長 CSV、月結|customer-flow、conversion、retention、performance-trends、snapshot|目前只有課程月摘要和單圖|共用成熟 report 展示與日期；替換課程查詢、快照命名／統計口徑，無來源不可回填假 0|待接|
-|settings 控制台|分類導覽、狀態卡、編輯／次入口、快捷操作、系統資訊|SettingsShell/NavSection/ActionCard/SidePanel|自製簡易表單，缺大部分入口|共用成熟控制台；逐個放行已適配子頁|待接|
-|settings/hours、duty、payment、plans|營業／公休／特殊日、預約開放日、排班啟用、銀行、成長方案中心|ShopConfig、BusinessHours、SpecialBusinessDay、Duty|銀行已有、其他缺連動|公休標記及可約日期用同店既有設定；實際課次仍由 CourseSession|待接|
+|revenue 營運|營收明細、現金收支側窗、現金管理、KPI、交易工作台、日期／類型／人員篩選、明細側窗、修改／作廢／退款、匯出|queries/transaction、report、TransactionDrawer、cashbook|已接 revenue 工作台、課程核帳／退款／作廢／歸屬更正；完整並行與共用回歸待補|抽出成熟營運布局；資料與操作注入課程交易 adapter；退款受使用／占用狀態約束|待接|
+|營運相關子頁|store-revenue（月季年）、reconciliation、data-export、transactions|報表、對帳、匯出服務|收入總覽／Excel 與對帳中心已适配；通用 data-export／transactions 尚未視為課程入口|課程購買和 Cashbook 去重；不能把同筆核帳收入加兩次|待接|
+|reports 分析|今日／本月／自訂、營運摘要、客流、成交、六個月趨勢、留存、營收／店長分析、同期比較、查看顧客、全店／店長 CSV、月結|customer-flow、conversion、retention、performance-trends、snapshot|已接成熟日期、摘要、客流、趨勢、留存及教練量；手動收支與店長分析等尚待接|共用成熟 report 展示與日期；替換課程查詢、快照命名／統計口徑，無來源不可回填假 0|待接|
+|settings 控制台|分類導覽、狀態卡、編輯／次入口、快捷操作、系統資訊|SettingsShell/NavSection/ActionCard/SidePanel|已共用控制台、同頁店家規則／付款；其餘子頁尚待逐項適配|共用成熟控制台；逐個放行已適配子頁|待接|
+|settings/hours、duty、payment、plans|營業／公休／特殊日、預約開放日、排班啟用、銀行、成長方案中心|ShopConfig、BusinessHours、SpecialBusinessDay、Duty|付款與真實方案用量已接；營業／公休與值班寫入 adapter 待接，plans 靜態示意不列完成|公休標記及可約日期用同店既有設定；實際課次仍由 CourseSession|待接|
 |settings/trial、referral-share、digital-butler|體驗价格範圍、分享模板、流程編輯、名單|trial settings、referral、digital-butler|課程尚未適配|逐项檢查現有模板／事件目的地；涉及新優惠／獎勵規則需明列，不自動套用|待接|
 |reminders、growth、操作指南|規則／模板／開關、觸發事件、對象、發送紀錄、重試、深層連結|通知工作流、顧客經營查詢、指南 catalog|課程指南目前關閉，提醒／經營路由阻擋|通知僅測試授權對象；Course 事件與方案，不用蒸足餘堂觸發條件|待接|
 |LIFF 會員／教練|既有底部導覽、日曆、共卡、同堂逐人、原位名單、點名／更正／批次、健康／店家|course portal/actions、course booking|已驗核心保留；健康／資料子功能未完整；檢查桌機手機寬度和操作文案|保留已定案版面，套共用功能而非重畫前台|待接／驗|
@@ -31,7 +31,7 @@
 ## 必要商業差異
 
 - 蒸足退款 pure helper 以 WalletSession 堂數與單堂價格計算；課程以點數卡、多課程不同額度運作。不能直接套用。已詢問部分使用點數卡的退款金額規則，等待回答；未使用且無占用可沿用全額退的既有語意。這不阻擋其他承接批次。
-- Customer 目前沒有獨立緊急聯絡欄位（Staff 有）。若承接需要新增 schema，只更新隔離庫，並將遷移加入正式發布方案；不能假裝以 serviceNote 混存就已完成。
+- Customer 緊急聯絡已新增獨立 nullable 欄位，僅隔離庫套用，列入正式發布方案；原資料未回填，不以 serviceNote 混存。
 - 課程購買核帳目前記入 CashbookEntry，不寫蒸足 Transaction。營收、退款、對帳須以同一課程來源對齊，不能混讀其他模組帳。
 
 ## 驗收記錄
@@ -105,3 +105,5 @@
 設定實測（750bfe23）：1024px 同頁開啟付款與店家規則，原值儲存後唯讀 SQL 確認隔離銀行三欄及原預約／取消分鐘均保留，店家表單顯示已儲存。付款複製按鈕未取得剪貼簿一致證據，仍列未驗證。該版型別、修改檔 lint、完整 Vitest、postgres-integration CI 通過；Cloudflare 維持豁免。分析單日重測確認無退款顯示 NT$ 0，不再出現負零。
 
 方案用量追加：共用 getStoreUsage 原本只計蒸足 Booking，現依 COURSE 改讀同店 CourseBooking，以與課程額度限制一致的台灣月份／建立日計算，取消仍計入，未更動上限。設定用量摘要受 plans.edit 控制，不搬入既有 plans 示意頁的假續約資訊。三項資料來源／跨月邊界測試通過。另修正關閉設定側窗後的殘留控制項，以及共用報表切換日期後表單預設值重置。部署與新版用量畫面驗證待完成。
+
+用量／側窗隔離實測（a77b8836）：頁面顯示啟用人員4、顧客4、本月課程預約15，唯讀 SQL 三項一致。實際開啟設定側窗有1個 dialog，關閉後為0，設定主頁與資料保留。此版 Typecheck、Changed-file ESLint、Targeted、Full Vitest、postgres-integration 與 Vercel 均通過；Cloudflare 維持豁免。本機完整測試4790通過，32項連線測試跳過已由獨立 PostgreSQL CI 補驗。
