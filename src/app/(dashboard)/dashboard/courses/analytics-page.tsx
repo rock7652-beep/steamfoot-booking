@@ -15,6 +15,16 @@ import { UpgradeNoticePage } from "@/components/upgrade-notice";
 import ReportDateRange from "@/components/report-date-range";
 import { TrendChart } from "../ops/trend-chart";
 
+function AnalysisCustomers({ title, ids, customers }: { title: string; ids: string[]; customers: { id: string; name: string }[] }) {
+  const names = new Map(customers.map(customer => [customer.id, customer.name]));
+  return <details className="mt-3">
+    <summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">查看{title}顧客（{ids.length} 人）</summary>
+    {ids.length ? <ul className="max-h-64 divide-y divide-earth-100 overflow-auto overscroll-contain">{ids.map(id => <li key={id}>
+      <DashboardLink className="block min-h-11 py-3 text-sm text-primary-700" href={`/dashboard/courses?view=customers&customerId=${encodeURIComponent(id)}`}>{names.get(id) ?? "歷史顧客"}</DashboardLink>
+    </li>)}</ul> : <p className="py-2 text-sm text-earth-500">所選期間沒有符合條件的顧客。</p>}
+  </details>;
+}
+
 export async function CourseAnalyticsPage({params}:{params:{preset?:string;startDate?:string;endDate?:string;month?:string}}) {
   const user=await getCurrentUser();
   if(!user || !(await checkPermission(user.role,user.staffId,"report.read"))) notFound();
@@ -56,7 +66,11 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
       <p className="mt-1 text-xs text-earth-500">人數以實際上課者去重；同一人上兩堂為一人、兩人次。比較前一段同長期間：{data.previous.startDate} ～ {data.previous.endDate}。</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{metrics.map(([label,value,before,yearBefore,unit])=><div key={label} className="rounded-lg bg-earth-50/70 p-3"><p className="text-xs text-earth-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-earth-900">{value} {unit}</p><p className="mt-2 text-xs text-earth-500">較前期 {comparison(value,before,unit)}</p><p className="mt-1 text-xs text-earth-500">較去年同期 {comparison(value,yearBefore,unit)}</p></div>)}</div>
       {current.unknownFirstVisits.length>0&&<p role="alert" className="mt-2 text-sm text-amber-700">有 {current.unknownFirstVisits.length} 位學員缺少首次上課依據，未歸入新舊客。</p>}
-      {canReadCustomers&&<details className="mt-3"><summary className="min-h-11 cursor-pointer py-2 text-sm text-primary-700">查看本期上課顧客（{current.customers.length} 人）</summary><ul className="max-h-64 divide-y divide-earth-100 overflow-auto">{current.customers.map(c=><li key={c.id}><DashboardLink className="block min-h-11 py-3 text-sm text-primary-700" href={`/dashboard/courses?view=customers&customerId=${encodeURIComponent(c.id)}`}>{c.name}</DashboardLink></li>)}</ul></details>}
+      {canReadCustomers&&<div className="grid gap-x-4 md:grid-cols-3">
+        <AnalysisCustomers title="本期上課" ids={current.visitors} customers={current.customers}/>
+        <AnalysisCustomers title="首次上課" ids={current.newVisitors} customers={current.customers}/>
+        <AnalysisCustomers title="再次上課" ids={current.returningVisitors} customers={current.customers}/>
+      </div>}
     </section>
     <section className={section}><h2 className="text-sm font-semibold text-earth-800">成交與購買收入</h2>
       {revenue?<><KpiStrip items={[
@@ -102,6 +116,11 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
         {label:"尚未回流",value:`${data.notReturned.length} 人`,tone:"earth"},
         {label:"回流率",value:prior.visitors.length?`${(100*data.returned.length/prior.visitors.length).toFixed(1)}%`:"—（前期無學員）",tone:"primary"},
       ]}/>
+      {canReadCustomers&&<div className="grid gap-x-4 md:grid-cols-3">
+        <AnalysisCustomers title="前期上課" ids={prior.visitors} customers={prior.customers}/>
+        <AnalysisCustomers title="本期回流" ids={data.returned} customers={current.customers}/>
+        <AnalysisCustomers title="尚未回流" ids={data.notReturned} customers={prior.customers}/>
+      </div>}
     </section>
     <section className={section}><h2 className="mb-3 text-sm font-semibold text-earth-800">教練授課與待處理出席</h2><p className="mb-3 text-xs text-earth-500">報到待完成 {current.checkedIn} 人次 · 未到 {current.noShow} 人次 · 排定 {current.hours.toFixed(1)} 小時</p>
       <DataTable rows={current.coaches} rowKey={r=>r.id} columns={[
