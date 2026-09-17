@@ -67,7 +67,7 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "data-export.xlsx";
+      link.download = courseMode ? `${labels[type]}_${startDate}_${endDate}.xlsx` : "data-export.xlsx";
       link.click();
       URL.revokeObjectURL(url);
       setFeedback("已產生下載檔案。");
