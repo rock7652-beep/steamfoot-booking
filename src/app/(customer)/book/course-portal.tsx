@@ -24,6 +24,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     hours,
     special,
     healthEnabled,
+    emergencyContact,
   ] = await Promise.all([
     prisma.staffMemberLink.findUnique({
       where: { uq_staff_member_link_user_store: { userId: user.id, storeId } },
@@ -63,6 +64,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       select: { date: true, type: true },
     }),
     hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY).catch(() => false),
+    prisma.customer.findFirst({ where: { id: customer.id, storeId, mergedIntoCustomerId: null }, select: { emergencyContactName: true, emergencyContactPhone: true } }),
   ]);
   const memberEnabled = identity?.courseMemberEnabled !== false;
   const cards = memberEnabled ? await getCourseCards(storeId, customer.id) : [];
@@ -210,6 +212,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     serverNow: now.getTime(),
     customerId: customer.id,
     customerName: customer.name,
+    emergencyContact: memberEnabled ? emergencyContact : null,
     storeName: store.name,
     prefix: context?.storeSlug ? `/s/${context.storeSlug}` : "",
     memberEnabled,

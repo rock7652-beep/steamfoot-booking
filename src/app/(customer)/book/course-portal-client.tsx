@@ -29,6 +29,7 @@ import {
   purchaseCoursePlan,
 } from "@/server/actions/course-portal";
 import type { CoursePortalData } from "./course-portal";
+import { CourseMemberContactForm } from "@/components/course-member-contact-form";
 import { CourseHealthWorkspace } from "@/components/course-health-workspace";
 import "./course-portal.css";
 type Session = CoursePortalData["sessions"][number];
@@ -911,6 +912,7 @@ export function CoursePortalClient(p: CoursePortalData) {
                 <a className="cp-menu" href={`${p.prefix}/profile`}>
                   個人資料與登入 ›
                 </a>
+                {p.emergencyContact && <CourseMemberContactForm initial={p.emergencyContact} />}
                 {menu("店家資訊", "store")}
               </section>
             </>

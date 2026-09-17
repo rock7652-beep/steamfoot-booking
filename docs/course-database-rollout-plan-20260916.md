@@ -100,3 +100,5 @@ CoursePointCard.closedAt、購買 REFUNDED 狀態、不可覆寫的 CoursePurcha
 既有備份證據只限當時資料時間點，不宣稱覆蓋新退款資料；正式執行仍需使用者確認及當次可用備份。
 
 同日再追加第九份 `supabase/migrations/20260917002754_course_purchase_corrections.sql`，承接交易備註、歸屬與誤建作廢。完整九份演練雜湊見 `course-corrections-migration-rehearsal-20260917.json`。新增作廢欄位与同店人員外鍵，不回填或改既有交易。作廢保留原訂單、額度收回與原記帳日的非現金沖銷，不冒充實際退款；已發生作廢亦只允許向前修復，不得刪除歷史。
+
+第十份 `supabase/migrations/20260917011137_course_customer_emergency_contacts.sql` 以 nullable 欄位補上 Customer 緊急聯絡姓名／電話，不回填、不更動身分連結。完整十份 PostgreSQL 17.6 本機演練雜湊與結果見 `course-contacts-migration-rehearsal-20260917.json`。預览只讀 schema preflight 已納入欄位檢查；正式 allowlist 不變。正式部署前須先依序完成十份 DDL 及相符遷移歷史，未獲授權前不得執行。回退應用時保留新欄及已填資料；不得以 DROP COLUMN 作回復。

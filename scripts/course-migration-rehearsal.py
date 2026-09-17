@@ -23,6 +23,7 @@ MIGRATIONS = [
     "supabase/migrations/20260916090234_course_portal_integration.sql",
     "supabase/migrations/20260917000515_course_purchase_refunds.sql",
     "supabase/migrations/20260917002754_course_purchase_corrections.sql",
+    "supabase/migrations/20260917011137_course_customer_emergency_contacts.sql",
 ]
 
 BASELINE = '''
@@ -84,7 +85,7 @@ def snapshot(db):
       'stores',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM "Store" t),
       'staff',(SELECT jsonb_agg(to_jsonb(t)-'phone'-'emergencyContactName'-'emergencyContactPhone' ORDER BY id) FROM "Staff" t),
       'links',(SELECT jsonb_agg(to_jsonb(t)-'courseMemberEnabled' ORDER BY id) FROM "StaffMemberLink" t),
-      'customers',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM "Customer" t),
+      'customers',(SELECT jsonb_agg(to_jsonb(t)-'emergencyContactName'-'emergencyContactPhone' ORDER BY id) FROM "Customer" t),
       'outcomes',(SELECT jsonb_agg(to_jsonb(t) ORDER BY module) FROM legacy_outcomes t));''')
 
 
@@ -118,8 +119,9 @@ def main():
         assert query(db, "SELECT to_regclass('public.\"CourseRoom\"') IS NULL;") == "t"
         assert query(db, "SELECT count(*) FROM pg_enum WHERE enumlabel='COURSE';") == "0"
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Staff' AND column_name='phone';") == "0"
+        assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Customer' AND column_name='emergencyContactName';") == "0"
         assert snapshot(db) == before
-        checks.append("late failure rolls back all nine migrations, enum and shared-column changes")
+        checks.append("late failure rolls back all ten migrations, enum and shared-column changes")
         query(db, 'DROP INDEX "Customer_id_storeId_key";')
         query(db, bundle, "42830")
         assert query(db, "SELECT to_regclass('public.\"CourseRoom\"') IS NULL;") == "t"

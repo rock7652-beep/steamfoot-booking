@@ -1095,6 +1095,8 @@ model Customer {
   birthday                 DateTime?      @db.Date // 出生年月日（選填）
   height                   Float? // 身高 cm（選填）
   address                  String? // 地址（選填）
+  emergencyContactName     String? // 緊急聯絡人（選填）
+  emergencyContactPhone    String? // 緊急聯絡電話（選填）
   lineName                 String? // LINE 顯示名稱
   lineUserId               String? // LINE user ID (per-store unique)
   lineLinkedAt             DateTime? // LINE 綁定時間
