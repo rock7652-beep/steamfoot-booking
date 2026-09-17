@@ -72,18 +72,18 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
         <AnalysisCustomers title="再次上課" ids={current.returningVisitors} customers={current.customers}/>
       </div>}
     </section>
-    <section className={section}><h2 className="text-sm font-semibold text-earth-800">成交與購買收入</h2>
+    <section className={section}><h2 className="text-sm font-semibold text-earth-800">方案與體驗收款</h2>
       {revenue?<><KpiStrip items={[
-        {label:"核帳購買",value:`${revenue.kpi.txCount} 筆`,tone:"earth"},
-        {label:"購買人數",value:`${revenue.kpi.customerCount} 人`,tone:"earth"},
-        {label:"購買收入",value:`NT$ ${revenue.kpi.totalRevenue.toLocaleString()}`,tone:"green"},
-        {label:"退款",value:`NT$ ${revenue.kpi.refundAmount.toLocaleString()}`,tone:"amber"},
-        {label:"購買淨額",value:`NT$ ${revenue.kpi.netRevenue.toLocaleString()}`,tone:"primary"},
-      ]}/><p className="mt-2 text-xs text-earth-500">購買依核帳日、退款依退款日；作廢排除。與收入總覽使用同一課程資料來源，不再加總連動現金帳。較前期購買淨額 {comparison(revenue.kpi.netRevenue,priorRevenue?.kpi.netRevenue??0,"元")}。</p></>:<p className="mt-3 text-sm text-earth-500">沒有交易檢視權限，購買金額不顯示。</p>}
+        {label:"收款登錄",value:`${revenue.kpi.txCount} 筆`,tone:"earth"},
+        {label:"付款顧客數",value:`${revenue.kpi.customerCount} 人`,tone:"earth"},
+        {label:"收款收入",value:`NT$ ${revenue.kpi.totalRevenue.toLocaleString()}`,tone:"green"},
+        {label:"退款／沖銷",value:`NT$ ${revenue.kpi.refundAmount.toLocaleString()}`,tone:"amber"},
+        {label:"收款淨額",value:`NT$ ${revenue.kpi.netRevenue.toLocaleString()}`,tone:"primary"},
+      ]}/><p className="mt-2 text-xs text-earth-500">方案依核帳／退款日，體驗依收款／沖銷日；同一體驗更正前後的收款紀錄分別保留，不代表多次購買或上課。與收入總覽使用同一課程資料來源，不再加總連動現金帳。較前期收款淨額 {comparison(revenue.kpi.netRevenue,priorRevenue?.kpi.netRevenue??0,"元")}。</p></>:<p className="mt-3 text-sm text-earth-500">沒有交易檢視權限，收款金額不顯示。</p>}
       <details className="mt-2 text-xs text-earth-500"><summary className="min-h-11 cursor-pointer py-3">體驗轉換與月結的適用差異</summary><p>課程尚無可辨識的體驗成交歸因，因此不顯示體驗開卡率。蒸足空間費月結不適用課程；課程教練結算方式未約定，不代入蒸足費率。</p></details>
     </section>
     <section className={section}><h2 className="mb-3 text-sm font-semibold text-earth-800">營收分析</h2>
-      <p className="mb-3 text-xs text-earth-500">購買與退款依入帳時間，手動收支依登錄日期；排除購買、退款及作廢的連動現金帳，避免重複計算。收支淨額不等於會計利潤。</p>
+      <p className="mb-3 text-xs text-earth-500">方案、體驗收款與退款／沖銷依入帳時間，手動收支依登錄日期；排除全部交易連動現金帳，避免重複計算。收支淨額不等於會計利潤。</p>
       <KpiStrip items={[
         {label:"手動收入",value:data.financial.manualIncome===null?"無檢視權限":`NT$ ${data.financial.manualIncome.toLocaleString()}`,tone:"green"},
         {label:"手動支出",value:data.financial.manualExpense===null?"無檢視權限":`NT$ ${data.financial.manualExpense.toLocaleString()}`,tone:"amber"},
@@ -93,7 +93,7 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
       {data.financial.net!==null&&data.priorFinancial.net!==null&&<p className="my-2 text-xs text-earth-500">較前期收支淨額 {comparison(data.financial.net,data.priorFinancial.net,"元")}。</p>}
       <DataTable rows={data.financial.categories} rowKey={r=>r.name} columns={[
         {key:"name",header:"分類",accessor:r=>r.name},{key:"income",header:"收入",align:"right",accessor:r=>r.income.toLocaleString()},
-        {key:"refunds",header:"退款",align:"right",accessor:r=>r.refunds.toLocaleString()},{key:"expense",header:"支出",align:"right",accessor:r=>r.expense.toLocaleString()},
+        {key:"refunds",header:"退款／沖銷",align:"right",accessor:r=>r.refunds.toLocaleString()},{key:"expense",header:"支出",align:"right",accessor:r=>r.expense.toLocaleString()},
         {key:"net",header:"淨額",align:"right",accessor:r=>r.net.toLocaleString()},
       ]}/>
       {canReadCash&&<DashboardLink href="/dashboard/cashbook" className="inline-block min-h-11 py-3 text-sm text-primary-700">查看收支明細</DashboardLink>}
@@ -101,9 +101,9 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
     <section className={section}><h2 className="mb-3 text-sm font-semibold text-earth-800">店長／交易歸屬分析</h2><p className="mb-3 text-xs text-earth-500">依訂單歸屬店長（未指定時使用核帳人）與收支歸屬人員統計；未歸屬單獨列示。僅顯示有檢視權限的資料。</p>
       <DataTable rows={data.financial.staff} rowKey={r=>r.id} columns={[
         {key:"name",header:"歸屬人員",accessor:r=>r.id==="unassigned"?"未歸屬":data.staff.find(s=>s.id===r.id)?.displayName??"歷史人員"},
-        {key:"orders",header:"購買筆數",align:"right",accessor:r=>canReadRevenue?r.orders:"—"},
-        {key:"customers",header:"購買人數",align:"right",accessor:r=>canReadRevenue?r.customers:"—"},
-        {key:"purchases",header:"購買淨額",align:"right",accessor:r=>canReadRevenue?(r.purchaseIncome-r.refunds).toLocaleString():"—"},
+        {key:"orders",header:"收款紀錄數",align:"right",accessor:r=>canReadRevenue?r.orders:"—"},
+        {key:"customers",header:"付款顧客數",align:"right",accessor:r=>canReadRevenue?r.customers:"—"},
+        {key:"purchases",header:"收款淨額",align:"right",accessor:r=>canReadRevenue?(r.purchaseIncome-r.refunds).toLocaleString():"—"},
         {key:"cash",header:"手動收支淨額",align:"right",accessor:r=>canReadCash?(r.manualIncome-r.manualExpense).toLocaleString():"—"},
       ]}/>
     </section>

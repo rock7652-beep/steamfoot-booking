@@ -30,20 +30,20 @@ export async function GET(req:NextRequest) {
   const data=await getCourseAnalytics(storeId,range,await checkPermission(user.role,user.staffId,"transaction.read"),await checkPermission(user.role,user.staffId,"cashbook.read"));
   const c=data.current;
   const rows:Array<Array<string|number>>=[
-    ["開始日期",range.startDate],["結束日期",range.endDate],["統計口徑","台灣時間；課程日期統計出席；核帳日與退款日統計購買；取消排除"],
+    ["開始日期",range.startDate],["結束日期",range.endDate],["統計口徑","台灣時間；課程日期統計出席，取消排除；方案依核帳／退款日，體驗依收款／沖銷日，收款紀錄數不代表上課次數"],
     ["排課堂數",c.sessions],["預約學員人數",c.participants],["預約參與人次",c.participations],
     ["實際上課人數",c.visitors.length],["完成出席人次",c.completed],["首次上課人數",c.newVisitors.length],["再次上課人數",c.returningVisitors.length],
     ["使用點數",c.pointsUsed],["使用堂數",c.sessionsUsed],["報到待完成",c.checkedIn],["未到人次",c.noShow],
     ["前期開始",data.previous.startDate],["前期結束",data.previous.endDate],["回流人數",data.returned.length],
   ];
-  if(data.revenue) rows.push(["核帳購買筆數",data.revenue.kpi.txCount],["購買人數",data.revenue.kpi.customerCount],["購買收入",data.revenue.kpi.totalRevenue],["退款",data.revenue.kpi.refundAmount],["購買淨額",data.revenue.kpi.netRevenue]);
+  if(data.revenue) rows.push(["收款登錄筆數",data.revenue.kpi.txCount],["付款顧客數",data.revenue.kpi.customerCount],["收款收入",data.revenue.kpi.totalRevenue],["退款／沖銷",data.revenue.kpi.refundAmount],["收款淨額",data.revenue.kpi.netRevenue]);
   if(data.financial) {
     const f=data.financial;
     if(f.manualIncome!==null) rows.push(["手動收入",f.manualIncome],["手動支出",f.manualExpense??""]);
     if(f.totalIncome!==null) rows.push(["總收入",f.totalIncome],["收支淨額",f.net??""]);
-    rows.push([], ["收支分類","收入","退款","支出","淨額"]);
+    rows.push([], ["收支分類","收入","退款／沖銷","支出","淨額"]);
     for(const c of f.categories) rows.push([c.name,c.income,c.refunds,c.expense,c.net]);
-    rows.push([], ["交易歸屬人員","購買筆數","購買人數","購買淨額","手動收支淨額"]);
+    rows.push([], ["交易歸屬人員","收款紀錄數","付款顧客數","收款淨額","手動收支淨額"]);
     for(const p of f.staff) rows.push([p.id==="unassigned"?"未歸屬":data.staff.find(s=>s.id===p.id)?.displayName??"歷史人員",f.purchaseIncome===null?"無檢視權限":p.orders,f.purchaseIncome===null?"無檢視權限":p.customers,f.purchaseIncome===null?"無檢視權限":p.purchaseIncome-p.refunds,f.manualIncome===null?"無檢視權限":p.manualIncome-p.manualExpense]);
   }
   rows.push([], ["教練","排課堂數","完成人次"]);
