@@ -216,11 +216,10 @@ export function RevenueReportClient({
       setKpi(summaryData.kpi);
       if (mode === "store") {
         setStoreSummary(summaryData.summary);
-        // Payment totals use TransactionPaymentSplit when present and the legacy
-        // transaction field otherwise. Do not apply the detail-only method filter:
-        // this table is the actual payment-method breakdown for the selected period.
+        // Course totals follow the selected method, including mixed receipts.
+        // Preserve the existing all-method breakdown for other modules.
         const paymentParams = buildParams();
-        paymentParams.delete("paymentMethod");
+        if (!courseMode) paymentParams.delete("paymentMethod");
         paymentParams.set("level", "payment-methods");
         const paymentRes = await fetch(`/api/reports/store-revenue?${paymentParams.toString()}`);
         if (!paymentRes.ok) throw new Error("付款方式彙總查詢失敗");
@@ -247,7 +246,7 @@ export function RevenueReportClient({
     } finally {
       setLoading(false);
     }
-  }, [mode, buildParams, startDate, endDate]);
+  }, [mode, courseMode, buildParams, startDate, endDate]);
 
   // Fetch details page
   const fetchDetailsPage = useCallback(async (page: number) => {
