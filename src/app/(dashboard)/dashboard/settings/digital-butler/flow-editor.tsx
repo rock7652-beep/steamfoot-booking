@@ -152,7 +152,7 @@ export function DigitalButlerFlowEditor({
             type="button"
             disabled={pending}
             onClick={() => run(
-              () => createDigitalButlerFlowAction({ name: "新流程", definition: starterDefinition }),
+              () => createDigitalButlerFlowAction({ name: "新流程", definition: defaultDefinition }),
               "已建立草稿",
             )}
             className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
@@ -257,7 +257,7 @@ export function DigitalButlerFlowEditor({
             ) : null}
           </>
         ) : (
-          <div className="py-20 text-center text-sm text-earth-500">請先建立第一個流程</div>
+          <div className="py-20 text-center text-sm text-earth-500">{flows.length ? "請選擇左側流程繼續編輯" : "請先建立第一個流程"}</div>
         )}
       </section>
       </div>
