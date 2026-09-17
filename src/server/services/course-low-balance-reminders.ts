@@ -11,7 +11,7 @@ import type {LineMessage} from "@/lib/line";
 import {deliverCourseCardNotification} from "./course-card-notification-delivery";
 
 export function courseLowBalanceMessages(body:string,slug:string):LineMessage[] {
-  const url=new URL(`/s/${encodeURIComponent(slug)}`,deriveBaseUrl());url.searchParams.set("view","plans");
+  const url=new URL(`/s/${encodeURIComponent(slug)}/book`,deriveBaseUrl());url.searchParams.set("view","plans");
   const preferences=new URL(`/s/${encodeURIComponent(slug)}/book/reminders`,deriveBaseUrl());
   return [{type:"flex",altText:body,contents:{type:"bubble",styles:LINE_CARD_STYLES,
     body:{type:"box",layout:"vertical",spacing:"md",contents:[

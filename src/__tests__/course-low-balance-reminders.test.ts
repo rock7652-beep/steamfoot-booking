@@ -55,3 +55,9 @@ it("retains preview suppression and plan send quotas",async()=>{
 it("never sends on unverifiable identity and preserves a stable key on uncertain results",async()=>{
  m.route.mockResolvedValue({status:"BLOCKED",reason:"unknown"});await runCourseLowBalanceReminders(now,"s");expect(m.push).not.toHaveBeenCalled();m.route.mockResolvedValue({status:"READY",channel:"STORE",recipientLineUserId:"verified-b"});m.push.mockRejectedValue(new Error("timeout"));expect(await runCourseLowBalanceReminders(now,"s")).toMatchObject({failed:1});expect(m.updateMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({status:{not:"SENT"}})}));
 });
+
+it("links directly to the course plan and authenticated preference pages",()=>{
+ const message=JSON.stringify(courseLowBalanceMessages("test","shop"));
+ expect(message).toContain("https://example.test/s/shop/book?view=plans");
+ expect(message).toContain("https://example.test/s/shop/book/reminders");
+});
