@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "repository": "rock7652-beep/steamfoot-booking",
+  "auditDateTaipei": "2026-09-17",
+  "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
+  "lastInventoriedMainCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
+  "previousSuccessfulAuditCommit": null,
+  "mode": "initial-baseline-with-explicit-gap-review",
+  "branch": "codex/operation-guide-audit-20260917",
+  "newGuideIds": ["D12", "I07"],
+  "updatedGuideIds": ["C07", "C08", "E01", "F08", "F11"],
+  "interactionPendingGuideIds": ["D12", "I07", "C07", "C08", "E01", "F08", "F11"],
+  "interactionStatus": "blocked-no-authenticated-test-session",
+  "allArticlesInteractionVerified": false,
+  "allSystemCoverageComplete": false,
+  "continuation": "Read this state from the open audit draft branch before comparing main; do not rebuild the baseline just because the draft is unmerged. Compare lastInventoriedMainCommit..origin/main, retain pending interaction checks, and update the same draft until authorized to merge."
+}

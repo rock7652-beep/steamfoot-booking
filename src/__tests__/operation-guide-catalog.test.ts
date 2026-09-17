@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { availableGuides, findOperationGuides, guideCategoryForPath, relatedOperationGuides, operationGuides, guideCategories } from "../lib/operation-guide";
 import type { GuideAccess } from "../lib/operation-guide-types";
+import { branchConnectionMonthlyFee, managementMonthlyFee } from "../lib/alliance-subscription";
 const access: GuideAccess = { module: "steamfoot", permissions: ["booking.read", "booking.update", "customer.read", "business_hours.manage", "business_hours.view"], features: { line_reminder: true } };
 describe("guide catalogue", () => {
   it("has unique articles with traceable source files and complete instructions", () => {
@@ -45,5 +46,34 @@ describe("guide catalogue", () => {
     expect(guideCategoryForPath("/dashboard/customers/a/health")).toBe("health");
     expect(guideCategoryForPath("/dashboard/settings/digital-butler")).toBe("digital");
     expect(guideCategoryForPath("/dashboard/not-yet-documented")).toBe(null);
+  });
+  it("finds identity errors and separates temporary failures from re-registration", () => {
+    expect(findOperationGuides("暫時無法使用", access).some(g => g.id === "C07")).toBe(true);
+    expect(findOperationGuides("會員資料需要店家協助確認", access).some(g => g.id === "C08")).toBe(true);
+    const guide = operationGuides.find(g => g.id === "C07")!;
+    expect(guide.details.join(" ")).toContain("不需要重新註冊或解除 LINE 綁定");
+  });
+  it("keeps transfer-purchase and payment confirmation specific to steamfoot", () => {
+    const steam = {...access, permissions: ["customer.read", "transaction.create"]};
+    expect(findOperationGuides("後四碼", steam).map(g => g.id)).toEqual(expect.arrayContaining(["D12", "E01"]));
+    expect(availableGuides({...steam, module: "spa"}).some(g => ["D12", "E01"].includes(g.id))).toBe(false);
+    expect(availableGuides({...steam, permissions: []}).some(g => ["D12", "E01"].includes(g.id))).toBe(false);
+    expect(guideCategoryForPath("/s/staging/admin/dashboard/payments")).toBe("money");
+    expect(relatedOperationGuides("/dashboard/payments", steam).some(g => g.id === "E01")).toBe(true);
+  });
+  it("explains pending-payment invitation skips without treating them as paid", () => {
+    const care = {...access, permissions: ["business_hours.manage"]};
+    expect(findOperationGuides("待核帳", care).map(g => g.id)).toEqual(expect.arrayContaining(["F08", "F11"]));
+    expect(findOperationGuides("待核帳", {...care, features: {}}).some(g => ["F08", "F11"].includes(g.id))).toBe(false);
+    expect(operationGuides.find(g => g.id === "F08")!.answer).toContain("不代表已付款");
+  });
+  it("documents actual branch usage with examples matching the pricing function", () => {
+    const guide = operationGuides.find(g => g.id === "I07")!;
+    expect(guide.details.join(" ")).toContain(`$${branchConnectionMonthlyFee(6)!.toLocaleString("en-US")}`);
+    expect(guide.details.join(" ")).toContain(`$${managementMonthlyFee(6)!.toLocaleString("en-US")}`);
+    expect(guide.details.join(" ")).toContain(`$${branchConnectionMonthlyFee(3)!.toLocaleString("en-US")}`);
+    expect(guide.answer).toContain("不會自動扣款");
+    expect(availableGuides({...access, permissions: ["plans.edit"]}).some(g => g.id === "I07")).toBe(true);
+    expect(availableGuides(access).some(g => g.id === "I07")).toBe(false);
   });
 });
