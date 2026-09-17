@@ -35,7 +35,7 @@ const bookingInput = z.object({
 
 export async function saveCourseCustomer(input: unknown) {
   try {
-    const data = updateCustomerSchema.pick({ name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true }).extend({ id: id.optional() }).parse(input);
+    const data = updateCustomerSchema.pick({ name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true }).extend({ id: id.optional(), address: z.string().trim().max(300).nullable().optional(), notes: z.string().trim().max(1000).nullable().optional() }).parse(input);
     const { storeId } = await courseManager(
       data.id ? "customer.update" : "customer.create",
     );
@@ -46,6 +46,8 @@ export async function saveCourseCustomer(input: unknown) {
       gender: data.gender ?? null,
       birthday: data.birthday ? new Date(`${data.birthday}T00:00:00.000Z`) : null,
       height: data.height ?? null,
+      ...(data.address !== undefined ? { address: data.address || null } : {}),
+      ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
       ...(data.lineName !== undefined ? { lineName: data.lineName || null } : {}),
       ...(data.serviceNote !== undefined ? { serviceNote: data.serviceNote || null } : {}),
     };

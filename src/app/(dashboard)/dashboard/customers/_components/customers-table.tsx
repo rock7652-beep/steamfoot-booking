@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { CustomerStage, LineLinkStatus, UserStatus } from "@prisma/client";
 import { DataTable, EmptyRow, type Column } from "@/components/desktop";
 import { formatTWTime } from "@/lib/date-utils";
@@ -76,6 +77,9 @@ interface Props {
   onToggleAll?: () => void;
   /** View Mode: no create / assign / selection entry points. */
   readOnly?: boolean;
+  balanceColumn?: { label: string; render: (row: CustomerRow) => ReactNode };
+  lastVisitLabel?: string;
+  onCreate?: () => void;
 }
 
 /**
@@ -115,6 +119,9 @@ export function CustomersTable({
   onToggleRow,
   onToggleAll,
   readOnly = false,
+  balanceColumn,
+  lastVisitLabel = "最近來店",
+  onCreate,
 }: Props) {
   // 全選 header state：indeterminate / checked / unchecked，只看「當頁可操作列」
   const selectableRows = rows.filter((r) => !isInactiveRow(r));
@@ -227,9 +234,10 @@ export function CustomersTable({
       // 有效堂數：用「剩 N 堂」措辭，避免與方案名稱「10堂」混淆。
       // 1–3 堂亮黃並標「提醒」；無有效 PACKAGE 顯示「—」。
       key: "validSessions",
-      header: "有效堂數",
+      header: balanceColumn?.label ?? "有效堂數",
       width: "w-24",
       accessor: (c) => {
+        if (balanceColumn) return balanceColumn.render(c);
         const { hasValid, isLow, total } = remainingSessionsState(c.validPackageSessions);
         if (!hasValid) {
           return <span className="text-[11px] text-earth-300">—</span>;
@@ -276,7 +284,7 @@ export function CustomersTable({
     },
     {
       key: "lastVisit",
-      header: "最近來店",
+      header: lastVisitLabel,
       align: "right",
       width: "w-24",
       accessor: (c) => (
@@ -362,7 +370,7 @@ export function CustomersTable({
     <EmptyRow
       title="尚無顧客資料"
       hint={readOnly ? "此下層店目前尚無顧客資料" : "開始新增您的第一位顧客"}
-      cta={readOnly ? undefined : { label: "新增顧客", href: `${basePath}/new` }}
+      cta={readOnly || onCreate ? undefined : { label: "新增顧客", href: `${basePath}/new` }}
     />
   );
 
@@ -377,7 +385,7 @@ export function CustomersTable({
       onRowActivate={(c) => {
         if (!isInactiveRow(c)) onView(c);
       }}
-      empty={emptyNode}
+      empty={<>{emptyNode}{!hasActiveFilters && !readOnly && onCreate && <button type="button" onClick={onCreate} className="mx-auto mb-4 block rounded-lg bg-primary-600 px-4 py-2 text-white">新增顧客</button>}</>}
     />
   );
 }

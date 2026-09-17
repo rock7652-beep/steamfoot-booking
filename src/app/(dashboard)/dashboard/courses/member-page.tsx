@@ -44,7 +44,7 @@ export async function CourseMemberPage({
       canReadPeople
         ? prisma.customer.findMany({
             where: { storeId, mergedIntoCustomerId: null },
-            select: { id: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true },
+            select: { id: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, address: true, notes: true, lineUserId: true, lineLinkStatus: true, customerStage: true, createdAt: true, totalPoints: true, mergedIntoCustomerId: true, user: {select:{status:true}}, assignedStaff: {select:{id:true,storeId:true,displayName:true,colorCode:true}}, sponsor:{select:{id:true,storeId:true,name:true}}, _count:{select:{sponsoredCustomers:{where:{storeId,mergedIntoCustomerId:null}}}} },
             orderBy: { name: "asc" },
           })
         : [],
@@ -70,6 +70,22 @@ export async function CourseMemberPage({
         ? checkPermission(user.role, user.staffId, "staff.manage")
         : false,
     ]);
+  const lastClasses = view === "customers" ? await coursePrisma.$queryRaw<{customerId:string;lastVisitAt:Date}[]>`
+    SELECT b."customerId", MAX(s."startsAt") AS "lastVisitAt"
+    FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"
+    WHERE b."storeId"=${storeId} AND b.status='ATTENDED'
+    GROUP BY b."customerId"` : [];
+  const lastClassByCustomer = new Map(lastClasses.map(row=>[row.customerId,row.lastVisitAt]));
+  const customerRows = people.map(p=>({
+    id:p.id,name:p.name,phone:p.phone,lineName:p.lineName,lineUserId:p.lineUserId,
+    lineLinkStatus:p.lineLinkStatus,customerStage:p.customerStage,createdAt:p.createdAt,
+    totalPoints:p.totalPoints,sponsoredCount:p._count.sponsoredCustomers,
+    sponsor:p.sponsor?.storeId===storeId ? {id:p.sponsor.id,name:p.sponsor.name} : null,
+    assignedStaff:p.assignedStaff?.storeId===storeId ? {id:p.assignedStaff.id,displayName:p.assignedStaff.displayName,colorCode:p.assignedStaff.colorCode} : null,
+    mergedIntoCustomerId:p.mergedIntoCustomerId,userStatus:p.user?.status??null,
+    serviceNote:p.serviceNote,lastVisitAt:lastClassByCustomer.get(p.id)??null,
+    validPackageSessions:0,
+  }));
   const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true}});
   const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
   const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
@@ -78,11 +94,13 @@ export async function CourseMemberPage({
       <PageHeader title={view === "customers" ? "顧客管理" : "方案管理"} />
       {view === "plans" && <CoursePurchaseReview canConfirm={canAssign} orders={orders.map(o=>({id:o.id,name:o.name,price:o.price,transferLastFive:o.transferLastFive,customerName:buyers.find(c=>c.id===o.customerId)?.name??"顧客"}))}/>}
       <CourseMemberWorkspace
+        customerRows={customerRows}
+        canReadCards={canReadCards}
         healthEnabled={await hasStoreFeature(storeId, FEATURES.AI_HEALTH_SUMMARY)}
         templates={templates}
         view={view}
         canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}
-        people={people.map((p) => ({ ...p, birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
+        people={people.map((p) => ({ id:p.id,name:p.name,phone:p.phone,email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
         plans={plans}
         cards={cards}
         canEdit={canEdit}
