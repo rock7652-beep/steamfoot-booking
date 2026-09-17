@@ -244,7 +244,7 @@ export async function settleCourseBooking(
   if (target === "ATTENDED") {
     if (actor.customerId) return fail("點名僅限有權限的人員");
     if (booking.session.startsAt > new Date())
-      return fail("課程尚未開始，不能點名扣點");
+      return fail("課程尚未開始，不能標記出席");
     if (booking.cardId) {
     const updated = await tx.coursePointCard.updateMany({
       where: {

@@ -111,6 +111,7 @@ function fmtPlanType(t: string | null): string {
 }
 
 function fmtPayment(m: string): string {
+  if (m === "MIXED") return "混合付款";
   const map: Record<string, string> = {
     CASH: "現金", TRANSFER: "轉帳", LINE_PAY: "LINE Pay",
     CREDIT_CARD: "信用卡", OTHER: "其他", UNPAID: "未付款",
@@ -477,11 +478,11 @@ export function RevenueReportClient({
       {/* ===== KPI Cards ===== */}
       {kpi && (
         <div className={`grid gap-3 ${mode === "coach" ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-8" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"}`}>
-          <KpiCard label={courseMode ? "核帳收入" : "總營收"} value={fmtMoney(kpi.totalRevenue)} color="primary" />
-          <KpiCard label="退款金額" value={fmtMoney(kpi.refundAmount)} color="red" />
-          <KpiCard label={courseMode ? "方案淨收入" : "淨營收"} value={fmtMoney(kpi.netRevenue)} color="green" />
-          <KpiCard label={courseMode ? "核帳筆數" : "交易筆數"} value={kpi.txCount} color="blue" />
-          <KpiCard label={courseMode ? "購買人數" : "客戶數"} value={kpi.customerCount} color="amber" />
+          <KpiCard label={courseMode ? "收款登錄" : "總營收"} value={fmtMoney(kpi.totalRevenue)} color="primary" />
+          <KpiCard label={courseMode ? "退款／沖銷" : "退款金額"} value={fmtMoney(kpi.refundAmount)} color="red" />
+          <KpiCard label={courseMode ? "淨收入" : "淨營收"} value={fmtMoney(kpi.netRevenue)} color="green" />
+          <KpiCard label={courseMode ? "收款紀錄數" : "交易筆數"} value={kpi.txCount} color="blue" />
+          <KpiCard label={courseMode ? "付款顧客數" : "客戶數"} value={kpi.customerCount} color="amber" />
           <KpiCard label="平均客單價" value={fmtMoney(kpi.avgPerCustomer)} color="earth" />
           {mode === "coach" && kpi.newCustomerRevenue != null && (
             <>
@@ -539,7 +540,7 @@ export function RevenueReportClient({
               <table className="min-w-full text-sm">
                 <thead className="bg-earth-50">
                   <tr>
-                    {(courseMode ? ["分店名稱", "核帳收入", "退款金額", "方案淨收入", "核帳筆數", "購買人數", "平均客單價"] : ["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
+                    {(courseMode ? ["分店名稱", "收款登錄", "退款／沖銷", "淨收入", "收款紀錄數", "付款顧客數", "平均客單價"] : ["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -568,7 +569,7 @@ export function RevenueReportClient({
           {mode === "store" && (
             <section className="mt-4 rounded-xl border border-earth-200 bg-white p-4">
               <h3 className="text-sm font-semibold text-earth-800">{courseMode ? "收款方式" : "付款方式拆分"}</h3>
-              <p className="mt-1 text-xs text-earth-500">{courseMode ? "方案核帳及體驗收款；混合付款依明細分攤，退款另列於上方摘要。" : "混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。"}</p>
+              <p className="mt-1 text-xs text-earth-500">{courseMode ? "方案核帳及體驗收款；混合付款依明細分攤，退款／沖銷另列於上方摘要。" : "混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。"}</p>
               {paymentMethodSummary.length === 0 ? (
                 <p className="mt-3 text-sm text-earth-400">本期尚無付款資料</p>
               ) : (

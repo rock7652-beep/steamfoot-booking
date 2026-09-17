@@ -41,7 +41,7 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
       customerName:person?.name??"顧客資料待核對",customerPhone:person?.phone??"",customerId:order.customerId,
       coachName:owner?.displayName??null,coachRole:owner?.user.role??null,staffId:owner?.id??null,
       planName:order.name,planType:order.unit,unit:order.unit,grossAmount:amount,discountAmount:0,netAmount:amount,
-      paymentMethod:method,paymentSplits:splits,status:refund?"REFUNDED":"SUCCESS",isFirstPurchase:!refund&&firstPurchaseIds.has(order.id),
+      paymentMethod:splits.length?"MIXED":method,paymentSplits:splits,status:refund?"REFUNDED":"SUCCESS",isFirstPurchase:!refund&&firstPurchaseIds.has(order.id),
       note,createdByName:staffByUser.get(actorId ?? "")?.displayName??null,createdAt:date.toISOString(),refund });
   }
   for (const order of orders) if (order.confirmedAt) add(order,order.price,order.confirmedAt,order.id,order.note,false,order.confirmedBy);
