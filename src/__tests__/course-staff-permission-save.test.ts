@@ -19,3 +19,14 @@ it("requires an authorized owner and rejects permissions outside the course modu
  m.manager.mockResolvedValue({user:{role:"CUSTOMER"},storeId:"s"});expect(await saveCourseStaff(input)).toMatchObject({success:false});expect(m.staff).not.toHaveBeenCalled();
  m.manager.mockResolvedValue({user:{role:"OWNER"},storeId:"s"});expect(await saveCourseStaff({...input,permissions:["transaction.discount"]})).toMatchObject({success:false});expect(m.permission).not.toHaveBeenCalled();
 });
+it("saves and revokes course export permissions independently",async()=>{
+ expect(await saveCourseStaff({...input,permissions:["customer.read","customer.export","report.read","report.export"]})).toMatchObject({success:true});
+ for(const permission of ["customer.export","report.export"]){
+  expect(m.permission).toHaveBeenCalledWith(expect.objectContaining({where:{staffId_permission:{staffId:"manager2",permission}},update:{granted:true}}));
+ }
+ m.permission.mockClear();
+ expect(await saveCourseStaff({...input,permissions:["customer.read","report.read"]})).toMatchObject({success:true});
+ for(const permission of ["customer.export","report.export"]){
+  expect(m.permission).toHaveBeenCalledWith(expect.objectContaining({where:{staffId_permission:{staffId:"manager2",permission}},update:{granted:false}}));
+ }
+});
