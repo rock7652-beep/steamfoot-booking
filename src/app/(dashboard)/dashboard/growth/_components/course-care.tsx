@@ -9,7 +9,7 @@ export async function CourseCare({ storeId, month, readOnly, canFollowUp, canBoo
   const [overview, birthdays] = await Promise.all([getCourseCustomerCare(storeId), getBirthdayCustomersForMonth(storeId, month)]);
   const mode = { courseMode: true, readOnly, canFollowUp, canBook };
   const phone = (value: string | null) => value ? `末四碼 ${value.slice(-4)}` : "未提供電話";
-  const rows = (kind: keyof typeof overview): CareItem[] => overview[kind].map(customer => {
+  const rows = (kind: "low" | "inactive" | "expiring"): CareItem[] => overview[kind].map(customer => {
     const cards = customer.cards.filter(card => kind === "low" ? card.low : kind === "expiring" ? card.expiring : card.remaining > 0);
     return {
       ...mode, customerId: customer.id, name: customer.name, phoneMasked: phone(customer.phone), staffName: customer.assignedStaff?.displayName ?? null,
@@ -29,7 +29,8 @@ export async function CourseCare({ storeId, month, readOnly, canFollowUp, canBoo
         const items = rows(kind);
         return <CareSection key={kind} title={title} description={kind === 'low' ? '依各方案開關及門檻，逐卡判斷可用額度；不同適用範圍不合併計算。' : kind === 'inactive' ? '最近一次出席超過 30 天，且仍有有效方案。' : '每張有效方案分別列出到期日及額度。'} emptyText="目前沒有符合條件的顧客。" items={items} totalCount={items.length}/>;
       })}
-      <section className="rounded border border-earth-200 p-4 text-sm"><h2 className="font-semibold">體驗未開卡與體驗追蹤</h2><p className="mt-2">課程體驗交易承接尚未完成，暫無可用統計來源；此處不將缺少資料顯示為零，也不以一般購買推定體驗成交。</p></section>
+      <CareSection title="體驗收款後未購買方案" description="僅列同店已收款且未購買課程方案、沒有有效可用卡的顧客；收款不代表已出席。" emptyText="目前沒有符合條件的體驗顧客。" items={overview.trial.map(c=>({...mode,customerId:c.id,name:c.name,phoneMasked:phone(c.phone),staffName:c.assignedStaff?.displayName??null,lastFollowUpText:c.followUps[0]?`最後追蹤：${c.followUps[0].createdBy.name}・${formatTWTime(c.followUps[0].createdAt)}`:null,reason:`${formatTWTime(c.trial.createdAt)} 體驗收款 NT$ ${c.trial.amount}`,meta:`課程 ${formatTWTime(c.trial.booking.session.startsAt)} · ${c.trial.booking.status==="ATTENDED"?"已出席":c.trial.booking.status==="NO_SHOW"?"未到":"待出席"}`,script:"您好，想關心您課程體驗的安排與感受，需要協助可以與我們聯絡。"}))} totalCount={overview.trial.length}/>
+
     </div>
   </PageShell>;
 }

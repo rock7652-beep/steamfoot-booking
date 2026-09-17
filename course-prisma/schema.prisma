@@ -135,7 +135,9 @@ model CourseBooking {
   id String @id @default(cuid())
   storeId String
   sessionId String
-  cardId String
+  cardId String?
+  bookingKind String @default("CARD")
+  trialPrice Int?
   customerId String
   operatorUserId String
   operatorCustomerId String?
@@ -148,13 +150,34 @@ model CourseBooking {
   requestKey String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  card CoursePointCard @relation(fields: [cardId, storeId], references: [id, storeId])
+  card CoursePointCard? @relation(fields: [cardId, storeId], references: [id, storeId])
+  trialPayments CourseTrialPayment[]
   session CourseSession @relation(fields: [sessionId, storeId], references: [id, storeId])
   entries CoursePointEntry[]
   @@unique([id, storeId])
   @@unique([storeId, requestKey])
   @@index([storeId, sessionId, status])
   @@index([storeId, cardId, status])
+}
+
+// Trial receipts never create a point card or settle attendance.
+model CourseTrialPayment {
+  id String @id @default(cuid())
+  storeId String
+  bookingId String
+  amount Int
+  paymentMethod String
+  paymentSplits Json?
+  status String @default("SUCCESS")
+  note String @default("")
+  requestKey String
+  actorUserId String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  voidedAt DateTime? @db.Timestamptz(3)
+  voidReason String?
+  booking CourseBooking @relation(fields: [bookingId, storeId], references: [id, storeId])
+  @@unique([storeId, requestKey])
+  @@index([storeId, createdAt])
 }
 
 model CoursePointEntry {

@@ -9,7 +9,7 @@ describe("course account reconciliation", () => {
     m.query.mockResolvedValue([{ code: "course_refund_cash", checked: BigInt(2), mismatches: BigInt(1) }]);
     const result = await checkCourseAccounts("test-store");
     expect(m.transaction).toHaveBeenCalledWith("test-store", expect.any(Function));
-    expect(m.query.mock.calls[0].slice(1)).toEqual(["test-store", "test-store", "test-store", "test-store"]);
+    expect(m.query.mock.calls[0].slice(1)).toEqual(["test-store", "test-store", "test-store", "test-store", "test-store"]);
     expect(result[0]).toMatchObject({ status: "mismatch", sources: { "已檢查筆數": 2, "不一致筆數": 1 } });
   });
   it("propagates query failure so the engine records an error, never a pass", async () => {

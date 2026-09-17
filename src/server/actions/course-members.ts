@@ -299,9 +299,13 @@ export async function updateCourseBookingStatus(input: unknown) {
       const { user, storeId } = await courseManager("booking.update");
       actor = { userId: user.id, storeId, name: user.name ?? "店長" };
     }
-    await courseTransaction(actor.storeId, (tx) =>
-      settleCourseBooking(tx, actor, data.bookingId, data.status),
-    );
+    await courseTransaction(actor.storeId, async (tx) => {
+      if (!data.member && data.status === "CANCELLED") {
+        const booking = await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId:actor.storeId},select:{bookingKind:true}});
+        if (booking?.bookingKind === "TRIAL") await courseManager("trial.cancel");
+      }
+      return settleCourseBooking(tx, actor, data.bookingId, data.status);
+    });
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
     refresh();
     return { success: true as const };
@@ -375,6 +379,13 @@ export async function loadCourseSessionDetail(sessionId: string) {
       success: true as const,
       data: {
         roster,
+        trial: {
+          settings: await (await import("@/lib/shop-config")).getTrialSettings(storeId),
+          canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),
+          canCollect: await checkPermission(user.role,user.staffId,"trial.confirm"),
+          canCorrect: await checkPermission(user.role,user.staffId,"transaction.void"),
+          customers: canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true},orderBy:{name:"asc"}}) : [],
+        },
         session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost },
         cards: cards.map((card) => ({
           ...card,
@@ -422,6 +433,6 @@ export async function loadCourseCustomerBookings(customerId: string) {
     const customer = await prisma.customer.findFirst({ where: { id: id.parse(customerId), storeId, mergedIntoCustomerId: null }, select: { id: true } });
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
     const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId }, include: { session: { select: { startsAt: true, nameSnapshot: true } }, card: { select: { nameSnapshot: true, expiresAt: true, unit: true } } }, orderBy: { session: { startsAt: "desc" } }, take: 100 });
-    return { success: true as const, data: bookings.map((b) => ({ id: b.id, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card.nameSnapshot, expiresAt: b.card.expiresAt.toISOString(), points: b.pointCost, unit: b.card.unit, notes: b.notes, operator: b.operatorName })) };
+    return { success: true as const, data: bookings.map((b) => ({ id: b.id, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card?.nameSnapshot ?? "體驗（不使用方案）", expiresAt: b.card?.expiresAt.toISOString() ?? null, points: b.pointCost, unit: b.card?.unit ?? "TRIAL", notes: b.notes, operator: b.operatorName })) };
   } catch (e) { return handleActionError(e); }
 }

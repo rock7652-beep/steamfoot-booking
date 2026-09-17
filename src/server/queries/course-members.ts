@@ -65,6 +65,9 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       customerName: true,
       status: true,
       pointCost: true,
+      bookingKind: true,
+      trialPrice: true,
+      trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
       card: { select: { nameSnapshot: true, expiresAt: true, remaining: true, bookings: { where: { status: "RESERVED" }, select: { pointCost: true } } } },
@@ -78,9 +81,10 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   return bookings.map(({ card, checkedInAt, ...b }) => ({
     ...b,
     checkedInAt: checkedInAt?.toISOString() ?? null,
-    planName: card.nameSnapshot,
-    available: card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((n, b) => n + b.pointCost, 0)),
-    expiresAt: card.expiresAt.toISOString(),
+    trialPayments: b.trialPayments.map(p=>({...p,createdAt:p.createdAt.toISOString(),voidedAt:p.voidedAt?.toISOString()??null})),
+    planName: card?.nameSnapshot ?? "體驗（不使用方案）",
+    available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((n, b) => n + b.pointCost, 0)),
+    expiresAt: card?.expiresAt.toISOString() ?? null,
     serviceNote: customers.find((c) => c.id === b.customerId)?.serviceNote ?? "",
   }));
 }

@@ -416,7 +416,7 @@ export function RevenueReportClient({
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             >
               <option value="">全部</option>
-              {courseMode ? <><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option></>}
+              {courseMode ? <><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option><option value="TRIAL">體驗</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option></>}
             </select>
           </div>
 
@@ -429,7 +429,7 @@ export function RevenueReportClient({
                 className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
                 <option value="">全部</option>
-                {courseMode ? <option value="OTHER">銀行匯款</option> : <><option value="CASH">現金</option>
+                {<><option value="CASH">現金</option>
                 <option value="TRANSFER">轉帳</option>
                 <option value="LINE_PAY">LINE Pay</option>
                 <option value="CREDIT_CARD">信用卡</option>
@@ -568,12 +568,12 @@ export function RevenueReportClient({
           {mode === "store" && (
             <section className="mt-4 rounded-xl border border-earth-200 bg-white p-4">
               <h3 className="text-sm font-semibold text-earth-800">{courseMode ? "收款方式" : "付款方式拆分"}</h3>
-              <p className="mt-1 text-xs text-earth-500">{courseMode ? "銀行匯款核帳收入；退款金額另列於上方摘要。" : "混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。"}</p>
+              <p className="mt-1 text-xs text-earth-500">{courseMode ? "方案核帳及體驗收款；混合付款依明細分攤，退款另列於上方摘要。" : "混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。"}</p>
               {paymentMethodSummary.length === 0 ? (
                 <p className="mt-3 text-sm text-earth-400">本期尚無付款資料</p>
               ) : (
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {paymentMethodSummary.map((row) => <div key={row.paymentMethod} className="rounded-lg bg-earth-50 px-3 py-2"><p className="text-xs text-earth-500">{courseMode && row.paymentMethod === "OTHER" ? "銀行匯款" : fmtPayment(row.paymentMethod)}</p><p className="mt-1 font-semibold tabular-nums text-earth-900">NT$ {fmtMoney(row.amount)}</p></div>)}
+                  {paymentMethodSummary.map((row) => <div key={row.paymentMethod} className="rounded-lg bg-earth-50 px-3 py-2"><p className="text-xs text-earth-500">{fmtPayment(row.paymentMethod)}</p><p className="mt-1 font-semibold tabular-nums text-earth-900">NT$ {fmtMoney(row.amount)}</p></div>)}
                 </div>
               )}
             </section>
@@ -654,7 +654,7 @@ export function RevenueReportClient({
                             {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(d.grossAmount)}</td>
                             <td className="px-3 py-2 text-right">{fmtMoney(d.discountAmount)}</td></>}
                             <td className="px-3 py-2 text-right font-medium">{fmtMoney(d.netAmount)}</td>
-                            <td className="px-3 py-2">{courseMode && d.paymentMethod === "OTHER" ? "銀行匯款" : fmtPayment(d.paymentMethod)}</td>
+                            <td className="px-3 py-2">{fmtPayment(d.paymentMethod)}</td>
                             <td className="px-3 py-2">
                               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                                 d.status === "SUCCESS" ? "bg-green-100 text-green-700" :

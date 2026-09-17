@@ -1,10 +1,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ customers: vi.fn(), cards: vi.fn(), bookings: vi.fn(), orders: vi.fn(), refunds: vi.fn(), visits: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: { customer: { findMany: m.customers } } }));
-vi.mock("@/lib/course-db", () => ({ coursePrisma: { coursePointCard: { findMany: m.cards }, courseBooking: { findMany: m.bookings }, coursePurchase: { findMany: m.orders }, coursePurchaseRefund: { findMany: m.refunds }, $queryRaw: m.visits } }));
+const m = vi.hoisted(() => ({ trials:vi.fn(), staff:vi.fn(), customers: vi.fn(), cards: vi.fn(), bookings: vi.fn(), orders: vi.fn(), refunds: vi.fn(), visits: vi.fn() }));
+vi.mock("@/lib/db", () => ({ prisma: { staff:{findMany:m.staff}, customer: { findMany: m.customers } } }));
+vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseTrialPayment:{findMany:m.trials}, coursePointCard: { findMany: m.cards }, courseBooking: { findMany: m.bookings }, coursePurchase: { findMany: m.orders }, coursePurchaseRefund: { findMany: m.refunds }, $queryRaw: m.visits } }));
 import { getCourseDataExport } from "@/server/queries/course-data-export";
 const now = new Date("2026-09-17T12:00:00Z"), period = { gte: new Date("2026-09-01T00:00:00+08:00"), lte: now };
-beforeEach(() => { vi.resetAllMocks(); m.customers.mockResolvedValue([{ id: "a", name: "A" }, { id: "b", name: "B" }]); m.orders.mockResolvedValue([]); m.refunds.mockResolvedValue([]); });
+beforeEach(() => { vi.resetAllMocks();m.trials.mockResolvedValue([]);m.staff.mockResolvedValue([{userId:"manager-user"}]); m.customers.mockResolvedValue([{ id: "a", name: "A" }, { id: "b", name: "B" }]); m.orders.mockResolvedValue([]); m.refunds.mockResolvedValue([]); });
 it("exports one row per shared card with reserved quota and separate unit/expiry", async () => {
   m.cards.mockResolvedValue([{ id: "card", nameSnapshot: "共卡", remaining: 10, closedAt: null, expiresAt: new Date("2026-10-01"), createdAt: now, unit: "SESSION", members: [{ customerId: "a" }, { customerId: "b" }], bookings: [{ pointCost: 3 }] }]);
   const [sheet] = await getCourseDataExport("own", "wallets", period, "ACTIVE", 100, { now });
@@ -16,7 +16,7 @@ it("keeps purchase dates separate from refund dates and applies manager visibili
   m.orders.mockResolvedValue([{ id: "o", customerId: "a", name: "課程卡", price: 1000, status: "REFUNDED", createdAt: now, confirmedAt: now, refunds: [{ amount: 400 }, { amount: 200 }] }]);
   m.refunds.mockResolvedValue([{ id: "r", purchaseId: "o", amount: 200, method: "BANK_TRANSFER", reason: "協商", createdAt: now, purchase: { customerId: "a", name: "課程卡" } }]);
   const sheets = await getCourseDataExport("own", "transactions", period, "REFUNDED", 100, { revenueStaffId: "manager" });
-  expect(sheets).toHaveLength(2); expect(sheets[0].rows[0][7]).toBe(600); expect(sheets[1].rows[0][5]).toBe(200);
+  expect(sheets).toHaveLength(3); expect(sheets.find(s=>s.name==="購買登錄")!.rows[0][7]).toBe(600); expect(sheets.find(s=>s.name==="退款發生")!.rows[0][5]).toBe(200);
   expect(m.orders).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "own", createdAt: period, status: "REFUNDED", revenueStaffId: "manager" } }));
   expect(m.refunds).toHaveBeenCalledWith(expect.objectContaining({ where: { storeId: "own", createdAt: period, purchase: { status: "REFUNDED", revenueStaffId: "manager" } } }));
 });

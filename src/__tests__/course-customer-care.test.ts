@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ customers: vi.fn(), cards: vi.fn(), attendance: vi.fn() }));
+const mocks = vi.hoisted(() => ({ trials:vi.fn(),purchases:vi.fn(),customers: vi.fn(), cards: vi.fn(), attendance: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ prisma: { customer: { findMany: mocks.customers } } }));
-vi.mock("@/lib/course-db", () => ({ coursePrisma: { coursePointCard: { findMany: mocks.cards }, $queryRaw: mocks.attendance } }));
+vi.mock("@/lib/course-db", () => ({ coursePrisma: { courseTrialPayment:{findMany:mocks.trials},coursePurchase:{findMany:mocks.purchases},coursePointCard: { findMany: mocks.cards }, $queryRaw: mocks.attendance } }));
 import { getCourseCustomerCare } from "@/server/queries/course-customer-care";
 const now = new Date("2026-09-17T12:00:00Z");
 const card = (id: string, remaining: number, held: number, enabled = true, threshold: number | null = 2) => ({ id, nameSnapshot: id, unit: "POINT", remaining, expiresAt: new Date("2026-09-20T15:59:59Z"), plan: { lowBalanceEnabled: enabled, lowBalanceThreshold: threshold }, bookings: [{ pointCost: held }], members: [{ customerId: "a" }, { customerId: "b" }] });
-beforeEach(() => { vi.clearAllMocks(); mocks.customers.mockResolvedValue([{ id: "a", name: "A", followUps: [] }, { id: "b", name: "B", followUps: [] }]); mocks.attendance.mockResolvedValue([]); });
+beforeEach(() => { vi.clearAllMocks();mocks.trials.mockResolvedValue([]);mocks.purchases.mockResolvedValue([]); mocks.customers.mockResolvedValue([{ id: "a", name: "A", followUps: [] }, { id: "b", name: "B", followUps: [] }]); mocks.attendance.mockResolvedValue([]); });
 describe("course customer care", () => {
   it("checks each shared card available quota without combining units or multiplying members", async () => {
     mocks.cards.mockResolvedValue([card("low", 5, 3), { ...card("other", 100, 0), unit: "SESSION" }]);
@@ -28,3 +28,5 @@ describe("course customer care", () => {
     expect(result.expiring).toHaveLength(2);
   });
 });
+
+it("shows paid but unconverted trial customers independently of attendance",async()=>{mocks.cards.mockResolvedValue([]);mocks.trials.mockResolvedValue([{id:"paid",createdAt:now,amount:499,booking:{customerId:"a",status:"RESERVED",session:{startsAt:now}}}]);expect((await getCourseCustomerCare("store-a",now)).trial.map(c=>c.id)).toEqual(["a"]);mocks.purchases.mockResolvedValue([{customerId:"a"}]);expect((await getCourseCustomerCare("store-a",now)).trial).toEqual([]);});

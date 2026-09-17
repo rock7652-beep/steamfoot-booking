@@ -22,6 +22,11 @@ export async function checkCourseAccounts(storeId: string): Promise<CheckResult[
           - COALESCE((SELECT sum(e.points) FROM "CoursePointEntry" e WHERE e."cardId"=c.id AND e."storeId"=c."storeId" AND e.kind IN ('REFUND','VOID')),0) AS expected,
           COALESCE((SELECT sum(b."pointCost") FROM "CourseBooking" b WHERE b."cardId"=c.id AND b."storeId"=c."storeId" AND b.status='RESERVED'),0) AS held
         FROM "CoursePointCard" c WHERE c."storeId"=${storeId}
+      ), trial_checks AS (
+        SELECT p.id,p.amount,p.status,
+          COALESCE((SELECT sum(c.amount) FROM "CashbookEntry" c WHERE c."storeId"=p."storeId" AND c.type='INCOME' AND starts_with(c.id,'course-trial:'||p.id||':')),0) AS income,
+          COALESCE((SELECT sum(c.amount) FROM "CashbookEntry" c WHERE c."storeId"=p."storeId" AND c.type='EXPENSE' AND starts_with(c.id,'course-trial-void:'||p.id||':')),0) AS reversal
+        FROM "CourseTrialPayment" p WHERE p."storeId"=${storeId}
       ), session_checks AS (
         SELECT s.id,s.capacity,s."cancelledAt", count(b.id) AS booked,count(b.id) FILTER(WHERE b.status='RESERVED') AS reserved FROM "CourseSession" s
         LEFT JOIN "CourseBooking" b ON b."sessionId"=s.id AND b."storeId"=s."storeId" AND b.status<>'CANCELLED'
@@ -31,9 +36,10 @@ export async function checkCourseAccounts(storeId: string): Promise<CheckResult[
       UNION ALL SELECT 'course_refund_cash',count(*),count(*) FILTER(WHERE cash_id IS NULL OR cash_amount<>amount OR type<>'EXPENSE' OR total_refund>price OR status<>'REFUNDED') FROM refund_checks
       UNION ALL SELECT 'course_card_balance',count(*),count(*) FILTER(WHERE remaining<>expected OR ("closedAt" IS NOT NULL AND remaining<>0)) FROM card_checks
       UNION ALL SELECT 'course_card_holds',count(*),count(*) FILTER(WHERE remaining<held OR ("closedAt" IS NOT NULL AND held<>0)) FROM card_checks
+      UNION ALL SELECT 'course_trial_cash',count(*),count(*) FILTER(WHERE income<>amount OR reversal<>CASE WHEN status='VOIDED' THEN amount ELSE 0 END) FROM trial_checks
       UNION ALL SELECT 'course_capacity',count(*),count(*) FILTER(WHERE booked>capacity OR ("cancelledAt" IS NOT NULL AND reserved<>0)) FROM session_checks`;
     const names: Record<string, string> = {
-      course_purchase_cash: "購買核帳與收入連動", course_refund_cash: "退款支出與實付上限",
+      course_trial_cash: "體驗收款／更正與帳務", course_purchase_cash: "購買核帳與收入連動", course_refund_cash: "退款支出與實付上限",
       course_card_balance: "額度餘額與授予／出席／退款", course_card_holds: "預約占用與可用額度", course_capacity: "課程容量與取消狀態",
     };
     return rows.map((row) => ({ checkCode: row.code, checkName: names[row.code],

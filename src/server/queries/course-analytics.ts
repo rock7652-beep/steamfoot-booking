@@ -38,7 +38,7 @@ export async function getCourseAnalytics(storeId: string, range: CourseAnalysisR
   const staff = await prisma.staff.findMany({where:{storeId},select:{id:true,displayName:true}});
   const revenue = readRevenue ? await getCourseRevenueReport(storeId,{...range,storeFilter:{storeId}}) : null;
   const priorRevenue = readRevenue ? await getCourseRevenueReport(storeId,{...previous,storeFilter:{storeId}}) : null;
-  const cashRows = readCash ? await prisma.cashbookEntry.findMany({where:{storeId,entryDate:{gte:new Date(`${previous.startDate}T00:00:00Z`),lte:new Date(`${range.endDate}T00:00:00Z`)},NOT:[{id:{startsWith:"course-purchase:"}},{id:{startsWith:"course-refund:"}},{id:{startsWith:"course-void:"}}]},select:{entryDate:true,staffId:true,type:true,amount:true,category:true}}) : null;
+  const cashRows = readCash ? await prisma.cashbookEntry.findMany({where:{storeId,entryDate:{gte:new Date(`${previous.startDate}T00:00:00Z`),lte:new Date(`${range.endDate}T00:00:00Z`)},NOT:[{id:{startsWith:"course-trial:"}},{id:{startsWith:"course-trial-void:"}},{id:{startsWith:"course-purchase:"}},{id:{startsWith:"course-refund:"}},{id:{startsWith:"course-void:"}}]},select:{entryDate:true,staffId:true,type:true,amount:true,category:true}}) : null;
   const cashFor=(period:CourseAnalysisRange)=>cashRows?.filter(r=>{const date=r.entryDate.toISOString().slice(0,10);return date>=period.startDate&&date<=period.endDate;}).map(r=>({...r,amount:Number(r.amount)}))??null;
   const financial=summarizeCourseFinancialAnalysis(revenue?.data??null,cashFor(range));
   const priorFinancial=summarizeCourseFinancialAnalysis(priorRevenue?.data??null,cashFor(previous));

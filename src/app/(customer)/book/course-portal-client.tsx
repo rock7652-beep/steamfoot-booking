@@ -866,7 +866,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                         <details>
                           <summary>預約明細</summary>
                           <p>
-                            {b.planName} · {courseDate(b.expiresAt)} 到期
+                            {b.unit === "TRIAL" ? `體驗 NT$ ${b.trialPrice} · ${b.trialPaid === null ? "尚未收款" : `已收款 NT$ ${b.trialPaid}`}` : b.planName}{b.expiresAt ? ` · ${courseDate(b.expiresAt)} 到期` : ""}
                           </p>
                           <p>
                             {b.status === "ATTENDED"
@@ -874,7 +874,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                               : b.status === "RESERVED"
                                 ? "保留"
                                 : "已釋放"}{" "}
-                            {b.cost} {unit(b.unit)}
+                            {b.unit === "TRIAL" ? "體驗不使用方案額度" : `${b.cost} ${unit(b.unit)}`}
                           </p>
                           {b.customerId !== p.customerId && (
                             <p>預約人：{b.operatorName}</p>
@@ -1416,13 +1416,12 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                 <span>
                   {b.customerName}
                   <small>
-                    {b.planName} · {b.cost}
-                    {unit(b.unit)} · {statusName(b.status)}
+                    {b.planName} · {b.unit === "TRIAL" ? "不使用方案額度" : `${b.cost} ${unit(b.unit)}`} · {statusName(b.status)}
                   </small>
                 </span>
               </label>
             ))}
-          <p>出席依方案使用額度；更正會同步調整額度並保留紀錄。</p>
+          <p>一般預約出席依方案使用額度；體驗出席不收款、不使用其他方案。更正會保留紀錄。</p>
         </Sheet>
       )}
       {buy && (

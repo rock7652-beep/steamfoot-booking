@@ -7,7 +7,7 @@ export function summarizeCourseFinancialAnalysis(purchases:CourseFinancialPurcha
   const category=(name:string)=>{if(!categories.has(name))categories.set(name,{name,income:0,refunds:0,expense:0});return categories.get(name)!;};
   let purchaseIncome=0,refunds=0,manualIncome=0,manualExpense=0;
   for(const row of purchases??[]) {
-    const p=person(row.staffId),c=category(row.unit==="SESSION"?"堂數方案":"點數方案");
+    const p=person(row.staffId),c=category(row.unit==="TRIAL"?"課程體驗":row.unit==="SESSION"?"堂數方案":"點數方案");
     if(row.refund){const amount=Math.abs(row.netAmount);refunds+=amount;p.refunds+=amount;c.refunds+=amount;}
     else {purchaseIncome+=row.netAmount;p.purchaseIncome+=row.netAmount;p.orders++;p.customers.add(row.customerId);c.income+=row.netAmount;}
   }

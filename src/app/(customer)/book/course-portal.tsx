@@ -83,6 +83,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     bookings: {
       orderBy: { createdAt: "asc" },
       include: {
+        trialPayments: {where:{status:"SUCCESS"},select:{amount:true}},
         card: { select: { nameSnapshot: true, expiresAt: true, unit: true } },
       },
     },
@@ -114,10 +115,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
       ? coursePrisma.courseBooking.findMany({
           where: {
             storeId,
-            cardId: { in: cards.map((c) => c.id) },
+            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id}],
             session: { startsAt: { gte: range.start, lte: range.end } },
           },
           include: {
+            trialPayments: {where:{status:"SUCCESS"},select:{amount:true}},
             session: {
               select: {
                 nameSnapshot: true,
@@ -177,7 +179,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       ? coursePrisma.courseBooking.findFirst({
           where: {
             storeId,
-            cardId: { in: cards.map((c) => c.id) },
+            OR: [{cardId: { in: cards.map((c) => c.id) }},{bookingKind:"TRIAL",customerId:customer.id}],
             status: "RESERVED",
             session: { cancelledAt: null, startsAt: { gte: now } },
           },
@@ -273,9 +275,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
       status: b.status,
       notes: b.notes,
       cost: b.pointCost,
-      unit: b.card.unit,
-      planName: b.card.nameSnapshot,
-      expiresAt: b.card.expiresAt.toISOString(),
+      trialPaid: b.trialPayments[0]?.amount ?? null,
+      trialPrice: b.trialPrice,
+      unit: b.card?.unit ?? "TRIAL",
+      planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
+      expiresAt: b.card?.expiresAt.toISOString() ?? null,
     })),
     work: work.map((s) => ({
       id: s.id,
@@ -289,9 +293,9 @@ export async function loadCoursePortal(requestedMonth?: string) {
         status: b.status,
         notes: b.notes,
         cost: b.pointCost,
-        unit: b.card.unit,
-        planName: b.card.nameSnapshot,
-        expiresAt: b.card.expiresAt.toISOString(),
+        unit: b.card?.unit ?? "TRIAL",
+        planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
+        expiresAt: b.card?.expiresAt.toISOString() ?? null,
       })),
     })),
     orders: orders.map((o) => ({

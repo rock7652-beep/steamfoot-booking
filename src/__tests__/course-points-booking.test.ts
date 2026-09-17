@@ -25,6 +25,7 @@ vi.mock("@/server/services/course-access", () => ({
   courseTransaction: m.transaction,
 }));
 import {
+  reserveTrialCourse,
   reserveCourse,
   reserveCourseMembers,
   settleCourseBooking,
@@ -339,4 +340,10 @@ it("member booking cutoff is inclusive and blocks the first instant beyond witho
 it("manager proxy booking retains the mature exemption from member opening window", async () => {
   m.tx.$queryRaw.mockImplementation(async (sql: TemplateStringsArray) => sql.join("").includes('"ShopConfig"') ? [{bookableUntilDate:new Date("2026-09-15T00:00:00Z")}] : [{id:"b",name:"B"}]);
   await expect(reserveCourse({...actor,customerId:undefined},input)).resolves.toBeDefined();
+});
+
+describe("course trial shares booking safety without using a card",()=>{
+ it("reserves a real seat and writes no point entry",async()=>{await reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499});expect(m.tx.courseBooking.create).toHaveBeenCalledWith({data:expect.objectContaining({cardId:null,bookingKind:"TRIAL",pointCost:0,trialPrice:499,customerId:"b"})});expect(m.tx.coursePointCard.findFirst).not.toHaveBeenCalled();expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();});
+ it("blocks duplicate learner and full class even without quota",async()=>{m.tx.courseBooking.findFirst.mockResolvedValue({id:"existing"});await expect(reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("已預約");m.tx.courseBooking.findFirst.mockResolvedValue(null);m.tx.courseBooking.count.mockResolvedValue(2);await expect(reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("滿班");});
+ it("does not let a member call the internal manager trial reservation",async()=>{await expect(reserveTrialCourse(actor,{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("僅由");});
 });

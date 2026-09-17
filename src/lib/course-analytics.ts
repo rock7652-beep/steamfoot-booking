@@ -30,7 +30,7 @@ export function courseAnalysisPriorYear(range: CourseAnalysisRange): CourseAnaly
 }
 export type CourseAnalysisSession = {
   id: string; coachId: string; startsAt: Date; endsAt: Date;
-  bookings: { customerId: string; customerName: string; status: string; checkedInAt: Date | null; pointCost: number; card: { unit: string } }[];
+  bookings: { customerId: string; customerName: string; status: string; checkedInAt: Date | null; pointCost: number; card: { unit: string } | null }[];
 };
 export function summarizeCourseAttendance(sessions: CourseAnalysisSession[], firstAttendance: Map<string, Date>, range: CourseAnalysisRange) {
   const bounds = { start: dayRange(range.startDate).start, end: dayRange(range.endDate).end };
@@ -46,8 +46,8 @@ export function summarizeCourseAttendance(sessions: CourseAnalysisSession[], fir
     participants: new Set(bookings.map(b=>b.customerId)).size, participations: bookings.length,
     completed: completed.length, checkedIn: bookings.filter(b=>b.status==="RESERVED" && b.checkedInAt).length,
     noShow: bookings.filter(b=>b.status==="NO_SHOW").length,
-    pointsUsed: completed.filter(b=>b.card.unit==="POINT").reduce((n,b)=>n+b.pointCost,0),
-    sessionsUsed: completed.filter(b=>b.card.unit==="SESSION").reduce((n,b)=>n+b.pointCost,0),
+    pointsUsed: completed.filter(b=>b.card?.unit==="POINT").reduce((n,b)=>n+b.pointCost,0),
+    sessionsUsed: completed.filter(b=>b.card?.unit==="SESSION").reduce((n,b)=>n+b.pointCost,0),
     visitors, newVisitors, returningVisitors: visitors.filter(id=>!newVisitors.includes(id)&&!unknownFirstVisits.includes(id)), unknownFirstVisits,
     customers: [...new Map(completed.map(b=>[b.customerId,{id:b.customerId,name:b.customerName}])).values()],
     coaches: [...new Set(selected.map(s=>s.coachId))].map(id=>({id,sessions:selected.filter(s=>s.coachId===id).length,completed:selected.filter(s=>s.coachId===id).flatMap(s=>s.bookings).filter(b=>b.status==="ATTENDED").length})),

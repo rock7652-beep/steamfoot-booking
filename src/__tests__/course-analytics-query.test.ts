@@ -28,6 +28,6 @@ it("reads manual cash only with its own permission and excludes course-linked re
  expect(m.cash).not.toHaveBeenCalled();
  m.cash.mockResolvedValue([{entryDate:new Date("2026-09-17T00:00:00Z"),staffId:null,type:"INCOME",amount:100,category:"retail"}]);
  const result=await getCourseAnalytics("store",{startDate:"2026-09-17",endDate:"2026-09-17"},true,true);
- expect(m.cash).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"store",NOT:[{id:{startsWith:"course-purchase:"}},{id:{startsWith:"course-refund:"}},{id:{startsWith:"course-void:"}}]})}));
+ expect(m.cash).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"store",NOT:[{id:{startsWith:"course-trial:"}},{id:{startsWith:"course-trial-void:"}},{id:{startsWith:"course-purchase:"}},{id:{startsWith:"course-refund:"}},{id:{startsWith:"course-void:"}}]})}));
  expect(result.financial.manualIncome).toBe(100);expect(result.priorFinancial.manualIncome).toBe(0);
 });

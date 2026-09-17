@@ -5,7 +5,7 @@ export function scheduleCourseLowBalanceCheck(storeId:string,bookingIds:string[]
     try {
       const {coursePrisma}=await import("@/lib/course-db");
       const bookings=await coursePrisma.courseBooking.findMany({where:{storeId,id:{in:bookingIds}},select:{cardId:true}});
-      const cards=[...new Set(bookings.map(b=>b.cardId))];
+      const cards=[...new Set(bookings.map(b=>b.cardId).filter((id):id is string=>id!==null))];
       if(!cards.length) return;
       const {runCourseLowBalanceReminders}=await import("./course-low-balance-reminders");
       await runCourseLowBalanceReminders(new Date(),storeId,cards);

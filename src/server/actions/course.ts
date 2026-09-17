@@ -127,7 +127,7 @@ export async function updateCourseSession(input: unknown) {
             "CONFLICT",
             "已完成點名的課程保留歷史，不可修改排課",
           );
-        if (bookings.some((b) => b.card.expiresAt < range.startsAt))
+        if (bookings.some((b) => b.card && b.card.expiresAt < range.startsAt))
           throw new AppError(
             "CONFLICT",
             "新日期超過已預約方案期限，尚未修改排課",
@@ -500,7 +500,7 @@ export async function updateCourseSeries(input: unknown) {
           throw new AppError("CONFLICT", "包含已完成點名的課程，整批尚未修改");
         if (
           change.session.bookings.some(
-            (b) => b.card.expiresAt < change.startsAt,
+            (b) => b.card && b.card.expiresAt < change.startsAt,
           )
         )
           throw new AppError(
