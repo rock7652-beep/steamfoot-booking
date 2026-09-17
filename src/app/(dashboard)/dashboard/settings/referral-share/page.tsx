@@ -1,3 +1,4 @@
+import { deriveBaseUrl } from "@/lib/base-url";
 import { COURSE_REFERRAL_SHARE_TEMPLATE } from "@/lib/referral-share-official-templates";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -70,6 +71,7 @@ export default async function ReferralShareSettingsPage() {
 
       <ReferralShareSettingsForm
         key={storeId}
+        previewOrigin={store.industryModule === "COURSE" ? deriveBaseUrl() : undefined}
         defaultTemplate={store.industryModule === "COURSE" ? COURSE_REFERRAL_SHARE_TEMPLATE : undefined}
         storeName={store.name}
         storeSlug={store.slug}

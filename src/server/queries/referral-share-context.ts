@@ -72,7 +72,7 @@ export async function getReferralShareContext(input: {
   ) {
     return { available: false, reason: "STORE_UNAVAILABLE" };
   }
-  if (!normalizeLineOfficialUrl(customer.store.shopConfig?.lineOfficialUrl)) {
+  if (customer.store.industryModule !== "COURSE" && !normalizeLineOfficialUrl(customer.store.shopConfig?.lineOfficialUrl)) {
     return { available: false, reason: "LINE_NOT_CONFIGURED" };
   }
 

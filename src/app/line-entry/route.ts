@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   const source =
     request.nextUrl.searchParams.get("source")?.trim().slice(0, 100) ||
-    "line-entry";
+    (result.coursePath ? "course-member-share" : "line-entry");
   try {
     await prisma.referralEvent.createMany({
       data: [
@@ -39,12 +39,12 @@ export async function GET(request: NextRequest) {
           type: "LINK_CLICK",
           source,
         },
-        {
+        ...(result.coursePath ? [] : [{
           storeId: result.storeId,
           referrerId: result.referrerId,
-          type: "LINE_ENTRY",
+          type: "LINE_ENTRY" as const,
           source,
-        },
+        }]),
       ],
     });
   } catch (error) {
@@ -60,7 +60,9 @@ export async function GET(request: NextRequest) {
     storeSlug
       ? resolvePublicTrialLiffConfig(storeSlug)
       : null;
-  const destination = publicTrialConfig
+  const destination = result.coursePath
+    ? new URL(result.coursePath, request.nextUrl.origin).toString()
+    : publicTrialConfig
     ? `https://liff.line.me/${publicTrialConfig.liffId}`
     : result.lineOfficialUrl;
   const response = NextResponse.redirect(destination, 307);

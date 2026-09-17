@@ -28,6 +28,7 @@ interface Props {
   initialFavoriteTemplateIds: string[];
   initialRecent: ReferralTemplateRecentView[];
   defaultTemplate?: string;
+  previewOrigin?: string;
 }
 
 export function getReferralShareTemplateError(value: string): string | null {
@@ -48,6 +49,7 @@ export function ReferralShareSettingsForm({
   initialFavoriteTemplateIds,
   initialRecent,
   defaultTemplate = DEFAULT_REFERRAL_SHARE_TEMPLATE,
+  previewOrigin = "https://www.steamfoot.com",
 }: Props) {
   const [template, setTemplate] = useState(
     initialTemplate ?? defaultTemplate,
@@ -62,7 +64,7 @@ export function ReferralShareSettingsForm({
   const router = useRouter();
 
   const error = useMemo(() => getReferralShareTemplateError(template), [template]);
-  const previewUrl = `https://www.steamfoot.com/s/${storeSlug}/line-entry?ref=preview`;
+  const previewUrl = `${previewOrigin}/s/${storeSlug}/line-entry?ref=preview`;
   const preview = renderReferralShareTemplate({
     template: error ? defaultTemplate : template,
     storeName,

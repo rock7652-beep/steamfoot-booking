@@ -29,7 +29,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     coursePrisma.coursePurchase.findMany({ where, include: { refunds: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: (page - 1) * 30, take: 30 }),
     coursePrisma.coursePurchase.aggregate({ where: { storeId, status: { in: ["CONFIRMED", "REFUNDED"] }, confirmedAt: range }, _sum: { price: true }, _count: true }),
     coursePrisma.coursePurchaseRefund.aggregate({ where: { storeId, createdAt: range }, _sum: { amount: true } }),
-    prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true } }),
+    prisma.staff.findMany({ where: { storeId }, select: { id: true, userId: true, displayName: true, status: true, user: { select: { role: true } } } }),
   ]);
   const cardIds = orders.flatMap((order) => order.cardId ? [order.cardId] : []);
   const [customers, cards, held, attended] = await Promise.all([
@@ -73,7 +73,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
           <label className="text-xs">開始日期<input className={field} type="date" name="dateFrom" defaultValue={from} /></label>
           <label className="text-xs">結束日期<input className={field} type="date" name="dateTo" defaultValue={to} /></label>
           <label className="text-xs">狀態<select className={field} name="status" defaultValue={status ?? ""}><option value="">全部</option>{Object.entries(labels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-          <label className="text-xs">核帳人員<select className={field} name="staff" defaultValue={staff ?? ""}><option value="">全部</option>{staffRows.filter((s) => s.userId).map((s) => <option key={s.userId} value={s.userId!}>{s.displayName}</option>)}</select></label>
+          <label className="text-xs">核帳人員<select className={field} name="staff" defaultValue={staff ?? ""}><option value="">全部</option>{staffRows.filter((s) => s.userId && (s.user?.role === "OWNER" || s.user?.role === "ADMIN" || orders.some(order => order.confirmedBy === s.userId))).map((s) => <option key={s.userId} value={s.userId!}>{s.displayName}</option>)}</select></label>
           <div className="flex items-end gap-2"><button className="min-h-11 rounded bg-primary-700 px-3 text-sm text-white">套用</button><Link href={basePath} className="p-2 text-sm">清除</Link></div>
         </form><p className="mt-3 text-xs text-earth-600">共 {count} 筆購買紀錄；點「⋯」同頁查看核帳、額度及退款紀錄。</p>
       </div>
