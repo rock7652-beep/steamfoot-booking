@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { toLocalDateStr } from "@/lib/date-utils";
+import { toLocalDateStr, formatTWDateTime, parseTaipeiDateTime } from "@/lib/date-utils";
 import { notifyStoreManagerOnLine } from "@/server/services/store-manager-line-notifications";
 
 const SERVICE_DURATION_MINUTES = 60;
@@ -13,13 +13,7 @@ function bookingStartAtTaipei(bookingDate: Date, slotTime: string): Date | null 
   const hour = Number(match[1]);
   const minute = Number(match[2]);
   if (hour > 23 || minute > 59) return null;
-  return new Date(Date.UTC(
-    bookingDate.getUTCFullYear(),
-    bookingDate.getUTCMonth(),
-    bookingDate.getUTCDate(),
-    hour - 8,
-    minute,
-  ));
+  return parseTaipeiDateTime(bookingDate.toISOString().slice(0, 10), slotTime);
 }
 
 function reminderDueAt(bookingDate: Date, slotTime: string): Date | null {
@@ -65,11 +59,12 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
   const earliestBookingDate = new Date(Date.UTC(year, month - 1, day - LOOKBACK_DAYS));
   const latestBookingDate = new Date(Date.UTC(year, month - 1, day + 1));
 
-  const candidates = await prisma.booking.findMany({
+  const steamfootCandidates = await prisma.booking.findMany({
     where: {
       bookingDate: { gte: earliestBookingDate, lt: latestBookingDate },
       bookingStatus: { in: ["PENDING", "CONFIRMED"] },
       store: {
+        industryModule: { not: "COURSE" },
         isDemo: false,
         operatingStatus: { in: ["ACTIVE", "TRIAL"] },
       },
@@ -86,23 +81,37 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
     take: 300,
   });
 
+  const { getIncompleteCourseCandidates, isCourseBookingStillIncomplete } = await import("@/server/queries/course-manager-todos");
+  let courseCandidates: Awaited<ReturnType<typeof getIncompleteCourseCandidates>> = [];
+  let courseQueryFailed = false;
+  try {
+    courseCandidates = await getIncompleteCourseCandidates(now);
+  } catch (error) {
+    courseQueryFailed = true;
+    console.error("[IncompleteServiceReminder] course candidates failed", { error: error instanceof Error ? error.message : "Unknown error" });
+  }
+  const candidates = [
+    ...steamfootCandidates.map(candidate => ({ ...candidate, courseSessionId: null as string | null, courseEndsAt: null as Date | null })),
+    ...courseCandidates.map(candidate => ({ id: candidate.id, storeId: candidate.storeId, bookingDate: new Date(`${toLocalDateStr(candidate.session.startsAt)}T00:00:00Z`), slotTime: formatTWDateTime(candidate.session.startsAt).slice(11), customer: { name: candidate.customerName }, store: { slug: candidate.storeSlug }, courseSessionId: candidate.sessionId, courseEndsAt: candidate.session.endsAt })),
+  ];
+
   const result: IncompleteServiceReminderResult = {
     scanned: candidates.length,
     due: 0,
     sent: 0,
     skipped: 0,
-    failed: 0,
+    failed: courseQueryFailed ? 1 : 0,
   };
 
   for (const candidate of candidates) {
-    const dueAt = reminderDueAt(candidate.bookingDate, candidate.slotTime);
+    const dueAt = candidate.courseEndsAt ? new Date(candidate.courseEndsAt.getTime() + REMINDER_GRACE_MINUTES * 60 * 1000) : reminderDueAt(candidate.bookingDate, candidate.slotTime);
     if (!dueAt || dueAt.getTime() > now.getTime()) {
       result.skipped += 1;
       continue;
     }
     result.due += 1;
 
-    const eventKey = `incomplete-service-reminder:${candidate.id}`;
+    const eventKey = `${candidate.courseSessionId ? "course-incomplete-attendance" : "incomplete-service-reminder"}:${candidate.id}`;
     let claimId: string | null = null;
     try {
       claimId = await claimNotification(candidate.storeId, eventKey);
@@ -112,7 +121,7 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
       }
 
       // Re-check after claiming so a concurrent completion, cancellation, or no-show wins.
-      const stillIncomplete = await prisma.booking.findFirst({
+      const stillIncomplete = candidate.courseSessionId ? await isCourseBookingStillIncomplete(candidate.storeId, candidate.id, now) : await prisma.booking.findFirst({
         where: {
           id: candidate.id,
           storeId: candidate.storeId,
@@ -135,6 +144,7 @@ export async function runIncompleteServiceReminders(now = new Date()): Promise<I
         customerName: candidate.customer.name,
         bookingDate: candidate.bookingDate.toISOString().slice(0, 10),
         slotTime: candidate.slotTime,
+        ...(candidate.courseSessionId ? { courseSessionId: candidate.courseSessionId } : {}),
       });
 
       if (delivery.status === "sent") {

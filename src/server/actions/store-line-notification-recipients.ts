@@ -3,7 +3,7 @@
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { FEATURES } from "@/lib/feature-flags";
 import { migrateManagerRecipients } from "@/server/services/manager-notification-delivery";
-import { managerPreferences, MANAGER_NOTIFICATION_OPTIONS } from "@/lib/manager-notification-preferences";
+import { managerPreferences, managerNotificationOptions, MANAGER_NOTIFICATION_OPTIONS } from "@/lib/manager-notification-preferences";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -147,6 +147,9 @@ export async function setManagerNotificationPreference(id: string, key: string, 
   try {
     const storeId = await requireStore();
     z.object({ id: z.string().min(1), key: z.enum(MANAGER_NOTIFICATION_OPTIONS.map(o => o.key) as [string, ...string[]]), enabled: z.boolean() }).parse({ id, key, enabled });
+    if (enabled && await getStoreIndustryModule(storeId) === "course" && !managerNotificationOptions(true).some(option => option.key === key)) {
+      throw new AppError("BUSINESS_RULE", "此通知尚未接入課程流程");
+    }
     await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "StoreLineNotificationRecipient" WHERE id = ${id} AND "storeId" = ${storeId} FOR UPDATE`;
       const recipient = await tx.storeLineNotificationRecipient.findFirst({ where: { id, storeId } });

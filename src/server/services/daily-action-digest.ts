@@ -44,7 +44,7 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
       isDemo: false,
       operatingStatus: { in: ["ACTIVE", "TRIAL"] },
     },
-    select: { id: true, slug: true },
+    select: { id: true, slug: true, industryModule: true },
   });
 
   const result: DailyActionDigestResult = {
@@ -59,8 +59,18 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
     let claimId: string | null = null;
 
     try {
+      if (store.industryModule === "COURSE") {
+        const [{ hasStoreFeature }, { FEATURES }] = await Promise.all([import("@/lib/feature-gate"), import("@/lib/feature-flags")]);
+        if (!(await hasStoreFeature(store.id, FEATURES.LINE_REMINDER))) {
+          result.storesSkipped += 1;
+          continue;
+        }
+      }
+      const courseTodos = store.industryModule === "COURSE"
+        ? await (await import("@/server/queries/course-manager-todos")).getCourseManagerTodoCounts(store.id, now)
+        : null;
       const [pendingPaymentCount, incompleteServiceCount, waitingSupportCount, waitingSupportLeads] = await Promise.all([
-        prisma.transaction.count({
+        courseTodos ? Promise.resolve(courseTodos.pendingPaymentCount) : prisma.transaction.count({
           where: {
             storeId: store.id,
             paymentStatus: "PENDING",
@@ -68,7 +78,7 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
             status: "SUCCESS",
           },
         }),
-        countYesterdayIncompleteServices(store.id, now),
+        courseTodos ? Promise.resolve(courseTodos.incompleteServiceCount) : countYesterdayIncompleteServices(store.id, now),
         prisma.digitalButlerLead.count({
           where: {
             storeId: store.id,
@@ -117,6 +127,7 @@ export async function runDailyActionDigest(now = new Date()): Promise<DailyActio
         eventKey,
         storeId: store.id,
         storeSlug: store.slug,
+        course: store.industryModule === "COURSE",
         pendingPaymentCount,
         incompleteServiceCount,
         waitingSupportCount,

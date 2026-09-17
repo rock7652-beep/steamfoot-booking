@@ -9,7 +9,7 @@ import {
 } from "@/server/actions/store-line-notification-recipients";
 import {
   managerPreferences,
-  MANAGER_NOTIFICATION_OPTIONS,
+  managerNotificationOptions,
 } from "@/lib/manager-notification-preferences";
 type Recipient = {
   id: string;
@@ -25,6 +25,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState("");
   const p = managerPreferences(item.preferences, item.sameDayBookingEnabled);
+  const options = managerNotificationOptions(course);
   function save(action: () => Promise<{ success: boolean; error?: string }>) {
     setSaved("");
     start(async () => {
@@ -90,7 +91,7 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
       <div className="mt-2 flex justify-between text-xs text-earth-500">
         <span>
           {item.isActive
-            && item.linkedAt ? `已開啟 ${Object.values(p).filter(Boolean).length} 項提醒`
+            && item.linkedAt ? `已開啟 ${options.filter(option => p[option.key]).length} 項提醒`
             : !item.linkedAt ? "完成 LINE 綁定後才能接收" : "已暫停接收 · 保留原設定"}
         </span>
         <span role="status">{pending ? "儲存中…" : saved}</span>
@@ -102,14 +103,14 @@ function RecipientCard({ item, expanded, onExpand, course = false }: { item: Rec
         <div
           className={`mt-4 grid gap-5 md:grid-cols-3 ${!item.isActive ? "opacity-50" : ""}`}
         >
-          {(course ? ["預約通知", "店務提醒"] : ["預約通知", "顧客需求", "店務提醒"]).map((group) => (
+          {["預約通知", "顧客需求", "店務提醒"].map((group) => (
             <section key={group}>
               <h4 className="mb-3 text-sm font-semibold text-earth-800">
                 {group}
               </h4>
               <div className="space-y-4">
-                {MANAGER_NOTIFICATION_OPTIONS.filter(
-                  (o) => o.group === group && (!course || o.key === "sameDay" || o.key === "payment"),
+                {options.filter(
+                  (o) => o.group === group,
                 ).map((o) => (
                   <label
                     key={o.key}

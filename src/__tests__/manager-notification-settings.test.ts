@@ -40,6 +40,16 @@ describe("manager notification preference writes", () => {
     await setManagerNotificationPreference("recipient-a", "sameDay", false);
     expect(h.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ sameDayBookingEnabled: false }) }));
   });
+  it("course exposes connected butler and todo events, and blocks enabling unmapped trial/VIP events", async () => {
+    course.industry.mockResolvedValue("course");
+    for (const key of ["lead", "support", "digest", "incomplete"]) {
+      expect(await setManagerNotificationPreference("recipient-a", key, true)).toMatchObject({ success: true });
+    }
+    h.update.mockClear();
+    for (const key of ["trial", "vip"]) expect(await setManagerNotificationPreference("recipient-a", key, true)).toMatchObject({ success: false });
+    expect(h.update).not.toHaveBeenCalled();
+    expect(await setManagerNotificationPreference("recipient-a", "trial", false)).toMatchObject({ success: true });
+  });
   it("cannot change another store's recipient", async () => {
     h.find.mockResolvedValue(null);
     expect(await setManagerNotificationPreference("other-store", "trial", false)).toMatchObject({ success: false });

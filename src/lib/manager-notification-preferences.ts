@@ -51,6 +51,16 @@ export const MANAGER_NOTIFICATION_OPTIONS = [
 export type ManagerPreferenceKey =
   (typeof MANAGER_NOTIFICATION_OPTIONS)[number]["key"];
 export type ManagerPreferences = Record<ManagerPreferenceKey, boolean>;
+/** Only expose events whose course data adapters are connected. */
+export function managerNotificationOptions(course = false) {
+  return MANAGER_NOTIFICATION_OPTIONS.filter(option => !course || (option.key !== "trial" && option.key !== "vip")).map(option => {
+    if (!course) return option;
+    if (option.key === "sameDay") return { ...option, description: "顧客自行預約今天的課程時通知。" };
+    if (option.key === "incomplete") return { ...option, label: "出席待處理", description: "課程結束一小時後仍待處理出席，包含已報到者；不會自動改動出席或額度。" };
+    if (option.key === "digest") return { ...option, description: "每天上午 9 點彙整待核帳、昨日待處理出席與待接手客服；有待辦才通知。" };
+    return option;
+  });
+}
 export function managerPreferences(
   raw: unknown,
   sameDay = false,
