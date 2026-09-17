@@ -51,6 +51,7 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
         cancellationLeadMinutes={rule?.cancellationLeadMinutes ?? 0}
         canEdit={canEdit && !readOnly}
         usageMetrics={usage?.metrics}
+        canHours={!readOnly && await checkPermission(user.role,user.staffId,"business_hours.view")}
       />
     );
 

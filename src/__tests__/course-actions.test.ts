@@ -72,7 +72,7 @@ beforeEach(() => {
   mocks.permission.mockResolvedValue({ id: "owner-a" });
   mocks.store.mockResolvedValue("store-a");
   mocks.module.mockResolvedValue(undefined);
-  mocks.raw.mockResolvedValue([{ id: "valid" }]);
+  mocks.raw.mockImplementation(async (sql: TemplateStringsArray) => /BusinessHours|SpecialBusinessDay/.test(sql.join("")) ? [] : [{ id: "valid" }]);
   mocks.existing.mockResolvedValue([]);
   mocks.conflict.mockResolvedValue(null);
   mocks.template.mockResolvedValue({ id: "yoga", name: "瑜珈", pointCost: 2 });

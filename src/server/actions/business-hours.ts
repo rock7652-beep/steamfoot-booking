@@ -266,6 +266,7 @@ export async function updateBusinessHours(
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
     await assertModuleIntervals(storeId, input.periods, input.slotInterval);
 
     // 基本規則驗證（時間範圍、間隔、名額）
@@ -450,6 +451,7 @@ export async function addSpecialDay(input: {
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
     await assertModuleIntervals(storeId, input.periods);
 
     const dateObj = new Date(input.date);
@@ -560,6 +562,7 @@ export async function removeSpecialDay(id: string): Promise<ActionResult<void>> 
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
 
     // 確認該記錄屬於此店
     const existing = await prisma.specialBusinessDay.findFirst({
@@ -582,6 +585,7 @@ export async function removeSpecialDayByDate(dateStr: string): Promise<ActionRes
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
 
     const dateObj = new Date(dateStr);
     await prisma.specialBusinessDay.deleteMany({ where: { storeId, date: dateObj } });
@@ -611,6 +615,7 @@ export async function copySettingsToFutureWeeks(input: {
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
 
     if (input.weeks < 1 || input.weeks > 52) {
       throw new AppError("VALIDATION", "複製週數需在 1-52 之間");
@@ -718,6 +723,7 @@ export async function applyDaySlotOverrides(input: {
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
       throw new AppError("VALIDATION", "日期格式不正確");
     }
@@ -801,6 +807,7 @@ export async function toggleSlotOverride(input: {
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
 
     const dateObj = new Date(input.date + "T00:00:00Z");
 
@@ -842,6 +849,7 @@ export async function overrideSlotCapacity(input: {
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
 
     if (input.capacity < 0 || input.capacity > 99) {
       throw new AppError("VALIDATION", "容量需在 0-99 之間");
@@ -916,6 +924,7 @@ export async function applyWeeklyTemplate(input: {
   try {
     const user = await requirePermission("business_hours.manage");
     const storeId = await resolveWriteStoreId(user);
+    if ((await getStoreIndustryModule(storeId)) === "course") throw new AppError("FORBIDDEN", "課程門市請使用課程營業設定，以保留排課衝突檢查");
 
     if (input.weeks < 1 || input.weeks > 104) {
       throw new AppError("VALIDATION", "週數需在 1-104 之間");

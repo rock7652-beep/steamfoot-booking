@@ -1,4 +1,5 @@
 "use server";
+import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -153,6 +154,7 @@ export async function updateCourseSession(input: unknown) {
             "CONFLICT",
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，尚未儲存修改`,
           );
+        await assertCourseSessionsFitHours(tx,storeId,[range]);
         await tx.courseSession.update({
           where: { id: session.id, storeId },
           data: {
@@ -315,6 +317,7 @@ export async function createCourseSchedule(input: unknown) {
             "CONFLICT",
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，整批尚未建立`,
           );
+        await assertCourseSessionsFitHours(tx,storeId,occurrences);
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
             ...range,
@@ -528,6 +531,7 @@ export async function updateCourseSeries(input: unknown) {
             `${formatTWDateTime(change.startsAt)} 撞期，整批尚未修改`,
           );
       }
+      await assertCourseSessionsFitHours(tx,storeId,changes);
       // Exclusion constraints are immediate. Temporarily release only these
       // rows inside the same transaction; other writers use the store lock.
       await tx.courseSession.updateMany({
