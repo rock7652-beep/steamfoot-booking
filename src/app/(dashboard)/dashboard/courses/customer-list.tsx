@@ -31,7 +31,7 @@ export function CourseCustomerList({ rows, cards, canReadCards, onView, onCreate
   return <section className="space-y-3">
     <CustomersToolbar staffOptions={staff} basePath="/dashboard/courses?view=customers" courseMode />
     <p className="text-xs text-earth-500">最近上課依已完成出席記錄。可用額度已扣除預約占用；共卡額度由授權成員共用。</p>
-    <CustomersTable rows={filtered.slice((page - 1) * 20, page * 20)}
+    <CustomersTable stickyActions rows={filtered.slice((page - 1) * 20, page * 20)}
       basePath="/dashboard/courses?view=customers" searchQuery={params.get("search") ?? ""}
       hasActiveFilters={["search", "status", "visit", "referral", "staff"].some(key => !!params.get(key))}
       onView={row => onView(row.id)} onCreate={onCreate} readOnly={!onCreate}

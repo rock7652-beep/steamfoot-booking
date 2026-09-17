@@ -80,6 +80,7 @@ interface Props {
   balanceColumn?: { label: string; render: (row: CustomerRow) => ReactNode };
   lastVisitLabel?: string;
   onCreate?: () => void;
+  stickyActions?: boolean;
 }
 
 /**
@@ -122,6 +123,7 @@ export function CustomersTable({
   balanceColumn,
   lastVisitLabel = "最近來店",
   onCreate,
+  stickyActions = false,
 }: Props) {
   // 全選 header state：indeterminate / checked / unchecked，只看「當頁可操作列」
   const selectableRows = rows.filter((r) => !isInactiveRow(r));
@@ -313,6 +315,7 @@ export function CustomersTable({
     },
     {
       key: "actions",
+      sticky: stickyActions ? "right" : undefined,
       header: "",
       align: "right",
       width: onQuickAssign ? "w-32" : "w-20",
@@ -332,7 +335,7 @@ export function CustomersTable({
                   e.preventDefault();
                   onQuickAssign(c);
                 }}
-                className="rounded bg-primary-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-primary-700"
+                className={`rounded bg-primary-600 px-2 font-medium text-white hover:bg-primary-700 ${stickyActions ? "min-h-11 whitespace-nowrap text-sm" : "py-0.5 text-[11px]"}`}
               >
                 ＋指派
               </button>
@@ -346,7 +349,7 @@ export function CustomersTable({
                 e.preventDefault();
                 onView(c);
               }}
-              className="rounded border border-earth-200 px-2 py-0.5 text-[11px] text-earth-700 hover:bg-earth-50"
+              className={`rounded border border-earth-200 px-2 text-earth-700 hover:bg-earth-50 ${stickyActions ? "min-h-11 whitespace-nowrap text-sm" : "py-0.5 text-[11px]"}`}
             >
               查看
             </button>
