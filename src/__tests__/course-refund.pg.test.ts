@@ -47,7 +47,7 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     await testDb().coursePointCard.create({ data: { id: cardId, storeId, planId: plan.id, nameSnapshot: "隔離並行退款", remaining: 6, expiresAt: new Date("2099-01-01"), requestKey: cardId } });
     await testDb().coursePointEntry.createMany({ data: [
       { storeId, cardId, kind: "GRANT", points: 10, actorUserId: "test-manager" },
-      { storeId, cardId, kind: "ATTEND", points: 4, actorUserId: "test-manager" },
+      { storeId, cardId, kind: "DEBIT", points: 4, actorUserId: "test-manager" },
     ] });
     await testDb().coursePurchase.create({ data: { id: purchaseId, storeId, customerId: "test-customer", planId: plan.id, name: "隔離並行退款", unit: "POINT", points: 10, price: 1000, validDays: 30, templateIds: [], status: "CONFIRMED", transferLastFive: "00000", requestKey: purchaseId, cardId } });
     await testDb().$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId",type,"paymentMethod",amount) VALUES (${"course-purchase:" + purchaseId},${storeId},'INCOME','OTHER',1000)`;

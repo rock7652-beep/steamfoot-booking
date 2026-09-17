@@ -357,6 +357,7 @@ export type CustomerMergeMovedCounts = {
   coursePurchases?: number;
   healthRecords?: number;
   healthGrants?: number;
+  healthHistoryGrantTableAvailable?: boolean;
   bookings: number;
   transactions: number;
   customerPlanWallets: number;
@@ -511,7 +512,11 @@ export async function mergeCustomerIntoCustomer(
   }
 
   return prisma.$transaction(async (tx) => {
-    if (input.courseStoreId) await lockCourseStore(tx, input.courseStoreId);
+    if (input.courseStoreId) {
+      await lockCourseStore(tx, input.courseStoreId);
+      await tx.$queryRaw`SELECT id FROM "Customer" WHERE "storeId"=${input.courseStoreId}
+        AND id IN (${sourceCustomerId},${targetCustomerId}) ORDER BY id FOR UPDATE`;
+    }
     const [source, target] = await Promise.all([
       tx.customer.findUnique({ where: { id: sourceCustomerId } }),
       tx.customer.findUnique({ where: { id: targetCustomerId } }),

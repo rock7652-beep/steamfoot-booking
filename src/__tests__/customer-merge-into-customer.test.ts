@@ -151,6 +151,7 @@ vi.mock("@/lib/db", () => ({
     auditLog: auditLogModel,
     $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
+        $queryRaw: vi.fn().mockResolvedValue([]),
         customer: customerModel,
         booking: bookingModel,
         transaction: transactionModel,

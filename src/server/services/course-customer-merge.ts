@@ -32,7 +32,13 @@ export async function moveCourseCustomerRelations(tx: Prisma.TransactionClient, 
   const operators = await tx.$executeRaw`UPDATE "CourseBooking" SET "operatorCustomerId"=${targetId} WHERE "storeId"=${storeId} AND "operatorCustomerId"=${sourceId}`;
   const purchases = await tx.$executeRaw`UPDATE "CoursePurchase" SET "customerId"=${targetId} WHERE "storeId"=${storeId} AND "customerId"=${sourceId}`;
   const health = await tx.customerHealthRecord.updateMany({ where: { storeId, customerId: sourceId }, data: { customerId: targetId } });
-  const healthGrants = await tx.customerHealthHistoryGrant.updateMany({ where: { targetStoreId: storeId, targetCustomerId: sourceId }, data: { targetCustomerId: targetId } });
+  // Optional mature health-history feature is not provisioned in every store database.
+  // A missing table has no grants to move; any error on an existing table still aborts.
+  const healthSchema = await tx.$queryRaw<Array<{ available: boolean }>>`SELECT to_regclass('public."CustomerHealthHistoryGrant"') IS NOT NULL AS available`;
+  const healthHistoryGrantTableAvailable = healthSchema[0]?.available === true;
+  const healthGrants = healthHistoryGrantTableAvailable
+    ? await tx.customerHealthHistoryGrant.updateMany({ where: { targetStoreId: storeId, targetCustomerId: sourceId }, data: { targetCustomerId: targetId } })
+    : { count: 0 };
   // Flatten earlier merges so old event identifiers remain discoverable after repeated merges.
   await tx.$executeRaw`UPDATE "Customer" SET "mergedIntoCustomerId"=${targetId} WHERE "storeId"=${storeId} AND "mergedIntoCustomerId"=${sourceId}`;
 
@@ -45,5 +51,5 @@ export async function moveCourseCustomerRelations(tx: Prisma.TransactionClient, 
     ON CONFLICT ("storeId","customerId") DO UPDATE SET
       "stoppedAt"=COALESCE("CourseBalanceReminderPreference"."stoppedAt",EXCLUDED."stoppedAt"),
       "lastEventAt"=GREATEST("CourseBalanceReminderPreference"."lastEventAt",EXCLUDED."lastEventAt")`;
-  return { courseMembers: members, sharedMemberships, courseBookings: bookings, courseOperators: operators, coursePurchases: purchases, healthRecords: health.count, healthGrants: healthGrants.count };
+  return { courseMembers: members, sharedMemberships, courseBookings: bookings, courseOperators: operators, coursePurchases: purchases, healthRecords: health.count, healthGrants: healthGrants.count, healthHistoryGrantTableAvailable };
 }

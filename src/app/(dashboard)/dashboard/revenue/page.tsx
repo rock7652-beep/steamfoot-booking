@@ -123,7 +123,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
       />
     );
   if (revenueStoreId && (await getStoreIndustryModule(revenueStoreId)) === "course")
-    return <CourseRevenue storeId={revenueStoreId} params={params} readOnly={isViewMode}
+    return <CourseRevenue storeId={revenueStoreId} params={params} readOnly={isViewMode} canDataExport={canDataExport}
       canEdit={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.create")}
       canVoid={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.void")}
       canRefund={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.refund")}
