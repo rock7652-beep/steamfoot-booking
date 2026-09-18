@@ -305,9 +305,7 @@ function ReadyView({
         </Link>
       )}
 
-      {/* PR-E4：聯絡店家 + 回首頁 並排在頁腳。聯絡店家 LINE-green 與既有 LIFF
-          各處 contact CTA 一致；回首頁 outlined secondary，兩者視覺平衡，
-          顧客有問題（剩餘堂數 / 過期 / 用完）能直接找店家確認。 */}
+      {/* 聯絡店家保留於頁腳，回首頁使用底部導覽。 */}
       <div className={`${showBookNow ? "mt-2" : "mt-4"} flex gap-2`}>
         <a
           href={contactUrl || undefined} aria-disabled={!contactUrl}
@@ -318,12 +316,6 @@ function ReadyView({
           <LineIcon />
           {liffMessages.bookings.contactStoreCta}
         </a>
-        <Link
-          href={dataSource === "spa" ? `/s/${storeSlug}/book` : `/s/${storeSlug}/liff`}
-          className="flex flex-1 items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-        >
-          {liffMessages.wallets.backHomeCta}
-        </Link>
       </div>
     </>
   );
