@@ -312,7 +312,7 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
 
   if (trial.course) {
     const warnings = [
-      trial.trialExpired ? "體驗已到期" : trial.daysRemaining <= 7 ? `體驗剩 ${trial.daysRemaining} 天` : null,
+      trial.trialExpired ? "體驗已到期" : Math.round((1 - trial.daysRemaining / trial.trialDays) * 100) >= 80 ? `體驗剩 ${trial.daysRemaining} 天` : null,
       trial.staff && trial.staff.current >= trial.staff.limit ? "啟用人員已達上限" : null,
       trial.customers.pct >= 100 ? "顧客已達上限" : trial.customers.pct >= 80 ? "顧客接近上限" : null,
       trial.bookings.pct >= 100 ? "本月預約已達上限" : trial.bookings.pct >= 80 ? "本月預約接近上限" : null,
