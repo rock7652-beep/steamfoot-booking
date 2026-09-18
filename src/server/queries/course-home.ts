@@ -98,7 +98,7 @@ export type CourseTodoAccess = { payments: boolean; attendance: boolean; followU
 export async function getCourseHomeTodos(storeId: string, access: CourseTodoAccess, now = new Date(), offset = 0, limit = 5) {
   const parts: Prisma.Sql[] = [];
   if (access.payments) parts.push(Prisma.sql`SELECT id, 'payment' kind, name label, "createdAt" date FROM "CoursePurchase" WHERE "storeId"=${storeId} AND status='PENDING'`);
-  if (access.attendance) parts.push(Prisma.sql`SELECT s.id, 'attendance' kind, s."nameSnapshot" label, s."startsAt" date FROM "CourseSession" s WHERE s."storeId"=${storeId} AND s."cancelledAt" IS NULL AND s."endsAt"<=${new Date(now.getTime()-3600000)} AND EXISTS (SELECT 1 FROM "CourseBooking" b WHERE b."storeId"=${storeId} AND b."sessionId"=s.id AND b.status='RESERVED')`);
+  if (access.attendance) parts.push(Prisma.sql`SELECT s.id, 'attendance' kind, s."nameSnapshot" label, s."startsAt" date FROM "CourseSession" s WHERE s."storeId"=${storeId} AND s."cancelledAt" IS NULL AND s."endsAt"<=${now} AND EXISTS (SELECT 1 FROM "CourseBooking" b WHERE b."storeId"=${storeId} AND b."sessionId"=s.id AND b.status='RESERVED')`);
   if (access.followUp) parts.push(Prisma.sql`SELECT id, 'followUp' kind, COALESCE("customerDisplayName",'顧客跟進') label, "createdAt" date FROM "DigitalButlerLead" WHERE "storeId"=${storeId} AND status IN ('NEW','CONTACTING','QUOTED') ${access.staffScope ? Prisma.sql`AND "assignedStaffId"=${access.staffScope}` : Prisma.empty}`);
   if (!parts.length) return { total: 0, items: [] };
   const union = Prisma.join(parts, " UNION ALL ");
