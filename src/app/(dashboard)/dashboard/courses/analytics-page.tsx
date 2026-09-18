@@ -14,6 +14,7 @@ import { DashboardLink } from "@/components/dashboard-link";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
 import ReportDateRange from "@/components/report-date-range";
 import { TrendChart } from "../ops/trend-chart";
+import { AnalysisReturnState } from "./analysis-return-state";
 
 function AnalysisCustomers({ title, ids, customers }: { title: string; ids: string[]; customers: { id: string; name: string }[] }) {
   const names = new Map(customers.map(customer => [customer.id, customer.name]));
@@ -48,7 +49,7 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
     ["完成出席",current.completed,prior.completed,priorYear.completed,"人次"],
   ] as const;
   const section="rounded-xl border border-earth-200 bg-white p-3";
-  return <PageShell>
+  return <AnalysisReturnState scope={`${user.id}:${storeId}:${range.startDate}:${range.endDate}`}><PageShell>
     <PageHeader title="營運分析" subtitle={`${range.startDate} ～ ${range.endDate} · 台灣時間`} actions={<>
       {canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?startDate=${range.startDate}&endDate=${range.endDate}`} download>全店／人員 CSV</a>}
       {canReadRevenue&&<DashboardLink href="/dashboard/store-revenue" className="rounded-md border border-earth-200 px-3 py-2 text-sm">收入總覽／匯出</DashboardLink>}
@@ -129,5 +130,5 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
         {key:"completed",header:"完成出席",align:"right",accessor:r=>`${r.completed} 人次`},
       ]}/>
     </section>
-  </PageShell>;
+  </PageShell></AnalysisReturnState>;
 }
