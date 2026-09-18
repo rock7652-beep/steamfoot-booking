@@ -37,6 +37,16 @@ PR #1022，2026-09-18。程式實作不等於首店實機交付完成。無新�
 
 ## 驗收界線
 
-本機型別及修改檔 lint、完整測試與新 PostgreSQL 並行開通測試的實際結果，於部署驗收後追加。LINE 程式測試／fixture 不算實機通過。
+功能提交 `e957552ed6f9ddfd406f0819ec21e41ace7d07d5`，隔離部署 `dpl_4K9BL4a8uEbYAJ3W7FHhWNA1nc6M` READY／target=null，預覽 preflight 的 databaseIsTest／directIsTest 皆 true，既有 points／trial schema 可讀。未套用遷移。
+
+本機型別、修改檔 lint 通過；完整測試 571 檔／5008 項通過，6 檔／42 項因未提供專用 PG 跳過，未列為通過。最後首次獨立身分分支補測 3 檔／31 項通過。
+
+GitHub [PostgreSQL 作業 35323642113](https://github.com/rock7652-beep/steamfoot-booking/actions/runs/35323642113)：32 項既有預約、3 項退款、6 項體驗交易、1 項新增並行開通全通過，並檢查零跳過。並行開通實際呼叫服務與 PostgreSQL：兩次請求只有一次成功、一筆訂閱、一筆 TRIAL_STARTED；重送拒絕且原日期不變。
+
+同提交 CI 的 Typecheck、Changed-file ESLint、Targeted tests、Full Vitest baseline、PostgreSQL、Vercel 通過。Cloudflare 仍失敗，按既有授權豁免，非通過。
+
+Chrome 真實操作（約 16:20）：以正常 HQ 建店表單建立本輪專用隔離 COURSE 店，成功頁明示「尚未起算」。DB 訂閱與 TRIAL_STARTED 均 0、起迄日與 currentSubscriptionId 皆 null。未勾選驗收時開通按鈕 disabled；負向模擬勾選但尚無 LIFF，後端回「課程店尚未設定本店 LIFF 入口」，資料仍為 0／null，隨後取消勾選。未把這項負向模擬當作真實 LINE 驗收。既有新店 A／B 各一筆訂閱／開通紀錄，日期均維持 9/18–10/17。
+
+LINE 程式測試／fixture 不算實機通過。專屬 endpoint 應設為固定試用 host 的 `/s/<slug>/liff`，沿用既有 LiffShell 與課程手機頁；不是另建前台。
 
 中央實機登入／三則純文字證據沿用。独立店通道、真實事件／Flex／按鈕、首店教練身分、固定試用環境仍待具體設定與實機配合。不宣稱已可批次交付其他店，仍無正式發布授權。

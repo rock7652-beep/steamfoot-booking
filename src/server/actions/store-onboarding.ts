@@ -8,6 +8,7 @@ import { hashSync } from "bcryptjs";
 import { ALL_PERMISSIONS, createDefaultPermissions, requirePermission } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/session";
 import { deriveBaseUrl } from "@/lib/base-url";
+import { deriveCourseBaseUrl } from "@/server/services/course-delivery-links";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/types";
 import type {
@@ -213,7 +214,7 @@ export async function createStoreAction(
       // COURSE provisioning prepares the store; HQ starts the dated trial only after entry acceptance.
 
       // ── 產出交付摘要 ──
-      const baseUrl = deriveBaseUrl();
+      const baseUrl = industryModule === "COURSE" ? deriveCourseBaseUrl() : deriveBaseUrl();
       const checklist = buildDeliveryChecklist(input, industryModule);
 
       const summary: StoreDeliverySummary = {
@@ -348,7 +349,7 @@ export async function getStoreDeliverySummary(
     return { success: false, error: "店舖不存在" };
   }
 
-  const baseUrl = deriveBaseUrl();
+  const baseUrl = store.industryModule === "COURSE" ? deriveCourseBaseUrl() : deriveBaseUrl();
   const checklist = await verifyStoreSetup(storeId);
 
   const owner = store.staff.find((s) => s.isOwner);

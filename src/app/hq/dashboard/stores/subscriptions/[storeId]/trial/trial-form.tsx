@@ -93,8 +93,7 @@ export function TrialForm({
 
         <div>
           <label className={labelCls}>
-            體驗天數（預設 {TRIAL_DEFAULT_DAYS} 天，可自訂 {TRIAL_MIN_DAYS}–
-            {TRIAL_MAX_DAYS}）
+            {course ? "課程交付試用（固定 30 天）" : <>體驗天數（預設 {TRIAL_DEFAULT_DAYS} 天，可自訂 {TRIAL_MIN_DAYS}–{TRIAL_MAX_DAYS}）</>}
           </label>
           <input
             type="number"
@@ -112,6 +111,7 @@ export function TrialForm({
           <label className={labelCls}>開始日</label>
           <input
             type="date"
+            readOnly={course}
             min={defaultStart}
             max={defaultStart}
             className={inputCls}

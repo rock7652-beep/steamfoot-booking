@@ -160,7 +160,9 @@ export default async function StoreDetailPage({ params }: PageProps) {
                 : summary.store.currentSubscriptionId
                   ? "已建立訂閱；延長試用或轉正式請至訂閱管理"
                   : summary.canActivate
-                  ? "✅ 設定完成，可開通 30 天單店試用"
+                  ? summary.store.industryModule === "COURSE"
+                    ? "建置完成，尚未起算；LIFF 入口驗收可用後再開通 30 天"
+                    : "✅ 設定完成，可開通 30 天單店試用"
                   : "⚠️ 部分項目未通過，建議先修正"}
             </p>
           </div>
