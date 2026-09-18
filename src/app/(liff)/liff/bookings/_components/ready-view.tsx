@@ -15,7 +15,7 @@ import { BookingCard } from "./booking-card";
 export type Tab = "upcoming" | "history";
 
 // ──────────────────────────────────────────────────────────
-// Ready view: tabs + list + back-home
+// Ready view: tabs + list + member booking entry
 // ──────────────────────────────────────────────────────────
 
 export function ReadyView({
@@ -29,7 +29,7 @@ export function ReadyView({
   contactUrl,
   storeAddress,
   storeMapUrl,
-  homeHref,
+  bookingHref = `/s/${storeSlug}/liff/member-booking`,
 }: {
   upcoming: LiffBookingRow[];
   history: LiffBookingRow[];
@@ -46,7 +46,7 @@ export function ReadyView({
   storeAddress: string;
   /** PR-E：per-store Google Maps 短網址，傳給 BookingCard。 */
   storeMapUrl: string;
-  homeHref: string;
+  bookingHref?: string;
 }) {
   const displayed = tab === "upcoming" ? upcoming : history;
   return (
@@ -54,7 +54,7 @@ export function ReadyView({
       <Tabs tab={tab} onChange={onTabChange} upcomingCount={upcoming.length} />
 
       {displayed.length === 0 ? (
-        <EmptyState tab={tab} />
+        <EmptyState tab={tab} bookingHref={bookingHref} />
       ) : (
         <ul className="flex flex-col gap-3">
           {displayed.map((b) => (
@@ -73,12 +73,6 @@ export function ReadyView({
         </ul>
       )}
 
-      <Link
-        href={homeHref}
-        className="mt-4 inline-flex items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-      >
-        {liffMessages.bookings.backHomeCta}
-      </Link>
     </>
   );
 }
@@ -140,19 +134,24 @@ function TabButton({
   );
 }
 
-function EmptyState({ tab }: { tab: Tab }) {
+function EmptyState({ tab, bookingHref }: { tab: Tab; bookingHref: string }) {
   const title =
     tab === "upcoming"
       ? liffMessages.bookings.emptyUpcomingTitle
       : liffMessages.bookings.emptyHistoryTitle;
   const body =
     tab === "upcoming"
-      ? liffMessages.bookings.emptyUpcomingBody
+      ? "點選立即預約，安排下一次到店。"
       : liffMessages.bookings.emptyHistoryBody;
   return (
     <div className="rounded-xl border border-dashed border-earth-300 bg-white px-4 py-10 text-center">
       <p className="text-base font-semibold text-earth-900">{title}</p>
       <p className="mt-1 text-sm text-earth-600">{body}</p>
+      {tab === "upcoming" && (
+        <Link href={bookingHref} className="mt-5 inline-flex min-h-12 items-center justify-center rounded-xl bg-primary-600 px-6 py-3 text-base font-semibold text-white transition hover:bg-primary-700 active:scale-[0.98]">
+          立即預約
+        </Link>
+      )}
     </div>
   );
 }

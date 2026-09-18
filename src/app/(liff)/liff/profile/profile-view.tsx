@@ -5,7 +5,7 @@
  *
  * 流程：
  *   1. mount → initLiff → isInLineClient → ready
- *   2. ready → call fetchLiffCustomerProfile → 顯示 profile rows + 回會員中心
+ *   2. ready → call fetchLiffCustomerProfile → 顯示 profile rows；返回由底部導覽提供
  *
  * 範圍：
  *   ✅ 顯示 6 個欄位：姓名 / 電話 / Email / LINE 綁定狀態 / LINE 顯示名稱 / 所屬門市
@@ -13,7 +13,7 @@
  *   ✅ lineName 未填 → 「未綁定或未填寫」中性文案
  *   ✅ LINE 綁定狀態 3 態：已綁定 / 尚未綁定 / 需店家協助確認
  *   ✅ 已綁定時顯示 masked lineUserId tail（U******xxxx）作為 support-triage 用
- *   ✅ 「回會員中心」按鈕（Link → /s/{slug}/liff）
+ *   ✅ 共用底部導覽提供首頁入口
  *   ❌ 不提供編輯（read-only）
  *   ❌ 不顯示完整 lineUserId
  *   ❌ 不查 / 不寫 DB（server action 內處理）
@@ -23,7 +23,6 @@
  */
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { initLiff, isInLineClient, getIDToken } from "@/lib/liff/client";
 import { liffMessages } from "@/lib/liff/messages";
@@ -182,15 +181,7 @@ export function ProfileView({
       )}
 
       {state.kind === "ready" && (
-        <>
-          <ReadyView profile={state.profile} />
-          <Link
-            href={`/s/${storeSlug}/liff`}
-            className="mt-2 flex w-full items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-3 text-sm font-medium text-earth-700 transition hover:bg-earth-50 active:scale-[0.98]"
-          >
-            {liffMessages.profile.backToHomeCta}
-          </Link>
-        </>
+        <ReadyView profile={state.profile} />
       )}
     </div>
   );
