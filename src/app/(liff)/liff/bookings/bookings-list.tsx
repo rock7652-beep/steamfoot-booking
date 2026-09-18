@@ -415,7 +415,7 @@ export function BookingsList({
           contactUrl={contactUrl}
           storeAddress={storeAddress}
           storeMapUrl={storeMapUrl}
-          homeHref={dataSource === "spa" ? `/s/${storeSlug}/book` : `/s/${storeSlug}/liff`}
+          bookingHref={dataSource === "spa" ? `/s/${storeSlug}/book/new` : `/s/${storeSlug}/liff/member-booking`}
         />
       )}
 
