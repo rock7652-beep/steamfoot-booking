@@ -31,6 +31,7 @@ export async function bulkAssignCourseCustomers(input: z.infer<typeof bulkUpdate
       return result.count;
     });
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
     return { success: true, data: { count } };
   } catch (error) { return handleActionError(error); }
 }
@@ -55,6 +56,7 @@ export async function saveCourseCustomerAttribution(input: z.infer<typeof update
       await tx.customer.update({ where: { id: customer.id, storeId }, data: { assignedStaffId: staff.id, sponsorId } });
     });
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error); }
 }

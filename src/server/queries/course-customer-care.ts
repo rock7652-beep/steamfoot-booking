@@ -4,12 +4,12 @@ import { coursePrisma } from "@/lib/course-db";
 import { addTaiwanDuration, dayRange, toLocalDateStr } from "@/lib/date-utils";
 
 /** Store-scoped course signals; never aggregate unlike cards or read Steamfoot wallets. */
-export async function getCourseCustomerCare(storeId: string, now = new Date()) {
+export async function getCourseCustomerCare(storeId: string, now = new Date(), staffScope: string | null = null) {
   const expiryEnd = dayRange(addTaiwanDuration(toLocalDateStr(now), 14, "DAY")).end;
   const inactiveBefore = dayRange(addTaiwanDuration(toLocalDateStr(now), -30, "DAY")).start;
   const [customers, cards, attendance, trialPayments, purchases] = await Promise.all([
     prisma.customer.findMany({
-      where: { storeId, mergedIntoCustomerId: null, NOT: { user: { is: { status: "SUSPENDED" } } } },
+      where: { storeId, ...(staffScope ? { assignedStaffId: staffScope } : {}), mergedIntoCustomerId: null, NOT: { user: { is: { status: "SUSPENDED" } } } },
       select: { id: true, name: true, phone: true, assignedStaff: { select: { displayName: true } }, followUps: { where: { storeId }, orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true, createdBy: { select: { name: true } } } } },
       orderBy: { name: "asc" },
     }),

@@ -88,7 +88,7 @@ export function CourseWorkspace({
     params = useSearchParams();
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
-  const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [expandedSession, setExpandedSession] = useState<string | null>(params.get("session"));
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | null

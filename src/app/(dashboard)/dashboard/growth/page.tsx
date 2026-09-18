@@ -24,6 +24,7 @@ import {
 import { CareSection, type CareItem } from "./_components/care-section";
 import { formatRelativeDaysTW } from "@/lib/customer-follow-up";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { courseCustomerStaffScope } from "@/server/queries/course-home";
 import { CourseCare } from "./_components/course-care";
 
 /**
@@ -125,7 +126,7 @@ export default async function CustomerCarePage({
       checkPermission(user.role, user.staffId, "customer.update"),
       checkPermission(user.role, user.staffId, "booking.create"),
     ]);
-    return <CourseCare storeId={viewedStoreId} month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook}/>;
+    return <CourseCare storeId={viewedStoreId} month={workspaceMonth} readOnly={isViewMode} canFollowUp={canFollowUp} canBook={canBook} segment={params.segment} staffScope={courseCustomerStaffScope(queryUser, viewedStoreId)}/>;
   }
   if (isCustomerKpiSegment(params.segment)) {
     const selectedSegment = params.segment;

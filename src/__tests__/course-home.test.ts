@@ -1,0 +1,33 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+const m=vi.hoisted(()=>({raw:vi.fn(),session:vi.fn(),live:vi.fn(),scope:vi.fn(),permission:vi.fn(),blocked:vi.fn()}));
+vi.mock("server-only",()=>({}));
+vi.mock("@/lib/db",()=>({prisma:{$queryRaw:m.raw,cashDrawerSession:{findFirst:m.session}}}));
+vi.mock("@/lib/manager-visibility",()=>({getManagerCustomerWhere:m.scope}));
+vi.mock("@/server/queries/cash-drawer",()=>({computeLiveTotalsForOpenSession:m.live}));
+vi.mock("@/lib/permissions",()=>({checkPermission:m.permission}));
+vi.mock("@/lib/subscription-guard",()=>({isStoreSubscriptionWriteBlocked:m.blocked}));
+import {getCourseHomeToday,getCourseReceiptTotals,getCourseHomeCustomers,getCourseHomeTodos,getCourseHomeCash,getCourseCareCounts,courseCustomerStaffScope} from "@/server/queries/course-home";
+import {courseHomeAccess} from "@/server/queries/course-home-access";
+import {bookingDateToday} from "@/lib/date-utils";
+const amount=(n:number)=>({toNumber:()=>n});
+beforeEach(()=>{vi.clearAllMocks();m.scope.mockReturnValue({});m.blocked.mockResolvedValue(false);m.permission.mockResolvedValue(true);});
+describe("course home bounded read models",()=>{
+ it("uses Taipei day boundaries and distinct participants, excludes cancelled bookings",async()=>{m.raw.mockResolvedValue([{sessions:13,bookings:236,people:20,attended:60}]);expect(await getCourseHomeToday("a","2026-09-18")).toEqual({sessions:13,bookings:236,people:20,attended:60});const q=m.raw.mock.calls[0][0];expect(q.values).toContain("a");expect(q.values).toContainEqual(new Date("2026-09-17T16:00:00.000Z"));expect(q.values).toContainEqual(new Date("2026-09-18T15:59:59.999Z"));expect(q.sql).toContain('count(DISTINCT b."customerId")');expect(q.sql).toContain("b.status<>'CANCELLED'");});
+ it("separates gross receipts, refunds and receipt reversals without cash balance",async()=>{m.raw.mockResolvedValue([{purchases:1000,purchaseCount:1,trial:2100,refunds:200,voids:700}]);expect(await getCourseReceiptTotals("a","2026-09-18","2026-09-18")).toMatchObject({gross:3100,net:2200,refunds:200,voids:700});expect(m.raw.mock.calls[0][0].sql).not.toContain('CashDrawer');});
+ it("does not return a global customer count for self-only scope",async()=>{m.raw.mockResolvedValue([{total:300,mine:300}]);expect(await getCourseHomeCustomers("a","staff","staff")).toEqual({total:null,mine:300});expect(m.raw.mock.calls[0][0].sql).toContain('AND "assignedStaffId"=');});
+ it("never invents personal count for account with no staff link",async()=>{m.raw.mockResolvedValue([{total:20,mine:0}]);expect(await getCourseHomeCustomers("a",null,null)).toEqual({total:20,mine:null});});
+ it("does not query any todo source without corresponding permissions",async()=>{expect(await getCourseHomeTodos("a",{payments:false,attendance:false,followUp:false,staffScope:null})).toEqual({total:0,items:[]});expect(m.raw).not.toHaveBeenCalled();});
+ it("only reads permitted sources, keeps one-hour grace, limits initial items",async()=>{m.raw.mockResolvedValue([{total:18,items:[{id:"lesson",kind:"attendance",label:"class",date:"2026-09-18T01:00:00Z"}]}]);const r=await getCourseHomeTodos("a",{payments:false,attendance:true,followUp:false,staffScope:null},new Date("2026-09-18T08:00:00Z"));const q=m.raw.mock.calls[0][0];expect(q.values).toContainEqual(new Date("2026-09-18T07:00:00Z"));expect(q.values).toContain(5);expect(q.sql).not.toContain("CoursePurchase");expect(q.sql).not.toContain("DigitalButlerLead");expect(r.items[0].href).toContain("date=2026-09-18&action=booking&session=lesson");});
+ it("care is count-only, per-card available balance, not combined balances",async()=>{m.raw.mockResolvedValue([{birthday:100,low:10,expiring:20,inactive:0,trial:0}]);await getCourseCareCounts("a","staff",new Date("2026-09-18T08:00:00Z"));const q=m.raw.mock.calls[0][0];expect(q.sql).toContain('GREATEST(0,c.remaining-COALESCE(h.amount,0))');expect(q.sql).toContain('p."lowBalanceThreshold" IS NOT NULL');expect(q.sql).toContain('AND c."assignedStaffId"=');expect(q.sql).not.toContain('SELECT c.*');});
+ it("propagates read failures instead of substituting zero",async()=>{m.raw.mockRejectedValue(new Error("offline"));await expect(getCourseHomeToday("a","2026-09-18")).rejects.toThrow("offline");});
+ it("an open drawer is not reconciled until an actual closing count exists",async()=>{m.session.mockResolvedValue({businessDate:bookingDateToday(),status:"OPEN",openingActualCash:amount(200),openingDifference:amount(20),closingActualCash:null,closingDifference:null});m.live.mockResolvedValue({expectedClosingCash:amount(500)});expect(await getCourseHomeCash("a")).toEqual({state:"OPEN",expected:500,actual:null,difference:null,openingActual:200,openingDifference:20});});
+ it("closed drawer uses immutable snapshot and preserves shortage",async()=>{m.session.mockResolvedValue({businessDate:bookingDateToday(),status:"CLOSED",openingActualCash:amount(200),openingDifference:amount(20),expectedClosingCash:amount(500),closingActualCash:amount(480),closingDifference:amount(-20)});expect(await getCourseHomeCash("a")).toMatchObject({state:"CLOSED",expected:500,actual:480,difference:-20});expect(m.live).not.toHaveBeenCalled();});
+ it("missing drawer means uninitialized, not balanced",async()=>{m.session.mockResolvedValue(null);expect(await getCourseHomeCash("a")).toEqual({state:"EMPTY"});});
+});
+describe("course home access",()=>{
+ const user={id:"manager",role:"OWNER",staffId:"staff",storeId:"a"} as Parameters<typeof courseHomeAccess>[0];
+ it("restricted manager does not receive unauthorized customer, revenue or cash regions",async()=>{m.permission.mockImplementation(async(_r,_s,p)=>p==="booking.read");const a=await courseHomeAccess(user,"a");expect(a).toMatchObject({bookings:true,create:false,customers:false,revenue:false,cash:false,todos:{payments:false,attendance:false,followUp:false}});});
+ it("viewing a different store never grants write shortcuts or tasks",async()=>{expect(await courseHomeAccess(user,"b")).toMatchObject({create:false,todos:{payments:false,attendance:false,followUp:false}});});
+ it("subscription read-only preserves summaries but disables tasks",async()=>{m.blocked.mockResolvedValue(true);expect(await courseHomeAccess(user,"a")).toMatchObject({bookings:true,customers:true,create:false,todos:{payments:false,attendance:false,followUp:false}});});
+ it("uses existing visibility scope instead of interpreting OWNER as headquarters",()=>{m.scope.mockReturnValue({assignedStaffId:"staff"});expect(courseCustomerStaffScope(user,"a")).toBe("staff");});
+});

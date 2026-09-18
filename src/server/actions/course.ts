@@ -44,6 +44,7 @@ export async function updateCourseRoom(input: unknown) {
     if (!result.count)
       throw new AppError("VALIDATION", "找不到本店教室，請重新整理");
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     return { success: true as const };
   } catch (error) {
@@ -71,6 +72,7 @@ export async function updateCourseTemplate(input: unknown) {
     if (!result.count)
       throw new AppError("VALIDATION", "找不到本店課程，請重新整理");
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     return { success: true as const };
   } catch (error) {
@@ -172,6 +174,7 @@ export async function updateCourseSession(input: unknown) {
       { timeout: 15000 },
     );
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     return { success: true as const };
   } catch (error) {
@@ -195,6 +198,7 @@ export async function createCourseRoom(input: unknown) {
       select: { id: true, name: true },
     });
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
     return { success: true as const, data: room };
   } catch (error) {
     return handleActionError(error);
@@ -215,6 +219,7 @@ export async function createCourseTemplate(input: unknown) {
       throw new AppError("VALIDATION", "請選擇本店可使用的教室");
     await coursePrisma.courseTemplate.create({ data: { ...data, storeId } });
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
     return { success: true as const };
   } catch (error) {
     return handleActionError(error);
@@ -341,6 +346,7 @@ export async function createCourseSchedule(input: unknown) {
       { timeout: 15000 },
     );
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
     return { success: true as const, data: result };
   } catch (error) {
     return handleActionError(error);
@@ -378,6 +384,7 @@ export async function setCourseCatalogStatus(input: unknown) {
         throw new AppError("NOT_FOUND", "找不到本店資料，請重新整理");
     });
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
     return { success: true as const };
   } catch (error) {
@@ -564,6 +571,7 @@ export async function updateCourseSeries(input: unknown) {
         });
     });
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
     revalidatePath("/book");
     return { success: true as const };
   } catch (e) {

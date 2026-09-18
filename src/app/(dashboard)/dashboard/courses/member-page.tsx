@@ -1,3 +1,4 @@
+import { getManagerCustomerWhere } from "@/lib/manager-visibility";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { notFound } from "next/navigation";
@@ -45,7 +46,7 @@ export async function CourseMemberPage({
     await Promise.all([
       canReadPeople
         ? prisma.customer.findMany({
-            where: { storeId, mergedIntoCustomerId: null },
+            where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null },
             select: { id: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, address: true, notes: true, emergencyContactName: true, emergencyContactPhone: true, lineUserId: true, lineLinkStatus: true, customerStage: true, createdAt: true, totalPoints: true, mergedIntoCustomerId: true, user: {select:{status:true}}, assignedStaff: {select:{id:true,storeId:true,displayName:true,colorCode:true}}, sponsor:{select:{id:true,storeId:true,name:true}}, _count:{select:{sponsoredCustomers:{where:{storeId,mergedIntoCustomerId:null}}}} },
             orderBy: { name: "asc" },
           })
