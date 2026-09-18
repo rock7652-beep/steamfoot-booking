@@ -8,7 +8,7 @@ import {addTaiwanDuration,dayRange,toLocalDateStr} from "@/lib/date-utils";
 import {courseExpirySettingId} from "@/lib/course-expiry-reminder";
 import {hasStoreFeature} from "@/lib/feature-gate";
 import {FEATURES} from "@/lib/feature-flags";
-import {deriveBaseUrl} from "@/lib/base-url";
+import {courseMemberNotificationUrl} from "./course-delivery-links";
 import {buildPlanExpiryLineMessages} from "./plan-expiry-notifications";
 
 export async function getCourseExpiryCandidates(storeId:string,now=new Date()) {
@@ -42,7 +42,7 @@ export async function runCourseExpiryReminders(now=new Date(),onlyStoreId?:strin
             if(await courseReminderAlreadySent(tx,store.id,person.id,customerId=>`course-expiry:${createHash("sha256").update(`${store.id}:${candidate.card.id}:${customerId}:${candidate.date}:${candidate.days}`).digest("hex")}`)) return "SKIPPED";
             const current=await tx.$queryRaw<Array<{remaining:number;held:number}>>`SELECT c.remaining,COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)::int AS held FROM "CoursePointCard" c WHERE c.id=${candidate.card.id} AND c."storeId"=${store.id} AND c."closedAt" IS NULL AND c."expiresAt"=${candidate.card.expiresAt} AND EXISTS(SELECT 1 FROM "CourseCardMember" m WHERE m."cardId"=c.id AND m."storeId"=c."storeId" AND m."customerId"=${person.id})`;
             if(!current[0] || current[0].remaining<=current[0].held) return "SKIPPED";
-            const url=new URL(`/s/${encodeURIComponent(store.slug)}`,deriveBaseUrl());url.searchParams.set("view","plans");
+            const url=courseMemberNotificationUrl(store.slug,"plans");
             const messages=buildPlanExpiryLineMessages({customerName:person.name,planName:candidate.card.nameSnapshot,remainingSessions:current[0].remaining-current[0].held,expiryDate:new Date(candidate.date+"T00:00:00Z"),daysUntilExpiry:candidate.days,storeSlug:store.slug,course:{unit:candidate.card.unit==="SESSION"?"SESSION":"POINT",remaining:current[0].remaining,held:current[0].held,url:url.toString()}});
             await tx.messageLog.upsert({where:{id},create:{id,templateId:setting.id,storeId:store.id,customerId:person.id,courseCardId:candidate.card.id,channel:"LINE",status:"PENDING",renderedBody:messages[0].altText},update:{status:"PENDING",errorMessage:null}});
             return deliverCourseCardNotification(tx,{id,storeId:store.id,person,messages,retryKey:key,now});

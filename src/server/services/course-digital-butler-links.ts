@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { deriveBaseUrl } from "@/lib/base-url";
+import { deriveCourseBaseUrl as deriveBaseUrl } from "./course-delivery-links";
 import { ZHUBEI_EXPERIENCE_BOOKING_URL } from "@/lib/booking-links";
 import type { DigitalButlerRuntimeResult } from "./digital-butler-runtime";
 

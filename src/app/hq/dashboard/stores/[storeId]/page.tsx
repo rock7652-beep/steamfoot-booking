@@ -63,7 +63,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
           </Link>
           <Link href={`/hq/dashboard/stores/subscriptions/${storeId}`} className="text-sm text-primary-700 underline">訂閱管理</Link>
           {canShowActivate && (
-            <ActivateTrialButton storeId={storeId} />
+            <ActivateTrialButton storeId={storeId} course={summary.store.industryModule === "COURSE"} />
           )}
         </div>
       </div>

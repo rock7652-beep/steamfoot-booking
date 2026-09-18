@@ -1,3 +1,4 @@
+import { getConfiguredStoreLine } from "./store-line-config";
 export const LINE_TOKEN_NOT_CONFIGURED_ERROR = "LINE token not configured for store";
 export const LINE_SECRET_NOT_CONFIGURED_ERROR = "LINE secret not configured for store";
 
@@ -71,6 +72,8 @@ export function resolveLineStoreSlug(storeIdOrSlug: string): LineStoreSlug | nul
 }
 
 export function getLineAccessTokenForStore(storeIdOrSlug: string): string | null {
+  const explicit = getConfiguredStoreLine(storeIdOrSlug);
+  if (explicit) return nonEmptyEnv(explicit.accessTokenEnv);
   const slug = resolveLineStoreSlug(storeIdOrSlug);
   if (!slug) return null;
   const envNames = LINE_ENV_BY_STORE[slug];
@@ -79,6 +82,8 @@ export function getLineAccessTokenForStore(storeIdOrSlug: string): string | null
 }
 
 export function getLineSecretForStore(storeIdOrSlug: string): string | null {
+  const explicit = getConfiguredStoreLine(storeIdOrSlug);
+  if (explicit) return nonEmptyEnv(explicit.channelSecretEnv);
   const slug = resolveLineStoreSlug(storeIdOrSlug);
   if (!slug) return null;
   const envNames = LINE_ENV_BY_STORE[slug];
@@ -89,9 +94,11 @@ export function getLineSecretForStore(storeIdOrSlug: string): string | null {
 export function getLineConfigForStore(storeIdOrSlug: string): {
   accessToken: string | null;
   channelSecret: string | null;
-  storeSlug: LineStoreSlug | null;
+  storeSlug: string | null;
   expectedBasicId: string | null;
 } {
+  const explicit = getConfiguredStoreLine(storeIdOrSlug);
+  if (explicit) return { storeSlug: explicit.slug, accessToken: nonEmptyEnv(explicit.accessTokenEnv), channelSecret: nonEmptyEnv(explicit.channelSecretEnv), expectedBasicId: explicit.basicId };
   const storeSlug = resolveLineStoreSlug(storeIdOrSlug);
   if (!storeSlug) {
     return { accessToken: null, channelSecret: null, storeSlug: null, expectedBasicId: null };
@@ -111,12 +118,17 @@ export function getLineConfigForStore(storeIdOrSlug: string): {
 }
 
 export function getLineWebhookDiagnosticsForStore(storeIdOrSlug: string): {
-  storeSlug: LineStoreSlug | null;
+  storeSlug: string | null;
   secretEnvName: string | null;
   hasSecret: boolean;
   secretLength: number | null;
   hasAccessToken: boolean;
 } {
+  const explicit = getConfiguredStoreLine(storeIdOrSlug);
+  if (explicit) {
+    const secret = nonEmptyEnv(explicit.channelSecretEnv);
+    return { storeSlug: explicit.slug, secretEnvName: explicit.channelSecretEnv, hasSecret: Boolean(secret), secretLength: secret?.length ?? null, hasAccessToken: Boolean(nonEmptyEnv(explicit.accessTokenEnv)) };
+  }
   const storeSlug = resolveLineStoreSlug(storeIdOrSlug);
   if (!storeSlug) {
     return {

@@ -108,3 +108,16 @@ jobs:
           name: course-trial-pg-results
           path: course-trial-pg-results.json
           retention-days: 3
+      - name: Verify course trial activation concurrency without resetting existing dates
+        run: >-
+          npx vitest run src/__tests__/course-trial-activation.pg.test.ts
+          --reporter=default --reporter=json --outputFile=course-activation-pg-results.json
+      - name: Require actual activation test execution
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("course-activation-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 1 || r.numPassedTests !== 1 || r.numPendingTests !== 0) {
+              throw new Error("Expected the concurrent activation database test to pass without skips");
+            }
+          '

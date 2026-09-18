@@ -3,7 +3,7 @@ import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
-import { deriveBaseUrl } from "@/lib/base-url";
+import { deriveCourseBaseUrl as deriveBaseUrl } from "./course-delivery-links";
 import { formatTWDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { deliverManagerNotification } from "./manager-notification-delivery";
 

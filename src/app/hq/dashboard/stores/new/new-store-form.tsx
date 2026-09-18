@@ -179,7 +179,7 @@ export default function NewStoreForm() {
                 : result.store.currentSubscriptionId
                   ? "✅ 已開通 30 天完整單店試用，可交由店長完成課程設定"
                 : result.canActivate
-                  ? "✅ 設定完成，請至店舖詳情開通 30 天單店試用"
+                  ? "✅ 建置完成，尚未起算試用；入口驗收可用後再開通 30 天"
                   : "⚠️ 部分項目未通過，建議先修正"}
             </p>
           </div>

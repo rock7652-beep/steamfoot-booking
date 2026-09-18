@@ -1,7 +1,5 @@
 "use server";
 
-import { openSingleStoreTrialInTransaction } from "@/server/services/single-store-trial";
-import { toLocalDateStr } from "@/lib/date-utils";
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import type { Prisma } from "@prisma/client";
 import { spaPrisma } from "@/lib/spa-db";
@@ -35,7 +33,7 @@ const STORE_OPERATING_STATUSES: StoreOperatingStatus[] = [
 export async function createStoreAction(
   input: CreateStoreInput
 ): Promise<ActionResult<StoreDeliverySummary>> {
-  const admin = await requireAdminSession();
+  await requireAdminSession();
   await requirePermission("staff.manage");
 
   // ── 輸入驗證 ──
@@ -212,12 +210,7 @@ export async function createStoreAction(
         await db.businessHours.createMany({ data: businessHoursData });
       }
 
-      if (industryModule === "COURSE") {
-        const trial = await openSingleStoreTrialInTransaction(db as Prisma.TransactionClient, {
-          storeId, actorId: admin.id, startDate: toLocalDateStr(), days: 30,
-        });
-        store.currentSubscriptionId = trial.id;
-      }
+      // COURSE provisioning prepares the store; HQ starts the dated trial only after entry acceptance.
 
       // ── 產出交付摘要 ──
       const baseUrl = deriveBaseUrl();
@@ -269,7 +262,8 @@ export async function createStoreAction(
 // ============================================================
 
 export async function activateStoreAction(
-  storeId: string
+  storeId: string,
+  entryAcceptanceConfirmed = false,
 ): Promise<ActionResult<{ planStatus: string }>> {
   await requireAdminSession();
   await requirePermission("staff.manage");
@@ -311,7 +305,7 @@ export async function activateStoreAction(
   if (store.currentSubscriptionId) return { success: false, error: "已有訂閱，請至訂閱管理轉正式或續約" };
   const { createTrialSubscription } = await import("@/server/actions/store-subscription");
   const { toLocalDateStr } = await import("@/lib/date-utils");
-  const result = await createTrialSubscription({ storeId, plan: "EXPERIENCE", startDate: toLocalDateStr(), trialDays: 30 });
+  const result = await createTrialSubscription({ storeId, plan: "EXPERIENCE", startDate: toLocalDateStr(), trialDays: 30, entryAcceptanceConfirmed });
   if (!result.success) return result;
   return { success: true, data: { planStatus: "TRIAL" } };
 }

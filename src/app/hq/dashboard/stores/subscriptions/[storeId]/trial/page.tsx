@@ -1,3 +1,5 @@
+import { checkPermission } from "@/lib/permissions";
+import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -20,10 +22,11 @@ export default async function CreateTrialPage({
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN") redirect("/hq/login");
 
+  if (!(await checkPermission(user.role, user.staffId, "staff.manage"))) notFound();
   const { storeId } = await params;
   const store = await prisma.store.findUnique({
     where: { id: storeId },
-    select: { id: true, name: true, slug: true, plan: true },
+    select: { id: true, name: true, slug: true, plan: true, industryModule: true },
   });
   if (!store) redirect("/hq/dashboard/stores/subscriptions");
 
@@ -41,7 +44,7 @@ export default async function CreateTrialPage({
           </Link>
         }
       />
-      <TrialForm storeId={store.id} defaultStart={toLocalDateStr()} />
+      <TrialForm course={store.industryModule === "COURSE"} storeId={store.id} defaultStart={toLocalDateStr()} />
     </PageShell>
   );
 }

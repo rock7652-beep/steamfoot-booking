@@ -22,14 +22,17 @@ function fmtSlash(ymd: string): string {
 export function TrialForm({
   storeId,
   defaultStart,
+  course = false,
 }: {
   storeId: string;
   defaultStart: string;
+  course?: boolean;
 }) {
   const router = useRouter();
   const plan = "EXPERIENCE";
   const [startDate, setStartDate] = useState(defaultStart);
   const [trialDays, setTrialDays] = useState<number>(TRIAL_DEFAULT_DAYS);
+  const [accepted, setAccepted] = useState(false);
   const [pending, setPending] = useState(false);
 
   const daysValid =
@@ -60,6 +63,7 @@ export function TrialForm({
         plan,
         startDate,
         trialDays,
+        entryAcceptanceConfirmed: accepted,
       });
       if (result.success) {
         toast.success(`已建立體驗（${trialDays} 天）`);
@@ -80,6 +84,7 @@ export function TrialForm({
       onSubmit={handleSubmit}
       className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm"
     >
+      {course && <label className="mb-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />本店 LIFF 入口、會員／教練操作及通知返回已驗收，確認今天起算 30 天；既有期限不得重設。</label>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelCls}>方案</label>
@@ -93,6 +98,7 @@ export function TrialForm({
           </label>
           <input
             type="number"
+            disabled={course}
             min={TRIAL_MIN_DAYS}
             max={TRIAL_MAX_DAYS}
             step={1}
@@ -139,7 +145,7 @@ export function TrialForm({
       <div className="mt-5 flex items-center justify-end">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || (course && !accepted)}
           className="rounded-lg bg-primary-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
         >
           {pending ? "建立中…" : "建立體驗"}

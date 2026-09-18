@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { addTaiwanDuration,dayRange,formatTWDateTime,monthRange,toLocalDateStr,toLocalMonthStr } from "@/lib/date-utils";
-import { deriveBaseUrl } from "@/lib/base-url";
+import { courseMemberNotificationUrl } from "./course-delivery-links";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { checkReminderSendLimit } from "@/lib/usage-gate";
@@ -38,10 +38,7 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
   for(const {booking,customer,store,date} of candidates) {
    summary.total++;
    const id=`course-reminder:${createHash("sha256").update(`${store.id}:${booking.id}:${booking.session.startsAt.toISOString()}`).digest("hex")}`;
-   const url=new URL(`/s/${encodeURIComponent(store.slug)}`,deriveBaseUrl());
-   url.searchParams.set("month",date.slice(0,7));
-   url.searchParams.set("date",date);
-   url.searchParams.set("view","bookings");
+   const url=courseMemberNotificationUrl(store.slug,"bookings",date);
    const text=rule.template?.body??COURSE_REMINDER_DEFAULT;
    const body=`${customer.name}｜${formatTWDateTime(booking.session.startsAt)}｜${booking.session.nameSnapshot}\n${text}\n${url}`;
    const triggerAt=new Date(`${toLocalDateStr(now)}T18:00:00+08:00`);
@@ -63,7 +60,7 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
      const count=await tx.messageLog.count({where:{storeId:store.id,status:"SENT",sentAt:{gte:range.start,lte:range.end}}});
      if(!checkReminderSendLimit(plan,count).allowed) return skip("已達本月提醒額度");
      const recipient=await resolveCentralLineRecipientForCustomer(customer.id,store.id);
-     const route=await resolveVerifiedReminderLineRoute(store.id,customer.lineUserId,recipient);
+     const route=await resolveVerifiedReminderLineRoute(store.id,customer.lineUserId,recipient,customer.id);
      if(route.status==="BLOCKED") return skip(`LINE 身分或通道未確認：${route.reason}`);
      const messages=buildPackageBookingReminderLineMessages({customerName:customer.name,bookingDate:date,bookingTime:formatTWDateTime(booking.session.startsAt).slice(11),shopName:store.name,serviceName:booking.session.nameSnapshot,serviceDuration:`${Math.round((booking.session.endsAt.getTime()-booking.session.startsAt.getTime())/60000)} 分鐘`,reminderText:text,managementOnlyLabel:"會員專區／查看課程"},url.toString(),booking.id);
      const sent=route.channel==="STORE"?await pushMessage(store.id,route.recipientLineUserId,messages,retryKey(id)):await pushSteamButlerMessage(route.recipientLineUserId,messages,retryKey(id));

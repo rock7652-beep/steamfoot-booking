@@ -1,3 +1,4 @@
+import { getConfiguredStoreLine } from "./store-line-config";
 import { cache } from "react";
 import { STORE_LOCATION_DEFAULTS } from "@/lib/store-location-defaults";
 import { AppError } from "@/lib/errors";
@@ -288,6 +289,12 @@ export const resolveStorePresentation = cache(
 export const resolveCentralMemberLiffId = cache(async (
   storeSlug?: string,
 ): Promise<string | null> => {
+  const explicit = storeSlug ? getConfiguredStoreLine(storeSlug) : null;
+  if (explicit) {
+    const store = await resolveStoreBySlug(storeSlug!);
+    if (!store || store.id !== explicit.storeId) throw new Error("LINE 店家設定不匹配");
+    return explicit.liffId;
+  }
   const storeLiffId = resolveCentralMemberLiffIdForStore(storeSlug);
   if (storeLiffId) return storeLiffId;
 

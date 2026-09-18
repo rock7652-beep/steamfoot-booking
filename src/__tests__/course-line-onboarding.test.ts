@@ -66,3 +66,14 @@ describe("course LINE onboarding", () => {
     expect(await onboardCourseLineMember(input)).toEqual({ status: "service_unavailable" });
   });
 });
+
+it("creates an independent provider identity without writing the legacy LINE subject column", async () => {
+  const identityProvider = "line-provider:901";
+  expect(await onboardCourseLineMember({ ...input, identityProvider })).toEqual({ status: "ok" });
+  expect(mocks.tx.account.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+    where: { provider_providerAccountId: { provider: identityProvider, providerAccountId: input.lineUserId } },
+  }));
+  expect(mocks.tx.account.create).toHaveBeenCalledWith({ data: expect.objectContaining({ provider: identityProvider }) });
+  expect(mocks.tx.customer.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lineUserId: null }) }));
+  expect(mocks.tx.customerIdentityLink.create).toHaveBeenCalledWith({ data: expect.objectContaining({ provider: identityProvider, storeId: input.storeId }) });
+});

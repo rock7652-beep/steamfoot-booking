@@ -45,7 +45,7 @@ it("preserves feature, monthly quota and verified identity requirements",async()
  m.feature.mockResolvedValue(false);await runCourseExpiryReminders(now);expect(m.cards).not.toHaveBeenCalled();m.feature.mockResolvedValue(true);m.limit.mockReturnValue({allowed:false});await runCourseExpiryReminders(now);expect(m.recipient).not.toHaveBeenCalled();m.limit.mockReturnValue({allowed:true});m.route.mockResolvedValue({status:"BLOCKED",reason:"unlinked"});await runCourseExpiryReminders(now);expect(m.push).not.toHaveBeenCalled();
 });
 it("does not use unverified legacy LINE id",async()=>{
- m.people.mockResolvedValue([{id:"B",name:"B",lineUserId:"old",lineLinkStatus:"PENDING"}]);await runCourseExpiryReminders(now);expect(m.route).toHaveBeenCalledWith("s",null,undefined);
+ m.people.mockResolvedValue([{id:"B",name:"B",lineUserId:"old",lineLinkStatus:"PENDING"}]);await runCourseExpiryReminders(now);expect(m.route).toHaveBeenCalledWith("s",null,undefined,"B");
 });
 it("retains uncertain delivery evidence without overwriting concurrent SENT",async()=>{
  m.push.mockRejectedValue(new Error("timeout"));expect(await runCourseExpiryReminders(now)).toMatchObject({failed:1,sent:0});expect(m.updateMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"s",status:{not:"SENT"}})}));

@@ -1,5 +1,6 @@
 "use client";
 
+import { courseMemberReturnPath } from "@/lib/course-delivery-links";
 import { refreshLiffSession } from "@/lib/liff/session-refresh";
 import { SteamButlerLogo } from "@/components/steam-butler-logo";
 
@@ -195,7 +196,7 @@ export function LiffShell({
           // Course uses the same authenticated mobile portal in LINE and browsers.
           // Branch before legacy summaries/work routing to avoid steamfoot/SPA data.
           if (memberDataSource === "course") {
-            window.location.replace(`/s/${storeSlug}/book`);
+            window.location.replace(courseMemberReturnPath(storeSlug, window.location.search));
             return;
           }
           const [memberContext, workAccess] = await Promise.all([

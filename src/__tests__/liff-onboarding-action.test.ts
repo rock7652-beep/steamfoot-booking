@@ -507,3 +507,9 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(mockVerify).toHaveBeenCalledWith(VALID_INPUT.idToken, CHANNEL);
   });
 });
+
+
+vi.mock("@/server/services/store-liff-context", async importOriginal => ({
+  ...await importOriginal<typeof import("@/server/services/store-liff-context")>(),
+  assertStoreLiffContext: vi.fn().mockResolvedValue(undefined),
+}));

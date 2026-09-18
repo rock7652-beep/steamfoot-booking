@@ -20,12 +20,12 @@ beforeEach(() => {
   m.userCreate.mockResolvedValue({ staff: { id: "owner-staff" } });
   m.transaction.mockImplementation(async fn => fn(prisma)); m.trial.mockResolvedValue({ id: "trial" });
 });
-it("creates the course store and dated trial atomically without legacy booking slots or headquarters permissions", async () => {
+it("prepares the course store without starting its trial without legacy booking slots or headquarters permissions", async () => {
   const result = await createStoreAction(input);
-  expect(result).toMatchObject({ success: true, data: { store: { industryModule: "COURSE", plan: "EXPERIENCE", currentSubscriptionId: "trial" }, canActivate: true } });
+  expect(result).toMatchObject({ success: true, data: { store: { industryModule: "COURSE", plan: "EXPERIENCE", currentSubscriptionId: null }, canActivate: true } });
   expect(m.transaction).toHaveBeenCalledTimes(1);
   expect(m.storeCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ moduleInstallation: { create: expect.objectContaining({ module: "COURSE", status: "ACTIVE", provisionedAt: expect.any(Date) }) } }) }));
-  expect(m.trial).toHaveBeenCalledWith(prisma, expect.objectContaining({ storeId: "store-new-course-test", actorId: "admin", days: 30 }));
+  expect(m.trial).not.toHaveBeenCalled();
   expect(m.hours.mock.calls[0][0].data).toHaveLength(7); expect(m.slots).not.toHaveBeenCalled();
   expect(m.permissions.mock.calls[0][0].data).toContainEqual({ staffId: "owner-staff", permission: "hq.view", granted: false });
   expect(m.legacyPermissions).not.toHaveBeenCalled();
@@ -34,8 +34,8 @@ it("refuses legacy initial coach accounts before creating anything", async () =>
   expect(await createStoreAction({ ...input, initialStaff: [{ name: "教練", email: "coach@example.test", role: "STAFF" }] })).toMatchObject({ success: false });
   expect(m.transaction).not.toHaveBeenCalled(); expect(m.storeCreate).not.toHaveBeenCalled();
 });
-it("returns failure when trial provisioning fails inside the transaction", async () => {
-  m.trial.mockRejectedValue(new Error("trial provisioning failed"));
+it("returns failure when course provisioning transaction fails", async () => {
+  m.transaction.mockRejectedValueOnce(new Error("provisioning failed"));
   expect(await createStoreAction(input)).toMatchObject({ success: false });
   expect(m.transaction).toHaveBeenCalledTimes(1);
 });

@@ -8,8 +8,9 @@ import { hasStoreFeature, requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 beforeEach(() => { vi.clearAllMocks(); m.store.mockResolvedValue({ id: "test-store", plan: "EXPERIENCE", planStatus: "ACTIVE" }); m.industry.mockResolvedValue("course"); m.entitlement.mockResolvedValue(null); });
 describe("course trial availability", () => {
-  it("opens every recognized feature for course trial through the server gate", async () => {
-    for (const feature of Object.values(FEATURES)) expect(await hasStoreFeature("test-store", feature)).toBe(true);
+  it("opens single-store features while keeping headquarters and multi-store features closed", async () => {
+    for (const feature of [FEATURES.CASHBOOK, FEATURES.CUSTOMER_CARE]) expect(await hasStoreFeature("test-store", feature)).toBe(true);
+    expect(await hasStoreFeature("test-store", FEATURES.MULTI_STORE)).toBe(false);
     await expect(requireStoreFeature("test-store", FEATURES.CASHBOOK)).resolves.toBeUndefined();
   });
   it("keeps Steamfoot and SPA trial policies unchanged", async () => {
