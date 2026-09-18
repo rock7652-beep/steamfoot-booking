@@ -43,3 +43,23 @@ describe("isolated course mobile review routing", () => {
       .toContain("/s/zhubei");
   });
 });
+
+describe("LINE onboarding guide preview access", () => {
+  it("allows both public guides and illustrations only on preview", () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    for (const file of ["store.html", "coordinator.html", "step-1.svg", "step-9.svg"]) {
+      expect(request(`/line-onboarding-preview/${file}`).headers.get("x-middleware-next")).toBe("1");
+    }
+    for (const file of ["README.md", "private.json", "admin/dashboard", "step-10.svg"]) {
+      expect(request(`/line-onboarding-preview/${file}`).status).toBe(404);
+    }
+    expect(request("/s/steam500-liff-pilot/admin/dashboard").headers.get("location"))
+      .toContain("/hq/login?store=steam500-liff-pilot");
+  });
+  it("does not publish the guides on production", () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    for (const file of ["store.html", "coordinator.html", "step-1.svg"]) {
+      expect(request(`/line-onboarding-preview/${file}`).status).toBe(404);
+    }
+  });
+});

@@ -49,6 +49,18 @@ type SessionUser = {
 // Next.js 16: proxy.ts（前身為 middleware.ts）
 export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
   const { pathname } = req.nextUrl;
+  // Public, demonstration-only onboarding guides on isolated previews.
+  // Keep the exception confined to these static files, never store/admin routes.
+  if (pathname === "/line-onboarding-preview" || pathname.startsWith("/line-onboarding-preview/")) {
+    if (process.env.VERCEL_ENV !== "preview") return new NextResponse(null, { status: 404 });
+    if (pathname === "/line-onboarding-preview" || pathname === "/line-onboarding-preview/") {
+      return NextResponse.redirect(new URL("/line-onboarding-preview/index.html", req.url));
+    }
+    const file = pathname.slice("/line-onboarding-preview/".length);
+    return /^(index|store|coordinator)\.html$/.test(file) || /^step-[1-9]\.svg$/.test(file)
+      ? NextResponse.next()
+      : new NextResponse(null, { status: 404 });
+  }
   // Isolated, fake-data layout review. Never expose this preview in production
   // or broaden the exception to customer/admin/API routes.
   if (pathname === "/course-mobile-review" || pathname.startsWith("/course-mobile-review/")) {
