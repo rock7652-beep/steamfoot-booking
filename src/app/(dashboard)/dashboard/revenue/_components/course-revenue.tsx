@@ -1,3 +1,4 @@
+import { getCourseRevenueReport } from "@/server/queries/course-revenue-report";
 import { getCourseReceiptTotals } from "@/server/queries/course-home";
 import {CourseTrialTransactions} from "./course-trial-transactions";
 import { coursePrisma } from "@/lib/course-db";
@@ -10,7 +11,7 @@ import { CourseTransactionActions } from "./course-transaction-actions";
 import type { Prisma } from "../../../../../../generated/course-client";
 const money = (amount: number) => `NT$ ${amount.toLocaleString()}`;
 export async function CourseRevenue({ storeId, params, readOnly, canRefund, canConfirm, canEdit, canVoid, canDataExport = false, basePath = "/dashboard/revenue" }: {
-  storeId: string; params: { dateFrom?: string; dateTo?: string; page?: string; trialPage?: string; status?: string; staff?: string };
+  storeId: string; params: { summary?: string; dateFrom?: string; dateTo?: string; page?: string; trialPage?: string; status?: string; staff?: string };
   canEdit: boolean; canVoid: boolean; readOnly: boolean; canRefund: boolean; canConfirm: boolean;
   basePath?: "/dashboard/revenue" | "/dashboard/transactions";
   canDataExport?: boolean;
@@ -21,6 +22,22 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const to = validDate(params.dateTo) ? params.dateTo! : today;
   if (from > to) return <PageShell><PageHeader title="營運" /><p role="alert">開始日期不能晚於結束日期。</p><Link href={basePath}>重設日期</Link></PageShell>;
   const range = { gte: dayRange(from).start, lte: dayRange(to).end };
+  if (params.summary === "receipts") {
+    const [totals, report] = await Promise.all([getCourseReceiptTotals(storeId,from,to),getCourseRevenueReport(storeId,{startDate:from,endDate:to,storeFilter:{storeId}})]);
+    const detailRows = report.data.map(({id, createdAt, customerName, planName, netAmount}) => ({id, createdAt, customerName, planName, netAmount}));
+    const detailColumns: Column<(typeof detailRows)[number]>[] = [
+      { key:"date",header:"入帳／沖回時間",accessor:r=>formatTWTime(new Date(r.createdAt)) },
+      { key:"customer",header:"顧客",accessor:r=>r.customerName },
+      { key:"plan",header:"方案／體驗",accessor:r=>r.planName },
+      { key:"kind",header:"異動",accessor:r=>r.netAmount<0 ? (r.id.endsWith(":void") ? "體驗沖銷" : "退款") : "收款入帳" },
+      { key:"amount",header:"金額",accessor:r=>money(r.netAmount) },
+    ];
+    return <PageShell><PageHeader title="收款明細" subtitle={`${from}–${to} · 依核帳、收款及沖回發生日`} actions={<Link href="/dashboard">返回首頁</Link>}/>
+      <p className="mb-3 text-sm">收款入帳合計 {money(totals.gross)} · 退款 {money(totals.refunds)} · 沖銷 {money(totals.voids)} · 淨收款 {money(totals.net)}</p>
+      <DataTable columns={detailColumns} rows={detailRows} rowKey={r=>r.id}/>
+      <Link className="mt-3 inline-flex min-h-11 items-center text-sm text-primary-700" href={`${basePath}?dateFrom=${from}&dateTo=${to}`}>前往營運交易工作台 →</Link>
+    </PageShell>;
+  }
   const status = ["PENDING", "CONFIRMED", "REFUNDED", "VOIDED"].includes(params.status ?? "") ? params.status : undefined;
   const staff = params.staff?.slice(0, 100) || undefined;
   const where: Prisma.CoursePurchaseWhereInput = { storeId, createdAt: range, ...(status ? { status } : {}), ...(staff ? { confirmedBy: staff } : {}) };
@@ -67,7 +84,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     <PageHeader title={basePath === "/dashboard/transactions" ? "交易明細" : "營運"} subtitle="課程購買、核帳、退款與收支" />
     <RevenueTabs readOnly={readOnly} />
     <KpiStrip items={[{ label: "期間核帳收入", value: money(income), tone: "primary" }, { label: "體驗淨收入", value: money(receiptTotals.trial - receiptTotals.voids) }, { label: "期間退款", value: money(refund) }, { label: "方案淨收入", value: money(income - refund) }, { label: "核帳訂單", value: `${receiptTotals.purchaseCount} 筆` }]} />
-    <p className="text-sm">有效收款合計 {money(receiptTotals.gross)} · 退款 {money(receiptTotals.refunds)} · 體驗沖銷 {money(receiptTotals.voids)} · 淨收款 {money(receiptTotals.net)}</p>
+    <p className="text-sm">收款入帳合計 {money(receiptTotals.gross)} · 退款 {money(receiptTotals.refunds)} · 體驗沖銷 {money(receiptTotals.voids)} · 淨收款 {money(receiptTotals.net)}</p>
     <p className="text-xs text-earth-500">摘要依核帳／退款發生日計算；下表依購買日期篩選。方案淨收入不重複加計現金帳的連動紀錄，也不包含手動收支。</p>
     <CourseTrialTransactions storeId={storeId} range={range} readOnly={readOnly} page={Math.max(1,Number(params.trialPage)||1)} basePath={basePath} query={{dateFrom:from,dateTo:to,status:status??"",staff:staff??""}} status={status} staff={staff}/>
     <div className="grid grid-cols-12 gap-3"><section className="col-span-12 rounded-xl border border-earth-200 bg-white lg:col-span-9">

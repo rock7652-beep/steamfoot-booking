@@ -72,6 +72,7 @@ interface PageProps {
     search?: string;
     kind?: string;
     status?: string;
+    summary?: string;
     dateFrom?: string;
     dateTo?: string;
     transactionType?: TransactionType;
