@@ -52,7 +52,9 @@ if (
     await checkClient.$queryRawUnsafe('SELECT "courseBookingId", "courseCardId" FROM "MessageLog" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "lowBalanceEnabled", "lowBalanceThreshold" FROM "CoursePointPlan" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT id, "stoppedAt" FROM "CourseBalanceReminderPreference" LIMIT 1');
-    console.info("[course-preview-preflight] course_schema_readable=true; points_schema=20260917094700");
+    await checkClient.$queryRawUnsafe('SELECT "bookingKind", "trialPrice" FROM "CourseBooking" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT id, "paymentSplits", "voidedAt" FROM "CourseTrialPayment" LIMIT 1');
+    console.info("[course-preview-preflight] course_schema_readable=true; points_schema=20260917094700; trial_schema=20260917143018");
   } catch {
     throw new Error("Course Preview test database connection or course schema check failed.");
   } finally { await checkClient.$disconnect(); }
