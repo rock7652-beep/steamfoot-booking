@@ -11,11 +11,12 @@ export function courseCustomerStaffScope(user: { role: string; staffId: string |
 }
 
 /** One bounded aggregate row; no session roster is transported to the home. */
-export async function getCourseHomeToday(storeId: string, date: string) {
+export async function getCourseHomeToday(storeId: string, date: string, now = new Date()) {
   const { start, end } = dayRange(date);
-  const [row] = await prisma.$queryRaw<Array<{ sessions: number; bookings: number; people: number; attended: number }>>(Prisma.sql`
+  const [row] = await prisma.$queryRaw<Array<{ sessions: number; ended: number; bookings: number; attended: number; nextEnd: Date | null }>>(Prisma.sql`
     SELECT count(DISTINCT s.id)::int sessions, count(b.id)::int bookings,
-      count(DISTINCT b."customerId")::int people,
+      count(DISTINCT s.id) FILTER (WHERE s."endsAt"<=${now})::int ended,
+      min(s."endsAt") FILTER (WHERE s."endsAt">${now}) AS "nextEnd",
       count(b.id) FILTER (WHERE b.status='ATTENDED')::int attended
     FROM "CourseSession" s LEFT JOIN "CourseBooking" b ON b."sessionId"=s.id AND b."storeId"=s."storeId" AND b.status<>'CANCELLED'
     WHERE s."storeId"=${storeId} AND s."cancelledAt" IS NULL AND s."startsAt" BETWEEN ${start} AND ${end}`);

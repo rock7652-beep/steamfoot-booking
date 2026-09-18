@@ -1222,8 +1222,8 @@ export default function DashboardShell({
 
         {/* Content */}
         <main data-dashboard-content className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
-          {trialStatus && trialStatus.isFree && trialStatus.stage !== "normal" && (
-            <div className="mb-4 mt-3">
+          {trialStatus && trialStatus.isFree && (trialStatus.course || trialStatus.stage !== "normal") && (
+            <div className="mb-3">
               <TrialProgressBar trial={trialStatus} />
             </div>
           )}

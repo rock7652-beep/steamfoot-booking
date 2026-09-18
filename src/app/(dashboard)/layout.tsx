@@ -68,7 +68,9 @@ export default async function DashboardLayout({
       redirect("/dashboard/courses");
     }
   }
-  const trialStatus = await getCachedTrialStatus(activeStoreId ?? undefined);
+  const trialStatus = industryModule === "course"
+    ? await (await import("@/lib/shop-config")).getTrialStatus(activeStoreId ?? undefined)
+    : await getCachedTrialStatus(activeStoreId ?? undefined);
 
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）
   // OWNER/PARTNER：用自己店的 plan

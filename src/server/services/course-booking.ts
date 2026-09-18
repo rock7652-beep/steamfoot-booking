@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "@/lib/shop-config";
 import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
-import { monthRange, toLocalMonthStr, toLocalDateStr } from "@/lib/date-utils";
+import { courseMonthlyBookingWhere } from "@/lib/course-usage";
+import { toLocalDateStr } from "@/lib/date-utils";
 import "server-only";
 import { AppError } from "@/lib/errors";
 import { courseTransaction } from "./course-access";
@@ -115,9 +116,8 @@ async function reserveCourseInTransaction(
     return previous;
   }
   if (maxMonthlyBookings !== null) {
-    const bounds = monthRange(toLocalMonthStr());
     const used = await tx.courseBooking.count({
-      where: { storeId, createdAt: { gte: bounds.start, lte: bounds.end } },
+      where: courseMonthlyBookingWhere(storeId),
     });
     if (used >= maxMonthlyBookings)
       throw new AppError("FORBIDDEN", "已達方案本月預約額度上限");
