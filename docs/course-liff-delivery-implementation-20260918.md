@@ -10,6 +10,7 @@ PR #1022，2026-09-18。程式實作不等於首店實機交付完成。無新�
 - 課程通知由固定本店會員／Provider／Account 所有人核對後取對象。缺設定、錯帳號、無法接收即阻擋，不轉中央帳號。發送前再核對 token 對應的 bot destination／Basic ID，preview 外發阻擋保留。
 - 配置的 COURSE webhook 驗本店 HMAC 後，follow/unfollow 只更新既有同店身分的接收狀態；舊／重送事件不覆蓋新狀態，不建立或換綁會員，不套用蒸足文字指令。一般聊天／機器人功能未新增。
 - 獨立 LIFF 的課程／方案提醒返回本店 LIFF，登入後保留日期與 plans/bookings 模式；不接受外部 next 或另一店 slug。未配置獨立 LINE 的既有網址格式保留。
+- 共用網頁登入的 COURSE LINE 按鈕改走本店 `/liff`，缺設定仍由本店流程阻擋，不改走中央 OAuth；蒸足／SPA 按鈕保留。共用個人資料區分本店 Provider 與中央 LINE 登入方式，不把另一 Provider 的 Account 顯示為本店已連結；獨立身分更換仍須核對，未增加自動合併／換綁。
 - `COURSE_TRIAL_ORIGIN` 支援固定 HTTPS origin，拒絕帳密、path、query/hash；只調整課程對外連結，不改蒸足／SPA base URL。
 - 新 COURSE 建店不建立有期限試用。HQ 確認 LIFF 驗收、入口／通道完整後啟用固定 30 天。訂閱鎖內檢查既有日期、訂閱及 TRIAL_STARTED，重送拒絕、不延長；保留操作者與驗收註記。Steamfoot／SPA 原試用政策保留。
 - 準備期不開跨店／HQ 功能；最多 3 位人員與其餘原額度保留。既有店期限沒有重設。
@@ -50,3 +51,5 @@ Chrome 真實操作（約 16:20）：以正常 HQ 建店表單建立本輪專用
 LINE 程式測試／fixture 不算實機通過。專屬 endpoint 應設為固定試用 host 的 `/s/<slug>/liff`，沿用既有 LiffShell 與課程手機頁；不是另建前台。
 
 中央實機登入／三則純文字證據沿用。独立店通道、真實事件／Flex／按鈕、首店教練身分、固定試用環境仍待具體設定與實機配合。不宣稱已可批次交付其他店，仍無正式發布授權。
+
+收尾補驗：網頁登入模組分流、登入方式 Provider 區分與 LIFF context 共 3 檔 12 項通過；隔離設定測試不代表實際各店 LINE 通道已開通。

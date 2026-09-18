@@ -4,6 +4,7 @@ export interface CustomerLoginMethods {
   phone: { linked: boolean; maskedValue: string | null };
   google: { linked: boolean; maskedValue: string | null };
   line: { linked: boolean };
+  storeLine?: { linked: boolean };
 }
 
 function maskPhone(phone: string | null): string | null {
@@ -29,7 +30,9 @@ function maskEmail(email: string | null): string | null {
  */
 export async function getCustomerLoginMethods(
   userId: string,
+  storeLineProvider?: string,
 ): Promise<CustomerLoginMethods> {
+  const independentProvider = storeLineProvider?.startsWith("line-provider:") ? storeLineProvider : undefined;
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -37,7 +40,7 @@ export async function getCustomerLoginMethods(
       email: true,
       passwordHash: true,
       accounts: {
-        where: { provider: { in: ["google", "line"] } },
+        where: { provider: { in: ["google", "line", ...(independentProvider ? [independentProvider] : [])] } },
         select: { provider: true },
       },
     },
@@ -48,6 +51,7 @@ export async function getCustomerLoginMethods(
       phone: { linked: false, maskedValue: null },
       google: { linked: false, maskedValue: null },
       line: { linked: false },
+      ...(independentProvider ? { storeLine: { linked: false } } : {}),
     };
   }
 
@@ -66,5 +70,6 @@ export async function getCustomerLoginMethods(
       maskedValue: providers.has("google") ? maskEmail(user.email) : null,
     },
     line: { linked: providers.has("line") },
+    ...(independentProvider ? { storeLine: { linked: providers.has(independentProvider) } } : {}),
   };
 }

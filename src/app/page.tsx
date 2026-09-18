@@ -6,6 +6,7 @@ import { CustomerLoginForm } from "./customer-login-form";
 import { RefCapture } from "@/components/ref-capture";
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 interface PageProps {
   searchParams: Promise<{ error?: string }>;
@@ -39,6 +40,10 @@ export default async function HomePage({ searchParams }: PageProps) {
   const prefix = `/s/${storeSlug}`;
   const store = await resolveStoreBySlug(storeSlug);
   const storeName = getCustomerFacingStoreName(store ?? { slug: storeSlug });
+  // Course LINE always enters the store-validated LIFF flow, including when
+  // its channel is missing. Never silently start central web OAuth instead.
+  const lineEntryHref = store && await getStoreIndustryModule(store.id) === "course"
+    ? `${prefix}/liff` : undefined;
 
   const errorMessage = params.error
     ? ERROR_MESSAGES[params.error] ?? ERROR_MESSAGES.default
@@ -63,7 +68,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
           )}
 
-          <OAuthButtons storeSlug={storeSlug} />
+          <OAuthButtons storeSlug={storeSlug} lineEntryHref={lineEntryHref} />
 
           {/* Divider */}
           <div className="relative my-5">
