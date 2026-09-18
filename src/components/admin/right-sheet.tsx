@@ -72,7 +72,7 @@ export function RightSheet({
         aria-modal="true"
         aria-labelledby={labelledById}
         style={{ width }}
-        className={`absolute right-0 top-0 flex ${compact ? "h-dvh" : "h-full"} max-w-full flex-col ${compact ? "border-l border-earth-200 border-t-4 border-t-secondary-500 [&>header]:bg-primary-50 [&>footer]:bg-earth-50" : ""} bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 ${
+        className={`absolute right-0 top-0 flex h-full max-w-full flex-col ${compact ? "border-l border-earth-200 border-t-4 border-t-secondary-500 [&>header]:bg-primary-50 [&>footer]:bg-earth-50" : ""} bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
