@@ -322,7 +322,7 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1"><strong className="text-primary-800">體驗版 · {trial.trialExpired ? "已到期" : `剩 ${trial.daysRemaining} 天`}</strong>
         {trial.staff && <span>啟用人員 {trial.staff.current}／{limit(trial.staff.limit)}</span>}
         <span>顧客 {trial.customers.current.toLocaleString()}／{limit(trial.customers.limit)}</span><span>本月預約 {trial.bookings.current.toLocaleString()}／{limit(trial.bookings.limit)}</span>
-        <details className="relative"><summary className="inline-flex min-h-11 cursor-pointer items-center text-primary-700">ⓘ 用量說明</summary><p className="absolute right-0 top-full z-20 w-72 max-w-[calc(100vw-4rem)] rounded-lg border border-earth-200 bg-white p-3 shadow-lg">本月預約按台灣月份的建立時間，每位學員的一筆預約計一筆，含取消、未到與體驗；不是上課月份或今日有效預約。取消不返還本月用量。</p></details>
+        <details><summary className="inline-flex min-h-11 cursor-pointer items-center text-primary-700">ⓘ 用量說明</summary><p className="max-w-xs pb-2 leading-relaxed">本月預約按台灣月份的建立時間，每位學員的一筆預約計一筆，含取消、未到與體驗；不是上課月份或今日有效預約。取消不返還本月用量。</p></details>
         <a href="/pricing" className="ml-auto inline-flex min-h-11 items-center text-primary-700 underline">查看方案</a>
       </div>
       {warnings.length > 0 && <p role="status" className="border-t border-amber-200 py-2 text-amber-800">{warnings.join("；")}。保留既有資料，<a href="/pricing" className="underline">查看升級方案</a>。</p>}
