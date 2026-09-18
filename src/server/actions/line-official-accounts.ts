@@ -11,10 +11,9 @@ import { getActiveStoreForRead } from "@/lib/store";
 import type { ActionResult } from "@/types";
 
 const STORE_SLUGS = ["zhubei", "hsinchu", "taichung"] as const;
-type StoreSlug = (typeof STORE_SLUGS)[number];
 
 export type LineOfficialAccountStatus = {
-  storeSlug: StoreSlug;
+  storeSlug: string;
   storeName: string;
   status: "NORMAL" | "NEEDS_ATTENTION" | "NOT_CONFIGURED";
 };
@@ -30,7 +29,7 @@ async function inspectStore(
   store: { id: string; slug: string; name: string; lineDestination: string | null },
   repair: boolean,
 ): Promise<LineOfficialAccountStatus> {
-  const storeSlug = store.slug as StoreSlug;
+  const storeSlug = store.slug;
   const config = getLineConfigForStore(store.id);
 
   if (!config.accessToken || !config.channelSecret || !config.expectedBasicId) {
@@ -85,10 +84,13 @@ async function requireCurrentStoreLineAccess() {
     where: { id: activeStoreId },
     select: { id: true, slug: true, name: true, lineDestination: true },
   });
-  if (!store || !STORE_SLUGS.includes(store.slug as StoreSlug)) {
+  if (!store) {
     throw new AppError("NOT_FOUND", "找不到此店舖的 LINE 官方帳號設定");
   }
-  return store as typeof store & { slug: StoreSlug };
+  // Config resolution already supports legacy stores and registered new stores.
+  // Do not require per-store code changes here; permission + active store scope
+  // still apply, and absent credentials return NOT_CONFIGURED in inspectStore.
+  return store;
 }
 
 export async function getAllLineOfficialAccountStatuses(): Promise<LineOfficialAccountStatus[]> {
