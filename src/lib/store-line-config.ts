@@ -42,3 +42,15 @@ export function getConfiguredStoreLine(storeIdOrSlug: string): StoreLineConfig |
 export function storeLineIdentityProvider(config: StoreLineConfig): string {
   return config.identityMode === "CENTRAL" ? "line" : "line-provider:" + config.providerId;
 }
+
+/** Only the explicitly selected LIFF cohort requires this entry. A store can
+ * be selected before its channels are ready; missing config must not turn it
+ * back into a central OAuth store. Other course stores retain web login. */
+export function requiresCourseLiffEntry(slug: string): boolean {
+  const raw = process.env.COURSE_LIFF_REQUIRED_STORE_SLUGS?.trim();
+  const selected = raw ? raw.split(",").map(value => value.trim()) : [];
+  if (selected.some(value => !/^[a-z0-9-]+$/.test(value))) {
+    throw new Error("LIFF 試用店清單格式不正確");
+  }
+  return selected.includes(slug) || getConfiguredStoreLine(slug) !== null;
+}

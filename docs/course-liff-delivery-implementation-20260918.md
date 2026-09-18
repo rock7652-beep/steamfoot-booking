@@ -1,5 +1,7 @@
 # 各店 LINE 與延後試用起算實作
 
+更新：b3f5973f 的全 COURSE LINE 按鈕分流已依 D007 收斂至明確 LIFF 名單／獨立設定；其他課程店仍保留網頁登入。固定環境的實際部署準備與尚需授權項目見 [固定試用環境](course-fixed-trial-environment-20260918.md)。下方實測紀錄保留當時版本，不代表目前首店已交付。
+
 PR #1022，2026-09-18。程式實作不等於首店實機交付完成。無新增 migration；沿用 Account.provider、CustomerIdentityLink、Store、StoreSubscription、StorePlanChange。未改既有綁定或真實 LINE 設定。
 
 ## 本輪實作
