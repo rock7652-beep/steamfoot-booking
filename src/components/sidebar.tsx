@@ -782,6 +782,11 @@ export default function DashboardShell({
 
       // Check if any item in this group is active
       const hasActive = group.items.some((item) => {
+        if (industryModuleId === "course" && item.href.startsWith("/dashboard/courses")) {
+          return pathname === "/dashboard/courses" &&
+            (new URLSearchParams(item.href.split("?")[1] || "").get("view") || "schedule") ===
+            (new URLSearchParams(routeQuery).get("view") || "schedule");
+        }
         if (item.href === "/dashboard") return pathname === "/dashboard";
         return pathname.startsWith(item.href);
       });
@@ -792,11 +797,11 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview]);
+  }, [pathname, routeQuery, industryModuleId, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
-    const initial = new Set<string>(["core"]);
+    const initial = new Set<string>(industryModuleId === "course" ? ["course-daily", "course-setup"] : ["core"]);
     if (activeGroupId && activeGroupId !== "core") initial.add(activeGroupId);
     return initial;
   });
