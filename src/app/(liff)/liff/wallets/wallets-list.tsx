@@ -265,14 +265,14 @@ function ReadyView({
             </Section>
           )}
           {expired.length > 0 && (
-            <Section title={liffMessages.wallets.expiredSectionTitle} dim>
+            <Section title={liffMessages.wallets.expiredSectionTitle} dim collapsible count={expired.length}>
               {expired.map((w) => (
                 <WalletCard key={w.id} wallet={w} variant="expired" />
               ))}
             </Section>
           )}
           {history.length > 0 && (
-            <Section title={liffMessages.wallets.historySectionTitle} dim>
+            <Section title={liffMessages.wallets.historySectionTitle} dim collapsible count={history.length}>
               {history.map((w) => (
                 <WalletCard key={w.id} wallet={w} variant="history" />
               ))}
@@ -332,12 +332,31 @@ function ReadyView({
 function Section({
   title,
   dim = false,
+  collapsible = false,
+  count,
   children,
 }: {
   title: string;
   dim?: boolean;
+  collapsible?: boolean;
+  count?: number;
   children: React.ReactNode;
 }) {
+  if (collapsible) {
+    return (
+      <details className="group rounded-xl border border-earth-200 bg-white">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-earth-700 focus-visible:outline-2 focus-visible:outline-primary-600 [&::-webkit-details-marker]:hidden">
+          <span>{title}{count != null && <span className="ml-2 text-earth-500">（{count}）</span>}</span>
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 transition-transform group-open:rotate-180">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </summary>
+        <div className={`flex flex-col gap-3 px-3 pb-3 ${dim ? "opacity-70" : ""}`}>
+          {children}
+        </div>
+      </details>
+    );
+  }
   return (
     <section>
       <h2
