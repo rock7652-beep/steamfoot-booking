@@ -1,3 +1,4 @@
+import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
@@ -19,7 +20,7 @@ interface PageProps {
 export default async function StoreDetailPage({ params }: PageProps) {
   const { storeId } = await params;
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") redirect("/hq/login");
+  if (!user || user.role !== "ADMIN" || !(await checkPermission(user.role, user.staffId, "staff.manage"))) redirect("/hq/login");
 
   const result = await getStoreDeliverySummary(storeId);
   if (!result.success) {
@@ -43,7 +44,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
           <h1 className="text-2xl font-bold text-earth-900">{summary.store.name}</h1>
           <p className="mt-1 text-sm text-earth-500">
             <span className="font-mono">{summary.store.slug}</span> · {summary.store.plan} ·{" "}
-            <span>{summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>
+            <span>{summary.store.industryModule === "COURSE" ? "運動課程" : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>
             {" · "}
             <span className={summary.store.planStatus === "ACTIVE" ? "text-green-600" : "text-amber-600"}>
               {summary.store.planStatus}
@@ -72,7 +73,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
         <Section title="產業模組">
           <InfoRow
             label="已選模組"
-            value={summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
+            value={summary.store.industryModule === "COURSE" ? "運動課程" : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
           />
           {summary.store.industryModule === "SPA" && !summary.canActivate && (
             <>

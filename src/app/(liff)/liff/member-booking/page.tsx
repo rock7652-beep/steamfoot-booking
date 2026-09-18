@@ -45,7 +45,7 @@ export default async function LiffMemberBookingPage() {
   }
   const liffId = await resolveCentralMemberLiffId(storeSlug);
   if (!liffId) {
-    return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} />;
+    return <NotOpenForLiff message={`${presentation.name} 尚未開通 LINE Mini App`} storeSlug={presentation.slug} />;
   }
 
   return (
@@ -58,12 +58,13 @@ export default async function LiffMemberBookingPage() {
   );
 }
 
-function NotOpenForLiff({ message }: { message: string }) {
+function NotOpenForLiff({ message, storeSlug }: { message: string; storeSlug?: string }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-16 text-center">
       <h1 className="text-xl font-semibold text-earth-900">LINE Mini App</h1>
       <p className="text-sm text-earth-600">{message}</p>
-      <p className="text-xs text-earth-500">請洽分店人員或回到分店首頁。</p>
+      <p className="text-xs text-earth-500">LINE 尚未設定不影響網頁使用，請洽本店人員或使用本店網頁。</p>
+      {storeSlug && <a className="min-h-11 rounded-lg bg-primary-700 px-4 py-3 text-white" href={`/s/${encodeURIComponent(storeSlug)}/book`}>前往本店網頁</a>}
     </div>
   );
 }

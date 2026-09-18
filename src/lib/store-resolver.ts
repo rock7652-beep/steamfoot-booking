@@ -188,6 +188,7 @@ export type StorePresentation = {
   name: string;
   /** LIFF ID；null = 該店尚未開通 Mini App（page 應顯示 NotOpenForLiff） */
   liffId: string | null;
+  industryModule?: string;
   /** LINE OA 連結（聯絡店家）；未設定時為空字串 */
   contactUrl: string;
   /** 店家地址（顯示用）；未設定時為空字串 */
@@ -225,7 +226,7 @@ export const resolveStorePresentation = cache(
     const [storeLiffRow, cfg] = await Promise.all([
       prisma.store.findUnique({
         where: { id: store.id },
-        select: { liffId: true },
+        select: { liffId: true, industryModule: true },
       }),
       prisma.shopConfig.findUnique({
         where: { storeId: store.id },
@@ -262,6 +263,7 @@ export const resolveStorePresentation = cache(
       slug: store.slug,
       name: getCustomerFacingStoreName(store),
       liffId: emptyToNull(storeLiffRow?.liffId) ?? envLiffId ?? null,
+      industryModule: storeLiffRow?.industryModule,
       contactUrl,
       address,
       mapUrl,
@@ -295,6 +297,8 @@ export const resolveCentralMemberLiffId = cache(async (
     if (targetStoreLiffId) {
       return replaceRetiredCentralMemberLiffId(targetStoreLiffId);
     }
+    // A new course store must not initialize another store's LIFF endpoint.
+    if (targetStore?.industryModule === "COURSE") return null;
   }
 
   const configured = emptyToNull(process.env.NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID);

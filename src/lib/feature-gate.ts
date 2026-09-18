@@ -77,8 +77,8 @@ export async function hasStoreFeature(
   if (isSpaDemoStoreId(storeId)) return true;
 
   const store = await getStoreForPlanByStoreId(storeId);
-  if (store.plan === "EXPERIENCE" && await getStoreIndustryModule(storeId) === "course") return true;
   if (isSingleStoreTrial(store)) return isSingleStoreFeature(feature);
+  if (store.plan === "EXPERIENCE" && await getStoreIndustryModule(storeId) === "course") return true;
   const baseAllowed = hasFeature(store.plan, feature);
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
   return resolveEffectiveEntitlement(baseAllowed, entitlement).enabled;

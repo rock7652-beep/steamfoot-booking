@@ -1,3 +1,4 @@
+import { checkPermission } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
@@ -22,7 +23,7 @@ const OPERATING_STATUS_COLORS: Record<string, string> = {
 
 export default async function StoresPage() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") redirect("/hq/login");
+  if (!user || user.role !== "ADMIN" || !(await checkPermission(user.role, user.staffId, "staff.manage"))) redirect("/hq/login");
 
   const result = await listStoresAction();
   const stores = result.success ? result.data : [];
@@ -82,7 +83,7 @@ export default async function StoresPage() {
                   <td className="px-4 py-3 text-earth-500 font-mono text-xs">{store.slug}</td>
                   <td className="px-4 py-3 text-earth-600">{store.plan}</td>
                   <td className="px-4 py-3 text-earth-600">
-                    {store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}
+                    {store.industryModule === "COURSE" ? "運動課程" : store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>
