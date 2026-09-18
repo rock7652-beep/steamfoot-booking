@@ -92,7 +92,13 @@ export function CourseWorkspace({
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | null
-  >(null);
+  >(canCreate && params.get("action") === "schedule" ? "schedule" : params.get("action") === "booking" ? "day" : null);
+  const [dirty, setDirty] = useState(false);
+  function closePanel() {
+    if (pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
+    setDirty(false);
+    setPanel(null);
+  }
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [category, setCategory] = useState("all");
@@ -143,8 +149,8 @@ export function CourseWorkspace({
   }
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [chosen, setChosen] = useState("");
-  const [requestKey, setRequestKey] = useState("");
+  const [chosen, setChosen] = useState(templates[0]?.id ?? "");
+  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [repeat, setRepeat] = useState(false);
   const [schedulePreview, setSchedulePreview] = useState<{
     dates: { startsAt: string; conflict: boolean }[];
@@ -181,6 +187,7 @@ export function CourseWorkspace({
     } else startTransition(() => router.replace(`${pathname}?${next}`, { scroll: false }));
   }
   function open(next: typeof panel) {
+    setDirty(false);
     setPanel(next);
     setSchedulePreview(null);
     setExtraDateKeys([]);
@@ -226,6 +233,7 @@ export function CourseWorkspace({
         setNotice(
           typeof count === "number" ? `已建立 ${count} 堂課程` : "已儲存",
         );
+        setDirty(false);
         form.reset();
         after?.(data);
         if (panel === "catalog") setPanel(null);
@@ -612,10 +620,9 @@ export function CourseWorkspace({
       )}
       {panel && (
         <RightSheet
+          compact
           open
-          onClose={() => {
-            if (!pending) setPanel(null);
-          }}
+          onClose={closePanel}
           width={520}
           labelledById="course-panel-title"
         >
@@ -623,7 +630,7 @@ export function CourseWorkspace({
             className={
               view === "schedule"
                 ? "flex shrink-0 items-center justify-between border-b border-earth-200 p-5"
-                : "flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-6 py-6"
+                : "flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-3"
             }
           >
             <h2
@@ -631,7 +638,7 @@ export function CourseWorkspace({
               className={
                 view === "schedule"
                   ? "font-medium"
-                  : "text-xl font-semibold text-primary-900"
+                  : "text-lg font-semibold text-primary-900"
               }
             >
               {panel === "edit"
@@ -654,17 +661,18 @@ export function CourseWorkspace({
               <button
                 className={button}
                 disabled={pending}
-                onClick={() => setPanel(null)}
+                onClick={closePanel}
               >
                 關閉
               </button>
             }
           </div>
           <div
+            onChangeCapture={(event) => { if ((event.target as HTMLElement).closest("form")) setDirty(true); }}
             className={
               view === "schedule"
                 ? "min-h-0 flex-1 space-y-4 overflow-y-auto p-5"
-                : "min-h-0 flex-1 space-y-6 overflow-y-auto p-6 [&_label]:space-y-2 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input]:min-h-12 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-12 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-5"
+                : "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-2 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input]:min-h-11 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-12 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
             }
           >
             {view !== "schedule" && panel === "catalog" && (
@@ -1514,6 +1522,7 @@ export function CourseWorkspace({
                 className={button}
                 disabled={pending}
                 onClick={() => {
+                  if (dirty && !window.confirm("尚有未儲存的修改，要放棄嗎？")) return;
                   open(editing.kind === "session" ? "day" : null);
                   setEditing(null);
                 }}

@@ -37,7 +37,7 @@ export function CourseTodayList({
         <table className="w-full text-left text-sm">
           <thead className="bg-earth-50">
             <tr>
-              {["時間", "課程", "教練", "教室", "已預約／上限"].map((h) => (
+              {["時間", "課程", "教練", "教室", "已預約／上限", "名單與出席"].map((h) => (
                 <th className="whitespace-nowrap px-4 py-3" key={h}>
                   {h}
                 </th>
@@ -64,16 +64,18 @@ export function CourseTodayList({
                 <td className="px-4 py-3">
                   {s.booked}／{s.capacity}
                 </td>
+                <td className="px-4 py-2"><button className="min-h-11 rounded-lg border border-primary-200 px-3 text-primary-800" onClick={() => setSelected(s.id)}>名單{ s.unmarked > 0 ? ` · ${s.unmarked} 位待出席` : "／查看"}</button></td>
               </tr>
             ))}
           </tbody>
         </table>
         {!sessions.length && (
-          <p className="p-4 text-sm text-earth-500">今天尚未安排課程。</p>
+          <p className="p-4 text-sm text-earth-500">今天尚未安排課程。先新增排課，再從課程名單替學員預約。</p>
         )}
       </div>
       {session && (
         <RightSheet
+          compact
           open
           onClose={() => setSelected(null)}
           labelledById="today-course-title"

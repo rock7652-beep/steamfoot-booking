@@ -40,10 +40,13 @@ export async function CourseTodaySummary() {
     },
     select: { id: true, displayName: true },
   });
-  const [canCreate, canEdit] = await Promise.all([
+  const [canCreate, canEdit, canCustomer, canTransactions] = await Promise.all([
     checkPermission(user.role, user.staffId, "booking.create"),
     checkPermission(user.role, user.staffId, "booking.update"),
+    checkPermission(user.role, user.staffId, "customer.create"),
+    checkPermission(user.role, user.staffId, "transaction.read"),
   ]);
+  const pendingPurchases = canTransactions ? await coursePrisma.coursePurchase.count({ where: { storeId, status: "PENDING" } }) : 0;
   const coachNames = new Map(coaches.map((c) => [c.id, c.displayName]));
   return (
     <section
@@ -64,6 +67,7 @@ export async function CourseTodaySummary() {
           查看今日課表 →
         </Link>
       </div>
+      {pendingPurchases > 0 && <div className="border-b border-earth-200 bg-secondary-50 px-4 py-2 text-sm"><Link href="/dashboard/revenue?status=PENDING" className="inline-flex min-h-11 items-center font-medium text-primary-800">待處理：{pendingPurchases} 筆方案待核帳 →</Link></div>}
       <CourseTodayList
         canCreate={canCreate}
         canEdit={canEdit}
@@ -80,19 +84,10 @@ export async function CourseTodaySummary() {
           unmarked: s.bookings.filter((b) => b.status === "RESERVED").length,
         }))}
       />
-      <nav className="flex flex-wrap gap-2 border-t p-3">
-        <Link
-          href={`/dashboard/courses?date=${dateStr}`}
-          className="min-h-11 rounded-lg border px-3 py-2"
-        >
-          新增預約／排課
-        </Link>
-        <Link
-          href="/dashboard/courses?view=customers"
-          className="min-h-11 rounded-lg border px-3 py-2"
-        >
-          新增顧客
-        </Link>
+      <nav aria-label="今日快捷操作" className="flex flex-wrap gap-2 border-t border-earth-200 p-3">
+        {canCreate && <Link href={`/dashboard/courses?date=${dateStr}&action=schedule`} className="min-h-11 rounded-lg bg-primary-700 px-3 py-2 text-sm text-white">新增排課</Link>}
+        {canCreate && <Link href={`/dashboard/courses?date=${dateStr}&action=booking`} className="min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm text-primary-800">替學員預約</Link>}
+        {canCustomer && <Link href="/dashboard/courses?view=customers" className="min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm">顧客管理</Link>}
       </nav>
     </section>
   );

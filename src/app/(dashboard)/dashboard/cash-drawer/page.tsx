@@ -53,6 +53,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
   }
 
   if (!(await hasStoreFeature(storeId, FEATURES.CASH_DRAWER))) {
+    if (courseHome) return <PageShell><PageHeader title="首頁" subtitle="今日課程與待處理工作" /><CourseTodaySummary /></PageShell>;
     return <CashDrawerLockedState />;
   }
 
@@ -98,7 +99,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
 
       <PageHeader
         title={courseHome ? "首頁" : "現金抽屜"}
-        subtitle={courseHome ? "今日課程與現金管理" : "每日開店點錢 / 閉店點錢 / 滾動結餘核對"}
+        subtitle={courseHome ? "今日課程、學員與待處理工作" : "每日開店點錢 / 閉店點錢 / 滾動結餘核對"}
         actions={
           <Link
             href="/dashboard/cashbook"
@@ -109,6 +110,9 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
         }
       />
 
+      {courseHome && <CourseTodaySummary />}
+      <section aria-label={courseHome ? "現金與收支" : undefined}>
+      {courseHome && <h2 className="mb-3 text-sm font-semibold text-earth-600">現金與收支</h2>}
       <CashDrawerWorkspace
         compactSetup={courseHome}
         view={view}
@@ -124,7 +128,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
         staffOptions={staffOptions}
         returnPath={courseHome ? "/dashboard" : "/dashboard/cash-drawer"}
       />
-      {courseHome && <div className="mt-5"><CourseTodaySummary /></div>}
+      </section>
     </PageShell>
   );
 }
