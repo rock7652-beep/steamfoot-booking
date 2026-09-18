@@ -176,6 +176,8 @@ export default function NewStoreForm() {
             >
               {result.store.isDemo
                 ? "ℹ️ Demo 店不可啟用為正式店"
+                : result.store.currentSubscriptionId
+                  ? "✅ 已開通 30 天完整單店試用，可交由店長完成課程設定"
                 : result.canActivate
                   ? "✅ 設定完成，請至店舖詳情開通 30 天單店試用"
                   : "⚠️ 部分項目未通過，建議先修正"}

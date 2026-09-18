@@ -44,3 +44,19 @@ it("does not enter any creation path without HQ authorization", async () => {
   await expect(createStoreAction(input)).rejects.toThrow("FORBIDDEN");
   expect(m.storeFind).not.toHaveBeenCalled(); expect(m.transaction).not.toHaveBeenCalled();
 });
+it.each(["STEAMFOOT", "SPA"] as const)("preserves the existing %s onboarding and provisioning path", async (industryModule) => {
+  const result = await createStoreAction({ ...input, industryModule });
+  expect(result).toMatchObject({ success: true, data: { store: { industryModule, plan: "ALLIANCE" } } });
+  expect(m.transaction).not.toHaveBeenCalled();
+  expect(m.trial).not.toHaveBeenCalled();
+  expect(m.legacyPermissions).toHaveBeenCalledWith("owner-staff", "OWNER");
+  expect(m.permissions).not.toHaveBeenCalled();
+  if (industryModule === "STEAMFOOT") {
+    expect(m.slots.mock.calls[0][0].data).toHaveLength(56);
+    expect(m.hours.mock.calls[0][0].data).toHaveLength(7);
+  } else {
+    expect(m.slots).not.toHaveBeenCalled();
+    expect(m.hours).not.toHaveBeenCalled();
+    expect(m.storeCreate.mock.calls[0][0].data.moduleInstallation.create.status).toBe("PROVISIONING");
+  }
+});
