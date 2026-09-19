@@ -359,6 +359,34 @@ async function handleTextMessage(
 ) {
   console.log("[LINE] Text message received", { userId: maskLineUserId(lineUserId), storeId, textLength: text.length });
 
+  if (text.trim() === "開始體驗預約") {
+    if (!replyToken) return;
+    try {
+      const link = await createTrialBookingChatLink({ storeId, channel: "LINE", chatIdentity: lineUserId });
+      await replyMessage(storeId, replyToken, [{ type: "flex", altText: "開啟您的專屬體驗預約", contents: {
+        type: "bubble",
+        body: { type: "box", layout: "vertical", contents: [{ type: "text", wrap: true, text: "請先加入本店好友，再開啟專屬表單。電話只需在表單填一次，預約時同步連結通知；連結限本人使用，30 分鐘內有效。" }] },
+        footer: { type: "box", layout: "vertical", contents: [{ type: "button", style: "primary", color: "#376452", action: { type: "uri", label: "填寫體驗預約", uri: link.url } }] },
+      } }]);
+    } catch {
+      await replyMessage(storeId, replyToken, [{ type: "text", text: "暫時無法建立專屬預約連結，請稍後再送出「開始體驗預約」，或聯繫門市協助。" }]);
+    }
+    return;
+  }
+
+  if (text.startsWith("體驗通知 ")) {
+    const { claimTrialNotificationSetup } = await import("@/server/services/trial-notification-binding");
+    const status = await claimTrialNotificationSetup(storeId, lineUserId, text.slice(5).trim());
+    const replies = {
+      linked: "通知設定完成！不用再輸入電話，也不需要購買方案。請加入本店好友並保持未封鎖，以接收預約提醒與體驗後關心；您可在關懷訊息中停止接收。",
+      invalid: "此通知設定連結已失效、已使用或不適用於本店。若先前已看到通知設定完成，就不需重複操作；否則請聯繫店長協助。",
+      conflict: "此 LINE 已連結其他顧客資料，未變更原有綁定。請聯繫店長協助確認。",
+      unavailable: "通知設定暫時無法完成，您的預約不受影響。請稍後重新送出這則訊息。",
+    };
+    if (replyToken) await replyMessage(storeId, replyToken, [{ type: "text", text: replies[status] }]);
+    return;
+  }
+
   if (text === "找到適合方案") {
     if (replyToken) {
       await replyMessage(storeId, replyToken, [PLAN_RECOMMENDATION_MESSAGE]);

@@ -855,7 +855,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
                   lineLinkStatus={customer.lineLinkStatus}
                   lineUserId={customer.lineUserId ?? null}
                   lineLinkedAt={customer.lineLinkedAt?.toISOString() ?? null}
-                  lineBindingCode={customer.lineBindingCode ?? null}
+                  lineBindingCode={customer.lineBindingCode?.startsWith("trial:") ? null : customer.lineBindingCode ?? null}
                   lineBindingCodeCreatedAt={
                     customer.lineBindingCodeCreatedAt?.toISOString() ?? null
                   }

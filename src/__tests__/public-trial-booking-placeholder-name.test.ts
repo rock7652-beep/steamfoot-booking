@@ -168,24 +168,12 @@ describe("submitPublicTrialBooking — LINE placeholder customer name", () => {
     expect(state.customerUpdateMany).not.toHaveBeenCalled();
   });
 
-  it("replaces a same-store phone placeholder for a plain public booking", async () => {
-    const { resolveTrialBookingChatLink } = await import("@/server/services/trial-booking-chat-link");
-    vi.mocked(resolveTrialBookingChatLink).mockResolvedValueOnce(null);
-
+  it("requires identity before a plain public booking can change a customer", async () => {
     const result = await submitPublicTrialBooking({ ...input, entry: undefined });
-
-    expect(result.status).toBe("ok");
-    expect(state.customerName).toBe("高巧");
-    expect(state.customerUpdateMany).toHaveBeenCalledWith({
-      where: {
-        id: CUSTOMER_ID,
-        storeId: STORE_ID,
-        phone: "0911689313",
-        mergedIntoCustomerId: null,
-        name: { in: ["顧客", "LINE 用戶", "Google 用戶", "未命名"] },
-      },
-      data: { name: "高巧" },
-    });
+    expect(result.status).toBe("invalid_input");
+    expect(state.customerName).toBe("顧客");
+    expect(state.customerUpdateMany).not.toHaveBeenCalled();
+    expect(state.bookingCreate).not.toHaveBeenCalled();
   });
 
   it.each(["顧客", "LINE 用戶", "Google 用戶", "未命名"])(
@@ -200,25 +188,21 @@ describe("submitPublicTrialBooking — LINE placeholder customer name", () => {
   );
 
   it("never overwrites a formal name on a plain public phone match", async () => {
-    const { resolveTrialBookingChatLink } = await import("@/server/services/trial-booking-chat-link");
-    vi.mocked(resolveTrialBookingChatLink).mockResolvedValueOnce(null);
     state.customerName = "既有正式姓名";
 
     const result = await submitPublicTrialBooking({ ...input, entry: undefined });
 
-    expect(result.status).toBe("ok");
+    expect(result.status).toBe("invalid_input");
     expect(state.customerName).toBe("既有正式姓名");
     expect(state.customerUpdateMany).not.toHaveBeenCalled();
   });
 
   it("does not rename a plain public phone placeholder when the slot became full", async () => {
-    const { resolveTrialBookingChatLink } = await import("@/server/services/trial-booking-chat-link");
-    vi.mocked(resolveTrialBookingChatLink).mockResolvedValueOnce(null);
     state.bookingAggregate.mockResolvedValueOnce({ _sum: { people: 2 } });
 
     const result = await submitPublicTrialBooking({ ...input, entry: undefined });
 
-    expect(result.status).toBe("slot_full");
+    expect(result.status).toBe("invalid_input");
     expect(state.customerName).toBe("顧客");
     expect(state.customerUpdateMany).not.toHaveBeenCalled();
     expect(state.bookingCreate).not.toHaveBeenCalled();
