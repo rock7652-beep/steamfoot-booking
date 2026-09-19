@@ -139,7 +139,7 @@ export function CourseStaffWorkspace({
                 <td className="p-3">
                   {p.kind === "manager"
                     ? "店長（後台）"
-                    : !p.coachEnabled ? "未啟用工作身分" : p.memberEnabled
+                    : !p.coachEnabled ? "未啟用工作身分" : p.memberEnabled && p.customerId
                       ? "教練兼顧客"
                       : "教練（僅我的工作）"}
                 </td>
