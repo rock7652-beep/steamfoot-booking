@@ -140,7 +140,7 @@ describe("trial reminder convergence contract", () => {
     expect(bridge).toContain('body.code === "IDENTITY_SCOPE_MISMATCH"');
     expect(bridge).not.toContain("openPublicBooking");
     expect(bridge).toContain('setState("store_chat")');
-    expect(bridge).toContain("liff.getFriendship()");
+    expect(bridge).not.toContain("liff.getFriendship()");
   });
 
   it("routes a public trial through LINE when the existing customer is already verified", () => {

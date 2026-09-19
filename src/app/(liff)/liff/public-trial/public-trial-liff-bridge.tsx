@@ -7,7 +7,7 @@ import {
   isInLineClient,
 } from "@/lib/liff/client";
 
-type BridgeState = "loading" | "expired" | "unavailable" | "open_line" | "store_chat" | "add_friend";
+type BridgeState = "loading" | "expired" | "unavailable" | "open_line" | "store_chat";
 
 export function PublicTrialLiffBridge({
   liffId,
@@ -28,7 +28,7 @@ export function PublicTrialLiffBridge({
     let cancelled = false;
     void (async () => {
       try {
-        const liff = await initLiff(liffId);
+        await initLiff(liffId);
         if (cancelled) return;
         if (!isInLineClient()) {
           setState("open_line");
@@ -53,12 +53,9 @@ export function PublicTrialLiffBridge({
         if (cancelled) return;
 
         if (body?.status === "ok" && body.entry) {
-          const friendship = await liff.getFriendship();
-          if (cancelled) return;
-          if (!friendship.friendFlag) {
-            setState("add_friend");
-            return;
-          }
+          // The API verifies identity against this store's Messaging API.
+          // Shared-channel friendship refers to the platform OA, not this store.
+          // Recipient compatibility is not a guarantee of future delivery.
           const destination = new URL(
             `/pricing/experience/${storeSlug}/book`,
             window.location.origin,
@@ -107,10 +104,10 @@ export function PublicTrialLiffBridge({
         ) : (
           <>
             <h1 className="mt-4 text-xl font-bold text-earth-900">
-              {state === "expired" ? "LINE 登入已逾時" : state === "open_line" ? "請在 LINE 中繼續預約" : state === "add_friend" ? "先加入本店 LINE 好友" : "從本店 LINE 繼續預約"}
+              {state === "expired" ? "LINE 登入已逾時" : state === "open_line" ? "請在 LINE 中繼續預約" : "從本店 LINE 繼續預約"}
             </h1>
             <p className="mt-2 text-sm leading-6 text-earth-600">
-              {state === "expired" ? "請重新整理後再試一次。" : state === "add_friend" ? "加入好友後，回到這裡按重新嘗試。不用再輸入電話。" : "尚未完成通知身分確認。可開啟本店聊天室，送出「開始體驗預約」，再點專屬連結填表；不必先輸入電話。"}
+              {state === "expired" ? "請重新整理後再試一次。" : "請加入本店好友，送出「開始體驗預約」，再點專屬連結填表；不必先輸入電話。"}
             </p>
             <div className="mt-5 grid gap-3">
               {state === "open_line" ? <a href={`https://liff.line.me/${liffId}`} className="flex min-h-11 items-center justify-center rounded-xl bg-[#06C755] px-4 font-semibold text-white">使用 LINE 開啟</a> : null}
