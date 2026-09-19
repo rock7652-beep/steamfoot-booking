@@ -161,7 +161,7 @@ export function CourseMemberWorkspace({
               open(view === "customers" ? "person" : "plan");
             }}
           >
-            ＋新增{view === "customers" ? "顧客" : "點數方案"}
+            ＋新增{view === "customers" ? "顧客" : "方案"}
           </button>
         )}
         {canAssign && (
@@ -190,7 +190,7 @@ export function CourseMemberWorkspace({
         <table className="w-full text-left text-sm">
           <thead className="bg-earth-50">
             <tr>
-              {["方案", "點數", "售價", "有效天數", "狀態", "操作"].map((h) => (
+              {["方案", "額度", "售價", "有效天數", "狀態", "操作"].map((h) => (
                 <th key={h} className="whitespace-nowrap p-3">
                   {h}
                 </th>
@@ -204,7 +204,7 @@ export function CourseMemberWorkspace({
                     className={p.isActive ? "" : "bg-earth-50 text-earth-400"}
                   >
                     <td className="p-3">{p.name}</td>
-                    <td className="p-3">{p.points}</td>
+                    <td className="p-3">{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
                     <td className="p-3">{p.price}</td>
                     <td className="p-3">{p.validDays}</td>
                     <td className="p-3">{p.isActive ? "上架" : "下架"}</td>
@@ -444,7 +444,7 @@ export function CourseMemberWorkspace({
                   </select>
                 </label>
                 <p className="text-sm text-earth-500">
-                  修改預設不影響已指派方案。本輪提供點數方案，無自動續費。
+                  修改預設不影響已指派方案。提供點數與堂數方案，無自動續費。
                 </p>
               </form>
             )}
@@ -485,7 +485,7 @@ export function CourseMemberWorkspace({
                       .filter((p) => p.isActive)
                       .map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} · {p.points} 點
+                          {p.name} · {p.points} {p.unit === "SESSION" ? "堂" : "點"}
                         </option>
                       ))}
                   </select>
@@ -509,7 +509,7 @@ export function CourseMemberWorkspace({
                   />
                 </label>
                 <p className="text-sm text-earth-500">
-                  指派會新增點數紀錄；收款請在營運登錄實際收支。
+                  指派會新增額度紀錄；收款請在營運登錄實際收支。
                 </p>
               </form>
             )}
