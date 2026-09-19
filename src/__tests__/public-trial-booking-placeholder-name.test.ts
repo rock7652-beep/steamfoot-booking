@@ -129,6 +129,27 @@ beforeEach(() => {
 });
 
 describe("submitPublicTrialBooking — LINE placeholder customer name", () => {
+  it.each(["zhubei", "hsinchu", "taichung"])("reports verified LINE linkage without a pilot flag for %s", async storeSlug => {
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.store.findUnique).mockResolvedValueOnce({ id: STORE_ID, slug: storeSlug } as never);
+    const result = await submitPublicTrialBooking({ ...input, storeSlug });
+    expect(result).toMatchObject({ status: "ok", notificationSetup: { status: "linked" } });
+    expect(state.customerCreate).not.toHaveBeenCalled();
+  });
+
+  it.each(["hsinchu", "taichung"])("rejects a signed entry belonging to another store on %s", async storeSlug => {
+    const result = await submitPublicTrialBooking({ ...input, storeSlug });
+    expect(result.status).toBe("invalid_input");
+    expect(state.bookingCreate).not.toHaveBeenCalled();
+    expect(state.customerCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not claim notification linkage for a phone-only public booking", async () => {
+    const result = await submitPublicTrialBooking({ ...input, entry: undefined });
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") expect(result.notificationSetup).toBeUndefined();
+  });
+
   it("creates a simulated new pilot customer already bound to the signed store LINE identity", async () => {
     const { resolvePublicTrialLineCustomer } = await import("@/server/services/public-trial-line-customer");
     vi.mocked(resolvePublicTrialLineCustomer).mockResolvedValueOnce({ status: "not_found" });
@@ -199,7 +220,7 @@ describe("submitPublicTrialBooking — LINE placeholder customer name", () => {
       data: { name: "高巧" },
     });
     expect(state.customerPhone).toBe("0911689313");
-    expect(result).not.toHaveProperty("notificationSetup.status");
+    expect(result).toHaveProperty("notificationSetup.status", "linked");
     expect(state.customerStoreId).toBe(STORE_ID);
     expect(state.customerLineUserId).toBe(LINE_USER_ID);
     expect(state.bookingCreate).toHaveBeenCalledWith(expect.objectContaining({
