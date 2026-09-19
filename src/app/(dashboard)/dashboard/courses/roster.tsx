@@ -127,11 +127,11 @@ export function CourseRoster({
             <p>
               <strong>上課人：{b.customerName}</strong> ·{" "}
               {b.bookingKind === "TRIAL" ? ({ATTENDED:"已出席",CANCELLED:"已取消",NO_SHOW:"未到",RESERVED:b.checkedInAt?"已報到":"待出席"}[b.status] ?? b.status) : b.status === "ATTENDED"
-                ? "已出席／已扣點"
+                ? "已出席／已扣抵"
                 : b.status === "CANCELLED"
                   ? "已取消／已釋放"
-                  : b.status === "NO_SHOW" ? "未到／已釋放占用" : b.checkedInAt ? "已報到／待完成，占用點數" : "未報到／占用點數"}{" "}
-              {b.bookingKind === "TRIAL" ? "· 體驗不使用方案" : `${b.pointCost} 點`}
+                  : b.status === "NO_SHOW" ? "未到／已釋放占用" : b.checkedInAt ? "已報到／待出席，占用額度" : "未報到／占用額度"}{" "}
+              {b.bookingKind === "TRIAL" ? "· 體驗不使用方案" : `${b.pointCost} ${b.card?.unit === "SESSION" ? "堂" : "點"}`}
             </p>
             <p>
               預約操作人：{b.operatorName} ·{" "}
@@ -222,9 +222,9 @@ export function CourseRoster({
             >
               <option value="">請選擇</option>
               {cards.map((c) => (
-                <option key={c.id} value={c.id} disabled={c.expired || c.available < (session?.pointCost ?? 1) || (!!session && c.expiresAt < session.startsAt)}>
+                <option key={c.id} value={c.id} disabled={c.expired || c.available < (c.unit === "SESSION" ? 1 : session?.pointCost ?? 1) || (!!session && c.expiresAt < session.startsAt)}>
                   {c.name} · {c.members.map((m) => m.name).join("、")} · 可用{" "}
-                  {c.available} 點 · 到期 {formatTWDateTime(new Date(c.expiresAt)).slice(0, 10)}{c.expired ? "（已過期）" : c.available < (session?.pointCost ?? 1) ? "（點數不足）" : session && c.expiresAt < session.startsAt ? "（不涵蓋上課日期）" : ""}
+                  {c.available} {c.unit === "SESSION" ? "堂" : "點"} · 到期 {formatTWDateTime(new Date(c.expiresAt)).slice(0, 10)}{c.expired ? "（已過期）" : c.available < (c.unit === "SESSION" ? 1 : session?.pointCost ?? 1) ? "（可用額度不足）" : session && c.expiresAt < session.startsAt ? "（不涵蓋上課日期）" : ""}
                 </option>
               ))}
             </select>
@@ -245,7 +245,7 @@ export function CourseRoster({
             </select>
           </label>
           <label className="block">本次預約備註<textarea className={`${button} w-full`} name="notes" maxLength={1000} /></label>
-          {!cards.some((c) => !c.expired && c.available >= (session?.pointCost ?? 1) && (!session || c.expiresAt >= session.startsAt)) && <p className="text-sm text-earth-600">沒有可用方案：請確認共卡成員、可用點數及期限是否涵蓋上課日期。</p>}
+          {!cards.some((c) => !c.expired && c.available >= (c.unit === "SESSION" ? 1 : session?.pointCost ?? 1) && (!session || c.expiresAt >= session.startsAt)) && <p className="text-sm text-earth-600">沒有可用方案：請確認共卡成員、可用額度及期限是否涵蓋上課日期。</p>}
           <button
             className={`${button} bg-primary-700 text-white`}
             disabled={pending || !card}

@@ -70,7 +70,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
-      card: { select: { nameSnapshot: true, expiresAt: true, remaining: true, bookings: { where: { status: "RESERVED" }, select: { pointCost: true } } } },
+      card: { select: { unit: true, nameSnapshot: true, expiresAt: true, remaining: true, bookings: { where: { status: "RESERVED" }, select: { pointCost: true } } } },
     },
     orderBy: { createdAt: "asc" },
   });
