@@ -5,6 +5,7 @@ import { requireCourseStore } from "@/lib/industry-module-server";
 import { requirePermission, type PermissionCode } from "@/lib/permissions";
 import { requireSession } from "@/lib/session";
 import { resolveWriteStoreId } from "@/lib/store";
+import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
 import { AppError } from "@/lib/errors";
 import { resolveMemberRequestStoreId } from "./member-request-store";
 import { resolveCentralMemberCustomerForStore } from "./central-member-resolver";
@@ -30,7 +31,7 @@ export async function courseManager(permission: PermissionCode) {
   return { user, storeId };
 }
 
-export async function courseAccount() {
+export async function courseAccount(options: { write?: boolean } = {}) {
   const user = await requireSession();
   if (
     !(await prisma.user.findFirst({ where: { id: user.id, status: "ACTIVE" } }))
@@ -47,11 +48,12 @@ export async function courseAccount() {
       })
     : null;
   if (!customer) throw new AppError("FORBIDDEN", "帳號尚未連結本店顧客");
+  if (options.write) await assertStoreSubscriptionWritable(storeId);
   return { user, storeId, customer };
 }
 
-export async function courseMember() {
-  const actor = await courseAccount();
+export async function courseMember(options: { write?: boolean } = {}) {
+  const actor = await courseAccount(options);
   const link = await prisma.staffMemberLink.findUnique({
     where: {
       uq_staff_member_link_user_store: {

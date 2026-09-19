@@ -250,7 +250,7 @@ export async function createCourseBooking(input: unknown) {
 
 export async function createMemberCourseBooking(input: unknown) {
   try {
-    const { user, storeId, customer } = await courseMember();
+    const { user, storeId, customer } = await courseMember({ write: true });
     const bookings = await reserveCourseMembers(
       {
         userId: user.id,
@@ -286,7 +286,7 @@ export async function updateCourseBookingStatus(input: unknown) {
       .parse(input);
     let actor: CourseActor;
     if (data.member) {
-      const { user, storeId, customer } = await courseMember();
+      const { user, storeId, customer } = await courseMember({ write: true });
       if (data.status !== "CANCELLED")
         throw new AppError("FORBIDDEN", "會員不能操作點名");
       actor = {
@@ -400,7 +400,7 @@ export async function loadCourseSessionDetail(sessionId: string) {
 
 export async function markCourseCoachAttendance(input: unknown) {
   try {
-    const { user, storeId } = await courseAccount();
+    const { user, storeId } = await courseAccount({ write: true });
     const { bookingId, status } = z.object({ bookingId: id, status: z.enum(["ATTENDED", "CHECKED_IN", "NO_SHOW"]).default("ATTENDED") }).parse(input);
     await courseTransaction(storeId, async (tx) => {
       const allowed = await tx.$queryRaw<Array<{ id: string }>>`

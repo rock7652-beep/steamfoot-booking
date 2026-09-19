@@ -41,7 +41,7 @@ export async function saveCourseAttendance(input: unknown) {
       .parse(input);
     if (new Set(data.bookings.map((b) => b.id)).size !== data.bookings.length)
       throw new AppError("VALIDATION", "學員不可重複");
-    const { user, storeId } = await courseAccount();
+    const { user, storeId } = await courseAccount({ write: true });
     await courseTransaction(storeId, async (tx) => {
       const allowed = await tx.$queryRaw<
         Array<{ id: string }>
@@ -83,7 +83,7 @@ export async function purchaseCoursePlan(input: unknown) {
         transferLastFive: z.string().regex(/^\d{5}$/, "請填寫匯款帳號後五碼"),
       })
       .parse(input);
-    const { storeId, customer } = await courseMember();
+    const { storeId, customer } = await courseMember({ write: true });
     const config = await prisma.shopConfig.findUnique({
       where: { storeId },
       select: { bankName: true, bankAccountNumber: true },

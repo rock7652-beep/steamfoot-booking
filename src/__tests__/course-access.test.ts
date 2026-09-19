@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
+  writable: vi.fn(),
   link: vi.fn(),
   session: vi.fn(),
   account: vi.fn(),
@@ -8,6 +9,7 @@ const m = vi.hoisted(() => ({
   module: vi.fn(),
   resolve: vi.fn(),
 }));
+vi.mock("@/lib/subscription-guard", () => ({ assertStoreSubscriptionWritable: m.writable }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: {} }));
 vi.mock("@/lib/db", () => ({
@@ -32,6 +34,7 @@ vi.mock("@/server/services/central-member-resolver", () => ({
 import { courseMember, courseAccount } from "@/server/services/course-access";
 beforeEach(() => {
   vi.clearAllMocks();
+  m.writable.mockResolvedValue(undefined);
   m.link.mockResolvedValue(null);
   m.session.mockResolvedValue({ id: "a", storeId: "store-a" });
   m.account.mockResolvedValue({ id: "a" });
@@ -67,3 +70,14 @@ describe("course fixed member access", () => {
     expect(m.resolve).not.toHaveBeenCalled();
   });
 });
+
+ it("keeps expired account reads but rejects member and coach writes using the resolved store", async () => {
+   m.writable.mockRejectedValue(new Error("目前為唯讀模式"));
+   await expect(courseAccount()).resolves.toMatchObject({storeId:"store-a"});
+   expect(m.writable).not.toHaveBeenCalled();
+   await expect(courseMember({write:true})).rejects.toThrow("唯讀");
+   await expect(courseAccount({write:true})).rejects.toThrow("唯讀");
+   expect(m.writable).toHaveBeenLastCalledWith("store-a");
+   m.writable.mockResolvedValue(undefined);
+   await expect(courseMember({write:true})).resolves.toMatchObject({storeId:"store-a"});
+ });
