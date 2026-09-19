@@ -2,11 +2,13 @@
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
 import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 
+import { assertCourseResources, assertNoCourseResourceUse, handleCourseActionError } from "@/server/services/course-resources";
+import { courseTransaction } from "@/server/services/course-access";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { coursePrisma } from "@/lib/course-db";
 import { courseManager } from "@/server/services/course-access";
-import { AppError, handleActionError } from "@/lib/errors";
+import { AppError } from "@/lib/errors";
 import {
   buildCourseOccurrences,
   courseScheduleInput,
@@ -30,25 +32,23 @@ export async function updateCourseRoom(input: unknown) {
         category: z.string().trim().max(40).default(""),
         capacity: z.number().int().min(1).max(500).nullable().default(null),
         details: z.string().trim().max(5000).default(""),
+        equipment: z.string().trim().max(1000).default(""),
+        location: z.string().trim().max(500).default(""),
       })
       .parse(input);
-    const result = await coursePrisma.courseRoom.updateMany({
-      where: { id: data.id, storeId },
-      data: {
-        name: data.name,
-        category: data.category,
-        capacity: data.capacity,
-        details: data.details,
-      },
+    await courseTransaction(storeId, async tx => {
+      if (data.capacity !== null) await assertNoCourseResourceUse(tx, storeId, {roomId:data.id,capacity:data.capacity});
+      const {id,...fields}=data;
+      const result = await tx.courseRoom.updateMany({where:{id,storeId},data:fields});
+      if (!result.count) throw new AppError("NOT_FOUND","找不到本店教室");
     });
-    if (!result.count)
-      throw new AppError("VALIDATION", "找不到本店教室，請重新整理");
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
+    revalidatePath("/book");
     return { success: true as const };
   } catch (error) {
-    return handleActionError(error);
+    return handleCourseActionError(error);
   }
 }
 
@@ -74,9 +74,10 @@ export async function updateCourseTemplate(input: unknown) {
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
+    revalidatePath("/book");
     return { success: true as const };
   } catch (error) {
-    return handleActionError(error);
+    return handleCourseActionError(error);
   }
 }
 
@@ -87,6 +88,7 @@ export async function updateCourseSession(input: unknown) {
       .omit({ templateId: true, requestKey: true, repeatUntil: true })
       .extend({
         id: z.string().min(1),
+        templateId: z.string().min(1).optional(),
         nameSnapshot: z.string().trim().min(1, "請填寫課程名稱").max(80),
         pointCost: z.number().int().min(1).max(10000),
       })
@@ -116,6 +118,7 @@ export async function updateCourseSession(input: unknown) {
         ]);
         if (!session || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的排課、教室與教練");
+        await assertCourseResources(tx,storeId,{...data,templateId:data.templateId ?? session.templateId},session);
         const bookings = await tx.courseBooking.findMany({
           where: {
             storeId,
@@ -136,7 +139,7 @@ export async function updateCourseSession(input: unknown) {
           );
         if (data.capacity < bookings.length)
           throw new AppError("CONFLICT", "人數上限不能少於已預約人數");
-        if (bookings.length && data.pointCost !== session.pointCost)
+        if (bookings.length && (data.pointCost !== session.pointCost || (data.templateId && data.templateId !== session.templateId)))
           throw new AppError(
             "CONFLICT",
             "已有預約不能改動每人點數，請先處理預約",
@@ -163,6 +166,7 @@ export async function updateCourseSession(input: unknown) {
           where: { id: session.id, storeId },
           data: {
             ...range,
+            templateId: data.templateId ?? session.templateId,
             nameSnapshot: data.nameSnapshot,
             roomId: data.roomId,
             coachId: data.coachId,
@@ -176,32 +180,35 @@ export async function updateCourseSession(input: unknown) {
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
+    revalidatePath("/book");
     return { success: true as const };
   } catch (error) {
-    return handleActionError(error);
+    return handleCourseActionError(error);
   }
 }
 
 export async function createCourseRoom(input: unknown) {
   try {
     const { storeId } = await writableStore();
-    const { name, category, capacity, details } = z
+    const { name, category, capacity, details, equipment, location } = z
       .object({
         name: z.string().trim().min(1, "請填寫教室名稱").max(80),
         category: z.string().trim().max(40).default(""),
         capacity: z.number().int().min(1).max(500).nullable().default(null),
         details: z.string().trim().max(5000).default(""),
+        equipment: z.string().trim().max(1000).default(""),
+        location: z.string().trim().max(500).default(""),
       })
       .parse(typeof input === "string" ? { name: input } : input);
     const room = await coursePrisma.courseRoom.create({
-      data: { name, category, capacity, details, storeId },
+      data: { name, category, capacity, details, equipment, location, storeId },
       select: { id: true, name: true },
     });
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     return { success: true as const, data: room };
   } catch (error) {
-    return handleActionError(error);
+    return handleCourseActionError(error);
   }
 }
 
@@ -222,7 +229,7 @@ export async function createCourseTemplate(input: unknown) {
     revalidatePath("/dashboard");
     return { success: true as const };
   } catch (error) {
-    return handleActionError(error);
+    return handleCourseActionError(error);
   }
 }
 
@@ -303,6 +310,7 @@ export async function createCourseSchedule(input: unknown) {
         ]);
         if (!template || !room || !coaches.length)
           throw new AppError("VALIDATION", "請選擇本店有效的課程、教室與教練");
+        await assertCourseResources(tx,storeId,data);
         const conflict = await tx.courseSession.findFirst({
           where: {
             storeId,
@@ -349,7 +357,7 @@ export async function createCourseSchedule(input: unknown) {
     revalidatePath("/dashboard");
     return { success: true as const, data: result };
   } catch (error) {
-    return handleActionError(error);
+    return handleCourseActionError(error);
   }
 }
 
@@ -362,6 +370,7 @@ export async function setCourseCatalogStatus(input: unknown) {
         id: z.string().min(1).max(100),
         kind: z.enum(["room", "template"]),
         isActive: z.boolean(),
+        visibility: z.enum(["PUBLIC","HIDDEN","OFF"]).optional(),
       })
       .parse(input);
     await coursePrisma.$transaction(async (tx) => {
@@ -370,6 +379,7 @@ export async function setCourseCatalogStatus(input: unknown) {
       >`SELECT id FROM "Store" WHERE id = ${storeId} AND "industryModule"::text = 'COURSE' FOR UPDATE`;
       if (!stores.length)
         throw new AppError("FORBIDDEN", "此功能僅適用於課程門市");
+      if (data.kind === "room" && !data.isActive) await assertNoCourseResourceUse(tx,storeId,{roomId:data.id});
       const result =
         data.kind === "room"
           ? await tx.courseRoom.updateMany({
@@ -378,7 +388,7 @@ export async function setCourseCatalogStatus(input: unknown) {
             })
           : await tx.courseTemplate.updateMany({
               where: { id: data.id, storeId },
-              data: { isActive: data.isActive },
+              data: { isActive: (data.visibility ?? (data.isActive ? "PUBLIC" : "OFF")) !== "OFF", visibility: data.visibility ?? (data.isActive ? "PUBLIC" : "OFF") },
             });
       if (!result.count)
         throw new AppError("NOT_FOUND", "找不到本店資料，請重新整理");
@@ -386,9 +396,10 @@ export async function setCourseCatalogStatus(input: unknown) {
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
     revalidatePath("/hq/dashboard/courses");
+    revalidatePath("/book");
     return { success: true as const };
   } catch (error) {
-    return handleActionError(error);
+    return handleCourseActionError(error);
   }
 }
 
@@ -397,6 +408,7 @@ export async function previewCourseSchedule(input: unknown) {
     const { storeId } = await writableStore();
     const d = courseScheduleInput.parse(input);
     const dates = buildCourseOccurrences(d);
+    await assertCourseResources(coursePrisma,storeId,d);
     // Preview follows the same business-hours and duty rules as the final save.
     // Saving still rechecks under the store lock to protect concurrent edits.
     await Promise.all([
@@ -441,7 +453,7 @@ export async function previewCourseSchedule(input: unknown) {
       },
     };
   } catch (e) {
-    return handleActionError(e);
+    return handleCourseActionError(e);
   }
 }
 
@@ -452,6 +464,7 @@ export async function updateCourseSeries(input: unknown) {
       .omit({ templateId: true, requestKey: true, repeatUntil: true })
       .extend({
         id: z.string().min(1),
+        templateId: z.string().min(1).optional(),
         nameSnapshot: z.string().trim().min(1).max(80),
         pointCost: z.number().int().min(1).max(10000),
       })
@@ -503,6 +516,7 @@ export async function updateCourseSeries(input: unknown) {
         ),
       }));
       for (const change of changes) {
+        await assertCourseResources(tx,storeId,{...d,templateId:d.templateId ?? change.session.templateId},change.session);
         if (change.session.bookings.some((b) => b.status === "ATTENDED"))
           throw new AppError("CONFLICT", "包含已完成點名的課程，整批尚未修改");
         if (
@@ -517,7 +531,7 @@ export async function updateCourseSeries(input: unknown) {
         if (
           change.session.bookings.length > d.capacity ||
           (change.session.bookings.length &&
-            change.session.pointCost !== d.pointCost)
+            (change.session.pointCost !== d.pointCost || (d.templateId && d.templateId !== change.session.templateId)))
         )
           throw new AppError(
             "CONFLICT",
@@ -566,6 +580,7 @@ export async function updateCourseSeries(input: unknown) {
             pointCost: d.pointCost,
             capacity: d.capacity,
             nameSnapshot: d.nameSnapshot,
+            templateId: d.templateId ?? c.session.templateId,
             cancelledAt: null,
           },
         });
@@ -575,6 +590,21 @@ export async function updateCourseSeries(input: unknown) {
     revalidatePath("/book");
     return { success: true as const };
   } catch (e) {
-    return handleActionError(e);
+    return handleCourseActionError(e);
   }
+}
+
+/** Atomic catalogue bulk edit. Never copies sessions or bookings. */
+export async function batchCourseTemplates(input: unknown) {
+  try {
+    const {storeId}=await writableStore("booking.update");
+    const d=z.object({ids:z.array(z.string().min(1)).min(1).max(200),category:z.string().trim().max(40).optional(),visibility:z.enum(["PUBLIC","HIDDEN","OFF"]).optional()}).parse(input);
+    const ids=[...new Set(d.ids)];
+    await courseTransaction(storeId,async tx=>{
+      if (await tx.courseTemplate.count({where:{storeId,id:{in:ids}}})!==ids.length) throw new AppError("FORBIDDEN","包含非本店課程，整批未修改");
+      await tx.courseTemplate.updateMany({where:{storeId,id:{in:ids}},data:{...(d.category!==undefined?{category:d.category}:{}),...(d.visibility?{visibility:d.visibility,isActive:d.visibility!=="OFF"}:{})}});
+    });
+    revalidatePath("/dashboard/courses");revalidatePath("/book");
+    return {success:true as const};
+  } catch(e){return handleCourseActionError(e);}
 }

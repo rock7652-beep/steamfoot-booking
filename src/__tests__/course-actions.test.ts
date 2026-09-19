@@ -67,16 +67,16 @@ const input = {
   requestKey: "cbd7b9ea-0638-4046-a1b4-11360f2cc955",
 };
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   mocks.bookings.mockResolvedValue([]);
   mocks.permission.mockResolvedValue({ id: "owner-a" });
   mocks.store.mockResolvedValue("store-a");
   mocks.module.mockResolvedValue(undefined);
-  mocks.raw.mockImplementation(async (sql: TemplateStringsArray) => /BusinessHours|SpecialBusinessDay/.test(sql.join("")) ? [] : [{ id: "valid" }]);
+  mocks.raw.mockImplementation(async (sql: TemplateStringsArray) => /BusinessHours|SpecialBusinessDay/.test(sql.join("")) ? [] : [{ id: "valid",courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:["yoga"] }]);
   mocks.existing.mockResolvedValue([]);
   mocks.conflict.mockResolvedValue(null);
-  mocks.template.mockResolvedValue({ id: "yoga", name: "瑜珈", pointCost: 2 });
-  mocks.room.mockResolvedValue({ id: "room-a" });
+  mocks.template.mockResolvedValue({ id: "yoga", name: "瑜珈", pointCost: 2,isActive:true,visibility:"PUBLIC" });
+  mocks.room.mockResolvedValue({ id: "room-a",capacity:null });
   mocks.create.mockResolvedValue({ count: 3 });
 });
 describe("course editing", () => {
@@ -255,7 +255,7 @@ describe("catalogue availability", () => {
     expect(mocks.permission).toHaveBeenCalledWith("booking.update");
     expect(mocks.catalogUpdate).toHaveBeenCalledWith({
       where: { id: "yoga", storeId: "store-a" },
-      data: { isActive: false },
+      data: { isActive: false,visibility:"OFF" },
     });
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.create).not.toHaveBeenCalled();

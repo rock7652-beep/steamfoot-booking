@@ -12,6 +12,8 @@ datasource db {
 // Identity foreign keys to Store and Staff are managed in the additive SQL
 // migration. This client cannot address Steamfoot or SPA commerce tables.
 model CourseRoom {
+  equipment String @default("")
+  location String @default("")
   id        String @id @default(cuid())
   storeId   String
   name      String
@@ -28,6 +30,8 @@ model CourseRoom {
 }
 
 model CourseTemplate {
+  visibility String @default("PUBLIC")
+  classType String?
   id              String @id @default(cuid())
   storeId         String
   name            String

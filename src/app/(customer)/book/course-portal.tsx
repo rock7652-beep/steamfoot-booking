@@ -37,7 +37,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
         userId: user.id,
         storeId,
         revokedAt: null,
-        staff: { status: "ACTIVE" },
+        staff: { status: "ACTIVE", courseCoachEnabled:true },
       },
       select: { staffId: true },
     }),
@@ -105,6 +105,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
           where: {
             storeId,
             cancelledAt: null,
+            template: {isActive:true,visibility:"PUBLIC"},
             startsAt: { gte: range.start, lte: range.end },
           },
           include: sessionInclude,

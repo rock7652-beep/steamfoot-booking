@@ -408,7 +408,7 @@ export async function markCourseCoachAttendance(input: unknown) {
         JOIN "CourseSession" s ON s.id = b."sessionId" AND s."storeId" = b."storeId"
         JOIN "StaffMemberLink" l ON l."staffId" = s."coachId" AND l."storeId" = s."storeId"
         JOIN "Staff" st ON st.id = l."staffId" AND st."storeId" = l."storeId"
-        WHERE b.id = ${bookingId} AND b."storeId" = ${storeId} AND l."userId" = ${user.id} AND l."revokedAt" IS NULL AND st.status::text = 'ACTIVE'`;
+        WHERE b.id = ${bookingId} AND b."storeId" = ${storeId} AND l."userId" = ${user.id} AND l."revokedAt" IS NULL AND st.status::text = 'ACTIVE' AND st."courseCoachEnabled"=true`;
       if (!allowed.length)
         throw new AppError("FORBIDDEN", "只能點名自己被授權的課程");
       await settleCourseBooking(

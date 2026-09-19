@@ -1,11 +1,13 @@
 "use server";
+import { ResourceConflict, handleCourseActionError } from "@/server/services/course-resources";
+import { parseTaipeiDateTime } from "@/lib/date-utils";
 import { z } from "zod";
 import { hashSync } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { courseManager } from "@/server/services/course-access";
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
-import { AppError, handleActionError } from "@/lib/errors";
+import { AppError } from "@/lib/errors";
 import {
   getStoreLimitsByStoreId,
   requireStoreFeature,
@@ -39,6 +41,12 @@ export async function saveCourseStaff(input: unknown) {
         emergencyContactName: z.string().trim().max(80).default(""),
         emergencyContactPhone: z.string().trim().max(30).default(""),
         kind: z.enum(["manager", "coach"]),
+        coachEnabled: z.boolean().optional(),
+        qualificationIds: z.array(id).max(500).optional(),
+        qualificationsConfirmed: z.boolean().optional(),
+        birthday: z.string().optional(),
+        emergencyContactRelation: z.string().trim().max(40).default(""),
+        confirmDeactivate: z.boolean().default(false),
         email: z.string().email().optional(),
         password: z.string().min(8).max(100).optional(),
         customerId: id.optional(),
@@ -50,7 +58,9 @@ export async function saveCourseStaff(input: unknown) {
       .parse(input);
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
-    const contacts = { phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
+    if (!d.id && (!d.emergencyContactName || !d.emergencyContactPhone || !d.emergencyContactRelation)) throw new AppError("VALIDATION","新建人員請填緊急聯絡姓名、關係與電話");
+    if (d.birthday && !parseTaipeiDateTime(d.birthday,"00:00")) throw new AppError("VALIDATION","生日格式不正確");
+    const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
     const limits = await getStoreLimitsByStoreId(storeId);
     if (!d.id && d.kind === "manager" && (!d.email || !d.password))
       throw new AppError("VALIDATION", "建立店長必須填登入信箱與密碼");
@@ -81,6 +91,21 @@ export async function saveCourseStaff(input: unknown) {
             (d.permissions && !d.permissions.includes("staff.manage")))
         )
           throw new AppError("FORBIDDEN", "不能停用自己或移除自己的管理權限");
+        const coachEnabled = d.coachEnabled ?? existing?.courseCoachEnabled ?? d.kind === "coach";
+        const qualificationIds = [...new Set(d.qualificationIds ?? existing?.courseQualifiedTemplateIds ?? [])];
+        const qualificationsConfirmed = d.qualificationsConfirmed ?? existing?.courseQualificationsConfirmed ?? false;
+        if (qualificationIds.length) {
+          const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseTemplate" WHERE "storeId"=${storeId} AND id=ANY(${qualificationIds}::text[])`;
+          if(rows.length!==qualificationIds.length) throw new AppError("FORBIDDEN","授課資格包含非本店課程");
+        }
+        if(existing?.status === "ACTIVE" && !d.active && !d.confirmDeactivate) throw new AppError("CONFLICT","請確認停用：所有工作存取立即撤銷，既有課次保留待交接");
+        const removed=existing?.courseQualifiedTemplateIds?.filter(id=>!qualificationIds.includes(id)) ?? [];
+        if(existing && d.active && ((existing.courseCoachEnabled && !coachEnabled) || removed.length)) {
+          const rows=await tx.$queryRaw<Array<{id:string;name:string;startsAt:Date;capacity:number}>>`SELECT id,"nameSnapshot" AS name,"startsAt",capacity FROM "CourseSession" WHERE "storeId"=${storeId} AND "coachId"=${existing.id} AND "cancelledAt" IS NULL AND "endsAt">CURRENT_TIMESTAMP AND (${!coachEnabled} OR "templateId"=ANY(${removed}::text[])) ORDER BY "startsAt"`;
+          if(rows.length) throw new ResourceConflict("尚有未結束課次（含進行中），請先交接再移除教練身分或資格",rows.map(r=>({...r,startsAt:r.startsAt.toISOString()})));
+        }
+        if(existing?.courseQualificationsConfirmed && !qualificationsConfirmed) throw new AppError("VALIDATION","已確認資格不可改回待補；請調整可教課程");
+        const courseFields={courseCoachEnabled:coachEnabled,courseQualifiedTemplateIds:qualificationIds,courseQualificationsConfirmed:qualificationsConfirmed};
         const count = await tx.staff.count({
           where: { storeId, status: "ACTIVE" },
         });
@@ -135,6 +160,7 @@ export async function saveCourseStaff(input: unknown) {
             where: { id: existing.id },
             data: {
               ...contacts,
+              ...courseFields,
               displayName: d.name,
               status: d.active ? "ACTIVE" : "INACTIVE",
               spaceFeeEnabled: false,
@@ -145,7 +171,7 @@ export async function saveCourseStaff(input: unknown) {
           if (d.kind === "manager")
             await tx.user.update({
               where: { id: existing.userId },
-              data: { name: d.name, status: d.active ? "ACTIVE" : "SUSPENDED", ...(d.email ? { email: d.email } : {}), ...(passwordHash ? { passwordHash } : {}) },
+              data: { name: d.name, ...(d.active?{status:"ACTIVE" as const}:{}), ...(d.email ? { email: d.email } : {}), ...(passwordHash ? { passwordHash } : {}) },
             });
         } else
           await tx.user.create({
@@ -155,12 +181,13 @@ export async function saveCourseStaff(input: unknown) {
               email: d.kind === "manager" ? d.email : null,
               passwordHash: d.kind === "manager" ? passwordHash : null,
               role: d.kind === "manager" ? "OWNER" : "CUSTOMER",
-              status: d.kind === "manager" && d.active ? "ACTIVE" : "SUSPENDED",
+              status: d.kind === "manager" ? "ACTIVE" : "SUSPENDED",
               staff: {
                 create: {
                   id: staffId,
                   storeId,
                   ...contacts,
+              ...courseFields,
               displayName: d.name,
                   colorCode: colors[count % colors.length],
                   spaceFeeEnabled: false,
@@ -182,7 +209,11 @@ export async function saveCourseStaff(input: unknown) {
               update: { granted: granted.includes(permission) },
             });
         }
-        if (memberUserId && d.kind === "coach")
+        if (memberUserId) {
+          const priorLink=await tx.staffMemberLink.findUnique({where:{uq_staff_member_link_staff_store:{staffId,storeId}}});
+          if(priorLink && priorLink.userId!==memberUserId) throw new AppError("CONFLICT","已有固定會員連結，不可覆蓋；請先處理身分審查");
+        }
+        if (memberUserId && coachEnabled)
           await tx.staffMemberLink.upsert({
             where: { uq_staff_member_link_staff_store: { staffId, storeId } },
             create: {
@@ -195,16 +226,16 @@ export async function saveCourseStaff(input: unknown) {
             update: {
               userId: memberUserId,
               courseMemberEnabled: d.memberEnabled,
-              revokedAt: d.active ? null : new Date(),
+              revokedAt: d.active && coachEnabled ? null : new Date(),
               linkedByUserId: user.id,
             },
           });
-        if (!d.active)
+        if (!d.active || !coachEnabled)
           await tx.staffMemberLink.updateMany({
             where: { staffId, storeId },
             data: { revokedAt: new Date() },
           });
-        else if (d.kind === "coach")
+        else if (coachEnabled)
           await tx.staffMemberLink.updateMany({
             where: { staffId, storeId },
             data: { revokedAt: null },
@@ -218,6 +249,6 @@ export async function saveCourseStaff(input: unknown) {
     revalidatePath("/book");
     return { success: true as const };
   } catch (e) {
-    return handleActionError(e);
+    return handleCourseActionError(e);
   }
 }

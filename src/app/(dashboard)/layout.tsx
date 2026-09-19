@@ -63,6 +63,10 @@ export default async function DashboardLayout({
   // Course stores must not enter legacy Steamfoot/SPA dashboard reads while
   // the remaining course-specific areas are being delivered.
   if (industryModule === "course") {
+    if (user.role !== "ADMIN") {
+      const {prisma}=await import("@/lib/db");
+      if (!await prisma.staff.findFirst({where:{id:user.staffId ?? "",storeId:activeStoreId!,userId:user.id,status:"ACTIVE"}})) notFound();
+    }
     const requestedPath = (await headers()).get("x-next-pathname") ?? "";
     if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|guide\/?$)/.test(requestedPath)) {
       redirect("/dashboard/courses");

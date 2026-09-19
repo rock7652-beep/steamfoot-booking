@@ -63,6 +63,7 @@ beforeEach(() => {
   m.transaction.mockImplementation((_store, work) => work(m.tx));
   m.tx.courseSession.findFirst.mockResolvedValue({
     id: "session",
+    template:{isActive:true,visibility:"PUBLIC"},
     startsAt: new Date("2026-09-16T10:00:00Z"),
     capacity: 2,
     pointCost: 3,
@@ -330,9 +331,9 @@ describe("atomic multi-learner reservations", () => {
 
 it("member booking cutoff is inclusive and blocks the first instant beyond without holding points", async () => {
   m.tx.$queryRaw.mockImplementation(async (sql: TemplateStringsArray) => sql.join("").includes('"ShopConfig"') ? [{bookableUntilDate:new Date("2026-09-16T00:00:00Z")}] : [{id:"b",name:"B"}]);
-  m.tx.courseSession.findFirst.mockResolvedValue({id:"session",startsAt:new Date("2026-09-16T23:59:59.999+08:00"),capacity:2,pointCost:3});
+  m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC"},startsAt:new Date("2026-09-16T23:59:59.999+08:00"),capacity:2,pointCost:3});
   await expect(reserveCourse(actor,input)).resolves.toBeDefined();
-  m.tx.courseSession.findFirst.mockResolvedValue({id:"session",startsAt:new Date("2026-09-17T00:00:00+08:00"),capacity:2,pointCost:3});
+  m.tx.courseSession.findFirst.mockResolvedValue({id:"session",template:{isActive:true,visibility:"PUBLIC"},startsAt:new Date("2026-09-17T00:00:00+08:00"),capacity:2,pointCost:3});
   m.tx.courseBooking.create.mockClear(); m.tx.coursePointEntry.create.mockClear();
   await expect(reserveCourse(actor,{...input,requestKey:"next"})).rejects.toThrow("尚未開放");
   expect(m.tx.courseBooking.create).not.toHaveBeenCalled();expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();
@@ -346,4 +347,10 @@ describe("course trial shares booking safety without using a card",()=>{
  it("reserves a real seat and writes no point entry",async()=>{await reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499});expect(m.tx.courseBooking.create).toHaveBeenCalledWith({data:expect.objectContaining({cardId:null,bookingKind:"TRIAL",pointCost:0,trialPrice:499,customerId:"b"})});expect(m.tx.coursePointCard.findFirst).not.toHaveBeenCalled();expect(m.tx.coursePointEntry.create).not.toHaveBeenCalled();});
  it("blocks duplicate learner and full class even without quota",async()=>{m.tx.courseBooking.findFirst.mockResolvedValue({id:"existing"});await expect(reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("已預約");m.tx.courseBooking.findFirst.mockResolvedValue(null);m.tx.courseBooking.count.mockResolvedValue(2);await expect(reserveTrialCourse({storeId:"store-a",userId:"manager",name:"店長"},{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("滿班");});
  it("does not let a member call the internal manager trial reservation",async()=>{await expect(reserveTrialCourse(actor,{sessionId:"session",customerId:"b",requestKey:"trial",trialPrice:499})).rejects.toThrow("僅由");});
+});
+
+it.each([['HIDDEN',true,false],['HIDDEN',false,true],['OFF',true,false],['OFF',false,false]] as const)('catalog %s member=%s booking allowed=%s',async(visibility,member,allowed)=>{
+ m.tx.courseSession.findFirst.mockResolvedValue({id:'session',templateId:'t',template:{visibility,isActive:visibility!=='OFF'},startsAt:new Date('2026-09-16T10:00:00Z'),capacity:2,pointCost:3});
+ const result=reserveCourse(member?actor:{storeId:actor.storeId,userId:'manager',name:'Manager'},input);
+ if(allowed) await expect(result).resolves.toBeDefined();else {await expect(result).rejects.toThrow('不開放新增預約');expect(m.tx.courseBooking.create).not.toHaveBeenCalled();}
 });

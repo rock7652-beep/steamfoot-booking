@@ -994,6 +994,11 @@ model StoreSettlement {
 // ============================================================
 
 model Staff {
+  courseCoachEnabled Boolean @default(false)
+  courseQualificationsConfirmed Boolean @default(false)
+  courseQualifiedTemplateIds String[] @default([])
+  courseBirthday DateTime? @db.Date
+  emergencyContactRelation String @default("")
   phone String @default("")
   emergencyContactName String @default("")
   emergencyContactPhone String @default("")

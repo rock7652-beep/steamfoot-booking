@@ -45,7 +45,7 @@ export async function saveCourseAttendance(input: unknown) {
     await courseTransaction(storeId, async (tx) => {
       const allowed = await tx.$queryRaw<
         Array<{ id: string }>
-      >`SELECT s.id FROM "CourseSession" s JOIN "StaffMemberLink" l ON l."staffId"=s."coachId" AND l."storeId"=s."storeId" JOIN "Staff" st ON st.id=l."staffId" AND st."storeId"=l."storeId" WHERE s.id=${data.sessionId} AND s."storeId"=${storeId} AND s."cancelledAt" IS NULL AND l."userId"=${user.id} AND l."revokedAt" IS NULL AND st.status::text='ACTIVE'`;
+      >`SELECT s.id FROM "CourseSession" s JOIN "StaffMemberLink" l ON l."staffId"=s."coachId" AND l."storeId"=s."storeId" JOIN "Staff" st ON st.id=l."staffId" AND st."storeId"=l."storeId" WHERE s.id=${data.sessionId} AND s."storeId"=${storeId} AND s."cancelledAt" IS NULL AND l."userId"=${user.id} AND l."revokedAt" IS NULL AND st.status::text='ACTIVE' AND st."courseCoachEnabled"=true`;
       if (!allowed.length)
         throw new AppError("FORBIDDEN", "只能點名自己被授權的課程");
       const count = await tx.courseBooking.count({

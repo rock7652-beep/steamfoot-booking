@@ -293,10 +293,13 @@ export function CourseMemberWorkspace({
               <form
                 id="course-member-form"
                 onSubmit={(e) =>
-                  submit(e, () =>
+                  submit(e, (fields) =>
                     saveCourseStaff({
                       name: person.name,
                       kind: "coach",
+                      emergencyContactName:fields.get("emergencyContactName"),
+                      emergencyContactPhone:fields.get("emergencyContactPhone"),
+                      emergencyContactRelation:fields.get("emergencyContactRelation"),
                       customerId: person.id,
                       requestKey,
                     }),
@@ -307,6 +310,8 @@ export function CourseMemberWorkspace({
                   {person.name}{" "}
                   將使用已綁定的會員帳號存取「我的工作」，不建立後台密碼。
                 </p>
+                {[["emergencyContactName","緊急聯絡姓名",person.emergencyContactName],["emergencyContactPhone","緊急聯絡電話",person.emergencyContactPhone],["emergencyContactRelation","緊急聯絡關係",""]].map(([name,label,value])=><label key={name} className="block">{label}<input className={field} name={name!} required defaultValue={value ?? ""}/></label>)}
+                <p className="text-sm">建立後請到人員管理一次設定授課資格，再新增排課。</p>
               </form>
             )}
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} />}

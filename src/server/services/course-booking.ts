@@ -125,6 +125,7 @@ async function reserveCourseInTransaction(
   const [session, card, rule, customers] = await Promise.all([
     tx.courseSession.findFirst({
       where: { id: input.sessionId, storeId, cancelledAt: null },
+      include: { template: {select:{visibility:true,isActive:true}} },
     }),
     input.cardId ? tx.coursePointCard.findFirst({
       where: { id: input.cardId, storeId },
@@ -137,6 +138,7 @@ async function reserveCourseInTransaction(
   ]);
   if (!session || (input.cardId !== null && !card) || !customers.length)
     return fail("請選擇本店有效課程、方案與上課人");
+  if (!session.template.isActive || session.template.visibility === "OFF" || (actor.customerId && session.template.visibility !== "PUBLIC")) return fail("本課程目前不開放新增預約，既有預約仍可查閱與依規則取消");
   if (card && (
     !card.members.some((m) => m.customerId === input.customerId) ||
     (actor.customerId &&
