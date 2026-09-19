@@ -37,7 +37,8 @@ describe("store identity is independent of platform OA friendship", () => {
   it.each(["zhubei", "hsinchu", "taichung"])("opens verified %s booking without requiring platform friendship", async storeSlug => {
     m.fetch.mockResolvedValue({ json: async () => ({ status: "ok", entry: "verified-entry" }) });
     start(storeSlug);
-    await vi.waitFor(() => expect(m.replace).toHaveBeenCalledWith(`https://preview.example/pricing/experience/${storeSlug}/book?entry=verified-entry#booking-form`));
+    const pilotQuery = storeSlug === "zhubei" ? "&lineTrial=1" : "";
+    await vi.waitFor(() => expect(m.replace).toHaveBeenCalledWith(`https://preview.example/pricing/experience/${storeSlug}/book?entry=verified-entry${pilotQuery}#booking-form`));
     expect(m.friendship).not.toHaveBeenCalled();
     expect(JSON.parse(m.fetch.mock.calls[0][1].body)).toEqual({ idToken: "test-id-token", storeSlug });
   });

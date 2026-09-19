@@ -12,6 +12,19 @@ import {
 import type { SlotAvailability } from "@/types";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
 import type { TrialNotificationSetup } from "@/server/services/trial-notification-binding";
+import { ZHUBEI_PUBLIC_TRIAL_LIFF_URL } from "@/lib/liff/public-trial-config";
+
+function DirectTrialLiffEntry() {
+  useEffect(() => {
+    // Enter through LINE's canonical LIFF URL, not initLiff on the public
+    // marketing URL (which is outside the registered LIFF endpoint).
+    window.location.replace(ZHUBEI_PUBLIC_TRIAL_LIFF_URL);
+  }, []);
+  return <section className="mt-6 rounded-2xl border border-primary-100 bg-white p-6 text-center">
+    <h2 className="text-xl font-bold text-earth-900">正在開啟體驗預約</h2>
+    <a href={ZHUBEI_PUBLIC_TRIAL_LIFF_URL} className="mt-4 inline-flex min-h-11 items-center text-primary-700 underline">未自動開啟？點此繼續</a>
+  </section>;
+}
 
 function taiwanToday(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -237,16 +250,7 @@ export function ZhubeiTrialBookingForm({
   }
 
   if (pilot && !entry) {
-    const chatUrl = `https://line.me/R/oaMessage/%40083vmikb/?${encodeURIComponent("開始體驗預約")}`;
-    return <section className="mt-6 rounded-2xl border border-primary-100 bg-white p-6 text-center shadow-sm">
-      <h2 className="text-xl font-bold text-earth-900">用 LINE 輕鬆預約</h2>
-      <p className="mt-3 text-sm leading-6 text-earth-600">完成預約，同步設定到店提醒與體驗後關心。</p>
-      <a href={chatUrl} className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-[#06C755] px-4 font-bold text-white">使用 LINE 預約</a>
-      <p className="mt-3 text-xs leading-5 text-earth-500">請使用本人的 LINE，並加入本店好友。</p>
-      <p className="mt-2 text-xs leading-5 text-earth-500">送出聊天室帶入的訊息，再點專屬連結填表。</p>
-      <a href="/pricing/experience/zhubei/book#booking-form" className="mt-4 block text-sm text-primary-700 underline">改用一般預約（通知需另行確認）</a>
-      <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex min-h-11 items-center text-sm text-primary-700 underline">需要協助？聯繫門市</a>
-    </section>;
+    return <DirectTrialLiffEntry />;
   }
 
   const firstDow = new Date(Date.UTC(viewYear, viewMonth - 1, 1)).getUTCDay();

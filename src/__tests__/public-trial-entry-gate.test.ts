@@ -7,15 +7,13 @@ vi.mock("@/server/actions/public-trial-booking", () => ({
 import { ZhubeiTrialBookingForm } from "@/app/pricing/experience/zhubei/book/zhubei-trial-booking-form";
 
 describe("identity-first trial booking", () => {
-  it("uses the store chat only for the opt-in zhubei pilot", () => {
+  it("opens the LIFF identity bridge directly without a chat round trip", () => {
     const html = renderToStaticMarkup(createElement(ZhubeiTrialBookingForm, { storeSlug: "zhubei", lineTrialPilot: true }));
-    expect(html).toContain("用 LINE 輕鬆預約");
-    expect(html).toContain("完成預約，同步設定到店提醒與體驗後關心。");
-    expect(html).toContain("請使用本人的 LINE，並加入本店好友。");
-    expect(html).toContain("需要協助？聯繫門市");
-    expect(html).toContain("https://line.me/R/oaMessage/%40083vmikb/");
-    expect(html).toContain("改用一般預約");
-    expect(html).not.toContain("https://liff.line.me/");
+    expect(html).toContain("正在開啟體驗預約");
+    expect(html).toContain('href="https://liff.line.me/2010761154-i4DO3oFO"');
+    expect(html).not.toContain("oaMessage");
+    expect(html).not.toContain("開始體驗預約");
+    expect(html).not.toContain("送出聊天室");
     expect(html).not.toContain('id="trial-phone"');
     expect(html).not.toContain('id="trial-name"');
   });

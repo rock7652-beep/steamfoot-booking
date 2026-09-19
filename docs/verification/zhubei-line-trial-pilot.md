@@ -1,5 +1,27 @@
 # Zhubei opt-in trial notification pilot
 
+## Direct LIFF revision (2026-09-19)
+
+This section supersedes the chat-first entry and manual-test instructions below.
+The user confirmed customers enter through the store rich menu and requested no
+chat round trip. Read-only OA Manager inspection confirmed Zhubei's active menu
+`0827` already points to `https://liff.line.me/2010761154-i4DO3oFO`.
+
+- Keep the rich menu, Login channel, OA linkage and member login unchanged.
+- The old `lineTrial=1` entry now automatically opens that canonical LIFF URL.
+- After server token verification AND store recipient compatibility succeed,
+  the Zhubei bridge adds `lineTrial=1` to its signed form entry. Successful booking
+  then uses the explicit notification status instead of asking for phone binding
+  again. Other stores remain unchanged.
+- Scope mismatch and external-browser fallbacks retain ordinary public booking;
+  they are NOT evidence of notification linkage. Never bypass recipient checks.
+- No artificial reservation is required: the user will observe real completed
+  trials and next-day care logs. Scheduled delivery remains unverified.
+- Automated checks cover direct-entry markup, signed bridge routing, store
+  recipient checks, original public forms, and identity ownership protection.
+
+## Original chat-first pilot record (historical)
+
 ## Scope and authorization
 
 The user approved simulated new-customer tests plus a personal LINE test, followed by a limited Zhubei trial with the original booking route retained. No new Official Account, no unlinking of the user's existing account, no mass send, and no LINE console changes.
