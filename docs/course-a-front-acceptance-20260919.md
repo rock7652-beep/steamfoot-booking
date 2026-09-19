@@ -28,7 +28,7 @@ Chrome手機390尺寸為瀏覽器驗收，不是實體LINE／Safari／iPad。LIN
 
 A店Store.liffId為null，實際 `/s/course-start-0918-a/liff` 顯示本店尚未開通LINE Mini App，未使用他店入口。網頁入口可用，不將它宣稱為LIFF成功。
 
-需管理者在 https://developers.line.biz/console/ 登入後，唯讀核對可供A隔離驗收的既有Provider、Login channel、專屬LIFF及endpoint；同時在 https://manager.line.biz/ 核對官方帳號與Messaging API的歸屬及既有用途。不得因已可管理官方帳號就推定取得Developers權限。核對後列精確新增／變更包，另行授權才寫設定。本輪不要求密碼／Token回傳、不變更既有LINE。A店不得借用另一店LIFF ID冒充開通。
+已於2026/09/20使用現有Chrome登入唯讀查核：蒸管家Provider管理權有效，既有會員登入channel為Published；LIFF清單有既有隔離課程入口但無A店專屬項目。既有隔離課程LIFF使用Full、openid/profile、Add friend Off；endpoint仍指向其原店，不變更。已提出只新增A專屬LIFF與只登錄A隔離Store.liffId的授權，尚未核准即不執行。精確管理頁／channel與端點已私下列予使用者，無需重複登入、不索取密鑰。此開通只驗證中央既有架構的A店入口，不代表首店自己的獨立通道已驗收。
 
 真實事件／Flex／返回未測；收件人、卡片全文、事件、則數需綁定確切通道後集中核准，現階段不外發、既有三則不重送。
 
