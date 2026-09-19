@@ -34,10 +34,12 @@ A店Store.liffId為null，實際 `/s/course-start-0918-a/liff` 顯示本店尚�
 
 ## 9/30
 
-網頁核心及本次報到缺口已補；A店新課開課後仍需完成點／堂出席與更正核對。9/22前需具備首店通道設定條件與固定試用環境決策；9/25首店可驗、9/26–27實機，否則5–6店9/30同時LIFF可用有延誤風險。
+網頁核心及本次報到缺口已補；A店新課開課後仍需完成點／堂出席與更正核對。9/22前需具備首店通道設定條件與正式遷移／恢復方案；9/25首店可驗、9/26–27實機，否則5–6店9/30同時LIFF可用有延誤風險。
 
-固定環境沿用 `course-fixed-trial-environment-20260918.md`：專用Vercel project＋獨立Supabase project，固定alias僅更新至驗收SHA，停用自動部署；不能用工程庫作獨立試用庫。初始化SQL／資料範圍須另外審查。2026/09/19重查官方：既有付費Supabase組織每新增專案至少US$10/月compute，額外用量另計；Vercel既有team用量另計，不保證零增費。新Pro組織／team才需重新核准基本費。不得未核准就建立資源或啟用試用。
-
-來源：https://supabase.com/docs/guides/platform/your-monthly-invoice 、https://vercel.com/pricing 。Cloudflare維持豁免，不記通過。PR維持Draft。
+上述獨立付費資源提案已由 2026/09/20 決策撤回；沿用既有隔離環境，正式店家以正式環境的 EXPERIENCE 方案交付，需另行發布授權。Cloudflare 維持豁免，不記通過；PR 維持 Draft。
 
 功能版本CI：Changed-file ESLint、Typecheck、Full Vitest、Targeted tests、postgres-integration與Vercel均通過；Cloudflare失敗按豁免記錄。部署 dpl_8p9DVaTat5zm8pe5R3A14tAVMyL1，固定alias實頁驗收。
+
+## 2026/09/20 環境決策取代
+
+先前獨立付費試用環境建議已停止，不再作為等待核准項目。隔離驗收沿用 A 店與現有預覽；對外交付為正式環境正式店家之 EXPERIENCE 方案，升級沿用原店資料。有效生命週期與發布缺口見 `course-production-trial-lifecycle-20260920.md`。
