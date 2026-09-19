@@ -174,6 +174,22 @@ async function applySeed() {
       SET "industryModule" = 'SPA'::"IndustryModule"
       WHERE id = ${SPA_DEMO_STORE.id}
     `;
+    await tx.storeModuleInstallation.upsert({
+      where: { storeId: SPA_DEMO_STORE.id },
+      create: {
+        storeId: SPA_DEMO_STORE.id,
+        module: "SPA",
+        status: "ACTIVE",
+        provisionedAt: new Date(),
+      },
+      update: {
+        module: "SPA",
+        status: "ACTIVE",
+        failureCode: null,
+        failureDetail: null,
+        provisionedAt: new Date(),
+      },
+    });
     await tx.storeFeatureEntitlement.upsert({
       where: {
         uq_store_feature_entitlement: {

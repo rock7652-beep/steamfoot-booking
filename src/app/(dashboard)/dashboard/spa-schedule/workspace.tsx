@@ -6,7 +6,7 @@ import { SpaBookingSummary } from "./booking-summary";
 import { spaPartyLabel, spaReceiptStatus } from "@/lib/spa-booking-display";
 
 import { SpaCheckoutPanel } from "./checkout-panel";
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getSpaAvailableProviders } from "@/server/actions/spa-service-staff";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -21,6 +21,7 @@ import {
   type CreateSpaBookingInput,
 } from "@/server/actions/spa-booking";
 import type { SpaScheduleBooking } from "@/server/queries/spa-schedule";
+import { fetchSpaScheduleDaySnapshot } from "@/server/actions/spa-schedule-refresh";
 
 type Named = { id: string; name: string };
 type Treatment = Named & {
@@ -57,6 +58,12 @@ const statusStyles: Record<string, string> = {
 const inputClass =
   "mt-1 w-full rounded-lg border border-earth-200 bg-white px-3 py-2";
 
+function spaBookingSignature(bookings: SpaScheduleBooking[]) {
+  return bookings
+    .map((booking) => `${booking.id}:${booking.startTime}:${booking.endTime}:${booking.status}:${booking.updatedAt}:${booking.serviceStaffId}:${booking.serviceLocationId ?? ""}`)
+    .join("|");
+}
+
 export function SpaScheduleWorkspace(props: Props) {
   const {
     date,
@@ -69,6 +76,11 @@ export function SpaScheduleWorkspace(props: Props) {
     canUpdate,
     canCheckout,
   } = props;
+  const [scheduleBookings, setScheduleBookings] = useState(bookings);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const syncInFlightRef = useRef(false);
+  const syncRequestRef = useRef(0);
   const [addedCustomers, setAddedCustomers] = useState<Props["customers"]>([]);
   const customers = [
     ...initialCustomers,
@@ -109,6 +121,40 @@ export function SpaScheduleWorkspace(props: Props) {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [notice, setNotice] = useState("");
   const [pending, startTransition] = useTransition();
+  const syncSchedule = useCallback(async (silent = true) => {
+    if (syncInFlightRef.current) return;
+    const request = ++syncRequestRef.current;
+    syncInFlightRef.current = true;
+    setSyncing(true);
+    try {
+      const snapshot = await fetchSpaScheduleDaySnapshot(date);
+      if (request !== syncRequestRef.current) return;
+      setScheduleBookings((current) =>
+        spaBookingSignature(current) === spaBookingSignature(snapshot.bookings)
+          ? current
+          : snapshot.bookings,
+      );
+      setLastSyncedAt(new Date());
+    } catch {
+      if (!silent && request === syncRequestRef.current) setError("更新失敗，已保留目前排程");
+    } finally {
+      if (request === syncRequestRef.current) setSyncing(false);
+      syncInFlightRef.current = false;
+    }
+  }, [date]);
+  useEffect(() => {
+    const resume = () => { if (!document.hidden) void syncSchedule(true); };
+    const timer = window.setInterval(resume, 30_000);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
+    void syncSchedule(true);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
+      syncRequestRef.current += 1;
+    };
+  }, [syncSchedule]);
   useEffect(() => {
     const timer = window.setInterval(() => setClock(new Date()), 1000);
     return () => window.clearInterval(timer);
@@ -430,6 +476,9 @@ export function SpaScheduleWorkspace(props: Props) {
             <option value={15}>15 分鐘</option>
             <option value={30}>30 分鐘</option>
           </select>
+          <button type="button" onClick={() => void syncSchedule(false)} disabled={syncing} className="rounded-lg border border-earth-200 px-3 py-2 text-sm text-earth-700 disabled:opacity-50">
+            {syncing ? "更新中" : "更新"}
+          </button>
           {canCreate && (
             <button
               onClick={() => openNew()}
@@ -448,6 +497,9 @@ export function SpaScheduleWorkspace(props: Props) {
           {notice}
         </p>
       )}
+      <p className="-mt-2 mb-3 text-xs text-earth-400">
+        {lastSyncedAt ? `最後更新 ${lastSyncedAt.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "開啟後會自動更新"}
+      </p>
       {(!treatments.length || !locations.length) && (
         <div className="mb-3 rounded-lg bg-amber-50 p-3 text-sm">
           {!treatments.length && (
@@ -535,7 +587,7 @@ export function SpaScheduleWorkspace(props: Props) {
                       className="block w-full border-b border-earth-100 text-left hover:bg-earth-50 focus:bg-earth-100"
                     />
                   ))}
-                  {bookings
+                  {scheduleBookings
                     .filter(
                       (b) =>
                         b.serviceStaffId === s.id &&
@@ -610,9 +662,9 @@ export function SpaScheduleWorkspace(props: Props) {
       </p>
       <details className="mt-4 rounded-xl border border-earth-200 bg-white p-4">
         <summary className="cursor-pointer">
-          當日預約紀錄（{bookings.length}）
+          當日預約紀錄（{scheduleBookings.length}）
         </summary>
-        {bookings.map((b) => (
+        {scheduleBookings.map((b) => (
           <button
             key={b.id}
             onClick={() => openEdit(b)}
@@ -645,7 +697,7 @@ export function SpaScheduleWorkspace(props: Props) {
         <SpaCheckoutPanel
           key={checkout.id}
           booking={checkout}
-          groupBookings={bookings.filter(
+          groupBookings={scheduleBookings.filter(
             (b) =>
               !!checkout.partyGroupId &&
               b.partyGroupId === checkout.partyGroupId,
