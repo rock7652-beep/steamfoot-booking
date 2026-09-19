@@ -550,7 +550,7 @@ export function CourseWorkspace({
                             {template.durationMinutes} 分
                           </td>
                           <td className="px-4 py-3 tabular-nums">
-                            {template.pointCost} 點／1 堂
+                            點數卡 {template.pointCost} 點；堂數卡 1 堂
                           </td>
                           <td className="px-4 py-3 tabular-nums">
                             {template.capacity}
@@ -716,7 +716,7 @@ export function CourseWorkspace({
                         ?.displayName ?? "教練"}{" "}
                       ·{" "}
                       {allRooms.find((r) => r.id === s.roomId)?.name ?? "教室"}{" "}
-                      · 每人 {s.pointCost} 點 · 上限 {s.capacity} 人
+                      · 點數卡 {s.pointCost} 點；堂數卡 1 堂 · 上限 {s.capacity} 人
                     </p>
                     {canCreate && (
                       <button
@@ -1113,6 +1113,7 @@ export function CourseWorkspace({
                         required
                         defaultValue={editing.value.pointCost}
                       />
+                      <span className="block text-sm text-earth-600">堂數卡每次固定扣 1 堂，依使用卡別扣抵。</span>
                     </label>
                     <label>
                       {editing.kind === "template" ? "預設教室" : "教室"}
@@ -1242,7 +1243,7 @@ export function CourseWorkspace({
                         >
                           {templates.map((t) => (
                             <option key={t.id} value={t.id}>
-                              {t.name} · {t.pointCost} 點／1 堂
+                              {t.name} · 點數卡 {t.pointCost} 點；堂數卡 1 堂
                             </option>
                           ))}
                         </select>
@@ -1658,5 +1659,5 @@ function ClassType({value}:{value?:string|null}) {return <label className="col-s
 function RoomFields({equipment,location}:{equipment?:string;location?:string}) {return <><label className="block">設備<input className={field} name="equipment" defaultValue={equipment}/></label><label className="block">位置<input className={field} name="location" defaultValue={location}/></label></>;}
 
 function DebitRule() {
-  return <p className="col-span-full text-sm leading-relaxed text-earth-600">點數卡按設定點數扣抵；堂數卡每人每次 1 堂。須使用適用本課程的方案。預約先占用，出席才正式扣抵。</p>;
+  return <p className="col-span-full text-sm leading-relaxed text-earth-600">依使用卡別扣抵：點數卡每次扣課程設定點數；堂數卡每次固定扣 1 堂，不會同時扣兩種額度。須使用適用本課程的方案。預約先占用，出席才正式扣抵。</p>;
 }

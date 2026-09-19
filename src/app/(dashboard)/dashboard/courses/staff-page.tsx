@@ -12,6 +12,7 @@ import {
 import { getActiveStoreForRead } from "@/lib/store";
 import { requireCourseStore } from "@/lib/industry-module-server";
 import { coursePrisma } from "@/lib/course-db";
+import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { prisma } from "@/lib/db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CourseStaffWorkspace } from "./staff-workspace";
@@ -26,14 +27,14 @@ export async function CourseStaffPage() {
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
   await requireCourseStore(storeId);
-  const [staff, customers, canManage, templates, handover] = await Promise.all([
+  const [staff, customers, canManage, templates, handover, limits] = await Promise.all([
     prisma.staff.findMany({
       where: { storeId },
       include: {
         user: { select: { role: true, email: true } },
         permissions: { where: { granted: true }, select: { permission: true } },
         memberLink: {
-          select: { userId: true, revokedAt: true, courseMemberEnabled: true },
+          select: { userId: true, revokedAt: true, courseMemberEnabled: true, user: { select: { status: true } } },
         },
       },
       orderBy: { displayName: "asc" },
@@ -50,11 +51,13 @@ export async function CourseStaffPage() {
     checkPermission(user.role, user.staffId, "staff.manage"),
     coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true},orderBy:{name:"asc"}}),
     coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()}},select:{id:true,coachId:true,nameSnapshot:true,startsAt:true,capacity:true},orderBy:{startsAt:"asc"}}),
+    getStoreLimitsByStoreId(storeId),
   ]);
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
       <PageHeader title="人員管理" />
       <CourseStaffWorkspace
+        maxStaff={limits.maxStaff}
         templates={templates}
         canManage={canManage}
         permissionGroups={Object.values(PERMISSION_GROUPS)
@@ -84,6 +87,7 @@ export async function CourseStaffPage() {
           kind: s.user.role === "CUSTOMER" ? "coach" : "manager",
           email: s.user.email ?? "",
           active: s.status === "ACTIVE",
+          coachLoginReady: !!s.memberLink && !s.memberLink.revokedAt && s.memberLink.user.status === "ACTIVE" && s.status === "ACTIVE" && s.courseCoachEnabled,
           memberEnabled: s.memberLink?.courseMemberEnabled ?? true,
           permissions: s.permissions.map((p) => p.permission),
           customerId:

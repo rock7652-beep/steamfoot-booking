@@ -6,6 +6,7 @@ import { RightSheet } from "@/components/admin/right-sheet";
 
 import { saveCourseStaff } from "@/server/actions/course-staff";
 type Person = {
+  coachLoginReady:boolean;
   coachEnabled:boolean;
   qualificationIds:string[];
   qualificationsConfirmed:boolean;
@@ -32,12 +33,14 @@ const button =
   "min-h-11 rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
   staff,
+  maxStaff,
   templates,
   customers,
   canManage,
   permissionGroups,
 }: {
   staff: Person[];
+  maxStaff: number | null;
   templates:{id:string;name:string}[];
   customers: { id: string; name: string }[];
   canManage: boolean;
@@ -65,6 +68,8 @@ export function CourseStaffWorkspace({
   const [permissions, setPermissions] = useState<string[]>([]);
   const [pending, start] = useTransition();
   const router = useRouter();
+  const activeCount = staff.filter(p => p.active).length;
+  const atLimit = maxStaff !== null && activeCount >= maxStaff;
   const rows = staff
     .filter(
       (s) =>
@@ -122,6 +127,7 @@ export function CourseStaffWorkspace({
           </button>
         )}
       </div>
+      {canManage && atLimit && <p className="mb-3 text-sm text-amber-800">啟用人員已達上限（{activeCount}／{maxStaff}）。可建立停用人員；啟用時須有剩餘名額。同一人兼任只計一位。</p>}
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead>
@@ -141,7 +147,7 @@ export function CourseStaffWorkspace({
               >
                 <td className="p-3">{p.name}{(!p.emergencyContactName || !p.emergencyContactPhone || !p.emergencyContactRelation) && <span className="block text-xs text-amber-800">緊急聯絡待補</span>}{!p.active && p.assignments.length>0 && <span className="block text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
                 <td className="p-3">
-                  {identity(p)}
+                  {identity(p)}{p.coachEnabled && <span className="block text-xs text-earth-600">{p.qualificationsConfirmed && p.qualificationIds.length ? "已設定可教授課程" : "授課設定待補"}；{p.coachLoginReady ? "已開通教練登入" : "尚未開通教練登入"}</span>}
                 </td>
                 <td className="p-3">
                   {p.kind === "manager"
@@ -180,6 +186,7 @@ export function CourseStaffWorkspace({
           </header>
           <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications","授課與工作"]]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+            {!person && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : "同一人兼任店長與教練只計一位。"}</p>}
             <CourseConflicts items={conflicts}/>
             {error && (
               <p role="alert" className="mb-3 text-red-700">
@@ -188,7 +195,7 @@ export function CourseStaffWorkspace({
             )}
             {readOnly && person && <section className="space-y-3">
               {tab === "basic" && <dl className="divide-y divide-earth-100">{[["姓名",person.name],["身分",identity(person)],["電話",person.phone || "未填"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName,person.emergencyContactRelation,person.emergencyContactPhone].filter(Boolean).join("／") || "待補"],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
-              {tab === "qualifications" && <><h3 className="font-medium">可教授課程</h3><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(t=>t.name).join("、") || "尚未設定"}</p><h3 className="pt-3 font-medium">前台工作／會員連結</h3><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name ?? "已連結會員" : "尚未連結 · 我的工作尚不可使用"}</p>{person.customerId && <p>{person.memberEnabled ? "會員專區／我的工作":"僅我的工作"}</p>}{person.assignments.length ? <CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/> : <p className="pt-3 text-earth-500">沒有未結束且未取消的課次。</p>}</>}
+              {tab === "qualifications" && <><h3 className="font-medium">授課設定狀態</h3><p>{person.qualificationsConfirmed && qualificationIds.length ? "已設定可教授課程" : "授課設定待補"}</p><h3 className="font-medium">可教授課程</h3><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(t=>t.name).join("、") || "尚未設定"}</p><h3 className="pt-3 font-medium">教練登入狀態</h3><p>{person.coachLoginReady ? "已開通教練登入" : "尚未開通教練登入"}</p>{!person.coachLoginReady && <p className="text-sm text-earth-600">先由教練完成本店會員登入，再編輯此頁「連結既有顧客」並儲存。授課設定與登入分開，不影響店長依資格排課。</p>}<h3 className="pt-3 font-medium">會員連結</h3><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name ?? "已連結會員" : "尚未連結 · 我的工作尚不可使用"}</p>{person.customerId && <p>{person.memberEnabled ? "會員專區／我的工作":"僅我的工作"}</p>}{person.assignments.length ? <CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/> : <p className="pt-3 text-earth-500">沒有未結束且未取消的課次。</p>}</>}
               {tab === "permissions" && <><h3 className="font-medium">後台登入</h3><p>{person.email}</p><h3 className="pt-3 font-medium">店內管理權限</h3>{permissionGroups.map(g=><details key={g.label}><summary className="min-h-11 cursor-pointer py-3">{g.label} · {g.codes.filter(c=>permissions.includes(c.code)).length} 項</summary><p>{g.codes.filter(c=>permissions.includes(c.code)).map(c=>c.label).join("、") || "未開啟"}</p></details>)}</>}
             </section>}
             <form
@@ -255,7 +262,7 @@ export function CourseStaffWorkspace({
               <fieldset disabled={readOnly} className="contents">
               <div data-staff-tab="basic" hidden={tab!=="basic"} className={tab==="basic" ? "grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" : "hidden"}>
               <label className="block">
-                姓名
+                姓名（必填）
                 <input
                   className={field}
                   name="name"
@@ -282,7 +289,7 @@ export function CourseStaffWorkspace({
                 ["emergencyContactName", "緊急聯絡人姓名"],
                 ["emergencyContactPhone", "緊急聯絡人電話"],
                 ["emergencyContactRelation", "緊急聯絡人關係"],
-              ] as const).map(([name, label]) => <label className="block" key={name}>{label}<input className={field} name={name} type={name.endsWith("Phone") || name === "phone" ? "tel" : "text"} defaultValue={person?.[name]} required={!person && name!=="phone"} /></label>)}
+              ] as const).map(([name, label]) => <label className="block" key={name}>{label}{name!=="phone" ? (!person ? "（必填）" : !person[name] ? "（待補）" : "") : "（選填）"}<input className={field} name={name} type={name.endsWith("Phone") || name === "phone" ? "tel" : "text"} defaultValue={person?.[name]} required={!person && name!=="phone"} /></label>)}
               <label className="block">
                 狀態
                 <select
@@ -330,7 +337,7 @@ export function CourseStaffWorkspace({
               )}
               {coachEnabled && (
                 <label className="block">
-                  前台身分
+                  連結後的前台身分
                   <select
                     className={field}
                     name="memberEnabled"
@@ -342,7 +349,7 @@ export function CourseStaffWorkspace({
                     <option value="no">僅教練：我的工作</option>
                   </select>
                   <span className="text-sm text-earth-500">
-                    沿用同一個固定帳號。切換身分不刪除顧客與歷史紀錄。
+                    這是連結完成後的功能設定，不代表已開通登入。沿用固定帳號，不刪除顧客與歷史紀錄。
                   </span>
                 </label>
               )}
@@ -354,7 +361,7 @@ export function CourseStaffWorkspace({
               {kind === "manager" && (
                   <>
                     <label className="block">
-                      登入信箱
+                      登入信箱（必填）
                       <input
                         className={field}
                         name="email"
@@ -364,7 +371,7 @@ export function CourseStaffWorkspace({
                       />
                     </label>
                     <label className="block">
-                      {person ? "重設密碼（留空保留原密碼）" : "登入密碼"}
+                      {person ? "重設密碼（留空保留原密碼）" : "登入密碼（必填，至少 8 字元）"}
                       <input
                         className={field}
                         name="password"
