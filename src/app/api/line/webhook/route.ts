@@ -407,14 +407,16 @@ async function handleTextMessage(
     // A phone number can be both a Digital Butler answer and a notification
     // binding request. Let an active Butler conversation consume and persist
     // the answer first; then perform the binding without spending the LINE
-    // reply token, so the single reply can continue the Butler flow.
+    // reply token, so the single reply can continue the Butler flow. When the
+    // current question rejects the phone (e.g. a menu), report the binding
+    // result instead of hiding it behind an unrelated validation error.
     const digitalButlerResult = await handleDigitalButlerText(
       lineUserId,
       text,
       storeId,
       eventIdentity,
     );
-    if (digitalButlerResult?.handled) {
+    if (digitalButlerResult?.handled && digitalButlerResult.outcome !== "VALIDATION_FAILED") {
       if (digitalButlerResult.outcome !== "DUPLICATE") {
         try {
           await handlePhoneBindingRequest(

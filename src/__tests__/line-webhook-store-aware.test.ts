@@ -353,6 +353,37 @@ describe("LINE webhook store-aware signature and reply", () => {
     });
   });
 
+  it.each([
+    { candidates: [{ id: "customer-hsinchu", userId: null, lineUserId: null }], expected: "通知設定完成！", updates: 1 },
+    { candidates: [], expected: "查無顧客資料", updates: 0 },
+    { candidates: [{ id: "one", userId: null, lineUserId: null }, { id: "two", userId: null, lineUserId: null }], expected: "系統找到多筆相同手機", updates: 0 },
+  ])("reports binding result instead of menu validation: $expected", async ({ candidates, expected, updates }) => {
+    digitalButlerHandleTextMock.mockResolvedValueOnce({
+      handled: true,
+      messages: [{ type: "text", text: "請點選下方提供的選項。" }],
+      outcome: "VALIDATION_FAILED",
+    });
+    mockPrisma.customer.findMany.mockResolvedValueOnce(candidates);
+    mockPrisma.customer.updateMany.mockResolvedValueOnce({ count: 1 });
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq({
+      destination: "D_hsinchu",
+      events: [{
+        type: "message", replyToken: "reply-token-phone",
+        source: { type: "user", userId: "U-hsinchu-store" },
+        message: { type: "text", id: "message-phone-menu", text: "0912345678" },
+        timestamp: 1_721_234_567_890,
+      }],
+    }));
+    expect(res.status).toBe(200);
+    expect(mockPrisma.customer.updateMany).toHaveBeenCalledTimes(updates);
+    expect(replyMessageMock).toHaveBeenCalledTimes(1);
+    expect(replyMessageMock).toHaveBeenCalledWith("store-hsinchu", "reply-token-phone", [
+      { type: "text", text: expect.stringContaining(expected) },
+    ]);
+    expect(bindLineToCustomerInStoreMock).not.toHaveBeenCalled();
+  });
+
   it("continues an active Digital Butler flow after synchronizing phone binding", async () => {
     digitalButlerHandleTextMock.mockResolvedValueOnce({
       handled: true,
