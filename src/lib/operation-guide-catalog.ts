@@ -1,6 +1,6 @@
 import type { OperationGuide, GuideCategory } from "./operation-guide-types";
 
-/** Source-reviewed preview content; interaction verification remains separate. */
+/** Source-reviewed content; draft updates and interaction verification remain separate. */
 export const guideCategories: GuideCategory[] = [
   {
     "id": "start",
@@ -45,6 +45,7 @@ export const guideCategories: GuideCategory[] = [
     "routes": [
       "/dashboard/revenue",
       "/dashboard/transactions",
+      "/dashboard/payments",
       "/dashboard/reconciliation",
       "/dashboard/cashbook",
       "/dashboard/cash-drawer"
@@ -653,17 +654,23 @@ export const additionalGuides: OperationGuide[] = [
     "id": "C07",
     "category": "customers",
     "title": "顧客登入後看不到原本方案，先查什麼？",
-    "summary": "先核對門市入口與顧客身分；看不到方案不一定是方案消失，也可能登入了另一筆顧客資料。",
+    "summary": "先核對門市與顧客身分，並展開「已過期／歷史方案」；看不到方案不一定是資料消失。",
     "path": "顧客管理 → 顧客資料 → LINE 與通知設定",
     "steps": [
       "確認顧客開啟的是正確門市入口。",
+      "請顧客進入方案頁；若有「已過期」或「歷史方案」標題，點標題展開，再核對方案名稱與期限。",
       "用原本電話查找舊資料，核對預約、方案與 LINE 綁定。",
       "若疑似登入另一身分，保留錯誤畫面與時間，交由有權限的人員核對。"
     ],
     "important": "不要先新增同名顧客或重發方案，避免把資料分散到另一個身分。",
     "success": "",
-    "keywords": "登入 找不到 舊資料 LINE 綁定",
-    "details": [],
+    "keywords": "登入 找不到 舊資料 LINE 綁定 已有會員 重新註冊 暫時無法使用 登入逾時 已過期 歷史方案 收合 展開",
+    "details": [
+      "方案頁的「已過期」與「歷史方案」預設收合，標題旁顯示該區筆數；沒有該類方案時不顯示區塊。展開只是查看，不會恢復效期、增加堂數或改變扣堂規則。",
+      "顯示「您已有會員帳號」時，請使用原本的 LINE 登入方式，或聯繫店家核對；不要另建帳號。",
+      "顯示「會員資料需要店家協助確認」屬於身分核對，不需要重新註冊或解除 LINE 綁定。",
+      "顯示「服務暫時無法使用」不代表是新客；保留畫面與時間，稍後再試或聯繫店家。只有「登入已逾時」才依提示重新從 LINE 開啟。"
+    ],
     "modules": [
       "steamfoot",
       "spa"
@@ -671,11 +678,16 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "customer.read",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
+      "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
+      "src/app/customer-login-form.tsx",
+      "src/app/(liff)/liff/onboarding/onboarding-form.tsx",
+      "src/app/(liff)/liff/wallets/wallets-list.tsx",
+      "src/lib/liff/messages.ts",
+      "src/server/services/verified-line-customer.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
-    "answer": "先核對門市入口與顧客身分；看不到方案不一定是方案消失，也可能登入了另一筆顧客資料。"
+    "answer": "先核對門市與顧客身分，並展開「已過期／歷史方案」；看不到方案不一定是資料消失。"
   },
   {
     "id": "C08",
@@ -690,8 +702,11 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "不能因為同名就直接移轉身分；重新綁定不等於新建會員。",
     "success": "",
-    "keywords": "換帳號 重綁 衝突",
-    "details": [],
+    "keywords": "換帳號 重綁 衝突 會員資料需要店家協助確認 通知綁定 登入身分",
+    "details": [
+      "登入身分與接收通知的 LINE 綁定不一定是同一件事。開通通知不能用來覆蓋原有登入帳號。",
+      "若顯示「您的會員資料需要店家協助確認」，請聯繫店家，不需要重新註冊或解除 LINE 綁定；不要把身分衝突當成暫時連線問題反覆重試。"
+    ],
     "modules": [
       "steamfoot",
       "spa"
@@ -699,7 +714,10 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "customer.read",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/customers/[id]/page.tsx"
+      "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
+      "src/server/actions/customer-auth.ts",
+      "src/server/services/bind-line-to-customer.ts",
+      "src/lib/liff/messages.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
@@ -853,25 +871,27 @@ export const additionalGuides: OperationGuide[] = [
     "category": "money",
     "title": "顧客說已匯款，如何確認收款？",
     "summary": "店家需先查到實際入帳，再確認系統收款；顧客說已匯款不等於款項已核實。",
-    "path": "首頁待處理／營運 → 該筆交易",
+    "path": "首頁待處理收款 → 付款確認工作台 → 確認已入帳",
     "steps": [
-      "找到待確認交易，核對顧客、方案與金額。",
-      "用銀行實際入帳紀錄核對，不只看顧客填寫資訊。",
-      "確認收款後，再核對交易狀態與應發放的方案。"
+      "從首頁待處理收款開啟交易，核對顧客、方案、金額與轉帳後四碼。",
+      "先以銀行實際入帳紀錄核對，再點「確認已入帳」。後四碼是顧客自填資訊，不能單獨證明入帳。",
+      "確認視窗內容無誤後，點「確認已入帳並開通」；看到成功提示，再核對交易與顧客方案。"
     ],
     "important": "確認收款可能發放堂數並計入營收；不要重複指派方案。",
     "success": "交易不再待確認，對應方案狀態正確。",
-    "keywords": "核帳 入帳 轉帳 匯款",
-    "details": [],
-    "modules": [
-      "steamfoot",
-      "spa"
+    "keywords": "核帳 入帳 轉帳 匯款 後四碼 待確認收款 付款確認工作台",
+    "details": [
+      "此題說明蒸足方案的待確認收款；SPA 請查看「SPA 服務完成後，怎麼收款或扣方案？」。",
+      "送出購買申請時還不會開通堂數。確認失敗或顯示已處理時，先查原交易及方案，不要重新指派或再建訂單。"
     ],
+    "modules": ["steamfoot"],
     "permission": "transaction.create",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/revenue/page.tsx",
-      "src/app/(dashboard)/dashboard/cash-drawer/cash-drawer-workspace.tsx"
+      "src/server/queries/store-todos.ts",
+      "src/app/(dashboard)/dashboard/payments/page.tsx",
+      "src/app/(dashboard)/dashboard/payments/confirm-button.tsx",
+      "src/server/actions/transaction.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -1198,7 +1218,7 @@ export const additionalGuides: OperationGuide[] = [
     "id": "F08",
     "category": "care",
     "title": "顧客已購買或預約，還會收到體驗邀請嗎？",
-    "summary": "已購買或已有預約的顧客，後續體驗邀請階段會依條件略過；第一階段關心訊息不適用這項略過條件。",
+    "summary": "已購買或已有預約會略過後續邀請；蒸足套票申請待核帳也會略過，但不代表已付款。第一階段關心不受這些條件影響。",
     "path": "體驗客後續關懷 → 發送規則與避免打擾",
     "steps": [
       "查看該顧客的購買及預約紀錄，確認是否已完成購買或已有預約。",
@@ -1206,9 +1226,11 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "第一階段關心與後續邀請的條件不同；關閉整組關懷、單一階段或停止個別顧客也會影響發送。",
     "success": "",
-    "keywords": "買課 預約 停止 打擾",
+    "keywords": "買課 預約 停止 打擾 待核帳 待確認付款 購買申請",
     "details": [
-      "後續邀請階段會檢查購買與預約條件。第一階段仍依其他啟用、時間及停止關懷條件判斷。"
+      "後續邀請階段會檢查購買與預約條件。第一階段仍依其他啟用、時間及停止關懷條件判斷。",
+      "蒸足顧客已有本店套票購買申請、仍待核帳時，也會略過後續邀請；這不代表已付款或已開通堂數。",
+      "已略過的階段不補發。訂單取消後，尚未到發送時間的階段仍依當時狀態判斷；SPA 使用自己的購買與預約紀錄，不套用蒸足待核帳訂單規則。"
     ],
     "modules": [
       "steamfoot",
@@ -1223,7 +1245,7 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "verification": "source-reviewed",
     "kind": "explanation",
-    "answer": "已購買或已有預約的顧客，後續體驗邀請階段會依條件略過；第一階段關心訊息不適用這項略過條件。"
+    "answer": "已購買或已有預約會略過後續邀請；蒸足套票申請待核帳也會略過，但不代表已付款。第一階段關心不受這些條件影響。"
   },
   {
     "id": "F09",
@@ -1581,8 +1603,12 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "健康紀錄的可見範圍受門市開通與身分驗證影響。",
     "success": "",
-    "keywords": "體重 體脂 健康 曲線",
-    "details": [],
+    "keywords": "體重 體脂 健康 曲線 最近健康變化 較上次 量測日期 尚無量測紀錄",
+    "details": [
+      "顧客使用 LINE 會員首頁時，已開通健康功能的門市可由「最近健康變化」或底部「健康」進入；這是顧客自己的紀錄入口，不是店家後台的健康總覽。",
+      "首頁若顯示「較上次」差值，旁邊會列出前後兩次量測日期（台灣時間）；請連同日期、項目與單位核對，不把單一差值當作健康改善或惡化的結論。",
+      "沒有可比較的變化時，首頁可能顯示「查看最近量測紀錄」或「尚無量測紀錄」。這不等於歷史資料被刪除，應進入紀錄頁再查；返回 LINE 會員首頁可用底部「首頁」。"
+    ],
     "modules": [
       "steamfoot",
       "spa"
@@ -1591,7 +1617,11 @@ export const additionalGuides: OperationGuide[] = [
     "feature": "ai_health_summary",
     "sources": [
       "src/app/(dashboard)/dashboard/health/page.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/health/page.tsx"
+      "src/app/(dashboard)/dashboard/customers/[id]/health/page.tsx",
+      "src/app/(liff)/liff/liff-shell.tsx",
+      "src/app/(liff)/liff/layout.tsx",
+      "src/app/(liff)/liff/liff-bottom-nav.tsx",
+      "src/app/(liff)/liff/health/health-view.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -2305,14 +2335,15 @@ export const additionalGuides: OperationGuide[] = [
     "path": "提醒管理 → 顧客提醒 → 體驗客後續關懷 → 最近關懷紀錄",
     "steps": [
       "找到顧客與對應階段，核對時間、狀態與原因。",
-      "若因已購買、已預約或顧客停止接收而略過，依原因處理，不另補相同邀請。",
+      "若因已購買、購買申請待核帳、已預約或顧客停止接收而略過，依原因處理，不另補相同邀請。",
       "若顯示階段關閉或錯過發送時間，確認目前已儲存的設定；重新啟用不會補發歷史體驗。"
     ],
     "important": "",
     "success": "",
-    "keywords": "關懷紀錄顯示「已略過」，需要重新發送嗎？ 不一定。「已略過」通常代表沒有符合發送條件；先看紀錄中的原因，不要直接重複發送。",
+    "keywords": "已略過 重送 待核帳 購買申請待核帳 略過本次邀請 發送失敗",
     "details": [
       "「今日已有體驗關懷」代表當天已發過此類關懷。",
+      "「購買申請待核帳，略過本次邀請」表示蒸足套票訂單尚待確認；先核對原訂單，不要另建購買或補發同一階段邀請。",
       "「發送失敗」與「已略過」不同；失敗時保留顧客、階段、時間及錯誤文字供支援核對。",
       "第一階段關心與後續邀請適用的條件不同，請一併查看「顧客已購買或預約，還會收到體驗邀請嗎？」。"
     ],
@@ -2423,5 +2454,108 @@ export const additionalGuides: OperationGuide[] = [
     "verification": "source-reviewed",
     "kind": "troubleshooting",
     "answer": "目前只有已開通多店功能的母店店長可查看所屬下層店舖；分店帳號與一般員工不會自動取得整個體系的查看權限。"
+  },
+  {
+    "id": "D12",
+    "category": "plans",
+    "title": "顧客從關懷訊息購買方案，轉帳後怎麼開通？",
+    "summary": "蒸足顧客可從本店方案卡送出轉帳購買申請；填寫後四碼只代表送單，需店家核對入帳後才開通堂數。",
+    "answer": "蒸足顧客可從本店方案卡送出轉帳購買申請；填寫後四碼只代表送單，需店家核對入帳後才開通堂數。",
+    "path": "顧客收到關懷 → 查看本店方案 → 購買此方案 → 送出購買申請",
+    "steps": [
+      "請顧客核對卡片上的門市、方案、金額與期限，再點「購買此方案」，依畫面登入或完成本店顧客資料。",
+      "確認購買頁的銀行帳號與金額，轉帳完成後填入匯出帳號後四碼，點「送出購買申請」。",
+      "成功頁顯示「待店家確認」。需要補充時可點「複製付款資訊」及「開啟本店 LINE」，自行貼上傳送給店長。",
+      "店家確認實際入帳後，依「顧客說已匯款，如何確認收款？」完成核帳；顧客再回「我的方案」查看。"
+    ],
+    "important": "送單不等於已付款或已開通。請勿重複匯款、重複送單，或另指派同一份方案。",
+    "success": "申請先顯示待店家確認；核帳成功後才顯示已確認付款並可核對方案。",
+    "keywords": "線上購買 轉帳 後四碼 購買此方案 待店家確認 複製付款資訊 沒有購買按鈕",
+    "details": [
+      "本流程限蒸足；SPA 公開方案卡仍由顧客聯繫店長，不套用此轉帳購買教學。",
+      "卡片只列本店上架且開放顧客購買的套票；店家未設定轉帳帳號時不顯示購買按鈕。無公開方案時請聯繫店長。",
+      "LINE 通知依店家設定發送。複製資料或開啟 LINE 不等於已把訊息送給店長。",
+      "已存在同方案待核帳申請或送出結果不明時，先提供訂單編號請店家查詢，不要直接重做。"
+    ],
+    "modules": ["steamfoot"],
+    "permission": "customer.read",
+    "feature": null,
+    "sources": [
+      "src/server/services/trial-care-plans.ts",
+      "src/app/(liff)/liff/wallets/shop/[planId]/page.tsx",
+      "src/app/(customer)/book/shop/[planId]/checkout/purchase-button.tsx",
+      "src/components/purchase-receipt.tsx",
+      "src/server/actions/wallet.ts"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto"
+  },
+  {
+    "id": "I07",
+    "category": "settings",
+    "title": "分店串接費怎麼算？開通額度就會扣款嗎？",
+    "summary": "串接費按實際已串接的分店間數分段計算，不按可串接額度計費；設定額度不會自動扣款。",
+    "answer": "串接費按實際已串接的分店間數分段計算，不按可串接額度計費；設定額度不會自動扣款。",
+    "path": "設定 → 方案設定 → 展店版說明",
+    "steps": [
+      "先核對總部的展店版及實際串接分店數，不把「可串接幾間」當成已串接間數。",
+      "首間分店免串接費，第 2～5 間每間 $500／月，第 6～15 間每間 $300／月，分段計算；16 間起另行報價。",
+      "增加串接額度或超過 15 間時，聯繫平台確認費用及開通安排。各分店系統月費另計。"
+    ],
+    "important": "展店版的功能全含適用於購買展店版的總部店，不會自動把同樣功能開給所有分店。",
+    "success": "",
+    "keywords": "分店串接費 展店版 額度 已串接 自動扣款 500 300 分段計算",
+    "details": [
+      "例：串接 6 間，串接費為 4 × $500 ＋ 1 × $300 ＝ $2,300／月；加上目前總部展店版 $4,990，共 $7,290／月，未包含各分店系統月費。",
+      "已開通可串接 10 間、實際只串接 3 間時，串接費按 3 間計算，即 $1,000／月；本頁試算不是自動扣款。"
+    ],
+    "modules": ["steamfoot", "spa"],
+    "permission": "plans.edit",
+    "feature": null,
+    "sources": [
+      "src/lib/alliance-subscription.ts",
+      "src/app/(dashboard)/dashboard/settings/plan/page.tsx",
+      "src/app/hq/dashboard/stores/organization/store-organization-manager.tsx",
+      "src/components/plan-package-notes.tsx"
+    ],
+    "verification": "source-reviewed",
+    "kind": "explanation"
+  },
+  {
+    "id": "C09",
+    "category": "customers",
+    "title": "會員首頁改版後，預約、方案與個人資料在哪裡？",
+    "summary": "LINE 會員頁改用底部圖示加文字導覽；從「預約」「方案」「我的」切換，返回時點「首頁」。",
+    "answer": "LINE 會員頁改用底部圖示加文字導覽；從「預約」「方案」「我的」切換，返回時點「首頁」。",
+    "path": "顧客的 LINE 會員首頁 → 底部會員功能導覽",
+    "steps": [
+      "先確認正確門市與顧客已登入；本題說明 LINE 會員頁，不把其他網頁會員入口的版面視為相同。",
+      "點底部「預約」查預約，「方案」查堂數與方案，「我的」看個人資料；要回會員首頁，點底部「首頁」。",
+      "在「預約」的即將到來分頁沒有預約時，可點「立即預約」進入預約流程；歷史分頁沒有紀錄時不會顯示這個按鈕。",
+      "想找舊方案時，進入「方案」並展開「已過期」或「歷史方案」；找不到資料再依登入排錯教學核對。"
+    ],
+    "important": "導覽或「立即預約」只是入口，不表示已完成預約，也不會略過方案資格、可約時段或既有扣堂規則。",
+    "success": "可由底部切換會員功能，查看正確門市的資料；本教學不要求新增預約或發送訊息。",
+    "keywords": "會員首頁 底部導覽 回首頁 回會員中心 我的資料 立即預約 空預約 分享店家給好友 找不到按鈕",
+    "details": [
+      "「健康」僅在門市模組支援且已開通健康功能時顯示；沒有這個入口，不應直接判定帳號故障。",
+      "底部導覽用於會員首頁及預約、方案、健康、我的等主要頁面。預約表單、購買內頁、加入會員與工作流程不會一律顯示相同導覽；請依該頁既有返回方式操作。",
+      "主要頁面已移除重複的頁尾返回按鈕，改用底部「首頁」；SPA 網頁會員專區仍依自己的入口與返回連結操作，不套用 LINE 頁面的所有位置。",
+      "首頁若有「分享店家給好友」，會開啟 LINE 分享選擇；開啟選單或取消不等於成功傳送。顯示「暫時無法分享，請稍後再試」時，保留錯誤資訊，不需要重新建立會員。"
+    ],
+    "modules": ["steamfoot", "spa"],
+    "permission": "customer.read",
+    "feature": null,
+    "sources": [
+      "src/app/(liff)/liff/liff-bottom-nav.tsx",
+      "src/app/(liff)/liff/layout.tsx",
+      "src/app/(liff)/liff/liff-shell.tsx",
+      "src/app/(liff)/liff/bookings/_components/ready-view.tsx",
+      "src/app/(liff)/liff/bookings/bookings-list.tsx",
+      "src/app/(liff)/liff/profile/profile-view.tsx",
+      "src/app/(liff)/liff/liff-store-share-card.tsx"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto"
   }
 ];

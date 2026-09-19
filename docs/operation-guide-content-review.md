@@ -1,5 +1,63 @@
 # 操作指南內容維護與下一批驗收
 
+## 2026-09-19 增量盤點結果
+
+已核對 main `e69323f41762d2caad6a92f998b591ca5bf61fa1` 至 `0a280a351f79a77ad1789d0a8b20196afbe269b2`。本次新增 C09、更新 C07／M01，共 86 篇；沿用草稿 PR #1042，不合併正式站。
+
+| 已合併變動 | 指南處理 |
+|---|---|
+| #1043 LINE 會員首頁精簡與底部導覽 | 新增 C09，說明首頁／預約／方案／健康／我的、功能開通限制、非所有內頁都有導覽、分享選單不等於傳送。更新 M01 說明首頁「較上次」及量測日期、不從單一差值推定健康好壞。 |
+| #1044 重複返回入口移除、空預約直接預約 | C09 說明用底部首頁返回、只有即將到來的空清單顯示「立即預約」；蒸足與 SPA 仍使用各自預約路徑與原資格檢查。 |
+| #1045 已過期／歷史方案預設收合 | C07 提醒先展開再排查身分；筆數不等於堂數，收合不表示刪除，展開不恢復效期。 |
+| #1046 方案及健康頁移除重複回首頁 | C09／M01 說明 LINE 會員底部首頁入口；不把 SPA 網頁會員專區與 LINE 所有畫面當成相同。 |
+
+直接來源：
+
+- C09：`src/app/(liff)/liff/liff-bottom-nav.tsx`、`layout.tsx`、`liff-shell.tsx`、`liff-store-share-card.tsx`、`bookings/_components/ready-view.tsx`、`bookings/bookings-list.tsx`、`profile/profile-view.tsx`。
+- C07：`src/app/(liff)/liff/wallets/wallets-list.tsx`、`src/lib/liff/messages.ts`，保留原身分與登入核對來源。
+- M01：`src/app/(liff)/liff/liff-shell.tsx`、`layout.tsx`、`liff-bottom-nav.tsx`、`health/health-view.tsx`，保留原後台健康頁來源與 `ai_health_summary` 功能限制。
+- 本次差異只有會員介面 9 檔；沒有新增後端授權或交易規則。guide 的權限與模組篩選不變，C09 需 `customer.read`，M01 仍需健康功能開通。底部會員導覽不是店家後台操作指南的新入口。
+
+驗證及待辦：
+
+- 新增指南搜尋／權限、歷史方案收合語意及健康功能限制測試；保留原指南測試。最終測試數與 Preview commit 寫入本日 PR 留言。
+- 瀏覽器本次可連線，但既有 Preview 仍為未登入狀態；遵守安全登入流程，不從歷史對話填入密碼。新舊共 9 題實際操作仍受阻，未宣稱通過。
+- 待補截圖：底部導覽（含健康未開通時）、即將到來空清單及歷史空清單差異、過期／歷史區塊展開前後、健康比較日期。只在隔離測試資料與通知封鎖已確認後補驗收；不實際分享 LINE 訊息、不新增預約。
+- `operation-guide-audit-state.json` 中 `newGuideIds`／`updatedGuideIds` 是本次數量，`cumulativeDraft*` 是未發布草稿累計，`interactionPendingGuideIds` 是去重後待驗題目。下次從已記錄的新 main commit 接續，不重複處理本批。
+
+## 2026-09-17 首次盤點結果
+
+檢查 main：`e69323f41762d2caad6a92f998b591ca5bf61fa1`。首次沒有上次成功 commit，故以此建立基準；讀取既有指南、覆蓋文件與來源，優先核對原來源基準 `44c1f1f` 之後已合併項目，不把未合併課程分支當成正式功能。
+
+| 已合併變動 | 指南影響與處理 |
+|---|---|
+| #1035 店長通知篩選及 LINE 品牌視覺 | F01／F03／F04 已有設定與接收人說明；本輪沒有核實出需新增文章的操作規則，不新增篇數。新篩選介面截圖仍待登入核對。 |
+| #1037 關懷購買與付款摘要 | 新增 D12，更新 E01、F08、F11；蒸足待核帳不等於已購買，後續邀請略過、不補發；SPA 不沿用蒸足訂單規則。 |
+| #1036 操作指南正式發布 | production 入口已開；修正 coverage 及 inventory 開頭的過期狀態，舊批次保留為歷史。 |
+| #1038 實際串接分段計費 | 新增 I07；按實際已串接數，不按額度；首間免串接費，2～5 間 $500、6～15 間 $300，16 間起報價，不自動扣款。 |
+| #1039 通知開通保留原登入身分 | 更新 C08，區分通知與登入綁定，不教顧客任意解綁。 |
+| #1040 入口先核對既有會員 | 更新 C07／C08，區分身分需確認、暫時故障與登入逾時，不引導舊客重新註冊。 |
+| #1041 公開體驗申請 LINE 引導 | 屬尚未開通店家的官網申請流程；沒有更改已登入店家後台操作，本批不把公開申請教學塞入後台指南。 |
+
+新增 2 題（D12、I07），更新 5 題（C07、C08、E01、F08、F11），總數 85 題；本批 7 題登入後實際驗收全數待處理，與既有高風險待辦並存。不能用題數宣告全系統覆蓋。
+
+### 本批直接來源
+
+- C07／C08：`src/lib/liff/messages.ts`、`src/app/customer-login-form.tsx`、`src/app/(liff)/liff/onboarding/onboarding-form.tsx`、`src/server/services/verified-line-customer.ts`、`src/server/actions/customer-auth.ts`、`src/server/services/bind-line-to-customer.ts`。
+- D12：`src/server/services/trial-care-plans.ts`、`src/app/(liff)/liff/wallets/shop/[planId]/page.tsx`、`src/app/(customer)/book/shop/[planId]/checkout/purchase-button.tsx`、`src/components/purchase-receipt.tsx`、`src/server/actions/wallet.ts`。
+- E01：`src/server/queries/store-todos.ts`、`src/app/(dashboard)/dashboard/payments/page.tsx`、`src/app/(dashboard)/dashboard/payments/confirm-button.tsx`、`src/server/actions/transaction.ts`。
+- F08／F11：`src/lib/trial-care.ts`、`src/server/services/trial-care.ts`、`src/app/(dashboard)/dashboard/reminders/trial-care-card.tsx`。
+- I07：`src/lib/alliance-subscription.ts`、`src/app/(dashboard)/dashboard/settings/plan/page.tsx`、`src/app/hq/dashboard/stores/organization/store-organization-manager.tsx`、`src/components/plan-package-notes.tsx`。
+
+### 驗收邊界及下次接續
+
+- 4 檔 21 項指南測試通過；核對來源路徑、搜尋、權限、模組、付款頁相關分類、串接費範例及既有面板行為。不等於登入後驗收。
+- 瀏覽器連線正常，舊預覽 `/hq/login` 顯示 Email／密碼／登入表單，未登入。非互動執行不能取得安全登入輸入，故實際操作「受阻」，不是網站故障；未使用舊對話密碼繞過安全登入。
+- 必要待補畫面：購買與待確認摘要、付款確認視窗、身分衝突及暫時故障差異、關懷待核帳略過紀錄、串接費說明。沒有製作或宣稱新實際截圖。
+- 後續驗收只用已確認隔離、通知封鎖的測試環境；預覽網址本身不等於資料隔離證據。本次沒有新建顧客、送單、確認收款、發通知或修改資料。
+- `operation-guide-audit-state.json` 記錄本次已盘點 main 及未驗收題目。下一次先搜尋開啟中的操作指南盤點 Draft PR，從其分支讀狀態，再比較 `lastInventoriedMainCommit..origin/main`；未合併草稿不應重複建立基準。
+- 後續仍需盤查人員權限細節、通知個別失敗、SPA 儲值異動及既有高風險操作；這些未全部逐題核對，不宣稱沒有其他缺漏。
+
 ## 維護方式
 
 每次功能或規則更新，同批檢查對應教學；客服出現新的反覆問題時補進待辦。每批以一組可完整驗收的情境推進，避免每天為了增加篇數而修改。
