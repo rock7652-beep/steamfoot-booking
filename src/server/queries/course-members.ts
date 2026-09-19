@@ -82,6 +82,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     ...b,
     checkedInAt: checkedInAt?.toISOString() ?? null,
     trialPayments: b.trialPayments.map(p=>({...p,createdAt:p.createdAt.toISOString(),voidedAt:p.voidedAt?.toISOString()??null})),
+    unit: card?.unit ?? "POINT",
     planName: card?.nameSnapshot ?? "體驗（不使用方案）",
     available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((n, b) => n + b.pointCost, 0)),
     expiresAt: card?.expiresAt.toISOString() ?? null,

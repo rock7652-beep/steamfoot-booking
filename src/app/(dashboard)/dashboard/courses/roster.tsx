@@ -131,7 +131,7 @@ export function CourseRoster({
                 : b.status === "CANCELLED"
                   ? "已取消／已釋放"
                   : b.status === "NO_SHOW" ? "未到／已釋放占用" : b.checkedInAt ? "已報到／待出席，占用額度" : "未報到／占用額度"}{" "}
-              {b.bookingKind === "TRIAL" ? "· 體驗不使用方案" : `${b.pointCost} ${b.card?.unit === "SESSION" ? "堂" : "點"}`}
+              {b.bookingKind === "TRIAL" ? "· 體驗不使用方案" : `${b.pointCost} ${b.unit === "SESSION" ? "堂" : "點"}`}
             </p>
             <p>
               預約操作人：{b.operatorName} ·{" "}
