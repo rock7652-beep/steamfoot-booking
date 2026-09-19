@@ -317,7 +317,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
         }
         // 已登入的 OWNER/STAFF 不應停留在 /hq/login，導回其店後台
         const slug = storeParam || userSlug;
-        if (role && isStaffRole(role) && sessionStoreId) {
+        if (role && isStaffRole(role) && sessionStoreId && (!storeParam || storeParam === session?.user?.storeSlug)) {
           return NextResponse.redirect(new URL(`/s/${slug}/admin/dashboard`, req.url));
         }
       }

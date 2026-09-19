@@ -507,7 +507,7 @@ export function CourseWorkspace({
                         "課程名稱",
                         "分類",
                         "時長",
-                        "點數卡每人扣點",
+                        "每人方案扣抵",
                         "人數上限",
                         "狀態",
                         "操作",
@@ -550,7 +550,7 @@ export function CourseWorkspace({
                             {template.durationMinutes} 分
                           </td>
                           <td className="px-4 py-3 tabular-nums">
-                            {template.pointCost}
+                            {template.pointCost} 點／1 堂
                           </td>
                           <td className="px-4 py-3 tabular-nums">
                             {template.capacity}
