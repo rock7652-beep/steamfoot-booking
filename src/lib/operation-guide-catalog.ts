@@ -654,17 +654,19 @@ export const additionalGuides: OperationGuide[] = [
     "id": "C07",
     "category": "customers",
     "title": "顧客登入後看不到原本方案，先查什麼？",
-    "summary": "先核對門市入口與顧客身分；看不到方案不一定是方案消失，也可能登入了另一筆顧客資料。",
+    "summary": "先核對門市與顧客身分，並展開「已過期／歷史方案」；看不到方案不一定是資料消失。",
     "path": "顧客管理 → 顧客資料 → LINE 與通知設定",
     "steps": [
       "確認顧客開啟的是正確門市入口。",
+      "請顧客進入方案頁；若有「已過期」或「歷史方案」標題，點標題展開，再核對方案名稱與期限。",
       "用原本電話查找舊資料，核對預約、方案與 LINE 綁定。",
       "若疑似登入另一身分，保留錯誤畫面與時間，交由有權限的人員核對。"
     ],
     "important": "不要先新增同名顧客或重發方案，避免把資料分散到另一個身分。",
     "success": "",
-    "keywords": "登入 找不到 舊資料 LINE 綁定 已有會員 重新註冊 暫時無法使用 登入逾時",
+    "keywords": "登入 找不到 舊資料 LINE 綁定 已有會員 重新註冊 暫時無法使用 登入逾時 已過期 歷史方案 收合 展開",
     "details": [
+      "方案頁的「已過期」與「歷史方案」預設收合，標題旁顯示該區筆數；沒有該類方案時不顯示區塊。展開只是查看，不會恢復效期、增加堂數或改變扣堂規則。",
       "顯示「您已有會員帳號」時，請使用原本的 LINE 登入方式，或聯繫店家核對；不要另建帳號。",
       "顯示「會員資料需要店家協助確認」屬於身分核對，不需要重新註冊或解除 LINE 綁定。",
       "顯示「服務暫時無法使用」不代表是新客；保留畫面與時間，稍後再試或聯繫店家。只有「登入已逾時」才依提示重新從 LINE 開啟。"
@@ -679,12 +681,13 @@ export const additionalGuides: OperationGuide[] = [
       "src/app/(dashboard)/dashboard/customers/[id]/page.tsx",
       "src/app/customer-login-form.tsx",
       "src/app/(liff)/liff/onboarding/onboarding-form.tsx",
+      "src/app/(liff)/liff/wallets/wallets-list.tsx",
       "src/lib/liff/messages.ts",
       "src/server/services/verified-line-customer.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
-    "answer": "先核對門市入口與顧客身分；看不到方案不一定是方案消失，也可能登入了另一筆顧客資料。"
+    "answer": "先核對門市與顧客身分，並展開「已過期／歷史方案」；看不到方案不一定是資料消失。"
   },
   {
     "id": "C08",
@@ -1600,8 +1603,12 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "important": "健康紀錄的可見範圍受門市開通與身分驗證影響。",
     "success": "",
-    "keywords": "體重 體脂 健康 曲線",
-    "details": [],
+    "keywords": "體重 體脂 健康 曲線 最近健康變化 較上次 量測日期 尚無量測紀錄",
+    "details": [
+      "顧客使用 LINE 會員首頁時，已開通健康功能的門市可由「最近健康變化」或底部「健康」進入；這是顧客自己的紀錄入口，不是店家後台的健康總覽。",
+      "首頁若顯示「較上次」差值，旁邊會列出前後兩次量測日期（台灣時間）；請連同日期、項目與單位核對，不把單一差值當作健康改善或惡化的結論。",
+      "沒有可比較的變化時，首頁可能顯示「查看最近量測紀錄」或「尚無量測紀錄」。這不等於歷史資料被刪除，應進入紀錄頁再查；返回 LINE 會員首頁可用底部「首頁」。"
+    ],
     "modules": [
       "steamfoot",
       "spa"
@@ -1610,7 +1617,11 @@ export const additionalGuides: OperationGuide[] = [
     "feature": "ai_health_summary",
     "sources": [
       "src/app/(dashboard)/dashboard/health/page.tsx",
-      "src/app/(dashboard)/dashboard/customers/[id]/health/page.tsx"
+      "src/app/(dashboard)/dashboard/customers/[id]/health/page.tsx",
+      "src/app/(liff)/liff/liff-shell.tsx",
+      "src/app/(liff)/liff/layout.tsx",
+      "src/app/(liff)/liff/liff-bottom-nav.tsx",
+      "src/app/(liff)/liff/health/health-view.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
@@ -2509,5 +2520,42 @@ export const additionalGuides: OperationGuide[] = [
     ],
     "verification": "source-reviewed",
     "kind": "explanation"
+  },
+  {
+    "id": "C09",
+    "category": "customers",
+    "title": "會員首頁改版後，預約、方案與個人資料在哪裡？",
+    "summary": "LINE 會員頁改用底部圖示加文字導覽；從「預約」「方案」「我的」切換，返回時點「首頁」。",
+    "answer": "LINE 會員頁改用底部圖示加文字導覽；從「預約」「方案」「我的」切換，返回時點「首頁」。",
+    "path": "顧客的 LINE 會員首頁 → 底部會員功能導覽",
+    "steps": [
+      "先確認正確門市與顧客已登入；本題說明 LINE 會員頁，不把其他網頁會員入口的版面視為相同。",
+      "點底部「預約」查預約，「方案」查堂數與方案，「我的」看個人資料；要回會員首頁，點底部「首頁」。",
+      "在「預約」的即將到來分頁沒有預約時，可點「立即預約」進入預約流程；歷史分頁沒有紀錄時不會顯示這個按鈕。",
+      "想找舊方案時，進入「方案」並展開「已過期」或「歷史方案」；找不到資料再依登入排錯教學核對。"
+    ],
+    "important": "導覽或「立即預約」只是入口，不表示已完成預約，也不會略過方案資格、可約時段或既有扣堂規則。",
+    "success": "可由底部切換會員功能，查看正確門市的資料；本教學不要求新增預約或發送訊息。",
+    "keywords": "會員首頁 底部導覽 回首頁 回會員中心 我的資料 立即預約 空預約 分享店家給好友 找不到按鈕",
+    "details": [
+      "「健康」僅在門市模組支援且已開通健康功能時顯示；沒有這個入口，不應直接判定帳號故障。",
+      "底部導覽用於會員首頁及預約、方案、健康、我的等主要頁面。預約表單、購買內頁、加入會員與工作流程不會一律顯示相同導覽；請依該頁既有返回方式操作。",
+      "主要頁面已移除重複的頁尾返回按鈕，改用底部「首頁」；SPA 網頁會員專區仍依自己的入口與返回連結操作，不套用 LINE 頁面的所有位置。",
+      "首頁若有「分享店家給好友」，會開啟 LINE 分享選擇；開啟選單或取消不等於成功傳送。顯示「暫時無法分享，請稍後再試」時，保留錯誤資訊，不需要重新建立會員。"
+    ],
+    "modules": ["steamfoot", "spa"],
+    "permission": "customer.read",
+    "feature": null,
+    "sources": [
+      "src/app/(liff)/liff/liff-bottom-nav.tsx",
+      "src/app/(liff)/liff/layout.tsx",
+      "src/app/(liff)/liff/liff-shell.tsx",
+      "src/app/(liff)/liff/bookings/_components/ready-view.tsx",
+      "src/app/(liff)/liff/bookings/bookings-list.tsx",
+      "src/app/(liff)/liff/profile/profile-view.tsx",
+      "src/app/(liff)/liff/liff-store-share-card.tsx"
+    ],
+    "verification": "source-reviewed",
+    "kind": "howto"
   }
 ];

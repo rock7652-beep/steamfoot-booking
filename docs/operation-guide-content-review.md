@@ -1,5 +1,30 @@
 # 操作指南內容維護與下一批驗收
 
+## 2026-09-19 增量盤點結果
+
+已核對 main `e69323f41762d2caad6a92f998b591ca5bf61fa1` 至 `0a280a351f79a77ad1789d0a8b20196afbe269b2`。本次新增 C09、更新 C07／M01，共 86 篇；沿用草稿 PR #1042，不合併正式站。
+
+| 已合併變動 | 指南處理 |
+|---|---|
+| #1043 LINE 會員首頁精簡與底部導覽 | 新增 C09，說明首頁／預約／方案／健康／我的、功能開通限制、非所有內頁都有導覽、分享選單不等於傳送。更新 M01 說明首頁「較上次」及量測日期、不從單一差值推定健康好壞。 |
+| #1044 重複返回入口移除、空預約直接預約 | C09 說明用底部首頁返回、只有即將到來的空清單顯示「立即預約」；蒸足與 SPA 仍使用各自預約路徑與原資格檢查。 |
+| #1045 已過期／歷史方案預設收合 | C07 提醒先展開再排查身分；筆數不等於堂數，收合不表示刪除，展開不恢復效期。 |
+| #1046 方案及健康頁移除重複回首頁 | C09／M01 說明 LINE 會員底部首頁入口；不把 SPA 網頁會員專區與 LINE 所有畫面當成相同。 |
+
+直接來源：
+
+- C09：`src/app/(liff)/liff/liff-bottom-nav.tsx`、`layout.tsx`、`liff-shell.tsx`、`liff-store-share-card.tsx`、`bookings/_components/ready-view.tsx`、`bookings/bookings-list.tsx`、`profile/profile-view.tsx`。
+- C07：`src/app/(liff)/liff/wallets/wallets-list.tsx`、`src/lib/liff/messages.ts`，保留原身分與登入核對來源。
+- M01：`src/app/(liff)/liff/liff-shell.tsx`、`layout.tsx`、`liff-bottom-nav.tsx`、`health/health-view.tsx`，保留原後台健康頁來源與 `ai_health_summary` 功能限制。
+- 本次差異只有會員介面 9 檔；沒有新增後端授權或交易規則。guide 的權限與模組篩選不變，C09 需 `customer.read`，M01 仍需健康功能開通。底部會員導覽不是店家後台操作指南的新入口。
+
+驗證及待辦：
+
+- 新增指南搜尋／權限、歷史方案收合語意及健康功能限制測試；保留原指南測試。最終測試數與 Preview commit 寫入本日 PR 留言。
+- 瀏覽器本次可連線，但既有 Preview 仍為未登入狀態；遵守安全登入流程，不從歷史對話填入密碼。新舊共 9 題實際操作仍受阻，未宣稱通過。
+- 待補截圖：底部導覽（含健康未開通時）、即將到來空清單及歷史空清單差異、過期／歷史區塊展開前後、健康比較日期。只在隔離測試資料與通知封鎖已確認後補驗收；不實際分享 LINE 訊息、不新增預約。
+- `operation-guide-audit-state.json` 中 `newGuideIds`／`updatedGuideIds` 是本次數量，`cumulativeDraft*` 是未發布草稿累計，`interactionPendingGuideIds` 是去重後待驗題目。下次從已記錄的新 main commit 接續，不重複處理本批。
+
 ## 2026-09-17 首次盤點結果
 
 檢查 main：`e69323f41762d2caad6a92f998b591ca5bf61fa1`。首次沒有上次成功 commit，故以此建立基準；讀取既有指南、覆蓋文件與來源，優先核對原來源基準 `44c1f1f` 之後已合併項目，不把未合併課程分支當成正式功能。

@@ -265,14 +265,14 @@ function ReadyView({
             </Section>
           )}
           {expired.length > 0 && (
-            <Section title={liffMessages.wallets.expiredSectionTitle} dim>
+            <Section title={liffMessages.wallets.expiredSectionTitle} dim collapsible count={expired.length}>
               {expired.map((w) => (
                 <WalletCard key={w.id} wallet={w} variant="expired" />
               ))}
             </Section>
           )}
           {history.length > 0 && (
-            <Section title={liffMessages.wallets.historySectionTitle} dim>
+            <Section title={liffMessages.wallets.historySectionTitle} dim collapsible count={history.length}>
               {history.map((w) => (
                 <WalletCard key={w.id} wallet={w} variant="history" />
               ))}
@@ -305,9 +305,7 @@ function ReadyView({
         </Link>
       )}
 
-      {/* PR-E4：聯絡店家 + 回首頁 並排在頁腳。聯絡店家 LINE-green 與既有 LIFF
-          各處 contact CTA 一致；回首頁 outlined secondary，兩者視覺平衡，
-          顧客有問題（剩餘堂數 / 過期 / 用完）能直接找店家確認。 */}
+      {/* 聯絡店家保留於頁腳，回首頁使用底部導覽。 */}
       <div className={`${showBookNow ? "mt-2" : "mt-4"} flex gap-2`}>
         <a
           href={contactUrl || undefined} aria-disabled={!contactUrl}
@@ -318,12 +316,6 @@ function ReadyView({
           <LineIcon />
           {liffMessages.bookings.contactStoreCta}
         </a>
-        <Link
-          href={dataSource === "spa" ? `/s/${storeSlug}/book` : `/s/${storeSlug}/liff`}
-          className="flex flex-1 items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-        >
-          {liffMessages.wallets.backHomeCta}
-        </Link>
       </div>
     </>
   );
@@ -332,12 +324,31 @@ function ReadyView({
 function Section({
   title,
   dim = false,
+  collapsible = false,
+  count,
   children,
 }: {
   title: string;
   dim?: boolean;
+  collapsible?: boolean;
+  count?: number;
   children: React.ReactNode;
 }) {
+  if (collapsible) {
+    return (
+      <details className="group rounded-xl border border-earth-200 bg-white">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-earth-700 focus-visible:outline-2 focus-visible:outline-primary-600 [&::-webkit-details-marker]:hidden">
+          <span>{title}{count != null && <span className="ml-2 text-earth-500">（{count}）</span>}</span>
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 transition-transform group-open:rotate-180">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </summary>
+        <div className={`flex flex-col gap-3 px-3 pb-3 ${dim ? "opacity-70" : ""}`}>
+          {children}
+        </div>
+      </details>
+    );
+  }
   return (
     <section>
       <h2

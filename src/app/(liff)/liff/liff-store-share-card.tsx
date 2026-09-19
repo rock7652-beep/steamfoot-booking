@@ -14,8 +14,10 @@ import type { LiffReferralShareContext } from "@/server/actions/liff-referral-sh
 
 export function LiffStoreShareCard({
   context,
+  compact = false,
 }: {
   context: LiffReferralShareContext;
+  compact?: boolean;
 }) {
   const [sharing, setSharing] = useState(false);
 
@@ -49,9 +51,22 @@ export function LiffStoreShareCard({
       if (result === "unavailable") {
         openLineShare(referralUrl);
       }
+    } catch {
+      toast.error("暫時無法分享，請稍後再試");
     } finally {
       setSharing(false);
     }
+  }
+
+  if (compact) {
+    return (
+      <button type="button" onClick={handleShare} disabled={sharing}
+        className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-primary-100 bg-white px-4 py-2 text-sm font-medium text-primary-700 transition hover:bg-primary-50 disabled:opacity-60">
+        <span aria-hidden="true"><ShareIcon /></span>
+        <span className="flex-1 text-left">{sharing ? "正在開啟 LINE 分享…" : "分享店家給好友"}</span>
+        <span aria-hidden="true">›</span>
+      </button>
+    );
   }
 
   return (
@@ -97,3 +112,4 @@ function ShareIcon() {
     </svg>
   );
 }
+

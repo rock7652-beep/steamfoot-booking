@@ -1,3 +1,9 @@
+import { LiffBottomNav } from "./liff-bottom-nav";
+import { resolveStoreSlugForLiff, resolveStorePresentation } from "@/lib/store-resolver";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { getIndustryModule } from "@/lib/industry-modules";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
 import { LiffBrandHeader } from "./liff-brand-header";
 import BuildFooter from "@/components/build-footer";
 
@@ -8,12 +14,20 @@ import BuildFooter from "@/components/build-footer";
  *
  * 故另開 (liff) route group，避免被 customer auth gate 擋下。
  */
-export default function LiffLayout({ children }: { children: React.ReactNode }) {
+export default async function LiffLayout({ children }: { children: React.ReactNode }) {
+  const slug = await resolveStoreSlugForLiff();
+  const store = slug ? await resolveStorePresentation(slug) : null;
+  const industry = store ? getIndustryModule(await getStoreIndustryModule(store.id)) : null;
+  const healthEnabled = store && industry?.features.healthAssessment
+    ? await hasStoreFeature(store.id, FEATURES.AI_HEALTH_SUMMARY).catch(() => false)
+    : false;
   return (
     <div className="liff-customer-ui flex min-h-screen flex-col bg-[linear-gradient(180deg,#f5f2eb_0%,#faf8f5_34%,#faf8f5_100%)]">
       <LiffBrandHeader />
       <main className="flex-1">{children}</main>
       <BuildFooter />
+      {store && <LiffBottomNav storeSlug={store.slug} healthAssessmentEnabled={healthEnabled} />}
     </div>
   );
 }
+

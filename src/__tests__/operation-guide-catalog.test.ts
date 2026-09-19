@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { availableGuides, findOperationGuides, guideCategoryForPath, relatedOperationGuides, operationGuides, guideCategories } from "../lib/operation-guide";
 import type { GuideAccess } from "../lib/operation-guide-types";
 import { branchConnectionMonthlyFee, managementMonthlyFee } from "../lib/alliance-subscription";
@@ -75,5 +75,34 @@ describe("guide catalogue", () => {
     expect(guide.answer).toContain("不會自動扣款");
     expect(availableGuides({...access, permissions: ["plans.edit"]}).some(g => g.id === "I07")).toBe(true);
     expect(availableGuides(access).some(g => g.id === "I07")).toBe(false);
+  });
+  it("finds member navigation instructions without bypassing customer permissions", () => {
+    for (const industry of ["steamfoot", "spa"] as const) {
+      const scoped = {...access, module: industry};
+      expect(findOperationGuides("底部導覽", scoped).some(g => g.id === "C09")).toBe(true);
+      expect(findOperationGuides("立即預約", scoped).some(g => g.id === "C09")).toBe(true);
+      expect(availableGuides({...scoped, permissions: []}).some(g => g.id === "C09")).toBe(false);
+    }
+    const guide = operationGuides.find(g => g.id === "C09")!;
+    expect(guide.feature).toBe(null);
+    expect(guide.details.join(" ")).toContain("不會一律顯示相同導覽");
+    expect(guide.important).toContain("不表示已完成預約");
+  });
+  it("explains collapsed historical plans without changing entitlement rules", () => {
+    expect(findOperationGuides("歷史方案", access).some(g => g.id === "C07")).toBe(true);
+    const guide = operationGuides.find(g => g.id === "C07")!;
+    expect(guide.details.join(" ")).toContain("不會恢復效期、增加堂數");
+    const source = readFileSync("src/app/(liff)/liff/wallets/wallets-list.tsx", "utf8");
+    expect(source).toContain("dim collapsible count={expired.length}");
+    expect(source).toContain("dim collapsible count={history.length}");
+    expect(source).not.toMatch(/<details[^>]*\bopen(?:[\s=>])/);
+  });
+  it("keeps health comparison guidance gated and separates dates from conclusions", () => {
+    const health = {...access, features: {ai_health_summary: true}};
+    expect(findOperationGuides("最近健康變化", health).some(g => g.id === "M01")).toBe(true);
+    expect(findOperationGuides("最近健康變化", access).some(g => g.id === "M01")).toBe(false);
+    const guide = operationGuides.find(g => g.id === "M01")!;
+    expect(guide.details.join(" ")).toContain("前後兩次量測日期");
+    expect(guide.details.join(" ")).toContain("不把單一差值當作");
   });
 });
