@@ -28,6 +28,14 @@ const replySteamButlerMessageMock = vi.fn(
 const bindLineToCustomerInStoreMock = vi.fn();
 const probeStoreLineRecipientMock = vi.fn();
 const captureLineRebindCandidateMock = vi.fn();
+const claimTrialNotificationSetupMock = vi.fn();
+const createTrialBookingChatLinkMock = vi.fn();
+vi.mock("@/server/services/trial-booking-chat-link", () => ({
+  createTrialBookingChatLink: (...args: unknown[]) => createTrialBookingChatLinkMock(...args),
+}));
+vi.mock("@/server/services/trial-notification-binding", () => ({
+  claimTrialNotificationSetup: (...args: unknown[]) => claimTrialNotificationSetupMock(...args),
+}));
 const digitalButlerHandleTextMock = vi.fn(
   async (_input: unknown): Promise<{
     handled: boolean;
@@ -52,6 +60,7 @@ let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 const mockPrisma = {
   store: {
     findFirst: vi.fn(),
+    findUnique: vi.fn(),
   },
   customer: {
     findMany: vi.fn(async (): Promise<Record<string, unknown>[]> => []),
@@ -166,6 +175,7 @@ describe("LINE webhook store-aware signature and reply", () => {
       return true;
     });
     mockPrisma.store.findFirst.mockResolvedValue({ id: "store-hsinchu" });
+    mockPrisma.store.findUnique.mockResolvedValue({ slug: "hsinchu" });
     mockPrisma.customer.findMany.mockResolvedValue([]);
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -382,6 +392,43 @@ describe("LINE webhook store-aware signature and reply", () => {
       { type: "text", text: expect.stringContaining(expected) },
     ]);
     expect(bindLineToCustomerInStoreMock).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])("issues a store-signed trial entry independently of Butler, success=%s", async success => {
+    mockPrisma.store.findUnique.mockResolvedValue({ slug: "zhubei" });
+    if (success) createTrialBookingChatLinkMock.mockResolvedValueOnce({ url: "https://example.com/book?entry=opaque" });
+    else createTrialBookingChatLinkMock.mockRejectedValueOnce(new Error("unavailable"));
+    const { POST } = await import("@/app/api/line/webhook/route");
+    await POST(postReq({ destination: "D_hsinchu", events: [{ type: "message", replyToken: "reply-entry", source: { type: "user", userId: "U-hsinchu-store" }, message: { type: "text", id: "entry", text: "開始體驗預約" } }] }));
+    expect(createTrialBookingChatLinkMock).toHaveBeenCalledWith({ storeId: "store-hsinchu", channel: "LINE", chatIdentity: "U-hsinchu-store" });
+    expect(digitalButlerHandleTextMock).not.toHaveBeenCalled();
+    expect(replyMessageMock).toHaveBeenCalledTimes(1);
+    const reply = JSON.stringify(replyMessageMock.mock.calls);
+    expect(reply).toContain(success ? "https://example.com/book?entry=opaque" : "暫時無法建立專屬預約連結");
+    if (success) expect(reply).toContain("lineTrial=1");
+  });
+
+  it("keeps other stores on their existing Butler flow", async () => {
+    const { POST } = await import("@/app/api/line/webhook/route");
+    await POST(postReq({ destination: "D_hsinchu", events: [{ type: "message", replyToken: "reply-entry", source: { type: "user", userId: "U-hsinchu-store" }, message: { type: "text", id: "entry", text: "開始體驗預約" } }] }));
+    expect(createTrialBookingChatLinkMock).not.toHaveBeenCalled();
+    expect(digitalButlerHandleTextMock).toHaveBeenCalled();
+  });
+
+  it.each(["linked", "invalid", "conflict", "unavailable"])("handles trial notification setup before Digital Butler: %s", async status => {
+    mockPrisma.store.findUnique.mockResolvedValue({ slug: "zhubei" });
+    claimTrialNotificationSetupMock.mockResolvedValueOnce(status);
+    const token = "ab".repeat(32);
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const res = await POST(postReq({
+      destination: "D_hsinchu",
+      events: [{ type: "message", replyToken: "reply-setup", source: { type: "user", userId: "U-hsinchu-store" }, message: { type: "text", id: "setup", text: `體驗通知 ${token}` } }],
+    }));
+    expect(res.status).toBe(200);
+    expect(claimTrialNotificationSetupMock).toHaveBeenCalledWith("store-hsinchu", "U-hsinchu-store", token);
+    expect(digitalButlerHandleTextMock).not.toHaveBeenCalled();
+    expect(replyMessageMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(consoleLogSpy.mock.calls)).not.toContain(token);
   });
 
   it("continues an active Digital Butler flow after synchronizing phone binding", async () => {

@@ -26,6 +26,7 @@ import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-tria
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 import { resolvePublicTrialLineCustomer } from "@/server/services/public-trial-line-customer";
+import { prepareTrialNotificationSetup, type TrialNotificationSetup } from "@/server/services/trial-notification-binding";
 import { bindReferralToCustomer } from "@/server/services/referral-binding";
 import {
   createBookingCreatedEvent,
@@ -50,6 +51,7 @@ const InputSchema = z.object({
   people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(2, "單次最多預約 2 人"),
   website: z.string().max(0).optional().default(""),
   entry: z.string().max(512).optional(),
+  lineTrialPilot: z.boolean().optional().default(false),
   storeSlug: z.enum(PUBLIC_TRIAL_STORE_SLUGS).optional().default(DEFAULT_STORE_SLUG),
 });
 
@@ -69,7 +71,7 @@ export type PublicTrialCalendarDay = {
 };
 
 export type PublicTrialBookingResult =
-  | { status: "ok"; bookingId: string; bookingDate: string; slotTime: string; people: number; expectedAmount: number }
+  | { status: "ok"; bookingId: string; bookingDate: string; slotTime: string; people: number; expectedAmount: number; notificationSetup?: TrialNotificationSetup }
   | { status: "invalid_input"; message: string }
   | { status: "already_has_trial"; bookingDate: string; slotTime: string }
   | { status: "slot_full" }
@@ -274,6 +276,10 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
   }
 
   const data = parsed.data;
+  const pilot = data.storeSlug === "zhubei" && data.lineTrialPilot;
+  if (pilot && !data.entry) {
+    return { status: "invalid_input", message: "請先使用 LINE 確認身分，再開啟專屬體驗預約表單。無法使用 LINE 時，請聯繫門市協助預約。" };
+  }
   const cookieStore = await cookies();
   const pendingRef = cookieStore.get("pending-ref")?.value?.trim() || null;
   try {
@@ -548,6 +554,11 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       people: data.people,
       expectedAmount,
     });
+    const notificationSetup = pilot ? await prepareTrialNotificationSetup({
+      storeId: store.id, customerId: customer.id, bookingId: booking.id,
+      customerCreated,
+      linked: customer.lineLinkStatus === "LINKED" && Boolean(customer.lineUserId),
+    }) : undefined;
     return {
       status: "ok",
       bookingId: booking.id,
@@ -555,6 +566,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       slotTime: data.slotTime,
       people: data.people,
       expectedAmount,
+      notificationSetup,
     };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { status: "slot_full" };
