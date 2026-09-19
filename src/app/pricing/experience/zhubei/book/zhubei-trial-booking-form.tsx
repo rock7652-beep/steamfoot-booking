@@ -12,7 +12,6 @@ import {
 import type { SlotAvailability } from "@/types";
 import { createLatestRequestGate } from "@/lib/latest-request-gate";
 import type { TrialNotificationSetup } from "@/server/services/trial-notification-binding";
-import { resolvePublicTrialLiffConfig } from "@/lib/liff/public-trial-config";
 
 function taiwanToday(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -73,12 +72,15 @@ export function ZhubeiTrialBookingForm({
   storeSlug = "zhubei",
   contactUrl = "https://lin.ee/Nki2OjA",
   successGuideId = "first-visit-guide",
+  lineTrialPilot = false,
 }: {
   entry?: string;
   storeSlug?: "zhubei" | "hsinchu" | "taichung";
   contactUrl?: string;
   successGuideId?: string;
+  lineTrialPilot?: boolean;
 }) {
+  const pilot = storeSlug === "zhubei" && lineTrialPilot;
   const slotRequestGate = useRef(createLatestRequestGate()).current;
   const today = useMemo(taiwanToday, []);
   const initialMonth = useMemo(() => ({
@@ -103,7 +105,7 @@ export function ZhubeiTrialBookingForm({
   const [success, setSuccess] = useState<{ date: string; time: string; people: number; expectedAmount: number; notificationSetup?: TrialNotificationSetup } | null>(null);
 
   useEffect(() => {
-    if (!success || success.notificationSetup?.status !== "linked") return;
+    if (!success || (success.notificationSetup && success.notificationSetup.status !== "linked")) return;
     const timeoutId = window.setTimeout(() => {
       document.getElementById(successGuideId)?.scrollIntoView({
         behavior: "smooth",
@@ -114,7 +116,7 @@ export function ZhubeiTrialBookingForm({
   }, [success, successGuideId]);
 
   useEffect(() => {
-    if (!entry) return;
+    if (pilot && !entry) return;
     let active = true;
     setLoadingCalendar(true);
     void fetchPublicTrialMonth(viewYear, viewMonth, entry, storeSlug)
@@ -128,7 +130,7 @@ export function ZhubeiTrialBookingForm({
         if (active) setLoadingCalendar(false);
       });
     return () => { active = false; };
-  }, [entry, storeSlug, viewYear, viewMonth]);
+  }, [entry, storeSlug, viewYear, viewMonth, pilot]);
 
   async function loadSlots(date: string) {
     const requestId = slotRequestGate.issue();
@@ -184,7 +186,7 @@ export function ZhubeiTrialBookingForm({
     setSubmitting(true);
     setMessage("");
     try {
-      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website, entry, storeSlug, noticeAccepted });
+      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website, entry, storeSlug, noticeAccepted, lineTrialPilot: pilot });
       if (result.status === "ok") {
         setSuccess({
           date: result.bookingDate,
@@ -216,7 +218,7 @@ export function ZhubeiTrialBookingForm({
         <p className="mt-4 text-xs leading-5 text-earth-500">到店後再付款即可。這次預約不需要會員帳號，也不會扣除任何正式方案堂數。</p>
         <p className="mt-4 rounded-xl bg-primary-50 px-4 py-3 text-sm leading-6 text-primary-800">以下是第一次到店前需要知道的事項，建議先看完並儲存門市導航。</p>
         <a href={`#${successGuideId}`} className="mt-4 flex min-h-12 items-center justify-center rounded-xl border border-primary-200 px-4 text-base font-bold text-primary-700">查看到店前提醒</a>
-        <div className="mt-5 rounded-xl border border-primary-100 p-4" aria-live="polite">
+        {success.notificationSetup ? <div className="mt-5 rounded-xl border border-primary-100 p-4" aria-live="polite">
           <p className="font-semibold text-primary-800">{success.notificationSetup?.status === "linked" ? "LINE 通知已連結" : "預約已成功，LINE 通知尚未完成設定"}</p>
           {success.notificationSetup?.status === "pending" ? <>
             <p className="mt-2 text-sm leading-6 text-earth-600">不用再輸入電話、不用儲值。請用手機開啟 LINE，將自動帶入的驗證訊息按「送出」，看到「通知設定完成」即可。請勿轉傳此專屬連結。</p>
@@ -226,18 +228,23 @@ export function ZhubeiTrialBookingForm({
             <p className="mt-2 text-sm leading-6 text-earth-600">{success.notificationSetup?.status === "linked" ? "不必再輸入電話。請保持本店 LINE 好友且未封鎖，系統會依預約與店家設定安排提醒。" : "您的時段已保留。通知身分需要門市協助確認；加入好友本身不代表已完成通知綁定。"}</p>
             <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-4 flex min-h-12 items-center justify-center rounded-xl border border-primary-200 px-4 text-base font-bold text-primary-700">聯繫官方 LINE</a>
           </>}
-        </div>
+        </div> : <>
+          <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-[#06C755] px-4 text-base font-bold text-white">加入官方 LINE，接收預約提醒</a>
+          <p className="mt-2 text-xs leading-5 text-earth-500">若原本已完成 LINE 綁定，系統會以既有身分發送體驗提醒；首次加入後，也可從 LINE 內取得專屬預約入口。</p>
+        </>}
       </section>
     );
   }
 
-  if (!entry) {
-    const config = resolvePublicTrialLiffConfig(storeSlug);
+  if (pilot && !entry) {
+    const chatUrl = `https://line.me/R/oaMessage/%40083vmikb/?${encodeURIComponent("開始體驗預約")}`;
     return <section className="mt-6 rounded-2xl border border-primary-100 bg-white p-6 text-center shadow-sm">
       <h2 className="text-xl font-bold text-earth-900">用 LINE 輕鬆預約</h2>
       <p className="mt-3 text-sm leading-6 text-earth-600">完成預約，同步設定到店提醒與體驗後關心。</p>
-      {config ? <a href={`https://liff.line.me/${config.liffId}`} className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-[#06C755] px-4 font-bold text-white">使用 LINE 預約</a> : null}
+      <a href={chatUrl} className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-[#06C755] px-4 font-bold text-white">使用 LINE 預約</a>
       <p className="mt-3 text-xs leading-5 text-earth-500">請使用本人的 LINE，並加入本店好友。</p>
+      <p className="mt-2 text-xs leading-5 text-earth-500">送出聊天室帶入的訊息，再點專屬連結填表。</p>
+      <a href="/pricing/experience/zhubei/book#booking-form" className="mt-4 block text-sm text-primary-700 underline">改用一般預約（通知需另行確認）</a>
       <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex min-h-11 items-center text-sm text-primary-700 underline">需要協助？聯繫門市</a>
     </section>;
   }

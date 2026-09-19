@@ -29,7 +29,6 @@ afterEach(() => vi.unstubAllGlobals());
 function start(storeSlug = "zhubei") {
   renderToStaticMarkup(createElement(PublicTrialLiffBridge, {
     liffId: "test-liff", storeSlug, storeName: "測試門市", contactUrl: "https://line.me/test",
-    chatBookingUrl: "https://line.me/test-chat",
   }));
   return m.effect?.();
 }
@@ -42,11 +41,10 @@ describe("store identity is independent of platform OA friendship", () => {
     expect(m.friendship).not.toHaveBeenCalled();
     expect(JSON.parse(m.fetch.mock.calls[0][1].body)).toEqual({ idToken: "test-id-token", storeSlug });
   });
-  it("requires the store chat when the login identity is incompatible", async () => {
+  it("preserves the existing public fallback when the login identity is incompatible", async () => {
     m.fetch.mockResolvedValue({ json: async () => ({ status: "error", code: "IDENTITY_SCOPE_MISMATCH" }) });
     start();
-    await vi.waitFor(() => expect(m.state).toHaveBeenCalledWith("store_chat"));
-    expect(m.replace).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(m.replace).toHaveBeenCalledWith("https://preview.example/pricing/experience/zhubei/book#booking-form"));
   });
   it("does not open an anonymous form when verification is unavailable", async () => {
     m.fetch.mockRejectedValue(new Error("network"));

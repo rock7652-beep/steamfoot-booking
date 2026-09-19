@@ -359,14 +359,20 @@ async function handleTextMessage(
 ) {
   console.log("[LINE] Text message received", { userId: maskLineUserId(lineUserId), storeId, textLength: text.length });
 
-  if (text.trim() === "開始體驗預約") {
+  const pilotCommand = text.trim() === "開始體驗預約" || text.startsWith("體驗通知 ");
+  const pilotStore = pilotCommand
+    ? await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } })
+    : null;
+  if (pilotStore?.slug === "zhubei" && text.trim() === "開始體驗預約") {
     if (!replyToken) return;
     try {
       const link = await createTrialBookingChatLink({ storeId, channel: "LINE", chatIdentity: lineUserId });
+      const pilotUrl = new URL(link.url);
+      pilotUrl.searchParams.set("lineTrial", "1");
       await replyMessage(storeId, replyToken, [{ type: "flex", altText: "開啟您的專屬體驗預約", contents: {
         type: "bubble",
         body: { type: "box", layout: "vertical", contents: [{ type: "text", wrap: true, text: "請先加入本店好友，再開啟專屬表單。電話只需在表單填一次，預約時同步連結通知；連結限本人使用，30 分鐘內有效。" }] },
-        footer: { type: "box", layout: "vertical", contents: [{ type: "button", style: "primary", color: "#376452", action: { type: "uri", label: "填寫體驗預約", uri: link.url } }] },
+        footer: { type: "box", layout: "vertical", contents: [{ type: "button", style: "primary", color: "#376452", action: { type: "uri", label: "填寫體驗預約", uri: pilotUrl.toString() } }] },
       } }]);
     } catch {
       await replyMessage(storeId, replyToken, [{ type: "text", text: "暫時無法建立專屬預約連結，請稍後再送出「開始體驗預約」，或聯繫門市協助。" }]);
@@ -374,7 +380,7 @@ async function handleTextMessage(
     return;
   }
 
-  if (text.startsWith("體驗通知 ")) {
+  if (pilotStore?.slug === "zhubei" && text.startsWith("體驗通知 ")) {
     const { claimTrialNotificationSetup } = await import("@/server/services/trial-notification-binding");
     const status = await claimTrialNotificationSetup(storeId, lineUserId, text.slice(5).trim());
     const replies = {

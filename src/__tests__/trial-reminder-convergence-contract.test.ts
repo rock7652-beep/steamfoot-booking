@@ -136,11 +136,9 @@ describe("trial reminder convergence contract", () => {
     expect(config).toContain('hsinchu: "2010761154-irZGuDty"');
     expect(config).toContain('taichung: "2010761154-mupiLvI6"');
     expect(bridge).toContain('`/pricing/experience/${storeSlug}/book`');
-    expect(bridge).toContain('destination.hash = "booking-form"');
+    expect(bridge).toContain('publicBooking.hash = "booking-form"');
     expect(bridge).toContain('body.code === "IDENTITY_SCOPE_MISMATCH"');
-    expect(bridge).not.toContain("openPublicBooking");
-    expect(bridge).toContain('setState("store_chat")');
-    expect(bridge).not.toContain("liff.getFriendship()");
+    expect(bridge).toContain("openPublicBooking();");
   });
 
   it("routes a public trial through LINE when the existing customer is already verified", () => {

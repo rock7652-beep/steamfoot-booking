@@ -7,31 +7,38 @@ import {
   isInLineClient,
 } from "@/lib/liff/client";
 
-type BridgeState = "loading" | "expired" | "unavailable" | "open_line" | "store_chat";
+type BridgeState = "loading" | "expired" | "unavailable";
 
 export function PublicTrialLiffBridge({
   liffId,
   storeSlug,
   storeName,
   contactUrl,
-  chatBookingUrl,
 }: {
   liffId: string;
   storeSlug: string;
   storeName: string;
   contactUrl: string;
-  chatBookingUrl: string | null;
 }) {
   const [state, setState] = useState<BridgeState>("loading");
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      const openPublicBooking = () => {
+        const publicBooking = new URL(
+          `/pricing/experience/${storeSlug}/book`,
+          window.location.origin,
+        );
+        publicBooking.hash = "booking-form";
+        window.location.replace(publicBooking.toString());
+      };
+
       try {
         await initLiff(liffId);
         if (cancelled) return;
         if (!isInLineClient()) {
-          setState("open_line");
+          openPublicBooking();
           return;
         }
 
@@ -53,9 +60,6 @@ export function PublicTrialLiffBridge({
         if (cancelled) return;
 
         if (body?.status === "ok" && body.entry) {
-          // The API verifies identity against this store's Messaging API.
-          // Shared-channel friendship refers to the platform OA, not this store.
-          // Recipient compatibility is not a guarantee of future delivery.
           const destination = new URL(
             `/pricing/experience/${storeSlug}/book`,
             window.location.origin,
@@ -66,13 +70,15 @@ export function PublicTrialLiffBridge({
           return;
         }
 
-        // Never silently downgrade to an anonymous form. The store webhook
-        // can issue a verified entry without sharing the LIFF Provider.
+        // LINE user IDs are scoped to a Provider. If a centrally managed LIFF
+        // lives under a different Provider from the store Messaging API, the
+        // identity must not be persisted as a notification recipient. Keep the
+        // booking usable by falling back to the store's public form instead.
         if (
           body?.status === "error" &&
           body.code === "IDENTITY_SCOPE_MISMATCH"
         ) {
-          setState("store_chat");
+          openPublicBooking();
           return;
         }
 
@@ -104,14 +110,12 @@ export function PublicTrialLiffBridge({
         ) : (
           <>
             <h1 className="mt-4 text-xl font-bold text-earth-900">
-              {state === "expired" ? "LINE 登入已逾時" : state === "open_line" ? "請在 LINE 中繼續預約" : "從本店 LINE 繼續預約"}
+              {state === "expired" ? "LINE 登入已逾時" : "體驗預約暫時無法開啟"}
             </h1>
             <p className="mt-2 text-sm leading-6 text-earth-600">
-              {state === "expired" ? "請重新整理後再試一次。" : "請加入本店好友，送出「開始體驗預約」，再點專屬連結填表；不必先輸入電話。"}
+              {state === "expired" ? "請重新整理後再試一次。" : `請稍後再試，或直接聯繫${storeName}協助預約。`}
             </p>
             <div className="mt-5 grid gap-3">
-              {state === "open_line" ? <a href={`https://liff.line.me/${liffId}`} className="flex min-h-11 items-center justify-center rounded-xl bg-[#06C755] px-4 font-semibold text-white">使用 LINE 開啟</a> : null}
-              {chatBookingUrl ? <a href={chatBookingUrl} className="flex min-h-11 items-center justify-center rounded-xl bg-[#06C755] px-4 font-semibold text-white">從本店 LINE 取得預約連結</a> : null}
               <button type="button" onClick={() => window.location.reload()} className="min-h-11 rounded-xl bg-primary-600 px-4 text-sm font-bold text-white">
                 重新嘗試
               </button>

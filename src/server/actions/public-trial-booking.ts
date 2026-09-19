@@ -51,6 +51,7 @@ const InputSchema = z.object({
   people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(2, "單次最多預約 2 人"),
   website: z.string().max(0).optional().default(""),
   entry: z.string().max(512).optional(),
+  lineTrialPilot: z.boolean().optional().default(false),
   storeSlug: z.enum(PUBLIC_TRIAL_STORE_SLUGS).optional().default(DEFAULT_STORE_SLUG),
 });
 
@@ -275,7 +276,8 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
   }
 
   const data = parsed.data;
-  if (!data.entry) {
+  const pilot = data.storeSlug === "zhubei" && data.lineTrialPilot;
+  if (pilot && !data.entry) {
     return { status: "invalid_input", message: "請先使用 LINE 確認身分，再開啟專屬體驗預約表單。無法使用 LINE 時，請聯繫門市協助預約。" };
   }
   const cookieStore = await cookies();
@@ -552,11 +554,11 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       people: data.people,
       expectedAmount,
     });
-    const notificationSetup = await prepareTrialNotificationSetup({
+    const notificationSetup = pilot ? await prepareTrialNotificationSetup({
       storeId: store.id, customerId: customer.id, bookingId: booking.id,
       customerCreated,
       linked: customer.lineLinkStatus === "LINKED" && Boolean(customer.lineUserId),
-    });
+    }) : undefined;
     return {
       status: "ok",
       bookingId: booking.id,

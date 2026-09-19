@@ -31,11 +31,17 @@ describe("booking success separates reservation from notification setup", () => 
     expect(html).toContain("LINE 通知已連結");
     expect(html).not.toContain("開啟 LINE 完成通知設定");
   });
-  it.each([{ status: "needs_help" }, undefined])("shows honest fallback for missing setup: %s", setup => {
+  it.each([{ status: "needs_help" }])("shows honest fallback for missing setup: %s", setup => {
     state.setup = setup;
     const html = renderToStaticMarkup(createElement(ZhubeiTrialBookingForm));
     expect(html).toContain("您的時段已保留");
     expect(html).toContain("通知身分需要門市協助確認");
+    expect(html).not.toContain("LINE 通知已連結");
+  });
+  it("keeps the existing success guidance outside the pilot", () => {
+    state.setup = undefined;
+    const html = renderToStaticMarkup(createElement(ZhubeiTrialBookingForm));
+    expect(html).toContain("加入官方 LINE，接收預約提醒");
     expect(html).not.toContain("LINE 通知已連結");
   });
 });
