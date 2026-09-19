@@ -234,11 +234,11 @@ export function ZhubeiTrialBookingForm({
   if (!entry) {
     const config = resolvePublicTrialLiffConfig(storeSlug);
     return <section className="mt-6 rounded-2xl border border-primary-100 bg-white p-6 text-center shadow-sm">
-      <h2 className="text-xl font-bold text-earth-900">先確認 LINE，再預約體驗</h2>
-      <p className="mt-3 text-sm leading-6 text-earth-600">電話只需在預約表單填一次。先確認 LINE 身分，預約時即可連結通知，體驗後不用再輸入電話，也不用先購買方案。</p>
-      {config ? <a href={`https://liff.line.me/${config.liffId}`} className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-[#06C755] px-4 font-bold text-white">使用 LINE 預約體驗</a> : null}
-      <p className="mt-3 text-xs leading-5 text-earth-500">首次使用可能需要登入或授權；尚未加好友請依引導加入。請用實際預約聯絡人的 LINE 操作，專屬連結勿轉傳。</p>
-      <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex min-h-11 items-center text-sm text-primary-700 underline">無法使用 LINE？聯繫門市協助預約</a>
+      <h2 className="text-xl font-bold text-earth-900">用 LINE 輕鬆預約</h2>
+      <p className="mt-3 text-sm leading-6 text-earth-600">完成預約，同步設定到店提醒與體驗後關心。</p>
+      {config ? <a href={`https://liff.line.me/${config.liffId}`} className="mt-5 flex min-h-12 items-center justify-center rounded-xl bg-[#06C755] px-4 font-bold text-white">使用 LINE 預約</a> : null}
+      <p className="mt-3 text-xs leading-5 text-earth-500">請使用本人的 LINE，並加入本店好友。</p>
+      <a href={contactUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex min-h-11 items-center text-sm text-primary-700 underline">需要協助？聯繫門市</a>
     </section>;
   }
 
