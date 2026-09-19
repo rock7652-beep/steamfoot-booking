@@ -344,7 +344,7 @@ export function CourseStaffWorkspace({
                 <p className="text-sm">{qualificationsConfirmed?"授課資格已確認":"授課資格待補；既有課次保留，新排課須先設定。"}</p>
                 {templates.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={qualificationIds.includes(t.id)} onChange={e=>{setQualificationsConfirmed(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{t.name}</label>)}
                 <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={qualificationsConfirmed} disabled={person?.qualificationsConfirmed} onChange={e=>setQualificationsConfirmed(e.target.checked)}/>確認並沿用以上授課資格</label>
-                {person && <><h3>{person.active?"目前授課":"待交接課次"}</h3><CourseConflicts items={person.assignments}/></>}
+                {person && <><h3>{person.active?"目前授課":"待交接課次"}</h3><CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>
               <div hidden={tab!=="permissions"}>
               {kind === "manager" && (
@@ -376,7 +376,7 @@ export function CourseStaffWorkspace({
             </form>
           </div>
           <footer className="shrink-0 border-t bg-white p-4">
-            {readOnly ? <button className={button} disabled={!canManage} onClick={()=>setReadOnly(false)}>編輯資料</button> : <>
+            {readOnly ? <button key="edit" type="button" className={button} disabled={!canManage} onClick={(event)=>{event.preventDefault();setReadOnly(false);}}>編輯資料</button> : <>
             <button
               form="course-staff-form"
               type="submit"

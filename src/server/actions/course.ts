@@ -37,7 +37,11 @@ export async function updateCourseRoom(input: unknown) {
       })
       .parse(input);
     await courseTransaction(storeId, async tx => {
-      if (data.capacity !== null) await assertNoCourseResourceUse(tx, storeId, {roomId:data.id,capacity:data.capacity});
+      const existing = await tx.courseRoom.findFirst({where:{id:data.id,storeId},select:{capacity:true}});
+      if (!existing) throw new AppError("NOT_FOUND","找不到本店教室");
+      if (data.capacity !== null && (existing.capacity === null || data.capacity < existing.capacity)) {
+        await assertNoCourseResourceUse(tx, storeId, {roomId:data.id,capacity:data.capacity});
+      }
       const {id,...fields}=data;
       const result = await tx.courseRoom.updateMany({where:{id,storeId},data:fields});
       if (!result.count) throw new AppError("NOT_FOUND","找不到本店教室");

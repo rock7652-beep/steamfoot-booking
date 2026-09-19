@@ -16,6 +16,10 @@ const mocks = vi.hoisted(() => ({
   revalidate: vi.fn(),
 }));
 vi.mock("@/server/services/course-access", () => ({
+  courseTransaction: async (_storeId: string, work: (tx: unknown) => Promise<unknown>) => {
+    const {coursePrisma} = await import("@/lib/course-db");
+    return coursePrisma.$transaction(work as never);
+  },
   courseManager: async (permission: string) => {
     const user = await mocks.permission(permission);
     const storeId = await mocks.store(user);
@@ -53,6 +57,7 @@ import {
   createCourseSchedule,
   updateCourseSession,
   setCourseCatalogStatus,
+  updateCourseRoom,
 } from "@/server/actions/course";
 import { AppError } from "@/lib/errors";
 const input = {
@@ -78,6 +83,21 @@ beforeEach(() => {
   mocks.template.mockResolvedValue({ id: "yoga", name: "瑜珈", pointCost: 2,isActive:true,visibility:"PUBLIC" });
   mocks.room.mockResolvedValue({ id: "room-a",capacity:null });
   mocks.create.mockResolvedValue({ count: 3 });
+});
+describe("room capacity changes", () => {
+  const room = {id:"room-a",name:"教室",capacity:5};
+  it("does not force unrelated legacy capacity repair while editing metadata", async () => {
+    mocks.room.mockResolvedValue({capacity:5});
+    mocks.catalogUpdate.mockResolvedValue({count:1});
+    expect(await updateCourseRoom({...room,equipment:"瑜珈墊"})).toEqual({success:true});
+    expect(mocks.existing).not.toHaveBeenCalled();
+  });
+  it("blocks a lower capacity when a live session still has a higher limit", async () => {
+    mocks.room.mockResolvedValue({capacity:6});
+    mocks.existing.mockResolvedValue([{id:"live",nameSnapshot:"課程",startsAt:new Date(),capacity:6}]);
+    expect(await updateCourseRoom(room)).toMatchObject({success:false,conflicts:[{id:"live"}]});
+    expect(mocks.catalogUpdate).not.toHaveBeenCalled();
+  });
 });
 describe("course editing", () => {
   const edit = {

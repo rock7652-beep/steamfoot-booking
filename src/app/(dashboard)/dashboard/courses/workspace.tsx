@@ -191,6 +191,7 @@ export function CourseWorkspace({
     } else startTransition(() => router.replace(`${pathname}?${next}`, { scroll: false }));
   }
   function open(next: typeof panel) {
+    setConflicts([]);
     setDirty(false);
     setPanel(next);
     setSchedulePreview(null);
@@ -250,7 +251,7 @@ export function CourseWorkspace({
   const template = templates.find((t) => t.id === chosen);
   return (
     <>
-      <CourseConflicts items={conflicts}/>
+      {!panel && <CourseConflicts items={conflicts}/>}
       {view === "schedule" && (
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -758,6 +759,7 @@ export function CourseWorkspace({
                 ))}
               </>
             )}
+            <CourseConflicts items={conflicts}/>
             {panel === "catalog" && (
               <>
                 {canCreate && (
@@ -1016,6 +1018,7 @@ export function CourseWorkspace({
                         <option value="future">這堂及後續</option>
                       </select>
                     </label>
+                    {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <p className="col-span-full text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請到人員管理一次設定資格後再排課。</p>}
                     <label>
                       日期
                       <input
@@ -1227,6 +1230,7 @@ export function CourseWorkspace({
                         課程
                         <select
                           className={field}
+                          aria-label="課程"
                           value={chosen}
                           onChange={(e) => setChosen(e.target.value)}
                           required
