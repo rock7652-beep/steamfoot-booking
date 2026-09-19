@@ -507,7 +507,7 @@ export function CourseWorkspace({
                         "課程名稱",
                         "分類",
                         "時長",
-                        "每人點數",
+                        "點數卡每人扣點",
                         "人數上限",
                         "狀態",
                         "操作",
@@ -629,8 +629,8 @@ export function CourseWorkspace({
           <div
             className={
               view === "schedule"
-                ? "flex shrink-0 items-center justify-between border-b border-earth-200 p-5"
-                : "flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-3"
+                ? "flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2"
+                : "flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2"
             }
           >
             <h2
@@ -638,7 +638,7 @@ export function CourseWorkspace({
               className={
                 view === "schedule"
                   ? "font-medium"
-                  : "text-lg font-semibold text-primary-900"
+                  : "text-base font-semibold text-primary-900"
               }
             >
               {panel === "edit"
@@ -671,17 +671,10 @@ export function CourseWorkspace({
             onChangeCapture={(event) => { if ((event.target as HTMLElement).closest("form")) setDirty(true); }}
             className={
               view === "schedule"
-                ? "min-h-0 flex-1 space-y-4 overflow-y-auto p-5"
-                : "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-2 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input]:min-h-11 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-12 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
+                ? "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4"
+                : "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-1 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input]:min-h-11 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-11 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
             }
           >
-            {view !== "schedule" && panel === "catalog" && (
-              <p className="rounded-xl border border-earth-200 bg-earth-50 p-4 text-sm leading-relaxed text-earth-600">
-                {view === "rooms"
-                  ? "為上課空間取一個容易辨識的名稱，例如：一樓教室、瑜珈教室。"
-                  : "填寫課程的基本設定，之後排課會自動帶入，也能依每一堂課調整。"}
-              </p>
-            )}
             {error && (
               <p role="alert" className="text-sm text-red-700">
                 {error}
@@ -860,7 +853,7 @@ export function CourseWorkspace({
                           />
                         </label>
                         <label>
-                          每人點數
+                          點數卡每人扣點
                           <input
                             className={field}
                             name="cost"
@@ -894,7 +887,7 @@ export function CourseWorkspace({
                             ))}
                           </select>
                         </label>
-                        <TemplateMore />
+                        <DebitRule/><TemplateMore />
                       </form>
                     )}
                   </>
@@ -905,8 +898,9 @@ export function CourseWorkspace({
               <dl className="divide-y divide-earth-100">{[
                 ["名稱",editing.value.name],["分類",editing.value.category || "未分類"],
                 ["狀態",editing.kind === "room" ? (editing.value.isActive ? "啟用":"停用") : ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[editing.value.visibility ?? "PUBLIC"])],
-                ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "私課" : editing.value.classType === "GROUP" ? "團課":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 每人 ${editing.value.pointCost} 點 · 上限 ${editing.value.capacity} 人`],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : [["容納人數",editing.value.capacity ?? "未設定"]]),
+                ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "私課" : editing.value.classType === "GROUP" ? "團課":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",`點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : [["容納人數",editing.value.capacity ?? "未設定"]]),
               ].map(([label,value])=><div key={String(label)} className="grid grid-cols-[7rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>
+              {editing.kind === "template" && <DebitRule/>}
               <details><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
             </section>}
             {panel === "edit" && editing && canEdit && (
@@ -1047,6 +1041,7 @@ export function CourseWorkspace({
                         ).slice(11)}
                       />
                     </label>
+                    <DebitRule/>
                     <label className="col-span-full">
                       教練
                       <select
@@ -1108,7 +1103,7 @@ export function CourseWorkspace({
                       />
                     </label>
                     <label>
-                      每人點數
+                      點數卡每人扣點
                       <input
                         className={field}
                         name="cost"
@@ -1157,6 +1152,7 @@ export function CourseWorkspace({
                     </label>
                   </>
                 )}
+                {editing.kind !== "room" && <DebitRule/>}
                 {editing.kind === "template" && (
                   <TemplateMore
                     description={editing.value.description}
@@ -1231,8 +1227,7 @@ export function CourseWorkspace({
                   >
                     {copySource ? (
                       <p className="col-span-full">
-                        {copySource.nameSnapshot} · 每人 {copySource.pointCost}{" "}
-                        點<br />
+                        {copySource.nameSnapshot} · 點數卡每人 {copySource.pointCost} 點／堂數卡每人 1 堂<br />
                         選擇新日期並確認時間後建立，原課程會保留。
                       </p>
                     ) : (
@@ -1247,12 +1242,13 @@ export function CourseWorkspace({
                         >
                           {templates.map((t) => (
                             <option key={t.id} value={t.id}>
-                              {t.name} · {t.pointCost} 點
+                              {t.name} · {t.pointCost} 點／1 堂
                             </option>
                           ))}
                         </select>
                       </label>
                     )}
+                    <DebitRule/>
                     <label className="col-span-full">
                       教練
                       <select
@@ -1660,3 +1656,7 @@ function TemplateMore({
 
 function ClassType({value}:{value?:string|null}) {return <label className="col-span-full">課型<select className={field} name="classType" defaultValue={value ?? ""}><option value="">待補設定</option><option value="PRIVATE">私課</option><option value="GROUP">團課</option></select></label>;}
 function RoomFields({equipment,location}:{equipment?:string;location?:string}) {return <><label className="block">設備<input className={field} name="equipment" defaultValue={equipment}/></label><label className="block">位置<input className={field} name="location" defaultValue={location}/></label></>;}
+
+function DebitRule() {
+  return <p className="col-span-full text-sm leading-relaxed text-earth-600">點數卡按設定點數扣抵；堂數卡每人每次 1 堂。須使用適用本課程的方案。預約先占用，出席才正式扣抵。</p>;
+}

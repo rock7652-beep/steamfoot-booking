@@ -27,9 +27,9 @@ type Person = {
 function identity(p: Pick<Person,"kind"|"coachEnabled"|"memberEnabled"|"customerId">) {
   return p.kind === "manager" ? (p.coachEnabled ? "店長兼教練":"店長") : !p.coachEnabled ? "未啟用工作身分" : p.memberEnabled && p.customerId ? "教練兼顧客":"教練";
 }
-const field = "min-h-11 w-full rounded-lg border border-earth-200 p-2";
+const field = "min-h-11 w-full rounded-xl border border-earth-200 bg-white px-3 py-2 text-base text-earth-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100";
 const button =
-  "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+  "min-h-11 rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
   staff,
   templates,
@@ -56,7 +56,7 @@ export function CourseStaffWorkspace({
     [key, setKey] = useState("");
   const [coachEnabled,setCoachEnabled]=useState(true);
   const [qualificationIds,setQualificationIds]=useState<string[]>([]);
-  const [qualificationsConfirmed,setQualificationsConfirmed]=useState(false);
+  const [qualificationSearch,setQualificationSearch]=useState("");
   const [conflicts,setConflicts]=useState<ConflictItem[]>([]);
   const [tab,setTab]=useState("basic");
   const [readOnly,setReadOnly]=useState(false);
@@ -74,7 +74,7 @@ export function CourseStaffWorkspace({
     .sort((a, b) => Number(b.active) - Number(a.active));
   function edit(p: Person | null) {
     setDirty(false);
-    setPerson(p);setCoachEnabled(p?.coachEnabled ?? true);setQualificationIds(p?.qualificationIds ?? []);setQualificationsConfirmed(p?.qualificationsConfirmed ?? false);setConflicts([]);setTab("basic");setReadOnly(!!p);
+    setPerson(p);setCoachEnabled(p?.coachEnabled ?? true);setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setConflicts([]);setTab("basic");setReadOnly(!!p);
     setPermissions(p?.permissions ?? permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
     setKind(p?.kind ?? "coach");
     setError("");
@@ -121,7 +121,7 @@ export function CourseStaffWorkspace({
           </button>
         )}
       </div>
-      <div className="overflow-x-auto rounded-lg border bg-white">
+      <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead>
             <tr>
@@ -132,7 +132,7 @@ export function CourseStaffWorkspace({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody className="divide-y divide-earth-100">
             {rows.map((p) => (
               <tr
                 key={p.id}
@@ -159,12 +159,13 @@ export function CourseStaffWorkspace({
       </div>
       {open && (
         <RightSheet
+          compact
           open
           onClose={close}
           width={520}
           labelledById="course-staff-title"
         >
-          <header className="flex shrink-0 items-center justify-between border-b p-4">
+          <header className="flex shrink-0 items-center justify-between border-b border-earth-200 bg-primary-50/60 px-4 py-2">
             <h2 id="course-staff-title" className="font-semibold">
               {person ? (readOnly ? "查看人員":"編輯人員") : "新增人員"}
             </h2>
@@ -176,7 +177,7 @@ export function CourseStaffWorkspace({
               關閉
             </button>
           </header>
-          <nav className="flex flex-wrap gap-2 border-b p-3">{[["basic","基本資料"],...(coachEnabled?[["qualifications","授課與工作"]]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={button} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
+          <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications","授課與工作"]]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             <CourseConflicts items={conflicts}/>
             {error && (
@@ -185,18 +186,21 @@ export function CourseStaffWorkspace({
               </p>
             )}
             {readOnly && person && <section className="space-y-3">
-              {tab === "basic" && <dl className="divide-y">{[["姓名",person.name],["身分",identity(person)],["電話",person.phone || "未填"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName,person.emergencyContactRelation,person.emergencyContactPhone].filter(Boolean).join("／") || "待補"],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
-              {tab === "qualifications" && <><h3 className="font-medium">授課資格</h3><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(t=>t.name).join("、") || "尚未設定"}</p><h3 className="pt-3 font-medium">前台工作／會員連結</h3><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name ?? "已連結會員" : "尚未連結 · 我的工作尚不可使用"}</p>{person.customerId && <p>{person.memberEnabled ? "會員專區／我的工作":"僅我的工作"}</p>}{person.assignments.length ? <CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/> : <p className="pt-3 text-earth-500">沒有未結束且未取消的課次。</p>}</>}
+              {tab === "basic" && <dl className="divide-y divide-earth-100">{[["姓名",person.name],["身分",identity(person)],["電話",person.phone || "未填"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName,person.emergencyContactRelation,person.emergencyContactPhone].filter(Boolean).join("／") || "待補"],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
+              {tab === "qualifications" && <><h3 className="font-medium">可教授課程</h3><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(t=>t.name).join("、") || "尚未設定"}</p><h3 className="pt-3 font-medium">前台工作／會員連結</h3><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name ?? "已連結會員" : "尚未連結 · 我的工作尚不可使用"}</p>{person.customerId && <p>{person.memberEnabled ? "會員專區／我的工作":"僅我的工作"}</p>}{person.assignments.length ? <CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/> : <p className="pt-3 text-earth-500">沒有未結束且未取消的課次。</p>}</>}
               {tab === "permissions" && <><h3 className="font-medium">後台登入</h3><p>{person.email}</p><h3 className="pt-3 font-medium">店內管理權限</h3>{permissionGroups.map(g=><details key={g.label}><summary className="min-h-11 cursor-pointer py-3">{g.label} · {g.codes.filter(c=>permissions.includes(c.code)).length} 項</summary><p>{g.codes.filter(c=>permissions.includes(c.code)).map(c=>c.label).join("、") || "未開啟"}</p></details>)}</>}
             </section>}
             <form
               id="course-staff-form"
+              noValidate
               hidden={readOnly}
               onInvalidCapture={(e)=>{const group=(e.target as HTMLElement).closest<HTMLElement>("[data-staff-tab]");if(group)setTab(group.dataset.staffTab!);}}
               onChangeCapture={()=>setDirty(true)}
               className="space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
+                const invalid=e.currentTarget.querySelector<HTMLInputElement | HTMLSelectElement>("input:invalid,select:invalid,textarea:invalid");
+                if(invalid){const group=invalid.closest<HTMLElement>("[data-staff-tab]");if(group)setTab(group.dataset.staffTab!);requestAnimationFrame(()=>invalid.reportValidity());return;}
                 const d = new FormData(e.currentTarget);
                 const deactivating=person?.active && d.get("active")==="no";
                 if(deactivating && !window.confirm(`確認停用？立即撤銷所有工作存取，${person.assignments.length} 堂未結束課次保留待交接；會員與歷史不變。`)) return;
@@ -208,7 +212,7 @@ export function CourseStaffWorkspace({
                       kind,
                       coachEnabled,
                       qualificationIds: coachEnabled ? qualificationIds : person?.qualificationIds ?? [],
-                      qualificationsConfirmed: coachEnabled ? qualificationsConfirmed : person?.qualificationsConfirmed ?? false,
+                      qualificationsConfirmed: coachEnabled ? true : person?.qualificationsConfirmed ?? false,
                       emergencyContactRelation:d.get("emergencyContactRelation"),
                       birthday:d.get("birthday"),
                       confirmDeactivate:!!deactivating,
@@ -248,7 +252,7 @@ export function CourseStaffWorkspace({
               }}
             >
               <fieldset disabled={readOnly} className="contents">
-              <div data-staff-tab="basic" hidden={tab!=="basic"} className="space-y-3">
+              <div data-staff-tab="basic" hidden={tab!=="basic"} className={tab==="basic" ? "grid grid-cols-1 gap-3 min-[400px]:grid-cols-2" : "hidden"}>
               <label className="block">
                 姓名
                 <input
@@ -270,7 +274,7 @@ export function CourseStaffWorkspace({
                   <option value="manager">店長：後台管理</option>
                 </select>
               </label>
-              {kind === "manager" && <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={coachEnabled} onChange={e=>setCoachEnabled(e.target.checked)}/>兼任教練</label>}
+              {kind === "manager" && <label className="col-span-full flex min-h-11 items-center gap-2"><input type="checkbox" checked={coachEnabled} onChange={e=>setCoachEnabled(e.target.checked)}/>兼任教練</label>}
               <label className="block">生日（選填）<input className={field} type="date" name="birthday" defaultValue={person?.birthday}/></label>
               {([
                 ["phone", "電話"],
@@ -291,6 +295,18 @@ export function CourseStaffWorkspace({
               </label>
               </div>
               <div data-staff-tab="qualifications" hidden={tab!=="qualifications" || !coachEnabled} className="space-y-3">
+                <section className="space-y-2">
+                  <h3 className="font-medium text-primary-900">可教授課程</h3>
+                  <p className="text-sm text-earth-600">選擇這位教練可以教授的課程，排課時依此篩選。</p>
+                  {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">這是待補設定的舊人員。勾選後儲存即可，既有課次不會因此失效。</p>}
+                  <input className={field} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>setQualificationSearch(e.target.value)}/>
+                  <p className="text-sm text-earth-500">已選 {qualificationIds.length} 項</p>
+                  <div className="max-h-64 overflow-y-auto overscroll-contain rounded-xl border border-earth-200 divide-y divide-earth-100">
+                    {templates.filter(t=>t.name.includes(qualificationSearch.trim())).map(t=><label key={t.id} className={`flex min-h-11 items-center gap-3 px-3 py-2 ${qualificationIds.includes(t.id)?"bg-primary-50 text-primary-900":""}`}><input className="h-4 w-4 accent-primary-700" type="checkbox" checked={qualificationIds.includes(t.id)} onChange={e=>setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id))}/>{t.name}</label>)}
+                    {!templates.some(t=>t.name.includes(qualificationSearch.trim())) && <p className="p-3 text-sm text-earth-500">沒有符合的課程</p>}
+                  </div>
+                </section>
+                <h3 className="pt-2 font-medium text-primary-900">工作入口與會員連結</h3>
               {coachEnabled && (
                 <label className="block">
                   連結既有顧客
@@ -330,9 +346,6 @@ export function CourseStaffWorkspace({
                 </label>
               )}
 
-                <p className="text-sm">{qualificationsConfirmed?"授課資格已確認":"授課資格待補；既有課次保留，新排課須先設定。"}</p>
-                {templates.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={qualificationIds.includes(t.id)} onChange={e=>{setQualificationsConfirmed(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{t.name}</label>)}
-                <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={qualificationsConfirmed} disabled={person?.qualificationsConfirmed} onChange={e=>setQualificationsConfirmed(e.target.checked)}/>確認並沿用以上授課資格</label>
                 {person && person.assignments.length === 0 && <p className="text-sm text-earth-500">沒有未結束且未取消的課次。</p>}
                 {person && person.assignments.length > 0 && <><h3>{person.active?"目前授課":"待交接課次"}</h3><CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>
@@ -391,12 +404,12 @@ export function CourseStaffWorkspace({
               </div></fieldset>
             </form>
           </div>
-          <footer className="shrink-0 border-t bg-white p-4">
+          <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
             {readOnly ? <button key="edit" type="button" className={button} disabled={!canManage} onClick={(event)=>{event.preventDefault();setReadOnly(false);}}>編輯資料</button> : <>
             <button
               form="course-staff-form"
               type="submit"
-              className={`${button} w-full bg-primary-700 text-white`}
+              className={`${button} w-full !border-primary-700 !bg-primary-700 !text-white`}
               disabled={pending}
             >
               儲存人員
