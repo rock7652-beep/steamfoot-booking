@@ -65,6 +65,9 @@ export function PublicTrialLiffBridge({
             window.location.origin,
           );
           destination.searchParams.set("entry", body.entry);
+          // Reuse the verified-identity success guidance without another chat
+          // message or a second phone-binding step. Other stores stay unchanged.
+          if (storeSlug === "zhubei") destination.searchParams.set("lineTrial", "1");
           destination.hash = "booking-form";
           window.location.replace(destination.toString());
           return;
