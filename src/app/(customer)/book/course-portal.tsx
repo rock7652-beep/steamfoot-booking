@@ -292,6 +292,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
         customerId: b.customerId,
         customerName: b.customerName,
         status: b.status,
+        checkedIn: !!b.checkedInAt,
         notes: b.notes,
         cost: b.pointCost,
         unit: b.card?.unit ?? "TRIAL",

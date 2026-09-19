@@ -25,6 +25,7 @@ import {
 } from "@/lib/date-utils";
 import {
   createMemberCourseBooking,
+  markCourseCoachAttendance,
   updateCourseBookingStatus,
 } from "@/server/actions/course-members";
 import {
@@ -300,6 +301,17 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
       }
     });
   }
+  function checkIn(bookingId: string) {
+    setError("");
+    start(async () => {
+      try {
+        const result = await markCourseCoachAttendance({ bookingId, status: "CHECKED_IN" });
+        if (!result.success) setError(result.error ?? "報到失敗，請重試");
+        else setMessage("已報到，未扣抵額度");
+        router.refresh();
+      } catch { setError("連線中斷，請重試；報到重送不會扣抵額度。"); }
+    });
+  }
   const eligible = (s: Session) =>
     p.cards
       .filter(
@@ -569,11 +581,12 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     <div className="cp-attendance-actions">
                       <span className="cp-badge" data-status={b.status}>
                         {b.status === "RESERVED"
-                          ? "待點名"
+                          ? (b.checkedIn ? "已報到・待出席" : "待報到")
                           : statusName(b.status)}
                       </span>
                       {b.status === "RESERVED" ? (
                         <>
+                          {!b.checkedIn && <button disabled={pending} onClick={() => { checkIn(b.id); }}>報到</button>}
                           <button
                             className="primary"
                             disabled={!ended || pending}
