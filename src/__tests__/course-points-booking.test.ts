@@ -87,6 +87,15 @@ beforeEach(() => {
   m.tx.coursePointCard.updateMany.mockResolvedValue({ count: 1 });
 });
 describe("course shared card reservations", () => {
+  it.each([["POINT", 3], ["SESSION", 1]] as const)("%s cards reserve and debit their own unit", async (unit, cost) => {
+    m.tx.coursePointCard.findFirst.mockResolvedValue({ id: "card", unit, remaining: unit === "SESSION" ? 1 : 3, expiresAt: new Date("2026-10-01"), members: [{customerId:"a"},{customerId:"b"}] });
+    await reserveCourse(actor, input);
+    expect(m.tx.courseBooking.create).toHaveBeenCalledWith({data: expect.objectContaining({pointCost:cost})});
+    m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:cost});
+    await settleCourseBooking(tx,{storeId:actor.storeId,userId:actor.userId,name:"店長"},"booking","ATTENDED");
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{remaining:{decrement:cost}}}));
+  });
+
   it("A can reserve only B; keeps operator and learner separate and holds without spending", async () => {
     await reserveCourse(actor, input);
     expect(m.tx.courseBooking.create).toHaveBeenCalledOnce();
