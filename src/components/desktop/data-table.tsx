@@ -46,6 +46,8 @@ export interface Column<Row> {
    * 設了 `noLink` 的欄會被跳過；Link 改包到「第一個沒有 noLink 的欄位」。
    */
   noLink?: boolean;
+  /** Keep row actions reachable while the table scrolls on tablet widths. */
+  sticky?: "right";
 }
 
 interface DataTableProps<Row> {
@@ -104,7 +106,7 @@ export function DataTable<Row>({
             {columns.map((c) => (
               <th
                 key={c.key}
-                className={`px-3 py-2 ${c.width ?? ""} ${c.align ? ALIGN_CLASS[c.align] : ""}`}
+                className={`px-3 py-2 ${c.width ?? ""} ${c.sticky === "right" ? "sticky right-0 z-10 bg-earth-50" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""}`}
               >
                 {c.header}
               </th>
@@ -126,7 +128,7 @@ export function DataTable<Row>({
                 return (
                   <td
                     key={c.key}
-                    className={`px-3 ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
+                    className={`px-3 ${c.sticky === "right" ? "sticky right-0 z-10 bg-white" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
                   >
                     {c.accessor(row, i)}
                   </td>
@@ -147,7 +149,7 @@ export function DataTable<Row>({
                       return (
                         <td
                           key={c.key}
-                          className={`px-3 ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
+                          className={`px-3 ${c.sticky === "right" ? "sticky right-0 z-10 bg-white" : ""} ${c.align ? ALIGN_CLASS[c.align] : ""} ${priorityClass}`}
                         >
                           {colIdx === firstLinkColIdx ? (
                             <Link

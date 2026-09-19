@@ -1,3 +1,4 @@
+import { readStoreLineConfigs } from "@/lib/store-line-config";
 // ============================================================
 // LINE Webhook — 完整事件處理（B7-4.5: store-aware）
 //
@@ -135,6 +136,12 @@ export async function POST(req: Request) {
 
     for (const event of events) {
       try {
+        const configured = readStoreLineConfigs().find(c => c.storeId === storeId);
+        if (configured) {
+          const { handleConfiguredCourseLineFollow } = await import("@/server/services/course-line-follow");
+          await handleConfiguredCourseLineFollow(configured, event);
+          continue;
+        }
         await handleLineEvent(event, storeId, destination);
       } catch (err) {
         console.error("[LINE Webhook] Event handler error:", err);
@@ -212,6 +219,11 @@ async function resolveStoreFromDestination(
     return null;
   }
 
+  const configured = readStoreLineConfigs().find(c => c.destination === destination);
+  if (configured) {
+    const store = await prisma.store.findFirst({ where: { id: configured.storeId, slug: configured.slug, industryModule: "COURSE" }, select: { id: true } });
+    return store?.id ?? null;
+  }
   const store = await prisma.store.findFirst({
     where: { lineDestination: destination },
     select: { id: true },

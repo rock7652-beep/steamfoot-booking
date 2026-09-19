@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
 
   let reminderResult: Awaited<ReturnType<typeof runReminders>> | null = null;
   let errorMessage: string | null = null;
+  let courseResult: {total:number;sent:number;skipped:number;failed:number} | null = null;
 
   try {
     console.log(
@@ -86,6 +87,16 @@ export async function GET(request: NextRequest) {
     console.error("[CronRetry] Retry failed:", err);
   }
 
+  try {
+    const { runCourseReminders } = await import("@/server/services/course-reminders");
+    courseResult = await runCourseReminders();
+    if (reminderResult) {
+      reminderResult = { ...reminderResult, total: reminderResult.total + courseResult.total, sent: reminderResult.sent + courseResult.sent, skipped: reminderResult.skipped + courseResult.skipped, failed: reminderResult.failed + courseResult.failed };
+    }
+  } catch (err) {
+    errorMessage = errorMessage ?? (err instanceof Error ? err.message : "Course reminder retry failed");
+  }
+
   // Finalize — 無論成功失敗都更新該 row 的 status + summary
   const terminalStatus = computeRetryStatus(reminderResult, errorMessage);
   const summary: Record<string, unknown> = {
@@ -93,6 +104,7 @@ export async function GET(request: NextRequest) {
     retryReason: decision.reason,
     scannedAt,
   };
+  if (courseResult) summary.courseReminders = courseResult;
   if (reminderResult) summary.reminders = reminderResult;
   if (errorMessage) summary.error = errorMessage;
 

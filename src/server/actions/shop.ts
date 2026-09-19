@@ -1,5 +1,6 @@
 "use server";
 
+import { withDutyMutation } from "@/server/services/course-duty-mutation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAdminSession } from "@/lib/session";
@@ -18,6 +19,8 @@ import {
 } from "@/lib/date-utils";
 import { updateTag, revalidatePath } from "next/cache";
 import { ensureTrialPlan } from "@/server/services/trial-plan";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { saveCourseBookingWindow } from "./course-booking-window";
 
 export async function updateDutyScheduling(
   enabled: boolean
@@ -28,10 +31,12 @@ export async function updateDutyScheduling(
     const user = await requirePermission("duty.manage");
     const storeId = await resolveWriteStoreId(user);
 
-    await prisma.shopConfig.upsert({
-      where: { storeId },
-      create: { storeId, dutySchedulingEnabled: enabled },
-      update: { dutySchedulingEnabled: enabled },
+    await withDutyMutation(storeId, async db => {
+      await db.shopConfig.upsert({
+        where: { storeId },
+        create: { storeId, dutySchedulingEnabled: enabled },
+        update: { dutySchedulingEnabled: enabled },
+      });
     });
 
     revalidateDutyScheduling();
@@ -231,6 +236,8 @@ export async function updateBookableUntilDate(
     const user = await requirePermission("business_hours.manage");
     const { date } = updateBookableUntilDateSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
+    if (await getStoreIndustryModule(storeId) === "course")
+      return saveCourseBookingWindow({mode:"fixed",date});
 
     if (!date) {
       throw new AppError("VALIDATION", "請選擇開放預約的截止日期");
@@ -273,6 +280,10 @@ export async function updateCustomerBookingWindow(
     const user = await requirePermission("business_hours.manage");
     const { opensAt, days } = updateCustomerBookingWindowSchema.parse(input);
     const storeId = await resolveWriteStoreId(user);
+    if (await getStoreIndustryModule(storeId) === "course") {
+      if (opensAt) throw new AppError("VALIDATION", "請由課程營業設定調整預約開放期限");
+      return saveCourseBookingWindow({mode:"rolling",days});
+    }
     await assertNoActiveBookingAfter(
       storeId,
       new Date(Date.now() + days * 24 * 60 * 60 * 1000),

@@ -18,7 +18,8 @@ describe("incomplete service reminder contract", () => {
   it("re-checks status after claiming and deduplicates by booking", () => {
     const worker = source("src/server/services/incomplete-service-reminders.ts");
 
-    expect(worker).toContain('eventKey = `incomplete-service-reminder:${candidate.id}`');
+    expect(worker).toContain('candidate.courseSessionId ? "course-incomplete-attendance" : "incomplete-service-reminder"');
+    expect(worker).toContain('${candidate.id}`');
     expect(worker).toContain("digitalButlerExecutionLog.create");
     expect(worker).toContain("stillIncomplete");
     expect(worker).toContain("concurrent completion, cancellation, or no-show wins");

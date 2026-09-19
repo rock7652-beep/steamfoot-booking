@@ -13,6 +13,7 @@ export type PackageBookingReminderCard = {
   address?: string;
   mapUrl?: string;
   reminderText?: string;
+  managementOnlyLabel?: string;
   recurrenceIndex?: number;
   recurrenceTotalOccurrences?: number;
 };
@@ -126,13 +127,13 @@ export function buildPackageBookingTestReminderLineMessages(
                 action: { type: "uri", label: "開啟 Google Maps 導航", uri: card.mapUrl },
               }]
             : []),
-          outlinedLineAction({ type: "uri", label: "改時段", uri: actionUrl("reschedule") }),
+          ...(card.managementOnlyLabel ? [outlinedLineAction({type:"uri",label:card.managementOnlyLabel,uri:managementUrl})] : [outlinedLineAction({ type: "uri", label: "改時段", uri: actionUrl("reschedule") }),
           {
-            type: "button",
-            style: "link",
+            type: "button" as const,
+            style: "link" as const,
             color: REMINDER_CARD_COLORS.cancel,
-            action: { type: "uri", label: "取消前往", uri: actionUrl("cancel") },
-          },
+            action: { type: "uri" as const, label: "取消前往", uri: actionUrl("cancel") },
+          }]),
         ],
       },
     },

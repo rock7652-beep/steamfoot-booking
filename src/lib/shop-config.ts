@@ -5,6 +5,7 @@
  * 方案來源為 Store.plan (PricingPlan)。
  */
 
+import { courseMonthlyBookingWhere } from "@/lib/course-usage";
 import { prisma } from "@/lib/db";
 import { addTaiwanDuration, toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { isSingleStoreTrial, trialDateState } from "@/lib/single-store-trial";
@@ -279,6 +280,8 @@ export function clampTrialTotal(
 
 export interface TrialStatus {
   isFree: boolean;
+  course?: boolean;
+  staff?: { current: number; limit: number };
   daysRemaining: number;
   trialDays: number;
   trialExpired: boolean;
@@ -314,6 +317,9 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
     };
   }
   const trialStore = await (await import("@/lib/store-plan")).getStoreForPlanByStoreId(storeId);
+  const industry = trialStore.plan === "EXPERIENCE" ? await (await import("@/lib/industry-module-server")).getStoreIndustryModule(storeId) : "steamfoot";
+  const course = industry === "course";
+  const staff = course ? { current: await prisma.staff.count({ where: { storeId, status: "ACTIVE" } }), limit: getPlanLimits(trialStore).maxStaff ?? Infinity } : undefined;
   if (isSingleStoreTrial(trialStore)) {
     const limits = getPlanLimits(trialStore);
     const { started, expired } = trialDateState(trialStore);
@@ -323,11 +329,13 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
     const daysRemaining = expired ? 0 : Math.max(0, Math.round((end.getTime() - todayDate.getTime()) / 86400000) + 1);
     const [customers, bookings] = await Promise.all([
       prisma.customer.count({ where: { storeId } }),
-      (await (await import("@/lib/industry-module-server")).getStoreIndustryModule(storeId) === "spa" ? (await import("@/lib/spa-db")).spaPrisma.spaBooking.count({ where: { storeId, createdAt: { gte: monthRange(toLocalMonthStr()).start, lte: monthRange(toLocalMonthStr()).end } } }) : prisma.booking.count({ where: { storeId, createdAt: { gte: monthRange(toLocalMonthStr()).start, lte: monthRange(toLocalMonthStr()).end } } })),
+      course ? (await import("@/lib/course-db")).coursePrisma.courseBooking.count({ where: courseMonthlyBookingWhere(storeId) })
+        : industry === "spa" ? (await import("@/lib/spa-db")).spaPrisma.spaBooking.count({ where: { storeId, createdAt: { gte: monthRange(toLocalMonthStr()).start, lte: monthRange(toLocalMonthStr()).end } } })
+        : prisma.booking.count({ where: { storeId, createdAt: { gte: monthRange(toLocalMonthStr()).start, lte: monthRange(toLocalMonthStr()).end } } }),
     ]);
     const customerLimit = limits.maxCustomers ?? Infinity, bookingLimit = limits.maxMonthlyBookings ?? Infinity;
     const pct = Math.max(Math.round((1 - daysRemaining / trialDays) * 100), customers / customerLimit * 100, bookings / bookingLimit * 100);
-    return { isFree: true, daysRemaining, trialDays, trialExpired: expired,
+    return { isFree: true, course, staff, daysRemaining, trialDays, trialExpired: expired,
       customers: { current: customers, limit: customerLimit, pct: customers / customerLimit * 100 },
       bookings: { current: bookings, limit: bookingLimit, pct: bookings / bookingLimit * 100 },
       overallPct: pct, stage: expired || !started || pct >= 100 ? "blocked" : pct >= 80 ? "warning" : pct >= 60 ? "light" : "normal",
@@ -372,7 +380,7 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
 
   const [customerCount, bookingCount] = await Promise.all([
     prisma.customer.count({ where: { storeId } }),
-    prisma.booking.count({ where: { storeId } }),
+    course ? (await import("@/lib/course-db")).coursePrisma.courseBooking.count({ where: courseMonthlyBookingWhere(storeId) }) : prisma.booking.count({ where: { storeId } }),
   ]);
 
   const customerPct = Math.round((customerCount / maxCustomers) * 100);
@@ -390,6 +398,7 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
 
   return {
     isFree: true,
+    course, staff,
     daysRemaining,
     trialDays: TRIAL_DAYS,
     trialExpired,

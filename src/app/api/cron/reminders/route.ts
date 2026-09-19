@@ -60,6 +60,14 @@ export async function GET(request: NextRequest) {
     results.reminders = { error: error instanceof Error ? error.message : "Unknown error" };
   }
 
+  // Course bookings use their own recipients, reservation model and idempotency key.
+  try {
+    const { runCourseReminders } = await import("@/server/services/course-reminders");
+    results.courseReminders = await runCourseReminders();
+  } catch (error) {
+    results.courseReminders = { error: error instanceof Error ? error.message : "Unknown error" };
+  }
+
   // ── 1b. Plan expiry reminders (14 / 7 days before expiry) ──
   try {
     const { runPlanExpiryNotifications } = await import("@/server/services/plan-expiry-notifications");
@@ -155,15 +163,22 @@ export async function GET(request: NextRequest) {
   const reminderResult = results.reminders as
     | { total?: number; sent?: number; skipped?: number; failed?: number; error?: string }
     | undefined;
-  const reminderFailed = reminderResult?.error != null;
+  const courseResult = results.courseReminders as typeof reminderResult;
+  const reminderFailed = reminderResult?.error != null || courseResult?.error != null;
+  const combined = {
+    total: (reminderResult?.total ?? 0) + (courseResult?.total ?? 0),
+    sent: (reminderResult?.sent ?? 0) + (courseResult?.sent ?? 0),
+    skipped: (reminderResult?.skipped ?? 0) + (courseResult?.skipped ?? 0),
+    failed: (reminderResult?.failed ?? 0) + (courseResult?.failed ?? 0),
+  };
   const otherFailed = failedTasks.some((k) => k !== "reminders");
 
   let terminalStatus: CronRunStatus;
   if (reminderFailed) {
     terminalStatus = CronRunStatus.FAILED;
-  } else if ((reminderResult?.failed ?? 0) > 0 || otherFailed) {
+  } else if (combined.failed > 0 || otherFailed) {
     terminalStatus = CronRunStatus.PARTIAL;
-  } else if ((reminderResult?.total ?? 0) === 0) {
+  } else if (combined.total === 0) {
     terminalStatus = CronRunStatus.OK_EMPTY;
   } else {
     terminalStatus = CronRunStatus.OK;
@@ -171,12 +186,12 @@ export async function GET(request: NextRequest) {
 
   await safeFinalizeCronRun(runId, {
     status: terminalStatus,
-    bookingsScanned: reminderResult?.total ?? null,
-    sent: reminderResult?.sent ?? null,
-    skipped: reminderResult?.skipped ?? null,
-    failed: reminderResult?.failed ?? null,
+    bookingsScanned: combined.total,
+    sent: combined.sent,
+    skipped: combined.skipped,
+    failed: combined.failed,
     summary: results as Record<string, unknown>,
-    errorMessage: reminderFailed ? String(reminderResult?.error) : null,
+    errorMessage: reminderFailed ? String(reminderResult?.error ?? courseResult?.error) : null,
   });
 
   if (failedTasks.length > 0) {

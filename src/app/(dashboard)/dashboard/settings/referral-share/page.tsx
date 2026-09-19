@@ -1,3 +1,5 @@
+import { deriveBaseUrl } from "@/lib/base-url";
+import { COURSE_REFERRAL_SHARE_TEMPLATE } from "@/lib/referral-share-official-templates";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { prisma } from "@/lib/db";
@@ -41,7 +43,7 @@ export default async function ReferralShareSettingsPage() {
   const [store, config, personalization] = await Promise.all([
     prisma.store.findUnique({
       where: { id: storeId },
-      select: { name: true, slug: true },
+      select: { name: true, slug: true, industryModule: true },
     }),
     prisma.shopConfig.findUnique({
       where: { storeId },
@@ -69,6 +71,8 @@ export default async function ReferralShareSettingsPage() {
 
       <ReferralShareSettingsForm
         key={storeId}
+        previewOrigin={store.industryModule === "COURSE" ? deriveBaseUrl() : undefined}
+        defaultTemplate={store.industryModule === "COURSE" ? COURSE_REFERRAL_SHARE_TEMPLATE : undefined}
         storeName={store.name}
         storeSlug={store.slug}
         initialTemplate={config?.referralShareTemplate ?? null}

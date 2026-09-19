@@ -573,7 +573,7 @@ describe("auth.ts liff-token provider", () => {
       id: "user-line", customerId: "cust-hsinchu", storeId: STORE.id, storeSlug: STORE.slug,
     });
     expect(mockVerifyLiffIdToken).toHaveBeenCalledWith("tok", "channel-123");
-    expect(mockVerifiedLineCustomer).toHaveBeenCalledWith(STORE.id, LINE_USER_ID);
+    expect(mockVerifiedLineCustomer).toHaveBeenCalledWith(STORE.id, LINE_USER_ID, { identityProvider: "line" });
     expect(mockCustomerFindFirst).not.toHaveBeenCalled();
   });
   it("mints member context for an owner without overwriting the persisted role", async () => {
@@ -657,7 +657,7 @@ describe("web LINE and LIFF membership parity", () => {
       expect(liff).toMatchObject({ id: user.id, customerId: customer.id, storeId: store.id, storeSlug: slug });
       expect(web).toMatchObject({ sub: liff.id, customerId: liff.customerId, storeId: liff.storeId, storeSlug: liff.storeSlug });
       expect(mockIdentityLinkFindUnique).toHaveBeenCalledTimes(1);
-      expect(mockVerifiedLineCustomer).toHaveBeenCalledWith(store.id, LINE_USER_ID);
+      expect(mockVerifiedLineCustomer).toHaveBeenCalledWith(store.id, LINE_USER_ID, { identityProvider: "line" });
       for (const [query] of mockIdentityLinkFindUnique.mock.calls) {
         expect(query.where.uq_customer_identity_provider_store).toEqual({
           provider: "line", providerAccountId: LINE_USER_ID, storeId: store.id,
@@ -696,3 +696,9 @@ describe("web signIn identity-link-only member", () => {
     expect(mockRepairCustomerIdentityOnLogin).not.toHaveBeenCalled();
   });
 });
+
+
+vi.mock("@/server/services/store-liff-context", async importOriginal => ({
+  ...await importOriginal<typeof import("@/server/services/store-liff-context")>(),
+  assertStoreLiffContext: vi.fn().mockResolvedValue(undefined),
+}));

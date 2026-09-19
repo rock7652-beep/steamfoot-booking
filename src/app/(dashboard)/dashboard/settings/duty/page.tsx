@@ -1,3 +1,6 @@
+import { courseDutyIntervals } from "@/lib/course-duty";
+import { checkPermission } from "@/lib/permissions";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getCurrentUser } from "@/lib/session";
 import { getShopConfig } from "@/lib/shop-config";
 import { redirect, notFound } from "next/navigation";
@@ -17,7 +20,7 @@ function formatDateShort(dateStr: string): string {
 }
 
 /** 取得本週（週一～週日）未排班營業日數量 */
-async function getUnscheduledDaysThisWeek(storeId: string): Promise<{
+async function getUnscheduledDaysThisWeek(storeId: string, course = false): Promise<{
   total: number;
   unscheduled: number;
   unscheduledDates: string[];
@@ -55,6 +58,7 @@ async function getUnscheduledDaysThisWeek(storeId: string): Promise<{
   );
 
   const businessDates = weekDates.filter((dateStr) => {
+    if (course) return courseDutyIntervals(dateStr,businessHours,specialDays).length > 0;
     const specialType = specialMap.get(dateStr);
     if (specialType === "closed") return false;
     if (specialType === "special_open") return true;
@@ -94,6 +98,7 @@ export default async function DutySettingsPage() {
     notFound();
   }
 
+  if (!(await checkPermission(user.role,user.staffId,"duty.manage"))) notFound();
   const { getActiveStoreForRead } = await import("@/lib/store");
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) {
@@ -118,8 +123,9 @@ export default async function DutySettingsPage() {
       </PageShell>
     );
   }
+  const course = await getStoreIndustryModule(storeId) === "course";
   const config = await getShopConfig(storeId);
-  const weekInfo = await getUnscheduledDaysThisWeek(storeId);
+  const weekInfo = await getUnscheduledDaysThisWeek(storeId,course);
   const enabled = config.dutySchedulingEnabled;
   const scheduledDays = weekInfo.total - weekInfo.unscheduled;
 
@@ -189,7 +195,7 @@ export default async function DutySettingsPage() {
             )}
           </div>
 
-          <DutySchedulingToggle key={storeId} enabled={enabled} compact />
+          <DutySchedulingToggle course={course} key={storeId} enabled={enabled} compact />
         </div>
       </section>
 
@@ -198,7 +204,7 @@ export default async function DutySettingsPage() {
         <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-earth-900">功能說明</h2>
           <p className="mt-1 text-[11px] text-earth-500">
-            開啟後，僅安排值班人員的時段才會出現在顧客預約頁
+            {course ? "新增／修改排課需由授課教練的值班涵蓋完整課程時段" : "開啟後，僅安排值班人員的時段才會出現在顧客預約頁"}
           </p>
 
           <ul className="mt-4 space-y-3 text-[13px] leading-relaxed text-earth-700">
@@ -206,26 +212,26 @@ export default async function DutySettingsPage() {
               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary-400" />
               <span>
                 <span className="font-medium text-earth-800">關閉狀態：</span>
-                所有營業時段均可接受預約，值班排班僅供內部參考
+                {course ? "值班僅供參考，課程依實際排課開放預約" : "所有營業時段均可接受預約，值班排班僅供內部參考"}
               </span>
             </li>
             <li className="flex gap-2">
               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary-400" />
               <span>
                 <span className="font-medium text-earth-800">開啟狀態：</span>
-                只有安排了值班人員的時段才會出現在預約頁面
+                {course ? "教練值班須涵蓋完整課程；教室與教練撞期檢查仍有效" : "只有安排了值班人員的時段才會出現在預約頁面"}
               </span>
             </li>
             <li className="flex gap-2">
               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
               <span>
-                <span className="font-medium text-earth-800">OWNER 例外：</span>
-                後台代客預約時可勾選「略過值班檢查」繞過此限制
+                <span className="font-medium text-earth-800">{course ? "衝突保護：" : "OWNER 例外："}</span>
+                {course ? "修改值班若影響已排課程，列出衝突並阻擋，不取消課程或預約" : "後台代客預約時可勾選「略過值班檢查」繞過此限制"}
               </span>
             </li>
             <li className="flex gap-2">
               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-earth-300" />
-              <span>可隨時關閉，關閉後所有營業時段立即恢復正常</span>
+              <span>{course ? "可關閉聯動；既有課程與學員預約均保留" : "可隨時關閉，關閉後所有營業時段立即恢復正常"}</span>
             </li>
           </ul>
         </section>
@@ -289,14 +295,14 @@ export default async function DutySettingsPage() {
                 未排班日期：{weekInfo.unscheduledDates.map(formatDateShort).join("、")}
               </p>
               <p className="mt-1 text-[11px] text-amber-600">
-                這些日期的所有時段目前對客戶不可見
+                {course ? "這些日期尚未安排值班；啟用聯動後排課須符合教練值班。" : "這些日期的所有時段目前對客戶不可見"}
               </p>
             </div>
           )}
 
           {!enabled && (
             <p className="mt-4 rounded-lg bg-earth-50 p-3 text-[11px] leading-relaxed text-earth-500">
-              聯動目前停用中，所有營業時段均可預約。即使有未排班日期也不會影響顧客預約。
+              {course ? "聯動目前停用中，課程依實際排課開放預約。未排班日期不影響已排課程與學員預約。" : "聯動目前停用中，所有營業時段均可預約。即使有未排班日期也不會影響顧客預約。"}
             </p>
           )}
         </section>

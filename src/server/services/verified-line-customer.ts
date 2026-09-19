@@ -13,7 +13,8 @@ const userSelect = { id: true, name: true, email: true, role: true, status: true
  * Shared by exchange and credentials: no phone/name or stale-cookie fallback.
  * A verified central Account may access only its confirmed store membership.
  */
-export async function resolveVerifiedLineCustomer(storeId: string, lineUserId: string, options: { explainFailure?: boolean } = {}) {
+export async function resolveVerifiedLineCustomer(storeId: string, lineUserId: string, options: { explainFailure?: boolean; identityProvider?: string } = {}) {
+  const identityProvider = options.identityProvider ?? "line";
   const reject = (reason: string) => {
     if (options.explainFailure) throw new LineIdentityReviewError(reason);
     return null;
@@ -21,12 +22,12 @@ export async function resolveVerifiedLineCustomer(storeId: string, lineUserId: s
   const [link, account] = await Promise.all([
     prisma.customerIdentityLink.findUnique({
       where: { uq_customer_identity_provider_store: {
-        provider: "line", providerAccountId: lineUserId, storeId,
+        provider: identityProvider, providerAccountId: lineUserId, storeId,
       } },
       select: { userId: true, customer: { select: customerSelect } },
     }),
     prisma.account.findUnique({
-      where: { provider_providerAccountId: { provider: "line", providerAccountId: lineUserId } },
+      where: { provider_providerAccountId: { provider: identityProvider, providerAccountId: lineUserId } },
       select: { userId: true },
     }),
   ]);
@@ -38,7 +39,8 @@ export async function resolveVerifiedLineCustomer(storeId: string, lineUserId: s
     if (!member) return reject("store_membership_unconfirmed");
     customer = await prisma.customer.findUnique({ where: { id: member.customerId }, select: customerSelect });
   }
-  if (!customer && !userId) {
+  if (!customer && !userId && identityProvider !== "line") return null;
+  if (!customer && !userId && identityProvider === "line") {
     // Preserve unambiguous legacy identities; never pick an arbitrary duplicate.
     const rows = await prisma.customer.findMany({
       where: { storeId, lineUserId, mergedIntoCustomerId: null },

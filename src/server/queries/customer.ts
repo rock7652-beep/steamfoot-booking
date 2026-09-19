@@ -460,6 +460,8 @@ export async function getCustomerDrawerDetailForUser(
 // ============================================================
 
 export type CustomerMergePreviewRow = {
+  courseMode?: boolean;
+  healthCount?: number;
   id: string;
   name: string;
   phone: string;
@@ -489,7 +491,7 @@ export async function getCustomerMergePreview(
   const customers = await prisma.customer.findMany({
     where: { id: { in: ids } },
     include: {
-      store: { select: { id: true, name: true } },
+      store: { select: { id: true, name: true, industryModule: true } },
       _count: {
         select: {
           bookings: true,
@@ -536,5 +538,18 @@ export async function getCustomerMergePreview(
     createdAt: c.createdAt,
   });
 
-  return { source: toRow(source), target: toRow(target) };
+  const sourceRow = toRow(source), targetRow = toRow(target);
+  if (source.store.industryModule === "COURSE" && source.storeId === target.storeId) {
+    const { coursePrisma } = await import("@/lib/course-db");
+    await Promise.all([sourceRow, targetRow].map(async row => {
+      const [bookings, members, purchases, health] = await Promise.all([
+        coursePrisma.courseBooking.count({ where: { storeId: row.storeId, customerId: row.id } }),
+        coursePrisma.courseCardMember.count({ where: { storeId: row.storeId, customerId: row.id } }),
+        coursePrisma.coursePurchase.count({ where: { storeId: row.storeId, customerId: row.id } }),
+        prisma.customerHealthRecord.count({ where: { storeId: row.storeId, customerId: row.id } }),
+      ]);
+      Object.assign(row, { courseMode: true, bookingCount: bookings, walletCount: members, transactionCount: purchases, healthCount: health });
+    }));
+  }
+  return { source: sourceRow, target: targetRow };
 }

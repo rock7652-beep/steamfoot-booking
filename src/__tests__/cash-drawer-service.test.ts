@@ -342,6 +342,13 @@ describe("addCashDrawerEntry", () => {
 // ============================================================
 
 describe("closeCashDrawer", () => {
+  it("matches the snapshot version so a concurrent course cash refund cannot be omitted", async () => {
+    const version=new Date("2026-05-13T01:00:00.000Z");
+    mockSessionFindUnique.mockResolvedValue(makeSession({updatedAt:version}));
+    mockSessionUpdate.mockRejectedValueOnce(Object.assign(new Error("snapshot changed"),{code:"P2025"}));
+    await expect(closeCashDrawer({sessionId:"sess-1",closingActualCash:5000,actorUserId:USER_OWNER})).rejects.toMatchObject({code:"P2025"});
+    expect(mockSessionUpdate).toHaveBeenCalledWith(expect.objectContaining({where:{id:"sess-1",status:"OPEN",updatedAt:version}}));
+  });
   it("正確計算 expectedClosingCash 並寫入快照", async () => {
     mockSessionFindUnique.mockResolvedValue(
       makeSession({ openingBookBalance: D(5000), openingActualCash: D(5000) }),

@@ -1,3 +1,5 @@
+import { CashbookEditor } from "./cashbook-editor";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { hasCurrentStoreFeature } from "@/lib/feature-gate";
 /**
  * /dashboard/cashbook — 現金管理（一頁式工作台）
@@ -96,6 +98,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const dateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
 
   const activeStoreId = await getActiveStoreForRead(user);
+  const isCourse = !!activeStoreId && await getStoreIndustryModule(activeStoreId) === "course";
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const cashbookStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
@@ -114,7 +117,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
     }),
     getMonthlySummary(month, cashbookStoreId),
     getCachedStorePlan(cashbookStoreId ?? undefined),
-    canViewCashDrawer && cashbookStoreId
+    !isCourse && canViewCashDrawer && cashbookStoreId
       ? (async () => {
           const cashDrawerEnabled = await hasStoreFeature(cashbookStoreId, FEATURES.CASH_DRAWER);
           if (!cashDrawerEnabled) {
@@ -170,6 +173,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       : Promise.resolve(null),
   ]);
 
+  const editorStaff = isCourse && canManageCashbook ? await listStaffSelectOptions() : [];
+  const closedDates = isCourse && cashbookStoreId && canManageCashbook ? await listClosedBusinessDates(cashbookStoreId, dateFrom, dateTo) : [];
+  const editorProps = { today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
   const { entries, total, pageSize } = cashbookList;
   const totalPages = Math.ceil(total / pageSize);
 
@@ -179,14 +185,14 @@ export default async function CashbookPage({ searchParams }: PageProps) {
         <FormErrorToast />
 
         <PageHeader
-          title="現金管理"
-          subtitle="今日抽屜 + 月度現金帳紀錄"
+          title={isCourse ? "營運" : "現金管理"}
+          subtitle={isCourse ? "查詢與管理收支明細；現金抽屜請至首頁操作" : "今日抽屜 + 月度現金帳紀錄"}
           actions={
             isViewMode ? (
               <span className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
                 查看模式：不可新增記帳
               </span>
-            ) : (
+            ) : isCourse ? (canManageCashbook && <CashbookEditor {...editorProps} />) : (
               <Link
                 href="/dashboard/cashbook/new"
                 className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
@@ -228,7 +234,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             <p className="text-xs text-earth-500">
               這裡是所有現金帳紀錄，包含現金與其他付款。只有
               <span className="font-medium text-sky-700">「現金」</span>
-              會影響上方抽屜金額。
+              會影響現金抽屜金額。
             </p>
           </div>
 
@@ -354,7 +360,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                       NT$ {Number(e.amount).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-earth-600">
-                      {e.staff?.displayName ?? "未指定"}
+                      {e.staff?.displayName ?? (isCourse ? e.createdBy?.name : null) ?? "未指定"}
                     </td>
                     <td className="max-w-xs truncate px-4 py-3 text-earth-400">
                       {e.note ?? "—"}
@@ -364,12 +370,12 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         <span className="text-earth-400">僅可查看</span>
                       ) : (
                         <div className="flex items-center gap-3">
-                          <Link
+                          {isCourse ? (canManageCashbook && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"
                           >
                             編輯
-                          </Link>
+                          </Link>}
                           {canManageCashbook && <CashbookEntryDeleteButton entryId={e.id} />}
                         </div>
                       )}

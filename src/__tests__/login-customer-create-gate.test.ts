@@ -7,7 +7,7 @@ const centralUserResolverSource = readFileSync(
   "utf8",
 );
 const customerAuthSource = readFileSync("src/server/actions/customer-auth.ts", "utf8");
-const registerSource = readFileSync("src/app/(auth)/register/page.tsx", "utf8");
+const registerSource = readFileSync("src/app/(auth)/register/register-form.tsx", "utf8");
 const oauthConfirmSource = readFileSync("src/server/actions/oauth-confirm.ts", "utf8");
 
 describe("PR-7 login customer creation gate", () => {

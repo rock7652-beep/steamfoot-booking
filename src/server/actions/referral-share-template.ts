@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { AppError, handleActionError } from "@/lib/errors";
-import { requirePermission } from "@/lib/permissions";
+import { requireWritablePermission } from "@/lib/permissions";
 import {
   REFERRAL_SHARE_TEMPLATE_MAX_LENGTH,
   ReferralShareTemplateValidationError,
@@ -34,7 +34,7 @@ export async function updateReferralShareTemplate(
   input: unknown,
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requirePermission("plans.edit");
+    const user = await requireWritablePermission("plans.edit");
     const storeId = await resolveWriteStoreId(user);
     await requireStoreFeature(storeId, FEATURES.REFERRAL_SHARE);
     const data = inputSchema.parse(input);

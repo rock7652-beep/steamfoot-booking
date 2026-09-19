@@ -1,3 +1,4 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -77,6 +78,7 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId
   activeStoreId: string | null;
   storeId: string;
 }) {
+  const course = await getStoreIndustryModule(storeId) === "course";
   const timer = new ServerTiming("/dashboard/duty");
 
   const weekStartDate = new Date(weekStart + "T00:00:00Z");
@@ -105,8 +107,8 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId
     userRole === "ADMIN"
       ? Promise.resolve(true)
       : checkPermission(userRole, userStaffId, "duty.manage"),
-    getDutyByDateRange(prevWeekStart, 6, undefined, activeStoreId).catch(() => []),
-    getDutyByDateRange(nextWeekStart, 6, undefined, activeStoreId).catch(() => []),
+    getDutyByDateRange(prevWeekStart, 6, {role: userRole, storeId}, activeStoreId).catch(() => []),
+    getDutyByDateRange(nextWeekStart, 6, {role: userRole, storeId}, activeStoreId).catch(() => []),
     getCachedSpecialDays(storeId, new Date(prevWeekStart + "T00:00:00Z").toISOString(), prevWeekEnd).catch(() => []),
     getCachedSpecialDays(storeId, new Date(nextWeekStart + "T00:00:00Z").toISOString(), nextWeekEnd).catch(() => []),
   ]);
@@ -128,7 +130,7 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId
             排班聯動未啟用（值班僅供參考）
           </span>
         )}
-        {userRole === "ADMIN" && (
+        {canManage && (
           <Link
             href="/dashboard/settings/duty"
             className="text-xs text-primary-600 hover:text-primary-800 hover:underline"
@@ -144,6 +146,7 @@ async function DutyWeekContent({ weekStart, userRole, userStaffId, activeStoreId
         )}
       </div>
       <DutyWeekView
+        course={course}
         weekStart={weekStart}
         assignments={assignments}
         businessHours={businessHours}

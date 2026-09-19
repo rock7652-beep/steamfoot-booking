@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import {
   saveCustomerHealthRecord,
   type SaveCustomerHealthRecordState,
@@ -33,6 +33,9 @@ export function HealthRecordForm({
   mode = "create",
   recordId,
   initialValues,
+  submitAction: customAction,
+  onSaved,
+  notePlaceholder = "例如：蒸足前量測",
 }: {
   requestId: string;
   today: string;
@@ -41,17 +44,24 @@ export function HealthRecordForm({
   mode?: "create" | "edit";
   recordId?: string;
   initialValues?: HealthRecord;
+  submitAction?: (state: SaveCustomerHealthRecordState, data: FormData) => Promise<SaveCustomerHealthRecordState>;
+  onSaved?: () => void;
+  notePlaceholder?: string;
 }) {
-  const submitAction =
+  const submitAction = customAction ?? (
     surface === "liff" && mode === "edit"
       ? updateLiffHealthRecord
       : surface === "liff"
         ? saveLiffHealthRecord
-        : saveCustomerHealthRecord;
+        : saveCustomerHealthRecord);
   const [state, action, pending] = useActionState(
     submitAction,
     initialSaveCustomerHealthRecordState,
   );
+
+  useEffect(() => {
+    if ("saved" in state && state.saved === true) onSaved?.();
+  }, [state, onSaved]);
 
   return (
     <form action={action} className="space-y-5">
@@ -116,7 +126,7 @@ export function HealthRecordForm({
           name="note"
           rows={3}
           maxLength={500}
-          placeholder="例如：蒸足前量測"
+          placeholder={notePlaceholder}
           className="mt-2 w-full rounded-xl border border-earth-200 px-4 py-3 text-base text-earth-900"
           defaultValue={initialValues?.note ?? ""}
         />

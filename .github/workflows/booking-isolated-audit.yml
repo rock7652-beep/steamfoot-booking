@@ -4,18 +4,22 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   postgres-integration:
-    if: github.head_ref == 'fix/test-audit-recovery'
+    if: >-
+      github.head_ref == 'fix/test-audit-recovery' ||
+      github.head_ref == 'codex/course-scheduling-stage1' ||
+      (github.event_name == 'workflow_dispatch' && github.ref_name == 'codex/course-scheduling-stage1')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17.6
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: disposable-test-only
@@ -35,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -45,7 +49,7 @@ jobs:
         run: npx prisma db push --skip-generate
       - name: Run all 32 PostgreSQL scenarios
         run: >-
-          npx vitest run
+          npx vitest run --config vitest.pg.config.ts
           src/__tests__/booking-actions.pg.integration.test.ts
           src/__tests__/booking-slot-concurrency.pg.test.ts
           src/__tests__/weekly-recurring-bookings.pg.integration.test.ts
@@ -65,3 +69,55 @@ jobs:
           name: booking-pg-results
           path: booking-pg-results.json
           retention-days: 3
+      # Course tests create/drop their own schema and invoke the real refund service.
+      - name: Verify concurrent course refunds and atomic rollback
+        run: >-
+          npx vitest run src/__tests__/course-refund.pg.test.ts
+          --reporter=default --reporter=json --outputFile=course-refund-pg-results.json
+      - name: Verify no course refund scenarios were skipped
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("course-refund-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 3 || r.numPassedTests !== 3 || r.numPendingTests !== 0) {
+              throw new Error("Expected all 3 course refund database scenarios to pass without skips");
+            }
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: course-refund-pg-results
+          path: course-refund-pg-results.json
+          retention-days: 3
+      - name: Verify exact course trial migration and isolated payment / attendance
+        run: >-
+          npx vitest run src/__tests__/course-trial.pg.test.ts
+          --reporter=default --reporter=json --outputFile=course-trial-pg-results.json
+      - name: Verify no course trial scenarios were skipped
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("course-trial-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 6 || r.numPassedTests !== 6 || r.numPendingTests !== 0) {
+              throw new Error("Expected all 6 course trial database scenarios to pass without skips");
+            }
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: course-trial-pg-results
+          path: course-trial-pg-results.json
+          retention-days: 3
+      - name: Verify course trial activation concurrency without resetting existing dates
+        run: >-
+          npx vitest run src/__tests__/course-trial-activation.pg.test.ts
+          --reporter=default --reporter=json --outputFile=course-activation-pg-results.json
+      - name: Require actual activation test execution
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("course-activation-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 1 || r.numPassedTests !== 1 || r.numPendingTests !== 0) {
+              throw new Error("Expected the concurrent activation database test to pass without skips");
+            }
+          '

@@ -288,7 +288,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           }
         />
 
-        <ReportDateRange activePreset={activePreset} startDate={startDate} endDate={endDate} />
+        <ReportDateRange key={`${activePreset}-${startDate}-${endDate}`} activePreset={activePreset} startDate={startDate} endDate={endDate} />
 
         <section aria-labelledby="operations-summary-title">
           <div className="mb-2">

@@ -11,6 +11,21 @@ import { getCustomerLoginMethods } from "@/server/queries/customer-login-methods
 describe("getCustomerLoginMethods", () => {
   beforeEach(() => findUnique.mockReset());
 
+  it("distinguishes the selected store Provider from central and other store LINE accounts", async () => {
+    findUnique.mockResolvedValue({ phone: null, email: null, passwordHash: null,
+      accounts: [{ provider: "line-provider:123" }] });
+    const own = await getCustomerLoginMethods("user-1", "line-provider:123");
+    expect(own.line.linked).toBe(false);
+    expect(own.storeLine?.linked).toBe(true);
+    const other = await getCustomerLoginMethods("user-1", "line-provider:456");
+    expect(other.storeLine?.linked).toBe(false);
+    expect(findUnique).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { id: "user-1" }, select: expect.objectContaining({
+        accounts: { where: { provider: { in: ["google", "line", "line-provider:456"] } }, select: { provider: true } },
+      }),
+    }));
+  });
+
   it("returns only masked identifiers for linked methods", async () => {
     findUnique.mockResolvedValue({
       phone: "0912345678",

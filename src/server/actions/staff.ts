@@ -418,16 +418,22 @@ export async function activateStaff(staffId: string): Promise<ActionResult<void>
       user: { role: staff.user.role },
     });
 
+    // Resolve plan data before acquiring the transaction connection. Looking it up
+    // through the global client inside this transaction can exhaust a small pool.
+    const { getStoreLimitsByStoreId } = await import("@/lib/feature-gate");
+    const activationLimits = await getStoreLimitsByStoreId(writeStoreId);
     await prisma.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`staff-capacity:${writeStoreId}`}, 0))`;
       const current = await tx.staff.findUniqueOrThrow({ where: { id: staffId } });
       if (current.status !== "ACTIVE") {
-        const { checkStaffLimitOrThrow } = await import("@/lib/usage-gate");
-        await checkStaffLimitOrThrow(await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } }), writeStoreId);
+        const activeCount = await tx.staff.count({ where: { storeId: writeStoreId, status: "ACTIVE" } });
+        if (activationLimits.maxStaff !== null && activeCount >= activationLimits.maxStaff) {
+          throw new AppError("FORBIDDEN", `本店最多 ${activationLimits.maxStaff} 位可啟用人員，請先停用其他人員或調整方案`);
+        }
       }
       await tx.staff.update({ where: { id: staffId, storeId: writeStoreId }, data: { status: "ACTIVE" } });
       await tx.user.update({ where: { id: staff.userId }, data: { status: "ACTIVE" } });
-    });
+    }, { maxWait: 5_000, timeout: 15_000 });
 
     revalidateStaff();
     return { success: true, data: undefined };

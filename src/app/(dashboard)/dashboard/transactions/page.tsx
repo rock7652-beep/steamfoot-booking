@@ -18,6 +18,8 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { isVoidedTransaction, transactionStatusLabel } from "@/lib/transaction-display";
 import type { TransactionType, PaymentMethod } from "@prisma/client";
 import { TransactionRowActions } from "./_components/TransactionRowActions";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { CourseRevenue } from "../revenue/_components/course-revenue";
 
 /** 交易頁面只顯示有金額的類型（排除 SESSION_DEDUCTION） */
 const TX_TYPE_LABEL: Record<string, string> = {
@@ -66,6 +68,7 @@ interface PageProps {
     transactionType?: TransactionType;
     staff?: string;
     page?: string;
+    status?: string;
   }>;
 }
 
@@ -88,6 +91,14 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const transactionsStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
+  if (transactionsStoreId && await getStoreIndustryModule(transactionsStoreId) === "course") {
+    return <CourseRevenue storeId={transactionsStoreId} params={params} readOnly={isViewMode} basePath="/dashboard/transactions"
+      canDataExport={!isViewMode && (await checkPermission(user.role, user.staffId, "report.export") || await checkPermission(user.role, user.staffId, "customer.export"))}
+      canEdit={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.create")}
+      canVoid={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.void")}
+      canRefund={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.refund")}
+      canConfirm={!isViewMode && await checkPermission(user.role, user.staffId, "wallet.create")} />;
+  }
   const logCtx = {
     page: "transactions" as const,
     activeStoreId: transactionsStoreId,

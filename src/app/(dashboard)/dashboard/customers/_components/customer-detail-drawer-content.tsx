@@ -2,13 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { CustomerAttributionForm } from "@/components/customer-attribution-form";
 import { CustomerPageLink as Link } from "@/components/customer-page-link";
 import { AssignPlanForm } from "../[id]/assign-plan-form";
 import { CustomerStatusBadge } from "./customer-status-badge";
 import { TrialBookingDrawer } from "../../_components/trial-booking-drawer";
 import {
-  updateCustomerAssignment,
-  searchReferrerCandidates,
   updateCustomerServiceNoteAction,
 } from "@/server/actions/customer";
 import { formatTWTime } from "@/lib/date-utils";
@@ -109,6 +108,7 @@ export function CustomerDetailDrawerContent({
   onMutated,
   titleId,
 }: Props) {
+  const [openedAt] = useState(() => Date.now());
   const headerRef = useRef<HTMLDivElement>(null);
   const planSectionRef = useRef<HTMLElement>(null);
 
@@ -348,7 +348,7 @@ export function CustomerDetailDrawerContent({
                 const total = w.sessions.length || w.plan.sessionCount;
                 const remaining = Math.max(0, total - used);
                 const expiry = w.expiryDate ? new Date(w.expiryDate) : null;
-                const expired = expiry ? expiry.getTime() < Date.now() : false;
+                const expired = expiry ? expiry.getTime() < openedAt : false;
                 return (
                   <li
                     key={w.id}
@@ -434,7 +434,7 @@ export function CustomerDetailDrawerContent({
 
         {/* 歸屬設定 */}
         <CollapsibleSection title="歸屬設定" defaultOpen>
-          <AttributionForm
+          <CustomerAttributionForm
             customerId={customer.id}
             currentStaffId={customer.assignedStaffId}
             currentSponsor={
@@ -613,197 +613,3 @@ function CollapsibleSection({
 }
 
 // ============================================================
-// AttributionForm — 歸屬店長 + 推薦人（從 quick drawer 沿用）
-// ============================================================
-
-function AttributionForm({
-  customerId,
-  currentStaffId,
-  currentSponsor,
-  staffOptions,
-  canAssign,
-  readOnly = false,
-  onSaved,
-}: {
-  customerId: string;
-  currentStaffId: string | null;
-  currentSponsor: { id: string; name: string } | null;
-  staffOptions: StaffOption[];
-  canAssign: boolean;
-  readOnly?: boolean;
-  onSaved?: () => void;
-}) {
-  const [staffId, setStaffId] = useState<string>(currentStaffId ?? "");
-  const [sponsor, setSponsor] = useState<{ id: string; name: string } | null>(
-    currentSponsor,
-  );
-  const [query, setQuery] = useState("");
-  const [candidates, setCandidates] = useState<
-    Array<{ id: string; name: string; phoneMasked: string }>
-  >([]);
-  const [searching, setSearching] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const dirty =
-    staffId !== (currentStaffId ?? "") ||
-    (sponsor?.id ?? null) !== (currentSponsor?.id ?? null);
-
-  // 推薦人搜尋：姓名或手機（部分即可），debounce 300ms 避免逐字打 query。
-  // sponsor 已選或 query 為空時不查；以 active flag 丟棄過期回應避免 race。
-  useEffect(() => {
-    const q = query.trim();
-    if (sponsor || q.length < 1) {
-      setCandidates([]);
-      setSearched(false);
-      setSearching(false);
-      return;
-    }
-    let active = true;
-    setSearching(true);
-    const t = setTimeout(async () => {
-      const result = await searchReferrerCandidates(q, customerId);
-      if (!active) return;
-      setSearching(false);
-      setSearched(true);
-      setCandidates(result.success ? result.data : []);
-    }, 300);
-    return () => {
-      active = false;
-      clearTimeout(t);
-    };
-  }, [query, sponsor, customerId]);
-
-  function selectCandidate(c: { id: string; name: string }) {
-    setSponsor({ id: c.id, name: c.name });
-    setQuery("");
-    setCandidates([]);
-    setSearched(false);
-  }
-
-  async function handleSave() {
-    if (!staffId) {
-      toast.error("請選擇歸屬店長");
-      return;
-    }
-    setSaving(true);
-    try {
-      const result = await updateCustomerAssignment({
-        customerId,
-        assignedStaffId: staffId,
-        referredByCustomerId: sponsor?.id ?? null,
-      });
-      if (result.success) {
-        toast.success("已更新歸屬設定");
-        onSaved?.();
-      } else {
-        toast.error(result.error ?? "儲存失敗");
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!canAssign) {
-    return (
-      <div className="space-y-1 text-xs text-earth-600">
-        <div>
-          <span className="text-earth-500">歸屬店長：</span>
-          <span className="font-medium text-earth-800">
-            {staffOptions.find((s) => s.id === currentStaffId)?.displayName ?? "未指派"}
-          </span>
-        </div>
-        <div>
-          <span className="text-earth-500">推薦人：</span>
-          <span className="text-earth-800">{currentSponsor?.name ?? "—"}</span>
-        </div>
-        <p className="pt-1 text-[11px] text-earth-400">
-          {readOnly ? "查看模式下不可修改歸屬設定" : "您沒有指派權限，無法修改"}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div>
-        <label className="block text-xs font-medium text-earth-600">
-          歸屬店長 <span className="text-red-500">*</span>
-        </label>
-        <select
-          value={staffId}
-          onChange={(e) => setStaffId(e.target.value)}
-          className="mt-1 w-full rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"
-        >
-          <option value="">請選擇店長</option>
-          {staffOptions.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.displayName}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-earth-600">
-          推薦人（選填）
-        </label>
-        {sponsor ? (
-          <div className="mt-1 flex items-center justify-between rounded-md border border-earth-200 bg-earth-50 px-2 py-1.5">
-            <span className="text-sm text-earth-800">{sponsor.name}</span>
-            <button
-              type="button"
-              onClick={() => setSponsor(null)}
-              className="text-[11px] text-earth-500 hover:text-red-600"
-            >
-              清除
-            </button>
-          </div>
-        ) : (
-          <div className="mt-1 space-y-1.5">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="輸入推薦人姓名或手機"
-              className="w-full rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"
-            />
-            {searching ? (
-              <p className="text-[11px] text-earth-400">查詢中…</p>
-            ) : candidates.length > 0 ? (
-              <ul className="max-h-40 divide-y divide-earth-100 overflow-auto rounded-md border border-earth-200">
-                {candidates.map((c) => (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => selectCandidate(c)}
-                      className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-earth-50"
-                    >
-                      <span className="text-sm text-earth-800">{c.name}</span>
-                      <span className="tabular-nums text-[11px] text-earth-500">
-                        {c.phoneMasked}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : searched && query.trim() ? (
-              <p className="text-[11px] text-amber-700">找不到符合的顧客</p>
-            ) : null}
-          </div>
-        )}
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!dirty || saving || !staffId}
-          className="rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {saving ? "儲存中…" : "儲存歸屬"}
-        </button>
-      </div>
-    </div>
-  );
-}

@@ -1,3 +1,5 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { saveCourseTrialSettings } from "@/server/actions/course-trial";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getTrialSettings } from "@/lib/shop-config";
@@ -26,12 +28,13 @@ export default async function TrialSettingsPage() {
   }
 
   const trial = await getTrialSettings(storeId);
+  const courseMode = await getStoreIndustryModule(storeId) === "course";
 
   return (
     <PageShell>
       <PageHeader
         title="體驗課設定"
-        subtitle="體驗客流程使用的預設體驗價格與可調整範圍。體驗課只有一個，建立體驗單時可依活動調整金額；調整預設價不影響已建立的體驗單。"
+        subtitle={courseMode ? "設定課程無卡體驗價格；收款與出席分開。調整預設價不影響既有體驗預約。" : "體驗客流程使用的預設體驗價格與可調整範圍。體驗課只有一個，建立體驗單時可依活動調整金額；調整預設價不影響已建立的體驗單。"}
         actions={
           <Link
             href="/dashboard/settings"
@@ -42,7 +45,7 @@ export default async function TrialSettingsPage() {
         }
       />
 
-      <TrialSettingsForm key={storeId} storeId={storeId} initial={trial} />
+      <TrialSettingsForm key={storeId} storeId={storeId} initial={trial} courseMode={courseMode} saveAction={courseMode ? saveCourseTrialSettings : undefined} />
     </PageShell>
   );
 }

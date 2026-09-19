@@ -5,6 +5,8 @@ import type { UserRole } from "@prisma/client";
 const STORE_PARENT = "store-parent";
 const STORE_CHILD = "store-child";
 
+const mockModuleQuery = vi.fn();
+const mockCourseReport = vi.fn();
 const mockAuth = vi.fn();
 const mockCheckPermission = vi.fn();
 const mockRequireStaffSession = vi.fn();
@@ -21,6 +23,8 @@ const mockGetStoreRevenueSummary = vi.fn();
 const mockGetCoachRevenueSummary = vi.fn();
 const mockGetTransactionDetails = vi.fn();
 const mockGetRevenueKpi = vi.fn();
+
+vi.mock("@/server/queries/course-revenue-report", () => ({ getCourseRevenueReport: (...args: unknown[]) => mockCourseReport(...args) }));
 
 vi.mock("@/lib/auth", () => ({
   auth: (...args: unknown[]) => mockAuth(...args),
@@ -54,6 +58,7 @@ const mockStoreFindMany = vi.fn(async ({ where }: {
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $queryRaw: (...args: unknown[]) => mockModuleQuery(...args),
     store: { findMany: mockStoreFindMany },
     transaction: {
       groupBy: (...args: unknown[]) => mockTransactionGroupBy(...args),
@@ -145,6 +150,8 @@ function viewedStoreUser() {
 describe("reports view mode support", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockModuleQuery.mockResolvedValue([{industryModule:"STEAMFOOT"}]);
+    mockCourseReport.mockResolvedValue({summary:[],kpi:{},data:[],paymentMethods:[]});
     mockAuth.mockResolvedValue({ user: viewedStoreUser() });
     mockCheckPermission.mockResolvedValue(true);
     mockRequireStaffSession.mockResolvedValue(viewedStoreUser());
@@ -205,6 +212,17 @@ describe("reports view mode support", () => {
         storeFilter: expect.objectContaining({ storeId: STORE_CHILD }),
       }),
     );
+  });
+
+  it("forces course module lookup and course finance reads to the viewed store", async () => {
+    mockModuleQuery.mockResolvedValue([{ industryModule: "COURSE" }]);
+    const { GET } = await import("@/app/api/reports/store-revenue/route");
+    const response = await GET(new NextRequest("http://localhost/api/reports/store-revenue?startDate=2026-06-01&endDate=2026-06-30&storeId=store-sibling"));
+    expect(response.status).toBe(200);
+    expect(mockModuleQuery.mock.calls[0][1]).toBe(STORE_CHILD);
+    expect(mockCourseReport).toHaveBeenCalledWith(STORE_CHILD, expect.objectContaining({storeId:STORE_CHILD,storeFilter:{storeId:STORE_CHILD}}));
+    expect(mockGetStoreRevenueSummary).not.toHaveBeenCalled();
+    expect(mockGetTransactionDetails).not.toHaveBeenCalled();
   });
 
   it("blocks direct reports export URLs in view mode", async () => {

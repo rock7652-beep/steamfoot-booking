@@ -105,7 +105,7 @@ describe("trial reminder convergence contract", () => {
     const route = source("src/app/api/cron/reminders/route.ts");
     const retry = source("src/server/reminder-cron-retry.ts");
     expect(route).toContain("if (reminderFailed)");
-    expect(route).toContain("(reminderResult?.failed ?? 0) > 0 || otherFailed");
+    expect(route).toContain("combined.failed > 0 || otherFailed");
     expect(retry).toContain("if (result.failed > 0) return \"PARTIAL\"");
   });
 

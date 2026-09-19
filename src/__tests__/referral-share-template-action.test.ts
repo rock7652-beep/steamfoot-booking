@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  requirePermission: vi.fn(),
+  requireWritablePermission: vi.fn(),
   resolveWriteStoreId: vi.fn(),
   upsert: vi.fn(),
   revalidateShopConfig: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock("@/lib/db", () => ({
   prisma: { shopConfig: { upsert: mocks.upsert } },
 }));
 vi.mock("@/lib/permissions", () => ({
-  requirePermission: mocks.requirePermission,
+  requireWritablePermission: mocks.requireWritablePermission,
 }));
 vi.mock("@/lib/store", () => ({
   resolveWriteStoreId: mocks.resolveWriteStoreId,
@@ -33,7 +33,7 @@ import { updateReferralShareTemplate } from "@/server/actions/referral-share-tem
 describe("updateReferralShareTemplate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requirePermission.mockResolvedValue({
+    mocks.requireWritablePermission.mockResolvedValue({
       id: "owner-a",
       role: "OWNER",
       storeId: "store-a",

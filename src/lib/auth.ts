@@ -517,10 +517,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const storeSlug = credentials?.storeSlug as string | undefined;
         if (!idToken || !storeSlug) return null;
 
-        const { resolveCentralMemberLineLoginChannelId } = await import(
-          "@/lib/liff/central-member-config"
-        );
-        const expectedChannelId = resolveCentralMemberLineLoginChannelId();
+        const { assertStoreLiffContext, resolveStoreLiffContext } = await import("@/server/services/store-liff-context");
+        let context;
+        try { context = await resolveStoreLiffContext(storeSlug); } catch { return null; }
+        const expectedChannelId = context.channelId;
 
         const { verifyLiffIdToken, LiffIdTokenError } = await import(
           "@/lib/liff/verify-id-token"
@@ -543,12 +543,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const { resolveStoreBySlug } = await import("@/lib/store-resolver");
         const store = await resolveStoreBySlug(storeSlug);
-        if (!store) {
+        if (!store || (context.config && (store.id !== context.config.storeId || store.slug !== context.config.slug))) {
           console.warn("[auth][liff-token] storeSlug not found", { storeSlug });
           return null;
         }
 
-        const customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId);
+        try { await assertStoreLiffContext(store, context); } catch { return null; }
+        const customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { identityProvider: context.identityProvider });
 
         if (!customer || !customer.user || customer.user.status !== "ACTIVE") {
           // race condition：exchange route 確認過後 customer 被解綁；視為認證失敗

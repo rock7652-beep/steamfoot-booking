@@ -9,7 +9,7 @@ import {
 } from "@/server/actions/store-line-notification-recipients";
 import {
   managerPreferences,
-  MANAGER_NOTIFICATION_OPTIONS,
+  managerNotificationOptions,
 } from "@/lib/manager-notification-preferences";
 type Recipient = {
   id: string;
@@ -21,10 +21,11 @@ type Recipient = {
   preferences: unknown;
   legacyStaffId?: string | null;
 };
-function RecipientCard({ item, expanded, onExpand }: { item: Recipient; expanded: boolean; onExpand: () => void }) {
+function RecipientCard({ item, expanded, onExpand, course = false }: { item: Recipient; expanded: boolean; onExpand: () => void; course?: boolean }) {
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState("");
   const p = managerPreferences(item.preferences, item.sameDayBookingEnabled);
+  const options = managerNotificationOptions(course);
   function save(action: () => Promise<{ success: boolean; error?: string }>) {
     setSaved("");
     start(async () => {
@@ -90,7 +91,7 @@ function RecipientCard({ item, expanded, onExpand }: { item: Recipient; expanded
       <div className="mt-2 flex justify-between text-xs text-earth-500">
         <span>
           {item.isActive
-            && item.linkedAt ? `已開啟 ${Object.values(p).filter(Boolean).length} 項提醒`
+            && item.linkedAt ? `已開啟 ${options.filter(option => p[option.key]).length} 項提醒`
             : !item.linkedAt ? "完成 LINE 綁定後才能接收" : "已暫停接收 · 保留原設定"}
         </span>
         <span role="status">{pending ? "儲存中…" : saved}</span>
@@ -108,7 +109,7 @@ function RecipientCard({ item, expanded, onExpand }: { item: Recipient; expanded
                 {group}
               </h4>
               <div className="space-y-4">
-                {MANAGER_NOTIFICATION_OPTIONS.filter(
+                {options.filter(
                   (o) => o.group === group,
                 ).map((o) => (
                   <label
@@ -147,8 +148,10 @@ function RecipientCard({ item, expanded, onExpand }: { item: Recipient; expanded
 }
 export function LineNotificationRecipientsCard({
   recipients,
+  course = false,
 }: {
   recipients: Recipient[];
+  course?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -176,7 +179,7 @@ export function LineNotificationRecipientsCard({
       </div>
       {recipients.length === 0 && (
         <p className="rounded-lg bg-earth-50 p-3 text-sm text-earth-600">
-          尚未綁定通知人員。完成綁定後，即可設定總開關與 8 項個別提醒。
+          尚未綁定通知人員。完成綁定後，即可設定總開關與 {managerNotificationOptions(course).length} 項個別提醒。
         </p>
       )}
       {recipients.length > 0 && <>
@@ -188,7 +191,7 @@ export function LineNotificationRecipientsCard({
           <select aria-label="篩選人員身分" value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(0); }} className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm"><option value="">全部身分</option>{Array.from(new Set(recipients.map(r => r.roleLabel))).map(role => <option key={role}>{role}</option>)}</select>
         </div>
         <p className="text-xs text-earth-500" role="status">符合 {filtered.length} 位，每頁最多顯示 10 位</p>
-        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
+        {filtered.slice(currentPage * 10, currentPage * 10 + 10).map(item => <RecipientCard course={course} key={item.id} item={item} expanded={expanded === item.id} onExpand={() => setExpanded(expanded === item.id ? null : item.id)} />)}
         {!filtered.length && <div className="rounded-xl border border-earth-200 bg-white p-5 text-sm text-earth-500">沒有符合條件的人員。<button type="button" onClick={() => { setQuery(""); setStatus("ALL"); setRoleFilter(""); setPage(0); }} className="ml-3 text-primary-700 underline">清除篩選</button></div>}
         {lastPage > 0 && <div className="flex items-center justify-end gap-4 text-sm"><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">上一頁</button><span>{currentPage + 1} / {lastPage + 1}</span><button type="button" disabled={currentPage === lastPage} onClick={() => setPage(currentPage + 1)} className="rounded-lg border border-earth-200 px-3 py-2 disabled:opacity-40">下一頁</button></div>}
       </>}

@@ -1,3 +1,4 @@
+import { CoursePortal } from "./course-portal";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { getStoreContext } from "@/lib/store-context";
@@ -55,7 +56,7 @@ function getReminderText(bookingDate: Date, slotTime: string): string {
  *   3. 回饋進度（totalPoints > 0 才顯示，第二屏）
  *   4. 我的進度（visitedCount >= 1 || totalPoints >= 100 才顯示，第二屏）
  */
-export default async function CustomerHomePage() {
+export default async function CustomerHomePage({ searchParams }: { searchParams: Promise<{ month?: string; date?: string; view?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/");
 
@@ -66,6 +67,8 @@ export default async function CustomerHomePage() {
   const industryModule = storeId
     ? await getStoreIndustryModule(storeId)
     : "steamfoot";
+
+  if (industryModule === "course") return <CoursePortal {...await searchParams} />;
 
   if (industryModule === "spa") {
     const [entitlements, bookings] = await Promise.all([

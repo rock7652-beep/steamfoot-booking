@@ -9,6 +9,20 @@ vi.mock("@/lib/db", () => ({
 describe("store industry module firewall", () => {
   beforeEach(() => queryRaw.mockReset());
 
+  it("isolates COURSE from both existing modules", async () => {
+    queryRaw.mockResolvedValue([{ industryModule: "COURSE" }]);
+    const { requireCourseStore, requireSteamfootStore, requireSpaStore } = await import("@/lib/industry-module-server");
+    await expect(requireCourseStore("course")).resolves.toBeUndefined();
+    await expect(requireSteamfootStore("course")).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(requireSpaStore("course")).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it.each(["STEAMFOOT", "SPA", "UNKNOWN"])("rejects course operations for %s", async industryModule => {
+    queryRaw.mockResolvedValue([{ industryModule }]);
+    const { requireCourseStore } = await import("@/lib/industry-module-server");
+    await expect(requireCourseStore("other")).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("allows Steamfoot actions only for a STEAMFOOT store", async () => {
     queryRaw.mockResolvedValue([{ industryModule: "STEAMFOOT" }]);
     const { requireSteamfootStore } = await import("@/lib/industry-module-server");

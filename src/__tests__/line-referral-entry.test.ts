@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  hasFeature: vi.fn(),
   storeFindUnique: vi.fn(),
   customerFindFirst: vi.fn(),
 }));
 
+vi.mock("@/lib/feature-gate", () => ({ hasStoreFeature: mocks.hasFeature }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     store: { findUnique: mocks.storeFindUnique },
@@ -95,4 +97,14 @@ describe("resolveLineReferralEntry", () => {
       status: "INVALID_REFERRAL",
     });
   });
+});
+
+
+it("課程推薦導向同店課程入口，不要求或導向其他店 LINE", async () => {
+  mocks.hasFeature.mockResolvedValue(true);
+  mocks.storeFindUnique.mockResolvedValue({ id: "course", slug: "course-test", industryModule: "COURSE", operatingStatus: "ACTIVE", shopConfig: { lineOfficialUrl: null } });
+  mocks.customerFindFirst.mockResolvedValue({ id: "referrer" });
+  expect(await resolveLineReferralEntry("course-test", "ABC234")).toMatchObject({ status: "READY", storeId: "course", referrerId: "referrer", coursePath: "/s/course-test/book" });
+  mocks.hasFeature.mockResolvedValue(false);
+  expect(await resolveLineReferralEntry("course-test", "ABC234")).toEqual({ status: "STORE_UNAVAILABLE" });
 });

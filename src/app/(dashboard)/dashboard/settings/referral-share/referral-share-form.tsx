@@ -27,6 +27,8 @@ interface Props {
   initialTemplate: string | null;
   initialFavoriteTemplateIds: string[];
   initialRecent: ReferralTemplateRecentView[];
+  defaultTemplate?: string;
+  previewOrigin?: string;
 }
 
 export function getReferralShareTemplateError(value: string): string | null {
@@ -46,9 +48,11 @@ export function ReferralShareSettingsForm({
   initialTemplate,
   initialFavoriteTemplateIds,
   initialRecent,
+  defaultTemplate = DEFAULT_REFERRAL_SHARE_TEMPLATE,
+  previewOrigin = "https://www.steamfoot.com",
 }: Props) {
   const [template, setTemplate] = useState(
-    initialTemplate ?? DEFAULT_REFERRAL_SHARE_TEMPLATE,
+    initialTemplate ?? defaultTemplate,
   );
   const [usesDefault, setUsesDefault] = useState(initialTemplate == null);
   const [favoriteTemplateIds, setFavoriteTemplateIds] = useState(
@@ -60,14 +64,14 @@ export function ReferralShareSettingsForm({
   const router = useRouter();
 
   const error = useMemo(() => getReferralShareTemplateError(template), [template]);
-  const previewUrl = `https://www.steamfoot.com/s/${storeSlug}/line-entry?ref=preview`;
+  const previewUrl = `${previewOrigin}/s/${storeSlug}/line-entry?ref=preview`;
   const preview = renderReferralShareTemplate({
-    template: error ? null : template,
+    template: error ? defaultTemplate : template,
     storeName,
     url: previewUrl,
   });
   const dirty = usesDefault
-    ? template !== DEFAULT_REFERRAL_SHARE_TEMPLATE || initialTemplate !== null
+    ? template !== defaultTemplate || initialTemplate !== null
     : template !== initialTemplate;
 
   function addRecent(templateId: string, action: ReferralTemplateRecentView["action"]) {
@@ -146,7 +150,7 @@ export function ReferralShareSettingsForm({
       toast.success(value == null ? "已恢復系統預設文案" : "推薦分享文案已更新");
       setUsesDefault(value == null);
       if (value == null) {
-        setTemplate(DEFAULT_REFERRAL_SHARE_TEMPLATE);
+        setTemplate(defaultTemplate);
         setActiveTemplateId(null);
       }
       router.refresh();

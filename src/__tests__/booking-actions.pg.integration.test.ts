@@ -1,3 +1,4 @@
+import { setPgRequestStore } from "@/__tests__/helpers/pg-request-context";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
@@ -54,6 +55,7 @@ describeWithPostgres("booking production actions — real schema PostgreSQL", ()
   }
 
   function admin(storeId: string) {
+    setPgRequestStore(storeId);
     const user = {
       id: `admin_${storeId}`,
       role: "ADMIN",

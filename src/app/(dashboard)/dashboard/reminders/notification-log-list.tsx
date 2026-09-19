@@ -22,6 +22,8 @@ const statuses: Record<string, string> = {
 export function NotificationLogList({
   data,
   params,
+  baseHref = "/dashboard/reminders",
+  course = false,
 }: {
   data: {
     rows: NotificationRow[];
@@ -30,7 +32,14 @@ export function NotificationLogList({
     typeOptions: string[];
   };
   params: Record<string, string | undefined>;
+  baseHref?: string;
+  course?: boolean;
 }) {
+  // Keep historical types discoverable, without advertising unimplemented course events.
+  const visibleLabels = course ? Object.fromEntries(Object.entries(labels).filter(([key]) =>
+    ["SAME_DAY_BOOKING_CREATED", "TRANSFER_PENDING_CONFIRMATION"].includes(key)
+    || data.typeOptions.includes(key) || data.rows.some(row => row.type === key) || params.type === key,
+  )) : labels;
   function pageUrl(page: number) {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -38,7 +47,7 @@ export function NotificationLogList({
     });
     q.set("tab", "logs");
     q.set("page", String(page));
-    return `/dashboard/reminders?${q}`;
+    return `${baseHref}?${q}`;
   }
   return (
     <section className="space-y-3">
@@ -77,15 +86,16 @@ export function NotificationLogList({
           >
             <option value="">全部類型</option>
             {[
-              ...Object.entries(labels),
+              ...Object.entries(visibleLabels),
               ...[
                 ...new Set([
                   ...data.typeOptions,
+                  ...(course ? ["課程方案到期提醒"] : []),
                   ...data.rows.map((r) => r.type),
                   ...(params.type ? [params.type] : []),
                 ]),
               ]
-                .filter((k) => !labels[k])
+                .filter((k) => !visibleLabels[k])
                 .map((k) => [k, k]),
             ].map(([k, v]) => (
               <option key={k} value={k}>
@@ -169,7 +179,7 @@ export function NotificationLogList({
           <div className="mt-3 space-y-2 border-t border-earth-100 pt-3 text-sm">
             {r.customerId && (
               <Link
-                href={`/dashboard/customers/${r.customerId}`}
+                href={course ? `/dashboard/courses?view=customers&customerId=${encodeURIComponent(r.customerId)}` : `/dashboard/customers/${r.customerId}`}
                 className="text-primary-700"
               >
                 查看顧客 →

@@ -19,6 +19,7 @@ export type BirthdayCustomer = {
 export async function getBirthdayCustomersForMonth(
   storeId: string,
   month: string,
+  staffScope: string | null = null,
 ): Promise<BirthdayCustomer[]> {
   const monthNumber = Number(month.slice(5, 7));
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return [];
@@ -26,6 +27,7 @@ export async function getBirthdayCustomersForMonth(
   const customers = await prisma.customer.findMany({
     where: {
       storeId,
+      ...(staffScope ? { assignedStaffId: staffScope } : {}),
       birthday: { not: null },
       mergedIntoCustomerId: null,
       NOT: { user: { is: { status: "SUSPENDED" } } },

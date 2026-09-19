@@ -1,3 +1,4 @@
+import { setPgRequestStore } from "@/__tests__/helpers/pg-request-context";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
@@ -48,6 +49,7 @@ describeWithPostgres("weekly recurring bookings — real PostgreSQL", () => {
     const prefix = key("fixture");
     const storeId = `${prefix}_store`;
     stores.add(storeId);
+    setPgRequestStore(storeId);
     const weeks = options.weeks ?? 2;
     await db().store.create({ data: { id: storeId, name: prefix, slug: `${prefix}_slug`, plan: "ALLIANCE" } });
     await db().shopConfig.create({ data: {

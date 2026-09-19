@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { RightSheet } from "@/components/admin/right-sheet";
 import { useRouter } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
@@ -53,6 +54,7 @@ interface Props {
   canManage: boolean;
   weekDayInfo: WeekDayInfo[];
   preferredStaffId?: string;
+  course?: boolean;
 }
 
 const DAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -80,6 +82,7 @@ export function DutyDayEditor({
   canManage,
   weekDayInfo,
   preferredStaffId,
+  course = false,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -88,15 +91,19 @@ export function DutyDayEditor({
   const [selectedWeekDates, setSelectedWeekDates] = useState<string[]>([]);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  const [confirmation, setConfirmation] = useState<{ text: string; run: () => void } | null>(null);
+
   // 新增人員表單
   const [formStaffId, setFormStaffId] = useState(preferredStaffId ?? "");
   const [formDutyRole, setFormDutyRole] = useState<DutyRole>("STORE_MANAGER");
   const [formParticipation, setFormParticipation] = useState<ParticipationType>("PRIMARY");
   const [formNotes, setFormNotes] = useState("");
 
+  const roleLabels = course ? {...DUTY_ROLE_LABELS, INTERN_COACH: "教練"} : DUTY_ROLE_LABELS;
+
   function showMessage(type: "success" | "error", text: string) {
     setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
+    if (type === "success") setTimeout(() => setMessage(null), 3000);
   }
 
   function handleStaffChange(staffId: string) {
@@ -104,7 +111,7 @@ export function DutyDayEditor({
     // 自動帶入 DutyRole
     const staff = staffList.find((s) => s.id === staffId);
     if (staff) {
-      const defaultRole = DEFAULT_DUTY_ROLE_MAP[staff.userRole as UserRole];
+      const defaultRole = course && staff.userRole === "CUSTOMER" ? "INTERN_COACH" : DEFAULT_DUTY_ROLE_MAP[staff.userRole as UserRole];
       if (defaultRole) setFormDutyRole(defaultRole);
     }
   }
@@ -138,8 +145,12 @@ export function DutyDayEditor({
     });
   }
 
-  async function handleDelete(id: string, staffName: string) {
-    if (!confirm(`確定移除 ${staffName} 的值班安排？`)) return;
+  async function handleDelete(id: string, staffName: string, confirmed = false) {
+    const text = `確定移除 ${staffName} 的值班安排？`;
+    if (!confirmed) {
+      if (course) { setConfirmation({text, run: () => { void handleDelete(id, staffName, true); }}); return; }
+      if (!confirm(text)) return;
+    }
     startTransition(async () => {
       const result = await deleteDutyAssignment(id);
       if (result.success) {
@@ -151,12 +162,14 @@ export function DutyDayEditor({
     });
   }
 
-  async function handleCopyToAllSlots(slotTime: string) {
+  async function handleCopyToAllSlots(slotTime: string, confirmed = false) {
     const slotAssignments = assignments.filter((a) => a.slotTime === slotTime);
     const otherSlotCount = slots.filter((s) => s !== slotTime).length;
-    if (!confirm(
-      `將 ${slotTime} 的值班安排（${slotAssignments.length} 人）複製到該日其他 ${otherSlotCount} 個時段，已有安排的時段不會被覆蓋。確定？`
-    )) return;
+    const text = `將 ${slotTime} 的值班安排（${slotAssignments.length} 人）複製到該日其他 ${otherSlotCount} 個時段，已有安排的時段不會被覆蓋。確定？`;
+    if (!confirmed) {
+      if (course) { setConfirmation({text, run: () => { void handleCopyToAllSlots(slotTime, true); }}); return; }
+      if (!confirm(text)) return;
+    }
 
     startTransition(async () => {
       const result = await copySlotToAllSlots({ date, sourceSlotTime: slotTime });
@@ -182,7 +195,7 @@ export function DutyDayEditor({
     });
   }
 
-  async function handleCopyToWeekDates() {
+  async function handleCopyToWeekDates(confirmed = false) {
     if (selectedWeekDates.length === 0) return;
 
     // 檢查是否有已存在安排的目標日
@@ -191,16 +204,12 @@ export function DutyDayEditor({
       return info && info.existingCount > 0;
     });
 
-    if (datesWithExisting.length > 0) {
-      const details = datesWithExisting
-        .map((d) => {
-          const info = weekDayInfo.find((w) => w.date === d)!;
-          return `${formatDateShort(d)} 已有 ${info.existingCount} 筆值班安排`;
-        })
-        .join("、");
-      if (!confirm(`${details}，複製後將全部覆蓋。確定？`)) return;
-    } else {
-      if (!confirm(`將今天的值班安排複製到 ${selectedWeekDates.length} 個日期，確定？`)) return;
+    const text = datesWithExisting.length
+      ? `${datesWithExisting.map(d => `${formatDateShort(d)} 已有 ${weekDayInfo.find(w => w.date === d)!.existingCount} 筆值班安排`).join("、")}，複製後將全部覆蓋。確定？`
+      : `將今天的值班安排複製到 ${selectedWeekDates.map(formatDateShort).join("、")}，確定？`;
+    if (!confirmed) {
+      if (course) { setConfirmation({text, run: () => { void handleCopyToWeekDates(true); }}); return; }
+      if (!confirm(text)) return;
     }
 
     startTransition(async () => {
@@ -223,6 +232,17 @@ export function DutyDayEditor({
 
   return (
     <div>
+      {course && <RightSheet open={!!confirmation} onClose={() => setConfirmation(null)} labelledById="duty-confirm-title">
+        <h2 id="duty-confirm-title" className="border-b p-4 text-lg font-semibold">確認值班調整</h2>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 text-sm">
+          <p>{confirmation?.text}</p>
+          <p className="mt-3 text-earth-600">若影響既有課程的完整值班涵蓋，本批將阻擋並列出衝突，不取消課程或學員預約。</p>
+        </div>
+        <div className="flex gap-3 border-t p-4">
+          <button type="button" className="min-h-11 rounded-lg border px-4" onClick={() => setConfirmation(null)}>返回修改</button>
+          <button type="button" className="min-h-11 rounded-lg bg-primary-700 px-4 text-white" disabled={isPending} onClick={() => { const run = confirmation?.run; setConfirmation(null); run?.(); }}>確認調整</button>
+        </div>
+      </RightSheet>}
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2 text-sm text-earth-500">
         <Link href="/dashboard/duty" className="hover:text-earth-700">值班安排</Link>
@@ -317,7 +337,7 @@ export function DutyDayEditor({
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={handleCopyToWeekDates}
+                  onClick={() => handleCopyToWeekDates()}
                   disabled={isPending || selectedWeekDates.length === 0}
                   className="rounded-lg bg-primary-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
                 >
@@ -371,7 +391,7 @@ export function DutyDayEditor({
                           <div>
                             <div className="text-sm font-medium text-earth-800">{a.staffName}</div>
                             <div className="text-xs text-earth-500">
-                              身份：{DUTY_ROLE_LABELS[a.dutyRole]}　參與：{PARTICIPATION_TYPE_LABELS[a.participationType]}
+                              身份：{roleLabels[a.dutyRole]}　參與：{PARTICIPATION_TYPE_LABELS[a.participationType]}
                             </div>
                             {a.notes && (
                               <div className="mt-0.5 text-xs text-earth-400">{a.notes}</div>
@@ -421,7 +441,7 @@ export function DutyDayEditor({
                             className="w-full rounded-lg border border-earth-200 px-3 py-1.5 text-sm"
                           >
                             {DUTY_ROLES.map((r) => (
-                              <option key={r} value={r}>{DUTY_ROLE_LABELS[r]}</option>
+                              <option key={r} value={r}>{roleLabels[r]}</option>
                             ))}
                           </select>
                         </div>

@@ -1,5 +1,5 @@
-export type IndustryModuleId = "steamfoot" | "spa";
-export type PersistedIndustryModule = "STEAMFOOT" | "SPA";
+export type IndustryModuleId = "steamfoot" | "spa" | "course";
+export type PersistedIndustryModule = "STEAMFOOT" | "SPA" | "COURSE";
 
 export type IndustryFeatureSet = {
   packages: boolean;
@@ -44,7 +44,7 @@ export type IndustryModule = {
     staffLabel: string;
   };
   booking: {
-    resourceModel: "space_capacity" | "provider_availability";
+    resourceModel: "space_capacity" | "provider_availability" | "course_capacity";
     slotIntervalMinutes: number;
     defaultCapacity: number;
     openTime: string;
@@ -211,9 +211,23 @@ export const SPA_INDUSTRY_MODULE: IndustryModule = {
   },
 };
 
+export const COURSE_INDUSTRY_MODULE: IndustryModule = {
+  id: "course",
+  displayName: "課程模組",
+  storeTypeLabel: "運動教室",
+  roles: { owner: "店長", provider: "教練", providerPlural: "教練" },
+  customer: { memberCenterLabel: "會員專區", summaryTitle: "點數摘要", sessionUnit: "點", makeupLabel: "補課券", walletLabel: "我的點數", buyLabel: "購買點數" },
+  manager: { dashboardLabel: "營運總覽", bookingLabel: "課程管理", customerLabel: "學員管理", planLabel: "點數方案", staffLabel: "教練管理" },
+  booking: { resourceModel: "course_capacity", slotIntervalMinutes: 60, defaultCapacity: 10, openTime: "09:00", closeTime: "21:00", closedWeekdays: [] },
+  features: { packages: true, makeupCredits: true, healthAssessment: false, referralShare: false, storedValue: false },
+  services: [],
+  theme: { accent: "#355b46", accentSoft: "#e8efe8", surface: "#faf8f5" },
+};
+
 const INDUSTRY_MODULES: Record<IndustryModuleId, IndustryModule> = {
   steamfoot: STEAMFOOT_INDUSTRY_MODULE,
   spa: SPA_INDUSTRY_MODULE,
+  course: COURSE_INDUSTRY_MODULE,
 };
 
 export function getIndustryModule(id: IndustryModuleId): IndustryModule {
@@ -221,13 +235,14 @@ export function getIndustryModule(id: IndustryModuleId): IndustryModule {
 }
 
 export function resolveIndustryModuleId(value: string | null | undefined): IndustryModuleId {
+  if (value === "course" || value === "COURSE") return "course";
   return value === "spa" || value === "SPA" ? "spa" : "steamfoot";
 }
 
 export function toPersistedIndustryModule(
   value: IndustryModuleId,
 ): PersistedIndustryModule {
-  return value === "spa" ? "SPA" : "STEAMFOOT";
+  return value === "course" ? "COURSE" : value === "spa" ? "SPA" : "STEAMFOOT";
 }
 
 export function getIndustryService(

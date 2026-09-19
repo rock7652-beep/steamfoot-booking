@@ -4,16 +4,18 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { activateStoreAction } from "@/server/actions/store-onboarding";
 
-export function ActivateTrialButton({ storeId }: { storeId: string }) {
+export function ActivateTrialButton({ storeId, course = false }: { storeId: string; course?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [accepted, setAccepted] = useState(false);
   const [message, setMessage] = useState("");
   return <div>
-    <button type="button" disabled={pending} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60" onClick={() => {
+    {course && <label className="mb-3 flex items-start gap-2 text-sm"><input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />已完成本店 LIFF 登入、會員／教練操作及通知返回驗收，現在開始 30 天試用</label>}
+    <button type="button" disabled={pending || (course && !accepted)} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60" onClick={() => {
       setMessage("");
       startTransition(async () => {
         try {
-          const result = await activateStoreAction(storeId);
+          const result = await activateStoreAction(storeId, accepted);
           if (!result.success) { setMessage(result.error); return; }
           router.push(`/hq/dashboard/stores/subscriptions/${storeId}`);
           router.refresh();

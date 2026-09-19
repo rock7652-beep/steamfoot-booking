@@ -12,23 +12,28 @@ import {
 } from "@/lib/validators/duty";
 import { generateSlots } from "@/lib/slot-generator";
 import { revalidateDuty } from "@/lib/revalidation";
-import { assertStoreAccess, getStoreFilter } from "@/lib/manager-visibility";
-import { currentStoreId } from "@/lib/store";
+import { assertStoreAccess } from "@/lib/manager-visibility";
+import { resolveWriteStoreId } from "@/lib/store";
+import { withDutyMutation } from "@/server/services/course-duty-mutation";
+import { courseDutyIntervals } from "@/lib/course-duty";
+import type { Prisma, DutyRole, ParticipationType } from "@prisma/client";
 import type { ActionResult } from "@/types";
 
 // ============================================================
 // 共用：取得某天的營業時段列表
 // ============================================================
 
-async function getBusinessSlotsForDate(dateStr: string, storeId: string): Promise<string[]> {
+async function getBusinessSlotsForDate(dateStr: string, storeId: string, db: Prisma.TransactionClient = prisma, course = false): Promise<string[]> {
   const dateObj = new Date(dateStr + "T00:00:00Z");
   const dow = dateObj.getUTCDay();
 
   const [specialDay, businessHour, slotOverrides] = await Promise.all([
-    prisma.specialBusinessDay.findFirst({ where: { date: dateObj, storeId } }),
-    prisma.businessHours.findFirst({ where: { dayOfWeek: dow, storeId } }),
-    prisma.slotOverride.findMany({ where: { date: dateObj, storeId } }),
+    db.specialBusinessDay.findFirst({ where: { date: dateObj, storeId } }),
+    db.businessHours.findFirst({ where: { dayOfWeek: dow, storeId } }),
+    db.slotOverride.findMany({ where: { date: dateObj, storeId } }),
   ]);
+
+  if (course) return courseDutyIntervals(dateStr, businessHour ? [businessHour] : [], specialDay ? [specialDay] : []).map(s => s.slotTime);
 
   // 公休 / 進修
   if (specialDay && (specialDay.type === "closed" || specialDay.type === "training")) {
@@ -79,53 +84,57 @@ export async function upsertDutyAssignment(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await requirePermission("duty.manage");
-    const data = dutyAssignmentSchema.parse(input);
+    const mutationStoreId = await resolveWriteStoreId(user);
+    return await withDutyMutation(mutationStoreId, async (db, course) => {
+      const data = dutyAssignmentSchema.parse(input);
 
-    // 驗證 staff 是 ACTIVE 且同店
-    const staff = await prisma.staff.findUnique({ where: { id: data.staffId } });
-    if (!staff || staff.status !== "ACTIVE") {
-      return { success: false, error: "無法安排非在職人員值班" };
-    }
-    assertStoreAccess(user, staff.storeId);
+      // 驗證 staff 是 ACTIVE 且同店
+      const staff = await db.staff.findUnique({ where: { id: data.staffId } });
+      if (!staff || staff.status !== "ACTIVE") {
+        return { success: false, error: "無法安排非在職人員值班" };
+      }
+      assertStoreAccess(user, staff.storeId);
+      if (staff.storeId !== mutationStoreId) return { success: false, error: "請選擇本店人員" };
 
-    // 驗證是營業日且時段合法
-    const storeId = currentStoreId(user);
-    const validSlots = await getBusinessSlotsForDate(data.date, storeId);
-    if (validSlots.length === 0) {
-      return { success: false, error: "該日為公休日，無法安排值班" };
-    }
-    if (!validSlots.includes(data.slotTime)) {
-      return { success: false, error: `${data.slotTime} 不在該日營業時段內` };
-    }
+      // 驗證是營業日且時段合法
+      const storeId = mutationStoreId;
+      const validSlots = await getBusinessSlotsForDate(data.date, storeId, db, course);
+      if (validSlots.length === 0) {
+        return { success: false, error: "該日為公休日，無法安排值班" };
+      }
+      if (!validSlots.includes(data.slotTime)) {
+        return { success: false, error: `${data.slotTime} 不在該日營業時段內` };
+      }
 
-    const dateObj = new Date(data.date + "T00:00:00Z");
-    const result = await prisma.dutyAssignment.upsert({
-      where: {
-        date_slotTime_staffId: {
+      const dateObj = new Date(data.date + "T00:00:00Z");
+      const result = await db.dutyAssignment.upsert({
+        where: {
+          date_slotTime_staffId: {
+            date: dateObj,
+            slotTime: data.slotTime,
+            staffId: data.staffId,
+          },
+        },
+        create: {
           date: dateObj,
           slotTime: data.slotTime,
           staffId: data.staffId,
+          dutyRole: data.dutyRole as DutyRole,
+          participationType: data.participationType as ParticipationType,
+          notes: data.notes,
+          createdByStaffId: user.staffId,
+          storeId: mutationStoreId,
         },
-      },
-      create: {
-        date: dateObj,
-        slotTime: data.slotTime,
-        staffId: data.staffId,
-        dutyRole: data.dutyRole as any,
-        participationType: data.participationType as any,
-        notes: data.notes,
-        createdByStaffId: user.staffId,
-        storeId: currentStoreId(user),
-      },
-      update: {
-        dutyRole: data.dutyRole as any,
-        participationType: data.participationType as any,
-        notes: data.notes,
-      },
+        update: {
+          dutyRole: data.dutyRole as DutyRole,
+          participationType: data.participationType as ParticipationType,
+          notes: data.notes,
+        },
     });
 
     revalidateDuty();
     return { success: true, data: { id: result.id } };
+    });
   } catch (e) {
     return handleActionError(e);
   }
@@ -146,54 +155,59 @@ export async function batchCreateDutyAssignments(
 ): Promise<ActionResult> {
   try {
     const user = await requirePermission("duty.manage");
-    const data = batchCreateDutySchema.parse(input);
+    const mutationStoreId = await resolveWriteStoreId(user);
+    return await withDutyMutation(mutationStoreId, async (db, course) => {
+      const data = batchCreateDutySchema.parse(input);
 
-    const staff = await prisma.staff.findUnique({ where: { id: data.staffId } });
-    if (!staff || staff.status !== "ACTIVE") {
-      return { success: false, error: "無法安排非在職人員值班" };
-    }
-    assertStoreAccess(user, staff.storeId);
+      const staff = await db.staff.findUnique({ where: { id: data.staffId } });
+      if (!staff || staff.status !== "ACTIVE") {
+        return { success: false, error: "無法安排非在職人員值班" };
+      }
+      assertStoreAccess(user, staff.storeId);
+      if (staff.storeId !== mutationStoreId) return { success: false, error: "請選擇本店人員" };
 
-    const storeId = currentStoreId(user);
-    const validSlots = await getBusinessSlotsForDate(data.date, storeId);
-    if (validSlots.length === 0) {
-      return { success: false, error: "該日為公休日，無法安排值班" };
-    }
+      const storeId = mutationStoreId;
+      const validSlots = await getBusinessSlotsForDate(data.date, storeId, db, course);
+      if (validSlots.length === 0) {
+        return { success: false, error: "該日為公休日，無法安排值班" };
+      }
 
-    const invalidSlots = data.slotTimes.filter((s) => !validSlots.includes(s));
-    if (invalidSlots.length > 0) {
-      return { success: false, error: `以下時段不在營業範圍內：${invalidSlots.join(", ")}` };
-    }
+      const invalidSlots = data.slotTimes.filter((s) => !validSlots.includes(s));
+      if (invalidSlots.length > 0) {
+        return { success: false, error: `以下時段不在營業範圍內：${invalidSlots.join(", ")}` };
+      }
 
-    const dateObj = new Date(data.date + "T00:00:00Z");
-    const ops = data.slotTimes.map((slotTime) =>
-      prisma.dutyAssignment.upsert({
-        where: {
-          date_slotTime_staffId: {
+      const dateObj = new Date(data.date + "T00:00:00Z");
+      const ops = data.slotTimes.map((slotTime) =>
+        db.dutyAssignment.upsert({
+          where: {
+            date_slotTime_staffId: {
+              date: dateObj,
+              slotTime,
+              staffId: data.staffId,
+            },
+          },
+          create: {
             date: dateObj,
             slotTime,
             staffId: data.staffId,
+            dutyRole: data.dutyRole as DutyRole,
+            participationType: data.participationType as ParticipationType,
+            createdByStaffId: user.staffId,
+            storeId: mutationStoreId,
           },
-        },
-        create: {
-          date: dateObj,
-          slotTime,
-          staffId: data.staffId,
-          dutyRole: data.dutyRole as any,
-          participationType: data.participationType as any,
-          createdByStaffId: user.staffId,
-          storeId: currentStoreId(user),
-        },
-        update: {
-          dutyRole: data.dutyRole as any,
-          participationType: data.participationType as any,
-        },
-      })
-    );
+          update: {
+            dutyRole: data.dutyRole as DutyRole,
+            participationType: data.participationType as ParticipationType,
+          },
+        })
+      );
 
-    await prisma.$transaction(ops);
-    revalidateDuty();
-    return { success: true, data: undefined };
+      if (course) await Promise.all(ops);
+      else await prisma.$transaction(ops);
+      revalidateDuty();
+      return { success: true, data: undefined };
+    });
   } catch (e) {
     return handleActionError(e);
   }
@@ -208,21 +222,23 @@ export async function copySlotToAllSlots(
 ): Promise<ActionResult<{ copiedCount: number }>> {
   try {
     const user = await requirePermission("duty.manage");
-    const data = copySlotToAllSlotsSchema.parse(input);
+    const mutationStoreId = await resolveWriteStoreId(user);
+    return await withDutyMutation(mutationStoreId, async (db, course) => {
+      const data = copySlotToAllSlotsSchema.parse(input);
 
-    const storeId = currentStoreId(user);
-    const dateObj = new Date(data.date + "T00:00:00Z");
+      const storeId = mutationStoreId;
+      const dateObj = new Date(data.date + "T00:00:00Z");
 
-    // 取來源時段的安排
-    const sourceAssignments = await prisma.dutyAssignment.findMany({
-      where: { date: dateObj, slotTime: data.sourceSlotTime, storeId },
+      // 取來源時段的安排
+      const sourceAssignments = await db.dutyAssignment.findMany({
+        where: { date: dateObj, slotTime: data.sourceSlotTime, storeId },
     });
     if (sourceAssignments.length === 0) {
       return { success: false, error: "來源時段沒有值班安排" };
     }
 
     // 取該日所有營業時段
-    const validSlots = await getBusinessSlotsForDate(data.date, storeId);
+    const validSlots = await getBusinessSlotsForDate(data.date, storeId, db, course);
     const targetSlots = validSlots.filter((s) => s !== data.sourceSlotTime);
 
     if (targetSlots.length === 0) {
@@ -230,8 +246,8 @@ export async function copySlotToAllSlots(
     }
 
     // 取目標時段的已有安排（以 staffId 判斷不覆蓋）
-    const existingAssignments = await prisma.dutyAssignment.findMany({
-      where: { date: dateObj, slotTime: { in: targetSlots } },
+    const existingAssignments = await db.dutyAssignment.findMany({
+      where: { date: dateObj, slotTime: { in: targetSlots }, storeId },
       select: { slotTime: true, staffId: true },
     });
     const existingSet = new Set(
@@ -239,7 +255,7 @@ export async function copySlotToAllSlots(
     );
 
     // 只補入不存在的
-    const creates: any[] = [];
+    const creates: Prisma.DutyAssignmentCreateManyInput[] = [];
     for (const slot of targetSlots) {
       for (const src of sourceAssignments) {
         if (!existingSet.has(`${slot}|${src.staffId}`)) {
@@ -251,18 +267,19 @@ export async function copySlotToAllSlots(
             participationType: src.participationType,
             notes: src.notes,
             createdByStaffId: src.createdByStaffId,
-            storeId: currentStoreId(user),
+            storeId: mutationStoreId,
           });
         }
       }
     }
 
     if (creates.length > 0) {
-      await prisma.dutyAssignment.createMany({ data: creates, skipDuplicates: true });
+      await db.dutyAssignment.createMany({ data: creates, skipDuplicates: true });
     }
 
     revalidateDuty();
     return { success: true, data: { copiedCount: creates.length } };
+    });
   } catch (e) {
     return handleActionError(e);
   }
@@ -277,14 +294,16 @@ export async function copyFromPreviousBusinessDay(
 ): Promise<ActionResult<{ sourceDate: string; copiedCount: number }>> {
   try {
     const user = await requirePermission("duty.manage");
-    const data = copyFromPreviousBusinessDaySchema.parse(input);
+    const mutationStoreId = await resolveWriteStoreId(user);
+    return await withDutyMutation(mutationStoreId, async (db, course) => {
+      const data = copyFromPreviousBusinessDaySchema.parse(input);
 
-    const storeId = currentStoreId(user);
-    const targetDateObj = new Date(data.targetDate + "T00:00:00Z");
+      const storeId = mutationStoreId;
+      const targetDateObj = new Date(data.targetDate + "T00:00:00Z");
 
-    // 當天必須無安排
-    const existingCount = await prisma.dutyAssignment.count({
-      where: { date: targetDateObj, storeId },
+      // 當天必須無安排
+      const existingCount = await db.dutyAssignment.count({
+        where: { date: targetDateObj, storeId },
     });
     if (existingCount > 0) {
       return { success: false, error: "今天已有值班安排，請手動調整" };
@@ -296,7 +315,7 @@ export async function copyFromPreviousBusinessDay(
     for (let i = 0; i < 14; i++) {
       cursor.setUTCDate(cursor.getUTCDate() - 1);
       const dateStr = cursor.toISOString().slice(0, 10);
-      const slots = await getBusinessSlotsForDate(dateStr, storeId);
+      const slots = await getBusinessSlotsForDate(dateStr, storeId, db, course);
       if (slots.length > 0) {
         sourceDate = dateStr;
         break;
@@ -308,7 +327,7 @@ export async function copyFromPreviousBusinessDay(
     }
 
     const sourceDateObj = new Date(sourceDate + "T00:00:00Z");
-    const sourceAssignments = await prisma.dutyAssignment.findMany({
+    const sourceAssignments = await db.dutyAssignment.findMany({
       where: { date: sourceDateObj, storeId },
     });
 
@@ -317,7 +336,7 @@ export async function copyFromPreviousBusinessDay(
     }
 
     // 取目標日的營業時段，只複製雙方都存在的
-    const targetSlots = new Set(await getBusinessSlotsForDate(data.targetDate, storeId));
+    const targetSlots = new Set(await getBusinessSlotsForDate(data.targetDate, storeId, db, course));
     const creates = sourceAssignments
       .filter((a) => targetSlots.has(a.slotTime))
       .map((a) => ({
@@ -328,15 +347,16 @@ export async function copyFromPreviousBusinessDay(
         participationType: a.participationType,
         notes: a.notes,
         createdByStaffId: a.createdByStaffId,
-        storeId: currentStoreId(user),
+        storeId: mutationStoreId,
       }));
 
     if (creates.length > 0) {
-      await prisma.dutyAssignment.createMany({ data: creates, skipDuplicates: true });
+      await db.dutyAssignment.createMany({ data: creates, skipDuplicates: true });
     }
 
     revalidateDuty();
     return { success: true, data: { sourceDate, copiedCount: creates.length } };
+    });
   } catch (e) {
     return handleActionError(e);
   }
@@ -351,12 +371,14 @@ export async function copyToWeekDates(
 ): Promise<ActionResult<{ copiedCount: number }>> {
   try {
     const user = await requirePermission("duty.manage");
-    const data = copyToWeekDatesSchema.parse(input);
+    const mutationStoreId = await resolveWriteStoreId(user);
+    return await withDutyMutation(mutationStoreId, async (db, course) => {
+      const data = copyToWeekDatesSchema.parse(input);
 
-    const storeId = currentStoreId(user);
-    const sourceDateObj = new Date(data.sourceDate + "T00:00:00Z");
-    const sourceAssignments = await prisma.dutyAssignment.findMany({
-      where: { date: sourceDateObj, storeId },
+      const storeId = mutationStoreId;
+      const sourceDateObj = new Date(data.sourceDate + "T00:00:00Z");
+      const sourceAssignments = await db.dutyAssignment.findMany({
+        where: { date: sourceDateObj, storeId },
     });
 
     if (sourceAssignments.length === 0) {
@@ -369,12 +391,12 @@ export async function copyToWeekDates(
       if (targetDate === data.sourceDate) continue;
 
       const targetDateObj = new Date(targetDate + "T00:00:00Z");
-      const targetSlots = new Set(await getBusinessSlotsForDate(targetDate, storeId));
+      const targetSlots = new Set(await getBusinessSlotsForDate(targetDate, storeId, db, course));
 
       if (targetSlots.size === 0) continue; // 非營業日跳過
 
       // 覆蓋模式：先清除目標日所有安排
-      await prisma.dutyAssignment.deleteMany({
+      await db.dutyAssignment.deleteMany({
         where: { date: targetDateObj, storeId },
       });
 
@@ -389,17 +411,18 @@ export async function copyToWeekDates(
           participationType: a.participationType,
           notes: a.notes,
           createdByStaffId: a.createdByStaffId,
-          storeId: currentStoreId(user),
+          storeId: mutationStoreId,
         }));
 
       if (creates.length > 0) {
-        await prisma.dutyAssignment.createMany({ data: creates, skipDuplicates: true });
+        await db.dutyAssignment.createMany({ data: creates, skipDuplicates: true });
         totalCopied += creates.length;
       }
     }
 
     revalidateDuty();
     return { success: true, data: { copiedCount: totalCopied } };
+    });
   } catch (e) {
     return handleActionError(e);
   }
@@ -412,14 +435,18 @@ export async function copyToWeekDates(
 export async function deleteDutyAssignment(id: string): Promise<ActionResult> {
   try {
     const user = await requirePermission("duty.manage");
+    const mutationStoreId = await resolveWriteStoreId(user);
+    return await withDutyMutation(mutationStoreId, async (db) => {
 
-    const assignment = await prisma.dutyAssignment.findUnique({ where: { id } });
-    if (!assignment) return { success: false, error: "值班安排不存在" };
-    assertStoreAccess(user, assignment.storeId);
+      const assignment = await db.dutyAssignment.findUnique({ where: { id } });
+      if (!assignment) return { success: false, error: "值班安排不存在" };
+      assertStoreAccess(user, assignment.storeId);
+      if (assignment.storeId !== mutationStoreId) return { success: false, error: "無法修改其他店家的值班" };
 
-    await prisma.dutyAssignment.delete({ where: { id } });
-    revalidateDuty();
-    return { success: true, data: undefined };
+      await db.dutyAssignment.delete({ where: { id } });
+      revalidateDuty();
+      return { success: true, data: undefined };
+    });
   } catch (e) {
     return handleActionError(e);
   }
@@ -435,12 +462,15 @@ export async function clearSlotDutyAssignments(
 ): Promise<ActionResult> {
   try {
     const user = await requirePermission("duty.manage");
-    const dateObj = new Date(date + "T00:00:00Z");
-    await prisma.dutyAssignment.deleteMany({
-      where: { date: dateObj, slotTime, ...getStoreFilter(user) },
+    const mutationStoreId = await resolveWriteStoreId(user);
+    return await withDutyMutation(mutationStoreId, async (db) => {
+      const dateObj = new Date(date + "T00:00:00Z");
+      await db.dutyAssignment.deleteMany({
+        where: { date: dateObj, slotTime, storeId: mutationStoreId },
     });
     revalidateDuty();
     return { success: true, data: undefined };
+    });
   } catch (e) {
     return handleActionError(e);
   }
@@ -453,12 +483,15 @@ export async function clearSlotDutyAssignments(
 export async function clearDateDutyAssignments(date: string): Promise<ActionResult> {
   try {
     const user = await requirePermission("duty.manage");
-    const dateObj = new Date(date + "T00:00:00Z");
-    await prisma.dutyAssignment.deleteMany({
-      where: { date: dateObj, ...getStoreFilter(user) },
+    const mutationStoreId = await resolveWriteStoreId(user);
+    return await withDutyMutation(mutationStoreId, async (db) => {
+      const dateObj = new Date(date + "T00:00:00Z");
+      await db.dutyAssignment.deleteMany({
+        where: { date: dateObj, storeId: mutationStoreId },
     });
     revalidateDuty();
     return { success: true, data: undefined };
+    });
   } catch (e) {
     return handleActionError(e);
   }

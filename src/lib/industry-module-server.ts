@@ -10,6 +10,7 @@ import {
 const MODULE_LABELS: Record<IndustryModuleId, string> = {
   steamfoot: "蒸足",
   spa: "SPA",
+  course: "課程",
 };
 
 /**
@@ -27,6 +28,9 @@ export async function getStoreIndustryModule(
     LIMIT 1
   `;
   if (!stores[0]) throw new AppError("NOT_FOUND", "店舖不存在");
+  if (!["STEAMFOOT", "SPA", "COURSE"].includes(stores[0].industryModule)) {
+    throw new AppError("FORBIDDEN", "店舖模組設定無效");
+  }
   return resolveIndustryModuleId(stores[0].industryModule);
 }
 
@@ -49,4 +53,8 @@ export function requireSteamfootStore(storeId: string): Promise<void> {
 
 export function requireSpaStore(storeId: string): Promise<void> {
   return requireStoreIndustryModule(storeId, "spa");
+}
+
+export function requireCourseStore(storeId: string): Promise<void> {
+  return requireStoreIndustryModule(storeId, "course");
 }

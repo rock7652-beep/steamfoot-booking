@@ -11,9 +11,9 @@ import { Prisma } from "@prisma/client";
 export async function migrateManagerRecipients(storeId: string) {
   const store = await prisma.store.findUnique({
     where: { id: storeId },
-    select: { managerRecipientsMigrated: true, slug: true },
+    select: { managerRecipientsMigrated: true, slug: true, industryModule: true },
   });
-  if (!store || store.managerRecipientsMigrated) return;
+  if (!store || store.managerRecipientsMigrated || store.industryModule === "COURSE") return;
   await prisma.$transaction(async (tx) => {
     const claim = await tx.store.updateMany({
       where: { id: storeId, managerRecipientsMigrated: false },

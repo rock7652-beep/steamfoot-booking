@@ -16,10 +16,10 @@ beforeEach(() => {
   m.tx.mockImplementation(async fn => fn({ $executeRaw: m.lock, store: { findUniqueOrThrow: m.storeFind, update: m.storeSave }, storeSubscription: { findUnique: m.subFind, update: m.subSave, create: m.subSave }, storePlanChange: { create: m.log } }));
 });
 describe("original-store trial conversion", () => {
-  it("activates the purchased plan on the same store and subscription", async () => {
-    expect((await upsertStoreSubscription(input)).success).toBe(true);
-    expect(m.subSave).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "trial" }, data: expect.objectContaining({ isTrial: false, plan: "BASIC", status: "ACTIVE" }) }));
-    expect(m.storeSave).toHaveBeenCalledWith({ where: { id: "store" }, data: expect.objectContaining({ plan: "BASIC", planStatus: "ACTIVE", currentSubscriptionId: "trial" }) });
+  it.each(["BASIC", "GROWTH", "ALLIANCE"])("activates %s on the same store and subscription", async (plan) => {
+    expect((await upsertStoreSubscription({...input, plan})).success).toBe(true);
+    expect(m.subSave).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "trial" }, data: expect.objectContaining({ isTrial: false, plan, status: "ACTIVE" }) }));
+    expect(m.storeSave).toHaveBeenCalledWith({ where: { id: "store" }, data: expect.objectContaining({ plan, planStatus: "ACTIVE", currentSubscriptionId: "trial" }) });
     // Transaction exposes no customer/booking/wallet model: conversion must not copy or delete them.
     expect(m.log).toHaveBeenCalledTimes(1);
   });

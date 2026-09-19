@@ -1,3 +1,4 @@
+import { resolveStoreBySlug } from "@/lib/store-resolver";
 /**
  * POST /api/liff/exchange — LIFF idToken → NextAuth session bootstrap (PR-B)
  *
@@ -28,9 +29,8 @@ import {
   LiffIdTokenError,
   verifyLiffIdToken,
 } from "@/lib/liff/verify-id-token";
-import { resolveStoreBySlug } from "@/lib/store-resolver";
+import { assertStoreLiffContext, resolveStoreLiffContext } from "@/server/services/store-liff-context";
 import { logLineBindEvent } from "@/lib/line-bind-log";
-import { resolveCentralMemberLineLoginChannelId } from "@/lib/liff/central-member-config";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +92,10 @@ export async function POST(req: Request): Promise<Response> {
   const { idToken, storeSlug } = parsed;
 
   // ── 2. Config check ──
-  const expectedChannelId = resolveCentralMemberLineLoginChannelId();
+  let context;
+  try { context = await resolveStoreLiffContext(storeSlug); }
+  catch { return json({ status: "error", code: "MISSING_CHANNEL_CONFIG", message: "本店 LINE 設定尚未確認，請聯絡店家" }, 503); }
+  const expectedChannelId = context.channelId;
 
   // ── 3. Verify idToken ──
   let verified;
@@ -131,7 +134,7 @@ export async function POST(req: Request): Promise<Response> {
 
   // ── 4. Resolve store ──
   const store = await resolveStoreBySlug(storeSlug);
-  if (!store) {
+  if (!store || (context.config && (store.id !== context.config.storeId || store.slug !== context.config.slug))) {
     logLineBindEvent({
       path: "liff-exchange",
       status: "store_not_found",
@@ -148,10 +151,13 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
+  try { await assertStoreLiffContext(store, context); }
+  catch { return json({ status: "error", code: "MISSING_CHANNEL_CONFIG", message: "本店 LINE 設定尚未確認" }, 503); }
+
   // ── 5. Customer lookup ──
   let customer;
   try {
-    customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true });
+    customer = await resolveVerifiedLineCustomer(store.id, verified.lineUserId, { explainFailure: true, identityProvider: context.identityProvider });
   } catch (error) {
     if (error instanceof LineIdentityReviewError) {
       console.warn("[liff/exchange] identity review required", { storeId: store.id, reason: error.reason });

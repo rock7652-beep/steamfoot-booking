@@ -8,6 +8,7 @@ import { requireDataExportFeature } from "@/lib/data-export-gate";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 
 function toCsv(rows: string[][]): string {
   return rows
@@ -48,6 +49,18 @@ export async function GET() {
   const activeStoreId = await resolveActiveStoreId(user, cookieStoreId);
   const dataExportLocked = await requireDataExportFeature(activeStoreId);
   if (dataExportLocked) return dataExportLocked;
+
+  if (activeStoreId && await getStoreIndustryModule(activeStoreId) === "course") {
+    if (!(await checkPermission(user.role,user.staffId,"customer.read"))) return new NextResponse("Forbidden",{status:403});
+    const { resolveStoreViewContextFromCookie } = await import("@/lib/store-view-context-server");
+    if ((await resolveStoreViewContextFromCookie(user))?.isViewMode) return new NextResponse("Forbidden in view mode",{status:403});
+    const { getCourseCustomerCsv } = await import("@/server/queries/course-customer-export");
+    const csv = await getCourseCustomerCsv(activeStoreId,{
+      cards:await checkPermission(user.role,user.staffId,"wallet.read"),
+      bookings:await checkPermission(user.role,user.staffId,"booking.read"),
+    });
+    return new NextResponse(csv,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="course-customers-${toLocalDateStr()}.csv"`,"Cache-Control":"no-store"}});
+  }
 
   // 匯出符合當前店舖視角的顧客
   const customers = await prisma.customer.findMany({

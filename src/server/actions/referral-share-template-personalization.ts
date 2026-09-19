@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { handleActionError } from "@/lib/errors";
-import { requirePermission } from "@/lib/permissions";
+import { requireWritablePermission } from "@/lib/permissions";
 import { resolveWriteStoreId } from "@/lib/store";
 import { requireStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
@@ -26,7 +26,7 @@ const usageSchema = z.object({
 });
 
 async function authenticatedStoreId(): Promise<string> {
-  const user = await requirePermission("plans.edit");
+  const user = await requireWritablePermission("plans.edit");
   const storeId = await resolveWriteStoreId(user);
   await requireStoreFeature(storeId, FEATURES.REFERRAL_SHARE);
   return storeId;

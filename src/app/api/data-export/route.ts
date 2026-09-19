@@ -6,6 +6,9 @@ import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { dayRange, formatTWTime } from "@/lib/date-utils";
 import { requireDataExportFeature } from "@/lib/data-export-gate";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { COURSE_EXPORT_STATUSES } from "@/lib/course-data-export";
+import { getCourseDataExport } from "@/server/queries/course-data-export";
 import { getManagerReadFilter, getStoreFilter } from "@/lib/manager-visibility";
 import { resolveActiveStoreId } from "@/lib/store";
 import {
@@ -69,7 +72,7 @@ export async function GET(req: NextRequest) {
   const startDate = sp.get("startDate");
   const endDate = sp.get("endDate");
   const status = sp.get("status") || undefined;
-  if (!dataExportTypes.includes(type) || !validDate(startDate) || !validDate(endDate) || startDate > endDate || (status && !isDataExportStatus(type, status))) {
+  if (!dataExportTypes.includes(type) || !validDate(startDate) || !validDate(endDate) || startDate > endDate || (status && !isDataExportStatus(type, status) && !COURSE_EXPORT_STATUSES[type].some(option => option.value === status))) {
     return new NextResponse("Invalid export filters", { status: 400 });
   }
   if ((type === "customers" && !permitted[0]) || (type !== "customers" && !permitted[1])) {
@@ -88,8 +91,18 @@ export async function GET(req: NextRequest) {
   const workbook = new ExcelJS.Workbook();
   let count = 0;
   const period = dateWhere(startDate, endDate);
+  const courseMode = !!requestedStoreId && await getStoreIndustryModule(requestedStoreId) === "course";
+  if (status && !(courseMode ? COURSE_EXPORT_STATUSES[type].some(option => option.value === status) : isDataExportStatus(type, status))) return new NextResponse("Invalid export status", { status: 400 });
 
-  if (type === "customers") {
+  if (courseMode && requestedStoreId) {
+    if (storeViewContext?.isViewMode) return new NextResponse("查看模式不可匯出課程資料", { status: 403 });
+    const readPermission = ({ customers: "customer.read", transactions: "transaction.read", bookings: "booking.read", wallets: "wallet.read" } as const)[type];
+    if (!(await checkPermission(user.role, user.staffId, readPermission))) return new NextResponse("Forbidden", { status: 403 });
+    const revenueScope = getManagerReadFilter(readUser.role, readUser.staffId ?? null, "revenueStaffId", requestedStoreId);
+    const sheets = await getCourseDataExport(requestedStoreId, type, period, status, MAX_EXPORT_ROWS, { revenueStaffId: typeof revenueScope.revenueStaffId === "string" ? revenueScope.revenueStaffId : undefined });
+    count = sheets.reduce((total, sheet) => total + sheet.rows.length, 0);
+    if (count <= MAX_EXPORT_ROWS) for (const sheet of sheets) addRows(workbook.addWorksheet(sheet.name), sheet.headers, sheet.rows);
+  } else if (type === "customers") {
     const rows = await prisma.customer.findMany({
       where: { ...storeFilter, createdAt: period, ...(status ? { customerStage: status as never } : {}) },
       select: { name: true, phone: true, email: true, customerStage: true, createdAt: true, firstVisitAt: true, lastVisitAt: true, store: { select: { name: true } }, assignedStaff: { select: { displayName: true } } },

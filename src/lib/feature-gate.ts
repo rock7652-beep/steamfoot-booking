@@ -5,6 +5,7 @@
  * 不通過會 throw AppError("FORBIDDEN")，進入 error.tsx 顯示升級提示。
  */
 
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { isSingleStoreTrial, isSingleStoreFeature } from "@/lib/single-store-trial";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -77,6 +78,7 @@ export async function hasStoreFeature(
 
   const store = await getStoreForPlanByStoreId(storeId);
   if (isSingleStoreTrial(store)) return isSingleStoreFeature(feature);
+  if (store.plan === "EXPERIENCE" && await getStoreIndustryModule(storeId) === "course") return isSingleStoreFeature(feature);
   const baseAllowed = hasFeature(store.plan, feature);
   const entitlement = await getActiveStoreFeatureEntitlement(storeId, feature);
   return resolveEffectiveEntitlement(baseAllowed, entitlement).enabled;

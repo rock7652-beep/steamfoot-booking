@@ -9,6 +9,7 @@
  * 本頁只負責 fetch + 權限 + render workspace。
  */
 
+import { CourseTodaySummary } from "../courses/today-summary";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/session";
@@ -31,10 +32,11 @@ import { listStaffSelectOptions } from "@/server/queries/staff";
 import { CashDrawerWorkspace } from "./cash-drawer-workspace";
 
 interface PageProps {
+  courseHome?: boolean;
   searchParams: Promise<{ error?: string; cashDrawerError?: string }>;
 }
 
-export default async function CashDrawerPage({ searchParams }: PageProps) {
+export default async function CashDrawerPage({ searchParams, courseHome = false }: PageProps) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "cashDrawer.read"))) {
     redirect("/dashboard");
@@ -51,6 +53,7 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
   }
 
   if (!(await hasStoreFeature(storeId, FEATURES.CASH_DRAWER))) {
+    if (courseHome) return <PageShell><PageHeader title="首頁" subtitle="今日課程與待處理工作" /><CourseTodaySummary /></PageShell>;
     return <CashDrawerLockedState />;
   }
 
@@ -91,23 +94,27 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
   const canAssignStaff = !isViewMode && user.role === "ADMIN";
 
   return (
-    <PageShell>
+    <PageShell className={courseHome ? "course-home mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6" : undefined}>
       <FormErrorToast />
 
       <PageHeader
-        title="現金抽屜"
-        subtitle="每日開店點錢 / 閉店點錢 / 滾動結餘核對"
+        title={courseHome ? "首頁" : "現金抽屜"}
+        subtitle={courseHome ? "今日課程、學員與待處理工作" : "每日開店點錢 / 閉店點錢 / 滾動結餘核對"}
         actions={
           <Link
-            href="/dashboard/cashbook#cash-drawer-workspace"
+            href="/dashboard/cashbook"
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
-            ↑ 回現金管理
+            查看收支明細
           </Link>
         }
       />
 
+      {courseHome && <CourseTodaySummary />}
+      <section aria-label={courseHome ? "現金與收支" : undefined}>
+      {courseHome && <h2 className="mb-3 text-sm font-semibold text-earth-600">現金與收支</h2>}
       <CashDrawerWorkspace
+        compactSetup={courseHome}
         view={view}
         todayStr={todayStr}
         canInit={canInit}
@@ -119,8 +126,9 @@ export default async function CashDrawerPage({ searchParams }: PageProps) {
         closedDates={closedDates}
         canAssignStaff={canAssignStaff}
         staffOptions={staffOptions}
-        returnPath="/dashboard/cash-drawer"
+        returnPath={courseHome ? "/dashboard" : "/dashboard/cash-drawer"}
       />
+      </section>
     </PageShell>
   );
 }

@@ -17,6 +17,9 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Customer } from "@prisma/client";
+const course = vi.hoisted(() => ({ lock: vi.fn(), move: vi.fn() }));
+vi.mock("@/server/services/course-store-lock", () => ({ lockCourseStore: course.lock }));
+vi.mock("@/server/services/course-customer-merge", () => ({ moveCourseCustomerRelations: course.move }));
 
 // ── 類別 row store（in-memory）──
 type Row = Record<string, unknown> & { id: string };
@@ -148,6 +151,7 @@ vi.mock("@/lib/db", () => ({
     auditLog: auditLogModel,
     $transaction: (fn: (tx: unknown) => unknown) =>
       fn({
+        $queryRaw: vi.fn().mockResolvedValue([]),
         customer: customerModel,
         booking: bookingModel,
         transaction: transactionModel,
@@ -727,5 +731,35 @@ describe("mergeCustomerIntoCustomer — rejection cases", () => {
         performedByUserId: PERFORMER,
       }),
     ).rejects.toThrow(/找不到來源/);
+  });
+});
+
+describe("course merge identity boundary", () => {
+  const input = { sourceCustomerId: "src", targetCustomerId: "tgt", performedByUserId: PERFORMER, courseStoreId: STORE_A };
+  it.each(["userId", "lineUserId", "googleId", "healthProfileId"] as const)("rejects conflicting %s before moving course or legacy data", async field => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+    tables.customer.push(makeCustomer({ id: "src", [field]: "one" }) as Customer, makeCustomer({ id: "tgt", [field]: "two" }) as Customer);
+    await expect(mergeCustomerIntoCustomer(input)).rejects.toThrow();
+    expect(course.move).not.toHaveBeenCalled();
+    expect(auditLogModel.create).not.toHaveBeenCalled();
+  });
+  it("uses the same transaction for all relations and keeps the linked login account", async () => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+    tables.customer.push(makeCustomer({ id: "src", userId: "existing", emergencyContactName: "聯絡人" }) as Customer, makeCustomer({ id: "tgt" }) as Customer);
+    tables.customerIdentityLink.push({ id: "identity", customerId: "src", userId: "existing", storeId: STORE_A, provider: "line" }, { id: "google-identity", customerId: "src", userId: "existing", storeId: STORE_A, provider: "google" });
+    course.move.mockResolvedValueOnce({ courseBookings: 2, healthRecords: 3 });
+    const result = await mergeCustomerIntoCustomer(input);
+    expect(course.lock).toHaveBeenCalledWith(expect.any(Object), STORE_A);
+    expect(course.move).toHaveBeenCalledWith(expect.any(Object), STORE_A, "src", "tgt");
+    expect(result.movedCounts).toMatchObject({ courseBookings: 2, healthRecords: 3 });
+    expect(tables.customer.find(c => c.id === "tgt")).toMatchObject({ userId: "existing", emergencyContactName: "聯絡人" });
+    expect(tables.customerIdentityLink[0]).toMatchObject({ customerId: "tgt", userId: "existing" });
+  });
+  it("refuses a link whose fixed account disagrees with the member account", async () => {
+    const { mergeCustomerIntoCustomer } = await import("@/server/services/customer-merge");
+    tables.customer.push(makeCustomer({ id: "src", userId: "existing" }) as Customer, makeCustomer({ id: "tgt" }) as Customer);
+    tables.customerIdentityLink.push({ id: "identity", customerId: "src", userId: "different", storeId: STORE_A });
+    await expect(mergeCustomerIntoCustomer(input)).rejects.toThrow("固定帳號連結");
+    expect(course.move).not.toHaveBeenCalled();
   });
 });

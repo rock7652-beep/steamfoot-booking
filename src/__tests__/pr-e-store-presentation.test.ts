@@ -33,7 +33,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { resolveStorePresentation } from "@/lib/store-resolver";
+import { resolveStorePresentation, resolveCentralMemberLiffId } from "@/lib/store-resolver";
 import {
   contactStoreUrl,
   storeAddress,
@@ -240,7 +240,7 @@ describe("PR-E patch（Codex P1）：resolveStoreBySlug 不再 select liffId", (
     // 第 2 個 findUnique call 才是 liffId-only query
     expect(mockStoreFindUnique.mock.calls[1]?.[0]).toEqual({
       where: { id: STORE_ID_ZHUBEI },
-      select: { liffId: true },
+      select: { liffId: true, industryModule: true },
     });
   });
 });
@@ -536,5 +536,26 @@ describe("已核對的門市地址接回 LIFF", () => {
       storeName: p!.name, storeAddress: p!.address, storeMapUrl: p!.mapUrl, contactUrl: p!.contactUrl }));
     expect(calendar.searchParams.get("location")).toBe(address);
     expect(calendar.searchParams.get("details")).toContain(mapUrl);
+  });
+});
+
+ describe("new course store LIFF isolation", () => {
+  it.each([null, "new-course-liff"])("uses only this course store configuration (%s)", async (liffId) => {
+    vi.stubEnv("NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID", "another-store-liff");
+    mockStoreFindUnique.mockResolvedValueOnce({ id: "new-course", slug: "new-course", name: "New Course" })
+      .mockResolvedValueOnce({ liffId, industryModule: "COURSE" });
+    mockShopConfigFindUnique.mockResolvedValueOnce(null);
+    try {
+      expect(await resolveCentralMemberLiffId("new-course")).toBe(liffId);
+      expect(mockStoreFindUnique).toHaveBeenCalledTimes(2);
+    } finally { vi.unstubAllEnvs(); }
+  });
+  it.each(["STEAMFOOT", "SPA"])("preserves the existing central fallback for %s", async (industryModule) => {
+    vi.stubEnv("NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID", "existing-central-liff");
+    mockStoreFindUnique.mockResolvedValueOnce({ id: "legacy", slug: "legacy", name: "Legacy" })
+      .mockResolvedValueOnce({ liffId: null, industryModule });
+    mockShopConfigFindUnique.mockResolvedValueOnce(null);
+    try { expect(await resolveCentralMemberLiffId("legacy")).toBe("existing-central-liff"); }
+    finally { vi.unstubAllEnvs(); }
   });
 });

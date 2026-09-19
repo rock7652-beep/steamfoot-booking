@@ -1,3 +1,4 @@
+import { getConfiguredStoreLine } from "./store-line-config";
 import { cache } from "react";
 import { STORE_LOCATION_DEFAULTS } from "@/lib/store-location-defaults";
 import { AppError } from "@/lib/errors";
@@ -188,6 +189,7 @@ export type StorePresentation = {
   name: string;
   /** LIFF ID；null = 該店尚未開通 Mini App（page 應顯示 NotOpenForLiff） */
   liffId: string | null;
+  industryModule?: string;
   /** LINE OA 連結（聯絡店家）；未設定時為空字串 */
   contactUrl: string;
   /** 店家地址（顯示用）；未設定時為空字串 */
@@ -225,7 +227,7 @@ export const resolveStorePresentation = cache(
     const [storeLiffRow, cfg] = await Promise.all([
       prisma.store.findUnique({
         where: { id: store.id },
-        select: { liffId: true },
+        select: { liffId: true, industryModule: true },
       }),
       prisma.shopConfig.findUnique({
         where: { storeId: store.id },
@@ -262,6 +264,7 @@ export const resolveStorePresentation = cache(
       slug: store.slug,
       name: getCustomerFacingStoreName(store),
       liffId: emptyToNull(storeLiffRow?.liffId) ?? envLiffId ?? null,
+      industryModule: storeLiffRow?.industryModule,
       contactUrl,
       address,
       mapUrl,
@@ -286,6 +289,12 @@ export const resolveStorePresentation = cache(
 export const resolveCentralMemberLiffId = cache(async (
   storeSlug?: string,
 ): Promise<string | null> => {
+  const explicit = storeSlug ? getConfiguredStoreLine(storeSlug) : null;
+  if (explicit) {
+    const store = await resolveStoreBySlug(storeSlug!);
+    if (!store || store.id !== explicit.storeId) throw new Error("LINE 店家設定不匹配");
+    return explicit.liffId;
+  }
   const storeLiffId = resolveCentralMemberLiffIdForStore(storeSlug);
   if (storeLiffId) return storeLiffId;
 
@@ -295,6 +304,8 @@ export const resolveCentralMemberLiffId = cache(async (
     if (targetStoreLiffId) {
       return replaceRetiredCentralMemberLiffId(targetStoreLiffId);
     }
+    // A new course store must not initialize another store's LIFF endpoint.
+    if (targetStore?.industryModule === "COURSE") return null;
   }
 
   const configured = emptyToNull(process.env.NEXT_PUBLIC_CENTRAL_MEMBER_LIFF_ID);

@@ -47,6 +47,7 @@ next-env.d.ts
 /src/generated/prisma
 /src/generated/spa-client
 /generated/spa-client
+/generated/course-client
 scripts/backup-before-cleanup.json
 
 # audit / backfill / review script outputs (may contain prod data)
@@ -56,3 +57,8 @@ audit-*.csv
 *-backfill-*.csv
 plan-amortization-*.csv
 wallet-review-*.csv
+
+# Isolated course acceptance environment
+.env.course-preview
+
+/supabase/.temp/

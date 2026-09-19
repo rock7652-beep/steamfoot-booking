@@ -9,6 +9,7 @@ import { customerWelcomeTitle } from "@/lib/customer-welcome";
 import { resolveCentralMembershipsForUser } from "@/server/services/central-member-resolver";
 import { getCustomerLoginMethods } from "@/server/queries/customer-login-methods";
 import { LoginMethodsCard } from "./login-methods-card";
+import { getConfiguredStoreLine, storeLineIdentityProvider } from "@/lib/store-line-config";
 
 interface PageProps {
   searchParams: Promise<{
@@ -45,15 +46,18 @@ export default async function ProfilePage({ searchParams }: PageProps) {
   const profileStore = profileStoreCtx?.storeId
     ? await prisma.store.findUnique({
         where: { id: profileStoreCtx.storeId },
-        select: { name: true },
+        select: { name: true, industryModule: true },
       })
     : null;
   const welcomeTitle = customerWelcomeTitle(profileStore);
+  const storeLineConfig = profileStore?.industryModule === "COURSE" && profileStoreCtx
+    ? getConfiguredStoreLine(profileStoreCtx.storeId) : null;
+  const storeLineProvider = storeLineConfig ? storeLineIdentityProvider(storeLineConfig) : undefined;
   const centralMember = user
     ? await resolveCentralMembershipsForUser(user.id)
     : { memberships: [], conflicts: [] };
   const loginMethods = user
-    ? await getCustomerLoginMethods(user.id)
+    ? await getCustomerLoginMethods(user.id, storeLineProvider)
     : {
         phone: { linked: false, maskedValue: null },
         google: { linked: false, maskedValue: null },

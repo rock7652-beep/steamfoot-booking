@@ -15,6 +15,8 @@ import {
   applyWeeklyTemplate,
   syncFromHeadquarters,
 } from "@/server/actions/business-hours";
+import {getCourseMonthSpecialDays,getCourseMonthScheduleSummary,getCourseDayHours,saveCourseDayHours} from "@/server/actions/course-business-hours";
+import {toLocalDateStr,addTaiwanDuration} from "@/lib/date-utils";
 import { SLOT_INTERVAL_OPTIONS, CAPACITY_OPTIONS, generateSlots, validateBusinessPeriods } from "@/lib/slot-generator";
 
 // ============================================================
@@ -39,9 +41,13 @@ interface BusinessPeriod {
   defaultCapacity: number;
 }
 
-function validateServicePeriods(periods: BusinessPeriod[]) {
+function validateServicePeriods(periods: BusinessPeriod[], course = false) {
   const incomplete = periods.findIndex((period) => !period.openTime || !period.closeTime);
   if (incomplete >= 0) return { valid: false, error: `第 ${incomplete + 1} 段：請選擇開始與結束時間` };
+  if(course) {
+    const sorted=[...periods].sort((a,b)=>a.openTime.localeCompare(b.openTime));
+    return {valid:sorted.length>0 && sorted.every((p,i)=>p.openTime<p.closeTime && (i===0||sorted[i-1].closeTime<=p.openTime)),error:"請設定不重疊的完整營業時間"};
+  }
   return validateBusinessPeriods(periods);
 }
 
@@ -113,6 +119,7 @@ interface Props {
   initialMonth: number;
   canManage: boolean;
   isHeadquarters: boolean;
+  isCourseStore?: boolean;
   isSpaStore: boolean;
 }
 
@@ -137,6 +144,7 @@ export function ScheduleManager({
   canManage,
   isHeadquarters,
   isSpaStore,
+  isCourseStore = false,
 }: Props) {
   // 蒸足採 30/60/90/120；SPA 保留既有 15/30 排程設定，不受此頁變更影響。
   const intervalOptions = isSpaStore
@@ -150,6 +158,7 @@ export function ScheduleManager({
   const [weeklyHours, setWeeklyHours] = useState(initialWeekly);
   const [isPending, startTransition] = useTransition();
   const [loadingDay, setLoadingDay] = useState(false);
+  const [saveError,setSaveError]=useState<string|null>(null);
   const [reviewedDraft, setReviewedDraft] = useState<string | null>(null);
 
   // 每週固定設定展開/收合
@@ -204,7 +213,7 @@ export function ScheduleManager({
   const draftKey = JSON.stringify([selectedDate, editStatus, editPeriods, editReason, applyMode, copyWeeks, templateWeeks, dayDetail?.slots]);
   const reviewing = reviewedDraft === draftKey;
   const periodValidation = editStatus === "custom" || (editStatus === "open" && applyMode !== "day")
-    ? validateServicePeriods(editPeriods) : { valid: true };
+    ? validateServicePeriods(editPeriods,isCourseStore) : { valid: true };
   const currentTimes = new Set(dayDetail?.slots.filter((slot) => slot.isEnabled).map((slot) => slot.startTime));
   const previewTimes = new Set(draftSlotPreview.map((slot) => slot.startTime));
   const addedTimes = [...previewTimes].filter((time) => !currentTimes.has(time));
@@ -231,17 +240,17 @@ export function ScheduleManager({
     const requestId = ++requestIdRef.current;
     try {
       const [specials, summary] = await Promise.all([
-        getMonthSpecialDays(year, month),
-        getMonthScheduleSummary(year, month),
+        (isCourseStore ? getCourseMonthSpecialDays : getMonthSpecialDays)(year, month),
+        (isCourseStore ? getCourseMonthScheduleSummary : getMonthScheduleSummary)(year, month),
       ]);
       if (requestId !== requestIdRef.current) return;
       monthCacheRef.current.set(key, { summary, specialDays: specials });
       setSpecialDays(specials);
       setMonthSummary(summary);
     } catch {
-      // 失敗時保持舊狀態，由各 mutation 的 toast 自行回報錯誤
+      toast.error("設定已送出，但月份重新讀取失敗，請重新整理確認");
     }
-  }, [year, month]);
+  }, [year, month, isCourseStore]);
 
   /** 載入指定月份：cache hit 秒開、cache miss 走 server + race guard */
   const loadMonth = useCallback(async (targetYear: number, targetMonth: number) => {
@@ -256,8 +265,8 @@ export function ScheduleManager({
     setIsMonthLoading(true);
     try {
       const [specials, summary] = await Promise.all([
-        getMonthSpecialDays(targetYear, targetMonth),
-        getMonthScheduleSummary(targetYear, targetMonth),
+        (isCourseStore ? getCourseMonthSpecialDays : getMonthSpecialDays)(targetYear, targetMonth),
+        (isCourseStore ? getCourseMonthScheduleSummary : getMonthScheduleSummary)(targetYear, targetMonth),
       ]);
       // 慢回來的舊請求不要覆蓋已經切到下一個月的狀態
       if (requestId !== requestIdRef.current) return;
@@ -265,11 +274,11 @@ export function ScheduleManager({
       setSpecialDays(specials);
       setMonthSummary(summary);
     } catch {
-      // ignore — 保留舊狀態
+      toast.error("月份設定讀取失敗，請重試");
     } finally {
       if (requestId === requestIdRef.current) setIsMonthLoading(false);
     }
-  }, []);
+  }, [isCourseStore]);
 
   // 初次掛載：seed cache 用 props（specialDays + initialSummary 都從 server cache 拿到）。
   // 不再打 server 補抓 — initialSummary 已是正確值。
@@ -281,22 +290,6 @@ export function ScheduleManager({
     // 只在 mount 時執行一次；後續 month 變化由 changeMonth 觸發 loadMonth
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (!dayDetail) return;
-    setEditPeriods(dayDetail.periods.length > 0 ? dayDetail.periods : [
-      {
-        openTime: dayDetail.openTime ?? "10:00",
-        closeTime: dayDetail.closeTime ?? "22:00",
-        slotInterval: dayDetail.slotInterval ?? 60,
-        defaultCapacity: dayDetail.defaultCapacity ?? 6,
-      },
-    ]);
-  }, [dayDetail]);
-
-  useEffect(() => {
-    setShowAdvancedSlots(false);
-  }, [selectedDate]);
 
   // ── Day detail client cache ──────────────────────────
   // 點同一天第二次直接從 Map 拿，不打 server。
@@ -408,6 +401,8 @@ export function ScheduleManager({
   const selectDate = useCallback(
     async (dateStr: string, opts: { bypassCache?: boolean } = {}) => {
       if (selectedDate && selectedDate !== dateStr && dayDraftDirty && !window.confirm("目前日期有尚未儲存的修改，仍要切換日期嗎？")) return;
+      if(selectedDate!==dateStr) setShowAdvancedSlots(false);
+      setSaveError(null);
       setSelectedDate(dateStr);
       setSelectedSlot(null);
 
@@ -451,7 +446,7 @@ export function ScheduleManager({
       setLoadingDay(true);
 
       try {
-        const detail = await getDaySlotDetails(dateStr);
+        const detail = await (isCourseStore ? getCourseDayHours : getDaySlotDetails)(dateStr);
         // 慢回來的舊請求 — 使用者已經切到別的日期，丟掉結果
         if (requestId !== requestIdRef.current) return;
         dayDetailCacheRef.current.set(dateStr, detail);
@@ -471,7 +466,7 @@ export function ScheduleManager({
         if (requestId === requestIdRef.current) setLoadingDay(false);
       }
     },
-    [buildPreviewDayDetail, dayDraftDirty, selectedDate],
+    [buildPreviewDayDetail, dayDraftDirty, selectedDate, isCourseStore],
   );
 
   // ── 儲存日設定 ──
@@ -483,6 +478,14 @@ export function ScheduleManager({
         const sortedPeriods = [...editPeriods].sort((a, b) => a.openTime.localeCompare(b.openTime));
         const firstPeriod = sortedPeriods[0];
         const lastPeriod = sortedPeriods.at(-1);
+        if (isCourseStore) {
+          const result=await saveCourseDayHours({date:selectedDate,status:editStatus,mode:applyMode,weeks:applyMode==="copy"?copyWeeks:templateWeeks,reason:editReason,periods:sortedPeriods});
+          if(!result.success){setSaveError(result.error??"儲存失敗");toast.error(result.error);return;}
+          setSaveError(null);
+          if(applyMode==="permanent"||applyMode==="template") setWeeklyHours(prev=>prev.map(w=>w.dayOfWeek===dayDetail?.dayOfWeek?{...w,isOpen:editStatus==="open"||editStatus==="custom",openTime:firstPeriod?.openTime??null,closeTime:lastPeriod?.closeTime??null,periods:sortedPeriods}:w));
+          dayDetailCacheRef.current.clear(); monthCacheRef.current.clear();
+          await invalidateAndReloadCurrentMonth(); await selectDate(selectedDate,{bypassCache:true});setReviewedDraft(null);toast.success("營業設定已儲存");return;
+        }
         // 「排班模板」模式 → 營業時間 + 時段開關一起複製到未來
         if (applyMode === "template" && dayDetail) {
           const isOpen = editStatus === "open" || editStatus === "custom";
@@ -611,13 +614,13 @@ export function ScheduleManager({
         toast.error("儲存失敗");
       }
     });
-  }, [selectedDate, canManage, isPending, loadingDay, periodValidation.valid, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, editPeriods, applyMode, copyWeeks, templateWeeks, selectDate, dayDetail, invalidateAndReloadCurrentMonth]);
+  }, [isCourseStore, selectedDate, canManage, isPending, loadingDay, periodValidation.valid, editStatus, editReason, editOpenTime, editCloseTime, editInterval, editCapacity, editPeriods, applyMode, copyWeeks, templateWeeks, selectDate, dayDetail, invalidateAndReloadCurrentMonth]);
 
   // ── 儲存每週固定設定 ──
   const saveWeeklyDay = useCallback(async (
     dow: number, isOpen: boolean, periods: BusinessPeriod[],
   ) => {
-    if (!canManage || (isOpen && !validateServicePeriods(periods).valid)) return false;
+    if (!canManage || (isOpen && !validateServicePeriods(periods,isCourseStore).valid)) return false;
     try {
       const sorted = [...periods].sort((a, b) => a.openTime.localeCompare(b.openTime));
       const first = sorted[0];
@@ -631,7 +634,9 @@ export function ScheduleManager({
         periods: isOpen ? sorted : undefined,
       };
 
-      const result = await updateBusinessHours(dow, payload);
+      const today=toLocalDateStr();
+      const weekDate=addTaiwanDuration(today,(dow-new Date(today+"T00:00:00Z").getUTCDay()+7)%7,"DAY");
+      const result = isCourseStore ? await saveCourseDayHours({date:weekDate,status:isOpen?"custom":"closed",mode:"weekly",weeks:0,reason:"",periods:sorted}) : await updateBusinessHours(dow, payload);
       if (result.success) {
         toast.success("每週預設已更新");
         setWeeklyHours((prev) =>
@@ -660,8 +665,9 @@ export function ScheduleManager({
       toast.error("儲存失敗，請重試");
       return false;
     }
-  }, [canManage, selectedDate, selectDate, invalidateAndReloadCurrentMonth]);
+  }, [canManage, selectedDate, selectDate, invalidateAndReloadCurrentMonth, isCourseStore]);
 
+  const selectedSlotDetail=dayDetail?.slots.find(s=>s.startTime===selectedSlot);
   // ── 渲染 ──
   // ── 同步總部設定 ──
   const [syncing, setSyncing] = useState(false);
@@ -808,7 +814,7 @@ export function ScheduleManager({
           <div className="space-y-3">
             <div className="rounded-xl border bg-white p-4 shadow-sm">
               <h3 className="mb-2 text-base font-bold text-earth-900">
-                {selectedDate.slice(5).replace("-", "/")}（{dayDetail.dayName}）當日時段
+                {selectedDate.slice(5).replace("-", "/")}（{dayDetail.dayName}）{isCourseStore?"營業設定":"當日時段"}
               </h3>
 
               <p className="mb-3 text-[11px] text-earth-500">
@@ -843,6 +849,7 @@ export function ScheduleManager({
                 </div>
               </div>
 
+              {saveError && <p role="alert" className="mb-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
               {/* 時段設定：custom 模式、permanent+open、template+open 都顯示 */}
               {(editStatus === "custom" || (editStatus === "open" && (applyMode === "permanent" || applyMode === "template"))) && (
                 <div className="mb-3 space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
@@ -878,7 +885,7 @@ export function ScheduleManager({
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: e.target.value } : item))}
                             className="mt-1 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border border-earth-300 bg-white px-2 py-1.5 text-base" />
                         </label>
-                        <label className="text-[11px] text-earth-500">
+                        <label hidden={isCourseStore} className="text-[11px] text-earth-500">
                           預約時段間隔
                           <select value={period.slotInterval} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item))}
@@ -886,7 +893,7 @@ export function ScheduleManager({
                             {intervalOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.value} 分鐘</option>)}
                           </select>
                         </label>
-                        <label className="text-[11px] text-earth-500">
+                        <label hidden={isCourseStore} className="text-[11px] text-earth-500">
                           每時段名額
                           <select value={period.defaultCapacity} disabled={!canManage}
                             onChange={(e) => setEditPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, defaultCapacity: Number(e.target.value) } : item))}
@@ -909,7 +916,7 @@ export function ScheduleManager({
                 </div>
               )}
 
-              <section aria-label="開放時段預覽" className="mb-3 rounded-lg border border-primary-100 bg-primary-50 p-3">
+              <section hidden={isCourseStore} aria-label="開放時段預覽" className="mb-3 rounded-lg border border-primary-100 bg-primary-50 p-3">
                 <h4 className="text-sm font-semibold text-primary-800">{dayDraftDirty ? "儲存後時段" : "目前開放時段"}</h4>
                 {canManage && editStatus !== "closed" && editStatus !== "training" && <button type="button" disabled={dayDraftDirty || loadingDay || isPending}
                   aria-expanded={showAdvancedSlots && !dayDraftDirty}
@@ -987,13 +994,10 @@ export function ScheduleManager({
                   </div>
 
                   {/* 名額調整控制列 */}
-                  {selectedSlot && canManage && (() => {
-                    const slot = dayDetail.slots.find((s) => s.startTime === selectedSlot);
-                    if (!slot) return null;
-                    return (
+                  {selectedSlot && selectedSlotDetail && canManage && (
                       <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-primary-50 px-3 py-2">
                         <span className="text-xs font-medium text-earth-700">{selectedSlot}</span>
-                        <span className="text-[10px] text-earth-400">預設 {slot.templateCapacity} 位</span>
+                        <span className="text-[10px] text-earth-400">預設 {selectedSlotDetail.templateCapacity} 位</span>
                         <span className="text-earth-400">→</span>
                         <input
                           type="number"
@@ -1030,7 +1034,7 @@ export function ScheduleManager({
                         >
                           {isPending ? "..." : "儲存"}
                         </button>
-                        {slot.override === "capacity_change" && (
+                        {selectedSlotDetail.override === "capacity_change" && (
                           <button
                             type="button"
                             disabled={isPending}
@@ -1059,8 +1063,7 @@ export function ScheduleManager({
                           </button>
                         )}
                       </div>
-                    );
-                  })()}
+                  )}
                 </>
               )}
               {dayDetail.slots.some((s) => s.override) && (
@@ -1157,7 +1160,7 @@ export function ScheduleManager({
                             className="accent-primary-600"
                           />
                           <div>
-                            <span>複製時段與開關</span>
+                            <span>{isCourseStore?"套用每週營業時間":"複製時段與開關"}</span>
                             <span className="ml-1 text-[10px] text-earth-400">每{dayDetail?.dayName}</span>
                             <div className="mt-0.5 text-[10px] text-earth-400">依選擇週數套用</div>
                           </div>
@@ -1196,7 +1199,7 @@ export function ScheduleManager({
                         <p className="text-xs text-amber-800">重新設定服務時間會清除套用日期原有的臨時時段調整，以上方預覽為準。</p>
                       </> : <p>{editStatus === "closed" || editStatus === "training" ? "全天停止接受新預約。" : applyMode === "day" ? "使用每週固定時段；當日單格時段調整仍保留。" : `固定時段：${editPeriods.map((period) => `${period.openTime}–${period.closeTime}`).join("、")}。各日期的特殊設定與時段調整依既有套用規則處理。`}</p>}
                       {applyMode !== "day" && <p className="text-xs text-amber-800">這次不只影響一天，請再次確認套用範圍。</p>}
-                      <p className="text-xs text-earth-600">既有預約不會自動取消，收款與扣堂不會變動；如無法服務，請另行聯繫顧客。</p>
+                      <p className="text-xs text-earth-600">{isCourseStore?"若有已排課程衝突，本批不會儲存；請先調整課表。預約與額度紀錄保留。":"既有預約不會自動取消，收款與扣堂不會變動；如無法服務，請另行聯繫顧客。"}</p>
                       <button type="button" disabled={isPending} onClick={() => setReviewedDraft(null)} className="underline text-primary-800">返回修改</button>
                     </section>
                   )}
@@ -1257,7 +1260,7 @@ export function ScheduleManager({
                     day={w}
                     canManage={canManage}
                     isPending={isPending}
-                    isSpaStore={isSpaStore}
+                    isSpaStore={isSpaStore} isCourseStore={isCourseStore}
                     onSave={saveWeeklyDay}
                   />
                 ))}
@@ -1266,7 +1269,7 @@ export function ScheduleManager({
           )}
         </div>
         {/* 套用總部設定（僅非總部店顯示） */}
-        {canManage && !isHeadquarters && (
+        {canManage && !isHeadquarters && !isCourseStore && (
           <details className="rounded-xl border bg-white p-4">
             <summary className="cursor-pointer text-sm font-medium text-earth-600">總部設定</summary>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -1300,11 +1303,13 @@ function WeeklyDayRow({
   canManage,
   isPending,
   isSpaStore,
+  isCourseStore = false,
   onSave,
 }: {
   day: WeeklyHour;
   canManage: boolean;
   isPending: boolean;
+  isCourseStore?: boolean;
   isSpaStore: boolean;
   onSave: (dow: number, isOpen: boolean, periods: BusinessPeriod[]) => Promise<boolean>;
 }) {
@@ -1322,7 +1327,7 @@ function WeeklyDayRow({
   const [expanded, setExpanded] = useState(false);
 
   const [saving, startSave] = useTransition();
-  const validation = isOpen ? validateServicePeriods(periods) : { valid: true };
+  const validation = isOpen ? validateServicePeriods(periods,isCourseStore) : { valid: true };
 
   function handleToggle() {
     setIsOpen(!isOpen);
@@ -1387,12 +1392,12 @@ function WeeklyDayRow({
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, openTime: e.target.value } : item)); setDirty(true); }} />
               <input type="time" style={{ minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }} aria-label="結束時間" value={period.closeTime} disabled={!canManage} className="col-span-2 box-border block min-h-10 w-full min-w-0 max-w-full appearance-none rounded border px-2 py-1 text-base sm:col-span-1"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, closeTime: e.target.value } : item)); setDirty(true); }} />
-              <select value={period.slotInterval} disabled={!canManage} className="rounded border px-1 py-1 text-[11px]"
+              <select hidden={isCourseStore} value={period.slotInterval} disabled={!canManage} className="rounded border px-1 py-1 text-[11px]"
                 onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, slotInterval: Number(e.target.value) } : item)); setDirty(true); }}>
                 {intervalOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.value}分鐘</option>)}
               </select>
               <div className="flex gap-1">
-                <select value={period.defaultCapacity} disabled={!canManage} className="min-w-0 flex-1 rounded border px-1 py-1 text-[11px]"
+                <select hidden={isCourseStore} value={period.defaultCapacity} disabled={!canManage} className="min-w-0 flex-1 rounded border px-1 py-1 text-[11px]"
                   onChange={(e) => { setPeriods((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, defaultCapacity: Number(e.target.value) } : item)); setDirty(true); }}>
                   {CAPACITY_OPTIONS.map((capacity) => <option key={capacity} value={capacity}>{capacity}位</option>)}
                 </select>
