@@ -94,7 +94,7 @@ export function CourseWorkspace({
   const [expandedSession, setExpandedSession] = useState<string | null>(params.get("session"));
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
-    "day" | "schedule" | "catalog" | "edit" | null
+    "day" | "schedule" | "catalog" | "edit" | "inspect" | null
   >(canCreate && params.get("action") === "schedule" ? "schedule" : params.get("action") === "booking" || params.get("session") ? "day" : null);
   const [dirty, setDirty] = useState(false);
   function closePanel() {
@@ -495,7 +495,7 @@ export function CourseWorkspace({
           </form>}
           <p className="text-sm text-earth-500">
             共 {filteredItems.length} 筆／全部 {catalogItems.length} 筆 ·
-            隱藏僅供店長使用；下架／停用不供新增使用，既有紀錄保留。
+            {view === "rooms" ? "停用教室不供新排課使用；既有紀錄保留。" : "隱藏僅供店長使用；下架不供新增使用，既有紀錄保留。"}
           </p>
           <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
             <table className="w-full min-w-[680px] text-left text-sm">
@@ -582,10 +582,10 @@ export function CourseWorkspace({
                                       ? { kind: "template", value: template }
                                       : { kind: "room", value: item },
                                   );
-                                  open("edit");
+                                  open("inspect");
                                 }}
                               >
-                                編輯{template ? "課程" : "教室"}
+                                查看{template ? "課程" : "教室"}
                               </button>
                               {template ? <>
                                 <select className={button} aria-label={`${item.name} 狀態`} value={template.visibility ?? "PUBLIC"} disabled={pending} onChange={e=>changeStatus(item,e.target.value)}><option value="PUBLIC">上架</option><option value="HIDDEN">隱藏</option><option value="OFF">下架</option></select>
@@ -646,8 +646,8 @@ export function CourseWorkspace({
                   ? "編輯單堂排課"
                   : editing?.kind === "room"
                     ? "編輯教室"
-                    : "編輯課程預設"
-                : panel === "catalog"
+                    : copyTemplate ? "複製課程" : "編輯課程"
+                : panel === "inspect" ? (editing?.kind === "room" ? "查看教室" : "查看課程") : panel === "catalog"
                   ? view === "rooms"
                     ? "新增教室"
                     : "新增課程"
@@ -785,7 +785,6 @@ export function CourseWorkspace({
                         }
                         className="grid gap-3"
                       >
-                        <RoomFields/>
                         <label className="flex-1">
                           教室名稱
                           <input
@@ -828,7 +827,6 @@ export function CourseWorkspace({
                           )
                         }
                       >
-                        <ClassType/>
                         <label className="col-span-full">
                           課程名稱
                           <input
@@ -838,6 +836,7 @@ export function CourseWorkspace({
                             maxLength={80}
                           />
                         </label>
+                        <ClassType/>
                         <label className="col-span-full">
                           分類
                           <input
@@ -902,6 +901,14 @@ export function CourseWorkspace({
                 )}
               </>
             )}
+            {panel === "inspect" && editing && editing.kind !== "session" && <section className="space-y-3">
+              <dl className="divide-y divide-earth-100">{[
+                ["名稱",editing.value.name],["分類",editing.value.category || "未分類"],
+                ["狀態",editing.kind === "room" ? (editing.value.isActive ? "啟用":"停用") : ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[editing.value.visibility ?? "PUBLIC"])],
+                ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "私課" : editing.value.classType === "GROUP" ? "團課":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 每人 ${editing.value.pointCost} 點 · 上限 ${editing.value.capacity} 人`],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : [["容納人數",editing.value.capacity ?? "未設定"]]),
+              ].map(([label,value])=><div key={String(label)} className="grid grid-cols-[7rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>
+              <details><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
+            </section>}
             {panel === "edit" && editing && canEdit && (
               <form
                 id="course-edit-form"
@@ -970,8 +977,6 @@ export function CourseWorkspace({
                       ? "修改後套用於新排課；已排課程請從日期內編輯。"
                       : "名稱會同步顯示於使用此教室的課程。"}
                 </p>
-                {editing.kind==="template" && <ClassType value={editing.value.classType}/>}
-                {editing.kind==="room" && <RoomFields equipment={editing.value.equipment} location={editing.value.location}/>}
                 {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>t.isActive || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{t.name}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
                 <label className="col-span-full">
                   {editing.kind === "room" ? "教室名稱" : "課程名稱"}
@@ -987,6 +992,7 @@ export function CourseWorkspace({
                     }
                   />
                 </label>
+                {editing.kind === "template" && <ClassType value={editing.value.classType}/>}
                 {editing.kind !== "session" && (
                   <label className="col-span-full">
                     分類
@@ -1003,15 +1009,11 @@ export function CourseWorkspace({
                 {editing.kind === "room" && (
                   <RoomMore
                     capacity={editing.value.capacity}
+                    equipment={editing.value.equipment} location={editing.value.location}
                     details={editing.value.details}
                   />
                 )}
-                {editing.kind === "template" && (
-                  <TemplateMore
-                    description={editing.value.description}
-                    precautions={editing.value.precautions}
-                  />
-                )}
+
                 {editing.kind === "session" && (
                   <>
                     <label className="col-span-full">
@@ -1143,7 +1145,7 @@ export function CourseWorkspace({
                           )
                           .map((r) => (
                             <option key={r.id} value={r.id} disabled>
-                              {r.name}（已隱藏，請另選教室）
+                              {r.name}（已停用，請另選教室）
                             </option>
                           ))}
                         {rooms.map((r) => (
@@ -1154,6 +1156,12 @@ export function CourseWorkspace({
                       </select>
                     </label>
                   </>
+                )}
+                {editing.kind === "template" && (
+                  <TemplateMore
+                    description={editing.value.description}
+                    precautions={editing.value.precautions}
+                  />
                 )}
               </form>
             )}
@@ -1245,7 +1253,7 @@ export function CourseWorkspace({
                         </select>
                       </label>
                     )}
-                    <label>
+                    <label className="col-span-full">
                       教練
                       <select
                         className={field}
@@ -1259,7 +1267,7 @@ export function CourseWorkspace({
                           </option>
                         ))}
                       </select>
-                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請先至人員管理設定資格。</span>}
+                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請先至人員管理設定資格。<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/staff")} target="_blank" rel="noopener noreferrer">開啟人員管理（保留此排課草稿）</a><button type="button" className={button} onClick={()=>router.refresh()}>已設定，更新教練名單</button></span>}
                     </label>
                     <label>
                       日期
@@ -1287,38 +1295,6 @@ export function CourseWorkspace({
                         required
                       />
                     </label>
-                    <label key={`duration-${chosen}`}>
-                      時長（分鐘）
-                      <input
-                        className={field}
-                        name="duration"
-                        type="number"
-                        defaultValue={
-                          copySource
-                            ? (new Date(copySource.endsAt).getTime() -
-                                new Date(copySource.startsAt).getTime()) /
-                              60000
-                            : template?.durationMinutes
-                        }
-                        min={1}
-                        max={480}
-                        required
-                      />
-                    </label>
-                    <label key={`capacity-${chosen}`}>
-                      人數上限
-                      <input
-                        className={field}
-                        name="capacity"
-                        type="number"
-                        defaultValue={
-                          copySource?.capacity ?? template?.capacity
-                        }
-                        min={1}
-                        max={500}
-                        required
-                      />
-                    </label>
                     {rooms.length > 1 ? (
                       <label key={`room-${chosen}`}>
                         教室
@@ -1338,7 +1314,7 @@ export function CourseWorkspace({
                         </select>
                       </label>
                     ) : (
-                      <div className="self-center">
+                      <div className="self-center"><span className="block text-sm">教室</span>
                         {rooms[0]?.name}
                         <input
                           type="hidden"
@@ -1347,6 +1323,20 @@ export function CourseWorkspace({
                         />
                       </div>
                     )}
+                    <label key={`capacity-${chosen}`}>
+                      人數上限
+                      <input
+                        className={field}
+                        name="capacity"
+                        type="number"
+                        defaultValue={
+                          copySource?.capacity ?? template?.capacity
+                        }
+                        min={1}
+                        max={500}
+                        required
+                      />
+                    </label>
                     {roomCapacityNotice && (
                       <p
                         role="status"
@@ -1355,6 +1345,26 @@ export function CourseWorkspace({
                         {roomCapacityNotice}
                       </p>
                     )}
+                    <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-3">調整本堂時長（預設 {copySource ? Math.round((new Date(copySource.endsAt).getTime()-new Date(copySource.startsAt).getTime())/60000) : template?.durationMinutes} 分鐘）</summary>
+                    <label key={`duration-${chosen}`}>
+                      時長（分鐘）
+                      <input
+                        className={field}
+                        name="duration"
+                        type="number"
+                        defaultValue={
+                          copySource
+                            ? (new Date(copySource.endsAt).getTime() -
+                                new Date(copySource.startsAt).getTime()) /
+                              60000
+                            : template?.durationMinutes
+                        }
+                        min={1}
+                        max={480}
+                        required
+                      />
+                    </label>
+                    </details>
                     <label className="col-span-full">
                       重複
                       <select
@@ -1513,6 +1523,7 @@ export function CourseWorkspace({
               </>
             )}
           </div>
+          {panel === "inspect" && canEdit && <footer className="shrink-0 border-t bg-white p-4"><button className={`${primary} w-full`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button></footer>}
           {panel === "schedule" && (
             <footer className="shrink-0 border-t bg-white p-4">
               <button
@@ -1548,7 +1559,7 @@ export function CourseWorkspace({
                 className={`${primary} flex-1`}
                 disabled={pending}
               >
-                儲存修改
+                {copyTemplate && editing.kind === "template" ? "建立課程" : "儲存修改"}
               </button>
             </footer>
           )}
@@ -1580,7 +1591,7 @@ export function CourseWorkspace({
 
 function RoomMore({
   capacity,
-  details,
+  details, equipment, location,
 }: {
   capacity?: number | null;
   details?: string;
@@ -1600,9 +1611,10 @@ function RoomMore({
         />
       </label>
       <details className="col-span-full">
-        <summary>更多資訊</summary>
+        <summary className="min-h-11 cursor-pointer py-3">選填：設備、位置與備註</summary>
+        <RoomFields equipment={equipment} location={location}/>
         <label>
-          設備、位置與備註
+          備註（保留原有內容）
           <textarea
             className={field}
             name="details"
@@ -1623,7 +1635,7 @@ function TemplateMore({
 }) {
   return (
     <details className="col-span-full">
-      <summary>更多內容</summary>
+      <summary className="min-h-11 cursor-pointer py-3">選填：課程介紹與注意事項</summary>
       <label>
         課程介紹
         <textarea
@@ -1647,4 +1659,4 @@ function TemplateMore({
 }
 
 function ClassType({value}:{value?:string|null}) {return <label className="col-span-full">課型<select className={field} name="classType" defaultValue={value ?? ""}><option value="">待補設定</option><option value="PRIVATE">私課</option><option value="GROUP">團課</option></select></label>;}
-function RoomFields({equipment,location}:{equipment?:string;location?:string}) {return <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-3">設備／位置</summary><label className="block">設備<input className={field} name="equipment" defaultValue={equipment}/></label><label className="block">位置<input className={field} name="location" defaultValue={location}/></label></details>;}
+function RoomFields({equipment,location}:{equipment?:string;location?:string}) {return <><label className="block">設備<input className={field} name="equipment" defaultValue={equipment}/></label><label className="block">位置<input className={field} name="location" defaultValue={location}/></label></>;}

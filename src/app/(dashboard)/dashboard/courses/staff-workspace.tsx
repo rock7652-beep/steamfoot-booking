@@ -24,6 +24,9 @@ type Person = {
   permissions: string[];
   customerId: string;
 };
+function identity(p: Pick<Person,"kind"|"coachEnabled"|"memberEnabled"|"customerId">) {
+  return p.kind === "manager" ? (p.coachEnabled ? "店長兼教練":"店長") : !p.coachEnabled ? "未啟用工作身分" : p.memberEnabled && p.customerId ? "教練兼顧客":"教練";
+}
 const field = "min-h-11 w-full rounded-lg border border-earth-200 p-2";
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
@@ -135,13 +138,9 @@ export function CourseStaffWorkspace({
                 key={p.id}
                 className={p.active ? "" : "text-earth-400 bg-earth-50"}
               >
-                <td className="p-3">{p.name}{p.kind==="manager" && p.coachEnabled && <span className="ml-2 text-xs">店長兼教練</span>}{(!p.emergencyContactName || !p.emergencyContactPhone || !p.emergencyContactRelation) && <span className="block text-xs text-amber-800">緊急聯絡待補</span>}{!p.active && p.assignments.length>0 && <span className="block text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
+                <td className="p-3">{p.name}{(!p.emergencyContactName || !p.emergencyContactPhone || !p.emergencyContactRelation) && <span className="block text-xs text-amber-800">緊急聯絡待補</span>}{!p.active && p.assignments.length>0 && <span className="block text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
                 <td className="p-3">
-                  {p.kind === "manager"
-                    ? "店長（後台）"
-                    : !p.coachEnabled ? "未啟用工作身分" : p.memberEnabled && p.customerId
-                      ? "教練兼顧客"
-                      : "教練（僅我的工作）"}
+                  {identity(p)}
                 </td>
                 <td className="p-3">
                   {p.kind === "manager"
@@ -167,7 +166,7 @@ export function CourseStaffWorkspace({
         >
           <header className="flex shrink-0 items-center justify-between border-b p-4">
             <h2 id="course-staff-title" className="font-semibold">
-              人員資料與權限
+              {person ? (readOnly ? "查看人員":"編輯人員") : "新增人員"}
             </h2>
             <button
               className={button}
@@ -177,7 +176,7 @@ export function CourseStaffWorkspace({
               關閉
             </button>
           </header>
-          <nav className="flex flex-wrap gap-2 border-b p-3">{[["basic","基本資料"],["qualifications","授課資格／交接"],...(kind==="manager"?[["permissions","管理權限"]]:[])].map(([id,label])=><button key={id} type="button" className={button} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
+          <nav className="flex flex-wrap gap-2 border-b p-3">{[["basic","基本資料"],...(coachEnabled?[["qualifications","授課與工作"]]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={button} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             <CourseConflicts items={conflicts}/>
             {error && (
@@ -185,8 +184,15 @@ export function CourseStaffWorkspace({
                 {error}
               </p>
             )}
+            {readOnly && person && <section className="space-y-3">
+              {tab === "basic" && <dl className="divide-y">{[["姓名",person.name],["身分",identity(person)],["電話",person.phone || "未填"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName,person.emergencyContactRelation,person.emergencyContactPhone].filter(Boolean).join("／") || "待補"],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
+              {tab === "qualifications" && <><h3 className="font-medium">授課資格</h3><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(t=>t.name).join("、") || "尚未設定"}</p><h3 className="pt-3 font-medium">前台工作／會員連結</h3><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name ?? "已連結會員" : "尚未連結 · 我的工作尚不可使用"}</p>{person.customerId && <p>{person.memberEnabled ? "會員專區／我的工作":"僅我的工作"}</p>}{person.assignments.length ? <CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/> : <p className="pt-3 text-earth-500">沒有未結束且未取消的課次。</p>}</>}
+              {tab === "permissions" && <><h3 className="font-medium">後台登入</h3><p>{person.email}</p><h3 className="pt-3 font-medium">店內管理權限</h3>{permissionGroups.map(g=><details key={g.label}><summary className="min-h-11 cursor-pointer py-3">{g.label} · {g.codes.filter(c=>permissions.includes(c.code)).length} 項</summary><p>{g.codes.filter(c=>permissions.includes(c.code)).map(c=>c.label).join("、") || "未開啟"}</p></details>)}</>}
+            </section>}
             <form
               id="course-staff-form"
+              hidden={readOnly}
+              onInvalidCapture={(e)=>{const group=(e.target as HTMLElement).closest<HTMLElement>("[data-staff-tab]");if(group)setTab(group.dataset.staffTab!);}}
               onChangeCapture={()=>setDirty(true)}
               className="space-y-3"
               onSubmit={(e) => {
@@ -201,8 +207,8 @@ export function CourseStaffWorkspace({
                       name: d.get("name"),
                       kind,
                       coachEnabled,
-                      qualificationIds,
-                      qualificationsConfirmed,
+                      qualificationIds: coachEnabled ? qualificationIds : person?.qualificationIds ?? [],
+                      qualificationsConfirmed: coachEnabled ? qualificationsConfirmed : person?.qualificationsConfirmed ?? false,
                       emergencyContactRelation:d.get("emergencyContactRelation"),
                       birthday:d.get("birthday"),
                       confirmDeactivate:!!deactivating,
@@ -223,9 +229,9 @@ export function CourseStaffWorkspace({
                           : undefined,
                       active: d.get("active") === "yes",
                       memberEnabled:
-                        kind === "coach"
+                        coachEnabled
                           ? d.get("memberEnabled") === "yes"
-                          : true,
+                          : person?.memberEnabled ?? true,
                       permissions:
                         kind === "manager" ? permissions : undefined,
                       requestKey: key,
@@ -242,19 +248,7 @@ export function CourseStaffWorkspace({
               }}
             >
               <fieldset disabled={readOnly} className="contents">
-              <div hidden={tab!=="basic"} className="space-y-3">
-              <label className="block">
-                身分
-                <select
-                  className={field}
-                  value={kind}
-                  disabled={!!person}
-                  onChange={(e) => setKind(e.target.value as typeof kind)}
-                >
-                  <option value="coach">教練：前台我的工作</option>
-                  <option value="manager">店長：後台管理</option>
-                </select>
-              </label>
+              <div data-staff-tab="basic" hidden={tab!=="basic"} className="space-y-3">
               <label className="block">
                 姓名
                 <input
@@ -264,7 +258,19 @@ export function CourseStaffWorkspace({
                   required
                 />
               </label>
-              <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={coachEnabled} onChange={e=>setCoachEnabled(e.target.checked)}/>具有教練身分（店長可兼任）</label>
+              <label className="block">
+                身分
+                <select
+                  className={field}
+                  value={kind}
+                  disabled={!!person}
+                  onChange={(e) => {setKind(e.target.value as typeof kind);setCoachEnabled(e.target.value === "coach");}}
+                >
+                  <option value="coach">教練：前台我的工作</option>
+                  <option value="manager">店長：後台管理</option>
+                </select>
+              </label>
+              {kind === "manager" && <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={coachEnabled} onChange={e=>setCoachEnabled(e.target.checked)}/>兼任教練</label>}
               <label className="block">生日（選填）<input className={field} type="date" name="birthday" defaultValue={person?.birthday}/></label>
               {([
                 ["phone", "電話"],
@@ -272,6 +278,19 @@ export function CourseStaffWorkspace({
                 ["emergencyContactPhone", "緊急聯絡人電話"],
                 ["emergencyContactRelation", "緊急聯絡人關係"],
               ] as const).map(([name, label]) => <label className="block" key={name}>{label}<input className={field} name={name} type={name.endsWith("Phone") || name === "phone" ? "tel" : "text"} defaultValue={person?.[name]} required={!person && name!=="phone"} /></label>)}
+              <label className="block">
+                狀態
+                <select
+                  className={field}
+                  name="active"
+                  defaultValue={person?.active === false ? "no" : "yes"}
+                >
+                  <option value="yes">啟用</option>
+                  <option value="no">停用</option>
+                </select>
+              </label>
+              </div>
+              <div data-staff-tab="qualifications" hidden={tab!=="qualifications" || !coachEnabled} className="space-y-3">
               {coachEnabled && (
                 <label className="block">
                   連結既有顧客
@@ -280,7 +299,7 @@ export function CourseStaffWorkspace({
                     name="customerId"
                     defaultValue={person?.customerId}
                   >
-                    <option value="">暫不連結</option>
+                    <option value="">尚未連結（工作入口不可使用）</option>
                     {customers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -288,10 +307,36 @@ export function CourseStaffWorkspace({
                     ))}
                   </select>
                   <span className="text-xs text-earth-500">
-                    使用已綁定的會員帳號存取工作，不另設後台密碼。
+                    教練工作入口使用已驗證的會員帳號，與店長後台登入分開。
                   </span>
                 </label>
               )}
+              {coachEnabled && (
+                <label className="block">
+                  前台身分
+                  <select
+                    className={field}
+                    name="memberEnabled"
+                    defaultValue={
+                      person?.memberEnabled === false ? "no" : "yes"
+                    }
+                  >
+                    <option value="yes">教練兼顧客：會員專區／我的工作</option>
+                    <option value="no">僅教練：我的工作</option>
+                  </select>
+                  <span className="text-sm text-earth-500">
+                    沿用同一個固定帳號。切換身分不刪除顧客與歷史紀錄。
+                  </span>
+                </label>
+              )}
+
+                <p className="text-sm">{qualificationsConfirmed?"授課資格已確認":"授課資格待補；既有課次保留，新排課須先設定。"}</p>
+                {templates.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={qualificationIds.includes(t.id)} onChange={e=>{setQualificationsConfirmed(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{t.name}</label>)}
+                <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={qualificationsConfirmed} disabled={person?.qualificationsConfirmed} onChange={e=>setQualificationsConfirmed(e.target.checked)}/>確認並沿用以上授課資格</label>
+                {person && person.assignments.length === 0 && <p className="text-sm text-earth-500">沒有未結束且未取消的課次。</p>}
+                {person && person.assignments.length > 0 && <><h3>{person.active?"目前授課":"待交接課次"}</h3><CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
+              </div>
+              <div data-staff-tab="permissions" hidden={tab!=="permissions"}>
               {kind === "manager" && (
                   <>
                     <label className="block">
@@ -317,43 +362,7 @@ export function CourseStaffWorkspace({
                     </label>
                   </>
               )}
-              {coachEnabled && (
-                <label className="block">
-                  前台身分
-                  <select
-                    className={field}
-                    name="memberEnabled"
-                    defaultValue={
-                      person?.memberEnabled === false ? "no" : "yes"
-                    }
-                  >
-                    <option value="yes">教練兼顧客：會員專區／我的工作</option>
-                    <option value="no">僅教練：我的工作</option>
-                  </select>
-                  <span className="text-sm text-earth-500">
-                    沿用同一個固定帳號。切換身分不刪除顧客與歷史紀錄。
-                  </span>
-                </label>
-              )}
-              <label className="block">
-                狀態
-                <select
-                  className={field}
-                  name="active"
-                  defaultValue={person?.active === false ? "no" : "yes"}
-                >
-                  <option value="yes">啟用</option>
-                  <option value="no">停用</option>
-                </select>
-              </label>
-              </div>
-              <div hidden={tab!=="qualifications"} className="space-y-3">
-                <p className="text-sm">{qualificationsConfirmed?"授課資格已確認":"授課資格待補；既有課次保留，新排課須先設定。"}</p>
-                {templates.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={qualificationIds.includes(t.id)} onChange={e=>{setQualificationsConfirmed(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{t.name}</label>)}
-                <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={qualificationsConfirmed} disabled={person?.qualificationsConfirmed} onChange={e=>setQualificationsConfirmed(e.target.checked)}/>確認並沿用以上授課資格</label>
-                {person && <><h3>{person.active?"目前授課":"待交接課次"}</h3><CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
-              </div>
-              <div hidden={tab!=="permissions"}>
+
               {kind === "manager" && (
                 <section>
                   <h3 className="font-semibold text-primary-800">店內管理權限 · 已開啟 {permissions.length} 項</h3>
