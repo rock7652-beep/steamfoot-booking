@@ -554,11 +554,19 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
       people: data.people,
       expectedAmount,
     });
-    const notificationSetup = pilot ? await prepareTrialNotificationSetup({
+    const linkedToEntry = chatLink?.channel === "LINE"
+      && customer.lineLinkStatus === "LINKED"
+      && customer.lineUserId === chatLink.chatIdentity;
+    const notificationSetup: TrialNotificationSetup | undefined = pilot ? await prepareTrialNotificationSetup({
       storeId: store.id, customerId: customer.id, bookingId: booking.id,
       customerCreated,
       linked: customer.lineLinkStatus === "LINKED" && Boolean(customer.lineUserId),
-    }) : undefined;
+    }) : chatLink?.channel === "LINE"
+      // All stores share the same verified LINE entry flow. Do not ask a
+      // successfully linked customer to send their phone again in the chat.
+      // No new binding capability is issued from a phone-only public booking.
+      ? { status: linkedToEntry ? "linked" : "needs_help" }
+      : undefined;
     return {
       status: "ok",
       bookingId: booking.id,
