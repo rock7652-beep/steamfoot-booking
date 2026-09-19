@@ -829,7 +829,7 @@ export function CourseWorkspace({
                             maxLength={80}
                           />
                         </label>
-                        <ClassType/>
+                        <ClassType required/>
                         <label className="col-span-full">
                           分類
                           <input
@@ -863,6 +863,7 @@ export function CourseWorkspace({
                             max={10000}
                             required
                           />
+                          <span className="block text-sm text-earth-600">堂數卡每次固定扣 1 堂，依使用卡別扣抵。</span>
                         </label>
                         <label>
                           人數上限
@@ -986,7 +987,7 @@ export function CourseWorkspace({
                     }
                   />
                 </label>
-                {editing.kind === "template" && <ClassType value={editing.value.classType}/>}
+                {editing.kind === "template" && <ClassType value={editing.value.classType} required={copyTemplate}/>}
                 {editing.kind !== "session" && (
                   <label className="col-span-full">
                     分類
@@ -1655,7 +1656,7 @@ function TemplateMore({
   );
 }
 
-function ClassType({value}:{value?:string|null}) {return <label className="col-span-full">課型<select className={field} name="classType" defaultValue={value ?? ""}><option value="">待補設定</option><option value="PRIVATE">私課</option><option value="GROUP">團課</option></select></label>;}
+function ClassType({value,required=false}:{value?:string|null;required?:boolean}) {return <label className="col-span-full">課型{required ? "（必填）" : ""}<select className={field} name="classType" required={required} defaultValue={value ?? ""}><option value="">{required ? "請選擇課型" : "待補設定"}</option><option value="PRIVATE">私課</option><option value="GROUP">團課</option></select></label>;}
 function RoomFields({equipment,location}:{equipment?:string;location?:string}) {return <><label className="block">設備<input className={field} name="equipment" defaultValue={equipment}/></label><label className="block">位置<input className={field} name="location" defaultValue={location}/></label></>;}
 
 function DebitRule() {
