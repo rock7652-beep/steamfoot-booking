@@ -57,6 +57,7 @@ export function CourseStaffWorkspace({
   const [coachEnabled,setCoachEnabled]=useState(true);
   const [qualificationIds,setQualificationIds]=useState<string[]>([]);
   const [qualificationSearch,setQualificationSearch]=useState("");
+  const [qualificationsTouched,setQualificationsTouched]=useState(false);
   const [conflicts,setConflicts]=useState<ConflictItem[]>([]);
   const [tab,setTab]=useState("basic");
   const [readOnly,setReadOnly]=useState(false);
@@ -74,7 +75,7 @@ export function CourseStaffWorkspace({
     .sort((a, b) => Number(b.active) - Number(a.active));
   function edit(p: Person | null) {
     setDirty(false);
-    setPerson(p);setCoachEnabled(p?.coachEnabled ?? true);setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setConflicts([]);setTab("basic");setReadOnly(!!p);
+    setPerson(p);setCoachEnabled(p?.coachEnabled ?? true);setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setQualificationsTouched(false);setConflicts([]);setTab("basic");setReadOnly(!!p);
     setPermissions(p?.permissions ?? permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
     setKind(p?.kind ?? "coach");
     setError("");
@@ -212,7 +213,7 @@ export function CourseStaffWorkspace({
                       kind,
                       coachEnabled,
                       qualificationIds: coachEnabled ? qualificationIds : person?.qualificationIds ?? [],
-                      qualificationsConfirmed: coachEnabled ? true : person?.qualificationsConfirmed ?? false,
+                      qualificationsConfirmed: coachEnabled ? (!person || person.qualificationsConfirmed || qualificationsTouched) : person?.qualificationsConfirmed ?? false,
                       emergencyContactRelation:d.get("emergencyContactRelation"),
                       birthday:d.get("birthday"),
                       confirmDeactivate:!!deactivating,
@@ -298,11 +299,11 @@ export function CourseStaffWorkspace({
                 <section className="space-y-2">
                   <h3 className="font-medium text-primary-900">可教授課程</h3>
                   <p className="text-sm text-earth-600">選擇這位教練可以教授的課程，排課時依此篩選。</p>
-                  {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">這是待補設定的舊人員。勾選後儲存即可，既有課次不會因此失效。</p>}
+                  {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">舊資料待補：調整可教授課程後儲存即可；未調整時維持待補，既有課次保留。</p>}
                   <input className={field} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>setQualificationSearch(e.target.value)}/>
                   <p className="text-sm text-earth-500">已選 {qualificationIds.length} 項</p>
                   <div className="max-h-64 overflow-y-auto overscroll-contain rounded-xl border border-earth-200 divide-y divide-earth-100">
-                    {templates.filter(t=>t.name.includes(qualificationSearch.trim())).map(t=><label key={t.id} className={`flex min-h-11 items-center gap-3 px-3 py-2 ${qualificationIds.includes(t.id)?"bg-primary-50 text-primary-900":""}`}><input className="h-4 w-4 accent-primary-700" type="checkbox" checked={qualificationIds.includes(t.id)} onChange={e=>setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id))}/>{t.name}</label>)}
+                    {templates.filter(t=>t.name.includes(qualificationSearch.trim())).map(t=><label key={t.id} className={`flex min-h-11 items-center gap-3 px-3 py-2 ${qualificationIds.includes(t.id)?"bg-primary-50 text-primary-900":""}`}><input className="h-4 w-4 accent-primary-700" type="checkbox" checked={qualificationIds.includes(t.id)} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{t.name}</label>)}
                     {!templates.some(t=>t.name.includes(qualificationSearch.trim())) && <p className="p-3 text-sm text-earth-500">沒有符合的課程</p>}
                   </div>
                 </section>
