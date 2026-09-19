@@ -95,7 +95,7 @@ export function CourseWorkspace({
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | null
-  >(canCreate && params.get("action") === "schedule" ? "schedule" : params.get("action") === "booking" ? "day" : null);
+  >(canCreate && params.get("action") === "schedule" ? "schedule" : params.get("action") === "booking" || params.get("session") ? "day" : null);
   const [dirty, setDirty] = useState(false);
   function closePanel() {
     if (pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
@@ -123,7 +123,10 @@ export function CourseWorkspace({
           roomFilter === "all" ||
           ("defaultRoomId" in item && item.defaultRoomId === roomFilter)),
     )
-    .sort((a, b) => Number(b.isActive) - Number(a.isActive));
+    .sort((a, b) => {
+      const rank = (item: Room) => !item.isActive ? 2 : item.visibility === "HIDDEN" ? 1 : 0;
+      return rank(a) - rank(b);
+    });
   function changeStatus(item: Room, visibility?:string) {
     if (pending) return;
     setError("");
@@ -528,7 +531,7 @@ export function CourseWorkspace({
                     <tr
                       key={item.id}
                       className={
-                        item.isActive
+                        item.isActive && (!template || template.visibility === "PUBLIC")
                           ? "hover:bg-primary-50/40"
                           : "bg-earth-50 opacity-60 hover:opacity-100 focus-within:opacity-100"
                       }
@@ -1018,7 +1021,6 @@ export function CourseWorkspace({
                         <option value="future">這堂及後續</option>
                       </select>
                     </label>
-                    {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <p className="col-span-full text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請到人員管理一次設定資格後再排課。</p>}
                     <label>
                       日期
                       <input
@@ -1257,6 +1259,7 @@ export function CourseWorkspace({
                           </option>
                         ))}
                       </select>
+                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請先至人員管理設定資格。</span>}
                     </label>
                     <label>
                       日期

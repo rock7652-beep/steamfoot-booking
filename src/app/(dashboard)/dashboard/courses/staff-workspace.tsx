@@ -57,6 +57,7 @@ export function CourseStaffWorkspace({
   const [conflicts,setConflicts]=useState<ConflictItem[]>([]);
   const [tab,setTab]=useState("basic");
   const [readOnly,setReadOnly]=useState(false);
+  const [dirty,setDirty]=useState(false);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -69,12 +70,17 @@ export function CourseStaffWorkspace({
     )
     .sort((a, b) => Number(b.active) - Number(a.active));
   function edit(p: Person | null) {
+    setDirty(false);
     setPerson(p);setCoachEnabled(p?.coachEnabled ?? true);setQualificationIds(p?.qualificationIds ?? []);setQualificationsConfirmed(p?.qualificationsConfirmed ?? false);setConflicts([]);setTab("basic");setReadOnly(!!p);
     setPermissions(p?.permissions ?? permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
     setKind(p?.kind ?? "coach");
     setError("");
     setKey(crypto.randomUUID());
     setOpen(true);
+  }
+  function close() {
+    if (pending || (dirty && !window.confirm("尚有未儲存的修改，確定關閉？"))) return;
+    setOpen(false);
   }
   return (
     <>
@@ -155,7 +161,7 @@ export function CourseStaffWorkspace({
       {open && (
         <RightSheet
           open
-          onClose={() => !pending && setOpen(false)}
+          onClose={close}
           width={520}
           labelledById="course-staff-title"
         >
@@ -166,12 +172,12 @@ export function CourseStaffWorkspace({
             <button
               className={button}
               disabled={pending}
-              onClick={() => setOpen(false)}
+              onClick={close}
             >
               關閉
             </button>
           </header>
-          <nav className="flex flex-wrap gap-2 border-b p-3">{[["basic","基本資料"],["qualifications","授課資格／交接"],["permissions","管理權限"]].map(([id,label])=><button key={id} className={button} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
+          <nav className="flex flex-wrap gap-2 border-b p-3">{[["basic","基本資料"],["qualifications","授課資格／交接"],...(kind==="manager"?[["permissions","管理權限"]]:[])].map(([id,label])=><button key={id} type="button" className={button} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             <CourseConflicts items={conflicts}/>
             {error && (
@@ -181,6 +187,7 @@ export function CourseStaffWorkspace({
             )}
             <form
               id="course-staff-form"
+              onChangeCapture={()=>setDirty(true)}
               className="space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();

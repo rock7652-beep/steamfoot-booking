@@ -30,3 +30,20 @@ it("saves and revokes course export permissions independently",async()=>{
   expect(m.permission).toHaveBeenCalledWith(expect.objectContaining({where:{staffId_permission:{staffId:"manager2",permission}},update:{granted:false}}));
  }
 });
+it("blocks coach removal with an ongoing class but allows confirmed whole-person revocation without suspending the member account",async()=>{
+ m.staff.mockResolvedValue({id:"manager2",userId:"u2",status:"ACTIVE",courseCoachEnabled:true,courseQualifiedTemplateIds:[],user:{role:"OWNER"}});
+ m.raw.mockImplementation(async(sql:TemplateStringsArray)=>sql.join("").includes('FROM "CourseSession"') ? [{id:"ongoing",name:"進行中課程",startsAt:new Date(),capacity:5}] : []);
+ expect(await saveCourseStaff({...input,coachEnabled:false})).toMatchObject({success:false,conflicts:[{id:"ongoing"}]});
+ expect(m.update).not.toHaveBeenCalled();
+ expect(await saveCourseStaff({...input,active:false})).toMatchObject({success:false});
+ expect(await saveCourseStaff({...input,active:false,confirmDeactivate:true})).toMatchObject({success:true});
+ expect(m.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({status:"INACTIVE"})}));
+ expect(m.user).toHaveBeenCalledWith(expect.objectContaining({data:expect.not.objectContaining({status:"SUSPENDED"})}));
+});
+it("removing coach role after handover preserves the manager role and one Staff row",async()=>{
+ m.staff.mockResolvedValue({id:"manager2",userId:"u2",status:"ACTIVE",courseCoachEnabled:true,courseQualifiedTemplateIds:[],user:{role:"OWNER"}});
+ m.raw.mockResolvedValue([]);
+ expect(await saveCourseStaff({...input,coachEnabled:false})).toMatchObject({success:true});
+ expect(m.update).toHaveBeenCalledWith(expect.objectContaining({where:{id:"manager2"},data:expect.objectContaining({status:"ACTIVE",courseCoachEnabled:false})}));
+ expect(m.user).toHaveBeenCalledWith(expect.objectContaining({data:expect.not.objectContaining({role:"CUSTOMER"})}));
+});
