@@ -922,7 +922,7 @@ export function CourseWorkspace({
                 ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "私課" : editing.value.classType === "GROUP" ? "團課":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",`點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : [["容納人數",editing.value.capacity ?? "未設定"]]),
               ].map(([label,value])=><div key={String(label)} className="grid grid-cols-[7rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>
               {editing.kind === "template" && <DebitRule/>}
-              {editing.kind === "template" && canEdit && <CourseCompensationEditor onDirty={()=>setDirty(true)} key={editing.value.id} templateId={editing.value.id}/>}
+              {editing.kind === "template" && canEdit && <CourseCompensationEditor onDirty={setDirty} key={editing.value.id} templateId={editing.value.id}/>}
               <details><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
             </section>}
             {panel === "edit" && editing && canEdit && (

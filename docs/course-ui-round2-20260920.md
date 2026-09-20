@@ -13,11 +13,12 @@
 
 ## 驗證
 - TypeScript 通過；新增模組 ESLint 通過。
-- 7 組、52 項針對性測試通過：公式、多選／單選、自動帶入、跨店、未開放方式、資格、版本衝突、批次自我停用／額度／教室阻擋與既有教練操作。
+- 7 組、53 項針對性測試通過：公式、多選／單選、自動帶入、跨店、未開放方式、資格、版本衝突、批次自我停用／額度／教室阻擋與既有教練操作。
 - 隔離 PostgreSQL 新資料表、觸發器與權限驗證通過。以 A 店課程建立交易內測試，快照沿用／費率變更不改歷史／anon 與 authenticated 不可讀取通過；測試交易 ROLLBACK。
 - Supabase advisors 僅新表的 RLS 無 policy INFO（刻意禁止 Data API）、既有 btree_gist public WARN；未擴大修復其他模組。
 - Cloudflare 沿用既有豁免。
-- 尚待新版部署與登入後實頁驗收、iPad／實體 LINE；不能以測試取代。
+- 功能版 00e6799e 的 CI、隔離 audit、Vercel 預覽通過；A 店店長登入、頂部提示、三種計酬勾選及儲存已實頁確認，臨時費率已精準復原。
+- 實頁發現儲存後仍誤報未儲存，已修正並增加回歸測試。原生確認視窗造成瀏覽器控制逾時；其餘批次／老師單選／備註實頁及 iPad／實體 LINE 仍待補，不能以測試取代。
 
 ## 遷移界線
 新增 prisma/migrations/20260920160000_course_compensation/migration.sql，對應 course-prisma schema；已套用且僅套用隔離專案 ttworfzgwejdeolegkxl，Supabase migration 名 course_compensation_settings_and_snapshots。
