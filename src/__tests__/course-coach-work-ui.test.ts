@@ -34,11 +34,12 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); })
 describe("coach daily work interactions", () => {
   it("moves to the next month with the chosen day and renders an empty day", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, { ...props(), initialDate: "2026-09-30" })));
-    expect(host.textContent).toContain("這天沒有課程");
-    await act(async () => (host.querySelector('[aria-label="後一天"]') as HTMLButtonElement).click());
+    await click("課表");
+    expect(host.textContent).toContain("當日沒有排課");
+    await act(async () => (host.querySelector('[aria-label="下一週"]') as HTMLButtonElement).click());
     expect(m.replace).toHaveBeenCalledWith("/s/a/book?month=2026-10", { scroll: false });
     await act(async () => root.render(createElement(CoursePortalClient, { ...props(), month: "2026-10", work: [] })));
-    expect(host.textContent).toContain("2026-10-01");
+    expect(host.textContent).toContain("2026-10-07");
   });
   it("preserves an unsaved note when navigation is declined", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, props())));
@@ -49,7 +50,7 @@ describe("coach daily work interactions", () => {
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
     });
     vi.spyOn(window, "confirm").mockReturnValue(false);
-    await act(async () => (host.querySelector('[aria-label="後一天"]') as HTMLButtonElement).click());
+    await click("課表");
     expect(window.confirm).toHaveBeenCalled();
     expect((host.querySelector("textarea") as HTMLTextAreaElement).value).toBe("膝蓋不適，降低強度");
     expect(host.textContent).toContain("今天 · 2026-09-20");
@@ -59,7 +60,9 @@ describe("coach daily work interactions", () => {
     await act(async () => root.render(createElement(CoursePortalClient, props())));
     expect(host.textContent).toContain("今天 · 2026-09-20");
     expect(host.querySelector(".cp-calendar")).toBeNull();
-    await click("選日期"); expect(host.querySelector(".cp-calendar")).not.toBeNull();
+    await click("課表");
+    expect(host.querySelectorAll(".cp-week-strip button")).toHaveLength(7);
+    await click("月曆"); expect(host.querySelector(".cp-calendar")).not.toBeNull();
     await click("伸展瑜珈");
     expect(host.textContent).toContain("全班報到（尚未報到 1 人）");
     expect(host.textContent).toContain("將已報到 1 人標記出席");
@@ -82,4 +85,28 @@ describe("coach daily work interactions", () => {
     expect(m.attendance).toHaveBeenCalledWith({ sessionId: "lesson", target: "CHECKED_IN", bookings: [{ id: "尚未到學員", status: "RESERVED" }] });
     expect(host.querySelector('[role="dialog"]')?.textContent).toContain("名單已變更");
   });
+  it("keeps prior-month unresolved lessons on today's page and excludes them from monthly history", async () => {
+    const p = props(); const old = {...p.work[0], id:"old", startsAt:"2026-08-31T10:00:00+08:00", endsAt:"2026-08-31T11:00:00+08:00", name:"跨月待辦"};
+    await act(async () => root.render(createElement(CoursePortalClient,{...p, work:[old,...p.work]})));
+    expect(host.textContent).toContain("有 1 堂過往課程待完成點名");
+    await click("授課紀錄");
+    expect(host.textContent).not.toContain("跨月待辦");
+    expect(host.textContent).toContain("已授課 0 堂 · 0 小時");
+  });
+  it("counts only ended completed classes with attendance and initially shows read-only history", async () => {
+    const p = props(); const lesson=p.work[0];
+    await act(async () => root.render(createElement(CoursePortalClient,{...p,work:[
+      {...lesson,bookings:[learner("出席者",true,"ATTENDED")]},
+      {...lesson,id:"no-show",bookings:[learner("未到者",false,"NO_SHOW")]},
+      {...lesson,id:"empty",bookings:[]},
+      {...lesson,id:"future",startsAt:"2026-09-21T10:00:00+08:00",endsAt:"2026-09-21T11:00:00+08:00",bookings:[]}
+    ]})));
+    await click("授課紀錄");
+    expect(host.textContent).toContain("已授課 1 堂 · 1 小時");
+    await click("伸展瑜珈");
+    expect([...host.querySelectorAll("button")].some(b=>b.textContent==="更正")).toBe(false);
+    await click("更正紀錄");
+    expect([...host.querySelectorAll("button")].some(b=>b.textContent==="更正")).toBe(true);
+  });
+
 });

@@ -5,7 +5,7 @@ import { courseAccount } from "@/server/services/course-access";
 import { coursePrisma } from "@/lib/course-db";
 import { getCourseCards } from "@/server/queries/course-members";
 import { CoursePortalClient } from "./course-portal-client";
-import { monthRange, toLocalMonthStr, parseTaipeiDateTime } from "@/lib/date-utils";
+import { monthRange, toLocalMonthStr, parseTaipeiDateTime, dayRange, toLocalDateStr, addTaiwanDuration } from "@/lib/date-utils";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreContext } from "@/lib/store-context";
@@ -141,7 +141,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
             storeId,
             coachId: link.staffId,
             cancelledAt: null,
-            startsAt: { gte: range.start, lte: range.end },
+            OR: [
+              { startsAt: { gte: dayRange(addTaiwanDuration(toLocalDateStr(range.start), -6, "DAY")).start, lte: dayRange(addTaiwanDuration(toLocalDateStr(range.end), 6, "DAY")).end } },
+              { endsAt: { lte: now }, bookings: { some: { status: "RESERVED" } } },
+              { startsAt: { gte: dayRange(toLocalDateStr(now)).start, lte: dayRange(toLocalDateStr(now)).end } },
+            ],
           },
           include: workInclude,
           orderBy: { startsAt: "asc" },

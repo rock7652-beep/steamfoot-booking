@@ -20,6 +20,7 @@ import {
 } from "@/lib/course-calendar";
 import {
   addTaiwanDuration,
+  parseLocalDate,
   toLocalDateStr,
   formatTWDateTime,
 } from "@/lib/date-utils";
@@ -185,7 +186,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     [editingNote, setEditingNote] = useState<{ id: string; original: string; value: string } | null>(null),
     [search, setSearch] = useState(""),
     [limit, setLimit] = useState(20),
-    [recordFilter, setRecordFilter] = useState("all");
+    [recordFilter, setRecordFilter] = useState("all"),
+    [recordEdit, setRecordEdit] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null),
     [cardId, setCardId] = useState(""),
     [learners, setLearners] = useState<string[]>([]),
@@ -220,6 +222,16 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     selected = date.startsWith(p.month) ? date : p.month + "-01",
     card = p.cards.find((c) => c.id === cardId),
     modal = !!(session || attendance || cancelId || buy);
+  const needsRoll = (s: Work) => s.bookings.some(b => b.status === "RESERVED");
+  const isEnded = (s: Work) => new Date(s.endsAt).getTime() <= now;
+  const todayWork = p.work.filter(s => courseDate(s.startsAt) === today);
+  const overdue = p.work.filter(s => courseDate(s.startsAt) < today && needsRoll(s) && isEnded(s));
+  const monthlyWork = p.work.filter(s => courseDate(s.startsAt).startsWith(p.month));
+  const taught = monthlyWork.filter(s => isEnded(s) && !needsRoll(s) && s.bookings.some(b => b.status === "ATTENDED"));
+  const taughtHours = Math.round(taught.reduce((n,s) => n + (Date.parse(s.endsAt)-Date.parse(s.startsAt))/3600000,0)*10)/10;
+  const weekStart = addTaiwanDuration(selected, -((parseLocalDate(selected).getDay()+6)%7), "DAY");
+  const weekDays = Array.from({length:7},(_,i) => addTaiwanDuration(weekStart,i,"DAY"));
+  const historyWork = monthlyWork.filter(s => isEnded(s) && (recordFilter !== "pending" || needsRoll(s)));
   const refreshGuard = useRef({ modal, pending });
   useEffect(() => {
     refreshGuard.current = { modal: modal || !!editingNote, pending };
@@ -271,6 +283,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
       trail.current = [];
     else trail.current.push({ page, y: scrollY });
     setPage(next);
+    setRoster(null);
+    setRecordEdit(null);
     if (coach && next === "home") {
       setDate(today);
       setRoster(null);
@@ -419,7 +433,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     <section className="cp-card cp-calendar">
       {monthPicker}
       <div className="cp-context">
-        <span>{coach ? "我的授課／預約人次" : "店家課表"}</span>
+        <span>{coach ? "我的授課" : "店家課表"}</span>
         <button
           onClick={() => {
             if (!leaveNote()) return;
@@ -446,17 +460,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
             marks = courseMemberMarkers(
               p.bookings.filter((b) => courseDate(b.startsAt) === d),
               p.customerId,
-            ),
-            count = coach
-              ? p.work
-                  .filter((s) => courseDate(s.startsAt) === d)
-                  .reduce(
-                    (n, s) =>
-                      n +
-                      s.bookings.filter((b) => b.status !== "CANCELLED").length,
-                    0,
-                  )
-              : 0;
+            );
           return (
             <button
               key={d}
@@ -480,12 +484,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               {sessions.length > 0 && (
                 <small>
                   {sessions.length}堂
-                  {coach && (
-                    <>
-                      <br />
-                      預約{count}人次
-                    </>
-                  )}
+
                 </small>
               )}
               {!coach && (
@@ -499,7 +498,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         })}
       </div>
       <p className="cp-legend">
-        {coach ? "預約含出席、未到與待點名；取消不計。" : "🔵 本人　🟠 共卡"}
+        {coach ? "日期下方顯示授課堂數。" : "🔵 本人　🟠 共卡"}
         　淡色為公休
       </p>
     </section>
@@ -544,13 +543,14 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     );
   }
   function workRows(list: Work[]) {
-    return [...list].sort((a, b) => a.startsAt.localeCompare(b.startsAt)).map((s) => {
+    return [...list].sort((a, b) => (page === "home" ? Number(isEnded(a)) - Number(isEnded(b)) : 0) || a.startsAt.localeCompare(b.startsAt)).map((s) => {
       const people = s.bookings.filter((b) => b.status !== "CANCELLED"),
         pendingPeople = people.filter((b) => b.status === "RESERVED"),
         arrivedPeople = pendingPeople.filter((b) => b.checkedIn),
         unarrivedPeople = pendingPeople.filter((b) => !b.checkedIn),
         ended = new Date(s.startsAt).getTime() <= now,
-        filtered = people.filter((b) => b.customerName.includes(search));
+        filtered = people.filter((b) => b.customerName.includes(search)),
+        readOnly = page === "records" && recordEdit !== s.id;
       return (
         <article key={s.id} className="cp-card">
           <button
@@ -569,24 +569,24 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               </strong>
               <small>
                 {s.room} · {people.length} 位學員 ·{" "}
-                {pendingPeople.length
+                {page === "records" ? `出席 ${people.filter(b=>b.status === "ATTENDED").length} 人／未到 ${people.filter(b=>b.status === "NO_SHOW").length} 人 · ${pendingPeople.length ? "待完成點名" : people.length ? "點名完成" : "無有效預約"}` : pendingPeople.length
                   ? `待點名 ${pendingPeople.length} 位`
                   : people.length
                     ? "點名完成"
                     : "尚無學員"}
               </small>
             </span>
-            <span>{roster === s.id ? "收合" : "名單／點名"}</span>
+            <span>{roster === s.id ? "收合" : page === "records" ? "查看明細" : "名單／點名"}</span>
           </button>
           {roster === s.id && (
             <div className="cp-pad">
               <div className="cp-line">
                 <strong>學員名單</strong>
               </div>
-              <p>報到只記錄到場，不扣點／堂；開課後請再確認出席。</p>
+              {readOnly ? <button onClick={() => setRecordEdit(s.id)}>{pendingPeople.length ? "補完點名" : "更正紀錄"}</button> : <p>報到只記錄到場，不扣點／堂；開課後請再確認出席。</p>}
               <div className="cp-actions">
-                {unarrivedPeople.length > 0 && <button disabled={pending} onClick={() => { setError(""); setAttendance({ session: s, ids: unarrivedPeople.map(b => b.id), target: "CHECKED_IN" }); }}>全班報到（尚未報到 {unarrivedPeople.length} 人）</button>}
-                {arrivedPeople.length > 0 && (
+                {!readOnly && unarrivedPeople.length > 0 && <button disabled={pending} onClick={() => { setError(""); setAttendance({ session: s, ids: unarrivedPeople.map(b => b.id), target: "CHECKED_IN" }); }}>全班報到（尚未報到 {unarrivedPeople.length} 人）</button>}
+                {!readOnly && arrivedPeople.length > 0 && (
                   <button
                     className="primary"
                     disabled={!ended || pending}
@@ -627,7 +627,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                           ? (b.checkedIn ? "已報到・待出席" : "待報到")
                           : statusName(b.status)}
                       </span>
-                      {b.status === "RESERVED" ? (
+                      {readOnly ? null : b.status === "RESERVED" ? (
                         <>
                           {!b.checkedIn && <button disabled={pending} onClick={() => { checkIn(b.id); }}>報到</button>}
                           <button
@@ -751,6 +751,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           ) : (
             <span>{coach ? "我的工作" : "會員專區"}</span>
           )}
+          {coach && <details className="cp-coach-options"><summary aria-label="帳號選單">⋯</summary><form action={logoutAction}><input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""}/><LogoutButton className="cp-menu"/></form></details>}
         </header>
         <nav className="cp-nav" aria-label="主要功能">
           {nav.map(([v, label, icon]) => (
@@ -764,7 +765,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
             </button>
           ))}
         </nav>
-        <main className="cp-main">
+        <main className={`cp-main${coach ? " cp-coach-main" : ""}`}>
           <div className="cp-refresh">
             <span>更新於 {time(new Date(p.serverNow).toISOString())}</span>
             <button
@@ -789,7 +790,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           ) && <button onClick={back}>‹ 返回</button>}
           {page === "home" && (
             <>
-              {heading(coach ? "我的工作" : "會員首頁")}
+              {heading(coach ? "今日工作" : "會員首頁")}
               {!coach && <section className="cp-card cp-next">
                 <div>
                   <small>{coach ? "下一堂課" : "下一次上課"}</small>
@@ -824,17 +825,11 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               </section>}
               {coach ? (
                 <>
-                  <div className="cp-work-date">
-                    <button aria-label="前一天" disabled={pending} onClick={() => workDate(addTaiwanDuration(selected, -1, "DAY"))}>‹</button>
-                    <strong>{selected === today ? "今天 · " : ""}{selected}</strong>
-                    <button aria-label="後一天" disabled={pending} onClick={() => workDate(addTaiwanDuration(selected, 1, "DAY"))}>›</button>
-                  </div>
-                  <div className="cp-actions"><button aria-expanded={showWorkCalendar} onClick={() => setShowWorkCalendar(!showWorkCalendar)}>{showWorkCalendar ? "收起月曆" : "選日期"}</button>{selected !== today && <button disabled={pending} onClick={() => workDate(today)}>回到今天</button>}</div>
-                  {showWorkCalendar && calendar}
-                  {workRows(
-                    p.work.filter((s) => courseDate(s.startsAt) === selected),
-                  )}
-                  {!p.work.some(s => courseDate(s.startsAt) === selected) && <section className="cp-card cp-pad"><p>{selected === today ? "今天沒有課程" : "這天沒有課程"}</p>{p.nextWork ? <button onClick={() => { if (!leaveNote()) return; const next = p.nextWork!; workDate(courseDate(next.startsAt)); setRoster(next.id); }}>查看下一堂 · {formatTWDateTime(new Date(p.nextWork.startsAt))}</button> : <p>尚無後續授課安排。</p>}</section>}
+                  <p>今天 · {today} · {todayWork.length} 堂</p>
+                  {overdue.length > 0 && <details className="cp-card cp-pad"><summary>有 {overdue.length} 堂過往課程待完成點名</summary>{overdue.map(s => <section key={s.id}><h3>{courseDate(s.startsAt)}</h3>{workRows([s])}</section>)}</details>}
+                  {workRows(todayWork.filter(s => !isEnded(s) || needsRoll(s)))}
+                  {todayWork.some(s => isEnded(s) && !needsRoll(s)) && <details className="cp-card cp-pad"><summary>已結束課程（{todayWork.filter(s=>isEnded(s)&&!needsRoll(s)).length}）</summary>{workRows(todayWork.filter(s=>isEnded(s)&&!needsRoll(s)))}</details>}
+                  {!todayWork.length && <section className="cp-card cp-pad"><p>今天沒有課程</p>{p.nextWork ? <button onClick={() => { go("schedule"); workDate(courseDate(p.nextWork!.startsAt)); }}>下一堂 · {formatTWDateTime(new Date(p.nextWork.startsAt))} · {p.nextWork.name}</button> : <p>尚無後續授課安排。</p>}</section>}
                 </>
               ) : (
                 <>
@@ -861,11 +856,17 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
             <>
               {heading(coach ? "我的課表" : "課表預約")}
               <div className="cp-schedule">
-                {calendar}
+                {coach ? <>
+                  <div className="cp-work-date"><button aria-label="上一週" disabled={pending} onClick={() => workDate(addTaiwanDuration(selected,-7,"DAY"))}>‹</button><strong>{weekDays[0].slice(5)} — {weekDays[6].slice(5)}</strong><button aria-label="下一週" disabled={pending} onClick={() => workDate(addTaiwanDuration(selected,7,"DAY"))}>›</button></div>
+                  <div className="cp-week-strip">{weekDays.map((d,i)=><button key={d} disabled={pending} aria-pressed={selected===d} className={selected===d?"primary":""} onClick={()=>workDate(d)}><span>{"一二三四五六日"[i]}</span><strong>{Number(d.slice(-2))}</strong><small>{p.work.filter(s=>courseDate(s.startsAt)===d).length}堂</small></button>)}</div>
+                  <div className="cp-actions"><button disabled={pending} onClick={()=>workDate(today)}>今天</button><button aria-expanded={showWorkCalendar} onClick={()=>setShowWorkCalendar(!showWorkCalendar)}>{showWorkCalendar?"收起月曆":"月曆"}</button></div>
+                  {showWorkCalendar && calendar}
+                </> : calendar}
                 <section ref={daily} className="cp-daily">
                   <h2>
                     {selected} · {coach ? "授課" : "當日課程"}
                   </h2>
+                  {coach && !p.work.some(s=>courseDate(s.startsAt)===selected) && <p className="cp-empty">當日沒有排課</p>}
                   {coach
                     ? workRows(
                         p.work.filter(
@@ -1161,45 +1162,11 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
             <>
               {heading("授課紀錄")}
               {monthPicker}
-              <p>
-                出席{" "}
-                {
-                  p.work
-                    .flatMap((s) => s.bookings)
-                    .filter((b) => b.status === "ATTENDED").length
-                }{" "}
-                人次 · 未到{" "}
-                {
-                  p.work
-                    .flatMap((s) => s.bookings)
-                    .filter((b) => b.status === "NO_SHOW").length
-                }{" "}
-                人次
-              </p>
-              <div className="cp-actions">
-                {[
-                  ["all", "全部"],
-                  ["ATTENDED", "出席"],
-                  ["NO_SHOW", "未到"],
-                  ["RESERVED", "待點名"],
-                ].map(([v, t]) => (
-                  <button
-                    key={v}
-                    className={recordFilter === v ? "primary" : ""}
-                    onClick={() => setRecordFilter(v)}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
+              <section className="cp-card cp-pad"><strong>已授課 {taught.length} 堂 · {taughtHours} 小時</strong><p>學員出席 {monthlyWork.flatMap(s=>s.bookings).filter(b=>b.status==="ATTENDED").length} 人次 · 未到 {monthlyWork.flatMap(s=>s.bookings).filter(b=>b.status==="NO_SHOW").length} 人次</p><details><summary>統計說明</summary><p>已授課計入已結束、點名完成且至少一人出席的課次；依排定時長加總。全班未到、無有效預約與取消課程不計入。人次依已登記結果統計。</p></details></section>
+              <div className="cp-actions">{[["all","全部課次"],["pending",`待補點名 ${monthlyWork.filter(s=>isEnded(s)&&needsRoll(s)).length}`]].map(([v,label])=><button key={v} className={recordFilter===v?"primary":""} onClick={()=>{if(!leaveNote())return;setRecordFilter(v);setRoster(null);setRecordEdit(null);}}>{label}</button>)}</div>
+              {!historyWork.length && <p className="cp-empty">{recordFilter === "pending" ? "本月沒有待補點名課程" : "本月尚無已結束課程"}</p>}
               {Object.entries(
-                p.work
-                  .filter(
-                    (s) =>
-                      new Date(s.startsAt).getTime() <= now &&
-                      (recordFilter === "all" ||
-                        s.bookings.some((b) => b.status === recordFilter)),
-                  )
+                historyWork
                   .reduce<Record<string, Work[]>>((days, s) => {
                     (days[courseDate(s.startsAt)] ??= []).push(s);
                     return days;
@@ -1214,7 +1181,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                 ))}
             </>
           )}
-          {(page === "account" || (coach && page === "home")) && (
+          {(page === "account") && (
             <form action={logoutAction} className="cp-logout">
               <input type="hidden" name="storeSlug" value={p.prefix.split("/")[2] ?? ""} />
               <LogoutButton className="cp-menu" />
