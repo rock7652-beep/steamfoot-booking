@@ -33,3 +33,11 @@ Login Channel Basic settings 唯讀欄位「Linked LINE Official Account」實�
 ## 回復與禁止事項
 
 如需回復，只清除本次 A 店新 liffId，刪除新 LIFF 前再依適用操作授權處理。其他LIFF、Webhook、圖文選單、正式庫完全不動。圖文選單由使用者自行操作。維持 Draft、不合併、不正式部署。
+
+## 本人會員與方案準備完成（2026/09/20 後續授權）
+
+- 實際 preview 日誌：`liff/exchange` 的原因為 `store_membership_unconfirmed`，對象為 A 店；不是 token 交換失敗或原帳號被解除。
+- 使用者明確授權本人 A 店測試會員。核對既有 ACTIVE Account 的固定 userId／LINE subject 後，在 serializable 交易中只新增 A 店 Customer（userId 留空）＋CustomerIdentityLink＋AuditLog；有既有關聯、同店衝突或額度超限即拒絕。未改 Account/User、其他店會員或其他測試人的綁定。
+- 普通 A 店店長登入後，實際透過「方案管理→指派方案→本人→運動十點方案→儲存」完成，畫面顯示已儲存、剩餘10／占用0／可用10、有效至2026/10/19。使用既有 assignCoursePointCard 建立 GRANT 紀錄，未直接寫餘額，未登錄假收款。
+- 9/22 12:00–13:00 伸展瑜珈為 PUBLIC、啟用且未取消；容量3、有效預約0，該十點方案適用課程；每人預約占用2點。
+- 本人手機驗收清單已取代先前網頁測試帳號清單，只保留本人 LINE「登入→預約→取消」。此時只宣稱會員與額度準備完成；手機登入及實際預約／取消由使用者接續驗收，不冒充已實測。
