@@ -54,6 +54,7 @@ import {
   fetchLiffReferralShareContext,
   type LiffReferralShareContext,
 } from "@/server/actions/liff-referral-share";
+import { LiffBottomNav } from "./liff-bottom-nav";
 import { LiffStoreSwitcher } from "./liff-store-switcher";
 import { LiffStoreShareCard } from "./liff-store-share-card";
 import {
@@ -253,7 +254,7 @@ export function LiffShell({
   }, [healthAssessmentEnabled, liffId, memberDataSource, storeSlug]);
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 px-5 pb-10 pt-7">
+    <div className="mx-auto flex max-w-md flex-col gap-3 px-4 pb-4 pt-3">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           {state.kind === "signed_in" ? (
@@ -320,6 +321,7 @@ export function LiffShell({
       )}
 
       {state.kind === "signed_in" && (
+        <>
         <WelcomeBack
           storeSlug={storeSlug}
           displayName={state.displayName}
@@ -329,7 +331,10 @@ export function LiffShell({
           terminology={terminology}
           memberDataSource={memberDataSource}
           bookingHref={bookingHref}
+          compactHome
         />
+        <LiffBottomNav storeSlug={storeSlug} healthAssessmentEnabled={healthAssessmentEnabled} homeOnly />
+        </>
       )}
     </div>
   );
@@ -445,6 +450,7 @@ export function WelcomeBack({
   bookingHref,
   memberLinks,
   hasWorkAccess = false,
+  compactHome = false,
 }: {
   storeSlug: string;
   displayName: string | null;
@@ -459,10 +465,11 @@ export function WelcomeBack({
     profile: string;
   };
   hasWorkAccess?: boolean;
+  compactHome?: boolean;
 }) {
   if (!memberSummary) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <p className="px-1 text-sm font-medium text-earth-600">
           {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
         </p>
@@ -473,11 +480,11 @@ export function WelcomeBack({
 
   if (memberSummary === "error") {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <p className="px-1 text-sm font-medium text-earth-600">
           {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
         </p>
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-6 text-center text-amber-900">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-6 text-center text-amber-900">
           <p className="text-sm font-semibold">目前無法讀取門市資料</p>
           <p className="mt-2 text-xs text-amber-800">請重新整理後再試一次，您的方案與堂數不會受到影響。</p>
           <button
@@ -514,7 +521,7 @@ export function WelcomeBack({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {hasWorkAccess && (
         <SpaIdentityModeSwitcher storeSlug={storeSlug} activeMode="member" />
       )}
@@ -522,10 +529,10 @@ export function WelcomeBack({
         {liffMessages.shell.signedInTitle}{displayName ? `，${displayName}` : ""}
       </p>
 
-      <section className="rounded-3xl bg-earth-900 px-5 py-4 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
+      <section className="rounded-2xl bg-earth-900 px-4 py-3 text-white shadow-[0_14px_34px_rgba(52,47,39,0.18)]">
         <p className="text-sm font-medium text-earth-300">下一次預約</p>
         {nextBooking ? (
-          <div className="mt-3 flex items-end justify-between gap-4">
+          <div className="mt-2 flex items-end justify-between gap-4">
             <div>
               <p className="text-2xl font-semibold">{formatBookingDateLabel(nextBooking.bookingDate)}</p>
               <p className="mt-1 text-base text-earth-200">
@@ -535,7 +542,7 @@ export function WelcomeBack({
             <Link href={resolvedMemberLinks.bookings} className="rounded-full bg-white/10 px-3 py-2 text-sm font-medium text-earth-100">預約詳情</Link>
           </div>
         ) : (
-          <div className="mt-3 flex items-center justify-between gap-4">
+          <div className="mt-2 flex items-center justify-between gap-4">
             <p className="text-base text-earth-200">目前沒有預約</p>
             {!canCreateBooking && (
               <Link href={resolvedBookingHref} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-earth-900">立即預約</Link>
@@ -546,12 +553,12 @@ export function WelcomeBack({
 
       {walletsAvailable ? (
         <>
-          <section className="rounded-3xl bg-white px-5 py-4 shadow-[0_8px_24px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70">
+          <section className="rounded-2xl bg-white px-4 py-3 shadow-[0_8px_24px_rgba(74,66,53,0.07)] ring-1 ring-earth-200/70">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-earth-900">{labels.summaryTitle}</h2>
               {nearestWalletExpiry && <span className="text-xs text-earth-500">有效至 {formatFullDateLabel(nearestWalletExpiry)}</span>}
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
               <SummaryMetric label="可使用" value={totalUsable} unit={labels.sessionUnit} />
               <SummaryMetric label="已預約" value={totalBooked} unit={labels.sessionUnit} />
               <SummaryMetric label="尚可預約" value={totalBookable} unit={labels.sessionUnit} emphasized />
@@ -565,17 +572,17 @@ export function WelcomeBack({
           </section>
 
           {canCreateBooking ? (
-            <Link href={resolvedBookingHref} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
+            <Link href={resolvedBookingHref} className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
               立即預約
             </Link>
           ) : (
-            <Link href={`/s/${storeSlug}/liff/wallets/shop`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
+            <Link href={`/s/${storeSlug}/liff/wallets/shop`} className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-primary-600 px-5 py-3 text-base font-semibold text-white shadow-[0_8px_20px_rgba(90,108,71,0.2)] transition hover:bg-primary-700 active:scale-[0.98]">
               {labels.buyLabel}
             </Link>
           )}
         </>
       ) : (
-        <section className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-5 text-amber-900">
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-5 text-amber-900">
           <p className="text-sm font-semibold">方案資料暫時無法讀取</p>
           <p className="mt-2 text-xs text-amber-800">請重新整理後再試一次；您的方案、堂數與既有預約不會受到影響。</p>
           <button
@@ -588,6 +595,7 @@ export function WelcomeBack({
         </section>
       )}
 
+      {!compactHome && (
       <nav className="grid grid-cols-2 gap-3" aria-label="會員功能">
         <HomeTile href={resolvedMemberLinks.bookings} label="我的預約" detail={nextBooking ? "查看與管理" : "目前無預約"} />
         <HomeTile
@@ -600,13 +608,15 @@ export function WelcomeBack({
         )}
         <HomeTile href={resolvedMemberLinks.profile} label="我的資料" detail="會員基本資料" />
       </nav>
+      )}
 
-      {healthAssessmentEnabled && healthChange && (
-        <Link href={`/s/${storeSlug}/liff/health`} className="rounded-3xl bg-primary-50 px-5 py-4 ring-1 ring-primary-100 transition active:scale-[0.99]">
+      {healthAssessmentEnabled && (
+        <Link href={`/s/${storeSlug}/liff/health`} className="rounded-2xl bg-primary-50 px-4 py-3 ring-1 ring-primary-100 transition active:scale-[0.99]">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-primary-700">最近健康變化</p>
-              <p className="mt-1 text-base font-semibold text-earth-900">{healthChange.detail}</p>
+              <p className="mt-1 text-base font-semibold text-earth-900">{healthChange?.detail ?? (memberSummary.healthSummary ? "查看最近量測紀錄" : "尚無量測紀錄")}</p>
+              {healthChange?.comparison && <p className="mt-1 text-xs text-earth-500">{healthChange.comparison}</p>}
             </div>
             <ChevronRightIcon />
           </div>
@@ -614,7 +624,7 @@ export function WelcomeBack({
       )}
 
       {memberSummary.referralShare ? (
-        <LiffStoreShareCard context={memberSummary.referralShare} />
+        <LiffStoreShareCard context={memberSummary.referralShare} compact />
       ) : null}
     </div>
   );
@@ -638,13 +648,12 @@ function MemberHomeSummaryLoading() {
 }
 
 function SummaryMetric({ label, value, unit, emphasized = false }: { label: string; value: number; unit: string; emphasized?: boolean }) {
-  return <div className={`rounded-2xl px-2 py-3 ${emphasized ? "bg-primary-50" : "bg-earth-50"}`}><p className="text-xs text-earth-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-earth-900">{value}<span className="ml-0.5 text-xs font-medium text-earth-500">{unit}</span></p></div>;
+  return <div className={`rounded-xl px-2 py-2 ${emphasized ? "bg-primary-50" : "bg-earth-50"}`}><p className="text-xs text-earth-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-earth-900">{value}<span className="ml-0.5 text-xs font-medium text-earth-500">{unit}</span></p></div>;
 }
 
 function HomeTile({ href, label, detail }: { href: string; label: string; detail: string }) {
   return <Link href={href} className="flex min-h-20 flex-col justify-between rounded-2xl bg-white p-4 shadow-[0_6px_18px_rgba(74,66,53,0.05)] ring-1 ring-earth-200/70 transition hover:bg-earth-50 active:scale-[0.98]"><div className="flex items-start justify-between gap-2"><span className="font-semibold text-earth-900">{label}</span><ChevronRightIcon /></div><span className="text-xs text-earth-500">{detail}</span></Link>;
 }
-
 function parseDateParts(date: string) {
   const [year, month, day] = date.split("-").map(Number);
   return { year, month, day };
@@ -662,7 +671,7 @@ function formatFullDateLabel(date: string) {
   return `${year}/${month}/${day}`;
 }
 
-function getHealthChange(summary: HealthSummary | null): { short: string; detail: string } | null {
+function getHealthChange(summary: HealthSummary | null): { short: string; detail: string; comparison: string } | null {
   if (!summary || summary.trend.length < 2) return null;
   const latest = summary.trend.at(-1);
   const previous = summary.trend.at(-2);
@@ -675,10 +684,16 @@ function getHealthChange(summary: HealthSummary | null): { short: string; detail
   const changed = metrics.find((metric) => metric.latest != null && metric.previous != null && metric.latest !== metric.previous);
   if (!changed || changed.latest == null || changed.previous == null) return null;
   const delta = Number((changed.latest - changed.previous).toFixed(1));
-  const positive = changed.lowerIsPositive ? delta < 0 : delta > 0;
   const direction = delta > 0 ? "增加" : "下降";
   const value = Math.abs(delta);
-  return { short: `${changed.label}${direction} ${value}${changed.unit}`, detail: `${changed.label}${direction} ${value}${changed.unit}${positive ? "，持續保持" : "，一起留意變化"}` };
+  return { short: `${changed.label}${direction} ${value}${changed.unit}`, detail: `${changed.label}較上次 ${delta > 0 ? "+" : "−"}${value}${changed.unit}`, comparison: `${formatMeasurementDate(previous.measuredAt)} → ${formatMeasurementDate(latest.measuredAt)}` };
+}
+
+function formatMeasurementDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "日期未提供" : new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(date);
 }
 
 function ChevronRightIcon() {

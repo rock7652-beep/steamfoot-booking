@@ -39,6 +39,14 @@ beforeEach(() => {
   m.tx.mockImplementation((items: Promise<unknown>[]) => Promise.all(items));
 });
 describe("trial care delivery", () => {
+  it("a completed trial without any package still receives the next-day check-in", async () => {
+    m.purchase.mockResolvedValue(0);
+    m.wallets.mockResolvedValue(0);
+    const result = await runTrialCare(now);
+    expect(result.sent).toBe(1);
+    expect(m.push).toHaveBeenCalledWith("A", "line-c", expect.any(Array), expect.any(String));
+    expect(m.createLog).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ stage: 0 }) }));
+  });
   it("blocks preview before any data access or delivery", async () => { vi.stubEnv("VERCEL_ENV", "preview"); expect((await runTrialCare(now)).blocked).toBe(true); expect(m.settings).not.toHaveBeenCalled(); expect(m.push).not.toHaveBeenCalled(); });
   it("sends through the candidate's own store with a fixed stop action", async () => {
     expect((await runTrialCare(now)).sent).toBe(1);

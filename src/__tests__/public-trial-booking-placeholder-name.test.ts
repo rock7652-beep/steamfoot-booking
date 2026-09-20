@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   customerLineLinkStatus: "LINKED",
   customerUpdateMany: vi.fn(),
   customerFindFirst: vi.fn(),
+  customerCreate: vi.fn(),
   bookingFindFirst: vi.fn(),
   bookingAggregate: vi.fn(),
   bookingCreate: vi.fn(),
@@ -24,7 +25,7 @@ vi.mock("@/lib/db", () => ({
     store: { findUnique: vi.fn(async () => ({ id: STORE_ID, slug: "zhubei" })) },
     customer: {
       findFirst: state.customerFindFirst,
-      create: vi.fn(),
+      create: state.customerCreate,
       updateMany: state.customerUpdateMany,
     },
     booking: { findFirst: state.bookingFindFirst },
@@ -128,6 +129,74 @@ beforeEach(() => {
 });
 
 describe("submitPublicTrialBooking — LINE placeholder customer name", () => {
+  it.each(["zhubei", "hsinchu", "taichung"])("reports verified LINE linkage without a pilot flag for %s", async storeSlug => {
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.store.findUnique).mockResolvedValueOnce({ id: STORE_ID, slug: storeSlug } as never);
+    const result = await submitPublicTrialBooking({ ...input, storeSlug });
+    expect(result).toMatchObject({ status: "ok", notificationSetup: { status: "linked" } });
+    expect(state.customerCreate).not.toHaveBeenCalled();
+  });
+
+  it.each(["hsinchu", "taichung"])("rejects a signed entry belonging to another store on %s", async storeSlug => {
+    const result = await submitPublicTrialBooking({ ...input, storeSlug });
+    expect(result.status).toBe("invalid_input");
+    expect(state.bookingCreate).not.toHaveBeenCalled();
+    expect(state.customerCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not claim notification linkage for a phone-only public booking", async () => {
+    const result = await submitPublicTrialBooking({ ...input, entry: undefined });
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") expect(result.notificationSetup).toBeUndefined();
+  });
+
+  it("creates a simulated new pilot customer already bound to the signed store LINE identity", async () => {
+    const { resolvePublicTrialLineCustomer } = await import("@/server/services/public-trial-line-customer");
+    vi.mocked(resolvePublicTrialLineCustomer).mockResolvedValueOnce({ status: "not_found" });
+    state.customerCreate.mockResolvedValueOnce({ ...customer(), name: "測試新客" });
+    const result = await submitPublicTrialBooking({ ...input, name: "測試新客", lineTrialPilot: true });
+    expect(result).toMatchObject({ status: "ok", notificationSetup: { status: "linked" } });
+    expect(state.customerCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      storeId: STORE_ID, phone: input.phone, lineUserId: LINE_USER_ID, lineLinkStatus: "LINKED",
+    }) }));
+    expect(state.bookingCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      storeId: STORE_ID, customerId: CUSTOMER_ID, bookingType: "FIRST_TRIAL", trialBookingChannel: "LINE",
+    }) }));
+    expect(state.trialLinkUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
+      id: "trial-link", storeId: STORE_ID, consumedAt: null,
+    }) }));
+  });
+
+  it("does not create a second customer for a bound returning pilot customer", async () => {
+    const result = await submitPublicTrialBooking({ ...input, lineTrialPilot: true });
+    expect(result).toMatchObject({ status: "ok", notificationSetup: { status: "linked" } });
+    expect(state.customerCreate).not.toHaveBeenCalled();
+  });
+
+  it("requires a verified entry only on the explicitly selected pilot", async () => {
+    const result = await submitPublicTrialBooking({ ...input, entry: undefined, lineTrialPilot: true });
+    expect(result.status).toBe("invalid_input");
+    expect(state.bookingCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not bind or create a booking for an invalid pilot entry", async () => {
+    const { resolveTrialBookingChatLink } = await import("@/server/services/trial-booking-chat-link");
+    vi.mocked(resolveTrialBookingChatLink).mockResolvedValueOnce(null);
+    const result = await submitPublicTrialBooking({ ...input, lineTrialPilot: true });
+    expect(result.status).toBe("invalid_input");
+    expect(state.customerCreate).not.toHaveBeenCalled();
+    expect(state.bookingCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps a LINE or phone ownership conflict unchanged", async () => {
+    const { resolvePublicTrialLineCustomer } = await import("@/server/services/public-trial-line-customer");
+    vi.mocked(resolvePublicTrialLineCustomer).mockResolvedValueOnce({ status: "conflict" });
+    const result = await submitPublicTrialBooking({ ...input, lineTrialPilot: true });
+    expect(result.status).toBe("invalid_input");
+    expect(state.customerCreate).not.toHaveBeenCalled();
+    expect(state.customerUpdateMany).not.toHaveBeenCalled();
+    expect(state.bookingCreate).not.toHaveBeenCalled();
+  });
   it("replaces a same-store LINE placeholder with 高巧 and preserves the booking identity fields", async () => {
     const result = await submitPublicTrialBooking(input);
 
@@ -151,6 +220,7 @@ describe("submitPublicTrialBooking — LINE placeholder customer name", () => {
       data: { name: "高巧" },
     });
     expect(state.customerPhone).toBe("0911689313");
+    expect(result).toHaveProperty("notificationSetup.status", "linked");
     expect(state.customerStoreId).toBe(STORE_ID);
     expect(state.customerLineUserId).toBe(LINE_USER_ID);
     expect(state.bookingCreate).toHaveBeenCalledWith(expect.objectContaining({

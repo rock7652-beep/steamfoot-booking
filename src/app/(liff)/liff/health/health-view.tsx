@@ -256,7 +256,6 @@ function LinkedView({
         </div>
         <StartHealthFlowButton storeSlug={storeSlug} />
         <ContactStoreButton contactUrl={contactUrl} />
-        <BackHomeLink storeSlug={storeSlug} />
       </>
     );
   }
@@ -325,7 +324,6 @@ function LinkedView({
         </section>
       )}
       <ContactStoreButton contactUrl={contactUrl} />
-      <BackHomeLink storeSlug={storeSlug} />
     </>
   );
 }
@@ -606,7 +604,6 @@ function NotLinkedCard({
       </div>
       <StartHealthFlowButton storeSlug={storeSlug} />
       <ContactStoreButton contactUrl={contactUrl} />
-      <BackHomeLink storeSlug={storeSlug} />
     </>
   );
 }
@@ -653,17 +650,6 @@ function ContactStoreButton({ contactUrl }: { contactUrl: string }) {
       <LineIcon />
       {liffMessages.health.contactStoreCta}
     </a>
-  );
-}
-
-function BackHomeLink({ storeSlug }: { storeSlug: string }) {
-  return (
-    <Link
-      href={`/s/${storeSlug}/liff`}
-      className="flex w-full min-h-[44px] items-center justify-center rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm font-medium text-earth-700 hover:bg-earth-50"
-    >
-      {liffMessages.health.backHomeCta}
-    </Link>
   );
 }
 
