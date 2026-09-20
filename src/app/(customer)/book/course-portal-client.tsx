@@ -308,7 +308,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     window.scrollTo(0, 0);
   }
   function leaveNote() {
-    if (editingNote && editingNote.value !== (editingNote.original ?? "") && !window.confirm("本堂備註尚未儲存，要放棄修改嗎？")) return false;
+    if (editingNote && editingNote.value !== (editingNote.original ?? "") && !window.confirm("本次備註尚未儲存，要放棄修改嗎？")) return false;
     setEditingNote(null);
     return true;
   }
@@ -693,12 +693,13 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     </div>
                   </div>
                   <details>
-                    <summary>本堂備註與方案</summary>
+                    <summary>本次備註與方案</summary>
+                    <p className="cp-muted">店內備註：{b.serviceNote || "無"}</p>
                     <p>{b.planName} · {b.unit === "TRIAL" ? "不使用方案額度" : `${b.cost} ${unit(b.unit)}`}</p>
-                    {editingNote?.id === b.id ? <form onSubmit={e => { e.preventDefault(); run(() => saveCourseCoachNote({ bookingId: b.id, notes: editingNote.value, previousNotes: editingNote.original }), () => setEditingNote(null), "本堂備註已儲存"); }}>
-                      <label>本堂預約備註（學員與店長可查看）<textarea aria-label={`${b.customerName}本堂備註`} maxLength={1000} value={editingNote.value} onChange={e => setEditingNote({ ...editingNote, value: e.target.value })} disabled={pending} /></label>
+                    {editingNote?.id === b.id ? <form onSubmit={e => { e.preventDefault(); run(() => saveCourseCoachNote({ bookingId: b.id, notes: editingNote.value, previousNotes: editingNote.original }), () => setEditingNote(null), "本次備註已儲存"); }}>
+                      <label>本次備註（店長與授課教練可見）<textarea aria-label={`${b.customerName}本次備註`} maxLength={1000} value={editingNote.value} onChange={e => setEditingNote({ ...editingNote, value: e.target.value })} disabled={pending} /></label>
                       <div className="cp-actions"><button type="submit" disabled={pending}>儲存備註</button><button type="button" disabled={pending} onClick={() => leaveNote()}>取消修改</button></div>
-                    </form> : <><p>{b.notes || "尚無備註"}</p><button disabled={pending} onClick={() => { if (leaveNote()) setEditingNote({ id: b.id, original: b.notes, value: b.notes ?? "" }); }}>編輯本堂備註</button></>}
+                    </form> : <><p>{b.notes || "尚無備註"}</p><button disabled={pending} onClick={() => { if (leaveNote()) setEditingNote({ id: b.id, original: b.notes, value: b.notes ?? "" }); }}>編輯本次備註</button></>}
                   </details>
                 </div>
               ))}

@@ -1,4 +1,5 @@
 "use client";
+import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -76,6 +77,8 @@ export function CourseMemberWorkspace({
   const router = useRouter();
   const params = useSearchParams();
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
+  const [templateSearch,setTemplateSearch]=useState("");
+  const [selected,setSelected]=useState<string[]>([]);
   const [pending, start] = useTransition();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
@@ -196,6 +199,7 @@ export function CourseMemberWorkspace({
           {notice}
         </p>
       )}
+      {view === "plans" && canEdit && <CourseBatchBar kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {view === "customers" ? <CourseCustomerList rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge}
@@ -221,7 +225,7 @@ export function CourseMemberWorkspace({
                     key={p.id}
                     className={p.isActive ? "" : "bg-earth-50 text-earth-400"}
                   >
-                    <td className="p-3"><span className="font-medium">{p.name}</span><p className="mt-1 text-xs text-earth-500">{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
+                    <td className="p-3">{canEdit && <input type="checkbox" className="mr-3" aria-label={`選取 ${p.name}`} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span><p className="mt-1 text-xs text-earth-500">{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
                     <td className="p-3">{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
                     <td className="p-3">NT$ {p.price.toLocaleString("zh-TW")}</td>
                     <td className="p-3">{p.validDays}</td>
@@ -359,7 +363,7 @@ export function CourseMemberWorkspace({
             </section>}
             {panel !== "person" && view === "customers" && person && <button type="button" className={`${button} mb-3`} disabled={pending} onClick={()=>open("person")}>返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["身高",person.height == null ? null : `${person.height} cm`],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["顧客備註",person.notes],["服務備註（後台）",person.serviceNote]].map(([label,value])=><div key={label} className="min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["身高",person.height == null ? null : `${person.height} cm`],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["舊顧客備註（保留資料）",person.notes],["店內備註",person.serviceNote]].map(([label,value])=><div key={label} className="min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
               {canEdit && <button className={`${button} bg-primary-700 text-white`} onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
             </section>}
             {panel === "person" && (
@@ -409,8 +413,8 @@ export function CourseMemberWorkspace({
                   <label className="block">緊急聯絡人姓名<input className={field} name="emergencyContactName" maxLength={100} defaultValue={person?.emergencyContactName ?? ""} /></label>
                   <label className="block">緊急聯絡人電話<input className={field} name="emergencyContactPhone" type="tel" maxLength={30} defaultValue={person?.emergencyContactPhone ?? ""} /></label>
                   <label className="block">地址<input className={field} name="address" maxLength={300} defaultValue={person?.address ?? ""} /></label>
-                  <label className="block">顧客備註<textarea className={field} name="notes" maxLength={1000} defaultValue={person?.notes ?? ""} /></label>
-                  <label className="block">顧客服務備註（後台限定）<textarea className={field} name="serviceNote" maxLength={1000} defaultValue={person?.serviceNote ?? ""} /></label>
+                  <details className="sm:col-span-2"><summary className="min-h-11 cursor-pointer py-2">舊顧客備註（保留原資料，也顯示於店內備註）</summary><textarea aria-label="舊顧客備註" className={field} name="notes" maxLength={1000} defaultValue={person?.notes ?? ""}/></details>
+                  <label className="block">店內備註（店長與授課教練可見）<textarea className={field} name="serviceNote" maxLength={1000} defaultValue={person?.serviceNote ?? ""} /></label>
                 </fieldset>
               </form>
             )}
@@ -420,7 +424,7 @@ export function CourseMemberWorkspace({
               <form
                 id="course-member-form"
                 onChange={()=>setDirty(true)}
-                className="space-y-3"
+                className="grid grid-cols-1 gap-3 sm:grid-cols-2"
                 onSubmit={(e) =>
                   submit(e, (d) =>
                     saveCoursePointPlan({
@@ -446,7 +450,8 @@ export function CourseMemberWorkspace({
                   />
                 </label>
                 <label className="block">額度單位<select className={field} name="unit" defaultValue={plan?.unit??"POINT"}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>
-                <fieldset className="max-h-64 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-earth-200 p-3"><legend>適用課程（未勾選表示全部課程）</legend>{templates.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="templateIds" value={t.id} defaultChecked={plan?.templateIds.includes(t.id)}/>{t.name}</label>)}</fieldset>
+                <label className="sm:col-span-2">搜尋適用課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="輸入課程名稱"/></label>
+                <fieldset className="sm:col-span-2 max-h-40 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-earth-200 p-3"><legend>適用課程（未勾選表示全部課程）</legend>{templates.map(t=><label hidden={!t.name.includes(templateSearch.trim())} key={t.id} className={t.name.includes(templateSearch.trim())?"flex min-h-11 items-center gap-2":"hidden"}><input type="checkbox" name="templateIds" value={t.id} defaultChecked={plan?.templateIds.includes(t.id)}/>{t.name}</label>)}</fieldset>
                 {[
                   ["額度", "points", plan?.points ?? 10, 1],
                   ["售價", "price", plan?.price ?? 0, 0],
@@ -475,7 +480,7 @@ export function CourseMemberWorkspace({
                     <option value="no">下架</option>
                   </select>
                 </label>
-                <p className="text-sm text-earth-500">
+                <p className="sm:col-span-2 text-sm text-earth-500">
                   修改預設不影響已指派方案。提供點數與堂數方案，無自動續費。
                 </p>
               </form>

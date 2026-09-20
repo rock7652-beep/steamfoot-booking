@@ -1,0 +1,13 @@
+// @vitest-environment jsdom
+import {act,createElement} from "react";
+import {createRoot,type Root} from "react-dom/client";
+import {beforeEach,afterEach,it,expect,vi} from "vitest";
+const m=vi.hoisted(()=>({read:vi.fn(),save:vi.fn()}));
+vi.mock("@/server/actions/course-compensation",()=>({readCourseCompensation:m.read,saveCourseCompensation:m.save}));
+import {CourseCompensationEditor} from "@/components/admin/course-compensation-editor";
+let host:HTMLDivElement,root:Root;
+beforeEach(()=>{vi.resetAllMocks();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});host=document.createElement("div");document.body.append(host);root=createRoot(host);m.save.mockResolvedValue({success:true});});
+afterEach(async()=>{await act(async()=>root.unmount());host.remove();});
+it("allows multiple course options and only shows selected inputs",async()=>{m.read.mockResolvedValue({success:true,defaults:[],rules:[],revision:0});await act(async()=>root.render(createElement(CourseCompensationEditor,{templateId:"c"})));const boxes=host.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');expect(boxes.length).toBe(3);expect(host.querySelectorAll('input[type="number"]').length).toBe(0);await act(async()=>{boxes[0].click();boxes[2].click();});expect(host.querySelectorAll('input[type="number"]').length).toBe(2);await act(async()=>(host.querySelector("button") as HTMLButtonElement).click());expect(m.save.mock.calls[0][0].rules.map((r:{mode:string})=>r.mode)).toEqual(["CLASS","SHARE"]);});
+it("shows only enabled methods and keeps teacher choice single",async()=>{m.read.mockResolvedValue({success:true,defaults:[{mode:"CLASS",value:600},{mode:"SHARE",value:50}],rules:[],revision:0});await act(async()=>root.render(createElement(CourseCompensationEditor,{templateId:"c",staffId:"s"})));const radios=host.querySelectorAll<HTMLInputElement>('input[type="radio"]');expect(radios.length).toBe(2);await act(async()=>radios[0].click());expect((host.querySelector('input[type="number"]') as HTMLInputElement).value).toBe("600");await act(async()=>radios[1].click());expect(radios[0].checked).toBe(false);expect((host.querySelector('input[type="number"]') as HTMLInputElement).value).toBe("50");});
+it("automatically selects the only enabled option",async()=>{m.read.mockResolvedValue({success:true,defaults:[{mode:"HOUR",value:600}],rules:[],revision:0});await act(async()=>root.render(createElement(CourseCompensationEditor,{templateId:"c",staffId:"s"})));expect((host.querySelector('input[type="radio"]') as HTMLInputElement).checked).toBe(true);expect((host.querySelector('input[type="number"]') as HTMLInputElement).value).toBe("600");});

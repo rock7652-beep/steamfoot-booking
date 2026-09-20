@@ -252,3 +252,23 @@ model CoursePurchaseRefund {
   @@index([storeId, createdAt])
   @@index([purchaseId])
 }
+
+// FKs, RLS and snapshot trigger are managed by the additive SQL migration.
+model CourseCompensation {
+  storeId String
+  templateId String
+  staffId String @default("")
+  rules Json
+  revision Int @default(1)
+  updatedAt DateTime @default(now()) @db.Timestamptz
+  @@id([storeId, templateId, staffId])
+}
+model CourseCompensationSnapshot {
+  sessionId String @id
+  storeId String
+  staffId String
+  rule Json
+  revision Int
+  durationMinutes Int
+  createdAt DateTime @default(now()) @db.Timestamptz
+}

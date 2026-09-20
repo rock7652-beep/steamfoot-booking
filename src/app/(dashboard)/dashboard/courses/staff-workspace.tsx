@@ -1,4 +1,6 @@
 "use client";
+import {CourseCompensationSection} from "@/components/admin/course-compensation-editor";
+import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -49,6 +51,7 @@ export function CourseStaffWorkspace({
     codes: { code: string; label: string }[];
   }[];
 }) {
+  const [selected,setSelected]=useState<string[]>([]);
   const [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
     [role, setRole] = useState("all"),
@@ -128,6 +131,7 @@ export function CourseStaffWorkspace({
         )}
       </div>
       {canManage && atLimit && <p className="mb-3 text-sm text-amber-800">啟用人員已達上限（{activeCount}／{maxStaff}）。可建立停用人員；啟用時須有剩餘名額。同一人兼任只計一位。</p>}
+      {canManage && <CourseBatchBar kind="staff" ids={rows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead>
@@ -145,7 +149,7 @@ export function CourseStaffWorkspace({
                 key={p.id}
                 className={p.active ? "" : "text-earth-400 bg-earth-50"}
               >
-                <td className="p-3">{p.name}{(!p.emergencyContactName || !p.emergencyContactPhone || !p.emergencyContactRelation) && <span className="block text-xs text-amber-800">緊急聯絡待補</span>}{!p.active && p.assignments.length>0 && <span className="block text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
+                <td className="p-3">{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-3" checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>} {p.name}{(!p.emergencyContactName || !p.emergencyContactPhone || !p.emergencyContactRelation) && <span className="block text-xs text-amber-800">緊急聯絡待補</span>}{!p.active && p.assignments.length>0 && <span className="block text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
                 <td className="p-3">
                   {identity(p)}{p.coachEnabled && <span className="block text-xs text-earth-600">{p.qualificationsConfirmed && p.qualificationIds.length ? "已設定可教授課程" : "授課設定待補"}；{p.coachLoginReady ? "已開通教練登入" : "尚未開通教練登入"}</span>}
                 </td>
@@ -195,7 +199,7 @@ export function CourseStaffWorkspace({
             )}
             {readOnly && person && <section className="space-y-3">
               {tab === "basic" && <dl className="divide-y divide-earth-100">{[["姓名",person.name],["身分",identity(person)],["電話",person.phone || "未填"],["生日",person.birthday || "未填（選填）"],["緊急聯絡",[person.emergencyContactName || "姓名待補",person.emergencyContactRelation || "關係待補",person.emergencyContactPhone || "電話待補"].join("／")],["狀態",person.active ? "啟用":"停用"]].map(([label,value])=><div key={label} className="grid grid-cols-[6rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>}
-              {tab === "qualifications" && <><h3 className="font-medium">授課設定狀態</h3><p>{person.qualificationsConfirmed && qualificationIds.length ? "已設定可教授課程" : "授課設定待補"}</p><h3 className="font-medium">可教授課程</h3><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(t=>t.name).join("、") || "尚未設定"}</p><h3 className="pt-3 font-medium">教練登入狀態</h3><p>{person.coachLoginReady ? "已開通教練登入" : "尚未開通教練登入"}</p>{!person.coachLoginReady && <p className="text-sm text-earth-600">先由教練完成本店會員登入，再編輯此頁「連結既有顧客」並儲存。授課設定與登入分開，不影響店長依資格排課。</p>}<h3 className="pt-3 font-medium">會員連結</h3><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name ?? "已連結會員" : "尚未連結 · 我的工作尚不可使用"}</p>{person.customerId && <p>{person.memberEnabled ? "會員專區／我的工作":"僅我的工作"}</p>}{person.assignments.length ? <CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/> : <p className="pt-3 text-earth-500">沒有未結束且未取消的課次。</p>}</>}
+              {tab === "qualifications" && <><h3 className="font-medium">授課設定狀態</h3><p>{person.qualificationsConfirmed && qualificationIds.length ? "已設定可教授課程" : "授課設定待補"}</p><h3 className="font-medium">可教授課程</h3><p>{templates.filter(t=>qualificationIds.includes(t.id)).map(t=>t.name).join("、") || "尚未設定"}</p>{canManage && templates.filter(t=>person.qualificationIds.includes(t.id)).map(t=><CourseCompensationSection key={t.id} name={t.name} onDirty={()=>setDirty(true)} templateId={t.id} staffId={person.id}/>)}<h3 className="pt-3 font-medium">教練登入狀態</h3><p>{person.coachLoginReady ? "已開通教練登入" : "尚未開通教練登入"}</p>{!person.coachLoginReady && <p className="text-sm text-earth-600">先由教練完成本店會員登入，再編輯此頁「連結既有顧客」並儲存。授課設定與登入分開，不影響店長依資格排課。</p>}<h3 className="pt-3 font-medium">會員連結</h3><p>{person.customerId ? customers.find(c=>c.id===person.customerId)?.name ?? "已連結會員" : "尚未連結 · 我的工作尚不可使用"}</p>{person.customerId && <p>{person.memberEnabled ? "會員專區／我的工作":"僅我的工作"}</p>}{person.assignments.length ? <CourseConflicts items={person.assignments} label={person.active?"目前授課":"待交接課次"}/> : <p className="pt-3 text-earth-500">沒有未結束且未取消的課次。</p>}</>}
               {tab === "permissions" && <><h3 className="font-medium">後台登入</h3><p>{person.email}</p><h3 className="pt-3 font-medium">店內管理權限</h3>{permissionGroups.map(g=><details key={g.label}><summary className="min-h-11 cursor-pointer py-3">{g.label} · {g.codes.filter(c=>permissions.includes(c.code)).length} 項</summary><p>{g.codes.filter(c=>permissions.includes(c.code)).map(c=>c.label).join("、") || "未開啟"}</p></details>)}</>}
             </section>}
             <form

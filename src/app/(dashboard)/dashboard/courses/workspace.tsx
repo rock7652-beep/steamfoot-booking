@@ -1,4 +1,6 @@
 "use client";
+import {CourseCompensationEditor} from "@/components/admin/course-compensation-editor";
+import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
 import { useState, useTransition, type FormEvent } from "react";
@@ -504,6 +506,7 @@ export function CourseWorkspace({
               </button>
             )}
           </div>
+          {view==="rooms" && canEdit && <CourseBatchBar kind="room" ids={filteredItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
           {view==="catalog" && canEdit && selectedIds.length>0 && <form className="flex flex-wrap items-center gap-2" onSubmit={e=>submit(e,async d=>batchCourseTemplates({ids:selectedIds,...(d.get("batchCategory")!==""?{category:d.get("batchCategory")}:{}),...(d.get("batchVisibility")?{visibility:d.get("batchVisibility")}: {})}),()=>setSelectedIds([]))}>
             <span>已選 {selectedIds.length} 筆</span><input name="batchCategory" className={button} placeholder="調整分類"/><select name="batchVisibility" className={button}><option value="">狀態不變</option><option value="PUBLIC">上架</option><option value="HIDDEN">隱藏</option><option value="OFF">下架</option></select><button className={button} disabled={pending}>套用至選取課程</button>
           </form>}
@@ -554,7 +557,7 @@ export function CourseWorkspace({
                         scope="row"
                         className="block break-words pb-2 font-medium text-primary-900 sm:table-cell sm:max-w-64 sm:px-4 sm:py-3"
                       >
-                        {view === "catalog" && canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
+                        {canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
                         {template && <span className="block text-xs text-earth-500">{template.classType==="PRIVATE"?"私課":template.classType==="GROUP"?"團課":"課型待補"}</span>}
                       </th>
                       <td className="block py-1 sm:table-cell sm:px-4 sm:py-3"><span className="text-earth-500 sm:hidden">分類： </span>{item.category || "未分類"}</td>
@@ -919,6 +922,7 @@ export function CourseWorkspace({
                 ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "私課" : editing.value.classType === "GROUP" ? "團課":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",`點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : [["容納人數",editing.value.capacity ?? "未設定"]]),
               ].map(([label,value])=><div key={String(label)} className="grid grid-cols-[7rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>
               {editing.kind === "template" && <DebitRule/>}
+              {editing.kind === "template" && canEdit && <CourseCompensationEditor onDirty={()=>setDirty(true)} key={editing.value.id} templateId={editing.value.id}/>}
               <details><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
             </section>}
             {panel === "edit" && editing && canEdit && (

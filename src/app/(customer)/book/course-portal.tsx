@@ -219,6 +219,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
       : null,
   ]);
   const referralShare = memberEnabled ? await getReferralShareContext({ customerId: customer.id, storeId, storeSlug: store.slug }) : null;
+  // Only customers on this authorized coach's own sessions are read.
+  const workCustomers = work.length ? await prisma.customer.findMany({
+    where: {storeId, id:{in:[...new Set(work.flatMap(s=>s.bookings.map(b=>b.customerId)))]}},
+    select:{id:true, serviceNote:true, notes:true},
+  }) : [];
   return {
     referralShare: referralShare?.available ? referralShare : null,
     month,
@@ -278,7 +283,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       customerId: b.customerId,
       operatorName: b.operatorName,
       status: b.status,
-      notes: b.notes,
+      notes: "",
       cost: b.pointCost,
       trialPaid: b.trialPayments[0]?.amount ?? null,
       trialPrice: b.trialPrice,
@@ -300,6 +305,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
         checkedIn: !!b.checkedInAt,
         updatedAt: b.updatedAt.toISOString(),
         notes: b.notes,
+        serviceNote: workCustomers.filter(c=>c.id===b.customerId).flatMap(c=>[c.serviceNote,c.notes]).filter(Boolean).join("\n"),
         cost: b.pointCost,
         unit: b.card?.unit ?? "TRIAL",
         planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",

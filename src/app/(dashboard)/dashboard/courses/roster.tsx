@@ -145,8 +145,8 @@ export function CourseRoster({
               {allowTrialActions && trial?.canCorrect && b.trialPayments.some(p=>p.status==="SUCCESS") && <details><summary className="min-h-11 cursor-pointer text-sm">作廢體驗收款</summary><form className="space-y-2" onSubmit={e=>{e.preventDefault();const reason=String(new FormData(e.currentTarget).get("reason")??"");run(()=>voidCourseTrialPayment({paymentId:b.trialPayments.find(p=>p.status==="SUCCESS")!.id,reason}));}}><p className="text-sm">將沖銷本筆收款，保留原紀錄及出席狀態；不會自動退回銀行款項，也不會取消預約。</p><input name="reason" required maxLength={500} placeholder="作廢原因" aria-label="體驗收款作廢原因" className="w-full rounded border p-2"/><button disabled={pending} className={button}>確認作廢收款</button></form></details>}
               {allowTrialActions && trial?.canCollect && b.status!=="CANCELLED" && <button className={button} disabled={pending || (b.trialPayments.some(p=>p.status==="SUCCESS") && (!trial.canCorrect || b.status!=="RESERVED"))} onClick={()=>{setRequestKey(crypto.randomUUID());setCorrectPayment(b.trialPayments.some(p=>p.status==="SUCCESS"));setPaymentBooking(b.id);}}>{b.trialPayments.some(p=>p.status==="SUCCESS") ? "更正體驗收款" : "體驗收款"}</button>}
               <details><summary className="min-h-11 cursor-pointer py-3">收款紀錄</summary>{b.trialPayments.map(p=><p key={p.id}>{formatTWDateTime(new Date(p.createdAt))} · NT$ {p.amount} · {p.status==="SUCCESS"?"已收款":"已作廢"} {p.voidReason}</p>)}</details></div> : <p className="text-primary-800">使用方案：{b.planName} · 可用 {b.available} {b.unit === "SESSION" ? "堂" : "點"}{b.expiresAt ? ` · 到期日 ${formatTWDateTime(new Date(b.expiresAt)).slice(0,10)}` : ""}</p>}
-            <p className="text-earth-600">顧客服務備註：{b.serviceNote || "無"}</p>
-            <p className="text-earth-600">本次預約備註：{b.notes || "無"}</p>
+            <p className="text-earth-600">店內備註：{b.serviceNote || "無"}</p>
+            <p className="text-earth-600">本次備註：{b.notes || "無"}</p>
             {canEdit && b.status === "RESERVED" && (
               <div className="flex flex-wrap gap-2">
                 {!b.checkedInAt && <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "CHECKED_IN" }))}>報到</button>}
@@ -187,7 +187,7 @@ export function CourseRoster({
       {allowTrialActions && trial?.canCreate && trial.settings.trialEnabled && <details className="rounded border border-earth-200 p-3"><summary className="min-h-11 cursor-pointer font-medium">建立體驗預約（不使用方案）</summary><form className="space-y-3" onSubmit={e=>{e.preventDefault();const data=new FormData(e.currentTarget);run(()=>createCourseTrial({sessionId,customerId:data.get("customerId"),price:Number(data.get("price")),notes:data.get("notes"),requestKey}));}}>
         <label className="block">實際上課者<select required name="customerId" className={`${button} w-full`}><option value="">選擇本店顧客</option>{trial.customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label className="block">體驗金額<input name="price" type="number" required readOnly={!trial.settings.trialAllowPriceEdit} min={trial.settings.trialMinPrice} max={trial.settings.trialMaxPrice} defaultValue={trial.settings.trialDefaultPrice} className={`${button} w-full`}/></label>
-        <label className="block">本次預約備註<textarea name="notes" maxLength={1000} className={`${button} w-full`}/></label>
+        <label className="block">本次備註<textarea name="notes" maxLength={1000} className={`${button} w-full`}/></label>
         <p className="text-sm">先建立未收款預約，保留一位名額；收款與出席分開，不占用或扣除其他方案。</p><button className={button} disabled={pending}>確認體驗預約</button>
       </form></details>}
       {payBooking && paymentSettings && !correctPayment && <CollectTrialModal key={payBooking.id} open onClose={()=>setPaymentBooking(null)} bookingId={payBooking.id} customerName={payBooking.customerName} dateLabel={session ? formatTWDateTime(new Date(session.startsAt)) : ""} expectedAmount={payBooking.trialPrice} people={1} attendedPeople={null} settings={paymentSettings} courseMode saveAction={data=>collectCourseTrial({...data,requestKey})} onCollected={()=>{setPaymentBooking(null);void load();router.refresh();}}/>}
@@ -244,7 +244,7 @@ export function CourseRoster({
               ))}
             </select>
           </label>
-          <label className="block">本次預約備註<textarea className={`${button} w-full`} name="notes" maxLength={1000} /></label>
+          <label className="block">本次備註<textarea className={`${button} w-full`} name="notes" maxLength={1000} /></label>
           {!cards.some((c) => !c.expired && c.available >= (c.unit === "SESSION" ? 1 : session?.pointCost ?? 1) && (!session || c.expiresAt >= session.startsAt)) && <p className="text-sm text-earth-600">沒有可用方案：請確認共卡成員、可用額度及期限是否涵蓋上課日期。</p>}
           <button
             className={`${button} bg-primary-700 text-white`}
