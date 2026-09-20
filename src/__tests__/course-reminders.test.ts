@@ -69,3 +69,20 @@ it("course expiry opt-in is scoped and permission checked without changing legac
  expect(m.template).toHaveBeenCalledWith(expect.objectContaining({where:{id:"course-expiry-reminder-enabled:s"},create:expect.objectContaining({storeId:"s",body:"enabled"})}));
  m.manager.mockRejectedValue(new Error("denied"));expect(await setCourseExpiryReminderEnabled(false)).toMatchObject({success:false});expect(m.template).toHaveBeenCalledTimes(1);
 });
+
+it("approved preview reminder targets one attendee, labels test and skips expiry delivery",async()=>{
+ const {withPreviewLineAcceptance}=await import("@/lib/preview-line-acceptance");
+ const {createHash}=await import("node:crypto");
+ const {runCourseExpiryReminders}=await import("@/server/services/course-expiry-reminders");
+ const storeId="store-course-start-0918-a",recipient="U"+"a".repeat(32);
+ const grant={storeId:storeId as "store-course-start-0918-a",bookingId:"booking",customerId:"B",recipientHash:createHash("sha256").update(recipient).digest("hex"),expiresAt:"2099-01-01T00:00:00.000Z"};
+ vi.stubEnv("VERCEL_ENV","preview");vi.stubEnv("VERCEL_GIT_COMMIT_REF","codex/course-scheduling-stage1");vi.stubEnv("DATABASE_URL","postgres://postgres.ttworfzgwejdeolegkxl@pooler/db");vi.stubEnv("COURSE_LINE_ACCEPTANCE_JSON",JSON.stringify(grant));
+ try{
+ m.rules.mockResolvedValue([{id:"rule",storeId,templateId:"template",template:{body:"請準時"}}]);m.store.mockResolvedValue({id:storeId,slug:"a",name:"驗收"});
+ const booking={id:"booking",customerId:"B",session:{startsAt:new Date("2026-09-18T10:00:00+08:00"),endsAt:new Date("2026-09-18T11:00:00+08:00"),nameSnapshot:"瑜珈"}};
+ m.bookings.mockResolvedValue([booking,{...booking,id:"other",customerId:"C"}]);m.customers.mockResolvedValue([{id:"B",name:"本人",lineUserId:recipient},{id:"C",name:"其他人",lineUserId:"other"}]);m.route.mockResolvedValue({channel:"STORE",recipientLineUserId:recipient,status:"READY"});m.blocked.mockReturnValue(true);
+ expect(await withPreviewLineAcceptance(grant,()=>runCourseReminders(now,storeId))).toMatchObject({total:1,sent:1});
+ expect(m.push).toHaveBeenCalledTimes(1);expect(JSON.stringify(m.push.mock.calls[0][2])).toContain("測試提醒");expect(runCourseExpiryReminders).not.toHaveBeenCalled();expect(m.central).not.toHaveBeenCalled();
+ m.existing.mockResolvedValue({status:"SENT"});await withPreviewLineAcceptance(grant,()=>runCourseReminders(now,storeId));expect(m.push).toHaveBeenCalledTimes(1);
+ }finally{vi.unstubAllEnvs();}
+});
