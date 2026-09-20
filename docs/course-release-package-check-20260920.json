@@ -1,0 +1,12 @@
+{
+  "revision_checked": "8da05050bf04f0701916fc96fc5bfd6b2b33099a",
+  "migration_count": 15,
+  "order_matches_prior_rehearsal": true,
+  "all_source_hashes_match": true,
+  "assembled_bundle_sha256": "b9a63292ff00d2b1ac6e88b44810e3c6982bd94452d58ddd7eaad37439604fd6",
+  "transaction_envelope": "identical assembly logic to prior rehearsal; no execution this turn",
+  "source_manifest": "docs/course-full-migration-rehearsal-20260920.json",
+  "production_executed": false,
+  "backup_restore_status": "缺少既有正式連線，尚未執行",
+  "credential_search_stopped": true
+}
