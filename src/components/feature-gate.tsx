@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trialRetentionMessage } from "@/lib/trial-retention";
 import type { PricingPlan } from "@prisma/client";
 import {
   hasFeature,
@@ -325,7 +326,8 @@ export function TrialProgressBar({ trial }: { trial: TrialStatus }) {
         <details><summary className="inline-flex min-h-11 cursor-pointer items-center text-primary-700">ⓘ 用量說明</summary><p className="max-w-xs pb-2 leading-relaxed">本月預約按台灣月份的建立時間，每位學員的一筆預約計一筆，含取消、未到與體驗；不是上課月份或今日有效預約。取消不返還本月用量。</p></details>
         <a href="/pricing" className="ml-auto inline-flex min-h-11 items-center text-primary-700 underline">查看方案</a>
       </div>
-      {warnings.length > 0 && <p role="status" className="border-t border-amber-200 py-2 text-amber-800">{warnings.join("；")}。保留既有資料，<a href="/pricing" className="underline">查看升級方案</a>。</p>}
+      {warnings.length > 0 && <p role="status" className="border-t border-amber-200 py-2 text-amber-800">{warnings.join("；")}。<a href="/pricing" className="underline">查看升級方案</a>。</p>}
+      {trial.retention && <p role="status" className="border-t border-earth-200 py-2 text-earth-700">{trialRetentionMessage(trial.retention)}</p>}
     </section>;
   }
 

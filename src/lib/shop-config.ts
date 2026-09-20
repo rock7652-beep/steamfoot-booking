@@ -6,6 +6,7 @@
  */
 
 import { courseMonthlyBookingWhere } from "@/lib/course-usage";
+import { getTrialRetention, type TrialRetention } from "@/lib/trial-retention";
 import { prisma } from "@/lib/db";
 import { addTaiwanDuration, toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { isSingleStoreTrial, trialDateState } from "@/lib/single-store-trial";
@@ -279,6 +280,7 @@ export function clampTrialTotal(
 // ============================================================
 
 export interface TrialStatus {
+  retention?: TrialRetention | null;
   isFree: boolean;
   course?: boolean;
   staff?: { current: number; limit: number };
@@ -336,6 +338,7 @@ export async function getTrialStatus(storeId?: string | null): Promise<TrialStat
     const customerLimit = limits.maxCustomers ?? Infinity, bookingLimit = limits.maxMonthlyBookings ?? Infinity;
     const pct = Math.max(Math.round((1 - daysRemaining / trialDays) * 100), customers / customerLimit * 100, bookings / bookingLimit * 100);
     return { isFree: true, course, staff, daysRemaining, trialDays, trialExpired: expired,
+      retention: course ? getTrialRetention(trialStore) : null,
       customers: { current: customers, limit: customerLimit, pct: customers / customerLimit * 100 },
       bookings: { current: bookings, limit: bookingLimit, pct: bookings / bookingLimit * 100 },
       overallPct: pct, stage: expired || !started || pct >= 100 ? "blocked" : pct >= 80 ? "warning" : pct >= 60 ? "light" : "normal",

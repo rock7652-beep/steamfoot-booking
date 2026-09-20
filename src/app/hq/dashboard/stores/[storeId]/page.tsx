@@ -1,4 +1,7 @@
 import { checkPermission } from "@/lib/permissions";
+import { getStoreForPlanByStoreId } from "@/lib/store-plan";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { getTrialRetention, trialRetentionMessage } from "@/lib/trial-retention";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
@@ -35,10 +38,13 @@ export default async function StoreDetailPage({ params }: PageProps) {
   }
 
   const summary = result.data;
+  const retention = !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
+    ? getTrialRetention(await getStoreForPlanByStoreId(storeId)) : null;
   const canShowActivate = !summary.store.currentSubscriptionId && !summary.store.isDemo && summary.store.planStatus !== "ACTIVE" && summary.canActivate;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
+      {retention && <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{trialRetentionMessage(retention)}{retention.state === "PENDING_CLEANUP" && " 尚未自動刪除；清理前須重新確認未升級及資料範圍。"}</p>}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-earth-900">{summary.store.name}</h1>

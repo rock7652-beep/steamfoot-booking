@@ -8,12 +8,15 @@
  */
 export function SubscriptionStatusBanner({
   state,
+  retentionMessage,
 }: {
   state: "EXPIRED" | "SUSPENDED";
+  retentionMessage?: string;
 }) {
   const title = state === "EXPIRED" ? "系統使用期限已到期" : "系統已暫停使用";
-  const body =
-    "目前為唯讀模式，僅供查看，無法新增 / 修改 / 收款。請聯繫總部完成續約後即可恢復操作。";
+  const body = retentionMessage
+    ? `目前為唯讀模式，無法新增 / 修改 / 收款。${retentionMessage}`
+    : "目前為唯讀模式，僅供查看，無法新增 / 修改 / 收款。請聯繫總部完成續約後即可恢復操作。";
   const tone =
     state === "SUSPENDED"
       ? "border-red-200 bg-red-50 text-red-700"

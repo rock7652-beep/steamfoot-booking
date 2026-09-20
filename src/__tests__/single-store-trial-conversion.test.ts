@@ -16,6 +16,12 @@ beforeEach(() => {
   m.tx.mockImplementation(async fn => fn({ $executeRaw: m.lock, store: { findUniqueOrThrow: m.storeFind, update: m.storeSave }, storeSubscription: { findUnique: m.subFind, update: m.subSave, create: m.subSave }, storePlanChange: { create: m.log } }));
 });
 describe("original-store trial conversion", () => {
+  it.each(["BASIC", "GROWTH", "ALLIANCE"])("upgrades to %s at the final millisecond of retention day 30", async plan => {
+    vi.setSystemTime(new Date("2026-10-30T15:59:59.999Z"));
+    m.storeFind.mockResolvedValue({ id: "store", plan: "EXPERIENCE", planStatus: "EXPIRED", currentSubscriptionId: "trial", planEffectiveAt: new Date("2026-09-01T00:00:00Z"), planExpiresAt: new Date("2026-09-30T00:00:00Z") });
+    expect((await upsertStoreSubscription({ ...input, plan, startedAt: "2026-10-30", expiresAt: "2026-11-29" })).success).toBe(true);
+    expect(m.storeSave).toHaveBeenCalledWith({ where: { id: "store" }, data: expect.objectContaining({ plan, planStatus: "ACTIVE", currentSubscriptionId: "trial" }) });
+  });
   it.each(["BASIC", "GROWTH", "ALLIANCE"])("activates %s on the same store and subscription", async (plan) => {
     expect((await upsertStoreSubscription({...input, plan})).success).toBe(true);
     expect(m.subSave).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "trial" }, data: expect.objectContaining({ isTrial: false, plan, status: "ACTIVE" }) }));
