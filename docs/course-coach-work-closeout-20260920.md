@@ -37,3 +37,15 @@ A 店方案、期限、人員及預約資料未修改，無外發通知、正式
 ## 單人點名省略確認視窗
 
 依本人手機回饋，單人「出席／未到」直接呼叫原儲存動作，不再開啟確認視窗。儲存中停用按鈕並以同步鎖防止連點；失敗保留名單並顯示錯誤，成功刷新資料與提示姓名／結果。多人批次及更正仍沿用原流程。新增直接出席／未到、連點及錯誤顯示測試。
+
+
+## First-tap attendance feedback
+
+Phone report: check-in/no-show displayed global updating for 3–5 seconds and appeared to need another tap. Source review confirmed that the roster only consumed server props; writes and full refresh shared one transition. The screenshots alone cannot establish whether the first write failed or which server/network stage consumed the reported time.
+
+- Existing authorized transaction/settlement now returns committed attendance status, check-in flag and updatedAt. No extra query or settlement change.
+- Client shows saving feedback immediately, blocks duplicate submissions, and applies only successful committed responses to the roster and derived counters.
+- Older refresh rows cannot replace a newer confirmed response; a newer server correction takes precedence. Background refresh no longer blocks coach attendance buttons.
+- Failed writes retain prior state and display an error. Batch/correction confirmation remains; single attendance/no-show stays direct.
+- Targeted UI/action tests: 29 passed, including deferred first-tap check-in/no-show, duplicate click, stale refresh, newer correction and failed save. TypeScript and lint checked separately.
+- No A-store plan, expiry, identity or balance fixture edits; no external messages. Live phone latency remains to be measured; do not claim a sub-second end-to-end result from component tests.

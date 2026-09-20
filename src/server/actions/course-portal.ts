@@ -42,7 +42,7 @@ export async function saveCourseAttendance(input: unknown) {
     if (new Set(data.bookings.map((b) => b.id)).size !== data.bookings.length)
       throw new AppError("VALIDATION", "學員不可重複");
     const { user, storeId } = await courseAccount({ write: true });
-    await courseTransaction(storeId, async (tx) => {
+    const attendanceUpdates = await courseTransaction(storeId, async (tx) => {
       const allowed = await tx.$queryRaw<
         Array<{ id: string }>
       >`SELECT s.id FROM "CourseSession" s JOIN "StaffMemberLink" l ON l."staffId"=s."coachId" AND l."storeId"=s."storeId" JOIN "Staff" st ON st.id=l."staffId" AND st."storeId"=l."storeId" WHERE s.id=${data.sessionId} AND s."storeId"=${storeId} AND s."cancelledAt" IS NULL AND l."userId"=${user.id} AND l."revokedAt" IS NULL AND st.status::text='ACTIVE' AND st."courseCoachEnabled"=true`;
@@ -58,21 +58,18 @@ export async function saveCourseAttendance(input: unknown) {
       });
       if (count !== data.bookings.length)
         throw new AppError("VALIDATION", "名單已變更，請重新確認");
+      const updates = [];
       for (const b of data.bookings) {
-        if (data.target === "CHECKED_IN") {
-          await settleCourseBooking(tx, { storeId, userId: user.id, name: user.name ?? "教練" }, b.id, "CHECKED_IN");
-        } else await correctCourseAttendance(
-          tx,
-          { storeId, userId: user.id, name: user.name ?? "教練" },
-          b.id,
-          data.target,
-          b.status,
-        );
+        const saved = data.target === "CHECKED_IN"
+          ? await settleCourseBooking(tx, { storeId, userId: user.id, name: user.name ?? "教練" }, b.id, "CHECKED_IN")
+          : await correctCourseAttendance(tx, { storeId, userId: user.id, name: user.name ?? "教練" }, b.id, data.target, b.status);
+        updates.push({ id: saved.id, status: saved.status, checkedIn: !!saved.checkedInAt, updatedAt: saved.updatedAt.toISOString() });
       }
+      return updates;
     });
     if (data.target !== "CHECKED_IN") scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     refresh();
-    return { success: true as const };
+    return { success: true as const, attendanceUpdates };
   } catch (e) {
     return handleActionError(e);
   }

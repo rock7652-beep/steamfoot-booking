@@ -3,7 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
-const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), note: vi.fn() }));
+const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, replace: m.replace }), usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/components/share-referral", () => ({ ShareReferral: () => null }));
 vi.mock("@/server/actions/course-referral-share", () => ({ trackCourseShare: vi.fn() }));
@@ -12,11 +12,11 @@ vi.mock("@/components/logout-button", () => ({ LogoutButton: () => null }));
 vi.mock("@/server/actions/auth", () => ({ logoutAction: vi.fn() }));
 vi.mock("@/components/course-member-contact-form", () => ({ CourseMemberContactForm: () => null }));
 vi.mock("@/components/course-health-workspace", () => ({ CourseHealthWorkspace: () => null }));
-vi.mock("@/server/actions/course-members", () => ({ createMemberCourseBooking: vi.fn(), markCourseCoachAttendance: vi.fn(), updateCourseBookingStatus: vi.fn() }));
+vi.mock("@/server/actions/course-members", () => ({ createMemberCourseBooking: vi.fn(), markCourseCoachAttendance: m.checkIn, updateCourseBookingStatus: vi.fn() }));
 vi.mock("@/server/actions/course-portal", () => ({ saveCourseAttendance: m.attendance, saveCourseCoachNote: m.note, purchaseCoursePlan: vi.fn() }));
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
-const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, customerName: id, checkedIn, status, notes: "", cost: 2, unit: "POINT", planName: "十點", expiresAt: null });
+const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, customerName: id, checkedIn, status, notes: "", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, unit: "POINT", planName: "十點", expiresAt: null });
 const props = () => ({ month: "2026-09", serverNow: Date.parse("2026-09-20T11:00:00+08:00"), initialDate: "2026-09-20", memberEnabled: false, hasWork: true, customerId: "coach", customerName: "教練", storeName: "A", prefix: "/s/a", cards: [], plans: [], templates: [], bookings: [], orders: [], sessions: [], hours: [], special: [], config: {}, bookingWindow: { closesAt: "2026-10-20T00:00:00Z" }, nextWork: null, work: [{ id: "lesson", name: "伸展瑜珈", startsAt: "2026-09-20T10:00:00+08:00", endsAt: "2026-09-20T11:00:00+08:00", room: "A 教室", bookings: [learner("已到學員", true), learner("尚未到學員", false), learner("已取消學員", false, "CANCELLED")] }] }) as unknown as CoursePortalData;
 const click = async (text: string) => {
   const button = [...host.querySelectorAll("button")].find(b => b.textContent?.includes(text));
@@ -28,7 +28,7 @@ beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   window.scrollTo = vi.fn();
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
-  m.attendance.mockResolvedValue({ success: true });
+  m.attendance.mockImplementation(async (input) => ({ success: true, attendanceUpdates: input.bookings.map((b: {id:string}) => ({id:b.id,status:input.target === "CHECKED_IN" ? "RESERVED" : input.target,checkedIn:input.target === "ATTENDED" || input.target === "CHECKED_IN",updatedAt:"2026-09-20T03:00:00.000Z"})) }));
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
 describe("coach daily work interactions", () => {
@@ -127,6 +127,33 @@ describe("coach daily work interactions", () => {
     expect(host.querySelector('[role="alert"]')?.textContent).toContain("名單已變更");
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(host.textContent).toContain("已報到・待出席");
+  });
+
+  it.each(["報到", "未到"])("shows saving on the first %s tap, then reconciles without a second tap", async label => {
+    let resolve!: (value: unknown) => void;
+    const action = label === "報到" ? m.checkIn : m.attendance;
+    action.mockReturnValueOnce(new Promise(r => { resolve = r; }));
+    const p = props();
+    await act(async () => root.render(createElement(CoursePortalClient, p)));
+    await click("伸展瑜珈");
+    const button = [...host.querySelectorAll("button")].find(b => b.textContent === label)!;
+    const person = button.closest(".cp-person")!;
+    const id = label === "報到" ? "尚未到學員" : "已到學員";
+    await act(async () => { button.click(); button.click(); });
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(person.textContent).toContain("儲存中…");
+    expect(button.disabled).toBe(true);
+    expect(host.textContent).not.toContain("已標記未到");
+    const update = { id, status: label === "報到" ? "RESERVED" : "NO_SHOW", checkedIn: label === "報到", updatedAt:"2026-09-20T03:00:00.000Z" };
+    await act(async () => resolve({success:true,attendanceUpdates:[update]}));
+    expect(person.querySelector(".cp-badge")?.textContent).toBe(label === "報到" ? "已報到・待出席" : "未到");
+    // A delayed refresh carrying the old row must not undo the confirmed write.
+    await act(async () => root.render(createElement(CoursePortalClient, {...p, serverNow:p.serverNow+1000})));
+    expect(person.querySelector(".cp-badge")?.textContent).toBe(label === "報到" ? "已報到・待出席" : "未到");
+    // A later authoritative correction is still allowed to replace the local result.
+    const newer = {...p, work:p.work.map(s=>({...s,bookings:s.bookings.map(b=>b.id===id?{...b,status:"RESERVED",checkedIn:false,updatedAt:"2026-09-20T03:01:00.000Z"}:b)}))};
+    await act(async () => root.render(createElement(CoursePortalClient,newer)));
+    expect(person.querySelector(".cp-badge")?.textContent).toBe("待報到");
   });
 
 });

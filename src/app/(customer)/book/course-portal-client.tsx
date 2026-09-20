@@ -40,6 +40,7 @@ import { CourseHealthWorkspace } from "@/components/course-health-workspace";
 import "./course-portal.css";
 type Session = CoursePortalData["sessions"][number];
 type Work = CoursePortalData["work"][number];
+type AttendanceUpdate = Pick<Work["bookings"][number], "id" | "status" | "checkedIn" | "updatedAt">;
 type Page =
   | "home"
   | "schedule"
@@ -204,7 +205,16 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     [lastFive, setLastFive] = useState(""),
     [message, setMessage] = useState(""),
     [error, setError] = useState(""),
-    [pending, start] = useTransition();
+    [refreshing, start] = useTransition();
+  const [saving, setSaving] = useState(false);
+  const [savingIds, setSavingIds] = useState<string[]>([]);
+  const [confirmedAttendance, setConfirmedAttendance] = useState<Record<string, AttendanceUpdate>>({});
+  const pending = saving || (role !== "coach" && refreshing);
+  // Keep confirmed writes visible across an older in-flight refresh; newer server rows win.
+  const work = p.work.map(s => ({ ...s, bookings: s.bookings.map(b => {
+    const saved = confirmedAttendance[b.id];
+    return saved && saved.updatedAt > b.updatedAt ? { ...b, ...saved } : b;
+  }) }));
   const busyRef = useRef(false),
     trail = useRef<Array<{ page: Page; y: number }>>([]),
     daily = useRef<HTMLElement>(null);
@@ -224,9 +234,9 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     modal = !!(session || attendance || cancelId || buy);
   const needsRoll = (s: Work) => s.bookings.some(b => b.status === "RESERVED");
   const isEnded = (s: Work) => new Date(s.endsAt).getTime() <= now;
-  const todayWork = p.work.filter(s => courseDate(s.startsAt) === today);
-  const overdue = p.work.filter(s => courseDate(s.startsAt) < today && needsRoll(s) && isEnded(s));
-  const monthlyWork = p.work.filter(s => courseDate(s.startsAt).startsWith(p.month));
+  const todayWork = work.filter(s => courseDate(s.startsAt) === today);
+  const overdue = work.filter(s => courseDate(s.startsAt) < today && needsRoll(s) && isEnded(s));
+  const monthlyWork = work.filter(s => courseDate(s.startsAt).startsWith(p.month));
   const taught = monthlyWork.filter(s => isEnded(s) && !needsRoll(s) && s.bookings.some(b => b.status === "ATTENDED"));
   const taughtHours = Math.round(taught.reduce((n,s) => n + (Date.parse(s.endsAt)-Date.parse(s.startsAt))/3600000,0)*10)/10;
   const weekStart = addTaiwanDuration(selected, -((parseLocalDate(selected).getDay()+6)%7), "DAY");
@@ -234,8 +244,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
   const historyWork = monthlyWork.filter(s => isEnded(s) && (recordFilter !== "pending" || needsRoll(s)));
   const refreshGuard = useRef({ modal, pending });
   useEffect(() => {
-    refreshGuard.current = { modal: modal || !!editingNote, pending };
-  }, [modal, pending, editingNote]);
+    refreshGuard.current = { modal: modal || !!editingNote, pending: pending || refreshing };
+  }, [modal, pending, refreshing, editingNote]);
   useEffect(() => {
     if (!editingNote || editingNote.value === (editingNote.original ?? "")) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -318,44 +328,47 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     start(() => router.replace(`${pathname}?${q}`, { scroll: false }));
   }
   function run(
-    action: () => Promise<{ success: boolean; error?: string }>,
+    action: () => Promise<{ success: boolean; error?: string; attendanceUpdates?: AttendanceUpdate[] }>,
     done: () => void,
     successMessage = "已更新",
+    bookingIds: string[] = [],
   ) {
     if (busyRef.current) return;
     busyRef.current = true;
+    setSaving(true);
+    setSavingIds(bookingIds);
     setError("");
-    start(async () => {
+    setMessage("");
+    void (async () => {
       try {
         const r = await action();
         if (!r.success) {
           setError(r.error ?? "操作失敗，請重試");
-          router.refresh();
+          start(() => router.refresh());
           return;
         }
+        if (r.attendanceUpdates) setConfirmedAttendance(previous => {
+          const next = { ...previous };
+          for (const row of r.attendanceUpdates!) {
+            if (!next[row.id] || next[row.id].updatedAt <= row.updatedAt) next[row.id] = row;
+          }
+          return next;
+        });
         done();
         setMessage(successMessage);
-        router.refresh();
+        start(() => router.refresh());
       } catch {
         setError("連線中斷，請重試；目前選擇已保留。");
       } finally {
         busyRef.current = false;
+        setSaving(false);
+        setSavingIds([]);
       }
-    });
+    })();
   }
   function checkIn(bookingId: string) {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    setError("");
-    start(async () => {
-      try {
-        const result = await markCourseCoachAttendance({ bookingId, status: "CHECKED_IN" });
-        if (!result.success) setError(result.error ?? "報到失敗，請重試");
-        else setMessage("已報到，未扣抵額度");
-        router.refresh();
-      } catch { setError("連線中斷，請重試；報到重送不會扣抵額度。"); }
-      finally { busyRef.current = false; }
-    });
+    run(() => markCourseCoachAttendance({ bookingId, status: "CHECKED_IN" }),
+      () => {}, "已報到，未扣抵額度", [bookingId]);
   }
   const eligible = (s: Session) =>
     p.cards
@@ -454,7 +467,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           <span key={"blank" + i} />
         ))}
         {courseMonthDays(p.month).dates.map((d) => {
-          const sessions = (coach ? p.work : p.sessions).filter(
+          const sessions = (coach ? work : p.sessions).filter(
               (s) => courseDate(s.startsAt) === d,
             ),
             marks = courseMemberMarkers(
@@ -623,7 +636,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     <strong>{b.customerName}</strong>
                     <div className="cp-attendance-actions">
                       <span className="cp-badge" data-status={b.status}>
-                        {b.status === "RESERVED"
+                        {savingIds.includes(b.id) ? "儲存中…" : b.status === "RESERVED"
                           ? (b.checkedIn ? "已報到・待出席" : "待報到")
                           : statusName(b.status)}
                       </span>
@@ -639,6 +652,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                                 () => saveCourseAttendance({ sessionId: s.id, target: "ATTENDED", bookings: [{ id: b.id, status: b.status }] }),
                                 () => {},
                                 `${b.customerName} 已標記出席`,
+                                [b.id],
                               );
                             }}
                           >
@@ -652,6 +666,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                                 () => saveCourseAttendance({ sessionId: s.id, target: "NO_SHOW", bookings: [{ id: b.id, status: b.status }] }),
                                 () => {},
                                 `${b.customerName} 已標記未到`,
+                                [b.id],
                               );
                             }}
                           >
@@ -769,10 +784,10 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           <div className="cp-refresh">
             <span>更新於 {time(new Date(p.serverNow).toISOString())}</span>
             <button
-              disabled={pending}
+              disabled={saving || refreshing}
               onClick={() => start(() => router.refresh())}
             >
-              {pending ? "更新中…" : "更新"}
+              {saving ? "儲存中…" : refreshing ? "更新中…" : "更新"}
             </button>
           </div>
           {message && (
@@ -858,7 +873,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               <div className="cp-schedule">
                 {coach ? <>
                   <div className="cp-work-date"><button aria-label="上一週" disabled={pending} onClick={() => workDate(addTaiwanDuration(selected,-7,"DAY"))}>‹</button><strong>{weekDays[0].slice(5)} — {weekDays[6].slice(5)}</strong><button aria-label="下一週" disabled={pending} onClick={() => workDate(addTaiwanDuration(selected,7,"DAY"))}>›</button></div>
-                  <div className="cp-week-strip">{weekDays.map((d,i)=><button key={d} disabled={pending} aria-pressed={selected===d} className={selected===d?"primary":""} onClick={()=>workDate(d)}><span>{"一二三四五六日"[i]}</span><strong>{Number(d.slice(-2))}</strong><small>{p.work.filter(s=>courseDate(s.startsAt)===d).length}堂</small></button>)}</div>
+                  <div className="cp-week-strip">{weekDays.map((d,i)=><button key={d} disabled={pending} aria-pressed={selected===d} className={selected===d?"primary":""} onClick={()=>workDate(d)}><span>{"一二三四五六日"[i]}</span><strong>{Number(d.slice(-2))}</strong><small>{work.filter(s=>courseDate(s.startsAt)===d).length}堂</small></button>)}</div>
                   <div className="cp-actions"><button disabled={pending} onClick={()=>workDate(today)}>今天</button><button aria-expanded={showWorkCalendar} onClick={()=>setShowWorkCalendar(!showWorkCalendar)}>{showWorkCalendar?"收起月曆":"月曆"}</button></div>
                   {showWorkCalendar && calendar}
                 </> : calendar}
@@ -866,10 +881,10 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   <h2>
                     {selected} · {coach ? "授課" : "當日課程"}
                   </h2>
-                  {coach && !p.work.some(s=>courseDate(s.startsAt)===selected) && <p className="cp-empty">當日沒有排課</p>}
+                  {coach && !work.some(s=>courseDate(s.startsAt)===selected) && <p className="cp-empty">當日沒有排課</p>}
                   {coach
                     ? workRows(
-                        p.work.filter(
+                        work.filter(
                           (s) => courseDate(s.startsAt) === selected,
                         ),
                       )
@@ -1395,6 +1410,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       }),
                     () => setAttendance(null),
                     attendance.target === "CHECKED_IN" ? "已報到，未扣抵額度" : attendance.target === "ATTENDED" ? "已標記出席" : attendance.target === "NO_SHOW" ? "已標記未到" : "已更正為待點名",
+                    attendance.ids,
                   )
                 }
               >

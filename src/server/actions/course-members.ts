@@ -402,7 +402,7 @@ export async function markCourseCoachAttendance(input: unknown) {
   try {
     const { user, storeId } = await courseAccount({ write: true });
     const { bookingId, status } = z.object({ bookingId: id, status: z.enum(["ATTENDED", "CHECKED_IN", "NO_SHOW"]).default("ATTENDED") }).parse(input);
-    await courseTransaction(storeId, async (tx) => {
+    const saved = await courseTransaction(storeId, async (tx) => {
       const allowed = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT b.id FROM "CourseBooking" b
         JOIN "CourseSession" s ON s.id = b."sessionId" AND s."storeId" = b."storeId"
@@ -411,7 +411,7 @@ export async function markCourseCoachAttendance(input: unknown) {
         WHERE b.id = ${bookingId} AND b."storeId" = ${storeId} AND l."userId" = ${user.id} AND l."revokedAt" IS NULL AND st.status::text = 'ACTIVE' AND st."courseCoachEnabled"=true`;
       if (!allowed.length)
         throw new AppError("FORBIDDEN", "只能點名自己被授權的課程");
-      await settleCourseBooking(
+      return settleCourseBooking(
         tx,
         { storeId, userId: user.id, name: user.name ?? "教練" },
         bookingId,
@@ -420,7 +420,7 @@ export async function markCourseCoachAttendance(input: unknown) {
     });
     scheduleCourseLowBalanceCheck(storeId,[bookingId]);
     refresh();
-    return { success: true as const };
+    return { success: true as const, attendanceUpdates: [{ id: saved.id, status: saved.status, checkedIn: !!saved.checkedInAt, updatedAt: saved.updatedAt.toISOString() }] };
   } catch (e) {
     return handleActionError(e);
   }

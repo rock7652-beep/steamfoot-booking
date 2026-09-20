@@ -12,11 +12,11 @@ beforeEach(() => {
   mock.account.mockResolvedValue({ user: { id: "user-a", name: "Coach A" }, storeId: "store-a" });
   mock.raw.mockResolvedValue([{ id: "booking-b" }]);
   mock.transaction.mockImplementation(async (_store, callback) => callback({ $queryRaw: mock.raw }));
-  mock.settle.mockResolvedValue({});
+  mock.settle.mockResolvedValue({id:"booking-b",status:"RESERVED",checkedInAt:new Date(),updatedAt:new Date("2026-09-20T03:00:00Z")});
 });
 describe("coach attendance", () => {
   it.each(["CHECKED_IN", "ATTENDED", "NO_SHOW"])("uses the existing atomic settlement for %s", async (status) => {
-    expect(await markCourseCoachAttendance({ bookingId: "booking-b", status })).toEqual({ success: true });
+    expect(await markCourseCoachAttendance({ bookingId: "booking-b", status })).toMatchObject({ success: true, attendanceUpdates: [{id:"booking-b", checkedIn:true, updatedAt:"2026-09-20T03:00:00.000Z"}] });
     expect(mock.transaction).toHaveBeenCalledWith("store-a", expect.any(Function));
     expect(mock.settle).toHaveBeenCalledWith(expect.anything(), { storeId: "store-a", userId: "user-a", name: "Coach A" }, "booking-b", status);
     const query = mock.raw.mock.calls[0][0].join("?");
