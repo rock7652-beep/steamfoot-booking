@@ -2,6 +2,7 @@
 import {act,createElement} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
+vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh}),useSearchParams:()=>new URLSearchParams("customerId=person")}));
 vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children}:{children:unknown})=>children}));

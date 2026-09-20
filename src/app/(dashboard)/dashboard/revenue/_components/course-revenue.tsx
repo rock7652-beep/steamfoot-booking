@@ -59,7 +59,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const names = new Map(customers.map((c) => [c.id, c.name]));
   const rows = orders.map((order) => {
     const card = cards.find((c) => c.id === order.cardId);
-    return { ...order, date: formatTWTime(order.createdAt, { dateOnly: true }), customerName: names.get(order.customerId) ?? "顧客資料待核對", remaining: card?.remaining ?? null,
+    return { ...order, discountValue: order.discountValue == null ? null : Number(order.discountValue), date: formatTWTime(order.createdAt, { dateOnly: true }), customerName: names.get(order.customerId) ?? "顧客資料待核對", remaining: card?.remaining ?? null,
       reserved: held.find((b) => b.cardId === order.cardId)?._sum.pointCost ?? 0,
       attended: attended.find((b) => b.cardId === order.cardId)?._count ?? 0,
       usedQuota: attended.find((b) => b.cardId === order.cardId)?._sum.pointCost ?? 0,

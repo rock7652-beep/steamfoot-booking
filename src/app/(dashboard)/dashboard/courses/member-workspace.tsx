@@ -1,4 +1,5 @@
 "use client";
+import {CourseAssignmentPayment} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -38,6 +39,7 @@ const field =
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function CourseMemberWorkspace({
+  canDelete=false,
   view,
   templates,
   people,
@@ -55,12 +57,14 @@ export function CourseMemberWorkspace({
   assignmentStaff,
   canAssignManager,
   canMerge = false,
+  canDiscount = false,
 }: {
   view: "customers" | "plans";
   templates: {id:string;name:string}[];
   people: Person[];
   plans: Plan[];
   cards: CourseCardView[];
+  canDelete?: boolean;
   canEdit: boolean;
   canCreate: boolean;
   canManageStaff: boolean;
@@ -73,6 +77,7 @@ export function CourseMemberWorkspace({
   assignmentStaff: {id:string;displayName:string}[];
   canAssignManager: boolean;
   canMerge?: boolean;
+  canDiscount?: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -199,7 +204,7 @@ export function CourseMemberWorkspace({
           {notice}
         </p>
       )}
-      {view === "plans" && canEdit && <CourseBatchBar kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+      {view === "plans" && canEdit && <CourseBatchBar canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {view === "customers" ? <CourseCustomerList rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge}
@@ -496,6 +501,11 @@ export function CourseMemberWorkspace({
                       planId,
                       customerId: d.get("customerId"),
                       expiresDate: d.get("expires"),
+                      expectedListPrice: Number(d.get("expectedListPrice")),
+                      discountKind: d.get("discountKind"),
+                      discountValue: Number(d.get("discountValue")),
+                      paymentMethod: d.get("paymentMethod"),
+                      transferLastFour: String(d.get("transferLastFour") ?? ""),
                       requestKey,
                     }),
                   )
@@ -546,9 +556,7 @@ export function CourseMemberWorkspace({
                     )}
                   />
                 </label>
-                <p className="text-sm text-earth-500">
-                  指派會新增額度紀錄；收款請在營運登錄實際收支。
-                </p>
+                <CourseAssignmentPayment key={planId} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount}/>
               </form>
             )}
             {panel === "card" && card && (
@@ -602,7 +610,7 @@ export function CourseMemberWorkspace({
                 className={`${button} w-full bg-primary-700 text-white`}
                 disabled={pending}
               >
-                {pending ? "儲存中…" : panel === "assign" ? "確認指派方案" : panel === "card" ? "儲存共卡成員" : "儲存"}
+                {pending ? "儲存中…" : panel === "assign" ? "確認結帳並指派方案" : panel === "card" ? "儲存共卡成員" : "儲存"}
               </button>
             </footer>
           )}

@@ -132,7 +132,7 @@ export function CourseStaffWorkspace({
         )}
       </div>
       {canManage && atLimit && <p className="mb-3 text-sm text-amber-800">啟用人員已達上限（{activeCount}／{maxStaff}）。可建立停用人員；啟用時須有剩餘名額。同一人兼任只計一位。</p>}
-      {canManage && <CourseBatchBar kind="staff" ids={rows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+      {canManage && <CourseBatchBar canDelete={canManage} names={Object.fromEntries(rows.map(p=>[p.id,p.name]))} kind="staff" ids={rows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead>

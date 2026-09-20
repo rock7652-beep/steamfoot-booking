@@ -138,7 +138,7 @@ export default async function CoursesPage({
               : "管理上課教室"
         }
       />
-      <CourseWorkspace
+      <CourseWorkspace canDelete={user.role==="OWNER"}
         key={`${storeId}:${view}`}
         view={view}
         selectedDate={selected}

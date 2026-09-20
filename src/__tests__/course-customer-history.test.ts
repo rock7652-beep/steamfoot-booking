@@ -15,7 +15,7 @@ beforeEach(() => {
 });
 describe("course customer purchase history", () => {
   it("requires customer and transaction permissions and scopes customer, orders and refunds", async () => {
-    expect(await loadCourseCustomerPurchases("customer")).toEqual({ success: true, data: [] });
+    expect(await loadCourseCustomerPurchases("customer")).toEqual({ success: true, hasMore: false, data: [] });
     expect(mocks.manager.mock.calls.map(call => call[0])).toEqual(["customer.read", "transaction.read"]);
     expect(mocks.customer).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "customer", storeId: "course-store", mergedIntoCustomerId: null } }));
     expect(mocks.orders).toHaveBeenCalledWith(expect.objectContaining({
@@ -44,3 +44,5 @@ describe("course customer purchase history", () => {
     }] });
   });
 });
+
+it("loads ten rows at a time and signals more without dropping remaining history",async()=>{const date=new Date();mocks.orders.mockResolvedValue(Array.from({length:11},(_,i)=>({id:String(i),createdAt:date,confirmedAt:null,refunds:[]})));const r=await loadCourseCustomerPurchases("customer",10);expect(r).toMatchObject({success:true,hasMore:true});if(r.success)expect(r.data).toHaveLength(10);expect(mocks.orders).toHaveBeenCalledWith(expect.objectContaining({skip:10,take:11}));});

@@ -141,3 +141,14 @@ jobs:
               throw new Error("Expected the concurrent activation database test to pass without skips");
             }
           '
+      - name: Verify atomic checkout, replay and safe deletion
+        run: >-
+          npx vitest run src/__tests__/course-checkout.pg.test.ts
+          --reporter=default --reporter=json --outputFile=course-checkout-pg-results.json
+      - name: Require all checkout database scenarios
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("course-checkout-pg-results.json", "utf8"));
+            if (!r.success || r.numPassedTests !== 4 || r.numPendingTests !== 0) throw new Error("Expected four executed checkout scenarios");
+          '

@@ -313,7 +313,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       })),
     })),
     orders: orders.map((o) => ({
-      ...o,
+      ...o, discountValue: o.discountValue == null ? null : Number(o.discountValue),
       refunds: (o.refunds??[]).map(r=>({...r,createdAt:r.createdAt.toISOString()})),
       createdAt: o.createdAt.toISOString(),
       confirmedAt: o.confirmedAt?.toISOString() ?? null,

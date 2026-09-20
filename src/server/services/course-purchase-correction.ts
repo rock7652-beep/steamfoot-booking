@@ -1,4 +1,5 @@
 import "server-only";
+import { lockCourseCashDay } from "./course-assignment-checkout";
 import type { Prisma } from "../../../generated/course-client";
 import { AppError } from "@/lib/errors";
 type Actor = { storeId: string; userId: string };
@@ -29,11 +30,15 @@ export async function voidCoursePurchaseInTransaction(tx: Prisma.TransactionClie
   }
   if (order.status === "CONFIRMED" && order.price > 0) {
     const receipts = await tx.$queryRaw<Array<{ amount: unknown; type: string; paymentMethod: string }>>`SELECT amount,type::text,"paymentMethod"::text FROM "CashbookEntry" WHERE id=${"course-purchase:" + order.id} AND "storeId"=${actor.storeId} FOR UPDATE`;
-    if (!receipts[0] || Number(receipts[0].amount) !== order.price || receipts[0].type !== "INCOME" || receipts[0].paymentMethod !== "OTHER")
+    if (!receipts[0] || Number(receipts[0].amount) !== order.price || receipts[0].type !== "INCOME" || receipts[0].paymentMethod !== (order.paymentMethod === "CASH" ? "CASH" : "OTHER"))
       throw new AppError("BUSINESS_RULE", "原收款紀錄不一致，尚未作廢。");
-    // Reverse the erroneous noncash receipt on its original accounting date.
+    if(order.paymentMethod === "CASH") {
+      const dates=await tx.$queryRaw<Array<{entryDate:Date}>>`SELECT "entryDate" FROM "CashbookEntry" WHERE id=${"course-purchase:"+order.id} AND "storeId"=${actor.storeId}`;
+      await lockCourseCashDay(tx,actor.storeId,dates[0].entryDate);
+    }
+    // Reverse the erroneous receipt on its original accounting date.
     // Keep both rows and audit; never represent a void as a real customer refund.
-    await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") SELECT ${"course-void:" + order.id},"storeId","entryDate",'EXPENSE','OTHER','課程誤建沖銷',amount,${"作廢：" + input.reason},${actor.userId},NOW() FROM "CashbookEntry" WHERE id=${"course-purchase:" + order.id} AND "storeId"=${actor.storeId}`;
+    await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"createdByUserId","updatedAt") SELECT ${"course-void:" + order.id},"storeId","entryDate",'EXPENSE',"paymentMethod",'課程誤建沖銷',amount,${"作廢：" + input.reason},${actor.userId},NOW() FROM "CashbookEntry" WHERE id=${"course-purchase:" + order.id} AND "storeId"=${actor.storeId}`;
   }
   const result = await tx.coursePurchase.update({ where: { id: order.id }, data: { status: "VOIDED", voidedAt: new Date(), voidedBy: actor.userId, voidReason: input.reason } });
   await audit(tx, actor, order.id, "VOID", { status: order.status, price: order.price }, { status: "VOIDED", reason: input.reason });

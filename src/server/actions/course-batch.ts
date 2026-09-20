@@ -46,3 +46,16 @@ export async function batchCourseStatus(input: unknown) {
     return {success:true as const};
   } catch(e){return handleCourseActionError(e);}
 }
+
+export async function deleteCourseItems(input: unknown) {
+  try {
+    const d=z.object({kind:z.enum(["room","plan","staff","template"]),ids:z.array(z.string().min(1).max(180)).min(1).max(200)}).parse(input);
+    const {storeId,user}=await courseManager(d.kind==="staff"?"staff.manage":d.kind==="plan"?"plans.edit":"booking.update");
+    if(user.role!=="OWNER") throw new AppError("FORBIDDEN","僅店長可刪除項目");
+    const {deleteUnusedCourseItems}=await import("@/server/services/course-delete");
+    const count=await courseTransaction(storeId,tx=>deleteUnusedCourseItems(tx,{storeId,userId:user.id,staffId:user.staffId??undefined},d.kind,[...new Set(d.ids)]));
+    if(d.kind==="staff"){revalidateStaff();revalidateStaffPermissions();}
+    revalidatePath("/dashboard","layout");revalidatePath("/book");
+    return {success:true as const,count};
+  } catch(e){return handleCourseActionError(e);}
+}
