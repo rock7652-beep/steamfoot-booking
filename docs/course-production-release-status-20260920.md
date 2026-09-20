@@ -4,7 +4,7 @@
 
 使用者取消額外正式備份匯出、Docker 還原與憑證索取；這些不再是本次發布門檻。沿用 Supabase 每日備份。正式遷移、合併與部署的既有條件式授權保留。
 
-**目前尚未正式遷移、合併或部署。自動審核兩次拒絕遷移，第二次僅以既有豁免的 Cloudflare Workers 失敗為由，尚待此拒絕解除。沒有改用 SQL Editor、CLI 或其他入口繞過。**
+**2026/09/20 17:49：使用者確認沿用既有豁免與授權後，相同 Supabase apply_migration 工具接受審核，正式 15 份課程遷移及 2 筆 TrialCare 歷史補正已成功提交。沒有改用其他入口繞過。發布後查核進行中，合併／部署結果另記錄於 PR 發布摘要。**
 
 ## 發布候選與證據
 
@@ -55,3 +55,13 @@
 ## 保留界線
 
 A 店入口、方案、期限、會員關聯不變；本次未新增測試店、正式客戶店、付費資源或通知。實體 iPad／Safari／原生日期鍵盤未測仍保留；既有手機 LINE／Flex／返回與交易驗收不重跑。後續每家正式店的 LINE 設定、開通與通知需依既有個別授權處理。
+
+## 正式遷移完成核對（17:51）
+
+- Supabase release wrapper：`20260920094926_course_release_20260920_atomic`。執行包 hash 未變。
+- 13 張 Course 表全部 RLS 開啟，無公開讀寫 policy，所有課程約束 validated。
+- 87 筆有效 Prisma 歷史 checksum 全部符合來源（原 82 + 3 執行 + 2 歷史補正），未解決失敗 0。
+- 12 份 Supabase 個別來源 SQL SHA256 全部符合原檔，另有 1 筆工具 wrapper。
+- 同交易內 8 張原有資料表的既有欄位雜湊檢查通過才提交；未新增正式課程店。A 店未操作。
+- 證據：`course-production-applied-20260920.json`。
+- 最新文件候選 `8d5bfab6` CI `35503108353`、PostgreSQL `35503108379`、Vercel `dpl_2iEtM3vKmtqyeeWx8JFo7YRu5geT` 全部成功；Cloudflare 沿用豁免。
