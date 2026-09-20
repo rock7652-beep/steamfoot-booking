@@ -182,6 +182,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
     [now, setNow] = useState(p.serverNow),
     [history, setHistory] = useState(false),
+    [cardHistory, setCardHistory] = useState(false),
+    [orderHistory, setOrderHistory] = useState(false),
     [roster, setRoster] = useState<string | null>(null),
     [showWorkCalendar, setShowWorkCalendar] = useState(false),
     [editingNote, setEditingNote] = useState<{ id: string; original: string; value: string } | null>(null),
@@ -1009,8 +1011,10 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           {page === "plans" && (
             <>
               {heading("我的方案")}
+              <p>可用額度＝剩餘－預約保留；每張方案的期限分開計算。</p>
+              {p.cards.some(c=>c.expired || c.closed) && <button aria-expanded={cardHistory} onClick={()=>setCardHistory(!cardHistory)}>{cardHistory ? "收起" : "查看"}已到期／停用方案（{p.cards.filter(c=>c.expired || c.closed).length}）</button>}
               <a className="cp-btn" href={`${p.prefix}/book/reminders`}>低可用額度提醒接收設定</a>
-              {p.cards.map((c) => (
+              {p.cards.filter(c=>cardHistory || (!c.expired && !c.closed)).map((c) => (
                 <article className="cp-card cp-pad" key={c.id}>
                   <div className="cp-line">
                     <h2>{c.name}{c.closed ? " · 已結清停用" : ""}</h2>
@@ -1049,7 +1053,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                               RESERVE: "預約保留",
                               DEBIT: "出席使用",
                               RELEASE: "釋放保留",
-                            }[e.kind] ?? e.kind)}{" "}
+                            }[e.kind.split(":")[0]] ?? "額度異動")}{" "}
                         · {e.points}
                         {unit(c.unit)}
                       </p>
@@ -1057,7 +1061,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   </details>
                 </article>
               ))}
-              {!p.cards.length && <p>尚無方案</p>}
+              {!p.cards.some(c=>cardHistory || (!c.expired && !c.closed)) && <p>目前沒有有效方案，可查看歷史或購買新方案。</p>}
               <button className="primary" onClick={() => go("shop")}>
                 購買方案
               </button>
@@ -1066,6 +1070,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           {page === "shop" && (
             <>
               {heading("購買方案")}
+              <p>選擇方案 → 依銀行資訊匯款 → 填寫後五碼 → 等待店家核帳啟用。</p>
+              <button onClick={()=>go("orders")}>查看購買進度{p.orders.some(o=>o.status === "PENDING") ? `（${p.orders.filter(o=>o.status === "PENDING").length} 筆待核帳）` : ""}</button>
               {shop.map((plan) => (
                 <article className="cp-card cp-pad" key={plan.id}>
                   <h2>{plan.name}</h2>
@@ -1106,7 +1112,9 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           {page === "orders" && (
             <>
               {heading("購買紀錄")}
-              {p.orders.slice(0, limit).map((o) => (
+              <p>核帳完成後，額度會出現在「我的方案」。請勿為了查詢進度重複送出。</p>
+              <div className="cp-actions"><button aria-pressed={!orderHistory} className={!orderHistory ? "primary" : ""} onClick={()=>{setOrderHistory(false);setLimit(20);}}>待核帳（{p.orders.filter(o=>o.status === "PENDING").length}）</button><button aria-pressed={orderHistory} className={orderHistory ? "primary" : ""} onClick={()=>{setOrderHistory(true);setLimit(20);}}>歷史紀錄</button><button onClick={()=>go("plans")}>我的方案</button></div>
+              {p.orders.filter(o=>orderHistory ? o.status !== "PENDING" : o.status === "PENDING").slice(0, limit).map((o) => (
                 <article className="cp-card cp-pad" key={o.id}>
                   <h2>{o.name}</h2>
                   <p>
@@ -1122,8 +1130,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   {!!o.refunds.length&&<details><summary>退款紀錄 · 共 NT$ {o.refunds.reduce((sum,r)=>sum+r.amount,0).toLocaleString()}</summary>{o.refunds.map(r=><p key={r.id}>{formatTWDateTime(new Date(r.createdAt))} · NT$ {r.amount.toLocaleString()} · {COURSE_REFUND_METHOD_LABELS[r.method]??"其他非現金"}</p>)}<p>此為店家登錄紀錄，實際款項請向店家核對。</p></details>}
                 </article>
               ))}
-              {!p.orders.length && <p>尚無購買紀錄</p>}
-              {p.orders.length > limit && (
+              {!p.orders.some(o=>orderHistory ? o.status !== "PENDING" : o.status === "PENDING") && <p>{orderHistory ? "尚無歷史購買紀錄" : "目前沒有待核帳訂單"}</p>}
+              {p.orders.filter(o=>orderHistory ? o.status !== "PENDING" : o.status === "PENDING").length > limit && (
                 <button onClick={() => setLimit(limit + 20)}>顯示更多</button>
               )}
             </>
@@ -1492,11 +1500,13 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       setBuy(null);
                       setSession(null);
                       setPage("orders");
+                      setOrderHistory(false);
                     },
+                    "購買通知已送出，請等候店家核帳；啟用後即可預約。",
                   )
                 }
               >
-                已匯款，送出通知
+                {pending ? "送出中…" : "已匯款，送出核帳資料"}
               </button>
             </>
           }

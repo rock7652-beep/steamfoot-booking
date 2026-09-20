@@ -61,7 +61,7 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
         {label:"完成出席",value:`${current.completed} 人次`,tone:"green"},
         {label:"使用點數",value:`${current.pointsUsed} 點`,tone:"blue"},
         {label:"使用堂數",value:`${current.sessionsUsed} 堂`,tone:"earth"},
-      ]}/><p className="mt-2 text-xs text-earth-500">依課程日期統計；取消課程與取消預約不計入。報到不使用額度，完成出席才使用；點數與堂數分開。</p>
+      ]}/><details className="mt-2 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">統計說明</summary><p>依課程日期統計；取消課程與取消預約不計入。報到不使用額度，完成出席才使用；點數與堂數分開。</p></details>
     </section>
     <section className={section}><h2 className="text-sm font-semibold text-earth-800">客流分析</h2>
       <p className="mt-1 text-xs text-earth-500">人數以實際上課者去重；同一人上兩堂為一人、兩人次。比較前一段同長期間：{data.previous.startDate} ～ {data.previous.endDate}。</p>
@@ -80,11 +80,11 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
         {label:"收款收入",value:`NT$ ${revenue.kpi.totalRevenue.toLocaleString()}`,tone:"green"},
         {label:"退款／沖銷",value:`NT$ ${revenue.kpi.refundAmount.toLocaleString()}`,tone:"amber"},
         {label:"收款淨額",value:`NT$ ${revenue.kpi.netRevenue.toLocaleString()}`,tone:"primary"},
-      ]}/><p className="mt-2 text-xs text-earth-500">方案依核帳／退款日，體驗依收款／沖銷日；同一體驗更正前後的收款紀錄分別保留，不代表多次購買或上課。與收入總覽使用同一課程資料來源，不再加總連動現金帳。較前期收款淨額 {comparison(revenue.kpi.netRevenue,priorRevenue?.kpi.netRevenue??0,"元")}。</p></>:<p className="mt-3 text-sm text-earth-500">沒有交易檢視權限，收款金額不顯示。</p>}
-      <details className="mt-2 text-xs text-earth-500"><summary className="min-h-11 cursor-pointer py-3">體驗轉換與月結的適用差異</summary><p>課程尚無可辨識的體驗成交歸因，因此不顯示體驗開卡率。蒸足空間費月結不適用課程；課程教練結算方式未約定，不代入蒸足費率。</p></details>
+      ]}/><details className="mt-2 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">統計說明</summary><p>方案依核帳／退款日，體驗依收款／沖銷日；同一體驗更正前後的收款紀錄分別保留，不代表多次購買或上課。與收入總覽使用同一課程資料來源，不再加總連動現金帳。較前期收款淨額 {comparison(revenue.kpi.netRevenue,priorRevenue?.kpi.netRevenue??0,"元")}。</p></details></>:<p className="mt-3 text-sm text-earth-500">沒有交易檢視權限，收款金額不顯示。</p>}
+      <details className="mt-2 text-xs text-earth-500"><summary className="min-h-11 cursor-pointer py-3">體驗轉換與月結的適用差異</summary><p>課程尚無可辨識的體驗成交歸因，因此不顯示體驗開卡率。蒸足空間費月結不適用課程；課程教練報酬與月結尚未實作，不代入蒸足費率。</p></details>
     </section>
     <section className={section}><h2 className="mb-3 text-sm font-semibold text-earth-800">營收分析</h2>
-      <p className="mb-3 text-xs text-earth-500">方案、體驗收款與退款／沖銷依入帳時間，手動收支依登錄日期；排除全部交易連動現金帳，避免重複計算。收支淨額不等於會計利潤。</p>
+      <details className="mt-2 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">統計說明</summary><p>方案、體驗收款與退款／沖銷依入帳時間，手動收支依登錄日期；排除全部交易連動現金帳，避免重複計算。收支淨額不等於會計利潤。</p></details>
       <KpiStrip items={[
         {label:"手動收入",value:data.financial.manualIncome===null?"無檢視權限":`NT$ ${data.financial.manualIncome.toLocaleString()}`,tone:"green"},
         {label:"手動支出",value:data.financial.manualExpense===null?"無檢視權限":`NT$ ${data.financial.manualExpense.toLocaleString()}`,tone:"amber"},
@@ -99,7 +99,7 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
       ]}/>
       {canReadCash&&<DashboardLink href="/dashboard/cashbook" className="inline-block min-h-11 py-3 text-sm text-primary-700">查看收支明細</DashboardLink>}
     </section>
-    <section className={section}><h2 className="mb-3 text-sm font-semibold text-earth-800">店長／交易歸屬分析</h2><p className="mb-3 text-xs text-earth-500">依訂單歸屬店長（未指定時使用核帳人）與收支歸屬人員統計；未歸屬單獨列示。僅顯示有檢視權限的資料。</p>
+    <section className={section}><h2 className="mb-3 text-sm font-semibold text-earth-800">店長／交易歸屬分析</h2><details className="mt-2 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">統計說明</summary><p>依訂單歸屬店長（未指定時使用核帳人）與收支歸屬人員統計；未歸屬單獨列示。僅顯示有檢視權限的資料。</p></details>
       <DataTable rows={data.financial.staff} rowKey={r=>r.id} columns={[
         {key:"name",header:"歸屬人員",accessor:r=>r.id==="unassigned"?"未歸屬":data.staff.find(s=>s.id===r.id)?.displayName??"歷史人員"},
         {key:"orders",header:"收款紀錄數",align:"right",accessor:r=>canReadRevenue?r.orders:"—"},

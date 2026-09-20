@@ -19,7 +19,7 @@ function PlanReminder({plan}:{plan:Plan}) {
     });}}>
       <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={enabled} disabled={pending} onChange={event=>setEnabled(event.target.checked)}/>啟用此方案低可用額度提醒</label>
       <label className="block text-sm">可用額度低於或等於<input aria-label={`${plan.name} 提醒門檻`} type="number" min="0" max="1000000" step="1" required={enabled} value={threshold} disabled={pending} onChange={event=>setThreshold(event.target.value)} className="mx-2 min-h-11 w-24 rounded border border-earth-300 px-3"/>{unit}</label>
-      <p className="text-sm text-earth-600">每張卡分開判斷，使用剩餘扣除預約占用後的額度。每卡對同一位成員提醒一次；取消重約不重複提醒。未設定門檻時不會自動啟用。</p>
+      <details className="text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3 text-primary-700">額度計算與提醒頻率</summary><p>每張卡分開判斷，使用剩餘扣除預約占用後的額度。每卡對同一位成員提醒一次；取消重約不重複提醒。未設定門檻時不會自動啟用。</p></details>
       <details><summary className="cursor-pointer text-sm text-primary-700">訊息預覽（示意資料）</summary><div className="mt-3"><LineCardPreview title="方案可用額度提醒" subtitle="示意資料，非真實發送" actions={[{label:"查看我的方案",variant:"primary"},{label:"停止／管理此類提醒",variant:"link"}]}>{courseLowBalanceBody(plan.name,5,3,plan.unit)}</LineCardPreview></div></details>
       <p role="status" className="text-sm text-primary-800">{message}</p>
       <button disabled={pending} className="min-h-11 rounded-lg bg-primary-700 px-4 text-white disabled:opacity-50">{pending?"儲存中…":"儲存設定"}</button>

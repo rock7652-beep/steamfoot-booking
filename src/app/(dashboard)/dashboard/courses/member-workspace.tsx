@@ -83,7 +83,16 @@ export function CourseMemberWorkspace({
   const [panel, setPanel] = useState<
     "person" | "plan" | "assign" | "card" | "coach" | "health" | null
   >(initialPerson ? "person" : null);
-  const [person, setPerson] = useState<Person | null>(initialPerson);
+  const [selectedPerson, setPerson] = useState<Person | null>(initialPerson);
+  const person = people.find(p => p.id === selectedPerson?.id) ?? selectedPerson;
+  const [personTab, setPersonTab] = useState<"info" | "plans" | "records">("info");
+  const [editingPerson, setEditingPerson] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [cardSearch, setCardSearch] = useState("");
+  const [showCardHistory, setShowCardHistory] = useState(false);
+  const [planUnit, setPlanUnit] = useState("all");
+  function canLeave() { return !pending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
+  function close() { if (canLeave()) { setPanel(null); setDirty(false); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [cardId, setCardId] = useState("");
   const [planId, setPlanId] = useState(plans.find((p) => p.isActive)?.id ?? "");
@@ -92,6 +101,9 @@ export function CourseMemberWorkspace({
   const [notice, setNotice] = useState("");
   const card = cards.find((c) => c.id === cardId);
   function open(value: typeof panel) {
+    if (!canLeave()) return;
+    setDirty(false);
+    if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
     if (value === "assign" && !plans.some((p) => p.id === planId && p.isActive))
       setPlanId(plans.find((p) => p.isActive)?.id ?? "");
     setError("");
@@ -113,7 +125,9 @@ export function CourseMemberWorkspace({
           setError(result.error ?? "儲存失敗");
           return;
         }
-        setPanel(null);
+        setDirty(false);
+        if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab("plans"); setEditingPerson(false); }
+        else setPanel(null);
         setNotice("已儲存");
         router.refresh();
       } catch {
@@ -125,9 +139,11 @@ export function CourseMemberWorkspace({
     .filter(
       (p) =>
         p.name.includes(search.trim()) &&
-        (status === "all" || p.isActive === (status === "active")),
+        (status === "all" || p.isActive === (status === "active")) &&
+        (planUnit === "all" || p.unit === planUnit),
     )
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
+  const visibleCards = cards.filter(c => (showCardHistory || (!c.expired && !c.closed)) && `${c.name} ${c.members.map(m => m.name).join(" ")}`.includes(cardSearch.trim()));
   const totalRows = filteredPlans.length;
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
   return (
@@ -152,6 +168,7 @@ export function CourseMemberWorkspace({
             <option value="inactive">下架</option>
           </select>
         )}
+        {view === "plans" && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
         {canCreate && (
           <button
             className={button}
@@ -190,7 +207,7 @@ export function CourseMemberWorkspace({
         <table className="w-full text-left text-sm">
           <thead className="bg-earth-50">
             <tr>
-              {["方案", "額度", "售價", "有效天數", "狀態", "操作"].map((h) => (
+              {["方案／適用課程", "額度", "售價", "有效天數", "狀態", "操作"].map((h) => (
                 <th key={h} className="whitespace-nowrap p-3">
                   {h}
                 </th>
@@ -198,14 +215,15 @@ export function CourseMemberWorkspace({
             </tr>
           </thead>
           <tbody className="divide-y divide-earth-100">
+            {!filteredPlans.length && <tr><td colSpan={6} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
             {filteredPlans.slice(currentPage * 20, (currentPage + 1) * 20).map((p) => (
                   <tr
                     key={p.id}
                     className={p.isActive ? "" : "bg-earth-50 text-earth-400"}
                   >
-                    <td className="p-3">{p.name}</td>
+                    <td className="p-3"><span className="font-medium">{p.name}</span><p className="mt-1 text-xs text-earth-500">{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
                     <td className="p-3">{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
-                    <td className="p-3">{p.price}</td>
+                    <td className="p-3">NT$ {p.price.toLocaleString("zh-TW")}</td>
                     <td className="p-3">{p.validDays}</td>
                     <td className="p-3">{p.isActive ? "上架" : "下架"}</td>
                     <td className="p-3">
@@ -229,9 +247,11 @@ export function CourseMemberWorkspace({
       )}
       {view === "plans" && (
         <section className="mt-5">
-          <h2 className="mb-2 font-semibold">已指派方案</h2>
+          <h2 className="mb-2 font-semibold">顧客持有方案</h2>
+          <div className="mb-3 flex flex-wrap items-center gap-3"><input className={`${field} max-w-xs`} aria-label="搜尋持有方案或共卡成員" placeholder="搜尋方案或共卡成員" value={cardSearch} onChange={e=>setCardSearch(e.target.value)}/><label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={showCardHistory} onChange={e=>setShowCardHistory(e.target.checked)}/>包含已到期／停用</label></div>
           <div className="divide-y rounded-lg border bg-white">
-            {cards.map((c) => (
+            {!visibleCards.length && <p className="p-4 text-sm text-earth-500">沒有符合條件的持有方案，請調整搜尋或查看已到期／停用方案。</p>}
+            {visibleCards.map((c) => (
               <button
                 key={c.id}
                 className={`flex min-h-14 w-full flex-wrap items-center justify-between gap-2 p-3 text-left text-sm ${c.expired ? "bg-earth-50 text-earth-400" : ""}`}
@@ -246,7 +266,7 @@ export function CourseMemberWorkspace({
                   {c.members.map((m) => m.name).join("、")}
                 </span>
                 <span>
-                  剩餘 {c.remaining}／占用 {c.held}／可用 {c.available} · 到期{" "}
+                  剩餘 {c.remaining} · 占用 {c.held} · 可用 {c.available} {c.unit === "SESSION" ? "堂" : "點"} · 到期{" "}
                   {toLocalDateStr(new Date(c.expiresAt))}
                 </span>
               </button>
@@ -258,16 +278,16 @@ export function CourseMemberWorkspace({
       {panel && (
         <RightSheet
           open
-          onClose={() => !pending && setPanel(null)}
-          width={520}
+          onClose={close}
+          width={640}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b p-4">
             <h2 id="course-member-sheet" className="font-semibold">
               {panel === "person"
-                ? "顧客詳細資料"
+                ? person ? person.name : "新增顧客"
                 : panel === "health" ? "健康追蹤" : panel === "plan"
-                  ? "點數方案"
+                  ? plan ? "編輯方案" : "新增方案"
                   : panel === "assign"
                     ? "指派方案"
                     : panel === "coach"
@@ -278,12 +298,17 @@ export function CourseMemberWorkspace({
               type="button"
               className={button}
               disabled={pending}
-              onClick={() => setPanel(null)}
+              onClick={close}
             >
               關閉
             </button>
           </header>
+          {panel === "person" && person && <nav aria-label="顧客詳細資料分區" className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">
+            {([ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={personTab===value} className={`${button} ${personTab===value?"border-primary-600 bg-primary-50 font-medium text-primary-800":"bg-white"}`} onClick={()=>setPersonTab(value as typeof personTab)}>{label}</button>)}
+            {healthEnabled && <button type="button" className={button} onClick={()=>open("health")}>健康追蹤</button>}
+          </nav>}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+            {notice && <p role="status" className="mb-3 text-primary-700">{notice}</p>}
             {error && (
               <p role="alert" className="mb-3 text-red-700">
                 {error}
@@ -292,6 +317,7 @@ export function CourseMemberWorkspace({
             {panel === "coach" && person && (
               <form
                 id="course-member-form"
+                onChange={()=>setDirty(true)}
                 onSubmit={(e) =>
                   submit(e, (fields) =>
                     saveCourseStaff({
@@ -317,25 +343,30 @@ export function CourseMemberWorkspace({
             {panel === "health" && healthEnabled && person && <CourseCustomerHealth customerId={person.id} canEdit={canEdit} />}
             {panel === "person" && person && <section className="mb-4 space-y-3">
               <div className="flex flex-wrap gap-2">
-                {healthEnabled && <button className={button} onClick={() => open("health")}>健康追蹤</button>}
-                {canManageStaff && <button className={button} onClick={() => open("coach")}>加入為教練</button>}
-                {canAssign && <button className={button} onClick={() => open("assign")}>指派方案</button>}
+
+                {personTab === "info" && canManageStaff && <button className={button} onClick={() => open("coach")}>加入為教練</button>}
+                {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>指派方案</button>}
               </div>
-              {canReadCards && <details><summary className="min-h-11 cursor-pointer py-2">持有／共卡方案</summary>
+              {canReadCards && personTab === "plans" && <section aria-label="持有與共卡方案">
                 {cards.filter(c=>c.members.some(m=>m.id===person.id)).map(c=><button key={c.id} className={`${button} mb-2 block w-full text-left`} onClick={()=>{setCardId(c.id);open("card");}}>{c.name} · 可用 {c.available} {c.unit === "SESSION" ? "堂" : "點"} · 到期 {toLocalDateStr(new Date(c.expiresAt))}{c.closed ? "（已結清）" : c.expired ? "（已到期）" : ""}</button>)}
                 {!cards.some(c=>c.members.some(m=>m.id===person.id)) && <p className="text-sm text-earth-500">尚無方案</p>}
-              </details>}
-              <details><summary className="min-h-11 cursor-pointer py-2">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
+              </section>}
+              {personTab === "info" && <details><summary className="min-h-11 cursor-pointer py-2">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
                 <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
               </dl>
                 <CustomerAttributionForm key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
-              </details>
+              </details>}
             </section>}
             {panel !== "person" && view === "customers" && person && <button type="button" className={`${button} mb-3`} disabled={pending} onClick={()=>open("person")}>返回 {person.name} 詳情</button>}
+            {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["身高",person.height == null ? null : `${person.height} cm`],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["顧客備註",person.notes],["服務備註（後台）",person.serviceNote]].map(([label,value])=><div key={label} className="min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
+              {canEdit && <button className={`${button} bg-primary-700 text-white`} onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
+            </section>}
             {panel === "person" && (
               <form
                 id="course-member-form"
-                className="space-y-3"
+                onChange={()=>setDirty(true)}
+                className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${person && (!editingPerson || personTab !== "info") ? "hidden" : ""}`}
                 onSubmit={(e) =>
                   submit(e, (d) =>
                     saveCourseCustomer({
@@ -369,7 +400,7 @@ export function CourseMemberWorkspace({
                     required
                   />
                 </label>
-                <fieldset disabled={person ? !canEdit : !canCreate} className="space-y-3">
+                <fieldset disabled={person ? !canEdit : !canCreate} className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2">
                   <label className="block">電子信箱<input className={field} name="email" type="email" defaultValue={person?.email ?? ""} /></label>
                   <label className="block">性別<select className={field} name="gender" defaultValue={person?.gender ?? ""}><option value="">未填</option><option value="male">男</option><option value="female">女</option><option value="other">其他</option></select></label>
                   <div>生日<BirthdayFields defaultValue={person?.birthday} className={field} /></div>
@@ -383,11 +414,12 @@ export function CourseMemberWorkspace({
                 </fieldset>
               </form>
             )}
-            {panel === "person" && person && canReadTransactions && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
-            {panel === "person" && person && canReadBookings && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
+            {panel === "person" && personTab === "records" && person && canReadTransactions && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
+            {panel === "person" && personTab === "records" && person && canReadBookings && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
             {panel === "plan" && (
               <form
                 id="course-member-form"
+                onChange={()=>setDirty(true)}
                 className="space-y-3"
                 onSubmit={(e) =>
                   submit(e, (d) =>
@@ -414,7 +446,7 @@ export function CourseMemberWorkspace({
                   />
                 </label>
                 <label className="block">額度單位<select className={field} name="unit" defaultValue={plan?.unit??"POINT"}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>
-                <fieldset className="space-y-2"><legend>適用課程（未勾選表示全部課程）</legend>{templates.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="templateIds" value={t.id} defaultChecked={plan?.templateIds.includes(t.id)}/>{t.name}</label>)}</fieldset>
+                <fieldset className="max-h-64 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-earth-200 p-3"><legend>適用課程（未勾選表示全部課程）</legend>{templates.map(t=><label key={t.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="templateIds" value={t.id} defaultChecked={plan?.templateIds.includes(t.id)}/>{t.name}</label>)}</fieldset>
                 {[
                   ["額度", "points", plan?.points ?? 10, 1],
                   ["售價", "price", plan?.price ?? 0, 0],
@@ -451,6 +483,7 @@ export function CourseMemberWorkspace({
             {panel === "assign" && (
               <form
                 id="course-member-form"
+                onChange={()=>setDirty(true)}
                 className="space-y-3"
                 onSubmit={(e) =>
                   submit(e, (d) =>
@@ -519,6 +552,7 @@ export function CourseMemberWorkspace({
                 {canAssign && (
                   <form
                     id="course-member-form"
+                onChange={()=>setDirty(true)}
                     className="mt-4 space-y-2"
                     onSubmit={(e) =>
                       submit(e, (d) =>
@@ -555,7 +589,7 @@ export function CourseMemberWorkspace({
               </>
             )}
           </div>
-          {panel !== "health" && (panel !== "person" || (person ? canEdit : canCreate)) && (panel !== "card" || canAssign) && (
+          {panel !== "health" && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || canAssign) && (
             <footer className="shrink-0 border-t bg-white p-4">
               <button
                 form="course-member-form"
@@ -563,7 +597,7 @@ export function CourseMemberWorkspace({
                 className={`${button} w-full bg-primary-700 text-white`}
                 disabled={pending}
               >
-                {pending ? "儲存中…" : "儲存"}
+                {pending ? "儲存中…" : panel === "assign" ? "確認指派方案" : panel === "card" ? "儲存共卡成員" : "儲存"}
               </button>
             </footer>
           )}
@@ -598,16 +632,16 @@ export function CourseCardEntries({ card }: { card: CourseCardView }) {
     DEBIT: "出席使用",
   };
   return (
-    <section className="mt-5">
-      <h3 className="font-medium">最近額度紀錄</h3>
+    <details className="mt-5">
+      <summary className="min-h-11 cursor-pointer py-2 font-medium">最近額度紀錄（{card.entries.length} 筆）</summary>
       <ul className="divide-y text-sm">
         {card.entries.map((e) => (
           <li key={e.id} className="py-2">
             {formatTWDateTime(new Date(e.createdAt))} ·{" "}
-            {e.kind.startsWith("CORRECT:") ? "點名更正" : labels[e.kind] ?? e.kind} {e.points} {card.unit === "SESSION" ? "堂" : "點"}
+            {e.kind.startsWith("CORRECT:") ? "點名更正" : labels[e.kind.split(":")[0]] ?? "額度異動"} {e.points} {card.unit === "SESSION" ? "堂" : "點"}
           </li>
         ))}
       </ul>
-    </section>
+    </details>
   );
 }

@@ -27,7 +27,11 @@ export function CourseSettingsWorkspace(props:Props) {
   const nav=[{label:"店家與預約規則",href:"#course-store-settings",onSelect:()=>setPanel("store")}];
   if(canPayment) nav.push({label:"付款設定",href:"#course-payment-settings",onSelect:()=>setPanel("payment")});
   return <>
-    <SettingsShell nav={<><SettingsNavSection title="店家營運" items={nav}/><SettingsNavSection title="課程與人員" items={[
+    <SettingsShell nav={<><SettingsNavSection title="店家營運" items={nav}/><SettingsNavSection title="LINE 與顧客經營" items={[
+      ...(props.canReminders?[{label:"提醒與發送紀錄",href:"/dashboard/courses/reminders"}]:[]),
+      ...(props.canCare?[{label:"顧客關懷",href:"/dashboard/growth"}]:[]),
+      ...(canPayment?[{label:"數位管家",href:"/dashboard/settings/digital-butler"}]:[]),
+    ]}/><SettingsNavSection title="課程與人員" items={[
       {label:"課表排程",href:"/dashboard/courses"},
       {label:"課程設定",href:"/dashboard/courses?view=catalog"},
       {label:"教室管理",href:"/dashboard/courses?view=rooms"},
@@ -42,19 +46,19 @@ export function CourseSettingsWorkspace(props:Props) {
         {label:"預約截止",value:props.bookingLeadMinutes?`上課前 ${props.bookingLeadMinutes} 分鐘`:"上課開始前"},
         {label:"自行取消截止",value:props.cancellationLeadMinutes?`上課前 ${props.cancellationLeadMinutes} 分鐘`:"上課開始前"},
       ]}/>}/>
-      {canPayment&&<SettingsActionCard title="付款設定" description="沿用付款資訊表單與即時前台預覽" iconPath="M2.25 8.25h19.5M6 15h6" primaryHref="#course-payment-settings" primaryLabel="編輯付款設定" onPrimaryAction={()=>setPanel("payment")} summary={<InfoList density="compact" items={[
+      {canPayment&&<SettingsActionCard title="付款設定" description="銀行資訊與會員匯款畫面預覽" iconPath="M2.25 8.25h19.5M6 15h6" primaryHref="#course-payment-settings" primaryLabel="編輯付款設定" onPrimaryAction={()=>setPanel("payment")} summary={<InfoList density="compact" items={[
         {label:"銀行",value:props.bankName||"尚未填寫"},
         {label:"收款帳號",value:props.bankAccountNumber?`已設定 · 末四碼 ${props.bankAccountNumber.slice(-4)}`:"尚未填寫"},
         {label:"付款聯繫",value:props.lineOfficialUrl?"已設定 LINE 連結":"尚未填寫"},
       ]}/>}/>} 
       <SettingsActionCard title="課程與教室" description="課程預設值、容量與排課；修改預設值不回寫已排課程" iconPath={clockIcon} primaryHref="/dashboard/courses?view=catalog" primaryLabel="課程設定" secondaryHref="/dashboard/courses?view=rooms" secondaryLabel="教室管理"/>
       {props.canHours && <SettingsActionCard title="營業與公休" description="月曆、每週多段營業、特殊休假與後續週次；與已排課程衝突時整批阻擋" iconPath={clockIcon} primaryHref="/dashboard/courses/hours" primaryLabel="管理營業時間"/>}
-      {props.canDutyRead && <SettingsActionCard title="值班管理" description="沿用每週值班、逐日編輯與批次複製；獨立開關控制課程排課聯動" iconPath={clockIcon} primaryHref="/dashboard/duty" primaryLabel="查看值班" secondaryHref={props.canDutyManage ? "/dashboard/settings/duty" : undefined} secondaryLabel={props.canDutyManage ? "聯動設定" : undefined}/> }
+      {props.canDutyRead && <SettingsActionCard title="值班管理" description="教練值班與排課聯動開關" iconPath={clockIcon} primaryHref="/dashboard/duty" primaryLabel="查看值班" secondaryHref={props.canDutyManage ? "/dashboard/settings/duty" : undefined} secondaryLabel={props.canDutyManage ? "聯動設定" : undefined}/> }
       {props.canReminders && <SettingsActionCard title="提醒管理" description="課程上課提醒、通知內容與發送紀錄" iconPath={clockIcon} primaryHref="/dashboard/courses/reminders" primaryLabel="管理提醒"/>}
-      {props.canCare && <SettingsActionCard title="顧客經營" description="生日、未回課、逐卡額度與到期關懷，沿用追蹤紀錄" iconPath={clockIcon} primaryHref="/dashboard/growth" primaryLabel="查看關懷清單"/>}
-      {props.canTrial&&<SettingsActionCard title="體驗設定" description="共用體驗價格及開關；收款與出席分開，不使用方案額度" iconPath={clockIcon} primaryHref="/dashboard/settings/trial" primaryLabel="管理體驗設定"/>}
-      {canPayment&&<SettingsActionCard title="推薦分享" description="沿用文案、模板收藏與分享紀錄，課程預設使用課程模板" iconPath={clockIcon} primaryHref="/dashboard/settings/referral-share" primaryLabel="管理分享文案"/>}
-      {canPayment&&<SettingsActionCard title="數位管家" description="沿用流程草稿、版本發布、啟停用及名單追蹤；功能與發送開關仍分開控管" iconPath={clockIcon} primaryHref="/dashboard/settings/digital-butler" primaryLabel="管理互動流程" secondaryHref={props.canCare ? "/dashboard/digital-butler/leads" : undefined} secondaryLabel={props.canCare ? "顧客名單" : undefined}/>}
+      {props.canCare && <SettingsActionCard title="顧客經營" description="生日、未回課、方案到期與額度關懷" iconPath={clockIcon} primaryHref="/dashboard/growth" primaryLabel="查看關懷清單"/>}
+      {props.canTrial&&<SettingsActionCard title="體驗設定" description="體驗價格與開關；收款與出席分開" iconPath={clockIcon} primaryHref="/dashboard/settings/trial" primaryLabel="管理體驗設定"/>}
+      {canPayment&&<SettingsActionCard title="推薦分享" description="分享文案、模板與分享紀錄" iconPath={clockIcon} primaryHref="/dashboard/settings/referral-share" primaryLabel="管理分享文案"/>}
+      {canPayment&&<SettingsActionCard title="數位管家" description="互動流程與名單；發送開關需另行啟用" iconPath={clockIcon} primaryHref="/dashboard/settings/digital-butler" primaryLabel="管理互動流程" secondaryHref={props.canCare ? "/dashboard/digital-butler/leads" : undefined} secondaryLabel={props.canCare ? "顧客名單" : undefined}/>}
       {canStaff&&<SettingsActionCard title="人員與權限" description="店長後台權限、教練授課身分與顧客連結" iconPath="M18 20v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m11-13a4 4 0 11-8 0 4 4 0 018 0z" primaryHref="/dashboard/staff" primaryLabel="管理人員"/>}
       {canPlans&&<SettingsActionCard title="課程方案" description="點數／堂數、期限、適用課程、共卡與上下架" iconPath="M2.25 8.25h19.5M6 15h6" primaryHref="/dashboard/courses?view=plans" primaryLabel="管理方案"/>}
       {props.usageMetrics && <section className="rounded-xl border border-earth-200 bg-white p-5" aria-labelledby="course-store-usage-title">

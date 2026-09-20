@@ -157,3 +157,28 @@ describe("coach daily work interactions", () => {
   });
 
 });
+
+describe("member plan and purchase navigation", () => {
+  it("keeps expired cards collapsed while preserving distinct units and expiry", async () => {
+    const card = (id:string, expired:boolean, unit:string) => ({id,name:id,expired,closed:false,unit,remaining:10,held:2,available:8,expiresAt:"2026-10-20T00:00:00Z",members:[],entries:[],templateIds:[]});
+    await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialView:"plans",cards:[card("有效堂數方案",false,"SESSION"),card("過期點數方案",true,"POINT")] as unknown as CoursePortalData["cards"]})));
+    expect(host.textContent).toContain("有效堂數方案");
+    expect(host.textContent).not.toContain("過期點數方案");
+    await click("查看已到期");
+    expect(host.textContent).toContain("過期點數方案");
+    await click("收起已到期");
+    expect(host.textContent).not.toContain("過期點數方案");
+  });
+  it("shows pending orders first and exposes completed orders only in history", async () => {
+    const order=(id:string,status:string)=>({id,name:id,status,price:500,createdAt:"2026-09-20T00:00:00Z",refunds:[]});
+    await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialView:"plans",orders:[order("等待確認購買","PENDING"),order("先前核帳購買","CONFIRMED")] as unknown as CoursePortalData["orders"]})));
+    await click("購買方案"); await click("查看購買進度");
+    expect(host.textContent).toContain("等待確認購買");
+    expect(host.textContent).not.toContain("先前核帳購買");
+    await click("歷史紀錄");
+    expect(host.textContent).toContain("先前核帳購買");
+    expect(host.textContent).not.toContain("等待確認購買");
+    await click("我的方案");
+    expect(host.textContent).toContain("可用額度＝剩餘－預約保留");
+  });
+});
