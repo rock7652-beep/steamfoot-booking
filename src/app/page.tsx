@@ -6,6 +6,8 @@ import { CustomerLoginForm } from "./customer-login-form";
 import { RefCapture } from "@/components/ref-capture";
 import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import { resolveStoreBySlug } from "@/lib/store-resolver";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { requiresCourseLiffEntry } from "@/lib/store-line-config";
 
 interface PageProps {
   searchParams: Promise<{ error?: string }>;
@@ -39,6 +41,10 @@ export default async function HomePage({ searchParams }: PageProps) {
   const prefix = `/s/${storeSlug}`;
   const store = await resolveStoreBySlug(storeSlug);
   const storeName = getCustomerFacingStoreName(store ?? { slug: storeSlug });
+  // Only explicitly selected LIFF stores require the store-validated flow.
+  // Legacy web trials keep their existing central OAuth entry.
+  const lineEntryHref = store && await getStoreIndustryModule(store.id) === "course" && requiresCourseLiffEntry(storeSlug)
+    ? `${prefix}/liff` : undefined;
 
   const errorMessage = params.error
     ? ERROR_MESSAGES[params.error] ?? ERROR_MESSAGES.default
@@ -63,7 +69,7 @@ export default async function HomePage({ searchParams }: PageProps) {
             </div>
           )}
 
-          <OAuthButtons storeSlug={storeSlug} />
+          <OAuthButtons storeSlug={storeSlug} lineEntryHref={lineEntryHref} />
 
           {/* Divider */}
           <div className="relative my-5">

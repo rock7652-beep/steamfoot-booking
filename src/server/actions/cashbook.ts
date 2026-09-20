@@ -176,6 +176,8 @@ export async function updateCashbookEntry(
     });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
     assertStoreAccess(user, entry.storeId);
+    if (entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
+      throw new AppError("BUSINESS_RULE", "此為課程購買／退款連動紀錄，請由營運交易工作台處理，不能單獨修改現金帳。");
 
     // PR-4 防呆 guard（後端權威）：
     // 若編輯涉及現金（既有或更新後任一為 CASH），且涉及的營業日（既有日期或新日期）
@@ -250,6 +252,8 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
     const entry = await prisma.cashbookEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw new AppError("NOT_FOUND", "現金帳紀錄不存在");
     assertStoreAccess(user, entry.storeId);
+    if (entry.id.startsWith("course-trial:") || entry.id.startsWith("course-trial-void:") || entry.id.startsWith("course-purchase:") || (entry.id.startsWith("course-refund:") || entry.id.startsWith("course-void:")))
+      throw new AppError("BUSINESS_RULE", "此為課程購買／退款連動紀錄，請由營運交易工作台處理，不能單獨修改現金帳。");
 
     await prisma.$transaction(async (tx) => {
       await tx.cashbookEntry.delete({ where: { id: entryId } });

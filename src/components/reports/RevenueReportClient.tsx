@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { toLocalDateStr, toLocalMonthStr, monthRange } from "@/lib/date-utils";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ExportButton } from "./ExportButton";
@@ -83,6 +84,7 @@ interface PaymentMethodSummary { paymentMethod: string; amount: number }
 type ReportMode = "store" | "coach";
 
 interface Props {
+  courseMode?: boolean;
   mode: ReportMode;
   stores: StoreOption[];
   coaches: CoachOption[];
@@ -104,11 +106,12 @@ function fmtMoney(n: number): string {
 
 function fmtPlanType(t: string | null): string {
   if (!t) return "-";
-  const m: Record<string, string> = { TRIAL: "體驗", SINGLE: "單次", PACKAGE: "套餐" };
+  const m: Record<string, string> = { TRIAL: "體驗", SINGLE: "單次", PACKAGE: "套餐", POINT: "點數方案", SESSION: "堂數方案" };
   return m[t] ?? t;
 }
 
 function fmtPayment(m: string): string {
+  if (m === "MIXED") return "混合付款";
   const map: Record<string, string> = {
     CASH: "現金", TRANSFER: "轉帳", LINE_PAY: "LINE Pay",
     CREDIT_CARD: "信用卡", OTHER: "其他", UNPAID: "未付款",
@@ -138,6 +141,7 @@ function fmtDate(iso: string): string {
 
 export function RevenueReportClient({
   mode,
+  courseMode = false,
   stores,
   coaches,
   isAdmin,
@@ -212,11 +216,10 @@ export function RevenueReportClient({
       setKpi(summaryData.kpi);
       if (mode === "store") {
         setStoreSummary(summaryData.summary);
-        // Payment totals use TransactionPaymentSplit when present and the legacy
-        // transaction field otherwise. Do not apply the detail-only method filter:
-        // this table is the actual payment-method breakdown for the selected period.
+        // Course totals follow the selected method, including mixed receipts.
+        // Preserve the existing all-method breakdown for other modules.
         const paymentParams = buildParams();
-        paymentParams.delete("paymentMethod");
+        if (!courseMode) paymentParams.delete("paymentMethod");
         paymentParams.set("level", "payment-methods");
         const paymentRes = await fetch(`/api/reports/store-revenue?${paymentParams.toString()}`);
         if (!paymentRes.ok) throw new Error("付款方式彙總查詢失敗");
@@ -243,7 +246,7 @@ export function RevenueReportClient({
     } finally {
       setLoading(false);
     }
-  }, [mode, buildParams, startDate, endDate]);
+  }, [mode, courseMode, buildParams, startDate, endDate]);
 
   // Fetch details page
   const fetchDetailsPage = useCallback(async (page: number) => {
@@ -275,6 +278,11 @@ export function RevenueReportClient({
   // Period type handlers
   function handlePeriodChange(type: "today" | "month" | "custom") {
     setPeriodType(type);
+    if (courseMode) {
+      if (type === "today") { const today = toLocalDateStr(); setStartDate(today); setEndDate(today); }
+      else if (type === "month") { const month = toLocalMonthStr(); setStartDate(month + "-01"); setEndDate(toLocalDateStr(monthRange(month).end)); }
+      return;
+    }
     const now = new Date();
     if (type === "today") {
       const today = now.toISOString().slice(0, 10);
@@ -294,6 +302,8 @@ export function RevenueReportClient({
 
   // Auto-fetch on mount
   useEffect(() => {
+    // Initialize the existing request loader once; later filter changes wait for Search.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -406,9 +416,7 @@ export function RevenueReportClient({
               className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
             >
               <option value="">全部</option>
-              <option value="TRIAL">體驗</option>
-              <option value="SINGLE">單次</option>
-              <option value="PACKAGE">套餐</option>
+              {courseMode ? <><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option><option value="TRIAL">體驗</option></> : <><option value="TRIAL">體驗</option><option value="SINGLE">單次</option><option value="PACKAGE">套餐</option></>}
             </select>
           </div>
 
@@ -421,11 +429,11 @@ export function RevenueReportClient({
                 className="block rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
                 <option value="">全部</option>
-                <option value="CASH">現金</option>
+                {<><option value="CASH">現金</option>
                 <option value="TRANSFER">轉帳</option>
                 <option value="LINE_PAY">LINE Pay</option>
                 <option value="CREDIT_CARD">信用卡</option>
-                <option value="OTHER">其他</option>
+                <option value="OTHER">其他</option></>}
               </select>
             </div>
           )}
@@ -469,11 +477,11 @@ export function RevenueReportClient({
       {/* ===== KPI Cards ===== */}
       {kpi && (
         <div className={`grid gap-3 ${mode === "coach" ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-8" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"}`}>
-          <KpiCard label="總營收" value={fmtMoney(kpi.totalRevenue)} color="primary" />
-          <KpiCard label="退款金額" value={fmtMoney(kpi.refundAmount)} color="red" />
-          <KpiCard label="淨營收" value={fmtMoney(kpi.netRevenue)} color="green" />
-          <KpiCard label="交易筆數" value={kpi.txCount} color="blue" />
-          <KpiCard label="客戶數" value={kpi.customerCount} color="amber" />
+          <KpiCard label={courseMode ? "收款登錄" : "總營收"} value={fmtMoney(kpi.totalRevenue)} color="primary" />
+          <KpiCard label={courseMode ? "退款／沖銷" : "退款金額"} value={fmtMoney(kpi.refundAmount)} color="red" />
+          <KpiCard label={courseMode ? "淨收入" : "淨營收"} value={fmtMoney(kpi.netRevenue)} color="green" />
+          <KpiCard label={courseMode ? "收款紀錄數" : "交易筆數"} value={kpi.txCount} color="blue" />
+          <KpiCard label={courseMode ? "付款顧客數" : "客戶數"} value={kpi.customerCount} color="amber" />
           <KpiCard label="平均客單價" value={fmtMoney(kpi.avgPerCustomer)} color="earth" />
           {mode === "coach" && kpi.newCustomerRevenue != null && (
             <>
@@ -531,7 +539,7 @@ export function RevenueReportClient({
               <table className="min-w-full text-sm">
                 <thead className="bg-earth-50">
                   <tr>
-                    {["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"].map((h) => (
+                    {(courseMode ? ["分店名稱", "收款登錄", "退款／沖銷", "淨收入", "收款紀錄數", "付款顧客數", "平均客單價"] : ["分店名稱", "總營收", "退款金額", "淨營收", "交易筆數", "客戶數", "平均客單價", "體驗方案", "正式方案", "票券", "商品"]).map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -546,10 +554,10 @@ export function RevenueReportClient({
                       <td className="px-3 py-2 text-right">{s.txCount}</td>
                       <td className="px-3 py-2 text-right">{s.customerCount}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.avgPerCustomer)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.trialRevenue)}</td>
+                      {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(s.trialRevenue)}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.packageRevenue)}</td>
                       <td className="px-3 py-2 text-right">{fmtMoney(s.singleRevenue)}</td>
-                      <td className="px-3 py-2 text-right">{fmtMoney(s.otherRevenue)}</td>
+                      <td className="px-3 py-2 text-right">{fmtMoney(s.otherRevenue)}</td></>}
                     </tr>
                   ))}
                 </tbody>
@@ -559,8 +567,8 @@ export function RevenueReportClient({
 
           {mode === "store" && (
             <section className="mt-4 rounded-xl border border-earth-200 bg-white p-4">
-              <h3 className="text-sm font-semibold text-earth-800">付款方式拆分</h3>
-              <p className="mt-1 text-xs text-earth-500">混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。</p>
+              <h3 className="text-sm font-semibold text-earth-800">{courseMode ? "收款方式" : "付款方式拆分"}</h3>
+              <p className="mt-1 text-xs text-earth-500">{courseMode ? "方案核帳及體驗收款；混合付款依明細分攤，退款／沖銷另列於上方摘要。" : "混合付款依各付款明細金額分攤；單一付款歷史交易沿用原付款方式。"}</p>
               {paymentMethodSummary.length === 0 ? (
                 <p className="mt-3 text-sm text-earth-400">本期尚無付款資料</p>
               ) : (
@@ -624,7 +632,7 @@ export function RevenueReportClient({
                   <thead className="bg-earth-50">
                     <tr>
                       {(mode === "store"
-                        ? ["交易日期", "交易單號", "分店", "客戶", "電話", "方案", "類型", "原價", "折扣", "實收", "收款方式", "狀態", "備註", "建立人員", "建立時間"]
+                        ? (courseMode ? ["入帳日期", "分店", "客戶", "電話", "方案", "類型", "收退款金額", "收款方式", "狀態", "備註", "操作人員", "入帳時間"] : ["交易日期", "交易單號", "分店", "客戶", "電話", "方案", "類型", "原價", "折扣", "實收", "收款方式", "狀態", "備註", "建立人員", "建立時間"])
                         : ["交易日期", "交易單號", "分店", "教練", "角色", "客戶", "電話", "方案", "類型", "實收", "收款方式", "狀態", "新客", "備註", "建立時間"]
                       ).map((h) => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-medium text-earth-600 whitespace-nowrap">{h}</th>
@@ -637,14 +645,14 @@ export function RevenueReportClient({
                         {mode === "store" ? (
                           <>
                             <td className="px-3 py-2 whitespace-nowrap">{fmtDate(d.transactionDate)}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>
+                            {!courseMode && <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{d.transactionNo ?? "-"}</td>}
                             <td className="px-3 py-2">{d.storeName}</td>
                             <td className="px-3 py-2">{d.customerName}</td>
                             <td className="px-3 py-2 text-xs">{d.customerPhone}</td>
                             <td className="px-3 py-2">{d.planName ?? "-"}</td>
                             <td className="px-3 py-2">{fmtPlanType(d.planType)}</td>
-                            <td className="px-3 py-2 text-right">{fmtMoney(d.grossAmount)}</td>
-                            <td className="px-3 py-2 text-right">{fmtMoney(d.discountAmount)}</td>
+                            {!courseMode && <><td className="px-3 py-2 text-right">{fmtMoney(d.grossAmount)}</td>
+                            <td className="px-3 py-2 text-right">{fmtMoney(d.discountAmount)}</td></>}
                             <td className="px-3 py-2 text-right font-medium">{fmtMoney(d.netAmount)}</td>
                             <td className="px-3 py-2">{fmtPayment(d.paymentMethod)}</td>
                             <td className="px-3 py-2">
@@ -656,7 +664,7 @@ export function RevenueReportClient({
                             </td>
                             <td className="px-3 py-2 text-xs text-earth-500 max-w-[120px] truncate">{d.note ?? "-"}</td>
                             <td className="px-3 py-2 text-xs">{d.createdByName ?? "-"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{fmtDate(d.createdAt)}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-earth-500">{courseMode ? toLocalDateStr(new Date(d.createdAt)) : fmtDate(d.createdAt)}</td>
                           </>
                         ) : (
                           <>

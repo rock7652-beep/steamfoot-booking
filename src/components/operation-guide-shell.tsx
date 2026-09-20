@@ -26,7 +26,7 @@ export function BookingGuideContext({ status }: { status?: string }) {
   return null;
 }
 
-export function OperationGuideShell({ enabled, children, access = { module: "steamfoot", permissions: [], features: {} } }: { enabled: boolean; children?: ReactNode; access?: GuideAccess }) {
+export function OperationGuideShell({ enabled, children, contextPath, access = { module: "steamfoot", permissions: [], features: {} } }: { enabled: boolean; children?: ReactNode; contextPath?: string; access?: GuideAccess }) {
   const pathname = usePathname();
   const panel = useRef<HTMLDialogElement>(null);
   const heading = useId();
@@ -70,7 +70,7 @@ export function OperationGuideShell({ enabled, children, access = { module: "ste
           <button autoFocus type="button" onClick={close} className="min-h-11 px-3 text-primary-800">關閉</button>
         </div>
         <div className="h-[calc(100%-3.5rem)] min-h-0 overflow-hidden">
-          <OperationGuideContent pathname={pathname} context={bookingPage ? (status ? "booking-detail" : "booking-list") : "general"} bookingStatus={status} />
+          <OperationGuideContent pathname={contextPath ?? pathname} context={bookingPage ? (status ? "booking-detail" : "booking-list") : "general"} bookingStatus={status} />
         </div>
       </dialog>
     </div>

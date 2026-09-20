@@ -9,6 +9,8 @@ import type { TrialSettings } from "@/lib/shop-config";
 interface Props {
   storeId: string;
   initial: TrialSettings;
+  saveAction?: (input:TrialSettings)=>Promise<{success:boolean;error?:string}>;
+  courseMode?: boolean;
 }
 
 const inputCls =
@@ -20,7 +22,7 @@ function toInt(v: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function TrialSettingsForm({ storeId, initial }: Props) {
+export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSettings, courseMode = false }: Props) {
   const [trialEnabled, setTrialEnabled] = useState(initial.trialEnabled);
   const [defaultPrice, setDefaultPrice] = useState(String(initial.trialDefaultPrice));
   const [allowEdit, setAllowEdit] = useState(initial.trialAllowPriceEdit);
@@ -46,7 +48,7 @@ export function TrialSettingsForm({ storeId, initial }: Props) {
       return;
     }
     startTransition(async () => {
-      const result = await updateTrialSettings({
+      const result = await saveAction({
         trialEnabled,
         trialDefaultPrice: d,
         trialAllowPriceEdit: allowEdit,
@@ -223,7 +225,7 @@ export function TrialSettingsForm({ storeId, initial }: Props) {
           </div>
 
           <p className="mt-3 text-[11px] leading-relaxed text-earth-500">
-            體驗課只有一個。每筆體驗單在建立當下記錄金額快照，日後調整預設價不影響舊單。
+            {courseMode ? "每位實際上課者各有體驗預約與金額快照；收款與出席分開，不使用點數卡。調整預設價不影響舊單。" : "體驗課只有一個。每筆體驗單在建立當下記錄金額快照，日後調整預設價不影響舊單。"}
           </p>
         </section>
       </div>

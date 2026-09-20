@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, requireWritablePermission } from "@/lib/permissions";
 import { AppError, handleActionError } from "@/lib/errors";
 import { assertStoreAccess } from "@/lib/manager-visibility";
 import { prisma } from "@/lib/db";
@@ -10,6 +10,8 @@ import {
   type CustomerMergeOutcome,
 } from "@/server/services/customer-merge";
 import type { ActionResult } from "@/types";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { courseManager } from "@/server/services/course-access";
 
 // ============================================================
 // mergeCustomerAction (Phase 1)
@@ -67,14 +69,24 @@ export async function mergeCustomerAction(
     assertStoreAccess(user, source.storeId);
     assertStoreAccess(user, target.storeId);
 
+    let courseStoreId: string | undefined;
+    if (await getStoreIndustryModule(source.storeId) === "course") {
+      await requireWritablePermission("customer.update");
+      const actor = await courseManager("customer.update");
+      if (actor.storeId !== source.storeId || actor.storeId !== target.storeId) throw new AppError("FORBIDDEN", "只能合併目前課程店家的顧客");
+      courseStoreId = actor.storeId;
+    }
+
     const outcome = await mergeCustomerIntoCustomer({
       sourceCustomerId: source.id,
       targetCustomerId: target.id,
       performedByUserId: user.id,
+      courseStoreId,
     });
 
     // 列表 + 兩筆 customer 詳情頁全部失效
     revalidatePath("/dashboard/customers");
+    if (courseStoreId) revalidatePath("/dashboard/courses");
     revalidatePath(`/dashboard/customers/${target.id}`);
     revalidatePath(`/dashboard/customers/${source.id}`);
 

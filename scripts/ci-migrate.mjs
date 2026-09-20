@@ -3,6 +3,50 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
+import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
+
+// Course acceptance preflight: read-only and restricted to this Preview branch.
+// Never print connection strings, credentials, or raw database errors.
+if (requiresCoursePreviewCheck(process.env)) {
+  const target = {
+    databaseIsTest: isIsolatedCourseConnection(process.env.DATABASE_URL),
+    directIsTest: isIsolatedCourseConnection(process.env.DIRECT_URL),
+  };
+  console.info("[course-preview-preflight] target", target);
+  if (!target.databaseIsTest || !target.directIsTest)
+    throw new Error("Course Preview requires the isolated test database for both connections.");
+  const checkedUrl = new URL(process.env.DATABASE_URL);
+  checkedUrl.searchParams.set("connection_limit", "1");
+  checkedUrl.searchParams.set("connect_timeout", "10");
+  checkedUrl.searchParams.set("pool_timeout", "10");
+  if (checkedUrl.hostname.endsWith(".pooler.supabase.com"))
+    checkedUrl.searchParams.set("pgbouncer", "true");
+  const checkClient = new PrismaClient({
+    datasources: { db: { url: checkedUrl.toString() } },
+    log: [],
+  });
+  try {
+    await checkClient.$queryRawUnsafe('SELECT 1 FROM "CourseSession" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT "remaining", "expiresAt", "closedAt" FROM "CoursePointCard" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT "operatorCustomerId", "status", "checkedInAt", notes FROM "CourseBooking" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT "capacity", "details" FROM "CourseRoom" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT "courseMemberEnabled" FROM "StaffMemberLink" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT phone, "emergencyContactName", "emergencyContactPhone" FROM "Staff" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT "unit", "templateIds" FROM "CoursePointCard" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT id, note, "revenueStaffId", "voidedAt" FROM "CoursePurchase" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT id, amount, method FROM "CoursePurchaseRefund" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT "emergencyContactName", "emergencyContactPhone" FROM "Customer" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT "courseBookingId", "courseCardId" FROM "MessageLog" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT "lowBalanceEnabled", "lowBalanceThreshold" FROM "CoursePointPlan" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT id, "stoppedAt" FROM "CourseBalanceReminderPreference" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT "bookingKind", "trialPrice" FROM "CourseBooking" LIMIT 1');
+    await checkClient.$queryRawUnsafe('SELECT id, "paymentSplits", "voidedAt" FROM "CourseTrialPayment" LIMIT 1');
+    console.info("[course-preview-preflight] course_schema_readable=true; points_schema=20260917094700; trial_schema=20260917143018");
+  } catch {
+    throw new Error("Course Preview test database connection or course schema check failed.");
+  } finally { await checkClient.$disconnect(); }
+}
+
 
 const EXPECTED_ENVIRONMENT = "production";
 const EXPECTED_PROJECT_REF = "qijlnhtpbintanzpxkvf";

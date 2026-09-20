@@ -1,7 +1,8 @@
 import { isOperationGuidePreview } from "@/lib/operation-guide-preview";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { redirect, notFound } from "next/navigation";
+import { AppError } from "@/lib/errors";
+import { cookies, headers } from "next/headers";
 import { getCurrentUser } from "@/lib/session";
 import { logoutAction } from "@/server/actions/auth";
 import { getUserPermissions, ROLE_LABELS } from "@/lib/permissions";
@@ -10,6 +11,7 @@ import { getActiveStoreForRead, getStoreOptions } from "@/lib/store";
 import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { LogoutButton } from "@/components/logout-button";
 import { SubscriptionStatusBanner } from "@/components/subscription-status-banner";
+import { trialRetentionMessage } from "@/lib/trial-retention";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
 import { ViewModeBanner } from "@/components/view-mode-banner";
 import { prisma } from "@/lib/db";
@@ -53,10 +55,27 @@ export default async function DashboardLayout({
     await Promise.all([
       getUserPermissions(user.role, user.staffId),
       getStoreOptions(user),
-      getActiveStoreForRead(user),
+      getActiveStoreForRead(user).catch(error => {
+        if (error instanceof AppError && (error.code === "FORBIDDEN" || error.code === "NOT_FOUND")) notFound();
+        throw error;
+      }),
     ]);
   const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : "steamfoot";
-  const trialStatus = await getCachedTrialStatus(activeStoreId ?? undefined);
+  // Course stores must not enter legacy Steamfoot/SPA dashboard reads while
+  // the remaining course-specific areas are being delivered.
+  if (industryModule === "course") {
+    if (user.role !== "ADMIN") {
+      const {prisma}=await import("@/lib/db");
+      if (!await prisma.staff.findFirst({where:{id:user.staffId ?? "",storeId:activeStoreId!,userId:user.id,status:"ACTIVE"}})) notFound();
+    }
+    const requestedPath = (await headers()).get("x-next-pathname") ?? "";
+    if (!/\/dashboard\/?$/.test(requestedPath) && !/\/dashboard\/(?:courses(?:\/|$)|customers\/merge\/?$|duty(?:\/\d{4}-\d{2}-\d{2})?\/?$|settings\/(?:duty|trial|referral-share|digital-butler)\/?$|staff(?:\/[^/]+\/edit)?\/?$|cashbook(?:\/new|\/[^/]+\/edit)?\/?$|cash-drawer\/?$|revenue\/?$|transactions\/?$|data-export\/?$|growth\/?$|digital-butler\/leads\/?$|reconciliation\/?$|store-revenue\/?$|guide\/?$)/.test(requestedPath)) {
+      redirect("/dashboard/courses");
+    }
+  }
+  const trialStatus = industryModule === "course"
+    ? await (await import("@/lib/shop-config")).getTrialStatus(activeStoreId ?? undefined)
+    : await getCachedTrialStatus(activeStoreId ?? undefined);
 
   // ADMIN 看到的 plan：切到特定店時用該店 plan，全部分店時解鎖全部功能（ALLIANCE）
   // OWNER/PARTNER：用自己店的 plan
@@ -191,7 +210,7 @@ export default async function DashboardLayout({
             <StoreOperatingStatusBanner status={operatingStatus} />
           ) : null}
           {subBannerState ? (
-            <SubscriptionStatusBanner state={subBannerState} />
+            <SubscriptionStatusBanner state={subBannerState} retentionMessage={trialStatus?.retention ? trialRetentionMessage(trialStatus.retention) : undefined} />
           ) : null}
         </>
       }

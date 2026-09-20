@@ -1,0 +1,274 @@
+{
+  "date": "2026-09-20",
+  "type": "isolated synthetic retention fixtures; normal HQ subscription UI; no production mutation",
+  "baseline": [
+    {
+      "kind": "A-plan",
+      "n": 1,
+      "hash": "90a796050521d354863719c23127620a"
+    },
+    {
+      "kind": "Booking",
+      "n": 1,
+      "hash": "c49e582bc4d22e71d2a226579d7af28a"
+    },
+    {
+      "kind": "Card",
+      "n": 1,
+      "hash": "f2d49da1e394d07cbfed73bb63a5fa45"
+    },
+    {
+      "kind": "CardMember",
+      "n": 1,
+      "hash": "8d265f1cc5c32808ee828df26b859c9f"
+    },
+    {
+      "kind": "Customer",
+      "n": 1,
+      "hash": "3d5e17f248587890a5efda9bebc881f9"
+    },
+    {
+      "kind": "Entry",
+      "n": 1,
+      "hash": "6a7a4749dea0304e9b80812aaa2ab082"
+    },
+    {
+      "kind": "Plan",
+      "n": 1,
+      "hash": "c634f8649235581a343a55909d7d93bb"
+    },
+    {
+      "kind": "Purchase",
+      "n": 1,
+      "hash": "d9c62bb43e3f85499102ec32c5431d46"
+    },
+    {
+      "kind": "Room",
+      "n": 1,
+      "hash": "f63bd689765d2fea53fc3fcaca05e102"
+    },
+    {
+      "kind": "Session",
+      "n": 1,
+      "hash": "de75330b12da163be585d119fda4bf23"
+    },
+    {
+      "kind": "Staff",
+      "n": 1,
+      "hash": "fff3afabffb6f0839956cda378fd4296"
+    },
+    {
+      "kind": "Template",
+      "n": 1,
+      "hash": "ab54da4982829488ec4796bf3ebc8f39"
+    },
+    {
+      "kind": "User",
+      "n": 1,
+      "hash": "1687ad606821b2b84bad497798427d6b"
+    }
+  ],
+  "stages": {
+    "lifecycleBasic": [
+      {
+        "kind": "A-plan",
+        "n": 1,
+        "hash": "90a796050521d354863719c23127620a"
+      },
+      {
+        "kind": "Booking",
+        "n": 1,
+        "hash": "c49e582bc4d22e71d2a226579d7af28a"
+      },
+      {
+        "kind": "Card",
+        "n": 1,
+        "hash": "f2d49da1e394d07cbfed73bb63a5fa45"
+      },
+      {
+        "kind": "CardMember",
+        "n": 1,
+        "hash": "8d265f1cc5c32808ee828df26b859c9f"
+      },
+      {
+        "kind": "Customer",
+        "n": 1,
+        "hash": "3d5e17f248587890a5efda9bebc881f9"
+      },
+      {
+        "kind": "Entry",
+        "n": 1,
+        "hash": "6a7a4749dea0304e9b80812aaa2ab082"
+      },
+      {
+        "kind": "Plan",
+        "n": 1,
+        "hash": "c634f8649235581a343a55909d7d93bb"
+      },
+      {
+        "kind": "Purchase",
+        "n": 1,
+        "hash": "d9c62bb43e3f85499102ec32c5431d46"
+      },
+      {
+        "kind": "Room",
+        "n": 1,
+        "hash": "f63bd689765d2fea53fc3fcaca05e102"
+      },
+      {
+        "kind": "Session",
+        "n": 1,
+        "hash": "de75330b12da163be585d119fda4bf23"
+      },
+      {
+        "kind": "Staff",
+        "n": 1,
+        "hash": "fff3afabffb6f0839956cda378fd4296"
+      },
+      {
+        "kind": "Template",
+        "n": 1,
+        "hash": "ab54da4982829488ec4796bf3ebc8f39"
+      },
+      {
+        "kind": "User",
+        "n": 1,
+        "hash": "1687ad606821b2b84bad497798427d6b"
+      }
+    ],
+    "lifecycleGrowth": [
+      {
+        "kind": "A-plan",
+        "n": 1,
+        "hash": "90a796050521d354863719c23127620a"
+      },
+      {
+        "kind": "Booking",
+        "n": 1,
+        "hash": "c49e582bc4d22e71d2a226579d7af28a"
+      },
+      {
+        "kind": "Card",
+        "n": 1,
+        "hash": "f2d49da1e394d07cbfed73bb63a5fa45"
+      },
+      {
+        "kind": "CardMember",
+        "n": 1,
+        "hash": "8d265f1cc5c32808ee828df26b859c9f"
+      },
+      {
+        "kind": "Customer",
+        "n": 1,
+        "hash": "3d5e17f248587890a5efda9bebc881f9"
+      },
+      {
+        "kind": "Entry",
+        "n": 1,
+        "hash": "6a7a4749dea0304e9b80812aaa2ab082"
+      },
+      {
+        "kind": "Plan",
+        "n": 1,
+        "hash": "c634f8649235581a343a55909d7d93bb"
+      },
+      {
+        "kind": "Purchase",
+        "n": 1,
+        "hash": "d9c62bb43e3f85499102ec32c5431d46"
+      },
+      {
+        "kind": "Room",
+        "n": 1,
+        "hash": "f63bd689765d2fea53fc3fcaca05e102"
+      },
+      {
+        "kind": "Session",
+        "n": 1,
+        "hash": "de75330b12da163be585d119fda4bf23"
+      },
+      {
+        "kind": "Staff",
+        "n": 1,
+        "hash": "fff3afabffb6f0839956cda378fd4296"
+      },
+      {
+        "kind": "Template",
+        "n": 1,
+        "hash": "ab54da4982829488ec4796bf3ebc8f39"
+      },
+      {
+        "kind": "User",
+        "n": 1,
+        "hash": "1687ad606821b2b84bad497798427d6b"
+      }
+    ],
+    "lifecycleAlliance": [
+      {
+        "kind": "A-plan",
+        "n": 1,
+        "hash": "90a796050521d354863719c23127620a"
+      },
+      {
+        "kind": "Booking",
+        "n": 1,
+        "hash": "c49e582bc4d22e71d2a226579d7af28a"
+      },
+      {
+        "kind": "Card",
+        "n": 1,
+        "hash": "f2d49da1e394d07cbfed73bb63a5fa45"
+      },
+      {
+        "kind": "CardMember",
+        "n": 1,
+        "hash": "8d265f1cc5c32808ee828df26b859c9f"
+      },
+      {
+        "kind": "Customer",
+        "n": 1,
+        "hash": "3d5e17f248587890a5efda9bebc881f9"
+      },
+      {
+        "kind": "Entry",
+        "n": 1,
+        "hash": "6a7a4749dea0304e9b80812aaa2ab082"
+      },
+      {
+        "kind": "Plan",
+        "n": 1,
+        "hash": "c634f8649235581a343a55909d7d93bb"
+      },
+      {
+        "kind": "Purchase",
+        "n": 1,
+        "hash": "d9c62bb43e3f85499102ec32c5431d46"
+      },
+      {
+        "kind": "Room",
+        "n": 1,
+        "hash": "f63bd689765d2fea53fc3fcaca05e102"
+      },
+      {
+        "kind": "Session",
+        "n": 1,
+        "hash": "de75330b12da163be585d119fda4bf23"
+      },
+      {
+        "kind": "Staff",
+        "n": 1,
+        "hash": "fff3afabffb6f0839956cda378fd4296"
+      },
+      {
+        "kind": "Template",
+        "n": 1,
+        "hash": "ab54da4982829488ec4796bf3ebc8f39"
+      },
+      {
+        "kind": "User",
+        "n": 1,
+        "hash": "1687ad606821b2b84bad497798427d6b"
+      }
+    ]
+  }
+}

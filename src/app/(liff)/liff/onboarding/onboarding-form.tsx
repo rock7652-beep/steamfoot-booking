@@ -67,6 +67,15 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
   const [phoneValue, setPhoneValue] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
 
+  // iOS may retain the keyboard's viewport offset after the form is replaced
+  // by a result. Release focus and reveal the result/header in normal flow.
+  useEffect(() => {
+    if (!["blocked", "identity_review_required", "service_unavailable", "expired", "completing"].includes(state.kind)) return;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    const frame = requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    return () => cancelAnimationFrame(frame);
+  }, [state.kind]);
+
   // ── 1. mount: init LIFF + 取 idToken + profile ─────────
   useEffect(() => {
     let cancelled = false;
@@ -173,6 +182,7 @@ export function OnboardingForm({ storeSlug, storeName, liffId, contactUrl }: Onb
       case "bound_other":
       case "phone_taken_by_login_account":
       case "not_found":
+      case "identity_review_required":
       case "ambiguous":
         setState({ kind: "identity_review_required" });
         return;

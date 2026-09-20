@@ -29,6 +29,7 @@ interface SettingsActionCardProps {
   iconPath: string;
   summary?: React.ReactNode;
   primaryHref: string;
+  onPrimaryAction?: () => void;
   primaryLabel?: string;
   secondaryHref?: string;
   secondaryLabel?: string;
@@ -40,6 +41,7 @@ export function SettingsActionCard({
   iconPath,
   summary,
   primaryHref,
+  onPrimaryAction,
   primaryLabel = "進入設定",
   secondaryHref,
   secondaryLabel,
@@ -66,12 +68,12 @@ export function SettingsActionCard({
             {description}
           </p>
         </div>
-        <Link
+        {onPrimaryAction ? <button type="button" onClick={onPrimaryAction} className="min-h-11 shrink-0 rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700">{primaryLabel}</button> : <Link
           href={primaryHref}
           className="shrink-0 rounded-lg bg-primary-600 px-2.5 py-1.5 text-[11px] font-medium text-white hover:bg-primary-700"
         >
           {primaryLabel}
-        </Link>
+        </Link>}
       </header>
 
       {summary ? (

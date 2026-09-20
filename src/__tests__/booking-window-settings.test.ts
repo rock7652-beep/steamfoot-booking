@@ -3,6 +3,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  industry: vi.fn(),
+  courseWindow: vi.fn(),
   requirePermission: vi.fn(),
   resolveWriteStoreId: vi.fn(),
   findBookings: vi.fn(),
@@ -12,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   updateTag: vi.fn(),
   revalidatePath: vi.fn(),
 }));
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: mocks.industry }));
+vi.mock("@/server/actions/course-booking-window", () => ({ saveCourseBookingWindow: mocks.courseWindow }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -46,6 +50,8 @@ describe("顧客預約開放範圍設定", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-24T00:00:00.000Z"));
     vi.clearAllMocks();
+    mocks.industry.mockResolvedValue("steamfoot");
+    mocks.courseWindow.mockResolvedValue({success:true,data:undefined});
     mocks.requirePermission.mockResolvedValue({ role: "ADMIN", storeId: null });
     mocks.resolveWriteStoreId.mockResolvedValue("branch-a");
     mocks.findBookings.mockResolvedValue([]);
@@ -54,6 +60,16 @@ describe("顧客預約開放範圍設定", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("routes course callers to the course guard rather than reading Steamfoot bookings", async () => {
+    mocks.industry.mockResolvedValue("course");
+    expect(await updateBookableUntilDate({date:"2026-09-30"})).toMatchObject({success:true});
+    expect(mocks.courseWindow).toHaveBeenCalledWith({mode:"fixed",date:"2026-09-30"});
+    expect(await updateCustomerBookingWindow({opensAt:null,days:7})).toMatchObject({success:true});
+    expect(mocks.courseWindow).toHaveBeenCalledWith({mode:"rolling",days:7});
+    expect(mocks.findBookings).not.toHaveBeenCalled();
+    expect(mocks.upsert).not.toHaveBeenCalled();
   });
 
   it("開放至指定日期時立即生效，並清除舊的延後啟用設定", async () => {

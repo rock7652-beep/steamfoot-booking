@@ -7,6 +7,8 @@
  * 3. 建立 run + check 記錄，保留完整 debug payload
  */
 
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { checkCourseAccounts } from "./course-checks";
 import { prisma } from "@/lib/db";
 import { toLocalDateStr, toLocalMonthStr, todayRange, monthRange } from "@/lib/date-utils";
 import { REVENUE_VALID_STATUS } from "@/lib/booking-constants";
@@ -36,7 +38,7 @@ const REVENUE_STATUS_FILTER = { status: REVENUE_VALID_STATUS } as const;
 // Types
 // ============================================================
 
-interface CheckResult {
+export interface CheckResult {
   checkCode: string;
   checkName: string;
   status: "pass" | "mismatch" | "error";
@@ -70,10 +72,15 @@ export async function runReconciliation(
     },
   });
 
+  const isCourse = (await getStoreIndustryModule(storeId)) === "course";
   const results: CheckResult[] = [];
+  if (isCourse) {
+    try { results.push(...await checkCourseAccounts(storeId)); }
+    catch { results.push({ checkCode: "course_accounts", checkName: "課程對帳", status: "error", sources: {}, errorMessage: "課程資料讀取失敗，請稍後重試；本次不算通過。", debugPayload: {} }); }
+  }
 
   // 執行各項對帳檢查
-  const checks = [
+  const checks = isCourse ? [] : [
     checkTodayRevenue,
     checkMonthRevenue,
     checkTodayBookingCount,

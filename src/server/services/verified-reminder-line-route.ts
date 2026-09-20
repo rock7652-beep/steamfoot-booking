@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db";
+import { getConfiguredStoreLine, storeLineIdentityProvider } from "@/lib/store-line-config";
 import {
   probeSteamButlerLineRecipient,
   probeStoreLineRecipient,
@@ -18,7 +20,29 @@ export async function resolveVerifiedReminderLineRoute(
   storeId: string,
   legacyStoreLineUserId: string | null,
   centralRecipient: CentralLineRecipientResolution | null | undefined,
+  customerId?: string,
+  db: Pick<typeof prisma, "customerIdentityLink" | "account"> = prisma,
 ): Promise<ReminderLineRoute> {
+  const config = getConfiguredStoreLine(storeId);
+  if (config) {
+    const blocked = (reason: string): ReminderLineRoute => ({ status: "BLOCKED", channel: null, recipientLineUserId: null, reason });
+    if (!customerId || config.storeId !== storeId) return blocked("STORE_LINE_MEMBERSHIP_REQUIRED");
+    const provider = storeLineIdentityProvider(config);
+    const links = await db.customerIdentityLink.findMany({
+      where: { storeId, customerId, provider, customer: { storeId, mergedIntoCustomerId: null, lineLinkStatus: { not: "BLOCKED" } }, user: { status: "ACTIVE" } },
+      select: { userId: true, providerAccountId: true }, take: 2,
+    });
+    if (links.length !== 1) return blocked("STORE_LINE_IDENTITY_UNCONFIRMED");
+    const link = links[0];
+    const account = await db.account.findUnique({
+      where: { provider_providerAccountId: { provider, providerAccountId: link.providerAccountId } },
+      select: { userId: true },
+    });
+    if (!account || account.userId !== link.userId) return blocked("STORE_LINE_ACCOUNT_CONFLICT");
+    const probe = await probeStoreLineRecipient(storeId, link.providerAccountId);
+    if (probe.status !== "COMPATIBLE") return blocked("STORE_LINE_NOT_MESSAGING_REACHABLE");
+    return { status: "READY", channel: "STORE", recipientLineUserId: link.providerAccountId };
+  }
   const candidate = legacyStoreLineUserId?.trim();
   if (!candidate) return resolveVerifiedCentralReminderLineRoute(centralRecipient);
 

@@ -1,0 +1,334 @@
+{
+  "active_prisma": [
+    {
+      "name": "0_baseline",
+      "checksum": "faf3b9f98281b49eafaa5cd30af8bd390d13015778527bfd272bd066af8c0070"
+    },
+    {
+      "name": "20260413_points_expand",
+      "checksum": "b557b9e1c42f1d51bce01fb282041bbb4be327ddb44f1d03a78044fff979ed86"
+    },
+    {
+      "name": "20260413_role_rename",
+      "checksum": "7b5ffcde100f0088ba7248c4b145053e5ce2ae17da02ebe8f9501e06ae23d3b5"
+    },
+    {
+      "name": "20260415_store_is_demo",
+      "checksum": "2ad6f57cb3764e71eae920c2d181a64acf8e82eeeaea91808acb7a46a97d3780"
+    },
+    {
+      "name": "20260415_store_line_destination",
+      "checksum": "331b45afee3ddbeaeec15613ae8d597c073e18e273b2237acab9c8d744811576"
+    },
+    {
+      "name": "20260415_store_scoped_unique",
+      "checksum": "16ddf96c46c9fbd0cc9d6d73f24eda02e9c8ec8b392782fd1b5f2721fc8d25dc"
+    },
+    {
+      "name": "20260416_remove_shop_plan",
+      "checksum": "b2af8c3bde0a1d8e80b784fd0f8f6608cc97e5787535cac204efe164d30f6714"
+    },
+    {
+      "name": "20260417_add_referral_events",
+      "checksum": "800043b6b9ae4eecebdaa9c2882b75134973f1f84ba7520dde3f2513003a5d0a"
+    },
+    {
+      "name": "20260423_referral_points_system",
+      "checksum": "bc8a7f0672f9e906a1e6d2758222663f4e5e9bfa3ec5fee28cdfe067d9ba0920"
+    },
+    {
+      "name": "20260424_add_store_bank_info_and_plan_visibility",
+      "checksum": "060eda7f551376f517d7f83f654decc75cde2c30dcd15920250fd57ed3703176"
+    },
+    {
+      "name": "20260424_add_transaction_payment_fields",
+      "checksum": "a285fd09692c181cf8b4ae8887b27bcea2cd180bbf477cbfd9fab4ae762d42e4"
+    },
+    {
+      "name": "20260426_add_customer_purchase_inputs",
+      "checksum": "70b23589b8995fa5a2eaa767b0314bee1840e51a88d86ab22229c1a9fba25190"
+    },
+    {
+      "name": "20260426_add_wallet_session",
+      "checksum": "e8d67a6352c7b385418445674fee2588b969f50d969bb9f2634b2caef53ba01b"
+    },
+    {
+      "name": "20260429_create_bonus_rule",
+      "checksum": "5e9a5bc71635231aecdebcac590e9b82ca3bb938a793b74854c2898b34e91d40"
+    },
+    {
+      "name": "20260429_add_customer_merge_tracking",
+      "checksum": "2bbbd4cc7328b52d201af94054ceca2e43425386697d65941c7ecd4354f250c0"
+    },
+    {
+      "name": "20260429_add_transaction_void_and_audit_log",
+      "checksum": "f3ec0cb9b81606f65020aa9c67c22741a561615eca890b1f6f767a41da0019b5"
+    },
+    {
+      "name": "20260430_add_transaction_refund_v2",
+      "checksum": "ef8b255f5e041696029fc3a94b7bfb9fb2520735e3aa0831f7cb18feb13abf67"
+    },
+    {
+      "name": "20260506_add_backfill_enum_values",
+      "checksum": "b32c5b017ca31f6a45bfbd62b87daa580aab4540d2b9a7f6b4eae8909bc454b9"
+    },
+    {
+      "name": "20260511_message_log_trigger_at",
+      "checksum": "bde975d30788b2c22d9d292225ab888631b154a27ce1930e9219951b09c3e234"
+    },
+    {
+      "name": "20260513_add_paper_migration_transaction_type",
+      "checksum": "716c739bd9b53cfd3e1c2cd200d40775f2df0c783db9cd84e7043a87e6ac91a1"
+    },
+    {
+      "name": "20260514_add_cash_drawer_session_and_entry",
+      "checksum": "7769650c95060c42e3f8d763b4fe6fa9cbab2a1332d738b64df3e739a114edb6"
+    },
+    {
+      "name": "20260515_add_todo_dismiss",
+      "checksum": "8e9f65ce6fcc987fbcd66fd19bf05a83858e0ed384b2243d4df0c175dc2d1b95"
+    },
+    {
+      "name": "20260516_add_trial_settings",
+      "checksum": "531f615b75bc3c6b0a23be08b02b495b0e2a7a24228ddcba8437931389cbca4c"
+    },
+    {
+      "name": "20260517_add_booking_expected_amount",
+      "checksum": "9ceb49f222211e943cfe21055817cf3ec708970bc8cee6ea0cc2002606052f53"
+    },
+    {
+      "name": "20260518_add_shop_config_bookable_until",
+      "checksum": "ad1351e57d39e5ecb6159435a727e33145c32e98dbb63b351a993f743002d875"
+    },
+    {
+      "name": "20260525_add_cron_run_log",
+      "checksum": "b136f2a9f543c8f82255357836d2fdc69acad32b553b738d2c3bdba83d0dee09"
+    },
+    {
+      "name": "20260527_add_per_store_presentation",
+      "checksum": "b4850c9f2539641708eebfd0e40c093975db9730f2d481cbf6df16dcf421f7df"
+    },
+    {
+      "name": "20260529_add_cashbook_payment_method",
+      "checksum": "63ec99e757f64751f76f2d7a967e3c8a337d6abf7a09eb35a25ab7ad76f9e4e9"
+    },
+    {
+      "name": "20260605_add_customer_service_note",
+      "checksum": "5b744f0b8e6cc687831eb21692b2adff44a78d4fe2529163f0d4bd0a781a1115"
+    },
+    {
+      "name": "20260605_makeup_credit_multi_per_booking",
+      "checksum": "3528808a8719cdbee871c6789395a03994265d46be4b96d10124a95dffa90c24"
+    },
+    {
+      "name": "20260605_pr_noshow2_booking_makeup_credit",
+      "checksum": "7ffa72bd1d8543ba92d2e99ee55a80130d94e4864488801dfd52f94d254e969d"
+    },
+    {
+      "name": "20260607_add_booking_attended_people",
+      "checksum": "ac36d4ecd0c23a3e8ea10c44e2e064d07cb40da8b2ddc2fa192d5d2448e0c3f9"
+    },
+    {
+      "name": "20260614_add_subscription_payment_method",
+      "checksum": "8d5bc871dce3ebcc509a350b40ea147cb085281fc2947056fba06e81648e54c6"
+    },
+    {
+      "name": "20260616_add_store_operating_status",
+      "checksum": "a299f2fe600792e38215ef9a199eeff783beb37be6195e0afab36c37b7d7e66f"
+    },
+    {
+      "name": "20260628_add_customer_identity_link",
+      "checksum": "220d1d3e8fc327d54ad6b40698ea9bf8b9a7d0614cdc80b6aae20ca53b97760e"
+    },
+    {
+      "name": "20260702_add_store_feature_entitlements",
+      "checksum": "c11a1c4be50b060d690743e83f9166f035ae394b6a3ea3a51916f39dcffc5e28"
+    },
+    {
+      "name": "20260705_add_store_settlements",
+      "checksum": "988a00c38e43ed841a869e4ed37fda8b73fd70e69d489c55d34cd791da6bf8ca"
+    },
+    {
+      "name": "20260706_add_healthflow_link_callback_replay",
+      "checksum": "f77a3d3164385829a553cb8334f8d7ae73328c22f3e85e1217dc40d8f99680f0"
+    },
+    {
+      "name": "20260714_add_referral_share_template",
+      "checksum": "a07cb208af428e987216a0d9a4133fc59ed3d85bfba291b473e76f256011e666"
+    },
+    {
+      "name": "20260617_add_customer_follow_up",
+      "checksum": "89ac9542e14edcf6f92aaae058374fd7b0bd87d2ee8bebd5d42977438541fb3f"
+    },
+    {
+      "name": "20260715_add_referral_template_favorites_usage",
+      "checksum": "7b099a3b36efa79521e23af3e11dd92e2ee5b9a28d0c2946fe6f95f803a1291a"
+    },
+    {
+      "name": "20260716153000_add_booking_submission_idempotency",
+      "checksum": "12ff697e5812b6cacd0f35dff2f5c9cc50b41c2b8bcb50ec8b77547e3a056374"
+    },
+    {
+      "name": "20260717090000_add_weekly_booking_recurrence",
+      "checksum": "376d89a0fe6e530e9d745d39017750040ff9fbd4416de31119c3276260cc3aa5"
+    },
+    {
+      "name": "20260718010000_add_line_rebind_capture",
+      "checksum": "aef2e02248e57e0cc04f77c690befdd57717966342310ebd3643adde06deaf20"
+    },
+    {
+      "name": "20260718023000_add_line_rebind_old_user_hash",
+      "checksum": "b22c5f777e7581b2e0eba94651e3235a6c8a4dba8f4342e1741deecbdcee36e1"
+    },
+    {
+      "name": "20260718110000_add_line_oauth_attempt",
+      "checksum": "d39a79cd56cad7b5812a2020742f3c5019f3eea82a9c5f25291b0042f188d3cf"
+    },
+    {
+      "name": "20260718123000_add_line_oauth_session_consumed_at",
+      "checksum": "56f1a04e537c4fbedbe55cf7ea5ad3e463fa0178721e866ae1f5702b28662576"
+    },
+    {
+      "name": "20260720091000_replace_pending_validity_with_expiry_snapshot",
+      "checksum": "4491266c2e2eddd68ec026287b5f827e0cdf2ae0d99a82fd2d0e42f54b72607d"
+    },
+    {
+      "name": "20260720090000_pending_payment_entitlement_snapshots",
+      "checksum": "5abcf23c954db92d7994d27e067b9d0ddaf5598a03eacec99d024a5eb4ed7ca4"
+    },
+    {
+      "name": "20260721090000_add_central_member_link_review_request",
+      "checksum": "28217e38ceb86a1c3126c89c0ec0d8220309ca6418776342d5cdfa16c6bf2b3a"
+    },
+    {
+      "name": "20260721130000_add_central_member_link_review_resolution",
+      "checksum": "0c5ec8637c90b8fd633d2117766da5d1fb5377b0132e28c58ac0d6742dd0ea83"
+    },
+    {
+      "name": "20260722090000_enable_rls_on_remaining_application_tables",
+      "checksum": "3ee048315007d1b65845248f3b94ffeaeb235777430506b7952311cd1d7ebeda"
+    },
+    {
+      "name": "20260723190000_add_digital_butler_core_model",
+      "checksum": "008842256c267580fe68afbe40044c4502c170d910b0657fb827196e8c09acb9"
+    },
+    {
+      "name": "20260725150000_add_digital_butler_lead_tracking",
+      "checksum": "4a9f4c435c379fae1fa6b3c7674a2a80e1fdf2e718a8116264aeb9548ec8d62e"
+    },
+    {
+      "name": "20260723183000_add_reminder_line_route",
+      "checksum": "25cafa207263a4d3b8e07acd7a5c4f772cef80e9c41fa2b4338e43320c6db0d7"
+    },
+    {
+      "name": "20260727090000_channel_neutral_digital_butler",
+      "checksum": "6744950189954220f13414084826d3c99eb70b61cd3d1c36fdef0493000c6ded"
+    },
+    {
+      "name": "20260727100000_add_session_balance_notifications",
+      "checksum": "0e5124c937050672dbbe6d03e4b5ff7f4837ef93d99eb4ea609e6c8f78e01c7e"
+    },
+    {
+      "name": "20260727190000_add_session_balance_notification_settings",
+      "checksum": "3febbc1b25f27a442cde206b9edbf6f69d798ef53103c680cea911c614b4b20a"
+    },
+    {
+      "name": "20260727194500_add_session_balance_response_closure",
+      "checksum": "209f1fac03f0f33728d52432604aa10a40804edd2ee4396ce6ad24994104e6a2"
+    },
+    {
+      "name": "20260727233000_add_store_line_notification_recipients",
+      "checksum": "4c393699434ff690ec5486551c262344322164f49e4d759e79ce45a0a2b1f64b"
+    },
+    {
+      "name": "20260729090000_add_messenger_audit_runs",
+      "checksum": "6edbd88d9fd2ab9e368b963d21f7d90ef2ed1f8e8c467a29c20f9a3c8d8e1488"
+    },
+    {
+      "name": "20260801090000_add_transaction_payment_splits",
+      "checksum": "74750d2d3f24dba84a4f58380a8ed9868734500ddd50e8d632d223cefeb07287"
+    },
+    {
+      "name": "20260802090000_add_digital_butler_human_support_summary",
+      "checksum": "9218b485f642748141666778d7643bc5ba1aee27541ae8dc17461dacd3884ad5"
+    },
+    {
+      "name": "20260808090000_enable_transaction_payment_split_rls",
+      "checksum": "bdc2cd86ea67507df334271b3589c7e416bad4ec2c1cddc96da23b7f3d0f2064"
+    },
+    {
+      "name": "20260808100000_add_trial_booking_chat_self_service",
+      "checksum": "fcd758f18d3a157e7cbb7512632871812c976723a13e373fe6ad0c2cf8d0ba08"
+    },
+    {
+      "name": "20260810120000_messenger_utility_reminder_idempotency",
+      "checksum": "fd25c2412c5c64cc7c20d502753747964b0e20feaebeee200c6d69bc997bb894"
+    },
+    {
+      "name": "20260814183000_add_transaction_conversion_snapshot",
+      "checksum": "71f451fb1a4830543ab32c6d7f6ed2ef88be7b0fd6a9bbd5ffe69e0e50148e13"
+    },
+    {
+      "name": "20260821170000_add_business_hour_segments",
+      "checksum": "16dc68c35ff503ce4f74200f5276345fce9cded1201ca273e1f59917f8d17c4b"
+    },
+    {
+      "name": "20260824150000_add_native_customer_health_records",
+      "checksum": "d5321d6a3ff38509d045b185e2cccdfac09acd35145ab3cd7035573bc0cb2c04"
+    },
+    {
+      "name": "20260825133000_add_customer_health_history_grants",
+      "checksum": "06edaac6806880cde37ccdd97f87dfdc0156e35c65d79a339e073a746962a713"
+    },
+    {
+      "name": "20260828141500_add_spa_treatments_skills_availability",
+      "checksum": "3476e614e0ad94e5b0c6c8600d774bf1a99f6dffe73a2c5b7fd8791eec0a501a"
+    },
+    {
+      "name": "20260830093000_add_spa_stored_value_wallet",
+      "checksum": "6e378397e446d99b7b08be1a24adf61a3cbf8fbed5e5c2e1b2a8171147a72e3f"
+    },
+    {
+      "name": "20260831140000_add_spa_staff_compensation",
+      "checksum": "5acd2291d5d12bfe40d0833e649546f7c786712d16e029ab304f815e6c09e7d2"
+    },
+    {
+      "name": "20260901110000_add_isolated_spa_models",
+      "checksum": "3aa07c29d74f873330684ad7df3c5d9127024b0b0f968812ded0beef275a6e1d"
+    },
+    {
+      "name": "20260901123000_add_store_industry_module",
+      "checksum": "122833ba641dc3de3f531e4dac9ab451d2c8726c9967e2464e04cdb63ea0a69f"
+    },
+    {
+      "name": "20260901153000_cutover_spa_operational_models",
+      "checksum": "7f4d31438b95457c06e3f7cedf40389083e14b9574c81b71499f53377e51d300"
+    },
+    {
+      "name": "20260901154500_remove_legacy_spa_shared_schema",
+      "checksum": "82c6decf83583550e2768af26fa266ad06f6102b2df66294636dce4fae93c0ab"
+    },
+    {
+      "name": "20260903120000_backfill_spa_payments",
+      "checksum": "eaee8d6e128ad5f43f1079a956a94820569fac017ee932b733f8d984bee0e290"
+    },
+    {
+      "name": "20260826143000_add_recurring_confirmation_notification",
+      "checksum": "c1acba47d93b5f2b0e0e5f8fb1dbc54837640d8c2b2f64b2da0a2366ee74fa2c"
+    },
+    {
+      "name": "20260913090000_add_staff_member_link",
+      "checksum": "97bc01e987723d307f895f54282636c441919a70584a660f6ab9f45c6b3be180"
+    },
+    {
+      "name": "20260914100000_same_day_manager_reminder",
+      "checksum": "46d78356a8e05d60ba97afd58ebf3815d0839f102be1d68200dc432f1d81b467"
+    },
+    {
+      "name": "20260914150000_manager_notification_center",
+      "checksum": "0f5b03d85d25ad76be75bb40f6d92889e110e3bac3cc8e546cd09f48385db4e4"
+    }
+  ],
+  "trial_schema_query": "SELECT md5(jsonb_build_object(\n'columns',(SELECT jsonb_agg(to_jsonb(x) ORDER BY table_name,ordinal_position) FROM (SELECT table_name,column_name,ordinal_position,data_type,is_nullable,column_default,datetime_precision FROM information_schema.columns WHERE table_schema='public' AND (table_name IN ('TrialCareSetting','TrialCarePreference','TrialCareLog') OR (table_name='Booking' AND column_name='trialCareCompletedAt') OR (table_name='SpaBooking' AND column_name='isTrial') OR (table_name='SpaPackage' AND column_name='publicVisible'))) x),\n'constraints',(SELECT jsonb_agg(jsonb_build_object('table',c.relname,'name',k.conname,'definition',pg_get_constraintdef(k.oid)) ORDER BY c.relname,k.conname) FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('TrialCareSetting','TrialCarePreference','TrialCareLog')),\n'indexes',(SELECT jsonb_agg(jsonb_build_object('table',tablename,'name',indexname,'definition',indexdef) ORDER BY tablename,indexname) FROM pg_indexes WHERE schemaname='public' AND tablename IN ('TrialCareSetting','TrialCarePreference','TrialCareLog')),\n'rls',(SELECT jsonb_agg(jsonb_build_object('table',c.relname,'rls',c.relrowsecurity) ORDER BY c.relname) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('TrialCareSetting','TrialCarePreference','TrialCareLog'))\n)::text) AS fingerprint",
+  "trial_schema_fingerprint": "857e92677b71d3646656d53232f9e671"
+}

@@ -27,6 +27,10 @@ const mockAuthorizedLiffRebind = vi.fn();
 const mockAutoLiffMigration = vi.fn();
 const mockAuthorizedFirstCapture = vi.fn();
 const mockIdentitySync = vi.fn();
+const mockIndustry = vi.fn();
+const mockCourseOnboarding = vi.fn();
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: (...args: unknown[]) => mockIndustry(...args) }));
+vi.mock("@/server/services/course-line-onboarding", () => ({ onboardCourseLineMember: (...args: unknown[]) => mockCourseOnboarding(...args) }));
 
 vi.mock("@/lib/liff/verify-id-token", async () => {
   // 保留真正的 LiffIdTokenError class，讓 action 用 instanceof 判型
@@ -93,6 +97,8 @@ describe("submitOnboarding action (PR-C2)", () => {
   });
 
   beforeEach(() => {
+    mockIndustry.mockReset().mockResolvedValue("steamfoot");
+    mockCourseOnboarding.mockReset();
     mockMember.mockReset().mockResolvedValue(null);
     vi.stubEnv("CENTRAL_MEMBER_LINE_LOGIN_CHANNEL_ID", CHANNEL);
     mockIdentitySync.mockReset().mockResolvedValue({ status: "upserted" });
@@ -109,6 +115,17 @@ describe("submitOnboarding action (PR-C2)", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("routes verified course onboarding through the atomic service without legacy mutations", async () => {
+    mockVerify.mockResolvedValue(verifiedOk());
+    mockResolveStoreBySlug.mockResolvedValue(STORE);
+    mockIndustry.mockResolvedValue("course");
+    mockCourseOnboarding.mockResolvedValue({ status: "identity_review_required" });
+    await expect(submitOnboarding(VALID_INPUT)).resolves.toEqual({ status: "identity_review_required" });
+    expect(mockCourseOnboarding).toHaveBeenCalledWith(expect.objectContaining({ storeId: STORE.id, lineUserId: LINE_USER_ID }));
+    expect(mockBindLine).not.toHaveBeenCalled();
+    expect(mockIdentitySync).not.toHaveBeenCalled();
   });
 
   // ────────────────────────────────────────────────────────
@@ -490,3 +507,9 @@ describe("submitOnboarding action (PR-C2)", () => {
     expect(mockVerify).toHaveBeenCalledWith(VALID_INPUT.idToken, CHANNEL);
   });
 });
+
+
+vi.mock("@/server/services/store-liff-context", async importOriginal => ({
+  ...await importOriginal<typeof import("@/server/services/store-liff-context")>(),
+  assertStoreLiffContext: vi.fn().mockResolvedValue(undefined),
+}));

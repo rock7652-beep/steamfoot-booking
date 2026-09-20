@@ -1,3 +1,7 @@
+import { checkPermission } from "@/lib/permissions";
+import { getStoreForPlanByStoreId } from "@/lib/store-plan";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { getTrialRetention, trialRetentionMessage } from "@/lib/trial-retention";
 import { redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { getCurrentUser } from "@/lib/session";
@@ -19,7 +23,7 @@ interface PageProps {
 export default async function StoreDetailPage({ params }: PageProps) {
   const { storeId } = await params;
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") redirect("/hq/login");
+  if (!user || user.role !== "ADMIN" || !(await checkPermission(user.role, user.staffId, "staff.manage"))) redirect("/hq/login");
 
   const result = await getStoreDeliverySummary(storeId);
   if (!result.success) {
@@ -34,16 +38,19 @@ export default async function StoreDetailPage({ params }: PageProps) {
   }
 
   const summary = result.data;
+  const retention = !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
+    ? getTrialRetention(await getStoreForPlanByStoreId(storeId)) : null;
   const canShowActivate = !summary.store.currentSubscriptionId && !summary.store.isDemo && summary.store.planStatus !== "ACTIVE" && summary.canActivate;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
+      {retention && <p role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{trialRetentionMessage(retention)}{retention.state === "PENDING_CLEANUP" && " 尚未自動刪除；清理前須重新確認未升級及資料範圍。"}</p>}
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-earth-900">{summary.store.name}</h1>
           <p className="mt-1 text-sm text-earth-500">
             <span className="font-mono">{summary.store.slug}</span> · {summary.store.plan} ·{" "}
-            <span>{summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>
+            <span>{summary.store.industryModule === "COURSE" ? "運動課程" : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>
             {" · "}
             <span className={summary.store.planStatus === "ACTIVE" ? "text-green-600" : "text-amber-600"}>
               {summary.store.planStatus}
@@ -62,7 +69,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
           </Link>
           <Link href={`/hq/dashboard/stores/subscriptions/${storeId}`} className="text-sm text-primary-700 underline">訂閱管理</Link>
           {canShowActivate && (
-            <ActivateTrialButton storeId={storeId} />
+            <ActivateTrialButton storeId={storeId} course={summary.store.industryModule === "COURSE"} />
           )}
         </div>
       </div>
@@ -72,7 +79,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
         <Section title="產業模組">
           <InfoRow
             label="已選模組"
-            value={summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
+            value={summary.store.industryModule === "COURSE" ? "運動課程" : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
           />
           {summary.store.industryModule === "SPA" && !summary.canActivate && (
             <>
@@ -159,7 +166,9 @@ export default async function StoreDetailPage({ params }: PageProps) {
                 : summary.store.currentSubscriptionId
                   ? "已建立訂閱；延長試用或轉正式請至訂閱管理"
                   : summary.canActivate
-                  ? "✅ 設定完成，可開通 30 天單店試用"
+                  ? summary.store.industryModule === "COURSE"
+                    ? "建置完成，尚未起算；LIFF 入口驗收可用後再開通 30 天"
+                    : "✅ 設定完成，可開通 30 天單店試用"
                   : "⚠️ 部分項目未通過，建議先修正"}
             </p>
           </div>

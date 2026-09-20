@@ -1,3 +1,4 @@
+import { adaptCourseButlerLinks } from "./course-digital-butler-links";
 import {
   DigitalButlerRuntime as CoreDigitalButlerRuntime,
   type DigitalButlerRuntimeResult,
@@ -17,6 +18,6 @@ export class DigitalButlerRuntime extends CoreDigitalButlerRuntime {
     if (result.outcome === "HANDOFF_REQUESTED") {
       await recordHumanSupportHandoff(input);
     }
-    return result;
+    return adaptCourseButlerLinks(input.storeId, result);
   }
 }

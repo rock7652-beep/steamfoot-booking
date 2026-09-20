@@ -1,3 +1,4 @@
+import { OpeningFields } from "./opening-fields";
 /**
  * CashDrawerWorkspace — 現金抽屜工作台共用元件
  *
@@ -77,6 +78,7 @@ function formatDateSlash(todayStr: string): string {
 }
 
 interface CashDrawerWorkspaceProps {
+  compactSetup?: boolean;
   view: CashDrawerView;
   todayStr: string;
   /** OWNER / ADMIN 才能首次啟用 */
@@ -107,6 +109,7 @@ interface CashDrawerWorkspaceProps {
 }
 
 export function CashDrawerWorkspace({
+  compactSetup = false,
   view,
   todayStr,
   canInit,
@@ -125,7 +128,7 @@ export function CashDrawerWorkspace({
       {/* State A: 未啟用 — 單卡置中 */}
       {view.state === "EMPTY" && (
         <div className="mx-auto w-full max-w-2xl">
-          <EmptyStateCard canInit={canInit} todayStr={todayStr} returnPath={returnPath} />
+          <EmptyStateCard compact={compactSetup} canInit={canInit} todayStr={todayStr} returnPath={returnPath} />
         </div>
       )}
 
@@ -219,10 +222,12 @@ function TodayStatusCard({
 // ============================================================
 
 function EmptyStateCard({
+  compact = false,
   canInit,
   todayStr,
   returnPath,
 }: {
+  compact?: boolean;
   canInit: boolean;
   todayStr: string;
   returnPath: string;
@@ -240,7 +245,7 @@ function EmptyStateCard({
     });
   }
 
-  return (
+  const body = (
     <div className="rounded-xl border border-earth-200 bg-white p-4">
       <h2 className="text-base font-semibold text-earth-900">啟用現金抽屜</h2>
       <p className="mt-2 text-sm text-earth-600">
@@ -268,6 +273,7 @@ function EmptyStateCard({
           submitClassName="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
           className="mt-6 space-y-4"
         >
+          {compact ? <OpeningFields /> : <>
           <div>
             <label className="block text-sm font-medium text-earth-700">
               初始帳面金額（NT$）
@@ -307,10 +313,12 @@ function EmptyStateCard({
               placeholder="若帳面與實際不同，請說明原因（例：含零錢盒 NT$ 50）"
             />
           </div>
+          </>}
         </CashDrawerActionForm>
       )}
     </div>
   );
+  return compact ? <details className="rounded-lg border border-earth-200 bg-white"><summary className="cursor-pointer px-4 py-3 font-medium">現金抽屜尚未啟用 · 點此設定起始現金</summary>{body}</details> : body;
 }
 
 // ============================================================
@@ -662,7 +670,7 @@ function OpenedTodayWorkspace({
     <div className="w-full space-y-3">
       {/* 第一屏：今日狀態（含摘要 glance）+ 今日收款總覽 + 今日其他異動 + 日常操作。
           桌機 3 欄（左 2 欄資訊、右 1 欄操作 sticky）；窄螢幕單欄靠 order 排序。 */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div data-cash-layout className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* A. 今日狀態卡 — 第一順位 */}
         <div className="order-1 lg:col-span-2 lg:col-start-1 lg:row-start-1">
           {!isClosed && liveTotals ? (
@@ -931,7 +939,7 @@ function DailyActionsArea({
       </p>
 
       {/* iPad（sm/md）full width → 2 欄大按鈕；桌機（lg）操作沉到 1/3 右欄 → 改回單欄直列，當作操作入口清單 */}
-      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
+      <div data-cash-actions className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
         {/* 1. 記一筆收支 — 原地展開現金帳 inline form（收入 / 支出），重用
             createCashbookEntry。受 cashbook.create 把關，與 cashDrawer.* 分開；
             類型限 INCOME / EXPENSE（提領走下方「提領」/ cashDrawer.entry）。 */}
@@ -1004,8 +1012,8 @@ function DailyActionsArea({
               </div>
 
               <dl className="grid grid-cols-2 gap-2 rounded-lg bg-white px-3 py-2 text-xs sm:grid-cols-3">
-                <SummaryItem label="今日現金收入" value={`+ NT$ ${liveTotals.cashIncomeTotal.toString()}`} tone="text-green-700" />
-                <SummaryItem label="今日現金退款" value={`− NT$ ${liveTotals.cashExpenseTotal.toString()}`} tone="text-orange-700" />
+                <SummaryItem label="今日現金流入" value={`+ NT$ ${liveTotals.cashIncomeTotal.add(liveTotals.cashbookCashIncome).toString()}`} tone="text-green-700" />
+                <SummaryItem label="今日現金支出" value={`− NT$ ${liveTotals.cashExpenseTotal.add(liveTotals.cashbookCashOut).toString()}`} tone="text-orange-700" />
                 <SummaryItem label="今日提領" value={`− NT$ ${liveTotals.cashWithdrawalTotal.toString()}`} tone="text-orange-700" />
                 <SummaryItem label="今日補入" value={`+ NT$ ${liveTotals.cashDepositTotal.toString()}`} tone="text-green-700" />
                 <SummaryItem label="現金調整" value={`NT$ ${liveTotals.cashAdjustmentTotal.toString()}`} tone="text-earth-700" />
@@ -1130,7 +1138,7 @@ function ClosedActionsArea({
   return (
     <div className="rounded-xl border border-earth-200 bg-white p-4">
       <h2 className="text-base font-semibold text-earth-900">日常操作</h2>
-      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
+      <div data-cash-actions className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
         <div className="flex min-h-[44px] flex-col justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/60 px-3 py-2.5">
           <span className="text-sm font-semibold text-earth-500">已完成今日結帳</span>
           <span className="mt-0.5 text-xs text-earth-400">

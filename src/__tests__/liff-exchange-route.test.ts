@@ -144,7 +144,7 @@ describe("POST /api/liff/exchange", () => {
       status: "session_created",
       customerId: "cust-hsinchu",
     });
-    expect(mockResolveCustomer).toHaveBeenCalledWith(STORE.id, LINE_USER_ID, { explainFailure: true });
+    expect(mockResolveCustomer).toHaveBeenCalledWith(STORE.id, LINE_USER_ID, { explainFailure: true, identityProvider: "line" });
     expect(mockSignIn).toHaveBeenCalledWith("liff-token", {
       idToken: "tok",
       storeSlug: "zhubei",
@@ -315,3 +315,9 @@ describe("POST /api/liff/exchange", () => {
     expect((await res.json()).displayName).toBe("DB Name");
   });
 });
+
+
+vi.mock("@/server/services/store-liff-context", async importOriginal => ({
+  ...await importOriginal<typeof import("@/server/services/store-liff-context")>(),
+  assertStoreLiffContext: vi.fn().mockResolvedValue(undefined),
+}));

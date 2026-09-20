@@ -1,11 +1,14 @@
 "use server";
 
+import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
+import type { Prisma } from "@prisma/client";
 import { spaPrisma } from "@/lib/spa-db";
 import { prisma } from "@/lib/db";
 import { hashSync } from "bcryptjs";
-import { createDefaultPermissions, requirePermission } from "@/lib/permissions";
+import { ALL_PERMISSIONS, createDefaultPermissions, requirePermission } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/session";
 import { deriveBaseUrl } from "@/lib/base-url";
+import { deriveCourseBaseUrl } from "@/server/services/course-delivery-links";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/types";
 import type {
@@ -72,170 +75,182 @@ export async function createStoreAction(
     const passwordHash = hashSync(input.owner.password, 10);
     const ownerRole: UserRole = "OWNER";
 
-    // 1. Store + ShopConfig
-    const store = await prisma.store.create({
-      data: {
-        id: storeId,
-        name: input.name,
-        slug: input.slug,
-        domain: input.domain ?? null,
-        lineDestination: input.lineDestination ?? null,
-        isDefault: false,
-        isDemo: input.isDemo,
-        industryModule,
-        plan: input.plan,
-        operatingStatus: "TRIAL",
-        planStatus: "TRIAL", // ★ 一律 TRIAL（規格強制）
-        shopConfig: {
-          create: {
-            shopName: input.name,
-            dutySchedulingEnabled: input.dutySchedulingEnabled ?? false,
-          },
-        },
-        moduleInstallation: {
-          create: {
-            module: industryModule,
-            // SPA 的專屬資料與排程尚未完成前，絕不可讓 HQ 誤啟用一間半成品店。
-            status: industryModule === "SPA" ? "PROVISIONING" : "ACTIVE",
-            provisionedAt: industryModule === "STEAMFOOT" ? new Date() : null,
-          },
-        },
-      },
-    });
-
-    // 2. OWNER
-    const ownerUser = await prisma.user.create({
-      data: {
-        name: input.owner.name,
-        email: input.owner.email,
-        passwordHash,
-        role: ownerRole,
-        status: "ACTIVE",
-        staff: {
-          create: {
-            storeId,
-            displayName: input.owner.name,
-            colorCode: "#6366f1",
-            isOwner: true,
-            monthlySpaceFee: 0,
-            spaceFeeEnabled: false,
-          },
-        },
-      },
-      include: { staff: true },
-    });
-
-    if (ownerUser.staff) {
-      await createDefaultPermissions(ownerUser.staff.id, ownerRole);
-    }
-
-    // 3. Initial STAFF（mapping: MANAGER→OWNER, STAFF→PARTNER）
-    const staffAccounts: AccountSummary[] = [];
-    for (const staffInput of input.initialStaff ?? []) {
-      const dbRole: UserRole = staffInput.role === "MANAGER" ? "OWNER" : "PARTNER";
-      const staffPwHash = hashSync(`${input.slug}-staff-temp`, 10); // 臨時密碼
-      const staffUser = await prisma.user.create({
+    const createRecords = async (db: Prisma.TransactionClient | typeof prisma): Promise<ActionResult<StoreDeliverySummary>> => {
+      // 1. Store + ShopConfig
+      const store = await db.store.create({
         data: {
-          name: staffInput.name,
-          email: staffInput.email,
-          passwordHash: staffPwHash,
-          role: dbRole,
+          id: storeId,
+          name: input.name,
+          slug: input.slug,
+          domain: input.domain ?? null,
+          lineDestination: input.lineDestination ?? null,
+          isDefault: false,
+          isDemo: input.isDemo,
+          industryModule,
+          plan: industryModule === "COURSE" ? "EXPERIENCE" : input.plan,
+          operatingStatus: "TRIAL",
+          planStatus: "TRIAL", // ★ 一律 TRIAL（規格強制）
+          shopConfig: {
+            create: {
+              shopName: input.name,
+              dutySchedulingEnabled: input.dutySchedulingEnabled ?? false,
+            },
+          },
+          moduleInstallation: {
+            create: {
+              module: industryModule,
+              // SPA 的專屬資料與排程尚未完成前，絕不可讓 HQ 誤啟用一間半成品店。
+              status: industryModule === "SPA" ? "PROVISIONING" : "ACTIVE",
+              provisionedAt: industryModule !== "SPA" ? new Date() : null,
+            },
+          },
+        },
+      });
+
+      // 2. OWNER
+      const ownerUser = await db.user.create({
+        data: {
+          name: input.owner.name,
+          email: input.owner.email,
+          passwordHash,
+          role: ownerRole,
           status: "ACTIVE",
           staff: {
             create: {
               storeId,
-              displayName: staffInput.name,
-              colorCode: "#10b981",
-              isOwner: false,
+              displayName: input.owner.name,
+              colorCode: "#6366f1",
+              isOwner: true,
               monthlySpaceFee: 0,
-              spaceFeeEnabled: true,
+              spaceFeeEnabled: false,
             },
           },
         },
         include: { staff: true },
       });
-      if (staffUser.staff) {
-        await createDefaultPermissions(staffUser.staff.id, dbRole);
-      }
-      staffAccounts.push({
-        name: staffInput.name,
-        email: staffInput.email,
-        role: staffInput.role,
-      });
-    }
 
-    // 4. 蒸足預設時段（8 slots × 7 days）。SPA 必須只由自己的 provider
-    // availability / treatment schema 佈建，不能寫入這組 legacy BookingSlot。
-    if (industryModule === "STEAMFOOT") {
-      const slotTimes = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
-      const slotData = [];
-      for (let day = 0; day <= 6; day++) {
-        for (const time of slotTimes) {
-          slotData.push({ storeId, dayOfWeek: day, startTime: time, capacity: 6, isEnabled: true });
+      if (ownerUser.staff) {
+        if (industryModule === "COURSE") {
+          await db.staffPermission.createMany({ data: ALL_PERMISSIONS.map(permission => ({
+            staffId: ownerUser.staff!.id, permission, granted: COURSE_PERMISSIONS.includes(permission),
+          })), skipDuplicates: true });
+        } else await createDefaultPermissions(ownerUser.staff.id, ownerRole);
+      }
+
+      // 3. Initial STAFF（mapping: MANAGER→OWNER, STAFF→PARTNER）
+      const staffAccounts: AccountSummary[] = [];
+      for (const staffInput of input.initialStaff ?? []) {
+        const dbRole: UserRole = staffInput.role === "MANAGER" ? "OWNER" : "PARTNER";
+        const staffPwHash = hashSync(`${input.slug}-staff-temp`, 10); // 臨時密碼
+        const staffUser = await db.user.create({
+          data: {
+            name: staffInput.name,
+            email: staffInput.email,
+            passwordHash: staffPwHash,
+            role: dbRole,
+            status: "ACTIVE",
+            staff: {
+              create: {
+                storeId,
+                displayName: staffInput.name,
+                colorCode: "#10b981",
+                isOwner: false,
+                monthlySpaceFee: 0,
+                spaceFeeEnabled: true,
+              },
+            },
+          },
+          include: { staff: true },
+        });
+        if (staffUser.staff) {
+          await createDefaultPermissions(staffUser.staff.id, dbRole);
         }
-      }
-      await prisma.bookingSlot.createMany({ data: slotData });
-    }
-
-    // 5. Default weekly BusinessHours（7 天，全部營業）
-    //
-    // 前台 /s/[slug]/book 的可預約時段由 business-hours-resolver 計算：
-    // 某 dayOfWeek「沒有 BusinessHours row」→ resolveDayRule 回 status="closed"
-    // （source="none"，reason="尚未設定營業時間）→ 整週顯示公休、零可預約時段。
-    // 故建店時補滿 7 天預設營業時間，避免新店一開就像壞掉。
-    // 預設值對齊 scripts/seed-production-minimum.ts（竹北正式店基準）：
-    //   每天 10:00–21:00、slotInterval 60 分、每時段 6 名額。
-    // 店長之後可於後台「營業時間設定」自行調整；@@unique(storeId,dayOfWeek)
-    // 確保不重複（此處為全新店，createMany 安全）。
-    if (industryModule === "STEAMFOOT") {
-      const businessHoursData = [];
-      for (let dow = 0; dow <= 6; dow++) {
-        businessHoursData.push({
-          storeId,
-          dayOfWeek: dow,
-          isOpen: true,
-          openTime: "10:00",
-          closeTime: "21:00",
-          slotInterval: 60,
-          defaultCapacity: 6,
+        staffAccounts.push({
+          name: staffInput.name,
+          email: staffInput.email,
+          role: staffInput.role,
         });
       }
-      await prisma.businessHours.createMany({ data: businessHoursData });
-    }
 
-    // ── 產出交付摘要 ──
-    const baseUrl = deriveBaseUrl();
-    const checklist = buildDeliveryChecklist(input, industryModule);
+      // 4. 蒸足預設時段（8 slots × 7 days）。SPA 必須只由自己的 provider
+      // availability / treatment schema 佈建，不能寫入這組 legacy BookingSlot。
+      if (industryModule === "STEAMFOOT") {
+        const slotTimes = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:30", "18:30", "19:30"];
+        const slotData = [];
+        for (let day = 0; day <= 6; day++) {
+          for (const time of slotTimes) {
+            slotData.push({ storeId, dayOfWeek: day, startTime: time, capacity: 6, isEnabled: true });
+          }
+        }
+        await db.bookingSlot.createMany({ data: slotData });
+      }
 
-    const summary: StoreDeliverySummary = {
-      store: {
-        id: store.id,
-        name: store.name,
-        slug: store.slug,
-        plan: store.plan,
-        planStatus: store.planStatus,
-        operatingStatus: store.operatingStatus,
-        isDemo: store.isDemo,
-        industryModule,
-      },
-      urls: buildStoreUrls(baseUrl, store.slug, store.id),
-      accounts: {
-        owner: {
-          name: input.owner.name,
-          email: input.owner.email,
-          role: "OWNER",
+      // 5. Default weekly BusinessHours（7 天，全部營業）
+      //
+      // 前台 /s/[slug]/book 的可預約時段由 business-hours-resolver 計算：
+      // 某 dayOfWeek「沒有 BusinessHours row」→ resolveDayRule 回 status="closed"
+      // （source="none"，reason="尚未設定營業時間）→ 整週顯示公休、零可預約時段。
+      // 故建店時補滿 7 天預設營業時間，避免新店一開就像壞掉。
+      // 預設值對齊 scripts/seed-production-minimum.ts（竹北正式店基準）：
+      //   每天 10:00–21:00、slotInterval 60 分、每時段 6 名額。
+      // 店長之後可於後台「營業時間設定」自行調整；@@unique(storeId,dayOfWeek)
+      // 確保不重複（此處為全新店，createMany 安全）。
+      if (industryModule !== "SPA") {
+        const businessHoursData = [];
+        for (let dow = 0; dow <= 6; dow++) {
+          businessHoursData.push({
+            storeId,
+            dayOfWeek: dow,
+            isOpen: true,
+            openTime: "10:00",
+            closeTime: "21:00",
+            slotInterval: 60,
+            defaultCapacity: 6,
+          });
+        }
+        await db.businessHours.createMany({ data: businessHoursData });
+      }
+
+      // COURSE provisioning prepares the store; HQ starts the dated trial only after entry acceptance.
+
+      // ── 產出交付摘要 ──
+      const baseUrl = industryModule === "COURSE" ? deriveCourseBaseUrl() : deriveBaseUrl();
+      const checklist = buildDeliveryChecklist(input, industryModule);
+
+      const summary: StoreDeliverySummary = {
+        store: {
+          id: store.id,
+          name: store.name,
+          slug: store.slug,
+          plan: store.plan,
+          planStatus: store.planStatus,
+          currentSubscriptionId: store.currentSubscriptionId,
+          operatingStatus: store.operatingStatus,
+          isDemo: store.isDemo,
+          industryModule,
         },
-        staff: staffAccounts,
-      },
-      thirdParty: {
-        line: input.lineDestination ? "configured" : "not_configured",
-        email: process.env.RESEND_API_KEY ? "configured" : "not_configured",
-      },
-      checklist,
-      canActivate: !input.isDemo && industryModule === "STEAMFOOT" && checklist.every((c) => c.status !== "fail"),
-    };
+        urls: buildStoreUrls(baseUrl, store.slug, store.id),
+        accounts: {
+          owner: {
+            name: input.owner.name,
+            email: input.owner.email,
+            role: "OWNER",
+          },
+          staff: staffAccounts,
+        },
+        thirdParty: {
+          line: input.lineDestination ? "configured" : "not_configured",
+          email: process.env.RESEND_API_KEY ? "configured" : "not_configured",
+        },
+        checklist,
+        canActivate: !input.isDemo && industryModule !== "SPA" && checklist.every((c) => c.status !== "fail"),
+      };
 
-    return { success: true, data: summary };
+      return { success: true, data: summary };
+    };
+    return industryModule === "COURSE"
+      ? await prisma.$transaction(createRecords, { timeout: 20000 })
+      : await createRecords(prisma);
   } catch (e) {
     console.error("[createStoreAction] error:", e);
     const msg = e instanceof Error ? e.message : String(e);
@@ -248,7 +263,8 @@ export async function createStoreAction(
 // ============================================================
 
 export async function activateStoreAction(
-  storeId: string
+  storeId: string,
+  entryAcceptanceConfirmed = false,
 ): Promise<ActionResult<{ planStatus: string }>> {
   await requireAdminSession();
   await requirePermission("staff.manage");
@@ -290,7 +306,7 @@ export async function activateStoreAction(
   if (store.currentSubscriptionId) return { success: false, error: "已有訂閱，請至訂閱管理轉正式或續約" };
   const { createTrialSubscription } = await import("@/server/actions/store-subscription");
   const { toLocalDateStr } = await import("@/lib/date-utils");
-  const result = await createTrialSubscription({ storeId, plan: "EXPERIENCE", startDate: toLocalDateStr(), trialDays: 30 });
+  const result = await createTrialSubscription({ storeId, plan: "EXPERIENCE", startDate: toLocalDateStr(), trialDays: 30, entryAcceptanceConfirmed });
   if (!result.success) return result;
   return { success: true, data: { planStatus: "TRIAL" } };
 }
@@ -333,7 +349,7 @@ export async function getStoreDeliverySummary(
     return { success: false, error: "店舖不存在" };
   }
 
-  const baseUrl = deriveBaseUrl();
+  const baseUrl = store.industryModule === "COURSE" ? deriveCourseBaseUrl() : deriveBaseUrl();
   const checklist = await verifyStoreSetup(storeId);
 
   const owner = store.staff.find((s) => s.isOwner);
@@ -497,8 +513,8 @@ function buildDeliveryChecklist(
   return [
     // ① 店舖基本資料
     { key: "store_record", label: "店舖基本資料已建立", status: "pass" },
-    { key: "module_installation", label: `${industryModule === "SPA" ? "SPA" : "蒸足"}模組已完成佈建`,
-      status: industryModule === "STEAMFOOT" ? "pass" : "fail" },
+    { key: "module_installation", label: `${industryModule === "COURSE" ? "課程" : industryModule === "SPA" ? "SPA" : "蒸足"}模組已完成佈建`,
+      status: industryModule !== "SPA" ? "pass" : "fail" },
     // ② 路由入口
     { key: "route_entry", label: "路由入口 /s/[slug]/ 已可存取", status: "pass" },
     // ③ OWNER / STAFF 登入
@@ -593,6 +609,9 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
       label: "蒸足預約時段已建立",
       status: slotCount > 0 ? "pass" : "fail",
     });
+  } else if (store.industryModule === "COURSE") {
+    items.push({ key: "booking-slots", label: "課程使用教練／教室排課，不建立蒸足固定時段", status: "pass" });
+    items.push({ key: "first-course", label: "請由店長設定教練、教室及課程後完成首次排課", status: "skip" });
   } else {
     items.push({
       key: "booking-slots",
@@ -624,8 +643,12 @@ function validateCreateStoreInput(input: CreateStoreInput): string[] {
   if (!input.slug?.trim()) errors.push("slug 不可為空");
   if (!/^[a-z0-9-]+$/.test(input.slug)) errors.push("slug 只能包含小寫英數字和短橫線");
   if (input.slug.length < 2 || input.slug.length > 30) errors.push("slug 長度需 2-30 字元");
-  if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "SPA") {
+  if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "SPA" && input.industryModule !== "COURSE") {
     errors.push("產業模組不正確");
+  }
+
+  if (input.industryModule === "COURSE" && (input.initialStaff?.length ?? 0) > 0) {
+    errors.push("課程店請先建立店長，再由人員管理新增店長或連結教練，避免授予教練後台帳號");
   }
 
   if (!input.owner.name?.trim()) errors.push("OWNER 姓名不可為空");

@@ -83,3 +83,12 @@ it("keeps a genuine unknown identity eligible for onboarding", async () => {
   db.account.findUnique.mockResolvedValue(null);
   expect(await resolveVerifiedLineCustomer("s", "new", { explainFailure: true })).toBeNull();
 });
+
+it("never authorizes a different provider through the legacy notification id", async () => {
+  db.customerIdentityLink.findUnique.mockResolvedValue(null);
+  db.account.findUnique.mockResolvedValue(null);
+  db.customer.findMany.mockResolvedValue([customer]);
+  expect(await resolveVerifiedLineCustomer("s", "same-raw-subject", { identityProvider: "line-provider:901", explainFailure: true })).toBeNull();
+  expect(db.customer.findMany).not.toHaveBeenCalled();
+  expect(db.account.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { provider_providerAccountId: { provider: "line-provider:901", providerAccountId: "same-raw-subject" } } }));
+});

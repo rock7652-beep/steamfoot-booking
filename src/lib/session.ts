@@ -234,6 +234,10 @@ export async function requireStaffSession() {
   if (!user.storeId && user.role !== "ADMIN") {
     throw new AppError("UNAUTHORIZED", "缺少店舖資訊，請登出後重新登入");
   }
+  if (user.role !== "ADMIN" && user.storeId) {
+    const {getStoreIndustryModule}=await import("@/lib/industry-module-server");
+    if (await getStoreIndustryModule(user.storeId) === "course" && !await prisma.staff.findFirst({where:{id:user.staffId ?? "",userId:user.id,storeId:user.storeId,status:"ACTIVE"}})) throw new AppError("FORBIDDEN","本店工作權限已停用");
+  }
   return user;
 }
 

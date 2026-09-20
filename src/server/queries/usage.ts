@@ -5,6 +5,8 @@ import { organizationSubscriptionRows } from "@/lib/alliance-subscription";
  */
 
 import { prisma } from "@/lib/db";
+import { coursePrisma } from "@/lib/course-db";
+import { monthRange, toLocalMonthStr } from "@/lib/date-utils";
 import { getPlanLimits, type PlanLimits } from "@/lib/feature-flags";
 import type { PricingPlan } from "@prisma/client";
 
@@ -50,6 +52,7 @@ export async function getStoreUsage(storeId: string): Promise<StoreUsage | null>
     select: {
       id: true,
       name: true,
+      industryModule: true,
       plan: true,
       planStatus: true,
       planEffectiveAt: true,
@@ -68,20 +71,16 @@ export async function getStoreUsage(storeId: string): Promise<StoreUsage | null>
   const limits = getPlanLimits(store);
 
   // 本月範圍
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const { start: monthStart, end: monthEnd } = monthRange(toLocalMonthStr());
+  const bookingWhere = { storeId, createdAt: { gte: monthStart, lte: monthEnd } };
 
   const [staffCount, customerCount, monthlyBookingCount] =
     await Promise.all([
       prisma.staff.count({ where: { storeId, status: "ACTIVE" } }),
       prisma.customer.count({ where: { storeId } }),
-      prisma.booking.count({
-        where: {
-          storeId,
-          createdAt: { gte: monthStart, lte: monthEnd },
-        },
-      }),
+      store.industryModule === "COURSE"
+        ? coursePrisma.courseBooking.count({ where: bookingWhere })
+        : prisma.booking.count({ where: bookingWhere }),
     ]);
 
   // 分店數為平台級指標，不放在 per-store metrics 中

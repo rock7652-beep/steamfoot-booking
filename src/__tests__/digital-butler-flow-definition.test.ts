@@ -84,8 +84,8 @@ describe("digital butler draft definition", () => {
         "utf8",
       ),
     );
-    expect(source).toContain("getActiveStoreForRead(user)");
+    expect(source).toContain("resolveWriteStoreId(user)");
     expect(source).not.toMatch(/input\.storeId/);
-    expect(source).toContain('requirePermission("plans.edit")');
+    expect(source).toContain('requireWritablePermission("plans.edit")');
   });
 });

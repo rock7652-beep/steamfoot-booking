@@ -16,6 +16,8 @@ import type { PaymentSplitInput } from "@/lib/payment-splits";
  */
 
 interface Props {
+  courseMode?: boolean;
+  saveAction?: (input:Parameters<typeof collectTrialPayment>[0])=>Promise<{success:boolean;error?:string;data?:{serviceCompleted:boolean}}>;
   open: boolean;
   onClose: () => void;
   bookingId: string;
@@ -59,6 +61,8 @@ export function CollectTrialModal({
   attendedPeople,
   settings,
   onCollected,
+  courseMode = false,
+  saveAction = collectTrialPayment,
 }: Props) {
   // PR-3c + PR-3d：effectivePeople = attendedPeople ?? people（最小 1）。
   // 預設總額 = expectedAmount(快照) ?? default × effectivePeople。
@@ -67,7 +71,7 @@ export function CollectTrialModal({
   const peopleSafe = Math.max(1, Math.floor(people || 1));
   const effectivePeople = Math.max(1, Math.floor(attendedPeople ?? peopleSafe));
   const isPartial = attendedPeople != null && attendedPeople < peopleSafe;
-  const totalDefaultByActual = settings.defaultPrice * effectivePeople;
+  const totalDefaultByActual = courseMode && expectedAmount !== null ? expectedAmount : settings.defaultPrice * effectivePeople;
   const totalDefaultByOriginal = settings.defaultPrice * peopleSafe;
   const isManualOverride =
     expectedAmount != null && expectedAmount !== totalDefaultByOriginal;
@@ -80,7 +84,7 @@ export function CollectTrialModal({
   const [method, setMethod] = useState("CASH");
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplitInput[] | undefined>();
   const [paymentSplitsValid, setPaymentSplitsValid] = useState(true);
-  const [completeService, setCompleteService] = useState(true);
+  const [completeService, setCompleteService] = useState(!courseMode);
   const [discountReason, setDiscountReason] = useState("");
   const [note, setNote] = useState("");
   const [pending, startTransition] = useTransition();
@@ -114,7 +118,7 @@ export function CollectTrialModal({
       ? Math.round(Number(amount))
       : totalDefaultByActual;
     runCheckout(async () => {
-      const r = await collectTrialPayment({
+      const r = await saveAction({
         bookingId,
         paymentMethod: method as
           | "CASH"
@@ -132,8 +136,8 @@ export function CollectTrialModal({
         note: note.trim() || undefined,
       });
       if (r.success) {
-        toast.success(r.data.serviceCompleted ? "已收款並完成服務" : "已確認收款");
-        onCollected(r.data.serviceCompleted);
+        toast.success((r.data?.serviceCompleted ?? false) ? "已收款並完成服務" : "已確認收款");
+        onCollected(r.data?.serviceCompleted ?? false);
       } else {
         setSubmitError(r.error ?? "收款失敗，請核對資料後再試。");
         toast.error(r.error ?? "收款失敗");
@@ -151,7 +155,7 @@ export function CollectTrialModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 text-lg font-semibold text-earth-900">
-          收款並完成服務
+          {courseMode ? "確認體驗收款" : "收款並完成服務"}
         </h3>
         <p className="mb-3 text-sm text-earth-600">
           請核對本次金額與付款方式，收到款項後再確認。
@@ -195,7 +199,7 @@ export function CollectTrialModal({
           )}
         </div>
 
-        <label className="mb-4 flex items-start gap-2 rounded-lg border border-earth-200 bg-white p-3 text-sm text-earth-700">
+        {courseMode ? <p className="mb-4 text-sm text-primary-800">只記錄付款與收入；出席另由教練點名，不使用其他方案額度。</p> : <label className="mb-4 flex items-start gap-2 rounded-lg border border-earth-200 bg-white p-3 text-sm text-earth-700">
           <input
             type="checkbox"
             checked={!completeService}
@@ -207,7 +211,7 @@ export function CollectTrialModal({
             <span className="block font-medium text-earth-900">這是提前收款</span>
             <span className="text-xs text-earth-500">僅記錄收款，顧客實際到店服務後再按「完成服務」。</span>
           </span>
-        </label>
+        </label>}
 
         {isPartial && isManualOverride && (
           <div className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-800">

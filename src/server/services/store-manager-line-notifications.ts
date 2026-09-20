@@ -58,6 +58,7 @@ type StoreManagerNotificationEvent =
     }
   | {
       type: "INCOMPLETE_SERVICE_REMINDER";
+      courseSessionId?: string;
       eventKey: string;
       storeId: string;
       storeSlug: string;
@@ -68,6 +69,7 @@ type StoreManagerNotificationEvent =
     }
   | {
       type: "DAILY_ACTION_DIGEST";
+      course?: boolean;
       eventKey: string;
       storeId: string;
       storeSlug: string;
@@ -195,14 +197,14 @@ export function buildStoreManagerNotificationMessage(
       return [{
         type: "text",
         text: [
-          "🔔 服務尚未完成",
+          event.courseSessionId ? "🔔 課程出席尚未處理" : "🔔 服務尚未完成",
           "",
           `顧客：${event.customerName}`,
           `預約日期：${event.bookingDate}`,
           `預約時間：${event.slotTime}`,
-          "狀態：服務時段結束後仍未完成",
+          event.courseSessionId ? "狀態：課程結束一小時後仍待處理出席，包含已報到者" : "狀態：服務時段結束後仍未完成",
           "",
-          `前往後台處理：${bookingUrl(event.storeSlug, event.bookingId)}`,
+          `前往後台處理：${event.courseSessionId ? managerUrl(event.storeSlug, `/courses?date=${event.bookingDate}`) : bookingUrl(event.storeSlug, event.bookingId)}`,
         ].join("\n"),
       }];
 
@@ -211,14 +213,14 @@ export function buildStoreManagerNotificationMessage(
       const total = event.pendingPaymentCount + event.incompleteServiceCount + waitingSupportCount;
       const lines = ["☀️ 今日待辦", ""];
       if (event.pendingPaymentCount > 0) lines.push(`💰 待確認付款：${event.pendingPaymentCount} 筆`);
-      if (event.incompleteServiceCount > 0) lines.push(`🔔 昨日未完成服務：${event.incompleteServiceCount} 筆`);
+      if (event.incompleteServiceCount > 0) lines.push(event.course ? `🔔 昨日待處理出席：${event.incompleteServiceCount} 人次` : `🔔 昨日未完成服務：${event.incompleteServiceCount} 筆`);
       if (waitingSupportCount > 0) lines.push(`🙋 尚未接手客服：${waitingSupportCount} 位`);
       for (const item of (event.waitingSupportDetails ?? []).slice(0, 5)) {
         lines.push(`・${item.name}｜${providerNotificationLabel(item.provider)}｜想找真人客服${item.lastMessageAt ? `｜${item.lastMessageAt.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}` : ""}`);
       }
       lines.push("", `共 ${total} 件待處理`);
       if (waitingSupportCount > 0) lines.push(``, `前往接手客服：${waitingHumanSupportUrl(event.storeSlug)}`);
-      else lines.push("", `前往後台：${managerUrl(event.storeSlug, "")}`);
+      else lines.push("", `前往後台：${managerUrl(event.storeSlug, event.course ? "/courses" : "")}`);
       return [{ type: "text", text: lines.join("\n") }];
     }
   }

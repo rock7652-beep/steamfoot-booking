@@ -1,5 +1,7 @@
 "use server";
 
+import { resolveStoreBySlug } from "@/lib/store-resolver";
+
 /**
  * LIFF onboarding server action (PR-C2)
  *
@@ -22,11 +24,12 @@ import { resolveVerifiedLineCustomer } from "@/server/services/verified-line-cus
 import { LineIdentityReviewError } from "@/server/services/line-identity-review";
 import { z } from "zod";
 import { verifyLiffIdToken, LiffIdTokenError } from "@/lib/liff/verify-id-token";
-import { resolveStoreBySlug } from "@/lib/store-resolver";
 import { bindLineToCustomerInStore } from "@/server/services/bind-line-to-customer";
 import { logLineBindEvent } from "@/lib/line-bind-log";
 import { upsertCustomerIdentityLink } from "@/server/services/customer-identity-link";
-import { resolveCentralMemberLineLoginChannelId } from "@/lib/liff/central-member-config";
+import { assertStoreLiffContext, resolveStoreLiffContext } from "@/server/services/store-liff-context";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { onboardCourseLineMember } from "@/server/services/course-line-onboarding";
 
 const InputSchema = z.object({
   idToken: z.string().min(1),
@@ -53,6 +56,7 @@ export type OnboardingActionResult =
   | { status: "phone_taken_by_login_account" }  // phone_taken_by_other_user
   | { status: "ambiguous" }                     // ambiguous_multiple_candidates
   | { status: "expired" }                       // ID token expired
+  | { status: "identity_review_required" }
   | { status: "service_unavailable" };          // network / config / store not found / unexpected
 
 export async function submitOnboarding(
@@ -68,7 +72,10 @@ export async function submitOnboarding(
   const { idToken, storeSlug, name, phone } = parsed.data;
 
   // ── 2. Channel config ────────────────────────────────
-  const expectedChannelId = resolveCentralMemberLineLoginChannelId();
+  let context;
+  try { context = await resolveStoreLiffContext(storeSlug); }
+  catch { return { status: "service_unavailable" }; }
+  const expectedChannelId = context.channelId;
 
   // ── 3. Re-verify idToken (defense in depth) ──────────
   let verified;
@@ -87,9 +94,21 @@ export async function submitOnboarding(
 
   // ── 4. Resolve store ─────────────────────────────────
   const store = await resolveStoreBySlug(storeSlug);
-  if (!store) {
+  if (!store || (context.config && (store.id !== context.config.storeId || store.slug !== context.config.slug))) {
     return { status: "service_unavailable" };
   }
+
+  try { await assertStoreLiffContext(store, context); } catch { return { status: "service_unavailable" }; }
+  if (await getStoreIndustryModule(store.id) === "course") {
+    const result = await onboardCourseLineMember({
+      storeId: store.id, lineUserId: verified.lineUserId,
+      lineName: verified.displayName, name, phone, identityProvider: context.identityProvider,
+    });
+    console.info("[course-line-onboarding] result", { status: result.status });
+    return result;
+  }
+
+  if (context.config) return { status: "service_unavailable" };
 
   // Recheck verified ownership even if this page was opened directly or left open.
   try {

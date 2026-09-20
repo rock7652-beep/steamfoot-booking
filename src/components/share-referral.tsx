@@ -29,6 +29,7 @@ interface ShareReferralProps {
   referrerId?: string;
   /** 分享事件來源標記，例如 "my-referrals", "book-home" */
   source?: string;
+  trackAction?: (input: { source: string }) => Promise<void>;
 }
 
 export function ShareReferral({
@@ -39,6 +40,7 @@ export function ShareReferral({
   referralCount,
   inviterName,
   source,
+  trackAction = trackCurrentCustomerShare,
 }: ShareReferralProps) {
   const [copied, setCopied] = useState(false);
   const absoluteUrl = toAbsoluteUrl(referralUrl);
@@ -53,7 +55,7 @@ export function ShareReferral({
   }
 
   function trackShare(channel: "copy" | "line") {
-    void trackCurrentCustomerShare({
+    void trackAction({
       source: source ? `${source}:${channel}` : channel,
     });
   }

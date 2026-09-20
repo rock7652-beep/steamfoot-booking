@@ -1,7 +1,9 @@
 "use server";
 
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { FEATURES } from "@/lib/feature-flags";
 import { migrateManagerRecipients } from "@/server/services/manager-notification-delivery";
-import { managerPreferences, MANAGER_NOTIFICATION_OPTIONS } from "@/lib/manager-notification-preferences";
+import { managerPreferences, managerNotificationOptions, MANAGER_NOTIFICATION_OPTIONS } from "@/lib/manager-notification-preferences";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -21,6 +23,14 @@ async function requireStore() {
   const user = await requirePermission("business_hours.manage");
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) throw new AppError("FORBIDDEN", "請先切換至特定店舖");
+  if (await getStoreIndustryModule(storeId) === "course") {
+    const [{courseManager},{requireStoreFeature}] = await Promise.all([
+      import("@/server/services/course-access"), import("@/lib/feature-gate"),
+    ]);
+    const actor = await courseManager("business_hours.manage");
+    if (actor.storeId !== storeId) throw new AppError("FORBIDDEN", "店家範圍已變更，請重新整理");
+    await requireStoreFeature(storeId,FEATURES.LINE_REMINDER);
+  }
   return storeId;
 }
 
@@ -61,6 +71,7 @@ export async function createStoreLineNotificationRecipient(
     const command = `綁定通知 ${bindingCode}`;
     const bindUrl = `https://line.me/R/oaMessage/${encodeURIComponent(basicId)}/?${encodeURIComponent(command)}`;
     revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/courses/reminders");
     return { success: true, data: { bindUrl } };
   } catch (error) {
     return handleActionError(error);
@@ -86,6 +97,7 @@ export async function setStoreLineNotificationRecipientActive(
       data: { isActive },
     });
     revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/courses/reminders");
     return { success: true, data: undefined };
   } catch (error) {
     return handleActionError(error);
@@ -97,6 +109,7 @@ export async function removeStoreLineNotificationRecipient(id: string): Promise<
     const storeId = await requireStore();
     await prisma.storeLineNotificationRecipient.deleteMany({ where: { id, storeId } });
     revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/courses/reminders");
     return { success: true, data: undefined };
   } catch (error) {
     return handleActionError(error);
@@ -123,6 +136,7 @@ export async function setSameDayBookingReminder(
       data: { sameDayBookingEnabled: values.enabled },
     });
     revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/courses/reminders");
     return { success: true, data: undefined };
   } catch (error) {
     return handleActionError(error);
@@ -133,6 +147,9 @@ export async function setManagerNotificationPreference(id: string, key: string, 
   try {
     const storeId = await requireStore();
     z.object({ id: z.string().min(1), key: z.enum(MANAGER_NOTIFICATION_OPTIONS.map(o => o.key) as [string, ...string[]]), enabled: z.boolean() }).parse({ id, key, enabled });
+    if (enabled && await getStoreIndustryModule(storeId) === "course" && !managerNotificationOptions(true).some(option => option.key === key)) {
+      throw new AppError("BUSINESS_RULE", "此通知尚未接入課程流程");
+    }
     await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "StoreLineNotificationRecipient" WHERE id = ${id} AND "storeId" = ${storeId} FOR UPDATE`;
       const recipient = await tx.storeLineNotificationRecipient.findFirst({ where: { id, storeId } });
@@ -145,6 +162,7 @@ export async function setManagerNotificationPreference(id: string, key: string, 
       } });
     });
     revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/courses/reminders");
     return { success: true, data: undefined };
   } catch (error) { return handleActionError(error); }
 }

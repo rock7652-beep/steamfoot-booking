@@ -16,6 +16,9 @@ export interface CareItem {
   lastFollowUpText: string | null;
   script: string;
   readOnly?: boolean;
+  courseMode?: boolean;
+  canFollowUp?: boolean;
+  canBook?: boolean;
 }
 
 interface CareSectionProps {
@@ -70,7 +73,7 @@ const columns: Column<CareItem>[] = [
     align: "right",
     noLink: true,
     accessor: (row) => (
-      <CareRowActions customerId={row.customerId} script={row.script} readOnly={row.readOnly} />
+      <CareRowActions customerId={row.customerId} script={row.script} readOnly={row.readOnly} courseMode={row.courseMode} canFollowUp={row.canFollowUp} canBook={row.canBook} />
     ),
     width: "w-[280px]",
   },

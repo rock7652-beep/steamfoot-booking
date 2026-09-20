@@ -1,0 +1,54 @@
+{
+  "postgres": "17.6 (Debian 17.6-2.pgdg13+1)",
+  "checks": [
+    "late failure rolls back all ten migrations, enum and shared-column changes",
+    "missing scoped dependency rolls back; partial course schema fails closed",
+    "ordered exact SQL applies atomically; synthetic legacy rows unchanged",
+    "replay fails closed without changes",
+    "negative balance, cross-store member, duplicate learner and overlapping room/coach blocked; no-show/correction supported",
+    "both browser roles denied rows/writes under permissive default grants; purchase privileges revoked"
+  ],
+  "manifest": [
+    {
+      "path": "prisma/migrations/20260915090000_add_course_scheduling/migration.sql",
+      "sha256": "62f0badca303fa73e8ac1d3c3bbe58a53c6984e982901a6772829ec0369b0d14"
+    },
+    {
+      "path": "prisma/migrations/20260915140000_course_points_booking/migration.sql",
+      "sha256": "b0d95b00dc323ee59b4215ec5cac4548e603cca0d46f07caa0e5b6eb84bb6364"
+    },
+    {
+      "path": "prisma/migrations/20260915150000_course_coach_member_mode/migration.sql",
+      "sha256": "16e8239080b12749ab92bb74ce091490a3f729748820a1b87ce50a2517528a09"
+    },
+    {
+      "path": "supabase/migrations/20260915082019_course_catalog_categories.sql",
+      "sha256": "14417da5343e5b63f54cc8d2313d4fe6fd16b7b03890db3672b7955c1aaa9418"
+    },
+    {
+      "path": "supabase/migrations/20260915123055_course_catalog_details.sql",
+      "sha256": "5ae66858db6fda818bddd29f0d6b76f6870d5618bad170ed9485c642d4526469"
+    },
+    {
+      "path": "supabase/migrations/20260916024857_course_attendance_and_staff_contacts.sql",
+      "sha256": "b45c8f0ecdd9b8aae258be431e399e36352e4477d9dd2cef65f8ba029811326a"
+    },
+    {
+      "path": "supabase/migrations/20260916090234_course_portal_integration.sql",
+      "sha256": "1c996b45e61f2a9de0679e24e4e1e7677a9f5861cfd7c5e54ee8534849cbebd0"
+    },
+    {
+      "path": "supabase/migrations/20260917000515_course_purchase_refunds.sql",
+      "sha256": "7fdddbdfa7a1f60739dadc155d7971f60880ded9b35a16f094f529a4110aea01"
+    },
+    {
+      "path": "supabase/migrations/20260917002754_course_purchase_corrections.sql",
+      "sha256": "d00e5b3ab5b2e097824d1688bc21daf3ecee39375c1e71b9cd9cd660f77151d0"
+    },
+    {
+      "path": "supabase/migrations/20260917011137_course_customer_emergency_contacts.sql",
+      "sha256": "de6e594276b67cb5636cd94c0e05c6f445504b74b031e41d521d05724b6ea103"
+    }
+  ],
+  "scope": "synthetic dependency baseline, not production clone or app transaction acceptance"
+}

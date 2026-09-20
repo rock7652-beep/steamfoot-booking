@@ -1,3 +1,6 @@
+import { AppError } from "@/lib/errors";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { getCourseRevenueReport } from "@/server/queries/course-revenue-report";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { NextRequest, NextResponse } from "next/server";
@@ -64,6 +67,16 @@ export async function GET(req: NextRequest) {
   const level = sp.get("level") ?? "summary";
 
   try {
+    if (analysisStoreId && await getStoreIndustryModule(analysisStoreId) === "course") {
+      const report = await getCourseRevenueReport(analysisStoreId, filters);
+      const page = Math.max(1, Math.floor(Number(sp.get("page")) || 1));
+      const pageSize = Math.min(1000, Math.max(1, Math.floor(Number(sp.get("pageSize")) || 50)));
+      if (level === "summary") return NextResponse.json({ summary: report.summary, kpi: report.kpi });
+      if (level === "payment-methods") return NextResponse.json({paymentMethods:report.paymentMethods});
+      const details = {data:report.data.slice((page-1)*pageSize,page*pageSize),total:report.data.length,page,pageSize};
+      if (level === "details") return NextResponse.json(details);
+      return NextResponse.json({summary:report.summary,kpi:report.kpi,details});
+    }
     if (level === "summary") {
       const [summary, kpi] = await Promise.all([
         getStoreRevenueSummary(filters),
@@ -92,6 +105,7 @@ export async function GET(req: NextRequest) {
     ]);
     return NextResponse.json({ summary, kpi, details });
   } catch (e) {
+    if (e instanceof AppError && e.code === "VALIDATION") return NextResponse.json({ error: e.message }, { status: 400 });
     console.error("Store revenue API error:", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

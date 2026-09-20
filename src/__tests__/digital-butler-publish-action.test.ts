@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
-  requirePermission: vi.fn(),
-  getActiveStoreForRead: vi.fn(),
+  requireWritablePermission: vi.fn(),
+  resolveWriteStoreId: vi.fn(),
   publishFlow: vi.fn(),
   revalidatePath: vi.fn(),
   createDiagnosticId: vi.fn(),
@@ -10,8 +10,8 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: h.revalidatePath }));
-vi.mock("@/lib/permissions", () => ({ requirePermission: h.requirePermission }));
-vi.mock("@/lib/store", () => ({ getActiveStoreForRead: h.getActiveStoreForRead }));
+vi.mock("@/lib/permissions", () => ({ requireWritablePermission: h.requireWritablePermission }));
+vi.mock("@/lib/store", () => ({ resolveWriteStoreId: h.resolveWriteStoreId }));
 vi.mock("@/lib/digital-butler-publish-diagnostics", () => ({
   createDigitalButlerPublishDiagnosticId: h.createDiagnosticId,
   logDigitalButlerPublishFailure: h.logFailure,
@@ -25,8 +25,8 @@ import { publishDigitalButlerFlowAction } from "@/app/(dashboard)/dashboard/sett
 describe("publishDigitalButlerFlowAction diagnostics", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    h.requirePermission.mockResolvedValue({ id: "owner-1" });
-    h.getActiveStoreForRead.mockResolvedValue("store-zhubei");
+    h.requireWritablePermission.mockResolvedValue({ id: "owner-1" });
+    h.resolveWriteStoreId.mockResolvedValue("store-zhubei");
     h.createDiagnosticId.mockReturnValue("DBP-ABC123DEF456");
   });
 

@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["hnd1"],
+  "buildCommand": "node scripts/course-trial-env-preflight.mjs && npm run generate:clients && next build",
+  "git": { "deploymentEnabled": false },
+  "crons": []
+}

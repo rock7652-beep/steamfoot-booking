@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { COURSE_EXPORT_LABELS, COURSE_EXPORT_PERIOD_LABELS, COURSE_EXPORT_STATUSES } from "@/lib/course-data-export";
 import {
   DATA_EXPORT_STATUS_OPTIONS,
   DATA_EXPORT_TYPE_LABELS,
@@ -22,7 +23,7 @@ function previousMonth(month: string): string {
   return monthNumber === 1 ? `${year - 1}-12` : `${year}-${String(monthNumber - 1).padStart(2, "0")}`;
 }
 
-export default function DataExportClient({ isAdmin, stores, activeStoreId, canCustomerExport, canReportExport }: { isAdmin: boolean; stores: { id: string; name: string }[]; activeStoreId: string | null; canCustomerExport: boolean; canReportExport: boolean }) {
+export default function DataExportClient({ isAdmin, stores, activeStoreId, canCustomerExport, canReportExport, courseMode = false }: { isAdmin: boolean; stores: { id: string; name: string }[]; activeStoreId: string | null; canCustomerExport: boolean; canReportExport: boolean; courseMode?: boolean }) {
   const today = toLocalDateStr();
   const thisMonth = today.slice(0, 7);
   const currentMonthDates = { startDate: `${thisMonth}-01`, endDate: today };
@@ -35,6 +36,9 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
   const initialStoreId = stores.some((store) => store.id === activeStoreId) ? activeStoreId ?? "" : stores[0]?.id ?? "";
   const [storeId, setStoreId] = useState(initialStoreId);
   const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const labels = courseMode ? COURSE_EXPORT_LABELS : DATA_EXPORT_TYPE_LABELS;
+  const statuses = courseMode ? COURSE_EXPORT_STATUSES : DATA_EXPORT_STATUS_OPTIONS;
   const isCustomerExport = type === "customers";
 
   function selectPeriod(preset: PeriodPreset) {
@@ -50,6 +54,8 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
   }
 
   async function download() {
+    if (loading) return;
+    setFeedback("");
     setLoading(true);
     try {
       const params = new URLSearchParams({ type, startDate, endDate });
@@ -61,11 +67,13 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "data-export.xlsx";
+      link.download = courseMode ? `${labels[type]}_${startDate}_${endDate}.xlsx` : "data-export.xlsx";
       link.click();
       URL.revokeObjectURL(url);
+      setFeedback("已產生下載檔案。");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "匯出失敗");
+      if (courseMode) setFeedback(error instanceof Error ? error.message : "匯出失敗，請重試。");
+      else alert(error instanceof Error ? error.message : "匯出失敗");
     } finally {
       setLoading(false);
     }
@@ -86,12 +94,12 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
 
         <label className="mt-4 block text-sm font-medium">匯出類型（必填）
           <select className="mt-1 block w-full rounded border p-2" value={type} onChange={(event) => { setType(event.target.value as DataExportType); setStatus(""); }}>
-            {availableTypes.map((value) => <option value={value} key={value}>{DATA_EXPORT_TYPE_LABELS[value]}</option>)}
+            {availableTypes.map((value) => <option value={value} key={value}>{labels[value]}</option>)}
           </select>
         </label>
 
         <fieldset className="mt-4">
-          <legend className="text-sm font-medium">{isCustomerExport ? "顧客建立期間（預設本月）" : "期間（預設本月）"}</legend>
+          <legend className="text-sm font-medium">{courseMode ? COURSE_EXPORT_PERIOD_LABELS[type] : isCustomerExport ? "顧客建立期間（預設本月）" : "期間（預設本月）"}</legend>
           <div className="mt-1 grid grid-cols-3 gap-2">
             {(["thisMonth", "lastMonth", "custom"] as const).map((preset) => <button type="button" key={preset} onClick={() => selectPeriod(preset)} className={`rounded border px-3 py-2 text-sm ${periodPreset === preset ? "border-green-700 bg-green-50 text-green-800" : "border-gray-300"}`}>{({ thisMonth: "本月", lastMonth: "上月", custom: "自訂期間" } as const)[preset]}</button>)}
           </div>
@@ -105,10 +113,11 @@ export default function DataExportClient({ isAdmin, stores, activeStoreId, canCu
         <label className="mt-4 block text-sm font-medium">狀態（選填）
           <select className="mt-1 block w-full rounded border p-2" value={status} onChange={(event) => setStatus(event.target.value)}>
             <option value="">全部狀態</option>
-            {DATA_EXPORT_STATUS_OPTIONS[type].map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+            {statuses[type].map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
           </select>
         </label>
         <button className="mt-5 rounded bg-green-700 px-4 py-2 font-medium text-white disabled:opacity-50" onClick={download} disabled={loading || (isAdmin && !storeId)}>{loading ? "匯出中…" : "匯出 Excel"}</button>
+        {feedback && <p role="status" className="mt-3 text-sm">{feedback}</p>}
       </section>
     </main>
   );

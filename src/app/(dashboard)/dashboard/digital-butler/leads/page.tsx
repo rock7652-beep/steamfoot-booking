@@ -1,3 +1,5 @@
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { notFound } from "next/navigation";
 import type { DigitalButlerLeadStatus } from "@prisma/client";
 import { getCurrentUser } from "@/lib/session";
@@ -34,11 +36,12 @@ export default async function DigitalButlerLeadsPage({ searchParams }: PageProps
   if (!user || !(await checkPermission(user.role, user.staffId, "customer.read"))) notFound();
   const params = await searchParams;
   const activeStoreId = await getActiveStoreForRead(user);
+  const courseStore = activeStoreId && await getStoreIndustryModule(activeStoreId) === "course" ? activeStoreId : null;
   const focusedLead = params.leadId
     ? await prisma.digitalButlerLead.findFirst({
         where: {
           id: params.leadId,
-          storeId: { in: await getAccessibleStoreIds(user) },
+          storeId: courseStore ?? { in: await getAccessibleStoreIds(user) },
         },
         select: { storeId: true },
       })
@@ -73,6 +76,7 @@ export default async function DigitalButlerLeadsPage({ searchParams }: PageProps
       />
       <DigitalButlerLeadList
         resolvedStoreId={storeId}
+        readOnly={!!(await resolveStoreViewContextFromCookie(user))?.isViewMode || !(await checkPermission(user.role, user.staffId, "customer.update"))}
         leads={leads}
         staff={staff}
         selectedStatus={status ?? ""}

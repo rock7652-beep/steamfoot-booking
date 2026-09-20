@@ -67,6 +67,13 @@ export function LoginMethodsCard({
       </p>
 
       <div className="mt-5 divide-y divide-earth-200 rounded-xl border border-earth-200 px-4">
+        {methods.storeLine && (
+          <MethodRow
+            label="本店 LINE"
+            linked={methods.storeLine.linked}
+            detail={methods.storeLine.linked ? "透過本店 LINE 入口登入；更換身分請聯絡店家核對，不會覆蓋既有綁定。" : "尚未連結本店 LINE；請聯絡店家核對既有會員身分。"}
+          />
+        )}
         <MethodRow
           label="手機＋密碼"
           linked={methods.phone.linked}
@@ -115,7 +122,7 @@ export function LoginMethodsCard({
           }
         />
         <MethodRow
-          label="LINE"
+          label={methods.storeLine ? "中央 LINE（其他登入方式）" : "LINE"}
           linked={methods.line.linked}
           detail={methods.line.linked ? "已連結" : "尚未連結"}
           action={

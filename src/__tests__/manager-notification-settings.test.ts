@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+const course = vi.hoisted(()=>({industry:vi.fn(),manager:vi.fn(),feature:vi.fn()}));
+vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:course.industry}));
+vi.mock("@/server/services/course-access",()=>({courseManager:course.manager}));
+vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:course.feature}));
 const h = vi.hoisted(() => ({ permission: vi.fn(), store: vi.fn(), find: vi.fn(), update: vi.fn(), lock: vi.fn(), revalidate: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: h.permission }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: h.store }));
@@ -10,6 +14,8 @@ import { setManagerNotificationPreference } from "@/server/actions/store-line-no
 describe("manager notification preference writes", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    course.industry.mockResolvedValue("steamfoot");
+    course.manager.mockResolvedValue({storeId:"store-a"});
     h.permission.mockResolvedValue({ id: "manager" }); h.store.mockResolvedValue("store-a");
     h.find.mockResolvedValue({ lineUserId: "line-a", isActive: true, sameDayBookingEnabled: true, preferences: { lead: false, payment: false } });
   });
@@ -20,9 +26,29 @@ describe("manager notification preference writes", () => {
     expect(h.find).toHaveBeenCalledWith({ where: { id: "recipient-a", storeId: "store-a" } });
     expect(h.update).toHaveBeenCalledWith({ where: { id: "recipient-a" }, data: { preferences: expect.objectContaining({ trial: false, lead: false, payment: false, sameDay: true }) } });
   });
+  it("course writes require the fixed active manager scope and store feature", async () => {
+    course.industry.mockResolvedValue("course");
+    course.manager.mockResolvedValue({storeId:"other-store"});
+    expect(await setManagerNotificationPreference("recipient-a","payment",true)).toMatchObject({success:false});
+    expect(h.update).not.toHaveBeenCalled();
+    course.manager.mockResolvedValue({storeId:"store-a"});
+    course.feature.mockRejectedValue(new Error("disabled"));
+    expect(await setManagerNotificationPreference("recipient-a","payment",true)).toMatchObject({success:false});
+    expect(h.update).not.toHaveBeenCalled();
+  });
   it("updates the existing same-day column for backward compatibility", async () => {
     await setManagerNotificationPreference("recipient-a", "sameDay", false);
     expect(h.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ sameDayBookingEnabled: false }) }));
+  });
+  it("course exposes connected butler and todo events, and blocks enabling unmapped trial/VIP events", async () => {
+    course.industry.mockResolvedValue("course");
+    for (const key of ["lead", "support", "digest", "incomplete"]) {
+      expect(await setManagerNotificationPreference("recipient-a", key, true)).toMatchObject({ success: true });
+    }
+    h.update.mockClear();
+    for (const key of ["trial", "vip"]) expect(await setManagerNotificationPreference("recipient-a", key, true)).toMatchObject({ success: false });
+    expect(h.update).not.toHaveBeenCalled();
+    expect(await setManagerNotificationPreference("recipient-a", "trial", false)).toMatchObject({ success: true });
   });
   it("cannot change another store's recipient", async () => {
     h.find.mockResolvedValue(null);

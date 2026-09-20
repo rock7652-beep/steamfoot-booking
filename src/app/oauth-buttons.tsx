@@ -4,13 +4,17 @@ import { normalizeWebStoreSlug } from "@/lib/line-oauth/web-store-context";
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 
-export function OAuthButtons({ storeSlug = "zhubei" }: { storeSlug?: string }) {
+export function OAuthButtons({ storeSlug = "zhubei", lineEntryHref }: { storeSlug?: string; lineEntryHref?: string }) {
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
 
   async function handleSignIn(provider: string) {
     const loginSlug = provider === "line" ? normalizeWebStoreSlug(storeSlug) : storeSlug;
     setLoadingProvider(provider);
     try {
+      if (provider === "line" && lineEntryHref) {
+        window.location.assign(lineEntryHref);
+        return;
+      }
       // The authorization endpoint derives and DB-validates the originating
       // store from this exact callback path, then sets the routing cookie on
       // the same response as Auth.js state. Do not mint that cookie in JS.

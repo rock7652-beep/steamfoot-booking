@@ -1,0 +1,51 @@
+# 教練我的工作：今日課程與原地點名
+
+## 本輪範圍
+
+- 教練首頁直接顯示選定日（預設台灣今日）授課列表，前後日、回今天、可收合月曆及無課時下一堂入口。
+- 課程摘要包含起迄時間、教室、學員與待點名人數，展開原地處理。
+- 全班報到僅處理尚未報到的 RESERVED 學員；確認列出姓名及人數。
+- 批次出席僅帶入已報到、尚未結算的學員。未報到者不自動改為未到。
+- 個別報到／出席／未到／更正保留，姓名與操作分行；結果不重新排序或關閉名單。
+- 本堂預約備註可原地編輯，標示學員與店長可查看。沿用既有 notes，不建立私密教練紀錄或更動系統出席紀錄；並行修改採 compare-and-set 拒絕覆蓋，離開提醒保留草稿。
+
+## 安全及行為
+
+批次報到沿用 courseAccount(write)、本店交易鎖、授課教練授權與 settleCourseBooking CHECKED_IN；不扣抵且不排程低額度通知。既有出席／更正與卡片計算不重寫。新增備註動作核對同店、有效教練、未撤權連結、非取消課次／預約；無資料庫遷移。
+
+A 店方案、期限、人員及預約資料未修改，無外發通知、正式部署或 main 合併。會員首頁不重排；桌機／iPad 店長後台非本輪範圍。
+
+## 驗證與限制
+
+型別及針對修改檔 lint；後端批次授權、重複 ID、過期名單、備註並行拒絕，以及既有扣抵／更正測試。jsdom 元件操作驗證日期跨月、預設月曆收合、報到／出席精確對象、失敗保留畫面、備註未儲存離開提醒。
+
+這些不代表手機 LINE 實機與真實教練帳號已完成操作驗收。固定 A 店 LIFF 不變，實機最短驗收：切換我的工作 → 展開當堂 → 報到 → 開課後確認已報到者出席 → 個別更正；另確認備註儲存重開。教練只能看到自己被授權課次，不能以一般會員帳號替代。
+
+正式資料庫備份還原／遷移與版本配對仍沿用發布門檻，本輪不宣稱解除。
+
+## 教練三頁分工第二輪
+
+- 今日工作只顯示今天；進行中與接下來在前，已下課待點名仍保留，完成項目收合。過往未完成點名跨月保留。
+- 課表預設週一至週日，可切週與展開整月。跨月週補載前後六日；不把无排課當公休。
+- 授課紀錄改為月摘要及課次歷史，明細預設收合、一般查阅不顯示操作鈕，點補完點名或更正紀錄才進入操作。
+- 已授課定義：課程已結束、無待點名學員、至少一人出席；時數依排定起訖加總。零有效預約、全班未到、取消課次不列已授課。頁面提供統計說明；非薪資結算依據。
+- 登出收進頂端帳號選單，教練頁減少上方留白。會員端功能保持原流程。
+- 無遷移；未修改 A 店方案、期限、額度或身分連結，無外發訊息。
+- 本輪本機 TypeScript、變更檔 lint 及 19 項 UI／action 測試通過（包括跨月待辦、週切換、只讀紀錄、統計排除及原點名流程）。
+- 真實手機 LINE 的三頁視覺與操作仍待本人確認，不以 DOM 自動測試替代。
+
+## 單人點名省略確認視窗
+
+依本人手機回饋，單人「出席／未到」直接呼叫原儲存動作，不再開啟確認視窗。儲存中停用按鈕並以同步鎖防止連點；失敗保留名單並顯示錯誤，成功刷新資料與提示姓名／結果。多人批次及更正仍沿用原流程。新增直接出席／未到、連點及錯誤顯示測試。
+
+
+## First-tap attendance feedback
+
+Phone report: check-in/no-show displayed global updating for 3–5 seconds and appeared to need another tap. Source review confirmed that the roster only consumed server props; writes and full refresh shared one transition. The screenshots alone cannot establish whether the first write failed or which server/network stage consumed the reported time.
+
+- Existing authorized transaction/settlement now returns committed attendance status, check-in flag and updatedAt. No extra query or settlement change.
+- Client shows saving feedback immediately, blocks duplicate submissions, and applies only successful committed responses to the roster and derived counters.
+- Older refresh rows cannot replace a newer confirmed response; a newer server correction takes precedence. Background refresh no longer blocks coach attendance buttons.
+- Failed writes retain prior state and display an error. Batch/correction confirmation remains; single attendance/no-show stays direct.
+- Targeted UI/action tests: 29 passed, including deferred first-tap check-in/no-show, duplicate click, stale refresh, newer correction and failed save. TypeScript and lint checked separately.
+- No A-store plan, expiry, identity or balance fixture edits; no external messages. Live phone latency remains to be measured; do not claim a sub-second end-to-end result from component tests.

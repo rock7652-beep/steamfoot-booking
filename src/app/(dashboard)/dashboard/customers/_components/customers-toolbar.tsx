@@ -24,6 +24,7 @@ interface Props {
   staffOptions: StaffOption[];
   /** 語意 basePath（例：`/dashboard/customers`）— 僅供「清除篩選」Link 使用，DashboardLink 會自動 prefix */
   basePath: string;
+  courseMode?: boolean;
 }
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
@@ -55,7 +56,7 @@ const SORT_OPTIONS: Array<{ value: string; label: string }> = [
 
 const FILTER_KEYS = ["search", "status", "visit", "referral", "staff"] as const;
 
-export function CustomersToolbar({ staffOptions, basePath }: Props) {
+export function CustomersToolbar({ staffOptions, basePath, courseMode = false }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname(); // 真實 pathname，含 /hq 或 /s/{slug}/admin 前綴
@@ -136,7 +137,7 @@ export function CustomersToolbar({ staffOptions, basePath }: Props) {
       >
         {STATUS_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
-            {o.label}
+            {courseMode ? o.label.replaceAll("來店", "上課").replace("點數多寡", "可用點數") : o.label}
           </option>
         ))}
       </select>
@@ -146,11 +147,11 @@ export function CustomersToolbar({ staffOptions, basePath }: Props) {
         onChange={(e) => setParam("visit", e.target.value)}
         disabled={isPending}
         className={selectClass}
-        aria-label="來店"
+        aria-label={courseMode ? "上課" : "來店"}
       >
         {VISIT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
-            {o.label}
+            {courseMode ? o.label.replaceAll("來店", "上課").replace("點數多寡", "可用點數") : o.label}
           </option>
         ))}
       </select>
@@ -164,7 +165,7 @@ export function CustomersToolbar({ staffOptions, basePath }: Props) {
       >
         {REFERRAL_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
-            {o.label}
+            {courseMode ? o.label.replaceAll("來店", "上課").replace("點數多寡", "可用點數") : o.label}
           </option>
         ))}
       </select>
@@ -197,7 +198,7 @@ export function CustomersToolbar({ staffOptions, basePath }: Props) {
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {courseMode ? o.label.replaceAll("來店", "上課").replace("點數多寡", "可用點數") : o.label}
             </option>
           ))}
         </select>

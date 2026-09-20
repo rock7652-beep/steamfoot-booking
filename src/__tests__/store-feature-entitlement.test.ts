@@ -52,6 +52,14 @@ beforeEach(() => {
 });
 
 describe("hasStoreFeature", () => {
+  it("dated course trials receive single-store features without multi-store entitlements", async () => {
+    mockGetStoreForPlanByStoreId.mockResolvedValue({ id: "new-course", plan: "EXPERIENCE", planStatus: "TRIAL", planEffectiveAt: new Date("2026-09-18"), planExpiresAt: new Date("2026-10-17") });
+    const { hasStoreFeature } = await import("@/lib/feature-gate");
+    expect(await hasStoreFeature("new-course", FEATURES.DIGITAL_BUTLER)).toBe(true);
+    expect(await hasStoreFeature("new-course", "multi_store" as FeatureKey)).toBe(false);
+    expect(await hasStoreFeature("new-course", "headquarter_view" as FeatureKey)).toBe(false);
+    expect(mockEntitlementFindUnique).not.toHaveBeenCalled();
+  });
   it("opens every registered feature for the isolated SPA Demo store", async () => {
     const { hasStoreFeature } = await import("@/lib/feature-gate");
 

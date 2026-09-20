@@ -36,6 +36,7 @@ export const getCachedBusinessHours = (storeId: string) =>
     async () => {
       const rows = await prisma.businessHours.findMany({ where: { storeId } });
       return rows.map((bh) => ({
+        segments: bh.segments,
         dayOfWeek: bh.dayOfWeek,
         isOpen: bh.isOpen,
         openTime: bh.openTime,
@@ -64,6 +65,7 @@ export const getCachedSpecialDays = (storeId: string, weekStartISO: string, week
         },
       });
       return rows.map((sd) => ({
+        segments: sd.segments,
         date: sd.date.toISOString().slice(0, 10),
         type: sd.type,
         reason: sd.reason,

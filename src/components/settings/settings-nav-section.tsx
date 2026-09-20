@@ -12,6 +12,7 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 export interface SettingsNavItem {
   label: string;
   href: string;
+  onSelect?: () => void;
 }
 
 interface SettingsNavSectionProps {
@@ -28,12 +29,12 @@ export function SettingsNavSection({ title, items }: SettingsNavSectionProps) {
       <ul className="mt-1.5 space-y-0.5">
         {items.map((item) => (
           <li key={item.href}>
-            <Link
+            {item.onSelect ? <button type="button" onClick={item.onSelect} className="block min-h-11 w-full rounded-md px-2 py-2 text-left text-sm font-medium text-earth-700 hover:bg-earth-50">{item.label}</button> : <Link
               href={item.href}
               className="block rounded-md px-2 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50 hover:text-earth-900"
             >
               {item.label}
-            </Link>
+            </Link>}
           </li>
         ))}
       </ul>

@@ -21,31 +21,37 @@ interface Props {
   /** 同店 ACTIVE staff 選項 */
   staffOptions: StaffOption[];
   /** 提交（parent 應呼叫 bulkUpdateCustomerAssignment 並處理 toast）。回傳代表完成 */
-  onSubmit: (assignedStaffId: string) => Promise<void>;
+  onSubmit: (assignedStaffId: string) => Promise<void | boolean>;
   /** 清空選取 */
   onCancel: () => void;
+  /** Course uses inline confirmation because native dialogs block its iPad preview. */
+  inlineConfirmation?: boolean;
 }
 
-export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel }: Props) {
+export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel, inlineConfirmation = false }: Props) {
   const [staffId, setStaffId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const selectedStaff = staffOptions.find((s) => s.id === staffId);
   const canSubmit = !!staffId && !submitting && selectedCount > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit || !selectedStaff) return;
-    const ok = window.confirm(
+    if (inlineConfirmation && !confirming) { setConfirming(true); return; }
+    const ok = inlineConfirmation || window.confirm(
       `確定要將已選的 ${selectedCount} 位顧客指派給 ${selectedStaff.displayName} 嗎？`,
     );
     if (!ok) return;
     setSubmitting(true);
     try {
-      await onSubmit(staffId);
+      const succeeded = await onSubmit(staffId);
+      if (succeeded === false) return;
       // 成功後 parent 會清空 selection；這裡把 dropdown 也重置回未選
       setStaffId("");
     } finally {
       setSubmitting(false);
+      setConfirming(false);
     }
   };
 
@@ -68,7 +74,7 @@ export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel 
             id="bulk-assign-staff"
             className="rounded border border-earth-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             value={staffId}
-            onChange={(e) => setStaffId(e.target.value)}
+            onChange={(e) => { setStaffId(e.target.value); setConfirming(false); }}
             disabled={submitting}
           >
             <option value="">請選擇店長</option>
@@ -81,6 +87,7 @@ export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel 
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {confirming && <span role="status" className="text-sm text-earth-700">確認將 {selectedCount} 位顧客指派給 {selectedStaff?.displayName}？</span>}
           <button
             type="button"
             onClick={onCancel}
@@ -95,7 +102,7 @@ export function BulkAssignBar({ selectedCount, staffOptions, onSubmit, onCancel 
             disabled={!canSubmit}
             className="rounded bg-primary-600 px-3 py-1 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-earth-300"
           >
-            {submitting ? "指派中..." : "批次指派"}
+            {submitting ? "指派中..." : confirming ? "確認指派" : "批次指派"}
           </button>
         </div>
       </div>

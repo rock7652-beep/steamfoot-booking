@@ -1,6 +1,7 @@
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { SpaRevenue } from "./_components/spa-revenue";
-import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
+import { RevenueTabs } from "./_components/revenue-tabs";
+import { CourseRevenue } from "./_components/course-revenue";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getActiveStoreForRead } from "@/lib/store";
@@ -71,6 +72,7 @@ interface PageProps {
     search?: string;
     kind?: string;
     status?: string;
+    summary?: string;
     dateFrom?: string;
     dateTo?: string;
     transactionType?: TransactionType;
@@ -121,6 +123,12 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         }
       />
     );
+  if (revenueStoreId && (await getStoreIndustryModule(revenueStoreId)) === "course")
+    return <CourseRevenue storeId={revenueStoreId} params={params} readOnly={isViewMode} canDataExport={canDataExport}
+      canEdit={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.create")}
+      canVoid={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.void")}
+      canRefund={!isViewMode && await checkPermission(user.role, user.staffId, "transaction.refund")}
+      canConfirm={!isViewMode && await checkPermission(user.role, user.staffId, "wallet.create")} />;
   const today = toLocalDateStr();
   const month = today.slice(0, 7);
   const firstDayOfMonth = `${month}-01`;
@@ -358,11 +366,7 @@ export default async function RevenuePage({ searchParams }: PageProps) {
         }
       />
 
-      <div aria-label="營運頁籤" className="grid grid-cols-2 items-center gap-2 border-b border-earth-200 pb-3 md:flex md:flex-wrap md:gap-3">
-        <span className="flex min-h-11 items-center justify-center rounded-lg border-b-2 border-primary-600 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700 md:min-h-0 md:bg-transparent md:py-1.5">營收明細</span>
-        <CashbookShortcut readOnly={isViewMode} triggerClassName="w-full justify-center md:min-h-0 md:w-auto md:px-3 md:py-1.5" />
-        <Link href="/dashboard/cashbook" className="col-span-2 flex min-h-11 items-center justify-center rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 md:col-span-1 md:min-h-0 md:border-0 md:bg-transparent md:py-1.5">完整現金管理 →</Link>
-      </div>
+      <RevenueTabs readOnly={isViewMode} />
 
       {canDataExport ? (
         <Link

@@ -39,6 +39,7 @@ export function MergeConfirmForm({
         `已將 source ${sourceCustomerId} 合併進 target ${targetCustomerId}。`,
         `搬移：bookings=${counts.bookings} / wallets=${counts.customerPlanWallets} / transactions=${counts.transactions} / points=${counts.pointRecords} / makeup=${counts.makeupCredits}`,
         `推薦：referrer=${counts.referralsAsReferrer} converted=${counts.referralsAsConverted} sponsored=${counts.sponsoredCustomers}`,
+        ...(counts.courseBookings !== undefined ? [`課程：預約 ${counts.courseBookings}、代約關聯 ${counts.courseOperators}、共卡成員 ${counts.courseMembers}（同卡重複授權 ${counts.sharedMemberships}）、購買 ${counts.coursePurchases}、健康紀錄 ${counts.healthRecords}。卡片餘額及交易金額未變更。`] : []),
         `合併欄位：${result.data.mergedIdentityFields.join(", ") || "（無）"}`,
       ].join("\n");
       const url = `/dashboard/customers/merge?result=${encodeURIComponent(summary)}`;

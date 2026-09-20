@@ -29,6 +29,7 @@ const PAYMENT_METHODS: { value: string; label: string }[] = [
 ];
 
 interface Props {
+  saveAction?: (input:Parameters<typeof correctTrialCollection>[0])=>Promise<{success:boolean;error?:string}>;
   open: boolean;
   onClose: () => void;
   bookingId: string;
@@ -70,6 +71,7 @@ export function CorrectTrialCollectionModal({
   attendedPeople,
   settings,
   onCorrected,
+  saveAction = correctTrialCollection,
 }: Props) {
   // PR-3c + PR-3d：effectivePeople = attendedPeople ?? people（最小 1）。
   // 預設帶總額 = originalAmount(快照) ?? default × effectivePeople。
@@ -105,7 +107,7 @@ export function CorrectTrialCollectionModal({
       ? Math.round(Number(amount))
       : totalDefaultByActual;
     startTransition(async () => {
-      const r = await correctTrialCollection({
+      const r = await saveAction({
         bookingId,
         originalTransactionId,
         paymentMethod: method as

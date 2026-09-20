@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
+const course = vi.hoisted(() => ({ module: vi.fn(), export: vi.fn() }));
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: course.module }));
+vi.mock("@/server/queries/course-data-export", () => ({ getCourseDataExport: course.export }));
 const mockAuth = vi.fn();
 const mockCheckPermission = vi.fn();
 const mockTransactionFindMany = vi.fn();
@@ -52,6 +55,8 @@ function exportRequest() {
 describe("data export store and manager isolation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    course.module.mockResolvedValue("steamfoot");
+    course.export.mockResolvedValue([{ name: "課程交易", headers: ["金額"], rows: [[100]] }]);
     process.env.MANAGER_VISIBILITY_MODE = "SELF_ONLY";
     mockCheckPermission.mockImplementation(async (_role, _staffId, permission) => permission === "report.export");
     mockResolveActiveStoreId.mockResolvedValue("store-parent");
@@ -98,4 +103,22 @@ describe("data export store and manager isolation", () => {
       }),
     }));
   });
+  it("course export requires the matching read permission as well as export permission", async () => {
+    course.module.mockResolvedValue("course");
+    mockAuth.mockResolvedValue({ user: { id: "owner-1", role: "OWNER", staffId: "staff-1", storeId: "store-parent" } });
+    const { GET } = await import("@/app/api/data-export/route");
+    expect((await GET(exportRequest())).status).toBe(403);
+    expect(course.export).not.toHaveBeenCalled();
+  });
+  it("course export ignores a manager's foreign store parameter and retains SELF_ONLY scope", async () => {
+    course.module.mockResolvedValue("course");
+    mockCheckPermission.mockResolvedValue(true);
+    mockAuth.mockResolvedValue({ user: { id: "owner-1", role: "OWNER", staffId: "staff-1", storeId: "store-parent" } });
+    const { GET } = await import("@/app/api/data-export/route");
+    const response = await GET(new NextRequest(exportRequest().url + "&storeId=foreign"));
+    expect(response.status).toBe(200);
+    expect(course.export).toHaveBeenCalledWith("store-parent", "transactions", expect.any(Object), undefined, 10000, { revenueStaffId: "staff-1" });
+    expect(mockTransactionFindMany).not.toHaveBeenCalled();
+  });
+
 });

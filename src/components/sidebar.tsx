@@ -575,7 +575,7 @@ interface StoreViewOption {
 
 interface DashboardShellProps {
   operationGuidePreview?: boolean;
-  industryModule?: "spa" | "steamfoot";
+  industryModule?: IndustryModuleId;
   isOwner: boolean;
   permissions: string[];
   pricingPlan: PricingPlan;
@@ -625,6 +625,7 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const rawPathname = usePathname();
   const searchParams = useSearchParams();
+  const routeQuery = searchParams.toString();
   const isDevicePreviewMode = searchParams.get("devicePreview") === "1";
   const isEmbeddedPreview = useSyncExternalStore(
     () => () => {},
@@ -658,7 +659,7 @@ export default function DashboardShell({
     const hqMatch = rawPathname.match(/^(\/hq)\/dashboard/);
     if (hqMatch) return hqMatch[1];
     return "";
-  }, [rawPathname]);
+  }, [rawPathname, routeQuery]);
   const pathname = dashboardPrefix
     ? rawPathname.slice(dashboardPrefix.length)
     : rawPathname;
@@ -704,6 +705,23 @@ export default function DashboardShell({
   },[]);
 
   const navGroupsToRender: NavGroup[] = useMemo(() => {
+    if (industryModuleId === "course") {
+      return [{ id: "course-daily", label: "日常工作", defaultOpen: true, icon: <></>, items: [
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard")!, href: "/dashboard", label: "首頁", permission: "booking.read" },
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses", label: "課表排程" },
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/customers")!, href: "/dashboard/courses?view=customers", label: "顧客管理", permission: "customer.read" },
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/revenue")!, href: "/dashboard/revenue", label: "營運", permission: "transaction.read", requiredFeature: undefined },
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/reports")!, href: "/dashboard/courses?view=analytics", label: "分析", requiredFeature: undefined },
+        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/growth")!,
+        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/digital-butler/leads")!,
+      ] }, { id: "course-setup", label: "店務設定", defaultOpen: true, icon: <></>, items: [
+{ ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=catalog", label: "課程設定", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v16m0-16C9 3 5 3 3 4v15c3-1 6-1 9 2m0-16c3-2 7-2 9-1v15c-3-1-6-1-9 2" /></svg> },
+{ ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses?view=rooms", label: "教室管理", icon: <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V3h14v18M9 21V7h6v14m-3-7h.01" /></svg> },
+        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/plans")!, href: "/dashboard/courses?view=plans", label: "方案管理", permission: "wallet.read", requiredFeature: undefined },
+        { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/settings")!, href: "/dashboard/courses?view=settings", label: "設定" },
+      ] }];
+    }
     if (isHqRoute) {
       if (industryModuleId !== "spa") return NAV_GROUPS;
       return NAV_GROUPS.map((group) => ({
@@ -764,6 +782,11 @@ export default function DashboardShell({
 
       // Check if any item in this group is active
       const hasActive = group.items.some((item) => {
+        if (industryModuleId === "course" && item.href.startsWith("/dashboard/courses")) {
+          return pathname === "/dashboard/courses" &&
+            (new URLSearchParams(item.href.split("?")[1] || "").get("view") || "schedule") ===
+            (new URLSearchParams(routeQuery).get("view") || "schedule");
+        }
         if (item.href === "/dashboard") return pathname === "/dashboard";
         return pathname.startsWith(item.href);
       });
@@ -774,11 +797,11 @@ export default function DashboardShell({
     const activeGid = groups.find((g) => g.hasActive)?.group.id ?? null;
 
     return { visibleGroups: groups, activeGroupId: activeGid };
-  }, [pathname, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview]);
+  }, [pathname, routeQuery, industryModuleId, isOwner, permissions, pricingPlan, effectiveFeatures, navGroupsToRender, isIframePreview]);
 
   // Group expand/collapse state — core always open; others collapsed unless they contain active item
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
-    const initial = new Set<string>(["core"]);
+    const initial = new Set<string>(industryModuleId === "course" ? ["course-daily", "course-setup"] : ["core"]);
     if (activeGroupId && activeGroupId !== "core") initial.add(activeGroupId);
     return initial;
   });
@@ -793,7 +816,7 @@ export default function DashboardShell({
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileOpen(false); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [rawPathname]);
+  }, [rawPathname, routeQuery]);
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
@@ -808,6 +831,7 @@ export default function DashboardShell({
   }, [mobileOpen]);
 
   function isActive(href: string) {
+    if (href.startsWith("/dashboard/courses")) return pathname === "/dashboard/courses" && (new URLSearchParams(href.split("?")[1] || "").get("view") || "schedule") === (searchParams.get("view") || "schedule");
     if (industryModule === "spa" && href === "/dashboard/spa-staff" && pathname.startsWith("/dashboard/staff")) return true;
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
@@ -996,7 +1020,7 @@ export default function DashboardShell({
   }
 
   return (
-    <OperationGuideShell enabled={guideEnabled} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
+    <OperationGuideShell enabled={guideEnabled} contextPath={industryModule === "course" ? `${pathname}?${routeQuery}` : undefined} access={{ module: industryModule, permissions, features: effectiveFeatures }}>
     <div data-spa-admin={industryModule === "spa" ? "true" : undefined} className="min-h-dvh bg-earth-50">
       {/* Desktop sidebar — fixed left */}
       <aside
@@ -1198,8 +1222,8 @@ export default function DashboardShell({
 
         {/* Content */}
         <main data-dashboard-content className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
-          {trialStatus && trialStatus.isFree && trialStatus.stage !== "normal" && (
-            <div className="mb-4 mt-3">
+          {trialStatus && trialStatus.isFree && (trialStatus.course || trialStatus.stage !== "normal") && (
+            <div className="mb-3">
               <TrialProgressBar trial={trialStatus} />
             </div>
           )}

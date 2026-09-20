@@ -155,3 +155,13 @@ describe("GET /line-entry", () => {
     expect(mocks.createMany).not.toHaveBeenCalled();
   });
 });
+
+
+it("課程分享保留推薦來源、只記錄點擊，留在隔離同店入口", async () => {
+  vi.clearAllMocks();
+  mocks.resolve.mockResolvedValue({ status: "READY", storeId: "course", referrerId: "course-referrer", lineOfficialUrl: "", coursePath: "/s/course-test/book" });
+  const response = await GET(new NextRequest("https://preview.example.test/line-entry?ref=ABC234&destination=public-trial", { headers: { "x-store-slug": "course-test" } }));
+  expect(response.headers.get("location")).toBe("https://preview.example.test/s/course-test/book");
+  expect(response.headers.getSetCookie().join(";")).toContain("pending-ref=course-referrer");
+  expect(mocks.createMany).toHaveBeenCalledWith({ data: [{ storeId: "course", referrerId: "course-referrer", type: "LINK_CLICK", source: "course-member-share" }] });
+});

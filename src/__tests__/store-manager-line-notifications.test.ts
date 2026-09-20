@@ -25,6 +25,15 @@ import {
 } from "@/server/services/store-manager-line-notifications";
 
 describe("store manager LINE notifications", () => {
+  it("course attendance and digest link to the same course store without implying a deduction", () => {
+    const reminder = buildStoreManagerNotificationMessage({ type: "INCOMPLETE_SERVICE_REMINDER", courseSessionId: "class-a", eventKey: "test", storeId: "course", storeSlug: "course-store", bookingId: "booking-a", customerName: "Test learner", bookingDate: "2026-09-17", slotTime: "09:00" })[0].text;
+    expect(reminder).toContain("課程出席尚未處理");
+    expect(reminder).toContain("/s/course-store/admin/dashboard/courses?date=2026-09-17");
+    expect(reminder).not.toContain("/bookings?"); expect(reminder).not.toContain("扣點");
+    const digest = buildStoreManagerNotificationMessage({ type: "DAILY_ACTION_DIGEST", course: true, eventKey: "digest", storeId: "course", storeSlug: "course-store", pendingPaymentCount: 2, incompleteServiceCount: 3 })[0].text;
+    expect(digest).toContain("昨日待處理出席：3 人次");
+    expect(digest).toContain("/s/course-store/admin/dashboard/courses");
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.LINE_MANAGER_USER_ID_ZHUBEI;

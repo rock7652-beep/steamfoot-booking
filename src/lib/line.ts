@@ -1,3 +1,5 @@
+import { allowsPreviewLinePush } from "@/lib/preview-line-acceptance";
+import { getConfiguredStoreLine } from "@/lib/store-line-config";
 /**
  * LINE Messaging API 串接
  *
@@ -118,22 +120,29 @@ export async function pushMessage(
   messages: LineMessage[],
   retryKey?: string,
 ): Promise<LinePushResult> {
+  if (getConfiguredStoreLine(storeId)) {
+    if (isPreviewExternalIntegrationBlocked() && !allowsPreviewLinePush(storeId,lineUserId,retryKey)) return { success: false, error: "隔離預覽未授權外發", errorType: "preview_blocked" };
+    if (!(await configuredStoreBotMatches(storeId))) return { success: false, error: "本店官方 LINE 設定不匹配或無法確認", errorType: "line_api_rejected" };
+  }
   return pushMessageWithAccessToken(
     getLineAccessTokenForStore(storeId),
     lineUserId,
     messages,
     retryKey,
+    storeId,
   );
 }
 
 export async function pushSteamButlerMessage(
   lineUserId: string,
   messages: LineMessage[],
+  retryKey?: string,
 ): Promise<LinePushResult> {
   return pushMessageWithAccessToken(
     getSteamButlerLineAccessToken(),
     lineUserId,
     messages,
+    retryKey,
   );
 }
 
@@ -142,9 +151,10 @@ async function pushMessageWithAccessToken(
   lineUserId: string,
   messages: LineMessage[],
   retryKey?: string,
+  storeId?: string,
 ): Promise<LinePushResult> {
   try {
-    if (isPreviewExternalIntegrationBlocked()) {
+    if (isPreviewExternalIntegrationBlocked() && !allowsPreviewLinePush(storeId,lineUserId,retryKey)) {
       return {
         success: false,
         error: "Preview outbound LINE delivery is blocked",
@@ -290,6 +300,7 @@ export async function probeStoreLineRecipient(
   storeId: string,
   lineUserId: string,
 ): Promise<StoreLineRecipientProbe> {
+  if (getConfiguredStoreLine(storeId) && !(await configuredStoreBotMatches(storeId))) return { status: "UNAVAILABLE", httpStatus: null };
   return probeLineRecipientWithAccessToken(
     getLineAccessTokenForStore(storeId),
     lineUserId,
@@ -378,4 +389,12 @@ export function renderTemplate(
     .replace(/\{\{shopName\}\}/g, vars.shopName)
     .replace(/\{\{staffName\}\}/g, vars.staffName)
     .replace(/\{\{bookingLink\}\}/g, vars.bookingLink);
+}
+
+
+async function configuredStoreBotMatches(storeId: string): Promise<boolean> {
+  const config = getConfiguredStoreLine(storeId);
+  if (!config) return true;
+  const bot = await getLineBotInfo(storeId);
+  return bot.ok && bot.data.userId === config.destination && bot.data.basicId === config.basicId;
 }

@@ -7,8 +7,8 @@ import {
 } from "@/lib/digital-butler-publish-diagnostics";
 import { digitalButlerPublishErrorMessage } from "@/lib/digital-butler-publish-error";
 import { publishedMenuOptions } from "@/lib/digital-butler-published-view";
-import { requirePermission } from "@/lib/permissions";
-import { getActiveStoreForRead, resolveWriteStoreId } from "@/lib/store";
+import { requireWritablePermission } from "@/lib/permissions";
+import { resolveWriteStoreId } from "@/lib/store";
 import { prisma } from "@/lib/db";
 import { DigitalButlerService } from "@/server/services/digital-butler";
 
@@ -26,14 +26,14 @@ type PublishActionResult =
   | { success: false; error: string };
 
 async function writableStoreId(): Promise<string> {
-  const user = await requirePermission("plans.edit");
-  const storeId = await getActiveStoreForRead(user);
+  const user = await requireWritablePermission("plans.edit");
+  const storeId = await resolveWriteStoreId(user);
   if (!storeId) throw new Error("請先切換到特定店舖");
   return storeId;
 }
 
 async function leadCollectionUpgradeContext() {
-  const user = await requirePermission("plans.edit");
+  const user = await requireWritablePermission("plans.edit");
   if (user.role !== "OWNER" && user.role !== "ADMIN") {
     throw new Error("DIGITAL_BUTLER_LEAD_COLLECTION_UPGRADE_FORBIDDEN");
   }

@@ -49,6 +49,40 @@ type SessionUser = {
 // Next.js 16: proxy.ts（前身為 middleware.ts）
 export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | null }) => {
   const { pathname } = req.nextUrl;
+  // Public, demonstration-only onboarding guides on isolated previews.
+  // Keep the exception confined to these static files, never store/admin routes.
+  if (pathname === "/line-onboarding-preview" || pathname.startsWith("/line-onboarding-preview/")) {
+    if (process.env.VERCEL_ENV !== "preview") return new NextResponse(null, { status: 404 });
+    if (pathname === "/line-onboarding-preview" || pathname === "/line-onboarding-preview/") {
+      return NextResponse.redirect(new URL("/line-onboarding-preview/index.html", req.url));
+    }
+    const file = pathname.slice("/line-onboarding-preview/".length);
+    return /^(index|store|coordinator)\.html$/.test(file) || /^step-[1-9]\.svg$/.test(file)
+      ? NextResponse.next()
+      : new NextResponse(null, { status: 404 });
+  }
+  // Isolated, fake-data layout review. Never expose this preview in production
+  // or broaden the exception to customer/admin/API routes.
+  if (pathname === "/course-mobile-review" || pathname.startsWith("/course-mobile-review/")) {
+    if (process.env.VERCEL_ENV !== "preview") {
+      return new NextResponse(null, { status: 404 });
+    }
+    if (pathname === "/course-mobile-review" || pathname === "/course-mobile-review/") {
+      const url = new URL("/course-mobile-review/index.html", req.url);
+      url.search = req.nextUrl.search;
+      return NextResponse.redirect(url);
+    }
+    const reviewFiles = new Set([
+      "index.html", "demo.html", "review.css", "review.js", "legacy.js",
+      "navigation.html", "navigation.css", "navigation.js",
+      "member-390.png", "member-details-390.png", "coach-390.png",
+      "coach-roster-390.png", "member-comparison.png", "coach-comparison.png",
+      "booking-confirm-390.png", "points-insufficient-390.png",
+    ]);
+    return reviewFiles.has(pathname.slice("/course-mobile-review/".length))
+      ? NextResponse.next()
+      : new NextResponse(null, { status: 404 });
+  }
   const session = req.auth;
   const isLoggedIn = !!session?.user;
   const role = session?.user?.role;
@@ -283,7 +317,7 @@ export const proxy = auth((req: NextRequest & { auth: { user?: SessionUser } | n
         }
         // 已登入的 OWNER/STAFF 不應停留在 /hq/login，導回其店後台
         const slug = storeParam || userSlug;
-        if (role && isStaffRole(role) && sessionStoreId) {
+        if (role && isStaffRole(role) && sessionStoreId && (!storeParam || storeParam === session?.user?.storeSlug)) {
           return NextResponse.redirect(new URL(`/s/${slug}/admin/dashboard`, req.url));
         }
       }
@@ -523,7 +557,10 @@ function hqRewrite(
 ): NextResponse {
   const url = new URL(internalPath, req.url);
   url.search = req.nextUrl.search;
-  const response = NextResponse.rewrite(url);
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-next-pathname", req.nextUrl.pathname);
+  requestHeaders.delete("x-store-slug");
+  const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   response.cookies.set("store-slug", "__hq__", {
     path: "/",
     httpOnly: false,
