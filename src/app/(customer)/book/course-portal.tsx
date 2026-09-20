@@ -286,6 +286,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       id: s.id,
       name: s.nameSnapshot,
       startsAt: s.startsAt.toISOString(),
+      endsAt: s.endsAt.toISOString(),
       room: s.room.name,
       bookings: s.bookings.map((b) => ({
         id: b.id,

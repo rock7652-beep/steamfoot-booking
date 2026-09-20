@@ -456,8 +456,8 @@
 /* Keep attendance status and correction together on narrow phones. */
 .cp-attendance-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
+  flex-direction: column;
   gap: 8px;
 }
 .cp-attendance-row > strong {
@@ -467,10 +467,12 @@
 .cp-attendance-actions {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  flex-wrap: wrap;
   gap: 6px;
   white-space: nowrap;
 }
+.cp-work-date { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; text-align: center; }
+.cp-person textarea { display: block; width: 100%; min-height: 88px; margin-top: 8px; }
 .cp-attendance-actions button {
   min-height: 44px;
   padding: 8px 10px;

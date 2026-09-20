@@ -11,7 +11,7 @@ import {
   courseManager,
   courseTransaction,
 } from "@/server/services/course-access";
-import { correctCourseAttendance } from "@/server/services/course-booking";
+import { correctCourseAttendance, settleCourseBooking } from "@/server/services/course-booking";
 import { AppError, handleActionError } from "@/lib/errors";
 import { addTaiwanDuration, dayRange, toLocalDateStr } from "@/lib/date-utils";
 const id = z.string().min(1).max(100);
@@ -27,7 +27,7 @@ export async function saveCourseAttendance(input: unknown) {
     const data = z
       .object({
         sessionId: id,
-        target: z.enum(["RESERVED", "ATTENDED", "NO_SHOW"]),
+        target: z.enum(["RESERVED", "ATTENDED", "NO_SHOW", "CHECKED_IN"]),
         bookings: z
           .array(
             z.object({
@@ -53,26 +53,43 @@ export async function saveCourseAttendance(input: unknown) {
           storeId,
           sessionId: data.sessionId,
           id: { in: data.bookings.map((b) => b.id) },
-          status: { not: "CANCELLED" },
+          status: data.target === "CHECKED_IN" ? "RESERVED" : { not: "CANCELLED" },
         },
       });
       if (count !== data.bookings.length)
         throw new AppError("VALIDATION", "名單已變更，請重新確認");
-      for (const b of data.bookings)
-        await correctCourseAttendance(
+      for (const b of data.bookings) {
+        if (data.target === "CHECKED_IN") {
+          await settleCourseBooking(tx, { storeId, userId: user.id, name: user.name ?? "教練" }, b.id, "CHECKED_IN");
+        } else await correctCourseAttendance(
           tx,
           { storeId, userId: user.id, name: user.name ?? "教練" },
           b.id,
           data.target,
           b.status,
         );
+      }
     });
-    scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
+    if (data.target !== "CHECKED_IN") scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     refresh();
     return { success: true as const };
   } catch (e) {
     return handleActionError(e);
   }
+}
+export async function saveCourseCoachNote(input: unknown) {
+  try {
+    const data = z.object({ bookingId: id, notes: z.string().max(1000), previousNotes: z.string().max(1000) }).parse(input);
+    const { user, storeId } = await courseAccount({ write: true });
+    await courseTransaction(storeId, async (tx) => {
+      const allowed = await tx.$queryRaw<Array<{ id: string }>>`SELECT b.id FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId" JOIN "StaffMemberLink" l ON l."staffId"=s."coachId" AND l."storeId"=s."storeId" JOIN "Staff" st ON st.id=l."staffId" AND st."storeId"=l."storeId" WHERE b.id=${data.bookingId} AND b."storeId"=${storeId} AND b.status::text<>'CANCELLED' AND s."cancelledAt" IS NULL AND l."userId"=${user.id} AND l."revokedAt" IS NULL AND st.status::text='ACTIVE' AND st."courseCoachEnabled"=true`;
+      if (!allowed.length) throw new AppError("FORBIDDEN", "只能編輯自己被授權課程的備註");
+      const result = await tx.courseBooking.updateMany({ where: { id: data.bookingId, storeId, status: { not: "CANCELLED" }, notes: data.previousNotes }, data: { notes: data.notes } });
+      if (result.count !== 1) throw new AppError("CONFLICT", "備註已由其他人更新，請保留草稿並重新核對。");
+    });
+    refresh();
+    return { success: true as const };
+  } catch (e) { return handleActionError(e); }
 }
 export async function purchaseCoursePlan(input: unknown) {
   try {
