@@ -434,7 +434,7 @@ export async function previewCourseSchedule(input: unknown) {
             },
           ],
         },
-        select: { startsAt: true, endsAt: true, roomId: true },
+        select: { startsAt: true, endsAt: true, roomId: true, coachId: true, nameSnapshot: true },
       }),
       coursePrisma.courseRoom.findFirst({
         where: { id: d.roomId, storeId },
@@ -449,6 +449,12 @@ export async function previewCourseSchedule(input: unknown) {
           conflict: conflicts.some(
             (c) => c.startsAt < r.endsAt && c.endsAt > r.startsAt,
           ),
+          conflicts: conflicts.filter(c => c.startsAt < r.endsAt && c.endsAt > r.startsAt).map(c => ({
+            name: c.nameSnapshot,
+            startsAt: c.startsAt.toISOString(),
+            endsAt: c.endsAt.toISOString(),
+            resource: [c.roomId === d.roomId ? "教室" : "", c.coachId === d.coachId ? "教練" : ""].filter(Boolean).join("及"),
+          })),
         })),
         capacityWarning:
           room?.capacity && d.capacity > room.capacity

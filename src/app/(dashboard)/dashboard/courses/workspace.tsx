@@ -160,7 +160,7 @@ export function CourseWorkspace({
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [repeat, setRepeat] = useState(false);
   const [schedulePreview, setSchedulePreview] = useState<{
-    dates: { startsAt: string; conflict: boolean }[];
+    dates: { startsAt: string; conflict: boolean; conflicts: {name:string;startsAt:string;endsAt:string;resource:string}[] }[];
     capacityWarning: string | null;
   } | null>(null);
   const [editing, setEditing] = useState<
@@ -300,7 +300,18 @@ export function CourseWorkspace({
               </div>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <form className="flex items-end gap-2" onSubmit={event => {
+              event.preventDefault();
+              const date = String(new FormData(event.currentTarget).get("jumpDate"));
+              if (parseTaipeiDateTime(date, "00:00")) go(date);
+            }}>
+              <label className="text-sm text-earth-700">日期（台灣時間）
+                <input key={selectedDate} name="jumpDate" aria-label="課表日期" type="date" required defaultValue={selectedDate} className={field}/>
+              </label>
+              <button className={button} disabled={pending}>前往</button>
+            </form>
+            <label className="text-sm text-earth-700">教練
             <select
               aria-label="教練篩選"
               className={button}
@@ -313,7 +324,8 @@ export function CourseWorkspace({
                   {c.displayName}
                 </option>
               ))}
-            </select>
+            </select></label>
+            <label className="text-sm text-earth-700">教室
             <select
               aria-label="教室篩選"
               className={button}
@@ -326,7 +338,8 @@ export function CourseWorkspace({
                   {r.name}
                 </option>
               ))}
-            </select>
+            </select></label>
+            <label className="text-sm text-earth-700">分類
             <select
               aria-label="課程分類篩選"
               className={button}
@@ -339,7 +352,7 @@ export function CourseWorkspace({
                   {c || "未分類"}
                 </option>
               ))}
-            </select>
+            </select></label>
           </div>
           <div
             className="overflow-hidden rounded-lg border border-earth-200 bg-white"
@@ -976,6 +989,10 @@ export function CourseWorkspace({
                       ? "修改後套用於新排課；已排課程請從日期內編輯。"
                       : "名稱會同步顯示於使用此教室的課程。"}
                 </p>
+                {editing.kind === "session" && editing.value.bookings.length > 0 && <div role="note" className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  本堂已有 {editing.value.bookings.length} 人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。
+                  <p className="mt-1">已有預約不可更換課程或點數；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
+                </div>}
                 {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>t.isActive || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{t.name}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
                 <label className="col-span-full">
                   {editing.kind === "room" ? "教室名稱" : "課程名稱"}
@@ -1514,7 +1531,8 @@ export function CourseWorkspace({
                               className={d.conflict ? "text-red-700" : ""}
                             >
                               {formatTWDateTime(new Date(d.startsAt))} ·{" "}
-                              {d.conflict ? "撞期" : "可排課"}
+                              {d.conflict ? "撞期：請調整時間或資源" : "可排課"}
+                              {d.conflicts.map((conflict, index) => <p key={index} className="pl-3">{conflict.resource} · {conflict.name} · {formatTWDateTime(new Date(conflict.startsAt))}–{formatTWDateTime(new Date(conflict.endsAt)).slice(11)}</p>)}
                             </li>
                           ))}
                         </ul>
