@@ -1,3 +1,5 @@
+> 2026/09/20 最新決策：停止額外備份匯出／Docker 還原及憑證索取，取消相關發布門檻。正式執行狀態、CI 與自動審核阻礙以 [最新發布紀錄](course-production-release-status-20260920.md) 為準。以下保留歷史證據，不再作為重複索取授權或備份憑證的依據。
+
 ## 2026/09/20 店長排程驗收更新
 
 詳見 `course-manager-scheduling-acceptance-20260920.md`。PR1051已整合，手機教練e752fd80由本人確認通過；本輪2c4c0b4f完成A一般店長新增/修改/跨月複製、衝突提示及DB日期一致核對。原生日期picker與實體iPad/Safari仍未測。
