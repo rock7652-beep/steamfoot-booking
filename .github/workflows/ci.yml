@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - codex/course-scheduling-stage1
     types:
       - opened
       - synchronize
