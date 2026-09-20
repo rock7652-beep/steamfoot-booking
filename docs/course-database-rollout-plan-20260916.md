@@ -128,3 +128,5 @@ CoursePointCard.closedAt、購買 REFUNDED 狀態、不可覆寫的 CoursePurcha
 ### 2026-09-17 提醒紀錄連結追加（第十一份，尚未正式執行）
 
 第十一份 `supabase/migrations/20260917030753_course_reminder_links.sql` 新增 MessageLog nullable `courseBookingId`／`courseCardId`、索引、同店複合外鍵及不可混用蒸足／SPA bookingId 的檢查約束。隔離 PostgreSQL 17.6 十一份 DDL 演練通過，證據見 `course-reminder-migration-rehearsal-20260917.json`；僅隔離測試庫套用，預覽 schema preflight 已加欄位檢查。正式 allowlist 未變。正式發布需先核對十一份順序與兩套歷史，仍待授權；回退應用時保留新增欄位、連結及發送紀錄，不刪除紀錄或重發已成功的訊息。
+
+2026/09/20 補充唯讀正式系統目錄：仍無 Course* 表，Store.industryModule／User.role／Staff.userId 存在，Staff 課程資格與聯絡擴充及 StaffMemberLink.courseMemberEnabled 尚未存在。只查 schema，未讀取正式會員／交易或執行 DDL；本機 User.role 使用合成 text，並非正式 UserRole enum 全量副本，演練限制維持。

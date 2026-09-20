@@ -51,3 +51,7 @@ Login Channel Basic settings 唯讀欄位「Linked LINE Official Account」實�
 本次不代表出席、更正、通知事件、Flex 或按鈕送達通過。既有三則纯文字送達證據維持原界線，不重送。
 
 右側黑色浮動控制經頁面 AX 與 Vercel 官方圖例確認為 Vercel Preview Toolbar。只為本課程 preview 分支設定 VERCEL_PREVIEW_FEEDBACK_ENABLED=0；不修改正式環境、其他分支或應用版面。需新部署後核對實頁是否消失，設定寫入本身不記為修復驗收通過。
+
+### 工具列修復部署核對
+
+511bf2b2 對應隔離部署 dpl_H2DxfBmdwV57ESsgYnuqDuguSpuc 已 READY，固定 alias 不變。重新載入 A LIFF endpoint 與一般店長方案頁，版本時間 2026/09/20 09:31；完整載入後 AX 無 Vercel Toolbar，後台實頁截图亦無黑色浮動工具列。舊分頁仍可持有舊工具列，需重開／重新載入；不要求重驗已通過的登入預約取消。此為瀏覽器部署核對，修復後手機 LINE 畫面尚無新截圖。
