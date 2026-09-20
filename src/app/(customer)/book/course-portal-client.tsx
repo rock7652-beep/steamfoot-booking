@@ -635,11 +635,11 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                             disabled={!ended || pending}
                             onClick={() => {
                               setError("");
-                              setAttendance({
-                                session: s,
-                                ids: [b.id],
-                                target: "ATTENDED",
-                              });
+                              run(
+                                () => saveCourseAttendance({ sessionId: s.id, target: "ATTENDED", bookings: [{ id: b.id, status: b.status }] }),
+                                () => {},
+                                `${b.customerName} 已標記出席`,
+                              );
                             }}
                           >
                             出席
@@ -648,11 +648,11 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                             disabled={!ended || pending}
                             onClick={() => {
                               setError("");
-                              setAttendance({
-                                session: s,
-                                ids: [b.id],
-                                target: "NO_SHOW",
-                              });
+                              run(
+                                () => saveCourseAttendance({ sessionId: s.id, target: "NO_SHOW", bookings: [{ id: b.id, status: b.status }] }),
+                                () => {},
+                                `${b.customerName} 已標記未到`,
+                              );
                             }}
                           >
                             未到

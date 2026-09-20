@@ -109,4 +109,24 @@ describe("coach daily work interactions", () => {
     expect([...host.querySelectorAll("button")].some(b=>b.textContent==="更正")).toBe(true);
   });
 
+  it.each([['出席','ATTENDED'],['未到','NO_SHOW']])("saves single %s directly without a dialog", async (label,target) => {
+    await act(async () => root.render(createElement(CoursePortalClient,props())));
+    await click("伸展瑜珈");
+    const button=[...host.querySelectorAll('button')].find(b=>b.textContent===label)!;
+    await act(async()=>{button.click();button.click();});
+    expect(m.attendance).toHaveBeenCalledTimes(1);
+    expect(m.attendance).toHaveBeenCalledWith({sessionId:"lesson",target,bookings:[{id:"已到學員",status:"RESERVED"}]});
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    expect(host.textContent).toContain(`已到學員 已標記${label}`);
+  });
+  it("keeps the roster and shows a direct-save error without claiming success", async()=>{
+    m.attendance.mockResolvedValue({success:false,error:"名單已變更，請重試"});
+    await act(async()=>root.render(createElement(CoursePortalClient,props())));
+    await click("伸展瑜珈");
+    await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==="出席")!.click());
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain("名單已變更");
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    expect(host.textContent).toContain("已報到・待出席");
+  });
+
 });
