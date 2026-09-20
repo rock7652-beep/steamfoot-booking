@@ -34,8 +34,8 @@ const recipientSelect = {
 
 type RecipientCustomer = Awaited<ReturnType<typeof loadRecipientCustomer>>;
 
-async function loadRecipientCustomer(customerId: string, storeId?: string) {
-  return prisma.customer.findFirst({
+async function loadRecipientCustomer(customerId: string, storeId?: string, db: Pick<typeof prisma, "customer"> = prisma) {
+  return db.customer.findFirst({
     where: { id: customerId, ...(storeId ? { storeId } : {}) },
     select: recipientSelect,
   });
@@ -44,8 +44,9 @@ async function loadRecipientCustomer(customerId: string, storeId?: string) {
 export async function resolveCentralLineRecipientForCustomer(
   customerId: string,
   storeId?: string,
+  db: Pick<typeof prisma, "customer"> = prisma,
 ): Promise<CentralLineRecipientResolution | null> {
-  const customer = await loadRecipientCustomer(customerId, storeId);
+  const customer = await loadRecipientCustomer(customerId, storeId, db);
   return customer ? resolveLoadedCustomer(customer) : null;
 }
 

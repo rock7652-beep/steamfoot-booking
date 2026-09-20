@@ -28,3 +28,11 @@ it("refuses requests with no scoped customer", async () => {
   expect(await resolveVerifiedReminderLineRoute("a", "legacy", null)).toMatchObject({ status: "BLOCKED" });
   expect(m.links).not.toHaveBeenCalled();
 });
+it("uses the supplied transaction connection for identity checks", async () => {
+  const links = vi.fn().mockResolvedValue([{ userId: "member", providerAccountId: "verified" }]);
+  const account = vi.fn().mockResolvedValue({ userId: "member" });
+  const tx = { customerIdentityLink: { findMany: links }, account: { findUnique: account } };
+  expect(await resolveVerifiedReminderLineRoute("a", null, null, "customer-a", tx as unknown as Parameters<typeof resolveVerifiedReminderLineRoute>[4])).toMatchObject({ status: "READY" });
+  expect(links).toHaveBeenCalledOnce(); expect(account).toHaveBeenCalledOnce();
+  expect(m.links).not.toHaveBeenCalled(); expect(m.account).not.toHaveBeenCalled();
+});

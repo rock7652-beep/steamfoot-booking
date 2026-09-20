@@ -28,7 +28,7 @@ it("selects only tomorrow's reserved classes and actual attendees in the course 
 });
 it("sends to verified attendee B with course deep link and stable retry key, never proxy A",async()=>{
  expect(await runCourseReminders(now,"s")).toMatchObject({sent:1,failed:0});
- expect(m.recipient).toHaveBeenCalledWith("B","s");
+ expect(m.recipient).toHaveBeenCalledWith("B","s",expect.objectContaining({$queryRaw:m.raw}));
  const [store,recipient,messages,key]=m.push.mock.calls[0];expect(store).toBe("s");expect(recipient).toBe("verified-b");expect(key).toMatch(/^[a-f0-9-]{36}$/);
  expect(JSON.stringify(messages)).toContain("view=bookings");expect(JSON.stringify(messages)).toContain("date=2026-09-18");expect(JSON.stringify(messages)).not.toContain("/reschedule");expect(JSON.stringify(messages)).not.toContain("/cancel");
  await runCourseReminders(now,"s");expect(m.push.mock.calls[1][3]).toBe(key);

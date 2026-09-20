@@ -21,19 +21,20 @@ export async function resolveVerifiedReminderLineRoute(
   legacyStoreLineUserId: string | null,
   centralRecipient: CentralLineRecipientResolution | null | undefined,
   customerId?: string,
+  db: Pick<typeof prisma, "customerIdentityLink" | "account"> = prisma,
 ): Promise<ReminderLineRoute> {
   const config = getConfiguredStoreLine(storeId);
   if (config) {
     const blocked = (reason: string): ReminderLineRoute => ({ status: "BLOCKED", channel: null, recipientLineUserId: null, reason });
     if (!customerId || config.storeId !== storeId) return blocked("STORE_LINE_MEMBERSHIP_REQUIRED");
     const provider = storeLineIdentityProvider(config);
-    const links = await prisma.customerIdentityLink.findMany({
+    const links = await db.customerIdentityLink.findMany({
       where: { storeId, customerId, provider, customer: { storeId, mergedIntoCustomerId: null, lineLinkStatus: { not: "BLOCKED" } }, user: { status: "ACTIVE" } },
       select: { userId: true, providerAccountId: true }, take: 2,
     });
     if (links.length !== 1) return blocked("STORE_LINE_IDENTITY_UNCONFIRMED");
     const link = links[0];
-    const account = await prisma.account.findUnique({
+    const account = await db.account.findUnique({
       where: { provider_providerAccountId: { provider, providerAccountId: link.providerAccountId } },
       select: { userId: true },
     });

@@ -63,8 +63,8 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
      const range=monthRange(toLocalMonthStr(now));
      const count=await tx.messageLog.count({where:{storeId:store.id,status:"SENT",sentAt:{gte:range.start,lte:range.end}}});
      if(!checkReminderSendLimit(plan,count).allowed) return skip("已達本月提醒額度");
-     const recipient=await resolveCentralLineRecipientForCustomer(customer.id,store.id);
-     const route=await resolveVerifiedReminderLineRoute(store.id,customer.lineUserId,recipient,customer.id);
+     const recipient=await resolveCentralLineRecipientForCustomer(customer.id,store.id,tx);
+     const route=await resolveVerifiedReminderLineRoute(store.id,customer.lineUserId,recipient,customer.id,tx);
      if(route.status==="BLOCKED") return skip(`LINE 身分或通道未確認：${route.reason}`);
      if(acceptance && (route.channel!=="STORE" || createHash("sha256").update(route.recipientLineUserId).digest("hex")!==acceptance.recipientHash)) return skip("驗收收件人或通道不匹配");
      const messages=(acceptance?buildPackageBookingTestReminderLineMessages:buildPackageBookingReminderLineMessages)({customerName:customer.name,bookingDate:date,bookingTime:formatTWDateTime(booking.session.startsAt).slice(11),shopName:store.name,serviceName:booking.session.nameSnapshot,serviceDuration:`${Math.round((booking.session.endsAt.getTime()-booking.session.startsAt.getTime())/60000)} 分鐘`,reminderText:text,managementOnlyLabel:"會員專區／查看課程"},url.toString(),booking.id);
