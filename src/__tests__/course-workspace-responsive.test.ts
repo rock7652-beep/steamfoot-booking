@@ -1,0 +1,28 @@
+import { readFileSync } from "node:fs";
+import { expect, it } from "vitest";
+
+// Source-level guards only; these do not replace browser/device acceptance.
+const source = readFileSync("src/app/(dashboard)/dashboard/courses/workspace.tsx", "utf8");
+
+it("mobile calendar shows counts and retains the accessible date action", () => {
+  expect(source).toContain('mt-1 text-xs font-medium sm:hidden');
+  expect(source).toContain('{list.length} 堂');
+  expect(source).toContain('aria-label={`${date}，${list.length} 堂課`}');
+  expect(source).toContain('hidden w-full shrink-0 truncate leading-[14px] sm:block');
+});
+
+it("mobile resources retain all actions without a forced desktop table width", () => {
+  expect(source).toContain('block w-full text-left text-sm sm:table sm:min-w-[680px]');
+  expect(source).toContain('flex flex-wrap items-center gap-2 sm:flex-nowrap');
+  expect(source).toContain('查看{template ? "課程" : "教室"}');
+  expect(source).toContain('複製設定');
+  expect(source).toContain('人數上限：');
+});
+
+it("schedule creation submits native form dates, including copied and repeat dates", () => {
+  expect(source).toContain('data = new FormData(form)');
+  expect(source).toContain('date: data.get("date")');
+  expect(source).toContain('defaultValue={copySource ? "" : selectedDate}');
+  expect(source).toContain('data.getAll("additionalDates").map(String)');
+  expect(source).toContain('repeatUntil: repeat ? data.get("until") : undefined');
+});

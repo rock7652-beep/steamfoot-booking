@@ -372,20 +372,21 @@ export function CourseWorkspace({
                       go(date);
                       open("day");
                     }}
-                    className={`flex h-[clamp(68px,calc((100dvh-320px)/6),80px)] min-h-[68px] flex-col items-start justify-start border-t border-earth-100 px-2 py-1 text-left sm:px-3 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
+                    className={`flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
                   >
                     <span className="shrink-0 text-xs leading-4">{i + 1}</span>
+                    {list.length > 0 && <span className="mt-1 text-xs font-medium sm:hidden">{list.length} 堂</span>}
                     {list.slice(0, 2).map((s) => (
                       <span
                         key={s.id}
-                        className="block w-full shrink-0 truncate text-[10px] leading-[14px] sm:text-[11px]"
+                        className="hidden w-full shrink-0 truncate leading-[14px] sm:block sm:text-[11px]"
                       >
                         {formatTWDateTime(new Date(s.startsAt)).slice(11)}{" "}
                         {s.nameSnapshot}
                       </span>
                     ))}
                     {list.length > 2 && (
-                      <span className="shrink-0 text-[10px] leading-[14px] sm:text-[11px]">
+                      <span className="hidden shrink-0 leading-[14px] sm:block sm:text-[11px]">
                         ＋{list.length - 2} 堂
                       </span>
                     )}
@@ -498,8 +499,8 @@ export function CourseWorkspace({
             {view === "rooms" ? "停用教室不供新排課使用；既有紀錄保留。" : "隱藏僅供店長使用；下架不供新增使用，既有紀錄保留。"}
           </p>
           <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-            <table className="w-full min-w-[680px] text-left text-sm">
-              <thead className="bg-earth-50 text-earth-600">
+            <table className="block w-full text-left text-sm sm:table sm:min-w-[680px]">
+              <thead className="hidden bg-earth-50 text-earth-600 sm:table-header-group">
                 <tr>
                   {(view === "rooms"
                     ? ["教室名稱", "分類", "容納人數", "狀態", "操作"]
@@ -523,53 +524,56 @@ export function CourseWorkspace({
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-earth-100">
+              <tbody className="block divide-y divide-earth-100 sm:table-row-group">
                 {filteredItems.map((item) => {
                   const template =
                     "durationMinutes" in item ? (item as Template) : null;
                   return (
                     <tr
                       key={item.id}
-                      className={
+                      className={"block p-3 sm:table-row sm:p-0 " + (
                         item.isActive && (!template || template.visibility === "PUBLIC")
                           ? "hover:bg-primary-50/40"
                           : "bg-earth-50 opacity-60 hover:opacity-100 focus-within:opacity-100"
-                      }
+                      )}
                     >
                       <th
                         scope="row"
-                        className="max-w-64 px-4 py-3 font-medium text-primary-900"
+                        className="block break-words pb-2 font-medium text-primary-900 sm:table-cell sm:max-w-64 sm:px-4 sm:py-3"
                       >
                         {view === "catalog" && canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
                         {template && <span className="block text-xs text-earth-500">{template.classType==="PRIVATE"?"私課":template.classType==="GROUP"?"團課":"課型待補"}</span>}
                       </th>
-                      <td className="px-4 py-3">{item.category || "未分類"}</td>
+                      <td className="block py-1 sm:table-cell sm:px-4 sm:py-3"><span className="text-earth-500 sm:hidden">分類： </span>{item.category || "未分類"}</td>
                       {template ? (
                         <>
-                          <td className="whitespace-nowrap px-4 py-3 tabular-nums">
+                          <td className="block py-1 tabular-nums sm:table-cell sm:whitespace-nowrap sm:px-4 sm:py-3">
+                            <span className="text-earth-500 sm:hidden">時長： </span>
                             {template.durationMinutes} 分
                           </td>
-                          <td className="px-4 py-3 tabular-nums">
+                          <td className="block py-1 tabular-nums sm:table-cell sm:px-4 sm:py-3">
                             點數卡 {template.pointCost} 點；堂數卡 1 堂
                           </td>
-                          <td className="px-4 py-3 tabular-nums">
+                          <td className="block py-1 tabular-nums sm:table-cell sm:px-4 sm:py-3">
+                            <span className="text-earth-500 sm:hidden">人數上限： </span>
                             {template.capacity}
                           </td>
                         </>
                       ) : (
-                        <td className="px-4 py-3 tabular-nums">
+                        <td className="block py-1 tabular-nums sm:table-cell sm:px-4 sm:py-3">
+                          <span className="text-earth-500 sm:hidden">容納人數： </span>
                           {item.capacity ?? "未設定"}
                         </td>
                       )}
-                      <td className="whitespace-nowrap px-4 py-3">
+                      <td className="block py-2 sm:table-cell sm:whitespace-nowrap sm:px-4 sm:py-3">
                         <span
                           className={`rounded-md px-2 py-1 text-xs ${item.isActive ? "bg-primary-50 text-primary-700" : "bg-earth-100 text-earth-500"}`}
                         >
                           {template ? ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[template.visibility ?? "PUBLIC"]) : item.isActive ? "啟用":"停用"}
                         </span>
                       </td>
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-2 whitespace-nowrap">
+                      <td className="block py-2 sm:table-cell sm:px-4">
+                        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:whitespace-nowrap">
                           {canEdit && (
                             <>
                               <button
