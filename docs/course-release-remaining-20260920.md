@@ -1,5 +1,9 @@
 # 課程體驗版發布準備：集中剩餘清單
 
+## 最新唯讀補核對
+
+正式metadata與兩套歷史已核對：15份課程尚未執行；另2份TrialCare結構已存在但Prisma歷史未登錄，需受控核正，不重跑DDL。詳細版本、順序、回復及逐店清單見 `course-production-readonly-release-plan-20260920.md`，機器可讀摘要見 `course-production-readonly-audit-20260920.json`。真實副本與恢復仍未驗證，不代表可發布。
+
 ## 本次完成（不依賴正式連線）
 
 - 憑證盤查停止；恢復演練標記「缺少既有正式連線，尚未執行」。沒有匯出或還原正式資料，指定新DB仍為空。
