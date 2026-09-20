@@ -1,3 +1,4 @@
+import { currentPreviewLineAcceptance, withAcceptanceRetryKey } from "@/lib/preview-line-acceptance";
 import "server-only";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
@@ -12,7 +13,7 @@ import { isPreviewExternalIntegrationBlocked } from "@/lib/runtime-env";
 import { pushMessage,pushSteamButlerMessage } from "@/lib/line";
 import { resolveCentralLineRecipientForCustomer } from "./central-line-recipient-loader";
 import { resolveVerifiedReminderLineRoute } from "./verified-reminder-line-route";
-import { buildPackageBookingReminderLineMessages } from "./trial-booking-reminder-line-message";
+import { buildPackageBookingReminderLineMessages, buildPackageBookingTestReminderLineMessages } from "./trial-booking-reminder-line-message";
 
 export const COURSE_REMINDER_TRIGGER="COURSE_NEXT_DAY";
 export const COURSE_REMINDER_DEFAULT="請記得準時到課；如需取消，請依店家規則在會員專區逐位處理。";
@@ -30,12 +31,15 @@ function retryKey(id:string) {
  return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-a${hex.slice(17,20)}-${hex.slice(20,32)}`;
 }
 export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
+ const acceptance=currentPreviewLineAcceptance();
+ if(acceptance && onlyStoreId!==acceptance.storeId) throw new Error("驗收店家不匹配");
  const summary={total:0,sent:0,skipped:0,failed:0};
  const rules=await prisma.reminderRule.findMany({where:{triggerType:COURSE_REMINDER_TRIGGER,isEnabled:true,channel:"LINE",...(onlyStoreId?{storeId:onlyStoreId}:{}),store:{industryModule:"COURSE"}},include:{template:true}});
  for(const rule of rules) {
   if(!(await hasStoreFeature(rule.storeId,FEATURES.LINE_REMINDER))) continue;
   const candidates=await getCourseReminderCandidates(rule.storeId,now),plan=await getStoreForPlanByStoreId(rule.storeId);
   for(const {booking,customer,store,date} of candidates) {
+   if(acceptance && (booking.id!==acceptance.bookingId || customer.id!==acceptance.customerId)) continue;
    summary.total++;
    const id=`course-reminder:${createHash("sha256").update(`${store.id}:${booking.id}:${booking.session.startsAt.toISOString()}`).digest("hex")}`;
    const url=courseMemberNotificationUrl(store.slug,"bookings",date);
@@ -55,15 +59,17 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
      if(!active.length) return "SKIPPED" as const;
      await tx.messageLog.upsert({where:{id},create:{id,ruleId:rule.id,templateId:rule.templateId,customerId:customer.id,storeId:store.id,courseBookingId:booking.id,triggerAt,channel:"LINE",status:"PENDING",renderedBody:body},update:{status:"PENDING",errorMessage:null,renderedBody:body}});
      const skip=async(reason:string)=>{await tx.messageLog.update({where:{id},data:{status:"SKIPPED",errorMessage:reason}});return "SKIPPED" as const;};
-     if(isPreviewExternalIntegrationBlocked()) return skip("隔離預覽未向外發送；此紀錄不代表 LINE 實機送達");
+     if(isPreviewExternalIntegrationBlocked() && !acceptance) return skip("隔離預覽未向外發送；此紀錄不代表 LINE 實機送達");
      const range=monthRange(toLocalMonthStr(now));
      const count=await tx.messageLog.count({where:{storeId:store.id,status:"SENT",sentAt:{gte:range.start,lte:range.end}}});
      if(!checkReminderSendLimit(plan,count).allowed) return skip("已達本月提醒額度");
      const recipient=await resolveCentralLineRecipientForCustomer(customer.id,store.id);
      const route=await resolveVerifiedReminderLineRoute(store.id,customer.lineUserId,recipient,customer.id);
      if(route.status==="BLOCKED") return skip(`LINE 身分或通道未確認：${route.reason}`);
-     const messages=buildPackageBookingReminderLineMessages({customerName:customer.name,bookingDate:date,bookingTime:formatTWDateTime(booking.session.startsAt).slice(11),shopName:store.name,serviceName:booking.session.nameSnapshot,serviceDuration:`${Math.round((booking.session.endsAt.getTime()-booking.session.startsAt.getTime())/60000)} 分鐘`,reminderText:text,managementOnlyLabel:"會員專區／查看課程"},url.toString(),booking.id);
-     const sent=route.channel==="STORE"?await pushMessage(store.id,route.recipientLineUserId,messages,retryKey(id)):await pushSteamButlerMessage(route.recipientLineUserId,messages,retryKey(id));
+     if(acceptance && (route.channel!=="STORE" || createHash("sha256").update(route.recipientLineUserId).digest("hex")!==acceptance.recipientHash)) return skip("驗收收件人或通道不匹配");
+     const messages=(acceptance?buildPackageBookingTestReminderLineMessages:buildPackageBookingReminderLineMessages)({customerName:customer.name,bookingDate:date,bookingTime:formatTWDateTime(booking.session.startsAt).slice(11),shopName:store.name,serviceName:booking.session.nameSnapshot,serviceDuration:`${Math.round((booking.session.endsAt.getTime()-booking.session.startsAt.getTime())/60000)} 分鐘`,reminderText:text,managementOnlyLabel:"會員專區／查看課程"},url.toString(),booking.id);
+     const deliver=()=>route.channel==="STORE"?pushMessage(store.id,route.recipientLineUserId,messages,retryKey(id)):pushSteamButlerMessage(route.recipientLineUserId,messages,retryKey(id));
+     const sent=acceptance?await withAcceptanceRetryKey(retryKey(id),deliver):await deliver();
      await tx.messageLog.update({where:{id},data:{status:sent.success?"SENT":"FAILED",lineRoute:route.channel,sentAt:sent.success?now:null,errorMessage:sent.success?null:sent.error}});
      return sent.success?"SENT" as const:"FAILED" as const;
     },{timeout:25000});
@@ -80,6 +86,7 @@ export async function runCourseReminders(now=new Date(),onlyStoreId?:string) {
    }
   }
  }
+ if(acceptance) return summary;
  const {runCourseExpiryReminders}=await import("./course-expiry-reminders");
  const expiry=await runCourseExpiryReminders(now,onlyStoreId);
  return {total:summary.total+expiry.total,sent:summary.sent+expiry.sent,skipped:summary.skipped+expiry.skipped,failed:summary.failed+expiry.failed};

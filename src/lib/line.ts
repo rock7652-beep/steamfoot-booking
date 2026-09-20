@@ -1,3 +1,4 @@
+import { allowsPreviewLinePush } from "@/lib/preview-line-acceptance";
 import { getConfiguredStoreLine } from "@/lib/store-line-config";
 /**
  * LINE Messaging API 串接
@@ -120,7 +121,7 @@ export async function pushMessage(
   retryKey?: string,
 ): Promise<LinePushResult> {
   if (getConfiguredStoreLine(storeId)) {
-    if (isPreviewExternalIntegrationBlocked()) return { success: false, error: "隔離預覽未授權外發", errorType: "preview_blocked" };
+    if (isPreviewExternalIntegrationBlocked() && !allowsPreviewLinePush(storeId,lineUserId,retryKey)) return { success: false, error: "隔離預覽未授權外發", errorType: "preview_blocked" };
     if (!(await configuredStoreBotMatches(storeId))) return { success: false, error: "本店官方 LINE 設定不匹配或無法確認", errorType: "line_api_rejected" };
   }
   return pushMessageWithAccessToken(
@@ -128,6 +129,7 @@ export async function pushMessage(
     lineUserId,
     messages,
     retryKey,
+    storeId,
   );
 }
 
@@ -149,9 +151,10 @@ async function pushMessageWithAccessToken(
   lineUserId: string,
   messages: LineMessage[],
   retryKey?: string,
+  storeId?: string,
 ): Promise<LinePushResult> {
   try {
-    if (isPreviewExternalIntegrationBlocked()) {
+    if (isPreviewExternalIntegrationBlocked() && !allowsPreviewLinePush(storeId,lineUserId,retryKey)) {
       return {
         success: false,
         error: "Preview outbound LINE delivery is blocked",
