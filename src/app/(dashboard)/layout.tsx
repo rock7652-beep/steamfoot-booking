@@ -11,6 +11,7 @@ import { getActiveStoreForRead, getStoreOptions } from "@/lib/store";
 import DashboardShell from "@/components/dashboard-shell-with-hq-line";
 import { LogoutButton } from "@/components/logout-button";
 import { SubscriptionStatusBanner } from "@/components/subscription-status-banner";
+import { trialRetentionMessage } from "@/lib/trial-retention";
 import { StoreOperatingStatusBanner } from "@/components/store-operating-status-banner";
 import { ViewModeBanner } from "@/components/view-mode-banner";
 import { prisma } from "@/lib/db";
@@ -209,7 +210,7 @@ export default async function DashboardLayout({
             <StoreOperatingStatusBanner status={operatingStatus} />
           ) : null}
           {subBannerState ? (
-            <SubscriptionStatusBanner state={subBannerState} />
+            <SubscriptionStatusBanner state={subBannerState} retentionMessage={trialStatus?.retention ? trialRetentionMessage(trialStatus.retention) : undefined} />
           ) : null}
         </>
       }

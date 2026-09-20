@@ -2,7 +2,7 @@ name: Booking isolated database audit
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, codex/course-scheduling-stage1]
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
@@ -14,6 +14,7 @@ jobs:
     if: >-
       github.head_ref == 'fix/test-audit-recovery' ||
       github.head_ref == 'codex/course-scheduling-stage1' ||
+      github.head_ref == 'codex/course-trial-retention-30-days' ||
       (github.event_name == 'workflow_dispatch' && github.ref_name == 'codex/course-scheduling-stage1')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -47,6 +48,25 @@ jobs:
       - run: npm ci
       - name: Create schema in disposable database
         run: npx prisma db push --skip-generate
+      - name: Verify retention boundaries and three upgrades on disposable PostgreSQL
+        run: >-
+          npx vitest run src/__tests__/trial-retention.pg.test.ts
+          --reporter=default --reporter=json --outputFile=retention-pg-results.json
+      - name: Require all retention database cases without skips
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("retention-pg-results.json", "utf8"));
+            if (!r.success || r.numTotalTests !== 3 || r.numPassedTests !== 3 || r.numPendingTests !== 0) {
+              throw new Error("All three retention database scenarios must pass without skips");
+            }
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: retention-pg-results
+          path: retention-pg-results.json
+          retention-days: 3
       - name: Run all 32 PostgreSQL scenarios
         run: >-
           npx vitest run --config vitest.pg.config.ts

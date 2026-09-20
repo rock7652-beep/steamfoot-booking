@@ -72,9 +72,14 @@ export function SubscriptionForm({
     setExpiresAt(addTaiwanDuration(plus, -1, "DAY"));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!startedAt) {
+    // Read the submitted controls, including native date-picker/input edits.
+    const formData = new FormData(e.currentTarget);
+    const submittedStartedAt = String(formData.get("startedAt") ?? "");
+    const submittedEffectiveAt = String(formData.get("effectiveAt") ?? "");
+    const submittedExpiresAt = String(formData.get("expiresAt") ?? "");
+    if (!submittedStartedAt) {
       toast.error("請填起始日");
       return;
     }
@@ -86,9 +91,9 @@ export function SubscriptionForm({
         plan,
         status,
         billingCycle,
-        startedAt,
-        effectiveAt: effectiveAt || "",
-        expiresAt: expiresAt || "",
+        startedAt: submittedStartedAt,
+        effectiveAt: submittedEffectiveAt,
+        expiresAt: submittedExpiresAt,
         billingStatus,
         paymentMethod: paymentMethod || "",
         priceAmount:
@@ -208,28 +213,34 @@ export function SubscriptionForm({
         </div>
 
         <div>
-          <label className={labelCls}>起始日</label>
+          <label htmlFor="subscription-startedAt" className={labelCls}>起始日</label>
           <input
             type="date"
             className={inputCls}
+            id="subscription-startedAt"
+            name="startedAt"
             value={startedAt}
             onChange={(e) => setStartedAt(e.target.value)}
+            onInput={(e) => setStartedAt(e.currentTarget.value)}
           />
         </div>
 
         <div>
-          <label className={labelCls}>生效日（選填）</label>
+          <label htmlFor="subscription-effectiveAt" className={labelCls}>生效日（選填）</label>
           <input
             type="date"
             className={inputCls}
+            id="subscription-effectiveAt"
+            name="effectiveAt"
             value={effectiveAt}
             onChange={(e) => setEffectiveAt(e.target.value)}
+            onInput={(e) => setEffectiveAt(e.currentTarget.value)}
           />
         </div>
 
         <div className="sm:col-span-2">
           <div className="flex items-center justify-between">
-            <label className={labelCls}>到期日（最後一天仍可使用）</label>
+            <label htmlFor="subscription-expiresAt" className={labelCls}>到期日（最後一天仍可使用）</label>
             <button
               type="button"
               onClick={fillExpires}
@@ -241,8 +252,11 @@ export function SubscriptionForm({
           <input
             type="date"
             className={inputCls}
+            id="subscription-expiresAt"
+            name="expiresAt"
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
+            onInput={(e) => setExpiresAt(e.currentTarget.value)}
           />
           <p className="mt-1 text-[11px] text-earth-400">
             月繳＝起始日 + 1 個月 − 1 天；年繳＝起始日 + 14 個月 − 1

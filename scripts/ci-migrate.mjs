@@ -3,27 +3,14 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
+import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 
 // Course acceptance preflight: read-only and restricted to this Preview branch.
 // Never print connection strings, credentials, or raw database errors.
-if (
-  process.env.VERCEL_ENV === "preview" &&
-  process.env.VERCEL_GIT_COMMIT_REF === "codex/course-scheduling-stage1"
-) {
-  const testRef = "ttworfzgwejdeolegkxl";
-  const matches = (value) => {
-    try {
-      const u = new URL(value ?? "");
-      return ["postgres:", "postgresql:"].includes(u.protocol) && (
-        u.hostname === `db.${testRef}.supabase.co` ||
-        (/^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(u.hostname) &&
-         u.username === `postgres.${testRef}`)
-      );
-    } catch { return false; }
-  };
+if (requiresCoursePreviewCheck(process.env)) {
   const target = {
-    databaseIsTest: matches(process.env.DATABASE_URL),
-    directIsTest: matches(process.env.DIRECT_URL),
+    databaseIsTest: isIsolatedCourseConnection(process.env.DATABASE_URL),
+    directIsTest: isIsolatedCourseConnection(process.env.DIRECT_URL),
   };
   console.info("[course-preview-preflight] target", target);
   if (!target.databaseIsTest || !target.directIsTest)
