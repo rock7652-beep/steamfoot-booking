@@ -27,13 +27,15 @@ MIGRATIONS = [
     "supabase/migrations/20260917030753_course_reminder_links.sql",
     "supabase/migrations/20260917081039_course_negotiated_refund.sql",
     "supabase/migrations/20260917094700_course_low_balance_reminders.sql",
+    "supabase/migrations/20260917143018_course_trial_separate_payment_attendance.sql",
+    "supabase/migrations/20260918235710_course_batch2_catalog_qualifications.sql",
 ]
 
 BASELINE = '''
 CREATE TYPE "IndustryModule" AS ENUM ('STEAMFOOT','SPA');
-CREATE TABLE "Store" (id text PRIMARY KEY, module "IndustryModule" NOT NULL);
-CREATE TABLE "User" (id text PRIMARY KEY);
-CREATE TABLE "Staff" (id text PRIMARY KEY, "storeId" text NOT NULL, "displayName" text NOT NULL);
+CREATE TABLE "Store" (id text PRIMARY KEY, "industryModule" "IndustryModule" NOT NULL);
+CREATE TABLE "User" (id text PRIMARY KEY, role text NOT NULL DEFAULT 'CUSTOMER');
+CREATE TABLE "Staff" (id text PRIMARY KEY, "storeId" text NOT NULL, "displayName" text NOT NULL, "userId" text);
 CREATE UNIQUE INDEX "Staff_id_storeId_key" ON "Staff"(id,"storeId");
 CREATE TABLE "Customer" (id text PRIMARY KEY, "storeId" text NOT NULL);
 CREATE UNIQUE INDEX "Customer_id_storeId_key" ON "Customer"(id,"storeId");
@@ -42,8 +44,8 @@ CREATE TABLE "MessageLog" (id text PRIMARY KEY, "storeId" text NOT NULL, "bookin
 -- Synthetic sentinels, not a production clone or app-level regression test.
 CREATE TABLE legacy_outcomes (module text PRIMARY KEY, booking text, balance int, income int);
 INSERT INTO "Store" VALUES ('steam','STEAMFOOT'),('spa','SPA');
-INSERT INTO "User" VALUES ('actor');
-INSERT INTO "Staff" VALUES ('coach','steam','Preserved coach'),('coach2','spa','Other store');
+INSERT INTO "User" (id) VALUES ('actor');
+INSERT INTO "Staff" (id,"storeId","displayName") VALUES ('coach','steam','Preserved coach'),('coach2','spa','Other store');
 INSERT INTO "Customer" VALUES ('a','steam'),('b','spa');
 INSERT INTO "StaffMemberLink" VALUES ('link','coach','steam','actor');
 INSERT INTO legacy_outcomes VALUES ('STEAMFOOT','COMPLETED',8,1000),('SPA','RESERVED',5,2000);
@@ -87,7 +89,7 @@ def query(db, sql, error=None):
 def snapshot(db):
     return query(db, '''SELECT jsonb_build_object(
       'stores',(SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM "Store" t),
-      'staff',(SELECT jsonb_agg(to_jsonb(t)-'phone'-'emergencyContactName'-'emergencyContactPhone' ORDER BY id) FROM "Staff" t),
+      'staff',(SELECT jsonb_agg(to_jsonb(t)-'phone'-'emergencyContactName'-'emergencyContactPhone'-'courseCoachEnabled'-'courseQualificationsConfirmed'-'courseQualifiedTemplateIds'-'courseBirthday'-'emergencyContactRelation' ORDER BY id) FROM "Staff" t),
       'links',(SELECT jsonb_agg(to_jsonb(t)-'courseMemberEnabled' ORDER BY id) FROM "StaffMemberLink" t),
       'customers',(SELECT jsonb_agg(to_jsonb(t)-'emergencyContactName'-'emergencyContactPhone' ORDER BY id) FROM "Customer" t),
       'outcomes',(SELECT jsonb_agg(to_jsonb(t) ORDER BY module) FROM legacy_outcomes t));''')
@@ -111,7 +113,18 @@ def main():
     db = "course_rehearsal_" + uuid.uuid4().hex[:12]
     query("postgres", f'CREATE DATABASE "{db}";')
     manifest = [{"path": path, "sha256": hashlib.sha256((ROOT / path).read_bytes()).hexdigest()} for path in MIGRATIONS]
-    chunks = [(ROOT / path).read_text() for path in MIGRATIONS]
+    chunks = []
+    for path in MIGRATIONS:
+        body = (ROOT / path).read_text()
+        # The trial migration has its own transaction. Only remove its exact
+        # outer envelope to prevent an inner COMMIT breaking atomic rehearsal.
+        if path.endswith("20260917143018_course_trial_separate_payment_attendance.sql"):
+            assert body.count("BEGIN;") == 1 and body.count("COMMIT;") == 1
+            assert body.rstrip().endswith("COMMIT;")
+            body = body.replace("BEGIN;", "", 1).rsplit("COMMIT;", 1)[0]
+        elif "BEGIN;" in body or "COMMIT;" in body:
+            raise RuntimeError(f"Review unexpected transaction envelope: {path}")
+        chunks.append(body)
     prefix = "BEGIN; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='60s';\n" + PREFLIGHT
     bundle = prefix + "\n".join(chunks) + "\nCOMMIT;"
     checks = []
@@ -125,7 +138,7 @@ def main():
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Staff' AND column_name='phone';") == "0"
         assert query(db, "SELECT count(*) FROM information_schema.columns WHERE table_name='Customer' AND column_name='emergencyContactName';") == "0"
         assert snapshot(db) == before
-        checks.append("late failure rolls back all thirteen migrations, enum and shared-column changes")
+        checks.append("late failure rolls back all fifteen migrations, enum and shared-column changes")
         query(db, 'DROP INDEX "Customer_id_storeId_key";')
         query(db, bundle, "42830")
         assert query(db, "SELECT to_regclass('public.\"CourseRoom\"') IS NULL;") == "t"
@@ -141,7 +154,10 @@ def main():
         query(db, bundle, "Course rollout already applied or partial")
         assert snapshot(db) == before
         checks.append("replay fails closed without changes")
-        assert query(db, "SELECT count(*) FROM pg_class WHERE relname LIKE 'Course%' AND relkind='r' AND relrowsecurity;") == "12"
+        assert query(db, 'SELECT bool_and(NOT "courseCoachEnabled" AND NOT "courseQualificationsConfirmed" AND cardinality("courseQualifiedTemplateIds")=0) FROM "Staff";') == "t"
+        assert query(db, "SELECT count(*) FROM pg_constraint WHERE conname IN ('CourseTemplate_visibility_check','CourseTemplate_classType_check','CourseTrialPayment_void_consistency');") == "3"
+        checks.append("batch2 preserves legacy staff defaults; trial and catalog constraints present")
+        assert query(db, "SELECT count(*) FROM pg_class WHERE relname LIKE 'Course%' AND relkind='r' AND relrowsecurity;") == "13"
         assert query(db, 'SELECT "courseMemberEnabled" AND phone=\'\' AND "emergencyContactName"=\'\' AND "emergencyContactPhone"=\'\' FROM "StaffMemberLink" CROSS JOIN "Staff" LIMIT 1;') == "t"
         query(db, '''
 INSERT INTO "CourseRoom" (id,"storeId",name) VALUES ('room','steam','Room');
@@ -177,18 +193,23 @@ INSERT INTO "CoursePurchaseRefund" (id,"storeId","purchaseId",amount,points,meth
         checks.append("low balance defaults disabled with no threshold; invalid settings, cross-store preferences and duplicate preferences rejected")
         query(db, 'UPDATE "CoursePointCard" SET remaining=-1;', "23514")
         query(db, 'INSERT INTO "CourseCardMember" VALUES (\'card\',\'steam\',\'b\');', "23503")
-        query(db, '''INSERT INTO "CourseBooking" SELECT 'duplicate',"storeId","sessionId","cardId","customerId","operatorUserId","operatorCustomerId","operatorName","customerName","pointCost",status,'different-request',"createdAt","updatedAt","checkedInAt",notes FROM "CourseBooking";''', "23505")
+        query(db, '''INSERT INTO "CourseBooking" (id,"storeId","sessionId","cardId","customerId","operatorUserId","operatorCustomerId","operatorName","customerName","pointCost",status,"requestKey","createdAt","updatedAt","checkedInAt",notes) SELECT 'duplicate',"storeId","sessionId","cardId","customerId","operatorUserId","operatorCustomerId","operatorName","customerName","pointCost",status,'different-request',"createdAt","updatedAt","checkedInAt",notes FROM "CourseBooking";''', "23505")
         query(db, '''INSERT INTO "CourseSession" SELECT 'overlap',"storeId","templateId","roomId",'coach3',"nameSnapshot","startsAt","endsAt","pointCost",capacity,"cancelledAt",'overlap-request',"requestIndex","createdById","createdAt" FROM "CourseSession";''', "CourseSession_room_overlap")
         query(db, '''INSERT INTO "CourseSession" SELECT 'overlap',"storeId","templateId",'room2',"coachId","nameSnapshot","startsAt","endsAt","pointCost",capacity,"cancelledAt",'overlap-request',"requestIndex","createdById","createdAt" FROM "CourseSession";''', "CourseSession_coach_overlap")
         query(db, '''UPDATE "CourseBooking" SET status='NO_SHOW';
 INSERT INTO "CoursePointEntry" (id,"storeId","cardId","bookingId",kind,points,"actorUserId") VALUES ('entry','steam','card','booking','CORRECT:ATTENDED:NO_SHOW:11111111-1111-1111-1111-111111111111',3,'actor');''')
         checks.append("negative balance, cross-store member, duplicate learner and overlapping room/coach blocked; no-show/correction supported")
+        assert query(db, "SELECT \"bookingKind\" FROM \"CourseBooking\" WHERE id='booking';") == "CARD"
+        query(db, "UPDATE \"CourseTemplate\" SET visibility='BAD';", "23514")
+        query(db, "UPDATE \"CourseTemplate\" SET \"classType\"='BAD';", "23514")
+        checks.append("existing card bookings default CARD; invalid catalog modes rejected")
         for role in ("anon", "authenticated"):
             assert query(db, f'SET ROLE {role}; SELECT count(*) FROM "CoursePointCard";') == "0"
             query(db, f'SET ROLE {role}; INSERT INTO "CourseRoom" (id,"storeId",name) VALUES (\'browser\',\'steam\',\'Forbidden\');', "42501")
             query(db, f'SET ROLE {role}; SELECT * FROM "CoursePurchase";', "42501")
             query(db, f'SET ROLE {role}; SELECT * FROM "CoursePurchaseRefund";', "42501")
             query(db, f'SET ROLE {role}; SELECT * FROM "CourseBalanceReminderPreference";', "42501")
+            query(db, f'SET ROLE {role}; SELECT * FROM "CourseTrialPayment";', "42501")
         checks.append("both browser roles denied rows/writes under permissive default grants; purchase privileges revoked")
         print(json.dumps({"postgres": version, "checks": checks, "manifest": manifest,
                           "scope": "synthetic dependency baseline, not production clone or app transaction acceptance"}, indent=2))
