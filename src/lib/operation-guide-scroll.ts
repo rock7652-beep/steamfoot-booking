@@ -5,6 +5,8 @@ export function lockGuideBackground(panel: HTMLDialogElement) {
   const x = window.scrollX, y = window.scrollY;
   const properties = ["position", "top", "left", "width"] as const;
   const saved = properties.map(name => [name, body.style.getPropertyValue(name), body.style.getPropertyPriority(name)] as const);
+  const panelProperties = ["top", "bottom", "height", "max-height"] as const;
+  const savedPanel = panelProperties.map(name => [name, panel.style.getPropertyValue(name), panel.style.getPropertyPriority(name)] as const);
   const previousOverscroll = html.style.overscrollBehavior;
   body.style.position = "fixed";
   body.style.top = `-${y}px`;
@@ -25,18 +27,30 @@ export function lockGuideBackground(panel: HTMLDialogElement) {
     const atBottom = scroller && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1 && delta < 0;
     if ((!within || atTop || atBottom) && event.cancelable) event.preventDefault();
   };
-  const resize = () => { panel.style.height = `${Math.round((window.visualViewport?.height ?? window.innerHeight) * 0.85)}px`; };
+  const viewport = window.visualViewport;
+  const resize = () => {
+    // Safari's keyboard shrinks/pans the visual viewport while bottom: 0 still
+    // refers to the layout viewport. Anchor both edges within the visible area.
+    const visibleHeight = viewport?.height ?? window.innerHeight;
+    const height = Math.floor(visibleHeight * 0.85);
+    panel.style.top = `${(viewport?.offsetTop ?? 0) + visibleHeight - height}px`;
+    panel.style.bottom = "auto";
+    panel.style.height = `${height}px`;
+    panel.style.maxHeight = `${height}px`;
+  };
   resize();
-  window.visualViewport?.addEventListener("resize", resize);
+  viewport?.addEventListener("resize", resize);
+  viewport?.addEventListener("scroll", resize);
   window.addEventListener("resize", resize);
   document.addEventListener("touchstart", start, { passive: true });
   document.addEventListener("touchmove", move, { passive: false });
   return () => {
-    window.visualViewport?.removeEventListener("resize", resize);
+    viewport?.removeEventListener("resize", resize);
+    viewport?.removeEventListener("scroll", resize);
     window.removeEventListener("resize", resize);
     document.removeEventListener("touchstart", start);
     document.removeEventListener("touchmove", move);
-    panel.style.removeProperty("height");
+    savedPanel.forEach(([name,value,priority]) => value ? panel.style.setProperty(name,value,priority) : panel.style.removeProperty(name));
     saved.forEach(([name,value,priority]) => value ? body.style.setProperty(name,value,priority) : body.style.removeProperty(name));
     html.style.overscrollBehavior = previousOverscroll;
     // Respect an underlying modal's existing fixed-body lock.
