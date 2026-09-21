@@ -8,6 +8,7 @@ import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
+import { courseButton, courseField } from "@/components/admin/course-ui";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
   saveCourseCustomer,
@@ -41,10 +42,8 @@ type Plan = {
   templateIds: string[];
 };
 export type CourseCardView = Awaited<ReturnType<typeof getCourseCards>>[number];
-const field =
-  "min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
-const button =
-  "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+const field = courseField;
+const button = courseButton;
 export function CourseMemberWorkspace({
   canDelete=false,
   termSessions=[],
