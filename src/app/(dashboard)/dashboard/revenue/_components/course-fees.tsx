@@ -24,7 +24,7 @@ export async function CourseFees({storeId,range,readOnly}: {storeId:string;range
   const pending=summarized.filter(({row,fee,ended})=>!row.paidAt&&!row.cancelledAt&&ended&&fee!==null&&fee>0).length;
   const pendingAmount=summarized.reduce((sum,{row,fee,ended})=>sum+(!row.paidAt&&!row.cancelledAt&&ended&&fee!==null&&fee>0&&Number.isSafeInteger(fee)?fee:0),0);
   return <details className="rounded-xl border border-earth-200 bg-white p-3">
-    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3"><span><strong className="font-semibold">授課費</strong><span className="ml-2 text-sm text-earth-500">待核對 {pending} 堂</span></span><span className="text-sm font-medium text-primary-800">預估 NT$ {pendingAmount.toLocaleString()}　展開明細</span></summary>
+    <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-x-3 gap-y-1"><span><strong className="font-semibold">授課費</strong><span className="ml-2 text-sm text-earth-500">待核對 {pending} 堂</span></span><span className="w-full text-sm font-medium text-primary-800 sm:w-auto sm:text-right">預估 NT$ {pendingAmount.toLocaleString()}　展開明細</span></summary>
     <p className="my-2 text-sm text-earth-600">依上方日期查看課次。每堂固定一次；設定 0 元表示不另領授課費。登錄已付後會同步一筆支出。</p>
     {rows.length>100&&<p role="status">僅顯示最近 100 堂，請縮短日期範圍查看其他課次。</p>}
     <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{["課次／教練","固定授課費","付款狀態","處理"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>
