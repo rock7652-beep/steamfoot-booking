@@ -30,7 +30,7 @@ export function CustomerAttributionForm({
   courseMode?: boolean;
 }) {
   const [staffId, setStaffId] = useState<string>(currentStaffId ?? "");
-  const [sponsor, setSponsor] = useState<{ id: string; name: string } | null>(
+  const [sponsor, setSponsor] = useState<{ id: string; name: string; kind?: "CUSTOMER" | "COACH"; kindLabel?: string } | null>(
     currentSponsor,
   );
   const [query, setQuery] = useState("");
@@ -69,7 +69,7 @@ export function CustomerAttributionForm({
   }, [query, sponsor, customerId, searchAction, canAssign, readOnly]);
 
   function selectCandidate(c: ReferrerCandidate) {
-    setSponsor({ id: c.id, name: c.name });
+    setSponsor({ id: c.id, name: c.name, kind: c.kind, kindLabel: c.kindLabel });
     setQuery("");
     setCandidates([]);
     setSearched(false);
@@ -151,7 +151,14 @@ export function CustomerAttributionForm({
         </label>
         {sponsor ? (
           <div className="mt-1 flex min-h-12 items-center justify-between rounded-xl border border-earth-200 bg-earth-50 px-3 py-2">
-            <span className="text-sm text-earth-800">{sponsor.name}</span>
+            <span className="flex items-center gap-2 text-sm text-earth-800">
+              <span>{sponsor.name}</span>
+              {sponsor.kindLabel && (
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${sponsor.kind === "COACH" ? "bg-gold-100 text-gold-800" : "bg-primary-50 text-primary-700"}`}>
+                  {sponsor.kindLabel}
+                </span>
+              )}
+            </span>
             <button
               type="button"
               disabled={saving}
