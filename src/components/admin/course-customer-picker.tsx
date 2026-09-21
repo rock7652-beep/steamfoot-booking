@@ -14,14 +14,17 @@ export function CourseCustomerPicker({ name, initial = [], multiple = false, req
   const [result,setResult] = useState<{query:string;rows:Choice[];hasMore:boolean;error?:string} | null>(null);
   useEffect(()=>{
     if(!enabled)return;
+    const normalizedQuery=query.trim();
+    if(!normalizedQuery){setResult(null);return;}
     let active=true;
-    const timer=setTimeout(()=>{searchCourseCustomers(query).then(r=>{
-      if(active) setResult(r.success ? {query,rows:r.rows,hasMore:r.hasMore} : {query,rows:[],hasMore:false,error:r.error});
-    }).catch(()=>{if(active)setResult({query,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},250);
+    const timer=setTimeout(()=>{searchCourseCustomers(normalizedQuery).then(r=>{
+      if(active) setResult(r.success ? {query:normalizedQuery,rows:r.rows,hasMore:r.hasMore} : {query:normalizedQuery,rows:[],hasMore:false,error:r.error});
+    }).catch(()=>{if(active)setResult({query:normalizedQuery,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},250);
     return ()=>{active=false;clearTimeout(timer);};
   },[query,retry,enabled]);
   useEffect(()=>{input.current?.setCustomValidity(required && !selected.length ? "請從搜尋結果選擇顧客":"");},[selected,required,query]);
-  const ready=result?.query===query;
+  const normalizedQuery=query.trim();
+  const ready=result?.query===normalizedQuery;
   return <div className="space-y-2">
     {selected.map(c=><div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-1 text-sm">
       <span className="min-w-0 break-words">{c.name}{c.phone ? ` · ${c.phone}` : ""}</span>
@@ -31,7 +34,7 @@ export function CourseCustomerPicker({ name, initial = [], multiple = false, req
     <input ref={input} aria-label="搜尋顧客姓名或電話" placeholder="搜尋姓名／電話／LINE 名稱" value={query}
       onChange={e=>setQuery(e.target.value)}
       className="min-h-11 w-full min-w-0 rounded-lg border border-earth-200 px-3 text-base"/>
-    {!ready ? <p role="status" className="text-sm">搜尋中…</p> : result?.error ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
+    {!normalizedQuery ? null : !ready ? <p role="status" className="text-sm">搜尋中…</p> : result?.error ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
       <div className="max-h-52 overflow-y-auto divide-y rounded-lg border border-earth-200">
         {result?.rows.map(c=>{const chosen=selected.some(p=>p.id===c.id);return <button type="button" key={c.id} disabled={chosen}
           className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm disabled:bg-primary-50"
