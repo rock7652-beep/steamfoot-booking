@@ -10,6 +10,10 @@ import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { getStoreUsage } from "@/server/queries/usage";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
+import { computeLifecycle, effectiveStateLabel } from "@/lib/subscription-lifecycle";
+import { toLocalDateStr } from "@/lib/date-utils";
 
 export type CourseHubView = "settings" | "operations";
 export async function CourseSharedHub({view}:{view:CourseHubView}) {
@@ -31,18 +35,35 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
     const [store, rule, canEdit, config, canPayment, canStaff, canPlans] = await Promise.all([
       prisma.store.findUnique({
         where: { id: storeId },
-        select: { name: true, plan: true },
+        select: { name: true, plan: true, currentSubscription: { select: { status: true, expiresAt: true } }, subscriptions: { orderBy: { createdAt: "desc" }, take: 1, select: { status: true, expiresAt: true } } },
       }),
       coursePrisma.courseBookingRule.findUnique({ where: { storeId } }),
       checkPermission(user.role, user.staffId, "business_hours.manage"),
-      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, mapUrl: true, lineOfficialUrl: true, bankName: true, bankCode: true, bankAccountNumber: true } }),
+      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, mapUrl: true, lineOfficialUrl: true, bankName: true, bankCode: true, bankAccountNumber: true, bookingWindowDays: true, bookableUntilDate: true, dutySchedulingEnabled: true, trialEnabled: true, trialDefaultPrice: true } }),
       checkPermission(user.role,user.staffId,"plans.edit"),
       user.role === "OWNER" && checkPermission(user.role,user.staffId,"staff.view"),
       checkPermission(user.role,user.staffId,"wallet.read"),
     ]);
     const usage = canPayment ? await getStoreUsage(storeId) : null;
+    const [digitalButler, referralShare, lineReminder, customerCare] = await Promise.all([
+      hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER),
+      hasStoreFeature(storeId, FEATURES.REFERRAL_SHARE),
+      hasStoreFeature(storeId, FEATURES.LINE_REMINDER),
+      hasStoreFeature(storeId, FEATURES.CUSTOMER_CARE),
+    ]);
+    const subscription = store?.currentSubscription ?? store?.subscriptions[0];
+    const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
     body = (
       <CourseSettingsWorkspace
+        key={storeId}
+        canDigitalButler={canPayment && !readOnly && digitalButler}
+        canReferralShare={canPayment && !readOnly && referralShare}
+        subscriptionSummary={canPayment ? subscriptionSummary : undefined}
+        bookingWindowDays={config?.bookingWindowDays ?? 14}
+        bookableUntilDate={config?.bookableUntilDate?.toISOString().slice(0,10) ?? null}
+        dutyEnabled={config?.dutySchedulingEnabled ?? false}
+        trialEnabled={config?.trialEnabled ?? false}
+        trialPrice={Number(config?.trialDefaultPrice ?? 0)}
         storeId={storeId} planLabel={store ? PRICING_PLAN_INFO[store.plan].label : "—"} canPayment={canPayment && !readOnly} canStaff={canStaff} canPlans={canPlans}
         name={store?.name ?? ""}
         bankName={config?.bankName??""} bankCode={config?.bankCode??""} bankAccountNumber={config?.bankAccountNumber??""}
@@ -52,8 +73,8 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
         canEdit={canEdit && !readOnly}
         usageMetrics={usage?.metrics}
         canTrial={!readOnly && await checkPermission(user.role,user.staffId,"trial.manage")}
-        canReminders={!readOnly && await checkPermission(user.role,user.staffId,"business_hours.manage")}
-        canCare={await checkPermission(user.role,user.staffId,"customer.read")}
+        canReminders={!readOnly && lineReminder && await checkPermission(user.role,user.staffId,"business_hours.manage")}
+        canCare={customerCare && await checkPermission(user.role,user.staffId,"customer.read")}
         canDutyRead={await checkPermission(user.role,user.staffId,"duty.read")}
         canDutyManage={!readOnly && await checkPermission(user.role,user.staffId,"duty.manage")}
         canHours={!readOnly && await checkPermission(user.role,user.staffId,"business_hours.view")}

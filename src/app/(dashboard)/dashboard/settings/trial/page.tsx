@@ -37,7 +37,7 @@ export default async function TrialSettingsPage() {
         subtitle={courseMode ? "設定課程無卡體驗價格；收款與出席分開。調整預設價不影響既有體驗預約。" : "體驗客流程使用的預設體驗價格與可調整範圍。體驗課只有一個，建立體驗單時可依活動調整金額；調整預設價不影響已建立的體驗單。"}
         actions={
           <Link
-            href="/dashboard/settings"
+            href={courseMode ? "/dashboard/courses?view=settings&section=payment" : "/dashboard/settings"}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 返回設定

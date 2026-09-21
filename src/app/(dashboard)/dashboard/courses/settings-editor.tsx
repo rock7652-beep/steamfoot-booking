@@ -81,7 +81,7 @@ export function CourseSettingsEditor({
       </label>
       <p className="text-sm text-earth-500">
         0
-        表示上課開始前可操作。預約保留方案額度，出席才正式使用；取消或未到釋放占用。截止後請由店長處理，不另加取消費用。
+        表示上課開始前可操作。自由預約先保留額度，出席才扣點／扣堂，取消或未到釋放占用；固定期課未到仍扣堂，不提供補課券。截止後請由店長處理，不另加取消費用。
       </p>
       {message && <p role="status">{message}</p>}
       {canEdit && (

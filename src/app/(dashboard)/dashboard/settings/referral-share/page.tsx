@@ -1,4 +1,5 @@
 import { deriveBaseUrl } from "@/lib/base-url";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { COURSE_REFERRAL_SHARE_TEMPLATE } from "@/lib/referral-share-official-templates";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
@@ -20,6 +21,7 @@ export default async function ReferralShareSettingsPage() {
 
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) redirect("/dashboard/settings");
+  const settingsHref = await getStoreIndustryModule(storeId) === "course" ? "/dashboard/courses?view=settings&section=notifications" : "/dashboard/settings";
 
   if (!(await hasStoreFeature(storeId, FEATURES.REFERRAL_SHARE))) {
     return (
@@ -29,7 +31,7 @@ export default async function ReferralShareSettingsPage() {
           subtitle="此功能需升級方案或由總部單店開通"
           actions={
             <Link
-              href="/dashboard/settings"
+              href={settingsHref}
               className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
             >
               ← 返回設定
@@ -61,7 +63,7 @@ export default async function ReferralShareSettingsPage() {
         subtitle="設定顧客複製與 LINE 分享時使用的文案；推薦網址與推薦人資訊仍由系統安全產生。"
         actions={
           <Link
-            href="/dashboard/settings"
+            href={settingsHref}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 返回設定
