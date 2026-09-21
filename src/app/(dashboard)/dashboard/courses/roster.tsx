@@ -171,10 +171,10 @@ export function CourseRoster({
 {showCancelled && <p className="rounded-lg bg-earth-50 px-3 py-2 text-sm text-earth-600">保留取消紀錄；若店長誤按，可在名額與原方案仍有效時恢復預約。</p>}
       <div className="max-h-[58vh] overflow-auto overscroll-contain rounded-xl border border-earth-200 bg-white">
         <div className="min-w-[900px]">
-          <div className="sticky top-0 z-[1] grid grid-cols-[2rem_minmax(8rem,1.05fr)_minmax(9rem,1fr)_minmax(13rem,1.55fr)_5.5rem_minmax(12rem,1.2fr)] gap-2 border-b border-earth-200 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
+          <div className="sticky top-0 z-[1] grid grid-cols-[2rem_minmax(8rem,1.05fr)_minmax(11rem,1.2fr)_minmax(13rem,1.55fr)_5.5rem_minmax(10rem,1fr)] gap-2 border-b border-earth-200 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
             <span />
             <span>姓名／電話</span>
-            <span>方案</span>
+            <span>方案／收費</span>
             <span>備註</span>
             <span>狀態</span>
             <span>操作</span>
@@ -198,17 +198,54 @@ export function CourseRoster({
                 </span>
 
                 <span className="min-w-0">
-                  <strong className="block break-words">{b.customerName}</strong>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <strong className="break-words">{b.customerName}</strong>
+                    {b.bookingKind === "TRIAL" && (
+                      <span className="rounded-full border border-gold-300 bg-gold-100 px-2 py-0.5 text-[10px] font-semibold text-gold-800">
+                        體驗客
+                      </span>
+                    )}
+                  </span>
                   <span className="block text-xs text-earth-500">{b.phone || "未填電話"}</span>
                 </span>
 
                 <span className="min-w-0">
-                  <span className="block break-words">{b.bookingKind === "TRIAL" ? "體驗" : b.planName}</span>
-                  {b.bookingKind !== "TRIAL" && (
-                    <span className="block text-xs text-earth-500">
-                      {b.available} {b.unit === "SESSION" ? "堂" : "點"}可用
-                      {b.expiresAt ? ` · ${formatTWDateTime(new Date(b.expiresAt)).slice(0,10)} 到期` : ""}
+                  {b.bookingKind === "TRIAL" ? (
+                    <span className="block space-y-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-gold-800">體驗課</span>
+                        <span className="text-xs text-earth-600">
+                          NT$ {(b.trialPrice ?? 0).toLocaleString("zh-TW")}
+                        </span>
+                      </span>
+                      <span className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className={paidReceipt ? "text-primary-700" : "text-amber-700"}>
+                          {paidReceipt ? `已收 NT$ ${paidReceipt.amount.toLocaleString("zh-TW")}` : "未收款"}
+                        </span>
+                        {allowTrialActions && trial?.canCollect && b.status !== "CANCELLED" && (
+                          <button
+                            type="button"
+                            className={rowAction}
+                            disabled={pending || (!!paidReceipt && (!trial.canCorrect || b.status !== "RESERVED"))}
+                            onClick={() => {
+                              setRequestKey(crypto.randomUUID());
+                              setCorrectPayment(!!paidReceipt);
+                              setPaymentBooking(b.id);
+                            }}
+                          >
+                            {paidReceipt ? "更正收款" : "收款"}
+                          </button>
+                        )}
+                      </span>
                     </span>
+                  ) : (
+                    <>
+                      <span className="block break-words">{b.planName}</span>
+                      <span className="block text-xs text-earth-500">
+                        {b.available} {b.unit === "SESSION" ? "堂" : "點"}可用
+                        {b.expiresAt ? ` · ${formatTWDateTime(new Date(b.expiresAt)).slice(0,10)} 到期` : ""}
+                      </span>
+                    </>
                   )}
                 </span>
 
@@ -265,18 +302,10 @@ export function CourseRoster({
                   ) : (
                     <span className="pt-1 text-xs text-earth-400">—</span>
                   )}
-                  {b.bookingKind === "TRIAL" && allowTrialActions && trial?.canCollect && b.status!=="CANCELLED" && (
-                    <button
-                      className={rowAction}
-                      disabled={pending || (b.trialPayments.some(p=>p.status==="SUCCESS") && (!trial.canCorrect || b.status!=="RESERVED"))}
-                      onClick={()=>{setRequestKey(crypto.randomUUID());setCorrectPayment(b.trialPayments.some(p=>p.status==="SUCCESS"));setPaymentBooking(b.id);}}
-                    >
-                      {b.trialPayments.some(p=>p.status==="SUCCESS") ? "更正收款" : "體驗收款"}
-                    </button>
-                  )}
                 </span>
               </div>
-            ))}
+              );
+            })}
             {!displayedRows.length && (
               <p className="p-6 text-center text-sm text-earth-500">沒有符合條件的學員。</p>
             )}
