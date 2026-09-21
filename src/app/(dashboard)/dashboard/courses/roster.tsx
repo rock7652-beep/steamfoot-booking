@@ -147,7 +147,7 @@ export function CourseRoster({
             <div className="flex w-8 shrink-0 justify-center pl-2 pt-3">
               {canEdit && b.status!=="CANCELLED" && <input type="checkbox" className="mr-2 h-4 w-4" aria-label={`選取 ${b.customerName}`} checked={selected.includes(b.id)} disabled={pending} onChange={e=>setSelected(old=>e.target.checked?[...old,b.id]:old.filter(id=>id!==b.id))}/>}
             </div>
-            <details className="min-w-0 flex-1 py-2"><summary className="cursor-pointer list-none"><span className="flex items-center justify-between gap-2"><strong>{b.customerName}</strong><span className="text-xs text-earth-500">查看／操作 ›</span></span><span className="mt-1 block text-xs text-earth-600">
+            <details className="min-w-0 flex-1 py-2"><summary className="cursor-pointer list-none"><span className="flex items-center justify-between gap-2"><strong>{b.customerName}</strong><span className="text-xs text-earth-500">點名／操作 ›</span></span><span className="mt-1 block text-xs text-earth-600">
               {b.bookingKind === "TRIAL" ? ({ATTENDED:"已出席",CANCELLED:"已取消",NO_SHOW:"未到",RESERVED:b.checkedInAt?"已報到":"待出席"}[b.status] ?? b.status) : b.status === "ATTENDED"
                 ? "已出席／已扣抵"
                 : b.status === "CANCELLED"
