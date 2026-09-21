@@ -30,7 +30,7 @@ export function PlanExpiryReminderSettingCard({ initialEnabled, course=false }: 
       <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-4">
         <div>
           <h2 className="text-base font-semibold text-earth-900">方案即將到期提醒</h2>
-          <p className="mt-1 text-sm text-earth-500">到期前 14 天、7 天於 18:00 發送；{course?"剩餘額度已全部占用、已結清或已退款時不發送。":"剩餘堂數已全部預約時不發送。"}</p>
+          <p className="mt-1 text-sm text-earth-500">{course?"依下方各方案天數，於 18:00 發送；":"到期前 14 天、7 天於 18:00 發送；"}{course?"剩餘額度已全部占用、已結清或已退款時不發送。":"剩餘堂數已全部預約時不發送。"}</p>
         </div>
         <div className="flex items-center gap-3">
           <button

@@ -1,45 +1,48 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
-import { saveCourseLowBalanceSetting } from "@/server/actions/course-low-balance";
-import { courseLowBalanceBody, courseLowBalanceSchema } from "@/lib/course-low-balance";
+import { saveCoursePlanReminderSetting } from "@/server/actions/course-plan-reminders";
+import { courseLowBalanceBody } from "@/lib/course-low-balance";
 import { LineCardPreview } from "../../reminders/line-card-preview";
 
-type Plan = { id: string; name: string; unit: string; isActive: boolean; lowBalanceEnabled: boolean; lowBalanceThreshold: number | null };
-type Draft = { enabled: boolean; threshold: string };
-const same = (a: Draft, b: Draft) => a.enabled === b.enabled && a.threshold === b.threshold;
+import { coursePlanReminderSchema } from "@/lib/course-plan-reminders";
+
+type Plan = { id: string; name: string; unit: string; isActive: boolean; lowBalanceEnabled: boolean; lowBalanceThreshold: number | null; expiry?: {enabled:boolean;days:number[]} };
+type Draft = { enabled: boolean; threshold: string; expiryEnabled: boolean; expiryDays: string };
+const same = (a: Draft, b: Draft) => a.enabled === b.enabled && a.threshold === b.threshold && a.expiryEnabled === b.expiryEnabled && a.expiryDays === b.expiryDays;
 export function CourseLowBalanceSettings({ plans }: { plans: Plan[] }) {
-  const initial = () => Object.fromEntries(plans.map(p => [p.id, { enabled: p.lowBalanceEnabled, threshold: p.lowBalanceThreshold?.toString() ?? "" }]));
+  const initial = () => Object.fromEntries(plans.map(p => [p.id, { enabled: p.lowBalanceEnabled, threshold: p.lowBalanceThreshold?.toString() ?? "", expiryEnabled: p.expiry?.enabled ?? true, expiryDays: (p.expiry?.days ?? [14,7]).join(", ") }]));
   const [saved, setSaved] = useState<Record<string, Draft>>(initial);
   const [drafts, setDrafts] = useState<Record<string, Draft>>(initial);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [preview, setPreview] = useState<string | null>(null);
   const [discard, setDiscard] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, start] = useTransition();
   const saving = useRef(false);
   const changes = plans.filter(p => !same(drafts[p.id], saved[p.id]));
   useSettingsPanelGuard(changes.length > 0, pending);
-  const filtered = plans.filter(p => p.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) && (filter === "all" || saved[p.id].enabled));
+  const filtered = plans.filter(p => p.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) && (filter === "all" || (filter === "expiry" ? saved[p.id].expiryEnabled : saved[p.id].enabled)));
   const pages = Math.max(1, Math.ceil(filtered.length / 10));
   const currentPage = Math.min(page, pages);
   const visible = filtered.slice((currentPage - 1) * 10, currentPage * 10);
   function update(id: string, patch: Partial<Draft>) { setDrafts(previous => ({ ...previous, [id]: { ...previous[id], ...patch } })); setMessage(""); }
   function save() {
     if (saving.current || !changes.length) return;
-    const inputs = changes.map(p => ({ plan: p, parsed: courseLowBalanceSchema.safeParse({ planId: p.id, enabled: drafts[p.id].enabled, threshold: drafts[p.id].threshold === "" ? null : Number(drafts[p.id].threshold) }) }));
+    const inputs = changes.map(p => ({ plan: p, parsed: coursePlanReminderSchema.safeParse({ planId: p.id, enabled: drafts[p.id].enabled, threshold: drafts[p.id].threshold === "" ? null : Number(drafts[p.id].threshold), expiry: { enabled: drafts[p.id].expiryEnabled, days: drafts[p.id].expiryDays.split(/[,，、\s]+/).filter(Boolean).map(Number) } }) }));
     const invalid = inputs.find(item => !item.parsed.success);
-    if (invalid) { setMessage(`「${invalid.plan.name}」請填寫 0–1000000 的整數門檻，啟用時不可空白。`); return; }
+    if (invalid) { setMessage(`「${invalid.plan.name}」請確認額度為 0–1000000 的整數，到期天數為 1–365（最多 6 次），欄位不可缺漏。`); return; }
     saving.current = true;
     start(async () => {
       let count = 0;
       try {
         for (const { plan, parsed } of inputs) {
           if (!parsed.success) continue;
-          const result = await saveCourseLowBalanceSetting(parsed.data);
+          const result = await saveCoursePlanReminderSetting(parsed.data);
           if (!result.success) { setMessage(`已儲存 ${count} 項；「${plan.name}」：${result.error}。其餘修改已保留。`); return; }
-          const value = { enabled: parsed.data.enabled, threshold: parsed.data.threshold?.toString() ?? "" };
+          const value = { enabled: parsed.data.enabled, threshold: parsed.data.threshold?.toString() ?? "", expiryEnabled: parsed.data.expiry.enabled, expiryDays: parsed.data.expiry.days.join(", ") };
           setSaved(previous => ({ ...previous, [plan.id]: value }));
           setDrafts(previous => ({ ...previous, [plan.id]: value }));
           count++;
@@ -50,24 +53,25 @@ export function CourseLowBalanceSettings({ plans }: { plans: Plan[] }) {
     });
   }
   return <details open className="rounded-xl border border-earth-200 bg-white">
-    <summary className="flex min-h-16 cursor-pointer flex-wrap items-center justify-between gap-2 p-4"><h2 className="font-semibold text-primary-900">低可用額度提醒</h2><span className="text-sm text-earth-600">已開啟 {plans.filter(p => saved[p.id].enabled).length}／{plans.length} 項 · 管理設定{changes.length > 0 ? ` · ${changes.length} 項未儲存` : ""}</span></summary>
+    <summary className="flex min-h-16 cursor-pointer flex-wrap items-center justify-between gap-2 p-4"><h2 className="font-semibold text-primary-900">各方案提醒</h2><span className="text-sm text-earth-600">共 {plans.length} 項方案{changes.length > 0 ? ` · ${changes.length} 項未儲存` : ""}</span></summary>
     <div className="border-t border-earth-100">
-      <div className="flex flex-wrap gap-2 p-4"><input aria-label="搜尋提醒方案" placeholder="搜尋方案名稱" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} className="min-h-11 min-w-0 flex-1 rounded-lg border px-3"/><select aria-label="篩選提醒方案" value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="min-h-11 rounded-lg border px-3"><option value="all">全部方案</option><option value="enabled">已開啟</option></select></div>
-      <p className="px-4 pb-3 text-xs text-earth-500">各方案獨立設定。搜尋、換頁及收合會保留修改，按儲存後才生效。</p>
+      <div className="flex flex-wrap gap-2 p-4"><input aria-label="搜尋提醒方案" placeholder="搜尋方案名稱" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} className="min-h-11 min-w-0 flex-1 rounded-lg border px-3"/><select aria-label="篩選提醒方案" value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="min-h-11 rounded-lg border px-3"><option value="all">全部方案</option><option value="enabled">低額度已開啟</option><option value="expiry">到期已勾選</option></select></div>
+      <p className="px-4 pb-3 text-xs text-earth-500">直接調整後一次儲存；搜尋與換頁保留修改。到期天數以逗號分隔，例如 14, 7；須開啟上方到期提醒總開關才會發送。</p>
       {!visible.length && <p className="p-4 text-sm text-earth-600">{plans.length ? "沒有符合條件的方案。" : "建立點數／堂數方案後，可在此設定提醒。"}</p>}
+      <div className="hidden grid-cols-[minmax(130px,1fr)_160px_190px_52px] gap-3 border-t bg-earth-50 px-4 py-2 text-xs text-earth-600 lg:grid"><span>方案</span><span>低額度提醒</span><span>到期前幾天提醒</span><span>預覽</span></div>
       {visible.map(plan => {
         const draft = drafts[plan.id], unit = plan.unit === "SESSION" ? "堂" : "點";
         return <div key={plan.id} className="border-t border-earth-100">
-          <fieldset disabled={pending} className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-            <div className="min-w-40 flex-1"><p className="break-words font-medium text-primary-900">{plan.name}{!same(draft, saved[plan.id]) && <span className="ml-2 text-xs text-amber-700">未儲存</span>}</p>{!plan.isActive && <span className="text-xs text-earth-500">已下架</span>}</div>
-            <label className="flex min-h-11 items-center gap-2 text-sm"><input aria-label={`${plan.name} 啟用提醒`} type="checkbox" checked={draft.enabled} onChange={e => update(plan.id, { enabled: e.target.checked })}/>啟用</label>
-            <label className="flex flex-wrap items-center gap-2 text-sm">可用 ≤<input aria-label={`${plan.name} 提醒門檻`} type="number" min="0" max="1000000" step="1" value={draft.threshold} onChange={e => update(plan.id, { threshold: e.target.value })} className="min-h-11 w-24 rounded border border-earth-300 px-3"/>{unit}</label>
+          <fieldset disabled={pending} className="grid min-w-0 items-center gap-3 px-4 py-2 sm:grid-cols-2 lg:grid-cols-[minmax(130px,1fr)_160px_190px_52px]">
+            <div className="min-w-0"><p className="break-words text-sm font-medium text-primary-900">{plan.name}{!same(draft, saved[plan.id]) && <span className="ml-2 text-xs text-amber-700">未儲存</span>}</p>{!plan.isActive && <span className="text-xs text-earth-500">已下架</span>}</div>
+            <div className="flex flex-wrap items-center gap-2 text-sm"><label className="flex min-h-11 items-center gap-1"><input aria-label={`${plan.name} 啟用提醒`} type="checkbox" checked={draft.enabled} onChange={e => update(plan.id, { enabled: e.target.checked })}/><span className="lg:hidden">低額度</span><span className="hidden lg:inline">≤</span></label><input aria-label={`${plan.name} 提醒門檻`} type="number" min="0" max="1000000" step="1" value={draft.threshold} onChange={e => update(plan.id, { threshold: e.target.value })} className="min-h-11 w-20 rounded border border-earth-300 px-2"/>{unit}</div>
+            <div className="flex flex-wrap items-center gap-2 text-sm"><label className="flex min-h-11 items-center gap-1"><input aria-label={`${plan.name} 啟用到期提醒`} type="checkbox" checked={draft.expiryEnabled} onChange={e => update(plan.id, { expiryEnabled: e.target.checked })}/><span className="lg:hidden">到期前</span></label><input aria-label={`${plan.name} 到期提醒天數`} type="text" value={draft.expiryDays} placeholder="14, 7" onChange={e => update(plan.id, { expiryDays: e.target.value })} className="min-h-11 w-28 rounded border border-earth-300 px-2"/>天</div>
+            <button type="button" aria-label={`預覽${plan.name}提醒`} aria-expanded={preview === plan.id} onClick={() => setPreview(preview === plan.id ? null : plan.id)} className="min-h-11 text-sm text-primary-700">{preview === plan.id ? "收合" : "預覽"}</button>
           </fieldset>
-          <div className="px-4 pb-2">
-            <details><summary className="min-h-11 cursor-pointer py-3 text-sm text-primary-700">訊息預覽與發送規則</summary><p className="mb-3 text-sm text-earth-600">每張卡分開判斷，使用剩餘扣除預約占用後的額度。每卡對同一位成員提醒一次；取消重約不重複提醒。</p><LineCardPreview title="方案可用額度提醒" subtitle="示意資料，非真實發送" actions={[{ label: "查看我的方案", variant: "primary" }, { label: "停止／管理此類提醒", variant: "link" }]}>{courseLowBalanceBody(plan.name, 5, 3, plan.unit)}</LineCardPreview></details>
-          </div>
+          {preview === plan.id && <div className="grid gap-3 bg-earth-50 p-4 md:grid-cols-2"><LineCardPreview title="方案可用額度提醒" subtitle="示意資料，非真實發送" actions={[{ label: "查看我的方案", variant: "primary" }, { label: "停止／管理此類提醒", variant: "link" }]}>{courseLowBalanceBody(plan.name, 5, 3, plan.unit)}</LineCardPreview><LineCardPreview title="方案即將到期提醒" subtitle={`設定：到期前 ${draft.expiryDays || "尚未填寫"} 天`} actions={[{label:"查看方案與期限"}]}><p>{plan.name}</p><p>示意：剩餘 5 {unit}／占用 3 {unit}／可用 2 {unit}。</p><p>通知會帶入該張方案的實際到期日。</p></LineCardPreview></div>}
         </div>;
       })}
+      <details className="border-t px-4 text-xs text-earth-600"><summary className="min-h-11 cursor-pointer py-3">共用發送規則</summary><p className="pb-3">每張卡獨立計算可用額度（剩餘扣除預約占用）；低額度對同一位成員每卡提醒一次。到期提醒依各方案設定天數於 18:00 發送，每位成員每個到期階段只成功送達一次；額度已全部占用、已結清或退款時不發送。更改天數不補發已過的提醒，也不變更方案期限。每項可設定 1–365 天，最多 6 次。</p></details>
       {pages > 1 && <nav aria-label="提醒方案分頁" className="flex items-center justify-between gap-2 border-t p-3"><button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="min-h-11 rounded border px-3 disabled:opacity-40">上一頁</button><span className="text-sm">{currentPage}／{pages} 頁 · {filtered.length} 項</span><button type="button" disabled={currentPage === pages} onClick={() => setPage(currentPage + 1)} className="min-h-11 rounded border px-3 disabled:opacity-40">下一頁</button></nav>}
       <div className="sticky bottom-0 z-10 space-y-2 border-t bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <p role="status" className="text-sm text-primary-800">{message || (changes.length ? `${changes.length} 項尚未儲存` : "所有設定已儲存")}</p>

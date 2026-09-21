@@ -184,7 +184,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             ) : null}
           </div>
 
-          <div className="sticky bottom-0 z-10 mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-earth-100 bg-white py-3">
+          <div className={`${compact ? "" : "sticky bottom-0 z-10"} mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-earth-100 bg-white py-3`}>
             <span className="text-[11px] text-earth-400">
               {pending ? "儲存中..." : draft !== savedDraft ? "尚未儲存" : "尚未變更"}
             </span>
@@ -194,7 +194,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
               disabled={pending || invalid || draft === savedDraft}
               className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
             >
-              {pending ? "儲存中..." : "儲存"}
+              {pending ? "儲存中..." : courseMode ? "儲存體驗設定" : "儲存"}
             </button>
           </div>
         </section>

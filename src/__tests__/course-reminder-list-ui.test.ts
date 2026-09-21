@@ -3,7 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ save: vi.fn() }));
-vi.mock("@/server/actions/course-low-balance", () => ({ saveCourseLowBalanceSetting: mocks.save }));
+vi.mock("@/server/actions/course-plan-reminders", () => ({ saveCoursePlanReminderSetting: mocks.save }));
 import { CourseLowBalanceSettings } from "@/app/(dashboard)/dashboard/courses/reminders/low-balance-settings";
 let root: Root, host: HTMLDivElement;
 const plans = Array.from({ length: 21 }, (_, i) => ({ id: `p${i}`, name: `方案${i}`, unit: "SESSION", isActive: true, lowBalanceEnabled: true, lowBalanceThreshold: 3 }));
@@ -15,7 +15,7 @@ it("keeps edits across pagination, search and collapse and saves hidden edits", 
   expect(host.querySelectorAll('input[aria-label$="提醒門檻"]')).toHaveLength(10);
   await input("方案0 提醒門檻", "7"); await click("下一頁"); await input("方案10 提醒門檻", "8");
   await input("搜尋提醒方案", "方案20"); expect(host.querySelectorAll('input[aria-label$="提醒門檻"]')).toHaveLength(1);
-  await click("儲存全部修改"); expect(mocks.save.mock.calls.map(c => c[0])).toEqual([{ planId: "p0", enabled: true, threshold: 7 }, { planId: "p10", enabled: true, threshold: 8 }]);
+  await click("儲存全部修改"); expect(mocks.save.mock.calls.map(c => c[0])).toEqual([{ planId: "p0", enabled: true, threshold: 7, expiry:{enabled:true,days:[14,7]} }, { planId: "p10", enabled: true, threshold: 8, expiry:{enabled:true,days:[14,7]} }]);
   expect(host.textContent).toContain("已儲存 2 項設定");
 });
 it("retains failed and unattempted edits without resaving earlier successes", async () => {
@@ -26,4 +26,12 @@ it("retains failed and unattempted edits without resaving earlier successes", as
 it("validates hidden drafts before saving and confirms discard", async () => {
   await input("方案0 提醒門檻", ""); await click("下一頁"); await click("儲存全部修改"); expect(mocks.save).not.toHaveBeenCalled(); expect(host.textContent).toContain("方案0");
   await click("取消修改"); await click("繼續編輯"); expect(host.textContent).toContain("1 項未儲存"); await click("取消修改"); await click("捨棄修改"); expect(host.textContent).toContain("所有設定已儲存");
+});
+
+it("keeps custom expiry days across pages and saves them with the quota setting", async()=>{
+ await input("方案0 到期提醒天數","30, 7, 7"); await click("下一頁"); await click("儲存全部修改");
+ expect(mocks.save).toHaveBeenCalledExactlyOnceWith({planId:"p0",enabled:true,threshold:3,expiry:{enabled:true,days:[30,7]}});
+});
+it("rejects invalid hidden expiry days before sending any changes", async()=>{
+ await input("方案0 到期提醒天數","0, 366"); await click("下一頁"); await click("儲存全部修改"); expect(mocks.save).not.toHaveBeenCalled(); expect(host.textContent).toContain("方案0");
 });

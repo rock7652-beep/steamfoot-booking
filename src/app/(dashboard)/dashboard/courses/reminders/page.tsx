@@ -1,5 +1,5 @@
 import {CourseLowBalanceSettings} from "./low-balance-settings";
-import {getCourseLowBalanceSettings} from "@/server/actions/course-low-balance";
+import {getCoursePlanReminderSettings} from "@/server/actions/course-plan-reminders";
 import { LineNotificationRecipientsCard } from "../../reminders/line-notification-recipients-card";
 import { listStoreLineNotificationRecipients } from "@/server/actions/store-line-notification-recipients";
 import { notFound } from "next/navigation";
@@ -36,7 +36,7 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
       <ReminderTabs active={active} explicit={!!params.tab} storeId={storeId} baseHref="/dashboard/courses/reminders" />
       {previewBlocked && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">隔離預覽不向外發送 LINE。設定可儲存，跳過紀錄不代表實機送達。</p>}
       {lineHealth && <StoreLineHealthCard initialStatus={lineHealth} />}
-      {active === "manager" ? <LineNotificationRecipientsCard recipients={await listStoreLineNotificationRecipients()} course /> : active === "logs" ? <NotificationLogList data={await listNotificationCenterLogs(params)} params={params} baseHref="/dashboard/courses/reminders" course /> : setting && <><PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={false} course /><PlanExpiryReminderSettingCard initialEnabled={(await getCourseExpiryReminderSetting()).enabled} course /><CourseLowBalanceSettings plans={await getCourseLowBalanceSettings()}/></>}
+      {active === "manager" ? <LineNotificationRecipientsCard recipients={await listStoreLineNotificationRecipients()} course /> : active === "logs" ? <NotificationLogList data={await listNotificationCenterLogs(params)} params={params} baseHref="/dashboard/courses/reminders" course /> : setting && <><PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={false} course /><PlanExpiryReminderSettingCard initialEnabled={(await getCourseExpiryReminderSetting()).enabled} course /><CourseLowBalanceSettings plans={await getCoursePlanReminderSettings()}/></>}
     </div>}
   </PageShell>;
 }

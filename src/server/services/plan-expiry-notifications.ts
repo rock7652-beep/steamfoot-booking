@@ -32,7 +32,7 @@ export function buildPlanExpiryLineMessages(input: {
   planName: string;
   remainingSessions: number;
   expiryDate: Date;
-  daysUntilExpiry: 14 | 7;
+  daysUntilExpiry: number;
   storeSlug: string;
   course?: {unit:"POINT"|"SESSION";remaining:number;held:number;url:string};
 }): LineFlexMessage[] {
