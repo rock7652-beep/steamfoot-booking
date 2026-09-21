@@ -61,20 +61,140 @@ export async function saveCourseCustomerAttribution(input: z.infer<typeof update
   } catch (error) { return handleActionError(error); }
 }
 
-export async function searchCourseReferrerCandidates(query: string, excludeCustomerId?: string): Promise<ActionResult<Array<{ id: string; name: string; phoneMasked: string }>>> {
+export async function searchCourseReferrerCandidates(
+  query: string,
+  excludeCustomerId?: string,
+): Promise<
+  ActionResult<
+    Array<{
+      id: string;
+      name: string;
+      phoneMasked: string;
+      kind: "CUSTOMER" | "COACH";
+      kindLabel: string;
+    }>
+  >
+> {
   try {
     const { storeId } = await courseManager("customer.read");
     const q = z.string().trim().max(100).parse(query);
     if (!q) return { success: true, data: [] };
     const digits = normalizePhone(q);
-    const matches = await prisma.customer.findMany({
-      where: {
-        storeId, mergedIntoCustomerId: null,
-        ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
-        OR: [{ name: { contains: q, mode: "insensitive" } }, ...(/\d/.test(q) && digits ? [{ phone: { contains: digits } }] : [])],
-      },
-      select: { id: true, name: true, phone: true }, orderBy: { name: "asc" }, take: 10,
-    });
-    return { success: true, data: matches.map(person => ({ id: person.id, name: person.name, phoneMasked: person.phone.length > 7 ? `${person.phone.slice(0, 4)}•••${person.phone.slice(-3)}` : person.phone })) };
-  } catch (error) { return handleActionError(error); }
+
+    const [customers, coaches] = await Promise.all([
+      prisma.customer.findMany({
+        where: {
+          storeId,
+          mergedIntoCustomerId: null,
+          ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            ...(/\d/.test(q) && digits ? [{ phone: { contains: digits } }] : []),
+          ],
+        },
+        select: { id: true, name: true, phone: true, userId: true, identityLinks: { select: { userId: true } } },
+        orderBy: { name: "asc" },
+        take: 10,
+      }),
+      prisma.staff.findMany({
+        where: {
+          storeId,
+          status: "ACTIVE",
+          courseCoachEnabled: true,
+          OR: [
+            { displayName: { contains: q, mode: "insensitive" } },
+            ...(/\d/.test(q) && digits ? [{ phone: { contains: digits } }] : []),
+          ],
+        },
+        select: {
+          id: true,
+          displayName: true,
+          phone: true,
+          memberLink: { select: { userId: true, revokedAt: true } },
+        },
+        orderBy: { displayName: "asc" },
+        take: 10,
+      }),
+    ]);
+
+    const coachUserIds = coaches
+      .flatMap((coach) =>
+        coach.memberLink && !coach.memberLink.revokedAt ? [coach.memberLink.userId] : [],
+      );
+
+    const linkedCoachCustomers = coachUserIds.length
+      ? await prisma.customer.findMany({
+          where: {
+            storeId,
+            mergedIntoCustomerId: null,
+            ...(excludeCustomerId ? { id: { not: excludeCustomerId } } : {}),
+            OR: [
+              { userId: { in: coachUserIds } },
+              { identityLinks: { some: { userId: { in: coachUserIds } } } },
+            ],
+          },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            userId: true,
+            identityLinks: { select: { userId: true } },
+          },
+        })
+      : [];
+
+    const byCustomerId = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        phoneMasked: string;
+        kind: "CUSTOMER" | "COACH";
+        kindLabel: string;
+      }
+    >();
+
+    const maskPhone = (phone: string) =>
+      phone.length > 7
+        ? `${phone.slice(0, 4)}•••${phone.slice(-3)}`
+        : phone;
+
+    for (const person of customers) {
+      byCustomerId.set(person.id, {
+        id: person.id,
+        name: person.name,
+        phoneMasked: maskPhone(person.phone),
+        kind: "CUSTOMER",
+        kindLabel: "顧客",
+      });
+    }
+
+    for (const coach of coaches) {
+      const userId =
+        coach.memberLink && !coach.memberLink.revokedAt
+          ? coach.memberLink.userId
+          : null;
+      if (!userId) continue;
+      const customer = linkedCoachCustomers.find(
+        (person) =>
+          person.userId === userId ||
+          person.identityLinks.some((link) => link.userId === userId),
+      );
+      if (!customer) continue;
+      byCustomerId.set(customer.id, {
+        id: customer.id,
+        name: coach.displayName || customer.name,
+        phoneMasked: maskPhone(coach.phone || customer.phone),
+        kind: "COACH",
+        kindLabel: "教練",
+      });
+    }
+
+    return {
+      success: true,
+      data: [...byCustomerId.values()].slice(0, 10),
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
 }
