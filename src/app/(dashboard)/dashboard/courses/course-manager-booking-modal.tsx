@@ -3,17 +3,16 @@
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
+import { courseButton, courseField } from "@/components/admin/course-ui";
 import { formatTWDateTime } from "@/lib/date-utils";
 import {
   createCourseBooking,
   searchCourseBookingCandidates,
 } from "@/server/actions/course-members";
 
-const button =
-  "min-h-11 rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm disabled:opacity-50";
+const button = courseButton;
 const primary = `${button} border-primary-700 bg-primary-700 text-white`;
-const field =
-  "min-h-12 w-full rounded-xl border border-earth-200 bg-white px-3 py-2.5 text-base outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100";
+const field = courseField;
 
 type Candidate = {
   id: string;
