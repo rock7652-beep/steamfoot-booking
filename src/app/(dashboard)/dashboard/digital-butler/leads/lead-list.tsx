@@ -103,6 +103,17 @@ export function DigitalButlerLeadList({
     });
   }, [focusedLeadId]);
 
+  function clearFilters() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("status");
+    params.delete("staff");
+    params.delete("provider");
+    startFilterTransition(() => {
+      const query = params.toString();
+      router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    });
+  }
+
   function filter(key: "status" | "staff" | "provider", value: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (waitingForHumanSupport) params.delete("handoff");
@@ -162,7 +173,8 @@ export function DigitalButlerLeadList({
                 </select>
               </label>
             </div>
-            <div className="mt-3 flex justify-end">
+            <div className="mt-3 flex items-center justify-end gap-3">
+              {activeFilterCount > 0 ? <button type="button" onClick={clearFilters} className="min-h-11 px-2 text-sm text-earth-500 underline-offset-2 hover:text-earth-700 hover:underline">清除全部</button> : null}
               <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-lg border border-earth-200 bg-white px-4 text-sm text-earth-700 hover:border-primary-400">完成</button>
             </div>
           </div>
