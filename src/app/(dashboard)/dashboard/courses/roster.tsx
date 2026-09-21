@@ -16,6 +16,8 @@ import type { CourseCardView } from "./member-workspace";
 import type { getCourseRoster } from "@/server/queries/course-members";
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+const rowAction =
+  "min-h-9 rounded-lg border border-earth-200 bg-white px-2 py-1 text-xs whitespace-nowrap disabled:opacity-50";
 export function CourseRoster({
   sessionId,
   capacity,
@@ -165,20 +167,23 @@ export function CourseRoster({
           aria-label="搜尋上課名單"
         />
       </div>
-      <div className="max-h-[58vh] overflow-y-auto overscroll-contain rounded-xl border border-earth-200 bg-white">
-        <div className="sticky top-0 z-[1] hidden grid-cols-[2rem_minmax(8rem,1.1fr)_minmax(10rem,1.2fr)_minmax(7rem,1fr)_6rem_5rem] gap-2 border-b border-earth-200 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600 sm:grid">
-          <span />
-          <span>姓名／電話</span>
-          <span>方案</span>
-          <span>備註</span>
-          <span>狀態</span>
-          <span>操作</span>
-        </div>
-        <div className="divide-y divide-earth-100">
-          {displayedRows.map((b) => (
-            <details key={b.id} className="group">
-              <summary className="grid cursor-pointer list-none grid-cols-[2rem_1fr_auto] items-center gap-2 px-3 py-2 text-sm hover:bg-earth-50 sm:grid-cols-[2rem_minmax(8rem,1.1fr)_minmax(10rem,1.2fr)_minmax(7rem,1fr)_6rem_5rem]">
-                <span onClick={e=>e.stopPropagation()}>
+      <div className="max-h-[58vh] overflow-auto overscroll-contain rounded-xl border border-earth-200 bg-white">
+        <div className="min-w-[900px]">
+          <div className="sticky top-0 z-[1] grid grid-cols-[2rem_minmax(8rem,1.05fr)_minmax(9rem,1fr)_minmax(13rem,1.55fr)_5.5rem_minmax(12rem,1.2fr)] gap-2 border-b border-earth-200 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
+            <span />
+            <span>姓名／電話</span>
+            <span>方案</span>
+            <span>備註</span>
+            <span>狀態</span>
+            <span>操作</span>
+          </div>
+          <div className="divide-y divide-earth-100">
+            {displayedRows.map((b) => (
+              <div
+                key={b.id}
+                className="grid grid-cols-[2rem_minmax(8rem,1.05fr)_minmax(9rem,1fr)_minmax(13rem,1.55fr)_5.5rem_minmax(12rem,1.2fr)] items-start gap-2 px-3 py-2 text-sm hover:bg-earth-50"
+              >
+                <span className="pt-1">
                   {canEdit && b.status!=="CANCELLED" && (
                     <input
                       type="checkbox"
@@ -189,53 +194,83 @@ export function CourseRoster({
                     />
                   )}
                 </span>
+
                 <span className="min-w-0">
-                  <strong className="block truncate">{b.customerName}</strong>
-                  <span className="block truncate text-xs text-earth-500">{b.phone || "未填電話"}</span>
+                  <strong className="block break-words">{b.customerName}</strong>
+                  <span className="block text-xs text-earth-500">{b.phone || "未填電話"}</span>
                 </span>
-                <span className="hidden min-w-0 truncate sm:block">
-                  {b.bookingKind === "TRIAL" ? "體驗" : b.planName}
-                  {b.bookingKind !== "TRIAL" && <span className="block text-xs text-earth-500">{b.available} {b.unit === "SESSION" ? "堂" : "點"}可用</span>}
-                </span>
-                <span className="hidden min-w-0 truncate sm:block">{b.serviceNote||b.notes?"有備註":"—"}</span>
-                <span className="whitespace-nowrap text-xs">{statusLabel(b)}</span>
-                <span className="hidden text-xs text-earth-500 sm:block">查看 ›</span>
-                <span className="col-span-2 ml-10 text-xs text-earth-500 sm:hidden">
-                  {b.bookingKind === "TRIAL" ? "體驗" : b.planName} · {b.serviceNote||b.notes?"有備註":"無備註"}
-                </span>
-              </summary>
-              <div className="space-y-3 border-t border-earth-100 bg-earth-50/60 px-4 py-3 text-sm">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <p>預約操作人：{b.operatorName} · {b.operatorCustomerId ? b.operatorCustomerId === b.customerId ? "自己上課" : "共卡代約" : "店長代約"}</p>
-                  {b.bookingKind === "TRIAL" ? (
-                    <p>體驗金額 NT$ {b.trialPrice} · {b.trialPayments.some(p=>p.status==="SUCCESS") ? `已收款 NT$ ${b.trialPayments.find(p=>p.status==="SUCCESS")!.amount}` : "未收款"}</p>
-                  ) : (
-                    <p className="text-primary-800">方案：{b.planName} · 可用 {b.available} {b.unit === "SESSION" ? "堂" : "點"}{b.expiresAt ? ` · 到期 ${formatTWDateTime(new Date(b.expiresAt)).slice(0,10)}` : ""}</p>
+
+                <span className="min-w-0">
+                  <span className="block break-words">{b.bookingKind === "TRIAL" ? "體驗" : b.planName}</span>
+                  {b.bookingKind !== "TRIAL" && (
+                    <span className="block text-xs text-earth-500">
+                      {b.available} {b.unit === "SESSION" ? "堂" : "點"}可用
+                      {b.expiresAt ? ` · ${formatTWDateTime(new Date(b.expiresAt)).slice(0,10)} 到期` : ""}
+                    </span>
                   )}
-                  <p className="sm:col-span-2 text-earth-600">店內備註：{b.serviceNote || "無"}</p>
-                  <p className="sm:col-span-2 text-earth-600">本次備註：{b.notes || "無"}</p>
-                </div>
-                {b.bookingKind === "TRIAL" && allowTrialActions && (
-                  <div className="flex flex-wrap gap-2">
-                    {trial?.canCollect && b.status!=="CANCELLED" && (
-                      <button className={button} disabled={pending || (b.trialPayments.some(p=>p.status==="SUCCESS") && (!trial.canCorrect || b.status!=="RESERVED"))} onClick={()=>{setRequestKey(crypto.randomUUID());setCorrectPayment(b.trialPayments.some(p=>p.status==="SUCCESS"));setPaymentBooking(b.id);}}>
-                        {b.trialPayments.some(p=>p.status==="SUCCESS") ? "更正體驗收款" : "體驗收款"}
+                </span>
+
+                <span className="min-w-0 space-y-1 break-words text-xs text-earth-600">
+                  <span className="block">
+                    <span className="font-medium text-earth-700">店內：</span>
+                    {b.serviceNote || "—"}
+                  </span>
+                  <span className="block">
+                    <span className="font-medium text-earth-700">本次：</span>
+                    {b.notes || "—"}
+                  </span>
+                </span>
+
+                <span className="pt-0.5">
+                  <span className="inline-flex rounded-md bg-earth-100 px-2 py-1 text-xs text-earth-700">
+                    {statusLabel(b)}
+                  </span>
+                </span>
+
+                <span className="flex flex-wrap gap-1.5">
+                  {canEdit && b.status === "RESERVED" ? (
+                    <>
+                      <button
+                        className={rowAction}
+                        disabled={pending}
+                        onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "NO_SHOW" }))}
+                      >
+                        未到
                       </button>
-                    )}
-                  </div>
-                )}
-                {canEdit && b.status === "RESERVED" && (
-                  <div className="flex flex-wrap gap-2">
-                    {!b.checkedInAt && <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "CHECKED_IN" }))}>報到</button>}
-                    <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "NO_SHOW" }))}>未到</button>
-                    <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "ATTENDED" }))}>出席</button>
-                    <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "CANCELLED" }))}>取消預約</button>
-                  </div>
-                )}
+                      <button
+                        className={rowAction}
+                        disabled={pending}
+                        onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "ATTENDED" }))}
+                      >
+                        出席
+                      </button>
+                      <button
+                        className={rowAction}
+                        disabled={pending}
+                        onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "CANCELLED" }))}
+                      >
+                        取消
+                      </button>
+                    </>
+                  ) : (
+                    <span className="pt-1 text-xs text-earth-400">—</span>
+                  )}
+                  {b.bookingKind === "TRIAL" && allowTrialActions && trial?.canCollect && b.status!=="CANCELLED" && (
+                    <button
+                      className={rowAction}
+                      disabled={pending || (b.trialPayments.some(p=>p.status==="SUCCESS") && (!trial.canCorrect || b.status!=="RESERVED"))}
+                      onClick={()=>{setRequestKey(crypto.randomUUID());setCorrectPayment(b.trialPayments.some(p=>p.status==="SUCCESS"));setPaymentBooking(b.id);}}
+                    >
+                      {b.trialPayments.some(p=>p.status==="SUCCESS") ? "更正收款" : "體驗收款"}
+                    </button>
+                  )}
+                </span>
               </div>
-            </details>
-          ))}
-          {!displayedRows.length && <p className="p-6 text-center text-sm text-earth-500">沒有符合條件的學員。</p>}
+            ))}
+            {!displayedRows.length && (
+              <p className="p-6 text-center text-sm text-earth-500">沒有符合條件的學員。</p>
+            )}
+          </div>
         </div>
       </div>
       {rows.length>10&&<nav aria-label="學員分頁" className="flex items-center justify-between"><button className={button} disabled={currentPage===0||pending} onClick={()=>setPage(currentPage-1)}>上一頁</button><span>{currentPage+1} / {Math.ceil(rows.length/10)} · 共 {rows.length} 人</span><button className={button} disabled={(currentPage+1)*10>=rows.length||pending} onClick={()=>setPage(currentPage+1)}>下一頁</button></nav>}
