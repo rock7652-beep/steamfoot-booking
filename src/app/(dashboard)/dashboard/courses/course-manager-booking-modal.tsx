@@ -69,7 +69,7 @@ export function CourseManagerBookingModal({
           const digits = query.replace(/\D/g, "");
           if (rows.length === 1 && digits.length >= 6) {
             setCustomerId(rows[0].id);
-            setCardId(rows[0].plans.length === 1 ? rows[0].plans[0].id : "");
+            setCardId(rows[0].plans[0]?.id ?? "");
           }
         })
         .catch(() => active && setMessage("搜尋失敗，請重試"))
@@ -89,7 +89,7 @@ export function CourseManagerBookingModal({
 
   function selectCustomer(candidate: Candidate) {
     setCustomerId(candidate.id);
-    setCardId(candidate.plans.length === 1 ? candidate.plans[0].id : "");
+    setCardId(candidate.plans[0]?.id ?? "");
     setRequestKey(crypto.randomUUID());
   }
 
