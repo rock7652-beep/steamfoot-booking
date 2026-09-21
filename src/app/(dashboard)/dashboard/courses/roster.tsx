@@ -48,7 +48,6 @@ export function CourseRoster({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [selected, setSelected] = useState<string[]>([]);
-  const [page, setPage] = useState(0);
   const [batchTarget, setBatchTarget] = useState<
     "CHECKED_IN" | "ATTENDED" | "NO_SHOW" | "RESERVED"
   >("CHECKED_IN");
@@ -163,14 +162,6 @@ export function CourseRoster({
         booking.customerName.toLocaleLowerCase().includes(normalizedRosterQuery),
       )
     : rows;
-  const currentPage = Math.min(
-    page,
-    Math.max(0, Math.ceil(searchedRows.length / 10) - 1),
-  );
-  const displayedRows = searchedRows.slice(
-    currentPage * 10,
-    currentPage * 10 + 10,
-  );
   const count = activeRows.length;
 
   const learners = useMemo(
@@ -542,7 +533,6 @@ export function CourseRoster({
           value={memberQuery}
           onChange={(event) => {
             setMemberQuery(event.target.value);
-            setPage(0);
           }}
           placeholder="搜尋學員姓名"
           aria-label="搜尋上課學員"
@@ -613,7 +603,6 @@ export function CourseRoster({
           className={`${button} ${!showCancelled ? "border-primary-500 text-primary-800" : ""}`}
           onClick={() => {
             setShowCancelled(false);
-            setPage(0);
           }}
         >
           上課名單 {activeRows.length}
@@ -622,23 +611,22 @@ export function CourseRoster({
           className={`${button} ${showCancelled ? "border-primary-500 text-primary-800" : ""}`}
           onClick={() => {
             setShowCancelled(true);
-            setPage(0);
           }}
         >
           已取消預約（{cancelledRows.length}）
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-earth-200">
-        <div className="hidden grid-cols-[2fr_2fr_2.5fr_1fr_2fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600 md:grid">
+      <div className="overflow-x-auto rounded-xl border border-earth-200">
+        <div className="grid min-w-[1080px] grid-cols-[1.6fr_2fr_2.5fr_0.8fr_2.2fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
           <span>姓名</span>
           <span>方案／收費</span>
           <span>備註</span>
           <span>狀態</span>
           <span>操作</span>
         </div>
-        <ul className="max-h-[56vh] divide-y overflow-y-auto overscroll-contain">
-          {displayedRows.map((booking) => {
+        <ul className="max-h-[60vh] min-w-[1080px] divide-y overflow-y-auto overscroll-contain">
+          {searchedRows.map((booking) => {
             const paid = booking.trialPayments.find(
               (payment) => payment.status === "SUCCESS",
             );
@@ -655,7 +643,7 @@ export function CourseRoster({
             return (
               <li
                 key={booking.id}
-                className="grid gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-3 text-sm hover:bg-earth-50 md:grid-cols-[2fr_2fr_2.5fr_1fr_2fr]"
+                className="grid min-h-14 grid-cols-[1.6fr_2fr_2.5fr_0.8fr_2.2fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
               >
                 <div className="flex items-start gap-2">
                   {canEdit && booking.status !== "CANCELLED" && (
@@ -674,52 +662,46 @@ export function CourseRoster({
                       }
                     />
                   )}
-                  <div>
+                  <p className="min-w-0 truncate" title={booking.customerName}>
                     <strong>{booking.customerName}</strong>
-                    <p className="mt-1 text-xs text-earth-500">
+                    <span className="ml-1 text-xs text-earth-500">
+                      ·{" "}
                       {booking.operatorCustomerId
                         ? booking.operatorCustomerId === booking.customerId
-                          ? "自己預約"
+                          ? "本人"
                           : "共卡代約"
                         : "店長代約"}
-                    </p>
-                  </div>
+                    </span>
+                  </p>
                 </div>
                 <div>
                   {booking.bookingKind === "TRIAL" ? (
                     <>
-                      <span className="inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
-                        體驗客
-                      </span>
-                      <p className="mt-1">
+                      <p className="truncate" title={`體驗客 · NT$ ${booking.trialPrice} · ${paid ? `已收 NT$ ${paid.amount}` : "未收款"}`}>
+                        <span className="mr-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
+                          體驗客
+                        </span>
                         NT$ {booking.trialPrice} · {paid ? `已收 NT$ ${paid.amount}` : "未收款"}
                       </p>
-                      {booking.trialPayments.length > 0 && (
-                        <details className="mt-1 text-xs text-earth-600">
-                          <summary className="cursor-pointer">收款紀錄</summary>
-                          {booking.trialPayments.map((payment) => (
-                            <p key={payment.id}>
-                              {formatTWDateTime(new Date(payment.createdAt))} · NT$ {payment.amount} ·{" "}
-                              {payment.status === "SUCCESS" ? "已收款" : "已作廢"}
-                            </p>
-                          ))}
-                        </details>
-                      )}
                     </>
                   ) : (
                     <>
-                      <strong className="font-medium">{booking.planName}</strong>
-                      <p className="mt-1 text-xs text-earth-600">
-                        {booking.pointCost} {booking.unit === "SESSION" ? "堂" : "點"} · 可用{" "}
-                        {booking.available} {booking.unit === "SESSION" ? "堂" : "點"}
+                      <p className="truncate" title={`${booking.planName} · ${booking.pointCost} ${booking.unit === "SESSION" ? "堂" : "點"} · 可用 ${booking.available}`}>
+                        <strong className="font-medium">{booking.planName}</strong>
+                        <span className="text-xs text-earth-600">
+                          {" "}· {booking.pointCost} {booking.unit === "SESSION" ? "堂" : "點"} · 可用{" "}
+                          {booking.available}
+                        </span>
                       </p>
                     </>
                   )}
                 </div>
-                <div className="text-earth-600">
-                  <p>店內：{booking.serviceNote || "—"}</p>
-                  <p className="mt-1">本次：{booking.notes || "—"}</p>
-                </div>
+                <p
+                  className="truncate text-earth-600"
+                  title={`店內：${booking.serviceNote || "—"}｜本次：${booking.notes || "—"}`}
+                >
+                  店內：{booking.serviceNote || "—"}｜本次：{booking.notes || "—"}
+                </p>
                 <div>
                   <span className="inline-flex rounded-full bg-earth-100 px-2 py-1 text-xs">
                     {statusLabel}
@@ -811,41 +793,29 @@ export function CourseRoster({
                     trial?.canCorrect &&
                     paid &&
                     booking.bookingKind === "TRIAL" && (
-                      <details className="w-full text-xs">
-                        <summary className="cursor-pointer py-2 text-earth-600">作廢收款</summary>
-                        <form
-                          className="space-y-2"
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            const reason = String(
-                              new FormData(event.currentTarget).get("reason") ?? "",
-                            );
+                      <button
+                        className={button}
+                        disabled={pending}
+                        onClick={() => {
+                          const reason = window.prompt("請輸入作廢原因");
+                          if (reason?.trim()) {
                             run(() =>
                               voidCourseTrialPayment({
                                 paymentId: paid.id,
-                                reason,
+                                reason: reason.trim(),
                               }),
                             );
-                          }}
-                        >
-                          <input
-                            name="reason"
-                            required
-                            maxLength={500}
-                            placeholder="作廢原因"
-                            className={field}
-                          />
-                          <button disabled={pending} className={button}>
-                            確認作廢
-                          </button>
-                        </form>
-                      </details>
+                          }
+                        }}
+                      >
+                        作廢收款
+                      </button>
                     )}
                 </div>
               </li>
             );
           })}
-          {!displayedRows.length && (
+          {!searchedRows.length && (
             <li className="p-8 text-center text-sm text-earth-500">
               沒有符合條件的學員。
             </li>
@@ -853,27 +823,7 @@ export function CourseRoster({
         </ul>
       </div>
 
-      {searchedRows.length > 10 && (
-        <nav aria-label="學員分頁" className="flex items-center justify-between">
-          <button
-            className={button}
-            disabled={currentPage === 0 || pending}
-            onClick={() => setPage(currentPage - 1)}
-          >
-            上一頁
-          </button>
-          <span className="text-sm">
-            {currentPage + 1} / {Math.ceil(searchedRows.length / 10)} · 共 {searchedRows.length} 人
-          </span>
-          <button
-            className={button}
-            disabled={(currentPage + 1) * 10 >= searchedRows.length || pending}
-            onClick={() => setPage(currentPage + 1)}
-          >
-            下一頁
-          </button>
-        </nav>
-      )}
+
 
       {payBooking && paymentSettings && !correctPayment && (
         <CollectTrialModal
