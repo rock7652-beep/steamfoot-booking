@@ -8,7 +8,7 @@ import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
-import { courseButton, courseDetails, courseDetailsSummary, courseField } from "@/components/admin/course-ui";
+import { courseButton, courseField } from "@/components/admin/course-ui";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
   saveCourseCustomer,
