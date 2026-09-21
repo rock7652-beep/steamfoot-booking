@@ -59,6 +59,7 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
         key={storeId}
         canDigitalButler={canPayment && !readOnly && digitalButler}
         canReferralShare={canPayment && !readOnly && referralShare}
+        canUnassignedPlans={canPlans && await checkPermission(user.role,user.staffId,"customer.read")}
         subscriptionSummary={canPayment ? subscriptionSummary : undefined}
         bookingWindowDays={config?.bookingWindowDays ?? DEFAULT_BOOKABLE_DAYS_AHEAD}
         bookableUntilDate={config?.bookableUntilDate?.toISOString().slice(0,10) ?? null}

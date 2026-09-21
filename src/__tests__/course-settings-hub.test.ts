@@ -21,7 +21,7 @@ beforeEach(() => {
 });
 describe("course settings server summaries", () => {
   it("uses central defaults without inventing an inactive trial or fake subscription", async () => {
-    const p = await props(); expect(p.trialEnabled).toBe(true); expect(p.trialPrice).toBe(499); expect(p.bookingWindowDays).toBe(14); expect(p.subscriptionSummary).toContain("尚無訂閱紀錄"); expect(p.canDigitalButler).toBe(false); expect(p.canReferralShare).toBe(false); expect(p.canReminders).toBe(false); expect(p.canCare).toBe(false);
+    const p = await props(); expect(p.trialEnabled).toBe(true); expect(p.trialPrice).toBe(499); expect(p.bookingWindowDays).toBe(14); expect(p.subscriptionSummary).toContain("尚無訂閱紀錄"); expect(p.canDigitalButler).toBe(false); expect(p.canReferralShare).toBe(false); expect(p.canReminders).toBe(false); expect(p.canCare).toBe(false); expect(p.canUnassignedPlans).toBe(true);
   });
   it("normalizes Decimal prices, preserves explicit false and honors feature entitlements", async () => {
     m.config.mockResolvedValue({ trialEnabled: false, trialDefaultPrice: { valueOf: () => 800 }, bookingWindowDays: 30 }); m.feature.mockImplementation(async (_id, feature) => feature === FEATURES.CUSTOMER_CARE);

@@ -6,7 +6,7 @@ import { handleActionError } from "@/lib/errors";
 import { courseManager, courseTransaction } from "@/server/services/course-access";
 import { editCoursePurchaseInTransaction, voidCoursePurchaseInTransaction } from "@/server/services/course-purchase-correction";
 const base = z.object({ purchaseId: z.string().min(1).max(100), reason: z.string().trim().min(1, "請填寫原因").max(500) });
-function refresh() { for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/courses", "/book"]) revalidatePath(path); }
+function refresh() { for (const path of ["/dashboard", "/dashboard/courses/unassigned-plans", "/dashboard/revenue", "/dashboard/cashbook", "/dashboard/courses", "/book"]) revalidatePath(path); }
 export async function voidCoursePurchase(input: unknown) {
   try {
     const data = base.parse(input);

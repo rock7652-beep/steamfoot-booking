@@ -13,7 +13,7 @@ type Props = {
   bankName: string; bankCode: string; bankAccountNumber: string; bookingLeadMinutes: number; cancellationLeadMinutes: number;
   canEdit: boolean; canPayment: boolean; canStaff: boolean; canPlans: boolean;
   canTrial?: boolean; canHours?: boolean; canDutyRead?: boolean; canDutyManage?: boolean; canReminders?: boolean; canCare?: boolean;
-  canDigitalButler?: boolean; canReferralShare?: boolean; subscriptionSummary?: string;
+  canDigitalButler?: boolean; canReferralShare?: boolean; canUnassignedPlans?: boolean; subscriptionSummary?: string;
   bookingWindowDays?: number; bookableUntilDate?: string | null; dutyEnabled?: boolean;
   trialEnabled?: boolean; trialPrice?: number; usageMetrics?: UsageMetric[];
 };
@@ -80,11 +80,12 @@ export function CourseSettingsWorkspace(props: Props) {
         {props.canTrial && <Row title="體驗設定" summary={(props.trialEnabled ? "已啟用" : "未啟用") + " · 預設體驗價 NT$ " + (props.trialPrice ?? 0) + "；收款與出席分開。"} href="/dashboard/settings/trial" />}
       </section>
       <section hidden={active !== "notifications"} aria-label="通知與顧客經營">
+        {props.canUnassignedPlans && <Row title="未指派方案提醒" summary="站內待辦：查看尚無方案紀錄的顧客；排除待核帳、已加入共用方案及到期／用完的方案。本階段不自動傳送 LINE。" href="/dashboard/courses/unassigned-plans" />}
         {props.canReminders && <Row title="提醒管理" summary="上課、到期、低額度提醒，以及人員通知與發送紀錄；個別開關在提醒頁查看。" href="/dashboard/courses/reminders" />}
         {props.canCare && <Row title="顧客關懷" summary="查看生日、未回課與方案關懷名單；清單不等同自動發訊。" href="/dashboard/growth" />}
         {props.canReferralShare && <Row title="推薦分享" summary="已開通；編輯學員分享給朋友的文案。" href="/dashboard/settings/referral-share" />}
         {props.canDigitalButler && <Row title="數位管家" summary="已開通；互動流程是否啟用，請進入查看。" href="/dashboard/settings/digital-butler" />}
-        {!props.canReminders && !props.canCare && !props.canReferralShare && !props.canDigitalButler && <p className="py-5 text-sm text-earth-500">目前沒有可使用的通知設定，請聯絡有權限的管理者。</p>}
+        {!props.canUnassignedPlans && !props.canReminders && !props.canCare && !props.canReferralShare && !props.canDigitalButler && <p className="py-5 text-sm text-earth-500">目前沒有可使用的通知設定，請聯絡有權限的管理者。</p>}
       </section>
       <section hidden={active !== "subscription"} aria-label="系統方案與用量">
         <Row title="店家系統方案" summary={props.planLabel + " · 這是店家使用蒸管家的方案，不是販售給學員的課程方案。"}>{props.subscriptionSummary && <p className="mt-3 text-sm text-earth-600">{props.subscriptionSummary}</p>}<p className="mt-2 text-xs text-earth-500">續約或調整系統方案請聯絡總部。</p></Row>

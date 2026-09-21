@@ -82,4 +82,8 @@ describe("five-section course settings", () => {
     await render({ ...defaults, canDigitalButler: true, canReferralShare: true });
     expect(host.querySelector('a[href="/s/a/admin/dashboard/settings/digital-butler"]')).not.toBeNull(); expect(host.querySelector('a[href="/s/a/admin/dashboard/settings/referral-share"]')).not.toBeNull();
   });
+  it("shows the basic unassigned-plan reminder even without the customer-care add-on", async () => {
+    await render({ ...defaults, canUnassignedPlans: true, canCare: false, canReminders: false });
+    expect(host.querySelector('a[href="/s/a/admin/dashboard/courses/unassigned-plans"]')).not.toBeNull(); expect(host.textContent).toContain("本階段不自動傳送 LINE");
+  });
 });

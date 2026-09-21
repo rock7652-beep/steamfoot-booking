@@ -28,6 +28,7 @@ import {
 
 const id = z.string().min(1).max(100);
 function refresh() {
+  revalidatePath("/dashboard/courses/unassigned-plans");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/courses");
   revalidatePath("/book");
