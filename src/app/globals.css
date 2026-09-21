@@ -207,6 +207,36 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
 .course-workspace h1, .course-workspace h2 { color: var(--color-primary-900); }
 .course-workspace button { touch-action: manipulation; }
 .course-workspace input:focus, .course-workspace select:focus, .course-workspace textarea:focus { outline: 2px solid var(--color-primary-300); outline-offset: 1px; }
+.course-workspace input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.course-workspace select,
+.course-workspace textarea {
+  min-height: 3rem;
+  border-radius: 0.75rem;
+  border-color: var(--color-earth-200);
+  background: #fff;
+  padding: 0.625rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.course-workspace textarea {
+  min-height: 6rem;
+}
+
+.course-workspace input:disabled,
+.course-workspace select:disabled,
+.course-workspace textarea:disabled {
+  background: var(--color-earth-50);
+  color: var(--color-earth-400);
+}
+
+.course-workspace input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus,
+.course-workspace select:focus,
+.course-workspace textarea:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgb(78 122 104 / 0.12);
+}
 
 /* Expanded course cash forms need the full content width beside the sidebar. */
 .course-home [data-cash-layout]:has(details[open]) { grid-template-columns: minmax(0, 1fr); }
