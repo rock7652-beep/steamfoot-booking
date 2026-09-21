@@ -76,13 +76,13 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     { key: "plan", header: "方案", accessor: (r) => <span className="block max-w-32 truncate" title={r.name}>{r.name}</span> },
     { key: "amount", header: "原金額", align: "right", accessor: (r) => <span className="whitespace-nowrap">{money(r.price)}</span> },
     {key:"allocation",header:"店家／開發人分配",accessor:r=>{if(r.storeCostSnapshot==null)return <span className="whitespace-nowrap" title="舊交易未建立分配">舊交易待補</span>;const a=courseAllocationAfterRefund(r.price,r.storeCostSnapshot,r.refunds.reduce((n,v)=>n+v.amount,0));return <span className="whitespace-nowrap">{r.status==="VOIDED"?"已作廢":`店家 ${a.storeAmount.toLocaleString()}／開發 ${a.developerAmount.toLocaleString()}`}</span>;}},
-    { key: "status", header: "狀態", accessor: (r) => labels[r.status] ?? "需核對" },
+    { key: "status", header: "狀態", accessor: (r) => <span className="whitespace-nowrap">{labels[r.status] ?? "需核對"}</span> },
     { key: "staff", header: "核帳人員", accessor: (r) => {const name=staffRows.find((s) => s.userId === r.confirmedBy)?.displayName ?? "—";return <span className="block max-w-28 truncate whitespace-nowrap" title={name}>{name}</span>;} },
     { key: "action", header: "處理", noLink: true, accessor: (r) => <CourseTransactionActions order={r} canRefund={canRefund} canConfirm={canConfirm} canEdit={canEdit} canVoid={canVoid} staffOptions={staffRows.filter((s) => s.status === "ACTIVE").map((s) => ({ id: s.id, name: s.displayName }))} /> },
   ];
   const income = receiptTotals.purchases; const refund = receiptTotals.refunds;
   const field = "mt-1 block h-11 w-full rounded-lg border border-earth-300 bg-white px-3 py-0 text-sm leading-none text-earth-800";
-  const dateField = `${field} [&::-webkit-date-and-time-value]:flex [&::-webkit-date-and-time-value]:h-full [&::-webkit-date-and-time-value]:items-center [&::-webkit-datetime-edit]:flex [&::-webkit-datetime-edit]:items-center`;
+  const dateField = `${field} flex items-center leading-normal`;
   const selectField = `${field} appearance-none pr-9`;
   const selectStyle = {backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 12px center"};
   const href = (p: number) => `${basePath}?${new URLSearchParams({ dateFrom: from, dateTo: to, status: status ?? "", staff: staff ?? "", page: String(p) })}`;
