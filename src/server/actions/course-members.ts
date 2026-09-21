@@ -424,16 +424,19 @@ export async function restoreCourseBooking(input: unknown) {
         if (card.remaining - (held._sum.pointCost ?? 0) < booking.pointCost)
           throw new AppError("CONFLICT", "原方案目前可用額度不足，無法恢復");
 
-        await tx.coursePointEntry.create({
-          data: {
-            storeId,
-            cardId: card.id,
-            bookingId: booking.id,
-            actorUserId: user.id,
-            kind: `RESTORE:${crypto.randomUUID()}`,
-            points: booking.pointCost,
-          },
-        });
+        await tx.$executeRaw`
+          INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt")
+          VALUES (
+            ${crypto.randomUUID()},
+            ${user.id},
+            'CourseBooking',
+            ${booking.id},
+            'COURSE_BOOKING_RESTORE',
+            ${JSON.stringify({ status: "CANCELLED", storeId })}::jsonb,
+            ${JSON.stringify({ status: "RESERVED", cardId: booking.cardId })}::jsonb,
+            NOW()
+          )
+        `;
       }
 
       await tx.courseBooking.update({
