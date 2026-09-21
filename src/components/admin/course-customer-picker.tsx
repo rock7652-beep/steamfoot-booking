@@ -15,7 +15,7 @@ export function CourseCustomerPicker({ name, initial = [], multiple = false, req
   useEffect(()=>{
     if(!enabled)return;
     const normalizedQuery=query.trim();
-    if(!normalizedQuery){setResult(null);return;}
+    if(!normalizedQuery)return;
     let active=true;
     const timer=setTimeout(()=>{searchCourseCustomers(normalizedQuery).then(r=>{
       if(active) setResult(r.success ? {query:normalizedQuery,rows:r.rows,hasMore:r.hasMore} : {query:normalizedQuery,rows:[],hasMore:false,error:r.error});
