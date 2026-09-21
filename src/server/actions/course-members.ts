@@ -60,6 +60,7 @@ export async function saveCourseCustomer(input: unknown) {
       ...(data.lineName !== undefined ? { lineName: data.lineName || null } : {}),
       ...(data.serviceNote !== undefined ? { serviceNote: data.serviceNote || null } : {}),
     };
+    let customerId = data.id ?? "";
     if (data.id) {
       const result = await prisma.customer.updateMany({
         where: { id: data.id, storeId, mergedIntoCustomerId: null },
@@ -69,20 +70,22 @@ export async function saveCourseCustomer(input: unknown) {
     } else {
       const { getStoreLimitsByStoreId } = await import("@/lib/feature-gate");
       const limits = await getStoreLimitsByStoreId(storeId);
-      await prisma.$transaction(async (tx) => {
+      customerId = await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${storeId} FOR UPDATE`;
         const count = await tx.customer.count({
           where: { storeId, mergedIntoCustomerId: null },
         });
         if (limits.maxCustomers !== null && count >= limits.maxCustomers)
           throw new AppError("FORBIDDEN", "已達方案顧客額度上限");
-        await tx.customer.create({
+        const created = await tx.customer.create({
           data: { storeId, ...profile },
+          select: { id: true },
         });
+        return created.id;
       });
     }
     refresh();
-    return { success: true as const };
+    return { success: true as const, data: { id: customerId } };
   } catch (error) {
     return handleActionError(error);
   }
