@@ -6,6 +6,7 @@ import { PrismaClient } from "../../generated/course-client";
 import { resolveBookingConcurrencyTestDatabaseUrl } from "./helpers/booking-concurrency-test-db";
 import { assignCourseWithCheckout } from "@/server/services/course-assignment-checkout";
 import { deleteUnusedCourseItems } from "@/server/services/course-delete";
+import { recordCourseFeePayment, voidCourseFeePayment } from "@/server/services/course-fee-payment";
 import { lockCourseStore } from "@/server/services/course-store-lock";
 
 vi.mock("@/server/services/course-access",()=>({courseTransaction:vi.fn()}));
@@ -47,6 +48,7 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     await testDb().$executeRawUnsafe('CREATE TABLE "Customer" (id text PRIMARY KEY,"storeId" text,"mergedIntoCustomerId" text, name text)');
     await testDb().$executeRawUnsafe('CREATE TABLE "BusinessHours" ("storeId" text,"dayOfWeek" integer,"isOpen" boolean)');
     await testDb().$executeRawUnsafe('CREATE TABLE "SpecialBusinessDay" ("storeId" text,date date,type text)');
+    await testDb().$executeRawUnsafe('CREATE UNIQUE INDEX "CourseFeePayment_active_session" ON "CourseFeePayment" ("storeId","sessionId") WHERE "voidedAt" IS NULL');
     await testDb().$executeRawUnsafe('CREATE TABLE "CashDrawerSession" (id text PRIMARY KEY,"storeId" text,"businessDate" date,status text,"updatedAt" timestamp)');
   }, 30000);
   afterAll(async () => {
@@ -115,6 +117,37 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     expect(await testDb().coursePointCard.count({where:{storeId:f.storeId}})).toBe(0);
     expect(await testDb().coursePurchase.count({where:{storeId:f.storeId}})).toBe(0);
     const [{count}]=await testDb().$queryRaw<Array<{count:bigint}>>`SELECT count(*) FROM "CashbookEntry" WHERE "storeId"=${f.storeId}`;expect(Number(count)).toBe(0);
+  });
+
+  async function feeFixture() {
+    const f=await fixture();
+    const room=await testDb().courseRoom.create({data:{storeId:f.storeId,name:"教室"}});
+    const template=await testDb().courseTemplate.create({data:{storeId:f.storeId,name:"授課",durationMinutes:60,pointCost:1,capacity:20}});
+    const session=await testDb().courseSession.create({data:{storeId:f.storeId,templateId:template.id,roomId:room.id,coachId:f.storeId,nameSnapshot:"授課",startsAt:new Date("2020-01-01T01:00:00Z"),endsAt:new Date("2020-01-01T02:00:00Z"),pointCost:1,capacity:20,requestKey:randomUUID(),requestIndex:0,createdById:f.storeId}});
+    await testDb().courseCompensationSnapshot.create({data:{sessionId:session.id,storeId:f.storeId,staffId:f.storeId,rule:{mode:"CLASS",value:600},revision:1,durationMinutes:60}});
+    const input={sessionId:session.id,requestKey:randomUUID(),expectedAmount:600,method:"OTHER",note:"授課轉帳"};
+    const actor={storeId:f.storeId,userId:f.storeId};
+    const run=(data=input)=>testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);await recordCourseFeePayment(tx,actor,data);});
+    return {f,input,actor,run};
+  }
+  it("concurrent class payments create a single expense",async()=>{
+    const {f,run}=await feeFixture();await Promise.all([run(),run(),run()]);
+    const [{count}]=await testDb().$queryRaw<Array<{count:bigint}>>`SELECT count(*) FROM "CourseFeePayment" WHERE "storeId"=${f.storeId}`;
+    expect(Number(count)).toBe(1);
+    const entries=await testDb().$queryRaw<Array<{amount:number}>>`SELECT amount FROM "CashbookEntry" WHERE "storeId"=${f.storeId}`;expect(entries).toEqual([{amount:600}]);
+  });
+  it("failed fee expense rolls back its payment",async()=>{
+    const {f,input,run}=await feeFixture();await expect(run({...input,note:"force-rollback"})).rejects.toThrow();
+    const [{count}]=await testDb().$queryRaw<Array<{count:bigint}>>`SELECT count(*) FROM "CourseFeePayment" WHERE "storeId"=${f.storeId}`;expect(Number(count)).toBe(0);
+  });
+  it("fee correction preserves original and allows one replacement",async()=>{
+    const {f,input,actor,run}=await feeFixture();await run();
+    const [payment]=await testDb().$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseFeePayment" WHERE "storeId"=${f.storeId}`;
+    const correct=()=>testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);await voidCourseFeePayment(tx,actor,{paymentId:payment.id,reason:"誤登方式"});});
+    await Promise.all([correct(),correct()]);await expect(run()).rejects.toThrow("已更正");
+    await run({...input,requestKey:randomUUID()});
+    const entries=await testDb().$queryRaw<Array<{type:string;amount:number}>>`SELECT type,amount FROM "CashbookEntry" WHERE "storeId"=${f.storeId}`;
+    expect(entries).toHaveLength(3);expect(entries.reduce((n,e)=>n+(e.type==="EXPENSE"?e.amount:-e.amount),0)).toBe(600);
   });
 
 });

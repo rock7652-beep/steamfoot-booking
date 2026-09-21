@@ -1,3 +1,4 @@
+import {CourseFees} from "./course-fees";
 import {courseAllocationAfterRefund} from "@/lib/course-sale-allocation";
 import { getCourseRevenueReport } from "@/server/queries/course-revenue-report";
 import { getCourseReceiptTotals } from "@/server/queries/course-home";
@@ -101,6 +102,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
       {pages > 1 && <div className="flex justify-between p-3 text-sm"><span>第 {page} / {pages} 頁</span><div className="flex gap-4">{page > 1 && <Link href={href(page - 1)}>上一頁</Link>}{page < pages && <Link href={href(page + 1)}>下一頁</Link>}</div></div>}
     </section><aside className="col-span-12 space-y-3 lg:col-span-3"><SideCard title="相關工具"><div className="flex flex-col gap-3 text-sm"><Link href="/dashboard/transactions">交易明細與處理 →</Link>{canDataExport && !readOnly && <Link href="/dashboard/data-export">資料匯出 →</Link>}<Link href="/dashboard/store-revenue">收入總覽與匯出 →</Link><Link href="/dashboard/reconciliation">對帳中心 →</Link><Link href="/dashboard/cashbook">現金帳與完整現金管理 →</Link><Link href="/dashboard/courses?view=plans">方案與待核帳訂單 →</Link></div></SideCard><SideCard title="退款"><details><summary className="min-h-11 cursor-pointer py-3 text-primary-700">查看協商退款規則</summary><p className="text-sm">具退款權限的店長可登錄協商金額、方式及原因；累計不超過實付，有預約占用時先處理。確認後收回剩餘額度並停用卡片，保留原單及歷史。此操作不會自動匯款或退刷。</p></details></SideCard></aside></div>
+    <CourseFees storeId={storeId} range={range} readOnly={readOnly}/>
     <CourseTrialTransactions storeId={storeId} range={range} readOnly={readOnly} page={Math.max(1,Number(params.trialPage)||1)} basePath={basePath} query={{dateFrom:from,dateTo:to,status:status??"",staff:staff??""}} status={status} staff={staff}/>
   </PageShell>;
 }

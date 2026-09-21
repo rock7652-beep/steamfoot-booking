@@ -284,3 +284,23 @@ model CourseCompensationSnapshot {
   durationMinutes Int
   createdAt DateTime @default(now()) @db.Timestamptz
 }
+
+// Course-only payment ledger. SQL migration owns FKs and RLS.
+model CourseFeePayment {
+  id String @id
+  storeId String
+  sessionId String
+  staffId String
+  staffNameSnapshot String
+  amount Int
+  method String
+  note String
+  requestKey String
+  actorUserId String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  voidedAt DateTime? @db.Timestamptz
+  voidReason String?
+  voidedBy String?
+  @@unique([storeId, requestKey])
+  @@index([storeId, createdAt], map: "CourseFeePayment_store_created")
+}
