@@ -6,6 +6,7 @@ import {CourseConflicts,type ConflictItem} from "@/components/admin/course-confl
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
+import { courseField } from "@/components/admin/course-ui";
 
 import { readCourseStaffTeaching, saveCourseStaff } from "@/server/actions/course-staff";
 type Person = {
@@ -32,7 +33,7 @@ type Person = {
 function identity(p: Pick<Person,"kind"|"coachEnabled"|"memberEnabled"|"customerId">) {
   return p.kind === "manager" ? (p.coachEnabled ? "店長兼教練":"店長") : !p.coachEnabled ? "未啟用工作身分" : p.memberEnabled && p.customerId ? "教練兼顧客":"教練";
 }
-const field = "min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth-200 bg-white px-3 py-2 text-base text-earth-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100";
+const field = `${courseField} max-w-full`;
 const button =
   "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
