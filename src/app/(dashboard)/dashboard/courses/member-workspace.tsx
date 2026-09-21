@@ -374,7 +374,7 @@ export function CourseMemberWorkspace({
             </section>}
             {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["身高",person.height == null ? null : `${person.height} cm`],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["舊顧客備註（保留資料）",person.notes],["店內備註",person.serviceNote]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
+              <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["身高",person.height == null ? null : `${person.height} cm`],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["店內備註",person.serviceNote]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
               {canEdit && <button className={`${button} bg-primary-700 text-white`} onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
             </section>}
             {panel === "person" && (
@@ -388,7 +388,7 @@ export function CourseMemberWorkspace({
                       id: person?.id,
                       name: d.get("name"),
                       phone: d.get("phone"),
-                      email: d.get("email"), gender: d.get("gender"), birthday: d.get("birthday"), height: d.get("height"), lineName: d.get("lineName"), serviceNote: d.get("serviceNote"), address: d.get("address"), notes: d.get("notes"), emergencyContactName: d.get("emergencyContactName"), emergencyContactPhone: d.get("emergencyContactPhone"),
+                      email: d.get("email"), gender: d.get("gender"), birthday: d.get("birthday"), height: d.get("height"), lineName: d.get("lineName"), serviceNote: d.get("serviceNote"), address: d.get("address"), emergencyContactName: d.get("emergencyContactName"), emergencyContactPhone: d.get("emergencyContactPhone"),
                     }),
                   )
                 }
@@ -424,7 +424,7 @@ export function CourseMemberWorkspace({
                   <label className="block">緊急聯絡人姓名<input className={field} name="emergencyContactName" maxLength={100} defaultValue={person?.emergencyContactName ?? ""} /></label>
                   <label className="block">緊急聯絡人電話<input className={field} name="emergencyContactPhone" type="tel" maxLength={30} defaultValue={person?.emergencyContactPhone ?? ""} /></label>
                   <label className="block">地址<input className={field} name="address" maxLength={300} defaultValue={person?.address ?? ""} /></label>
-                  {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}<details><summary className="min-h-11 cursor-pointer py-2">舊顧客備註（保留原資料，也顯示於店內備註）</summary><textarea aria-label="舊顧客備註" className={field} name="notes" maxLength={1000} defaultValue={person?.notes ?? ""}/></details>
+                  {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}
                   <label className="block">店內備註（店長與授課教練可見）<textarea className={field} name="serviceNote" maxLength={1000} defaultValue={person?.serviceNote ?? ""} /></label>
                 </fieldset>
               </form>
