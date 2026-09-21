@@ -888,7 +888,7 @@ export function CourseWorkspace({
                           )
                         }
                       >
-                        <label className="col-span-full">
+                        <label>
                           課程名稱
                           <input
                             className={field}
@@ -976,7 +976,7 @@ export function CourseWorkspace({
               <form
                 id="course-edit-form"
                 key={`${editing.kind}-${editing.value.id}`}
-                className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2"
+                className="grid grid-cols-1 gap-x-4 gap-y-4 min-[400px]:grid-cols-2 [&_label]:space-y-1.5"
                 onSubmit={(event) =>
                   submit(
                     event,
@@ -1047,10 +1047,40 @@ export function CourseWorkspace({
                 )}
                 {editing.kind === "session" ? (
                   <>
-                    <div className="col-span-full rounded-xl border border-earth-200 bg-earth-50 px-3 py-2">
-                      <span className="text-xs text-earth-500">課程</span>
-                      <p className="font-medium text-primary-900">{editing.value.nameSnapshot}</p>
+                    <div className="space-y-1.5">
+                      <span className="block text-sm font-medium text-earth-700">課程</span>
+                      <div className="flex min-h-12 items-center rounded-xl border border-earth-200 bg-earth-50 px-3 py-2.5">
+                        <p className="font-medium text-primary-900">{editing.value.nameSnapshot}</p>
+                      </div>
                     </div>
+                    <label className="space-y-1.5">
+                      教練
+                      <select
+                        className={field}
+                        name="coachId"
+                        required
+                        defaultValue={editing.value.coachId}
+                      >
+                        {allCoaches
+                          .filter(
+                            (coach) =>
+                              (coach.status === "ACTIVE" &&
+                                coach.courseCoachEnabled &&
+                                coach.courseQualificationsConfirmed &&
+                                coach.courseQualifiedTemplateIds.includes(editing.value.templateId)) ||
+                              coach.id === editing.value.coachId,
+                          )
+                          .map((coach) => (
+                            <option
+                              key={coach.id}
+                              value={coach.id}
+                              disabled={coach.status !== "ACTIVE"}
+                            >
+                              {coach.displayName}{coach.status !== "ACTIVE" ? "（已停用）" : ""}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
                     <input type="hidden" name="templateId" value={editing.value.templateId} />
                     <input type="hidden" name="name" value={editing.value.nameSnapshot} />
                   </>
@@ -1111,34 +1141,6 @@ export function CourseWorkspace({
                       />
                     </label>
                     <label>
-                      教練
-                      <select
-                        className={field}
-                        name="coachId"
-                        required
-                        defaultValue={editing.value.coachId}
-                      >
-                        {allCoaches
-                          .filter(
-                            (coach) =>
-                              (coach.status === "ACTIVE" &&
-                                coach.courseCoachEnabled &&
-                                coach.courseQualificationsConfirmed &&
-                                coach.courseQualifiedTemplateIds.includes(editing.value.templateId)) ||
-                              coach.id === editing.value.coachId,
-                          )
-                          .map((coach) => (
-                            <option
-                              key={coach.id}
-                              value={coach.id}
-                              disabled={coach.status !== "ACTIVE"}
-                            >
-                              {coach.displayName}{coach.status !== "ACTIVE" ? "（已停用）" : ""}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-                    <label>
                       教室
                       <select
                         className={field}
@@ -1171,8 +1173,8 @@ export function CourseWorkspace({
                         defaultValue={editing.value.capacity}
                       />
                     </label>
-                    <details className="col-span-full rounded-xl border border-earth-200 px-3">
-                      <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-earth-700">
+                    <details className="col-span-full rounded-xl border border-earth-200 bg-earth-50/40 px-3">
+                      <summary className="flex min-h-12 cursor-pointer items-center py-3 text-sm font-medium text-earth-700">
                         進階設定
                       </summary>
                       <label className="block pb-3">
@@ -1370,7 +1372,7 @@ export function CourseWorkspace({
                             ))}
                           </select>
                         </label>
-                        <label className="col-span-full">
+                        <label>
                           教練
                           <select className={field} name="coachId" required>
                             {coaches
@@ -1460,8 +1462,8 @@ export function CourseWorkspace({
                             required
                           />
                         </label>
-                        <details className="col-span-full rounded-xl border border-earth-200 px-3">
-                          <summary className="min-h-11 cursor-pointer py-3 font-medium">
+                        <details className="col-span-full rounded-xl border border-earth-200 bg-earth-50/40 px-3">
+                          <summary className="flex min-h-12 cursor-pointer items-center py-3 font-medium">
                             更多排程選項
                           </summary>
                           <div className="grid grid-cols-1 gap-3 pb-3 sm:grid-cols-2">
