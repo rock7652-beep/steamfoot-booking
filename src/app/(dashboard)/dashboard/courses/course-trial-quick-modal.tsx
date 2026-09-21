@@ -50,20 +50,16 @@ export function CourseTrialQuickModal({
   const [creatingNew, setCreatingNew] = useState(false);
   const [error, setError] = useState("");
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const activeSessionId =
+    sessions.some((session) => session.id === sessionId)
+      ? sessionId
+      : sessions[0]?.id ?? "";
 
   useEffect(() => {
-    if (!open) return;
-    const nextSessionId =
-      sessions.some((session) => session.id === sessionId)
-        ? sessionId
-        : sessions[0]?.id ?? "";
-    if (nextSessionId !== sessionId) setSessionId(nextSessionId);
-    if (!nextSessionId) return;
+    if (!open || !activeSessionId) return;
 
     let active = true;
-    setTrial(null);
-    setError("");
-    loadCourseSessionDetail(nextSessionId)
+    loadCourseSessionDetail(activeSessionId)
       .then((result) => {
         if (!active) return;
         if (!result.success) {
@@ -80,9 +76,9 @@ export function CourseTrialQuickModal({
     return () => {
       active = false;
     };
-  }, [open, sessionId, sessions]);
+  }, [open, activeSessionId]);
 
-  const selectedSession = sessions.find((session) => session.id === sessionId);
+  const selectedSession = sessions.find((session) => session.id === activeSessionId);
   const matches = useMemo(() => {
     if (!trial) return [];
     const q = query.trim().toLocaleLowerCase();
@@ -98,7 +94,7 @@ export function CourseTrialQuickModal({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!trial || !sessionId || pending) return;
+    if (!trial || !activeSessionId || pending) return;
     const data = new FormData(event.currentTarget);
     setError("");
     startTransition(async () => {
@@ -127,7 +123,7 @@ export function CourseTrialQuickModal({
         }
 
         const result = await createCourseTrial({
-          sessionId,
+          sessionId: activeSessionId,
           customerId: targetCustomerId,
           price: Number(data.get("price")),
           notes: String(data.get("notes") ?? ""),
@@ -169,7 +165,7 @@ export function CourseTrialQuickModal({
         </button>
       </header>
 
-      <form data-course-trial-quick-form="true" onSubmit={submit} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+      <form id="course-trial-quick-form" onSubmit={submit} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
         {error && (
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -182,7 +178,7 @@ export function CourseTrialQuickModal({
               加入課程
               <select
                 className={field}
-                value={sessionId}
+                value={activeSessionId}
                 onChange={(event) => setSessionId(event.target.value)}
                 required
               >
@@ -299,6 +295,7 @@ export function CourseTrialQuickModal({
                   readOnly={!trial.settings.trialAllowPriceEdit}
                   min={trial.settings.trialMinPrice}
                   max={trial.settings.trialMaxPrice}
+                  key={`trial-price-${activeSessionId}-${trial.settings.trialDefaultPrice}`}
                   defaultValue={trial.settings.trialDefaultPrice}
                 />
               </label>
@@ -315,26 +312,15 @@ export function CourseTrialQuickModal({
         <button
           type="submit"
           form="course-trial-quick-form"
-          className="hidden"
-          aria-hidden="true"
-        />
-        <button
-          type="button"
           className={`${primary} w-full`}
           disabled={
             pending ||
             !trial ||
             !trial.canCreate ||
             !trial.settings.trialEnabled ||
-            !sessionId ||
+            !activeSessionId ||
             (!creatingNew && !customerId)
           }
-          onClick={() => {
-            const form = document.querySelector<HTMLFormElement>(
-              '[data-course-trial-quick-form="true"]',
-            );
-            form?.requestSubmit();
-          }}
         >
           {pending ? "建立中…" : "建立並加入課程"}
         </button>
