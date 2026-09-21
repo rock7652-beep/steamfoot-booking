@@ -94,7 +94,7 @@ export function CourseWorkspace({
     params = useSearchParams();
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
-  const [expandedSession, setExpandedSession] = useState<string | null>(params.get("session"));
+  const [attendanceSessionId, setAttendanceSessionId] = useState<string | null>(params.get("session"));
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | "inspect" | null
@@ -726,15 +726,15 @@ export function CourseWorkspace({
                 {(byDate.get(selectedDate) ?? []).map((s, index) => (
                   <div key={s.id} className="rounded-xl border border-earth-200 p-3">
                     <p className="mb-1 text-sm font-semibold text-primary-700">當日第 {index + 1} 堂</p>
-                    <h3 className="font-medium"><button className="min-h-11 text-left text-primary-800" aria-expanded={expandedSession === s.id} onClick={() => setExpandedSession(expandedSession === s.id ? null : s.id)}>
+                    <h3 className="py-2 font-medium text-primary-800">
                       {formatTWDateTime(new Date(s.startsAt)).slice(11)}–
                       {formatTWDateTime(new Date(s.endsAt)).slice(0, 10) !==
                       selectedDate
                         ? "翌日 "
                         : ""}
                       {formatTWDateTime(new Date(s.endsAt)).slice(11)}　
-                      {s.nameSnapshot} · {s.bookings.length}／{s.capacity} 人 {expandedSession === s.id ? "▾" : "▸"}
-                    </button></h3>
+                      {s.nameSnapshot} · {s.bookings.length}／{s.capacity} 人
+                    </h3>
                     <p className="mt-1 text-sm text-earth-600">
                       {allCoaches.find((c) => c.id === s.coachId)
                         ?.displayName ?? "教練"}{" "}
@@ -744,11 +744,10 @@ export function CourseWorkspace({
                     </p>
                     <button
                       type="button"
-                      className={`${button} mt-2 mr-2 ${expandedSession === s.id ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
-                      aria-expanded={expandedSession === s.id}
-                      onClick={() => setExpandedSession(expandedSession === s.id ? null : s.id)}
+                      className={`${button} mt-2 mr-2 border-primary-300 bg-primary-50 text-primary-800`}
+                      onClick={() => setAttendanceSessionId(s.id)}
                     >
-                      {expandedSession === s.id ? "收合點名名單" : "點名／管理名單"}
+                      開啟點名名單
                     </button>
                     {canCreate && (
                       <button
@@ -777,12 +776,6 @@ export function CourseWorkspace({
                         編輯排課
                       </button>
                     )}
-                    {expandedSession === s.id && <CourseRoster
-                      sessionId={s.id}
-                      capacity={s.capacity}
-                      canCreate={canCreate}
-                      canEdit={canEdit}
-                    />}
                   </div>
                 ))}
               </>
@@ -1620,6 +1613,41 @@ export function CourseWorkspace({
           )}
         </RightSheet>
       )}
+      {attendanceSessionId && sessions.find((session) => session.id === attendanceSessionId) && (() => {
+        const attendanceSession = sessions.find((session) => session.id === attendanceSessionId)!;
+        return (
+          <RightSheet
+            compact
+            open
+            width={760}
+            onClose={() => setAttendanceSessionId(null)}
+            labelledById="course-attendance-title"
+          >
+            <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-4">
+              <div>
+                <h2 id="course-attendance-title" className="font-semibold text-primary-900">
+                  {attendanceSession.nameSnapshot} · 點名名單
+                </h2>
+                <p className="mt-1 text-sm text-earth-600">
+                  {formatTWDateTime(new Date(attendanceSession.startsAt))} · 已預約 {attendanceSession.bookings.length}／{attendanceSession.capacity} 人
+                </p>
+              </div>
+              <button type="button" className={button} onClick={() => setAttendanceSessionId(null)}>
+                關閉
+              </button>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+              <CourseRoster
+                key={attendanceSession.id}
+                sessionId={attendanceSession.id}
+                capacity={attendanceSession.capacity}
+                canCreate={canCreate}
+                canEdit={canEdit}
+              />
+            </div>
+          </RightSheet>
+        );
+      })()}
     </>
   );
 }
