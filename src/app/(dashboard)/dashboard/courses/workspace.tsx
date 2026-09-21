@@ -254,9 +254,9 @@ export function CourseWorkspace({
       {!panel && <CourseConflicts items={conflicts}/>}
       {view === "schedule" && (
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="mr-2 font-medium">
+          <div className="flex flex-wrap items-end gap-2 rounded-xl bg-white/60 py-1 lg:flex-nowrap lg:items-center">
+            <div className="flex shrink-0 items-center gap-2">
+              <h2 className="mr-1 whitespace-nowrap font-medium">
                 {year} 年 {mon} 月
               </h2>
               <button
@@ -283,83 +283,92 @@ export function CourseWorkspace({
                 ›
               </button>
             </div>
-            {(canCreate || canEdit) && (
-              <div className="flex gap-2">
-                {canCreate && (
-                  <button
-                    className={primary}
-                    disabled={pending}
-                    onClick={openSchedule}
-                  >
-                    ＋ 新增課程
-                  </button>
-                )}
-              </div>
+
+            <label className="min-w-[148px] flex-1 lg:max-w-[170px]">
+              <span className="sr-only">日期</span>
+              <input
+                key={selectedDate}
+                aria-label="日期"
+                type="date"
+                value={selectedDate}
+                onChange={(event) => {
+                  const date = event.target.value;
+                  if (parseTaipeiDateTime(date, "00:00")) go(date);
+                }}
+                className={field}
+              />
+            </label>
+
+            <label className="min-w-[118px] flex-1 lg:max-w-[150px]">
+              <span className="sr-only">教練</span>
+              <select
+                aria-label="教練篩選"
+                className={button + " w-full bg-white"}
+                value={coachFilter}
+                onChange={(e) => setCoachFilter(e.target.value)}
+              >
+                <option value="all">全部教練</option>
+                {allCoaches.map((coach) => (
+                  <option key={coach.id} value={coach.id}>
+                    {coach.displayName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="min-w-[118px] flex-1 lg:max-w-[150px]">
+              <span className="sr-only">教室</span>
+              <select
+                aria-label="教室篩選"
+                className={button + " w-full bg-white"}
+                value={roomFilter}
+                onChange={(e) => setRoomFilter(e.target.value)}
+              >
+                <option value="all">全部教室</option>
+                {allRooms.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="min-w-[118px] flex-1 lg:max-w-[150px]">
+              <span className="sr-only">分類</span>
+              <select
+                aria-label="課程分類篩選"
+                className={button + " w-full bg-white"}
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                <option value="all">全部分類</option>
+                {[...new Set(allTemplates.map((item) => item.category))].map((itemCategory) => (
+                  <option key={itemCategory} value={itemCategory}>
+                    {itemCategory || "未分類"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {canCreate && (
+              <button
+                className={primary + " shrink-0"}
+                disabled={pending}
+                onClick={openSchedule}
+              >
+                ＋ 新增課程
+              </button>
             )}
           </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <form className="flex items-end gap-2" onSubmit={event => {
-              event.preventDefault();
-              const date = String(new FormData(event.currentTarget).get("jumpDate"));
-              if (parseTaipeiDateTime(date, "00:00")) go(date);
-            }}>
-              <label className="text-sm text-earth-700">日期（台灣時間）
-                <input key={selectedDate} name="jumpDate" aria-label="課表日期" type="date" required defaultValue={selectedDate} className={field}/>
-              </label>
-              <button className={button} disabled={pending}>前往</button>
-            </form>
-            <label className="text-sm text-earth-700">教練
-            <select
-              aria-label="教練篩選"
-              className={button}
-              value={coachFilter}
-              onChange={(e) => setCoachFilter(e.target.value)}
-            >
-              <option value="all">全部教練</option>
-              {allCoaches.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.displayName}
-                </option>
-              ))}
-            </select></label>
-            <label className="text-sm text-earth-700">教室
-            <select
-              aria-label="教室篩選"
-              className={button}
-              value={roomFilter}
-              onChange={(e) => setRoomFilter(e.target.value)}
-            >
-              <option value="all">全部教室</option>
-              {allRooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select></label>
-            <label className="text-sm text-earth-700">分類
-            <select
-              aria-label="課程分類篩選"
-              className={button}
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              <option value="all">全部分類</option>
-              {[...new Set(allTemplates.map((t) => t.category))].map((c) => (
-                <option key={c} value={c}>
-                  {c || "未分類"}
-                </option>
-              ))}
-            </select></label>
-          </div>
           <div
-            className="min-h-[360px] overflow-hidden rounded-lg border border-earth-200 bg-white sm:h-[clamp(430px,58dvh,650px)]"
+            className="min-h-[380px] overflow-hidden rounded-xl border border-earth-200 bg-white sm:h-[calc(100dvh-270px)] sm:min-h-[430px] sm:max-h-[640px]"
             aria-busy={pending}
           >
-            <div className="grid h-full grid-cols-7 auto-rows-fr">
+            <div className="grid h-full grid-cols-7" style={{ gridTemplateRows: `auto repeat(${Math.ceil((parseLocalDate(first).getDay() + days) / 7)}, minmax(0, 1fr))` }}>
               {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
                 <div
                   key={day}
-                  className="py-2 text-center text-sm text-earth-600"
+                  className="py-1.5 text-center text-xs font-medium text-earth-500"
                 >
                   {day}
                 </div>
@@ -382,7 +391,7 @@ export function CourseWorkspace({
                       go(date);
                       open("day");
                     }}
-                    className={`flex min-w-0 min-h-12 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:min-h-0 sm:px-2 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
+                    className={`flex min-w-0 min-h-12 flex-col items-start justify-start border-t border-earth-100 px-1.5 py-1 text-left sm:min-h-0 sm:px-2 ${date === selectedDate ? "bg-primary-50 ring-1 ring-inset ring-primary-200" : list.length ? "bg-white" : "bg-earth-50/70 text-earth-400"}`}
                   >
                     <span className="shrink-0 text-xs leading-4">{i + 1}</span>
                     {list.length > 0 && <span className="mt-1 text-xs font-medium sm:hidden">{list.length} 堂</span>}
@@ -405,14 +414,8 @@ export function CourseWorkspace({
               })}
             </div>
           </div>
-          <p className="text-sm text-earth-500">
-            淡色：當日無課程，可選擇日期排課
-          </p>
-          <p
-            role="status"
-            aria-live="polite"
-            className="text-sm text-primary-700"
-          >
+          <p className="sr-only">淡色日期代表當日無課程，可直接選日期新增課程。</p>
+          <p role="status" aria-live="polite" className="sr-only">
             {pending ? "處理中…" : notice}
           </p>
         </div>
@@ -636,10 +639,23 @@ export function CourseWorkspace({
       )}
       {panel && (
         <RightSheet
+          key={panel === "day" ? "course-day-drawer" : `course-${panel}-modal`}
           compact
           open
           onClose={closePanel}
-          width={view === "schedule" && panel !== "day" ? 720 : 520}
+          width={
+            view !== "schedule"
+              ? 520
+              : panel === "day"
+                ? 520
+                : panel === "edit" && editing?.kind === "session"
+                  ? 580
+                  : panel === "schedule" && copySource
+                    ? 500
+                    : panel === "schedule"
+                      ? 620
+                      : 620
+          }
           variant={view === "schedule" && panel !== "day" ? "modal" : "right"}
           labelledById="course-panel-title"
         >
@@ -1127,13 +1143,18 @@ export function CourseWorkspace({
                         defaultValue={editing.value.capacity}
                       />
                     </label>
-                    <label>
-                      套用範圍
-                      <select className={field} name="scope" defaultValue="single">
-                        <option value="single">只改這堂</option>
-                        <option value="future">這堂及後續</option>
-                      </select>
-                    </label>
+                    <details className="col-span-full rounded-xl border border-earth-200 px-3">
+                      <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-earth-700">
+                        進階設定
+                      </summary>
+                      <label className="block pb-3">
+                        套用範圍
+                        <select className={field} name="scope" defaultValue="single">
+                          <option value="single">只改這堂</option>
+                          <option value="future">這堂及後續</option>
+                        </select>
+                      </label>
+                    </details>
                     <input
                       type="hidden"
                       name="duration"
@@ -1285,7 +1306,7 @@ export function CourseWorkspace({
                             {" "}上限 {copySource.capacity} 人 ·
                             {" "}{Math.round((new Date(copySource.endsAt).getTime() - new Date(copySource.startsAt).getTime()) / 60000)} 分鐘
                           </p>
-                          <p className="mt-1 text-xs text-earth-500">只需選新日期與時間，其餘設定全部沿用。</p>
+                          <p className="mt-1 text-xs text-earth-500">只要選新日期與時間，其他設定會完整沿用。</p>
                         </div>
                         <input type="hidden" name="coachId" value={copySource.coachId} />
                         <input type="hidden" name="roomId" value={copySource.roomId} />
