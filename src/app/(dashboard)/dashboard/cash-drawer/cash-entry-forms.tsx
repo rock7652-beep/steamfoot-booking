@@ -40,7 +40,7 @@ export function WithdrawalForm({ action, returnPath }: FormProps) {
       returnPath={returnPath}
       submitLabel="送出提領"
       successPendingLabel="已送出，跳轉中…"
-      submitClassName="min-h-[44px] bg-orange-600 px-5 text-base text-white hover:bg-orange-700"
+      submitClassName="min-h-[44px] w-full bg-orange-600 px-5 text-base text-white hover:bg-orange-700 md:ml-auto md:flex md:w-auto md:min-w-40"
       className="space-y-3 p-4 md:space-y-4"
     >
       <div className="md:grid md:grid-cols-2 md:gap-4">
@@ -85,7 +85,7 @@ export function DepositForm({ action, returnPath }: FormProps) {
       returnPath={returnPath}
       submitLabel="送出補入"
       successPendingLabel="已送出，跳轉中…"
-      submitClassName="min-h-[44px] bg-green-600 px-5 text-base text-white hover:bg-green-700"
+      submitClassName="min-h-[44px] w-full bg-green-600 px-5 text-base text-white hover:bg-green-700 md:ml-auto md:flex md:w-auto md:min-w-40"
       className="space-y-3 p-4 md:space-y-4"
     >
       <div className="md:grid md:grid-cols-2 md:gap-4">

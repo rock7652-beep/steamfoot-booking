@@ -9,12 +9,20 @@ interface FormSectionProps {
   title: string;
   description?: string;
   children: React.ReactNode;
+  /** 彈出式快速表單使用：移除卡片外框，只保留清楚的欄位分組。 */
+  compact?: boolean;
 }
 
-export function FormSection({ title, description, children }: FormSectionProps) {
+export function FormSection({ title, description, children, compact = false }: FormSectionProps) {
   return (
-    <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
-      <header className="mb-4">
+    <section
+      className={
+        compact
+          ? "border-b border-earth-100 pb-4 last:border-b-0 last:pb-0"
+          : "rounded-xl border border-earth-200 bg-white p-5 shadow-sm"
+      }
+    >
+      <header className={compact ? "mb-3" : "mb-4"}>
         <h2 className="text-sm font-semibold text-earth-900">{title}</h2>
         {description ? (
           <p className="mt-0.5 text-[11px] text-earth-500">{description}</p>

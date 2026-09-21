@@ -69,7 +69,7 @@ export function InlineCashbookForm({
   const errorMsg = state && !state.success ? state.error : null;
 
   return (
-    <form action={formAction} className="space-y-4 p-4">
+    <form action={formAction} className="space-y-4 p-4 sm:p-6">
       {errorMsg && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {errorMsg}
@@ -84,11 +84,12 @@ export function InlineCashbookForm({
         defaultAmount=""
         defaultPaymentMethod={null}
         allowedTypes={["INCOME", "EXPENSE"]}
+        compact
       />
 
       {/* 登錄人：非 ADMIN 後端鎖定為自己（不 render select）。 */}
       {canAssignStaff && (
-        <FormSection title="登錄人（選填）">
+        <FormSection title="登錄人（選填）" compact>
           <select name="staffId" className={inputCls}>
             <option value="">不指定</option>
             {staffOptions.map((s) => (
@@ -103,16 +104,18 @@ export function InlineCashbookForm({
         </FormSection>
       )}
 
-      <FormSection title="備註">
-        <textarea name="note" rows={3} className={inputCls} placeholder="輸入備註（選填）" />
+      <FormSection title="備註" compact>
+        <textarea name="note" rows={2} className={inputCls} placeholder="輸入備註（選填）" />
       </FormSection>
 
-      <SubmitButton
-        label="確認新增"
-        pendingLabel={isSuccess ? "已新增，更新中…" : "新增中..."}
-        disabled={isSuccess}
-        className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
-      />
+      <div className="sticky bottom-0 -mx-4 -mb-4 border-t border-earth-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
+        <SubmitButton
+          label="確認新增"
+          pendingLabel={isSuccess ? "已新增，更新中…" : "新增中..."}
+          disabled={isSuccess}
+          className="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700 sm:ml-auto sm:flex sm:w-auto sm:min-w-40"
+        />
+      </div>
     </form>
   );
 }
