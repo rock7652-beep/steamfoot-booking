@@ -31,7 +31,6 @@ type RosterView = "roster" | "member-booking" | "trial-booking";
 export function CourseRoster({
   sessionId,
   capacity,
-  canCreate,
   canEdit,
   allowTrialActions = true,
   view = "roster",
@@ -181,34 +180,19 @@ export function CourseRoster({
         member.name.toLocaleLowerCase().includes(normalizedMemberQuery),
       )
     : [];
-  const eligibleCards = cards.filter(
-    (item) =>
-      item.members.some((member) => member.id === customerId) &&
-      !item.expired &&
-      !item.closed &&
-      item.available >= (item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
-      (!session || item.expiresAt >= session.startsAt),
-  );
-  useEffect(() => {
-    if (!customerId) {
-      setCardId("");
-      return;
-    }
-    const required = (item: CourseCardView) =>
-      item.unit === "SESSION" ? 1 : session?.pointCost ?? 1;
-    const firstExpiring = cards
+  const eligibleCardsFor = (memberId: string) =>
+    cards
       .filter(
         (item) =>
-          item.members.some((member) => member.id === customerId) &&
+          item.members.some((member) => member.id === memberId) &&
           !item.expired &&
           !item.closed &&
-          item.available >= required(item) &&
+          item.available >=
+            (item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
           (!session || item.expiresAt >= session.startsAt),
       )
-      .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt))[0];
-    setCardId(firstExpiring?.id ?? "");
-    if (firstExpiring) setRequestKey(crypto.randomUUID());
-  }, [cards, customerId, session?.pointCost, session?.startsAt]);
+      .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
+  const eligibleCards = eligibleCardsFor(customerId);
 
   const normalizedTrialQuery = trialQuery.trim().toLocaleLowerCase();
   const filteredTrialCustomers =
@@ -253,15 +237,8 @@ export function CourseRoster({
             <div className="mt-2 max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200 bg-white">
               {filteredLearners.length ? (
                 filteredLearners.map((member) => {
-                  const available = cards.filter(
-                    (item) =>
-                      item.members.some((candidate) => candidate.id === member.id) &&
-                      !item.expired &&
-                      !item.closed &&
-                      item.available >=
-                        (item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
-                      (!session || item.expiresAt >= session.startsAt),
-                  ).length;
+                  const memberCards = eligibleCardsFor(member.id);
+                  const available = memberCards.length;
                   return (
                     <button
                       type="button"
@@ -269,7 +246,7 @@ export function CourseRoster({
                       className={`flex w-full items-center justify-between px-3 py-3 text-left hover:bg-primary-50 ${customerId === member.id ? "bg-primary-50" : ""}`}
                       onClick={() => {
                         setCustomerId(member.id);
-                        setCardId("");
+                        setCardId(memberCards[0]?.id ?? "");
                         setRequestKey(crypto.randomUUID());
                       }}
                     >
