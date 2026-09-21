@@ -14,7 +14,7 @@ export function BusinessAnalyticsView({data,all,staffId}:{data:CourseBusinessRep
   const coach=data.scope.view==="coach";
   function navigate(view:string,person:string) {const params=new URLSearchParams(search.toString());params.set("perspective",view);params.set("person",person);start(()=>router.push(`?${params}`));}
   function show(value:Segment) {setSegment(segment===value?null:value);setKeyword("");setPage(1);}
-  const people=data.staff.filter(s=>(all||s.id===staffId)&&(!coach||s.courseCoachEnabled||s.id===data.scope.person));
+  const people=data.staff.filter(s=>(all||s.id===staffId)&&(coach?s.courseCoachEnabled||s.id===data.scope.person:s.user.role!=="CUSTOMER"||s.id===data.scope.person));
   const rows=segment?(data.segments?.[segment]??[]).filter(p=>p.name.toLocaleLowerCase().includes(keyword.trim().toLocaleLowerCase())):[];
   const pages=Math.max(1,Math.ceil(rows.length/10));
   const metricCard=(key:Segment)=><button key={key} type="button" disabled={!data.segments||pending} aria-expanded={segment===key} onClick={()=>show(key)} className="min-h-24 rounded-xl border border-earth-200 bg-white p-4 text-left enabled:hover:border-primary-500"><span className="text-sm text-earth-600">{names[key]}</span><strong className="mt-2 block text-2xl text-primary-900">{data.counts[key]} <span className="text-sm font-normal">人</span></strong>{data.segments&&<span className="mt-1 block text-xs text-primary-700">查看名單</span>}</button>;
