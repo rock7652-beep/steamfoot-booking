@@ -1,0 +1,12 @@
+import {beforeEach,it,expect,vi} from "vitest";
+const m=vi.hoisted(()=>({customers:vi.fn(),staff:vi.fn(),sessions:vi.fn(),purchases:vi.fn(),fees:vi.fn(),receipts:vi.fn(),refunds:vi.fn(),store:vi.fn()}));
+vi.mock("server-only",()=>({}));
+vi.mock("@/lib/db",()=>({prisma:{customer:{findMany:m.customers},staff:{findMany:m.staff}}}));
+vi.mock("@/lib/industry-module-server",()=>({requireCourseStore:m.store}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:(fn:(tx:unknown)=>unknown)=>fn({courseSession:{findMany:m.sessions},coursePurchase:{findMany:m.purchases},courseCompensationSnapshot:{findMany:m.fees},courseTrialPayment:{findMany:m.receipts},coursePurchaseRefund:{findMany:m.refunds}})}}));
+import {getCourseBusinessAnalytics} from "@/server/queries/course-business-analytics";
+const range={startDate:"2026-09-01",endDate:"2026-09-03"};
+beforeEach(()=>{vi.clearAllMocks();for(const key of ['customers','staff','sessions','purchases','fees','receipts','refunds'] as const)m[key].mockResolvedValue([]);});
+it("scopes all reads to the store and omits customer lists and monetary fields without permission",async()=>{const r=await getCourseBusinessAnalytics("a",range,{view:"store",person:"all"},{customers:false,money:false,fees:false});expect(m.store).toHaveBeenCalledWith("a");for(const key of ['customers','staff','sessions','purchases'] as const)expect(m[key].mock.calls[0][0].where.storeId).toBe("a");expect(m.fees).not.toHaveBeenCalled();expect(m.receipts).not.toHaveBeenCalled();expect(r.segments).toBeNull();expect(r.netRevenue).toBeNull();expect(r.fee).toBeNull();expect(r.profit).toBeNull();expect(r.trend.every(d=>!("revenue" in d))).toBe(true);});
+it("rejects foreign-store staff IDs",async()=>{await expect(getCourseBusinessAnalytics("a",range,{view:"coach",person:"foreign"},{customers:true,money:false,fees:false})).rejects.toThrow("找不到本店");});
+it("keeps current-period refunds from old purchases in cash flow",async()=>{m.refunds.mockResolvedValue([{amount:200,createdAt:new Date("2026-09-02T04:00:00Z"),purchase:{revenueStaffId:null}}]);const r=await getCourseBusinessAnalytics("a",range,{view:"store",person:"all"},{customers:false,money:true,fees:false});expect(r.netRevenue).toBe(-200);expect(r.trend.find(d=>d.date==="2026-09-02")?.revenue).toBe(-200);expect(r.trend).toHaveLength(3);});
