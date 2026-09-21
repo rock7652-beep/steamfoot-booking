@@ -50,7 +50,7 @@ export function CourseTransactionActions({ order, canRefund, canConfirm, canEdit
       } catch { setMessage("送出失敗，已保留內容；請稍後重試。"); }
     });
   }
-  const btn = "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+  const btn = "min-h-11 whitespace-nowrap rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
   return <>
     <button className={btn} aria-label={`查看 ${order.customerName} 的 ${order.name} 交易`} onClick={() => { setOpen(true); setMode("detail"); setMessage(""); setReason(""); setNote(order.note); setStaffId(order.revenueStaffId ?? ""); setRequestKey(crypto.randomUUID()); }}>{order.status === "PENDING" && canConfirm ? "查看／核帳" : "查看明細"}</button>
     {open && <RightSheet open onClose={() => { if (!pending) setOpen(false); }} labelledById={title}>

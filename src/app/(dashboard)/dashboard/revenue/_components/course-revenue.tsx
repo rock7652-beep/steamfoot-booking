@@ -72,16 +72,18 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   const labels: Record<string, string> = { PENDING: "待核帳", CONFIRMED: "已核帳並發卡", REFUNDED: "已登錄退款", VOIDED: "已作廢" };
   const columns: Column<(typeof rows)[number]>[] = [
     { key: "date", header: "購買日期", accessor: (r) => r.date },
-    { key: "customer", header: "顧客", accessor: (r) => r.customerName },
-    { key: "plan", header: "方案", accessor: (r) => r.name },
-    { key: "amount", header: "原金額", align: "right", accessor: (r) => money(r.price) },
-    {key:"allocation",header:"店家／開發人分配",accessor:r=>{if(r.storeCostSnapshot==null)return "舊交易未建立分配";const a=courseAllocationAfterRefund(r.price,r.storeCostSnapshot,r.refunds.reduce((n,v)=>n+v.amount,0));return r.status==="VOIDED"?"已作廢":`店家 ${money(a.storeAmount)}／${r.developerNameSnapshot??"未指定"} ${money(a.developerAmount)}`;}},
+    { key: "customer", header: "顧客", accessor: (r) => <span className="block max-w-32 truncate" title={r.customerName}>{r.customerName}</span> },
+    { key: "plan", header: "方案", accessor: (r) => <span className="block max-w-32 truncate" title={r.name}>{r.name}</span> },
+    { key: "amount", header: "原金額", align: "right", accessor: (r) => <span className="whitespace-nowrap">{money(r.price)}</span> },
+    {key:"allocation",header:"店家／開發人分配",accessor:r=>{if(r.storeCostSnapshot==null)return <span className="whitespace-nowrap" title="舊交易未建立分配">舊交易待補</span>;const a=courseAllocationAfterRefund(r.price,r.storeCostSnapshot,r.refunds.reduce((n,v)=>n+v.amount,0));return <span className="whitespace-nowrap">{r.status==="VOIDED"?"已作廢":`店家 ${a.storeAmount.toLocaleString()}／開發 ${a.developerAmount.toLocaleString()}`}</span>;}},
     { key: "status", header: "狀態", accessor: (r) => labels[r.status] ?? "需核對" },
-    { key: "staff", header: "核帳人員", accessor: (r) => staffRows.find((s) => s.userId === r.confirmedBy)?.displayName ?? "—" },
+    { key: "staff", header: "核帳人員", accessor: (r) => {const name=staffRows.find((s) => s.userId === r.confirmedBy)?.displayName ?? "—";return <span className="block max-w-28 truncate whitespace-nowrap" title={name}>{name}</span>;} },
     { key: "action", header: "處理", noLink: true, accessor: (r) => <CourseTransactionActions order={r} canRefund={canRefund} canConfirm={canConfirm} canEdit={canEdit} canVoid={canVoid} staffOptions={staffRows.filter((s) => s.status === "ACTIVE").map((s) => ({ id: s.id, name: s.displayName }))} /> },
   ];
   const income = receiptTotals.purchases; const refund = receiptTotals.refunds;
-  const field = "mt-1 min-h-11 w-full rounded border border-earth-300 bg-white px-2 text-sm";
+  const field = "mt-1 block h-11 w-full rounded-lg border border-earth-300 bg-white px-3 py-0 text-sm leading-none text-earth-800";
+  const selectField = `${field} appearance-none pr-9`;
+  const selectStyle = {backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 12px center"};
   const href = (p: number) => `${basePath}?${new URLSearchParams({ dateFrom: from, dateTo: to, status: status ?? "", staff: staff ?? "", page: String(p) })}`;
   const periodHref = (dateFrom: string, dateTo: string) => `${basePath}?${new URLSearchParams({dateFrom,dateTo,status:status??"",staff:staff??""})}`;
   const isToday = from === today && to === today;
@@ -97,9 +99,9 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
         <form method="GET" className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]">
           <label className="text-xs">開始日期<input className={field} type="date" name="dateFrom" defaultValue={from} /></label>
           <label className="text-xs">結束日期<input className={field} type="date" name="dateTo" defaultValue={to} /></label>
-          <label className="text-xs">狀態<select className={field} name="status" defaultValue={status ?? ""}><option value="">全部</option>{Object.entries(labels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-          <label className="text-xs">核帳人員<select className={field} name="staff" defaultValue={staff ?? ""}><option value="">全部</option>{staffRows.filter((s) => s.userId && (s.user?.role === "OWNER" || s.user?.role === "ADMIN" || orders.some(order => order.confirmedBy === s.userId))).map((s) => <option key={s.userId} value={s.userId!}>{s.displayName}</option>)}</select></label>
-          <button className="min-h-11 self-end rounded bg-primary-700 px-4 text-sm text-white">查詢</button><Link href={basePath} className="flex min-h-11 items-center justify-center self-end rounded border border-earth-200 px-3 text-sm text-earth-600">清除</Link>
+          <label className="text-xs">狀態<select className={selectField} style={selectStyle} name="status" defaultValue={status ?? ""}><option value="">全部</option>{Object.entries(labels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+          <label className="text-xs">核帳人員<select className={selectField} style={selectStyle} name="staff" defaultValue={staff ?? ""}><option value="">全部</option>{staffRows.filter((s) => s.userId && (s.user?.role === "OWNER" || s.user?.role === "ADMIN" || orders.some(order => order.confirmedBy === s.userId))).map((s) => <option key={s.userId} value={s.userId!}>{s.displayName}</option>)}</select></label>
+          <button className="h-11 self-end rounded-lg bg-primary-700 px-4 text-sm text-white">查詢</button><Link href={basePath} className="flex h-11 items-center justify-center self-end rounded-lg border border-earth-200 px-3 text-sm text-earth-600">清除</Link>
         </form><p className="mt-3 text-xs text-earth-600">共 {count} 筆購買紀錄；點「查看／核帳」或「查看明細」，同頁處理與查閱額度、退款紀錄。</p>
       </div>
       {rows.length ? <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} className="rounded-none border-0" /> : <EmptyRow title="沒有符合條件的交易" hint="調整日期或篩選條件重新查詢" />}
