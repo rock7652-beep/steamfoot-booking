@@ -26,7 +26,7 @@ export async function recordCourseFeePayment(tx: Prisma.TransactionClient, actor
     WHERE s.id=${d.sessionId} AND s."storeId"=${storeId} FOR UPDATE OF s, c`;
   const row = rows[0];
   if (!row || row.cancelledAt || row.endsAt > new Date() || row.coachId !== row.staffId)
-    throw new AppError("BUSINESS_RULE", "請核對已結束、未取消課次及授課老師");
+    throw new AppError("BUSINESS_RULE", "請核對已結束、未取消課次及授課教練");
   const amount = fixedCourseFee(row.rule);
   if (amount === null || amount !== d.expectedAmount || !Number.isSafeInteger(amount))
     throw new AppError("CONFLICT", "授課費與畫面不一致或需人工核對，尚未登錄付款");
