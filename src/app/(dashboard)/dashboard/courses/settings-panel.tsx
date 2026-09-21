@@ -71,9 +71,9 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
       </header>
       {destination && <div role="alert" className="shrink-0 border-b border-amber-200 bg-amber-50 p-4">
         <p className="font-medium">{pending ? "設定仍在儲存，請稍候。" : "尚有未儲存的修改，要捨棄嗎？"}</p>
-        <div className="mt-2 flex gap-3"><button autoFocus className="min-h-11 rounded border px-3" onClick={() => setDestination(null)}>繼續編輯</button>{!pending && <button className="min-h-11 rounded bg-primary-700 px-3 text-white" onClick={() => go(destination)}>捨棄修改並繼續</button>}</div>
+        <div className="mt-2 flex gap-3"><button autoFocus className="min-h-11 rounded border px-3" onClick={() => setDestination(null)}>繼續編輯</button>{!pending && <button className="min-h-11 rounded bg-primary-700 px-3 text-white" onClick={() => go(destination)}>{destination === closeHref ? "不儲存並關閉" : "不儲存並切換"}</button>}</div>
       </div>}
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [&>[data-page-shell]]:px-4" aria-busy={navigating}
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] [&_[data-page-shell]]:px-4 [&_[data-page-shell]>[data-page-header]]:hidden [&_[data-settings-return]]:hidden [&_[data-panel-secondary-title]]:hidden" aria-busy={navigating}
         onClickCapture={event => {
           if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
           const link = event.target instanceof Element ? event.target.closest("a[href]") : null;

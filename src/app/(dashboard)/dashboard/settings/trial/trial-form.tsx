@@ -79,7 +79,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
       <div className="lg:col-span-7">
         <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
           <header className="mb-4">
-            <h2 className="text-sm font-semibold text-earth-900">體驗課設定</h2>
+            <h2 data-panel-secondary-title className="text-sm font-semibold text-earth-900">體驗課設定</h2>
             <p className="mt-0.5 text-[11px] text-earth-500">
               右側預覽為建立體驗單時店長看到的價格欄位行為
             </p>
@@ -172,7 +172,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             ) : null}
           </div>
 
-          <div className="mt-6 flex items-center justify-end gap-3 border-t border-earth-100 pt-4">
+          <div className="sticky bottom-0 z-10 mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-earth-100 bg-white py-3">
             <span className="text-[11px] text-earth-400">
               {pending ? "儲存中..." : "變更後請儲存"}
             </span>

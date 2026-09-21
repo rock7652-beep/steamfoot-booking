@@ -163,7 +163,7 @@ export function ScheduleManager({
   const [reviewedDraft, setReviewedDraft] = useState<string | null>(null);
 
   // 每週固定設定展開/收合
-  const [showWeekly, setShowWeekly] = useState(false);
+  const [showWeekly, setShowWeekly] = useState(isCourseStore);
 
   // 日設定面板 - 編輯狀態
   const [editStatus, setEditStatus] = useState<"open" | "closed" | "training" | "custom">("open");
@@ -692,9 +692,9 @@ export function ScheduleManager({
   }, []);
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] xl:grid-rows-[min-content_1fr]">
+    <div data-schedule-grid className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] xl:grid-rows-[min-content_1fr]">
       {/* ===== 左側：月曆 ===== */}
-      <div className="space-y-4">
+      <div data-schedule-calendar className="space-y-4">
         <div className="relative rounded-xl border bg-white p-4 shadow-sm">
           {/* 月份切換 — loading 時 disable 防止快速連點造成 race */}
           <div className="mb-3 flex items-center justify-between">
@@ -797,7 +797,7 @@ export function ScheduleManager({
           loadingDay 不再 short-circuit 整面成 spinner — slot 區自己用 skeleton 撐版面，
           上半部用 monthSummary 預覽資訊立即顯示，店長不會看到空白。
           fallback：preview 也組不出來時（極少見）才走全 spinner。 */}
-      <div className="min-w-0 xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:self-start">
+      <div data-schedule-day className="min-w-0 xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:self-start">
         {!selectedDate ? (
           <div className="rounded-xl border bg-white p-6 shadow-sm">
             <p className="text-center text-sm text-earth-400">請先選擇日期</p>
@@ -1237,7 +1237,7 @@ export function ScheduleManager({
           </div>
         ) : null}
       </div>
-      <div className="min-w-0 space-y-3 xl:col-start-1">
+      <div data-schedule-weekly className="min-w-0 space-y-3 xl:col-start-1">
         {/* ===== 每週固定規則（可摺疊）===== */}
         <div className="rounded-xl border bg-white shadow-sm">
           <button

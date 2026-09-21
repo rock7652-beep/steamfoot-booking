@@ -183,15 +183,7 @@ export function ReferralShareSettingsForm({
           </p>
         </header>
 
-        <ReferralTemplateCenter
-          storeName={storeName}
-          previewUrl={previewUrl}
-          favoriteTemplateIds={favoriteTemplateIds}
-          recent={recent}
-          onApply={applyOfficialTemplate}
-          onPreview={previewOfficialTemplate}
-          onToggleFavorite={toggleFavorite}
-        />
+
 
         <textarea
           value={template}
@@ -199,7 +191,7 @@ export function ReferralShareSettingsForm({
             setTemplate(event.target.value);
             setUsesDefault(false);
           }}
-          rows={16}
+          rows={8}
           maxLength={REFERRAL_SHARE_TEMPLATE_MAX_LENGTH}
           className="block w-full resize-y rounded-lg border border-earth-300 bg-white px-3 py-3 text-sm leading-relaxed text-earth-800 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
           aria-describedby="referral-share-help referral-share-error"
@@ -214,13 +206,25 @@ export function ReferralShareSettingsForm({
           </span>
         </div>
 
+        <details className="mt-4 rounded-lg border border-earth-200 p-3"><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-primary-700">挑選分享模板</summary>
+        <ReferralTemplateCenter
+          storeName={storeName}
+          previewUrl={previewUrl}
+          favoriteTemplateIds={favoriteTemplateIds}
+          recent={recent}
+          onApply={applyOfficialTemplate}
+          onPreview={previewOfficialTemplate}
+          onToggleFavorite={toggleFavorite}
+        />
+        </details>
+
         {error ? (
           <p id="referral-share-error" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
             {error}
           </p>
         ) : null}
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-earth-100 pt-4">
+        <div className="sticky bottom-0 z-10 mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-earth-100 bg-white py-3">
           <button
             type="button"
             disabled={pending}

@@ -48,10 +48,10 @@ describe("course settings side panel", () => {
     await click("繼續編輯"); await click("發送紀錄"); expect(m.replace).not.toHaveBeenCalled(); await click("繼續編輯");
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))); expect(host.textContent).toContain("尚有未儲存");
     const unload = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(unload); expect(unload.defaultPrevented).toBe(true);
-    await click("捨棄修改並繼續"); expect(m.replace).toHaveBeenCalledOnce();
+    await click("不儲存並關閉"); expect(m.replace).toHaveBeenCalledOnce();
   });
   it("blocks dismissing a pending save and allows closing after successful save", async () => {
-    await render(true); await click("關閉視窗"); expect(host.textContent).toContain("設定仍在儲存"); expect(host.textContent).not.toContain("捨棄修改並繼續"); expect(m.replace).not.toHaveBeenCalled();
+    await render(true); await click("關閉視窗"); expect(host.textContent).toContain("設定仍在儲存"); expect(host.textContent).not.toContain("不儲存並關閉"); expect(m.replace).not.toHaveBeenCalled();
     await render(false); await click("繼續編輯"); await click("修改"); await click("模擬儲存成功"); await click("返回設定"); expect(m.replace).toHaveBeenCalledOnce();
   });
   it("leaves Escape to nested editors", async () => {

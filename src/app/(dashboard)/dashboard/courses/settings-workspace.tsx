@@ -21,7 +21,7 @@ type Props = {
   trialEnabled?: boolean; trialPrice?: number; usageMetrics?: UsageMetric[];
 };
 function Row({ title, summary, href, children }: { title: string; summary: string; href?: string; children?: ReactNode }) {
-  return <section className="min-w-0 border-b border-earth-100 py-5 last:border-0"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><h3 className="font-medium text-primary-900">{title}</h3><p className="mt-1 break-words text-sm text-earth-600">{summary}</p></div>{href && <DashboardLink href={courseSettingsPanelHref(href)} scroll={false} prefetch={false} aria-label={`開啟${title}`} className="inline-flex min-h-11 shrink-0 items-center rounded-lg border px-3 text-sm text-primary-700">開啟設定</DashboardLink>}</div>{children}</section>;
+  return <section className="min-w-0 border-b border-earth-100 py-5 last:border-0"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><h3 className="font-medium text-primary-900">{title}</h3><p className="mt-1 break-words text-sm text-earth-600">{summary}</p></div>{href && <DashboardLink href={courseSettingsPanelHref(href)} scroll={false} prefetch={false} aria-label={`開啟${title}`} className="inline-flex min-h-11 shrink-0 items-center rounded-lg border px-3 text-sm text-primary-700">{title.includes("未指派") ? "查看名單" : "開啟設定"}</DashboardLink>}</div>{children}</section>;
 }
 const lead = (minutes: number) => minutes ? "上課前 " + minutes + " 分鐘" : "上課開始前";
 
