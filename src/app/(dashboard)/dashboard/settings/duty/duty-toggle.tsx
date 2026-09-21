@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -15,6 +16,7 @@ interface Props {
 export function DutySchedulingToggle({ enabled, compact = false, course = false }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  useSettingsPanelGuard(false, isPending);
   const [isEnabled, setIsEnabled] = useState(enabled);
 
   const [confirming,setConfirming] = useState(false);

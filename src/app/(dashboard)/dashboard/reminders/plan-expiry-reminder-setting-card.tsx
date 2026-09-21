@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { LineCardPreview } from "./line-card-preview";
 
 import { useState, useTransition } from "react";
@@ -9,6 +10,7 @@ import { setCourseExpiryReminderEnabled } from "@/server/actions/course-reminder
 export function PlanExpiryReminderSettingCard({ initialEnabled, course=false }: { initialEnabled: boolean; course?:boolean }) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [pending, startTransition] = useTransition();
+  useSettingsPanelGuard(false, pending);
 
   function toggle() {
     const next = !enabled;

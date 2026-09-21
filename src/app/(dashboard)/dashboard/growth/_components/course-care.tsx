@@ -25,7 +25,7 @@ export async function CourseCare({ storeId, month, readOnly, canFollowUp, canBoo
   return <PageShell>
     <PageHeader title="顧客經營" subtitle="生日、回課與方案關懷；追蹤紀錄不會自動發送 LINE。" actions={<Link href="/dashboard/courses?view=customers">顧客管理</Link>}/>
     <p className="mb-2 text-sm">{selected ? COURSE_CARE_LABELS[selected] : "全部關懷分類"} · <Link href="/dashboard">返回首頁</Link> · <Link href="/dashboard/growth">全部分類</Link> · <Link href="/dashboard/courses?view=settings&section=notifications">返回設定</Link></p>
-    <form className="mb-5 flex flex-wrap items-end gap-3">{selected && <input type="hidden" name="segment" value={selected}/>}<label className="text-sm">生日月份<input className="ml-2 min-h-11 rounded border border-earth-200 p-2" aria-label="生日月份" type="month" name="month" defaultValue={month}/></label><button className="min-h-11 rounded border border-earth-200 px-3">套用月份</button></form>
+    <form data-settings-panel-filter className="mb-5 flex flex-wrap items-end gap-3">{selected && <input type="hidden" name="segment" value={selected}/>}<label className="text-sm">生日月份<input className="ml-2 min-h-11 rounded border border-earth-200 p-2" aria-label="生日月份" type="month" name="month" defaultValue={month}/></label><button className="min-h-11 rounded border border-earth-200 px-3">套用月份</button></form>
     <div className="space-y-6">
       {(!selected || selected === "birthday") && <CareSection title="本月生日" description={`${month}，每位顧客只列一次。`} emptyText="本月沒有生日顧客。" items={birthdayItems} totalCount={birthdayItems.length}/>}
       {([['inactive', '好久不見'], ['low', '建議安排回課'], ['expiring', '建議續約']] as const).map(([kind, title]) => {

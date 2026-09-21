@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -38,6 +39,7 @@ export function BookableUntilForm({
   const router = useRouter();
 
   const dirty = mode !== savedMode || (mode === "fixed" ? fixedDate !== savedDate : days !== savedDays);
+  useSettingsPanelGuard(dirty, pending);
 
   function cancel() {
     setMode(savedMode);

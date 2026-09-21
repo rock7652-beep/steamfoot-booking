@@ -31,7 +31,7 @@ describe("five-section course settings", () => {
   it("shows one section at a time and retains store prefix and query parameters", async () => {
     await render(); expect(host.querySelectorAll("nav button")).toHaveLength(5); expect(host.querySelectorAll("section[hidden]")).toHaveLength(4);
     await select("營業與預約"); expect(window.location.pathname).toBe("/s/a/admin/dashboard/courses"); expect(window.location.search).toContain("month=2026-09"); expect(window.location.search).toContain("section=booking");
-    expect(host.querySelector('a[href="/s/a/admin/dashboard/courses/hours"]')).not.toBeNull();
+    expect(host.querySelector('a[href="/s/a/admin/dashboard/courses?view=settings&section=booking&panel=hours"]')).not.toBeNull();
     expect(host.querySelector('section[aria-label="營業與預約"]')?.hasAttribute("hidden")).toBe(false);
     expect(host.textContent).toContain("固定期課：未到仍扣堂，不提供補課券");
   });
@@ -55,7 +55,8 @@ describe("five-section course settings", () => {
   });
   it("guards in-app links with a custom dialog and lets the user keep editing", async () => {
     await render(); await click("編輯店家資料"); await input("name", "草稿"); await select("營業與預約");
-    await act(async () => (host.querySelector('a[href$="/courses/hours"]') as HTMLAnchorElement).click());
+    const outside = document.createElement("a"); outside.href = "/dashboard/revenue"; host.append(outside);
+    await act(async () => outside.click());
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("尚有未儲存的修改");
     const keep = [...document.querySelectorAll("button")].find(b => b.textContent === "繼續編輯")!; await act(async () => keep.click());
     expect(document.querySelector('[role="dialog"]')).toBeNull(); await select("店家資料未儲存"); expect((host.querySelector('input[name="name"]') as HTMLInputElement).value).toBe("草稿");
@@ -63,7 +64,7 @@ describe("five-section course settings", () => {
   it("hides unavailable features and shows real subscription summary without the mock plan center", async () => {
     await render({ ...defaults, canEdit: false, canPayment: false, canReminders: false, canCare: false, canTrial: false });
     expect(host.querySelector('button')?.textContent).toBe("店家資料"); expect(host.textContent).not.toContain("編輯店家資料"); expect(host.textContent).not.toContain("編輯銀行資訊");
-    expect(host.querySelector('a[href$="/digital-butler"]')).toBeNull(); expect(host.querySelector('a[href$="/referral-share"]')).toBeNull(); expect(host.querySelector('a[href$="/settings/plans"]')).toBeNull();
+    expect(host.querySelector('a[href$="panel=butler"]')).toBeNull(); expect(host.querySelector('a[href$="panel=referral"]')).toBeNull(); expect(host.querySelector('a[href$="/settings/plans"]')).toBeNull();
     expect(host.textContent).toContain("使用中 · 到期日 2026-12-31");
   });
   it("uses the mobile category selector and falls back safely for an unknown category", async () => {
@@ -80,10 +81,10 @@ describe("five-section course settings", () => {
   });
   it("shows enabled notification features at scoped destinations", async () => {
     await render({ ...defaults, canDigitalButler: true, canReferralShare: true });
-    expect(host.querySelector('a[href="/s/a/admin/dashboard/settings/digital-butler"]')).not.toBeNull(); expect(host.querySelector('a[href="/s/a/admin/dashboard/settings/referral-share"]')).not.toBeNull();
+    expect(host.querySelector('a[href="/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=butler"]')).not.toBeNull(); expect(host.querySelector('a[href="/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=referral"]')).not.toBeNull();
   });
   it("shows the basic unassigned-plan reminder even without the customer-care add-on", async () => {
     await render({ ...defaults, canUnassignedPlans: true, canCare: false, canReminders: false });
-    expect(host.querySelector('a[href="/s/a/admin/dashboard/courses/unassigned-plans"]')).not.toBeNull(); expect(host.textContent).toContain("本階段不自動傳送 LINE");
+    expect(host.querySelector('a[href="/s/a/admin/dashboard/courses?view=settings&section=notifications&panel=unassigned"]')).not.toBeNull(); expect(host.textContent).toContain("本階段不自動傳送 LINE");
   });
 });

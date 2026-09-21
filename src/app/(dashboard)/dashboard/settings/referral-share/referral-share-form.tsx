@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import {
   DEFAULT_REFERRAL_SHARE_TEMPLATE,
@@ -73,6 +74,7 @@ export function ReferralShareSettingsForm({
   const dirty = usesDefault
     ? template !== defaultTemplate || initialTemplate !== null
     : template !== initialTemplate;
+  useSettingsPanelGuard(dirty, pending);
 
   function addRecent(templateId: string, action: ReferralTemplateRecentView["action"]) {
     setRecent((current) => [

@@ -7,8 +7,11 @@ import { InfoList } from "@/components/desktop";
 import { COURSE_SETTINGS_SECTIONS, courseSettingsSection, type CourseSettingsSection, type CourseSettingsSectionInput } from "@/lib/course-settings-sections";
 import { CourseSettingsSectionEditor } from "./settings-section-editor";
 import type { UsageMetric } from "@/server/queries/usage";
+import { courseSettingsPanelHref, isCourseSettingsPanel } from "@/lib/course-settings-panels";
+import { CourseSettingsPanel } from "./settings-panel";
 
 type Props = {
+  panelContent?: ReactNode;
   storeId: string; name: string; planLabel: string; address: string; mapUrl: string; lineOfficialUrl: string;
   bankName: string; bankCode: string; bankAccountNumber: string; bookingLeadMinutes: number; cancellationLeadMinutes: number;
   canEdit: boolean; canPayment: boolean; canStaff: boolean; canPlans: boolean;
@@ -18,7 +21,7 @@ type Props = {
   trialEnabled?: boolean; trialPrice?: number; usageMetrics?: UsageMetric[];
 };
 function Row({ title, summary, href, children }: { title: string; summary: string; href?: string; children?: ReactNode }) {
-  return <section className="min-w-0 border-b border-earth-100 py-5 last:border-0"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><h3 className="font-medium text-primary-900">{title}</h3><p className="mt-1 break-words text-sm text-earth-600">{summary}</p></div>{href && <DashboardLink href={href} className="inline-flex min-h-11 shrink-0 items-center rounded-lg border px-3 text-sm text-primary-700">查看設定 →</DashboardLink>}</div>{children}</section>;
+  return <section className="min-w-0 border-b border-earth-100 py-5 last:border-0"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><h3 className="font-medium text-primary-900">{title}</h3><p className="mt-1 break-words text-sm text-earth-600">{summary}</p></div>{href && <DashboardLink href={courseSettingsPanelHref(href)} scroll={false} prefetch={false} aria-label={`開啟${title}`} className="inline-flex min-h-11 shrink-0 items-center rounded-lg border px-3 text-sm text-primary-700">開啟設定</DashboardLink>}</div>{children}</section>;
 }
 const lead = (minutes: number) => minutes ? "上課前 " + minutes + " 分鐘" : "上課開始前";
 
@@ -26,6 +29,7 @@ export function CourseSettingsWorkspace(props: Props) {
   const search = useSearchParams();
   const pathname = usePathname();
   const active = courseSettingsSection(search.get("section"));
+  const panel = search.get("panel");
   const [status, setStatus] = useState<Record<string, { dirty: boolean; pending: boolean }>>({});
   const [leaveHref, setLeaveHref] = useState<string | null>(null);
   const allowLeave = useRef(false);
@@ -42,13 +46,15 @@ export function CourseSettingsWorkspace(props: Props) {
       if (!(link instanceof HTMLAnchorElement) || link.target === "_blank" || link.hasAttribute("download")) return;
       const url = new URL(link.href);
       if (!/^https?:$/.test(url.protocol)) return;
+      if (url.origin === window.location.origin && url.pathname === pathname && url.searchParams.get("view") === "settings") return;
+      if (link.closest("[data-course-settings-panel]") && courseSettingsPanelHref(url.pathname.replace(/^\/s\/[^/]+\/admin(?=\/dashboard)|^\/hq(?=\/dashboard)/, "") + url.search).includes("view=settings")) return;
       event.preventDefault(); event.stopPropagation(); setLeaveHref(url.href);
     }
     function unload(event: BeforeUnloadEvent) { if (!allowLeave.current) { event.preventDefault(); event.returnValue = ""; } }
     document.addEventListener("click", intercept, true);
     window.addEventListener("beforeunload", unload);
     return () => { document.removeEventListener("click", intercept, true); window.removeEventListener("beforeunload", unload); };
-  }, [hasDirty, pending]);
+  }, [hasDirty, pending, pathname]);
   function select(section: CourseSettingsSection) {
     const params = new URLSearchParams(search.toString()); params.set("view", "settings"); params.set("section", section);
     window.history.replaceState(null, "", pathname + "?" + params.toString());
@@ -93,5 +99,6 @@ export function CourseSettingsWorkspace(props: Props) {
       </section>
     </div>
     {leaveHref && <RightSheet open compact width={480} onClose={() => setLeaveHref(null)} labelledById="course-settings-leave-title"><header className="p-4"><h2 id="course-settings-leave-title" className="font-semibold">{pending ? "設定仍在儲存" : "尚有未儲存的修改"}</h2></header><div className="p-4"><p>{pending ? "請等儲存完成後再離開。" : "離開將捨棄尚未儲存內容；切換左側設定分類則會保留。"}</p><div className="mt-4 flex flex-wrap gap-3"><button type="button" className="min-h-11 rounded border px-4" onClick={() => setLeaveHref(null)}>繼續編輯</button>{!pending && <button type="button" className="min-h-11 rounded bg-primary-700 px-4 text-white" onClick={() => { allowLeave.current = true; window.location.assign(leaveHref); }}>捨棄修改並離開</button>}</div></div></RightSheet>}
+    {isCourseSettingsPanel(panel) && <CourseSettingsPanel key={panel} panel={panel}>{props.panelContent}</CourseSettingsPanel>}
   </div>;
 }

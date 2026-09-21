@@ -1,4 +1,5 @@
 import { CourseSettingsWorkspace } from "./settings-workspace";
+import { CourseSettingsPanelContent } from "./settings-panel-content";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
@@ -17,7 +18,7 @@ import { toLocalDateStr } from "@/lib/date-utils";
 import { TRIAL_DEFAULTS, DEFAULT_BOOKABLE_DAYS_AHEAD } from "@/lib/shop-config";
 
 export type CourseHubView = "settings" | "operations";
-export async function CourseSharedHub({view}:{view:CourseHubView}) {
+export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubView; panel?: string; panelQuery?: string}) {
   const user = await getCurrentUser();
   if (!user) notFound();
   const permission = view === "operations" ? "cashbook.read" : "booking.read";
@@ -56,6 +57,7 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
     const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
     body = (
       <CourseSettingsWorkspace
+        panelContent={<CourseSettingsPanelContent panel={panel} query={panelQuery} />}
         key={storeId}
         canDigitalButler={canPayment && !readOnly && digitalButler}
         canReferralShare={canPayment && !readOnly && referralShare}

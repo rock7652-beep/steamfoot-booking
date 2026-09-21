@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import {useState,useTransition} from "react";
 import {saveCourseLowBalanceSetting} from "@/server/actions/course-low-balance";
 import {courseLowBalanceBody} from "@/lib/course-low-balance";
@@ -10,6 +11,7 @@ function PlanReminder({plan}:{plan:Plan}) {
   const [saved,setSaved]=useState({enabled:plan.lowBalanceEnabled,threshold:plan.lowBalanceThreshold});
   const [message,setMessage]=useState("");
   const [pending,start]=useTransition();
+  useSettingsPanelGuard(enabled !== saved.enabled || threshold !== (saved.threshold?.toString() ?? ""), pending);
   const unit=plan.unit==="SESSION"?"堂":"點";
   return <details className={`rounded-xl border border-earth-200 bg-white ${plan.isActive?"":"opacity-60"}`}>
     <summary className="cursor-pointer p-4"><span className="font-medium text-primary-900">{plan.name}</span><span className="ml-2 text-sm text-earth-600">{plan.isActive?"":"下架 · "}{saved.enabled?`可用 ≤ ${saved.threshold} ${unit}`:"未啟用"}</span></summary>

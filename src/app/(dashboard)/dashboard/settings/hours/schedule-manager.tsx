@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useCallback, useTransition, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
@@ -202,6 +203,7 @@ export function ScheduleManager({
       || editReason !== (dayDetail.reason ?? "")
       || JSON.stringify(editPeriods) !== JSON.stringify(editablePeriods(dayDetail.periods, dayDetail.slotInterval, dayDetail.defaultCapacity));
   }, [applyMode, dayDetail, editPeriods, editReason, editStatus]);
+  useSettingsPanelGuard(dayDraftDirty, isPending);
 
   const draftSlotPreview = useMemo(() => {
     if (editStatus !== "custom") return [];

@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -30,6 +31,9 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
   const [maxPrice, setMaxPrice] = useState(String(initial.trialMaxPrice));
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const draft = JSON.stringify([trialEnabled, defaultPrice, allowEdit, minPrice, maxPrice]);
+  const [savedDraft, setSavedDraft] = useState(draft);
+  useSettingsPanelGuard(draft !== savedDraft, pending);
 
   const d = toInt(defaultPrice);
   const lo = toInt(minPrice);
@@ -56,6 +60,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
         trialMaxPrice: hi,
       });
       if (result.success) {
+        setSavedDraft(draft);
         toast.success("體驗課設定已更新");
         router.refresh();
       } else {
