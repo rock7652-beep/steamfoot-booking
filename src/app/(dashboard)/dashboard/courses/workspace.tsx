@@ -6,6 +6,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { CourseTrialQuickModal } from "./course-trial-quick-modal";
+import { CourseManagerBookingModal } from "./course-manager-booking-modal";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
   addTaiwanDuration,
@@ -95,6 +96,7 @@ export function CourseWorkspace({
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const [rosterSessionId, setRosterSessionId] = useState<string | null>(null);
+  const [bookingSessionId, setBookingSessionId] = useState<string | null>(null);
   const [trialModalOpen, setTrialModalOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
@@ -762,6 +764,15 @@ export function CourseWorkspace({
                         <button className={button} disabled={pending} onClick={() => setRosterSessionId(s.id)}>
                           上課名單 {s.bookings.length}
                         </button>
+                        {canCreate && (
+                          <button
+                            className={button}
+                            disabled={pending || s.bookings.length >= s.capacity}
+                            onClick={() => setBookingSessionId(s.id)}
+                          >
+                            ＋ 學員預約
+                          </button>
+                        )}
                         {canEdit && (
                           <button
                             className={button}
@@ -1626,6 +1637,18 @@ export function CourseWorkspace({
               />
             </div>
           </RightSheet>
+        );
+      })()}
+      {bookingSessionId && (() => {
+        const bookingSession = sessions.find((session) => session.id === bookingSessionId);
+        if (!bookingSession) return null;
+        return (
+          <CourseManagerBookingModal
+            open
+            sessionId={bookingSession.id}
+            sessionLabel={`${formatTWDateTime(new Date(bookingSession.startsAt)).slice(0,16)} · ${bookingSession.nameSnapshot}`}
+            onClose={() => setBookingSessionId(null)}
+          />
         );
       })()}
       <CourseTrialQuickModal
