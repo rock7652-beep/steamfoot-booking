@@ -1616,36 +1616,41 @@ export function CourseWorkspace({
       {attendanceSessionId && sessions.find((session) => session.id === attendanceSessionId) && (() => {
         const attendanceSession = sessions.find((session) => session.id === attendanceSessionId)!;
         return (
-          <RightSheet
-            compact
-            open
-            width={760}
-            onClose={() => setAttendanceSessionId(null)}
-            labelledById="course-attendance-title"
+          <div
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4"
+            onClick={() => setAttendanceSessionId(null)}
           >
-            <header className="flex shrink-0 items-center justify-between border-b border-earth-200 p-4">
-              <div>
-                <h2 id="course-attendance-title" className="font-semibold text-primary-900">
-                  {attendanceSession.nameSnapshot} · 點名名單
-                </h2>
-                <p className="mt-1 text-sm text-earth-600">
-                  {formatTWDateTime(new Date(attendanceSession.startsAt))} · 已預約 {attendanceSession.bookings.length}／{attendanceSession.capacity} 人
-                </p>
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="course-attendance-title"
+              className="flex max-h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <header className="flex shrink-0 items-center justify-between gap-4 border-b border-earth-200 bg-primary-50 px-5 py-4">
+                <div className="min-w-0">
+                  <h2 id="course-attendance-title" className="truncate text-lg font-semibold text-primary-900">
+                    {attendanceSession.nameSnapshot} · 點名名單
+                  </h2>
+                  <p className="mt-1 text-sm text-earth-600">
+                    {formatTWDateTime(new Date(attendanceSession.startsAt))} · 已預約 {attendanceSession.bookings.length}／{attendanceSession.capacity} 人
+                  </p>
+                </div>
+                <button type="button" className={button} onClick={() => setAttendanceSessionId(null)}>
+                  關閉
+                </button>
+              </header>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5">
+                <CourseRoster
+                  key={attendanceSession.id}
+                  sessionId={attendanceSession.id}
+                  capacity={attendanceSession.capacity}
+                  canCreate={canCreate}
+                  canEdit={canEdit}
+                />
               </div>
-              <button type="button" className={button} onClick={() => setAttendanceSessionId(null)}>
-                關閉
-              </button>
-            </header>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-              <CourseRoster
-                key={attendanceSession.id}
-                sessionId={attendanceSession.id}
-                capacity={attendanceSession.capacity}
-                canCreate={canCreate}
-                canEdit={canEdit}
-              />
-            </div>
-          </RightSheet>
+            </section>
+          </div>
         );
       })()}
     </>
