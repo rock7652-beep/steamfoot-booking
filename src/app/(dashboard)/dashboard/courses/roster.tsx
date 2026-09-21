@@ -106,8 +106,8 @@ export function CourseRoster({
   const sourceRows=showCancelled?cancelledRows:activeRows;
   const normalizedQuery=rosterQuery.trim().toLocaleLowerCase();
   const rows=sourceRows.filter(b=>!normalizedQuery || b.customerName.toLocaleLowerCase().includes(normalizedQuery) || (b.phone ?? "").includes(rosterQuery.replace(/\D/g,"")));
-  const currentPage=Math.min(page,Math.max(0,Math.ceil(rows.length/20)-1));
-  const displayedRows=rows.slice(currentPage*20,currentPage*20+20);
+  const currentPage=Math.min(page,Math.max(0,Math.ceil(rows.length/10)-1));
+  const displayedRows=rows.slice(currentPage*10,currentPage*10+10);
   const count = roster.filter((b) => b.status !== "CANCELLED").length;
   const statusLabel=(b:(typeof roster)[number])=> b.bookingKind === "TRIAL"
     ? ({ATTENDED:"已出席",CANCELLED:"已取消",NO_SHOW:"未到",RESERVED:b.checkedInAt?"已報到":"待點名"}[b.status] ?? b.status)
@@ -238,7 +238,7 @@ export function CourseRoster({
           {!displayedRows.length && <p className="p-6 text-center text-sm text-earth-500">沒有符合條件的學員。</p>}
         </div>
       </div>
-      {rows.length>20&&<nav aria-label="學員分頁" className="flex items-center justify-between"><button className={button} disabled={currentPage===0||pending} onClick={()=>setPage(currentPage-1)}>上一頁</button><span>{currentPage+1} / {Math.ceil(rows.length/20)} · 共 {rows.length} 人</span><button className={button} disabled={(currentPage+1)*20>=rows.length||pending} onClick={()=>setPage(currentPage+1)}>下一頁</button></nav>}
+      {rows.length>10&&<nav aria-label="學員分頁" className="flex items-center justify-between"><button className={button} disabled={currentPage===0||pending} onClick={()=>setPage(currentPage-1)}>上一頁</button><span>{currentPage+1} / {Math.ceil(rows.length/10)} · 共 {rows.length} 人</span><button className={button} disabled={(currentPage+1)*10>=rows.length||pending} onClick={()=>setPage(currentPage+1)}>下一頁</button></nav>}
       {!compactOnly && allowTrialActions && trial?.canCreate && trial.settings.trialEnabled && <details className="rounded border border-earth-200 p-3"><summary className="min-h-11 cursor-pointer font-medium">建立體驗預約（不使用方案）</summary><form className="space-y-3" onSubmit={e=>{e.preventDefault();const data=new FormData(e.currentTarget);run(()=>createCourseTrial({sessionId,customerId:data.get("customerId"),price:Number(data.get("price")),notes:data.get("notes"),requestKey}));}}>
         <label className="block">實際上課者<select required name="customerId" className={`${button} w-full`}><option value="">選擇本店顧客</option>{trial.customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label className="block">體驗金額<input name="price" type="number" required readOnly={!trial.settings.trialAllowPriceEdit} min={trial.settings.trialMinPrice} max={trial.settings.trialMaxPrice} defaultValue={trial.settings.trialDefaultPrice} className={`${button} w-full`}/></label>
