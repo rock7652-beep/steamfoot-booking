@@ -14,6 +14,7 @@ import {
   updateCourseRosterBatch,
   loadCourseSessionDetail,
   createCourseBooking,
+  saveCourseCustomer,
   updateCourseBookingStatus,
   cancelCourseSession,
 } from "@/server/actions/course-members";
@@ -73,6 +74,7 @@ export function CourseRoster({
   const [customerId, setCustomerId] = useState("");
   const [memberQuery, setMemberQuery] = useState("");
   const [trialQuery, setTrialQuery] = useState("");
+  const [trialMode, setTrialMode] = useState<"existing" | "new">("existing");
   const [message, setMessage] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [requestKey, setRequestKey] = useState("");
@@ -339,82 +341,191 @@ export function CourseRoster({
     if (!allowTrialActions || !trial?.canCreate || !trial.settings.trialEnabled) {
       return <p className="text-sm text-earth-600">目前未開放建立體驗預約。</p>;
     }
+    const priceField = (
+      <label className="block text-sm font-medium">
+        體驗金額
+        <input
+          name="price"
+          type="number"
+          required
+          readOnly={!trial.settings.trialAllowPriceEdit}
+          min={trial.settings.trialMinPrice}
+          max={trial.settings.trialMaxPrice}
+          defaultValue={trial.settings.trialDefaultPrice}
+          className={`${field} mt-1`}
+        />
+      </label>
+    );
+    const noteField = (
+      <label className="block text-sm font-medium">
+        本次備註
+        <textarea
+          name="notes"
+          maxLength={1000}
+          className={`${field} mt-1 min-h-24`}
+        />
+      </label>
+    );
     return (
       <section className="space-y-4">
-        {message && <p role="status" className="text-sm text-primary-700">{message}</p>}
-        <div>
-          <label htmlFor="course-trial-search" className="mb-1 block text-sm font-medium">
-            找到既有顧客就直接加入
-          </label>
-          <input
-            id="course-trial-search"
-            className={field}
-            value={trialQuery}
-            onChange={(event) => setTrialQuery(event.target.value)}
-            placeholder="輸入顧客姓名後開始搜尋"
-            autoFocus
-          />
-          {!normalizedTrialQuery && (
-            <p className="mt-2 text-sm text-earth-500">輸入關鍵字後才會顯示符合的顧客。</p>
-          )}
-        </div>
-        {normalizedTrialQuery && (
-          <div className="max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200">
-            {filteredTrialCustomers.length ? (
-              filteredTrialCustomers.map((customer) => (
-                <label key={customer.id} className="flex min-h-12 cursor-pointer items-center gap-3 px-3 hover:bg-primary-50">
-                  <input type="radio" name="trial-customer-choice" value={customer.id} form="course-trial-form" />
-                  <span>{customer.name}</span>
-                </label>
-              ))
-            ) : (
-              <p className="p-4 text-sm text-earth-500">
-                找不到既有顧客，請先至顧客管理建立資料後再加入。
-              </p>
-            )}
-          </div>
-        )}
-        <form
-          id="course-trial-form"
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const data = new FormData(event.currentTarget);
-            run(() =>
-              createCourseTrial({
-                sessionId,
-                customerId: data.get("trial-customer-choice"),
-                price: Number(data.get("price")),
-                notes: data.get("notes"),
-                requestKey,
-              }),
-            );
-          }}
-        >
-          <label className="block text-sm font-medium">
-            體驗金額
-            <input
-              name="price"
-              type="number"
-              required
-              readOnly={!trial.settings.trialAllowPriceEdit}
-              min={trial.settings.trialMinPrice}
-              max={trial.settings.trialMaxPrice}
-              defaultValue={trial.settings.trialDefaultPrice}
-              className={`${field} mt-1`}
-            />
-          </label>
-          <label className="block text-sm font-medium">
-            本次備註
-            <textarea name="notes" maxLength={1000} className={`${field} mt-1 min-h-24`} />
-          </label>
-          <p className="text-sm text-earth-600">
-            先建立未收款預約並保留名額；收款與出席分開，不占用其他方案。
+        {message && (
+          <p role="status" className="text-sm text-primary-700">
+            {message}
           </p>
-          <button className={`${button} w-full bg-primary-700 text-white`} disabled={pending}>
-            {pending ? "處理中…" : "建立並加入課程"}
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className={`${button} ${trialMode === "existing" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+            onClick={() => setTrialMode("existing")}
+          >
+            選擇既有顧客
           </button>
-        </form>
+          <button
+            type="button"
+            className={`${button} ${trialMode === "new" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+            onClick={() => setTrialMode("new")}
+          >
+            ＋ 建立新體驗客
+          </button>
+        </div>
+
+        {trialMode === "existing" ? (
+          <form
+            id="course-trial-form"
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget);
+              run(() =>
+                createCourseTrial({
+                  sessionId,
+                  customerId: data.get("trial-customer-choice"),
+                  price: Number(data.get("price")),
+                  notes: data.get("notes"),
+                  requestKey,
+                }),
+              );
+            }}
+          >
+            <div>
+              <label
+                htmlFor="course-trial-search"
+                className="mb-1 block text-sm font-medium"
+              >
+                找到既有顧客就直接加入
+              </label>
+              <input
+                id="course-trial-search"
+                className={field}
+                value={trialQuery}
+                onChange={(event) => setTrialQuery(event.target.value)}
+                placeholder="輸入顧客姓名後開始搜尋"
+                autoFocus
+              />
+              {!normalizedTrialQuery && (
+                <p className="mt-2 text-sm text-earth-500">
+                  輸入關鍵字後才會顯示符合的顧客。
+                </p>
+              )}
+            </div>
+            {normalizedTrialQuery && (
+              <div className="max-h-52 divide-y overflow-y-auto rounded-lg border border-earth-200">
+                {filteredTrialCustomers.length ? (
+                  filteredTrialCustomers.map((customer) => (
+                    <label
+                      key={customer.id}
+                      className="flex min-h-12 cursor-pointer items-center gap-3 px-3 hover:bg-primary-50"
+                    >
+                      <input
+                        type="radio"
+                        name="trial-customer-choice"
+                        value={customer.id}
+                        required
+                      />
+                      <span>{customer.name}</span>
+                    </label>
+                  ))
+                ) : (
+                  <p className="p-4 text-sm text-earth-500">
+                    找不到既有顧客，可切換「建立新體驗客」快速建檔。
+                  </p>
+                )}
+              </div>
+            )}
+            {priceField}
+            {noteField}
+            <p className="text-sm text-earth-600">
+              先建立未收款預約並保留名額；收款與出席分開，不占用其他方案。
+            </p>
+            <button
+              className={`${button} w-full bg-primary-700 text-white`}
+              disabled={pending}
+            >
+              {pending ? "處理中…" : "建立並加入課程"}
+            </button>
+          </form>
+        ) : (
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget);
+              run(async () => {
+                const saved = await saveCourseCustomer({
+                  name: data.get("name"),
+                  phone: data.get("phone"),
+                });
+                if (!saved.success) return saved;
+                return createCourseTrial({
+                  sessionId,
+                  customerId: saved.data.id,
+                  price: Number(data.get("price")),
+                  notes: data.get("notes"),
+                  requestKey,
+                });
+              });
+            }}
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-medium">
+                姓名
+                <input
+                  name="name"
+                  required
+                  maxLength={80}
+                  className={`${field} mt-1`}
+                  autoFocus
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                手機
+                <input
+                  name="phone"
+                  required
+                  maxLength={30}
+                  inputMode="tel"
+                  placeholder="09xxxxxxxx"
+                  className={`${field} mt-1`}
+                />
+              </label>
+            </div>
+            <p className="text-sm text-earth-500">
+              若手機已存在，請改用「選擇既有顧客」，避免重複建檔。
+            </p>
+            {priceField}
+            {noteField}
+            <p className="text-sm text-earth-600">
+              建立顧客後會直接加入本堂，並先保留一位名額。
+            </p>
+            <button
+              className={`${button} w-full bg-primary-700 text-white`}
+              disabled={pending}
+            >
+              {pending ? "處理中…" : "建立並加入課程"}
+            </button>
+          </form>
+        )}
       </section>
     );
   }
