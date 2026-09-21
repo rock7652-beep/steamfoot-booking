@@ -77,9 +77,9 @@ export function RightSheet({
         aria-modal="true"
         aria-labelledby={labelledById}
         style={{ width: variant === "modal" ? undefined : width, maxWidth: variant === "modal" ? width : undefined }}
-        className={`${variant === "modal" ? "absolute left-1/2 top-1/2 flex max-h-[88dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-earth-200" : "absolute right-0 top-0 flex h-full max-w-full flex-col"} ${compact ? "border-t-4 border-t-secondary-500 [&>header]:bg-primary-50 [&>footer]:bg-earth-50" : ""} bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-all duration-200 ${
+        className={`${variant === "modal" ? "absolute left-1/2 top-1/2 flex max-h-[88dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-earth-200 transition-opacity duration-150" : "absolute right-0 top-0 flex h-full max-w-full flex-col transition-transform duration-200"} ${compact ? "border-t-4 border-t-secondary-500 [&>header]:bg-primary-50 [&>footer]:bg-earth-50" : ""} bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] ${
           variant === "modal"
-            ? open ? "scale-100 opacity-100" : "scale-95 opacity-0"
+            ? open ? "opacity-100" : "opacity-0"
             : open ? "translate-x-0" : "translate-x-full"
         }`}
       >
