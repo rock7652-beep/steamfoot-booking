@@ -8,6 +8,32 @@ import {
 } from "@/server/services/course-access";
 import { updateShopBankInfo } from "./shop";
 import { handleActionError } from "@/lib/errors";
+import { courseSettingsSectionSchema } from "@/lib/course-settings-sections";
+import { assertStoreSubscriptionWritable } from "@/lib/subscription-guard";
+
+/** Each editor writes only its own fields: stale drafts cannot overwrite another section. */
+export async function saveCourseSettingsSection(input: unknown) {
+  try {
+    const d = courseSettingsSectionSchema.parse(input);
+    const { storeId } = await courseManager(d.section === "payment" ? "plans.edit" : "business_hours.manage");
+    await assertStoreSubscriptionWritable(storeId);
+    await courseTransaction(storeId, async tx => {
+      if (d.section === "booking") {
+        const rules = { bookingLeadMinutes: d.bookingLeadMinutes, cancellationLeadMinutes: d.cancellationLeadMinutes };
+        await tx.courseBookingRule.upsert({ where: { storeId }, create: { storeId, ...rules }, update: rules });
+      } else if (d.section === "store") {
+        await tx.$executeRaw`UPDATE "Store" SET name=${d.name}, "updatedAt"=NOW() WHERE id=${storeId}`;
+        await tx.$executeRaw`INSERT INTO "ShopConfig" (id,"storeId","shopName",address,"mapUrl","lineOfficialUrl","updatedAt") VALUES (${crypto.randomUUID()},${storeId},${d.name},${d.address || null},${d.mapUrl || null},${d.lineOfficialUrl || null},NOW()) ON CONFLICT ("storeId") DO UPDATE SET "shopName"=EXCLUDED."shopName",address=EXCLUDED.address,"mapUrl"=EXCLUDED."mapUrl","lineOfficialUrl"=EXCLUDED."lineOfficialUrl","updatedAt"=NOW()`;
+      } else {
+        await tx.$executeRaw`INSERT INTO "ShopConfig" (id,"storeId","bankName","bankCode","bankAccountNumber","updatedAt") VALUES (${crypto.randomUUID()},${storeId},${d.bankName || null},${d.bankCode || null},${d.bankAccountNumber || null},NOW()) ON CONFLICT ("storeId") DO UPDATE SET "bankName"=EXCLUDED."bankName","bankCode"=EXCLUDED."bankCode","bankAccountNumber"=EXCLUDED."bankAccountNumber","updatedAt"=NOW()`;
+      }
+    });
+    revalidateShopConfig();
+    revalidatePath("/dashboard", "layout");
+    revalidatePath("/book");
+    return { success: true as const };
+  } catch (error) { return handleActionError(error); }
+}
 export async function saveCourseSettings(input: unknown) {
   try {
     const { storeId } = await courseManager("business_hours.manage");

@@ -136,7 +136,7 @@ export default async function DutySettingsPage() {
         subtitle="控制值班排班是否與預約系統聯動"
         actions={
           <Link
-            href="/dashboard/settings"
+            href={course ? "/dashboard/courses?view=settings&section=booking" : "/dashboard/settings"}
             className="rounded-lg border border-earth-200 px-3 py-1.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
           >
             ← 返回設定

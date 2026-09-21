@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -67,6 +68,7 @@ export function DigitalButlerFlowEditor({
   } | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  useSettingsPanelGuard(name !== persistedName || definition !== persistedDefinition, pending);
 
   function select(flow: Flow) {
     setSelectedId(flow.id);

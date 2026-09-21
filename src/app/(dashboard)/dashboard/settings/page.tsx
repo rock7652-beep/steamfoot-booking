@@ -11,7 +11,7 @@ import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { FEATURES } from "@/lib/feature-flags";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { prisma } from "@/lib/db";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import {
   PageShell,
@@ -83,12 +83,14 @@ export default async function SettingsIndexPage() {
   }
 
 
+  const industry = await getStoreIndustryModule(activeStoreId);
+  if (industry === "course") redirect("/dashboard/courses?view=settings");
   const canManageTrial = await checkPermission(
     user.role,
     user.staffId,
     "trial.manage",
   );
-  const isSpaStore = (await getStoreIndustryModule(activeStoreId)) === "spa";
+  const isSpaStore = industry === "spa";
 
   if (isSpaStore) {
     const [canHours, canPayment, canBooking, canDuty, spaDigitalButler] = await Promise.all([

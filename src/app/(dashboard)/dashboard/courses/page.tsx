@@ -30,7 +30,7 @@ export default async function CoursesPage({
     query.view === "settings" ||
     query.view === "operations"
   )
-    return <CourseSharedHub view={query.view} />;
+    return <CourseSharedHub view={query.view} panel={query.panel} panelQuery={query.panelQuery} />;
   const user = await getCurrentUser();
   if (
     !user ||

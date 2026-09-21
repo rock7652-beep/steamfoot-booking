@@ -1,6 +1,7 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
-import { useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { saveCourseBookingWindow } from "@/server/actions/course-booking-window";
@@ -12,6 +13,7 @@ import {
 
 interface Props {
   course?: boolean;
+  direct?: boolean;
   /** 目前 ShopConfig.bookableUntilDate（"YYYY-MM-DD"）；null = 未設定 */
   initialDate: string | null;
   initialDays: number;
@@ -25,7 +27,9 @@ export function BookableUntilForm({
   today,
   canManage,
   course = false,
+  direct = false,
 }: Props) {
+  const radioGroup = useId();
   const initialMode = initialDate ? "fixed" : "rolling";
   const [mode, setMode] = useState<"fixed" | "rolling">(initialMode);
   const [fixedDate, setFixedDate] = useState(initialDate ?? "");
@@ -33,21 +37,26 @@ export function BookableUntilForm({
   const [savedMode, setSavedMode] = useState<"fixed" | "rolling">(initialMode);
   const [savedDate, setSavedDate] = useState(initialDate);
   const [savedDays, setSavedDays] = useState(initialDays);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(direct);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const saving = useRef(false);
 
   const dirty = mode !== savedMode || (mode === "fixed" ? fixedDate !== savedDate : days !== savedDays);
+  useSettingsPanelGuard(dirty, pending);
 
   function cancel() {
     setMode(savedMode);
     setFixedDate(savedDate ?? "");
     setDays(savedDays);
-    setExpanded(false);
+    setExpanded(direct);
   }
 
   function save() {
+    if (saving.current || !dirty) return;
+    saving.current = true;
     startTransition(async () => {
+      try {
       if (mode === "fixed" && !fixedDate) {
         toast.error("請選擇開放預約的截止日期");
         return;
@@ -65,11 +74,13 @@ export function BookableUntilForm({
             ? `已開放預約至 ${formatDateZh(fixedDate)}`
             : `已設定自動開放未來 ${days} 天`,
         );
-        setExpanded(false);
+        setExpanded(direct);
         router.refresh();
       } else {
         toast.error(result.error ?? "儲存失敗");
       }
+      } catch { toast.error("連線失敗，輸入內容已保留，請重試"); }
+      finally { saving.current = false; }
     });
   }
 
@@ -84,7 +95,7 @@ export function BookableUntilForm({
               : `自動開放未來 ${savedDays} 天`}
           </p>
         </div>
-        {canManage && (
+        {canManage && !direct && (
           <button type="button" disabled={pending} onClick={() => expanded ? cancel() : setExpanded(true)} className="shrink-0 rounded border border-earth-300 px-2.5 py-1 text-xs font-medium text-earth-700 hover:bg-earth-50">
             {expanded ? "取消" : "修改"}
           </button>
@@ -92,7 +103,7 @@ export function BookableUntilForm({
       </header>
 
       {expanded && dirty && <p role="status" className="mt-3 text-xs font-medium text-amber-700">尚未儲存</p>}
-      {expanded && <fieldset className="mt-3 space-y-2 text-xs text-earth-600">
+      {expanded && <fieldset className={direct ? "mt-3 grid gap-2 text-xs text-earth-600 sm:grid-cols-2" : "mt-3 space-y-2 text-xs text-earth-600"}>
         <legend className="mb-1">顧客可以預約到何時？</legend>
         <label
           className={`block cursor-pointer rounded-lg border px-3 py-3 ${mode === "fixed" ? "border-primary-400 bg-primary-50" : "border-earth-300 bg-white"}`}
@@ -100,7 +111,7 @@ export function BookableUntilForm({
           <span className="flex items-center gap-2 text-sm font-medium text-earth-800">
             <input
               type="radio"
-              name="booking-range-mode"
+              name={radioGroup}
               checked={mode === "fixed"}
               disabled={!canManage || pending}
               onChange={() => setMode("fixed")}
@@ -129,7 +140,7 @@ export function BookableUntilForm({
           <span className="flex items-center gap-2 text-sm font-medium text-earth-800">
             <input
               type="radio"
-              name="booking-range-mode"
+              name={radioGroup}
               checked={mode === "rolling"}
               disabled={!canManage || pending}
               onChange={() => setMode("rolling")}
@@ -157,14 +168,15 @@ export function BookableUntilForm({
         </label>
       </fieldset>}
       {canManage && expanded && (
-        <div className="mt-3">
+        <div className="mt-3 flex justify-end gap-3">
+          {direct && <button type="button" disabled={pending || !dirty} onClick={cancel} className="min-h-11 rounded-lg border px-4 disabled:opacity-50">還原修改</button>}
           <button
             type="button"
             disabled={pending || !dirty || (mode === "fixed" && !fixedDate)}
             onClick={save}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
           >
-            {pending ? "儲存中..." : "確認儲存"}
+            {pending ? "儲存中..." : "儲存設定"}
           </button>
         </div>
       )}

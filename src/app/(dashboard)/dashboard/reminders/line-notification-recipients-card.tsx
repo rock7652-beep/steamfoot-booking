@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -23,6 +24,7 @@ type Recipient = {
 };
 function RecipientCard({ item, expanded, onExpand, course = false }: { item: Recipient; expanded: boolean; onExpand: () => void; course?: boolean }) {
   const [pending, start] = useTransition();
+  useSettingsPanelGuard(false, pending);
   const [saved, setSaved] = useState("");
   const p = managerPreferences(item.preferences, item.sameDayBookingEnabled);
   const options = managerNotificationOptions(course);
@@ -169,6 +171,7 @@ export function LineNotificationRecipientsCard({
     "店長",
   );
   const [pending, start] = useTransition();
+  useSettingsPanelGuard(!!name.trim(), pending);
   return (
     <section className="space-y-3">
       <div>

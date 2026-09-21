@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
+import { useSettingsPanelNavigation } from "@/components/admin/settings-panel-context";
 export function ReminderTabs({
   active,
   explicit,
@@ -16,6 +17,7 @@ export function ReminderTabs({
   customerOnly?: boolean;
 }) {
   const router = useRouter();
+  const panelNavigate = useSettingsPanelNavigation();
   const storageKey = `reminder-tab:${storeId}:${baseHref}`;
   useEffect(() => {
     try {
@@ -29,9 +31,9 @@ export function ReminderTabs({
         (customerOnly ? ["customer", "logs"] : ["manager", "customer", "logs"]).includes(saved) &&
         saved !== active
       )
-        router.replace(`?tab=${saved}`);
+        if (panelNavigate) panelNavigate(`${baseHref}?tab=${saved}`); else router.replace(`?tab=${saved}`);
     } catch {}
-  }, [active, explicit, router, storageKey, customerOnly]);
+  }, [active, explicit, router, storageKey, customerOnly, panelNavigate, baseHref]);
   return (
     <nav aria-label="提醒管理分頁" className="flex border-b border-earth-200">
       {[

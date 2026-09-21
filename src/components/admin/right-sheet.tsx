@@ -9,6 +9,7 @@ interface RightSheetProps {
   children: ReactNode;
   width?: number;
   labelledById?: string;
+  closeOnEscape?: boolean;
 }
 
 export function RightSheet({
@@ -18,6 +19,7 @@ export function RightSheet({
   width = 460,
   compact = false,
   labelledById,
+  closeOnEscape = true,
 }: RightSheetProps) {
   const panelRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -28,6 +30,7 @@ export function RightSheet({
     (focusable()[0] ?? panel)?.focus({ preventScroll: true });
     function trap(event: KeyboardEvent) {
       if (event.key !== "Tab") return;
+      if (event.target instanceof Element && event.target.closest("[data-right-sheet]") !== panel?.closest("[data-right-sheet]")) return;
       const items = focusable();
       const first = items[0], last = items[items.length - 1];
       if (!first) { event.preventDefault(); panel?.focus(); return; }
@@ -40,7 +43,7 @@ export function RightSheet({
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (closeOnEscape && e.key === "Escape") onClose();
     }
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
@@ -49,7 +52,7 @@ export function RightSheet({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, onClose]);
+  }, [open, onClose, closeOnEscape]);
 
   return (
     <div

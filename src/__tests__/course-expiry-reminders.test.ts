@@ -12,7 +12,7 @@ vi.mock("@/server/services/central-line-recipient-loader",()=>({resolveCentralLi
 vi.mock("@/server/services/verified-reminder-line-route",()=>({resolveVerifiedReminderLineRoute:m.route}));
 import {getCourseExpiryCandidates,runCourseExpiryReminders} from "@/server/services/course-expiry-reminders";
 const now=new Date("2026-09-17T18:00:00+08:00");
-const card={id:"card",storeId:"s",nameSnapshot:"點數方案",unit:"POINT",remaining:5,expiresAt:new Date("2026-10-01T23:59:59+08:00"),members:[{customerId:"A"},{customerId:"B"}],bookings:[{pointCost:3}]};
+const card={id:"card",planId:"plan",storeId:"s",nameSnapshot:"點數方案",unit:"POINT",remaining:5,expiresAt:new Date("2026-10-01T23:59:59+08:00"),members:[{customerId:"A"},{customerId:"B"}],bookings:[{pointCost:3}]};
 beforeEach(()=>{
  vi.resetAllMocks();m.settings.mockResolvedValue([{id:"course-expiry-reminder-enabled:s",store:{id:"s",slug:"test"}}]);m.store.mockResolvedValue({id:"s"});m.cards.mockResolvedValue([card]);m.people.mockResolvedValue([{id:"B",name:"B",lineLinkStatus:"LINKED",lineUserId:"b"}]);m.feature.mockResolvedValue(true);m.limit.mockReturnValue({allowed:true});m.preview.mockReturnValue(false);m.raw.mockResolvedValue([{remaining:5,held:3}]);m.setting.mockResolvedValue({id:"setting"});m.existing.mockResolvedValue(null);m.count.mockResolvedValue(0);m.route.mockResolvedValue({status:"READY",channel:"STORE",recipientLineUserId:"verified-b"});m.push.mockResolvedValue({success:true});
 });
@@ -49,4 +49,24 @@ it("does not use unverified legacy LINE id",async()=>{
 });
 it("retains uncertain delivery evidence without overwriting concurrent SENT",async()=>{
  m.push.mockRejectedValue(new Error("timeout"));expect(await runCourseExpiryReminders(now)).toMatchObject({failed:1,sent:0});expect(m.updateMany).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({storeId:"s",status:{not:"SENT"}})}));
+});
+
+it("uses each plan's own days and preserves defaults for unconfigured plans", async()=>{
+ m.settings.mockResolvedValue([{id:"course-expiry-plan:s:plan",body:JSON.stringify({enabled:true,days:[30,3]})},{id:"course-expiry-plan:s:disabled",body:JSON.stringify({enabled:false,days:[14,7]})}]);
+ m.cards.mockResolvedValue([{...card,expiresAt:new Date("2026-10-17T23:59:59+08:00")},{...card,id:"old-phase"},{...card,id:"disabled",planId:"disabled"},{...card,id:"default",planId:"default"}]);
+ expect((await getCourseExpiryCandidates("s",now)).map(c=>[c.card.id,c.days])).toEqual([["card",30],["default",14]]);
+});
+it("rechecks changed or disabled plan rules under the sending lock",async()=>{
+ m.setting.mockImplementation(async({where}:{where:{id:string}})=>where.id.startsWith("course-expiry-plan:")?{body:JSON.stringify({enabled:false,days:[14,7]})}:{body:"enabled"});
+ expect(await runCourseExpiryReminders(now)).toMatchObject({sent:0,skipped:1}); expect(m.push).not.toHaveBeenCalled();
+ m.setting.mockImplementation(async({where}:{where:{id:string}})=>where.id.startsWith("course-expiry-plan:")?{body:JSON.stringify({enabled:true,days:[30]})}:{body:"enabled"});
+ expect(await runCourseExpiryReminders(now)).toMatchObject({sent:0,skipped:1}); expect(m.push).not.toHaveBeenCalled();
+});
+
+it("delivers the configured custom phase with the same dedupe identity on retry",async()=>{
+ m.settings.mockImplementation(async({where}:{where:{id:{startsWith:string}}})=>where.id.startsWith.startsWith("course-expiry-plan:")?[{id:"course-expiry-plan:s:plan",body:JSON.stringify({enabled:true,days:[30]})}]:[{id:"course-expiry-reminder-enabled:s",store:{id:"s",slug:"test"}}]);
+ m.setting.mockImplementation(async({where}:{where:{id:string}})=>where.id.startsWith("course-expiry-plan:")?{body:JSON.stringify({enabled:true,days:[30]})}:{body:"enabled"});
+ m.cards.mockResolvedValue([{...card,expiresAt:new Date("2026-10-17T23:59:59+08:00")}]);
+ expect(await runCourseExpiryReminders(now)).toMatchObject({sent:1});expect(JSON.stringify(m.push.mock.calls[0][2])).toContain("30 天後到期");
+ const key=m.push.mock.calls[0][3];await runCourseExpiryReminders(now);expect(m.push.mock.calls[1][3]).toBe(key);
 });

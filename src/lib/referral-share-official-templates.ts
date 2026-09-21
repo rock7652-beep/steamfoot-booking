@@ -79,7 +79,7 @@ export const OFFICIAL_REFERRAL_SHARE_TEMPLATES: readonly OfficialReferralShareTe
     description: "適合音樂、語言與各類體驗課程",
     category: "INDUSTRY",
     industry: "教學",
-    content: lines("最近在「{storeName}」體驗了一堂課", "老師講得很清楚，第一次參加也不會有壓力 🙌", "", "正在找適合自己的課程，可以先看看👇", "{url}"),
+    content: lines("最近在「{storeName}」體驗了一堂課", "教練講得很清楚，第一次參加也不會有壓力 🙌", "", "正在找適合自己的課程，可以先看看👇", "{url}"),
   },
   {
     id: "industry-hair",

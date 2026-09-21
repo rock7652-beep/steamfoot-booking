@@ -1,4 +1,5 @@
 import { CourseSettingsWorkspace } from "./settings-workspace";
+import { CourseSettingsPanelContent } from "./settings-panel-content";
 import { PRICING_PLAN_INFO } from "@/lib/feature-flags";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
@@ -10,9 +11,14 @@ import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { getStoreUsage } from "@/server/queries/usage";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { FEATURES } from "@/lib/feature-flags";
+import { computeLifecycle, effectiveStateLabel } from "@/lib/subscription-lifecycle";
+import { toLocalDateStr } from "@/lib/date-utils";
+import { TRIAL_DEFAULTS, DEFAULT_BOOKABLE_DAYS_AHEAD } from "@/lib/shop-config";
 
 export type CourseHubView = "settings" | "operations";
-export async function CourseSharedHub({view}:{view:CourseHubView}) {
+export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubView; panel?: string; panelQuery?: string}) {
   const user = await getCurrentUser();
   if (!user) notFound();
   const permission = view === "operations" ? "cashbook.read" : "booking.read";
@@ -31,18 +37,39 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
     const [store, rule, canEdit, config, canPayment, canStaff, canPlans] = await Promise.all([
       prisma.store.findUnique({
         where: { id: storeId },
-        select: { name: true, plan: true },
+        select: { name: true, plan: true, currentSubscription: { select: { status: true, expiresAt: true } }, subscriptions: { orderBy: { createdAt: "desc" }, take: 1, select: { status: true, expiresAt: true } } },
       }),
       coursePrisma.courseBookingRule.findUnique({ where: { storeId } }),
       checkPermission(user.role, user.staffId, "business_hours.manage"),
-      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, mapUrl: true, lineOfficialUrl: true, bankName: true, bankCode: true, bankAccountNumber: true } }),
+      prisma.shopConfig.findUnique({ where: { storeId }, select: { address: true, mapUrl: true, lineOfficialUrl: true, bankName: true, bankCode: true, bankAccountNumber: true, bookingWindowDays: true, bookableUntilDate: true, dutySchedulingEnabled: true, trialEnabled: true, trialDefaultPrice: true, trialAllowPriceEdit: true, trialMinPrice: true, trialMaxPrice: true } }),
       checkPermission(user.role,user.staffId,"plans.edit"),
       user.role === "OWNER" && checkPermission(user.role,user.staffId,"staff.view"),
       checkPermission(user.role,user.staffId,"wallet.read"),
     ]);
-    const usage = canPayment ? await getStoreUsage(storeId) : null;
+    const [usage, digitalButler, referralShare, lineReminder, customerCare] = await Promise.all([
+      canPayment ? getStoreUsage(storeId) : null,
+      hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER),
+      hasStoreFeature(storeId, FEATURES.REFERRAL_SHARE),
+      hasStoreFeature(storeId, FEATURES.LINE_REMINDER),
+      hasStoreFeature(storeId, FEATURES.CUSTOMER_CARE),
+    ]);
+    const subscription = store?.currentSubscription ?? store?.subscriptions[0];
+    const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
     body = (
       <CourseSettingsWorkspace
+        panelContent={<CourseSettingsPanelContent panel={panel} query={panelQuery} />}
+        key={storeId}
+        canDigitalButler={canPayment && !readOnly && digitalButler}
+        canReferralShare={canPayment && !readOnly && referralShare}
+        canUnassignedPlans={canPlans && await checkPermission(user.role,user.staffId,"customer.read")}
+        subscriptionSummary={canPayment ? subscriptionSummary : undefined}
+        today={toLocalDateStr()}
+        trialSettings={{ trialEnabled: config?.trialEnabled ?? TRIAL_DEFAULTS.trialEnabled, trialDefaultPrice: Number(config?.trialDefaultPrice ?? TRIAL_DEFAULTS.trialDefaultPrice), trialAllowPriceEdit: config?.trialAllowPriceEdit ?? TRIAL_DEFAULTS.trialAllowPriceEdit, trialMinPrice: Number(config?.trialMinPrice ?? TRIAL_DEFAULTS.trialMinPrice), trialMaxPrice: Number(config?.trialMaxPrice ?? TRIAL_DEFAULTS.trialMaxPrice) }}
+        bookingWindowDays={config?.bookingWindowDays ?? DEFAULT_BOOKABLE_DAYS_AHEAD}
+        bookableUntilDate={config?.bookableUntilDate?.toISOString().slice(0,10) ?? null}
+        dutyEnabled={config?.dutySchedulingEnabled ?? false}
+        trialEnabled={config?.trialEnabled ?? TRIAL_DEFAULTS.trialEnabled}
+        trialPrice={Number(config?.trialDefaultPrice ?? TRIAL_DEFAULTS.trialDefaultPrice)}
         storeId={storeId} planLabel={store ? PRICING_PLAN_INFO[store.plan].label : "—"} canPayment={canPayment && !readOnly} canStaff={canStaff} canPlans={canPlans}
         name={store?.name ?? ""}
         bankName={config?.bankName??""} bankCode={config?.bankCode??""} bankAccountNumber={config?.bankAccountNumber??""}
@@ -52,8 +79,8 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
         canEdit={canEdit && !readOnly}
         usageMetrics={usage?.metrics}
         canTrial={!readOnly && await checkPermission(user.role,user.staffId,"trial.manage")}
-        canReminders={!readOnly && await checkPermission(user.role,user.staffId,"business_hours.manage")}
-        canCare={await checkPermission(user.role,user.staffId,"customer.read")}
+        canReminders={!readOnly && lineReminder && await checkPermission(user.role,user.staffId,"business_hours.manage")}
+        canCare={customerCare && await checkPermission(user.role,user.staffId,"customer.read")}
         canDutyRead={await checkPermission(user.role,user.staffId,"duty.read")}
         canDutyManage={!readOnly && await checkPermission(user.role,user.staffId,"duty.manage")}
         canHours={!readOnly && await checkPermission(user.role,user.staffId,"business_hours.view")}
