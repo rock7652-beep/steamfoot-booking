@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { browseCourseCards } from "@/server/actions/course-browse";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { CourseCardView } from "./member-workspace";
+import { courseCompactField, courseField } from "@/components/admin/course-ui";
 export type CardBrowseState = { search: string; history: boolean; page: number };
 export function CourseCardBrowser({ customerId, state, onChange, onSelect, revision=0 }: {
   customerId?: string; state:CardBrowseState;onChange:(state:CardBrowseState)=>void;
@@ -21,11 +22,11 @@ export function CourseCardBrowser({ customerId, state, onChange, onSelect, revis
   const ready=result?.key===key;
   return <section className="space-y-3">
     <div className="flex flex-wrap items-center gap-2">
-      <input aria-label="搜尋持有方案或共卡成員" className="min-h-11 min-w-0 flex-1 rounded-lg border px-3 text-base" placeholder="搜尋方案／共卡成員" value={state.search} onChange={e=>onChange({...state,search:e.target.value,page:0})}/>
-      <select aria-label="方案效期" className="min-h-11 rounded-lg border px-2 text-sm" value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／停用</option></select>
+      <input aria-label="搜尋持有方案或共卡成員" className={`${courseField} flex-1`} placeholder="搜尋方案／共卡成員" value={state.search} onChange={e=>onChange({...state,search:e.target.value,page:0})}/>
+      <select aria-label="方案效期" className={courseCompactField} value={state.history ? "history":"active"} onChange={e=>onChange({...state,history:e.target.value==="history",page:0})}><option value="active">有效方案</option><option value="history">已到期／停用</option></select>
     </div>
     {!ready ? <p role="status">讀取中…</p> : result?.error ? <p role="alert">{result.error}<button className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
-      <div className="divide-y rounded-lg border bg-white">
+      <div className="divide-y rounded-xl border bg-white">
         {result?.rows.map(c=><button key={c.id} type="button" onClick={()=>onSelect(c)} className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3 py-2 text-left text-sm">
           <span className="min-w-0 break-words font-medium">{c.name}</span><span className="whitespace-nowrap font-semibold">可用 {c.available} {c.unit==="SESSION" ? "堂":"點"}</span>
           <span className="min-w-0 break-words text-xs text-earth-500">{customerId ? `占用 ${c.held} · 剩餘 ${c.remaining}` : c.members.map(m=>m.name).join("、")}</span><span className="whitespace-nowrap text-xs text-earth-500">{toLocalDateStr(new Date(c.expiresAt))} 到期{c.closed ? " · 停用":""}</span>
