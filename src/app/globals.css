@@ -216,3 +216,71 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
   .course-home [data-cash-layout] { grid-template-columns: minmax(0, 1fr); }
   .course-home [data-cash-layout] > div { grid-column: auto; grid-row: auto; position: static; }
 }
+
+
+/* Manager form controls: one shared size across Steamfoot, SPA and Course.
+   Keep customer-facing LIFF screens outside this scope. */
+[data-dashboard-content] {
+  --admin-control-height: 44px;
+  --admin-control-radius: 8px;
+  --admin-control-border: var(--brand-border);
+}
+
+[data-dashboard-content] :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]):not([type="range"]):not([type="file"]),
+  select
+) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: var(--admin-control-height);
+  min-height: var(--admin-control-height);
+  padding-block: 0;
+  padding-inline: 12px;
+  border-radius: var(--admin-control-radius);
+  font-size: 14px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+[data-dashboard-content] textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border-radius: var(--admin-control-radius);
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+[data-dashboard-content] :where(input, select, textarea):disabled,
+[data-dashboard-content] :where(input, textarea)[readonly] {
+  background-color: var(--color-earth-50);
+  color: var(--color-earth-600);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+/* Customer detail uses equal cards in view mode; long notes and addresses span
+   the full row instead of forcing one narrow column taller than its neighbour. */
+[data-dashboard-content] .course-customer-detail-field {
+  min-height: 68px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-earth-200);
+  border-radius: var(--admin-control-radius);
+  background: var(--brand-card);
+}
+
+@media (max-width: 767px) {
+  [data-dashboard-content] :where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]):not([type="range"]):not([type="file"]),
+    select,
+    textarea
+  ) {
+    font-size: 16px;
+  }
+}
