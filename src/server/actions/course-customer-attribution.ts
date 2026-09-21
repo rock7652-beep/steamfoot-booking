@@ -49,9 +49,9 @@ export async function saveCourseCustomerAttribution(input: z.infer<typeof update
       if (!staff) throw new AppError("VALIDATION", "請選擇本店啟用中的店長，教練不具後台管理身分");
       const sponsorId = data.referredByCustomerId ?? null;
       if (sponsorId) {
-        if (sponsorId === customer.id) throw new AppError("VALIDATION", "推薦人不可為本人");
+        if (sponsorId === customer.id) throw new AppError("VALIDATION", "引薦人不可為本人");
         const sponsor = await tx.customer.findFirst({ where: { id: sponsorId, storeId, mergedIntoCustomerId: null }, select: { id: true } });
-        if (!sponsor) throw new AppError("VALIDATION", "推薦人必須是本店顧客");
+        if (!sponsor) throw new AppError("VALIDATION", "引薦人必須是本店顧客，教練需先綁定會員身份");
       }
       await tx.customer.update({ where: { id: customer.id, storeId }, data: { assignedStaffId: staff.id, sponsorId } });
     });
