@@ -97,7 +97,7 @@ it("edits the booking window directly and guards its draft when leaving", async 
  const days=host.querySelector('select[aria-label="自動開放天數"]')!;
  await act(async()=>{(days as HTMLSelectElement).value="30";days.dispatchEvent(new Event("change",{bubbles:true}));});
  await click("店家資料"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); const before=new Event("beforeunload",{cancelable:true}); window.dispatchEvent(before); expect(before.defaultPrevented).toBe(true);
- await click("營業與預約"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); expect((days as HTMLSelectElement).value).toBe("30"); m.windowSave.mockResolvedValueOnce({success:true}); await click("儲存設定"); expect(m.windowSave).toHaveBeenCalledExactlyOnceWith({mode:"rolling",days:30});
+ await click("營業與預約未儲存"); await render({...defaults, today:"2026-09-21", bookingWindowDays:14}); expect((days as HTMLSelectElement).value).toBe("30"); m.windowSave.mockResolvedValueOnce({success:true}); await click("儲存設定"); expect(m.windowSave).toHaveBeenCalledExactlyOnceWith({mode:"rolling",days:30});
 });
 it("edits trial price directly, keeps failed drafts and restores without losing bank edits", async()=>{
  const props={...defaults,trialSettings:{trialEnabled:true,trialDefaultPrice:350,trialAllowPriceEdit:true,trialMinPrice:0,trialMaxPrice:1000}};
@@ -106,4 +106,19 @@ it("edits trial price directly, keeps failed drafts and restores without losing 
  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(price,"400");price.dispatchEvent(new Event("input",{bubbles:true}));});
  m.trialSave.mockRejectedValueOnce(new Error("network")); await act(async()=>host.querySelector('form[aria-label="體驗設定"]')!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
  expect((price as HTMLInputElement).value).toBe("400"); expect(m.trialSave).toHaveBeenCalledOnce(); await click("還原修改"); expect((price as HTMLInputElement).value).toBe("350"); expect((host.querySelector('input[name="bankCode"]') as HTMLInputElement).value).toBe("999");
+});
+
+it("converts hours without changing saved minutes on unit switches, validates and restores drafts", async () => {
+  await render({ ...defaults, bookingLeadMinutes: 720 }); await select("營業與預約");
+  const field = host.querySelector('input[name="bookingLeadMinutes"]') as HTMLInputElement;
+  const unit = host.querySelector('select[aria-label="預約截止時間單位"]') as HTMLSelectElement;
+  const changeUnit = async (value: string) => act(async () => { unit.value = value; unit.dispatchEvent(new Event("change", { bubbles: true })); });
+  expect(field.value).toBe("12"); expect(unit.value).toBe("60");
+  await changeUnit("1"); expect(field.value).toBe("720"); expect(host.querySelector("nav")?.textContent).not.toContain("未儲存");
+  await changeUnit("60"); await input("bookingLeadMinutes", "1.5"); await submit();
+  expect(m.save).toHaveBeenLastCalledWith({ section: "booking", bookingLeadMinutes: 90, cancellationLeadMinutes: 30 });
+  await input("bookingLeadMinutes", "0.01"); await submit(); expect(m.save).toHaveBeenCalledTimes(1); expect(field.validationMessage).toContain("整數分鐘");
+  await click("取消"); await click("捨棄本區修改"); expect(field.value).toBe("1.5"); expect(field.checkValidity()).toBe(true);
+  await input("bookingLeadMinutes", ""); await submit(); expect(m.save).toHaveBeenCalledTimes(1);
+  await input("bookingLeadMinutes", "0"); await submit(); expect(m.save).toHaveBeenLastCalledWith({ section: "booking", bookingLeadMinutes: 0, cancellationLeadMinutes: 30 });
 });

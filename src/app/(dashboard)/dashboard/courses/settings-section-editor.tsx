@@ -7,9 +7,28 @@ import type { CourseSettingsSectionInput } from "@/lib/course-settings-sections"
 type Field = { key: string; label: string; type?: "text" | "url" | "number"; max?: number };
 const fields: Record<CourseSettingsSectionInput["section"], Field[]> = {
   store: [{ key: "name", label: "店家名稱", max: 100 }, { key: "address", label: "店家地址", max: 300 }, { key: "mapUrl", label: "地圖網址", type: "url" }, { key: "lineOfficialUrl", label: "LINE 官方帳號網址", type: "url" }],
-  booking: [{ key: "bookingLeadMinutes", label: "上課前幾分鐘截止預約", type: "number" }, { key: "cancellationLeadMinutes", label: "上課前幾分鐘截止自行取消", type: "number" }],
+  booking: [{ key: "bookingLeadMinutes", label: "預約截止時間", type: "number" }, { key: "cancellationLeadMinutes", label: "自行取消截止時間", type: "number" }],
   payment: [{ key: "bankName", label: "銀行名稱", max: 100 }, { key: "bankCode", label: "銀行代號", max: 20 }, { key: "bankAccountNumber", label: "銀行帳號", max: 50 }],
 };
+function DurationInput({ name, label, value, onChange }: { name: string; label: string; value: string; onChange: (value: string) => void }) {
+  const [unit, setUnit] = useState(() => Number(value) % 60 === 0 ? 60 : 1);
+  const [display, setDisplay] = useState(() => ({ canonical: value, text: String(Number(value) / unit) }));
+  const text = display.canonical === value ? display.text : value === "" ? "" : String(Number(value) / unit);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const minutes = Number(text) * unit;
+    input.current?.setCustomValidity(text !== "" && Math.abs(minutes - Math.round(minutes)) > 0.000001 ? "請輸入可換算為整數分鐘的時間，例如 1.5 小時。" : "");
+  }, [text, unit]);
+  return <div className="min-w-0 text-sm"><label htmlFor={name}>{label}</label><div className="mt-1 flex items-center gap-2"><span className="shrink-0">上課前</span>
+    <input ref={input} id={name} name={name} type="number" required min={0} max={43200 / unit} step="any" value={text} onChange={event => {
+      const next = event.target.value;
+      const minutes = Number(next) * unit;
+      const canonical = next === "" ? "" : String(Math.abs(minutes - Math.round(minutes)) < 0.000001 ? Math.round(minutes) : minutes);
+      setDisplay({ canonical, text: next }); onChange(canonical);
+    }} className="min-h-11 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 py-2 text-base" />
+    <select aria-label={`${label}單位`} value={unit} onChange={event => { const next = Number(event.target.value); setUnit(next); setDisplay({ canonical: value, text: value === "" ? "" : String(Number(value) / next) }); }} className="min-h-11 shrink-0 rounded-lg border border-earth-300 bg-white px-2 text-base"><option value={60}>小時</option><option value={1}>分鐘</option></select>
+  </div></div>;
+}
 type Props = { initial: CourseSettingsSectionInput; onStatus: (section: CourseSettingsSectionInput["section"], dirty: boolean, pending: boolean) => void };
 export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
   const section = initial.section;
@@ -25,7 +44,7 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
   const label = section === "store" ? "店家資料" : section === "booking" ? "預約截止規則" : "銀行資訊";
   return <form aria-label={`編輯${label}`} className="mt-4 border-t border-earth-200 pt-4" onSubmit={event => {
     event.preventDefault();
-    if (saving.current || !dirty) return;
+    if (saving.current || !dirty || !event.currentTarget.reportValidity()) return;
     saving.current = true;
     setMessage("");
     const submitted = { ...draft };
@@ -40,7 +59,7 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
     });
   }}>
     <fieldset disabled={pending} className={section === "payment" ? "grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_100px_minmax(0,1.4fr)]" : "grid min-w-0 gap-4 sm:grid-cols-2"}>
-      {fields[section].map(field => <label key={field.key} className={`min-w-0 text-sm ${field.type === "url" ? "sm:col-span-2" : ""}`}>
+      {fields[section].map(field => section === "booking" ? <DurationInput key={field.key} name={field.key} label={field.label} value={draft[field.key]} onChange={value => { setDraft(previous => ({ ...previous, [field.key]: value })); setMessage(""); }} /> : <label key={field.key} className={`min-w-0 text-sm ${field.type === "url" ? "sm:col-span-2" : ""}`}>
         {field.label}<input name={field.key} type={field.type ?? "text"} value={draft[field.key]} required={field.key === "name" || field.type === "number"} min={field.type === "number" ? 0 : undefined} max={field.type === "number" ? 43200 : undefined} maxLength={field.max} step={field.type === "number" ? 1 : undefined} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setMessage(""); }} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 py-2 text-base" />
       </label>)}
     </fieldset>
