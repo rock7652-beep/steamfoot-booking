@@ -238,7 +238,6 @@ export function CourseRoster({
           {!displayedRows.length && <p className="p-6 text-center text-sm text-earth-500">沒有符合條件的學員。</p>}
         </div>
       </div>
-      </ul>
       {rows.length>20&&<nav aria-label="學員分頁" className="flex items-center justify-between"><button className={button} disabled={currentPage===0||pending} onClick={()=>setPage(currentPage-1)}>上一頁</button><span>{currentPage+1} / {Math.ceil(rows.length/20)} · 共 {rows.length} 人</span><button className={button} disabled={(currentPage+1)*20>=rows.length||pending} onClick={()=>setPage(currentPage+1)}>下一頁</button></nav>}
       {!compactOnly && allowTrialActions && trial?.canCreate && trial.settings.trialEnabled && <details className="rounded border border-earth-200 p-3"><summary className="min-h-11 cursor-pointer font-medium">建立體驗預約（不使用方案）</summary><form className="space-y-3" onSubmit={e=>{e.preventDefault();const data=new FormData(e.currentTarget);run(()=>createCourseTrial({sessionId,customerId:data.get("customerId"),price:Number(data.get("price")),notes:data.get("notes"),requestKey}));}}>
         <label className="block">實際上課者<select required name="customerId" className={`${button} w-full`}><option value="">選擇本店顧客</option>{trial.customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
