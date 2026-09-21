@@ -10,6 +10,7 @@ import {
   loadCourseSessionDetail,
   createCourseBooking,
   updateCourseBookingStatus,
+  restoreCourseBooking,
   cancelCourseSession,
 } from "@/server/actions/course-members";
 import type { CourseCardView } from "./member-workspace";
@@ -158,7 +159,7 @@ export function CourseRoster({
       </div>}
       <div className="flex flex-wrap items-center gap-2">
         <button className={button} onClick={()=>{setShowCancelled(false);setPage(0);}}>上課名單 {activeRows.length}</button>
-        <button className={button} onClick={()=>{setShowCancelled(!showCancelled);setPage(0);}}>已取消（{cancelledRows.length}）</button>
+        <button className={button} onClick={()=>{setShowCancelled(!showCancelled);setPage(0);}}>已取消預約（{cancelledRows.length}）</button>
         <input
           className={`${button} min-w-48 flex-1 bg-white`}
           value={rosterQuery}
@@ -167,6 +168,7 @@ export function CourseRoster({
           aria-label="搜尋上課名單"
         />
       </div>
+{showCancelled && <p className="rounded-lg bg-earth-50 px-3 py-2 text-sm text-earth-600">保留取消紀錄；若店長誤按，可在名額與原方案仍有效時恢復預約。</p>}
       <div className="max-h-[58vh] overflow-auto overscroll-contain rounded-xl border border-earth-200 bg-white">
         <div className="min-w-[900px]">
           <div className="sticky top-0 z-[1] grid grid-cols-[2rem_minmax(8rem,1.05fr)_minmax(9rem,1fr)_minmax(13rem,1.55fr)_5.5rem_minmax(12rem,1.2fr)] gap-2 border-b border-earth-200 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
@@ -247,11 +249,19 @@ export function CourseRoster({
                       <button
                         className={rowAction}
                         disabled={pending}
-                        onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "CANCELLED" }))}
+                        onClick={() => { if (window.confirm(`確定取消 ${b.customerName} 的預約嗎？取消後可在「已取消預約」中恢復。`)) run(() => updateCourseBookingStatus({ bookingId: b.id, status: "CANCELLED" })); }}
                       >
                         取消
                       </button>
                     </>
+                  ) : b.status === "CANCELLED" && canEdit ? (
+                    <button
+                      className={rowAction}
+                      disabled={pending}
+                      onClick={() => run(() => restoreCourseBooking({ bookingId: b.id }))}
+                    >
+                      恢復預約
+                    </button>
                   ) : (
                     <span className="pt-1 text-xs text-earth-400">—</span>
                   )}
