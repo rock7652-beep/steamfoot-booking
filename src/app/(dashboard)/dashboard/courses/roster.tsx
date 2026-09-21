@@ -189,6 +189,27 @@ export function CourseRoster({
       item.available >= (item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
       (!session || item.expiresAt >= session.startsAt),
   );
+  useEffect(() => {
+    if (!customerId) {
+      setCardId("");
+      return;
+    }
+    const required = (item: CourseCardView) =>
+      item.unit === "SESSION" ? 1 : session?.pointCost ?? 1;
+    const firstExpiring = cards
+      .filter(
+        (item) =>
+          item.members.some((member) => member.id === customerId) &&
+          !item.expired &&
+          !item.closed &&
+          item.available >= required(item) &&
+          (!session || item.expiresAt >= session.startsAt),
+      )
+      .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt))[0];
+    setCardId(firstExpiring?.id ?? "");
+    if (firstExpiring) setRequestKey(crypto.randomUUID());
+  }, [cards, customerId, session?.pointCost, session?.startsAt]);
+
   const normalizedTrialQuery = trialQuery.trim().toLocaleLowerCase();
   const filteredTrialCustomers =
     normalizedTrialQuery && trial
@@ -288,7 +309,12 @@ export function CourseRoster({
               {learners.find((member) => member.id === customerId)?.name}
             </p>
             <label className="block text-sm font-medium">
-              本堂可用方案
+              有效方案
+              {eligibleCards.length > 1 && (
+                <span className="ml-2 font-normal text-earth-500">
+                  已優先帶入最快到期方案
+                </span>
+              )}
               <select
                 className={`${field} mt-1`}
                 value={cardId}
