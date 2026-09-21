@@ -27,7 +27,7 @@ import type { CustomerRow } from "../customers/_components/customers-table";
 import { CourseCustomerBookings } from "./customer-bookings";
 import { BirthdayFields } from "@/components/birthday-fields";
 import { CourseCustomerHealth } from "./customer-health";
-type Person = { id: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; height: number | null; lineName: string | null; serviceNote: string | null; address: string | null; notes: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null };
+type Person = { id: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; lineName: string | null; serviceNote: string | null; address: string | null; notes: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null };
 type Plan = {
   id: string;
   name: string;
@@ -374,7 +374,7 @@ export function CourseMemberWorkspace({
             </section>}
             {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["身高",person.height == null ? null : `${person.height} cm`],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["店內備註",person.serviceNote]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
+              <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["店內備註",person.serviceNote]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
               {canEdit && <button className={`${button} bg-primary-700 text-white`} onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
             </section>}
             {panel === "person" && (
@@ -388,7 +388,7 @@ export function CourseMemberWorkspace({
                       id: person?.id,
                       name: d.get("name"),
                       phone: d.get("phone"),
-                      email: d.get("email"), gender: d.get("gender"), birthday: d.get("birthday"), height: d.get("height"), lineName: d.get("lineName"), serviceNote: d.get("serviceNote"), address: d.get("address"), emergencyContactName: d.get("emergencyContactName"), emergencyContactPhone: d.get("emergencyContactPhone"),
+                      email: d.get("email"), gender: d.get("gender"), birthday: d.get("birthday"), lineName: d.get("lineName"), serviceNote: d.get("serviceNote"), address: d.get("address"), emergencyContactName: d.get("emergencyContactName"), emergencyContactPhone: d.get("emergencyContactPhone"),
                     }),
                   )
                 }
@@ -419,7 +419,6 @@ export function CourseMemberWorkspace({
                   <label className="block">電子信箱<input className={field} name="email" type="email" defaultValue={person?.email ?? ""} /></label>
                   <label className="block">性別<select className={field} name="gender" defaultValue={person?.gender ?? ""}><option value="">未填</option><option value="male">男</option><option value="female">女</option><option value="other">其他</option></select></label>
                   <div>生日<BirthdayFields defaultValue={person?.birthday} className={field} /></div>
-                  <label className="block">身高（cm）<input className={field} name="height" type="number" min={50} max={250} step="any" defaultValue={person?.height ?? ""} /></label>
                   <label className="block">LINE 名稱<input className={field} name="lineName" maxLength={100} defaultValue={person?.lineName ?? ""} /></label>
                   <label className="block">緊急聯絡人姓名<input className={field} name="emergencyContactName" maxLength={100} defaultValue={person?.emergencyContactName ?? ""} /></label>
                   <label className="block">緊急聯絡人電話<input className={field} name="emergencyContactPhone" type="tel" maxLength={30} defaultValue={person?.emergencyContactPhone ?? ""} /></label>
