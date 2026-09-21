@@ -79,6 +79,7 @@ export async function CourseStaffPage() {
           coachEnabled:s.courseCoachEnabled,
           qualificationsConfirmed:s.courseQualificationsConfirmed,
           qualificationIds:s.courseQualifiedTemplateIds,
+          updatedAt:s.updatedAt.toISOString(),
           birthday:s.courseBirthday?.toISOString().slice(0,10) ?? "",
           emergencyContactRelation:s.emergencyContactRelation,
           assignments:handover.filter(h=>h.coachId===s.id).map(h=>({id:h.id,name:h.nameSnapshot,startsAt:h.startsAt.toISOString(),capacity:h.capacity})),

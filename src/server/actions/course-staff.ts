@@ -8,6 +8,7 @@ import { courseManager } from "@/server/services/course-access";
 import { COURSE_PERMISSIONS } from "@/lib/course-permissions";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 import { AppError } from "@/lib/errors";
+import { compensationRule, type CompensationRule } from "@/lib/course-compensation";
 import {
   getStoreLimitsByStoreId,
   requireStoreFeature,
@@ -19,6 +20,26 @@ import {
 } from "@/lib/revalidation";
 import { revalidatePath } from "next/cache";
 const id = z.string().min(1).max(180);
+const teachingFee = z.object({
+  templateId: id,
+  value: compensationRule.refine(rule => rule.mode === "CLASS", "僅支援每堂固定授課費").transform(rule => rule.value),
+  revision: z.number().int().min(0),
+});
+export async function readCourseStaffTeaching(staffId: string) {
+  try {
+    const { user, storeId } = await courseManager("staff.manage");
+    if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可管理人員");
+    id.parse(staffId);
+    const data = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${storeId} FOR UPDATE`;
+      const staff = await tx.staff.findFirst({ where: { id: staffId, storeId } });
+      if (!staff) throw new AppError("NOT_FOUND", "找不到本店人員");
+      const fees = await tx.$queryRaw<Array<{templateId: string; rules: CompensationRule[]; revision: number}>>`SELECT "templateId", rules, revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId}`;
+      return { version: staff.updatedAt.toISOString(), qualificationIds: staff.courseQualifiedTemplateIds, fees };
+    });
+    return { success: true as const, ...data };
+  } catch (e) { const result = handleCourseActionError(e); return { success: false as const, error: result.error ?? "讀取失敗" }; }
+}
 const colors = [
   "#355b46",
   "#b28a3e",
@@ -44,6 +65,8 @@ export async function saveCourseStaff(input: unknown) {
         coachEnabled: z.boolean().optional(),
         qualificationIds: z.array(id).max(500).optional(),
         qualificationsConfirmed: z.boolean().optional(),
+        teachingVersion: z.string().datetime().optional(),
+        teachingFees: z.array(teachingFee).max(500).optional(),
         birthday: z.string().optional(),
         emergencyContactRelation: z.string().trim().max(40).default(""),
         confirmDeactivate: z.boolean().default(false),
@@ -77,6 +100,8 @@ export async function saveCourseStaff(input: unknown) {
         if (d.id && !existing)
           throw new AppError("NOT_FOUND", "找不到本店人員");
         if (!d.id && existing) return;
+        if (d.teachingFees && existing && d.teachingVersion !== existing.updatedAt.toISOString())
+          throw new AppError("CONFLICT", "人員資料已更新，請重新開啟核對；本次修改尚未儲存");
         if (
           existing &&
           (existing.user.role !== "CUSTOMER") !== (d.kind === "manager")
@@ -106,6 +131,16 @@ export async function saveCourseStaff(input: unknown) {
         }
         if(existing?.courseQualificationsConfirmed && !qualificationsConfirmed) throw new AppError("VALIDATION","已確認資格不可改回待補；請調整可教課程");
         const courseFields={courseCoachEnabled:coachEnabled,courseQualifiedTemplateIds:qualificationIds,courseQualificationsConfirmed:qualificationsConfirmed};
+        if (d.teachingFees) {
+          const feeIds = d.teachingFees.map(f => f.templateId);
+          if (new Set(feeIds).size !== feeIds.length || feeIds.length !== qualificationIds.length || feeIds.some(id => !qualificationIds.includes(id)))
+            throw new AppError("VALIDATION", "每個可教授課程都需有一筆授課費");
+          const current = await tx.$queryRaw<Array<{templateId:string;revision:number}>>`SELECT "templateId", revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "staffId"=${staffId} FOR UPDATE`;
+          for (const fee of d.teachingFees) {
+            if ((current.find(r => r.templateId === fee.templateId)?.revision ?? 0) !== fee.revision)
+              throw new AppError("CONFLICT", "授課費已更新，請重新開啟核對；本次修改尚未儲存");
+          }
+        }
         const count = await tx.staff.count({
           where: { storeId, status: "ACTIVE" },
         });
@@ -196,6 +231,12 @@ export async function saveCourseStaff(input: unknown) {
               },
             },
           });
+        if (d.teachingFees) {
+          for (const fee of d.teachingFees) {
+            const rules = JSON.stringify([{ mode: "CLASS", value: fee.value }]);
+            await tx.$executeRaw`INSERT INTO "CourseCompensation" ("storeId","templateId","staffId",rules,revision) VALUES (${storeId},${fee.templateId},${staffId},${rules}::jsonb,1) ON CONFLICT ("storeId","templateId","staffId") DO UPDATE SET rules=EXCLUDED.rules,revision="CourseCompensation".revision+1,"updatedAt"=NOW()`;
+          }
+        }
         if (d.kind === "manager") {
           const granted = d.permissions ?? [...COURSE_PERMISSIONS];
           for (const permission of ALL_PERMISSIONS)

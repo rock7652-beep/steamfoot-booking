@@ -1,0 +1,31 @@
+import { beforeEach, expect, it, vi } from "vitest";
+const m=vi.hoisted(()=>({manager:vi.fn(),staff:vi.fn(),raw:vi.fn(),execute:vi.fn(),update:vi.fn(),transaction:vi.fn()}));
+vi.mock("@/server/services/course-access",()=>({courseManager:m.manager}));
+vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:vi.fn(),getStoreLimitsByStoreId:async()=>({maxStaff:10})}));
+vi.mock("@/lib/db",()=>({prisma:{$transaction:m.transaction}}));
+vi.mock("@/lib/revalidation",()=>({revalidateStaff:vi.fn(),revalidateStaffPermissions:vi.fn()}));
+vi.mock("next/cache",()=>({revalidatePath:vi.fn(),unstable_cache:(fn:unknown)=>fn}));
+import {readCourseStaffTeaching,saveCourseStaff} from "@/server/actions/course-staff";
+const version="2026-09-21T00:00:00.000Z";
+const input={id:"teacher",name:"教練",kind:"coach",coachEnabled:true,qualificationIds:["yoga","strength"],qualificationsConfirmed:true,teachingVersion:version,teachingFees:[{templateId:"yoga",value:{mode:"CLASS",value:500},revision:2},{templateId:"strength",value:{mode:"CLASS",value:0},revision:0}],requestKey:"11111111-1111-4111-a111-111111111111"};
+beforeEach(()=>{
+ vi.resetAllMocks();
+ m.manager.mockResolvedValue({storeId:"A",user:{id:"owner",role:"OWNER"}});
+ m.staff.mockResolvedValue({id:"teacher",userId:"u",status:"ACTIVE",user:{role:"CUSTOMER"},updatedAt:new Date(version),courseCoachEnabled:true,courseQualifiedTemplateIds:["yoga"],courseQualificationsConfirmed:true});
+ m.raw.mockImplementation(async(sql:TemplateStringsArray)=>{const q=sql.join("");return q.includes('FROM "CourseTemplate"')?[{id:"yoga"},{id:"strength"}]:q.includes('FROM "CourseCompensation"')?[{templateId:"yoga",revision:2,rules:[{mode:"CLASS",value:500}]}]:[];});
+ m.transaction.mockImplementation(async(fn:(tx:unknown)=>unknown)=>fn({$queryRaw:m.raw,$executeRaw:m.execute,staff:{findFirst:m.staff,count:async()=>1,update:m.update},staffMemberLink:{updateMany:vi.fn()}}));
+});
+it("saves all qualifications and fees inside one transaction",async()=>{
+ expect(await saveCourseStaff(input)).toMatchObject({success:true});expect(m.transaction).toHaveBeenCalledTimes(1);
+ expect(m.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({courseQualifiedTemplateIds:["yoga","strength"]})}));
+ const writes=m.execute.mock.calls.filter(c=>c[0].join("").includes('INSERT INTO "CourseCompensation"'));
+ expect(writes).toHaveLength(2);expect(writes[0]).toContain('[{"mode":"CLASS","value":500}]');expect(writes[1]).toContain('[{"mode":"CLASS","value":0}]');
+});
+it("rejects a stale staff snapshot before writes",async()=>{expect(await saveCourseStaff({...input,teachingVersion:"2026-09-20T00:00:00.000Z"})).toMatchObject({success:false});expect(m.update).not.toHaveBeenCalled();});
+it("rejects any stale fee before updating qualifications",async()=>{expect(await saveCourseStaff({...input,teachingFees:input.teachingFees.map(f=>({...f,revision:0}))})).toMatchObject({success:false});expect(m.update).not.toHaveBeenCalled();});
+it("requires one fee per qualification and rejects duplicates",async()=>{for(const teachingFees of [[input.teachingFees[0]],[input.teachingFees[0],input.teachingFees[0]]])expect(await saveCourseStaff({...input,teachingFees})).toMatchObject({success:false});expect(m.update).not.toHaveBeenCalled();});
+it("rejects foreign templates",async()=>{m.raw.mockResolvedValue([]);expect(await saveCourseStaff(input)).toMatchObject({success:false});expect(m.update).not.toHaveBeenCalled();});
+it("does not allow hourly or negative fees",async()=>{for(const value of [{mode:"HOUR",value:500},{mode:"CLASS",value:-1}])expect(await saveCourseStaff({...input,teachingFees:[{...input.teachingFees[0],value},input.teachingFees[1]]})).toMatchObject({success:false});expect(m.update).not.toHaveBeenCalled();});
+it("keeps the ongoing class handover guard",async()=>{m.staff.mockResolvedValue({id:"teacher",userId:"u",status:"ACTIVE",user:{role:"CUSTOMER"},updatedAt:new Date(version),courseCoachEnabled:true,courseQualifiedTemplateIds:["yoga","other"],courseQualificationsConfirmed:true});const previous=m.raw.getMockImplementation()!;m.raw.mockImplementation(async(sql:TemplateStringsArray,...args:unknown[])=>sql.join("").includes('FROM "CourseSession"')?[{id:"s",name:"上課中",startsAt:new Date(),capacity:5}]:previous(sql,...args));expect(await saveCourseStaff(input)).toMatchObject({success:false,conflicts:[{id:"s"}]});expect(m.update).not.toHaveBeenCalled();});
+it("rejects unauthorized reads and writes",async()=>{m.manager.mockResolvedValue({storeId:"A",user:{role:"CUSTOMER"}});expect(await readCourseStaffTeaching("teacher")).toMatchObject({success:false});expect(await saveCourseStaff(input)).toMatchObject({success:false});expect(m.transaction).not.toHaveBeenCalled();});
+it("reads all fees in one snapshot",async()=>{expect(await readCourseStaffTeaching("teacher")).toMatchObject({success:true,version,qualificationIds:["yoga"],fees:[{templateId:"yoga",revision:2}]});expect(m.staff).toHaveBeenCalledWith({where:{id:"teacher",storeId:"A"}});});

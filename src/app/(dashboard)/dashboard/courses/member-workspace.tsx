@@ -1,5 +1,5 @@
 "use client";
-import {CourseAssignmentPayment} from "@/components/admin/course-assignment-payment";
+import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -108,6 +108,7 @@ export function CourseMemberWorkspace({
   const [plan, setPlan] = useState<Plan | null>(null);
   const [cardId, setCardId] = useState("");
   const [planId, setPlanId] = useState(plans.find((p) => p.isActive)?.id ?? "");
+  const [assignmentSummary,setAssignmentSummary]=useState<AssignmentSummary>({paid:null,valid:false});
   const [requestKey, setRequestKey] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -292,7 +293,7 @@ export function CourseMemberWorkspace({
         <RightSheet
           open
           onClose={close}
-          width={640}
+          width={panel === "assign" ? 880 : 640}
           labelledById="course-member-sheet"
         >
           <header className="flex shrink-0 items-center justify-between border-b p-4">
@@ -370,7 +371,7 @@ export function CourseMemberWorkspace({
                 <CustomerAttributionForm key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
               </details>}
             </section>}
-            {panel !== "person" && view === "customers" && person && <button type="button" className={`${button} mb-3`} disabled={pending} onClick={()=>open("person")}>返回 {person.name} 詳情</button>}
+            {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>open("person")}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["身高",person.height == null ? null : `${person.height} cm`],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["舊顧客備註（保留資料）",person.notes],["店內備註",person.serviceNote]].map(([label,value])=><div key={label} className="min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
               {canEdit && <button className={`${button} bg-primary-700 text-white`} onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
@@ -502,7 +503,7 @@ export function CourseMemberWorkspace({
               <form
                 id="course-member-form"
                 onChange={()=>setDirty(true)}
-                className="space-y-3"
+                className="grid grid-cols-1 gap-5 min-[1024px]:grid-cols-2"
                 onSubmit={(e) =>
                   submit(e, (d) =>
                     assignCoursePointCard({
@@ -521,22 +522,24 @@ export function CourseMemberWorkspace({
                   )
                 }
               >
-                <label className="block">
+                <fieldset disabled={pending} className="min-w-0 space-y-3">
+                <h3 className="font-semibold">方案資料</h3>
+                {person ? <div><span className="text-sm text-earth-500">顧客</span><p className="font-medium">{person.name} · {person.phone}</p><input type="hidden" name="customerId" value={person.id}/></div> : <label className="block">
                   顧客
-                  <select className={field} name="customerId" defaultValue={person?.id ?? ""} required>
+                  <select className={field} name="customerId" defaultValue="" required><option value="">請選擇顧客</option>
                     {people.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} · {p.phone}
                       </option>
                     ))}
                   </select>
-                </label>
+                </label>}
                 <label className="block">
                   方案
                   <select
                     className={field}
                     value={planId}
-                    onChange={(e) => setPlanId(e.target.value)}
+                    onChange={(e) => {setAssignmentSummary({paid:null,valid:false});setPlanId(e.target.value);}}
                     required
                   >
                     {plans
@@ -567,7 +570,11 @@ export function CourseMemberWorkspace({
                   />
                 </label>
                 <label className="block">本次開發人<select name="revenueStaffId" className={field} defaultValue={customerRows?.find(c=>c.id===person?.id)?.assignedStaff?.id??""}><option value="">請選擇直屬店長／開發人</option>{assignmentStaff?.map(s=><option key={s.id} value={s.id}>{s.displayName}</option>)}</select></label>
-                <CourseAssignmentPayment key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount}/>
+                {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
+                </fieldset>
+                <fieldset disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
+                  <CourseAssignmentPayment key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions} onSummary={setAssignmentSummary}/>
+                </fieldset>
               </form>
             )}
             {panel === "card" && card && (
@@ -615,11 +622,12 @@ export function CourseMemberWorkspace({
           </div>
           {panel !== "health" && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || canAssign) && (
             <footer className="shrink-0 border-t bg-white p-4">
+              {panel === "assign" && <p className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
               <button
                 form="course-member-form"
                 type="submit"
                 className={`${button} w-full bg-primary-700 text-white`}
-                disabled={pending}
+                disabled={pending || (panel === "assign" && (!planId || !assignmentSummary.valid))}
               >
                 {pending ? "儲存中…" : panel === "assign" ? "確認結帳並指派方案" : panel === "card" ? "儲存共卡成員" : "儲存"}
               </button>
