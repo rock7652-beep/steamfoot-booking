@@ -31,7 +31,7 @@ export async function getCourseBusinessAnalytics(storeId: string, range: CourseA
   const prior=comparisonWindow?summarizeCourseBusiness({...input,range:comparisonWindow.range}):null;
   const comparison=prior&&comparisonWindow?{...comparisonWindow,attendance:prior.attendance,trial:prior.trial.length,newCard:prior.newCard.length,renewal:prior.renewal.length,conversionRate:prior.conversionRate}:null;
   const anchor=toLocalDateStr(end).slice(0,7)+"-01";
-  const monthlyTrend=Array.from({length:6},(_,i)=>{const startDate=shiftCourseCalendarDate(anchor,i-5);const endDate=toLocalDateStr(monthRange(startDate.slice(0,7)).end);const summary=summarizeCourseBusiness({...input,range:{startDate,endDate}});return {date:startDate.slice(0,7),attendance:summary.attendance,trial:summary.trial.length,newCard:summary.newCard.length,renewal:summary.renewal.length};});
+  const monthlyTrend=Array.from({length:6},(_,i)=>{const startDate=shiftCourseCalendarDate(anchor,i-5);const monthEnd=toLocalDateStr(monthRange(startDate.slice(0,7)).end);const cutoff=toLocalDateStr(end);const endDate=monthEnd<cutoff?monthEnd:cutoff;const summary=summarizeCourseBusiness({...input,range:{startDate,endDate}});return {date:startDate.slice(0,7),attendance:summary.attendance,trial:summary.trial.length,newCard:summary.newCard.length,renewal:summary.renewal.length};});
   const start=dayRange(range.startDate).start;
   const matches=(id:string|null)=>scope.view==="store" || scope.person==="all" || (id??"unassigned")===scope.person;
   const customerMap=new Map(customers.map(c=>[c.id,c.assignedStaffId]));
