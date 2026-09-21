@@ -27,7 +27,7 @@ export async function CourseStaffPage() {
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
   await requireCourseStore(storeId);
-  const [staff, customers, canManage, templates, handover, limits] = await Promise.all([
+  const [staff, canManage, templates, handover, limits] = await Promise.all([
     prisma.staff.findMany({
       where: { storeId },
       include: {
@@ -39,20 +39,13 @@ export async function CourseStaffPage() {
       },
       orderBy: { displayName: "asc" },
     }),
-    prisma.customer.findMany({
-      where: { storeId, mergedIntoCustomerId: null },
-      select: {
-        id: true,
-        name: true,
-        userId: true,
-        identityLinks: { select: { userId: true } },
-      },
-    }),
     checkPermission(user.role, user.staffId, "staff.manage"),
     coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true},orderBy:{name:"asc"}}),
     coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,endsAt:{gt:new Date()}},select:{id:true,coachId:true,nameSnapshot:true,startsAt:true,capacity:true},orderBy:{startsAt:"asc"}}),
     getStoreLimitsByStoreId(storeId),
   ]);
+  const linkedUserIds=staff.flatMap(s=>s.memberLink ? [s.memberLink.userId]:[]);
+  const customers=await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null,OR:[{userId:{in:linkedUserIds}},{identityLinks:{some:{userId:{in:linkedUserIds}}}}]},select:{id:true,name:true,userId:true,identityLinks:{select:{userId:true}}}});
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
       <PageHeader title="人員管理" />

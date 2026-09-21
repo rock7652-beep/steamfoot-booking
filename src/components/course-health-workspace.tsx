@@ -57,7 +57,7 @@ export function CourseHealthWorkspace(props: Props) {
       <HealthRecordForm requestId={requestId} today={toLocalDateStr()} mode={edit ? "edit" : "create"} initialValues={edit ?? undefined} submitAction={submit} onSaved={onSaved} notePlaceholder="例如：上課前量測" />
     </> : !data ? <p role="status">讀取健康紀錄…</p> : <>
       {canEdit && <button type="button" className="min-h-11 rounded-lg bg-primary-700 px-4 text-white" onClick={() => { setEdit(null); setRequestId(crypto.randomUUID()); setNotice(""); }}>新增量測</button>}
-      {data.summary.latest ? <HealthAssessmentCard summary={data.summary} /> : <p>尚無量測紀錄，可新增第一筆量測。</p>}
+      {data.summary.latest ? <HealthAssessmentCard summary={data.summary} compact={!member} /> : <p>尚無量測紀錄，可新增第一筆量測。</p>}
       {canEdit && <details><summary className="min-h-11 cursor-pointer py-3 font-medium">編輯量測紀錄（最近 100 筆）</summary>
         <ul className="divide-y divide-earth-100">{data.records.map(record => <li key={record.id} className="flex min-w-0 items-center justify-between gap-2 py-2 text-sm">
           <span className="min-w-0 break-words">{record.measuredAt} · {record.weight == null ? "體重未填" : `${record.weight} kg`}</span>

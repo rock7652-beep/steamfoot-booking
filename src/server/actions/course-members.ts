@@ -1,4 +1,5 @@
 "use server";
+import { courseHistoryRange } from "@/lib/course-history-range";
 import {validateCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
 import { courseCheckoutSchema } from "@/lib/course-checkout";
@@ -404,14 +405,14 @@ export async function markCourseCoachAttendance(input: unknown) {
   }
 }
 
-export async function loadCourseCustomerBookings(customerId: string, offset = 0) {
+export async function loadCourseCustomerBookings(customerId: string, offset = 0, range: {from?:string;to?:string} = {}) {
   try {
     const { storeId } = await courseManager("customer.read");
     await courseManager("booking.read");
     const customer = await prisma.customer.findFirst({ where: { id: id.parse(customerId), storeId, mergedIntoCustomerId: null }, select: { id: true } });
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
     const skip = z.number().int().min(0).max(1000000).parse(offset);
-    const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId }, include: { session: { select: { startsAt: true, nameSnapshot: true } }, card: { select: { nameSnapshot: true, expiresAt: true, unit: true } } }, orderBy: [{ session: { startsAt: "desc" } }, {id:"desc"}], skip, take: 11 });
+    const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId, session: { startsAt: courseHistoryRange(range) } }, include: { session: { select: { startsAt: true, nameSnapshot: true } }, card: { select: { nameSnapshot: true, expiresAt: true, unit: true } } }, orderBy: [{ session: { startsAt: "desc" } }, {id:"desc"}], skip, take: 11 });
     return { success: true as const, hasMore: bookings.length > 10, data: bookings.slice(0,10).map((b) => ({ id: b.id, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card?.nameSnapshot ?? "體驗（不使用方案）", expiresAt: b.card?.expiresAt.toISOString() ?? null, points: b.pointCost, unit: b.card?.unit ?? "TRIAL", notes: b.notes, operator: b.operatorName })) };
   } catch (e) { const failure=handleActionError(e);return {success:false as const,error:failure.success?"讀取失敗":failure.error}; }
 }

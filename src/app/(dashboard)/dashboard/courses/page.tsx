@@ -20,12 +20,12 @@ import { CourseWorkspace } from "./workspace";
 export default async function CoursesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; view?: string; month?: string; preset?: string; startDate?: string; endDate?: string }>;
+  searchParams: Promise<{ [key: string]: string | undefined; date?: string; view?: string; month?: string; preset?: string; startDate?: string; endDate?: string }>;
 }) {
   const query = await searchParams;
   if (query.view === "analytics") return <CourseAnalyticsPage params={query}/>;
   if (query.view === "customers" || query.view === "plans")
-    return <CourseMemberPage view={query.view} />;
+    return <CourseMemberPage view={query.view} query={query} />;
   if (
     query.view === "settings" ||
     query.view === "operations"

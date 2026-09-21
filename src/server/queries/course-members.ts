@@ -1,19 +1,22 @@
 import "server-only";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "../../../generated/course-client";
 
-export async function getCourseCards(storeId: string, customerId?: string) {
+export async function getCourseCards(storeId: string, customerId?: string, page?: { where: Prisma.CoursePointCardWhereInput; skip: number; take: number; entries?: boolean }) {
   const cards = await coursePrisma.coursePointCard.findMany({
     where: {
+      ...page?.where,
       storeId,
       ...(customerId ? { members: { some: { customerId } } } : {}),
     },
     include: {
       members: true,
       bookings: { where: { status: "RESERVED" }, select: { pointCost: true } },
-      entries: { orderBy: { createdAt: "desc" }, take: 100 },
+      entries: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: page && !page.entries ? 0 : 100 },
     },
-    orderBy: { createdAt: "desc" },
+    ...(page ? { skip: page.skip, take: page.take } : {}),
+    orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
   });
   const people = await prisma.customer.findMany({
     where: {

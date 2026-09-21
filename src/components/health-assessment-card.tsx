@@ -17,9 +17,10 @@ import { HealthTrendChartLoader } from "@/components/health-trend-chart-loader";
 
 interface HealthAssessmentCardProps {
   summary: HealthSummary;
+  compact?: boolean;
 }
 
-export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
+export function HealthAssessmentCard({ summary, compact = false }: HealthAssessmentCardProps) {
   const latest = summary.latest;
   if (!latest) {
     // 不應發生（getHealthCardData 已 gate `!summary.latest`），保險空態
@@ -50,14 +51,14 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
           : "text-earth-800";
 
   return (
-    <div className="rounded-2xl border border-earth-200 bg-white p-5 shadow-sm">
+    <div className={compact ? "min-w-0 bg-white" : "rounded-2xl border border-earth-200 bg-white p-5 shadow-sm"}>
       {/* Header */}
-      <div className="mb-4 flex items-start justify-between gap-3">
+      {!compact && <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold text-earth-900">健康量測</h3>
           <p className="mt-1 text-sm text-earth-700">最近一次量測摘要</p>
         </div>
-      </div>
+      </div>}
 
       {/* Official score (HealthFlow PR #5) — 有官方分數才顯示，沒回則整段省略 */}
       {official && (
@@ -96,12 +97,12 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
         )}
       </div>
 
-      <HealthChange latest={latest} previous={previous} />
+      {(!compact || previous) && <HealthChange latest={latest} previous={previous} />}
 
       {/* 首頁先保留四項核心指標，其餘指標按需展開。 */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {HEALTH_DISPLAY_METRICS.filter((metric) =>
-          ["weight", "bodyFat", "muscleMass", "visceralFat"].includes(metric.key),
+          (compact ? latest[metric.key] != null : ["weight", "bodyFat", "muscleMass", "visceralFat"].includes(metric.key)),
         ).map((metric) => (
           <MetricCell
             key={metric.key}
@@ -112,7 +113,7 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
         ))}
       </div>
 
-      <details className="mb-4 rounded-xl border border-earth-100 bg-earth-50/40">
+      {!compact && <details className="mb-4 rounded-xl border border-earth-100 bg-earth-50/40">
         <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-semibold text-earth-700">
           查看全部指標
         </summary>
@@ -128,7 +129,7 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
             />
           ))}
         </div>
-      </details>
+      </details>}
 
       {/* Alerts badge — 任何 warning/danger 集中顯示一行 */}
       {alertsAbnormal.length > 0 && (
@@ -144,14 +145,16 @@ export function HealthAssessmentCard({ summary }: HealthAssessmentCardProps) {
         </div>
       )}
 
-      {summary.trend.length > 0 && (
+      {compact && <p className="mb-3 text-xs text-earth-500">僅顯示本次已填量測項目。</p>}
+      {compact ? <details><summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">歷史量測與趨勢</summary><HealthTrendChartLoader trend={summary.trend} totalRecords={summary.meta.totalRecords}/><HealthHistoryList trend={summary.trend} totalRecords={summary.meta.totalRecords}/></details> : null}
+      {!compact && summary.trend.length > 0 && (
         <div className="mb-4 border-t border-earth-100 pt-4">
           <h4 className="mb-3 text-sm font-semibold text-earth-900">身體數據曲線</h4>
           <HealthTrendChartLoader trend={summary.trend} totalRecords={summary.meta.totalRecords} />
         </div>
       )}
 
-      {summary.trend.length > 0 && (
+      {!compact && summary.trend.length > 0 && (
         <HealthHistoryList
           trend={summary.trend}
           totalRecords={summary.meta.totalRecords}

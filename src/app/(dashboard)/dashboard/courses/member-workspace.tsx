@@ -1,7 +1,11 @@
 "use client";
+import {CourseOptionSelect} from "@/components/admin/course-option-select";
+import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
+import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
+import {browseCourseCards} from "@/server/actions/course-browse";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
-import { useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
@@ -18,6 +22,7 @@ import { CustomerAttributionForm } from "@/components/customer-attribution-form"
 import { saveCourseCustomerAttribution, searchCourseReferrerCandidates } from "@/server/actions/course-customer-attribution";
 import { CourseCustomerPurchases } from "./customer-purchases";
 import { CourseCustomerList } from "./customer-list";
+import type { CourseCustomerPage } from "@/server/queries/course-customer-page";
 import type { CustomerRow } from "../customers/_components/customers-table";
 import { CourseCustomerBookings } from "./customer-bookings";
 import { BirthdayFields } from "@/components/birthday-fields";
@@ -56,6 +61,7 @@ export function CourseMemberWorkspace({
   canReadTransactions,
   healthEnabled,
   customerRows,
+  customerPage,
   canReadCards,
   assignmentStaff,
   canAssignManager,
@@ -77,6 +83,7 @@ export function CourseMemberWorkspace({
   canReadTransactions: boolean;
   healthEnabled: boolean;
   customerRows: CustomerRow[];
+  customerPage?: CourseCustomerPage;
   canReadCards: boolean;
   assignmentStaff: {id:string;displayName:string}[];
   canAssignManager: boolean;
@@ -100,22 +107,42 @@ export function CourseMemberWorkspace({
   const [personTab, setPersonTab] = useState<"info" | "plans" | "records">("info");
   const [editingPerson, setEditingPerson] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [cardSearch, setCardSearch] = useState("");
-  const [showCardHistory, setShowCardHistory] = useState(false);
+  const [cardBrowse,setCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
+  const [customerCardBrowse,setCustomerCardBrowse]=useState<CardBrowseState>({search:"",history:false,page:0});
+  const [cardRevision,setCardRevision]=useState(0);
+  const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
+  const [cardLoading,setCardLoading]=useState(false);
+  const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useState("all");
   function canLeave() { return !pending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [cardId, setCardId] = useState("");
+  const [revenueStaffId,setRevenueStaffId]=useState("");
   const [planId, setPlanId] = useState(plans.find((p) => p.isActive)?.id ?? "");
   const [assignmentSummary,setAssignmentSummary]=useState<AssignmentSummary>({paid:null,valid:false});
   const [requestKey, setRequestKey] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const card = cards.find((c) => c.id === cardId);
+  const card = loadedCard?.id===cardId ? loadedCard : cards.find((c) => c.id === cardId);
+  function selectCard(value:CourseCardView) {
+    if (!open("card")) return;
+    setCardId(value.id);setLoadedCard(value);setCardLoading(true);
+  }
+  useEffect(()=>{
+    if(panel!=="card" || !cardId)return;
+    let active=true;
+    browseCourseCards({cardId}).then(r=>{
+      if(!active)return;
+      if(r.success && r.rows[0])setLoadedCard(r.rows[0]);
+      else setError(r.success ? "找不到方案，請重新整理" : r.error);
+    }).catch(()=>{if(active)setError("讀取方案失敗，請重新開啟");}).finally(()=>{if(active)setCardLoading(false);});
+    return ()=>{active=false;};
+  },[panel,cardId]);
   function open(value: typeof panel) {
-    if (!canLeave()) return;
+    if (!canLeave()) return false;
     setDirty(false);
+    if(value === "assign")setRevenueStaffId(customerRows.find(c=>c.id===person?.id)?.assignedStaff?.id??"");
     if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
     if (value === "assign" && !plans.some((p) => p.id === planId && p.isActive))
       setPlanId(plans.find((p) => p.isActive)?.id ?? "");
@@ -123,6 +150,7 @@ export function CourseMemberWorkspace({
     setNotice("");
     setRequestKey(crypto.randomUUID());
     setPanel(value);
+    return true;
   }
   function submit(
     event: FormEvent<HTMLFormElement>,
@@ -138,7 +166,7 @@ export function CourseMemberWorkspace({
           setError(result.error ?? "儲存失敗");
           return;
         }
-        setDirty(false);
+        setDirty(false);setCardRevision(n=>n+1);
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab("plans"); setEditingPerson(false); }
         else setPanel(null);
         setNotice("已儲存");
@@ -156,7 +184,6 @@ export function CourseMemberWorkspace({
         (planUnit === "all" || p.unit === planUnit),
     )
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
-  const visibleCards = cards.filter(c => (showCardHistory || (!c.expired && !c.closed)) && `${c.name} ${c.members.map(m => m.name).join(" ")}`.includes(cardSearch.trim()));
   const totalRows = filteredPlans.length;
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
   return (
@@ -210,12 +237,12 @@ export function CourseMemberWorkspace({
         </p>
       )}
       {view === "plans" && canEdit && <CourseBatchBar canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
-      {view === "customers" ? <CourseCustomerList rows={customerRows} cards={cards} canReadCards={canReadCards}
+      {view === "customers" ? <CourseCustomerList customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge}
-        onView={id => { setPerson(people.find(p => p.id === id) ?? null); open("person"); }}
+        onView={id => { setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); open("person"); }}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
-        onAssign={canAssign ? id => { setPerson(people.find(p => p.id === id) ?? null); open("assign"); } : undefined}
+        onAssign={canAssign ? id => { setPerson(people.find(p => p.id === id) ?? null); open("assign"); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
         <table className="w-full text-left text-sm">
@@ -259,35 +286,7 @@ export function CourseMemberWorkspace({
         </table>
       </div>
       )}
-      {view === "plans" && (
-        <section className="mt-5">
-          <h2 className="mb-2 font-semibold">顧客持有方案</h2>
-          <div className="mb-3 flex flex-wrap items-center gap-3"><input className={`${field} max-w-xs`} aria-label="搜尋持有方案或共卡成員" placeholder="搜尋方案或共卡成員" value={cardSearch} onChange={e=>setCardSearch(e.target.value)}/><label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={showCardHistory} onChange={e=>setShowCardHistory(e.target.checked)}/>包含已到期／停用</label></div>
-          <div className="divide-y rounded-lg border bg-white">
-            {!visibleCards.length && <p className="p-4 text-sm text-earth-500">沒有符合條件的持有方案，請調整搜尋或查看已到期／停用方案。</p>}
-            {visibleCards.map((c) => (
-              <button
-                key={c.id}
-                className={`flex min-h-14 w-full flex-wrap items-center justify-between gap-2 p-3 text-left text-sm ${c.expired ? "bg-earth-50 text-earth-400" : ""}`}
-                onClick={() => {
-                  setCardId(c.id);
-                  open("card");
-                }}
-              >
-                <span>
-                  {c.name}
-                  {c.closed ? "（已結清停用）" : c.expired ? "（已到期）" : ""} ·{" "}
-                  {c.members.map((m) => m.name).join("、")}
-                </span>
-                <span>
-                  剩餘 {c.remaining} · 占用 {c.held} · 可用 {c.available} {c.unit === "SESSION" ? "堂" : "點"} · 到期{" "}
-                  {toLocalDateStr(new Date(c.expiresAt))}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      {view === "plans" && canReadCards && <section className="mt-5 space-y-3"><h2 className="font-semibold">顧客持有方案</h2><CourseCardBrowser state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}
       {view === "plans" && totalRows > 20 && <nav aria-label="清單分頁" className="flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
       {panel && (
         <RightSheet
@@ -300,7 +299,7 @@ export function CourseMemberWorkspace({
             <h2 id="course-member-sheet" className="font-semibold">
               {panel === "person"
                 ? person ? person.name : "新增顧客"
-                : panel === "health" ? "健康追蹤" : panel === "plan"
+                : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
                   ? plan ? "編輯方案" : "新增方案"
                   : panel === "assign"
                     ? "指派方案"
@@ -362,8 +361,8 @@ export function CourseMemberWorkspace({
                 {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>指派方案</button>}
               </div>
               {canReadCards && personTab === "plans" && <section aria-label="持有與共卡方案">
-                {cards.filter(c=>c.members.some(m=>m.id===person.id)).map(c=><button key={c.id} className={`${button} mb-2 block w-full text-left`} onClick={()=>{setCardId(c.id);open("card");}}>{c.name} · 可用 {c.available} {c.unit === "SESSION" ? "堂" : "點"} · 到期 {toLocalDateStr(new Date(c.expiresAt))}{c.closed ? "（已結清）" : c.expired ? "（已到期）" : ""}</button>)}
-                {!cards.some(c=>c.members.some(m=>m.id===person.id)) && <p className="text-sm text-earth-500">尚無方案</p>}
+                <CourseCardBrowser customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+
               </section>}
               {personTab === "info" && <details><summary className="min-h-11 cursor-pointer py-2">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
                 <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
@@ -371,7 +370,7 @@ export function CourseMemberWorkspace({
                 <CustomerAttributionForm key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
               </details>}
             </section>}
-            {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>open("person")}>‹ 返回 {person.name} 詳情</button>}
+            {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["身高",person.height == null ? null : `${person.height} cm`],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["舊顧客備註（保留資料）",person.notes],["店內備註",person.serviceNote]].map(([label,value])=><div key={label} className="min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
               {canEdit && <button className={`${button} bg-primary-700 text-white`} onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
@@ -428,8 +427,9 @@ export function CourseMemberWorkspace({
                 </fieldset>
               </form>
             )}
-            {panel === "person" && personTab === "records" && person && canReadTransactions && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
-            {panel === "person" && personTab === "records" && person && canReadBookings && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
+            {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`${button} ${recordTab===value ? "bg-primary-50 font-semibold":""}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
+            {panel === "person" && personTab === "records" && person && canReadTransactions && recordTab === "purchases" && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
+            {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
             {panel === "plan" && (
               <form
                 id="course-member-form"
@@ -526,30 +526,13 @@ export function CourseMemberWorkspace({
                 <h3 className="font-semibold">方案資料</h3>
                 {person ? <div><span className="text-sm text-earth-500">顧客</span><p className="font-medium">{person.name} · {person.phone}</p><input type="hidden" name="customerId" value={person.id}/></div> : <label className="block">
                   顧客
-                  <select className={field} name="customerId" defaultValue="" required><option value="">請選擇顧客</option>
-                    {people.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} · {p.phone}
-                      </option>
-                    ))}
-                  </select>
+                  <CourseCustomerPicker name="customerId" required/>
+
                 </label>}
                 <label className="block">
                   方案
-                  <select
-                    className={field}
-                    value={planId}
-                    onChange={(e) => {setAssignmentSummary({paid:null,valid:false});setPlanId(e.target.value);}}
-                    required
-                  >
-                    {plans
-                      .filter((p) => p.isActive)
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} · {p.points} {p.unit === "SESSION" ? "堂" : "點"}
-                        </option>
-                      ))}
-                  </select>
+                  <CourseOptionSelect label="方案" required value={planId} options={plans.filter(p=>p.isActive).map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? "堂":"點"}`}))} onChange={id=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);setDirty(true);}}/>
+
                 </label>
                 <label className="block" key={planId}>
                   有效至（含當日）
@@ -569,7 +552,7 @@ export function CourseMemberWorkspace({
                     )}
                   />
                 </label>
-                <label className="block">本次開發人<select name="revenueStaffId" className={field} defaultValue={customerRows?.find(c=>c.id===person?.id)?.assignedStaff?.id??""}><option value="">請選擇直屬店長／開發人</option>{assignmentStaff?.map(s=><option key={s.id} value={s.id}>{s.displayName}</option>)}</select></label>
+                <label className="block">本次開發人<CourseOptionSelect label="本次開發人" name="revenueStaffId" placeholder="請選擇直屬店長／開發人" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
                 <fieldset disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
@@ -579,8 +562,9 @@ export function CourseMemberWorkspace({
             )}
             {panel === "card" && card && (
               <>
+                {cardLoading && <p role="status">讀取方案詳細資料中…</p>}
                 <CourseCardSummary card={card} />
-                {canAssign && (
+                {canAssign && !cardLoading && !error && (
                   <form
                     id="course-member-form"
                 onChange={()=>setDirty(true)}
@@ -598,22 +582,8 @@ export function CourseMemberWorkspace({
                     <p className="text-sm text-earth-500">
                       每位成員均可只替另一位成員預約。
                     </p>
-                    {people.map((p) => (
-                      <label
-                        key={p.id}
-                        className="flex min-h-11 items-center gap-2"
-                      >
-                        <input
-                          type="checkbox"
-                          name="members"
-                          value={p.id}
-                          defaultChecked={card.members.some(
-                            (m) => m.id === p.id,
-                          )}
-                        />
-                        {p.name}
-                      </label>
-                    ))}
+                    <CourseCustomerPicker onChange={()=>setDirty(true)} key={card.id} name="members" initial={card.members} multiple/>
+
                   </form>
                 )}
                 <CourseCardEntries card={card} />
@@ -627,7 +597,7 @@ export function CourseMemberWorkspace({
                 form="course-member-form"
                 type="submit"
                 className={`${button} w-full bg-primary-700 text-white`}
-                disabled={pending || (panel === "assign" && (!planId || !assignmentSummary.valid))}
+                disabled={pending || (panel === "card" && (cardLoading || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
               >
                 {pending ? "儲存中…" : panel === "assign" ? "確認結帳並指派方案" : panel === "card" ? "儲存共卡成員" : "儲存"}
               </button>

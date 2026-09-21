@@ -74,7 +74,8 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
     [searchParams]
   );
 
-  const [searchDraft, setSearchDraft] = useState(current.search);
+  const [draft, setDraft] = useState({source:current.search,value:current.search});
+  const searchDraft = draft.source === current.search ? draft.value : current.search;
 
   const hasActiveFilters = FILTER_KEYS.some((k) => {
     const v = searchParams.get(k);
@@ -104,18 +105,18 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
   };
 
   const selectClass =
-    "rounded-md border border-earth-300 bg-white px-2 py-1.5 text-xs text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300 disabled:opacity-60";
+    `${courseMode ? "min-h-11 min-w-0 flex-1 sm:flex-none " : ""}rounded-md border border-earth-300 bg-white px-2 py-1.5 text-xs text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300 disabled:opacity-60`;
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-earth-200 pb-3">
       {isPending && <NavigationNotice />}
-      <form onSubmit={onSearchSubmit} className="flex min-w-[220px] flex-1 items-center gap-1.5">
+      <form onSubmit={onSearchSubmit} className={courseMode ? "flex min-w-0 basis-full items-center gap-2 lg:basis-64 lg:flex-1" : "flex min-w-[220px] flex-1 items-center gap-1.5"}>
         <input
           name="search"
           value={searchDraft}
-          onChange={(e) => setSearchDraft(e.target.value)}
+          onChange={(e) => setDraft({source:current.search,value:e.target.value})}
           placeholder="搜尋姓名 / 電話 / LINE 名稱"
-          className="min-w-0 flex-1 rounded-md border border-earth-300 bg-white px-3 py-1.5 text-xs text-earth-800 placeholder:text-earth-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300"
+          className={`${courseMode ? "min-h-11 " : ""}min-w-0 flex-1 rounded-md border border-earth-300 bg-white px-3 py-1.5 text-xs text-earth-800 placeholder:text-earth-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300`}
         />
         {searchDraft !== current.search ? (
           <button

@@ -8,16 +8,17 @@ import { getActiveStoreForRead } from "@/lib/store";
 import { requireCourseStore } from "@/lib/industry-module-server";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
-import { getCourseCards } from "@/server/queries/course-members";
+import { getCourseCustomerPage } from "@/server/queries/course-customer-page";
 import { PageShell, PageHeader } from "@/components/desktop";
 import { CoursePurchaseReview } from "./purchase-review";
 import { CourseMemberWorkspace } from "./member-workspace";
 import { hasDataExportFeature } from "@/lib/data-export-gate";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 export async function CourseMemberPage({
-  view,
+  view, query = {},
 }: {
   view: "customers" | "plans";
+  query?: Record<string, string | undefined>;
 }) {
   const user = await getCurrentUser();
   if (
@@ -42,11 +43,16 @@ export async function CourseMemberPage({
     user.staffId,
     "customer.read",
   );
-  const [people, plans, cards, canEdit, canAssign, canCreate, canManageStaff] =
+  const params = new URLSearchParams(Object.entries(query).filter((pair): pair is [string,string] => typeof pair[1] === "string"));
+  const customerPage = view === "customers" && canReadPeople
+    ? await getCourseCustomerPage(storeId, user.role, user.staffId, params, canReadCards) : undefined;
+  const customerIds = customerPage?.rows.map(r => r.id) ?? [];
+  if (query.customerId) customerIds.push(query.customerId);
+  const [people, plans, canEdit, canAssign, canCreate, canManageStaff] =
     await Promise.all([
       canReadPeople
         ? prisma.customer.findMany({
-            where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null },
+            where: { ...getManagerCustomerWhere(user.role, user.staffId, storeId), storeId, mergedIntoCustomerId: null, id: { in: customerIds } },
             select: { id: true, name: true, phone: true, email: true, gender: true, birthday: true, height: true, lineName: true, serviceNote: true, address: true, notes: true, emergencyContactName: true, emergencyContactPhone: true, lineUserId: true, lineLinkStatus: true, customerStage: true, createdAt: true, totalPoints: true, mergedIntoCustomerId: true, user: {select:{status:true}}, assignedStaff: {select:{id:true,storeId:true,displayName:true,colorCode:true}}, sponsor:{select:{id:true,storeId:true,name:true}}, _count:{select:{sponsoredCustomers:{where:{storeId,mergedIntoCustomerId:null}}}} },
             orderBy: { name: "asc" },
           })
@@ -57,7 +63,6 @@ export async function CourseMemberPage({
             orderBy: { name: "asc" },
           })
         : [],
-      canReadCards ? getCourseCards(storeId) : [],
       checkPermission(
         user.role,
         user.staffId,
@@ -73,12 +78,7 @@ export async function CourseMemberPage({
         ? checkPermission(user.role, user.staffId, "staff.manage")
         : false,
     ]);
-  const lastClasses = view === "customers" ? await coursePrisma.$queryRaw<{customerId:string;lastVisitAt:Date}[]>`
-    SELECT b."customerId", MAX(s."startsAt") AS "lastVisitAt"
-    FROM "CourseBooking" b JOIN "CourseSession" s ON s.id=b."sessionId" AND s."storeId"=b."storeId"
-    WHERE b."storeId"=${storeId} AND b.status='ATTENDED'
-    GROUP BY b."customerId"` : [];
-  const lastClassByCustomer = new Map(lastClasses.map(row=>[row.customerId,row.lastVisitAt]));
+  const lastClassByCustomer = new Map(customerPage?.rows.map(row=>[row.id,row.lastVisitAt ? new Date(row.lastVisitAt) : null]));
   const customerRows = people.map(p=>({
     id:p.id,name:p.name,phone:p.phone,lineName:p.lineName,lineUserId:p.lineUserId,
     lineLinkStatus:p.lineLinkStatus,customerStage:p.customerStage,createdAt:p.createdAt,
@@ -89,7 +89,7 @@ export async function CourseMemberPage({
     serviceNote:p.serviceNote,lastVisitAt:lastClassByCustomer.get(p.id)??null,
     validPackageSessions:0,
   }));
-  const assignmentStaff = view === "customers" ? await prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{role:"OWNER",status:"ACTIVE"}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}}) : [];
+  const assignmentStaff = await prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{role:"OWNER",status:"ACTIVE"}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}});
   const termSessions=(view === "plans" && await checkPermission(user.role,user.staffId,"booking.read")) ? await coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [];
   const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true}});
   const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
@@ -102,6 +102,7 @@ export async function CourseMemberPage({
       <CourseMemberWorkspace canDelete={user.role==="OWNER"}
         canMerge={(user.role === "OWNER" || user.role === "ADMIN") && await checkPermission(user.role, user.staffId, "customer.update")}
         customerRows={customerRows}
+        customerPage={customerPage}
         assignmentStaff={assignmentStaff}
         canAssignManager={await checkPermission(user.role, user.staffId, "customer.assign")}
         canReadCards={canReadCards}
@@ -113,7 +114,7 @@ export async function CourseMemberPage({
         canReadBookings={await checkPermission(user.role, user.staffId, "booking.read")}
         people={people.map((p) => ({ id:p.id,name:p.name,phone:p.phone,email:p.email,gender:p.gender,height:p.height,lineName:p.lineName,serviceNote:p.serviceNote,address:p.address,notes:p.notes,emergencyContactName:p.emergencyContactName,emergencyContactPhone:p.emergencyContactPhone,birthday: p.birthday?.toISOString().slice(0, 10) ?? "" }))}
         plans={plans}
-        cards={cards}
+        cards={[]}
         canEdit={canEdit}
         canCreate={canCreate}
         canManageStaff={canManageStaff}
