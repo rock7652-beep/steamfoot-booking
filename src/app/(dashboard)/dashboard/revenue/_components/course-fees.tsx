@@ -19,20 +19,17 @@ export async function CourseFees({storeId,range,readOnly}: {storeId:string;range
     LEFT JOIN "CourseFeePayment" p ON p."sessionId"=s.id AND p."storeId"=s."storeId" AND p."voidedAt" IS NULL
     WHERE s."storeId"=${storeId} AND s."startsAt">=${range.gte} AND s."startsAt"<=${range.lte}
     ORDER BY s."startsAt" DESC,s.id LIMIT 101`;
-  const now=new Date();
-  const summarized=rows.slice(0,100).map(row=>({row,fee:fixedCourseFee(row.rule),ended:row.endsAt<=now}));
-  const pending=summarized.filter(({row,fee,ended})=>!row.paidAt&&!row.cancelledAt&&ended&&fee!==null&&fee>0).length;
-  const pendingAmount=summarized.reduce((sum,{row,fee,ended})=>sum+(!row.paidAt&&!row.cancelledAt&&ended&&fee!==null&&fee>0&&Number.isSafeInteger(fee)?fee:0),0);
-  return <details className="rounded-xl border border-earth-200 bg-white p-3">
-    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3"><span><strong className="font-semibold">授課費</strong><span className="ml-2 text-sm text-earth-500">待核對 {pending} 堂</span></span><span className="text-sm font-medium text-primary-800">預估 NT$ {pendingAmount.toLocaleString()}　展開明細</span></summary>
-    <p className="my-2 text-sm text-earth-600">依上方日期查看課次。每堂固定一次；設定 0 元表示不另領授課費。登錄已付後會同步一筆支出。</p>
+  return <section className="rounded-xl border border-earth-200 bg-white p-3">
+    <h2 className="font-semibold">授課費</h2>
+    <p className="my-2 text-sm">依上方日期查看課次。每堂固定一次；設定 0 元表示不另領授課費。登錄已付後會同步一筆支出。</p>
     {rows.length>100&&<p role="status">僅顯示最近 100 堂，請縮短日期範圍查看其他課次。</p>}
     <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{["課次／教練","固定授課費","付款狀態","處理"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>
-      {summarized.map(({row,fee,ended})=>{
+      {rows.slice(0,100).map(row=>{
+        const fee=fixedCourseFee(row.rule), ended=row.endsAt<=new Date();
         const status=row.paidAt?`已付 · ${formatTWTime(row.paidAt)}`:row.cancelledAt?"已取消":fee===null?"舊課次費率待核對":fee===0?"不另領授課費":!ended?"尚未結束":!Number.isSafeInteger(fee)?"小數金額待核對":"待付（請核對授課）";
         return <tr className="border-t align-top" key={row.id}><td className="p-2">{formatTWTime(row.startsAt)}<br/>{row.name} · {row.staffName}</td><td className="p-2">{fee===null?"—":`NT$ ${fee.toLocaleString()}`}</td><td className="p-2">{status}{row.paidAt&&<details><summary>付款備註</summary>{row.method==="CASH"?"現金":"非現金"} · {row.note}</details>}</td><td className="p-2">{canPay&&row.paymentId?<CourseFeeCorrectionButton paymentId={row.paymentId}/>:null}{canPay&&!row.paidAt&&!row.cancelledAt&&ended&&fee!==null&&fee>0&&Number.isSafeInteger(fee)?<CourseFeePaymentButton sessionId={row.id} amount={fee}/>:null}</td></tr>;
       })}
       {!rows.length&&<tr><td colSpan={4} className="p-3">此期間沒有課次。</td></tr>}
     </tbody></table></div>
-  </details>;
+  </section>;
 }
