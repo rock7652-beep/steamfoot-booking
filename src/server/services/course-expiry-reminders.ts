@@ -5,7 +5,8 @@ import {createHash} from "node:crypto";
 import {prisma} from "@/lib/db";
 import {coursePrisma} from "@/lib/course-db";
 import {addTaiwanDuration,dayRange,toLocalDateStr} from "@/lib/date-utils";
-import {courseExpirySettingId} from "@/lib/course-expiry-reminder";
+import {parseCourseExpiryPlan} from "@/lib/course-plan-reminders";
+import {courseExpirySettingId, courseExpiryPlanPrefix, courseExpiryPlanId} from "@/lib/course-expiry-reminder";
 import {hasStoreFeature} from "@/lib/feature-gate";
 import {FEATURES} from "@/lib/feature-flags";
 import {courseMemberNotificationUrl} from "./course-delivery-links";
@@ -13,10 +14,14 @@ import {buildPlanExpiryLineMessages} from "./plan-expiry-notifications";
 
 export async function getCourseExpiryCandidates(storeId:string,now=new Date()) {
   if(!(await prisma.store.findFirst({where:{id:storeId,industryModule:"COURSE"},select:{id:true}}))) return [];
-  const dates=([14,7] as const).map(days=>({days,date:addTaiwanDuration(toLocalDateStr(now),days,"DAY")}));
+  const settings = await prisma.messageTemplate.findMany({where:{storeId,id:{startsWith:courseExpiryPlanPrefix(storeId)}},select:{id:true,body:true}});
+  const rules = new Map(settings.map(row => [row.id, parseCourseExpiryPlan(row.body)]));
+  const dayOffsets = [...new Set([14,7,...[...rules.values()].filter(rule=>rule.enabled).flatMap(rule=>rule.days)])];
+  const dates=dayOffsets.map(days=>({days,date:addTaiwanDuration(toLocalDateStr(now),days,"DAY")}));
   const cards=await coursePrisma.coursePointCard.findMany({where:{storeId,closedAt:null,remaining:{gt:0},OR:dates.map(d=>({expiresAt:{gte:dayRange(d.date).start,lte:dayRange(d.date).end}}))},include:{members:true,bookings:{where:{storeId,status:"RESERVED"},select:{pointCost:true}}}});
   return cards.flatMap(card=>{
-    const phase=dates.find(d=>d.date===toLocalDateStr(card.expiresAt));
+    const rule = rules.get(courseExpiryPlanId(storeId,card.planId)) ?? parseCourseExpiryPlan();
+    const phase=rule.enabled ? dates.find(d=>rule.days.includes(d.days) && d.date===toLocalDateStr(card.expiresAt)) : undefined;
     const held=card.bookings.reduce((n,b)=>n+b.pointCost,0);
     return phase&&card.remaining>held?[{card,held,...phase}]:[];
   });
@@ -39,8 +44,11 @@ export async function runCourseExpiryReminders(now=new Date(),onlyStoreId?:strin
           const status=await prisma.$transaction(async tx=>{
             await tx.$queryRaw`SELECT id FROM "Store" WHERE id=${store.id} FOR UPDATE`;
             if(!(await tx.messageTemplate.findFirst({where:{id:setting.id,storeId:store.id,body:"enabled"}}))) return "SKIPPED";
+            const override = await tx.messageTemplate.findFirst({where:{id:courseExpiryPlanId(store.id,candidate.card.planId),storeId:store.id},select:{body:true}});
+            const currentRule = parseCourseExpiryPlan(override?.body);
+            if(!currentRule.enabled || !currentRule.days.includes(candidate.days)) return "SKIPPED";
             if(await courseReminderAlreadySent(tx,store.id,person.id,customerId=>`course-expiry:${createHash("sha256").update(`${store.id}:${candidate.card.id}:${customerId}:${candidate.date}:${candidate.days}`).digest("hex")}`)) return "SKIPPED";
-            const current=await tx.$queryRaw<Array<{remaining:number;held:number}>>`SELECT c.remaining,COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)::int AS held FROM "CoursePointCard" c WHERE c.id=${candidate.card.id} AND c."storeId"=${store.id} AND c."closedAt" IS NULL AND c."expiresAt"=${candidate.card.expiresAt} AND EXISTS(SELECT 1 FROM "CourseCardMember" m WHERE m."cardId"=c.id AND m."storeId"=c."storeId" AND m."customerId"=${person.id})`;
+            const current=await tx.$queryRaw<Array<{remaining:number;held:number}>>`SELECT c.remaining,COALESCE((SELECT SUM(b."pointCost") FROM "CourseBooking" b WHERE b."storeId"=c."storeId" AND b."cardId"=c.id AND b.status='RESERVED'),0)::int AS held FROM "CoursePointCard" c WHERE c.id=${candidate.card.id} AND c."storeId"=${store.id} AND c."planId"=${candidate.card.planId} AND c."closedAt" IS NULL AND c."expiresAt"=${candidate.card.expiresAt} AND EXISTS(SELECT 1 FROM "CourseCardMember" m WHERE m."cardId"=c.id AND m."storeId"=c."storeId" AND m."customerId"=${person.id})`;
             if(!current[0] || current[0].remaining<=current[0].held) return "SKIPPED";
             const url=courseMemberNotificationUrl(store.slug,"plans");
             const messages=buildPlanExpiryLineMessages({customerName:person.name,planName:candidate.card.nameSnapshot,remainingSessions:current[0].remaining-current[0].held,expiryDate:new Date(candidate.date+"T00:00:00Z"),daysUntilExpiry:candidate.days,storeSlug:store.slug,course:{unit:candidate.card.unit==="SESSION"?"SESSION":"POINT",remaining:current[0].remaining,held:current[0].held,url:url.toString()}});

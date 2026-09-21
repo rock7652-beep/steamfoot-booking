@@ -1609,7 +1609,7 @@ function CreatePersonDrawer({
         <section className="space-y-4">
           <Field label="人員類型">
             <select name="role" defaultValue="PARTNER" className={inputClass}>
-              <option value="PARTNER">服務人員（芳療師／老師／教練）</option>
+              <option value="PARTNER">服務人員（芳療師／教練）</option>
               <option value="OWNER">店長</option>
             </select>
           </Field>

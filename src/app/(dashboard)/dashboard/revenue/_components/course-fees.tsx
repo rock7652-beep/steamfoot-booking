@@ -13,7 +13,7 @@ export async function CourseFees({storeId,range,readOnly}: {storeId:string;range
   const canPay=!readOnly&&await checkPermission(user.role,user.staffId,"cashbook.create");
   const rows=await coursePrisma.$queryRaw<Array<{id:string;paymentId:string|null;name:string;startsAt:Date;endsAt:Date;cancelledAt:Date|null;staffName:string;rule:unknown;amount:number|null;paidAt:Date|null;method:string|null;note:string|null}>>`
     SELECT s.id,p.id AS "paymentId",s."nameSnapshot" AS name,s."startsAt",s."endsAt",s."cancelledAt",
-      COALESCE(p."staffNameSnapshot",f."displayName",'老師資料待核對') AS "staffName",c.rule,p.amount,p."createdAt" AS "paidAt",p.method,p.note
+      COALESCE(p."staffNameSnapshot",f."displayName",'教練資料待核對') AS "staffName",c.rule,p.amount,p."createdAt" AS "paidAt",p.method,p.note
     FROM "CourseSession" s LEFT JOIN "CourseCompensationSnapshot" c ON c."sessionId"=s.id AND c."storeId"=s."storeId"
     LEFT JOIN "Staff" f ON f.id=c."staffId" AND f."storeId"=s."storeId"
     LEFT JOIN "CourseFeePayment" p ON p."sessionId"=s.id AND p."storeId"=s."storeId" AND p."voidedAt" IS NULL
@@ -23,7 +23,7 @@ export async function CourseFees({storeId,range,readOnly}: {storeId:string;range
     <h2 className="font-semibold">授課費</h2>
     <p className="my-2 text-sm">依上方日期查看課次。每堂固定一次；設定 0 元表示不另領授課費。登錄已付後會同步一筆支出。</p>
     {rows.length>100&&<p role="status">僅顯示最近 100 堂，請縮短日期範圍查看其他課次。</p>}
-    <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{["課次／老師","固定授課費","付款狀態","處理"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>
+    <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{["課次／教練","固定授課費","付款狀態","處理"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>
       {rows.slice(0,100).map(row=>{
         const fee=fixedCourseFee(row.rule), ended=row.endsAt<=new Date();
         const status=row.paidAt?`已付 · ${formatTWTime(row.paidAt)}`:row.cancelledAt?"已取消":fee===null?"舊課次費率待核對":fee===0?"不另領授課費":!ended?"尚未結束":!Number.isSafeInteger(fee)?"小數金額待核對":"待付（請核對授課）";

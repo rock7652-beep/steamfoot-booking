@@ -83,3 +83,31 @@ export async function saveCourseDayHours(input:unknown) {
     return {success:true as const};
   } catch(error) { return handleActionError(error); }
 }
+
+/** Save all edited weekdays atomically; special dates keep their existing overrides. */
+export async function saveCourseWeeklyHours(input: unknown) {
+  try {
+    const { storeId } = await courseManager("business_hours.manage");
+    const days = z.array(z.object({ dayOfWeek: z.number().int().min(0).max(6), isOpen: z.boolean(), periods: z.array(periodSchema).max(8) })).min(1).max(7).parse(input);
+    const weekdays = new Set(days.map(day => day.dayOfWeek));
+    if (weekdays.size !== days.length) throw new AppError("VALIDATION", "同一星期不可重複設定");
+    const normalized = days.map(day => {
+      const periods = [...day.periods].sort((a, b) => a.openTime.localeCompare(b.openTime));
+      if (day.isOpen && (!periods.length || periods.some((p, i) => p.openTime >= p.closeTime || (i > 0 && periods[i - 1].closeTime > p.openTime)))) throw new AppError("VALIDATION", "請設定不重疊的完整營業時間");
+      return { ...day, periods };
+    });
+    await courseTransaction(storeId, async tx => {
+      for (const day of normalized) {
+        const first = day.isOpen ? day.periods[0].openTime : null;
+        const last = day.isOpen ? day.periods.at(-1)!.closeTime : null;
+        const json = JSON.stringify(day.periods.map(p => ({ ...p, slotInterval: 60, defaultCapacity: 6 })));
+        await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${day.dayOfWeek},${day.isOpen},${first},${last},${json}::jsonb,60,6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"updatedAt"=NOW()`;
+      }
+      const sessions = await tx.courseSession.findMany({ where: { storeId, cancelledAt: null, startsAt: { gte: new Date() } }, select: { startsAt: true, endsAt: true } });
+      await assertCourseSessionsFitHours(tx, storeId, sessions.filter(session => weekdays.has(new Date(toLocalDateStr(session.startsAt) + "T00:00:00Z").getUTCDay())));
+      await assertCourseDutyCoverage(tx, storeId);
+    });
+    revalidateBusinessHours(); revalidatePath("/dashboard/courses"); revalidatePath("/book");
+    return { success: true as const };
+  } catch (error) { return handleActionError(error); }
+}

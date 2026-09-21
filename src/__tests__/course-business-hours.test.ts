@@ -5,7 +5,7 @@ vi.mock("@/lib/db",()=>({prisma:{businessHours:{findMany:m.hours},specialBusines
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/lib/revalidation",()=>({revalidateBusinessHours:vi.fn(),revalidateSpecialDays:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
-import { saveCourseDayHours,getCourseMonthScheduleSummary } from "@/server/actions/course-business-hours";
+import { saveCourseWeeklyHours,saveCourseDayHours,getCourseMonthScheduleSummary } from "@/server/actions/course-business-hours";
 import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 const input={date:"2026-10-01",status:"closed",mode:"copy",weeks:2,reason:"測試公休",periods:[]};
 const tx={$queryRaw:m.raw,$executeRaw:m.write,courseSession:{findMany:m.sessions}};
@@ -43,4 +43,28 @@ it("uses special opening over weekly closure and rejects classes in the break be
 it("month summaries read only the authorized store",async()=>{
  m.hours.mockResolvedValue([{dayOfWeek:4,isOpen:false}]);m.special.mockResolvedValue([{date:new Date("2026-10-01T00:00:00Z"),type:"custom",openTime:"10:00",closeTime:"12:00"}]);
  const result=await getCourseMonthScheduleSummary(2026,10);expect(result["2026-10-01"].status).toBe("custom");expect(result["2026-10-08"].status).toBe("closed");expect(m.hours).toHaveBeenCalledWith({where:{storeId:"course-store"}});
+});
+
+it("saves selected weekdays in one transaction without replacing special dates", async () => {
+ const days = [1, 2, 3].map(dayOfWeek => ({dayOfWeek, isOpen: true, periods: [{openTime: "09:00", closeTime: "18:00"}]}));
+ expect(await saveCourseWeeklyHours(days)).toMatchObject({success:true});
+ expect(m.manager).toHaveBeenCalledWith("business_hours.manage"); expect(m.transaction).toHaveBeenCalledTimes(1); expect(m.write).toHaveBeenCalledTimes(3);
+ for (const call of m.write.mock.calls) { expect(call[2]).toBe("course-store"); expect(call[0].join("")).not.toContain("SpecialBusinessDay"); }
+});
+it("rejects an invalid weekday batch before any write", async () => {
+ const day = {dayOfWeek:1,isOpen:true,periods:[{openTime:"10:00",closeTime:"09:00"}]};
+ expect(await saveCourseWeeklyHours([day])).toMatchObject({success:false});
+ expect(await saveCourseWeeklyHours([{...day,isOpen:false},{...day,isOpen:false}])).toMatchObject({success:false});
+ expect(m.transaction).not.toHaveBeenCalled();
+});
+it("rolls back all weekdays when any affected class conflicts", async () => {
+ m.sessions.mockResolvedValue([{startsAt:new Date("2026-10-08T10:00:00+08:00"),endsAt:new Date("2026-10-08T11:00:00+08:00")}]);
+ m.raw.mockImplementation(async(strings:TemplateStringsArray)=>strings.join("").includes('"BusinessHours"')?[{dayOfWeek:4,isOpen:false}]:[]);
+ let rejected=false; m.transaction.mockImplementation(async(_id,work)=>{try{return await work(tx);}catch(e){rejected=true;throw e;}});
+ expect(await saveCourseWeeklyHours([1,4].map(dayOfWeek=>({dayOfWeek,isOpen:false,periods:[]})))).toMatchObject({success:false});
+ expect(rejected).toBe(true); expect(m.write).toHaveBeenCalledTimes(2);
+});
+it("rejects unauthorized weekday batches", async () => {
+ m.manager.mockRejectedValue(new Error("denied"));
+ expect(await saveCourseWeeklyHours([{dayOfWeek:1,isOpen:false,periods:[]}])).toMatchObject({success:false}); expect(m.transaction).not.toHaveBeenCalled();
 });

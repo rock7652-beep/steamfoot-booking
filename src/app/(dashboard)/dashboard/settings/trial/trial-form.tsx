@@ -1,6 +1,7 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
-import { useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updateTrialSettings } from "@/server/actions/shop";
@@ -11,6 +12,7 @@ interface Props {
   initial: TrialSettings;
   saveAction?: (input:TrialSettings)=>Promise<{success:boolean;error?:string}>;
   courseMode?: boolean;
+  compact?: boolean;
 }
 
 const inputCls =
@@ -22,7 +24,8 @@ function toInt(v: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSettings, courseMode = false }: Props) {
+export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSettings, courseMode = false, compact = false }: Props) {
+  const formId = useId();
   const [trialEnabled, setTrialEnabled] = useState(initial.trialEnabled);
   const [defaultPrice, setDefaultPrice] = useState(String(initial.trialDefaultPrice));
   const [allowEdit, setAllowEdit] = useState(initial.trialAllowPriceEdit);
@@ -30,6 +33,10 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
   const [maxPrice, setMaxPrice] = useState(String(initial.trialMaxPrice));
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const saving = useRef(false);
+  const draft = JSON.stringify([trialEnabled, defaultPrice, allowEdit, minPrice, maxPrice]);
+  const [savedDraft, setSavedDraft] = useState(draft);
+  useSettingsPanelGuard(draft !== savedDraft, pending);
 
   const d = toInt(defaultPrice);
   const lo = toInt(minPrice);
@@ -43,11 +50,14 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (saving.current || draft === savedDraft) return;
     if (invalid) {
       toast.error(errors[0]);
       return;
     }
+    saving.current = true;
     startTransition(async () => {
+      try {
       const result = await saveAction({
         trialEnabled,
         trialDefaultPrice: d,
@@ -56,11 +66,14 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
         trialMaxPrice: hi,
       });
       if (result.success) {
+        setSavedDraft(draft);
         toast.success("體驗課設定已更新");
         router.refresh();
       } else {
         toast.error(result.error ?? "儲存失敗");
       }
+      } catch { toast.error("連線失敗，輸入內容已保留，請重試"); }
+      finally { saving.current = false; }
     });
   }
 
@@ -68,19 +81,20 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
     <form
       data-store-id={storeId}
       onSubmit={handleSubmit}
-      className="grid grid-cols-1 gap-4 lg:grid-cols-12"
+      aria-label="體驗設定"
+      className={compact ? "mt-4 space-y-3" : "grid grid-cols-1 gap-4 lg:grid-cols-12"}
     >
       {/* Left: form */}
-      <div className="lg:col-span-7">
-        <section className="rounded-xl border border-earth-200 bg-white p-5 shadow-sm">
-          <header className="mb-4">
-            <h2 className="text-sm font-semibold text-earth-900">體驗課設定</h2>
+      <fieldset disabled={pending} className={compact ? "min-w-0" : "min-w-0 lg:col-span-7"}>
+        <section className={compact ? "bg-white" : "rounded-xl border border-earth-200 bg-white p-5 shadow-sm"}>
+          <header hidden={compact} className="mb-4">
+            <h2 data-panel-secondary-title className="text-sm font-semibold text-earth-900">體驗課設定</h2>
             <p className="mt-0.5 text-[11px] text-earth-500">
               右側預覽為建立體驗單時店長看到的價格欄位行為
             </p>
           </header>
 
-          <div className="space-y-4">
+          <div className={compact ? "grid gap-4 sm:grid-cols-2" : "space-y-4"}>
             <label className="flex items-center justify-between gap-3 rounded-lg border border-earth-200 px-3 py-2.5">
               <span>
                 <span className="text-sm font-medium text-earth-800">啟用體驗單功能</span>
@@ -97,8 +111,9 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             </label>
 
             <div>
-              <label className={labelCls}>預設體驗價格（NT$）</label>
-              <input
+              <label htmlFor={`${formId}-預設體驗價格（NT$）`} className={labelCls}>預設體驗價格（NT$）</label>
+
+              <input id={`${formId}-預設體驗價格（NT$）`}
                 type="number"
                 inputMode="numeric"
                 min={0}
@@ -129,10 +144,11 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
               />
             </label>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className={compact ? "grid grid-cols-2 gap-3 sm:col-span-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2"}>
               <div>
-                <label className={labelCls}>最低可輸入價格</label>
-                <input
+                <label htmlFor={`${formId}-最低可輸入價格`} className={labelCls}>最低可輸入價格</label>
+
+                <input id={`${formId}-最低可輸入價格`}
                   type="number"
                   inputMode="numeric"
                   min={0}
@@ -144,8 +160,9 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
                 />
               </div>
               <div>
-                <label className={labelCls}>最高可輸入價格</label>
-                <input
+                <label htmlFor={`${formId}-最高可輸入價格`} className={labelCls}>最高可輸入價格</label>
+
+                <input id={`${formId}-最高可輸入價格`}
                   type="number"
                   inputMode="numeric"
                   min={0}
@@ -167,23 +184,25 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             ) : null}
           </div>
 
-          <div className="mt-6 flex items-center justify-end gap-3 border-t border-earth-100 pt-4">
+          <div className={`${compact ? "" : "sticky bottom-0 z-10"} mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-earth-100 bg-white py-3`}>
             <span className="text-[11px] text-earth-400">
-              {pending ? "儲存中..." : "變更後請儲存"}
+              {pending ? "儲存中..." : draft !== savedDraft ? "尚未儲存" : "尚未變更"}
             </span>
+            <button type="button" disabled={pending || draft === savedDraft} onClick={() => { const [enabled, price, edit, min, max] = JSON.parse(savedDraft); setTrialEnabled(enabled); setDefaultPrice(price); setAllowEdit(edit); setMinPrice(min); setMaxPrice(max); }} className="min-h-11 rounded-lg border px-4 disabled:opacity-50">還原修改</button>
             <button
               type="submit"
-              disabled={pending || invalid}
+              disabled={pending || invalid || draft === savedDraft}
               className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60"
             >
-              {pending ? "儲存中..." : "儲存"}
+              {pending ? "儲存中..." : courseMode ? "儲存體驗設定" : "儲存"}
             </button>
           </div>
         </section>
-      </div>
+      </fieldset>
 
       {/* Right: behavior preview */}
-      <div className="lg:col-span-5">
+      <details open={compact ? undefined : true} className={compact ? "text-sm" : "lg:col-span-5"}>
+        <summary className={compact ? "min-h-11 cursor-pointer py-3 text-primary-700" : "hidden"}>建立體驗單預覽</summary>
         <section className="lg:sticky lg:top-4 rounded-xl border border-earth-200 bg-earth-50/40 p-5 shadow-sm">
           <header className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-earth-900">建立體驗單預覽</h2>
@@ -228,7 +247,7 @@ export function TrialSettingsForm({ storeId, initial, saveAction = updateTrialSe
             {courseMode ? "每位實際上課者各有體驗預約與金額快照；收款與出席分開，不使用點數卡。調整預設價不影響舊單。" : "體驗課只有一個。每筆體驗單在建立當下記錄金額快照，日後調整預設價不影響舊單。"}
           </p>
         </section>
-      </div>
+      </details>
     </form>
   );
 }
