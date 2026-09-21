@@ -1,4 +1,6 @@
 "use server";
+import {courseSaleSnapshot} from "@/server/services/course-sale-allocation";
+import {validateCourseTerm,enrollCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
 import { after } from "next/server";
 import { z } from "zod";
@@ -121,9 +123,14 @@ export async function purchaseCoursePlan(input: unknown) {
         where: { id: data.planId, storeId, isActive: true },
       });
       if (!plan) throw new AppError("NOT_FOUND", "此方案已下架");
+      const owners=await tx.$queryRaw<Array<{assignedStaffId:string|null}>>`SELECT "assignedStaffId" FROM "Customer" WHERE id=${customer.id} AND "storeId"=${storeId}`;
+      const allocation=await courseSaleSnapshot(tx,storeId,plan.price,plan.storeCost,owners[0]?.assignedStaffId??null);
+      const termSessionIds=await validateCourseTerm(tx,storeId,plan);
       const created = await tx.coursePurchase.create({
         data: {
           ...data,
+          ...allocation,
+          termSessionIds,
           storeId,
           customerId: customer.id,
           name: plan.name,
@@ -157,6 +164,7 @@ export async function confirmCoursePurchase(input: unknown) {
       });
       if (!order) throw new AppError("NOT_FOUND", "找不到本店訂單");
       if (order.status === "CONFIRMED") return;
+      if(order.termSessionIds?.length) await courseManager("booking.create");
       if (order.status !== "PENDING")
         throw new AppError("VALIDATION", "此訂單無法核帳");
       const customers = await tx.$queryRaw<
@@ -168,6 +176,7 @@ export async function confirmCoursePurchase(input: unknown) {
         data: {
           storeId,
           planId: order.planId,
+          termSessionIds:order.termSessionIds,
           nameSnapshot: order.name,
           unit: order.unit,
           templateIds: order.templateIds,
@@ -186,6 +195,7 @@ export async function confirmCoursePurchase(input: unknown) {
           },
         },
       });
+      await enrollCourseTerm(tx,{storeId,userId:user.id,name:"店長核帳期課"},card,order.customerId);
       if (order.price > 0)
         await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"staffId","createdByUserId","updatedAt") VALUES (${"course-purchase:" + order.id},${storeId},${new Date(toLocalDateStr() + "T00:00:00Z")},'INCOME','OTHER','課程方案',${order.price},${"線上購買：" + order.name + " / " + order.id + (order.note ? " / " + order.note : "")},${order.revenueStaffId},${user.id},NOW())`;
       await tx.coursePurchase.update({

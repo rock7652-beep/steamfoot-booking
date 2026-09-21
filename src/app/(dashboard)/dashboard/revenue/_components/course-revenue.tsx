@@ -1,3 +1,4 @@
+import {courseAllocationAfterRefund} from "@/lib/course-sale-allocation";
 import { getCourseRevenueReport } from "@/server/queries/course-revenue-report";
 import { getCourseReceiptTotals } from "@/server/queries/course-home";
 import {CourseTrialTransactions} from "./course-trial-transactions";
@@ -73,6 +74,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
     { key: "customer", header: "顧客", accessor: (r) => r.customerName },
     { key: "plan", header: "方案", accessor: (r) => r.name },
     { key: "amount", header: "原金額", align: "right", accessor: (r) => money(r.price) },
+    {key:"allocation",header:"店家／開發人分配",accessor:r=>{if(r.storeCostSnapshot==null)return "舊交易未建立分配";const a=courseAllocationAfterRefund(r.price,r.storeCostSnapshot,r.refunds.reduce((n,v)=>n+v.amount,0));return r.status==="VOIDED"?"已作廢":`店家 ${money(a.storeAmount)}／${r.developerNameSnapshot??"未指定"} ${money(a.developerAmount)}`;}},
     { key: "status", header: "狀態", accessor: (r) => labels[r.status] ?? "需核對" },
     { key: "staff", header: "核帳人員", accessor: (r) => staffRows.find((s) => s.userId === r.confirmedBy)?.displayName ?? "—" },
     { key: "action", header: "處理", noLink: true, accessor: (r) => <CourseTransactionActions order={r} canRefund={canRefund} canConfirm={canConfirm} canEdit={canEdit} canVoid={canVoid} staffOptions={staffRows.filter((s) => s.status === "ACTIVE").map((s) => ({ id: s.id, name: s.displayName }))} /> },

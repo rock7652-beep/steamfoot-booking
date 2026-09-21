@@ -80,6 +80,8 @@ model CourseSession {
 }
 
 model CoursePointPlan {
+  storeCost Int @default(0)
+  termSessionIds String[] @default([])
   id String @id @default(cuid())
   storeId String
   name String
@@ -107,6 +109,7 @@ model CourseBalanceReminderPreference {
 }
 
 model CoursePointCard {
+  termSessionIds String[] @default([])
   id String @id @default(cuid())
   storeId String
   planId String
@@ -207,6 +210,10 @@ model CourseBookingRule {
 }
 
 model CoursePurchase {
+  storeCostSnapshot Int?
+  developerProfitSnapshot Int?
+  developerNameSnapshot String?
+  termSessionIds String[] @default([])
   id String @id @default(cuid())
   storeId String
   customerId String

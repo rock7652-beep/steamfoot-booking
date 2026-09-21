@@ -143,17 +143,19 @@ export function CourseRoster({
       <div className="flex gap-2"><button className={button} onClick={()=>{setShowCancelled(false);setPage(0);}}>上課名單 {activeRows.length}</button><button className={button} onClick={()=>{setShowCancelled(!showCancelled);setPage(0);}}>已取消（{cancelledRows.length}）{showCancelled?"收合":""}</button></div>
       <ul className="max-h-[60vh] divide-y overflow-y-auto overscroll-contain">
         {displayedRows.map((b) => (
-          <li key={b.id} className="space-y-1 py-2 text-sm">
-            <p>
-              {canEdit && b.status!=="CANCELLED" && <input type="checkbox" className="mr-2 h-4 w-4" aria-label={`選取 ${b.customerName}`} checked={selected.includes(b.id)} disabled={pending} onChange={e=>setSelected(old=>e.target.checked?[...old,b.id]:old.filter(id=>id!==b.id))}/>}<strong>{b.customerName}</strong> ·{" "}
+          <li key={b.id} className="flex items-start gap-2 border-l-[3px] border-primary-200 bg-white pr-2 text-sm hover:bg-earth-50">
+            <div className="flex w-8 shrink-0 justify-center pl-2 pt-3">
+              {canEdit && b.status!=="CANCELLED" && <input type="checkbox" className="mr-2 h-4 w-4" aria-label={`選取 ${b.customerName}`} checked={selected.includes(b.id)} disabled={pending} onChange={e=>setSelected(old=>e.target.checked?[...old,b.id]:old.filter(id=>id!==b.id))}/>}
+            </div>
+            <details className="min-w-0 flex-1 py-2"><summary className="cursor-pointer list-none"><span className="flex items-center justify-between gap-2"><strong>{b.customerName}</strong><span className="text-xs text-earth-500">查看／操作 ›</span></span><span className="mt-1 block text-xs text-earth-600">
               {b.bookingKind === "TRIAL" ? ({ATTENDED:"已出席",CANCELLED:"已取消",NO_SHOW:"未到",RESERVED:b.checkedInAt?"已報到":"待出席"}[b.status] ?? b.status) : b.status === "ATTENDED"
                 ? "已出席／已扣抵"
                 : b.status === "CANCELLED"
                   ? "已取消／已釋放"
-                  : b.status === "NO_SHOW" ? "未到／已釋放占用" : b.checkedInAt ? "已報到／待出席，占用額度" : "未報到／占用額度"}{" "}
+                  : b.status === "NO_SHOW" ? b.termCount?"未到／已扣堂":"未到／已釋放占用" : b.checkedInAt ? "已報到／待出席，占用額度" : "未報到／占用額度"}{" "}
               {b.bookingKind === "TRIAL" ? "· 體驗不使用方案" : `${b.pointCost} ${b.unit === "SESSION" ? "堂" : "點"}`}
-            </p>
-            <details><summary className="cursor-pointer py-2 text-earth-600">方案與備註{b.serviceNote||b.notes?" · 有備註":""}</summary><div className="space-y-2 rounded bg-earth-50 p-2">
+            {b.termCount?` · 期課第 ${b.termIndex}／${b.termCount} 堂`:""}{b.serviceNote||b.notes?" · 有備註":""}</span></summary>
+            <div className="space-y-2 rounded bg-earth-50 p-2">
             <p>
               預約操作人：{b.operatorName} ·{" "}
               {b.operatorCustomerId
@@ -168,7 +170,7 @@ export function CourseRoster({
               <details><summary className="min-h-11 cursor-pointer py-3">收款紀錄</summary>{b.trialPayments.map(p=><p key={p.id}>{formatTWDateTime(new Date(p.createdAt))} · NT$ {p.amount} · {p.status==="SUCCESS"?"已收款":"已作廢"} {p.voidReason}</p>)}</details></div> : <p className="text-primary-800">使用方案：{b.planName} · 可用 {b.available} {b.unit === "SESSION" ? "堂" : "點"}{b.expiresAt ? ` · 到期日 ${formatTWDateTime(new Date(b.expiresAt)).slice(0,10)}` : ""}</p>}
             <p className="text-earth-600">店內備註：{b.serviceNote || "無"}</p>
             <p className="text-earth-600">本次備註：{b.notes || "無"}</p>
-            </div></details>
+            </div>
             {canEdit && b.status === "RESERVED" && (
               <div className="flex flex-wrap gap-2">
                 {!b.checkedInAt && <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "CHECKED_IN" }))}>報到</button>}
@@ -203,6 +205,7 @@ export function CourseRoster({
                 </button>
               </div>
             )}
+            </details>
           </li>
         ))}
       </ul>

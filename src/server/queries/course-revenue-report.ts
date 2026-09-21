@@ -44,7 +44,7 @@ export async function getCourseRevenueReport(storeId: string, filters: ReportFil
       paymentMethod:splits.length?"MIXED":method,paymentSplits:splits,status:refund?"REFUNDED":"SUCCESS",isFirstPurchase:!refund&&firstPurchaseIds.has(order.id),
       note,createdByName:staffByUser.get(actorId ?? "")?.displayName??null,createdAt:date.toISOString(),refund });
   }
-  for (const order of orders) if (order.confirmedAt) add(order,order.price,order.confirmedAt,order.id,order.note,false,order.confirmedBy);
+  for (const order of orders) if (order.confirmedAt) add(order,order.price,order.confirmedAt,order.id,order.note,false,order.confirmedBy,order.paymentMethod??"TRANSFER");
   for (const refund of refunds) add(refund.purchase,-refund.amount,refund.createdAt,refund.id,refund.reason,true,refund.actorUserId,refund.method);
   for (const receipt of trialReceipts) {
     const order={id:receipt.id,customerId:receipt.booking.customerId,revenueStaffId:null,confirmedBy:receipt.actorUserId,name:`體驗 · ${receipt.booking.session.nameSnapshot}`,unit:"TRIAL"};

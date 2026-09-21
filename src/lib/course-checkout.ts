@@ -1,5 +1,7 @@
 import { z } from "zod";
 export const courseCheckoutSchema = z.object({
+  revenueStaffId: z.string().max(180).default(""),
+  expectedStoreCost: z.number().int().min(0).max(10000000).default(0),
   discountKind: z.enum(["AMOUNT", "PERCENT"]),
   discountValue: z.number().finite().min(0).max(10000000).refine(v => Math.abs(v * 100 - Math.round(v * 100)) < 0.000001, "最多兩位小數"),
   paymentMethod: z.enum(["CASH", "BANK_TRANSFER", "CARD", "OTHER"]),

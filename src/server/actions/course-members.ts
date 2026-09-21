@@ -1,4 +1,5 @@
 "use server";
+import {validateCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
 import { courseCheckoutSchema } from "@/lib/course-checkout";
 import { assignCourseWithCheckout } from "@/server/services/course-assignment-checkout";
@@ -9,7 +10,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError, handleActionError } from "@/lib/errors";
-import { dayRange, parseTaipeiDateTime } from "@/lib/date-utils";
+import { parseTaipeiDateTime } from "@/lib/date-utils";
 import {
   courseManager,
   courseMember,
@@ -94,6 +95,8 @@ export async function saveCoursePointPlan(input: unknown) {
         name: z.string().trim().min(1).max(80),
         points: z.number().int().min(1).max(100000),
         price: z.number().int().min(0).max(10000000),
+        storeCost: z.number().int().min(0).max(10000000).default(0),
+        termSessionIds:z.array(id).max(52).default([]),
         validDays: z.number().int().min(1).max(3650),
         isActive: z.boolean().default(true),
         unit: z.enum(["POINT", "SESSION"]).default("POINT"),
@@ -102,14 +105,20 @@ export async function saveCoursePointPlan(input: unknown) {
       .parse(input);
     const { storeId } = await courseManager("plans.edit");
     if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
+    await courseTransaction(storeId,async tx=>{
+    const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;
+    const sameTerm=previous && previous.points===data.points && previous.unit===data.unit && JSON.stringify([...previous.termSessionIds].sort())===JSON.stringify([...data.termSessionIds].sort()) && JSON.stringify([...previous.templateIds].sort())===JSON.stringify([...data.templateIds].sort());
+    if(previous?.termSessionIds.length&&!sameTerm&&await tx.coursePurchase.count({where:{storeId,planId}}))throw new AppError("CONFLICT","此期課已有購買紀錄，請新增下一期方案，保留原期別課次。");
+    data.termSessionIds=sameTerm?previous.termSessionIds:await validateCourseTerm(tx,storeId,data);
     if (planId) {
-      const result = await coursePrisma.coursePointPlan.updateMany({
+      const result = await tx.coursePointPlan.updateMany({
         where: { id: planId, storeId },
         data,
       });
       if (!result.count) throw new AppError("NOT_FOUND", "找不到本店方案");
     } else
-      await coursePrisma.coursePointPlan.create({ data: { ...data, storeId } });
+      await tx.coursePointPlan.create({ data: { ...data, storeId } });
+    });
     refresh();
     return { success: true as const };
   } catch (error) {
@@ -133,7 +142,11 @@ export async function assignCoursePointCard(input: unknown) {
     await courseManager("transaction.create");
     const checkout = courseCheckoutSchema.parse(input);
     if (checkout.discountValue > 0) await courseManager("transaction.discount");
-    await courseTransaction(storeId, tx => assignCourseWithCheckout(tx, {storeId, userId:user.id}, {...data,...checkout}));
+    await courseTransaction(storeId, async tx => {
+      const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true}});
+      if(plan?.termSessionIds.length) await courseManager("booking.create");
+      return assignCourseWithCheckout(tx, {storeId, userId:user.id}, {...data,...checkout});
+    });
     for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
     refresh();
     return { success: true as const };
@@ -153,6 +166,7 @@ export async function setCourseCardMembers(input: unknown) {
         where: { id: data.cardId, storeId },
       });
       if (!card) throw new AppError("NOT_FOUND", "找不到本店方案");
+      if(card.termSessionIds.length)throw new AppError("VALIDATION","期課為指定學員，不開放共卡；請另購方案");
       for (const customerId of new Set(data.customerIds)) {
         const rows = await tx.$queryRaw<
           Array<{ id: string }>

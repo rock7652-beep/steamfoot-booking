@@ -48,6 +48,7 @@ export async function editCoursePurchaseInTransaction(tx: Prisma.TransactionClie
   const order = await tx.coursePurchase.findFirst({ where: { id: input.purchaseId, storeId: actor.storeId } });
   if (!order) throw new AppError("NOT_FOUND", "找不到本店交易");
   if (order.status === "VOIDED" || order.status === "REFUNDED") throw new AppError("BUSINESS_RULE", "已作廢／退款交易保留原紀錄，不能再修改。");
+  if(order.developerProfitSnapshot!=null&&order.revenueStaffId!==input.revenueStaffId)throw new AppError("BUSINESS_RULE","此交易已記錄開發分配，不能直接改寫原開發人；請保留原紀錄處理調整。");
   if (input.revenueStaffId) {
     const staff = await tx.$queryRaw<Array<{ id: string }>>`SELECT s.id FROM "Staff" s JOIN "User" u ON u.id=s."userId" WHERE s.id=${input.revenueStaffId} AND s."storeId"=${actor.storeId} AND s.status::text='ACTIVE' AND u.status::text='ACTIVE'`;
     if (!staff.length) throw new AppError("FORBIDDEN", "請選擇本店啟用的人員");

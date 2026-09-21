@@ -28,6 +28,8 @@ type Plan = {
   name: string;
   points: number;
   price: number;
+  storeCost?: number;
+  termSessionIds?:string[];
   validDays: number;
   isActive: boolean;
   unit: string;
@@ -40,6 +42,7 @@ const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function CourseMemberWorkspace({
   canDelete=false,
+  termSessions=[],
   view,
   templates,
   people,
@@ -59,6 +62,7 @@ export function CourseMemberWorkspace({
   canMerge = false,
   canDiscount = false,
 }: {
+  termSessions?:{id:string;name:string;startsAt:string}[];
   view: "customers" | "plans";
   templates: {id:string;name:string}[];
   people: Person[];
@@ -418,7 +422,7 @@ export function CourseMemberWorkspace({
                   <label className="block">緊急聯絡人姓名<input className={field} name="emergencyContactName" maxLength={100} defaultValue={person?.emergencyContactName ?? ""} /></label>
                   <label className="block">緊急聯絡人電話<input className={field} name="emergencyContactPhone" type="tel" maxLength={30} defaultValue={person?.emergencyContactPhone ?? ""} /></label>
                   <label className="block">地址<input className={field} name="address" maxLength={300} defaultValue={person?.address ?? ""} /></label>
-                  <details className="sm:col-span-2"><summary className="min-h-11 cursor-pointer py-2">舊顧客備註（保留原資料，也顯示於店內備註）</summary><textarea aria-label="舊顧客備註" className={field} name="notes" maxLength={1000} defaultValue={person?.notes ?? ""}/></details>
+                  {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}<details className="sm:col-span-2"><summary className="min-h-11 cursor-pointer py-2">舊顧客備註（保留原資料，也顯示於店內備註）</summary><textarea aria-label="舊顧客備註" className={field} name="notes" maxLength={1000} defaultValue={person?.notes ?? ""}/></details>
                   <label className="block">店內備註（店長與授課教練可見）<textarea className={field} name="serviceNote" maxLength={1000} defaultValue={person?.serviceNote ?? ""} /></label>
                 </fieldset>
               </form>
@@ -437,6 +441,8 @@ export function CourseMemberWorkspace({
                       name: d.get("name"),
                       points: Number(d.get("points")),
                       price: Number(d.get("price")),
+                      storeCost: Number(d.get("storeCost")),
+                      termSessionIds:d.getAll("termSessionIds"),
                       validDays: Number(d.get("days")),
                       isActive: d.get("active") === "yes",
                       unit: d.get("unit"),
@@ -457,9 +463,11 @@ export function CourseMemberWorkspace({
                 <label className="block">額度單位<select className={field} name="unit" defaultValue={plan?.unit??"POINT"}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>
                 <label className="sm:col-span-2">搜尋適用課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="輸入課程名稱"/></label>
                 <fieldset className="sm:col-span-2 max-h-40 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-earth-200 p-3"><legend>適用課程（未勾選表示全部課程）</legend>{templates.map(t=><label hidden={!t.name.includes(templateSearch.trim())} key={t.id} className={t.name.includes(templateSearch.trim())?"flex min-h-11 items-center gap-2":"hidden"}><input type="checkbox" name="templateIds" value={t.id} defaultChecked={plan?.templateIds.includes(t.id)}/>{t.name}</label>)}</fieldset>
+                {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}<details className="sm:col-span-2"><summary className="cursor-pointer py-2">期課：連結指定課次（選填）</summary><p className="text-sm text-earth-600">未選為自由預約；選擇後請使用堂數方案，課次数須等於販售堂數。結帳會一次預約全期；未到仍扣堂，不提供補課券。</p><div className="max-h-48 overflow-y-auto">{termSessions.map(s=><label key={s.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="termSessionIds" value={s.id} defaultChecked={plan?.termSessionIds?.includes(s.id)}/>{formatTWDateTime(new Date(s.startsAt))} · {s.name}</label>)}</div></details>
                 {[
                   ["額度", "points", plan?.points ?? 10, 1],
                   ["售價", "price", plan?.price ?? 0, 0],
+                  ["店家成本", "storeCost", plan?.storeCost ?? 0, 0],
                   ["有效天數", "days", plan?.validDays ?? 90, 1],
                 ].map(([label, name, value, min]) => (
                   <label key={String(name)} className="block">
@@ -502,6 +510,8 @@ export function CourseMemberWorkspace({
                       customerId: d.get("customerId"),
                       expiresDate: d.get("expires"),
                       expectedListPrice: Number(d.get("expectedListPrice")),
+                      expectedStoreCost: Number(d.get("expectedStoreCost")),
+                      revenueStaffId: String(d.get("revenueStaffId")??""),
                       discountKind: d.get("discountKind"),
                       discountValue: Number(d.get("discountValue")),
                       paymentMethod: d.get("paymentMethod"),
@@ -556,7 +566,8 @@ export function CourseMemberWorkspace({
                     )}
                   />
                 </label>
-                <CourseAssignmentPayment key={planId} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount}/>
+                <label className="block">本次開發人<select name="revenueStaffId" className={field} defaultValue={customerRows?.find(c=>c.id===person?.id)?.assignedStaff?.id??""}><option value="">請選擇直屬店長／開發人</option>{assignmentStaff?.map(s=><option key={s.id} value={s.id}>{s.displayName}</option>)}</select></label>
+                <CourseAssignmentPayment key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount}/>
               </form>
             )}
             {panel === "card" && card && (

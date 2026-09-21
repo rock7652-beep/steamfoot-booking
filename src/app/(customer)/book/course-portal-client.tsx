@@ -378,6 +378,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         (c) =>
           !c.expired && !c.closed &&
           c.expiresAt >= s.startsAt &&
+          (!c.termSessionIds?.length || c.termSessionIds.includes(s.id)) &&
           (!c.templateIds.length || c.templateIds.includes(s.templateId)),
       )
       .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
