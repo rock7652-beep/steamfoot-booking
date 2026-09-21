@@ -22,7 +22,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <div className="flex min-w-0 flex-col items-stretch gap-3 pb-1 sm:flex-row sm:items-start sm:justify-between">
+    <div data-page-header className="flex min-w-0 flex-col items-stretch gap-3 pb-1 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         <h1 className="text-lg font-bold text-earth-900">{title}</h1>
         {subtitle ? (

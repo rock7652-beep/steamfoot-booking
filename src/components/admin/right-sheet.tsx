@@ -9,6 +9,8 @@ interface RightSheetProps {
   children: ReactNode;
   width?: number;
   labelledById?: string;
+  closeOnEscape?: boolean;
+  variant?: "right" | "modal";
 }
 
 export function RightSheet({
@@ -18,6 +20,8 @@ export function RightSheet({
   width = 460,
   compact = false,
   labelledById,
+  closeOnEscape = true,
+  variant = "right",
 }: RightSheetProps) {
   const panelRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -28,6 +32,7 @@ export function RightSheet({
     (focusable()[0] ?? panel)?.focus({ preventScroll: true });
     function trap(event: KeyboardEvent) {
       if (event.key !== "Tab") return;
+      if (event.target instanceof Element && event.target.closest("[data-right-sheet]") !== panel?.closest("[data-right-sheet]")) return;
       const items = focusable();
       const first = items[0], last = items[items.length - 1];
       if (!first) { event.preventDefault(); panel?.focus(); return; }
@@ -40,7 +45,7 @@ export function RightSheet({
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (closeOnEscape && e.key === "Escape") onClose();
     }
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
@@ -49,7 +54,7 @@ export function RightSheet({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, onClose]);
+  }, [open, onClose, closeOnEscape]);
 
   return (
     <div
@@ -71,9 +76,11 @@ export function RightSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledById}
-        style={{ width }}
-        className={`absolute right-0 top-0 flex h-full max-w-full flex-col ${compact ? "border-l border-earth-200 border-t-4 border-t-secondary-500 [&>header]:bg-primary-50 [&>footer]:bg-earth-50" : ""} bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 ${
-          open ? "translate-x-0" : "translate-x-full"
+        style={{ width: variant === "modal" ? undefined : width, maxWidth: variant === "modal" ? width : undefined }}
+        className={`${variant === "modal" ? "absolute left-1/2 top-1/2 flex max-h-[88dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-earth-200" : "absolute right-0 top-0 flex h-full max-w-full flex-col"} ${compact ? "border-t-4 border-t-secondary-500 [&>header]:bg-primary-50 [&>footer]:bg-earth-50" : ""} bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-all duration-200 ${
+          variant === "modal"
+            ? open ? "scale-100 opacity-100" : "scale-95 opacity-0"
+            : open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {children}

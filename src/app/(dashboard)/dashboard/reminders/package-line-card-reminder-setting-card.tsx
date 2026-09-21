@@ -1,4 +1,5 @@
 "use client";
+import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 import { LineCardPreview } from "./line-card-preview";
 
 import { saveCourseReminderBody, setCourseReminderEnabled } from "@/server/actions/course-reminders";
@@ -24,6 +25,7 @@ export function PackageLineCardReminderSettingCard({ initialBody, initialEnabled
   const [body, setBody] = useState(initialBody);
   const [savedBody, setSavedBody] = useState(initialBody);
   const [pending, startTransition] = useTransition();
+  useSettingsPanelGuard(body !== savedBody, pending);
   const trimmedBody = body.trim();
   const canSave =
     trimmedBody.length > 0 &&

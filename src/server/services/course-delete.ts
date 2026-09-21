@@ -38,7 +38,7 @@ export async function deleteUnusedCourseItems(tx: Prisma.TransactionClient, acto
       UNION ALL SELECT 1 FROM "CoursePurchase" WHERE "storeId"=${actor.storeId} AND "templateIds" && ${ids}::text[]
       UNION ALL SELECT 1 FROM "Staff" WHERE "storeId"=${actor.storeId} AND "courseQualifiedTemplateIds" && ${ids}::text[]
     ) AS used`;
-    if(used.used) throw new AppError("BUSINESS_RULE", "課程已被方案或老師授課項目使用，請先解除設定；已有歷史紀錄請改用下架。");
+    if(used.used) throw new AppError("BUSINESS_RULE", "課程已被方案或教練授課項目使用，請先解除設定；已有歷史紀錄請改用下架。");
     await tx.courseCompensation.deleteMany({where:{storeId:actor.storeId,templateId:{in:ids}}});
   }
   if (kind === "staff") {

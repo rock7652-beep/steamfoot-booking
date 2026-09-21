@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { getCurrentUser } from "@/lib/session";
 import { courseHomeAccess } from "@/server/queries/course-home-access";
+import { getCourseUnassignedPlanCount } from "@/server/queries/course-unassigned-plans";
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { courseCashStatus } from "@/lib/course-home-display";
@@ -67,6 +68,13 @@ export async function CourseHome({ user, storeId }: {
       {access.customers && <Stream title="顧客概況 · 目前總數" id="customers" load={async () => { const r = await getCourseHomeCustomers(storeId, user.staffId, access.staffScope); return <><div className="flex flex-wrap gap-3">{r.total !== null && <Link href="/dashboard/courses?view=customers" className={linkStyle}>全店顧客 <strong className="mx-2 tabular-nums">{r.total}</strong> 人</Link>}{r.mine !== null && <Link href={`/dashboard/courses?view=customers&staff=${encodeURIComponent(user.staffId!)}`} className={linkStyle}>名下顧客 <strong className="mx-2 tabular-nums">{r.mine}</strong> 人</Link>}</div></>; }}/>}
       </div>
       <Stream title="今天待處理" id="todos" load={async () => { const permissions = { ...access.todos, followUp: access.todos.followUp && await hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER) }; const result = await getCourseHomeTodos(storeId, permissions); return <CourseTodoList result={result}/>; }}/>
+      {access.customers && access.planStatus && <Stream title="顧客方案待辦" id="unassigned-plans" load={async () => {
+        const total = await getCourseUnassignedPlanCount(storeId, access.staffScope);
+        return <>
+          <Link prefetch={false} className={linkStyle} href="/dashboard/courses/unassigned-plans">未指派方案 <strong className="mx-2 tabular-nums">{total}</strong> 人 →</Link>
+          <p className="pb-2 text-xs text-earth-500">排除待核帳及已有個人／共用方案紀錄的顧客；到期或用完不算未指派。不自動發送 LINE。</p>
+        </>;
+      }} />}
       <div className="grid items-start gap-3 lg:grid-cols-2">
         {access.cash && <Stream title="開店與對帳" id="cash" load={async () => {
                 if (!await hasStoreFeature(storeId, FEATURES.CASH_DRAWER))

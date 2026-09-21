@@ -32,7 +32,7 @@ export function CourseFeeCorrectionButton({paymentId}:{paymentId:string}) {
   if(!open)return <button className="min-h-11 text-primary-700" onClick={()=>setOpen(true)}>更正誤登</button>;
   return <form className="space-y-2" onSubmit={e=>{e.preventDefault();start(async()=>{
     setError("");try{const result=await correctCourseFee({paymentId,reason});if(!result.success){setError(result.error);return;}setOpen(false);router.refresh();}catch{setError("連線未完成，請重試；不會重複沖回。");}
-  });}}><p>僅更正誤登紀錄，保留原付款及沖回。不代表已向老師收回款項。</p>
+  });}}><p>僅更正誤登紀錄，保留原付款及沖回。不代表已向教練收回款項。</p>
     <label>更正原因<input className="block min-h-11 border" required maxLength={500} disabled={pending} value={reason} onChange={e=>setReason(e.target.value)}/></label>
     {error&&<p role="alert">{error}</p>}<button className="min-h-11 px-3" disabled={pending||!reason.trim()}>確認更正</button><button className="min-h-11 px-3" type="button" disabled={pending} onClick={()=>setOpen(false)}>取消</button>
   </form>;
