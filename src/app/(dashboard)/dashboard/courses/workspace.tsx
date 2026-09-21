@@ -59,6 +59,10 @@ type Session = {
 type Props = {
   selectedDate: string;
   today: string;
+  calendarDays: Record<
+    string,
+    { status: "open" | "closed" | "training" | "custom"; reason: string | null }
+  >;
   rooms: Room[];
   templates: Template[];
   sessions: Session[];
@@ -78,6 +82,7 @@ export function CourseWorkspace({
   canDelete=false,
   selectedDate: loadedDate,
   today,
+  calendarDays,
   rooms: allRooms,
   templates: allTemplates,
   sessions,
@@ -386,19 +391,41 @@ export function CourseWorkspace({
               )}
               {Array.from({ length: days }, (_, i) => {
                 const date = `${month}-${String(i + 1).padStart(2, "0")}`,
-                  list = byDate.get(date) ?? [];
+                  list = byDate.get(date) ?? [],
+                  calendarDay = calendarDays[date],
+                  isClosed =
+                    calendarDay?.status === "closed" ||
+                    calendarDay?.status === "training",
+                  closureLabel =
+                    calendarDay?.status === "training" ? "員工訓練" : "公休";
                 return (
                   <button
                     key={date}
                     disabled={pending}
-                    aria-label={`${date}，${list.length} 堂課`}
+                    aria-label={`${date}，${isClosed ? closureLabel : `${list.length} 堂課`}`}
                     onClick={() => {
                       go(date);
                       open("day");
                     }}
-                    className={`flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
+                    className={`flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${
+                      isClosed
+                        ? "bg-earth-100 text-earth-500"
+                        : date === selectedDate
+                          ? "bg-primary-50"
+                          : list.length
+                            ? "bg-white"
+                            : "bg-earth-50 text-earth-400"
+                    }`}
                   >
                     <span className="shrink-0 text-xs leading-4">{i + 1}</span>
+                    {isClosed && (
+                      <span
+                        className="mt-1 max-w-full truncate rounded bg-earth-200 px-1.5 py-0.5 text-[10px] font-medium text-earth-700"
+                        title={calendarDay?.reason || closureLabel}
+                      >
+                        {closureLabel}
+                      </span>
+                    )}
                     {list.length > 0 && <span className="mt-1 text-xs font-medium sm:hidden">{list.length} 堂</span>}
                     {list.slice(0, 2).map((s) => (
                       <span
@@ -420,7 +447,7 @@ export function CourseWorkspace({
             </div>
           </div>
           <p className="text-sm text-earth-500">
-            淡色：當日無課程，可選擇日期排課
+            淡色：當日無課程；灰底「公休／員工訓練」：當日不可排課
           </p>
           <p
             role="status"
@@ -718,7 +745,20 @@ export function CourseWorkspace({
             {panel === "day" && (
               <>
                 <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">{(byDate.get(selectedDate) ?? []).length} 堂課 · 共 {new Set((byDate.get(selectedDate) ?? []).flatMap((s) => s.bookings.map((b) => b.customerId))).size} 人 · {(byDate.get(selectedDate) ?? []).reduce((n, s) => n + s.bookings.length, 0)} 人次</p>
-                {canCreate && (
+                {(calendarDays[selectedDate]?.status === "closed" ||
+                  calendarDays[selectedDate]?.status === "training") && (
+                  <p className="rounded-lg bg-earth-100 px-3 py-2 text-sm font-medium text-earth-700">
+                    {calendarDays[selectedDate]?.status === "training"
+                      ? "員工訓練"
+                      : "公休"}
+                    {calendarDays[selectedDate]?.reason
+                      ? ` · ${calendarDays[selectedDate].reason}`
+                      : ""}
+                  </p>
+                )}
+                {canCreate &&
+                  calendarDays[selectedDate]?.status !== "closed" &&
+                  calendarDays[selectedDate]?.status !== "training" && (
                   <button
                     className={primary}
                     onClick={openSchedule}
