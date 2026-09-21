@@ -14,6 +14,7 @@ import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { computeLifecycle, effectiveStateLabel } from "@/lib/subscription-lifecycle";
 import { toLocalDateStr } from "@/lib/date-utils";
+import { TRIAL_DEFAULTS, DEFAULT_BOOKABLE_DAYS_AHEAD } from "@/lib/shop-config";
 
 export type CourseHubView = "settings" | "operations";
 export async function CourseSharedHub({view}:{view:CourseHubView}) {
@@ -44,8 +45,8 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
       user.role === "OWNER" && checkPermission(user.role,user.staffId,"staff.view"),
       checkPermission(user.role,user.staffId,"wallet.read"),
     ]);
-    const usage = canPayment ? await getStoreUsage(storeId) : null;
-    const [digitalButler, referralShare, lineReminder, customerCare] = await Promise.all([
+    const [usage, digitalButler, referralShare, lineReminder, customerCare] = await Promise.all([
+      canPayment ? getStoreUsage(storeId) : null,
       hasStoreFeature(storeId, FEATURES.DIGITAL_BUTLER),
       hasStoreFeature(storeId, FEATURES.REFERRAL_SHARE),
       hasStoreFeature(storeId, FEATURES.LINE_REMINDER),
@@ -59,11 +60,11 @@ export async function CourseSharedHub({view}:{view:CourseHubView}) {
         canDigitalButler={canPayment && !readOnly && digitalButler}
         canReferralShare={canPayment && !readOnly && referralShare}
         subscriptionSummary={canPayment ? subscriptionSummary : undefined}
-        bookingWindowDays={config?.bookingWindowDays ?? 14}
+        bookingWindowDays={config?.bookingWindowDays ?? DEFAULT_BOOKABLE_DAYS_AHEAD}
         bookableUntilDate={config?.bookableUntilDate?.toISOString().slice(0,10) ?? null}
         dutyEnabled={config?.dutySchedulingEnabled ?? false}
-        trialEnabled={config?.trialEnabled ?? false}
-        trialPrice={Number(config?.trialDefaultPrice ?? 0)}
+        trialEnabled={config?.trialEnabled ?? TRIAL_DEFAULTS.trialEnabled}
+        trialPrice={Number(config?.trialDefaultPrice ?? TRIAL_DEFAULTS.trialDefaultPrice)}
         storeId={storeId} planLabel={store ? PRICING_PLAN_INFO[store.plan].label : "—"} canPayment={canPayment && !readOnly} canStaff={canStaff} canPlans={canPlans}
         name={store?.name ?? ""}
         bankName={config?.bankName??""} bankCode={config?.bankCode??""} bankAccountNumber={config?.bankAccountNumber??""}
