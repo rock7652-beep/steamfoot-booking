@@ -180,130 +180,180 @@ export function CourseRoster({
             <span>操作</span>
           </div>
           <div className="divide-y divide-earth-100">
-            {displayedRows.map((b) => (
-              <div
-                key={b.id}
-                className="grid grid-cols-[2rem_minmax(8rem,1.05fr)_minmax(9rem,1fr)_minmax(13rem,1.55fr)_5.5rem_minmax(12rem,1.2fr)] items-start gap-2 px-3 py-2 text-sm hover:bg-earth-50"
-              >
-                <span className="pt-1">
-                  {canEdit && b.status!=="CANCELLED" && (
-                    <input
-                      type="checkbox"
-                      aria-label={`選取 ${b.customerName}`}
-                      checked={selected.includes(b.id)}
-                      disabled={pending}
-                      onChange={e=>setSelected(old=>e.target.checked?[...old,b.id]:old.filter(id=>id!==b.id))}
-                    />
-                  )}
-                </span>
-
-                <span className="min-w-0">
-                  <span className="flex flex-wrap items-center gap-1.5">
-                    <strong className="break-words">{b.customerName}</strong>
-                    {b.bookingKind === "TRIAL" && (
-                      <span className="rounded-full border border-gold-300 bg-gold-100 px-2 py-0.5 text-[10px] font-semibold text-gold-800">
-                        體驗客
-                      </span>
+            {displayedRows.map((b) => {
+              const paidReceipt = b.trialPayments.find(
+                (payment) => payment.status === "SUCCESS",
+              );
+              return (
+                <div
+                  key={b.id}
+                  className={`grid grid-cols-[2rem_minmax(8rem,1.05fr)_minmax(11rem,1.2fr)_minmax(13rem,1.55fr)_5.5rem_minmax(10rem,1fr)] items-start gap-2 px-3 py-2 text-sm hover:bg-earth-50 ${b.bookingKind === "TRIAL" ? "border-l-4 border-gold-300 bg-gold-50/70" : ""}`}
+                >
+                  <span className="pt-1">
+                    {canEdit && b.status !== "CANCELLED" && (
+                      <input
+                        type="checkbox"
+                        aria-label={`選取 ${b.customerName}`}
+                        checked={selected.includes(b.id)}
+                        disabled={pending}
+                        onChange={(event) =>
+                          setSelected((old) =>
+                            event.target.checked
+                              ? [...old, b.id]
+                              : old.filter((id) => id !== b.id),
+                          )
+                        }
+                      />
                     )}
                   </span>
-                  <span className="block text-xs text-earth-500">{b.phone || "未填電話"}</span>
-                </span>
 
-                <span className="min-w-0">
-                  {b.bookingKind === "TRIAL" ? (
-                    <span className="block space-y-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-gold-800">體驗課</span>
-                        <span className="text-xs text-earth-600">
-                          NT$ {(b.trialPrice ?? 0).toLocaleString("zh-TW")}
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <strong className="break-words">{b.customerName}</strong>
+                      {b.bookingKind === "TRIAL" && (
+                        <span className="rounded-full border border-gold-300 bg-gold-100 px-2 py-0.5 text-[10px] font-semibold text-gold-800">
+                          體驗客
                         </span>
-                      </span>
-                      <span className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className={paidReceipt ? "text-primary-700" : "text-amber-700"}>
-                          {paidReceipt ? `已收 NT$ ${paidReceipt.amount.toLocaleString("zh-TW")}` : "未收款"}
-                        </span>
-                        {allowTrialActions && trial?.canCollect && b.status !== "CANCELLED" && (
-                          <button
-                            type="button"
-                            className={rowAction}
-                            disabled={pending || (!!paidReceipt && (!trial.canCorrect || b.status !== "RESERVED"))}
-                            onClick={() => {
-                              setRequestKey(crypto.randomUUID());
-                              setCorrectPayment(!!paidReceipt);
-                              setPaymentBooking(b.id);
-                            }}
-                          >
-                            {paidReceipt ? "更正收款" : "收款"}
-                          </button>
-                        )}
-                      </span>
+                      )}
                     </span>
-                  ) : (
-                    <>
-                      <span className="block break-words">{b.planName}</span>
-                      <span className="block text-xs text-earth-500">
-                        {b.available} {b.unit === "SESSION" ? "堂" : "點"}可用
-                        {b.expiresAt ? ` · ${formatTWDateTime(new Date(b.expiresAt)).slice(0,10)} 到期` : ""}
+                    <span className="block text-xs text-earth-500">
+                      {b.phone || "未填電話"}
+                    </span>
+                  </span>
+
+                  <span className="min-w-0">
+                    {b.bookingKind === "TRIAL" ? (
+                      <span className="block space-y-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-gold-800">體驗課</span>
+                          <span className="text-xs text-earth-600">
+                            NT$ {(b.trialPrice ?? 0).toLocaleString("zh-TW")}
+                          </span>
+                        </span>
+                        <span className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className={paidReceipt ? "text-primary-700" : "text-amber-700"}>
+                            {paidReceipt
+                              ? `已收 NT$ ${paidReceipt.amount.toLocaleString("zh-TW")}`
+                              : "未收款"}
+                          </span>
+                          {allowTrialActions &&
+                            trial?.canCollect &&
+                            b.status !== "CANCELLED" && (
+                              <button
+                                type="button"
+                                className={rowAction}
+                                disabled={
+                                  pending ||
+                                  (!!paidReceipt &&
+                                    (!trial.canCorrect || b.status !== "RESERVED"))
+                                }
+                                onClick={() => {
+                                  setRequestKey(crypto.randomUUID());
+                                  setCorrectPayment(!!paidReceipt);
+                                  setPaymentBooking(b.id);
+                                }}
+                              >
+                                {paidReceipt ? "更正收款" : "收款"}
+                              </button>
+                            )}
+                        </span>
                       </span>
-                    </>
-                  )}
-                </span>
-
-                <span className="min-w-0 space-y-1 break-words text-xs text-earth-600">
-                  <span className="block">
-                    <span className="font-medium text-earth-700">店內：</span>
-                    {b.serviceNote || "—"}
+                    ) : (
+                      <>
+                        <span className="block break-words">{b.planName}</span>
+                        <span className="block text-xs text-earth-500">
+                          {b.available} {b.unit === "SESSION" ? "堂" : "點"}可用
+                          {b.expiresAt
+                            ? ` · ${formatTWDateTime(new Date(b.expiresAt)).slice(0, 10)} 到期`
+                            : ""}
+                        </span>
+                      </>
+                    )}
                   </span>
-                  <span className="block">
-                    <span className="font-medium text-earth-700">本次：</span>
-                    {b.notes || "—"}
-                  </span>
-                </span>
 
-                <span className="pt-0.5">
-                  <span className="inline-flex rounded-md bg-earth-100 px-2 py-1 text-xs text-earth-700">
-                    {statusLabel(b)}
+                  <span className="min-w-0 space-y-1 break-words text-xs text-earth-600">
+                    <span className="block">
+                      <span className="font-medium text-earth-700">店內：</span>
+                      {b.serviceNote || "—"}
+                    </span>
+                    <span className="block">
+                      <span className="font-medium text-earth-700">本次：</span>
+                      {b.notes || "—"}
+                    </span>
                   </span>
-                </span>
 
-                <span className="flex flex-wrap gap-1.5">
-                  {canEdit && b.status === "RESERVED" ? (
-                    <>
+                  <span className="pt-0.5">
+                    <span className="inline-flex rounded-md bg-earth-100 px-2 py-1 text-xs text-earth-700">
+                      {statusLabel(b)}
+                    </span>
+                  </span>
+
+                  <span className="flex flex-wrap gap-1.5">
+                    {canEdit && b.status === "RESERVED" ? (
+                      <>
+                        <button
+                          className={rowAction}
+                          disabled={pending}
+                          onClick={() =>
+                            run(() =>
+                              updateCourseBookingStatus({
+                                bookingId: b.id,
+                                status: "NO_SHOW",
+                              }),
+                            )
+                          }
+                        >
+                          未到
+                        </button>
+                        <button
+                          className={rowAction}
+                          disabled={pending}
+                          onClick={() =>
+                            run(() =>
+                              updateCourseBookingStatus({
+                                bookingId: b.id,
+                                status: "ATTENDED",
+                              }),
+                            )
+                          }
+                        >
+                          出席
+                        </button>
+                        <button
+                          className={rowAction}
+                          disabled={pending}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `確定取消 ${b.customerName} 的預約嗎？取消後可在「已取消預約」中恢復。`,
+                              )
+                            )
+                              run(() =>
+                                updateCourseBookingStatus({
+                                  bookingId: b.id,
+                                  status: "CANCELLED",
+                                }),
+                              );
+                          }}
+                        >
+                          取消
+                        </button>
+                      </>
+                    ) : b.status === "CANCELLED" && canEdit ? (
                       <button
                         className={rowAction}
                         disabled={pending}
-                        onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "NO_SHOW" }))}
+                        onClick={() =>
+                          run(() => restoreCourseBooking({ bookingId: b.id }))
+                        }
                       >
-                        未到
+                        恢復預約
                       </button>
-                      <button
-                        className={rowAction}
-                        disabled={pending}
-                        onClick={() => run(() => updateCourseBookingStatus({ bookingId: b.id, status: "ATTENDED" }))}
-                      >
-                        出席
-                      </button>
-                      <button
-                        className={rowAction}
-                        disabled={pending}
-                        onClick={() => { if (window.confirm(`確定取消 ${b.customerName} 的預約嗎？取消後可在「已取消預約」中恢復。`)) run(() => updateCourseBookingStatus({ bookingId: b.id, status: "CANCELLED" })); }}
-                      >
-                        取消
-                      </button>
-                    </>
-                  ) : b.status === "CANCELLED" && canEdit ? (
-                    <button
-                      className={rowAction}
-                      disabled={pending}
-                      onClick={() => run(() => restoreCourseBooking({ bookingId: b.id }))}
-                    >
-                      恢復預約
-                    </button>
-                  ) : (
-                    <span className="pt-1 text-xs text-earth-400">—</span>
-                  )}
-                </span>
-              </div>
+                    ) : (
+                      <span className="pt-1 text-xs text-earth-400">—</span>
+                    )}
+                  </span>
+                </div>
               );
             })}
             {!displayedRows.length && (
