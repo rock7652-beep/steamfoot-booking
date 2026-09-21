@@ -15,7 +15,6 @@ export function CourseLowBalanceSettings({ plans }: { plans: Plan[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [editing, setEditing] = useState<string | null>(null);
   const [discard, setDiscard] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, start] = useTransition();
@@ -50,21 +49,23 @@ export function CourseLowBalanceSettings({ plans }: { plans: Plan[] }) {
       finally { saving.current = false; }
     });
   }
-  return <details className="rounded-xl border border-earth-200 bg-white">
+  return <details open className="rounded-xl border border-earth-200 bg-white">
     <summary className="flex min-h-16 cursor-pointer flex-wrap items-center justify-between gap-2 p-4"><h2 className="font-semibold text-primary-900">低可用額度提醒</h2><span className="text-sm text-earth-600">已開啟 {plans.filter(p => saved[p.id].enabled).length}／{plans.length} 項 · 管理設定{changes.length > 0 ? ` · ${changes.length} 項未儲存` : ""}</span></summary>
     <div className="border-t border-earth-100">
       <div className="flex flex-wrap gap-2 p-4"><input aria-label="搜尋提醒方案" placeholder="搜尋方案名稱" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} className="min-h-11 min-w-0 flex-1 rounded-lg border px-3"/><select aria-label="篩選提醒方案" value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="min-h-11 rounded-lg border px-3"><option value="all">全部方案</option><option value="enabled">已開啟</option></select></div>
       <p className="px-4 pb-3 text-xs text-earth-500">各方案獨立設定。搜尋、換頁及收合會保留修改，按儲存後才生效。</p>
       {!visible.length && <p className="p-4 text-sm text-earth-600">{plans.length ? "沒有符合條件的方案。" : "建立點數／堂數方案後，可在此設定提醒。"}</p>}
       {visible.map(plan => {
-        const draft = drafts[plan.id], unit = plan.unit === "SESSION" ? "堂" : "點", open = editing === plan.id;
+        const draft = drafts[plan.id], unit = plan.unit === "SESSION" ? "堂" : "點";
         return <div key={plan.id} className="border-t border-earth-100">
-          <div className="flex items-center justify-between gap-3 px-4 py-3"><div className="min-w-0"><p className="break-words font-medium text-primary-900">{plan.name}{!same(draft, saved[plan.id]) && <span className="ml-2 text-xs text-amber-700">未儲存</span>}</p><p className="mt-1 text-sm text-earth-600">{!plan.isActive ? "下架 · " : ""}{draft.enabled ? `可用 ≤ ${draft.threshold || "未設定"} ${unit}` : "未啟用"}</p></div><button type="button" aria-expanded={open} aria-controls={`reminder-${plan.id}`} onClick={() => setEditing(open ? null : plan.id)} className="min-h-11 shrink-0 rounded-lg border px-3 text-sm">{open ? "收合" : "編輯"}</button></div>
-          {open && <fieldset id={`reminder-${plan.id}`} disabled={pending} className="space-y-3 bg-earth-50/60 p-4">
-            <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={draft.enabled} onChange={e => update(plan.id, { enabled: e.target.checked })}/>啟用此方案低可用額度提醒</label>
-            <label className="flex flex-wrap items-center gap-2 text-sm">可用額度低於或等於<input aria-label={`${plan.name} 提醒門檻`} type="number" min="0" max="1000000" step="1" value={draft.threshold} onChange={e => update(plan.id, { threshold: e.target.value })} className="min-h-11 w-24 rounded border border-earth-300 px-3"/>{unit}</label>
+          <fieldset disabled={pending} className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+            <div className="min-w-40 flex-1"><p className="break-words font-medium text-primary-900">{plan.name}{!same(draft, saved[plan.id]) && <span className="ml-2 text-xs text-amber-700">未儲存</span>}</p>{!plan.isActive && <span className="text-xs text-earth-500">已下架</span>}</div>
+            <label className="flex min-h-11 items-center gap-2 text-sm"><input aria-label={`${plan.name} 啟用提醒`} type="checkbox" checked={draft.enabled} onChange={e => update(plan.id, { enabled: e.target.checked })}/>啟用</label>
+            <label className="flex flex-wrap items-center gap-2 text-sm">可用 ≤<input aria-label={`${plan.name} 提醒門檻`} type="number" min="0" max="1000000" step="1" value={draft.threshold} onChange={e => update(plan.id, { threshold: e.target.value })} className="min-h-11 w-24 rounded border border-earth-300 px-3"/>{unit}</label>
+          </fieldset>
+          <div className="px-4 pb-2">
             <details><summary className="min-h-11 cursor-pointer py-3 text-sm text-primary-700">訊息預覽與發送規則</summary><p className="mb-3 text-sm text-earth-600">每張卡分開判斷，使用剩餘扣除預約占用後的額度。每卡對同一位成員提醒一次；取消重約不重複提醒。</p><LineCardPreview title="方案可用額度提醒" subtitle="示意資料，非真實發送" actions={[{ label: "查看我的方案", variant: "primary" }, { label: "停止／管理此類提醒", variant: "link" }]}>{courseLowBalanceBody(plan.name, 5, 3, plan.unit)}</LineCardPreview></details>
-          </fieldset>}
+          </div>
         </div>;
       })}
       {pages > 1 && <nav aria-label="提醒方案分頁" className="flex items-center justify-between gap-2 border-t p-3"><button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="min-h-11 rounded border px-3 disabled:opacity-40">上一頁</button><span className="text-sm">{currentPage}／{pages} 頁 · {filtered.length} 項</span><button type="button" disabled={currentPage === pages} onClick={() => setPage(currentPage + 1)} className="min-h-11 rounded border px-3 disabled:opacity-40">下一頁</button></nav>}

@@ -9,7 +9,7 @@ export function CourseSettingsPanelContent({ panel, query }: { panel?: string; q
 async function Content({ panel, query }: { panel: string; query?: string }) {
   const searchParams = Promise.resolve(Object.fromEntries(new URLSearchParams(query)));
   switch (panel) {
-    case "hours": { const { default: Page } = await import("./hours/page"); return <Page />; }
+    case "hours": { const { default: Page } = await import("./hours/page"); return <Page searchParams={searchParams} />; }
     case "duty": { const { default: Page } = await import("../settings/duty/page"); return <Page />; }
     case "trial": { const { default: Page } = await import("../settings/trial/page"); return <Page />; }
     case "unassigned": { const { default: Page } = await import("./unassigned-plans/page"); return <Page searchParams={searchParams} />; }

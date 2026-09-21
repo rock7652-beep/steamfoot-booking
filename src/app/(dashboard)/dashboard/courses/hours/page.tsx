@@ -13,7 +13,7 @@ import { ScheduleManager } from "../../settings/hours/schedule-manager";
 import { PageShell,PageHeader } from "@/components/desktop";
 import { DashboardLink } from "@/components/dashboard-link";
 
-export default async function CourseHoursPage() {
+export default async function CourseHoursPage({ searchParams }: { searchParams?: Promise<{ tab?: string }> }) {
  const user=await getCurrentUser(); if(!user || !(await checkPermission(user.role,user.staffId,"business_hours.view"))) notFound();
  const {storeId}=await courseManager("business_hours.view");
  const [year,month]=toLocalDateStr().split("-").map(Number);
@@ -27,6 +27,6 @@ export default async function CourseHoursPage() {
  });
  return <PageShell><PageHeader title="營業與公休" subtitle="每週營業、多段時間、特殊休假與後續週次設定" actions={<DashboardLink href="/dashboard/courses?view=settings&section=booking">返回設定</DashboardLink>}/>
  <p className="mb-4 text-sm text-earth-600">課程名額由各堂課與教室容量控制。變更若與已排課程衝突，整批不儲存；請先在課表調整或取消課程，原預約不會被刪除。</p>
- <CourseHoursWorkspace booking={<div className="mb-4"><BookableUntilForm initialDate={config?.bookableUntilDate?.toISOString().slice(0,10)??null} initialDays={config?.bookingWindowDays??DEFAULT_BOOKABLE_DAYS_AHEAD} today={toLocalDateStr()} canManage={canManage} course/><p className="mt-2 text-xs text-earth-500">只限制會員新增預約；店長代約不受此期限限制。縮短期限不會刪除既有預約，有衝突時拒絕儲存。</p></div>} schedule={<ScheduleManager weeklyHours={weekly} initialSpecialDays={specials} initialSummary={summary} initialYear={year} initialMonth={month} canManage={canManage} isHeadquarters={false} isSpaStore={false} isCourseStore/>}/>
+ <CourseHoursWorkspace initialSection={(await searchParams)?.tab} booking={<div className="mb-4"><BookableUntilForm initialDate={config?.bookableUntilDate?.toISOString().slice(0,10)??null} initialDays={config?.bookingWindowDays??DEFAULT_BOOKABLE_DAYS_AHEAD} today={toLocalDateStr()} canManage={canManage} course direct/><p className="mt-2 text-xs text-earth-500">只限制會員新增預約；店長代約不受此期限限制。縮短期限不會刪除既有預約，有衝突時拒絕儲存。</p></div>} schedule={<ScheduleManager weeklyHours={weekly} initialSpecialDays={specials} initialSummary={summary} initialYear={year} initialMonth={month} canManage={canManage} isHeadquarters={false} isSpaStore={false} isCourseStore/>}/>
  </PageShell>;
 }

@@ -1,4 +1,5 @@
 "use client";
+import { CourseWeeklyHoursEditor } from "../../courses/hours/weekly-hours-editor";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
 
 import { useState, useCallback, useTransition, useEffect, useMemo, useRef } from "react";
@@ -1238,6 +1239,12 @@ export function ScheduleManager({
         ) : null}
       </div>
       <div data-schedule-weekly className="min-w-0 space-y-3 xl:col-start-1">
+        {isCourseStore ? <CourseWeeklyHoursEditor initial={weeklyHours.map(day => ({ ...day, periods: day.periods ?? [] }))} canManage={canManage} onSaved={async days => {
+          setWeeklyHours(previous => previous.map(day => { const updated = days.find(d => d.dayOfWeek === day.dayOfWeek)!; const periods = updated.periods.map(p => ({ ...p, slotInterval: 60, defaultCapacity: 6 })).sort((a, b) => a.openTime.localeCompare(b.openTime)); return { ...day, isOpen: updated.isOpen, periods, openTime: updated.isOpen ? periods[0]?.openTime ?? null : null, closeTime: updated.isOpen ? periods.at(-1)?.closeTime ?? null : null }; }));
+          dayDetailCacheRef.current.clear(); monthCacheRef.current.clear();
+          await invalidateAndReloadCurrentMonth();
+          if (selectedDate && !dayDraftDirty) await selectDate(selectedDate, { bypassCache: true });
+        }} /> : <>
         {/* ===== 每週固定規則（可摺疊）===== */}
         <div className="rounded-xl border bg-white shadow-sm">
           <button
@@ -1270,6 +1277,7 @@ export function ScheduleManager({
             </div>
           )}
         </div>
+        </>}
         {/* 套用總部設定（僅非總部店顯示） */}
         {canManage && !isHeadquarters && !isCourseStore && (
           <details className="rounded-xl border bg-white p-4">

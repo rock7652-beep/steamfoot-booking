@@ -15,7 +15,6 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
   const section = initial.section;
   const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).filter(([key]) => key !== "section").map(([key, value]) => [key, String(value)])));
   const [saved, setSaved] = useState(draft);
-  const [editing, setEditing] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, start] = useTransition();
@@ -24,7 +23,6 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
   useEffect(() => { onStatus(section, dirty, pending); }, [section, dirty, pending, onStatus]);
   const label = section === "store" ? "店家資料" : section === "booking" ? "預約截止規則" : "銀行資訊";
-  if (!editing) return <div className="mt-3"><button type="button" className="min-h-11 rounded-lg border border-primary-300 px-4 text-sm text-primary-800" onClick={() => { setEditing(true); setMessage(""); }}>編輯{label}</button>{message && <p role="status" className="mt-2 text-sm text-primary-700">{message}</p>}</div>;
   return <form aria-label={`編輯${label}`} className="mt-4 border-t border-earth-200 pt-4" onSubmit={event => {
     event.preventDefault();
     if (saving.current || !dirty) return;
@@ -36,7 +34,7 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
       try {
         const result = await saveCourseSettingsSection(input);
         if (!result.success) { setMessage(result.error || "儲存失敗，輸入內容已保留"); return; }
-        setSaved(submitted); setEditing(false); setConfirmDiscard(false); setMessage("已儲存"); router.refresh();
+        setSaved(submitted); setConfirmDiscard(false); setMessage("已儲存"); router.refresh();
       } catch { setMessage("連線失敗，輸入內容已保留，請重試"); }
       finally { saving.current = false; }
     });
@@ -49,10 +47,10 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
     {section === "booking" && <p className="mt-3 text-sm text-earth-600">0 表示上課開始前可操作。此處只調整截止時間，不變更扣堂規則。</p>}
     {section === "payment" && <p className="mt-3 text-sm text-earth-600">付款聯繫沿用「店家資料」的官方 LINE，此處只儲存銀行資訊。</p>}
     {message && <p role="status" className="mt-3 text-sm text-amber-800">{message}</p>}
-    {confirmDiscard && <div role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-11 rounded border px-3">繼續編輯</button><button type="button" onClick={() => { setDraft(saved); setEditing(false); setConfirmDiscard(false); setMessage(""); }} className="min-h-11 rounded border px-3">捨棄本區修改</button></div></div>}
+    {confirmDiscard && <div role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm"><p>尚有未儲存內容，要捨棄本區修改嗎？</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setConfirmDiscard(false)} className="min-h-11 rounded border px-3">繼續編輯</button><button type="button" onClick={() => { setDraft(saved); setConfirmDiscard(false); setMessage(""); }} className="min-h-11 rounded border px-3">捨棄本區修改</button></div></div>}
     <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-earth-200 bg-white py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <span className="mr-auto text-xs text-earth-500">{pending ? "儲存中…" : dirty ? "尚未儲存 · 切換分類會保留內容" : "尚未變更"}</span>
-      <button type="button" disabled={pending} onClick={() => dirty ? setConfirmDiscard(true) : setEditing(false)} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg border px-4 disabled:opacity-50">取消</button>
+      <button type="button" disabled={pending || !dirty} onClick={() => setConfirmDiscard(true)} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg border px-4 disabled:opacity-50">取消</button>
       <button type="submit" disabled={pending || !dirty} className="min-h-11 shrink-0 whitespace-nowrap rounded-lg bg-primary-700 px-4 text-white disabled:opacity-50">{pending ? "儲存中…" : "儲存設定"}</button>
     </div>
   </form>;
