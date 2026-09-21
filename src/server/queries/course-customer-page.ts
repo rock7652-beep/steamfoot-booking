@@ -66,7 +66,7 @@ export async function getCourseCustomerPage(
         AND (${referral}<>'has' OR EXISTS (SELECT 1 FROM "Customer" r WHERE r."storeId"=${storeId} AND r."sponsorId"=c.id AND r."mergedIntoCustomerId" IS NULL))
         AND (${referral}<>'none' OR NOT EXISTS (SELECT 1 FROM "Customer" r WHERE r."storeId"=${storeId} AND r."sponsorId"=c.id AND r."mergedIntoCustomerId" IS NULL))
     ), totals AS (
-      SELECT COUNT(*)::int AS total,LEAST(${page},GREATEST(1,CEIL(COUNT(*)/20.0)::int)) AS page FROM filtered
+      SELECT COUNT(*)::int AS total,LEAST(${page},GREATEST(1,CEIL(COUNT(*)/20.0)::int))::int AS page FROM filtered
     ), paged AS (
       SELECT id,"lastVisitAt",points,sessions FROM filtered ORDER BY inactive,${order},name,id
       LIMIT 20 OFFSET (SELECT (page-1)*20 FROM totals)

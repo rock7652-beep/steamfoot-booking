@@ -5,7 +5,7 @@ import {beforeEach,afterEach,it,expect,vi} from "vitest";
 vi.mock("@/server/actions/course-browse",()=>({browseCourseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),searchCourseCustomers:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false})}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
 const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn()}));
-vi.mock("next/navigation",()=>({useRouter:()=>({refresh:m.refresh}),useSearchParams:()=>new URLSearchParams("customerId=person")}));
+vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh,replace:vi.fn()}),useSearchParams:()=>new URLSearchParams("customerId=person")}));
 vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children}:{children:unknown})=>children}));
 vi.mock("@/components/customer-attribution-form",()=>({CustomerAttributionForm:()=>null}));
 vi.mock("@/server/actions/course-customer-attribution",()=>({saveCourseCustomerAttribution:vi.fn(),searchCourseReferrerCandidates:vi.fn()}));

@@ -6,7 +6,7 @@ import {browseCourseCards} from "@/server/actions/course-browse";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
@@ -92,6 +92,8 @@ export function CourseMemberWorkspace({
 }) {
   const router = useRouter();
   const params = useSearchParams();
+  const pathname=usePathname();
+  function keepCustomerInUrl(id?:string){const next=new URLSearchParams(params.toString());if(id)next.set("customerId",id);else next.delete("customerId");router.replace(`${pathname}?${next}`,{scroll:false});}
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
   const [templateSearch,setTemplateSearch]=useState("");
   const [selected,setSelected]=useState<string[]>([]);
@@ -115,7 +117,7 @@ export function CourseMemberWorkspace({
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useState("all");
   function canLeave() { return !pending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
-  function close() { if (canLeave()) { setPanel(null); setDirty(false); } }
+  function close() { if (canLeave()) { setPanel(null); setDirty(false); if(view==="customers")keepCustomerInUrl(); } }
   const [plan, setPlan] = useState<Plan | null>(null);
   const [cardId, setCardId] = useState("");
   const [revenueStaffId,setRevenueStaffId]=useState("");
@@ -240,9 +242,9 @@ export function CourseMemberWorkspace({
       {view === "customers" ? <CourseCustomerList customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge}
-        onView={id => { setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); open("person"); }}
+        onView={id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); setCustomerCardBrowse({search:"",history:false,page:0}); open("person"); }}
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
-        onAssign={canAssign ? id => { setPerson(people.find(p => p.id === id) ?? null); open("assign"); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
+        onAssign={canAssign ? id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); open("assign"); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
         <table className="w-full text-left text-sm">
