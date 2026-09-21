@@ -1160,13 +1160,7 @@ export function CourseWorkspace({
                         min={1}
                         max={480}
                         required
-                        defaultValue={
-                          editing.kind === "template"
-                            ? editing.value.durationMinutes
-                            : (new Date(editing.value.endsAt).getTime() -
-                                new Date(editing.value.startsAt).getTime()) /
-                              60000
-                        }
+                        defaultValue={editing.value.durationMinutes}
                       />
                     </label>
                     <label>
@@ -1264,14 +1258,12 @@ export function CourseWorkspace({
                             time: data.get("time"),
                             durationMinutes: Number(data.get("duration")),
                             capacity: Number(data.get("capacity")),
-                            additionalDates: !copySource && !repeat
-                              ? data.getAll("additionalDates").map(String)
-                              : undefined,
-                            repeatUntil: !copySource && repeat
-                              ? data.get("until")
-                              : undefined,
+                            additionalDates: repeat
+                              ? undefined
+                              : data.getAll("additionalDates").map(String),
+                            repeatUntil: repeat ? data.get("until") : undefined,
                             weekdays:
-                              !copySource && repeat && data.getAll("weekday").length
+                              repeat && data.getAll("weekday").length
                                 ? data.getAll("weekday").map(Number)
                                 : undefined,
                             requestKey,
