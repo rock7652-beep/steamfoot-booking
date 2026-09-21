@@ -239,7 +239,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     config,
     cards,
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
-    plans,
+    plans:plans.map(p=>({id:p.id,name:p.name,points:p.points,price:p.price,unit:p.unit,validDays:p.validDays,templateIds:p.templateIds,termSessionIds:p.termSessionIds})),
     templates,
     hours,
     special: special.map((s) => ({
@@ -313,7 +313,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       })),
     })),
     orders: orders.map((o) => ({
-      ...o, discountValue: o.discountValue == null ? null : Number(o.discountValue),
+      id:o.id,name:o.name,price:o.price,status:o.status,transferLastFive:o.transferLastFive,
       refunds: (o.refunds??[]).map(r=>({...r,createdAt:r.createdAt.toISOString()})),
       createdAt: o.createdAt.toISOString(),
       confirmedAt: o.confirmedAt?.toISOString() ?? null,

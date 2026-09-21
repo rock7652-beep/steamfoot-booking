@@ -8,6 +8,7 @@ import { assignCourseWithCheckout } from "@/server/services/course-assignment-ch
 import { deleteUnusedCourseItems } from "@/server/services/course-delete";
 import { lockCourseStore } from "@/server/services/course-store-lock";
 
+vi.mock("@/server/services/course-access",()=>({courseTransaction:vi.fn()}));
 vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:async()=>({maxMonthlyBookings:null})}));
 
 // Explicit loopback-only disposable database; never falls back to DATABASE_URL.
