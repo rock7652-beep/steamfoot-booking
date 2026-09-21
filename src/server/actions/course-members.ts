@@ -364,7 +364,7 @@ export async function loadCourseSessionDetail(sessionId: string) {
           canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),
           canCollect: await checkPermission(user.role,user.staffId,"trial.confirm"),
           canCorrect: await checkPermission(user.role,user.staffId,"transaction.void"),
-          customers: canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true},orderBy:{name:"asc"}}) : [],
+          customers: canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
         session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost },
         cards: cards.map((card) => ({
