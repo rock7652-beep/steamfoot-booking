@@ -1,4 +1,5 @@
 "use client";
+import { courseCompactField } from "@/components/admin/course-ui";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSettingsPanelGuard } from "@/components/admin/settings-panel-context";
@@ -35,15 +36,15 @@ export function CourseWeeklyHoursEditor({ initial, canManage, onSaved }: { initi
       {days.map(day => <div key={day.dayOfWeek} className="flex flex-wrap items-start gap-3 py-3">
         <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={day.isOpen} onChange={e => update(day.dayOfWeek, { isOpen: e.target.checked })} />{day.dayName}</label>
         {day.isOpen ? <div className="min-w-0 flex-1 space-y-2">{day.periods.map((period, index) => <div key={index} className="flex flex-wrap items-center gap-2">
-          <input aria-label={`${day.dayName}第${index + 1}段開始`} type="time" required value={period.openTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, openTime: e.target.value } : p) })} className="min-h-11 min-w-0 rounded border px-2" /><span>至</span>
-          <input aria-label={`${day.dayName}第${index + 1}段結束`} type="time" required value={period.closeTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, closeTime: e.target.value } : p) })} className="min-h-11 min-w-0 rounded border px-2" />
+          <input aria-label={`${day.dayName}第${index + 1}段開始`} type="time" required value={period.openTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, openTime: e.target.value } : p) })} className={courseCompactField} /><span>至</span>
+          <input aria-label={`${day.dayName}第${index + 1}段結束`} type="time" required value={period.closeTime} onChange={e => update(day.dayOfWeek, { periods: day.periods.map((p, i) => i === index ? { ...p, closeTime: e.target.value } : p) })} className={courseCompactField} />
           {day.periods.length > 1 && <button type="button" aria-label={`移除${day.dayName}第${index + 1}段`} onClick={() => update(day.dayOfWeek, { periods: day.periods.filter((_, i) => i !== index) })} className="min-h-11 px-2 text-sm text-red-700">移除</button>}
         </div>)}</div> : <span className="py-3 text-sm text-earth-500">公休</span>}
         {day.isOpen && day.periods.length < 8 && <button type="button" onClick={() => update(day.dayOfWeek, { periods: [...day.periods, { openTime: "10:00", closeTime: "22:00" }] })} className="min-h-11 px-2 text-sm text-primary-700">＋ 時段</button>}
       </div>)}
     </fieldset>
     {canManage && <fieldset disabled={pending} className="mt-3 rounded-lg bg-earth-50 p-3 text-sm"><legend className="font-medium">相同時間一次套用</legend>
-      <div className="flex flex-wrap items-center gap-2"><label>以 <select aria-label="套用來源星期" value={source} onChange={e => { setSource(Number(e.target.value)); setTargets([]); }} className="min-h-11 rounded border bg-white px-2">{days.map(day => <option key={day.dayOfWeek} value={day.dayOfWeek}>{day.dayName}</option>)}</select> 為準，套用至：</label>
+      <div className="flex flex-wrap items-center gap-2"><label>以 <select aria-label="套用來源星期" value={source} onChange={e => { setSource(Number(e.target.value)); setTargets([]); }} className={courseCompactField}>{days.map(day => <option key={day.dayOfWeek} value={day.dayOfWeek}>{day.dayName}</option>)}</select> 為準，套用至：</label>
         {days.filter(day => day.dayOfWeek !== source).map(day => <label key={day.dayOfWeek} className="flex min-h-11 items-center gap-1"><input type="checkbox" checked={targets.includes(day.dayOfWeek)} onChange={e => setTargets(previous => e.target.checked ? [...previous, day.dayOfWeek] : previous.filter(d => d !== day.dayOfWeek))} />{day.dayName}</label>)}
         <button type="button" disabled={!targets.length} onClick={() => { const from = days.find(day => day.dayOfWeek === source)!; setDays(previous => previous.map(day => targets.includes(day.dayOfWeek) ? { ...day, isOpen: from.isOpen, periods: from.periods.map(p => ({ ...p })) } : day)); setMessage("已套用至勾選日，請儲存生效"); }} className="min-h-11 rounded border bg-white px-3 disabled:opacity-50">套用至勾選日</button>
       </div>
