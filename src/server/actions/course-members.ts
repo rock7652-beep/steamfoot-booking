@@ -1,5 +1,9 @@
 "use server";
+import { courseHistoryRange } from "@/lib/course-history-range";
+import {validateCourseTerm} from "@/server/services/course-term";
 import {scheduleCourseLowBalanceCheck} from "@/server/services/course-low-balance-schedule";
+import { courseCheckoutSchema } from "@/lib/course-checkout";
+import { assignCourseWithCheckout } from "@/server/services/course-assignment-checkout";
 import { after } from "next/server";
 import { z } from "zod";
 import { updateCustomerSchema } from "@/lib/validators/customer";
@@ -7,7 +11,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { coursePrisma } from "@/lib/course-db";
 import { AppError, handleActionError } from "@/lib/errors";
-import { dayRange, parseTaipeiDateTime } from "@/lib/date-utils";
+import { parseTaipeiDateTime } from "@/lib/date-utils";
 import {
   courseManager,
   courseMember,
@@ -18,6 +22,7 @@ import {
   reserveCourse,
   reserveCourseMembers,
   settleCourseBooking,
+  correctCourseAttendance,
   type CourseActor,
 } from "@/server/services/course-booking";
 
@@ -91,6 +96,8 @@ export async function saveCoursePointPlan(input: unknown) {
         name: z.string().trim().min(1).max(80),
         points: z.number().int().min(1).max(100000),
         price: z.number().int().min(0).max(10000000),
+        storeCost: z.number().int().min(0).max(10000000).default(0),
+        termSessionIds:z.array(id).max(52).default([]),
         validDays: z.number().int().min(1).max(3650),
         isActive: z.boolean().default(true),
         unit: z.enum(["POINT", "SESSION"]).default("POINT"),
@@ -99,14 +106,20 @@ export async function saveCoursePointPlan(input: unknown) {
       .parse(input);
     const { storeId } = await courseManager("plans.edit");
     if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
+    await courseTransaction(storeId,async tx=>{
+    const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;
+    const sameTerm=previous && previous.points===data.points && previous.unit===data.unit && JSON.stringify([...previous.termSessionIds].sort())===JSON.stringify([...data.termSessionIds].sort()) && JSON.stringify([...previous.templateIds].sort())===JSON.stringify([...data.templateIds].sort());
+    if(previous?.termSessionIds.length&&!sameTerm&&await tx.coursePurchase.count({where:{storeId,planId}}))throw new AppError("CONFLICT","此期課已有購買紀錄，請新增下一期方案，保留原期別課次。");
+    data.termSessionIds=sameTerm?previous.termSessionIds:await validateCourseTerm(tx,storeId,data);
     if (planId) {
-      const result = await coursePrisma.coursePointPlan.updateMany({
+      const result = await tx.coursePointPlan.updateMany({
         where: { id: planId, storeId },
         data,
       });
       if (!result.count) throw new AppError("NOT_FOUND", "找不到本店方案");
     } else
-      await coursePrisma.coursePointPlan.create({ data: { ...data, storeId } });
+      await tx.coursePointPlan.create({ data: { ...data, storeId } });
+    });
     refresh();
     return { success: true as const };
   } catch (error) {
@@ -127,50 +140,15 @@ export async function assignCoursePointCard(input: unknown) {
         requestKey: z.string().uuid(),
       })
       .parse(input);
-    await courseTransaction(storeId, async (tx) => {
-      const prior = await tx.coursePointCard.findUnique({
-        where: { storeId_requestKey: { storeId, requestKey: data.requestKey } },
-        include: { members: true },
-      });
-      if (prior) {
-        if (
-          prior.planId !== data.planId ||
-          !prior.members.some((m) => m.customerId === data.customerId) ||
-          prior.expiresAt.getTime() !== dayRange(data.expiresDate).end.getTime()
-        )
-          throw new AppError("CONFLICT", "方案指派請求已使用");
-        return;
-      }
-      const plan = await tx.coursePointPlan.findFirst({
-        where: { id: data.planId, storeId, isActive: true },
-      });
-      const customers = await tx.$queryRaw<
-        Array<{ id: string }>
-      >`SELECT id FROM "Customer" WHERE id = ${data.customerId} AND "storeId" = ${storeId} AND "mergedIntoCustomerId" IS NULL`;
-      const expiresAt = dayRange(data.expiresDate).end;
-      if (!plan || !customers.length || expiresAt < new Date())
-        throw new AppError("VALIDATION", "請選擇本店方案、顧客及有效期限");
-      await tx.coursePointCard.create({
-        data: {
-          storeId,
-          planId: plan.id,
-          nameSnapshot: plan.name,
-          unit: plan.unit,
-          templateIds: plan.templateIds,
-          remaining: plan.points,
-          expiresAt,
-          requestKey: data.requestKey,
-          members: { create: { customerId: data.customerId } },
-          entries: {
-            create: {
-              kind: "GRANT",
-              points: plan.points,
-              actorUserId: user.id,
-            },
-          },
-        },
-      });
+    await courseManager("transaction.create");
+    const checkout = courseCheckoutSchema.parse(input);
+    if (checkout.discountValue > 0) await courseManager("transaction.discount");
+    await courseTransaction(storeId, async tx => {
+      const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true}});
+      if(plan?.termSessionIds.length) await courseManager("booking.create");
+      return assignCourseWithCheckout(tx, {storeId, userId:user.id}, {...data,...checkout});
     });
+    for (const path of ["/dashboard/revenue", "/dashboard/cashbook", "/dashboard/cash-drawer"]) revalidatePath(path);
     refresh();
     return { success: true as const };
   } catch (error) {
@@ -189,6 +167,7 @@ export async function setCourseCardMembers(input: unknown) {
         where: { id: data.cardId, storeId },
       });
       if (!card) throw new AppError("NOT_FOUND", "找不到本店方案");
+      if(card.termSessionIds.length)throw new AppError("VALIDATION","期課為指定學員，不開放共卡；請另購方案");
       for (const customerId of new Set(data.customerIds)) {
         const rows = await tx.$queryRaw<
           Array<{ id: string }>
@@ -426,13 +405,35 @@ export async function markCourseCoachAttendance(input: unknown) {
   }
 }
 
-export async function loadCourseCustomerBookings(customerId: string) {
+export async function loadCourseCustomerBookings(customerId: string, offset = 0, range: {from?:string;to?:string} = {}) {
   try {
     const { storeId } = await courseManager("customer.read");
     await courseManager("booking.read");
     const customer = await prisma.customer.findFirst({ where: { id: id.parse(customerId), storeId, mergedIntoCustomerId: null }, select: { id: true } });
     if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
-    const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId }, include: { session: { select: { startsAt: true, nameSnapshot: true } }, card: { select: { nameSnapshot: true, expiresAt: true, unit: true } } }, orderBy: { session: { startsAt: "desc" } }, take: 100 });
-    return { success: true as const, data: bookings.map((b) => ({ id: b.id, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card?.nameSnapshot ?? "體驗（不使用方案）", expiresAt: b.card?.expiresAt.toISOString() ?? null, points: b.pointCost, unit: b.card?.unit ?? "TRIAL", notes: b.notes, operator: b.operatorName })) };
-  } catch (e) { return handleActionError(e); }
+    const skip = z.number().int().min(0).max(1000000).parse(offset);
+    const bookings = await coursePrisma.courseBooking.findMany({ where: { storeId, customerId, session: { startsAt: courseHistoryRange(range) } }, include: { session: { select: { startsAt: true, nameSnapshot: true } }, card: { select: { nameSnapshot: true, expiresAt: true, unit: true } } }, orderBy: [{ session: { startsAt: "desc" } }, {id:"desc"}], skip, take: 11 });
+    return { success: true as const, hasMore: bookings.length > 10, data: bookings.slice(0,10).map((b) => ({ id: b.id, name: b.session.nameSnapshot, date: b.session.startsAt.toISOString(), status: b.status, checkedIn: !!b.checkedInAt, plan: b.card?.nameSnapshot ?? "體驗（不使用方案）", expiresAt: b.card?.expiresAt.toISOString() ?? null, points: b.pointCost, unit: b.card?.unit ?? "TRIAL", notes: b.notes, operator: b.operatorName })) };
+  } catch (e) { const failure=handleActionError(e);return {success:false as const,error:failure.success?"讀取失敗":failure.error}; }
+}
+
+export async function updateCourseRosterBatch(input: unknown) {
+  try {
+    const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW"])})).min(1).max(200)}).parse(input);
+    if(new Set(data.bookings.map(b=>b.id)).size!==data.bookings.length) throw new AppError("VALIDATION","學員不可重複");
+    const {user,storeId}=await courseManager("booking.update");
+    await courseTransaction(storeId,async tx=>{
+      const session=await tx.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null}});
+      if(!session)throw new AppError("NOT_FOUND","找不到可點名的本店課次");
+      const count=await tx.courseBooking.count({where:{storeId,sessionId:data.sessionId,id:{in:data.bookings.map(b=>b.id)},status:data.target==="CHECKED_IN"?"RESERVED":{not:"CANCELLED"}}});
+      if(count!==data.bookings.length)throw new AppError("CONFLICT","名單或狀態已變更，請重新核對");
+      const actor={storeId,userId:user.id,name:user.name??"店長"};
+      for(const booking of data.bookings){
+        if(data.target==="CHECKED_IN")await settleCourseBooking(tx,actor,booking.id,"CHECKED_IN");
+        else await correctCourseAttendance(tx,actor,booking.id,data.target,booking.status);
+      }
+    });
+    if(data.target!=="CHECKED_IN")scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
+    refresh();return {success:true as const};
+  }catch(error){return handleActionError(error);}
 }

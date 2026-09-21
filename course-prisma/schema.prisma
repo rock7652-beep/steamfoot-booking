@@ -80,6 +80,8 @@ model CourseSession {
 }
 
 model CoursePointPlan {
+  storeCost Int @default(0)
+  termSessionIds String[] @default([])
   id String @id @default(cuid())
   storeId String
   name String
@@ -107,6 +109,7 @@ model CourseBalanceReminderPreference {
 }
 
 model CoursePointCard {
+  termSessionIds String[] @default([])
   id String @id @default(cuid())
   storeId String
   planId String
@@ -207,6 +210,10 @@ model CourseBookingRule {
 }
 
 model CoursePurchase {
+  storeCostSnapshot Int?
+  developerProfitSnapshot Int?
+  developerNameSnapshot String?
+  termSessionIds String[] @default([])
   id String @id @default(cuid())
   storeId String
   customerId String
@@ -219,6 +226,11 @@ model CoursePurchase {
   templateIds String[]
   status String @default("PENDING")
   transferLastFive String
+  listPrice Int?
+  discountKind String?
+  discountValue Decimal? @db.Decimal(12,2)
+  paymentMethod String?
+  transferLastFour String?
   requestKey String
   cardId String?
   createdAt DateTime @default(now())
@@ -251,4 +263,44 @@ model CoursePurchaseRefund {
   @@unique([storeId, requestKey])
   @@index([storeId, createdAt])
   @@index([purchaseId])
+}
+
+// FKs, RLS and snapshot trigger are managed by the additive SQL migration.
+model CourseCompensation {
+  storeId String
+  templateId String
+  staffId String @default("")
+  rules Json
+  revision Int @default(1)
+  updatedAt DateTime @default(now()) @db.Timestamptz
+  @@id([storeId, templateId, staffId])
+}
+model CourseCompensationSnapshot {
+  sessionId String @id
+  storeId String
+  staffId String
+  rule Json
+  revision Int
+  durationMinutes Int
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+
+// Course-only payment ledger. SQL migration owns FKs and RLS.
+model CourseFeePayment {
+  id String @id
+  storeId String
+  sessionId String
+  staffId String
+  staffNameSnapshot String
+  amount Int
+  method String
+  note String
+  requestKey String
+  actorUserId String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  voidedAt DateTime? @db.Timestamptz
+  voidReason String?
+  voidedBy String?
+  @@unique([storeId, requestKey])
+  @@index([storeId, createdAt], map: "CourseFeePayment_store_created")
 }

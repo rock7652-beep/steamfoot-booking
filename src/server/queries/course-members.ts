@@ -1,19 +1,22 @@
 import "server-only";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "../../../generated/course-client";
 
-export async function getCourseCards(storeId: string, customerId?: string) {
+export async function getCourseCards(storeId: string, customerId?: string, page?: { where: Prisma.CoursePointCardWhereInput; skip: number; take: number; entries?: boolean }) {
   const cards = await coursePrisma.coursePointCard.findMany({
     where: {
+      ...page?.where,
       storeId,
       ...(customerId ? { members: { some: { customerId } } } : {}),
     },
     include: {
       members: true,
       bookings: { where: { status: "RESERVED" }, select: { pointCost: true } },
-      entries: { orderBy: { createdAt: "desc" }, take: 100 },
+      entries: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: page && !page.entries ? 0 : 100 },
     },
-    orderBy: { createdAt: "desc" },
+    ...(page ? { skip: page.skip, take: page.take } : {}),
+    orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
   });
   const people = await prisma.customer.findMany({
     where: {
@@ -34,6 +37,7 @@ export async function getCourseCards(storeId: string, customerId?: string) {
       name: c.nameSnapshot,
       unit: c.unit,
       templateIds: c.templateIds,
+      termSessionIds:c.termSessionIds,
       remaining: c.remaining,
       held,
       closed: !!c.closedAt,
@@ -70,22 +74,24 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
-      card: { select: { unit: true, nameSnapshot: true, expiresAt: true, remaining: true, bookings: { where: { status: "RESERVED" }, select: { pointCost: true } } } },
+      card: { select: { unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, bookings: { where: { status: "RESERVED" }, select: { pointCost: true } } } },
     },
     orderBy: { createdAt: "asc" },
   });
   const customers = await prisma.customer.findMany({
     where: { storeId, id: { in: bookings.map((b) => b.customerId) } },
-    select: { id: true, serviceNote: true },
+    select: { id: true, serviceNote: true, notes: true },
   });
   return bookings.map(({ card, checkedInAt, ...b }) => ({
     ...b,
     checkedInAt: checkedInAt?.toISOString() ?? null,
     trialPayments: b.trialPayments.map(p=>({...p,createdAt:p.createdAt.toISOString(),voidedAt:p.voidedAt?.toISOString()??null})),
     unit: card?.unit ?? "POINT",
+    termIndex:(card?.termSessionIds?.indexOf(sessionId) ?? -1)>=0 ? card!.termSessionIds.indexOf(sessionId)+1 : null,
+    termCount:card?.termSessionIds?.length??0,
     planName: card?.nameSnapshot ?? "體驗（不使用方案）",
     available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((n, b) => n + b.pointCost, 0)),
     expiresAt: card?.expiresAt.toISOString() ?? null,
-    serviceNote: customers.find((c) => c.id === b.customerId)?.serviceNote ?? "",
+    serviceNote: [customers.find((c) => c.id === b.customerId)?.serviceNote, customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),
   }));
 }

@@ -51,7 +51,7 @@ export async function refundUnusedCoursePurchase(
     SELECT amount,type::text,"paymentMethod"::text FROM "CashbookEntry"
     WHERE id=${"course-purchase:" + order.id} AND "storeId"=${storeId} FOR UPDATE`;
   const receipt = receipts[0];
-  if (!receipt || Number(receipt.amount) !== order.price || receipt.type !== "INCOME" || receipt.paymentMethod !== "OTHER")
+  if (!receipt || Number(receipt.amount) !== order.price || receipt.type !== "INCOME" || receipt.paymentMethod !== (order.paymentMethod === "CASH" ? "CASH" : "OTHER"))
     throw new AppError("BUSINESS_RULE", "原收款紀錄不一致，請先核對帳務，尚未退款。");
   const method = input.method ?? "OTHER";
   const businessDate = new Date(toLocalDateStr() + "T00:00:00Z");

@@ -87,7 +87,7 @@ export async function reserveTrialCourse(actor: CourseActor, input: { sessionId:
   return courseTransaction(actor.storeId, tx => reserveCourseInTransaction(tx, actor, { ...input, cardId: null }, limits.maxMonthlyBookings));
 }
 
-async function reserveCourseInTransaction(
+export async function reserveCourseInTransaction(
   tx: Prisma.TransactionClient,
   actor: CourseActor,
   input: {
@@ -145,6 +145,7 @@ async function reserveCourseInTransaction(
       !card.members.some((m) => m.customerId === actor.customerId))
   ))
     return fail("僅能替此共卡的授權成員預約");
+  if(card?.termSessionIds?.length&&!card.termSessionIds.includes(session.id))return fail("期課方案僅能使用指定課次");
   if (card?.closedAt) return fail("此方案已退款或結清，不能預約");
   if (card?.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
   const bookingCost = card ? (card.unit === "SESSION" ? 1 : session.pointCost) : 0;
@@ -243,7 +244,8 @@ export async function settleCourseBooking(
       });
     }
   }
-  if (target === "ATTENDED") {
+  const shouldDebit=target==="ATTENDED"||(target==="NO_SHOW"&&!!booking.card?.termSessionIds?.length);
+  if (shouldDebit) {
     if (actor.customerId) return fail("點名僅限有權限的人員");
     if (booking.session.startsAt > new Date())
       return fail("課程尚未開始，不能標記出席");
@@ -273,7 +275,7 @@ export async function settleCourseBooking(
     data: { status: target },
   });
   if (!booking.cardId) { await auditTrialAttendance(tx,actor,booking.id,booking.status,target); return updated; }
-  const kind = target === "ATTENDED" ? "DEBIT" : "RELEASE";
+  const kind = shouldDebit ? "DEBIT" : "RELEASE";
   const previousEntry = await tx.coursePointEntry.findUnique({where:{bookingId_kind:{bookingId:booking.id,kind}}});
   await tx.coursePointEntry.create({
     data: {
@@ -301,9 +303,11 @@ export async function correctCourseAttendance(
   if (b.session.startsAt > new Date()) return fail("課程尚未開始，不能點名");
   if (!b.card || !b.cardId) { await auditTrialAttendance(tx,actor,b.id,b.status,target); return tx.courseBooking.update({where:{id:b.id},data:{status:target,checkedInAt:target === "ATTENDED" ? new Date() : null}}); }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
-  const remaining = b.card.remaining + (b.status === "ATTENDED" ? b.pointCost : 0);
-  if ((target === "ATTENDED" || target === "RESERVED") && remaining - (held._sum.pointCost ?? 0) < b.pointCost) return fail("方案可用額度不足，無法更正");
-  const delta = (b.status === "ATTENDED" ? b.pointCost : 0) - (target === "ATTENDED" ? b.pointCost : 0);
+  const wasDebited=b.status==="ATTENDED"||(b.status==="NO_SHOW"&&!!b.card.termSessionIds?.length);
+  const willDebit=target==="ATTENDED"||(target==="NO_SHOW"&&!!b.card.termSessionIds?.length);
+  const remaining = b.card.remaining + (wasDebited ? b.pointCost : 0);
+  if ((willDebit || target === "RESERVED") && remaining - (held._sum.pointCost ?? 0) < b.pointCost) return fail("方案可用額度不足，無法更正");
+  const delta = (wasDebited ? b.pointCost : 0) - (willDebit ? b.pointCost : 0);
   if (delta) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { remaining: { increment: delta } } });
   await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: b.cardId, bookingId: b.id, actorUserId: actor.userId, kind: `CORRECT:${b.status}:${target}:${crypto.randomUUID()}`, points: b.pointCost } });
   return tx.courseBooking.update({ where: { id: b.id }, data: { status: target, checkedInAt: target === "ATTENDED" ? new Date() : null } });

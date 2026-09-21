@@ -15,11 +15,11 @@ beforeEach(() => {
 });
 describe("course customer purchase history", () => {
   it("requires customer and transaction permissions and scopes customer, orders and refunds", async () => {
-    expect(await loadCourseCustomerPurchases("customer")).toEqual({ success: true, data: [] });
+    expect(await loadCourseCustomerPurchases("customer")).toEqual({ success: true, hasMore: false, data: [] });
     expect(mocks.manager.mock.calls.map(call => call[0])).toEqual(["customer.read", "transaction.read"]);
     expect(mocks.customer).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "customer", storeId: "course-store", mergedIntoCustomerId: null } }));
     expect(mocks.orders).toHaveBeenCalledWith(expect.objectContaining({
-      where: { storeId: "course-store", customerId: "customer" },
+      where: { storeId: "course-store", customerId: "customer", createdAt: {} },
       select: expect.objectContaining({ refunds: expect.objectContaining({ where: { storeId: "course-store" } }) }),
     }));
   });
@@ -43,4 +43,11 @@ describe("course customer purchase history", () => {
       price: 800, status: "REFUNDED", createdAt: date.toISOString(), refunds: [{ amount: 800, createdAt: date.toISOString() }],
     }] });
   });
+});
+
+it("loads ten rows at a time and signals more without dropping remaining history",async()=>{const date=new Date();mocks.orders.mockResolvedValue(Array.from({length:11},(_,i)=>({id:String(i),createdAt:date,confirmedAt:null,refunds:[]})));const r=await loadCourseCustomerPurchases("customer",10);expect(r).toMatchObject({success:true,hasMore:true});if(r.success)expect(r.data).toHaveLength(10);expect(mocks.orders).toHaveBeenCalledWith(expect.objectContaining({skip:10,take:11}));});
+
+it("applies Taiwan date boundaries and keeps ten-row database pagination",async()=>{
+ await loadCourseCustomerPurchases("customer",20,{from:"2026-09-21",to:"2026-09-21"});
+ expect(mocks.orders).toHaveBeenCalledWith(expect.objectContaining({skip:20,take:11,where:expect.objectContaining({createdAt:{gte:new Date("2026-09-20T16:00:00.000Z"),lte:new Date("2026-09-21T15:59:59.999Z")}})}));
 });

@@ -14,6 +14,7 @@ jobs:
     if: >-
       github.head_ref == 'fix/test-audit-recovery' ||
       github.head_ref == 'codex/course-scheduling-stage1' ||
+      github.head_ref == 'codex/course-large-lists-20260921' ||
       github.head_ref == 'codex/course-trial-retention-30-days' ||
       (github.event_name == 'workflow_dispatch' && github.ref_name == 'codex/course-scheduling-stage1')
     runs-on: ubuntu-latest
@@ -140,4 +141,26 @@ jobs:
             if (!r.success || r.numTotalTests !== 1 || r.numPassedTests !== 1 || r.numPendingTests !== 0) {
               throw new Error("Expected the concurrent activation database test to pass without skips");
             }
+          '
+      - name: Verify atomic checkout, replay and safe deletion
+        run: >-
+          npx vitest run src/__tests__/course-checkout.pg.test.ts
+          --reporter=default --reporter=json --outputFile=course-checkout-pg-results.json
+      - name: Require all checkout database scenarios
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("course-checkout-pg-results.json", "utf8"));
+            if (!r.success || r.numPassedTests !== 9 || r.numPendingTests !== 0) throw new Error("Expected nine executed checkout scenarios");
+          '
+      - name: Verify large course customer pages in disposable PostgreSQL
+        run: >-
+          npx vitest run src/__tests__/course-customer-page.pg.test.ts
+          --reporter=default --reporter=json --outputFile=course-customer-page-pg-results.json
+      - name: Require all four large customer database scenarios
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const r = JSON.parse(readFileSync("course-customer-page-pg-results.json", "utf8"));
+            if (!r.success || r.numPassedTests !== 4 || r.numPendingTests !== 0) throw new Error("Expected four executed customer paging scenarios");
           '

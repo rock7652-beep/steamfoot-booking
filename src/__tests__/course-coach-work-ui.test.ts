@@ -16,7 +16,7 @@ vi.mock("@/server/actions/course-members", () => ({ createMemberCourseBooking: v
 vi.mock("@/server/actions/course-portal", () => ({ saveCourseAttendance: m.attendance, saveCourseCoachNote: m.note, purchaseCoursePlan: vi.fn() }));
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
-const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, customerName: id, checkedIn, status, notes: "", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, unit: "POINT", planName: "十點", expiresAt: null });
+const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, unit: "POINT", planName: "十點", expiresAt: null });
 const props = () => ({ month: "2026-09", serverNow: Date.parse("2026-09-20T11:00:00+08:00"), initialDate: "2026-09-20", memberEnabled: false, hasWork: true, customerId: "coach", customerName: "教練", storeName: "A", prefix: "/s/a", cards: [], plans: [], templates: [], bookings: [], orders: [], sessions: [], hours: [], special: [], config: {}, bookingWindow: { closesAt: "2026-10-20T00:00:00Z" }, nextWork: null, work: [{ id: "lesson", name: "伸展瑜珈", startsAt: "2026-09-20T10:00:00+08:00", endsAt: "2026-09-20T11:00:00+08:00", room: "A 教室", bookings: [learner("已到學員", true), learner("尚未到學員", false), learner("已取消學員", false, "CANCELLED")] }] }) as unknown as CoursePortalData;
 const click = async (text: string) => {
   const button = [...host.querySelectorAll("button")].find(b => b.textContent?.includes(text));
@@ -43,7 +43,7 @@ describe("coach daily work interactions", () => {
   });
   it("preserves an unsaved note when navigation is declined", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, props())));
-    await click("伸展瑜珈"); await click("編輯本堂備註");
+    await click("伸展瑜珈"); await click("編輯本次備註");
     const textarea = host.querySelector("textarea")!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(textarea, "膝蓋不適，降低強度");
@@ -156,4 +156,29 @@ describe("coach daily work interactions", () => {
     expect(person.querySelector(".cp-badge")?.textContent).toBe("待報到");
   });
 
+});
+
+describe("member plan and purchase navigation", () => {
+  it("keeps expired cards collapsed while preserving distinct units and expiry", async () => {
+    const card = (id:string, expired:boolean, unit:string) => ({id,name:id,expired,closed:false,unit,remaining:10,held:2,available:8,expiresAt:"2026-10-20T00:00:00Z",members:[],entries:[],templateIds:[]});
+    await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialView:"plans",cards:[card("有效堂數方案",false,"SESSION"),card("過期點數方案",true,"POINT")] as unknown as CoursePortalData["cards"]})));
+    expect(host.textContent).toContain("有效堂數方案");
+    expect(host.textContent).not.toContain("過期點數方案");
+    await click("查看已到期");
+    expect(host.textContent).toContain("過期點數方案");
+    await click("收起已到期");
+    expect(host.textContent).not.toContain("過期點數方案");
+  });
+  it("shows pending orders first and exposes completed orders only in history", async () => {
+    const order=(id:string,status:string)=>({id,name:id,status,price:500,createdAt:"2026-09-20T00:00:00Z",refunds:[]});
+    await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialView:"plans",orders:[order("等待確認購買","PENDING"),order("先前核帳購買","CONFIRMED")] as unknown as CoursePortalData["orders"]})));
+    await click("購買方案"); await click("查看購買進度");
+    expect(host.textContent).toContain("等待確認購買");
+    expect(host.textContent).not.toContain("先前核帳購買");
+    await click("歷史紀錄");
+    expect(host.textContent).toContain("先前核帳購買");
+    expect(host.textContent).not.toContain("等待確認購買");
+    await click("我的方案");
+    expect(host.textContent).toContain("可用額度＝剩餘－預約保留");
+  });
 });

@@ -1,4 +1,5 @@
 "use client";
+import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
 import { useState, useTransition, type FormEvent } from "react";
@@ -63,6 +64,7 @@ type Props = {
   sessions: Session[];
   coaches: { id: string; displayName: string; status: string;courseCoachEnabled:boolean;courseQualificationsConfirmed:boolean;courseQualifiedTemplateIds:string[] }[];
   canCreate: boolean;
+  canDelete?: boolean;
   canEdit: boolean;
   view: "schedule" | "catalog" | "rooms";
 };
@@ -73,6 +75,7 @@ const field =
   "min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
 
 export function CourseWorkspace({
+  canDelete=false,
   selectedDate: loadedDate,
   today,
   rooms: allRooms,
@@ -184,6 +187,7 @@ export function CourseWorkspace({
     const day = toLocalDateStr(new Date(session.startsAt));
     byDate.set(day, [...(byDate.get(day) ?? []), session]);
   }
+  for (const list of byDate.values()) list.sort((a,b)=>a.startsAt.localeCompare(b.startsAt)||a.id.localeCompare(b.id));
   function go(date: string) {
     const next = new URLSearchParams(params.toString());
     next.set("date", date);
@@ -504,6 +508,8 @@ export function CourseWorkspace({
               </button>
             )}
           </div>
+          {view==="rooms" && canEdit && <CourseBatchBar canDelete={canDelete} names={Object.fromEntries(filteredItems.map(r=>[r.id,r.name]))} kind="room" ids={filteredItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
+          {view==="catalog" && canEdit && <CourseBatchBar canDelete={canDelete} kind="template" deleteOnly names={Object.fromEntries(filteredItems.map(r=>[r.id,r.name]))} ids={filteredItems.map(r=>r.id)} selected={selectedIds} onChange={setSelectedIds}/>}
           {view==="catalog" && canEdit && selectedIds.length>0 && <form className="flex flex-wrap items-center gap-2" onSubmit={e=>submit(e,async d=>batchCourseTemplates({ids:selectedIds,...(d.get("batchCategory")!==""?{category:d.get("batchCategory")}:{}),...(d.get("batchVisibility")?{visibility:d.get("batchVisibility")}: {})}),()=>setSelectedIds([]))}>
             <span>已選 {selectedIds.length} 筆</span><input name="batchCategory" className={button} placeholder="調整分類"/><select name="batchVisibility" className={button}><option value="">狀態不變</option><option value="PUBLIC">上架</option><option value="HIDDEN">隱藏</option><option value="OFF">下架</option></select><button className={button} disabled={pending}>套用至選取課程</button>
           </form>}
@@ -554,7 +560,7 @@ export function CourseWorkspace({
                         scope="row"
                         className="block break-words pb-2 font-medium text-primary-900 sm:table-cell sm:max-w-64 sm:px-4 sm:py-3"
                       >
-                        {view === "catalog" && canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
+                        {canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
                         {template && <span className="block text-xs text-earth-500">{template.classType==="PRIVATE"?"私課":template.classType==="GROUP"?"團課":"課型待補"}</span>}
                       </th>
                       <td className="block py-1 sm:table-cell sm:px-4 sm:py-3"><span className="text-earth-500 sm:hidden">分類： </span>{item.category || "未分類"}</td>
@@ -717,8 +723,9 @@ export function CourseWorkspace({
                 {(byDate.get(selectedDate) ?? []).length === 0 && (
                   <p className="text-earth-500">當日尚無課程</p>
                 )}
-                {(byDate.get(selectedDate) ?? []).map((s) => (
-                  <div key={s.id} className="border-b border-earth-100 py-3">
+                {(byDate.get(selectedDate) ?? []).map((s, index) => (
+                  <div key={s.id} className="rounded-xl border border-earth-200 p-3">
+                    <p className="mb-1 text-sm font-semibold text-primary-700">當日第 {index + 1} 堂</p>
                     <h3 className="font-medium"><button className="min-h-11 text-left text-primary-800" aria-expanded={expandedSession === s.id} onClick={() => setExpandedSession(expandedSession === s.id ? null : s.id)}>
                       {formatTWDateTime(new Date(s.startsAt)).slice(11)}–
                       {formatTWDateTime(new Date(s.endsAt)).slice(0, 10) !==

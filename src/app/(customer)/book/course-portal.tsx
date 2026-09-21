@@ -219,6 +219,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
       : null,
   ]);
   const referralShare = memberEnabled ? await getReferralShareContext({ customerId: customer.id, storeId, storeSlug: store.slug }) : null;
+  // Only customers on this authorized coach's own sessions are read.
+  const workCustomers = work.length ? await prisma.customer.findMany({
+    where: {storeId, id:{in:[...new Set(work.flatMap(s=>s.bookings.map(b=>b.customerId)))]}},
+    select:{id:true, serviceNote:true, notes:true},
+  }) : [];
   return {
     referralShare: referralShare?.available ? referralShare : null,
     month,
@@ -234,7 +239,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     config,
     cards,
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
-    plans,
+    plans:plans.map(p=>({id:p.id,name:p.name,points:p.points,price:p.price,unit:p.unit,validDays:p.validDays,templateIds:p.templateIds,termSessionIds:p.termSessionIds})),
     templates,
     hours,
     special: special.map((s) => ({
@@ -278,7 +283,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       customerId: b.customerId,
       operatorName: b.operatorName,
       status: b.status,
-      notes: b.notes,
+      notes: "",
       cost: b.pointCost,
       trialPaid: b.trialPayments[0]?.amount ?? null,
       trialPrice: b.trialPrice,
@@ -300,6 +305,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
         checkedIn: !!b.checkedInAt,
         updatedAt: b.updatedAt.toISOString(),
         notes: b.notes,
+        serviceNote: workCustomers.filter(c=>c.id===b.customerId).flatMap(c=>[c.serviceNote,c.notes]).filter(Boolean).join("\n"),
         cost: b.pointCost,
         unit: b.card?.unit ?? "TRIAL",
         planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",
@@ -307,7 +313,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       })),
     })),
     orders: orders.map((o) => ({
-      ...o,
+      id:o.id,name:o.name,price:o.price,status:o.status,transferLastFive:o.transferLastFive,
       refunds: (o.refunds??[]).map(r=>({...r,createdAt:r.createdAt.toISOString()})),
       createdAt: o.createdAt.toISOString(),
       confirmedAt: o.confirmedAt?.toISOString() ?? null,

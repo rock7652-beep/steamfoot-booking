@@ -6,7 +6,9 @@ import { refundCoursePurchase } from "@/server/actions/course-refund";
 import { editCoursePurchase, voidCoursePurchase } from "@/server/actions/course-purchase-correction";
 import { confirmCoursePurchase } from "@/server/actions/course-portal";
 import { COURSE_REFUND_METHOD_LABELS, courseRefundReference } from "@/lib/course-refund-display";
+import { COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
 export type CourseTransactionDetail = {
+  paymentMethod?: string | null; transferLastFour?: string | null; listPrice?: number | null;
   note: string; revenueStaffId: string | null; voidReason: string | null;
   id: string; name: string; customerName: string; status: string; price: number;
   points: number; remaining: number | null; reserved: number; attended: number;
@@ -50,12 +52,12 @@ export function CourseTransactionActions({ order, canRefund, canConfirm, canEdit
   }
   const btn = "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
   return <>
-    <button className={btn} aria-label={`查看 ${order.customerName} 的 ${order.name} 交易`} onClick={() => { setOpen(true); setMode("detail"); setMessage(""); setReason(""); setNote(order.note); setStaffId(order.revenueStaffId ?? ""); setRequestKey(crypto.randomUUID()); }}>⋯</button>
+    <button className={btn} aria-label={`查看 ${order.customerName} 的 ${order.name} 交易`} onClick={() => { setOpen(true); setMode("detail"); setMessage(""); setReason(""); setNote(order.note); setStaffId(order.revenueStaffId ?? ""); setRequestKey(crypto.randomUUID()); }}>{order.status === "PENDING" && canConfirm ? "查看／核帳" : "查看明細"}</button>
     {open && <RightSheet open onClose={() => { if (!pending) setOpen(false); }} labelledById={title}>
       <header className="flex items-center justify-between border-b p-4"><h2 id={title} className="font-semibold">交易詳情</h2><button disabled={pending} className={btn} onClick={() => setOpen(false)}>關閉</button></header>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         <h3 className="font-semibold">{order.customerName}・{order.name}</h3>
-        <dl className="grid grid-cols-2 gap-2 text-sm"><dt>{order.status === "PENDING" ? "待核帳金額" : "原實付金額"}</dt><dd>NT$ {order.price.toLocaleString()}</dd><dt>原購買額度</dt><dd>{order.points} {unit}</dd><dt>剩餘／占用</dt><dd>{order.remaining ?? "尚未發卡"} / {order.reserved} {unit}</dd><dt>到期日</dt><dd>{order.expiresAt ?? "核帳後起算"}</dd><dt>匯款後五碼</dt><dd>{order.transferLastFive}</dd></dl>
+        <dl className="grid grid-cols-2 gap-2 text-sm"><dt>{order.status === "PENDING" ? "待核帳金額" : "原實付金額"}</dt><dd>NT$ {order.price.toLocaleString()}</dd><dt>原購買額度</dt><dd>{order.points} {unit}</dd><dt>剩餘／占用</dt><dd>{order.remaining ?? "尚未發卡"} / {order.reserved} {unit}</dd><dt>到期日</dt><dd>{order.expiresAt ?? "核帳後起算"}</dd><dt>付款方式</dt><dd>{COURSE_PAYMENT_LABELS[order.paymentMethod??"BANK_TRANSFER"]??"其他"}</dd>{order.transferLastFour?<><dt>轉帳後四碼</dt><dd>{order.transferLastFour}</dd></>:order.transferLastFive?<><dt>匯款後五碼</dt><dd>{order.transferLastFive}</dd></>:null}</dl>
         {order.note && <p className="text-sm">交易備註：{order.note}</p>}
         {order.voidReason && <p className="text-sm">作廢原因：{order.voidReason}</p>}
         {order.refunds.map((refund, i) => <section className="rounded border border-earth-200 p-3 text-sm" key={i}><p>{refund.date} 登錄退款 NT$ {refund.amount.toLocaleString()} · {methods[refund.method]??"其他非現金"}</p><p>原因：{refund.reason}</p></section>)}

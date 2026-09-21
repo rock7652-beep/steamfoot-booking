@@ -177,6 +177,7 @@ export function CustomersTable({
     {
       key: "customer",
       header: "顧客",
+      width: stickyActions ? "min-w-[11rem] w-52" : undefined,
       accessor: (c) => {
         const phoneDisplay = formatPhoneForStaff(c.phone);
         const subtitle = phoneDisplay !== "—" ? `☎ ${phoneDisplay}` : null;
@@ -199,7 +200,7 @@ export function CustomersTable({
               ) : null}
             </span>
             {subtitle ? (
-              <span className="text-[11px] text-earth-400 tabular-nums">{subtitle}</span>
+              <span className="whitespace-nowrap text-[11px] text-earth-400 tabular-nums">{subtitle}</span>
             ) : (
               <span className="text-[11px] text-earth-300">—</span>
             )}

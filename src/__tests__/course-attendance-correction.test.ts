@@ -73,3 +73,10 @@ describe("course attendance correction", () => {
     ).rejects.toThrow("無法更正");
   });
 });
+
+it.each([['NO_SHOW','ATTENDED',0],['RESERVED','NO_SHOW',-3],['NO_SHOW','RESERVED',3]] as const)('term correction %s → %s changes quota by %s',async(before,after,delta)=>{
+ m.courseBooking.findFirst.mockResolvedValue({...booking(before),card:{remaining:7,termSessionIds:['session']}});
+ await correctCourseAttendance(tx,actor,'b',after,before);
+ if(delta)expect(m.coursePointCard.update).toHaveBeenCalledWith({where:{id:'c'},data:{remaining:{increment:delta}}});
+ else expect(m.coursePointCard.update).not.toHaveBeenCalled();
+});

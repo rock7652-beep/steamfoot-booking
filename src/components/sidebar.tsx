@@ -1130,6 +1130,10 @@ export default function DashboardShell({
               </svg>
             </button>
             <OperationGuideTrigger />
+            {industryModule === "course" && trialStatus?.isFree && <details className="relative shrink-0">
+              <summary className="flex min-h-11 cursor-pointer items-center rounded-lg border border-gold-300 px-3 text-sm text-primary-800">體驗版 · {trialStatus.trialExpired ? "已到期" : `剩 ${trialStatus.daysRemaining} 天`}{trialStatus.stage === "blocked" || (trialStatus.staff && trialStatus.staff.current >= trialStatus.staff.limit) ? " · 用量提醒" : ""}</summary>
+              <div className="absolute left-0 top-full z-40 mt-2 max-h-[70dvh] w-[min(32rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-earth-200 bg-white p-3 shadow-lg"><TrialProgressBar trial={trialStatus}/></div>
+            </details>}
             <div className={industryModule === "spa" ? "md:hidden min-w-0" : guideEnabled ? "hidden" : "lg:hidden min-w-0"}>
               {industryModule === "spa" ? <Link href={`${dashboardPrefix}/dashboard`}><SteamButlerLogo compact /></Link> : <DashboardBreadcrumb mobile />}
             </div>
@@ -1222,7 +1226,7 @@ export default function DashboardShell({
 
         {/* Content */}
         <main data-dashboard-content className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
-          {trialStatus && trialStatus.isFree && (trialStatus.course || trialStatus.stage !== "normal") && (
+          {industryModule !== "course" && trialStatus && trialStatus.isFree && (trialStatus.course || trialStatus.stage !== "normal") && (
             <div className="mb-3">
               <TrialProgressBar trial={trialStatus} />
             </div>
