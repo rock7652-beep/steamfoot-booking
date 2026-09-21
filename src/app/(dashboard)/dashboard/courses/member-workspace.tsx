@@ -227,7 +227,7 @@ export function CourseMemberWorkspace({
           <button
             className={button}
             disabled={!people.length || !plans.some((p) => p.isActive)}
-            onClick={() => { setPerson(null); open("assign"); }}
+            onClick={() => { setPerson(null); setRevenueStaffId(""); open("assign"); }}
           >
             指派方案
           </button>
@@ -526,7 +526,7 @@ export function CourseMemberWorkspace({
                 <h3 className="font-semibold">方案資料</h3>
                 {person ? <div><span className="text-sm text-earth-500">顧客</span><p className="font-medium">{person.name} · {person.phone}</p><input type="hidden" name="customerId" value={person.id}/></div> : <label className="block">
                   顧客
-                  <CourseCustomerPicker name="customerId" required/>
+                  <CourseCustomerPicker name="customerId" required onChange={customers=>{setDirty(true);setRevenueStaffId(customers[0] ? customerRows.find(row=>row.id===customers[0].id)?.assignedStaff?.id ?? "" : "");}}/>
 
                 </label>}
                 <label className="block">
@@ -552,7 +552,7 @@ export function CourseMemberWorkspace({
                     )}
                   />
                 </label>
-                <label className="block">本次開發人<CourseOptionSelect label="本次開發人" name="revenueStaffId" placeholder="請選擇直屬店長／開發人" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>
+                <label className="block">直屬店長<CourseOptionSelect label="直屬店長" name="revenueStaffId" placeholder="請選擇直屬店長" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
                 <fieldset disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
