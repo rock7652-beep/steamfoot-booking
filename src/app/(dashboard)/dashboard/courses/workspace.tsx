@@ -157,7 +157,6 @@ export function CourseWorkspace({
   const [conflicts,setConflicts]=useState<ConflictItem[]>([]);
   const [selectedIds,setSelectedIds]=useState<string[]>([]);
   const [copyTemplate,setCopyTemplate]=useState(false);
-  const [editTemplateId,setEditTemplateId]=useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [chosen, setChosen] = useState(templates[0]?.id ?? "");
@@ -199,11 +198,9 @@ export function CourseWorkspace({
     setDirty(false);
     setPanel(next);
     setExtraDateKeys([]);
-    setRoomCapacityNotice("");
     setError("");
     setNotice("");
   }
-  const [roomCapacityNotice, setRoomCapacityNotice] = useState("");
   const [extraDateKeys, setExtraDateKeys] = useState<string[]>([]);
   const [copySource, setCopySource] = useState<Session | null>(null);
   function openSchedule() {
@@ -754,7 +751,6 @@ export function CourseWorkspace({
                             className={button}
                             disabled={pending}
                             onClick={() => {
-                              setEditTemplateId(s.templateId);
                               setEditing({ kind: "session", value: s });
                               open("edit");
                             }}
@@ -995,30 +991,37 @@ export function CourseWorkspace({
               >
                 <p className="col-span-full text-sm text-earth-600">
                   {editing.kind === "session"
-                    ? "修改範圍可選這堂或同一批次的這堂及後續，撞期時整批不會儲存。"
+                    ? "只調整這堂課需要變更的內容；其他設定會沿用原課程。"
                     : editing.kind === "template"
-                      ? "修改後套用於新排課；已排課程請從日期內編輯。"
+                      ? "修改後套用於之後新增的課程；已建立的課程請從課表內編輯。"
                       : "名稱會同步顯示於使用此教室的課程。"}
                 </p>
-                {editing.kind === "session" && editing.value.bookings.length > 0 && <div role="note" className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                  本堂已有 {editing.value.bookings.length} 人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。
-                  <p className="mt-1">已有預約不可更換課程或點數；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
-                </div>}
-                {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>t.isActive || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{t.name}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
-                <label className="col-span-full">
-                  {editing.kind === "room" ? "教室名稱" : "課程名稱"}
-                  <input
-                    className={field}
-                    name="name"
-                    required
-                    maxLength={80}
-                    defaultValue={
-                      editing.kind === "session"
-                        ? editing.value.nameSnapshot
-                        : editing.value.name
-                    }
-                  />
-                </label>
+                {editing.kind === "session" && editing.value.bookings.length > 0 && (
+                  <p role="note" className="col-span-full rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    本堂已有 {editing.value.bookings.length} 人預約；修改日期、時間、教練或教室後，預約會保留。
+                  </p>
+                )}
+                {editing.kind === "session" ? (
+                  <>
+                    <div className="col-span-full rounded-xl border border-earth-200 bg-earth-50 px-3 py-2">
+                      <span className="text-xs text-earth-500">課程</span>
+                      <p className="font-medium text-primary-900">{editing.value.nameSnapshot}</p>
+                    </div>
+                    <input type="hidden" name="templateId" value={editing.value.templateId} />
+                    <input type="hidden" name="name" value={editing.value.nameSnapshot} />
+                  </>
+                ) : (
+                  <label className="col-span-full">
+                    {editing.kind === "room" ? "教室名稱" : "課程名稱"}
+                    <input
+                      className={field}
+                      name="name"
+                      required
+                      maxLength={80}
+                      defaultValue={editing.value.name}
+                    />
+                  </label>
+                )}
                 {editing.kind === "template" && <ClassType value={editing.value.classType} required={copyTemplate}/>}
                 {editing.kind !== "session" && (
                   <label className="col-span-full">
@@ -1043,13 +1046,6 @@ export function CourseWorkspace({
 
                 {editing.kind === "session" && (
                   <>
-                    <label className="col-span-full">
-                      修改範圍
-                      <select className={field} name="scope">
-                        <option value="single">僅這堂</option>
-                        <option value="future">這堂及後續</option>
-                      </select>
-                    </label>
                     <label>
                       日期
                       <input
@@ -1057,9 +1053,7 @@ export function CourseWorkspace({
                         name="date"
                         type="date"
                         required
-                        defaultValue={toLocalDateStr(
-                          new Date(editing.value.startsAt),
-                        )}
+                        defaultValue={toLocalDateStr(new Date(editing.value.startsAt))}
                       />
                     </label>
                     <label>
@@ -1069,13 +1063,10 @@ export function CourseWorkspace({
                         name="time"
                         type="time"
                         required
-                        defaultValue={formatTWDateTime(
-                          new Date(editing.value.startsAt),
-                        ).slice(11)}
+                        defaultValue={formatTWDateTime(new Date(editing.value.startsAt)).slice(11)}
                       />
                     </label>
-                    <DebitRule/>
-                    <label className="col-span-full">
+                    <label>
                       教練
                       <select
                         className={field}
@@ -1085,25 +1076,80 @@ export function CourseWorkspace({
                       >
                         {allCoaches
                           .filter(
-                            (c) =>
-                              c.status !== "ACTIVE" &&
-                              c.id === editing.value.coachId,
+                            (coach) =>
+                              (coach.status === "ACTIVE" &&
+                                coach.courseCoachEnabled &&
+                                coach.courseQualificationsConfirmed &&
+                                coach.courseQualifiedTemplateIds.includes(editing.value.templateId)) ||
+                              coach.id === editing.value.coachId,
                           )
-                          .map((c) => (
-                            <option key={c.id} value={c.id} disabled>
-                              {c.displayName}（已停用，請另選教練）
+                          .map((coach) => (
+                            <option
+                              key={coach.id}
+                              value={coach.id}
+                              disabled={coach.status !== "ACTIVE"}
+                            >
+                              {coach.displayName}{coach.status !== "ACTIVE" ? "（已停用）" : ""}
                             </option>
                           ))}
-                        {coaches.filter(c=>(c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(editTemplateId || editing.value.templateId)) || (c.id===editing.value.coachId && !c.courseQualificationsConfirmed && (!editTemplateId || editTemplateId===editing.value.templateId))).map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.displayName}
-                          </option>
-                        ))}
                       </select>
                     </label>
+                    <label>
+                      教室
+                      <select
+                        className={field}
+                        name="roomId"
+                        required
+                        defaultValue={editing.value.roomId}
+                      >
+                        {allRooms
+                          .filter((room) => room.isActive || room.id === editing.value.roomId)
+                          .map((room) => (
+                            <option
+                              key={room.id}
+                              value={room.id}
+                              disabled={!room.isActive}
+                            >
+                              {room.name}{!room.isActive ? "（已停用）" : ""}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <label>
+                      人數上限
+                      <input
+                        className={field}
+                        name="capacity"
+                        type="number"
+                        min={Math.max(1, editing.value.bookings.length)}
+                        max={500}
+                        required
+                        defaultValue={editing.value.capacity}
+                      />
+                    </label>
+                    <label>
+                      套用範圍
+                      <select className={field} name="scope" defaultValue="single">
+                        <option value="single">只改這堂</option>
+                        <option value="future">這堂及後續</option>
+                      </select>
+                    </label>
+                    <input
+                      type="hidden"
+                      name="duration"
+                      value={Math.max(
+                        1,
+                        Math.round(
+                          (new Date(editing.value.endsAt).getTime() -
+                            new Date(editing.value.startsAt).getTime()) /
+                            60000,
+                        ),
+                      )}
+                    />
+                    <input type="hidden" name="cost" value={editing.value.pointCost} />
                   </>
                 )}
-                {editing.kind !== "room" && (
+                {editing.kind === "template" && (
                   <>
                     <label>
                       時長（分鐘）
@@ -1149,28 +1195,18 @@ export function CourseWorkspace({
                       <span className="block text-sm text-earth-600">堂數卡每次固定扣 1 堂，依使用卡別扣抵。</span>
                     </label>
                     <label>
-                      {editing.kind === "template" ? "預設教室" : "教室"}
+                      預設教室
                       <select
                         className={field}
                         name="roomId"
-                        required={editing.kind === "session"}
-                        defaultValue={
-                          editing.kind === "template"
-                            ? (editing.value.defaultRoomId ?? "")
-                            : editing.value.roomId
-                        }
+                        defaultValue={editing.value.defaultRoomId ?? ""}
                       >
-                        {editing.kind === "template" && (
-                          <option value="">不指定</option>
-                        )}
+                        <option value="">不指定</option>
                         {allRooms
                           .filter(
                             (r) =>
                               !r.isActive &&
-                              r.id ===
-                                (editing.kind === "template"
-                                  ? editing.value.defaultRoomId
-                                  : editing.value.roomId),
+                              r.id === editing.value.defaultRoomId,
                           )
                           .map((r) => (
                             <option key={r.id} value={r.id} disabled>
@@ -1186,7 +1222,7 @@ export function CourseWorkspace({
                     </label>
                   </>
                 )}
-                {editing.kind !== "room" && <DebitRule/>}
+                {editing.kind === "template" && <DebitRule/>}
                 {editing.kind === "template" && (
                   <TemplateMore
                     description={editing.value.description}
