@@ -111,7 +111,7 @@ export function CourseManagerBookingModal({
       <header className="flex items-center justify-between border-b border-earth-200 bg-primary-50/60 px-5 py-3">
         <div>
           <h2 id="course-manager-booking-title" className="font-semibold text-primary-900">
-            ＋ 學員預約
+            ＋ 排課
           </h2>
           <p className="mt-1 text-sm text-earth-600">{sessionLabel}</p>
         </div>
@@ -181,7 +181,7 @@ export function CourseManagerBookingModal({
 
         {card && (
           <p className="rounded-lg bg-earth-50 px-3 py-2 text-sm text-earth-600">
-            本次預約會先保留 {requiredAmount} {card.unit === "SESSION" ? "堂" : "點"}，出席後才正式扣抵。
+            店長代約會先保留 {requiredAmount} {card.unit === "SESSION" ? "堂" : "點"}，出席後才正式扣抵。
             {card.expiresAt
               ? ` 到期日 ${formatTWDateTime(new Date(card.expiresAt)).slice(0, 10)}。`
               : ""}
