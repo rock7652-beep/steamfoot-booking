@@ -15,7 +15,6 @@ import {
   toLocalDateStr,
 } from "@/lib/date-utils";
 import {
-  previewCourseSchedule,
   updateCourseSeries,
   createCourseRoom,
   createCourseTemplate,
@@ -164,10 +163,6 @@ export function CourseWorkspace({
   const [chosen, setChosen] = useState(templates[0]?.id ?? "");
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [repeat, setRepeat] = useState(false);
-  const [schedulePreview, setSchedulePreview] = useState<{
-    dates: { startsAt: string; conflict: boolean; conflicts: {name:string;startsAt:string;endsAt:string;resource:string}[] }[];
-    capacityWarning: string | null;
-  } | null>(null);
   const [editing, setEditing] = useState<
     | { kind: "room"; value: Room }
     | { kind: "template"; value: Template }
@@ -203,7 +198,6 @@ export function CourseWorkspace({
     setConflicts([]);
     setDirty(false);
     setPanel(next);
-    setSchedulePreview(null);
     setExtraDateKeys([]);
     setRoomCapacityNotice("");
     setError("");
@@ -1205,7 +1199,7 @@ export function CourseWorkspace({
               <>
                 {!templates.length ? (
                   <>
-                    <p>請先建立課程預設。</p>
+                    <p>請先建立課程設定。</p>
                     <button
                       className={primary}
                       onClick={() => router.push(`${pathname}?view=catalog`)}
@@ -1216,25 +1210,11 @@ export function CourseWorkspace({
                 ) : !coaches.length ? (
                   <p>本店尚無可排課的教練，請先完成人員建檔。</p>
                 ) : !rooms.length ? (
-                  <p>
-                    目前沒有可使用的教室，請至左側「教室管理」新增或恢復使用後再排課。
-                  </p>
+                  <p>目前沒有可使用的教室，請先到「教室管理」新增或恢復使用。</p>
                 ) : (
                   <form
                     id="course-schedule-form"
-                    onChange={(e) => {
-                      setSchedulePreview(null);
-                      const fields = new FormData(e.currentTarget);
-                      const limit = rooms.find(
-                        (r) => r.id === fields.get("roomId"),
-                      )?.capacity;
-                      setRoomCapacityNotice(
-                        limit && Number(fields.get("capacity")) > limit
-                          ? `人數上限超過教室容納 ${limit} 人，請確認容量`
-                          : "",
-                      );
-                    }}
-                    className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2"
+                    className="grid grid-cols-1 gap-3 sm:grid-cols-2"
                     onSubmit={(e) =>
                       submit(
                         e,
@@ -1248,12 +1228,14 @@ export function CourseWorkspace({
                             time: data.get("time"),
                             durationMinutes: Number(data.get("duration")),
                             capacity: Number(data.get("capacity")),
-                            additionalDates: repeat
-                              ? undefined
-                              : data.getAll("additionalDates").map(String),
-                            repeatUntil: repeat ? data.get("until") : undefined,
+                            additionalDates: !copySource && !repeat
+                              ? data.getAll("additionalDates").map(String)
+                              : undefined,
+                            repeatUntil: !copySource && repeat
+                              ? data.get("until")
+                              : undefined,
                             weekdays:
-                              repeat && data.getAll("weekday").length
+                              !copySource && repeat && data.getAll("weekday").length
                                 ? data.getAll("weekday").map(Number)
                                 : undefined,
                             requestKey,
@@ -1266,45 +1248,79 @@ export function CourseWorkspace({
                     }
                   >
                     {copySource ? (
-                      <p className="col-span-full">
-                        {copySource.nameSnapshot} · 點數卡每人 {copySource.pointCost} 點／堂數卡每人 1 堂<br />
-                        選擇新日期並確認時間後建立，原課程會保留。
-                      </p>
+                      <>
+                        <div className="col-span-full rounded-xl border border-earth-200 bg-earth-50 p-3">
+                          <p className="font-medium text-primary-900">{copySource.nameSnapshot}</p>
+                          <p className="mt-1 text-sm text-earth-600">
+                            {allCoaches.find((coach) => coach.id === copySource.coachId)?.displayName ?? "教練"} ·
+                            {" "}{allRooms.find((room) => room.id === copySource.roomId)?.name ?? "教室"} ·
+                            {" "}上限 {copySource.capacity} 人 ·
+                            {" "}{Math.round((new Date(copySource.endsAt).getTime() - new Date(copySource.startsAt).getTime()) / 60000)} 分鐘
+                          </p>
+                          <p className="mt-1 text-xs text-earth-500">只需選新日期與時間，其餘設定全部沿用。</p>
+                        </div>
+                        <input type="hidden" name="coachId" value={copySource.coachId} />
+                        <input type="hidden" name="roomId" value={copySource.roomId} />
+                        <input type="hidden" name="capacity" value={copySource.capacity} />
+                        <input
+                          type="hidden"
+                          name="duration"
+                          value={Math.max(
+                            1,
+                            Math.round(
+                              (new Date(copySource.endsAt).getTime() -
+                                new Date(copySource.startsAt).getTime()) /
+                                60000,
+                            ),
+                          )}
+                        />
+                      </>
                     ) : (
-                      <label className="col-span-full">
-                        課程
-                        <select
-                          className={field}
-                          aria-label="課程"
-                          value={chosen}
-                          onChange={(e) => setChosen(e.target.value)}
-                          required
-                        >
-                          {templates.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.name} · 點數卡 {t.pointCost} 點；堂數卡 1 堂
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <>
+                        <label className="col-span-full">
+                          課程
+                          <select
+                            className={field}
+                            aria-label="課程"
+                            value={chosen}
+                            onChange={(e) => setChosen(e.target.value)}
+                            required
+                          >
+                            {templates.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="col-span-full">
+                          教練
+                          <select className={field} name="coachId" required>
+                            {coaches
+                              .filter(
+                                (coach) =>
+                                  coach.courseQualificationsConfirmed &&
+                                  coach.courseQualifiedTemplateIds.includes(chosen),
+                              )
+                              .map((coach) => (
+                                <option key={coach.id} value={coach.id}>
+                                  {coach.displayName}
+                                </option>
+                              ))}
+                          </select>
+                          {!coaches.some(
+                            (coach) =>
+                              coach.courseQualificationsConfirmed &&
+                              coach.courseQualifiedTemplateIds.includes(chosen),
+                          ) && (
+                            <span className="mt-1 block text-sm text-amber-800">
+                              這門課尚未設定可授課教練，請先到人員管理設定。
+                            </span>
+                          )}
+                        </label>
+                      </>
                     )}
-                    <DebitRule/>
-                    <label className="col-span-full">
-                      教練
-                      <select
-                        className={field}
-                        name="coachId"
-                        required
-                        defaultValue={copySource?.coachId}
-                      >
-                        {coaches.filter(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)).map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.displayName}
-                          </option>
-                        ))}
-                      </select>
-                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請先至人員管理設定資格。<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/staff")} target="_blank" rel="noopener noreferrer">開啟人員管理（保留此排課草稿）</a><button type="button" className={button} onClick={()=>router.refresh()}>已設定，更新教練名單</button></span>}
-                    </label>
+
                     <label>
                       日期
                       <input
@@ -1323,237 +1339,149 @@ export function CourseWorkspace({
                         type="time"
                         defaultValue={
                           copySource
-                            ? formatTWDateTime(
-                                new Date(copySource.startsAt),
-                              ).slice(11)
+                            ? formatTWDateTime(new Date(copySource.startsAt)).slice(11)
                             : "18:00"
                         }
                         required
                       />
                     </label>
-                    {rooms.length > 1 ? (
-                      <label key={`room-${chosen}`}>
-                        教室
-                        <select
-                          className={field}
-                          name="roomId"
-                          defaultValue={
-                            copySource?.roomId ?? template?.defaultRoomId ?? ""
-                          }
-                          required
-                        >
-                          {rooms.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : (
-                      <div className="self-center"><span className="block text-sm">教室</span>
-                        {rooms[0]?.name}
-                        <input
-                          type="hidden"
-                          name="roomId"
-                          value={rooms[0]?.id ?? ""}
-                        />
-                      </div>
-                    )}
-                    <label key={`capacity-${chosen}`}>
-                      人數上限
-                      <input
-                        className={field}
-                        name="capacity"
-                        type="number"
-                        defaultValue={
-                          copySource?.capacity ?? template?.capacity
-                        }
-                        min={1}
-                        max={500}
-                        required
-                      />
-                    </label>
-                    {roomCapacityNotice && (
-                      <p
-                        role="status"
-                        className="col-span-full text-sm text-amber-700"
-                      >
-                        {roomCapacityNotice}
-                      </p>
-                    )}
-                    <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-3">調整本堂時長（預設 {copySource ? Math.round((new Date(copySource.endsAt).getTime()-new Date(copySource.startsAt).getTime())/60000) : template?.durationMinutes} 分鐘）</summary>
-                    <label key={`duration-${chosen}`}>
-                      時長（分鐘）
-                      <input
-                        className={field}
-                        name="duration"
-                        type="number"
-                        defaultValue={
-                          copySource
-                            ? (new Date(copySource.endsAt).getTime() -
-                                new Date(copySource.startsAt).getTime()) /
-                              60000
-                            : template?.durationMinutes
-                        }
-                        min={1}
-                        max={480}
-                        required
-                      />
-                    </label>
-                    </details>
-                    <label className="col-span-full">
-                      重複
-                      <select
-                        className={field}
-                        value={repeat ? "weekly" : "once"}
-                        onChange={(e) => setRepeat(e.target.value === "weekly")}
-                      >
-                        <option value="once">僅此一堂</option>
-                        <option value="weekly">每週重複</option>
-                      </select>
-                    </label>
-                    {!repeat && (
-                      <div className="col-span-full space-y-2">
-                        {extraDateKeys.map((dateKey, index) => (
-                          <div
-                            key={dateKey}
-                            className="flex items-center gap-2"
-                          >
-                            <label className="flex-1">
-                              其他日期 {index + 1}
+
+                    {!copySource && (
+                      <>
+                        {rooms.length > 1 ? (
+                          <label>
+                            教室
+                            <select
+                              className={field}
+                              name="roomId"
+                              defaultValue={template?.defaultRoomId ?? rooms[0]?.id ?? ""}
+                              required
+                            >
+                              {rooms.map((room) => (
+                                <option key={room.id} value={room.id}>
+                                  {room.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : (
+                          <div className="self-end rounded-lg border border-earth-200 bg-earth-50 px-3 py-2">
+                            <span className="block text-xs text-earth-500">教室</span>
+                            <span>{rooms[0]?.name}</span>
+                            <input type="hidden" name="roomId" value={rooms[0]?.id ?? ""} />
+                          </div>
+                        )}
+                        <label>
+                          人數上限
+                          <input
+                            className={field}
+                            name="capacity"
+                            type="number"
+                            defaultValue={template?.capacity}
+                            min={1}
+                            max={500}
+                            required
+                          />
+                        </label>
+                        <details className="col-span-full rounded-xl border border-earth-200 px-3">
+                          <summary className="min-h-11 cursor-pointer py-3 font-medium">
+                            更多排程選項
+                          </summary>
+                          <div className="grid grid-cols-1 gap-3 pb-3 sm:grid-cols-2">
+                            <label>
+                              本堂時長（分鐘）
                               <input
                                 className={field}
-                                aria-label={`其他日期 ${index + 1}`}
-                                type="date"
+                                name="duration"
+                                type="number"
+                                defaultValue={template?.durationMinutes}
+                                min={1}
+                                max={480}
                                 required
-                                name="additionalDates"
-                                defaultValue=""
                               />
                             </label>
-                            <button
-                              type="button"
-                              className={button}
-                              onClick={() => {
-                                setSchedulePreview(null);
-                                setExtraDateKeys((current) =>
-                                  current.filter((_, i) => i !== index),
-                                );
-                              }}
-                            >
-                              移除
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          className={button}
-                          disabled={extraDateKeys.length >= 52}
-                          onClick={() => {
-                            setSchedulePreview(null);
-                            setExtraDateKeys((current) => [
-                              ...current,
-                              crypto.randomUUID(),
-                            ]);
-                          }}
-                        >
-                          ＋ 加入排課日期
-                        </button>
-                        {extraDateKeys.length > 0 && (
-                          <p className="text-sm text-earth-500">
-                            以上日期使用相同時間、教練與教室；重複日期只建立一堂。如有撞期，整批不會建立。
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {repeat && (
-                      <fieldset className="col-span-full">
-                        <legend>每週上課日（未選則依起始日）</legend>
-                        <div className="flex flex-wrap gap-3">
-                          {["日", "一", "二", "三", "四", "五", "六"].map(
-                            (d, i) => (
-                              <label
-                                key={d}
-                                className="flex min-h-11 items-center gap-1"
+                            <label>
+                              建立方式
+                              <select
+                                className={field}
+                                value={repeat ? "weekly" : "once"}
+                                onChange={(e) => setRepeat(e.target.value === "weekly")}
                               >
-                                <input
-                                  type="checkbox"
-                                  name="weekday"
-                                  value={i}
-                                />
-                                {d}
-                              </label>
-                            ),
-                          )}
-                        </div>
-                      </fieldset>
-                    )}
-                    {repeat && (
-                      <label className="col-span-full">
-                        結束日期
-                        <input
-                          className={field}
-                          type="date"
-                          name="until"
-                          required
-                        />
-                      </label>
-                    )}
-                    <button
-                      type="button"
-                      className={`${button} col-span-full`}
-                      disabled={pending}
-                      onClick={(event) => {
-                        const form = event.currentTarget.form!;
-                        if (!form.reportValidity()) return;
-                        const data = new FormData(form);
-                        startTransition(async () => {
-                          const result = await previewCourseSchedule({
-                            templateId: chosen,
-                            roomId: data.get("roomId"),
-                            coachId: data.get("coachId"),
-                            date: data.get("date"),
-                            time: data.get("time"),
-                            durationMinutes: Number(data.get("duration")),
-                            capacity: Number(data.get("capacity")),
-                            additionalDates: repeat
-                              ? undefined
-                              : data.getAll("additionalDates").map(String),
-                            repeatUntil: repeat ? data.get("until") : undefined,
-                            weekdays:
-                              repeat && data.getAll("weekday").length
-                                ? data.getAll("weekday").map(Number)
-                                : undefined,
-                            requestKey,
-                          });
-                          if (result.success) {
-                            setSchedulePreview(result.data);
-                            setError("");
-                          } else setError(result.error);
-                        });
-                      }}
-                    >
-                      預覽日期與衝突
-                    </button>
-                    {schedulePreview && (
-                      <div className="col-span-full text-sm">
-                        {schedulePreview.capacityWarning && (
-                          <p className="text-amber-700">
-                            {schedulePreview.capacityWarning}
-                          </p>
-                        )}
-                        <ul>
-                          {schedulePreview.dates.map((d) => (
-                            <li
-                              key={d.startsAt}
-                              className={d.conflict ? "text-red-700" : ""}
-                            >
-                              {formatTWDateTime(new Date(d.startsAt))} ·{" "}
-                              {d.conflict ? "撞期：請調整時間或資源" : "可排課"}
-                              {d.conflicts.map((conflict, index) => <p key={index} className="pl-3">{conflict.resource} · {conflict.name} · {formatTWDateTime(new Date(conflict.startsAt))}–{formatTWDateTime(new Date(conflict.endsAt)).slice(11)}</p>)}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                                <option value="once">單次課程</option>
+                                <option value="weekly">每週重複</option>
+                              </select>
+                            </label>
+
+                            {!repeat && (
+                              <div className="col-span-full space-y-2">
+                                {extraDateKeys.map((dateKey, index) => (
+                                  <div key={dateKey} className="flex items-end gap-2">
+                                    <label className="flex-1">
+                                      其他日期 {index + 1}
+                                      <input
+                                        className={field}
+                                        aria-label={`其他日期 ${index + 1}`}
+                                        type="date"
+                                        required
+                                        name="additionalDates"
+                                      />
+                                    </label>
+                                    <button
+                                      type="button"
+                                      className={button}
+                                      onClick={() =>
+                                        setExtraDateKeys((current) =>
+                                          current.filter((_, itemIndex) => itemIndex !== index),
+                                        )
+                                      }
+                                    >
+                                      移除
+                                    </button>
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  className={button}
+                                  disabled={extraDateKeys.length >= 52}
+                                  onClick={() =>
+                                    setExtraDateKeys((current) => [
+                                      ...current,
+                                      crypto.randomUUID(),
+                                    ])
+                                  }
+                                >
+                                  ＋ 加其他日期
+                                </button>
+                              </div>
+                            )}
+
+                            {repeat && (
+                              <>
+                                <fieldset className="col-span-full">
+                                  <legend className="mb-1 text-sm font-medium">每週上課日</legend>
+                                  <div className="flex flex-wrap gap-3">
+                                    {["日", "一", "二", "三", "四", "五", "六"].map(
+                                      (day, index) => (
+                                        <label
+                                          key={day}
+                                          className="flex min-h-11 items-center gap-1"
+                                        >
+                                          <input type="checkbox" name="weekday" value={index} />
+                                          {day}
+                                        </label>
+                                      ),
+                                    )}
+                                  </div>
+                                </fieldset>
+                                <label className="col-span-full">
+                                  結束日期
+                                  <input className={field} type="date" name="until" required />
+                                </label>
+                              </>
+                            )}
+                          </div>
+                        </details>
+                      </>
                     )}
                   </form>
                 )}
@@ -1567,13 +1495,9 @@ export function CourseWorkspace({
                 form="course-schedule-form"
                 type="submit"
                 className={`${primary} w-full`}
-                disabled={
-                  pending ||
-                  !schedulePreview ||
-                  schedulePreview.dates.some((d) => d.conflict)
-                }
+                disabled={pending}
               >
-                {pending ? "建立中…" : "確認建立排課"}
+                {pending ? "處理中…" : copySource ? "確認複製課程" : "確認新增課程"}
               </button>
             </footer>
           )}
