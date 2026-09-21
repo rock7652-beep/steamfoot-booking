@@ -742,6 +742,14 @@ export function CourseWorkspace({
                       {allRooms.find((r) => r.id === s.roomId)?.name ?? "教室"}{" "}
                       · 點數卡 {s.pointCost} 點；堂數卡 1 堂 · 上限 {s.capacity} 人
                     </p>
+                    <button
+                      type="button"
+                      className={`${button} mt-2 mr-2 ${expandedSession === s.id ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+                      aria-expanded={expandedSession === s.id}
+                      onClick={() => setExpandedSession(expandedSession === s.id ? null : s.id)}
+                    >
+                      {expandedSession === s.id ? "收合點名名單" : "點名／管理名單"}
+                    </button>
                     {canCreate && (
                       <button
                         className={`${button} mt-2 mr-2`}
