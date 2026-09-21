@@ -94,7 +94,14 @@ export function CourseWorkspace({
     params = useSearchParams();
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
-  const [attendanceSessionId, setAttendanceSessionId] = useState<string | null>(params.get("session"));
+  const [courseDialog, setCourseDialog] = useState<{
+    sessionId: string;
+    kind: "roster" | "member-booking" | "trial-booking";
+  } | null>(
+    params.get("session")
+      ? { sessionId: params.get("session")!, kind: "roster" }
+      : null,
+  );
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | "inspect" | null
@@ -745,10 +752,32 @@ export function CourseWorkspace({
                     <button
                       type="button"
                       className={`${button} mt-2 mr-2 border-primary-300 bg-primary-50 text-primary-800`}
-                      onClick={() => setAttendanceSessionId(s.id)}
+                      onClick={() => setCourseDialog({ sessionId: s.id, kind: "roster" })}
                     >
-                      開啟點名名單
+                      上課名單 {s.bookings.length}
                     </button>
+                    {canCreate && (
+                      <button
+                        type="button"
+                        className={`${button} mt-2 mr-2`}
+                        onClick={() =>
+                          setCourseDialog({ sessionId: s.id, kind: "member-booking" })
+                        }
+                      >
+                        ＋ 學員預約
+                      </button>
+                    )}
+                    {canCreate && (
+                      <button
+                        type="button"
+                        className={`${button} mt-2 mr-2`}
+                        onClick={() =>
+                          setCourseDialog({ sessionId: s.id, kind: "trial-booking" })
+                        }
+                      >
+                        ＋ 體驗客
+                      </button>
+                    )}
                     {canCreate && (
                       <button
                         className={`${button} mt-2 mr-2`}
@@ -1613,46 +1642,68 @@ export function CourseWorkspace({
           )}
         </RightSheet>
       )}
-      {attendanceSessionId && sessions.find((session) => session.id === attendanceSessionId) && (() => {
-        const attendanceSession = sessions.find((session) => session.id === attendanceSessionId)!;
-        return (
-          <div
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4"
-            onClick={() => setAttendanceSessionId(null)}
-          >
-            <section
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="course-attendance-title"
-              className="flex max-h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
+      {courseDialog &&
+        sessions.find((session) => session.id === courseDialog.sessionId) &&
+        (() => {
+          const dialogSession = sessions.find(
+            (session) => session.id === courseDialog.sessionId,
+          )!;
+          const dialogTitle =
+            courseDialog.kind === "roster"
+              ? "上課名單"
+              : courseDialog.kind === "member-booking"
+                ? "＋ 學員預約"
+                : "＋ 體驗客";
+          return (
+            <div
+              className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-3 sm:p-5"
+              onClick={() => setCourseDialog(null)}
             >
-              <header className="flex shrink-0 items-center justify-between gap-4 border-b border-earth-200 bg-primary-50 px-5 py-4">
-                <div className="min-w-0">
-                  <h2 id="course-attendance-title" className="truncate text-lg font-semibold text-primary-900">
-                    {attendanceSession.nameSnapshot} · 點名名單
-                  </h2>
-                  <p className="mt-1 text-sm text-earth-600">
-                    {formatTWDateTime(new Date(attendanceSession.startsAt))} · 已預約 {attendanceSession.bookings.length}／{attendanceSession.capacity} 人
-                  </p>
+              <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="course-operation-title"
+                className={`flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)] ${
+                  courseDialog.kind === "roster" ? "max-w-6xl" : "max-w-2xl"
+                }`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-4 sm:px-5">
+                  <div className="min-w-0">
+                    <h2
+                      id="course-operation-title"
+                      className="truncate text-lg font-semibold text-primary-900"
+                    >
+                      {dialogTitle}
+                    </h2>
+                    <p className="mt-1 text-sm text-earth-600">
+                      {formatTWDateTime(new Date(dialogSession.startsAt))} ·{" "}
+                      {dialogSession.nameSnapshot}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className={button}
+                    onClick={() => setCourseDialog(null)}
+                  >
+                    關閉
+                  </button>
+                </header>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
+                  <CourseRoster
+                    key={`${dialogSession.id}-${courseDialog.kind}`}
+                    sessionId={dialogSession.id}
+                    capacity={dialogSession.capacity}
+                    canCreate={canCreate}
+                    canEdit={canEdit}
+                    view={courseDialog.kind}
+                    onDone={() => setCourseDialog(null)}
+                  />
                 </div>
-                <button type="button" className={button} onClick={() => setAttendanceSessionId(null)}>
-                  關閉
-                </button>
-              </header>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5">
-                <CourseRoster
-                  key={attendanceSession.id}
-                  sessionId={attendanceSession.id}
-                  capacity={attendanceSession.capacity}
-                  canCreate={canCreate}
-                  canEdit={canEdit}
-                />
-              </div>
-            </section>
-          </div>
-        );
-      })()}
+              </section>
+            </div>
+          );
+        })()}
     </>
   );
 }
