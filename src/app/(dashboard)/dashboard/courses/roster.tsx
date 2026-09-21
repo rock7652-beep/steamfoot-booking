@@ -73,7 +73,7 @@ export function CourseRoster({
   const [customerId, setCustomerId] = useState("");
   const [memberQuery, setMemberQuery] = useState("");
   const [trialQuery, setTrialQuery] = useState("");
-  const [trialMode, setTrialMode] = useState<"existing" | "new">("existing");
+  const [trialMode, setTrialMode] = useState<"existing" | "new">("new");
   const [message, setMessage] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [requestKey, setRequestKey] = useState("");
@@ -393,17 +393,17 @@ export function CourseRoster({
         <div className="flex gap-2">
           <button
             type="button"
-            className={`${button} ${trialMode === "existing" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
-            onClick={() => setTrialMode("existing")}
-          >
-            選擇既有顧客
-          </button>
-          <button
-            type="button"
             className={`${button} ${trialMode === "new" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
             onClick={() => setTrialMode("new")}
           >
-            ＋ 建立新體驗客
+            ＋ 新增體驗客
+          </button>
+          <button
+            type="button"
+            className={`${button} ${trialMode === "existing" ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+            onClick={() => setTrialMode("existing")}
+          >
+            已有顧客資料
           </button>
         </div>
 
