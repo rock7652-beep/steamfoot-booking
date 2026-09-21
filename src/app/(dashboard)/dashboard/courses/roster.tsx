@@ -164,8 +164,8 @@ export function CourseRoster({
           className={`${button} min-w-48 flex-1 bg-white`}
           value={rosterQuery}
           onChange={e=>{setRosterQuery(e.target.value);setPage(0);}}
-          placeholder="搜尋姓名或電話"
-          aria-label="搜尋上課名單"
+          placeholder="搜尋本堂學員姓名或電話"
+          aria-label="搜尋本堂上課名單"
         />
       </div>
 {showCancelled && <p className="rounded-lg bg-earth-50 px-3 py-2 text-sm text-earth-600">保留取消紀錄；若店長誤按，可在名額與原方案仍有效時恢復預約。</p>}
@@ -357,7 +357,15 @@ export function CourseRoster({
               );
             })}
             {!displayedRows.length && (
-              <p className="p-6 text-center text-sm text-earth-500">沒有符合條件的學員。</p>
+              <div className="p-6 text-center text-sm text-earth-500">
+                {showCancelled
+                  ? cancelledRows.length === 0
+                    ? "目前沒有已取消預約。"
+                    : "已取消預約中沒有符合條件的學員。"
+                  : activeRows.length === 0
+                    ? "本堂目前尚無預約學員，請使用「＋排課」加入學員。"
+                    : "本堂名單中沒有符合條件的學員。"}
+              </div>
             )}
           </div>
         </div>
