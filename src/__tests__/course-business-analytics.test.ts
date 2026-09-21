@@ -55,3 +55,13 @@ it("distinguishes confirmed zero profit from wholly or partly unknown profit",()
  expect(summarizeCourseBusiness({...data,purchases:[missing]})).toMatchObject({profit:0,knownProfit:0,missingProfit:1});
  expect(summarizeCourseBusiness({...data,purchases:[zero,missing]})).toMatchObject({profit:0,knownProfit:1,missingProfit:1});
 });
+
+it("lists only scoped in-period unresolved profit and ended class fees with reasons",()=>{
+ const partial={...purchase("partial","2026-09-04"),refunds:[{amount:100,createdAt:at("2026-09-05")}]};
+ const missing={...purchase("missing","2026-09-06"),developerProfitSnapshot:null};
+ const r=summarizeCourseBusiness({...data,scope:{view:"manager",person:"m1"},purchases:[partial,missing,purchase("other","2026-09-07","b","m2"),{...purchase("old","2026-08-01"),developerProfitSnapshot:null}],fees:[{sessionId:"s1",staffId:"c1",rule:{mode:"CLASS",value:0}}]});
+ expect(r.pendingProfit.map(p=>p.id)).toEqual(["partial","missing"]);
+ expect(r.pendingProfit[0].reason).toContain("部分退款");expect(r.pendingProfit[1].reason).toContain("缺少");
+ expect(r.pendingProfit).toHaveLength(r.missingProfit);
+ expect(r.pendingFees.map(s=>s.id)).toEqual(["s2"]);expect(r.pendingFees).toHaveLength(r.missingFees);
+});

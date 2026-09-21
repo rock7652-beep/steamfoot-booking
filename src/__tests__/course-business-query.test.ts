@@ -14,3 +14,14 @@ it("keeps current-period refunds from old purchases in cash flow",async()=>{m.re
 it("keeps historical money in six-month trend without changing current net receipts",async()=>{m.receipts.mockResolvedValue([{amount:500,createdAt:new Date("2026-08-10T04:00:00Z"),voidedAt:null,booking:{customerId:"a"}}]);m.refunds.mockResolvedValue([{amount:100,createdAt:new Date("2026-08-12T04:00:00Z"),purchase:{revenueStaffId:null}}]);const r=await getCourseBusinessAnalytics("a",range,{view:"store",person:"all"},{customers:false,money:true,fees:false});expect(r.netRevenue).toBe(0);expect(r.monthlyTrend.find(d=>d.date==="2026-08")?.revenue).toBe(400);expect(r.trend.every(d=>d.revenue===0)).toBe(true);expect(r.monthlyTrend).toHaveLength(12);});
 
 it("distinguishes pre-store months from covered zero months and spans calendar years",async()=>{m.storeInfo.mockResolvedValue({createdAt:new Date("2026-09-01T00:00:00Z")});const r=await getCourseBusinessAnalytics("a",range,{view:"store",person:"all"},{customers:false,money:false,fees:false});expect(r.monthlyTrend[0].date).toBe("2025-10");expect(r.monthlyTrend.filter(d=>d.available)).toHaveLength(1);expect(r.monthlyTrend.at(-1)?.attendance).toBe(0);});
+
+it("gates pending review details and strips customer identity without customer permission",async()=>{
+ m.customers.mockResolvedValue([{id:"c",name:"Private Customer",assignedStaffId:null}]);
+ m.purchases.mockResolvedValue([{id:"p",name:"Plan",customerId:"c",confirmedAt:new Date("2026-09-02T04:00:00Z"),price:100,revenueStaffId:null,developerProfitSnapshot:null,refunds:[]}]);
+ const hidden=await getCourseBusinessAnalytics("a",range,{view:"manager",person:"all"},{customers:false,money:false,fees:false});
+ expect(hidden.pendingProfit).toEqual([]);expect(hidden.pendingFees).toEqual([]);
+ const moneyOnly=await getCourseBusinessAnalytics("a",range,{view:"manager",person:"all"},{customers:false,money:true,fees:false});
+ expect(moneyOnly.pendingProfit).toHaveLength(1);expect(moneyOnly.pendingProfit[0]).toMatchObject({customerId:null,customerName:null});
+ const visible=await getCourseBusinessAnalytics("a",range,{view:"manager",person:"all"},{customers:true,money:true,fees:false});
+ expect(visible.pendingProfit[0]).toMatchObject({customerId:"c",customerName:"Private Customer"});
+});
