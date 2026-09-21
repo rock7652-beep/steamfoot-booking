@@ -92,6 +92,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     planName: card?.nameSnapshot ?? "體驗（不使用方案）",
     available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((n, b) => n + b.pointCost, 0)),
     expiresAt: card?.expiresAt.toISOString() ?? null,
-    phone: customers.find((c) => c.id === b.customerId)?.phone ?? "",\n    serviceNote: [customers.find((c) => c.id === b.customerId)?.serviceNote, customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\\n"),
+    phone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
+    serviceNote: [customers.find((c) => c.id === b.customerId)?.serviceNote, customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),
   }));
 }
