@@ -1,0 +1,27 @@
+import {beforeEach,it,expect,vi} from "vitest";
+const m=vi.hoisted(()=>({customers:vi.fn(),staff:vi.fn(),sessions:vi.fn(),purchases:vi.fn(),fees:vi.fn(),receipts:vi.fn(),refunds:vi.fn(),store:vi.fn(),storeInfo:vi.fn()}));
+vi.mock("server-only",()=>({}));
+vi.mock("@/lib/db",()=>({prisma:{store:{findUniqueOrThrow:m.storeInfo},customer:{findMany:m.customers},staff:{findMany:m.staff}}}));
+vi.mock("@/lib/industry-module-server",()=>({requireCourseStore:m.store}));
+vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:(fn:(tx:unknown)=>unknown)=>fn({courseSession:{findMany:m.sessions},coursePurchase:{findMany:m.purchases},courseCompensationSnapshot:{findMany:m.fees},courseTrialPayment:{findMany:m.receipts},coursePurchaseRefund:{findMany:m.refunds}})}}));
+import {getCourseBusinessAnalytics} from "@/server/queries/course-business-analytics";
+const range={startDate:"2026-09-01",endDate:"2026-09-03"};
+beforeEach(()=>{vi.clearAllMocks();m.storeInfo.mockResolvedValue({createdAt:new Date("2025-01-01T00:00:00Z")});for(const key of ['customers','staff','sessions','purchases','fees','receipts','refunds'] as const)m[key].mockResolvedValue([]);});
+it("scopes all reads to the store and omits customer lists and monetary fields without permission",async()=>{const r=await getCourseBusinessAnalytics("a",range,{view:"store",person:"all"},{customers:false,money:false,fees:false});expect(m.store).toHaveBeenCalledWith("a");for(const key of ['customers','staff','sessions','purchases'] as const)expect(m[key].mock.calls[0][0].where.storeId).toBe("a");expect(m.fees).not.toHaveBeenCalled();expect(m.receipts).not.toHaveBeenCalled();expect(r.segments).toBeNull();expect(r.netRevenue).toBeNull();expect(r.fee).toBeNull();expect(r.profit).toBeNull();expect(r.trend.every(d=>!("revenue" in d))).toBe(true);});
+it("rejects foreign-store staff IDs",async()=>{await expect(getCourseBusinessAnalytics("a",range,{view:"coach",person:"foreign"},{customers:true,money:false,fees:false})).rejects.toThrow("找不到本店");});
+it("keeps current-period refunds from old purchases in cash flow",async()=>{m.refunds.mockResolvedValue([{amount:200,createdAt:new Date("2026-09-02T04:00:00Z"),purchase:{revenueStaffId:null}}]);const r=await getCourseBusinessAnalytics("a",range,{view:"store",person:"all"},{customers:false,money:true,fees:false});expect(r.netRevenue).toBe(-200);expect(r.trend.find(d=>d.date==="2026-09-02")?.revenue).toBe(-200);expect(r.trend).toHaveLength(3);});
+
+it("keeps historical money in six-month trend without changing current net receipts",async()=>{m.receipts.mockResolvedValue([{amount:500,createdAt:new Date("2026-08-10T04:00:00Z"),voidedAt:null,booking:{customerId:"a"}}]);m.refunds.mockResolvedValue([{amount:100,createdAt:new Date("2026-08-12T04:00:00Z"),purchase:{revenueStaffId:null}}]);const r=await getCourseBusinessAnalytics("a",range,{view:"store",person:"all"},{customers:false,money:true,fees:false});expect(r.netRevenue).toBe(0);expect(r.monthlyTrend.find(d=>d.date==="2026-08")?.revenue).toBe(400);expect(r.trend.every(d=>d.revenue===0)).toBe(true);expect(r.monthlyTrend).toHaveLength(12);});
+
+it("distinguishes pre-store months from covered zero months and spans calendar years",async()=>{m.storeInfo.mockResolvedValue({createdAt:new Date("2026-09-01T00:00:00Z")});const r=await getCourseBusinessAnalytics("a",range,{view:"store",person:"all"},{customers:false,money:false,fees:false});expect(r.monthlyTrend[0].date).toBe("2025-10");expect(r.monthlyTrend.filter(d=>d.available)).toHaveLength(1);expect(r.monthlyTrend.at(-1)?.attendance).toBe(0);});
+
+it("gates pending review details and strips customer identity without customer permission",async()=>{
+ m.customers.mockResolvedValue([{id:"c",name:"Private Customer",assignedStaffId:null}]);
+ m.purchases.mockResolvedValue([{id:"p",name:"Plan",customerId:"c",confirmedAt:new Date("2026-09-02T04:00:00Z"),price:100,revenueStaffId:null,developerProfitSnapshot:null,refunds:[]}]);
+ const hidden=await getCourseBusinessAnalytics("a",range,{view:"manager",person:"all"},{customers:false,money:false,fees:false});
+ expect(hidden.pendingProfit).toEqual([]);expect(hidden.pendingFees).toEqual([]);
+ const moneyOnly=await getCourseBusinessAnalytics("a",range,{view:"manager",person:"all"},{customers:false,money:true,fees:false});
+ expect(moneyOnly.pendingProfit).toHaveLength(1);expect(moneyOnly.pendingProfit[0]).toMatchObject({customerId:null,customerName:null});
+ const visible=await getCourseBusinessAnalytics("a",range,{view:"manager",person:"all"},{customers:true,money:true,fees:false});
+ expect(visible.pendingProfit[0]).toMatchObject({customerId:"c",customerName:"Private Customer"});
+});

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-const m=vi.hoisted(()=>({auth:vi.fn(),permission:vi.fn(),store:vi.fn(),view:vi.fn(),feature:vi.fn(),exportFeature:vi.fn(),module:vi.fn(),plan:vi.fn(),limit:vi.fn(),analytics:vi.fn()}));
+const m=vi.hoisted(()=>({auth:vi.fn(),permission:vi.fn(),store:vi.fn(),view:vi.fn(),feature:vi.fn(),exportFeature:vi.fn(),module:vi.fn(),plan:vi.fn(),limit:vi.fn(),analytics:vi.fn(),business:vi.fn()}));
 vi.mock("@/lib/auth",()=>({auth:m.auth}));
 vi.mock("next/headers",()=>({cookies:async()=>({get:()=>({value:"cookie-store"})})}));
 vi.mock("@/lib/permissions",()=>({checkPermission:m.permission}));
@@ -12,6 +12,7 @@ vi.mock("@/lib/industry-module-server",()=>({getStoreIndustryModule:m.module}));
 vi.mock("@/lib/store-plan",()=>({getStoreForPlanByStoreId:m.plan}));
 vi.mock("@/lib/usage-gate",()=>({checkReportLimit:m.limit}));
 vi.mock("@/server/queries/course-analytics",()=>({getCourseAnalytics:m.analytics}));
+vi.mock("@/server/queries/course-business-analytics",()=>({getCourseBusinessAnalytics:m.business}));
 import { GET } from "@/app/api/export/course-analysis/route";
 const request=()=>new NextRequest("https://example.test/api/export/course-analysis?startDate=2026-09-17&endDate=2026-09-17&storeId=foreign");
 beforeEach(()=>{
@@ -50,5 +51,27 @@ describe("course analysis export authorization",()=>{
  });
  it("rejects invalid dates before querying the report",async()=>{
   expect((await GET(new NextRequest("https://example.test/api/export/course-analysis?startDate=2026-02-30&endDate=2026-03-01"))).status).toBe(400);expect(m.analytics).not.toHaveBeenCalled();
+ });
+});
+
+
+describe("business analysis export boundary",()=>{
+ const businessRequest=(extra="")=>new NextRequest(`https://example.test/api/export/course-analysis?report=business&startDate=2026-09-01&endDate=2026-09-03&${extra}`);
+ it("rejects staff requests for store-wide or other staff analysis before reading data",async()=>{
+  m.auth.mockResolvedValue({user:{role:"STAFF",staffId:"self"}});
+  expect((await GET(businessRequest("perspective=store"))).status).toBe(403);
+  expect((await GET(businessRequest("perspective=manager&person=other"))).status).toBe(403);
+  expect(m.business).not.toHaveBeenCalled();
+ });
+ it("returns not found for foreign-store staff without exposing their data",async()=>{
+  m.business.mockRejectedValue(new Error("找不到本店分析對象"));
+  expect((await GET(businessRequest("perspective=manager&person=foreign"))).status).toBe(404);
+ });
+ it("uses authorized store and keeps missing profit as pending in CSV",async()=>{
+  m.business.mockResolvedValue({staff:[],counts:{},conversionRate:null,eligibleTrials:0,sessions:0,hours:0,attendance:0,retentionRate:null,retentionBase:0,retentionRange:null,netRevenue:null,profit:0,knownProfit:0,missingProfit:2,fee:null});
+  const response=await GET(businessRequest("perspective=manager&person=all&storeId=foreign"));
+  expect(response.status).toBe(200);
+  expect(m.business).toHaveBeenCalledWith("authorized",{startDate:"2026-09-01",endDate:"2026-09-03"},{view:"manager",person:"all"},{money:true,customers:false,fees:true});
+  const csv=await response.text();expect(csv).toContain('"方案利潤已確認金額（待核對未計入）","待核對"');expect(csv).not.toContain('"收款淨額"');
  });
 });
