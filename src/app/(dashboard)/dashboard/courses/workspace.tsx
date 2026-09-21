@@ -8,6 +8,7 @@ import { CourseRoster } from "./roster";
 import { CourseTrialQuickModal } from "./course-trial-quick-modal";
 import { CourseManagerBookingModal } from "./course-manager-booking-modal";
 import { RightSheet } from "@/components/admin/right-sheet";
+import { courseButton, courseField, courseDetails, courseDetailsSummary } from "@/components/admin/course-ui";
 import {
   addTaiwanDuration,
   formatTWDateTime,
@@ -71,11 +72,9 @@ type Props = {
   cashbookShortcut?: ReactNode;
   view: "schedule" | "catalog" | "rooms";
 };
-const button =
-  "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+const button = courseButton;
 const primary = `${button} bg-primary-700 text-white`;
-const field =
-  "min-h-12 w-full rounded-xl border border-earth-200 bg-white px-3 py-2.5 text-base outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100";
+const field = courseField;
 
 export function CourseWorkspace({
   canDelete=false,
@@ -1173,8 +1172,8 @@ export function CourseWorkspace({
                         defaultValue={editing.value.capacity}
                       />
                     </label>
-                    <details className="col-span-full rounded-xl border border-earth-200 bg-earth-50/40 px-3">
-                      <summary className="flex min-h-12 cursor-pointer items-center py-3 text-sm font-medium text-earth-700">
+                    <details className={`col-span-full ${courseDetails}`}>
+                      <summary className={courseDetailsSummary}>
                         進階設定
                       </summary>
                       <label className="block pb-3">
@@ -1462,8 +1461,8 @@ export function CourseWorkspace({
                             required
                           />
                         </label>
-                        <details className="col-span-full rounded-xl border border-earth-200 bg-earth-50/40 px-3">
-                          <summary className="flex min-h-12 cursor-pointer items-center py-3 font-medium">
+                        <details className={`col-span-full ${courseDetails}`}>
+                          <summary className={courseDetailsSummary}>
                             更多排程選項
                           </summary>
                           <div className="grid grid-cols-1 gap-3 pb-3 sm:grid-cols-2">
