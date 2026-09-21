@@ -41,3 +41,17 @@ it("compares month-to-date with previous month-to-date, today with yesterday and
  expect(businessComparisonRange({startDate:"2026-03-01",endDate:"2026-03-31"},at("2026-04-01"))?.range).toEqual({startDate:"2026-02-01",endDate:"2026-02-28"});
  expect(businessComparisonRange({startDate:"2026-10-01",endDate:"2026-10-31"},at("2026-09-21"))).toBeNull();
 });
+
+it("counts same-day repeat renewals once per person while preserving separate days",()=>{
+ const r=summarizeCourseBusiness({...data,purchases:[purchase("first","2026-08-01"),purchase("r1","2026-09-05"),purchase("r2","2026-09-05"),purchase("r3","2026-09-06")]});
+ expect(r.renewal).toHaveLength(1);
+ expect(r.trend.find(d=>d.date==="2026-09-05")?.renewal).toBe(1);
+ expect(r.trend.find(d=>d.date==="2026-09-06")?.renewal).toBe(1);
+});
+it("distinguishes confirmed zero profit from wholly or partly unknown profit",()=>{
+ const zero={...purchase("zero","2026-09-04"),developerProfitSnapshot:0};
+ const missing={...purchase("missing","2026-09-05"),developerProfitSnapshot:null};
+ expect(summarizeCourseBusiness({...data,purchases:[zero]})).toMatchObject({profit:0,knownProfit:1,missingProfit:0});
+ expect(summarizeCourseBusiness({...data,purchases:[missing]})).toMatchObject({profit:0,knownProfit:0,missingProfit:1});
+ expect(summarizeCourseBusiness({...data,purchases:[zero,missing]})).toMatchObject({profit:0,knownProfit:1,missingProfit:1});
+});
