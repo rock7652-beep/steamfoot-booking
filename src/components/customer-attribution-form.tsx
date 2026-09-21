@@ -2,7 +2,9 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { updateCustomerAssignment, searchReferrerCandidates } from "@/server/actions/customer";
+import { courseField } from "@/components/admin/course-ui";
 type StaffOption = {id:string;displayName:string};
+type ReferrerCandidate = { id: string; name: string; phoneMasked: string; kind?: "CUSTOMER" | "COACH"; kindLabel?: string };
 
 export function CustomerAttributionForm({
   customerId,
@@ -14,6 +16,7 @@ export function CustomerAttributionForm({
   onSaved,
   saveAction = updateCustomerAssignment,
   searchAction = searchReferrerCandidates,
+  courseMode = false,
 }: {
   customerId: string;
   currentStaffId: string | null;
@@ -23,16 +26,15 @@ export function CustomerAttributionForm({
   readOnly?: boolean;
   onSaved?: () => void;
   saveAction?: typeof updateCustomerAssignment;
-  searchAction?: typeof searchReferrerCandidates;
+  searchAction?: (query: string, excludeCustomerId?: string) => Promise<{ success: true; data: ReferrerCandidate[] } | { success: false; error?: string }>;
+  courseMode?: boolean;
 }) {
   const [staffId, setStaffId] = useState<string>(currentStaffId ?? "");
   const [sponsor, setSponsor] = useState<{ id: string; name: string } | null>(
     currentSponsor,
   );
   const [query, setQuery] = useState("");
-  const [candidates, setCandidates] = useState<
-    Array<{ id: string; name: string; phoneMasked: string }>
-  >([]);
+  const [candidates, setCandidates] = useState<ReferrerCandidate[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,7 +68,7 @@ export function CustomerAttributionForm({
     };
   }, [query, sponsor, customerId, searchAction, canAssign, readOnly]);
 
-  function selectCandidate(c: { id: string; name: string }) {
+  function selectCandidate(c: ReferrerCandidate) {
     setSponsor({ id: c.id, name: c.name });
     setQuery("");
     setCandidates([]);
@@ -111,7 +113,7 @@ export function CustomerAttributionForm({
           </span>
         </div>
         <div>
-          <span className="text-earth-500">推薦人：</span>
+          <span className="text-earth-500">引薦人：</span>
           <span className="text-earth-800">{currentSponsor?.name ?? "—"}</span>
         </div>
         <p className="pt-1 text-[11px] text-earth-400">
@@ -132,7 +134,7 @@ export function CustomerAttributionForm({
           disabled={saving}
           value={staffId}
           onChange={(e) => setStaffId(e.target.value)}
-          className="mt-1 w-full rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"
+          className={courseMode ? `${courseField} mt-1` : "mt-1 w-full rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"}
         >
           <option value="">請選擇店長</option>
           {staffOptions.map((s) => (
@@ -145,10 +147,10 @@ export function CustomerAttributionForm({
 
       <div>
         <label className="block text-xs font-medium text-earth-600">
-          推薦人（選填）
+          引薦人（選填）
         </label>
         {sponsor ? (
-          <div className="mt-1 flex items-center justify-between rounded-md border border-earth-200 bg-earth-50 px-2 py-1.5">
+          <div className="mt-1 flex min-h-12 items-center justify-between rounded-xl border border-earth-200 bg-earth-50 px-3 py-2">
             <span className="text-sm text-earth-800">{sponsor.name}</span>
             <button
               type="button"
@@ -166,13 +168,13 @@ export function CustomerAttributionForm({
               value={query}
               disabled={saving}
               onChange={(e) => {setQuery(e.target.value);setCandidates([]);setSearched(false);setSearching(!!e.target.value.trim());setSearchError("");}}
-              placeholder="輸入推薦人姓名或手機"
-              className="w-full rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"
+              placeholder="輸入姓名或電話搜尋顧客／教練"
+              className={courseMode ? courseField : "w-full rounded-md border border-earth-300 bg-white px-2 py-1.5 text-sm"}
             />
             {searchError ? <p role="alert" className="text-sm text-red-700">{searchError}</p> : searching ? (
               <p className="text-[11px] text-earth-400">查詢中…</p>
             ) : candidates.length > 0 ? (
-              <ul className="max-h-40 divide-y divide-earth-100 overflow-auto rounded-md border border-earth-200">
+              <ul className="max-h-40 divide-y divide-earth-100 overflow-auto rounded-xl border border-earth-200 bg-white">
                 {candidates.map((c) => (
                   <li key={c.id}>
                     <button
@@ -181,7 +183,14 @@ export function CustomerAttributionForm({
                       onClick={() => selectCandidate(c)}
                       className="flex w-full items-center justify-between px-2 py-1.5 text-left hover:bg-earth-50"
                     >
-                      <span className="text-sm text-earth-800">{c.name}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-sm text-earth-800">{c.name}</span>
+                        {c.kindLabel && (
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${c.kind === "COACH" ? "bg-gold-100 text-gold-800" : "bg-primary-50 text-primary-700"}`}>
+                            {c.kindLabel}
+                          </span>
+                        )}
+                      </span>
                       <span className="tabular-nums text-[11px] text-earth-500">
                         {c.phoneMasked}
                       </span>
@@ -190,7 +199,7 @@ export function CustomerAttributionForm({
                 ))}
               </ul>
             ) : searched && query.trim() ? (
-              <p className="text-[11px] text-amber-700">找不到符合的顧客</p>
+              <p className="text-[11px] text-amber-700">找不到符合的顧客或已綁定會員身份的教練</p>
             ) : null}
           </div>
         )}
