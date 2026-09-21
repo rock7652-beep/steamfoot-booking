@@ -37,6 +37,7 @@ import { EntrySection } from "./entry-section";
 import { TodayOpenForm } from "./today-open-form";
 import { WithdrawalForm, DepositForm } from "./cash-entry-forms";
 import { CashDrawerActionForm } from "./cash-drawer-action-form";
+import { CashActionModal } from "./cash-action-modal";
 import { InlineCashbookForm } from "./inline-cashbook-form";
 
 /** ADMIN 指派登錄人用的店長清單（避免在多處重打 inline 型別）。 */
@@ -674,7 +675,13 @@ function OpenedTodayWorkspace({
         {/* A. 今日狀態卡 — 第一順位 */}
         <div className="order-1 lg:col-span-2 lg:col-start-1 lg:row-start-1">
           {!isClosed && liveTotals ? (
-            <OpenStatusCard session={session} liveTotals={liveTotals} todayStr={todayStr} />
+            <OpenStatusCard
+              session={session}
+              liveTotals={liveTotals}
+              todayStr={todayStr}
+              canClose={canClose}
+              returnPath={returnPath}
+            />
           ) : (
             <ClosedStatusCard session={session} todayStr={todayStr} />
           )}
@@ -685,8 +692,6 @@ function OpenedTodayWorkspace({
           {!isClosed && liveTotals ? (
             <DailyActionsArea
               sessionId={session.id}
-              liveTotals={liveTotals}
-              canClose={canClose}
               canAddEntry={canAddEntry}
               canCreateCashbook={canCreateCashbook}
               closedDates={closedDates}
@@ -741,10 +746,14 @@ function OpenStatusCard({
   session,
   liveTotals,
   todayStr,
+  canClose,
+  returnPath,
 }: {
   session: OpenedTodaySession;
   liveTotals: CashDrawerLiveTotals;
   todayStr: string;
+  canClose: boolean;
+  returnPath: string;
 }) {
   // 店長導向的「現金進 / 出」glance：把交易與現金帳的現金收付合併成單一數字。
   // 其他非收入異動仍在下方「今日其他異動」卡（含退款 / 提領 / 調整逐項）。
@@ -784,6 +793,17 @@ function OpenStatusCard({
         />
         <SummaryItem label="開店差額" value={`NT$ ${openingDiff.label}`} tone={openingDiff.className} />
       </dl>
+      <div className="mt-4 border-t border-earth-100 pt-3 sm:flex sm:justify-end">
+        {canClose ? (
+          <CloseDrawerAction
+            sessionId={session.id}
+            liveTotals={liveTotals}
+            returnPath={returnPath}
+          />
+        ) : (
+          <p className="text-xs text-earth-400">您沒有閉店點錢的權限。</p>
+        )}
+      </div>
     </TodayStatusCard>
   );
 }
@@ -794,6 +814,98 @@ function SummaryItem({ label, value, tone }: { label: string; value: string; ton
       <dt className="text-xs text-earth-500">{label}</dt>
       <dd className={`mt-0.5 font-medium tabular-nums ${tone}`}>{value}</dd>
     </div>
+  );
+}
+
+function CloseDrawerAction({
+  sessionId,
+  liveTotals,
+  returnPath,
+}: {
+  sessionId: string;
+  liveTotals: CashDrawerLiveTotals;
+  returnPath: string;
+}) {
+  async function handleClose(
+    _prev: ActionResult<unknown> | null,
+    formData: FormData,
+  ): Promise<ActionResult<{ sessionId: string }>> {
+    "use server";
+    return closeCashDrawerAction({
+      sessionId,
+      closingActualCash: Number(formData.get("closingActualCash")),
+      note: (formData.get("note") as string) || undefined,
+    });
+  }
+
+  return (
+    <CashActionModal
+      title="閉店點錢"
+      helper="結束今日營業，清點抽屜現金"
+      tone="primary"
+      triggerClassName="sm:w-auto sm:min-w-56"
+    >
+      <div className="space-y-4 p-4 sm:p-6">
+        <div className="rounded-lg bg-primary-50 px-3 py-2 text-sm">
+          <span className="text-earth-500">目前系統應有現金　</span>
+          <span className="font-semibold tabular-nums text-primary-900">
+            NT$ {liveTotals.expectedClosingCash.toString()}
+          </span>
+        </div>
+
+        <dl className="grid grid-cols-2 gap-3 rounded-lg bg-earth-50 px-3 py-3 text-xs sm:grid-cols-3">
+          <SummaryItem label="今日現金流入" value={`+ NT$ ${liveTotals.cashIncomeTotal.add(liveTotals.cashbookCashIncome).toString()}`} tone="text-green-700" />
+          <SummaryItem label="今日現金支出" value={`− NT$ ${liveTotals.cashExpenseTotal.add(liveTotals.cashbookCashOut).toString()}`} tone="text-orange-700" />
+          <SummaryItem label="今日提領" value={`− NT$ ${liveTotals.cashWithdrawalTotal.toString()}`} tone="text-orange-700" />
+          <SummaryItem label="今日補入" value={`+ NT$ ${liveTotals.cashDepositTotal.toString()}`} tone="text-green-700" />
+          <SummaryItem label="現金調整" value={`NT$ ${liveTotals.cashAdjustmentTotal.toString()}`} tone="text-earth-700" />
+        </dl>
+
+        <div className="rounded-lg border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-semibold text-amber-900">閉店前確認</p>
+          <p className="mt-1 text-sm text-amber-900">
+            若有提領、補入或調整，請先完成登錄；閉店後今日現金異動會鎖定。
+          </p>
+        </div>
+
+        <CashDrawerActionForm
+          action={handleClose}
+          returnPath={returnPath}
+          submitLabel="完成今日閉店點錢"
+          successPendingLabel="已閉店，跳轉中…"
+          submitClassName="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
+          className="space-y-4"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-earth-700">
+                實際點到金額（NT$）
+              </label>
+              <input
+                type="number"
+                name="closingActualCash"
+                required
+                min={0}
+                step={1}
+                className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                placeholder={`例如 ${liveTotals.expectedClosingCash.toString()}`}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-earth-700">
+                差額原因（有差額時必填）
+              </label>
+              <textarea
+                name="note"
+                rows={2}
+                className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                placeholder="若與系統應有金額不同，請說明原因"
+              />
+            </div>
+          </div>
+        </CashDrawerActionForm>
+      </div>
+    </CashActionModal>
   );
 }
 
@@ -862,14 +974,12 @@ function ClosedStatusCard({
 }
 
 // ============================================================
-// 日常操作區（PR-G5.1a）— 營業中 4 顆大按鈕：記收入 / 提領 / 補入 / 閉店點錢
-// 提領 / 補入 / 閉店 用 <details> 大按鈕原地展開既有表單（零 client state）。
+// 日常操作區 — 右欄只放記收支 / 提領 / 補入三個入口。
+// 閉店點錢移到今日現金狀態卡；所有表單都使用寬版操作視窗。
 // ============================================================
 
 function DailyActionsArea({
   sessionId,
-  liveTotals,
-  canClose,
   canAddEntry,
   canCreateCashbook,
   closedDates,
@@ -879,8 +989,6 @@ function DailyActionsArea({
   returnPath,
 }: {
   sessionId: string;
-  liveTotals: CashDrawerLiveTotals;
-  canClose: boolean;
   canAddEntry: boolean;
   canCreateCashbook: boolean;
   closedDates: string[];
@@ -919,18 +1027,6 @@ function DailyActionsArea({
     });
   }
 
-  async function handleClose(
-    _prev: ActionResult<unknown> | null,
-    formData: FormData,
-  ): Promise<ActionResult<{ sessionId: string }>> {
-    "use server";
-    return closeCashDrawerAction({
-      sessionId,
-      closingActualCash: Number(formData.get("closingActualCash")),
-      note: (formData.get("note") as string) || undefined,
-    });
-  }
-
   return (
     <div className="rounded-xl border border-earth-200 bg-white p-4">
       <h2 className="text-base font-semibold text-earth-900">日常操作</h2>
@@ -938,135 +1034,50 @@ function DailyActionsArea({
         記收支走現金帳；提領 / 補入只影響現金抽屜，不算營收或費用。
       </p>
 
-      {/* iPad（sm/md）full width → 2 欄大按鈕；桌機（lg）操作沉到 1/3 右欄 → 改回單欄直列，當作操作入口清單 */}
+      {/* 右欄只保留三個常用入口；表單改在寬版視窗完成，避免窄欄展開變得又長又擠。 */}
       <div data-cash-actions className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
-        {/* 1. 記一筆收支 — 原地展開現金帳 inline form（收入 / 支出），重用
+        {/* 1. 記一筆收支 — 操作視窗內重用現金帳表單（收入 / 支出），
             createCashbookEntry。受 cashbook.create 把關，與 cashDrawer.* 分開；
             類型限 INCOME / EXPENSE（提領走下方「提領」/ cashDrawer.entry）。 */}
         {canCreateCashbook ? (
-          <details className="group rounded-xl border border-earth-200 bg-white">
-            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none sm:min-h-[52px] hover:bg-primary-50 group-open:rounded-b-none">
-              <span className="text-sm font-semibold text-earth-900">記一筆收支</span>
-              <span className="mt-0.5 text-xs text-earth-500">商品收入、店內支出、非現金紀錄</span>
-            </summary>
-            <div className="border-t border-earth-200">
-              <InlineCashbookForm
+          <CashActionModal title="記一筆收支" helper="商品收入、店內支出、非現金紀錄">
+            <InlineCashbookForm
                 action={handleAddCashbookEntry}
                 returnPath={returnPath}
                 today={todayStr}
                 closedDates={closedDates}
                 canAssignStaff={canAssignStaff}
                 staffOptions={staffOptions}
-              />
-            </div>
-          </details>
+            />
+          </CashActionModal>
         ) : (
           <ActionDisabledCard title="記一筆收支" helper="您沒有新增現金帳的權限。" />
         )}
 
-        {/* 2. 提領 — 原地展開 */}
+        {/* 2. 提領 */}
         {canAddEntry ? (
-          <details className="group rounded-xl border border-earth-200 bg-white sm:col-span-1">
-            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none sm:min-h-[52px] hover:bg-orange-50 group-open:rounded-b-none">
-              <span className="text-sm font-semibold text-earth-900">提領</span>
-              <span className="mt-0.5 text-xs text-earth-500">現金從抽屜拿出去（不算店內支出）</span>
-            </summary>
-            <div className="border-t border-earth-200">
-              <WithdrawalForm action={handleAddWithdrawal} returnPath={returnPath} />
-            </div>
-          </details>
+          <CashActionModal
+            title="提領現金"
+            helper="現金從抽屜拿出去（不算店內支出）"
+            tone="orange"
+          >
+            <WithdrawalForm action={handleAddWithdrawal} returnPath={returnPath} />
+          </CashActionModal>
         ) : (
           <ActionDisabledCard title="提領" helper="您沒有現金異動的權限。" />
         )}
 
-        {/* 3. 補入現金 — 原地展開 */}
+        {/* 3. 補入現金 */}
         {canAddEntry ? (
-          <details className="group rounded-xl border border-earth-200 bg-white">
-            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none sm:min-h-[52px] hover:bg-green-50 group-open:rounded-b-none">
-              <span className="text-sm font-semibold text-earth-900">補入現金</span>
-              <span className="mt-0.5 text-xs text-earth-500">找零金、備用金、保險箱補現金</span>
-            </summary>
-            <div className="border-t border-earth-200">
-              <DepositForm action={handleAddDeposit} returnPath={returnPath} />
-            </div>
-          </details>
+          <CashActionModal
+            title="補入現金"
+            helper="找零金、備用金、保險箱補現金"
+            tone="green"
+          >
+            <DepositForm action={handleAddDeposit} returnPath={returnPath} />
+          </CashActionModal>
         ) : (
           <ActionDisabledCard title="補入現金" helper="您沒有現金異動的權限。" />
-        )}
-
-        {/* 4. 閉店點錢 — 原地展開（含閉店前確認） */}
-        {canClose ? (
-          <details className="group rounded-xl border border-primary-200 bg-primary-50/40">
-            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none sm:min-h-[52px] hover:bg-primary-50 group-open:rounded-b-none">
-              <span className="text-sm font-semibold text-primary-900">閉店點錢</span>
-              <span className="mt-0.5 text-xs text-primary-700">
-                結束今日營業，清點抽屜現金
-              </span>
-            </summary>
-            <div className="space-y-4 border-t border-primary-200 p-4">
-              <div className="rounded-lg bg-white px-3 py-2 text-sm">
-                <span className="text-earth-500">目前系統應有現金　</span>
-                <span className="font-semibold tabular-nums text-primary-900">
-                  NT$ {liveTotals.expectedClosingCash.toString()}
-                </span>
-              </div>
-
-              <dl className="grid grid-cols-2 gap-2 rounded-lg bg-white px-3 py-2 text-xs sm:grid-cols-3">
-                <SummaryItem label="今日現金流入" value={`+ NT$ ${liveTotals.cashIncomeTotal.add(liveTotals.cashbookCashIncome).toString()}`} tone="text-green-700" />
-                <SummaryItem label="今日現金支出" value={`− NT$ ${liveTotals.cashExpenseTotal.add(liveTotals.cashbookCashOut).toString()}`} tone="text-orange-700" />
-                <SummaryItem label="今日提領" value={`− NT$ ${liveTotals.cashWithdrawalTotal.toString()}`} tone="text-orange-700" />
-                <SummaryItem label="今日補入" value={`+ NT$ ${liveTotals.cashDepositTotal.toString()}`} tone="text-green-700" />
-                <SummaryItem label="現金調整" value={`NT$ ${liveTotals.cashAdjustmentTotal.toString()}`} tone="text-earth-700" />
-              </dl>
-
-              {/* 閉店前確認提醒（避免誤按閉店無法補登異動）*/}
-              <div className="rounded-lg border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-3">
-                <p className="text-base font-semibold text-amber-900">閉店前確認</p>
-                <ul className="mt-2 space-y-1 text-sm text-amber-900">
-                  <li>· 若今日沒有提領、補入或調整，可直接閉店。</li>
-                  <li>· 若有，請先完成登錄後再閉店。</li>
-                  <li>· 閉店後今日紀錄將鎖定，無法再新增現金異動。</li>
-                </ul>
-              </div>
-
-              <CashDrawerActionForm
-                action={handleClose}
-                returnPath={returnPath}
-                submitLabel="完成今日閉店點錢"
-                successPendingLabel="已閉店，跳轉中…"
-                submitClassName="min-h-[44px] w-full bg-primary-600 text-base text-white hover:bg-primary-700"
-                className="space-y-4"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-earth-700">
-                    實際點到金額（NT$）
-                  </label>
-                  <input
-                    type="number"
-                    name="closingActualCash"
-                    required
-                    min={0}
-                    step={1}
-                    className="mt-1 block min-h-[44px] w-full rounded-lg border border-earth-300 px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                    placeholder={`例如 ${liveTotals.expectedClosingCash.toString()}`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-earth-700">
-                    差額原因（若與系統應有不同必填）
-                  </label>
-                  <textarea
-                    name="note"
-                    rows={2}
-                    className="mt-1 block w-full rounded-lg border border-earth-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
-                    placeholder="若實際金額與系統應有金額不同，請說明原因"
-                  />
-                </div>
-              </CashDrawerActionForm>
-            </div>
-          </details>
-        ) : (
-          <ActionDisabledCard title="閉店點錢" helper="您沒有閉店點錢的權限。" />
         )}
       </div>
 
@@ -1146,12 +1157,12 @@ function ClosedActionsArea({
           </span>
         </div>
         {canReopen && (
-          <details className="group rounded-xl border border-amber-200 bg-amber-50/40">
-            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none hover:bg-amber-50 group-open:rounded-b-none">
-              <span className="text-sm font-semibold text-amber-900">撤銷閉店</span>
-              <span className="mt-0.5 text-xs text-amber-700">金額輸入錯誤時，恢復營業中重新結帳</span>
-            </summary>
-            <div className="space-y-3 border-t border-amber-200 p-3">
+          <CashActionModal
+            title="撤銷閉店"
+            helper="金額輸入錯誤時，恢復營業中重新結帳"
+            tone="amber"
+          >
+            <div className="space-y-3 p-4 sm:p-6">
               <p className="text-xs text-amber-800">
                 僅能在下一個營業日尚未開店前撤銷；操作原因與原閉店資料會保留。
               </p>
@@ -1176,20 +1187,16 @@ function ClosedActionsArea({
                 </div>
               </CashDrawerActionForm>
             </div>
-          </details>
+          </CashActionModal>
         )}
         {/* 補登：原地展開現金帳 inline form（與營業中共用）。今日已結帳 →
             CashbookFormFields 顯示「補紀錄」提示；選現金時要求勾選確認，
             後端 createCashbookEntry 用 confirmClosedCashbookChange 再次把關。 */}
         {canCreateCashbook ? (
-          <details className="group rounded-xl border border-earth-200 bg-white">
-            <summary className="flex min-h-[44px] cursor-pointer list-none flex-col justify-center rounded-xl px-3 py-2.5 select-none sm:min-h-[52px] hover:bg-primary-50 group-open:rounded-b-none">
-              <span className="text-sm font-semibold text-earth-900">記一筆收支（補登）</span>
-              <span className="mt-0.5 text-xs text-earth-500">
-                補登只留紀錄，不會改變今天的結帳金額
-              </span>
-            </summary>
-            <div className="border-t border-earth-200">
+          <CashActionModal
+            title="記一筆收支（補登）"
+            helper="補登只留紀錄，不會改變今天的結帳金額"
+          >
               <InlineCashbookForm
                 action={handleAddCashbookEntry}
                 returnPath={returnPath}
@@ -1198,8 +1205,7 @@ function ClosedActionsArea({
                 canAssignStaff={canAssignStaff}
                 staffOptions={staffOptions}
               />
-            </div>
-          </details>
+          </CashActionModal>
         ) : (
           <ActionDisabledCard title="記一筆收支（補登）" helper="您沒有新增現金帳的權限。" />
         )}
