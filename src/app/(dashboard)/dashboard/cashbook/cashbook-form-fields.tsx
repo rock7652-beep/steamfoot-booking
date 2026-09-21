@@ -37,6 +37,8 @@ interface Props {
   defaultAmount: string;
   defaultPaymentMethod: PaymentMethod | null;
   allowedTypes?: CashbookEntryType[];
+  /** 快速操作視窗使用：移除巢狀卡片，縮短表單。 */
+  compact?: boolean;
 }
 
 const inputCls =
@@ -58,6 +60,7 @@ export function CashbookFormFields({
   defaultAmount,
   defaultPaymentMethod,
   allowedTypes = ALL_TYPES,
+  compact = false,
 }: Props) {
   const [entryDate, setEntryDate] = useState(defaultEntryDate);
   const [entryType, setEntryType] = useState<CashbookEntryType>(defaultType);
@@ -76,7 +79,7 @@ export function CashbookFormFields({
 
   return (
     <>
-      <FormSection title="基本資料" description="日期、類型、金額為必填">
+      <FormSection title="基本資料" description="日期、類型、金額為必填" compact={compact}>
         <FormGrid>
           <div>
             <label className={labelCls}>日期</label>
@@ -211,7 +214,11 @@ export function CashbookFormFields({
         </FormGrid>
       </FormSection>
 
-      <FormSection title="付款方式" description="請選擇此筆現金帳的收付方式（必選）">
+      <FormSection
+        title="付款方式"
+        description="請選擇此筆現金帳的收付方式（必選）"
+        compact={compact}
+      >
         <div className="grid grid-cols-2 gap-3">
           <label className="cursor-pointer">
             <input

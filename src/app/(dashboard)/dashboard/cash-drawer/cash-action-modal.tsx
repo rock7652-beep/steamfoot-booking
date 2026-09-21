@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 type Tone = "default" | "orange" | "green" | "primary" | "amber";
 
@@ -84,9 +85,9 @@ export function CashActionModal({
         <span className="mt-0.5 text-xs text-earth-500">{helper}</span>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-end bg-black/35 sm:items-center sm:justify-center sm:p-5"
+          className="fixed inset-0 z-[100] flex items-end bg-black/35 sm:items-center sm:justify-center sm:p-5"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) requestClose();
           }}
@@ -121,7 +122,8 @@ export function CashActionModal({
               {children}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
