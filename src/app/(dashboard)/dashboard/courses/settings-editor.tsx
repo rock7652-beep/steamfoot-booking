@@ -1,4 +1,5 @@
 "use client";
+import { courseField } from "@/components/admin/course-ui";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveCourseSettings } from "@/server/actions/course-settings";
@@ -18,7 +19,7 @@ export function CourseSettingsEditor({
   const [pending, start] = useTransition(),
     [message, setMessage] = useState("");
   const router = useRouter();
-  const field = "mt-1 min-h-11 w-full rounded-lg border border-earth-200 p-2";
+  const field = `${courseField} mt-1`;
   return (
     <form
       className="max-w-xl space-y-4 rounded-lg border bg-white p-4"
