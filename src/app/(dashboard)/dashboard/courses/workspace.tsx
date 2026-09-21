@@ -5,6 +5,7 @@ import {CourseConflicts,type ConflictItem} from "@/components/admin/course-confl
 import { useState, useTransition, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
+import { CourseTrialQuickModal } from "./course-trial-quick-modal";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
   addTaiwanDuration,
@@ -94,7 +95,8 @@ export function CourseWorkspace({
     params = useSearchParams();
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
-  const [expandedSession, setExpandedSession] = useState<string | null>(params.get("session"));
+  const [rosterSessionId, setRosterSessionId] = useState<string | null>(null);
+  const [trialModalOpen, setTrialModalOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | "inspect" | null
@@ -298,7 +300,7 @@ export function CourseWorkspace({
                     disabled={pending}
                     onClick={openSchedule}
                   >
-                    ＋ 排課
+                    ＋ 新增課程
                   </button>
                 )}
               </div>
@@ -359,10 +361,10 @@ export function CourseWorkspace({
             </select></label>
           </div>
           <div
-            className="overflow-hidden rounded-lg border border-earth-200 bg-white"
+            className="min-h-[360px] overflow-hidden rounded-lg border border-earth-200 bg-white sm:h-[clamp(430px,58dvh,650px)]"
             aria-busy={pending}
           >
-            <div className="grid grid-cols-7">
+            <div className="grid h-full grid-cols-7 auto-rows-fr">
               {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
                 <div
                   key={day}
@@ -389,7 +391,7 @@ export function CourseWorkspace({
                       go(date);
                       open("day");
                     }}
-                    className={`flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
+                    className={`flex min-w-0 min-h-12 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:min-h-0 sm:px-2 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
                   >
                     <span className="shrink-0 text-xs leading-4">{i + 1}</span>
                     {list.length > 0 && <span className="mt-1 text-xs font-medium sm:hidden">{list.length} 堂</span>}
@@ -646,7 +648,8 @@ export function CourseWorkspace({
           compact
           open
           onClose={closePanel}
-          width={520}
+          width={view === "schedule" && panel !== "day" ? 720 : 520}
+          variant={view === "schedule" && panel !== "day" ? "modal" : "right"}
           labelledById="course-panel-title"
         >
           <div
@@ -666,7 +669,7 @@ export function CourseWorkspace({
             >
               {panel === "edit"
                 ? editing?.kind === "session"
-                  ? "編輯單堂排課"
+                  ? "編輯課程"
                   : editing?.kind === "room"
                     ? "編輯教室"
                     : copyTemplate ? "複製課程" : "編輯課程"
@@ -676,8 +679,8 @@ export function CourseWorkspace({
                     : "新增課程"
                   : panel === "schedule"
                     ? copySource
-                      ? "複製排課"
-                      : "新增排課"
+                      ? "複製課程"
+                      : "新增課程"
                     : selectedDate}
             </h2>
             {
@@ -710,73 +713,80 @@ export function CourseWorkspace({
             )}
             {panel === "day" && (
               <>
-                <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">{(byDate.get(selectedDate) ?? []).length} 堂課 · 共 {new Set((byDate.get(selectedDate) ?? []).flatMap((s) => s.bookings.map((b) => b.customerId))).size} 人 · {(byDate.get(selectedDate) ?? []).reduce((n, s) => n + s.bookings.length, 0)} 人次</p>
-                {canCreate && (
-                  <button
-                    className={primary}
-                    onClick={openSchedule}
-                    disabled={pending}
-                  >
-                    ＋ 排課
-                  </button>
-                )}
-                {(byDate.get(selectedDate) ?? []).length === 0 && (
-                  <p className="text-earth-500">當日尚無課程</p>
-                )}
-                {(byDate.get(selectedDate) ?? []).map((s, index) => (
-                  <div key={s.id} className="rounded-xl border border-earth-200 p-3">
-                    <p className="mb-1 text-sm font-semibold text-primary-700">當日第 {index + 1} 堂</p>
-                    <h3 className="font-medium"><button className="min-h-11 text-left text-primary-800" aria-expanded={expandedSession === s.id} onClick={() => setExpandedSession(expandedSession === s.id ? null : s.id)}>
-                      {formatTWDateTime(new Date(s.startsAt)).slice(11)}–
-                      {formatTWDateTime(new Date(s.endsAt)).slice(0, 10) !==
-                      selectedDate
-                        ? "翌日 "
-                        : ""}
-                      {formatTWDateTime(new Date(s.endsAt)).slice(11)}　
-                      {s.nameSnapshot} · {s.bookings.length}／{s.capacity} 人 {expandedSession === s.id ? "▾" : "▸"}
-                    </button></h3>
-                    <p className="mt-1 text-sm text-earth-600">
-                      {allCoaches.find((c) => c.id === s.coachId)
-                        ?.displayName ?? "教練"}{" "}
-                      ·{" "}
-                      {allRooms.find((r) => r.id === s.roomId)?.name ?? "教室"}{" "}
-                      · 點數卡 {s.pointCost} 點；堂數卡 1 堂 · 上限 {s.capacity} 人
-                    </p>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2">
+                  <p className="text-sm text-primary-800">
+                    {(byDate.get(selectedDate) ?? []).length} 堂課 · 共 {new Set((byDate.get(selectedDate) ?? []).flatMap((s) => s.bookings.map((b) => b.customerId))).size} 人 · {(byDate.get(selectedDate) ?? []).reduce((n, s) => n + s.bookings.length, 0)} 人次
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {canCreate && (
+                      <button className={primary} onClick={openSchedule} disabled={pending}>
+                        ＋ 新增課程
+                      </button>
+                    )}
                     {canCreate && (
                       <button
-                        className={`${button} mt-2 mr-2`}
-                        disabled={pending}
-                        onClick={() => {
-                          setCopySource(s);
-                          setChosen(s.templateId);
-                          setRepeat(false);
-                          setRequestKey(crypto.randomUUID());
-                          open("schedule");
-                        }}
+                        className={button}
+                        onClick={() => setTrialModalOpen(true)}
+                        disabled={pending || (byDate.get(selectedDate) ?? []).length === 0}
                       >
-                        複製排課
+                        ＋ 體驗客
                       </button>
                     )}
-                    {canEdit && (
-                      <button
-                        className={`${button} mt-2`}
-                        disabled={pending}
-                        onClick={() => {
-                          setEditTemplateId(s.templateId);setEditing({ kind: "session", value: s });
-                          open("edit");
-                        }}
-                      >
-                        編輯排課
-                      </button>
-                    )}
-                    {expandedSession === s.id && <CourseRoster
-                      sessionId={s.id}
-                      capacity={s.capacity}
-                      canCreate={canCreate}
-                      canEdit={canEdit}
-                    />}
                   </div>
-                ))}
+                </div>
+                {(byDate.get(selectedDate) ?? []).length === 0 && (
+                  <p className="py-8 text-center text-earth-500">當日尚無課程</p>
+                )}
+                <div className="space-y-2">
+                  {(byDate.get(selectedDate) ?? []).map((s, index) => (
+                    <article key={s.id} className="rounded-xl border border-earth-200 bg-white p-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-earth-500">當日第 {index + 1} 堂</p>
+                        <h3 className="mt-1 font-medium text-primary-900">
+                          {formatTWDateTime(new Date(s.startsAt)).slice(11)}–
+                          {formatTWDateTime(new Date(s.endsAt)).slice(0, 10) !== selectedDate ? "翌日 " : ""}
+                          {formatTWDateTime(new Date(s.endsAt)).slice(11)}　{s.nameSnapshot}
+                        </h3>
+                        <p className="mt-1 text-sm text-earth-600">
+                          {allCoaches.find((c) => c.id === s.coachId)?.displayName ?? "教練"} · {allRooms.find((r) => r.id === s.roomId)?.name ?? "教室"} · {s.bookings.length}/{s.capacity} 人
+                        </p>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button className={button} disabled={pending} onClick={() => setRosterSessionId(s.id)}>
+                          上課名單 {s.bookings.length}
+                        </button>
+                        {canEdit && (
+                          <button
+                            className={button}
+                            disabled={pending}
+                            onClick={() => {
+                              setEditTemplateId(s.templateId);
+                              setEditing({ kind: "session", value: s });
+                              open("edit");
+                            }}
+                          >
+                            編輯課程
+                          </button>
+                        )}
+                        {canCreate && (
+                          <button
+                            className={button}
+                            disabled={pending}
+                            onClick={() => {
+                              setCopySource(s);
+                              setChosen(s.templateId);
+                              setRepeat(false);
+                              setRequestKey(crypto.randomUUID());
+                              open("schedule");
+                            }}
+                          >
+                            複製課程
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </>
             )}
             <CourseConflicts items={conflicts}/>
@@ -1612,6 +1622,48 @@ export function CourseWorkspace({
           )}
         </RightSheet>
       )}
+      {rosterSessionId && (() => {
+        const rosterSession = sessions.find((session) => session.id === rosterSessionId);
+        if (!rosterSession) return null;
+        return (
+          <RightSheet
+            compact
+            open
+            variant="modal"
+            width={980}
+            onClose={() => setRosterSessionId(null)}
+            labelledById="course-roster-modal-title"
+          >
+            <header className="flex items-center justify-between border-b border-earth-200 bg-primary-50/60 px-5 py-3">
+              <div>
+                <h2 id="course-roster-modal-title" className="font-semibold text-primary-900">上課名單</h2>
+                <p className="mt-1 text-sm text-earth-600">
+                  {formatTWDateTime(new Date(rosterSession.startsAt)).slice(0,16)} · {rosterSession.nameSnapshot}
+                </p>
+              </div>
+              <button className={button} onClick={() => setRosterSessionId(null)}>關閉</button>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <CourseRoster
+                sessionId={rosterSession.id}
+                capacity={rosterSession.capacity}
+                canCreate={canCreate}
+                canEdit={canEdit}
+                compactOnly
+              />
+            </div>
+          </RightSheet>
+        );
+      })()}
+      <CourseTrialQuickModal
+        open={trialModalOpen}
+        sessions={(byDate.get(selectedDate) ?? []).map((session) => ({
+          id: session.id,
+          nameSnapshot: session.nameSnapshot,
+          startsAt: session.startsAt,
+        }))}
+        onClose={() => setTrialModalOpen(false)}
+      />
     </>
   );
 }
