@@ -87,6 +87,13 @@ export function DigitalButlerLeadList({
   const [pending, startTransition] = useTransition();
   const [filterPending, startFilterTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = [selectedStatus, selectedStaffId, selectedProvider].filter(Boolean).length;
+  const activeFilterLabels = [
+    selectedStatus ? LABELS[selectedStatus as DigitalButlerLeadStatus] : null,
+    selectedStaffId ? staff.find((item) => item.id === selectedStaffId)?.displayName : null,
+    selectedProvider ? DIGITAL_BUTLER_PROVIDER_FILTERS.find((item) => item.value === selectedProvider)?.label : null,
+  ].filter((label): label is string => !!label);
 
   useEffect(() => {
     if (!focusedLeadId) return;
@@ -112,40 +119,54 @@ export function DigitalButlerLeadList({
           <p className="mt-0.5 text-xs text-amber-700">選擇負責人並儲存，就代表已接手，也不會再列入每日提醒。</p>
         </div>
       )}
-      <div className="flex flex-wrap gap-2 rounded-xl border border-earth-200 bg-white p-3">
-        <select
-          aria-label="狀態篩選"
-          disabled={filterPending}
-          value={selectedStatus}
-          onChange={(event) => filter("status", event.target.value)}
-          className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
-        >
-          <option value="">全部狀態</option>
-          {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{LABELS[status]}</option>)}
-        </select>
-        <select
-          aria-label="負責人篩選"
-          disabled={filterPending}
-          value={selectedStaffId}
-          onChange={(event) => filter("staff", event.target.value)}
-          className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
-        >
-          <option value="">全部負責人</option>
-          {staff.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
-        </select>
-        <select
-          disabled={filterPending}
-          value={selectedProvider}
-          onChange={(event) => filter("provider", event.target.value)}
-          className="h-9 rounded-lg border border-earth-200 bg-white px-3 text-sm"
-          aria-label="來源篩選"
-        >
-          <option value="">全部來源</option>
-          {DIGITAL_BUTLER_PROVIDER_FILTERS.map((provider) => (
-            <option key={provider.value} value={provider.value}>{provider.label}</option>
-          ))}
-        </select>
-        <span role="status" className="self-center text-xs text-earth-500">{filterPending ? "篩選中…" : `共 ${leads.length} 筆`}</span>
+      <div className="space-y-2 rounded-xl border border-earth-200 bg-white p-3">
+        <div className="flex min-h-11 items-center justify-between gap-3">
+          <span role="status" className="text-sm text-earth-500">{filterPending ? "篩選中…" : `共 ${leads.length} 筆名單`}</span>
+          <button
+            type="button"
+            aria-expanded={filtersOpen}
+            aria-controls="digital-butler-filters"
+            onClick={() => setFiltersOpen((open) => !open)}
+            className="min-h-11 rounded-lg border border-earth-200 bg-white px-4 text-sm font-medium text-earth-700 hover:border-primary-400 hover:text-primary-700"
+          >
+            篩選{activeFilterCount > 0 ? `（${activeFilterCount}）` : ""}
+          </button>
+        </div>
+        {!filtersOpen && activeFilterLabels.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5" aria-label="目前篩選條件">
+            {activeFilterLabels.map((label) => <span key={label} className="rounded-full bg-primary-50 px-2.5 py-1 text-xs text-primary-700">{label}</span>)}
+          </div>
+        ) : null}
+        {filtersOpen ? (
+          <div id="digital-butler-filters">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>處理狀態</span>
+                <select aria-label="狀態篩選" disabled={filterPending} value={selectedStatus} onChange={(event) => filter("status", event.target.value)} className="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 text-sm">
+                  <option value="">全部狀態</option>
+                  {STATUS_OPTIONS.map((status) => <option key={status} value={status}>{LABELS[status]}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>負責人</span>
+                <select aria-label="負責人篩選" disabled={filterPending} value={selectedStaffId} onChange={(event) => filter("staff", event.target.value)} className="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 text-sm">
+                  <option value="">全部負責人</option>
+                  {staff.map((item) => <option key={item.id} value={item.id}>{item.displayName}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>名單來源</span>
+                <select disabled={filterPending} value={selectedProvider} onChange={(event) => filter("provider", event.target.value)} className="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 text-sm" aria-label="來源篩選">
+                  <option value="">全部來源</option>
+                  {DIGITAL_BUTLER_PROVIDER_FILTERS.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-lg border border-earth-200 bg-white px-4 text-sm text-earth-700 hover:border-primary-400">完成</button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
