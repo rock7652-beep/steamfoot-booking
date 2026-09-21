@@ -9,7 +9,8 @@ import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook } from "@/se
 type Data = Awaited<ReturnType<typeof fetchQuickCashbook>>;
 type Entry = Data["entries"][number];
 const button = "min-h-11 rounded-lg border border-earth-200 bg-white px-4 py-2 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-200 hover:bg-primary-50 disabled:opacity-50";
-const input = "mt-1 w-full rounded-lg border border-earth-200 bg-white p-3 text-base text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
+const input = "mt-1 block h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-0 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
+const textarea = "mt-1 block min-h-28 w-full rounded-lg border border-earth-200 bg-white p-3 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
 const money = (value: number) => `NT$ ${value.toLocaleString("zh-TW")}`;
 
 export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; triggerClassName?: string }) {
@@ -79,7 +80,7 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
               <label className="text-sm font-medium text-earth-700">金額<input name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required defaultValue={entry?.amount ?? ""} className={input} /></label>
               <label className="col-span-2 text-sm font-medium text-earth-700">分類<input name="category" defaultValue={entry?.category ?? ""} placeholder="例如：耗材、清潔用品、其他收入" className={input} /></label>
               <label className="col-span-2 text-sm font-medium text-earth-700">付款方式<select name="paymentMethod" required defaultValue={entry?.paymentMethod ?? ""} className={input}><option value="" disabled>請選擇</option><option value="CASH">現金</option><option value="OTHER">其他（轉帳／非現金）</option></select></label>
-              <label className="col-span-2 text-sm font-medium text-earth-700">備註<textarea name="note" rows={3} defaultValue={entry?.note ?? ""} className={input} /></label>
+              <label className="col-span-2 text-sm font-medium text-earth-700">備註<textarea name="note" rows={3} defaultValue={entry?.note ?? ""} className={textarea} /></label>
               {data.closedDates.length > 0 && <label className="col-span-2 rounded-lg border border-gold-200 bg-gold-50 p-3 text-sm text-gold-800"><input type="checkbox" name="confirmClosedCashbookChange" /> 我知道今日已結帳，這只是補紀錄，不會重算關帳快照。</label>}
             </fieldset>
             <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div>
