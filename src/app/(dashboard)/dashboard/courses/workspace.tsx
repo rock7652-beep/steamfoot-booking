@@ -667,12 +667,12 @@ export function CourseWorkspace({
               : panel === "day"
                 ? 520
                 : panel === "edit" && editing?.kind === "session"
-                  ? 580
+                  ? 600
                   : panel === "schedule" && copySource
                     ? 500
                     : panel === "schedule"
-                      ? 620
-                      : 620
+                      ? 600
+                      : 600
           }
           variant={view === "schedule" && panel !== "day" ? "modal" : "right"}
           labelledById="course-panel-title"
