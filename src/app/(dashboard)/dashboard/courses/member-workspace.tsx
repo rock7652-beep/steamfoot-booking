@@ -227,7 +227,7 @@ export function CourseMemberWorkspace({
           <button
             className={button}
             disabled={!people.length || !plans.some((p) => p.isActive)}
-            onClick={() => { setPerson(null); setRevenueStaffId(""); open("assign"); }}
+            onClick={() => { setPerson(null); open("assign"); setRevenueStaffId(""); }}
           >
             指派方案
           </button>
