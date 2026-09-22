@@ -188,9 +188,13 @@ export function CourseRoster({
     [cards],
   );
   const normalizedMemberQuery = memberQuery.trim().toLocaleLowerCase();
+  const normalizedMemberPhoneQuery = memberQuery.replace(/\D/g, "");
   const filteredLearners = normalizedMemberQuery
-    ? learners.filter((member) =>
-        member.name.toLocaleLowerCase().includes(normalizedMemberQuery),
+    ? learners.filter(
+        (member) =>
+          member.name.toLocaleLowerCase().includes(normalizedMemberQuery) ||
+          (normalizedMemberPhoneQuery &&
+            member.phone.replace(/\D/g, "").includes(normalizedMemberPhoneQuery)),
       )
     : [];
   const eligibleCardsFor = (memberId: string) =>
@@ -208,10 +212,14 @@ export function CourseRoster({
   const eligibleCards = eligibleCardsFor(customerId);
 
   const normalizedTrialQuery = trialQuery.trim().toLocaleLowerCase();
+  const normalizedTrialPhoneQuery = trialQuery.replace(/\D/g, "");
   const filteredTrialCustomers =
     normalizedTrialQuery && trial
-      ? trial.customers.filter((customer) =>
-          customer.name.toLocaleLowerCase().includes(normalizedTrialQuery),
+      ? trial.customers.filter(
+          (customer) =>
+            customer.name.toLocaleLowerCase().includes(normalizedTrialQuery) ||
+            (normalizedTrialPhoneQuery &&
+              customer.phone.replace(/\D/g, "").includes(normalizedTrialPhoneQuery)),
         )
       : [];
 
@@ -225,7 +233,27 @@ export function CourseRoster({
 
   if (view === "member-booking") {
     return (
-      <section className="space-y-4">
+      <form
+        id="course-member-booking-form"
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!customerId || !cardId) {
+            setMessage("請先選擇學員與有效方案");
+            return;
+          }
+          const data = new FormData(event.currentTarget);
+          run(() =>
+            createCourseBooking({
+              sessionId,
+              cardId,
+              customerId,
+              requestKey,
+              notes: data.get("notes"),
+            }),
+          );
+        }}
+      >
         {message && <p role="status" className="text-sm text-primary-700">{message}</p>}
         <div>
           <label htmlFor="course-member-search" className="mb-1 block text-sm font-medium">
@@ -240,7 +268,7 @@ export function CourseRoster({
               setCustomerId("");
               setCardId("");
             }}
-            placeholder="輸入學員姓名後開始搜尋"
+            placeholder="輸入部分姓名或手機末幾碼"
             autoFocus
           />
           {!normalizedMemberQuery && (
@@ -263,7 +291,10 @@ export function CourseRoster({
                         setRequestKey(crypto.randomUUID());
                       }}
                     >
-                      <strong>{member.name}</strong>
+                      <span>
+                        <strong className="block">{member.name}</strong>
+                        <span className="text-xs text-earth-500">{member.phone || "未填電話"}</span>
+                      </span>
                       <span className="text-xs text-earth-500">
                         {available ? `${available} 個可用方案` : "沒有可用方案"}
                       </span>
@@ -278,22 +309,7 @@ export function CourseRoster({
         </div>
 
         {customerId && (
-          <form
-            className="space-y-4 rounded-xl border border-earth-200 bg-earth-50 p-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const data = new FormData(event.currentTarget);
-              run(() =>
-                createCourseBooking({
-                  sessionId,
-                  cardId,
-                  customerId,
-                  requestKey,
-                  notes: data.get("notes"),
-                }),
-              );
-            }}
-          >
+          <div className="space-y-4 rounded-xl border border-earth-200 bg-earth-50 p-4">
             <p className="text-sm text-earth-600">已選學員</p>
             <p className="font-medium">
               {learners.find((member) => member.id === customerId)?.name}
@@ -332,15 +348,9 @@ export function CourseRoster({
               本次備註
               <textarea className={`${field} mt-1 min-h-24`} name="notes" maxLength={1000} />
             </label>
-            <button
-              className={`${button} w-full bg-primary-700 text-white`}
-              disabled={pending || !card}
-            >
-              {pending ? "處理中…" : "確認排課"}
-            </button>
-          </form>
+          </div>
         )}
-      </section>
+      </form>
     );
   }
 
@@ -399,7 +409,7 @@ export function CourseRoster({
 
         {trialMode === "existing" ? (
           <form
-            id="course-trial-form"
+            id="course-trial-booking-form"
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
@@ -427,7 +437,7 @@ export function CourseRoster({
                 className={field}
                 value={trialQuery}
                 onChange={(event) => setTrialQuery(event.target.value)}
-                placeholder="輸入顧客姓名後開始搜尋"
+                placeholder="輸入部分姓名或手機末幾碼"
                 autoFocus
               />
               {!normalizedTrialQuery && (
@@ -450,7 +460,10 @@ export function CourseRoster({
                         value={customer.id}
                         required
                       />
-                      <span>{customer.name}</span>
+                      <span>
+                        <strong className="block">{customer.name}</strong>
+                        <span className="text-xs text-earth-500">{customer.phone || "未填電話"}</span>
+                      </span>
                     </label>
                   ))
                 ) : (
@@ -465,15 +478,10 @@ export function CourseRoster({
             <p className="text-sm text-earth-600">
               先建立未收款預約並保留名額；收款與出席分開，不占用其他方案。
             </p>
-            <button
-              className={`${button} w-full bg-primary-700 text-white`}
-              disabled={pending}
-            >
-              {pending ? "處理中…" : "建立並加入課程"}
-            </button>
           </form>
         ) : (
           <form
+            id="course-trial-booking-form"
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
@@ -525,12 +533,6 @@ export function CourseRoster({
             <p className="text-sm text-earth-600">
               建立顧客後會直接加入本堂，並先保留一位名額。
             </p>
-            <button
-              className={`${button} w-full bg-primary-700 text-white`}
-              disabled={pending}
-            >
-              {pending ? "處理中…" : "建立並加入課程"}
-            </button>
           </form>
         )}
       </section>
