@@ -36,9 +36,7 @@ export function CourseRoster({
   view = "roster",
   onDone,
   onCreateCustomer,
-  onUseTrialBooking,
   onMemberBookingReadyChange,
-  initialTrialCustomer,
 }: {
   sessionId: string;
   capacity: number;
@@ -48,9 +46,7 @@ export function CourseRoster({
   view?: RosterView;
   onDone?: () => void;
   onCreateCustomer?: () => void;
-  onUseTrialBooking?: (customer: { id: string; name: string; phone: string }) => void;
   onMemberBookingReadyChange?: (ready: boolean) => void;
-  initialTrialCustomer?: { id: string; name: string; phone: string };
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -88,12 +84,8 @@ export function CourseRoster({
   const [cardId, setCardId] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [memberQuery, setMemberQuery] = useState("");
-  const [trialQuery, setTrialQuery] = useState(
-    initialTrialCustomer?.phone || initialTrialCustomer?.name || "",
-  );
-  const [trialMode, setTrialMode] = useState<"existing" | "new">(
-    initialTrialCustomer ? "existing" : "new",
-  );
+  const [trialQuery, setTrialQuery] = useState("");
+  const [trialMode, setTrialMode] = useState<"existing" | "new">("new");
   const [message, setMessage] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [requestKey, setRequestKey] = useState("");
@@ -421,25 +413,9 @@ export function CourseRoster({
               </select>
             </label>
             {!eligibleCards.length && (
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm text-earth-600">
-                  沒有可用方案，請先指派方案。
-                </p>
-                {allowTrialActions && onUseTrialBooking && (
-                  <button
-                    type="button"
-                    className={button}
-                    onClick={() => {
-                      const customer = learners.find(
-                        (member) => member.id === customerId,
-                      );
-                      if (customer) onUseTrialBooking(customer);
-                    }}
-                  >
-                    改用體驗預約
-                  </button>
-                )}
-              </div>
+              <p className="text-sm text-earth-600">
+                沒有可用方案，請先指派方案。
+              </p>
             )}
             <label className="block text-sm font-medium">
               本次備註
@@ -555,7 +531,6 @@ export function CourseRoster({
                         type="radio"
                         name="trial-customer-choice"
                         value={customer.id}
-                        defaultChecked={customer.id === initialTrialCustomer?.id}
                         required
                       />
                       <span>

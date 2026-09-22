@@ -55,7 +55,6 @@ describe("course UI final fixes", () => {
     expect(workspace).toContain('courseDialog.kind === "member-booking" &&');
     expect(workspace).toContain("!memberBookingReady");
     expect(roster).toContain("沒有可用方案，請先指派方案。");
-    expect(roster).toContain("改用體驗預約");
-    expect(roster).toContain("defaultChecked={customer.id === initialTrialCustomer?.id}");
+    expect(roster).not.toContain("改用體驗預約");
   });
 });
