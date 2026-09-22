@@ -101,27 +101,46 @@ export function CourseRoster({
 
   useEffect(() => {
     let active = true;
-    loadCourseSessionDetail(sessionId)
-      .then((result) => {
-        if (!active) return;
-        if (result.success) {
-          setSession(result.data.session);
-          setTrial(result.data.trial);
-          setRoster(result.data.roster);
-          setCards(result.data.cards);
-          setLoaded(true);
-          setRequestKey(crypto.randomUUID());
-        } else {
-          setMessage(result.error);
-        }
-      })
-      .catch(() => active && setMessage("讀取失敗，請重試"));
+    const refresh = () =>
+      loadCourseSessionDetail(sessionId)
+        .then((result) => {
+          if (!active) return;
+          if (result.success) {
+            setSession(result.data.session);
+            setTrial(result.data.trial);
+            setRoster(result.data.roster);
+            setCards(result.data.cards);
+            setLoaded(true);
+            setRequestKey((current) => current || crypto.randomUUID());
+          } else {
+            setMessage(result.error);
+          }
+        })
+        .catch(() => active && setMessage("讀取失敗，請重試"));
+    void refresh();
+    const refreshVisibleRoster = () => {
+      if (view === "roster" && document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+    const timer =
+      view === "roster"
+        ? window.setInterval(refreshVisibleRoster, 60_000)
+        : undefined;
+    window.addEventListener("focus", refreshVisibleRoster);
+    document.addEventListener("visibilitychange", refreshVisibleRoster);
     return () => {
       active = false;
+      if (timer) window.clearInterval(timer);
+      window.removeEventListener("focus", refreshVisibleRoster);
+      document.removeEventListener("visibilitychange", refreshVisibleRoster);
     };
-  }, [sessionId]);
+  }, [sessionId, view]);
 
-  function run(action: () => Promise<{ success: boolean; error?: string }>) {
+  function run(
+    action: () => Promise<{ success: boolean; error?: string }>,
+    successMessage = "已完成",
+  ) {
     start(async () => {
       try {
         const result = await action();
@@ -131,7 +150,7 @@ export function CourseRoster({
           router.refresh();
           return;
         }
-        setMessage("已完成");
+        setMessage(successMessage);
         setSelected([]);
         setRequestKey(crypto.randomUUID());
         await load();
@@ -174,6 +193,23 @@ export function CourseRoster({
       )
     : rows;
   const count = activeRows.length;
+  const waitingCount = activeRows.filter(
+    (booking) => booking.status === "RESERVED",
+  ).length;
+  const attendedCount = activeRows.filter(
+    (booking) => booking.status === "ATTENDED",
+  ).length;
+  const noShowCount = activeRows.filter(
+    (booking) => booking.status === "NO_SHOW",
+  ).length;
+  const trialCount = activeRows.filter(
+    (booking) => booking.bookingKind === "TRIAL",
+  ).length;
+  const unpaidTrialCount = activeRows.filter(
+    (booking) =>
+      booking.bookingKind === "TRIAL" &&
+      !booking.trialPayments.some((payment) => payment.status === "SUCCESS"),
+  ).length;
 
   const learners = useMemo(
     () =>
@@ -539,27 +575,69 @@ export function CourseRoster({
   }
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium">
-          已預約 {count}／{capacity} · 未點名{" "}
-          {roster.filter((booking) => booking.status === "RESERVED").length}
-        </p>
+    <section className="flex h-full min-h-0 flex-col gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <div className="rounded-lg bg-primary-50 px-3 py-2">
+          <strong className="block text-base text-primary-900">
+            {count}/{capacity}
+          </strong>
+          <span className="text-xs text-earth-600">已預約／容量</span>
+        </div>
+        <div className="rounded-lg bg-earth-50 px-3 py-2">
+          <strong className="block text-base text-earth-800">{waitingCount}</strong>
+          <span className="text-xs text-earth-600">待點名</span>
+        </div>
+        <div className="rounded-lg bg-primary-50 px-3 py-2">
+          <strong className="block text-base text-primary-900">{attendedCount}</strong>
+          <span className="text-xs text-earth-600">已出席</span>
+        </div>
+        <div className="rounded-lg bg-earth-50 px-3 py-2">
+          <strong className="block text-base text-earth-800">{noShowCount}</strong>
+          <span className="text-xs text-earth-600">未到</span>
+        </div>
+        <div className="col-span-2 rounded-lg bg-amber-50 px-3 py-2 sm:col-span-1">
+          <strong className="block text-base text-amber-900">
+            {trialCount}
+            {unpaidTrialCount ? ` · ${unpaidTrialCount} 未收` : ""}
+          </strong>
+          <span className="text-xs text-earth-600">體驗客</span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          className={`${button} ${!showCancelled ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+          onClick={() => setShowCancelled(false)}
+        >
+          上課名單 {activeRows.length}
+        </button>
+        <button
+          className={`${button} ${showCancelled ? "border-primary-500 bg-primary-50 text-primary-800" : ""}`}
+          onClick={() => setShowCancelled(true)}
+        >
+          已取消（{cancelledRows.length}）
+        </button>
         <input
-          className="min-h-11 min-w-56 flex-1 rounded-lg border border-earth-200 px-3 py-2 text-sm sm:max-w-sm"
+          className="min-h-11 min-w-56 flex-1 rounded-lg border border-earth-200 px-3 py-2 text-sm sm:ml-auto sm:max-w-sm"
           value={memberQuery}
-          onChange={(event) => {
-            setMemberQuery(event.target.value);
-          }}
-          placeholder="搜尋學員姓名"
+          onChange={(event) => setMemberQuery(event.target.value)}
+          placeholder="搜尋姓名或手機"
           aria-label="搜尋上課學員"
         />
       </div>
-      {message && <p role="status" className="text-sm text-primary-700">{message}</p>}
+
+      {message && (
+        <p
+          role="status"
+          className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800"
+        >
+          {message}
+        </p>
+      )}
 
       {canEdit && !showCancelled && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-earth-200 bg-white p-2">
-          <label className="flex min-h-11 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-earth-200 bg-earth-50/60 px-3 py-2">
+          <label className="flex min-h-10 items-center gap-2">
             <input
               type="checkbox"
               aria-label="全選全班學員"
@@ -567,13 +645,15 @@ export function CourseRoster({
               disabled={pending || !activeRows.length}
               onChange={(event) =>
                 setSelected(
-                  event.target.checked ? activeRows.map((booking) => booking.id) : [],
+                  event.target.checked
+                    ? activeRows.map((booking) => booking.id)
+                    : [],
                 )
               }
             />
-            全選全班
+            全選
           </label>
-          <span className="text-sm">已選 {chosen.length} 人</span>
+          <span className="text-sm text-earth-600">已選 {chosen.length} 人</span>
           <select
             aria-label="批次點名狀態"
             className={button}
@@ -589,7 +669,7 @@ export function CourseRoster({
           </select>
           <button
             type="button"
-            className={button}
+            className={`${button} border-primary-300 bg-white text-primary-800`}
             disabled={
               pending ||
               !chosen.length ||
@@ -597,51 +677,35 @@ export function CourseRoster({
                 chosen.some((booking) => booking.status !== "RESERVED"))
             }
             onClick={() =>
-              run(() =>
-                updateCourseRosterBatch({
-                  sessionId,
-                  target: batchTarget,
-                  bookings: chosen.map((booking) => ({
-                    id: booking.id,
-                    status: booking.status,
-                  })),
-                }),
+              run(
+                () =>
+                  updateCourseRosterBatch({
+                    sessionId,
+                    target: batchTarget,
+                    bookings: chosen.map((booking) => ({
+                      id: booking.id,
+                      status: booking.status,
+                    })),
+                  }),
+                `已更新 ${chosen.length} 位學員`,
               )
             }
           >
             {pending ? "處理中…" : `套用 ${chosen.length} 人`}
           </button>
+          <span className="ml-auto text-xs text-earth-500">每 60 秒自動更新</span>
         </div>
       )}
 
-      <div className="flex gap-2">
-        <button
-          className={`${button} ${!showCancelled ? "border-primary-500 text-primary-800" : ""}`}
-          onClick={() => {
-            setShowCancelled(false);
-          }}
-        >
-          上課名單 {activeRows.length}
-        </button>
-        <button
-          className={`${button} ${showCancelled ? "border-primary-500 text-primary-800" : ""}`}
-          onClick={() => {
-            setShowCancelled(true);
-          }}
-        >
-          已取消預約（{cancelledRows.length}）
-        </button>
-      </div>
-
-      <div className="overflow-x-auto rounded-xl border border-earth-200">
-        <div className="grid min-w-[1080px] grid-cols-[1.9fr_2fr_2.2fr_0.8fr_2.2fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
-          <span>姓名</span>
+      <div className="min-h-0 flex-1 overflow-x-auto rounded-xl border border-earth-200">
+        <div className="grid min-w-[1120px] grid-cols-[2fr_2fr_2.4fr_0.9fr_2.7fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
+          <span>學員／電話</span>
           <span>方案／收費</span>
           <span>備註</span>
           <span>狀態</span>
           <span>操作</span>
         </div>
-        <ul className="max-h-[60vh] min-w-[1080px] divide-y overflow-y-auto overscroll-contain">
+        <ul className="max-h-[calc(100dvh-25rem)] min-h-48 min-w-[1120px] divide-y overflow-y-auto overscroll-contain">
           {searchedRows.map((booking) => {
             const paid = booking.trialPayments.find(
               (payment) => payment.status === "SUCCESS",
@@ -656,10 +720,23 @@ export function CourseRoster({
                     : booking.checkedInAt
                       ? "已報到"
                       : "待點名";
+            const statusClass =
+              booking.status === "ATTENDED"
+                ? "bg-primary-100 text-primary-900"
+                : booking.status === "NO_SHOW"
+                  ? "bg-amber-100 text-amber-900"
+                  : booking.status === "CANCELLED"
+                    ? "bg-earth-100 text-earth-500"
+                    : "bg-earth-100 text-earth-700";
+            const roleLabel = booking.operatorCustomerId
+              ? booking.operatorCustomerId === booking.customerId
+                ? "本人"
+                : "共卡代約"
+              : "店長代約";
             return (
               <li
                 key={booking.id}
-                className="grid min-h-14 grid-cols-[1.9fr_2fr_2.2fr_0.8fr_2.2fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
+                className="grid min-h-16 grid-cols-[2fr_2fr_2.4fr_0.9fr_2.7fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
               >
                 <div className="flex items-start gap-2">
                   {canEdit && booking.status !== "CANCELLED" && (
@@ -679,45 +756,60 @@ export function CourseRoster({
                     />
                   )}
                   <div className="min-w-0">
-                    <p className="truncate" title={booking.customerName}>
-                      <strong>{booking.customerName}</strong>
-                      <span className="ml-1 text-xs text-earth-500">
-                        ·{" "}
-                        {booking.operatorCustomerId
-                          ? booking.operatorCustomerId === booking.customerId
-                            ? "本人"
-                            : "共卡代約"
-                          : "店長代約"}
+                    <p className="flex min-w-0 items-center gap-1">
+                      <strong className="truncate" title={booking.customerName}>
+                        {booking.customerName}
+                      </strong>
+                      <span className="shrink-0 rounded-full bg-earth-100 px-2 py-0.5 text-[11px] text-earth-600">
+                        {roleLabel}
                       </span>
                     </p>
                     <a
                       className="block truncate text-xs text-primary-700 hover:underline"
-                      href={`tel:${booking.customerPhone}`}
+                      href={booking.customerPhone ? `tel:${booking.customerPhone}` : undefined}
                     >
                       {booking.customerPhone || "未填電話"}
                     </a>
                   </div>
                 </div>
-                <div>
+                <div className="min-w-0">
                   {booking.bookingKind === "TRIAL" ? (
-                    <>
-                      <p className="truncate" title={`體驗客 · NT$ ${booking.trialPrice} · ${paid ? `已收 NT$ ${paid.amount}` : "未收款"}`}>
-                        <span className="mr-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
-                          體驗客
-                        </span>
-                        NT$ {booking.trialPrice} · {paid ? `已收 NT$ ${paid.amount}` : "未收款"}
-                      </p>
-                    </>
+                    <p
+                      className="truncate"
+                      title={`體驗客 · NT$ ${booking.trialPrice} · ${
+                        paid ? `已收 NT$ ${paid.amount}` : "未收款"
+                      }`}
+                    >
+                      <span className="mr-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
+                        體驗客
+                      </span>
+                      NT$ {booking.trialPrice} ·{" "}
+                      <span className={paid ? "text-primary-700" : "font-medium text-amber-700"}>
+                        {paid ? `已收 NT$ ${paid.amount}` : "未收款"}
+                      </span>
+                    </p>
                   ) : (
-                    <>
-                      <p className="truncate" title={`${booking.planName} · ${booking.pointCost} ${booking.unit === "SESSION" ? "堂" : "點"} · 可用 ${booking.available}`}>
-                        <strong className="font-medium">{booking.planName}</strong>
-                        <span className="text-xs text-earth-600">
-                          {" "}· {booking.pointCost} {booking.unit === "SESSION" ? "堂" : "點"} · 可用{" "}
-                          {booking.available}
-                        </span>
-                      </p>
-                    </>
+                    <p
+                      className="truncate"
+                      title={`${booking.planName} · ${booking.pointCost} ${
+                        booking.unit === "SESSION" ? "堂" : "點"
+                      } · 可用 ${booking.available}`}
+                    >
+                      <strong className="font-medium">{booking.planName}</strong>
+                      <span className="text-xs text-earth-600">
+                        {" "}· {booking.pointCost}{" "}
+                        {booking.unit === "SESSION" ? "堂" : "點"} ·{" "}
+                      </span>
+                      <span
+                        className={
+                          booking.available <= 3
+                            ? "rounded bg-amber-50 px-1 font-medium text-amber-800"
+                            : "text-xs text-earth-600"
+                        }
+                      >
+                        可用 {booking.available}
+                      </span>
+                    </p>
                   )}
                 </div>
                 <p
@@ -727,20 +819,21 @@ export function CourseRoster({
                   店內：{booking.serviceNote || "—"}｜本次：{booking.notes || "—"}
                 </p>
                 <div>
-                  <span className="inline-flex rounded-full bg-earth-100 px-2 py-1 text-xs">
+                  <span className={`inline-flex rounded-full px-2 py-1 text-xs ${statusClass}`}>
                     {statusLabel}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-start gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {allowTrialActions &&
                     trial?.canCollect &&
                     booking.bookingKind === "TRIAL" &&
                     booking.status !== "CANCELLED" && (
                       <button
-                        className={button}
+                        className={`${button} ${paid ? "" : "border-amber-300 bg-amber-50 text-amber-900"}`}
                         disabled={
                           pending ||
-                          (!!paid && (!trial.canCorrect || booking.status !== "RESERVED"))
+                          (!!paid &&
+                            (!trial.canCorrect || booking.status !== "RESERVED"))
                         }
                         onClick={() => {
                           setRequestKey(crypto.randomUUID());
@@ -754,14 +847,16 @@ export function CourseRoster({
                   {canEdit && booking.status === "RESERVED" && (
                     <>
                       <button
-                        className={button}
+                        className={`${button} border-primary-300 bg-primary-50 text-primary-800`}
                         disabled={pending}
                         onClick={() =>
-                          run(() =>
-                            updateCourseBookingStatus({
-                              bookingId: booking.id,
-                              status: "ATTENDED",
-                            }),
+                          run(
+                            () =>
+                              updateCourseBookingStatus({
+                                bookingId: booking.id,
+                                status: "ATTENDED",
+                              }),
+                            `已將 ${booking.customerName} 標記出席並完成方案結算`,
                           )
                         }
                       >
@@ -794,6 +889,32 @@ export function CourseRoster({
                       </button>
                     </>
                   )}
+                  {canEdit &&
+                    (booking.status === "ATTENDED" ||
+                      booking.status === "NO_SHOW") && (
+                      <button
+                        className={button}
+                        disabled={pending}
+                        onClick={() =>
+                          run(
+                            () =>
+                              updateCourseRosterBatch({
+                                sessionId,
+                                target: "RESERVED",
+                                bookings: [
+                                  {
+                                    id: booking.id,
+                                    status: booking.status,
+                                  },
+                                ],
+                              }),
+                            `已將 ${booking.customerName} 更正為待點名`,
+                          )
+                        }
+                      >
+                        更正
+                      </button>
+                    )}
                   {allowTrialActions &&
                     trial?.canCorrect &&
                     paid &&
@@ -827,7 +948,6 @@ export function CourseRoster({
           )}
         </ul>
       </div>
-
 
 
       {noShowBooking && (
@@ -866,12 +986,16 @@ export function CourseRoster({
                 onClick={() => {
                   const booking = noShowBooking;
                   setNoShowBooking(null);
-                  run(() =>
-                    updateCourseBookingStatus({
-                      bookingId: booking.id,
-                      status: "NO_SHOW",
-                      noShowChoice: "DEDUCTED",
-                    }),
+                  run(
+                    () =>
+                      updateCourseBookingStatus({
+                        bookingId: booking.id,
+                        status: "NO_SHOW",
+                        noShowChoice: "DEDUCTED",
+                      }),
+                    booking.trial
+                      ? `已將 ${booking.name} 標記未到`
+                      : `已將 ${booking.name} 標記未到並扣除本次額度`,
                   );
                 }}
               >
@@ -892,12 +1016,14 @@ export function CourseRoster({
                   onClick={() => {
                     const booking = noShowBooking;
                     setNoShowBooking(null);
-                    run(() =>
-                      updateCourseBookingStatus({
-                        bookingId: booking.id,
-                        status: "NO_SHOW",
-                        noShowChoice: "DEDUCTED_WITH_MAKEUP",
-                      }),
+                    run(
+                      () =>
+                        updateCourseBookingStatus({
+                          bookingId: booking.id,
+                          status: "NO_SHOW",
+                          noShowChoice: "DEDUCTED_WITH_MAKEUP",
+                        }),
+                      `已將 ${booking.name} 標記未到，並發放 7 日補課券`,
                     );
                   }}
                 >
@@ -942,11 +1068,13 @@ export function CourseRoster({
                 onClick={() => {
                   const booking = cancelBooking;
                   setCancelBooking(null);
-                  run(() =>
-                    updateCourseBookingStatus({
-                      bookingId: booking.id,
-                      status: "CANCELLED",
-                    }),
+                  run(
+                    () =>
+                      updateCourseBookingStatus({
+                        bookingId: booking.id,
+                        status: "CANCELLED",
+                      }),
+                    `已取消 ${booking.name} 的預約，並釋放名額與方案額度`,
                   );
                 }}
               >
@@ -1012,7 +1140,7 @@ export function CourseRoster({
         <div className="border-t border-earth-200 pt-3">
           {!confirmCancel ? (
             <button
-              className={button}
+              className={`${button} border-red-200 text-red-700`}
               disabled={pending}
               onClick={() => setConfirmCancel(true)}
             >
