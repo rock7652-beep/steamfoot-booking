@@ -16,8 +16,8 @@ vi.mock("@/server/actions/course-members", () => ({ createMemberCourseBooking: v
 vi.mock("@/server/actions/course-portal", () => ({ saveCourseAttendance: m.attendance, saveCourseCoachNote: m.note, purchaseCoursePlan: m.purchase }));
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
-const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, unit: "POINT", planName: "十點", expiresAt: null });
-const props = () => ({ month: "2026-09", serverNow: Date.parse("2026-09-20T11:00:00+08:00"), initialDate: "2026-09-20", memberEnabled: false, hasWork: true, customerId: "coach", customerName: "教練", storeName: "A", prefix: "/s/a", cards: [], plans: [], templates: [], bookings: [], orders: [], sessions: [], hours: [], special: [], config: {}, bookingWindow: { closesAt: "2026-10-20T00:00:00Z" }, nextWork: null, work: [{ id: "lesson", name: "伸展瑜珈", startsAt: "2026-09-20T10:00:00+08:00", endsAt: "2026-09-20T11:00:00+08:00", room: "A 教室", bookings: [learner("已到學員", true), learner("尚未到學員", false), learner("已取消學員", false, "CANCELLED")] }] }) as unknown as CoursePortalData;
+const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, available: 6, unit: "POINT", planName: "十點", expiresAt: null });
+const props = () => ({ month: "2026-09", serverNow: Date.parse("2026-09-20T11:00:00+08:00"), initialDate: "2026-09-20", memberEnabled: false, hasWork: true, customerId: "coach", customerName: "教練", storeName: "A", prefix: "/s/a", cards: [], plans: [], templates: [], bookings: [], orders: [], sessions: [], hours: [], special: [], config: {}, bookingWindow: { closesAt: "2026-10-20T00:00:00Z" }, nextWork: null, work: [{ id: "lesson", name: "伸展瑜珈", cost: 2, startsAt: "2026-09-20T10:00:00+08:00", endsAt: "2026-09-20T11:00:00+08:00", room: "A 教室", bookings: [learner("已到學員", true), learner("尚未到學員", false), learner("已取消學員", false, "CANCELLED")] }] }) as unknown as CoursePortalData;
 const memberProps = () => ({
   ...props(),
   memberEnabled: true,
@@ -82,6 +82,8 @@ describe("coach daily work interactions", () => {
     expect(host.textContent).toContain("全班報到 1 人");
     expect(host.textContent).toContain("已報到全數出席 1 人");
     expect(host.querySelectorAll(".cp-roster-person .cp-attendance-row")).toHaveLength(2);
+    expect(host.querySelector(".cp-course-cost")?.textContent).toContain("2 點／1 堂");
+    expect(host.querySelector(".cp-roster-balance")?.textContent).toBe("可用 6 點");
     expect([...host.querySelectorAll(".cp-roster-person")].every(row => row.querySelectorAll(".cp-attendance-actions button").length <= 2)).toBe(true);
   });
   it("batch attendance only submits checked-in learners and keeps the roster open", async () => {
@@ -229,11 +231,12 @@ describe("member plan and purchase navigation", () => {
     expect(host.textContent).toContain("複製帳號");
     expect(host.textContent).not.toContain("後五碼");
     await click("複製帳號");
-    await act(async()=>new Promise(resolve=>requestAnimationFrame(resolve)));
+    await act(async()=>new Promise<void>(resolve=>requestAnimationFrame(() => resolve())));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith("19300400065479");
     expect(document.activeElement).toBe(input);
   });
-  it("closes a completed purchase and opens progress at the top", async () => {
+  it("retains four digits on failure and opens progress after retry", async () => {
+    m.purchase.mockResolvedValueOnce({ success: false, error: "系統錯誤，請稍後再試" });
     const data = {
       ...memberProps(),
       initialView: "shop",
@@ -249,6 +252,13 @@ describe("member plan and purchase navigation", () => {
       input.dispatchEvent(new Event("input",{bubbles:true}));
     });
     await click("已匯款，送出核帳資料");
+    expect(host.textContent).toContain("系統錯誤，請稍後再試");
+    expect(input.value).toBe("1234");
+    expect(m.refresh).not.toHaveBeenCalled();
+    const retry = [...host.querySelectorAll("button")].find(button => button.textContent === "已匯款，送出核帳資料")!;
+    expect(retry.disabled).toBe(false);
+    await click("已匯款，送出核帳資料");
+    expect(m.purchase.mock.calls[0][0].requestKey).toBe(m.purchase.mock.calls[1][0].requestKey);
     await act(async()=>new Promise(resolve=>setTimeout(resolve,0)));
     expect(m.purchase).toHaveBeenCalledWith(expect.objectContaining({planId:"plan",transferLastFive:"1234"}));
     expect(host.querySelector('[role="dialog"]')).toBeNull();

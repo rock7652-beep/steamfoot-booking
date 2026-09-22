@@ -359,6 +359,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     done: () => void,
     successMessage = "已更新",
     bookingIds: string[] = [],
+    refreshOnFailure = true,
   ) {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -371,7 +372,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         const r = await action();
         if (!r.success) {
           setError(r.error ?? "操作失敗，請重試");
-          start(() => router.refresh());
+          if (refreshOnFailure) start(() => router.refresh());
           return;
         }
         if (r.attendanceUpdates) setConfirmedAttendance(previous => {
@@ -621,6 +622,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
             <span>
               <strong>
                 {time(s.startsAt)}–{time(s.endsAt)} · {s.name}
+                <span className="cp-course-cost"> · {s.cost} 點／1 堂</span>
               </strong>
               <small>
                 {s.room} · {people.length} 位學員 ·{" "}
@@ -638,7 +640,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               <div className="cp-line">
                 <strong>學員名單</strong>
               </div>
-              {readOnly ? <button onClick={() => setRecordEdit(s.id)}>{pendingPeople.length ? "補完點名" : "更正紀錄"}</button> : <p>報到只記錄到場，不扣點／堂；開課後請再確認出席。</p>}
+              {readOnly ? <button onClick={() => setRecordEdit(s.id)}>{pendingPeople.length ? "補完點名" : "更正紀錄"}</button> : <p>{ended ? "確認出席後扣抵額度。" : "可先報到，開課後確認出席。"}</p>}
               <div className="cp-actions cp-roster-actions">
                 {!readOnly && unarrivedPeople.length > 0 && <button disabled={pending} onClick={() => { setError(""); setAttendance({ session: s, ids: unarrivedPeople.map(b => b.id), target: "CHECKED_IN" }); }}>全班報到 {unarrivedPeople.length} 人</button>}
                 {!readOnly && arrivedPeople.length > 0 && (
@@ -658,7 +660,6 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   </button>
                 )}
               </div>
-              {!ended && <p>尚未開課，可先報到；出席／未到於開課後開放。</p>}
               {!people.length && <p className="cp-empty">尚無學員預約</p>}
               {people.length > 0 && !filtered.length && <p className="cp-empty">找不到符合的學員</p>}
               {people.length > 10 && (
@@ -738,6 +739,9 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       )}
                     </div>
                   </div>
+                  <p className="cp-roster-balance">{b.unit === "TRIAL" ? "體驗" : `可用 ${b.available ?? "—"} ${unit(b.unit)}`}</p>
+                  {b.serviceNote && <p className="cp-roster-note" title={b.serviceNote}>店內備註：{b.serviceNote}</p>}
+                  {b.notes && <p className="cp-roster-note" title={b.notes}>本次備註：{b.notes}</p>}
                   <details>
                     <summary>本次備註與方案</summary>
                     <p className="cp-muted">店內備註：{b.serviceNote || "無"}</p>
@@ -1546,6 +1550,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       }),
                     showPurchaseProgress,
                     "購買通知已送出，請等候店家核帳；啟用後即可預約。",
+                    [],
+                    false,
                   )
                 }
               >

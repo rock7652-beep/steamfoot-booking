@@ -18,7 +18,6 @@ export function CopyButton({
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      toast.success("已複製");
       onCopied?.();
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -29,6 +28,7 @@ export function CopyButton({
   return (
     <button
       type="button"
+      aria-live="polite"
       onClick={handleCopy}
       className="rounded-md border border-earth-300 bg-white px-2 py-1 text-xs font-medium text-earth-700 hover:bg-earth-50"
     >

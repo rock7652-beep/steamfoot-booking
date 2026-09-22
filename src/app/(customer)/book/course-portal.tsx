@@ -84,7 +84,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       orderBy: { createdAt: "asc" },
       include: {
         trialPayments: {where:{status:"SUCCESS"},select:{amount:true}},
-        card: { select: { nameSnapshot: true, expiresAt: true, unit: true } },
+        card: { select: { nameSnapshot: true, expiresAt: true, unit: true, remaining: true, closedAt: true, bookings: { where: { storeId, status: "RESERVED" }, select: { pointCost: true } } } },
       },
     },
   } as const;
@@ -339,6 +339,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     work: work.map((s) => ({
       id: s.id,
       name: s.nameSnapshot,
+      cost: s.pointCost,
       startsAt: s.startsAt.toISOString(),
       endsAt: s.endsAt.toISOString(),
       room: s.room.name,
@@ -351,6 +352,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
         updatedAt: b.updatedAt.toISOString(),
         notes: b.notes,
         serviceNote: workCustomers.filter(c=>c.id===b.customerId).flatMap(c=>[c.serviceNote,c.notes]).filter(Boolean).join("\n"),
+        available: b.card ? (b.card.closedAt || b.card.expiresAt < now ? 0 : Math.max(0, b.card.remaining - b.card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0))) : null,
         cost: b.pointCost,
         unit: b.card?.unit ?? "TRIAL",
         planName: b.card?.nameSnapshot ?? "體驗（不使用方案）",

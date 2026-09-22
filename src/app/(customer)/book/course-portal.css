@@ -490,6 +490,9 @@
 .cp-roster-list {
   border-top: 1px solid #dce3d7;
 }
+.cp-course-cost { font-size: 13px; font-weight: 400; white-space: nowrap; }
+.cp-roster-person .cp-roster-balance { margin: 3px 0; font-size: 13px; }
+.cp-roster-person .cp-roster-note { margin: 3px 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cp-roster-person {
   padding: 8px 0;
 }
