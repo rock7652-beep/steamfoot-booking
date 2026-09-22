@@ -10,6 +10,7 @@ import { checkPermission } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { getActiveStoreForRead } from "@/lib/store";
 import { getSpaScheduleForDay } from "@/server/queries/spa-schedule";
+import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 
 type PageProps = { searchParams: Promise<{ date?: string; customerId?: string; new?: string }> };
 
@@ -36,6 +37,7 @@ export default async function SpaSchedulePage({ searchParams }: PageProps) {
   ]);
   return <PageShell className="max-w-none px-4 py-6">
     <SpaScheduleWorkspace key={`${date}:${customerId??""}:${openNew??""}`} initialCustomerId={openNew==="1"&&canCreate&&customers.some(c=>c.id===customerId)?customerId:undefined} date={date} bookings={bookings} staff={staff.map(s => ({ id: s.id, name: s.displayName, colorCode: s.colorCode }))} customers={customers}
+      cashbookShortcut={<CashbookShortcut />}
       locations={locations} canCreateCustomer={canCreateCustomer} canCreate={canCreate} canUpdate={canUpdate} canCheckout={canCheckout&&canUpdate}
       treatments={treatments.map(t => ({ id: t.id, name: t.name, price: Number(t.price), serviceMinutes: t.serviceMinutes,
         bufferMinutes: t.bufferMinutes, locationIds: t.serviceLocations.map(l => l.serviceLocationId) }))} />

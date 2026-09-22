@@ -27,7 +27,9 @@ export default async function CustomerRecordsPage({ params, searchParams }: {
   });
   if (!customer || (storeId && customer.storeId !== storeId)) notFound();
   const where = { customerId: customer.id, storeId: customer.storeId };
-  const total = transactions ? await prisma.transaction.count({ where }) : await prisma.booking.count({ where });
+  const total = transactions
+    ? (await prisma.transaction.count({ where })) + (await prisma.cashbookEntry.count({ where: { customerId: customer.id, storeId: customer.storeId, type: "INCOME" } }))
+    : await prisma.booking.count({ where });
   const pages = Math.max(1, Math.ceil(total / 30));
   const requested = Number(query.page);
   const page = Number.isSafeInteger(requested) && requested > 0 ? Math.min(requested, pages) : 1;
@@ -36,10 +38,25 @@ export default async function CustomerRecordsPage({ params, searchParams }: {
     where, take, skip, orderBy: [{ bookingDate: "desc" }, { slotTime: "desc" }, { id: "desc" }],
     select: { id: true, bookingDate: true, slotTime: true, bookingType: true, bookingStatus: true, people: true },
   });
-  const payments = transactions ? await prisma.transaction.findMany({
-    where, take, skip, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: { id: true, createdAt: true, transactionType: true, status: true, amount: true, paymentMethod: true },
-  }) : [];
+  let payments: Array<{ id: string; date: Date; label: string; status: string; amount: number; payment: string }> = [];
+  if (transactions) {
+    const [system, manual] = await Promise.all([
+      prisma.transaction.findMany({
+        where, take: page * take, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { id: true, createdAt: true, transactionType: true, status: true, amount: true, paymentMethod: true },
+      }),
+      prisma.cashbookEntry.findMany({
+        where: { customerId: customer.id, storeId: customer.storeId, type: "INCOME" },
+        take: page * take,
+        orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+        select: { id: true, entryDate: true, createdAt: true, category: true, amount: true, paymentMethod: true, note: true },
+      }),
+    ]);
+    payments = [
+      ...system.map((item) => ({ id: `transaction:${item.id}`, date: item.createdAt, label: formatTransactionType(item.transactionType), status: formatTransactionStatus(item.status), amount: Number(item.amount), payment: formatPaymentMethod(item.paymentMethod) })),
+      ...manual.map((item) => ({ id: `cashbook:${item.id}`, date: item.entryDate, label: item.id.startsWith("course-purchase:") ? item.note?.replace(/^線上購買：/, "").split(" / ")[0] || "課程方案" : item.category?.replace(/^零售-/, "") || "現場消費", status: "已收款", amount: Number(item.amount), payment: item.paymentMethod === "CASH" ? "現金" : "其他（轉帳／非現金）" })),
+    ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(skip, skip + take);
+  }
   const base = `/dashboard/customers/${id}/records`;
   const type = transactions ? "transactions" : "bookings";
   return <main className="mx-auto max-w-4xl space-y-5 p-4 sm:p-6">
@@ -57,8 +74,8 @@ export default async function CustomerRecordsPage({ params, searchParams }: {
         <Link href={`/dashboard/bookings/${b.id}`} className="inline-flex min-h-11 items-center text-primary-700">查看預約 →</Link>
       </div>)}
       {payments.map(t => <div key={t.id} className="flex flex-wrap justify-between gap-3 p-4">
-        <div><p>{formatTWTime(t.createdAt, { dateOnly: true })}・{formatTransactionType(t.transactionType)}</p>
-        <p className="mt-1 text-earth-600">{formatPaymentMethod(t.paymentMethod)}・{formatTransactionStatus(t.status)}</p></div>
+        <div><p>{formatTWTime(t.date, { dateOnly: true })}・{t.label}</p>
+        <p className="mt-1 text-earth-600">{t.payment}・{t.status}</p></div>
         <p className="font-medium tabular-nums">NT$ {Number(t.amount).toLocaleString()}</p>
       </div>)}
       {total === 0 && <p className="p-4 text-earth-600">目前沒有紀錄</p>}

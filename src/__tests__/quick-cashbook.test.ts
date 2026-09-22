@@ -21,6 +21,14 @@ it("uses existing cashbook action and preserves closed-day confirmation", async 
   expect((await saveQuickCashbook("store", null, f)).success).toBe(true);
   expect(m.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 200, type: "EXPENSE", entryDate: "2026-09-11", confirmClosedCashbookChange: true }));
 });
+it("passes the selected customer only for income", async () => {
+  const income = form(); income.set("type", "INCOME"); income.set("customerId", "customer-1");
+  await saveQuickCashbook("store", null, income);
+  expect(m.create).toHaveBeenCalledWith(expect.objectContaining({ type: "INCOME", customerId: "customer-1" }));
+  const expense = form(); expense.set("customerId", "customer-1");
+  await saveQuickCashbook("store", null, expense);
+  expect(m.create).toHaveBeenLastCalledWith(expect.objectContaining({ type: "EXPENSE", customerId: undefined }));
+});
 it("rejects store changes before writing", async () => { expect((await saveQuickCashbook("other", null, form())).success).toBe(false); expect(m.create).not.toHaveBeenCalled(); });
 it("rejects a read/write store mismatch", async () => { m.write.mockResolvedValue("other"); expect((await saveQuickCashbook("store", null, form())).success).toBe(false); expect(m.create).not.toHaveBeenCalled(); });
 it("respects feature access", async () => { m.feature.mockResolvedValue(false); expect((await saveQuickCashbook("store", null, form())).success).toBe(false); expect(m.create).not.toHaveBeenCalled(); });

@@ -351,7 +351,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         {PAYMENT_METHOD_LABEL[e.paymentMethod]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-earth-600">{e.category ?? "—"}</td>
+                    <td className="px-4 py-3 text-earth-600"><span>{e.category ?? "—"}</span>{e.customer && <Link href={`/dashboard/customers/${e.customer.id}`} className="mt-0.5 block text-xs text-primary-700 hover:underline">{e.customer.name}</Link>}</td>
                     <td
                       className={`px-4 py-3 text-right font-medium ${
                         e.type === "INCOME" ? "text-green-700" : "text-red-700"

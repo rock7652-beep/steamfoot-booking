@@ -32,7 +32,7 @@ export async function fetchQuickCashbook(storeId: string, page = 1) {
   const canDrawer = await checkPermission(user.role, user.staffId, "cashDrawer.read") && await hasStoreFeature(storeId, FEATURES.CASH_DRAWER);
   const currentPage = Number.isInteger(page) && page > 0 ? page : 1;
   const [entries, total, view, closedDates] = await Promise.all([
-    prisma.cashbookEntry.findMany({ where, orderBy: { createdAt: "desc" }, skip: (currentPage - 1) * 20, take: 20 }),
+    prisma.cashbookEntry.findMany({ where, orderBy: { createdAt: "desc" }, skip: (currentPage - 1) * 20, take: 20, include: { customer: { select: { id: true, name: true } } } }),
     prisma.cashbookEntry.count({ where }),
     canDrawer ? getCashDrawerView(storeId, date) : null,
     listClosedBusinessDates(storeId, today, today),
@@ -46,8 +46,32 @@ export async function fetchQuickCashbook(storeId: string, page = 1) {
   } else if (view?.state === "WARNING_LAST_OPEN") balanceLabel = "上次抽屜尚未關帳";
   else if (view?.state === "EMPTY") balanceLabel = "現金抽屜尚未啟用";
   return { today, page: currentPage, total, canWrite, closedDates, canDrawer, balance, balanceLabel,
-    entries: entries.map(e => ({ id: e.id, entryDate: today, type: e.type, category: e.category ?? "", amount: Number(e.amount), paymentMethod: e.paymentMethod, note: e.note ?? "", canEdit: canWrite && (user.role === "ADMIN" || (!!user.staffId && e.staffId === user.staffId)) })),
+    entries: entries.map(e => ({ id: e.id, entryDate: today, type: e.type, category: e.category ?? "", amount: Number(e.amount), paymentMethod: e.paymentMethod, note: e.note ?? "", customer: e.customer, canEdit: canWrite && (user.role === "ADMIN" || (!!user.staffId && e.staffId === user.staffId)) })),
   };
+}
+
+export async function searchQuickCashbookCustomers(storeId: string, rawQuery: string) {
+  const user = await context(storeId);
+  if (!(await checkPermission(user.role, user.staffId, "customer.read"))) {
+    throw new AppError("FORBIDDEN", "沒有查看顧客的權限");
+  }
+  const query = rawQuery.trim();
+  if (!query) return [];
+  return prisma.customer.findMany({
+    where: {
+      storeId,
+      mergedIntoCustomerId: null,
+      NOT: { user: { is: { status: "SUSPENDED" } } },
+      OR: [
+        { name: { contains: query, mode: "insensitive" } },
+        { phone: { contains: query } },
+        { lineName: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, name: true, phone: true },
+    orderBy: { name: "asc" },
+    take: 8,
+  });
 }
 
 export async function saveQuickCashbook(storeId: string, id: string | null, form: FormData) {
@@ -60,8 +84,11 @@ export async function saveQuickCashbook(storeId: string, id: string | null, form
     }
     const type = form.get("type");
     if (type !== "INCOME" && type !== "EXPENSE") throw new AppError("VALIDATION", "請選擇收入或支出");
+    const customerId = type === "INCOME" ? String(form.get("customerId") ?? "") : "";
     const data = { entryDate: toLocalDateStr(), type: type as "INCOME" | "EXPENSE", amount: Number(form.get("amount")), category: String(form.get("category") ?? ""), paymentMethod: form.get("paymentMethod") as "CASH" | "OTHER", note: String(form.get("note") ?? ""), confirmClosedCashbookChange: form.get("confirmClosedCashbookChange") === "on" };
-    return id ? await updateCashbookEntry(id, data) : await createCashbookEntry(data);
+    return id
+      ? await updateCashbookEntry(id, { ...data, customerId: customerId || null })
+      : await createCashbookEntry({ ...data, customerId: customerId || undefined });
   } catch (e) { return handleActionError(e); }
 }
 

@@ -352,6 +352,11 @@ export async function getCustomerDetailForUser(
         orderBy: { createdAt: "desc" },
         take: 20,
       },
+      cashbookEntries: {
+        where: { type: "INCOME" },
+        orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+        take: 20,
+      },
       followUps: {
         orderBy: { createdAt: "desc" },
         take: 20,

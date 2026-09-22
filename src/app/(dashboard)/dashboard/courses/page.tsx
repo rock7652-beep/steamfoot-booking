@@ -16,6 +16,7 @@ import {
 } from "@/lib/date-utils";
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
+import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 
 export default async function CoursesPage({
   searchParams,
@@ -137,6 +138,7 @@ export default async function CoursesPage({
               ? "管理課程名稱、人數與排課預設"
               : "管理上課教室"
         }
+        actions={view === "schedule" ? <CashbookShortcut readOnly={!writable} /> : undefined}
       />
       <CourseWorkspace canDelete={user.role==="OWNER"}
         key={`${storeId}:${view}`}
