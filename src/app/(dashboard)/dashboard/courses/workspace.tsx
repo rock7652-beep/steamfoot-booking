@@ -73,10 +73,10 @@ type Props = {
   view: "schedule" | "catalog" | "rooms";
 };
 const button =
-  "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+  "min-h-10 rounded-lg border border-earth-200 px-3 py-1.5 text-sm disabled:opacity-50";
 const primary = `${button} bg-primary-700 text-white`;
 const field =
-  "min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
+  "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 
 export function CourseWorkspace({
   canDelete=false,
@@ -746,7 +746,7 @@ export function CourseWorkspace({
             className={
               view === "schedule"
                 ? "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4"
-                : "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-1 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input]:min-h-11 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-11 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
+                : "min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [&_label]:space-y-1 [&_label]:text-sm [&_label]:font-medium [&_label]:text-earth-700 [&_input]:min-h-10 [&_input]:rounded-xl [&_input]:px-3 [&_input]:font-normal [&_input]:outline-none [&_input:focus]:border-primary-500 [&_input:focus]:ring-2 [&_input:focus]:ring-primary-100 [&_select]:min-h-10 [&_select]:rounded-xl [&_select]:px-3 [&_select]:font-normal [&_form]:gap-3"
             }
           >
             {error && (
@@ -843,7 +843,7 @@ export function CourseWorkspace({
                       return (
                         <article
                           key={session.id}
-                          className="rounded-xl border border-earth-200 bg-white p-3"
+                          className="rounded-xl border border-earth-200 bg-white px-3 py-2.5"
                         >
                           <div className="flex items-center justify-between gap-3">
                             <span className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-800">
@@ -882,7 +882,7 @@ export function CourseWorkspace({
                             {" · "}
                             點數卡 {session.pointCost} 點／堂數卡 1 堂
                           </p>
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
                             <button
                               type="button"
                               className={`${button} border-primary-300 bg-primary-50 text-primary-800`}
@@ -1846,7 +1846,7 @@ export function CourseWorkspace({
                 }`}
                 onClick={(event) => event.stopPropagation()}
               >
-                <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-4 sm:px-5">
+                <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-3">
                   <div className="min-w-0">
                     <h2
                       id="course-operation-title"
@@ -1870,7 +1870,7 @@ export function CourseWorkspace({
                   </button>
                 </header>
                 <div
-                  className={`min-h-0 flex-1 overscroll-contain p-4 sm:p-5 ${
+                  className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
                     courseDialog.kind === "roster"
                       ? "overflow-hidden"
                       : "overflow-y-auto"
@@ -1887,7 +1887,7 @@ export function CourseWorkspace({
                   />
                 </div>
                 {courseDialog.kind !== "roster" && (
-                  <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3 sm:px-5">
+                  <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
                     <button
                       type="submit"
                       form={
