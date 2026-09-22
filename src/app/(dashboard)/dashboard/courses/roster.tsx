@@ -143,7 +143,6 @@ export function CourseRoster({
     });
   }
 
-  const card = cards.find((item) => item.id === cardId);
   const payBooking = roster.find((booking) => booking.id === paymentBooking);
   const receipt = payBooking?.trialPayments.find(
     (payment) => payment.status === "SUCCESS",
