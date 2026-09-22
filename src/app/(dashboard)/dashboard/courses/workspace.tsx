@@ -2,7 +2,7 @@
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -72,6 +72,7 @@ type Props = {
   canCreate: boolean;
   canDelete?: boolean;
   canEdit: boolean;
+  cashbookShortcut?: ReactNode;
   view: "schedule" | "catalog" | "rooms";
 };
 const button =
@@ -92,6 +93,7 @@ export function CourseWorkspace({
   coaches: allCoaches,
   canCreate,
   canEdit,
+  cashbookShortcut,
   view,
 }: Props) {
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
@@ -322,8 +324,9 @@ export function CourseWorkspace({
                 ›
               </button>
             </div>
-            {(canCreate || canEdit) && (
+            {(cashbookShortcut || canCreate || canEdit) && (
               <div className="flex gap-2">
+                {cashbookShortcut}
                 {canCreate && (
                   <button
                     className={primary}
@@ -427,7 +430,7 @@ export function CourseWorkspace({
                       go(date);
                       open("day");
                     }}
-                    className={`flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${
+                    className={`relative flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
                       isClosed
                         ? "bg-earth-100 text-earth-500"
                         : date === selectedDate
@@ -437,7 +440,7 @@ export function CourseWorkspace({
                             : "bg-earth-50 text-earth-400"
                     }`}
                   >
-                    <span className="shrink-0 text-xs leading-4">{i + 1}</span>
+                    <span className={`shrink-0 text-xs font-medium leading-4 ${date===today?"text-primary-800":"text-earth-700"}`}>{i + 1}{date===today&&<span className="ml-1 hidden text-[10px] sm:inline">今天</span>}</span>
                     {isClosed && (
                       <span
                         className="mt-1 max-w-full truncate rounded bg-earth-200 px-1.5 py-0.5 text-[10px] font-medium text-earth-700"
@@ -889,12 +892,11 @@ export function CourseWorkspace({
                             <span>{session.nameSnapshot}</span>
                           </h3>
                           <p className="mt-1 truncate text-sm text-earth-600">
-                            授課教練｜
                             {allCoaches.find((coach) => coach.id === session.coachId)
-                              ?.displayName ?? "未設定"}
-                            {" · 教室｜"}
+                              ?.displayName ?? "未指定教練"}
+                            {" · "}
                             {allRooms.find((room) => room.id === session.roomId)?.name ??
-                              "未設定"}
+                              "未指定教室"}
                             {" · "}
                             點數卡 {session.pointCost} 點／堂數卡 1 堂
                           </p>
@@ -1872,9 +1874,12 @@ export function CourseWorkspace({
                     </h2>
                     <p className="mt-1 text-sm text-earth-600">
                       {formatTWDateTime(new Date(dialogSession.startsAt))} ·{" "}
-                      {dialogSession.nameSnapshot} · 授課教練｜
+                      {dialogSession.nameSnapshot} ·{" "}
                       {allCoaches.find((coach) => coach.id === dialogSession.coachId)
-                        ?.displayName ?? "未設定"}
+                        ?.displayName ?? "未指定教練"}
+                      {" · "}
+                      {allRooms.find((room) => room.id === dialogSession.roomId)?.name ??
+                        "未指定教室"}
                     </p>
                   </div>
                   <button

@@ -82,6 +82,8 @@ model CourseSession {
 model CoursePointPlan {
   storeCost Int @default(0)
   termSessionIds String[] @default([])
+  customerPurchasable Boolean @default(true)
+  allowShared Boolean @default(false)
   id String @id @default(cuid())
   storeId String
   name String

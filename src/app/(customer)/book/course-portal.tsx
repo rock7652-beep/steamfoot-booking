@@ -153,7 +153,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       : [],
     memberEnabled
       ? coursePrisma.coursePointPlan.findMany({
-          where: { storeId, isActive: true },
+          where: { storeId, isActive: true, customerPurchasable: true },
           orderBy: { price: "asc" },
         })
       : [],

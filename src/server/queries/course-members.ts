@@ -11,6 +11,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       ...(customerId ? { members: { some: { customerId } } } : {}),
     },
     include: {
+      plan: { select: { allowShared: true } },
       members: true,
       bookings: { where: { status: "RESERVED" }, select: { pointCost: true } },
       entries: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: page && !page.entries ? 0 : 100 },
@@ -38,6 +39,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       unit: c.unit,
       templateIds: c.templateIds,
       termSessionIds:c.termSessionIds,
+      allowShared: c.plan.allowShared,
       remaining: c.remaining,
       held,
       closed: !!c.closedAt,

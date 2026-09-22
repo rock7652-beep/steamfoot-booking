@@ -122,9 +122,9 @@ export async function purchaseCoursePlan(input: unknown) {
         return prior.id;
       }
       const plan = await tx.coursePointPlan.findFirst({
-        where: { id: data.planId, storeId, isActive: true },
+        where: { id: data.planId, storeId, isActive: true, customerPurchasable: true },
       });
-      if (!plan) throw new AppError("NOT_FOUND", "此方案已下架");
+      if (!plan) throw new AppError("NOT_FOUND", "此方案目前不開放顧客購買");
       const owners=await tx.$queryRaw<Array<{assignedStaffId:string|null}>>`SELECT "assignedStaffId" FROM "Customer" WHERE id=${customer.id} AND "storeId"=${storeId}`;
       const allocation=await courseSaleSnapshot(tx,storeId,plan.price,plan.storeCost,owners[0]?.assignedStaffId??null);
       const termSessionIds=await validateCourseTerm(tx,storeId,plan);
