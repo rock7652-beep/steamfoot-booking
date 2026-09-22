@@ -119,7 +119,6 @@ export function CourseWorkspace({
       router.refresh();
       setLastUpdated(new Date());
     };
-    setLastUpdated(new Date());
     const timer = window.setInterval(refresh, 60_000);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
