@@ -57,6 +57,7 @@ export async function searchQuickCashbookCustomers(storeId: string, rawQuery: st
   }
   const query = rawQuery.trim();
   if (!query) return [];
+  const phoneQuery = query.replace(/[^0-9]/g, "");
   return prisma.customer.findMany({
     where: {
       storeId,
@@ -64,7 +65,7 @@ export async function searchQuickCashbookCustomers(storeId: string, rawQuery: st
       NOT: { user: { is: { status: "SUSPENDED" } } },
       OR: [
         { name: { contains: query, mode: "insensitive" } },
-        { phone: { contains: query } },
+        ...(phoneQuery ? [{ phone: { startsWith: phoneQuery } }] : []),
         { lineName: { contains: query, mode: "insensitive" } },
       ],
     },
