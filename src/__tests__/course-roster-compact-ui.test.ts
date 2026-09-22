@@ -18,6 +18,12 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:false,canEdit:true})));
   expect(host.querySelectorAll('input[aria-label^="選取 "]')).toHaveLength(20);
   expect(host.querySelectorAll('a[href^="tel:"]')).toHaveLength(20);
+  expect(host.textContent).toContain("已預約／容量");
+  expect(host.textContent).toContain("每 60 秒自動更新");
+  expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeTruthy();
+  expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="出席")).toHaveLength(20);
+  expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="未到")).toHaveLength(20);
+  expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="取消")).toHaveLength(20);
   expect(host.querySelectorAll("details[open]")).toHaveLength(0);
   const noShow=[...host.querySelectorAll("button")].find(b=>b.textContent==="未到");expect(noShow).toBeTruthy();
   await act(async()=>noShow!.click());
