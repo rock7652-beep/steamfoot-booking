@@ -48,7 +48,7 @@ export function CourseRoster({
   const [pending, start] = useTransition();
   const [selected, setSelected] = useState<string[]>([]);
   const [batchTarget, setBatchTarget] = useState<
-    "CHECKED_IN" | "ATTENDED" | "NO_SHOW" | "RESERVED"
+    "CHECKED_IN" | "ATTENDED" | "RESERVED"
   >("CHECKED_IN");
   const [showCancelled, setShowCancelled] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -68,6 +68,15 @@ export function CourseRoster({
   >(null);
   const [paymentBooking, setPaymentBooking] = useState<string | null>(null);
   const [correctPayment, setCorrectPayment] = useState(false);
+  const [noShowBooking, setNoShowBooking] = useState<{
+    id: string;
+    name: string;
+    trial: boolean;
+  } | null>(null);
+  const [cancelBooking, setCancelBooking] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [cardId, setCardId] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [memberQuery, setMemberQuery] = useState("");
@@ -157,8 +166,12 @@ export function CourseRoster({
   const rows = showCancelled ? cancelledRows : activeRows;
   const normalizedRosterQuery = memberQuery.trim().toLocaleLowerCase();
   const searchedRows = normalizedRosterQuery
-    ? rows.filter((booking) =>
-        booking.customerName.toLocaleLowerCase().includes(normalizedRosterQuery),
+    ? rows.filter(
+        (booking) =>
+          booking.customerName
+            .toLocaleLowerCase()
+            .includes(normalizedRosterQuery) ||
+          booking.customerPhone.includes(normalizedRosterQuery),
       )
     : rows;
   const count = activeRows.length;
@@ -571,7 +584,6 @@ export function CourseRoster({
           >
             <option value="CHECKED_IN">報到</option>
             <option value="ATTENDED">出席</option>
-            <option value="NO_SHOW">未到</option>
             <option value="RESERVED">更正為待點名</option>
           </select>
           <button
@@ -621,7 +633,7 @@ export function CourseRoster({
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-earth-200">
-        <div className="grid min-w-[1080px] grid-cols-[1.6fr_2fr_2.5fr_0.8fr_2.2fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
+        <div className="grid min-w-[1080px] grid-cols-[1.9fr_2fr_2.2fr_0.8fr_2.2fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
           <span>姓名</span>
           <span>方案／收費</span>
           <span>備註</span>
@@ -646,7 +658,7 @@ export function CourseRoster({
             return (
               <li
                 key={booking.id}
-                className="grid min-h-14 grid-cols-[1.6fr_2fr_2.5fr_0.8fr_2.2fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
+                className="grid min-h-14 grid-cols-[1.9fr_2fr_2.2fr_0.8fr_2.2fr] items-center gap-3 border-l-[3px] border-primary-200 bg-white px-3 py-2 text-sm hover:bg-earth-50"
               >
                 <div className="flex items-start gap-2">
                   {canEdit && booking.status !== "CANCELLED" && (
@@ -665,17 +677,25 @@ export function CourseRoster({
                       }
                     />
                   )}
-                  <p className="min-w-0 truncate" title={booking.customerName}>
-                    <strong>{booking.customerName}</strong>
-                    <span className="ml-1 text-xs text-earth-500">
-                      ·{" "}
-                      {booking.operatorCustomerId
-                        ? booking.operatorCustomerId === booking.customerId
-                          ? "本人"
-                          : "共卡代約"
-                        : "店長代約"}
-                    </span>
-                  </p>
+                  <div className="min-w-0">
+                    <p className="truncate" title={booking.customerName}>
+                      <strong>{booking.customerName}</strong>
+                      <span className="ml-1 text-xs text-earth-500">
+                        ·{" "}
+                        {booking.operatorCustomerId
+                          ? booking.operatorCustomerId === booking.customerId
+                            ? "本人"
+                            : "共卡代約"
+                          : "店長代約"}
+                      </span>
+                    </p>
+                    <a
+                      className="block truncate text-xs text-primary-700 hover:underline"
+                      href={`tel:${booking.customerPhone}`}
+                    >
+                      {booking.customerPhone || "未填電話"}
+                    </a>
+                  </div>
                 </div>
                 <div>
                   {booking.bookingKind === "TRIAL" ? (
@@ -732,36 +752,6 @@ export function CourseRoster({
                     )}
                   {canEdit && booking.status === "RESERVED" && (
                     <>
-                      {!booking.checkedInAt && (
-                        <button
-                          className={button}
-                          disabled={pending}
-                          onClick={() =>
-                            run(() =>
-                              updateCourseBookingStatus({
-                                bookingId: booking.id,
-                                status: "CHECKED_IN",
-                              }),
-                            )
-                          }
-                        >
-                          報到
-                        </button>
-                      )}
-                      <button
-                        className={button}
-                        disabled={pending}
-                        onClick={() =>
-                          run(() =>
-                            updateCourseBookingStatus({
-                              bookingId: booking.id,
-                              status: "NO_SHOW",
-                            }),
-                          )
-                        }
-                      >
-                        未到
-                      </button>
                       <button
                         className={button}
                         disabled={pending}
@@ -780,12 +770,23 @@ export function CourseRoster({
                         className={button}
                         disabled={pending}
                         onClick={() =>
-                          run(() =>
-                            updateCourseBookingStatus({
-                              bookingId: booking.id,
-                              status: "CANCELLED",
-                            }),
-                          )
+                          setNoShowBooking({
+                            id: booking.id,
+                            name: booking.customerName,
+                            trial: booking.bookingKind === "TRIAL",
+                          })
+                        }
+                      >
+                        未到
+                      </button>
+                      <button
+                        className={button}
+                        disabled={pending}
+                        onClick={() =>
+                          setCancelBooking({
+                            id: booking.id,
+                            name: booking.customerName,
+                          })
                         }
                       >
                         取消
@@ -827,6 +828,129 @@ export function CourseRoster({
       </div>
 
 
+
+      {noShowBooking && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="course-no-show-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 id="course-no-show-title" className="text-lg font-semibold">
+                  {noShowBooking.name} 未到處理
+                </h3>
+                <p className="mt-1 text-sm text-earth-600">
+                  {noShowBooking.trial
+                    ? "體驗客沒有方案額度，將只記錄未到。"
+                    : "請選擇本次未到的扣堂方式。"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className={button}
+                disabled={pending}
+                onClick={() => setNoShowBooking(null)}
+              >
+                關閉
+              </button>
+            </div>
+            <div className="mt-5 grid gap-3">
+              <button
+                type="button"
+                className={`${button} w-full text-left`}
+                disabled={pending}
+                onClick={() => {
+                  const booking = noShowBooking;
+                  setNoShowBooking(null);
+                  run(() =>
+                    updateCourseBookingStatus({
+                      bookingId: booking.id,
+                      status: "NO_SHOW",
+                      noShowChoice: "DEDUCTED",
+                    }),
+                  );
+                }}
+              >
+                <strong className="block">未到扣堂</strong>
+                <span className="text-xs text-earth-600">
+                  扣除本次方案額度，不發補課券。
+                </span>
+              </button>
+              {!noShowBooking.trial && (
+                <button
+                  type="button"
+                  className={`${button} w-full border-primary-500 text-left`}
+                  disabled={pending}
+                  onClick={() => {
+                    const booking = noShowBooking;
+                    setNoShowBooking(null);
+                    run(() =>
+                      updateCourseBookingStatus({
+                        bookingId: booking.id,
+                        status: "NO_SHOW",
+                        noShowChoice: "DEDUCTED_WITH_MAKEUP",
+                      }),
+                    );
+                  }}
+                >
+                  <strong className="block">未到扣堂＋發補課券</strong>
+                  <span className="text-xs text-earth-600">
+                    扣除本次方案額度，補課券 7 日內有效。
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelBooking && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="course-cancel-booking-title"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <h3 id="course-cancel-booking-title" className="text-lg font-semibold">
+              取消 {cancelBooking.name} 的預約？
+            </h3>
+            <p className="mt-2 text-sm text-earth-600">
+              取消後會立即退還 1 個課程名額，並釋放尚未扣除的方案額度。
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                className={button}
+                disabled={pending}
+                onClick={() => setCancelBooking(null)}
+              >
+                返回
+              </button>
+              <button
+                type="button"
+                className={`${button} bg-primary-700 text-white`}
+                disabled={pending}
+                onClick={() => {
+                  const booking = cancelBooking;
+                  setCancelBooking(null);
+                  run(() =>
+                    updateCourseBookingStatus({
+                      bookingId: booking.id,
+                      status: "CANCELLED",
+                    }),
+                  );
+                }}
+              >
+                確認取消並退還名額
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {payBooking && paymentSettings && !correctPayment && (
         <CollectTrialModal
