@@ -2,7 +2,7 @@
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -108,9 +108,27 @@ export function CourseWorkspace({
       : null,
   );
   const [pending, startTransition] = useTransition();
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | "inspect" | null
   >(canCreate && params.get("action") === "schedule" ? "schedule" : params.get("action") === "booking" || params.get("session") ? "day" : null);
+  useEffect(() => {
+    if (view !== "schedule" || panel !== "day") return;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      router.refresh();
+      setLastUpdated(new Date());
+    };
+    setLastUpdated(new Date());
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [panel, router, view]);
   const [dirty, setDirty] = useState(false);
   function closePanel() {
     if (pending || (dirty && !window.confirm("尚有未儲存的修改，要放棄並關閉嗎？"))) return;
@@ -742,113 +760,218 @@ export function CourseWorkspace({
                 {notice}
               </p>
             )}
-            {panel === "day" && (
-              <>
-                <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">{(byDate.get(selectedDate) ?? []).length} 堂課 · 共 {new Set((byDate.get(selectedDate) ?? []).flatMap((s) => s.bookings.map((b) => b.customerId))).size} 人 · {(byDate.get(selectedDate) ?? []).reduce((n, s) => n + s.bookings.length, 0)} 人次</p>
-                {(calendarDays[selectedDate]?.status === "closed" ||
-                  calendarDays[selectedDate]?.status === "training") && (
-                  <p className="rounded-lg bg-earth-100 px-3 py-2 text-sm font-medium text-earth-700">
-                    {calendarDays[selectedDate]?.status === "training"
-                      ? "員工訓練"
-                      : "公休"}
-                    {calendarDays[selectedDate]?.reason
-                      ? ` · ${calendarDays[selectedDate].reason}`
-                      : ""}
-                  </p>
-                )}
-                {canCreate &&
-                  calendarDays[selectedDate]?.status !== "closed" &&
-                  calendarDays[selectedDate]?.status !== "training" && (
-                  <button
-                    className={primary}
-                    onClick={openSchedule}
-                    disabled={pending}
-                  >
-                    ＋ 排課
-                  </button>
-                )}
-                {(byDate.get(selectedDate) ?? []).length === 0 && (
-                  <p className="text-earth-500">當日尚無課程</p>
-                )}
-                {(byDate.get(selectedDate) ?? []).map((s, index) => (
-                  <div key={s.id} className="rounded-xl border border-earth-200 p-3">
-                    <p className="mb-1 text-sm font-semibold text-primary-700">當日第 {index + 1} 堂</p>
-                    <h3 className="py-2 font-medium text-primary-800">
-                      {formatTWDateTime(new Date(s.startsAt)).slice(11)}–
-                      {formatTWDateTime(new Date(s.endsAt)).slice(0, 10) !==
-                      selectedDate
-                        ? "翌日 "
-                        : ""}
-                      {formatTWDateTime(new Date(s.endsAt)).slice(11)}　
-                      {s.nameSnapshot} · {s.bookings.length}／{s.capacity} 人
-                    </h3>
-                    <p className="mt-1 text-sm text-earth-600">
-                      {allCoaches.find((c) => c.id === s.coachId)
-                        ?.displayName ?? "教練"}{" "}
-                      ·{" "}
-                      {allRooms.find((r) => r.id === s.roomId)?.name ?? "教室"}{" "}
-                      · 點數卡 {s.pointCost} 點；堂數卡 1 堂 · 上限 {s.capacity} 人
-                    </p>
-                    <button
-                      type="button"
-                      className={`${button} mt-2 mr-2 border-primary-300 bg-primary-50 text-primary-800`}
-                      onClick={() => setCourseDialog({ sessionId: s.id, kind: "roster" })}
-                    >
-                      上課名單 {s.bookings.length}
-                    </button>
-                    {canCreate && (
+            {panel === "day" &&
+              (() => {
+                const daySessions = byDate.get(selectedDate) ?? [];
+                const booked = daySessions.reduce(
+                  (total, item) => total + item.bookings.length,
+                  0,
+                );
+                const capacity = daySessions.reduce(
+                  (total, item) => total + item.capacity,
+                  0,
+                );
+                const fullClasses = daySessions.filter(
+                  (item) => item.bookings.length >= item.capacity,
+                ).length;
+                return (
+                  <>
+                    <div className="flex items-center justify-between gap-3 text-xs text-earth-500">
+                      <span>
+                        每 60 秒自動更新
+                        {lastUpdated
+                          ? ` · 最後更新 ${lastUpdated.toLocaleTimeString("zh-TW", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: false,
+                            })}`
+                          : ""}
+                      </span>
                       <button
                         type="button"
-                        className={`${button} mt-2 mr-2`}
-                        onClick={() =>
-                          setCourseDialog({ sessionId: s.id, kind: "member-booking" })
-                        }
-                      >
-                        ＋ 學員預約
-                      </button>
-                    )}
-                    {canCreate && (
-                      <button
-                        type="button"
-                        className={`${button} mt-2 mr-2`}
-                        onClick={() =>
-                          setCourseDialog({ sessionId: s.id, kind: "trial-booking" })
-                        }
-                      >
-                        ＋ 體驗客
-                      </button>
-                    )}
-                    {canCreate && (
-                      <button
-                        className={`${button} mt-2 mr-2`}
-                        disabled={pending}
+                        className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-earth-700"
                         onClick={() => {
-                          setCopySource(s);
-                          setChosen(s.templateId);
-                          setRepeat(false);
-                          setRequestKey(crypto.randomUUID());
-                          open("schedule");
+                          router.refresh();
+                          setLastUpdated(new Date());
                         }}
                       >
-                        複製排課
+                        立即更新
                       </button>
+                    </div>
+                    <div className="grid grid-cols-3 divide-x rounded-xl border border-primary-100 bg-primary-50/70 py-2 text-center">
+                      <p>
+                        <strong className="block text-base text-primary-800">
+                          {daySessions.length}
+                        </strong>
+                        <span className="text-xs text-earth-600">堂課</span>
+                      </p>
+                      <p>
+                        <strong className="block text-base text-primary-800">
+                          {booked}/{capacity}
+                        </strong>
+                        <span className="text-xs text-earth-600">已預約／容量</span>
+                      </p>
+                      <p>
+                        <strong className="block text-base text-primary-800">
+                          {fullClasses}
+                        </strong>
+                        <span className="text-xs text-earth-600">堂已滿</span>
+                      </p>
+                    </div>
+                    {(calendarDays[selectedDate]?.status === "closed" ||
+                      calendarDays[selectedDate]?.status === "training") && (
+                      <p className="rounded-lg bg-earth-100 px-3 py-2 text-sm font-medium text-earth-700">
+                        {calendarDays[selectedDate]?.status === "training"
+                          ? "員工訓練"
+                          : "公休"}
+                        {calendarDays[selectedDate]?.reason
+                          ? ` · ${calendarDays[selectedDate].reason}`
+                          : ""}
+                      </p>
                     )}
-                    {canEdit && (
-                      <button
-                        className={`${button} mt-2`}
-                        disabled={pending}
-                        onClick={() => {
-                          setEditTemplateId(s.templateId);setEditing({ kind: "session", value: s });
-                          open("edit");
-                        }}
-                      >
-                        編輯排課
-                      </button>
+                    {!daySessions.length && (
+                      <p className="rounded-xl border border-dashed border-earth-200 p-8 text-center text-earth-500">
+                        當日尚無課程
+                      </p>
                     )}
-                  </div>
-                ))}
-              </>
-            )}
+                    {daySessions.map((session, index) => {
+                      const isFull =
+                        session.bookings.length >= session.capacity;
+                      const openSeats = Math.max(
+                        0,
+                        session.capacity - session.bookings.length,
+                      );
+                      return (
+                        <article
+                          key={session.id}
+                          className="rounded-xl border border-earth-200 bg-white p-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-800">
+                              第 {index + 1} 堂
+                            </span>
+                            <span
+                              className={`rounded-full px-2 py-1 text-xs font-medium ${
+                                isFull
+                                  ? "bg-primary-100 text-primary-900"
+                                  : "bg-earth-100 text-earth-700"
+                              }`}
+                            >
+                              {isFull
+                                ? `已滿 ${session.bookings.length}/${session.capacity}`
+                                : `尚有 ${openSeats} 位 · ${session.bookings.length}/${session.capacity}`}
+                            </span>
+                          </div>
+                          <h3 className="mt-2 flex flex-wrap items-baseline gap-x-2 font-semibold text-primary-900">
+                            <span>
+                              {formatTWDateTime(new Date(session.startsAt)).slice(11)}–
+                              {formatTWDateTime(new Date(session.endsAt)).slice(0, 10) !==
+                              selectedDate
+                                ? "翌日 "
+                                : ""}
+                              {formatTWDateTime(new Date(session.endsAt)).slice(11)}
+                            </span>
+                            <span>{session.nameSnapshot}</span>
+                          </h3>
+                          <p className="mt-1 truncate text-sm text-earth-600">
+                            {allCoaches.find((coach) => coach.id === session.coachId)
+                              ?.displayName ?? "教練"}
+                            {" · "}
+                            {allRooms.find((room) => room.id === session.roomId)?.name ??
+                              "教室"}
+                            {" · "}
+                            點數卡 {session.pointCost} 點／堂數卡 1 堂
+                          </p>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              className={`${button} border-primary-300 bg-primary-50 text-primary-800`}
+                              onClick={() =>
+                                setCourseDialog({
+                                  sessionId: session.id,
+                                  kind: "roster",
+                                })
+                              }
+                            >
+                              上課名單 {session.bookings.length}
+                            </button>
+                            {canCreate && (
+                              <>
+                                <button
+                                  type="button"
+                                  className={button}
+                                  onClick={() =>
+                                    setCourseDialog({
+                                      sessionId: session.id,
+                                      kind: "member-booking",
+                                    })
+                                  }
+                                >
+                                  ＋ 學員預約
+                                </button>
+                                <button
+                                  type="button"
+                                  className={button}
+                                  onClick={() =>
+                                    setCourseDialog({
+                                      sessionId: session.id,
+                                      kind: "trial-booking",
+                                    })
+                                  }
+                                >
+                                  ＋ 體驗客
+                                </button>
+                              </>
+                            )}
+                            {(canCreate || canEdit) && (
+                              <details className="relative ml-auto">
+                                <summary className={`${button} cursor-pointer list-none`}>
+                                  更多
+                                </summary>
+                                <div className="absolute right-0 z-10 mt-1 grid min-w-36 gap-1 rounded-xl border border-earth-200 bg-white p-2 shadow-lg">
+                                  {canCreate && (
+                                    <button
+                                      type="button"
+                                      className={button}
+                                      disabled={pending}
+                                      onClick={() => {
+                                        setCopySource(session);
+                                        setChosen(session.templateId);
+                                        setRepeat(false);
+                                        setRequestKey(crypto.randomUUID());
+                                        open("schedule");
+                                      }}
+                                    >
+                                      複製排課
+                                    </button>
+                                  )}
+                                  {canEdit && (
+                                    <button
+                                      type="button"
+                                      className={button}
+                                      disabled={pending}
+                                      onClick={() => {
+                                        setEditTemplateId(session.templateId);
+                                        setEditing({
+                                          kind: "session",
+                                          value: session,
+                                        });
+                                        open("edit");
+                                      }}
+                                    >
+                                      編輯排課
+                                    </button>
+                                  )}
+                                </div>
+                              </details>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </>
+                );
+              })()}
             <CourseConflicts items={conflicts}/>
             {panel === "catalog" && (
               <>
@@ -1620,6 +1743,21 @@ export function CourseWorkspace({
               </>
             )}
           </div>
+          {panel === "day" &&
+            canCreate &&
+            calendarDays[selectedDate]?.status !== "closed" &&
+            calendarDays[selectedDate]?.status !== "training" && (
+              <footer className="shrink-0 border-t border-earth-200 bg-white p-4">
+                <button
+                  type="button"
+                  className={`${primary} w-full`}
+                  onClick={openSchedule}
+                  disabled={pending}
+                >
+                  ＋ 新增排課
+                </button>
+              </footer>
+            )}
           {panel === "inspect" && canEdit && <footer className="shrink-0 border-t bg-white p-4"><button className={`${primary} w-full`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button></footer>}
           {panel === "schedule" && (
             <footer className="shrink-0 border-t bg-white p-4">
