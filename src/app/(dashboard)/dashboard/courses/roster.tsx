@@ -16,6 +16,7 @@ import {
   createCourseBooking,
   saveCourseCustomer,
   updateCourseBookingStatus,
+  restoreCourseBooking,
   cancelCourseSession,
 } from "@/server/actions/course-members";
 import type { CourseCardView } from "./member-workspace";
@@ -551,8 +552,8 @@ export function CourseRoster({
           onChange={(event) => {
             setMemberQuery(event.target.value);
           }}
-          placeholder="搜尋學員姓名"
-          aria-label="搜尋上課學員"
+          placeholder="搜尋本堂學員姓名或電話"
+          aria-label="搜尋本堂上課名單"
         />
       </div>
       {message && <p role="status" className="text-sm text-primary-700">{message}</p>}
@@ -632,6 +633,11 @@ export function CourseRoster({
           已取消預約（{cancelledRows.length}）
         </button>
       </div>
+      {showCancelled && (
+        <p className="rounded-lg bg-earth-50 px-3 py-2 text-sm text-earth-600">
+          保留取消紀錄；若店長誤按，可在名額與原方案仍有效時恢復預約。
+        </p>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-earth-200">
         <div className="grid min-w-[1080px] grid-cols-[1.9fr_2fr_2.2fr_0.8fr_2.2fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
@@ -822,7 +828,13 @@ export function CourseRoster({
           })}
           {!searchedRows.length && (
             <li className="p-8 text-center text-sm text-earth-500">
-              沒有符合條件的學員。
+              {showCancelled
+                ? cancelledRows.length === 0
+                  ? "目前沒有已取消預約。"
+                  : "已取消預約中沒有符合條件的學員。"
+                : activeRows.length === 0
+                  ? "本堂目前尚無預約學員，請使用「＋排課」加入學員。"
+                  : "本堂名單中沒有符合條件的學員。"}
             </li>
           )}
         </ul>
