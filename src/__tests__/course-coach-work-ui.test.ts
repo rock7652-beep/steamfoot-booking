@@ -64,6 +64,7 @@ describe("coach daily work interactions", () => {
     await click("伸展瑜珈");
     expect(host.textContent).toContain("尚未開課");
     expect(host.textContent).not.toContain("報到");
+    expect(host.textContent).not.toContain("待點名 2 位");
     expect(host.querySelectorAll(".cp-attendance-actions button")).toHaveLength(0);
     expect(m.attendance).not.toHaveBeenCalled();
   });
@@ -71,7 +72,9 @@ describe("coach daily work interactions", () => {
     await act(async () => root.render(createElement(CoursePortalClient, props())));
     await click("伸展瑜珈");
     await act(async () => ([...host.querySelectorAll("button")].find(b => b.textContent === "出席") as HTMLButtonElement).click());
+    expect(host.querySelector(".cp-roster-person .cp-badge")?.textContent).toBe("已出席・已扣 2 點");
     await click("更正");
+    expect(host.querySelector('[role="dialog"]')?.textContent).toContain("確認更正");
     expect([...host.querySelectorAll("select option")].map(o => o.textContent)).toEqual(expect.arrayContaining(["出席","未到","待點名"]));
   });
   it("aligns store actions and puts referral after contact information", async () => {
@@ -131,6 +134,8 @@ describe("coach daily work interactions", () => {
     expect(m.attendance).toHaveBeenCalledWith({ sessionId: "lesson", target: "ATTENDED", bookings: [{ id: "已到學員", status: "RESERVED" }, { id: "尚未到學員", status: "RESERVED" }] });
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(host.textContent).toContain("學員名單");
+    expect(host.querySelector(".cp-roster-hint")).toBeNull();
+    expect([...host.querySelectorAll(".cp-roster-person .cp-badge")].map(b => b.textContent)).toEqual(["已出席・已扣 2 點", "已出席・已扣 2 點"]);
   });
   it("batch attendance retains confirmation on failure", async () => {
     m.attendance.mockResolvedValue({ success: false, error: "名單已變更" });

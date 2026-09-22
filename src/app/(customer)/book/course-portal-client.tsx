@@ -215,6 +215,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
       session: Work;
       ids: string[];
       target: "ATTENDED" | "NO_SHOW" | "RESERVED";
+      correction?: boolean;
     } | null>(null),
     [buy, setBuy] = useState<CoursePortalData["plans"][number] | null>(null),
     [lastFour, setLastFour] = useState(""),
@@ -621,7 +622,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               <small>
                 {s.room} · {people.length} 位學員 ·{" "}
                 {page === "records" ? `出席 ${people.filter(b=>b.status === "ATTENDED").length} 人／未到 ${people.filter(b=>b.status === "NO_SHOW").length} 人 · ${pendingPeople.length ? "待完成點名" : people.length ? "點名完成" : "無有效預約"}` : pendingPeople.length
-                  ? `待點名 ${pendingPeople.length} 位`
+                  ? (ended ? `待點名 ${pendingPeople.length} 位` : "尚未開課")
                   : people.length
                     ? "點名完成"
                     : "尚無學員"}
@@ -651,7 +652,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   </button>
                 )}
               </div>
-              {!readOnly && <p className="cp-roster-hint">{ended ? "確認出席後扣抵額度。" : "尚未開課，開課後可點選出席／未到。"}</p>}
+              {!readOnly && pendingPeople.length > 0 && <p className="cp-roster-hint">{ended ? "確認出席後扣抵額度。" : "尚未開課，開課後可點選出席／未到。"}</p>}
               {!people.length && <p className="cp-empty">尚無學員預約</p>}
               {people.length > 0 && !filtered.length && <p className="cp-empty">找不到符合的學員</p>}
               {people.length > 10 && (
@@ -718,6 +719,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                               session: s,
                               ids: [b.id],
                               target: b.status as "ATTENDED" | "NO_SHOW",
+                              correction: true,
                             });
                           }}
                         >
@@ -731,7 +733,9 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       <span className="cp-badge" data-status={b.status}>
                         {savingIds.includes(b.id) ? "儲存中…" : b.status === "RESERVED"
                           ? (ended ? "待點名" : "尚未開課")
-                          : statusName(b.status)}
+                          : b.status === "ATTENDED"
+                            ? `已出席・${b.unit === "TRIAL" ? "體驗不扣額度" : `已扣 ${b.cost} ${unit(b.unit)}`}`
+                            : statusName(b.status)}
                       </span>
                       <span className="cp-roster-note">{[b.notes && `本次：${b.notes}`, b.serviceNote && `店內：${b.serviceNote}`].filter(Boolean).join("；") || "無備註"}</span>
                       <span className="cp-roster-detail-label">詳情</span>
@@ -1436,7 +1440,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
       )}
       {attendance && (
         <Sheet
-          title="確認點名／更正"
+          title={attendance.correction ? "更正點名" : "確認點名"}
           busy={pending}
           close={() => setAttendance(null)}
           footer={
@@ -1463,7 +1467,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   )
                 }
               >
-                {attendance.target === "ATTENDED"
+                {attendance.correction ? "確認更正" : attendance.target === "ATTENDED"
                   ? `確認 ${attendance.ids.length} 位出席`
                   : attendance.target === "NO_SHOW" ? `確認 ${attendance.ids.length} 位未到` : "確認更正"}
               </button>
