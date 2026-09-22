@@ -1740,6 +1740,23 @@ export function CourseWorkspace({
                     onDone={() => setCourseDialog(null)}
                   />
                 </div>
+                {courseDialog.kind !== "roster" && (
+                  <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3 sm:px-5">
+                    <button
+                      type="submit"
+                      form={
+                        courseDialog.kind === "member-booking"
+                          ? "course-member-booking-form"
+                          : "course-trial-booking-form"
+                      }
+                      className={`${primary} w-full`}
+                    >
+                      {courseDialog.kind === "member-booking"
+                        ? "確認學員預約"
+                        : "建立並加入課程"}
+                    </button>
+                  </footer>
+                )}
               </section>
             </div>
           );
