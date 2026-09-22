@@ -22,9 +22,9 @@ import type { CourseCardView } from "./member-workspace";
 import type { getCourseRoster } from "@/server/queries/course-members";
 
 const button =
-  "min-h-11 rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm disabled:opacity-50";
+  "min-h-10 rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-sm disabled:opacity-50";
 const field =
-  "min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-base";
+  "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 
 type RosterView = "roster" | "member-booking" | "trial-booking";
 
@@ -270,7 +270,7 @@ export function CourseRoster({
     return (
       <form
         id="course-member-booking-form"
-        className="space-y-4"
+        className="space-y-3"
         onSubmit={(event) => {
           event.preventDefault();
           if (!customerId || !cardId) {
@@ -344,7 +344,7 @@ export function CourseRoster({
         </div>
 
         {customerId && (
-          <div className="space-y-4 rounded-xl border border-earth-200 bg-earth-50 p-4">
+          <div className="space-y-3 rounded-xl border border-earth-200 bg-earth-50 p-3">
             <p className="text-sm text-earth-600">已選學員</p>
             <p className="font-medium">
               {learners.find((member) => member.id === customerId)?.name}
@@ -381,7 +381,7 @@ export function CourseRoster({
             )}
             <label className="block text-sm font-medium">
               本次備註
-              <textarea className={`${field} mt-1 min-h-24`} name="notes" maxLength={1000} />
+              <textarea className={`${field} mt-1 min-h-20`} name="notes" maxLength={1000} />
             </label>
           </div>
         )}
@@ -414,7 +414,7 @@ export function CourseRoster({
         <textarea
           name="notes"
           maxLength={1000}
-          className={`${field} mt-1 min-h-24`}
+          className={`${field} mt-1 min-h-20`}
         />
       </label>
     );
@@ -618,7 +618,7 @@ export function CourseRoster({
           已取消（{cancelledRows.length}）
         </button>
         <input
-          className="min-h-11 min-w-56 flex-1 rounded-lg border border-earth-200 px-3 py-2 text-sm sm:ml-auto sm:max-w-sm"
+          className="min-h-10 min-w-56 flex-1 rounded-lg border border-earth-200 px-3 py-1.5 text-sm sm:ml-auto sm:max-w-sm"
           value={memberQuery}
           onChange={(event) => setMemberQuery(event.target.value)}
           placeholder="搜尋姓名或手機"
@@ -728,11 +728,6 @@ export function CourseRoster({
                   : booking.status === "CANCELLED"
                     ? "bg-earth-100 text-earth-500"
                     : "bg-earth-100 text-earth-700";
-            const roleLabel = booking.operatorCustomerId
-              ? booking.operatorCustomerId === booking.customerId
-                ? "本人"
-                : "共卡代約"
-              : "店長代約";
             return (
               <li
                 key={booking.id}
@@ -760,9 +755,11 @@ export function CourseRoster({
                       <strong className="truncate" title={booking.customerName}>
                         {booking.customerName}
                       </strong>
-                      <span className="shrink-0 rounded-full bg-earth-100 px-2 py-0.5 text-[11px] text-earth-600">
-                        {roleLabel}
-                      </span>
+                      {booking.sharedCard && (
+                        <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-800">
+                          共卡
+                        </span>
+                      )}
                     </p>
                     <a
                       className="block truncate text-xs text-primary-700 hover:underline"
@@ -770,6 +767,9 @@ export function CourseRoster({
                     >
                       {booking.customerPhone || "未填電話"}
                     </a>
+                    <span className="block truncate text-[11px] text-earth-500">
+                      {booking.bookingSource}
+                    </span>
                   </div>
                 </div>
                 <div className="min-w-0">
