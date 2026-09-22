@@ -104,6 +104,10 @@
 .cp-next > button {
   flex-shrink: 0;
 }
+.cp-wide-action {
+  width: 100%;
+  margin: 4px 0 12px;
+}
 .cp-menu {
   display: flex !important;
   align-items: center;
@@ -158,9 +162,10 @@
   gap: 2px;
   border: 0;
 }
-.cp-nav button > span {
-  font-size: 22px;
-  line-height: 24px;
+.cp-nav button > svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 .cp-collapse {
   display: none;
@@ -306,6 +311,22 @@
 .cp-empty {
   padding: 18px;
 }
+.cp-empty-state {
+  text-align: center;
+}
+.cp-muted {
+  color: #697963;
+  font-size: 12px;
+}
+.cp-no-plan {
+  margin-top: 12px;
+}
+.cp-no-plan button {
+  width: 100%;
+}
+.cp-guide details + details {
+  border-top: 1px solid #edf0e8;
+}
 .cp-error {
   background: #fff0ed;
   color: #a33a2b !important;
@@ -448,21 +469,55 @@
 }
 .cp-brand { min-width: 0; flex: 1; }
 .cp-brand small { display: block; font-size: 11px; line-height: 1.4; margin-top: 2px; color: #61715c; }
-.cp-top select { flex-shrink: 0; font-size: 16px; max-width: 48%; }
+.cp-role-switch { display:flex; flex-shrink:0; padding:3px; border:1px solid #d4ddd0; border-radius:11px; background:#f6f7f2; }
+.cp-role-switch button { border:0; min-height:36px; padding:5px 9px; background:transparent; white-space:nowrap; font-size:13px; }
+.cp-role-switch button[aria-pressed="true"] { background:#315b49; color:white; }
 .course-portal input, .course-portal select, .course-portal textarea { font-size: 16px; }
 .cp-refresh button { border: 0; padding: 8px 4px; background: transparent; font-size: 12px; }
 .cp-logout { margin-top: 16px; }
 
-/* Keep attendance status and correction together on narrow phones. */
-.cp-attendance-row {
-  display: flex;
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 8px;
+/* Dense attendance roster: keep many learners visible while preserving tap targets. */
+.cp-roster-actions {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 6px 0;
+  background: white;
 }
-.cp-attendance-row > strong {
+.cp-roster-actions button {
+  flex: 0 1 auto;
+  min-height: 44px;
+  padding: 6px 9px;
+  font-size: 13px;
+}
+.cp-roster-list {
+  border-top: 1px solid #dce3d7;
+}
+.cp-course-cost { font-size: 13px; font-weight: 400; white-space: nowrap; }
+.cp-roster-person .cp-roster-balance { flex-shrink: 0; font-size: 12px; color: #61715c; white-space: nowrap; }
+.cp-roster-person .cp-roster-note { min-width: 0; flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #61715c; }
+.cp-roster-person {
+  padding: 8px 0;
+}
+.cp-attendance-row {
+  display: grid;
+  grid-template-columns: minmax(82px, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+.cp-attendance-person {
   min-width: 0;
-  overflow-wrap: anywhere;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cp-attendance-person strong {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
 }
 .cp-attendance-actions {
   display: flex;
@@ -475,11 +530,85 @@
 .cp-person textarea { display: block; width: 100%; min-height: 88px; margin-top: 8px; }
 .cp-attendance-actions button {
   min-height: 44px;
-  padding: 8px 10px;
-  font-size: 14px;
+  min-width: 44px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.cp-attendance-actions .cp-secondary-action {
+  min-height: 44px;
+  padding: 4px 7px;
+  color: #76513d;
 }
 .cp-attendance-actions .cp-badge {
   padding: 3px 5px;
+}
+.course-portal .cp-roster-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0;
+  list-style: none;
+}
+.cp-roster-details > summary::-webkit-details-marker { display: none; }
+.cp-roster-detail-label { flex-shrink: 0; font-size: 12px; text-decoration: underline; }
+.cp-roster-details[open] .cp-roster-detail-label { font-weight: 700; }
+.cp-detail-open, .cp-roster-details[open] .cp-detail-closed { display: none; }
+.cp-roster-details[open] .cp-detail-open { display: inline; }
+.cp-roster-person:has(.cp-roster-details[open]) .cp-attendance-person strong,
+.cp-roster-details[open] .cp-roster-note { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; }
+.course-portal .cp-roster-details[open] > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.cp-roster-details[open] .cp-badge { justify-self: start; }
+.cp-roster-details[open] .cp-roster-note { grid-column: 1 / -1; grid-row: 2; }
+.cp-roster-details[open] .cp-roster-detail-label { grid-column: 2; grid-row: 1; }
+.course-portal .cp-menu:disabled { opacity: 1; cursor: default; }
+.cp-roster-details > p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.course-portal .cp-roster-hint { margin: 2px 0 8px; font-size: 12px; }
+.cp-roster-actions { margin: 0; gap: 6px; }
+.cp-roster-actions > strong { margin-right: auto; font-size: 14px; }
+.cp-roster-list .cp-roster-person { padding: 4px 0; }
+.cp-roster-details .cp-badge { flex-shrink: 0; font-size: 11px; padding: 2px 4px; }
+.cp-store-info .cp-store-address { margin: 0 0 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.cp-store-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cp-store-actions .cp-btn { border: 1px solid var(--border, #d6dfd1); border-radius: 12px; box-sizing: border-box; display: flex; justify-content: center; align-items: center; gap: 6px; min-height: 48px; padding: 8px; font-size: 14px; text-decoration: none; }
+.cp-store-actions .cp-btn:only-child { grid-column: 1 / -1; }
+.cp-store-actions svg { flex-shrink: 0; }
+.course-portal .cp-store-hint { margin: 12px 0 0; font-size: 12px; color: #61715c; }
+
+.cp-late-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #edf0e8;
+}
+.cp-small-action {
+  min-height: 38px;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+.cp-bank-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid #dce3d7;
+  border-radius: 9px;
+  background: #f6f7f2;
+}
+.cp-bank-account strong {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+}
+.cp-bank-account button {
+  flex-shrink: 0;
 }
 
 /* Coach: compact daily work and a touch-friendly weekly strip. */
@@ -491,3 +620,19 @@
 .cp-coach-options { position:relative; }
 .cp-coach-options > summary { cursor:pointer; min-width:44px; min-height:44px; display:grid; place-items:center; }
 .cp-coach-options form { position:absolute; right:0; top:100%; z-index:10; width:120px; background:white; border:1px solid #dce3d8; border-radius:12px; }
+
+/* Member bookings keep essential information visible, with inline details. */
+.course-portal .cp-booking-card { padding: 10px 14px; margin: 8px 0; }
+.cp-booking-heading { display: flex; align-items: center; gap: 8px; }
+.course-portal .cp-booking-heading h2 { flex: 1; margin: 0; font-size: 15px; line-height: 1.45; min-width: 0; overflow-wrap: anywhere; }
+.course-portal .cp-booking-heading button { flex-shrink: 0; min-height: 44px; padding: 4px 8px; font-size: 12px; }
+.course-portal .cp-booking-location { margin: 0 0 6px; font-size: 13px; }
+.course-portal .cp-booking-card .cp-person { padding: 6px 0; }
+.cp-booking-person-line { justify-content: flex-start; gap: 6px; }
+.cp-booking-person-line strong { font-size: 14px; overflow-wrap: anywhere; }
+.cp-booking-person-line > button, .cp-booking-person-line > .cp-late-cancel { margin-left: auto; }
+.course-portal .cp-booking-person-line > button { min-height: 44px; padding: 4px 10px; font-size: 13px; }
+.course-portal .cp-booking-person-line .cp-late-cancel { width: auto; margin-top: 0; border: 0; padding: 0; gap: 4px; font-size: 11px; display: flex; align-items: center; flex-wrap: wrap; }
+.course-portal .cp-booking-detail { margin-top: 6px; padding: 6px 10px; background: #f6f7f3; border-radius: 8px; }
+.course-portal .cp-booking-detail p { margin: 4px 0; font-size: 12px; overflow-wrap: anywhere; }
+.course-portal .cp-roster-body { padding-top: 0; }
