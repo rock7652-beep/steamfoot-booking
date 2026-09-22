@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { isStaffRole } from "@/lib/permissions";
 import { resolveCentralMemberCustomerForStore } from "@/server/services/central-member-resolver";
+import { VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
 
 // ============================================================
 // Session helpers
@@ -156,31 +157,39 @@ async function recoverMissingCustomerIdentity<T extends CustomerSessionUser>(use
 
 /**
  * Server Actions do not always retain the rewritten page pathname headers that
- * a dashboard render receives.  A staff JWT issued before its Staff relation
- * was provisioned can therefore be missing storeId even though the request is
- * on a concrete /s/:slug/admin route.  Recover it only from that route's
- * resolved Store plus an active Staff row for the signed-in user; never from a
- * client cookie alone.
+ * a dashboard render receives. A staff JWT may also predate its Staff relation.
+ * Recover the active Staff identity from either the route store slug or the
+ * dashboard's selected-store cookie. The cookie only narrows the lookup: the
+ * signed-in user must still own an ACTIVE Staff row for that store.
  */
 async function recoverMissingStaffIdentity<T extends CustomerSessionUser>(user: T): Promise<T> {
   if (!isStaffRole(user.role) || user.role === "ADMIN" || user.storeId) return user;
 
   let requestStoreSlug: string | null = null;
+  let selectedStoreId: string | null = null;
   try {
     const headerList = await headers();
     const cookieStore = await cookies();
-    requestStoreSlug = headerList.get("x-store-slug") ?? cookieStore.get("store-slug")?.value ?? null;
+    requestStoreSlug =
+      headerList.get("x-store-slug") ??
+      cookieStore.get("store-slug")?.value ??
+      null;
+    selectedStoreId = cookieStore.get(VIEWED_STORE_COOKIE_NAME)?.value ?? null;
   } catch {
     return user;
   }
-  if (!requestStoreSlug || requestStoreSlug === "__hq__") return user;
+
+  if (requestStoreSlug === "__hq__") requestStoreSlug = null;
+  if (!requestStoreSlug && !selectedStoreId) return user;
 
   try {
     const staff = await prisma.staff.findFirst({
       where: {
         userId: user.id,
         status: "ACTIVE",
-        store: { slug: requestStoreSlug },
+        ...(requestStoreSlug
+          ? { store: { slug: requestStoreSlug } }
+          : { storeId: selectedStoreId! }),
       },
       select: { id: true, storeId: true, store: { select: { slug: true } } },
     });
@@ -195,6 +204,7 @@ async function recoverMissingStaffIdentity<T extends CustomerSessionUser>(user: 
     console.error("[getCurrentUser] staff identity recovery failed", {
       userId: user.id,
       requestStoreSlug,
+      selectedStoreId,
       error: error instanceof Error ? error.message : String(error),
     });
     return user;
