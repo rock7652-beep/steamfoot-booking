@@ -305,6 +305,82 @@ export async function updateCourseBookingStatus(input: unknown) {
   }
 }
 
+export async function restoreCourseBooking(input: unknown) {
+  try {
+    const { user, storeId } = await courseManager("booking.update");
+    const data = z.object({ bookingId: id }).parse(input);
+    await courseTransaction(storeId, async (tx) => {
+      const booking = await tx.courseBooking.findFirst({
+        where: { id: data.bookingId, storeId },
+        include: { session: true, card: true },
+      });
+      if (!booking) throw new AppError("NOT_FOUND", "找不到本店預約");
+      if (booking.status !== "CANCELLED") throw new AppError("VALIDATION", "這筆預約不是已取消狀態");
+      if (booking.session.cancelledAt) throw new AppError("VALIDATION", "整堂課已取消，無法恢復個別預約");
+
+      const [occupied, duplicate] = await Promise.all([
+        tx.courseBooking.count({
+          where: { storeId, sessionId: booking.sessionId, status: { not: "CANCELLED" } },
+        }),
+        tx.courseBooking.findFirst({
+          where: {
+            storeId,
+            sessionId: booking.sessionId,
+            customerId: booking.customerId,
+            status: { not: "CANCELLED" },
+            id: { not: booking.id },
+          },
+          select: { id: true },
+        }),
+      ]);
+      if (duplicate) throw new AppError("CONFLICT", "這位學員已經有本堂有效預約");
+      if (occupied >= booking.session.capacity) throw new AppError("CONFLICT", "課程已滿，無法恢復預約");
+
+      if (booking.cardId && booking.card) {
+        const card = booking.card;
+        const now = new Date();
+        if (card.closedAt) throw new AppError("VALIDATION", "原方案已退款或結清，無法恢復");
+        if (card.expiresAt < now || card.expiresAt < booking.session.startsAt)
+          throw new AppError("VALIDATION", "原方案已到期或不涵蓋上課日期");
+        if (card.templateIds.length && !card.templateIds.includes(booking.session.templateId))
+          throw new AppError("VALIDATION", "原方案已不適用這堂課");
+        if (card.termSessionIds.length && !card.termSessionIds.includes(booking.session.id))
+          throw new AppError("VALIDATION", "原期課方案不適用這堂課");
+
+        const held = await tx.courseBooking.aggregate({
+          where: { storeId, cardId: card.id, status: "RESERVED", id: { not: booking.id } },
+          _sum: { pointCost: true },
+        });
+        if (card.remaining - (held._sum.pointCost ?? 0) < booking.pointCost)
+          throw new AppError("CONFLICT", "原方案目前可用額度不足，無法恢復");
+
+        await tx.$executeRaw`
+          INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt")
+          VALUES (
+            ${crypto.randomUUID()},
+            ${user.id},
+            'CourseBooking',
+            ${booking.id},
+            'COURSE_BOOKING_RESTORE',
+            ${JSON.stringify({ status: "CANCELLED", storeId })}::jsonb,
+            ${JSON.stringify({ status: "RESERVED", cardId: booking.cardId })}::jsonb,
+            NOW()
+          )
+        `;
+      }
+
+      await tx.courseBooking.update({
+        where: { id: booking.id },
+        data: { status: "RESERVED", checkedInAt: null },
+      });
+    });
+    refresh();
+    return { success: true as const };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
 export async function cancelCourseSession(input: unknown) {
   try {
     const { user, storeId } = await courseManager("booking.update");
