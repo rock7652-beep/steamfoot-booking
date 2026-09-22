@@ -681,10 +681,14 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       <span className="cp-roster-balance">{b.unit === "TRIAL" ? "體驗" : `可用 ${b.available ?? "—"} ${unit(b.unit)}`}</span>
                     </div>
                     <div className="cp-attendance-actions">
-                      {readOnly ? null : b.status === "RESERVED" ? (
+                      {b.status === "RESERVED" ? (
                         <>
-                          {!ended && !b.checkedIn && <button className="primary" disabled={pending} onClick={() => { checkIn(b.id); }}>報到</button>}
-                          {ended && <>
+                          {!readOnly && !ended && !b.checkedIn && <button className="primary" disabled={pending} onClick={() => { checkIn(b.id); }}>報到</button>}
+                          {!readOnly && !ended && b.checkedIn && <button disabled={pending} onClick={() => run(
+                            () => saveCourseAttendance({ sessionId: s.id, target: "UNDO_CHECK_IN", bookings: [{ id: b.id, status: b.status }] }),
+                            () => {}, "已撤銷報到，額度未變更", [b.id],
+                          )}>撤銷報到</button>}
+                          {!readOnly && ended && <>
                             <button
                               className="primary"
                               disabled={pending}

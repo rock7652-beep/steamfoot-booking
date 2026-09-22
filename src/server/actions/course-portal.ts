@@ -31,7 +31,7 @@ export async function saveCourseAttendance(input: unknown) {
     const data = z
       .object({
         sessionId: id,
-        target: z.enum(["RESERVED", "ATTENDED", "NO_SHOW", "CHECKED_IN"]),
+        target: z.enum(["RESERVED", "ATTENDED", "NO_SHOW", "CHECKED_IN", "UNDO_CHECK_IN"]),
         bookings: z
           .array(
             z.object({
@@ -57,13 +57,25 @@ export async function saveCourseAttendance(input: unknown) {
           storeId,
           sessionId: data.sessionId,
           id: { in: data.bookings.map((b) => b.id) },
-          status: data.target === "CHECKED_IN" ? "RESERVED" : { not: "CANCELLED" },
+          status: (data.target === "CHECKED_IN" || data.target === "UNDO_CHECK_IN") ? "RESERVED" : { not: "CANCELLED" },
         },
       });
       if (count !== data.bookings.length)
         throw new AppError("VALIDATION", "名單已變更，請重新確認");
       const updates = [];
       for (const b of data.bookings) {
+        if (data.target === "UNDO_CHECK_IN") {
+          const booking = await tx.courseBooking.findFirst({ where: { id: b.id, storeId, sessionId: data.sessionId, status: "RESERVED" } });
+          if (!booking || b.status !== "RESERVED") throw new AppError("CONFLICT", "名單已變更，請重新確認");
+          if (booking.checkedInAt) {
+            const changed = await tx.courseBooking.updateMany({ where: { id: b.id, storeId, status: "RESERVED", checkedInAt: booking.checkedInAt }, data: { checkedInAt: null } });
+            if (changed.count !== 1) throw new AppError("CONFLICT", "另一位人員已更新點名，請重新確認");
+            await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseBooking',${b.id},'UNDO_CHECK_IN',${JSON.stringify({storeId, checkedInAt: booking.checkedInAt})}::jsonb,${JSON.stringify({checkedInAt: null})}::jsonb,NOW())`;
+          }
+          const saved = await tx.courseBooking.findFirstOrThrow({ where: { id: b.id, storeId } });
+          updates.push({ id: saved.id, status: saved.status, checkedIn: !!saved.checkedInAt, updatedAt: saved.updatedAt.toISOString() });
+          continue;
+        }
         const saved = data.target === "CHECKED_IN"
           ? await settleCourseBooking(tx, { storeId, userId: user.id, name: user.name ?? "教練" }, b.id, "CHECKED_IN")
           : await correctCourseAttendance(tx, { storeId, userId: user.id, name: user.name ?? "教練" }, b.id, data.target, b.status);
@@ -71,7 +83,7 @@ export async function saveCourseAttendance(input: unknown) {
       }
       return updates;
     });
-    if (data.target !== "CHECKED_IN") scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
+    if (data.target !== "CHECKED_IN" && data.target !== "UNDO_CHECK_IN") scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
     refresh();
     return { success: true as const, attendanceUpdates };
   } catch (e) {

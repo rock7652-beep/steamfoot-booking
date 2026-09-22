@@ -42,7 +42,7 @@ beforeEach(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn();
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } });
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
-  m.attendance.mockImplementation(async (input) => ({ success: true, attendanceUpdates: input.bookings.map((b: {id:string}) => ({id:b.id,status:input.target === "CHECKED_IN" ? "RESERVED" : input.target,checkedIn:input.target === "ATTENDED" || input.target === "CHECKED_IN",updatedAt:"2026-09-20T03:00:00.000Z"})) }));
+  m.attendance.mockImplementation(async (input) => ({ success: true, attendanceUpdates: input.bookings.map((b: {id:string}) => ({id:b.id,status:["CHECKED_IN", "UNDO_CHECK_IN"].includes(input.target) ? "RESERVED" : input.target,checkedIn:input.target === "ATTENDED" || input.target === "CHECKED_IN",updatedAt:"2026-09-20T03:00:00.000Z"})) }));
   m.purchase.mockResolvedValue({ success: true });
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
@@ -57,6 +57,21 @@ describe("coach daily work interactions", () => {
     expect(host.querySelector(".cp-attendance-person .cp-roster-balance")?.textContent).toBe("可用 6 點");
     expect(host.querySelector(".cp-roster-details summary")?.textContent).toContain("本次希望降低強度");
     expect(host.querySelector(".cp-roster-details")?.textContent).toContain("學員1超長姓名驗收");
+  });
+  it("undoes check-in on a future class and restores the check-in button", async () => {
+    const data = props(); data.serverNow = Date.parse("2026-09-20T09:00:00+08:00");
+    await act(async () => root.render(createElement(CoursePortalClient, data)));
+    await click("伸展瑜珈"); await click("撤銷報到");
+    expect(m.attendance).toHaveBeenCalledWith({sessionId:"lesson",target:"UNDO_CHECK_IN",bookings:[{id:"已到學員",status:"RESERVED"}]});
+    expect(host.querySelector(".cp-roster-person")?.textContent).toContain("待報到");
+    expect(host.querySelector(".cp-roster-person button")?.textContent).toBe("報到");
+  });
+  it("lets a teacher correct attendance immediately after marking it", async () => {
+    await act(async () => root.render(createElement(CoursePortalClient, props())));
+    await click("伸展瑜珈");
+    await act(async () => ([...host.querySelectorAll("button")].find(b => b.textContent === "出席") as HTMLButtonElement).click());
+    await click("更正");
+    expect([...host.querySelectorAll("select option")].map(o => o.textContent)).toEqual(expect.arrayContaining(["出席","未到","待點名"]));
   });
   it("aligns store actions and puts referral after contact information", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, {...memberProps(), initialView: "store", config: {address:"竹北市測試地址一樓", mapUrl:"https://maps.google.com/", lineOfficialUrl:"https://lin.ee/test"}, referralShare:{referralUrl:"https://example.com",shareTemplate:"測試"}} as unknown as CoursePortalData)));
@@ -141,7 +156,7 @@ describe("coach daily work interactions", () => {
     await click("授課紀錄");
     expect(host.textContent).toContain("已授課 1 堂 · 1 小時");
     await click("伸展瑜珈");
-    expect([...host.querySelectorAll("button")].some(b=>b.textContent==="更正")).toBe(false);
+    expect([...host.querySelectorAll("button")].some(b=>b.textContent==="更正")).toBe(true);
     await click("更正紀錄");
     expect([...host.querySelectorAll("button")].some(b=>b.textContent==="更正")).toBe(true);
   });
