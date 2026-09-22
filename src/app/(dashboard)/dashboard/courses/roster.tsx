@@ -874,9 +874,13 @@ export function CourseRoster({
                   );
                 }}
               >
-                <strong className="block">未到扣堂</strong>
+                <strong className="block">
+                  {noShowBooking.trial ? "標記體驗客未到" : "未到扣堂"}
+                </strong>
                 <span className="text-xs text-earth-600">
-                  扣除本次方案額度，不發補課券。
+                  {noShowBooking.trial
+                    ? "只記錄未到，不扣方案，也不發補課券。"
+                    : "扣除本次方案額度，不發補課券。"}
                 </span>
               </button>
               {!noShowBooking.trial && (
