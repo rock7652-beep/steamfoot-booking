@@ -15,7 +15,6 @@ export function CustomerAttributionForm({
   onSaved,
   saveAction = updateCustomerAssignment,
   searchAction = searchReferrerCandidates,
-  courseMode = false,
 }: {
   customerId: string;
   currentStaffId: string | null;
@@ -26,7 +25,6 @@ export function CustomerAttributionForm({
   onSaved?: () => void;
   saveAction?: typeof updateCustomerAssignment;
   searchAction?: (query: string, excludeCustomerId?: string) => Promise<{ success: true; data: ReferrerCandidate[] } | { success: false; error?: string }>;
-  courseMode?: boolean;
 }) {
   const [staffId, setStaffId] = useState<string>(currentStaffId ?? "");
   const [sponsor, setSponsor] = useState<{ id: string; name: string; kind?: "CUSTOMER" | "COACH"; kindLabel?: string } | null>(
