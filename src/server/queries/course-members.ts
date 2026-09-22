@@ -75,7 +75,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       trialPayments: {orderBy:{createdAt:"desc"}},
       notes: true,
       checkedInAt: true,
-      card: { select: { unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, bookings: { where: { status: "RESERVED" }, select: { pointCost: true } } } },
+      card: { select: { unit: true, nameSnapshot: true, termSessionIds:true, expiresAt: true, remaining: true, members: { select: { customerId: true } }, bookings: { where: { status: "RESERVED" }, select: { pointCost: true } } } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -91,6 +91,12 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     termIndex:(card?.termSessionIds?.indexOf(sessionId) ?? -1)>=0 ? card!.termSessionIds.indexOf(sessionId)+1 : null,
     termCount:card?.termSessionIds?.length??0,
     planName: card?.nameSnapshot ?? "體驗（不使用方案）",
+    sharedCard: (card?.members.length ?? 0) > 1,
+    bookingSource: b.operatorCustomerId
+      ? b.operatorCustomerId === b.customerId
+        ? "本人預約"
+        : `${b.operatorName ?? "共卡成員"}代約`
+      : "店長建立",
     available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((n, b) => n + b.pointCost, 0)),
     expiresAt: card?.expiresAt.toISOString() ?? null,
     customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
