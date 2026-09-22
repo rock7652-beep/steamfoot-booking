@@ -36,6 +36,7 @@ export function CourseRoster({
   view = "roster",
   onDone,
   onCreateCustomer,
+  onMemberBookingReadyChange,
 }: {
   sessionId: string;
   capacity: number;
@@ -45,6 +46,7 @@ export function CourseRoster({
   view?: RosterView;
   onDone?: () => void;
   onCreateCustomer?: () => void;
+  onMemberBookingReadyChange?: (ready: boolean) => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -247,6 +249,15 @@ export function CourseRoster({
       )
       .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
   const eligibleCards = eligibleCardsFor(customerId);
+  const memberBookingReady = Boolean(
+    customerId && cardId && eligibleCards.some((item) => item.id === cardId),
+  );
+
+  useEffect(() => {
+    if (view !== "member-booking") return;
+    onMemberBookingReadyChange?.(memberBookingReady);
+    return () => onMemberBookingReadyChange?.(false);
+  }, [memberBookingReady, onMemberBookingReadyChange, view]);
 
   const normalizedTrialQuery = trialQuery.trim().toLocaleLowerCase();
   const normalizedTrialPhoneQuery = trialQuery.replace(/\D/g, "");
@@ -403,7 +414,7 @@ export function CourseRoster({
             </label>
             {!eligibleCards.length && (
               <p className="text-sm text-earth-600">
-                沒有可用方案，請確認共卡成員、額度與到期日。
+                沒有可用方案，請先指派方案或改用體驗預約。
               </p>
             )}
             <label className="block text-sm font-medium">

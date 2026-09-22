@@ -46,4 +46,14 @@ describe("course UI final fixes", () => {
     expect(workspace).not.toContain("預覽日期與衝突");
     expect(workspace).toContain("按下確認後會自動檢查教練、教室、營業時間與撞期");
   });
+
+  it("disables member booking until a learner and eligible plan are selected", () => {
+    const workspace = read("src/app/(dashboard)/dashboard/courses/workspace.tsx");
+    const roster = read("src/app/(dashboard)/dashboard/courses/roster.tsx");
+
+    expect(workspace).toContain("onMemberBookingReadyChange={setMemberBookingReady}");
+    expect(workspace).toContain('courseDialog.kind === "member-booking" &&');
+    expect(workspace).toContain("!memberBookingReady");
+    expect(roster).toContain("沒有可用方案，請先指派方案或改用體驗預約。");
+  });
 });

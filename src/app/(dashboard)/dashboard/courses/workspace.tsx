@@ -111,6 +111,7 @@ export function CourseWorkspace({
       ? { sessionId: params.get("session")!, kind: "roster" }
       : null,
   );
+  const [memberBookingReady, setMemberBookingReady] = useState(false);
   const [pending, startTransition] = useTransition();
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [panel, setPanel] = useState<
@@ -1842,6 +1843,7 @@ export function CourseWorkspace({
                     canEdit={canEdit}
                     view={courseDialog.kind}
                     onDone={() => setCourseDialog(null)}
+                    onMemberBookingReadyChange={setMemberBookingReady}
                     onCreateCustomer={() =>
                       setCourseDialog({
                         sessionId: dialogSession.id,
@@ -1859,7 +1861,11 @@ export function CourseWorkspace({
                           ? "course-member-booking-form"
                           : "course-trial-booking-form"
                       }
-                      className={`${primary} w-full`}
+                      className={`${primary} w-full disabled:cursor-not-allowed disabled:bg-earth-200 disabled:text-earth-500`}
+                      disabled={
+                        courseDialog.kind === "member-booking" &&
+                        !memberBookingReady
+                      }
                     >
                       {courseDialog.kind === "member-booking"
                         ? "確認學員預約"
