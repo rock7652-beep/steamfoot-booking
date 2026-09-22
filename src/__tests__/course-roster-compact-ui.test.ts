@@ -2,9 +2,9 @@
 import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
 import {it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({load:vi.fn(),batch:vi.fn(),status:vi.fn()}));
+const m=vi.hoisted(()=>({load:vi.fn(),batch:vi.fn(),status:vi.fn(),create:vi.fn(),save:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
-vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,updateCourseRosterBatch:m.batch,createCourseBooking:vi.fn(),updateCourseBookingStatus:m.status,cancelCourseSession:vi.fn()}));
+vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,cancelCourseSession:vi.fn()}));
 vi.mock("@/server/actions/course-trial",()=>({createCourseTrial:vi.fn(),collectCourseTrial:vi.fn(),voidCourseTrialPayment:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal",()=>({CollectTrialModal:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal",()=>({CorrectTrialCollectionModal:()=>null}));
@@ -29,5 +29,37 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   const apply=[...host.querySelectorAll("button")].find(b=>b.textContent==="套用 20 人");expect(apply).toBeTruthy();
   await act(async()=>apply!.click());
   expect(m.batch).toHaveBeenCalledWith({sessionId:"session",target:"CHECKED_IN",bookings:roster.slice(0,20).map(b=>({id:b.id,status:b.status}))});
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+
+it("finds a learner by partial phone and submits the selected earliest-expiry plan",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ m.create.mockResolvedValue({success:true});
+ const cards=[{
+  id:"card-fast",name:"快到期方案",unit:"SESSION",available:3,remaining:3,expired:false,closed:false,
+  expiresAt:"2026-10-01T00:00:00Z",members:[{id:"customer-1",name:"陳小美",phone:"0912345678"}],entries:[],
+ },{
+  id:"card-later",name:"較晚到期方案",unit:"SESSION",available:5,remaining:5,expired:false,closed:false,
+  expiresAt:"2026-12-01T00:00:00Z",members:[{id:"customer-1",name:"陳小美",phone:"0912345678"}],entries:[],
+ }];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-21T10:00:00Z",pointCost:1},roster:[],cards,trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking"})));
+  const search=host.querySelector('input[placeholder="輸入部分姓名或手機末幾碼"]') as HTMLInputElement;
+  expect(search).toBeTruthy();
+  await act(async()=>{
+   const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!;
+   setter.call(search,"5678");
+   search.dispatchEvent(new Event("input",{bubbles:true}));
+  });
+  const learner=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("陳小美"));
+  expect(learner?.textContent).toContain("0912345678");
+  await act(async()=>learner!.click());
+  expect((host.querySelector('select') as HTMLSelectElement).value).toBe("card-fast");
+  const form=host.querySelector("#course-member-booking-form") as HTMLFormElement;
+  await act(async()=>form.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+  expect(m.create).toHaveBeenCalledWith(expect.objectContaining({sessionId:"session",customerId:"customer-1",cardId:"card-fast"}));
  }finally{await act(async()=>root.unmount());host.remove();}
 });
