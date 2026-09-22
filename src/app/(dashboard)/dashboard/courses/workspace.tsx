@@ -873,7 +873,7 @@ export function CourseWorkspace({
                             <span>{session.nameSnapshot}</span>
                           </h3>
                           <p className="mt-1 truncate text-sm text-earth-600">
-                            教練｜
+                            授課教練｜
                             {allCoaches.find((coach) => coach.id === session.coachId)
                               ?.displayName ?? "未設定"}
                             {" · 教室｜"}
@@ -1856,7 +1856,7 @@ export function CourseWorkspace({
                     </h2>
                     <p className="mt-1 text-sm text-earth-600">
                       {formatTWDateTime(new Date(dialogSession.startsAt))} ·{" "}
-                      {dialogSession.nameSnapshot} · 教練｜
+                      {dialogSession.nameSnapshot} · 授課教練｜
                       {allCoaches.find((coach) => coach.id === dialogSession.coachId)
                         ?.displayName ?? "未設定"}
                     </p>
