@@ -17,6 +17,8 @@ import {
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
 import { resolvedCourseHours } from "@/lib/course-business-hours";
+import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
+import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
 
 export default async function CoursesPage({
   searchParams,
@@ -115,7 +117,7 @@ export default async function CoursesPage({
           roomId: true,
           capacity: true,
           pointCost: true,
-          bookings: { where: { status: { not: "CANCELLED" } }, select: { customerId: true } },
+          bookings: { where: { status: { not: "CANCELLED" } }, select: { customerId: true, status: true } },
         },
         orderBy: { startsAt: "asc" },
       }),
@@ -155,6 +157,7 @@ export default async function CoursesPage({
   );
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
+  const viewContext = await resolveStoreViewContextFromCookie(user);
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
       <PageHeader
@@ -178,6 +181,7 @@ export default async function CoursesPage({
         view={view}
         selectedDate={selected}
         today={toLocalDateStr()}
+        nowIso={new Date().toISOString()}
         calendarDays={calendarDays}
         rooms={rooms.map(({ sessions: uses, ...room }) => ({
           ...room,
@@ -187,6 +191,7 @@ export default async function CoursesPage({
         coaches={coaches}
         canCreate={writable}
         canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
+        cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
         sessions={sessions.map((s) => ({
           ...s,
           startsAt: s.startsAt.toISOString(),

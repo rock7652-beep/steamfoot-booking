@@ -101,6 +101,8 @@ export async function saveCoursePointPlan(input: unknown) {
         price: z.number().int().min(0).max(10000000),
         storeCost: z.number().int().min(0).max(10000000).default(0),
         termSessionIds:z.array(id).max(52).default([]),
+        customerPurchasable: z.boolean().default(true),
+        allowShared: z.boolean().default(false),
         validDays: z.number().int().min(1).max(3650),
         isActive: z.boolean().default(true),
         unit: z.enum(["POINT", "SESSION"]).default("POINT"),
@@ -168,8 +170,10 @@ export async function setCourseCardMembers(input: unknown) {
     await courseTransaction(storeId, async (tx) => {
       const card = await tx.coursePointCard.findFirst({
         where: { id: data.cardId, storeId },
+        include: { plan: { select: { allowShared: true } } },
       });
       if (!card) throw new AppError("NOT_FOUND", "找不到本店方案");
+      if (!card.plan.allowShared) throw new AppError("VALIDATION", "此方案未開放共卡");
       if(card.termSessionIds.length)throw new AppError("VALIDATION","期課為指定學員，不開放共卡；請另購方案");
       for (const customerId of new Set(data.customerIds)) {
         const rows = await tx.$queryRaw<

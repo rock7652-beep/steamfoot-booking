@@ -44,6 +44,7 @@ it("shows all twenty compact rows and selects them for one batch without cancell
 
 it("finds a learner by partial phone and submits the selected earliest-expiry plan",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const onMemberBookingReadyChange=vi.fn();
  m.create.mockResolvedValue({success:true});
  const cards=[{
   id:"card-fast",name:"快到期方案",unit:"SESSION",available:3,remaining:3,expired:false,closed:false,
@@ -55,7 +56,8 @@ it("finds a learner by partial phone and submits the selected earliest-expiry pl
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-21T10:00:00Z",pointCost:1},roster:[],cards,trial:null}});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
-  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking"})));
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking",onMemberBookingReadyChange})));
+  expect(onMemberBookingReadyChange).toHaveBeenLastCalledWith(false);
   const search=host.querySelector('input[placeholder="輸入部分姓名或手機末幾碼"]') as HTMLInputElement;
   expect(search).toBeTruthy();
   await act(async()=>{
@@ -67,8 +69,48 @@ it("finds a learner by partial phone and submits the selected earliest-expiry pl
   expect(learner?.textContent).toContain("0912345678");
   await act(async()=>learner!.click());
   expect((host.querySelector('select') as HTMLSelectElement).value).toBe("card-fast");
+  expect(onMemberBookingReadyChange).toHaveBeenLastCalledWith(true);
   const form=host.querySelector("#course-member-booking-form") as HTMLFormElement;
   await act(async()=>form.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
   expect(m.create).toHaveBeenCalledWith(expect.objectContaining({sessionId:"session",customerId:"customer-1",cardId:"card-fast"}));
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it("keeps member booking unavailable when the learner has no eligible plan",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const onMemberBookingReadyChange=vi.fn();
+ const cards=[{
+  id:"expired-card",name:"已到期方案",unit:"SESSION",available:3,remaining:3,expired:true,closed:false,
+  expiresAt:"2026-09-01T00:00:00Z",members:[{id:"customer-2",name:"林小華",phone:"0987654321"}],entries:[],
+ }];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-21T10:00:00Z",pointCost:1},roster:[],cards,trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking",onMemberBookingReadyChange})));
+  const search=host.querySelector('input[placeholder="輸入部分姓名或手機末幾碼"]') as HTMLInputElement;
+  await act(async()=>{
+   const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!;
+   setter.call(search,"小華");
+   search.dispatchEvent(new Event("input",{bubbles:true}));
+  });
+  const learner=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("林小華"));
+  await act(async()=>learner!.click());
+  expect(host.textContent).toContain("沒有可用方案，請先指派方案。");
+  expect(onMemberBookingReadyChange).toHaveBeenLastCalledWith(false);
+  expect(host.textContent).not.toContain("改用體驗預約");
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it("offers an in-flow new customer path from member booking",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const onCreateCustomer=vi.fn();
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-21T10:00:00Z",pointCost:1},roster:[],cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking",onCreateCustomer})));
+  const create=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("直接建立新顧客"));
+  expect(create).toBeTruthy();
+  await act(async()=>create!.click());
+  expect(onCreateCustomer).toHaveBeenCalledOnce();
  }finally{await act(async()=>root.unmount());host.remove();}
 });

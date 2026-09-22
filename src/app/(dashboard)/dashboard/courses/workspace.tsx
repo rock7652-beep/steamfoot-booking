@@ -2,7 +2,7 @@
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -14,7 +14,6 @@ import {
   toLocalDateStr,
 } from "@/lib/date-utils";
 import {
-  previewCourseSchedule,
   updateCourseSeries,
   createCourseRoom,
   createCourseTemplate,
@@ -25,6 +24,7 @@ import {
   setCourseCatalogStatus,
   batchCourseTemplates,
 } from "@/server/actions/course";
+import { courseSessionStatus } from "@/lib/course-session-status";
 
 type Room = {
   id: string;
@@ -45,7 +45,7 @@ type Template = Omit<Room, "capacity"> & {
   precautions?: string;
 };
 type Session = {
-  bookings: { customerId: string }[];
+  bookings: { customerId: string; status: string }[];
   id: string;
   templateId: string;
   nameSnapshot: string;
@@ -59,6 +59,7 @@ type Session = {
 type Props = {
   selectedDate: string;
   today: string;
+  nowIso: string;
   calendarDays: Record<
     string,
     { status: "open" | "closed" | "training" | "custom"; reason: string | null }
@@ -70,6 +71,7 @@ type Props = {
   canCreate: boolean;
   canDelete?: boolean;
   canEdit: boolean;
+  cashbookShortcut?: ReactNode;
   view: "schedule" | "catalog" | "rooms";
 };
 const button =
@@ -82,6 +84,7 @@ export function CourseWorkspace({
   canDelete=false,
   selectedDate: loadedDate,
   today,
+  nowIso,
   calendarDays,
   rooms: allRooms,
   templates: allTemplates,
@@ -89,6 +92,7 @@ export function CourseWorkspace({
   coaches: allCoaches,
   canCreate,
   canEdit,
+  cashbookShortcut,
   view,
 }: Props) {
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
@@ -107,6 +111,7 @@ export function CourseWorkspace({
       ? { sessionId: params.get("session")!, kind: "roster" }
       : null,
   );
+  const [memberBookingReady, setMemberBookingReady] = useState(false);
   const [pending, startTransition] = useTransition();
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [panel, setPanel] = useState<
@@ -191,10 +196,6 @@ export function CourseWorkspace({
   const [chosen, setChosen] = useState(templates[0]?.id ?? "");
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [repeat, setRepeat] = useState(false);
-  const [schedulePreview, setSchedulePreview] = useState<{
-    dates: { startsAt: string; conflict: boolean; conflicts: {name:string;startsAt:string;endsAt:string;resource:string}[] }[];
-    capacityWarning: string | null;
-  } | null>(null);
   const [editing, setEditing] = useState<
     | { kind: "room"; value: Room }
     | { kind: "template"; value: Template }
@@ -230,7 +231,6 @@ export function CourseWorkspace({
     setConflicts([]);
     setDirty(false);
     setPanel(next);
-    setSchedulePreview(null);
     setExtraDateKeys([]);
     setRoomCapacityNotice("");
     setError("");
@@ -319,8 +319,9 @@ export function CourseWorkspace({
                 ›
               </button>
             </div>
-            {(canCreate || canEdit) && (
+            {(cashbookShortcut || canCreate || canEdit) && (
               <div className="flex gap-2">
+                {cashbookShortcut}
                 {canCreate && (
                   <button
                     className={primary}
@@ -424,7 +425,7 @@ export function CourseWorkspace({
                       go(date);
                       open("day");
                     }}
-                    className={`flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${
+                    className={`relative flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
                       isClosed
                         ? "bg-earth-100 text-earth-500"
                         : date === selectedDate
@@ -434,7 +435,7 @@ export function CourseWorkspace({
                             : "bg-earth-50 text-earth-400"
                     }`}
                   >
-                    <span className="shrink-0 text-xs leading-4">{i + 1}</span>
+                    <span className={`shrink-0 text-xs font-medium leading-4 ${date===today?"text-primary-800":"text-earth-700"}`}>{i + 1}{date===today&&<span className="ml-1 hidden text-[10px] sm:inline">今天</span>}</span>
                     {isClosed && (
                       <span
                         className="mt-1 max-w-full truncate rounded bg-earth-200 px-1.5 py-0.5 text-[10px] font-medium text-earth-700"
@@ -447,7 +448,8 @@ export function CourseWorkspace({
                     {list.slice(0, 2).map((s) => (
                       <span
                         key={s.id}
-                        className="hidden w-full shrink-0 truncate leading-[14px] sm:block sm:text-[11px]"
+                        className={`hidden w-full shrink-0 truncate leading-[14px] sm:block sm:text-[11px] rounded-sm border-l-2 px-1 ${courseSessionStatus(s, nowIso).calendarClass} ${courseSessionStatus(s, nowIso).accentClass}`}
+                        title={`${s.nameSnapshot} · ${courseSessionStatus(s, nowIso).label}`}
                       >
                         {formatTWDateTime(new Date(s.startsAt)).slice(11)}{" "}
                         {s.nameSnapshot}
@@ -463,9 +465,17 @@ export function CourseWorkspace({
               })}
             </div>
           </div>
-          <p className="text-sm text-earth-500">
-            淡色：當日無課程；灰底「公休／員工訓練」：當日不可排課
-          </p>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-earth-600" aria-label="課程狀態圖例">
+            {[
+              ["未開始", "bg-sky-50 text-sky-800"],
+              ["進行中", "bg-amber-50 text-amber-800"],
+              ["待點名", "bg-violet-50 text-violet-800"],
+              ["已完成", "bg-emerald-50 text-emerald-800"],
+              ["未到", "bg-red-50 text-red-700"],
+              ["已結束", "bg-earth-100 text-earth-700"],
+            ].map(([label, tone]) => <span key={label} className={`rounded-full px-2 py-1 ${tone}`}>{label}</span>)}
+            <span>灰底「公休／員工訓練」：當日不可排課</span>
+          </div>
           <p
             role="status"
             aria-live="polite"
@@ -819,11 +829,13 @@ export function CourseWorkspace({
                     </div>
                     {(calendarDays[selectedDate]?.status === "closed" ||
                       calendarDays[selectedDate]?.status === "training") && (
-                      <p className="rounded-lg bg-earth-100 px-3 py-2 text-sm font-medium text-earth-700">
-                        {calendarDays[selectedDate]?.status === "training"
-                          ? "員工訓練"
-                          : "公休"}
-                        {calendarDays[selectedDate]?.reason
+                      <p className={`rounded-lg px-3 py-2 text-sm font-medium ${daySessions.length ? "border border-amber-200 bg-amber-50 text-amber-900" : "bg-earth-100 text-earth-700"}`}>
+                        {daySessions.length
+                          ? `${calendarDays[selectedDate]?.status === "training" ? "員工訓練日" : "公休日"}已有 ${daySessions.length} 堂既有課程；可查看與處理，但不可新增排課。`
+                          : calendarDays[selectedDate]?.status === "training"
+                            ? "員工訓練"
+                            : "公休"}
+                        {!daySessions.length && calendarDays[selectedDate]?.reason
                           ? ` · ${calendarDays[selectedDate].reason}`
                           : ""}
                       </p>
@@ -836,6 +848,7 @@ export function CourseWorkspace({
                     {daySessions.map((session, index) => {
                       const isFull =
                         session.bookings.length >= session.capacity;
+                      const sessionState = courseSessionStatus(session, nowIso);
                       const openSeats = Math.max(
                         0,
                         session.capacity - session.bookings.length,
@@ -843,23 +856,26 @@ export function CourseWorkspace({
                       return (
                         <article
                           key={session.id}
-                          className="rounded-xl border border-earth-200 bg-white px-3 py-2.5"
+                          className={`rounded-xl border border-l-4 border-earth-200 bg-white px-3 py-2.5 ${sessionState.accentClass}`}
                         >
                           <div className="flex items-center justify-between gap-3">
                             <span className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-800">
                               第 {index + 1} 堂
                             </span>
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-medium ${
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${sessionState.badgeClass}`}>{sessionState.label}</span>
+                              <span
+                                className={`rounded-full px-2 py-1 text-xs font-medium ${
                                 isFull
                                   ? "bg-primary-100 text-primary-900"
                                   : "bg-earth-100 text-earth-700"
                               }`}
-                            >
-                              {isFull
-                                ? `已滿 ${session.bookings.length}/${session.capacity}`
-                                : `尚有 ${openSeats} 位 · ${session.bookings.length}/${session.capacity}`}
-                            </span>
+                              >
+                                {isFull
+                                  ? `已滿 ${session.bookings.length}/${session.capacity}`
+                                  : `尚有 ${openSeats} 位 · ${session.bookings.length}/${session.capacity}`}
+                              </span>
+                            </div>
                           </div>
                           <h3 className="mt-2 flex flex-wrap items-baseline gap-x-2 font-semibold text-primary-900">
                             <span>
@@ -873,12 +889,11 @@ export function CourseWorkspace({
                             <span>{session.nameSnapshot}</span>
                           </h3>
                           <p className="mt-1 truncate text-sm text-earth-600">
-                            授課教練｜
                             {allCoaches.find((coach) => coach.id === session.coachId)
-                              ?.displayName ?? "未設定"}
-                            {" · 教室｜"}
+                              ?.displayName ?? "未指定教練"}
+                            {" · "}
                             {allRooms.find((room) => room.id === session.roomId)?.name ??
-                              "未設定"}
+                              "未指定教室"}
                             {" · "}
                             點數卡 {session.pointCost} 點／堂數卡 1 堂
                           </p>
@@ -1406,7 +1421,6 @@ export function CourseWorkspace({
                   <form
                     id="course-schedule-form"
                     onChange={(e) => {
-                      setSchedulePreview(null);
                       const fields = new FormData(e.currentTarget);
                       const limit = rooms.find(
                         (r) => r.id === fields.get("roomId"),
@@ -1617,7 +1631,6 @@ export function CourseWorkspace({
                               type="button"
                               className={button}
                               onClick={() => {
-                                setSchedulePreview(null);
                                 setExtraDateKeys((current) =>
                                   current.filter((_, i) => i !== index),
                                 );
@@ -1632,7 +1645,6 @@ export function CourseWorkspace({
                           className={button}
                           disabled={extraDateKeys.length >= 52}
                           onClick={() => {
-                            setSchedulePreview(null);
                             setExtraDateKeys((current) => [
                               ...current,
                               crypto.randomUUID(),
@@ -1681,63 +1693,9 @@ export function CourseWorkspace({
                         />
                       </label>
                     )}
-                    <button
-                      type="button"
-                      className={`${button} col-span-full`}
-                      disabled={pending}
-                      onClick={(event) => {
-                        const form = event.currentTarget.form!;
-                        if (!form.reportValidity()) return;
-                        const data = new FormData(form);
-                        startTransition(async () => {
-                          const result = await previewCourseSchedule({
-                            templateId: chosen,
-                            roomId: data.get("roomId"),
-                            coachId: data.get("coachId"),
-                            date: data.get("date"),
-                            time: data.get("time"),
-                            durationMinutes: Number(data.get("duration")),
-                            capacity: Number(data.get("capacity")),
-                            additionalDates: repeat
-                              ? undefined
-                              : data.getAll("additionalDates").map(String),
-                            repeatUntil: repeat ? data.get("until") : undefined,
-                            weekdays:
-                              repeat && data.getAll("weekday").length
-                                ? data.getAll("weekday").map(Number)
-                                : undefined,
-                            requestKey,
-                          });
-                          if (result.success) {
-                            setSchedulePreview(result.data);
-                            setError("");
-                          } else setError(result.error);
-                        });
-                      }}
-                    >
-                      預覽日期與衝突
-                    </button>
-                    {schedulePreview && (
-                      <div className="col-span-full text-sm">
-                        {schedulePreview.capacityWarning && (
-                          <p className="text-amber-700">
-                            {schedulePreview.capacityWarning}
-                          </p>
-                        )}
-                        <ul>
-                          {schedulePreview.dates.map((d) => (
-                            <li
-                              key={d.startsAt}
-                              className={d.conflict ? "text-red-700" : ""}
-                            >
-                              {formatTWDateTime(new Date(d.startsAt))} ·{" "}
-                              {d.conflict ? "撞期：請調整時間或資源" : "可排課"}
-                              {d.conflicts.map((conflict, index) => <p key={index} className="pl-3">{conflict.resource} · {conflict.name} · {formatTWDateTime(new Date(conflict.startsAt))}–{formatTWDateTime(new Date(conflict.endsAt)).slice(11)}</p>)}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <p className="col-span-full text-sm text-earth-500">
+                      按下確認後會自動檢查教練、教室、營業時間與撞期；若有衝突，整批不會建立。
+                    </p>
                   </form>
                 )}
               </>
@@ -1766,9 +1724,7 @@ export function CourseWorkspace({
                 type="submit"
                 className={`${primary} w-full`}
                 disabled={
-                  pending ||
-                  !schedulePreview ||
-                  schedulePreview.dates.some((d) => d.conflict)
+                  pending
                 }
               >
                 {pending ? "建立中…" : "確認建立排課"}
@@ -1831,7 +1787,7 @@ export function CourseWorkspace({
               ? "上課名單"
               : courseDialog.kind === "member-booking"
                 ? "＋ 學員預約"
-                : "＋ 體驗客";
+                : "＋ 新顧客／體驗客";
           return (
             <div
               className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-3 sm:p-5"
@@ -1856,9 +1812,12 @@ export function CourseWorkspace({
                     </h2>
                     <p className="mt-1 text-sm text-earth-600">
                       {formatTWDateTime(new Date(dialogSession.startsAt))} ·{" "}
-                      {dialogSession.nameSnapshot} · 授課教練｜
+                      {dialogSession.nameSnapshot} ·{" "}
                       {allCoaches.find((coach) => coach.id === dialogSession.coachId)
-                        ?.displayName ?? "未設定"}
+                        ?.displayName ?? "未指定教練"}
+                      {" · "}
+                      {allRooms.find((room) => room.id === dialogSession.roomId)?.name ??
+                        "未指定教室"}
                     </p>
                   </div>
                   <button
@@ -1884,6 +1843,13 @@ export function CourseWorkspace({
                     canEdit={canEdit}
                     view={courseDialog.kind}
                     onDone={() => setCourseDialog(null)}
+                    onMemberBookingReadyChange={setMemberBookingReady}
+                    onCreateCustomer={() =>
+                      setCourseDialog({
+                        sessionId: dialogSession.id,
+                        kind: "trial-booking",
+                      })
+                    }
                   />
                 </div>
                 {courseDialog.kind !== "roster" && (
@@ -1895,7 +1861,11 @@ export function CourseWorkspace({
                           ? "course-member-booking-form"
                           : "course-trial-booking-form"
                       }
-                      className={`${primary} w-full`}
+                      className={`${primary} w-full disabled:cursor-not-allowed disabled:bg-earth-200 disabled:text-earth-500`}
+                      disabled={
+                        courseDialog.kind === "member-booking" &&
+                        !memberBookingReady
+                      }
                     >
                       {courseDialog.kind === "member-booking"
                         ? "確認學員預約"

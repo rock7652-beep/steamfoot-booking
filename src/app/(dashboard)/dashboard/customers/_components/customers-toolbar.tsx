@@ -127,7 +127,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
               name="search"
               value={searchDraft}
               onChange={(e) => setDraft({source:current.search,value:e.target.value})}
-              placeholder="搜尋姓名 / 電話 / LINE 名稱"
+              placeholder="搜尋姓名／電話"
               className="min-h-11 min-w-0 flex-1 rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-800 placeholder:text-earth-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300"
             />
             {searchDraft !== current.search ? (

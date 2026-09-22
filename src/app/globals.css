@@ -255,13 +255,17 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
   min-width: 0;
   height: 100%;
   align-items: center;
-  text-align: left;
+  justify-content: center;
+  text-align: center;
 }
 
 [data-dashboard-content] input[type="date"]::-webkit-datetime-edit {
   display: flex;
+  flex: 1;
   align-items: center;
+  justify-content: center;
   padding: 0;
+  text-align: center;
 }
 
 /* The booking calendar toolbar is intentionally denser than data-entry forms.

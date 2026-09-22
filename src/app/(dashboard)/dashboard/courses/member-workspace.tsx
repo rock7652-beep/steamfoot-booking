@@ -7,6 +7,7 @@ import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admi
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
@@ -37,6 +38,8 @@ type Plan = {
   termSessionIds?:string[];
   validDays: number;
   isActive: boolean;
+  customerPurchasable?: boolean;
+  allowShared?: boolean;
   unit: string;
   templateIds: string[];
 };
@@ -70,7 +73,7 @@ export function CourseMemberWorkspace({
 }: {
   termSessions?:{id:string;name:string;startsAt:string}[];
   view: "customers" | "plans";
-  templates: {id:string;name:string}[];
+  templates: {id:string;name:string;category:string;isActive:boolean}[];
   people: Person[];
   plans: Plan[];
   cards: CourseCardView[];
@@ -96,6 +99,8 @@ export function CourseMemberWorkspace({
   function keepCustomerInUrl(id?:string){const next=new URLSearchParams(params.toString());if(id)next.set("customerId",id);else next.delete("customerId");router.replace(`${pathname}?${next}`,{scroll:false});}
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
   const [templateSearch,setTemplateSearch]=useState("");
+  const [selectedTemplateIds,setSelectedTemplateIds]=useState<string[]>([]);
+  const [planAmounts,setPlanAmounts]=useState({points:10,price:0,storeCost:0});
   const [selected,setSelected]=useState<string[]>([]);
   const [pending, start] = useTransition();
   const [search, setSearch] = useState("");
@@ -116,6 +121,7 @@ export function CourseMemberWorkspace({
   const [cardLoading,setCardLoading]=useState(false);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useState("all");
+  const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
   function canLeave() { return !pending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); if(view==="customers")keepCustomerInUrl(); } }
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -154,6 +160,17 @@ export function CourseMemberWorkspace({
     setPanel(value);
     return true;
   }
+  function preparePlan(next: Plan | null) {
+    setPlan(next);
+    setTemplateSearch("");
+    setSelectedTemplateIds(next?.templateIds ?? []);
+    setPlanAmounts({
+      points: next?.points ?? 10,
+      price: next?.price ?? 0,
+      storeCost: next?.storeCost ?? 0,
+    });
+    open("plan");
+  }
   function submit(
     event: FormEvent<HTMLFormElement>,
     action: (data: FormData) => Promise<{ success: boolean; error?: string }>,
@@ -171,7 +188,8 @@ export function CourseMemberWorkspace({
         setDirty(false);setCardRevision(n=>n+1);
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab("plans"); setEditingPerson(false); }
         else setPanel(null);
-        setNotice("已儲存");
+        if (panel === "plan") toast.success("方案已儲存");
+        else setNotice("已儲存");
         router.refresh();
       } catch {
         setError("連線中斷，請重試");
@@ -188,17 +206,43 @@ export function CourseMemberWorkspace({
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
   const totalRows = filteredPlans.length;
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
+  const activePlans = plans.filter((item) => item.isActive);
+  const pointPlans = activePlans.filter((item) => item.unit === "POINT").length;
+  const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
+  const normalizedTemplateSearch = templateSearch.trim().toLocaleLowerCase();
+  const visibleTemplates = templates.filter((item) =>
+    item.name.toLocaleLowerCase().includes(normalizedTemplateSearch),
+  );
+  const templateGroups = [...new Set(visibleTemplates.map((item) => item.category || "未分類"))];
+  const unitPrice = Math.round(planAmounts.price / Math.max(1, planAmounts.points));
+  const estimatedProfit = planAmounts.price - planAmounts.storeCost;
   return (
     <>
+      {view === "plans" && (
+        <nav aria-label="方案管理分區" className="mb-4 flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
+          <button type="button" aria-pressed={planArea === "catalog"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "catalog" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("catalog")}>方案商品</button>
+          {canReadCards && <button type="button" aria-pressed={planArea === "cards"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "cards" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("cards")}>顧客持有方案</button>}
+        </nav>
+      )}
+      {view === "plans" && planArea === "catalog" && (
+        <section aria-label="方案摘要" className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            ["全部方案", plans.length],
+            ["上架中", activePlans.length],
+            ["點數方案", pointPlans],
+            ["堂數方案", sessionPlans],
+          ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-2"><strong className="block text-lg tabular-nums text-primary-800">{value}</strong><span className="text-xs text-earth-500">{label}</span></div>)}
+        </section>
+      )}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {view === "plans" && <input
+        {view === "plans" && planArea === "catalog" && <input
           className={`${field} max-w-xs`}
           aria-label="搜尋"
           placeholder="搜尋方案"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0); }}
         />}
-        {view === "plans" && (
+        {view === "plans" && planArea === "catalog" && (
           <select
             className={`${field} max-w-36`}
             aria-label="狀態篩選"
@@ -210,20 +254,21 @@ export function CourseMemberWorkspace({
             <option value="inactive">下架</option>
           </select>
         )}
-        {view === "plans" && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
-        {canCreate && (
+        {view === "plans" && planArea === "catalog" && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={button}
             onClick={() => {
-              setPerson(null);
-              setPlan(null);
-              open(view === "customers" ? "person" : "plan");
+              if (view === "customers") {
+                setPerson(null);
+                open("person");
+              } else preparePlan(null);
             }}
           >
             ＋新增{view === "customers" ? "顧客" : "方案"}
           </button>
         )}
-        {canAssign && (
+        {canAssign && (view === "customers" || planArea === "cards") && (
           <button
             className={button}
             disabled={!people.length || !plans.some((p) => p.isActive)}
@@ -238,7 +283,7 @@ export function CourseMemberWorkspace({
           {notice}
         </p>
       )}
-      {view === "plans" && canEdit && <CourseBatchBar canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+      {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {view === "customers" ? <CourseCustomerList customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge}
@@ -246,11 +291,11 @@ export function CourseMemberWorkspace({
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
         onAssign={canAssign ? id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); open("assign"); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
-      <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
+      planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-earth-50">
             <tr>
-              {["方案／適用課程", "額度", "售價", "有效天數", "狀態", "操作"].map((h) => (
+              {["方案／適用課程", "額度", "售價", "單位價格", "有效天數", "狀態", "操作"].map((h) => (
                 <th key={h} className="whitespace-nowrap p-3">
                   {h}
                 </th>
@@ -258,24 +303,24 @@ export function CourseMemberWorkspace({
             </tr>
           </thead>
           <tbody className="divide-y divide-earth-100">
-            {!filteredPlans.length && <tr><td colSpan={6} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
+            {!filteredPlans.length && <tr><td colSpan={7} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
             {filteredPlans.slice(currentPage * 20, (currentPage + 1) * 20).map((p) => (
                   <tr
                     key={p.id}
                     className={p.isActive ? "" : "bg-earth-50 text-earth-400"}
                   >
-                    <td className="p-3">{canEdit && <input type="checkbox" className="mr-3" aria-label={`選取 ${p.name}`} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span><p className="mt-1 text-xs text-earth-500">{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
+                    <td className="p-3">{canEdit && <input type="checkbox" className="mr-3" aria-label={`選取 ${p.name}`} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span><div className="mt-1 flex flex-wrap gap-1"><span className="rounded-full bg-earth-100 px-2 py-0.5 text-[11px] text-earth-600">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}</span>{p.allowShared && <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] text-primary-700">允許共卡</span>}</div><p className="mt-1 text-xs text-earth-500">{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
                     <td className="p-3">{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
                     <td className="p-3">NT$ {p.price.toLocaleString("zh-TW")}</td>
-                    <td className="p-3">{p.validDays}</td>
-                    <td className="p-3">{p.isActive ? "上架" : "下架"}</td>
+                    <td className="p-3 text-earth-600">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</td>
+                    <td className="p-3">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</td>
+                    <td className="p-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${p.isActive ? "bg-emerald-50 text-emerald-700" : "bg-earth-100 text-earth-500"}`}>{p.isActive ? "上架" : "下架"}</span></td>
                     <td className="p-3">
                       {canEdit && (
                         <button
                           className={button}
                           onClick={() => {
-                            setPlan(p);
-                            open("plan");
+                            preparePlan(p);
                           }}
                         >
                           編輯
@@ -286,10 +331,9 @@ export function CourseMemberWorkspace({
                 ))}
           </tbody>
         </table>
-      </div>
+      </div> : canReadCards ? <CourseCardBrowser state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
       )}
-      {view === "plans" && canReadCards && <section className="mt-5 space-y-3"><h2 className="font-semibold">顧客持有方案</h2><CourseCardBrowser state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}
-      {view === "plans" && totalRows > 20 && <nav aria-label="清單分頁" className="flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
+      {view === "plans" && planArea === "catalog" && totalRows > 20 && <nav aria-label="清單分頁" className="mt-3 flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
       {panel && (
         <RightSheet
           open
@@ -444,6 +488,8 @@ export function CourseMemberWorkspace({
                       price: Number(d.get("price")),
                       storeCost: Number(d.get("storeCost")),
                       termSessionIds:d.getAll("termSessionIds"),
+                      customerPurchasable: d.get("purchaseMode") === "customer",
+                      allowShared: d.get("allowShared") === "yes",
                       validDays: Number(d.get("days")),
                       isActive: d.get("active") === "yes",
                       unit: d.get("unit"),
@@ -452,7 +498,7 @@ export function CourseMemberWorkspace({
                   )
                 }
               >
-                <label className="block">
+                <label className="block sm:col-span-2">
                   名稱
                   <input
                     className={field}
@@ -462,8 +508,33 @@ export function CourseMemberWorkspace({
                   />
                 </label>
                 <label className="block">額度單位<select className={field} name="unit" defaultValue={plan?.unit??"POINT"}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>
-                <label className="sm:col-span-2">搜尋適用課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="輸入課程名稱"/></label>
-                <fieldset className="sm:col-span-2 max-h-40 space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-earth-200 p-3"><legend>適用課程（未勾選表示全部課程）</legend>{templates.map(t=><label hidden={!t.name.includes(templateSearch.trim())} key={t.id} className={t.name.includes(templateSearch.trim())?"flex min-h-11 items-center gap-2":"hidden"}><input type="checkbox" name="templateIds" value={t.id} defaultChecked={plan?.templateIds.includes(t.id)}/>{t.name}</label>)}</fieldset>
+                <label className="block">狀態<select className={field} name="active" defaultValue={plan?.isActive === false ? "no" : "yes"}><option value="yes">上架</option><option value="no">下架</option></select></label>
+                <label className="sm:col-span-2">搜尋適用課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="輸入課程名稱篩選；未輸入會顯示全部課程"/></label>
+                <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3">
+                  <legend className="px-1">適用課程（未勾選表示全部課程）</legend>
+                  {selectedTemplateIds.map(id=><input key={id} type="hidden" name="templateIds" value={id}/>)}
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 pb-2 text-sm">
+                    <span className="text-earth-600">已選 {selectedTemplateIds.length} 堂 · 顯示 {visibleTemplates.length} 堂</span>
+                    <span className="flex gap-2">
+                      <button type="button" className={button} onClick={()=>{setDirty(true);setSelectedTemplateIds(ids=>[...new Set([...ids,...visibleTemplates.filter(t=>t.isActive).map(t=>t.id)])]);}}>全選目前結果</button>
+                      <button type="button" className={button} onClick={()=>{setDirty(true);setSelectedTemplateIds(ids=>ids.filter(id=>!visibleTemplates.some(t=>t.id===id&&t.isActive)));}}>清除目前結果</button>
+                    </span>
+                  </div>
+                  <div className="max-h-64 space-y-3 overflow-y-auto overscroll-contain pr-1">
+                    {templateGroups.map(group=><section key={group} aria-label={group}>
+                      <h3 className="sticky top-0 bg-white py-1 text-xs font-semibold text-earth-500">{group}</h3>
+                      {visibleTemplates.filter(t=>(t.category||"未分類")===group).map(t=>{
+                        const selected=selectedTemplateIds.includes(t.id);
+                        return <label key={t.id} className={`flex min-h-10 items-center gap-2 rounded-md px-2 ${t.isActive?"hover:bg-earth-50":"bg-earth-50 text-earth-400"}`}>
+                          <input type="checkbox" value={t.id} checked={selected} disabled={!t.isActive} onChange={e=>{setDirty(true);setSelectedTemplateIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>
+                          <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                          {!t.isActive&&<span className="rounded-full bg-earth-200 px-2 py-0.5 text-[11px]">已下架</span>}
+                        </label>;
+                      })}
+                    </section>)}
+                    {!visibleTemplates.length&&<p className="py-6 text-center text-sm text-earth-500">沒有符合搜尋的課程</p>}
+                  </div>
+                </fieldset>
                 {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}<details className="sm:col-span-2"><summary className="cursor-pointer py-2">期課：連結指定課次（選填）</summary><p className="text-sm text-earth-600">未選為自由預約；選擇後請使用堂數方案，課次数須等於販售堂數。結帳會一次預約全期；未到仍扣堂，不提供補課券。</p><div className="max-h-48 overflow-y-auto">{termSessions.map(s=><label key={s.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="termSessionIds" value={s.id} defaultChecked={plan?.termSessionIds?.includes(s.id)}/>{formatTWDateTime(new Date(s.startsAt))} · {s.name}</label>)}</div></details>
                 {[
                   ["額度", "points", plan?.points ?? 10, 1],
@@ -479,23 +550,20 @@ export function CourseMemberWorkspace({
                       type="number"
                       min={Number(min)}
                       defaultValue={Number(value)}
+                      onChange={e=>{
+                        const amount=Number(e.target.value)||0;
+                        if(name==="points")setPlanAmounts(v=>({...v,points:amount}));
+                        if(name==="price")setPlanAmounts(v=>({...v,price:amount}));
+                        if(name==="storeCost")setPlanAmounts(v=>({...v,storeCost:amount}));
+                      }}
                       required
                     />
                   </label>
                 ))}
-                <label className="block">
-                  狀態
-                  <select
-                    className={field}
-                    name="active"
-                    defaultValue={plan?.isActive === false ? "no" : "yes"}
-                  >
-                    <option value="yes">上架</option>
-                    <option value="no">下架</option>
-                  </select>
-                </label>
+                <div className="sm:col-span-2 grid grid-cols-2 gap-3 rounded-lg bg-primary-50 p-3 text-sm"><p><span className="text-earth-500">單位價格</span><strong className="block text-primary-800">NT$ {unitPrice.toLocaleString("zh-TW")}／單位</strong></p><p><span className="text-earth-500">預估利潤</span><strong className={`block ${estimatedProfit<0?"text-red-700":"text-primary-800"}`}>NT$ {estimatedProfit.toLocaleString("zh-TW")}</strong></p></div>
+                <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3"><legend className="px-1">方案使用方式</legend><div className="grid gap-2 sm:grid-cols-2"><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="customer" defaultChecked={plan?.customerPurchasable!==false}/>顧客可購買</label><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="backend" defaultChecked={plan?.customerPurchasable===false}/>僅後台指派</label></div><label className="mt-2 flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="checkbox" name="allowShared" value="yes" defaultChecked={plan?.allowShared??false}/>允許共卡</label></fieldset>
                 <p className="sm:col-span-2 text-sm text-earth-500">
-                  修改預設不影響已指派方案。提供點數與堂數方案，無自動續費。
+                  修改預設不影響已指派方案；方案下架也會保留顧客已持有的額度。提供點數與堂數方案，無自動續費。
                 </p>
               </form>
             )}
@@ -564,7 +632,7 @@ export function CourseMemberWorkspace({
               <>
                 {cardLoading && <p role="status">讀取方案詳細資料中…</p>}
                 <CourseCardSummary card={card} />
-                {canAssign && !cardLoading && !error && (
+                {canAssign && card.allowShared && !cardLoading && !error && (
                   <form
                     id="course-member-form"
                 onChange={()=>setDirty(true)}
@@ -586,11 +654,12 @@ export function CourseMemberWorkspace({
 
                   </form>
                 )}
+                {canAssign && !card.allowShared && !cardLoading && !error && <p className="mt-4 rounded-lg bg-earth-50 p-3 text-sm text-earth-600">此方案設定為不允許共卡，既有持有人資料仍會保留。</p>}
                 <CourseCardEntries card={card} />
               </>
             )}
           </div>
-          {panel !== "health" && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || canAssign) && (
+          {panel !== "health" && (panel !== "person" || (person ? canEdit && editingPerson && personTab === "info" : canCreate)) && (panel !== "card" || (canAssign && card?.allowShared)) && (
             <footer className="shrink-0 border-t bg-white p-4">
               {panel === "assign" && <p className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span>{person?.name} · {plans.find(p=>p.id===planId)?.name}</span><strong>實收 {assignmentSummary.paid === null ? "—" : `NT$ ${assignmentSummary.paid.toLocaleString()}`}</strong></p>}
               <button

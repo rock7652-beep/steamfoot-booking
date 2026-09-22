@@ -35,6 +35,8 @@ export function CourseRoster({
   allowTrialActions = true,
   view = "roster",
   onDone,
+  onCreateCustomer,
+  onMemberBookingReadyChange,
 }: {
   sessionId: string;
   capacity: number;
@@ -43,6 +45,8 @@ export function CourseRoster({
   allowTrialActions?: boolean;
   view?: RosterView;
   onDone?: () => void;
+  onCreateCustomer?: () => void;
+  onMemberBookingReadyChange?: (ready: boolean) => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -245,6 +249,15 @@ export function CourseRoster({
       )
       .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
   const eligibleCards = eligibleCardsFor(customerId);
+  const memberBookingReady = Boolean(
+    customerId && cardId && eligibleCards.some((item) => item.id === cardId),
+  );
+
+  useEffect(() => {
+    if (view !== "member-booking") return;
+    onMemberBookingReadyChange?.(memberBookingReady);
+    return () => onMemberBookingReadyChange?.(false);
+  }, [memberBookingReady, onMemberBookingReadyChange, view]);
 
   const normalizedTrialQuery = trialQuery.trim().toLocaleLowerCase();
   const normalizedTrialPhoneQuery = trialQuery.replace(/\D/g, "");
@@ -337,9 +350,34 @@ export function CourseRoster({
                   );
                 })
               ) : (
-                <p className="p-4 text-sm text-earth-500">找不到符合的學員。</p>
+                <div className="space-y-2 p-4">
+                  <p className="text-sm text-earth-500">找不到符合的學員。</p>
+                  {allowTrialActions && onCreateCustomer && (
+                    <button
+                      type="button"
+                      className={button}
+                      onClick={onCreateCustomer}
+                    >
+                      ＋ 直接建立新顧客
+                    </button>
+                  )}
+                </div>
               )}
             </div>
+          )}
+          {allowTrialActions && onCreateCustomer && !normalizedMemberQuery && (
+            <button
+              type="button"
+              className={`${button} mt-2`}
+              onClick={onCreateCustomer}
+            >
+              ＋ 直接建立新顧客
+            </button>
+          )}
+          {allowTrialActions && onCreateCustomer && (
+            <p className="mt-2 text-xs text-earth-500">
+              新顧客可直接建檔並以體驗預約加入本堂，不必先前往顧客管理。
+            </p>
           )}
         </div>
 
@@ -376,7 +414,7 @@ export function CourseRoster({
             </label>
             {!eligibleCards.length && (
               <p className="text-sm text-earth-600">
-                沒有可用方案，請確認共卡成員、額度與到期日。
+                沒有可用方案，請先指派方案。
               </p>
             )}
             <label className="block text-sm font-medium">
@@ -597,10 +635,14 @@ export function CourseRoster({
         </div>
         <div className="col-span-2 rounded-lg bg-amber-50 px-3 py-2 sm:col-span-1">
           <strong className="block text-base text-amber-900">
-            {trialCount}
-            {unpaidTrialCount ? ` · ${unpaidTrialCount} 未收` : ""}
+            {trialCount} 人
           </strong>
           <span className="text-xs text-earth-600">體驗客</span>
+          {unpaidTrialCount > 0 && (
+            <span className="mt-0.5 block text-xs font-medium text-amber-800">
+              未收款 {unpaidTrialCount} 人
+            </span>
+          )}
         </div>
       </div>
 
