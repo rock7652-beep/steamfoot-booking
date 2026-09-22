@@ -879,7 +879,7 @@ function Toolbar({
   });
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-earth-200 bg-white px-4 py-2">
+    <div data-booking-filter-bar className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-earth-200 bg-white px-4 py-2">
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/dashboard/bookings?year=${prevYear}&month=${prevMonth}`}
