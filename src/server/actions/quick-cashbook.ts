@@ -55,24 +55,40 @@ export async function searchQuickCashbookCustomers(storeId: string, rawQuery: st
   if (!(await checkPermission(user.role, user.staffId, "customer.read"))) {
     throw new AppError("FORBIDDEN", "沒有查看顧客的權限");
   }
-  const query = rawQuery.trim();
+  const query = rawQuery.trim().slice(0, 50);
   if (!query) return [];
-  const phoneQuery = query.replace(/[^0-9]/g, "");
-  return prisma.customer.findMany({
-    where: {
-      storeId,
-      mergedIntoCustomerId: null,
-      NOT: { user: { is: { status: "SUSPENDED" } } },
-      OR: [
-        { name: { contains: query, mode: "insensitive" } },
-        ...(phoneQuery ? [{ phone: { startsWith: phoneQuery } }] : []),
-        { lineName: { contains: query, mode: "insensitive" } },
-      ],
-    },
-    select: { id: true, name: true, phone: true },
+  const phoneQuery = /^[0-9\s()+-]+$/.test(query) ? query.replace(/[^0-9]/g, "") : "";
+  const baseWhere = {
+    storeId,
+    mergedIntoCustomerId: null,
+    NOT: { user: { is: { status: "SUSPENDED" as const } } },
+  };
+  const select = { id: true, name: true, phone: true } as const;
+  if (phoneQuery) return prisma.customer.findMany({
+    where: { ...baseWhere, phone: { startsWith: phoneQuery } },
+    select,
     orderBy: { name: "asc" },
     take: 8,
   });
+
+  const prefix = await prisma.customer.findMany({
+    where: { ...baseWhere, OR: [{ name: { startsWith: query } }, { lineName: { startsWith: query, mode: "insensitive" } }] },
+    select,
+    orderBy: { name: "asc" },
+    take: 8,
+  });
+  if (prefix.length >= 8 || query.length < 2) return prefix;
+  const fallback = await prisma.customer.findMany({
+    where: {
+      ...baseWhere,
+      id: { notIn: prefix.map((customer) => customer.id) },
+      OR: [{ name: { contains: query } }, { lineName: { contains: query, mode: "insensitive" } }],
+    },
+    select: { id: true, name: true, phone: true },
+    orderBy: { name: "asc" },
+    take: 8 - prefix.length,
+  });
+  return [...prefix, ...fallback];
 }
 
 export async function saveQuickCashbook(storeId: string, id: string | null, form: FormData) {

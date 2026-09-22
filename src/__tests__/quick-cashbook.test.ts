@@ -40,5 +40,22 @@ it("keeps the existing action's failure for the form", async () => { m.create.mo
 it("uses a phone prefix for fast numeric customer search", async () => {
   m.customers.mockResolvedValue([]);
   await searchQuickCashbookCustomers("store", "09");
-  expect(m.customers).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ OR: expect.arrayContaining([{ phone: { startsWith: "09" } }]) }), take: 8 }));
+  expect(m.customers).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ phone: { startsWith: "09" } }), take: 8 }));
+});
+it("uses a fast name prefix before fuzzy matching", async () => {
+  m.customers.mockResolvedValue([]);
+  await searchQuickCashbookCustomers("store", "黃");
+  expect(m.customers).toHaveBeenCalledTimes(1);
+  expect(m.customers).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ OR: expect.arrayContaining([{ name: { startsWith: "黃" } }]) }) }));
+});
+it("falls back to a partial name match after two characters", async () => {
+  m.customers.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+  await searchQuickCashbookCustomers("store", "彥陸");
+  expect(m.customers).toHaveBeenCalledTimes(2);
+  expect(m.customers).toHaveBeenLastCalledWith(expect.objectContaining({ where: expect.objectContaining({ OR: expect.arrayContaining([{ name: { contains: "彥陸" } }]) }) }));
+});
+it("keeps letters with numbers in the name search", async () => {
+  m.customers.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+  await searchQuickCashbookCustomers("store", "QA396");
+  expect(m.customers).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: expect.objectContaining({ OR: expect.arrayContaining([{ name: { startsWith: "QA396" } }]) }) }));
 });
