@@ -16,6 +16,7 @@ import {
 } from "@/lib/date-utils";
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
+import { resolvedCourseHours } from "@/lib/course-business-hours";
 
 export default async function CoursesPage({
   searchParams,
@@ -52,8 +53,16 @@ export default async function CoursesPage({
   const bounds = monthRange(
     toLocalMonthStr(parseTaipeiDateTime(selected, "12:00")!),
   );
-  const [rooms, templates, sessions, coaches, canCreate, canEdit] =
-    await Promise.all([
+  const [
+    rooms,
+    templates,
+    sessions,
+    coaches,
+    canCreate,
+    canEdit,
+    businessHours,
+    specialDays,
+  ] = await Promise.all([
       coursePrisma.courseRoom.findMany({
         where: { storeId },
         select: {
@@ -117,7 +126,33 @@ export default async function CoursesPage({
       }),
       checkPermission(user.role, user.staffId, "booking.create"),
       checkPermission(user.role, user.staffId, "booking.update"),
+      prisma.businessHours.findMany({ where: { storeId } }),
+      prisma.specialBusinessDay.findMany({ where: { storeId } }),
     ]);
+  const [calendarYear, calendarMonth] = selected
+    .slice(0, 7)
+    .split("-")
+    .map(Number);
+  const calendarDays = Object.fromEntries(
+    Array.from(
+      { length: new Date(Date.UTC(calendarYear, calendarMonth, 0)).getUTCDate() },
+      (_, index) => {
+        const date = `${calendarYear}-${String(calendarMonth).padStart(2, "0")}-${String(index + 1).padStart(2, "0")}`;
+        const resolved = resolvedCourseHours(
+          date,
+          businessHours as Parameters<typeof resolvedCourseHours>[1],
+          specialDays as Parameters<typeof resolvedCourseHours>[2],
+        );
+        return [
+          date,
+          {
+            status: resolved.status,
+            reason: resolved.reason,
+          },
+        ];
+      },
+    ),
+  );
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   return (
@@ -143,6 +178,7 @@ export default async function CoursesPage({
         view={view}
         selectedDate={selected}
         today={toLocalDateStr()}
+        calendarDays={calendarDays}
         rooms={rooms.map(({ sessions: uses, ...room }) => ({
           ...room,
           uses: uses.map((u) => ({ ...u, startsAt: u.startsAt.toISOString() })),

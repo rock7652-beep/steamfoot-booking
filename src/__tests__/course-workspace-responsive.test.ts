@@ -4,10 +4,11 @@ import { expect, it } from "vitest";
 // Source-level guards only; these do not replace browser/device acceptance.
 const source = readFileSync("src/app/(dashboard)/dashboard/courses/workspace.tsx", "utf8");
 
-it("mobile calendar shows counts and retains the accessible date action", () => {
+it("mobile calendar shows counts, closures, and retains the accessible date action", () => {
   expect(source).toContain('mt-1 text-xs font-medium sm:hidden');
   expect(source).toContain('{list.length} 堂');
-  expect(source).toContain('aria-label={`${date}，${list.length} 堂課`}');
+  expect(source).toContain('aria-label={`${date}，${isClosed ? closureLabel : `${list.length} 堂課`}`}');
+  expect(source).toContain('calendarDay?.status === "training" ? "員工訓練" : "公休"');
   expect(source).toContain('hidden w-full shrink-0 truncate leading-[14px] sm:block');
 });
 

@@ -59,6 +59,10 @@ type Session = {
 type Props = {
   selectedDate: string;
   today: string;
+  calendarDays: Record<
+    string,
+    { status: "open" | "closed" | "training" | "custom"; reason: string | null }
+  >;
   rooms: Room[];
   templates: Template[];
   sessions: Session[];
@@ -78,6 +82,7 @@ export function CourseWorkspace({
   canDelete=false,
   selectedDate: loadedDate,
   today,
+  calendarDays,
   rooms: allRooms,
   templates: allTemplates,
   sessions,
@@ -94,7 +99,14 @@ export function CourseWorkspace({
     params = useSearchParams();
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
-  const [expandedSession, setExpandedSession] = useState<string | null>(params.get("session"));
+  const [courseDialog, setCourseDialog] = useState<{
+    sessionId: string;
+    kind: "roster" | "member-booking" | "trial-booking";
+  } | null>(
+    params.get("session")
+      ? { sessionId: params.get("session")!, kind: "roster" }
+      : null,
+  );
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | "inspect" | null
@@ -379,19 +391,41 @@ export function CourseWorkspace({
               )}
               {Array.from({ length: days }, (_, i) => {
                 const date = `${month}-${String(i + 1).padStart(2, "0")}`,
-                  list = byDate.get(date) ?? [];
+                  list = byDate.get(date) ?? [],
+                  calendarDay = calendarDays[date],
+                  isClosed =
+                    calendarDay?.status === "closed" ||
+                    calendarDay?.status === "training",
+                  closureLabel =
+                    calendarDay?.status === "training" ? "員工訓練" : "公休";
                 return (
                   <button
                     key={date}
                     disabled={pending}
-                    aria-label={`${date}，${list.length} 堂課`}
+                    aria-label={`${date}，${isClosed ? closureLabel : `${list.length} 堂課`}`}
                     onClick={() => {
                       go(date);
                       open("day");
                     }}
-                    className={`flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${date === selectedDate ? "bg-primary-50" : list.length ? "bg-white" : "bg-earth-50 text-earth-400"}`}
+                    className={`flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${
+                      isClosed
+                        ? "bg-earth-100 text-earth-500"
+                        : date === selectedDate
+                          ? "bg-primary-50"
+                          : list.length
+                            ? "bg-white"
+                            : "bg-earth-50 text-earth-400"
+                    }`}
                   >
                     <span className="shrink-0 text-xs leading-4">{i + 1}</span>
+                    {isClosed && (
+                      <span
+                        className="mt-1 max-w-full truncate rounded bg-earth-200 px-1.5 py-0.5 text-[10px] font-medium text-earth-700"
+                        title={calendarDay?.reason || closureLabel}
+                      >
+                        {closureLabel}
+                      </span>
+                    )}
                     {list.length > 0 && <span className="mt-1 text-xs font-medium sm:hidden">{list.length} 堂</span>}
                     {list.slice(0, 2).map((s) => (
                       <span
@@ -413,7 +447,7 @@ export function CourseWorkspace({
             </div>
           </div>
           <p className="text-sm text-earth-500">
-            淡色：當日無課程，可選擇日期排課
+            淡色：當日無課程；灰底「公休／員工訓練」：當日不可排課
           </p>
           <p
             role="status"
@@ -711,7 +745,20 @@ export function CourseWorkspace({
             {panel === "day" && (
               <>
                 <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">{(byDate.get(selectedDate) ?? []).length} 堂課 · 共 {new Set((byDate.get(selectedDate) ?? []).flatMap((s) => s.bookings.map((b) => b.customerId))).size} 人 · {(byDate.get(selectedDate) ?? []).reduce((n, s) => n + s.bookings.length, 0)} 人次</p>
-                {canCreate && (
+                {(calendarDays[selectedDate]?.status === "closed" ||
+                  calendarDays[selectedDate]?.status === "training") && (
+                  <p className="rounded-lg bg-earth-100 px-3 py-2 text-sm font-medium text-earth-700">
+                    {calendarDays[selectedDate]?.status === "training"
+                      ? "員工訓練"
+                      : "公休"}
+                    {calendarDays[selectedDate]?.reason
+                      ? ` · ${calendarDays[selectedDate].reason}`
+                      : ""}
+                  </p>
+                )}
+                {canCreate &&
+                  calendarDays[selectedDate]?.status !== "closed" &&
+                  calendarDays[selectedDate]?.status !== "training" && (
                   <button
                     className={primary}
                     onClick={openSchedule}
@@ -726,15 +773,15 @@ export function CourseWorkspace({
                 {(byDate.get(selectedDate) ?? []).map((s, index) => (
                   <div key={s.id} className="rounded-xl border border-earth-200 p-3">
                     <p className="mb-1 text-sm font-semibold text-primary-700">當日第 {index + 1} 堂</p>
-                    <h3 className="font-medium"><button className="min-h-11 text-left text-primary-800" aria-expanded={expandedSession === s.id} onClick={() => setExpandedSession(expandedSession === s.id ? null : s.id)}>
+                    <h3 className="py-2 font-medium text-primary-800">
                       {formatTWDateTime(new Date(s.startsAt)).slice(11)}–
                       {formatTWDateTime(new Date(s.endsAt)).slice(0, 10) !==
                       selectedDate
                         ? "翌日 "
                         : ""}
                       {formatTWDateTime(new Date(s.endsAt)).slice(11)}　
-                      {s.nameSnapshot} · {s.bookings.length}／{s.capacity} 人 {expandedSession === s.id ? "▾" : "▸"}
-                    </button></h3>
+                      {s.nameSnapshot} · {s.bookings.length}／{s.capacity} 人
+                    </h3>
                     <p className="mt-1 text-sm text-earth-600">
                       {allCoaches.find((c) => c.id === s.coachId)
                         ?.displayName ?? "教練"}{" "}
@@ -742,6 +789,35 @@ export function CourseWorkspace({
                       {allRooms.find((r) => r.id === s.roomId)?.name ?? "教室"}{" "}
                       · 點數卡 {s.pointCost} 點；堂數卡 1 堂 · 上限 {s.capacity} 人
                     </p>
+                    <button
+                      type="button"
+                      className={`${button} mt-2 mr-2 border-primary-300 bg-primary-50 text-primary-800`}
+                      onClick={() => setCourseDialog({ sessionId: s.id, kind: "roster" })}
+                    >
+                      上課名單 {s.bookings.length}
+                    </button>
+                    {canCreate && (
+                      <button
+                        type="button"
+                        className={`${button} mt-2 mr-2`}
+                        onClick={() =>
+                          setCourseDialog({ sessionId: s.id, kind: "member-booking" })
+                        }
+                      >
+                        ＋ 學員預約
+                      </button>
+                    )}
+                    {canCreate && (
+                      <button
+                        type="button"
+                        className={`${button} mt-2 mr-2`}
+                        onClick={() =>
+                          setCourseDialog({ sessionId: s.id, kind: "trial-booking" })
+                        }
+                      >
+                        ＋ 體驗客
+                      </button>
+                    )}
                     {canCreate && (
                       <button
                         className={`${button} mt-2 mr-2`}
@@ -769,12 +845,6 @@ export function CourseWorkspace({
                         編輯排課
                       </button>
                     )}
-                    {expandedSession === s.id && <CourseRoster
-                      sessionId={s.id}
-                      capacity={s.capacity}
-                      canCreate={canCreate}
-                      canEdit={canEdit}
-                    />}
                   </div>
                 ))}
               </>
@@ -1612,6 +1682,85 @@ export function CourseWorkspace({
           )}
         </RightSheet>
       )}
+      {courseDialog &&
+        sessions.find((session) => session.id === courseDialog.sessionId) &&
+        (() => {
+          const dialogSession = sessions.find(
+            (session) => session.id === courseDialog.sessionId,
+          )!;
+          const dialogTitle =
+            courseDialog.kind === "roster"
+              ? "上課名單"
+              : courseDialog.kind === "member-booking"
+                ? "＋ 學員預約"
+                : "＋ 體驗客";
+          return (
+            <div
+              className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-3 sm:p-5"
+              onClick={() => setCourseDialog(null)}
+            >
+              <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="course-operation-title"
+                className={`flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)] ${
+                  courseDialog.kind === "roster" ? "max-w-6xl" : "max-w-2xl"
+                }`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-4 sm:px-5">
+                  <div className="min-w-0">
+                    <h2
+                      id="course-operation-title"
+                      className="truncate text-lg font-semibold text-primary-900"
+                    >
+                      {dialogTitle}
+                    </h2>
+                    <p className="mt-1 text-sm text-earth-600">
+                      {formatTWDateTime(new Date(dialogSession.startsAt))} ·{" "}
+                      {dialogSession.nameSnapshot}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className={button}
+                    onClick={() => setCourseDialog(null)}
+                  >
+                    關閉
+                  </button>
+                </header>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
+                  <CourseRoster
+                    key={`${dialogSession.id}-${courseDialog.kind}`}
+                    sessionId={dialogSession.id}
+                    capacity={dialogSession.capacity}
+                    canCreate={canCreate}
+                    canEdit={canEdit}
+                    view={courseDialog.kind}
+                    onDone={() => setCourseDialog(null)}
+                  />
+                </div>
+                {courseDialog.kind !== "roster" && (
+                  <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3 sm:px-5">
+                    <button
+                      type="submit"
+                      form={
+                        courseDialog.kind === "member-booking"
+                          ? "course-member-booking-form"
+                          : "course-trial-booking-form"
+                      }
+                      className={`${primary} w-full`}
+                    >
+                      {courseDialog.kind === "member-booking"
+                        ? "確認學員預約"
+                        : "建立並加入課程"}
+                    </button>
+                  </footer>
+                )}
+              </section>
+            </div>
+          );
+        })()}
     </>
   );
 }

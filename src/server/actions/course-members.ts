@@ -60,6 +60,7 @@ export async function saveCourseCustomer(input: unknown) {
       ...(data.lineName !== undefined ? { lineName: data.lineName || null } : {}),
       ...(data.serviceNote !== undefined ? { serviceNote: data.serviceNote || null } : {}),
     };
+    let customerId = data.id ?? "";
     if (data.id) {
       const result = await prisma.customer.updateMany({
         where: { id: data.id, storeId, mergedIntoCustomerId: null },
@@ -69,20 +70,22 @@ export async function saveCourseCustomer(input: unknown) {
     } else {
       const { getStoreLimitsByStoreId } = await import("@/lib/feature-gate");
       const limits = await getStoreLimitsByStoreId(storeId);
-      await prisma.$transaction(async (tx) => {
+      customerId = await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM "Store" WHERE id = ${storeId} FOR UPDATE`;
         const count = await tx.customer.count({
           where: { storeId, mergedIntoCustomerId: null },
         });
         if (limits.maxCustomers !== null && count >= limits.maxCustomers)
           throw new AppError("FORBIDDEN", "已達方案顧客額度上限");
-        await tx.customer.create({
+        const created = await tx.customer.create({
           data: { storeId, ...profile },
+          select: { id: true },
         });
+        return created.id;
       });
     }
     refresh();
-    return { success: true as const };
+    return { success: true as const, data: { id: customerId } };
   } catch (error) {
     return handleActionError(error);
   }
@@ -260,6 +263,9 @@ export async function updateCourseBookingStatus(input: unknown) {
       .object({
         bookingId: id,
         status: z.enum(["CANCELLED", "ATTENDED", "CHECKED_IN", "NO_SHOW"]),
+        noShowChoice: z
+          .enum(["DEDUCTED", "DEDUCTED_WITH_MAKEUP"])
+          .optional(),
         member: z.boolean().default(false),
       })
       .parse(input);
@@ -283,9 +289,91 @@ export async function updateCourseBookingStatus(input: unknown) {
         const booking = await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId:actor.storeId},select:{bookingKind:true}});
         if (booking?.bookingKind === "TRIAL") await courseManager("trial.cancel");
       }
-      return settleCourseBooking(tx, actor, data.bookingId, data.status);
+      return settleCourseBooking(
+        tx,
+        actor,
+        data.bookingId,
+        data.status,
+        data.noShowChoice,
+      );
     });
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
+    refresh();
+    return { success: true as const };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+export async function restoreCourseBooking(input: unknown) {
+  try {
+    const { user, storeId } = await courseManager("booking.update");
+    const data = z.object({ bookingId: id }).parse(input);
+    await courseTransaction(storeId, async (tx) => {
+      const booking = await tx.courseBooking.findFirst({
+        where: { id: data.bookingId, storeId },
+        include: { session: true, card: true },
+      });
+      if (!booking) throw new AppError("NOT_FOUND", "找不到本店預約");
+      if (booking.status !== "CANCELLED") throw new AppError("VALIDATION", "這筆預約不是已取消狀態");
+      if (booking.session.cancelledAt) throw new AppError("VALIDATION", "整堂課已取消，無法恢復個別預約");
+
+      const [occupied, duplicate] = await Promise.all([
+        tx.courseBooking.count({
+          where: { storeId, sessionId: booking.sessionId, status: { not: "CANCELLED" } },
+        }),
+        tx.courseBooking.findFirst({
+          where: {
+            storeId,
+            sessionId: booking.sessionId,
+            customerId: booking.customerId,
+            status: { not: "CANCELLED" },
+            id: { not: booking.id },
+          },
+          select: { id: true },
+        }),
+      ]);
+      if (duplicate) throw new AppError("CONFLICT", "這位學員已經有本堂有效預約");
+      if (occupied >= booking.session.capacity) throw new AppError("CONFLICT", "課程已滿，無法恢復預約");
+
+      if (booking.cardId && booking.card) {
+        const card = booking.card;
+        const now = new Date();
+        if (card.closedAt) throw new AppError("VALIDATION", "原方案已退款或結清，無法恢復");
+        if (card.expiresAt < now || card.expiresAt < booking.session.startsAt)
+          throw new AppError("VALIDATION", "原方案已到期或不涵蓋上課日期");
+        if (card.templateIds.length && !card.templateIds.includes(booking.session.templateId))
+          throw new AppError("VALIDATION", "原方案已不適用這堂課");
+        if (card.termSessionIds.length && !card.termSessionIds.includes(booking.session.id))
+          throw new AppError("VALIDATION", "原期課方案不適用這堂課");
+
+        const held = await tx.courseBooking.aggregate({
+          where: { storeId, cardId: card.id, status: "RESERVED", id: { not: booking.id } },
+          _sum: { pointCost: true },
+        });
+        if (card.remaining - (held._sum.pointCost ?? 0) < booking.pointCost)
+          throw new AppError("CONFLICT", "原方案目前可用額度不足，無法恢復");
+
+        await tx.$executeRaw`
+          INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt")
+          VALUES (
+            ${crypto.randomUUID()},
+            ${user.id},
+            'CourseBooking',
+            ${booking.id},
+            'COURSE_BOOKING_RESTORE',
+            ${JSON.stringify({ status: "CANCELLED", storeId })}::jsonb,
+            ${JSON.stringify({ status: "RESERVED", cardId: booking.cardId })}::jsonb,
+            NOW()
+          )
+        `;
+      }
+
+      await tx.courseBooking.update({
+        where: { id: booking.id },
+        data: { status: "RESERVED", checkedInAt: null },
+      });
+    });
     refresh();
     return { success: true as const };
   } catch (error) {
@@ -363,7 +451,7 @@ export async function loadCourseSessionDetail(sessionId: string) {
           canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),
           canCollect: await checkPermission(user.role,user.staffId,"trial.confirm"),
           canCorrect: await checkPermission(user.role,user.staffId,"transaction.void"),
-          customers: canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true},orderBy:{name:"asc"}}) : [],
+          customers: canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
         session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost },
         cards: cards.map((card) => ({
@@ -419,7 +507,7 @@ export async function loadCourseCustomerBookings(customerId: string, offset = 0,
 
 export async function updateCourseRosterBatch(input: unknown) {
   try {
-    const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW"])})).min(1).max(200)}).parse(input);
+    const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),noShowChoice:z.enum(["DEDUCTED","DEDUCTED_WITH_MAKEUP"]).optional(),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW"])})).min(1).max(200)}).parse(input);
     if(new Set(data.bookings.map(b=>b.id)).size!==data.bookings.length) throw new AppError("VALIDATION","學員不可重複");
     const {user,storeId}=await courseManager("booking.update");
     await courseTransaction(storeId,async tx=>{
@@ -430,6 +518,7 @@ export async function updateCourseRosterBatch(input: unknown) {
       const actor={storeId,userId:user.id,name:user.name??"店長"};
       for(const booking of data.bookings){
         if(data.target==="CHECKED_IN")await settleCourseBooking(tx,actor,booking.id,"CHECKED_IN");
+        else if(data.target==="NO_SHOW"&&booking.status==="RESERVED")await settleCourseBooking(tx,actor,booking.id,"NO_SHOW",data.noShowChoice);
         else await correctCourseAttendance(tx,actor,booking.id,data.target,booking.status);
       }
     });

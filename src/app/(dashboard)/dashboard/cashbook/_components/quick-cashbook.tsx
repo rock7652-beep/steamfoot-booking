@@ -59,7 +59,7 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
   const drawerNeedsAttention = data?.balanceLabel?.includes("尚未關帳") ?? false;
   return <>
     <button type="button" className={`${button} ${triggerClassName ?? ""}`} onClick={() => { setOpen(true); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
-    {open && <RightSheet open onClose={close} width={640} labelledById="quick-cashbook-title">
+    {open && <RightSheet compact open onClose={close} variant="modal" width={640} labelledById="quick-cashbook-title">
       <header className="flex items-center justify-between border-b border-earth-200 bg-gradient-to-r from-primary-50 to-gold-50 px-5 py-4">
         <div>
           <div className="mb-1 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-gold-500" aria-hidden="true" /><h2 id="quick-cashbook-title" className="text-lg font-semibold text-primary-900">現金收支</h2></div>

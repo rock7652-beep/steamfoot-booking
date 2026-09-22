@@ -14,6 +14,9 @@ export type CourseActor = {
   name: string;
   customerId?: string;
 };
+
+export type CourseNoShowChoice = "DEDUCTED" | "DEDUCTED_WITH_MAKEUP";
+const COURSE_MAKEUP_VALID_DAYS = 7;
 const fail = (message: string): never => {
   throw new AppError("VALIDATION", message);
 };
@@ -217,6 +220,7 @@ export async function settleCourseBooking(
   actor: CourseActor,
   bookingId: string,
   target: "CANCELLED" | "ATTENDED" | "CHECKED_IN" | "NO_SHOW",
+  noShowChoice: CourseNoShowChoice = "DEDUCTED",
 ) {
   const booking = await tx.courseBooking.findFirst({
     where: { id: bookingId, storeId: actor.storeId },
@@ -244,7 +248,8 @@ export async function settleCourseBooking(
       });
     }
   }
-  const shouldDebit=target==="ATTENDED"||(target==="NO_SHOW"&&!!booking.card?.termSessionIds?.length);
+  const shouldDebit =
+    target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId);
   if (shouldDebit) {
     if (actor.customerId) return fail("點名僅限有權限的人員");
     if (booking.session.startsAt > new Date())
@@ -287,6 +292,43 @@ export async function settleCourseBooking(
       actorUserId: actor.userId,
     },
   });
+  if (
+    target === "NO_SHOW" &&
+    noShowChoice === "DEDUCTED_WITH_MAKEUP" &&
+    booking.card
+  ) {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + COURSE_MAKEUP_VALID_DAYS);
+    const makeupCard = await tx.coursePointCard.create({
+      data: {
+        storeId: actor.storeId,
+        planId: booking.card.planId,
+        nameSnapshot: `補課券（${COURSE_MAKEUP_VALID_DAYS}日）`,
+        unit: booking.card.unit,
+        templateIds: [booking.session.templateId],
+        termSessionIds: [],
+        remaining: booking.pointCost,
+        expiresAt,
+        requestKey: `no-show-makeup:${booking.id}`,
+      },
+    });
+    await tx.courseCardMember.create({
+      data: {
+        storeId: actor.storeId,
+        cardId: makeupCard.id,
+        customerId: booking.customerId,
+      },
+    });
+    await tx.coursePointEntry.create({
+      data: {
+        storeId: actor.storeId,
+        cardId: makeupCard.id,
+        kind: "GRANT",
+        points: booking.pointCost,
+        actorUserId: actor.userId,
+      },
+    });
+  }
   return updated;
 }
 

@@ -997,7 +997,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     ? "有待店家確認的訂單"
                     : undefined,
                 )}
-                {menu("共卡成員", "shared")}
+                {menu("共卡成員", "shared", p.cards.some((c) => c.members.length > 1) ? `${p.cards.filter((c) => c.members.length > 1).length} 個共卡方案` : "目前沒有共卡方案")}
                 {p.healthEnabled && menu("健康追蹤", "health")}
               </section>
               <h2>帳戶與店家</h2>
@@ -1019,11 +1019,19 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               {p.cards.filter(c=>cardHistory || (!c.expired && !c.closed)).map((c) => (
                 <article className="cp-card cp-pad" key={c.id}>
                   <div className="cp-line">
-                    <h2>{c.name}{c.closed ? " · 已結清停用" : ""}</h2>
+                    <h2>
+                      {c.name}{c.closed ? " · 已結清停用" : ""}
+                      {c.members.length > 1 && <span className="cp-shared-badge">共卡</span>}
+                    </h2>
                     <strong>
                       {c.available} {unit(c.unit)}可用
                     </strong>
                   </div>
+                  {c.members.length > 1 && (
+                    <p className="cp-shared-members">
+                      共卡成員：{c.members.map((m) => m.id === p.customerId ? `${m.name}（本人）` : `${m.name}（共卡）`).join("、")}
+                    </p>
+                  )}
                   <p>
                     {courseDate(c.expiresAt)} 到期{c.expired ? " · 已到期" : ""}
                   </p>
@@ -1140,16 +1148,25 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           )}
           {page === "shared" && (
             <>
-              {heading("共卡成員")}
+              {heading("共卡成員", "共用同一份方案額度，可替共卡成員預約。")}
               {p.cards
                 .filter((c) => c.members.length > 1)
                 .map((c) => (
                   <article className="cp-card cp-pad" key={c.id}>
-                    <h2>{c.name}{c.closed ? " · 已結清停用" : ""}</h2>
-                    <p>{c.members.map((m) => m.name).join("、")}</p>
-                    <p>可替以上授權成員預約，不會開放其他人的健康資料。</p>
+                    <div className="cp-line">
+                      <h2>{c.name}{c.closed ? " · 已結清停用" : ""}</h2>
+                      <span className="cp-shared-badge">共卡</span>
+                    </div>
+                    <p className="cp-shared-members">
+                      {c.members.map((m) => m.id === p.customerId ? `${m.name}（本人）` : `${m.name}（共卡）`).join("、")}
+                    </p>
+                    <p>可用 {c.available} {unit(c.unit)} · {courseDate(c.expiresAt)} 到期</p>
+                    <p>預約時可勾選實際上課人；共用額度，但不會開放其他人的健康資料。</p>
                   </article>
                 ))}
+              {!p.cards.some((c) => c.members.length > 1) && (
+                <p className="cp-empty">目前沒有共卡方案。</p>
+              )}
             </>
           )}
           {page === "health" && p.healthEnabled && (
@@ -1284,6 +1301,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     <option key={c.id} value={c.id}>
                       {c.name} · 可用 {c.available}
                       {unit(c.unit)} · {courseDate(c.expiresAt)} 到期
+                      {c.members.length > 1 ? ` · 共卡 ${c.members.length} 人` : ""}
                     </option>
                   ))}
                 </select>

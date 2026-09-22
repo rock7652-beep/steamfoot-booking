@@ -27,7 +27,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
         ],
       },
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, phone: true },
   });
   return cards.map((c) => {
     const held = c.bookings.reduce((sum, b) => sum + b.pointCost, 0);
@@ -47,6 +47,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       members: c.members.map((m) => ({
         id: m.customerId,
         name: people.find((p) => p.id === m.customerId)?.name ?? "學員",
+        phone: people.find((p) => p.id === m.customerId)?.phone ?? "",
       })),
       entries: c.entries.map((e) => ({
         id: e.id,
@@ -80,7 +81,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   });
   const customers = await prisma.customer.findMany({
     where: { storeId, id: { in: bookings.map((b) => b.customerId) } },
-    select: { id: true, serviceNote: true, notes: true },
+    select: { id: true, phone: true, serviceNote: true, notes: true },
   });
   return bookings.map(({ card, checkedInAt, ...b }) => ({
     ...b,
@@ -92,6 +93,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     planName: card?.nameSnapshot ?? "體驗（不使用方案）",
     available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((n, b) => n + b.pointCost, 0)),
     expiresAt: card?.expiresAt.toISOString() ?? null,
+    customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
     serviceNote: [customers.find((c) => c.id === b.customerId)?.serviceNote, customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),
   }));
 }
