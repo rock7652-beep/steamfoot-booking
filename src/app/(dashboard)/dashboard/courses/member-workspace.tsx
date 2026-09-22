@@ -42,7 +42,7 @@ type Plan = {
 };
 export type CourseCardView = Awaited<ReturnType<typeof getCourseCards>>[number];
 const field =
-  "min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
+  "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 const button =
   "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
 export function CourseMemberWorkspace({
