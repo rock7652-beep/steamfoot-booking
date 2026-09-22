@@ -18,6 +18,18 @@ import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
 const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, unit: "POINT", planName: "十點", expiresAt: null });
 const props = () => ({ month: "2026-09", serverNow: Date.parse("2026-09-20T11:00:00+08:00"), initialDate: "2026-09-20", memberEnabled: false, hasWork: true, customerId: "coach", customerName: "教練", storeName: "A", prefix: "/s/a", cards: [], plans: [], templates: [], bookings: [], orders: [], sessions: [], hours: [], special: [], config: {}, bookingWindow: { closesAt: "2026-10-20T00:00:00Z" }, nextWork: null, work: [{ id: "lesson", name: "伸展瑜珈", startsAt: "2026-09-20T10:00:00+08:00", endsAt: "2026-09-20T11:00:00+08:00", room: "A 教室", bookings: [learner("已到學員", true), learner("尚未到學員", false), learner("已取消學員", false, "CANCELLED")] }] }) as unknown as CoursePortalData;
+const memberProps = () => ({
+  ...props(),
+  memberEnabled: true,
+  healthEnabled: true,
+  customerId: "member",
+  customerName: "會員本人",
+  cancellationLeadMinutes: 120,
+  nextBooking: { name: "伸展瑜珈", startsAt: "2026-09-21T10:00:00+08:00", coach: "林教練", room: "A 教室", participants: [{id:"member",name:"會員本人"},{id:"family",name:"家人"}] },
+  sessions: [{ id:"session",templateId:"template",name:"伸展瑜珈",startsAt:"2026-09-21T10:00:00+08:00",coach:"林教練",room:"A 教室",cost:2,capacity:8,occupied:1,precautions:"" }],
+  bookings: [{ id:"booking",sessionId:"session",name:"伸展瑜珈",startsAt:"2026-09-20T12:00:00+08:00",coach:"林教練",room:"A 教室",customerName:"會員本人",customerId:"member",operatorName:"會員本人",status:"RESERVED",notes:"",cost:2,trialPaid:null,trialPrice:null,unit:"POINT",planName:"十點方案",expiresAt:"2026-10-20T00:00:00Z" }],
+  work: [],
+}) as unknown as CoursePortalData;
 const click = async (text: string) => {
   const button = [...host.querySelectorAll("button")].find(b => b.textContent?.includes(text));
   expect(button, text).toBeTruthy();
@@ -159,6 +171,41 @@ describe("coach daily work interactions", () => {
 });
 
 describe("member plan and purchase navigation", () => {
+  it("shows the simplified member home, merged participants, direct role buttons and line icons", async () => {
+    await act(async()=>root.render(createElement(CoursePortalClient,memberProps())));
+    expect(host.textContent).toContain("林教練 · A 教室");
+    expect(host.textContent).toContain("本人＋家人 · 共 2 位");
+    for (const label of ["立即預約","我的預約","我的方案","健康紀錄","操作指南"]) expect(host.textContent).toContain(label);
+    expect(host.querySelector('[aria-label="身分"]')).toBeNull();
+    expect(host.querySelectorAll('.cp-role-switch button')).toHaveLength(2);
+    expect(host.querySelectorAll('.cp-nav svg')).toHaveLength(4);
+    await click("我的工作");
+    expect(host.textContent).toContain("今天 · 2026-09-20");
+  });
+  it("shows coach and room without field prefixes on course cards", async () => {
+    await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialDate:"2026-09-21"})));
+    await click("預約");
+    expect(host.querySelector(".cp-lesson")?.textContent).toContain("林教練 · A 教室");
+    expect(host.querySelector(".cp-lesson")?.textContent).not.toContain("教練：");
+    expect(host.querySelector(".cp-lesson")?.textContent).not.toContain("教室：");
+  });
+  it("replaces late cancellation with store-contact guidance and keeps the deadline visible", async () => {
+    await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings"})));
+    expect(host.textContent).toContain("請聯絡店家取消");
+    expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(false);
+    await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings",cancellationLeadMinutes:30})));
+    expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(true);
+    expect(host.textContent).toContain("自行取消截止");
+  });
+  it("uses one action when the selected course has no eligible plan", async () => {
+    const data = {...memberProps(),initialDate:"2026-09-21",nextBooking:null,plans:[{id:"plan",name:"十點方案",points:10,price:2000,unit:"POINT",validDays:180,templateIds:[],termSessionIds:[]}]};
+    await act(async()=>root.render(createElement(CoursePortalClient,data as unknown as CoursePortalData)));
+    await click("預約");
+    await act(async()=> (host.querySelector(".cp-lesson .primary") as HTMLButtonElement).click());
+    const dialog=host.querySelector('[role="dialog"]')!;
+    expect(dialog.textContent).toContain("查看可購買方案");
+    expect([...dialog.querySelectorAll("button")].filter(button=>button.textContent?.includes("NT$"))).toHaveLength(0);
+  });
   it("keeps expired cards collapsed while preserving distinct units and expiry", async () => {
     const card = (id:string, expired:boolean, unit:string) => ({id,name:id,expired,closed:false,unit,remaining:10,held:2,available:8,expiresAt:"2026-10-20T00:00:00Z",members:[],entries:[],templateIds:[]});
     await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,initialView:"plans",cards:[card("有效堂數方案",false,"SESSION"),card("過期點數方案",true,"POINT")] as unknown as CoursePortalData["cards"]})));

@@ -99,6 +99,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     healthCount,
     nextBooking,
     nextWork,
+    bookingRule,
   ] = await Promise.all([
     memberEnabled
       ? coursePrisma.courseSession.findMany({
@@ -125,6 +126,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
               select: {
                 nameSnapshot: true,
                 startsAt: true,
+                coachId: true,
                 room: { select: { name: true } },
               },
             },
@@ -193,6 +195,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
               select: {
                 nameSnapshot: true,
                 startsAt: true,
+                coachId: true,
                 room: { select: { name: true } },
               },
             },
@@ -217,7 +220,42 @@ export async function loadCoursePortal(requestedMonth?: string) {
           orderBy: { startsAt: "asc" },
         })
       : null,
+    memberEnabled
+      ? coursePrisma.courseBookingRule.findUnique({
+          where: { storeId },
+          select: { cancellationLeadMinutes: true },
+        })
+      : null,
   ]);
+  const coachIds = [...new Set([
+    ...sessions.map((session) => session.coachId),
+    ...bookings.map((booking) => booking.session.coachId),
+    ...(nextBooking ? [nextBooking.session.coachId] : []),
+  ])];
+  const [coaches, nextParticipants] = await Promise.all([
+    coachIds.length
+      ? prisma.staff.findMany({
+          where: { storeId, id: { in: coachIds } },
+          select: { id: true, displayName: true },
+        })
+      : [],
+    nextBooking
+      ? coursePrisma.courseBooking.findMany({
+          where: {
+            storeId,
+            sessionId: nextBooking.sessionId,
+            status: "RESERVED",
+            OR: [
+              { cardId: { in: cards.map((card) => card.id) } },
+              { bookingKind: "TRIAL", customerId: customer.id },
+            ],
+          },
+          select: { customerId: true, customerName: true },
+          orderBy: { createdAt: "asc" },
+        })
+      : [],
+  ]);
+  const coachNames = new Map(coaches.map((coach) => [coach.id, coach.displayName]));
   const referralShare = memberEnabled ? await getReferralShareContext({ customerId: customer.id, storeId, storeSlug: store.slug }) : null;
   // Only customers on this authorized coach's own sessions are read.
   const workCustomers = work.length ? await prisma.customer.findMany({
@@ -236,6 +274,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     memberEnabled,
     hasWork: !!link,
     healthEnabled: memberEnabled && healthEnabled,
+    cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
     config,
     cards,
     bookingWindow: {closesAt:resolveCustomerBookingWindow(config,now).closesAt.toISOString(),opensAt:config?.bookingOpensAt?.toISOString()??null},
@@ -250,8 +289,12 @@ export async function loadCoursePortal(requestedMonth?: string) {
       ? {
           name: nextBooking.session.nameSnapshot,
           startsAt: nextBooking.session.startsAt.toISOString(),
-          customerName: nextBooking.customerName,
+          coach: coachNames.get(nextBooking.session.coachId) ?? "教練待確認",
           room: nextBooking.session.room.name,
+          participants: [...new Map(nextParticipants.map((participant) => [participant.customerId, {
+            id: participant.customerId,
+            name: participant.customerName,
+          }])).values()],
         }
       : null,
     nextWork: nextWork
@@ -267,6 +310,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       templateId: s.templateId,
       name: s.nameSnapshot,
       startsAt: s.startsAt.toISOString(),
+      coach: coachNames.get(s.coachId) ?? "教練待確認",
       room: s.room.name,
       cost: s.pointCost,
       capacity: s.capacity,
@@ -278,6 +322,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
       sessionId: b.sessionId,
       name: b.session.nameSnapshot,
       startsAt: b.session.startsAt.toISOString(),
+      coach: coachNames.get(b.session.coachId) ?? "教練待確認",
       room: b.session.room.name,
       customerName: b.customerName,
       customerId: b.customerId,

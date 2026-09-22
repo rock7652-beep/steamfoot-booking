@@ -104,6 +104,10 @@
 .cp-next > button {
   flex-shrink: 0;
 }
+.cp-wide-action {
+  width: 100%;
+  margin: 4px 0 12px;
+}
 .cp-menu {
   display: flex !important;
   align-items: center;
@@ -158,9 +162,10 @@
   gap: 2px;
   border: 0;
 }
-.cp-nav button > span {
-  font-size: 22px;
-  line-height: 24px;
+.cp-nav button > svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 .cp-collapse {
   display: none;
@@ -306,6 +311,22 @@
 .cp-empty {
   padding: 18px;
 }
+.cp-empty-state {
+  text-align: center;
+}
+.cp-muted {
+  color: #697963;
+  font-size: 12px;
+}
+.cp-no-plan {
+  margin-top: 12px;
+}
+.cp-no-plan button {
+  width: 100%;
+}
+.cp-guide details + details {
+  border-top: 1px solid #edf0e8;
+}
 .cp-error {
   background: #fff0ed;
   color: #a33a2b !important;
@@ -448,7 +469,9 @@
 }
 .cp-brand { min-width: 0; flex: 1; }
 .cp-brand small { display: block; font-size: 11px; line-height: 1.4; margin-top: 2px; color: #61715c; }
-.cp-top select { flex-shrink: 0; font-size: 16px; max-width: 48%; }
+.cp-role-switch { display:flex; flex-shrink:0; padding:3px; border:1px solid #d4ddd0; border-radius:11px; background:#f6f7f2; }
+.cp-role-switch button { border:0; min-height:36px; padding:5px 9px; background:transparent; white-space:nowrap; font-size:13px; }
+.cp-role-switch button[aria-pressed="true"] { background:#315b49; color:white; }
 .course-portal input, .course-portal select, .course-portal textarea { font-size: 16px; }
 .cp-refresh button { border: 0; padding: 8px 4px; background: transparent; font-size: 12px; }
 .cp-logout { margin-top: 16px; }

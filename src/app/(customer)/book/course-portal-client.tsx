@@ -52,6 +52,7 @@ type Page =
   | "shared"
   | "health"
   | "store"
+  | "guide"
   | "records";
 const statusName = (s: string) =>
   ({
@@ -63,6 +64,17 @@ const statusName = (s: string) =>
 const unit = (s: string) => (s === "SESSION" ? "堂" : "點");
 const time = (s: string) =>
   formatTWDateTime(new Date(s)).split(" ").slice(-1)[0];
+type PortalIconName = "home" | "calendar" | "bookings" | "account" | "records";
+function PortalIcon({ name }: { name: PortalIconName }) {
+  const paths: Record<PortalIconName, ReactNode> = {
+    home: <><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></>,
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></>,
+    bookings: <><path d="M8 6h13M8 12h13M8 18h13"/><path d="m3 6 1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/></>,
+    account: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
+    records: <><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></>,
+  };
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>;
+}
 function Sheet({
   title,
   close,
@@ -279,16 +291,27 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
   }, [router]);
   const nav = coach
     ? [
-        ["home", "今日工作", "⌂"],
-        ["schedule", "課表", "▦"],
-        ["records", "授課紀錄", "☷"],
+        ["home", "今日工作", "home"],
+        ["schedule", "課表", "calendar"],
+        ["records", "授課紀錄", "records"],
       ]
     : [
-        ["home", "首頁", "⌂"],
-        ["schedule", "預約", "▦"],
-        ["bookings", "我的預約", "☷"],
-        ["account", "我的", "○"],
+        ["home", "首頁", "home"],
+        ["schedule", "預約", "calendar"],
+        ["bookings", "我的預約", "bookings"],
+        ["account", "我的", "account"],
       ];
+  function switchRole(next: "member" | "coach") {
+    if (role === next || !leaveNote()) return;
+    setRole(next);
+    setDate(today);
+    if (next === "coach" && !today.startsWith(p.month)) month(today.slice(0, 7));
+    setPage("home");
+    setRoster(null);
+    setSearch("");
+    setError("");
+    trail.current = [];
+  }
   function go(next: Page) {
     if (!leaveNote()) return;
     if (["home", "schedule", "bookings", "account", "records"].includes(next))
@@ -529,7 +552,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               {time(s.startsAt)} · {s.name}
             </strong>
             <p>
-              {s.room} · {s.cost} 點／堂 · 剩{" "}
+              {s.coach} · {s.room} · {s.cost} 點／堂 · 剩{" "}
               {Math.max(0, s.capacity - s.occupied)} 位
             </p>
             {s.precautions && <p className="cp-important">{s.precautions}</p>}
@@ -737,6 +760,14 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         : a.startsAt.localeCompare(b.startsAt),
     );
   const groups = [...new Set(bookings.map((b) => b.sessionId))];
+  const cancellationCutoff = (startsAt: string) =>
+    Date.parse(startsAt) - p.cancellationLeadMinutes * 60000;
+  const canSelfCancel = (startsAt: string) => now < cancellationCutoff(startsAt);
+  const nextParticipants = p.nextBooking?.participants.map((participant) =>
+    participant.id === p.customerId ? "本人" : participant.name,
+  ) ?? [];
+  const cancelBooking = p.bookings.find((booking) => booking.id === cancelId);
+  const sharedCards = p.cards.filter((candidate) => candidate.members.length > 1);
   const shop = p.plans.filter(
     (plan) =>
       !session ||
@@ -749,24 +780,10 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         <header className="cp-top">
           <div className="cp-brand"><SteamButlerLogo className="w-28" /><small>{p.storeName}</small></div>
           {p.hasWork && p.memberEnabled ? (
-            <select
-              aria-label="身分"
-              value={role}
-              onChange={(e) => {
-                if (!leaveNote()) return;
-                setRole(e.target.value);
-                setDate(today);
-                if (e.target.value === "coach" && !today.startsWith(p.month)) month(today.slice(0, 7));
-                setPage("home");
-                setRoster(null);
-                setSearch("");
-                setError("");
-                trail.current = [];
-              }}
-            >
-              <option value="member">會員專區</option>
-              <option value="coach">我的工作</option>
-            </select>
+            <div className="cp-role-switch" role="group" aria-label="身分切換">
+              <button aria-pressed={role === "member"} onClick={() => switchRole("member")}>會員</button>
+              <button aria-pressed={role === "coach"} onClick={() => switchRole("coach")}>我的工作</button>
+            </div>
           ) : (
             <span>{coach ? "我的工作" : "會員專區"}</span>
           )}
@@ -779,7 +796,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               aria-current={page === v ? "page" : undefined}
               onClick={() => go(v as Page)}
             >
-              <span aria-hidden>{icon}</span>
+              <PortalIcon name={icon as PortalIconName} />
               {label}
             </button>
           ))}
@@ -822,9 +839,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                         ? `${formatTWDateTime(new Date(p.nextBooking.startsAt))} · ${p.nextBooking.name}`
                         : "尚無預約"}
                   </strong>
-                  <p>
-                    {coach ? p.nextWork?.room : p.nextBooking?.customerName}
-                  </p>
+                  <p>{coach ? p.nextWork?.room : p.nextBooking ? `${p.nextBooking.coach} · ${p.nextBooking.room}` : "選擇日期查看課程"}</p>
+                  {!coach && p.nextBooking && <small>{nextParticipants.join("＋")} · 共 {nextParticipants.length} 位</small>}
                 </div>
                 <button
                   className="primary"
@@ -852,8 +868,10 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                 </>
               ) : (
                 <>
+                  <button className="primary cp-wide-action" onClick={() => go("schedule")}>立即預約</button>
+                  <h2>常用功能</h2>
                   <section className="cp-card">
-                    {menu("預約課程", "schedule")}
+                    {menu("我的預約", "bookings", "待上課與歷史紀錄")}
                     {menu(
                       "我的方案",
                       "plans",
@@ -861,11 +879,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                         ? `${p.cards.filter((c) => !c.expired && !c.closed).length} 個有效方案`
                         : "尚無方案",
                     )}
-                  </section>
-                  <h2>會員服務</h2>
-                  <section className="cp-card">
-                    {menu("購買方案", "shop")}
-                    {p.healthEnabled && menu("健康追蹤", "health")}
+                    {p.healthEnabled && menu("健康紀錄", "health", "查看身體數據與趨勢")}
+                    {menu("操作指南", "guide", "預約、取消、方案與共卡")}
                   </section>
                 </>
               )}
@@ -927,7 +942,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     <h2>{first.name}</h2>
                     <p>
                       {formatTWDateTime(new Date(first.startsAt))} ·{" "}
-                      {first.room}
+                      {first.coach} · {first.room}
                     </p>
                     {list.map((b) => (
                       <div className="cp-person" key={b.id}>
@@ -939,7 +954,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                           <span className="cp-badge" data-status={b.status}>
                             {statusName(b.status)}
                           </span>
-                          {b.status === "RESERVED" && (
+                          {b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
                             <button
                               disabled={pending}
                               onClick={() => {
@@ -950,6 +965,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                               取消
                             </button>
                           )}
+                          {b.status === "RESERVED" && !canSelfCancel(b.startsAt) && <span className="cp-muted">請聯絡店家取消</span>}
                         </div>
                         <details>
                           <summary>預約明細</summary>
@@ -967,6 +983,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                           {b.customerId !== p.customerId && (
                             <p>預約人：{b.operatorName}</p>
                           )}
+                          {b.status === "RESERVED" && <p>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</p>}
                           {b.notes && <p>備註：{b.notes}</p>}
                         </details>
                       </div>
@@ -1141,15 +1158,14 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           {page === "shared" && (
             <>
               {heading("共卡成員")}
-              {p.cards
-                .filter((c) => c.members.length > 1)
-                .map((c) => (
+              {sharedCards.map((c) => (
                   <article className="cp-card cp-pad" key={c.id}>
                     <h2>{c.name}{c.closed ? " · 已結清停用" : ""}</h2>
                     <p>{c.members.map((m) => m.name).join("、")}</p>
                     <p>可替以上授權成員預約，不會開放其他人的健康資料。</p>
                   </article>
                 ))}
+              {!sharedCards.length && <section className="cp-card cp-pad cp-empty-state"><strong>目前沒有共用方案</strong><p>如需和家人共用額度，請聯絡店家協助設定。</p>{p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">聯絡店家</a>}</section>}
             </>
           )}
           {page === "health" && p.healthEnabled && (
@@ -1181,6 +1197,18 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     </a>
                   )}
               </section>
+            </>
+          )}
+          {page === "guide" && (
+            <>
+              {heading("操作指南", "常用操作一次看懂")}
+              <section className="cp-card cp-pad cp-guide">
+                <details open><summary>如何預約課程？</summary><p>進入「預約」，選日期與課程，再選擇方案及實際上課人，確認後送出。</p></details>
+                <details><summary>如何取消預約？</summary><p>進入「我的預約」，在自行取消截止時間前按「取消」。超過期限請直接聯絡店家。</p></details>
+                <details><summary>方案額度何時扣除？</summary><p>預約時只保留額度；教練確認出席後才正式使用。取消成功會釋放保留額度。</p></details>
+                <details><summary>如何替共卡成員預約？</summary><p>預約時在「實際上課人」勾選已授權成員。共用方案額度，但健康紀錄彼此獨立。</p></details>
+              </section>
+              {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">仍需協助？聯絡店家</a>}
             </>
           )}
           {page === "records" && (
@@ -1261,7 +1289,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         >
           <h2>{session.name}</h2>
           <p>
-            {formatTWDateTime(new Date(session.startsAt))} · {session.room}
+            {formatTWDateTime(new Date(session.startsAt))} · {session.coach} · {session.room}
           </p>
           {error && (
             <p className="cp-error" role="alert">
@@ -1333,24 +1361,10 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               onChange={(e) => setNotes(e.target.value)}
             />
           </label>
-          {(!card ||
-            card.available <
-              amount(session, card) * Math.max(learners.length, 1)) && (
-            <>
-              <h3>購買適用方案</h3>
-              {shop.map((plan) => (
-                <button
-                  key={plan.id}
-                  onClick={() => {
-                    setBuy(plan);
-                    setKey(crypto.randomUUID());
-                    setLastFive("");
-                  }}
-                >
-                  {plan.name} · NT$ {plan.price}
-                </button>
-              ))}
-            </>
+          {(!card || card.available < amount(session, card) * Math.max(learners.length, 1)) && (
+            <div className="cp-no-plan">
+              {shop.length ? <button className="primary" onClick={() => { setSession(null); go("shop"); }}>查看可購買方案</button> : <p>目前沒有適用的販售方案，請聯絡店家協助。</p>}
+            </div>
           )}
         </Sheet>
       )}
@@ -1365,7 +1379,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                 返回
               </button>
               <button
-                disabled={pending}
+                disabled={pending || !cancelBooking || !canSelfCancel(cancelBooking.startsAt)}
                 className="primary"
                 onClick={() =>
                   run(
@@ -1385,9 +1399,11 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           }
         >
           <p>
-            取消 {p.bookings.find((b) => b.id === cancelId)?.customerName}{" "}
+            取消 {cancelBooking?.customerName}{" "}
             的這堂預約，釋放保留額度。
           </p>
+          {cancelBooking && <p>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(cancelBooking.startsAt)))}</p>}
+          {cancelBooking && !canSelfCancel(cancelBooking.startsAt) && <p className="cp-error">已超過自行取消期限，請聯絡店家。</p>}
           {error && (
             <p role="alert" className="cp-error">
               {error}
