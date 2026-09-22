@@ -1,20 +1,32 @@
 "use client";
 
-import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
+import { courseButton, courseField } from "@/components/admin/course-ui";
 import { formatTWDateTime } from "@/lib/date-utils";
 import {
   createCourseBooking,
-  loadCourseSessionDetail,
+  searchCourseBookingCandidates,
 } from "@/server/actions/course-members";
-import type { CourseCardView } from "./member-workspace";
 
-const button =
-  "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
-const primary = `${button} bg-primary-700 text-white`;
-const field =
-  "min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-base";
+const button = courseButton;
+const primary = `${button} border-primary-700 bg-primary-700 text-white`;
+const field = courseField;
+
+type Candidate = {
+  id: string;
+  name: string;
+  phone: string;
+  plans: Array<{
+    id: string;
+    name: string;
+    unit: string;
+    available: number;
+    expiresAt: string;
+    cost: number;
+  }>;
+};
 
 export function CourseManagerBookingModal({
   open,
@@ -29,64 +41,73 @@ export function CourseManagerBookingModal({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [cards, setCards] = useState<CourseCardView[]>([]);
-  const [session, setSession] = useState<{
-    startsAt: string;
-    pointCost: number;
-  } | null>(null);
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [customerId, setCustomerId] = useState("");
   const [cardId, setCardId] = useState("");
   const [message, setMessage] = useState("");
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
-    if (!open || !sessionId) return;
+    if (!open || !query.trim()) return;
     let active = true;
-    loadCourseSessionDetail(sessionId)
-      .then((result) => {
-        if (!active) return;
-        if (!result.success) {
-          setMessage(result.error ?? "讀取可用方案失敗");
-          return;
-        }
-        setCards(result.data.cards);
-        setSession(result.data.session);
-        setCardId("");
-        setMessage("");
-        setRequestKey(crypto.randomUUID());
-      })
-      .catch(() => active && setMessage("讀取失敗，請重試"));
+    const timer = window.setTimeout(() => {
+      setSearching(true);
+      void searchCourseBookingCandidates({ sessionId, query })
+        .then((result) => {
+          if (!active) return;
+          if (!result.success) {
+            setMessage(result.error ?? "搜尋失敗");
+            setCandidates([]);
+            return;
+          }
+          const rows = result.data as Candidate[];
+          setCandidates(rows);
+          setMessage("");
+          const digits = query.replace(/\D/g, "");
+          if (rows.length === 1 && digits.length >= 6) {
+            setCustomerId(rows[0].id);
+            setCardId(rows[0].plans[0]?.id ?? "");
+          }
+        })
+        .catch(() => active && setMessage("搜尋失敗，請重試"))
+        .finally(() => active && setSearching(false));
+    }, 220);
     return () => {
       active = false;
+      window.clearTimeout(timer);
     };
-  }, [open, sessionId]);
+  }, [open, query, sessionId]);
 
-  const card = cards.find((item) => item.id === cardId);
-  const requiredAmount =
-    card?.unit === "SESSION" ? 1 : (session?.pointCost ?? 1);
-  const usableCards = cards.filter(
-    (item) =>
-      !item.expired &&
-      !item.closed &&
-      item.available >= (item.unit === "SESSION" ? 1 : session?.pointCost ?? 1) &&
-      (!session || item.expiresAt >= session.startsAt),
+  const selectedCustomer = useMemo(
+    () => candidates.find((candidate) => candidate.id === customerId) ?? null,
+    [candidates, customerId],
   );
+  const selectedPlan = selectedCustomer?.plans.find((plan) => plan.id === cardId) ?? null;
+
+  function selectCustomer(candidate: Candidate) {
+    setCustomerId(candidate.id);
+    setCardId(candidate.plans[0]?.id ?? "");
+    setRequestKey(crypto.randomUUID());
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!card || pending) return;
+    if (!selectedCustomer || !selectedPlan || pending) return;
     const data = new FormData(event.currentTarget);
     setMessage("");
     startTransition(async () => {
       try {
         const result = await createCourseBooking({
           sessionId,
-          cardId: card.id,
-          customerId: data.get("customerId"),
+          cardId: selectedPlan.id,
+          customerId: selectedCustomer.id,
           notes: data.get("notes"),
           requestKey,
         });
         if (!result.success) {
-          setMessage(result.error ?? "預約失敗");
+          setMessage(result.error ?? "排課失敗");
           setRequestKey(crypto.randomUUID());
           return;
         }
@@ -105,7 +126,7 @@ export function CourseManagerBookingModal({
       open={open}
       onClose={onClose}
       variant="modal"
-      width={520}
+      width={560}
       labelledById="course-manager-booking-title"
     >
       <header className="flex items-center justify-between border-b border-earth-200 bg-primary-50/60 px-5 py-3">
@@ -123,86 +144,110 @@ export function CourseManagerBookingModal({
       <form
         id="course-manager-booking-form"
         onSubmit={submit}
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5"
+        className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5"
       >
         {message && (
-          <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p role="alert" className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
             {message}
           </p>
         )}
 
-        <label className="block text-sm font-medium text-earth-700">
-          使用方案
-          <select
-            className={field}
-            value={cardId}
-            required
-            onChange={(event) => {
-              setCardId(event.target.value);
-              setRequestKey(crypto.randomUUID());
-            }}
-          >
-            <option value="">請選擇方案</option>
-            {cards.map((item) => {
-              const required = item.unit === "SESSION" ? 1 : session?.pointCost ?? 1;
-              const disabled =
-                item.expired ||
-                item.closed ||
-                item.available < required ||
-                (!!session && item.expiresAt < session.startsAt);
-              return (
-                <option key={item.id} value={item.id} disabled={disabled}>
-                  {item.name} · {item.members.map((member) => member.name).join("、")} · 可用{" "}
-                  {item.available} {item.unit === "SESSION" ? "堂" : "點"}
-                  {disabled ? "（目前不可用）" : ""}
-                </option>
-              );
-            })}
-          </select>
-        </label>
+        <section className="space-y-2">
+          <label className="block text-sm font-medium text-earth-700">
+            先找學員
+            <input
+              className={field}
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setCustomerId("");
+                setCardId("");
+              }}
+              inputMode="tel"
+              placeholder="輸入手機號碼或姓名"
+              autoFocus
+            />
+          </label>
+          {searching && <p className="text-xs text-earth-500">搜尋中…</p>}
+          {query.trim() && !searching && (
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-earth-200 bg-white">
+              {candidates.map((candidate) => (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  className={`flex w-full items-center justify-between gap-3 border-b border-earth-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-primary-50 ${customerId === candidate.id ? "bg-primary-50" : ""}`}
+                  onClick={() => selectCustomer(candidate)}
+                >
+                  <span>
+                    <strong className="block">{candidate.name}</strong>
+                    <span className="text-xs text-earth-500">{candidate.phone}</span>
+                  </span>
+                  <span className="text-xs text-earth-500">
+                    {candidate.plans.length ? `${candidate.plans.length} 個可用方案` : "沒有可用方案"}
+                  </span>
+                </button>
+              ))}
+              {!candidates.length && (
+                <p className="p-4 text-center text-sm text-earth-500">
+                  找不到符合的本店學員。
+                </p>
+              )}
+            </div>
+          )}
+        </section>
 
-        <label className="block text-sm font-medium text-earth-700">
-          實際上課人
-          <select
-            className={field}
-            key={cardId}
-            name="customerId"
-            required
-            disabled={!card}
-          >
-            <option value="">請選擇學員</option>
-            {card?.members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {selectedCustomer && (
+          <section className="space-y-3 rounded-xl border border-earth-200 bg-earth-50/60 p-4">
+            <div>
+              <span className="text-xs text-earth-500">已選學員</span>
+              <p className="font-medium text-primary-900">
+                {selectedCustomer.name} · {selectedCustomer.phone}
+              </p>
+            </div>
 
-        {card && (
-          <p className="rounded-lg bg-earth-50 px-3 py-2 text-sm text-earth-600">
-            店長代約會先保留 {requiredAmount} {card.unit === "SESSION" ? "堂" : "點"}，出席後才正式扣抵。
-            {card.expiresAt
-              ? ` 到期日 ${formatTWDateTime(new Date(card.expiresAt)).slice(0, 10)}。`
-              : ""}
-          </p>
+            {selectedCustomer.plans.length ? (
+              <label className="block text-sm font-medium text-earth-700">
+                本堂可用方案
+                <select
+                  className={field}
+                  value={cardId}
+                  required
+                  onChange={(event) => {
+                    setCardId(event.target.value);
+                    setRequestKey(crypto.randomUUID());
+                  }}
+                >
+                  <option value="">請選擇方案</option>
+                  {selectedCustomer.plans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} · 可用 {plan.available} {plan.unit === "SESSION" ? "堂" : "點"} · 到期 {formatTWDateTime(new Date(plan.expiresAt)).slice(0,10)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                這位學員目前沒有可用於本堂課的有效方案。
+              </p>
+            )}
+
+            {selectedPlan && (
+              <p className="text-sm text-earth-600">
+                本次先保留 {selectedPlan.cost} {selectedPlan.unit === "SESSION" ? "堂" : "點"}，出席後才正式扣抵。
+              </p>
+            )}
+          </section>
         )}
 
         <label className="block text-sm font-medium text-earth-700">
           本次備註
           <textarea
-            className={`${field} min-h-24`}
+            className={`${field} min-h-24 resize-y`}
             name="notes"
             maxLength={1000}
             placeholder="選填"
           />
         </label>
-
-        {!usableCards.length && (
-          <p className="text-sm text-earth-500">
-            目前沒有可用方案，請先確認方案額度、期限與適用課程。
-          </p>
-        )}
       </form>
 
       <footer className="border-t border-earth-200 bg-white p-4">
@@ -210,9 +255,9 @@ export function CourseManagerBookingModal({
           form="course-manager-booking-form"
           type="submit"
           className={`${primary} w-full`}
-          disabled={pending || !card}
+          disabled={pending || !selectedCustomer || !selectedPlan}
         >
-          {pending ? "預約中…" : "確認預約"}
+          {pending ? "排課中…" : "確認排課"}
         </button>
       </footer>
     </RightSheet>

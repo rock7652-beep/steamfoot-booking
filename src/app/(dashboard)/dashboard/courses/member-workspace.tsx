@@ -8,6 +8,7 @@ import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
+import { courseButton, courseField } from "@/components/admin/course-ui";
 import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
   saveCourseCustomer,
@@ -41,10 +42,8 @@ type Plan = {
   templateIds: string[];
 };
 export type CourseCardView = Awaited<ReturnType<typeof getCourseCards>>[number];
-const field =
-  "min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
-const button =
-  "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+const field = courseField;
+const button = courseButton;
 export function CourseMemberWorkspace({
   canDelete=false,
   termSessions=[],
@@ -366,29 +365,46 @@ export function CourseMemberWorkspace({
                 <CourseCardBrowser customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 
               </section>}
-              {personTab === "info" && <details><summary className="min-h-11 cursor-pointer py-2">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
-                <div>LINE 綁定：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"}</div>
-              </dl>
-                <CustomerAttributionForm key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`} customerId={person.id} currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null} currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null} staffOptions={assignmentStaff} canAssign={canAssignManager} saveAction={saveCourseCustomerAttribution} searchAction={searchCourseReferrerCandidates} onSaved={()=>router.refresh()} />
-              </details>}
+              {personTab === "info" && (
+                <section className="rounded-xl border border-earth-200 bg-earth-50/40 p-4">
+                  <h3 className="font-medium text-primary-900">歸屬與引薦</h3>
+                  <p className="mt-1 text-xs text-earth-500">
+                    LINE：{customerRows.find(c=>c.id===person.id)?.lineLinkStatus === "LINKED" ? "已綁定" : "尚未綁定"} · 引薦人可搜尋本店顧客或已綁定會員身份的教練
+                  </p>
+                  <div className="mt-3">
+                    <CustomerAttributionForm
+                      key={`attribution-${person.id}-${customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??""}-${customerRows.find(c=>c.id===person.id)?.sponsor?.id??""}`}
+                      customerId={person.id}
+                      currentStaffId={customerRows.find(c=>c.id===person.id)?.assignedStaff?.id??null}
+                      currentSponsor={customerRows.find(c=>c.id===person.id)?.sponsor??null}
+                      staffOptions={assignmentStaff}
+                      canAssign={canAssignManager}
+                      saveAction={saveCourseCustomerAttribution}
+                      searchAction={searchCourseReferrerCandidates}
+                      onSaved={()=>router.refresh()}
+                      courseMode
+                    />
+                  </div>
+                </section>
+              )}
             </section>}
             {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["身高",person.height == null ? null : `${person.height} cm`],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["舊顧客備註（保留資料）",person.notes],["店內備註",person.serviceNote]].map(([label,value])=><div key={label} className="min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["身高",person.height == null ? null : `${person.height} cm`],["LINE 名稱",person.lineName],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["店內備註",[person.notes,person.serviceNote].filter(Boolean).join("\n")]].map(([label,value])=><div key={label} className="min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
               {canEdit && <button className={`${button} bg-primary-700 text-white`} onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
             </section>}
             {panel === "person" && (
               <form
                 id="course-member-form"
                 onChange={()=>setDirty(true)}
-                className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${person && (!editingPerson || personTab !== "info") ? "hidden" : ""}`}
+                className={`grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 [&_label]:space-y-1.5 ${person && (!editingPerson || personTab !== "info") ? "hidden" : ""}`}
                 onSubmit={(e) =>
                   submit(e, (d) =>
                     saveCourseCustomer({
                       id: person?.id,
                       name: d.get("name"),
                       phone: d.get("phone"),
-                      email: d.get("email"), gender: d.get("gender"), birthday: d.get("birthday"), height: d.get("height"), lineName: d.get("lineName"), serviceNote: d.get("serviceNote"), address: d.get("address"), notes: d.get("notes"), emergencyContactName: d.get("emergencyContactName"), emergencyContactPhone: d.get("emergencyContactPhone"),
+                      email: d.get("email"), gender: d.get("gender"), birthday: d.get("birthday"), height: d.get("height"), lineName: d.get("lineName"), serviceNote: d.get("serviceNote"), address: d.get("address"), notes: "", emergencyContactName: d.get("emergencyContactName"), emergencyContactPhone: d.get("emergencyContactPhone"),
                     }),
                   )
                 }
@@ -415,17 +431,26 @@ export function CourseMemberWorkspace({
                     required
                   />
                 </label>
-                <fieldset disabled={person ? !canEdit : !canCreate} className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2">
+                <fieldset disabled={person ? !canEdit : !canCreate} className="grid grid-cols-1 gap-x-4 gap-y-4 sm:col-span-2 sm:grid-cols-2 [&_label]:space-y-1.5">
                   <label className="block">電子信箱<input className={field} name="email" type="email" defaultValue={person?.email ?? ""} /></label>
                   <label className="block">性別<select className={field} name="gender" defaultValue={person?.gender ?? ""}><option value="">未填</option><option value="male">男</option><option value="female">女</option><option value="other">其他</option></select></label>
-                  <div>生日<BirthdayFields defaultValue={person?.birthday} className={field} /></div>
+                  <div className="space-y-1.5"><span className="block text-sm font-medium text-earth-700">生日</span><BirthdayFields defaultValue={person?.birthday} className={field} /></div>
                   <label className="block">身高（cm）<input className={field} name="height" type="number" min={50} max={250} step="any" defaultValue={person?.height ?? ""} /></label>
                   <label className="block">LINE 名稱<input className={field} name="lineName" maxLength={100} defaultValue={person?.lineName ?? ""} /></label>
                   <label className="block">緊急聯絡人姓名<input className={field} name="emergencyContactName" maxLength={100} defaultValue={person?.emergencyContactName ?? ""} /></label>
                   <label className="block">緊急聯絡人電話<input className={field} name="emergencyContactPhone" type="tel" maxLength={30} defaultValue={person?.emergencyContactPhone ?? ""} /></label>
                   <label className="block">地址<input className={field} name="address" maxLength={300} defaultValue={person?.address ?? ""} /></label>
-                  {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}<details className="sm:col-span-2"><summary className="min-h-11 cursor-pointer py-2">舊顧客備註（保留原資料，也顯示於店內備註）</summary><textarea aria-label="舊顧客備註" className={field} name="notes" maxLength={1000} defaultValue={person?.notes ?? ""}/></details>
-                  <label className="block">店內備註（店長與授課教練可見）<textarea className={field} name="serviceNote" maxLength={1000} defaultValue={person?.serviceNote ?? ""} /></label>
+                  {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}
+                  <label className="block sm:col-span-2">
+                    店內備註（店長與授課教練可見）
+                    <textarea
+                      className={field}
+                      name="serviceNote"
+                      maxLength={1000}
+                      defaultValue={[person?.notes, person?.serviceNote].filter(Boolean).join("\n")}
+                      placeholder="例如：偏好的上課時段、需要留意的服務事項"
+                    />
+                  </label>
                 </fieldset>
               </form>
             )}
@@ -436,7 +461,7 @@ export function CourseMemberWorkspace({
               <form
                 id="course-member-form"
                 onChange={()=>setDirty(true)}
-                className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 [&_label]:space-y-1.5"
                 onSubmit={(e) =>
                   submit(e, (d) =>
                     saveCoursePointPlan({
@@ -505,7 +530,7 @@ export function CourseMemberWorkspace({
               <form
                 id="course-member-form"
                 onChange={()=>setDirty(true)}
-                className="grid grid-cols-1 gap-5 min-[1024px]:grid-cols-2"
+                className="grid grid-cols-1 gap-x-6 gap-y-5 min-[1024px]:grid-cols-2 [&_label]:space-y-1.5"
                 onSubmit={(e) =>
                   submit(e, (d) =>
                     assignCoursePointCard({
@@ -524,7 +549,7 @@ export function CourseMemberWorkspace({
                   )
                 }
               >
-                <fieldset disabled={pending} className="min-w-0 space-y-3">
+                <fieldset disabled={pending} className="min-w-0 space-y-4">
                 <h3 className="font-semibold">方案資料</h3>
                 {person ? <div><span className="text-sm text-earth-500">顧客</span><p className="font-medium">{person.name} · {person.phone}</p><input type="hidden" name="customerId" value={person.id}/></div> : <label className="block">
                   顧客
@@ -557,7 +582,7 @@ export function CourseMemberWorkspace({
                 <label className="block">本次開發人<CourseOptionSelect label="本次開發人" name="revenueStaffId" placeholder="請選擇直屬店長／開發人" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
-                <fieldset disabled={pending} className="min-w-0 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-5">
+                <fieldset disabled={pending} className="min-w-0 space-y-4 min-[1024px]:border-l min-[1024px]:border-earth-200 min-[1024px]:pl-6">
                   <CourseAssignmentPayment key={planId} storeCost={plans.find(p=>p.id===planId)?.storeCost??0} price={plans.find(p=>p.id===planId)?.price ?? 0} canDiscount={canDiscount} showAllocation={canReadTransactions} onSummary={setAssignmentSummary}/>
                 </fieldset>
               </form>

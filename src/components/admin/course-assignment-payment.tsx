@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { calculateCourseSaleAllocation } from "@/lib/course-sale-allocation";
 import { calculateCourseCheckout, COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
+import { courseField } from "@/components/admin/course-ui";
 export type AssignmentSummary = { paid: number | null; valid: boolean };
 export function CourseAssignmentPayment({price,canDiscount,storeCost=0,showAllocation=false,onSummary}:{
   price:number;canDiscount:boolean;storeCost?:number;showAllocation?:boolean;onSummary?:(summary:AssignmentSummary)=>void;
@@ -14,14 +15,14 @@ export function CourseAssignmentPayment({price,canDiscount,storeCost=0,showAlloc
   const paid=total?.paid??null;
   const valid=paid!==null&&paid>=storeCost&&(paid===0||(!!method&&(method!=="BANK_TRANSFER"||/^\d{4}$/.test(lastFour))));
   useEffect(()=>{onSummary?.({paid,valid});},[paid,valid,onSummary]);
-  const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
+  const field=courseField;
   return <section className="min-w-0 space-y-3" aria-labelledby="assignment-payment-title">
     <h3 id="assignment-payment-title" className="font-semibold">結帳資料</h3>
     <input type="hidden" name="expectedStoreCost" value={storeCost}/><input type="hidden" name="expectedListPrice" value={price}/>
     <input type="hidden" name="discountKind" value={kind}/><input type="hidden" name="discountValue" value={discountValue}/>
     {canDiscount&&<label className="block">優惠方式<select className={field} value={offer} onChange={e=>{const next=e.target.value as typeof offer;setOffer(next);setValue(next==="RATE"?"9":"");}}><option value="NONE">無優惠</option><option value="AMOUNT">折抵金額</option><option value="RATE">打折</option></select></label>}
     {canDiscount&&offer!=="NONE"&&<label className="block">{offer==="RATE"?"打幾折（9 代表九折）":"折抵多少元"}<input aria-label="優惠數值" className={field} type="number" inputMode="decimal" min={offer==="RATE"?"0.01":"0"} max={offer==="RATE"?"10":price} step={offer==="RATE"?"0.01":"1"} value={value} onChange={e=>setValue(e.target.value)} required/></label>}
-    <dl className="space-y-2 rounded-lg bg-primary-50 p-3" aria-live="polite">
+    <dl className="space-y-2 rounded-xl bg-primary-50 p-3" aria-live="polite">
       <div className="flex justify-between gap-3"><dt>原價</dt><dd>NT$ {price.toLocaleString()}</dd></div>
       <div className="flex justify-between gap-3"><dt>折抵</dt><dd>{total?"− NT$ "+total.discount.toLocaleString():"—"}</dd></div>
       <div className="flex justify-between gap-3 border-t border-primary-200 pt-2 font-semibold"><dt>實收</dt><dd>{paid!==null?"NT$ "+paid.toLocaleString():"—"}</dd></div>

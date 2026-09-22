@@ -27,7 +27,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
         ],
       },
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, phone: true },
   });
   return cards.map((c) => {
     const held = c.bookings.reduce((sum, b) => sum + b.pointCost, 0);
@@ -44,10 +44,14 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       available: expired || c.closedAt ? 0 : Math.max(0, c.remaining - held),
       expired,
       expiresAt: c.expiresAt.toISOString(),
-      members: c.members.map((m) => ({
-        id: m.customerId,
-        name: people.find((p) => p.id === m.customerId)?.name ?? "學員",
-      })),
+      members: c.members.map((m) => {
+        const person = people.find((p) => p.id === m.customerId);
+        return {
+          id: m.customerId,
+          name: person?.name ?? "學員",
+          phone: person?.phone ?? "",
+        };
+      }),
       entries: c.entries.map((e) => ({
         id: e.id,
         kind: e.kind.startsWith("CORRECT:") ? e.kind : e.kind.split(":")[0],

@@ -3,16 +3,15 @@
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
+import { courseButton, courseField } from "@/components/admin/course-ui";
 import { formatTWDateTime } from "@/lib/date-utils";
 import { createCustomer } from "@/server/actions/customer";
 import { loadCourseSessionDetail } from "@/server/actions/course-members";
 import { createCourseTrial } from "@/server/actions/course-trial";
 
-const button =
-  "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+const button = courseButton;
 const primary = `${button} bg-primary-700 text-white`;
-const field =
-  "min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-base";
+const field = courseField;
 
 type SessionOption = {
   id: string;
@@ -255,7 +254,7 @@ export function CourseTrialQuickModal({
                     placeholder="搜尋姓名或手機"
                     aria-label="搜尋既有顧客"
                   />
-                  <div className="max-h-52 overflow-y-auto rounded-lg border border-earth-200">
+                  <div className="max-h-52 overflow-y-auto rounded-xl border border-earth-200">
                     {matches.map((customer) => (
                       <label
                         key={customer.id}

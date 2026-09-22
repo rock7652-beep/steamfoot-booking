@@ -16,6 +16,8 @@ import {
 } from "@/lib/date-utils";
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
+import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
+import { resolvedCourseHours } from "@/lib/course-business-hours";
 
 export default async function CoursesPage({
   searchParams,
@@ -52,7 +54,7 @@ export default async function CoursesPage({
   const bounds = monthRange(
     toLocalMonthStr(parseTaipeiDateTime(selected, "12:00")!),
   );
-  const [rooms, templates, sessions, coaches, canCreate, canEdit] =
+  const [rooms, templates, sessions, coaches, canCreate, canEdit, businessHours, specialBusinessDays] =
     await Promise.all([
       coursePrisma.courseRoom.findMany({
         where: { storeId },
@@ -117,9 +119,21 @@ export default async function CoursesPage({
       }),
       checkPermission(user.role, user.staffId, "booking.create"),
       checkPermission(user.role, user.staffId, "booking.update"),
+      prisma.businessHours.findMany({ where: { storeId } }),
+      prisma.specialBusinessDay.findMany({ where: { storeId } }),
     ]);
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
+
+  const [calendarYear, calendarMonth] = selected.slice(0, 7).split("-").map(Number);
+  const calendarClosures: Record<string, { status: "closed" | "training"; reason?: string | null }> = {};
+  for (let day = 1; day <= new Date(calendarYear, calendarMonth, 0).getDate(); day++) {
+    const date = `${calendarYear}-${String(calendarMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const resolved = resolvedCourseHours(date, businessHours, specialBusinessDays);
+    if (resolved.status === "closed" || resolved.status === "training") {
+      calendarClosures[date] = { status: resolved.status, reason: resolved.reason };
+    }
+  }
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
       <PageHeader
@@ -151,6 +165,8 @@ export default async function CoursesPage({
         coaches={coaches}
         canCreate={writable}
         canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
+        calendarClosures={calendarClosures}
+        cashbookShortcut={view === "schedule" ? <CashbookShortcut /> : null}
         sessions={sessions.map((s) => ({
           ...s,
           startsAt: s.startsAt.toISOString(),

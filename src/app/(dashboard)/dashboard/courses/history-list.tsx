@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
+import { courseField } from "@/components/admin/course-ui";
 export function CourseHistoryList<T extends {id:string}>({customerId,label,load,render,empty}: {
   customerId:string;label:string;empty:string;
   load:(id:string,offset:number,range:{from:string;to:string})=>Promise<{success:true;data:T[];hasMore:boolean}|{success:false;error:string}>;
@@ -21,7 +22,7 @@ export function CourseHistoryList<T extends {id:string}>({customerId,label,load,
   const ready=result?.key===key;
   return <section className="space-y-3 py-3">
     <h3 className="font-semibold text-primary-800">{label}</h3>
-    <div className="grid grid-cols-2 gap-3 text-sm">{([ ["from","開始日期"],["to","結束日期"] ] as const).map(([name,title])=><label key={name} className="min-w-0">{title}<input type="date" aria-label={title} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border px-2" value={range[name]} onChange={e=>{setRange({...range,[name]:e.target.value});setPage(0);}}/></label>)}</div>
+    <div className="grid grid-cols-2 gap-3 text-sm">{([ ["from","開始日期"],["to","結束日期"] ] as const).map(([name,title])=><label key={name} className="min-w-0">{title}<input type="date" aria-label={title} className={`${courseField} mt-1`} value={range[name]} onChange={e=>{setRange({...range,[name]:e.target.value});setPage(0);}}/></label>)}</div>
     {invalid ? <p role="alert">開始日期不可晚於結束日期</p> : !ready ? <p role="status">讀取中…</p> : result?.error ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
       <ul className="divide-y">{result?.rows.map(row=><li key={row.id} className="space-y-1 py-3 text-sm">{render(row)}</li>)}</ul>
       {!result?.rows.length && <p className="text-sm text-earth-500">{empty}</p>}

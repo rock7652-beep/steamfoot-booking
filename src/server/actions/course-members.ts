@@ -255,6 +255,87 @@ export async function createMemberCourseBooking(input: unknown) {
   }
 }
 
+export async function searchCourseBookingCandidates(input: unknown) {
+  try {
+    const { storeId } = await courseManager("booking.create");
+    const data = z.object({
+      sessionId: id,
+      query: z.string().trim().min(1).max(100),
+    }).parse(input);
+
+    const session = await coursePrisma.courseSession.findFirst({
+      where: { id: data.sessionId, storeId, cancelledAt: null },
+      select: { id: true, templateId: true, startsAt: true, pointCost: true },
+    });
+    if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
+
+    const digits = data.query.replace(/\D/g, "");
+    const customers = await prisma.customer.findMany({
+      where: {
+        storeId,
+        mergedIntoCustomerId: null,
+        OR: [
+          { name: { contains: data.query, mode: "insensitive" } },
+          ...(digits ? [{ phone: { contains: digits } }] : []),
+        ],
+      },
+      select: { id: true, name: true, phone: true },
+      orderBy: { name: "asc" },
+      take: 8,
+    });
+    if (!customers.length) return { success: true as const, data: [] };
+
+    const ids = customers.map((customer) => customer.id);
+    const cards = await coursePrisma.coursePointCard.findMany({
+      where: {
+        storeId,
+        members: { some: { customerId: { in: ids } } },
+      },
+      include: {
+        members: true,
+        bookings: {
+          where: { status: "RESERVED" },
+          select: { pointCost: true },
+        },
+      },
+      orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
+    });
+
+    const now = new Date();
+    return {
+      success: true as const,
+      data: customers.map((customer) => {
+        const plans = cards.flatMap((card) => {
+          if (!card.members.some((member) => member.customerId === customer.id)) return [];
+          if (card.closedAt || card.expiresAt < now || card.expiresAt < session.startsAt) return [];
+          if (card.templateIds.length && !card.templateIds.includes(session.templateId)) return [];
+          if (card.termSessionIds.length && !card.termSessionIds.includes(session.id)) return [];
+          const cost = card.unit === "SESSION" ? 1 : session.pointCost;
+          const held = card.bookings.reduce((sum, booking) => sum + booking.pointCost, 0);
+          const available = Math.max(0, card.remaining - held);
+          if (available < cost) return [];
+          return [{
+            id: card.id,
+            name: card.nameSnapshot,
+            unit: card.unit,
+            available,
+            expiresAt: card.expiresAt.toISOString(),
+            cost,
+          }];
+        });
+        return {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          plans,
+        };
+      }),
+    };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
 export async function updateCourseBookingStatus(input: unknown) {
   try {
     const data = z
@@ -287,6 +368,82 @@ export async function updateCourseBookingStatus(input: unknown) {
       return settleCourseBooking(tx, actor, data.bookingId, data.status);
     });
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
+    refresh();
+    return { success: true as const };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
+export async function restoreCourseBooking(input: unknown) {
+  try {
+    const { user, storeId } = await courseManager("booking.update");
+    const data = z.object({ bookingId: id }).parse(input);
+    await courseTransaction(storeId, async (tx) => {
+      const booking = await tx.courseBooking.findFirst({
+        where: { id: data.bookingId, storeId },
+        include: { session: true, card: true },
+      });
+      if (!booking) throw new AppError("NOT_FOUND", "找不到本店預約");
+      if (booking.status !== "CANCELLED") throw new AppError("VALIDATION", "這筆預約不是已取消狀態");
+      if (booking.session.cancelledAt) throw new AppError("VALIDATION", "整堂課已取消，無法恢復個別預約");
+
+      const [occupied, duplicate] = await Promise.all([
+        tx.courseBooking.count({
+          where: { storeId, sessionId: booking.sessionId, status: { not: "CANCELLED" } },
+        }),
+        tx.courseBooking.findFirst({
+          where: {
+            storeId,
+            sessionId: booking.sessionId,
+            customerId: booking.customerId,
+            status: { not: "CANCELLED" },
+            id: { not: booking.id },
+          },
+          select: { id: true },
+        }),
+      ]);
+      if (duplicate) throw new AppError("CONFLICT", "這位學員已經有本堂有效預約");
+      if (occupied >= booking.session.capacity) throw new AppError("CONFLICT", "課程已滿，無法恢復預約");
+
+      if (booking.cardId && booking.card) {
+        const card = booking.card;
+        const now = new Date();
+        if (card.closedAt) throw new AppError("VALIDATION", "原方案已退款或結清，無法恢復");
+        if (card.expiresAt < now || card.expiresAt < booking.session.startsAt)
+          throw new AppError("VALIDATION", "原方案已到期或不涵蓋上課日期");
+        if (card.templateIds.length && !card.templateIds.includes(booking.session.templateId))
+          throw new AppError("VALIDATION", "原方案已不適用這堂課");
+        if (card.termSessionIds.length && !card.termSessionIds.includes(booking.session.id))
+          throw new AppError("VALIDATION", "原期課方案不適用這堂課");
+
+        const held = await tx.courseBooking.aggregate({
+          where: { storeId, cardId: card.id, status: "RESERVED", id: { not: booking.id } },
+          _sum: { pointCost: true },
+        });
+        if (card.remaining - (held._sum.pointCost ?? 0) < booking.pointCost)
+          throw new AppError("CONFLICT", "原方案目前可用額度不足，無法恢復");
+
+        await tx.$executeRaw`
+          INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt")
+          VALUES (
+            ${crypto.randomUUID()},
+            ${user.id},
+            'CourseBooking',
+            ${booking.id},
+            'COURSE_BOOKING_RESTORE',
+            ${JSON.stringify({ status: "CANCELLED", storeId })}::jsonb,
+            ${JSON.stringify({ status: "RESERVED", cardId: booking.cardId })}::jsonb,
+            NOW()
+          )
+        `;
+      }
+
+      await tx.courseBooking.update({
+        where: { id: booking.id },
+        data: { status: "RESERVED", checkedInAt: null },
+      });
+    });
     refresh();
     return { success: true as const };
   } catch (error) {
@@ -349,7 +506,7 @@ export async function loadCourseSessionDetail(sessionId: string) {
       user.staffId,
       "booking.create",
     );
-    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true } });
+    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true, templateId: true } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const [roster, cards] = await Promise.all([
       getCourseRoster(storeId, sessionId),
@@ -366,7 +523,7 @@ export async function loadCourseSessionDetail(sessionId: string) {
           canCorrect: await checkPermission(user.role,user.staffId,"transaction.void"),
           customers: canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
-        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost },
+        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, templateId: session.templateId },
         cards: cards.map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],

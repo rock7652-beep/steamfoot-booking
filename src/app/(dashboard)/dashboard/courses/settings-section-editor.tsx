@@ -1,4 +1,5 @@
 "use client";
+import { courseField } from "@/components/admin/course-ui";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveCourseSettingsSection } from "@/server/actions/course-settings";
@@ -41,7 +42,7 @@ export function CourseSettingsSectionEditor({ initial, onStatus }: Props) {
   }}>
     <fieldset disabled={pending} className={section === "payment" ? "grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_100px_minmax(0,1.4fr)]" : "grid min-w-0 gap-4 sm:grid-cols-2"}>
       {fields[section].map(field => <label key={field.key} className={`min-w-0 text-sm ${field.type === "url" ? "sm:col-span-2" : ""}`}>
-        {field.label}<input name={field.key} type={field.type ?? "text"} value={draft[field.key]} required={field.key === "name" || field.type === "number"} min={field.type === "number" ? 0 : undefined} max={field.type === "number" ? 43200 : undefined} maxLength={field.max} step={field.type === "number" ? 1 : undefined} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setMessage(""); }} className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-earth-300 bg-white px-3 py-2 text-base" />
+        {field.label}<input name={field.key} type={field.type ?? "text"} value={draft[field.key]} required={field.key === "name" || field.type === "number"} min={field.type === "number" ? 0 : undefined} max={field.type === "number" ? 43200 : undefined} maxLength={field.max} step={field.type === "number" ? 1 : undefined} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setMessage(""); }} className={`${courseField} mt-1`} />
       </label>)}
     </fieldset>
     {section === "booking" && <p className="mt-3 text-sm text-earth-600">0 表示上課開始前可操作。此處只調整截止時間，不變更扣堂規則。</p>}

@@ -1,4 +1,5 @@
 "use client";
+import { courseField } from "@/components/admin/course-ui";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
@@ -78,7 +79,7 @@ export function CourseSettingsWorkspace(props: Props) {
   const editor = (initial: CourseSettingsSectionInput, allowed: boolean) => allowed ? <CourseSettingsSectionEditor initial={initial} onStatus={onStatus} /> : <p className="mt-2 text-xs text-earth-500">僅供查看；修改請聯絡有權限的店長。</p>;
   return <SettingsPanelContext.Provider value={context}><div className="grid min-w-0 gap-4 md:grid-cols-[190px_minmax(0,1fr)]">
     <nav aria-label="設定分類" className="min-w-0">
-      <label className="block text-sm md:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className="mt-2 min-h-11 w-full rounded-lg border bg-white px-3">{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{status[section.id]?.dirty ? " · 未儲存" : ""}</option>)}</select></label>
+      <label className="block text-sm md:hidden">設定分類<select value={active} onChange={event => select(courseSettingsSection(event.target.value))} className={`${courseField} mt-2`}>{COURSE_SETTINGS_SECTIONS.map(section => <option key={section.id} value={section.id}>{section.label}{status[section.id]?.dirty ? " · 未儲存" : ""}</option>)}</select></label>
       <div className="sticky top-4 hidden space-y-1 rounded-xl border border-earth-200 bg-white p-2 md:block">{COURSE_SETTINGS_SECTIONS.map(section => <button type="button" key={section.id} aria-current={active === section.id ? "page" : undefined} onClick={() => select(section.id)} className={"min-h-11 w-full rounded-lg px-3 py-3 text-left text-sm " + (active === section.id ? "bg-primary-50 font-semibold text-primary-800" : "text-earth-600 hover:bg-earth-50")}>{section.label}{status[section.id]?.dirty && <span className="ml-1 text-xs text-amber-700">未儲存</span>}</button>)}</div>
     </nav>
     <div className="min-w-0 rounded-xl border border-earth-200 bg-white px-4 py-2 sm:px-6">

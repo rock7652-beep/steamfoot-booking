@@ -2,12 +2,13 @@
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
 
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
-import { useState, useTransition, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { CourseTrialQuickModal } from "./course-trial-quick-modal";
 import { CourseManagerBookingModal } from "./course-manager-booking-modal";
 import { RightSheet } from "@/components/admin/right-sheet";
+import { courseButton, courseField, courseDetails, courseDetailsSummary } from "@/components/admin/course-ui";
 import {
   addTaiwanDuration,
   formatTWDateTime,
@@ -67,13 +68,13 @@ type Props = {
   canCreate: boolean;
   canDelete?: boolean;
   canEdit: boolean;
+  calendarClosures?: Record<string, { status: "closed" | "training"; reason?: string | null }>;
+  cashbookShortcut?: ReactNode;
   view: "schedule" | "catalog" | "rooms";
 };
-const button =
-  "min-h-11 rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
+const button = courseButton;
 const primary = `${button} bg-primary-700 text-white`;
-const field =
-  "min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
+const field = courseField;
 
 export function CourseWorkspace({
   canDelete=false,
@@ -85,6 +86,8 @@ export function CourseWorkspace({
   coaches: allCoaches,
   canCreate,
   canEdit,
+  calendarClosures = {},
+  cashbookShortcut,
   view,
 }: Props) {
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
@@ -95,6 +98,7 @@ export function CourseWorkspace({
     params = useSearchParams();
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
+  const selectedClosure = calendarClosures[selectedDate];
   const [rosterSessionId, setRosterSessionId] = useState<string | null>(null);
   const [bookingSessionId, setBookingSessionId] = useState<string | null>(null);
   const [trialModalOpen, setTrialModalOpen] = useState(false);
@@ -352,10 +356,12 @@ export function CourseWorkspace({
               </select>
             </label>
 
+            {cashbookShortcut}
             {canCreate && (
               <button
                 className={primary + " shrink-0"}
-                disabled={pending}
+                disabled={pending || !!selectedClosure}
+                title={selectedClosure ? "公休日／訓練日不可新增課程" : undefined}
                 onClick={openSchedule}
               >
                 ＋ 新增課程
@@ -383,7 +389,8 @@ export function CourseWorkspace({
               )}
               {Array.from({ length: days }, (_, i) => {
                 const date = `${month}-${String(i + 1).padStart(2, "0")}`,
-                  list = byDate.get(date) ?? [];
+                  list = byDate.get(date) ?? [],
+                  closure = calendarClosures[date];
                 return (
                   <button
                     key={date}
@@ -393,9 +400,17 @@ export function CourseWorkspace({
                       go(date);
                       open("day");
                     }}
-                    className={`flex min-w-0 min-h-12 flex-col items-start justify-start border-t border-earth-100 px-1.5 py-1 text-left sm:min-h-0 sm:px-2 ${date === selectedDate ? "bg-primary-50 ring-1 ring-inset ring-primary-200" : list.length ? "bg-white" : "bg-earth-50/70 text-earth-400"}`}
+                    className={`flex min-w-0 min-h-12 flex-col items-start justify-start border-t border-earth-100 px-1.5 py-1 text-left sm:min-h-0 sm:px-2 ${date === selectedDate ? "bg-primary-50 ring-1 ring-inset ring-primary-200" : closure ? "bg-earth-100 text-earth-500" : list.length ? "bg-white" : "bg-earth-50/70 text-earth-400"}`}
                   >
-                    <span className="shrink-0 text-xs leading-4">{i + 1}</span>
+                    <span className="flex w-full items-center justify-between text-xs leading-4">
+                      <span>{i + 1}</span>
+                      {closure && (
+                        <span className="rounded bg-earth-200 px-1.5 py-0.5 text-[10px] font-medium text-earth-700">
+                          {closure.status === "training" ? "訓練" : "公休"}
+                        </span>
+                      )}
+                    </span>
+                    {closure?.reason && <span className="mt-1 max-w-full truncate text-[10px] text-earth-500">{closure.reason}</span>}
                     {list.length > 0 && <span className="mt-1 text-xs font-medium sm:hidden">{list.length} 堂</span>}
                     {list.slice(0, 2).map((s) => (
                       <span
@@ -651,12 +666,12 @@ export function CourseWorkspace({
               : panel === "day"
                 ? 520
                 : panel === "edit" && editing?.kind === "session"
-                  ? 580
+                  ? 600
                   : panel === "schedule" && copySource
                     ? 500
                     : panel === "schedule"
-                      ? 620
-                      : 620
+                      ? 600
+                      : 600
           }
           variant={view === "schedule" && panel !== "day" ? "modal" : "right"}
           labelledById="course-panel-title"
@@ -725,10 +740,11 @@ export function CourseWorkspace({
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-2">
                   <p className="text-sm text-primary-800">
                     {(byDate.get(selectedDate) ?? []).length} 堂課 · 共 {new Set((byDate.get(selectedDate) ?? []).flatMap((s) => s.bookings.map((b) => b.customerId))).size} 人 · {(byDate.get(selectedDate) ?? []).reduce((n, s) => n + s.bookings.length, 0)} 人次
+                    {selectedClosure && <span className="ml-2 rounded bg-earth-200 px-2 py-1 text-xs text-earth-700">{selectedClosure.status === "training" ? "訓練日" : "公休日"}{selectedClosure.reason ? ` · ${selectedClosure.reason}` : ""}</span>}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {canCreate && (
-                      <button className={primary} onClick={openSchedule} disabled={pending}>
+                      <button className={primary} onClick={openSchedule} disabled={pending || !!selectedClosure}>
                         ＋ 新增課程
                       </button>
                     )}
@@ -854,7 +870,7 @@ export function CourseWorkspace({
                     {view !== "rooms" && (
                       <form
                         id="course-template-create-form"
-                        className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2"
+                        className="grid grid-cols-1 gap-x-4 gap-y-4 min-[400px]:grid-cols-2 [&_label]:space-y-1.5"
                         onSubmit={(e) =>
                           submit(e, (data) =>
                             createCourseTemplate({
@@ -871,7 +887,7 @@ export function CourseWorkspace({
                           )
                         }
                       >
-                        <label className="col-span-full">
+                        <label>
                           課程名稱
                           <input
                             className={field}
@@ -959,7 +975,7 @@ export function CourseWorkspace({
               <form
                 id="course-edit-form"
                 key={`${editing.kind}-${editing.value.id}`}
-                className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2"
+                className="grid grid-cols-1 gap-x-4 gap-y-4 min-[400px]:grid-cols-2 [&_label]:space-y-1.5"
                 onSubmit={(event) =>
                   submit(
                     event,
@@ -1030,10 +1046,40 @@ export function CourseWorkspace({
                 )}
                 {editing.kind === "session" ? (
                   <>
-                    <div className="col-span-full rounded-xl border border-earth-200 bg-earth-50 px-3 py-2">
-                      <span className="text-xs text-earth-500">課程</span>
-                      <p className="font-medium text-primary-900">{editing.value.nameSnapshot}</p>
+                    <div className="space-y-1.5">
+                      <span className="block text-sm font-medium text-earth-700">課程</span>
+                      <div className="flex min-h-12 items-center rounded-xl border border-earth-200 bg-earth-50 px-3 py-2.5">
+                        <p className="font-medium text-primary-900">{editing.value.nameSnapshot}</p>
+                      </div>
                     </div>
+                    <label className="space-y-1.5">
+                      教練
+                      <select
+                        className={field}
+                        name="coachId"
+                        required
+                        defaultValue={editing.value.coachId}
+                      >
+                        {allCoaches
+                          .filter(
+                            (coach) =>
+                              (coach.status === "ACTIVE" &&
+                                coach.courseCoachEnabled &&
+                                coach.courseQualificationsConfirmed &&
+                                coach.courseQualifiedTemplateIds.includes(editing.value.templateId)) ||
+                              coach.id === editing.value.coachId,
+                          )
+                          .map((coach) => (
+                            <option
+                              key={coach.id}
+                              value={coach.id}
+                              disabled={coach.status !== "ACTIVE"}
+                            >
+                              {coach.displayName}{coach.status !== "ACTIVE" ? "（已停用）" : ""}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
                     <input type="hidden" name="templateId" value={editing.value.templateId} />
                     <input type="hidden" name="name" value={editing.value.nameSnapshot} />
                   </>
@@ -1094,34 +1140,6 @@ export function CourseWorkspace({
                       />
                     </label>
                     <label>
-                      教練
-                      <select
-                        className={field}
-                        name="coachId"
-                        required
-                        defaultValue={editing.value.coachId}
-                      >
-                        {allCoaches
-                          .filter(
-                            (coach) =>
-                              (coach.status === "ACTIVE" &&
-                                coach.courseCoachEnabled &&
-                                coach.courseQualificationsConfirmed &&
-                                coach.courseQualifiedTemplateIds.includes(editing.value.templateId)) ||
-                              coach.id === editing.value.coachId,
-                          )
-                          .map((coach) => (
-                            <option
-                              key={coach.id}
-                              value={coach.id}
-                              disabled={coach.status !== "ACTIVE"}
-                            >
-                              {coach.displayName}{coach.status !== "ACTIVE" ? "（已停用）" : ""}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-                    <label>
                       教室
                       <select
                         className={field}
@@ -1154,8 +1172,8 @@ export function CourseWorkspace({
                         defaultValue={editing.value.capacity}
                       />
                     </label>
-                    <details className="col-span-full rounded-xl border border-earth-200 px-3">
-                      <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-earth-700">
+                    <details className={`col-span-full ${courseDetails}`}>
+                      <summary className={courseDetailsSummary}>
                         進階設定
                       </summary>
                       <label className="block pb-3">
@@ -1276,7 +1294,7 @@ export function CourseWorkspace({
                 ) : (
                   <form
                     id="course-schedule-form"
-                    className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                    className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 [&_label]:space-y-1.5"
                     onSubmit={(e) =>
                       submit(
                         e,
@@ -1353,7 +1371,7 @@ export function CourseWorkspace({
                             ))}
                           </select>
                         </label>
-                        <label className="col-span-full">
+                        <label>
                           教練
                           <select className={field} name="coachId" required>
                             {coaches
@@ -1443,8 +1461,8 @@ export function CourseWorkspace({
                             required
                           />
                         </label>
-                        <details className="col-span-full rounded-xl border border-earth-200 px-3">
-                          <summary className="min-h-11 cursor-pointer py-3 font-medium">
+                        <details className={`col-span-full ${courseDetails}`}>
+                          <summary className={courseDetailsSummary}>
                             更多排程選項
                           </summary>
                           <div className="grid grid-cols-1 gap-3 pb-3 sm:grid-cols-2">
