@@ -85,7 +85,7 @@ export async function CourseStaffPage() {
           memberEnabled: s.memberLink?.courseMemberEnabled ?? true,
           permissions: s.permissions
             .map((p) => p.permission)
-            .filter((permission) => COURSE_PERMISSIONS.includes(permission)),
+            .filter((permission) => COURSE_PERMISSIONS.some((code) => code === permission)),
           customerId:
             customers.find(
               (c) =>
