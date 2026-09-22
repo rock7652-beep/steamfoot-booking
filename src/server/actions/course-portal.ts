@@ -211,7 +211,7 @@ export async function confirmCoursePurchase(input: unknown) {
       });
       await enrollCourseTerm(tx,{storeId,userId:user.id,name:"店長核帳期課"},card,order.customerId);
       if (order.price > 0)
-        await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"staffId","createdByUserId","updatedAt") VALUES (${"course-purchase:" + order.id},${storeId},${new Date(toLocalDateStr() + "T00:00:00Z")},'INCOME','OTHER','課程方案',${order.price},${"線上購買：" + order.name + " / " + order.id + (order.note ? " / " + order.note : "")},${order.revenueStaffId},${user.id},NOW())`;
+        await tx.$executeRaw`INSERT INTO "CashbookEntry" (id,"storeId","entryDate",type,"paymentMethod",category,amount,note,"staffId","customerId","createdByUserId","updatedAt") VALUES (${"course-purchase:" + order.id},${storeId},${new Date(toLocalDateStr() + "T00:00:00Z")},'INCOME','OTHER','課程方案',${order.price},${"線上購買：" + order.name + " / " + order.id + (order.note ? " / " + order.note : "")},${order.revenueStaffId},${order.customerId},${user.id},NOW())`;
       await tx.coursePurchase.update({
         where: { id: order.id },
         data: {

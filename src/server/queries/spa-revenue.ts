@@ -4,6 +4,7 @@ import { spaPrisma } from "@/lib/spa-db";
 import { requireSpaStore } from "@/lib/industry-module-server";
 import { dayRange } from "@/lib/date-utils";
 import { isSpaExternalPayment } from "@/lib/spa-payment-methods";
+import { getRetailAnalytics } from "./retail-analytics";
 
 export type SpaRevenueRow = {
   id: string;
@@ -67,7 +68,7 @@ export async function getSpaRevenue(
  EXISTS(SELECT 1 FROM "SpaRefund" r WHERE r."storeId"=${storeId} AND ((l.kind='SERVICE' AND r."receiptId"=l.id) OR (l.kind IN ('PACKAGE','TOPUP') AND r."saleId"=l.id))) AS reversed
  FROM ledger l WHERE at>=${start} AND at<=${end} ${filter} ${kindFilter} ${searchFilter}),
  filtered AS (SELECT * FROM marked WHERE true ${statusFilter})`;
-  const [totals, rows, completed] = await Promise.all([
+  const [totals, rows, completed, retail] = await Promise.all([
     spaPrisma.$queryRaw<
       { collected: Prisma.Decimal; refunded: Prisma.Decimal; count: bigint }[]
     >(
@@ -79,6 +80,7 @@ export async function getSpaRevenue(
     spaPrisma.$queryRaw<{ count: bigint }[]>(
       Prisma.sql`SELECT COUNT(*) AS count FROM "SpaReceipt" r WHERE r."storeId"=${storeId} AND r."paidAt">=${start} AND r."paidAt"<=${end} AND NOT EXISTS (SELECT 1 FROM "SpaPaymentRevision" v WHERE v."storeId"=${storeId} AND v.kind='RECEIPT' AND v."sourceId"=r.id AND v.action='VOID')`,
     ),
+    getRetailAnalytics(storeId, from, to),
   ]);
   return {
     rows: rows.map((r) => ({
@@ -90,5 +92,7 @@ export async function getSpaRevenue(
     refunded: Number(totals[0].refunded),
     count: Number(totals[0].count),
     completed: Number(completed[0]?.count ?? 0),
+    retail,
+    totalRevenue: Number(totals[0].collected) - Number(totals[0].refunded) + retail.revenue,
   };
 }

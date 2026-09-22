@@ -51,13 +51,15 @@ export function BusinessAnalyticsView({data,all,staffId}:{data:CourseBusinessRep
     </div>
     <div className="rounded-xl border border-earth-200 bg-white px-4 py-3 text-sm">
       {!coach&&<div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-earth-100 pb-3">
-        <span>收款淨額 <strong>{data.netRevenue===null?"無檢視權限":`NT$ ${data.netRevenue.toLocaleString()}`}</strong></span>
+        <span>總營收 <strong>{data.netRevenue===null?"無檢視權限":`NT$ ${data.netRevenue.toLocaleString()}`}</strong></span>
+        {data.retail&&<span>零售收入 <strong>NT$ {data.retail.revenue.toLocaleString()}</strong> <span className="text-xs text-earth-500">{data.retail.transactionCount} 筆 · {data.retail.customerCount} 位顧客</span></span>}
         {data.scope.view==="manager"&&<span>方案利潤 <strong>{moneyValue(data.profit,data.knownProfit,data.missingProfit)}</strong>{data.missingProfit>0&&<button type="button" aria-expanded={review==="profit"} onClick={()=>toggleReview("profit")} className="ml-2 min-h-11 text-amber-700 underline underline-offset-4">{data.missingProfit} 筆待核對・查看明細</button>}</span>}
       </div>}
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 xl:grid-cols-5">
         {(["unconverted","tracked","visitors","newVisitors","oldVisitors"] as Segment[]).map(key=><button key={key} disabled={!data.segments||pending} className="min-h-11 py-2 text-left text-primary-700 underline underline-offset-4 disabled:no-underline" onClick={()=>show(key)}><span className="block">{names[key]}</span><strong className="block font-medium">{data.counts[key]} 人</strong></button>)}
       </div>
     </div>
+    {data.retail&&<details className="rounded-xl border border-earth-200 bg-white p-4"><summary className="min-h-11 cursor-pointer text-sm font-semibold">零售明細（{data.retail.items.length} 個品項）</summary>{data.retail.items.length?<ul className="divide-y divide-earth-100">{data.retail.items.map(item=><li key={item.name} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><strong>{item.name}</strong><span>NT$ {item.revenue.toLocaleString()} · {item.transactionCount} 筆 · {item.customerCount} 位顧客</span></li>)}</ul>:<p className="py-3 text-sm text-earth-500">本期零售收入為 NT$ 0。</p>}</details>}
     {review&&<section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="待核對明細">
       <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">{review==="profit"?"方案利潤":"授課費"}待核對（{reviewRows.length} {review==="profit"?"筆":"堂"}）</h2><button className="min-h-11 px-3 text-sm" onClick={()=>setReview(null)}>關閉明細</button></div>
       <p className="mb-2 text-sm text-earth-500">以下項目尚未計入金額，請依原始成交或授課紀錄核對。</p>
@@ -88,7 +90,7 @@ export function BusinessAnalyticsView({data,all,staffId}:{data:CourseBusinessRep
     </section>
     {coach&&<details className="rounded-xl border border-earth-200 bg-white p-4"><summary className="min-h-11 cursor-pointer text-sm font-semibold">體驗後開卡成果</summary><p className="my-2 text-sm text-earth-600">歸給首次付費前最後一次完成體驗的授課教練，供教學追蹤；成交業績仍歸直屬店長。</p><div className="grid grid-cols-2 gap-3">{metricCard("newCard")}{metricCard("converted")}</div></details>}
     {!coach&&<details className="rounded-xl border border-earth-200 bg-white p-4"><summary className="min-h-11 cursor-pointer text-sm font-semibold">授課明細</summary><p className="py-2 text-sm">實際授課 {data.sessions} 堂 · {data.hours.toFixed(1)} 小時 · 出席 {data.attendance} 人次</p></details>}
-    <details className="text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">統計方式與歸屬</summary><div className="space-y-2 pb-3"><p>來客人次按實際出席累計：兩人各上一堂算 2 人次，同一人上兩堂也算 2 人次；取消與未到不計。不重複來客人數則每人只算一次。新客為首次在本店出席落在本期，舊客為先前已出席者。</p><p>近六個月與近一年以所選區間的結束月份為終點，未來日期截至今日；各月體驗、新卡、續卡按月去重，本期每日人數不可直接相加為整期人數。</p><p>體驗依完成出席計算並按人去重；新卡為首次付費方案，續卡為後續付費方案。免費指派、共卡加入與全額退款不算成交。新卡與續卡可能是同一人，本期人數不可直接相加。</p><p>體驗開卡率只計同批首次購買前的體驗者；追蹤開卡歸實際購買月份，另列過往體驗。沒有體驗者時顯示 —。</p><p>直屬店長的體驗與上課依顧客目前歸屬；成交依購買時快照，未指定列未歸屬，不使用核帳人代替。教練依課次授課紀錄。角色數字不可重複加總。</p><p>收款包含方案及體驗收款，扣除當期退款／沖銷；不重複加總現金帳。方案利潤依成交快照，部分退款或缺少快照列待核對。授課費依每堂固定費率，缺少費率另列待核對。</p></div></details>
+    <details className="text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">統計方式與歸屬</summary><div className="space-y-2 pb-3"><p>來客人次按實際出席累計：兩人各上一堂算 2 人次，同一人上兩堂也算 2 人次；取消與未到不計。不重複來客人數則每人只算一次。新客為首次在本店出席落在本期，舊客為先前已出席者。</p><p>近六個月與近一年以所選區間的結束月份為終點，未來日期截至今日；各月體驗、新卡、續卡按月去重，本期每日人數不可直接相加為整期人數。</p><p>體驗依完成出席計算並按人去重；新卡為首次付費方案，續卡為後續付費方案。免費指派、共卡加入與全額退款不算成交。新卡與續卡可能是同一人，本期人數不可直接相加。</p><p>體驗開卡率只計同批首次購買前的體驗者；追蹤開卡歸實際購買月份，另列過往體驗。沒有體驗者時顯示 —。</p><p>直屬店長的體驗與上課依顧客目前歸屬；成交依購買時快照，未指定列未歸屬，不使用核帳人代替。教練依課次授課紀錄。角色數字不可重複加總。</p><p>總營收包含方案、體驗與現金帳中「零售-」分類的收入，扣除當期退款／沖銷；其他現金帳收入不重複加總。方案利潤依成交快照，部分退款或缺少快照列待核對。授課費依每堂固定費率，缺少費率另列待核對。</p></div></details>
   </div>;
 }
 function Summary({label,value,note,action}:{label:string;value:string;note?:string;action?:React.ReactNode}) {return <div className="min-h-24 rounded-xl border border-earth-200 bg-white p-4"><p className="text-sm text-earth-600">{label}</p><strong className="mt-2 block text-2xl text-primary-900">{value}</strong>{note&&<p className="mt-1 text-xs text-earth-500">{note}</p>}{action}</div>;}

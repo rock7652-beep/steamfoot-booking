@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 import { getStoreFilter } from "@/lib/manager-visibility";
 import { monthRange, toLocalMonthStr, todayRange } from "@/lib/date-utils";
 import type { CustomerStage, Prisma } from "@prisma/client";
+import { checkPermission } from "@/lib/permissions";
 
 /**
  * 桌機版顧客列表 toolbar 支援的複合篩選：
@@ -352,6 +353,11 @@ export async function getCustomerDetailForUser(
         orderBy: { createdAt: "desc" },
         take: 20,
       },
+      cashbookEntries: {
+        where: { type: "INCOME" },
+        orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
+        take: 20,
+      },
       followUps: {
         orderBy: { createdAt: "desc" },
         take: 20,
@@ -447,8 +453,46 @@ export async function getCustomerDrawerDetailForUser(
       throw new AppError("FORBIDDEN", "只能查看自己的資料");
     }
   }
+  const canReadConsumption = user.role !== "CUSTOMER" && await checkPermission(user.role, user.staffId, "transaction.read");
+  if (!canReadConsumption) return { ...customer, recentConsumption: null };
+  const [transactions, cashbookEntries] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { storeId: customer.storeId, customerId: customer.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 5,
+      select: { id: true, createdAt: true, transactionType: true, planNameSnapshot: true, amount: true, paymentMethod: true },
+    }),
+    prisma.cashbookEntry.findMany({
+      where: { storeId: customer.storeId, customerId: customer.id, type: "INCOME" },
+      orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      take: 5,
+      select: { id: true, entryDate: true, createdAt: true, category: true, amount: true, paymentMethod: true },
+    }),
+  ]);
+  const transactionLabels: Record<string, string> = {
+    PLAN_PURCHASE: "購買方案", SINGLE_SERVICE: "單次服務", SESSION_DEDUCTION: "方案扣堂", REFUND: "退款",
+  };
+  const recentConsumption = [
+    ...transactions.map((row) => ({
+      id: `transaction:${row.id}`,
+      date: row.createdAt,
+      sortAt: row.createdAt,
+      label: row.planNameSnapshot || transactionLabels[row.transactionType] || "消費",
+      amount: Number(row.amount),
+      payment: row.paymentMethod === "CASH" ? "現金" : "其他付款",
+    })),
+    ...cashbookEntries.map((row) => ({
+      id: `cashbook:${row.id}`,
+      date: row.entryDate,
+      sortAt: row.createdAt,
+      label: row.category?.replace(/^零售-/, "") || "現場消費",
+      amount: Number(row.amount),
+      payment: row.paymentMethod === "CASH" ? "現金" : "其他付款",
+    })),
+  ].sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime()).slice(0, 5)
+    .map((row) => ({ id: row.id, date: row.date, label: row.label, amount: row.amount, payment: row.payment }));
 
-  return customer;
+  return { ...customer, recentConsumption };
 }
 
 // ============================================================

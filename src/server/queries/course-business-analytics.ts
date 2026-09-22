@@ -5,6 +5,7 @@ import { requireCourseStore } from "@/lib/industry-module-server";
 import { dayRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
 import { businessComparisonRange, summarizeCourseBusiness, type BusinessScope } from "@/lib/course-business-analytics";
 import { shiftCourseCalendarDate, type CourseAnalysisRange } from "@/lib/course-analytics";
+import { getRetailAnalytics } from "./retail-analytics";
 export async function getCourseBusinessAnalytics(storeId: string, range: CourseAnalysisRange, scope: BusinessScope, access: { money: boolean; customers: boolean; fees: boolean }) {
   await requireCourseStore(storeId);
   const end = new Date(Math.min(dayRange(range.endDate).end.getTime(), Date.now()));
@@ -36,6 +37,8 @@ export async function getCourseBusinessAnalytics(storeId: string, range: CourseA
   const monthlyTrend=Array.from({length:12},(_,i)=>{const startDate=shiftCourseCalendarDate(anchor,i-11);const monthEnd=toLocalDateStr(monthRange(startDate.slice(0,7)).end);const cutoff=toLocalDateStr(end);const endDate=monthEnd<cutoff?monthEnd:cutoff;const summary=summarizeCourseBusiness({...input,range:{startDate,endDate}});return {date:startDate.slice(0,7),available:endDate>=coverageStart,attendance:summary.attendance,trial:summary.trial.length,newCard:summary.newCard.length,renewal:summary.renewal.length};});
   const start=dayRange(range.startDate).start;
   const matches=(id:string|null)=>scope.view==="store" || scope.person==="all" || (id??"unassigned")===scope.person;
+  const retail=access.money&&scope.view!=="coach"?await getRetailAnalytics(storeId,range.startDate,toLocalDateStr(end),matches):null;
+  const retailHistory=access.money&&scope.view!=="coach"?await getRetailAnalytics(storeId,toLocalDateStr(moneyStart),toLocalDateStr(end),matches):null;
   const customerMap=new Map(customers.map(c=>[c.id,c.assignedStaffId]));
   const salesIncome=records.purchases.filter(p=>p.confirmedAt && p.confirmedAt>=start && matches(p.revenueStaffId)).reduce((n,p)=>n+p.price,0);
   const refund=records.refunds.filter(r=>r.createdAt>=start&&matches(r.purchase.revenueStaffId)).reduce((n,r)=>n+r.amount,0);
@@ -46,6 +49,7 @@ export async function getCourseBusinessAnalytics(storeId: string, range: CourseA
     for(const p of records.purchases)if(p.confirmedAt&&p.confirmedAt>=moneyStart&&matches(p.revenueStaffId))addMoney(p.confirmedAt,p.price);
     for(const r of records.refunds)if(matches(r.purchase.revenueStaffId))addMoney(r.createdAt,-r.amount);
     for(const r of records.receipts)if(matches(customerMap.get(r.booking.customerId)??null)){if(r.createdAt>=moneyStart&&r.createdAt<=end)addMoney(r.createdAt,r.amount);if(r.voidedAt&&r.voidedAt>=moneyStart&&r.voidedAt<=end)addMoney(r.voidedAt,-r.amount);}
+    for(const row of retailHistory?.daily??[])addMoney(new Date(`${row.date}T00:00:00.000Z`),row.revenue);
   }
   const monthlyMoney = new Map<string,number>();
   for (const [date,amount] of dailyMoney) {const month=date.slice(0,7);monthlyMoney.set(month,(monthlyMoney.get(month)??0)+amount);}
@@ -54,6 +58,6 @@ export async function getCourseBusinessAnalytics(storeId: string, range: CourseA
   const trend=[];
   for(let day=+start;day<=+end;day+=86400000){const date=toLocalDateStr(new Date(day));trend.push({...dailyMetrics.get(date),date,attendance:dailyMetrics.get(date)?.attendance??0,trial:dailyMetrics.get(date)?.trial??0,newCard:dailyMetrics.get(date)?.newCard??0,renewal:dailyMetrics.get(date)?.renewal??0,...(access.money&&scope.view!=="coach"?{revenue:dailyMoney.get(date)??0}:{})});}
   const segments={newVisitors:data.newVisitors,oldVisitors:data.oldVisitors,returned:data.returned,notReturned:data.notReturned,trial:data.trial,newCard:data.newCard,renewal:data.renewal,converted:data.converted,unconverted:data.unconverted,tracked:data.tracked,visitors:data.visitors};
-  return {pendingProfit:access.money&&scope.view==="manager"?data.pendingProfit.map(({customerId,customerName,...row})=>({...row,...(access.customers?{customerId,customerName}:{customerId:null,customerName:null})})):[],pendingFees:access.fees?data.pendingFees.map(row=>({...row,coachName:staff.find(s=>s.id===row.coachId)?.displayName??"歷史教練"})):[],scope,range,staff,coverageStart,effectiveEndDate:toLocalDateStr(end),comparison,monthlyTrend:chartMonths,retentionBase:data.retentionBase,retentionRate:data.retentionRate,retentionRange:data.retentionRange,counts:Object.fromEntries(Object.entries(segments).map(([k,v])=>[k,v.length])) as Record<keyof typeof segments,number>,segments:access.customers?segments:null,eligibleTrials:data.eligibleTrials,conversionRate:data.conversionRate,sessions:data.sessions,hours:data.hours,attendance:data.attendance,fee:access.fees?data.fee:null,missingFees:access.fees?data.missingFees:0,profit:access.money&&scope.view==="manager"?data.profit:null,knownProfit:access.money&&scope.view==="manager"?data.knownProfit:0,missingProfit:access.money&&scope.view==="manager"?data.missingProfit:0,netRevenue:access.money&&scope.view!=="coach"?salesIncome-refund+trialIncome:null,trend};
+  return {pendingProfit:access.money&&scope.view==="manager"?data.pendingProfit.map(({customerId,customerName,...row})=>({...row,...(access.customers?{customerId,customerName}:{customerId:null,customerName:null})})):[],pendingFees:access.fees?data.pendingFees.map(row=>({...row,coachName:staff.find(s=>s.id===row.coachId)?.displayName??"歷史教練"})):[],scope,range,staff,coverageStart,effectiveEndDate:toLocalDateStr(end),comparison,monthlyTrend:chartMonths,retentionBase:data.retentionBase,retentionRate:data.retentionRate,retentionRange:data.retentionRange,counts:Object.fromEntries(Object.entries(segments).map(([k,v])=>[k,v.length])) as Record<keyof typeof segments,number>,segments:access.customers?segments:null,eligibleTrials:data.eligibleTrials,conversionRate:data.conversionRate,sessions:data.sessions,hours:data.hours,attendance:data.attendance,fee:access.fees?data.fee:null,missingFees:access.fees?data.missingFees:0,profit:access.money&&scope.view==="manager"?data.profit:null,knownProfit:access.money&&scope.view==="manager"?data.knownProfit:0,missingProfit:access.money&&scope.view==="manager"?data.missingProfit:0,retail,netRevenue:access.money&&scope.view!=="coach"?salesIncome-refund+trialIncome+(retail?.revenue??0):null,trend};
 }
 export type CourseBusinessReport = Awaited<ReturnType<typeof getCourseBusinessAnalytics>>;

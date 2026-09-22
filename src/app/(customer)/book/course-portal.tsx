@@ -9,6 +9,23 @@ import { monthRange, toLocalMonthStr, parseTaipeiDateTime, dayRange, toLocalDate
 import { hasStoreFeature } from "@/lib/feature-gate";
 import { FEATURES } from "@/lib/feature-flags";
 import { getStoreContext } from "@/lib/store-context";
+import { coursePointEffect, type CourseConsumptionRow } from "@/lib/course-consumption";
+import { COURSE_REFUND_METHOD_LABELS } from "@/lib/course-refund-display";
+
+const PAYMENT_LABELS: Record<string, string> = {
+  CASH: "現金",
+  TRANSFER: "轉帳",
+  BANK_TRANSFER: "轉帳",
+  LINE_PAY: "LINE Pay",
+  CREDIT_CARD: "信用卡",
+  CARD: "信用卡",
+  OTHER: "其他非現金",
+  STORED_VALUE: "儲值金",
+};
+
+const paymentLabel = (value: string | null | undefined) =>
+  value ? (PAYMENT_LABELS[value] ?? "其他") : "未註明";
+
 export async function loadCoursePortal(requestedMonth?: string) {
   const month =
     requestedMonth && /^20\d{2}-(0[1-9]|1[0-2])$/.test(requestedMonth)
@@ -100,6 +117,9 @@ export async function loadCoursePortal(requestedMonth?: string) {
     nextBooking,
     nextWork,
     bookingRule,
+    pointEntries,
+    trialPayments,
+    retailEntries,
   ] = await Promise.all([
     memberEnabled
       ? coursePrisma.courseSession.findMany({
@@ -159,13 +179,11 @@ export async function loadCoursePortal(requestedMonth?: string) {
           orderBy: { price: "asc" },
         })
       : [],
-    memberEnabled
-      ? coursePrisma.coursePurchase.findMany({
-          where: { storeId, customerId: customer.id },
-          include: { refunds: { where: {storeId}, select:{id:true,amount:true,method:true,createdAt:true}, orderBy:{createdAt:"asc"} } },
-          orderBy: { createdAt: "desc" },
-        })
-      : [],
+    coursePrisma.coursePurchase.findMany({
+      where: { storeId, customerId: customer.id },
+      include: { refunds: { where: {storeId}, select:{id:true,amount:true,method:true,createdAt:true}, orderBy:{createdAt:"asc"} } },
+      orderBy: { createdAt: "desc" },
+    }),
     coursePrisma.courseTemplate.findMany({
       where: { storeId },
       select: { id: true, name: true },
@@ -226,6 +244,63 @@ export async function loadCoursePortal(requestedMonth?: string) {
           select: { cancellationLeadMinutes: true },
         })
       : null,
+    coursePrisma.coursePointEntry.findMany({
+      where: {
+        storeId,
+        createdAt: { gte: range.start, lte: range.end },
+        booking: { customerId: customer.id },
+      },
+      select: {
+        id: true,
+        kind: true,
+        points: true,
+        createdAt: true,
+        card: { select: { nameSnapshot: true, unit: true, termSessionIds: true } },
+        booking: {
+          select: {
+            session: { select: { nameSnapshot: true, startsAt: true } },
+          },
+        },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 200,
+    }),
+    coursePrisma.courseTrialPayment.findMany({
+      where: {
+        storeId,
+        createdAt: { gte: range.start, lte: range.end },
+        booking: { customerId: customer.id },
+      },
+      select: {
+        id: true,
+        amount: true,
+        paymentMethod: true,
+        status: true,
+        createdAt: true,
+        booking: { select: { session: { select: { nameSnapshot: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
+    prisma.cashbookEntry.findMany({
+      where: {
+        storeId,
+        customerId: customer.id,
+        entryDate: { gte: range.start, lte: range.end },
+        NOT: [
+          { id: { startsWith: "course-purchase:" } },
+          { id: { startsWith: "course-refund:" } },
+          { id: { startsWith: "course-void:" } },
+          { id: { startsWith: "course-trial:" } },
+          { id: { startsWith: "course-trial-void:" } },
+          { id: { startsWith: "course-fee:" } },
+          { id: { startsWith: "course-fee-void:" } },
+        ],
+      },
+      select: { id: true, entryDate: true, type: true, category: true, amount: true, paymentMethod: true, note: true },
+      orderBy: { entryDate: "desc" },
+      take: 100,
+    }),
   ]);
   const coachIds = [...new Set([
     ...sessions.map((session) => session.coachId),
@@ -256,6 +331,92 @@ export async function loadCoursePortal(requestedMonth?: string) {
       : [],
   ]);
   const coachNames = new Map(coaches.map((coach) => [coach.id, coach.displayName]));
+  const inSelectedMonth = (date: Date) => date >= range.start && date <= range.end;
+  const consumption: CourseConsumptionRow[] = [];
+
+  for (const order of orders) {
+    if (inSelectedMonth(order.createdAt)) {
+      consumption.push({
+        id: `purchase:${order.id}`,
+        date: order.createdAt.toISOString(),
+        type: "PAYMENT",
+        title: order.name,
+        detail: `${order.points} ${order.unit === "SESSION" ? "堂" : "點"}方案 · ${paymentLabel(order.paymentMethod ?? "BANK_TRANSFER")}`,
+        status: order.status === "CONFIRMED" ? "已付款並啟用" : order.status === "PENDING" ? "待核帳（尚未取得額度）" : order.status === "REFUNDED" ? "已退款" : "已作廢",
+        planName: order.name,
+        amount: order.price,
+        quantity: null,
+        unit: null,
+      });
+    }
+    for (const refund of order.refunds) {
+      if (!inSelectedMonth(refund.createdAt)) continue;
+      consumption.push({
+        id: `purchase-refund:${refund.id}`,
+        date: refund.createdAt.toISOString(),
+        type: "REFUND",
+        title: `${order.name}退款`,
+        detail: COURSE_REFUND_METHOD_LABELS[refund.method] ?? "其他非現金",
+        status: "已登錄退款",
+        planName: order.name,
+        amount: -refund.amount,
+        quantity: null,
+        unit: null,
+      });
+    }
+  }
+
+  for (const entry of pointEntries) {
+    if (!entry.booking) continue;
+    const effect = coursePointEffect(entry.kind, entry.points, entry.card.termSessionIds.length > 0);
+    if (!effect) continue;
+    consumption.push({
+      id: `point:${entry.id}`,
+      date: entry.createdAt.toISOString(),
+      type: effect.type,
+      title: entry.booking.session.nameSnapshot,
+      detail: `上課日 ${toLocalDateStr(entry.booking.session.startsAt)}`,
+      status: effect.status,
+      planName: entry.card.nameSnapshot,
+      amount: null,
+      quantity: effect.quantity,
+      unit: entry.card.unit === "SESSION" ? "堂" : "點",
+    });
+  }
+
+  for (const receipt of trialPayments) {
+    const voided = receipt.status === "VOIDED";
+    consumption.push({
+      id: `trial:${receipt.id}`,
+      date: receipt.createdAt.toISOString(),
+      type: voided ? "REFUND" : "PAYMENT",
+      title: receipt.booking.session.nameSnapshot,
+      detail: `體驗課程 · ${paymentLabel(receipt.paymentMethod)}`,
+      status: voided ? "收款已作廢" : "已付款",
+      planName: null,
+      amount: voided ? -receipt.amount : receipt.amount,
+      quantity: null,
+      unit: null,
+    });
+  }
+
+  for (const entry of retailEntries) {
+    const refund = entry.type === "EXPENSE";
+    consumption.push({
+      id: `retail:${entry.id}`,
+      date: entry.entryDate.toISOString(),
+      type: refund ? "REFUND" : "PAYMENT",
+      title: entry.category?.replace(/^零售-/, "") || "店內消費",
+      detail: `${paymentLabel(entry.paymentMethod)}${entry.note ? ` · ${entry.note}` : ""}`,
+      status: refund ? "退款／沖銷" : "已付款",
+      planName: null,
+      amount: refund ? -Number(entry.amount) : Number(entry.amount),
+      quantity: null,
+      unit: null,
+    });
+  }
+
+  consumption.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   const referralShare = memberEnabled ? await getReferralShareContext({ customerId: customer.id, storeId, storeSlug: store.slug }) : null;
   // Only customers on this authorized coach's own sessions are read.
   const workCustomers = work.length ? await prisma.customer.findMany({
@@ -273,6 +434,7 @@ export async function loadCoursePortal(requestedMonth?: string) {
     prefix: context?.storeSlug ? `/s/${context.storeSlug}` : "",
     memberEnabled,
     hasWork: !!link,
+    consumption,
     healthEnabled: memberEnabled && healthEnabled,
     cancellationLeadMinutes: bookingRule?.cancellationLeadMinutes ?? 0,
     config,

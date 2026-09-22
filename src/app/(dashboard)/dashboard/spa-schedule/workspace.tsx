@@ -7,6 +7,7 @@ import { spaPartyLabel, spaReceiptStatus } from "@/lib/spa-booking-display";
 
 import { SpaCheckoutPanel } from "./checkout-panel";
 import { useEffect, useState, useTransition } from "react";
+import type { ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getSpaAvailableProviders } from "@/server/actions/spa-service-staff";
 import { DashboardLink as Link } from "@/components/dashboard-link";
@@ -41,6 +42,7 @@ type Props = {
   canCreateCustomer?: boolean;
   canUpdate: boolean;
   canCheckout: boolean;
+  cashbookShortcut?: ReactNode;
 };
 const statusNames: Record<string, string> = {
   PENDING: "待確認",
@@ -409,6 +411,7 @@ export function SpaScheduleWorkspace(props: Props) {
           </p>
         </div>
         <div className="flex max-w-full flex-wrap items-center gap-2 [&>input]:min-h-11 [&>select]:min-h-11 [&>button]:min-h-11">
+          {props.cashbookShortcut}
           <input
             aria-label="排程日期"
             type="date"

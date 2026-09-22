@@ -175,6 +175,7 @@ export default async function CoursesPage({
               ? "管理課程名稱、人數與排課預設"
               : "管理上課教室"
         }
+        actions={view === "schedule" ? <CashbookShortcut readOnly={!writable} /> : undefined}
       />
       <CourseWorkspace canDelete={user.role==="OWNER"}
         key={`${storeId}:${view}`}

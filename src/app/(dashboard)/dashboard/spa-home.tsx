@@ -30,7 +30,7 @@ export async function SpaHome({storeId, canBookings, canCustomers, canRevenue}: 
         {label:"待服務",value:waiting ? `${waiting.length} 筆` : "—"},
         {label:"已完成",value:active ? `${active.filter(b=>b.status==="COMPLETED").length} 筆` : "—"},
       ] : []),
-      ...(canRevenue ? [{label:"今日淨收款",value:revenue ? money(revenue.collected-revenue.refunded) : "—",tone:"primary" as const}] : []),
+      ...(canRevenue ? [{label:"今日總營收",value:revenue ? money(revenue.totalRevenue??revenue.collected-revenue.refunded) : "—",tone:"primary" as const}] : []),
     ]} />
     <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
       {canBookings && <section className="overflow-hidden rounded-xl border border-earth-200 bg-white">
@@ -40,7 +40,7 @@ export async function SpaHome({storeId, canBookings, canCustomers, canRevenue}: 
       </section>}
       <div className="space-y-4">
         {canBookings && <section className="rounded-xl border border-earth-200 bg-white p-4"><h2>待處理</h2>{bookings === null ? <p className="mt-2">暫時無法讀取</p> : <><p className="mt-2">待確認 {active?.filter(b=>b.status==="PENDING").length ?? 0} 筆 · 待結帳 {unpaid?.length ?? 0} 筆</p><p className="mt-2 text-earth-500">待安排位置 {waiting?.filter(b=>!b.serviceLocationId).length ?? 0} 筆</p></>}<Link href={scheduleHref} className="mt-4 inline-flex text-primary-700 underline">到排程處理 →</Link></section>}
-        {canRevenue && <section className="rounded-xl border border-earth-200 bg-white p-4"><h2>今日收款</h2>{revenue ? <dl className="mt-3 grid grid-cols-2 gap-2"><dt>收款</dt><dd className="text-right">{money(revenue.collected)}</dd><dt>退款</dt><dd className="text-right">{money(revenue.refunded)}</dd></dl> : <p className="mt-2">收款暫時無法讀取，請重新整理。</p>}<p className="mt-3 text-sm text-earth-500">含服務、方案購買與儲值收款；扣次與儲值扣款不重複計入。</p><Link href={revenueHref} className="mt-3 inline-flex text-primary-700 underline">查看今日明細 →</Link></section>}
+        {canRevenue && <section className="rounded-xl border border-earth-200 bg-white p-4"><h2>今日營收</h2>{revenue ? <dl className="mt-3 grid grid-cols-2 gap-2"><dt>收款</dt><dd className="text-right">{money(revenue.collected)}</dd><dt>退款</dt><dd className="text-right">{money(revenue.refunded)}</dd><dt>零售</dt><dd className="text-right">{money(revenue.retail?.revenue??0)}</dd><dt>總營收</dt><dd className="text-right font-semibold">{money(revenue.totalRevenue??revenue.collected-revenue.refunded)}</dd></dl> : <p className="mt-2">收款暫時無法讀取，請重新整理。</p>}<p className="mt-3 text-sm text-earth-500">總營收包含服務、方案購買、儲值淨收款與現金帳零售；扣次與儲值扣款不重複計入。</p><Link href={revenueHref} className="mt-3 inline-flex text-primary-700 underline">查看今日明細 →</Link></section>}
       </div>
     </div>
     {!canBookings && !canRevenue && <p>目前沒有預約或營運查看權限，請聯絡店長。</p>}

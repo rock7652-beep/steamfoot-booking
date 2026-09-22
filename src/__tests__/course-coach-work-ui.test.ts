@@ -366,4 +366,31 @@ describe("member plan and purchase navigation", () => {
     await click("我的方案");
     expect(host.textContent).toContain("可用額度＝剩餘－預約保留");
   });
+  it("shows the same personal consumption ledger from member and coach modes", async () => {
+    const consumption = [{
+      id: "use-1",
+      date: "2026-09-20T02:00:00.000Z",
+      type: "USAGE",
+      title: "伸展瑜珈",
+      detail: "上課日 2026-09-20",
+      status: "已扣抵",
+      planName: "十點方案",
+      amount: null,
+      quantity: -2,
+      unit: "點",
+    }];
+    await act(async()=>root.render(createElement(CoursePortalClient,{...props(),memberEnabled:true,consumption} as unknown as CoursePortalData)));
+    const accountButton = [...host.querySelectorAll("button")].find(button => button.textContent === "我的");
+    expect(accountButton).toBeTruthy();
+    await act(async () => accountButton!.click());
+    await click("我的消費紀錄");
+    expect(host.textContent).toContain("伸展瑜珈");
+    expect(host.textContent).toContain("已扣抵");
+    expect(host.textContent).toContain("−2 點");
+
+    await click("我的工作");
+    await click("我的消費");
+    expect(host.textContent).toContain("伸展瑜珈");
+    expect(host.textContent).toContain("授課費不會列入");
+  });
 });

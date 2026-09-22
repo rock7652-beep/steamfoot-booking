@@ -3,6 +3,10 @@ import { ShareReferral } from "@/components/share-referral";
 import { trackCourseShare } from "@/server/actions/course-referral-share";
 import { COURSE_REFUND_METHOD_LABELS } from "@/lib/course-refund-display";
 import {
+  courseConsumptionTypeLabel,
+  type CourseConsumptionType,
+} from "@/lib/course-consumption";
+import {
   useEffect,
   useRef,
   useState,
@@ -53,6 +57,7 @@ type Page =
   | "health"
   | "store"
   | "guide"
+  | "consumption"
   | "records";
 const statusName = (s: string) =>
   ({
@@ -197,6 +202,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     [bookingDetails, setBookingDetails] = useState<Record<string, boolean>>({}),
     [cardHistory, setCardHistory] = useState(false),
     [orderHistory, setOrderHistory] = useState(false),
+    [consumptionFilter, setConsumptionFilter] = useState<"ALL" | CourseConsumptionType>("ALL"),
     [roster, setRoster] = useState<string | null>(null),
     [showWorkCalendar, setShowWorkCalendar] = useState(false),
     [editingNote, setEditingNote] = useState<{ id: string; original: string; value: string } | null>(null),
@@ -297,6 +303,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         ["home", "今日工作", "home"],
         ["schedule", "課表", "calendar"],
         ["records", "授課紀錄", "records"],
+        ["consumption", "我的消費", "account"],
       ]
     : [
         ["home", "首頁", "home"],
@@ -317,7 +324,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
   }
   function go(next: Page) {
     if (!leaveNote()) return;
-    if (["home", "schedule", "bookings", "account", "records"].includes(next))
+    if (["home", "schedule", "bookings", "account", "records", "consumption"].includes(next))
       trail.current = [];
     else trail.current.push({ page, y: scrollY });
     setPage(next);
@@ -796,6 +803,9 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
       !plan.templateIds.length ||
       plan.templateIds.includes(session.templateId),
   );
+  const visibleConsumption = (p.consumption ?? []).filter(
+    (row) => consumptionFilter === "ALL" || row.type === consumptionFilter,
+  );
   return (
     <div className="course-portal">
       <div inert={modal}>
@@ -843,7 +853,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               {error}
             </p>
           )}
-          {!["home", "schedule", "bookings", "account", "records"].includes(
+          {!["home", "schedule", "bookings", "account", "records", "consumption"].includes(
             page,
           ) && <button onClick={back}>‹ 返回</button>}
           {page === "home" && (
@@ -903,6 +913,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     )}
                     {p.healthEnabled && menu("健康紀錄", "health", "查看身體數據與趨勢")}
                     {menu("操作指南", "guide", "預約、取消、方案與共卡")}
+                    {menu("我的消費紀錄", "consumption", "付款、扣抵、保留與退款")}
                   </section>
                 </>
               )}
@@ -1038,6 +1049,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               {heading("我的", p.customerName)}
               <section className="cp-card">
                 {menu("我的方案", "plans", "額度與到期日")}
+                {menu("我的消費紀錄", "consumption", "付款、扣抵、保留與退款")}
                 {menu("購買方案", "shop")}
                 {menu(
                   "購買紀錄",
@@ -1236,6 +1248,72 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                 <details><summary>如何替共卡成員預約？</summary><p>預約時在「實際上課人」勾選已授權成員。共用方案額度，但健康紀錄彼此獨立。</p></details>
               </section>
               {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">仍需協助？聯絡店家</a>}
+            </>
+          )}
+          {page === "consumption" && (
+            <>
+              {heading("我的消費紀錄", "會員與教練身分共用同一份本人紀錄；授課費不會列入。")}
+              {monthPicker}
+              <section className="cp-card cp-pad cp-consumption-note">
+                <strong>{p.month.replace("-", " 年 ")} 月</strong>
+                <p>「保留中」只是預約占用，尚未算成已消費；完成點名後才會顯示扣抵。</p>
+              </section>
+              <div className="cp-filter-scroll" aria-label="消費類型篩選">
+                {([
+                  ["ALL", "全部"],
+                  ["PAYMENT", "購買／付款"],
+                  ["USAGE", "上課扣抵"],
+                  ["HOLD", "預約保留"],
+                  ["RETURN", "額度退回"],
+                  ["REFUND", "退款"],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={consumptionFilter === value}
+                    className={consumptionFilter === value ? "primary" : ""}
+                    onClick={() => setConsumptionFilter(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="cp-result-count">共 {visibleConsumption.length} 筆</p>
+              <div className="cp-consumption-list">
+                {visibleConsumption.map((row) => (
+                  <article className="cp-card cp-pad cp-consumption-row" key={row.id}>
+                    <div className="cp-line">
+                      <span className="cp-consumption-type" data-type={row.type}>
+                        {courseConsumptionTypeLabel(row.type)}
+                      </span>
+                      <time dateTime={row.date}>{formatTWDateTime(new Date(row.date))}</time>
+                    </div>
+                    <div className="cp-line cp-consumption-main">
+                      <div>
+                        <h2>{row.title}</h2>
+                        <p>{row.detail}</p>
+                      </div>
+                      {row.amount !== null ? (
+                        <strong className={row.amount < 0 ? "cp-negative" : ""}>
+                          {row.amount < 0 ? "−" : ""}NT$ {Math.abs(row.amount).toLocaleString("zh-TW")}
+                        </strong>
+                      ) : row.quantity !== null ? (
+                        <strong className={row.type === "USAGE" ? "cp-negative" : ""}>
+                          {row.type === "HOLD" ? "保留 " : row.quantity > 0 ? "+" : "−"}
+                          {Math.abs(row.quantity)} {row.unit}
+                        </strong>
+                      ) : null}
+                    </div>
+                    <div className="cp-consumption-meta">
+                      <span>{row.status}</span>
+                      {row.planName ? <span>使用方案：{row.planName}</span> : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+              {!visibleConsumption.length && (
+                <p className="cp-empty">這個月份與類型目前沒有消費紀錄。</p>
+              )}
             </>
           )}
           {page === "records" && (
