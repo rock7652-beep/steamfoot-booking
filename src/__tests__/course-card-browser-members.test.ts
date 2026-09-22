@@ -50,7 +50,9 @@ it("shows shared-card members directly on an active plan row", async () => {
         onChange: vi.fn(),
         onSelect: vi.fn(),
       }));
-      await new Promise((resolve) => setTimeout(resolve, 250));
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
     });
     expect(host.textContent).toContain("共卡人：王小美、陳小樂");
     expect(host.textContent).toContain("占用 2 · 剩餘 8");
