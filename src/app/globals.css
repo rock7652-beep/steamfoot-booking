@@ -231,9 +231,7 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
   select
 ) {
   box-sizing: border-box;
-  width: 100%;
   min-width: 0;
-  max-width: 100%;
   height: var(--admin-control-height);
   min-height: var(--admin-control-height);
   padding-block: 0;
@@ -242,6 +240,37 @@ aside[role="dialog"][style*="width: 520px"] > .flex.h-full.flex-col > .border-b.
   font-size: 14px;
   line-height: 1.4;
   vertical-align: middle;
+}
+
+/* Safari keeps date text in an internal wrapper. Centre that wrapper as well
+   as the input itself so date fields align with adjacent selects and buttons. */
+[data-dashboard-content] input[type="date"] {
+  display: flex;
+  align-items: center;
+  line-height: normal;
+}
+
+[data-dashboard-content] input[type="date"]::-webkit-date-and-time-value {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: center;
+  text-align: left;
+}
+
+[data-dashboard-content] input[type="date"]::-webkit-datetime-edit {
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+/* The booking calendar toolbar is intentionally denser than data-entry forms.
+   Do not let the shared 44px form rule stretch or clip its compact controls. */
+[data-booking-filter-bar] :where(input:not([type="checkbox"]):not([type="radio"]), select) {
+  width: auto;
+  max-width: none;
+  height: 28px;
+  min-height: 28px;
 }
 
 [data-dashboard-content] textarea {
