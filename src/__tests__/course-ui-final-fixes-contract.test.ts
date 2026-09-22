@@ -27,5 +27,14 @@ describe("course UI final fixes", () => {
     for (const label of ["未開始", "進行中", "待點名", "已完成", "未到", "已結束"]) {
       expect(workspace).toContain(label);
     }
+    expect(workspace).toContain('["待點名", "bg-violet-50 text-violet-800"]');
+  });
+
+  it("clarifies closed-day conflicts and trial payment counts", () => {
+    const workspace = read("src/app/(dashboard)/dashboard/courses/workspace.tsx");
+    const roster = read("src/app/(dashboard)/dashboard/courses/roster.tsx");
+
+    expect(workspace).toContain("堂既有課程；可查看與處理，但不可新增排課。");
+    expect(roster).toContain("未收款 {unpaidTrialCount} 人");
   });
 });

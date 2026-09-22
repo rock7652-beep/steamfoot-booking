@@ -474,7 +474,7 @@ export function CourseWorkspace({
             {[
               ["未開始", "bg-sky-50 text-sky-800"],
               ["進行中", "bg-amber-50 text-amber-800"],
-              ["待點名", "bg-orange-50 text-orange-800"],
+              ["待點名", "bg-violet-50 text-violet-800"],
               ["已完成", "bg-emerald-50 text-emerald-800"],
               ["未到", "bg-red-50 text-red-700"],
               ["已結束", "bg-earth-100 text-earth-700"],
@@ -834,11 +834,13 @@ export function CourseWorkspace({
                     </div>
                     {(calendarDays[selectedDate]?.status === "closed" ||
                       calendarDays[selectedDate]?.status === "training") && (
-                      <p className="rounded-lg bg-earth-100 px-3 py-2 text-sm font-medium text-earth-700">
-                        {calendarDays[selectedDate]?.status === "training"
-                          ? "員工訓練"
-                          : "公休"}
-                        {calendarDays[selectedDate]?.reason
+                      <p className={`rounded-lg px-3 py-2 text-sm font-medium ${daySessions.length ? "border border-amber-200 bg-amber-50 text-amber-900" : "bg-earth-100 text-earth-700"}`}>
+                        {daySessions.length
+                          ? `${calendarDays[selectedDate]?.status === "training" ? "員工訓練日" : "公休日"}已有 ${daySessions.length} 堂既有課程；可查看與處理，但不可新增排課。`
+                          : calendarDays[selectedDate]?.status === "training"
+                            ? "員工訓練"
+                            : "公休"}
+                        {!daySessions.length && calendarDays[selectedDate]?.reason
                           ? ` · ${calendarDays[selectedDate].reason}`
                           : ""}
                       </p>

@@ -18,9 +18,9 @@ const styles = {
     calendarClass: "bg-amber-50 text-amber-900",
   },
   pending: {
-    badgeClass: "bg-orange-50 text-orange-800",
-    accentClass: "border-l-orange-400",
-    calendarClass: "bg-orange-50 text-orange-900",
+    badgeClass: "bg-violet-50 text-violet-800",
+    accentClass: "border-l-violet-400",
+    calendarClass: "bg-violet-50 text-violet-900",
   },
   completed: {
     badgeClass: "bg-emerald-50 text-emerald-800",

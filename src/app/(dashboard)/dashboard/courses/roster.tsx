@@ -597,10 +597,14 @@ export function CourseRoster({
         </div>
         <div className="col-span-2 rounded-lg bg-amber-50 px-3 py-2 sm:col-span-1">
           <strong className="block text-base text-amber-900">
-            {trialCount}
-            {unpaidTrialCount ? ` · ${unpaidTrialCount} 未收` : ""}
+            {trialCount} 人
           </strong>
           <span className="text-xs text-earth-600">體驗客</span>
+          {unpaidTrialCount > 0 && (
+            <span className="mt-0.5 block text-xs font-medium text-amber-800">
+              未收款 {unpaidTrialCount} 人
+            </span>
+          )}
         </div>
       </div>
 
