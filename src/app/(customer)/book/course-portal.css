@@ -524,6 +524,11 @@
   padding: 6px 8px;
   font-size: 13px;
 }
+.cp-attendance-actions .cp-secondary-action {
+  min-height: 34px;
+  padding: 4px 7px;
+  color: #76513d;
+}
 .cp-attendance-actions .cp-badge {
   padding: 3px 5px;
 }
@@ -532,11 +537,15 @@
   padding: 7px 0 0;
 }
 .cp-late-cancel {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 6px;
   flex-wrap: wrap;
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #edf0e8;
 }
 .cp-small-action {
   min-height: 38px;

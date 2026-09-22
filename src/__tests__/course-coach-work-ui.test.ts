@@ -3,7 +3,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CoursePortalData } from "@/app/(customer)/book/course-portal";
-const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn() }));
+const m = vi.hoisted(() => ({ refresh: vi.fn(), replace: vi.fn(), attendance: vi.fn(), checkIn: vi.fn(), note: vi.fn(), purchase: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: m.refresh, replace: m.replace }), usePathname: () => "/s/a/book", useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/components/share-referral", () => ({ ShareReferral: () => null }));
 vi.mock("@/server/actions/course-referral-share", () => ({ trackCourseShare: vi.fn() }));
@@ -13,7 +13,7 @@ vi.mock("@/server/actions/auth", () => ({ logoutAction: vi.fn() }));
 vi.mock("@/components/course-member-contact-form", () => ({ CourseMemberContactForm: () => null }));
 vi.mock("@/components/course-health-workspace", () => ({ CourseHealthWorkspace: () => null }));
 vi.mock("@/server/actions/course-members", () => ({ createMemberCourseBooking: vi.fn(), markCourseCoachAttendance: m.checkIn, updateCourseBookingStatus: vi.fn() }));
-vi.mock("@/server/actions/course-portal", () => ({ saveCourseAttendance: m.attendance, saveCourseCoachNote: m.note, purchaseCoursePlan: vi.fn() }));
+vi.mock("@/server/actions/course-portal", () => ({ saveCourseAttendance: m.attendance, saveCourseCoachNote: m.note, purchaseCoursePlan: m.purchase }));
 import { CoursePortalClient } from "@/app/(customer)/book/course-portal-client";
 let host: HTMLDivElement, root: Root;
 const learner = (id: string, checkedIn: boolean, status = "RESERVED") => ({ id, customerId: id, customerName: id, checkedIn, status, notes: "",serviceNote:"", updatedAt: "2026-09-20T02:00:00.000Z", cost: 2, unit: "POINT", planName: "十點", expiresAt: null });
@@ -39,8 +39,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   window.scrollTo = vi.fn();
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } });
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
   m.attendance.mockImplementation(async (input) => ({ success: true, attendanceUpdates: input.bookings.map((b: {id:string}) => ({id:b.id,status:input.target === "CHECKED_IN" ? "RESERVED" : input.target,checkedIn:input.target === "ATTENDED" || input.target === "CHECKED_IN",updatedAt:"2026-09-20T03:00:00.000Z"})) }));
+  m.purchase.mockResolvedValue({ success: true });
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
 describe("coach daily work interactions", () => {
@@ -79,6 +82,7 @@ describe("coach daily work interactions", () => {
     expect(host.textContent).toContain("全班報到 1 人");
     expect(host.textContent).toContain("已報到全數出席 1 人");
     expect(host.querySelectorAll(".cp-roster-person .cp-attendance-row")).toHaveLength(2);
+    expect([...host.querySelectorAll(".cp-roster-person")].every(row => row.querySelectorAll(".cp-attendance-actions button").length <= 2)).toBe(true);
   });
   it("batch attendance only submits checked-in learners and keeps the roster open", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, props())));
@@ -142,31 +146,31 @@ describe("coach daily work interactions", () => {
     expect(host.textContent).toContain("已報到・待出席");
   });
 
-  it.each(["報到", "未到"])("shows saving on the first %s tap, then reconciles without a second tap", async label => {
+  it.each(["未到"])("shows saving on the first %s tap, then reconciles without a second tap", async label => {
     let resolve!: (value: unknown) => void;
-    const action = label === "報到" ? m.checkIn : m.attendance;
+    const action = m.attendance;
     action.mockReturnValueOnce(new Promise(r => { resolve = r; }));
     const p = props();
     await act(async () => root.render(createElement(CoursePortalClient, p)));
     await click("伸展瑜珈");
     const button = [...host.querySelectorAll("button")].find(b => b.textContent === label)!;
     const person = button.closest(".cp-person")!;
-    const id = label === "報到" ? "尚未到學員" : "已到學員";
+    const id = "已到學員";
     await act(async () => { button.click(); button.click(); });
     expect(action).toHaveBeenCalledTimes(1);
     expect(person.textContent).toContain("儲存中…");
     expect(button.disabled).toBe(true);
     expect(host.textContent).not.toContain("已標記未到");
-    const update = { id, status: label === "報到" ? "RESERVED" : "NO_SHOW", checkedIn: label === "報到", updatedAt:"2026-09-20T03:00:00.000Z" };
+    const update = { id, status: "NO_SHOW", checkedIn: false, updatedAt:"2026-09-20T03:00:00.000Z" };
     await act(async () => resolve({success:true,attendanceUpdates:[update]}));
-    expect(person.querySelector(".cp-badge")?.textContent).toBe(label === "報到" ? "已報到・待出席" : "未到");
+    expect(person.querySelector(".cp-badge")?.textContent).toBe("未到");
     // A delayed refresh carrying the old row must not undo the confirmed write.
     await act(async () => root.render(createElement(CoursePortalClient, {...p, serverNow:p.serverNow+1000})));
-    expect(person.querySelector(".cp-badge")?.textContent).toBe(label === "報到" ? "已報到・待出席" : "未到");
+    expect(person.querySelector(".cp-badge")?.textContent).toBe("未到");
     // A later authoritative correction is still allowed to replace the local result.
     const newer = {...p, work:p.work.map(s=>({...s,bookings:s.bookings.map(b=>b.id===id?{...b,status:"RESERVED",checkedIn:false,updatedAt:"2026-09-20T03:01:00.000Z"}:b)}))};
     await act(async () => root.render(createElement(CoursePortalClient,newer)));
-    expect(person.querySelector(".cp-badge")?.textContent).toBe("待報到");
+    expect(person.querySelector(".cp-badge")?.textContent).toBe("待點名");
   });
 
 });
@@ -193,7 +197,8 @@ describe("member plan and purchase navigation", () => {
   it("replaces late cancellation with store-contact guidance and keeps the deadline visible", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings"})));
     expect(host.textContent).toContain("已超過取消期限");
-    expect(host.textContent).toContain("請聯絡店家");
+    expect(host.textContent).toContain("請洽店家");
+    expect(host.querySelector(".cp-late-cancel")?.parentElement?.classList.contains("cp-person")).toBe(true);
     expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(false);
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings",cancellationLeadMinutes:30})));
     expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(true);
@@ -223,6 +228,32 @@ describe("member plan and purchase navigation", () => {
     expect(input.maxLength).toBe(4);
     expect(host.textContent).toContain("複製帳號");
     expect(host.textContent).not.toContain("後五碼");
+    await click("複製帳號");
+    await act(async()=>new Promise(resolve=>requestAnimationFrame(resolve)));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("19300400065479");
+    expect(document.activeElement).toBe(input);
+  });
+  it("closes a completed purchase and opens progress at the top", async () => {
+    const data = {
+      ...memberProps(),
+      initialView: "shop",
+      plans: [{id:"plan",name:"十點方案",points:10,price:2300,unit:"POINT",validDays:180,templateIds:[],termSessionIds:[]}],
+      config: {bankName:"永豐銀行",bankCode:"807",bankAccountNumber:"19300400065479"},
+    } as unknown as CoursePortalData;
+    await act(async()=>root.render(createElement(CoursePortalClient,data)));
+    const buyButton = [...host.querySelectorAll("button")].find(button => button.textContent === "購買")!;
+    await act(async()=>buyButton.click());
+    const input = host.querySelector('[aria-label="轉出帳號後四碼"]') as HTMLInputElement;
+    await act(async()=>{
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"1234");
+      input.dispatchEvent(new Event("input",{bubbles:true}));
+    });
+    await click("已匯款，送出核帳資料");
+    await act(async()=>new Promise(resolve=>setTimeout(resolve,0)));
+    expect(m.purchase).toHaveBeenCalledWith(expect.objectContaining({planId:"plan",transferLastFive:"1234"}));
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    expect(host.textContent).toContain("購買紀錄");
+    expect(window.scrollTo).toHaveBeenCalledWith(0,0);
   });
   it("keeps expired cards collapsed while preserving distinct units and expiry", async () => {
     const card = (id:string, expired:boolean, unit:string) => ({id,name:id,expired,closed:false,unit,remaining:10,held:2,available:8,expiresAt:"2026-10-20T00:00:00Z",members:[],entries:[],templateIds:[]});

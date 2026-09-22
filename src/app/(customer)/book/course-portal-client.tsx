@@ -232,7 +232,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
   }) }));
   const busyRef = useRef(false),
     trail = useRef<Array<{ page: Page; y: number }>>([]),
-    daily = useRef<HTMLElement>(null);
+    daily = useRef<HTMLElement>(null),
+    transferLastFourInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(t);
@@ -395,6 +396,20 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
   function checkIn(bookingId: string) {
     run(() => markCourseCoachAttendance({ bookingId, status: "CHECKED_IN" }),
       () => {}, "已報到，未扣抵額度", [bookingId]);
+  }
+  function focusTransferLastFour() {
+    requestAnimationFrame(() => {
+      transferLastFourInput.current?.focus();
+      transferLastFourInput.current?.scrollIntoView({ block: "center" });
+    });
+  }
+  function showPurchaseProgress() {
+    setBuy(null);
+    setSession(null);
+    setPage("orders");
+    setOrderHistory(false);
+    trail.current = [];
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, 0)));
   }
   const eligible = (s: Session) =>
     p.cards
@@ -665,43 +680,46 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       <strong>{b.customerName}</strong>
                       <span className="cp-badge" data-status={b.status}>
                         {savingIds.includes(b.id) ? "儲存中…" : b.status === "RESERVED"
-                          ? (b.checkedIn ? "已報到・待出席" : "待報到")
+                          ? (b.checkedIn ? "已報到・待出席" : ended ? "待點名" : "待報到")
                           : statusName(b.status)}
                       </span>
                     </div>
                     <div className="cp-attendance-actions">
                       {readOnly ? null : b.status === "RESERVED" ? (
                         <>
-                          {!b.checkedIn && <button disabled={pending} onClick={() => { checkIn(b.id); }}>報到</button>}
-                          <button
-                            className="primary"
-                            disabled={!ended || pending}
-                            onClick={() => {
-                              setError("");
-                              run(
-                                () => saveCourseAttendance({ sessionId: s.id, target: "ATTENDED", bookings: [{ id: b.id, status: b.status }] }),
-                                () => {},
-                                `${b.customerName} 已標記出席`,
-                                [b.id],
-                              );
-                            }}
-                          >
-                            出席
-                          </button>
-                          <button
-                            disabled={!ended || pending}
-                            onClick={() => {
-                              setError("");
-                              run(
-                                () => saveCourseAttendance({ sessionId: s.id, target: "NO_SHOW", bookings: [{ id: b.id, status: b.status }] }),
-                                () => {},
-                                `${b.customerName} 已標記未到`,
-                                [b.id],
-                              );
-                            }}
-                          >
-                            未到
-                          </button>
+                          {!ended && !b.checkedIn && <button className="primary" disabled={pending} onClick={() => { checkIn(b.id); }}>報到</button>}
+                          {ended && <>
+                            <button
+                              className="primary"
+                              disabled={pending}
+                              onClick={() => {
+                                setError("");
+                                run(
+                                  () => saveCourseAttendance({ sessionId: s.id, target: "ATTENDED", bookings: [{ id: b.id, status: b.status }] }),
+                                  () => {},
+                                  `${b.customerName} 已標記出席`,
+                                  [b.id],
+                                );
+                              }}
+                            >
+                              出席
+                            </button>
+                            <button
+                              className="cp-secondary-action"
+                              disabled={pending}
+                              onClick={() => {
+                                setError("");
+                                run(
+                                  () => saveCourseAttendance({ sessionId: s.id, target: "NO_SHOW", bookings: [{ id: b.id, status: b.status }] }),
+                                  () => {},
+                                  `${b.customerName} 已標記未到`,
+                                  [b.id],
+                                );
+                              }}
+                            >
+                              未到
+                            </button>
+                          </>}
                         </>
                       ) : (
                         <button
@@ -970,15 +988,15 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                               取消
                             </button>
                           )}
-                          {b.status === "RESERVED" && !canSelfCancel(b.startsAt) && (
-                            <span className="cp-late-cancel">
-                              <span className="cp-muted">已超過取消期限</span>
-                              {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) ? (
-                                <a className="cp-btn cp-small-action" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">聯絡店家</a>
-                              ) : <span className="cp-muted">請聯絡店家</span>}
-                            </span>
-                          )}
                         </div>
+                        {b.status === "RESERVED" && !canSelfCancel(b.startsAt) && (
+                          <div className="cp-late-cancel">
+                            <span className="cp-muted">已超過取消期限</span>
+                            {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) ? (
+                              <a className="cp-btn cp-small-action" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">聯絡店家</a>
+                            ) : <span className="cp-muted">請洽店家</span>}
+                          </div>
+                        )}
                         <details>
                           <summary>預約明細</summary>
                           <p>
@@ -1526,12 +1544,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                         requestKey: key,
                         transferLastFive: lastFour,
                       }),
-                    () => {
-                      setBuy(null);
-                      setSession(null);
-                      setPage("orders");
-                      setOrderHistory(false);
-                    },
+                    showPurchaseProgress,
                     "購買通知已送出，請等候店家核帳；啟用後即可預約。",
                   )
                 }
@@ -1551,12 +1564,13 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           </p>
           <div className="cp-bank-account">
             <strong>{p.config?.bankAccountNumber ?? "店家尚未提供收款帳號"}</strong>
-            {p.config?.bankAccountNumber && <CopyButton value={p.config.bankAccountNumber} label="複製帳號" />}
+            {p.config?.bankAccountNumber && <CopyButton value={p.config.bankAccountNumber} label="複製帳號" onCopied={focusTransferLastFour} />}
           </div>
           <p>店家核帳後啟用，送出通知不會立即取得額度。</p>
           <label>
             轉出帳號後四碼
             <input
+              ref={transferLastFourInput}
               aria-label="轉出帳號後四碼"
               inputMode="numeric"
               autoComplete="off"

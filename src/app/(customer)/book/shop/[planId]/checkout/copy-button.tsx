@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
-export function CopyButton({ value, label = "複製" }: { value: string; label?: string }) {
+export function CopyButton({
+  value,
+  label = "複製",
+  onCopied,
+}: {
+  value: string;
+  label?: string;
+  onCopied?: () => void;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -11,6 +19,7 @@ export function CopyButton({ value, label = "複製" }: { value: string; label?:
       await navigator.clipboard.writeText(value);
       setCopied(true);
       toast.success("已複製");
+      onCopied?.();
       setTimeout(() => setCopied(false), 1500);
     } catch {
       toast.error("複製失敗，請手動選取");
