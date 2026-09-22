@@ -58,13 +58,14 @@ describe("coach daily work interactions", () => {
     expect(host.querySelector(".cp-roster-details summary")?.textContent).toContain("本次希望降低強度");
     expect(host.querySelector(".cp-roster-details")?.textContent).toContain("學員1超長姓名驗收");
   });
-  it("undoes check-in on a future class and restores the check-in button", async () => {
+  it("shows future classes without check-in or attendance actions even for previously checked-in learners", async () => {
     const data = props(); data.serverNow = Date.parse("2026-09-20T09:00:00+08:00");
     await act(async () => root.render(createElement(CoursePortalClient, data)));
-    await click("伸展瑜珈"); await click("撤銷報到");
-    expect(m.attendance).toHaveBeenCalledWith({sessionId:"lesson",target:"UNDO_CHECK_IN",bookings:[{id:"已到學員",status:"RESERVED"}]});
-    expect(host.querySelector(".cp-roster-person")?.textContent).toContain("待報到");
-    expect(host.querySelector(".cp-roster-person button")?.textContent).toBe("報到");
+    await click("伸展瑜珈");
+    expect(host.textContent).toContain("尚未開課");
+    expect(host.textContent).not.toContain("報到");
+    expect(host.querySelectorAll(".cp-attendance-actions button")).toHaveLength(0);
+    expect(m.attendance).not.toHaveBeenCalled();
   });
   it("lets a teacher correct attendance immediately after marking it", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, props())));
@@ -112,29 +113,30 @@ describe("coach daily work interactions", () => {
     expect(host.querySelectorAll(".cp-week-strip button")).toHaveLength(7);
     await click("月曆"); expect(host.querySelector(".cp-calendar")).not.toBeNull();
     await click("伸展瑜珈");
-    expect(host.textContent).toContain("全班報到 1 人");
-    expect(host.textContent).toContain("已報到全數出席 1 人");
+    expect(host.textContent).toContain("全班出席 2 人");
+    expect(host.textContent).not.toContain("報到");
     expect(host.querySelectorAll(".cp-roster-person .cp-attendance-row")).toHaveLength(2);
     expect(host.querySelector(".cp-course-cost")?.textContent).toContain("2 點／1 堂");
     expect(host.querySelector(".cp-roster-balance")?.textContent).toBe("可用 6 點");
     expect([...host.querySelectorAll(".cp-roster-person")].every(row => row.querySelectorAll(".cp-attendance-actions button").length <= 2)).toBe(true);
   });
-  it("batch attendance only submits checked-in learners and keeps the roster open", async () => {
+  it("batch attendance submits all unresolved learners regardless of old check-in and keeps the roster open", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, props())));
-    await click("伸展瑜珈"); await click("已報到全數出席");
+    await click("伸展瑜珈"); await click("全班出席");
     const dialog = host.querySelector('[role="dialog"]')!;
     expect(dialog.textContent).toContain("已到學員");
-    expect(dialog.textContent).not.toContain("尚未到學員");
-    await click("確認 1 位出席");
-    expect(m.attendance).toHaveBeenCalledWith({ sessionId: "lesson", target: "ATTENDED", bookings: [{ id: "已到學員", status: "RESERVED" }] });
+    expect(dialog.textContent).toContain("尚未到學員");
+    expect(dialog.textContent).not.toContain("已取消學員");
+    await click("確認 2 位出席");
+    expect(m.attendance).toHaveBeenCalledWith({ sessionId: "lesson", target: "ATTENDED", bookings: [{ id: "已到學員", status: "RESERVED" }, { id: "尚未到學員", status: "RESERVED" }] });
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(host.textContent).toContain("學員名單");
   });
-  it("batch check-in excludes cancelled/already-arrived learners and retains confirmation on failure", async () => {
+  it("batch attendance retains confirmation on failure", async () => {
     m.attendance.mockResolvedValue({ success: false, error: "名單已變更" });
     await act(async () => root.render(createElement(CoursePortalClient, props())));
-    await click("伸展瑜珈"); await click("全班報到"); await click("確認 1 位報到");
-    expect(m.attendance).toHaveBeenCalledWith({ sessionId: "lesson", target: "CHECKED_IN", bookings: [{ id: "尚未到學員", status: "RESERVED" }] });
+    await click("伸展瑜珈"); await click("全班出席"); await click("確認 2 位出席");
+    expect(m.attendance).toHaveBeenCalledWith({ sessionId: "lesson", target: "ATTENDED", bookings: [{ id: "已到學員", status: "RESERVED" }, { id: "尚未到學員", status: "RESERVED" }] });
     expect(host.querySelector('[role="dialog"]')?.textContent).toContain("名單已變更");
   });
   it("keeps prior-month unresolved lessons on today's page and excludes them from monthly history", async () => {
@@ -178,7 +180,7 @@ describe("coach daily work interactions", () => {
     await act(async()=>[...host.querySelectorAll('button')].find(b=>b.textContent==="出席")!.click());
     expect(host.querySelector('[role="alert"]')?.textContent).toContain("名單已變更");
     expect(host.querySelector('[role="dialog"]')).toBeNull();
-    expect(host.textContent).toContain("已報到・待出席");
+    expect(host.textContent).toContain("待點名");
   });
 
   it.each(["未到"])("shows saving on the first %s tap, then reconciles without a second tap", async label => {

@@ -26,7 +26,6 @@ import {
 } from "@/lib/date-utils";
 import {
   createMemberCourseBooking,
-  markCourseCoachAttendance,
   updateCourseBookingStatus,
 } from "@/server/actions/course-members";
 import {
@@ -215,7 +214,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     [attendance, setAttendance] = useState<{
       session: Work;
       ids: string[];
-      target: "ATTENDED" | "NO_SHOW" | "RESERVED" | "CHECKED_IN";
+      target: "ATTENDED" | "NO_SHOW" | "RESERVED";
     } | null>(null),
     [buy, setBuy] = useState<CoursePortalData["plans"][number] | null>(null),
     [lastFour, setLastFour] = useState(""),
@@ -394,10 +393,6 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         setSavingIds([]);
       }
     })();
-  }
-  function checkIn(bookingId: string) {
-    run(() => markCourseCoachAttendance({ bookingId, status: "CHECKED_IN" }),
-      () => {}, "已報到，未扣抵額度", [bookingId]);
   }
   function focusTransferLastFour() {
     requestAnimationFrame(() => {
@@ -603,8 +598,6 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     return [...list].sort((a, b) => (page === "home" ? Number(isEnded(a)) - Number(isEnded(b)) : 0) || a.startsAt.localeCompare(b.startsAt)).map((s) => {
       const people = s.bookings.filter((b) => b.status !== "CANCELLED"),
         pendingPeople = people.filter((b) => b.status === "RESERVED"),
-        arrivedPeople = pendingPeople.filter((b) => b.checkedIn),
-        unarrivedPeople = pendingPeople.filter((b) => !b.checkedIn),
         ended = new Date(s.startsAt).getTime() <= now,
         filtered = people.filter((b) => b.customerName.includes(search)),
         readOnly = page === "records" && recordEdit !== s.id;
@@ -641,8 +634,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               <div className="cp-actions cp-roster-actions">
                 <strong>學員名單 {people.length}</strong>
                 {readOnly && <button onClick={() => setRecordEdit(s.id)}>{pendingPeople.length ? "補完點名" : "更正紀錄"}</button>}
-                {!readOnly && unarrivedPeople.length > 0 && <button disabled={pending} onClick={() => { setError(""); setAttendance({ session: s, ids: unarrivedPeople.map(b => b.id), target: "CHECKED_IN" }); }}>全班報到 {unarrivedPeople.length} 人</button>}
-                {!readOnly && arrivedPeople.length > 0 && (
+                {!readOnly && ended && pendingPeople.length > 0 && (
                   <button
                     className="primary"
                     disabled={!ended || pending}
@@ -650,16 +642,16 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       setError("");
                       setAttendance({
                         session: s,
-                        ids: arrivedPeople.map((b) => b.id),
+                        ids: pendingPeople.map((b) => b.id),
                         target: "ATTENDED",
                       });
                     }}
                   >
-                    已報到全數出席 {arrivedPeople.length} 人
+                    全班出席 {pendingPeople.length} 人
                   </button>
                 )}
               </div>
-              {!readOnly && <p className="cp-roster-hint">{ended ? "確認出席後扣抵額度。" : "可先報到，開課後確認出席。"}</p>}
+              {!readOnly && <p className="cp-roster-hint">{ended ? "確認出席後扣抵額度。" : "尚未開課，開課後可點選出席／未到。"}</p>}
               {!people.length && <p className="cp-empty">尚無學員預約</p>}
               {people.length > 0 && !filtered.length && <p className="cp-empty">找不到符合的學員</p>}
               {people.length > 10 && (
@@ -684,11 +676,6 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     <div className="cp-attendance-actions">
                       {b.status === "RESERVED" ? (
                         <>
-                          {!readOnly && !ended && !b.checkedIn && <button className="primary" disabled={pending} onClick={() => { checkIn(b.id); }}>報到</button>}
-                          {!readOnly && !ended && b.checkedIn && <button disabled={pending} onClick={() => run(
-                            () => saveCourseAttendance({ sessionId: s.id, target: "UNDO_CHECK_IN", bookings: [{ id: b.id, status: b.status }] }),
-                            () => {}, "已撤銷報到，額度未變更", [b.id],
-                          )}>撤銷報到</button>}
                           {!readOnly && ended && <>
                             <button
                               className="primary"
@@ -743,7 +730,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     <summary>
                       <span className="cp-badge" data-status={b.status}>
                         {savingIds.includes(b.id) ? "儲存中…" : b.status === "RESERVED"
-                          ? (b.checkedIn ? "已報到・待出席" : ended ? "待點名" : "待報到")
+                          ? (ended ? "待點名" : "尚未開課")
                           : statusName(b.status)}
                       </span>
                       <span className="cp-roster-note">{[b.notes && `本次：${b.notes}`, b.serviceNote && `店內：${b.serviceNote}`].filter(Boolean).join("；") || "無備註"}</span>
@@ -1449,7 +1436,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
       )}
       {attendance && (
         <Sheet
-          title={attendance.target === "CHECKED_IN" ? "確認報到" : "確認點名／更正"}
+          title="確認點名／更正"
           busy={pending}
           close={() => setAttendance(null)}
           footer={
@@ -1471,14 +1458,14 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                           .map((b) => ({ id: b.id, status: b.status })),
                       }),
                     () => setAttendance(null),
-                    attendance.target === "CHECKED_IN" ? "已報到，未扣抵額度" : attendance.target === "ATTENDED" ? "已標記出席" : attendance.target === "NO_SHOW" ? "已標記未到" : "已更正為待點名",
+                    attendance.target === "ATTENDED" ? "已標記出席" : attendance.target === "NO_SHOW" ? "已標記未到" : "已更正為待點名",
                     attendance.ids,
                   )
                 }
               >
                 {attendance.target === "ATTENDED"
                   ? `確認 ${attendance.ids.length} 位出席`
-                  : attendance.target === "CHECKED_IN" ? `確認 ${attendance.ids.length} 位報到` : attendance.target === "NO_SHOW" ? `確認 ${attendance.ids.length} 位未到` : "確認更正"}
+                  : attendance.target === "NO_SHOW" ? `確認 ${attendance.ids.length} 位未到` : "確認更正"}
               </button>
             </>
           }
@@ -1493,7 +1480,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               {error}
             </p>
           )}
-          {attendance.target !== "CHECKED_IN" && <label>
+          <label>
             狀態
             <select
               disabled={pending}
@@ -1509,7 +1496,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               <option value="NO_SHOW">未到</option>
               <option value="RESERVED">待點名</option>
             </select>
-          </label>}
+          </label>
           {attendance.session.bookings
             .filter((b) => attendance.ids.includes(b.id))
             .map((b) => (
@@ -1522,7 +1509,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                 </span>
               </div>
             ))}
-          <p>{attendance.target === "CHECKED_IN" ? "只記錄以上學員已到場，不扣點／堂；開課後仍須確認出席。" : "只處理以上學員。一般預約出席依方案使用額度；體驗出席不收款、不使用其他方案。更正會保留紀錄。"}</p>
+          <p>只處理以上學員。一般預約出席依方案使用額度；體驗出席不收款、不使用其他方案。更正會保留紀錄。</p>
         </Sheet>
       )}
       {buy && (
