@@ -35,6 +35,7 @@ export function CourseRoster({
   allowTrialActions = true,
   view = "roster",
   onDone,
+  onCreateCustomer,
 }: {
   sessionId: string;
   capacity: number;
@@ -43,6 +44,7 @@ export function CourseRoster({
   allowTrialActions?: boolean;
   view?: RosterView;
   onDone?: () => void;
+  onCreateCustomer?: () => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -337,9 +339,34 @@ export function CourseRoster({
                   );
                 })
               ) : (
-                <p className="p-4 text-sm text-earth-500">找不到符合的學員。</p>
+                <div className="space-y-2 p-4">
+                  <p className="text-sm text-earth-500">找不到符合的學員。</p>
+                  {allowTrialActions && onCreateCustomer && (
+                    <button
+                      type="button"
+                      className={button}
+                      onClick={onCreateCustomer}
+                    >
+                      ＋ 直接建立新顧客
+                    </button>
+                  )}
+                </div>
               )}
             </div>
+          )}
+          {allowTrialActions && onCreateCustomer && !normalizedMemberQuery && (
+            <button
+              type="button"
+              className={`${button} mt-2`}
+              onClick={onCreateCustomer}
+            >
+              ＋ 直接建立新顧客
+            </button>
+          )}
+          {allowTrialActions && onCreateCustomer && (
+            <p className="mt-2 text-xs text-earth-500">
+              新顧客可直接建檔並以體驗預約加入本堂，不必先前往顧客管理。
+            </p>
           )}
         </div>
 

@@ -14,7 +14,6 @@ import {
   toLocalDateStr,
 } from "@/lib/date-utils";
 import {
-  previewCourseSchedule,
   updateCourseSeries,
   createCourseRoom,
   createCourseTemplate,
@@ -196,10 +195,6 @@ export function CourseWorkspace({
   const [chosen, setChosen] = useState(templates[0]?.id ?? "");
   const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
   const [repeat, setRepeat] = useState(false);
-  const [schedulePreview, setSchedulePreview] = useState<{
-    dates: { startsAt: string; conflict: boolean; conflicts: {name:string;startsAt:string;endsAt:string;resource:string}[] }[];
-    capacityWarning: string | null;
-  } | null>(null);
   const [editing, setEditing] = useState<
     | { kind: "room"; value: Room }
     | { kind: "template"; value: Template }
@@ -235,7 +230,6 @@ export function CourseWorkspace({
     setConflicts([]);
     setDirty(false);
     setPanel(next);
-    setSchedulePreview(null);
     setExtraDateKeys([]);
     setRoomCapacityNotice("");
     setError("");
@@ -1426,7 +1420,6 @@ export function CourseWorkspace({
                   <form
                     id="course-schedule-form"
                     onChange={(e) => {
-                      setSchedulePreview(null);
                       const fields = new FormData(e.currentTarget);
                       const limit = rooms.find(
                         (r) => r.id === fields.get("roomId"),
@@ -1637,7 +1630,6 @@ export function CourseWorkspace({
                               type="button"
                               className={button}
                               onClick={() => {
-                                setSchedulePreview(null);
                                 setExtraDateKeys((current) =>
                                   current.filter((_, i) => i !== index),
                                 );
@@ -1652,7 +1644,6 @@ export function CourseWorkspace({
                           className={button}
                           disabled={extraDateKeys.length >= 52}
                           onClick={() => {
-                            setSchedulePreview(null);
                             setExtraDateKeys((current) => [
                               ...current,
                               crypto.randomUUID(),
@@ -1701,63 +1692,9 @@ export function CourseWorkspace({
                         />
                       </label>
                     )}
-                    <button
-                      type="button"
-                      className={`${button} col-span-full`}
-                      disabled={pending}
-                      onClick={(event) => {
-                        const form = event.currentTarget.form!;
-                        if (!form.reportValidity()) return;
-                        const data = new FormData(form);
-                        startTransition(async () => {
-                          const result = await previewCourseSchedule({
-                            templateId: chosen,
-                            roomId: data.get("roomId"),
-                            coachId: data.get("coachId"),
-                            date: data.get("date"),
-                            time: data.get("time"),
-                            durationMinutes: Number(data.get("duration")),
-                            capacity: Number(data.get("capacity")),
-                            additionalDates: repeat
-                              ? undefined
-                              : data.getAll("additionalDates").map(String),
-                            repeatUntil: repeat ? data.get("until") : undefined,
-                            weekdays:
-                              repeat && data.getAll("weekday").length
-                                ? data.getAll("weekday").map(Number)
-                                : undefined,
-                            requestKey,
-                          });
-                          if (result.success) {
-                            setSchedulePreview(result.data);
-                            setError("");
-                          } else setError(result.error);
-                        });
-                      }}
-                    >
-                      預覽日期與衝突
-                    </button>
-                    {schedulePreview && (
-                      <div className="col-span-full text-sm">
-                        {schedulePreview.capacityWarning && (
-                          <p className="text-amber-700">
-                            {schedulePreview.capacityWarning}
-                          </p>
-                        )}
-                        <ul>
-                          {schedulePreview.dates.map((d) => (
-                            <li
-                              key={d.startsAt}
-                              className={d.conflict ? "text-red-700" : ""}
-                            >
-                              {formatTWDateTime(new Date(d.startsAt))} ·{" "}
-                              {d.conflict ? "撞期：請調整時間或資源" : "可排課"}
-                              {d.conflicts.map((conflict, index) => <p key={index} className="pl-3">{conflict.resource} · {conflict.name} · {formatTWDateTime(new Date(conflict.startsAt))}–{formatTWDateTime(new Date(conflict.endsAt)).slice(11)}</p>)}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <p className="col-span-full text-sm text-earth-500">
+                      按下確認後會自動檢查教練、教室、營業時間與撞期；若有衝突，整批不會建立。
+                    </p>
                   </form>
                 )}
               </>
@@ -1786,9 +1723,7 @@ export function CourseWorkspace({
                 type="submit"
                 className={`${primary} w-full`}
                 disabled={
-                  pending ||
-                  !schedulePreview ||
-                  schedulePreview.dates.some((d) => d.conflict)
+                  pending
                 }
               >
                 {pending ? "建立中…" : "確認建立排課"}
@@ -1851,7 +1786,7 @@ export function CourseWorkspace({
               ? "上課名單"
               : courseDialog.kind === "member-booking"
                 ? "＋ 學員預約"
-                : "＋ 體驗客";
+                : "＋ 新顧客／體驗客";
           return (
             <div
               className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-3 sm:p-5"
@@ -1907,6 +1842,12 @@ export function CourseWorkspace({
                     canEdit={canEdit}
                     view={courseDialog.kind}
                     onDone={() => setCourseDialog(null)}
+                    onCreateCustomer={() =>
+                      setCourseDialog({
+                        sessionId: dialogSession.id,
+                        kind: "trial-booking",
+                      })
+                    }
                   />
                 </div>
                 {courseDialog.kind !== "roster" && (

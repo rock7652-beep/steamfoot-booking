@@ -37,4 +37,13 @@ describe("course UI final fixes", () => {
     expect(workspace).toContain("堂既有課程；可查看與處理，但不可新增排課。");
     expect(roster).toContain("未收款 {unpaidTrialCount} 人");
   });
+
+  it("keeps customer creation in flow and checks schedule conflicts on submit", () => {
+    const workspace = read("src/app/(dashboard)/dashboard/courses/workspace.tsx");
+    const roster = read("src/app/(dashboard)/dashboard/courses/roster.tsx");
+
+    expect(roster).toContain("＋ 直接建立新顧客");
+    expect(workspace).not.toContain("預覽日期與衝突");
+    expect(workspace).toContain("按下確認後會自動檢查教練、教室、營業時間與撞期");
+  });
 });

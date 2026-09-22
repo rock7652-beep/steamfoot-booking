@@ -72,3 +72,17 @@ it("finds a learner by partial phone and submits the selected earliest-expiry pl
   expect(m.create).toHaveBeenCalledWith(expect.objectContaining({sessionId:"session",customerId:"customer-1",cardId:"card-fast"}));
  }finally{await act(async()=>root.unmount());host.remove();}
 });
+
+it("offers an in-flow new customer path from member booking",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const onCreateCustomer=vi.fn();
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-21T10:00:00Z",pointCost:1},roster:[],cards:[],trial:null}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking",onCreateCustomer})));
+  const create=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("直接建立新顧客"));
+  expect(create).toBeTruthy();
+  await act(async()=>create!.click());
+  expect(onCreateCustomer).toHaveBeenCalledOnce();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
