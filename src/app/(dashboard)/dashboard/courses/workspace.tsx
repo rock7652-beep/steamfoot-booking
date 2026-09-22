@@ -1867,7 +1867,13 @@ export function CourseWorkspace({
                     關閉
                   </button>
                 </header>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
+                <div
+                  className={`min-h-0 flex-1 overscroll-contain p-4 sm:p-5 ${
+                    courseDialog.kind === "roster"
+                      ? "overflow-hidden"
+                      : "overflow-y-auto"
+                  }`}
+                >
                   <CourseRoster
                     key={`${dialogSession.id}-${courseDialog.kind}`}
                     sessionId={dialogSession.id}
