@@ -61,6 +61,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
   const searchParams = useSearchParams();
   const pathname = usePathname(); // 真實 pathname，含 /hq 或 /s/{slug}/admin 前綴
   const [isPending, startTransition] = useTransition();
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const current = useMemo(
     () => ({
@@ -81,6 +82,15 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
     const v = searchParams.get(k);
     return !!v && v !== "";
   });
+  const advancedActiveCount = [current.status, current.visit, current.referral, current.staff, current.sort === "recent" ? "" : current.sort].filter(Boolean).length;
+  const courseLabel = (label: string) => label.replaceAll("來店", "上課").replace("點數多寡", "可用點數");
+  const activeFilterLabels = [
+    STATUS_OPTIONS.find((option) => option.value === current.status)?.label,
+    VISIT_OPTIONS.find((option) => option.value === current.visit)?.label,
+    REFERRAL_OPTIONS.find((option) => option.value === current.referral)?.label,
+    staffOptions.find((option) => option.id === current.staff)?.displayName,
+    current.sort !== "recent" ? SORT_OPTIONS.find((option) => option.value === current.sort)?.label : undefined,
+  ].filter((label): label is string => !!label && !label.startsWith("全部")).map(courseLabel);
 
   const pushParams = (mutate: (p: URLSearchParams) => void) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -106,6 +116,104 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
 
   const selectClass =
     `${courseMode ? "min-h-11 min-w-0 flex-1 sm:flex-none " : ""}rounded-md border border-earth-300 bg-white px-2 py-1.5 text-xs text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300 disabled:opacity-60`;
+
+  if (courseMode) {
+    return (
+      <div className="space-y-2 border-b border-earth-200 pb-3">
+        {isPending && <NavigationNotice />}
+        <div className="flex items-center gap-2">
+          <form onSubmit={onSearchSubmit} className="flex min-w-0 flex-1 items-center gap-2">
+            <input
+              name="search"
+              value={searchDraft}
+              onChange={(e) => setDraft({source:current.search,value:e.target.value})}
+              placeholder="搜尋姓名 / 電話 / LINE 名稱"
+              className="min-h-11 min-w-0 flex-1 rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-800 placeholder:text-earth-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300"
+            />
+            {searchDraft !== current.search ? (
+              <button
+                type="submit"
+                disabled={isPending}
+                className="min-h-11 shrink-0 rounded-md bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
+              >
+                搜尋
+              </button>
+            ) : null}
+          </form>
+          <button
+            type="button"
+            aria-expanded={filtersOpen}
+            aria-controls="course-customer-filters"
+            onClick={() => setFiltersOpen((open) => !open)}
+            className="min-h-11 shrink-0 rounded-md border border-earth-300 bg-white px-4 text-sm font-medium text-earth-700 hover:border-primary-400 hover:text-primary-700"
+          >
+            篩選{advancedActiveCount > 0 ? `（${advancedActiveCount}）` : ""}
+          </button>
+        </div>
+
+        {!filtersOpen && activeFilterLabels.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5" aria-label="目前篩選條件">
+            {activeFilterLabels.map((label) => (
+              <span key={label} className="rounded-full bg-primary-50 px-2.5 py-1 text-xs text-primary-700">{label}</span>
+            ))}
+            <Link href={basePath} className="ml-1 text-xs text-earth-500 underline-offset-2 hover:text-earth-700 hover:underline">
+              清除
+            </Link>
+          </div>
+        ) : null}
+
+        {filtersOpen ? (
+          <div id="course-customer-filters" className="rounded-lg border border-earth-200 bg-earth-50/50 p-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>顧客狀態</span>
+                <select value={current.status} onChange={(e) => setParam("status", e.target.value)} disabled={isPending} className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                  {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>上課狀態</span>
+                <select value={current.visit} onChange={(e) => setParam("visit", e.target.value)} disabled={isPending} className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                  {VISIT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>推薦紀錄</span>
+                <select value={current.referral} onChange={(e) => setParam("referral", e.target.value)} disabled={isPending} className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                  {REFERRAL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              {staffOptions.length > 0 ? (
+                <label className="space-y-1 text-sm text-earth-600">
+                  <span>直屬店長</span>
+                  <select value={current.staff} onChange={(e) => setParam("staff", e.target.value)} disabled={isPending} className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                    <option value="">全部店長</option>
+                    {staffOptions.map((staff) => <option key={staff.id} value={staff.id}>{staff.displayName}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              <label className="space-y-1 text-sm text-earth-600">
+                <span>排序方式</span>
+                <select value={current.sort} onChange={(e) => setParam("sort", e.target.value === "recent" ? "" : e.target.value)} disabled={isPending} className="min-h-11 w-full rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-700 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300">
+                  {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{courseLabel(option.label)}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="mt-3 flex items-center justify-end gap-3">
+              {hasActiveFilters || advancedActiveCount > 0 ? (
+                <Link href={basePath} className="inline-flex min-h-11 items-center px-2 text-sm text-earth-500 underline-offset-2 hover:text-earth-700 hover:underline">
+                  清除全部
+                </Link>
+              ) : null}
+              <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-md border border-earth-300 bg-white px-4 text-sm text-earth-700 hover:border-primary-400">
+                完成
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-earth-200 pb-3">

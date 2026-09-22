@@ -252,12 +252,19 @@ describe("course attendance stages", () => {
     await settleCourseBooking(tx, manager, "booking", "CHECKED_IN");
     expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
   });
-  it("no-show releases the reservation without charging", async () => {
+  it("no-show releases the hold and charges the reserved course amount", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
     await settleCourseBooking(tx, manager, "booking", "NO_SHOW");
-    expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "card",
+        storeId: "store-a",
+        remaining: { gte: 3 },
+      },
+      data: { remaining: { decrement: 3 } },
+    });
     expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ kind: "RELEASE", points: 3 }),
+      data: expect.objectContaining({ kind: "DEBIT", points: 3 }),
     });
     expect(m.tx.courseBooking.update).toHaveBeenCalledWith({
       where: { id: "booking" },

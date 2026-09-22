@@ -39,3 +39,17 @@ it("blocks an invalid fee on another page and reveals the course instead of subm
  await click("授課設定");await inputValue(host.querySelector('[aria-label="瑜珈每堂授課費"]') as HTMLInputElement,"");await click("下一頁");await click("儲存變更");
  expect(m.save).not.toHaveBeenCalled();expect(host.textContent).toContain("請填寫「瑜珈」");expect(host.querySelector('[aria-label="瑜珈每堂授課費"]')).not.toBeNull();
 });
+
+it("filters legacy permissions so renaming a manager can be saved from the compact editor",async()=>{
+ const manager={...staff,id:"manager",name:"蔡店長",kind:"manager" as const,coachEnabled:false,email:"manager@example.test",permissions:["customer.read","talent.read"]};
+ await act(async()=>root.render(createElement(CourseStaffWorkspace,{staff:[manager],maxStaff:10,templates:[],customers:[],canManage:true,permissionGroups:[{label:"顧客管理",codes:[{code:"customer.read",label:"查看顧客"},{code:"customer.update",label:"編輯顧客"}]}]})));
+ await click("編輯");
+ const name=host.querySelector('input[name="name"]') as HTMLInputElement;
+ await inputValue(name,"蔡店長（新）");
+ expect(host.textContent).toContain("後台帳號／權限");
+ await click("後台帳號／權限");
+ expect(host.textContent).toContain("已開啟 1／2 項");
+ expect(host.querySelector('[aria-label="搜尋權限"]')).not.toBeNull();
+ await click("儲存變更");
+ expect(m.save).toHaveBeenCalledWith(expect.objectContaining({name:"蔡店長（新）",permissions:["customer.read"]}));
+});

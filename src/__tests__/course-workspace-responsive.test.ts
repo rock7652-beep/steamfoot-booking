@@ -4,10 +4,11 @@ import { expect, it } from "vitest";
 // Source-level guards only; these do not replace browser/device acceptance.
 const source = readFileSync("src/app/(dashboard)/dashboard/courses/workspace.tsx", "utf8");
 
-it("mobile calendar shows counts and retains the accessible date action", () => {
+it("mobile calendar shows counts, closures, and retains the accessible date action", () => {
   expect(source).toContain('mt-1 text-xs font-medium sm:hidden');
   expect(source).toContain('{list.length} 堂');
-  expect(source).toContain('aria-label={`${date}，${list.length} 堂課`}');
+  expect(source).toContain('aria-label={`${date}，${isClosed ? closureLabel : `${list.length} 堂課`}`}');
+  expect(source).toContain('calendarDay?.status === "training" ? "員工訓練" : "公休"');
   expect(source).toContain('hidden w-full shrink-0 truncate leading-[14px] sm:block');
 });
 
@@ -25,4 +26,18 @@ it("schedule creation submits native form dates, including copied and repeat dat
   expect(source).toContain('defaultValue={copySource ? "" : selectedDate}');
   expect(source).toContain('data.getAll("additionalDates").map(String)');
   expect(source).toContain('repeatUntil: repeat ? data.get("until") : undefined');
+});
+
+
+it("day operations stay dense, refresh automatically, and keep the main action fixed", () => {
+  expect(source).toContain("每 60 秒自動更新");
+  expect(source).toContain("最後更新");
+  expect(source).toContain("已預約／容量");
+  expect(source).toContain("堂已滿");
+  expect(source).toContain("教練｜");
+  expect(source).toContain("dialogSession.coachId");
+  expect(source).toContain("尚有");
+  expect(source).toContain("更多");
+  expect(source).toContain("＋ 新增排課");
+  expect(source).toContain('panel === "day" &&');
 });

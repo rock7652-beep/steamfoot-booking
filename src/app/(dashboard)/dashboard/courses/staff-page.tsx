@@ -83,7 +83,9 @@ export async function CourseStaffPage() {
           active: s.status === "ACTIVE",
           coachLoginReady: !!s.memberLink && !s.memberLink.revokedAt && s.memberLink.user.status === "ACTIVE" && s.status === "ACTIVE" && s.courseCoachEnabled,
           memberEnabled: s.memberLink?.courseMemberEnabled ?? true,
-          permissions: s.permissions.map((p) => p.permission),
+          permissions: s.permissions
+            .map((p) => p.permission)
+            .filter((permission) => COURSE_PERMISSIONS.some((code) => code === permission)),
           customerId:
             customers.find(
               (c) =>

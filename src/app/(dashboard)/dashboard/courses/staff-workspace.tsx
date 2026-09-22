@@ -82,6 +82,7 @@ export function CourseStaffWorkspace({
   const [feesError,setFeesError]=useState("");
   const [reloadFees,setReloadFees]=useState(0);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [permissionSearch, setPermissionSearch] = useState("");
   const [pending, start] = useTransition();
   const router = useRouter();
   useEffect(() => {
@@ -111,12 +112,24 @@ export function CourseStaffWorkspace({
         (role === "all" || (role === "coach" ? s.coachEnabled : role === "both" ? s.kind === "manager" && s.coachEnabled : s.kind === role)),
     )
     .sort((a, b) => Number(b.active) - Number(a.active));
+  const allowedPermissionCodes = permissionGroups.flatMap((group) => group.codes.map((item) => item.code));
+  const permissionQuery = permissionSearch.trim().toLocaleLowerCase();
+  const visiblePermissionGroups = permissionGroups
+    .map((group) => ({
+      ...group,
+      codes: group.codes.filter(({ code, label }) =>
+        !permissionQuery || `${label} ${code}`.toLocaleLowerCase().includes(permissionQuery),
+      ),
+    }))
+    .filter((group) => group.codes.length);
   const staffPages=Math.max(1,Math.ceil(rows.length/20));
   const currentStaffPage=Math.min(staffPage,staffPages-1);
   function edit(p: Person | null) {
     setDirty(false);setFees({});setTeachingVersion(undefined);setFeesReady(!p);setFeesError("");
     setPerson(p);setCoachEnabled(p?.coachEnabled ?? true);setQualificationIds(p?.qualificationIds ?? []);setQualificationSearch("");setQualificationScope("all");setQualificationPage(0);setQualificationsTouched(false);setConflicts([]);setTab("basic");setReadOnly(!canManage);
-    setPermissions(p?.permissions ?? permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
+    const allowed = new Set(permissionGroups.flatMap((g) => g.codes.map((c) => c.code)));
+    setPermissions((p?.permissions ?? [...allowed]).filter((permission) => allowed.has(permission)));
+    setPermissionSearch("");
     setKind(p?.kind ?? "coach");
     setError("");
     setKey(crypto.randomUUID());
@@ -400,10 +413,10 @@ export function CourseStaffWorkspace({
                 {person && person.assignments.length === 0 && <p className="text-sm text-earth-500">沒有未結束且未取消的課次。</p>}
                 {person && person.assignments.length > 0 && <><CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>
-              <div data-staff-tab="permissions" hidden={tab!=="permissions"}>
+              <div data-staff-tab="permissions" hidden={tab!=="permissions"} className="space-y-3">
               {kind === "manager" && (
-                  <>
-                    <label className="block">
+                  <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
+                    <label className="block text-sm">
                       登入信箱（必填）
                       <input
                         className={field}
@@ -413,7 +426,7 @@ export function CourseStaffWorkspace({
                         required
                       />
                     </label>
-                    <label className="block">
+                    <label className="block text-sm">
                       {person ? "重設密碼（留空保留原密碼）" : "登入密碼（必填，至少 8 字元）"}
                       <input
                         className={field}
@@ -424,32 +437,64 @@ export function CourseStaffWorkspace({
                         autoComplete="new-password"
                       />
                     </label>
-                  </>
+                  </div>
               )}
 
               {kind === "manager" && (
-                <section>
-                  <h3 className="font-semibold text-primary-800">店內管理權限 · 已開啟 {permissions.length} 項</h3>
-                  {permissionGroups.map((g) => (
-                    <details key={g.label} className="mt-2 rounded-lg border border-earth-200 px-3">
-                      <summary className="cursor-pointer py-3 font-medium text-primary-800">{g.label} · {g.codes.filter((c) => permissions.includes(c.code)).length}／{g.codes.length} 已開啟</summary>
-                      {g.codes.map(({ code, label }) => (
-                        <label
-                          key={code}
-                          className="flex min-h-11 items-center gap-2 text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            name="permission"
-                            value={code}
-                            checked={permissions.includes(code)}
-                            onChange={(e) => setPermissions((p) => e.target.checked ? [...p, code] : p.filter((v) => v !== code))}
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </details>
-                  ))}
+                <section className="space-y-2">
+                  <div className="flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                      <h3 className="font-semibold text-primary-800">店內管理權限</h3>
+                      <p className="text-xs text-earth-500">已開啟 {permissions.length}／{allowedPermissionCodes.length} 項；分類預設收合，需要時再展開。</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <button type="button" className="min-h-9 rounded-lg border border-earth-200 px-2 text-xs" onClick={()=>{setPermissions(allowedPermissionCodes);setDirty(true);}}>全部開啟</button>
+                      <button type="button" className="min-h-9 rounded-lg border border-earth-200 px-2 text-xs" onClick={()=>{setPermissions([]);setDirty(true);}}>全部清除</button>
+                    </div>
+                  </div>
+                  <input
+                    className={`${field} !min-h-10 !py-1.5 text-sm`}
+                    aria-label="搜尋權限"
+                    placeholder="搜尋權限名稱"
+                    value={permissionSearch}
+                    onChange={(event)=>setPermissionSearch(event.target.value)}
+                    data-browse-control
+                  />
+                  <div className="grid grid-cols-1 gap-2 min-[520px]:grid-cols-2">
+                    {visiblePermissionGroups.map((g) => {
+                      const groupCodes = g.codes.map((item) => item.code);
+                      const selectedCount = groupCodes.filter((code) => permissions.includes(code)).length;
+                      return (
+                        <details key={g.label} open={permissionQuery ? true : undefined} className="rounded-lg border border-earth-200 bg-white px-3">
+                          <summary className="cursor-pointer py-2 text-sm font-medium text-primary-800">
+                            {g.label} <span className="font-normal text-earth-500">{selectedCount}／{g.codes.length}</span>
+                          </summary>
+                          <div className="border-t border-earth-100 pb-2 pt-1">
+                            <div className="flex justify-end gap-1 pb-1">
+                              <button type="button" className="rounded-md px-2 py-1 text-xs text-primary-800 hover:bg-primary-50" onClick={()=>{setPermissions((current)=>[...new Set([...current,...groupCodes])]);setDirty(true);}}>整組開啟</button>
+                              <button type="button" className="rounded-md px-2 py-1 text-xs text-earth-600 hover:bg-earth-50" onClick={()=>{setPermissions((current)=>current.filter((code)=>!groupCodes.includes(code)));setDirty(true);}}>清除</button>
+                            </div>
+                            <div className="grid grid-cols-1 gap-x-2 min-[520px]:grid-cols-2">
+                              {g.codes.map(({ code, label }) => (
+                                <label key={code} className="flex min-h-9 items-center gap-2 rounded-md px-1 text-sm hover:bg-earth-50">
+                                  <input
+                                    className="h-4 w-4 shrink-0 accent-primary-700"
+                                    type="checkbox"
+                                    name="permission"
+                                    value={code}
+                                    checked={permissions.includes(code)}
+                                    onChange={(event) => setPermissions((current) => event.target.checked ? [...new Set([...current, code])] : current.filter((value) => value !== code))}
+                                  />
+                                  <span className="min-w-0 leading-tight">{label}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </details>
+                      );
+                    })}
+                  </div>
+                  {!visiblePermissionGroups.length && <p className="rounded-lg border border-dashed border-earth-200 p-3 text-center text-sm text-earth-500">找不到符合的權限</p>}
                 </section>
               )}
               </div></fieldset>
