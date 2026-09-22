@@ -138,6 +138,17 @@ export async function POST(req: Request) {
       try {
         const configured = readStoreLineConfigs().find(c => c.storeId === storeId);
         if (configured) {
+          // Course channels share notification-recipient binding, but must not
+          // enter legacy member binding or steamfoot conversation flows.
+          const notificationBinding = event.type === "message" && event.message?.type === "text"
+            ? event.message.text?.trim().match(/^綁定通知\s*([A-F0-9]{10})$/i)
+            : null;
+          if (notificationBinding && event.source?.type === "user" && event.source.userId) {
+            await handleNotificationRecipientBinding(
+              event.source.userId, notificationBinding[1].toUpperCase(), storeId, event.replyToken,
+            );
+            continue;
+          }
           const { handleConfiguredCourseLineFollow } = await import("@/server/services/course-line-follow");
           await handleConfiguredCourseLineFollow(configured, event);
           continue;

@@ -58,6 +58,10 @@ let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 const mockPrisma = {
+  storeLineNotificationRecipient: {
+    findFirst: vi.fn(),
+    update: vi.fn(),
+  },
   store: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
@@ -155,6 +159,7 @@ describe("LINE webhook store-aware signature and reply", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.storeLineNotificationRecipient.findFirst.mockReset();
     verifyLineSignatureMock.mockReturnValue(true);
     replyMessageMock.mockResolvedValue({ success: true });
     verifySteamButlerLineSignatureMock.mockReturnValue(false);
@@ -179,6 +184,39 @@ describe("LINE webhook store-aware signature and reply", () => {
     mockPrisma.customer.findMany.mockResolvedValue([]);
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  it.each([true, false])("course notification binding requires a valid store signature (%s)", async valid => {
+    const destination = "U" + "a".repeat(32);
+    vi.stubEnv("STORE_LINE_CONFIG_JSON", JSON.stringify([{
+      storeId: "course-a", slug: "course-a", providerId: "901", loginChannelId: "902",
+      messagingProviderId: "901", messagingChannelId: "903", liffId: "902-test",
+      basicId: "@test", destination, accessTokenEnv: "TEST_TOKEN", channelSecretEnv: "TEST_SECRET",
+    }]));
+    verifyLineSignatureMock.mockReturnValue(valid);
+    mockPrisma.store.findFirst.mockResolvedValue({ id: "course-a" });
+    mockPrisma.storeLineNotificationRecipient.findFirst
+      .mockResolvedValueOnce({ id: "recipient-a", displayName: "店長", bindingCodeExpiresAt: new Date(Date.now() + 60_000) })
+      .mockResolvedValueOnce(null);
+    const { POST } = await import("@/app/api/line/webhook/route");
+    const response = await POST(postReq({ destination, events: [{
+      type: "message", replyToken: "reply-course", source: { type: "user", userId: "course-manager" },
+      message: { type: "text", text: "綁定通知 ABCDEF0123" },
+    }] }));
+    expect(response.status).toBe(valid ? 200 : 401);
+    if (valid) {
+      expect(mockPrisma.storeLineNotificationRecipient.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: { storeId: "course-a", bindingCode: "ABCDEF0123" },
+      }));
+      expect(mockPrisma.storeLineNotificationRecipient.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: "recipient-a" }, data: expect.objectContaining({ lineUserId: "course-manager", bindingCode: null }),
+      }));
+    } else {
+      expect(mockPrisma.storeLineNotificationRecipient.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.storeLineNotificationRecipient.update).not.toHaveBeenCalled();
+    }
+    expect(bindLineToCustomerInStoreMock).not.toHaveBeenCalled();
+    expect(digitalButlerHandleTextMock).not.toHaveBeenCalled();
   });
 
   it("sanitizes an invisible Digital Butler quick reply carrier and logs a safe failed reply diagnostic", async () => {
