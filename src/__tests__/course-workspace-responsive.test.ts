@@ -27,3 +27,15 @@ it("schedule creation submits native form dates, including copied and repeat dat
   expect(source).toContain('data.getAll("additionalDates").map(String)');
   expect(source).toContain('repeatUntil: repeat ? data.get("until") : undefined');
 });
+
+
+it("day operations stay dense, refresh automatically, and keep the main action fixed", () => {
+  expect(source).toContain("每 60 秒自動更新");
+  expect(source).toContain("最後更新");
+  expect(source).toContain("已預約／容量");
+  expect(source).toContain("堂已滿");
+  expect(source).toContain("尚有");
+  expect(source).toContain(">更多<");
+  expect(source).toContain("＋ 新增排課");
+  expect(source).toContain('panel === "day" &&');
+});
