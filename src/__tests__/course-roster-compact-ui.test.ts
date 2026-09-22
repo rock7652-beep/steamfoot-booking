@@ -11,13 +11,16 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal",()
 import {CourseRoster} from "@/app/(dashboard)/dashboard/courses/roster";
 it("shows all twenty compact rows and selects them for one batch without cancelled bookings",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
- const roster=Array.from({length:21},(_,i)=>({id:`b${i}`,customerName:`學員${i}`,customerId:`c${i}`,customerPhone:`09000000${String(i).padStart(2,"0")}`,status:i===20?"CANCELLED":"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"十堂",available:10,expiresAt:"2099-01-01T00:00:00Z",serviceNote:"內部備註",notes:"本次備註",pointCost:1}));
+ const roster=Array.from({length:21},(_,i)=>({id:`b${i}`,customerName:`學員${i}`,customerId:`c${i}`,customerPhone:`09000000${String(i).padStart(2,"0")}`,sharedCard:i===0,bookingSource:i===0?"黃教練代約":"本人預約",status:i===20?"CANCELLED":"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"十堂",available:10,expiresAt:"2099-01-01T00:00:00Z",serviceNote:"內部備註",notes:"本次備註",pointCost:1}));
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-01T00:00:00Z",pointCost:1},roster,cards:[],trial:null}});m.batch.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
   await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:false,canEdit:true})));
   expect(host.querySelectorAll('input[aria-label^="選取 "]')).toHaveLength(20);
   expect(host.querySelectorAll('a[href^="tel:"]')).toHaveLength(20);
+  expect(host.textContent).toContain("共卡");
+  expect(host.textContent).toContain("黃教練代約");
+  expect(host.textContent).toContain("本人預約");
   expect(host.textContent).toContain("已預約／容量");
   expect(host.textContent).toContain("每 60 秒自動更新");
   expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeTruthy();
