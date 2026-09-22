@@ -263,6 +263,9 @@ export async function updateCourseBookingStatus(input: unknown) {
       .object({
         bookingId: id,
         status: z.enum(["CANCELLED", "ATTENDED", "CHECKED_IN", "NO_SHOW"]),
+        noShowChoice: z
+          .enum(["DEDUCTED", "DEDUCTED_WITH_MAKEUP"])
+          .optional(),
         member: z.boolean().default(false),
       })
       .parse(input);
@@ -286,7 +289,13 @@ export async function updateCourseBookingStatus(input: unknown) {
         const booking = await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId:actor.storeId},select:{bookingKind:true}});
         if (booking?.bookingKind === "TRIAL") await courseManager("trial.cancel");
       }
-      return settleCourseBooking(tx, actor, data.bookingId, data.status);
+      return settleCourseBooking(
+        tx,
+        actor,
+        data.bookingId,
+        data.status,
+        data.noShowChoice,
+      );
     });
     scheduleCourseLowBalanceCheck(actor.storeId,[data.bookingId]);
     refresh();
@@ -422,7 +431,7 @@ export async function loadCourseCustomerBookings(customerId: string, offset = 0,
 
 export async function updateCourseRosterBatch(input: unknown) {
   try {
-    const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW"])})).min(1).max(200)}).parse(input);
+    const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),noShowChoice:z.enum(["DEDUCTED","DEDUCTED_WITH_MAKEUP"]).optional(),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW"])})).min(1).max(200)}).parse(input);
     if(new Set(data.bookings.map(b=>b.id)).size!==data.bookings.length) throw new AppError("VALIDATION","學員不可重複");
     const {user,storeId}=await courseManager("booking.update");
     await courseTransaction(storeId,async tx=>{
@@ -433,6 +442,7 @@ export async function updateCourseRosterBatch(input: unknown) {
       const actor={storeId,userId:user.id,name:user.name??"店長"};
       for(const booking of data.bookings){
         if(data.target==="CHECKED_IN")await settleCourseBooking(tx,actor,booking.id,"CHECKED_IN");
+        else if(data.target==="NO_SHOW"&&booking.status==="RESERVED")await settleCourseBooking(tx,actor,booking.id,"NO_SHOW",data.noShowChoice);
         else await correctCourseAttendance(tx,actor,booking.id,data.target,booking.status);
       }
     });
