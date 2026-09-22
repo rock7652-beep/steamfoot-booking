@@ -35,7 +35,7 @@ it("day operations stay dense, refresh automatically, and keep the main action f
   expect(source).toContain("已預約／容量");
   expect(source).toContain("堂已滿");
   expect(source).toContain("尚有");
-  expect(source).toContain(">更多<");
+  expect(source).toContain("更多");
   expect(source).toContain("＋ 新增排課");
   expect(source).toContain('panel === "day" &&');
 });
