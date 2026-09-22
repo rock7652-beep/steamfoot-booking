@@ -27,7 +27,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
         ],
       },
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, phone: true },
   });
   return cards.map((c) => {
     const held = c.bookings.reduce((sum, b) => sum + b.pointCost, 0);
@@ -47,6 +47,7 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       members: c.members.map((m) => ({
         id: m.customerId,
         name: people.find((p) => p.id === m.customerId)?.name ?? "學員",
+        phone: people.find((p) => p.id === m.customerId)?.phone ?? "",
       })),
       entries: c.entries.map((e) => ({
         id: e.id,
