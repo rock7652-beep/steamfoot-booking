@@ -81,7 +81,7 @@ export async function CourseRevenue({ storeId, params, readOnly, canRefund, canC
   ];
   const income = receiptTotals.purchases; const refund = receiptTotals.refunds;
   const field = "mt-1 block h-11 w-full rounded-lg border border-earth-300 bg-white px-3 py-0 text-sm leading-none text-earth-800";
-  const dateField = `${field} flex items-center leading-normal`;
+  const dateField = `${field} leading-normal`;
   const selectField = `${field} appearance-none pr-9`;
   const selectStyle = {backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 12px center"};
   const href = (p: number) => `${basePath}?${new URLSearchParams({ dateFrom: from, dateTo: to, status: status ?? "", staff: staff ?? "", page: String(p) })}`;
