@@ -98,7 +98,7 @@ export async function purchaseCoursePlan(input: unknown) {
       .object({
         planId: id,
         requestKey: z.string().uuid(),
-        transferLastFive: z.string().regex(/^\d{5}$/, "請填寫匯款帳號後五碼"),
+        transferLastFive: z.string().regex(/^\d{4}$/, "請填寫轉出帳號後四碼"),
       })
       .parse(input);
     const { storeId, customer } = await courseMember({ write: true });

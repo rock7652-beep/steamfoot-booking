@@ -37,6 +37,7 @@ import {
 import type { CoursePortalData } from "./course-portal";
 import { CourseMemberContactForm } from "@/components/course-member-contact-form";
 import { CourseHealthWorkspace } from "@/components/course-health-workspace";
+import { CopyButton } from "./shop/[planId]/checkout/copy-button";
 import "./course-portal.css";
 type Session = CoursePortalData["sessions"][number];
 type Work = CoursePortalData["work"][number];
@@ -216,7 +217,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
       target: "ATTENDED" | "NO_SHOW" | "RESERVED" | "CHECKED_IN";
     } | null>(null),
     [buy, setBuy] = useState<CoursePortalData["plans"][number] | null>(null),
-    [lastFive, setLastFive] = useState(""),
+    [lastFour, setLastFour] = useState(""),
     [message, setMessage] = useState(""),
     [error, setError] = useState(""),
     [refreshing, start] = useTransition();
@@ -623,8 +624,8 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                 <strong>學員名單</strong>
               </div>
               {readOnly ? <button onClick={() => setRecordEdit(s.id)}>{pendingPeople.length ? "補完點名" : "更正紀錄"}</button> : <p>報到只記錄到場，不扣點／堂；開課後請再確認出席。</p>}
-              <div className="cp-actions">
-                {!readOnly && unarrivedPeople.length > 0 && <button disabled={pending} onClick={() => { setError(""); setAttendance({ session: s, ids: unarrivedPeople.map(b => b.id), target: "CHECKED_IN" }); }}>全班報到（尚未報到 {unarrivedPeople.length} 人）</button>}
+              <div className="cp-actions cp-roster-actions">
+                {!readOnly && unarrivedPeople.length > 0 && <button disabled={pending} onClick={() => { setError(""); setAttendance({ session: s, ids: unarrivedPeople.map(b => b.id), target: "CHECKED_IN" }); }}>全班報到 {unarrivedPeople.length} 人</button>}
                 {!readOnly && arrivedPeople.length > 0 && (
                   <button
                     className="primary"
@@ -638,7 +639,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       });
                     }}
                   >
-                    將已報到 {arrivedPeople.length} 人標記出席
+                    已報到全數出席 {arrivedPeople.length} 人
                   </button>
                 )}
               </div>
@@ -656,16 +657,19 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   }}
                 />
               )}
+              <div className="cp-roster-list">
               {filtered.slice(0, limit).map((b) => (
-                <div className="cp-person" key={b.id}>
+                <div className="cp-person cp-roster-person" key={b.id}>
                   <div className="cp-attendance-row">
-                    <strong>{b.customerName}</strong>
-                    <div className="cp-attendance-actions">
+                    <div className="cp-attendance-person">
+                      <strong>{b.customerName}</strong>
                       <span className="cp-badge" data-status={b.status}>
                         {savingIds.includes(b.id) ? "儲存中…" : b.status === "RESERVED"
                           ? (b.checkedIn ? "已報到・待出席" : "待報到")
                           : statusName(b.status)}
                       </span>
+                    </div>
+                    <div className="cp-attendance-actions">
                       {readOnly ? null : b.status === "RESERVED" ? (
                         <>
                           {!b.checkedIn && <button disabled={pending} onClick={() => { checkIn(b.id); }}>報到</button>}
@@ -727,6 +731,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   </details>
                 </div>
               ))}
+              </div>
               {filtered.length > limit && (
                 <button onClick={() => setLimit(limit + 20)}>顯示更多</button>
               )}
@@ -965,7 +970,14 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                               取消
                             </button>
                           )}
-                          {b.status === "RESERVED" && !canSelfCancel(b.startsAt) && <span className="cp-muted">請聯絡店家取消</span>}
+                          {b.status === "RESERVED" && !canSelfCancel(b.startsAt) && (
+                            <span className="cp-late-cancel">
+                              <span className="cp-muted">已超過取消期限</span>
+                              {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) ? (
+                                <a className="cp-btn cp-small-action" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">聯絡店家</a>
+                              ) : <span className="cp-muted">請聯絡店家</span>}
+                            </span>
+                          )}
                         </div>
                         <details>
                           <summary>預約明細</summary>
@@ -1015,7 +1027,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     : undefined,
                 )}
                 {menu("共卡成員", "shared")}
-                {p.healthEnabled && menu("健康追蹤", "health")}
+                {p.healthEnabled && menu("健康紀錄", "health")}
               </section>
               <h2>帳戶與店家</h2>
               <section className="cp-card">
@@ -1089,7 +1101,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           {page === "shop" && (
             <>
               {heading("購買方案")}
-              <p>選擇方案 → 依銀行資訊匯款 → 填寫後五碼 → 等待店家核帳啟用。</p>
+              <p>選擇方案 → 依銀行資訊匯款 → 填寫轉出帳號後四碼 → 等待店家核帳啟用。</p>
               <button onClick={()=>go("orders")}>查看購買進度{p.orders.some(o=>o.status === "PENDING") ? `（${p.orders.filter(o=>o.status === "PENDING").length} 筆待核帳）` : ""}</button>
               {shop.map((plan) => (
                 <article className="cp-card cp-pad" key={plan.id}>
@@ -1114,7 +1126,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     onClick={() => {
                       setBuy(plan);
                       setKey(crypto.randomUUID());
-                      setLastFive("");
+                      setLastFour("");
                       setError("");
                     }}
                   >
@@ -1145,7 +1157,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       ? "已核帳並啟用"
                       : o.status === "VOIDED" ? "已作廢，額度已收回" : o.status === "REFUNDED" ? "已登錄退款，卡片已停用" : "待店家核帳，尚未取得額度"}
                   </p>
-                  <p>匯款後五碼：{o.transferLastFive}</p>
+                  <p>轉帳後四碼：{o.transferLastFive}</p>
                   {!!o.refunds.length&&<details><summary>退款紀錄 · 共 NT$ {o.refunds.reduce((sum,r)=>sum+r.amount,0).toLocaleString()}</summary>{o.refunds.map(r=><p key={r.id}>{formatTWDateTime(new Date(r.createdAt))} · NT$ {r.amount.toLocaleString()} · {COURSE_REFUND_METHOD_LABELS[r.method]??"其他非現金"}</p>)}<p>此為店家登錄紀錄，實際款項請向店家核對。</p></details>}
                 </article>
               ))}
@@ -1170,7 +1182,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           )}
           {page === "health" && p.healthEnabled && (
             <>
-              {heading("健康追蹤")}
+              {heading("健康紀錄")}
               <CourseHealthWorkspace member />
             </>
           )}
@@ -1503,7 +1515,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                 className="primary"
                 disabled={
                   pending ||
-                  !/^\d{5}$/.test(lastFive) ||
+                  !/^\d{4}$/.test(lastFour) ||
                   !p.config?.bankAccountNumber
                 }
                 onClick={() =>
@@ -1512,7 +1524,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       purchaseCoursePlan({
                         planId: buy.id,
                         requestKey: key,
-                        transferLastFive: lastFive,
+                        transferLastFive: lastFour,
                       }),
                     () => {
                       setBuy(null);
@@ -1537,15 +1549,20 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           <p>
             {p.config?.bankName}（{p.config?.bankCode}）
           </p>
-          <p>{p.config?.bankAccountNumber ?? "店家尚未提供收款帳號"}</p>
+          <div className="cp-bank-account">
+            <strong>{p.config?.bankAccountNumber ?? "店家尚未提供收款帳號"}</strong>
+            {p.config?.bankAccountNumber && <CopyButton value={p.config.bankAccountNumber} label="複製帳號" />}
+          </div>
           <p>店家核帳後啟用，送出通知不會立即取得額度。</p>
           <label>
-            匯款帳號後五碼
+            轉出帳號後四碼
             <input
+              aria-label="轉出帳號後四碼"
               inputMode="numeric"
-              maxLength={5}
-              value={lastFive}
-              onChange={(e) => setLastFive(e.target.value.replace(/\D/g, ""))}
+              autoComplete="off"
+              maxLength={4}
+              value={lastFour}
+              onChange={(e) => setLastFour(e.target.value.replace(/\D/g, "").slice(0, 4))}
             />
           </label>
           {error && (

@@ -76,12 +76,13 @@ describe("coach daily work interactions", () => {
     expect(host.querySelectorAll(".cp-week-strip button")).toHaveLength(7);
     await click("月曆"); expect(host.querySelector(".cp-calendar")).not.toBeNull();
     await click("伸展瑜珈");
-    expect(host.textContent).toContain("全班報到（尚未報到 1 人）");
-    expect(host.textContent).toContain("將已報到 1 人標記出席");
+    expect(host.textContent).toContain("全班報到 1 人");
+    expect(host.textContent).toContain("已報到全數出席 1 人");
+    expect(host.querySelectorAll(".cp-roster-person .cp-attendance-row")).toHaveLength(2);
   });
   it("batch attendance only submits checked-in learners and keeps the roster open", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, props())));
-    await click("伸展瑜珈"); await click("將已報到");
+    await click("伸展瑜珈"); await click("已報到全數出席");
     const dialog = host.querySelector('[role="dialog"]')!;
     expect(dialog.textContent).toContain("已到學員");
     expect(dialog.textContent).not.toContain("尚未到學員");
@@ -191,7 +192,8 @@ describe("member plan and purchase navigation", () => {
   });
   it("replaces late cancellation with store-contact guidance and keeps the deadline visible", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings"})));
-    expect(host.textContent).toContain("請聯絡店家取消");
+    expect(host.textContent).toContain("已超過取消期限");
+    expect(host.textContent).toContain("請聯絡店家");
     expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(false);
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings",cancellationLeadMinutes:30})));
     expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(true);
@@ -205,6 +207,22 @@ describe("member plan and purchase navigation", () => {
     const dialog=host.querySelector('[role="dialog"]')!;
     expect(dialog.textContent).toContain("查看可購買方案");
     expect([...dialog.querySelectorAll("button")].filter(button=>button.textContent?.includes("NT$"))).toHaveLength(0);
+  });
+  it("collects only four transfer digits and exposes account copy beside the bank account", async () => {
+    const data = {
+      ...memberProps(),
+      initialView: "shop",
+      plans: [{id:"plan",name:"十點方案",points:10,price:2300,unit:"POINT",validDays:180,templateIds:[],termSessionIds:[]}],
+      config: {bankName:"永豐銀行",bankCode:"807",bankAccountNumber:"19300400065479"},
+    } as unknown as CoursePortalData;
+    await act(async()=>root.render(createElement(CoursePortalClient,data)));
+    const buyButton = [...host.querySelectorAll("button")].find(button => button.textContent === "購買");
+    expect(buyButton).toBeTruthy();
+    await act(async()=>buyButton!.click());
+    const input = host.querySelector('[aria-label="轉出帳號後四碼"]') as HTMLInputElement;
+    expect(input.maxLength).toBe(4);
+    expect(host.textContent).toContain("複製帳號");
+    expect(host.textContent).not.toContain("後五碼");
   });
   it("keeps expired cards collapsed while preserving distinct units and expiry", async () => {
     const card = (id:string, expired:boolean, unit:string) => ({id,name:id,expired,closed:false,unit,remaining:10,held:2,available:8,expiresAt:"2026-10-20T00:00:00Z",members:[],entries:[],templateIds:[]});
