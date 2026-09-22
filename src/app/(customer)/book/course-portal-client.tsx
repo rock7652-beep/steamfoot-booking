@@ -195,6 +195,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
     [date, setDate] = useState(p.initialDate ?? toLocalDateStr(new Date(p.serverNow))),
     [now, setNow] = useState(p.serverNow),
     [history, setHistory] = useState(false),
+    [bookingDetails, setBookingDetails] = useState<Record<string, boolean>>({}),
     [cardHistory, setCardHistory] = useState(false),
     [orderHistory, setOrderHistory] = useState(false),
     [roster, setRoster] = useState<string | null>(null),
@@ -636,7 +637,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
             <span>{roster === s.id ? "收合" : page === "records" ? "查看明細" : "名單／點名"}</span>
           </button>
           {roster === s.id && (
-            <div className="cp-pad">
+            <div className="cp-pad cp-roster-body">
               <div className="cp-actions cp-roster-actions">
                 <strong>學員名單 {people.length}</strong>
                 {readOnly && <button onClick={() => setRecordEdit(s.id)}>{pendingPeople.length ? "補完點名" : "更正紀錄"}</button>}
@@ -970,21 +971,22 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                 const list = bookings.filter((b) => b.sessionId === id),
                   first = list[0];
                 return (
-                  <article className="cp-card cp-pad" key={id}>
-                    <h2>{first.name}</h2>
-                    <p>
-                      {formatTWDateTime(new Date(first.startsAt))} ·{" "}
-                      {first.coach} · {first.room}
-                    </p>
+                  <article className="cp-card cp-pad cp-booking-card" key={id}>
+                    <div className="cp-booking-heading">
+                      <h2>{formatTWDateTime(new Date(first.startsAt))} · {first.name}</h2>
+                      <button aria-expanded={!!bookingDetails[id]} aria-controls={`booking-details-${id}`} onClick={() => setBookingDetails(previous => ({...previous, [id]: !previous[id]}))}>{bookingDetails[id] ? "收合 ⌃" : "明細 ⌄"}</button>
+                    </div>
+                    <p className="cp-booking-location">{first.coach} · {first.room}</p>
+                    <div id={`booking-details-${id}`}>
                     {list.map((b) => (
                       <div className="cp-person" key={b.id}>
-                        <div className="cp-line">
+                        <div className="cp-line cp-booking-person-line">
                           <strong>
                             {b.customerId === p.customerId ? "🔵 " : "🟠 "}
                             {b.customerName}
                           </strong>
                           <span className="cp-badge" data-status={b.status}>
-                            {statusName(b.status)}
+                            {b.status === "RESERVED" && new Date(b.startsAt).getTime() <= now ? "待確認出席" : statusName(b.status)}
                           </span>
                           {b.status === "RESERVED" && canSelfCancel(b.startsAt) && (
                             <button
@@ -997,7 +999,6 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                               取消
                             </button>
                           )}
-                        </div>
                         {b.status === "RESERVED" && !canSelfCancel(b.startsAt) && (
                           <div className="cp-late-cancel">
                             <span className="cp-muted">已超過取消期限</span>
@@ -1006,17 +1007,17 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                             ) : <span className="cp-muted">請洽店家</span>}
                           </div>
                         )}
-                        <details>
-                          <summary>預約明細</summary>
+                        </div>
+                        {bookingDetails[id] && <div className="cp-booking-detail">
                           <p>
                             {b.unit === "TRIAL" ? `體驗 NT$ ${b.trialPrice} · ${b.trialPaid === null ? "尚未收款" : `已收款 NT$ ${b.trialPaid}`}` : b.planName}{b.expiresAt ? ` · ${courseDate(b.expiresAt)} 到期` : ""}
                           </p>
                           <p>
                             {b.unit === "TRIAL" ? "" : b.status === "ATTENDED"
-                              ? "已使用"
+                              ? "已扣除"
                               : b.status === "RESERVED"
-                                ? "保留"
-                                : "已釋放"}{" "}
+                                ? "本次使用"
+                                : b.status === "NO_SHOW" ? "本次額度" : "已釋放"}{" "}
                             {b.unit === "TRIAL" ? "體驗不使用方案額度" : `${b.cost} ${unit(b.unit)}`}
                           </p>
                           {b.customerId !== p.customerId && (
@@ -1024,9 +1025,10 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                           )}
                           {b.status === "RESERVED" && <p>自行取消截止：{formatTWDateTime(new Date(cancellationCutoff(b.startsAt)))}</p>}
                           {b.notes && <p>備註：{b.notes}</p>}
-                        </details>
+                        </div>}
                       </div>
                     ))}
+                    </div>
                   </article>
                 );
               })}

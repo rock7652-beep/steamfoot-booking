@@ -611,3 +611,19 @@
 .cp-coach-options { position:relative; }
 .cp-coach-options > summary { cursor:pointer; min-width:44px; min-height:44px; display:grid; place-items:center; }
 .cp-coach-options form { position:absolute; right:0; top:100%; z-index:10; width:120px; background:white; border:1px solid #dce3d8; border-radius:12px; }
+
+/* Member bookings keep essential information visible, with inline details. */
+.course-portal .cp-booking-card { padding: 10px 14px; margin: 8px 0; }
+.cp-booking-heading { display: flex; align-items: center; gap: 8px; }
+.course-portal .cp-booking-heading h2 { flex: 1; margin: 0; font-size: 15px; line-height: 1.45; min-width: 0; overflow-wrap: anywhere; }
+.course-portal .cp-booking-heading button { flex-shrink: 0; min-height: 44px; padding: 4px 8px; font-size: 12px; }
+.course-portal .cp-booking-location { margin: 0 0 6px; font-size: 13px; }
+.course-portal .cp-booking-card .cp-person { padding: 6px 0; }
+.cp-booking-person-line { justify-content: flex-start; gap: 6px; }
+.cp-booking-person-line strong { font-size: 14px; overflow-wrap: anywhere; }
+.cp-booking-person-line > button, .cp-booking-person-line > .cp-late-cancel { margin-left: auto; }
+.course-portal .cp-booking-person-line > button { min-height: 44px; padding: 4px 10px; font-size: 13px; }
+.course-portal .cp-booking-person-line .cp-late-cancel { width: auto; margin-top: 0; border: 0; padding: 0; gap: 4px; font-size: 11px; display: flex; align-items: center; flex-wrap: wrap; }
+.course-portal .cp-booking-detail { margin-top: 6px; padding: 6px 10px; background: #f6f7f3; border-radius: 8px; }
+.course-portal .cp-booking-detail p { margin: 4px 0; font-size: 12px; overflow-wrap: anywhere; }
+.course-portal .cp-roster-body { padding-top: 0; }

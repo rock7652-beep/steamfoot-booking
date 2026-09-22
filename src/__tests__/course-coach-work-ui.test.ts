@@ -229,14 +229,27 @@ describe("member plan and purchase navigation", () => {
     expect(host.querySelector(".cp-lesson")?.textContent).not.toContain("教練：");
     expect(host.querySelector(".cp-lesson")?.textContent).not.toContain("教室：");
   });
+  it("keeps essential booking information visible and expands details inside the card", async () => {
+    await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings",serverNow:Date.parse("2026-09-20T13:00:00+08:00")})));
+    expect(host.querySelector(".cp-booking-location")?.textContent).toBe("林教練 · A 教室");
+    expect(host.textContent).toContain("待確認出席");
+    expect(host.querySelector(".cp-booking-detail")).toBeNull();
+    await click("明細 ⌄");
+    expect(host.querySelector(".cp-booking-detail")?.textContent).toContain("本次使用 2 點");
+    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    await click("收合 ⌃");
+    expect(host.querySelector(".cp-booking-detail")).toBeNull();
+  });
   it("replaces late cancellation with store-contact guidance and keeps the deadline visible", async () => {
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings"})));
     expect(host.textContent).toContain("已超過取消期限");
     expect(host.textContent).toContain("請洽店家");
-    expect(host.querySelector(".cp-late-cancel")?.parentElement?.classList.contains("cp-person")).toBe(true);
+    expect(host.querySelector(".cp-late-cancel")?.parentElement?.classList.contains("cp-booking-person-line")).toBe(true);
     expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(false);
     await act(async()=>root.render(createElement(CoursePortalClient,{...memberProps(),initialView:"bookings",cancellationLeadMinutes:30})));
     expect([...host.querySelectorAll("button")].some(button=>button.textContent==="取消")).toBe(true);
+    expect(host.textContent).not.toContain("自行取消截止");
+    await click("明細 ⌄");
     expect(host.textContent).toContain("自行取消截止");
   });
   it("uses one action when the selected course has no eligible plan", async () => {
