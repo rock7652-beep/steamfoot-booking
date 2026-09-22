@@ -44,6 +44,9 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/lib/permissions.ts",
   "src/lib/store-plan.ts",
   "src/server/actions/booking-drawer.ts",
+  // Reviewed 2026-09-22: consumption records select the SPA adapter only
+  // after the store module gate; the action remains scoped to the exact store.
+  "src/server/actions/liff-consumption.ts",
   "src/server/actions/staff.ts",
   "src/server/actions/store-onboarding.ts",
   "src/server/queries/booking.ts",
