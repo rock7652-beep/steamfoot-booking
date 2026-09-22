@@ -485,14 +485,17 @@
   background: white;
 }
 .cp-roster-actions button {
-  flex: 1 1 145px;
+  flex: 0 1 auto;
+  min-height: 44px;
+  padding: 6px 9px;
+  font-size: 13px;
 }
 .cp-roster-list {
   border-top: 1px solid #dce3d7;
 }
 .cp-course-cost { font-size: 13px; font-weight: 400; white-space: nowrap; }
-.cp-roster-person .cp-roster-balance { margin: 3px 0; font-size: 13px; }
-.cp-roster-person .cp-roster-note { margin: 3px 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-roster-person .cp-roster-balance { flex-shrink: 0; font-size: 12px; color: #61715c; white-space: nowrap; }
+.cp-roster-person .cp-roster-note { min-width: 0; flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #61715c; }
 .cp-roster-person {
   padding: 8px 0;
 }
@@ -505,13 +508,16 @@
 .cp-attendance-person {
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
+  align-items: center;
+  gap: 6px;
 }
 .cp-attendance-person strong {
   max-width: 100%;
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
 }
 .cp-attendance-actions {
   display: flex;
@@ -523,22 +529,43 @@
 .cp-work-date { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; text-align: center; }
 .cp-person textarea { display: block; width: 100%; min-height: 88px; margin-top: 8px; }
 .cp-attendance-actions button {
-  min-height: 38px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 6px 8px;
   font-size: 13px;
 }
 .cp-attendance-actions .cp-secondary-action {
-  min-height: 34px;
+  min-height: 44px;
   padding: 4px 7px;
   color: #76513d;
 }
 .cp-attendance-actions .cp-badge {
   padding: 3px 5px;
 }
-.cp-roster-person details summary {
-  min-height: 36px;
-  padding: 7px 0 0;
+.course-portal .cp-roster-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0;
+  list-style: none;
 }
+.cp-roster-details > summary::-webkit-details-marker { display: none; }
+.cp-roster-detail-label { flex-shrink: 0; font-size: 12px; text-decoration: underline; }
+.cp-roster-details[open] .cp-roster-detail-label { font-weight: 700; }
+.cp-roster-details > p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.course-portal .cp-roster-hint { margin: 2px 0 8px; font-size: 12px; }
+.cp-roster-actions { margin: 0; gap: 6px; }
+.cp-roster-actions > strong { margin-right: auto; font-size: 14px; }
+.cp-roster-list .cp-roster-person { padding: 4px 0; }
+.cp-roster-details .cp-badge { flex-shrink: 0; font-size: 11px; padding: 2px 4px; }
+.cp-store-info .cp-store-address { margin: 0 0 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.cp-store-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cp-store-actions .cp-btn { display: flex; justify-content: center; align-items: center; gap: 6px; min-height: 48px; padding: 8px; font-size: 14px; text-decoration: none; }
+.cp-store-actions .cp-btn:only-child { grid-column: 1 / -1; }
+.cp-store-actions svg { flex-shrink: 0; }
+.course-portal .cp-store-hint { margin: 12px 0 0; font-size: 12px; color: #61715c; }
+
 .cp-late-cancel {
   display: flex;
   align-items: center;

@@ -47,6 +47,24 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
 describe("coach daily work interactions", () => {
+  it("keeps twenty learners compact with expandable full names and notes", async () => {
+    const data = props();
+    data.work[0].bookings = Array.from({length: 20}, (_, i) => ({...learner(`學員${i + 1}超長姓名驗收`, false), serviceNote: "請留意膝蓋，避免跳躍。".repeat(8), notes: "本次希望降低強度。"})) as CoursePortalData["work"][number]["bookings"];
+    await act(async () => root.render(createElement(CoursePortalClient, data)));
+    await click("伸展瑜珈");
+    expect(host.querySelectorAll(".cp-roster-person")).toHaveLength(20);
+    expect(host.querySelectorAll(".cp-roster-details[open]")).toHaveLength(0);
+    expect(host.querySelector(".cp-attendance-person .cp-roster-balance")?.textContent).toBe("可用 6 點");
+    expect(host.querySelector(".cp-roster-details summary")?.textContent).toContain("本次希望降低強度");
+    expect(host.querySelector(".cp-roster-details")?.textContent).toContain("學員1超長姓名驗收");
+  });
+  it("aligns store actions and puts referral after contact information", async () => {
+    await act(async () => root.render(createElement(CoursePortalClient, {...memberProps(), initialView: "store", config: {address:"竹北市測試地址一樓", mapUrl:"https://maps.google.com/", lineOfficialUrl:"https://lin.ee/test"}, referralShare:{referralUrl:"https://example.com",shareTemplate:"測試"}} as unknown as CoursePortalData)));
+    const links = [...host.querySelectorAll(".cp-store-actions a")];
+    expect(links.map(a => a.textContent?.trim())).toEqual(["開啟地圖", "LINE 聯絡"]);
+    expect(links.every(a => a.classList.contains("cp-btn"))).toBe(true);
+    expect(host.querySelector(".cp-store-info")?.nextElementSibling?.textContent).toContain("推薦給朋友");
+  });
   it("moves to the next month with the chosen day and renders an empty day", async () => {
     await act(async () => root.render(createElement(CoursePortalClient, { ...props(), initialDate: "2026-09-30" })));
     await click("課表");

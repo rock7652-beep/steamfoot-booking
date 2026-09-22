@@ -637,11 +637,9 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           </button>
           {roster === s.id && (
             <div className="cp-pad">
-              <div className="cp-line">
-                <strong>學員名單</strong>
-              </div>
-              {readOnly ? <button onClick={() => setRecordEdit(s.id)}>{pendingPeople.length ? "補完點名" : "更正紀錄"}</button> : <p>{ended ? "確認出席後扣抵額度。" : "可先報到，開課後確認出席。"}</p>}
               <div className="cp-actions cp-roster-actions">
+                <strong>學員名單 {people.length}</strong>
+                {readOnly && <button onClick={() => setRecordEdit(s.id)}>{pendingPeople.length ? "補完點名" : "更正紀錄"}</button>}
                 {!readOnly && unarrivedPeople.length > 0 && <button disabled={pending} onClick={() => { setError(""); setAttendance({ session: s, ids: unarrivedPeople.map(b => b.id), target: "CHECKED_IN" }); }}>全班報到 {unarrivedPeople.length} 人</button>}
                 {!readOnly && arrivedPeople.length > 0 && (
                   <button
@@ -660,6 +658,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   </button>
                 )}
               </div>
+              {!readOnly && <p className="cp-roster-hint">{ended ? "確認出席後扣抵額度。" : "可先報到，開課後確認出席。"}</p>}
               {!people.length && <p className="cp-empty">尚無學員預約</p>}
               {people.length > 0 && !filtered.length && <p className="cp-empty">找不到符合的學員</p>}
               {people.length > 10 && (
@@ -679,11 +678,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                   <div className="cp-attendance-row">
                     <div className="cp-attendance-person">
                       <strong>{b.customerName}</strong>
-                      <span className="cp-badge" data-status={b.status}>
-                        {savingIds.includes(b.id) ? "儲存中…" : b.status === "RESERVED"
-                          ? (b.checkedIn ? "已報到・待出席" : ended ? "待點名" : "待報到")
-                          : statusName(b.status)}
-                      </span>
+                      <span className="cp-roster-balance">{b.unit === "TRIAL" ? "體驗" : `可用 ${b.available ?? "—"} ${unit(b.unit)}`}</span>
                     </div>
                     <div className="cp-attendance-actions">
                       {readOnly ? null : b.status === "RESERVED" ? (
@@ -739,11 +734,17 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                       )}
                     </div>
                   </div>
-                  <p className="cp-roster-balance">{b.unit === "TRIAL" ? "體驗" : `可用 ${b.available ?? "—"} ${unit(b.unit)}`}</p>
-                  {b.serviceNote && <p className="cp-roster-note" title={b.serviceNote}>店內備註：{b.serviceNote}</p>}
-                  {b.notes && <p className="cp-roster-note" title={b.notes}>本次備註：{b.notes}</p>}
-                  <details>
-                    <summary>本次備註與方案</summary>
+                  <details className="cp-roster-details">
+                    <summary>
+                      <span className="cp-badge" data-status={b.status}>
+                        {savingIds.includes(b.id) ? "儲存中…" : b.status === "RESERVED"
+                          ? (b.checkedIn ? "已報到・待出席" : ended ? "待點名" : "待報到")
+                          : statusName(b.status)}
+                      </span>
+                      <span className="cp-roster-note">{[b.notes && `本次：${b.notes}`, b.serviceNote && `店內：${b.serviceNote}`].filter(Boolean).join("；") || "無備註"}</span>
+                      <span className="cp-roster-detail-label">詳情</span>
+                    </summary>
+                    <p><strong>{b.customerName}</strong></p>
                     <p className="cp-muted">店內備註：{b.serviceNote || "無"}</p>
                     <p>{b.planName} · {b.unit === "TRIAL" ? "不使用方案額度" : `${b.cost} ${unit(b.unit)}`}</p>
                     {editingNote?.id === b.id ? <form onSubmit={e => { e.preventDefault(); run(() => saveCourseCoachNote({ bookingId: b.id, notes: editingNote.value, previousNotes: editingNote.original }), () => setEditingNote(null), "本次備註已儲存"); }}>
@@ -1211,26 +1212,21 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           {page === "store" && (
             <>
               {heading(p.storeName)}
-              {p.referralShare && <details className="cp-card cp-pad"><summary>推薦給朋友</summary><div className="mt-3"><ShareReferral storeName={p.storeName} referralUrl={p.referralShare.referralUrl} shareTemplate={p.referralShare.shareTemplate} source="course-member" trackAction={trackCourseShare}/></div></details>}
-              <section className="cp-card cp-pad">
-                <p>{p.config?.address ?? "地址尚未提供"}</p>
-                {p.config?.mapUrl && /^https:\/\//.test(p.config.mapUrl) && (
-                  <a href={p.config.mapUrl} target="_blank" rel="noreferrer">
+              <section className="cp-card cp-pad cp-store-info">
+                <p className="cp-store-address">{p.config?.address?.trim() || "地址尚未提供"}</p>
+                <div className="cp-store-actions">
+                  {p.config?.mapUrl && /^https:\/\//.test(p.config.mapUrl) && <a className="cp-btn" href={p.config.mapUrl} target="_blank" rel="noreferrer">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
                     開啟地圖
-                  </a>
-                )}
-                {p.config?.lineOfficialUrl &&
-                  /^https:\/\//.test(p.config.lineOfficialUrl) && (
-                    <a
-                      className="cp-menu"
-                      href={p.config.lineOfficialUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      聯絡店家
-                    </a>
-                  )}
+                  </a>}
+                  {p.config?.lineOfficialUrl && /^https:\/\//.test(p.config.lineOfficialUrl) && <a className="cp-btn primary" href={p.config.lineOfficialUrl} target="_blank" rel="noreferrer">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M21 11.5a9 9 0 0 1-9 8.5H5l-3 2v-10A9 9 0 0 1 21 11.5Z"/><path d="M7 9h10M7 13h7"/></svg>
+                    LINE 聯絡
+                  </a>}
+                </div>
+                <p className="cp-store-hint">請依預約時間到店。</p>
               </section>
+              {p.referralShare && <details className="cp-card cp-pad"><summary>推薦給朋友</summary><div className="mt-3"><ShareReferral storeName={p.storeName} referralUrl={p.referralShare.referralUrl} shareTemplate={p.referralShare.shareTemplate} source="course-member" trackAction={trackCourseShare}/></div></details>}
             </>
           )}
           {page === "guide" && (
