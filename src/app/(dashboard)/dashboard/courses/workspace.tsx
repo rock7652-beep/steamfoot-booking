@@ -25,6 +25,7 @@ import {
   setCourseCatalogStatus,
   batchCourseTemplates,
 } from "@/server/actions/course";
+import { courseSessionStatus } from "@/lib/course-session-status";
 
 type Room = {
   id: string;
@@ -45,7 +46,7 @@ type Template = Omit<Room, "capacity"> & {
   precautions?: string;
 };
 type Session = {
-  bookings: { customerId: string }[];
+  bookings: { customerId: string; status: string }[];
   id: string;
   templateId: string;
   nameSnapshot: string;
@@ -59,6 +60,7 @@ type Session = {
 type Props = {
   selectedDate: string;
   today: string;
+  nowIso: string;
   calendarDays: Record<
     string,
     { status: "open" | "closed" | "training" | "custom"; reason: string | null }
@@ -82,6 +84,7 @@ export function CourseWorkspace({
   canDelete=false,
   selectedDate: loadedDate,
   today,
+  nowIso,
   calendarDays,
   rooms: allRooms,
   templates: allTemplates,
@@ -447,7 +450,8 @@ export function CourseWorkspace({
                     {list.slice(0, 2).map((s) => (
                       <span
                         key={s.id}
-                        className="hidden w-full shrink-0 truncate leading-[14px] sm:block sm:text-[11px]"
+                        className={`hidden w-full shrink-0 truncate leading-[14px] sm:block sm:text-[11px] rounded-sm border-l-2 px-1 ${courseSessionStatus(s, nowIso).calendarClass} ${courseSessionStatus(s, nowIso).accentClass}`}
+                        title={`${s.nameSnapshot} · ${courseSessionStatus(s, nowIso).label}`}
                       >
                         {formatTWDateTime(new Date(s.startsAt)).slice(11)}{" "}
                         {s.nameSnapshot}
@@ -463,9 +467,17 @@ export function CourseWorkspace({
               })}
             </div>
           </div>
-          <p className="text-sm text-earth-500">
-            淡色：當日無課程；灰底「公休／員工訓練」：當日不可排課
-          </p>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-earth-600" aria-label="課程狀態圖例">
+            {[
+              ["未開始", "bg-sky-50 text-sky-800"],
+              ["進行中", "bg-amber-50 text-amber-800"],
+              ["待點名", "bg-orange-50 text-orange-800"],
+              ["已完成", "bg-emerald-50 text-emerald-800"],
+              ["未到", "bg-red-50 text-red-700"],
+              ["已結束", "bg-earth-100 text-earth-700"],
+            ].map(([label, tone]) => <span key={label} className={`rounded-full px-2 py-1 ${tone}`}>{label}</span>)}
+            <span>灰底「公休／員工訓練」：當日不可排課</span>
+          </div>
           <p
             role="status"
             aria-live="polite"
@@ -836,6 +848,7 @@ export function CourseWorkspace({
                     {daySessions.map((session, index) => {
                       const isFull =
                         session.bookings.length >= session.capacity;
+                      const sessionState = courseSessionStatus(session, nowIso);
                       const openSeats = Math.max(
                         0,
                         session.capacity - session.bookings.length,
@@ -843,23 +856,26 @@ export function CourseWorkspace({
                       return (
                         <article
                           key={session.id}
-                          className="rounded-xl border border-earth-200 bg-white px-3 py-2.5"
+                          className={`rounded-xl border border-l-4 border-earth-200 bg-white px-3 py-2.5 ${sessionState.accentClass}`}
                         >
                           <div className="flex items-center justify-between gap-3">
                             <span className="rounded-full bg-primary-50 px-2 py-1 text-xs font-medium text-primary-800">
                               第 {index + 1} 堂
                             </span>
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-medium ${
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${sessionState.badgeClass}`}>{sessionState.label}</span>
+                              <span
+                                className={`rounded-full px-2 py-1 text-xs font-medium ${
                                 isFull
                                   ? "bg-primary-100 text-primary-900"
                                   : "bg-earth-100 text-earth-700"
                               }`}
-                            >
-                              {isFull
-                                ? `已滿 ${session.bookings.length}/${session.capacity}`
-                                : `尚有 ${openSeats} 位 · ${session.bookings.length}/${session.capacity}`}
-                            </span>
+                              >
+                                {isFull
+                                  ? `已滿 ${session.bookings.length}/${session.capacity}`
+                                  : `尚有 ${openSeats} 位 · ${session.bookings.length}/${session.capacity}`}
+                              </span>
+                            </div>
                           </div>
                           <h3 className="mt-2 flex flex-wrap items-baseline gap-x-2 font-semibold text-primary-900">
                             <span>

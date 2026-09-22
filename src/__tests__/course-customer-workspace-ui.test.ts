@@ -36,3 +36,14 @@ it("does not show unauthorized wallet, record, health, or edit controls",async()
  const buttons=[...host.querySelectorAll("button")].map(b=>b.textContent);
  for(const label of ["持有方案","購買與上課","健康追蹤","編輯顧客資料","儲存"])expect(buttons).not.toContain(label);
 });
+it("separates plan products and held plans into compact views",async()=>{
+ const plans=[{id:"plan",name:"運動十點方案",points:10,price:1000,validDays:30,isActive:true,unit:"POINT",templateIds:[]}];
+ await act(async()=>root.render(createElement(CourseMemberWorkspace,{...props,view:"plans",plans})));
+ expect(host.textContent).toContain("方案商品");
+ expect(host.textContent).toContain("單位價格");
+ expect(host.textContent).not.toContain("搜尋方案／共卡成員");
+ await click("顧客持有方案");
+ expect(host.querySelector('input[placeholder="搜尋方案／共卡成員"]')).not.toBeNull();
+ expect([...host.querySelectorAll("button")].map(button=>button.textContent)).toContain("指派方案");
+ expect(host.textContent).not.toContain("單位價格");
+});

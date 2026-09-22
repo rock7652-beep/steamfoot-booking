@@ -116,6 +116,7 @@ export function CourseMemberWorkspace({
   const [cardLoading,setCardLoading]=useState(false);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
   const [planUnit, setPlanUnit] = useState("all");
+  const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
   function canLeave() { return !pending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); if(view==="customers")keepCustomerInUrl(); } }
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -188,17 +189,36 @@ export function CourseMemberWorkspace({
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
   const totalRows = filteredPlans.length;
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
+  const activePlans = plans.filter((item) => item.isActive);
+  const pointPlans = activePlans.filter((item) => item.unit === "POINT").length;
+  const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
   return (
     <>
+      {view === "plans" && (
+        <nav aria-label="方案管理分區" className="mb-4 flex w-fit rounded-lg border border-earth-200 bg-earth-50 p-1">
+          <button type="button" aria-pressed={planArea === "catalog"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "catalog" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("catalog")}>方案商品</button>
+          {canReadCards && <button type="button" aria-pressed={planArea === "cards"} className={`min-h-9 rounded-md px-4 text-sm font-medium ${planArea === "cards" ? "bg-white text-primary-800 shadow-sm" : "text-earth-600"}`} onClick={() => setPlanArea("cards")}>顧客持有方案</button>}
+        </nav>
+      )}
+      {view === "plans" && planArea === "catalog" && (
+        <section aria-label="方案摘要" className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            ["全部方案", plans.length],
+            ["上架中", activePlans.length],
+            ["點數方案", pointPlans],
+            ["堂數方案", sessionPlans],
+          ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-2"><strong className="block text-lg tabular-nums text-primary-800">{value}</strong><span className="text-xs text-earth-500">{label}</span></div>)}
+        </section>
+      )}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {view === "plans" && <input
+        {view === "plans" && planArea === "catalog" && <input
           className={`${field} max-w-xs`}
           aria-label="搜尋"
           placeholder="搜尋方案"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0); }}
         />}
-        {view === "plans" && (
+        {view === "plans" && planArea === "catalog" && (
           <select
             className={`${field} max-w-36`}
             aria-label="狀態篩選"
@@ -210,8 +230,8 @@ export function CourseMemberWorkspace({
             <option value="inactive">下架</option>
           </select>
         )}
-        {view === "plans" && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
-        {canCreate && (
+        {view === "plans" && planArea === "catalog" && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={button}
             onClick={() => {
@@ -223,7 +243,7 @@ export function CourseMemberWorkspace({
             ＋新增{view === "customers" ? "顧客" : "方案"}
           </button>
         )}
-        {canAssign && (
+        {canAssign && (view === "customers" || planArea === "cards") && (
           <button
             className={button}
             disabled={!people.length || !plans.some((p) => p.isActive)}
@@ -238,7 +258,7 @@ export function CourseMemberWorkspace({
           {notice}
         </p>
       )}
-      {view === "plans" && canEdit && <CourseBatchBar canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
+      {view === "plans" && planArea === "catalog" && canEdit && <CourseBatchBar canDelete={canDelete} names={Object.fromEntries(filteredPlans.map(p=>[p.id,p.name]))} kind="plan" ids={filteredPlans.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       {view === "customers" ? <CourseCustomerList customerPage={customerPage} rows={customerRows} cards={cards} canReadCards={canReadCards}
         canAssignManager={canAssignManager} assignmentStaff={assignmentStaff}
         canMerge={canMerge}
@@ -246,11 +266,11 @@ export function CourseMemberWorkspace({
         onCreate={canCreate ? () => { setPerson(null); open("person"); } : undefined}
         onAssign={canAssign ? id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); open("assign"); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
-      <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
+      planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-earth-50">
             <tr>
-              {["方案／適用課程", "額度", "售價", "有效天數", "狀態", "操作"].map((h) => (
+              {["方案／適用課程", "額度", "售價", "單位價格", "有效天數", "狀態", "操作"].map((h) => (
                 <th key={h} className="whitespace-nowrap p-3">
                   {h}
                 </th>
@@ -258,7 +278,7 @@ export function CourseMemberWorkspace({
             </tr>
           </thead>
           <tbody className="divide-y divide-earth-100">
-            {!filteredPlans.length && <tr><td colSpan={6} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
+            {!filteredPlans.length && <tr><td colSpan={7} className="p-6 text-center text-earth-500">沒有符合條件的方案，請調整搜尋或篩選。</td></tr>}
             {filteredPlans.slice(currentPage * 20, (currentPage + 1) * 20).map((p) => (
                   <tr
                     key={p.id}
@@ -267,8 +287,9 @@ export function CourseMemberWorkspace({
                     <td className="p-3">{canEdit && <input type="checkbox" className="mr-3" aria-label={`選取 ${p.name}`} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span><p className="mt-1 text-xs text-earth-500">{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
                     <td className="p-3">{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
                     <td className="p-3">NT$ {p.price.toLocaleString("zh-TW")}</td>
-                    <td className="p-3">{p.validDays}</td>
-                    <td className="p-3">{p.isActive ? "上架" : "下架"}</td>
+                    <td className="p-3 text-earth-600">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</td>
+                    <td className="p-3">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</td>
+                    <td className="p-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${p.isActive ? "bg-emerald-50 text-emerald-700" : "bg-earth-100 text-earth-500"}`}>{p.isActive ? "上架" : "下架"}</span></td>
                     <td className="p-3">
                       {canEdit && (
                         <button
@@ -286,10 +307,9 @@ export function CourseMemberWorkspace({
                 ))}
           </tbody>
         </table>
-      </div>
+      </div> : canReadCards ? <CourseCardBrowser state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
       )}
-      {view === "plans" && canReadCards && <section className="mt-5 space-y-3"><h2 className="font-semibold">顧客持有方案</h2><CourseCardBrowser state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/></section>}
-      {view === "plans" && totalRows > 20 && <nav aria-label="清單分頁" className="flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
+      {view === "plans" && planArea === "catalog" && totalRows > 20 && <nav aria-label="清單分頁" className="mt-3 flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
       {panel && (
         <RightSheet
           open

@@ -177,7 +177,7 @@ export function CustomersTable({
     {
       key: "customer",
       header: "顧客",
-      width: stickyActions ? "min-w-[11rem] w-52" : undefined,
+      width: stickyActions ? "min-w-[10rem] w-48" : undefined,
       accessor: (c) => {
         const phoneDisplay = formatPhoneForStaff(c.phone);
         const subtitle = phoneDisplay !== "—" ? `☎ ${phoneDisplay}` : null;
@@ -319,7 +319,7 @@ export function CustomersTable({
       sticky: stickyActions ? "right" : undefined,
       header: "",
       align: "right",
-      width: onQuickAssign ? "w-32" : "w-20",
+      width: onQuickAssign ? "w-36" : "w-20",
       accessor: (c) => {
         if (isInactiveRow(c)) {
           return (
@@ -336,7 +336,7 @@ export function CustomersTable({
                   e.preventDefault();
                   onQuickAssign(c);
                 }}
-                className={`rounded bg-primary-600 px-2 font-medium text-white hover:bg-primary-700 ${stickyActions ? "min-h-11 whitespace-nowrap text-sm" : "py-0.5 text-[11px]"}`}
+                className={`rounded bg-primary-600 px-2 font-medium text-white hover:bg-primary-700 ${stickyActions ? "h-8 min-w-14 whitespace-nowrap text-xs" : "py-0.5 text-[11px]"}`}
               >
                 ＋指派
               </button>
@@ -350,7 +350,7 @@ export function CustomersTable({
                 e.preventDefault();
                 onView(c);
               }}
-              className={`rounded border border-earth-200 px-2 text-earth-700 hover:bg-earth-50 ${stickyActions ? "min-h-11 whitespace-nowrap text-sm" : "py-0.5 text-[11px]"}`}
+              className={`rounded border border-earth-200 px-2 text-earth-700 hover:bg-earth-50 ${stickyActions ? "h-8 min-w-14 whitespace-nowrap text-xs" : "py-0.5 text-[11px]"}`}
             >
               查看
             </button>

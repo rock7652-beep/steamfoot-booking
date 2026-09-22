@@ -115,7 +115,7 @@ export default async function CoursesPage({
           roomId: true,
           capacity: true,
           pointCost: true,
-          bookings: { where: { status: { not: "CANCELLED" } }, select: { customerId: true } },
+          bookings: { where: { status: { not: "CANCELLED" } }, select: { customerId: true, status: true } },
         },
         orderBy: { startsAt: "asc" },
       }),
@@ -178,6 +178,7 @@ export default async function CoursesPage({
         view={view}
         selectedDate={selected}
         today={toLocalDateStr()}
+        nowIso={new Date().toISOString()}
         calendarDays={calendarDays}
         rooms={rooms.map(({ sessions: uses, ...room }) => ({
           ...room,

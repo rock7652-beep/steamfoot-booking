@@ -31,7 +31,7 @@ export function CourseCustomerPicker({ name, initial = [], multiple = false, req
       <input type="hidden" name={name} value={c.id}/>
       <button type="button" aria-label={`移除 ${c.name}`} className="min-h-11 shrink-0 px-2" onClick={()=>{setSelected(old=>{const next=old.filter(p=>p.id!==c.id);onChange?.(next);return next;});}}>移除</button>
     </div>)}
-    <input ref={input} aria-label="搜尋顧客姓名或電話" placeholder="搜尋姓名／電話／LINE 名稱" value={query}
+    <input ref={input} aria-label="搜尋顧客姓名或電話" placeholder="搜尋姓名／電話" value={query}
       onChange={e=>setQuery(e.target.value)}
       className="min-h-11 w-full min-w-0 rounded-lg border border-earth-200 px-3 text-base"/>
     {!normalizedQuery ? null : !ready ? <p role="status" className="text-sm">搜尋中…</p> : result?.error ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>
