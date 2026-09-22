@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { correctTrialCollection } from "@/server/actions/trial-booking";
 
@@ -128,9 +129,11 @@ export function CorrectTrialCollectionModal({
     });
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-4"
       onClick={() => !pending && onClose()}
     >
       <div
@@ -257,6 +260,7 @@ export function CorrectTrialCollectionModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
