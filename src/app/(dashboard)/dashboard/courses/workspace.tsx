@@ -106,6 +106,7 @@ export function CourseWorkspace({
   const [courseDialog, setCourseDialog] = useState<{
     sessionId: string;
     kind: "roster" | "member-booking" | "trial-booking";
+    trialCustomer?: { id: string; name: string; phone: string };
   } | null>(
     params.get("session")
       ? { sessionId: params.get("session")!, kind: "roster" }
@@ -1844,6 +1845,14 @@ export function CourseWorkspace({
                     view={courseDialog.kind}
                     onDone={() => setCourseDialog(null)}
                     onMemberBookingReadyChange={setMemberBookingReady}
+                    initialTrialCustomer={courseDialog.trialCustomer}
+                    onUseTrialBooking={(customer) =>
+                      setCourseDialog({
+                        sessionId: dialogSession.id,
+                        kind: "trial-booking",
+                        trialCustomer: customer,
+                      })
+                    }
                     onCreateCustomer={() =>
                       setCourseDialog({
                         sessionId: dialogSession.id,

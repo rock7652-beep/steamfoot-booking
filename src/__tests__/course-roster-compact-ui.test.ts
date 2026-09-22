@@ -79,6 +79,7 @@ it("finds a learner by partial phone and submits the selected earliest-expiry pl
 it("keeps member booking unavailable when the learner has no eligible plan",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const onMemberBookingReadyChange=vi.fn();
+ const onUseTrialBooking=vi.fn();
  const cards=[{
   id:"expired-card",name:"已到期方案",unit:"SESSION",available:3,remaining:3,expired:true,closed:false,
   expiresAt:"2026-09-01T00:00:00Z",members:[{id:"customer-2",name:"林小華",phone:"0987654321"}],entries:[],
@@ -86,7 +87,7 @@ it("keeps member booking unavailable when the learner has no eligible plan",asyn
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-21T10:00:00Z",pointCost:1},roster:[],cards,trial:null}});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try{
-  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking",onMemberBookingReadyChange})));
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:true,canEdit:true,view:"member-booking",onMemberBookingReadyChange,onUseTrialBooking})));
   const search=host.querySelector('input[placeholder="輸入部分姓名或手機末幾碼"]') as HTMLInputElement;
   await act(async()=>{
    const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!;
@@ -95,8 +96,12 @@ it("keeps member booking unavailable when the learner has no eligible plan",asyn
   });
   const learner=[...host.querySelectorAll("button")].find(b=>b.textContent?.includes("林小華"));
   await act(async()=>learner!.click());
-  expect(host.textContent).toContain("沒有可用方案，請先指派方案或改用體驗預約。");
+  expect(host.textContent).toContain("沒有可用方案，請先指派方案。");
   expect(onMemberBookingReadyChange).toHaveBeenLastCalledWith(false);
+  const useTrial=[...host.querySelectorAll("button")].find(b=>b.textContent==="改用體驗預約");
+  expect(useTrial).toBeTruthy();
+  await act(async()=>useTrial!.click());
+  expect(onUseTrialBooking).toHaveBeenCalledWith({id:"customer-2",name:"林小華",phone:"0987654321"});
  }finally{await act(async()=>root.unmount());host.remove();}
 });
 
