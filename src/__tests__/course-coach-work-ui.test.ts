@@ -56,7 +56,27 @@ describe("coach daily work interactions", () => {
     expect(host.querySelectorAll(".cp-roster-details[open]")).toHaveLength(0);
     expect(host.querySelector(".cp-attendance-person .cp-roster-balance")?.textContent).toBe("可用 6 點");
     expect(host.querySelector(".cp-roster-details summary")?.textContent).toContain("本次希望降低強度");
-    expect(host.querySelector(".cp-roster-details")?.textContent).toContain("學員1超長姓名驗收");
+    expect(host.querySelector(".cp-attendance-person")?.textContent).toContain("學員1超長姓名驗收");
+    const details = host.querySelector(".cp-roster-details") as HTMLDetailsElement;
+    await act(async () => details.querySelector("summary")!.click());
+    expect(details.open).toBe(true);
+    expect(details.querySelector(".cp-roster-note")?.textContent).toContain("請留意膝蓋，避免跳躍。".repeat(8));
+    expect(details.querySelector(".cp-detail-open")?.textContent).toBe("收起");
+    expect(details.textContent).not.toContain("學員1超長姓名驗收");
+    expect(details.textContent?.split("本次希望降低強度。")).toHaveLength(2);
+  });
+  it("does not expand an empty roster but preserves cancelled bookings", async () => {
+    const data = props(); data.work[0].bookings = [];
+    await act(async () => root.render(createElement(CoursePortalClient, data)));
+    await click("課表");
+    const empty = host.querySelector(".cp-daily .cp-menu") as HTMLButtonElement;
+    expect(empty.disabled).toBe(true);
+    await act(async () => empty.click());
+    expect(host.querySelector(".cp-roster-body")).toBeNull();
+    data.work[0].bookings = [learner("取消學員", false, "CANCELLED")] as CoursePortalData["work"][number]["bookings"];
+    await act(async () => root.render(createElement(CoursePortalClient, {...data})));
+    await click("已取消預約");
+    expect(host.querySelector(".cp-roster-body")?.textContent).toContain("取消學員");
   });
   it("shows future classes without check-in or attendance actions even for previously checked-in learners", async () => {
     const data = props(); data.serverNow = Date.parse("2026-09-20T09:00:00+08:00");
@@ -115,6 +135,12 @@ describe("coach daily work interactions", () => {
     await click("課表");
     expect(host.querySelectorAll(".cp-week-strip button")).toHaveLength(7);
     await click("月曆"); expect(host.querySelector(".cp-calendar")).not.toBeNull();
+    expect(host.querySelector(".cp-week-strip")).toBeNull();
+    expect([...host.querySelectorAll("button")].filter(b => b.textContent === "今天")).toHaveLength(1);
+    await click("切換週曆");
+    expect(host.querySelector(".cp-calendar")).toBeNull();
+    expect(host.querySelectorAll(".cp-week-strip button")).toHaveLength(7);
+    expect(host.querySelector('.cp-week-strip [aria-pressed="true"] strong')?.textContent).toBe("20");
     await click("伸展瑜珈");
     expect(host.textContent).toContain("全班出席 2 人");
     expect(host.textContent).not.toContain("報到");

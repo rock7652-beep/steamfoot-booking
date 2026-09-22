@@ -553,6 +553,15 @@
 .cp-roster-details > summary::-webkit-details-marker { display: none; }
 .cp-roster-detail-label { flex-shrink: 0; font-size: 12px; text-decoration: underline; }
 .cp-roster-details[open] .cp-roster-detail-label { font-weight: 700; }
+.cp-detail-open, .cp-roster-details[open] .cp-detail-closed { display: none; }
+.cp-roster-details[open] .cp-detail-open { display: inline; }
+.cp-roster-person:has(.cp-roster-details[open]) .cp-attendance-person strong,
+.cp-roster-details[open] .cp-roster-note { white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; }
+.course-portal .cp-roster-details[open] > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.cp-roster-details[open] .cp-badge { justify-self: start; }
+.cp-roster-details[open] .cp-roster-note { grid-column: 1 / -1; grid-row: 2; }
+.cp-roster-details[open] .cp-roster-detail-label { grid-column: 2; grid-row: 1; }
+.course-portal .cp-menu:disabled { opacity: 1; cursor: default; }
 .cp-roster-details > p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .course-portal .cp-roster-hint { margin: 2px 0 8px; font-size: 12px; }
 .cp-roster-actions { margin: 0; gap: 6px; }

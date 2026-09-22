@@ -606,6 +606,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
         <article key={s.id} className="cp-card">
           <button
             className="cp-menu"
+            disabled={!s.bookings.length}
             aria-expanded={roster === s.id}
             onClick={() => {
               if (!leaveNote()) return;
@@ -628,9 +629,9 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                     : "尚無學員"}
               </small>
             </span>
-            <span>{roster === s.id ? "收合" : page === "records" ? "查看明細" : "名單／點名"}</span>
+            {s.bookings.length > 0 && <span>{roster === s.id ? "收合" : !people.length ? "已取消預約" : page === "records" ? "查看明細" : "名單／點名"}</span>}
           </button>
-          {roster === s.id && (
+          {roster === s.id && s.bookings.length > 0 && (
             <div className="cp-pad cp-roster-body">
               <div className="cp-actions cp-roster-actions">
                 <strong>學員名單 {people.length}</strong>
@@ -653,7 +654,6 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                 )}
               </div>
               {!readOnly && pendingPeople.length > 0 && <p className="cp-roster-hint">{ended ? "確認出席後扣抵額度。" : "尚未開課，開課後可點選出席／未到。"}</p>}
-              {!people.length && <p className="cp-empty">尚無學員預約</p>}
               {people.length > 0 && !filtered.length && <p className="cp-empty">找不到符合的學員</p>}
               {people.length > 10 && (
                 <input
@@ -738,15 +738,13 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
                             : statusName(b.status)}
                       </span>
                       <span className="cp-roster-note">{[b.notes && `本次：${b.notes}`, b.serviceNote && `店內：${b.serviceNote}`].filter(Boolean).join("；") || "無備註"}</span>
-                      <span className="cp-roster-detail-label">詳情</span>
+                      <span className="cp-roster-detail-label"><span className="cp-detail-closed">詳情</span><span className="cp-detail-open">收起</span></span>
                     </summary>
-                    <p><strong>{b.customerName}</strong></p>
-                    <p className="cp-muted">店內備註：{b.serviceNote || "無"}</p>
                     <p>{b.planName} · {b.unit === "TRIAL" ? "不使用方案額度" : `${b.cost} ${unit(b.unit)}`}</p>
                     {editingNote?.id === b.id ? <form onSubmit={e => { e.preventDefault(); run(() => saveCourseCoachNote({ bookingId: b.id, notes: editingNote.value, previousNotes: editingNote.original }), () => setEditingNote(null), "本次備註已儲存"); }}>
                       <label>本次備註（店長與授課教練可見）<textarea aria-label={`${b.customerName}本次備註`} maxLength={1000} value={editingNote.value} onChange={e => setEditingNote({ ...editingNote, value: e.target.value })} disabled={pending} /></label>
                       <div className="cp-actions"><button type="submit" disabled={pending}>儲存備註</button><button type="button" disabled={pending} onClick={() => leaveNote()}>取消修改</button></div>
-                    </form> : <><p>{b.notes || "尚無備註"}</p><button disabled={pending} onClick={() => { if (leaveNote()) setEditingNote({ id: b.id, original: b.notes, value: b.notes ?? "" }); }}>編輯本次備註</button></>}
+                    </form> : <button disabled={pending} onClick={() => { if (leaveNote()) setEditingNote({ id: b.id, original: b.notes, value: b.notes ?? "" }); }}>編輯本次備註</button>}
                   </details>
                 </div>
               ))}
@@ -915,9 +913,11 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
               {heading(coach ? "我的課表" : "課表預約")}
               <div className="cp-schedule">
                 {coach ? <>
+                  {!showWorkCalendar && <>
                   <div className="cp-work-date"><button aria-label="上一週" disabled={pending} onClick={() => workDate(addTaiwanDuration(selected,-7,"DAY"))}>‹</button><strong>{weekDays[0].slice(5)} — {weekDays[6].slice(5)}</strong><button aria-label="下一週" disabled={pending} onClick={() => workDate(addTaiwanDuration(selected,7,"DAY"))}>›</button></div>
                   <div className="cp-week-strip">{weekDays.map((d,i)=><button key={d} disabled={pending} aria-pressed={selected===d} className={selected===d?"primary":""} onClick={()=>workDate(d)}><span>{"一二三四五六日"[i]}</span><strong>{Number(d.slice(-2))}</strong><small>{work.filter(s=>courseDate(s.startsAt)===d).length}堂</small></button>)}</div>
-                  <div className="cp-actions"><button disabled={pending} onClick={()=>workDate(today)}>今天</button><button aria-expanded={showWorkCalendar} onClick={()=>setShowWorkCalendar(!showWorkCalendar)}>{showWorkCalendar?"收起月曆":"月曆"}</button></div>
+                  </>}
+                  <div className="cp-actions">{!showWorkCalendar && <button disabled={pending} onClick={()=>workDate(today)}>今天</button>}<button aria-pressed={showWorkCalendar} onClick={()=>setShowWorkCalendar(!showWorkCalendar)}>{showWorkCalendar?"切換週曆":"月曆"}</button></div>
                   {showWorkCalendar && calendar}
                 </> : calendar}
                 <section ref={daily} className="cp-daily">
