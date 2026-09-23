@@ -163,6 +163,7 @@ export function CashDrawerWorkspace({
       {/* State C: 今日已開店（OPEN / CLOSED）— 一頁式：今日狀態卡 → 日常操作區 → 明細 */}
       {view.state === "OPENED_TODAY" && (
         <OpenedTodayWorkspace
+          storeId={storeId}
           session={view.session}
           liveTotals={view.liveTotals}
           paymentOverview={view.paymentOverview}
@@ -614,6 +615,7 @@ function deriveClosedCashbookNet(session: OpenedTodaySession): string {
 }
 
 function OpenedTodayWorkspace({
+  storeId,
   session,
   liveTotals,
   paymentOverview,
@@ -628,6 +630,7 @@ function OpenedTodayWorkspace({
   returnPath,
   todayStr,
 }: {
+  storeId: string;
   session: OpenedTodaySession;
   liveTotals: CashDrawerLiveTotals | null;
   paymentOverview: CashDrawerPaymentOverview;
