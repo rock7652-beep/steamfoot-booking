@@ -106,7 +106,7 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
     }),
     prisma.transaction.count({ where }),
     prisma.transaction.aggregate({
-      where: {
+      where: revenueGroup === "refund" ? where : {
         AND: [
           where,
           {
@@ -126,7 +126,7 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
     total,
     page,
     pageSize,
-    periodRevenue: Number(revenue._sum.amount ?? 0),
+    periodRevenue: revenueGroup === "refund" ? Math.abs(Number(revenue._sum.amount ?? 0)) : Number(revenue._sum.amount ?? 0),
   };
 }
 
