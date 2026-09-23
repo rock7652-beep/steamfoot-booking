@@ -18,7 +18,7 @@ export type TrialSourceRow = {
 };
 
 /**
- * Cohort by booking creation date in Asia/Taipei. Attendance and paid plan
+ * Cohort by booking creation date in Asia/Taipei. Attendance and assigned plan
  * conversion update as the cohort progresses; cancelled bookings stay in the
  * booking count, and cannot contribute attendance or conversion.
  */
