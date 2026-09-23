@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import { RightSheet } from "@/components/admin/right-sheet";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook, searchQuickCashbookCustomers } from "@/server/actions/quick-cashbook";
+import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
 
 type Data = Awaited<ReturnType<typeof fetchQuickCashbook>>;
 type Entry = Data["entries"][number];
@@ -23,6 +23,8 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
   const [busy, setBusy] = useState(false);
   const request = useRef(0);
   const locked = useRef(false);
+  const dialog = useRef<HTMLElement>(null);
+  const closeRef = useRef<() => void>(() => undefined);
   async function refresh(page = 1) {
     const version = ++request.current;
     setLoading(true); setError("");
@@ -36,6 +38,23 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
     if (editing && !window.confirm("離開編輯？尚未儲存的內容將不保留。")) return;
     request.current++; setOpen(false); setEditing(null);
   }
+  closeRef.current = close;
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = "hidden";
+    dialog.current?.focus({ preventScroll: true });
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") closeRef.current();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus({ preventScroll: true });
+    };
+  }, [open]);
   async function save(form: FormData) {
     if (locked.current) return;
     locked.current = true; setBusy(true);
@@ -60,7 +79,9 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
   const drawerNeedsAttention = data?.balanceLabel?.includes("尚未關帳") ?? false;
   return <>
     <button type="button" className={`${button} ${triggerClassName ?? ""}`} onClick={() => { setOpen(true); setEditing(null); setData(null); void refresh(); }}>現金收支</button>
-    {open && <RightSheet open onClose={close} width={640} labelledById="quick-cashbook-title">
+    {open && createPortal(<div className="fixed inset-0 z-[100] flex items-end bg-earth-950/35 sm:items-center sm:justify-center sm:p-5">
+      <button type="button" aria-label="關閉現金收支" onClick={close} className="absolute inset-0 cursor-default" />
+      <section ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="quick-cashbook-title" className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl outline-none sm:h-auto sm:max-h-[calc(100dvh-2.5rem)] sm:max-w-3xl sm:rounded-2xl">
       <header className="flex items-center justify-between border-b border-earth-200 bg-gradient-to-r from-primary-50 to-gold-50 px-5 py-4">
         <div>
           <div className="mb-1 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-gold-500" aria-hidden="true" /><h2 id="quick-cashbook-title" className="text-lg font-semibold text-primary-900">現金收支</h2></div>
@@ -96,30 +117,52 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
         </>}
       </div>
       <footer className="border-t border-earth-200 bg-white p-4">{editing || busy ? <span className="text-sm text-earth-500">儲存或取消後可查看完整現金管理</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
-    </RightSheet>}
+      </section>
+    </div>, document.body)}
   </>;
 }
 
 type CustomerOption = { id: string; name: string; phone: string };
 
-function CashbookCustomerPicker({ storeId, defaultCustomer }: { storeId: string; defaultCustomer: { id: string; name: string } | null }) {
+function CashbookCustomerPicker({ defaultCustomer }: { storeId: string; defaultCustomer: { id: string; name: string } | null }) {
   const [query, setQuery] = useState(defaultCustomer?.name ?? "");
   const [selected, setSelected] = useState(defaultCustomer);
   const [results, setResults] = useState<CustomerOption[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const searchCache = useRef(new Map<string, CustomerOption[]>());
   useEffect(() => {
     if (selected || !query.trim()) return;
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      const timeout = new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("SEARCH_TIMEOUT")), 4000));
-      void Promise.race([searchQuickCashbookCustomers(storeId, query), timeout])
-        .then((rows) => { if (!cancelled) setResults(rows); })
-        .catch((error) => { if (!cancelled) { setResults([]); setSearchError(error instanceof Error && error.message === "SEARCH_TIMEOUT" ? "搜尋時間較久，請再輸入一個字或使用手機前幾碼。" : "暫時無法搜尋顧客，請稍後重試。"); } })
-        .finally(() => { if (!cancelled) setSearching(false); });
-    }, 100);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [query, selected, storeId]);
+    const normalized = query.trim().toLowerCase();
+    const cached = searchCache.current.get(normalized);
+    if (cached) {
+      setResults(cached);
+      setSearching(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/customers/search?q=${encodeURIComponent(query.trim())}&limit=8`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) throw new Error("SEARCH_FAILED");
+        const rows = (await response.json()) as CustomerOption[];
+        searchCache.current.set(normalized, rows);
+        setResults(rows);
+        setSearchError("");
+      } catch {
+        if (controller.signal.aborted) return;
+        setResults([]);
+        setSearchError("暫時無法搜尋顧客，請稍後重試。");
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [query, selected]);
   return <div className="col-span-2 text-sm font-medium text-earth-700">
     <label htmlFor="quick-cashbook-customer">關聯顧客 <span className="font-normal text-earth-400">（選填）</span></label>
     <input type="hidden" name="customerId" value={selected?.id ?? ""}/>
