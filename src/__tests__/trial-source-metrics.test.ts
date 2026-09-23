@@ -33,14 +33,14 @@ describe("trial booking source outcomes", () => {
 
     const rows = await getTrialSourceMetrics("store-1", "2026-09-01", "2026-09-30");
     expect(rows.find((row) => row.source === "LINE")).toMatchObject({
-      bookings: 1, bookedPeople: 2, attendees: 1, attendanceRate: 50,
+      bookings: 1, sourceShare: 100 / 3, bookedPeople: 2, attendees: 1, attendanceRate: 50,
       assignedCustomers: 1, planRate: 100,
     });
     expect(rows.find((row) => row.source === "GOOGLE_MAPS")).toMatchObject({
-      bookings: 1, bookedPeople: 1, attendees: 0, assignedCustomers: 0, planRate: 0,
+      bookings: 1, sourceShare: 100 / 3, bookedPeople: 1, attendees: 0, assignedCustomers: 0, planRate: 0,
     });
     expect(rows.find((row) => row.source === "OTHER")).toMatchObject({
-      bookings: 1, attendees: 1, assignedCustomers: 0,
+      bookings: 1, sourceShare: 100 / 3, attendees: 1, assignedCustomers: 0,
     });
     expect(mocks.wallets).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ storeId: "store-1", status: { not: "CANCELLED" }, plan: { category: "PACKAGE" } }),
