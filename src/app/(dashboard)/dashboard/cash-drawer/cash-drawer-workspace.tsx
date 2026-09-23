@@ -68,6 +68,7 @@ async function handleAddCashbookEntry(
     amount: Number(formData.get("amount")),
     paymentMethod: formData.get("paymentMethod") as "CASH" | "OTHER",
     staffId: (formData.get("staffId") as string) || undefined,
+    customerId: (formData.get("customerId") as string) || undefined,
     note: (formData.get("note") as string) || undefined,
     confirmClosedCashbookChange: formData.get("confirmClosedCashbookChange") === "on",
   });
@@ -82,6 +83,7 @@ interface CashDrawerWorkspaceProps {
   compactSetup?: boolean;
   view: CashDrawerView;
   todayStr: string;
+  storeId: string;
   /** OWNER / ADMIN 才能首次啟用 */
   canInit: boolean;
   /** cashDrawer.open */
@@ -113,6 +115,7 @@ export function CashDrawerWorkspace({
   compactSetup = false,
   view,
   todayStr,
+  storeId,
   canInit,
   canOpen,
   canClose,
@@ -692,6 +695,7 @@ function OpenedTodayWorkspace({
           {!isClosed && liveTotals ? (
             <DailyActionsArea
               sessionId={session.id}
+              storeId={storeId}
               canAddEntry={canAddEntry}
               canCreateCashbook={canCreateCashbook}
               closedDates={closedDates}
@@ -703,6 +707,7 @@ function OpenedTodayWorkspace({
           ) : (
             <ClosedActionsArea
               sessionId={session.id}
+              storeId={storeId}
               canReopen={canReopen}
               canCreateCashbook={canCreateCashbook}
               closedDates={closedDates}
@@ -980,6 +985,7 @@ function ClosedStatusCard({
 
 function DailyActionsArea({
   sessionId,
+  storeId,
   canAddEntry,
   canCreateCashbook,
   closedDates,
@@ -989,6 +995,7 @@ function DailyActionsArea({
   returnPath,
 }: {
   sessionId: string;
+  storeId: string;
   canAddEntry: boolean;
   canCreateCashbook: boolean;
   closedDates: string[];
@@ -1043,6 +1050,7 @@ function DailyActionsArea({
           <CashActionModal title="記一筆收支" helper="商品收入、店內支出、非現金紀錄">
             <InlineCashbookForm
                 action={handleAddCashbookEntry}
+                storeId={storeId}
                 returnPath={returnPath}
                 today={todayStr}
                 closedDates={closedDates}
@@ -1118,6 +1126,7 @@ function ActionDisabledCard({ title, helper }: { title: string; helper: string }
 
 function ClosedActionsArea({
   sessionId,
+  storeId,
   canReopen,
   canCreateCashbook,
   closedDates,
@@ -1127,6 +1136,7 @@ function ClosedActionsArea({
   returnPath,
 }: {
   sessionId: string;
+  storeId: string;
   canReopen: boolean;
   canCreateCashbook: boolean;
   closedDates: string[];
@@ -1199,6 +1209,7 @@ function ClosedActionsArea({
           >
               <InlineCashbookForm
                 action={handleAddCashbookEntry}
+                storeId={storeId}
                 returnPath={returnPath}
                 today={todayStr}
                 closedDates={closedDates}
