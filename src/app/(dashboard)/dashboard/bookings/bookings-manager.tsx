@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { matchesBookingSearch } from "@/lib/booking-month-search";
 import { createBookingRefresh, createBookingRefreshGate } from "@/lib/booking-refresh";
 import { refreshBookingManagement } from "@/server/actions/booking-refresh";
 import { toast } from "sonner";
@@ -384,32 +385,17 @@ export function BookingsManager({
   const slotsKnown = !!selectedDate && slotsCache.has(selectedDate);
   const slotsLoadingForSelected = slotsLoadingDate === selectedDate;
 
-  // Filter bookings for day-detail panel (client-side)
-  const filteredDayBookings = useMemo(() => {
-    return dayBookings.filter((b) => {
-      if (filters.status && b.bookingStatus !== filters.status) return false;
-      if (filters.staffName) {
-        const staffName =
-          b.revenueStaff?.displayName ??
-          b.serviceStaff?.displayName ??
-          b.customer?.assignedStaff?.displayName ??
-          "";
-        if (staffName !== filters.staffName) return false;
-      }
-      if (filters.servicePlanId) {
-        // DayBooking only has servicePlan.name, not id — match by name via lookup
-        const plan = servicePlans.find((p) => p.id === filters.servicePlanId);
-        if (!plan || b.servicePlan?.name !== plan.name) return false;
-      }
-      if (filters.search) {
-        const q = filters.search.trim().toLowerCase();
-        const name = b.customer?.name?.toLowerCase() ?? "";
-        const phone = b.customer?.phone ?? "";
-        if (!name.includes(q) && !phone.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [dayBookings, filters, servicePlans]);
+  const matchesFilters = useCallback((booking: DayBooking) =>
+    matchesBookingSearch(booking, filters, servicePlans), [filters, servicePlans]);
+  const filteredDayBookings = useMemo(() => dayBookings.filter(matchesFilters),
+    [dayBookings, matchesFilters]);
+  const monthSearchResults = useMemo(() => monthData
+    .filter((day) => day.date.startsWith(`${year}-${String(month).padStart(2, "0")}-`))
+    .flatMap((day) => (day.bookings ?? []).filter(matchesFilters)
+      .map((booking) => ({ date: day.date, booking })))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.booking.slotTime.localeCompare(b.booking.slotTime)),
+    [monthData, year, month, matchesFilters]);
+
 
   // Calendar: dim days that don't contain the selected staff
   const dimmedDates = useMemo(() => {
@@ -697,6 +683,24 @@ export function BookingsManager({
         activeFilterCount={activeFilterCount}
       />
 
+      {filters.search.trim() && <section aria-label="本月預約搜尋結果" className="rounded-lg border border-earth-200 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 px-4 py-3">
+          <div><h2 className="font-semibold text-earth-900">{year} 年 {month} 月搜尋結果 · {monthSearchResults.length} 筆</h2>
+            <p className="text-xs text-earth-500">依目前篩選條件顯示，不含已取消預約。點選一筆查看預約。</p></div>
+          <button type="button" onClick={() => setFilters({ ...filters, search: "" })} className="min-h-11 px-3 text-sm text-primary-700">清空搜尋</button>
+        </div>
+        <BookingSearchResultsScroll key={`${year}-${month}-${JSON.stringify(filters)}`}>
+          {monthSearchResults.length === 0 ? <p role="status" className="p-4 text-sm text-earth-500">本月沒有符合的預約，可調整關鍵字或篩選條件，或切換月份。</p>
+            : monthSearchResults.map(({ date, booking }) => <button key={booking.id} type="button"
+              onClick={() => openBooking(booking.id)}
+              className="flex min-h-11 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-earth-100 px-4 py-2 text-left hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500">
+              <span><span className="font-medium text-earth-900">{booking.customer.name}</span>
+                <span className="ml-3 text-sm text-earth-500">{booking.customer.phone}</span></span>
+              <span className="text-sm text-earth-700">{date} · {booking.slotTime} · {booking.servicePlan?.name ?? "未指定服務"} · {STATUS_OPTIONS.find((s) => s.value === booking.bookingStatus)?.label ?? booking.bookingStatus}</span>
+            </button>)}
+        </BookingSearchResultsScroll>
+      </section>}
+
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12">
           <BookingCalendarDesktop
@@ -870,6 +874,8 @@ function Toolbar({
   servicePlans: ServicePlanOption[];
   activeFilterCount: number;
 }) {
+  const [compositionText, setCompositionText] = useState<string | null>(null);
+  const composing = useRef(false);
   const prevMonth = month === 1 ? 12 : month - 1;
   const prevYear = month === 1 ? year - 1 : year;
   const nextMonth = month === 12 ? 1 : month + 1;
@@ -938,14 +944,24 @@ function Toolbar({
           </button>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <div className="relative">
+      <div className="w-full basis-full">
+        <div className="relative w-full">
           <input
             type="search"
-            placeholder="搜尋顧客 / 手機"
-            value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="h-7 w-56 rounded border border-earth-300 bg-white pl-7 pr-3 text-sm text-earth-700 placeholder:text-earth-400 focus:border-primary-500 focus:outline-none"
+            placeholder="搜尋本月預約：姓名／手機"
+            aria-label="搜尋本月預約：姓名或手機"
+            // Override the compact toolbar rule in globals.css for this full-row search field.
+            style={{ width: "100%", height: 40 }}
+            value={compositionText ?? filters.search}
+            onCompositionStart={(e) => { composing.current = true; setCompositionText(e.currentTarget.value); }}
+            onCompositionEnd={(e) => { composing.current = false; setCompositionText(null); setFilters({ ...filters, search: e.currentTarget.value }); }}
+            onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+            onChange={(e) => {
+              if (composing.current) setCompositionText(e.target.value);
+              if (!composing.current && !(e.nativeEvent as InputEvent).isComposing)
+                setFilters({ ...filters, search: e.target.value });
+            }}
+            className="h-10 w-full rounded border border-earth-300 bg-white pl-8 pr-3 text-sm text-earth-700 placeholder:text-earth-400 focus:border-primary-500 focus:outline-none"
           />
           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-earth-400">
             ⌕
@@ -954,6 +970,37 @@ function Toolbar({
       </div>
     </div>
   );
+}
+
+function BookingSearchResultsScroll({ children }: { children: ReactNode }) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({ overflowing: false, moreBelow: false });
+  const updateScrollState = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const overflowing = viewport.scrollHeight > viewport.clientHeight + 1;
+    const moreBelow = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop > 1;
+    setScrollState((previous) => previous.overflowing === overflowing && previous.moreBelow === moreBelow
+      ? previous : { overflowing, moreBelow });
+  }, []);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(updateScrollState);
+    if (viewportRef.current) observer.observe(viewportRef.current);
+    if (contentRef.current) observer.observe(contentRef.current);
+    return () => observer.disconnect();
+  }, [updateScrollState]);
+
+  return <>
+    <div ref={viewportRef} onScroll={updateScrollState} tabIndex={0} role="region" aria-label="預約搜尋結果清單"
+      className="max-h-64 overflow-y-auto overscroll-contain focus-visible:outline-2 focus-visible:outline-primary-500">
+      <div ref={contentRef}>{children}</div>
+    </div>
+    {scrollState.overflowing && <p className="border-t border-earth-100 px-4 py-1.5 text-center text-xs text-earth-500">
+      {scrollState.moreBelow ? "↓ 向下捲動查看更多預約" : "已顯示最後一筆"}
+    </p>}
+  </>;
 }
 
 function FilterSelect({
