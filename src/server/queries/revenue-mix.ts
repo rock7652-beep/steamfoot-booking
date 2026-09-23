@@ -22,6 +22,7 @@ export type RevenueMix = {
   netRevenue: number;
   expense: number;
   balance: number;
+  pendingRevenue: number;
   packageShare: number;
   retailShare: number;
   otherShare: number;
@@ -70,7 +71,7 @@ export async function getRevenueMix(
         transactionType: { in: REVENUE_NET_TYPES as never },
         createdAt: { gte: start, lte: end },
       },
-      select: { createdAt: true, transactionType: true, amount: true },
+      select: { createdAt: true, transactionType: true, amount: true, paymentStatus: true },
     }),
     prisma.cashbookEntry.findMany({
       where: {
@@ -90,12 +91,17 @@ export async function getRevenueMix(
   }
   const inPeriod = (date: string) => date >= startDate && date <= endDate;
   const summary = { packageRevenue: 0, retailRevenue: 0, otherRevenue: 0, refunds: 0, expense: 0 };
+  let pendingRevenue = 0;
   for (const tx of transactions) {
     // createdAt is a timestamp; render its business date in Asia/Taipei.
     const date = toLocalDateStr(tx.createdAt);
     const point = points.get(monthly ? date.slice(0, 7) : date);
     if (!point) continue;
     const amount = Number(tx.amount);
+    if (tx.transactionType !== "REFUND" && tx.paymentStatus !== "SUCCESS") {
+      if (tx.paymentStatus === "PENDING" && inPeriod(date)) pendingRevenue += amount;
+      continue;
+    }
     const field = tx.transactionType === "PACKAGE_PURCHASE"
       ? "packageRevenue" : tx.transactionType === "REFUND" ? "refunds" : "otherRevenue";
     point[field] += field === "refunds" ? Math.abs(amount) : amount;
@@ -124,6 +130,7 @@ export async function getRevenueMix(
     grossRevenue,
     netRevenue,
     balance: netRevenue - summary.expense,
+    pendingRevenue,
     packageShare: share(summary.packageRevenue),
     retailShare: share(summary.retailRevenue),
     otherShare: share(summary.otherRevenue),
