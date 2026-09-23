@@ -53,6 +53,7 @@ export interface BookingDrawerPayload {
     slotTime: string;
     bookingStatus: string;
     bookingType: string;
+    bookingSource?: string | null;
     people: number;
     isMakeup: boolean;
     isCheckedIn: boolean;
@@ -391,6 +392,7 @@ export async function fetchBookingDetail(
       slotTime: booking.slotTime,
       bookingStatus: booking.bookingStatus,
       bookingType: booking.bookingType,
+      bookingSource: booking.bookingSource,
       people: booking.people,
       isMakeup: booking.isMakeup,
       isCheckedIn: booking.isCheckedIn,
