@@ -4,8 +4,9 @@ import { useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { RevenueMixPoint } from "@/server/queries/revenue-mix";
 
-type Metric = "balance" | "packageRevenue" | "retailRevenue" | "otherRevenue" | "expense";
+type Metric = "netRevenue" | "balance" | "packageRevenue" | "retailRevenue" | "otherRevenue" | "expense";
 const OPTIONS: Array<{ key: Metric; label: string; color: string }> = [
+  { key: "netRevenue", label: "營業額", color: "#65a30d" },
   { key: "balance", label: "收支結餘", color: "#65a30d" },
   { key: "packageRevenue", label: "儲值方案", color: "#b8860b" },
   { key: "retailRevenue", label: "零售", color: "#2563eb" },
@@ -13,14 +14,14 @@ const OPTIONS: Array<{ key: Metric; label: string; color: string }> = [
   { key: "expense", label: "支出", color: "#dc2626" },
 ];
 
-export function RevenueMixTrend({ points, label }: { points: RevenueMixPoint[]; label: string }) {
-  const [metric, setMetric] = useState<Metric>("balance");
+export function RevenueMixTrend({ points }: { points: RevenueMixPoint[] }) {
+  const [metric, setMetric] = useState<Metric>("netRevenue");
   const selected = OPTIONS.find((item) => item.key === metric)!;
 
   return (
     <div className="mt-4 border-t border-earth-100 pt-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-earth-500">{label}</p>
+        <div><p className="text-xs font-medium text-earth-700">近 6 個月趨勢</p><p className="text-[11px] text-earth-500">本月統計至今日；上方日期篩選僅影響摘要。</p></div>
         <div className="flex flex-wrap gap-1.5" aria-label="切換收支趨勢">
           {OPTIONS.map((item) => (
             <button

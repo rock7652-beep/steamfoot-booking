@@ -75,8 +75,9 @@ vi.mock("@/server/queries/conversion-metrics", () => ({
   getConversionMetrics: (...args: unknown[]) => mockGetConversionMetrics(...args),
 }));
 
-vi.mock("@/server/queries/revenue-mix", () => ({
-  getRevenueMix: (...args: unknown[]) => mockGetRevenueMix(...args),
+vi.mock("@/server/queries/industry-revenue-mix", () => ({
+  getIndustryRevenueMix: (...args: unknown[]) => mockGetRevenueMix(...args),
+  getIndustrySixMonthRevenueMixTrend: () => Promise.resolve([]),
 }));
 
 vi.mock("@/server/queries/trial-source-metrics", () => ({

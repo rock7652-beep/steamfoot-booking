@@ -108,7 +108,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const activeStoreId = await getActiveStoreForRead(user);
   const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : null;
   const isCourse = industryModule === "course";
-  const useInlineEditor = isCourse || industryModule === "steamfoot";
+  const useInlineEditor = true;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const cashbookStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
@@ -192,7 +192,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const closedDates = useInlineEditor && cashbookStoreId && canManageCashbook
     ? await listClosedBusinessDates(cashbookStoreId, dateFrom < historyStartDate ? dateFrom : historyStartDate, dateTo > today ? dateTo : today)
     : [];
-  const editorProps = { presentation: "centered" as const, today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
+  const editorProps = { storeId: cashbookStoreId ?? "", instantSearch: industryModule === "steamfoot", presentation: "centered" as const, today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
   const { entries, total, pageSize } = cashbookList;
   const totalPages = Math.ceil(total / pageSize);
 
@@ -209,7 +209,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               <span className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
                 查看模式：不可新增記帳
               </span>
-            ) : useInlineEditor ? (canManageCashbook && <CashbookEditor {...editorProps} />) : (
+            ) : useInlineEditor ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} />) : (
               <Link
                 href="/dashboard/cashbook/new"
                 className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
@@ -228,6 +228,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
             ) : (
               <CashDrawerWorkspace
                 view={cashDrawerData.view}
+                instantSearch={industryModule === "steamfoot"}
                 todayStr={today}
                 storeId={cashbookStoreId!}
                 canInit={cashDrawerData.canInit}
@@ -395,7 +396,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         <span className="text-earth-400">僅可查看</span>
                       ) : (
                         <div className="flex items-center gap-3">
-                          {useInlineEditor ? (canManageCashbook && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId }} />) : <Link
+                          {useInlineEditor && (e.type === "INCOME" || e.type === "EXPENSE") ? (canManageCashbook && cashbookStoreId && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"
                           >

@@ -16,6 +16,8 @@ import { DashboardLink } from "@/components/dashboard-link";
 import { UpgradeNoticePage } from "@/components/upgrade-notice";
 import ReportDateRange from "@/components/report-date-range";
 import { AnalysisReturnState } from "./analysis-return-state";
+import { getIndustrySixMonthRevenueMixTrend } from "@/server/queries/industry-revenue-mix";
+import { RevenueMixTrend } from "@/components/revenue-mix-trend";
 
 export async function CourseAnalyticsPage({params}:{params:{preset?:string;startDate?:string;endDate?:string;month?:string;perspective?:string;person?:string}}) {
   const user=await getCurrentUser();
@@ -32,10 +34,12 @@ export async function CourseAnalyticsPage({params}:{params:{preset?:string;start
   let data;
   try {data=await getCourseBusinessAnalytics(storeId,range,scope,{money,customers,fees:cash&&user.role==="OWNER"});} catch(error) {if(error instanceof Error&&error.message==="找不到本店分析對象") notFound();throw error;}
   if(!all) data.staff=data.staff.filter(s=>s.id===user.staffId);
+  const revenuePoints=money&&scope.view==="store" ? await getIndustrySixMonthRevenueMixTrend(storeId) : null;
   const query=new URLSearchParams({...range,perspective:scope.view,person:scope.person,report:"business"});
   return <AnalysisReturnState scope={`${user.id}:${storeId}:${range.startDate}:${range.endDate}:${scope.view}:${scope.person}`}><PageShell>
     <PageHeader title="營運分析" subtitle={`${range.startDate} ～ ${range.endDate} · 台灣時間`} actions={<>{canExport&&<a className="rounded-md border border-earth-200 px-3 py-2 text-sm" href={`/api/export/course-analysis?${query}`} download>匯出目前分析</a>}{money&&<DashboardLink href="/dashboard/store-revenue" className="rounded-md border border-earth-200 px-3 py-2 text-sm">收款明細</DashboardLink>}</>}/>
     <ReportDateRange key={`${range.startDate}-${range.endDate}`} activePreset={params.startDate?"custom":params.preset??"month"} {...range} preserveQuery/>
     <BusinessAnalyticsView key={`${range.startDate}:${range.endDate}:${scope.view}:${scope.person}`} data={data} all={all} staffId={user.staffId}/>
+    {revenuePoints&&<section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="營收結構與收支"><RevenueMixTrend points={revenuePoints}/></section>}
   </PageShell></AnalysisReturnState>;
 }
