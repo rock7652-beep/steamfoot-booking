@@ -18,6 +18,7 @@ const mockGetCustomerFlowMetrics = vi.fn();
 const mockGetConversionMetrics = vi.fn();
 const mockGetRetentionMetrics = vi.fn();
 const mockGetTrialSourceMetrics = vi.fn();
+const mockGetRevenueMix = vi.fn();
 const mockGetStorePerformanceTrends = vi.fn();
 const mockGetReportSnapshotWithMeta = vi.fn();
 const mockUpsertReportSnapshot = vi.fn();
@@ -72,6 +73,10 @@ vi.mock("@/server/queries/customer-flow-metrics", () => ({
 
 vi.mock("@/server/queries/conversion-metrics", () => ({
   getConversionMetrics: (...args: unknown[]) => mockGetConversionMetrics(...args),
+}));
+
+vi.mock("@/server/queries/revenue-mix", () => ({
+  getRevenueMix: (...args: unknown[]) => mockGetRevenueMix(...args),
 }));
 
 vi.mock("@/server/queries/trial-source-metrics", () => ({
@@ -266,6 +271,7 @@ beforeEach(() => {
     },
   });
   mockGetTrialSourceMetrics.mockResolvedValue([]);
+  mockGetRevenueMix.mockResolvedValue(null);
   mockGetReportSnapshotWithMeta.mockResolvedValue(null);
   mockUpsertReportSnapshot.mockResolvedValue(undefined);
 });
