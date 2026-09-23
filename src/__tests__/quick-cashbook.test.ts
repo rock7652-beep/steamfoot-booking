@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 const m = vi.hoisted(() => ({ user: { id: "u", role: "MANAGER", staffId: "s", storeId: "store" }, permission: vi.fn(), active: vi.fn(), write: vi.fn(), feature: vi.fn(), find: vi.fn(), customers: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() }));
 vi.mock("@/lib/permissions", () => ({ requirePermission: m.permission, requireWritablePermission: m.permission, checkPermission: async () => true }));
 vi.mock("@/lib/store", () => ({ getActiveStoreForRead: m.active, resolveWriteStoreId: m.write }));
@@ -58,4 +59,17 @@ it("keeps letters with numbers in the name search", async () => {
   m.customers.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
   await searchQuickCashbookCustomers("store", "QA396");
   expect(m.customers).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: expect.objectContaining({ OR: expect.arrayContaining([{ name: { startsWith: "QA396" } }]) }) }));
+});
+it("uses the lightweight customer API and cancels stale searches", () => {
+  const source = readFileSync("src/app/(dashboard)/dashboard/cashbook/_components/quick-cashbook.tsx", "utf8");
+  expect(source).toContain("/api/customers/search?q=");
+  expect(source).toContain("new AbortController()");
+  expect(source).not.toContain("Promise.race([searchQuickCashbookCustomers");
+});
+it("renders the quick cashbook as a centered responsive dialog", () => {
+  const source = readFileSync("src/app/(dashboard)/dashboard/cashbook/_components/quick-cashbook.tsx", "utf8");
+  expect(source).toContain("createPortal(");
+  expect(source).toContain('sm:items-center sm:justify-center');
+  expect(source).toContain('role="dialog" aria-modal="true"');
+  expect(source).not.toContain("<RightSheet");
 });
