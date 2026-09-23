@@ -23,7 +23,7 @@ const firstVisitItems = [
   },
   {
     title: "體驗結束後再完成付款",
-    detail: "首次體驗每人 NT$499，不需要先購買正式方案。",
+    detail: "測試門市不收費；正式門市首次體驗每人 NT$499。",
   },
 ];
 
@@ -90,8 +90,8 @@ export default async function StoreTrialBookingPage({
         <header className="bg-gradient-to-br from-earth-900 to-primary-800 px-6 py-10 text-white sm:px-10">
           <p className="text-sm font-semibold tracking-[0.16em] text-white/80">{storeName}</p>
           <h1 className="mt-3 text-3xl font-bold leading-tight">第一次蒸足，從這裡開始</h1>
-          <p className="mt-4 text-lg font-semibold">首次體驗每人 NT$499</p>
-          <p className="mt-2 text-sm text-white/80">約 45 分鐘・不用註冊・到店再付款</p>
+          <p className="mt-4 text-lg font-semibold">{storeSlug === "staging" ? "蒸足測試店・預約流程驗收" : "首次體驗每人 NT$499"}</p>
+          <p className="mt-2 text-sm text-white/80">{storeSlug === "staging" ? "測試資料僅供驗收，不須付款或實際到店" : "約 45 分鐘・不用註冊・到店再付款"}</p>
         </header>
 
         <div className="px-4 py-7 sm:px-10 sm:py-10">
