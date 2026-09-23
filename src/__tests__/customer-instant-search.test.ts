@@ -85,3 +85,32 @@ it("can select the first candidate with Enter without submitting the cashbook", 
   expect(event.defaultPrevented).toBe(true);
   expect(onSelect).toHaveBeenCalledWith(rows[0]);
 });
+it("drops old candidates while a changed list filter loads, retaining the input", async () => {
+  await render(); await input("黃");
+  let finish: (value: Response) => void;
+  vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve; }));
+  await act(async () => root.render(createElement(CustomerInstantSearch, {
+    key: "s", storeId: "s", value: "黃", onChange, onSelect, filterQuery: "staff=partner&status=linked",
+  })));
+  expect(host.querySelector("input")!.value).toBe("黃");
+  expect(host.textContent).not.toContain("黃彥陸");
+  expect(host.textContent).toContain("載入顧客搜尋資料中");
+  await act(async () => host.querySelector("input")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(fetch).toHaveBeenLastCalledWith("/api/customers/search-index?storeId=s&staff=partner&status=linked", expect.anything());
+  await act(async () => finish!({ ok: true, json: async () => ({ scope: "u:s", rows: [], complete: true }) } as Response));
+  expect(host.textContent).toContain("沒有符合");
+});
+it("preserves list filters when searching beyond a truncated index", async () => {
+  vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: async () => ({ scope: "u:s", rows: [], complete: false }) } as Response);
+  await act(async () => root.render(createElement(CustomerInstantSearch, {
+    storeId: "s", value: "", onChange, onSelect, filterQuery: "staff=partner",
+  })));
+  await input("黃");
+  expect(fetch).toHaveBeenLastCalledWith("/api/customers/search-index?storeId=s&staff=partner&q=%E9%BB%83", expect.anything());
+});
+it("cashbook defaults to the whole store without list filters", async () => {
+  await render(); await input("黃");
+  expect(fetch).toHaveBeenCalledWith("/api/customers/search-index?storeId=s", expect.anything());
+  expect(host.textContent).toContain("黃彥陸");
+});

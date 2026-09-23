@@ -66,3 +66,27 @@ it("uses the verified view-mode store rather than the client choice", async () =
   expect((await GET(request("storeId=child"))).status).toBe(200);
   expect(m.find).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storeId: "child" }) }));
 });
+it.each([
+  ["staff=partner", { assignedStaffId: "partner" }],
+  ["status=linked", { lineLinkStatus: "LINKED" }],
+  ["status=unlinked", { lineLinkStatus: { not: "LINKED" } }],
+  ["status=lead", { customerStage: "LEAD" }],
+  ["status=customer", { customerStage: { not: "LEAD" } }],
+  ["visit=never", { lastVisitAt: null }],
+  ["referral=has", { sponsoredCustomers: { some: {} } }],
+  ["referral=none", { sponsoredCustomers: { none: {} } }],
+])("applies list filter %s to the index and remote fallback", async (filter, expected) => {
+  for (const suffix of ["", "&q=黃"]) {
+    await GET(request(`storeId=store-a&${filter}${suffix}`));
+    expect(m.find).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ storeId: "store-a", ...expected }),
+    }));
+  }
+});
+it("combines filters without changing the store authorization boundary", async () => {
+  await GET(request("storeId=store-a&staff=partner&status=linked&visit=never&referral=has"));
+  expect(m.find).toHaveBeenLastCalledWith(expect.objectContaining({ where: expect.objectContaining({
+    storeId: "store-a", assignedStaffId: "partner", lineLinkStatus: "LINKED",
+    lastVisitAt: null, sponsoredCustomers: { some: {} }, mergedIntoCustomerId: null,
+  }) }));
+});

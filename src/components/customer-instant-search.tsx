@@ -3,16 +3,17 @@
 import { useEffect, useState } from "react";
 import { matchCustomerSearch, type CustomerSearchOption } from "@/lib/customer-search-index";
 
-type Snapshot = { scope: string; rows: CustomerSearchOption[]; complete: boolean };
+type Snapshot = { scope: string; rows: CustomerSearchOption[]; complete: boolean; requestKey?: string };
 
 /** Per-mounted-view memory only: never persist customer data across login/store changes. */
-export function CustomerInstantSearch({ storeId, value, onChange, onSelect, id, className }: {
+export function CustomerInstantSearch({ storeId, value, onChange, onSelect, id, className, filterQuery = "" }: {
   storeId: string;
   value: string;
   onChange: (value: string) => void;
   onSelect: (customer: CustomerSearchOption) => void;
   id?: string;
   className?: string;
+  filterQuery?: string;
 }) {
   const [text, setText] = useState(value);
   const [composing, setComposing] = useState(false);
@@ -21,6 +22,10 @@ export function CustomerInstantSearch({ storeId, value, onChange, onSelect, id, 
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState(false);
   const [remote, setRemote] = useState<{ query: string; rows: CustomerSearchOption[] } | null>(null);
+  const requestKey = `/api/customers/search-index?storeId=${encodeURIComponent(storeId)}${filterQuery ? `&${filterQuery}` : ""}`;
+  // A changed filter/store must never render or select the old index, even
+  // during the render before the request effect clears its state.
+  const activeSnapshot = snapshot?.requestKey === requestKey ? snapshot : null;
   useEffect(() => { setText(value); }, [value]);
   useEffect(() => {
     const refresh = () => { setSnapshot(null); setRemote(null); setRevision((r) => r + 1); };
@@ -34,31 +39,31 @@ export function CustomerInstantSearch({ storeId, value, onChange, onSelect, id, 
   useEffect(() => {
     const controller = new AbortController();
     setSnapshot(null); setError(false); setRemote(null);
-    fetch(`/api/customers/search-index?storeId=${encodeURIComponent(storeId)}`, { cache: "no-store", signal: controller.signal })
+    fetch(requestKey, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("load");
         const data = await response.json() as Snapshot;
-        if (!controller.signal.aborted) setSnapshot(data);
+        if (!controller.signal.aborted) setSnapshot({ ...data, requestKey });
       }).catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
-  }, [storeId, revision]);
+  }, [requestKey, revision]);
   const query = composing ? "" : text.trim();
   useEffect(() => {
-    if (!query || !snapshot || snapshot.complete) return;
+    if (!query || !activeSnapshot || activeSnapshot.complete) return;
     const controller = new AbortController();
     setRemote(null); setError(false);
-    fetch(`/api/customers/search-index?storeId=${encodeURIComponent(storeId)}&q=${encodeURIComponent(query)}`, { cache: "no-store", signal: controller.signal })
+    fetch(`${requestKey}&q=${encodeURIComponent(query)}`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("search");
         const data = await response.json() as Snapshot;
-        if (data.scope !== snapshot.scope) throw new Error("scope changed");
+        if (data.scope !== activeSnapshot.scope) throw new Error("scope changed");
         if (!controller.signal.aborted) setRemote({ query, rows: data.rows });
       }).catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
-  }, [query, snapshot, storeId]);
-  const rows = snapshot ? matchCustomerSearch(snapshot.rows, query) : [];
-  const results = remote?.query === query ? remote.rows : rows;
-  const pending = !snapshot || (!snapshot.complete && remote?.query !== query);
+  }, [query, activeSnapshot, requestKey]);
+  const rows = activeSnapshot ? matchCustomerSearch(activeSnapshot.rows, query) : [];
+  const results = activeSnapshot && remote?.query === query ? remote.rows : rows;
+  const pending = !activeSnapshot || (!activeSnapshot.complete && remote?.query !== query);
   return <div className="relative min-w-0 flex-1" onBlur={(event) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false);
   }}>
@@ -88,7 +93,7 @@ export function CustomerInstantSearch({ storeId, value, onChange, onSelect, id, 
       {results.map((row) => <button key={row.id} type="button" onMouseDown={(e) => e.preventDefault()}
         onClick={() => { onSelect(row); setFocused(false); }} className="flex min-h-11 w-full items-center justify-between gap-2 border-b border-earth-100 px-3 text-left text-sm hover:bg-primary-50"><span>{row.name}</span><span className="text-xs text-earth-500">{row.phone}</span></button>)}
       {error ? <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => setRevision((r) => r + 1)} className="p-3 text-xs text-amber-700">載入失敗，點此重試</button>
-        : pending ? <p role="status" className="p-3 text-xs text-earth-500">{snapshot ? "正在查詢其餘顧客…" : "載入顧客搜尋資料中…"}</p>
+        : pending ? <p role="status" className="p-3 text-xs text-earth-500">{activeSnapshot ? "正在查詢其餘顧客…" : "載入顧客搜尋資料中…"}</p>
         : results.length === 0 ? <p className="p-3 text-xs text-earth-500">沒有符合的顧客</p> : null}
     </div>}
   </div>;

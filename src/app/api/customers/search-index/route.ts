@@ -6,6 +6,8 @@ import { requireSteamfootStore } from "@/lib/industry-module-server";
 import { resolveStoreViewContextFromCookie, storeIdForViewContext } from "@/lib/store-view-context-server";
 import { prisma } from "@/lib/db";
 import { CUSTOMER_INDEX_LIMIT, normalizeCustomerSearch } from "@/lib/customer-search-index";
+import { customerListFilterWhere } from "@/lib/customer-list-filters";
+import { CustomerStage } from "@prisma/client";
 
 const headers = { "Cache-Control": "private, no-store" };
 export async function GET(request: NextRequest) {
@@ -21,11 +23,19 @@ export async function GET(request: NextRequest) {
     }
     await requireSteamfootStore(storeId);
     const q = normalizeCustomerSearch(request.nextUrl.searchParams.get("q") ?? "");
+    const params = request.nextUrl.searchParams;
+    const stage = params.get("stage");
+    const filters = customerListFilterWhere({
+      status: params.get("status"), visit: params.get("visit"),
+      referral: params.get("referral"), assignedStaffId: params.get("staff"),
+      stage: Object.values(CustomerStage).includes(stage as CustomerStage) ? stage as CustomerStage : undefined,
+    });
     const rows = await prisma.customer.findMany({
       where: {
         storeId,
         mergedIntoCustomerId: null,
         NOT: { user: { is: { status: "SUSPENDED" } } },
+        ...filters,
         ...(q ? { OR: [
           { name: { contains: q, mode: "insensitive" as const } },
           { phone: { contains: q } },

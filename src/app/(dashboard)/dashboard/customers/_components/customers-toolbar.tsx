@@ -81,6 +81,11 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, i
   const [draft, setDraft] = useState({source:current.search,value:current.search});
   const searchDraft = instantStoreId || draft.source === current.search ? draft.value : current.search;
   const instantQuery = normalizeCustomerSearch(searchDraft);
+  const indexFilters = new URLSearchParams();
+  for (const key of ["status", "visit", "referral", "staff", "stage"]) {
+    const value = searchParams.get(key);
+    if (value) indexFilters.set(key, value);
+  }
   const lastListRequest = useRef<string | null>(null);
 
   // Local suggestions are immediate; serialize list navigations and retain the
@@ -253,7 +258,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, i
     <div className="flex flex-wrap items-center gap-2 border-b border-earth-200 pb-3">
       {isPending && <NavigationNotice />}
       <form onSubmit={onSearchSubmit} className={courseMode ? "flex min-w-0 basis-full items-center gap-2 lg:basis-64 lg:flex-1" : "flex min-w-[220px] flex-1 items-center gap-1.5"}>
-        {instantStoreId ? <CustomerInstantSearch key={instantStoreId} storeId={instantStoreId} value={searchDraft}
+        {instantStoreId ? <CustomerInstantSearch key={instantStoreId} storeId={instantStoreId} value={searchDraft} filterQuery={indexFilters.toString()}
           className="w-full min-w-0 rounded-md border border-earth-300 bg-white px-3 py-1.5 text-xs text-earth-800 focus:border-primary-400 focus:outline-none"
           onChange={(value) => {
             setDraft({ source: current.search, value });
