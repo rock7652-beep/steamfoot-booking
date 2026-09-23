@@ -23,7 +23,7 @@ const firstVisitItems = [
   },
   {
     title: "體驗結束後再完成付款",
-    detail: "測試門市不收費；正式門市首次體驗每人 NT$499。",
+    detail: "首次體驗每人 NT$499，不需要先購買正式方案。",
   },
 ];
 
