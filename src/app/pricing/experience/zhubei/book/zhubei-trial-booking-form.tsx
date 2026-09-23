@@ -82,12 +82,14 @@ function formatCurrency(value: number): string {
 
 export function ZhubeiTrialBookingForm({
   entry,
+  source,
   storeSlug = "zhubei",
   contactUrl = "https://lin.ee/Nki2OjA",
   successGuideId = "first-visit-guide",
   lineTrialPilot = false,
 }: {
   entry?: string;
+  source?: string;
   storeSlug?: "zhubei" | "hsinchu" | "taichung";
   contactUrl?: string;
   successGuideId?: string;
@@ -199,7 +201,7 @@ export function ZhubeiTrialBookingForm({
     setSubmitting(true);
     setMessage("");
     try {
-      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website, entry, storeSlug, noticeAccepted, lineTrialPilot: pilot });
+      const result = await submitPublicTrialBooking({ name, phone, bookingDate, slotTime, people, website, entry, source, storeSlug, noticeAccepted, lineTrialPilot: pilot });
       if (result.status === "ok") {
         setSuccess({
           date: result.bookingDate,
