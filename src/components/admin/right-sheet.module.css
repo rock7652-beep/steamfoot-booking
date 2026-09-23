@@ -19,3 +19,20 @@
     border-radius: 1rem;
   }
 }
+
+@media (min-width: 640px) {
+  .centered[data-compact="true"] {
+    height: auto;
+    max-height: calc(100% - 3rem);
+    overflow-y: auto;
+  }
+}
+
+.centered > header { flex-shrink: 0; }
+.centered > [class~="h-full"] { min-height: 0; }
+.centered > form > header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: white;
+}

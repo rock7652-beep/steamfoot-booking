@@ -703,7 +703,7 @@ export function CourseWorkspace({
         </section>
       )}
       {panel && (
-        <RightSheet
+        <RightSheet presentation="centered"
           compact
           open
           onClose={closePanel}
