@@ -36,7 +36,7 @@ export function PlanFormDrawer({ open, mode, plan, onClose, onSaved }: Props) {
   const isEdit = mode === "edit" && !!plan;
 
   return (
-    <RightSheet
+    <RightSheet presentation="centered"
       open={open}
       onClose={onClose}
       labelledById="plan-drawer-title"

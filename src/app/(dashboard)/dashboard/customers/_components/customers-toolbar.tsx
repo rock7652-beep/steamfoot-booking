@@ -64,6 +64,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, i
   const searchParams = useSearchParams();
   const pathname = usePathname(); // 真實 pathname，含 /hq 或 /s/{slug}/admin 前綴
   const [isPending, startTransition] = useTransition();
+  const [composing, setComposing] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const current = useMemo(
@@ -79,7 +80,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, i
   );
 
   const [draft, setDraft] = useState({source:current.search,value:current.search});
-  const searchDraft = instantStoreId || draft.source === current.search ? draft.value : current.search;
+  const searchDraft = instantStoreId || courseMode || draft.source === current.search ? draft.value : current.search;
   const instantQuery = normalizeCustomerSearch(searchDraft);
   const indexFilters = new URLSearchParams();
   for (const key of ["status", "visit", "referral", "staff", "stage"]) {
@@ -91,19 +92,22 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, i
   // Local suggestions are immediate; serialize list navigations and retain the
   // latest input while the previous server-rendered list is still pending.
   useEffect(() => {
-    if (!instantStoreId || isPending || instantQuery === current.search) return;
+    if ((!instantStoreId && !courseMode) || composing || isPending || instantQuery === current.search) return;
     const params = new URLSearchParams(searchParams.toString());
     if (instantQuery) params.set("search", instantQuery);
     else params.delete("search");
     params.delete("page");
     const url = `${pathname}?${params}`;
     if (lastListRequest.current === url) return;
-    lastListRequest.current = url;
-    startTransition(() => router.replace(url, { scroll: false }));
-  }, [instantStoreId, isPending, instantQuery, current.search, searchParams, pathname, router]);
+    const timer = setTimeout(() => {
+      lastListRequest.current = url;
+      startTransition(() => router.replace(url, { scroll: false }));
+    }, courseMode ? 250 : 0);
+    return () => clearTimeout(timer);
+  }, [instantStoreId, courseMode, composing, isPending, instantQuery, current.search, searchParams, pathname, router]);
 
   useEffect(() => {
-    if (!instantStoreId) return;
+    if (!instantStoreId && !courseMode) return;
     const restore = () => {
       lastListRequest.current = null;
       const search = new URLSearchParams(window.location.search).get("search") ?? "";
@@ -111,7 +115,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, i
     };
     window.addEventListener("popstate", restore);
     return () => window.removeEventListener("popstate", restore);
-  }, [instantStoreId]);
+  }, [instantStoreId, courseMode]);
 
   const hasActiveFilters = FILTER_KEYS.some((k) => {
     const v = searchParams.get(k);
@@ -129,7 +133,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, i
 
   const pushParams = (mutate: (p: URLSearchParams) => void) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (instantStoreId) {
+    if (instantStoreId || courseMode) {
       if (instantQuery) params.set("search", instantQuery);
       else params.delete("search");
     }
@@ -150,6 +154,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, i
 
   const onSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (composing) return;
     setParam("search", instantStoreId ? instantQuery : searchDraft.trim());
   };
 
@@ -164,9 +169,15 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false, i
           <form onSubmit={onSearchSubmit} className="flex min-w-0 flex-1 items-center gap-2">
             <input
               name="search"
+              aria-label="搜尋姓名、電話或 LINE 名稱"
+              onCompositionStart={() => setComposing(true)}
+              onCompositionEnd={() => setComposing(false)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (composing || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)) event.preventDefault();
+              }}
               value={searchDraft}
               onChange={(e) => setDraft({source:current.search,value:e.target.value})}
-              placeholder="搜尋姓名／電話"
+              placeholder="輸入姓名、電話或 LINE 名稱"
               className="min-h-11 min-w-0 flex-1 rounded-md border border-earth-300 bg-white px-3 text-sm text-earth-800 placeholder:text-earth-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-300"
             />
             {searchDraft !== current.search ? (

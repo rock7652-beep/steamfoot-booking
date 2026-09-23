@@ -43,7 +43,7 @@ export function BonusRuleDrawer({ open, mode, rule, onClose, onSaved }: Props) {
   const isEdit = mode === "edit" && !!rule;
 
   return (
-    <RightSheet
+    <RightSheet presentation="centered"
       open={open}
       onClose={onClose}
       labelledById="bonus-rule-drawer-title"

@@ -71,12 +71,12 @@ export function NewSpaPerson({ onCreated, staffId }: {
     <button type="button" className="rounded-lg bg-earth-800 px-4 py-3 text-sm font-medium text-white" onClick={() => setOpen(true)}>
       {staffId ? "連結會員" : "＋新增人員"}
     </button>
-    <RightSheet open={open} onClose={close} labelledById="spa-member-staff-title">
+    <RightSheet presentation="centered" open={open} onClose={close} labelledById="spa-member-staff-title">
       <header className="flex items-center justify-between border-b border-earth-200 p-5">
         <div><h2 id="spa-member-staff-title" className="text-xl font-bold">{staffId ? "連結既有人員" : "從本店會員加入人員"}</h2><p className="mt-1 text-sm text-earth-500">沿用會員姓名與 LINE 登入；加入後可查看自己的工作。</p></div>
         <button aria-label="關閉" disabled={pending} onClick={close}>✕</button>
       </header>
-      <div className="space-y-4 p-5">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5">
         <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); search(); }}>
           <label className="sr-only" htmlFor="spa-member-search">搜尋會員</label>
           <input id="spa-member-search" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="輸入會員姓名或手機" maxLength={60} className="min-w-0 flex-1 rounded-lg border border-earth-200 p-3" />

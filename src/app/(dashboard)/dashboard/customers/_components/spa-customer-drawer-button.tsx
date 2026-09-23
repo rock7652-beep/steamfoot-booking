@@ -79,7 +79,7 @@ function CustomerDrawer({
       />
     );
   return (
-    <RightSheet
+    <RightSheet presentation="centered"
       open
       onClose={onClose}
       width={620}

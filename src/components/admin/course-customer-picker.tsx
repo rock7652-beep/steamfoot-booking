@@ -9,21 +9,22 @@ export function CourseCustomerPicker({ name, initial = [], multiple = false, req
 }) {
   const input=useRef<HTMLInputElement>(null);
   const [selected,setSelected] = useState(initial);
+  const [composing,setComposing] = useState(false);
   const [query,setQuery] = useState("");
   const [retry,setRetry] = useState(0);
   const [result,setResult] = useState<{query:string;rows:Choice[];hasMore:boolean;error?:string} | null>(null);
   useEffect(()=>{
-    if(!enabled)return;
-    const normalizedQuery=query.trim();
+    if(!enabled || composing)return;
+    const normalizedQuery=composing ? "" : query.trim();
     if(!normalizedQuery)return;
     let active=true;
     const timer=setTimeout(()=>{searchCourseCustomers(normalizedQuery).then(r=>{
       if(active) setResult(r.success ? {query:normalizedQuery,rows:r.rows,hasMore:r.hasMore} : {query:normalizedQuery,rows:[],hasMore:false,error:r.error});
     }).catch(()=>{if(active)setResult({query:normalizedQuery,rows:[],hasMore:false,error:"讀取失敗，請重試"});});},250);
     return ()=>{active=false;clearTimeout(timer);};
-  },[query,retry,enabled]);
+  },[query,retry,enabled,composing]);
   useEffect(()=>{input.current?.setCustomValidity(required && !selected.length ? "請從搜尋結果選擇顧客":"");},[selected,required,query]);
-  const normalizedQuery=query.trim();
+  const normalizedQuery=composing ? "" : query.trim();
   const ready=result?.query===normalizedQuery;
   return <div className="space-y-2">
     {selected.map(c=><div key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-primary-50 px-3 py-1 text-sm">
@@ -31,7 +32,10 @@ export function CourseCustomerPicker({ name, initial = [], multiple = false, req
       <input type="hidden" name={name} value={c.id}/>
       <button type="button" aria-label={`移除 ${c.name}`} className="min-h-11 shrink-0 px-2" onClick={()=>{setSelected(old=>{const next=old.filter(p=>p.id!==c.id);onChange?.(next);return next;});}}>移除</button>
     </div>)}
-    <input ref={input} aria-label="搜尋顧客姓名或電話" placeholder="搜尋姓名／電話" value={query}
+    <input ref={input} aria-label="搜尋顧客姓名、電話或 LINE 名稱" placeholder="搜尋姓名／電話／LINE 名稱" value={query}
+      onCompositionStart={()=>setComposing(true)}
+      onCompositionEnd={()=>setComposing(false)}
+      onKeyDown={e=>{if(e.key === "Enter")e.preventDefault();}}
       onChange={e=>setQuery(e.target.value)}
       className="min-h-11 w-full min-w-0 rounded-lg border border-earth-200 px-3 text-base"/>
     {!normalizedQuery ? null : !ready ? <p role="status" className="text-sm">搜尋中…</p> : result?.error ? <p role="alert">{result.error}<button type="button" className="min-h-11 px-3" onClick={()=>setRetry(n=>n+1)}>重試</button></p> : <>

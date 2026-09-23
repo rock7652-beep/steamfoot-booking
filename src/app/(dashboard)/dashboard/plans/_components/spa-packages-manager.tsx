@@ -189,7 +189,7 @@ export function SpaPackagesManager({
         </table>
       </div>
       {editing && (
-        <RightSheet
+        <RightSheet presentation="centered"
           open
           onClose={() => {
             if (!pending) setEditing(null);
@@ -218,9 +218,12 @@ export function SpaPackagesManager({
               });
             }}
           >
-            <h2 id="package-title" className="text-xl font-bold">
-              {editing.id ? "編輯方案" : "新增方案"}
-            </h2>
+            <header className="flex items-center justify-between gap-3 bg-white pb-3">
+              <h2 id="package-title" className="text-xl font-bold">
+                {editing.id ? "編輯方案" : "新增方案"}
+              </h2>
+              <button type="button" disabled={pending} className="min-h-11 shrink-0 px-3" onClick={() => setEditing(null)}>關閉</button>
+            </header>
             <fieldset disabled={pending} className="space-y-4">
               <label className="block">
                 方案名稱

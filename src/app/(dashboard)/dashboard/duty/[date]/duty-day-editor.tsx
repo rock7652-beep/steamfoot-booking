@@ -232,7 +232,7 @@ export function DutyDayEditor({
 
   return (
     <div>
-      {course && <RightSheet open={!!confirmation} onClose={() => setConfirmation(null)} labelledById="duty-confirm-title">
+      {course && <RightSheet presentation="centered" open={!!confirmation} onClose={() => setConfirmation(null)} labelledById="duty-confirm-title">
         <h2 id="duty-confirm-title" className="border-b p-4 text-lg font-semibold">確認值班調整</h2>
         <div className="min-h-0 flex-1 overflow-y-auto p-4 text-sm">
           <p>{confirmation?.text}</p>

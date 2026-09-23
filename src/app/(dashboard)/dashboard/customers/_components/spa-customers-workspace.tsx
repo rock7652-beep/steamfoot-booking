@@ -232,7 +232,7 @@ export function AccountPanel({
     onChanged();
   };
   return (
-    <RightSheet
+    <RightSheet presentation="centered"
       open
       onClose={() => {
         if (!pending) onClose();

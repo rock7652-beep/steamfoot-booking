@@ -20,7 +20,7 @@ type Entry = {
 };
 export function CashbookEditor({
   entry,
-  presentation = "side",
+  presentation = "centered",
   today,
   closedDates,
   staffOptions,

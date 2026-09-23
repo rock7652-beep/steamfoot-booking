@@ -102,7 +102,7 @@ export function SpaRevenueActions({
         </span>
       )}
       {mode && (
-        <RightSheet
+        <RightSheet presentation="centered"
           open
           width={520}
           labelledById={`payment-${row.id}`}

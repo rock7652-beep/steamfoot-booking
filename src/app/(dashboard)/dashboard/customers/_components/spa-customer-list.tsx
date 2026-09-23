@@ -1,6 +1,6 @@
 "use client";
-import { useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
 import { toLocalDateStr } from "@/lib/date-utils";
 import type { SpaCustomerSummary } from "@/server/queries/spa-customer-summary";
@@ -20,9 +20,31 @@ export function SpaCustomerList({
 }) {
   const router = useRouter(),
     pathname = usePathname();
+  const params = useSearchParams();
+  const [composing, setComposing] = useState(false);
   const [query, setQuery] = useState(search),
     [filter, setFilter] = useState("all"),
     [pending, start] = useTransition();
+  const lastRequest = useRef("");
+  useEffect(() => {
+    if (composing || pending || query.trim() === search) return;
+    const timer = setTimeout(() => {
+      const next = new URLSearchParams(params.toString());
+      if (query.trim()) next.set("search", query.trim());
+      else next.delete("search");
+      next.delete("page");
+      const url = `${pathname}?${next}`;
+      if (lastRequest.current === url) return;
+      lastRequest.current = url;
+      start(() => router.replace(url, { scroll: false }));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [composing, pending, query, search, params, pathname, router]);
+  useEffect(() => {
+    const restore = () => { lastRequest.current = ""; setQuery(new URLSearchParams(window.location.search).get("search") ?? ""); };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
   const [cutoff] = useState(() =>
     toLocalDateStr(new Date(Date.now() - 30 * 86400000)),
   );
@@ -54,9 +76,10 @@ export function SpaCustomerList({
         )}
       </header>
       <form
-        className="flex gap-2"
+        className="flex min-w-0 gap-2"
         onSubmit={(e) => {
           e.preventDefault();
+          if (composing) return;
           start(() =>
             router.replace(
               `${pathname}${query.trim() ? `?search=${encodeURIComponent(query.trim())}` : ""}`,
@@ -67,15 +90,21 @@ export function SpaCustomerList({
       >
         <input
           value={query}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={() => setComposing(false)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && (composing || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)) event.preventDefault();
+          }}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="搜尋姓名／電話"
           aria-label="搜尋姓名或電話"
-          className="min-w-0 flex-1 rounded-lg border bg-white p-3"
+          className="min-h-11 min-w-0 flex-1 rounded-lg border border-earth-300 bg-white px-3 text-base"
         />
         <button disabled={pending} className="rounded-lg border px-5">
           {pending ? "搜尋中…" : "搜尋"}
         </button>
       </form>
+      <p className="text-xs text-earth-500">輸入後自動篩選，點選顧客查看詳情。{query && <button type="button" className="ml-2 min-h-11 px-2 text-primary-700" onClick={() => setQuery("")}>清空搜尋</button>}</p>
       <div className="flex flex-wrap items-center gap-2">
         {(permissions.canReadBookings
           ? [
@@ -113,6 +142,7 @@ export function SpaCustomerList({
           {visible.map((c) => (
             <button
               key={c.id}
+              disabled={pending || query.trim() !== search}
               onClick={() => onOpen(c)}
               onPointerEnter={() => onPrefetch(c.id)}
               onFocus={() => onPrefetch(c.id)}
