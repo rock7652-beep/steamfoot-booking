@@ -37,6 +37,7 @@ import { computeAmount, resolveTrialDisplayAmount } from "./compute-amount";
 import { PeopleBadge } from "./people-badge";
 import { packageUsageSummary } from "./package-usage-summary";
 import { bookingPlanExpiry } from "@/lib/booking-plan-expiry";
+import { trialBookingSourceLabel } from "@/lib/trial-booking-source";
 import { formatWeekdayZh } from "@/lib/date-utils";
 
 /** Keep pending and loaded content in the same independently flowing columns. */
@@ -936,6 +937,9 @@ function DrawerContent({
                   (booking.bookingType === "SINGLE" ? "單次蒸足" : !spaMode && booking.bookingType === "PACKAGE_SESSION" ? "方案服務" : "—"))
             }
           />
+          {!spaMode && booking.bookingType === "FIRST_TRIAL" && (
+            <KV readable label="預約來源" value={trialBookingSourceLabel(booking.bookingSource)} />
+          )}
           <KV readable={!spaMode} label="人數" value={`${booking.people} 人`} />
           {booking.attendedPeople != null &&
             booking.attendedPeople < booking.people && (

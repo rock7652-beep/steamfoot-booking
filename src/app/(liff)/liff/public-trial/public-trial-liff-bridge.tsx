@@ -30,6 +30,7 @@ export function PublicTrialLiffBridge({
           `/pricing/experience/${storeSlug}/book`,
           window.location.origin,
         );
+        publicBooking.searchParams.set("source", "line");
         publicBooking.hash = "booking-form";
         window.location.replace(publicBooking.toString());
       };

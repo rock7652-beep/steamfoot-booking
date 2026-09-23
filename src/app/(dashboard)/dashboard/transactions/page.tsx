@@ -66,6 +66,7 @@ interface PageProps {
     dateFrom?: string;
     dateTo?: string;
     transactionType?: TransactionType;
+    revenueGroup?: string;
     staff?: string;
     page?: string;
     status?: string;
@@ -80,6 +81,8 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const page = Number(params.page ?? 1);
+  const revenueGroup = ["package", "other", "refund", "pending"].includes(params.revenueGroup ?? "")
+    ? params.revenueGroup as "package" | "other" | "refund" | "pending" : undefined;
 
   const today = toLocalDateStr();
   // 預設：本月
@@ -112,6 +115,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       dateFrom,
       dateTo,
       transactionType: params.transactionType,
+      revenueGroup,
       revenueStaffId: params.staff,
       excludeSessionDeduction: !params.transactionType,
       page,
@@ -156,8 +160,8 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
   const totalPages = Math.ceil(total / pageSize);
 
-  const hasActiveFilters = !!(params.transactionType || params.staff);
-  const activeFilterCount = [params.transactionType, params.staff].filter(Boolean).length;
+  const hasActiveFilters = !!(params.transactionType || params.staff || revenueGroup);
+  const activeFilterCount = [params.transactionType, params.staff, revenueGroup].filter(Boolean).length;
 
   return (
     <FeatureGate plan={plan} feature={FEATURES.TRANSACTION_MANAGEMENT} enabled={await hasCurrentStoreFeature(FEATURES.TRANSACTION_MANAGEMENT)}>
@@ -179,6 +183,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
       {/* 篩選列 */}
       <form method="GET" className="mb-4 flex flex-wrap items-end gap-2">
+        {revenueGroup && <input type="hidden" name="revenueGroup" value={revenueGroup} />}
         <div>
           <label className="block text-xs text-earth-500">開始日期</label>
           <input
@@ -238,6 +243,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
       {hasActiveFilters && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="text-xs text-earth-500">篩選條件：</span>
+          {revenueGroup && <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs text-primary-700">{revenueGroup === "package" ? "已收款方案" : revenueGroup === "other" ? "已收款其他交易" : revenueGroup === "refund" ? "有效退款" : "待收款"}</span>}
           {params.transactionType && (
             <Link
               href={`?${new URLSearchParams({
@@ -272,7 +278,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
       {/* 快速統計 */}
       <div className="mb-4 rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">
-        指定期間營業額：
+        {revenueGroup === "pending" ? "指定期間待收款：" : revenueGroup === "refund" ? "指定期間退款：" : "指定期間營業額："}
         <strong className="ml-1">NT$ {periodRevenue.toLocaleString()}</strong>
         <span className="ml-3 text-xs text-primary-500">（共 {total} 筆交易）</span>
       </div>
@@ -310,7 +316,9 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
               const voidedLabel = transactionStatusLabel(t);
               const badge = voidedLabel
                 ? { text: voidedLabel, color: "bg-gray-200 text-gray-600" }
-                : STATUS_BADGE[t.status] ?? { text: t.status, color: "bg-earth-100 text-earth-600" };
+                : t.paymentStatus === "PENDING" && t.status === "SUCCESS"
+                  ? { text: "待收款", color: "bg-amber-100 text-amber-700" }
+                  : STATUS_BADGE[t.status] ?? { text: t.status, color: "bg-earth-100 text-earth-600" };
               return (
                 <tr
                   key={t.id}

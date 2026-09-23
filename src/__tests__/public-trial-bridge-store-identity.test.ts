@@ -45,7 +45,7 @@ describe("store identity is independent of platform OA friendship", () => {
   it("preserves the existing public fallback when the login identity is incompatible", async () => {
     m.fetch.mockResolvedValue({ json: async () => ({ status: "error", code: "IDENTITY_SCOPE_MISMATCH" }) });
     start();
-    await vi.waitFor(() => expect(m.replace).toHaveBeenCalledWith("https://preview.example/pricing/experience/zhubei/book#booking-form"));
+    await vi.waitFor(() => expect(m.replace).toHaveBeenCalledWith("https://preview.example/pricing/experience/zhubei/book?source=line#booking-form"));
   });
   it("does not open an anonymous form when verification is unavailable", async () => {
     m.fetch.mockRejectedValue(new Error("network"));

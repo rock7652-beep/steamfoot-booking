@@ -4,7 +4,7 @@ import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import { resolveStorePresentation } from "@/lib/store-resolver";
 import { ZhubeiTrialBookingForm } from "../../zhubei/book/zhubei-trial-booking-form";
 
-const ENABLED_STORES = ["hsinchu", "taichung"] as const;
+const ENABLED_STORES = ["hsinchu", "taichung", "staging"] as const;
 type EnabledStoreSlug = (typeof ENABLED_STORES)[number];
 
 
@@ -51,7 +51,7 @@ const faqItems = [
 ];
 
 function isEnabledStore(slug: string): slug is EnabledStoreSlug {
-  return ENABLED_STORES.includes(slug as EnabledStoreSlug);
+  return ENABLED_STORES.includes(slug as EnabledStoreSlug) && (slug !== "staging" || process.env.VERCEL_ENV === "preview");
 }
 
 export async function generateMetadata({
@@ -73,7 +73,7 @@ export default async function StoreTrialBookingPage({
   searchParams,
 }: {
   params: Promise<{ storeSlug: string }>;
-  searchParams: Promise<{ entry?: string | string[] }>;
+  searchParams: Promise<{ entry?: string | string[]; source?: string | string[] }>;
 }) {
   const [{ storeSlug }, query] = await Promise.all([params, searchParams]);
   if (!isEnabledStore(storeSlug)) notFound();
@@ -90,8 +90,8 @@ export default async function StoreTrialBookingPage({
         <header className="bg-gradient-to-br from-earth-900 to-primary-800 px-6 py-10 text-white sm:px-10">
           <p className="text-sm font-semibold tracking-[0.16em] text-white/80">{storeName}</p>
           <h1 className="mt-3 text-3xl font-bold leading-tight">第一次蒸足，從這裡開始</h1>
-          <p className="mt-4 text-lg font-semibold">首次體驗每人 NT$499</p>
-          <p className="mt-2 text-sm text-white/80">約 45 分鐘・不用註冊・到店再付款</p>
+          <p className="mt-4 text-lg font-semibold">{storeSlug === "staging" ? "蒸足測試店・預約流程驗收" : "首次體驗每人 NT$499"}</p>
+          <p className="mt-2 text-sm text-white/80">{storeSlug === "staging" ? "測試資料僅供驗收，不須付款或實際到店" : "約 45 分鐘・不用註冊・到店再付款"}</p>
         </header>
 
         <div className="px-4 py-7 sm:px-10 sm:py-10">
@@ -105,6 +105,7 @@ export default async function StoreTrialBookingPage({
           <section id="booking-form" className="scroll-mt-5 pt-8">
             <ZhubeiTrialBookingForm
               entry={entry}
+              source={typeof query.source === "string" ? query.source : undefined}
               storeSlug={storeSlug}
               contactUrl={presentation.contactUrl}
             />
@@ -121,7 +122,7 @@ export default async function StoreTrialBookingPage({
                   </span>
                   <div>
                     <h3 className="font-semibold text-earth-900">{item.title}</h3>
-                    <p className="mt-1 text-sm leading-6 text-earth-500">{item.detail}</p>
+                    <p className="mt-1 text-sm leading-6 text-earth-500">{storeSlug === "staging" && item.title === "體驗結束後再完成付款" ? "測試預約不需付款或實際到店。" : item.detail}</p>
                   </div>
                 </div>
               ))}
@@ -140,7 +141,7 @@ export default async function StoreTrialBookingPage({
                     <span>{item.question}</span>
                     <span className="text-xl font-normal text-primary-700 transition-transform group-open:rotate-45">＋</span>
                   </summary>
-                  <p className="mt-3 pr-8 text-sm leading-6 text-earth-500">{item.answer}</p>
+                  <p className="mt-3 pr-8 text-sm leading-6 text-earth-500">{storeSlug === "staging" && item.question === "預約後需要先付款嗎？" ? "測試門市不用付款，也不需實際到店。" : item.answer}</p>
                 </details>
               ))}
             </div>

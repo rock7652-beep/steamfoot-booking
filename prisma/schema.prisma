@@ -1721,6 +1721,8 @@ model Booking {
   // Customer-operated trial booking lifecycle. Nullable/default values keep
   // every historical booking compatible with the existing payment flow.
   trialBookingChannel     TrialBookingChannel?
+  // Entry link used for this trial booking. Independent of login and notification identity.
+  bookingSource           String?              @db.VarChar(16)
   customerConfirmedAt     DateTime?
   customerRescheduledAt   DateTime?
   customerCancelledAt     DateTime?
@@ -1781,6 +1783,7 @@ model Booking {
   @@index([customerId, bookingStatus]) // ⚡ 顧客未來預約數查詢
   @@index([revenueStaffId])
   @@index([revenueStaffId, bookingDate]) // 店長月報查詢
+  @@index([storeId, createdAt, bookingSource])
   @@index([bookingStatus])
   @@index([customerPlanWalletId]) // ⚡ 方案使用紀錄查詢
   @@index([recurrenceGroupId])

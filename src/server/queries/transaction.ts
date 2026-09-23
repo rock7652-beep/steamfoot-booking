@@ -10,6 +10,7 @@ export interface ListTransactionsOptions {
   customerId?: string;
   revenueStaffId?: string;
   transactionType?: TransactionType;
+  revenueGroup?: "package" | "other" | "refund" | "pending";
   paymentMethod?: PaymentMethod;
   dateFrom?: string; // "YYYY-MM-DD"
   dateTo?: string;
@@ -30,6 +31,7 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
     customerId,
     revenueStaffId,
     transactionType,
+    revenueGroup,
     paymentMethod,
     dateFrom,
     dateTo,
@@ -52,7 +54,14 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
     ...staffFilter,
     ...(customerId ? { customerId } : {}),
     ...(transactionType ? { transactionType } : {}),
-    ...(!transactionType && excludeSessionDeduction ? { transactionType: { not: "SESSION_DEDUCTION" as TransactionType } } : {}),
+    ...(revenueGroup ? {
+      status: "SUCCESS" as const,
+      ...(revenueGroup === "refund" ? {} : { paymentStatus: revenueGroup === "pending" ? "PENDING" as const : "SUCCESS" as const }),
+      transactionType: revenueGroup === "package" ? "PACKAGE_PURCHASE" as const
+        : revenueGroup === "refund" ? "REFUND" as const
+        : { in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "SUPPLEMENT", ...(revenueGroup === "pending" ? ["PACKAGE_PURCHASE"] : [])] as TransactionType[] },
+    } : {}),
+    ...(!transactionType && !revenueGroup && excludeSessionDeduction ? { transactionType: { not: "SESSION_DEDUCTION" as TransactionType } } : {}),
     ...(paymentMethod ? {
       OR: [
         { paymentSplits: { some: { paymentMethod } } },
@@ -97,7 +106,7 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
     }),
     prisma.transaction.count({ where }),
     prisma.transaction.aggregate({
-      where: {
+      where: revenueGroup === "refund" ? where : {
         AND: [
           where,
           {
@@ -117,7 +126,7 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
     total,
     page,
     pageSize,
-    periodRevenue: Number(revenue._sum.amount ?? 0),
+    periodRevenue: revenueGroup === "refund" ? Math.abs(Number(revenue._sum.amount ?? 0)) : Number(revenue._sum.amount ?? 0),
   };
 }
 
