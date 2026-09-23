@@ -950,6 +950,8 @@ function Toolbar({
             type="search"
             placeholder="搜尋本月預約：姓名／手機"
             aria-label="搜尋本月預約：姓名或手機"
+            // Override the compact toolbar rule in globals.css for this full-row search field.
+            style={{ width: "100%", height: 40 }}
             value={compositionText ?? filters.search}
             onCompositionStart={(e) => { composing.current = true; setCompositionText(e.currentTarget.value); }}
             onCompositionEnd={(e) => { composing.current = false; setCompositionText(null); setFilters({ ...filters, search: e.currentTarget.value }); }}
