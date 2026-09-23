@@ -61,7 +61,7 @@ it("keeps letters with numbers in the name search", async () => {
   expect(m.customers).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: expect.objectContaining({ OR: expect.arrayContaining([{ name: { startsWith: "QA396" } }]) }) }));
 });
 it("uses the lightweight customer API and cancels stale searches", () => {
-  const source = readFileSync("src/app/(dashboard)/dashboard/cashbook/_components/quick-cashbook.tsx", "utf8");
+  const source = readFileSync("src/app/(dashboard)/dashboard/cashbook/_components/cashbook-entry-fields.tsx", "utf8");
   expect(source).toContain("/api/customers/search?q=");
   expect(source).toContain("new AbortController()");
   expect(source).not.toContain("Promise.race([searchQuickCashbookCustomers");
