@@ -229,7 +229,7 @@ export function ZhubeiTrialBookingForm({
         <p className="mt-3 text-sm text-earth-600">{success.date}　{success.time}</p>
         <p className="mt-2 text-sm text-earth-600">預約人數：{success.people} 人</p>
         <p className="mt-2 text-sm font-semibold text-primary-700">到店付款：{formatCurrency(success.expectedAmount)}</p>
-        <p className="mt-2 text-sm text-earth-600">首次蒸足體驗每人 NT$499｜約 45 分鐘</p>
+        <p className="mt-2 text-sm text-earth-600">{storeSlug === "staging" ? "蒸足測試店：測試方案，無須付款" : "首次蒸足體驗每人 NT$499｜約 45 分鐘"}</p>
         <p className="mt-4 text-xs leading-5 text-earth-500">到店後再付款即可。這次預約不需要會員帳號，也不會扣除任何正式方案堂數。</p>
         <p className="mt-4 rounded-xl bg-primary-50 px-4 py-3 text-sm leading-6 text-primary-800">以下是第一次到店前需要知道的事項，建議先看完並儲存門市導航。</p>
         <a href={`#${successGuideId}`} className="mt-4 flex min-h-12 items-center justify-center rounded-xl border border-primary-200 px-4 text-base font-bold text-primary-700">查看到店前提醒</a>
@@ -258,7 +258,7 @@ export function ZhubeiTrialBookingForm({
   const firstDow = new Date(Date.UTC(viewYear, viewMonth - 1, 1)).getUTCDay();
   const isCurrentMonth = viewYear === initialMonth.year && viewMonth === initialMonth.month;
   const ready = bookingDate && slotTime && people && name.trim() && phone.trim() && noticeAccepted;
-  const expectedAmount = 499 * people;
+  const expectedAmount = (storeSlug === "staging" ? 0 : 499) * people;
 
   return (
     <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
@@ -344,7 +344,7 @@ export function ZhubeiTrialBookingForm({
               })}
             </div>
             <div className="mt-3 rounded-xl bg-primary-50 px-4 py-3 text-sm text-primary-800">
-              每人 NT$499，共 {people} 人，到店付款 <span className="font-semibold">{formatCurrency(expectedAmount)}</span>
+              每人 {storeSlug === "staging" ? "NT$0（測試）" : "NT$499"}，共 {people} 人，到店付款 <span className="font-semibold">{formatCurrency(expectedAmount)}</span>
             </div>
           </>
         )}
