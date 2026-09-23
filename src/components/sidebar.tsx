@@ -22,6 +22,7 @@ import { StoreViewModeSwitcher } from "@/components/store-view-mode-switcher";
 import { MVP_HIDDEN_ROUTES } from "@/lib/mvp-hidden-features";
 import type { IndustryModuleId } from "@/lib/industry-modules";
 import { bookingDashboardPath } from "@/lib/industry-dashboard-routes";
+import { createDevicePreviewUrl } from "@/lib/device-preview";
 
 // 修改密碼 modal 一年用不到一次，但每次切後台頁都被掛在 sidebar 樹裡 → 浪費 ~20KB JS。
 // 改 next/dynamic + 條件 mount，只有 user menu 點擊「修改密碼」才會 fetch chunk + render。
@@ -840,7 +841,7 @@ export default function DashboardShell({
 
   function navHref(href: string) {
     const path = `${dashboardPrefix}${href}`;
-    return isIframePreview ? `${path}?devicePreview=1` : path;
+    return isIframePreview ? createDevicePreviewUrl(path) : path;
   }
 
   function toggleGroup(groupId: string) {
