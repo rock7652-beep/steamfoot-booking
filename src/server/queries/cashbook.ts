@@ -12,6 +12,7 @@ export interface ListCashbookOptions {
   dateFrom?: string; // "YYYY-MM-DD"
   dateTo?: string;
   type?: CashbookEntryType;
+  categoryGroup?: "retail" | "other";
   staffId?: string;
   page?: number;
   pageSize?: number;
@@ -24,7 +25,7 @@ export interface ListCashbookOptions {
 
 export async function listCashbookEntries(options: ListCashbookOptions & { activeStoreId?: string | null } = {}) {
   const user = await requireStaffSession();
-  const { dateFrom, dateTo, type, staffId, activeStoreId, page = 1, pageSize = 30 } = options;
+  const { dateFrom, dateTo, type, categoryGroup, staffId, activeStoreId, page = 1, pageSize = 30 } = options;
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const readUser = userForViewContext(user, storeViewContext);
   const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
@@ -45,6 +46,8 @@ export async function listCashbookEntries(options: ListCashbookOptions & { activ
   const where = {
     ...staffFilter,
     ...(type ? { type } : {}),
+    ...(categoryGroup === "retail" ? { category: { startsWith: "零售-" } } : {}),
+    ...(categoryGroup === "other" ? { OR: [{ category: null }, { category: { not: { startsWith: "零售-" } } }] } : {}),
     ...(dateFrom || dateTo
       ? {
           entryDate: {
