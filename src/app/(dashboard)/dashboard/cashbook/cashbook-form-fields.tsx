@@ -39,6 +39,7 @@ interface Props {
   allowedTypes?: CashbookEntryType[];
   /** 快速操作視窗使用：移除巢狀卡片，縮短表單。 */
   compact?: boolean;
+  onTypeChange?: (type: CashbookEntryType) => void;
 }
 
 const inputCls =
@@ -61,6 +62,7 @@ export function CashbookFormFields({
   defaultPaymentMethod,
   allowedTypes = ALL_TYPES,
   compact = false,
+  onTypeChange,
 }: Props) {
   const [entryDate, setEntryDate] = useState(defaultEntryDate);
   const [entryType, setEntryType] = useState<CashbookEntryType>(defaultType);
@@ -98,7 +100,11 @@ export function CashbookFormFields({
               name="type"
               required
               value={entryType}
-              onChange={(e) => setEntryType(e.target.value as CashbookEntryType)}
+              onChange={(e) => {
+                const nextType = e.target.value as CashbookEntryType;
+                setEntryType(nextType);
+                onTypeChange?.(nextType);
+              }}
               className={`mt-1 ${inputCls}`}
             >
               {allowedTypes.map((t) => (

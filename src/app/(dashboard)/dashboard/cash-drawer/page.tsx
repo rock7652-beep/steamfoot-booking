@@ -117,6 +117,7 @@ export default async function CashDrawerPage({ searchParams, courseHome = false 
         compactSetup={courseHome}
         view={view}
         todayStr={todayStr}
+        storeId={storeId}
         canInit={canInit}
         canOpen={canOpen}
         canClose={canClose}

@@ -229,6 +229,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               <CashDrawerWorkspace
                 view={cashDrawerData.view}
                 todayStr={today}
+                storeId={cashbookStoreId!}
                 canInit={cashDrawerData.canInit}
                 canOpen={cashDrawerData.canOpen}
                 canClose={cashDrawerData.canClose}
