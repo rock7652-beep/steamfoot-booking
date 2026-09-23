@@ -15,6 +15,7 @@ import {
   type RetentionComparison,
 } from "@/server/queries/retention-metrics";
 import { getStorePerformanceTrends } from "@/server/queries/performance-trends";
+import { getTrialSourceMetrics } from "@/server/queries/trial-source-metrics";
 import {
   getReportSnapshotWithMeta,
   upsertReportSnapshot,
@@ -174,14 +175,15 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   }
 
   timer.cacheStatus("reports-snapshot", snapshotHit ? "hit" : "miss");
-  const [customerFlowMetrics, conversionMetrics, retentionMetrics, performanceTrends] = reportsStoreId
+  const [customerFlowMetrics, conversionMetrics, retentionMetrics, performanceTrends, trialSourceMetrics] = reportsStoreId
     ? await Promise.all([
         withTiming("customerFlowMetrics", timer, () => getCustomerFlowMetrics(reportsStoreId, month)),
         withTiming("conversionMetrics", timer, () => getConversionMetrics(reportsStoreId, month)),
         withTiming("retentionMetrics", timer, () => getRetentionMetrics(reportsStoreId, month)),
         withTiming("performanceTrends", timer, () => getStorePerformanceTrends(reportsStoreId, month)),
+        withTiming("trialSourceMetrics", timer, () => getTrialSourceMetrics(reportsStoreId, startDate, endDate)),
       ])
-    : [null, null, null, null];
+    : [null, null, null, null, null];
   timer.finish();
 
   const totalOrders = storeSummary.staffBreakdown.reduce((s, r) => s + r.transactionCount, 0);
@@ -389,6 +391,47 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             <p className="mt-3 rounded-lg bg-earth-50 px-3 py-2 text-xs text-earth-500">HQ 全店視角暫不提供成交分析；請先選擇店舖，避免跨店顧客被錯誤加總。</p>
           )}
         </section>
+
+        {trialSourceMetrics ? (
+          <section aria-labelledby="trial-source-title" className="rounded-xl border border-earth-200 bg-white p-3">
+            <h2 id="trial-source-title" className="text-sm font-semibold text-earth-800">體驗預約來源</h2>
+            <p className="mt-1 text-[11px] leading-relaxed text-earth-500">
+              依本期建立的體驗預約統計；到店與開卡會隨後續結果更新。來源來自專屬預約連結，
+              並非登入方式。第 5 類「其他／未記錄」包含未帶來源連結與舊資料。
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[740px] text-left text-sm">
+                <thead className="border-b border-earth-100 text-xs text-earth-500">
+                  <tr>
+                    <th className="py-2 pr-3 font-medium">來源</th>
+                    <th className="px-3 py-2 text-right font-medium">預約組數</th>
+                    <th className="px-3 py-2 text-right font-medium">預約人數</th>
+                    <th className="px-3 py-2 text-right font-medium">完成服務</th>
+                    <th className="px-3 py-2 text-right font-medium">到店率</th>
+                    <th className="px-3 py-2 text-right font-medium">已指派方案</th>
+                    <th className="pl-3 py-2 text-right font-medium">方案轉換率</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trialSourceMetrics.map((row) => (
+                    <tr key={row.source} className="border-b border-earth-50 last:border-0">
+                      <th scope="row" className="py-2 pr-3 font-medium text-earth-800">{row.label}</th>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.bookings}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.bookedPeople}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.attendees}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.attendanceRate.toFixed(1)}%</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.assignedCustomers}</td>
+                      <td className="pl-3 py-2 text-right tabular-nums">{row.planRate.toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-[11px] text-earth-400">
+              到店率＝完成服務人次÷預約人數；方案轉換率＝已指派正式方案顧客÷完成服務且已建檔顧客。多人同行未個別建檔者無法計入方案轉換率；指派方案不等於已確認收款。
+            </p>
+          </section>
+        ) : null}
 
         {performanceTrends ? <PerformanceTrendChart data={performanceTrends} /> : null}
 
