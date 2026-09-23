@@ -23,6 +23,7 @@ export type RevenueMix = {
   expense: number;
   balance: number;
   pendingRevenue: number;
+  manualIncome: number;
   packageShare: number;
   retailShare: number;
   otherShare: number;
@@ -92,6 +93,7 @@ export async function getRevenueMix(
   const inPeriod = (date: string) => date >= startDate && date <= endDate;
   const summary = { packageRevenue: 0, retailRevenue: 0, otherRevenue: 0, refunds: 0, expense: 0 };
   let pendingRevenue = 0;
+  let manualIncome = 0;
   for (const tx of transactions) {
     // createdAt is a timestamp; render its business date in Asia/Taipei.
     const date = toLocalDateStr(tx.createdAt);
@@ -116,7 +118,10 @@ export async function getRevenueMix(
       : entry.category?.startsWith("零售-") ? "retailRevenue" : "otherRevenue";
     const amount = Number(entry.amount);
     point[field] += amount;
-    if (inPeriod(date)) summary[field] += amount;
+    if (inPeriod(date)) {
+      summary[field] += amount;
+      if (entry.type === "INCOME") manualIncome += amount;
+    }
   }
   for (const point of points.values()) {
     point.balance = point.packageRevenue + point.retailRevenue + point.otherRevenue
@@ -131,6 +136,7 @@ export async function getRevenueMix(
     netRevenue,
     balance: netRevenue - summary.expense,
     pendingRevenue,
+    manualIncome,
     packageShare: share(summary.packageRevenue),
     retailShare: share(summary.retailRevenue),
     otherShare: share(summary.otherRevenue),
