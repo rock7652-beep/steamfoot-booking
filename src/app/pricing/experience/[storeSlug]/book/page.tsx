@@ -122,7 +122,7 @@ export default async function StoreTrialBookingPage({
                   </span>
                   <div>
                     <h3 className="font-semibold text-earth-900">{item.title}</h3>
-                    <p className="mt-1 text-sm leading-6 text-earth-500">{item.detail}</p>
+                    <p className="mt-1 text-sm leading-6 text-earth-500">{storeSlug === "staging" && item.title === "體驗結束後再完成付款" ? "測試預約不需付款或實際到店。" : item.detail}</p>
                   </div>
                 </div>
               ))}
@@ -141,7 +141,7 @@ export default async function StoreTrialBookingPage({
                     <span>{item.question}</span>
                     <span className="text-xl font-normal text-primary-700 transition-transform group-open:rotate-45">＋</span>
                   </summary>
-                  <p className="mt-3 pr-8 text-sm leading-6 text-earth-500">{item.answer}</p>
+                  <p className="mt-3 pr-8 text-sm leading-6 text-earth-500">{storeSlug === "staging" && item.question === "預約後需要先付款嗎？" ? "測試門市不用付款，也不需實際到店。" : item.answer}</p>
                 </details>
               ))}
             </div>
