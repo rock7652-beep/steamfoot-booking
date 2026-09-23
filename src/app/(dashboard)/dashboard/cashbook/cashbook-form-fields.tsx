@@ -7,6 +7,7 @@
  * 零售再選常用方案。支出仍保留自由分類，避免破壞既有記帳習慣。
  */
 
+import { CashbookCustomerPicker } from "./_components/cashbook-customer-picker";
 import { useState } from "react";
 import { FormSection, FormGrid } from "@/components/desktop";
 
@@ -30,6 +31,9 @@ const RETAIL_CATEGORIES = [
 ] as const;
 
 interface Props {
+  readOnlyDate?: boolean;
+  storeId?: string;
+  defaultCustomer?: { id: string; name: string } | null;
   closedDates: string[];
   defaultEntryDate: string;
   defaultType: CashbookEntryType;
@@ -53,6 +57,9 @@ function initialIncomeKind(category: string): "RETAIL" | "OTHER" {
 }
 
 export function CashbookFormFields({
+  readOnlyDate = false,
+  storeId,
+  defaultCustomer = null,
   closedDates,
   defaultEntryDate,
   defaultType,
@@ -80,11 +87,13 @@ export function CashbookFormFields({
   return (
     <>
       <FormSection title="基本資料" description="日期、類型、金額為必填" compact={compact}>
+        {storeId && entryType === "INCOME" && <CashbookCustomerPicker storeId={storeId} defaultCustomer={defaultCustomer} />}
         <FormGrid>
           <div>
             <label className={labelCls}>日期</label>
             <input
               type="date"
+              readOnly={readOnlyDate}
               name="entryDate"
               required
               value={entryDate}

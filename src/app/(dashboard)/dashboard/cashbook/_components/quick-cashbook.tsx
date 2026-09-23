@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { RightSheet } from "@/components/admin/right-sheet";
 import { DashboardLink as Link } from "@/components/dashboard-link";
-import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook, searchQuickCashbookCustomers } from "@/server/actions/quick-cashbook";
+import { fetchQuickCashbook, saveQuickCashbook, deleteQuickCashbook } from "@/server/actions/quick-cashbook";
+
+import { CashbookFormFields } from "../cashbook-form-fields";
 
 type Data = Awaited<ReturnType<typeof fetchQuickCashbook>>;
 type Entry = Data["entries"][number];
@@ -19,7 +21,6 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Entry | "new" | null>(null);
-  const [entryType, setEntryType] = useState<"INCOME" | "EXPENSE">("INCOME");
   const [busy, setBusy] = useState(false);
   const request = useRef(0);
   const locked = useRef(false);
@@ -77,20 +78,16 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
             <h3 className="font-semibold text-primary-900">{entry ? "編輯收支" : "新增記帳"}</h3>
             <p className="text-sm text-earth-500">登記日期：{data.today}。補登其他日期請至完整現金管理。</p>
             <fieldset disabled={busy} className="grid grid-cols-2 gap-4">
-              <label className="text-sm font-medium text-earth-700">類型<select name="type" value={entryType} onChange={(event) => setEntryType(event.target.value as "INCOME" | "EXPENSE")} className={input}><option value="INCOME">收入</option><option value="EXPENSE">支出</option></select></label>
-              <label className="text-sm font-medium text-earth-700">金額<input name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required defaultValue={entry?.amount ?? ""} className={input} /></label>
-              {entryType === "INCOME" && <CashbookCustomerPicker key={entry?.id ?? "new"} storeId={storeId} defaultCustomer={entry?.customer ?? null} />}
-              <label className="col-span-2 text-sm font-medium text-earth-700">{entryType === "INCOME" ? "消費項目" : "分類"}<input name="category" list={entryType === "INCOME" ? "quick-income-categories" : undefined} defaultValue={entry?.category ?? ""} placeholder={entryType === "INCOME" ? "例如：零售-精油、單次服務" : "例如：耗材、清潔用品"} className={input} />{entryType === "INCOME" && <><datalist id="quick-income-categories"><option value="單次服務"/><option value="零售-其他商品"/><option value="其他收入"/></datalist><span className="mt-1 block text-xs font-normal text-earth-500">以「零售-」開頭的項目會自動納入零售分析。</span></>}</label>
-              <label className="col-span-2 text-sm font-medium text-earth-700">付款方式<select name="paymentMethod" required defaultValue={entry?.paymentMethod ?? ""} className={input}><option value="" disabled>請選擇</option><option value="CASH">現金</option><option value="OTHER">其他（轉帳／非現金）</option></select></label>
+              <div className="col-span-2"><CashbookFormFields readOnlyDate compact storeId={storeId} defaultCustomer={entry?.customer} closedDates={data.closedDates} defaultEntryDate={data.today} defaultType={entry?.type === "EXPENSE" ? "EXPENSE" : "INCOME"} defaultCategory={entry?.category ?? ""} defaultAmount={entry ? String(entry.amount) : ""} defaultPaymentMethod={entry?.paymentMethod ?? null} allowedTypes={["INCOME", "EXPENSE"]} /></div>
               <label className="col-span-2 text-sm font-medium text-earth-700">備註<textarea name="note" rows={3} defaultValue={entry?.note ?? ""} className={textarea} /></label>
-              {data.closedDates.length > 0 && <label className="col-span-2 rounded-lg border border-gold-200 bg-gold-50 p-3 text-sm text-gold-800"><input type="checkbox" name="confirmClosedCashbookChange" /> 我知道今日已結帳，這只是補紀錄，不會重算關帳快照。</label>}
+
             </fieldset>
             <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div>
           </form> : <>
-            <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-earth-800">今日收支 · {data.total} 筆</h3>{data.canWrite && <button type="button" disabled={loading || busy} onClick={() => { setEntryType("INCOME"); setEditing("new"); }} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">＋ 記一筆</button>}</div>
+            <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-earth-800">今日收支 · {data.total} 筆</h3>{data.canWrite && <button type="button" disabled={loading || busy} onClick={() => { setEditing("new"); }} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">＋ 記一筆</button>}</div>
             <p className="mb-3 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">預約與方案的現金收款已計入抽屜，請勿重複登記。</p>
             {!data.entries.length && <p className="steamfoot-brand-card rounded-xl border py-8 text-center text-earth-500">今日尚無手動收支紀錄</p>}
-            <div className="space-y-2">{data.entries.map(e => <article key={e.id} className="steamfoot-brand-card rounded-xl border p-3"><div className="flex justify-between gap-3"><div><p className="font-medium text-earth-800">{e.type === "INCOME" ? "收入" : e.type === "EXPENSE" ? "支出" : e.type === "WITHDRAW" ? "提領" : "調整"} · {e.category || "未分類"}</p><p className="text-sm text-earth-500">{e.paymentMethod === "CASH" ? "現金" : "其他"}{e.customer ? ` · ${e.customer.name}` : ""}</p>{e.note && <p className="whitespace-pre-wrap break-words text-sm text-earth-700">{e.note}</p>}</div><p className={`shrink-0 font-semibold ${e.type === "INCOME" ? "text-primary-700" : "text-earth-800"}`}>{money(e.amount)}</p></div>{e.canEdit && (e.type === "INCOME" || e.type === "EXPENSE") && <div className="mt-2 flex justify-end gap-2"><button type="button" className={button} disabled={busy || loading} onClick={() => { setEntryType(e.type === "INCOME" ? "INCOME" : "EXPENSE"); setEditing(e); }}>編輯</button><button type="button" className={`${button} text-red-700 hover:border-red-200 hover:bg-red-50`} disabled={busy || loading} onClick={() => void remove(e)}>刪除</button></div>}</article>)}</div>
+            <div className="space-y-2">{data.entries.map(e => <article key={e.id} className="steamfoot-brand-card rounded-xl border p-3"><div className="flex justify-between gap-3"><div><p className="font-medium text-earth-800">{e.type === "INCOME" ? "收入" : e.type === "EXPENSE" ? "支出" : e.type === "WITHDRAW" ? "提領" : "調整"} · {e.category || "未分類"}</p><p className="text-sm text-earth-500">{e.paymentMethod === "CASH" ? "現金" : "其他"}{e.customer ? ` · ${e.customer.name}` : ""}</p>{e.note && <p className="whitespace-pre-wrap break-words text-sm text-earth-700">{e.note}</p>}</div><p className={`shrink-0 font-semibold ${e.type === "INCOME" ? "text-primary-700" : "text-earth-800"}`}>{money(e.amount)}</p></div>{e.canEdit && (e.type === "INCOME" || e.type === "EXPENSE") && <div className="mt-2 flex justify-end gap-2"><button type="button" className={button} disabled={busy || loading} onClick={() => { setEditing(e); }}>編輯</button><button type="button" className={`${button} text-red-700 hover:border-red-200 hover:bg-red-50`} disabled={busy || loading} onClick={() => void remove(e)}>刪除</button></div>}</article>)}</div>
             {data.total > 20 && <div className="mt-4 flex items-center justify-between"><button className={button} disabled={loading || data.page === 1} onClick={() => void refresh(data.page - 1)}>上一頁</button><span className="text-sm text-earth-500">{data.page} / {Math.ceil(data.total / 20)}</span><button className={button} disabled={loading || data.page * 20 >= data.total} onClick={() => void refresh(data.page + 1)}>下一頁</button></div>}
           </>}
         </>}
@@ -98,36 +95,4 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
       <footer className="border-t border-earth-200 bg-white p-4">{editing || busy ? <span className="text-sm text-earth-500">儲存或取消後可查看完整現金管理</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
     </RightSheet>}
   </>;
-}
-
-type CustomerOption = { id: string; name: string; phone: string };
-
-function CashbookCustomerPicker({ storeId, defaultCustomer }: { storeId: string; defaultCustomer: { id: string; name: string } | null }) {
-  const [query, setQuery] = useState(defaultCustomer?.name ?? "");
-  const [selected, setSelected] = useState(defaultCustomer);
-  const [results, setResults] = useState<CustomerOption[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState("");
-  useEffect(() => {
-    if (selected || !query.trim()) return;
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      const timeout = new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("SEARCH_TIMEOUT")), 4000));
-      void Promise.race([searchQuickCashbookCustomers(storeId, query), timeout])
-        .then((rows) => { if (!cancelled) setResults(rows); })
-        .catch((error) => { if (!cancelled) { setResults([]); setSearchError(error instanceof Error && error.message === "SEARCH_TIMEOUT" ? "搜尋時間較久，請再輸入一個字或使用手機前幾碼。" : "暫時無法搜尋顧客，請稍後重試。"); } })
-        .finally(() => { if (!cancelled) setSearching(false); });
-    }, 100);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [query, selected, storeId]);
-  return <div className="col-span-2 text-sm font-medium text-earth-700">
-    <label htmlFor="quick-cashbook-customer">關聯顧客 <span className="font-normal text-earth-400">（選填）</span></label>
-    <input type="hidden" name="customerId" value={selected?.id ?? ""}/>
-    <input id="quick-cashbook-customer" value={query} onChange={(event) => { const value=event.target.value; setQuery(value); setSelected(null); setResults([]); setSearchError(""); setSearching(Boolean(value.trim())); }} placeholder="輸入姓名、手機前幾碼或 LINE 名稱" autoComplete="off" className={input}/>
-    {searching && <p role="status" className="mt-1 text-xs font-normal text-primary-700">搜尋顧客中…</p>}
-    {results.length > 0 && <div className="mt-1 overflow-hidden rounded-lg border border-earth-200 bg-white shadow-lg">{results.map((customer) => <button key={customer.id} type="button" onClick={() => { setSelected(customer); setQuery(customer.name); setResults([]); setSearching(false); setSearchError(""); }} className="flex min-h-11 w-full items-center justify-between border-b border-earth-100 px-3 text-left last:border-0 hover:bg-primary-50"><span>{customer.name}</span><span className="text-xs font-normal text-earth-500">{customer.phone}</span></button>)}</div>}
-    {searchError && <p role="alert" className="mt-1 text-xs font-normal text-amber-700">{searchError}</p>}
-    {!searching && !searchError && query.trim() && !selected && results.length === 0 && <p className="mt-1 text-xs font-normal text-earth-500">沒有符合的顧客，請再輸入完整姓名或手機號碼。</p>}
-    {selected && <p className="mt-1 text-xs font-normal text-primary-700">已關聯 {selected.name}，儲存後會顯示在消費紀錄。</p>}
-  </div>;
 }

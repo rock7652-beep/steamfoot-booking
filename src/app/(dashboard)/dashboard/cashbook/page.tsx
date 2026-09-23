@@ -175,7 +175,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
 
   const editorStaff = isCourse && canManageCashbook ? await listStaffSelectOptions() : [];
   const closedDates = isCourse && cashbookStoreId && canManageCashbook ? await listClosedBusinessDates(cashbookStoreId, dateFrom, dateTo) : [];
-  const editorProps = { today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
+  const editorProps = { storeId: cashbookStoreId!, today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
   const { entries, total, pageSize } = cashbookList;
   const totalPages = Math.ceil(total / pageSize);
 
@@ -370,7 +370,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         <span className="text-earth-400">僅可查看</span>
                       ) : (
                         <div className="flex items-center gap-3">
-                          {isCourse ? (canManageCashbook && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId }} />) : <Link
+                          {isCourse ? (canManageCashbook && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId, customer: e.customer }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"
                           >

@@ -711,7 +711,6 @@ export default function DashboardShell({
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/bookings")!, href: "/dashboard/courses", label: "課表排程" },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/customers")!, href: "/dashboard/courses?view=customers", label: "顧客管理", permission: "customer.read" },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/revenue")!, href: "/dashboard/revenue", label: "營運", permission: "transaction.read", requiredFeature: undefined },
-        { ...NAV_GROUPS.flatMap(group => group.items).find(item => item.href === "/dashboard/cashbook")!, label: "現金帳／零售" },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/reports")!, href: "/dashboard/courses?view=analytics", label: "分析", requiredFeature: undefined },
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/growth")!,
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/digital-butler/leads")!,

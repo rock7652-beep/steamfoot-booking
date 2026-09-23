@@ -8,6 +8,7 @@ import { notFound, redirect } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { FormErrorToast } from "@/components/form-error-toast";
+import { getActiveStoreForRead } from "@/lib/store";
 import { prisma } from "@/lib/db";
 import {
   FormShell,
@@ -35,8 +36,11 @@ export default async function EditCashbookPage({ params }: PageProps) {
     redirect("/dashboard/cashbook");
   }
 
-  const entry = await prisma.cashbookEntry.findUnique({
-    where: { id },
+  const activeStoreId = await getActiveStoreForRead(user);
+  if (!activeStoreId) notFound();
+  const entry = await prisma.cashbookEntry.findFirst({
+    where: { id, storeId: activeStoreId },
+    include: { customer: { select: { id: true, name: true } } },
   });
   if (!entry) notFound();
 
@@ -61,6 +65,7 @@ export default async function EditCashbookPage({ params }: PageProps) {
     const result = await updateCashbookEntry(id, {
       entryDate: formData.get("entryDate") as string,
       type: formData.get("type") as CashbookEntryType,
+      customerId: formData.get("type") === "INCOME" ? String(formData.get("customerId") || "") || null : null,
       category: formData.get("category") as string,
       amount: Number(formData.get("amount")),
       paymentMethod: (formData.get("paymentMethod") as PaymentMethod) || undefined,
@@ -101,6 +106,8 @@ export default async function EditCashbookPage({ params }: PageProps) {
 
       <form action={handleSubmit} className="space-y-6 pb-4">
         <CashbookFormFields
+          storeId={activeStoreId}
+          defaultCustomer={entry.customer}
           closedDates={closedDates}
           defaultEntryDate={entryDate}
           defaultType={entry.type}

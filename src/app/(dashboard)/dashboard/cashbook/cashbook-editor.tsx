@@ -17,14 +17,17 @@ type Entry = {
   paymentMethod: "CASH" | "OTHER";
   note: string;
   staffId: string | null;
+  customer?: { id: string; name: string } | null;
 };
 export function CashbookEditor({
+  storeId,
   entry,
   today,
   closedDates,
   staffOptions,
   canAssignStaff,
 }: {
+  storeId: string;
   entry?: Entry;
   today: string;
   closedDates: string[];
@@ -56,6 +59,7 @@ export function CashbookEditor({
       entryDate: String(form.get("entryDate")),
       type: String(form.get("type")) as Entry["type"],
       category: String(form.get("category") || ""),
+      customerId: form.get("type") === "INCOME" ? String(form.get("customerId") || "") || null : null,
       amount: Number(form.get("amount")),
       paymentMethod: String(
         form.get("paymentMethod"),
@@ -74,6 +78,7 @@ export function CashbookEditor({
           })
         : await createCashbookEntry({
             ...input,
+            customerId: input.customerId || undefined,
             ...(canAssignStaff
               ? { staffId: String(form.get("staffId") || "") || undefined }
               : {}),
@@ -134,6 +139,8 @@ export function CashbookEditor({
               className="flex-1 space-y-4 overflow-y-auto p-4"
             >
               <CashbookFormFields
+                storeId={storeId}
+                defaultCustomer={entry?.customer}
                 closedDates={closedDates}
                 defaultEntryDate={entry?.entryDate || today}
                 defaultType={entry?.type || "INCOME"}

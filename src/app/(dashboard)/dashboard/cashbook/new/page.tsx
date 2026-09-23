@@ -48,6 +48,7 @@ export default async function NewCashbookPage() {
     const raw = {
       entryDate: formData.get("entryDate") as string,
       type: formData.get("type") as CashbookEntryType,
+      customerId: formData.get("type") === "INCOME" ? String(formData.get("customerId") || "") || undefined : undefined,
       category: (formData.get("category") as string) || undefined,
       amount: Number(formData.get("amount")),
       paymentMethod: (formData.get("paymentMethod") as PaymentMethod) || undefined,
@@ -89,6 +90,7 @@ export default async function NewCashbookPage() {
             避免單欄扁長；窄螢幕自動落回單欄。 */}
         <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
           <CashbookFormFields
+            storeId={activeStoreId ?? undefined}
             closedDates={closedDates}
             defaultEntryDate={today}
             defaultType="INCOME"
