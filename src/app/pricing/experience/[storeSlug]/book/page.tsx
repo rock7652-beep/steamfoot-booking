@@ -73,7 +73,7 @@ export default async function StoreTrialBookingPage({
   searchParams,
 }: {
   params: Promise<{ storeSlug: string }>;
-  searchParams: Promise<{ entry?: string | string[] }>;
+  searchParams: Promise<{ entry?: string | string[]; source?: string | string[] }>;
 }) {
   const [{ storeSlug }, query] = await Promise.all([params, searchParams]);
   if (!isEnabledStore(storeSlug)) notFound();
@@ -105,6 +105,7 @@ export default async function StoreTrialBookingPage({
           <section id="booking-form" className="scroll-mt-5 pt-8">
             <ZhubeiTrialBookingForm
               entry={entry}
+              source={typeof query.source === "string" ? query.source : undefined}
               storeSlug={storeSlug}
               contactUrl={presentation.contactUrl}
             />
