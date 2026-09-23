@@ -23,3 +23,8 @@ export const TRIAL_BOOKING_SOURCE_LABELS: Record<TrialBookingSource, string> = {
   INSTAGRAM: "IG",
   OTHER: "其他／未記錄",
 };
+
+export function trialBookingSourceLabel(value: string | null | undefined): string {
+  const source = TRIAL_BOOKING_SOURCES.find((item) => item === value);
+  return source ? TRIAL_BOOKING_SOURCE_LABELS[source] : TRIAL_BOOKING_SOURCE_LABELS.OTHER;
+}
