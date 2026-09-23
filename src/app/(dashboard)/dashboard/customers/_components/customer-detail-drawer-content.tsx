@@ -261,6 +261,14 @@ export function CustomerDetailDrawerContent({
           </div>
         </section>
 
+        {customer.recentConsumption && <section className="rounded-lg border border-earth-200 bg-white p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-earth-800">最近消費</h3>
+            <Link href={`/dashboard/customers/${customer.id}/records?type=transactions`} prefetch={false} className="text-xs font-medium text-primary-700">查看全部 →</Link>
+          </div>
+          {customer.recentConsumption.length ? <ul className="divide-y divide-earth-100">{customer.recentConsumption.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 py-2 text-xs"><span className="min-w-0"><strong className="block truncate text-earth-800">{item.label}</strong><span className="text-earth-500">{formatTWTime(item.date, { dateOnly: true })} · {item.payment}</span></span><strong className="shrink-0 tabular-nums text-primary-800">NT$ {item.amount.toLocaleString()}</strong></li>)}</ul> : <p className="py-2 text-xs text-earth-500">尚無消費紀錄</p>}
+        </section>}
+
         <section className="rounded-lg border border-earth-200 bg-white p-3">
           <h3 className="mb-2 text-sm font-semibold text-earth-800">身份狀態</h3>
           <dl className="grid grid-cols-2 gap-2 text-xs">

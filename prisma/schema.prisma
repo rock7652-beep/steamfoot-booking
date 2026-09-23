@@ -1170,6 +1170,7 @@ model Customer {
 
   // 交易
   transactions Transaction[]
+  cashbookEntries CashbookEntry[]
 
   // 訊息紀錄
   messageLogs MessageLog[]
@@ -2073,6 +2074,8 @@ model CashbookEntry {
   category        String? // 自由分類：水電、材料、雜支...
   amount          Decimal               @db.Decimal(10, 0)
   staffId         String? // 歸屬店長（nullable）
+  // 手動收入可選擇關聯顧客，供店長與顧客查看消費紀錄。
+  customerId      String?
   note            String?
   createdByUserId String
   createdAt       DateTime              @default(now())
@@ -2080,11 +2083,13 @@ model CashbookEntry {
 
   store     Store  @relation(fields: [storeId], references: [id])
   staff     Staff? @relation("CashbookStaff", fields: [staffId], references: [id])
+  customer  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdBy User   @relation("CashbookCreatedBy", fields: [createdByUserId], references: [id])
 
   @@index([storeId])
   @@index([entryDate])
   @@index([staffId])
+  @@index([storeId, customerId, entryDate])
   @@index([storeId, paymentMethod]) // 預留：後續 PR 依店 + 付款方式聚合現金流
 }
 
