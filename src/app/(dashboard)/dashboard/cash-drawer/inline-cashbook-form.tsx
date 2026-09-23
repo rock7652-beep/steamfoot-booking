@@ -21,9 +21,10 @@
  *   已結帳日 + 現金的防呆（confirmClosedCashbookChange）由 CashbookFormFields 沿用。
  */
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import { FormSection } from "@/components/desktop";
+import { CustomerInstantSearch } from "@/components/customer-instant-search";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
@@ -34,6 +35,8 @@ type CreateResult = ActionResult<{ entryId: string }>;
 interface Props {
   /** server action：父層 server component 綁好 createCashbookEntry 後傳入。 */
   action: (prevState: CreateResult | null, formData: FormData) => Promise<CreateResult>;
+  /** Current store for the customer search index. */
+  storeId: string;
   /** 成功後 hard navigate 的目標 URL（== caller 的 returnPath）。 */
   returnPath: string;
   /** 今天（"YYYY-MM-DD"，UTC+8），日期欄位預設值。 */
@@ -51,6 +54,7 @@ const inputCls =
 
 export function InlineCashbookForm({
   action,
+  storeId,
   returnPath,
   today,
   closedDates,
@@ -58,6 +62,9 @@ export function InlineCashbookForm({
   staffOptions,
 }: Props) {
   const [state, formAction] = useActionState<CreateResult | null, FormData>(action, null);
+  const [entryType, setEntryType] = useState<"INCOME" | "EXPENSE">("INCOME");
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (state?.success) {
@@ -85,7 +92,24 @@ export function InlineCashbookForm({
         defaultPaymentMethod={null}
         allowedTypes={["INCOME", "EXPENSE"]}
         compact
+        onTypeChange={setEntryType}
       />
+
+      {entryType === "INCOME" && (
+        <FormSection title="關聯顧客（選填）" compact>
+          <input type="hidden" name="customerId" value={selectedCustomer?.id ?? ""} />
+          <CustomerInstantSearch
+            storeId={storeId}
+            value={customerQuery}
+            onChange={(value) => { setCustomerQuery(value); setSelectedCustomer(null); }}
+            onSelect={(customer) => { setSelectedCustomer(customer); setCustomerQuery(customer.name); }}
+            className={inputCls}
+          />
+          <p className="mt-1 text-xs text-earth-500">
+            請從搜尋結果選擇顧客，儲存後會顯示在消費紀錄。
+          </p>
+        </FormSection>
+      )}
 
       {/* 登錄人：非 ADMIN 後端鎖定為自己（不 render select）。 */}
       {canAssignStaff && (
