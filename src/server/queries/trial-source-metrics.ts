@@ -7,11 +7,14 @@ import {
 } from "@/lib/trial-booking-source";
 
 export type TrialSourceRow = {
-  source: TrialBookingSource | "UNRECORDED";
+  source: TrialBookingSource;
   label: string;
   bookings: number;
+  bookedPeople: number;
   attendees: number;
-  convertedCustomers: number;
+  attendanceRate: number;
+  assignedCustomers: number;
+  planRate: number;
 };
 
 /**
@@ -37,6 +40,7 @@ export async function getTrialSourceMetrics(
       customerId: true,
       bookingSource: true,
       bookingDate: true,
+      createdAt: true,
       bookingStatus: true,
       attendedPeople: true,
       people: true,
@@ -45,22 +49,15 @@ export async function getTrialSourceMetrics(
 
   const completed = bookings.filter((booking) => booking.bookingStatus === "COMPLETED");
   const customerIds = [...new Set(completed.map((booking) => booking.customerId))];
-  const purchases = customerIds.length
-    ? await prisma.transaction.findMany({
+  const wallets = customerIds.length
+    ? await prisma.customerPlanWallet.findMany({
         where: {
           storeId,
           customerId: { in: customerIds },
-          transactionType: "PACKAGE_PURCHASE",
-          status: "SUCCESS",
-          paymentStatus: { in: ["SUCCESS", "CONFIRMED"] },
-          customerPlanWalletId: { not: null },
+          status: { not: "CANCELLED" },
+          plan: { category: "PACKAGE" },
         },
-        select: {
-          customerId: true,
-          transactionDate: true,
-          paidAt: true,
-          customerPlanWallet: { select: { status: true } },
-        },
+        select: { customerId: true, createdAt: true },
       })
     : [];
 
@@ -73,32 +70,43 @@ export async function getTrialSourceMetrics(
   }
 
   const rows = new Map<string, TrialSourceRow>();
-  for (const source of [...TRIAL_BOOKING_SOURCES, "UNRECORDED" as const]) {
+  for (const source of TRIAL_BOOKING_SOURCES) {
     rows.set(source, {
       source,
-      label: source === "UNRECORDED" ? "未記錄" : TRIAL_BOOKING_SOURCE_LABELS[source],
+      label: TRIAL_BOOKING_SOURCE_LABELS[source],
       bookings: 0,
+      bookedPeople: 0,
       attendees: 0,
-      convertedCustomers: 0,
+      attendanceRate: 0,
+      assignedCustomers: 0,
+      planRate: 0,
     });
   }
   for (const booking of bookings) {
-    const source = TRIAL_BOOKING_SOURCES.find((item) => item === booking.bookingSource) ?? "UNRECORDED";
+    const source = TRIAL_BOOKING_SOURCES.find((item) => item === booking.bookingSource) ?? "OTHER";
     const row = rows.get(source)!;
     row.bookings += 1;
+    row.bookedPeople += booking.people;
     if (booking.bookingStatus === "COMPLETED") {
       row.attendees += booking.attendedPeople ?? booking.people;
     }
   }
   const counted = new Set<string>();
-  for (const purchase of purchases) {
-    if (purchase.customerPlanWallet?.status === "CANCELLED") continue;
-    const first = firstCompletedByCustomer.get(purchase.customerId);
-    if (!first || counted.has(purchase.customerId)) continue;
-    if ((purchase.paidAt ?? purchase.transactionDate) < first.bookingDate) continue;
-    const source = TRIAL_BOOKING_SOURCES.find((item) => item === first.bookingSource) ?? "UNRECORDED";
-    rows.get(source)!.convertedCustomers += 1;
-    counted.add(purchase.customerId);
+  for (const wallet of wallets) {
+    const first = firstCompletedByCustomer.get(wallet.customerId);
+    if (!first || counted.has(wallet.customerId)) continue;
+    if (wallet.createdAt < first.createdAt) continue;
+    const source = TRIAL_BOOKING_SOURCES.find((item) => item === first.bookingSource) ?? "OTHER";
+    rows.get(source)!.assignedCustomers += 1;
+    counted.add(wallet.customerId);
+  }
+  for (const row of rows.values()) {
+    row.attendanceRate = row.bookedPeople ? (row.attendees / row.bookedPeople) * 100 : 0;
+    // Conversion denominator counts identifiable customers, not unlinked companions.
+    const completedCustomers = [...firstCompletedByCustomer.values()].filter((booking) =>
+      (TRIAL_BOOKING_SOURCES.find((item) => item === booking.bookingSource) ?? "OTHER") === row.source
+    ).length;
+    row.planRate = completedCustomers ? (row.assignedCustomers / completedCustomers) * 100 : 0;
   }
   return [...rows.values()];
 }
