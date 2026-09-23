@@ -4,7 +4,7 @@ import { getCustomerFacingStoreName } from "@/lib/customer-facing-store-name";
 import { resolveStorePresentation } from "@/lib/store-resolver";
 import { ZhubeiTrialBookingForm } from "../../zhubei/book/zhubei-trial-booking-form";
 
-const ENABLED_STORES = ["hsinchu", "taichung"] as const;
+const ENABLED_STORES = ["hsinchu", "taichung", "staging"] as const;
 type EnabledStoreSlug = (typeof ENABLED_STORES)[number];
 
 
@@ -51,7 +51,7 @@ const faqItems = [
 ];
 
 function isEnabledStore(slug: string): slug is EnabledStoreSlug {
-  return ENABLED_STORES.includes(slug as EnabledStoreSlug);
+  return ENABLED_STORES.includes(slug as EnabledStoreSlug) && (slug !== "staging" || process.env.VERCEL_ENV === "preview");
 }
 
 export async function generateMetadata({
