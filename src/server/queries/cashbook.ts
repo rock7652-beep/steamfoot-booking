@@ -61,6 +61,7 @@ export async function listCashbookEntries(options: ListCashbookOptions & { activ
       include: {
         staff: { select: { id: true, displayName: true } },
         createdBy: { select: { id: true, name: true } },
+        customer: { select: { id: true, name: true } },
       },
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }],
       skip: (page - 1) * pageSize,

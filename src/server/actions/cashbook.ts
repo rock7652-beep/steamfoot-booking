@@ -29,6 +29,7 @@ const createCashbookEntrySchema = z.object({
   amount: z.number().positive("金額必須大於 0"),
   paymentMethod: paymentMethodSchema,
   staffId: z.string().optional(),
+  customerId: z.string().optional(),
   note: z.string().optional(),
   // PR-4：當 entryDate 對應的現金抽屜已閉店、且為現金收付時，必須帶 true 明確確認。
   // 純防呆旗標，不寫入 DB；確認後仍不會回頭重算已閉店快照。
@@ -45,6 +46,7 @@ const updateCashbookEntrySchema = z.object({
   amount: z.number().positive("金額必須大於 0").optional(),
   paymentMethod: paymentMethodSchema.optional(),
   staffId: z.string().nullable().optional(),
+  customerId: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
   // PR-4：見 createCashbookEntrySchema 同名欄位說明。
   confirmClosedCashbookChange: z.boolean().optional(),
@@ -67,6 +69,7 @@ function cashbookSnapshot(e: {
   amount: unknown;
   paymentMethod: string;
   staffId: string | null;
+  customerId: string | null;
   note: string | null;
 }) {
   return {
@@ -76,6 +79,7 @@ function cashbookSnapshot(e: {
     amount: Number(e.amount),
     paymentMethod: e.paymentMethod,
     staffId: e.staffId,
+    customerId: e.customerId,
     note: e.note,
   };
 }
@@ -96,6 +100,24 @@ export async function createCashbookEntry(
     // ADMIN 無固定 storeId → 讀 active-store cookie（與頁面顯示同一店），
     // 未選店則明確報錯，避免寫錯店或 missing-store。
     const storeId = await resolveWriteStoreId(user);
+
+    if (data.customerId && data.type !== "INCOME") {
+      throw new AppError("VALIDATION", "只有收入可以關聯顧客");
+    }
+    if (data.customerId) {
+      const customer = await prisma.customer.findFirst({
+        where: {
+          id: data.customerId,
+          storeId,
+          mergedIntoCustomerId: null,
+          NOT: { user: { is: { status: "SUSPENDED" } } },
+        },
+        select: { id: true },
+      });
+      if (!customer) {
+        throw new AppError("VALIDATION", "找不到這位顧客，請重新選擇");
+      }
+    }
 
     // PR-4 防呆 guard（後端權威，不只靠前端）：
     // 只在現金收付（CASH）時才需要知道該日抽屜是否已 CLOSED（OTHER 不影響抽屜）。
@@ -125,6 +147,7 @@ export async function createCashbookEntry(
       amount: data.amount,
       paymentMethod: data.paymentMethod,
       staffId,
+      customerId: data.customerId || null,
       note: data.note || null,
       createdByUserId: user.id,
       storeId,
@@ -152,6 +175,7 @@ export async function createCashbookEntry(
     }
 
     revalidatePath("/dashboard/cashbook");
+    if (data.customerId) revalidatePath(`/dashboard/customers/${data.customerId}`);
     return { success: true, data: { entryId: entry.id } };
   } catch (e) {
     return handleActionError(e);
@@ -201,6 +225,26 @@ export async function updateCashbookEntry(
       }
     }
 
+    const effectiveType = data.type ?? entry.type;
+    const effectiveCustomerId = data.customerId === undefined ? entry.customerId : data.customerId;
+    if (effectiveCustomerId && effectiveType !== "INCOME") {
+      throw new AppError("VALIDATION", "只有收入可以關聯顧客");
+    }
+    if (data.customerId) {
+      const customer = await prisma.customer.findFirst({
+        where: {
+          id: data.customerId,
+          storeId: entry.storeId,
+          mergedIntoCustomerId: null,
+          NOT: { user: { is: { status: "SUSPENDED" } } },
+        },
+        select: { id: true },
+      });
+      if (!customer) {
+        throw new AppError("VALIDATION", "找不到這位顧客，請重新選擇");
+      }
+    }
+
     // 非 Owner 員工只能修改自己的紀錄
     if (user.role !== "ADMIN") {
       if (!user.staffId || entry.staffId !== user.staffId) {
@@ -218,6 +262,7 @@ export async function updateCashbookEntry(
       // 非 Owner 員工不能改 staffId（鎖定自己），只有 Owner 可指派
       if (user.role === "ADMIN") updateData.staffId = data.staffId;
     }
+    if (data.customerId !== undefined) updateData.customerId = data.customerId;
     if (data.note !== undefined) updateData.note = data.note;
 
     await prisma.$transaction(async (tx) => {
@@ -235,6 +280,8 @@ export async function updateCashbookEntry(
     });
 
     revalidatePath("/dashboard/cashbook");
+    if (entry.customerId) revalidatePath(`/dashboard/customers/${entry.customerId}`);
+    if (data.customerId) revalidatePath(`/dashboard/customers/${data.customerId}`);
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
@@ -269,6 +316,7 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
     });
 
     revalidatePath("/dashboard/cashbook");
+    if (entry.customerId) revalidatePath(`/dashboard/customers/${entry.customerId}`);
     return { success: true, data: undefined };
   } catch (e) {
     return handleActionError(e);
