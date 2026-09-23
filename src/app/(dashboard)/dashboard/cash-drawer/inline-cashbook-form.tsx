@@ -92,7 +92,9 @@ export function InlineCashbookForm({
         defaultPaymentMethod={null}
         allowedTypes={["INCOME", "EXPENSE"]}
         compact
-        onTypeChange={setEntryType}
+        onTypeChange={(type) => {
+          if (type === "INCOME" || type === "EXPENSE") setEntryType(type);
+        }}
       />
 
       {entryType === "INCOME" && (
