@@ -71,6 +71,9 @@ interface PageProps {
   searchParams: Promise<{
     month?: string;
     type?: CashbookEntryType;
+    categoryGroup?: string;
+    dateFrom?: string;
+    dateTo?: string;
     page?: string;
     cashDrawerError?: string;
   }>;
@@ -93,9 +96,14 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const month = params.month ?? currentMonth;
 
   const [year, mon] = month.split("-").map(Number);
-  const dateFrom = `${month}-01`;
+  const monthDateFrom = `${month}-01`;
   const lastDay = new Date(year, mon, 0).getDate();
-  const dateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
+  const monthDateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
+  const validDate = (date: string | undefined) => !!date && /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date));
+  const hasDateRange = validDate(params.dateFrom) && validDate(params.dateTo) && params.dateFrom! <= params.dateTo!;
+  const dateFrom = hasDateRange ? params.dateFrom! : monthDateFrom;
+  const dateTo = hasDateRange ? params.dateTo! : monthDateTo;
+  const categoryGroup = params.categoryGroup === "retail" || params.categoryGroup === "other" ? params.categoryGroup : undefined;
 
   const activeStoreId = await getActiveStoreForRead(user);
   const isCourse = !!activeStoreId && await getStoreIndustryModule(activeStoreId) === "course";
@@ -111,6 +119,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       dateFrom,
       dateTo,
       type: params.type,
+      categoryGroup,
       page,
       pageSize: 30,
       activeStoreId: cashbookStoreId,
@@ -268,6 +277,13 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               查詢
             </button>
           </form>
+
+          {(hasDateRange || categoryGroup) && (
+            <p className="text-xs text-primary-700">
+              分析明細：{dateFrom} 至 {dateTo}{categoryGroup === "retail" ? " · 零售" : categoryGroup === "other" ? " · 其他手動收入" : ""}。
+              下方月度統計仍顯示整月資料；按「查詢」可切回月份篩選。
+            </p>
+          )}
 
           {/* 月度統計：compact stats row（手機 1 col、桌機 / iPad 橫向 3 col） */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
