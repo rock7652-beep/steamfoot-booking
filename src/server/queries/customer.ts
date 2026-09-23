@@ -2,7 +2,8 @@ import { prisma } from "@/lib/db";
 import { requireSession, requireStaffSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { getStoreFilter } from "@/lib/manager-visibility";
-import { monthRange, toLocalMonthStr, todayRange } from "@/lib/date-utils";
+import { todayRange } from "@/lib/date-utils";
+import { customerListFilterWhere } from "@/lib/customer-list-filters";
 import type { CustomerStage, Prisma } from "@prisma/client";
 import { checkPermission } from "@/lib/permissions";
 
@@ -67,50 +68,13 @@ export async function listCustomersForUser(
     pageSize = 20,
   } = options;
 
-  // ----- 狀態（LINE 綁定 / 顧客階段）-----
-  const statusWhere: Prisma.CustomerWhereInput =
-    status === "linked"
-      ? { lineLinkStatus: "LINKED" }
-      : status === "unlinked"
-        ? { lineLinkStatus: { not: "LINKED" } }
-        : status === "lead"
-          ? { customerStage: "LEAD" }
-          : status === "customer"
-            ? { customerStage: { not: "LEAD" } }
-            : {};
-
-  // ----- 來店（本月 / 30 天未到 / 從未到）-----
-  // 以 Asia/Taipei 月首為界；`lt` cutoff 語意自動排除 null（Postgres 比較不含 null）
-  const monthStart = monthRange(toLocalMonthStr()).start;
-  const stale30Cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const visitWhere: Prisma.CustomerWhereInput =
-    visit === "month"
-      ? { lastVisitAt: { gte: monthStart } }
-      : visit === "stale30"
-        ? { lastVisitAt: { lt: stale30Cutoff } }
-        : visit === "never"
-          ? { lastVisitAt: null }
-          : {};
-
-  // ----- 推薦紀錄（曾介紹過其他顧客）-----
-  const referralWhere: Prisma.CustomerWhereInput =
-    referral === "has"
-      ? { sponsoredCustomers: { some: {} } }
-      : referral === "none"
-        ? { sponsoredCustomers: { none: {} } }
-        : {};
-
   // 不再依 Manager 隔離 — 所有店長都能看全部顧客
   // 已合併（mergedIntoCustomerId != null）/ User=SUSPENDED 的 row 仍出現在列表，
   // 由 UI 灰掉並隱藏「+指派/查看」操作（防店長誤操作 placeholder/duplicate）。
   // searchCustomers (autocomplete) / getCustomerDetail 仍會擋掉，這裡只是列表呈現。
   const where: Prisma.CustomerWhereInput = {
     ...getStoreFilter(user, activeStoreId),
-    ...(stage ? { customerStage: stage } : {}),
-    ...(assignedStaffId ? { assignedStaffId } : {}),
-    ...statusWhere,
-    ...visitWhere,
-    ...referralWhere,
+    ...customerListFilterWhere({ stage, status, visit, referral, assignedStaffId }),
     ...(search
       ? {
           OR: [

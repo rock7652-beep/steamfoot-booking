@@ -78,7 +78,8 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const customersStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
   const customersUser = userForViewContext(user, storeViewContext);
-  if(customersStoreId && await getStoreIndustryModule(customersStoreId)==="spa") {
+  const industryModule = customersStoreId ? await getStoreIndustryModule(customersStoreId) : null;
+  if(customersStoreId && industryModule === "spa") {
     const canSell=!isViewMode && await checkPermission(user.role,user.staffId,"wallet.create") && await checkPermission(user.role,user.staffId,"transaction.create");
     const canRefund=!isViewMode && await checkPermission(user.role,user.staffId,"transaction.refund");
     const [canEdit,canCreate,canBook,canReadBookings,canReadWallet,canReadTransactions,canManageStaff]=await Promise.all([
@@ -262,7 +263,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
         }
       />
 
-      <CustomersToolbar staffOptions={staffOptions} basePath={basePath} />
+      <CustomersToolbar key={`${user.id}:${customersStoreId}`} staffOptions={staffOptions} basePath={basePath} instantStoreId={industryModule === "steamfoot" ? customersStoreId ?? undefined : undefined} />
 
       <div className="flex items-center justify-between text-[11px] text-earth-500">
         <span>共 {total} 位顧客{hasActiveFilters ? "（已套用篩選）" : ""}</span>
