@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { dayRange } from "@/lib/date-utils";
+import { dayRange, toLocalDateStr } from "@/lib/date-utils";
 import { REVENUE_NET_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 
 export type RevenueMixPoint = {
@@ -92,7 +92,7 @@ export async function getRevenueMix(
   const summary = { packageRevenue: 0, retailRevenue: 0, otherRevenue: 0, refunds: 0, expense: 0 };
   for (const tx of transactions) {
     // createdAt is a timestamp; render its business date in Asia/Taipei.
-    const date = new Date(tx.createdAt.getTime() + 8 * 3600000).toISOString().slice(0, 10);
+    const date = toLocalDateStr(tx.createdAt);
     const point = points.get(monthly ? date.slice(0, 7) : date);
     if (!point) continue;
     const amount = Number(tx.amount);
