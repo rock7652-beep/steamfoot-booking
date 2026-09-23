@@ -1,8 +1,10 @@
 "use client";
 
+import { CustomerInstantSearch } from "@/components/customer-instant-search";
+import { normalizeCustomerSearch } from "@/lib/customer-search-index";
 import { NavigationNotice } from "@/components/navigation-notice";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 
@@ -25,6 +27,7 @@ interface Props {
   /** 語意 basePath（例：`/dashboard/customers`）— 僅供「清除篩選」Link 使用，DashboardLink 會自動 prefix */
   basePath: string;
   courseMode?: boolean;
+  instantStoreId?: string;
 }
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
@@ -56,7 +59,7 @@ const SORT_OPTIONS: Array<{ value: string; label: string }> = [
 
 const FILTER_KEYS = ["search", "status", "visit", "referral", "staff"] as const;
 
-export function CustomersToolbar({ staffOptions, basePath, courseMode = false }: Props) {
+export function CustomersToolbar({ staffOptions, basePath, courseMode = false, instantStoreId }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname(); // 真實 pathname，含 /hq 或 /s/{slug}/admin 前綴
@@ -76,7 +79,34 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
   );
 
   const [draft, setDraft] = useState({source:current.search,value:current.search});
-  const searchDraft = draft.source === current.search ? draft.value : current.search;
+  const searchDraft = instantStoreId || draft.source === current.search ? draft.value : current.search;
+  const instantQuery = normalizeCustomerSearch(searchDraft);
+  const lastListRequest = useRef<string | null>(null);
+
+  // Local suggestions are immediate; serialize list navigations and retain the
+  // latest input while the previous server-rendered list is still pending.
+  useEffect(() => {
+    if (!instantStoreId || isPending || instantQuery === current.search) return;
+    const params = new URLSearchParams(searchParams.toString());
+    if (instantQuery) params.set("search", instantQuery);
+    else params.delete("search");
+    params.delete("page");
+    const url = `${pathname}?${params}`;
+    if (lastListRequest.current === url) return;
+    lastListRequest.current = url;
+    startTransition(() => router.replace(url, { scroll: false }));
+  }, [instantStoreId, isPending, instantQuery, current.search, searchParams, pathname, router]);
+
+  useEffect(() => {
+    if (!instantStoreId) return;
+    const restore = () => {
+      lastListRequest.current = null;
+      const search = new URLSearchParams(window.location.search).get("search") ?? "";
+      setDraft({ source: search, value: search });
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [instantStoreId]);
 
   const hasActiveFilters = FILTER_KEYS.some((k) => {
     const v = searchParams.get(k);
@@ -94,6 +124,10 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
 
   const pushParams = (mutate: (p: URLSearchParams) => void) => {
     const params = new URLSearchParams(searchParams.toString());
+    if (instantStoreId) {
+      if (instantQuery) params.set("search", instantQuery);
+      else params.delete("search");
+    }
     mutate(params);
     // 任何篩選/排序變更都重置分頁
     params.delete("page");
@@ -111,7 +145,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
 
   const onSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setParam("search", searchDraft.trim());
+    setParam("search", instantStoreId ? instantQuery : searchDraft.trim());
   };
 
   const selectClass =
@@ -219,6 +253,14 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
     <div className="flex flex-wrap items-center gap-2 border-b border-earth-200 pb-3">
       {isPending && <NavigationNotice />}
       <form onSubmit={onSearchSubmit} className={courseMode ? "flex min-w-0 basis-full items-center gap-2 lg:basis-64 lg:flex-1" : "flex min-w-[220px] flex-1 items-center gap-1.5"}>
+        {instantStoreId ? <CustomerInstantSearch key={instantStoreId} storeId={instantStoreId} value={searchDraft}
+          className="w-full min-w-0 rounded-md border border-earth-300 bg-white px-3 py-1.5 text-xs text-earth-800 focus:border-primary-400 focus:outline-none"
+          onChange={(value) => {
+            setDraft({ source: current.search, value });
+          }}
+          onSelect={(customer) => {
+            pushParams((p) => { p.set("customerId", customer.id); });
+          }} /> : <>
         <input
           name="search"
           value={searchDraft}
@@ -235,6 +277,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
             搜尋
           </button>
         ) : null}
+        </>}
       </form>
 
       <select
@@ -316,6 +359,7 @@ export function CustomersToolbar({ staffOptions, basePath, courseMode = false }:
       {hasActiveFilters ? (
         <Link
           href={basePath}
+          onClick={() => setDraft({ source: "", value: "" })}
           className="text-[11px] text-earth-500 hover:text-earth-700 underline-offset-2 hover:underline"
         >
           清除篩選
