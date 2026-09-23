@@ -90,7 +90,7 @@ export function ZhubeiTrialBookingForm({
 }: {
   entry?: string;
   source?: string;
-  storeSlug?: "zhubei" | "hsinchu" | "taichung";
+  storeSlug?: "zhubei" | "hsinchu" | "taichung" | "staging";
   contactUrl?: string;
   successGuideId?: string;
   lineTrialPilot?: boolean;
