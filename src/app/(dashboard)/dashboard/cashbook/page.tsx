@@ -98,7 +98,9 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const dateTo = `${month}-${String(lastDay).padStart(2, "0")}`;
 
   const activeStoreId = await getActiveStoreForRead(user);
-  const isCourse = !!activeStoreId && await getStoreIndustryModule(activeStoreId) === "course";
+  const industryModule = activeStoreId ? await getStoreIndustryModule(activeStoreId) : null;
+  const isCourse = industryModule === "course";
+  const useInlineEditor = isCourse || industryModule === "steamfoot";
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const isViewMode = storeViewContext?.isViewMode ?? false;
   const cashbookStoreId = storeIdForViewContext(activeStoreId, storeViewContext);
@@ -173,9 +175,15 @@ export default async function CashbookPage({ searchParams }: PageProps) {
       : Promise.resolve(null),
   ]);
 
-  const editorStaff = isCourse && canManageCashbook ? await listStaffSelectOptions() : [];
-  const closedDates = isCourse && cashbookStoreId && canManageCashbook ? await listClosedBusinessDates(cashbookStoreId, dateFrom, dateTo) : [];
-  const editorProps = { today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
+  const editorStaff = useInlineEditor && canManageCashbook ? await listStaffSelectOptions() : [];
+  const [todayYear, todayMonth, todayDay] = today.split("-").map(Number);
+  const historyStart = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
+  historyStart.setUTCDate(historyStart.getUTCDate() - 180);
+  const historyStartDate = historyStart.toISOString().slice(0, 10);
+  const closedDates = useInlineEditor && cashbookStoreId && canManageCashbook
+    ? await listClosedBusinessDates(cashbookStoreId, dateFrom < historyStartDate ? dateFrom : historyStartDate, dateTo > today ? dateTo : today)
+    : [];
+  const editorProps = { presentation: isCourse ? "side" as const : "centered" as const, today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
   const { entries, total, pageSize } = cashbookList;
   const totalPages = Math.ceil(total / pageSize);
 
@@ -192,7 +200,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
               <span className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">
                 查看模式：不可新增記帳
               </span>
-            ) : isCourse ? (canManageCashbook && <CashbookEditor {...editorProps} />) : (
+            ) : useInlineEditor ? (canManageCashbook && <CashbookEditor {...editorProps} />) : (
               <Link
                 href="/dashboard/cashbook/new"
                 className="rounded-lg bg-primary-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
@@ -370,7 +378,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
                         <span className="text-earth-400">僅可查看</span>
                       ) : (
                         <div className="flex items-center gap-3">
-                          {isCourse ? (canManageCashbook && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId }} />) : <Link
+                          {useInlineEditor ? (canManageCashbook && <CashbookEditor {...editorProps} entry={{ id: e.id, entryDate: e.entryDate.toISOString().slice(0, 10), type: e.type, category: e.category || "", amount: String(e.amount), paymentMethod: e.paymentMethod, note: e.note || "", staffId: e.staffId }} />) : <Link
                             href={`/dashboard/cashbook/${e.id}/edit`}
                             className="text-primary-600 hover:underline"
                           >
