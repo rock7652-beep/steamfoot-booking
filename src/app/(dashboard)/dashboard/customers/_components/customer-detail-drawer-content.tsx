@@ -183,7 +183,7 @@ export function CustomerDetailDrawerContent({
   const identityWarning = customer.authSource === "LINE" && !lineBound;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
       <header
         ref={headerRef}
@@ -209,7 +209,7 @@ export function CustomerDetailDrawerContent({
           type="button"
           onClick={onClose}
           aria-label="關閉"
-          className="ml-2 shrink-0 rounded p-1 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
+          className="ml-2 min-h-11 min-w-11 shrink-0 rounded p-1 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
@@ -218,7 +218,7 @@ export function CustomerDetailDrawerContent({
       </header>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+      <div className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-5 py-4 space-y-4">
         {readOnly ? (
           <div className="rounded-lg border border-primary-100 bg-primary-50 px-3 py-2 text-xs text-primary-800">
             查看模式提供完整閱讀能力，顧客操作請由該店自行完成。

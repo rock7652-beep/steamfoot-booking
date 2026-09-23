@@ -387,11 +387,11 @@ export function CustomersListWithDrawer({
         readOnly={readOnly}
       />
 
-      <RightSheet
+      <RightSheet presentation="centered"
         open={openId !== null}
         onClose={closeDrawer}
         labelledById={titleId}
-        width={520}
+        width={720}
       >
         {detail ? (
           <CustomerDetailDrawerContent

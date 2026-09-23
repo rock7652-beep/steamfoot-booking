@@ -107,7 +107,7 @@ export function CashbookEditor({
         {entry ? "編輯" : "＋ 新增記帳"}
       </button>
       {open && (
-        <RightSheet open onClose={close} width={640} labelledById={titleId}>
+        <RightSheet presentation="centered" open onClose={close} width={640} labelledById={titleId}>
           <header className="flex items-center justify-between border-b p-4">
             <h2 id={titleId} className="font-semibold">
               {title}
