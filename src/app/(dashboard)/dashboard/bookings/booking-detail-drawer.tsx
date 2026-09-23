@@ -537,7 +537,7 @@ export function BookingDetailDrawer({
 
   return (
     <>
-      <RightSheet
+      <RightSheet presentation="centered"
         open={open}
         onClose={onClose}
         labelledById="booking-drawer-title"

@@ -719,7 +719,7 @@ export function BookingsManager({
 
       {/* 當日預約改用右側 Drawer：避免窄螢幕（iPad/小視窗）被擠到月曆下方看不到。
           開啟條件 = 有選日期且未開啟 Booking Detail，故兩層 Drawer 不會疊在一起。 */}
-      <RightSheet
+      <RightSheet presentation="centered"
         open={!!selectedDate && !activeBookingId}
         onClose={closeDay}
         width={520}

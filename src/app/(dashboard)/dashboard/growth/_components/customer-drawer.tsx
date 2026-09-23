@@ -87,7 +87,7 @@ export function GrowthCustomerDrawer({
     : (summary?.talentStage ?? "CUSTOMER");
 
   return (
-    <RightSheet
+    <RightSheet presentation="centered"
       open={open}
       onClose={onClose}
       labelledById="growth-customer-drawer-title"

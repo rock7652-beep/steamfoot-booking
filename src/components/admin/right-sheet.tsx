@@ -89,6 +89,7 @@ export function RightSheet({
         }`}
       />
       <aside
+        data-compact={compact || undefined}
         ref={panelRef}
         tabIndex={compact || centered ? -1 : undefined}
         role="dialog"

@@ -63,8 +63,8 @@ export function CourseSettingsPanel({ panel, children }: { panel: CourseSettings
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("keydown", escape); };
   }, [dirty, pending, request, closeHref, destination]);
   const context = useMemo(() => ({ report, navigate }), [report, navigate]);
-  return <div ref={root} data-course-settings-panel className="[&>[data-right-sheet]]:z-[45]">
-    <RightSheet open compact width={config.width} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
+  return <div ref={root} data-course-settings-panel>
+    <RightSheet presentation="centered" open compact width={config.width} closeOnEscape={false} onClose={() => request(closeHref)} labelledById="course-settings-panel-title">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
         <div><p className="text-xs text-earth-500">設定</p><h2 id="course-settings-panel-title" className="font-semibold text-primary-900">{config.title}</h2></div>
         <button type="button" onClick={() => request(closeHref)} className="min-h-11 shrink-0 rounded-lg border px-4">關閉視窗</button>

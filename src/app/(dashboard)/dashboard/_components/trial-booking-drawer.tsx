@@ -234,7 +234,7 @@ export function TrialBookingDrawer({
         {triggerLabel}
       </button>
 
-      <RightSheet open={open} onClose={close} labelledById={titleId}>
+      <RightSheet presentation="centered" open={open} onClose={close} labelledById={titleId}>
         <div className="flex h-full flex-col">
           <header className="flex items-center justify-between border-b border-earth-100 px-5 py-4">
             <h2 id={titleId} className="text-sm font-semibold text-earth-900">

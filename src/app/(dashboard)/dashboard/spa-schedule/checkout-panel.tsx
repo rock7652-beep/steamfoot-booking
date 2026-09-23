@@ -111,7 +111,7 @@ export function SpaCheckoutPanel({
     );
   }
   return (
-    <RightSheet
+    <RightSheet presentation="centered"
       open
       onClose={() => {
         if (!pending) onClose();

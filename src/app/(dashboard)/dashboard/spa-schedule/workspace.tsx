@@ -662,7 +662,7 @@ export function SpaScheduleWorkspace(props: Props) {
         />
       )}
       {draft && (
-        <RightSheet
+        <RightSheet presentation="centered"
           open
           onClose={() => {
             if (!pending) setDraft(null);
