@@ -13,6 +13,7 @@ export type HealthMetricFilter =
 
 export interface NativeHealthRecordFilters {
   search?: string;
+  customerId?: string;
   from?: string;
   to?: string;
   metric?: HealthMetricFilter;
@@ -40,16 +41,18 @@ export async function listNativeHealthRecords(
   const where = {
     storeId,
     ...metricWhere,
+    ...(filters.customerId ? { customerId: filters.customerId } : {}),
     ...(from || to
       ? { measuredAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
       : {}),
     customer: {
       mergedIntoCustomerId: null,
-      ...(search
+      ...(search && !filters.customerId
         ? {
             OR: [
               { name: { contains: search, mode: "insensitive" as const } },
               { phone: { contains: search } },
+              { lineName: { contains: search, mode: "insensitive" as const } },
             ],
           }
         : {}),
