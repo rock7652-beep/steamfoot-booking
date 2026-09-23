@@ -9,6 +9,12 @@ const mockCookieDelete = vi.fn();
 const mockRevalidatePath = vi.fn();
 const mockHasStoreFeature = vi.fn();
 const mockRequireStoreFeature = vi.fn();
+const mockRedirect = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  RedirectType: { replace: "replace" },
+  redirect: (...args: unknown[]) => mockRedirect(...args),
+}));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -77,6 +83,7 @@ function mockStoreTree(parentToChildren: Record<string, string[]>) {
 describe("store organization foundation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRedirect.mockImplementation(() => { throw new Error("NEXT_REDIRECT"); });
     mockPermissionFindMany.mockResolvedValue([{ permission: "customer.create" }]);
     mockCookieGet.mockReturnValue(undefined);
     mockHasStoreFeature.mockResolvedValue(true);
@@ -247,16 +254,15 @@ describe("store organization foundation", () => {
       "store-a": ["store-b"],
     });
 
-    await expect(switchViewedStore("store-b")).resolves.toEqual({
-      success: true,
-      data: { storeId: "store-b", slug: "store-b" },
-    });
+    await expect(switchViewedStore("store-b", "/s/store-a/admin/dashboard/customers")).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockRedirect).toHaveBeenCalledWith("/s/store-b/admin/dashboard/customers", "replace");
     expect(mockCookieSet).toHaveBeenCalledWith(
       "viewed-store-id",
       "store-b",
       expect.objectContaining({ httpOnly: true, sameSite: "lax" }),
     );
-    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard", "layout");
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
+    expect(mockCookieSet.mock.invocationCallOrder[0]).toBeLessThan(mockRedirect.mock.invocationCallOrder[0]);
   });
 
   it("does not set viewed-store cookie when multi_store is disabled", async () => {
@@ -274,6 +280,7 @@ describe("store organization foundation", () => {
     expect(result.success).toBe(false);
     expect(mockHasStoreFeature).toHaveBeenCalledWith("store-a", "multi_store");
     expect(mockCookieSet).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it("clears viewed-store cookie when returning to own store", async () => {
@@ -285,11 +292,10 @@ describe("store organization foundation", () => {
       storeId: "store-a",
     });
 
-    await expect(switchViewedStore("__own__")).resolves.toEqual({
-      success: true,
-      data: { storeId: "store-a", slug: "store-a" },
-    });
+    await expect(switchViewedStore("__own__", "/s/store-b/admin/dashboard/customers")).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockRedirect).toHaveBeenCalledWith("/s/store-a/admin/dashboard/customers", "replace");
     expect(mockCookieDelete).toHaveBeenCalledWith("viewed-store-id");
+    expect(mockCookieDelete.mock.invocationCallOrder[0]).toBeLessThan(mockRedirect.mock.invocationCallOrder[0]);
   });
 
   it("rejects switching view mode to a sibling store", async () => {
@@ -308,5 +314,16 @@ describe("store organization foundation", () => {
     const result = await switchViewedStore("store-b");
     expect(result.success).toBe(false);
     expect(mockCookieSet).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+  it.each([
+    "https://example.com/dashboard", "//example.com/dashboard", "/s/store-b/admin/dashboard/../../settings",
+    "/s/store-b/admin/dashboard/%2e%2e/settings", "/dashboard?customerId=other-store",
+  ])("does not use an unsafe redirect destination: %s", async (pathname) => {
+    const { switchViewedStore } = await import("@/server/actions/store-view-mode");
+    mockRequireStaffSession.mockResolvedValue({ id: "user-a", role: "OWNER", storeId: "store-a" });
+    mockStoreTree({ "store-a": ["store-b"] });
+    await expect(switchViewedStore("store-b", pathname)).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockRedirect).toHaveBeenCalledWith("/s/store-b/admin/dashboard", "replace");
   });
 });

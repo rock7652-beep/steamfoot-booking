@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { redirect, RedirectType } from "next/navigation";
 import { requireStaffSession } from "@/lib/session";
 import { resolveAuthorizedConcreteStore } from "@/lib/store";
 import { OWN_STORE_VALUE, VIEWED_STORE_COOKIE_NAME } from "@/lib/store-view-mode-constants";
@@ -11,13 +11,15 @@ import type { ActionResult } from "@/types";
 /**
  * Switch a non-HQ staff user into a descendant read-only view context.
  *
- * This is foundation only: it stores selected view context and revalidates the
- * dashboard shell. Individual modules are intentionally not wired to read from
- * viewedStoreId in PR-3.
+ * Redirect in the same action as the cookie update. Returning a normal action
+ * response would render the old route using the new cookie before client-side
+ * navigation, mixing two store contexts in one render.
  */
 export async function switchViewedStore(
   viewedStoreId: string,
-): Promise<ActionResult<{ storeId: string; slug: string }>> {
+  currentPathname = "/dashboard",
+): Promise<ActionResult<never>> {
+  let destination: string;
   try {
     const user = await requireStaffSession();
     if (user.role !== "OWNER") {
@@ -37,6 +39,13 @@ export async function switchViewedStore(
       "switch",
     );
 
+    // The caller may preserve a dashboard path, never a destination host/store.
+    // Drop query filters and reject dot segments, encoded paths and backslashes.
+    const dashboardPath = currentPathname.match(
+      /^(?:\/s\/[^/]+\/admin|\/hq)?(\/dashboard(?:\/[a-zA-Z0-9_-]+)*\/?)$/,
+    )?.[1] ?? "/dashboard";
+    destination = `/s/${encodeURIComponent(authorizedStore.slug)}/admin${dashboardPath}`;
+
     if (authorizedStore.id === user.storeId) {
       cookieStore.delete(VIEWED_STORE_COOKIE_NAME);
     } else {
@@ -47,15 +56,11 @@ export async function switchViewedStore(
       });
     }
 
-    revalidatePath("/dashboard", "layout");
-    revalidatePath("/hq/dashboard", "layout");
-    return {
-      success: true,
-      data: { storeId: authorizedStore.id, slug: authorizedStore.slug },
-    };
   } catch (e) {
     return handleActionError(e);
   }
+  // Keep NEXT_REDIRECT outside the catch and do not refresh the old route.
+  redirect(destination, RedirectType.replace);
 }
 
 export async function getViewedStoreCookie(): Promise<string | null> {
