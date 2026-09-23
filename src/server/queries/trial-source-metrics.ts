@@ -10,6 +10,7 @@ export type TrialSourceRow = {
   source: TrialBookingSource;
   label: string;
   bookings: number;
+  sourceShare: number;
   bookedPeople: number;
   attendees: number;
   attendanceRate: number;
@@ -75,6 +76,7 @@ export async function getTrialSourceMetrics(
       source,
       label: TRIAL_BOOKING_SOURCE_LABELS[source],
       bookings: 0,
+      sourceShare: 0,
       bookedPeople: 0,
       attendees: 0,
       attendanceRate: 0,
@@ -101,6 +103,7 @@ export async function getTrialSourceMetrics(
     counted.add(wallet.customerId);
   }
   for (const row of rows.values()) {
+    row.sourceShare = bookings.length ? (row.bookings / bookings.length) * 100 : 0;
     row.attendanceRate = row.bookedPeople ? (row.attendees / row.bookedPeople) * 100 : 0;
     // Conversion denominator counts identifiable customers, not unlinked companions.
     const completedCustomers = [...firstCompletedByCustomer.values()].filter((booking) =>
