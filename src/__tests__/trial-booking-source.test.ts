@@ -13,7 +13,7 @@ describe("trial booking link attribution", () => {
     expect(normalizeTrialBookingSource(input)).toBe(expected);
   });
 
-  it.each([undefined, "", "google", "LINE-login", "facebook", "other"])(
+  it.each([undefined, "", "google", "LINE-login", "facebook", "unknown"])(
     "does not guess unsupported or missing sources: %s",
     (input) => {
       expect(normalizeTrialBookingSource(input)).toBeNull();
