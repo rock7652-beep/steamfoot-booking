@@ -33,7 +33,7 @@ describe("income composition", () => {
     expect(result).toMatchObject({
       packageRevenue: 12000, retailRevenue: 300, otherRevenue: 700,
       grossRevenue: 13000, refunds: 1000, netRevenue: 12000,
-      expense: 400, balance: 11600, pendingRevenue: 3000,
+      expense: 400, balance: 11600, pendingRevenue: 3000, manualIncome: 500,
     });
     expect(result.packageShare).toBeCloseTo(12000 / 13000 * 100);
     expect(result.points.find((p) => p.key === "2026-09-02")).toMatchObject({
