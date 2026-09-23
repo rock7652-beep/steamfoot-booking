@@ -26,6 +26,7 @@ import { notifyManagerOfPublicTrialBooking } from "@/server/services/public-tria
 import { ensureTrialPlan } from "@/server/services/trial-plan";
 import { resolveTrialBookingChatLink } from "@/server/services/trial-booking-chat-link";
 import { resolvePublicTrialLineCustomer } from "@/server/services/public-trial-line-customer";
+import { normalizeTrialBookingSource } from "@/lib/trial-booking-source";
 import { prepareTrialNotificationSetup, type TrialNotificationSetup } from "@/server/services/trial-notification-binding";
 import { bindReferralToCustomer } from "@/server/services/referral-binding";
 import {
@@ -51,6 +52,7 @@ const InputSchema = z.object({
   people: z.coerce.number().int().min(1, "預約人數至少 1 人").max(2, "單次最多預約 2 人"),
   website: z.string().max(0).optional().default(""),
   entry: z.string().max(512).optional(),
+  source: z.string().max(32).optional(),
   lineTrialPilot: z.boolean().optional().default(false),
   storeSlug: z.enum(PUBLIC_TRIAL_STORE_SLUGS).optional().default(DEFAULT_STORE_SLUG),
 });
@@ -477,6 +479,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
             expectedAmount,
             revenueStaffId: customer.assignedStaffId,
             notes: "公開快速體驗預約",
+            bookingSource: chatLink?.channel ?? normalizeTrialBookingSource(data.source),
             ...(
               chatLink
                 ? { trialBookingChannel: chatLink.channel }
