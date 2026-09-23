@@ -313,8 +313,8 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               },
             ]}
           />
-          {storeSummary.cashbookIncome > 0 && (
-            <p className="mt-1 text-[11px] text-earth-400">本期已收營收包含手動登錄收入 NT$ {storeSummary.cashbookIncome.toLocaleString()}。</p>
+          {revenueMix && revenueMix.manualIncome > 0 && (
+            <p className="mt-1 text-[11px] text-earth-400">本期已收營收包含手動登錄收入 NT$ {revenueMix.manualIncome.toLocaleString()}。</p>
           )}
         </section>
 
