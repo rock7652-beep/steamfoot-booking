@@ -32,3 +32,30 @@ export async function loadCourseCustomerPurchases(input: unknown, offset = 0, ra
     })) };
   } catch (error) { const failure=handleActionError(error); return {success:false as const,error:failure.success?"讀取失敗":failure.error}; }
 }
+
+/** Linked manual income uses the accounting date, not the purchase timestamp. */
+export async function loadCourseCustomerIncome(input: unknown, offset = 0, range: { from?: string; to?: string } = {}) {
+  try {
+    const skip = z.number().int().min(0).max(1000000).parse(offset);
+    const customerId = z.string().min(1).max(100).parse(input);
+    const { storeId } = await courseManager("customer.read");
+    await courseManager("transaction.read");
+    courseHistoryRange(range); // Validate user dates before building date-only bounds.
+    const customer = await prisma.customer.findFirst({ where: { id: customerId, storeId, mergedIntoCustomerId: null }, select: { id: true } });
+    if (!customer) throw new AppError("NOT_FOUND", "找不到本店顧客");
+    const rows = await prisma.cashbookEntry.findMany({
+      where: { storeId, customerId, type: "INCOME", NOT: { id: { startsWith: "course-" } }, entryDate: {
+        ...(range.from ? { gte: new Date(`${range.from}T00:00:00Z`) } : {}),
+        ...(range.to ? { lte: new Date(`${range.to}T00:00:00Z`) } : {}),
+      } },
+      orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }, { id: "desc" }], skip, take: 11,
+      select: { id: true, entryDate: true, category: true, note: true, amount: true, paymentMethod: true },
+    });
+    return { success: true as const, hasMore: rows.length > 10, data: rows.slice(0, 10).map(row => ({
+      id: row.id, date: row.entryDate.toISOString().slice(0, 10), amount: Number(row.amount),
+      kind: row.category?.startsWith("零售-") ? "零售商品" : "其他收入",
+      name: row.category?.startsWith("零售-") ? row.category.slice(3) : row.note?.trim() || row.category || "其他收入",
+      note: row.note, payment: row.paymentMethod === "CASH" ? "現金" : "非現金",
+    })) };
+  } catch (error) { const failure = handleActionError(error); return { success: false as const, error: failure.success ? "讀取失敗" : failure.error }; }
+}

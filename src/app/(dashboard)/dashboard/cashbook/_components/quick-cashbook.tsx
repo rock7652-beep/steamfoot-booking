@@ -79,10 +79,10 @@ export function QuickCashbook({ storeId, triggerClassName }: { storeId: string; 
             <p className="text-sm text-earth-500">登記日期：{data.today}。補登其他日期請至完整現金管理。</p>
             <fieldset disabled={busy} className="grid grid-cols-2 gap-4">
               <div className="col-span-2"><CashbookFormFields readOnlyDate compact storeId={storeId} defaultCustomer={entry?.customer} closedDates={data.closedDates} defaultEntryDate={data.today} defaultType={entry?.type === "EXPENSE" ? "EXPENSE" : "INCOME"} defaultCategory={entry?.category ?? ""} defaultAmount={entry ? String(entry.amount) : ""} defaultPaymentMethod={entry?.paymentMethod ?? null} allowedTypes={["INCOME", "EXPENSE"]} /></div>
-              <label className="col-span-2 text-sm font-medium text-earth-700">備註<textarea name="note" rows={3} defaultValue={entry?.note ?? ""} className={textarea} /></label>
+              <label className="col-span-2 text-sm font-medium text-earth-700">說明／備註<textarea name="note" rows={2} placeholder="其他收入請填用途或品項，例如：三寶" defaultValue={entry?.note ?? ""} className={textarea} /></label>
 
             </fieldset>
-            <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div>
+            <div className="sticky bottom-0 flex justify-end gap-2 border-t border-earth-100 bg-white py-3"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div>
           </form> : <>
             <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-earth-800">今日收支 · {data.total} 筆</h3>{data.canWrite && <button type="button" disabled={loading || busy} onClick={() => { setEditing("new"); }} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">＋ 記一筆</button>}</div>
             <p className="mb-3 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">預約與方案的現金收款已計入抽屜，請勿重複登記。</p>

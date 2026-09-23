@@ -59,7 +59,17 @@ export function BusinessAnalyticsView({data,all,staffId}:{data:CourseBusinessRep
         {(["unconverted","tracked","visitors","newVisitors","oldVisitors"] as Segment[]).map(key=><button key={key} disabled={!data.segments||pending} className="min-h-11 py-2 text-left text-primary-700 underline underline-offset-4 disabled:no-underline" onClick={()=>show(key)}><span className="block">{names[key]}</span><strong className="block font-medium">{data.counts[key]} 人</strong></button>)}
       </div>
     </div>
-    {data.retail&&<section aria-label="零售分析" className="rounded-xl border border-earth-200 bg-white p-4"><h2 className="font-semibold">零售分析</h2><p className="my-3 text-sm">零售收入 NT$ {data.retail.revenue.toLocaleString()} · {data.retail.transactionCount} 筆 · {data.retail.customerCount} 位顧客</p>{data.retail.items.length?<ul className="divide-y divide-earth-100">{data.retail.items.map(item=><li key={item.name} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><strong>{item.name}</strong><span>NT$ {item.revenue.toLocaleString()} · {item.transactionCount} 筆 · {item.customerCount} 位顧客</span></li>)}</ul>:<p className="py-3 text-sm text-earth-500">本期尚無零售紀錄。請在「現金收支」新增收入、選擇零售商品並關聯顧客，儲存後會納入此區。</p>}</section>}
+    {data.retail && <section aria-label="零售與其他收入" className="space-y-4 rounded-xl border border-earth-200 bg-white p-4">
+      <h2 className="font-semibold">零售與其他收入</h2>
+      <p className="text-sm text-earth-500">依上方日期範圍統計手動收入；零售與其他收入分開計算。</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg bg-primary-50 p-3"><p>零售收入</p><strong className="text-xl">NT$ {data.retail.revenue.toLocaleString()}</strong><p className="text-sm">{data.retail.transactionCount} 筆 · {data.retail.customerCount} 位已關聯顧客</p></div>
+        <div className="rounded-lg bg-earth-50 p-3"><p>其他收入</p><strong className="text-xl">NT$ {(data.retail.otherIncome?.revenue ?? 0).toLocaleString()}</strong><p className="text-sm">{data.retail.otherIncome?.transactionCount ?? 0} 筆</p></div>
+      </div>
+      {!!data.retail.items.length && <details><summary className="cursor-pointer py-2 font-medium">零售商品彙總</summary><ul>{data.retail.items.map(item => <li key={item.name} className="flex justify-between gap-3 border-b py-2"><span>{item.name} · {item.transactionCount} 筆</span><strong>NT$ {item.revenue.toLocaleString()}</strong></li>)}</ul></details>}
+      <h3 className="font-medium">收入明細</h3>
+      {data.retail.transactions === undefined ? <p className="text-sm text-earth-500">收入明細需具備顧客檢視權限。</p> : data.retail.transactions.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{["日期", "分類", "商品／說明", "顧客", "付款", "金額"].map(label => <th key={label} className="whitespace-nowrap border-b p-2">{label}</th>)}</tr></thead><tbody>{data.retail.transactions.map(row => <tr key={row.id}><td className="whitespace-nowrap p-2">{row.date}</td><td className="whitespace-nowrap p-2">{row.kind}</td><td className="p-2">{row.name}</td><td className="p-2">{row.customerName}</td><td className="p-2">{row.payment}</td><td className="whitespace-nowrap p-2 text-right">NT$ {row.amount.toLocaleString()}</td></tr>)}</tbody></table></div> : <p className="text-sm text-earth-500">本期尚無手動收入紀錄。請在「現金收支」新增收入；選擇零售時可自行填寫商品名稱。</p>}
+    </section>}
     {review&&<section className="rounded-xl border border-earth-200 bg-white p-4" aria-label="待核對明細">
       <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">{review==="profit"?"方案利潤":"授課費"}待核對（{reviewRows.length} {review==="profit"?"筆":"堂"}）</h2><button className="min-h-11 px-3 text-sm" onClick={()=>setReview(null)}>關閉明細</button></div>
       <p className="mb-2 text-sm text-earth-500">以下項目尚未計入金額，請依原始成交或授課紀錄核對。</p>

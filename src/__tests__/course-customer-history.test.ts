@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ manager: vi.fn(), customer: vi.fn(), orders: vi.fn() }));
+const mocks = vi.hoisted(() => ({ manager: vi.fn(), customer: vi.fn(), orders: vi.fn(), income: vi.fn() }));
 vi.mock("@/server/services/course-access", () => ({ courseManager: mocks.manager }));
-vi.mock("@/lib/db", () => ({ prisma: { customer: { findFirst: mocks.customer } } }));
+vi.mock("@/lib/db", () => ({ prisma: { cashbookEntry: { findMany: mocks.income }, customer: { findFirst: mocks.customer } } }));
 vi.mock("@/lib/course-db", () => ({ coursePrisma: { coursePurchase: { findMany: mocks.orders } } }));
-import { loadCourseCustomerPurchases } from "@/server/actions/course-customer-history";
+import { loadCourseCustomerPurchases, loadCourseCustomerIncome } from "@/server/actions/course-customer-history";
 import { AppError } from "@/lib/errors";
 
 beforeEach(() => {
@@ -50,4 +50,18 @@ it("loads ten rows at a time and signals more without dropping remaining history
 it("applies Taiwan date boundaries and keeps ten-row database pagination",async()=>{
  await loadCourseCustomerPurchases("customer",20,{from:"2026-09-21",to:"2026-09-21"});
  expect(mocks.orders).toHaveBeenCalledWith(expect.objectContaining({skip:20,take:11,where:expect.objectContaining({createdAt:{gte:new Date("2026-09-20T16:00:00.000Z"),lte:new Date("2026-09-21T15:59:59.999Z")}})}));
+});
+
+it("loads linked income by accounting date, amount and customer without mixing stores",async()=>{
+ mocks.income.mockResolvedValue([{id:"cash",entryDate:new Date("2026-09-23T00:00:00Z"),category:"其他收入",note:"三寶",amount:100,paymentMethod:"CASH"}]);
+ expect(await loadCourseCustomerIncome("customer",0,{from:"2026-09-23",to:"2026-09-23"})).toMatchObject({success:true,data:[{id:"cash",name:"三寶",amount:100,kind:"其他收入",date:"2026-09-23"}]});
+ expect(mocks.income).toHaveBeenCalledWith(expect.objectContaining({where:{storeId:"course-store",customerId:"customer",type:"INCOME",NOT:{id:{startsWith:"course-"}},entryDate:{gte:new Date("2026-09-23T00:00:00Z"),lte:new Date("2026-09-23T00:00:00Z")}},skip:0,take:11}));
+});
+it("rejects income access without financial permission or for a foreign customer",async()=>{
+ mocks.manager.mockResolvedValueOnce({storeId:"course-store"}).mockRejectedValueOnce(new AppError("FORBIDDEN","無權限"));
+ expect(await loadCourseCustomerIncome("customer")).toMatchObject({success:false});
+ expect(mocks.income).not.toHaveBeenCalled();
+ mocks.manager.mockResolvedValue({storeId:"course-store"});mocks.customer.mockResolvedValue(null);
+ expect(await loadCourseCustomerIncome("foreign")).toMatchObject({success:false});
+ expect(mocks.income).not.toHaveBeenCalled();
 });

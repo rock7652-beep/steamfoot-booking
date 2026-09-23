@@ -363,7 +363,7 @@ export function CourseMemberWorkspace({
             </button>
           </header>
           {panel === "person" && person && <nav aria-label="顧客詳細資料分區" className="flex shrink-0 flex-wrap gap-1 border-b border-earth-200 bg-earth-50 px-4 py-2">
-            {([ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","購買與上課"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={personTab===value} className={`${button} ${personTab===value?"border-primary-600 bg-primary-50 font-medium text-primary-800":"bg-white"}`} onClick={()=>setPersonTab(value as typeof personTab)}>{label}</button>)}
+            {([ ["info","基本資料"], ...(canReadCards ? [["plans","持有方案"]] : []), ...((canReadTransactions || canReadBookings) ? [["records","消費與上課紀錄"]] : []) ]).map(([value,label])=><button key={value} type="button" aria-pressed={personTab===value} className={`${button} ${personTab===value?"border-primary-600 bg-primary-50 font-medium text-primary-800":"bg-white"}`} onClick={()=>setPersonTab(value as typeof personTab)}>{label}</button>)}
             {healthEnabled && <button type="button" className={button} onClick={()=>open("health")}>健康追蹤</button>}
           </nav>}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
@@ -471,7 +471,7 @@ export function CourseMemberWorkspace({
                 </fieldset>
               </form>
             )}
-            {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","交易紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`${button} ${recordTab===value ? "bg-primary-50 font-semibold":""}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
+            {panel === "person" && personTab === "records" && canReadTransactions && canReadBookings && <nav aria-label="紀錄種類" className="flex gap-2">{([ ["purchases","消費紀錄"],["bookings","上課紀錄"] ] as const).map(([value,label])=><button type="button" key={value} aria-pressed={recordTab===value} className={`${button} ${recordTab===value ? "bg-primary-50 font-semibold":""}`} onClick={()=>setRecordTab(value)}>{label}</button>)}</nav>}
             {panel === "person" && personTab === "records" && person && canReadTransactions && recordTab === "purchases" && <CourseCustomerPurchases key={`purchases-${person.id}`} customerId={person.id} />}
             {panel === "person" && personTab === "records" && person && canReadBookings && recordTab === "bookings" && <CourseCustomerBookings key={`bookings-${person.id}`} customerId={person.id} />}
             {panel === "plan" && (

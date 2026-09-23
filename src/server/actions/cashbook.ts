@@ -175,6 +175,8 @@ export async function createCashbookEntry(
     }
 
     revalidatePath("/dashboard/cashbook");
+    revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard/analytics");
     if (data.customerId) revalidatePath(`/dashboard/customers/${data.customerId}`);
     return { success: true, data: { entryId: entry.id } };
   } catch (e) {
@@ -280,6 +282,8 @@ export async function updateCashbookEntry(
     });
 
     revalidatePath("/dashboard/cashbook");
+    revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard/analytics");
     if (entry.customerId) revalidatePath(`/dashboard/customers/${entry.customerId}`);
     if (data.customerId) revalidatePath(`/dashboard/customers/${data.customerId}`);
     return { success: true, data: undefined };
@@ -316,6 +320,8 @@ export async function deleteCashbookEntry(entryId: string): Promise<ActionResult
     });
 
     revalidatePath("/dashboard/cashbook");
+    revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard/analytics");
     if (entry.customerId) revalidatePath(`/dashboard/customers/${entry.customerId}`);
     return { success: true, data: undefined };
   } catch (e) {

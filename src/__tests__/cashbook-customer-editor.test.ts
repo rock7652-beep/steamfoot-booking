@@ -32,3 +32,12 @@ it('searches and selects a customer in the full income editor',async()=>{
  await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
  expect(m.create).toHaveBeenCalledWith(expect.objectContaining({customerId:'c1'}));
 });
+
+it('saves a custom retail product instead of a fixed steamfoot category',async()=>{
+ await act(async()=>root.render(React.createElement(CashbookEditor,{...props,entry:{id:'e',entryDate:'2026-09-23',type:'INCOME',category:'零售-其他商品',amount:'100',paymentMethod:'CASH',note:'',staffId:null,customer:{id:'c1',name:'測試顧客'}}})));
+ await act(async()=>host.querySelector('button')!.click());
+ const input=host.querySelector('[aria-label="商品名稱"]') as HTMLInputElement;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,'三寶');input.dispatchEvent(new Event('input',{bubbles:true}));});
+ await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+ expect(m.update).toHaveBeenCalledWith('e',expect.objectContaining({customerId:'c1',category:'零售-三寶',amount:100}));
+});
