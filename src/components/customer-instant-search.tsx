@@ -75,7 +75,7 @@ export function CustomerInstantSearch({ storeId, value, onChange, onSelect, id, 
       onCompositionStart={() => setComposing(true)}
       onCompositionEnd={(event) => { setComposing(false); onChange(event.currentTarget.value); }}
       onKeyDown={(event) => {
-        if (composing || event.nativeEvent.isComposing) {
+        if (composing || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
           if (event.key === "Enter") event.preventDefault();
           return;
         }
@@ -84,9 +84,9 @@ export function CustomerInstantSearch({ storeId, value, onChange, onSelect, id, 
           event.preventDefault();
           event.currentTarget.parentElement?.querySelector<HTMLButtonElement>("button")?.focus();
         }
-        if (event.key === "Enter" && focused && results[0]) {
-          event.preventDefault(); onSelect(results[0]); setFocused(false);
-        }
+        // Enter in the search field never selects a customer or submits a cash entry.
+        // Explicit selection happens by clicking a candidate, or focusing its button first.
+        if (event.key === "Enter") event.preventDefault();
       }}
       onChange={(event) => { setFocused(true); setText(event.target.value); if (!composing && !(event.nativeEvent as InputEvent).isComposing) onChange(event.target.value); }} />
     {focused && query && <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-earth-200 bg-white shadow-lg">

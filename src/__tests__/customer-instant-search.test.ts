@@ -78,12 +78,13 @@ it("shows a retry action rather than a false no-results message on load failure"
   expect(host.textContent).toContain("載入失敗");
   expect(host.textContent).not.toContain("沒有符合");
 });
-it("can select the first candidate with Enter without submitting the cashbook", async () => {
+it("keeps matching candidates on Enter without selecting or submitting", async () => {
   await render(); await input("黃");
   const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
   await act(async () => host.querySelector("input")!.dispatchEvent(event));
   expect(event.defaultPrevented).toBe(true);
-  expect(onSelect).toHaveBeenCalledWith(rows[0]);
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(host.textContent).toContain("黃彥陸");
 });
 it("drops old candidates while a changed list filter loads, retaining the input", async () => {
   await render(); await input("黃");
@@ -120,4 +121,25 @@ it("reopens suggestions when typing again after selecting a customer", async () 
   expect(host.querySelector("button")).toBeNull();
   await input("091");
   expect(host.textContent).toContain("黃彥陸");
+});
+
+it("does not select after compositionend followed by Safari Enter", async () => {
+  await render();
+  await act(async () => host.querySelector("input")!.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true })));
+  await input("黃");
+  await act(async () => host.querySelector("input")!.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "黃" })));
+  const event = new KeyboardEvent("keydown", { key: "Enter", keyCode: 229, bubbles: true, cancelable: true });
+  await act(async () => host.querySelector("input")!.dispatchEvent(event));
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(event.defaultPrevented).toBe(true);
+  expect(host.textContent).toContain("黃彥陸");
+});
+it("requires explicit candidate focus before keyboard selection", async () => {
+  await render(); await input("黃");
+  await act(async () => host.querySelector("input")!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true })));
+  expect(document.activeElement).toBe(host.querySelector("button"));
+  expect(onSelect).not.toHaveBeenCalled();
+  // Native button activation from Enter produces a click.
+  await act(async () => (document.activeElement as HTMLButtonElement).click());
+  expect(onSelect).toHaveBeenCalledWith(rows[0]);
 });
