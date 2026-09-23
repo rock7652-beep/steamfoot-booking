@@ -1,3 +1,4 @@
+import { HealthCustomerSearch } from "./health-customer-search";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -14,6 +15,7 @@ import {
 interface PageProps {
   searchParams: Promise<{
     search?: string;
+    customerId?: string;
     from?: string;
     to?: string;
     metric?: string;
@@ -61,6 +63,7 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
   const metric = normalizeMetric(params.metric);
   const result = await listNativeHealthRecords(storeId, {
     search: params.search,
+    customerId: params.customerId,
     from: params.from,
     to: params.to,
     metric,
@@ -83,10 +86,8 @@ export default async function DashboardHealthPage({ searchParams }: PageProps) {
 
       <form method="get" className="min-w-0 rounded-xl border border-earth-200 bg-white p-4">
         <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-          <label className="min-w-0">
-            <span className="mb-1 block text-xs font-medium text-earth-600">顧客姓名或電話</span>
-            <input name="search" defaultValue={params.search} placeholder="輸入姓名或電話" className="min-h-10 w-full min-w-0 max-w-full rounded-md border border-earth-200 px-3 text-sm" />
-          </label>
+          <HealthCustomerSearch key={`${storeId}-${params.search ?? ""}-${params.customerId ?? ""}`}
+            storeId={storeId} search={params.search} customerId={params.customerId} />
           <div className="flex gap-2">
             <Link href="/dashboard/health" className="inline-flex min-h-10 items-center rounded-md border border-earth-200 px-4 text-sm text-earth-700">清除</Link>
             <button type="submit" className="min-h-10 rounded-md bg-primary-600 px-5 text-sm font-semibold text-white">套用篩選</button>
@@ -229,7 +230,7 @@ function MobileMetric({ label, value, unit = "" }: { label: string; value: numbe
 
 function pageHref(params: Awaited<PageProps["searchParams"]>, page: number) {
   const query = new URLSearchParams();
-  for (const key of ["search", "from", "to", "metric"] as const) {
+  for (const key of ["search", "customerId", "from", "to", "metric"] as const) {
     if (params[key]) query.set(key, params[key]);
   }
   query.set("page", String(page));
