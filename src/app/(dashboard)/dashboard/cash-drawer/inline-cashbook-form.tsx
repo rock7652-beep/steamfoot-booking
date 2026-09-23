@@ -95,23 +95,25 @@ export function InlineCashbookForm({
         onTypeChange={(type) => {
           if (type === "INCOME" || type === "EXPENSE") setEntryType(type);
         }}
+        customerField={entryType === "INCOME" ? (
+          <div>
+            <label className="block text-sm font-medium text-earth-700">關聯顧客（選填）</label>
+            <input type="hidden" name="customerId" value={selectedCustomer?.id ?? ""} />
+            <CustomerInstantSearch
+              storeId={storeId}
+              value={customerQuery}
+              onChange={(value) => { setCustomerQuery(value); setSelectedCustomer(null); }}
+              onSelect={(customer) => { setSelectedCustomer(customer); setCustomerQuery(customer.name); }}
+              className={`mt-1 ${inputCls}`}
+            />
+            <p className="mt-1 text-xs text-earth-500">
+              請從搜尋結果選擇顧客，儲存後會顯示在消費紀錄。
+            </p>
+          </div>
+        ) : null}
       />
 
-      {entryType === "INCOME" && (
-        <FormSection title="關聯顧客（選填）" compact>
-          <input type="hidden" name="customerId" value={selectedCustomer?.id ?? ""} />
-          <CustomerInstantSearch
-            storeId={storeId}
-            value={customerQuery}
-            onChange={(value) => { setCustomerQuery(value); setSelectedCustomer(null); }}
-            onSelect={(customer) => { setSelectedCustomer(customer); setCustomerQuery(customer.name); }}
-            className={inputCls}
-          />
-          <p className="mt-1 text-xs text-earth-500">
-            請從搜尋結果選擇顧客，儲存後會顯示在消費紀錄。
-          </p>
-        </FormSection>
-      )}
+
 
       {/* 登錄人：非 ADMIN 後端鎖定為自己（不 render select）。 */}
       {canAssignStaff && (
