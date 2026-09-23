@@ -720,6 +720,7 @@ export default function DashboardShell({
         STORE_ADMIN_NAV.find(item => item.href === "/dashboard/staff")!,
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/plans")!, href: "/dashboard/courses?view=plans", label: "方案管理", permission: "wallet.read", requiredFeature: undefined },
         { ...STORE_ADMIN_NAV.find(item => item.href === "/dashboard/settings")!, href: "/dashboard/courses?view=settings", label: "設定" },
+        STORE_ADMIN_NAV.find(item => item.href === "/dashboard/device-preview")!,
       ] }];
     }
     if (isHqRoute) {

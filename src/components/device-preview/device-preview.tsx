@@ -15,10 +15,11 @@ import {
   type DevicePresetId,
   type DevicePreviewPageId,
 } from "@/lib/device-preview";
+import type { IndustryModuleId } from "@/lib/industry-modules";
 import { DeviceFrame } from "./device-frame";
 import { DeviceToolbar } from "./device-toolbar";
 
-export function DevicePreview() {
+export function DevicePreview({ moduleId = "steamfoot" }: { moduleId?: IndustryModuleId }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -26,21 +27,21 @@ export function DevicePreview() {
 
   const requestedPage = searchParams.get("page");
   const requestedDevice = searchParams.get("device");
-  const page: DevicePreviewPageId = isDevicePreviewPageId(requestedPage)
+  const page: DevicePreviewPageId = isDevicePreviewPageId(requestedPage, moduleId)
     ? requestedPage
     : DEFAULT_DEVICE_PREVIEW_PAGE;
   const device: DevicePresetId = isDevicePresetId(requestedDevice)
     ? requestedDevice
-    : DEFAULT_DEVICE_PRESET;
+    : moduleId === "course" ? "tablet" : DEFAULT_DEVICE_PRESET;
 
-  const initialPage = getDevicePreviewPage(page);
+  const initialPage = getDevicePreviewPage(page, moduleId);
   const [framePath, setFramePath] = useState<string>(() =>
     resolveDashboardPreviewPath(initialPage.path, pathname),
   );
   const [frameSrc, setFrameSrc] = useState(() =>
     createDevicePreviewUrl(resolveDashboardPreviewPath(initialPage.path, pathname)),
   );
-  const quickPage = getDevicePreviewPageForPath(framePath)?.id ?? page;
+  const quickPage = getDevicePreviewPageForPath(framePath, moduleId)?.id ?? page;
 
   const updateUrl = useCallback((nextPage: DevicePreviewPageId, nextDevice: DevicePresetId) => {
     const params = new URLSearchParams();
@@ -50,7 +51,7 @@ export function DevicePreview() {
   }, [pathname, router]);
 
   const handlePageChange = (nextPage: DevicePreviewPageId) => {
-    const nextPath = resolveDashboardPreviewPath(getDevicePreviewPage(nextPage).path, pathname);
+    const nextPath = resolveDashboardPreviewPath(getDevicePreviewPage(nextPage, moduleId).path, pathname);
     setFramePath(nextPath);
     setFrameSrc(createDevicePreviewUrl(nextPath));
     updateUrl(nextPage, device);
@@ -63,7 +64,7 @@ export function DevicePreview() {
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-earth-900">裝置預覽</h1>
-            <p className="mt-1 text-sm text-earth-600">在手機、平板與桌機尺寸下操作並檢查蒸管家介面。</p>
+            <p className="mt-1 text-sm text-earth-600">{moduleId === "course" ? "檢查課程後台在 iPad 與桌機尺寸下的版面與操作。" : "在手機、平板與桌機尺寸下操作並檢查蒸管家介面。"}</p>
           </div>
           <Link
             href={resolveDashboardPreviewPath("/dashboard", pathname)}
@@ -74,10 +75,11 @@ export function DevicePreview() {
         </div>
 
         <div className="rounded-lg border border-primary-200 bg-primary-50 px-3 py-2.5 text-sm text-primary-800">
-          預覽模式：此畫面使用目前測試資料，用於檢查不同裝置的實際操作與版面。
+          預覽會使用目前門市資料；新增、修改與刪除會實際生效。
         </div>
 
         <DeviceToolbar
+          moduleId={moduleId}
           page={quickPage}
           device={device}
           onPageChange={handlePageChange}

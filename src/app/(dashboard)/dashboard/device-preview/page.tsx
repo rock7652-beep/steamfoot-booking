@@ -1,3 +1,5 @@
+import { getActiveStoreForRead } from "@/lib/store";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { notFound } from "next/navigation";
 import { DevicePreview } from "@/components/device-preview/device-preview";
 import { checkPermission } from "@/lib/permissions";
@@ -27,5 +29,7 @@ export default async function DevicePreviewPage({ searchParams }: DevicePreviewP
     );
   }
 
-  return <DevicePreview />;
+  const storeId = await getActiveStoreForRead(user);
+  const moduleId = storeId ? await getStoreIndustryModule(storeId) : "steamfoot";
+  return <DevicePreview moduleId={moduleId} />;
 }
