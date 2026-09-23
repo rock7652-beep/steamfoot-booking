@@ -61,7 +61,7 @@ export async function listTransactions(options: ListTransactionsOptions & { acti
         : revenueGroup === "refund" ? "REFUND" as const
         : { in: ["TRIAL_PURCHASE", "SINGLE_PURCHASE", "SUPPLEMENT", ...(revenueGroup === "pending" ? ["PACKAGE_PURCHASE"] : [])] as TransactionType[] },
     } : {}),
-    ...(!transactionType && excludeSessionDeduction ? { transactionType: { not: "SESSION_DEDUCTION" as TransactionType } } : {}),
+    ...(!transactionType && !revenueGroup && excludeSessionDeduction ? { transactionType: { not: "SESSION_DEDUCTION" as TransactionType } } : {}),
     ...(paymentMethod ? {
       OR: [
         { paymentSplits: { some: { paymentMethod } } },
