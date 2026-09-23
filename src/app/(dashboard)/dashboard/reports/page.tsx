@@ -396,7 +396,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           <section aria-labelledby="trial-source-title" className="rounded-xl border border-earth-200 bg-white p-3">
             <h2 id="trial-source-title" className="text-sm font-semibold text-earth-800">體驗預約來源</h2>
             <p className="mt-1 text-[11px] leading-relaxed text-earth-500">
-              依本期建立的體驗預約統計；到店與開卡會隨後續結果更新。來源來自專屬預約連結，
+              依本期建立的體驗預約統計；到店與方案指派會隨後續結果更新。來源來自專屬預約連結，
               並非登入方式。第 5 類「其他／未記錄」包含未帶來源連結與舊資料。
             </p>
             <div className="mt-3 overflow-x-auto">
