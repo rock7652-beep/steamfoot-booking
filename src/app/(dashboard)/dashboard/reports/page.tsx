@@ -326,21 +326,30 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             <>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {[
-                  ["儲值方案", revenueMix.packageRevenue, revenueMix.packageShare],
-                  ["零售", revenueMix.retailRevenue, revenueMix.retailShare],
-                  ["其他收入", revenueMix.otherRevenue, revenueMix.otherShare],
-                ].map(([label, amount, share]) => (
-                  <div key={label as string} className="rounded-lg bg-earth-50/70 p-3">
-                    <p className="text-xs font-medium text-earth-500">{label as string}</p>
-                    <p className="mt-1 text-lg font-semibold tabular-nums text-earth-900">NT$ {(amount as number).toLocaleString()}</p>
-                    <p className="text-xs tabular-nums text-earth-500">占收入 {(share as number).toFixed(1)}%</p>
+                  { label: "儲值方案", amount: revenueMix.packageRevenue, share: revenueMix.packageShare, href: `/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&transactionType=PACKAGE_PURCHASE` },
+                  { label: "零售", amount: revenueMix.retailRevenue, share: revenueMix.retailShare, href: `/dashboard/cashbook?month=${month}&dateFrom=${startDate}&dateTo=${endDate}&type=INCOME&categoryGroup=retail#cashbook-records` },
+                ].map(({ label, amount, share, href }) => (
+                  <div key={label} className="rounded-lg bg-earth-50/70 p-3">
+                    <p className="text-xs font-medium text-earth-500">{label}</p>
+                    <p className="mt-1 text-lg font-semibold tabular-nums text-earth-900">NT$ {amount.toLocaleString()}</p>
+                    <p className="text-xs tabular-nums text-earth-500">占收入 {share.toFixed(1)}%</p>
+                    <DashboardLink href={href} className="mt-1 inline-flex text-xs text-primary-700">查看明細 →</DashboardLink>
                   </div>
                 ))}
+                <div className="rounded-lg bg-earth-50/70 p-3">
+                  <p className="text-xs font-medium text-earth-500">其他收入</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-earth-900">NT$ {revenueMix.otherRevenue.toLocaleString()}</p>
+                  <p className="text-xs tabular-nums text-earth-500">占收入 {revenueMix.otherShare.toFixed(1)}%</p>
+                  <div className="mt-1 flex flex-wrap gap-3 text-xs">
+                    <DashboardLink href={`/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}`} className="text-primary-700">系統交易 →</DashboardLink>
+                    <DashboardLink href={`/dashboard/cashbook?month=${month}&dateFrom=${startDate}&dateTo=${endDate}&type=INCOME&categoryGroup=other#cashbook-records`} className="text-primary-700">手動收入 →</DashboardLink>
+                  </div>
+                </div>
               </div>
               <div className="mt-3 grid gap-2 border-t border-earth-100 pt-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
                 <div><span className="text-earth-500">退款前收入</span><p className="font-semibold tabular-nums">NT$ {revenueMix.grossRevenue.toLocaleString()}</p></div>
-                <div><span className="text-earth-500">退款</span><p className="font-semibold tabular-nums">-NT$ {revenueMix.refunds.toLocaleString()}</p></div>
-                <div><span className="text-earth-500">已記錄支出</span><p className="font-semibold tabular-nums">-NT$ {revenueMix.expense.toLocaleString()}</p></div>
+                <div><span className="text-earth-500">退款</span><p className="font-semibold tabular-nums">-NT$ {revenueMix.refunds.toLocaleString()}</p><DashboardLink href={`/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&transactionType=REFUND`} className="text-xs text-primary-700">查看明細 →</DashboardLink></div>
+                <div><span className="text-earth-500">已記錄支出</span><p className="font-semibold tabular-nums">-NT$ {revenueMix.expense.toLocaleString()}</p><DashboardLink href={`/dashboard/cashbook?month=${month}&dateFrom=${startDate}&dateTo=${endDate}&type=EXPENSE#cashbook-records`} className="text-xs text-primary-700">查看明細 →</DashboardLink></div>
                 <div><span className="text-earth-500">收支結餘</span><p className="font-semibold tabular-nums text-primary-700">NT$ {revenueMix.balance.toLocaleString()}</p></div>
               </div>
               <p className="mt-2 text-[11px] text-earth-400">
@@ -455,7 +464,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                 <tbody>
                   {trialSourceMetrics.map((row) => (
                     <tr key={row.source} className="border-b border-earth-50 last:border-0">
-                      <th scope="row" className="py-2 pr-3 font-medium text-earth-800">{row.label}</th>
+                      <th scope="row" className="py-2 pr-3 font-medium text-earth-800"><DashboardLink href={`/dashboard/bookings/source?source=${row.source}&startDate=${startDate}&endDate=${endDate}`} className="text-primary-700 hover:underline">{row.label} →</DashboardLink></th>
                       <td className="px-3 py-2 text-right tabular-nums">{row.bookings}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.sourceShare.toFixed(1)}%</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.bookedPeople}</td>
@@ -469,7 +478,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               </table>
             </div>
             <p className="mt-2 text-[11px] text-earth-400">
-              來源占比＝該來源預約組數÷本期全部體驗預約組數；到店率＝完成服務人次÷預約人數；方案轉換率＝已指派正式方案顧客÷完成服務且已建檔顧客。多人同行未個別建檔者無法計入方案轉換率；指派方案不等於已確認收款。
+              點來源可查看預約明細。來源占比＝該來源預約組數÷本期全部體驗預約組數；到店率＝完成服務人次÷預約人數；方案轉換率＝已指派正式方案顧客÷完成服務且已建檔顧客。多人同行未個別建檔者無法計入方案轉換率；指派方案不等於已確認收款。
             </p>
           </section>
         ) : null}
