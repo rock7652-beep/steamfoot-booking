@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { matchesBookingSearch } from "@/lib/booking-month-search";
 import { createBookingRefresh, createBookingRefreshGate } from "@/lib/booking-refresh";
 import { refreshBookingManagement } from "@/server/actions/booking-refresh";
@@ -689,16 +689,16 @@ export function BookingsManager({
             <p className="text-xs text-earth-500">依目前篩選條件顯示，不含已取消預約。點選一筆查看預約。</p></div>
           <button type="button" onClick={() => setFilters({ ...filters, search: "" })} className="min-h-11 px-3 text-sm text-primary-700">清空搜尋</button>
         </div>
-        <div className="max-h-80 overflow-y-auto">
+        <BookingSearchResultsScroll key={`${year}-${month}-${JSON.stringify(filters)}`}>
           {monthSearchResults.length === 0 ? <p role="status" className="p-4 text-sm text-earth-500">本月沒有符合的預約，可調整關鍵字或篩選條件，或切換月份。</p>
             : monthSearchResults.map(({ date, booking }) => <button key={booking.id} type="button"
               onClick={() => openBooking(booking.id)}
-              className="flex min-h-16 w-full flex-wrap items-center justify-between gap-2 border-b border-earth-100 px-4 py-3 text-left hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500">
+              className="flex min-h-11 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-earth-100 px-4 py-2 text-left hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500">
               <span><span className="font-medium text-earth-900">{booking.customer.name}</span>
                 <span className="ml-3 text-sm text-earth-500">{booking.customer.phone}</span></span>
               <span className="text-sm text-earth-700">{date} · {booking.slotTime} · {booking.servicePlan?.name ?? "未指定服務"} · {STATUS_OPTIONS.find((s) => s.value === booking.bookingStatus)?.label ?? booking.bookingStatus}</span>
             </button>)}
-        </div>
+        </BookingSearchResultsScroll>
       </section>}
 
       <div className="grid grid-cols-12 gap-4">
@@ -944,8 +944,8 @@ function Toolbar({
           </button>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <div className="relative">
+      <div className="w-full basis-full">
+        <div className="relative w-full">
           <input
             type="search"
             placeholder="搜尋本月預約：姓名／手機"
@@ -959,7 +959,7 @@ function Toolbar({
               if (!composing.current && !(e.nativeEvent as InputEvent).isComposing)
                 setFilters({ ...filters, search: e.target.value });
             }}
-            className="h-7 w-56 rounded border border-earth-300 bg-white pl-7 pr-3 text-sm text-earth-700 placeholder:text-earth-400 focus:border-primary-500 focus:outline-none"
+            className="h-10 w-full rounded border border-earth-300 bg-white pl-8 pr-3 text-sm text-earth-700 placeholder:text-earth-400 focus:border-primary-500 focus:outline-none"
           />
           <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-earth-400">
             ⌕
@@ -968,6 +968,37 @@ function Toolbar({
       </div>
     </div>
   );
+}
+
+function BookingSearchResultsScroll({ children }: { children: ReactNode }) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({ overflowing: false, moreBelow: false });
+  const updateScrollState = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const overflowing = viewport.scrollHeight > viewport.clientHeight + 1;
+    const moreBelow = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop > 1;
+    setScrollState((previous) => previous.overflowing === overflowing && previous.moreBelow === moreBelow
+      ? previous : { overflowing, moreBelow });
+  }, []);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(updateScrollState);
+    if (viewportRef.current) observer.observe(viewportRef.current);
+    if (contentRef.current) observer.observe(contentRef.current);
+    return () => observer.disconnect();
+  }, [updateScrollState]);
+
+  return <>
+    <div ref={viewportRef} onScroll={updateScrollState} tabIndex={0} role="region" aria-label="預約搜尋結果清單"
+      className="max-h-64 overflow-y-auto overscroll-contain focus-visible:outline-2 focus-visible:outline-primary-500">
+      <div ref={contentRef}>{children}</div>
+    </div>
+    {scrollState.overflowing && <p className="border-t border-earth-100 px-4 py-1.5 text-center text-xs text-earth-500">
+      {scrollState.moreBelow ? "↓ 向下捲動查看更多預約" : "已顯示最後一筆"}
+    </p>}
+  </>;
 }
 
 function FilterSelect({
