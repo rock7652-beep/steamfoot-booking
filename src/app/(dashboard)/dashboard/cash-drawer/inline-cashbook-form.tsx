@@ -18,17 +18,16 @@
  *
  * 類型限定 INCOME / EXPENSE：提領仍走既有 WithdrawalForm（cashDrawer.entry），
  *   不讓店長用 CashbookEntry.WITHDRAW 做提領。後端 createCashbookEntry 業務邏輯不變，
- *   已結帳日 + 現金的防呆（confirmClosedCashbookChange）由 CashbookFormFields 沿用。
+ *   已結帳日 + 現金的防呆（confirmClosedCashbookChange）由 CashbookEntryFields 沿用。
  */
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect } from "react";
 
 import { FormSection } from "@/components/desktop";
-import { CustomerInstantSearch } from "@/components/customer-instant-search";
 import { SubmitButton } from "@/components/submit-button";
 import type { ActionResult } from "@/types";
 
-import { CashbookFormFields } from "../cashbook/cashbook-form-fields";
+import { CashbookEntryFields } from "../cashbook/_components/cashbook-entry-fields";
 
 type CreateResult = ActionResult<{ entryId: string }>;
 
@@ -62,9 +61,6 @@ export function InlineCashbookForm({
   staffOptions,
 }: Props) {
   const [state, formAction] = useActionState<CreateResult | null, FormData>(action, null);
-  const [entryType, setEntryType] = useState<"INCOME" | "EXPENSE">("INCOME");
-  const [customerQuery, setCustomerQuery] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (state?.success) {
@@ -83,37 +79,7 @@ export function InlineCashbookForm({
         </div>
       )}
 
-      <CashbookFormFields
-        closedDates={closedDates}
-        defaultEntryDate={today}
-        defaultType="INCOME"
-        defaultCategory=""
-        defaultAmount=""
-        defaultPaymentMethod={null}
-        allowedTypes={["INCOME", "EXPENSE"]}
-        compact
-        onTypeChange={(type) => {
-          if (type === "INCOME" || type === "EXPENSE") setEntryType(type);
-        }}
-        customerField={entryType === "INCOME" ? (
-          <div>
-            <label className="block text-sm font-medium text-earth-700">關聯顧客（選填）</label>
-            <input type="hidden" name="customerId" value={selectedCustomer?.id ?? ""} />
-            <CustomerInstantSearch
-              storeId={storeId}
-              value={customerQuery}
-              onChange={(value) => { setCustomerQuery(value); setSelectedCustomer(null); }}
-              onSelect={(customer) => { setSelectedCustomer(customer); setCustomerQuery(customer.name); }}
-              className={`mt-1 ${inputCls}`}
-            />
-            <p className="mt-1 text-xs text-earth-500">
-              請從搜尋結果選擇顧客，儲存後會顯示在消費紀錄。
-            </p>
-          </div>
-        ) : null}
-      />
-
-
+      <CashbookEntryFields storeId={storeId} today={today} editableDate closedDates={closedDates} />
 
       {/* 登錄人：非 ADMIN 後端鎖定為自己（不 render select）。 */}
       {canAssignStaff && (
@@ -131,10 +97,6 @@ export function InlineCashbookForm({
           </p>
         </FormSection>
       )}
-
-      <FormSection title="備註" compact>
-        <textarea name="note" rows={2} className={inputCls} placeholder="輸入備註（選填）" />
-      </FormSection>
 
       <div className="sticky bottom-0 -mx-4 -mb-4 border-t border-earth-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
         <SubmitButton
