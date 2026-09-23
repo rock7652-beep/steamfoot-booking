@@ -8,7 +8,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { getRevenueMix } from "@/server/queries/revenue-mix";
+import { getRevenueMix, getSixMonthRevenueMixTrend } from "@/server/queries/revenue-mix";
 
 beforeEach(() => {
   mocks.transactions.mockReset();
@@ -37,7 +37,7 @@ describe("income composition", () => {
     });
     expect(result.packageShare).toBeCloseTo(12000 / 13000 * 100);
     expect(result.points.find((p) => p.key === "2026-09-02")).toMatchObject({
-      packageRevenue: 12000, retailRevenue: 300, otherRevenue: 500,
+      packageRevenue: 12000, retailRevenue: 300, otherRevenue: 500, netRevenue: 12800,
     });
     expect(mocks.transactions).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ storeId: "store-1", status: "SUCCESS" }),
@@ -58,5 +58,20 @@ describe("income composition", () => {
     expect(result.points).toHaveLength(7);
     expect(result.packageRevenue).toBe(3000);
     expect(result.points[0].packageRevenue).toBe(2000);
+  });
+
+  it("shows six complete calendar-month buckets with refunded revenue and expenses separately", async () => {
+    mocks.transactions.mockResolvedValue([
+      { createdAt: new Date("2026-04-02T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 500 },
+      { createdAt: new Date("2026-09-02T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 3000 },
+      { createdAt: new Date("2026-09-03T04:00:00Z"), transactionType: "REFUND", paymentStatus: "SUCCESS", amount: -200 },
+    ]);
+    mocks.cashbook.mockResolvedValue([
+      { entryDate: new Date("2026-09-03T00:00:00Z"), type: "EXPENSE", category: "材料", amount: 400 },
+    ]);
+    const points = await getSixMonthRevenueMixTrend("store-1", "2026-09-23");
+    expect(points.map((p) => p.key)).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
+    expect(points[0].netRevenue).toBe(500);
+    expect(points[5]).toMatchObject({ netRevenue: 2800, balance: 2400 });
   });
 });

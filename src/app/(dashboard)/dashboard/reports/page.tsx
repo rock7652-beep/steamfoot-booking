@@ -16,7 +16,7 @@ import {
 } from "@/server/queries/retention-metrics";
 import { getStorePerformanceTrends } from "@/server/queries/performance-trends";
 import { getTrialSourceMetrics } from "@/server/queries/trial-source-metrics";
-import { getRevenueMix } from "@/server/queries/revenue-mix";
+import { getIndustryRevenueMix, getIndustrySixMonthRevenueMixTrend } from "@/server/queries/industry-revenue-mix";
 import {
   getReportSnapshotWithMeta,
   upsertReportSnapshot,
@@ -52,7 +52,7 @@ import {
 } from "@/components/desktop";
 import { DashboardLink } from "@/components/dashboard-link";
 import { PerformanceTrendChart } from "./performance-trend-chart";
-import { RevenueMixTrend } from "./revenue-mix-trend";
+import { RevenueMixTrend } from "@/components/revenue-mix-trend";
 
 interface PageProps {
   searchParams: Promise<{
@@ -177,16 +177,17 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   }
 
   timer.cacheStatus("reports-snapshot", snapshotHit ? "hit" : "miss");
-  const [customerFlowMetrics, conversionMetrics, retentionMetrics, performanceTrends, trialSourceMetrics, revenueMix] = reportsStoreId
+  const [customerFlowMetrics, conversionMetrics, retentionMetrics, performanceTrends, trialSourceMetrics, revenueMix, sixMonthRevenueMixTrend] = reportsStoreId
     ? await Promise.all([
         withTiming("customerFlowMetrics", timer, () => getCustomerFlowMetrics(reportsStoreId, month)),
         withTiming("conversionMetrics", timer, () => getConversionMetrics(reportsStoreId, month)),
         withTiming("retentionMetrics", timer, () => getRetentionMetrics(reportsStoreId, month)),
         withTiming("performanceTrends", timer, () => getStorePerformanceTrends(reportsStoreId, month)),
         withTiming("trialSourceMetrics", timer, () => getTrialSourceMetrics(reportsStoreId, startDate, endDate)),
-        withTiming("revenueMix", timer, () => getRevenueMix(reportsStoreId, startDate, endDate)),
+        withTiming("revenueMix", timer, () => getIndustryRevenueMix(reportsStoreId, startDate, endDate)),
+        withTiming("sixMonthRevenueMixTrend", timer, () => getIndustrySixMonthRevenueMixTrend(reportsStoreId)),
       ])
-    : [null, null, null, null, null, null];
+    : [null, null, null, null, null, null, null];
   timer.finish();
 
   const totalOrders = storeSummary.staffBreakdown.reduce((s, r) => s + r.transactionCount, 0);
@@ -357,7 +358,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               <p className="mt-2 text-[11px] text-earth-400">
                 退款後營收 NT$ {revenueMix.netRevenue.toLocaleString()}；收支結餘＝退款後營收－已記錄支出。零售依現金帳「零售-」分類辨識；其他收入含體驗、單次、補差額及其餘手動收入。這不是含商品成本與應付帳款的會計淨利。
               </p>
-              <RevenueMixTrend points={revenueMix.points} label={revenueMix.trendLabel} />
+              <RevenueMixTrend points={sixMonthRevenueMixTrend ?? []} />
             </>
           ) : (
             <p className="mt-3 rounded-lg bg-earth-50 px-3 py-2 text-xs text-earth-500">請先選擇店舖查看營收結構與收支。</p>

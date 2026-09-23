@@ -10,6 +10,7 @@ export type RevenueMixPoint = {
   otherRevenue: number;
   refunds: number;
   expense: number;
+  netRevenue: number;
   balance: number;
 };
 
@@ -45,6 +46,7 @@ function emptyPoint(key: string, monthly: boolean): RevenueMixPoint {
     otherRevenue: 0,
     refunds: 0,
     expense: 0,
+    netRevenue: 0,
     balance: 0,
   };
 }
@@ -124,8 +126,8 @@ export async function getRevenueMix(
     }
   }
   for (const point of points.values()) {
-    point.balance = point.packageRevenue + point.retailRevenue + point.otherRevenue
-      - point.refunds - point.expense;
+    point.netRevenue = point.packageRevenue + point.retailRevenue + point.otherRevenue - point.refunds;
+    point.balance = point.netRevenue - point.expense;
   }
   const grossRevenue = summary.packageRevenue + summary.retailRevenue + summary.otherRevenue;
   const netRevenue = grossRevenue - summary.refunds;
@@ -144,4 +146,13 @@ export async function getRevenueMix(
       : monthly ? "逐月走勢" : "逐日走勢",
     points: [...points.values()],
   };
+}
+
+/** The chart is always six calendar months including the current Taipei month.
+ * The selected date range on the page only controls its summary figures. */
+export async function getSixMonthRevenueMixTrend(storeId: string, today = toLocalDateStr()) {
+  const [year, month] = today.split("-").map(Number);
+  const startDate = new Date(Date.UTC(year, month - 6, 1)).toISOString().slice(0, 10);
+  const mix = await getRevenueMix(storeId, startDate, today);
+  return mix.points;
 }

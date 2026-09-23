@@ -47,6 +47,10 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/server/actions/staff.ts",
   "src/server/actions/store-onboarding.ts",
   "src/server/queries/booking.ts",
+  // Reviewed 2026-09-23: the shared finance adapter first resolves the
+  // authoritative store industry, then reads only that store's SPA receipts,
+  // sales and refunds. It never mixes SPA rows with legacy transactions.
+  "src/server/queries/industry-revenue-mix.ts",
   // Reviewed 2026-09-16: explicit store module gates and storeId filters;
   // trial-care-plans and trial-care-delivery tests cover SPA isolation and
   // COURSE rejection. These adapters were introduced on main, not by courses.

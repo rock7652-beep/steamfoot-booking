@@ -36,6 +36,7 @@ interface Props {
   action: (prevState: CreateResult | null, formData: FormData) => Promise<CreateResult>;
   /** Current store for the customer search index. */
   storeId: string;
+  instantSearch: boolean;
   /** 成功後 hard navigate 的目標 URL（== caller 的 returnPath）。 */
   returnPath: string;
   /** 今天（"YYYY-MM-DD"，UTC+8），日期欄位預設值。 */
@@ -54,6 +55,7 @@ const inputCls =
 export function InlineCashbookForm({
   action,
   storeId,
+  instantSearch,
   returnPath,
   today,
   closedDates,
@@ -79,7 +81,7 @@ export function InlineCashbookForm({
         </div>
       )}
 
-      <CashbookEntryFields storeId={storeId} today={today} editableDate closedDates={closedDates} />
+      <CashbookEntryFields storeId={storeId} today={today} editableDate instantSearch={instantSearch} closedDates={closedDates} />
 
       {/* 登錄人：非 ADMIN 後端鎖定為自己（不 render select）。 */}
       {canAssignStaff && (

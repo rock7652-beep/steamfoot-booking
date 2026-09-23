@@ -81,6 +81,7 @@ function formatDateSlash(todayStr: string): string {
 
 interface CashDrawerWorkspaceProps {
   compactSetup?: boolean;
+  instantSearch: boolean;
   view: CashDrawerView;
   todayStr: string;
   storeId: string;
@@ -113,6 +114,7 @@ interface CashDrawerWorkspaceProps {
 
 export function CashDrawerWorkspace({
   compactSetup = false,
+  instantSearch,
   view,
   todayStr,
   storeId,
@@ -164,6 +166,7 @@ export function CashDrawerWorkspace({
       {view.state === "OPENED_TODAY" && (
         <OpenedTodayWorkspace
           storeId={storeId}
+          instantSearch={instantSearch}
           session={view.session}
           liveTotals={view.liveTotals}
           paymentOverview={view.paymentOverview}
@@ -616,6 +619,7 @@ function deriveClosedCashbookNet(session: OpenedTodaySession): string {
 
 function OpenedTodayWorkspace({
   storeId,
+  instantSearch,
   session,
   liveTotals,
   paymentOverview,
@@ -631,6 +635,7 @@ function OpenedTodayWorkspace({
   todayStr,
 }: {
   storeId: string;
+  instantSearch: boolean;
   session: OpenedTodaySession;
   liveTotals: CashDrawerLiveTotals | null;
   paymentOverview: CashDrawerPaymentOverview;
@@ -699,6 +704,7 @@ function OpenedTodayWorkspace({
             <DailyActionsArea
               sessionId={session.id}
               storeId={storeId}
+              instantSearch={instantSearch}
               canAddEntry={canAddEntry}
               canCreateCashbook={canCreateCashbook}
               closedDates={closedDates}
@@ -711,6 +717,7 @@ function OpenedTodayWorkspace({
             <ClosedActionsArea
               sessionId={session.id}
               storeId={storeId}
+              instantSearch={instantSearch}
               canReopen={canReopen}
               canCreateCashbook={canCreateCashbook}
               closedDates={closedDates}
@@ -989,6 +996,7 @@ function ClosedStatusCard({
 function DailyActionsArea({
   sessionId,
   storeId,
+  instantSearch,
   canAddEntry,
   canCreateCashbook,
   closedDates,
@@ -999,6 +1007,7 @@ function DailyActionsArea({
 }: {
   sessionId: string;
   storeId: string;
+  instantSearch: boolean;
   canAddEntry: boolean;
   canCreateCashbook: boolean;
   closedDates: string[];
@@ -1054,6 +1063,7 @@ function DailyActionsArea({
             <InlineCashbookForm
                 action={handleAddCashbookEntry}
                 storeId={storeId}
+                instantSearch={instantSearch}
                 returnPath={returnPath}
                 today={todayStr}
                 closedDates={closedDates}
@@ -1130,6 +1140,7 @@ function ActionDisabledCard({ title, helper }: { title: string; helper: string }
 function ClosedActionsArea({
   sessionId,
   storeId,
+  instantSearch,
   canReopen,
   canCreateCashbook,
   closedDates,
@@ -1140,6 +1151,7 @@ function ClosedActionsArea({
 }: {
   sessionId: string;
   storeId: string;
+  instantSearch: boolean;
   canReopen: boolean;
   canCreateCashbook: boolean;
   closedDates: string[];
@@ -1213,6 +1225,7 @@ function ClosedActionsArea({
               <InlineCashbookForm
                 action={handleAddCashbookEntry}
                 storeId={storeId}
+                instantSearch={instantSearch}
                 returnPath={returnPath}
                 today={todayStr}
                 closedDates={closedDates}
