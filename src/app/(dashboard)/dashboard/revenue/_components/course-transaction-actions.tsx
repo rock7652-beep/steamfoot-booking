@@ -53,7 +53,7 @@ export function CourseTransactionActions({ order, allocationSummary, canRefund, 
   const btn = "min-h-11 whitespace-nowrap rounded-lg border border-earth-200 px-3 py-2 text-sm disabled:opacity-50";
   return <>
     <button className={btn} aria-label={`查看 ${order.customerName} 的 ${order.name} 交易`} onClick={() => { setOpen(true); setMode("detail"); setMessage(""); setReason(""); setNote(order.note); setStaffId(order.revenueStaffId ?? ""); setRequestKey(crypto.randomUUID()); }}>{order.status === "PENDING" && canConfirm ? "查看／核帳" : "查看明細"}</button>
-    {open && <RightSheet open onClose={() => { if (!pending) setOpen(false); }} labelledById={title}>
+    {open && <RightSheet presentation="centered" open onClose={() => { if (!pending) setOpen(false); }} labelledById={title}>
       <header className="flex items-center justify-between border-b p-4"><h2 id={title} className="font-semibold">交易詳情</h2><button disabled={pending} className={btn} onClick={() => setOpen(false)}>關閉</button></header>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         <h3 className="font-semibold">{order.customerName}・{order.name}</h3>

@@ -183,7 +183,7 @@ export default async function CashbookPage({ searchParams }: PageProps) {
   const closedDates = useInlineEditor && cashbookStoreId && canManageCashbook
     ? await listClosedBusinessDates(cashbookStoreId, dateFrom < historyStartDate ? dateFrom : historyStartDate, dateTo > today ? dateTo : today)
     : [];
-  const editorProps = { presentation: isCourse ? "side" as const : "centered" as const, today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
+  const editorProps = { presentation: "centered" as const, today, closedDates, staffOptions: editorStaff, canAssignStaff: user.role === "ADMIN" };
   const { entries, total, pageSize } = cashbookList;
   const totalPages = Math.ceil(total / pageSize);
 
