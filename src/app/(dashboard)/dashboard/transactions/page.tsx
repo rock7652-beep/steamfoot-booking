@@ -278,7 +278,7 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
 
       {/* 快速統計 */}
       <div className="mb-4 rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">
-        {revenueGroup === "pending" ? "指定期間待收款：" : "指定期間營業額："}
+        {revenueGroup === "pending" ? "指定期間待收款：" : revenueGroup === "refund" ? "指定期間退款：" : "指定期間營業額："}
         <strong className="ml-1">NT$ {periodRevenue.toLocaleString()}</strong>
         <span className="ml-3 text-xs text-primary-500">（共 {total} 筆交易）</span>
       </div>
