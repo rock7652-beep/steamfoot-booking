@@ -35,7 +35,8 @@ import {
 } from "@/server/services/referral-events";
 import type { SlotAvailability } from "@/types";
 
-const PUBLIC_TRIAL_STORE_SLUGS = ["zhubei", "hsinchu", "taichung"] as const;
+const PUBLIC_TRIAL_STORE_SLUGS = ["zhubei", "hsinchu", "taichung", "staging"] as const;
+const isPreviewTrialStore = (slug: string) => slug !== "staging" || process.env.VERCEL_ENV === "preview";
 type PublicTrialStoreSlug = (typeof PUBLIC_TRIAL_STORE_SLUGS)[number];
 const DEFAULT_STORE_SLUG: PublicTrialStoreSlug = "zhubei";
 const SYSTEM_PLACEHOLDER_CUSTOMER_NAMES = ["顧客", "LINE 用戶", "Google 用戶", "未命名"];
@@ -90,6 +91,7 @@ async function resolvePublicStore(storeSlug: PublicTrialStoreSlug = DEFAULT_STOR
 }
 
 async function resolveAvailabilityStore(storeSlug: PublicTrialStoreSlug, entry?: string) {
+  if (!isPreviewTrialStore(storeSlug)) return null;
   if (!entry) return resolvePublicStore(storeSlug);
   if (entry.length > 512) return null;
   const chatLink = await resolveTrialBookingChatLink(entry);
@@ -278,6 +280,7 @@ export async function submitPublicTrialBooking(input: unknown): Promise<PublicTr
   }
 
   const data = parsed.data;
+  if (!isPreviewTrialStore(data.storeSlug)) return { status: "store_unavailable" };
   const pilot = data.storeSlug === "zhubei" && data.lineTrialPilot;
   if (pilot && !data.entry) {
     return { status: "invalid_input", message: "請先使用 LINE 確認身分，再開啟專屬體驗預約表單。無法使用 LINE 時，請聯繫門市協助預約。" };
