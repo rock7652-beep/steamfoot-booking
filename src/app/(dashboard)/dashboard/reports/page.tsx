@@ -294,6 +294,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         />
 
         <ReportDateRange key={`${activePreset}-${startDate}-${endDate}`} activePreset={activePreset} startDate={startDate} endDate={endDate} />
+        <p className="text-xs text-earth-500">營收與來源依選定期間；客流、成交與留存顯示起始月份（{month}）及其月比較。</p>
 
         <section aria-labelledby="operations-summary-title">
           <div className="mb-2">
