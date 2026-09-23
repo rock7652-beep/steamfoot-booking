@@ -400,11 +400,12 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               並非登入方式。第 5 類「其他／未記錄」包含未帶來源連結與舊資料。
             </p>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[740px] text-left text-sm">
+              <table className="w-full min-w-[820px] text-left text-sm">
                 <thead className="border-b border-earth-100 text-xs text-earth-500">
                   <tr>
                     <th className="py-2 pr-3 font-medium">來源</th>
                     <th className="px-3 py-2 text-right font-medium">預約組數</th>
+                    <th className="px-3 py-2 text-right font-medium">來源占比</th>
                     <th className="px-3 py-2 text-right font-medium">預約人數</th>
                     <th className="px-3 py-2 text-right font-medium">完成服務</th>
                     <th className="px-3 py-2 text-right font-medium">到店率</th>
@@ -417,6 +418,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                     <tr key={row.source} className="border-b border-earth-50 last:border-0">
                       <th scope="row" className="py-2 pr-3 font-medium text-earth-800">{row.label}</th>
                       <td className="px-3 py-2 text-right tabular-nums">{row.bookings}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.sourceShare.toFixed(1)}%</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.bookedPeople}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.attendees}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.attendanceRate.toFixed(1)}%</td>
@@ -428,7 +430,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               </table>
             </div>
             <p className="mt-2 text-[11px] text-earth-400">
-              到店率＝完成服務人次÷預約人數；方案轉換率＝已指派正式方案顧客÷完成服務且已建檔顧客。多人同行未個別建檔者無法計入方案轉換率；指派方案不等於已確認收款。
+              來源占比＝該來源預約組數÷本期全部體驗預約組數；到店率＝完成服務人次÷預約人數；方案轉換率＝已指派正式方案顧客÷完成服務且已建檔顧客。多人同行未個別建檔者無法計入方案轉換率；指派方案不等於已確認收款。
             </p>
           </section>
         ) : null}
