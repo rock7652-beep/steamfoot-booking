@@ -316,7 +316,9 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
               const voidedLabel = transactionStatusLabel(t);
               const badge = voidedLabel
                 ? { text: voidedLabel, color: "bg-gray-200 text-gray-600" }
-                : STATUS_BADGE[t.status] ?? { text: t.status, color: "bg-earth-100 text-earth-600" };
+                : t.paymentStatus === "PENDING" && t.status === "SUCCESS"
+                  ? { text: "待收款", color: "bg-amber-100 text-amber-700" }
+                  : STATUS_BADGE[t.status] ?? { text: t.status, color: "bg-earth-100 text-earth-600" };
               return (
                 <tr
                   key={t.id}
