@@ -1,5 +1,5 @@
 /** An allowlisted, link-based acquisition label, never inferred from login identity. */
-export const TRIAL_BOOKING_SOURCES = ["LINE", "MESSENGER", "GOOGLE_MAPS", "INSTAGRAM"] as const;
+export const TRIAL_BOOKING_SOURCES = ["LINE", "MESSENGER", "GOOGLE_MAPS", "INSTAGRAM", "OTHER"] as const;
 export type TrialBookingSource = (typeof TRIAL_BOOKING_SOURCES)[number];
 
 const SOURCE_BY_LINK: Record<string, TrialBookingSource> = {
@@ -8,6 +8,7 @@ const SOURCE_BY_LINK: Record<string, TrialBookingSource> = {
   google_maps: "GOOGLE_MAPS",
   instagram: "INSTAGRAM",
   ig: "INSTAGRAM",
+  other: "OTHER",
 };
 
 /** Unknown or malformed links remain unrecorded; no referrer/identity guessing. */
@@ -20,4 +21,5 @@ export const TRIAL_BOOKING_SOURCE_LABELS: Record<TrialBookingSource, string> = {
   MESSENGER: "Messenger",
   GOOGLE_MAPS: "Google 地圖",
   INSTAGRAM: "IG",
+  OTHER: "其他／未記錄",
 };
