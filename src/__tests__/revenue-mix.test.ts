@@ -18,9 +18,10 @@ beforeEach(() => {
 describe("income composition", () => {
   it("reconciles package, retail and other income, refunds, and real expenses across Taipei dates", async () => {
     mocks.transactions.mockResolvedValue([
-      { createdAt: new Date("2026-09-01T17:00:00Z"), transactionType: "PACKAGE_PURCHASE", amount: 12000 },
-      { createdAt: new Date("2026-09-02T03:00:00Z"), transactionType: "TRIAL_PURCHASE", amount: 500 },
-      { createdAt: new Date("2026-09-03T03:00:00Z"), transactionType: "REFUND", amount: -1000 },
+      { createdAt: new Date("2026-09-01T17:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 12000 },
+      { createdAt: new Date("2026-09-02T03:00:00Z"), transactionType: "TRIAL_PURCHASE", paymentStatus: "SUCCESS", amount: 500 },
+      { createdAt: new Date("2026-09-02T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "PENDING", amount: 3000 },
+      { createdAt: new Date("2026-09-03T03:00:00Z"), transactionType: "REFUND", paymentStatus: "SUCCESS", amount: -1000 },
     ]);
     mocks.cashbook.mockResolvedValue([
       { entryDate: new Date("2026-09-02T00:00:00Z"), type: "INCOME", category: "零售-保養品", amount: 300 },
@@ -32,7 +33,7 @@ describe("income composition", () => {
     expect(result).toMatchObject({
       packageRevenue: 12000, retailRevenue: 300, otherRevenue: 700,
       grossRevenue: 13000, refunds: 1000, netRevenue: 12000,
-      expense: 400, balance: 11600,
+      expense: 400, balance: 11600, pendingRevenue: 3000,
     });
     expect(result.packageShare).toBeCloseTo(12000 / 13000 * 100);
     expect(result.points.find((p) => p.key === "2026-09-02")).toMatchObject({
@@ -48,8 +49,8 @@ describe("income composition", () => {
 
   it("shows seven daily points for today while keeping its summary limited to today", async () => {
     mocks.transactions.mockResolvedValue([
-      { createdAt: new Date("2026-09-17T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", amount: 2000 },
-      { createdAt: new Date("2026-09-23T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", amount: 3000 },
+      { createdAt: new Date("2026-09-17T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 2000 },
+      { createdAt: new Date("2026-09-23T04:00:00Z"), transactionType: "PACKAGE_PURCHASE", paymentStatus: "SUCCESS", amount: 3000 },
     ]);
     mocks.cashbook.mockResolvedValue([]);
 
