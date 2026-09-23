@@ -191,7 +191,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   const totalOrders = storeSummary.staffBreakdown.reduce((s, r) => s + r.transactionCount, 0);
   const currentTrend = isMonthPreset ? performanceTrends?.at(-1) : null;
-  const totalRevenue = storeSummary.netCourseRevenue + storeSummary.cashbookIncome;
+  const totalRevenue = revenueMix?.netRevenue ?? storeSummary.netCourseRevenue + storeSummary.cashbookIncome;
   const completedServices = currentTrend?.completedServices ?? storeSummary.completedBookings;
 
   type StaffRow = StoreSummary["staffBreakdown"][number];
@@ -302,7 +302,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           </div>
           <KpiStrip
             items={[
-              { label: "本期營收", value: `NT$ ${totalRevenue.toLocaleString()}`, tone: "primary" },
+              { label: "本期已收營收", value: `NT$ ${totalRevenue.toLocaleString()}`, tone: "primary" },
               { label: "完成服務", value: `${completedServices} 人次`, tone: "green" },
               { label: "訂單數", value: `${totalOrders} 筆`, tone: "blue" },
               {
@@ -313,20 +313,20 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             ]}
           />
           {storeSummary.cashbookIncome > 0 && (
-            <p className="mt-1 text-[11px] text-earth-400">本期營收已包含手動登錄收入 NT$ {storeSummary.cashbookIncome.toLocaleString()}。</p>
+            <p className="mt-1 text-[11px] text-earth-400">本期已收營收包含手動登錄收入 NT$ {storeSummary.cashbookIncome.toLocaleString()}。</p>
           )}
         </section>
 
         <section aria-labelledby="revenue-mix-title" className="rounded-xl border border-earth-200 bg-white p-3">
           <h2 id="revenue-mix-title" className="text-sm font-semibold text-earth-800">營收結構與收支</h2>
           <p className="mt-1 text-[11px] leading-relaxed text-earth-500">
-            依上方選定期間統計。分類占比以退款前的收入為分母；退款另列，支出只計已記錄的支出項目，提款不當作支出。
+            依上方選定期間統計已確認收款；待收款另列。分類占比以退款前的已收收入為分母；退款另列，支出只計已記錄的支出項目，提款不當作支出。
           </p>
           {revenueMix ? (
             <>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {[
-                  { label: "儲值方案", amount: revenueMix.packageRevenue, share: revenueMix.packageShare, href: `/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&transactionType=PACKAGE_PURCHASE` },
+                  { label: "儲值方案", amount: revenueMix.packageRevenue, share: revenueMix.packageShare, href: `/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&revenueGroup=package` },
                   { label: "零售", amount: revenueMix.retailRevenue, share: revenueMix.retailShare, href: `/dashboard/cashbook?month=${month}&dateFrom=${startDate}&dateTo=${endDate}&type=INCOME&categoryGroup=retail#cashbook-records` },
                 ].map(({ label, amount, share, href }) => (
                   <div key={label} className="rounded-lg bg-earth-50/70 p-3">
@@ -341,17 +341,18 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                   <p className="mt-1 text-lg font-semibold tabular-nums text-earth-900">NT$ {revenueMix.otherRevenue.toLocaleString()}</p>
                   <p className="text-xs tabular-nums text-earth-500">占收入 {revenueMix.otherShare.toFixed(1)}%</p>
                   <div className="mt-1 flex flex-wrap gap-3 text-xs">
-                    <DashboardLink href={`/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}`} className="text-primary-700">系統交易 →</DashboardLink>
+                    <DashboardLink href={`/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&revenueGroup=other`} className="text-primary-700">系統交易 →</DashboardLink>
                     <DashboardLink href={`/dashboard/cashbook?month=${month}&dateFrom=${startDate}&dateTo=${endDate}&type=INCOME&categoryGroup=other#cashbook-records`} className="text-primary-700">手動收入 →</DashboardLink>
                   </div>
                 </div>
               </div>
               <div className="mt-3 grid gap-2 border-t border-earth-100 pt-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
                 <div><span className="text-earth-500">退款前收入</span><p className="font-semibold tabular-nums">NT$ {revenueMix.grossRevenue.toLocaleString()}</p></div>
-                <div><span className="text-earth-500">退款</span><p className="font-semibold tabular-nums">-NT$ {revenueMix.refunds.toLocaleString()}</p><DashboardLink href={`/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&transactionType=REFUND`} className="text-xs text-primary-700">查看明細 →</DashboardLink></div>
+                <div><span className="text-earth-500">退款</span><p className="font-semibold tabular-nums">-NT$ {revenueMix.refunds.toLocaleString()}</p><DashboardLink href={`/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&revenueGroup=refund`} className="text-xs text-primary-700">查看明細 →</DashboardLink></div>
                 <div><span className="text-earth-500">已記錄支出</span><p className="font-semibold tabular-nums">-NT$ {revenueMix.expense.toLocaleString()}</p><DashboardLink href={`/dashboard/cashbook?month=${month}&dateFrom=${startDate}&dateTo=${endDate}&type=EXPENSE#cashbook-records`} className="text-xs text-primary-700">查看明細 →</DashboardLink></div>
                 <div><span className="text-earth-500">收支結餘</span><p className="font-semibold tabular-nums text-primary-700">NT$ {revenueMix.balance.toLocaleString()}</p></div>
               </div>
+              <p className="mt-2 text-[11px] text-earth-500">待確認收款 NT$ {revenueMix.pendingRevenue.toLocaleString()} <DashboardLink href={`/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&revenueGroup=pending`} className="text-primary-700">查看待收明細 →</DashboardLink></p>
               <p className="mt-2 text-[11px] text-earth-400">
                 退款後營收 NT$ {revenueMix.netRevenue.toLocaleString()}；收支結餘＝退款後營收－已記錄支出。零售依現金帳「零售-」分類辨識；其他收入含體驗、單次、補差額及其餘手動收入。這不是含商品成本與應付帳款的會計淨利。
               </p>
