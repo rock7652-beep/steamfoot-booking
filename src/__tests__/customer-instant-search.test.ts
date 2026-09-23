@@ -114,3 +114,10 @@ it("cashbook defaults to the whole store without list filters", async () => {
   expect(fetch).toHaveBeenCalledWith("/api/customers/search-index?storeId=s", expect.anything());
   expect(host.textContent).toContain("黃彥陸");
 });
+it("reopens suggestions when typing again after selecting a customer", async () => {
+  await render(); await input("黃");
+  await act(async () => host.querySelector("button")!.click());
+  expect(host.querySelector("button")).toBeNull();
+  await input("091");
+  expect(host.textContent).toContain("黃彥陸");
+});

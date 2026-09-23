@@ -88,7 +88,7 @@ export function CustomerInstantSearch({ storeId, value, onChange, onSelect, id, 
           event.preventDefault(); onSelect(results[0]); setFocused(false);
         }
       }}
-      onChange={(event) => { setText(event.target.value); if (!composing && !(event.nativeEvent as InputEvent).isComposing) onChange(event.target.value); }} />
+      onChange={(event) => { setFocused(true); setText(event.target.value); if (!composing && !(event.nativeEvent as InputEvent).isComposing) onChange(event.target.value); }} />
     {focused && query && <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-earth-200 bg-white shadow-lg">
       {results.map((row) => <button key={row.id} type="button" onMouseDown={(e) => e.preventDefault()}
         onClick={() => { onSelect(row); setFocused(false); }} className="flex min-h-11 w-full items-center justify-between gap-2 border-b border-earth-100 px-3 text-left text-sm hover:bg-primary-50"><span>{row.name}</span><span className="text-xs text-earth-500">{row.phone}</span></button>)}
