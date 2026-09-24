@@ -11,10 +11,8 @@ import { prisma } from "@/lib/db";
 import {
   addTaiwanDuration,
   dayRange,
-  monthRange,
   parseTaipeiDateTime,
   toLocalDateStr,
-  toLocalMonthStr,
 } from "@/lib/date-utils";
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
@@ -54,9 +52,6 @@ export default async function CoursesPage({
     requested && parseTaipeiDateTime(requested, "00:00")
       ? requested
       : toLocalDateStr();
-  const bounds = monthRange(
-    toLocalMonthStr(parseTaipeiDateTime(selected, "12:00")!),
-  );
   const firstOfMonth = `${selected.slice(0, 7)}-01`;
   const scheduleStart = dayRange(addTaiwanDuration(firstOfMonth, -6, "DAY")).start;
   const scheduleEnd = dayRange(
