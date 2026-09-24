@@ -9,6 +9,8 @@ import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import {
+  addTaiwanDuration,
+  dayRange,
   monthRange,
   parseTaipeiDateTime,
   toLocalDateStr,
@@ -55,6 +57,11 @@ export default async function CoursesPage({
   const bounds = monthRange(
     toLocalMonthStr(parseTaipeiDateTime(selected, "12:00")!),
   );
+  const firstOfMonth = `${selected.slice(0, 7)}-01`;
+  const scheduleStart = dayRange(addTaiwanDuration(firstOfMonth, -6, "DAY")).start;
+  const scheduleEnd = dayRange(
+    addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
+  ).end;
   const [
     rooms,
     templates,
@@ -105,7 +112,7 @@ export default async function CoursesPage({
         where: {
           storeId,
           cancelledAt: null,
-          startsAt: { gte: bounds.start, lte: bounds.end },
+          startsAt: { gte: scheduleStart, lte: scheduleEnd },
         },
         select: {
           id: true,
@@ -117,7 +124,15 @@ export default async function CoursesPage({
           roomId: true,
           capacity: true,
           pointCost: true,
-          bookings: { where: { status: { not: "CANCELLED" } }, select: { customerId: true, status: true } },
+          bookings: {
+            where: { status: { not: "CANCELLED" } },
+            select: {
+              customerId: true,
+              customerName: true,
+              status: true,
+              bookingKind: true,
+            },
+          },
         },
         orderBy: { startsAt: "asc" },
       }),
