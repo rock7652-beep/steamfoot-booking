@@ -23,6 +23,10 @@ async function rows(storeId:string) {
   const [hours,specials] = await Promise.all([prisma.businessHours.findMany({where:{storeId}}),prisma.specialBusinessDay.findMany({where:{storeId}})]);
   return {hours,specials};
 }
+async function courseStartInterval(storeId:string) {
+  const music=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}});
+  return music ? 30 : 60;
+}
 export async function getCourseMonthSpecialDays(year:number, month:number) {
   const {storeId}=await courseManager("business_hours.view");
   const {specials}=await rows(storeId);
@@ -45,7 +49,7 @@ export async function getCourseDayHours(date:string) {
   const {hours,specials}=await rows(storeId); const value=resolvedCourseHours(date,hours,specials);
   return {...value,specialDayId:specials.find(s=>s.date.toISOString().slice(0,10)===date)?.id??null,
     slots:[] as {startTime:string;capacity:number;templateCapacity:number;isEnabled:boolean;inRange:boolean;override:string|null;overrideReason:string|null}[],
-    slotInterval:60, defaultCapacity:6, weeklyDefault:hours.find(h=>h.dayOfWeek===value.dayOfWeek)??null};
+    slotInterval:await courseStartInterval(storeId), defaultCapacity:6, weeklyDefault:hours.find(h=>h.dayOfWeek===value.dayOfWeek)??null};
 }
 export async function saveCourseDayHours(input:unknown) {
   try {
@@ -55,7 +59,8 @@ export async function saveCourseDayHours(input:unknown) {
     if(open && (d.status==="custom"||d.mode==="permanent"||d.mode==="template"||d.mode==="weekly")) {
       if(!periods.length||periods.some((p,i)=>p.openTime>=p.closeTime||(i>0&&periods[i-1].closeTime>p.openTime))) throw new AppError("VALIDATION","請設定不重疊的完整營業時間");
     }
-    const json=JSON.stringify(periods.map(p=>({...p,slotInterval:60,defaultCapacity:6})));
+    const interval=await courseStartInterval(storeId);
+    const json=JSON.stringify(periods.map(p=>({...p,slotInterval:interval,defaultCapacity:6})));
     const first=open?periods[0]?.openTime??null:null, last=open?periods.at(-1)?.closeTime??null:null;
     const affected=new Set<string>();
     const weeklyMode=["weekly","permanent","template"].includes(d.mode);
@@ -63,7 +68,7 @@ export async function saveCourseDayHours(input:unknown) {
     await courseTransaction(storeId,async tx=>{
       if(d.mode==="permanent"||d.mode==="template"||d.mode==="weekly") {
         const dow=new Date(d.date+"T00:00:00Z").getUTCDay();
-        await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${dow},${open},${first},${last},${json}::jsonb,60,6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"updatedAt"=NOW()`;
+        await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${dow},${open},${first},${last},${json}::jsonb,${interval},6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"updatedAt"=NOW()`;
       }
       const count=d.mode==="copy"||d.mode==="template"?d.weeks:0;
       for(let week=0;d.mode!=="weekly" && week<=count;week++) {
@@ -96,12 +101,13 @@ export async function saveCourseWeeklyHours(input: unknown) {
       if (day.isOpen && (!periods.length || periods.some((p, i) => p.openTime >= p.closeTime || (i > 0 && periods[i - 1].closeTime > p.openTime)))) throw new AppError("VALIDATION", "請設定不重疊的完整營業時間");
       return { ...day, periods };
     });
+    const interval=await courseStartInterval(storeId);
     await courseTransaction(storeId, async tx => {
       for (const day of normalized) {
         const first = day.isOpen ? day.periods[0].openTime : null;
         const last = day.isOpen ? day.periods.at(-1)!.closeTime : null;
-        const json = JSON.stringify(day.periods.map(p => ({ ...p, slotInterval: 60, defaultCapacity: 6 })));
-        await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${day.dayOfWeek},${day.isOpen},${first},${last},${json}::jsonb,60,6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"updatedAt"=NOW()`;
+        const json = JSON.stringify(day.periods.map(p => ({ ...p, slotInterval: interval, defaultCapacity: 6 })));
+        await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${day.dayOfWeek},${day.isOpen},${first},${last},${json}::jsonb,${interval},6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"updatedAt"=NOW()`;
       }
       const sessions = await tx.courseSession.findMany({ where: { storeId, cancelledAt: null, startsAt: { gte: new Date() } }, select: { startsAt: true, endsAt: true } });
       await assertCourseSessionsFitHours(tx, storeId, sessions.filter(session => weekdays.has(new Date(toLocalDateStr(session.startsAt) + "T00:00:00Z").getUTCDay())));
