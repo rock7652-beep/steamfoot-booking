@@ -166,6 +166,7 @@ export async function updateCourseSession(input: unknown) {
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，尚未儲存修改`,
           );
         await assertCourseSessionsFitHours(tx,storeId,[range]);
+        await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
         await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
         await tx.courseSession.update({
           where: { id: session.id, storeId },
@@ -574,6 +575,7 @@ export async function updateCourseSeries(input: unknown) {
           );
       }
       await assertCourseSessionsFitHours(tx,storeId,changes);
+      await assertMusicCourseAvailability(tx,storeId,d.coachId,changes);
       await assertCourseDutyCoverage(tx,storeId,changes.map(s=>({...s,coachId:d.coachId})));
       // Exclusion constraints are immediate. Temporarily release only these
       // rows inside the same transaction; other writers use the store lock.
