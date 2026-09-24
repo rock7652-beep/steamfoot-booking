@@ -48,21 +48,20 @@ export async function saveCourseStaffWeeklyAvailability(input:unknown) {
       await prisma.$executeRaw`DELETE FROM "CourseStaffAvailability" WHERE "storeId"=${storeId} AND "staffId"=${data.staffId}`;
     } else {
       const seen=new Set<number>();
-      for(const day of data.days) {
+      const normalized=data.days.map(day=>{
         if(seen.has(day.dayOfWeek)) throw new AppError("VALIDATION","同一星期不可重複設定");
         seen.add(day.dayOfWeek);
-        const periods=validatePeriods(day.periods);
-        const json=JSON.stringify(periods);
-        await prisma.$executeRaw`
-          INSERT INTO "CourseStaffAvailability" (id,"storeId","staffId","dayOfWeek",segments,"createdAt","updatedAt")
-          VALUES (${randomUUID()},${storeId},${data.staffId},${day.dayOfWeek},${json}::jsonb,NOW(),NOW())
-          ON CONFLICT ("storeId","staffId","dayOfWeek")
-          DO UPDATE SET segments=EXCLUDED.segments,"updatedAt"=NOW()`;
-      }
-      await prisma.$executeRaw`
-        DELETE FROM "CourseStaffAvailability"
-        WHERE "storeId"=${storeId} AND "staffId"=${data.staffId}
-          AND "dayOfWeek" NOT IN (${data.days.map(d=>d.dayOfWeek).join(",") || "-1"})`;
+        return {...day,periods:validatePeriods(day.periods)};
+      });
+      await prisma.$transaction(async tx=>{
+        await tx.$executeRaw`DELETE FROM "CourseStaffAvailability" WHERE "storeId"=${storeId} AND "staffId"=${data.staffId}`;
+        for(const day of normalized) {
+          const json=JSON.stringify(day.periods);
+          await tx.$executeRaw`
+            INSERT INTO "CourseStaffAvailability" (id,"storeId","staffId","dayOfWeek",segments,"createdAt","updatedAt")
+            VALUES (${randomUUID()},${storeId},${data.staffId},${day.dayOfWeek},${json}::jsonb,NOW(),NOW())`;
+        }
+      });
     }
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard/staff");
