@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 import {
   addTaiwanDuration,
   formatTWDateTime,
@@ -420,5 +422,3 @@ export function CourseScheduleBoard({
     </section>
   );
 }
-
-import React from "react";
