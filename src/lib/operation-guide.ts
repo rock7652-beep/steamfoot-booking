@@ -79,7 +79,6 @@ export function searchBookingGuides(query: string, bookingStatus?: string) {
 
 import { additionalGuides, guideCategories } from "./operation-guide-catalog";
 import { courseOperationGuides } from "./course-operation-guides";
-import { spaOperationGuides } from "./spa-operation-guides";
 import { courseBasicOperationGuides } from "./course-basic-operation-guides";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
@@ -88,7 +87,6 @@ export const operationGuides: OperationGuide[] = [
   ...additionalGuides,
   ...courseOperationGuides,
   ...courseBasicOperationGuides,
-  ...spaOperationGuides,
 ];
 export function availableGuides(access: GuideAccess) {
   return operationGuides.filter(g => g.modules.includes(access.module) &&

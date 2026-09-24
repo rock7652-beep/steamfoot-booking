@@ -28,7 +28,7 @@ SPA 原有可適用指南 52 題，其中 SPA 專屬 J 系列 10 題。本批新
 
 ## 程式核對重點
 
-每題 sources 記錄於 `src/lib/spa-operation-guides.ts`。
+每題 sources 記錄於 `src/lib/operation-guide-catalog.ts`。
 
 - 正式會員表單流程為服務 → 日期時間 → 人員 → 確認；沒有讓會員手選位置的步驟。
 - 自行取消由 `cancelSpaCustomerBooking` 檢查開始前至少 12 小時及有效狀態；不能套用課程取消設定。

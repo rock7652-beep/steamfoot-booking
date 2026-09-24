@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { availableGuides, findOperationGuides } from "../lib/operation-guide";
-import { spaOperationGuides } from "../lib/spa-operation-guides";
+import { operationGuides } from "../lib/operation-guide";
+const spaOperationGuides = operationGuides.filter(g => /^J(1[4-9]|2[0-3])$/.test(g.id));
 import type { GuideAccess } from "../lib/operation-guide-types";
 
 const spa: GuideAccess = { module: "spa", permissions: ["booking.read", "booking.update", "customer.read", "duty.manage"], features: {} };
