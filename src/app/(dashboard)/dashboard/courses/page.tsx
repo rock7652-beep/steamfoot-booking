@@ -180,6 +180,9 @@ export default async function CoursesPage({
     ),
   );
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
+  if (businessProfile === "MUSIC" && businessHours.length > 0 && businessHours.every((row) => row.segments == null)) {
+    redirect("/dashboard/courses/hours?tab=weekly&setup=1");
+  }
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   const viewContext = await resolveStoreViewContextFromCookie(user);
