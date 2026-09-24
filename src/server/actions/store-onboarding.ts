@@ -217,15 +217,19 @@ export async function createStoreAction(
       // 確保不重複（此處為全新店，createMany 安全）。
       if (industryModule !== "SPA") {
         const businessHoursData = [];
+        const musicHours = businessProfile === "MUSIC";
         for (let dow = 0; dow <= 6; dow++) {
           businessHoursData.push({
             storeId,
             dayOfWeek: dow,
             isOpen: true,
-            openTime: "10:00",
-            closeTime: "21:00",
-            slotInterval: 60,
+            openTime: musicHours ? "09:00" : "10:00",
+            closeTime: musicHours ? "22:00" : "21:00",
+            slotInterval: musicHours ? 30 : 60,
             defaultCapacity: 6,
+            segments: musicHours
+              ? [{ openTime: "09:00", closeTime: "22:00", slotInterval: 30, defaultCapacity: 6 }]
+              : undefined,
           });
         }
         await db.businessHours.createMany({ data: businessHoursData });
