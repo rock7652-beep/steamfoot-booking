@@ -83,6 +83,10 @@ function sessionDate(session: Session) {
   return toLocalDateStr(new Date(session.startsAt));
 }
 
+function sessionDurationMinutes(session: Session) {
+  return Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
+}
+
 function firstCustomer(session: Session) {
   return session.bookings.find((booking) => booking.customerName.trim())?.customerName.trim() ?? "";
 }
@@ -183,7 +187,7 @@ function SessionCard({
     <button
       type="button"
       onClick={onOpen}
-      className={`w-full rounded-lg border text-left transition hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"} ${musicDense && !copy.privateClass ? "border-earth-200 border-l-2 border-l-primary-300 bg-primary-50/20" : "border-earth-200 bg-white"}`}
+      className={`w-full rounded-lg border text-left transition ${dense ? "h-full overflow-hidden" : ""} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"} ${musicDense && !copy.privateClass ? "border-earth-200 border-l-2 border-l-primary-300 bg-primary-50/20" : "border-earth-200 bg-white"}`}
       aria-label={`${copy.primary}，${hhmm(session.startsAt)}，${copy.coach}`}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
@@ -431,11 +435,11 @@ export function CourseScheduleBoard({
         </div>
       </div>
 
-      {!daySessions.length ? (
+      {!daySessions.length && !musicDense ? (
         <div className="rounded-xl border border-dashed border-earth-200 bg-white p-10 text-center text-earth-500">
           當日尚無課程
         </div>
-      ) : !filtered.length ? (
+      ) : !filtered.length && !(musicDense && quickFilter === "all") ? (
         <div className="rounded-xl border border-dashed border-earth-200 bg-white p-8 text-center text-earth-500">
           此篩選目前沒有課程
         </div>
@@ -518,7 +522,14 @@ export function CourseScheduleBoard({
                       )}
                       <div className={musicDense?"relative z-10 p-1 pointer-events-none":"contents"}>
                         {list.map((session) => (
-                          <div key={session.id} className={musicDense&&hhmm(session.startsAt).endsWith(":30")?"mt-10 pointer-events-auto":"pointer-events-auto"}>
+                          <div
+                            key={session.id}
+                            className={musicDense ? "absolute left-1 right-1 z-10 pointer-events-auto" : "pointer-events-auto"}
+                            style={musicDense ? {
+                              top: hhmm(session.startsAt).endsWith(":30") ? 48 : 4,
+                              height: Math.max(44, sessionDurationMinutes(session) * 1.6 - 8),
+                            } : undefined}
+                          >
                             <SessionCard
                               session={session}
                               templates={templates}
