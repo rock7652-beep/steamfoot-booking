@@ -54,3 +54,17 @@ it("defaults music stores to the daily high-density board", () => {
   expect(board).toContain('border-l-primary-300');
   expect(board).toContain('copy.privateClass && !musicDense');
 });
+
+
+it("renders music availability as half-hour interactive cells", () => {
+  const board = readFileSync("src/app/(dashboard)/dashboard/courses/course-schedule-board.tsx", "utf8");
+  const workspace = readFileSync("src/app/(dashboard)/dashboard/courses/workspace.tsx", "utf8");
+  const staff = readFileSync("src/app/(dashboard)/dashboard/courses/course-staff-availability-editor.tsx", "utf8");
+  expect(board).toContain('["00","30"]');
+  expect(board).toContain("老師未排班");
+  expect(board).toContain("店家未開放");
+  expect(board).toContain("onOpenEmpty");
+  expect(workspace).toContain("[30, 60, 90, 120]");
+  expect(staff).toContain("沿用店家授課時間");
+  expect(staff).toContain("單日例外／請假／臨時加開");
+});
