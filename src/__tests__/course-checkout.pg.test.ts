@@ -181,4 +181,27 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     const report=await testDb().$transaction(tx=>readCourseMonthlySettlement(tx,x.f.storeId,x.month));expect(report.lines[0].paid).toBe(300);expect(report.lines[0].payments).toHaveLength(2);
   });
 
+  it("fee switch changes new snapshots only and preserves existing zero/nonzero fees",async()=>{
+    const f=await fixture();
+    const migration=readFileSync("prisma/migrations/20260924090000_course_monthly_settlement/migration.sql","utf8");
+    const functionSql=("CREATE OR REPLACE FUNCTION"+migration.split("CREATE OR REPLACE FUNCTION")[1]).split("REVOKE ALL ON FUNCTION")[0].replace("SET search_path = public",`SET search_path = "${schemaName}"`);
+    await testDb().$executeRawUnsafe(functionSql);
+    await testDb().$executeRawUnsafe('CREATE TRIGGER course_capture_compensation AFTER INSERT OR UPDATE OF "coachId","templateId","startsAt","endsAt" ON "CourseSession" FOR EACH ROW EXECUTE FUNCTION course_capture_compensation()');
+    try {
+      const room=await testDb().courseRoom.create({data:{storeId:f.storeId,name:"測試教室"}});
+      const template=await testDb().courseTemplate.create({data:{storeId:f.storeId,name:"授課費開關",durationMinutes:60,pointCost:1,capacity:20}});
+      await testDb().courseCompensation.create({data:{storeId:f.storeId,templateId:template.id,staffId:f.storeId,rules:[{mode:"CLASS",value:600}]}});
+      const create=()=>testDb().courseSession.create({data:{storeId:f.storeId,templateId:template.id,roomId:room.id,coachId:f.storeId,nameSnapshot:"授課",startsAt:new Date("2098-01-01T01:00:00Z"),endsAt:new Date("2098-01-01T02:00:00Z"),pointCost:1,capacity:20,requestKey:randomUUID(),requestIndex:0,createdById:f.storeId}});
+      const original=await create();
+      await testDb().$executeRaw`INSERT INTO "CourseSettlementSetting" ("storeId","feeEnabled") VALUES (${f.storeId},false)`;
+      const disabled=await create();
+      await testDb().$executeRaw`UPDATE "CourseSettlementSetting" SET "feeEnabled"=true WHERE "storeId"=${f.storeId}`;
+      const enabled=await create();
+      const snapshots=await testDb().courseCompensationSnapshot.findMany({where:{storeId:f.storeId}});
+      expect(snapshots.find(s=>s.sessionId===original.id)?.rule).toEqual({mode:"CLASS",value:600});
+      expect(snapshots.find(s=>s.sessionId===disabled.id)?.rule).toEqual({mode:"CLASS",value:0});
+      expect(snapshots.find(s=>s.sessionId===enabled.id)?.rule).toEqual({mode:"CLASS",value:600});
+    }finally{await testDb().$executeRawUnsafe('DROP TRIGGER course_capture_compensation ON "CourseSession"');}
+  });
+
 });

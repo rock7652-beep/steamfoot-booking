@@ -152,7 +152,7 @@ jobs:
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             const r = JSON.parse(readFileSync("course-checkout-pg-results.json", "utf8"));
-            if (!r.success || r.numPassedTests !== 12 || r.numPendingTests !== 0) throw new Error("Expected twelve executed checkout scenarios");
+            if (!r.success || r.numPassedTests !== 13 || r.numPendingTests !== 0) throw new Error("Expected thirteen executed checkout scenarios");
           '
       - name: Verify large course customer pages in disposable PostgreSQL
         run: >-

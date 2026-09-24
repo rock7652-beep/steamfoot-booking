@@ -12,7 +12,7 @@
 
 ## 驗證
 - 本機 67 項定向測試通過；TypeScript、修改檔 ESLint、diff check 通過。
-- 增加 PostgreSQL 真實交易案例：利潤併發重送／分次／超付、支出失敗回滾、誤登更正再付款。沿用 isolated audit workflow，明確要求 12 項 checkout 情境全部執行，不接受 skip。
+- 增加 PostgreSQL 真實交易案例：利潤併發重送／分次／超付、支出失敗回滾、誤登更正再付款、授課費開關只影響新課次。沿用 isolated audit workflow，明確要求 13 項 checkout 情境全部執行，不接受 skip。
 - 本機沒有 PostgreSQL，未宣稱真實 DB 案例通過；需以 CI 結果為準。
 
 ## 發布門檻
