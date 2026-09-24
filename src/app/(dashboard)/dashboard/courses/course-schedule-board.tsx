@@ -266,7 +266,7 @@ export function CourseScheduleBoard({
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
   const snapResourceCount = resourceView === "room" ? activeRooms.length : activeCoaches.length;
-  const snapDayScroll = React.useCallback(() => {
+  function snapDayScroll() {
     const element = dayScrollRef.current;
     if (!element || businessProfile !== "MUSIC") return;
     const resourceWidth = snapResourceCount
@@ -277,7 +277,7 @@ export function CourseScheduleBoard({
       Math.max(0, Math.round(element.scrollLeft / resourceWidth) * resourceWidth),
     );
     element.scrollTo({ left: target, behavior: "smooth" });
-  }, [businessProfile, snapResourceCount]);
+  }
 
   if (mode === "week") {
     const start = weekStart(selectedDate);
