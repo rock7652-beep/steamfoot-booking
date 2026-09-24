@@ -68,6 +68,8 @@ export default async function CoursesPage({
     businessHours,
     specialDays,
     businessEntitlements,
+    staffAvailability,
+    staffAvailabilityExceptions,
   ] = await Promise.all([
       coursePrisma.courseRoom.findMany({
         where: { storeId },
@@ -146,6 +148,11 @@ export default async function CoursesPage({
         where: { storeId, featureKey: { startsWith: "business." }, status: "ENABLED" },
         select: { featureKey: true },
       }),
+      prisma.$queryRaw<{staffId:string;dayOfWeek:number;segments:unknown}[]>`
+        SELECT "staffId","dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId}`,
+      prisma.$queryRaw<{staffId:string;date:Date;type:string;segments:unknown;reason:string|null}[]>`
+        SELECT "staffId",date,type,segments,reason FROM "CourseStaffAvailabilityException"
+        WHERE "storeId"=${storeId} AND date>=${scheduleStart}::date AND date<=${scheduleEnd}::date`,
     ]);
   const [calendarYear, calendarMonth] = selected
     .slice(0, 7)
@@ -166,6 +173,7 @@ export default async function CoursesPage({
           {
             status: resolved.status,
             reason: resolved.reason,
+            periods: resolved.periods.map((period) => ({ openTime: period.openTime, closeTime: period.closeTime })),
           },
         ];
       },
@@ -210,6 +218,8 @@ export default async function CoursesPage({
         canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
         cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
         businessProfile={businessProfile}
+        staffAvailability={staffAvailability}
+        staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}
         sessions={sessions.map((s) => ({
           ...s,
           startsAt: s.startsAt.toISOString(),
