@@ -169,23 +169,23 @@ export default async function CoursesPage({
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   const viewContext = await resolveStoreViewContextFromCookie(user);
   return (
-    <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
-      <PageHeader
-        title={
-          view === "catalog"
-            ? "課程設定"
-            : view === "rooms"
-              ? "教室管理"
-              : "課表排程"
-        }
-        subtitle={
-          view === "schedule"
-            ? "選擇日期查看、安排或複製課程"
-            : view === "catalog"
+    <PageShell
+      className={
+        view === "schedule"
+          ? "course-workspace mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3"
+          : "course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6"
+      }
+    >
+      {view !== "schedule" && (
+        <PageHeader
+          title={view === "catalog" ? "課程設定" : "教室管理"}
+          subtitle={
+            view === "catalog"
               ? "管理課程名稱、人數與排課預設"
               : "管理上課教室"
-        }
-      />
+          }
+        />
+      )}
       <CourseWorkspace canDelete={user.role==="OWNER"}
         key={`${storeId}:${view}`}
         view={view}
