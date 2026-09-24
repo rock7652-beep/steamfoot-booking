@@ -432,7 +432,9 @@ export function CourseWorkspace({
               ))}
             </select></label>
           </div>
-          <div
+          {scheduleMode === "month" ? (
+            <>
+              <div
             className="overflow-hidden rounded-lg border border-earth-200 bg-white"
             aria-busy={pending}
           >
@@ -520,6 +522,24 @@ export function CourseWorkspace({
             ].map(([label, tone]) => <span key={label} className={`rounded-full px-2 py-1 ${tone}`}>{label}</span>)}
             <span>灰底「公休／員工訓練」：當日不可排課</span>
           </div>
+            </>
+          ) : (
+            <CourseScheduleBoard
+              mode={scheduleMode}
+              selectedDate={selectedDate}
+              today={today}
+              sessions={filteredScheduleSessions}
+              rooms={allRooms}
+              coaches={allCoaches}
+              templates={allTemplates}
+              pending={pending}
+              onSelectDate={go}
+              onOpenSession={(sessionId, date) => {
+                go(date);
+                setCourseDialog({ sessionId, kind: "roster" });
+              }}
+            />
+          )}
           <p
             role="status"
             aria-live="polite"
