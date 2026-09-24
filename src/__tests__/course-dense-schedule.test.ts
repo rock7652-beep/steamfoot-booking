@@ -32,7 +32,7 @@ it("dense day board supports room/coach perspectives and action filters", () => 
   expect(board).toContain("待報到");
   expect(board).toContain("預約 <strong");
   expect(board).toContain("{booked}");
-  expect(board).toContain('repeat(${Math.max(resources.length, 1)}, 220px)');
+  expect(board).toContain('repeat(${resourceCount}, minmax(180px, 1fr))');
 });
 
 it("adaptive cards prioritize private members while group cards show capacity", () => {
@@ -60,8 +60,14 @@ it("schedule layout keeps controls compact and sends month clicks into the day w
   expect(page).toContain('{view !== "schedule" && (');
 });
 
-it("day timetable frame fits active resources instead of stretching across the workspace", () => {
-  expect(board).toContain("inline-block min-w-max overflow-hidden rounded-xl border");
-  expect(board).toContain('gridTemplateColumns: `72px repeat(${Math.max(resources.length, 1)}, 220px)`');
-  expect(board).toContain('aria-label="課表欄位視角"');
+it("day timetable balances width by active resource count", () => {
+  expect(board).toContain('resourceCount === 1');
+  expect(board).toContain('? "44%"');
+  expect(board).toContain(': resourceCount === 2');
+  expect(board).toContain('? "64%"');
+  expect(board).toContain('? "80%"');
+  expect(board).toContain("width: timetableWidth");
+  expect(board).toContain("minWidth: timetableMinWidth");
+  expect(board).toContain('gridTemplateColumns: `72px repeat(${resourceCount}, minmax(180px, 1fr))`');
+  expect(board).not.toContain('aria-label="課表欄位視角"');
 });
