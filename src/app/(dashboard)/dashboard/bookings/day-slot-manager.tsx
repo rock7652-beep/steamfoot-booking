@@ -85,7 +85,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   }
 
   function setCapacity(startTime: string, capacity: number) {
-    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 99) return;
+    if (!Number.isInteger(capacity) || capacity < 0 || capacity > 99) return;
     const booked = bookedPeopleBySlot.get(startTime) ?? 0;
     if (capacity < booked) {
       toast.error(`此時段已預約 ${booked} 人，名額不可低於此數`);
@@ -193,7 +193,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
                   <button type="button" onClick={addSlot} disabled={dayClosed || pending} className="rounded border border-primary-300 bg-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100">加入草稿</button>
                 </div>
 
-                <p className="mt-3 text-xs text-earth-500">可直接調整當日時段與名額；只影響這一天，不會修改每週固定設定。關閉只停止新預約，已有預約會保留。</p>
+                <p className="mt-3 text-xs text-earth-500">可直接調整當日時段與名額；名額 0 會保留時段並在顧客端顯示已額滿。關閉時段才會停止顯示可預約狀態；已有預約會保留。</p>
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {previewSlots.map((slot) => {
                     const people = bookedPeopleBySlot.get(slot.startTime) ?? 0;
@@ -243,7 +243,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
                           <button
                             type="button"
                             aria-label={`${slot.startTime} 名額減少`}
-                            disabled={dayClosed || pending || !slot.isOpen || slot.capacity <= Math.max(1, people)}
+                            disabled={dayClosed || pending || !slot.isOpen || slot.capacity <= Math.max(0, people)}
                             onClick={() => setCapacity(slot.startTime, slot.capacity - 1)}
                             className="h-7 w-7 rounded border border-earth-300 bg-white text-sm disabled:opacity-35"
                           >
@@ -252,7 +252,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
                           <input
                             aria-label={`${slot.startTime} 名額`}
                             type="number"
-                            min={Math.max(1, people)}
+                            min={Math.max(0, people)}
                             max={99}
                             value={slot.capacity}
                             disabled={dayClosed || pending || !slot.isOpen}
