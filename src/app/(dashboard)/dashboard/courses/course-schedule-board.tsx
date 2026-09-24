@@ -262,6 +262,21 @@ export function CourseScheduleBoard({
   const [resourceView, setResourceView] = React.useState<ResourceView>("room");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
   const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(60);
+  const dayScrollRef = React.useRef<HTMLDivElement>(null);
+  const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
+
+  const snapDayScroll = React.useCallback(() => {
+    const element = dayScrollRef.current;
+    if (!element || businessProfile !== "MUSIC") return;
+    const resourceWidth = resources.length
+      ? Math.max(124, (element.scrollWidth - 64) / resources.length)
+      : 132;
+    const target = Math.min(
+      element.scrollWidth - element.clientWidth,
+      Math.max(0, Math.round(element.scrollLeft / resourceWidth) * resourceWidth),
+    );
+    element.scrollTo({ left: target, behavior: "smooth" });
+  }, [businessProfile, resources.length]);
 
   if (mode === "week") {
     const start = weekStart(selectedDate);
@@ -420,9 +435,9 @@ export function CourseScheduleBoard({
 
         {musicDense && (
           <label className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
-            <span>可排時長</span>
+            <span>找空位</span>
             <select
-              aria-label="可排時長"
+              aria-label="找空位所需時長"
               className="bg-transparent font-medium text-earth-800 outline-none"
               value={availabilityDuration}
               onChange={(event) => setAvailabilityDuration(Number(event.target.value) as 30 | 60 | 90 | 120)}
@@ -430,6 +445,13 @@ export function CourseScheduleBoard({
               {[30, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分</option>)}
             </select>
           </label>
+        )}
+
+        {musicDense && (
+          <div className="inline-flex min-h-9 items-center gap-3 rounded-lg border border-earth-200 bg-white px-2.5 text-[11px] text-earth-600" aria-label="課表可排狀態圖例">
+            <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded-sm border border-earth-200 bg-white" aria-hidden="true" />可排</span>
+            <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded-sm border border-earth-200 bg-earth-100" aria-hidden="true" />不可排</span>
+          </div>
         )}
 
         <div className="inline-flex rounded-lg border border-earth-200 bg-white p-0.5" aria-label="課表資源視角">
@@ -459,41 +481,73 @@ export function CourseScheduleBoard({
           此篩選目前沒有課程
         </div>
       ) : (
-        <div className={`max-w-full pb-1 ${musicDense ? "overflow-x-auto overscroll-x-contain scroll-smooth snap-x snap-proximity rounded-xl border border-earth-200 bg-white" : "overflow-x-auto"}`}>
+        <div className={musicDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
+          {musicDense && (
+            <div className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
+              <div
+                className="grid w-full will-change-transform"
+                style={{
+                  width: timetableWidth,
+                  minWidth: timetableMinWidth,
+                  gridTemplateColumns: `64px repeat(${resourceCount}, minmax(124px, 1fr))`,
+                  transform: `translateX(-${dayScrollLeft}px)`,
+                }}
+              >
+                <div className="sticky left-0 z-50 border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-500">
+                  時間
+                </div>
+                {resources.length ? resources.map((resource) => (
+                  <div key={resource.id} className="border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-semibold text-earth-800">
+                    {resource.name}
+                  </div>
+                )) : (
+                  <div className="border-r border-earth-200 bg-earth-50 px-3 py-2 text-xs text-earth-500">
+                    尚無可用{resourceView === "room" ? "教室" : "老師"}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <div
-            className={musicDense ? "bg-white" : "overflow-hidden rounded-xl border border-earth-200 bg-white"}
-            style={{
-              width: timetableWidth,
-              minWidth: timetableMinWidth,
-            }}
+            ref={musicDense ? dayScrollRef : undefined}
+            onScroll={musicDense ? (event) => setDayScrollLeft(event.currentTarget.scrollLeft) : undefined}
+            onPointerUp={musicDense ? snapDayScroll : undefined}
+            onTouchEnd={musicDense ? snapDayScroll : undefined}
+            className={musicDense ? "max-w-full overflow-x-auto overscroll-x-contain scroll-smooth pb-1" : "max-w-full overflow-x-auto pb-1"}
           >
             <div
-              className="grid w-full"
+              className={musicDense ? "bg-white" : "overflow-hidden rounded-xl border border-earth-200 bg-white"}
               style={{
-                gridTemplateColumns: musicDense
-                  ? `64px repeat(${resourceCount}, minmax(124px, 1fr))`
-                  : `72px repeat(${resourceCount}, minmax(180px, 1fr))`,
+                width: timetableWidth,
+                minWidth: timetableMinWidth,
               }}
             >
-              <div className={`sticky left-0 top-0 z-50 border-b border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500 ${musicDense ? "py-2" : "py-3"}`}>
-                時間
-              </div>
-            {resources.length ? (
-              resources.map((resource) => (
-                <div
-                  key={resource.id}
-                  className={`sticky top-0 z-40 border-b border-r border-earth-200 bg-earth-50 font-semibold text-earth-800 ${musicDense ? "snap-start px-2 py-2 text-xs" : "px-3 py-3 text-sm"}`}
-                >
-                  {resource.name}
-                </div>
-              ))
-            ) : (
-              <div className="sticky top-0 z-20 border-b border-earth-200 bg-earth-50 px-3 py-3 text-sm text-earth-500">
-                尚無可用{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "老師" : "教練"}
-              </div>
-            )}
+              <div
+                className="grid w-full"
+                style={{
+                  gridTemplateColumns: musicDense
+                    ? `64px repeat(${resourceCount}, minmax(124px, 1fr))`
+                    : `72px repeat(${resourceCount}, minmax(180px, 1fr))`,
+                }}
+              >
+                {!musicDense && (
+                  <>
+                    <div className="sticky left-0 top-0 z-50 border-b border-r border-earth-200 bg-earth-50 px-2 py-3 text-xs font-medium text-earth-500">
+                      時間
+                    </div>
+                    {resources.length ? resources.map((resource) => (
+                      <div key={resource.id} className="sticky top-0 z-40 border-b border-r border-earth-200 bg-earth-50 px-3 py-3 text-sm font-semibold text-earth-800">
+                        {resource.name}
+                      </div>
+                    )) : (
+                      <div className="sticky top-0 z-20 border-b border-earth-200 bg-earth-50 px-3 py-3 text-sm text-earth-500">
+                        尚無可用{resourceView === "room" ? "教室" : "教練"}
+                      </div>
+                    )}
+                  </>
+                )}
 
-            {times.map((time) => (
+                {times.map((time) => (
               <React.Fragment key={time}>
                 <div className={`sticky left-0 z-30 border-b border-r border-earth-100 bg-white px-2 text-xs font-medium text-earth-600 ${musicDense ? "py-2" : "py-3"}`}>
                   {time}
@@ -528,9 +582,10 @@ export function CourseScheduleBoard({
                                 title={available?`${startTime} 可排 ${availabilityDuration} 分鐘`:reason}
                                  aria-label={available?`${startTime} 可排 ${availabilityDuration} 分鐘`:`${startTime} ${reason}`}
                                  onClick={()=>available&&onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})})}
-                                 className={`group relative border-b border-earth-200/80 text-left last:border-b-0 ${available?"bg-white hover:bg-primary-50":"cursor-not-allowed bg-earth-100"}`}
+                                 className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${available?"bg-white hover:bg-primary-50 active:bg-primary-50":"cursor-not-allowed bg-earth-100"}`}
                                >
-                                 {available&&<span className="pointer-events-none absolute left-1 top-1 hidden rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium text-primary-800 shadow-sm group-hover:block">＋ {startTime} · {availabilityDuration}分</span>}
+                                 {available&&<span className="pointer-events-none absolute left-1 top-1 hidden rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium text-primary-800 shadow-sm group-hover:block group-focus-visible:block group-active:block">＋ {startTime} · {availabilityDuration}分</span>}
+                                 <span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-300 opacity-0 [@media(pointer:coarse)]:opacity-100" aria-hidden="true">{minute}</span>
                               </button>
                             );
                           })}
@@ -564,6 +619,7 @@ export function CourseScheduleBoard({
                 })}
               </React.Fragment>
             ))}
+              </div>
             </div>
           </div>
         </div>
