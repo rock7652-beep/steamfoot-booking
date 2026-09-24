@@ -1712,21 +1712,38 @@ export function CourseWorkspace({
                     <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-3">調整本堂時長（預設 {copySource ? Math.round((new Date(copySource.endsAt).getTime()-new Date(copySource.startsAt).getTime())/60000) : template?.durationMinutes} 分鐘）</summary>
                     <label key={`duration-${chosen}`}>
                       時長（分鐘）
-                      <input
-                        className={field}
-                        name="duration"
-                        type="number"
-                        defaultValue={
-                          copySource
-                            ? (new Date(copySource.endsAt).getTime() -
-                                new Date(copySource.startsAt).getTime()) /
-                              60000
-                            : template?.durationMinutes
-                        }
-                        min={1}
-                        max={480}
-                        required
-                      />
+                      {businessProfile === "MUSIC" ? (
+                        <select
+                          className={field}
+                          name="duration"
+                          defaultValue={String(
+                            copySource
+                              ? (new Date(copySource.endsAt).getTime() - new Date(copySource.startsAt).getTime()) / 60000
+                              : [30, 60, 90, 120].includes(template?.durationMinutes ?? 60)
+                                ? template?.durationMinutes
+                                : 60,
+                          )}
+                          required
+                        >
+                          {[30, 60, 90, 120].map((minutes) => (
+                            <option key={minutes} value={minutes}>{minutes} 分鐘</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          className={field}
+                          name="duration"
+                          type="number"
+                          defaultValue={
+                            copySource
+                              ? (new Date(copySource.endsAt).getTime() - new Date(copySource.startsAt).getTime()) / 60000
+                              : template?.durationMinutes
+                          }
+                          min={1}
+                          max={480}
+                          required
+                        />
+                      )}
                     </label>
                     </details>
                     <label className="col-span-full">
