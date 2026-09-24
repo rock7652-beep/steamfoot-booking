@@ -84,3 +84,8 @@ it("unpaid trial collection is visible beside the unpaid amount", () => {
   expect(roster).toContain('paid &&\n                    booking.bookingKind === "TRIAL"');
   expect(roster).toContain("更正收款");
 });
+
+it("collected trial payments show a clear paid badge in the fee column", () => {
+  expect(roster).toContain("✓ 已收 NT$ {paid.amount}");
+  expect(roster).toContain("bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-800");
+});
