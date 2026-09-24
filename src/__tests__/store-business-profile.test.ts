@@ -37,3 +37,16 @@ it("keeps music-specific HQ and schedule wording behind the MUSIC business profi
   expect(board).toContain('businessProfile === "MUSIC" ? "老師視角" : "教練視角"');
   expect(board).toContain('businessProfile === "MUSIC" ? "一對一" : "私教"');
 });
+
+
+it("defaults music stores to the daily high-density board", () => {
+  const workspace = readFileSync("src/app/(dashboard)/dashboard/courses/workspace.tsx", "utf8");
+  const board = readFileSync("src/app/(dashboard)/dashboard/courses/course-schedule-board.tsx", "utf8");
+
+  expect(workspace).toContain('businessProfile === "MUSIC"');
+  expect(workspace).toContain('? "day"');
+  expect(board).toContain('const musicDense = businessProfile === "MUSIC"');
+  expect(board).toContain('64 + resourceCount * 132');
+  expect(board).toContain('dense={musicDense}');
+  expect(board).toContain('resourceView={resourceView}');
+});
