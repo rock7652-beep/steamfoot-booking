@@ -5,6 +5,10 @@ import {CourseConflicts,type ConflictItem} from "@/components/admin/course-confl
 import { useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
+import {
+  CourseScheduleBoard,
+  type CourseScheduleMode,
+} from "./course-schedule-board";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
   addTaiwanDuration,
@@ -45,7 +49,12 @@ type Template = Omit<Room, "capacity"> & {
   precautions?: string;
 };
 type Session = {
-  bookings: { customerId: string; status: string }[];
+  bookings: {
+    customerId: string;
+    customerName: string;
+    status: string;
+    bookingKind: string;
+  }[];
   id: string;
   templateId: string;
   nameSnapshot: string;
@@ -103,6 +112,18 @@ export function CourseWorkspace({
     params = useSearchParams();
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
+  const requestedScheduleMode = params.get("scheduleView");
+  const [scheduleMode, setScheduleMode] = useState<CourseScheduleMode>(
+    requestedScheduleMode === "day" || requestedScheduleMode === "week"
+      ? requestedScheduleMode
+      : "month",
+  );
+  function changeScheduleMode(nextMode: CourseScheduleMode) {
+    setScheduleMode(nextMode);
+    const next = new URLSearchParams(params.toString());
+    next.set("scheduleView", nextMode);
+    window.history.replaceState(null, "", `${pathname}?${next}`);
+  }
   const [courseDialog, setCourseDialog] = useState<{
     sessionId: string;
     kind: "roster" | "member-booking" | "trial-booking";
@@ -206,14 +227,15 @@ export function CourseWorkspace({
     first = `${month}-01`;
   const [year, mon] = month.split("-").map(Number);
   const days = new Date(year, mon, 0).getDate();
-  const byDate = new Map<string, Session[]>();
-  for (const session of sessions.filter(
+  const filteredScheduleSessions = sessions.filter(
     (s) =>
       (roomFilter === "all" || s.roomId === roomFilter) &&
       (coachFilter === "all" || s.coachId === coachFilter) &&
       (category === "all" ||
         allTemplates.find((t) => t.id === s.templateId)?.category === category),
-  )) {
+  );
+  const byDate = new Map<string, Session[]>();
+  for (const session of filteredScheduleSessions) {
     const day = toLocalDateStr(new Date(session.startsAt));
     byDate.set(day, [...(byDate.get(day) ?? []), session]);
   }
@@ -290,41 +312,117 @@ export function CourseWorkspace({
       {!panel && <CourseConflicts items={conflicts}/>}
       {view === "schedule" && (
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="mr-2 font-medium">
-                {year} 年 {mon} 月
-              </h2>
-              <button
-                className={button}
-                disabled={pending}
-                aria-label="上個月"
-                onClick={() => go(addTaiwanDuration(first, -1, "MONTH"))}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="mr-1 min-w-[112px]">
+                <h1 className="text-base font-semibold text-earth-900">課表排程</h1>
+                <p className="hidden text-[11px] text-earth-500 sm:block">安排與查看店內課程</p>
+              </div>
+              <div
+                className="inline-flex rounded-lg border border-earth-200 bg-white p-1"
+                aria-label="課表視角"
               >
-                ‹
-              </button>
-              <button
-                className={button}
+                {(["month", "week", "day"] as CourseScheduleMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    disabled={pending}
+                    onClick={() => changeScheduleMode(mode)}
+                    className={`min-h-8 rounded-md px-3 text-sm ${
+                      scheduleMode === mode
+                        ? "bg-primary-50 font-medium text-primary-900"
+                        : "text-earth-600"
+                    }`}
+                  >
+                    {mode === "month" ? "月表" : mode === "week" ? "週表" : "日表"}
+                  </button>
+                ))}
+              </div>
+              <div className="inline-flex items-center gap-1">
+                <button
+                  className={`${button} min-h-9 px-2.5`}
+                  disabled={pending}
+                  aria-label={
+                    scheduleMode === "month"
+                      ? "上個月"
+                      : scheduleMode === "week"
+                        ? "上一週"
+                        : "前一天"
+                  }
+                  onClick={() =>
+                    go(
+                      scheduleMode === "month"
+                        ? addTaiwanDuration(first, -1, "MONTH")
+                        : addTaiwanDuration(
+                            selectedDate,
+                            -1,
+                            scheduleMode === "week" ? "WEEK" : "DAY",
+                          ),
+                    )
+                  }
+                >
+                  ‹
+                </button>
+                <button
+                  className={`${button} min-h-9 px-3`}
+                  disabled={pending}
+                  onClick={() => go(today)}
+                >
+                  今天
+                </button>
+                <button
+                  className={`${button} min-h-9 px-2.5`}
+                  disabled={pending}
+                  aria-label={
+                    scheduleMode === "month"
+                      ? "下個月"
+                      : scheduleMode === "week"
+                        ? "下一週"
+                        : "後一天"
+                  }
+                  onClick={() =>
+                    go(
+                      scheduleMode === "month"
+                        ? addTaiwanDuration(first, 1, "MONTH")
+                        : addTaiwanDuration(
+                            selectedDate,
+                            1,
+                            scheduleMode === "week" ? "WEEK" : "DAY",
+                          ),
+                    )
+                  }
+                >
+                  ›
+                </button>
+              </div>
+              <label className="sr-only" htmlFor="course-schedule-date">課表日期</label>
+              <input
+                id="course-schedule-date"
+                key={selectedDate}
+                aria-label="課表日期"
+                type="date"
+                defaultValue={selectedDate}
                 disabled={pending}
-                onClick={() => go(today)}
-              >
-                今天
-              </button>
-              <button
-                className={button}
-                disabled={pending}
-                aria-label="下個月"
-                onClick={() => go(addTaiwanDuration(first, 1, "MONTH"))}
-              >
-                ›
-              </button>
+                onChange={(event) => {
+                  const date = event.target.value;
+                  if (parseTaipeiDateTime(date, "00:00")) go(date);
+                }}
+                className="min-h-9 rounded-lg border border-earth-200 bg-white px-2.5 text-sm text-earth-700"
+              />
+              <span className="hidden text-sm font-medium text-earth-700 xl:inline">
+                {scheduleMode === "month"
+                  ? `${year} 年 ${mon} 月`
+                  : scheduleMode === "week"
+                    ? `${selectedDate} 當週`
+                    : selectedDate}
+              </span>
             </div>
             {(cashbookShortcut || canCreate || canEdit) && (
-              <div className="flex gap-2">
+              <div className="flex shrink-0 gap-2">
                 {cashbookShortcut}
                 {canCreate && (
                   <button
-                    className={primary}
+                    className={`${primary} min-h-9`}
                     disabled={pending}
                     onClick={openSchedule}
                   >
@@ -334,61 +432,71 @@ export function CourseWorkspace({
               </div>
             )}
           </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <form className="flex items-end gap-2" onSubmit={event => {
-              event.preventDefault();
-              const date = String(new FormData(event.currentTarget).get("jumpDate"));
-              if (parseTaipeiDateTime(date, "00:00")) go(date);
-            }}>
-              <label className="text-sm text-earth-700">日期（台灣時間）
-                <input key={selectedDate} name="jumpDate" aria-label="課表日期" type="date" required defaultValue={selectedDate} className={field}/>
-              </label>
-              <button className={button} disabled={pending}>前往</button>
-            </form>
-            <label className="text-sm text-earth-700">教練
+
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
+            <span className="px-1 text-xs font-medium text-earth-500">篩選</span>
+            <label className="sr-only" htmlFor="course-coach-filter">教練</label>
             <select
+              id="course-coach-filter"
               aria-label="教練篩選"
-              className={button}
+              className={`${button} min-h-9 bg-white py-1`}
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
               <option value="all">全部教練</option>
-              {allCoaches.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.displayName}
+              {allCoaches.map((coach) => (
+                <option key={coach.id} value={coach.id}>
+                  {coach.displayName}
                 </option>
               ))}
-            </select></label>
-            <label className="text-sm text-earth-700">教室
+            </select>
+            <label className="sr-only" htmlFor="course-room-filter">教室</label>
             <select
+              id="course-room-filter"
               aria-label="教室篩選"
-              className={button}
+              className={`${button} min-h-9 bg-white py-1`}
               value={roomFilter}
               onChange={(e) => setRoomFilter(e.target.value)}
             >
               <option value="all">全部教室</option>
-              {allRooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
+              {allRooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
                 </option>
               ))}
-            </select></label>
-            <label className="text-sm text-earth-700">分類
+            </select>
+            <label className="sr-only" htmlFor="course-category-filter">分類</label>
             <select
+              id="course-category-filter"
               aria-label="課程分類篩選"
-              className={button}
+              className={`${button} min-h-9 bg-white py-1`}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
               <option value="all">全部分類</option>
-              {[...new Set(allTemplates.map((t) => t.category))].map((c) => (
-                <option key={c} value={c}>
-                  {c || "未分類"}
+              {[...new Set(allTemplates.map((template) => template.category))].map((item) => (
+                <option key={item} value={item}>
+                  {item || "未分類"}
                 </option>
               ))}
-            </select></label>
+            </select>
+            {(coachFilter !== "all" || roomFilter !== "all" || category !== "all") && (
+              <button
+                type="button"
+                className="min-h-9 rounded-lg px-2.5 text-xs text-earth-600 hover:bg-white"
+                onClick={() => {
+                  setCoachFilter("all");
+                  setRoomFilter("all");
+                  setCategory("all");
+                }}
+              >
+                清除篩選
+              </button>
+            )}
           </div>
-          <div
+          {scheduleMode === "month" ? (
+            <>
+              <div
             className="overflow-hidden rounded-lg border border-earth-200 bg-white"
             aria-busy={pending}
           >
@@ -423,9 +531,9 @@ export function CourseWorkspace({
                     aria-label={`${date}，${isClosed ? closureLabel : `${list.length} 堂課`}`}
                     onClick={() => {
                       go(date);
-                      open("day");
+                      changeScheduleMode("day");
                     }}
-                    className={`relative flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
+                    className={`relative flex min-w-0 h-16 sm:h-24 xl:h-28 flex-col items-start justify-start border-t border-earth-100 px-1 py-1.5 text-left sm:px-3 sm:py-2 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
                       isClosed
                         ? "bg-earth-100 text-earth-500"
                         : date === selectedDate
@@ -476,6 +584,24 @@ export function CourseWorkspace({
             ].map(([label, tone]) => <span key={label} className={`rounded-full px-2 py-1 ${tone}`}>{label}</span>)}
             <span>灰底「公休／員工訓練」：當日不可排課</span>
           </div>
+            </>
+          ) : (
+            <CourseScheduleBoard
+              mode={scheduleMode}
+              selectedDate={selectedDate}
+              today={today}
+              sessions={filteredScheduleSessions}
+              rooms={allRooms}
+              coaches={allCoaches}
+              templates={allTemplates}
+              pending={pending}
+              onSelectDate={go}
+              onOpenSession={(sessionId, date) => {
+                go(date);
+                setCourseDialog({ sessionId, kind: "roster" });
+              }}
+            />
+          )}
           <p
             role="status"
             aria-live="polite"
@@ -1789,92 +1915,84 @@ export function CourseWorkspace({
                 ? "＋ 學員預約"
                 : "＋ 新顧客／體驗客";
           return (
-            <div
-              className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-3 sm:p-5"
-              onClick={() => setCourseDialog(null)}
+            <RightSheet
+              open
+              onClose={() => setCourseDialog(null)}
+              width={courseDialog.kind === "roster" ? 820 : 560}
+              labelledById="course-operation-title"
             >
-              <section
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="course-operation-title"
-                className={`flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)] ${
-                  courseDialog.kind === "roster" ? "max-w-6xl" : "max-w-2xl"
-                }`}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-3">
-                  <div className="min-w-0">
-                    <h2
-                      id="course-operation-title"
-                      className="truncate text-lg font-semibold text-primary-900"
-                    >
-                      {dialogTitle}
-                    </h2>
-                    <p className="mt-1 text-sm text-earth-600">
-                      {formatTWDateTime(new Date(dialogSession.startsAt))} ·{" "}
-                      {dialogSession.nameSnapshot} ·{" "}
-                      {allCoaches.find((coach) => coach.id === dialogSession.coachId)
-                        ?.displayName ?? "未指定教練"}
-                      {" · "}
-                      {allRooms.find((room) => room.id === dialogSession.roomId)?.name ??
-                        "未指定教室"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className={button}
-                    onClick={() => setCourseDialog(null)}
+              <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-3">
+                <div className="min-w-0">
+                  <h2
+                    id="course-operation-title"
+                    className="truncate text-lg font-semibold text-primary-900"
                   >
-                    關閉
-                  </button>
-                </header>
-                <div
-                  className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
-                    courseDialog.kind === "roster"
-                      ? "overflow-hidden"
-                      : "overflow-y-auto"
-                  }`}
-                >
-                  <CourseRoster
-                    key={`${dialogSession.id}-${courseDialog.kind}`}
-                    sessionId={dialogSession.id}
-                    capacity={dialogSession.capacity}
-                    canCreate={canCreate}
-                    canEdit={canEdit}
-                    view={courseDialog.kind}
-                    onDone={() => setCourseDialog(null)}
-                    onMemberBookingReadyChange={setMemberBookingReady}
-                    onCreateCustomer={() =>
-                      setCourseDialog({
-                        sessionId: dialogSession.id,
-                        kind: "trial-booking",
-                      })
-                    }
-                  />
+                    {dialogTitle}
+                  </h2>
+                  <p className="mt-1 text-sm text-earth-600">
+                    {formatTWDateTime(new Date(dialogSession.startsAt))} ·{" "}
+                    {dialogSession.nameSnapshot} ·{" "}
+                    {allCoaches.find((coach) => coach.id === dialogSession.coachId)
+                      ?.displayName ?? "未指定教練"}
+                    {" · "}
+                    {allRooms.find((room) => room.id === dialogSession.roomId)?.name ??
+                      "未指定教室"}
+                  </p>
                 </div>
-                {courseDialog.kind !== "roster" && (
-                  <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
-                    <button
-                      type="submit"
-                      form={
-                        courseDialog.kind === "member-booking"
-                          ? "course-member-booking-form"
-                          : "course-trial-booking-form"
-                      }
-                      className={`${primary} w-full disabled:cursor-not-allowed disabled:bg-earth-200 disabled:text-earth-500`}
-                      disabled={
-                        courseDialog.kind === "member-booking" &&
-                        !memberBookingReady
-                      }
-                    >
-                      {courseDialog.kind === "member-booking"
-                        ? "確認學員預約"
-                        : "建立並加入課程"}
-                    </button>
-                  </footer>
-                )}
-              </section>
-            </div>
+                <button
+                  type="button"
+                  className={button}
+                  onClick={() => setCourseDialog(null)}
+                >
+                  關閉
+                </button>
+              </header>
+              <div
+                className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
+                  courseDialog.kind === "roster"
+                    ? "overflow-hidden"
+                    : "overflow-y-auto"
+                }`}
+              >
+                <CourseRoster
+                  key={`${dialogSession.id}-${courseDialog.kind}`}
+                  sessionId={dialogSession.id}
+                  capacity={dialogSession.capacity}
+                  canCreate={canCreate}
+                  canEdit={canEdit}
+                  view={courseDialog.kind}
+                  onDone={() => setCourseDialog(null)}
+                  onMemberBookingReadyChange={setMemberBookingReady}
+                  onCreateCustomer={() =>
+                    setCourseDialog({
+                      sessionId: dialogSession.id,
+                      kind: "trial-booking",
+                    })
+                  }
+                />
+              </div>
+              {courseDialog.kind !== "roster" && (
+                <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
+                  <button
+                    type="submit"
+                    form={
+                      courseDialog.kind === "member-booking"
+                        ? "course-member-booking-form"
+                        : "course-trial-booking-form"
+                    }
+                    className={`${primary} w-full disabled:cursor-not-allowed disabled:bg-earth-200 disabled:text-earth-500`}
+                    disabled={
+                      courseDialog.kind === "member-booking" &&
+                      !memberBookingReady
+                    }
+                  >
+                    {courseDialog.kind === "member-booking"
+                      ? "確認學員預約"
+                      : "建立並加入課程"}
+                  </button>
+                </footer>
+              )}
+            </RightSheet>
           );
         })()}
     </>

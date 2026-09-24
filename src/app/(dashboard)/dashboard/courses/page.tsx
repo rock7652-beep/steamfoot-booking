@@ -9,10 +9,10 @@ import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { coursePrisma } from "@/lib/course-db";
 import { prisma } from "@/lib/db";
 import {
-  monthRange,
+  addTaiwanDuration,
+  dayRange,
   parseTaipeiDateTime,
   toLocalDateStr,
-  toLocalMonthStr,
 } from "@/lib/date-utils";
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
@@ -52,9 +52,11 @@ export default async function CoursesPage({
     requested && parseTaipeiDateTime(requested, "00:00")
       ? requested
       : toLocalDateStr();
-  const bounds = monthRange(
-    toLocalMonthStr(parseTaipeiDateTime(selected, "12:00")!),
-  );
+  const firstOfMonth = `${selected.slice(0, 7)}-01`;
+  const scheduleStart = dayRange(addTaiwanDuration(firstOfMonth, -6, "DAY")).start;
+  const scheduleEnd = dayRange(
+    addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
+  ).end;
   const [
     rooms,
     templates,
@@ -105,7 +107,7 @@ export default async function CoursesPage({
         where: {
           storeId,
           cancelledAt: null,
-          startsAt: { gte: bounds.start, lte: bounds.end },
+          startsAt: { gte: scheduleStart, lte: scheduleEnd },
         },
         select: {
           id: true,
@@ -117,7 +119,15 @@ export default async function CoursesPage({
           roomId: true,
           capacity: true,
           pointCost: true,
-          bookings: { where: { status: { not: "CANCELLED" } }, select: { customerId: true, status: true } },
+          bookings: {
+            where: { status: { not: "CANCELLED" } },
+            select: {
+              customerId: true,
+              customerName: true,
+              status: true,
+              bookingKind: true,
+            },
+          },
         },
         orderBy: { startsAt: "asc" },
       }),
@@ -159,23 +169,23 @@ export default async function CoursesPage({
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   const viewContext = await resolveStoreViewContextFromCookie(user);
   return (
-    <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
-      <PageHeader
-        title={
-          view === "catalog"
-            ? "課程設定"
-            : view === "rooms"
-              ? "教室管理"
-              : "課表排程"
-        }
-        subtitle={
-          view === "schedule"
-            ? "選擇日期查看、安排或複製課程"
-            : view === "catalog"
+    <PageShell
+      className={
+        view === "schedule"
+          ? "course-workspace mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3"
+          : "course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6"
+      }
+    >
+      {view !== "schedule" && (
+        <PageHeader
+          title={view === "catalog" ? "課程設定" : "教室管理"}
+          subtitle={
+            view === "catalog"
               ? "管理課程名稱、人數與排課預設"
               : "管理上課教室"
-        }
-      />
+          }
+        />
+      )}
       <CourseWorkspace canDelete={user.role==="OWNER"}
         key={`${storeId}:${view}`}
         view={view}
