@@ -1,6 +1,6 @@
 "use server";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
-import { assertMusicCourseAvailability } from "@/server/services/course-availability";
+import { assertMusicCourseAvailability, assertMusicCourseDuration } from "@/server/services/course-availability";
 import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 
 import { assertCourseResources, assertNoCourseResourceUse, handleCourseActionError } from "@/server/services/course-resources";
@@ -63,6 +63,7 @@ export async function updateCourseTemplate(input: unknown) {
     const { id, ...data } = courseTemplateInput
       .extend({ id: z.string().min(1) })
       .parse(input);
+    await assertMusicCourseDuration(coursePrisma,storeId,data.durationMinutes);
     const room = data.defaultRoomId
       ? await coursePrisma.courseRoom.findFirst({
           where: { id: data.defaultRoomId, storeId, isActive: true },
@@ -222,6 +223,7 @@ export async function createCourseTemplate(input: unknown) {
   try {
     const { storeId } = await writableStore();
     const data = courseTemplateInput.parse(input);
+    await assertMusicCourseDuration(coursePrisma,storeId,data.durationMinutes);
     const room = data.defaultRoomId
       ? await coursePrisma.courseRoom.findFirst({
           where: { id: data.defaultRoomId, storeId, isActive: true },
