@@ -1215,15 +1215,13 @@ export function CourseWorkspace({
                         </label>
                         <label>
                           時長（分鐘）
-                          <input
-                            className={field}
-                            name="duration"
-                            type="number"
-                            defaultValue={60}
-                            min={1}
-                            max={480}
-                            required
-                          />
+                          {businessProfile === "MUSIC" ? (
+                            <select className={field} name="duration" defaultValue={60} required>
+                              {[30, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分鐘</option>)}
+                            </select>
+                          ) : (
+                            <input className={field} name="duration" type="number" defaultValue={60} min={1} max={480} required />
+                          )}
                         </label>
                         <label>
                           點數卡每人扣點
@@ -1452,21 +1450,34 @@ export function CourseWorkspace({
                   <>
                     <label>
                       時長（分鐘）
-                      <input
-                        className={field}
-                        name="duration"
-                        type="number"
-                        min={1}
-                        max={480}
-                        required
-                        defaultValue={
-                          editing.kind === "template"
-                            ? editing.value.durationMinutes
-                            : (new Date(editing.value.endsAt).getTime() -
-                                new Date(editing.value.startsAt).getTime()) /
-                              60000
-                        }
-                      />
+                      {businessProfile === "MUSIC" ? (
+                        <select
+                          className={field}
+                          name="duration"
+                          required
+                          defaultValue={
+                            editing.kind === "template"
+                              ? editing.value.durationMinutes
+                              : (new Date(editing.value.endsAt).getTime() - new Date(editing.value.startsAt).getTime()) / 60000
+                          }
+                        >
+                          {[30, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分鐘</option>)}
+                        </select>
+                      ) : (
+                        <input
+                          className={field}
+                          name="duration"
+                          type="number"
+                          min={1}
+                          max={480}
+                          required
+                          defaultValue={
+                            editing.kind === "template"
+                              ? editing.value.durationMinutes
+                              : (new Date(editing.value.endsAt).getTime() - new Date(editing.value.startsAt).getTime()) / 60000
+                          }
+                        />
+                      )}
                     </label>
                     <label>
                       人數上限
@@ -1664,7 +1675,7 @@ export function CourseWorkspace({
                             ? formatTWDateTime(
                                 new Date(copySource.startsAt),
                               ).slice(11)
-                            : "18:00"
+                            : scheduleSeed.time ?? "18:00"
                         }
                         required
                       />
