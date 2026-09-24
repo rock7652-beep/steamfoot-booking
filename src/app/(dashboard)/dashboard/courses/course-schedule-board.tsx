@@ -172,11 +172,13 @@ function SessionCard({
 }) {
   const copy = adaptiveCopy(session, templates, coaches, rooms, businessProfile);
   const seats = openSeats(session);
+  const musicDense = dense && businessProfile === "MUSIC";
+  const showCapacityState = !musicDense || !copy.privateClass;
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`w-full rounded-lg border border-earth-200 bg-white text-left transition hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"}`}
+      className={`w-full rounded-lg border text-left transition hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"} ${musicDense && !copy.privateClass ? "border-earth-200 border-l-2 border-l-primary-300 bg-primary-50/20" : "border-earth-200 bg-white"}`}
       aria-label={`${copy.primary}，${hhmm(session.startsAt)}，${copy.coach}`}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
@@ -203,7 +205,7 @@ function SessionCard({
             體驗
           </span>
         )}
-        {isFull(session) ? (
+        {showCapacityState && (isFull(session) ? (
           <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-900">
             滿班
           </span>
@@ -211,13 +213,13 @@ function SessionCard({
           <span className="rounded-full bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-700">
             剩 {seats} 位
           </span>
-        ) : null}
+        ) : null)}
         {pendingCheckins(session) > 0 && (
           <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-800">
             待報到 {pendingCheckins(session)}
           </span>
         )}
-        {copy.privateClass && (
+        {copy.privateClass && !musicDense && (
           <span className="rounded-full bg-earth-50 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">
             {businessProfile === "MUSIC" ? "一對一" : "私教"}
           </span>
@@ -399,9 +401,9 @@ export function CourseScheduleBoard({
           此篩選目前沒有課程
         </div>
       ) : (
-        <div className="max-w-full overflow-x-auto pb-1">
+        <div className={`max-w-full pb-1 ${musicDense ? "max-h-[calc(100vh-260px)] min-h-[420px] overflow-auto rounded-xl border border-earth-200 bg-white" : "overflow-x-auto"}`}>
           <div
-            className="overflow-hidden rounded-xl border border-earth-200 bg-white"
+            className={musicDense ? "bg-white" : "overflow-hidden rounded-xl border border-earth-200 bg-white"}
             style={{
               width: timetableWidth,
               minWidth: timetableMinWidth,
@@ -415,14 +417,14 @@ export function CourseScheduleBoard({
                   : `72px repeat(${resourceCount}, minmax(180px, 1fr))`,
               }}
             >
-              <div className={`sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500 ${musicDense ? "py-2" : "py-3"}`}>
+              <div className={`sticky left-0 top-0 z-50 border-b border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500 ${musicDense ? "py-2" : "py-3"}`}>
                 時間
               </div>
             {resources.length ? (
               resources.map((resource) => (
                 <div
                   key={resource.id}
-                  className={`sticky top-0 z-20 border-b border-r border-earth-200 bg-earth-50 font-semibold text-earth-800 ${musicDense ? "px-2 py-2 text-xs" : "px-3 py-3 text-sm"}`}
+                  className={`sticky top-0 z-40 border-b border-r border-earth-200 bg-earth-50 font-semibold text-earth-800 ${musicDense ? "px-2 py-2 text-xs" : "px-3 py-3 text-sm"}`}
                 >
                   {resource.name}
                 </div>
@@ -435,7 +437,7 @@ export function CourseScheduleBoard({
 
             {times.map((time) => (
               <React.Fragment key={time}>
-                <div className={`sticky left-0 z-10 border-b border-r border-earth-100 bg-white px-2 text-xs font-medium text-earth-600 ${musicDense ? "py-2" : "py-3"}`}>
+                <div className={`sticky left-0 z-30 border-b border-r border-earth-100 bg-white px-2 text-xs font-medium text-earth-600 ${musicDense ? "py-2" : "py-3"}`}>
                   {time}
                 </div>
                 {(resources.length ? resources : [{ id: "__none", name: "" }]).map((resource) => {
