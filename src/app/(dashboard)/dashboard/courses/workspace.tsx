@@ -533,7 +533,7 @@ export function CourseWorkspace({
                       go(date);
                       changeScheduleMode("day");
                     }}
-                    className={`relative flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
+                    className={`relative flex min-w-0 h-16 sm:h-24 xl:h-28 flex-col items-start justify-start border-t border-earth-100 px-1 py-1.5 text-left sm:px-3 sm:py-2 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
                       isClosed
                         ? "bg-earth-100 text-earth-500"
                         : date === selectedDate
