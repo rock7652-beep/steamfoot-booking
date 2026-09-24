@@ -265,18 +265,19 @@ export function CourseScheduleBoard({
   const dayScrollRef = React.useRef<HTMLDivElement>(null);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
+  const snapResourceCount = resourceView === "room" ? activeRooms.length : activeCoaches.length;
   const snapDayScroll = React.useCallback(() => {
     const element = dayScrollRef.current;
     if (!element || businessProfile !== "MUSIC") return;
-    const resourceWidth = resources.length
-      ? Math.max(124, (element.scrollWidth - 64) / resources.length)
+    const resourceWidth = snapResourceCount
+      ? Math.max(124, (element.scrollWidth - 64) / snapResourceCount)
       : 132;
     const target = Math.min(
       element.scrollWidth - element.clientWidth,
       Math.max(0, Math.round(element.scrollLeft / resourceWidth) * resourceWidth),
     );
     element.scrollTo({ left: target, behavior: "smooth" });
-  }, [businessProfile, resources.length]);
+  }, [businessProfile, snapResourceCount]);
 
   if (mode === "week") {
     const start = weekStart(selectedDate);
@@ -484,6 +485,9 @@ export function CourseScheduleBoard({
         <div className={musicDense ? "relative max-w-full rounded-xl border border-earth-200 bg-white" : "max-w-full pb-1"}>
           {musicDense && (
             <div className="sticky top-14 z-40 max-w-full overflow-hidden border-b border-earth-200 bg-earth-50/95 backdrop-blur-sm">
+              <div className="absolute inset-y-0 left-0 z-50 flex w-16 items-center border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500">
+                時間
+              </div>
               <div
                 className="grid w-full will-change-transform"
                 style={{
@@ -493,9 +497,7 @@ export function CourseScheduleBoard({
                   transform: `translateX(-${dayScrollLeft}px)`,
                 }}
               >
-                <div className="sticky left-0 z-50 border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-medium text-earth-500">
-                  時間
-                </div>
+                <div aria-hidden="true" />
                 {resources.length ? resources.map((resource) => (
                   <div key={resource.id} className="border-r border-earth-200 bg-earth-50 px-2 py-2 text-xs font-semibold text-earth-800">
                     {resource.name}
