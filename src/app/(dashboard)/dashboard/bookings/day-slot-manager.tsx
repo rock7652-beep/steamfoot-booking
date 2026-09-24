@@ -15,7 +15,7 @@ type Slot = {
   override: string | null;
 };
 
-type ChangeAction = "disable" | "enable" | "remove";
+type ChangeAction = "disable" | "enable" | "remove" | "capacity";
 
 interface Props {
   date: string;
@@ -33,6 +33,8 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   const [dayClosed, setDayClosed] = useState(true);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [changes, setChanges] = useState<Map<string, ChangeAction>>(new Map());
+  const [capacityChanges, setCapacityChanges] = useState<Map<string, number>>(new Map());
+  const [defaultCapacity, setDefaultCapacity] = useState(6);
   const [newTime, setNewTime] = useState("19:30");
   const [pending, startTransition] = useTransition();
 
@@ -42,11 +44,14 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
     setDayClosed(true);
     setSlots([]);
     setChanges(new Map());
+    setCapacityChanges(new Map());
     try {
       const detail = await getDaySlotDetails(date);
       setSlots(detail.slots);
+      setDefaultCapacity(Math.max(1, detail.defaultCapacity || 6));
       setDayClosed(detail.status === "closed" || detail.status === "training");
       setChanges(new Map());
+      setCapacityChanges(new Map());
     } catch {
       toast.error("載入時段失敗");
     } finally {
@@ -56,6 +61,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
 
   const previewSlots = useMemo(() => slots.map((slot) => ({
     ...slot,
+    capacity: capacityChanges.get(slot.startTime) ?? slot.capacity,
     isOpen: changes.get(slot.startTime) === "disable"
       ? false
       : changes.get(slot.startTime) === "enable"
@@ -63,9 +69,9 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
         : changes.get(slot.startTime) === "remove"
           ? slot.inRange
           : slot.isEnabled,
-  })), [changes, slots]);
+  })), [capacityChanges, changes, slots]);
 
-  const changedCount = changes.size;
+  const changedCount = new Set([...changes.keys(), ...capacityChanges.keys()]).size;
   const bookedPeopleKept = previewSlots
     .filter((slot) => !slot.isOpen && bookedPeopleBySlot.has(slot.startTime))
     .reduce((total, slot) => total + (bookedPeopleBySlot.get(slot.startTime) ?? 0), 0);
@@ -74,6 +80,22 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
     setChanges((previous) => {
       const next = new Map(previous);
       next.set(startTime, action);
+      return next;
+    });
+  }
+
+  function setCapacity(startTime: string, capacity: number) {
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 99) return;
+    const booked = bookedPeopleBySlot.get(startTime) ?? 0;
+    if (capacity < booked) {
+      toast.error(`此時段已預約 ${booked} 人，名額不可低於此數`);
+      return;
+    }
+    const original = slots.find((slot) => slot.startTime === startTime)?.capacity;
+    setCapacityChanges((previous) => {
+      const next = new Map(previous);
+      if (original === capacity) next.delete(startTime);
+      else next.set(startTime, capacity);
       return next;
     });
   }
@@ -94,11 +116,12 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
     if (!existing) {
       setSlots((previous) => [...previous, {
         startTime: newTime,
-        capacity: 0,
+        capacity: defaultCapacity,
         isEnabled: false,
         inRange: false,
         override: null,
       }].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+      setCapacityChanges((previous) => new Map(previous).set(newTime, defaultCapacity));
     }
     setChange(newTime, "enable");
   }
@@ -115,9 +138,14 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
   function save() {
     if (!changedCount) return;
     startTransition(async () => {
+      const changedTimes = new Set([...changes.keys(), ...capacityChanges.keys()]);
       const result = await applyDaySlotOverrides({
         date,
-        changes: [...changes].map(([startTime, action]) => ({ startTime, action })),
+        changes: [...changedTimes].map((startTime) => ({
+          startTime,
+          action: changes.get(startTime) ?? "capacity",
+          capacity: capacityChanges.get(startTime),
+        })),
       });
       if (!result.success) {
         toast.error(result.error ?? "儲存時段失敗，草稿已保留");
@@ -125,6 +153,7 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
       }
       await onSaved();
       setChanges(new Map());
+      setCapacityChanges(new Map());
       setOpen(false);
       toast.success(
         result.data.bookedPeopleKept > 0
@@ -164,15 +193,83 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
                   <button type="button" onClick={addSlot} disabled={dayClosed || pending} className="rounded border border-primary-300 bg-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100">加入草稿</button>
                 </div>
 
-                <p className="mt-3 text-xs text-earth-500">點選時段可關閉或重新開放；關閉只停止新預約，已有預約會保留。</p>
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <p className="mt-3 text-xs text-earth-500">可直接調整當日時段與名額；只影響這一天，不會修改每週固定設定。關閉只停止新預約，已有預約會保留。</p>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {previewSlots.map((slot) => {
                     const people = bookedPeopleBySlot.get(slot.startTime) ?? 0;
+                    const isChanged = changes.has(slot.startTime) || capacityChanges.has(slot.startTime);
+                    const isFull = slot.isOpen && people >= slot.capacity;
                     return (
-                      <button key={slot.startTime} type="button" onClick={() => toggle(slot)} disabled={dayClosed || pending} className={`rounded-lg border p-2 text-left text-xs ${slot.isOpen ? "border-green-200 bg-green-50 text-green-800" : "border-earth-200 bg-earth-50 text-earth-500"}`}>
-                        <span className="block font-semibold">{slot.startTime} · {slot.isOpen ? "開放" : "關閉"}</span>
-                        <span className="mt-0.5 block text-[11px]">名額 {slot.capacity || "依原設定"} 位{people > 0 ? ` · 已預約 ${people} 人` : ""}</span>
-                      </button>
+                      <div
+                        key={slot.startTime}
+                        className={`rounded-lg border px-2.5 py-2 text-xs ${
+                          !slot.isOpen
+                            ? "border-earth-300 bg-earth-50 text-earth-600"
+                            : isFull
+                              ? "border-amber-200 bg-amber-50/70 text-earth-800"
+                              : "border-earth-200 bg-white text-earth-800"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggle(slot)}
+                            disabled={dayClosed || pending}
+                            className="min-w-0 flex-1 text-left disabled:opacity-50"
+                          >
+                            <span className="flex items-center gap-1.5 font-semibold">
+                              <span>{slot.startTime}</span>
+                              <span className={slot.isOpen ? "text-emerald-700" : "text-earth-500"}>
+                                {slot.isOpen ? "開放" : "關閉"}
+                              </span>
+                              {isChanged && (
+                                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                                  已調整
+                                </span>
+                              )}
+                              {isFull && (
+                                <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium text-rose-700">
+                                  滿額
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                          <span className="shrink-0 text-[11px] text-earth-500">
+                            已約 {people} / 名額 {slot.capacity}
+                          </span>
+                        </div>
+
+                        <div className="mt-1.5 flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            aria-label={`${slot.startTime} 名額減少`}
+                            disabled={dayClosed || pending || !slot.isOpen || slot.capacity <= Math.max(1, people)}
+                            onClick={() => setCapacity(slot.startTime, slot.capacity - 1)}
+                            className="h-7 w-7 rounded border border-earth-300 bg-white text-sm disabled:opacity-35"
+                          >
+                            −
+                          </button>
+                          <input
+                            aria-label={`${slot.startTime} 名額`}
+                            type="number"
+                            min={Math.max(1, people)}
+                            max={99}
+                            value={slot.capacity}
+                            disabled={dayClosed || pending || !slot.isOpen}
+                            onChange={(event) => setCapacity(slot.startTime, Number(event.target.value))}
+                            className="h-7 w-12 rounded border border-earth-300 bg-white px-1 text-center text-xs font-medium tabular-nums disabled:opacity-35"
+                          />
+                          <button
+                            type="button"
+                            aria-label={`${slot.startTime} 名額增加`}
+                            disabled={dayClosed || pending || !slot.isOpen || slot.capacity >= 99}
+                            onClick={() => setCapacity(slot.startTime, slot.capacity + 1)}
+                            className="h-7 w-7 rounded border border-earth-300 bg-white text-sm disabled:opacity-35"
+                          >
+                            ＋
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
