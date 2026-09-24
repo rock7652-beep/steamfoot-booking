@@ -8,6 +8,7 @@ import {
   parseLocalDate,
   toLocalDateStr,
 } from "@/lib/date-utils";
+import { normalizeAvailabilityPeriods, periodContains, minuteOfDay } from "@/lib/course-availability";
 
 export type CourseScheduleMode = "month" | "week" | "day";
 
@@ -60,6 +61,10 @@ type Props = {
   coaches: Coach[];
   templates: Template[];
   pending?: boolean;
+  storePeriods: {openTime:string;closeTime:string}[];
+  staffAvailability: {staffId:string;dayOfWeek:number;segments:unknown}[];
+  staffAvailabilityExceptions: {staffId:string;date:string;type:string;segments:unknown;reason:string|null}[];
+  onOpenEmpty: (value:{time:string;roomId?:string;coachId?:string})=>void;
   onSelectDate: (date: string) => void;
   onOpenSession: (sessionId: string, date: string) => void;
 };
@@ -239,6 +244,10 @@ export function CourseScheduleBoard({
   coaches,
   templates,
   pending = false,
+  storePeriods,
+  staffAvailability,
+  staffAvailabilityExceptions,
+  onOpenEmpty,
   onSelectDate,
   onOpenSession,
 }: Props) {
@@ -307,7 +316,35 @@ export function CourseScheduleBoard({
     resourceView === "room"
       ? activeRooms.map((room) => ({ id: room.id, name: room.name }))
       : activeCoaches.map((coach) => ({ id: coach.id, name: coach.displayName }));
-  const times = [...new Set(filtered.map((session) => hhmm(session.startsAt)))].sort();
+  const normalizedStorePeriods = normalizeAvailabilityPeriods(storePeriods);
+  const boundaryMinutes = normalizedStorePeriods.flatMap((period)=>[minuteOfDay(period.openTime),minuteOfDay(period.closeTime)]);
+  const sessionMinutes = filtered.flatMap((session)=>[minuteOfDay(hhmm(session.startsAt)),minuteOfDay(hhmm(session.endsAt))]);
+  const minMinute = Math.min(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [9*60]));
+  const maxMinute = Math.max(...(boundaryMinutes.length ? boundaryMinutes : sessionMinutes.length ? sessionMinutes : [22*60]));
+  const firstHour = Math.floor(minMinute/60);
+  const lastHour = Math.max(firstHour,Math.ceil(maxMinute/60)-1);
+  const times = Array.from({length:lastHour-firstHour+1},(_,index)=>`${String(firstHour+index).padStart(2,"0")}:00`);
+  const selectedDayOfWeek=parseLocalDate(selectedDate).getDay();
+  const coachPeriods=(staffId:string)=>{
+    const exception=staffAvailabilityExceptions.find(item=>item.staffId===staffId&&item.date===selectedDate);
+    if(exception?.type==="UNAVAILABLE") return [];
+    if(exception?.type==="CUSTOM") return normalizeAvailabilityPeriods(exception.segments);
+    const rows=staffAvailability.filter(item=>item.staffId===staffId);
+    if(!rows.length) return normalizedStorePeriods;
+    return normalizeAvailabilityPeriods(rows.find(item=>item.dayOfWeek===selectedDayOfWeek)?.segments);
+  };
+  const resourcePeriods=(resourceId:string)=>resourceView==="room"
+    ? normalizedStorePeriods
+    : coachPeriods(resourceId);
+  const slotConflict=(resourceId:string,startTime:string)=>{
+    const start=minuteOfDay(startTime),end=start+30;
+    return filtered.some(session=>{
+      const same=resourceView==="room"?session.roomId===resourceId:session.coachId===resourceId;
+      if(!same) return false;
+      const sessionStart=minuteOfDay(hhmm(session.startsAt)),sessionEnd=minuteOfDay(hhmm(session.endsAt));
+      return start<sessionEnd&&end>sessionStart;
+    });
+  };
   const resourceCount = Math.max(resources.length, 1);
   const musicDense = businessProfile === "MUSIC";
   const timetableWidth = musicDense
@@ -443,7 +480,7 @@ export function CourseScheduleBoard({
                 {(resources.length ? resources : [{ id: "__none", name: "" }]).map((resource) => {
                   const list = filtered.filter(
                     (session) =>
-                      hhmm(session.startsAt) === time &&
+                      hhmm(session.startsAt).slice(0,2) === time.slice(0,2) &&
                       (resourceView === "room"
                         ? session.roomId === resource.id
                         : session.coachId === resource.id),
@@ -451,21 +488,48 @@ export function CourseScheduleBoard({
                   return (
                     <div
                       key={`${time}:${resource.id}`}
-                      className={`border-b border-r border-earth-100 ${musicDense ? "min-h-16 space-y-1 p-1" : "min-h-20 space-y-2 p-2"}`}
+                      className={`relative border-b border-r border-earth-100 ${musicDense ? "min-h-24" : "min-h-20 space-y-2 p-2"}`}
                     >
-                      {list.map((session) => (
-                        <SessionCard
-                          key={session.id}
-                          session={session}
-                          templates={templates}
-                          coaches={coaches}
-                          rooms={rooms}
-                          businessProfile={businessProfile}
-                          dense={musicDense}
-                          resourceView={resourceView}
-                          onOpen={() => onOpenSession(session.id, selectedDate)}
-                        />
-                      ))}
+                      {musicDense && resource.id !== "__none" && (
+                        <div className="absolute inset-0 grid grid-rows-2">
+                          {["00","30"].map((minute)=>{
+                            const startTime=`${time.slice(0,2)}:${minute}`;
+                            const storeOpen=periodContains(normalizedStorePeriods,startTime,30);
+                            const resourceOpen=periodContains(resourcePeriods(resource.id),startTime,30);
+                            const available=storeOpen&&resourceOpen&&!slotConflict(resource.id,startTime);
+                            const reason=!storeOpen?"店家未開放":!resourceOpen?(resourceView==="coach"?"老師未排班":"不可使用"):slotConflict(resource.id,startTime)?"已有課程":"";
+                            return (
+                              <button
+                                key={minute}
+                                type="button"
+                                disabled={!available||pending}
+                                title={available?`${startTime} 可排課`:reason}
+                                aria-label={available?`${startTime} 可排課`:`${startTime} ${reason}`}
+                                onClick={()=>available&&onOpenEmpty({time:startTime,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})})}
+                                className={`group relative border-b border-earth-100/70 text-left last:border-b-0 ${available?"bg-white hover:bg-primary-50":"cursor-not-allowed bg-earth-100/70"}`}
+                              >
+                                {available&&<span className="pointer-events-none absolute left-1 top-1 hidden rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium text-primary-800 shadow-sm group-hover:block">＋ {startTime}</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className={musicDense?"relative z-10 p-1 pointer-events-none":"contents"}>
+                        {list.map((session) => (
+                          <div key={session.id} className={musicDense&&hhmm(session.startsAt).endsWith(":30")?"mt-10 pointer-events-auto":"pointer-events-auto"}>
+                            <SessionCard
+                              session={session}
+                              templates={templates}
+                              coaches={coaches}
+                              rooms={rooms}
+                              businessProfile={businessProfile}
+                              dense={musicDense}
+                              resourceView={resourceView}
+                              onOpen={() => onOpenSession(session.id, selectedDate)}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
