@@ -371,8 +371,10 @@ export function CourseScheduleBoard({
     (sum, session) => sum + session.bookings.filter((booking) => booking.bookingKind === "TRIAL").length,
     0,
   );
-  const nearFull = daySessions.filter(isNearFull).length;
-  const full = daySessions.filter(isFull).length;
+  const groupOnly=(session:Session)=>templates.find(item=>item.id===session.templateId)?.classType!=="PRIVATE";
+  const capacitySessions=businessProfile==="MUSIC"?daySessions.filter(groupOnly):daySessions;
+  const nearFull = capacitySessions.filter(isNearFull).length;
+  const full = capacitySessions.filter(isFull).length;
   const pendingCount = daySessions.reduce(
     (sum, session) => sum + pendingCheckins(session),
     0,
