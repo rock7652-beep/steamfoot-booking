@@ -19,6 +19,7 @@ import { CourseWorkspace } from "./workspace";
 import { resolvedCourseHours } from "@/lib/course-business-hours";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
+import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 
 export default async function CoursesPage({
   searchParams,
@@ -66,6 +67,7 @@ export default async function CoursesPage({
     canEdit,
     businessHours,
     specialDays,
+    businessEntitlements,
   ] = await Promise.all([
       coursePrisma.courseRoom.findMany({
         where: { storeId },
@@ -140,6 +142,10 @@ export default async function CoursesPage({
       checkPermission(user.role, user.staffId, "booking.update"),
       prisma.businessHours.findMany({ where: { storeId } }),
       prisma.specialBusinessDay.findMany({ where: { storeId } }),
+      prisma.storeFeatureEntitlement.findMany({
+        where: { storeId, featureKey: { startsWith: "business." }, status: "ENABLED" },
+        select: { featureKey: true },
+      }),
     ]);
   const [calendarYear, calendarMonth] = selected
     .slice(0, 7)
@@ -165,6 +171,7 @@ export default async function CoursesPage({
       },
     ),
   );
+  const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   const viewContext = await resolveStoreViewContextFromCookie(user);
@@ -202,6 +209,7 @@ export default async function CoursesPage({
         canCreate={writable}
         canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
         cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
+        businessProfile={businessProfile}
         sessions={sessions.map((s) => ({
           ...s,
           startsAt: s.startsAt.toISOString(),
