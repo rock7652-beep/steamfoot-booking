@@ -80,7 +80,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
 
       {coursePlan && (
         <div role="status" className="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-          <p className="font-semibold">{trialStarted ? "30 天體驗已起算" : "課程體驗店已建置，30 天尚未起算"}</p>
+          <p className="font-semibold">{trialStarted ? "30 天體驗已起算" : summary.store.businessProfile === "MUSIC" ? "音樂教室測試店已建置，30 天尚未起算" : "課程體驗店已建置，30 天尚未起算"}</p>
           <p className="mt-1">{trialStarted
             ? `試用期間：${toLocalDateStr(coursePlan.planEffectiveAt!)} 至 ${toLocalDateStr(coursePlan.planExpiresAt!)}。功能授權與外部服務設定請分別驗收。`
             : "單店功能權限已開放供驗收；完成 LIFF、店長及會員流程與通知測試後，再啟動 30 天倒數。"}</p>
