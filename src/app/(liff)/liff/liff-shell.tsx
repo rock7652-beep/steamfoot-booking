@@ -317,7 +317,12 @@ export function LiffShell({
       )}
 
       {state.kind === "need_onboarding" && (
-        <WelcomeCta storeSlug={storeSlug} displayName={state.displayName} />
+        <WelcomeCta
+          storeSlug={storeSlug}
+          storeName={storeName}
+          memberDataSource={memberDataSource}
+          displayName={state.displayName}
+        />
       )}
 
       {state.kind === "signed_in" && (
@@ -411,20 +416,26 @@ function InfoBlock({
 
 function WelcomeCta({
   storeSlug,
+  storeName,
+  memberDataSource,
   displayName,
 }: {
   storeSlug: string;
+  storeName: string;
+  memberDataSource: IndustryModuleId;
   displayName: string | null;
 }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-3xl bg-white px-5 py-6 shadow-[0_10px_30px_rgba(74,66,53,0.08)] ring-1 ring-earth-200/70">
         <h2 className="text-2xl font-semibold leading-snug text-earth-900">
-          {liffMessages.shell.welcomeTitle}
+          {liffMessages.shell.welcomeTitle(storeName)}
           {displayName ? `，${displayName}` : ""}
         </h2>
         <p className="mt-3 text-base leading-relaxed text-earth-600">
-          {liffMessages.shell.welcomeBody}
+          {memberDataSource === "course"
+            ? liffMessages.shell.courseWelcomeBody
+            : liffMessages.shell.welcomeBody}
         </p>
       </div>
       <Link
