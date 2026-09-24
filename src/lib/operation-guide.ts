@@ -1,5 +1,5 @@
 /** First batch: time-slot booking module only. Source reviewed at 44c1f1f0.
- * Browser verification and screenshots remain pending; preview only.
+ * The guide is released; article interaction verification remains separate.
  */
 export const bookingGuides = [
   {
