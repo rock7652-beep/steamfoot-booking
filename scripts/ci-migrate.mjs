@@ -43,6 +43,11 @@ if (requiresCoursePreviewCheck(process.env)) {
     await checkClient.$queryRawUnsafe('SELECT id, "paymentSplits", "voidedAt" FROM "CourseTrialPayment" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "storeCost", "termSessionIds" FROM "CoursePointPlan" LIMIT 1');
     await checkClient.$queryRawUnsafe('SELECT "storeCostSnapshot", "developerProfitSnapshot" FROM "CoursePurchase" LIMIT 1');
+    if(process.env.VERCEL_GIT_COMMIT_REF === "codex/course-monthly-settlement") {
+      await checkClient.$queryRawUnsafe('SELECT "profitEnabled", "feeEnabled", revision FROM "CourseSettlementSetting" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT fingerprint, snapshot FROM "CourseMonthlySettlement" LIMIT 1');
+      await checkClient.$queryRawUnsafe('SELECT amount, "purchaseId" FROM "CourseProfitPayment" LIMIT 1');
+    }
     console.info("[course-preview-preflight] course_schema_readable=true; points_schema=20260917094700; trial_schema=20260917143018");
   } catch {
     throw new Error("Course Preview test database connection or course schema check failed.");

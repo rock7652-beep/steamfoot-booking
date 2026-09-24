@@ -36,6 +36,7 @@ const field = "min-h-11 min-w-0 max-w-full w-full rounded-xl border border-earth
 const button =
   "min-h-11 shrink-0 whitespace-nowrap rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm text-primary-800 hover:bg-primary-50 disabled:opacity-50";
 export function CourseStaffWorkspace({
+  feeEnabled=true,
   staff,
   maxStaff,
   templates,
@@ -43,6 +44,7 @@ export function CourseStaffWorkspace({
   canManage,
   permissionGroups,
 }: {
+  feeEnabled?:boolean;
   staff: Person[];
   maxStaff: number | null;
   templates:{id:string;name:string}[];
@@ -235,7 +237,7 @@ export function CourseStaffWorkspace({
               關閉
             </button>
           </header>
-          <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications","授課費設定"],["work","工作與授課安排"]]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
+          <nav className="flex flex-wrap gap-2 border-b border-earth-200 px-4 py-2">{[["basic","基本資料"],...(coachEnabled?[["qualifications",feeEnabled?"授課費設定":"授課資格"],["work","工作與授課安排"]]:[]),...(kind==="manager"?[["permissions","後台帳號／權限"]]:[])].map(([id,label])=><button key={id} type="button" className={`${button} ${tab===id ? "!border-primary-300 !bg-primary-50 font-medium !text-primary-900" : ""}`} onClick={()=>setTab(id)} aria-pressed={tab===id}>{label}</button>)}</nav>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
             {!person && <p className={`mb-3 text-sm ${atLimit ? "text-amber-800" : "text-earth-600"}`}>啟用人員 {activeCount}／{maxStaff ?? "不限"}。{atLimit ? "啟用人員已達上限，可選停用建立；日後啟用仍須檢查額度。" : "同一人兼任店長與教練只計一位。"}</p>}
             <CourseConflicts items={conflicts}/>
@@ -259,7 +261,7 @@ export function CourseStaffWorkspace({
               onSubmit={(e) => {
                 e.preventDefault();
                 if (pending || !feesReady) return;
-                const invalidFee=coachEnabled ? qualificationIds.find(id=>{const raw=fees[id]?.value??"0";const value=Number(raw);return !raw.trim() || !Number.isFinite(value) || value<0 || value>1000000 || Math.abs(value*100-Math.round(value*100))>0.000001;}) : undefined;
+                const invalidFee=coachEnabled && feeEnabled ? qualificationIds.find(id=>{const raw=fees[id]?.value??"0";const value=Number(raw);return !raw.trim() || !Number.isFinite(value) || value<0 || value>1000000 || Math.abs(value*100-Math.round(value*100))>0.000001;}) : undefined;
                 if(invalidFee){setTab("qualifications");setQualificationSearch("");setQualificationScope("all");setQualificationPage(Math.max(0,Math.floor(templates.findIndex(t=>t.id===invalidFee)/10)));setError(`請填寫「${templates.find(t=>t.id===invalidFee)?.name??"課程"}」的每堂授課費（0 至 1,000,000 元，最多兩位小數）。`);return;}
                 const invalid=e.currentTarget.querySelector<HTMLInputElement | HTMLSelectElement>("input:invalid,select:invalid,textarea:invalid");
                 if(invalid){const group=invalid.closest<HTMLElement>("[data-staff-tab]");if(group)setTab(group.dataset.staffTab!);setQualificationSearch("");requestAnimationFrame(()=>invalid.reportValidity());return;}
@@ -276,7 +278,7 @@ export function CourseStaffWorkspace({
                       qualificationIds: coachEnabled ? qualificationIds : person?.qualificationIds ?? [],
                       qualificationsConfirmed: coachEnabled ? (!person || person.qualificationsConfirmed || qualificationsTouched) : person?.qualificationsConfirmed ?? false,
                       teachingVersion,
-                      teachingFees: coachEnabled ? qualificationIds.map(templateId => ({templateId, value: {mode: "CLASS", value: Number(fees[templateId]?.value ?? "0")}, revision: fees[templateId]?.revision ?? 0})) : undefined,
+                      teachingFees: coachEnabled && feeEnabled ? qualificationIds.map(templateId => ({templateId, value: {mode: "CLASS", value: Number(fees[templateId]?.value ?? "0")}, revision: fees[templateId]?.revision ?? 0})) : undefined,
                       emergencyContactRelation:d.get("emergencyContactRelation"),
                       birthday:d.get("birthday"),
                       confirmDeactivate:!!deactivating,
@@ -360,7 +362,7 @@ export function CourseStaffWorkspace({
               </div>
               <div data-staff-tab="qualifications" hidden={tab!=="qualifications" || !coachEnabled} className="space-y-3">
                 <section className="space-y-2">
-                  <h3 className="font-medium text-primary-900">可教授課程與每堂授課費</h3>
+                  <h3 className="font-medium text-primary-900">{feeEnabled?"可教授課程與每堂授課費":"可教授課程"}</h3>
                   <p className="text-sm text-earth-600">勾選可教授課程並填費用，最後一次儲存。0 元表示不另計；每堂計一次，變更適用新排課，既有課次不變。</p>
                   {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">舊資料待補：調整可教授課程後儲存即可；未調整時維持待補，既有課次保留。</p>}
                   <div data-browse-control className="flex flex-wrap gap-2"><input className={`${field} min-w-0 flex-1`} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>{setQualificationSearch(e.target.value);setQualificationPage(0);}}/>
@@ -371,7 +373,7 @@ export function CourseStaffWorkspace({
                       const selected = qualificationIds.includes(t.id);
                       return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-3 px-3 py-2">
                         <label className="flex min-h-11 min-w-0 items-center gap-3 break-words [overflow-wrap:anywhere]"><input className="h-4 w-4 shrink-0 accent-primary-700" type="checkbox" checked={selected} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{t.name}</label>
-                        {selected ? <label className="flex items-center gap-1"><input aria-label={`${t.name}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" required value={fees[t.id]?.value ?? "0"} onChange={e=>setFees(old=>({...old,[t.id]:{value:e.target.value,revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
+                        {selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${t.name}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" required value={fees[t.id]?.value ?? "0"} onChange={e=>setFees(old=>({...old,[t.id]:{value:e.target.value,revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
                       </div>;
                     })}
                     {!matchingTemplates.length && <p className="p-3 text-sm text-earth-500">沒有符合的課程</p>}

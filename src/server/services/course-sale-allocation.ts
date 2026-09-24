@@ -1,8 +1,11 @@
 import "server-only";
+import {readSettlementSettings} from "./course-monthly-settlement";
 import type {Prisma} from "../../../generated/course-client";
 import {AppError} from "@/lib/errors";
 import {calculateCourseSaleAllocation} from "@/lib/course-sale-allocation";
 export async function courseSaleSnapshot(tx:Prisma.TransactionClient,storeId:string,paid:number,storeCost:number,revenueStaffId:string|null) {
+ const settings=await readSettlementSettings(tx,storeId);
+ if(!settings.profitEnabled)return {storeCostSnapshot:paid,developerProfitSnapshot:0,developerNameSnapshot:null,revenueStaffId:null};
  const allocation=calculateCourseSaleAllocation(paid,storeCost);
  if(allocation.shortfall>0) throw new AppError("VALIDATION","實收低於店家成本，請先核對優惠及成本設定；本次未發卡或入帳。");
  let name:string|null=null;

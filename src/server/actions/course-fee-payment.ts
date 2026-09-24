@@ -11,6 +11,7 @@ export async function payCourseFee(input: unknown) {
     if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可登錄授課費付款");
     await assertStoreSubscriptionWritable(storeId);
     await courseTransaction(storeId, tx => recordCourseFeePayment(tx, {storeId, userId:user.id}, input));
+    revalidatePath("/dashboard/service-fee-calculator");
     revalidatePath("/dashboard/revenue");
     revalidatePath("/dashboard/transactions");
     revalidatePath("/dashboard/cashbook");
@@ -24,6 +25,7 @@ export async function correctCourseFee(input: unknown) {
     if (user.role !== "OWNER") throw new AppError("FORBIDDEN", "僅店長可更正授課費付款");
     await assertStoreSubscriptionWritable(storeId);
     await courseTransaction(storeId, tx => voidCourseFeePayment(tx, {storeId, userId:user.id}, input));
+    revalidatePath("/dashboard/service-fee-calculator");
     revalidatePath("/dashboard/revenue");
     revalidatePath("/dashboard/transactions");
     revalidatePath("/dashboard/cashbook");
