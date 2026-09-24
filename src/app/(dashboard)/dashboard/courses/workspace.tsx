@@ -315,7 +315,7 @@ export function CourseWorkspace({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="mr-1 min-w-[112px]">
-                <h1 className="text-base font-semibold text-earth-900">課表排程</h1>
+                <h1 className="text-base font-semibold text-earth-900">{businessProfile === "MUSIC" ? "音樂課表" : "課表排程"}</h1>
                 <p className="hidden text-[11px] text-earth-500 sm:block">安排與查看店內課程</p>
               </div>
               <div
@@ -435,7 +435,7 @@ export function CourseWorkspace({
 
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
             <span className="px-1 text-xs font-medium text-earth-500">篩選</span>
-            <label className="sr-only" htmlFor="course-coach-filter">教練</label>
+            <label className="sr-only" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "老師" : "教練"}</label>
             <select
               id="course-coach-filter"
               aria-label="教練篩選"
@@ -443,7 +443,7 @@ export function CourseWorkspace({
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
-              <option value="all">全部教練</option>
+              <option value="all">{businessProfile === "MUSIC" ? "全部老師" : "全部教練"}</option>
               {allCoaches.map((coach) => (
                 <option key={coach.id} value={coach.id}>
                   {coach.displayName}
