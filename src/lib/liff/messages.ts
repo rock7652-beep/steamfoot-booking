@@ -59,8 +59,9 @@ export const storeMapUrl = "https://maps.app.goo.gl/EyqUvkAaHCxu6iWz5?g_st=ic";
 
 export const liffMessages = {
   shell: {
-    welcomeTitle: "歡迎使用暖暖蒸足 LINE 會員服務",
+    welcomeTitle: (storeName: string) => `歡迎使用${storeName} LINE 會員服務`,
     welcomeBody: "為了讓您查詢預約、剩餘堂數與接收服務提醒，請先確認您的會員資料。",
+    courseWelcomeBody: "為了讓您查詢課程、預約與接收服務提醒，請先確認您的會員資料。",
     welcomeCta: "開始使用",
     welcomeFootnote: "只需一次，完成後下次從 LINE 進入即可直接使用。",
     signedInTitle: "歡迎回來",
