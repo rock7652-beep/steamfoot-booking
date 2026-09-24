@@ -434,7 +434,7 @@ export function CourseWorkspace({
                   <button
                     className={`${primary} min-h-9`}
                     disabled={pending}
-                    onClick={openSchedule}
+                    onClick={()=>openSchedule()}
                   >
                     ＋ 排課
                   </button>
@@ -1867,7 +1867,7 @@ export function CourseWorkspace({
                 <button
                   type="button"
                   className={`${primary} w-full`}
-                  onClick={openSchedule}
+                  onClick={()=>openSchedule()}
                   disabled={pending}
                 >
                   ＋ 新增排課
