@@ -13,6 +13,10 @@ const page = readFileSync(
   "src/app/(dashboard)/dashboard/courses/page.tsx",
   "utf8",
 );
+const roster = readFileSync(
+  "src/app/(dashboard)/dashboard/courses/roster.tsx",
+  "utf8",
+);
 
 it("keeps the monthly calendar and adds week/day schedule views", () => {
   expect(workspace).toContain('["month", "week", "day"] as CourseScheduleMode[]');
@@ -70,4 +74,13 @@ it("day timetable balances width by active resource count", () => {
   expect(board).toContain("minWidth: timetableMinWidth");
   expect(board).toContain('gridTemplateColumns: `72px repeat(${resourceCount}, minmax(180px, 1fr))`');
   expect(board).not.toContain('aria-label="課表欄位視角"');
+});
+
+it("unpaid trial collection is visible beside the unpaid amount", () => {
+  expect(roster).toContain('!paid &&');
+  expect(roster).toContain(">\n                            收款\n");
+  expect(roster).toContain("setCorrectPayment(false)");
+  expect(roster).toContain("setPaymentBooking(booking.id)");
+  expect(roster).toContain('paid &&\n                    booking.bookingKind === "TRIAL"');
+  expect(roster).toContain("更正收款");
 });
