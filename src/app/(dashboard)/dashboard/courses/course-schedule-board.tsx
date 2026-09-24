@@ -315,28 +315,30 @@ export function CourseScheduleBoard({
 
   return (
     <section className="space-y-2" aria-label="日課表">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div
-          className="flex flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5"
-          aria-label="今日狀態快速篩選"
-        >
-          {filters.map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              disabled={pending}
-              onClick={() => setQuickFilter(filter.id)}
-              className={`${tab} ${quickFilter === filter.id ? "bg-primary-50 text-primary-900" : "text-earth-600 hover:bg-earth-50"}`}
-            >
-              <span>{filter.label}</span>
-              <strong className="ml-1">{filter.value}</strong>
-            </button>
-          ))}
-          <span className="px-2 text-xs text-earth-300">｜</span>
-          <span className="px-1 text-xs text-earth-600">
-            預約 <strong className="text-earth-800">{booked}</strong> 人
-          </span>
-        </div>
+      <div
+        className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5"
+        aria-label="今日狀態快速篩選"
+      >
+        {filters.map((filter) => (
+          <button
+            key={filter.id}
+            type="button"
+            disabled={pending}
+            onClick={() => setQuickFilter(filter.id)}
+            className={`${tab} ${quickFilter === filter.id ? "bg-primary-50 text-primary-900" : "text-earth-600 hover:bg-earth-50"}`}
+          >
+            <span>{filter.label}</span>
+            <strong className="ml-1">{filter.value}</strong>
+          </button>
+        ))}
+        <span className="px-2 text-xs text-earth-300">｜</span>
+        <span className="px-1 text-xs text-earth-600">
+          預約 <strong className="text-earth-800">{booked}</strong> 人
+        </span>
+      </div>
+
+      <div className="flex w-fit items-center gap-2" aria-label="課表欄位視角">
+        <span className="text-xs font-medium text-earth-500">欄位</span>
         <div className="inline-flex rounded-lg border border-earth-200 bg-white p-0.5" aria-label="課表資源視角">
           <button
             type="button"
@@ -364,16 +366,17 @@ export function CourseScheduleBoard({
           此篩選目前沒有課程
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-          <div
-            className="grid min-w-max"
-            style={{
-              gridTemplateColumns: `72px repeat(${Math.max(resources.length, 1)}, 220px)`,
-            }}
-          >
-            <div className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-3 text-xs font-medium text-earth-500">
-              時間
-            </div>
+        <div className="max-w-full overflow-x-auto pb-1">
+          <div className="inline-block min-w-max overflow-hidden rounded-xl border border-earth-200 bg-white align-top">
+            <div
+              className="grid min-w-max"
+              style={{
+                gridTemplateColumns: `72px repeat(${Math.max(resources.length, 1)}, 220px)`,
+              }}
+            >
+              <div className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-3 text-xs font-medium text-earth-500">
+                時間
+              </div>
             {resources.length ? (
               resources.map((resource) => (
                 <div
@@ -422,6 +425,7 @@ export function CourseScheduleBoard({
                 })}
               </React.Fragment>
             ))}
+            </div>
           </div>
         </div>
       )}
