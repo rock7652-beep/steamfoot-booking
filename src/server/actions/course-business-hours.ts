@@ -68,7 +68,7 @@ export async function saveCourseDayHours(input:unknown) {
     await courseTransaction(storeId,async tx=>{
       if(d.mode==="permanent"||d.mode==="template"||d.mode==="weekly") {
         const dow=new Date(d.date+"T00:00:00Z").getUTCDay();
-        await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${dow},${open},${first},${last},${json}::jsonb,${interval},6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"updatedAt"=NOW()`;
+        await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${dow},${open},${first},${last},${json}::jsonb,${interval},6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"slotInterval"=EXCLUDED."slotInterval","updatedAt"=NOW()`;
       }
       const count=d.mode==="copy"||d.mode==="template"?d.weeks:0;
       for(let week=0;d.mode!=="weekly" && week<=count;week++) {
@@ -77,7 +77,7 @@ export async function saveCourseDayHours(input:unknown) {
         if(d.mode==="permanent"||d.mode==="template"||d.status==="open") {
           await tx.$executeRaw`DELETE FROM "SpecialBusinessDay" WHERE "storeId"=${storeId} AND date=${date}::date`;
         } else {
-          await tx.$executeRaw`INSERT INTO "SpecialBusinessDay" (id,"storeId",date,type,reason,"openTime","closeTime",segments,"createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${date}::date,${d.status},${d.reason||null},${first},${last},${json}::jsonb,NOW(),NOW()) ON CONFLICT ("storeId",date) DO UPDATE SET type=EXCLUDED.type,reason=EXCLUDED.reason,"openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"updatedAt"=NOW()`;
+          await tx.$executeRaw`INSERT INTO "SpecialBusinessDay" (id,"storeId",date,type,reason,"openTime","closeTime",segments,"createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${date}::date,${d.status},${d.reason||null},${first},${last},${json}::jsonb,NOW(),NOW()) ON CONFLICT ("storeId",date) DO UPDATE SET type=EXCLUDED.type,reason=EXCLUDED.reason,"openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"slotInterval"=EXCLUDED."slotInterval","updatedAt"=NOW()`;
         }
       }
       const sessions=await tx.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gte:new Date()}},select:{startsAt:true,endsAt:true}});
@@ -107,7 +107,7 @@ export async function saveCourseWeeklyHours(input: unknown) {
         const first = day.isOpen ? day.periods[0].openTime : null;
         const last = day.isOpen ? day.periods.at(-1)!.closeTime : null;
         const json = JSON.stringify(day.periods.map(p => ({ ...p, slotInterval: interval, defaultCapacity: 6 })));
-        await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${day.dayOfWeek},${day.isOpen},${first},${last},${json}::jsonb,${interval},6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"updatedAt"=NOW()`;
+        await tx.$executeRaw`INSERT INTO "BusinessHours" (id,"storeId","dayOfWeek","isOpen","openTime","closeTime",segments,"slotInterval","defaultCapacity","createdAt","updatedAt") VALUES (${randomUUID()},${storeId},${day.dayOfWeek},${day.isOpen},${first},${last},${json}::jsonb,${interval},6,NOW(),NOW()) ON CONFLICT ("storeId","dayOfWeek") DO UPDATE SET "isOpen"=EXCLUDED."isOpen","openTime"=EXCLUDED."openTime","closeTime"=EXCLUDED."closeTime",segments=EXCLUDED.segments,"slotInterval"=EXCLUDED."slotInterval","updatedAt"=NOW()`;
       }
       const sessions = await tx.courseSession.findMany({ where: { storeId, cancelledAt: null, startsAt: { gte: new Date() } }, select: { startsAt: true, endsAt: true } });
       await assertCourseSessionsFitHours(tx, storeId, sessions.filter(session => weekdays.has(new Date(toLocalDateStr(session.startsAt) + "T00:00:00Z").getUTCDay())));
