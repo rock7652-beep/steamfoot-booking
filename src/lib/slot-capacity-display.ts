@@ -66,10 +66,9 @@ export function getDayCapacityIndicator(
   slots: readonly CapacitySlot[],
   requestedPeople = 1,
 ): CapacityDisplayStatus | null {
-  const activeSlots = slots.filter((slot) => slot.capacity > 0);
-  if (activeSlots.length === 0) return null;
+  if (slots.length === 0) return null;
 
-  const displays = activeSlots.map((slot) =>
+  const displays = slots.map((slot) =>
     getSlotCapacityDisplay(slot.capacity, slot.bookedPeople, requestedPeople),
   );
   if (displays.some((display) => display.canFitRequestedPeople && display.capacityStatus === "available")) {

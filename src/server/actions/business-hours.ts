@@ -761,8 +761,8 @@ export async function applyDaySlotOverrides(input: {
     );
     for (const change of input.changes) {
       if (change.capacity == null) continue;
-      if (!Number.isInteger(change.capacity) || change.capacity < 1 || change.capacity > 99) {
-        throw new AppError("VALIDATION", "名額需為 1–99 的整數");
+      if (!Number.isInteger(change.capacity) || change.capacity < 0 || change.capacity > 99) {
+        throw new AppError("VALIDATION", "名額需為 0–99 的整數");
       }
       const bookedPeople = bookedByTime.get(change.startTime) ?? 0;
       if (change.capacity < bookedPeople) {
