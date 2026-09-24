@@ -39,7 +39,7 @@ describe("guide catalogue", () => {
       ],
       features: {line_reminder: true, basic_reports: true},
     };
-    expect(operationGuides).toHaveLength(129);
+    expect(operationGuides).toHaveLength(139);
     expect(availableGuides(allCourse).map(g => g.id)).toEqual(expect.arrayContaining([
       "C101", "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109",
       "C110", "C111", "C112", "C113", "C114", "C115", "C116", "C117",
