@@ -39,9 +39,9 @@ export async function assertMusicCourseAvailability(
         SELECT type,segments FROM "CourseStaffAvailabilityException"
         WHERE "storeId"=${storeId} AND "staffId"=${staffId} AND date=${new Date(date+"T00:00:00Z")}::date LIMIT 1`,
     ]);
-    const hasCustomWeekly=(await tx.$queryRaw<{count:bigint}[]>`
-      SELECT COUNT(*)::bigint AS count FROM "CourseStaffAvailability"
-      WHERE "storeId"=${storeId} AND "staffId"=${staffId}`)[0]?.count>0n;
+    const hasCustomWeekly=(await tx.$queryRaw<{count:number}[]>`
+      SELECT COUNT(*)::int AS count FROM "CourseStaffAvailability"
+      WHERE "storeId"=${storeId} AND "staffId"=${staffId}`)[0]?.count>0;
 
     if(exception[0]?.type==="UNAVAILABLE") {
       throw new AppError("VALIDATION",`${date} 老師設定為不可授課，本堂尚未建立`);
