@@ -1,4 +1,5 @@
 import { checkPermission } from "@/lib/permissions";
+import { toLocalDateStr } from "@/lib/date-utils";
 import { getStoreForPlanByStoreId } from "@/lib/store-plan";
 import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getTrialRetention, trialRetentionMessage } from "@/lib/trial-retention";
@@ -38,8 +39,10 @@ export default async function StoreDetailPage({ params }: PageProps) {
   }
 
   const summary = result.data;
-  const retention = !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
-    ? getTrialRetention(await getStoreForPlanByStoreId(storeId)) : null;
+  const coursePlan = !summary.store.isDemo && await getStoreIndustryModule(storeId) === "course"
+    ? await getStoreForPlanByStoreId(storeId) : null;
+  const retention = coursePlan ? getTrialRetention(coursePlan) : null;
+  const trialStarted = Boolean(coursePlan?.planEffectiveAt && coursePlan?.planExpiresAt);
   const canShowActivate = !summary.store.currentSubscriptionId && !summary.store.isDemo && summary.store.planStatus !== "ACTIVE" && summary.canActivate;
 
   return (
@@ -73,6 +76,16 @@ export default async function StoreDetailPage({ params }: PageProps) {
           )}
         </div>
       </div>
+
+      {coursePlan && (
+        <div role="status" className="mb-5 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <p className="font-semibold">{trialStarted ? "30 天體驗已起算" : "課程體驗店已建置，30 天尚未起算"}</p>
+          <p className="mt-1">{trialStarted
+            ? `試用期間：${toLocalDateStr(coursePlan.planEffectiveAt!)} 至 ${toLocalDateStr(coursePlan.planExpiresAt!)}。功能授權與外部服務設定請分別驗收。`
+            : "單店功能權限已開放供驗收；完成 LIFF、店長及會員流程與通知測試後，再啟動 30 天倒數。"}</p>
+          {summary.thirdParty.line !== "configured" && <p className="mt-1 font-medium">LINE 導流入口尚未設定；LINE 提醒尚不能視為已驗收。</p>}
+        </div>
+      )}
 
       <div className="space-y-6">
         {/* URLs — 前台 */}
@@ -137,7 +150,8 @@ export default async function StoreDetailPage({ params }: PageProps) {
         </Section>
 
         {/* Checklist */}
-        <Section title="驗收 Checklist">
+        <Section title="建置與驗收進度">
+          <p className="mb-2 text-xs text-earth-500">✅ 已建立或已檢查；⏭️ 尚待設定或人工實測。此清單不代表 LINE 提醒已送達。</p>
           {summary.checklist.map((item) => (
             <div key={item.key} className="flex items-center gap-2 py-1">
               <span className={`text-sm ${
@@ -167,7 +181,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
                   ? "已建立訂閱；延長試用或轉正式請至訂閱管理"
                   : summary.canActivate
                   ? summary.store.industryModule === "COURSE"
-                    ? "建置完成，尚未起算；LIFF 入口驗收可用後再開通 30 天"
+                    ? "課程店建置完成，30 天尚未起算；完成 LIFF 與通知驗收後再開通"
                     : "✅ 設定完成，可開通 30 天單店試用"
                   : "⚠️ 部分項目未通過，建議先修正"}
             </p>
