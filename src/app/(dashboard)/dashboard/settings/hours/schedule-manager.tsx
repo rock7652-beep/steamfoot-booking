@@ -192,9 +192,12 @@ export function ScheduleManager({
   // ── Phase B: client 月份 cache + race guard ──────────
   // 月份切換時不要每次都打 server。已看過的月份直接從 Map 拿；
   // 切到新月份才打 server，期間顯示 loading overlay 並 disable 上下月按鈕。
-  // requestIdRef 防止使用者快速連點：較慢回來的請求不會覆蓋當前狀態。
+  // 月份與單日資料必須使用獨立 race guard。若共用同一個 request id，
+  // 名額儲存後同時刷新「當日 + 整月」時，兩個請求會互相判定對方為舊請求，
+  // 造成當日資料明明已回來，loadingDay 卻無法結束。
   const monthCacheRef = useRef<Map<string, MonthCacheEntry>>(new Map());
-  const requestIdRef = useRef(0);
+  const monthRequestIdRef = useRef(0);
+  const dayRequestIdRef = useRef(0);
   const [isMonthLoading, setIsMonthLoading] = useState(false);
 
   const dayDraftDirty = useMemo(() => {
@@ -240,13 +243,13 @@ export function ScheduleManager({
   const invalidateAndReloadCurrentMonth = useCallback(async () => {
     const key = monthKey(year, month);
     monthCacheRef.current.delete(key);
-    const requestId = ++requestIdRef.current;
+    const requestId = ++monthRequestIdRef.current;
     try {
       const [specials, summary] = await Promise.all([
         (isCourseStore ? getCourseMonthSpecialDays : getMonthSpecialDays)(year, month),
         (isCourseStore ? getCourseMonthScheduleSummary : getMonthScheduleSummary)(year, month),
       ]);
-      if (requestId !== requestIdRef.current) return;
+      if (requestId !== monthRequestIdRef.current) return;
       monthCacheRef.current.set(key, { summary, specialDays: specials });
       setSpecialDays(specials);
       setMonthSummary(summary);
@@ -264,7 +267,7 @@ export function ScheduleManager({
       setMonthSummary(cached.summary);
       return;
     }
-    const requestId = ++requestIdRef.current;
+    const requestId = ++monthRequestIdRef.current;
     setIsMonthLoading(true);
     try {
       const [specials, summary] = await Promise.all([
@@ -272,14 +275,14 @@ export function ScheduleManager({
         (isCourseStore ? getCourseMonthScheduleSummary : getMonthScheduleSummary)(targetYear, targetMonth),
       ]);
       // 慢回來的舊請求不要覆蓋已經切到下一個月的狀態
-      if (requestId !== requestIdRef.current) return;
+      if (requestId !== monthRequestIdRef.current) return;
       monthCacheRef.current.set(key, { summary, specialDays: specials });
       setSpecialDays(specials);
       setMonthSummary(summary);
     } catch {
       toast.error("月份設定讀取失敗，請重試");
     } finally {
-      if (requestId === requestIdRef.current) setIsMonthLoading(false);
+      if (requestId === monthRequestIdRef.current) setIsMonthLoading(false);
     }
   }, [isCourseStore]);
 
@@ -409,7 +412,7 @@ export function ScheduleManager({
       setSelectedDate(dateStr);
       setSelectedSlot(null);
 
-      const requestId = ++requestIdRef.current;
+      const requestId = ++dayRequestIdRef.current;
 
       // Cache hit → instant
       if (!opts.bypassCache) {
@@ -451,7 +454,7 @@ export function ScheduleManager({
       try {
         const detail = await (isCourseStore ? getCourseDayHours : getDaySlotDetails)(dateStr);
         // 慢回來的舊請求 — 使用者已經切到別的日期，丟掉結果
-        if (requestId !== requestIdRef.current) return;
+        if (requestId !== dayRequestIdRef.current) return;
         dayDetailCacheRef.current.set(dateStr, detail);
         setDayDetail(detail);
         setEditStatus(detail.status);
@@ -462,11 +465,11 @@ export function ScheduleManager({
         setEditCapacity(detail.defaultCapacity);
         setEditPeriods(editablePeriods(detail.periods, detail.slotInterval, detail.defaultCapacity));
       } catch {
-        if (requestId === requestIdRef.current) {
+        if (requestId === dayRequestIdRef.current) {
           toast.error("載入日期設定失敗");
         }
       } finally {
-        if (requestId === requestIdRef.current) setLoadingDay(false);
+        if (requestId === dayRequestIdRef.current) setLoadingDay(false);
       }
     },
     [buildPreviewDayDetail, dayDraftDirty, selectedDate, isCourseStore],
@@ -1024,10 +1027,9 @@ export function ScheduleManager({
                               if (result.success) {
                                 toast.success(`${selectedSlot} 名額已調整為 ${slotCapacityInput} 位`);
                                 setSelectedSlot(null);
-                                await Promise.all([
-                                  selectDate(selectedDate, { bypassCache: true }),
-                                  invalidateAndReloadCurrentMonth(),
-                                ]);
+                                // 先更新當日時段，讓店長立即看到結果；整月摘要改為背景更新。
+                                await selectDate(selectedDate, { bypassCache: true });
+                                void invalidateAndReloadCurrentMonth();
                               } else {
                                 toast.error(result.error);
                               }
@@ -1051,10 +1053,9 @@ export function ScheduleManager({
                                 if (result.success) {
                                   toast.success(`${selectedSlot} 已回復預設名額`);
                                   setSelectedSlot(null);
-                                  await Promise.all([
-                                    selectDate(selectedDate, { bypassCache: true }),
-                                    invalidateAndReloadCurrentMonth(),
-                                  ]);
+                                  // 先更新當日時段，讓店長立即看到結果；整月摘要改為背景更新。
+                                  await selectDate(selectedDate, { bypassCache: true });
+                                  void invalidateAndReloadCurrentMonth();
                                 } else {
                                   toast.error(result.error);
                                 }
