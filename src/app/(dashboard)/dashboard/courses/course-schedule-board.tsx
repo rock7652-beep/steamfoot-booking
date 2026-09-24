@@ -67,7 +67,7 @@ type ResourceView = "room" | "coach";
 type QuickFilter = "all" | "trial" | "near-full" | "full" | "pending";
 
 const tab =
-  "min-h-10 rounded-lg border px-3 py-2 text-sm font-medium transition disabled:opacity-50";
+  "min-h-8 rounded-md px-2 py-1 text-xs font-medium transition disabled:opacity-50";
 
 function hhmm(iso: string) {
   return formatTWDateTime(new Date(iso)).slice(11);
@@ -240,9 +240,9 @@ export function CourseScheduleBoard({
       addTaiwanDuration(start, index, "DAY"),
     );
     return (
-      <section className="space-y-3" aria-label="週課表">
+      <section className="space-y-2" aria-label="週課表">
         <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-          <div className="grid min-w-[980px] grid-cols-7 divide-x divide-earth-100">
+          <div className="grid min-w-[900px] grid-cols-7 divide-x divide-earth-100">
             {dates.map((date) => {
               const list = sessions
                 .filter((session) => sessionDate(session) === date)
@@ -314,36 +314,40 @@ export function CourseScheduleBoard({
   ];
 
   return (
-    <section className="space-y-3" aria-label="日課表">
+    <section className="space-y-2" aria-label="日課表">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-2" aria-label="今日狀態快速篩選">
+        <div
+          className="flex flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5"
+          aria-label="今日狀態快速篩選"
+        >
           {filters.map((filter) => (
             <button
               key={filter.id}
               type="button"
               disabled={pending}
               onClick={() => setQuickFilter(filter.id)}
-              className={`${tab} ${quickFilter === filter.id ? "border-primary-300 bg-primary-50 text-primary-900" : "border-earth-200 bg-white text-earth-700"}`}
+              className={`${tab} ${quickFilter === filter.id ? "bg-primary-50 text-primary-900" : "text-earth-600 hover:bg-earth-50"}`}
             >
               <span>{filter.label}</span>
               <strong className="ml-1">{filter.value}</strong>
             </button>
           ))}
-          <span className="flex min-h-10 items-center rounded-lg bg-earth-50 px-3 text-sm text-earth-600">
-            預約 {booked} 人
+          <span className="px-2 text-xs text-earth-300">｜</span>
+          <span className="px-1 text-xs text-earth-600">
+            預約 <strong className="text-earth-800">{booked}</strong> 人
           </span>
         </div>
-        <div className="inline-flex rounded-lg border border-earth-200 bg-white p-1" aria-label="課表資源視角">
+        <div className="inline-flex rounded-lg border border-earth-200 bg-white p-0.5" aria-label="課表資源視角">
           <button
             type="button"
-            className={`min-h-9 rounded-md px-3 text-sm ${resourceView === "room" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
+            className={`min-h-8 rounded-md px-3 text-xs ${resourceView === "room" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("room")}
           >
             教室視角
           </button>
           <button
             type="button"
-            className={`min-h-9 rounded-md px-3 text-sm ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
+            className={`min-h-8 rounded-md px-3 text-xs ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("coach")}
           >
             教練視角
@@ -363,7 +367,9 @@ export function CourseScheduleBoard({
         <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
           <div
             className="grid min-w-max"
-            style={{ gridTemplateColumns: `76px repeat(${Math.max(resources.length, 1)}, minmax(180px, 1fr))` }}
+            style={{
+              gridTemplateColumns: `72px repeat(${Math.max(resources.length, 1)}, 220px)`,
+            }}
           >
             <div className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-3 text-xs font-medium text-earth-500">
               時間
@@ -399,7 +405,7 @@ export function CourseScheduleBoard({
                   return (
                     <div
                       key={`${time}:${resource.id}`}
-                      className="min-h-24 space-y-2 border-b border-r border-earth-100 p-2"
+                      className="min-h-20 space-y-2 border-b border-r border-earth-100 p-2"
                     >
                       {list.map((session) => (
                         <SessionCard
