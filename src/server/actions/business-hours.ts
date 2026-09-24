@@ -756,8 +756,14 @@ export async function applyDaySlotOverrides(input: {
       _sum: { people: true },
     });
     const bookedByTime = new Map(booked.map((row) => [row.slotTime, row._sum.people ?? 0]));
+    const existingOverrides = new Map(
+      context.slotOverrides.map((override) => [override.startTime, override]),
+    );
     for (const change of input.changes) {
       if (change.capacity == null) continue;
+      if (!Number.isInteger(change.capacity) || change.capacity < 1 || change.capacity > 99) {
+        throw new AppError("VALIDATION", "名額需為 1–99 的整數");
+      }
       const bookedPeople = bookedByTime.get(change.startTime) ?? 0;
       if (change.capacity < bookedPeople) {
         throw new AppError("VALIDATION", `${input.date} ${change.startTime} 已預約 ${bookedPeople} 人，名額不可低於此數`);
@@ -772,24 +778,30 @@ export async function applyDaySlotOverrides(input: {
           });
           continue;
         }
+        const existingOverride = existingOverrides.get(change.startTime);
         const type = change.action === "disable"
           ? "disabled"
           : change.action === "capacity"
-            ? "capacity_change"
+            ? existingOverride?.type === "enabled"
+              ? "enabled"
+              : "capacity_change"
             : "enabled";
+        const capacity = change.action === "disable"
+          ? null
+          : (change.capacity ?? existingOverride?.capacity ?? null);
         await tx.slotOverride.upsert({
           where: { storeId_date_startTime: { storeId, date: dateObj, startTime: change.startTime } },
           update: {
             type,
-            capacity: change.action === "disable" ? null : (change.capacity ?? null),
-            reason: change.reason ?? null,
+            capacity,
+            reason: change.reason ?? existingOverride?.reason ?? null,
           },
           create: {
             storeId,
             date: dateObj,
             startTime: change.startTime,
             type,
-            capacity: change.action === "disable" ? null : (change.capacity ?? null),
+            capacity,
             reason: change.reason ?? null,
           },
         });
