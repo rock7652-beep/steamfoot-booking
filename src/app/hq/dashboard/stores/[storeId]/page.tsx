@@ -96,7 +96,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
         </Section>
 
         {/* URLs — 前台 */}
-        <Section title="產業模組">
+        <Section title="業務與引擎">
           <InfoRow
             label="已選模組"
             value={summary.store.industryModule === "COURSE" ? (summary.store.businessProfile === "MUSIC" ? "音樂教室（COURSE 引擎）" : "運動教室（COURSE 引擎）") : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
