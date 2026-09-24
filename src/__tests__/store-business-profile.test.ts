@@ -22,3 +22,18 @@ describe("store business profiles", () => {
     expect(getStoreBusinessLabel("SPA", ["business.music"])).toBe("SPA／美容美體");
   });
 });
+
+
+it("keeps music-specific HQ and schedule wording behind the MUSIC business profile", () => {
+  const fs = require("node:fs") as typeof import("node:fs");
+  const hqDetail = fs.readFileSync("src/app/hq/dashboard/stores/[storeId]/page.tsx", "utf8");
+  const onboarding = fs.readFileSync("src/server/actions/store-onboarding.ts", "utf8");
+  const workspace = fs.readFileSync("src/app/(dashboard)/dashboard/courses/workspace.tsx", "utf8");
+  const board = fs.readFileSync("src/app/(dashboard)/dashboard/courses/course-schedule-board.tsx", "utf8");
+
+  expect(hqDetail).toContain("音樂教室測試店已建置，30 天尚未起算");
+  expect(onboarding).toContain("音樂教室使用老師／教室排課，不建立蒸足固定時段");
+  expect(workspace).toContain('businessProfile === "MUSIC" ? "音樂課表" : "課表排程"');
+  expect(board).toContain('businessProfile === "MUSIC" ? "老師視角" : "教練視角"');
+  expect(board).toContain('businessProfile === "MUSIC" ? "一對一" : "私教"');
+});
