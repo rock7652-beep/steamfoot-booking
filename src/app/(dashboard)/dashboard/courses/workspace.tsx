@@ -315,13 +315,33 @@ export function CourseWorkspace({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <h2 className="mr-2 font-medium">
-                {year} 年 {mon} 月
+                {scheduleMode === "month"
+                  ? `${year} 年 ${mon} 月`
+                  : scheduleMode === "week"
+                    ? `${selectedDate} 當週`
+                    : selectedDate}
               </h2>
               <button
                 className={button}
                 disabled={pending}
-                aria-label="上個月"
-                onClick={() => go(addTaiwanDuration(first, -1, "MONTH"))}
+                aria-label={
+                  scheduleMode === "month"
+                    ? "上個月"
+                    : scheduleMode === "week"
+                      ? "上一週"
+                      : "前一天"
+                }
+                onClick={() =>
+                  go(
+                    scheduleMode === "month"
+                      ? addTaiwanDuration(first, -1, "MONTH")
+                      : addTaiwanDuration(
+                          selectedDate,
+                          -1,
+                          scheduleMode === "week" ? "WEEK" : "DAY",
+                        ),
+                  )
+                }
               >
                 ‹
               </button>
@@ -335,8 +355,24 @@ export function CourseWorkspace({
               <button
                 className={button}
                 disabled={pending}
-                aria-label="下個月"
-                onClick={() => go(addTaiwanDuration(first, 1, "MONTH"))}
+                aria-label={
+                  scheduleMode === "month"
+                    ? "下個月"
+                    : scheduleMode === "week"
+                      ? "下一週"
+                      : "後一天"
+                }
+                onClick={() =>
+                  go(
+                    scheduleMode === "month"
+                      ? addTaiwanDuration(first, 1, "MONTH")
+                      : addTaiwanDuration(
+                          selectedDate,
+                          1,
+                          scheduleMode === "week" ? "WEEK" : "DAY",
+                        ),
+                  )
+                }
               >
                 ›
               </button>
