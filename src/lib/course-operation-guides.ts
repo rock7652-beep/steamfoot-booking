@@ -36,7 +36,7 @@ export const courseOperationGuides: OperationGuide[] = [
     id: "C104", category: "hours", title: "公休或縮短可預約日期，為什麼不能儲存？",
     summary: "先處理受影響課程或預約，再調整設定。", answer: "有衝突時整批拒絕，不會偷偷取消課程與學員。",
     keywords: "公休 營業 特殊日 開放期限 衝突 每週營業 設定視窗", path: "設定 → 營業與預約 → 營業／公休／預約開放",
-    steps: ["在設定的「營業與預約」找到營業／公休／預約開放，於右側視窗調整每週或指定日期。", "核對預覽並儲存；若提示衝突，查看指出的日期與課程。", "回到課表處理受影響課程，再重新檢查設定。"],
+    steps: ["在設定的「營業與預約」找到營業／公休／預約開放，於桌機／平板置中視窗或手機滿版視窗調整每週或指定日期。", "核對預覽並儲存；若提示衝突，查看指出的日期與課程。", "回到課表處理受影響課程，再重新檢查設定。"],
     important: "公休不能覆蓋已排課的時間；縮短開放期限不能留下期限外的有效會員預約。",
     success: "成功儲存後月曆與會員可預約範圍符合設定。",
     details: ["特定日期優先於每週規則，回復預設會移除當日覆寫；每週營業可一次編輯後批次儲存。", "開放期限限制會員新增預約，店長代約沿用後台例外；不會因此放寬教室容量或撞期限制。"],
@@ -59,7 +59,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["在顧客提醒編輯課程上課提醒，並依方案設定低額度門檻與到期前天數。", "需要店長當日預約或待核帳通知時，到店長通知設定授權收件人與偏好。", "到發送紀錄核對對象與狀態；跳過或失敗不代表送達。"],
     important: "上課提醒給實際上課者，不會因共卡而寄給其他成員；隔離預覽不向外發送。",
     success: "設定成功後重新開啟仍保留；實際送達需以成功紀錄及收件端確認。",
-    details: ["課程上課提醒於前一日18:00處理，取消預約不發送。低額度依可用額度（剩餘扣除占用）判斷；到期提醒須同時開啟總開關與方案設定。", "儲存文字不會自動啟用；店長 LINE 收件人必須另行授權，教練身分不會自動加入。"],
+    details: ["課程上課提醒於前一日18:00處理，取消預約不發送。低額度依可用額度（剩餘扣除占用）判斷；到期提醒須同時開啟總開關與方案設定。", "儲存文字不會自動啟用；店長 LINE 收件人必須另行授權，教練身分不會自動加入。", "發送紀錄顯示已略過時，先看原因，例如隔離預覽不外發、提醒額度已用完或 LINE 身分／通道未確認；失敗或略過不能當成送達，也不要直接重發全店通知。"],
     permission: "business_hours.manage", feature: "line_reminder", sources: ["src/server/services/course-reminders.ts", "src/server/services/course-manager-notifications.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -169,8 +169,8 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["請會員確認是從這間課程店的網頁或 LINE 入口登入。", "在顧客管理查本店顧客與 LINE／帳號連結狀態，避免建立重複顧客。", "若顯示帳號尚未連結或身分衝突，使用既有身分確認流程處理，不以姓名或電話猜測覆蓋。"],
     important: "不要為了排錯解除其他人的 LINE、重建同名顧客，或把其他店的會員資料直接搬入。",
     success: "會員重新進入本店入口後，可看到屬於本店且已授權的課程、預約與方案。",
-    details: ["共卡授權只開放使用該卡預約，不會開放其他成員健康資料。", "教練若只開放工作身分，會員操作可能被停用；店家需在工作入口與會員連結設定核對。"],
-    permission: "customer.read", feature: null, sources: ["src/app/(customer)/book/course-portal.tsx", "src/server/services/course-access.ts"], kind: "troubleshooting", modules: ["course"], verification: "source-reviewed",
+    details: ["共卡授權只開放使用該卡預約，不會開放其他成員健康資料。", "教練若只開放工作身分，會員操作可能被停用；店家需在工作入口與會員連結設定核對。", "已有蒸管家 LINE 帳號但尚未加入這間課程店時，符合條件可依本店畫面填姓名與電話完成加入；已有本店資料或身分衝突時需人工核對，不能用同名同電話直接覆蓋。暫時服務失敗請保留提示，確認後再試。"],
+    permission: "customer.read", feature: null, sources: ["src/app/(customer)/book/course-portal.tsx", "src/server/services/course-access.ts", "src/server/services/course-line-onboarding.ts"], kind: "troubleshooting", modules: ["course"], verification: "source-reviewed",
   },
   {
     id: "C118", category: "plans", title: "共卡成員要怎麼新增或移除？",

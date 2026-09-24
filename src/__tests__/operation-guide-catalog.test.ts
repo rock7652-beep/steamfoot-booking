@@ -5,6 +5,18 @@ import type { GuideAccess } from "../lib/operation-guide-types";
 import { branchConnectionMonthlyFee, managementMonthlyFee } from "../lib/alliance-subscription";
 const access: GuideAccess = { module: "steamfoot", permissions: ["booking.read", "booking.update", "customer.read", "business_hours.manage", "business_hours.view"], features: { line_reminder: true } };
 describe("guide catalogue", () => {
+  it("exposes course basics while gating health and attribution by their own access", () => {
+    const permissions = [...new Set(operationGuides.flatMap(g => [g.permission, ...(g.additionalPermissions ?? [])]).filter(Boolean))];
+    const features = Object.fromEntries(operationGuides.filter(g => g.feature).map(g => [g.feature!, true]));
+    const course: GuideAccess = { module: "course", permissions, features };
+    expect(availableGuides(course)).toHaveLength(47);
+    expect(availableGuides({...course, features:{}}).some(g => g.id === "C135")).toBe(false);
+    expect(availableGuides({...course, permissions:["customer.read"]}).some(g => g.id === "C128")).toBe(false);
+    expect(findOperationGuides("量測", course).some(g => g.id === "C135")).toBe(true);
+    expect(findOperationGuides("取消截止", course).some(g => g.id === "C132")).toBe(true);
+    expect(availableGuides({...course, module:"steamfoot"}).some(g => g.id === "C126")).toBe(false);
+    expect(availableGuides({...course, permissions:[], features:{}}).map(g => g.id)).toEqual(expect.arrayContaining(["L01", "L02", "L03"]));
+  });
   it("separates course workflows and respects course page modes and refund permissions", () => {
     const course: GuideAccess = {...access, module:"course"};
     expect(availableGuides(course).every(g => g.modules.includes("course"))).toBe(true);
@@ -13,7 +25,7 @@ describe("guide catalogue", () => {
     expect(availableGuides(course).some(g => g.id === "C105")).toBe(false);
     expect(availableGuides({...course,permissions:["transaction.refund","transaction.read"]}).some(g => g.id === "C105")).toBe(true);
     expect(guideCategoryForPath("/s/test/admin/dashboard/courses?view=customers")).toBe("customers");
-    expect(relatedOperationGuides("/dashboard/courses?view=settings",course).map(g=>g.id)).toEqual(["C104","C106","C120"]);
+    expect(relatedOperationGuides("/dashboard/courses?view=settings",course).map(g=>g.id)).toEqual(["C104","C106","C120","C131","C132"]);
     expect(relatedOperationGuides("/dashboard/courses/reminders",{...course,features:{}})).toEqual([]);
   });
   it("covers the released course setup, scheduling, plans, staff, money and analysis workflows", () => {
@@ -27,7 +39,7 @@ describe("guide catalogue", () => {
       ],
       features: {line_reminder: true, basic_reports: true},
     };
-    expect(operationGuides).toHaveLength(117);
+    expect(operationGuides).toHaveLength(129);
     expect(availableGuides(allCourse).map(g => g.id)).toEqual(expect.arrayContaining([
       "C101", "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109",
       "C110", "C111", "C112", "C113", "C114", "C115", "C116", "C117",
