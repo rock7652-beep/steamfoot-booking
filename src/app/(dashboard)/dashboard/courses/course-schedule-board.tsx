@@ -155,6 +155,8 @@ function SessionCard({
   coaches,
   rooms,
   compact = false,
+  dense = false,
+  resourceView,
   businessProfile,
   onOpen,
 }: {
@@ -163,6 +165,8 @@ function SessionCard({
   coaches: Coach[];
   rooms: Room[];
   compact?: boolean;
+  dense?: boolean;
+  resourceView?: ResourceView;
   businessProfile: "FITNESS" | "MUSIC";
   onOpen: () => void;
 }) {
@@ -172,13 +176,13 @@ function SessionCard({
     <button
       type="button"
       onClick={onOpen}
-      className="w-full rounded-lg border border-earth-200 bg-white p-2 text-left transition hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200"
+      className={`w-full rounded-lg border border-earth-200 bg-white text-left transition hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"}`}
       aria-label={`${copy.primary}，${hhmm(session.startsAt)}，${copy.coach}`}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-earth-900">{copy.primary}</p>
-          <p className="mt-0.5 truncate text-xs text-earth-600">{copy.secondary}</p>
+          <p className={`truncate font-semibold text-earth-900 ${dense ? "text-xs" : "text-sm"}`}>{copy.primary}</p>
+          <p className={`truncate text-earth-600 ${dense ? "mt-0 text-[10px]" : "mt-0.5 text-xs"}`}>{copy.secondary}</p>
         </div>
         {!compact && (
           <span className="shrink-0 text-[11px] font-medium text-earth-500">
@@ -186,10 +190,14 @@ function SessionCard({
           </span>
         )}
       </div>
-      <p className="mt-1 truncate text-xs text-earth-500">
-        {copy.coach} · {copy.room}
+      <p className={`truncate text-earth-500 ${dense ? "mt-0.5 text-[10px]" : "mt-1 text-xs"}`}>
+        {dense && resourceView === "room"
+          ? copy.coach
+          : dense && resourceView === "coach"
+            ? copy.room
+            : `${copy.coach} · ${copy.room}`}
       </p>
-      <div className="mt-1.5 flex flex-wrap gap-1">
+      <div className={`flex flex-wrap gap-1 ${dense ? "mt-1" : "mt-1.5"}`}>
         {isTrial(session) && (
           <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
             體驗
@@ -299,16 +307,19 @@ export function CourseScheduleBoard({
       : activeCoaches.map((coach) => ({ id: coach.id, name: coach.displayName }));
   const times = [...new Set(filtered.map((session) => hhmm(session.startsAt)))].sort();
   const resourceCount = Math.max(resources.length, 1);
-  const timetableWidth =
-    resourceCount === 1
+  const musicDense = businessProfile === "MUSIC";
+  const timetableWidth = musicDense
+    ? "100%"
+    : resourceCount === 1
       ? "44%"
       : resourceCount === 2
         ? "64%"
         : resourceCount === 3
           ? "80%"
           : "100%";
-  const timetableMinWidth =
-    resourceCount === 1
+  const timetableMinWidth = musicDense
+    ? 64 + resourceCount * 132
+    : resourceCount === 1
       ? 420
       : resourceCount === 2
         ? 620
@@ -399,17 +410,19 @@ export function CourseScheduleBoard({
             <div
               className="grid w-full"
               style={{
-                gridTemplateColumns: `72px repeat(${resourceCount}, minmax(180px, 1fr))`,
+                gridTemplateColumns: musicDense
+                  ? `64px repeat(${resourceCount}, minmax(124px, 1fr))`
+                  : `72px repeat(${resourceCount}, minmax(180px, 1fr))`,
               }}
             >
-              <div className="sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 py-3 text-xs font-medium text-earth-500">
+              <div className={`sticky left-0 top-0 z-30 border-b border-r border-earth-200 bg-earth-50 px-2 text-xs font-medium text-earth-500 ${musicDense ? "py-2" : "py-3"}`}>
                 時間
               </div>
             {resources.length ? (
               resources.map((resource) => (
                 <div
                   key={resource.id}
-                  className="sticky top-0 z-20 border-b border-r border-earth-200 bg-earth-50 px-3 py-3 text-sm font-semibold text-earth-800"
+                  className={`sticky top-0 z-20 border-b border-r border-earth-200 bg-earth-50 font-semibold text-earth-800 ${musicDense ? "px-2 py-2 text-xs" : "px-3 py-3 text-sm"}`}
                 >
                   {resource.name}
                 </div>
@@ -422,7 +435,7 @@ export function CourseScheduleBoard({
 
             {times.map((time) => (
               <React.Fragment key={time}>
-                <div className="sticky left-0 z-10 border-b border-r border-earth-100 bg-white px-2 py-3 text-xs font-medium text-earth-600">
+                <div className={`sticky left-0 z-10 border-b border-r border-earth-100 bg-white px-2 text-xs font-medium text-earth-600 ${musicDense ? "py-2" : "py-3"}`}>
                   {time}
                 </div>
                 {(resources.length ? resources : [{ id: "__none", name: "" }]).map((resource) => {
@@ -436,7 +449,7 @@ export function CourseScheduleBoard({
                   return (
                     <div
                       key={`${time}:${resource.id}`}
-                      className="min-h-20 space-y-2 border-b border-r border-earth-100 p-2"
+                      className={`border-b border-r border-earth-100 ${musicDense ? "min-h-16 space-y-1 p-1" : "min-h-20 space-y-2 p-2"}`}
                     >
                       {list.map((session) => (
                         <SessionCard
@@ -446,6 +459,8 @@ export function CourseScheduleBoard({
                           coaches={coaches}
                           rooms={rooms}
                           businessProfile={businessProfile}
+                          dense={musicDense}
+                          resourceView={resourceView}
                           onOpen={() => onOpenSession(session.id, selectedDate)}
                         />
                       ))}
