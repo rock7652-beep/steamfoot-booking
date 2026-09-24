@@ -587,7 +587,14 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
   // ① 店舖基本資料
   const store = await prisma.store.findUnique({
     where: { id: storeId },
-    include: { shopConfig: true, moduleInstallation: true },
+    include: {
+      shopConfig: true,
+      moduleInstallation: true,
+      featureEntitlements: {
+        where: { featureKey: { startsWith: "business." }, status: "ENABLED" },
+        select: { featureKey: true },
+      },
+    },
   });
 
   items.push({
@@ -651,8 +658,21 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
       status: slotCount > 0 ? "pass" : "fail",
     });
   } else if (store.industryModule === "COURSE") {
-    items.push({ key: "booking-slots", label: "課程使用教練／教室排課，不建立蒸足固定時段", status: "pass" });
-    items.push({ key: "first-course", label: "請由店長設定教練、教室及課程後完成首次排課", status: "skip" });
+    const courseBusiness = resolveCourseBusinessProfile(store.featureEntitlements?.map((item) => item.featureKey) ?? []);
+    items.push({
+      key: "booking-slots",
+      label: courseBusiness === "MUSIC"
+        ? "音樂教室使用老師／教室排課，不建立蒸足固定時段"
+        : "課程使用教練／教室排課，不建立蒸足固定時段",
+      status: "pass",
+    });
+    items.push({
+      key: "first-course",
+      label: courseBusiness === "MUSIC"
+        ? "請先設定老師、教室與科目後完成第一堂音樂課排課"
+        : "請由店長設定教練、教室及課程後完成首次排課",
+      status: "skip",
+    });
   } else {
     items.push({
       key: "booking-slots",
