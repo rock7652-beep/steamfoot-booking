@@ -4,6 +4,8 @@ import { DashboardLink as Link } from "@/components/dashboard-link";
 import { PageHeader, PageShell } from "@/components/desktop";
 import { toLocalDateStr } from "@/lib/date-utils";
 import { hasFeature, PRICING_PLAN_INFO } from "@/lib/feature-flags";
+import { hasStoreFeature } from "@/lib/feature-gate";
+import { isSingleStoreFeature, isSingleStoreTrial } from "@/lib/single-store-trial";
 import type { FeatureKey } from "@/lib/feature-flags";
 import {
   MANAGEABLE_STORE_FEATURES,
@@ -13,6 +15,7 @@ import {
   resolveStoreFeatureDisplayState,
 } from "@/lib/store-feature-catalog";
 import { getCurrentUser } from "@/lib/session";
+import { checkPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { FeatureEntitlementForm } from "./feature-entitlement-form";
 import { DigitalButlerActivationForm } from "./digital-butler-activation-form";
@@ -23,7 +26,7 @@ interface PageProps {
 
 export default async function StoreFeatureSettingsPage({ params }: PageProps) {
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") redirect("/hq/login");
+  if (!user || user.role !== "ADMIN" || !(await checkPermission(user.role, user.staffId, "staff.manage"))) redirect("/hq/login");
 
   const { storeId } = await params;
   const store = await prisma.store.findUnique({
@@ -33,6 +36,11 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
       name: true,
       slug: true,
       plan: true,
+      planStatus: true,
+      planEffectiveAt: true,
+      planExpiresAt: true,
+      industryModule: true,
+      lineDestination: true,
       digitalButlerEnabled: true,
       featureEntitlements: {
         orderBy: { updatedAt: "desc" },
@@ -51,6 +59,20 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
   });
 
   if (!store) notFound();
+
+  // Match the same gate used by the store dashboard, including the full single-store trial.
+  const featureAccess = new Map(await Promise.all(
+    MANAGEABLE_STORE_FEATURES.map(async (feature) => [
+      feature.key,
+      await hasStoreFeature(store.id, feature.key),
+    ] as const),
+  ));
+  const fullSingleStoreAccess = isSingleStoreTrial(store) ||
+    (store.plan === "EXPERIENCE" && store.industryModule === "COURSE");
+  const trialNotStarted = store.plan === "EXPERIENCE" && store.industryModule === "COURSE" &&
+    !store.planEffectiveAt && !store.planExpiresAt;
+  const availableCount = [...featureAccess.values()].filter(Boolean).length;
+  const singleStoreCount = MANAGEABLE_STORE_FEATURES.filter((feature) => isSingleStoreFeature(feature.key)).length;
 
   const entitlements = new Map(
     store.featureEntitlements.map((entitlement) => [
@@ -89,20 +111,20 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
       <div className="rounded-lg border border-earth-200 bg-white px-4 py-3">
         <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
           <Metric label="目前方案" value={PRICING_PLAN_INFO[store.plan].label} />
-          <Metric
-            label="方案內含"
-            value={`${MANAGEABLE_STORE_FEATURES.filter((feature) => hasFeature(store.plan, feature.key)).length} 項`}
-          />
-          <Metric
-            label="單店開啟"
-            value={`${store.featureEntitlements.filter((e) => e.status === "ENABLED").length} 項`}
-          />
-          <Metric
-            label="單店關閉"
-            value={`${store.featureEntitlements.filter((e) => e.status === "DISABLED").length} 項`}
-          />
+          <Metric label="實際授權" value={`${availableCount} 項`} />
+          <Metric label="單店功能" value={`${singleStoreCount} 項`} />
+          <Metric label="試用計時" value={trialNotStarted ? "尚未開始" : store.planExpiresAt ? (store.planExpiresAt < new Date() ? "已到期" : "已開始") : "不適用"} />
         </div>
       </div>
+
+      {fullSingleStoreAccess && (
+        <div role="status" className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <p className="font-medium">{trialNotStarted ? "課程體驗店功能已授權，30 天試用尚未起算" : "完整單店試用權限已開放"}</p>
+          <p className="mt-1 text-xs">功能授權不等於外部服務已設定。LINE 入口、提醒規則與實際發送仍須逐項驗收；多店功能不包含在單店試用內。</p>
+          {!store.lineDestination && <p className="mt-1 text-xs font-medium">此店尚未設定 LINE 導流入口。</p>}
+          <p className="mt-1 text-xs">試用期間單店授權覆寫不生效；試用起迄請至店舖詳情確認。</p>
+        </div>
+      )}
 
       <DigitalButlerActivationForm
         storeId={store.id}
@@ -141,12 +163,20 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                   (feature) => getStoreFeatureCategory(feature) === category,
                 ).map((feature) => {
                   const entitlement = entitlements.get(feature.key) ?? null;
-                  const baseAllowed = hasFeature(store.plan, feature.key);
-                  const state = resolveStoreFeatureDisplayState(
+                  const trialAllowed = fullSingleStoreAccess && isSingleStoreFeature(feature.key);
+                  const baseAllowed = trialAllowed || hasFeature(store.plan, feature.key);
+                  const ordinaryState = resolveStoreFeatureDisplayState(
                     store.plan,
                     feature.key,
                     entitlement,
                   );
+                  const state = trialAllowed ? {
+                    effectiveAllowed: featureAccess.get(feature.key) === true,
+                    statusLabel: "試用授權",
+                    statusClass: "bg-blue-50 text-blue-700",
+                    sourceLabel: "單店試用規則",
+                  } : { ...ordinaryState, effectiveAllowed: featureAccess.get(feature.key) === true };
+                  const requiresLineSetup = feature.key === "line_reminder" || feature.key === "digital_butler" || feature.key === "member_portal";
 
                   return (
                     <article
@@ -173,9 +203,9 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                 </div>
 
                 <div className="mt-3 grid gap-2 rounded-md bg-earth-50/70 p-2.5 sm:grid-cols-3">
-                  <SummaryCell label="方案預設">
+                  <SummaryCell label="基本授權">
                     <StatusPill
-                      label={baseAllowed ? "內含" : "未內含"}
+                      label={baseAllowed ? "開放" : "未開放"}
                       className={
                         baseAllowed
                           ? "bg-green-50 text-green-700"
@@ -187,7 +217,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                   <SummaryCell label="最終狀態">
                     <StatusPill label={state.statusLabel} className={state.statusClass} />
                     <p className="mt-1 text-[11px] text-earth-500">
-                      {state.effectiveAllowed ? "目前可用" : "目前不可用"}
+                      {state.effectiveAllowed ? "權限已開放" : "權限未開放"}
                     </p>
                   </SummaryCell>
 
@@ -206,7 +236,10 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                   </SummaryCell>
                 </div>
 
-                <details className="group mt-3">
+                {requiresLineSetup && state.effectiveAllowed && (
+                  <p className="mt-2 text-xs text-amber-800">LINE 相關功能須另行設定與實測發送，權限開放不代表通知已正常運作。</p>
+                )}
+                {!trialAllowed && <details className="group mt-3">
                   <summary className="flex h-9 cursor-pointer list-none items-center justify-between rounded-md border border-earth-200 bg-white px-3 text-xs font-medium text-earth-700 transition hover:bg-earth-50 [&::-webkit-details-marker]:hidden">
                     <span>調整設定</span>
                     <span className="text-earth-400 group-open:hidden">展開 ＋</span>
@@ -224,7 +257,7 @@ export default async function StoreFeatureSettingsPage({ params }: PageProps) {
                       note={entitlement?.note ?? ""}
                     />
                   </div>
-                </details>
+                </details>}
                     </article>
                   );
                 })}
