@@ -116,9 +116,11 @@ export function CourseWorkspace({
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const requestedScheduleMode = params.get("scheduleView");
   const [scheduleMode, setScheduleMode] = useState<CourseScheduleMode>(
-    requestedScheduleMode === "day" || requestedScheduleMode === "week"
+    requestedScheduleMode === "day" || requestedScheduleMode === "week" || requestedScheduleMode === "month"
       ? requestedScheduleMode
-      : "month",
+      : businessProfile === "MUSIC"
+        ? "day"
+        : "month",
   );
   function changeScheduleMode(nextMode: CourseScheduleMode) {
     setScheduleMode(nextMode);
