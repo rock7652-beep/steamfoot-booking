@@ -59,3 +59,9 @@ it("schedule layout keeps controls compact and sends month clicks into the day w
   expect(page).toContain('max-w-[1600px]');
   expect(page).toContain('{view !== "schedule" && (');
 });
+
+it("day timetable frame fits active resources instead of stretching across the workspace", () => {
+  expect(board).toContain("inline-block min-w-max overflow-hidden rounded-xl border");
+  expect(board).toContain('gridTemplateColumns: `72px repeat(${Math.max(resources.length, 1)}, 220px)`');
+  expect(board).toContain('aria-label="課表欄位視角"');
+});
