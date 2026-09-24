@@ -312,77 +312,117 @@ export function CourseWorkspace({
       {!panel && <CourseConflicts items={conflicts}/>}
       {view === "schedule" && (
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="mr-2 font-medium">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="mr-1 min-w-[112px]">
+                <h1 className="text-base font-semibold text-earth-900">課表排程</h1>
+                <p className="hidden text-[11px] text-earth-500 sm:block">安排與查看店內課程</p>
+              </div>
+              <div
+                className="inline-flex rounded-lg border border-earth-200 bg-white p-1"
+                aria-label="課表視角"
+              >
+                {(["month", "week", "day"] as CourseScheduleMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    disabled={pending}
+                    onClick={() => changeScheduleMode(mode)}
+                    className={`min-h-8 rounded-md px-3 text-sm ${
+                      scheduleMode === mode
+                        ? "bg-primary-50 font-medium text-primary-900"
+                        : "text-earth-600"
+                    }`}
+                  >
+                    {mode === "month" ? "月表" : mode === "week" ? "週表" : "日表"}
+                  </button>
+                ))}
+              </div>
+              <div className="inline-flex items-center gap-1">
+                <button
+                  className={`${button} min-h-9 px-2.5`}
+                  disabled={pending}
+                  aria-label={
+                    scheduleMode === "month"
+                      ? "上個月"
+                      : scheduleMode === "week"
+                        ? "上一週"
+                        : "前一天"
+                  }
+                  onClick={() =>
+                    go(
+                      scheduleMode === "month"
+                        ? addTaiwanDuration(first, -1, "MONTH")
+                        : addTaiwanDuration(
+                            selectedDate,
+                            -1,
+                            scheduleMode === "week" ? "WEEK" : "DAY",
+                          ),
+                    )
+                  }
+                >
+                  ‹
+                </button>
+                <button
+                  className={`${button} min-h-9 px-3`}
+                  disabled={pending}
+                  onClick={() => go(today)}
+                >
+                  今天
+                </button>
+                <button
+                  className={`${button} min-h-9 px-2.5`}
+                  disabled={pending}
+                  aria-label={
+                    scheduleMode === "month"
+                      ? "下個月"
+                      : scheduleMode === "week"
+                        ? "下一週"
+                        : "後一天"
+                  }
+                  onClick={() =>
+                    go(
+                      scheduleMode === "month"
+                        ? addTaiwanDuration(first, 1, "MONTH")
+                        : addTaiwanDuration(
+                            selectedDate,
+                            1,
+                            scheduleMode === "week" ? "WEEK" : "DAY",
+                          ),
+                    )
+                  }
+                >
+                  ›
+                </button>
+              </div>
+              <label className="sr-only" htmlFor="course-schedule-date">課表日期</label>
+              <input
+                id="course-schedule-date"
+                key={selectedDate}
+                aria-label="課表日期"
+                type="date"
+                defaultValue={selectedDate}
+                disabled={pending}
+                onChange={(event) => {
+                  const date = event.target.value;
+                  if (parseTaipeiDateTime(date, "00:00")) go(date);
+                }}
+                className="min-h-9 rounded-lg border border-earth-200 bg-white px-2.5 text-sm text-earth-700"
+              />
+              <span className="hidden text-sm font-medium text-earth-700 xl:inline">
                 {scheduleMode === "month"
                   ? `${year} 年 ${mon} 月`
                   : scheduleMode === "week"
                     ? `${selectedDate} 當週`
                     : selectedDate}
-              </h2>
-              <button
-                className={button}
-                disabled={pending}
-                aria-label={
-                  scheduleMode === "month"
-                    ? "上個月"
-                    : scheduleMode === "week"
-                      ? "上一週"
-                      : "前一天"
-                }
-                onClick={() =>
-                  go(
-                    scheduleMode === "month"
-                      ? addTaiwanDuration(first, -1, "MONTH")
-                      : addTaiwanDuration(
-                          selectedDate,
-                          -1,
-                          scheduleMode === "week" ? "WEEK" : "DAY",
-                        ),
-                  )
-                }
-              >
-                ‹
-              </button>
-              <button
-                className={button}
-                disabled={pending}
-                onClick={() => go(today)}
-              >
-                今天
-              </button>
-              <button
-                className={button}
-                disabled={pending}
-                aria-label={
-                  scheduleMode === "month"
-                    ? "下個月"
-                    : scheduleMode === "week"
-                      ? "下一週"
-                      : "後一天"
-                }
-                onClick={() =>
-                  go(
-                    scheduleMode === "month"
-                      ? addTaiwanDuration(first, 1, "MONTH")
-                      : addTaiwanDuration(
-                          selectedDate,
-                          1,
-                          scheduleMode === "week" ? "WEEK" : "DAY",
-                        ),
-                  )
-                }
-              >
-                ›
-              </button>
+              </span>
             </div>
             {(cashbookShortcut || canCreate || canEdit) && (
-              <div className="flex gap-2">
+              <div className="flex shrink-0 gap-2">
                 {cashbookShortcut}
                 {canCreate && (
                   <button
-                    className={primary}
+                    className={`${primary} min-h-9`}
                     disabled={pending}
                     onClick={openSchedule}
                   >
@@ -392,81 +432,67 @@ export function CourseWorkspace({
               </div>
             )}
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="inline-flex rounded-lg border border-earth-200 bg-white p-1" aria-label="課表視角">
-              {(["month", "week", "day"] as CourseScheduleMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  disabled={pending}
-                  onClick={() => changeScheduleMode(mode)}
-                  className={`min-h-9 rounded-md px-3 text-sm ${
-                    scheduleMode === mode
-                      ? "bg-primary-50 font-medium text-primary-900"
-                      : "text-earth-600"
-                  }`}
-                >
-                  {mode === "month" ? "月表" : mode === "week" ? "週表" : "日表"}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-earth-500">
-              月表看整月、週表看密度、日表處理現場營運
-            </p>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <form className="flex items-end gap-2" onSubmit={event => {
-              event.preventDefault();
-              const date = String(new FormData(event.currentTarget).get("jumpDate"));
-              if (parseTaipeiDateTime(date, "00:00")) go(date);
-            }}>
-              <label className="text-sm text-earth-700">日期（台灣時間）
-                <input key={selectedDate} name="jumpDate" aria-label="課表日期" type="date" required defaultValue={selectedDate} className={field}/>
-              </label>
-              <button className={button} disabled={pending}>前往</button>
-            </form>
-            <label className="text-sm text-earth-700">教練
+
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
+            <span className="px-1 text-xs font-medium text-earth-500">篩選</span>
+            <label className="sr-only" htmlFor="course-coach-filter">教練</label>
             <select
+              id="course-coach-filter"
               aria-label="教練篩選"
-              className={button}
+              className={`${button} min-h-9 bg-white py-1`}
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
               <option value="all">全部教練</option>
-              {allCoaches.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.displayName}
+              {allCoaches.map((coach) => (
+                <option key={coach.id} value={coach.id}>
+                  {coach.displayName}
                 </option>
               ))}
-            </select></label>
-            <label className="text-sm text-earth-700">教室
+            </select>
+            <label className="sr-only" htmlFor="course-room-filter">教室</label>
             <select
+              id="course-room-filter"
               aria-label="教室篩選"
-              className={button}
+              className={`${button} min-h-9 bg-white py-1`}
               value={roomFilter}
               onChange={(e) => setRoomFilter(e.target.value)}
             >
               <option value="all">全部教室</option>
-              {allRooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
+              {allRooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
                 </option>
               ))}
-            </select></label>
-            <label className="text-sm text-earth-700">分類
+            </select>
+            <label className="sr-only" htmlFor="course-category-filter">分類</label>
             <select
+              id="course-category-filter"
               aria-label="課程分類篩選"
-              className={button}
+              className={`${button} min-h-9 bg-white py-1`}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
               <option value="all">全部分類</option>
-              {[...new Set(allTemplates.map((t) => t.category))].map((c) => (
-                <option key={c} value={c}>
-                  {c || "未分類"}
+              {[...new Set(allTemplates.map((template) => template.category))].map((item) => (
+                <option key={item} value={item}>
+                  {item || "未分類"}
                 </option>
               ))}
-            </select></label>
+            </select>
+            {(coachFilter !== "all" || roomFilter !== "all" || category !== "all") && (
+              <button
+                type="button"
+                className="min-h-9 rounded-lg px-2.5 text-xs text-earth-600 hover:bg-white"
+                onClick={() => {
+                  setCoachFilter("all");
+                  setRoomFilter("all");
+                  setCategory("all");
+                }}
+              >
+                清除篩選
+              </button>
+            )}
           </div>
           {scheduleMode === "month" ? (
             <>
@@ -505,7 +531,7 @@ export function CourseWorkspace({
                     aria-label={`${date}，${isClosed ? closureLabel : `${list.length} 堂課`}`}
                     onClick={() => {
                       go(date);
-                      open("day");
+                      changeScheduleMode("day");
                     }}
                     className={`relative flex min-w-0 h-14 sm:h-20 flex-col items-start justify-start border-t border-earth-100 px-1 py-1 text-left sm:px-3 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
                       isClosed
