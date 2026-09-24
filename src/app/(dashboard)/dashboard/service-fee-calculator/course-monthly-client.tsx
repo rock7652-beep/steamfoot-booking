@@ -7,7 +7,7 @@ import type { SettlementSettings } from "@/server/services/course-monthly-settle
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-base";
 const button="min-h-11 rounded-lg border border-earth-200 px-4 py-2 text-sm disabled:opacity-50";
 export function CourseMonthlyPeople({entries,children}:{entries:{id:string;name:string;pending:boolean;priority:number}[];children?:ReactNode}){
- const [filter,setFilter]=useState("ALL");
+ const [filter,setFilter]=useState("PENDING");
  const nodes=Children.toArray(children);
  const sorted=entries.map((entry,index)=>({...entry,node:nodes[index]})).sort((a,b)=>a.priority-b.priority||a.name.localeCompare(b.name,"zh-Hant"));
  const visible=sorted.filter(e=>filter==="ALL"||(filter==="PENDING"?e.pending:!e.pending));
@@ -15,7 +15,7 @@ export function CourseMonthlyPeople({entries,children}:{entries:{id:string;name:
  return <section className="space-y-3" aria-label="人員月結清單">
  <div className="flex flex-wrap gap-2" aria-label="月結人員篩選">{[["ALL","全部"],["PENDING","待處理"],["SETTLED","已結清／無需付款"]].map(([key,label])=><button type="button" key={key} aria-pressed={filter===key} onClick={()=>setFilter(key)} className={`${button} ${filter===key?"bg-primary-700 text-white":"bg-white"}`}>{label}（{entries.filter(e=>key==="ALL"||(key==="PENDING"?e.pending:!e.pending)).length}）</button>)}</div>
  <p className="text-xs text-earth-500" role="status">顯示 {visible.length} 位 · 待核對、溢付及未付清優先；上方總額仍為整月金額。</p>
- {visible.length?visible.map(e=><div key={e.id}>{e.node}</div>):<p className="rounded-lg border p-4 text-sm">沒有符合條件的人員。</p>}
+ {visible.length?visible.map(e=><div key={e.id}>{e.node}</div>):<p className="rounded-lg border p-4 text-sm">{filter==="PENDING"?"本月沒有待處理人員，可切換「全部」查看已結清或無需付款的明細。":"沒有符合條件的人員。"}</p>}
  </section>;
 }
 function useSubmit(){

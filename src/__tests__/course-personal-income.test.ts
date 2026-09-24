@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { SettlementLine } from "@/lib/course-monthly-settlement";
-import { personalIncomeView } from "@/lib/course-personal-income";
+import { personalIncomeView, summarizePersonalIncome } from "@/lib/course-personal-income";
 const mocks = vi.hoisted(()=>({account:vi.fn(),link:vi.fn(),feature:vi.fn(),settings:vi.fn(),report:vi.fn(),transaction:vi.fn()}));
 vi.mock("@/lib/db",()=>({prisma:{staffMemberLink:{findFirst:mocks.link}}}));
 vi.mock("@/lib/course-db",()=>({coursePrisma:{$transaction:mocks.transaction}}));
@@ -69,4 +69,14 @@ it("rechecks disabled setting in the report transaction",async()=>{
 });
 it("rejects invalid month before querying",async()=>{
  await expect(readMyCourseIncome("2026-13")).rejects.toThrow();expect(mocks.account).not.toHaveBeenCalled();
+});
+it("does not offset one unpaid item against another overpaid item",()=>{
+ expect(summarizePersonalIncome([{amount:500,paid:1000},{amount:500,paid:0}])).toEqual({total:1000,paid:1000,remaining:500,overpaid:500});
+});
+it("keeps unavailable payment amounts unknown instead of zero",()=>{
+ expect(summarizePersonalIncome([{amount:600,paid:null}])).toEqual({total:600,paid:null,remaining:null,overpaid:null});
+});
+it("separates zero income from fully registered payment",()=>{
+ expect(summarizePersonalIncome([{amount:0,paid:0}])).toEqual({total:0,paid:0,remaining:0,overpaid:0});
+ expect(summarizePersonalIncome([{amount:600,paid:600}])).toEqual({total:600,paid:600,remaining:0,overpaid:0});
 });

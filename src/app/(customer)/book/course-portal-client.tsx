@@ -825,7 +825,7 @@ export function CoursePortalClient(p: CoursePortalData & { initialDate?: string;
           ))}
         </nav>
         <main className={`cp-main${coach ? " cp-coach-main" : ""}`}>
-          {p.incomeAvailable && <a className="cp-card cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入 · 查看已確認月結</a>}
+          {p.incomeAvailable && (coach || (!p.hasWork && page === "account")) && <a className="cp-card cp-menu" href={`${p.prefix}/book/income?month=${p.month}`}>我的收入 · 查看已確認月結</a>}
           <div className="cp-refresh">
             <span>更新於 {time(new Date(p.serverNow).toISOString())}</span>
             <button

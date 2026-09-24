@@ -2,6 +2,17 @@ import type { SettlementLine } from "./course-monthly-settlement";
 
 type Revision = { revision: number; createdAt: Date; snapshot: SettlementLine[] };
 
+/** Keep outstanding and excess payments separate; one item must not hide another. */
+export function summarizePersonalIncome(lines: {amount: number | null; paid: number | null}[]) {
+  const known = lines.every(line => line.amount !== null && line.paid !== null);
+  return {
+    total: lines.every(line => line.amount !== null) ? lines.reduce((n,line)=>n+line.amount!,0) : null,
+    paid: lines.every(line => line.paid !== null) ? lines.reduce((n,line)=>n+line.paid!,0) : null,
+    remaining: known ? lines.reduce((n,line)=>n+Math.max(0,line.amount!-line.paid!),0) : null,
+    overpaid: known ? lines.reduce((n,line)=>n+Math.max(0,line.paid!-line.amount!),0) : null,
+  };
+}
+
 /** Whitelist output: never return personnel IDs, payment notes or other people's rows. */
 export function personalIncomeView(staffId: string, live: SettlementLine[], last?: Revision) {
   if (!last) return { confirmed: false as const, pending: false, revision: null, confirmedAt: null, lines: [] };

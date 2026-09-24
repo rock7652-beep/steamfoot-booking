@@ -107,6 +107,7 @@ jobs:
           tests+=(src/__tests__/session-balance-line-response.test.ts)
           tests+=(src/__tests__/staff-session-security.test.ts)
           tests+=(src/__tests__/course-monthly-settlement.test.ts src/__tests__/course-monthly-query.test.ts)
+          tests+=(src/__tests__/course-personal-income.test.ts src/__tests__/course-monthly-usability.test.ts)
           if [ "${#tests[@]}" -eq 0 ]; then
             echo "No targeted tests found."
             exit 0

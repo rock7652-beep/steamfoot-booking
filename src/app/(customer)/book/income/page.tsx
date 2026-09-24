@@ -1,5 +1,6 @@
 import { AppError } from "@/lib/errors";
 import { settlementMonth } from "@/lib/course-monthly-settlement";
+import { summarizePersonalIncome } from "@/lib/course-personal-income";
 import { formatTWDateTime, toLocalMonthStr } from "@/lib/date-utils";
 import { getStoreContext } from "@/lib/store-context";
 import { readMyCourseIncome } from "@/server/services/course-personal-income";
@@ -28,18 +29,20 @@ export default async function MyCourseIncome({searchParams}: {searchParams: Prom
       <button className="min-h-11 rounded bg-primary-700 px-4 text-white">查詢</button>
     </form>
     {!report.confirmed ? <p role="status" className="rounded-lg bg-earth-50 p-4">尚未結算。店長確認本月金額後，才會顯示收入明細；目前不代表收入為 0。</p> : <>
-      <p className="text-sm text-earth-600">{month} · 已確認第 {report.revision} 版 · {formatTWDateTime(new Date(report.confirmedAt))}</p>
+      <p className="text-sm text-earth-600">{month} · 店長已確認 · {formatTWDateTime(new Date(report.confirmedAt))}</p>
       {report.pending && <p role="status" className="rounded-lg bg-amber-50 p-4">調整待確認。目前保留上次已確認金額，待店長確認修正版後更新。</p>}
       <p className="text-sm text-earth-600">「店家已登錄付款」為店家登錄狀態，不代表您已確認收款；有疑問請洽店長。</p>
       {!report.lines.length && <p className="rounded-lg border p-4">本月尚無本人的已確認收入項目。</p>}
       {(["FEE","PROFIT"] as const).map(kind => {
         const lines = report.lines.filter(line => line.kind === kind);
         if (!lines.length) return null;
-        const total = lines.some(line => line.amount === null) ? null : lines.reduce((n,line)=>n+line.amount!,0);
-        const paid = lines.some(line => line.paid === null) ? null : lines.reduce((n,line)=>n+line.paid!,0);
+        const {total,paid,remaining,overpaid} = summarizePersonalIncome(lines);
         return <section key={kind} className="space-y-3 rounded-xl border border-earth-200 bg-white p-4">
-          <h2 className="text-lg font-bold">{kind === "FEE" ? "授課費" : "開發利潤"}</h2>
+          <h2 className="text-lg font-bold">{kind === "FEE" ? "我的授課費" : "我的店長利潤"}</h2>
           <p>已確認應付 {money(total)}</p><p>店家已登錄付款 {money(paid)}</p>
+          <p className="font-medium">剩餘未付 {money(remaining)}</p>
+          {overpaid!==null&&overpaid>0&&<p className="text-sm text-amber-800">溢付待核對 {money(overpaid)}，請洽店長。</p>}
+          {remaining===0&&overpaid===0&&<p className="text-sm text-primary-700">{total===0?"無需付款":"店家已登錄全額付款"}</p>}
           {lines.map((line,index)=><details key={index} className="border-t py-3">
             <summary className="min-h-11 cursor-pointer">{line.label} · {money(line.amount)}</summary>
             <p className="mt-2 text-sm">{formatTWDateTime(new Date(line.date))}</p>
