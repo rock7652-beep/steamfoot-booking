@@ -49,4 +49,8 @@ it("defaults music stores to the daily high-density board", () => {
   expect(board).toContain('64 + resourceCount * 132');
   expect(board).toContain('dense={musicDense}');
   expect(board).toContain('resourceView={resourceView}');
+  expect(board).toContain('max-h-[calc(100vh-260px)]');
+  expect(board).toContain('const showCapacityState = !musicDense || !copy.privateClass');
+  expect(board).toContain('border-l-primary-300');
+  expect(board).toContain('copy.privateClass && !musicDense');
 });
