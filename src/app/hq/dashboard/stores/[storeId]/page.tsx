@@ -54,7 +54,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
           <h1 className="text-2xl font-bold text-earth-900">{summary.store.name}</h1>
           <p className="mt-1 text-sm text-earth-500">
             <span className="font-mono">{summary.store.slug}</span> · {summary.store.plan} ·{" "}
-            <span>{summary.store.industryModule === "COURSE" ? "運動課程" : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>
+            <span>{summary.store.industryModule === "COURSE" ? (summary.store.businessProfile === "MUSIC" ? "音樂教室" : "運動教室") : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}</span>
             {" · "}
             <span className={summary.store.planStatus === "ACTIVE" ? "text-green-600" : "text-amber-600"}>
               {summary.store.planStatus}
@@ -99,7 +99,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
         <Section title="產業模組">
           <InfoRow
             label="已選模組"
-            value={summary.store.industryModule === "COURSE" ? "運動課程" : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
+            value={summary.store.industryModule === "COURSE" ? (summary.store.businessProfile === "MUSIC" ? "音樂教室（COURSE 引擎）" : "運動教室（COURSE 引擎）") : summary.store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足門市"}
           />
           {summary.store.industryModule === "SPA" && !summary.canActivate && (
             <>
@@ -188,7 +188,9 @@ export default async function StoreDetailPage({ params }: PageProps) {
                   ? "已建立訂閱；延長試用或轉正式請至訂閱管理"
                   : summary.canActivate
                   ? summary.store.industryModule === "COURSE"
-                    ? "課程店建置完成，30 天尚未起算；完成 LIFF 與通知驗收後再開通"
+                    ? summary.store.businessProfile === "MUSIC"
+                      ? "音樂教室測試店建置完成；先完成課表核心驗收，再決定是否啟動試用倒數"
+                      : "課程店建置完成，30 天尚未起算；完成 LIFF 與通知驗收後再開通"
                     : "✅ 設定完成，可開通 30 天單店試用"
                   : "⚠️ 部分項目未通過，建議先修正"}
             </p>
