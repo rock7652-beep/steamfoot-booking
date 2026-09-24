@@ -816,20 +816,37 @@ export function CourseRoster({
                 </div>
                 <div className="min-w-0">
                   {booking.bookingKind === "TRIAL" ? (
-                    <p
-                      className="truncate"
+                    <div
+                      className="flex flex-wrap items-center gap-1.5"
                       title={`體驗客 · NT$ ${booking.trialPrice} · ${
                         paid ? `已收 NT$ ${paid.amount}` : "未收款"
                       }`}
                     >
-                      <span className="mr-1 inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
+                      <span className="inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
                         體驗客
                       </span>
-                      NT$ {booking.trialPrice} ·{" "}
-                      <span className={paid ? "text-primary-700" : "font-medium text-amber-700"}>
+                      <span className="text-sm text-earth-700">NT$ {booking.trialPrice}</span>
+                      <span className={paid ? "text-sm text-primary-700" : "text-sm font-medium text-amber-700"}>
                         {paid ? `已收 NT$ ${paid.amount}` : "未收款"}
                       </span>
-                    </p>
+                      {allowTrialActions &&
+                        trial?.canCollect &&
+                        !paid &&
+                        booking.status !== "CANCELLED" && (
+                          <button
+                            type="button"
+                            className="min-h-8 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                            disabled={pending}
+                            onClick={() => {
+                              setRequestKey(crypto.randomUUID());
+                              setCorrectPayment(false);
+                              setPaymentBooking(booking.id);
+                            }}
+                          >
+                            收款
+                          </button>
+                        )}
+                    </div>
                   ) : (
                     <p
                       className="truncate"
@@ -868,22 +885,24 @@ export function CourseRoster({
                 <div className="flex flex-wrap items-center gap-2">
                   {allowTrialActions &&
                     trial?.canCollect &&
+                    paid &&
                     booking.bookingKind === "TRIAL" &&
                     booking.status !== "CANCELLED" && (
                       <button
-                        className={`${button} ${paid ? "" : "border-amber-300 bg-amber-50 text-amber-900"}`}
+                        type="button"
+                        className={button}
                         disabled={
                           pending ||
-                          (!!paid &&
-                            (!trial.canCorrect || booking.status !== "RESERVED"))
+                          !trial.canCorrect ||
+                          booking.status !== "RESERVED"
                         }
                         onClick={() => {
                           setRequestKey(crypto.randomUUID());
-                          setCorrectPayment(!!paid);
+                          setCorrectPayment(true);
                           setPaymentBooking(booking.id);
                         }}
                       >
-                        {paid ? "更正收款" : "體驗收款"}
+                        更正收款
                       </button>
                     )}
                   {canEdit && booking.status === "RESERVED" && (
