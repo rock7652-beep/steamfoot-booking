@@ -79,12 +79,14 @@ export function searchBookingGuides(query: string, bookingStatus?: string) {
 
 import { additionalGuides, guideCategories } from "./operation-guide-catalog";
 import { courseOperationGuides } from "./course-operation-guides";
+import { courseBasicOperationGuides } from "./course-basic-operation-guides";
 import type { GuideAccess, OperationGuide } from "./operation-guide-types";
 export { guideCategories };
 export const operationGuides: OperationGuide[] = [
   ...bookingGuides.map((guide): OperationGuide => ({ ...guide, kind: "howto", answer: guide.summary, category: "booking", modules: ["steamfoot"], permission: "booking.update", feature: null, sources: ["src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx", "src/server/actions/booking.ts"], verification: "source-reviewed" })),
   ...additionalGuides,
   ...courseOperationGuides,
+  ...courseBasicOperationGuides,
 ];
 export function availableGuides(access: GuideAccess) {
   return operationGuides.filter(g => g.modules.includes(access.module) &&

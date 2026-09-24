@@ -1958,7 +1958,7 @@ export const additionalGuides: OperationGuide[] = [
     "summary": "先核對門市模組、帳號權限與目前紀錄狀態，再比對教學；不同模組不一定有相同按鈕。",
     "path": "操作指南／目前功能頁",
     "steps": [
-      "確認使用的是時段預約、SPA 服務或其他模組。",
+      "確認使用的是時段預約、SPA 服務或課程模組。",
       "核對門市、登入角色、方案及目前紀錄狀態。",
       "若仍不同，保留畫面與功能名稱請支援核對。"
     ],
@@ -1968,7 +1968,8 @@ export const additionalGuides: OperationGuide[] = [
     "details": [],
     "modules": [
       "steamfoot",
-      "spa"
+      "spa",
+      "course"
     ],
     "permission": "",
     "feature": null,
@@ -1997,7 +1998,8 @@ export const additionalGuides: OperationGuide[] = [
     "details": [],
     "modules": [
       "steamfoot",
-      "spa"
+      "spa",
+      "course"
     ],
     "permission": "",
     "feature": null,
@@ -2026,7 +2028,8 @@ export const additionalGuides: OperationGuide[] = [
     "details": [],
     "modules": [
       "steamfoot",
-      "spa"
+      "spa",
+      "course"
     ],
     "permission": "",
     "feature": null,
