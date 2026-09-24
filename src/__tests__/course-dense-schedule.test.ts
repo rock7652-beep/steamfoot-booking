@@ -30,7 +30,9 @@ it("dense day board supports room/coach perspectives and action filters", () => 
   expect(board).toContain("快滿");
   expect(board).toContain("滿班");
   expect(board).toContain("待報到");
-  expect(board).toContain("預約 {booked} 人");
+  expect(board).toContain("預約 <strong");
+  expect(board).toContain("{booked}");
+  expect(board).toContain('repeat(${Math.max(resources.length, 1)}, 220px)');
 });
 
 it("adaptive cards prioritize private members while group cards show capacity", () => {
@@ -47,4 +49,13 @@ it("course operations use the shared right sheet instead of another centered mod
   expect(workspace).toContain('width={courseDialog.kind === "roster" ? 820 : 560}');
   expect(workspace).toContain('labelledById="course-operation-title"');
   expect(workspace).not.toContain('className="fixed inset-0 z-[80] flex items-center justify-center');
+});
+
+it("schedule layout keeps controls compact and sends month clicks into the day workspace", () => {
+  expect(workspace).toContain("安排與查看店內課程");
+  expect(workspace).toContain('id="course-schedule-date"');
+  expect(workspace).toContain('className="sr-only" htmlFor="course-coach-filter"');
+  expect(workspace).toContain('changeScheduleMode("day")');
+  expect(page).toContain('max-w-[1600px]');
+  expect(page).toContain('{view !== "schedule" && (');
 });
