@@ -5,6 +5,10 @@ import {CourseConflicts,type ConflictItem} from "@/components/admin/course-confl
 import { useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
+import {
+  CourseScheduleBoard,
+  type CourseScheduleMode,
+} from "./course-schedule-board";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
   addTaiwanDuration,
@@ -45,7 +49,12 @@ type Template = Omit<Room, "capacity"> & {
   precautions?: string;
 };
 type Session = {
-  bookings: { customerId: string; status: string }[];
+  bookings: {
+    customerId: string;
+    customerName: string;
+    status: string;
+    bookingKind: string;
+  }[];
   id: string;
   templateId: string;
   nameSnapshot: string;
@@ -103,6 +112,18 @@ export function CourseWorkspace({
     params = useSearchParams();
   const requestedDate = params.get("date");
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
+  const requestedScheduleMode = params.get("scheduleView");
+  const [scheduleMode, setScheduleMode] = useState<CourseScheduleMode>(
+    requestedScheduleMode === "day" || requestedScheduleMode === "week"
+      ? requestedScheduleMode
+      : "month",
+  );
+  function changeScheduleMode(nextMode: CourseScheduleMode) {
+    setScheduleMode(nextMode);
+    const next = new URLSearchParams(params.toString());
+    next.set("scheduleView", nextMode);
+    window.history.replaceState(null, "", `${pathname}?${next}`);
+  }
   const [courseDialog, setCourseDialog] = useState<{
     sessionId: string;
     kind: "roster" | "member-booking" | "trial-booking";
@@ -206,14 +227,15 @@ export function CourseWorkspace({
     first = `${month}-01`;
   const [year, mon] = month.split("-").map(Number);
   const days = new Date(year, mon, 0).getDate();
-  const byDate = new Map<string, Session[]>();
-  for (const session of sessions.filter(
+  const filteredScheduleSessions = sessions.filter(
     (s) =>
       (roomFilter === "all" || s.roomId === roomFilter) &&
       (coachFilter === "all" || s.coachId === coachFilter) &&
       (category === "all" ||
         allTemplates.find((t) => t.id === s.templateId)?.category === category),
-  )) {
+  );
+  const byDate = new Map<string, Session[]>();
+  for (const session of filteredScheduleSessions) {
     const day = toLocalDateStr(new Date(session.startsAt));
     byDate.set(day, [...(byDate.get(day) ?? []), session]);
   }
