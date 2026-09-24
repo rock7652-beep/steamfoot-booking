@@ -1889,92 +1889,84 @@ export function CourseWorkspace({
                 ? "＋ 學員預約"
                 : "＋ 新顧客／體驗客";
           return (
-            <div
-              className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-3 sm:p-5"
-              onClick={() => setCourseDialog(null)}
+            <RightSheet
+              open
+              onClose={() => setCourseDialog(null)}
+              width={courseDialog.kind === "roster" ? 820 : 560}
+              labelledById="course-operation-title"
             >
-              <section
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="course-operation-title"
-                className={`flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-earth-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)] ${
-                  courseDialog.kind === "roster" ? "max-w-6xl" : "max-w-2xl"
-                }`}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-3">
-                  <div className="min-w-0">
-                    <h2
-                      id="course-operation-title"
-                      className="truncate text-lg font-semibold text-primary-900"
-                    >
-                      {dialogTitle}
-                    </h2>
-                    <p className="mt-1 text-sm text-earth-600">
-                      {formatTWDateTime(new Date(dialogSession.startsAt))} ·{" "}
-                      {dialogSession.nameSnapshot} ·{" "}
-                      {allCoaches.find((coach) => coach.id === dialogSession.coachId)
-                        ?.displayName ?? "未指定教練"}
-                      {" · "}
-                      {allRooms.find((room) => room.id === dialogSession.roomId)?.name ??
-                        "未指定教室"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className={button}
-                    onClick={() => setCourseDialog(null)}
+              <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-3">
+                <div className="min-w-0">
+                  <h2
+                    id="course-operation-title"
+                    className="truncate text-lg font-semibold text-primary-900"
                   >
-                    關閉
-                  </button>
-                </header>
-                <div
-                  className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
-                    courseDialog.kind === "roster"
-                      ? "overflow-hidden"
-                      : "overflow-y-auto"
-                  }`}
-                >
-                  <CourseRoster
-                    key={`${dialogSession.id}-${courseDialog.kind}`}
-                    sessionId={dialogSession.id}
-                    capacity={dialogSession.capacity}
-                    canCreate={canCreate}
-                    canEdit={canEdit}
-                    view={courseDialog.kind}
-                    onDone={() => setCourseDialog(null)}
-                    onMemberBookingReadyChange={setMemberBookingReady}
-                    onCreateCustomer={() =>
-                      setCourseDialog({
-                        sessionId: dialogSession.id,
-                        kind: "trial-booking",
-                      })
-                    }
-                  />
+                    {dialogTitle}
+                  </h2>
+                  <p className="mt-1 text-sm text-earth-600">
+                    {formatTWDateTime(new Date(dialogSession.startsAt))} ·{" "}
+                    {dialogSession.nameSnapshot} ·{" "}
+                    {allCoaches.find((coach) => coach.id === dialogSession.coachId)
+                      ?.displayName ?? "未指定教練"}
+                    {" · "}
+                    {allRooms.find((room) => room.id === dialogSession.roomId)?.name ??
+                      "未指定教室"}
+                  </p>
                 </div>
-                {courseDialog.kind !== "roster" && (
-                  <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
-                    <button
-                      type="submit"
-                      form={
-                        courseDialog.kind === "member-booking"
-                          ? "course-member-booking-form"
-                          : "course-trial-booking-form"
-                      }
-                      className={`${primary} w-full disabled:cursor-not-allowed disabled:bg-earth-200 disabled:text-earth-500`}
-                      disabled={
-                        courseDialog.kind === "member-booking" &&
-                        !memberBookingReady
-                      }
-                    >
-                      {courseDialog.kind === "member-booking"
-                        ? "確認學員預約"
-                        : "建立並加入課程"}
-                    </button>
-                  </footer>
-                )}
-              </section>
-            </div>
+                <button
+                  type="button"
+                  className={button}
+                  onClick={() => setCourseDialog(null)}
+                >
+                  關閉
+                </button>
+              </header>
+              <div
+                className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
+                  courseDialog.kind === "roster"
+                    ? "overflow-hidden"
+                    : "overflow-y-auto"
+                }`}
+              >
+                <CourseRoster
+                  key={`${dialogSession.id}-${courseDialog.kind}`}
+                  sessionId={dialogSession.id}
+                  capacity={dialogSession.capacity}
+                  canCreate={canCreate}
+                  canEdit={canEdit}
+                  view={courseDialog.kind}
+                  onDone={() => setCourseDialog(null)}
+                  onMemberBookingReadyChange={setMemberBookingReady}
+                  onCreateCustomer={() =>
+                    setCourseDialog({
+                      sessionId: dialogSession.id,
+                      kind: "trial-booking",
+                    })
+                  }
+                />
+              </div>
+              {courseDialog.kind !== "roster" && (
+                <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
+                  <button
+                    type="submit"
+                    form={
+                      courseDialog.kind === "member-booking"
+                        ? "course-member-booking-form"
+                        : "course-trial-booking-form"
+                    }
+                    className={`${primary} w-full disabled:cursor-not-allowed disabled:bg-earth-200 disabled:text-earth-500`}
+                    disabled={
+                      courseDialog.kind === "member-booking" &&
+                      !memberBookingReady
+                    }
+                  >
+                    {courseDialog.kind === "member-booking"
+                      ? "確認學員預約"
+                      : "建立並加入課程"}
+                  </button>
+                </footer>
+              )}
+            </RightSheet>
           );
         })()}
     </>
