@@ -36,7 +36,7 @@ export default function NewStoreForm() {
   function handleSubmit() {
     setError(null);
     if (!industryModule) {
-      setError("請先選擇店舖模組；建立後不可變更");
+      setError("請先選擇主要業務");
       return;
     }
 
@@ -91,7 +91,7 @@ export default function NewStoreForm() {
               value={result.store.isDemo ? "Demo" : "正式"}
             />
             <InfoRow
-              label="營運模組"
+              label="業務 / 引擎"
               value={
                 result.store.industryModule === "COURSE"
                   ? result.store.businessProfile === "MUSIC"
@@ -233,7 +233,7 @@ export default function NewStoreForm() {
           </legend>
           <div className="mb-5">
             <p className="mb-2 text-xs font-medium text-earth-600">
-              營運模組 *
+              主要業務 *
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <ModuleOption
@@ -268,7 +268,7 @@ export default function NewStoreForm() {
               label="店名 *"
               value={name}
               onChange={setName}
-              placeholder="蒸足 XX店"
+              placeholder={businessProfile === "MUSIC" ? "陸比音樂｜Music Pilot" : businessProfile === "FITNESS" ? "運動教室 XX店" : "蒸足 XX店"}
             />
             <Field
               label="Slug *"
