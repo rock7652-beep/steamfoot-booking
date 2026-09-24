@@ -825,27 +825,32 @@ export function CourseRoster({
                       <span className="inline-flex rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
                         體驗客
                       </span>
-                      <span className="text-sm text-earth-700">NT$ {booking.trialPrice}</span>
-                      <span className={paid ? "text-sm text-primary-700" : "text-sm font-medium text-amber-700"}>
-                        {paid ? `已收 NT$ ${paid.amount}` : "未收款"}
-                      </span>
-                      {allowTrialActions &&
-                        trial?.canCollect &&
-                        !paid &&
-                        booking.status !== "CANCELLED" && (
-                          <button
-                            type="button"
-                            className="min-h-8 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
-                            disabled={pending}
-                            onClick={() => {
-                              setRequestKey(crypto.randomUUID());
-                              setCorrectPayment(false);
-                              setPaymentBooking(booking.id);
-                            }}
-                          >
-                            收款
-                          </button>
-                        )}
+                      {paid ? (
+                        <span className="inline-flex rounded-full bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-800">
+                          ✓ 已收 NT$ {paid.amount}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-sm text-earth-700">NT$ {booking.trialPrice}</span>
+                          <span className="text-sm font-medium text-amber-700">未收款</span>
+                          {allowTrialActions &&
+                            trial?.canCollect &&
+                            booking.status !== "CANCELLED" && (
+                              <button
+                                type="button"
+                                className="min-h-8 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                                disabled={pending}
+                                onClick={() => {
+                                  setRequestKey(crypto.randomUUID());
+                                  setCorrectPayment(false);
+                                  setPaymentBooking(booking.id);
+                                }}
+                              >
+                                收款
+                              </button>
+                            )}
+                        </>
+                      )}
                     </div>
                   ) : (
                     <p
