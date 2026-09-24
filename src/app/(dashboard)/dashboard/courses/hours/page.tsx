@@ -14,7 +14,8 @@ import { PageShell,PageHeader } from "@/components/desktop";
 import { DashboardLink } from "@/components/dashboard-link";
 import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 
-export default async function CourseHoursPage({ searchParams }: { searchParams?: Promise<{ tab?: string }> }) {
+export default async function CourseHoursPage({ searchParams }: { searchParams?: Promise<{ tab?: string; setup?: string }> }) {
+ const params=await searchParams;
  const user=await getCurrentUser(); if(!user || !(await checkPermission(user.role,user.staffId,"business_hours.view"))) notFound();
  const {storeId}=await courseManager("business_hours.view");
  const [year,month]=toLocalDateStr().split("-").map(Number);
@@ -30,7 +31,8 @@ export default async function CourseHoursPage({ searchParams }: { searchParams?:
   return {dayOfWeek,dayName,isOpen:row?.isOpen??true,openTime:row?.openTime??null,closeTime:row?.closeTime??null,slotInterval:60,defaultCapacity:6,periods:row?parseBusinessPeriods(row.segments,row):[]};
  });
  return <PageShell><PageHeader title={music?"授課時段與公休":"營業與公休"} subtitle={music?"先設定店家每週可授課時段；一天可多段，未開放時段會在音樂課表反灰":"每週營業、多段時間、特殊休假與後續週次設定"} actions={<DashboardLink href="/dashboard/courses?view=settings&section=booking">返回設定</DashboardLink>}/>
+ {music&&params?.setup==="1"&&<div className="mb-4 rounded-xl border border-primary-200 bg-primary-50 p-4 text-sm text-primary-900"><strong>先完成第一步：設定每週授課時段</strong><p className="mt-1">儲存後即可進入音樂課表；之後可隨時回來調整多段時段與特殊公休。</p></div>}
  <p className="mb-4 text-sm text-earth-600">{music?"排課起始以 30 分鐘為單位；課程時長使用 30／60／90／120 分鐘。可設定多段授課時間，空白可排、未開放反灰。":"課程名額由各堂課與教室容量控制。變更若與已排課程衝突，整批不儲存；請先在課表調整或取消課程，原預約不會被刪除。"}</p>
- <CourseHoursWorkspace initialSection={(await searchParams)?.tab} booking={<div className="mb-4"><BookableUntilForm initialDate={config?.bookableUntilDate?.toISOString().slice(0,10)??null} initialDays={config?.bookingWindowDays??DEFAULT_BOOKABLE_DAYS_AHEAD} today={toLocalDateStr()} canManage={canManage} course direct/><p className="mt-2 text-xs text-earth-500">只限制會員新增預約；店長代約不受此期限限制。縮短期限不會刪除既有預約，有衝突時拒絕儲存。</p></div>} schedule={<ScheduleManager weeklyHours={weekly} initialSpecialDays={specials} initialSummary={summary} initialYear={year} initialMonth={month} canManage={canManage} isHeadquarters={false} isSpaStore={false} isCourseStore/>}/>
+ <CourseHoursWorkspace initialSection={params?.tab} booking={<div className="mb-4"><BookableUntilForm initialDate={config?.bookableUntilDate?.toISOString().slice(0,10)??null} initialDays={config?.bookingWindowDays??DEFAULT_BOOKABLE_DAYS_AHEAD} today={toLocalDateStr()} canManage={canManage} course direct/><p className="mt-2 text-xs text-earth-500">只限制會員新增預約；店長代約不受此期限限制。縮短期限不會刪除既有預約，有衝突時拒絕儲存。</p></div>} schedule={<ScheduleManager weeklyHours={weekly} initialSpecialDays={specials} initialSummary={summary} initialYear={year} initialMonth={month} canManage={canManage} isHeadquarters={false} isSpaStore={false} isCourseStore/>}/>
  </PageShell>;
 }
