@@ -67,7 +67,7 @@ export default async function StoresPage() {
               <th className="px-4 py-3 text-left font-medium text-earth-600">模組</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">方案狀態</th>
               <th className="px-4 py-3 text-left font-medium text-earth-600">營運狀態</th>
-              <th className="px-4 py-3 text-left font-medium text-earth-600">類型</th>
+              <th className="px-4 py-3 text-left font-medium text-earth-600">店舖性質</th>
               <th className="px-4 py-3 text-right font-medium text-earth-600">人員</th>
               <th className="px-4 py-3 text-right font-medium text-earth-600">顧客</th>
               <th className="px-4 py-3"></th>
@@ -97,9 +97,9 @@ export default async function StoresPage() {
                   </td>
                   <td className="px-4 py-3">
                     {store.isDemo ? (
-                      <span className="text-xs text-amber-600">Demo</span>
+                      <span className="text-xs text-amber-600">示範店</span>
                     ) : (
-                      <span className="text-xs text-green-600">正式</span>
+                      <span className="text-xs text-green-600">一般店</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right text-earth-600">{store.staffCount}</td>
