@@ -197,44 +197,77 @@ export function DaySlotManager({ date, bookedPeopleBySlot, onSaved }: Props) {
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {previewSlots.map((slot) => {
                     const people = bookedPeopleBySlot.get(slot.startTime) ?? 0;
+                    const isChanged = changes.has(slot.startTime) || capacityChanges.has(slot.startTime);
+                    const isFull = slot.isOpen && people >= slot.capacity;
                     return (
-                      <div key={slot.startTime} className={`rounded-lg border p-2 text-xs ${slot.isOpen ? "border-green-200 bg-green-50 text-green-800" : "border-earth-200 bg-earth-50 text-earth-500"}`}>
-                        <button type="button" onClick={() => toggle(slot)} disabled={dayClosed || pending} className="w-full text-left disabled:opacity-50">
-                          <span className="block font-semibold">{slot.startTime} · {slot.isOpen ? "開放" : "關閉"}</span>
-                          <span className="mt-0.5 block text-[11px]">{people > 0 ? `已預約 ${people} 人` : "目前無預約"}</span>
-                        </button>
-                        <div className="mt-2 flex items-center justify-between gap-2 border-t border-black/5 pt-2">
-                          <span className="text-[11px] font-medium">本時段名額</span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              aria-label={`${slot.startTime} 名額減少`}
-                              disabled={dayClosed || pending || !slot.isOpen || slot.capacity <= Math.max(1, people)}
-                              onClick={() => setCapacity(slot.startTime, slot.capacity - 1)}
-                              className="h-8 w-8 rounded border border-earth-300 bg-white text-base disabled:opacity-40"
-                            >
-                              −
-                            </button>
-                            <input
-                              aria-label={`${slot.startTime} 名額`}
-                              type="number"
-                              min={Math.max(1, people)}
-                              max={99}
-                              value={slot.capacity}
-                              disabled={dayClosed || pending || !slot.isOpen}
-                              onChange={(event) => setCapacity(slot.startTime, Number(event.target.value))}
-                              className="h-8 w-14 rounded border border-earth-300 bg-white px-1 text-center text-sm tabular-nums disabled:opacity-40"
-                            />
-                            <button
-                              type="button"
-                              aria-label={`${slot.startTime} 名額增加`}
-                              disabled={dayClosed || pending || !slot.isOpen || slot.capacity >= 99}
-                              onClick={() => setCapacity(slot.startTime, slot.capacity + 1)}
-                              className="h-8 w-8 rounded border border-earth-300 bg-white text-base disabled:opacity-40"
-                            >
-                              ＋
-                            </button>
-                          </div>
+                      <div
+                        key={slot.startTime}
+                        className={`rounded-lg border px-2.5 py-2 text-xs ${
+                          !slot.isOpen
+                            ? "border-earth-300 bg-earth-50 text-earth-600"
+                            : isFull
+                              ? "border-amber-200 bg-amber-50/70 text-earth-800"
+                              : "border-earth-200 bg-white text-earth-800"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggle(slot)}
+                            disabled={dayClosed || pending}
+                            className="min-w-0 flex-1 text-left disabled:opacity-50"
+                          >
+                            <span className="flex items-center gap-1.5 font-semibold">
+                              <span>{slot.startTime}</span>
+                              <span className={slot.isOpen ? "text-emerald-700" : "text-earth-500"}>
+                                {slot.isOpen ? "開放" : "關閉"}
+                              </span>
+                              {isChanged && (
+                                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                                  已調整
+                                </span>
+                              )}
+                              {isFull && (
+                                <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium text-rose-700">
+                                  滿額
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                          <span className="shrink-0 text-[11px] text-earth-500">
+                            已約 {people} / 名額 {slot.capacity}
+                          </span>
+                        </div>
+
+                        <div className="mt-1.5 flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            aria-label={`${slot.startTime} 名額減少`}
+                            disabled={dayClosed || pending || !slot.isOpen || slot.capacity <= Math.max(1, people)}
+                            onClick={() => setCapacity(slot.startTime, slot.capacity - 1)}
+                            className="h-7 w-7 rounded border border-earth-300 bg-white text-sm disabled:opacity-35"
+                          >
+                            −
+                          </button>
+                          <input
+                            aria-label={`${slot.startTime} 名額`}
+                            type="number"
+                            min={Math.max(1, people)}
+                            max={99}
+                            value={slot.capacity}
+                            disabled={dayClosed || pending || !slot.isOpen}
+                            onChange={(event) => setCapacity(slot.startTime, Number(event.target.value))}
+                            className="h-7 w-12 rounded border border-earth-300 bg-white px-1 text-center text-xs font-medium tabular-nums disabled:opacity-35"
+                          />
+                          <button
+                            type="button"
+                            aria-label={`${slot.startTime} 名額增加`}
+                            disabled={dayClosed || pending || !slot.isOpen || slot.capacity >= 99}
+                            onClick={() => setCapacity(slot.startTime, slot.capacity + 1)}
+                            className="h-7 w-7 rounded border border-earth-300 bg-white text-sm disabled:opacity-35"
+                          >
+                            ＋
+                          </button>
                         </div>
                       </div>
                     );
