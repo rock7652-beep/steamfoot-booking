@@ -606,6 +606,10 @@ export function CourseWorkspace({
               coaches={allCoaches}
               templates={allTemplates}
               pending={pending}
+              staffAvailability={staffAvailability}
+              staffAvailabilityExceptions={staffAvailabilityExceptions}
+              storePeriods={calendarDays[selectedDate]?.periods ?? []}
+              onOpenEmpty={({time,roomId,coachId})=>openSchedule({time,roomId,coachId})}
               onSelectDate={go}
               onOpenSession={(sessionId, date) => {
                 go(date);
