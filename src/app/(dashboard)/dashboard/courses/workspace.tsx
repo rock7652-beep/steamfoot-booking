@@ -81,6 +81,7 @@ type Props = {
   canDelete?: boolean;
   canEdit: boolean;
   cashbookShortcut?: ReactNode;
+  businessProfile: "FITNESS" | "MUSIC";
   view: "schedule" | "catalog" | "rooms";
 };
 const button =
@@ -102,6 +103,7 @@ export function CourseWorkspace({
   canCreate,
   canEdit,
   cashbookShortcut,
+  businessProfile,
   view,
 }: Props) {
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
@@ -587,6 +589,7 @@ export function CourseWorkspace({
             </>
           ) : (
             <CourseScheduleBoard
+              businessProfile={businessProfile}
               mode={scheduleMode}
               selectedDate={selectedDate}
               today={today}
