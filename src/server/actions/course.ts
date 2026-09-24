@@ -1,5 +1,6 @@
 "use server";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
+import { assertMusicCourseAvailability } from "@/server/services/course-availability";
 import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 
 import { assertCourseResources, assertNoCourseResourceUse, handleCourseActionError } from "@/server/services/course-resources";
@@ -337,6 +338,7 @@ export async function createCourseSchedule(input: unknown) {
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，整批尚未建立`,
           );
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
+        await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
