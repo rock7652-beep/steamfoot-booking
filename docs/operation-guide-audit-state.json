@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "repository": "rock7652-beep/steamfoot-booking",
+  "auditDateTaipei": "2026-09-24",
+  "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
+  "lastInventoriedMainCommit": "953785e9159641e3ecc1f39276a83b930e8cbcf1",
+  "previousSuccessfulAuditCommit": "984e0a1bfe69796e86990e196b8d7677b9e37b75",
+  "mode": "incremental-main-change-review",
+  "branch": "codex/operation-guide-audit-20260917",
+  "newGuideIds": ["A11", "C10", "E12", "H10", "I08"],
+  "updatedGuideIds": ["C01", "C04", "C09", "E08", "H01", "H03", "C115", "C118", "C123"],
+  "cumulativeDraftNewGuideIds": ["D12", "I07", "C09", "F12", "C101", "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109", "C110", "C111", "C112", "C113", "C114", "C115", "C116", "C117", "C118", "C119", "C120", "C121", "C122", "C123", "C124", "C125", "A11", "C10", "E12", "H10", "I08"],
+  "cumulativeDraftUpdatedGuideIds": ["C07", "C08", "E01", "F08", "F11", "M01", "F04", "C103", "C104", "C106", "C107", "C108", "C111", "C112", "C113", "C114", "C115", "E08", "E09", "E10", "E11", "C01", "C04", "C09", "H01", "H03", "C118", "C123"],
+  "interactionPendingGuideIds": ["D12", "I07", "C07", "C08", "E01", "F08", "F11", "C09", "M01", "F12", "F04", "C101", "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109", "C110", "C111", "C112", "C113", "C114", "C115", "C116", "C117", "C118", "C119", "C120", "C121", "C122", "C123", "C124", "C125", "E08", "E09", "E10", "E11", "A11", "C10", "E12", "H10", "I08", "C01", "C04", "H01", "H03"],
+  "articleCount": 117,
+  "reviewedMainPullRequests": [1043, 1044, 1045, 1046, 1047, 1048, 1049, 1050, 1022, 1053, 1052, 1054, 1058, 1061, 1062, 1063, 1064, 1067, 1068, 1069, 1070, 1071, 1072, 1073, 1074, 1075, 1076, 1077, 1079, 1080, 1081, 1082, 1083, 1084],
+  "interactionStatus": "blocked-no-authenticated-test-session",
+  "allArticlesInteractionVerified": false,
+  "allSystemCoverageComplete": false,
+  "continuation": "Read this state from the open audit draft branch before comparing main; do not rebuild the baseline just because the draft is unmerged. Compare lastInventoriedMainCommit..origin/main, retain pending interaction checks, and update the same draft until authorized to merge."
+}
