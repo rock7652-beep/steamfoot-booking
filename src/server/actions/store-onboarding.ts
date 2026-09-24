@@ -392,7 +392,7 @@ export async function getStoreDeliverySummary(
       isDemo: store.isDemo,
       industryModule: store.industryModule,
       businessProfile: store.industryModule === "COURSE"
-        ? resolveCourseBusinessProfile(store.featureEntitlements.map((item) => item.featureKey))
+        ? resolveCourseBusinessProfile(store.featureEntitlements?.map((item) => item.featureKey) ?? [])
         : null,
     },
     urls: buildStoreUrls(baseUrl, store.slug, store.id),
@@ -478,7 +478,7 @@ export async function listStoresAction(): Promise<
       isDemo: s.isDemo,
       industryModule: s.industryModule,
       businessProfile: s.industryModule === "COURSE"
-        ? resolveCourseBusinessProfile(s.featureEntitlements.map((item) => item.featureKey))
+        ? resolveCourseBusinessProfile(s.featureEntitlements?.map((item) => item.featureKey) ?? [])
         : null,
       staffCount: s._count.staff,
       customerCount: s._count.customers,
