@@ -306,3 +306,41 @@ model CourseFeePayment {
   @@unique([storeId, requestKey])
   @@index([storeId, createdAt], map: "CourseFeePayment_store_created")
 }
+
+// Course-only monthly settings and immutable revisions; SQL owns FKs, checks and RLS.
+model CourseSettlementSetting {
+  storeId String @id
+  profitEnabled Boolean @default(true)
+  feeEnabled Boolean @default(true)
+  revision Int @default(1)
+}
+model CourseMonthlySettlement {
+  id String @id
+  storeId String
+  month String
+  revision Int
+  fingerprint String
+  snapshot Json
+  actorUserId String
+  reason String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@unique([storeId, month, revision])
+}
+model CourseProfitPayment {
+  id String @id
+  storeId String
+  purchaseId String
+  staffId String
+  staffNameSnapshot String
+  amount Int
+  method String
+  note String
+  requestKey String
+  actorUserId String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  voidedAt DateTime? @db.Timestamptz
+  voidReason String?
+  voidedBy String?
+  @@unique([storeId, requestKey])
+  @@index([storeId, purchaseId], map: "CourseProfitPayment_purchase")
+}

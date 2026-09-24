@@ -1,3 +1,6 @@
+import {recordCourseProfitPayment,voidCourseProfitPayment} from "@/server/services/course-profit-payment";
+import {readCourseMonthlySettlement} from "@/server/services/course-monthly-settlement";
+import {toLocalMonthStr} from "@/lib/date-utils";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -148,6 +151,34 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
     await run({...input,requestKey:randomUUID()});
     const entries=await testDb().$queryRaw<Array<{type:string;amount:number}>>`SELECT type,amount FROM "CashbookEntry" WHERE "storeId"=${f.storeId}`;
     expect(entries).toHaveLength(3);expect(entries.reduce((n,e)=>n+(e.type==="EXPENSE"?e.amount:-e.amount),0)).toBe(600);
+  });
+
+  async function profitFixture() {
+    const f=await fixture(); const order=await checkout(f); const month=toLocalMonthStr();
+    const report=await testDb().$transaction(tx=>readCourseMonthlySettlement(tx,f.storeId,month));
+    await testDb().$executeRaw`INSERT INTO "CourseMonthlySettlement" (id,"storeId",month,revision,fingerprint,snapshot,"actorUserId",reason) VALUES (${randomUUID()},${f.storeId},${month},1,${report.fingerprint},${JSON.stringify(report.lines)}::jsonb,${f.storeId},'確認')`;
+    return {f,order,month,input:{month,purchaseId:order.id,amount:300,expectedRemaining:800,method:"OTHER",note:"已付款",requestKey:randomUUID()}};
+  }
+  async function profitPay(x:Awaited<ReturnType<typeof profitFixture>>,input=x.input){
+    return testDb().$transaction(async tx=>{await lockCourseStore(tx,x.f.storeId);await recordCourseProfitPayment(tx,{storeId:x.f.storeId,userId:x.f.storeId},input);},{timeout:15000});
+  }
+  it("concurrent profit retries register one partial payment and expense",async()=>{
+    const x=await profitFixture();await Promise.all([profitPay(x),profitPay(x),profitPay(x)]);
+    const rows=await testDb().$queryRaw<Array<{amount:number}>>`SELECT amount FROM "CourseProfitPayment" WHERE "storeId"=${x.f.storeId}`;expect(rows).toEqual([{amount:300}]);
+    const entries=await testDb().$queryRaw<Array<{amount:number}>>`SELECT amount FROM "CashbookEntry" WHERE "storeId"=${x.f.storeId} AND category='課程店長利潤'`;expect(entries).toEqual([{amount:300}]);
+    await profitPay(x,{...x.input,amount:500,expectedRemaining:500,requestKey:randomUUID()});
+    await expect(profitPay(x,{...x.input,requestKey:randomUUID()})).rejects.toThrow();
+  });
+  it("failed profit expense rolls back payment and audit",async()=>{
+    const x=await profitFixture();await expect(profitPay(x,{...x.input,note:"force-rollback"})).rejects.toThrow();
+    const rows=await testDb().$queryRaw<Array<{count:bigint}>>`SELECT count(*) FROM "CourseProfitPayment" WHERE "storeId"=${x.f.storeId}`;expect(Number(rows[0].count)).toBe(0);
+  });
+  it("profit correction keeps original and permits a new payment once",async()=>{
+    const x=await profitFixture();await profitPay(x);
+    const rows=await testDb().$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseProfitPayment" WHERE "storeId"=${x.f.storeId}`;
+    const correct=()=>testDb().$transaction(async tx=>{await lockCourseStore(tx,x.f.storeId);await voidCourseProfitPayment(tx,{storeId:x.f.storeId,userId:x.f.storeId},{paymentId:rows[0].id,reason:"誤登"});});
+    await Promise.all([correct(),correct()]);await profitPay(x,{...x.input,requestKey:randomUUID()});
+    const report=await testDb().$transaction(tx=>readCourseMonthlySettlement(tx,x.f.storeId,x.month));expect(report.lines[0].paid).toBe(300);expect(report.lines[0].payments).toHaveLength(2);
   });
 
 });

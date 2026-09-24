@@ -1,3 +1,4 @@
+import {readSettlementSettings} from "@/server/services/course-monthly-settlement";
 import {
   COURSE_PERMISSIONS,
   COURSE_PERMISSION_LABELS,
@@ -49,7 +50,7 @@ export async function CourseStaffPage() {
   return (
     <PageShell className="course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6">
       <PageHeader title="人員管理" />
-      <CourseStaffWorkspace
+      <CourseStaffWorkspace feeEnabled={(await readSettlementSettings(coursePrisma,storeId)).feeEnabled}
         maxStaff={limits.maxStaff}
         templates={templates}
         canManage={canManage}
