@@ -716,7 +716,8 @@ export async function applyDaySlotOverrides(input: {
   date: string;
   changes: Array<{
     startTime: string;
-    action: "disable" | "enable" | "remove";
+    action: "disable" | "enable" | "remove" | "capacity";
+    capacity?: number;
     reason?: string;
   }>;
 }): Promise<ActionResult<{ changed: number; bookedPeopleKept: number }>> {
@@ -755,6 +756,13 @@ export async function applyDaySlotOverrides(input: {
       _sum: { people: true },
     });
     const bookedByTime = new Map(booked.map((row) => [row.slotTime, row._sum.people ?? 0]));
+    for (const change of input.changes) {
+      if (change.capacity == null) continue;
+      const bookedPeople = bookedByTime.get(change.startTime) ?? 0;
+      if (change.capacity < bookedPeople) {
+        throw new AppError("VALIDATION", `${input.date} ${change.startTime} 已預約 ${bookedPeople} 人，名額不可低於此數`);
+      }
+    }
 
     await prisma.$transaction(async (tx) => {
       for (const change of input.changes) {
@@ -764,18 +772,24 @@ export async function applyDaySlotOverrides(input: {
           });
           continue;
         }
+        const type = change.action === "disable"
+          ? "disabled"
+          : change.action === "capacity"
+            ? "capacity_change"
+            : "enabled";
         await tx.slotOverride.upsert({
           where: { storeId_date_startTime: { storeId, date: dateObj, startTime: change.startTime } },
           update: {
-            type: change.action === "disable" ? "disabled" : "enabled",
-            capacity: null,
+            type,
+            capacity: change.action === "disable" ? null : (change.capacity ?? null),
             reason: change.reason ?? null,
           },
           create: {
             storeId,
             date: dateObj,
             startTime: change.startTime,
-            type: change.action === "disable" ? "disabled" : "enabled",
+            type,
+            capacity: change.action === "disable" ? null : (change.capacity ?? null),
             reason: change.reason ?? null,
           },
         });
