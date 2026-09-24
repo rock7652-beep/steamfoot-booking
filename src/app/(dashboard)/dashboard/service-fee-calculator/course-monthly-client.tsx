@@ -23,12 +23,16 @@ function useSubmit(){
  return {pending,message,run:(action:()=>Promise<{success:boolean;error?:string}>)=>{if(lock.current)return;lock.current=true;setMessage("");start(async()=>{try{const result=await action();if(!result.success)setMessage(result.error??"操作失敗");else{setMessage("已儲存");router.refresh();}}catch{setMessage("連線未完成，內容已保留，請重試。");}finally{lock.current=false;}});}};
 }
 export function CourseMonthlySettings({settings,canEdit}:{settings:SettlementSettings;canEdit:boolean}){
- const [profitEnabled,setProfit]=useState(settings.profitEnabled),[feeEnabled,setFee]=useState(settings.feeEnabled);const submit=useSubmit();
- return <details className="rounded-xl border border-earth-200 bg-white p-4"><summary className="min-h-11 cursor-pointer font-medium">月結設定</summary><form className="space-y-4" onSubmit={e=>{e.preventDefault();submit.run(()=>saveCourseSettlementSettings({profitEnabled,feeEnabled,revision:settings.revision}));}}>
+ const [profitEnabled,setProfit]=useState(settings.profitEnabled),[feeEnabled,setFee]=useState(settings.feeEnabled),[personalIncomeEnabled,setIncome]=useState(settings.personalIncomeEnabled);const submit=useSubmit();
+ return <details className="rounded-xl border border-earth-200 bg-white p-4"><summary className="min-h-11 cursor-pointer font-medium">月結設定</summary><form className="space-y-4" onSubmit={e=>{e.preventDefault();submit.run(()=>saveCourseSettlementSettings({profitEnabled,feeEnabled,personalIncomeEnabled,revision:settings.revision}));}}>
+ <h3 className="font-medium">計算項目</h3>
  <p className="text-sm text-earth-600">關閉只影響新購買／新排課。既有待核帳訂單、課次、待付金額與歷史紀錄保留；已登錄的付款不會再記一次支出。</p>
  <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={profitEnabled} disabled={!canEdit||submit.pending} onChange={e=>setProfit(e.target.checked)}/>計算店長利潤</label>
  <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={feeEnabled} disabled={!canEdit||submit.pending} onChange={e=>setFee(e.target.checked)}/>計算教練授課費（每堂固定）</label>
- {canEdit&&<button className={button} disabled={submit.pending||(profitEnabled===settings.profitEnabled&&feeEnabled===settings.feeEnabled)}>儲存設定</button>}
+ <h3 className="border-t pt-4 font-medium">人員查詢</h3>
+ <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={personalIncomeEnabled} disabled={!canEdit||submit.pending} onChange={e=>setIncome(e.target.checked)}/>開放人員查看本人收入</label>
+ <p className="text-sm text-earth-600">預設關閉。開啟後，已綁定本店的在職人員只能查看本人已確認的月結；付款登錄持續更新。關閉會停止後續查詢，不刪除紀錄，也不影響計算。</p>
+ {canEdit&&<button className={button} disabled={submit.pending||(profitEnabled===settings.profitEnabled&&feeEnabled===settings.feeEnabled&&personalIncomeEnabled===settings.personalIncomeEnabled)}>儲存設定</button>}
  {submit.message&&<p role="status">{submit.message}</p>}</form></details>;
 }
 export function CourseMonthlyConfirm({month,fingerprint,revision,disabled,blockedReason}:{month:string;fingerprint:string;revision:number;disabled:boolean;blockedReason?:string}){

@@ -27,7 +27,7 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  const [canSettings,canPay,store]=await Promise.all([checkPermission(user.role,user.staffId,"staff.manage"),checkPermission(user.role,user.staffId,"cashbook.create"),prisma.store.findUnique({where:{id:storeId},select:{name:true}})]);
  const total=people.reduce((n,p)=>n+p.profit+p.fee,0),paid=people.reduce((n,p)=>n+p.paid,0),issues=report.lines.filter(l=>l.issue).length;
  const payable=report.lines.reduce((n,l)=>n+Math.max(0,(l.amount??0)-l.paid),0),overpaid=report.lines.reduce((n,l)=>n+Math.max(0,l.paid-(l.amount??0)),0);
- return <PageShell><div className="sticky top-16 z-10 space-y-2 bg-earth-50 py-2"><PageHeader title="課程月結管理" subtitle={`${store?.name??"本店"} · ${month}`} actions={<MonthFilter month={month}/>}/>
+ return <PageShell><div className="space-y-2 bg-earth-50 py-2"><PageHeader title="課程月結管理" subtitle={`${store?.name??"本店"} · ${month}`} actions={<MonthFilter month={month}/>}/>
  <KpiStrip items={[{label:issues?"已知應付（未完整）":"目前應付",value:money(total),tone:"primary"},{label:"已登錄付款",value:money(paid)},{label:"待付",value:money(payable)},{label:"溢付待核對",value:money(overpaid),tone:overpaid?"amber":"primary"}]}/></div>
  <p className="rounded-lg bg-primary-50 p-3 text-sm">依方案核帳月份及課次上課月份歸屬，只納入已結束課次。已付包含後續付款；退款、作廢會調整原月份的應付金額。{issues>0&&` 尚有 ${issues} 筆待核對，合計僅包含可確認金額。`}</p>
  {!!olderMonths.length&&<p className="rounded-lg bg-amber-50 p-3 text-sm">本月退款／作廢涉及較早月份，請核對原月結：{olderMonths.map(m=><Link key={m} className="ml-3 underline" href={`/dashboard/service-fee-calculator?month=${m}`}>{m}</Link>)}</p>}
