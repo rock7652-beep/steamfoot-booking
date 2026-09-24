@@ -269,8 +269,8 @@ export function CourseWorkspace({
   const [roomCapacityNotice, setRoomCapacityNotice] = useState("");
   const [extraDateKeys, setExtraDateKeys] = useState<string[]>([]);
   const [copySource, setCopySource] = useState<Session | null>(null);
-  const [scheduleSeed,setScheduleSeed]=useState<{time?:string;roomId?:string;coachId?:string}>({});
-  function openSchedule(seed: {time?:string;roomId?:string;coachId?:string} = {}) {
+  const [scheduleSeed,setScheduleSeed]=useState<{time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
+  function openSchedule(seed: {time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     setCopySource(null);
     setScheduleSeed(seed);
     setChosen(templates[0]?.id ?? "");
@@ -609,7 +609,7 @@ export function CourseWorkspace({
               staffAvailability={staffAvailability}
               staffAvailabilityExceptions={staffAvailabilityExceptions}
               storePeriods={calendarDays[selectedDate]?.periods ?? []}
-              onOpenEmpty={({time,roomId,coachId})=>openSchedule({time,roomId,coachId})}
+              onOpenEmpty={({time,roomId,coachId,durationMinutes})=>openSchedule({time,roomId,coachId,durationMinutes})}
               onSelectDate={go}
               onOpenSession={(sessionId, date) => {
                 go(date);
@@ -1741,9 +1741,9 @@ export function CourseWorkspace({
                           defaultValue={String(
                             copySource
                               ? (new Date(copySource.endsAt).getTime() - new Date(copySource.startsAt).getTime()) / 60000
-                              : [30, 60, 90, 120].includes(template?.durationMinutes ?? 60)
-                                ? template?.durationMinutes
-                                : 60,
+                              : scheduleSeed.durationMinutes ?? ([30, 60, 90, 120].includes(template?.durationMinutes ?? 60)
+                                 ? template?.durationMinutes
+                                 : 60),
                           )}
                           required
                         >
