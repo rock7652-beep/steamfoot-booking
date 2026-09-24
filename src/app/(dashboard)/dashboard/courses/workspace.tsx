@@ -71,8 +71,10 @@ type Props = {
   nowIso: string;
   calendarDays: Record<
     string,
-    { status: "open" | "closed" | "training" | "custom"; reason: string | null }
+    { status: "open" | "closed" | "training" | "custom"; reason: string | null; periods: {openTime:string;closeTime:string}[] }
   >;
+  staffAvailability: {staffId:string;dayOfWeek:number;segments:unknown}[];
+  staffAvailabilityExceptions: {staffId:string;date:string;type:string;segments:unknown;reason:string|null}[];
   rooms: Room[];
   templates: Template[];
   sessions: Session[];
@@ -104,6 +106,8 @@ export function CourseWorkspace({
   canEdit,
   cashbookShortcut,
   businessProfile,
+  staffAvailability,
+  staffAvailabilityExceptions,
   view,
 }: Props) {
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
@@ -265,8 +269,10 @@ export function CourseWorkspace({
   const [roomCapacityNotice, setRoomCapacityNotice] = useState("");
   const [extraDateKeys, setExtraDateKeys] = useState<string[]>([]);
   const [copySource, setCopySource] = useState<Session | null>(null);
-  function openSchedule() {
+  const [scheduleSeed,setScheduleSeed]=useState<{time?:string;roomId?:string;coachId?:string}>({});
+  function openSchedule(seed: {time?:string;roomId?:string;coachId?:string} = {}) {
     setCopySource(null);
+    setScheduleSeed(seed);
     setChosen(templates[0]?.id ?? "");
     setRequestKey(crypto.randomUUID());
     setRepeat(false);
@@ -1623,7 +1629,7 @@ export function CourseWorkspace({
                         className={field}
                         name="coachId"
                         required
-                        defaultValue={copySource?.coachId}
+                        defaultValue={copySource?.coachId ?? scheduleSeed.coachId}
                       >
                         {coaches.filter(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)).map((c) => (
                           <option key={c.id} value={c.id}>
@@ -1666,7 +1672,7 @@ export function CourseWorkspace({
                           className={field}
                           name="roomId"
                           defaultValue={
-                            copySource?.roomId ?? template?.defaultRoomId ?? ""
+                            copySource?.roomId ?? scheduleSeed.roomId ?? template?.defaultRoomId ?? ""
                           }
                           required
                         >
