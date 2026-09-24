@@ -15,6 +15,7 @@ import {
   type StoreOperatingStatus,
 } from "@/lib/store-operating-status";
 import { ActivateTrialButton } from "./activate-trial-button";
+import { RenameStoreForm } from "./rename-store-form";
 import { SpaProvisionButton } from "./spa-provision-button";
 
 interface PageProps {
@@ -88,6 +89,12 @@ export default async function StoreDetailPage({ params }: PageProps) {
       )}
 
       <div className="space-y-6">
+        <Section title="店名管理">
+          <RenameStoreForm key={`${summary.store.id}:${summary.store.name}`} storeId={summary.store.id} currentName={summary.store.name} />
+          <p className="mt-2 text-xs text-earth-500">只變更顧客及後台顯示的店名；店舖網址、會員資料、方案與續約關係都沿用原店。</p>
+          <p className="mt-1 text-xs text-earth-500">店舖網址仍使用 {summary.store.slug}，改名不會變更 LINE 圖文選單連結。</p>
+        </Section>
+
         {/* URLs — 前台 */}
         <Section title="產業模組">
           <InfoRow
