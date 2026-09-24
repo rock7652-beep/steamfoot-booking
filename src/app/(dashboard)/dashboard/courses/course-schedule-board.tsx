@@ -51,6 +51,7 @@ type Template = {
 };
 
 type Props = {
+  businessProfile: "FITNESS" | "MUSIC";
   mode: Exclude<CourseScheduleMode, "month">;
   selectedDate: string;
   today: string;
@@ -128,10 +129,11 @@ function adaptiveCopy(
   templates: Template[],
   coaches: Coach[],
   rooms: Room[],
+  businessProfile: "FITNESS" | "MUSIC",
 ) {
   const template = templates.find((item) => item.id === session.templateId);
   const coach =
-    coaches.find((item) => item.id === session.coachId)?.displayName ?? "未指定教練";
+    coaches.find((item) => item.id === session.coachId)?.displayName ?? (businessProfile === "MUSIC" ? "未指定老師" : "未指定教練");
   const room = rooms.find((item) => item.id === session.roomId)?.name ?? "未指定教室";
   const privateClass = template?.classType === "PRIVATE";
   const customer = firstCustomer(session);
@@ -153,6 +155,7 @@ function SessionCard({
   coaches,
   rooms,
   compact = false,
+  businessProfile,
   onOpen,
 }: {
   session: Session;
@@ -160,9 +163,10 @@ function SessionCard({
   coaches: Coach[];
   rooms: Room[];
   compact?: boolean;
+  businessProfile: "FITNESS" | "MUSIC";
   onOpen: () => void;
 }) {
-  const copy = adaptiveCopy(session, templates, coaches, rooms);
+  const copy = adaptiveCopy(session, templates, coaches, rooms, businessProfile);
   const seats = openSeats(session);
   return (
     <button
@@ -207,7 +211,7 @@ function SessionCard({
         )}
         {copy.privateClass && (
           <span className="rounded-full bg-earth-50 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">
-            私教
+            {businessProfile === "MUSIC" ? "一對一" : "私教"}
           </span>
         )}
       </div>
@@ -216,6 +220,7 @@ function SessionCard({
 }
 
 export function CourseScheduleBoard({
+  businessProfile,
   mode,
   selectedDate,
   today,
@@ -267,6 +272,7 @@ export function CourseScheduleBoard({
                           coaches={coaches}
                           rooms={rooms}
                           compact
+                          businessProfile={businessProfile}
                           onOpen={() => onOpenSession(session.id, date)}
                         />
                       ))
@@ -368,7 +374,7 @@ export function CourseScheduleBoard({
             className={`min-h-8 rounded-md px-3 text-xs ${resourceView === "coach" ? "bg-primary-50 font-medium text-primary-900" : "text-earth-600"}`}
             onClick={() => setResourceView("coach")}
           >
-            教練視角
+            {businessProfile === "MUSIC" ? "老師視角" : "教練視角"}
           </button>
         </div>
       </div>
@@ -410,7 +416,7 @@ export function CourseScheduleBoard({
               ))
             ) : (
               <div className="sticky top-0 z-20 border-b border-earth-200 bg-earth-50 px-3 py-3 text-sm text-earth-500">
-                尚無可用{resourceView === "room" ? "教室" : "教練"}
+                尚無可用{resourceView === "room" ? "教室" : businessProfile === "MUSIC" ? "老師" : "教練"}
               </div>
             )}
 
@@ -439,6 +445,7 @@ export function CourseScheduleBoard({
                           templates={templates}
                           coaches={coaches}
                           rooms={rooms}
+                          businessProfile={businessProfile}
                           onOpen={() => onOpenSession(session.id, selectedDate)}
                         />
                       ))}
