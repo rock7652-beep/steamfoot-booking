@@ -356,6 +356,28 @@ export function CourseWorkspace({
               </div>
             )}
           </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="inline-flex rounded-lg border border-earth-200 bg-white p-1" aria-label="課表視角">
+              {(["month", "week", "day"] as CourseScheduleMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  disabled={pending}
+                  onClick={() => changeScheduleMode(mode)}
+                  className={`min-h-9 rounded-md px-3 text-sm ${
+                    scheduleMode === mode
+                      ? "bg-primary-50 font-medium text-primary-900"
+                      : "text-earth-600"
+                  }`}
+                >
+                  {mode === "month" ? "月表" : mode === "week" ? "週表" : "日表"}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-earth-500">
+              月表看整月、週表看密度、日表處理現場營運
+            </p>
+          </div>
           <div className="flex flex-wrap items-end gap-2">
             <form className="flex items-end gap-2" onSubmit={event => {
               event.preventDefault();
