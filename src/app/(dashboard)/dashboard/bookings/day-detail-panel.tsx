@@ -586,9 +586,9 @@ function KpiChip({
         ? "text-amber-600"
         : "text-earth-900";
   return (
-    <span className="inline-flex min-w-0 flex-wrap items-center justify-between gap-x-1 gap-y-0.5 rounded-lg border border-earth-200 bg-earth-50 px-2 py-1 text-xs">
-      <span className="text-earth-500">{label}</span>
-      <span className={`min-w-0 break-all font-bold tabular-nums ${valueColor}`}>{value}</span>
+    <span className="inline-flex min-w-0 items-center justify-between gap-1 rounded-lg border border-earth-200 bg-earth-50 px-1.5 py-1 text-xs">
+      <span className="whitespace-nowrap text-earth-500">{label}</span>
+      <span className={`shrink-0 whitespace-nowrap font-bold tabular-nums ${valueColor}`}>{value}</span>
     </span>
   );
 }
