@@ -64,7 +64,7 @@ type Props = {
   storePeriods: {openTime:string;closeTime:string}[];
   staffAvailability: {staffId:string;dayOfWeek:number;segments:unknown}[];
   staffAvailabilityExceptions: {staffId:string;date:string;type:string;segments:unknown;reason:string|null}[];
-  onOpenEmpty: (value:{time:string;roomId?:string;coachId?:string})=>void;
+  onOpenEmpty: (value:{time:string;roomId?:string;coachId?:string;durationMinutes?:number})=>void;
   onSelectDate: (date: string) => void;
   onOpenSession: (sessionId: string, date: string) => void;
 };
@@ -261,6 +261,7 @@ export function CourseScheduleBoard({
   );
   const [resourceView, setResourceView] = React.useState<ResourceView>("room");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
+  const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(60);
 
   if (mode === "week") {
     const start = weekStart(selectedDate);
@@ -340,8 +341,8 @@ export function CourseScheduleBoard({
   const resourcePeriods=(resourceId:string)=>resourceView==="room"
     ? normalizedStorePeriods
     : coachPeriods(resourceId);
-  const slotConflict=(resourceId:string,startTime:string)=>{
-    const start=minuteOfDay(startTime),end=start+30;
+  const slotConflict=(resourceId:string,startTime:string,durationMinutes=availabilityDuration)=>{
+    const start=minuteOfDay(startTime),end=start+durationMinutes;
     return filtered.some(session=>{
       const same=resourceView==="room"?session.roomId===resourceId:session.coachId===resourceId;
       if(!same) return false;
@@ -417,6 +418,20 @@ export function CourseScheduleBoard({
           </span>
         </div>
 
+        {musicDense && (
+          <label className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
+            <span>可排時長</span>
+            <select
+              aria-label="可排時長"
+              className="bg-transparent font-medium text-earth-800 outline-none"
+              value={availabilityDuration}
+              onChange={(event) => setAvailabilityDuration(Number(event.target.value) as 30 | 60 | 90 | 120)}
+            >
+              {[30, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分</option>)}
+            </select>
+          </label>
+        )}
+
         <div className="inline-flex rounded-lg border border-earth-200 bg-white p-0.5" aria-label="課表資源視角">
           <button
             type="button"
@@ -444,7 +459,7 @@ export function CourseScheduleBoard({
           此篩選目前沒有課程
         </div>
       ) : (
-        <div className={`max-w-full pb-1 ${musicDense ? "max-h-[calc(100vh-260px)] min-h-[420px] overflow-auto rounded-xl border border-earth-200 bg-white" : "overflow-x-auto"}`}>
+        <div className={`max-w-full pb-1 ${musicDense ? "overflow-x-auto overscroll-x-contain scroll-smooth snap-x snap-proximity rounded-xl border border-earth-200 bg-white" : "overflow-x-auto"}`}>
           <div
             className={musicDense ? "bg-white" : "overflow-hidden rounded-xl border border-earth-200 bg-white"}
             style={{
@@ -467,7 +482,7 @@ export function CourseScheduleBoard({
               resources.map((resource) => (
                 <div
                   key={resource.id}
-                  className={`sticky top-0 z-40 border-b border-r border-earth-200 bg-earth-50 font-semibold text-earth-800 ${musicDense ? "px-2 py-2 text-xs" : "px-3 py-3 text-sm"}`}
+                  className={`sticky top-0 z-40 border-b border-r border-earth-200 bg-earth-50 font-semibold text-earth-800 ${musicDense ? "snap-start px-2 py-2 text-xs" : "px-3 py-3 text-sm"}`}
                 >
                   {resource.name}
                 </div>
@@ -500,21 +515,22 @@ export function CourseScheduleBoard({
                         <div className="absolute inset-0 grid grid-rows-2">
                           {["00","30"].map((minute)=>{
                             const startTime=`${time.slice(0,2)}:${minute}`;
-                            const storeOpen=periodContains(normalizedStorePeriods,startTime,30);
-                            const resourceOpen=periodContains(resourcePeriods(resource.id),startTime,30);
-                            const available=storeOpen&&resourceOpen&&!slotConflict(resource.id,startTime);
-                            const reason=!storeOpen?"店家未開放":!resourceOpen?(resourceView==="coach"?"老師未排班":"不可使用"):slotConflict(resource.id,startTime)?"已有課程":"";
+                            const storeOpen=periodContains(normalizedStorePeriods,startTime,availabilityDuration);
+                             const resourceOpen=periodContains(resourcePeriods(resource.id),startTime,availabilityDuration);
+                             const hasConflict=slotConflict(resource.id,startTime,availabilityDuration);
+                             const available=storeOpen&&resourceOpen&&!hasConflict;
+                             const reason=!storeOpen?"店家未開放":!resourceOpen?(resourceView==="coach"?"老師未排班":"不可使用"):hasConflict?"此時長會與既有課程重疊":"";
                             return (
                               <button
                                 key={minute}
                                 type="button"
                                 disabled={!available||pending}
-                                title={available?`${startTime} 可排課`:reason}
-                                aria-label={available?`${startTime} 可排課`:`${startTime} ${reason}`}
-                                onClick={()=>available&&onOpenEmpty({time:startTime,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})})}
-                                className={`group relative border-b border-earth-100/70 text-left last:border-b-0 ${available?"bg-white hover:bg-primary-50":"cursor-not-allowed bg-earth-100/70"}`}
-                              >
-                                {available&&<span className="pointer-events-none absolute left-1 top-1 hidden rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium text-primary-800 shadow-sm group-hover:block">＋ {startTime}</span>}
+                                title={available?`${startTime} 可排 ${availabilityDuration} 分鐘`:reason}
+                                 aria-label={available?`${startTime} 可排 ${availabilityDuration} 分鐘`:`${startTime} ${reason}`}
+                                 onClick={()=>available&&onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})})}
+                                 className={`group relative border-b border-earth-200/80 text-left last:border-b-0 ${available?"bg-white hover:bg-primary-50":"cursor-not-allowed bg-earth-100"}`}
+                               >
+                                 {available&&<span className="pointer-events-none absolute left-1 top-1 hidden rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium text-primary-800 shadow-sm group-hover:block">＋ {startTime} · {availabilityDuration}分</span>}
                               </button>
                             );
                           })}
