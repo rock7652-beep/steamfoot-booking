@@ -30,6 +30,7 @@ type Session = {
   capacity: number;
   pointCost: number;
   requestKey?: string;
+  isFixed?: boolean;
   rescheduledFromStartsAt?: string | null;
   rescheduledFromEndsAt?: string | null;
   rescheduledFromRoomId?: string | null;
@@ -346,7 +347,7 @@ export function CourseScheduleBoard({
                           rooms={rooms}
                           compact
                           businessProfile={businessProfile}
-                          fixed={Boolean(session.requestKey && sessions.some((candidate)=>candidate.id!==session.id&&candidate.requestKey===session.requestKey))}
+                          fixed={session.isFixed}
                           onOpen={() => onOpenSession(session.id, date)}
                         />
                       ))
@@ -691,7 +692,7 @@ export function CourseScheduleBoard({
                               coaches={coaches}
                               rooms={rooms}
                               businessProfile={businessProfile}
-                              fixed={Boolean(session.requestKey && sessions.some((candidate)=>candidate.id!==session.id&&candidate.requestKey===session.requestKey))}
+                              fixed={session.isFixed}
                               dense={musicDense}
                               resourceView={resourceView}
                               onOpen={() => onOpenSession(session.id, selectedDate)}

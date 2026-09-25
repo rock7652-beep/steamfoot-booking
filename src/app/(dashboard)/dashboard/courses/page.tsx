@@ -190,6 +190,14 @@ export default async function CoursesPage({
     ),
   );
   const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
+  const recurringKeys = businessProfile === "MUSIC" && sessions.length
+    ? new Set((await coursePrisma.courseSession.groupBy({
+        by: ["requestKey"],
+        where: { storeId, cancelledAt: null, requestKey: { in: [...new Set(sessions.map((session) => session.requestKey))] } },
+        _count: { id: true },
+        having: { id: { _count: { gt: 1 } } },
+      })).map((row) => row.requestKey))
+    : new Set<string>();
   if (businessProfile === "MUSIC" && businessHours.length > 0 && businessHours.every((row) => row.segments == null)) {
     redirect("/dashboard/courses/hours?tab=weekly&setup=1");
   }
@@ -235,6 +243,7 @@ export default async function CoursesPage({
         staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}
         sessions={sessions.map((s) => ({
           ...s,
+          isFixed: recurringKeys.has(s.requestKey),
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
           rescheduledFromStartsAt: s.rescheduledFromStartsAt?.toISOString() ?? null,
