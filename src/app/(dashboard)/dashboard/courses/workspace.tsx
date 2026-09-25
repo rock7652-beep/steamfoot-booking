@@ -323,6 +323,8 @@ export function CourseWorkspace({
     });
     setMoveChoice(null);
     setMoveWeeksOpen(false);
+    setCourseDialog(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setNotice("");
     setError("");
   }
@@ -680,22 +682,6 @@ export function CourseWorkspace({
             </>
           ) : (
             <>
-            {businessProfile === "MUSIC" && moveChoice && !moveClipboard && (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm">
-                <strong>✂ 調課</strong>
-                <button className={primary} type="button" onClick={()=>beginMove(moveChoice,"SINGLE")}>這堂</button>
-                {moveChoiceIsFixed && (
-                  <>
-                    <button className={button} type="button" onClick={()=>setMoveWeeksOpen((open)=>!open)} aria-expanded={moveWeeksOpen}>連續幾週</button>
-                    <button className={button} type="button" onClick={()=>beginMove(moveChoice,"FUTURE")}>之後都改</button>
-                    {moveWeeksOpen && <div className="flex w-full flex-wrap items-center gap-1 border-t border-earth-100 pt-2" aria-label="選擇連續週數">
-                      {[2,3,4,5,6,7,8].map((weeks)=><button className={button} type="button" key={weeks} onClick={()=>beginMove(moveChoice,"WEEKS",weeks)}>{weeks} 週</button>)}
-                    </div>}
-                  </>
-                )}
-                <button className="ml-auto text-xs text-earth-500" type="button" onClick={()=>{setMoveChoice(null);setMoveWeeksOpen(false);}}>取消</button>
-              </div>
-            )}
             {businessProfile === "MUSIC" && moveClipboard && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
                 <strong>✂ {moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
@@ -2093,14 +2079,31 @@ export function CourseWorkspace({
                       "未指定教室"}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className={button}
-                  onClick={() => setCourseDialog(null)}
-                >
-                  關閉
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && !moveClipboard && (
+                    <button type="button" className={primary} onClick={() => { setMoveChoice(dialogSession); setMoveWeeksOpen(false); }}>
+                      ✂ 調課
+                    </button>
+                  )}
+                  <button type="button" className={button} onClick={() => { setMoveChoice(null); setCourseDialog(null); }}>關閉</button>
+                </div>
               </header>
+              {courseDialog.kind === "roster" && moveChoice?.id === dialogSession.id && !moveClipboard && (
+                <div className="shrink-0 space-y-2 border-b border-indigo-200 bg-indigo-50 px-4 py-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong className="mr-1 text-indigo-900">要調整哪些課？</strong>
+                    <button className={primary} type="button" onClick={() => beginMove(dialogSession, "SINGLE")}>這堂</button>
+                    {moveChoiceIsFixed && <>
+                      <button className={button} type="button" onClick={() => setMoveWeeksOpen((open) => !open)} aria-expanded={moveWeeksOpen}>連續幾週</button>
+                      <button className={button} type="button" onClick={() => beginMove(dialogSession, "FUTURE")}>之後都改</button>
+                    </>}
+                    <button className="ml-auto text-xs text-earth-600" type="button" onClick={() => { setMoveChoice(null); setMoveWeeksOpen(false); }}>返回名單</button>
+                  </div>
+                  {moveChoiceIsFixed && moveWeeksOpen && <div className="flex flex-wrap gap-1" aria-label="選擇連續週數">
+                    {[2,3,4,5,6,7,8].map((weeks) => <button className={button} type="button" key={weeks} onClick={() => beginMove(dialogSession, "WEEKS", weeks)}>{weeks} 週</button>)}
+                  </div>}
+                </div>
+              )}
               <div
                 className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
                   courseDialog.kind === "roster"
@@ -2125,21 +2128,6 @@ export function CourseWorkspace({
                   }
                 />
               </div>
-              {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && (
-                <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
-                  <button
-                    type="button"
-                    className={`${button} w-full`}
-                    onClick={() => {
-                      setMoveChoice(dialogSession);
-                      setMoveWeeksOpen(false);
-                      setCourseDialog(null);
-                    }}
-                  >
-                    ✂ 調課
-                  </button>
-                </footer>
-              )}
               {courseDialog.kind !== "roster" && (
                 <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
                   <button
