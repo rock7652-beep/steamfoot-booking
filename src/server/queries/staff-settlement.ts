@@ -90,6 +90,9 @@ export interface SettlementDetailRow {
   serviceStaffId: string | null;
   serviceStaffName: string;
   walletId: string | null;
+  planName?: string;
+  purchasedPrice?: number;
+  totalSessions?: number;
   amount: number | null;
   amountSource: AmountSource;
   needsReview: boolean;
@@ -212,6 +215,7 @@ export async function previewStaffSettlement(
       customerPlanWallet: {
         select: {
           id: true,
+          plan: { select: { name: true } },
           purchasedPrice: true,
           totalSessions: true,
           transactions: {
@@ -229,7 +233,8 @@ export async function previewStaffSettlement(
               customerPlanWallet: {
                 select: {
                   id: true,
-                  purchasedPrice: true,
+                  plan: { select: { name: true } },
+          purchasedPrice: true,
                   totalSessions: true,
                   transactions: {
                     where: { transactionType: "ADJUSTMENT" },
@@ -315,6 +320,9 @@ export async function previewStaffSettlement(
       serviceStaffId: b.serviceStaffId,
       serviceStaffName: b.serviceStaff?.displayName ?? "—",
       walletId: walletForCalc?.id ?? null,
+      planName: (directWallet ?? (b.isMakeup ? b.makeupCredit?.originalBooking?.customerPlanWallet : null))?.plan?.name,
+      purchasedPrice: walletForCalc?.purchasedPrice,
+      totalSessions: walletForCalc?.totalSessions,
       amount,
       amountSource,
       needsReview,

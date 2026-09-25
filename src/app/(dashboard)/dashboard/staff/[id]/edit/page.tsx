@@ -1,3 +1,4 @@
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
 import { getStaffDetail } from "@/server/queries/staff";
 import { updateStaff, updateStaffPermissionsAction } from "@/server/actions/staff";
 import { getCurrentUser } from "@/lib/session";
@@ -34,6 +35,8 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
   const staff = await getStaffDetail(id, activeStoreId).catch(() => null);
   if (!staff) notFound();
 
+  const isSteamfoot = await getStoreIndustryModule(staff.storeId) === "steamfoot";
+
   // 取得該店長的現有權限
   const currentPerms = staff.isOwner
     ? new Set<PermissionCode>(ALL_PERMISSIONS as unknown as PermissionCode[])
@@ -54,8 +57,8 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
     const result = await updateStaff(id, {
       displayName: formData.get("displayName") as string,
       colorCode: formData.get("colorCode") as string,
-      monthlySpaceFee: monthlyFeeRaw ? Number(monthlyFeeRaw) : 0,
-      spaceFeeEnabled: formData.get("spaceFeeEnabled") === "true",
+      ...(!isSteamfoot ? { monthlySpaceFee: monthlyFeeRaw ? Number(monthlyFeeRaw) : 0,
+      spaceFeeEnabled: formData.get("spaceFeeEnabled") === "true" } : {}),
       ...(roleValue ? { role: roleValue as "OWNER" | "PARTNER" } : {}),
     });
 
@@ -172,6 +175,7 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
             </div>
           </div>
 
+          {isSteamfoot ? <Link href={`/dashboard/staff/${id}/rent`} className="inline-flex min-h-11 items-center text-sm text-primary-700 underline">設定空間租金與租期</Link> : <>
           <div>
             <label className="block text-sm font-medium text-earth-700">每月空間費（元）</label>
             <input
@@ -195,6 +199,8 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
               <option value="false">停用</option>
             </select>
           </div>
+
+          </>}
 
           <div className="flex gap-3 border-t pt-4">
             {canManageStaff && (

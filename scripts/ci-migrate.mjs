@@ -5,6 +5,12 @@ import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "./course-preview-scope.mjs";
 
+// Steamfoot rent preview must never run against the production database.
+if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "codex/steamfoot-rent-monthly") {
+  if (!isIsolatedCourseConnection(process.env.DATABASE_URL) || !isIsolatedCourseConnection(process.env.DIRECT_URL))
+    throw new Error("Steamfoot rent Preview requires the isolated preview database for both connections.");
+}
+
 // Course acceptance preflight: read-only and restricted to this Preview branch.
 // Never print connection strings, credentials, or raw database errors.
 if (requiresCoursePreviewCheck(process.env)) {
