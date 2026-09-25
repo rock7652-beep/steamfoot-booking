@@ -653,9 +653,9 @@ export function CourseScheduleBoard({
                                  onClick={()=>available&&(moveClipboard&&onPasteMove
                                    ? onPasteMove({time:startTime,roomId:targetRoomId,coachId:targetCoachId})
                                    : onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
-                                 className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${available?"bg-white hover:bg-primary-50 active:bg-primary-50":"cursor-not-allowed bg-earth-100"}`}
+                                 className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
                                >
-                                 {available&&<span className="pointer-events-none absolute left-1 top-1 hidden rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium text-primary-800 shadow-sm group-hover:block group-focus-visible:block group-active:block">{moveClipboard?"貼上":"＋"} {startTime}{moveClipboard?"":` · ${availabilityDuration}分`}</span>}
+                                 {available&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard?"貼上":"＋"} {startTime}{moveClipboard?"":` · ${availabilityDuration}分`}</span>}
                                  <span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-300 opacity-0 [@media(pointer:coarse)]:opacity-100" aria-hidden="true">{minute}</span>
                               </button>
                             );
