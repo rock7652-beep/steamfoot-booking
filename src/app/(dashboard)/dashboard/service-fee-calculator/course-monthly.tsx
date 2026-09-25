@@ -27,7 +27,7 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  const people=summarizeSettlement(report.lines),last=report.revisions[0],confirmed=last?.fingerprint===report.fingerprint;
  const [canSettings,canPay,store]=await Promise.all([checkPermission(user.role,user.staffId,"staff.manage"),checkPermission(user.role,user.staffId,"cashbook.create"),prisma.store.findUnique({where:{id:storeId},select:{name:true}})]);
  const total=people.reduce((n,p)=>n+p.profit+p.fee,0),issues=report.lines.filter(l=>l.issue||l.amount===null).length;
- return <PageShell>
+ return <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-2 sm:px-6 sm:py-4">
  <PageHeader title="每月收入結算" subtitle={store?.name??"本店"} actions={<IncomeMonthFilter month={month}/>}/>
  <div className="flex flex-wrap items-center justify-between gap-3">
  <span role="status" className={`rounded-full px-3 py-1 text-sm ${confirmed?"bg-primary-50 text-primary-800":"bg-amber-50 text-amber-900"}`}>{confirmed?"已確認":last?"有異動":"待確認"}</span>
@@ -35,7 +35,7 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  </div>
  <KpiStrip items={[{label:"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/>
  {!!olderMonths.length&&<p className="rounded-lg bg-amber-50 p-3 text-sm">退款／作廢影響先前結算：{olderMonths.map(m=><Link key={m} className="ml-3 underline" href={`/dashboard/service-fee-calculator?month=${m}`}>{m} 查看</Link>)}</p>}
- <div className="grid items-start gap-3 sm:grid-cols-2">
+ <div className="grid grid-cols-2 items-start gap-2">
  {!readOnly&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}
  <CourseMonthlySettings key={report.settings.revision} settings={report.settings} canEdit={canSettings&&!readOnly}/>
  </div>
@@ -54,8 +54,8 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  </CourseMonthlyPeople>
  <div className="space-y-3">
 
- {!!last&&<details className="rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer items-center text-sm">結算紀錄（{report.revisions.length}）</summary>{report.revisions.map(r=><details key={r.id} className="border-t py-2"><summary className="min-h-11 cursor-pointer text-sm">第 {r.revision} 版 · {formatTWDateTime(r.createdAt)}</summary><p className="text-xs text-earth-500">{r.reason}</p>{summarizeSettlement(r.snapshot).map(p=><p key={p.id} className="flex justify-between gap-3 py-2 text-sm"><span>{p.name}</span><span>{p.issues>0?"待核對":money(p.profit+p.fee)}</span></p>)}</details>)}</details>}
- {report.lines.some(l=>l.payments.length>0)&&<details className="rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer items-center text-sm">歷史付款紀錄</summary>{report.lines.filter(l=>l.payments.length>0).map(line=><div key={line.kind+line.id} className="border-t py-3 text-sm"><p className="font-medium">{line.name} · {line.label}</p>{line.payments.map(p=><div key={p.id} className="my-2 space-y-1 rounded bg-earth-50 p-3"><p>{formatTWDateTime(new Date(p.date))} · {money(p.amount)} · {p.voided?"已更正":"已登記"}</p><p>{p.note}{p.reason&&` · ${p.reason}`}</p>{!readOnly&&canPay&&!p.voided&&(line.kind==="PROFIT"?<CourseProfitCorrect paymentId={p.id}/>:<CourseFeeCorrectionButton paymentId={p.id}/>)}</div>)}</div>)}</details>}
+ {!!last&&<details className="group/history rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm"><span>結算紀錄（{report.revisions.length}）</span><span aria-hidden="true" className="group-open/history:hidden">＋</span><span aria-hidden="true" className="hidden group-open/history:inline">－</span></summary>{report.revisions.map(r=><details key={r.id} className="border-t py-2"><summary className="min-h-11 cursor-pointer text-sm">第 {r.revision} 版 · {formatTWDateTime(r.createdAt)}</summary><p className="text-xs text-earth-500">{r.reason}</p>{summarizeSettlement(r.snapshot).map(p=><p key={p.id} className="flex justify-between gap-3 py-2 text-sm"><span>{p.name}</span><span>{p.issues>0?"待核對":money(p.profit+p.fee)}</span></p>)}</details>)}</details>}
+ {report.lines.some(l=>l.payments.length>0)&&<details className="group/history rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm"><span>歷史付款紀錄</span><span aria-hidden="true" className="group-open/history:hidden">＋</span><span aria-hidden="true" className="hidden group-open/history:inline">－</span></summary>{report.lines.filter(l=>l.payments.length>0).map(line=><div key={line.kind+line.id} className="border-t py-3 text-sm"><p className="font-medium">{line.name} · {line.label}</p>{line.payments.map(p=><div key={p.id} className="my-2 space-y-1 rounded bg-earth-50 p-3"><p>{formatTWDateTime(new Date(p.date))} · {money(p.amount)} · {p.voided?"已更正":"已登記"}</p><p>{p.note}{p.reason&&` · ${p.reason}`}</p>{!readOnly&&canPay&&!p.voided&&(line.kind==="PROFIT"?<CourseProfitCorrect paymentId={p.id}/>:<CourseFeeCorrectionButton paymentId={p.id}/>)}</div>)}</div>)}</details>}
  </div>
  </PageShell>;
 }

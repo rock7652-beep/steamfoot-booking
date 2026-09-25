@@ -26,7 +26,7 @@ function useSubmit(){
 }
 export function CourseMonthlySettings({settings,canEdit}:{settings:SettlementSettings;canEdit:boolean}){
  const [profitEnabled,setProfit]=useState(settings.profitEnabled),[feeEnabled,setFee]=useState(settings.feeEnabled),[personalIncomeEnabled,setIncome]=useState(settings.personalIncomeEnabled);const submit=useSubmit();
- return <details className="rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer items-center text-sm">設定</summary><form className="space-y-3 pb-4" onSubmit={e=>{e.preventDefault();submit.run(()=>saveCourseSettlementSettings({profitEnabled,feeEnabled,personalIncomeEnabled,revision:settings.revision}));}}>
+ return <details className="group/settings rounded-lg border border-earth-200 bg-white px-4 open:col-span-2"><summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm"><span>設定</span><span aria-hidden="true" className="group-open/settings:hidden">＋</span><span aria-hidden="true" className="hidden group-open/settings:inline">－</span></summary><form className="space-y-3 pb-4" onSubmit={e=>{e.preventDefault();submit.run(()=>saveCourseSettlementSettings({profitEnabled,feeEnabled,personalIncomeEnabled,revision:settings.revision}));}}>
  <h3 className="font-medium">計算項目</h3>
  <p className="text-sm text-earth-600">變更只影響新購買／新排課，既有紀錄保留。</p>
  <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={profitEnabled} disabled={!canEdit||submit.pending} onChange={e=>setProfit(e.target.checked)}/>計算店長利潤</label>
