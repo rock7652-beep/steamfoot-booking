@@ -234,7 +234,7 @@ export async function previewStaffSettlement(
                 select: {
                   id: true,
                   plan: { select: { name: true } },
-          purchasedPrice: true,
+                  purchasedPrice: true,
                   totalSessions: true,
                   transactions: {
                     where: { transactionType: "ADJUSTMENT" },
