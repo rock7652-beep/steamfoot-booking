@@ -35,7 +35,7 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  </div>
  <KpiStrip items={[{label:"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/>
  {!!olderMonths.length&&<p className="rounded-lg bg-amber-50 p-3 text-sm">退款／作廢影響先前結算：{olderMonths.map(m=><Link key={m} className="ml-3 underline" href={`/dashboard/service-fee-calculator?month=${m}`}>{m} 查看</Link>)}</p>}
- <div className="grid grid-cols-2 items-start gap-2">
+ <div className="flex flex-wrap items-start justify-end gap-2">
  {!readOnly&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}
  <CourseMonthlySettings key={report.settings.revision} settings={report.settings} canEdit={canSettings&&!readOnly}/>
  </div>

@@ -29,8 +29,8 @@ export function CourseMonthlyNotifications({month,revision,enabled,confirmed}:{m
   finally{lock.current=false;setBusy(false);}
  }
  const eligible=summary?.rows.filter(r=>r.status==='READY'||r.status==='FAILED').length??0;
- return <section aria-label="月結通知" className={`rounded-lg border border-earth-200 bg-white px-4 ${open?"col-span-2":""}`}>
- <button type="button" className="flex min-h-11 w-full items-center justify-between text-sm" aria-expanded={open} onClick={()=>{setOpen(!open);if(!open&&!summary&&!blocked)void preview();}}><span>通知人員</span><span aria-hidden="true">{open?'－':'＋'}</span></button>
+ return <section aria-label="月結通知" className={`rounded-lg border border-earth-200 bg-white px-3 ${open?"w-full max-w-xl":""}`}>
+ <button type="button" className="flex min-h-11 w-full items-center justify-between gap-3 text-sm" aria-expanded={open} onClick={()=>{setOpen(!open);if(!open&&!summary&&!blocked)void preview();}}><span>通知人員</span><span aria-hidden="true">{open?'－':'＋'}</span></button>
  {open&&<div className="space-y-3 pb-4">
  {blocked?<p role="status" className="text-sm text-earth-600">{blocked}</p>:<>
  {busy&&<p role="status" className="text-sm">處理中…</p>}
