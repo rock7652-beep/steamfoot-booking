@@ -347,7 +347,7 @@ export async function cancelCourseSession(input: unknown) {
   }
 }
 
-export async function loadCourseSessionDetail(sessionId: string) {
+export async function loadCourseSessionDetail(sessionId: string, rosterOnly = false) {
   try {
     const { user, storeId } = await courseManager("booking.read");
     id.parse(sessionId);
@@ -364,11 +364,11 @@ export async function loadCourseSessionDetail(sessionId: string) {
       user.staffId,
       "booking.create",
     );
-    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true } });
+    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true, teacherNote: true } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const [roster, cards] = await Promise.all([
       getCourseRoster(storeId, sessionId),
-      canCreate ? getCourseCards(storeId) : [],
+      canCreate && !rosterOnly ? getCourseCards(storeId) : [],
     ]);
     return {
       success: true as const,
@@ -379,9 +379,9 @@ export async function loadCourseSessionDetail(sessionId: string) {
           canCreate: canCreate && await checkPermission(user.role,user.staffId,"trial.create"),
           canCollect: await checkPermission(user.role,user.staffId,"trial.confirm"),
           canCorrect: await checkPermission(user.role,user.staffId,"transaction.void"),
-          customers: canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
+          customers: !rosterOnly && canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
-        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost },
+        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote },
         cards: cards.map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],
@@ -391,6 +391,32 @@ export async function loadCourseSessionDetail(sessionId: string) {
   } catch (error) {
     return handleActionError(error);
   }
+}
+
+export async function loadCourseRosterQuick(sessionId: string) {
+  try {
+    const { storeId } = await courseManager("booking.read");
+    id.parse(sessionId);
+    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true}});
+    if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
+    const { getCourseRoster } = await import("@/server/queries/course-members");
+    return {success:true as const, data:{roster:await getCourseRoster(storeId,sessionId),teacherNote:session.teacherNote}};
+  } catch(error) {return handleActionError(error);}
+}
+
+export async function saveCourseRosterNote(input: unknown) {
+  try {
+    const data=z.object({sessionId:id,bookingId:id.optional(),note:z.string().trim().max(1000)}).parse(input);
+    const {storeId}=await courseManager("booking.update");
+    if(data.bookingId) {
+      const result=await coursePrisma.courseBooking.updateMany({where:{id:data.bookingId,sessionId:data.sessionId,storeId,status:{not:"CANCELLED"}},data:{notes:data.note}});
+      if(!result.count)throw new AppError("NOT_FOUND","找不到本店學員預約");
+    } else {
+      const result=await coursePrisma.courseSession.updateMany({where:{id:data.sessionId,storeId,cancelledAt:null},data:{teacherNote:data.note}});
+      if(!result.count)throw new AppError("NOT_FOUND","找不到本店課程");
+    }
+    refresh();return {success:true as const};
+  } catch(error) {return handleActionError(error);}
 }
 
 export async function markCourseCoachAttendance(input: unknown) {

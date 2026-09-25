@@ -59,6 +59,7 @@ model CourseSession {
   roomId         String
   coachId        String
   nameSnapshot   String
+  teacherNote    String @default("")
   startsAt       DateTime @db.Timestamptz(3)
   endsAt         DateTime @db.Timestamptz(3)
   pointCost      Int
