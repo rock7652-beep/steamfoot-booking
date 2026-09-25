@@ -70,6 +70,8 @@ model CourseSession {
   createdAt      DateTime @default(now())
   rescheduledFromStartsAt DateTime? @db.Timestamptz(3)
   rescheduledFromEndsAt   DateTime? @db.Timestamptz(3)
+  rescheduledFromRoomId   String?
+  rescheduledFromCoachId  String?
   rescheduleKind          String?
   rescheduledAt           DateTime? @db.Timestamptz(3)
   rescheduledById         String?
