@@ -1,4 +1,5 @@
 "use client";
+import { getCourseCheckoutCashStatus } from "@/server/actions/course-checkout-status";
 import { useEffect, useState } from "react";
 import { calculateCourseSaleAllocation } from "@/lib/course-sale-allocation";
 import { calculateCourseCheckout, COURSE_PAYMENT_LABELS } from "@/lib/course-checkout";
@@ -12,7 +13,28 @@ export function CourseAssignmentPayment({profitEnabled=true,price,canDiscount,st
   let total:ReturnType<typeof calculateCourseCheckout>|null=null;
   try {if(!canDiscount||offer==="NONE"||(value!==""&&(offer!=="RATE"||Number(value)>0)))total=calculateCourseCheckout(price,kind,discountValue);}catch{}
   const paid=total?.paid??null;
-  const valid=paid!==null&&(!profitEnabled||paid>=storeCost)&&(paid===0||(!!method&&(method!=="BANK_TRANSFER"||/^\d{4}$/.test(lastFour))));
+  const [cashStatus,setCashStatus]=useState("LOADING");
+  const [cashCheck,setCashCheck]=useState(0);
+  const needsCash=method==="CASH"&&paid!==null&&paid>0;
+  useEffect(()=>{
+    if(!needsCash)return;
+    let active=true;
+    let sequence=0;
+    async function check(){
+      const request=++sequence;
+      setCashStatus("LOADING");
+      try {
+        const result=await getCourseCheckoutCashStatus();
+        if(active&&request===sequence)setCashStatus(result.success?result.status??"MISSING":"ERROR");
+      } catch {if(active&&request===sequence)setCashStatus("ERROR");}
+    }
+    function visible(){if(document.visibilityState==="visible")void check();}
+    void check();
+    window.addEventListener("focus",check);
+    document.addEventListener("visibilitychange",visible);
+    return ()=>{active=false;window.removeEventListener("focus",check);document.removeEventListener("visibilitychange",visible);};
+  },[needsCash,cashCheck]);
+  const valid=(!needsCash||cashStatus==="OPEN")&&paid!==null&&(!profitEnabled||paid>=storeCost)&&(paid===0||(!!method&&(method!=="BANK_TRANSFER"||/^\d{4}$/.test(lastFour))));
   useEffect(()=>{onSummary?.({paid,valid});},[paid,valid,onSummary]);
   const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white p-2 text-base";
   return <section className="min-w-0 space-y-3" aria-labelledby="assignment-payment-title">
@@ -30,7 +52,13 @@ export function CourseAssignmentPayment({profitEnabled=true,price,canDiscount,st
     {profitEnabled&&paid!==null&&paid<storeCost&&<p role="alert" className="text-sm text-red-700">實收低於店家成本，請核對優惠；尚不能結帳。</p>}
     {showAllocation&&paid!==null&&(!profitEnabled||paid>=storeCost)&&<p className="text-sm text-earth-600">店家成本 NT$ {storeCost.toLocaleString()} · 開發人所得 NT$ {calculateCourseSaleAllocation(paid,storeCost).developerAmount.toLocaleString()}</p>}
     {paid===0?<><input type="hidden" name="paymentMethod" value="OTHER"/><p className="text-sm text-earth-600">全額折抵：保留購買與方案紀錄，不建立收款收入。</p></>:<>
-      <label className="block">已收款方式<select name="paymentMethod" className={field} value={method} onChange={e=>setMethod(e.target.value)} required><option value="">請選擇已收款方式</option>{["CASH","BANK_TRANSFER","CARD","OTHER"].map(m=><option key={m} value={m}>{COURSE_PAYMENT_LABELS[m]}</option>)}</select></label>
+      <label className="block">已收款方式<select name="paymentMethod" className={field} value={method} onChange={e=>{setCashStatus("LOADING");setMethod(e.target.value);}} required><option value="">請選擇已收款方式</option>{["CASH","BANK_TRANSFER","CARD","OTHER"].map(m=><option key={m} value={m}>{COURSE_PAYMENT_LABELS[m]}</option>)}</select></label>
+      {needsCash&&<div role="status" className="text-sm text-earth-600">
+        {cashStatus==="OPEN"?"今日現金抽屜已開啟":cashStatus==="LOADING"?"確認現金抽屜中…":<>
+          <p>{cashStatus==="ERROR"?"無法確認現金抽屜，請重試。":cashStatus==="CLOSED"?"今日現金抽屜已結帳，請先處理。":"請先開啟今日現金抽屜。"}</p>
+          <div className="flex flex-wrap gap-3"><a className="inline-flex min-h-11 items-center underline" href="/dashboard/cash-drawer" target="_blank" rel="noopener noreferrer">開啟現金抽屜（新分頁）</a><button type="button" className="min-h-11 underline" onClick={()=>setCashCheck(n=>n+1)}>重新確認</button></div>
+        </>}
+      </div>}
       {method==="BANK_TRANSFER"&&<label className="block">轉帳帳號後四碼<input name="transferLastFour" className={field} inputMode="numeric" pattern="[0-9]{4}" minLength={4} maxLength={4} required placeholder="例如 1234" value={lastFour} onChange={e=>setLastFour(e.target.value)}/></label>}
       <p className="text-sm text-earth-500">請核對已收款再確認；此處只登錄，不會自動扣款。</p>
     </>}

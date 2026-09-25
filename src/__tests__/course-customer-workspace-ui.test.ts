@@ -4,6 +4,7 @@ import {createRoot,type Root} from "react-dom/client";
 import {beforeEach,afterEach,it,expect,vi} from "vitest";
 vi.mock("@/server/actions/course-browse",()=>({browseCourseCards:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false}),searchCourseCustomers:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false})}));
 vi.mock("@/components/admin/course-batch-selection",()=>({CourseBatchBar:()=>null}));
+vi.mock("@/server/actions/course-checkout-status",()=>({getCourseCheckoutCashStatus:vi.fn().mockResolvedValue({success:true,status:"OPEN"})}));
 const m=vi.hoisted(()=>({save:vi.fn(),refresh:vi.fn()}));
 vi.mock("next/navigation",()=>({usePathname:()=>"/dashboard/courses",useRouter:()=>({refresh:m.refresh,replace:vi.fn()}),useSearchParams:()=>new URLSearchParams("customerId=person")}));
 vi.mock("@/components/admin/right-sheet",()=>({RightSheet:({children}:{children:unknown})=>children}));
@@ -44,6 +45,6 @@ it("separates plan products and held plans into compact views",async()=>{
  expect(host.textContent).not.toContain("搜尋方案／共卡成員");
  await click("顧客持有方案");
  expect(host.querySelector('input[placeholder="搜尋方案／共卡成員"]')).not.toBeNull();
- expect([...host.querySelectorAll("button")].map(button=>button.textContent)).toContain("指派方案");
+ expect([...host.querySelectorAll("button")].map(button=>button.textContent)).toContain("購買方案");
  expect(host.textContent).not.toContain("單位價格");
 });

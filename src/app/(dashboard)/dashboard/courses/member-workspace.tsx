@@ -191,7 +191,7 @@ export function CourseMemberWorkspace({
         if (person && (panel === "card" || panel === "assign")) { setPanel("person"); setPersonTab("plans"); setEditingPerson(false); }
         else setPanel(null);
         if (panel === "plan") toast.success("方案已儲存");
-        else setNotice("已儲存");
+        else setNotice(panel === "assign" ? "結帳完成，方案已加入" : "已儲存");
         router.refresh();
       } catch {
         setError("連線中斷，請重試");
@@ -276,7 +276,7 @@ export function CourseMemberWorkspace({
             disabled={!people.length || !plans.some((p) => p.isActive)}
             onClick={() => { setPerson(null); open("assign"); setRevenueStaffId(""); }}
           >
-            指派方案
+            購買方案
           </button>
         )}
       </div>
@@ -350,7 +350,7 @@ export function CourseMemberWorkspace({
                 : panel === "health" ? `${person?.name ?? "顧客"} · 健康追蹤` : panel === "plan"
                   ? plan ? "編輯方案" : "新增方案"
                   : panel === "assign"
-                    ? "指派方案"
+                    ? "購買方案"
                     : panel === "coach"
                       ? "加入為教練"
                       : "方案與共卡"}
@@ -406,7 +406,7 @@ export function CourseMemberWorkspace({
               <div className="flex flex-wrap gap-2">
 
                 {personTab === "info" && canManageStaff && <button className={button} onClick={() => open("coach")}>加入為教練</button>}
-                {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>指派方案</button>}
+                {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>購買方案</button>}
               </div>
               {canReadCards && personTab === "plans" && <section aria-label="持有與共卡方案">
                 <CourseCardBrowser customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
@@ -670,7 +670,7 @@ export function CourseMemberWorkspace({
                 className={`${button} w-full bg-primary-700 text-white`}
                 disabled={pending || (panel === "card" && (cardLoading || !!error)) || (panel === "assign" && (!planId || !assignmentSummary.valid))}
               >
-                {pending ? "儲存中…" : panel === "assign" ? "確認結帳並指派方案" : panel === "card" ? "儲存共卡成員" : "儲存"}
+                {pending ? "儲存中…" : panel === "assign" ? "確認結帳" : panel === "card" ? "儲存共卡成員" : "儲存"}
               </button>
             </footer>
           )}
