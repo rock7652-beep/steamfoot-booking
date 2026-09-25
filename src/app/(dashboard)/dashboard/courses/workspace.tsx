@@ -8,6 +8,7 @@ import { CourseRoster } from "./roster";
 import {
   CourseScheduleBoard,
   type CourseScheduleMode,
+  type CourseMoveClipboard,
 } from "./course-schedule-board";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
@@ -25,6 +26,7 @@ import {
   updateCourseRoom,
   updateCourseTemplate,
   updateCourseSession,
+  moveCourseSessions,
   setCourseCatalogStatus,
   batchCourseTemplates,
 } from "@/server/actions/course";
@@ -64,6 +66,13 @@ type Session = {
   roomId: string;
   capacity: number;
   pointCost: number;
+  requestKey?: string;
+  rescheduledFromStartsAt?: string | null;
+  rescheduledFromEndsAt?: string | null;
+  rescheduledFromRoomId?: string | null;
+  rescheduledFromCoachId?: string | null;
+  rescheduleKind?: string | null;
+  rescheduledAt?: string | null;
 };
 type Props = {
   selectedDate: string;
@@ -269,7 +278,53 @@ export function CourseWorkspace({
   const [roomCapacityNotice, setRoomCapacityNotice] = useState("");
   const [extraDateKeys, setExtraDateKeys] = useState<string[]>([]);
   const [copySource, setCopySource] = useState<Session | null>(null);
+  const [moveChoice, setMoveChoice] = useState<Session | null>(null);
+  const [moveWeeks, setMoveWeeks] = useState(2);
+  const [moveClipboard, setMoveClipboard] = useState<CourseMoveClipboard | null>(null);
   const [scheduleSeed,setScheduleSeed]=useState<{time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
+  function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
+    const durationMinutes = Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
+    setMoveClipboard({
+      sessionId: session.id,
+      templateId: session.templateId,
+      coachId: session.coachId,
+      roomId: session.roomId,
+      durationMinutes,
+      scope,
+      weeks,
+      label: session.bookings[0]?.customerName || session.nameSnapshot,
+    });
+    setMoveChoice(null);
+    setNotice("");
+    setError("");
+  }
+  function pasteMove(value: {time:string;roomId:string;coachId:string}) {
+    if (!moveClipboard || pending) return;
+    setError("");
+    setNotice("");
+    startTransition(async () => {
+      try {
+        const result = await moveCourseSessions({
+          id: moveClipboard.sessionId,
+          scope: moveClipboard.scope,
+          weeks: moveClipboard.weeks,
+          date: selectedDate,
+          time: value.time,
+          roomId: value.roomId,
+          coachId: value.coachId,
+        });
+        if (!result.success) {
+          setError(result.error ?? "這裡目前不能貼上");
+          return;
+        }
+        setMoveClipboard(null);
+        setNotice("已調課");
+        router.refresh();
+      } catch {
+        setError("調課失敗，原課程保留。");
+      }
+    });
+  }
   function openSchedule(seed: {time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     setCopySource(null);
     setScheduleSeed(seed);
@@ -596,6 +651,29 @@ export function CourseWorkspace({
           </div>
             </>
           ) : (
+            <>
+            {businessProfile === "MUSIC" && moveChoice && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm">
+                <strong>調整時間</strong>
+                <button className={button} type="button" onClick={()=>beginMove(moveChoice,"SINGLE")}>這堂</button>
+                <span className="inline-flex items-center gap-1">
+                  <select className="min-h-10 rounded-lg border border-earth-200 bg-white px-2" value={moveWeeks} onChange={(event)=>setMoveWeeks(Number(event.target.value))} aria-label="連續週數">
+                    {[2,3,4,5,6,7,8].map((weeks)=><option key={weeks} value={weeks}>{weeks} 週</option>)}
+                  </select>
+                  <button className={button} type="button" onClick={()=>beginMove(moveChoice,"WEEKS",moveWeeks)}>連續</button>
+                </span>
+                <button className={button} type="button" onClick={()=>beginMove(moveChoice,"FUTURE")}>之後都改</button>
+                <button className="ml-auto text-xs text-earth-500" type="button" onClick={()=>setMoveChoice(null)}>取消</button>
+              </div>
+            )}
+            {businessProfile === "MUSIC" && moveClipboard && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+                <strong>✂ {moveClipboard.label}</strong>
+                <span>{moveClipboard.durationMinutes} 分</span>
+                <span className="text-indigo-700">選白格貼上</span>
+                <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
+              </div>
+            )}
             <CourseScheduleBoard
               businessProfile={businessProfile}
               mode={scheduleMode}
@@ -610,12 +688,15 @@ export function CourseWorkspace({
               staffAvailabilityExceptions={staffAvailabilityExceptions}
               storePeriods={calendarDays[selectedDate]?.periods ?? []}
               onOpenEmpty={({time,roomId,coachId,durationMinutes})=>openSchedule({time,roomId,coachId,durationMinutes})}
+              moveClipboard={moveClipboard}
+              onPasteMove={pasteMove}
               onSelectDate={go}
               onOpenSession={(sessionId, date) => {
                 go(date);
                 setCourseDialog({ sessionId, kind: "roster" });
               }}
             />
+            </>
           )}
           <p
             role="status"
@@ -2015,6 +2096,21 @@ export function CourseWorkspace({
                   }
                 />
               </div>
+              {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && (
+                <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
+                  <button
+                    type="button"
+                    className={`${button} w-full`}
+                    onClick={() => {
+                      setMoveChoice(dialogSession);
+                      setMoveWeeks(2);
+                      setCourseDialog(null);
+                    }}
+                  >
+                    調整時間
+                  </button>
+                </footer>
+              )}
               {courseDialog.kind !== "roster" && (
                 <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
                   <button
