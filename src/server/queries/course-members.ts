@@ -71,6 +71,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
       operatorName: true,
       customerName: true,
       status: true,
+      absenceKind: true,
+      cardId: true,
       pointCost: true,
       bookingKind: true,
       trialPrice: true,
@@ -84,6 +86,16 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
   const customers = await prisma.customer.findMany({
     where: { storeId, id: { in: bookings.map((b) => b.customerId) } },
     select: { id: true, phone: true, serviceNote: true, notes: true },
+  });
+  const leaveCounts = await coursePrisma.courseBooking.groupBy({
+    by: ["customerId"],
+    where: {storeId, customerId:{in:bookings.map(b=>b.customerId)}, OR:[{absenceKind:"STUDENT_LEAVE"},{status:"NO_SHOW"}]},
+    _count: {id:true},
+  });
+  const absenceHistory = await coursePrisma.courseBooking.findMany({
+    where: {storeId,customerId:{in:bookings.map(b=>b.customerId)},OR:[{absenceKind:"STUDENT_LEAVE"},{status:"NO_SHOW"}]},
+    select:{customerId:true,status:true,absenceKind:true,session:{select:{startsAt:true}}},
+    orderBy:{session:{startsAt:"desc"}},
   });
   return bookings.map(({ card, checkedInAt, ...b }) => ({
     ...b,
@@ -102,6 +114,8 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     available: !card || card.expiresAt.getTime() < Date.now() ? 0 : Math.max(0, card.remaining - card.bookings.reduce((n, b) => n + b.pointCost, 0)),
     expiresAt: card?.expiresAt.toISOString() ?? null,
     customerPhone: customers.find((c) => c.id === b.customerId)?.phone ?? "",
+    absenceCount: leaveCounts.find((item)=>item.customerId===b.customerId)?._count.id??0,
+    absenceHistory: absenceHistory.filter(item=>item.customerId===b.customerId).map(item=>({date:item.session.startsAt.toISOString(),status:item.absenceKind === "STUDENT_LEAVE" ? "請假" : "曠課"})),
     serviceNote: [customers.find((c) => c.id === b.customerId)?.serviceNote, customers.find((c) => c.id === b.customerId)?.notes].filter(Boolean).join("\n"),
   }));
 }

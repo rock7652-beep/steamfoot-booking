@@ -60,7 +60,7 @@ export default async function CoursesPage({
   ).end;
   const cancelledBookings = await coursePrisma.courseBooking.findMany({
     where: { storeId, status: "CANCELLED", session: { cancelledAt: null, startsAt: { gte: scheduleStart, lte: scheduleEnd } } },
-    select: { id: true, customerName: true, sessionId: true },
+    select: { id: true, customerName: true, sessionId: true, absenceKind: true },
     orderBy: { updatedAt: "desc" },
   });
   const [

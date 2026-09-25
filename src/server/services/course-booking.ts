@@ -229,7 +229,7 @@ export async function settleCourseBooking(
   tx: Prisma.TransactionClient,
   actor: CourseActor,
   bookingId: string,
-  target: "CANCELLED" | "ATTENDED" | "CHECKED_IN" | "NO_SHOW",
+  target: "CANCELLED" | "ATTENDED" | "CHECKED_IN" | "NO_SHOW" | "STUDENT_LEAVE",
   noShowChoice: CourseNoShowChoice = "DEDUCTED",
 ) {
   const booking = await tx.courseBooking.findFirst({
@@ -243,8 +243,10 @@ export async function settleCourseBooking(
   )
     return fail("無權操作此共卡預約");
   if (booking.status === target) return booking;
+  if (target === "STUDENT_LEAVE" && booking.status === "CANCELLED" && booking.absenceKind === "STUDENT_LEAVE") return booking;
   if (booking.status !== "RESERVED")
     return fail("此預約已結算或取消，不能重複操作");
+  if (target === "STUDENT_LEAVE" && actor.customerId) return fail("請假登記僅限有權限的人員");
   if (target === "CHECKED_IN" || target === "NO_SHOW") {
     if (actor.customerId) return fail("點名僅限有權限的人員");
     if (target === "NO_SHOW" && booking.session.startsAt > new Date() && !allowEarlyPilotAttendance())
@@ -287,9 +289,9 @@ export async function settleCourseBooking(
   }
   const updated = await tx.courseBooking.update({
     where: { id: booking.id },
-    data: { status: target },
+    data: { status: target === "STUDENT_LEAVE" ? "CANCELLED" : target, absenceKind: target === "STUDENT_LEAVE" ? "STUDENT_LEAVE" : null },
   });
-  if (!booking.cardId) { await auditTrialAttendance(tx,actor,booking.id,booking.status,target); return updated; }
+  if (!booking.cardId) { if (booking.bookingKind === "TRIAL") await auditTrialAttendance(tx,actor,booking.id,booking.status,target); return updated; }
   const kind = shouldDebit ? "DEBIT" : "RELEASE";
   const previousEntry = await tx.coursePointEntry.findUnique({where:{bookingId_kind:{bookingId:booking.id,kind}}});
   await tx.coursePointEntry.create({
@@ -305,6 +307,7 @@ export async function settleCourseBooking(
   if (
     target === "NO_SHOW" &&
     noShowChoice === "DEDUCTED_WITH_MAKEUP" &&
+    !booking.card?.termSessionIds?.length &&
     booking.card
   ) {
     const expiresAt = new Date();
@@ -353,10 +356,10 @@ export async function correctCourseAttendance(
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
   if (b.session.startsAt > new Date() && !allowEarlyPilotAttendance()) return fail("課程尚未開始，不能點名");
-  if (!b.card || !b.cardId) { await auditTrialAttendance(tx,actor,b.id,b.status,target); return tx.courseBooking.update({where:{id:b.id},data:{status:target,checkedInAt:target === "ATTENDED" ? new Date() : null}}); }
+  if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); return tx.courseBooking.update({where:{id:b.id},data:{status:target,checkedInAt:target === "ATTENDED" ? new Date() : null}}); }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
-  const wasDebited=b.status==="ATTENDED"||(b.status==="NO_SHOW"&&!!b.card.termSessionIds?.length);
-  const willDebit=target==="ATTENDED"||(target==="NO_SHOW"&&!!b.card.termSessionIds?.length);
+  const wasDebited=b.status==="ATTENDED"||b.status==="NO_SHOW";
+  const willDebit=target==="ATTENDED"||target==="NO_SHOW";
   const remaining = b.card.remaining + (wasDebited ? b.pointCost : 0);
   if ((willDebit || target === "RESERVED") && remaining - (held._sum.pointCost ?? 0) < b.pointCost) return fail("方案可用額度不足，無法更正");
   const delta = (wasDebited ? b.pointCost : 0) - (willDebit ? b.pointCost : 0);

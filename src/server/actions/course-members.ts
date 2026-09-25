@@ -266,7 +266,7 @@ export async function updateCourseBookingStatus(input: unknown) {
     const data = z
       .object({
         bookingId: id,
-        status: z.enum(["CANCELLED", "ATTENDED", "CHECKED_IN", "NO_SHOW"]),
+        status: z.enum(["CANCELLED", "ATTENDED", "CHECKED_IN", "NO_SHOW", "STUDENT_LEAVE"]),
         noShowChoice: z
           .enum(["DEDUCTED", "DEDUCTED_WITH_MAKEUP"])
           .optional(),
@@ -289,7 +289,7 @@ export async function updateCourseBookingStatus(input: unknown) {
       actor = { userId: user.id, storeId, name: user.name ?? "店長" };
     }
     await courseTransaction(actor.storeId, async (tx) => {
-      if (!data.member && data.status === "CANCELLED") {
+      if (!data.member && (data.status === "CANCELLED" || data.status === "STUDENT_LEAVE")) {
         const booking = await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId:actor.storeId},select:{bookingKind:true}});
         if (booking?.bookingKind === "TRIAL") await courseManager("trial.cancel");
       }
@@ -364,7 +364,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
       user.staffId,
       "booking.create",
     );
-    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true, teacherNote: true } });
+    const session = await coursePrisma.courseSession.findFirst({ where: { id: sessionId, storeId }, select: { startsAt: true, pointCost: true, teacherNote: true, teacherAttendance:true,teacherAttendanceReason:true,teacherMakeupForSessionId:true } });
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const [roster, cards] = await Promise.all([
       getCourseRoster(storeId, sessionId),
@@ -381,7 +381,7 @@ export async function loadCourseSessionDetail(sessionId: string, rosterOnly = fa
           canCorrect: await checkPermission(user.role,user.staffId,"transaction.void"),
           customers: !rosterOnly && canCreate && await checkPermission(user.role,user.staffId,"trial.create") ? await prisma.customer.findMany({where:{storeId,mergedIntoCustomerId:null},select:{id:true,name:true,phone:true},orderBy:{name:"asc"}}) : [],
         },
-        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote },
+        session: { startsAt: session.startsAt.toISOString(), pointCost: session.pointCost, teacherNote: session.teacherNote, teacherAttendance:session.teacherAttendance, teacherAttendanceReason:session.teacherAttendanceReason,teacherMakeupForSessionId:session.teacherMakeupForSessionId },
         cards: cards.map((card) => ({
           ...card,
           entries: canReadCards ? card.entries : [],
@@ -397,10 +397,10 @@ export async function loadCourseRosterQuick(sessionId: string) {
   try {
     const { storeId } = await courseManager("booking.read");
     id.parse(sessionId);
-    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true}});
+    const session = await coursePrisma.courseSession.findFirst({where:{id:sessionId,storeId,cancelledAt:null},select:{teacherNote:true,teacherAttendance:true,teacherAttendanceReason:true}});
     if (!session) throw new AppError("NOT_FOUND", "找不到本店課程");
     const { getCourseRoster } = await import("@/server/queries/course-members");
-    return {success:true as const, data:{roster:await getCourseRoster(storeId,sessionId),teacherNote:session.teacherNote}};
+    return {success:true as const, data:{roster:await getCourseRoster(storeId,sessionId),teacherNote:session.teacherNote,teacherAttendance:session.teacherAttendance,teacherAttendanceReason:session.teacherAttendanceReason}};
   } catch(error) {return handleActionError(error);}
 }
 
@@ -417,6 +417,20 @@ export async function saveCourseRosterNote(input: unknown) {
     }
     refresh();return {success:true as const};
   } catch(error) {return handleActionError(error);}
+}
+
+export async function markCourseTeacherAttendance(input: unknown) {
+  try {
+    const data=z.object({sessionId:id,status:z.enum(["SCHEDULED","NO_SHOW","LEAVE"]),reason:z.string().trim().max(500).default("")}).parse(input);
+    const {user,storeId}=await courseManager("booking.update");
+    await courseTransaction(storeId,async(tx)=>{
+      const existing=await tx.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null},select:{id:true,teacherAttendance:true}});
+      if(!existing)throw new AppError("NOT_FOUND","找不到本店課程");
+      const result=await tx.courseSession.updateMany({where:{id:data.sessionId,storeId,teacherAttendance:existing.teacherAttendance},data:{teacherAttendance:data.status,teacherAttendanceReason:data.status==="SCHEDULED"?"":data.reason,teacherAttendanceAt:data.status==="SCHEDULED"?null:new Date(),teacherAttendanceById:data.status==="SCHEDULED"?null:user.id}});
+      if(!result.count)throw new AppError("CONFLICT","老師狀態已更新，請重新整理");
+    });
+    refresh();return {success:true as const};
+  } catch(error){return handleActionError(error);}
 }
 
 export async function markCourseCoachAttendance(input: unknown) {

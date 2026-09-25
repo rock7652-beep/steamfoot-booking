@@ -89,7 +89,7 @@ type Props = {
   templates: Template[];
   sessions: Session[];
   coaches: { id: string; displayName: string; phone: string; status: string;courseCoachEnabled:boolean;courseQualificationsConfirmed:boolean;courseQualifiedTemplateIds:string[] }[];
-  cancelledBookings: {id:string;customerName:string;sessionId:string}[];
+  cancelledBookings: {id:string;customerName:string;sessionId:string;absenceKind:string|null}[];
   canCreate: boolean;
   canDelete?: boolean;
   canEdit: boolean;
@@ -256,11 +256,11 @@ export function CourseWorkspace({
   );
   const dailySessions = sessions.filter((session) => toLocalDateStr(new Date(session.startsAt)) === selectedDate);
   const absentStudents = dailySessions.flatMap((session) => session.bookings.filter((booking) => booking.status === "RESERVED" && new Date(session.startsAt).getTime() <= Date.now()).map((booking) => ({ session, name: booking.customerName })));
-  const cancelledStudents = cancelledBookings.flatMap((booking) => {
+  const leaveStudents = cancelledBookings.filter(booking=>booking.absenceKind === "STUDENT_LEAVE").flatMap((booking) => {
     const session = dailySessions.find((item) => item.id === booking.sessionId);
     return session ? [{ session, name: booking.customerName }] : [];
   });
-  const [dailyList, setDailyList] = useState<"cancelled" | "unmarked" | null>(null);
+  const [dailyList, setDailyList] = useState<"leave" | "unmarked" | null>(null);
   const byDate = new Map<string, Session[]>();
   for (const session of filteredScheduleSessions) {
     const day = toLocalDateStr(new Date(session.startsAt));
@@ -698,13 +698,13 @@ export function CourseWorkspace({
               </div>
             )}
             {businessProfile === "MUSIC" && <div className="flex flex-wrap gap-2 text-sm">
-              <button type="button" className={button} onClick={() => setDailyList("cancelled")}>請假／取消學員 {cancelledStudents.length}</button>
+              <button type="button" className={button} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
               <button type="button" className={button} onClick={() => setDailyList("unmarked")}>未簽到學員 {absentStudents.length}</button>
             </div>}
-            {dailyList && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label={dailyList === "cancelled" ? "請假與取消學員清單" : "未簽到學員清單"} onClick={() => setDailyList(null)}>
+            {dailyList && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label={dailyList === "leave" ? "請假學員清單" : "未簽到學員清單"} onClick={() => setDailyList(null)}>
               <div className="flex max-h-[85dvh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
-                <header className="flex items-center justify-between border-b border-earth-200 p-4"><h2 className="font-semibold">{selectedDate} · {dailyList === "cancelled" ? "請假／取消學員" : "未簽到學員"}</h2><button type="button" className={button} onClick={() => setDailyList(null)}>關閉</button></header>
-                <div className="overflow-y-auto p-4"><ul className="divide-y divide-earth-100">{(dailyList === "cancelled" ? cancelledStudents : absentStudents).map(({ session, name }, index) => <li key={`${session.id}-${name}-${index}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 text-sm"><strong className="min-w-24">{name}</strong><span>{formatTWDateTime(new Date(session.startsAt)).slice(11,16)} · {session.nameSnapshot}</span><span className="text-earth-600">{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? "未指定老師"}</span><button type="button" className="ml-auto text-primary-700 underline" onClick={() => {setDailyList(null);setCourseDialog({sessionId:session.id,kind:"roster"});}}>查看課程</button></li>)}</ul>{!(dailyList === "cancelled" ? cancelledStudents : absentStudents).length && <p className="py-8 text-center text-sm text-earth-500">當日沒有學員</p>}</div>
+                <header className="flex items-center justify-between border-b border-earth-200 p-4"><h2 className="font-semibold">{selectedDate} · {dailyList === "leave" ? "請假學員" : "未簽到學員"}</h2><button type="button" className={button} onClick={() => setDailyList(null)}>關閉</button></header>
+                <div className="overflow-y-auto p-4"><ul className="divide-y divide-earth-100">{(dailyList === "leave" ? leaveStudents : absentStudents).map(({ session, name }, index) => <li key={`${session.id}-${name}-${index}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 text-sm"><strong className="min-w-24">{name}</strong><span>{formatTWDateTime(new Date(session.startsAt)).slice(11,16)} · {session.nameSnapshot}</span><span className="text-earth-600">{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? "未指定老師"}</span><button type="button" className="ml-auto text-primary-700 underline" onClick={() => {setDailyList(null);setCourseDialog({sessionId:session.id,kind:"roster"});}}>查看課程</button></li>)}</ul>{!(dailyList === "leave" ? leaveStudents : absentStudents).length && <p className="py-8 text-center text-sm text-earth-500">當日沒有學員</p>}</div>
               </div>
             </div>}
             <CourseScheduleBoard
@@ -2145,6 +2145,8 @@ export function CourseWorkspace({
                   musicLayout={courseDialog.kind === "roster" && businessProfile === "MUSIC"}
                   teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? "未指定老師"}
                   teacherPhone={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.phone ?? ""}
+                  coachId={dialogSession.coachId}
+                  roomId={dialogSession.roomId}
                   roomName={allRooms.find((room) => room.id === dialogSession.roomId)?.name ?? "未指定教室"}
                   courseName={dialogSession.nameSnapshot}
                   onDone={() => setCourseDialog(null)}

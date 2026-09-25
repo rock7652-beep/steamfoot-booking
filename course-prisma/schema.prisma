@@ -60,6 +60,11 @@ model CourseSession {
   coachId        String
   nameSnapshot   String
   teacherNote    String @default("")
+  teacherAttendance String @default("SCHEDULED")
+  teacherAttendanceAt DateTime? @db.Timestamptz(3)
+  teacherAttendanceById String?
+  teacherAttendanceReason String @default("")
+  teacherMakeupForSessionId String? @unique
   startsAt       DateTime @db.Timestamptz(3)
   endsAt         DateTime @db.Timestamptz(3)
   pointCost      Int
@@ -186,6 +191,7 @@ model CourseBooking {
   status String @default("RESERVED")
   checkedInAt DateTime? @db.Timestamptz(3)
   notes String @default("")
+  absenceKind String?
   requestKey String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

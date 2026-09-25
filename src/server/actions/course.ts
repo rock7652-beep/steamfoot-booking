@@ -17,6 +17,35 @@ import {
 } from "@/lib/course-scheduling";
 import { formatTWDateTime, parseTaipeiDateTime } from "@/lib/date-utils";
 
+export async function scheduleTeacherMakeup(input: unknown) {
+  try {
+    const {user,storeId}=await writableStore("booking.create");
+    const data=z.object({sourceSessionId:z.string().min(1),date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),time:z.string().regex(/^([01]\d|2[0-3]):(?:00|30)$/),roomId:z.string().min(1),coachId:z.string().min(1)}).parse(input);
+    const startsAt=parseTaipeiDateTime(data.date,data.time);
+    if(!startsAt || startsAt <= new Date())throw new AppError("VALIDATION","請選擇未來的補課時段");
+    const created=await courseTransaction(storeId,async(tx)=>{
+      const source=await tx.courseSession.findFirst({where:{id:data.sourceSessionId,storeId,cancelledAt:null},include:{bookings:{where:{status:{not:"CANCELLED"}}}}});
+      if(!source || source.teacherAttendance!=="NO_SHOW")throw new AppError("VALIDATION","請先記錄老師曠課");
+      if(!source.bookings.length)throw new AppError("VALIDATION","這堂沒有需要補課的學員");
+      if(source.bookings.some(booking=>booking.status==="ATTENDED"))throw new AppError("CONFLICT","這堂已有出席紀錄，請先核對再安排免費補課");
+      if(await tx.courseSession.findFirst({where:{storeId,teacherMakeupForSessionId:source.id,cancelledAt:null}}))throw new AppError("CONFLICT","這堂已安排免費補課");
+      const endsAt=new Date(startsAt.getTime()+source.endsAt.getTime()-source.startsAt.getTime());
+      if(endsAt.getTime()<=startsAt.getTime())throw new AppError("VALIDATION","課程時長不正確");
+      const range={startsAt,endsAt};
+      await assertCourseResources(tx,storeId,{templateId:source.templateId,roomId:data.roomId,coachId:data.coachId,capacity:source.capacity},source);
+      await assertCourseSessionsFitHours(tx,storeId,[range]);
+      await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
+      await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
+      const collision=await tx.courseSession.findFirst({where:{storeId,cancelledAt:null,startsAt:{lt:endsAt},endsAt:{gt:startsAt},OR:[{roomId:data.roomId},{coachId:data.coachId}]}});
+      if(collision)throw new AppError("CONFLICT",`${formatTWDateTime(collision.startsAt)} 教室或老師已有課程`);
+      const session=await tx.courseSession.create({data:{storeId,templateId:source.templateId,roomId:data.roomId,coachId:data.coachId,nameSnapshot:`免費補課 · ${source.nameSnapshot}`,startsAt,endsAt,pointCost:0,capacity:source.capacity,requestKey:`teacher-makeup:${source.id}`,requestIndex:0,createdById:user.id,teacherMakeupForSessionId:source.id}});
+      await tx.courseBooking.createMany({data:source.bookings.map(booking=>({storeId,sessionId:session.id,cardId:null,bookingKind:"TEACHER_MAKEUP",customerId:booking.customerId,operatorUserId:user.id,operatorCustomerId:null,operatorName:user.name??"店長",customerName:booking.customerName,pointCost:0,status:"RESERVED",notes:`原課 ${formatTWDateTime(source.startsAt)} 老師曠課補課`,requestKey:`teacher-makeup:${source.id}:${booking.customerId}`}))});
+      return session.id;
+    });
+    revalidatePath("/dashboard/courses");revalidatePath("/dashboard");return {success:true as const,sessionId:created};
+  }catch(error){return handleCourseActionError(error);}
+}
+
 async function writableStore(
   permission: "booking.create" | "booking.update" = "booking.create",
 ) {

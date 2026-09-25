@@ -206,6 +206,19 @@ describe("course point settlement", () => {
       data: expect.objectContaining({ kind: "RELEASE" }),
     });
   });
+  it("student leave records its reason and releases the reserved lesson", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","STUDENT_LEAVE");
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({where:{id:"booking"},data:{status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}});
+    expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"RELEASE",points:3})});
+  });
+  it("student no-show spends one term lesson without granting a makeup card", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:1,card:{...reserved().card,termSessionIds:["s1","s2","s3","s4"]}});
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED_WITH_MAKEUP");
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{remaining:{decrement:1}}}));
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"DEBIT",points:1})});
+  });
   it("denies customer attendance and post-cutoff cancellation", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
     await expect(
@@ -268,7 +281,7 @@ describe("course attendance stages", () => {
     });
     expect(m.tx.courseBooking.update).toHaveBeenCalledWith({
       where: { id: "booking" },
-      data: { status: "NO_SHOW" },
+      data: { status: "NO_SHOW", absenceKind: null },
     });
   });
   it("members cannot check in or mark no-show", async () => {
