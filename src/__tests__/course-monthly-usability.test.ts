@@ -16,6 +16,14 @@ it("shows every person initially and keeps rows paired with names",async()=>{
  expect(host.querySelector('input[aria-label="搜尋人員"]')).not.toBeNull();
  expect(host.textContent).not.toContain("已結清");
 });
+it("keeps actions beside search without changing person row pairing",async()=>{
+ const entries=[{id:"a",name:"甲",pending:false,priority:1},{id:"b",name:"乙",pending:true,priority:0}];
+ await act(async()=>root.render(createElement(CourseMonthlyPeople,{entries,actions:createElement("button",null,"設定")},entries.map(e=>createElement("article",{key:e.id},e.id)))));
+ const toolbar=host.querySelector('[aria-label="月結工具列"]');
+ expect(toolbar?.querySelector('input[aria-label="搜尋人員"]')).not.toBeNull();
+ expect(toolbar?.querySelector("button")?.textContent).toBe("設定");
+ expect(Array.from(host.querySelectorAll("article")).map(e=>e.textContent)).toEqual(["b","a"]);
+});
 it("does not hide a person because payment is already settled",async()=>{
  await act(async()=>root.render(createElement(CourseMonthlyPeople,{entries:[{id:"paid",name:"已付",pending:false,priority:1}]},createElement("article",null,"paid"))));
  expect(host.querySelector("article")?.textContent).toBe("paid");

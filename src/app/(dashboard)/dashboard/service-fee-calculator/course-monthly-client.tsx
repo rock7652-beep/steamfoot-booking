@@ -6,13 +6,16 @@ import type { SettlementLine } from "@/lib/course-monthly-settlement";
 import type { SettlementSettings } from "@/server/services/course-monthly-settlement";
 const field="min-h-11 w-full rounded-lg border border-earth-200 bg-white px-3 py-2 text-base";
 const button="min-h-11 rounded-lg border border-earth-200 px-4 py-2 text-sm disabled:opacity-50";
-export function CourseMonthlyPeople({entries,children}:{entries:{id:string;name:string;pending:boolean;priority:number}[];children?:ReactNode}){
+export function CourseMonthlyPeople({entries,children,actions}:{entries:{id:string;name:string;pending:boolean;priority:number}[];children?:ReactNode;actions?:ReactNode}){
  const [query,setQuery]=useState("");
  const nodes=Children.toArray(children);
  const sorted=entries.map((entry,index)=>({...entry,node:nodes[index]})).sort((a,b)=>a.priority-b.priority||a.name.localeCompare(b.name,"zh-Hant"));
  const visible=sorted.filter(e=>e.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
- return <section className="space-y-3" aria-label="人員月結清單">
- {entries.length>1&&<input type="search" aria-label="搜尋人員" placeholder="搜尋人員" className={`${field} max-w-xs`} value={query} onChange={e=>setQuery(e.target.value)}/>}
+ return <section className="space-y-2" aria-label="人員月結清單">
+ <div className="flex flex-wrap items-start gap-2" aria-label="月結工具列">
+ {entries.length>1&&<input type="search" aria-label="搜尋人員" placeholder="搜尋人員" className={`${field} sm:max-w-xs`} value={query} onChange={e=>setQuery(e.target.value)}/>}
+ {actions&&<div className="ml-auto flex min-w-0 flex-1 flex-wrap items-start justify-end gap-2">{actions}</div>}
+ </div>
  <div className="overflow-hidden rounded-xl border border-earth-200 bg-white">
  <div className="hidden grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem] gap-x-4 border-b bg-earth-50 px-4 py-3 text-xs text-earth-500 md:grid"><span>人員</span><span className="text-right">店長利潤</span><span className="text-right">授課費</span><span className="text-right">應領合計</span><span className="sr-only">明細</span></div>
  {!entries.length?children:sorted.map(e=><div key={e.id} hidden={!visible.some(v=>v.id===e.id)}>{e.node}</div>)}

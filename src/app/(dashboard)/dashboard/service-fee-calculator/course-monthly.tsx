@@ -27,19 +27,18 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  const people=summarizeSettlement(report.lines),last=report.revisions[0],confirmed=last?.fingerprint===report.fingerprint;
  const [canSettings,canPay,store]=await Promise.all([checkPermission(user.role,user.staffId,"staff.manage"),checkPermission(user.role,user.staffId,"cashbook.create"),prisma.store.findUnique({where:{id:storeId},select:{name:true}})]);
  const total=people.reduce((n,p)=>n+p.profit+p.fee,0),issues=report.lines.filter(l=>l.issue||l.amount===null).length;
- return <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-2 sm:px-6 sm:py-4">
+ return <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-2 px-4 py-2 sm:px-6">
  <PageHeader title="每月收入結算" subtitle={store?.name??"本店"} actions={<IncomeMonthFilter month={month}/>}/>
- <div className="flex flex-wrap items-center justify-between gap-3">
+ <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
  <span role="status" className={`rounded-full px-3 py-1 text-sm ${confirmed?"bg-primary-50 text-primary-800":"bg-amber-50 text-amber-900"}`}>{confirmed?"已確認":last?"有異動":"待確認"}</span>
+ <div className="min-w-0 flex-1"><KpiStrip items={[{label:"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/></div>
  {!confirmed&&!readOnly&&<CourseMonthlyConfirm key={report.fingerprint} month={month} fingerprint={report.fingerprint} revision={last?.revision??0} disabled={issues>0||!report.lines.length} blockedReason={issues>0?`請先核對 ${issues} 筆金額。`:!report.lines.length?"本月沒有結算項目。":undefined}/>}
  </div>
- <KpiStrip items={[{label:"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/>
  {!!olderMonths.length&&<p className="rounded-lg bg-amber-50 p-3 text-sm">退款／作廢影響先前結算：{olderMonths.map(m=><Link key={m} className="ml-3 underline" href={`/dashboard/service-fee-calculator?month=${m}`}>{m} 查看</Link>)}</p>}
- <div className="flex flex-wrap items-start justify-end gap-2">
+ <CourseMonthlyPeople key={month} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.issues>0?0:1}))} actions={<>
  {!readOnly&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}
  <CourseMonthlySettings key={report.settings.revision} settings={report.settings} canEdit={canSettings&&!readOnly}/>
- </div>
- <CourseMonthlyPeople key={month} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.issues>0?0:1}))}>
+ </>}>
  {!people.length&&<p className="p-6 text-sm text-earth-500">本月沒有結算項目。</p>}
  {people.map(person=><details key={person.id} className="group/person border-b border-earth-100 last:border-0"><summary className="grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-3 md:grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]">
  <strong className="truncate" title={person.name}>{person.name}</strong>
