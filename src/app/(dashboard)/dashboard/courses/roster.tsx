@@ -27,6 +27,8 @@ import type { getCourseRoster } from "@/server/queries/course-members";
 
 const button =
   "min-h-10 rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-sm disabled:opacity-50";
+const primaryButton =
+  "min-h-10 rounded-lg border border-primary-700 bg-primary-700 px-3 py-1.5 text-sm text-white disabled:opacity-50";
 const field =
   "min-h-10 w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-base";
 
@@ -71,7 +73,7 @@ export function CourseRoster({
   const [selected, setSelected] = useState<string[]>([]);
   const [batchTarget, setBatchTarget] = useState<
     "CHECKED_IN" | "ATTENDED" | "RESERVED"
-  >("CHECKED_IN");
+  >(musicLayout ? "ATTENDED" : "CHECKED_IN");
   const [showCancelled, setShowCancelled] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [roster, setRoster] = useState<
@@ -739,8 +741,8 @@ export function CourseRoster({
               setBatchTarget(event.target.value as typeof batchTarget)
             }
           >
-            <option value="CHECKED_IN">報到</option>
-            <option value="ATTENDED">出席</option>
+            {!musicLayout && <option value="CHECKED_IN">報到</option>}
+            <option value="ATTENDED">{musicLayout ? "簽到即出席" : "出席"}</option>
             <option value="RESERVED">更正為待點名</option>
           </select>
           <button
@@ -782,7 +784,7 @@ export function CourseRoster({
                 <div className="flex flex-wrap items-center gap-2">
                   {canEdit && booking.status !== "CANCELLED" && <input type="checkbox" aria-label={`選取 ${booking.customerName}`} checked={selected.includes(booking.id)} disabled={pending} onChange={(event) => setSelected((old) => event.target.checked ? [...old, booking.id] : old.filter((id) => id !== booking.id))} />}
                   <strong>{booking.customerName}</strong>
-                  <span className="rounded-full bg-earth-100 px-2 py-0.5 text-xs text-earth-700">{booking.status === "ATTENDED" ? "已出席" : booking.status === "NO_SHOW" ? "曠課" : booking.status === "CANCELLED" ? booking.absenceKind === "STUDENT_LEAVE" ? "請假" : "已取消" : booking.checkedInAt ? "已報到" : "待點名"}</span>
+                  <span className="rounded-full bg-earth-100 px-2 py-0.5 text-xs text-earth-700">{booking.status === "ATTENDED" ? "已簽到" : booking.status === "NO_SHOW" ? "曠課" : booking.status === "CANCELLED" ? booking.absenceKind === "STUDENT_LEAVE" ? "請假" : "已取消" : booking.checkedInAt ? "已報到・待結算" : "待點名"}</span>
                   {booking.absenceCount > 0 && <details className="text-xs text-amber-800"><summary className="cursor-pointer">累計缺課 {booking.absenceCount} 次</summary><ul className="mt-1 space-y-1">{booking.absenceHistory.map((item,index)=><li key={`${item.date}-${index}`}>{formatTWDateTime(new Date(item.date))} · {item.status}</li>)}</ul></details>}
                   {booking.bookingKind === "TRIAL" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">體驗</span>}
                 </div>
@@ -793,8 +795,8 @@ export function CourseRoster({
                 {canEdit && <button type="button" className="text-xs text-primary-700 underline" onClick={()=>{setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>備註{booking.notes ? " ✓" : ""}</button>}
                 {canEdit && <div className="ml-auto flex flex-wrap gap-1">
                   {booking.status === "RESERVED" && <>
-                    <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 標記出席`,{bookingId:booking.id,status:"ATTENDED"})}>出席</button>
-                    <button className={button} disabled={pending} onClick={() => setNoShowBooking({ id: booking.id, name: booking.customerName, trial: booking.bookingKind === "TRIAL", term: booking.termCount > 0 })}>曠課</button>
+                    <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 簽到並扣除本次額度`,{bookingId:booking.id,status:"ATTENDED"})}>簽到</button>
+                    <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({bookingId:booking.id,status:"NO_SHOW",noShowChoice:"DEDUCTED"}),booking.bookingKind === "TRIAL" ? `已記錄 ${booking.customerName} 曠課` : `已記錄 ${booking.customerName} 曠課並扣除一堂`,{bookingId:booking.id,status:"NO_SHOW"})}>{booking.bookingKind === "TRIAL" ? "曠課" : "曠課扣堂"}</button>
                     <button className={button} disabled={pending} onClick={() => setStudentLeave({ id: booking.id, name: booking.customerName })}>請假</button>
                     <button className={button} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消</button>
                   </>}
@@ -1099,7 +1101,7 @@ export function CourseRoster({
       </div>}
 
 
-      {noShowBooking && (
+      {noShowBooking && !musicLayout && (
         <div
           className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4"
           role="dialog"
@@ -1190,13 +1192,13 @@ export function CourseRoster({
       )}
 
       {studentLeave && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="學員請假">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"><h3 className="text-lg font-semibold">記錄 {studentLeave.name} 請假？</h3><p className="mt-2 text-sm text-earth-600">保留本堂請假日期與紀錄；尚未扣除的方案額度會釋放，並計入累計缺課次數。</p><div className="mt-5 flex justify-end gap-2"><button className={button} onClick={()=>setStudentLeave(null)}>返回</button><button className={`${button} bg-primary-700 text-white`} disabled={pending} onClick={()=>{const booking=studentLeave;setStudentLeave(null);run(()=>updateCourseBookingStatus({bookingId:booking.id,status:"STUDENT_LEAVE"}),`已記錄 ${booking.name} 請假`,{bookingId:booking.id,status:"CANCELLED"});}}>確認請假</button></div></div>
+        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"><h3 className="text-lg font-semibold">記錄 {studentLeave.name} 請假？</h3><p className="mt-2 text-sm text-earth-600">保留本堂請假日期與紀錄；尚未扣除的方案額度會釋放，並計入累計缺課次數。</p><div className="mt-5 flex justify-end gap-2"><button className={button} onClick={()=>setStudentLeave(null)}>返回</button><button className={primaryButton} disabled={pending} onClick={()=>{const booking=studentLeave;setStudentLeave(null);run(()=>updateCourseBookingStatus({bookingId:booking.id,status:"STUDENT_LEAVE"}),`已記錄 ${booking.name} 請假`,{bookingId:booking.id,status:"CANCELLED"});}}>確認請假</button></div></div>
       </div>}
       {teacherDialog && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="老師出勤紀錄">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"><h3 className="text-lg font-semibold">{teacherDialog === "SCHEDULED" ? "更正老師出勤" : `記錄老師${teacherDialog === "NO_SHOW" ? "曠課" : "請假"}`}</h3><p className="mt-2 text-sm text-earth-600">只記錄本堂日期與狀態；不自動扣薪或變更學員期數。</p>{teacherDialog !== "SCHEDULED" && <textarea className={`${field} mt-3 min-h-20`} placeholder="原因（選填）" value={teacherReason} maxLength={500} onChange={event=>setTeacherReason(event.target.value)} />}<div className="mt-5 flex justify-end gap-2"><button className={button} onClick={()=>setTeacherDialog(null)}>返回</button><button className={`${button} bg-primary-700 text-white`} disabled={pending} onClick={()=>{const status=teacherDialog;setTeacherDialog(null);run(()=>markCourseTeacherAttendance({sessionId,status,reason:teacherReason}),"老師出勤紀錄已更新");}}>儲存</button></div></div>
+        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"><h3 className="text-lg font-semibold">{teacherDialog === "SCHEDULED" ? "更正老師出勤" : `記錄老師${teacherDialog === "NO_SHOW" ? "曠課" : "請假"}`}</h3><p className="mt-2 text-sm text-earth-600">只記錄本堂日期與狀態；不自動扣薪或變更學員期數。</p>{teacherDialog !== "SCHEDULED" && <textarea className={`${field} mt-3 min-h-20`} placeholder="原因（選填）" value={teacherReason} maxLength={500} onChange={event=>setTeacherReason(event.target.value)} />}<div className="mt-5 flex justify-end gap-2"><button className={button} onClick={()=>setTeacherDialog(null)}>返回</button><button className={primaryButton} disabled={pending} onClick={()=>{const status=teacherDialog;setTeacherDialog(null);run(()=>markCourseTeacherAttendance({sessionId,status,reason:teacherReason}),"老師出勤紀錄已更新");}}>儲存</button></div></div>
       </div>}
       {makeupDialog && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="安排免費補課">
-        <form className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onSubmit={event=>{event.preventDefault();setMakeupDialog(false);run(()=>scheduleTeacherMakeup({sourceSessionId:sessionId,date:makeupDate,time:makeupTime,coachId,roomId}),"免費補課已加入課表，不計入原課程期數");}}><h3 className="text-lg font-semibold">老師曠課 · 安排免費補課</h3><p className="mt-2 text-sm text-earth-600">為本堂學員排一堂免費課；原課期數不會增加。預設沿用原老師與教室。</p><label className="mt-4 block text-sm">補課日期<input className={`${field} mt-1`} type="date" required value={makeupDate} onChange={event=>setMakeupDate(event.target.value)} /></label><label className="mt-3 block text-sm">開始時間<input className={`${field} mt-1`} type="time" required step="1800" value={makeupTime} onChange={event=>setMakeupTime(event.target.value)} /></label><div className="mt-5 flex justify-end gap-2"><button type="button" className={button} onClick={()=>setMakeupDialog(false)}>取消</button><button type="submit" className={`${button} bg-primary-700 text-white`} disabled={pending || !makeupDate || !coachId || !roomId}>加入課表</button></div></form>
+        <form className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onSubmit={event=>{event.preventDefault();setMakeupDialog(false);run(()=>scheduleTeacherMakeup({sourceSessionId:sessionId,date:makeupDate,time:makeupTime,coachId,roomId}),"免費補課已加入課表，不計入原課程期數");}}><h3 className="text-lg font-semibold">老師曠課 · 安排免費補課</h3><p className="mt-2 text-sm text-earth-600">為本堂學員排一堂免費課；原課期數不會增加。預設沿用原老師與教室。</p><label className="mt-4 block text-sm">補課日期<input className={`${field} mt-1`} type="date" required value={makeupDate} onChange={event=>setMakeupDate(event.target.value)} /></label><label className="mt-3 block text-sm">開始時間<input className={`${field} mt-1`} type="time" required step="1800" value={makeupTime} onChange={event=>setMakeupTime(event.target.value)} /></label><div className="mt-5 flex justify-end gap-2"><button type="button" className={button} onClick={()=>setMakeupDialog(false)}>取消</button><button type="submit" className={primaryButton} disabled={pending || !makeupDate || !coachId || !roomId}>加入課表</button></div></form>
       </div>}
       {cancelBooking && (
         <div
@@ -1223,7 +1225,7 @@ export function CourseRoster({
               </button>
               <button
                 type="button"
-                className={`${button} bg-primary-700 text-white`}
+                className={primaryButton}
                 disabled={pending}
                 onClick={() => {
                   const booking = cancelBooking;
@@ -1250,7 +1252,7 @@ export function CourseRoster({
         <form className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl" onSubmit={(event)=>{event.preventDefault();const target=editingNote;run(()=>saveCourseRosterNote({sessionId,bookingId:target.bookingId,note:noteDraft}),"備註已儲存");setEditingNote(null);}}>
           <h3 className="text-lg font-semibold">{editingNote.name} · 備註</h3>
           <textarea autoFocus className={`${field} mt-3 min-h-28`} value={noteDraft} maxLength={1000} onChange={(event)=>setNoteDraft(event.target.value)} placeholder="記錄本次上課需要留意的事項" />
-          <div className="mt-4 flex justify-end gap-2"><button type="button" className={button} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={`${button} bg-primary-700 text-white`} disabled={pending}>儲存</button></div>
+          <div className="mt-4 flex justify-end gap-2"><button type="button" className={button} onClick={()=>setEditingNote(null)}>取消</button><button type="submit" className={primaryButton} disabled={pending}>儲存</button></div>
         </form>
       </div>}
       {payBooking && paymentSettings && !correctPayment && (

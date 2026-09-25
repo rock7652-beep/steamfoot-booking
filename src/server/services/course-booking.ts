@@ -237,6 +237,13 @@ export async function settleCourseBooking(
     include: { session: true, card: { include: { members: true } } },
   });
   if (!booking) return fail("找不到本店預約");
+  if (target === "NO_SHOW" && noShowChoice === "DEDUCTED_WITH_MAKEUP") {
+    const music = await tx.$queryRaw<Array<{featureKey:string}>>`
+      SELECT "featureKey" FROM "StoreFeatureEntitlement"
+      WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+    if (music.some(item => item.featureKey === "business.music"))
+      return fail("音樂教室曠課只扣堂，不發補課券");
+  }
   if (
     actor.customerId &&
     !(booking.card ? booking.card.members.some((m) => m.customerId === actor.customerId) : booking.customerId === actor.customerId)

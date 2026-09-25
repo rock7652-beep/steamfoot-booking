@@ -219,6 +219,13 @@ describe("course point settlement", () => {
     expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{remaining:{decrement:1}}}));
     expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"DEBIT",points:1})});
   });
+  it("rejects makeup coupons for music even if a caller sends the old option", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
+    m.tx.$queryRaw.mockResolvedValue([{featureKey:"business.music"}]);
+    await expect(settleCourseBooking(tx,{...actor,customerId:undefined},"booking","NO_SHOW","DEDUCTED_WITH_MAKEUP")).rejects.toThrow("音樂教室曠課只扣堂");
+    expect(m.tx.courseBooking.update).not.toHaveBeenCalled();
+    expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
+  });
   it("denies customer attendance and post-cutoff cancellation", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue(reserved());
     await expect(

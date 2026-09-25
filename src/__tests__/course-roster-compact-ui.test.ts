@@ -2,17 +2,39 @@
 import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
 import {it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({load:vi.fn(),batch:vi.fn(),status:vi.fn(),create:vi.fn(),save:vi.fn()}));
+const m=vi.hoisted(()=>({load:vi.fn(),quick:vi.fn(),batch:vi.fn(),status:vi.fn(),create:vi.fn(),save:vi.fn()}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
 vi.mock("@/server/actions/course",()=>({scheduleTeacherMakeup:vi.fn()}));
-vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,cancelCourseSession:vi.fn()}));
+vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,loadCourseRosterQuick:m.quick,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,cancelCourseSession:vi.fn()}));
 vi.mock("@/server/actions/course-trial",()=>({createCourseTrial:vi.fn(),collectCourseTrial:vi.fn(),voidCourseTrialPayment:vi.fn()}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal",()=>({CollectTrialModal:()=>null}));
 vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal",()=>({CorrectTrialCollectionModal:()=>null}));
 import {CourseRoster} from "@/app/(dashboard)/dashboard/courses/roster";
+it("signs in music learners as attended in one batch and gives no makeup coupon for absence",async()=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ const roster=[{id:"music-booking",customerName:"小安",customerId:"customer",customerPhone:"0900000000",sharedCard:false,bookingSource:"店長建立",status:"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"四堂一期",termCount:4,absenceCount:0,absenceHistory:[],available:4,unit:"SESSION",notes:"",pointCost:1}];
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-27T05:00:00Z",pointCost:1,teacherAttendance:"SCHEDULED",teacherNote:""},roster,cards:[],trial:null}});
+ m.quick.mockResolvedValue({success:true,data:{roster,teacherNote:"",teacherAttendance:"SCHEDULED",teacherAttendanceReason:""}});
+ m.batch.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"music",capacity:1,canCreate:false,canEdit:true,musicLayout:true,teacherName:"老師"})));
+  expect([...host.querySelectorAll<HTMLOptionElement>('select[aria-label="批次點名狀態"] option')].map(option=>option.value)).toEqual(["ATTENDED","RESERVED"]);
+  await act(async()=>host.querySelector('input[aria-label="全選全班學員"]')!.dispatchEvent(new MouseEvent("click",{bubbles:true})));
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="套用 1 人")!.click());
+  expect(m.batch).toHaveBeenLastCalledWith({sessionId:"music",target:"ATTENDED",bookings:[{id:"music-booking",status:"RESERVED"}]});
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="曠課扣堂")!.click());
+  expect(m.status).toHaveBeenLastCalledWith({bookingId:"music-booking",status:"NO_SHOW",noShowChoice:"DEDUCTED"});
+  expect(host.textContent).not.toContain("發補課券");
+  await act(async()=>[...host.querySelectorAll("button")].find(button=>button.textContent==="備註")!.click());
+  const save=[...host.querySelectorAll('button[type="submit"]')].find(button=>button.textContent==="儲存")!;
+  expect(save.className).toContain("bg-primary-700");expect(save.className).not.toContain("bg-white");
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
 it("shows all twenty compact rows and selects them for one batch without cancelled bookings",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
  const roster=Array.from({length:21},(_,i)=>({id:`b${i}`,customerName:`學員${i}`,customerId:`c${i}`,customerPhone:`09000000${String(i).padStart(2,"0")}`,sharedCard:i===0,bookingSource:i===0?"黃教練代約":"本人預約",status:i===20?"CANCELLED":"RESERVED",bookingKind:"CARD",checkedInAt:null,trialPayments:[],planName:"十堂",available:10,expiresAt:"2099-01-01T00:00:00Z",serviceNote:"內部備註",notes:"本次備註",pointCost:1}));
+ m.quick.mockResolvedValue({success:true,data:{roster,teacherNote:"",teacherAttendance:"SCHEDULED",teacherAttendanceReason:""}});
  m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-01T00:00:00Z",pointCost:1},roster,cards:[],trial:null}});m.batch.mockResolvedValue({success:true});m.status.mockResolvedValue({success:true});
  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
  try {
