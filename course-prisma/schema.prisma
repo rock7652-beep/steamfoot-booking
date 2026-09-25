@@ -345,3 +345,24 @@ model CourseProfitPayment {
   @@unique([storeId, requestKey])
   @@index([storeId, purchaseId], map: "CourseProfitPayment_purchase")
 }
+
+// Identity FKs and RLS are managed by the additive SQL migration.
+model CourseMonthlyNotification {
+  id String @id
+  storeId String
+  settlementId String
+  staffId String
+  userId String
+  customerId String
+  recipientHash String
+  channel String
+  body String
+  retryKey String @unique
+  status String
+  firstAttemptAt DateTime @default(now()) @db.Timestamptz(6)
+  leaseUntil DateTime @db.Timestamptz(6)
+  sentAt DateTime? @db.Timestamptz(6)
+  actorUserId String
+  @@unique([storeId, settlementId, staffId])
+  @@index([storeId, status], map: "CourseMonthlyNotification_store_status")
+}
