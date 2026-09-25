@@ -44,6 +44,7 @@ export function CourseRoster({
   onCreateCustomer,
   onMemberBookingReadyChange,
   musicLayout = false,
+  classType = null,
   teacherName = "",
   teacherPhone = "",
   roomName = "",
@@ -61,6 +62,7 @@ export function CourseRoster({
   onCreateCustomer?: () => void;
   onMemberBookingReadyChange?: (ready: boolean) => void;
   musicLayout?: boolean;
+  classType?: string | null;
   teacherName?: string;
   teacherPhone?: string;
   roomName?: string;
@@ -214,11 +216,12 @@ export function CourseRoster({
         maxPrice: trial.settings.trialMaxPrice,
       }
     : null;
-  const activeRows = roster.filter((booking) => booking.status !== "CANCELLED");
+  const activeRows = roster.filter((booking) => booking.status !== "CANCELLED" || (musicLayout && ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")));
   const cancelledRows = roster.filter(
-    (booking) => booking.status === "CANCELLED",
+    (booking) => booking.status === "CANCELLED" && (!musicLayout || !["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")),
   );
-  const chosen = activeRows.filter((booking) =>
+  const selectableRows = activeRows.filter((booking) => booking.status !== "CANCELLED");
+  const chosen = selectableRows.filter((booking) =>
     selected.includes(booking.id),
   );
   const rows = showCancelled ? cancelledRows : activeRows;
@@ -719,12 +722,12 @@ export function CourseRoster({
             <input
               type="checkbox"
               aria-label="全選全班學員"
-              checked={activeRows.length > 0 && chosen.length === activeRows.length}
-              disabled={pending || !activeRows.length}
+              checked={selectableRows.length > 0 && chosen.length === selectableRows.length}
+              disabled={pending || !selectableRows.length}
               onChange={(event) =>
                 setSelected(
                   event.target.checked
-                    ? activeRows.map((booking) => booking.id)
+                    ? selectableRows.map((booking) => booking.id)
                     : [],
                 )
               }
@@ -784,7 +787,7 @@ export function CourseRoster({
                 <div className="flex flex-wrap items-center gap-2">
                   {canEdit && booking.status !== "CANCELLED" && <input type="checkbox" aria-label={`選取 ${booking.customerName}`} checked={selected.includes(booking.id)} disabled={pending} onChange={(event) => setSelected((old) => event.target.checked ? [...old, booking.id] : old.filter((id) => id !== booking.id))} />}
                   <strong>{booking.customerName}</strong>
-                  <span className="rounded-full bg-earth-100 px-2 py-0.5 text-xs text-earth-700">{booking.status === "ATTENDED" ? "已簽到" : booking.status === "NO_SHOW" ? "曠課" : booking.status === "CANCELLED" ? booking.absenceKind === "STUDENT_LEAVE" ? "請假" : "已取消" : booking.checkedInAt ? "已報到・待結算" : "待點名"}</span>
+                  <span className="rounded-full bg-earth-100 px-2 py-0.5 text-xs text-earth-700">{booking.status === "ATTENDED" ? "已簽到" : booking.status === "NO_SHOW" ? "曠課" : booking.status === "CANCELLED" ? ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "") ? "請假" : "已取消" : booking.checkedInAt ? "已報到・待結算" : "待點名"}</span>
                   {booking.absenceCount > 0 && <details className="text-xs text-amber-800"><summary className="cursor-pointer">累計缺課 {booking.absenceCount} 次</summary><ul className="mt-1 space-y-1">{booking.absenceHistory.map((item,index)=><li key={`${item.date}-${index}`}>{formatTWDateTime(new Date(item.date))} · {item.status}</li>)}</ul></details>}
                   {booking.bookingKind === "TRIAL" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">體驗</span>}
                 </div>
@@ -795,15 +798,15 @@ export function CourseRoster({
                 {canEdit && <button type="button" className="text-xs text-primary-700 underline" onClick={()=>{setEditingNote({bookingId:booking.id,name:booking.customerName,value:booking.notes});setNoteDraft(booking.notes);}}>備註{booking.notes ? " ✓" : ""}</button>}
                 {canEdit && <div className="ml-auto flex flex-wrap gap-1">
                   {booking.status === "RESERVED" && <>
-                    <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 簽到並扣除本次額度`,{bookingId:booking.id,status:"ATTENDED"})}>簽到</button>
+                    <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 記錄出席並扣除本次額度`,{bookingId:booking.id,status:"ATTENDED"})}>出席</button>
                     <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({bookingId:booking.id,status:"NO_SHOW",noShowChoice:"DEDUCTED"}),booking.bookingKind === "TRIAL" ? `已記錄 ${booking.customerName} 曠課` : `已記錄 ${booking.customerName} 曠課並扣除一堂`,{bookingId:booking.id,status:"NO_SHOW"})}>{booking.bookingKind === "TRIAL" ? "曠課" : "曠課扣堂"}</button>
                     <button className={button} disabled={pending} onClick={() => setStudentLeave({ id: booking.id, name: booking.customerName })}>請假</button>
-                    <button className={button} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消</button>
                   </>}
-                  {(booking.status === "ATTENDED" || booking.status === "NO_SHOW") && <button className={button} disabled={pending} onClick={() => run(() => updateCourseRosterBatch({ sessionId, target: "RESERVED", bookings: [{ id: booking.id, status: booking.status }] }), `已更正 ${booking.customerName}`)}>更正</button>}
+                  {(booking.status === "ATTENDED" || booking.status === "NO_SHOW" || (booking.status === "CANCELLED" && ["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? ""))) && <button className={button} disabled={pending} onClick={() => run(() => updateCourseRosterBatch({ sessionId, target: "RESERVED", bookings: [{ id: booking.id, status: booking.status }] }), `已將 ${booking.customerName} 恢復待點名`)}>恢復待點名</button>}
                   {booking.bookingKind === "TRIAL" && booking.trialPayments.some((payment) => payment.status === "SUCCESS") && <span className="text-xs text-emerald-700">已繳費</span>}
                   {allowTrialActions && trial?.canCollect && booking.bookingKind === "TRIAL" && !booking.trialPayments.some((payment) => payment.status === "SUCCESS") && booking.status !== "CANCELLED" && <button className={button} disabled={pending} onClick={() => { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); }}>繳費</button>}
                 </div>}
+                {canEdit && booking.status === "RESERVED" && <details className="w-full text-xs text-earth-600"><summary className="cursor-pointer py-1">其他操作</summary><button className={`${button} mt-1`} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消預約</button></details>}
               </li>)}
               {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">沒有符合條件的學員</li>}
             </ul>
@@ -1192,7 +1195,7 @@ export function CourseRoster({
       )}
 
       {studentLeave && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="學員請假">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"><h3 className="text-lg font-semibold">記錄 {studentLeave.name} 請假？</h3><p className="mt-2 text-sm text-earth-600">保留本堂請假日期與紀錄；尚未扣除的方案額度會釋放，並計入累計缺課次數。</p><div className="mt-5 flex justify-end gap-2"><button className={button} onClick={()=>setStudentLeave(null)}>返回</button><button className={primaryButton} disabled={pending} onClick={()=>{const booking=studentLeave;setStudentLeave(null);run(()=>updateCourseBookingStatus({bookingId:booking.id,status:"STUDENT_LEAVE"}),`已記錄 ${booking.name} 請假`,{bookingId:booking.id,status:"CANCELLED"});}}>確認請假</button></div></div>
+        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"><h3 className="text-lg font-semibold">記錄 {studentLeave.name} 請假？</h3><p className="mt-2 text-sm text-earth-600">{classType === "GROUP" ? "團體班請假會扣一堂且不補課；保留請假日期、累計缺課，老師照原課計費。" : "保留本堂請假日期與紀錄；未扣堂，可在方案期限內另約補課，並計入累計缺課次數。"}</p><div className="mt-5 flex justify-end gap-2"><button className={button} onClick={()=>setStudentLeave(null)}>返回</button><button className={primaryButton} disabled={pending} onClick={()=>{const booking=studentLeave;setStudentLeave(null);run(()=>updateCourseBookingStatus({bookingId:booking.id,status:"STUDENT_LEAVE"}),`已記錄 ${booking.name} 請假`,{bookingId:booking.id,status:"CANCELLED"});}}>確認請假</button></div></div>
       </div>}
       {teacherDialog && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="老師出勤紀錄">
         <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"><h3 className="text-lg font-semibold">{teacherDialog === "SCHEDULED" ? "更正老師出勤" : `記錄老師${teacherDialog === "NO_SHOW" ? "曠課" : "請假"}`}</h3><p className="mt-2 text-sm text-earth-600">只記錄本堂日期與狀態；不自動扣薪或變更學員期數。</p>{teacherDialog !== "SCHEDULED" && <textarea className={`${field} mt-3 min-h-20`} placeholder="原因（選填）" value={teacherReason} maxLength={500} onChange={event=>setTeacherReason(event.target.value)} />}<div className="mt-5 flex justify-end gap-2"><button className={button} onClick={()=>setTeacherDialog(null)}>返回</button><button className={primaryButton} disabled={pending} onClick={()=>{const status=teacherDialog;setTeacherDialog(null);run(()=>markCourseTeacherAttendance({sessionId,status,reason:teacherReason}),"老師出勤紀錄已更新");}}>儲存</button></div></div>

@@ -7,7 +7,7 @@ vi.mock("@/server/services/course-access", () => ({
 import { correctCourseAttendance } from "@/server/services/course-booking";
 import type { Prisma } from "../../generated/course-client";
 const m = {
-  courseBooking: { findFirst: vi.fn(), aggregate: vi.fn(), update: vi.fn() },
+  courseBooking: { findFirst: vi.fn(), aggregate: vi.fn(), count: vi.fn(), update: vi.fn() },
   coursePointCard: { update: vi.fn() },
   coursePointEntry: { create: vi.fn() },
 };
@@ -24,7 +24,60 @@ const booking = (status: string, remaining = 7) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   m.courseBooking.aggregate.mockResolvedValue({ _sum: { pointCost: 0 } });
+  m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 0 : 1);
   m.courseBooking.update.mockImplementation(async (x) => x.data);
+});
+
+describe("restore music student leave", () => {
+  const leave = () => ({ ...booking("CANCELLED"), sessionId: "session", customerId: "student", absenceKind: "STUDENT_LEAVE", session: { startsAt: new Date("2020-01-01"), cancelledAt: null, capacity: 2 }, card: { remaining: 3, closedAt: null, expiresAt: new Date("2099-01-01") } });
+
+  it("restores a seat and its reserved lesson without charging a second time", async () => {
+    m.courseBooking.findFirst.mockResolvedValue(leave());
+    await correctCourseAttendance(tx, actor, "b", "RESERVED", "CANCELLED");
+    expect(m.coursePointCard.update).not.toHaveBeenCalled();
+    expect(m.coursePointEntry.create.mock.calls[0][0].data.kind).toMatch(/^CORRECT:CANCELLED:RESERVED:/);
+    expect(m.courseBooking.update).toHaveBeenCalledWith({where:{id:"b"},data:{status:"RESERVED",absenceKind:null,checkedInAt:null}});
+    m.courseBooking.findFirst.mockResolvedValue({...leave(),status:"RESERVED",absenceKind:null});
+    await correctCourseAttendance(tx, actor, "b", "RESERVED", "CANCELLED");
+    expect(m.coursePointEntry.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the forfeited group lesson when restoring leave to pending", async () => {
+    m.courseBooking.findFirst.mockResolvedValue({...leave(),absenceKind:"GROUP_LEAVE_FORFEITED",card:{...leave().card,remaining:0}});
+    await correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED");
+    expect(m.coursePointCard.update).toHaveBeenCalledWith({where:{id:"c"},data:{remaining:{increment:3}}});
+    expect(m.coursePointEntry.create.mock.calls[0][0].data.kind).toMatch(/^CORRECT:CANCELLED:RESERVED:/);
+    expect(m.courseBooking.update).toHaveBeenCalledWith({where:{id:"b"},data:{status:"RESERVED",absenceKind:null,checkedInAt:null}});
+  });
+
+  it("refuses to restore a forfeited group seat after capacity is filled", async () => {
+    m.courseBooking.findFirst.mockResolvedValue({...leave(),absenceKind:"GROUP_LEAVE_FORFEITED",card:{...leave().card,remaining:0}});
+    m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 0 : 2);
+    await expect(correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED")).rejects.toThrow("名額已滿");
+    expect(m.coursePointCard.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses restoration if someone took the seat or remaining lessons are held", async () => {
+    m.courseBooking.findFirst.mockResolvedValue(leave());
+    m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 0 : 2);
+    await expect(correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED")).rejects.toThrow("名額已滿");
+    m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 0 : 1);
+    m.courseBooking.aggregate.mockResolvedValue({_sum:{pointCost:1}});
+    await expect(correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED")).rejects.toThrow("額度不足");
+    expect(m.courseBooking.update).not.toHaveBeenCalled();
+  });
+
+  it("does not reopen an administrative cancellation", async () => {
+    m.courseBooking.findFirst.mockResolvedValue({...leave(),absenceKind:null});
+    await expect(correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED")).rejects.toThrow("無法更正");
+  });
+
+  it("refuses to restore if the same learner already has another active booking", async () => {
+    m.courseBooking.findFirst.mockResolvedValue({...leave(),customerId:"student"});
+    m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 1 : 1);
+    await expect(correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED")).rejects.toThrow("重複恢復");
+    expect(m.courseBooking.update).not.toHaveBeenCalled();
+  });
 });
 describe("course attendance correction", () => {
   it("cannot restore or spend quota after a refund", async () => {
@@ -44,21 +97,19 @@ describe("course attendance correction", () => {
       /^CORRECT:ATTENDED:RESERVED:/,
     );
   });
-  it("charges previously absent learner once", async () => {
+  it("keeps the single debit when correcting no-show to attended", async () => {
     m.courseBooking.findFirst.mockResolvedValue(booking("NO_SHOW"));
     await correctCourseAttendance(tx, actor, "b", "ATTENDED", "NO_SHOW");
-    expect(
-      m.coursePointCard.update.mock.calls[0][0].data.remaining.increment,
-    ).toBe(-3);
+    expect(m.coursePointCard.update).not.toHaveBeenCalled();
     m.courseBooking.findFirst.mockResolvedValue(booking("ATTENDED"));
     await correctCourseAttendance(tx, actor, "b", "ATTENDED", "NO_SHOW");
-    expect(m.coursePointCard.update).toHaveBeenCalledTimes(1);
+    expect(m.coursePointCard.update).not.toHaveBeenCalled();
   });
   it("rejects spending held by other bookings", async () => {
-    m.courseBooking.findFirst.mockResolvedValue(booking("NO_SHOW", 3));
+    m.courseBooking.findFirst.mockResolvedValue(booking("RESERVED", 3));
     m.courseBooking.aggregate.mockResolvedValue({ _sum: { pointCost: 2 } });
     await expect(
-      correctCourseAttendance(tx, actor, "b", "ATTENDED", "NO_SHOW"),
+      correctCourseAttendance(tx, actor, "b", "ATTENDED", "RESERVED"),
     ).rejects.toThrow("額度不足");
     expect(m.coursePointCard.update).not.toHaveBeenCalled();
   });

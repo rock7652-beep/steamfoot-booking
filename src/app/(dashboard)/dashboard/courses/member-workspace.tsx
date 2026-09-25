@@ -231,7 +231,7 @@ export function CourseMemberWorkspace({
           {[
             ["全部方案", plans.length],
             ["上架中", activePlans.length],
-            ...(music ? [["4 堂方案", activePlans.filter(item => item.unit === "SESSION" && item.points === 4).length], ["8 堂方案", activePlans.filter(item => item.unit === "SESSION" && item.points === 8).length]] : [["點數方案", pointPlans], ["堂數方案", sessionPlans]]),
+            ...(music ? [["堂數方案", activePlans.filter(item => item.unit === "SESSION").length]] : [["點數方案", pointPlans], ["堂數方案", sessionPlans]]),
           ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-2"><strong className="block text-lg tabular-nums text-primary-800">{value}</strong><span className="text-xs text-earth-500">{label}</span></div>)}
         </section>
       )}
@@ -538,19 +538,23 @@ export function CourseMemberWorkspace({
                 </fieldset>
                 {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}<details className="sm:col-span-2"><summary className="cursor-pointer py-2">期課：連結指定課次（選填）</summary><p className="text-sm text-earth-600">未選為自由預約；選擇後請使用堂數方案，課次数須等於販售堂數。結帳會一次預約全期；未到仍扣堂，不提供補課券。</p><div className="max-h-48 overflow-y-auto">{termSessions.map(s=><label key={s.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="termSessionIds" value={s.id} defaultChecked={plan?.termSessionIds?.includes(s.id)}/>{formatTWDateTime(new Date(s.startsAt))} · {s.name}</label>)}</div></details>
                 {[
-                  [music ? "每期堂數" : "額度", "points", plan?.points ?? (music ? 4 : 10), 1],
+                  [music ? "方案堂數" : "額度", "points", plan?.points ?? (music ? 4 : 10), 1],
                   ["售價", "price", plan?.price ?? 0, 0],
                   ["店家成本", "storeCost", plan?.storeCost ?? 0, 0],
                   ["有效天數", "days", plan?.validDays ?? 90, 1],
                 ].map(([label, name, value, min]) => (
                   <label key={String(name)} className="block">
                     {label}
-                    {music && name === "points" ? <select
+                    {music && name === "points" ? <input
                       className={field}
                       name="points"
+                      type="number"
+                      min={1}
+                      step={1}
                       defaultValue={Number(value)}
                       onChange={e=>setPlanAmounts(v=>({...v,points:Number(e.target.value)}))}
-                    ><option value={4}>4 堂</option><option value={8}>8 堂</option></select> : <input
+                      required
+                    /> : <input
                       className={field}
                       name={String(name)}
                       type="number"
@@ -569,7 +573,7 @@ export function CourseMemberWorkspace({
                 <div className="sm:col-span-2 grid grid-cols-2 gap-3 rounded-lg bg-primary-50 p-3 text-sm"><p><span className="text-earth-500">單位價格</span><strong className="block text-primary-800">NT$ {unitPrice.toLocaleString("zh-TW")}／{music?"堂":"單位"}</strong></p><p><span className="text-earth-500">預估利潤</span><strong className={`block ${estimatedProfit<0?"text-red-700":"text-primary-800"}`}>NT$ {estimatedProfit.toLocaleString("zh-TW")}</strong></p></div>
                 <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3"><legend className="px-1">方案使用方式</legend><div className="grid gap-2 sm:grid-cols-2"><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="customer" defaultChecked={plan?.customerPurchasable!==false}/>顧客可購買</label><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="backend" defaultChecked={plan?.customerPurchasable===false}/>僅後台指派</label></div><label className="mt-2 flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="checkbox" name="allowShared" value="yes" defaultChecked={plan?.allowShared??false}/>允許共卡</label></fieldset>
                 <p className="sm:col-span-2 text-sm text-earth-500">
-                  修改預設不影響已指派方案；方案下架也會保留顧客已持有的額度。{music?"音樂教室每期 4 堂或 8 堂，每次上課使用 1 堂。":"提供點數與堂數方案，無自動續費。"}
+                  修改預設不影響已指派方案；方案下架也會保留顧客已持有的額度。{music?"音樂教室每次上課使用 1 堂；每期堂數依課程設定。":"提供點數與堂數方案，無自動續費。"}
                 </p>
               </form>
             )}

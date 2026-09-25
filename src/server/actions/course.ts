@@ -92,6 +92,10 @@ export async function updateCourseTemplate(input: unknown) {
     const { id, ...data } = courseTemplateInput
       .extend({ id: z.string().min(1) })
       .parse(input);
+    const existing = await coursePrisma.courseTemplate.findFirst({where:{id,storeId},select:{classType:true}});
+    if (!existing) throw new AppError("VALIDATION", "找不到本店課程，請重新整理");
+    if (existing.classType !== data.classType && await coursePrisma.courseSession.count({where:{storeId,templateId:id}}))
+      throw new AppError("VALIDATION", "已排課的課型不能變更；請複製課程另建自組班或團體班");
     await assertMusicCourseDuration(coursePrisma,storeId,data.durationMinutes);
     const room = data.defaultRoomId
       ? await coursePrisma.courseRoom.findFirst({

@@ -238,7 +238,7 @@ export default async function CoursesPage({
     >
       {view !== "schedule" && (
         <PageHeader
-          title={view === "catalog" ? "課程設定" : "教室管理"}
+          title={view === "catalog" ? "課程管理" : "教室管理"}
           subtitle={
             view === "catalog"
               ? "管理課程名稱、人數與排課預設"

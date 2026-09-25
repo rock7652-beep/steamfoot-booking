@@ -15,6 +15,7 @@ const m = vi.hoisted(() => ({
     },
     coursePointCard: { findFirst: vi.fn(), updateMany: vi.fn() },
     courseSession: { findFirst: vi.fn() },
+    courseTemplate: { findFirst: vi.fn() },
     courseBookingRule: { findUnique: vi.fn() },
     coursePointEntry: { create: vi.fn(), findUnique: vi.fn() },
     $queryRaw: vi.fn(),
@@ -212,6 +213,24 @@ describe("course point settlement", () => {
     expect(m.tx.courseBooking.update).toHaveBeenCalledWith({where:{id:"booking"},data:{status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}});
     expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
     expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"RELEASE",points:3})});
+  });
+  it("published music group leave records leave and forfeits one lesson", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:1,session:{...reserved().session,templateId:"guitar-group"}});
+    m.tx.$queryRaw.mockResolvedValue([{featureKey:"business.music"}]);
+    m.tx.courseTemplate.findFirst.mockResolvedValue({classType:"GROUP"});
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","STUDENT_LEAVE");
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({where:{id:"booking"},data:{status:"CANCELLED",absenceKind:"GROUP_LEAVE_FORFEITED"}});
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:{remaining:{decrement:1}}}));
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"DEBIT",points:1})});
+  });
+  it("self-organized music leave keeps the lesson for later makeup", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),session:{...reserved().session,templateId:"guitar-self"}});
+    m.tx.$queryRaw.mockResolvedValue([{featureKey:"business.music"}]);
+    m.tx.courseTemplate.findFirst.mockResolvedValue({classType:"SELF_ORGANIZED"});
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","STUDENT_LEAVE");
+    expect(m.tx.courseBooking.update).toHaveBeenCalledWith({where:{id:"booking"},data:{status:"CANCELLED",absenceKind:"STUDENT_LEAVE"}});
+    expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
+    expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"RELEASE"})});
   });
   it("student no-show spends one term lesson without granting a makeup card", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:1,card:{...reserved().card,termSessionIds:["s1","s2","s3","s4"]}});

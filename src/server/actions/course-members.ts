@@ -114,8 +114,8 @@ export async function saveCoursePointPlan(input: unknown) {
       where: { storeId, featureKey: "business.music", status: "ENABLED" },
       select: { storeId: true },
     });
-    if (isMusic && (data.unit !== "SESSION" || ![4, 8].includes(data.points)))
-      throw new AppError("VALIDATION", "音樂教室方案請選擇 4 堂或 8 堂；每次上課使用 1 堂");
+    if (isMusic && data.unit !== "SESSION")
+      throw new AppError("VALIDATION", "音樂教室方案以堂數計算；每次上課使用 1 堂");
     if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
     await courseTransaction(storeId,async tx=>{
     const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;
@@ -481,13 +481,13 @@ export async function loadCourseCustomerBookings(customerId: string, offset = 0,
 
 export async function updateCourseRosterBatch(input: unknown) {
   try {
-    const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),noShowChoice:z.enum(["DEDUCTED","DEDUCTED_WITH_MAKEUP"]).optional(),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW"])})).min(1).max(200)}).parse(input);
+    const data=z.object({sessionId:id,target:z.enum(["CHECKED_IN","ATTENDED","NO_SHOW","RESERVED"]),noShowChoice:z.enum(["DEDUCTED","DEDUCTED_WITH_MAKEUP"]).optional(),bookings:z.array(z.object({id,status:z.enum(["RESERVED","ATTENDED","NO_SHOW","CANCELLED"])})).min(1).max(200)}).parse(input);
     if(new Set(data.bookings.map(b=>b.id)).size!==data.bookings.length) throw new AppError("VALIDATION","學員不可重複");
     const {user,storeId}=await courseManager("booking.update");
     await courseTransaction(storeId,async tx=>{
       const session=await tx.courseSession.findFirst({where:{id:data.sessionId,storeId,cancelledAt:null}});
       if(!session)throw new AppError("NOT_FOUND","找不到可點名的本店課次");
-      const count=await tx.courseBooking.count({where:{storeId,sessionId:data.sessionId,id:{in:data.bookings.map(b=>b.id)},status:data.target==="CHECKED_IN"?"RESERVED":{not:"CANCELLED"}}});
+      const count=await tx.courseBooking.count({where:{storeId,sessionId:data.sessionId,id:{in:data.bookings.map(b=>b.id)},...(data.target==="RESERVED"?{OR:[{status:{not:"CANCELLED"}},{status:"CANCELLED",absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}}]}:{status:data.target==="CHECKED_IN"?"RESERVED":{not:"CANCELLED"}})}});
       if(count!==data.bookings.length)throw new AppError("CONFLICT","名單或狀態已變更，請重新核對");
       const actor={storeId,userId:user.id,name:user.name??"店長"};
       for(const booking of data.bookings){
