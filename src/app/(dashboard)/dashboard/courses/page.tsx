@@ -111,7 +111,10 @@ export default async function CoursesPage({
         where: {
           storeId,
           cancelledAt: null,
-          startsAt: { gte: scheduleStart, lte: scheduleEnd },
+          OR: [
+            { startsAt: { gte: scheduleStart, lte: scheduleEnd } },
+            { rescheduledFromStartsAt: { gte: scheduleStart, lte: scheduleEnd } },
+          ],
         },
         select: {
           id: true,
@@ -123,6 +126,11 @@ export default async function CoursesPage({
           roomId: true,
           capacity: true,
           pointCost: true,
+          requestKey: true,
+          rescheduledFromStartsAt: true,
+          rescheduledFromEndsAt: true,
+          rescheduleKind: true,
+          rescheduledAt: true,
           bookings: {
             where: { status: { not: "CANCELLED" } },
             select: {
@@ -227,6 +235,9 @@ export default async function CoursesPage({
           ...s,
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
+          rescheduledFromStartsAt: s.rescheduledFromStartsAt?.toISOString() ?? null,
+          rescheduledFromEndsAt: s.rescheduledFromEndsAt?.toISOString() ?? null,
+          rescheduledAt: s.rescheduledAt?.toISOString() ?? null,
         }))}
       />
     </PageShell>
