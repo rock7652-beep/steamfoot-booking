@@ -449,11 +449,7 @@ export async function moveCourseSessions(input: unknown) {
             templateId: change.session.templateId,
             roomId: d.roomId,
             coachId: d.coachId,
-            date: formatTWDateTime(change.startsAt).slice(0, 10),
-            time: formatTWDateTime(change.startsAt).slice(11),
-            durationMinutes: Math.round(duration / 60000),
             capacity: change.session.capacity,
-            requestKey: "00000000-0000-4000-8000-000000000000",
           },
           change.session,
         );
