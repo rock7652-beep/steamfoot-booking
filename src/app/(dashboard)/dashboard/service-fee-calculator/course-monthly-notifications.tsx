@@ -5,9 +5,10 @@ import type { NoticeSummary,NoticeStatus } from '@/lib/course-monthly-notificati
 const labels:Record<NoticeStatus,string>={READY:'可通知',SENT:'已通知',FAILED:'可重試',BUSY:'處理中',UNBOUND:'未完成綁定',BLOCKED:'需核對'};
 const button='min-h-11 rounded-lg border border-earth-200 px-4 py-2 text-sm disabled:opacity-50';
 export function CourseMonthlyNotifications({month,revision,enabled,confirmed}:{month:string;revision:number;enabled:boolean;confirmed:boolean}){
+ const [open,setOpen]=useState(false);
  const [summary,setSummary]=useState<NoticeSummary|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const lock=useRef(false);
- const blocked=!enabled?'請先於月結設定開放人員查看本人收入。':!confirmed?'請先確認本月金額；調整中的月結暫不通知。':null;
+ const blocked=!enabled?'請在設定開放本人收入查詢。':!confirmed?'請先確認月結。':null;
  async function preview(){
   if(lock.current)return;lock.current=true;setBusy(true);setMessage('');
   try{const r=await previewCourseMonthlyNotifications({month,revision});if(r.success)setSummary(r.data);else setMessage(r.error??'讀取失敗，請重試。');}catch{setMessage('連線未完成，請重試。');}finally{lock.current=false;setBusy(false);}
@@ -28,20 +29,23 @@ export function CourseMonthlyNotifications({month,revision,enabled,confirmed}:{m
   finally{lock.current=false;setBusy(false);}
  }
  const eligible=summary?.rows.filter(r=>r.status==='READY'||r.status==='FAILED').length??0;
- return <section aria-label="月結通知" className="space-y-3 rounded-xl border border-earth-200 bg-white p-4">
-  <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-medium">通知人員查看收入</h2><button type="button" className={button} disabled={busy||!!blocked} onClick={preview}>{busy?'處理中…':summary?'更新通知狀態':'查看可通知人員'}</button></div>
-  <p className="text-sm text-earth-600">手動發送 LINE 提醒，訊息不含金額。同一版月結已通知的人員不會重複發送。</p>
-  {blocked&&<p role="status" className="text-sm text-amber-800">{blocked}</p>}
-  {summary&&<>
-   {summary.preview&&<p className="rounded-lg bg-amber-50 p-3 text-sm">隔離預覽不會發送真實 LINE；目前僅核對帳號綁定，正式發送前會再確認是否可通知。</p>}
-   {summary.reason?<p role="status">{summary.reason}</p>:<>
-    <p className="text-sm">可通知／重試 {eligible} 人 · 已通知 {summary.rows.filter(r=>r.status==='SENT').length} 人 · 未完成綁定 {summary.rows.filter(r=>r.status==='UNBOUND').length} 人</p>
-    <details><summary className="min-h-11 cursor-pointer py-2">人員通知狀態（{summary.rows.length}）</summary><ul className="divide-y">{summary.rows.map(row=><li key={row.staffId} className="py-2 text-sm"><span className="font-medium">{row.name}</span> · {labels[row.status]}{row.reason&&<p className="text-earth-600">{row.reason}</p>}</li>)}</ul></details>
-    <blockquote className="rounded-lg bg-earth-50 p-3 text-sm">{month} 收入明細已確認，可登入查看。<br/>此通知不代表款項已入帳。</blockquote>
-    <button type="button" className={`${button} bg-primary-700 text-white`} disabled={busy||!eligible||summary.preview} onClick={send}>通知 {eligible} 位人員</button>
-    <p className="text-xs text-earth-500">已通知表示 LINE 已接受發送，不代表本人已讀或已收款。</p>
-   </>}
-  </>}
-  {message&&<p role="status" className="text-sm">{message}</p>}
+ return <section aria-label="月結通知" className="rounded-lg border border-earth-200 bg-white px-4">
+ <button type="button" className="flex min-h-11 w-full items-center justify-between text-sm" aria-expanded={open} onClick={()=>{setOpen(!open);if(!open&&!summary&&!blocked)void preview();}}><span>通知人員</span><span aria-hidden="true">{open?'－':'＋'}</span></button>
+ {open&&<div className="space-y-3 pb-4">
+ {blocked?<p role="status" className="text-sm text-earth-600">{blocked}</p>:<>
+ {busy&&<p role="status" className="text-sm">處理中…</p>}
+ {summary&&<>
+ {summary.preview&&<p className="text-xs text-earth-500">預覽模式，不會發送。</p>}
+ {summary.reason?<p role="status" className="text-sm">{summary.reason}</p>:<>
+ <p className="text-sm">可通知 {eligible} 人 · 已通知 {summary.rows.filter(r=>r.status==='SENT').length} 人 · 需綁定 {summary.rows.filter(r=>r.status==='UNBOUND').length} 人</p>
+ <details><summary className="min-h-11 cursor-pointer py-2 text-sm">查看名單（{summary.rows.length}）</summary><ul className="divide-y">{summary.rows.map(row=><li key={row.staffId} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><span>{row.name}</span><span className="text-earth-600">{labels[row.status]}</span>{row.reason&&row.status!=='UNBOUND'&&<p className="w-full text-xs text-earth-500">{row.reason}</p>}</li>)}</ul></details>
+ <details><summary className="min-h-11 cursor-pointer py-2 text-sm">訊息預覽</summary><blockquote className="rounded-lg bg-earth-50 p-3 text-sm">{month} 收入明細已確認，可登入查看。<br/>此通知不代表款項已入帳。</blockquote></details>
+ <button type="button" className={`${button} bg-primary-700 text-white`} disabled={busy||!eligible||summary.preview} onClick={send}>發送 LINE 通知（{eligible}）</button>
+ </>}
+ </>}
+ <button type="button" className="ml-2 min-h-11 text-sm text-primary-700 disabled:opacity-50" disabled={busy} onClick={preview}>更新名單</button>
+ </>}
+ {message&&<p role="status" className="text-sm">{message}</p>}
+ </div>}
  </section>;
 }
