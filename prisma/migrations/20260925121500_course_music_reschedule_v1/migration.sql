@@ -2,6 +2,8 @@
 ALTER TABLE "CourseSession"
   ADD COLUMN IF NOT EXISTS "rescheduledFromStartsAt" TIMESTAMPTZ(3),
   ADD COLUMN IF NOT EXISTS "rescheduledFromEndsAt" TIMESTAMPTZ(3),
+  ADD COLUMN IF NOT EXISTS "rescheduledFromRoomId" TEXT,
+  ADD COLUMN IF NOT EXISTS "rescheduledFromCoachId" TEXT,
   ADD COLUMN IF NOT EXISTS "rescheduleKind" TEXT,
   ADD COLUMN IF NOT EXISTS "rescheduledAt" TIMESTAMPTZ(3),
   ADD COLUMN IF NOT EXISTS "rescheduledById" TEXT;
