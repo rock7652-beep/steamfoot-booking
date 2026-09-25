@@ -385,7 +385,7 @@ export function CourseScheduleBoard({
   const resourcePeriods=(resourceId:string)=>resourceView==="room"
     ? normalizedStorePeriods
     : coachPeriods(resourceId);
-  const slotConflict=(resourceId:string,startTime:string,durationMinutes=availabilityDuration)=>{
+  const slotConflict=(resourceId:string,startTime:string,durationMinutes:number=availabilityDuration)=>{
     const start=minuteOfDay(startTime),end=start+durationMinutes;
     return filtered.some(session=>{
       const same=resourceView==="room"?session.roomId===resourceId:session.coachId===resourceId;
