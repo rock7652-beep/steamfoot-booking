@@ -279,7 +279,6 @@ export function CourseWorkspace({
   const [extraDateKeys, setExtraDateKeys] = useState<string[]>([]);
   const [copySource, setCopySource] = useState<Session | null>(null);
   const [moveChoice, setMoveChoice] = useState<Session | null>(null);
-  const [moveWeeks, setMoveWeeks] = useState(2);
   const [moveClipboard, setMoveClipboard] = useState<CourseMoveClipboard | null>(null);
   const moveStorageKey = `course-move:${pathname}`;
   const moveChoiceIsFixed = Boolean(
@@ -291,7 +290,7 @@ export function CourseWorkspace({
     if (businessProfile !== "MUSIC") return;
     try {
       const saved = window.sessionStorage.getItem(moveStorageKey);
-      if (saved && !moveClipboard) setMoveClipboard(JSON.parse(saved) as CourseMoveClipboard);
+      if (saved) setMoveClipboard((current) => current ?? JSON.parse(saved) as CourseMoveClipboard);
     } catch {
       // A stale clipboard must never block the schedule.
     }
@@ -690,7 +689,6 @@ export function CourseWorkspace({
                       onChange={(event)=>{
                         const weeks=Number(event.target.value);
                         if (weeks) {
-                          setMoveWeeks(weeks);
                           beginMove(moveChoice,"WEEKS",weeks);
                         }
                       }}
@@ -2141,7 +2139,6 @@ export function CourseWorkspace({
                     className={`${button} w-full`}
                     onClick={() => {
                       setMoveChoice(dialogSession);
-                      setMoveWeeks(2);
                       setCourseDialog(null);
                     }}
                   >
