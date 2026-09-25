@@ -104,7 +104,7 @@ export async function getCourseRoster(storeId: string, sessionId: string) {
     unit: card?.unit ?? "POINT",
     termIndex:(card?.termSessionIds?.indexOf(sessionId) ?? -1)>=0 ? card!.termSessionIds.indexOf(sessionId)+1 : null,
     termCount:card?.termSessionIds?.length??0,
-    planName: card?.nameSnapshot ?? "體驗（不使用方案）",
+    planName: card?.nameSnapshot ?? (b.bookingKind === "TEACHER_MAKEUP" ? "老師曠課免費補課" : "體驗（不使用方案）"),
     sharedCard: (card?.members.length ?? 0) > 1,
     bookingSource: b.operatorCustomerId
       ? b.operatorCustomerId === b.customerId
