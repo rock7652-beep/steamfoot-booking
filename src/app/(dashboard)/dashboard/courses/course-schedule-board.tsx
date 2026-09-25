@@ -189,6 +189,7 @@ function SessionCard({
   dense = false,
   resourceView,
   businessProfile,
+  fixed = false,
   onOpen,
 }: {
   session: Session;
@@ -199,6 +200,7 @@ function SessionCard({
   dense?: boolean;
   resourceView?: ResourceView;
   businessProfile: "FITNESS" | "MUSIC";
+  fixed?: boolean;
   onOpen: () => void;
 }) {
   const copy = adaptiveCopy(session, templates, coaches, rooms, businessProfile);
@@ -234,6 +236,9 @@ function SessionCard({
       <div className={`flex flex-wrap gap-1 ${dense ? "mt-1" : "mt-1.5"}`}>
         {moved && (
           <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">調課</span>
+        )}
+        {!moved && fixed && (
+          <span className="rounded-full bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">固定</span>
         )}
         {isTrial(session) && (
           <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
@@ -341,6 +346,7 @@ export function CourseScheduleBoard({
                           rooms={rooms}
                           compact
                           businessProfile={businessProfile}
+                          fixed={Boolean(session.requestKey && sessions.some((candidate)=>candidate.id!==session.id&&candidate.requestKey===session.requestKey))}
                           onOpen={() => onOpenSession(session.id, date)}
                         />
                       ))
@@ -657,21 +663,16 @@ export function CourseScheduleBoard({
                         </div>
                       )}
                       {musicDense && movedShadows.map((session) => (
-
-                        <div
-
+                        <button
+                          type="button"
                           key={`moved:${session.id}`}
-
-                          className="pointer-events-none absolute left-1 right-1 z-[5] rounded border border-dashed border-indigo-200 bg-indigo-50/55 px-1 py-0.5 text-[9px] text-indigo-700"
-
+                          className="absolute left-1 right-1 z-[5] rounded border border-dashed border-indigo-200 bg-indigo-50/55 px-1 py-0.5 text-left text-[9px] text-indigo-700 hover:bg-indigo-100"
                           style={{ top: hhmm(session.rescheduledFromStartsAt!).endsWith(":30") ? 50 : 2 }}
-
+                          title={`已移動 → ${toLocalDateStr(new Date(session.startsAt))} ${hhmm(session.startsAt)}`}
+                          onClick={()=>onSelectDate(toLocalDateStr(new Date(session.startsAt)))}
                         >
-
-                          已移動 · {firstCustomer(session) || session.nameSnapshot}
-
-                        </div>
-
+                          已移動 → {toLocalDateStr(new Date(session.startsAt)).slice(5)} {hhmm(session.startsAt)}
+                        </button>
                       ))}
 
                       <div className={musicDense?"relative z-10 p-1 pointer-events-none":"contents"}>
@@ -690,6 +691,7 @@ export function CourseScheduleBoard({
                               coaches={coaches}
                               rooms={rooms}
                               businessProfile={businessProfile}
+                              fixed={Boolean(session.requestKey && sessions.some((candidate)=>candidate.id!==session.id&&candidate.requestKey===session.requestKey))}
                               dense={musicDense}
                               resourceView={resourceView}
                               onOpen={() => onOpenSession(session.id, selectedDate)}
