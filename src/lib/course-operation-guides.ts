@@ -155,8 +155,8 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C116", category: "money", title: "課程體驗的收款、出席與作廢為什麼要分開？",
     summary: "先登記體驗收款，再依實際上課狀況點名；兩個動作互不代替。", answer: "收款不會自動完成出席，出席也不會再次收費或使用其他方案額度。",
-    keywords: "體驗 收款 混合付款 報到 出席 作廢 沖銷 更正 無卡", path: "課表排程 → 課程名單 → 體驗收款／點名",
-    steps: ["在體驗學員列核對應收金額，登記實際付款方式與金額。", "學員到場及課程結束後，另依實際狀況操作報到、出席或未到。", "收款登記錯誤時使用更正或作廢，填原因後核對歷史與收支；不要用取消預約代替帳務更正。"],
+    keywords: "體驗 收款 混合付款 報到 出席 作廢 沖銷 更正 無卡 未收款 已收", path: "課表排程 → 上課名單 → 體驗學員列的收款／點名",
+    steps: ["在體驗學員列核對金額與未收款標示，點旁邊的「收款」登記實際付款；已收者顯示已收金額。", "學員到場及課程結束後，另依實際狀況操作報到、出席或未到。", "收款登記錯誤時使用更正收款或作廢，填原因後核對歷史與收支；不要用取消預約代替帳務更正。"],
     important: "作廢只沖銷收款，保留原紀錄及出席狀態；系統不會自動銀行退刷。",
     success: "付款狀態、出席狀態及收支紀錄各自正確；體驗沒有建立方案額度異動。",
     details: ["體驗預約無卡且每人點數為 0；已支付的同堂出席不再扣其他方案。", "重送同一收款不會重複入帳；連線中斷時先查原紀錄再決定是否重試。"],
@@ -219,7 +219,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["選日期範圍並展開授課費，核對課次、教練、固定費與付款狀態。", "在待付課次點登錄已付，選現金或非現金並填付款備註後確認。", "若只是誤登，點更正誤登並填原因；另行確認實際匯款或款項收回。"],
     important: "登錄或更正都不是銀行付款／退款。現金付款需今日抽屜已開啟；連線中斷先重新整理查結果。",
     success: "付款狀態與備註正確，現金帳有對應支出；更正保留原付款及反向沖回紀錄。",
-    details: ["只有已結束、未取消、費率為正整數且教練與快照一致的課次可登錄；0 元表示不另領。", "舊課次缺費率或小數金額會標成待核對；單次最多顯示 100 堂，超過時需縮短日期範圍。"],
+    details: ["只有已結束、未取消、費率為正整數且教練與快照一致的課次可登錄；0 元表示不另領。", "舊課次缺費率或小數金額會標成待核對；單次最多顯示 100 堂，超過時需縮短日期範圍。", "已開通月結管理的課程店也可在確認月結金額後登錄授課費；與收入總覽共用同一付款紀錄，不要重複新增支出。"],
     permission: "cashbook.read", additionalPermissions: ["cashbook.create"], feature: null, sources: ["src/app/(dashboard)/dashboard/revenue/_components/course-fees.tsx", "src/app/(dashboard)/dashboard/revenue/_components/course-fee-payment-button.tsx", "src/server/services/course-fee-payment.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
