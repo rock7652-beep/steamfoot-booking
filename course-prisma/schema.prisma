@@ -312,6 +312,7 @@ model CourseSettlementSetting {
   storeId String @id
   profitEnabled Boolean @default(true)
   feeEnabled Boolean @default(true)
+  personalIncomeEnabled Boolean @default(false)
   revision Int @default(1)
 }
 model CourseMonthlySettlement {

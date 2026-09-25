@@ -13,6 +13,7 @@ jobs:
   postgres-integration:
     if: >-
       github.head_ref == 'codex/course-monthly-settlement' ||
+      github.head_ref == 'codex/course-monthly-usability' ||
       github.head_ref == 'fix/test-audit-recovery' ||
       github.head_ref == 'codex/course-scheduling-stage1' ||
       github.head_ref == 'codex/course-large-lists-20260921' ||

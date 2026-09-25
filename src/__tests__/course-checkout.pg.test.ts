@@ -1,5 +1,5 @@
 import {recordCourseProfitPayment,voidCourseProfitPayment} from "@/server/services/course-profit-payment";
-import {readCourseMonthlySettlement} from "@/server/services/course-monthly-settlement";
+import {readCourseMonthlySettlement,readSettlementSettings} from "@/server/services/course-monthly-settlement";
 import {toLocalMonthStr} from "@/lib/date-utils";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
@@ -194,6 +194,12 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
       const create=()=>testDb().courseSession.create({data:{storeId:f.storeId,templateId:template.id,roomId:room.id,coachId:f.storeId,nameSnapshot:"授課",startsAt:new Date("2098-01-01T01:00:00Z"),endsAt:new Date("2098-01-01T02:00:00Z"),pointCost:1,capacity:20,requestKey:randomUUID(),requestIndex:0,createdById:f.storeId}});
       const original=await create();
       await testDb().$executeRaw`INSERT INTO "CourseSettlementSetting" ("storeId","feeEnabled") VALUES (${f.storeId},false)`;
+      const incomeMigration=readFileSync("prisma/migrations/20260924160000_course_personal_income/migration.sql","utf8");
+      await testDb().$executeRawUnsafe(incomeMigration);
+      await testDb().$executeRawUnsafe(incomeMigration);
+      expect((await readSettlementSettings(testDb(),f.storeId)).personalIncomeEnabled).toBe(false);
+      await testDb().$executeRaw`UPDATE "CourseSettlementSetting" SET "personalIncomeEnabled"=true WHERE "storeId"=${f.storeId}`;
+      expect(await readSettlementSettings(testDb(),f.storeId)).toMatchObject({personalIncomeEnabled:true,feeEnabled:false});
       const disabled=await create();
       await testDb().$executeRaw`UPDATE "CourseSettlementSetting" SET "feeEnabled"=true WHERE "storeId"=${f.storeId}`;
       const enabled=await create();

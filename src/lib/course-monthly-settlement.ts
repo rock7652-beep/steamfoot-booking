@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { courseAllocationAfterRefund } from "./course-sale-allocation";
 export const settlementMonth = z.string().regex(/^20\d{2}-(0[1-9]|1[0-2])$/);
-export const settlementSettingsInput = z.object({ profitEnabled:z.boolean(), feeEnabled:z.boolean(), revision:z.number().int().nonnegative() });
+export const settlementSettingsInput = z.object({ profitEnabled:z.boolean(), feeEnabled:z.boolean(), personalIncomeEnabled:z.boolean().optional(), revision:z.number().int().nonnegative() });
 export const settlementConfirmInput = z.object({ month:settlementMonth, fingerprint:z.string().length(64), revision:z.number().int().nonnegative(), reason:z.string().trim().min(1).max(500) });
 export const profitPaymentInput = z.object({ month:settlementMonth, purchaseId:z.string().min(1).max(180), amount:z.number().int().positive().max(1000000), expectedRemaining:z.number().int().positive(), method:z.enum(["CASH","OTHER"]), note:z.string().trim().min(1).max(500), requestKey:z.string().uuid() });
 export type SettlementLine = { kind:"PROFIT"|"FEE"; id:string; staffId:string|null; name:string; label:string; date:string; amount:number|null; paid:number; issue:string|null; payments:{id:string;amount:number;date:string;note:string;voided:boolean;reason:string|null}[] };

@@ -4,7 +4,7 @@ import {readCourseMonthlySettlement,readSettlementSettings} from "@/server/servi
 import {courseSaleSnapshot} from "@/server/services/course-sale-allocation";
 const raw=vi.fn(),orders=vi.fn();const tx={$queryRaw:raw,coursePurchase:{findMany:orders}} as unknown as Prisma.TransactionClient;
 beforeEach(()=>{vi.resetAllMocks();orders.mockResolvedValue([]);raw.mockImplementation((strings:TemplateStringsArray)=>{const sql=strings.join("");if(sql.includes('FROM "CourseSettlementSetting"'))return Promise.resolve([]);return Promise.resolve([]);});});
-it("defaults both switches on without rewriting any history",async()=>{expect(await readSettlementSettings(tx,"A")).toEqual({profitEnabled:true,feeEnabled:true,revision:0});});
+it("defaults calculation on but personal income off without rewriting history",async()=>{expect(await readSettlementSettings(tx,"A")).toEqual({profitEnabled:true,feeEnabled:true,personalIncomeEnabled:false,revision:0});});
 it("disabled profit permits checkout without developer and allocates receipts to store",async()=>{raw.mockResolvedValue([{profitEnabled:false,feeEnabled:true,revision:2}]);expect(await courseSaleSnapshot(tx,"A",100,700,null)).toEqual({storeCostSnapshot:100,developerProfitSnapshot:0,developerNameSnapshot:null,revenueStaffId:null});});
 it("enabled profit still requires valid developer",async()=>{await expect(courseSaleSnapshot(tx,"A",2300,700,null)).rejects.toThrow("指定");});
 it("Taipei month boundary scopes purchases correctly",async()=>{await readCourseMonthlySettlement(tx,"A","2026-09");expect(orders.mock.calls[0][0].where).toMatchObject({storeId:"A",confirmedAt:{gte:new Date("2026-08-31T16:00:00.000Z"),lte:new Date("2026-09-30T15:59:59.999Z")}});});
