@@ -184,6 +184,7 @@ export default async function StaffPage({
             ) : null}
             <StaffWorkspace
               courseBasicOnly={isCourseStore}
+              showSteamfootRent={Boolean(activeStoreId && !isSpaStore && !isCourseStore)}
               people={people}
               today={toLocalDateStr()}
               canManage={canManage}
