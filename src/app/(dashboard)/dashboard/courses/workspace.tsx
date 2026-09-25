@@ -281,6 +281,32 @@ export function CourseWorkspace({
   const [moveChoice, setMoveChoice] = useState<Session | null>(null);
   const [moveWeeks, setMoveWeeks] = useState(2);
   const [moveClipboard, setMoveClipboard] = useState<CourseMoveClipboard | null>(null);
+  const moveStorageKey = `course-move:${pathname}`;
+  const moveChoiceIsFixed = Boolean(
+    moveChoice?.requestKey &&
+    sessions.some((session) => session.id !== moveChoice.id && session.requestKey === moveChoice.requestKey),
+  );
+
+  useEffect(() => {
+    if (businessProfile !== "MUSIC") return;
+    try {
+      const saved = window.sessionStorage.getItem(moveStorageKey);
+      if (saved && !moveClipboard) setMoveClipboard(JSON.parse(saved) as CourseMoveClipboard);
+    } catch {
+      // A stale clipboard must never block the schedule.
+    }
+  }, [businessProfile, moveStorageKey]);
+
+  useEffect(() => {
+    if (businessProfile !== "MUSIC") return;
+    try {
+      if (moveClipboard) window.sessionStorage.setItem(moveStorageKey, JSON.stringify(moveClipboard));
+      else window.sessionStorage.removeItem(moveStorageKey);
+    } catch {
+      // sessionStorage is only a convenience for cross-month moves.
+    }
+  }, [businessProfile, moveClipboard, moveStorageKey]);
+
   const [scheduleSeed,setScheduleSeed]=useState<{time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
   function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
     const durationMinutes = Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
@@ -654,23 +680,35 @@ export function CourseWorkspace({
             <>
             {businessProfile === "MUSIC" && moveChoice && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm">
-                <strong>調整時間</strong>
+                <strong>✂ 調課</strong>
                 <button className={button} type="button" onClick={()=>beginMove(moveChoice,"SINGLE")}>這堂</button>
-                <span className="inline-flex items-center gap-1">
-                  <select className="min-h-10 rounded-lg border border-earth-200 bg-white px-2" value={moveWeeks} onChange={(event)=>setMoveWeeks(Number(event.target.value))} aria-label="連續週數">
-                    {[2,3,4,5,6,7,8].map((weeks)=><option key={weeks} value={weeks}>{weeks} 週</option>)}
-                  </select>
-                  <button className={button} type="button" onClick={()=>beginMove(moveChoice,"WEEKS",moveWeeks)}>連續</button>
-                </span>
-                <button className={button} type="button" onClick={()=>beginMove(moveChoice,"FUTURE")}>之後都改</button>
+                {moveChoiceIsFixed && (
+                  <>
+                    <select
+                      className="min-h-10 rounded-lg border border-earth-200 bg-white px-2"
+                      value=""
+                      onChange={(event)=>{
+                        const weeks=Number(event.target.value);
+                        if (weeks) {
+                          setMoveWeeks(weeks);
+                          beginMove(moveChoice,"WEEKS",weeks);
+                        }
+                      }}
+                      aria-label="連續幾週"
+                    >
+                      <option value="">連續幾週</option>
+                      {[2,3,4,5,6,7,8].map((weeks)=><option key={weeks} value={weeks}>連續 {weeks} 週</option>)}
+                    </select>
+                    <button className={button} type="button" onClick={()=>beginMove(moveChoice,"FUTURE")}>之後都改</button>
+                  </>
+                )}
                 <button className="ml-auto text-xs text-earth-500" type="button" onClick={()=>setMoveChoice(null)}>取消</button>
               </div>
             )}
             {businessProfile === "MUSIC" && moveClipboard && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
-                <strong>✂ {moveClipboard.label}</strong>
-                <span>{moveClipboard.durationMinutes} 分</span>
-                <span className="text-indigo-700">選白格貼上</span>
+                <strong>✂ 已剪下：{moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
+                <span className="text-xs text-indigo-700">點白格貼上</span>
                 <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
               </div>
             )}
@@ -2107,7 +2145,7 @@ export function CourseWorkspace({
                       setCourseDialog(null);
                     }}
                   >
-                    調整時間
+                    ✂ 調課
                   </button>
                 </footer>
               )}
