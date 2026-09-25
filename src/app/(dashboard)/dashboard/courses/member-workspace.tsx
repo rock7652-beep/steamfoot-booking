@@ -1,6 +1,7 @@
 "use client";
 import {CourseOptionSelect} from "@/components/admin/course-option-select";
 import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
+import {CourseCardReservations} from "./card-reservations";
 import {CourseCardBrowser, type CardBrowseState} from "./card-browser";
 import {browseCourseCards} from "@/server/actions/course-browse";
 import {CourseAssignmentPayment, type AssignmentSummary} from "@/components/admin/course-assignment-payment";
@@ -333,7 +334,7 @@ export function CourseMemberWorkspace({
                 ))}
           </tbody>
         </table>
-      </div> : canReadCards ? <CourseCardBrowser state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
+      </div> : canReadCards ? <CourseCardBrowser canReadBookings={canReadBookings} state={cardBrowse} onChange={setCardBrowse} onSelect={selectCard} revision={cardRevision}/> : null
       )}
       {view === "plans" && planArea === "catalog" && totalRows > 20 && <nav aria-label="清單分頁" className="mt-3 flex items-center justify-end gap-3"><span className="text-sm">共 {totalRows} 筆 · 第 {currentPage + 1}／{Math.ceil(totalRows / 20)} 頁</span><button className={button} disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一頁</button><button className={button} disabled={(currentPage + 1) * 20 >= totalRows} onClick={() => setPage(currentPage + 1)}>下一頁</button></nav>}
       {panel && (
@@ -409,7 +410,7 @@ export function CourseMemberWorkspace({
                 {personTab === "plans" && canAssign && <button className={button} onClick={() => open("assign")}>購買方案</button>}
               </div>
               {canReadCards && personTab === "plans" && <section aria-label="持有與共卡方案">
-                <CourseCardBrowser customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
+                <CourseCardBrowser canReadBookings={canReadBookings} customerId={person.id} state={customerCardBrowse} onChange={setCustomerCardBrowse} onSelect={selectCard} revision={cardRevision}/>
 
               </section>}
               {personTab === "info" && <details><summary className="min-h-11 cursor-pointer py-2">身分與歸屬資訊</summary><dl className="space-y-2 text-sm">
@@ -634,6 +635,7 @@ export function CourseMemberWorkspace({
               <>
                 {cardLoading && <p role="status">讀取方案詳細資料中…</p>}
                 <CourseCardSummary card={card} />
+                {canReadBookings && !cardLoading && !error && card.held > 0 && <CourseCardReservations cardId={card.id} held={card.held} unit={card.unit} revision={cardRevision}/>}
                 {canAssign && card.allowShared && !cardLoading && !error && (
                   <form
                     id="course-member-form"
@@ -684,14 +686,15 @@ export function CourseCardSummary({ card }: { card: CourseCardView }) {
     <div className="space-y-2 text-sm">
       <h3 className="font-semibold">{card.name}</h3>
       <p>
-        剩餘 {card.remaining} · 已預約占用 {card.held} · 可用 {card.available}{" "}
-        {card.unit === "SESSION" ? "堂" : "點"}
+        剩餘 {card.remaining} {card.unit === "SESSION" ? "堂" : "點"} · 已預約 {card.held} {card.unit === "SESSION" ? "堂" : "點額度"}
+        {!card.closed && !card.expired && <> · {card.unit === "SESSION" ? `還可預約 ${card.available} 堂` : `可用 ${card.available} 點`}</>}
       </p>
       <p>
         期限：{toLocalDateStr(new Date(card.expiresAt))}
         {new Date(card.expiresAt) < new Date() ? "（已到期）" : ""}
       </p>
-      <p>授權成員：{card.members.map((m) => m.name).join("、")}</p>
+      <p>{card.members.length>1?"共同餘額 · 共卡人":"持有人"}：{card.members.map((m) => m.name).join("、")}</p>
+      {(card.closed || card.expired) ? <p>{card.closed ? "已停用" : "已到期"} · 剩餘額度僅供查詢</p> : card.remaining>0 && card.available===0 && card.held>=card.remaining ? <p>額度已全數預約</p> : card.remaining===0 ? <p>額度已用完</p> : null}
     </div>
   );
 }
@@ -700,8 +703,8 @@ export function CourseCardEntries({ card }: { card: CourseCardView }) {
     GRANT: "取得額度",
     REFUND: "退款收回額度",
     VOID: "誤建作廢收回額度",
-    RESERVE: "預約占用",
-    RELEASE: "釋放占用",
+    RESERVE: "預約保留額度",
+    RELEASE: "取消預約返還額度",
     DEBIT: "出席使用",
   };
   return (
