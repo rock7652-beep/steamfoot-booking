@@ -31,6 +31,7 @@ type Session = {
   pointCost: number;
   requestKey?: string;
   isFixed?: boolean;
+  isBiweekly?: boolean;
   rescheduledFromStartsAt?: string | null;
   rescheduledFromEndsAt?: string | null;
   rescheduledFromRoomId?: string | null;
@@ -208,6 +209,7 @@ function SessionCard({
   const seats = openSeats(session);
   const musicDense = dense && businessProfile === "MUSIC";
   const moved = Boolean(session.rescheduledFromStartsAt);
+  const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
   const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
   const attendanceComplete = activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
   const showCapacityState = !musicDense || !copy.privateClass;
@@ -240,9 +242,18 @@ function SessionCard({
         {moved && (
           <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">調課</span>
         )}
+        {substitute && (
+          <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-800">代課</span>
+        )}
         {attendanceComplete && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">已出席</span>}
         {!moved && fixed && (
-          <span className="rounded-full bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">固定</span>
+          <span className="rounded-full bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">{session.isBiweekly ? "隔週" : "固定"}</span>
+        )}
+        {businessProfile === "MUSIC" && !fixed && !moved && !substitute && copy.privateClass && (
+          <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">約課</span>
+        )}
+        {businessProfile === "MUSIC" && !copy.privateClass && (
+          <span className="rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-700">團體</span>
         )}
         {isTrial(session) && (
           <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">

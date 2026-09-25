@@ -68,6 +68,7 @@ type Session = {
   pointCost: number;
   requestKey?: string;
   isFixed?: boolean;
+  isBiweekly?: boolean;
   rescheduledFromStartsAt?: string | null;
   rescheduledFromEndsAt?: string | null;
   rescheduledFromRoomId?: string | null;

@@ -203,6 +203,25 @@ export default async function CoursesPage({
         having: { id: { _count: { gt: 1 } } },
       })).map((row) => row.requestKey))
     : new Set<string>();
+  const biweeklyKeys = new Set<string>();
+  if (recurringKeys.size) {
+    const recurringDates = await coursePrisma.courseSession.findMany({
+      where: { storeId, cancelledAt: null, requestKey: { in: [...recurringKeys] } },
+      select: { requestKey: true, startsAt: true },
+      orderBy: { startsAt: "asc" },
+    });
+    const datesByKey = new Map<string, number[]>();
+    for (const row of recurringDates) {
+      const dates = datesByKey.get(row.requestKey) ?? [];
+      dates.push(row.startsAt.getTime());
+      datesByKey.set(row.requestKey, dates);
+    }
+    for (const [key, dates] of datesByKey) {
+      if (dates.length >= 2 && dates.every((date, index) =>
+        index === 0 || Math.round((date - dates[index - 1]) / 86400000) === 14,
+      )) biweeklyKeys.add(key);
+    }
+  }
   if (businessProfile === "MUSIC" && businessHours.length > 0 && businessHours.every((row) => row.segments == null)) {
     redirect("/dashboard/courses/hours?tab=weekly&setup=1");
   }
@@ -249,6 +268,7 @@ export default async function CoursesPage({
         sessions={sessions.map((s) => ({
           ...s,
           isFixed: recurringKeys.has(s.requestKey),
+          isBiweekly: biweeklyKeys.has(s.requestKey),
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
           rescheduledFromStartsAt: s.rescheduledFromStartsAt?.toISOString() ?? null,
