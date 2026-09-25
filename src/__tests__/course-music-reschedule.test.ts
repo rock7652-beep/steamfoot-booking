@@ -35,7 +35,11 @@ it("keeps temporary moves visible as moved lessons plus original-slot shadows", 
   expect(workspace).toContain("這堂");
   expect(workspace).toContain("連續");
   expect(workspace).toContain("之後都改");
-  expect(workspace).toContain("選白格貼上");
+  expect(workspace).toContain("✂ 已剪下：");
+  expect(workspace).toContain("點白格貼上");
+  expect(workspace).toContain("sessionStorage");
+  expect(board).toContain("固定");
+  expect(board).toContain("已移動 →");
 });
 
 it("stores reschedule history additively", () => {
