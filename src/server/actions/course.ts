@@ -519,6 +519,12 @@ export async function moveCourseSessions(input: unknown) {
             rescheduledFromEndsAt: temporary
               ? change.session.rescheduledFromEndsAt ?? change.session.endsAt
               : null,
+            rescheduledFromRoomId: temporary
+              ? change.session.rescheduledFromRoomId ?? change.session.roomId
+              : null,
+            rescheduledFromCoachId: temporary
+              ? change.session.rescheduledFromCoachId ?? change.session.coachId
+              : null,
             rescheduleKind: temporary ? d.scope : null,
             rescheduledAt: temporary ? movedAt : null,
             rescheduledById: temporary ? user.id : null,
