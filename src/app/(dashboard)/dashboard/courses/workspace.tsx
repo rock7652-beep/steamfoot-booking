@@ -2075,7 +2075,7 @@ export function CourseWorkspace({
               <div
                 className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
                   courseDialog.kind === "roster"
-                    ? "overflow-hidden"
+                    ? "overflow-y-auto sm:overflow-hidden"
                     : "overflow-y-auto"
                 }`}
               >
