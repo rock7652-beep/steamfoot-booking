@@ -29,6 +29,13 @@ type Session = {
   roomId: string;
   capacity: number;
   pointCost: number;
+  requestKey?: string;
+  rescheduledFromStartsAt?: string | null;
+  rescheduledFromEndsAt?: string | null;
+  rescheduledFromRoomId?: string | null;
+  rescheduledFromCoachId?: string | null;
+  rescheduleKind?: string | null;
+  rescheduledAt?: string | null;
   bookings: Booking[];
 };
 
@@ -43,12 +50,25 @@ type Coach = {
   displayName: string;
   status: string;
   courseCoachEnabled: boolean;
+  courseQualificationsConfirmed?: boolean;
+  courseQualifiedTemplateIds?: string[];
 };
 
 type Template = {
   id: string;
   name: string;
   classType?: string | null;
+};
+
+export type CourseMoveClipboard = {
+  sessionId: string;
+  templateId: string;
+  coachId: string;
+  roomId: string;
+  durationMinutes: number;
+  scope: "SINGLE" | "WEEKS" | "FUTURE";
+  weeks?: number;
+  label: string;
 };
 
 type Props = {
@@ -65,6 +85,8 @@ type Props = {
   staffAvailability: {staffId:string;dayOfWeek:number;segments:unknown}[];
   staffAvailabilityExceptions: {staffId:string;date:string;type:string;segments:unknown;reason:string|null}[];
   onOpenEmpty: (value:{time:string;roomId?:string;coachId?:string;durationMinutes?:number})=>void;
+  moveClipboard?: CourseMoveClipboard | null;
+  onPasteMove?: (value:{time:string;roomId:string;coachId:string})=>void;
   onSelectDate: (date: string) => void;
   onOpenSession: (sessionId: string, date: string) => void;
 };
@@ -182,12 +204,13 @@ function SessionCard({
   const copy = adaptiveCopy(session, templates, coaches, rooms, businessProfile);
   const seats = openSeats(session);
   const musicDense = dense && businessProfile === "MUSIC";
+  const moved = Boolean(session.rescheduledFromStartsAt);
   const showCapacityState = !musicDense || !copy.privateClass;
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`w-full rounded-lg border text-left transition ${dense ? "h-full overflow-hidden" : ""} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"} ${musicDense && !copy.privateClass ? "border-earth-200 border-l-2 border-l-primary-300 bg-primary-50/20" : "border-earth-200 bg-white"}`}
+      className={`w-full rounded-lg border text-left transition ${dense ? "h-full overflow-hidden" : ""} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"} ${moved ? "border-indigo-200 bg-indigo-50/80" : musicDense && !copy.privateClass ? "border-earth-200 border-l-2 border-l-primary-300 bg-primary-50/20" : "border-earth-200 bg-white"}`}
       aria-label={`${copy.primary}，${hhmm(session.startsAt)}，${copy.coach}`}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
@@ -209,6 +232,9 @@ function SessionCard({
             : `${copy.coach} · ${copy.room}`}
       </p>
       <div className={`flex flex-wrap gap-1 ${dense ? "mt-1" : "mt-1.5"}`}>
+        {moved && (
+          <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">調課</span>
+        )}
         {isTrial(session) && (
           <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
             體驗
@@ -252,6 +278,8 @@ export function CourseScheduleBoard({
   staffAvailability,
   staffAvailabilityExceptions,
   onOpenEmpty,
+  moveClipboard = null,
+  onPasteMove,
   onSelectDate,
   onOpenSession,
 }: Props) {
@@ -366,6 +394,15 @@ export function CourseScheduleBoard({
       return start<sessionEnd&&end>sessionStart;
     });
   };
+  const pairConflict=(roomId:string,coachId:string,startTime:string,durationMinutes:number)=>{
+    const start=minuteOfDay(startTime),end=start+durationMinutes;
+    return filtered.some(session=>{
+      if(session.id===moveClipboard?.sessionId) return false;
+      if(session.roomId!==roomId&&session.coachId!==coachId) return false;
+      const sessionStart=minuteOfDay(hhmm(session.startsAt)),sessionEnd=minuteOfDay(hhmm(session.endsAt));
+      return start<sessionEnd&&end>sessionStart;
+    });
+  };
   const resourceCount = Math.max(resources.length, 1);
   const musicDense = businessProfile === "MUSIC";
   const timetableWidth = musicDense
@@ -434,7 +471,7 @@ export function CourseScheduleBoard({
           </span>
         </div>
 
-        {musicDense && (
+        {musicDense && !moveClipboard && (
           <label className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
             <span>找空位</span>
             <select
@@ -562,6 +599,14 @@ export function CourseScheduleBoard({
                         ? session.roomId === resource.id
                         : session.coachId === resource.id),
                   );
+                   const movedShadows = sessions.filter((session) => {
+                     if (!session.rescheduledFromStartsAt) return false;
+                     if (toLocalDateStr(new Date(session.rescheduledFromStartsAt)) !== selectedDate) return false;
+                     if (hhmm(session.rescheduledFromStartsAt).slice(0,2) !== time.slice(0,2)) return false;
+                     return resourceView === "room"
+                       ? session.rescheduledFromRoomId === resource.id
+                       : session.rescheduledFromCoachId === resource.id;
+                   });
                   return (
                     <div
                       key={`${time}:${resource.id}`}
@@ -571,28 +616,64 @@ export function CourseScheduleBoard({
                         <div className="absolute inset-0 grid grid-rows-2">
                           {["00","30"].map((minute)=>{
                             const startTime=`${time.slice(0,2)}:${minute}`;
-                            const storeOpen=periodContains(normalizedStorePeriods,startTime,availabilityDuration);
-                             const resourceOpen=periodContains(resourcePeriods(resource.id),startTime,availabilityDuration);
-                             const hasConflict=slotConflict(resource.id,startTime,availabilityDuration);
-                             const available=storeOpen&&resourceOpen&&!hasConflict;
-                             const reason=!storeOpen?"店家未開放":!resourceOpen?(resourceView==="coach"?"老師未排班":"不可使用"):hasConflict?"此時長會與既有課程重疊":"";
+                             const duration=moveClipboard?.durationMinutes ?? availabilityDuration;
+                             const targetRoomId=moveClipboard
+                               ? resourceView==="room" ? resource.id : moveClipboard.roomId
+                               : resourceView==="room" ? resource.id : "";
+                             const targetCoachId=moveClipboard
+                               ? resourceView==="coach" ? resource.id : moveClipboard.coachId
+                               : resourceView==="coach" ? resource.id : "";
+                             const storeOpen=periodContains(normalizedStorePeriods,startTime,duration);
+                             const resourceOpen=moveClipboard
+                               ? periodContains(coachPeriods(targetCoachId),startTime,duration)
+                               : periodContains(resourcePeriods(resource.id),startTime,duration);
+                             const targetCoach=coaches.find((coach)=>coach.id===targetCoachId);
+                             const qualified=!moveClipboard || (
+                               targetCoach?.courseQualificationsConfirmed !== false &&
+                               (!targetCoach?.courseQualifiedTemplateIds?.length || targetCoach.courseQualifiedTemplateIds.includes(moveClipboard.templateId))
+                             );
+                             const hasConflict=moveClipboard
+                               ? pairConflict(targetRoomId,targetCoachId,startTime,duration)
+                               : slotConflict(resource.id,startTime,duration);
+                             const available=storeOpen&&resourceOpen&&qualified&&!hasConflict;
+                             const reason=!storeOpen?"店家未開放":!resourceOpen?"老師未排班":!qualified?"老師未授此課":hasConflict?"已有課":"";
                             return (
                               <button
                                 key={minute}
                                 type="button"
                                 disabled={!available||pending}
-                                title={available?`${startTime} 可排 ${availabilityDuration} 分鐘`:reason}
-                                 aria-label={available?`${startTime} 可排 ${availabilityDuration} 分鐘`:`${startTime} ${reason}`}
-                                 onClick={()=>available&&onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})})}
+                                title={available?(moveClipboard?`${startTime} 可貼上`:`${startTime} 可排 ${availabilityDuration} 分鐘`):reason}
+                                 aria-label={available?(moveClipboard?`${startTime} 可貼上`:`${startTime} 可排 ${availabilityDuration} 分鐘`):`${startTime} ${reason}`}
+                                 onClick={()=>available&&(moveClipboard&&onPasteMove
+                                   ? onPasteMove({time:startTime,roomId:targetRoomId,coachId:targetCoachId})
+                                   : onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
                                  className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${available?"bg-white hover:bg-primary-50 active:bg-primary-50":"cursor-not-allowed bg-earth-100"}`}
                                >
-                                 {available&&<span className="pointer-events-none absolute left-1 top-1 hidden rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium text-primary-800 shadow-sm group-hover:block group-focus-visible:block group-active:block">＋ {startTime} · {availabilityDuration}分</span>}
+                                 {available&&<span className="pointer-events-none absolute left-1 top-1 hidden rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium text-primary-800 shadow-sm group-hover:block group-focus-visible:block group-active:block">{moveClipboard?"貼上":"＋"} {startTime}{moveClipboard?"":` · ${availabilityDuration}分`}</span>}
                                  <span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-300 opacity-0 [@media(pointer:coarse)]:opacity-100" aria-hidden="true">{minute}</span>
                               </button>
                             );
                           })}
                         </div>
                       )}
+                      {musicDense && movedShadows.map((session) => (
+
+                        <div
+
+                          key={`moved:${session.id}`}
+
+                          className="pointer-events-none absolute left-1 right-1 z-[5] rounded border border-dashed border-indigo-200 bg-indigo-50/55 px-1 py-0.5 text-[9px] text-indigo-700"
+
+                          style={{ top: hhmm(session.rescheduledFromStartsAt!).endsWith(":30") ? 50 : 2 }}
+
+                        >
+
+                          已移動 · {firstCustomer(session) || session.nameSnapshot}
+
+                        </div>
+
+                      ))}
+
                       <div className={musicDense?"relative z-10 p-1 pointer-events-none":"contents"}>
                         {list.map((session) => (
                           <div
