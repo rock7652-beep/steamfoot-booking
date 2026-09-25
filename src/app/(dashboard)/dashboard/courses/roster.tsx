@@ -614,36 +614,13 @@ export function CourseRoster({
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <div className="rounded-lg bg-primary-50 px-3 py-2">
-          <strong className="block text-base text-primary-900">
-            {count}/{capacity}
-          </strong>
-          <span className="text-xs text-earth-600">已預約／容量</span>
-        </div>
-        <div className="rounded-lg bg-earth-50 px-3 py-2">
-          <strong className="block text-base text-earth-800">{waitingCount}</strong>
-          <span className="text-xs text-earth-600">待點名</span>
-        </div>
-        <div className="rounded-lg bg-primary-50 px-3 py-2">
-          <strong className="block text-base text-primary-900">{attendedCount}</strong>
-          <span className="text-xs text-earth-600">已出席</span>
-        </div>
-        <div className="rounded-lg bg-earth-50 px-3 py-2">
-          <strong className="block text-base text-earth-800">{noShowCount}</strong>
-          <span className="text-xs text-earth-600">未到</span>
-        </div>
-        <div className="col-span-2 rounded-lg bg-amber-50 px-3 py-2 sm:col-span-1">
-          <strong className="block text-base text-amber-900">
-            {trialCount} 人
-          </strong>
-          <span className="text-xs text-earth-600">體驗客</span>
-          {unpaidTrialCount > 0 && (
-            <span className="mt-0.5 block text-xs font-medium text-amber-800">
-              未收款 {unpaidTrialCount} 人
-            </span>
-          )}
-        </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-earth-50 px-3 py-2 text-sm" aria-label="上課統計">
+        <span className="whitespace-nowrap">已預約 <strong className="text-primary-900">{count}/{capacity}</strong></span>
+        <span className="whitespace-nowrap">待點名 <strong>{waitingCount}</strong></span>
+        <span className="whitespace-nowrap">已出席 <strong className="text-primary-900">{attendedCount}</strong></span>
+        <span className="whitespace-nowrap">未到 <strong>{noShowCount}</strong></span>
+        {trialCount>0&&<span className="whitespace-nowrap text-amber-900">體驗客 <strong>{trialCount}</strong></span>}
+        {unpaidTrialCount>0&&<span className="whitespace-nowrap font-medium text-amber-800">未收款 {unpaidTrialCount} 人</span>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

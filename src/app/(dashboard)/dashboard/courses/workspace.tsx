@@ -1941,7 +1941,7 @@ export function CourseWorkspace({
                 </div>
                 <button
                   type="button"
-                  className={button}
+                  className={`${button} shrink-0 whitespace-nowrap`}
                   onClick={() => setCourseDialog(null)}
                 >
                   關閉
