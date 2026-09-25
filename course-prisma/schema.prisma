@@ -68,7 +68,13 @@ model CourseSession {
   requestIndex   Int
   createdById    String
   createdAt      DateTime @default(now())
+  rescheduledFromStartsAt DateTime? @db.Timestamptz(3)
+  rescheduledFromEndsAt   DateTime? @db.Timestamptz(3)
+  rescheduleKind          String?
+  rescheduledAt           DateTime? @db.Timestamptz(3)
+  rescheduledById         String?
   bookings       CourseBooking[]
+  moves          CourseSessionMove[]
   template       CourseTemplate @relation(fields: [templateId, storeId], references: [id, storeId])
   room           CourseRoom @relation(fields: [roomId, storeId], references: [id, storeId])
 
@@ -77,6 +83,27 @@ model CourseSession {
   @@index([storeId, startsAt])
   @@index([storeId, coachId, startsAt])
   @@index([storeId, roomId, startsAt])
+}
+
+model CourseSessionMove {
+  id             String @id @default(cuid())
+  storeId        String
+  sessionId      String
+  scope          String
+  fromStartsAt   DateTime @db.Timestamptz(3)
+  fromEndsAt     DateTime @db.Timestamptz(3)
+  fromRoomId     String
+  fromCoachId    String
+  toStartsAt     DateTime @db.Timestamptz(3)
+  toEndsAt       DateTime @db.Timestamptz(3)
+  toRoomId       String
+  toCoachId      String
+  actorUserId    String
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  session        CourseSession @relation(fields: [sessionId, storeId], references: [id, storeId])
+
+  @@index([storeId, createdAt])
+  @@index([storeId, sessionId])
 }
 
 model CoursePointPlan {
