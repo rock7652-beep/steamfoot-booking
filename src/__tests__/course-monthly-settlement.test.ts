@@ -1,15 +1,15 @@
 import {beforeEach,expect,it,vi} from "vitest";
 import type {Prisma} from "../../generated/course-client";
 import {currentDeveloperProfit,summarizeSettlement,type SettlementLine} from "@/lib/course-monthly-settlement";
-const m=vi.hoisted(()=>({read:vi.fn(),cash:vi.fn(),manager:vi.fn(),feature:vi.fn(),writable:vi.fn(),transaction:vi.fn()}));
-vi.mock("@/server/services/course-monthly-settlement",()=>({readCourseMonthlySettlement:m.read,readSettlementSettings:vi.fn()}));
+const m=vi.hoisted(()=>({read:vi.fn(),settings:vi.fn(),cash:vi.fn(),manager:vi.fn(),feature:vi.fn(),writable:vi.fn(),transaction:vi.fn()}));
+vi.mock("@/server/services/course-monthly-settlement",()=>({readCourseMonthlySettlement:m.read,readSettlementSettings:m.settings}));
 vi.mock("@/server/services/course-assignment-checkout",()=>({lockCourseCashDay:m.cash}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/lib/feature-gate",()=>({requireStoreFeature:m.feature}));
 vi.mock("@/lib/subscription-guard",()=>({assertStoreSubscriptionWritable:m.writable}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 import {recordCourseProfitPayment,voidCourseProfitPayment} from "@/server/services/course-profit-payment";
-import {payCourseProfit,confirmCourseMonthlySettlement} from "@/server/actions/course-monthly-settlement";
+import {payCourseProfit,confirmCourseMonthlySettlement,saveCourseSettlementSettings} from "@/server/actions/course-monthly-settlement";
 const line:SettlementLine={kind:"PROFIT",id:"order",staffId:"owner",name:"店長兼教練",label:"10堂",date:"2026-09-01",amount:1600,paid:600,issue:null,payments:[]};
 const input={month:"2026-09",purchaseId:"order",amount:400,expectedRemaining:1000,method:"OTHER",note:"已轉帳",requestKey:"a3407c3e-4ed7-4b85-8a09-5aa4cb5ecdfa"};
 const actor={storeId:"A",userId:"owner"};const raw=vi.fn(),exec=vi.fn();const tx={$queryRaw:raw,$executeRaw:exec} as unknown as Prisma.TransactionClient;
@@ -38,3 +38,20 @@ it.each(["PARTNER","CUSTOMER","ADMIN"])("rejects non-owner %s",async role=>{m.ma
 it("feature and subscription gates prevent mutations",async()=>{m.feature.mockRejectedValue(new Error("disabled"));expect((await payCourseProfit(input)).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();m.feature.mockResolvedValue(undefined);m.writable.mockRejectedValue(new Error("expired"));expect((await payCourseProfit(input)).success).toBe(false);expect(m.transaction).not.toHaveBeenCalled();});
 it("confirming an existing fingerprint creates no payment or revision",async()=>{expect((await confirmCourseMonthlySettlement({month:"2026-09",fingerprint:"x".repeat(64),revision:1,reason:"確認"})).success).toBe(true);expect(exec).not.toHaveBeenCalled();});
 it("new confirmed revision writes snapshot only",async()=>{m.read.mockResolvedValue({lines:[line],fingerprint:"x".repeat(64),revisions:[]});expect((await confirmCourseMonthlySettlement({month:"2026-09",fingerprint:"x".repeat(64),revision:0,reason:"確認"})).success).toBe(true);expect(exec).toHaveBeenCalledTimes(1);expect(exec.mock.calls[0][0].join("")).toContain('INSERT INTO "CourseMonthlySettlement"');});
+it("older settings clients preserve the income switch; explicit changes are audited",async()=>{
+ m.settings.mockResolvedValue({profitEnabled:true,feeEnabled:true,personalIncomeEnabled:true,revision:2});
+ expect((await saveCourseSettlementSettings({profitEnabled:false,feeEnabled:true,revision:2})).success).toBe(true);
+ expect(exec.mock.calls[0].slice(1)).toEqual(["A",false,true,true]);
+ exec.mockClear();
+ expect((await saveCourseSettlementSettings({profitEnabled:true,feeEnabled:true,personalIncomeEnabled:false,revision:2})).success).toBe(true);
+ expect(exec.mock.calls[0].slice(1)).toEqual(["A",true,true,false]);
+ expect(exec.mock.calls[1][0].join("")).toContain('INSERT INTO "AuditLog"');
+});
+it("stale settings and non-owner actors cannot enable personal income",async()=>{
+ m.settings.mockResolvedValue({revision:3});
+ expect((await saveCourseSettlementSettings({profitEnabled:true,feeEnabled:true,personalIncomeEnabled:true,revision:2})).success).toBe(false);
+ expect(exec).not.toHaveBeenCalled();
+ m.manager.mockResolvedValue({storeId:"A",user:{id:"coach",role:"PARTNER"}});
+ expect((await saveCourseSettlementSettings({profitEnabled:true,feeEnabled:true,personalIncomeEnabled:true,revision:3})).success).toBe(false);
+ expect(exec).not.toHaveBeenCalled();
+});

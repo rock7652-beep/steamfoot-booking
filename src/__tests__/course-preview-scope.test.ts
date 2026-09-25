@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { requiresCoursePreviewCheck, isIsolatedCourseConnection } from "../../scripts/course-preview-scope.mjs";
 
 describe("course preview isolation", () => {
-  it.each(["codex/course-scheduling-stage1", "codex/course-trial-retention-30-days"])("checks %s before accessing a database", branch => {
+  it.each(["codex/course-scheduling-stage1", "codex/course-trial-retention-30-days", "codex/course-monthly-settlement", "codex/course-monthly-usability"])("checks %s before accessing a database", branch => {
     expect(requiresCoursePreviewCheck({VERCEL_ENV:"preview", VERCEL_GIT_COMMIT_REF:branch})).toBe(true);
     expect(requiresCoursePreviewCheck({VERCEL_ENV:"production", VERCEL_GIT_COMMIT_REF:branch})).toBe(false);
   });

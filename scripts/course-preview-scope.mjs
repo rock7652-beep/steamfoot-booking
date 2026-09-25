@@ -1,6 +1,7 @@
 const COURSE_PREVIEW_BRANCHES = new Set([
   "codex/course-scheduling-stage1",
   "codex/course-monthly-settlement",
+  "codex/course-monthly-usability",
   "codex/course-trial-retention-30-days",
 ]);
 

@@ -4,10 +4,10 @@ import type { Prisma } from "../../../generated/course-client";
 import { monthRange } from "@/lib/date-utils";
 import { fixedCourseFee } from "@/lib/course-fee-payment";
 import { currentDeveloperProfit, settlementMonth, type SettlementLine } from "@/lib/course-monthly-settlement";
-export type SettlementSettings={profitEnabled:boolean;feeEnabled:boolean;revision:number};
+export type SettlementSettings={profitEnabled:boolean;feeEnabled:boolean;personalIncomeEnabled:boolean;revision:number};
 export async function readSettlementSettings(tx:Pick<Prisma.TransactionClient,"$queryRaw">,storeId:string):Promise<SettlementSettings> {
-  const rows=await tx.$queryRaw<SettlementSettings[]>`SELECT "profitEnabled","feeEnabled",revision FROM "CourseSettlementSetting" WHERE "storeId"=${storeId}`;
-  return rows[0]??{profitEnabled:true,feeEnabled:true,revision:0};
+  const rows=await tx.$queryRaw<SettlementSettings[]>`SELECT "profitEnabled","feeEnabled",COALESCE((to_jsonb(s)->>'personalIncomeEnabled')::boolean,false) AS "personalIncomeEnabled",revision FROM "CourseSettlementSetting" s WHERE "storeId"=${storeId}`;
+  return rows[0]??{profitEnabled:true,feeEnabled:true,personalIncomeEnabled:false,revision:0};
 }
 export type SettlementRevision={id:string;revision:number;fingerprint:string;snapshot:SettlementLine[];reason:string;createdAt:Date};
 /** Uses a repeatable-read transaction for display, or the course store lock for writes. */

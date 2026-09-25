@@ -22,8 +22,9 @@ export async function saveCourseSettlementSettings(input:unknown){try{
  await courseTransaction(a.storeId,async tx=>{
   const current=await readSettlementSettings(tx,a.storeId);
   if(current.revision!==d.revision)throw new AppError("CONFLICT","設定已變更，請重新整理");
-  await tx.$executeRaw`INSERT INTO "CourseSettlementSetting" ("storeId","profitEnabled","feeEnabled",revision) VALUES (${a.storeId},${d.profitEnabled},${d.feeEnabled},1) ON CONFLICT ("storeId") DO UPDATE SET "profitEnabled"=EXCLUDED."profitEnabled","feeEnabled"=EXCLUDED."feeEnabled",revision="CourseSettlementSetting".revision+1`;
-  await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${a.user.id},'CourseSettlementSetting',${a.storeId},'UPDATE',${JSON.stringify(current)}::jsonb,${JSON.stringify(d)}::jsonb,NOW())`;
+  const next={...d,personalIncomeEnabled:d.personalIncomeEnabled??current.personalIncomeEnabled};
+  await tx.$executeRaw`INSERT INTO "CourseSettlementSetting" ("storeId","profitEnabled","feeEnabled","personalIncomeEnabled",revision) VALUES (${a.storeId},${d.profitEnabled},${d.feeEnabled},${next.personalIncomeEnabled},1) ON CONFLICT ("storeId") DO UPDATE SET "profitEnabled"=EXCLUDED."profitEnabled","feeEnabled"=EXCLUDED."feeEnabled","personalIncomeEnabled"=EXCLUDED."personalIncomeEnabled",revision="CourseSettlementSetting".revision+1`;
+  await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${a.user.id},'CourseSettlementSetting',${a.storeId},'UPDATE',${JSON.stringify(current)}::jsonb,${JSON.stringify(next)}::jsonb,NOW())`;
  });refresh();return {success:true as const};
 }catch(e){return handleActionError(e);}}
 export async function confirmCourseMonthlySettlement(input:unknown){try{
