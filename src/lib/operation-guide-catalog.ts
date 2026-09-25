@@ -47,6 +47,7 @@ export const guideCategories: GuideCategory[] = [
       "/dashboard/transactions",
       "/dashboard/payments",
       "/dashboard/reconciliation",
+      "/dashboard/service-fee-calculator",
       "/dashboard/cashbook",
       "/dashboard/cash-drawer"
     ]
@@ -465,12 +466,12 @@ export const additionalGuides: OperationGuide[] = [
     "path": "預約管理 → 當日時段管理",
     "steps": [
       "選要處理的日期，開啟當日時段管理。",
-      "選擇新增時段，或對既有時段關閉／重新開放。",
-      "核對時間與容量，儲存後回到當日清單確認。"
+      "選擇新增時段，或對既有時段關閉／重新開放；需要調整名額時可用加減按鈕或輸入數字。",
+      "核對已調整標記、時間、已預約人數與名額，儲存後回到當日清單確認。"
     ],
     "important": "這是時段供應的調整；已存在的預約仍需另外處理。",
     "success": "當日時段開放狀態符合設定。",
-    "keywords": "加開 增開 關閉 重開",
+    "keywords": "加開 增開 關閉 重開 當日時段 已調整 名額 0 已額滿",
     "details": [],
     "modules": [
       "steamfoot"
@@ -489,15 +490,15 @@ export const additionalGuides: OperationGuide[] = [
     "category": "hours",
     "title": "單一時段想多接幾位，在哪裡調整？",
     "summary": "可在指定日期調整單一時段的名額。增加名額前，先確認當班人力與服務容量。",
-    "path": "設定 → 預約開放設定 → 單一時段開放與名額",
+    "path": "預約管理 → 當日時段管理；或設定 → 預約開放設定 → 單一時段開放與名額",
     "steps": [
-      "選日期並展開單一時段開放與名額。",
-      "點時段，輸入容量並確認調整。",
-      "核對新名額；需要時使用回復預設名額。"
+      "在預約管理選日期並開啟當日時段管理，核對目前已約人數與名額。",
+      "對開放中的時段輸入 0～99 的整數名額，或使用加減按鈕；名額不能低於已有預約人數。",
+      "核對草稿後儲存；也可回設定的單一時段開放與名額處理或回復預設。"
     ],
-    "important": "容量要配合現場實際接待能力；系統仍會檢查既有預約。",
+    "important": "名額 0 仍保留時段，顧客端顯示已額滿，不等於關閉時段。已有預約不會自動取消。",
     "success": "時段顯示更新後的名額。",
-    "keywords": "名額 人數 容量",
+    "keywords": "名額 人數 容量 單日 加減 0 已額滿 不能低於已約",
     "details": [],
     "modules": [
       "steamfoot"
@@ -505,11 +506,13 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "business_hours.manage",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx"
+      "src/app/(dashboard)/dashboard/settings/hours/schedule-manager.tsx",
+      "src/app/(dashboard)/dashboard/bookings/day-slot-manager.tsx",
+      "src/server/actions/business-hours.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "可在指定日期調整單一時段的名額。增加名額前，先確認當班人力與服務容量。"
+    "answer": "預約管理可直接調整指定日期的單一時段名額；名額 0 表示已額滿，增加前先確認現場人力與容量。"
   },
   {
     "id": "B10",
