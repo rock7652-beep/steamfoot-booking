@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
+
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ browse: vi.fn() }));
+vi.mock("@/server/actions/course-card-reservations",()=>({loadCourseCardReservations:vi.fn().mockResolvedValue({success:true,rows:[],hasMore:false,scoped:false})}));
 vi.mock("@/server/actions/course-browse", () => ({
   browseCourseCards: mocks.browse,
 }));
@@ -55,7 +57,10 @@ it("shows shared-card members directly on an active plan row", async () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
     });
     expect(host.textContent).toContain("共卡人：王小美、陳小樂");
-    expect(host.textContent).toContain("占用 2 · 剩餘 8");
+    expect(host.textContent).toContain("剩餘 8 點");
+    expect(host.textContent).toContain("已預約 2 點額度");
+    expect(host.textContent).toContain("共同餘額");
+    expect(host.textContent).not.toContain("還可預約 6 堂");
   } finally {
     await act(async () => root.unmount());
     host.remove();
