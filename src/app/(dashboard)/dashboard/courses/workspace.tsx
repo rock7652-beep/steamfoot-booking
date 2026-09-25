@@ -252,6 +252,12 @@ export function CourseWorkspace({
       (category === "all" ||
         allTemplates.find((t) => t.id === s.templateId)?.category === category),
   );
+  const changedToday = businessProfile === "MUSIC"
+    ? sessions.filter((session) => session.rescheduledFromStartsAt && (
+        toLocalDateStr(new Date(session.startsAt)) === selectedDate ||
+        toLocalDateStr(new Date(session.rescheduledFromStartsAt)) === selectedDate
+      )).sort((a, b) => (a.rescheduledFromStartsAt ?? "").localeCompare(b.rescheduledFromStartsAt ?? ""))
+    : [];
   const byDate = new Map<string, Session[]>();
   for (const session of filteredScheduleSessions) {
     const day = toLocalDateStr(new Date(session.startsAt));
@@ -351,6 +357,25 @@ export function CourseWorkspace({
         router.refresh();
       } catch {
         setError("調課失敗，原課程保留。");
+      }
+    });
+  }
+  function restoreMovedSession(session: Session) {
+    if (!session.rescheduledFromStartsAt || !session.rescheduledFromRoomId || !session.rescheduledFromCoachId || pending) return;
+    const original = formatTWDateTime(new Date(session.rescheduledFromStartsAt));
+    setError("");
+    startTransition(async () => {
+      try {
+        const result = await moveCourseSessions({
+          id: session.id, scope: "SINGLE", restore: true,
+          date: original.slice(0, 10), time: original.slice(11, 16),
+          roomId: session.rescheduledFromRoomId, coachId: session.rescheduledFromCoachId,
+        });
+        if (!result.success) { setError(result.error ?? "原時段目前無法還原"); return; }
+        setNotice("已回到原時段");
+        router.refresh();
+      } catch {
+        setError("還原失敗，課程保留在目前時段。");
       }
     });
   }
@@ -686,6 +711,22 @@ export function CourseWorkspace({
                 <strong>✂ {moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
                 <span className="text-xs text-indigo-700">選白格貼上</span>
                 <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
+              </div>
+            )}
+            {businessProfile === "MUSIC" && changedToday.length > 0 && (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-xs" aria-label="當日課程異動">
+                <div className="mb-1 flex items-center gap-2 text-indigo-900"><strong>當日調課</strong><span>{changedToday.length} 堂</span></div>
+                <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+                  {changedToday.map((session) => {
+                    const original = formatTWDateTime(new Date(session.rescheduledFromStartsAt!));
+                    const current = formatTWDateTime(new Date(session.startsAt));
+                    return <div key={session.id} className="inline-flex max-w-full items-center gap-1 rounded-lg border border-indigo-100 bg-white px-2 py-1 text-earth-800">
+                      <span className="max-w-48 truncate font-medium" title={session.nameSnapshot}>{session.bookings[0]?.customerName ? `${session.bookings[0].customerName} · ${session.nameSnapshot}` : session.nameSnapshot}</span>
+                      <span className="whitespace-nowrap text-earth-600">{original.slice(5, 16)} → {current.slice(5, 16)}</span>
+                      {canEdit && <button type="button" className="ml-1 rounded px-1 font-semibold text-indigo-800 hover:bg-indigo-50 disabled:opacity-50" aria-label={`將${session.nameSnapshot}還原至${original}`} title="回到原時段" disabled={pending} onClick={() => restoreMovedSession(session)}>×</button>}
+                    </div>;
+                  })}
+                </div>
               </div>
             )}
             <CourseScheduleBoard

@@ -394,7 +394,7 @@ export function CourseScheduleBoard({
     : coachPeriods(resourceId);
   const slotConflict=(resourceId:string,startTime:string,durationMinutes:number=availabilityDuration)=>{
     const start=minuteOfDay(startTime),end=start+durationMinutes;
-    return filtered.some(session=>{
+    return daySessions.some(session=>{
       const same=resourceView==="room"?session.roomId===resourceId:session.coachId===resourceId;
       if(!same) return false;
       const sessionStart=minuteOfDay(hhmm(session.startsAt)),sessionEnd=minuteOfDay(hhmm(session.endsAt));
@@ -403,7 +403,7 @@ export function CourseScheduleBoard({
   };
   const pairConflict=(roomId:string,coachId:string,startTime:string,durationMinutes:number)=>{
     const start=minuteOfDay(startTime),end=start+durationMinutes;
-    return filtered.some(session=>{
+    return daySessions.some(session=>{
       if(session.id===moveClipboard?.sessionId) return false;
       if(session.roomId!==roomId&&session.coachId!==coachId) return false;
       const sessionStart=minuteOfDay(hhmm(session.startsAt)),sessionEnd=minuteOfDay(hhmm(session.endsAt));

@@ -381,6 +381,7 @@ export async function moveCourseSessions(input: unknown) {
       time: z.string().regex(/^([01]\d|2[0-3]):(?:00|30)$/),
       roomId: z.string().min(1),
       coachId: z.string().min(1),
+      restore: z.boolean().optional(),
     }).parse(input);
     if (d.scope === "WEEKS" && !d.weeks)
       throw new AppError("VALIDATION", "請選擇週數");
@@ -399,6 +400,14 @@ export async function moveCourseSessions(input: unknown) {
         },
       });
       if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
+      if (d.restore) {
+        if (d.scope !== "SINGLE" || !source.rescheduledFromStartsAt || !source.rescheduledFromRoomId || !source.rescheduledFromCoachId)
+          throw new AppError("VALIDATION", "這堂課目前沒有可還原的原時段");
+        const original = formatTWDateTime(source.rescheduledFromStartsAt);
+        if (d.date !== original.slice(0, 10) || d.time !== original.slice(11, 16) ||
+            d.roomId !== source.rescheduledFromRoomId || d.coachId !== source.rescheduledFromCoachId)
+          throw new AppError("VALIDATION", "原時段已變更，請重新整理課表");
+      }
 
       const candidates = d.scope === "SINGLE"
         ? [source]
@@ -484,7 +493,7 @@ export async function moveCourseSessions(input: unknown) {
 
       const movedAt = new Date();
       for (const change of changes) {
-        const temporary = d.scope !== "FUTURE";
+        const temporary = !d.restore;
         await tx.courseSessionMove.create({
           data: {
             storeId,
