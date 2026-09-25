@@ -208,12 +208,14 @@ function SessionCard({
   const seats = openSeats(session);
   const musicDense = dense && businessProfile === "MUSIC";
   const moved = Boolean(session.rescheduledFromStartsAt);
+  const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
+  const attendanceComplete = activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
   const showCapacityState = !musicDense || !copy.privateClass;
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`w-full rounded-lg border text-left transition ${dense ? "h-full overflow-hidden" : ""} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"} ${moved ? "border-indigo-200 bg-indigo-50/80" : musicDense && !copy.privateClass ? "border-earth-200 border-l-2 border-l-primary-300 bg-primary-50/20" : "border-earth-200 bg-white"}`}
+      className={`w-full rounded-lg border text-left transition ${dense ? "h-full overflow-hidden" : ""} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"} ${moved ? "border-indigo-200 bg-indigo-50/80" : musicDense && !copy.privateClass ? "border-earth-200 bg-primary-50/20" : "border-earth-200 bg-white"} ${attendanceComplete ? "border-l-4 border-l-emerald-500" : musicDense && !copy.privateClass ? "border-l-2 border-l-primary-300" : ""}`}
       aria-label={`${copy.primary}，${hhmm(session.startsAt)}，${copy.coach}`}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
@@ -238,6 +240,7 @@ function SessionCard({
         {moved && (
           <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">調課</span>
         )}
+        {attendanceComplete && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">已出席</span>}
         {!moved && fixed && (
           <span className="rounded-full bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">固定</span>
         )}

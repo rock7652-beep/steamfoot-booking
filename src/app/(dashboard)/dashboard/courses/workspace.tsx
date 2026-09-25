@@ -2090,15 +2090,16 @@ export function CourseWorkspace({
           )!;
           const dialogTitle =
             courseDialog.kind === "roster"
-              ? "上課名單"
+              ? businessProfile === "MUSIC" ? "課程詳情" : "上課名單"
               : courseDialog.kind === "member-booking"
                 ? "＋ 學員預約"
                 : "＋ 新顧客／體驗客";
           return (
             <RightSheet
               open
+              presentation={courseDialog.kind === "roster" && businessProfile === "MUSIC" ? "centered" : "side"}
               onClose={() => setCourseDialog(null)}
-              width={courseDialog.kind === "roster" ? 820 : 560}
+              width={courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 820 : 560}
               labelledById="course-operation-title"
             >
               <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-3">
@@ -2163,6 +2164,10 @@ export function CourseWorkspace({
                   canCreate={canCreate}
                   canEdit={canEdit}
                   view={courseDialog.kind}
+                  musicLayout={courseDialog.kind === "roster" && businessProfile === "MUSIC"}
+                  teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? "未指定老師"}
+                  roomName={allRooms.find((room) => room.id === dialogSession.roomId)?.name ?? "未指定教室"}
+                  courseName={dialogSession.nameSnapshot}
                   onDone={() => setCourseDialog(null)}
                   onMemberBookingReadyChange={setMemberBookingReady}
                   onCreateCustomer={() =>

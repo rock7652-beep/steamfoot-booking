@@ -37,6 +37,10 @@ export function CourseRoster({
   onDone,
   onCreateCustomer,
   onMemberBookingReadyChange,
+  musicLayout = false,
+  teacherName = "",
+  roomName = "",
+  courseName = "",
 }: {
   sessionId: string;
   capacity: number;
@@ -47,6 +51,10 @@ export function CourseRoster({
   onDone?: () => void;
   onCreateCustomer?: () => void;
   onMemberBookingReadyChange?: (ready: boolean) => void;
+  musicLayout?: boolean;
+  teacherName?: string;
+  roomName?: string;
+  courseName?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -613,7 +621,7 @@ export function CourseRoster({
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-3">
+    <section className={musicLayout ? "flex min-h-0 flex-col gap-3 lg:h-full" : "flex h-full min-h-0 flex-col gap-3"}>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         <div className="rounded-lg bg-primary-50 px-3 py-2">
           <strong className="block text-base text-primary-900">
@@ -739,7 +747,47 @@ export function CourseRoster({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-x-auto rounded-xl border border-earth-200">
+      {musicLayout ? (
+        <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto lg:grid-cols-2 lg:overflow-hidden">
+          <section className="min-h-0 rounded-xl border border-earth-200 bg-white lg:overflow-y-auto" aria-label="學員">
+            <h3 className="sticky top-0 z-10 border-b border-earth-200 bg-earth-50 px-3 py-2 text-sm font-semibold text-earth-800">學員 · {searchedRows.length} 人</h3>
+            <ul className="divide-y divide-earth-100">
+              {searchedRows.map((booking) => <li key={booking.id} className={`space-y-2 p-3 text-sm ${booking.status === "ATTENDED" ? "border-l-4 border-l-emerald-500" : ""}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  {canEdit && booking.status !== "CANCELLED" && <input type="checkbox" aria-label={`選取 ${booking.customerName}`} checked={selected.includes(booking.id)} disabled={pending} onChange={(event) => setSelected((old) => event.target.checked ? [...old, booking.id] : old.filter((id) => id !== booking.id))} />}
+                  <strong>{booking.customerName}</strong>
+                  <span className="rounded-full bg-earth-100 px-2 py-0.5 text-xs text-earth-700">{booking.status === "ATTENDED" ? "已出席" : booking.status === "NO_SHOW" ? "未到" : booking.status === "CANCELLED" ? "已取消" : booking.checkedInAt ? "已報到" : "待點名"}</span>
+                  {booking.bookingKind === "TRIAL" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">體驗</span>}
+                </div>
+                <div className="text-xs text-earth-600">
+                  <a className="text-primary-700 hover:underline" href={booking.customerPhone ? `tel:${booking.customerPhone}` : undefined}>{booking.customerPhone || "未填電話"}</a>
+                  <span className="ml-2">{booking.bookingKind === "TRIAL" ? `體驗 NT$ ${booking.trialPrice}` : `${booking.planName} · 可用 ${booking.available} ${booking.unit === "SESSION" ? "堂" : "點"}`}</span>
+                </div>
+                {(booking.serviceNote || booking.notes) && <p className="text-xs text-earth-600">{booking.serviceNote && `店內：${booking.serviceNote}`}{booking.notes && ` 本次：${booking.notes}`}</p>}
+                {canEdit && <div className="flex flex-wrap gap-1.5">
+                  {booking.status === "RESERVED" && <>
+                    <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 標記出席`)}>出席</button>
+                    <button className={button} disabled={pending} onClick={() => setNoShowBooking({ id: booking.id, name: booking.customerName, trial: booking.bookingKind === "TRIAL" })}>未到</button>
+                    <button className={button} disabled={pending} onClick={() => setCancelBooking({ id: booking.id, name: booking.customerName })}>取消</button>
+                  </>}
+                  {(booking.status === "ATTENDED" || booking.status === "NO_SHOW") && <button className={button} disabled={pending} onClick={() => run(() => updateCourseRosterBatch({ sessionId, target: "RESERVED", bookings: [{ id: booking.id, status: booking.status }] }), `已更正 ${booking.customerName}`)}>更正</button>}
+                  {allowTrialActions && trial?.canCollect && booking.bookingKind === "TRIAL" && !booking.trialPayments.some((payment) => payment.status === "SUCCESS") && booking.status !== "CANCELLED" && <button className={button} disabled={pending} onClick={() => { setRequestKey(crypto.randomUUID()); setCorrectPayment(false); setPaymentBooking(booking.id); }}>收款</button>}
+                </div>}
+              </li>)}
+              {!searchedRows.length && <li className="p-8 text-center text-sm text-earth-500">沒有符合條件的學員</li>}
+            </ul>
+          </section>
+          <aside className="min-h-0 rounded-xl border border-earth-200 bg-white p-3 lg:overflow-y-auto" aria-label="老師與課程">
+            <h3 className="border-b border-earth-100 pb-2 text-sm font-semibold text-earth-800">老師</h3>
+            <p className="mt-3 text-base font-semibold text-earth-900">{teacherName}</p>
+            <dl className="mt-3 space-y-2 text-sm text-earth-700">
+              <div className="flex gap-2"><dt className="w-12 shrink-0 text-earth-500">課程</dt><dd>{courseName}</dd></div>
+              <div className="flex gap-2"><dt className="w-12 shrink-0 text-earth-500">教室</dt><dd>{roomName}</dd></div>
+              {session && <div className="flex gap-2"><dt className="w-12 shrink-0 text-earth-500">時間</dt><dd>{formatTWDateTime(new Date(session.startsAt))}</dd></div>}
+            </dl>
+          </aside>
+        </div>
+      ) : <div className="min-h-0 flex-1 overflow-x-auto rounded-xl border border-earth-200">
         <div className="grid min-w-[1120px] grid-cols-[2fr_2fr_2.4fr_0.9fr_2.7fr] gap-3 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600">
           <span>學員／電話</span>
           <span>方案／收費</span>
@@ -1013,7 +1061,7 @@ export function CourseRoster({
             </li>
           )}
         </ul>
-      </div>
+      </div>}
 
 
       {noShowBooking && (
