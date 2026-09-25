@@ -70,6 +70,7 @@ export function CourseMemberWorkspace({
   canAssignManager,
   canMerge = false,
   canDiscount = false,
+  music = false,
 }: {
   termSessions?:{id:string;name:string;startsAt:string}[];
   view: "customers" | "plans";
@@ -92,6 +93,7 @@ export function CourseMemberWorkspace({
   canAssignManager: boolean;
   canMerge?: boolean;
   canDiscount?: boolean;
+  music?: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -100,7 +102,7 @@ export function CourseMemberWorkspace({
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
   const [templateSearch,setTemplateSearch]=useState("");
   const [selectedTemplateIds,setSelectedTemplateIds]=useState<string[]>([]);
-  const [planAmounts,setPlanAmounts]=useState({points:10,price:0,storeCost:0});
+  const [planAmounts,setPlanAmounts]=useState({points:music?4:10,price:0,storeCost:0});
   const [selected,setSelected]=useState<string[]>([]);
   const [pending, start] = useTransition();
   const [search, setSearch] = useState("");
@@ -165,7 +167,7 @@ export function CourseMemberWorkspace({
     setTemplateSearch("");
     setSelectedTemplateIds(next?.templateIds ?? []);
     setPlanAmounts({
-      points: next?.points ?? 10,
+      points: next?.points ?? (music ? 4 : 10),
       price: next?.price ?? 0,
       storeCost: next?.storeCost ?? 0,
     });
@@ -229,8 +231,7 @@ export function CourseMemberWorkspace({
           {[
             ["全部方案", plans.length],
             ["上架中", activePlans.length],
-            ["點數方案", pointPlans],
-            ["堂數方案", sessionPlans],
+            ...(music ? [["4 堂方案", activePlans.filter(item => item.unit === "SESSION" && item.points === 4).length], ["8 堂方案", activePlans.filter(item => item.unit === "SESSION" && item.points === 8).length]] : [["點數方案", pointPlans], ["堂數方案", sessionPlans]]),
           ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-2"><strong className="block text-lg tabular-nums text-primary-800">{value}</strong><span className="text-xs text-earth-500">{label}</span></div>)}
         </section>
       )}
@@ -254,7 +255,7 @@ export function CourseMemberWorkspace({
             <option value="inactive">下架</option>
           </select>
         )}
-        {view === "plans" && planArea === "catalog" && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
+        {view === "plans" && planArea === "catalog" && !music && <select className={`${field} max-w-40`} aria-label="方案單位" value={planUnit} onChange={e=>{setPlanUnit(e.target.value);setPage(0);}}><option value="all">點數與堂數</option><option value="POINT">點數方案</option><option value="SESSION">堂數方案</option></select>}
         {canCreate && (view === "customers" || planArea === "catalog") && (
           <button
             className={button}
@@ -507,7 +508,7 @@ export function CourseMemberWorkspace({
                     required
                   />
                 </label>
-                <label className="block">額度單位<select className={field} name="unit" defaultValue={plan?.unit??"POINT"}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>
+                {music ? <input type="hidden" name="unit" value="SESSION"/> : <label className="block">額度單位<select className={field} name="unit" defaultValue={plan?.unit??"POINT"}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>}
                 <label className="block">狀態<select className={field} name="active" defaultValue={plan?.isActive === false ? "no" : "yes"}><option value="yes">上架</option><option value="no">下架</option></select></label>
                 <label className="sm:col-span-2">搜尋適用課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="輸入課程名稱篩選；未輸入會顯示全部課程"/></label>
                 <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3">
@@ -537,14 +538,19 @@ export function CourseMemberWorkspace({
                 </fieldset>
                 {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}<details className="sm:col-span-2"><summary className="cursor-pointer py-2">期課：連結指定課次（選填）</summary><p className="text-sm text-earth-600">未選為自由預約；選擇後請使用堂數方案，課次数須等於販售堂數。結帳會一次預約全期；未到仍扣堂，不提供補課券。</p><div className="max-h-48 overflow-y-auto">{termSessions.map(s=><label key={s.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="termSessionIds" value={s.id} defaultChecked={plan?.termSessionIds?.includes(s.id)}/>{formatTWDateTime(new Date(s.startsAt))} · {s.name}</label>)}</div></details>
                 {[
-                  ["額度", "points", plan?.points ?? 10, 1],
+                  [music ? "每期堂數" : "額度", "points", plan?.points ?? (music ? 4 : 10), 1],
                   ["售價", "price", plan?.price ?? 0, 0],
                   ["店家成本", "storeCost", plan?.storeCost ?? 0, 0],
                   ["有效天數", "days", plan?.validDays ?? 90, 1],
                 ].map(([label, name, value, min]) => (
                   <label key={String(name)} className="block">
                     {label}
-                    <input
+                    {music && name === "points" ? <select
+                      className={field}
+                      name="points"
+                      defaultValue={Number(value)}
+                      onChange={e=>setPlanAmounts(v=>({...v,points:Number(e.target.value)}))}
+                    ><option value={4}>4 堂</option><option value={8}>8 堂</option></select> : <input
                       className={field}
                       name={String(name)}
                       type="number"
@@ -557,13 +563,13 @@ export function CourseMemberWorkspace({
                         if(name==="storeCost")setPlanAmounts(v=>({...v,storeCost:amount}));
                       }}
                       required
-                    />
+                    />}
                   </label>
                 ))}
-                <div className="sm:col-span-2 grid grid-cols-2 gap-3 rounded-lg bg-primary-50 p-3 text-sm"><p><span className="text-earth-500">單位價格</span><strong className="block text-primary-800">NT$ {unitPrice.toLocaleString("zh-TW")}／單位</strong></p><p><span className="text-earth-500">預估利潤</span><strong className={`block ${estimatedProfit<0?"text-red-700":"text-primary-800"}`}>NT$ {estimatedProfit.toLocaleString("zh-TW")}</strong></p></div>
+                <div className="sm:col-span-2 grid grid-cols-2 gap-3 rounded-lg bg-primary-50 p-3 text-sm"><p><span className="text-earth-500">單位價格</span><strong className="block text-primary-800">NT$ {unitPrice.toLocaleString("zh-TW")}／{music?"堂":"單位"}</strong></p><p><span className="text-earth-500">預估利潤</span><strong className={`block ${estimatedProfit<0?"text-red-700":"text-primary-800"}`}>NT$ {estimatedProfit.toLocaleString("zh-TW")}</strong></p></div>
                 <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3"><legend className="px-1">方案使用方式</legend><div className="grid gap-2 sm:grid-cols-2"><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="customer" defaultChecked={plan?.customerPurchasable!==false}/>顧客可購買</label><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="backend" defaultChecked={plan?.customerPurchasable===false}/>僅後台指派</label></div><label className="mt-2 flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="checkbox" name="allowShared" value="yes" defaultChecked={plan?.allowShared??false}/>允許共卡</label></fieldset>
                 <p className="sm:col-span-2 text-sm text-earth-500">
-                  修改預設不影響已指派方案；方案下架也會保留顧客已持有的額度。提供點數與堂數方案，無自動續費。
+                  修改預設不影響已指派方案；方案下架也會保留顧客已持有的額度。{music?"音樂教室每期 4 堂或 8 堂，每次上課使用 1 堂。":"提供點數與堂數方案，無自動續費。"}
                 </p>
               </form>
             )}

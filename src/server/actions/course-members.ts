@@ -110,6 +110,12 @@ export async function saveCoursePointPlan(input: unknown) {
       })
       .parse(input);
     const { storeId } = await courseManager("plans.edit");
+    const isMusic = await prisma.storeFeatureEntitlement.findFirst({
+      where: { storeId, featureKey: "business.music", status: "ENABLED" },
+      select: { storeId: true },
+    });
+    if (isMusic && (data.unit !== "SESSION" || ![4, 8].includes(data.points)))
+      throw new AppError("VALIDATION", "音樂教室方案請選擇 4 堂或 8 堂；每次上課使用 1 堂");
     if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
     await courseTransaction(storeId,async tx=>{
     const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;

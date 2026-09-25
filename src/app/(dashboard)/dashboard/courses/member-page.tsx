@@ -33,6 +33,10 @@ export async function CourseMemberPage({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
   await requireCourseStore(storeId);
+  const music = !!(await prisma.storeFeatureEntitlement.findFirst({
+    where: { storeId, featureKey: "business.music", status: "ENABLED" },
+    select: { storeId: true },
+  }));
   const canReadCards = await checkPermission(
     user.role,
     user.staffId,
@@ -120,6 +124,7 @@ export async function CourseMemberPage({
         canManageStaff={canManageStaff}
         canAssign={canAssign && canReadCards && canReadPeople && await checkPermission(user.role,user.staffId,"transaction.create")}
         canDiscount={await checkPermission(user.role,user.staffId,"transaction.discount")}
+        music={music}
       />
     </PageShell>
   );
