@@ -129,6 +129,8 @@ export default async function CoursesPage({
           requestKey: true,
           rescheduledFromStartsAt: true,
           rescheduledFromEndsAt: true,
+          rescheduledFromRoomId: true,
+          rescheduledFromCoachId: true,
           rescheduleKind: true,
           rescheduledAt: true,
           bookings: {
