@@ -680,7 +680,7 @@ export function CourseWorkspace({
             {businessProfile === "MUSIC" && moveChoice && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm">
                 <strong>✂ 調課</strong>
-                <button className={button} type="button" onClick={()=>beginMove(moveChoice,"SINGLE")}>這堂</button>
+                <button className={primary} type="button" onClick={()=>beginMove(moveChoice,"SINGLE")}>這堂</button>
                 {moveChoiceIsFixed && (
                   <>
                     <select
@@ -688,14 +688,12 @@ export function CourseWorkspace({
                       value=""
                       onChange={(event)=>{
                         const weeks=Number(event.target.value);
-                        if (weeks) {
-                          beginMove(moveChoice,"WEEKS",weeks);
-                        }
+                        if (weeks) beginMove(moveChoice,"WEEKS",weeks);
                       }}
                       aria-label="連續幾週"
                     >
                       <option value="">連續幾週</option>
-                      {[2,3,4,5,6,7,8].map((weeks)=><option key={weeks} value={weeks}>連續 {weeks} 週</option>)}
+                      {[2,3,4,5,6,7,8].map((weeks)=><option key={weeks} value={weeks}>{weeks} 週</option>)}
                     </select>
                     <button className={button} type="button" onClick={()=>beginMove(moveChoice,"FUTURE")}>之後都改</button>
                   </>
@@ -705,8 +703,8 @@ export function CourseWorkspace({
             )}
             {businessProfile === "MUSIC" && moveClipboard && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
-                <strong>✂ 已剪下：{moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
-                <span className="text-xs text-indigo-700">點白格貼上</span>
+                <strong>✂ {moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
+                <span className="text-xs text-indigo-700">選白格貼上</span>
                 <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
               </div>
             )}
