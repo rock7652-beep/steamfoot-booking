@@ -21,7 +21,7 @@ it("shows all twenty compact rows and selects them for one batch without cancell
   expect(host.textContent).toContain("共卡");
   expect(host.textContent).toContain("黃教練代約");
   expect(host.textContent).toContain("本人預約");
-  expect(host.textContent).toContain("已預約／容量");
+  expect(host.querySelector('[aria-label="上課統計"]')?.textContent).toContain("已預約 20/20");
   expect(host.textContent).toContain("每 60 秒自動更新");
   expect(host.querySelector('input[placeholder="搜尋姓名或手機"]')).toBeTruthy();
   expect([...host.querySelectorAll("button")].filter(b=>b.textContent==="出席")).toHaveLength(20);
