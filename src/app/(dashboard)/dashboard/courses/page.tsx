@@ -58,6 +58,11 @@ export default async function CoursesPage({
   const scheduleEnd = dayRange(
     addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
   ).end;
+  const cancelledBookings = await coursePrisma.courseBooking.findMany({
+    where: { storeId, status: "CANCELLED", session: { cancelledAt: null, startsAt: { gte: scheduleStart, lte: scheduleEnd } } },
+    select: { id: true, customerName: true, sessionId: true },
+    orderBy: { updatedAt: "desc" },
+  });
   const [
     rooms,
     templates,
@@ -147,7 +152,7 @@ export default async function CoursesPage({
       }),
       prisma.staff.findMany({
         where: { storeId },
-        select: { id: true, displayName: true, status: true,courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:true },
+        select: { id: true, displayName: true, phone: true, status: true,courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:true },
         orderBy: { displayName: "asc" },
       }),
       checkPermission(user.role, user.staffId, "booking.create"),
@@ -250,6 +255,7 @@ export default async function CoursesPage({
           rescheduledFromEndsAt: s.rescheduledFromEndsAt?.toISOString() ?? null,
           rescheduledAt: s.rescheduledAt?.toISOString() ?? null,
         }))}
+        cancelledBookings={cancelledBookings}
       />
     </PageShell>
   );

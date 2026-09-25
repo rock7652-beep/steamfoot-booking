@@ -17,6 +17,16 @@ export type CourseActor = {
 
 export type CourseNoShowChoice = "DEDUCTED" | "DEDUCTED_WITH_MAKEUP";
 const COURSE_MAKEUP_VALID_DAYS = 7;
+// The music pilot uses an isolated preview database. Allow staff to rehearse
+// attendance before the scheduled start only in that exact environment.
+function allowEarlyPilotAttendance(): boolean {
+  if (process.env.VERCEL_ENV !== "preview" || process.env.VERCEL_GIT_COMMIT_REF !== "codex/music-reschedule-20260925") return false;
+  try {
+    const url = new URL(process.env.DATABASE_URL ?? "");
+    return url.hostname === "db.ttworfzgwejdeolegkxl.supabase.co" ||
+      (/^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(url.hostname) && url.username === "postgres.ttworfzgwejdeolegkxl");
+  } catch { return false; }
+}
 const fail = (message: string): never => {
   throw new AppError("VALIDATION", message);
 };
@@ -237,7 +247,7 @@ export async function settleCourseBooking(
     return fail("此預約已結算或取消，不能重複操作");
   if (target === "CHECKED_IN" || target === "NO_SHOW") {
     if (actor.customerId) return fail("點名僅限有權限的人員");
-    if (target === "NO_SHOW" && booking.session.startsAt > new Date())
+    if (target === "NO_SHOW" && booking.session.startsAt > new Date() && !allowEarlyPilotAttendance())
       return fail("課程尚未開始，不能標記未到");
     if (target === "CHECKED_IN") {
       if (booking.checkedInAt) return booking;
@@ -252,7 +262,7 @@ export async function settleCourseBooking(
     target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId);
   if (shouldDebit) {
     if (actor.customerId) return fail("點名僅限有權限的人員");
-    if (booking.session.startsAt > new Date())
+    if (booking.session.startsAt > new Date() && !allowEarlyPilotAttendance())
       return fail("課程尚未開始，不能標記出席");
     if (booking.cardId) {
     const updated = await tx.coursePointCard.updateMany({
@@ -342,7 +352,7 @@ export async function correctCourseAttendance(
   if (b.status === target) return b;
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
-  if (b.session.startsAt > new Date()) return fail("課程尚未開始，不能點名");
+  if (b.session.startsAt > new Date() && !allowEarlyPilotAttendance()) return fail("課程尚未開始，不能點名");
   if (!b.card || !b.cardId) { await auditTrialAttendance(tx,actor,b.id,b.status,target); return tx.courseBooking.update({where:{id:b.id},data:{status:target,checkedInAt:target === "ATTENDED" ? new Date() : null}}); }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
   const wasDebited=b.status==="ATTENDED"||(b.status==="NO_SHOW"&&!!b.card.termSessionIds?.length);

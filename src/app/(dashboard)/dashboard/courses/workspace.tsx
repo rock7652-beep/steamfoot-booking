@@ -88,7 +88,8 @@ type Props = {
   rooms: Room[];
   templates: Template[];
   sessions: Session[];
-  coaches: { id: string; displayName: string; status: string;courseCoachEnabled:boolean;courseQualificationsConfirmed:boolean;courseQualifiedTemplateIds:string[] }[];
+  coaches: { id: string; displayName: string; phone: string; status: string;courseCoachEnabled:boolean;courseQualificationsConfirmed:boolean;courseQualifiedTemplateIds:string[] }[];
+  cancelledBookings: {id:string;customerName:string;sessionId:string}[];
   canCreate: boolean;
   canDelete?: boolean;
   canEdit: boolean;
@@ -111,6 +112,7 @@ export function CourseWorkspace({
   rooms: allRooms,
   templates: allTemplates,
   sessions,
+  cancelledBookings,
   coaches: allCoaches,
   canCreate,
   canEdit,
@@ -252,12 +254,13 @@ export function CourseWorkspace({
       (category === "all" ||
         allTemplates.find((t) => t.id === s.templateId)?.category === category),
   );
-  const changedToday = businessProfile === "MUSIC"
-    ? sessions.filter((session) => session.rescheduledFromStartsAt && (
-        toLocalDateStr(new Date(session.startsAt)) === selectedDate ||
-        toLocalDateStr(new Date(session.rescheduledFromStartsAt)) === selectedDate
-      )).sort((a, b) => (a.rescheduledFromStartsAt ?? "").localeCompare(b.rescheduledFromStartsAt ?? ""))
-    : [];
+  const dailySessions = sessions.filter((session) => toLocalDateStr(new Date(session.startsAt)) === selectedDate);
+  const absentStudents = dailySessions.flatMap((session) => session.bookings.filter((booking) => booking.status === "RESERVED" && new Date(session.startsAt).getTime() <= Date.now()).map((booking) => ({ session, name: booking.customerName })));
+  const cancelledStudents = cancelledBookings.flatMap((booking) => {
+    const session = dailySessions.find((item) => item.id === booking.sessionId);
+    return session ? [{ session, name: booking.customerName }] : [];
+  });
+  const [dailyList, setDailyList] = useState<"cancelled" | "unmarked" | null>(null);
   const byDate = new Map<string, Session[]>();
   for (const session of filteredScheduleSessions) {
     const day = toLocalDateStr(new Date(session.startsAt));
@@ -357,25 +360,6 @@ export function CourseWorkspace({
         router.refresh();
       } catch {
         setError("調課失敗，原課程保留。");
-      }
-    });
-  }
-  function restoreMovedSession(session: Session) {
-    if (!session.rescheduledFromStartsAt || !session.rescheduledFromRoomId || !session.rescheduledFromCoachId || pending) return;
-    const original = formatTWDateTime(new Date(session.rescheduledFromStartsAt));
-    setError("");
-    startTransition(async () => {
-      try {
-        const result = await moveCourseSessions({
-          id: session.id, scope: "SINGLE", restore: true,
-          date: original.slice(0, 10), time: original.slice(11, 16),
-          roomId: session.rescheduledFromRoomId, coachId: session.rescheduledFromCoachId,
-        });
-        if (!result.success) { setError(result.error ?? "原時段目前無法還原"); return; }
-        setNotice("已回到原時段");
-        router.refresh();
-      } catch {
-        setError("還原失敗，課程保留在目前時段。");
       }
     });
   }
@@ -713,22 +697,16 @@ export function CourseWorkspace({
                 <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
               </div>
             )}
-            {businessProfile === "MUSIC" && changedToday.length > 0 && (
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-xs" aria-label="當日課程異動">
-                <div className="mb-1 flex items-center gap-2 text-indigo-900"><strong>當日調課</strong><span>{changedToday.length} 堂</span></div>
-                <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
-                  {changedToday.map((session) => {
-                    const original = formatTWDateTime(new Date(session.rescheduledFromStartsAt!));
-                    const current = formatTWDateTime(new Date(session.startsAt));
-                    return <div key={session.id} className="inline-flex max-w-full items-center gap-1 rounded-lg border border-indigo-100 bg-white px-2 py-1 text-earth-800">
-                      <span className="max-w-48 truncate font-medium" title={session.nameSnapshot}>{session.bookings[0]?.customerName ? `${session.bookings[0].customerName} · ${session.nameSnapshot}` : session.nameSnapshot}</span>
-                      <span className="whitespace-nowrap text-earth-600">{original.slice(5, 16)} → {current.slice(5, 16)}</span>
-                      {canEdit && <button type="button" className="ml-1 rounded px-1 font-semibold text-indigo-800 hover:bg-indigo-50 disabled:opacity-50" aria-label={`將${session.nameSnapshot}還原至${original}`} title="回到原時段" disabled={pending} onClick={() => restoreMovedSession(session)}>×</button>}
-                    </div>;
-                  })}
-                </div>
+            {businessProfile === "MUSIC" && <div className="flex flex-wrap gap-2 text-sm">
+              <button type="button" className={button} onClick={() => setDailyList("cancelled")}>請假／取消學員 {cancelledStudents.length}</button>
+              <button type="button" className={button} onClick={() => setDailyList("unmarked")}>未簽到學員 {absentStudents.length}</button>
+            </div>}
+            {dailyList && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label={dailyList === "cancelled" ? "請假與取消學員清單" : "未簽到學員清單"} onClick={() => setDailyList(null)}>
+              <div className="flex max-h-[85dvh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
+                <header className="flex items-center justify-between border-b border-earth-200 p-4"><h2 className="font-semibold">{selectedDate} · {dailyList === "cancelled" ? "請假／取消學員" : "未簽到學員"}</h2><button type="button" className={button} onClick={() => setDailyList(null)}>關閉</button></header>
+                <div className="overflow-y-auto p-4"><ul className="divide-y divide-earth-100">{(dailyList === "cancelled" ? cancelledStudents : absentStudents).map(({ session, name }, index) => <li key={`${session.id}-${name}-${index}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 text-sm"><strong className="min-w-24">{name}</strong><span>{formatTWDateTime(new Date(session.startsAt)).slice(11,16)} · {session.nameSnapshot}</span><span className="text-earth-600">{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? "未指定老師"}</span><button type="button" className="ml-auto text-primary-700 underline" onClick={() => {setDailyList(null);setCourseDialog({sessionId:session.id,kind:"roster"});}}>查看課程</button></li>)}</ul>{!(dailyList === "cancelled" ? cancelledStudents : absentStudents).length && <p className="py-8 text-center text-sm text-earth-500">當日沒有學員</p>}</div>
               </div>
-            )}
+            </div>}
             <CourseScheduleBoard
               businessProfile={businessProfile}
               mode={scheduleMode}
@@ -2166,6 +2144,7 @@ export function CourseWorkspace({
                   view={courseDialog.kind}
                   musicLayout={courseDialog.kind === "roster" && businessProfile === "MUSIC"}
                   teacherName={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.displayName ?? "未指定老師"}
+                  teacherPhone={allCoaches.find((coach) => coach.id === dialogSession.coachId)?.phone ?? ""}
                   roomName={allRooms.find((room) => room.id === dialogSession.roomId)?.name ?? "未指定教室"}
                   courseName={dialogSession.nameSnapshot}
                   onDone={() => setCourseDialog(null)}

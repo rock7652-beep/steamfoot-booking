@@ -39,6 +39,7 @@ export function CourseRoster({
   onMemberBookingReadyChange,
   musicLayout = false,
   teacherName = "",
+  teacherPhone = "",
   roomName = "",
   courseName = "",
 }: {
@@ -53,6 +54,7 @@ export function CourseRoster({
   onMemberBookingReadyChange?: (ready: boolean) => void;
   musicLayout?: boolean;
   teacherName?: string;
+  teacherPhone?: string;
   roomName?: string;
   courseName?: string;
 }) {
@@ -752,7 +754,7 @@ export function CourseRoster({
           <section className="min-h-0 rounded-xl border border-earth-200 bg-white lg:overflow-y-auto" aria-label="學員">
             <h3 className="sticky top-0 z-10 border-b border-earth-200 bg-earth-50 px-3 py-2 text-sm font-semibold text-earth-800">學員 · {searchedRows.length} 人</h3>
             <ul className="divide-y divide-earth-100">
-              {searchedRows.map((booking) => <li key={booking.id} className={`space-y-2 p-3 text-sm ${booking.status === "ATTENDED" ? "border-l-4 border-l-emerald-500" : ""}`}>
+              {searchedRows.map((booking) => <li key={booking.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm ${booking.status === "ATTENDED" ? "border-l-4 border-l-emerald-500" : ""}`}>
                 <div className="flex flex-wrap items-center gap-2">
                   {canEdit && booking.status !== "CANCELLED" && <input type="checkbox" aria-label={`選取 ${booking.customerName}`} checked={selected.includes(booking.id)} disabled={pending} onChange={(event) => setSelected((old) => event.target.checked ? [...old, booking.id] : old.filter((id) => id !== booking.id))} />}
                   <strong>{booking.customerName}</strong>
@@ -761,10 +763,10 @@ export function CourseRoster({
                 </div>
                 <div className="text-xs text-earth-600">
                   <a className="text-primary-700 hover:underline" href={booking.customerPhone ? `tel:${booking.customerPhone}` : undefined}>{booking.customerPhone || "未填電話"}</a>
-                  <span className="ml-2">{booking.bookingKind === "TRIAL" ? `體驗 NT$ ${booking.trialPrice}` : `${booking.planName} · 可用 ${booking.available} ${booking.unit === "SESSION" ? "堂" : "點"}`}</span>
+                  <span className="ml-2 hidden sm:inline">{booking.bookingKind === "TRIAL" ? `體驗 NT$ ${booking.trialPrice}` : `${booking.planName} · 可用 ${booking.available} ${booking.unit === "SESSION" ? "堂" : "點"}`}</span>
                 </div>
-                {(booking.serviceNote || booking.notes) && <p className="text-xs text-earth-600">{booking.serviceNote && `店內：${booking.serviceNote}`}{booking.notes && ` 本次：${booking.notes}`}</p>}
-                {canEdit && <div className="flex flex-wrap gap-1.5">
+                {(booking.serviceNote || booking.notes) && <span className="hidden text-xs text-earth-600 xl:inline" title={`${booking.serviceNote ?? ""} ${booking.notes ?? ""}`}>備註</span>}
+                {canEdit && <div className="ml-auto flex flex-wrap gap-1">
                   {booking.status === "RESERVED" && <>
                     <button className={button} disabled={pending} onClick={() => run(() => updateCourseBookingStatus({ bookingId: booking.id, status: "ATTENDED" }), `已將 ${booking.customerName} 標記出席`)}>出席</button>
                     <button className={button} disabled={pending} onClick={() => setNoShowBooking({ id: booking.id, name: booking.customerName, trial: booking.bookingKind === "TRIAL" })}>未到</button>
@@ -780,6 +782,7 @@ export function CourseRoster({
           <aside className="min-h-0 rounded-xl border border-earth-200 bg-white p-3 lg:overflow-y-auto" aria-label="老師與課程">
             <h3 className="border-b border-earth-100 pb-2 text-sm font-semibold text-earth-800">老師</h3>
             <p className="mt-3 text-base font-semibold text-earth-900">{teacherName}</p>
+            <a className="mt-1 inline-block text-sm text-primary-700 hover:underline" href={teacherPhone ? `tel:${teacherPhone}` : undefined}>{teacherPhone || "未填老師電話"}</a>
             <dl className="mt-3 space-y-2 text-sm text-earth-700">
               <div className="flex gap-2"><dt className="w-12 shrink-0 text-earth-500">課程</dt><dd>{courseName}</dd></div>
               <div className="flex gap-2"><dt className="w-12 shrink-0 text-earth-500">教室</dt><dd>{roomName}</dd></div>
