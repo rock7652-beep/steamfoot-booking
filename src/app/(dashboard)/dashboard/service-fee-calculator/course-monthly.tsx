@@ -35,6 +35,10 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  </div>
  <KpiStrip items={[{label:"應領合計",value:issues?"待核對":money(total),tone:"primary"},{label:"結算人員",value:`${people.length} 人`}]}/>
  {!!olderMonths.length&&<p className="rounded-lg bg-amber-50 p-3 text-sm">退款／作廢影響先前結算：{olderMonths.map(m=><Link key={m} className="ml-3 underline" href={`/dashboard/service-fee-calculator?month=${m}`}>{m} 查看</Link>)}</p>}
+ <div className="grid items-start gap-3 sm:grid-cols-2">
+ {!readOnly&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}
+ <CourseMonthlySettings key={report.settings.revision} settings={report.settings} canEdit={canSettings&&!readOnly}/>
+ </div>
  <CourseMonthlyPeople key={month} entries={people.map(person=>({id:person.id,name:person.name,pending:person.issues>0||person.lines.some(l=>l.amount===null),priority:person.issues>0?0:1}))}>
  {!people.length&&<p className="p-6 text-sm text-earth-500">本月沒有結算項目。</p>}
  {people.map(person=><details key={person.id} className="group/person border-b border-earth-100 last:border-0"><summary className="grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-3 md:grid-cols-[minmax(8rem,1fr)_1fr_1fr_1fr_5rem]">
@@ -49,8 +53,7 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  </details>)}
  </CourseMonthlyPeople>
  <div className="space-y-3">
- {!readOnly&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}
- <CourseMonthlySettings key={report.settings.revision} settings={report.settings} canEdit={canSettings&&!readOnly}/>
+
  {!!last&&<details className="rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer items-center text-sm">結算紀錄（{report.revisions.length}）</summary>{report.revisions.map(r=><details key={r.id} className="border-t py-2"><summary className="min-h-11 cursor-pointer text-sm">第 {r.revision} 版 · {formatTWDateTime(r.createdAt)}</summary><p className="text-xs text-earth-500">{r.reason}</p>{summarizeSettlement(r.snapshot).map(p=><p key={p.id} className="flex justify-between gap-3 py-2 text-sm"><span>{p.name}</span><span>{p.issues>0?"待核對":money(p.profit+p.fee)}</span></p>)}</details>)}</details>}
  {report.lines.some(l=>l.payments.length>0)&&<details className="rounded-lg border border-earth-200 bg-white px-4"><summary className="flex min-h-11 cursor-pointer items-center text-sm">歷史付款紀錄</summary>{report.lines.filter(l=>l.payments.length>0).map(line=><div key={line.kind+line.id} className="border-t py-3 text-sm"><p className="font-medium">{line.name} · {line.label}</p>{line.payments.map(p=><div key={p.id} className="my-2 space-y-1 rounded bg-earth-50 p-3"><p>{formatTWDateTime(new Date(p.date))} · {money(p.amount)} · {p.voided?"已更正":"已登記"}</p><p>{p.note}{p.reason&&` · ${p.reason}`}</p>{!readOnly&&canPay&&!p.voided&&(line.kind==="PROFIT"?<CourseProfitCorrect paymentId={p.id}/>:<CourseFeeCorrectionButton paymentId={p.id}/>)}</div>)}</div>)}</details>}
  </div>
