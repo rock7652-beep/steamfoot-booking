@@ -5,6 +5,7 @@ import {CourseConflicts,type ConflictItem} from "@/components/admin/course-confl
 import { useEffect, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
+import { MusicScheduleWizard } from "./music-schedule-wizard";
 import {
   CourseScheduleBoard,
   type CourseScheduleMode,
@@ -1697,7 +1698,25 @@ export function CourseWorkspace({
                 )}
               </form>
             )}
-            {panel === "schedule" && (
+            {panel === "schedule" && businessProfile === "MUSIC" && (
+              <MusicScheduleWizard
+                key={requestKey}
+                templates={templates}
+                rooms={rooms}
+                coaches={coaches}
+                initialDate={selectedDate}
+                initialTemplateId={copySource?.templateId}
+                sourceSessionId={copySource?.id}
+                requestKey={requestKey}
+                onCreated={(sessionId,date) => {
+                  setPanel(null);
+                  go(date);
+                  setCourseDialog({sessionId,kind:"roster"});
+                  router.refresh();
+                }}
+              />
+            )}
+            {panel === "schedule" && businessProfile !== "MUSIC" && (
               <>
                 {!templates.length ? (
                   <>
@@ -1762,7 +1781,7 @@ export function CourseWorkspace({
                   >
                     {copySource ? (
                       <p className="col-span-full">
-                        {copySource.nameSnapshot} · {businessProfile === "MUSIC" ? "每位學員 1 堂" : `點數卡每人 ${copySource.pointCost} 點／堂數卡每人 1 堂`}<br />
+                        {copySource.nameSnapshot} · 點數卡每人 {copySource.pointCost} 點／堂數卡每人 1 堂<br />
                         選擇新日期並確認時間後建立，原課程會保留。
                       </p>
                     ) : (
@@ -1777,13 +1796,13 @@ export function CourseWorkspace({
                         >
                           {templates.map((t) => (
                             <option key={t.id} value={t.id}>
-                              {t.name} · {businessProfile === "MUSIC" ? "每位學員 1 堂" : `點數卡 ${t.pointCost} 點；堂數卡 1 堂`}
+                              {t.name} · 點數卡 {t.pointCost} 點；堂數卡 1 堂
                             </option>
                           ))}
                         </select>
                       </label>
                     )}
-                    <DebitRule music={businessProfile === "MUSIC"}/>
+                    <DebitRule music={false}/>
                     <label className="col-span-full">
                       教練
                       <select
@@ -1798,7 +1817,7 @@ export function CourseWorkspace({
                           </option>
                         ))}
                       </select>
-                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用{businessProfile === "MUSIC" ? "老師" : "教練"}，請先至人員管理設定資格。<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/staff")} target="_blank" rel="noopener noreferrer">開啟人員管理（保留此排課草稿）</a><button type="button" className={button} onClick={()=>router.refresh()}>已設定，更新教練名單</button></span>}
+                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請先至人員管理設定資格。<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/staff")} target="_blank" rel="noopener noreferrer">開啟人員管理（保留此排課草稿）</a><button type="button" className={button} onClick={()=>router.refresh()}>已設定，更新教練名單</button></span>}
                     </label>
                     <label>
                       日期
@@ -1816,7 +1835,6 @@ export function CourseWorkspace({
                         className={field}
                         name="time"
                         type="time"
-                        step={businessProfile === "MUSIC" ? 1800 : undefined}
                         defaultValue={
                           copySource
                             ? formatTWDateTime(
@@ -1880,24 +1898,6 @@ export function CourseWorkspace({
                     <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-3">調整本堂時長（預設 {copySource ? Math.round((new Date(copySource.endsAt).getTime()-new Date(copySource.startsAt).getTime())/60000) : template?.durationMinutes} 分鐘）</summary>
                     <label key={`duration-${chosen}`}>
                       時長（分鐘）
-                      {businessProfile === "MUSIC" ? (
-                        <select
-                          className={field}
-                          name="duration"
-                          defaultValue={String(
-                            copySource
-                              ? (new Date(copySource.endsAt).getTime() - new Date(copySource.startsAt).getTime()) / 60000
-                              : scheduleSeed.durationMinutes ?? ([30, 60, 90, 120].includes(template?.durationMinutes ?? 60)
-                                 ? template?.durationMinutes
-                                 : 60),
-                          )}
-                          required
-                        >
-                          {[30, 60, 90, 120].map((minutes) => (
-                            <option key={minutes} value={minutes}>{minutes} 分鐘</option>
-                          ))}
-                        </select>
-                      ) : (
                         <input
                           className={field}
                           name="duration"
@@ -1911,7 +1911,6 @@ export function CourseWorkspace({
                           max={480}
                           required
                         />
-                      )}
                     </label>
                     </details>
                     <label className="col-span-full">
@@ -2033,7 +2032,7 @@ export function CourseWorkspace({
               </footer>
             )}
           {panel === "inspect" && canEdit && <footer className="shrink-0 border-t bg-white p-4"><button className={`${primary} w-full`} onClick={()=>open("edit")}>編輯{editing?.kind === "room" ? "教室":"課程"}</button></footer>}
-          {panel === "schedule" && (
+          {panel === "schedule" && businessProfile !== "MUSIC" && (
             <footer className="shrink-0 border-t bg-white p-4">
               <button
                 form="course-schedule-form"

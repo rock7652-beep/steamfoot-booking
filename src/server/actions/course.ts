@@ -414,7 +414,12 @@ export async function createCourseSchedule(input: unknown) {
     );
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
-    return { success: true as const, data: result };
+    const firstSession = await coursePrisma.courseSession.findFirst({
+      where: { storeId, requestKey: data.requestKey, cancelledAt: null },
+      orderBy: { requestIndex: "asc" },
+      select: { id: true },
+    });
+    return { success: true as const, data: { ...result, sessionId: firstSession?.id ?? null } };
   } catch (error) {
     return handleCourseActionError(error);
   }

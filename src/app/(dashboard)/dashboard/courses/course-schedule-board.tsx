@@ -9,6 +9,7 @@ import {
   toLocalDateStr,
 } from "@/lib/date-utils";
 import { normalizeAvailabilityPeriods, periodContains, minuteOfDay } from "@/lib/course-availability";
+import { getMusicSlotMatches, type MusicSlotMatch } from "@/server/actions/course-slot-matches";
 
 export type CourseScheduleMode = "month" | "week" | "day";
 
@@ -310,6 +311,33 @@ export function CourseScheduleBoard({
   const [resourceView, setResourceView] = React.useState<ResourceView>("room");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
   const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(60);
+  const [matchedSlots, setMatchedSlots] = React.useState<MusicSlotMatch[] | null>(null);
+  const [matchError, setMatchError] = React.useState("");
+  const [teacherChoice, setTeacherChoice] = React.useState<{time:string;roomId:string;coachIds:string[]} | null>(null);
+  React.useEffect(() => {
+    if (businessProfile !== "MUSIC" || mode !== "day" || !moveClipboard) {
+      setMatchedSlots(null);
+      setTeacherChoice(null);
+      return;
+    }
+    let current = true;
+    setMatchedSlots(null);
+    setTeacherChoice(null);
+    setMatchError("");
+    getMusicSlotMatches({
+      date: selectedDate,
+      templateId: moveClipboard.templateId,
+      durationMinutes: moveClipboard.durationMinutes,
+      moveSessionId: moveClipboard.sessionId,
+      scope: moveClipboard.scope,
+      weeks: moveClipboard.weeks,
+    }).then(result => {
+      if (!current) return;
+      if (result.success) setMatchedSlots(result.data);
+      else setMatchError(result.error ?? "空位暫時無法讀取");
+    }).catch(() => { if (current) setMatchError("空位暫時無法讀取，請重試"); });
+    return () => { current = false; };
+  }, [businessProfile, mode, selectedDate, moveClipboard]);
   const dayScrollRef = React.useRef<HTMLDivElement>(null);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
@@ -424,6 +452,7 @@ export function CourseScheduleBoard({
       return start<sessionEnd&&end>sessionStart;
     });
   };
+  const matchedPair = (roomId:string,time:string) => matchedSlots?.find(s => s.roomId === roomId && s.time === time);
   const resourceCount = Math.max(resources.length, 1);
   const musicDense = businessProfile === "MUSIC";
   const timetableWidth = musicDense
@@ -512,6 +541,9 @@ export function CourseScheduleBoard({
             <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded-sm border border-earth-200 bg-earth-100" aria-hidden="true" />不可排</span>
           </div>
         )}
+        {moveClipboard && <span role={matchError ? "alert" : "status"} className={`text-xs ${matchError ? "text-red-700" : "text-earth-600"}`}>
+          {matchError || (matchedSlots ? `可貼空位 ${matchedSlots.length} 格` : "正在核對老師與教室…")}
+        </span>}
 
         <div className="inline-flex rounded-lg border border-earth-200 bg-white p-0.5" aria-label="課表資源視角">
           <button
@@ -656,21 +688,38 @@ export function CourseScheduleBoard({
                              const hasConflict=moveClipboard
                                ? pairConflict(targetRoomId,targetCoachId,startTime,duration)
                                : slotConflict(resource.id,startTime,duration);
-                             const available=storeOpen&&resourceOpen&&qualified&&!hasConflict;
-                             const reason=!storeOpen?"店家未開放":!resourceOpen?"老師未排班":!qualified?"老師未授此課":hasConflict?"已有課":"";
+                             const serverMatch = moveClipboard ? resourceView === "room"
+                               ? matchedPair(resource.id,startTime)
+                               : matchedSlots?.find(s => s.time === startTime && s.coachIds.includes(resource.id))
+                               : null;
+                             const available=moveClipboard
+                               ? Boolean(serverMatch) && !matchError
+                               : storeOpen&&resourceOpen&&qualified&&!hasConflict;
+                             const reason=moveClipboard
+                               ? matchError || (!matchedSlots ? "正在核對空位" : "這裡沒有可排的合格老師或教室")
+                               : !storeOpen?"店家未開放":!resourceOpen?"老師未排班":!qualified?"老師未授此課":hasConflict?"已有課":"";
+                             const coachIds = serverMatch?.coachIds ?? [];
+                             const matches = resourceView === "coach" ? matchedSlots?.filter(s => s.time === startTime && s.coachIds.includes(resource.id)) ?? [] : [];
+                             const choiceLabel = resourceView === "room" ? `${coachIds.length} 位老師可排` : `${matches.length} 間教室可排`;
                             return (
                               <button
                                 key={minute}
                                 type="button"
                                 disabled={!available||pending}
-                                title={available?(moveClipboard?`${startTime} 可貼上`:`${startTime} 可排 ${availabilityDuration} 分鐘`):reason}
-                                 aria-label={available?(moveClipboard?`${startTime} 可貼上`:`${startTime} 可排 ${availabilityDuration} 分鐘`):`${startTime} ${reason}`}
+                                title={available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘`):reason}
+                                 aria-label={available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘`):`${startTime} ${reason}`}
                                  onClick={()=>available&&(moveClipboard&&onPasteMove
-                                   ? onPasteMove({time:startTime,roomId:targetRoomId,coachId:targetCoachId})
+                                   ? (resourceView === "room"
+                                       ? coachIds.length === 1
+                                         ? onPasteMove({time:startTime,roomId:resource.id,coachId:coachIds[0]})
+                                         : setTeacherChoice({time:startTime,roomId:resource.id,coachIds})
+                                       : matches.length === 1
+                                         ? onPasteMove({time:startTime,roomId:matches[0].roomId,coachId:resource.id})
+                                         : setTeacherChoice({time:startTime,roomId:"",coachIds:[resource.id]}))
                                    : onOpenEmpty({time:startTime,durationMinutes:availabilityDuration,...(resourceView==="room"?{roomId:resource.id}:{coachId:resource.id})}))}
                                  className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
                                >
-                                 {available&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard?"貼上":"＋"} {startTime}{moveClipboard?"":` · ${availabilityDuration}分`}</span>}
+                                 {available&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime} · ${availabilityDuration}分`}</span>}
                                  <span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-300 opacity-0 [@media(pointer:coarse)]:opacity-100" aria-hidden="true">{minute}</span>
                               </button>
                             );
@@ -721,6 +770,24 @@ export function CourseScheduleBoard({
             ))}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {teacherChoice && moveClipboard && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-label="選擇可排老師與教室" onClick={() => setTeacherChoice(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl" onClick={event => event.stopPropagation()}>
+            <h3 className="font-semibold text-primary-900">{selectedDate} {teacherChoice.time} · 選擇貼上位置</h3>
+            <p className="mt-1 text-xs text-earth-600">已核對授課資格、老師排班、教室與方案期限。</p>
+            <div className="mt-3 grid max-h-[55dvh] gap-2 overflow-y-auto">
+              {(teacherChoice.roomId
+                ? teacherChoice.coachIds.map(coachId => ({roomId:teacherChoice.roomId,coachId}))
+                : matchedSlots?.filter(slot => slot.time === teacherChoice.time && slot.coachIds.includes(teacherChoice.coachIds[0]))
+                    .map(slot => ({roomId:slot.roomId,coachId:teacherChoice.coachIds[0]})) ?? []
+              ).map(pair => <button type="button" key={`${pair.roomId}:${pair.coachId}`} className="min-h-11 rounded-xl border border-earth-200 px-3 text-left hover:bg-primary-50" onClick={() => { setTeacherChoice(null); onPasteMove?.({time:teacherChoice.time,...pair}); }}>
+                {coaches.find(coach => coach.id === pair.coachId)?.displayName} · 教室 {rooms.find(room => room.id === pair.roomId)?.name}
+              </button>)}
+            </div>
+            <button type="button" className="mt-3 min-h-10 w-full rounded-lg border border-earth-200" onClick={() => setTeacherChoice(null)}>取消</button>
           </div>
         </div>
       )}
