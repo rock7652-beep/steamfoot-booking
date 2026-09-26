@@ -247,7 +247,12 @@ function SessionCard({
           <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-800">代課</span>
         )}
         {attendanceComplete && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">已出席</span>}
-        {!moved && fixed && (
+        {fixed && businessProfile === "MUSIC" && (
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${session.isBiweekly ? "bg-blue-100 text-blue-900 ring-1 ring-blue-200" : "bg-teal-100 text-teal-900 ring-1 ring-teal-200"}`}>
+            {session.isBiweekly ? "隔週固定" : "每週固定"}
+          </span>
+        )}
+        {fixed && businessProfile !== "MUSIC" && (
           <span className="rounded-full bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">{session.isBiweekly ? "隔週" : "固定"}</span>
         )}
         {businessProfile === "MUSIC" && !fixed && !moved && !substitute && copy.privateClass && (

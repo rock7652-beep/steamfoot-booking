@@ -691,9 +691,14 @@ export function CourseWorkspace({
                       <span
                         key={s.id}
                         className={`hidden w-full shrink-0 truncate leading-[14px] sm:block sm:text-[11px] rounded-sm border-l-2 px-1 ${courseSessionStatus(s, nowIso).calendarClass} ${courseSessionStatus(s, nowIso).accentClass}`}
-                        title={`${s.nameSnapshot} · ${courseSessionStatus(s, nowIso).label}`}
+                        title={`${s.nameSnapshot} · ${s.isFixed ? (s.isBiweekly ? "隔週固定" : "每週固定") + " · " : ""}${courseSessionStatus(s, nowIso).label}`}
                       >
                         {formatTWDateTime(new Date(s.startsAt)).slice(11)}{" "}
+                        {businessProfile === "MUSIC" && s.isFixed && (
+                          <span className={`mr-0.5 rounded px-0.5 font-semibold ${s.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900"}`}>
+                            {s.isBiweekly ? "隔週" : "每週"}
+                          </span>
+                        )}
                         {s.nameSnapshot}
                       </span>
                     ))}
@@ -707,6 +712,10 @@ export function CourseWorkspace({
               })}
             </div>
           </div>
+          {businessProfile === "MUSIC" && <div className="flex flex-wrap items-center gap-2 text-xs text-earth-700" aria-label="固定課圖例">
+            <span className="rounded-full bg-teal-100 px-2 py-1 font-semibold text-teal-900 ring-1 ring-teal-200">每週固定</span>
+            <span className="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-900 ring-1 ring-blue-200">隔週固定</span>
+          </div>}
           <div className="flex flex-wrap items-center gap-2 text-xs text-earth-600" aria-label="課程狀態圖例">
             {[
               ["未開始", "bg-sky-50 text-sky-800"],
@@ -728,6 +737,10 @@ export function CourseWorkspace({
                 <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
               </div>
             )}
+            {businessProfile === "MUSIC" && <div className="flex flex-wrap items-center gap-2 text-xs" aria-label="固定課圖例">
+              <span className="rounded-full bg-teal-100 px-2 py-1 font-semibold text-teal-900 ring-1 ring-teal-200">每週固定</span>
+              <span className="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-900 ring-1 ring-blue-200">隔週固定</span>
+            </div>}
             {businessProfile === "MUSIC" && <div className="flex flex-wrap gap-2 text-sm">
               <button type="button" className={button} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
               <button type="button" className={button} onClick={() => setDailyList("unmarked")}>未簽到學員 {absentStudents.length}</button>
