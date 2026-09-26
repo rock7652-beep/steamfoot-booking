@@ -740,6 +740,7 @@ export function CourseWorkspace({
           >
             {pending ? "處理中…" : notice}
           </p>
+          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         </div>
       )}
       <datalist id="course-category-options">
