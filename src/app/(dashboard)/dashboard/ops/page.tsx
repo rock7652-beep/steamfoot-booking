@@ -72,7 +72,7 @@ export default async function OpsDashboardPage() {
   const totalSegmentCount = segments.reduce((sum, s) => sum + s.count, 0);
 
   return (
-    <div className="w-full min-w-0 space-y-5 py-4">
+    <div className="mx-auto max-w-5xl space-y-5 px-4 py-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
