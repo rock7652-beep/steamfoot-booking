@@ -215,11 +215,19 @@ function SessionCard({
   const moved = Boolean(session.rescheduledFromStartsAt);
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
   const scheduleType = fixed ? (session.isBiweekly ? "隔週固定" : "每週固定") : "約課";
-  const musicColor = fixed
-    ? session.isBiweekly
-      ? "border-blue-200 border-l-[3px] border-l-blue-500 bg-blue-50/50"
-      : "border-teal-200 border-l-[3px] border-l-teal-500 bg-teal-50/50"
-    : "border-amber-200 border-l-[3px] border-l-amber-500 bg-white";
+  const musicColor = isTrial(session)
+    ? "border-orange-200 border-l-[3px] border-l-orange-500 bg-orange-50/70"
+    : substitute
+      ? "border-fuchsia-200 border-l-[3px] border-l-fuchsia-500 bg-fuchsia-50/70"
+      : moved
+        ? "border-indigo-200 border-l-[3px] border-l-indigo-500 bg-indigo-50/70"
+        : !copy.privateClass
+          ? "border-purple-200 border-l-[3px] border-l-purple-500 bg-purple-50/70"
+          : fixed
+            ? session.isBiweekly
+              ? "border-blue-200 border-l-[3px] border-l-blue-500 bg-blue-50/70"
+              : "border-teal-200 border-l-[3px] border-l-teal-500 bg-teal-50/70"
+            : "border-amber-200 border-l-[3px] border-l-amber-500 bg-amber-50/70";
   const musicTags = [
     !copy.privateClass && "團體",
     isTrial(session) && "體驗",
