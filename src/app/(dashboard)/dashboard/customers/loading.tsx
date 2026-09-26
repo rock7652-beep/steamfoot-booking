@@ -3,7 +3,7 @@ import { LoadingStatus } from "@/components/loading-status";
 /** 顧客列表 skeleton — Phase 2 桌機版 PageShell / PageHeader / Toolbar / DataTable */
 export default function Loading() {
   return (
-    <div className="mx-auto flex max-w-[1440px] animate-pulse flex-col gap-4 px-6 py-6">
+    <div className="flex w-full min-w-0 animate-pulse flex-col gap-4 py-6">
       <LoadingStatus />
       {/* PageHeader */}
       <div className="flex items-center justify-between pb-1">

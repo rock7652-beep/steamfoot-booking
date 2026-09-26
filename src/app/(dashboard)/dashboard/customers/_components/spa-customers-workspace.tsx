@@ -80,7 +80,7 @@ export function SpaCustomersWorkspace({
   const customer = customers.find((c) => c.id === selected?.id);
   const profileRequest = selected?.request;
   return (
-    <main className="mx-auto max-w-7xl space-y-5 p-4 md:p-6">
+    <main className="w-full min-w-0 space-y-5 py-4 md:py-6">
       <SpaCustomerList
         customers={customers}
         search={search}

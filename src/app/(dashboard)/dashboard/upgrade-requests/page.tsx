@@ -86,7 +86,7 @@ export default async function UpgradeRequestsPage({ searchParams }: PageProps) {
   const hasActiveFilters = !!(search || params.status);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-lg font-bold text-earth-900">升級申請管理</h1>
