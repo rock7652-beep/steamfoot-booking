@@ -2123,7 +2123,7 @@ export function CourseWorkspace({
                     <strong className="mr-1 text-indigo-900">要調整哪些課？</strong>
                     <button className={primary} type="button" onClick={() => beginMove(dialogSession, "SINGLE")}>這堂</button>
                     <button className={button} type="button" onClick={() => setMoveWeeksOpen((open) => !open)} aria-expanded={moveWeeksOpen}>連續幾週</button>
-                    <button className={button} type="button" onClick={() => beginMove(dialogSession, "FUTURE")}>之後都改</button>
+                    <button className={button} type="button" onClick={() => beginMove(dialogSession, "FUTURE")}>換固定時段</button>
                     <button className="ml-auto text-xs text-earth-600" type="button" onClick={() => { setMoveChoice(null); setMoveWeeksOpen(false); }}>返回名單</button>
                   </div>
                   {moveWeeksOpen && <div className="flex flex-wrap gap-1" aria-label="選擇連續週數">
