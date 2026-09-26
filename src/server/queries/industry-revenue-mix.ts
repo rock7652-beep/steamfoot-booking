@@ -114,8 +114,8 @@ export async function getIndustryRevenueMix(storeId: string, startDate: string, 
   return fromEvents([...systemEvents, ...manualEvents], startDate, endDate);
 }
 
-export async function getIndustrySixMonthRevenueMixTrend(storeId: string, today = toLocalDateStr()): Promise<RevenueMixPoint[]> {
+export async function getIndustrySixMonthRevenueMixTrend(storeId: string, today = toLocalDateStr(), count: 6 | 12 = 6): Promise<RevenueMixPoint[]> {
   const [year, month] = today.split("-").map(Number);
-  const startDate = new Date(Date.UTC(year, month - 6, 1)).toISOString().slice(0, 10);
+  const startDate = new Date(Date.UTC(year, month - count, 1)).toISOString().slice(0, 10);
   return (await getIndustryRevenueMix(storeId, startDate, today)).points;
 }

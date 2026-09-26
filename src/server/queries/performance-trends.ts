@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { bookingMonthRange, monthRange, toLocalDateStr } from "@/lib/date-utils";
+import { bookingMonthRange, monthRange, toLocalDateStr, parseTaiwanDateToDbDate, dayRange } from "@/lib/date-utils";
 import { REVENUE_NET_TYPES, REVENUE_VALID_STATUS } from "@/lib/booking-constants";
 import { selectConversionCustomerIds } from "@/server/queries/conversion-metrics";
 
@@ -38,12 +38,18 @@ function attendance(row: { people: number; attendedPeople: number | null }): num
 export async function getStorePerformanceTrends(
   storeId: string,
   endingMonth: string,
+  count: 6 | 12 = 6,
 ): Promise<StorePerformanceTrend[]> {
-  const months = Array.from({ length: 6 }, (_, index) => shiftMonth(endingMonth, index - 5));
+  const months = Array.from({ length: count }, (_, index) => shiftMonth(endingMonth, index - count + 1));
   const firstBookingRange = bookingRange(months[0]);
-  const lastBookingRange = bookingRange(months[5]);
+  const lastBookingRange = bookingRange(months[count - 1]);
   const firstTxRange = monthRange(months[0]);
-  const lastTxRange = monthRange(months[5]);
+  const lastTxRange = monthRange(months[count - 1]);
+  const today = toLocalDateStr();
+  if (endingMonth === today.slice(0, 7)) {
+    lastBookingRange.end = parseTaiwanDateToDbDate(today);
+    lastTxRange.end = dayRange(today).end;
+  }
 
   const [bookings, transactions, cashbookEntries, conversionTrials, packagePurchases] = await Promise.all([
     prisma.booking.findMany({

@@ -117,6 +117,7 @@ export function selectConversionCustomerIds(
   month: string,
   trials: CompletedTrial[],
   purchases: PackagePurchase[],
+  range?: { startDate: string; endDate: string },
 ): ConversionCustomerSelection {
   const firstTrialDateByCustomer = new Map<string, string>();
   for (const trial of trials) {
@@ -142,17 +143,19 @@ export function selectConversionCustomerIds(
   const trackedConvertedCustomerIds = new Set<string>();
   const convertedCustomerIds = new Set<string>();
   for (const [customerId, purchase] of firstPurchaseByCustomer) {
-    const purchaseMonth = toLocalDateStr(purchaseOccurredAt(purchase)).slice(0, 7);
-    if (purchaseMonth !== month) continue;
-    const trialMonth = firstTrialDateByCustomer.get(customerId)!.slice(0, 7);
-    if (trialMonth === month) currentTrialConvertedCustomerIds.add(customerId);
-    else if (trialMonth < month) trackedConvertedCustomerIds.add(customerId);
+    const purchaseDate = toLocalDateStr(purchaseOccurredAt(purchase));
+    const purchaseMonth = purchaseDate.slice(0, 7);
+    if (range ? purchaseDate < range.startDate || purchaseDate > range.endDate : purchaseMonth !== month) continue;
+    const trialDate = firstTrialDateByCustomer.get(customerId)!;
+    const trialMonth = trialDate.slice(0, 7);
+    if (range ? trialDate >= range.startDate && trialDate <= range.endDate : trialMonth === month) currentTrialConvertedCustomerIds.add(customerId);
+    else if (range ? trialDate < range.startDate : trialMonth < month) trackedConvertedCustomerIds.add(customerId);
     convertedCustomerIds.add(customerId);
   }
 
   const trialCustomerIds = new Set(
     [...firstTrialDateByCustomer]
-      .filter(([, trialDate]) => trialDate.startsWith(`${month}-`))
+      .filter(([, trialDate]) => range ? trialDate >= range.startDate && trialDate <= range.endDate : trialDate.startsWith(`${month}-`))
       .map(([customerId]) => customerId),
   );
   const unconvertedCustomerIds = new Set(
