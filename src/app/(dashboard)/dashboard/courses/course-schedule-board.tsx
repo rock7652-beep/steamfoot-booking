@@ -224,7 +224,7 @@ function SessionCard({
   const trialClass = isTrial(session) && !copy.groupClass;
   const scheduleType = fixed ? (session.isBiweekly ? "隔週固定" : "每週固定") : "約課";
   const primaryType = trialClass ? "體驗" : substitute ? "代課" : moved ? "調課" : copy.groupClass ? "團體" : fixed ? session.isBiweekly ? "隔週" : "每週" : "約課";
-  const typeBadge = trialClass ? "bg-orange-100 text-orange-900" : substitute || moved ? "bg-amber-100 text-amber-900" : copy.groupClass ? "bg-purple-100 text-purple-900" : fixed ? session.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900" : "bg-amber-100 text-amber-900";
+  const typeBadge = trialClass ? "bg-orange-200 text-orange-950" : substitute || moved ? "bg-amber-100 text-amber-900" : copy.groupClass ? "bg-purple-100 text-purple-900" : fixed ? session.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900" : "bg-amber-100 text-amber-900";
   const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
   const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
   const attendance = courseAttendanceProgress(session.bookings, leaveCount);
@@ -233,7 +233,7 @@ function SessionCard({
     : activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
   const attendanceLabel = attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
   const musicTypeColor = trialClass
-    ? "border-orange-200 bg-orange-50/70"
+    ? "border-orange-400 bg-orange-100"
     : substitute || moved
       ? "border-amber-200 bg-amber-50/70"
       : copy.groupClass
@@ -650,7 +650,7 @@ export function CourseScheduleBoard({
             ["隔週", "border-blue-500 bg-blue-50"],
             ["約課／調課／代課", "border-amber-500 bg-amber-50"],
             ["團體", "border-purple-500 bg-purple-50"],
-            ["體驗", "border-orange-500 bg-orange-50"],
+            ["體驗", "border-orange-500 bg-orange-100"],
           ].map(([label, color]) => (
             <span key={label} className="inline-flex items-center gap-1 whitespace-nowrap">
               <span className={`h-3 w-3 rounded-sm border-l-[3px] ${color}`} aria-hidden="true" />{label}
