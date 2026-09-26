@@ -200,9 +200,7 @@ export default async function CoursesPage({
     <PageShell
       className={
         view === "schedule"
-          ? businessProfile === "MUSIC"
-            ? "course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2"
-            : "course-workspace mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3"
+          ? "course-workspace mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3"
           : "course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6"
       }
     >

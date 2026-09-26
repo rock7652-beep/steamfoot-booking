@@ -9,7 +9,6 @@ import {
   toLocalDateStr,
 } from "@/lib/date-utils";
 import { normalizeAvailabilityPeriods, periodContains, minuteOfDay } from "@/lib/course-availability";
-import { courseRecurrenceLabels } from "@/lib/course-recurrence-display";
 
 export type CourseScheduleMode = "month" | "week" | "day";
 
@@ -190,7 +189,7 @@ function SessionCard({
   dense = false,
   resourceView,
   businessProfile,
-  recurrenceLabel,
+  fixed = false,
   onOpen,
 }: {
   session: Session;
@@ -201,7 +200,7 @@ function SessionCard({
   dense?: boolean;
   resourceView?: ResourceView;
   businessProfile: "FITNESS" | "MUSIC";
-  recurrenceLabel?: "每週固定" | "隔週固定";
+  fixed?: boolean;
   onOpen: () => void;
 }) {
   const copy = adaptiveCopy(session, templates, coaches, rooms, businessProfile);
@@ -209,26 +208,13 @@ function SessionCard({
   const musicDense = dense && businessProfile === "MUSIC";
   const moved = Boolean(session.rescheduledFromStartsAt);
   const showCapacityState = !musicDense || !copy.privateClass;
-  const brief = sessionDurationMinutes(session) <= 30;
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${moved ? "border-indigo-200 bg-indigo-50/80" : musicDense && recurrenceLabel === "隔週固定" ? "border-blue-200 border-l-[3px] border-l-blue-500 bg-blue-50/40" : musicDense && recurrenceLabel === "每週固定" ? "border-teal-200 border-l-[3px] border-l-teal-500 bg-teal-50/30" : musicDense && !copy.privateClass ? "border-earth-200 border-l-2 border-l-primary-300 bg-primary-50/20" : "border-earth-200 bg-white"}`}
-      title={`${hhmm(session.startsAt)} ${copy.primary} · ${copy.coach} · ${copy.room}${recurrenceLabel ? ` · ${recurrenceLabel}` : ""}`}
-      aria-label={`${copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${recurrenceLabel ? `，${recurrenceLabel}` : ""}`}
+      className={`w-full rounded-lg border text-left transition ${dense ? "h-full overflow-hidden" : ""} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"} ${moved ? "border-indigo-200 bg-indigo-50/80" : musicDense && !copy.privateClass ? "border-earth-200 border-l-2 border-l-primary-300 bg-primary-50/20" : "border-earth-200 bg-white"}`}
+      aria-label={`${copy.primary}，${hhmm(session.startsAt)}，${copy.coach}`}
     >
-      {musicDense ? (
-        <>
-          <div className="flex min-w-0 items-center gap-1 text-[11px] leading-4">
-            <strong className="min-w-0 flex-1 truncate text-earth-900">{copy.primary}</strong>
-            {brief ? <span className="max-w-[48%] shrink-0 truncate text-[10px] font-semibold text-earth-700">{copy.coach}</span> : recurrenceLabel && <span className={`shrink-0 rounded px-1 text-[9px] font-semibold ${recurrenceLabel === "隔週固定" ? "bg-blue-100 text-blue-800" : "bg-teal-100 text-teal-800"}`}>{recurrenceLabel === "隔週固定" ? "隔週" : "固定"}</span>}
-          </div>
-          {!brief && <p className="truncate text-[10px] font-semibold leading-4 text-earth-700">{copy.coach}</p>}
-          {!brief && <p className="truncate text-[10px] leading-4 text-earth-500">{copy.privateClass ? session.nameSnapshot : `${session.bookings.length}/${session.capacity} 人`}{moved ? " · 調課" : ""}{isTrial(session) ? " · 體驗" : ""}</p>}
-        </>
-      ) : (
-      <>
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
           <p className={`truncate font-semibold text-earth-900 ${dense ? "text-xs" : "text-sm"}`}>{copy.primary}</p>
@@ -251,8 +237,8 @@ function SessionCard({
         {moved && (
           <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-800">調課</span>
         )}
-        {!moved && recurrenceLabel && (
-          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${recurrenceLabel === "隔週固定" ? "bg-blue-100 text-blue-800" : "bg-teal-100 text-teal-800"}`}>{recurrenceLabel}</span>
+        {!moved && fixed && (
+          <span className="rounded-full bg-earth-100 px-1.5 py-0.5 text-[10px] font-medium text-earth-600">固定</span>
         )}
         {isTrial(session) && (
           <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
@@ -279,8 +265,6 @@ function SessionCard({
           </span>
         )}
       </div>
-      </>
-      )}
     </button>
   );
 }
@@ -313,7 +297,6 @@ export function CourseScheduleBoard({
   const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(60);
   const dayScrollRef = React.useRef<HTMLDivElement>(null);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
-  const recurrenceLabels = courseRecurrenceLabels(sessions);
 
   const snapResourceCount = resourceView === "room" ? activeRooms.length : activeCoaches.length;
   function snapDayScroll() {
@@ -363,7 +346,7 @@ export function CourseScheduleBoard({
                           rooms={rooms}
                           compact
                           businessProfile={businessProfile}
-                          recurrenceLabel={recurrenceLabels.get(session.id)}
+                          fixed={Boolean(session.requestKey && sessions.some((candidate)=>candidate.id!==session.id&&candidate.requestKey===session.requestKey))}
                           onOpen={() => onOpenSession(session.id, date)}
                         />
                       ))
@@ -633,7 +616,7 @@ export function CourseScheduleBoard({
                   return (
                     <div
                       key={`${time}:${resource.id}`}
-                      className={`relative border-b border-r border-earth-100 ${musicDense ? "h-[54px]" : "min-h-20 space-y-2 p-2"}`}
+                      className={`relative border-b border-r border-earth-100 ${musicDense ? "min-h-24" : "min-h-20 space-y-2 p-2"}`}
                     >
                       {musicDense && resource.id !== "__none" && (
                         <div className="absolute inset-0 grid grid-rows-2">
@@ -684,7 +667,7 @@ export function CourseScheduleBoard({
                           type="button"
                           key={`moved:${session.id}`}
                           className="absolute left-1 right-1 z-[5] rounded border border-dashed border-indigo-200 bg-indigo-50/55 px-1 py-0.5 text-left text-[9px] text-indigo-700 hover:bg-indigo-100"
-                          style={{ top: hhmm(session.rescheduledFromStartsAt!).endsWith(":30") ? 27 : 2 }}
+                          style={{ top: hhmm(session.rescheduledFromStartsAt!).endsWith(":30") ? 50 : 2 }}
                           title={`已移動 → ${toLocalDateStr(new Date(session.startsAt))} ${hhmm(session.startsAt)}`}
                           onClick={()=>onSelectDate(toLocalDateStr(new Date(session.startsAt)))}
                         >
@@ -698,8 +681,8 @@ export function CourseScheduleBoard({
                             key={session.id}
                             className={musicDense ? "absolute left-1 right-1 z-10 pointer-events-auto" : "pointer-events-auto"}
                             style={musicDense ? {
-                              top: hhmm(session.startsAt).endsWith(":30") ? 27 : 2,
-                              height: Math.max(23, sessionDurationMinutes(session) * 0.9 - 4),
+                              top: hhmm(session.startsAt).endsWith(":30") ? 48 : 4,
+                              height: Math.max(44, sessionDurationMinutes(session) * 1.6 - 8),
                             } : undefined}
                           >
                             <SessionCard
@@ -708,7 +691,7 @@ export function CourseScheduleBoard({
                               coaches={coaches}
                               rooms={rooms}
                               businessProfile={businessProfile}
-                              recurrenceLabel={recurrenceLabels.get(session.id)}
+                              fixed={Boolean(session.requestKey && sessions.some((candidate)=>candidate.id!==session.id&&candidate.requestKey===session.requestKey))}
                               dense={musicDense}
                               resourceView={resourceView}
                               onOpen={() => onOpenSession(session.id, selectedDate)}
