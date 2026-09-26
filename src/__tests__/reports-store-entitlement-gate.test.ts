@@ -262,7 +262,7 @@ beforeEach(() => {
       yoy: { difference: 0, percentage: 0 },
     },
   });
-  mockGetStorePerformanceTrends.mockResolvedValue(null);
+  mockGetStorePerformanceTrends.mockResolvedValue([]);
   mockGetRetentionMetrics.mockResolvedValue({
     month: "2026-07",
     returnedCustomers: {
@@ -298,14 +298,15 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     );
 
     expect(html).toContain("營運分析");
-    expect(html).toContain("經營總覽");
+    expect(html).not.toContain('aria-label="分析檢視"');
+    expect(html).not.toContain('aria-label="詳細分析分類"');
     expect(html).toContain("經營重點比較");
     expect(html).toContain("已收營收");
     expect(html).toContain("完成服務");
     expect(html).toContain("訂單");
     expect(html).toContain("退款");
-    expect(html).not.toContain('id="revenue-mix-title"');
-    expect(html).not.toContain("店長分析");
+    expect(html).toContain('id="revenue-mix-title"');
+    expect(html).toContain("店長分析");
     expect(html).not.toContain("店長明細");
     expect(html).not.toContain("收入類型</h2>");
     expect(html).not.toMatch(/基本報表|進階報表/);
@@ -315,12 +316,12 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("同一人只計 1 位");
     expect(html).toContain("date range");
     expect(mockMonthlyStoreSummary).toHaveBeenCalledTimes(1);
-    expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();
-    expect(mockGetTrialSourceMetrics).not.toHaveBeenCalled();
-    expect(mockGetStorePerformanceTrends).not.toHaveBeenCalled();
+    expect(mockMonthlyRevenueByCategory).toHaveBeenCalledTimes(1);
+    expect(mockGetTrialSourceMetrics).toHaveBeenCalledTimes(1);
+
   });
 
-  it("shows scoped customer-flow comparisons only in the customers category", async () => {
+  it("shows scoped customer-flow comparisons on the single analysis page", async () => {
     const html = renderToStaticMarkup(
       await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "customers" }) }),
     );
@@ -396,20 +397,20 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).not.toMatch(/續約率|平均回店天數|人員回流|Benchmark|健康值/);
     expect(html).toMatch(/segment=monthly-returned/);
     expect(html).toMatch(/segment=monthly-not-returned/);
-    expect(html).not.toContain("客流分析");
+    expect(html).toContain("客流分析");
   });
 
-  it("loads only requested category queries and preserves range on navigation", async () => {
-    const range = { preset: "custom", startDate: "2026-09-01", endDate: "2026-09-07", view: "detail" };
-    const html = renderToStaticMarkup(await ReportsPage({ searchParams: Promise.resolve({ ...range, category: "sources" }) }));
+  it("shows all analysis sections with the same range even for an old tab URL", async () => {
+    const range = { preset: "custom", startDate: "2026-09-01", endDate: "2026-09-07", view: "detail", category: "sources" };
+    const html = renderToStaticMarkup(await ReportsPage({ searchParams: Promise.resolve(range) }));
     expect(mockGetTrialSourceMetrics).toHaveBeenCalledWith("store-active", range.startDate, range.endDate);
-    expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();
-    expect(html).toContain("體驗預約來源");
-    expect(html).not.toContain("客流分析");
-    expect(html).toContain("startDate=2026-09-01&amp;endDate=2026-09-07&amp;preset=custom&amp;view=detail&amp;category=customers");
-    await ReportsPage({ searchParams: Promise.resolve({ ...range, category: "staff" }) });
-    expect(mockMonthlyRevenueByCategory).toHaveBeenCalledTimes(1);
-    expect(mockGetTrialSourceMetrics).toHaveBeenCalledTimes(1);
+    expect(mockMonthlyRevenueByCategory).toHaveBeenCalledWith("2026-09", expect.objectContaining({ startDate: range.startDate, endDate: range.endDate }));
+    for (const heading of ["經營重點比較", "營收結構與收支", "客流分析", "成交分析", "體驗預約來源", "顧客回流", "店長分析"]) expect(html).toContain(heading);
+    expect(html).not.toContain('aria-label="分析檢視"');
+    expect(html).not.toContain('aria-label="詳細分析分類"');
+    expect(html).toContain("startDate=2026-09-01&amp;endDate=2026-09-07&amp;preset=custom");
+    expect(html.indexOf("經營重點比較")).toBeLessThan(html.indexOf('id="revenue-mix-title"'));
+    expect(html).toContain('href="#revenue-mix-title"');
   });
 
   it("allows a GROWTH store even when advanced_reports is unavailable", async () => {

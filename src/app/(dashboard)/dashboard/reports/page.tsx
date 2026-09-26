@@ -82,8 +82,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   }
 
   const selection = resolveAnalysisRange(params);
-  const detailed = params.view === "detail";
-  const category = ["revenue", "customers", "sources", "retention", "staff", "trend"].includes(params.category ?? "") ? params.category! : "revenue";
   const { startDate, endDate, preset: activePreset } = selection;
   const periodRanges = analysisComparisonRanges(selection, activePreset);
   const effectiveEndDate = periodRanges.current.endDate;
@@ -96,10 +94,10 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   // Live queries: month snapshots could disagree with fresh period KPIs after a correction.
   const [storeSummary, revenueByCategory, plan, periodMetrics, trialSourceMetrics, revenueMix, previousRevenueMix] = await Promise.all([
     withTiming("monthlyStoreSummary", timer, () => monthlyStoreSummary(month, dateRangeOpts)),
-    detailed && category === "staff" ? withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)) : [],
+    withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)),
     getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined),
     reportsStoreId ? getAnalysisPeriodMetrics(reportsStoreId, selection, activePreset) : null,
-    reportsStoreId && detailed && category === "sources" ? getTrialSourceMetrics(reportsStoreId, startDate, effectiveEndDate) : null,
+    reportsStoreId ? getTrialSourceMetrics(reportsStoreId, startDate, effectiveEndDate) : null,
     reportsStoreId ? getIndustryRevenueMix(reportsStoreId, startDate, effectiveEndDate) : null,
     reportsStoreId ? getIndustryRevenueMix(reportsStoreId, periodRanges.previous.startDate, periodRanges.previous.endDate) : null,
   ]);
@@ -112,21 +110,19 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const completedServices = periodMetrics?.metrics.completedServices.current;
   const rangeQuery = `startDate=${startDate}&endDate=${endDate}&preset=${activePreset}`;
   const growthLink = (segment: string) => `/dashboard/growth?segment=${segment}&${rangeQuery}`;
-  const viewLink = (view: string, tab = category) => `/dashboard/reports?${rangeQuery}&view=${view}&category=${tab}`;
   type StaffRow = StoreSummary["staffBreakdown"][number];
   const staffColumns: Column<StaffRow>[] = [
     { key: "name", header: "店長", accessor: r => <span className="break-words font-medium">{r.staffName}</span> },
     { key: "completed", header: "服務紀錄", align: "right", accessor: r => <span className="tabular-nums">{r.completedBookings} 筆</span> },
     { key: "revenue", header: "系統收入", align: "right", accessor: r => <span className="tabular-nums">NT$ {r.totalRevenue.toLocaleString()}</span> },
-    { key: "details", header: "其他數據", accessor: r => <details className="py-2 text-xs">
-      <summary className="cursor-pointer text-primary-700">展開</summary>
-      <dl className="mt-2 space-y-2">
+    { key: "details", header: "其他數據", accessor: r => <div className="py-2 text-xs">
+      <dl className="space-y-1 [&>div]:flex [&>div]:flex-wrap [&>div]:justify-between [&>div]:gap-x-2 [&_dd]:tabular-nums">
         <div><dt>顧客數／活躍顧客數</dt><dd>{r.customerCount}／{r.activeCustomerCount} 位</dd></div>
         <div><dt>訂單</dt><dd>{r.transactionCount} 筆</dd></div>
         <div><dt>涵蓋月份空間費</dt><dd>NT$ {r.spaceFee.toLocaleString()}</dd></div>
         <div><dt>扣空間費後淨收</dt><dd>NT$ {r.netRevenue.toLocaleString()}</dd></div>
       </dl>
-    </details> },
+    </div> },
   ];
 
   type CategoryRow = RevenueByCategory[number];
@@ -174,21 +170,17 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           }
         />
 
-        <nav aria-label="分析檢視" className="flex gap-5 border-b border-earth-200 text-sm">
-          {[["overview", "經營總覽"], ["detail", "詳細分析"]].map(([view, label]) => <DashboardLink key={view} href={viewLink(view)} scroll={false} aria-current={(detailed ? "detail" : "overview") === view ? "page" : undefined} className={`border-b-2 py-2 ${(detailed ? "detail" : "overview") === view ? "border-primary-600 font-semibold text-primary-800" : "border-transparent text-earth-600"}`}>{label}</DashboardLink>)}
-        </nav>
         <ReportDateRange key={`${activePreset}-${startDate}-${endDate}`} activePreset={activePreset} startDate={startDate} endDate={endDate} enhanced compact />
-        {detailed && <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-earth-600"><span>統計 {startDate}～{effectiveEndDate}｜比較 {periodRanges.previous.startDate}～{periodRanges.previous.endDate}</span><AnalysisRefresh updatedAt={formatTWDateTime()} /></div>}
-        {!detailed && <>
+        <>
           <FocusTable currentDates={`${startDate}～${effectiveEndDate}`} previousDates={`${periodRanges.previous.startDate}～${periodRanges.previous.endDate}`} rows={[
             { label: "來客人數", current: customerFlowMetrics?.uniqueVisitors.current, difference: customerFlowMetrics?.uniqueVisitors.mom.difference, unit: "位", href: growthLink("monthly-customers") },
             { label: "完成服務人次", current: completedServices, difference: periodMetrics?.metrics.completedServices.mom.difference, unit: "人次", href: `/analysis-details?segment=services&${rangeQuery}` },
             { label: "體驗人次", current: conversionMetrics?.trialAttendees.current, difference: conversionMetrics?.trialAttendees.mom.difference, unit: "人次", href: `/analysis-details?segment=trials&${rangeQuery}` },
             { label: "首次開卡人數", current: conversionMetrics?.convertedCustomers.current, difference: conversionMetrics?.convertedCustomers.mom.difference, unit: "位", href: growthLink("monthly-converted") },
-            { label: "已收營收", current: totalRevenue, difference: previousRevenueMix ? totalRevenue - previousRevenueMix.netRevenue : null, unit: "元", href: viewLink("detail", "revenue") },
+            { label: "已收營收", current: totalRevenue, difference: previousRevenueMix ? totalRevenue - previousRevenueMix.netRevenue : null, unit: "元", href: "#revenue-mix-title" },
           ]} />
           {!reportsStoreId && <p className="text-xs text-earth-500">請選擇店舖查看來客、服務與開卡數據。</p>}
-          {reportsStoreId && <Suspense fallback={<p role="status" className="text-xs text-earth-500">每月來客概況載入中…</p>}><MonthlyVisitorOverview storeId={reportsStoreId} onlyPreviousMonth={activePreset === "month" && startDate === `${currentMonth}-01`} /></Suspense>}
+          {reportsStoreId && <Suspense fallback={<p role="status" className="text-xs text-earth-500">每月來客概況載入中…</p>}><MonthlyVisitorOverview storeId={reportsStoreId} onlyPreviousMonth={activePreset === "month" && startDate === `${currentMonth}-01` && effectiveEndDate === toLocalDateStr()} /></Suspense>}
           {reportsStoreId && <Suspense fallback={<p className="text-xs text-earth-500">待跟進摘要載入中…</p>}><AnalysisFollowUps user={userForViewContext(user, storeViewContext)} storeId={reportsStoreId} month={currentMonth} /></Suspense>}
           <div className="flex flex-wrap items-start justify-between gap-3">
             <details className="max-w-xl text-xs text-earth-600"><summary className="cursor-pointer py-2 text-primary-700">數字怎麼算？</summary>
@@ -198,32 +190,29 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             </details>
             <AnalysisRefresh updatedAt={formatTWDateTime()} />
           </div>
-        </>}
-        {detailed && <nav aria-label="詳細分析分類" className="flex flex-wrap gap-2">
-          {[["revenue", "營收收支"], ["customers", "客流與開卡"], ["sources", "體驗來源"], ["retention", "顧客回流"], ["staff", "店長表現"], ["trend", "長期趨勢"]].map(([key, label]) => <DashboardLink key={key} href={viewLink("detail", key)} scroll={false} aria-current={category === key ? "page" : undefined} className={`rounded-md border px-3 py-2 text-xs ${category === key ? "border-primary-500 bg-primary-50 text-primary-800" : "border-earth-200 bg-white text-earth-600"}`}>{label}</DashboardLink>)}
-        </nav>}
-        {detailed && category === "revenue" && <section aria-labelledby="revenue-mix-title" className="rounded-xl border border-earth-200 bg-white p-3">
+        </>
+        {<section aria-labelledby="revenue-mix-title" className="rounded-xl border border-earth-200 bg-white p-3">
           <h2 id="revenue-mix-title" className="text-sm font-semibold text-earth-800">營收結構與收支</h2>
           <p className="mt-1 text-[11px] leading-relaxed text-earth-500">
             依上方選定期間統計已確認收款；待收款另列。分類占比以退款前的已收收入為分母；退款另列，支出只計已記錄的支出項目，提款不當作支出。
           </p>
           {revenueMix ? (
             <>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-3 divide-y divide-earth-100 border-y border-earth-100">
                 {[
                   { label: "儲值方案", amount: revenueMix.packageRevenue, share: revenueMix.packageShare, href: `/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&revenueGroup=package` },
                   { label: "零售", amount: revenueMix.retailRevenue, share: revenueMix.retailShare, href: `/dashboard/cashbook?month=${month}&dateFrom=${startDate}&dateTo=${endDate}&type=INCOME&categoryGroup=retail#cashbook-records` },
                 ].map(({ label, amount, share, href }) => (
-                  <div key={label} className="rounded-lg bg-earth-50/70 p-3">
+                  <div key={label} className="grid grid-cols-2 items-center gap-x-4 gap-y-1 py-2 text-sm sm:grid-cols-4">
                     <p className="text-xs font-medium text-earth-500">{label}</p>
-                    <p className="mt-1 text-lg font-semibold tabular-nums text-earth-900">NT$ {amount.toLocaleString()}</p>
+                    <p className="text-right text-sm font-semibold tabular-nums text-earth-900">NT$ {amount.toLocaleString()}</p>
                     <p className="text-xs tabular-nums text-earth-500">占收入 {share.toFixed(1)}%</p>
                     <DashboardLink href={href} className="mt-1 inline-flex text-xs text-primary-700">查看明細 →</DashboardLink>
                   </div>
                 ))}
-                <div className="rounded-lg bg-earth-50/70 p-3">
+                <div className="grid grid-cols-2 items-center gap-x-4 gap-y-1 py-2 text-sm sm:grid-cols-4">
                   <p className="text-xs font-medium text-earth-500">其他收入</p>
-                  <p className="mt-1 text-lg font-semibold tabular-nums text-earth-900">NT$ {revenueMix.otherRevenue.toLocaleString()}</p>
+                  <p className="text-right text-sm font-semibold tabular-nums text-earth-900">NT$ {revenueMix.otherRevenue.toLocaleString()}</p>
                   <p className="text-xs tabular-nums text-earth-500">占收入 {revenueMix.otherShare.toFixed(1)}%</p>
                   <div className="mt-1 flex flex-wrap gap-3 text-xs">
                     <DashboardLink href={`/dashboard/transactions?dateFrom=${startDate}&dateTo=${endDate}&revenueGroup=other`} className="text-primary-700">系統交易 →</DashboardLink>
@@ -247,7 +236,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           )}
         </section>}
 
-        {detailed && category === "customers" && <><section aria-labelledby="customer-flow-title" className="rounded-xl border border-earth-200 bg-white p-3">
+        {<><section aria-labelledby="customer-flow-title" className="rounded-xl border border-earth-200 bg-white p-3">
           <div>
             <h2 id="customer-flow-title" className="text-sm font-semibold text-earth-800">客流分析</h2>
             <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">
@@ -312,12 +301,12 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                       <td className="px-3 py-2 text-right tabular-nums">{row.bookings}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.attendees}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.attendanceRate.toFixed(1)}%</td>
-                      <td className="pl-3 py-2 text-xs"><details><summary className="cursor-pointer text-primary-700">展開</summary><dl className="mt-2 space-y-2">
+                      <td className="pl-3 py-2 text-xs"><dl className="space-y-1 [&>div]:flex [&>div]:flex-wrap [&>div]:justify-between [&>div]:gap-x-2 [&_dd]:tabular-nums">
                         <div><dt>來源占比</dt><dd>{row.sourceShare.toFixed(1)}%</dd></div>
                         <div><dt>預約人數</dt><dd>{row.bookedPeople} 人</dd></div>
                         <div><dt>已指派方案</dt><dd>{row.assignedCustomers} 位</dd></div>
                         <div><dt>方案轉換率</dt><dd>{row.planRate.toFixed(1)}%</dd></div>
-                      </dl></details></td>
+                      </dl></td>
                     </tr>
                   ))}
                 </tbody>
@@ -330,7 +319,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         ) : null}
 
 
-        {detailed && category === "retention" && <section aria-labelledby="retention-analysis-title" className="rounded-xl border border-earth-200 bg-white p-3">
+        {<section aria-labelledby="retention-analysis-title" className="rounded-xl border border-earth-200 bg-white p-3">
           <div>
             <h2 id="retention-analysis-title" className="text-sm font-semibold text-earth-800">顧客回流</h2>
             <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">基準顧客日期：{periodRanges.previousFull.startDate}～{periodRanges.previousFull.endDate}；觀察再訪日期：{startDate}～{effectiveEndDate}。僅計完成服務的唯一顧客；統計中不代表流失。</p>
@@ -346,7 +335,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           )}
         </section>}
 
-        {detailed && category === "staff" && <><section className="rounded-xl border border-earth-200 bg-white">
+        {<><section className="rounded-xl border border-earth-200 bg-white">
           <div className="flex items-center justify-between px-3 py-2">
             <div>
               <h2 className="text-sm font-semibold text-earth-800">營收分析</h2>
@@ -373,9 +362,9 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             <DataTable columns={staffColumns} rows={storeSummary.staffBreakdown} rowKey={(r) => r.staffId} className="rounded-none border-0 border-t border-earth-100 [&_table]:min-w-0 [&_table]:table-fixed" />
           )}
         </section></>}
-        {detailed && category === "trend" && !reportsStoreId && <p className="text-sm text-earth-600">請選擇店舖查看長期趨勢。</p>}
-        {detailed && category === "sources" && !trialSourceMetrics && <p className="text-sm text-earth-600">請選擇店舖查看體驗來源。</p>}
-        {detailed && category === "trend" && reportsStoreId && <Suspense fallback={<p role="status" className="text-sm text-earth-500">長期趨勢載入中…</p>}><AnalysisTrends storeId={reportsStoreId} month={currentMonth} /></Suspense>}
+        {!reportsStoreId && <p className="text-sm text-earth-600">請選擇店舖查看長期趨勢。</p>}
+        {!trialSourceMetrics && <p className="text-sm text-earth-600">請選擇店舖查看體驗來源。</p>}
+        {reportsStoreId && <Suspense fallback={<p role="status" className="text-sm text-earth-500">長期趨勢載入中…</p>}><AnalysisTrends storeId={reportsStoreId} month={currentMonth} /></Suspense>}
       </PageShell>
     </FeatureGate>
   );
