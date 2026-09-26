@@ -61,7 +61,7 @@ function sampleSessions(date: string) {
       bookings: Array.from({ length: "group" in kind ? 3 : 1 }, (_, booking) => ({
         customerId: `sample-student-${row}-${index}-${booking}`,
         customerName: studentNames[(row * 7 + index * 3 + booking) % studentNames.length],
-        status: ("group" in kind ? booking === 0 && index % 2 === 0 : index === 1) ? "CHECKED_IN" : "RESERVED",
+        status: ("group" in kind ? booking === 0 && index % 2 === 0 : index === 1) ? "ATTENDED" : "RESERVED",
         bookingKind: "trial" in kind ? "TRIAL" : "REGULAR",
       })),
     };
