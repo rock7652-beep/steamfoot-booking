@@ -2,25 +2,13 @@ import {
   monthlyStoreSummary,
   monthlyRevenueByCategory,
 } from "@/server/queries/report";
-import {
-  getCustomerFlowMetrics,
-  type CustomerFlowComparison,
-} from "@/server/queries/customer-flow-metrics";
-import {
-  getConversionMetrics,
-  type ConversionComparison,
-} from "@/server/queries/conversion-metrics";
-import {
-  getRetentionMetrics,
-  type RetentionComparison,
-} from "@/server/queries/retention-metrics";
+import type { CustomerFlowComparison } from "@/server/queries/customer-flow-metrics";
+import type { ConversionComparison } from "@/server/queries/conversion-metrics";
+import type { RetentionComparison } from "@/server/queries/retention-metrics";
+import { getAnalysisPeriodMetrics } from "@/server/queries/analysis-period";
 import { getStorePerformanceTrends } from "@/server/queries/performance-trends";
 import { getTrialSourceMetrics } from "@/server/queries/trial-source-metrics";
 import { getIndustryRevenueMix, getIndustrySixMonthRevenueMixTrend } from "@/server/queries/industry-revenue-mix";
-import {
-  getReportSnapshotWithMeta,
-  upsertReportSnapshot,
-} from "@/server/queries/report-snapshot";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
 import { getCachedStorePlan } from "@/lib/query-cache";
@@ -41,7 +29,7 @@ import {
 } from "@/lib/store-view-context-server";
 import { redirect } from "next/navigation";
 import ReportDateRange from "@/components/report-date-range";
-import { toLocalDateStr, getPresetDateRange, type DateRangePreset } from "@/lib/date-utils";
+import { toLocalDateStr, resolveAnalysisRange, analysisComparisonRanges } from "@/lib/date-utils";
 import {
   PageShell,
   PageHeader,
@@ -89,27 +77,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
     );
   }
 
-  let startDate: string;
-  let endDate: string;
-  let activePreset = params.preset || "month";
-  let displayLabel: string;
-
-  if (params.startDate && params.endDate) {
-    startDate = params.startDate;
-    endDate = params.endDate;
-    activePreset = "custom";
-    displayLabel = `${startDate} ~ ${endDate}`;
-  } else if (params.preset && ["today", "month", "quarter"].includes(params.preset)) {
-    const range = getPresetDateRange(params.preset as DateRangePreset);
-    startDate = range.startDate;
-    endDate = range.endDate;
-    displayLabel = range.label;
-  } else {
-    const range = getPresetDateRange("month");
-    startDate = range.startDate;
-    endDate = range.endDate;
-    displayLabel = range.label;
-  }
+  const selection = resolveAnalysisRange(params);
+  const { startDate, endDate, preset: activePreset } = selection;
+  const periodRanges = analysisComparisonRanges(selection, activePreset);
+  const effectiveEndDate = periodRanges.current.endDate;
+  const displayLabel = `${startDate}～${effectiveEndDate}`;
 
   const month = startDate.slice(0, 7);
   const currentMonth = toLocalDateStr().slice(0, 7);
@@ -118,82 +90,30 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   type StoreSummary = Awaited<ReturnType<typeof monthlyStoreSummary>>;
   type RevenueByCategory = Awaited<ReturnType<typeof monthlyRevenueByCategory>>;
 
-  const snapshotStoreId = reportsStoreId;
-  const isMonthPreset = activePreset === "month";
-  const isPastMonth = month < currentMonth;
-  const isCurrentMonth = month === currentMonth;
-  const CURRENT_MONTH_TTL_MS = 60 * 60 * 1000;
-  const dateRangeOpts = { startDate, endDate, activeStoreId: reportsStoreId };
-
-  let storeSummary: StoreSummary;
-  let revenueByCategory: RevenueByCategory;
-  let plan: Awaited<ReturnType<typeof getCachedStorePlan>>;
-  let snapshotHit = false;
-
-  if (snapshotStoreId && isMonthPreset && (isPastMonth || isCurrentMonth)) {
-    const [ssSnap, rcSnap, sp] = await Promise.all([
-      withTiming("snapshotStoreSummary", timer, () =>
-        getReportSnapshotWithMeta(snapshotStoreId, month, "STORE_SUMMARY"),
-      ),
-      withTiming("snapshotRevenueByCategory", timer, () =>
-        getReportSnapshotWithMeta(snapshotStoreId, month, "REVENUE_BY_CATEGORY"),
-      ),
-      withTiming("getCachedStorePlan", timer, () =>
-        getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined),
-      ),
-    ]);
-    plan = sp;
-    const nowMs = Date.now();
-    const fresh = (m: { updatedAt: Date } | null) => {
-      if (!m) return false;
-      if (isPastMonth) return true;
-      return nowMs - m.updatedAt.getTime() < CURRENT_MONTH_TTL_MS;
-    };
-
-    if (ssSnap && rcSnap && fresh(ssSnap) && fresh(rcSnap)) {
-      storeSummary = ssSnap.data as StoreSummary;
-      revenueByCategory = rcSnap.data as RevenueByCategory;
-      snapshotHit = true;
-    } else {
-      [storeSummary, revenueByCategory] = await Promise.all([
-        withTiming("monthlyStoreSummary", timer, () => monthlyStoreSummary(month, dateRangeOpts)),
-        withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)),
-      ]);
-      void upsertReportSnapshot(snapshotStoreId, month, "STORE_SUMMARY", storeSummary).catch((e) =>
-        console.error("[reports] snapshot store summary upsert failed", e),
-      );
-      void upsertReportSnapshot(snapshotStoreId, month, "REVENUE_BY_CATEGORY", revenueByCategory).catch((e) =>
-        console.error("[reports] snapshot revenue by category upsert failed", e),
-      );
-    }
-  } else {
-    [storeSummary, revenueByCategory, plan] = await Promise.all([
-      withTiming("monthlyStoreSummary", timer, () => monthlyStoreSummary(month, dateRangeOpts)),
-      withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)),
-      withTiming("getCachedStorePlan", timer, () =>
-        getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined),
-      ),
-    ]);
-  }
-
-  timer.cacheStatus("reports-snapshot", snapshotHit ? "hit" : "miss");
-  const [customerFlowMetrics, conversionMetrics, retentionMetrics, performanceTrends, trialSourceMetrics, revenueMix, sixMonthRevenueMixTrend] = reportsStoreId
-    ? await Promise.all([
-        withTiming("customerFlowMetrics", timer, () => getCustomerFlowMetrics(reportsStoreId, month)),
-        withTiming("conversionMetrics", timer, () => getConversionMetrics(reportsStoreId, month)),
-        withTiming("retentionMetrics", timer, () => getRetentionMetrics(reportsStoreId, month)),
-        withTiming("performanceTrends", timer, () => getStorePerformanceTrends(reportsStoreId, month)),
-        withTiming("trialSourceMetrics", timer, () => getTrialSourceMetrics(reportsStoreId, startDate, endDate)),
-        withTiming("revenueMix", timer, () => getIndustryRevenueMix(reportsStoreId, startDate, endDate)),
-        withTiming("sixMonthRevenueMixTrend", timer, () => getIndustrySixMonthRevenueMixTrend(reportsStoreId)),
-      ])
-    : [null, null, null, null, null, null, null];
+  const dateRangeOpts = { startDate, endDate: effectiveEndDate, activeStoreId: reportsStoreId };
+  const [storeSummary, revenueByCategory, plan, periodMetrics, performanceTrends, trialSourceMetrics, revenueMix, sixMonthRevenueMixTrend] = await Promise.all([
+    withTiming("monthlyStoreSummary", timer, () => monthlyStoreSummary(month, dateRangeOpts)),
+    withTiming("monthlyRevenueByCategory", timer, () => monthlyRevenueByCategory(month, dateRangeOpts)),
+    getCachedStorePlan(reportsStoreId ?? user.storeId ?? undefined),
+    reportsStoreId ? getAnalysisPeriodMetrics(reportsStoreId, selection, activePreset) : null,
+    reportsStoreId ? getStorePerformanceTrends(reportsStoreId, currentMonth) : null,
+    reportsStoreId ? getTrialSourceMetrics(reportsStoreId, startDate, effectiveEndDate) : null,
+    reportsStoreId ? getIndustryRevenueMix(reportsStoreId, startDate, effectiveEndDate) : null,
+    reportsStoreId ? getIndustrySixMonthRevenueMixTrend(reportsStoreId) : null,
+  ]);
+  const customerFlowMetrics = periodMetrics?.metrics;
+  const conversionMetrics = periodMetrics?.metrics;
+  const retentionMetrics = periodMetrics?.metrics;
   timer.finish();
 
   const totalOrders = storeSummary.staffBreakdown.reduce((s, r) => s + r.transactionCount, 0);
-  const currentTrend = isMonthPreset ? performanceTrends?.at(-1) : null;
   const totalRevenue = revenueMix?.netRevenue ?? storeSummary.netCourseRevenue + storeSummary.cashbookIncome;
-  const completedServices = currentTrend?.completedServices ?? storeSummary.completedBookings;
+  const completedServices = periodMetrics?.metrics.completedServices.current ?? storeSummary.completedBookings;
+  const periodWord = activePreset === "month" ? "本月" : "本期";
+  const growthLink = (segment: string) => `/dashboard/growth?segment=${segment}&startDate=${startDate}&endDate=${endDate}&preset=${activePreset}`;
+  const trialBookings = trialSourceMetrics?.reduce((sum, row) => sum + row.bookedPeople, 0) ?? 0;
+  const trialArrivals = trialSourceMetrics?.reduce((sum, row) => sum + row.attendees, 0) ?? 0;
+  const trialArrivalRate = trialBookings ? (trialArrivals / trialBookings) * 100 : 0;
 
   type StaffRow = StoreSummary["staffBreakdown"][number];
   const staffColumns: Column<StaffRow>[] = [
@@ -285,8 +205,8 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                 <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">{dataExportLockedLabel}</span>
               ) : (
                 <>
-                  <a href={`/api/export/store-monthly?month=${month}`} className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50" download>全店 CSV</a>
-                  <a href={`/api/export/staff-monthly?month=${month}`} className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50" download>店長 CSV</a>
+                  <a href={`/api/export/store-monthly?month=${month}&startDate=${startDate}&endDate=${endDate}&preset=${activePreset}`} className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50" download>全店 CSV</a>
+                  <a href={`/api/export/staff-monthly?month=${month}&startDate=${startDate}&endDate=${endDate}&preset=${activePreset}`} className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50" download>店長 CSV</a>
                 </>
               )}
               <a href="/dashboard/service-fee-calculator" className="rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100">月結管理 →</a>
@@ -295,7 +215,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         />
 
         <ReportDateRange key={`${activePreset}-${startDate}-${endDate}`} activePreset={activePreset} startDate={startDate} endDate={endDate} />
-        <p className="text-xs text-earth-500">營收與來源依選定期間；客流、成交與留存顯示起始月份（{month}）及其月比較。</p>
+        <p className="text-xs text-earth-500">營收、客流、開卡、來源與回流均依 {startDate}～{effectiveEndDate} 統計；與前一段相同進度比較。下方長期趨勢固定顯示最近月份。</p>
 
         <section aria-labelledby="operations-summary-title">
           <div className="mb-2">
@@ -369,13 +289,13 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           <div>
             <h2 id="customer-flow-title" className="text-sm font-semibold text-earth-800">客流分析</h2>
             <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">
-              顧客數以 customerId 去重；體驗另外顯示實際到店人次與預約組數，多人同行不再只算 1 人。
+              所選期間的來客去重計算；體驗另列到店人次與組數，多人同行依實際到店人次計。
             </p>
           </div>
           {customerFlowMetrics ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
               {[
-                ["本月來客數", customerFlowMetrics.uniqueVisitors, "monthly-customers", "位"],
+                [`${periodWord}來客數`, customerFlowMetrics.uniqueVisitors, "monthly-customers", "位"],
                 ["新客數", customerFlowMetrics.newVisitors, "monthly-new", "位"],
                 ["舊客數", customerFlowMetrics.returningVisitors, "monthly-returning", "位"],
                 ["體驗人次", customerFlowMetrics.trialAttendees, null, "人次"],
@@ -387,11 +307,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                     <p className="text-[11px] font-medium text-earth-500">{label as string}</p>
                     <p className="mt-1 text-xl font-bold tabular-nums text-earth-900">{value.current} {unit as string}</p>
                     <div className="mt-2 space-y-1 text-[11px] text-earth-500">
-                      <p>較上月：{formatCustomerFlowComparison(value.mom, unit as string)}</p>
-                      <p>去年同月：{formatCustomerFlowComparison(value.yoy, unit as string)}</p>
+                      <p>較前期：{formatCustomerFlowComparison(value.mom, unit as string)}</p>
+                      <p>去年同期：{formatCustomerFlowComparison(value.yoy, unit as string)}</p>
                     </div>
                     {segment ? (
-                      <DashboardLink href={`/dashboard/growth?segment=${segment as string}&month=${month}`} className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800">查看顧客 →</DashboardLink>
+                      <DashboardLink href={growthLink(segment as string)} className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800">查看顧客 →</DashboardLink>
                     ) : null}
                   </div>
                 );
@@ -406,17 +326,17 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           <div>
             <h2 id="conversion-analysis-title" className="text-sm font-semibold text-earth-800">成交分析</h2>
             <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">
-              開卡歸實際購買月份；當月總開卡分為本月體驗開卡與過往體驗追蹤開卡，已結算的體驗月份不回寫。
+              首次開卡依所選期間的有效購買日期統計；區分期間內體驗開卡與之前體驗、期間內開卡，不含續卡。
             </p>
           </div>
           {conversionMetrics ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
               {[
                 ["體驗人次", conversionMetrics.trialAttendees, "count", null, "人次"],
-                ["本月體驗開卡", conversionMetrics.currentTrialConversions, "count", "monthly-current-trial-converted", "位"],
+                [`${periodWord}體驗開卡`, conversionMetrics.currentTrialConversions, "count", "monthly-current-trial-converted", "位"],
                 ["追蹤開卡", conversionMetrics.trackedConversions, "count", "monthly-tracked-converted", "位"],
-                ["當月總開卡", conversionMetrics.convertedCustomers, "count", "monthly-converted", "位"],
-                ["本月體驗開卡率", conversionMetrics.conversionRate, "rate", null, "%"],
+                [`${periodWord}總開卡`, conversionMetrics.convertedCustomers, "count", "monthly-converted", "位"],
+                [`${periodWord}體驗開卡率`, conversionMetrics.conversionRate, "rate", null, "%"],
                 ["未開卡人次", conversionMetrics.unconvertedCustomers, "count", null, "人次"],
               ].map(([label, metric, kind, segment, unit]) => {
                 const value = metric as (typeof conversionMetrics)["convertedCustomers"];
@@ -428,11 +348,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                       {isRate ? `${value.current.toFixed(1)}%` : `${value.current} ${unit as string}`}
                     </p>
                     <div className="mt-2 space-y-1 text-[11px] text-earth-500">
-                      <p>較上月：{formatConversionComparison(value.mom, isRate, unit as string)}</p>
-                      <p>去年同月：{formatConversionComparison(value.yoy, isRate, unit as string)}</p>
+                      <p>較前期：{formatConversionComparison(value.mom, isRate, unit as string)}</p>
+                      <p>去年同期：{formatConversionComparison(value.yoy, isRate, unit as string)}</p>
                     </div>
                     {segment ? (
-                      <DashboardLink href={`/dashboard/growth?segment=${segment as string}&month=${month}`} className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800">查看顧客 →</DashboardLink>
+                      <DashboardLink href={growthLink(segment as string)} className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800">查看顧客 →</DashboardLink>
                     ) : null}
                   </div>
                 );
@@ -450,6 +370,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               依本期建立的體驗預約統計；到店與方案指派會隨後續結果更新。來源來自專屬預約連結，
               並非登入方式。第 5 類「其他／未記錄」包含未帶來源連結與舊資料。
             </p>
+            <p className="mt-2 text-sm font-medium text-earth-700">整體體驗到店率 <strong className="tabular-nums text-primary-800">{trialArrivalRate.toFixed(1)}%</strong><span className="ml-2 text-xs font-normal text-earth-500">完成 {trialArrivals} 人次／預約 {trialBookings} 人</span></p>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[820px] text-left text-sm">
                 <thead className="border-b border-earth-100 text-xs text-earth-500">
@@ -491,14 +412,14 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         <section aria-labelledby="retention-analysis-title" className="rounded-xl border border-earth-200 bg-white p-3">
           <div>
             <h2 id="retention-analysis-title" className="text-sm font-semibold text-earth-800">留存分析</h2>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">上個月來的顧客，這個月有多少人再次回來？僅計完成服務的唯一顧客，取消與未到不計。</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-earth-400">{periodRanges.previousFull.startDate}～{periodRanges.previousFull.endDate} 來過的顧客，有多少在 {startDate}～{effectiveEndDate} 再次回來？僅計完成服務的唯一顧客。</p>
           </div>
           {retentionMetrics ? (
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               {[
-                ["本月回流人數", retentionMetrics.returnedCustomers, "count", "monthly-returned"],
-                ["上月顧客回流率", retentionMetrics.retentionRate, "rate", null],
-                ["本月未回流人數", retentionMetrics.unreturnedCustomers, "count", "monthly-not-returned"],
+                [`${periodWord}回流人數`, retentionMetrics.returnedCustomers, "count", "monthly-returned"],
+                ["顧客回流率", retentionMetrics.retentionRate, "rate", null],
+                [`${periodWord}未回流人數`, retentionMetrics.unreturnedCustomers, "count", "monthly-not-returned"],
               ].map(([label, metric, kind, segment]) => {
                 const value = metric as (typeof retentionMetrics)["returnedCustomers"];
                 const isRate = kind === "rate";
@@ -507,11 +428,11 @@ export default async function ReportsPage({ searchParams }: PageProps) {
                     <p className="text-[11px] font-medium text-earth-500">{label as string}</p>
                     <p className="mt-1 text-xl font-bold tabular-nums text-earth-900">{isRate ? `${value.current.toFixed(1)}%` : `${value.current} 位`}</p>
                     <div className="mt-2 space-y-1 text-[11px] text-earth-500">
-                      <p>較上月：{formatRetentionComparison(value.mom, isRate)}</p>
-                      <p>去年同月：{formatRetentionComparison(value.yoy, isRate)}</p>
+                      <p>較前期：{formatRetentionComparison(value.mom, isRate)}</p>
+                      <p>去年同期：{formatRetentionComparison(value.yoy, isRate)}</p>
                     </div>
                     {segment ? (
-                      <DashboardLink href={`/dashboard/growth?segment=${segment as string}&month=${month}`} className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800">查看顧客 →</DashboardLink>
+                      <DashboardLink href={growthLink(segment as string)} className="mt-2 inline-flex text-[11px] font-medium text-primary-700 hover:text-primary-800">查看顧客 →</DashboardLink>
                     ) : null}
                   </div>
                 );

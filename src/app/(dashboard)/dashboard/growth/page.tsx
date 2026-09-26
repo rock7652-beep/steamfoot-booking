@@ -1,3 +1,5 @@
+import { getAnalysisPeriodCustomers } from "@/server/queries/analysis-period";
+import { isAnalysisDate, resolveAnalysisRange } from "@/lib/date-utils";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { checkPermission } from "@/lib/permissions";
@@ -100,7 +102,7 @@ function CustomerCareLockedState() {
 export default async function CustomerCarePage({
   searchParams = Promise.resolve({}),
 }: {
-  searchParams: Promise<{ segment?: string; month?: string }>;
+  searchParams: Promise<{ segment?: string; month?: string; startDate?: string; endDate?: string; preset?: string }>;
 } = { searchParams: Promise.resolve({}) }) {
   const params = await searchParams;
   const requestedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.month ?? "")
@@ -130,16 +132,19 @@ export default async function CustomerCarePage({
   }
   if (isCustomerKpiSegment(params.segment)) {
     const selectedSegment = params.segment;
-    const config = CUSTOMER_KPI_SEGMENTS[selectedSegment];
+    const period = isAnalysisDate(params.startDate) && isAnalysisDate(params.endDate) && params.startDate <= params.endDate ? resolveAnalysisRange(params) : null;
+    const originalConfig = CUSTOMER_KPI_SEGMENTS[selectedSegment];
+    const config = period ? { title: originalConfig.title.replaceAll("本月", "所選日期"), description: "依分析頁所選日期計算；同行者未個別建檔時，人次與名單人數可能不同。" } : originalConfig;
+    const periodLabel = period ? `${period.startDate}～${period.endDate}` : workspaceMonth;
     const customers = viewedStoreId
-      ? await getCustomerKpiSegmentCustomers(viewedStoreId, workspaceMonth, selectedSegment)
+      ? period ? await getAnalysisPeriodCustomers(viewedStoreId, period, period.preset, selectedSegment) : await getCustomerKpiSegmentCustomers(viewedStoreId, workspaceMonth, selectedSegment)
       : [];
     const segmentItems: CareItem[] = customers.map((customer) => ({
       customerId: customer.customerId,
       name: customer.customerName,
       phoneMasked: maskPhone(customer.customerPhone),
       reason: config.description,
-      meta: `統計月份 ${workspaceMonth}`,
+      meta: `統計日期 ${periodLabel}`,
       staffName: customer.assignedStaffName,
       lastFollowUpText: followUpText(customer.lastFollowUp),
       script: selectedSegment.includes("return") ? SCRIPTS.inactive : SCRIPTS.general,
@@ -150,10 +155,10 @@ export default async function CustomerCarePage({
       <PageShell>
         <PageHeader
           title="顧客經營"
-          subtitle={`${workspaceMonth}｜${config.title}`}
+          subtitle={`${periodLabel}｜${config.title}`}
           actions={
             <Link
-              href={`/dashboard/reports?month=${workspaceMonth}`}
+              href={period ? `/dashboard/reports?startDate=${period.startDate}&endDate=${period.endDate}&preset=${period.preset}` : `/dashboard/reports?month=${workspaceMonth}`}
               className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50"
             >
               返回營運分析
@@ -163,7 +168,7 @@ export default async function CustomerCarePage({
         <CareSection
           title={config.title}
           description={config.description}
-          emptyText={`${workspaceMonth} 沒有符合此條件的顧客。`}
+          emptyText={`${periodLabel} 沒有符合此條件的顧客。`}
           items={segmentItems}
           totalCount={segmentItems.length}
         />
@@ -285,14 +290,14 @@ export default async function CustomerCarePage({
         items={birthdayItems}
         totalCount={birthdayItems.length}
       />
-      <CareSection
+      <div id="trial-unconverted" /><CareSection
         title="本月體驗未開卡"
         description="今天最值得追蹤。"
         emptyText="本月沒有體驗未開卡顧客。"
         items={monthlyUnconvertedItems}
         totalCount={monthlyUnconvertedItems.length}
       />
-      <CareSection
+      <div id="inactive" /><CareSection
         title="好久不見"
         description="超過 30 天未到店，適合主動關心。"
         emptyText="目前沒有久未到店的顧客。"
@@ -306,7 +311,7 @@ export default async function CustomerCarePage({
         items={lowItems}
         totalCount={summary.lowSessionCustomers}
       />
-      <CareSection
+      <div id="expiring" /><CareSection
         title="建議續約"
         description="提前安排續約。"
         emptyText="目前沒有需要提前續約的顧客。"
