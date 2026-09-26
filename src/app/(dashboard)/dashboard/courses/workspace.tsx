@@ -31,6 +31,7 @@ import {
   batchCourseTemplates,
 } from "@/server/actions/course";
 import { courseSessionStatus } from "@/lib/course-session-status";
+import { courseRecurrenceLabels } from "@/lib/course-recurrence-display";
 
 type Room = {
   id: string;
@@ -251,6 +252,7 @@ export function CourseWorkspace({
       (category === "all" ||
         allTemplates.find((t) => t.id === s.templateId)?.category === category),
   );
+  const recurrenceLabels = courseRecurrenceLabels(filteredScheduleSessions);
   const byDate = new Map<string, Session[]>();
   for (const session of filteredScheduleSessions) {
     const day = toLocalDateStr(new Date(session.startsAt));
@@ -646,11 +648,11 @@ export function CourseWorkspace({
                     {list.slice(0, 2).map((s) => (
                       <span
                         key={s.id}
-                        className={`hidden w-full shrink-0 truncate leading-[14px] sm:block sm:text-[11px] rounded-sm border-l-2 px-1 ${courseSessionStatus(s, nowIso).calendarClass} ${courseSessionStatus(s, nowIso).accentClass}`}
-                        title={`${s.nameSnapshot} · ${courseSessionStatus(s, nowIso).label}`}
+                        className={`hidden w-full shrink-0 truncate leading-[14px] sm:block sm:text-[11px] rounded-sm border-l-2 px-1 ${businessProfile === "MUSIC" && recurrenceLabels.get(s.id) === "隔週固定" ? "border-l-blue-500 bg-blue-50 text-blue-900" : businessProfile === "MUSIC" && recurrenceLabels.get(s.id) === "每週固定" ? "border-l-teal-500 bg-teal-50 text-teal-900" : `${courseSessionStatus(s, nowIso).calendarClass} ${courseSessionStatus(s, nowIso).accentClass}`}`}
+                        title={`${s.nameSnapshot} · ${recurrenceLabels.get(s.id) ?? courseSessionStatus(s, nowIso).label}`}
                       >
                         {formatTWDateTime(new Date(s.startsAt)).slice(11)}{" "}
-                        {s.nameSnapshot}
+                        {businessProfile === "MUSIC" && recurrenceLabels.get(s.id) === "隔週固定" ? "隔週 · " : businessProfile === "MUSIC" && recurrenceLabels.get(s.id) === "每週固定" ? "固定 · " : ""}{s.nameSnapshot}
                       </span>
                     ))}
                     {list.length > 2 && (

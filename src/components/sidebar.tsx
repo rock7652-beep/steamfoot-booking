@@ -664,6 +664,9 @@ export default function DashboardShell({
   const pathname = dashboardPrefix
     ? rawPathname.slice(dashboardPrefix.length)
     : rawPathname;
+  const isCourseSchedule = industryModule === "course"
+    && pathname.startsWith("/dashboard/courses")
+    && !["analytics", "customers", "plans", "settings", "operations", "catalog", "rooms"].includes(searchParams.get("view") ?? "schedule");
 
   // isAdmin: ADMIN 才有 storeOptions（用於 HQ 專屬 UI）
   const isAdmin = !!storeOptions?.length;
@@ -1227,7 +1230,7 @@ export default function DashboardShell({
         </header>
 
         {/* Content */}
-        <main data-dashboard-content className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
+        <main data-dashboard-content className={isCourseSchedule ? "w-full min-w-0 max-w-none px-2 py-2 sm:px-3 sm:py-3" : "mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6"}>
           {industryModule !== "course" && trialStatus && trialStatus.isFree && (trialStatus.course || trialStatus.stage !== "normal") && (
             <div className="mb-3">
               <TrialProgressBar trial={trialStatus} />
