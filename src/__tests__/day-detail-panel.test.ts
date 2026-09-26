@@ -1,6 +1,11 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import React from "react";
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
+import { toast } from "sonner";
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard/bookings",
@@ -156,5 +161,63 @@ describe("當日清單備註", () => {
     const text = textFromHtml(renderNotes("驗收完成扣堂test", null));
     expect(text).toMatch(/本次：\s*驗收完成扣堂test/);
     expect(text).not.toContain("店內：");
+  });
+});
+
+
+describe("day booking contact actions", () => {
+  it("copies the full phone without opening details or completing the booking, and reports clipboard failure", async () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    const onBookingClick = vi.fn();
+    const onCompleteSingle = vi.fn();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    try {
+      await act(async () => root.render(React.createElement(DayDetailPanel, {
+        date: "2026-09-26", bookings: [booking({})], slots: [],
+        onBookingClick, onCompleteSingle,
+      })));
+      const copy = container.querySelector<HTMLButtonElement>('button[aria-label="複製 陳沛妍 的手機號碼"]')!;
+      expect(copy).not.toBeNull();
+      expect(copy.parentElement?.closest("button")).toBeNull();
+      expect(container.textContent).toContain("0912-345-678");
+      await act(async () => copy.click());
+      expect(writeText).toHaveBeenCalledWith("0912345678");
+      expect(toast.success).toHaveBeenCalledWith("已複製手機號碼");
+      expect(onBookingClick).not.toHaveBeenCalled();
+      expect(onCompleteSingle).not.toHaveBeenCalled();
+      writeText.mockRejectedValueOnce(new Error("clipboard denied"));
+      await act(async () => copy.click());
+      expect(toast.error).toHaveBeenCalledWith("無法自動複製，請選取號碼手動複製");
+      await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label^="查看 11:00"]')!.click());
+      expect(onBookingClick).toHaveBeenCalledWith("booking-1");
+      const complete = [...container.querySelectorAll("button")].find(b => b.textContent === "完成")!;
+      await act(async () => complete.click());
+      expect(onCompleteSingle).toHaveBeenCalledWith("booking-1");
+    } finally {
+      await act(async () => root.unmount());
+      container.remove();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it.each(["PENDING", "COMPLETED", "NO_SHOW"])("keeps phone visible for %s", (bookingStatus) => {
+    const html = renderToStaticMarkup(React.createElement(DayDetailPanel, {
+      date: "2026-09-26", bookings: [booking({ bookingStatus })], slots: [],
+    }));
+    expect(textFromHtml(html)).toContain("0912-345-678");
+  });
+
+  it("does not offer a copy action when the phone is blank", () => {
+    const row = booking({});
+    row.customer.phone = "  ";
+    const html = renderToStaticMarkup(React.createElement(DayDetailPanel, {
+      date: "2026-09-26", bookings: [row], slots: [],
+    }));
+    expect(textFromHtml(html)).toContain("未留電話");
+    expect(html).not.toContain("複製 陳沛妍 的手機號碼");
   });
 });
