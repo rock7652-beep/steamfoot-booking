@@ -16,6 +16,7 @@ import {
 } from "@/lib/date-utils";
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
+import { MusicTypesShowcase } from "./showcase/music-types-showcase";
 import { resolvedCourseHours } from "@/lib/course-business-hours";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
@@ -44,6 +45,16 @@ export default async function CoursesPage({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     redirect("/dashboard");
+  if (query.showcase === "music-types" && process.env.VERCEL_ENV === "preview") {
+    const date = query.date && parseTaipeiDateTime(query.date, "00:00")
+      ? query.date
+      : "2026-09-26";
+    return (
+      <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
+        <MusicTypesShowcase date={date} />
+      </PageShell>
+    );
+  }
   const view =
     query.view === "catalog" || query.view === "rooms"
       ? query.view
@@ -240,6 +251,11 @@ export default async function CoursesPage({
           : "course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6"
       }
     >
+      {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
+        <a href="/dashboard/courses?showcase=music-types&amp;date=2026-09-26" className="self-start rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-earth-900">
+          查看 9/26 七種班型示意課表（49 堂）
+        </a>
+      )}
       {view !== "schedule" && (
         <PageHeader
           title={view === "catalog" ? "課程管理" : "教室管理"}
