@@ -1227,7 +1227,7 @@ export default function DashboardShell({
         </header>
 
         {/* Content */}
-        <main data-dashboard-content className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
+        <main data-dashboard-content className="box-border w-full min-w-0 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
           {industryModule !== "course" && trialStatus && trialStatus.isFree && (trialStatus.course || trialStatus.stage !== "normal") && (
             <div className="mb-3">
               <TrialProgressBar trial={trialStatus} />

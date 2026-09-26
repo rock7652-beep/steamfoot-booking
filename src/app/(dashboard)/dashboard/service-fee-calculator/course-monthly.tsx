@@ -27,7 +27,7 @@ export async function CourseMonthly({storeId,month,readOnly=false}:{storeId:stri
  const last=report.revisions[0],confirmed=last?.fingerprint===report.fingerprint;
  const [canSettings,canPay,store]=await Promise.all([checkPermission(user.role,user.staffId,"staff.manage"),checkPermission(user.role,user.staffId,"cashbook.create"),prisma.store.findUnique({where:{id:storeId},select:{name:true}})]);
  const issues=report.lines.filter(l=>l.issue||l.amount===null).length;
- return <PageShell className="mx-auto flex max-w-[1440px] flex-col gap-2 px-4 py-2 sm:px-6">
+ return <PageShell className="flex w-full min-w-0 flex-col gap-2 py-2">
  <PageHeader title="每月收入結算" subtitle={store?.name??"本店"} actions={<IncomeMonthFilter month={month}/>}/>
  <CourseMonthlyReport key={month} lines={report.lines} status={<span role="status" className={`rounded-full px-3 py-1 text-sm ${confirmed?"bg-primary-50 text-primary-800":"bg-amber-50 text-amber-900"}`}>{confirmed?"已確認":last?"有異動":"待確認"}</span>} confirm={!confirmed&&!readOnly&&<CourseMonthlyConfirm key={report.fingerprint} month={month} fingerprint={report.fingerprint} revision={last?.revision??0} disabled={issues>0||!report.lines.length} blockedReason={issues>0?`請先核對 ${issues} 筆金額。`:!report.lines.length?"本月沒有結算項目。":undefined}/>} actions={<>
  {!readOnly&&<CourseMonthlyNotifications key={`${month}:${last?.revision??0}:${report.fingerprint}:${report.settings.revision}`} month={month} revision={last?.revision??0} enabled={report.settings.personalIncomeEnabled} confirmed={confirmed}/>}

@@ -11,7 +11,7 @@ export async function SteamfootMonthly({ storeId, month, readOnly }: { storeId: 
   if (!user || (user.role !== "OWNER" && user.role !== "ADMIN")) return <p>僅店長可查看月結。</p>;
   const report = await readSteamfootMonthly(storeId, month);
   const canManage = !readOnly && await checkPermission(user.role, user.staffId, "staff.manage");
-  return <PageShell className="mx-auto max-w-6xl space-y-3 px-4 py-3">
+  return <PageShell className="w-full min-w-0 space-y-3 py-3">
     <PageHeader title="月結管理" actions={<IncomeMonthFilter month={month}/>} />
     <section className="overflow-hidden rounded-lg border border-earth-200 bg-white">
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)] gap-2 bg-earth-50 px-3 py-2 text-xs font-medium text-earth-600 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)_5rem]"><span>人員</span><span>本月服務收入</span><span>空間租金約定</span><span className="hidden sm:block">明細</span></div>

@@ -169,7 +169,7 @@ export default async function DutyPage({ searchParams }: PageProps) {
   const activeStoreId = await getActiveStoreForRead(user);
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full min-w-0">
       <Suspense fallback={<DutyWeekSkeleton />}>
         <DutyWeekContent
           weekStart={weekStart}
