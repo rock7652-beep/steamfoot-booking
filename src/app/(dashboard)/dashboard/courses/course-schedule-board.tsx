@@ -214,13 +214,26 @@ function SessionCard({
   const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
   const attendanceComplete = activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
   const showCapacityState = !musicDense || !copy.privateClass;
+  const brief = sessionDurationMinutes(session) <= 30;
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`w-full rounded-lg border text-left transition ${dense ? "h-full overflow-hidden" : ""} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${dense ? "p-1.5" : "p-2"} ${moved ? "border-indigo-200 bg-indigo-50/80" : musicDense && !copy.privateClass ? "border-earth-200 bg-primary-50/20" : "border-earth-200 bg-white"} ${attendanceComplete ? "border-l-4 border-l-emerald-500" : musicDense && !copy.privateClass ? "border-l-2 border-l-primary-300" : ""}`}
-      aria-label={`${copy.primary}，${hhmm(session.startsAt)}，${copy.coach}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${moved ? "border-indigo-200 bg-indigo-50/80" : musicDense && fixed && session.isBiweekly ? "border-blue-200 bg-blue-50/40" : musicDense && fixed ? "border-teal-200 bg-teal-50/30" : musicDense && !copy.privateClass ? "border-earth-200 bg-primary-50/20" : "border-earth-200 bg-white"} ${attendanceComplete ? "border-l-4 border-l-emerald-500" : musicDense && fixed && session.isBiweekly ? "border-l-[3px] border-l-blue-500" : musicDense && fixed ? "border-l-[3px] border-l-teal-500" : musicDense && !copy.privateClass ? "border-l-2 border-l-primary-300" : ""}`}
+      title={`${hhmm(session.startsAt)} ${copy.primary} · ${copy.coach} · ${copy.room}${fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
+      aria-label={`${copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
+      {musicDense ? (
+        <>
+          <div className="flex min-w-0 items-center gap-1 text-[11px] leading-4">
+            <strong className="min-w-0 flex-1 truncate text-earth-900">{copy.primary}</strong>
+            {brief ? <span className="max-w-[48%] shrink-0 truncate text-[10px] font-semibold text-earth-700">{copy.coach}</span> : fixed && <span className={`shrink-0 rounded px-1 text-[9px] font-semibold ${session.isBiweekly ? "bg-blue-100 text-blue-800" : "bg-teal-100 text-teal-800"}`}>{session.isBiweekly ? "隔週" : "固定"}</span>}
+          </div>
+          {!brief && <p className="truncate text-[10px] font-semibold leading-4 text-earth-700">{copy.coach}</p>}
+          {!brief && <p className="truncate text-[10px] leading-4 text-earth-500">{attendanceComplete ? "已出席 · " : ""}{moved ? "調課 · " : substitute ? "代課 · " : ""}{isTrial(session) ? "體驗 · " : ""}{copy.privateClass ? session.nameSnapshot : `${session.bookings.length}/${session.capacity} 人`}</p>}
+        </>
+      ) : (
+      <>
       <div className="flex min-w-0 items-start justify-between gap-2">
         <div className="min-w-0">
           <p className={`truncate font-semibold text-earth-900 ${dense ? "text-xs" : "text-sm"}`}>{copy.primary}</p>
@@ -286,6 +299,8 @@ function SessionCard({
           </span>
         )}
       </div>
+      </>
+      )}
     </button>
   );
 }
@@ -668,7 +683,7 @@ export function CourseScheduleBoard({
                   return (
                     <div
                       key={`${time}:${resource.id}`}
-                      className={`relative border-b border-r border-earth-100 ${musicDense ? "min-h-24" : "min-h-20 space-y-2 p-2"}`}
+                      className={`relative border-b border-r border-earth-100 ${musicDense ? "h-[54px]" : "min-h-20 space-y-2 p-2"}`}
                     >
                       {musicDense && resource.id !== "__none" && (
                         <div className="absolute inset-0 grid grid-rows-2">
@@ -736,7 +751,7 @@ export function CourseScheduleBoard({
                           type="button"
                           key={`moved:${session.id}`}
                           className="absolute left-1 right-1 z-[5] rounded border border-dashed border-indigo-200 bg-indigo-50/55 px-1 py-0.5 text-left text-[9px] text-indigo-700 hover:bg-indigo-100"
-                          style={{ top: hhmm(session.rescheduledFromStartsAt!).endsWith(":30") ? 50 : 2 }}
+                          style={{ top: hhmm(session.rescheduledFromStartsAt!).endsWith(":30") ? 27 : 2 }}
                           title={`已移動 → ${toLocalDateStr(new Date(session.startsAt))} ${hhmm(session.startsAt)}`}
                           onClick={()=>onSelectDate(toLocalDateStr(new Date(session.startsAt)))}
                         >
@@ -750,8 +765,8 @@ export function CourseScheduleBoard({
                             key={session.id}
                             className={musicDense ? "absolute left-1 right-1 z-10 pointer-events-auto" : "pointer-events-auto"}
                             style={musicDense ? {
-                              top: hhmm(session.startsAt).endsWith(":30") ? 48 : 4,
-                              height: Math.max(44, sessionDurationMinutes(session) * 1.6 - 8),
+                              top: hhmm(session.startsAt).endsWith(":30") ? 27 : 2,
+                              height: Math.max(23, sessionDurationMinutes(session) * 0.9 - 4),
                             } : undefined}
                           >
                             <SessionCard
