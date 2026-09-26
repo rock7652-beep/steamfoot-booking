@@ -243,8 +243,9 @@ function SessionCard({
   const showCapacityState = !musicDense || !copy.privateClass;
   const brief = sessionDurationMinutes(session) <= 30;
   const studentLabel = copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
+  const cardName = !copy.privateClass && !brief ? copy.primary : studentLabel;
   const secondaryLine = [
-    secondaryType,
+    !copy.privateClass ? `${attendance.total} 人` : secondaryType,
     !copy.privateClass && attendance.processed > 0 && !attendanceComplete ? attendanceLabel : "",
   ].filter(Boolean).join(" · ");
   const originalCoach = substitute ? coaches.find((coach) => coach.id === session.rescheduledFromCoachId)?.displayName : null;
@@ -265,7 +266,7 @@ function SessionCard({
           <div className="flex min-w-0 items-center gap-1 text-[11px] leading-4">
             <span className="flex min-w-0 flex-1 items-center gap-1">
               {brief && <span className={`shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{primaryType}</span>}
-              <strong className="min-w-0 truncate text-earth-900">{studentLabel}</strong>
+              <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
             </span>
             <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[10px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
           </div>

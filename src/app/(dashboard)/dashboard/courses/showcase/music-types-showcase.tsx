@@ -47,7 +47,7 @@ function sampleSessions(date: string) {
     return {
       id: `sample-${row}-${index}`,
       templateId: "group" in kind ? "sample-group" : privateTemplate.id,
-      nameSnapshot: "group" in kind ? "吉他團體班" : privateTemplate.name,
+      nameSnapshot: "group" in kind ? `吉他團體 ${String.fromCharCode(65 + index)} 班` : privateTemplate.name,
       startsAt: start.toISOString(),
       endsAt: new Date(start.getTime() + duration * 60_000).toISOString(),
       coachId: coaches[resource].id,
