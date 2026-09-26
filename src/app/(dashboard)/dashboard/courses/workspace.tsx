@@ -365,6 +365,34 @@ export function CourseWorkspace({
       }
     });
   }
+  function restoreMove(session: Session) {
+    if (pending || !session.rescheduledFromStartsAt || !session.rescheduledFromRoomId || !session.rescheduledFromCoachId) return;
+    const original = new Date(session.rescheduledFromStartsAt);
+    setError("");
+    setNotice("");
+    startTransition(async () => {
+      try {
+        const result = await moveCourseSessions({
+          id: session.id,
+          scope: "SINGLE",
+          date: toLocalDateStr(original),
+          time: formatTWDateTime(original).slice(11, 16),
+          roomId: session.rescheduledFromRoomId,
+          coachId: session.rescheduledFromCoachId,
+          restore: true,
+        });
+        if (!result.success) {
+          setError(result.error ?? "目前無法恢復原時段");
+          return;
+        }
+        setCourseDialog(null);
+        setNotice("已恢復原時段");
+        router.refresh();
+      } catch {
+        setError("恢復失敗，課程保留在目前時段。");
+      }
+    });
+  }
   function openSchedule(seed: {time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     setCopySource(null);
     setScheduleSeed(seed);
@@ -2103,6 +2131,9 @@ export function CourseWorkspace({
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
+                  {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && dialogSession.rescheduledFromStartsAt && (
+                    <button type="button" className={button} disabled={pending} onClick={() => restoreMove(dialogSession)}>恢復原時段</button>
+                  )}
                   {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && !moveClipboard && (
                     <button type="button" className={primary} onClick={() => {
                       if (dialogSession.isFixed) {
@@ -2118,6 +2149,7 @@ export function CourseWorkspace({
                   <button type="button" className={button} onClick={() => { setMoveChoice(null); setCourseDialog(null); }}>關閉</button>
                 </div>
               </header>
+              {error && <p role="alert" className="shrink-0 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
               {courseDialog.kind === "roster" && dialogSession.isFixed && moveChoice?.id === dialogSession.id && !moveClipboard && (
                 <div className="shrink-0 space-y-2 border-b border-indigo-200 bg-indigo-50 px-4 py-3 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
