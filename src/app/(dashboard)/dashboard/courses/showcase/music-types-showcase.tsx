@@ -38,6 +38,8 @@ function sampleSessions(date: string) {
     const slot = ((row * 7 + index) * 17) % (13 * coaches.length);
     const resource = slot % coaches.length;
     const hour = 9 + Math.floor(slot / coaches.length);
+    // Rotate rooms each hour; the permutation keeps every teacher and room unique at that hour.
+    const room = rooms[(resource + hour - 9) % rooms.length];
     const time = `${String(hour).padStart(2, "0")}:00`;
     const start = parseTaipeiDateTime(date, time)!;
     const duration = "trial" in kind ? 30 : 60;
@@ -49,7 +51,7 @@ function sampleSessions(date: string) {
       startsAt: start.toISOString(),
       endsAt: new Date(start.getTime() + duration * 60_000).toISOString(),
       coachId: coaches[resource].id,
-      roomId: rooms[resource].id,
+      roomId: room.id,
       capacity: "group" in kind ? 6 : 1,
       pointCost: 0,
       isFixed: "fixed" in kind,
@@ -59,7 +61,7 @@ function sampleSessions(date: string) {
       bookings: Array.from({ length: "group" in kind ? 3 : 1 }, (_, booking) => ({
         customerId: `sample-student-${row}-${index}-${booking}`,
         customerName: studentNames[(row * 7 + index * 3 + booking) % studentNames.length],
-        status: "RESERVED",
+        status: ("group" in kind ? booking === 0 && index % 2 === 0 : index === 1) ? "CHECKED_IN" : "RESERVED",
         bookingKind: "trial" in kind ? "TRIAL" : "REGULAR",
       })),
     };
@@ -74,7 +76,7 @@ export function MusicTypesShowcase({ date }: { date: string }) {
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
         <div>
           <h1 className="text-base font-semibold text-earth-900">{month}/{day}（{weekday}）音樂課表 · 班型驗收</h1>
-          <p className="text-xs text-earth-700">純示意資料：七種型態各 7 堂，共 49 堂、63 位學員，穿插在不同老師與時段。這頁不會建立預約或修改店家資料。</p>
+          <p className="text-xs text-earth-700">純示意資料：七種型態各 7 堂，共 49 堂、63 位學員；老師輪換教室，部分學員已到課。這頁不會建立預約或修改店家資料。</p>
         </div>
         <Link href="/dashboard/courses" className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-xs font-medium text-earth-800">返回真實課表</Link>
       </div>
