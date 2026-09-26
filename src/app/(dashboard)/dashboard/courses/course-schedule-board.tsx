@@ -46,6 +46,8 @@ type Session = {
   previewKind?: "CHANGED" | "RENTAL";
   previewFaded?: "異動／請假" | "已調課";
   previewRosterUnknown?: boolean;
+  previewAttendanceUnknown?: boolean;
+  previewFrequencyUnknown?: boolean;
 };
 
 type Room = {
@@ -229,8 +231,8 @@ function SessionCard({
   const trialClass = isTrial(session) && !copy.groupClass;
   const rental = session.previewKind === "RENTAL";
   const changed = session.previewKind === "CHANGED";
-  const scheduleType = fixed ? (session.isBiweekly ? "隔週固定" : "每週固定") : "約課";
-  const primaryType = rental ? "租借" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : copy.groupClass ? "團體" : fixed ? session.isBiweekly ? "隔週" : "每週" : "約課";
+  const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
+  const primaryType = rental ? "租借" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : copy.groupClass ? "團體" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "約課";
   const typeBadge = rental ? "bg-fuchsia-200 text-fuchsia-950" : trialClass ? "bg-rose-200 text-rose-950" : changed ? "bg-amber-100 text-amber-900" : substitute || moved ? "bg-amber-100 text-amber-900" : copy.groupClass ? "bg-purple-100 text-purple-900" : fixed ? session.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900" : "bg-amber-100 text-amber-900";
   const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
   const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
@@ -238,7 +240,10 @@ function SessionCard({
   const attendanceComplete = businessProfile === "MUSIC"
     ? attendance.complete
     : activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
-  const attendanceLabel = session.previewRosterUnknown ? "截圖未顯示學員名單" : attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
+  const attendanceLabel = session.previewFaded ? `${session.previewFaded}（保留原時段）`
+    : session.previewRosterUnknown ? "截圖未顯示學員名單"
+    : session.previewAttendanceUnknown ? "原圖未提供點名資料"
+    : attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
   const musicTypeColor = trialClass
     ? "border-rose-400 bg-rose-100"
     : substitute || moved
@@ -248,7 +253,7 @@ function SessionCard({
         : fixed
           ? session.isBiweekly ? "border-blue-200 bg-blue-50/70" : "border-teal-200 bg-teal-50/70"
           : "border-amber-200 bg-amber-50/70";
-  const musicAttendanceColor = !attendanceComplete
+  const musicAttendanceColor = session.previewAttendanceUnknown ? "border-l-slate-300" : !attendanceComplete
     ? "border-l-slate-400"
     : trialClass
       ? "border-l-rose-600"
@@ -526,6 +531,7 @@ export function CourseScheduleBoard({
   const slotConflict=(resourceId:string,startTime:string,durationMinutes:number=availabilityDuration)=>{
     const start=minuteOfDay(startTime),end=start+durationMinutes;
     return daySessions.some(session=>{
+      if(session.previewFaded) return false;
       const same=resourceView==="room"?session.roomId===resourceId:session.coachId===resourceId;
       if(!same) return false;
       const sessionStart=minuteOfDay(hhmm(session.startsAt)),sessionEnd=minuteOfDay(hhmm(session.endsAt));
@@ -535,6 +541,7 @@ export function CourseScheduleBoard({
   const pairConflict=(roomId:string,coachId:string,startTime:string,durationMinutes:number)=>{
     const start=minuteOfDay(startTime),end=start+durationMinutes;
     return daySessions.some(session=>{
+      if(session.previewFaded) return false;
       if(session.id===moveClipboard?.sessionId) return false;
       if(session.roomId!==roomId&&session.coachId!==coachId) return false;
       const sessionStart=minuteOfDay(hhmm(session.startsAt)),sessionEnd=minuteOfDay(hhmm(session.endsAt));
@@ -624,7 +631,7 @@ export function CourseScheduleBoard({
           </label>
         )}
 
-        {musicDense && (
+        {musicDense && !replica && (
           <div className="inline-flex min-h-9 items-center gap-3 rounded-lg border border-earth-200 bg-white px-2.5 text-[11px] text-earth-600" aria-label="課表可排狀態圖例">
             <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded-sm border border-earth-200 bg-white" aria-hidden="true" />可排</span>
             <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded-sm border border-earth-200 bg-earth-100" aria-hidden="true" />不可排</span>
@@ -669,11 +676,11 @@ export function CourseScheduleBoard({
             ))}
             {replica && <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-fuchsia-300 bg-fuchsia-100" aria-hidden="true" />租借</span>}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片左槓表示點名進度">
+          {replica ? <span className="text-earth-600">左槓＝點名資料未見於原圖</span> : <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片左槓表示點名進度">
             <span className="font-semibold text-earth-800">左槓＝點名進度</span>
             <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-slate-400 bg-white" aria-hidden="true" />灰色：尚有未處理</span>
             <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-teal-600 bg-white" aria-hidden="true" />課型亮色：全員已記錄（含請假、曠課）</span>
-          </div>
+          </div>}
         </div>
       )}
 

@@ -116,6 +116,8 @@ function sessionsFor(date: string) {
       previewKind: kind === "CHANGED" || kind === "GROUP_CHANGED" ? "CHANGED" as const : rental ? "RENTAL" as const : undefined,
       previewFaded: faded,
       previewRosterUnknown: group,
+      previewAttendanceUnknown: true,
+      previewFrequencyUnknown: kind === "FIXED" || group,
       // The screenshot has no group roster or attendance outcomes. Never invent either.
       bookings: group ? [] : [{
         customerId: `luby-learner-${index}`, customerName: learner,
