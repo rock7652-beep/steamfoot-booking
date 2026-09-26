@@ -298,13 +298,14 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     );
 
     expect(html).toContain("營運分析");
-    expect(html).toContain("營運摘要");
+    expect(html).toContain("經營總覽");
+    expect(html).toContain("經營重點比較");
     expect(html).toContain("已收營收");
     expect(html).toContain("完成服務");
     expect(html).toContain("訂單");
     expect(html).toContain("退款");
-    expect(html).toContain("營收分析");
-    expect(html).toContain("店長分析");
+    expect(html).not.toContain('id="revenue-mix-title"');
+    expect(html).not.toContain("店長分析");
     expect(html).not.toContain("店長明細");
     expect(html).not.toContain("收入類型</h2>");
     expect(html).not.toMatch(/基本報表|進階報表/);
@@ -314,25 +315,27 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("同一人只計 1 位");
     expect(html).toContain("date range");
     expect(mockMonthlyStoreSummary).toHaveBeenCalledTimes(1);
-    expect(mockMonthlyRevenueByCategory).toHaveBeenCalledTimes(1);
+    expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();
+    expect(mockGetTrialSourceMetrics).not.toHaveBeenCalled();
+    expect(mockGetStorePerformanceTrends).not.toHaveBeenCalled();
   });
 
-  it("shows only the four scoped customer-flow KPIs and their comparisons", async () => {
+  it("shows scoped customer-flow comparisons only in the customers category", async () => {
     const html = renderToStaticMarkup(
-      await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }),
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "customers" }) }),
     );
 
     expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
     expect(html).toContain("客流分析");
     expect(html).toContain("來客人數");
-    expect(html).toContain("新客數");
-    expect(html).toContain("舊客數");
+    expect(html).toContain("新客人數");
+    expect(html).toContain("舊客人數");
     expect(html).toContain("體驗人次");
     expect(html).toContain("體驗組數");
-    expect(html).toContain("比前一月同期");
+    expect(html).toContain("比較期間");
     expect(html).toContain("去年同期");
-    expect(html).toContain("比較期間為 0，無法計算增減百分比");
-    expect(html).toContain("多人同行不再只算 1 人");
+    expect(html).toContain("比較期間為 0 時，不計增減百分比");
+    expect(html).toContain("同一人來多次只計 1 位");
     expect(html).not.toContain("客單價");
     expect(html).toMatch(/segment=monthly-customers/);
     expect(html).toMatch(/segment=monthly-new/);
@@ -351,36 +354,34 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(mockGetCustomerFlowMetrics).not.toHaveBeenCalled();
     expect(mockGetConversionMetrics).not.toHaveBeenCalled();
     expect(mockGetRetentionMetrics).not.toHaveBeenCalled();
-    expect(html).toContain("HQ 全店視角暫不提供客流唯一顧客數");
-    expect(html).toContain("HQ 全店視角暫不提供成交分析");
-    expect(html).toContain("HQ 全店視角暫不提供顧客回流");
+    expect(html).toContain("請選擇店舖查看來客、服務與開卡數據");
+    expect(mockGetPeriodMetrics).not.toHaveBeenCalled();
   });
 
   it("shows purchase-month opening attribution below customer flow", async () => {
     const html = renderToStaticMarkup(
-      await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }),
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "customers" }) }),
     );
 
     expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
     expect(html).toContain("成交分析");
-    expect(html).toContain("所選日期體驗開卡");
-    expect(html).toContain("追蹤開卡");
+    expect(html).toContain("期間內體驗並開卡");
+    expect(html).toContain("之前體驗、期間內開卡");
     expect(html).toContain("首次開卡人數");
-    expect(html).toContain("所選日期體驗開卡率");
+    expect(html).toContain("期間內體驗開卡率");
     expect(html).toContain("未開卡人次");
-    expect(html).toContain("查看顧客 →");
     expect(html).toMatch(/segment=monthly-converted/);
     expect(html).toMatch(/segment=monthly-current-trial-converted/);
     expect(html).toMatch(/segment=monthly-tracked-converted/);
     expect(html.indexOf("成交分析")).toBeGreaterThan(html.indexOf("客流分析"));
-    expect(html).toContain("開卡依首次有效購買日期");
-    expect(html).toContain("比較期間為 0，無法計算增減百分比");
+    expect(html).toContain("不含續卡；依首次有效購買日期統計");
+    expect(html).toContain("比較期間為 0 時，不計增減百分比");
     expect(html).not.toMatch(/成交率|客單價|來源分析/);
   });
 
   it("shows candidate-B retention KPIs and the plain-language question", async () => {
     const html = renderToStaticMarkup(
-      await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }),
+      await ReportsPage({ searchParams: Promise.resolve({ preset: "month", view: "detail", category: "retention" }) }),
     );
 
     expect(mockGetPeriodMetrics).toHaveBeenCalledWith("store-active", expect.objectContaining({ startDate: expect.any(String), endDate: expect.any(String) }), expect.any(String));
@@ -389,13 +390,26 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("再訪人數");
     expect(html).toContain("顧客回流率");
     expect(html).toContain("尚未再訪人數");
-    expect(html).toContain("比前一月同期");
+    expect(html).toContain("比較期間");
     expect(html).toContain("去年同期");
-    expect(html).toContain("比較期間為 0，無法計算增減百分比");
+    expect(html).toContain("比較期間為 0 時，不計增減百分比");
     expect(html).not.toMatch(/續約率|平均回店天數|人員回流|Benchmark|健康值/);
     expect(html).toMatch(/segment=monthly-returned/);
     expect(html).toMatch(/segment=monthly-not-returned/);
-    expect(html.match(/查看顧客 →/g)).toHaveLength(9);
+    expect(html).not.toContain("客流分析");
+  });
+
+  it("loads only requested category queries and preserves range on navigation", async () => {
+    const range = { preset: "custom", startDate: "2026-09-01", endDate: "2026-09-07", view: "detail" };
+    const html = renderToStaticMarkup(await ReportsPage({ searchParams: Promise.resolve({ ...range, category: "sources" }) }));
+    expect(mockGetTrialSourceMetrics).toHaveBeenCalledWith("store-active", range.startDate, range.endDate);
+    expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();
+    expect(html).toContain("體驗預約來源");
+    expect(html).not.toContain("客流分析");
+    expect(html).toContain("startDate=2026-09-01&amp;endDate=2026-09-07&amp;preset=custom&amp;view=detail&amp;category=customers");
+    await ReportsPage({ searchParams: Promise.resolve({ ...range, category: "staff" }) });
+    expect(mockMonthlyRevenueByCategory).toHaveBeenCalledTimes(1);
+    expect(mockGetTrialSourceMetrics).toHaveBeenCalledTimes(1);
   });
 
   it("allows a GROWTH store even when advanced_reports is unavailable", async () => {

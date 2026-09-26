@@ -37,22 +37,11 @@ export function PerformanceTrendChart({ data, revenue = [] }: { data: StorePerfo
           <p className="mt-0.5 text-[11px] text-earth-400">{visible[0]?.month}～{visible.at(-1)?.month}；本月截至今日，獨立於上方日期選區。</p>
         </div>
         <div className="flex gap-2" aria-label="趨勢期間">{[6, 12].map(value => <button type="button" key={value} aria-pressed={months === value} onClick={() => setMonths(value)} className={`rounded border px-3 py-1.5 text-xs ${months === value ? "bg-primary-600 text-white" : "border-earth-300"}`}>{value === 6 ? "近六個月" : "近一年"}</button>)}</div>
-        <div className="flex flex-wrap gap-1.5">
-          {METRICS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setMetric(item.key)}
-              className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
-                metric === item.key
-                  ? "bg-primary-600 text-white"
-                  : "border border-earth-200 bg-white text-earth-600 hover:bg-earth-50"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <label className="flex items-center gap-2 text-xs text-earth-600">趨勢指標
+          <select aria-label="趨勢指標" value={metric} onChange={event => setMetric(event.target.value as MetricKey)} className="rounded-md border border-earth-300 bg-white px-3 py-2 text-sm text-earth-800">
+            {METRICS.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
+          </select>
+        </label>
       </div>
 
       {showRetailEmptyState ? (

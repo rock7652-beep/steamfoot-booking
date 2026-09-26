@@ -14,6 +14,7 @@ const PRESETS = [
 ] as const;
 
 interface ReportDateRangeProps {
+  compact?: boolean;
   enhanced?: boolean;
   preserveQuery?: boolean;
   activePreset: string;
@@ -24,6 +25,7 @@ interface ReportDateRangeProps {
 export default function ReportDateRange({
   activePreset,
   enhanced = false,
+  compact = false,
   preserveQuery = false,
   startDate,
   endDate,
@@ -31,6 +33,7 @@ export default function ReportDateRange({
   const router = useRouter();
   const [reading, startReading] = useTransition();
   const searchParams = useSearchParams();
+  const queryString = searchParams.toString();
   const [showCustom, setShowCustom] = useState(activePreset === "custom");
 
   const scheduled = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,11 +62,15 @@ export default function ReportDateRange({
     // Schedule only after the active page is interactive; prefetch route payloads, never customer lists.
     const timer = setTimeout(() => {
       for (const preset of ["today", "week"]) {
-        if (preset !== activePreset) router.prefetch(`?preset=${preset}`);
+        if (preset !== activePreset) {
+          const params = new URLSearchParams(queryString);
+          params.delete("month"); params.delete("startDate"); params.delete("endDate"); params.set("preset", preset);
+          router.prefetch(`?${params.toString()}`);
+        }
       }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [enhanced, activePreset, router]);
+  }, [enhanced, activePreset, router, queryString]);
 
   function handlePreset(key: string) {
     if (key === "custom") {
@@ -101,7 +108,7 @@ export default function ReportDateRange({
   }
 
   return (
-    <div className="space-y-3">
+    <div className={compact ? "flex flex-wrap items-center gap-2" : "space-y-3"}>
       {reading && <><NavigationNotice /><p role="status" className="text-xs text-primary-700">正在讀取所選日期；下方仍是原日期的資料。</p></>}
       {/* Preset pills */}
       <div className="flex flex-wrap gap-2">
@@ -109,7 +116,7 @@ export default function ReportDateRange({
           const isActive =
             p.key === "custom"
               ? activePreset === "custom" || showCustom
-              : activePreset === p.key && !showCustom;
+              : activePreset === p.key && !showCustom && (!compact || startDate === getPresetDateRange(p.key as DateRangePreset).startDate);
           return (
             <button
               key={p.key}
@@ -129,9 +136,9 @@ export default function ReportDateRange({
         })}
       </div>
 
-      {enhanced && activePreset !== "custom" && !showCustom && <div className="flex items-center gap-3 text-sm">
+      {enhanced && activePreset !== "custom" && !showCustom && <div className="flex flex-wrap items-center gap-2 text-sm">
         <button type="button" onClick={() => shift(-1)} className="shrink-0 whitespace-nowrap rounded border border-earth-300 px-3 py-1.5">{activePreset === "today" ? "前一天" : activePreset === "week" ? "前一週" : "前一月"}</button>
-        <span className="text-center text-xs tabular-nums sm:text-sm">{startDate}～{endDate}</span>
+        <span className="text-center text-xs tabular-nums">{compact && activePreset === "month" ? startDate.slice(0, 7).replace("-", " 年 ") + " 月" : `${startDate}～${endDate}`}</span>
         <button type="button" disabled={startDate >= getPresetDateRange(activePreset as DateRangePreset).startDate} onClick={() => shift(1)} className="shrink-0 whitespace-nowrap rounded border border-earth-300 px-3 py-1.5 disabled:opacity-40">{activePreset === "today" ? "後一天" : activePreset === "week" ? "後一週" : "後一月"}</button>
       </div>}
       {/* Custom date range */}
