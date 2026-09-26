@@ -450,12 +450,17 @@ export async function moveCourseSessions(input: unknown) {
         },
       });
       if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
+      const original = source.rescheduledFromStartsAt
+        ? formatTWDateTime(source.rescheduledFromStartsAt)
+        : null;
+      const restoring = d.scope === "SINGLE" && Boolean(
+        original && d.date === original.slice(0, 10) && d.time === original.slice(11, 16) &&
+        d.roomId === source.rescheduledFromRoomId && d.coachId === source.rescheduledFromCoachId,
+      );
       if (d.restore) {
         if (d.scope !== "SINGLE" || !source.rescheduledFromStartsAt || !source.rescheduledFromRoomId || !source.rescheduledFromCoachId)
           throw new AppError("VALIDATION", "這堂課目前沒有可還原的原時段");
-        const original = formatTWDateTime(source.rescheduledFromStartsAt);
-        if (d.date !== original.slice(0, 10) || d.time !== original.slice(11, 16) ||
-            d.roomId !== source.rescheduledFromRoomId || d.coachId !== source.rescheduledFromCoachId)
+        if (!restoring)
           throw new AppError("VALIDATION", "原時段已變更，請重新整理課表");
       }
 
@@ -543,7 +548,7 @@ export async function moveCourseSessions(input: unknown) {
 
       const movedAt = new Date();
       for (const change of changes) {
-        const temporary = !d.restore;
+        const temporary = !restoring;
         await tx.courseSessionMove.create({
           data: {
             storeId,
