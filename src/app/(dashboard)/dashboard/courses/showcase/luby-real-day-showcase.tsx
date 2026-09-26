@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
-import { CourseScheduleBoard } from "../course-schedule-board";
+import { LubyRealDayBoard } from "./luby-real-day-board";
 
 // Transcribed from the provided 2026/9/12 Luby Music screenshot. The date is
 // shifted to 9/26 solely so this read-only layout can be compared on one day.
@@ -136,12 +136,11 @@ export function LubyRealDayShowcase({ date }: { date: string }) {
         </div>
         <Link href="/dashboard/courses?showcase=music-types&amp;date=2026-09-26" className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-xs font-medium text-earth-800">返回 49 堂課型示範</Link>
       </div>
-      <CourseScheduleBoard
+      <LubyRealDayBoard
         businessProfile="MUSIC" mode="day" selectedDate={date} today={date}
         sessions={sessionsFor(date)} rooms={rooms} coaches={coaches} templates={templates}
         storePeriods={[{ openTime: "09:00", closeTime: "21:00" }]}
         staffAvailability={[]} staffAvailabilityExceptions={[]}
-        onOpenEmpty={() => {}} onSelectDate={() => {}} onOpenSession={() => {}}
         readOnly replica
       />
     </div>
