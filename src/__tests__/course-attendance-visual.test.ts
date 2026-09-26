@@ -23,11 +23,11 @@ it("counts check-in, excludes ordinary cancellation, and keeps empty classes lig
     .toEqual({ total: 0, processed: 0, complete: false });
 });
 
-it("uses the same course-type edge in light and dark shades without a green name dash", () => {
+it("uses a gray pending edge and a course-colored completed edge without a separate dash", () => {
   const board = readFileSync("src/app/(dashboard)/dashboard/courses/course-schedule-board.tsx", "utf8");
+  expect(board).toContain("border-l-slate-400");
   for (const color of ["teal", "blue", "amber", "purple", "orange"]) {
-    expect(board).toContain(`border-l-${color}-400`);
-    expect(board).toContain(`border-l-${color}-700`);
+    expect(board).toContain(`border-l-${color}-600`);
   }
   expect(board).not.toContain('className="h-[3px] w-2 shrink-0 rounded bg-emerald-600"');
   expect(board).toContain("leaveCount={leaveCounts[session.id] ?? 0}");

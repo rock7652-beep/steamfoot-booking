@@ -229,17 +229,27 @@ function SessionCard({
     ? attendance.complete
     : activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
   const attendanceLabel = attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
-  const musicColor = isTrial(session)
-    ? attendanceComplete ? "border-orange-200 border-l-[3px] border-l-orange-700 bg-orange-50/70" : "border-orange-200 border-l-[3px] border-l-orange-400 bg-orange-50/70"
+  const musicTypeColor = isTrial(session)
+    ? "border-orange-200 bg-orange-50/70"
     : substitute || moved
-      ? attendanceComplete ? "border-amber-200 border-l-[3px] border-l-amber-700 bg-amber-50/70" : "border-amber-200 border-l-[3px] border-l-amber-400 bg-amber-50/70"
+      ? "border-amber-200 bg-amber-50/70"
       : !copy.privateClass
-        ? attendanceComplete ? "border-purple-200 border-l-[3px] border-l-purple-700 bg-purple-50/70" : "border-purple-200 border-l-[3px] border-l-purple-400 bg-purple-50/70"
+        ? "border-purple-200 bg-purple-50/70"
         : fixed
-          ? session.isBiweekly
-            ? attendanceComplete ? "border-blue-200 border-l-[3px] border-l-blue-700 bg-blue-50/70" : "border-blue-200 border-l-[3px] border-l-blue-400 bg-blue-50/70"
-            : attendanceComplete ? "border-teal-200 border-l-[3px] border-l-teal-700 bg-teal-50/70" : "border-teal-200 border-l-[3px] border-l-teal-400 bg-teal-50/70"
-          : attendanceComplete ? "border-amber-200 border-l-[3px] border-l-amber-700 bg-amber-50/70" : "border-amber-200 border-l-[3px] border-l-amber-400 bg-amber-50/70";
+          ? session.isBiweekly ? "border-blue-200 bg-blue-50/70" : "border-teal-200 bg-teal-50/70"
+          : "border-amber-200 bg-amber-50/70";
+  const musicAttendanceColor = !attendanceComplete
+    ? "border-l-slate-400"
+    : isTrial(session)
+      ? "border-l-orange-600"
+      : substitute || moved
+        ? "border-l-amber-600"
+        : !copy.privateClass
+          ? "border-l-purple-600"
+          : fixed && session.isBiweekly
+            ? "border-l-blue-600"
+            : fixed ? "border-l-teal-600" : "border-l-amber-600";
+  const musicColor = `${musicTypeColor} border-l-[4px] ${musicAttendanceColor}`;
   const showCapacityState = !musicDense || !copy.privateClass;
   const brief = sessionDurationMinutes(session) <= 30;
   const studentLabel = copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
@@ -643,7 +653,8 @@ export function CourseScheduleBoard({
               <span className={`h-3 w-3 rounded-sm border-l-[3px] ${color}`} aria-hidden="true" />{label}
             </span>
           ))}
-          <span className="text-earth-600">色條深＝全員點名完成（含請假、曠課）</span>
+          <span className="inline-flex items-center gap-1"><span className="h-3 w-3 border-l-[4px] border-l-slate-400 bg-white" aria-hidden="true" />灰色＝尚有未處理</span>
+          <span className="text-earth-600">左側亮色＝全員已記錄狀態（含請假、曠課）</span>
         </div>
       )}
 
