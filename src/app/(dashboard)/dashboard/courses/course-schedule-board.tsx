@@ -42,6 +42,10 @@ type Session = {
   rescheduleKind?: string | null;
   rescheduledAt?: string | null;
   bookings: Booking[];
+  // Display metadata for the read-only schedule replica; live sessions omit these fields.
+  previewKind?: "CHANGED" | "RENTAL";
+  previewFaded?: "異動／請假" | "已調課";
+  previewRosterUnknown?: boolean;
 };
 
 type Room = {
@@ -96,6 +100,7 @@ type Props = {
   onSelectDate: (date: string) => void;
   onOpenSession: (sessionId: string, date: string) => void;
   readOnly?: boolean;
+  replica?: boolean;
 };
 
 type ResourceView = "room" | "coach";
@@ -222,16 +227,18 @@ function SessionCard({
   const moved = Boolean(session.rescheduledFromStartsAt);
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
   const trialClass = isTrial(session) && !copy.groupClass;
+  const rental = session.previewKind === "RENTAL";
+  const changed = session.previewKind === "CHANGED";
   const scheduleType = fixed ? (session.isBiweekly ? "隔週固定" : "每週固定") : "約課";
-  const primaryType = trialClass ? "體驗" : substitute ? "代課" : moved ? "調課" : copy.groupClass ? "團體" : fixed ? session.isBiweekly ? "隔週" : "每週" : "約課";
-  const typeBadge = trialClass ? "bg-rose-200 text-rose-950" : substitute || moved ? "bg-amber-100 text-amber-900" : copy.groupClass ? "bg-purple-100 text-purple-900" : fixed ? session.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900" : "bg-amber-100 text-amber-900";
+  const primaryType = rental ? "租借" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : copy.groupClass ? "團體" : fixed ? session.isBiweekly ? "隔週" : "每週" : "約課";
+  const typeBadge = rental ? "bg-fuchsia-200 text-fuchsia-950" : trialClass ? "bg-rose-200 text-rose-950" : changed ? "bg-amber-100 text-amber-900" : substitute || moved ? "bg-amber-100 text-amber-900" : copy.groupClass ? "bg-purple-100 text-purple-900" : fixed ? session.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900" : "bg-amber-100 text-amber-900";
   const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
   const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
   const attendance = courseAttendanceProgress(session.bookings, leaveCount);
   const attendanceComplete = businessProfile === "MUSIC"
     ? attendance.complete
     : activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
-  const attendanceLabel = attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
+  const attendanceLabel = session.previewRosterUnknown ? "截圖未顯示學員名單" : attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
   const musicTypeColor = trialClass
     ? "border-rose-400 bg-rose-100"
     : substitute || moved
@@ -255,14 +262,15 @@ function SessionCard({
   const musicColor = `${musicTypeColor} border-l-[4px] ${musicAttendanceColor}`;
   const showCapacityState = !musicDense || !copy.privateClass;
   const brief = sessionDurationMinutes(session) <= 30;
-  const studentLabel = copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
+  const studentLabel = rental || !copy.privateClass && !session.bookings.length
+    ? copy.primary : copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
   const cardName = !copy.privateClass && !brief ? copy.primary : studentLabel;
   const secondaryLine = [
-    !copy.privateClass ? `${attendance.total} 人` : "",
+    !copy.privateClass && session.bookings.length ? `${attendance.total} 人` : "",
     !copy.privateClass && attendance.processed > 0 && !attendanceComplete ? attendanceLabel : "",
   ].filter(Boolean).join(" · ");
   const originalCoach = substitute ? coaches.find((coach) => coach.id === session.rescheduledFromCoachId)?.displayName : null;
-  const resourceLabel = resourceView === "coach" && /^教室\s*\d+$/.test(copy.room)
+  const resourceLabel = rental ? "租借" : resourceView === "coach" && /^教室\s*\d+$/.test(copy.room)
     ? `${copy.room.replace(/^教室\s*/, "")}室`
     : resourceView === "coach" ? copy.room : copy.coach;
   return (
@@ -270,22 +278,22 @@ function SessionCard({
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? musicColor : moved ? "border-indigo-200 bg-indigo-50/80" : "border-earth-200 bg-white"} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
-      title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${secondaryType ? ` · ${secondaryType}` : ""} · ${attendanceLabel}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? rental ? "border-fuchsia-300 border-l-[4px] border-l-slate-400 bg-fuchsia-100" : changed ? "border-amber-200 border-l-[4px] border-l-slate-400 bg-amber-50/70" : musicColor : moved ? "border-indigo-200 bg-indigo-50/80" : "border-earth-200 bg-white"} ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
+      title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${attendanceLabel}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${attendanceLabel}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       {musicDense ? (
         <>
           <div className="flex min-w-0 items-center gap-1 text-[11px] leading-4">
             <span className="flex min-w-0 flex-1 items-center gap-1">
-              {brief && <span className={`shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{primaryType}</span>}
+              {brief && <span className={`shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{session.previewFaded ?? primaryType}</span>}
               <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
             </span>
             <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[10px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
           </div>
           {!brief && <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
             {secondaryLine && <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{secondaryLine}</span>}
-            <span className={`ml-auto shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{primaryType}</span>
+            <span className={`ml-auto shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{session.previewFaded ?? primaryType}</span>
           </div>}
         </>
       ) : (
@@ -381,12 +389,13 @@ export function CourseScheduleBoard({
   onSelectDate,
   onOpenSession,
   readOnly = false,
+  replica = false,
 }: Props) {
   const activeRooms = rooms.filter((room) => room.isActive);
   const activeCoaches = coaches.filter(
     (coach) => coach.status === "ACTIVE" && coach.courseCoachEnabled,
   );
-  const [resourceView, setResourceView] = React.useState<ResourceView>(businessProfile === "MUSIC" ? "coach" : "room");
+  const [resourceView, setResourceView] = React.useState<ResourceView>(businessProfile === "MUSIC" && !replica ? "coach" : "room");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
   const [availabilityDuration, setAvailabilityDuration] = React.useState<30 | 60 | 90 | 120>(60);
   const [matchedSlots, setMatchedSlots] = React.useState<MusicSlotMatch[] | null>(null);
@@ -579,7 +588,7 @@ export function CourseScheduleBoard({
   return (
     <section className="space-y-2" aria-label="日課表">
       <div className="flex max-w-full flex-wrap items-center gap-2">
-        <div
+        {!replica && <div
           className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5"
           aria-label="今日狀態快速篩選"
         >
@@ -599,9 +608,9 @@ export function CourseScheduleBoard({
           <span className="px-1 text-xs text-earth-600">
             {musicDense ? "預約學員" : "預約"} <strong className="text-earth-800">{booked}</strong> {musicDense ? "位" : "人"}
           </span>
-        </div>
+        </div>}
 
-        {musicDense && !moveClipboard && (
+        {musicDense && !moveClipboard && !replica && (
           <label className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-earth-200 bg-white px-2 text-xs text-earth-600">
             <span>找空位</span>
             <select
@@ -648,9 +657,9 @@ export function CourseScheduleBoard({
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片底色表示課型">
             <span className="font-semibold text-earth-800">底色＝課型</span>
             {[
-              ["每週", "border-teal-200 bg-teal-50"],
-              ["隔週", "border-blue-200 bg-blue-50"],
-              ["約課／調課／代課", "border-amber-200 bg-amber-50"],
+              [replica ? "固定（原圖藍）" : "每週", "border-teal-200 bg-teal-50"],
+              ...(!replica ? [["隔週", "border-blue-200 bg-blue-50"]] : []),
+              [replica ? "異動（原圖綠）" : "約課／調課／代課", "border-amber-200 bg-amber-50"],
               ["團體", "border-purple-200 bg-purple-50"],
               ["體驗", "border-rose-400 bg-rose-100"],
             ].map(([label, color]) => (
@@ -658,6 +667,7 @@ export function CourseScheduleBoard({
                 <span className={`h-3 w-3 rounded-sm border ${color}`} aria-hidden="true" />{label}
               </span>
             ))}
+            {replica && <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-fuchsia-300 bg-fuchsia-100" aria-hidden="true" />租借</span>}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片左槓表示點名進度">
             <span className="font-semibold text-earth-800">左槓＝點名進度</span>

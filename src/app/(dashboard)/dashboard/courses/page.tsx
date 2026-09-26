@@ -17,6 +17,7 @@ import {
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
 import { MusicTypesShowcase } from "./showcase/music-types-showcase";
+import { LubyRealDayShowcase } from "./showcase/luby-real-day-showcase";
 import { resolvedCourseHours } from "@/lib/course-business-hours";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
@@ -52,6 +53,15 @@ export default async function CoursesPage({
     return (
       <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
         <MusicTypesShowcase date={date} />
+      </PageShell>
+    );
+  }
+  if (query.showcase === "luby-day" && process.env.VERCEL_ENV === "preview") {
+    const activeStore = await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } });
+    if (activeStore?.slug !== "lubymusic") redirect("/dashboard/courses");
+    return (
+      <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
+        <LubyRealDayShowcase date="2026-09-26" />
       </PageShell>
     );
   }
