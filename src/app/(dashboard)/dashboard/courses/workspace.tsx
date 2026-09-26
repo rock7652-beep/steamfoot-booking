@@ -2148,6 +2148,13 @@ export function CourseWorkspace({
                   <button type="button" className={button} onClick={() => { setMoveChoice(null); setCourseDialog(null); }}>關閉</button>
                 </div>
               </header>
+              {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canCreate && dialogSession.bookings.length < dialogSession.capacity && (
+                <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-earth-200 bg-white px-4 py-2 text-sm">
+                  {dialogSession.bookings.length === 0 && <strong className="mr-1 text-primary-900">最後一步：選學員</strong>}
+                  <button type="button" className={primary} onClick={() => setCourseDialog({sessionId:dialogSession.id,kind:"member-booking"})}>＋ 選學員</button>
+                  <button type="button" className={button} onClick={() => setCourseDialog({sessionId:dialogSession.id,kind:"trial-booking"})}>＋ 新增體驗客</button>
+                </div>
+              )}
               {error && <p role="alert" className="shrink-0 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
               {courseDialog.kind === "roster" && dialogSession.isFixed && moveChoice?.id === dialogSession.id && !moveClipboard && (
                 <div className="shrink-0 space-y-2 border-b border-indigo-200 bg-indigo-50 px-4 py-3 text-sm">
