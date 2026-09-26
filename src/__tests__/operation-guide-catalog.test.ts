@@ -9,7 +9,7 @@ describe("guide catalogue", () => {
     const permissions = [...new Set(operationGuides.flatMap(g => [g.permission, ...(g.additionalPermissions ?? [])]).filter(Boolean))];
     const features = Object.fromEntries(operationGuides.filter(g => g.feature).map(g => [g.feature!, true]));
     const course: GuideAccess = { module: "course", permissions, features };
-    expect(availableGuides(course)).toHaveLength(53);
+    expect(availableGuides(course)).toHaveLength(54);
     expect(availableGuides({...course, features:{}}).some(g => g.id === "C135")).toBe(false);
     expect(availableGuides({...course, permissions:["customer.read"]}).some(g => g.id === "C128")).toBe(false);
     expect(findOperationGuides("量測", course).some(g => g.id === "C135")).toBe(true);
@@ -39,7 +39,7 @@ describe("guide catalogue", () => {
       ],
       features: {line_reminder: true, basic_reports: true},
     };
-    expect(operationGuides).toHaveLength(145);
+    expect(operationGuides).toHaveLength(148);
     expect(availableGuides(allCourse).map(g => g.id)).toEqual(expect.arrayContaining([
       "C101", "C102", "C103", "C104", "C105", "C106", "C107", "C108", "C109",
       "C110", "C111", "C112", "C113", "C114", "C115", "C116", "C117",

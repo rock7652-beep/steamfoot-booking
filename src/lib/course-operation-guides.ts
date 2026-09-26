@@ -45,11 +45,11 @@ export const courseOperationGuides: OperationGuide[] = [
   {
     id: "C105", category: "money", title: "課程方案如何登錄協商退款？",
     summary: "核對實付、已退款、剩餘與占用，再輸入協商金額。", answer: "有退款權限的店長可登錄實際退款金額，累計不得超過原實付。",
-    keywords: "退款 實付 退費 作廢 方案", path: "營運 → 購買明細 → 登錄退款",
-    steps: ["找到原核帳購買，核對實付、已退款及尚可退款金額。", "先處理預約占用；輸入協商金額、退款方式及原因，核對收回全部剩餘額度並停用卡片的確認文字。", "登錄後核對訂單、卡片結清、退款紀錄與收支結果；系統沒有自動退刷或轉帳。"],
+    keywords: "退款 實付 退費 作廢誤建交易 原交易明細 退款試算 選用 停用方案", path: "營運 → 購買明細 → 登錄退款",
+    steps: ["找到原核帳購買，核對已退款及尚可退款；需要查原資料時展開「原交易明細」。", "先處理預約占用，再填退款金額、方式及原因；「退款試算（選用）」不會自動帶入金額。", "核對收回全部剩餘額度的提示，點「登錄退款並停用方案」，再查看原交易與退款紀錄；系統不會自動退刷或轉帳。"],
     important: "累計退款不得超過實付。系統記錄退款不代表銀行已自動匯款，實際退款需另行核對。",
     success: "退款紀錄保留，該卡停用、可用額度為零，收支與訂單一致。",
-    details: ["贈送額度不折算現金。參考金額不強制限制協商結果，但累計退款上限仍是實付。", "同一退款重送不會再次退款；已結清卡若尚有可退款金額可補登，不會再次收回額度。現金方式需今日抽屜已開店。"],
+    details: ["贈送額度不折算現金。參考金額不強制限制協商結果，但累計退款上限仍是實付。", "同一退款重送不會再次退款；已結清卡若尚有可退款金額可補登，不會再次收回額度。現金方式需今日抽屜已開店。", "建錯或重複交易才用「作廢誤建交易」，須無預約及額度異動，填原因後「確認作廢」；另需作廢權限。實際退還款項不能用作廢冒充退款。"],
     permission: "transaction.refund", additionalPermissions: ["transaction.read"], feature: null, sources: ["src/server/services/course-refund.ts", "src/app/(dashboard)/dashboard/revenue/_components/course-transaction-actions.tsx"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -113,14 +113,14 @@ export const courseOperationGuides: OperationGuide[] = [
     permission: "plans.edit", additionalPermissions: ["wallet.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/server/actions/course-members.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
-    id: "C112", category: "plans", title: "店內指派方案並結帳，怎麼處理？",
-    summary: "選顧客、方案、效期與本次開發人，再核對優惠、實收及收款方式。", answer: "新版指派會同時完成發卡、購買與收款登記；全額折抵保留購買與方案，但不建立收入。",
-    keywords: "指派方案 開卡 結帳 折扣 打折 折抵 收款 轉帳 後四碼 店家成本 開發人 直屬店長", path: "顧客管理 → 顧客詳情 → 持有方案 → 指派方案",
-    steps: ["從顧客詳情開啟指派方案，核對帶入的顧客、上架方案、有效至日期與本次開發人。", "選優惠與已收款方式；轉帳填後四碼，並核對原價、折抵、實收、店家成本及可見的分配摘要。", "點「確認結帳並指派方案」一次；完成後回到顧客持有方案與營運交易核對。"],
+    id: "C112", category: "plans", title: "店內購買方案並結帳，怎麼處理？",
+    summary: "選顧客、方案、效期與本次開發人，再核對優惠、實收及收款方式。", answer: "「購買方案」確認結帳會同時完成發卡、購買與收款登記；全額折抵保留購買與方案，但不建立收入。",
+    keywords: "指派方案 購買方案 確認結帳 現金抽屜 重新確認 折扣 打折 折抵 轉帳 後四碼 店家成本 開發人", path: "顧客管理 → 顧客詳情 → 持有方案 → 購買方案",
+    steps: ["從顧客詳情點「購買方案」（原指派方案），核對學員、上架方案、效期與本次開發人。", "選優惠與已收款方式；轉帳填後四碼。現金且實收大於零時，先等畫面確認今日現金抽屜已開啟。", "抽屜未開時可另開新分頁處理，回來按「重新確認」；若已結帳先依權限處理，不改填別種付款方式繞過。", "核對實收後點「確認結帳」一次，看到「結帳完成，方案已加入」，再查持有方案與原交易。"],
     important: "這個按鈕會同時發卡並登記收款，不是單純增加額度。連線中斷先查原交易，不要直接重按。",
     success: "只新增一張卡、一筆購買與一筆對應收款；顧客、效期、實收與本次開發人快照正確。",
     details: ["從顧客進入時會帶入其直屬店長作為本次開發人，可依實際成交調整；沒有用核帳人自動代替。使用折扣另需折扣權限。", "實收不能低於店家成本；成本為 0 的全額折抵不要求付款方式，也不建立收入。現金需今日抽屜已開啟。"],
-    permission: "wallet.create", additionalPermissions: ["transaction.create", "customer.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/components/admin/course-assignment-payment.tsx", "src/server/services/course-assignment-checkout.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
+    permission: "wallet.create", additionalPermissions: ["transaction.create", "customer.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/member-workspace.tsx", "src/components/admin/course-assignment-payment.tsx", "src/server/actions/course-checkout-status.ts", "src/server/services/course-assignment-checkout.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
     id: "C113", category: "money", title: "會員線上回報轉帳後，店家如何核帳？",
@@ -204,9 +204,9 @@ export const courseOperationGuides: OperationGuide[] = [
   },
   {
     id: "C121", category: "care", title: "首頁顯示「未指派方案」，要怎麼處理？",
-    summary: "打開站內待辦名單，核對顧客後再進顧客頁指派方案。", answer: "這是尚無本店課程方案紀錄的站內待辦，不會自動傳 LINE，也不代表顧客欠款。",
+    summary: "打開站內待辦名單，核對顧客後再進顧客頁購買方案。", answer: "這是尚無本店課程方案紀錄的站內待辦，不會自動傳 LINE，也不代表顧客欠款。",
     keywords: "未指派方案 顧客方案待辦 沒有方案 站內提醒 不發LINE", path: "首頁 → 顧客方案待辦；設定 → 通知與顧客經營 → 未指派方案提醒",
-    steps: ["打開未指派方案名單，核對姓名、電話末四碼、建檔日與直屬店長。", "進入顧客詳情查既有卡片、待核帳與歷史，避免重複指派。", "確定需要購買時再依實際收款完成指派結帳；返回名單重新整理。"],
+    steps: ["打開未指派方案名單，核對姓名、電話末四碼、建檔日與直屬店長。", "進入顧客詳情查既有卡片、待核帳與歷史，避免重複購買。", "確定需要購買時點「購買方案」，依實際收款「確認結帳」；返回名單重新整理。"],
     important: "不要把名單當成催款名單或直接群發通知；本功能目前只讀、不自動建立方案或交易。",
     success: "完成有效指派後重新整理，該顧客移出名單；未處理者仍保留。",
     details: ["已有共卡成員、待核帳、已核帳／退款訂單、到期／用完／結清卡或持卡預約歷史者不列入；純教練帳號也排除。", "名單沿用店別與直屬店長可見範圍，需要顧客與方案查看權限；查詢失敗不顯示假零人。"],
@@ -219,7 +219,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["選日期範圍並展開授課費，核對課次、教練、固定費與付款狀態。", "在待付課次點登錄已付，選現金或非現金並填付款備註後確認。", "若只是誤登，點更正誤登並填原因；另行確認實際匯款或款項收回。"],
     important: "登錄或更正都不是銀行付款／退款。現金付款需今日抽屜已開啟；連線中斷先重新整理查結果。",
     success: "付款狀態與備註正確，現金帳有對應支出；更正保留原付款及反向沖回紀錄。",
-    details: ["只有已結束、未取消、費率為正整數且教練與快照一致的課次可登錄；0 元表示不另領。", "舊課次缺費率或小數金額會標成待核對；單次最多顯示 100 堂，超過時需縮短日期範圍。", "已開通月結管理的課程店也可在確認月結金額後登錄授課費；與收入總覽共用同一付款紀錄，不要重複新增支出。"],
+    details: ["只有已結束、未取消、費率為正整數且教練與快照一致的課次可登錄；0 元表示不另領。", "舊課次缺費率或小數金額會標成待核對；單次最多顯示 100 堂，超過時需縮短日期範圍。", "新版每月收入結算不再提供新增付款入口；原授課費付款仍從營運處理。月結可查看歷史付款，兩處共用同一紀錄，不要重複新增支出。"],
     permission: "cashbook.read", additionalPermissions: ["cashbook.create"], feature: null, sources: ["src/app/(dashboard)/dashboard/revenue/_components/course-fees.tsx", "src/app/(dashboard)/dashboard/revenue/_components/course-fee-payment-button.tsx", "src/server/services/course-fee-payment.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -239,7 +239,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["打開正確日期與課次，選「＋學員預約」後搜尋姓名、電話或 LINE。", "選到既有學員後核對系統列出的可用方案；多張適用卡會優先帶入最快到期者，仍可手動更換。", "找不到顧客時切換建立新體驗客，填姓名、電話與體驗金額後確認；再回名單核對。"],
     important: "不要為找不到的人重複建檔；先改用電話或姓名搜尋。體驗預約只保留名額，收款與出席仍分開處理。",
     success: "學員出現在正確課次名單；一般預約占用正確方案，體驗客顯示尚未收款。",
-    details: ["沒有適用方案時先指派方案，不能用不適用或已到期卡硬約；送出時系統仍會重查額度與容量。", "新體驗客建檔需顧客建立及體驗預約權限；不會自動發卡或登記收款。"],
+    details: ["沒有適用方案時先到顧客詳情「購買方案」並確認結帳，不能用不適用或已到期卡硬約；送出時系統仍會重查額度與容量。", "新體驗客建檔需顧客建立及體驗預約權限；不會自動發卡或登記收款。"],
     permission: "booking.create", additionalPermissions: ["booking.read", "customer.read"], feature: null, sources: ["src/app/(dashboard)/dashboard/courses/workspace.tsx", "src/app/(dashboard)/dashboard/courses/roster.tsx", "src/server/actions/course-members.ts"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
   {
@@ -249,7 +249,7 @@ export const courseOperationGuides: OperationGuide[] = [
     steps: ["選擇標示可購買且適用的方案，核對價格、額度、效期與店家銀行資訊。", "完成實際匯款後，輸入轉出帳號後四碼並送出一次。", "到購買紀錄查看待核帳；店家確認後，再到我的方案核對額度與期限。"],
     important: "送出回報不代表已付款完成或方案已啟用；查詢進度不要重複送出同一筆。",
     success: "購買紀錄出現一筆待核帳，核帳後才有一張有效方案卡。",
-    details: ["只有上架且設為「顧客可購買」的方案會出現；僅後台指派方案不顯示。", "系統不會自動扣款；後四碼只供對帳，店家仍需查看實際入帳。舊資料欄位名稱雖保留，畫面與驗證均為四碼。"],
+    details: ["只有上架且設為「顧客可購買」的方案會出現；僅供後台「購買方案」結帳使用的方案，不會因此開放會員自行購買。", "系統不會自動扣款；後四碼只供對帳，店家仍需查看實際入帳。舊資料欄位名稱雖保留，畫面與驗證均為四碼。"],
     permission: "customer.read", feature: null, sources: ["src/app/(customer)/book/course-portal-client.tsx", "src/server/actions/course-portal.ts", "src/app/(customer)/book/course-portal.tsx"], kind: "howto", modules: ["course"], verification: "source-reviewed",
   },
 ];
