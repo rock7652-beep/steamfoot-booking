@@ -243,7 +243,14 @@ function SessionCard({
   const showCapacityState = !musicDense || !copy.privateClass;
   const brief = sessionDurationMinutes(session) <= 30;
   const studentLabel = copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
+  const secondaryLine = [
+    secondaryType,
+    !copy.privateClass && attendance.processed > 0 && !attendanceComplete ? attendanceLabel : "",
+  ].filter(Boolean).join(" · ");
   const originalCoach = substitute ? coaches.find((coach) => coach.id === session.rescheduledFromCoachId)?.displayName : null;
+  const resourceLabel = resourceView === "coach" && /^教室\s*\d+$/.test(copy.room)
+    ? `${copy.room.replace(/^教室\s*/, "")}室`
+    : resourceView === "coach" ? copy.room : copy.coach;
   return (
     <button
       type="button"
@@ -260,13 +267,12 @@ function SessionCard({
               {brief && <span className={`shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{primaryType}</span>}
               <strong className="min-w-0 truncate text-earth-900">{studentLabel}</strong>
             </span>
-            <span className="max-w-[36%] min-w-0 shrink-0 truncate rounded bg-earth-700 px-1.5 text-right text-[10px] font-bold text-white">{resourceView === "coach" ? copy.room : copy.coach}</span>
+            <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[10px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
           </div>
           {!brief && <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
-            <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{copy.privateClass ? session.nameSnapshot : secondaryType || `${attendance.total}/${session.capacity} 人`}{copy.privateClass && secondaryType ? ` · ${secondaryType}` : ""}{!copy.privateClass && attendance.processed > 0 && !attendanceComplete ? ` · ${attendanceLabel}` : ""}</span>
+            <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{secondaryLine}</span>
             <span className={`shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{primaryType}</span>
           </div>}
-          {sessionDurationMinutes(session) >= 90 && <p className="truncate text-[10px] leading-4 text-earth-600">{attendanceComplete ? "點名完成 · " : ""}{copy.privateClass ? session.nameSnapshot : `${attendance.total}/${session.capacity} 人`}</p>}
         </>
       ) : (
       <>
@@ -636,8 +642,7 @@ export function CourseScheduleBoard({
               <span className={`h-3 w-3 rounded-sm border-l-[3px] ${color}`} aria-hidden="true" />{label}
             </span>
           ))}
-          <span className="text-earth-500">卡片左側學員／團班，右側當天授課老師；調課、代課仍保留原排課週期</span>
-          <span className="text-earth-600">色條淺＝有人待點名；同色深＝全員已處理（含請假、曠課）</span>
+          <span className="text-earth-600">色條深＝全員點名完成（含請假、曠課）</span>
         </div>
       )}
 
