@@ -253,10 +253,10 @@ function SessionCard({
               {arrivedCount > 0 && <span className="h-[3px] w-2 shrink-0 rounded bg-emerald-600" aria-hidden="true" />}
               <strong className="min-w-0 truncate text-earth-900">{studentLabel}</strong>
             </span>
-            <span className="max-w-[42%] min-w-0 shrink-0 truncate rounded bg-earth-700 px-1.5 text-right text-[10px] font-bold text-white">{copy.coach}</span>
+            <span className="max-w-[36%] min-w-0 shrink-0 truncate rounded bg-earth-700 px-1.5 text-right text-[10px] font-bold text-white">{resourceView === "coach" ? copy.room : copy.coach}</span>
           </div>
           {!brief && <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
-            <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{copy.room}{secondaryType ? ` · ${secondaryType}` : ""}{!copy.privateClass && arrivedCount > 0 ? ` · 到 ${arrivedCount}/${activeBookings.length}` : ""}</span>
+            <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{copy.privateClass ? session.nameSnapshot : secondaryType || `${activeBookings.length}/${session.capacity} 人`}{copy.privateClass && secondaryType ? ` · ${secondaryType}` : ""}{!copy.privateClass && arrivedCount > 0 ? ` · 到 ${arrivedCount}/${activeBookings.length}` : ""}</span>
             <span className={`shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{primaryType}</span>
           </div>}
           {sessionDurationMinutes(session) >= 90 && <p className="truncate text-[10px] leading-4 text-earth-600">{attendanceComplete ? "已出席 · " : ""}{copy.privateClass ? session.nameSnapshot : `${session.bookings.length}/${session.capacity} 人`}</p>}
