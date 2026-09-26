@@ -1,39 +1,49 @@
 {
   "schemaVersion": 1,
   "repository": "rock7652-beep/steamfoot-booking",
-  "auditDateTaipei": "2026-09-25",
+  "auditDateTaipei": "2026-09-26",
   "baselineCommit": "e69323f41762d2caad6a92f998b591ca5bf61fa1",
-  "lastInventoriedMainCommit": "64d30d3850fad31e11f87811750a42128e07919d",
-  "previousSuccessfulAuditCommit": "953785e9159641e3ecc1f39276a83b930e8cbcf1",
+  "lastInventoriedMainCommit": "b0afa71dba9f158ada393085d2247968e52ac03c",
+  "previousSuccessfulAuditCommit": "64d30d3850fad31e11f87811750a42128e07919d",
   "mode": "incremental-main-change-review",
-  "branch": "docs/operation-guide-audit-20260925",
+  "branch": "docs/operation-guide-audit-20260926",
   "newGuideIds": [
-    "C138",
-    "C139",
-    "C140",
-    "C141",
-    "I10",
-    "S04"
+    "C142",
+    "E13",
+    "E14"
   ],
   "updatedGuideIds": [
-    "B04",
-    "B06",
-    "C116",
-    "C122"
-  ],
-  "cumulativeDraftNewGuideIds": [
+    "C105",
+    "C112",
+    "C121",
+    "C122",
+    "C124",
+    "C125",
+    "C126",
+    "C128",
+    "C134",
     "C138",
     "C139",
-    "C140",
-    "C141",
-    "I10",
-    "S04"
+    "C140"
+  ],
+  "cumulativeDraftNewGuideIds": [
+    "C142",
+    "E13",
+    "E14"
   ],
   "cumulativeDraftUpdatedGuideIds": [
-    "B04",
-    "B06",
-    "C116",
-    "C122"
+    "C105",
+    "C112",
+    "C121",
+    "C122",
+    "C124",
+    "C125",
+    "C126",
+    "C128",
+    "C134",
+    "C138",
+    "C139",
+    "C140"
   ],
   "interactionPendingGuideIds": [
     "D12",
@@ -117,9 +127,12 @@
     "I10",
     "S04",
     "B04",
-    "B06"
+    "B06",
+    "C142",
+    "E13",
+    "E14"
   ],
-  "articleCount": 145,
+  "articleCount": 148,
   "reviewedMainPullRequests": [
     1043,
     1044,
@@ -164,12 +177,20 @@
     1092,
     1093,
     1094,
-    1096
+    1096,
+    1097,
+    1098,
+    1100,
+    1101,
+    1102,
+    1103,
+    1104,
+    1105
   ],
   "interactionStatus": "not-completed-no-confirmed-isolated-session",
   "allArticlesInteractionVerified": false,
   "allSystemCoverageComplete": false,
-  "continuation": "Read this state in open audit PR before main so an unmerged successful audit is not repeated. Source inventory through 64d30d38 completed; keep draft changes separate from published articles. Preserve 82 backend and 16 course frontend pending operation checks. Do not infer guide acceptance from another feature PR acceptance or screenshots.",
+  "continuation": "Read this state in open audit PR before main so an unmerged successful audit is not repeated. Source inventory through b0afa71d completed. #1098 is published; September 26 edits remain draft only. Preserve 85 backend and 18 course frontend pending operation checks. Source/tests/deployment do not imply logged-in acceptance.",
   "supplementalCourseReview": {
     "baseCommit": "f7ac8433f062c83dd2d756aeecd2e513a33c239e",
     "newGuideIds": [
@@ -215,20 +236,24 @@
     "CP13",
     "CP14",
     "CP15",
-    "CP16"
+    "CP16",
+    "CP17",
+    "CP18"
   ],
-  "frontendArticleCount": 16,
-  "backendInteractionPendingCount": 82,
-  "totalInteractionPendingCount": 98,
-  "reviewedMainCommitCount": 12,
-  "reviewedStandaloneCommits": [
-    "5d519f0d",
-    "338f10cd"
-  ],
+  "frontendArticleCount": 18,
+  "backendInteractionPendingCount": 85,
+  "totalInteractionPendingCount": 103,
+  "reviewedMainCommitCount": 8,
+  "reviewedStandaloneCommits": [],
   "publishedGuidePullRequests": [
     1042,
     1091,
     1093,
-    1094
+    1094,
+    1098
+  ],
+  "frontendNewGuideIds": [
+    "CP17",
+    "CP18"
   ]
 }
