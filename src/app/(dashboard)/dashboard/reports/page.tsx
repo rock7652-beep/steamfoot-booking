@@ -41,6 +41,8 @@ import {
 import { DashboardLink } from "@/components/dashboard-link";
 import { PerformanceTrendChart } from "./performance-trend-chart";
 import { RevenueMixTrend } from "@/components/revenue-mix-trend";
+import { getStoreIndustryModule } from "@/lib/industry-module-server";
+import { SpaAnalysisPage } from "./spa-analysis-page";
 
 interface PageProps {
   searchParams: Promise<{
@@ -75,6 +77,18 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         description="分析可依方案選用或加購；目前門市尚未開通，請聯絡總部確認任選名額與開通設定。"
       />
     );
+  }
+
+  if (reportsStoreId) {
+    const industryModule = await getStoreIndustryModule(reportsStoreId);
+    if (industryModule === "spa") return <SpaAnalysisPage storeId={reportsStoreId} params={params} user={user} isViewMode={isViewMode} />;
+    if (industryModule === "course") {
+      const query = new URLSearchParams({ view: "analytics" });
+      for (const key of ["preset", "startDate", "endDate", "month"] as const) {
+        if (params[key]) query.set(key, params[key]);
+      }
+      redirect(`/dashboard/courses?${query}`);
+    }
   }
 
   const selection = resolveAnalysisRange(params);
