@@ -1,7 +1,5 @@
 "use client";
 
-import { toast } from "sonner";
-import { copyToClipboard } from "@/lib/share";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { LinkPendingLabel } from "@/components/link-pending-label";
 import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge";
@@ -440,7 +438,7 @@ function TimelineItem({
         ) : null}
       </div>
 
-      {/* 詳情與複製使用同層按鈕，避免巢狀 button 或複製時開啟詳情。 */}
+      {/* 詳情按鈕與撥號連結分開，避免撥號時開啟詳情。 */}
       <div className="relative isolate flex min-w-0 flex-1 flex-col gap-1 py-2 text-left">
         <button
           type="button"
@@ -477,21 +475,14 @@ function TimelineItem({
             {meta.label}
           </StatusBadge>
           {phone ? (
-            <span className="relative z-20 inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-earth-700">
-              <span className="select-text tabular-nums">{displayPhone}</span>
-              <button
-                type="button"
-                aria-label={`複製 ${booking.customer.name} 的手機號碼`}
-                onClick={async () => {
-                  const copied = await copyToClipboard(phone);
-                  if (copied) toast.success("已複製手機號碼");
-                  else toast.error("無法自動複製，請選取號碼手動複製");
-                }}
-                className="inline-flex min-h-8 min-w-11 items-center justify-center rounded px-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600"
-              >
-                複製
-              </button>
-            </span>
+            <a
+              href={`tel:${phone.replace(/[^+\d]/g, "")}`}
+              aria-label={`撥打 ${booking.customer.name} 的手機號碼 ${displayPhone}`}
+              className="relative z-20 inline-flex min-h-8 shrink-0 items-center gap-2 whitespace-nowrap rounded text-sm text-primary-700 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-600"
+            >
+              <span className="tabular-nums">{displayPhone}</span>
+              <span className="px-1.5 text-xs font-medium">撥打</span>
+            </a>
           ) : (
             <span className="text-sm text-earth-500">未留電話</span>
           )}
