@@ -17,6 +17,7 @@ import type { UserRole } from "@prisma/client";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { CourseStaffAvailabilityEditor } from "../../../courses/course-staff-availability-editor";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -260,6 +261,10 @@ export default async function EditStaffPage({ params, searchParams }: PageProps)
         </div>
       )}
       </div>
+
+      {staff.courseCoachEnabled && canManageStaff && (
+        <CourseStaffAvailabilityEditor staffId={staff.id} />
+      )}
 
       {/* 統計 */}
       <div className="rounded-xl border bg-white p-4 shadow-sm">

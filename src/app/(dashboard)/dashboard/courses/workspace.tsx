@@ -8,6 +8,7 @@ import { CourseRoster } from "./roster";
 import {
   CourseScheduleBoard,
   type CourseScheduleMode,
+  type CourseMoveClipboard,
 } from "./course-schedule-board";
 import { RightSheet } from "@/components/admin/right-sheet";
 import {
@@ -25,6 +26,7 @@ import {
   updateCourseRoom,
   updateCourseTemplate,
   updateCourseSession,
+  moveCourseSessions,
   setCourseCatalogStatus,
   batchCourseTemplates,
 } from "@/server/actions/course";
@@ -64,6 +66,13 @@ type Session = {
   roomId: string;
   capacity: number;
   pointCost: number;
+  requestKey?: string;
+  rescheduledFromStartsAt?: string | null;
+  rescheduledFromEndsAt?: string | null;
+  rescheduledFromRoomId?: string | null;
+  rescheduledFromCoachId?: string | null;
+  rescheduleKind?: string | null;
+  rescheduledAt?: string | null;
 };
 type Props = {
   selectedDate: string;
@@ -71,8 +80,10 @@ type Props = {
   nowIso: string;
   calendarDays: Record<
     string,
-    { status: "open" | "closed" | "training" | "custom"; reason: string | null }
+    { status: "open" | "closed" | "training" | "custom"; reason: string | null; periods: {openTime:string;closeTime:string}[] }
   >;
+  staffAvailability: {staffId:string;dayOfWeek:number;segments:unknown}[];
+  staffAvailabilityExceptions: {staffId:string;date:string;type:string;segments:unknown;reason:string|null}[];
   rooms: Room[];
   templates: Template[];
   sessions: Session[];
@@ -81,6 +92,7 @@ type Props = {
   canDelete?: boolean;
   canEdit: boolean;
   cashbookShortcut?: ReactNode;
+  businessProfile: "FITNESS" | "MUSIC";
   view: "schedule" | "catalog" | "rooms";
 };
 const button =
@@ -102,6 +114,9 @@ export function CourseWorkspace({
   canCreate,
   canEdit,
   cashbookShortcut,
+  businessProfile,
+  staffAvailability,
+  staffAvailabilityExceptions,
   view,
 }: Props) {
   const coaches = allCoaches.filter((c) => c.status === "ACTIVE" && c.courseCoachEnabled);
@@ -114,9 +129,11 @@ export function CourseWorkspace({
   const selectedDate = requestedDate && parseTaipeiDateTime(requestedDate, "00:00") ? requestedDate : loadedDate;
   const requestedScheduleMode = params.get("scheduleView");
   const [scheduleMode, setScheduleMode] = useState<CourseScheduleMode>(
-    requestedScheduleMode === "day" || requestedScheduleMode === "week"
+    requestedScheduleMode === "day" || requestedScheduleMode === "week" || requestedScheduleMode === "month"
       ? requestedScheduleMode
-      : "month",
+      : businessProfile === "MUSIC"
+        ? "day"
+        : "month",
   );
   function changeScheduleMode(nextMode: CourseScheduleMode) {
     setScheduleMode(nextMode);
@@ -261,8 +278,81 @@ export function CourseWorkspace({
   const [roomCapacityNotice, setRoomCapacityNotice] = useState("");
   const [extraDateKeys, setExtraDateKeys] = useState<string[]>([]);
   const [copySource, setCopySource] = useState<Session | null>(null);
-  function openSchedule() {
+  const [moveChoice, setMoveChoice] = useState<Session | null>(null);
+  const [moveClipboard, setMoveClipboard] = useState<CourseMoveClipboard | null>(null);
+  const moveStorageKey = `course-move:${pathname}`;
+  const moveChoiceIsFixed = Boolean(
+    moveChoice?.requestKey &&
+    sessions.some((session) => session.id !== moveChoice.id && session.requestKey === moveChoice.requestKey),
+  );
+
+  useEffect(() => {
+    if (businessProfile !== "MUSIC") return;
+    try {
+      const saved = window.sessionStorage.getItem(moveStorageKey);
+      if (saved) setMoveClipboard((current) => current ?? JSON.parse(saved) as CourseMoveClipboard);
+    } catch {
+      // A stale clipboard must never block the schedule.
+    }
+  }, [businessProfile, moveStorageKey]);
+
+  useEffect(() => {
+    if (businessProfile !== "MUSIC") return;
+    try {
+      if (moveClipboard) window.sessionStorage.setItem(moveStorageKey, JSON.stringify(moveClipboard));
+      else window.sessionStorage.removeItem(moveStorageKey);
+    } catch {
+      // sessionStorage is only a convenience for cross-month moves.
+    }
+  }, [businessProfile, moveClipboard, moveStorageKey]);
+
+  const [scheduleSeed,setScheduleSeed]=useState<{time?:string;roomId?:string;coachId?:string;durationMinutes?:number}>({});
+  function beginMove(session: Session, scope: CourseMoveClipboard["scope"], weeks?: number) {
+    const durationMinutes = Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
+    setMoveClipboard({
+      sessionId: session.id,
+      templateId: session.templateId,
+      coachId: session.coachId,
+      roomId: session.roomId,
+      durationMinutes,
+      scope,
+      weeks,
+      label: session.bookings[0]?.customerName || session.nameSnapshot,
+    });
+    setMoveChoice(null);
+    setNotice("");
+    setError("");
+  }
+  function pasteMove(value: {time:string;roomId:string;coachId:string}) {
+    if (!moveClipboard || pending) return;
+    setError("");
+    setNotice("");
+    startTransition(async () => {
+      try {
+        const result = await moveCourseSessions({
+          id: moveClipboard.sessionId,
+          scope: moveClipboard.scope,
+          weeks: moveClipboard.weeks,
+          date: selectedDate,
+          time: value.time,
+          roomId: value.roomId,
+          coachId: value.coachId,
+        });
+        if (!result.success) {
+          setError(result.error ?? "這裡目前不能貼上");
+          return;
+        }
+        setMoveClipboard(null);
+        setNotice("已調課");
+        router.refresh();
+      } catch {
+        setError("調課失敗，原課程保留。");
+      }
+    });
+  }
+  function openSchedule(seed: {time?:string;roomId?:string;coachId?:string;durationMinutes?:number} = {}) {
     setCopySource(null);
+    setScheduleSeed(seed);
     setChosen(templates[0]?.id ?? "");
     setRequestKey(crypto.randomUUID());
     setRepeat(false);
@@ -315,7 +405,7 @@ export function CourseWorkspace({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="mr-1 min-w-[112px]">
-                <h1 className="text-base font-semibold text-earth-900">課表排程</h1>
+                <h1 className="text-base font-semibold text-earth-900">{businessProfile === "MUSIC" ? "音樂課表" : "課表排程"}</h1>
                 <p className="hidden text-[11px] text-earth-500 sm:block">安排與查看店內課程</p>
               </div>
               <div
@@ -424,7 +514,7 @@ export function CourseWorkspace({
                   <button
                     className={`${primary} min-h-9`}
                     disabled={pending}
-                    onClick={openSchedule}
+                    onClick={()=>openSchedule()}
                   >
                     ＋ 排課
                   </button>
@@ -435,7 +525,7 @@ export function CourseWorkspace({
 
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
             <span className="px-1 text-xs font-medium text-earth-500">篩選</span>
-            <label className="sr-only" htmlFor="course-coach-filter">教練</label>
+            <label className="sr-only" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "老師" : "教練"}</label>
             <select
               id="course-coach-filter"
               aria-label="教練篩選"
@@ -443,7 +533,7 @@ export function CourseWorkspace({
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
-              <option value="all">全部教練</option>
+              <option value="all">{businessProfile === "MUSIC" ? "全部老師" : "全部教練"}</option>
               {allCoaches.map((coach) => (
                 <option key={coach.id} value={coach.id}>
                   {coach.displayName}
@@ -586,7 +676,40 @@ export function CourseWorkspace({
           </div>
             </>
           ) : (
+            <>
+            {businessProfile === "MUSIC" && moveChoice && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm">
+                <strong>✂ 調課</strong>
+                <button className={primary} type="button" onClick={()=>beginMove(moveChoice,"SINGLE")}>這堂</button>
+                {moveChoiceIsFixed && (
+                  <>
+                    <select
+                      className="min-h-10 rounded-lg border border-earth-200 bg-white px-2"
+                      value=""
+                      onChange={(event)=>{
+                        const weeks=Number(event.target.value);
+                        if (weeks) beginMove(moveChoice,"WEEKS",weeks);
+                      }}
+                      aria-label="連續幾週"
+                    >
+                      <option value="">連續幾週</option>
+                      {[2,3,4,5,6,7,8].map((weeks)=><option key={weeks} value={weeks}>{weeks} 週</option>)}
+                    </select>
+                    <button className={button} type="button" onClick={()=>beginMove(moveChoice,"FUTURE")}>之後都改</button>
+                  </>
+                )}
+                <button className="ml-auto text-xs text-earth-500" type="button" onClick={()=>setMoveChoice(null)}>取消</button>
+              </div>
+            )}
+            {businessProfile === "MUSIC" && moveClipboard && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+                <strong>✂ {moveClipboard.label} · {moveClipboard.durationMinutes}分</strong>
+                <span className="text-xs text-indigo-700">選白格貼上</span>
+                <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
+              </div>
+            )}
             <CourseScheduleBoard
+              businessProfile={businessProfile}
               mode={scheduleMode}
               selectedDate={selectedDate}
               today={today}
@@ -595,12 +718,19 @@ export function CourseWorkspace({
               coaches={allCoaches}
               templates={allTemplates}
               pending={pending}
+              staffAvailability={staffAvailability}
+              staffAvailabilityExceptions={staffAvailabilityExceptions}
+              storePeriods={calendarDays[selectedDate]?.periods ?? []}
+              onOpenEmpty={({time,roomId,coachId,durationMinutes})=>openSchedule({time,roomId,coachId,durationMinutes})}
+              moveClipboard={moveClipboard}
+              onPasteMove={pasteMove}
               onSelectDate={go}
               onOpenSession={(sessionId, date) => {
                 go(date);
                 setCourseDialog({ sessionId, kind: "roster" });
               }}
             />
+            </>
           )}
           <p
             role="status"
@@ -1200,15 +1330,13 @@ export function CourseWorkspace({
                         </label>
                         <label>
                           時長（分鐘）
-                          <input
-                            className={field}
-                            name="duration"
-                            type="number"
-                            defaultValue={60}
-                            min={1}
-                            max={480}
-                            required
-                          />
+                          {businessProfile === "MUSIC" ? (
+                            <select className={field} name="duration" defaultValue={60} required>
+                              {[30, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分鐘</option>)}
+                            </select>
+                          ) : (
+                            <input className={field} name="duration" type="number" defaultValue={60} min={1} max={480} required />
+                          )}
                         </label>
                         <label>
                           點數卡每人扣點
@@ -1437,21 +1565,34 @@ export function CourseWorkspace({
                   <>
                     <label>
                       時長（分鐘）
-                      <input
-                        className={field}
-                        name="duration"
-                        type="number"
-                        min={1}
-                        max={480}
-                        required
-                        defaultValue={
-                          editing.kind === "template"
-                            ? editing.value.durationMinutes
-                            : (new Date(editing.value.endsAt).getTime() -
-                                new Date(editing.value.startsAt).getTime()) /
-                              60000
-                        }
-                      />
+                      {businessProfile === "MUSIC" ? (
+                        <select
+                          className={field}
+                          name="duration"
+                          required
+                          defaultValue={
+                            editing.kind === "template"
+                              ? editing.value.durationMinutes
+                              : (new Date(editing.value.endsAt).getTime() - new Date(editing.value.startsAt).getTime()) / 60000
+                          }
+                        >
+                          {[30, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} 分鐘</option>)}
+                        </select>
+                      ) : (
+                        <input
+                          className={field}
+                          name="duration"
+                          type="number"
+                          min={1}
+                          max={480}
+                          required
+                          defaultValue={
+                            editing.kind === "template"
+                              ? editing.value.durationMinutes
+                              : (new Date(editing.value.endsAt).getTime() - new Date(editing.value.startsAt).getTime()) / 60000
+                          }
+                        />
+                      )}
                     </label>
                     <label>
                       人數上限
@@ -1618,7 +1759,7 @@ export function CourseWorkspace({
                         className={field}
                         name="coachId"
                         required
-                        defaultValue={copySource?.coachId}
+                        defaultValue={copySource?.coachId ?? scheduleSeed.coachId}
                       >
                         {coaches.filter(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)).map((c) => (
                           <option key={c.id} value={c.id}>
@@ -1626,7 +1767,7 @@ export function CourseWorkspace({
                           </option>
                         ))}
                       </select>
-                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用教練，請先至人員管理設定資格。<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/staff")} target="_blank" rel="noopener noreferrer">開啟人員管理（保留此排課草稿）</a><button type="button" className={button} onClick={()=>router.refresh()}>已設定，更新教練名單</button></span>}
+                      {!coaches.some(c=>c.courseQualificationsConfirmed && c.courseQualifiedTemplateIds.includes(chosen)) && <span className="block text-sm text-amber-800">本課程尚無具授課資格的啟用{businessProfile === "MUSIC" ? "老師" : "教練"}，請先至人員管理設定資格。<a className="block min-h-11 py-2 underline" href={pathname.replace(/\/courses$/, "/staff")} target="_blank" rel="noopener noreferrer">開啟人員管理（保留此排課草稿）</a><button type="button" className={button} onClick={()=>router.refresh()}>已設定，更新教練名單</button></span>}
                     </label>
                     <label>
                       日期
@@ -1644,12 +1785,13 @@ export function CourseWorkspace({
                         className={field}
                         name="time"
                         type="time"
+                        step={businessProfile === "MUSIC" ? 1800 : undefined}
                         defaultValue={
                           copySource
                             ? formatTWDateTime(
                                 new Date(copySource.startsAt),
                               ).slice(11)
-                            : "18:00"
+                            : scheduleSeed.time ?? "18:00"
                         }
                         required
                       />
@@ -1661,7 +1803,7 @@ export function CourseWorkspace({
                           className={field}
                           name="roomId"
                           defaultValue={
-                            copySource?.roomId ?? template?.defaultRoomId ?? ""
+                            copySource?.roomId ?? scheduleSeed.roomId ?? template?.defaultRoomId ?? ""
                           }
                           required
                         >
@@ -1707,21 +1849,38 @@ export function CourseWorkspace({
                     <details className="col-span-full"><summary className="min-h-11 cursor-pointer py-3">調整本堂時長（預設 {copySource ? Math.round((new Date(copySource.endsAt).getTime()-new Date(copySource.startsAt).getTime())/60000) : template?.durationMinutes} 分鐘）</summary>
                     <label key={`duration-${chosen}`}>
                       時長（分鐘）
-                      <input
-                        className={field}
-                        name="duration"
-                        type="number"
-                        defaultValue={
-                          copySource
-                            ? (new Date(copySource.endsAt).getTime() -
-                                new Date(copySource.startsAt).getTime()) /
-                              60000
-                            : template?.durationMinutes
-                        }
-                        min={1}
-                        max={480}
-                        required
-                      />
+                      {businessProfile === "MUSIC" ? (
+                        <select
+                          className={field}
+                          name="duration"
+                          defaultValue={String(
+                            copySource
+                              ? (new Date(copySource.endsAt).getTime() - new Date(copySource.startsAt).getTime()) / 60000
+                              : scheduleSeed.durationMinutes ?? ([30, 60, 90, 120].includes(template?.durationMinutes ?? 60)
+                                 ? template?.durationMinutes
+                                 : 60),
+                          )}
+                          required
+                        >
+                          {[30, 60, 90, 120].map((minutes) => (
+                            <option key={minutes} value={minutes}>{minutes} 分鐘</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          className={field}
+                          name="duration"
+                          type="number"
+                          defaultValue={
+                            copySource
+                              ? (new Date(copySource.endsAt).getTime() - new Date(copySource.startsAt).getTime()) / 60000
+                              : template?.durationMinutes
+                          }
+                          min={1}
+                          max={480}
+                          required
+                        />
+                      )}
                     </label>
                     </details>
                     <label className="col-span-full">
@@ -1835,7 +1994,7 @@ export function CourseWorkspace({
                 <button
                   type="button"
                   className={`${primary} w-full`}
-                  onClick={openSchedule}
+                  onClick={()=>openSchedule()}
                   disabled={pending}
                 >
                   ＋ 新增排課
@@ -1950,7 +2109,7 @@ export function CourseWorkspace({
               <div
                 className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
                   courseDialog.kind === "roster"
-                    ? "overflow-hidden"
+                    ? "overflow-y-auto sm:overflow-hidden"
                     : "overflow-y-auto"
                 }`}
               >
@@ -1971,6 +2130,20 @@ export function CourseWorkspace({
                   }
                 />
               </div>
+              {courseDialog.kind === "roster" && businessProfile === "MUSIC" && canEdit && (
+                <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
+                  <button
+                    type="button"
+                    className={`${button} w-full`}
+                    onClick={() => {
+                      setMoveChoice(dialogSession);
+                      setCourseDialog(null);
+                    }}
+                  >
+                    ✂ 調課
+                  </button>
+                </footer>
+              )}
               {courseDialog.kind !== "roster" && (
                 <footer className="shrink-0 border-t border-earth-200 bg-white px-4 py-3">
                   <button

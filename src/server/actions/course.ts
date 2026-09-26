@@ -1,5 +1,6 @@
 "use server";
 import { assertCourseDutyCoverage } from "@/server/services/course-duty";
+import { assertMusicCourseAvailability, assertMusicCourseDuration } from "@/server/services/course-availability";
 import { assertCourseSessionsFitHours } from "@/server/services/course-business-hours";
 
 import { assertCourseResources, assertNoCourseResourceUse, handleCourseActionError } from "@/server/services/course-resources";
@@ -14,7 +15,7 @@ import {
   courseScheduleInput,
   courseTemplateInput,
 } from "@/lib/course-scheduling";
-import { formatTWDateTime } from "@/lib/date-utils";
+import { formatTWDateTime, parseTaipeiDateTime } from "@/lib/date-utils";
 
 async function writableStore(
   permission: "booking.create" | "booking.update" = "booking.create",
@@ -62,6 +63,7 @@ export async function updateCourseTemplate(input: unknown) {
     const { id, ...data } = courseTemplateInput
       .extend({ id: z.string().min(1) })
       .parse(input);
+    await assertMusicCourseDuration(coursePrisma,storeId,data.durationMinutes);
     const room = data.defaultRoomId
       ? await coursePrisma.courseRoom.findFirst({
           where: { id: data.defaultRoomId, storeId, isActive: true },
@@ -165,6 +167,7 @@ export async function updateCourseSession(input: unknown) {
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，尚未儲存修改`,
           );
         await assertCourseSessionsFitHours(tx,storeId,[range]);
+        await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
         await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
         await tx.courseSession.update({
           where: { id: session.id, storeId },
@@ -220,6 +223,7 @@ export async function createCourseTemplate(input: unknown) {
   try {
     const { storeId } = await writableStore();
     const data = courseTemplateInput.parse(input);
+    await assertMusicCourseDuration(coursePrisma,storeId,data.durationMinutes);
     const room = data.defaultRoomId
       ? await coursePrisma.courseRoom.findFirst({
           where: { id: data.defaultRoomId, storeId, isActive: true },
@@ -337,6 +341,7 @@ export async function createCourseSchedule(input: unknown) {
             `${formatTWDateTime(conflict.startsAt)} ${conflict.roomId === data.roomId ? "教室" : "教練"}已有課程，整批尚未建立`,
           );
         await assertCourseSessionsFitHours(tx,storeId,occurrences);
+        await assertMusicCourseAvailability(tx,storeId,data.coachId,occurrences);
         await assertCourseDutyCoverage(tx,storeId,occurrences.map(s=>({...s,coachId:data.coachId})));
         await tx.courseSession.createMany({
           data: occurrences.map((range, requestIndex) => ({
@@ -359,6 +364,175 @@ export async function createCourseSchedule(input: unknown) {
     );
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard");
+    return { success: true as const, data: result };
+  } catch (error) {
+    return handleCourseActionError(error);
+  }
+}
+
+export async function moveCourseSessions(input: unknown) {
+  try {
+    const { user, storeId } = await writableStore("booking.update");
+    const d = z.object({
+      id: z.string().min(1),
+      scope: z.enum(["SINGLE", "WEEKS", "FUTURE"]),
+      weeks: z.number().int().min(2).max(12).optional(),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      time: z.string().regex(/^([01]\d|2[0-3]):(?:00|30)$/),
+      roomId: z.string().min(1),
+      coachId: z.string().min(1),
+    }).parse(input);
+    if (d.scope === "WEEKS" && !d.weeks)
+      throw new AppError("VALIDATION", "請選擇週數");
+
+    const targetStart = parseTaipeiDateTime(d.date, d.time);
+    if (!targetStart) throw new AppError("VALIDATION", "請選擇有效時間");
+
+    const result = await courseTransaction(storeId, async (tx) => {
+      const source = await tx.courseSession.findFirst({
+        where: { id: d.id, storeId, cancelledAt: null },
+        include: {
+          bookings: {
+            where: { status: { not: "CANCELLED" } },
+            include: { card: { select: { expiresAt: true } } },
+          },
+        },
+      });
+      if (!source) throw new AppError("NOT_FOUND", "找不到本店課程");
+
+      const candidates = d.scope === "SINGLE"
+        ? [source]
+        : await tx.courseSession.findMany({
+            where: {
+              storeId,
+              requestKey: source.requestKey,
+              startsAt: { gte: source.startsAt },
+              cancelledAt: null,
+            },
+            include: {
+              bookings: {
+                where: { status: { not: "CANCELLED" } },
+                include: { card: { select: { expiresAt: true } } },
+              },
+            },
+            orderBy: { startsAt: "asc" },
+          });
+      const sessions = d.scope === "WEEKS"
+        ? candidates.slice(0, d.weeks)
+        : candidates;
+      if (!sessions.length) throw new AppError("NOT_FOUND", "沒有可調整的課程");
+
+      const duration = source.endsAt.getTime() - source.startsAt.getTime();
+      const shift = targetStart.getTime() - source.startsAt.getTime();
+      const changes = sessions.map((session) => ({
+        session,
+        startsAt: new Date(session.startsAt.getTime() + shift),
+        endsAt: new Date(session.startsAt.getTime() + shift + duration),
+      }));
+      const selectedIds = sessions.map((session) => session.id);
+
+      const [room, coaches] = await Promise.all([
+        tx.courseRoom.findFirst({ where: { id: d.roomId, storeId, isActive: true } }),
+        tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM "Staff"
+          WHERE id = ${d.coachId} AND "storeId" = ${storeId} AND status::text = 'ACTIVE'
+        `,
+      ]);
+      if (!room || !coaches.length)
+        throw new AppError("VALIDATION", "請選擇可用的老師與教室");
+
+      for (const change of changes) {
+        await assertCourseResources(
+          tx,
+          storeId,
+          {
+            templateId: change.session.templateId,
+            roomId: d.roomId,
+            coachId: d.coachId,
+            capacity: change.session.capacity,
+          },
+          change.session,
+        );
+        if (change.session.bookings.some((booking) => booking.status === "ATTENDED"))
+          throw new AppError("CONFLICT", "已完成的課程不可調整");
+        if (change.session.bookings.some((booking) => booking.card && booking.card.expiresAt < change.startsAt))
+          throw new AppError("CONFLICT", "新日期超過方案期限");
+
+        const conflict = await tx.courseSession.findFirst({
+          where: {
+            storeId,
+            id: { notIn: selectedIds },
+            cancelledAt: null,
+            startsAt: { lt: change.endsAt },
+            endsAt: { gt: change.startsAt },
+            OR: [{ roomId: d.roomId }, { coachId: d.coachId }],
+          },
+          select: { startsAt: true, roomId: true, coachId: true },
+        });
+        if (conflict)
+          throw new AppError("CONFLICT", `${formatTWDateTime(change.startsAt)} 已有課`);
+      }
+
+      await assertCourseSessionsFitHours(tx, storeId, changes);
+      await assertMusicCourseAvailability(tx, storeId, d.coachId, changes);
+      await assertCourseDutyCoverage(tx, storeId, changes.map((change) => ({ ...change, coachId: d.coachId })));
+
+      await tx.courseSession.updateMany({
+        where: { storeId, id: { in: selectedIds } },
+        data: { cancelledAt: new Date() },
+      });
+
+      const movedAt = new Date();
+      for (const change of changes) {
+        const temporary = d.scope !== "FUTURE";
+        await tx.courseSessionMove.create({
+          data: {
+            storeId,
+            sessionId: change.session.id,
+            scope: d.scope,
+            fromStartsAt: change.session.startsAt,
+            fromEndsAt: change.session.endsAt,
+            fromRoomId: change.session.roomId,
+            fromCoachId: change.session.coachId,
+            toStartsAt: change.startsAt,
+            toEndsAt: change.endsAt,
+            toRoomId: d.roomId,
+            toCoachId: d.coachId,
+            actorUserId: user.id,
+          },
+        });
+        await tx.courseSession.update({
+          where: { id: change.session.id },
+          data: {
+            startsAt: change.startsAt,
+            endsAt: change.endsAt,
+            roomId: d.roomId,
+            coachId: d.coachId,
+            cancelledAt: null,
+            rescheduledFromStartsAt: temporary
+              ? change.session.rescheduledFromStartsAt ?? change.session.startsAt
+              : null,
+            rescheduledFromEndsAt: temporary
+              ? change.session.rescheduledFromEndsAt ?? change.session.endsAt
+              : null,
+            rescheduledFromRoomId: temporary
+              ? change.session.rescheduledFromRoomId ?? change.session.roomId
+              : null,
+            rescheduledFromCoachId: temporary
+              ? change.session.rescheduledFromCoachId ?? change.session.coachId
+              : null,
+            rescheduleKind: temporary ? d.scope : null,
+            rescheduledAt: temporary ? movedAt : null,
+            rescheduledById: temporary ? user.id : null,
+          },
+        });
+      }
+      return { count: changes.length };
+    });
+
+    revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard");
+    revalidatePath("/book");
     return { success: true as const, data: result };
   } catch (error) {
     return handleCourseActionError(error);
@@ -572,6 +746,7 @@ export async function updateCourseSeries(input: unknown) {
           );
       }
       await assertCourseSessionsFitHours(tx,storeId,changes);
+      await assertMusicCourseAvailability(tx,storeId,d.coachId,changes);
       await assertCourseDutyCoverage(tx,storeId,changes.map(s=>({...s,coachId:d.coachId})));
       // Exclusion constraints are immediate. Temporarily release only these
       // rows inside the same transaction; other writers use the store lock.

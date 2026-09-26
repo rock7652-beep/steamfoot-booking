@@ -2,6 +2,7 @@
 import {CourseStaffAssignments} from "@/components/admin/course-staff-assignments";
 import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
+import {CourseStaffAvailabilityEditor} from "./course-staff-availability-editor";
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -412,6 +413,7 @@ export function CourseStaffWorkspace({
                 </label>
               )}
 
+                {person && <CourseStaffAvailabilityEditor staffId={person.id}/>}
                 {person && person.assignments.length === 0 && <p className="text-sm text-earth-500">沒有未結束且未取消的課次。</p>}
                 {person && person.assignments.length > 0 && <><CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>

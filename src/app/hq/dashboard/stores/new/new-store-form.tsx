@@ -23,6 +23,7 @@ export default function NewStoreForm() {
   const [industryModule, setIndustryModule] = useState<
     "STEAMFOOT" | "SPA" | "COURSE" | ""
   >("");
+  const [businessProfile, setBusinessProfile] = useState<"FITNESS" | "MUSIC" | null>(null);
   const [domain, setDomain] = useState("");
   const [lineDestination, setLineDestination] = useState("");
   const [dutySchedulingEnabled, setDutySchedulingEnabled] = useState(false);
@@ -35,7 +36,7 @@ export default function NewStoreForm() {
   function handleSubmit() {
     setError(null);
     if (!industryModule) {
-      setError("請先選擇店舖模組；建立後不可變更");
+      setError("請先選擇主要業務");
       return;
     }
 
@@ -45,6 +46,7 @@ export default function NewStoreForm() {
       plan,
       isDemo,
       industryModule,
+      businessProfile: industryModule === "COURSE" ? businessProfile ?? "FITNESS" : undefined,
       domain: domain.trim() || undefined,
       lineDestination: lineDestination.trim() || undefined,
       dutySchedulingEnabled: dutySchedulingEnabled || undefined,
@@ -89,11 +91,15 @@ export default function NewStoreForm() {
               value={result.store.isDemo ? "Demo" : "正式"}
             />
             <InfoRow
-              label="營運模組"
+              label="業務 / 引擎"
               value={
-                result.store.industryModule === "COURSE" ? "運動課程（已鎖定）" : result.store.industryModule === "SPA"
-                  ? "SPA／美容美體（已鎖定）"
-                  : "蒸足（已鎖定）"
+                result.store.industryModule === "COURSE"
+                  ? result.store.businessProfile === "MUSIC"
+                    ? "音樂教室（COURSE 引擎）"
+                    : "運動教室（COURSE 引擎）"
+                  : result.store.industryModule === "SPA"
+                    ? "SPA／美容美體（已鎖定）"
+                    : "蒸足（已鎖定）"
               }
             />
           </Section>
@@ -227,14 +233,14 @@ export default function NewStoreForm() {
           </legend>
           <div className="mb-5">
             <p className="mb-2 text-xs font-medium text-earth-600">
-              營運模組 *
+              主要業務 *
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <ModuleOption
                 checked={industryModule === "STEAMFOOT"}
                 title="蒸足門市"
                 description="空間容量、固定時段、方案與補課流程"
-                onSelect={() => setIndustryModule("STEAMFOOT")}
+                onSelect={() => { setIndustryModule("STEAMFOOT"); setBusinessProfile(null); }}
               />
               <ModuleOption
                 checked={industryModule === "SPA"}
@@ -242,15 +248,19 @@ export default function NewStoreForm() {
                 description="芳療師可用時間、療程、技能與抽成流程"
                 onSelect={() => {
                   setIndustryModule("SPA");
+                  setBusinessProfile(null);
                   setDutySchedulingEnabled(false);
                 }}
               />
-              <ModuleOption checked={industryModule === "COURSE"} title="運動課程"
-                description="教練／教室排課、共卡與出席；30 天完整單店試用，最多 3 位啟用人員（含店長），不含金流申請與串接"
-                onSelect={() => { setIndustryModule("COURSE"); setPlan("EXPERIENCE"); setDutySchedulingEnabled(false); }} />
+              <ModuleOption checked={industryModule === "COURSE" && businessProfile === "FITNESS"} title="運動教室"
+                description="教練／教室排課、共卡與出席；底層使用 COURSE 引擎"
+                onSelect={() => { setIndustryModule("COURSE"); setBusinessProfile("FITNESS"); setPlan("EXPERIENCE"); setDutySchedulingEnabled(false); }} />
+              <ModuleOption checked={industryModule === "COURSE" && businessProfile === "MUSIC"} title="音樂教室"
+                description="一對一／團課／固定課表；獨立業務，底層沿用 COURSE 引擎"
+                onSelect={() => { setIndustryModule("COURSE"); setBusinessProfile("MUSIC"); setPlan("EXPERIENCE"); setDutySchedulingEnabled(false); }} />
             </div>
             <p className="mt-2 text-xs font-medium text-amber-700">
-              建立後模組即鎖定；如選錯需另建新店。
+              建立後會鎖定底層引擎；運動教室與音樂教室目前皆使用 COURSE 引擎，業務設定會獨立保存。
             </p>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -258,7 +268,7 @@ export default function NewStoreForm() {
               label="店名 *"
               value={name}
               onChange={setName}
-              placeholder="蒸足 XX店"
+              placeholder={businessProfile === "MUSIC" ? "陸比音樂｜Music Pilot" : businessProfile === "FITNESS" ? "運動教室 XX店" : "蒸足 XX店"}
             />
             <Field
               label="Slug *"
@@ -301,7 +311,7 @@ export default function NewStoreForm() {
               />
               這是 Demo 店（僅供展示或測試）
             </label>
-            {industryModule === "COURSE" ? <p className="text-sm text-earth-500">課程值班與排課聯動可由店長在課程設定中調整，預設關閉。</p> : <label
+            {industryModule === "COURSE" ? <p className="text-sm text-earth-500">{businessProfile === "MUSIC" ? "音樂教室先沿用課程引擎；後續會加入固定課、補課、代課與高密度教室課表。" : "課程值班與排課聯動可由店長在課程設定中調整，預設關閉。"}</p> : <label
               className={`flex items-center gap-2 text-sm ${industryModule === "SPA" ? "text-earth-400" : "text-earth-700"}`}
             >
               <input

@@ -72,7 +72,8 @@ it("day timetable balances width by active resource count", () => {
   expect(board).toContain('? "80%"');
   expect(board).toContain("width: timetableWidth");
   expect(board).toContain("minWidth: timetableMinWidth");
-  expect(board).toContain('gridTemplateColumns: `72px repeat(${resourceCount}, minmax(180px, 1fr))`');
+  expect(board).toContain('minmax(124px, 1fr)');
+  expect(board).toContain('minmax(180px, 1fr)');
   expect(board).not.toContain('aria-label="課表欄位視角"');
 });
 

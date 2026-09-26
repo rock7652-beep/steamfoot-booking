@@ -19,6 +19,7 @@ import { CourseWorkspace } from "./workspace";
 import { resolvedCourseHours } from "@/lib/course-business-hours";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
+import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 
 export default async function CoursesPage({
   searchParams,
@@ -66,6 +67,9 @@ export default async function CoursesPage({
     canEdit,
     businessHours,
     specialDays,
+    businessEntitlements,
+    staffAvailability,
+    staffAvailabilityExceptions,
   ] = await Promise.all([
       coursePrisma.courseRoom.findMany({
         where: { storeId },
@@ -107,7 +111,10 @@ export default async function CoursesPage({
         where: {
           storeId,
           cancelledAt: null,
-          startsAt: { gte: scheduleStart, lte: scheduleEnd },
+          OR: [
+            { startsAt: { gte: scheduleStart, lte: scheduleEnd } },
+            { rescheduledFromStartsAt: { gte: scheduleStart, lte: scheduleEnd } },
+          ],
         },
         select: {
           id: true,
@@ -119,6 +126,13 @@ export default async function CoursesPage({
           roomId: true,
           capacity: true,
           pointCost: true,
+          requestKey: true,
+          rescheduledFromStartsAt: true,
+          rescheduledFromEndsAt: true,
+          rescheduledFromRoomId: true,
+          rescheduledFromCoachId: true,
+          rescheduleKind: true,
+          rescheduledAt: true,
           bookings: {
             where: { status: { not: "CANCELLED" } },
             select: {
@@ -140,6 +154,15 @@ export default async function CoursesPage({
       checkPermission(user.role, user.staffId, "booking.update"),
       prisma.businessHours.findMany({ where: { storeId } }),
       prisma.specialBusinessDay.findMany({ where: { storeId } }),
+      prisma.storeFeatureEntitlement.findMany({
+        where: { storeId, featureKey: { startsWith: "business." }, status: "ENABLED" },
+        select: { featureKey: true },
+      }),
+      prisma.$queryRaw<{staffId:string;dayOfWeek:number;segments:unknown}[]>`
+        SELECT "staffId","dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId}`,
+      prisma.$queryRaw<{staffId:string;date:Date;type:string;segments:unknown;reason:string|null}[]>`
+        SELECT "staffId",date,type,segments,reason FROM "CourseStaffAvailabilityException"
+        WHERE "storeId"=${storeId} AND date>=${scheduleStart}::date AND date<=${scheduleEnd}::date`,
     ]);
   const [calendarYear, calendarMonth] = selected
     .slice(0, 7)
@@ -160,11 +183,16 @@ export default async function CoursesPage({
           {
             status: resolved.status,
             reason: resolved.reason,
+            periods: resolved.periods.map((period) => ({ openTime: period.openTime, closeTime: period.closeTime })),
           },
         ];
       },
     ),
   );
+  const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
+  if (businessProfile === "MUSIC" && businessHours.length > 0 && businessHours.every((row) => row.segments == null)) {
+    redirect("/dashboard/courses/hours?tab=weekly&setup=1");
+  }
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   const viewContext = await resolveStoreViewContextFromCookie(user);
@@ -202,10 +230,16 @@ export default async function CoursesPage({
         canCreate={writable}
         canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
         cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
+        businessProfile={businessProfile}
+        staffAvailability={staffAvailability}
+        staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}
         sessions={sessions.map((s) => ({
           ...s,
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
+          rescheduledFromStartsAt: s.rescheduledFromStartsAt?.toISOString() ?? null,
+          rescheduledFromEndsAt: s.rescheduledFromEndsAt?.toISOString() ?? null,
+          rescheduledAt: s.rescheduledAt?.toISOString() ?? null,
         }))}
       />
     </PageShell>
