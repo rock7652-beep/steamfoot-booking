@@ -92,6 +92,7 @@ type Props = {
   onPasteMove?: (value:{time:string;roomId:string;coachId:string})=>void;
   onSelectDate: (date: string) => void;
   onOpenSession: (sessionId: string, date: string) => void;
+  readOnly?: boolean;
 };
 
 type ResourceView = "room" | "coach";
@@ -194,6 +195,7 @@ function SessionCard({
   businessProfile,
   fixed = false,
   onOpen,
+  readOnly = false,
 }: {
   session: Session;
   templates: Template[];
@@ -205,6 +207,7 @@ function SessionCard({
   businessProfile: "FITNESS" | "MUSIC";
   fixed?: boolean;
   onOpen: () => void;
+  readOnly?: boolean;
 }) {
   const copy = adaptiveCopy(session, templates, coaches, rooms, businessProfile);
   const seats = openSeats(session);
@@ -231,6 +234,7 @@ function SessionCard({
     <button
       type="button"
       onClick={onOpen}
+      disabled={readOnly}
       className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? musicColor : moved ? "border-indigo-200 bg-indigo-50/80" : "border-earth-200 bg-white"} ${attendanceComplete ? "border-l-4 border-l-emerald-500" : ""}`}
       title={`${hhmm(session.startsAt)} ${copy.primary} · ${copy.coach} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${scheduleType}${musicTags ? ` · ${musicTags}` : ""}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${businessProfile === "MUSIC" ? `，${scheduleType}${musicTags ? `，${musicTags}` : ""}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
@@ -335,6 +339,7 @@ export function CourseScheduleBoard({
   onPasteMove,
   onSelectDate,
   onOpenSession,
+  readOnly = false,
 }: Props) {
   const activeRooms = rooms.filter((room) => room.isActive);
   const activeCoaches = coaches.filter(
@@ -422,6 +427,7 @@ export function CourseScheduleBoard({
                           compact
                           businessProfile={businessProfile}
                           fixed={session.isFixed}
+                          readOnly={readOnly}
                           onOpen={() => onOpenSession(session.id, date)}
                         />
                       ))
@@ -744,7 +750,7 @@ export function CourseScheduleBoard({
                               <button
                                 key={minute}
                                 type="button"
-                                disabled={!available||pending}
+                                disabled={!available||pending||readOnly}
                                 title={available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘`):reason}
                                  aria-label={available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘`):`${startTime} ${reason}`}
                                  onClick={()=>available&&(moveClipboard&&onPasteMove
@@ -795,6 +801,7 @@ export function CourseScheduleBoard({
                               rooms={rooms}
                               businessProfile={businessProfile}
                               fixed={session.isFixed}
+                              readOnly={readOnly}
                               dense={musicDense}
                               resourceView={resourceView}
                               onOpen={() => onOpenSession(session.id, selectedDate)}

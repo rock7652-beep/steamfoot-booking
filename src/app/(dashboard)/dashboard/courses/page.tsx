@@ -271,7 +271,7 @@ export default async function CoursesPage({
         staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}
         sessions={sessions.map((s) => ({
           ...s,
-          isFixed: recurringKeys.has(s.requestKey),
+          isFixed: recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
           isBiweekly: biweeklyKeys.has(s.requestKey),
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
