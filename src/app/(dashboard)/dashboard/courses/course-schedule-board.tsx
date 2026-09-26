@@ -174,10 +174,12 @@ function adaptiveCopy(
     coaches.find((item) => item.id === session.coachId)?.displayName ?? (businessProfile === "MUSIC" ? "未指定老師" : "未指定教練");
   const room = rooms.find((item) => item.id === session.roomId)?.name ?? "未指定教室";
   const privateClass = template?.classType === "PRIVATE";
+  const groupClass = template?.classType === "GROUP";
   const customer = firstCustomer(session);
 
   return {
     privateClass,
+    groupClass,
     primary: privateClass && customer ? customer : session.nameSnapshot,
     secondary: privateClass
       ? session.nameSnapshot
@@ -219,9 +221,10 @@ function SessionCard({
   const musicDense = dense && businessProfile === "MUSIC";
   const moved = Boolean(session.rescheduledFromStartsAt);
   const substitute = !moved && Boolean(session.rescheduledFromCoachId && session.rescheduledFromCoachId !== session.coachId);
+  const trialClass = isTrial(session) && !copy.groupClass;
   const scheduleType = fixed ? (session.isBiweekly ? "隔週固定" : "每週固定") : "約課";
-  const primaryType = isTrial(session) ? "體驗" : substitute ? "代課" : moved ? "調課" : !copy.privateClass ? "團體" : fixed ? session.isBiweekly ? "隔週" : "每週" : "約課";
-  const typeBadge = isTrial(session) ? "bg-orange-100 text-orange-900" : substitute || moved ? "bg-amber-100 text-amber-900" : !copy.privateClass ? "bg-purple-100 text-purple-900" : fixed ? session.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900" : "bg-amber-100 text-amber-900";
+  const primaryType = trialClass ? "體驗" : substitute ? "代課" : moved ? "調課" : copy.groupClass ? "團體" : fixed ? session.isBiweekly ? "隔週" : "每週" : "約課";
+  const typeBadge = trialClass ? "bg-orange-100 text-orange-900" : substitute || moved ? "bg-amber-100 text-amber-900" : copy.groupClass ? "bg-purple-100 text-purple-900" : fixed ? session.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900" : "bg-amber-100 text-amber-900";
   const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
   const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
   const attendance = courseAttendanceProgress(session.bookings, leaveCount);
@@ -229,22 +232,22 @@ function SessionCard({
     ? attendance.complete
     : activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
   const attendanceLabel = attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
-  const musicTypeColor = isTrial(session)
+  const musicTypeColor = trialClass
     ? "border-orange-200 bg-orange-50/70"
     : substitute || moved
       ? "border-amber-200 bg-amber-50/70"
-      : !copy.privateClass
+      : copy.groupClass
         ? "border-purple-200 bg-purple-50/70"
         : fixed
           ? session.isBiweekly ? "border-blue-200 bg-blue-50/70" : "border-teal-200 bg-teal-50/70"
           : "border-amber-200 bg-amber-50/70";
   const musicAttendanceColor = !attendanceComplete
     ? "border-l-slate-400"
-    : isTrial(session)
+    : trialClass
       ? "border-l-orange-600"
       : substitute || moved
         ? "border-l-amber-600"
-        : !copy.privateClass
+        : copy.groupClass
           ? "border-l-purple-600"
           : fixed && session.isBiweekly
             ? "border-l-blue-600"
@@ -324,7 +327,7 @@ function SessionCard({
         {businessProfile === "MUSIC" && !fixed && (
           <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">約課</span>
         )}
-        {businessProfile === "MUSIC" && !copy.privateClass && (
+        {businessProfile === "MUSIC" && copy.groupClass && (
           <span className="rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-700">團體</span>
         )}
         {isTrial(session) && (
