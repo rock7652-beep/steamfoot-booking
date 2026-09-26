@@ -4,6 +4,8 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/server/queries/monthly-visitor-overview", () => ({ getMonthlyVisitorOverview: vi.fn().mockResolvedValue([]) }));
+
 const mockGetPeriodMetrics = vi.fn();
 const mockGetCurrentUser = vi.fn();
 const mockCheckPermission = vi.fn();
@@ -307,7 +309,9 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).not.toContain("收入類型</h2>");
     expect(html).not.toMatch(/基本報表|進階報表/);
     expect(html).not.toContain("經營診斷 →");
-    expect(html).toContain("月結管理 →");
+    expect(html).not.toContain("月結管理 →");
+    expect(html).toContain("首次開卡人數");
+    expect(html).toContain("同一人只計 1 位");
     expect(html).toContain("date range");
     expect(mockMonthlyStoreSummary).toHaveBeenCalledTimes(1);
     expect(mockMonthlyRevenueByCategory).toHaveBeenCalledTimes(1);
@@ -327,7 +331,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("體驗組數");
     expect(html).toContain("比前一月同期");
     expect(html).toContain("去年同期");
-    expect(html).toContain("基期為 0，無法比較");
+    expect(html).toContain("比較期間為 0，無法計算增減百分比");
     expect(html).toContain("多人同行不再只算 1 人");
     expect(html).not.toContain("客單價");
     expect(html).toMatch(/segment=monthly-customers/);
@@ -361,7 +365,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("成交分析");
     expect(html).toContain("所選日期體驗開卡");
     expect(html).toContain("追蹤開卡");
-    expect(html).toContain("總開卡人數");
+    expect(html).toContain("首次開卡人數");
     expect(html).toContain("所選日期體驗開卡率");
     expect(html).toContain("未開卡人次");
     expect(html).toContain("查看顧客 →");
@@ -370,7 +374,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toMatch(/segment=monthly-tracked-converted/);
     expect(html.indexOf("成交分析")).toBeGreaterThan(html.indexOf("客流分析"));
     expect(html).toContain("開卡依首次有效購買日期");
-    expect(html).toContain("基期為 0，無法比較");
+    expect(html).toContain("比較期間為 0，無法計算增減百分比");
     expect(html).not.toMatch(/成交率|客單價|來源分析/);
   });
 
@@ -387,7 +391,7 @@ describe("ReportsPage basic_reports entitlement gate", () => {
     expect(html).toContain("尚未再訪人數");
     expect(html).toContain("比前一月同期");
     expect(html).toContain("去年同期");
-    expect(html).toContain("基期為 0，無法比較");
+    expect(html).toContain("比較期間為 0，無法計算增減百分比");
     expect(html).not.toMatch(/續約率|平均回店天數|人員回流|Benchmark|健康值/);
     expect(html).toMatch(/segment=monthly-returned/);
     expect(html).toMatch(/segment=monthly-not-returned/);

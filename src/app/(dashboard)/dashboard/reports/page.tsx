@@ -51,6 +51,7 @@ import { PerformanceTrendChart } from "./performance-trend-chart";
 import { getAnalysisPeriodMetrics } from "@/server/queries/analysis-period";
 import { Suspense } from "react";
 import { AnalysisRefresh } from "./analysis-refresh";
+import { MonthlyVisitorOverview } from "./monthly-visitor-overview";
 
 interface PageProps {
   searchParams: Promise<{
@@ -91,7 +92,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const { startDate, endDate, preset: activePreset } = selection;
   const periodRanges = analysisComparisonRanges(selection, activePreset);
   const effectiveEndDate = periodRanges.current.endDate;
-  const displayLabel = `${startDate}～${endDate}`;
   const month = startDate.slice(0, 7);
   const currentMonth = toLocalDateStr().slice(0, 7);
   const timer = new ServerTiming("/dashboard/reports");
@@ -199,7 +199,6 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       <PageShell>
         <PageHeader
           title="營運分析"
-          subtitle={`${displayLabel}${effectiveEndDate < endDate ? `｜統計至 ${effectiveEndDate}` : ""}`}
           actions={
             <>
               {isViewMode ? (
@@ -207,18 +206,20 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               ) : !canExportData ? (
                 <span className="rounded-md border border-earth-200 bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-500">{dataExportLockedLabel}</span>
               ) : (
-                <>
+                <details className="relative">
+                  <summary className="cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700">匯出 CSV</summary>
+                  <div className="absolute right-0 z-20 mt-1 flex min-w-36 flex-col gap-1 rounded-lg border border-earth-200 bg-white p-2 shadow-lg">
                   <a href={`/api/export/store-monthly?month=${month}&${rangeQuery}`} className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50" download>全店 CSV</a>
                   <a href={`/api/export/staff-monthly?month=${month}&${rangeQuery}`} className="rounded-md border border-earth-200 bg-white px-3 py-1.5 text-xs font-medium text-earth-700 hover:bg-earth-50" download>店長 CSV</a>
-                </>
+                  </div>
+                </details>
               )}
-              <a href="/dashboard/service-fee-calculator" className="rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100">月結管理 →</a>
             </>
           }
         />
 
         <ReportDateRange key={`${activePreset}-${startDate}-${endDate}`} activePreset={activePreset} startDate={startDate} endDate={endDate} enhanced />
-        <p className="text-xs text-earth-500">全部統計與明細依上方日期。{comparisonLabel}：{periodRanges.previous.startDate}～{periodRanges.previous.endDate}。</p>
+        <p className="text-xs text-earth-500">統計 {startDate}～{effectiveEndDate}｜比較 {periodRanges.previous.startDate}～{periodRanges.previous.endDate}</p>
         <AnalysisRefresh updatedAt={formatTWDateTime()} />
 
         <section aria-labelledby="operations-summary-title">
@@ -226,14 +227,16 @@ export default async function ReportsPage({ searchParams }: PageProps) {
             <h2 id="operations-summary-title" className="text-sm font-semibold text-earth-800">營運摘要</h2>
             <p className="mt-0.5 text-[11px] text-earth-400">掌握所選日期的營收、服務、體驗與開卡成果。</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
             {[
-              { label: "已收營收", value: `NT$ ${totalRevenue.toLocaleString()}`, href: "#revenue-mix-title", change: previousRevenueMix ? totalRevenue - previousRevenueMix.netRevenue : null, unit: "元" },
-              { label: "完成服務人次", value: completedServices === undefined ? "請選擇店舖" : `${completedServices} 人次`, href: `/analysis-details?segment=services&${rangeQuery}`, change: periodMetrics?.metrics.completedServices.mom.difference, unit: "人次" },
-              { label: "體驗人次", value: conversionMetrics ? `${conversionMetrics.trialAttendees.current} 人次` : "請選擇店舖", href: `/analysis-details?segment=trials&${rangeQuery}`, change: conversionMetrics?.trialAttendees.mom.difference, unit: "人次" },
-              { label: "開卡人數", value: conversionMetrics ? `${conversionMetrics.convertedCustomers.current} 位` : "請選擇店舖", href: growthLink("monthly-converted"), change: conversionMetrics?.convertedCustomers.mom.difference, unit: "位" },
+              { label: "來客人數", note: "已建檔顧客，同一人只計 1 位", value: customerFlowMetrics ? `${customerFlowMetrics.uniqueVisitors.current} 位` : "請選擇店舖", href: growthLink("monthly-customers"), change: customerFlowMetrics?.uniqueVisitors.mom.difference, unit: "位" },
+              { label: "完成服務人次", note: "同一人來 3 次，計 3 人次", value: completedServices === undefined ? "請選擇店舖" : `${completedServices} 人次`, href: `/analysis-details?segment=services&${rangeQuery}`, change: periodMetrics?.metrics.completedServices.mom.difference, unit: "人次" },
+              { label: "體驗人次", note: "依實際完成體驗的人次計算", value: conversionMetrics ? `${conversionMetrics.trialAttendees.current} 人次` : "請選擇店舖", href: `/analysis-details?segment=trials&${rangeQuery}`, change: conversionMetrics?.trialAttendees.mom.difference, unit: "人次" },
+              { label: "首次開卡人數", note: "體驗後首次購買正式方案，不含續卡", value: conversionMetrics ? `${conversionMetrics.convertedCustomers.current} 位` : "請選擇店舖", href: growthLink("monthly-converted"), change: conversionMetrics?.convertedCustomers.mom.difference, unit: "位" },
+              { label: "已收營收", note: "已確認收入扣除退款", value: `NT$ ${totalRevenue.toLocaleString()}`, href: "#revenue-mix-title", change: previousRevenueMix ? totalRevenue - previousRevenueMix.netRevenue : null, unit: "元" },
             ].map(item => <AnalysisDetailLink key={item.label} title={item.label} href={item.href} className="rounded-lg border border-earth-200 bg-white p-3 hover:border-primary-400">
               <p className="text-xs text-earth-600">{item.label}</p><p className="mt-1 text-xl font-semibold text-primary-800 tabular-nums">{item.value}</p>
+              <p className="mt-1 text-[11px] text-earth-500">{item.note}</p>
               {item.change != null && <p className="mt-1 text-xs text-earth-500">{comparisonLabel} {item.change > 0 ? "+" : ""}{item.change.toLocaleString()} {item.unit}</p>}
             </AnalysisDetailLink>)}
           </div>
@@ -243,6 +246,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           )}
         </section>
 
+        {reportsStoreId && <Suspense fallback={<p role="status" className="text-xs text-earth-500">每月來客概況載入中…</p>}><MonthlyVisitorOverview storeId={reportsStoreId} /></Suspense>}
         {reportsStoreId && <Suspense fallback={<p className="text-xs text-earth-500">待跟進摘要載入中…</p>}><AnalysisFollowUps user={userForViewContext(user, storeViewContext)} storeId={reportsStoreId} month={currentMonth} /></Suspense>}
 
         <section aria-labelledby="revenue-mix-title" className="rounded-xl border border-earth-200 bg-white p-3">
@@ -339,7 +343,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
               {[
                                 ["所選日期體驗開卡", conversionMetrics.currentTrialConversions, "count", "monthly-current-trial-converted", "位"],
                 ["追蹤開卡", conversionMetrics.trackedConversions, "count", "monthly-tracked-converted", "位"],
-                ["總開卡人數", conversionMetrics.convertedCustomers, "count", "monthly-converted", "位"],
+                ["首次開卡人數", conversionMetrics.convertedCustomers, "count", "monthly-converted", "位"],
                 ["所選日期體驗開卡率", conversionMetrics.conversionRate, "rate", null, "%"],
                 ["未開卡人次", conversionMetrics.unconvertedCustomers, "count", null, "人次"],
               ].map(([label, metric, kind, segment, unit]) => {
@@ -480,7 +484,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
 function formatCustomerFlowComparison(comparison: CustomerFlowComparison, unit = "位"): string {
   const difference = `${comparison.difference > 0 ? "+" : ""}${comparison.difference}`;
-  if (comparison.percentage === null) return `${difference} ${unit}（基期為 0，無法比較）`;
+  if (comparison.percentage === null) return `${difference} ${unit}（比較期間為 0，無法計算增減百分比）`;
   const percentage = `${comparison.percentage > 0 ? "+" : ""}${comparison.percentage.toFixed(1)}%`;
   return `${difference} ${unit}（${percentage}）`;
 }
@@ -488,7 +492,7 @@ function formatCustomerFlowComparison(comparison: CustomerFlowComparison, unit =
 function formatConversionComparison(comparison: ConversionComparison, isRate: boolean, countUnit = "位"): string {
   const difference = `${comparison.difference > 0 ? "+" : ""}${comparison.difference.toFixed(isRate ? 1 : 0)}`;
   const unit = isRate ? " 個百分點" : ` ${countUnit}`;
-  if (comparison.percentage === null) return `${difference}${unit}（基期為 0，無法比較）`;
+  if (comparison.percentage === null) return `${difference}${unit}（比較期間為 0，無法計算增減百分比）`;
   const percentage = `${comparison.percentage > 0 ? "+" : ""}${comparison.percentage.toFixed(1)}%`;
   return `${difference}${unit}（${percentage}）`;
 }
@@ -496,7 +500,7 @@ function formatConversionComparison(comparison: ConversionComparison, isRate: bo
 function formatRetentionComparison(comparison: RetentionComparison, isRate: boolean): string {
   const difference = `${comparison.difference > 0 ? "+" : ""}${comparison.difference.toFixed(isRate ? 1 : 0)}`;
   const unit = isRate ? " 個百分點" : " 位";
-  if (comparison.percentage === null) return `${difference}${unit}（基期為 0，無法比較）`;
+  if (comparison.percentage === null) return `${difference}${unit}（比較期間為 0，無法計算增減百分比）`;
   const percentage = `${comparison.percentage > 0 ? "+" : ""}${comparison.percentage.toFixed(1)}%`;
   return `${difference}${unit}（${percentage}）`;
 }
@@ -513,7 +517,7 @@ async function AnalysisFollowUps({ user, storeId, month }: { user: NonNullable<A
   if (!(await checkPermission(user.role, user.staffId, "customer.read")) || !(await hasStoreFeature(storeId, FEATURES.CUSTOMER_CARE))) return null;
   const [care, unconverted] = await Promise.all([getCustomerCareSummary(user, storeId), getMonthlyUnconvertedCustomers(storeId, month)]);
   return <section className="rounded-lg border border-earth-200 bg-primary-50/40 px-3 py-2" aria-label="目前待跟進">
-    <p className="mb-2 text-xs text-earth-500">截至今日待跟進｜不受上方日期選區影響</p>
+    <p className="mb-2 text-xs text-earth-500">待追蹤名單｜截至 {toLocalDateStr()}，不受上方日期選區影響</p>
     <div className="flex flex-wrap gap-4 text-sm text-primary-800">
       <DashboardLink href="/dashboard/growth#trial-unconverted">本月體驗未開卡 {unconverted.length} 位 →</DashboardLink>
       <DashboardLink href="/dashboard/growth#expiring">方案即將到期 {care.expiringPlanCustomers} 位 →</DashboardLink>

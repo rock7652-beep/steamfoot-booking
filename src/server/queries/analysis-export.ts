@@ -17,7 +17,8 @@ export async function analysisExportRows(storeId: string, params: URLSearchParam
   const rows: (string | number)[][] = [["開始日期", current.startDate], ["結束日期", current.endDate]];
   if (!staffOnly) rows.push(
     ["已收營收", mix.netRevenue], ["完成服務人次", facts.metrics.completedServices.current],
-    ["體驗人次", facts.metrics.trialAttendees.current], ["開卡人數", facts.metrics.convertedCustomers.current],
+    ["來客人數（不重複）", facts.metrics.uniqueVisitors.current],
+    ["體驗人次", facts.metrics.trialAttendees.current], ["首次開卡人數（體驗後首次購買，不含續卡）", facts.metrics.convertedCustomers.current],
     ["儲值方案", mix.packageRevenue], ["零售", mix.retailRevenue], ["其他收入", mix.otherRevenue],
     ["退款", mix.refunds], ["已記錄支出", mix.expense], ["收支結餘", mix.balance], ["待確認收款", mix.pendingRevenue],
   );

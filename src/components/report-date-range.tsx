@@ -130,9 +130,9 @@ export default function ReportDateRange({
       </div>
 
       {enhanced && activePreset !== "custom" && !showCustom && <div className="flex items-center gap-3 text-sm">
-        <button type="button" onClick={() => shift(-1)} className="rounded border border-earth-300 px-3 py-1.5">{activePreset === "today" ? "前一天" : activePreset === "week" ? "前一週" : "前一月"}</button>
-        <span className="tabular-nums">{startDate}～{endDate}</span>
-        <button type="button" disabled={startDate >= getPresetDateRange(activePreset as DateRangePreset).startDate} onClick={() => shift(1)} className="rounded border border-earth-300 px-3 py-1.5 disabled:opacity-40">{activePreset === "today" ? "後一天" : activePreset === "week" ? "後一週" : "後一月"}</button>
+        <button type="button" onClick={() => shift(-1)} className="shrink-0 whitespace-nowrap rounded border border-earth-300 px-3 py-1.5">{activePreset === "today" ? "前一天" : activePreset === "week" ? "前一週" : "前一月"}</button>
+        <span className="text-center text-xs tabular-nums sm:text-sm">{startDate}～{endDate}</span>
+        <button type="button" disabled={startDate >= getPresetDateRange(activePreset as DateRangePreset).startDate} onClick={() => shift(1)} className="shrink-0 whitespace-nowrap rounded border border-earth-300 px-3 py-1.5 disabled:opacity-40">{activePreset === "today" ? "後一天" : activePreset === "week" ? "後一週" : "後一月"}</button>
       </div>}
       {/* Custom date range */}
       {showCustom && (
