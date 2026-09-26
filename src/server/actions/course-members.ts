@@ -149,6 +149,22 @@ export async function saveCoursePointPlan(input: unknown) {
   }
 }
 
+export async function setCoursePointPlanStatus(input: unknown) {
+  try {
+    const data = z.object({ id, isActive: z.boolean() }).parse(input);
+    const { storeId } = await courseManager("plans.edit");
+    const result = await coursePrisma.coursePointPlan.updateMany({
+      where: { id: data.id, storeId },
+      data: { isActive: data.isActive },
+    });
+    if (!result.count) throw new AppError("NOT_FOUND", "找不到本店方案");
+    refresh();
+    return { success: true as const };
+  } catch (error) {
+    return handleActionError(error);
+  }
+}
+
 export async function assignCoursePointCard(input: unknown) {
   try {
     const { user, storeId } = await courseManager("wallet.create");

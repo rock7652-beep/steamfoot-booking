@@ -836,8 +836,8 @@ export function CourseWorkspace({
             {view === "rooms" ? "停用教室不供新排課使用；既有紀錄保留。" : "隱藏僅供店長使用；下架不供新增使用，既有紀錄保留。"}
           </p>
           <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-            <table className="block w-full text-left text-sm sm:table sm:min-w-[680px]">
-              <thead className="hidden bg-earth-50 text-earth-600 sm:table-header-group">
+            <table className="min-w-[740px] w-full text-left text-sm">
+              <thead className="bg-earth-50 text-earth-600">
                 <tr>
                   {(view === "rooms"
                     ? ["教室名稱", "分類", "容納人數", "狀態", "操作"]
@@ -854,21 +854,21 @@ export function CourseWorkspace({
                     <th
                       key={label}
                       scope="col"
-                      className="whitespace-nowrap px-4 py-3 font-medium"
+                      className="whitespace-nowrap px-3 py-2 font-medium"
                     >
                       {label}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="block divide-y divide-earth-100 sm:table-row-group">
+              <tbody className="divide-y divide-earth-100">
                 {filteredItems.map((item) => {
                   const template =
                     "durationMinutes" in item ? (item as Template) : null;
                   return (
                     <tr
                       key={item.id}
-                      className={"block p-3 sm:table-row sm:p-0 " + (
+                      className={(
                         item.isActive && (!template || template.visibility === "PUBLIC")
                           ? "hover:bg-primary-50/40"
                           : "bg-earth-50 opacity-60 hover:opacity-100 focus-within:opacity-100"
@@ -876,45 +876,42 @@ export function CourseWorkspace({
                     >
                       <th
                         scope="row"
-                        className="block break-words pb-2 font-medium text-primary-900 sm:table-cell sm:max-w-64 sm:px-4 sm:py-3"
+                        className="max-w-60 px-3 py-2 text-left font-medium text-primary-900"
                       >
                         {canEdit && <input aria-label={`選取 ${item.name}`} type="checkbox" className="mr-2" checked={selectedIds.includes(item.id)} onChange={e=>setSelectedIds(ids=>e.target.checked?[...ids,item.id]:ids.filter(id=>id!==item.id))}/>}{item.name}
-                        {template && <span className="block text-xs text-earth-500">{template.classType==="PRIVATE"?"私課":template.classType==="SELF_ORGANIZED"?"自組班":template.classType==="GROUP"?"團體班":"課型待補"}</span>}
+                        {template && <span className="ml-2 whitespace-nowrap text-xs font-normal text-earth-500">{template.classType==="PRIVATE"?"私課":template.classType==="SELF_ORGANIZED"?"自組班":template.classType==="GROUP"?"團體班":"課型待補"}</span>}
                       </th>
-                      <td className="block py-1 sm:table-cell sm:px-4 sm:py-3"><span className="text-earth-500 sm:hidden">分類： </span>{item.category || "未分類"}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{item.category || "未分類"}</td>
                       {template ? (
                         <>
-                          <td className="block py-1 tabular-nums sm:table-cell sm:whitespace-nowrap sm:px-4 sm:py-3">
-                            <span className="text-earth-500 sm:hidden">時長： </span>
+                          <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                             {template.durationMinutes} 分
                           </td>
-                          <td className="block py-1 tabular-nums sm:table-cell sm:px-4 sm:py-3">
+                          <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                             {businessProfile === "MUSIC" ? `${template.musicTermLessons ?? (template.classType === "GROUP" ? 8 : 4)} 堂／期 · 每位 NT$ ${template.musicPricePerLesson ?? "待設定"}／堂` : `點數卡 ${template.pointCost} 點；堂數卡 1 堂`}
                           </td>
-                          <td className="block py-1 tabular-nums sm:table-cell sm:px-4 sm:py-3">
-                            <span className="text-earth-500 sm:hidden">人數上限： </span>
+                          <td className="px-3 py-2 tabular-nums">
                             {template.capacity}
                           </td>
                         </>
                       ) : (
-                        <td className="block py-1 tabular-nums sm:table-cell sm:px-4 sm:py-3">
-                          <span className="text-earth-500 sm:hidden">容納人數： </span>
+                        <td className="px-3 py-2 tabular-nums">
                           {item.capacity ?? "未設定"}
                         </td>
                       )}
-                      <td className="block py-2 sm:table-cell sm:whitespace-nowrap sm:px-4 sm:py-3">
+                      <td className="whitespace-nowrap px-3 py-2">
                         <span
                           className={`rounded-md px-2 py-1 text-xs ${item.isActive ? "bg-primary-50 text-primary-700" : "bg-earth-100 text-earth-500"}`}
                         >
                           {template ? ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[template.visibility ?? "PUBLIC"]) : item.isActive ? "啟用":"停用"}
                         </span>
                       </td>
-                      <td className="block py-2 sm:table-cell sm:px-4">
-                        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:whitespace-nowrap">
+                      <td className="whitespace-nowrap px-3 py-1.5">
+                        <div className="flex items-center gap-1">
                           {canEdit && (
                             <>
                               <button
-                                className={button}
+                                className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm"
                                 disabled={pending}
                                 onClick={() => {
                                   setCopyTemplate(false);
@@ -929,9 +926,9 @@ export function CourseWorkspace({
                                 查看{template ? "課程" : "教室"}
                               </button>
                               {template ? <>
-                                <select className={button} aria-label={`${item.name} 狀態`} value={template.visibility ?? "PUBLIC"} disabled={pending} onChange={e=>changeStatus(item,e.target.value)}><option value="PUBLIC">上架</option><option value="HIDDEN">隱藏</option><option value="OFF">下架</option></select>
-                                {canCreate && <button className={button} onClick={()=>{setCopyTemplate(true);setEditing({kind:"template",value:{...template,name:template.name+"（複製）"}});open("edit");}}>複製設定</button>}
-                              </> : <><button className={button} disabled={pending} onClick={()=>changeStatus(item)}>{item.isActive?"停用":"啟用"}</button><button className={button} onClick={()=>router.push(`${pathname}?date=${selectedDate}&room=${encodeURIComponent(item.id)}`)}>查看課表</button></>}
+                                <select className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" aria-label={`${item.name} 狀態`} value={template.visibility ?? "PUBLIC"} disabled={pending} onChange={e=>changeStatus(item,e.target.value)}><option value="PUBLIC">上架</option><option value="HIDDEN">隱藏</option><option value="OFF">下架</option></select>
+                                {canCreate && <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={()=>{setCopyTemplate(true);setEditing({kind:"template",value:{...template,name:template.name+"（複製）"}});open("edit");}}>複製</button>}
+                              </> : <><button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={pending} onClick={()=>changeStatus(item)}>{item.isActive?"停用":"啟用"}</button><button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={()=>router.push(`${pathname}?date=${selectedDate}&room=${encodeURIComponent(item.id)}`)}>課表</button></>}
                             </>
                           )}
                         </div>

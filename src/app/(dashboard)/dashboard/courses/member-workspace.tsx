@@ -13,6 +13,7 @@ import { toLocalDateStr, dayRange, formatTWDateTime } from "@/lib/date-utils";
 import {
   saveCourseCustomer,
   saveCoursePointPlan,
+  setCoursePointPlanStatus,
   assignCoursePointCard,
   setCourseCardMembers,
 } from "@/server/actions/course-members";
@@ -210,6 +211,19 @@ export function CourseMemberWorkspace({
         (planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
     )
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
+  function changePlanStatus(item: Plan) {
+    if (pending) return;
+    setError("");
+    setNotice("");
+    start(async () => {
+      try {
+        const result = await setCoursePointPlanStatus({id:item.id,isActive:!item.isActive});
+        if (!result.success) { setError(result.error ?? "狀態更新失敗"); return; }
+        setNotice(`${item.name} 已${item.isActive ? "下架" : "上架"}；既有持有方案不受影響。`);
+        router.refresh();
+      } catch { setError("連線中斷，請重試"); }
+    });
+  }
   const totalRows = filteredPlans.length;
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
   const activePlans = plans.filter((item) => item.isActive && (!music || item.unit === "SESSION"));
@@ -233,15 +247,15 @@ export function CourseMemberWorkspace({
         </nav>
       )}
       {view === "plans" && planArea === "catalog" && (
-        <section aria-label="方案摘要" className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <section aria-label="方案摘要" className="mb-3 flex flex-wrap gap-2">
           {[
             ["全部方案", plans.length],
             ["上架中", activePlans.length],
             ...(music ? [["堂數方案", activePlans.filter(item => item.unit === "SESSION").length]] : [["點數方案", pointPlans], ["堂數方案", sessionPlans]]),
-          ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-2"><strong className="block text-lg tabular-nums text-primary-800">{value}</strong><span className="text-xs text-earth-500">{label}</span></div>)}
+          ].map(([label, value]) => <div key={label} className="rounded-lg border border-earth-200 bg-white px-3 py-1 text-sm"><strong className="mr-2 tabular-nums text-primary-800">{value}</strong><span className="text-earth-500">{label}</span></div>)}
         </section>
       )}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         {view === "plans" && planArea === "catalog" && <input
           className={`${field} max-w-xs`}
           aria-label="搜尋"
@@ -285,6 +299,7 @@ export function CourseMemberWorkspace({
           </button>
         )}
       </div>
+      {error && !panel && <p role="alert" className="mb-3 text-red-700">{error}</p>}
       {notice && (
         <p role="status" className="mb-3 text-primary-700">
           {notice}
@@ -299,11 +314,11 @@ export function CourseMemberWorkspace({
         onAssign={canAssign ? id => { keepCustomerInUrl(id); setPerson(people.find(p => p.id === id) ?? null); open("assign"); setRevenueStaffId(customerRows.find(c=>c.id===id)?.assignedStaff?.id??""); } : undefined}
       /> : (
       planArea === "catalog" ? <div className="overflow-x-auto rounded-lg border border-earth-200 bg-white">
-        <table className="w-full text-left text-sm">
+        <table className="min-w-[820px] w-full text-left text-sm">
           <thead className="bg-earth-50">
             <tr>
               {["方案／適用課程", "額度", "售價", "單位價格", "有效天數", "狀態", "操作"].map((h) => (
-                <th key={h} className="whitespace-nowrap p-3">
+                <th key={h} className="whitespace-nowrap px-3 py-2 font-medium">
                   {h}
                 </th>
               ))}
@@ -316,22 +331,18 @@ export function CourseMemberWorkspace({
                     key={p.id}
                     className={p.isActive ? "" : "bg-earth-50 text-earth-400"}
                   >
-                    <td className="p-3">{canEdit && <input type="checkbox" className="mr-3" aria-label={`選取 ${p.name}`} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span><div className="mt-1 flex flex-wrap gap-1"><span className="rounded-full bg-earth-100 px-2 py-0.5 text-[11px] text-earth-600">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}</span>{p.allowShared && <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] text-primary-700">允許共卡</span>}</div><p className="mt-1 text-xs text-earth-500">{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
-                    <td className="p-3">{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
-                    <td className="p-3">NT$ {p.price.toLocaleString("zh-TW")}</td>
-                    <td className="p-3 text-earth-600">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</td>
-                    <td className="p-3">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</td>
-                    <td className="p-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${p.isActive ? "bg-emerald-50 text-emerald-700" : "bg-earth-100 text-earth-500"}`}>{p.isActive ? "上架" : "下架"}</span></td>
-                    <td className="p-3">
+                    <td className="max-w-72 px-3 py-2">{canEdit && <input type="checkbox" className="mr-2" aria-label={`選取 ${p.name}`} checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span><span className="ml-2 text-xs text-earth-500">{p.customerPurchasable !== false ? "顧客可購買" : "僅後台指派"}{p.allowShared ? " · 共卡" : ""}</span><p className="truncate pl-5 text-xs text-earth-500" title={p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") : "本店所有課程"}>{p.templateIds.length ? templates.filter(t=>p.templateIds.includes(t.id)).map(t=>t.name).join("、") || "指定課程" : "本店所有課程"}</p></td>
+                    <td className="whitespace-nowrap px-3 py-2">{p.points} {p.unit === "SESSION" ? "堂" : "點"}</td>
+                    <td className="whitespace-nowrap px-3 py-2">NT$ {p.price.toLocaleString("zh-TW")}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-earth-600">NT$ {Math.round(p.price / Math.max(1, p.points)).toLocaleString("zh-TW")}／{p.unit === "SESSION" ? "堂" : "點"}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{p.validDays > 0 ? `${p.validDays} 天` : "無期限"}</td>
+                    <td className="px-3 py-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${p.isActive ? "bg-emerald-50 text-emerald-700" : "bg-earth-100 text-earth-500"}`}>{p.isActive ? "上架" : "下架"}</span></td>
+                    <td className="whitespace-nowrap px-3 py-1.5">
                       {canEdit && (
-                        <button
-                          className={button}
-                          onClick={() => {
-                            preparePlan(p);
-                          }}
-                        >
-                          編輯
-                        </button>
+                        <div className="flex gap-1">
+                          <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" disabled={pending} onClick={() => preparePlan(p)}>編輯</button>
+                          <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm text-primary-800" disabled={pending} onClick={() => changePlanStatus(p)}>{p.isActive ? "下架" : "上架"}</button>
+                        </div>
                       )}
                     </td>
                   </tr>

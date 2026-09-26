@@ -182,11 +182,11 @@ export function CourseStaffWorkspace({
       {canManage && atLimit && <p className="mb-3 text-sm text-amber-800">啟用人員已達上限（{activeCount}／{maxStaff}）。可建立停用人員；啟用時須有剩餘名額。同一人兼任只計一位。</p>}
       {canManage && <CourseBatchBar canDelete={canManage} names={Object.fromEntries(rows.map(p=>[p.id,p.name]))} kind="staff" ids={rows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead>
+        <table className="min-w-[720px] w-full text-left text-sm">
+          <thead className="bg-earth-50">
             <tr>
               {["姓名", "身分", "登入／連結", "狀態", "操作"].map((t) => (
-                <th key={t} className="p-3">
+                <th key={t} className="px-3 py-2 font-medium">
                   {t}
                 </th>
               ))}
@@ -198,20 +198,20 @@ export function CourseStaffWorkspace({
                 key={p.id}
                 className={p.active ? "" : "text-earth-400 bg-earth-50"}
               >
-                <td className="p-3">{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-3" checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>} {p.name}{(!p.emergencyContactName || !p.emergencyContactPhone || !p.emergencyContactRelation) && <span className="block text-xs text-amber-800">緊急聯絡待補</span>}{!p.active && p.assignments.length>0 && <span className="block text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
-                <td className="p-3">
-                  {identity(p)}{p.coachEnabled && <span className="block text-xs text-earth-600">{p.qualificationsConfirmed && p.qualificationIds.length ? "已設定可教授課程" : "授課設定待補"}；{p.coachLoginReady ? "已開通教練登入" : "尚未開通教練登入"}</span>}
+                <td className="whitespace-nowrap px-3 py-2">{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span>{(!p.emergencyContactName || !p.emergencyContactPhone || !p.emergencyContactRelation) && <span className="ml-2 text-xs text-amber-800">緊急聯絡待補</span>}{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
+                <td className="px-3 py-2">
+                  {identity(p)}{p.coachEnabled && <span className="block whitespace-nowrap text-xs text-earth-600">{p.qualificationsConfirmed && p.qualificationIds.length ? "授課已設定" : "授課待補"} · {p.coachLoginReady ? "教練可登入" : "登入未開通"}</span>}
                 </td>
-                <td className="p-3">
+                <td className="px-3 py-2">
                   {p.kind === "manager"
                     ? p.email
                     : (customers.find((c) => c.id === p.customerId)?.name ??
                       "尚未連結會員帳號")}
                 </td>
-                <td className="p-3">{p.active ? "啟用" : "停用"}</td>
-                <td className="p-3">
-                  <button className={button} onClick={() => edit(p)}>{canManage ? "編輯" : "查看"}</button>
-                  {canManage && p.coachEnabled && <button className={`${button} ml-2`} onClick={() => { edit(p); setTab("qualifications"); }}>授課設定</button>}
+                <td className="whitespace-nowrap px-3 py-2">{p.active ? "啟用" : "停用"}</td>
+                <td className="whitespace-nowrap px-3 py-1.5">
+                  <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={() => edit(p)}>{canManage ? "編輯" : "查看"}</button>
+                  {canManage && p.coachEnabled && <button className="ml-1 min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={() => { edit(p); setTab("qualifications"); }}>授課設定</button>}
                 </td>
               </tr>
             ))}
