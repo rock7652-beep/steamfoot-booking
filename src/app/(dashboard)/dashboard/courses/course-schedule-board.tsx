@@ -245,7 +245,7 @@ function SessionCard({
   const studentLabel = copy.privateClass ? copy.primary : `${copy.primary} · ${attendance.total} 人`;
   const cardName = !copy.privateClass && !brief ? copy.primary : studentLabel;
   const secondaryLine = [
-    !copy.privateClass ? `${attendance.total} 人` : secondaryType,
+    !copy.privateClass ? `${attendance.total} 人` : "",
     !copy.privateClass && attendance.processed > 0 && !attendanceComplete ? attendanceLabel : "",
   ].filter(Boolean).join(" · ");
   const originalCoach = substitute ? coaches.find((coach) => coach.id === session.rescheduledFromCoachId)?.displayName : null;
@@ -271,8 +271,8 @@ function SessionCard({
             <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[10px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
           </div>
           {!brief && <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
-            <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{secondaryLine}</span>
-            <span className={`shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{primaryType}</span>
+            {secondaryLine && <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{secondaryLine}</span>}
+            <span className={`ml-auto shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{primaryType}</span>
           </div>}
         </>
       ) : (
@@ -804,7 +804,7 @@ export function CourseScheduleBoard({
                                  className={`group relative touch-manipulation border-b border-earth-200/80 text-left last:border-b-0 ${available?(moveClipboard?"bg-indigo-50/70 hover:bg-indigo-100 active:bg-indigo-100":"bg-white hover:bg-primary-50 active:bg-primary-50"):"cursor-not-allowed bg-earth-100"}`}
                                >
                                  {available&&<span className={`pointer-events-none absolute left-1 top-1 rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-medium shadow-sm ${moveClipboard?"text-indigo-800":"hidden text-primary-800 group-hover:block group-focus-visible:block group-active:block"}`}>{moveClipboard ? choiceLabel : `＋ ${startTime} · ${availabilityDuration}分`}</span>}
-                                 <span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-300 opacity-0 [@media(pointer:coarse)]:opacity-100" aria-hidden="true">{minute}</span>
+                                 <span className="pointer-events-none absolute bottom-0.5 right-1 text-[9px] text-earth-500 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-100" aria-hidden="true">{minute}</span>
                               </button>
                             );
                           })}
