@@ -153,7 +153,7 @@ export default function ReportDateRange({
                 aria-label="起始日期"
                 defaultValue={startDate}
                 required
-                onChange={(event) => { setDateError(null); if (enhanced && event.currentTarget.form) handleCustomSubmit(event.currentTarget.form); }}
+                onChange={() => setDateError(null)}
                 className="block w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               />
             </div>
@@ -165,17 +165,17 @@ export default function ReportDateRange({
                 aria-label="結束日期"
                 defaultValue={endDate}
                 required
-                onChange={(event) => { setDateError(null); if (enhanced && event.currentTarget.form) handleCustomSubmit(event.currentTarget.form); }}
+                onChange={() => setDateError(null)}
                 className="block w-full rounded-lg border border-earth-300 bg-white px-2.5 py-1.5 text-sm text-earth-800 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-400"
               />
             </div>
-            {!enhanced && <button
+            <button
               type="submit"
               disabled={reading}
               className="rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
             >
-              查詢
-            </button>}
+              {enhanced ? "套用日期" : "查詢"}
+            </button>
           </form>
           {dateError && (
             <p className="text-xs text-red-500">{dateError}</p>

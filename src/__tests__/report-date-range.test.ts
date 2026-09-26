@@ -34,3 +34,14 @@ it("keeps the detailed category when choosing a preset, shifting dates, and pref
  await act(async()=>vi.advanceTimersByTime(1500));
  expect(prefetch).toHaveBeenCalledWith("?view=detail&category=customers&preset=week");
 });
+it("applies both enhanced custom dates from visible fields even without change events",async()=>{
+ vi.useFakeTimers(); query="view=detail&category=customers&preset=week";
+ await act(async()=>root.render(createElement(ReportDateRange,{activePreset:"custom",startDate:"2026-09-21",endDate:"2026-09-27",enhanced:true,compact:true})));
+ host.querySelector<HTMLInputElement>('[name="startDate"]')!.value="2026-09-14";
+ host.querySelector<HTMLInputElement>('[name="endDate"]')!.value="2026-09-19";
+ expect(push).not.toHaveBeenCalled();
+ const apply=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="套用日期")!;
+ await act(async()=>{apply.click();vi.advanceTimersByTime(150);});
+ expect(push).toHaveBeenCalledTimes(1);
+ expect(push).toHaveBeenCalledWith("?view=detail&category=customers&startDate=2026-09-14&endDate=2026-09-19",{scroll:false});
+});
