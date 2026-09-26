@@ -5,9 +5,8 @@ import { z } from "zod";
 import { createCustomer } from "@/server/actions/customer";
 import { spaPrisma } from "@/lib/spa-db";
 import { prisma } from "@/lib/db";
-import { requireWritablePermission } from "@/lib/permissions";
-import { resolveWriteStoreId } from "@/lib/store";
 import { AppError, handleActionError } from "@/lib/errors";
+import { authorizedSpaStore } from "@/server/actions/spa-booking";
 import { requireSpaStore } from "@/lib/industry-module-server";
 import { fetchSpaBookingAvailability } from "@/server/actions/spa-booking-availability";
 import { composeSpaBookingTreatments } from "@/lib/spa-booking-composition";
@@ -55,8 +54,9 @@ export async function createSpaQuickBooking(
   }
 
   try {
-    const user = await requireWritablePermission("booking.create");
-    const storeId = await resolveWriteStoreId(user);
+    const storeId = await authorizedSpaStore("booking.create");
+    // Keep the authoritative module firewall explicit at this write boundary.
+    // authorizedSpaStore additionally enforces the shared ACTIVE installation gate.
     await requireSpaStore(storeId);
 
     const data = parsed.data;
@@ -112,7 +112,15 @@ export async function createSpaQuickBooking(
     const booking = await spaPrisma.$transaction(async (tx) => {
       // Serialize writes for one SPA store/date, then recheck provider and
       // room capacity inside the same transaction to prevent double booking.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${storeId}:${data.bookingDate}:spa-booking`}, 0))`;
+      // pg_advisory_xact_lock returns PostgreSQL's void type.  Read queries
+      // cannot deserialize it through Prisma, so issue it as a command.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${storeId}:${data.bookingDate}:spa-booking`}, 0))`;
+      const serviceLocation = await tx.spaServiceLocation.findFirst({
+        where: { storeId, isActive: true, treatments: { some: { treatmentId: { in: data.treatmentIds } } } },
+        select: { id: true },
+        orderBy: { sortOrder: "asc" },
+      });
+      if (!serviceLocation) throw new AppError("CONFLICT", "沒有可安排所選療程的服務位置");
       const endTime = addMinutes(data.slotTime, composition.occupiedMinutes);
       const overlaps = await tx.spaBooking.findMany({
         where: {
@@ -124,11 +132,15 @@ export async function createSpaQuickBooking(
         },
         select: {
           serviceStaffId: true,
+          serviceLocationId: true,
           items: { select: { treatmentId: true, treatmentNameSnapshot: true } },
         },
       });
       if (overlaps.some((existing) => existing.serviceStaffId === data.serviceStaffId)) {
         throw new AppError("CONFLICT", "此芳療師在所選時段已有預約");
+      }
+      if (overlaps.some((existing) => existing.serviceLocationId === serviceLocation.id)) {
+        throw new AppError("CONFLICT", "此服務位置在所選時段已有預約");
       }
       const occupiedResourceCount = overlaps.filter((existing) =>
         inferSpaDemoResourceType({
@@ -141,7 +153,6 @@ export async function createSpaQuickBooking(
       }
       return tx.spaBooking.create({
         data: {
-          storeId,
           customerId,
           serviceStaffId: data.serviceStaffId,
           revenueStaffId: data.serviceStaffId,
@@ -153,7 +164,8 @@ export async function createSpaQuickBooking(
           totalPriceSnapshot: composition.totalPrice,
           requestKey: data.requestKey,
           notes: data.notes || null,
-          items: { create: treatments.map((treatment, sortOrder) => ({ storeId, treatmentId: treatment.id, treatmentNameSnapshot: treatment.name, variantSnapshot: treatment.variantLabel, priceSnapshot: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, sortOrder })) },
+          serviceLocation: { connect: { id_storeId: { id: serviceLocation.id, storeId } } },
+          items: { create: treatments.map((treatment, sortOrder) => ({ treatmentId: treatment.id, treatmentNameSnapshot: treatment.name, variantSnapshot: treatment.variantLabel, priceSnapshot: treatment.price, serviceMinutes: treatment.serviceMinutes, bufferMinutes: treatment.bufferMinutes, sortOrder })) },
         },
       });
     });
