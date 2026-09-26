@@ -644,20 +644,26 @@ export function CourseScheduleBoard({
       </div>
 
       {musicDense && (
-        <div className="flex max-w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-[11px] text-earth-700" aria-label="課程型態圖例">
-          {[
-            ["每週", "border-teal-500 bg-teal-50"],
-            ["隔週", "border-blue-500 bg-blue-50"],
-            ["約課／調課／代課", "border-amber-500 bg-amber-50"],
-            ["團體", "border-purple-500 bg-purple-50"],
-            ["體驗", "border-rose-500 bg-rose-100"],
-          ].map(([label, color]) => (
-            <span key={label} className="inline-flex items-center gap-1 whitespace-nowrap">
-              <span className={`h-3 w-3 rounded-sm border-l-[3px] ${color}`} aria-hidden="true" />{label}
-            </span>
-          ))}
-          <span className="inline-flex items-center gap-1"><span className="h-3 w-3 border-l-[4px] border-l-slate-400 bg-white" aria-hidden="true" />灰色＝尚有未處理</span>
-          <span className="text-earth-600">左側亮色＝全員已記錄狀態（含請假、曠課）</span>
+        <div className="flex max-w-full flex-wrap items-center gap-x-5 gap-y-1 rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-[11px] text-earth-700" aria-label="課表顏色圖例">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片底色表示課型">
+            <span className="font-semibold text-earth-800">底色＝課型</span>
+            {[
+              ["每週", "border-teal-200 bg-teal-50"],
+              ["隔週", "border-blue-200 bg-blue-50"],
+              ["約課／調課／代課", "border-amber-200 bg-amber-50"],
+              ["團體", "border-purple-200 bg-purple-50"],
+              ["體驗", "border-rose-400 bg-rose-100"],
+            ].map(([label, color]) => (
+              <span key={label} className="inline-flex items-center gap-1 whitespace-nowrap">
+                <span className={`h-3 w-3 rounded-sm border ${color}`} aria-hidden="true" />{label}
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片左槓表示點名進度">
+            <span className="font-semibold text-earth-800">左槓＝點名進度</span>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-slate-400 bg-white" aria-hidden="true" />灰色：尚有未處理</span>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-teal-600 bg-white" aria-hidden="true" />課型亮色：全員已記錄（含請假、曠課）</span>
+          </div>
         </div>
       )}
 
