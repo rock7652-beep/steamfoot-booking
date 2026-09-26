@@ -1,3 +1,7 @@
+import { reserveCourseInTransaction, settleCourseBooking } from "@/server/services/course-booking";
+import { personalIncomeView, summarizePersonalIncome } from "@/lib/course-personal-income";
+import { confirmCourseMonthlySettlement } from "@/server/actions/course-monthly-settlement";
+import { courseManager, courseTransaction } from "@/server/services/course-access";
 import {recordCourseProfitPayment,voidCourseProfitPayment} from "@/server/services/course-profit-payment";
 import {readCourseMonthlySettlement,readSettlementSettings} from "@/server/services/course-monthly-settlement";
 import {toLocalMonthStr} from "@/lib/date-utils";
@@ -12,8 +16,10 @@ import { deleteUnusedCourseItems } from "@/server/services/course-delete";
 import { recordCourseFeePayment, voidCourseFeePayment } from "@/server/services/course-fee-payment";
 import { lockCourseStore } from "@/server/services/course-store-lock";
 
-vi.mock("@/server/services/course-access",()=>({courseTransaction:vi.fn()}));
-vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:async()=>({maxMonthlyBookings:null})}));
+vi.mock("@/server/services/course-access",()=>({courseTransaction:vi.fn(),courseManager:vi.fn()}));
+vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
+vi.mock("@/lib/subscription-guard",()=>({assertStoreSubscriptionWritable:vi.fn()}));
+vi.mock("@/lib/feature-gate",()=>({getStoreLimitsByStoreId:async()=>({maxMonthlyBookings:null}),requireStoreFeature:vi.fn()}));
 
 // Explicit loopback-only disposable database; never falls back to DATABASE_URL.
 const databaseUrl = resolveBookingConcurrencyTestDatabaseUrl(process.env);
@@ -72,6 +78,73 @@ const testDb = () => { if (!db) throw new Error("Explicit test database required
   function checkout(f:Awaited<ReturnType<typeof fixture>>) {
     return testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);return assignCourseWithCheckout(tx,{storeId:f.storeId,userId:"test-manager"},f);},{timeout:15000});
   }
+  it("one daily flow keeps checkout, attendance, confirmed income and corrected payment consistent",async()=>{
+    // Only the clock and authorization boundary are controlled; all business writes use real PostgreSQL.
+    vi.useFakeTimers({toFake:["Date"]});
+    vi.setSystemTime(new Date("2026-09-25T01:00:00Z"));
+    try {
+      const f={...await fixture(),discountValue:0,expectedStoreCost:600};
+      await testDb().coursePointPlan.update({where:{id:f.planId},data:{points:2,unit:"SESSION",storeCost:600}});
+      const coachId=randomUUID();
+      await testDb().$executeRaw`INSERT INTO "Staff" VALUES (${coachId},${f.storeId},${coachId},'驗收教練','ACTIVE')`;
+      const actor={storeId:f.storeId,userId:f.storeId,name:"驗收店長"};
+      const run=<T,>(work:(tx:import("../../generated/course-client").Prisma.TransactionClient)=>Promise<T>)=>testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);return work(tx);});
+      vi.mocked(courseManager).mockResolvedValue({storeId:f.storeId,user:{id:f.storeId,role:"OWNER"}} as Awaited<ReturnType<typeof courseManager>>);
+      vi.mocked(courseTransaction).mockImplementation(async (_storeId,work)=>testDb().$transaction(async tx=>{await lockCourseStore(tx,f.storeId);return work(tx);}));
+      const order=await checkout(f);
+      expect(await checkout(f)).toMatchObject({id:order.id});
+      expect(order).toMatchObject({price:1000,storeCostSnapshot:600,developerProfitSnapshot:400});
+      const room=await testDb().courseRoom.create({data:{storeId:f.storeId,name:"日常驗收教室"}});
+      const template=await testDb().courseTemplate.create({data:{storeId:f.storeId,name:"日常驗收課",durationMinutes:60,pointCost:1,capacity:5}});
+      const session=await testDb().courseSession.create({data:{storeId:f.storeId,templateId:template.id,roomId:room.id,coachId,nameSnapshot:template.name,startsAt:new Date("2026-09-25T02:00:00Z"),endsAt:new Date("2026-09-25T03:00:00Z"),capacity:5,pointCost:1,requestKey:randomUUID(),requestIndex:0,createdById:f.storeId}});
+      await testDb().courseCompensationSnapshot.create({data:{sessionId:session.id,storeId:f.storeId,staffId:coachId,rule:{mode:"CLASS",value:200},revision:1,durationMinutes:60}});
+      const reservation={sessionId:session.id,cardId:order.cardId!,customerId:f.customerId,requestKey:randomUUID()};
+      const booking=await run(tx=>reserveCourseInTransaction(tx,actor,reservation,null));
+      await run(tx=>reserveCourseInTransaction(tx,actor,reservation,null));
+      expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject({remaining:2});
+      vi.setSystemTime(new Date("2026-09-25T04:00:00Z"));
+      await run(tx=>settleCourseBooking(tx,actor,booking.id,"ATTENDED"));
+      await run(tx=>settleCourseBooking(tx,actor,booking.id,"ATTENDED"));
+      expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject({remaining:1});
+      expect(await testDb().coursePointEntry.count({where:{bookingId:booking.id,kind:"DEBIT"}})).toBe(1);
+      const month="2026-09";
+      const read=()=>run(tx=>readCourseMonthlySettlement(tx,f.storeId,month));
+      let report=await read();
+      expect(report.lines.map(l=>({kind:l.kind,amount:l.amount,issue:l.issue}))).toEqual([{kind:"PROFIT",amount:400,issue:null},{kind:"FEE",amount:200,issue:null}]);
+      expect(personalIncomeView(coachId,report.lines,report.revisions[0]).confirmed).toBe(false);
+      const confirmation={month,fingerprint:report.fingerprint,revision:0,reason:"獨立日常驗收"};
+      expect(await confirmCourseMonthlySettlement(confirmation)).toEqual({success:true});
+      expect(await confirmCourseMonthlySettlement(confirmation)).toEqual({success:true});
+      const profit={month,purchaseId:order.id,amount:400,expectedRemaining:400,method:"OTHER",note:"內部驗收利潤",requestKey:randomUUID()};
+      const fee={sessionId:session.id,expectedAmount:200,method:"OTHER",note:"內部驗收授課費",requestKey:randomUUID()};
+      await run(tx=>recordCourseProfitPayment(tx,actor,profit));
+      await run(tx=>recordCourseFeePayment(tx,actor,fee));
+      await run(tx=>recordCourseFeePayment(tx,actor,fee));
+      report=await read();
+      expect(report.revisions).toHaveLength(1);
+      const own=personalIncomeView(coachId,report.lines,report.revisions[0]);
+      expect(own.lines).toHaveLength(1);
+      expect(summarizePersonalIncome(own.lines)).toEqual({total:200,paid:200,remaining:0,overpaid:0});
+      expect(JSON.stringify(own)).not.toContain("內部驗收");
+      expect(summarizePersonalIncome(personalIncomeView(f.storeId,report.lines,report.revisions[0]).lines)).toEqual({total:400,paid:400,remaining:0,overpaid:0});
+      const [payment]=await testDb().$queryRaw<Array<{id:string}>>`SELECT id FROM "CourseFeePayment" WHERE "sessionId"=${session.id}`;
+      const correction={paymentId:payment.id,reason:"日常驗收付款方式誤登"};
+      await run(tx=>voidCourseFeePayment(tx,actor,correction));
+      await run(tx=>voidCourseFeePayment(tx,actor,correction));
+      report=await read();
+      expect(summarizePersonalIncome(personalIncomeView(coachId,report.lines,report.revisions[0]).lines)).toEqual({total:200,paid:0,remaining:200,overpaid:0});
+      await run(tx=>recordCourseFeePayment(tx,actor,{...fee,requestKey:randomUUID(),note:"更正後重新登錄"}));
+      report=await read();
+      const corrected=personalIncomeView(coachId,report.lines,report.revisions[0]);
+      expect(summarizePersonalIncome(corrected.lines)).toEqual({total:200,paid:200,remaining:0,overpaid:0});
+      expect(corrected.lines[0].payments).toHaveLength(2);
+      expect(corrected.lines[0].payments.filter(p=>p.voided)).toHaveLength(1);
+      const cash=await testDb().$queryRaw<Array<{type:string;amount:number}>>`SELECT type,amount FROM "CashbookEntry" WHERE "storeId"=${f.storeId}`;
+      expect(cash).toHaveLength(5); // purchase, profit, fee, fee reversal, replacement
+      expect(cash.reduce((sum,e)=>sum+(e.type==="INCOME"?e.amount:-e.amount),0)).toBe(400);
+      expect(await testDb().coursePointCard.findUnique({where:{id:order.cardId!}})).toMatchObject({remaining:1});
+    } finally { vi.useRealTimers(); }
+  });
   it("concurrent retries issue one card and one receipt at the discounted amount",async()=>{
     const f=await fixture();const results=await Promise.all([checkout(f),checkout(f),checkout(f)]);
     expect(new Set(results.map(r=>r.id)).size).toBe(1);
