@@ -214,6 +214,11 @@ describe("course point settlement", () => {
     expect(m.tx.coursePointCard.updateMany).not.toHaveBeenCalled();
     expect(m.tx.coursePointEntry.create).toHaveBeenCalledWith({data:expect.objectContaining({kind:"RELEASE",points:3})});
   });
+  it("activates a music card on its first chargeable lesson, not when sold", async () => {
+    m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:1,card:{...reserved().card,musicValidityDays:35,musicActivatedAt:null}});
+    await settleCourseBooking(tx,{...actor,customerId:undefined},"booking","ATTENDED");
+    expect(m.tx.coursePointCard.updateMany).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({remaining:{decrement:1},musicActivatedAt:new Date("2026-09-15T00:00:00Z"),expiresAt:expect.any(Date)})}));
+  });
   it("published music group leave records leave and forfeits one lesson", async () => {
     m.tx.courseBooking.findFirst.mockResolvedValue({...reserved(),pointCost:1,session:{...reserved().session,templateId:"guitar-group"}});
     m.tx.$queryRaw.mockResolvedValue([{featureKey:"business.music"}]);

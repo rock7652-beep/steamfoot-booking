@@ -49,6 +49,11 @@ describe("restore music student leave", () => {
     expect(m.coursePointEntry.create.mock.calls[0][0].data.kind).toMatch(/^CORRECT:CANCELLED:RESERVED:/);
     expect(m.courseBooking.update).toHaveBeenCalledWith({where:{id:"b"},data:{status:"RESERVED",absenceKind:null,checkedInAt:null}});
   });
+  it("reopens a music card when its first deducted lesson is restored",async()=>{
+    m.courseBooking.findFirst.mockResolvedValueOnce({...leave(),absenceKind:"GROUP_LEAVE_FORFEITED",card:{...leave().card,remaining:0,musicValidityDays:35,musicActivatedAt:new Date("2020-01-01")}}).mockResolvedValueOnce(null);
+    await correctCourseAttendance(tx,actor,"b","RESERVED","CANCELLED");
+    expect(m.coursePointCard.update).toHaveBeenCalledWith({where:{id:"c"},data:{remaining:{increment:3},musicActivatedAt:null,expiresAt:expect.any(Date)}});
+  });
 
   it("refuses to restore a forfeited group seat after capacity is filled", async () => {
     m.courseBooking.findFirst.mockResolvedValue({...leave(),absenceKind:"GROUP_LEAVE_FORFEITED",card:{...leave().card,remaining:0}});
@@ -80,6 +85,11 @@ describe("restore music student leave", () => {
   });
 });
 describe("course attendance correction", () => {
+  it("starts a new music plan from the first lesson when attendance is marked in a batch", async () => {
+    m.courseBooking.findFirst.mockResolvedValue({ ...booking("RESERVED"), card: {remaining:7,musicValidityDays:35,musicActivatedAt:null,expiresAt:new Date("2099-12-31")} });
+    await correctCourseAttendance(tx,actor,"b","ATTENDED","RESERVED");
+    expect(m.coursePointCard.update).toHaveBeenCalledWith({where:{id:"c"},data:{remaining:{increment:-3},musicActivatedAt:new Date("2020-01-01"),expiresAt:expect.any(Date)}});
+  });
   it("cannot restore or spend quota after a refund", async () => {
     m.courseBooking.findFirst.mockResolvedValue({ ...booking("NO_SHOW"), card: { remaining: 0, closedAt: new Date() } });
     await expect(correctCourseAttendance(tx, actor, "b", "RESERVED", "NO_SHOW")).rejects.toThrow("已退款或結清");

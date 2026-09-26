@@ -32,6 +32,12 @@ model CourseRoom {
 model CourseTemplate {
   visibility String @default("PUBLIC")
   classType String?
+  musicPricePerLesson Int?
+  musicTermLessons Int?
+  musicValidityDaysPerTerm Int?
+  musicScheduleMode String?
+  musicTrialMode String?
+  musicTeacherFeeBase Int?
   id              String @id @default(cuid())
   storeId         String
   name            String
@@ -115,6 +121,7 @@ model CourseSessionMove {
 }
 
 model CoursePointPlan {
+  musicTerms Int?
   storeCost Int @default(0)
   termSessionIds String[] @default([])
   customerPurchasable Boolean @default(true)
@@ -146,6 +153,8 @@ model CourseBalanceReminderPreference {
 }
 
 model CoursePointCard {
+  musicValidityDays Int?
+  musicActivatedAt DateTime? @db.Timestamptz(3)
   termSessionIds String[] @default([])
   id String @id @default(cuid())
   storeId String
@@ -320,6 +329,9 @@ model CourseCompensationSnapshot {
   rule Json
   revision Int
   durationMinutes Int
+  musicPricePerLesson Int?
+  musicTeacherFeeBase Int?
+  musicTrialMode String?
   createdAt DateTime @default(now()) @db.Timestamptz
 }
 

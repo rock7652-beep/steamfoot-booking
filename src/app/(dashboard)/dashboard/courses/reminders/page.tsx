@@ -19,11 +19,13 @@ import { ReminderTabs } from "../../reminders/reminder-tabs";
 import { NotificationLogList } from "../../reminders/notification-log-list";
 import { StoreLineHealthCard } from "../../reminders/store-line-health-card";
 import { getCurrentLineOfficialAccountStatus } from "@/server/actions/line-official-accounts";
+import { prisma } from "@/lib/db";
 
 export default async function CourseRemindersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await getCurrentUser();
   if (!user || !(await checkPermission(user.role, user.staffId, "business_hours.manage"))) notFound();
   const { storeId } = await courseManager("business_hours.manage");
+  const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}));
   const params = await searchParams;
   const active = params.tab === "logs" ? "logs" : params.tab === "manager" ? "manager" : "customer";
   const enabled = await hasStoreFeature(storeId, FEATURES.LINE_REMINDER);
@@ -36,7 +38,7 @@ export default async function CourseRemindersPage({ searchParams }: { searchPara
       <ReminderTabs active={active} explicit={!!params.tab} storeId={storeId} baseHref="/dashboard/courses/reminders" />
       {previewBlocked && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">隔離預覽不向外發送 LINE。設定可儲存，跳過紀錄不代表實機送達。</p>}
       {lineHealth && <StoreLineHealthCard initialStatus={lineHealth} />}
-      {active === "manager" ? <LineNotificationRecipientsCard recipients={await listStoreLineNotificationRecipients()} course /> : active === "logs" ? <NotificationLogList data={await listNotificationCenterLogs(params)} params={params} baseHref="/dashboard/courses/reminders" course /> : setting && <><PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={false} course /><PlanExpiryReminderSettingCard initialEnabled={(await getCourseExpiryReminderSetting()).enabled} course /><CourseLowBalanceSettings plans={await getCoursePlanReminderSettings()}/></>}
+      {active === "manager" ? <LineNotificationRecipientsCard recipients={await listStoreLineNotificationRecipients()} course /> : active === "logs" ? <NotificationLogList data={await listNotificationCenterLogs(params)} params={params} baseHref="/dashboard/courses/reminders" course /> : setting && <><PackageLineCardReminderSettingCard initialBody={setting.body} initialEnabled={setting.enabled} hasMapLink={false} course /><PlanExpiryReminderSettingCard initialEnabled={(await getCourseExpiryReminderSetting()).enabled} course music={music} /><CourseLowBalanceSettings plans={(await getCoursePlanReminderSettings()).filter(plan=>!music||plan.unit==="SESSION")} music={music}/></>}
     </div>}
   </PageShell>;
 }

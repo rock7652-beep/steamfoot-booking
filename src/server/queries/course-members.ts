@@ -37,6 +37,8 @@ export async function getCourseCards(storeId: string, customerId?: string, page?
       id: c.id,
       name: c.nameSnapshot,
       unit: c.unit,
+      musicValidityDays:c.musicValidityDays,
+      musicActivatedAt:c.musicActivatedAt?.toISOString()??null,
       templateIds: c.templateIds,
       termSessionIds:c.termSessionIds,
       allowShared: c.plan.allowShared,

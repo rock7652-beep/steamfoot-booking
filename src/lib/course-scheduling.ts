@@ -11,6 +11,12 @@ const date = z
   .refine((value) => !!parseTaipeiDateTime(value, "00:00"), "請填寫有效日期");
 export const courseTemplateInput = z.object({
   classType: z.enum(["PRIVATE","SELF_ORGANIZED","GROUP"]).nullable().default(null),
+  musicPricePerLesson: z.number().int().min(0).max(1000000).nullable().default(null),
+  musicTermLessons: z.union([z.literal(4),z.literal(8)]).nullable().default(null),
+  musicValidityDaysPerTerm: z.number().int().min(1).max(3650).nullable().default(null),
+  musicScheduleMode: z.enum(["FIXED","APPOINTMENT"]).nullable().default(null),
+  musicTrialMode: z.enum(["FREE","PAID"]).nullable().default(null),
+  musicTeacherFeeBase: z.number().int().min(0).max(1000000).nullable().default(null),
   name: z.string().trim().min(1, "請填寫課程名稱").max(80),
   category: z.string().trim().max(40).default(""),
   defaultRoomId: id.nullable().default(null),

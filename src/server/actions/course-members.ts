@@ -106,6 +106,7 @@ export async function saveCoursePointPlan(input: unknown) {
         validDays: z.number().int().min(1).max(3650),
         isActive: z.boolean().default(true),
         unit: z.enum(["POINT", "SESSION"]).default("POINT"),
+        musicTerms:z.number().int().min(1).max(100).nullable().default(null),
         templateIds: z.array(id).max(200).default([]),
       })
       .parse(input);
@@ -116,6 +117,16 @@ export async function saveCoursePointPlan(input: unknown) {
     });
     if (isMusic && data.unit !== "SESSION")
       throw new AppError("VALIDATION", "音樂教室方案以堂數計算；每次上課使用 1 堂");
+    if (isMusic) {
+      if (data.templateIds.length!==1 || data.musicTerms===null) throw new AppError("VALIDATION","音樂方案請選擇一種吉他課與購買期數");
+      const template=await coursePrisma.courseTemplate.findFirst({where:{id:data.templateIds[0],storeId,isActive:true},select:{musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true}});
+      if (!template || template.musicTrialMode) throw new AppError("VALIDATION","體驗課不建立期數方案，請選擇一般吉他課");
+      const {musicPlanQuote}=await import("@/lib/music-course-products");
+      let quote:ReturnType<typeof musicPlanQuote>;
+      try { quote=musicPlanQuote(template,data.musicTerms); } catch(error) {throw new AppError("VALIDATION",error instanceof Error ? error.message : "課程設定不完整");}
+      data.points=quote.lessons;data.price=quote.price;data.validDays=quote.validDays;
+      if (data.termSessionIds.length) throw new AppError("VALIDATION","音樂固定時段由課表管理，購買方案不預先綁定指定課次");
+    } else if (data.musicTerms!==null) throw new AppError("VALIDATION","運動方案不使用音樂課期數");
     if (data.templateIds.length && await coursePrisma.courseTemplate.count({ where: { storeId, id: { in: data.templateIds } } }) !== new Set(data.templateIds).size) throw new AppError("VALIDATION", "適用課程必須屬於本店");
     await courseTransaction(storeId,async tx=>{
     const previous=planId?await tx.coursePointPlan.findFirst({where:{id:planId,storeId}}):null;
@@ -155,7 +166,8 @@ export async function assignCoursePointCard(input: unknown) {
     const checkout = courseCheckoutSchema.parse(input);
     if (checkout.discountValue > 0) await courseManager("transaction.discount");
     await courseTransaction(storeId, async tx => {
-      const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true}});
+      const plan=await tx.coursePointPlan.findFirst({where:{id:data.planId,storeId},select:{termSessionIds:true,unit:true}});
+      if(plan?.unit==="POINT" && await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       if(plan?.termSessionIds.length) await courseManager("booking.create");
       return assignCourseWithCheckout(tx, {storeId, userId:user.id}, {...data,...checkout});
     });

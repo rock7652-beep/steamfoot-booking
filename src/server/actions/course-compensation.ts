@@ -14,7 +14,11 @@ export async function readCourseCompensation(input:unknown){try{
 }catch(e){const failure=handleActionError(e);return {success:false as const,error:!failure.success?failure.error:"操作失敗"};}}
 export async function saveCourseCompensation(input:unknown){try{
  const d=scope.extend({staffId:z.string().min(1).max(180),rules:compensationRules,revision:z.number().int().min(0)}).parse(input),{storeId}=await actor(d.staffId);
- if(d.rules.length!==1||d.rules[0].mode!=="CLASS")throw new AppError("VALIDATION","僅支援每堂固定授課費");
+ if(d.rules.length!==1||!(["CLASS","SHARE"].includes(d.rules[0].mode)))throw new AppError("VALIDATION","僅支援每堂固定或音樂課按比例計酬");
+ if(d.rules[0].mode==="SHARE"){
+  const music=await coursePrisma.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+  if(!music.length)throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
+ }
  await courseTransaction(storeId,async tx=>{
   const template=await tx.courseTemplate.findFirst({where:{storeId,id:d.templateId},select:{id:true}});if(!template)throw new AppError("FORBIDDEN","找不到本店課程");
   const rows=await tx.$queryRaw<Array<{staffId:string;rules:CompensationRule[];revision:number}>>`SELECT "staffId",rules,revision FROM "CourseCompensation" WHERE "storeId"=${storeId} AND "templateId"=${d.templateId} FOR UPDATE`;

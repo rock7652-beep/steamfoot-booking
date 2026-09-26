@@ -53,10 +53,12 @@ export async function CourseSharedHub({view, panel, panelQuery}:{view:CourseHubV
       hasStoreFeature(storeId, FEATURES.LINE_REMINDER),
       hasStoreFeature(storeId, FEATURES.CUSTOMER_CARE),
     ]);
+    const music = !!(await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{id:true}}));
     const subscription = store?.currentSubscription ?? store?.subscriptions[0];
     const subscriptionSummary = subscription ? effectiveStateLabel(computeLifecycle(subscription, toLocalDateStr()).state) + (subscription.expiresAt ? " · 到期日 " + subscription.expiresAt.toISOString().slice(0, 10) : " · 未設定到期日") : "尚無訂閱紀錄；續約或調整方案請聯絡總部。";
     body = (
       <CourseSettingsWorkspace
+        music={music}
         panelContent={<CourseSettingsPanelContent panel={panel} query={panelQuery} />}
         key={storeId}
         canDigitalButler={canPayment && !readOnly && digitalButler}

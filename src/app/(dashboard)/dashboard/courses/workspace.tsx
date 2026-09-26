@@ -40,6 +40,7 @@ type Room = {
   capacity: number | null;
   details?: string;
   equipment?:string;location?:string;visibility?:string;classType?:string|null;
+  musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicScheduleMode?:string|null;musicTrialMode?:string|null;musicTeacherFeeBase?:number|null;
   uses?: { id:string;nameSnapshot: string; startsAt: string }[];
 };
 type Template = Omit<Room, "capacity"> & {
@@ -888,7 +889,7 @@ export function CourseWorkspace({
                             {template.durationMinutes} 分
                           </td>
                           <td className="block py-1 tabular-nums sm:table-cell sm:px-4 sm:py-3">
-                            點數卡 {template.pointCost} 點；堂數卡 1 堂
+                            {businessProfile === "MUSIC" ? `${template.musicTermLessons ?? (template.classType === "GROUP" ? 8 : 4)} 堂／期 · 每位 NT$ ${template.musicPricePerLesson ?? "待設定"}／堂` : `點數卡 ${template.pointCost} 點；堂數卡 1 堂`}
                           </td>
                           <td className="block py-1 tabular-nums sm:table-cell sm:px-4 sm:py-3">
                             <span className="text-earth-500 sm:hidden">人數上限： </span>
@@ -1151,7 +1152,7 @@ export function CourseWorkspace({
                             {allRooms.find((room) => room.id === session.roomId)?.name ??
                               "未指定教室"}
                             {" · "}
-                            點數卡 {session.pointCost} 點／堂數卡 1 堂
+                            {businessProfile === "MUSIC" ? "每位學員 1 堂" : `點數卡 ${session.pointCost} 點／堂數卡 1 堂`}
                           </p>
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             <button
@@ -1302,7 +1303,8 @@ export function CourseWorkspace({
                               precautions: data.get("precautions") || "",
                               classType:data.get("classType") || null,
                               durationMinutes: Number(data.get("duration")),
-                              pointCost: Number(data.get("cost")),
+                              pointCost: businessProfile === "MUSIC" ? 1 : Number(data.get("cost")),
+                              ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {}),
                               capacity: Number(data.get("capacity")),
                             }),
                           )
@@ -1318,6 +1320,7 @@ export function CourseWorkspace({
                           />
                         </label>
                         <ClassType required/>
+                        {businessProfile === "MUSIC" && <MusicCourseFields/>}
                         <label className="col-span-full">
                           分類
                           <input
@@ -1338,7 +1341,7 @@ export function CourseWorkspace({
                             <input className={field} name="duration" type="number" defaultValue={60} min={1} max={480} required />
                           )}
                         </label>
-                        <label>
+                        {businessProfile !== "MUSIC" && <label>
                           點數卡每人扣點
                           <input
                             className={field}
@@ -1350,7 +1353,7 @@ export function CourseWorkspace({
                             required
                           />
                           <span className="block text-sm text-earth-600">堂數卡每次固定扣 1 堂，依使用卡別扣抵。</span>
-                        </label>
+                        </label>}
                         <label>
                           人數上限
                           <input
@@ -1374,7 +1377,7 @@ export function CourseWorkspace({
                             ))}
                           </select>
                         </label>
-                        <DebitRule/><TemplateMore />
+                        <DebitRule music={businessProfile === "MUSIC"}/><TemplateMore />
                       </form>
                     )}
                   </>
@@ -1385,9 +1388,9 @@ export function CourseWorkspace({
               <dl className="divide-y divide-earth-100">{[
                 ["名稱",editing.value.name],["分類",editing.value.category || "未分類"],
                 ["狀態",editing.kind === "room" ? (editing.value.isActive ? "啟用":"停用") : ({PUBLIC:"上架",HIDDEN:"隱藏",OFF:"下架"}[editing.value.visibility ?? "PUBLIC"])],
-                ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "私課" : editing.value.classType === "SELF_ORGANIZED" ? "自組班" : editing.value.classType === "GROUP" ? "團體班":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",`點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : [["容納人數",editing.value.capacity ?? "未設定"]]),
+                ...(editing.kind === "template" ? [["課型",editing.value.classType === "PRIVATE" ? "私課" : editing.value.classType === "SELF_ORGANIZED" ? "自組班" : editing.value.classType === "GROUP" ? "團體班":"待補設定"],["排課預設",`${editing.value.durationMinutes} 分鐘 · 上限 ${editing.value.capacity} 人`],["方案扣抵",businessProfile === "MUSIC" ? `每位學員 1 堂；${editing.value.musicTermLessons ?? "待設定"} 堂／期；每堂 NT$ ${editing.value.musicPricePerLesson ?? "待設定"}` : `點數卡每人 ${editing.value.pointCost} 點；堂數卡每人 1 堂`],["預設教室",allRooms.find(r=>r.id===editing.value.defaultRoomId)?.name ?? "不指定"]] : [["容納人數",editing.value.capacity ?? "未設定"]]),
               ].map(([label,value])=><div key={String(label)} className="grid grid-cols-[7rem_1fr] gap-3 py-3"><dt className="text-earth-500">{label}</dt><dd>{value}</dd></div>)}</dl>
-              {editing.kind === "template" && <DebitRule/>}
+              {editing.kind === "template" && <DebitRule music={businessProfile === "MUSIC"}/>}
               <details><summary className="min-h-11 cursor-pointer py-3">{editing.kind === "template" ? "課程介紹與注意事項":"設備、位置與備註"}</summary>{(editing.kind === "template" ? [editing.value.description,editing.value.precautions]:[editing.value.equipment,editing.value.location,editing.value.details]).map((value,i)=><p key={i} className="whitespace-pre-wrap py-2">{value || "未填"}</p>)}</details>
             </section>}
             {panel === "edit" && editing && canEdit && (
@@ -1416,12 +1419,13 @@ export function CourseWorkspace({
                       const details = {
                         durationMinutes: Number(data.get("duration")),
                         capacity: Number(data.get("capacity")),
-                        pointCost: Number(data.get("cost")),
+                        pointCost: businessProfile === "MUSIC" ? 1 : Number(data.get("cost")),
                       };
                       if (editing.kind === "template")
                         return (copyTemplate?createCourseTemplate:updateCourseTemplate)({
                           ...common,
                           ...details,
+                          ...(businessProfile === "MUSIC" ? musicCourseInput(data) : {}),
                           defaultRoomId: data.get("roomId") || null,
                           description: data.get("description") || "",
                           precautions: data.get("precautions") || "",
@@ -1460,7 +1464,7 @@ export function CourseWorkspace({
                 </p>
                 {editing.kind === "session" && editing.value.bookings.length > 0 && <div role="note" className="col-span-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                   本堂已有 {editing.value.bookings.length} 人次預約。修改日期、時間、教室或教練會影響這些學員；預約會保留，不會自動取消或退款。請先確認調整並通知受影響學員（本次儲存不自動發送通知）。
-                  <p className="mt-1">已有預約不可更換課程或點數；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
+                  <p className="mt-1">已有預約不可更換課程或{businessProfile === "MUSIC" ? "堂數" : "點數"}；已完成出席不可修改。選「這堂及後續」還會影響同批後續課次，儲存時逐堂檢查，有衝突整批不儲存。</p>
                 </div>}
                 {editing.kind==="session" && <label className="col-span-full">課程項目<select className={field} name="templateId" value={editTemplateId || editing.value.templateId} onChange={e=>setEditTemplateId(e.target.value)}>{allTemplates.filter(t=>t.isActive || t.id===editing.value.templateId).map(t=><option key={t.id} value={t.id}>{t.name}{t.visibility==="OFF"?"（下架：保留原課）":""}</option>)}</select></label>}
                 <label className="col-span-full">
@@ -1478,6 +1482,7 @@ export function CourseWorkspace({
                   />
                 </label>
                 {editing.kind === "template" && <ClassType value={editing.value.classType} required={copyTemplate}/>}
+                {editing.kind === "template" && businessProfile === "MUSIC" && <MusicCourseFields value={editing.value}/>}
                 {editing.kind !== "session" && (
                   <label className="col-span-full">
                     分類
@@ -1532,7 +1537,7 @@ export function CourseWorkspace({
                         ).slice(11)}
                       />
                     </label>
-                    <DebitRule/>
+                    <DebitRule music={businessProfile === "MUSIC"}/>
                     <label className="col-span-full">
                       教練
                       <select
@@ -1606,7 +1611,7 @@ export function CourseWorkspace({
                         defaultValue={editing.value.capacity}
                       />
                     </label>
-                    <label>
+                    {businessProfile !== "MUSIC" && <label>
                       點數卡每人扣點
                       <input
                         className={field}
@@ -1618,7 +1623,7 @@ export function CourseWorkspace({
                         defaultValue={editing.value.pointCost}
                       />
                       <span className="block text-sm text-earth-600">堂數卡每次固定扣 1 堂，依使用卡別扣抵。</span>
-                    </label>
+                    </label>}
                     <label>
                       {editing.kind === "template" ? "預設教室" : "教室"}
                       <select
@@ -1657,7 +1662,7 @@ export function CourseWorkspace({
                     </label>
                   </>
                 )}
-                {editing.kind !== "room" && <DebitRule/>}
+                {editing.kind !== "room" && <DebitRule music={businessProfile === "MUSIC"}/>}
                 {editing.kind === "template" && (
                   <TemplateMore
                     description={editing.value.description}
@@ -1731,7 +1736,7 @@ export function CourseWorkspace({
                   >
                     {copySource ? (
                       <p className="col-span-full">
-                        {copySource.nameSnapshot} · 點數卡每人 {copySource.pointCost} 點／堂數卡每人 1 堂<br />
+                        {copySource.nameSnapshot} · {businessProfile === "MUSIC" ? "每位學員 1 堂" : `點數卡每人 ${copySource.pointCost} 點／堂數卡每人 1 堂`}<br />
                         選擇新日期並確認時間後建立，原課程會保留。
                       </p>
                     ) : (
@@ -1746,13 +1751,13 @@ export function CourseWorkspace({
                         >
                           {templates.map((t) => (
                             <option key={t.id} value={t.id}>
-                              {t.name} · 點數卡 {t.pointCost} 點；堂數卡 1 堂
+                              {t.name} · {businessProfile === "MUSIC" ? "每位學員 1 堂" : `點數卡 ${t.pointCost} 點；堂數卡 1 堂`}
                             </option>
                           ))}
                         </select>
                       </label>
                     )}
-                    <DebitRule/>
+                    <DebitRule music={businessProfile === "MUSIC"}/>
                     <label className="col-span-full">
                       教練
                       <select
@@ -2258,9 +2263,30 @@ function TemplateMore({
   );
 }
 
+function musicCourseInput(data:FormData) {
+  return {
+    musicPricePerLesson:Number(data.get("musicPricePerLesson")),
+    musicTermLessons:Number(data.get("musicTermLessons")),
+    musicValidityDaysPerTerm:Number(data.get("musicValidityDaysPerTerm")),
+    musicScheduleMode:data.get("musicScheduleMode"),
+    musicTrialMode:data.get("musicTrialMode") || null,
+    musicTeacherFeeBase:data.get("musicTeacherFeeBase") ? Number(data.get("musicTeacherFeeBase")) : null,
+  };
+}
+function MusicCourseFields({value}:{value?:{musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicScheduleMode?:string|null;musicTrialMode?:string|null;musicTeacherFeeBase?:number|null}}) {
+  return <>
+    <label>每位學員每堂售價（元）<input className={field} name="musicPricePerLesson" type="number" min="0" max="1000000" defaultValue={value?.musicPricePerLesson ?? 800} required/></label>
+    <label>每期堂數<select className={field} name="musicTermLessons" defaultValue={value?.musicTermLessons ?? 4} required><option value="4">4 堂（個別／自組）</option><option value="8">8 堂（團體班）</option></select></label>
+    <label>排課方式<select className={field} name="musicScheduleMode" defaultValue={value?.musicScheduleMode ?? "FIXED"}><option value="FIXED">固定時段</option><option value="APPOINTMENT">每次約課</option></select></label>
+    <label>每期有效天數<input className={field} name="musicValidityDaysPerTerm" type="number" min="1" max="3650" defaultValue={value?.musicValidityDaysPerTerm ?? 35} required/><span className="text-xs text-earth-500">固定課預設 35 天；約課預設 70 天，從第一次上課起算。</span></label>
+    <label>體驗課<select className={field} name="musicTrialMode" defaultValue={value?.musicTrialMode ?? ""}><option value="">一般課程</option><option value="FREE">免費體驗（30 分鐘）</option><option value="PAID">付費體驗（完整一堂）</option></select></label>
+    <label>免費體驗老師計費基礎（元）<input className={field} name="musicTeacherFeeBase" type="number" min="0" max="1000000" defaultValue={value?.musicTeacherFeeBase ?? ""} placeholder="例：個別 400、雙人每位 325"/><span className="text-xs text-earth-500">只供免費體驗計算老師分成，依實際報名座位計，不因曠課減少。</span></label>
+    <p className="col-span-full text-xs text-earth-600">音樂教室只使用堂數，每位學員每次上課使用 1 堂。團體班請假仍扣堂，自組班請假可在期限內補課。</p>
+  </>;
+}
 function ClassType({value,required=false}:{value?:string|null;required?:boolean}) {return <label className="col-span-full">課型{required ? "（必填）" : ""}<select className={field} name="classType" required={required} defaultValue={value ?? ""}><option value="">{required ? "請選擇課型" : "待補設定"}</option><option value="PRIVATE">私課</option><option value="SELF_ORGANIZED">自組班（自行組隊，請假可補）</option><option value="GROUP">團體班（店家開班，請假扣堂）</option></select></label>;}
 function RoomFields({equipment,location}:{equipment?:string;location?:string}) {return <><label className="block">設備<input className={field} name="equipment" defaultValue={equipment}/></label><label className="block">位置<input className={field} name="location" defaultValue={location}/></label></>;}
 
-function DebitRule() {
-  return <p className="col-span-full text-sm leading-relaxed text-earth-600">依使用卡別扣抵：點數卡每次扣課程設定點數；堂數卡每次固定扣 1 堂，不會同時扣兩種額度。須使用適用本課程的方案。預約先占用，出席才正式扣抵。</p>;
+function DebitRule({music=false}:{music?:boolean}) {
+  return <p className="col-span-full text-sm leading-relaxed text-earth-600">{music ? "只使用堂數方案：每位學員每次固定使用 1 堂；先保留額度，出席或曠課才扣堂。團體班請假也扣堂。" : "依使用卡別扣抵：點數卡每次扣課程設定點數；堂數卡每次固定扣 1 堂，不會同時扣兩種額度。須使用適用本課程的方案。預約先占用，出席才正式扣抵。"}</p>;
 }

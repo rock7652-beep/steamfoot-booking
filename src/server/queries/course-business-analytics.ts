@@ -15,9 +15,9 @@ export async function getCourseBusinessAnalytics(storeId: string, range: CourseA
     prisma.staff.findMany({where:{storeId},select:{id:true,displayName:true,courseCoachEnabled:true,user:{select:{role:true}}}}),
     coursePrisma.$transaction(async tx => {
       const [sessions,purchases,fees,receipts,refunds] = await Promise.all([
-        tx.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{lte:end}},select:{id:true,nameSnapshot:true,coachId:true,startsAt:true,endsAt:true,bookings:{where:{storeId,status:"ATTENDED"},select:{customerId:true,customerName:true,bookingKind:true,status:true}}}}),
+        tx.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{lte:end}},select:{id:true,nameSnapshot:true,coachId:true,startsAt:true,endsAt:true,bookings:{where:{storeId},select:{customerId:true,customerName:true,bookingKind:true,status:true,absenceKind:true}}}}),
         tx.coursePurchase.findMany({where:{storeId,status:{in:["CONFIRMED","REFUNDED"]},confirmedAt:{lte:end},price:{gt:0}},select:{id:true,name:true,customerId:true,confirmedAt:true,price:true,revenueStaffId:true,developerProfitSnapshot:true,refunds:{where:{storeId},select:{amount:true,createdAt:true}}}}),
-        access.fees ? tx.courseCompensationSnapshot.findMany({where:{storeId},select:{sessionId:true,staffId:true,rule:true}}) : [],
+        access.fees ? tx.courseCompensationSnapshot.findMany({where:{storeId},select:{sessionId:true,staffId:true,rule:true,musicPricePerLesson:true,musicTeacherFeeBase:true,musicTrialMode:true}}) : [],
         access.money ? tx.courseTrialPayment.findMany({where:{storeId,OR:[{createdAt:{gte:moneyStart,lte:end}},{voidedAt:{gte:moneyStart,lte:end}}]},select:{amount:true,createdAt:true,voidedAt:true,booking:{select:{customerId:true}}}}) : [],
         access.money ? tx.coursePurchaseRefund.findMany({where:{storeId,createdAt:{gte:moneyStart,lte:end}},select:{amount:true,createdAt:true,purchase:{select:{revenueStaffId:true}}}}) : [],
       ]);

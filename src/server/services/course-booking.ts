@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "@/lib/shop-config";
 import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { courseMonthlyBookingWhere } from "@/lib/course-usage";
-import { toLocalDateStr } from "@/lib/date-utils";
+import { toLocalDateStr,dayRange } from "@/lib/date-utils";
+import {musicCourseExpiry} from "@/lib/music-course-products";
 import "server-only";
 import { AppError } from "@/lib/errors";
 import { courseTransaction } from "./course-access";
@@ -158,6 +159,10 @@ export async function reserveCourseInTransaction(
       !card.members.some((m) => m.customerId === actor.customerId))
   ))
     return fail("僅能替此共卡的授權成員預約");
+  if (card && card.unit !== "SESSION") {
+    const music=await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+    if(music.some(row=>row.featureKey==="business.music"))return fail("音樂教室只使用堂數方案，不能以點數預約");
+  }
   if(card?.termSessionIds?.length&&!card.termSessionIds.includes(session.id))return fail("期課方案僅能使用指定課次");
   if (card?.closedAt) return fail("此方案已退款或結清，不能預約");
   if (card?.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
@@ -179,6 +184,15 @@ export async function reserveCourseInTransaction(
   if (closed[0]?.closed) return fail("店家公休日無法新增預約");
   if (card && (card.expiresAt < now || card.expiresAt < session.startsAt))
     return fail("方案已到期或不涵蓋上課日期");
+  if(card?.musicValidityDays && !card.musicActivatedAt) {
+    const [earliest,latest]=await Promise.all([
+      tx.courseBooking.findFirst({where:{storeId,cardId:card.id,status:"RESERVED"},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}}),
+      tx.courseBooking.findFirst({where:{storeId,cardId:card.id,status:"RESERVED"},orderBy:{session:{startsAt:"desc"}},select:{session:{select:{startsAt:true}}}}),
+    ]);
+    const first=earliest?.session.startsAt && earliest.session.startsAt<session.startsAt ? earliest.session.startsAt : session.startsAt;
+    const last=latest?.session.startsAt && latest.session.startsAt>session.startsAt ? latest.session.startsAt : session.startsAt;
+    if(last>musicCourseExpiry(first,card.musicValidityDays))return fail("預約超過首次上課起算的方案效期，請調整日期");
+  }
   const [duplicate, occupied, held] = await Promise.all([
     tx.courseBooking.findFirst({
       where: {
@@ -280,15 +294,18 @@ export async function settleCourseBooking(
     if (target !== "STUDENT_LEAVE" && booking.session.startsAt > new Date() && !allowEarlyPilotAttendance())
       return fail("課程尚未開始，不能標記出席");
     if (booking.cardId) {
+    const expiry=booking.card?.musicValidityDays && !booking.card.musicActivatedAt ? musicCourseExpiry(booking.session.startsAt,booking.card.musicValidityDays) : null;
+    if(booking.card?.musicValidityDays && booking.card.musicActivatedAt && booking.card.expiresAt < booking.session.startsAt)
+      return fail("這堂課超過方案有效期限，請核對補課日期");
     const updated = await tx.coursePointCard.updateMany({
       where: {
         id: booking.cardId,
         storeId: actor.storeId,
         remaining: { gte: booking.pointCost },
       },
-      data: { remaining: { decrement: booking.pointCost } },
+      data: { remaining: { decrement: booking.pointCost }, ...(expiry ? {expiresAt:expiry,musicActivatedAt:booking.session.startsAt}: {}) },
     });
-    if (!updated.count) return fail("點數帳目異常，尚未完成點名");
+    if (!updated.count) return fail("方案額度異常，尚未完成點名");
     }
   } else if (actor.customerId) {
     const rule = await tx.courseBookingRule.findUnique({
@@ -386,7 +403,18 @@ export async function correctCourseAttendance(
   const remaining = b.card.remaining + (wasDebited ? b.pointCost : 0);
   if ((willDebit || target === "RESERVED") && remaining - (held._sum.pointCost ?? 0) < b.pointCost) return fail("方案可用額度不足，無法更正");
   const delta = (wasDebited ? b.pointCost : 0) - (willDebit ? b.pointCost : 0);
-  if (delta) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { remaining: { increment: delta } } });
+  let activation: {expiresAt:Date;musicActivatedAt:Date|null}|null=null;
+  if(b.card.musicValidityDays && willDebit && !wasDebited && !b.card.musicActivatedAt){
+    const expiresAt=musicCourseExpiry(b.session.startsAt,b.card.musicValidityDays);
+    if(expiresAt < b.session.startsAt) return fail("方案已到期，無法點名");
+    activation={musicActivatedAt:b.session.startsAt,expiresAt};
+  }
+  if(b.card.musicValidityDays && wasDebited && !willDebit){
+    const first=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:b.cardId,id:{not:b.id},OR:[{status:{in:["ATTENDED","NO_SHOW"]}},{absenceKind:"GROUP_LEAVE_FORFEITED"}]},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});
+    const firstDate=first?.session.startsAt??null;
+    activation={musicActivatedAt:firstDate,expiresAt:firstDate ? musicCourseExpiry(firstDate,b.card.musicValidityDays) : dayRange("2099-12-31").end};
+  }
+  if (delta || activation) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { ...(delta ? {remaining: { increment: delta }} : {}), ...(activation??{}) } });
   await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: b.cardId, bookingId: b.id, actorUserId: actor.userId, kind: `CORRECT:${b.status}:${target}:${crypto.randomUUID()}`, points: b.pointCost } });
   return tx.courseBooking.update({ where: { id: b.id }, data: { status: target, absenceKind: null, checkedInAt: target === "ATTENDED" ? new Date() : null } });
 }

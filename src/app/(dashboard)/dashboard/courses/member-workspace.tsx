@@ -28,8 +28,10 @@ import type { CustomerRow } from "../customers/_components/customers-table";
 import { CourseCustomerBookings } from "./customer-bookings";
 import { BirthdayFields } from "@/components/birthday-fields";
 import { CourseCustomerHealth } from "./customer-health";
+import { musicPlanQuote } from "@/lib/music-course-products";
 type Person = { id: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; serviceNote: string | null; address: string | null; notes: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null };
 type Plan = {
+  musicTerms?:number|null;
   id: string;
   name: string;
   points: number;
@@ -74,7 +76,7 @@ export function CourseMemberWorkspace({
 }: {
   termSessions?:{id:string;name:string;startsAt:string}[];
   view: "customers" | "plans";
-  templates: {id:string;name:string;category:string;isActive:boolean}[];
+  templates: {id:string;name:string;category:string;isActive:boolean;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null}[];
   people: Person[];
   plans: Plan[];
   cards: CourseCardView[];
@@ -102,6 +104,7 @@ export function CourseMemberWorkspace({
   const initialPerson = view === "customers" ? people.find(p => p.id === params.get("customerId")) ?? null : null;
   const [templateSearch,setTemplateSearch]=useState("");
   const [selectedTemplateIds,setSelectedTemplateIds]=useState<string[]>([]);
+  const [musicTerms,setMusicTerms]=useState(1);
   const [planAmounts,setPlanAmounts]=useState({points:music?4:10,price:0,storeCost:0});
   const [selected,setSelected]=useState<string[]>([]);
   const [pending, start] = useTransition();
@@ -154,8 +157,8 @@ export function CourseMemberWorkspace({
     setDirty(false);
     if(value === "assign")setRevenueStaffId(customerRows.find(c=>c.id===person?.id)?.assignedStaff?.id??"");
     if (value === "person") { setPersonTab("info"); setEditingPerson(false); }
-    if (value === "assign" && !plans.some((p) => p.id === planId && p.isActive))
-      setPlanId(plans.find((p) => p.isActive)?.id ?? "");
+    if (value === "assign" && !plans.some((p) => p.id === planId && p.isActive && (!music || p.unit === "SESSION")))
+      setPlanId(plans.find((p) => p.isActive && (!music || p.unit === "SESSION"))?.id ?? "");
     setError("");
     setNotice("");
     setRequestKey(crypto.randomUUID());
@@ -166,6 +169,7 @@ export function CourseMemberWorkspace({
     setPlan(next);
     setTemplateSearch("");
     setSelectedTemplateIds(next?.templateIds ?? []);
+    setMusicTerms(next?.musicTerms ?? 1);
     setPlanAmounts({
       points: next?.points ?? (music ? 4 : 10),
       price: next?.price ?? 0,
@@ -203,12 +207,12 @@ export function CourseMemberWorkspace({
       (p) =>
         p.name.includes(search.trim()) &&
         (status === "all" || p.isActive === (status === "active")) &&
-        (planUnit === "all" || p.unit === planUnit),
+        (planUnit === "all" || p.unit === planUnit) && (!music || p.unit === "SESSION"),
     )
     .sort((a, b) => Number(b.isActive) - Number(a.isActive));
   const totalRows = filteredPlans.length;
   const currentPage = Math.min(page, Math.max(0, Math.ceil(totalRows / 20) - 1));
-  const activePlans = plans.filter((item) => item.isActive);
+  const activePlans = plans.filter((item) => item.isActive && (!music || item.unit === "SESSION"));
   const pointPlans = activePlans.filter((item) => item.unit === "POINT").length;
   const sessionPlans = activePlans.filter((item) => item.unit === "SESSION").length;
   const normalizedTemplateSearch = templateSearch.trim().toLocaleLowerCase();
@@ -216,8 +220,10 @@ export function CourseMemberWorkspace({
     item.name.toLocaleLowerCase().includes(normalizedTemplateSearch),
   );
   const templateGroups = [...new Set(visibleTemplates.map((item) => item.category || "未分類"))];
-  const unitPrice = Math.round(planAmounts.price / Math.max(1, planAmounts.points));
-  const estimatedProfit = planAmounts.price - planAmounts.storeCost;
+  const selectedMusicTemplate=templates.find(t=>t.id===selectedTemplateIds[0]);
+  const musicQuote=music && selectedMusicTemplate ? (()=>{try{return musicPlanQuote({musicPricePerLesson:selectedMusicTemplate.musicPricePerLesson??null,musicTermLessons:selectedMusicTemplate.musicTermLessons??null,musicValidityDaysPerTerm:selectedMusicTemplate.musicValidityDaysPerTerm??null},musicTerms);}catch{return null;}})() : null;
+  const unitPrice = music ? selectedMusicTemplate?.musicPricePerLesson ?? 0 : Math.round(planAmounts.price / Math.max(1, planAmounts.points));
+  const estimatedProfit = (music ? musicQuote?.price ?? 0 : planAmounts.price) - planAmounts.storeCost;
   return (
     <>
       {view === "plans" && (
@@ -272,7 +278,7 @@ export function CourseMemberWorkspace({
         {canAssign && (view === "customers" || planArea === "cards") && (
           <button
             className={button}
-            disabled={!people.length || !plans.some((p) => p.isActive)}
+            disabled={!people.length || !plans.some((p) => p.isActive && (!music || p.unit === "SESSION"))}
             onClick={() => { setPerson(null); open("assign"); setRevenueStaffId(""); }}
           >
             指派方案
@@ -485,13 +491,14 @@ export function CourseMemberWorkspace({
                     saveCoursePointPlan({
                       id: plan?.id,
                       name: d.get("name"),
-                      points: Number(d.get("points")),
-                      price: Number(d.get("price")),
+                      points: music ? musicQuote?.lessons ?? 0 : Number(d.get("points")),
+                      price: music ? musicQuote?.price ?? 0 : Number(d.get("price")),
                       storeCost: Number(d.get("storeCost")),
                       termSessionIds:d.getAll("termSessionIds"),
                       customerPurchasable: d.get("purchaseMode") === "customer",
                       allowShared: d.get("allowShared") === "yes",
-                      validDays: Number(d.get("days")),
+                      validDays: music ? musicQuote?.validDays ?? 0 : Number(d.get("days")),
+                      musicTerms: music ? musicTerms : null,
                       isActive: d.get("active") === "yes",
                       unit: d.get("unit"),
                       templateIds: d.getAll("templateIds"),
@@ -510,8 +517,9 @@ export function CourseMemberWorkspace({
                 </label>
                 {music ? <input type="hidden" name="unit" value="SESSION"/> : <label className="block">額度單位<select className={field} name="unit" defaultValue={plan?.unit??"POINT"}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>}
                 <label className="block">狀態<select className={field} name="active" defaultValue={plan?.isActive === false ? "no" : "yes"}><option value="yes">上架</option><option value="no">下架</option></select></label>
-                <label className="sm:col-span-2">搜尋適用課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="輸入課程名稱篩選；未輸入會顯示全部課程"/></label>
-                <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3">
+                {music && <><label>購買期數<input className={field} type="number" min={1} max={100} value={musicTerms} onChange={e=>{setMusicTerms(Number(e.target.value));setDirty(true);}} required/></label><p className="self-end text-sm text-earth-600">{musicQuote ? `${musicQuote.lessons} 堂 · ${musicQuote.validDays} 天 · NT$ ${musicQuote.price.toLocaleString("zh-TW")}` : "請先選已設定售價的課程"}</p></>}
+                {!music && <label className="sm:col-span-2">搜尋適用課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="輸入課程名稱篩選；未輸入會顯示全部課程"/></label>}
+                {!music && <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3">
                   <legend className="px-1">適用課程（未勾選表示全部課程）</legend>
                   {selectedTemplateIds.map(id=><input key={id} type="hidden" name="templateIds" value={id}/>)}
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-earth-100 pb-2 text-sm">
@@ -535,9 +543,10 @@ export function CourseMemberWorkspace({
                     </section>)}
                     {!visibleTemplates.length&&<p className="py-6 text-center text-sm text-earth-500">沒有符合搜尋的課程</p>}
                   </div>
-                </fieldset>
-                {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}<details className="sm:col-span-2"><summary className="cursor-pointer py-2">期課：連結指定課次（選填）</summary><p className="text-sm text-earth-600">未選為自由預約；選擇後請使用堂數方案，課次数須等於販售堂數。結帳會一次預約全期；未到仍扣堂，不提供補課券。</p><div className="max-h-48 overflow-y-auto">{termSessions.map(s=><label key={s.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="termSessionIds" value={s.id} defaultChecked={plan?.termSessionIds?.includes(s.id)}/>{formatTWDateTime(new Date(s.startsAt))} · {s.name}</label>)}</div></details>
-                {[
+                </fieldset>}
+                {music && <label className="sm:col-span-2">適用課程<select className={field} value={selectedTemplateIds[0]??""} onChange={e=>{setSelectedTemplateIds(e.target.value?[e.target.value]:[]);setDirty(true);}} required><option value="">請選擇課程</option>{templates.filter(t=>t.isActive && !t.musicTrialMode && t.musicPricePerLesson!==null && t.musicTermLessons!==null).map(t=><option key={t.id} value={t.id}>{t.category} · {t.name}（{t.musicTermLessons} 堂／期，NT$ {t.musicPricePerLesson}／堂）</option>)}</select>{selectedTemplateIds.map(id=><input key={id} type="hidden" name="templateIds" value={id}/>)}</label>}
+                {!music && <>{plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}<details className="sm:col-span-2"><summary className="cursor-pointer py-2">期課：連結指定課次（選填）</summary><p className="text-sm text-earth-600">未選為自由預約；選擇後請使用堂數方案，課次数須等於販售堂數。結帳會一次預約全期；未到仍扣堂，不提供補課券。</p><div className="max-h-48 overflow-y-auto">{termSessions.map(s=><label key={s.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="termSessionIds" value={s.id} defaultChecked={plan?.termSessionIds?.includes(s.id)}/>{formatTWDateTime(new Date(s.startsAt))} · {s.name}</label>)}</div></details></>}
+                {!music && [
                   [music ? "方案堂數" : "額度", "points", plan?.points ?? (music ? 4 : 10), 1],
                   ["售價", "price", plan?.price ?? 0, 0],
                   ["店家成本", "storeCost", plan?.storeCost ?? 0, 0],
@@ -570,6 +579,7 @@ export function CourseMemberWorkspace({
                     />}
                   </label>
                 ))}
+                {music && <label>店家成本<input className={field} type="number" min={0} name="storeCost" defaultValue={plan?.storeCost ?? 0} onChange={e=>setPlanAmounts(v=>({...v,storeCost:Number(e.target.value)}))} required/></label>}
                 <div className="sm:col-span-2 grid grid-cols-2 gap-3 rounded-lg bg-primary-50 p-3 text-sm"><p><span className="text-earth-500">單位價格</span><strong className="block text-primary-800">NT$ {unitPrice.toLocaleString("zh-TW")}／{music?"堂":"單位"}</strong></p><p><span className="text-earth-500">預估利潤</span><strong className={`block ${estimatedProfit<0?"text-red-700":"text-primary-800"}`}>NT$ {estimatedProfit.toLocaleString("zh-TW")}</strong></p></div>
                 <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3"><legend className="px-1">方案使用方式</legend><div className="grid gap-2 sm:grid-cols-2"><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="customer" defaultChecked={plan?.customerPurchasable!==false}/>顧客可購買</label><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="backend" defaultChecked={plan?.customerPurchasable===false}/>僅後台指派</label></div><label className="mt-2 flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="checkbox" name="allowShared" value="yes" defaultChecked={plan?.allowShared??false}/>允許共卡</label></fieldset>
                 <p className="sm:col-span-2 text-sm text-earth-500">
@@ -609,10 +619,10 @@ export function CourseMemberWorkspace({
                 </label>}
                 <label className="block">
                   方案
-                  <CourseOptionSelect label="方案" required value={planId} options={plans.filter(p=>p.isActive).map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? "堂":"點"}`}))} onChange={id=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);setDirty(true);}}/>
+                  <CourseOptionSelect label="方案" required value={planId} options={plans.filter(p=>p.isActive && (!music || p.unit==="SESSION")).map(p=>({id:p.id,label:`${p.name} · ${p.points} ${p.unit==="SESSION" ? "堂":"點"}`}))} onChange={id=>{setAssignmentSummary({paid:null,valid:false});setPlanId(id);setDirty(true);}}/>
 
                 </label>
-                <label className="block" key={planId}>
+                {music ? <p className="text-sm text-earth-600"><input type="hidden" name="expires" value="2099-12-31"/>從第一堂實際上課日起算，依方案有效天數自動到期。</p> : <label className="block" key={planId}>
                   有效至（含當日）
                   <input
                     className={field}
@@ -629,7 +639,7 @@ export function CourseMemberWorkspace({
                       ),
                     )}
                   />
-                </label>
+                </label>}
                 <label className="block">直屬店長<CourseOptionSelect label="直屬店長" name="revenueStaffId" placeholder="請選擇直屬店長" value={revenueStaffId} onChange={id=>{setRevenueStaffId(id);setDirty(true);}} options={assignmentStaff.map(s=>({id:s.id,label:s.displayName}))}/></label>
                 {plans.find(p=>p.id===planId)?.termSessionIds?.length ? <p className="text-sm text-earth-600">固定期課：{plans.find(p=>p.id===planId)!.termSessionIds!.length} 堂，依方案已設定課次安排。</p> : null}
                 </fieldset>
@@ -696,7 +706,7 @@ export function CourseCardSummary({ card }: { card: CourseCardView }) {
         {card.unit === "SESSION" ? "堂" : "點"}
       </p>
       <p>
-        期限：{toLocalDateStr(new Date(card.expiresAt))}
+        期限：{card.musicValidityDays && !card.musicActivatedAt ? `首次上課起 ${card.musicValidityDays} 天` : toLocalDateStr(new Date(card.expiresAt))}
         {new Date(card.expiresAt) < new Date() ? "（已到期）" : ""}
       </p>
       <p>授權成員：{card.members.map((m) => m.name).join("、")}</p>

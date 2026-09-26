@@ -103,6 +103,8 @@ export default async function CoursesPage({
           category: true,
           isActive: true,
           visibility:true,classType:true,
+          musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,
+          musicScheduleMode:true,musicTrialMode:true,musicTeacherFeeBase:true,
           durationMinutes: true,
           capacity: true,
           pointCost: true,

@@ -8,6 +8,7 @@ import { courseTransaction } from "@/server/services/course-access";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { coursePrisma } from "@/lib/course-db";
+import { prisma } from "@/lib/db";
 import { courseManager } from "@/server/services/course-access";
 import { AppError } from "@/lib/errors";
 import {
@@ -52,6 +53,20 @@ async function writableStore(
   return courseManager(permission);
 }
 
+async function validateMusicTemplate(storeId:string,data:{classType:string|null;pointCost:number;musicPricePerLesson:number|null;musicTermLessons:4|8|null;musicValidityDaysPerTerm:number|null;musicScheduleMode:"FIXED"|"APPOINTMENT"|null;musicTrialMode:"FREE"|"PAID"|null;musicTeacherFeeBase:number|null;durationMinutes:number}) {
+  const music=await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}});
+  if (!music) return;
+  if (!data.classType || data.musicPricePerLesson===null || data.musicTermLessons===null || data.musicValidityDaysPerTerm===null || !data.musicScheduleMode)
+    throw new AppError("VALIDATION","音樂課程需設定課型、每堂售價、每期堂數、有效天數與排課方式");
+  if (data.pointCost!==1) throw new AppError("VALIDATION","音樂課程只使用堂數，每次預約固定 1 堂");
+  if (data.musicTermLessons !== (data.classType==="GROUP" ? 8 : 4))
+    throw new AppError("VALIDATION",data.classType==="GROUP" ? "團體班每期 8 堂" : "個別課與自組班每期 4 堂");
+  if (data.musicTrialMode==="FREE" && (data.durationMinutes!==30 || data.musicTeacherFeeBase===null))
+    throw new AppError("VALIDATION","免費體驗為 30 分鐘，需設定老師拆帳計算基礎");
+  if (data.musicTrialMode==="PAID" && data.durationMinutes<60)
+    throw new AppError("VALIDATION","付費體驗使用完整一堂課，至少 60 分鐘");
+}
+
 export async function updateCourseRoom(input: unknown) {
   try {
     const { storeId } = await writableStore("booking.update");
@@ -92,6 +107,7 @@ export async function updateCourseTemplate(input: unknown) {
     const { id, ...data } = courseTemplateInput
       .extend({ id: z.string().min(1) })
       .parse(input);
+    await validateMusicTemplate(storeId,data);
     const existing = await coursePrisma.courseTemplate.findFirst({where:{id,storeId},select:{classType:true}});
     if (!existing) throw new AppError("VALIDATION", "找不到本店課程，請重新整理");
     if (existing.classType !== data.classType && await coursePrisma.courseSession.count({where:{storeId,templateId:id}}))
@@ -256,6 +272,7 @@ export async function createCourseTemplate(input: unknown) {
   try {
     const { storeId } = await writableStore();
     const data = courseTemplateInput.parse(input);
+    await validateMusicTemplate(storeId,data);
     await assertMusicCourseDuration(coursePrisma,storeId,data.durationMinutes);
     const room = data.defaultRoomId
       ? await coursePrisma.courseRoom.findFirst({

@@ -28,7 +28,7 @@ export function CourseCardBrowser({ customerId, state, onChange, onSelect, revis
       <div className="divide-y rounded-lg border bg-white">
         {result?.rows.map(c=><button key={c.id} type="button" onClick={()=>onSelect(c)} className="grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-2 text-left text-sm">
           <span className="min-w-0 break-words font-medium">{c.name}</span><span className="whitespace-nowrap font-semibold">可用 {c.available} {c.unit==="SESSION" ? "堂":"點"}</span>
-          <span className="min-w-0 break-words text-xs text-earth-500">{c.members.length > 1 ? `共卡人：${c.members.map(m=>m.name).join("、")}` : `持有人：${c.members[0]?.name ?? "未設定"}`}{customerId ? ` · 占用 ${c.held} · 剩餘 ${c.remaining}` : ""}</span><span className="whitespace-nowrap text-xs text-earth-500">{toLocalDateStr(new Date(c.expiresAt))} 到期{c.closed ? " · 停用":""}</span>
+          <span className="min-w-0 break-words text-xs text-earth-500">{c.members.length > 1 ? `共卡人：${c.members.map(m=>m.name).join("、")}` : `持有人：${c.members[0]?.name ?? "未設定"}`}{customerId ? ` · 占用 ${c.held} · 剩餘 ${c.remaining}` : ""}</span><span className="whitespace-nowrap text-xs text-earth-500">{c.musicValidityDays && !c.musicActivatedAt ? `首次上課起 ${c.musicValidityDays} 天` : `${toLocalDateStr(new Date(c.expiresAt))} 到期`}{c.closed ? " · 停用":""}</span>
         </button>)}
         {!result?.rows.length && <p className="p-4 text-sm text-earth-500">沒有符合的方案，請調整搜尋或效期。</p>}
       </div>

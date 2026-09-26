@@ -1,5 +1,5 @@
 import { dayRange, toLocalDateStr } from "./date-utils";
-import { fixedCourseFee } from "./course-fee-payment";
+import { courseTeacherFee } from "./course-fee-payment";
 import { previousCourseAnalysisRange, shiftCourseCalendarDate, type CourseAnalysisRange } from "./course-analytics";
 import { monthRange } from "./date-utils";
 
@@ -15,14 +15,14 @@ export function businessComparisonRange(range: CourseAnalysisRange, now = new Da
 export type BusinessScope = { view: "store" | "manager" | "coach"; person: string };
 export type BusinessPerson = { id: string; name: string; managerId: string | null };
 export type BusinessPurchase = { id: string; name?: string; customerId: string; confirmedAt: Date; price: number; revenueStaffId: string | null; developerProfitSnapshot: number | null; refunds: { amount: number; createdAt: Date }[] };
-export type BusinessSession = { id: string; nameSnapshot?: string; coachId: string; startsAt: Date; endsAt: Date; bookings: { customerId: string; customerName: string; bookingKind: string; status: string }[] };
+export type BusinessSession = { id: string; nameSnapshot?: string; coachId: string; startsAt: Date; endsAt: Date; bookings: { customerId: string; customerName: string; bookingKind: string; status: string; absenceKind?:string|null }[] };
 export function resolveBusinessScope(params: { perspective?: string; person?: string }, all: boolean, staffId?: string | null): BusinessScope {
   if (params.perspective && !["store", "manager", "coach"].includes(params.perspective)) throw new Error("分析對象不正確");
   const view = (params.perspective ?? (all ? "store" : "manager")) as BusinessScope["view"];
   if (!all && (!staffId || view === "store" || (params.person && params.person !== staffId))) throw new Error("無權查看此分析對象");
   return { view, person: view === "store" ? "all" : params.person || (all ? "all" : staffId!) };
 }
-export function summarizeCourseBusiness(input: { customers: BusinessPerson[]; sessions: BusinessSession[]; purchases: BusinessPurchase[]; fees: { sessionId: string; staffId: string; rule: unknown }[]; range: CourseAnalysisRange; scope: BusinessScope; now?: Date }) {
+export function summarizeCourseBusiness(input: { customers: BusinessPerson[]; sessions: BusinessSession[]; purchases: BusinessPurchase[]; fees: { sessionId: string; staffId: string; rule: unknown; musicPricePerLesson?:number|null; musicTeacherFeeBase?:number|null; musicTrialMode?:string|null }[]; range: CourseAnalysisRange; scope: BusinessScope; now?: Date }) {
   const { customers, sessions, purchases, fees, range, scope } = input;
   const now = input.now ?? new Date();
   const start = dayRange(range.startDate).start, end = new Date(Math.min(dayRange(range.endDate).end.getTime(), now.getTime()));
@@ -64,12 +64,12 @@ export function summarizeCourseBusiness(input: { customers: BusinessPerson[]; se
   const notReturned = priorIds.filter(id=>!visitors.includes(id));
   const classes = relevantSessions.filter(s => inRange(s.startsAt) && s.endsAt <= now && s.bookings.some(b => b.status === "ATTENDED" && customerMatches(b.customerId)));
   const feeMap = new Map(fees.map(f => [f.sessionId, f]));
-  const feeValues = classes.map(s => {const f = feeMap.get(s.id); return f && f.staffId === s.coachId ? fixedCourseFee(f.rule) : null;});
+  const feeValues = classes.map(s => {const f = feeMap.get(s.id);if(!f||f.staffId!==s.coachId)return null;const due=s.bookings.filter(b=>b.status==="ATTENDED"||b.status==="NO_SHOW"||b.absenceKind==="GROUP_LEAVE_FORFEITED").filter(b=>b.bookingKind!=="TEACHER_MAKEUP");return courseTeacherFee(f.rule,{paid:due.filter(b=>b.bookingKind!=="TRIAL"||f.musicTrialMode!=="FREE").length,freeTrial:due.filter(b=>b.bookingKind==="TRIAL"&&f.musicTrialMode==="FREE").length,pending:s.bookings.filter(b=>b.status==="RESERVED").length},{perLesson:f.musicPricePerLesson??null,freeTrialBase:f.musicTeacherFeeBase??null});});
   const names = new Map([...people.values()].map(c => [c.id,c.name]));
   for (const t of attended) if (!names.has(t.customerId)) names.set(t.customerId,t.customerName);
   const list = (ids: string[]) => [...new Set(ids)].map(id => ({id,name:names.get(id) ?? "歷史顧客", visits:visitCounts.get(id)??0}));
   const pendingProfit = sales.filter(p => p.developerProfitSnapshot === null || net(p) !== p.price).map(p => ({id:p.id,date:toLocalDateStr(p.confirmedAt),name:p.name??"歷史方案",customerId:p.customerId,customerName:names.get(p.customerId)??"歷史顧客",reason:[...(p.developerProfitSnapshot===null?["缺少成交時的利潤紀錄"]:[]),...(net(p)!==p.price?["已有部分退款，利潤需重新核對"]:[])].join("；")}));
-  const pendingFees = classes.filter((_,i)=>feeValues[i]===null).map(s=>({id:s.id,date:toLocalDateStr(s.startsAt),name:s.nameSnapshot??"歷史課程",coachId:s.coachId,reason:feeMap.has(s.id)?"該堂費率紀錄不完整或與授課教練不符":"缺少該堂課的固定費率紀錄"}));
+  const pendingFees = classes.filter((_,i)=>feeValues[i]===null).map(s=>({id:s.id,date:toLocalDateStr(s.startsAt),name:s.nameSnapshot??"歷史課程",coachId:s.coachId,reason:feeMap.has(s.id)?"該堂費率紀錄不完整或與授課教練不符":"缺少該堂課的授課費率紀錄"}));
   const trend = [...new Set([...periodAttendance.map(t => toLocalDateStr(t.date)), ...sales.map(p => toLocalDateStr(p.confirmedAt))])].sort().map(date => ({ date, attendance: periodAttendance.filter(t => toLocalDateStr(t.date) === date).length, trial: new Set(periodTrials.filter(t => toLocalDateStr(t.date) === date).map(t => t.customerId)).size, newCard: newSales.filter(p => toLocalDateStr(p.confirmedAt) === date).length, renewal: new Set(renewalSales.filter(p => toLocalDateStr(p.confirmedAt) === date).map(p => p.customerId)).size }));
   return { pendingProfit, pendingFees, newVisitors:list(newVisitors), oldVisitors:list(oldVisitors), returned:list(returned), notReturned:list(notReturned), retentionBase:priorIds.length, retentionRate:priorIds.length ? returned.length/priorIds.length*100 : null, retentionRange:comparison?.retentionRange??null, trial: list(attended.filter(t => t.bookingKind === "TRIAL" && inRange(t.date)).map(t => t.customerId)), eligibleTrials: trialIds.length, newCard: list(newSales.map(p => p.customerId)), renewal: list(renewalSales.map(p => p.customerId)), converted: list(converted), unconverted: list(trialIds.filter(id => !converted.includes(id))), tracked: list(tracked.map(p => p.customerId)), visitors: list(visitors), conversionRate: trialIds.length ? converted.length / trialIds.length * 100 : null, sessions: classes.length, hours: classes.reduce((n,s) => n + (+s.endsAt - +s.startsAt) / 3600000,0), attendance: attended.filter(t => inRange(t.date)).length, fee: feeValues.reduce<number>((n,v) => n + (v ?? 0),0), missingFees: feeValues.filter(v => v === null).length, profit: sales.filter(p => p.developerProfitSnapshot !== null && net(p) === p.price).reduce((n,p) => n + p.developerProfitSnapshot!,0), knownProfit: sales.filter(p => p.developerProfitSnapshot !== null && net(p) === p.price).length, missingProfit: sales.filter(p => p.developerProfitSnapshot === null || net(p) !== p.price).length, trend };
 }
