@@ -15,22 +15,26 @@ const templates = [
   { id: "sample-group", name: "吉他團體班", classType: "GROUP" },
 ];
 const kinds = [
-  { label: "每週固定", hour: 9, fixed: true },
-  { label: "隔週固定", hour: 10, fixed: true, biweekly: true },
-  { label: "自由約課", hour: 11 },
-  { label: "團體班", hour: 13, fixed: true, group: true },
-  { label: "調課", hour: 15, fixed: true, moved: true },
-  { label: "代課", hour: 17, fixed: true, substitute: true },
-  { label: "體驗課", hour: 19, trial: true },
+  { label: "每週固定", fixed: true },
+  { label: "隔週固定", fixed: true, biweekly: true },
+  { label: "自由約課" },
+  { label: "團體班", fixed: true, group: true },
+  { label: "調課", fixed: true, moved: true },
+  { label: "代課", fixed: true, substitute: true },
+  { label: "體驗課", trial: true },
 ] as const;
 
 function sampleSessions(date: string) {
-  return kinds.flatMap((kind, row) => Array.from({ length: 3 }, (_, index) => {
-    const resource = (row * 2 + index) % coaches.length;
-    const time = `${String(kind.hour).padStart(2, "0")}:00`;
+  return kinds.flatMap((kind, row) => Array.from({ length: 7 }, (_, index) => {
+    // Spread seven examples of every type over 13 hours and six teachers.
+    // 17 and 78 are coprime, so every lesson occupies a distinct teacher/hour cell.
+    const slot = ((row * 7 + index) * 17) % (13 * coaches.length);
+    const resource = slot % coaches.length;
+    const hour = 9 + Math.floor(slot / coaches.length);
+    const time = `${String(hour).padStart(2, "0")}:00`;
     const start = parseTaipeiDateTime(date, time)!;
     const duration = "trial" in kind ? 30 : 60;
-    const student = `${kind.label}學員${["一", "二", "三"][index]}`;
+    const student = `${kind.label}學員${index + 1}`;
     return {
       id: `sample-${row}-${index}`,
       templateId: "group" in kind ? "sample-group" : "sample-private",
@@ -61,14 +65,14 @@ export function MusicTypesShowcase({ date }: { date: string }) {
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
         <div>
           <h1 className="text-base font-semibold text-earth-900">音樂課表 · 班型驗收</h1>
-          <p className="text-xs text-earth-700">純示意資料，每種型態各 3 堂，共 21 堂。這頁不會建立預約或修改店家資料。</p>
+          <p className="text-xs text-earth-700">純示意資料：同一天七種型態各 7 堂，共 49 堂，穿插在不同老師與時段。這頁不會建立預約或修改店家資料。</p>
         </div>
         <Link href="/dashboard/courses" className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-xs font-medium text-earth-800">返回真實課表</Link>
       </div>
       <CourseScheduleBoard
         businessProfile="MUSIC" mode="day" selectedDate={date} today={date}
         sessions={sampleSessions(date)} rooms={rooms} coaches={coaches} templates={templates}
-        storePeriods={[{ openTime: "09:00", closeTime: "20:00" }]}
+        storePeriods={[{ openTime: "09:00", closeTime: "22:00" }]}
         staffAvailability={[]} staffAvailabilityExceptions={[]}
         onOpenEmpty={() => {}} onSelectDate={() => {}} onOpenSession={() => {}}
         readOnly
