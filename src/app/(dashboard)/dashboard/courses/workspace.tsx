@@ -57,6 +57,7 @@ type Session = {
     customerId: string;
     customerName: string;
     status: string;
+    checkedInAt?: string | null;
     bookingKind: string;
   }[];
   id: string;
@@ -757,6 +758,12 @@ export function CourseWorkspace({
               selectedDate={selectedDate}
               today={today}
               sessions={filteredScheduleSessions}
+              leaveCounts={cancelledBookings.reduce<Record<string, number>>((counts, booking) => {
+                if (["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")) {
+                  counts[booking.sessionId] = (counts[booking.sessionId] ?? 0) + 1;
+                }
+                return counts;
+              }, {})}
               rooms={allRooms}
               coaches={allCoaches}
               templates={allTemplates}

@@ -61,7 +61,9 @@ function sampleSessions(date: string) {
       bookings: Array.from({ length: "group" in kind ? 3 : 1 }, (_, booking) => ({
         customerId: `sample-student-${row}-${index}-${booking}`,
         customerName: studentNames[(row * 7 + index * 3 + booking) % studentNames.length],
-        status: ("group" in kind ? booking === 0 && index % 2 === 0 : index === 1) ? "ATTENDED" : "RESERVED",
+        status: "group" in kind && index === 0
+          ? ["ATTENDED", "NO_SHOW", "CANCELLED"][booking]
+          : ("group" in kind ? booking === 0 && index % 2 === 0 : index === 1) ? "ATTENDED" : "RESERVED",
         bookingKind: "trial" in kind ? "TRIAL" : "REGULAR",
       })),
     };
@@ -76,13 +78,14 @@ export function MusicTypesShowcase({ date }: { date: string }) {
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
         <div>
           <h1 className="text-base font-semibold text-earth-900">{month}/{day}（{weekday}）音樂課表 · 班型驗收</h1>
-          <p className="text-xs text-earth-700">純示意資料：七種型態各 7 堂，共 49 堂、63 位學員；老師輪換教室，部分學員已到課。這頁不會建立預約或修改店家資料。</p>
+          <p className="text-xs text-earth-700">純示意資料：七種型態各 7 堂，共 49 堂、63 位學員；老師輪換教室，部分課已點名（含請假、曠課）。這頁不會建立預約或修改店家資料。</p>
         </div>
         <Link href="/dashboard/courses" className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-xs font-medium text-earth-800">返回真實課表</Link>
       </div>
       <CourseScheduleBoard
         businessProfile="MUSIC" mode="day" selectedDate={date} today={date}
         sessions={sampleSessions(date)} rooms={rooms} coaches={coaches} templates={templates}
+        leaveCounts={{ "sample-3-0": 1 }}
         storePeriods={[{ openTime: "09:00", closeTime: "22:00" }]}
         staffAvailability={[]} staffAvailabilityExceptions={[]}
         onOpenEmpty={() => {}} onSelectDate={() => {}} onOpenSession={() => {}}

@@ -157,6 +157,7 @@ export default async function CoursesPage({
               customerId: true,
               customerName: true,
               status: true,
+              checkedInAt: true,
               bookingKind: true,
             },
           },
@@ -291,6 +292,10 @@ export default async function CoursesPage({
           isBiweekly: biweeklyKeys.has(s.requestKey),
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
+          bookings: s.bookings.map((booking) => ({
+            ...booking,
+            checkedInAt: booking.checkedInAt?.toISOString() ?? null,
+          })),
           rescheduledFromStartsAt: s.rescheduledFromStartsAt?.toISOString() ?? null,
           rescheduledFromEndsAt: s.rescheduledFromEndsAt?.toISOString() ?? null,
           rescheduledAt: s.rescheduledAt?.toISOString() ?? null,
