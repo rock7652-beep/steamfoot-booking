@@ -31,12 +31,12 @@ it("keeps temporary moves visible as moved lessons plus original-slot shadows", 
   expect(board).toContain("調課");
   expect(board).toContain("已移動");
   expect(board).toContain("rescheduledFromStartsAt");
-  expect(board).toContain('moveClipboard?"貼上"');
+  expect(board).toContain("onPasteMove");
   expect(workspace).toContain("這堂");
   expect(workspace).toContain("連續");
-  expect(workspace).toContain("之後都改");
-  expect(workspace).toContain("✂ 已剪下：");
-  expect(workspace).toContain("點白格貼上");
+  expect(workspace).toContain("這堂及後續");
+  expect(workspace).toContain("moveClipboard.label");
+  expect(workspace).toContain("選白格貼上");
   expect(workspace).toContain("sessionStorage");
   expect(board).toContain("固定");
   expect(board).toContain("已移動 →");
