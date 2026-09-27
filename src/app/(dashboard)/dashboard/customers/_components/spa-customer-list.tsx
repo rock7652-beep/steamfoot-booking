@@ -1,5 +1,6 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useRetainedState, retainedString } from "@/components/operations/operation-scope";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { DashboardLink } from "@/components/dashboard-link";
 import { toLocalDateStr } from "@/lib/date-utils";
@@ -21,8 +22,28 @@ export function SpaCustomerList({
   const router = useRouter(),
     pathname = usePathname();
   const [query, setQuery] = useState(search),
-    [filter, setFilter] = useState("all"),
+    [filter, setFilter] = useRetainedState("spa-customers:visit", "all", retainedString),
     [pending, start] = useTransition();
+  const [composing, setComposing] = useState(false);
+  const lastRequest = useRef<string | null>(null);
+  useEffect(() => {
+    if (pending || composing || query.trim() === search) return;
+    const next = query.trim();
+    if (lastRequest.current === next) return;
+    const timer = setTimeout(() => {
+      lastRequest.current = next;
+      const params = new URLSearchParams(location.search);
+      params.delete("page");
+      if (next) params.set("search", next); else params.delete("search");
+      start(() => router.replace(`${pathname}?${params}`, { scroll: false }));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query, search, pending, composing, pathname, router]);
+  useEffect(() => {
+    const restore = () => { lastRequest.current = null; setQuery(new URLSearchParams(location.search).get("search") ?? ""); };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
   const [cutoff] = useState(() =>
     toLocalDateStr(new Date(Date.now() - 30 * 86400000)),
   );
@@ -55,26 +76,18 @@ export function SpaCustomerList({
       </header>
       <form
         className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          start(() =>
-            router.replace(
-              `${pathname}${query.trim() ? `?search=${encodeURIComponent(query.trim())}` : ""}`,
-              { scroll: false },
-            ),
-          );
-        }}
+        onSubmit={event => event.preventDefault()}
       >
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={() => setComposing(false)}
           placeholder="搜尋姓名／電話"
           aria-label="搜尋姓名或電話"
           className="min-w-0 flex-1 rounded-lg border bg-white p-3"
         />
-        <button disabled={pending} className="rounded-lg border px-5">
-          {pending ? "搜尋中…" : "搜尋"}
-        </button>
+        {pending && <span role="status" className="self-center text-sm text-earth-500">搜尋中…</span>}
       </form>
       <div className="flex flex-wrap items-center gap-2">
         {(permissions.canReadBookings
@@ -96,7 +109,7 @@ export function SpaCustomerList({
           </button>
         ))}
         <span className="ml-auto text-sm text-earth-500">
-          {visible.length} 位顧客
+          {visible.length} 位顧客{customers.length >= 100 ? "（目前顯示前 100 筆，請輸入條件縮小範圍）" : ""}
         </span>
       </div>
       <div

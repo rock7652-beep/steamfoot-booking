@@ -1,5 +1,6 @@
 "use client";
 
+import { clearOperationState } from "@/lib/operation-state";
 import { useFormStatus } from "react-dom";
 
 export function LogoutButton({
@@ -16,6 +17,7 @@ export function LogoutButton({
   return (
     <button
       type="submit"
+      onClick={() => { try { clearOperationState(sessionStorage); } catch {} }}
       disabled={pending}
       className={`${className} ${pending ? "opacity-50 pointer-events-none" : ""}`}
     >

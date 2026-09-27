@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRetainedState, retainedString } from "@/components/operations/operation-scope";
 import { useResponsiveAction } from "@/hooks/use-responsive-action";
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -43,10 +44,14 @@ interface Props {
 
 export function CustomerActionsSection({ actions, actionLogs, staffList }: Props) {
   const [typeFilter, setTypeFilter] = useState<ActionType | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [statusFilter, setStatusFilter] = useRetainedState<string>("ops:status", "pending", retainedString);
   const [localLogs, setLocalLogs] = useState(actionLogs);
   const [noteEditing, setNoteEditing] = useState<string | null>(null);
-  const [noteText, setNoteText] = useState("");
+  const [noteDrafts, setNoteDrafts] = useRetainedState<Record<string, string>>("ops:note-drafts", {},
+    (value): value is Record<string, string> => !!value && typeof value === "object" && Object.values(value).every(v => typeof v === "string" && v.length <= 2000));
+  const noteText = noteEditing ? noteDrafts[noteEditing] ?? localLogs[noteEditing]?.note ?? "" : "";
+  const setNoteText = (text: string) => { if (noteEditing) setNoteDrafts(previous => ({ ...previous, [noteEditing]: text })); };
+  function clearNoteDraft(id: string) { setNoteDrafts(previous => { const next = { ...previous }; delete next[id]; return next; }); }
   const [lineMsg, setLineMsg] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
 
@@ -101,7 +106,7 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
         }), note: text, updatedAt: new Date(),
       } })),
       rollback: () => restoreLog(actionId, previous),
-      confirmed: () => { setNoteEditing(null); setNoteText(""); },
+      confirmed: () => { setNoteEditing(current => current === actionId ? null : current); clearNoteDraft(actionId); },
     });
   }
 
@@ -332,7 +337,7 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
                     disabled={Object.values(saves.states).some(state => state.phase === "saving")}
                     onClick={() => {
                       setNoteEditing(noteEditing === action.id ? null : action.id);
-                      setNoteText(log?.note ?? "");
+
                     }}
                     className="rounded-lg bg-earth-50 px-1.5 py-0.5 text-[11px] font-medium text-earth-500 hover:bg-earth-100"
                   >
@@ -349,6 +354,7 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
                     <input
                       type="text"
                       disabled={saves.isBlocked(action.id)}
+                      maxLength={2000}
                       value={noteText}
                       onChange={(e) => setNoteText(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleSaveNote(action.id); }}
@@ -365,7 +371,7 @@ export function CustomerActionsSection({ actions, actionLogs, staffList }: Props
                     </button>
                     <button
                       disabled={saves.isBlocked(action.id)}
-                      onClick={() => { setNoteEditing(null); setNoteText(""); }}
+                      onClick={() => { if (noteText !== (log?.note ?? "") && !window.confirm("捨棄這次尚未儲存的備註？")) return; clearNoteDraft(action.id); setNoteEditing(null); }}
                       className="rounded-lg bg-earth-100 px-2 py-1 text-xs text-earth-500 hover:bg-earth-200"
                     >
                       取消
