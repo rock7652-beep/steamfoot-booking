@@ -285,17 +285,26 @@ export function BookingDetailDrawer({
     };
   }, [open, bookingId, reloadNonce, cache, resolvedStoreId, isActing]);
 
-  /** Financial and attendance changes are confirmed before patching stored values. */
+  /** Financial values stay server-confirmed; safe status changes may render optimistically. */
   function wrapAction(
     label: string,
     action: () => Promise<{ success: boolean; error?: string } | unknown>,
     nextStatus: string | null,
-    opts?: { onSuccess?: () => void; expected?: BookingActionExpectation },
+    opts?: {
+      onSuccess?: () => void;
+      expected?: BookingActionExpectation;
+      optimistic?: boolean;
+      onOptimistic?: () => void;
+      onRollback?: () => void;
+    },
   ) {
     if (!bookingId) return;
     if (readOnly) { toast.error("查看模式下不可操作預約"); return; }
     const id = bookingId;
     let recoveredPayload: BookingDrawerPayload | null = null;
+    const originalData = data?.booking.id === id ? data : null;
+    const originalStatus = originalData?.booking.bookingStatus ?? null;
+    const optimisticStatus = opts?.optimistic && nextStatus ? nextStatus : null;
     const expected = { ...(nextStatus ? { status: nextStatus } : {}), ...opts?.expected };
     void saves.run(id, async () => {
       const result = await action() as { success?: boolean; error?: string } | undefined;
@@ -303,8 +312,29 @@ export function BookingDetailDrawer({
       if (!result.success) toast.error(result.error ?? "操作未完成");
       return { success: result.success, error: result.error };
     }, {
-      apply: () => {},
-      rollback: () => {},
+      apply: () => {
+        if (!optimisticStatus) return;
+        onUpdated?.(id, optimisticStatus);
+        if (currentBooking.current !== id) return;
+        setData(previous =>
+          previous?.booking.id === id ? { ...previous, booking: {
+            ...previous.booking,
+            bookingStatus: optimisticStatus,
+            isCheckedIn: optimisticStatus === "COMPLETED"
+              ? true
+              : optimisticStatus === "PENDING"
+                ? false
+                : previous.booking.isCheckedIn,
+          } } : previous);
+        opts?.onOptimistic?.();
+      },
+      rollback: () => {
+        if (!optimisticStatus) return;
+        if (originalStatus) onUpdated?.(id, originalStatus);
+        if (currentBooking.current !== id) return;
+        if (originalData) setData(originalData);
+        opts?.onRollback?.();
+      },
       reconcile: async signal => {
         const payload = await fetchBookingDetail(id, resolvedStoreId);
         if (signal.aborted || !bookingMatchesExpectation(payload.booking, id, expected)) return false;
@@ -322,7 +352,7 @@ export function BookingDetailDrawer({
       },
       confirmed: () => {
         toast.success(label);
-        onUpdated?.(id, nextStatus);
+        if (!optimisticStatus) onUpdated?.(id, nextStatus);
         cache?.invalidate(id);
         // A late completion must not close B's modal or change B's status.
         if (currentBooking.current !== id) return;
@@ -374,7 +404,9 @@ export function BookingDetailDrawer({
       setAttendanceOpen(true);
       return;
     }
-    wrapAction("已完成服務", () => markCompleted(bookingId!), "COMPLETED");
+    wrapAction("已完成服務", () => markCompleted(bookingId!), "COMPLETED", {
+      optimistic: true,
+    });
   }
 
   // AttendanceModal confirm — 依 attendanceIntent 分流。
@@ -423,6 +455,15 @@ export function BookingDetailDrawer({
       "COMPLETED",
       {
         expected: { attendedPeople },
+        optimistic: true,
+        onOptimistic: () => {
+          setAttendanceOpen(false);
+          setAttendanceIntent(null);
+        },
+        onRollback: () => {
+          setAttendanceIntent("complete");
+          setAttendanceOpen(true);
+        },
         onSuccess: () => {
           setAttendanceOpen(false);
           setAttendanceIntent(null);
@@ -434,16 +475,26 @@ export function BookingDetailDrawer({
   function handleNoShowConfirm(choice: NoShowChoice) {
     if (readOnly) return;
     if (partialAttendedPeople != null) {
+      const attendedPeople = partialAttendedPeople;
       wrapAction(
         "已完成服務並記錄部分未到",
         () =>
           markCompleted(bookingId!, {
-            attendedPeople: partialAttendedPeople,
+            attendedPeople,
             partialNoShowChoice: choice,
           }),
         "COMPLETED",
         {
-          expected: { attendedPeople: partialAttendedPeople, makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" },
+          expected: { attendedPeople, makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" },
+          optimistic: true,
+          onOptimistic: () => {
+            setNoShowOpen(false);
+            setPartialAttendedPeople(null);
+          },
+          onRollback: () => {
+            setPartialAttendedPeople(attendedPeople);
+            setNoShowOpen(true);
+          },
           onSuccess: () => {
             setNoShowOpen(false);
             setPartialAttendedPeople(null);
