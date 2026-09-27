@@ -15,3 +15,10 @@ export function courseAttendanceProgress(bookings: BookingAttendance[], leaveCou
   ).length;
   return { total, processed, complete: total > 0 && processed === total };
 }
+
+/** A recorded teacher absence closes attendance for the session without changing learner bookings. */
+export function courseAttendanceState(bookings: BookingAttendance[], leaveCount = 0, teacherAttendance = "SCHEDULED") {
+  const progress = courseAttendanceProgress(bookings, leaveCount);
+  const teacherAbsent = teacherAttendance === "LEAVE" || teacherAttendance === "NO_SHOW";
+  return { ...progress, teacherAbsent, complete: teacherAbsent || progress.complete };
+}

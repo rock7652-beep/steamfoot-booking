@@ -308,7 +308,11 @@ export function CourseWorkspace({
   }));
   const monthTotals = scheduleTotals(monthSessions);
   const dailySessions = sessions.filter((session) => toLocalDateStr(new Date(session.startsAt)) === selectedDate);
-  const absentStudents: DailyAttendanceRow[] = dailySessions.flatMap((session) => session.bookings.filter((booking) => booking.status === "RESERVED").map((booking) => ({ id:booking.id,sessionId:session.id,status:"RESERVED" as const, startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定老師",name:booking.customerName })));
+  const absentStudents: DailyAttendanceRow[] = dailySessions.flatMap((session) => {
+    const teacherStatus = pendingTeacherAttendance[session.id] ?? session.teacherAttendance;
+    if (teacherStatus === "LEAVE" || teacherStatus === "NO_SHOW") return [];
+    return session.bookings.filter((booking) => (pendingAttendance[booking.id] ?? booking.status) === "RESERVED").map((booking) => ({ id:booking.id,sessionId:session.id,status:"RESERVED" as const, startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定老師",name:booking.customerName }));
+  });
   const leaveStudents: DailyAttendanceRow[] = cancelledBookings.filter(booking=>["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).flatMap((booking) => {
     const session = dailySessions.find((item) => item.id === booking.sessionId);
     return session ? [{ id:booking.id,sessionId:session.id,status:"CANCELLED" as const,startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定老師",name:booking.customerName,note:booking.notes }] : [];

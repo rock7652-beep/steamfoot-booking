@@ -10,7 +10,7 @@ import {
 } from "@/lib/date-utils";
 import { normalizeAvailabilityPeriods, periodContains, minuteOfDay } from "@/lib/course-availability";
 import { getMusicSlotMatches, type MusicSlotMatch } from "@/server/actions/course-slot-matches";
-import { courseAttendanceProgress } from "@/lib/course-attendance-visual";
+import { courseAttendanceState } from "@/lib/course-attendance-visual";
 import { scheduleOnDate, scheduleTotals } from "@/lib/music-schedule-audit";
 
 export type CourseScheduleMode = "month" | "week" | "day";
@@ -268,7 +268,7 @@ function SessionCard({
     : "bg-sky-200 text-sky-950";
   const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
   const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
-  const attendance = courseAttendanceProgress(session.bookings, leaveCount);
+  const attendance = courseAttendanceState(session.bookings, leaveCount, session.teacherAttendance);
   const studentNoShows=session.bookings.filter(booking=>booking.status==="NO_SHOW").length;
   const studentState=[leaveCount?`學員請假${leaveCount}人`:"",studentNoShows?`學員曠課${studentNoShows}人`:""].filter(Boolean).join(" · ");
   const teacherState=session.teacherAttendance==="LEAVE"?"老師請假":session.teacherAttendance==="NO_SHOW"?"老師曠課":"";
@@ -278,7 +278,8 @@ function SessionCard({
   const attendanceLabel = session.previewFaded ? `${session.previewFaded}（原課已釋出；${session.isFixed ? "僅可排單次臨時課" : "可核對後排固定課"}）`
     : session.previewRosterUnknown ? "截圖未顯示學員名單"
     : session.previewAttendanceUnknown ? "原圖未提供點名資料"
-    : attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
+    : attendance.teacherAbsent ? "本堂已記錄 · 學員免點名"
+    : attendance.total > 0 ? `已記錄 ${attendance.processed}/${attendance.total}` : "尚無學員";
   const detailStatus=[teacherState,studentState,attendanceLabel].filter(Boolean).join(" · ");
   const musicTypeColor = rental ? "border-pink-300 bg-pink-100"
     : copy.groupClass ? "border-violet-300 bg-violet-100"
@@ -300,7 +301,7 @@ function SessionCard({
   const secondaryLine = [
     !copy.privateClass && session.bookings.length ? `${attendance.total} 人` : "",
     studentState,
-    !copy.privateClass && attendance.processed > 0 && !attendanceComplete ? attendanceLabel : "",
+    !copy.privateClass && attendance.total > 0 && !attendance.teacherAbsent ? attendanceLabel : "",
   ].filter(Boolean).join(" · ");
   const originalCoach = substitute ? coaches.find((coach) => coach.id === session.rescheduledFromCoachId)?.displayName : null;
   const resourceLabel = rental ? "租借" : resourceView === "coach" && /^教室\s*\d+$/.test(copy.room)
@@ -322,6 +323,7 @@ function SessionCard({
               {brief && <span className={`shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{fadedBadge ?? primaryType}</span>}
               <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
               {businessProfile==="MUSIC"&&teacherState&&<span title={teacherState} className="shrink-0 rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-900">{teacherState}</span>}
+              {businessProfile==="MUSIC"&&brief&&copy.groupClass&&!attendance.teacherAbsent&&attendance.total>0&&<span className="shrink-0 rounded bg-white/80 px-1 text-[10px] font-semibold text-earth-800">{attendance.processed}/{attendance.total}</span>}
               {businessProfile==="MUSIC"&&brief&&studentState&&<span title={studentState} className="shrink-0 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-900">{leaveCount?"請假":"曠課"}</span>}
             </span>
             <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[11px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
@@ -358,7 +360,7 @@ function SessionCard({
         {substitute && (
           <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-800">代課</span>
         )}
-        {attendanceComplete && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">{businessProfile === "MUSIC" ? "點名完成" : "已出席"}</span>}
+        {attendanceComplete && <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">{businessProfile === "MUSIC" ? teacherState ? `${teacherState} · 已記錄` : "點名完成" : "已出席"}</span>}
         {fixed && businessProfile === "MUSIC" && (
           <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${session.isBiweekly ? "bg-blue-100 text-blue-900 ring-1 ring-blue-200" : "bg-teal-100 text-teal-900 ring-1 ring-teal-200"}`}>
             {session.isBiweekly ? "隔週固定" : "每週固定"}
@@ -764,7 +766,7 @@ export function CourseScheduleBoard({
           {replica ? <span className="text-earth-600">左槓＝點名資料未見於原圖</span> : <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片左槓表示點名進度">
             <span className="font-semibold text-earth-800">左槓＝點名進度</span>
             <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-slate-400 bg-white" aria-hidden="true" />灰色：尚有未處理</span>
-            <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-sky-600 bg-white" aria-hidden="true" />對應亮色：全員已記錄（含請假、曠課）</span>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-sky-600 bg-white" aria-hidden="true" />對應亮色：全員已記錄，或老師請假／曠課已記錄</span>
           </div>}
           </div>
         </details>

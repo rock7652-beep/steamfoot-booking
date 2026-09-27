@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { courseAttendanceProgress } from "@/lib/course-attendance-visual";
+import { courseAttendanceProgress, courseAttendanceState } from "@/lib/course-attendance-visual";
 
 it("only darkens a class after every learner has a recorded result", () => {
   const pending = courseAttendanceProgress([
@@ -21,6 +21,16 @@ it("counts check-in, excludes ordinary cancellation, and keeps empty classes lig
     .toEqual({ total: 1, processed: 0, complete: false });
   expect(courseAttendanceProgress([{ status: "CANCELLED" }]))
     .toEqual({ total: 0, processed: 0, complete: false });
+});
+
+it("teacher absence completes a private or group class without marking or charging learners", () => {
+  const bookings = [{ status: "RESERVED" }, { status: "RESERVED" }, { status: "RESERVED" }, { status: "RESERVED" }];
+  expect(courseAttendanceState(bookings, 0, "NO_SHOW")).toEqual({ total: 4, processed: 0, teacherAbsent: true, complete: true });
+  expect(courseAttendanceState(bookings, 0, "LEAVE")).toMatchObject({ processed: 0, teacherAbsent: true, complete: true });
+  expect(courseAttendanceState(bookings, 0, "SCHEDULED")).toMatchObject({ processed: 0, teacherAbsent: false, complete: false });
+  expect(courseAttendanceState([{status:"ATTENDED"},{status:"NO_SHOW"},...bookings.slice(2)], 0)).toMatchObject({total:4,processed:2,complete:false});
+  expect(courseAttendanceState([{status:"ATTENDED"},{status:"NO_SHOW"},{status:"ATTENDED"},{status:"ATTENDED"}], 0)).toMatchObject({total:4,processed:4,complete:true});
+  expect(bookings.every(booking=>booking.status==="RESERVED")).toBe(true);
 });
 
 it("uses a gray pending edge and a course-colored completed edge without a separate dash", () => {
