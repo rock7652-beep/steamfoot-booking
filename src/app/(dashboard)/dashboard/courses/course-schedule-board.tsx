@@ -11,6 +11,7 @@ import {
 import { normalizeAvailabilityPeriods, periodContains, minuteOfDay } from "@/lib/course-availability";
 import { getMusicSlotMatches, type MusicSlotMatch } from "@/server/actions/course-slot-matches";
 import { courseAttendanceProgress } from "@/lib/course-attendance-visual";
+import { scheduleOnDate, scheduleTotals } from "@/lib/music-schedule-audit";
 
 export type CourseScheduleMode = "month" | "week" | "day";
 
@@ -442,8 +443,11 @@ export function CourseScheduleBoard({
     const dates = Array.from({ length: 7 }, (_, index) =>
       addTaiwanDuration(start, index, "DAY"),
     );
+    const weekSessions = sessions.filter((session) => dates.includes(sessionDate(session)));
+    const weekTotals = scheduleTotals(weekSessions);
     return (
       <section className="space-y-2" aria-label="週課表">
+        {businessProfile === "MUSIC" && <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800">本週 {weekTotals.classes} 堂｜{weekTotals.people} 人次｜租借 {weekTotals.rentals} 次</p>}
         <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
           <div className="grid min-w-[900px] grid-cols-7 divide-x divide-earth-100">
             {dates.map((date) => {
@@ -458,7 +462,7 @@ export function CourseScheduleBoard({
                     onClick={() => onSelectDate(date)}
                   >
                     <span className="block text-xs">{date === today ? "今天 · " : ""}{shortDate(date)}</span>
-                    <strong className="text-sm">{list.length} 堂</strong>
+                    <strong className="text-sm">{businessProfile === "MUSIC" ? `${scheduleTotals(list).classes} 堂｜${scheduleTotals(list).people} 人次` : `${list.length} 堂`}</strong>
                   </button>
                   <div className="space-y-2 p-2">
                     {list.length ? (
@@ -493,6 +497,7 @@ export function CourseScheduleBoard({
   const daySessions = sessions
     .filter((session) => sessionDate(session) === selectedDate)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const dayTotals = scheduleTotals(scheduleOnDate(sessions, selectedDate));
   const filtered = daySessions.filter((session) => filterSession(session, quickFilter));
   const resources =
     resourceView === "room"
@@ -584,6 +589,7 @@ export function CourseScheduleBoard({
 
   return (
     <section className="space-y-2" aria-label="日課表">
+      {businessProfile === "MUSIC" && !replica && <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800">今日 {dayTotals.classes} 堂｜{dayTotals.people} 人次｜租借 {dayTotals.rentals} 次</p>}
       <div className="flex max-w-full flex-wrap items-center gap-2">
         {!replica && <div
           className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5"
