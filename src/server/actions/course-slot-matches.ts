@@ -131,7 +131,7 @@ export async function getMusicSlotMatches(input: unknown) {
     const closing=store.periods.map(p=>minuteOfDay(p.closeTime));
     const firstMinute=Math.min(9*60,...opening);
     const lastMinute=Math.max(22*60,...closing);
-    const qualified=staff.filter(coach=>coach.courseQualificationsConfirmed&&coach.courseQualifiedTemplateIds.includes(data.templateId));
+    const qualified=staff.filter(coach=>!coach.courseQualificationsConfirmed||coach.courseQualifiedTemplateIds.includes(data.templateId));
     const suitableRooms=rooms.filter(room=>room.capacity===null||room.capacity>=(source?.capacity??template.capacity));
     const unavailable:MusicUnavailableSlot[]=[];
     for(let minute=Math.ceil(firstMinute/30)*30;minute+data.durationMinutes<=lastMinute;minute+=30){
