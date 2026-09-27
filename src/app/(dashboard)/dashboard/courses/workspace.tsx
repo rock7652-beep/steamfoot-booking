@@ -2163,6 +2163,9 @@ export function CourseWorkspace({
           const dialogSession = sessions.find(
             (session) => session.id === courseDialog.sessionId,
           )!;
+          const oneToOneMusicDialog = courseDialog.kind === "roster" && businessProfile === "MUSIC"
+            && dialogSession.capacity === 1
+            && allTemplates.find(template => template.id === dialogSession.templateId)?.classType === "PRIVATE";
           const dialogTitle =
             courseDialog.kind === "roster"
               ? businessProfile === "MUSIC" ? "課程詳情" : "上課名單"
@@ -2173,8 +2176,9 @@ export function CourseWorkspace({
             <RightSheet
               open
               presentation={courseDialog.kind === "roster" && businessProfile === "MUSIC" ? "centered" : "side"}
+              fitContent={oneToOneMusicDialog}
               onClose={() => setCourseDialog(null)}
-              width={courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 820 : 560}
+              width={oneToOneMusicDialog ? 860 : courseDialog.kind === "roster" && businessProfile === "MUSIC" ? 1120 : courseDialog.kind === "roster" ? 820 : 560}
               labelledById="course-operation-title"
             >
               <header className="flex shrink-0 items-start justify-between gap-4 border-b border-earth-200 bg-primary-50 px-4 py-3">
@@ -2241,7 +2245,7 @@ export function CourseWorkspace({
               <div
                 className={`min-h-0 flex-1 overscroll-contain p-3 sm:p-4 ${
                   courseDialog.kind === "roster"
-                    ? "overflow-y-auto sm:overflow-hidden"
+                    ? oneToOneMusicDialog ? "overflow-y-auto" : "overflow-y-auto sm:overflow-hidden"
                     : "overflow-y-auto"
                 }`}
               >
