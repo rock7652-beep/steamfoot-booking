@@ -233,9 +233,10 @@ function SessionCard({
   const rental = session.previewKind === "RENTAL";
   const changed = session.previewKind === "CHANGED";
   const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
-  const primaryType = rental ? "租借" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : copy.groupClass ? "團體" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "約課";
+  const primaryType = rental ? "租借" : copy.groupClass ? changed ? "團體異動" : substitute ? "團體代課" : moved ? "團體調課" : "團體" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "約課";
   const alteredSchedule = changed || substitute || moved || !fixed;
   const typeBadge = rental ? "bg-pink-200 text-pink-950"
+    : copy.groupClass ? "bg-violet-200 text-violet-950"
     : trialClass ? "bg-orange-200 text-orange-950"
     : alteredSchedule ? "bg-emerald-200 text-emerald-950"
     : "bg-sky-200 text-sky-950";
@@ -250,12 +251,14 @@ function SessionCard({
     : session.previewAttendanceUnknown ? "原圖未提供點名資料"
     : attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
   const musicTypeColor = rental ? "border-pink-300 bg-pink-100"
+    : copy.groupClass ? "border-violet-300 bg-violet-100"
     : trialClass ? "border-orange-400 bg-orange-100"
     : alteredSchedule ? "border-emerald-300 bg-emerald-100"
     : "border-sky-300 bg-sky-100";
   const musicAttendanceColor = session.previewAttendanceUnknown ? "border-l-slate-300" : !attendanceComplete
     ? "border-l-slate-400"
     : rental ? "border-l-pink-600"
+      : copy.groupClass ? "border-l-violet-600"
       : trialClass ? "border-l-orange-600"
         : alteredSchedule ? "border-l-emerald-600" : "border-l-sky-600";
   const musicColor = `${musicTypeColor} border-l-[4px] ${musicAttendanceColor}`;
@@ -335,7 +338,7 @@ function SessionCard({
           <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">約課</span>
         )}
         {businessProfile === "MUSIC" && copy.groupClass && (
-          <span className="rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-700">團體</span>
+          <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-900">團體</span>
         )}
         {isTrial(session) && (
           <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
@@ -660,8 +663,9 @@ export function CourseScheduleBoard({
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片底色表示課型">
             <span className="font-semibold text-earth-800">底色＝課型</span>
             {[
-              ["固定（含隔週、團體）", "border-sky-300 bg-sky-100"],
+              ["固定（含隔週）", "border-sky-300 bg-sky-100"],
               ["異動／約課／調課／代課", "border-emerald-300 bg-emerald-100"],
+              ["團體班", "border-violet-300 bg-violet-100"],
               ["體驗", "border-orange-400 bg-orange-100"],
               ["租借", "border-pink-300 bg-pink-100"],
             ].map(([label, color]) => (
