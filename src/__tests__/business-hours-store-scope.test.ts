@@ -72,7 +72,7 @@ import { addSpecialDay, applyDaySlotOverrides, syncFromHeadquarters } from "@/se
 describe("business-hours store isolation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: false } });
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: false }, slotOverrides: [] });
     mocks.requirePermission.mockResolvedValue({ role: "ADMIN", storeId: null });
     mocks.resolveWriteStoreId.mockResolvedValue("branch-a");
     mocks.bookingCount.mockResolvedValue(0);
@@ -81,7 +81,7 @@ describe("business-hours store isolation", () => {
   });
 
   it("rejects reopening a closed day without writing misleading slot overrides", async () => {
-    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: true } });
+    mocks.loadDayBusinessHoursContext.mockResolvedValue({ rule: { closed: true }, slotOverrides: [] });
     const result = await applyDaySlotOverrides({
       date: "2026-09-21",
       changes: [{ startTime: "09:30", action: "enable" }],

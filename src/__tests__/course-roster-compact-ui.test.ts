@@ -2,12 +2,12 @@
 import {act,createElement} from "react";
 import {createRoot} from "react-dom/client";
 import {it,expect,vi} from "vitest";
-const m=vi.hoisted(()=>({load:vi.fn(),batch:vi.fn(),status:vi.fn(),create:vi.fn(),save:vi.fn()}));
+const m=vi.hoisted(()=>({load:vi.fn(),batch:vi.fn(),status:vi.fn(),create:vi.fn(),save:vi.fn(),collectModal:vi.fn(()=>null),correctModal:vi.fn(()=>null)}));
 vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
 vi.mock("@/server/actions/course-members",()=>({loadCourseSessionDetail:m.load,updateCourseRosterBatch:m.batch,createCourseBooking:m.create,saveCourseCustomer:m.save,updateCourseBookingStatus:m.status,cancelCourseSession:vi.fn()}));
 vi.mock("@/server/actions/course-trial",()=>({createCourseTrial:vi.fn(),collectCourseTrial:vi.fn(),voidCourseTrialPayment:vi.fn()}));
-vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal",()=>({CollectTrialModal:()=>null}));
-vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal",()=>({CorrectTrialCollectionModal:()=>null}));
+vi.mock("@/app/(dashboard)/dashboard/bookings/collect-trial-modal",()=>({CollectTrialModal:m.collectModal}));
+vi.mock("@/app/(dashboard)/dashboard/bookings/correct-trial-collection-modal",()=>({CorrectTrialCollectionModal:m.correctModal}));
 import {CourseRoster} from "@/app/(dashboard)/dashboard/courses/roster";
 it("shows all twenty compact rows and selects them for one batch without cancelled bookings",async()=>{
  Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
@@ -112,5 +112,39 @@ it("offers an in-flow new customer path from member booking",async()=>{
   expect(create).toBeTruthy();
   await act(async()=>create!.click());
   expect(onCreateCustomer).toHaveBeenCalledOnce();
+ }finally{await act(async()=>root.unmount());host.remove();}
+});
+
+it.each([
+ {paid:false,canCollect:true,allow:true,action:"收款"},
+ {paid:true,canCollect:true,allow:true,action:"更正收款"},
+ {paid:false,canCollect:false,allow:true,action:null},
+ {paid:false,canCollect:true,allow:false,action:null},
+])("keeps trial collection next to the amount and respects permissions: %j",async({paid,canCollect,allow,action})=>{
+ Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});
+ m.collectModal.mockClear();m.correctModal.mockClear();
+ const payment={id:"receipt",status:"SUCCESS",amount:300,paymentMethod:"CASH",createdAt:"2026-09-01T00:00:00Z"};
+ const booking={id:"trial-booking",customerId:"customer",customerName:"體驗學員",customerPhone:"0900000000",status:"RESERVED",bookingKind:"TRIAL",trialPrice:300,trialPayments:paid?[payment]:[],checkedInAt:null,serviceNote:"",notes:"",pointCost:1};
+ m.load.mockResolvedValue({success:true,data:{session:{startsAt:"2026-09-01T00:00:00Z",pointCost:1},roster:[booking],cards:[],trial:{canCollect,canCorrect:true,customers:[],settings:{trialAllowPriceEdit:true,trialDefaultPrice:300,trialMinPrice:0,trialMaxPrice:1000}}}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ try{
+  await act(async()=>root.render(createElement(CourseRoster,{sessionId:"session",capacity:20,canCreate:false,canEdit:true,allowTrialActions:allow})));
+  const row=host.querySelector("li")!;
+  const buttons=[...row.querySelectorAll("button")];
+  const collect=buttons.find(b=>b.textContent?.trim()==="收款");
+  const correct=buttons.find(b=>b.textContent?.trim()==="更正收款");
+  expect(row.textContent).toContain(paid?"✓ 已收 NT$ 300":"未收款");
+  if(action==="收款"){
+   expect(collect).toBeTruthy();expect(correct).toBeUndefined();
+   expect(collect!.parentElement!.textContent).toContain("NT$ 300");
+   await act(async()=>collect!.click());
+   expect(m.collectModal).toHaveBeenCalledWith(expect.objectContaining({bookingId:"trial-booking",expectedAmount:300}),undefined);
+   expect(m.correctModal).not.toHaveBeenCalled();
+  }else if(action==="更正收款"){
+   expect(collect).toBeUndefined();expect(correct).toBeTruthy();
+   await act(async()=>correct!.click());
+   expect(m.correctModal).toHaveBeenCalledWith(expect.objectContaining({bookingId:"trial-booking",originalTransactionId:"receipt",originalAmount:300}),undefined);
+   expect(m.collectModal).not.toHaveBeenCalled();
+  }else{expect(collect).toBeUndefined();expect(correct).toBeUndefined();}
  }finally{await act(async()=>root.unmount());host.remove();}
 });
