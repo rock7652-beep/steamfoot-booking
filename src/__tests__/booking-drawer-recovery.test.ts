@@ -125,8 +125,17 @@ it("renders the month wallet snapshot while full detail is still pending", async
     expect(container.textContent).toContain("2026/12/31");
     expect(container.textContent).toContain("3 堂");
     expect(container.textContent).toContain("依方案扣堂（完成時核對）");
-    expect(container.textContent).toContain("讀取完整資料中");
+    expect(container.textContent).toContain("其他明細背景同步中");
     expect(mocks.read).toHaveBeenCalledOnce();
+    let finish!: (result: { success: boolean; error?: string }) => void;
+    mocks.complete.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const complete = [...container.querySelectorAll("button")].find(button => button.textContent === "完成服務")!;
+    expect(complete).toBeDefined();
+    act(() => { complete.click(); complete.click(); });
+    expect(mocks.complete).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain("已完成");
+    await act(async () => finish({ success: false, error: "rejected" }));
+    expect(container.textContent).toContain("完成服務");
   } finally {
     await act(async () => root.unmount());
   }
@@ -160,6 +169,32 @@ it("updates completion immediately and restores it when the server rejects the w
   } finally {
     await act(async () => root.unmount());
   }
+});
+
+it.each([
+  { readOnly: true, people: 1, bookingType: "PACKAGE_SESSION", collected: false },
+  { readOnly: false, people: 2, bookingType: "PACKAGE_SESSION", collected: false },
+  { readOnly: false, people: 1, bookingType: "FIRST_TRIAL", collected: false },
+  { readOnly: false, people: 1, bookingType: "SINGLE", collected: false },
+])("does not bypass required checks while detail is pending: %j", async (scenario) => {
+  mocks.read.mockImplementation(() => new Promise<BookingDrawerPayload>(() => {}));
+  const prefill: BookingPrefill = {
+    id: "guard", bookingDate: "2026-09-28", slotTime: "10:00",
+    bookingStatus: "PENDING", isMakeup: false, isCheckedIn: false,
+    attendedPeople: null, customerName: "Guard fixture", customerPhone: "",
+    serviceNote: null, revenueStaff: null, serviceStaffName: null,
+    servicePlanName: null, collectedAmount: null, expectedAmount: null,
+    trialDefaultPrice: null, ...scenario,
+  };
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(React.createElement(BookingDetailDrawer, {
+      open: true, bookingId: prefill.id, prefill, readOnly: scenario.readOnly, onClose: vi.fn(),
+    })));
+    expect([...container.querySelectorAll("button")].some(button => button.textContent === "完成服務")).toBe(false);
+    expect(mocks.complete).not.toHaveBeenCalled();
+  } finally { await act(async () => root.unmount()); }
 });
 
 it("does not let A's late recovery overwrite B after switching bookings", async () => {
