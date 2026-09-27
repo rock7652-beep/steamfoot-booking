@@ -253,11 +253,12 @@ export function CourseWorkspace({
     first = `${month}-01`;
   const [year, mon] = month.split("-").map(Number);
   const days = new Date(year, mon, 0).getDate();
+  const fullMusicOverview = businessProfile === "MUSIC" && scheduleMode !== "day";
   const filteredScheduleSessions = sessions.filter(
     (s) =>
-      (roomFilter === "all" || s.roomId === roomFilter) &&
-      (coachFilter === "all" || s.coachId === coachFilter) &&
-      (category === "all" ||
+      (fullMusicOverview || roomFilter === "all" || s.roomId === roomFilter) &&
+      (fullMusicOverview || coachFilter === "all" || s.coachId === coachFilter) &&
+      (fullMusicOverview || category === "all" ||
         allTemplates.find((t) => t.id === s.templateId)?.category === category),
   ).map((session) => ({
     ...session,
@@ -582,7 +583,7 @@ export function CourseWorkspace({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
+          {!fullMusicOverview && <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
             <span className="px-1 text-xs font-medium text-earth-500">篩選</span>
             <label className="sr-only" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "老師" : "教練"}</label>
             <select
@@ -642,7 +643,7 @@ export function CourseWorkspace({
                 清除篩選
               </button>
             )}
-          </div>
+          </div>}
           {scheduleMode === "month" ? (
             <>
               {businessProfile === "MUSIC" && <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
@@ -704,24 +705,19 @@ export function CourseWorkspace({
                         {closureLabel}
                       </span>
                     )}
-                    {businessProfile === "MUSIC" && list.length > 0 && <span className="mt-1 text-[11px] font-medium text-earth-700">{scheduleTotals(list).classes} 堂｜{scheduleTotals(list).people} 人次</span>}
+                    {businessProfile === "MUSIC" && <span className="mt-1 text-[11px] font-medium text-earth-700">{scheduleTotals(list).classes} 堂｜{scheduleTotals(list).people} 人次</span>}
                     {businessProfile !== "MUSIC" && list.length > 0 && <span className="mt-1 text-xs font-medium sm:hidden">{list.length} 堂</span>}
-                    {list.slice(0, 2).map((s) => (
+                    {businessProfile !== "MUSIC" && list.slice(0, 2).map((s) => (
                       <span
                         key={s.id}
                         className={`hidden w-full shrink-0 truncate leading-[14px] sm:block sm:text-[11px] rounded-sm border-l-2 px-1 ${courseSessionStatus(s, nowIso).calendarClass} ${courseSessionStatus(s, nowIso).accentClass}`}
                         title={`${s.nameSnapshot} · ${s.isFixed ? (s.isBiweekly ? "隔週固定" : "每週固定") + " · " : ""}${courseSessionStatus(s, nowIso).label}`}
                       >
                         {formatTWDateTime(new Date(s.startsAt)).slice(11)}{" "}
-                        {businessProfile === "MUSIC" && s.isFixed && (
-                          <span className={`mr-0.5 rounded px-0.5 font-semibold ${s.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900"}`}>
-                            {s.isBiweekly ? "隔週" : "每週"}
-                          </span>
-                        )}
                         {s.nameSnapshot}
                       </span>
                     ))}
-                    {list.length > 2 && (
+                    {businessProfile !== "MUSIC" && list.length > 2 && (
                       <span className="hidden shrink-0 leading-[14px] sm:block sm:text-[11px]">
                         ＋{list.length - 2} 堂
                       </span>
@@ -731,11 +727,7 @@ export function CourseWorkspace({
               })}
             </div>
           </div>
-          {businessProfile === "MUSIC" && <div className="flex flex-wrap items-center gap-2 text-xs text-earth-700" aria-label="固定課圖例">
-            <span className="rounded-full bg-teal-100 px-2 py-1 font-semibold text-teal-900 ring-1 ring-teal-200">每週固定</span>
-            <span className="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-900 ring-1 ring-blue-200">隔週固定</span>
-          </div>}
-          <div className="flex flex-wrap items-center gap-2 text-xs text-earth-600" aria-label="課程狀態圖例">
+          {businessProfile !== "MUSIC" && <div className="flex flex-wrap items-center gap-2 text-xs text-earth-600" aria-label="課程狀態圖例">
             {[
               ["未開始", "bg-sky-50 text-sky-800"],
               ["進行中", "bg-amber-50 text-amber-800"],
@@ -745,7 +737,7 @@ export function CourseWorkspace({
               ["已結束", "bg-earth-100 text-earth-700"],
             ].map(([label, tone]) => <span key={label} className={`rounded-full px-2 py-1 ${tone}`}>{label}</span>)}
             <span>灰底「公休／員工訓練」：當日不可排課</span>
-          </div>
+          </div>}
             </>
           ) : (
             <>
