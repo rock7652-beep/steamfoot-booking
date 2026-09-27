@@ -3,6 +3,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
+import type { BookingPrefill } from "@/app/(dashboard)/dashboard/bookings/booking-detail-drawer";
 const mocks = vi.hoisted(() => ({ read: vi.fn(), complete: vi.fn() }));
 vi.mock("@/server/actions/booking", () => ({ markCompleted: mocks.complete, markNoShow: vi.fn(), cancelBooking: vi.fn(), revertBookingStatus: vi.fn(), updateBooking: vi.fn() }));
 vi.mock("@/server/actions/booking-drawer", () => ({ fetchBookingDetail: mocks.read }));
@@ -72,6 +73,58 @@ function bookingPayload(): BookingDrawerPayload {
   };
 }
 
+
+
+it("renders the month wallet snapshot while full detail is still pending", async () => {
+  mocks.read.mockReset();
+  mocks.read.mockImplementation(() => new Promise<BookingDrawerPayload>(() => {}));
+  const prefill: BookingPrefill = {
+    id: "booking-prefill",
+    bookingDate: "2026-09-28",
+    slotTime: "10:00",
+    bookingStatus: "PENDING",
+    bookingType: "PACKAGE_SESSION",
+    isMakeup: false,
+    isCheckedIn: false,
+    people: 1,
+    attendedPeople: null,
+    customerName: "Prefill customer",
+    customerPhone: "0900000000",
+    serviceNote: null,
+    revenueStaff: null,
+    serviceStaffName: null,
+    servicePlanName: "月曆方案",
+    collected: false,
+    collectedAmount: null,
+    expectedAmount: null,
+    trialDefaultPrice: null,
+    customerPlanWallet: {
+      status: "ACTIVE",
+      remainingSessions: 3,
+      expiryDate: "2026-12-31",
+      planName: "月曆方案",
+    },
+    deductedPlanNames: [],
+  };
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(React.createElement(BookingDetailDrawer, {
+      open: true,
+      bookingId: prefill.id,
+      prefill,
+      onClose: vi.fn(),
+    })));
+    expect(container.textContent).toContain("月曆方案");
+    expect(container.textContent).toContain("2026/12/31");
+    expect(container.textContent).toContain("3 堂");
+    expect(container.textContent).toContain("依方案扣堂（完成時核對）");
+    expect(container.textContent).toContain("讀取完整資料中");
+    expect(mocks.read).toHaveBeenCalledOnce();
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
 
 it("does not let A's late recovery overwrite B after switching bookings", async () => {
   const a = bookingPayload();
