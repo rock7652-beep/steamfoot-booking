@@ -126,6 +126,36 @@ it("renders the month wallet snapshot while full detail is still pending", async
   }
 });
 
+it("updates completion immediately and restores it when the server rejects the write", async () => {
+  mocks.complete.mockReset();
+  mocks.read.mockReset();
+  const payload = bookingPayload();
+  mocks.read.mockResolvedValue(payload);
+  let finish!: (result: { success: boolean; error?: string }) => void;
+  mocks.complete.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const onUpdated = vi.fn();
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(React.createElement(BookingDetailDrawer, {
+      open: true,
+      bookingId: payload.booking.id,
+      onClose: vi.fn(),
+      onUpdated,
+    })));
+    const complete = [...container.querySelectorAll("button")].find(button => button.textContent?.includes("完成服務"))!;
+    act(() => complete.click());
+    expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "COMPLETED");
+    expect(container.textContent).toContain("還原狀態");
+
+    await act(async () => finish({ success: false, error: "server rejected" }));
+    expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "PENDING");
+    expect(container.textContent).toContain("完成服務");
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 it("does not let A's late recovery overwrite B after switching bookings", async () => {
   const a = bookingPayload();
   const b = { ...bookingPayload(), booking: { ...a.booking, id: "booking-b", customer: { ...a.booking.customer, name: "Customer B" } } };
@@ -170,7 +200,8 @@ it("automatically checks first and the fallback only reads without completing tw
     const complete = [...container.querySelectorAll("button")].find(button => button.textContent?.includes("完成服務"))!;
     await act(async () => complete.click());
     expect(mocks.read).toHaveBeenCalledTimes(2);
-    expect(onUpdated).not.toHaveBeenCalled();
+    expect(onUpdated).toHaveBeenNthCalledWith(1, payload.booking.id, "COMPLETED");
+    expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "PENDING");
     expect(complete.disabled).toBe(true);
     const check = [...container.querySelectorAll("button")].find(button => button.textContent === "查看最新狀態")!;
     expect(check).toBeDefined();
