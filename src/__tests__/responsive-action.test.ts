@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, createElement } from "react";
+import { act, createElement, useLayoutEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import { useResponsiveAction } from "@/hooks/use-responsive-action";
@@ -9,7 +9,7 @@ const roots: ReturnType<typeof createRoot>[] = [];
 afterEach(() => { act(() => roots.splice(0).forEach(root => root.unmount())); });
 function setup() {
   let hook!: ReturnType<typeof useResponsiveAction>;
-  function Harness() { hook = useResponsiveAction(); return null; }
+  function Harness() { const value = useResponsiveAction(); useLayoutEffect(() => { hook = value; }); return null; }
   const root = createRoot(document.createElement("div")); roots.push(root);
   act(() => root.render(createElement(Harness)));
   return () => hook;
