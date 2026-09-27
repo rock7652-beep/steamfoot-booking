@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { scheduleOnDate, scheduleTotals, slotDecision } from "@/lib/music-schedule-audit";
 
 const at = (day: string, time: string) => `${day}T${time}:00+08:00`;
@@ -53,4 +54,16 @@ it("同一批有課資料的日、週、月堂數與人次一致，淡化原位�
   expect(sunday).toEqual({ classes: 1, people: 1, rentals: 1 });
   expect(week).toEqual({ classes: 3, people: 4, rentals: 1 });
   expect(month).toEqual(week);
+});
+
+it("9/26 陸比截圖轉錄的已知堂數與租借可核對，團體名單未知不虛報人次", () => {
+  const source = readFileSync("src/app/(dashboard)/dashboard/courses/showcase/luby-real-day-showcase.tsx", "utf8");
+  const rows = source.split("const sourceRows: SourceRow[] = [")[1].split("];", 1)[0]
+    .split("\n").filter((line) => /^\s*\["/.test(line))
+    .map((line) => [...line.matchAll(/"([^"]*)"/g)].map((match) => match[1]));
+  expect(rows).toHaveLength(65);
+  expect(rows.filter((row) => row[4] === "RENTAL")).toHaveLength(3);
+  expect(rows.filter((row) => row.length === 6)).toHaveLength(10);
+  expect(rows.filter((row) => row[4] !== "RENTAL" && row.length === 5)).toHaveLength(52);
+  expect(rows.filter((row) => ["GROUP", "GROUP_CHANGED"].includes(row[4]) && row.length === 5)).toHaveLength(10);
 });
