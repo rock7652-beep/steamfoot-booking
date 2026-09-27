@@ -7,7 +7,7 @@ import {
   collectCourseTrial,
   voidCourseTrialPayment,
 } from "@/server/actions/course-trial";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { formatTWDateTime } from "@/lib/date-utils";
 import { useRouter } from "next/navigation";
 import {
@@ -49,7 +49,13 @@ export function CourseRoster({
   onMemberBookingReadyChange?: (ready: boolean) => void;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const readVersion = useRef(0);
+  const mutationLock = useRef(false);
+  const currentSession = useRef(sessionId);
+  currentSession.current = sessionId;
+  const [transitionPending, start] = useTransition();
+  const [uncertain, setUncertain] = useState(false);
+  const pending = transitionPending || uncertain;
   const [selected, setSelected] = useState<string[]>([]);
   const [batchTarget, setBatchTarget] = useState<
     "CHECKED_IN" | "ATTENDED" | "RESERVED"
@@ -91,7 +97,9 @@ export function CourseRoster({
   const [requestKey, setRequestKey] = useState("");
 
   async function load() {
+    const version = ++readVersion.current;
     const result = await loadCourseSessionDetail(sessionId);
+    if (version !== readVersion.current || currentSession.current !== sessionId) return;
     if (result.success) {
       setSession(result.data.session);
       setTrial(result.data.trial);
@@ -105,10 +113,12 @@ export function CourseRoster({
 
   useEffect(() => {
     let active = true;
-    const refresh = () =>
-      loadCourseSessionDetail(sessionId)
+    const refresh = () => {
+      if (mutationLock.current) return Promise.resolve();
+      const version = ++readVersion.current;
+      return loadCourseSessionDetail(sessionId)
         .then((result) => {
-          if (!active) return;
+          if (!active || version !== readVersion.current || currentSession.current !== sessionId) return;
           if (result.success) {
             setSession(result.data.session);
             setTrial(result.data.trial);
@@ -120,7 +130,10 @@ export function CourseRoster({
             setMessage(result.error);
           }
         })
-        .catch(() => active && setMessage("讀取失敗，請重試"));
+        .catch(() => {
+          if (active && version === readVersion.current) setMessage("讀取失敗，現有名單已保留，請重試");
+        });
+    };
     void refresh();
     const refreshVisibleRoster = () => {
       if (view === "roster" && document.visibilityState === "visible") {
@@ -145,9 +158,14 @@ export function CourseRoster({
     action: () => Promise<{ success: boolean; error?: string }>,
     successMessage = "已完成",
   ) {
+    if (mutationLock.current || uncertain) return;
+    mutationLock.current = true;
+    ++readVersion.current;
+    setMessage("處理中…");
     start(async () => {
       try {
         const result = await action();
+        if (currentSession.current !== sessionId) return;
         if (!result.success) {
           setMessage(result.error ?? "操作失敗");
           await load();
@@ -161,7 +179,13 @@ export function CourseRoster({
         router.refresh();
         if (view !== "roster") onDone?.();
       } catch {
-        setMessage("連線中斷，請重試");
+        if (currentSession.current === sessionId) {
+          setUncertain(true);
+          setMessage("結果待確認，請重新開啟名單核對後再操作。");
+          try { await load(); } catch { /* Keep the last confirmed roster and warning. */ }
+        }
+      } finally {
+        mutationLock.current = false;
       }
     });
   }
