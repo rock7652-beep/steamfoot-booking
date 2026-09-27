@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { parseTaipeiDateTime } from "@/lib/date-utils";
+import { scheduleTotals } from "@/lib/music-schedule-audit";
 import { LubyRealDayBoard } from "./luby-real-day-board";
 
 // Transcribed from the provided 2026/9/12 Luby Music screenshot. The date is
@@ -129,6 +130,9 @@ function sessionsFor(date: string) {
 }
 
 export function LubyRealDayShowcase({ date }: { date: string }) {
+  const displaySessions = sessionsFor(date);
+  const totals = scheduleTotals(displaySessions);
+  const unknownGroupRosters = displaySessions.filter((session) => session.previewRosterUnknown && !session.previewFaded).length;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -138,9 +142,13 @@ export function LubyRealDayShowcase({ date }: { date: string }) {
         </div>
         <Link href="/dashboard/courses?showcase=music-types&date=2026-09-26" className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-xs font-medium text-earth-800">查看 49 堂班型示意</Link>
       </div>
+      <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800">
+        截圖可辨識：{totals.classes} 堂課｜至少 {totals.people} 人次｜租借 {totals.rentals} 次。
+        團體班 {unknownGroupRosters} 堂未提供名單，因此無法核對完整人次。
+      </p>
       <LubyRealDayBoard
         businessProfile="MUSIC" mode="day" selectedDate={date} today={date}
-        sessions={sessionsFor(date)} rooms={rooms} coaches={coaches} templates={templates}
+        sessions={displaySessions} rooms={rooms} coaches={coaches} templates={templates}
         storePeriods={[{ openTime: "09:00", closeTime: "21:00" }]}
         staffAvailability={[]} staffAvailabilityExceptions={[]}
         readOnly replica
