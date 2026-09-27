@@ -231,9 +231,12 @@ function SessionCard({
   const trialClass = isTrial(session) && !copy.groupClass;
   const rental = session.previewKind === "RENTAL";
   const changed = session.previewKind === "CHANGED";
+  const sourceReplica = session.previewAttendanceUnknown === true;
   const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
   const primaryType = rental ? "租借" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : copy.groupClass ? "團體" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "約課";
-  const typeBadge = rental ? "bg-fuchsia-200 text-fuchsia-950" : trialClass ? "bg-rose-200 text-rose-950" : changed ? "bg-amber-100 text-amber-900" : substitute || moved ? "bg-amber-100 text-amber-900" : copy.groupClass ? "bg-purple-100 text-purple-900" : fixed ? session.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900" : "bg-amber-100 text-amber-900";
+  const typeBadge = sourceReplica
+    ? rental ? "bg-pink-200 text-pink-950" : trialClass ? "bg-orange-200 text-orange-950" : changed ? "bg-emerald-200 text-emerald-950" : "bg-sky-200 text-sky-950"
+    : rental ? "bg-fuchsia-200 text-fuchsia-950" : trialClass ? "bg-rose-200 text-rose-950" : changed ? "bg-amber-100 text-amber-900" : substitute || moved ? "bg-amber-100 text-amber-900" : copy.groupClass ? "bg-purple-100 text-purple-900" : fixed ? session.isBiweekly ? "bg-blue-100 text-blue-900" : "bg-teal-100 text-teal-900" : "bg-amber-100 text-amber-900";
   const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
   const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
   const attendance = courseAttendanceProgress(session.bookings, leaveCount);
@@ -265,6 +268,7 @@ function SessionCard({
             ? "border-l-blue-600"
             : fixed ? "border-l-teal-600" : "border-l-amber-600";
   const musicColor = `${musicTypeColor} border-l-[4px] ${musicAttendanceColor}`;
+  const replicaColor = rental ? "border-pink-300 bg-pink-100" : trialClass ? "border-orange-400 bg-orange-100" : changed ? "border-emerald-300 bg-emerald-100" : "border-sky-300 bg-sky-100";
   const showCapacityState = !musicDense || !copy.privateClass;
   const brief = sessionDurationMinutes(session) <= 30;
   const studentLabel = rental || !copy.privateClass && !session.bookings.length
@@ -283,22 +287,22 @@ function SessionCard({
       type="button"
       onClick={onOpen}
       disabled={readOnly}
-      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? rental ? "border-fuchsia-300 border-l-[4px] border-l-slate-400 bg-fuchsia-100" : changed ? "border-amber-200 border-l-[4px] border-l-slate-400 bg-amber-50/70" : musicColor : moved ? "border-indigo-200 bg-indigo-50/80" : "border-earth-200 bg-white"} ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
+      className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? sourceReplica ? `${replicaColor} border-l-[4px] border-l-slate-400` : rental ? "border-fuchsia-300 border-l-[4px] border-l-slate-400 bg-fuchsia-100" : changed ? "border-amber-200 border-l-[4px] border-l-slate-400 bg-amber-50/70" : musicColor : moved ? "border-indigo-200 bg-indigo-50/80" : "border-earth-200 bg-white"} ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
       title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${attendanceLabel}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${attendanceLabel}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       {musicDense ? (
         <>
-          <div className="flex min-w-0 items-center gap-1 text-[11px] leading-4">
+          <div className={`flex min-w-0 items-center gap-1 leading-4 ${sourceReplica ? "text-xs" : "text-[11px]"}`}>
             <span className="flex min-w-0 flex-1 items-center gap-1">
-              {brief && <span className={`shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{session.previewFaded ?? primaryType}</span>}
+              {brief && <span className={`shrink-0 rounded px-1 ${sourceReplica ? "text-[10px]" : "text-[9px]"} font-bold ${typeBadge}`}>{session.previewFaded ?? primaryType}</span>}
               <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
             </span>
-            <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[10px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
+            <span className={`shrink-0 whitespace-nowrap rounded bg-white/85 px-1 ${sourceReplica ? "text-[11px]" : "text-[10px]"} font-semibold text-earth-900 ring-1 ring-earth-200`} title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
           </div>
           {!brief && <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
             {secondaryLine && <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{secondaryLine}</span>}
-            <span className={`ml-auto shrink-0 rounded px-1 text-[9px] font-bold ${typeBadge}`}>{session.previewFaded ?? primaryType}</span>
+            <span className={`ml-auto shrink-0 rounded px-1 ${sourceReplica ? "text-[10px]" : "text-[9px]"} font-bold ${typeBadge}`}>{session.previewFaded ?? primaryType}</span>
           </div>}
         </>
       ) : (
@@ -664,17 +668,17 @@ export function CourseScheduleBoard({
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片底色表示課型">
             <span className="font-semibold text-earth-800">底色＝課型</span>
             {[
-              [replica ? "固定（原圖藍）" : "每週", "border-teal-200 bg-teal-50"],
+              [replica ? "固定" : "每週", replica ? "border-sky-300 bg-sky-100" : "border-teal-200 bg-teal-50"],
               ...(!replica ? [["隔週", "border-blue-200 bg-blue-50"]] : []),
-              [replica ? "異動（原圖綠）" : "約課／調課／代課", "border-amber-200 bg-amber-50"],
-              ["團體", "border-purple-200 bg-purple-50"],
-              ["體驗", "border-rose-400 bg-rose-100"],
+              [replica ? "異動" : "約課／調課／代課", replica ? "border-emerald-300 bg-emerald-100" : "border-amber-200 bg-amber-50"],
+              ...(!replica ? [["團體", "border-purple-200 bg-purple-50"]] : []),
+              ["體驗", replica ? "border-orange-400 bg-orange-100" : "border-rose-400 bg-rose-100"],
             ].map(([label, color]) => (
               <span key={label} className="inline-flex items-center gap-1 whitespace-nowrap">
                 <span className={`h-3 w-3 rounded-sm border ${color}`} aria-hidden="true" />{label}
               </span>
             ))}
-            {replica && <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-fuchsia-300 bg-fuchsia-100" aria-hidden="true" />租借</span>}
+            {replica && <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-pink-300 bg-pink-100" aria-hidden="true" />租借</span>}
           </div>
           {replica ? <span className="text-earth-600">左槓＝點名資料未見於原圖</span> : <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片左槓表示點名進度">
             <span className="font-semibold text-earth-800">左槓＝點名進度</span>
