@@ -7,6 +7,7 @@ vi.mock("@/server/services/course-access", () => ({
 import { correctCourseAttendance } from "@/server/services/course-booking";
 import type { Prisma } from "../../generated/course-client";
 const m = {
+  courseSession: { findFirst: vi.fn(), update: vi.fn() },
   courseBooking: { findFirst: vi.fn(), aggregate: vi.fn(), count: vi.fn(), update: vi.fn() },
   coursePointCard: { update: vi.fn() },
   coursePointEntry: { create: vi.fn() },
@@ -26,6 +27,7 @@ beforeEach(() => {
   m.courseBooking.aggregate.mockResolvedValue({ _sum: { pointCost: 0 } });
   m.courseBooking.count.mockImplementation(async ({where}) => where.customerId ? 0 : 1);
   m.courseBooking.update.mockImplementation(async (x) => x.data);
+  m.courseSession.findFirst.mockResolvedValue({teacherAttendance:"SCHEDULED",releasedAt:null,startsAt:new Date("2020-01-01"),endsAt:new Date("2020-01-01T01:00:00Z"),roomId:"room",coachId:"coach"});
 });
 
 describe("restore music student leave", () => {

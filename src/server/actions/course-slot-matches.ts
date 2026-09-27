@@ -10,7 +10,8 @@ import { normalizeAvailabilityPeriods, periodContains, minuteOfDay } from "@/lib
 import { dayRange, formatTWDateTime, parseTaipeiDateTime, toLocalDateStr } from "@/lib/date-utils";
 import { handleCourseActionError } from "@/server/services/course-resources";
 
-export type MusicSlotMatch = { time: string; roomId: string; coachIds: string[] };
+export type MusicSlotMatch = { time: string; roomId: string; coachIds: string[]; fixedOriginCoachIds?: string[] };
+export type MusicUnavailableSlot = {time:string;reason:string};
 
 /** One read for all slots on a day. The write actions still validate under the store lock. */
 export async function getMusicSlotMatches(input: unknown) {
@@ -99,6 +100,19 @@ export async function getMusicSlotMatches(input: unknown) {
     };
     const store = periodsFor(data.date);
     const slots: MusicSlotMatch[] = [];
+    const origins=!source ? await coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,OR:[
+      {releasedAt:{not:null},startsAt:{lt:dayRange(data.date).end},endsAt:{gt:dayRange(data.date).start}},
+      {rescheduledFromStartsAt:{lt:dayRange(data.date).end},rescheduledFromEndsAt:{gt:dayRange(data.date).start}},
+    ]},select:{requestKey:true,releasedAt:true,startsAt:true,endsAt:true,roomId:true,coachId:true,rescheduledFromStartsAt:true,rescheduledFromEndsAt:true,rescheduledFromRoomId:true,rescheduledFromCoachId:true,template:{select:{musicScheduleMode:true}}}}) : [];
+    const recurring=origins.length ? new Set((await coursePrisma.courseSession.groupBy({by:["requestKey"],where:{storeId,cancelledAt:null,requestKey:{in:[...new Set(origins.map(o=>o.requestKey))]}},_count:{id:true},having:{id:{_count:{gt:1}}}})).map(row=>row.requestKey)) : new Set<string>();
+    const fixedOrigins=origins.filter(o=>o.template.musicScheduleMode==="FIXED"||recurring.has(o.requestKey));
+    const keepsFixed=(roomId:string,coachId:string,time:string)=>{
+      const start=parseTaipeiDateTime(data.date,time)!;
+      const end=new Date(start.getTime()+data.durationMinutes*60000);
+      return fixedOrigins.some(o=>o.releasedAt
+        ? o.startsAt<end&&o.endsAt>start&&(o.roomId===roomId||o.coachId===coachId)
+        : o.rescheduledFromStartsAt&&o.rescheduledFromEndsAt&&o.rescheduledFromStartsAt<end&&o.rescheduledFromEndsAt>start&&(o.rescheduledFromRoomId===roomId||o.rescheduledFromCoachId===coachId));
+    };
     for (const period of store.periods) {
       for (let minute = Math.ceil(minuteOfDay(period.openTime) / 30) * 30; minute + data.durationMinutes <= minuteOfDay(period.closeTime); minute += 30) {
         const time = `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
@@ -109,11 +123,35 @@ export async function getMusicSlotMatches(input: unknown) {
             if ((!unchanged || coach.courseQualificationsConfirmed) && (!coach.courseQualificationsConfirmed || !coach.courseQualifiedTemplateIds.includes(data.templateId))) return false;
             return validPair(time, room.id, coach.id);
           }).map(coach => coach.id);
-          if (coachIds.length) slots.push({ time, roomId: room.id, coachIds });
+          if (coachIds.length) slots.push({ time, roomId: room.id, coachIds, fixedOriginCoachIds:coachIds.filter(coachId=>keepsFixed(room.id,coachId,time)) });
         }
       }
     }
-    return { success: true as const, data: slots };
+    const opening=store.periods.map(p=>minuteOfDay(p.openTime));
+    const closing=store.periods.map(p=>minuteOfDay(p.closeTime));
+    const firstMinute=Math.min(9*60,...opening);
+    const lastMinute=Math.max(22*60,...closing);
+    const qualified=staff.filter(coach=>coach.courseQualificationsConfirmed&&coach.courseQualifiedTemplateIds.includes(data.templateId));
+    const suitableRooms=rooms.filter(room=>room.capacity===null||room.capacity>=(source?.capacity??template.capacity));
+    const unavailable:MusicUnavailableSlot[]=[];
+    for(let minute=Math.ceil(firstMinute/30)*30;minute+data.durationMinutes<=lastMinute;minute+=30){
+      const time=`${String(Math.floor(minute/60)).padStart(2,"0")}:${String(minute%60).padStart(2,"0")}`;
+      if(slots.some(slot=>slot.time===time))continue;
+      const startsAt=parseTaipeiDateTime(data.date,time)!;
+      const endsAt=new Date(startsAt.getTime()+data.durationMinutes*60000);
+      const availableCoaches=qualified.filter(coach=>periodContains(teacherPeriods(coach.id,data.date),time,data.durationMinutes));
+      const freeCoaches=availableCoaches.filter(coach=>!occupied.some(s=>!ignored.has(s.id)&&s.coachId===coach.id&&s.startsAt<endsAt&&s.endsAt>startsAt));
+      const freeRooms=suitableRooms.filter(room=>!occupied.some(s=>!ignored.has(s.id)&&s.roomId===room.id&&s.startsAt<endsAt&&s.endsAt>startsAt));
+      const reason=!periodContains(store.periods,time,data.durationMinutes)?"非營業時段"
+        : !suitableRooms.length?"沒有符合課程人數的教室"
+        : !qualified.length?"沒有符合這門課資格的老師"
+        : !availableCoaches.length?"合格老師未排班"
+        : !freeCoaches.length?"合格老師已有課"
+        : !freeRooms.length?"合適教室已有課"
+        : "排班或後續課次無法完整排入";
+      unavailable.push({time,reason});
+    }
+    return { success: true as const, data: slots, unavailable };
   } catch (error) {
     return handleCourseActionError(error);
   }

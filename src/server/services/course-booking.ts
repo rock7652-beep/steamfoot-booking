@@ -43,7 +43,7 @@ const COURSE_MAKEUP_VALID_DAYS = 7;
 // The music pilot uses an isolated preview database. Allow staff to rehearse
 // attendance before the scheduled start only in that exact environment.
 function allowEarlyPilotAttendance(): boolean {
-  if (process.env.VERCEL_ENV !== "preview" || process.env.VERCEL_GIT_COMMIT_REF !== "codex/music-reschedule-20260925") return false;
+  if (process.env.VERCEL_ENV !== "preview" || !["codex/music-reschedule-20260925", "codex/music-manager-attendance-20260927"].includes(process.env.VERCEL_GIT_COMMIT_REF ?? "")) return false;
   try {
     const url = new URL(process.env.DATABASE_URL ?? "");
     return url.hostname === "db.ttworfzgwejdeolegkxl.supabase.co" ||

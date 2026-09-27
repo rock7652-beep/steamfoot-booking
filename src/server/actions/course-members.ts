@@ -530,3 +530,48 @@ export async function updateCourseRosterBatch(input: unknown) {
     refresh();return {success:true as const};
   }catch(error){return handleActionError(error);}
 }
+
+/** One transaction for the manager's day-wide leave/attendance list. */
+export async function updateCourseDailyAttendanceBatch(input: unknown) {
+  try {
+    const data=z.object({
+      target:z.enum(["RESERVED","ATTENDED","NO_SHOW"]),
+      bookings:z.array(z.object({id,status:z.enum(["RESERVED","CANCELLED"]),sessionId:id})).min(1).max(200),
+    }).parse(input);
+    if(new Set(data.bookings.map(b=>b.id)).size!==data.bookings.length)throw new AppError("VALIDATION","學員不可重複");
+    if(data.bookings.some(b=>data.target==="RESERVED" ? b.status!=="CANCELLED" : b.status!=="RESERVED"))throw new AppError("VALIDATION","請重新核對待處理名單");
+    const {user,storeId}=await courseManager("booking.update");
+    await courseTransaction(storeId,async tx=>{
+      const sessionIds=[...new Set(data.bookings.map(b=>b.sessionId))];
+      const sessions=await tx.courseSession.findMany({where:{id:{in:sessionIds},storeId,cancelledAt:null},select:{id:true}});
+      if(sessions.length!==sessionIds.length)throw new AppError("CONFLICT","課程已變更，請重新核對名單");
+      const current=await tx.courseBooking.findMany({where:{storeId,id:{in:data.bookings.map(b=>b.id)}},select:{id:true,sessionId:true,status:true,absenceKind:true}});
+      if(current.length!==data.bookings.length || data.bookings.some(b=>{
+        const found=current.find(item=>item.id===b.id);
+        return !found || found.sessionId!==b.sessionId || found.status!==b.status || (b.status==="CANCELLED" && !["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(found.absenceKind??""));
+      }))throw new AppError("CONFLICT","名單或狀態已變更，請重新核對");
+      const actor={storeId,userId:user.id,name:user.name??"店長"};
+      for(const booking of data.bookings){
+        if(data.target==="NO_SHOW")await settleCourseBooking(tx,actor,booking.id,"NO_SHOW","DEDUCTED");
+        else await correctCourseAttendance(tx,actor,booking.id,data.target,booking.status);
+      }
+    });
+    scheduleCourseLowBalanceCheck(storeId,data.bookings.map(b=>b.id));
+    refresh();return {success:true as const};
+  }catch(error){return handleActionError(error);}
+}
+
+export async function saveCourseLeaveNote(input: unknown) {
+  try {
+    const data=z.object({bookingId:id,note:z.string().trim().max(1000)}).parse(input);
+    const {user,storeId}=await courseManager("booking.update");
+    await courseTransaction(storeId,async tx=>{
+      const booking=await tx.courseBooking.findFirst({where:{id:data.bookingId,storeId,status:"CANCELLED",absenceKind:{in:["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"]}},select:{id:true,notes:true}});
+      if(!booking)throw new AppError("CONFLICT","請假狀態已變更，請重新核對");
+      if(booking.notes===data.note)return;
+      await tx.courseBooking.update({where:{id:booking.id},data:{notes:data.note}});
+      await tx.$executeRaw`INSERT INTO "AuditLog" (id,"actorUserId","targetType","targetId",action,"beforeJson","afterJson","createdAt") VALUES (${crypto.randomUUID()},${user.id},'CourseBooking',${booking.id},'COURSE_LEAVE_NOTE',${JSON.stringify({storeId,note:booking.notes})}::jsonb,${JSON.stringify({note:data.note})}::jsonb,NOW())`;
+    });
+    refresh();return {success:true as const};
+  }catch(error){return handleActionError(error);}
+}

@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition, type FormEvent, type ReactNode } fr
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CourseRoster } from "./roster";
 import { MusicScheduleWizard } from "./music-schedule-wizard";
+import { DailyAttendanceList, type DailyAttendanceRow } from "./daily-attendance-list";
 import {
   CourseScheduleBoard,
   type CourseScheduleMode,
@@ -55,6 +56,7 @@ type Template = Omit<Room, "capacity"> & {
 };
 type Session = {
   bookings: {
+    id: string;
     customerId: string;
     customerName: string;
     status: string;
@@ -97,7 +99,7 @@ type Props = {
   templates: Template[];
   sessions: Session[];
   coaches: { id: string; displayName: string; phone: string; status: string;courseCoachEnabled:boolean;courseQualificationsConfirmed:boolean;courseQualifiedTemplateIds:string[] }[];
-  cancelledBookings: {id:string;customerName:string;sessionId:string;absenceKind:string|null}[];
+  cancelledBookings: {id:string;customerName:string;sessionId:string;absenceKind:string|null;notes:string}[];
   canCreate: boolean;
   canDelete?: boolean;
   canEdit: boolean;
@@ -276,10 +278,10 @@ export function CourseWorkspace({
   }));
   const monthTotals = scheduleTotals(monthSessions);
   const dailySessions = sessions.filter((session) => toLocalDateStr(new Date(session.startsAt)) === selectedDate);
-  const absentStudents = dailySessions.flatMap((session) => session.bookings.filter((booking) => booking.status === "RESERVED" && new Date(session.startsAt).getTime() <= Date.now()).map((booking) => ({ session, name: booking.customerName })));
-  const leaveStudents = cancelledBookings.filter(booking=>["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).flatMap((booking) => {
+  const absentStudents: DailyAttendanceRow[] = dailySessions.flatMap((session) => session.bookings.filter((booking) => booking.status === "RESERVED").map((booking) => ({ id:booking.id,sessionId:session.id,status:"RESERVED" as const, startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定老師",name:booking.customerName })));
+  const leaveStudents: DailyAttendanceRow[] = cancelledBookings.filter(booking=>["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).flatMap((booking) => {
     const session = dailySessions.find((item) => item.id === booking.sessionId);
-    return session ? [{ session, name: booking.customerName }] : [];
+    return session ? [{ id:booking.id,sessionId:session.id,status:"CANCELLED" as const,startsAt:session.startsAt,endsAt:session.endsAt,course:session.nameSnapshot,teacher:allCoaches.find(coach=>coach.id===session.coachId)?.displayName??"未指定老師",name:booking.customerName,note:booking.notes }] : [];
   });
   const [dailyList, setDailyList] = useState<"leave" | "unmarked" | null>(null);
   const byDate = new Map<string, Session[]>();
@@ -752,14 +754,9 @@ export function CourseWorkspace({
             )}
             {businessProfile === "MUSIC" && <details className="text-xs text-earth-700"><summary className="cursor-pointer">當日資訊</summary><div className="mt-2 flex flex-wrap gap-2 text-sm">
               <button type="button" className={button} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
-              <button type="button" className={button} onClick={() => setDailyList("unmarked")}>未簽到學員 {absentStudents.length}</button>
+              <button type="button" className={button} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
             </div></details>}
-            {dailyList && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label={dailyList === "leave" ? "請假學員清單" : "未簽到學員清單"} onClick={() => setDailyList(null)}>
-              <div className="flex max-h-[85dvh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
-                <header className="flex items-center justify-between border-b border-earth-200 p-4"><h2 className="font-semibold">{selectedDate} · {dailyList === "leave" ? "請假學員" : "未簽到學員"}</h2><button type="button" className={button} onClick={() => setDailyList(null)}>關閉</button></header>
-                <div className="overflow-y-auto p-4"><ul className="divide-y divide-earth-100">{(dailyList === "leave" ? leaveStudents : absentStudents).map(({ session, name }, index) => <li key={`${session.id}-${name}-${index}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 text-sm"><strong className="min-w-24">{name}</strong><span>{formatTWDateTime(new Date(session.startsAt)).slice(11,16)} · {session.nameSnapshot}</span><span className="text-earth-600">{allCoaches.find((coach) => coach.id === session.coachId)?.displayName ?? "未指定老師"}</span><button type="button" className="ml-auto text-primary-700 underline" onClick={() => {setDailyList(null);setCourseDialog({sessionId:session.id,kind:"roster"});}}>查看課程</button></li>)}</ul>{!(dailyList === "leave" ? leaveStudents : absentStudents).length && <p className="py-8 text-center text-sm text-earth-500">當日沒有學員</p>}</div>
-              </div>
-            </div>}
+            {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}}/>}
             <CourseScheduleBoard
               businessProfile={businessProfile}
               mode={scheduleMode}

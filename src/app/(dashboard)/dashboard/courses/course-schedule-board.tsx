@@ -46,6 +46,8 @@ type Session = {
   // Display metadata for the read-only schedule replica; live sessions omit these fields.
   previewKind?: "CHANGED" | "RENTAL";
   previewFaded?: "異動／請假" | "已調課";
+  previewDestinationStartsAt?: string;
+  previewDestinationRoomId?: string;
   previewStudentNames?: string[];
   previewRosterUnknown?: boolean;
   previewAttendanceUnknown?: boolean;
@@ -135,6 +137,8 @@ function originalPlace(session: Session): Session | null {
     roomId: session.rescheduledFromRoomId,
     coachId: session.rescheduledFromCoachId,
     previewFaded: "已調課",
+    previewDestinationStartsAt: session.startsAt,
+    previewDestinationRoomId: session.roomId,
     rescheduledFromStartsAt: null,
     rescheduledFromEndsAt: null,
     rescheduledFromRoomId: null,
@@ -252,6 +256,8 @@ function SessionCard({
   const changed = session.previewKind === "CHANGED";
   const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
   const fadedBadge = session.previewFaded ? `${session.previewFaded} · ${fixed ? "限單次" : "可排固定"}` : null;
+  const destination = session.previewDestinationStartsAt
+    ? `調至 ${hhmm(session.previewDestinationStartsAt)} · 教室 ${rooms.find(room=>room.id===session.previewDestinationRoomId)?.name??"待核對"}` : null;
   const primaryType = rental ? "租借" : copy.groupClass ? changed ? "團體異動" : substitute ? "團體代課" : moved ? "團體調課" : "團體" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "約課";
   const alteredSchedule = changed || substitute || moved || !fixed;
   const typeBadge = rental ? "bg-pink-200 text-pink-950"
@@ -300,7 +306,7 @@ function SessionCard({
       onClick={onOpen}
       disabled={readOnly}
       className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? musicColor : moved ? "border-indigo-200 bg-indigo-50/80" : "border-earth-200 bg-white"} ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
-      title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${attendanceLabel}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
+      title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${attendanceLabel}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
       aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${attendanceLabel}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       {musicDense ? (
@@ -314,7 +320,7 @@ function SessionCard({
           </div>
           {!brief && <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
             {secondaryLine && <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{secondaryLine}</span>}
-            <span className={`ml-auto shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{fadedBadge ?? primaryType}</span>
+            <span className={`ml-auto shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}` : fadedBadge ?? primaryType}</span>
           </div>}
         </>
       ) : (
