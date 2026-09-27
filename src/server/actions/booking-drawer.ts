@@ -1,5 +1,7 @@
 "use server";
 
+import { OperationTiming } from "@/lib/operation-timing";
+
 import { prisma } from "@/lib/db";
 import { spaPrisma } from "@/lib/spa-db";
 import { requireStaffSession } from "@/lib/session";
@@ -266,9 +268,17 @@ export async function fetchBookingDetail(
   bookingId: string,
   resolvedStoreId?: string,
 ): Promise<BookingDrawerPayload> {
-  const user = await requireStaffSession();
-  const activeStoreId = await getActiveStoreForRead(user);
-  const storeViewContext = await resolveStoreViewContextFromCookie(user);
+  const timing = new OperationTiming("booking.detail");
+  try { return await fetchBookingDetailMeasured(bookingId, resolvedStoreId, timing); }
+  finally { timing.finish(); }
+}
+
+async function fetchBookingDetailMeasured(
+  bookingId: string, resolvedStoreId: string | undefined, timing: OperationTiming,
+): Promise<BookingDrawerPayload> {
+  const user = await timing.measure("session", () => requireStaffSession());
+  const activeStoreId = await timing.measure("activeStore", () => getActiveStoreForRead(user));
+  const storeViewContext = await timing.measure("viewContext", () => resolveStoreViewContextFromCookie(user));
   const bookingStoreId = resolvedStoreId
     ? await validateStoreAccess(user, resolvedStoreId, "read")
     : storeIdForViewContext(activeStoreId, storeViewContext);
@@ -285,11 +295,11 @@ export async function fetchBookingDetail(
     return fetchSpaBookingDetail(bookingId, bookingStoreId);
   }
   // 重用已解析的 staff user，避免 getBookingDetail 內再 requireSession 一次
-  const booking = await getBookingDetailForUser(
+  const booking = await timing.measure("booking", () => getBookingDetailForUser(
     bookingId,
     readUser,
     bookingStoreId,
-  );
+  ));
 
   const isTrial = booking.bookingType === "FIRST_TRIAL";
   const isSingle = booking.bookingType === "SINGLE";
@@ -313,7 +323,7 @@ export async function fetchBookingDetail(
     firstBookingCount,
     canEditServiceNote,
     canEditBookingNote,
-  ] = await Promise.all([
+  ] = await timing.measure("supplementary", () => Promise.all([
     isTrial
       ? prisma.transaction.findFirst({
           where: {
@@ -382,7 +392,7 @@ export async function fetchBookingDetail(
     }),
     !isViewMode ? checkPermission(user.role, user.staffId, "customer.update") : Promise.resolve(false),
     !isViewMode ? checkPermission(user.role, user.staffId, "booking.update") : Promise.resolve(false),
-  ]);
+  ]));
 
   return {
     canEditServiceNote,

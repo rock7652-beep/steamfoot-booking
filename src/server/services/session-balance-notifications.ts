@@ -1,4 +1,5 @@
 import { deliverManagerNotification } from "./manager-notification-delivery";
+import { createHash } from "node:crypto";
 import { LINE_CARD_COLORS, LINE_CARD_STYLES } from "@/lib/line-card-theme";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -87,6 +88,9 @@ export async function enqueueSessionBalanceNotifications(
         customerId: input.customerId,
         walletId: notificationWallet.id,
         type: decision.type,
+        deliveryVersion: 1,
+        nextAttemptAt: new Date(),
+        retryUntil: new Date(Date.now() + 23 * 60 * 60 * 1000),
       }]
     : [];
   if (candidates.length === 0) return [];
@@ -390,8 +394,28 @@ async function notifyManagerOfVipInterest(input: {
 export async function dispatchSessionBalanceNotifications(
   notificationIds: string[],
 ): Promise<void> {
+  // Preview must never dispatch customer messages, even if it shares DB access.
+  if (process.env.VERCEL_ENV === "preview") return;
   for (const id of [...new Set(notificationIds)]) {
+    let leaseUntil: Date | null = null;
     try {
+      const delivery = await prisma.sessionBalanceNotification.findUnique({ where: { id } });
+      if (!delivery || !["PENDING", "FAILED"].includes(delivery.status)) continue;
+      if (delivery.deliveryVersion === 1) {
+        const now = new Date();
+        if (!delivery.retryUntil || delivery.retryUntil <= now || delivery.deliveryAttempts >= 5) continue;
+        leaseUntil = new Date(now.getTime() + 10 * 60_000);
+        const claim = await prisma.sessionBalanceNotification.updateMany({
+          where: {
+            id, deliveryVersion: 1, status: { in: ["PENDING", "FAILED"] },
+            deliveryAttempts: delivery.deliveryAttempts,
+            retryUntil: { gt: now }, nextAttemptAt: { lte: now },
+            OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }],
+          },
+          data: { leaseUntil, deliveryAttempts: { increment: 1 }, status: "PENDING" },
+        });
+        if (!claim.count) { leaseUntil = null; continue; }
+      } else if (delivery.status !== "PENDING") continue;
       const notification = await prisma.sessionBalanceNotification.findFirst({
         where: { id, status: "PENDING" },
         include: {
@@ -494,7 +518,7 @@ export async function dispatchSessionBalanceNotifications(
           : null,
         centralRecipient,
       );
-      const content = buildSessionBalanceLineMessages({
+      let content = buildSessionBalanceLineMessages({
         type: notification.type,
         customerName: notification.customer.name,
         planName: notification.wallet.plan.name,
@@ -515,15 +539,54 @@ export async function dispatchSessionBalanceNotifications(
         continue;
       }
 
+      // Freeze route + content before the first external call. A retry must not
+      // send a different message or switch LINE channels with the same key.
+      if (delivery.deliveryVersion === 1) {
+        const snapshot = notification.deliverySnapshot as {
+          channel: string; recipient: string; body: string; messages: LineMessage[];
+        } | null;
+        if (snapshot) {
+          if (snapshot.channel !== route.channel || snapshot.recipient !== route.recipientLineUserId) {
+            await prisma.sessionBalanceNotification.update({ where: { id }, data: {
+              status: "SKIPPED", errorMessage: "通知收件路徑已變更，停止自動補送",
+            } });
+            continue;
+          }
+          content = { ...content, body: snapshot.body, messages: snapshot.messages };
+        } else {
+          await prisma.sessionBalanceNotification.update({ where: { id }, data: {
+            deliverySnapshot: {
+              channel: route.channel, recipient: route.recipientLineUserId,
+              body: content.body, messages: content.messages,
+            } as unknown as Prisma.InputJsonValue,
+          } });
+        }
+      }
+      const hash = createHash("sha256").update(`session-balance:${id}`).digest("hex");
+      const retryKey = delivery.deliveryVersion === 1
+        ? `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`
+        : undefined;
+
+      if (leaseUntil) {
+        // Recheck ownership and deadline immediately before the external call.
+        const owned = await prisma.sessionBalanceNotification.findFirst({
+          where: { id, leaseUntil, status: "PENDING", retryUntil: { gt: new Date() } },
+          select: { id: true },
+        });
+        if (!owned || leaseUntil <= new Date()) continue;
+      }
+
       const result = route.channel === "STORE"
         ? await pushMessage(
             notification.storeId,
             route.recipientLineUserId,
             content.messages,
+            retryKey,
           )
         : await pushSteamButlerMessage(
             route.recipientLineUserId,
             content.messages,
+            retryKey,
           );
       await prisma.sessionBalanceNotification.update({
         where: { id },
@@ -532,13 +595,50 @@ export async function dispatchSessionBalanceNotifications(
           renderedBody: content.body,
           errorMessage: result.error ?? null,
           sentAt: result.success ? new Date() : null,
+          ...(delivery.deliveryVersion === 1 ? {
+            nextAttemptAt: new Date(Date.now() + 5 * 60_000),
+          } : {}),
         },
       });
     } catch (error) {
       console.error("[SessionBalanceNotification] dispatch failed", {
         notificationId: id,
-        error,
+        error: error instanceof Error ? error.name : "UnknownError",
       });
+      if (leaseUntil) await prisma.sessionBalanceNotification.updateMany({
+        where: { id, leaseUntil, status: "PENDING" },
+        data: { status: "FAILED", errorMessage: "派送暫時失敗，等待重試", nextAttemptAt: new Date(Date.now() + 5 * 60_000) },
+      }).catch(() => undefined);
+    } finally {
+      if (leaseUntil) await prisma.sessionBalanceNotification.updateMany({
+        where: { id, leaseUntil }, data: { leaseUntil: null },
+      }).catch(() => undefined);
     }
   }
+}
+
+/** Bounded recovery; never replay legacy records or push outside the retry window. */
+export async function retrySessionBalanceNotifications() {
+  const now = new Date();
+  await prisma.sessionBalanceNotification.updateMany({
+    where: {
+      deliveryVersion: 1, status: "PENDING", store: { industryModule: "STEAMFOOT" },
+      AND: [
+        { OR: [{ retryUntil: { lte: now } }, { deliveryAttempts: { gte: 5 } }] },
+        { OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }] },
+      ],
+    },
+    data: { status: "FAILED", errorMessage: "自動補送已達上限或期限，請人工確認", leaseUntil: null },
+  });
+  const pending = await prisma.sessionBalanceNotification.findMany({
+    where: {
+      deliveryVersion: 1, status: { in: ["PENDING", "FAILED"] },
+      deliveryAttempts: { lt: 5 }, retryUntil: { gt: now }, nextAttemptAt: { lte: now },
+      OR: [{ leaseUntil: null }, { leaseUntil: { lt: now } }],
+      store: { industryModule: "STEAMFOOT" },
+    },
+    orderBy: { nextAttemptAt: "asc" }, take: 5, select: { id: true },
+  });
+  await dispatchSessionBalanceNotifications(pending.map(({ id }) => id));
+  return { processed: pending.length };
 }

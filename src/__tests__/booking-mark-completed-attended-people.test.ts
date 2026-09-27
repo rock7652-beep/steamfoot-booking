@@ -16,6 +16,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { after } from "next/server";
+import { enqueueSessionBalanceNotifications, dispatchSessionBalanceNotifications } from "@/server/services/session-balance-notifications";
+
+vi.mock("next/server", () => ({ after: vi.fn() }));
 
 const STORE = "store_1";
 
@@ -192,6 +196,25 @@ function packageBooking(people: number) {
 }
 
 describe("markCompleted — PR-3d attendedPeople write semantics", () => {
+  it("returns completion before sending notifications and schedules only after commit", async () => {
+    mockBookingFindUnique.mockResolvedValue(packageBooking(1));
+    vi.mocked(enqueueSessionBalanceNotifications).mockResolvedValueOnce(["n1"]);
+    const result = await markCompleted("bk_pkg");
+    expect(result.success).toBe(true);
+    expect(dispatchSessionBalanceNotifications).not.toHaveBeenCalled();
+    expect(after).toHaveBeenCalledTimes(1);
+    const callback = vi.mocked(after).mock.calls[0][0] as () => Promise<void>;
+    await callback();
+    expect(dispatchSessionBalanceNotifications).toHaveBeenCalledWith(["n1"]);
+  });
+
+  it("does not schedule notifications after a transaction failure", async () => {
+    mockBookingFindUnique.mockResolvedValue(packageBooking(1));
+    mockTransaction.mockRejectedValueOnce(new Error("rollback"));
+    expect((await markCompleted("bk_pkg")).success).toBe(false);
+    expect(after).not.toHaveBeenCalled();
+  });
+
   it("records deductions in the authorized booking store, not the session store", async () => {
     mockBookingFindUnique.mockResolvedValue({ ...packageBooking(1), storeId: "selected-store" });
     const result = await markCompleted("bk_pkg");
