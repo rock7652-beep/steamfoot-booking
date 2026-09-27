@@ -229,7 +229,7 @@ describe("per-booking save feedback", () => {
     }));
     const container = document.createElement("div"); container.innerHTML = html;
     const rows = container.querySelectorAll("li");
-    expect(rows[0].textContent).toContain("正在確認到店與扣堂");
+    expect(rows[0].textContent).toContain("正在確認預約狀態");
     expect(rows[0].querySelector("button:disabled")).not.toBeNull();
     expect(Array.from(rows[1].querySelectorAll("button")).find(button => button.textContent === "完成")?.disabled).toBe(false);
     expect(rows[0].textContent).not.toContain("已到店");
@@ -243,4 +243,25 @@ describe("per-booking save feedback", () => {
     const container = document.createElement("div"); container.innerHTML = html;
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("結果待確認");
   });
+});
+
+it("offers read-only recovery only after automatic confirmation is inconclusive", async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  const onCheckAction = vi.fn();
+  const onCompleteSingle = vi.fn();
+  const props = { date: "2026-09-27", slots: [], bookings: [booking({ id: "a" })], actingIds: new Set(["a"]), onCheckAction, onCompleteSingle };
+  try {
+    await act(async () => root.render(React.createElement(DayDetailPanel, { ...props, actionStates: { a: { phase: "checking", message: "正在確認最新狀態…" } } })));
+    expect(container.textContent).not.toContain("查看最新狀態");
+    await act(async () => root.render(React.createElement(DayDetailPanel, { ...props, actionStates: { a: { phase: "unknown", message: "暫時無法確認" } } })));
+    const check = [...container.querySelectorAll("button")].find(button => button.textContent === "查看最新狀態")!;
+    expect(check.disabled).toBe(false);
+    await act(async () => check.click());
+    expect(onCheckAction).toHaveBeenCalledWith("a");
+    expect(onCompleteSingle).not.toHaveBeenCalled();
+    await act(async () => root.render(React.createElement(DayDetailPanel, { ...props, actingIds: new Set<string>(), actionStates: { a: { phase: "saved", message: "已確認最新狀態" } } })));
+    expect(container.textContent).not.toContain("查看最新狀態");
+  } finally { await act(async () => root.unmount()); }
 });

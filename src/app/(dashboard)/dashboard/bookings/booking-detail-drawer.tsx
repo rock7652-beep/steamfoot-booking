@@ -5,6 +5,8 @@ import { BookingGuideContext } from "@/components/operation-guide-shell";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useResponsiveAction } from "@/hooks/use-responsive-action";
+import { bookingMatchesExpectation, type BookingActionExpectation } from "@/lib/booking-action-reconciliation";
+import { BookingActionFeedback } from "./booking-action-feedback";
 import { toast } from "sonner";
 import { CustomerPageLink as Link } from "@/components/customer-page-link";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -184,7 +186,8 @@ export function BookingDetailDrawer({
   useLayoutEffect(() => { currentBooking.current = bookingId; }, [bookingId]);
   const actionKey = bookingId ?? "";
   const actionState = saves.states[actionKey];
-  const isActing = saves.isBlocked(actionKey) || saves.isBlocked("__batch");
+  const isActing = saves.isBlocked(actionKey);
+  const checkingResult = actionState?.phase === "checking" || actionState?.phase === "unknown";
   const [noShowOpen, setNoShowOpen] = useState(false);
   const [partialAttendedPeople, setPartialAttendedPeople] = useState<
     number | null
@@ -278,24 +281,36 @@ export function BookingDetailDrawer({
     label: string,
     action: () => Promise<{ success: boolean; error?: string } | unknown>,
     nextStatus: string | null,
-    opts?: { onSuccess?: () => void },
+    opts?: { onSuccess?: () => void; expected?: BookingActionExpectation },
   ) {
-    if (!bookingId || saves.isBlocked("__batch")) return;
+    if (!bookingId) return;
     if (readOnly) { toast.error("查看模式下不可操作預約"); return; }
     const id = bookingId;
+    let recoveredPayload: BookingDrawerPayload | null = null;
+    const expected = { ...(nextStatus ? { status: nextStatus } : {}), ...opts?.expected };
     void saves.run(id, async () => {
-      try {
-        const result = await action() as { success?: boolean; error?: string } | undefined;
-        if (typeof result?.success !== "boolean") throw new Error("結果待確認");
-        if (!result.success) toast.error(result.error ?? "操作未完成");
-        return { success: result.success, error: result.error };
-      } catch (error) {
-        toast.error("結果待確認，請重新開啟頁面核對後再操作。");
-        throw error;
-      }
+      const result = await action() as { success?: boolean; error?: string } | undefined;
+      if (typeof result?.success !== "boolean") throw new Error("結果待確認");
+      if (!result.success) toast.error(result.error ?? "操作未完成");
+      return { success: result.success, error: result.error };
     }, {
       apply: () => {},
       rollback: () => {},
+      reconcile: async signal => {
+        const payload = await fetchBookingDetail(id, resolvedStoreId);
+        if (signal.aborted || !bookingMatchesExpectation(payload.booking, id, expected)) return false;
+        recoveredPayload = payload;
+        return true;
+      },
+      recovered: () => {
+        if (!recoveredPayload) return;
+        cache?.invalidate(id);
+        onUpdated?.(id, nextStatus);
+        if (currentBooking.current !== id) return;
+        setData(recoveredPayload);
+        setError(null);
+        opts?.onSuccess?.();
+      },
       confirmed: () => {
         toast.success(label);
         onUpdated?.(id, nextStatus);
@@ -398,6 +413,7 @@ export function BookingDetailDrawer({
       () => markCompleted(bookingId, { attendedPeople }),
       "COMPLETED",
       {
+        expected: { attendedPeople },
         onSuccess: () => {
           setAttendanceOpen(false);
           setAttendanceIntent(null);
@@ -418,6 +434,7 @@ export function BookingDetailDrawer({
           }),
         "COMPLETED",
         {
+          expected: { attendedPeople: partialAttendedPeople, makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" },
           onSuccess: () => {
             setNoShowOpen(false);
             setPartialAttendedPeople(null);
@@ -441,6 +458,7 @@ export function BookingDetailDrawer({
     };
     const label = isFullMakeupBooking ? "已標記未到" : labelMap[choice];
     wrapAction(label, () => markNoShow(bookingId!, choice), "NO_SHOW", {
+      expected: { makeupGranted: choice === "DEDUCTED_WITH_MAKEUP" },
       onSuccess: () => setNoShowOpen(false),
     });
   }
@@ -458,7 +476,7 @@ export function BookingDetailDrawer({
           slotTime: newSlotTime,
         }),
       null,
-      { onSuccess: () => setRescheduleOpen(false) },
+      { expected: { date: newDate, slotTime: newSlotTime }, onSuccess: () => setRescheduleOpen(false) },
     );
   }
 
@@ -542,7 +560,7 @@ export function BookingDetailDrawer({
         labelledById="booking-drawer-title"
         width={spaMode ? undefined : 860}
       >
-        {open && actionState && <p role={actionState.phase === "error" || actionState.phase === "unknown" ? "alert" : "status"} className="border-b border-earth-100 px-5 py-2 text-sm text-amber-800">{actionState.phase === "saving" ? "正在確認預約狀態…" : actionState.message}</p>}
+        {open && <BookingActionFeedback state={actionState} onCheck={() => { void saves.check(actionKey); }} />}
         {open && operationGuidePreview && !spaMode && <BookingGuideContext status={hasFullData ? data?.booking.bookingStatus : undefined} />}
         {hasFullData &&
         data &&
@@ -632,7 +650,7 @@ export function BookingDetailDrawer({
       </RightSheet>
       {!readOnly && (
         <NoShowModal
-          open={noShowOpen && !!data}
+          open={noShowOpen && !!data && !checkingResult}
           onClose={() => {
             setNoShowOpen(false);
             setPartialAttendedPeople(null);
@@ -658,7 +676,7 @@ export function BookingDetailDrawer({
           data.booking.bookingType === "PACKAGE_SESSION") &&
         data.booking.people > 1 && (
           <AttendanceModal
-            open={attendanceOpen}
+            open={attendanceOpen && !checkingResult}
             onClose={() => {
               setAttendanceOpen(false);
               setAttendanceIntent(null);
@@ -671,7 +689,7 @@ export function BookingDetailDrawer({
         )}
       {!readOnly && data && (
         <RescheduleModal
-          open={rescheduleOpen}
+          open={rescheduleOpen && !checkingResult}
           onClose={() => setRescheduleOpen(false)}
           currentDate={data.booking.bookingDate}
           currentSlotTime={data.booking.slotTime}

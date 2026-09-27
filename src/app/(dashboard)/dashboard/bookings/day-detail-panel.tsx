@@ -1,5 +1,7 @@
 "use client";
 
+import { BookingActionFeedback } from "./booking-action-feedback";
+
 import { DashboardLink as Link } from "@/components/dashboard-link";
 import { LinkPendingLabel } from "@/components/link-pending-label";
 import { StatusBadge, bookingStatusMeta } from "@/components/admin/status-badge";
@@ -97,6 +99,7 @@ interface DayDetailPanelProps {
   onCompleteSingle?: (id: string) => void;
   /** Rows currently mid-action — gets disabled + spinner. */
   actionStates?: Record<string, import("@/hooks/use-responsive-action").SaveState>;
+  onCheckAction?: (id: string) => void;
   actingIds?: ReadonlySet<string>;
   batchActing?: boolean;
   readOnly?: boolean;
@@ -119,6 +122,7 @@ export function DayDetailPanel({
   onCompleteBatch,
   onCompleteSingle,
   actionStates,
+  onCheckAction,
   actingIds,
   batchActing = false,
   readOnly = false,
@@ -288,7 +292,7 @@ export function DayDetailPanel({
                     onCompleteSingle={readOnly ? undefined : onCompleteSingle}
                     isActing={isActing}
                   />
-                  {actionStates?.[b.id] && <p role={actionStates[b.id].phase === "error" || actionStates[b.id].phase === "unknown" ? "alert" : "status"} className="px-4 pb-2 text-xs text-amber-800">{actionStates[b.id].phase === "saving" ? "正在確認到店與扣堂…" : actionStates[b.id].message}</p>}
+                  <BookingActionFeedback state={actionStates?.[b.id]} onCheck={() => onCheckAction?.(b.id)} />
                 </li>
               );
             })}
