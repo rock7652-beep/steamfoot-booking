@@ -216,3 +216,31 @@ describe("day booking contact actions", () => {
     expect(html).not.toContain("tel:");
   });
 });
+
+
+describe("per-booking save feedback", () => {
+  it("shows pending confirmation without marking attendance complete or blocking another row", () => {
+    const html = renderToStaticMarkup(React.createElement(DayDetailPanel, {
+      date: "2026-09-27", slots: [],
+      bookings: [booking({ id: "a" }), booking({ id: "b" })],
+      actingIds: new Set(["a"]),
+      actionStates: { a: { phase: "saving", message: "儲存中…" } },
+      onCompleteSingle: () => {},
+    }));
+    const container = document.createElement("div"); container.innerHTML = html;
+    const rows = container.querySelectorAll("li");
+    expect(rows[0].textContent).toContain("正在確認到店與扣堂");
+    expect(rows[0].querySelector("button:disabled")).not.toBeNull();
+    expect(Array.from(rows[1].querySelectorAll("button")).find(button => button.textContent === "完成")?.disabled).toBe(false);
+    expect(rows[0].textContent).not.toContain("已到店");
+  });
+  it("keeps an uncertain result visible as an alert", () => {
+    const html = renderToStaticMarkup(React.createElement(DayDetailPanel, {
+      date: "2026-09-27", slots: [], bookings: [booking({ id: "a" })],
+      actionStates: { a: { phase: "unknown", message: "結果待確認" } },
+      actingIds: new Set(["a"]), onCompleteSingle: () => {},
+    }));
+    const container = document.createElement("div"); container.innerHTML = html;
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("結果待確認");
+  });
+});
