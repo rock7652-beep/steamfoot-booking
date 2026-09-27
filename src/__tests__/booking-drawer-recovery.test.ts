@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import type { BookingDrawerPayload } from "@/server/actions/booking-drawer";
 import type { BookingPrefill } from "@/app/(dashboard)/dashboard/bookings/booking-detail-drawer";
 const mocks = vi.hoisted(() => ({ read: vi.fn(), complete: vi.fn() }));
@@ -22,6 +22,12 @@ vi.mock("@/app/(dashboard)/dashboard/bookings/adjust-checkout-modal", () => ({ A
 vi.mock("@/app/(dashboard)/dashboard/bookings/reschedule-modal", () => ({ RescheduleModal: () => null }));
 import { BookingDetailDrawer } from "@/app/(dashboard)/dashboard/bookings/booking-detail-drawer";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+
+beforeEach(() => {
+  mocks.read.mockReset();
+  mocks.complete.mockReset();
+});
+
 function bookingPayload(): BookingDrawerPayload {
   return {
     booking: {
@@ -202,7 +208,8 @@ it("automatically checks first and the fallback only reads without completing tw
     expect(mocks.read).toHaveBeenCalledTimes(2);
     expect(onUpdated).toHaveBeenNthCalledWith(1, payload.booking.id, "COMPLETED");
     expect(onUpdated).toHaveBeenLastCalledWith(payload.booking.id, "PENDING");
-    expect(complete.disabled).toBe(true);
+    const retryComplete = [...container.querySelectorAll("button")].find(button => button.textContent?.includes("完成服務"))!;
+    expect(retryComplete.disabled).toBe(true);
     const check = [...container.querySelectorAll("button")].find(button => button.textContent === "查看最新狀態")!;
     expect(check).toBeDefined();
     mocks.read.mockResolvedValue({ ...payload, booking: { ...payload.booking, bookingStatus: "COMPLETED", isCheckedIn: true } });
