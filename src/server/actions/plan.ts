@@ -18,7 +18,7 @@ import type { z } from "zod";
 
 export async function createPlan(
   input: z.infer<typeof createPlanSchema>
-): Promise<ActionResult<{ planId: string }>> {
+): Promise<ActionResult<{ planId: string; updatedAt?: string }>> {
   try {
     await requireWritablePermission("wallet.create");
     await checkCurrentStoreFeature(FEATURES.PLAN_MANAGEMENT);
@@ -52,7 +52,7 @@ export async function createPlan(
     });
 
     revalidatePlans();
-    return { success: true, data: { planId: plan.id } };
+    return { success: true, data: { planId: plan.id, updatedAt: plan.updatedAt?.toISOString() } };
   } catch (e) {
     return handleActionError(e);
   }
@@ -65,11 +65,11 @@ export async function createPlan(
 export async function updatePlan(
   planId: string,
   input: z.infer<typeof updatePlanSchema>
-): Promise<ActionResult<void>> {
+): Promise<ActionResult<{ updatedAt: string } | undefined>> {
   try {
     await requireWritablePermission("wallet.create");
     const user = await requireStaffSession();
-    const data = updatePlanSchema.parse(input);
+    const { expectedUpdatedAt, ...data } = updatePlanSchema.parse(input);
 
     const plan = await prisma.servicePlan.findUnique({ where: { id: planId } });
     if (!plan) throw new AppError("NOT_FOUND", "課程方案不存在");
@@ -87,13 +87,18 @@ export async function updatePlan(
       }
     }
 
-    await prisma.servicePlan.update({
-      where: { id: planId },
-      data,
-    });
+    const savedAt = new Date();
+    if (expectedUpdatedAt) {
+      const result = await prisma.servicePlan.updateMany({
+        where: { id: planId, storeId: plan.storeId, updatedAt: new Date(expectedUpdatedAt) }, data: { ...data, updatedAt: savedAt },
+      });
+      if (!result.count) throw new AppError("CONFLICT", "方案已由其他人更新，輸入已保留。請核對目前資料後再編輯。");
+    } else {
+      await prisma.servicePlan.update({ where: { id: planId }, data });
+    }
 
     revalidatePlans();
-    return { success: true, data: undefined };
+    return { success: true, data: expectedUpdatedAt ? { updatedAt: savedAt.toISOString() } : undefined };
   } catch (e) {
     return handleActionError(e);
   }

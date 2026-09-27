@@ -40,6 +40,8 @@ export function PlansManager({
   // without router.refresh — server still revalidates the cache, so a
   // future navigation gets fresh data.
   const [plans, setPlans] = useState<PlanRow[]>(initialPlans);
+  const [sourcePlans, setSourcePlans] = useState(initialPlans);
+  if (sourcePlans !== initialPlans) { setSourcePlans(initialPlans); setPlans(initialPlans); }
   const [statusFilter, setStatusFilter] = useRetainedState<StatusFilter>("plans:status", "active", (v): v is StatusFilter => v === "active" || v === "all");
   const [visibilityFilter, setVisibilityFilter] =
     useRetainedState<VisibilityFilter>("plans:visibility", "all", (v): v is VisibilityFilter => v === "all" || v === "public" || v === "internal");
@@ -327,7 +329,7 @@ export function PlansManager({
         <PlanFormDrawer
           open={!!drawer}
           mode={drawer?.mode ?? "new"}
-          plan={drawer?.plan ?? null}
+          plan={plans.find(p => p.id === drawer?.plan?.id) ?? drawer?.plan ?? null}
           onClose={() => setDrawer(null)}
           onSaved={handleSaved}
         />

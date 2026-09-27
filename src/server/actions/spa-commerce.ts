@@ -39,6 +39,7 @@ async function activeStore(
   return storeId;
 }
 const packageSchema = z.object({
+  expectedUpdatedAt: z.string().datetime().optional(),
   id: z.string().optional(),
   treatmentId: z.string().min(1),
   name: z.string().trim().min(1).max(80),
@@ -51,7 +52,7 @@ const packageSchema = z.object({
 export async function saveSpaPackage(input: z.infer<typeof packageSchema>) {
   try {
     const storeId = await activeStore("wallet.create"),
-      d = packageSchema.parse(input);
+      { expectedUpdatedAt, ...d } = packageSchema.parse(input);
     await spaPrisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`spa-schedule:${storeId}`},0))`;
       if (
@@ -63,7 +64,10 @@ export async function saveSpaPackage(input: z.infer<typeof packageSchema>) {
       if (d.id) {
         if (!(await tx.spaPackage.findFirst({ where: { id: d.id, storeId } })))
           throw new AppError("NOT_FOUND", "找不到方案");
-        await tx.spaPackage.update({ where: { id: d.id }, data: d });
+        if(expectedUpdatedAt){
+          const result=await tx.spaPackage.updateMany({where:{id:d.id,storeId,updatedAt:new Date(expectedUpdatedAt)},data:d});
+          if(!result.count)throw new AppError("CONFLICT","方案已由其他人更新，輸入已保留。請核對目前資料後再編輯。");
+        }else await tx.spaPackage.update({ where: { id: d.id }, data: d });
       } else await tx.spaPackage.create({ data: { ...d, storeId } });
     });
     revalidatePath("/dashboard/plans");
