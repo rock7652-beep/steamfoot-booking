@@ -333,7 +333,7 @@ function SessionCard({
             <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[11px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
           </div>
           {!brief && <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
-            {groupProgress&&<span className={`shrink-0 whitespace-nowrap rounded px-1 text-[10px] font-bold ${groupProgressColor}`}>{attendance.teacherAbsent ? "已記錄" : `已記 ${attendance.processed}/${attendance.total}`}</span>}
+            {groupProgress&&<span className={`shrink-0 whitespace-nowrap rounded px-1 text-[10px] font-bold ${groupProgressColor}`} title={attendance.teacherAbsent ? "老師狀態已記錄，學員免點名" : `已記錄 ${attendance.processed}/${attendance.total} 位學員`}>{attendance.teacherAbsent ? "已記錄" : `${attendance.processed}/${attendance.total}`}</span>}
             {secondaryLine && <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{secondaryLine}</span>}
             <span className={`ml-auto shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{destination ? `→ ${hhmm(session.previewDestinationStartsAt!)}` : fadedBadge ?? primaryType}</span>
           </div>}
