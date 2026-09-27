@@ -32,6 +32,7 @@ import {
   batchCourseTemplates,
 } from "@/server/actions/course";
 import { courseSessionStatus } from "@/lib/course-session-status";
+import { scheduleTotals } from "@/lib/music-schedule-audit";
 
 type Room = {
   id: string;
@@ -72,6 +73,7 @@ type Session = {
   requestKey?: string;
   isFixed?: boolean;
   isBiweekly?: boolean;
+  previewKind?: "RENTAL";
   rescheduledFromStartsAt?: string | null;
   rescheduledFromEndsAt?: string | null;
   rescheduledFromRoomId?: string | null;
@@ -257,7 +259,19 @@ export function CourseWorkspace({
       (coachFilter === "all" || s.coachId === coachFilter) &&
       (category === "all" ||
         allTemplates.find((t) => t.id === s.templateId)?.category === category),
-  );
+  ).map((session) => ({
+    ...session,
+    previewKind: /^(租借|RENTAL)$/i.test(allTemplates.find((template) => template.id === session.templateId)?.category.trim() ?? "")
+      ? "RENTAL" as const
+      : undefined,
+  }));
+  const monthSessions = sessions.filter((session) =>
+    toLocalDateStr(new Date(session.startsAt)).startsWith(month),
+  ).map((session) => ({ ...session,
+    previewKind: /^(租借|RENTAL)$/i.test(allTemplates.find((template) => template.id === session.templateId)?.category.trim() ?? "")
+      ? "RENTAL" as const : undefined,
+  }));
+  const monthTotals = scheduleTotals(monthSessions);
   const dailySessions = sessions.filter((session) => toLocalDateStr(new Date(session.startsAt)) === selectedDate);
   const absentStudents = dailySessions.flatMap((session) => session.bookings.filter((booking) => booking.status === "RESERVED" && new Date(session.startsAt).getTime() <= Date.now()).map((booking) => ({ session, name: booking.customerName })));
   const leaveStudents = cancelledBookings.filter(booking=>["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).flatMap((booking) => {
@@ -631,6 +645,9 @@ export function CourseWorkspace({
           </div>
           {scheduleMode === "month" ? (
             <>
+              {businessProfile === "MUSIC" && <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800" aria-label="本月課表總計">
+                本月已排課程 {monthTotals.classes} 堂｜預約學員 {monthTotals.people} 人次｜租借 {monthTotals.rentals} 次
+              </p>}
               <div
             className="overflow-hidden rounded-lg border border-earth-200 bg-white"
             aria-busy={pending}
@@ -663,7 +680,7 @@ export function CourseWorkspace({
                   <button
                     key={date}
                     disabled={pending}
-                    aria-label={`${date}，${isClosed ? closureLabel : `${list.length} 堂課`}`}
+                    aria-label={`${date}，${isClosed ? closureLabel : `${scheduleTotals(list).classes} 堂課，${scheduleTotals(list).people} 人次`}`}
                     onClick={() => {
                       go(date);
                       changeScheduleMode("day");
@@ -687,7 +704,8 @@ export function CourseWorkspace({
                         {closureLabel}
                       </span>
                     )}
-                    {list.length > 0 && <span className="mt-1 text-xs font-medium sm:hidden">{list.length} 堂</span>}
+                    {businessProfile === "MUSIC" && list.length > 0 && <span className="mt-1 text-[11px] font-medium text-earth-700">{scheduleTotals(list).classes} 堂｜{scheduleTotals(list).people} 人次</span>}
+                    {businessProfile !== "MUSIC" && list.length > 0 && <span className="mt-1 text-xs font-medium sm:hidden">{list.length} 堂</span>}
                     {list.slice(0, 2).map((s) => (
                       <span
                         key={s.id}
