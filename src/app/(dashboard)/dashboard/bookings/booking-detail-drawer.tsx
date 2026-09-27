@@ -125,14 +125,14 @@ export interface BookingPrefill {
   expectedAmount: number | null;
   trialDefaultPrice: number | null;
   /** 已由月曆查詢取得的方案快照；僅供完整明細回來前唯讀顯示。 */
-  customerPlanWallet: {
+  customerPlanWallet?: {
     status: string;
     remainingSessions: number;
     expiryDate: Date | string | null;
     planName: string;
   } | null;
   /** 已完成預約的實際扣堂方案名稱；空陣列代表月曆摘要沒有扣堂紀錄。 */
-  deductedPlanNames: string[];
+  deductedPlanNames?: string[];
 }
 
 interface BookingDetailDrawerProps {
@@ -1248,6 +1248,7 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
     : prefill.customerPlanWallet
       ? `${prefill.customerPlanWallet.remainingSessions} 堂`
       : "—";
+  const deductedPlanNames = prefill?.deductedPlanNames ?? [];
   const packageUsage = !prefill
     ? pending
     : active
@@ -1256,8 +1257,8 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
         : "依方案扣堂（完成時核對）"
       : prefill.isMakeup
         ? "使用補課資格"
-        : prefill.deductedPlanNames.length > 0
-          ? `已扣：${prefill.deductedPlanNames.join("、")}`
+        : deductedPlanNames.length > 0
+          ? `已扣：${deductedPlanNames.join("、")}`
           : "依方案扣堂";
   return (
     <>
