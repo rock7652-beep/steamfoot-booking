@@ -72,6 +72,7 @@ type Session = {
   roomId: string;
   capacity: number;
   pointCost: number;
+  teacherAttendance?: string;
   requestKey?: string;
   isFixed?: boolean;
   isBiweekly?: boolean;
@@ -166,14 +167,29 @@ export function CourseWorkspace({
   const [pending, startTransition] = useTransition();
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [pendingAttendance, setPendingAttendance] = useState<Record<string, "ATTENDED" | "NO_SHOW" | "CANCELLED" | "RESERVED">>({});
+  const [pendingLeaveIds,setPendingLeaveIds]=useState<string[]>([]);
+  const [pendingTeacherAttendance, setPendingTeacherAttendance] = useState<Record<string, "SCHEDULED" | "LEAVE" | "NO_SHOW">>({});
   useEffect(() => {
     setPendingAttendance(previous => {
       const remaining = Object.fromEntries(Object.entries(previous).filter(([bookingId,status]) =>
-        !sessions.some(session => session.bookings.some(booking => booking.id === bookingId && booking.status === status))));
+        !(status==="CANCELLED"?cancelledBookings.some(booking=>booking.id===bookingId):sessions.some(session => session.bookings.some(booking => booking.id === bookingId && booking.status === status)))));
       return Object.keys(remaining).length === Object.keys(previous).length ? previous : remaining;
     });
-  }, [sessions]);
-  function showPendingAttendance(bookingId:string,status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|"RESERVED"|null) {
+  }, [sessions,cancelledBookings]);
+  useEffect(()=>{
+    setPendingLeaveIds(previous=>{
+      const remaining=previous.filter(id=>!cancelledBookings.some(booking=>booking.id===id));
+      return remaining.length===previous.length?previous:remaining;
+    });
+  },[cancelledBookings]);
+  useEffect(() => {
+    setPendingTeacherAttendance(previous => {
+      const remaining=Object.fromEntries(Object.entries(previous).filter(([sessionId,status])=>!sessions.some(session=>session.id===sessionId&&session.teacherAttendance===status)));
+      return Object.keys(remaining).length===Object.keys(previous).length?previous:remaining;
+    });
+  },[sessions]);
+  function showPendingAttendance(bookingId:string,status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|"RESERVED"|null,leave=false) {
+    setPendingLeaveIds(previous=>status==="CANCELLED"&&leave?[...new Set([...previous,bookingId])]:previous.filter(id=>id!==bookingId));
     setPendingAttendance(previous => {
       if(status)return {...previous,[bookingId]:status};
       const next={...previous};delete next[bookingId];return next;
@@ -777,8 +793,14 @@ export function CourseWorkspace({
               mode={scheduleMode}
               selectedDate={selectedDate}
               today={today}
-              sessions={filteredScheduleSessions.map(session=>({...session,bookings:session.bookings.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id]}:booking)}))}
-              leaveCounts={cancelledBookings.reduce<Record<string, number>>((counts, booking) => {
+              sessions={filteredScheduleSessions.map(session=>({...session,
+                teacherAttendance:pendingTeacherAttendance[session.id]??session.teacherAttendance,
+                previewStudentNames:session.bookings.length?undefined:cancelledBookings.filter(booking=>booking.sessionId===session.id&&["STUDENT_LEAVE","GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind??"")).map(booking=>booking.customerName),
+                bookings:session.bookings.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id]}:booking)}))}
+              leaveCounts={[...cancelledBookings,...pendingLeaveIds.filter(id=>!cancelledBookings.some(booking=>booking.id===id)).flatMap(id=>{
+                const session=sessions.find(item=>item.bookings.some(booking=>booking.id===id));
+                return session?[{id,sessionId:session.id,absenceKind:"STUDENT_LEAVE"}]:[];
+              })].reduce<Record<string, number>>((counts, booking) => {
                 if (["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")) {
                   counts[booking.sessionId] = (counts[booking.sessionId] ?? 0) + 1;
                 }
@@ -2234,6 +2256,7 @@ export function CourseWorkspace({
                   courseName={dialogSession.nameSnapshot}
                   onDone={() => setCourseDialog(null)}
                   onAttendanceOptimistic={showPendingAttendance}
+                  onTeacherAttendanceOptimistic={status=>setPendingTeacherAttendance(previous=>{if(status)return {...previous,[dialogSession.id]:status};const next={...previous};delete next[dialogSession.id];return next;})}
                   onMemberBookingReadyChange={setMemberBookingReady}
                   onCreateCustomer={() =>
                     setCourseDialog({

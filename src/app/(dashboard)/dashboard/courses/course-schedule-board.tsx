@@ -33,6 +33,7 @@ type Session = {
   roomId: string;
   capacity: number;
   pointCost: number;
+  teacherAttendance?: string;
   requestKey?: string;
   isFixed?: boolean;
   isBiweekly?: boolean;
@@ -268,6 +269,9 @@ function SessionCard({
   const secondaryType = ["體驗", "代課", "調課", "團體"].includes(primaryType) ? scheduleType : "";
   const activeBookings = session.bookings.filter((booking) => booking.status !== "CANCELLED");
   const attendance = courseAttendanceProgress(session.bookings, leaveCount);
+  const studentNoShows=session.bookings.filter(booking=>booking.status==="NO_SHOW").length;
+  const studentState=[leaveCount?`學員請假${leaveCount}人`:"",studentNoShows?`學員曠課${studentNoShows}人`:""].filter(Boolean).join(" · ");
+  const teacherState=session.teacherAttendance==="LEAVE"?"老師請假":session.teacherAttendance==="NO_SHOW"?"老師曠課":"";
   const attendanceComplete = businessProfile === "MUSIC"
     ? attendance.complete
     : activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
@@ -275,6 +279,7 @@ function SessionCard({
     : session.previewRosterUnknown ? "截圖未顯示學員名單"
     : session.previewAttendanceUnknown ? "原圖未提供點名資料"
     : attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
+  const detailStatus=[teacherState,studentState,attendanceLabel].filter(Boolean).join(" · ");
   const musicTypeColor = rental ? "border-pink-300 bg-pink-100"
     : copy.groupClass ? "border-violet-300 bg-violet-100"
     : trialClass ? "border-orange-400 bg-orange-100"
@@ -294,6 +299,7 @@ function SessionCard({
   const cardName = !copy.privateClass && !brief ? copy.primary : studentLabel;
   const secondaryLine = [
     !copy.privateClass && session.bookings.length ? `${attendance.total} 人` : "",
+    studentState,
     !copy.privateClass && attendance.processed > 0 && !attendanceComplete ? attendanceLabel : "",
   ].filter(Boolean).join(" · ");
   const originalCoach = substitute ? coaches.find((coach) => coach.id === session.rescheduledFromCoachId)?.displayName : null;
@@ -306,8 +312,8 @@ function SessionCard({
       onClick={onOpen}
       disabled={readOnly}
       className={`w-full rounded-md border text-left transition ${dense ? "h-full overflow-hidden px-1.5 py-0.5" : "p-2"} hover:border-primary-300 hover:bg-primary-50/40 focus:outline-none focus:ring-2 focus:ring-primary-200 ${businessProfile === "MUSIC" ? musicColor : moved ? "border-indigo-200 bg-indigo-50/80" : "border-earth-200 bg-white"} ${session.previewFaded ? "opacity-60 [filter:saturate(.55)]" : ""} ${attendanceComplete && businessProfile !== "MUSIC" && !musicDense ? "border-l-4 border-l-emerald-500" : ""}`}
-      title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${attendanceLabel}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
-      aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${attendanceLabel}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
+      title={`${hhmm(session.startsAt)} ${businessProfile === "MUSIC" ? studentLabel : copy.primary} · ${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `（代替 ${originalCoach}）` : ""} · ${copy.room}${businessProfile === "MUSIC" ? ` · ${primaryType}${session.previewFaded ? ` · ${session.previewFaded}（原時段保留）` : ""}${destination ? ` · ${destination}` : ""}${moved ? ` · 原課 ${hhmm(session.rescheduledFromStartsAt!)}` : ""}${secondaryType ? ` · ${secondaryType}` : ""} · ${detailStatus}` : fixed ? ` · ${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
+      aria-label={`${businessProfile === "MUSIC" ? studentLabel : copy.primary}，${hhmm(session.startsAt)}，${copy.coach}${businessProfile === "MUSIC" && originalCoach ? `代替 ${originalCoach}` : ""}${businessProfile === "MUSIC" ? `，${primaryType}${secondaryType ? `，${secondaryType}` : ""}，${detailStatus}` : fixed ? `，${session.isBiweekly ? "隔週固定" : "每週固定"}` : ""}`}
     >
       {musicDense ? (
         <>
@@ -315,6 +321,8 @@ function SessionCard({
             <span className="flex min-w-0 flex-1 items-center gap-1">
               {brief && <span className={`shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{fadedBadge ?? primaryType}</span>}
               <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
+              {businessProfile==="MUSIC"&&teacherState&&<span title={teacherState} className="shrink-0 rounded bg-rose-100 px-1 text-[10px] font-bold text-rose-900">{session.teacherAttendance==="LEAVE"?"師假":"師曠"}</span>}
+              {businessProfile==="MUSIC"&&brief&&studentState&&<span title={studentState} className="shrink-0 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-900">{leaveCount?"請假":"曠課"}</span>}
             </span>
             <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[11px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
           </div>

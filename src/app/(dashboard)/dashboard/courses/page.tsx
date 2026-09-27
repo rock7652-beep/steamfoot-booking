@@ -156,6 +156,7 @@ export default async function CoursesPage({
           capacity: true,
           pointCost: true,
           requestKey: true,
+          teacherAttendance: true,
           rescheduledFromStartsAt: true,
           rescheduledFromEndsAt: true,
           rescheduledFromRoomId: true,
