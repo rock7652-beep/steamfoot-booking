@@ -124,6 +124,15 @@ export interface BookingPrefill {
   collectedAmount: number | null;
   expectedAmount: number | null;
   trialDefaultPrice: number | null;
+  /** 已由月曆查詢取得的方案快照；僅供完整明細回來前唯讀顯示。 */
+  customerPlanWallet: {
+    status: string;
+    remainingSessions: number;
+    expiryDate: Date | string | null;
+    planName: string;
+  } | null;
+  /** 已完成預約的實際扣堂方案名稱；空陣列代表月曆摘要沒有扣堂紀錄。 */
+  deductedPlanNames: string[];
 }
 
 interface BookingDetailDrawerProps {
@@ -1221,6 +1230,35 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
     : summary?.isMakeup ? "補課" : summary?.servicePlanName;
   const subtitle = prefill?.bookingType === "PACKAGE_SESSION" && !prefill.servicePlanName && !prefill.isMakeup ? null : service;
   const active = !known || ["PENDING", "CONFIRMED"].includes(known.bookingStatus);
+  const packagePlanName = prefill
+    ? prefill.customerPlanWallet?.planName ?? prefill.servicePlanName ?? "—"
+    : pending;
+  const packageExpiryMeta = prefill?.customerPlanWallet
+    ? bookingPlanExpiry(prefill.customerPlanWallet.expiryDate)
+    : null;
+  const packageExpiry = !prefill
+    ? pending
+    : prefill.isMakeup
+      ? "不適用"
+      : packageExpiryMeta
+        ? <span className={packageExpiryMeta.className}>{packageExpiryMeta.detail}</span>
+        : "—";
+  const packageRemaining = !prefill
+    ? pending
+    : prefill.customerPlanWallet
+      ? `${prefill.customerPlanWallet.remainingSessions} 堂`
+      : "—";
+  const packageUsage = !prefill
+    ? pending
+    : active
+      ? prefill.isMakeup
+        ? "補課資格（完成時核對）"
+        : "依方案扣堂（完成時核對）"
+      : prefill.isMakeup
+        ? "使用補課資格"
+        : prefill.deductedPlanNames.length > 0
+          ? `已扣：${prefill.deductedPlanNames.join("、")}`
+          : "依方案扣堂";
   return (
     <>
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-earth-200 px-4 py-3">
@@ -1271,14 +1309,14 @@ function PendingSteamDetail({ prefill, summary, durationMinutes, error, onClose 
         <Section readable title="收款與扣堂">
           {prefill?.bookingType === "FIRST_TRIAL" || prefill?.bookingType === "SINGLE" ? <>
             <KV readable label="金額" value={prefillAmount(prefill)} />
-            <KV readable label="付款狀態" value={pending} />
+            <KV readable label="付款狀態" value={prefill ? prefill.collected ? "已收款" : "未收款（現場收款）" : pending} />
             <KV readable label="付款方式" value={pending} />
             <KV readable label="收款日期" value={pending} />
           </> : <>
-            <KV readable label="方案" value={pending} />
-            <KV readable label="到期日" value={pending} />
-            <KV readable label="剩餘堂數" value={pending} />
-            <KV readable label={active ? "本次使用" : "結帳方式"} value={pending} />
+            <KV readable label="方案" value={packagePlanName} />
+            <KV readable label="到期日" value={packageExpiry} />
+            <KV readable label="剩餘堂數" value={packageRemaining} />
+            <KV readable label={active ? "本次使用" : "結帳方式"} value={packageUsage} />
           </>}
         </Section>
       } />
