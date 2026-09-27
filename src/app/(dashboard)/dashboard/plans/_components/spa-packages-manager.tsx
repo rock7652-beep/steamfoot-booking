@@ -1,4 +1,5 @@
 "use client";
+import { useRetainedState, retainedString } from "@/components/operations/operation-scope";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RightSheet } from "@/components/admin/right-sheet";
@@ -23,9 +24,9 @@ export function SpaPackagesManager({
   canManage: boolean;
 }) {
   const router = useRouter(),
-    [filter, setFilter] = useState("ACTIVE"),
-    [search, setSearch] = useState(""),
-    [service, setService] = useState(""),
+    [filter, setFilter] = useRetainedState("spa-packages:status", "ACTIVE", retainedString),
+    [search, setSearch] = useRetainedState("spa-packages:search", "", retainedString),
+    [service, setService] = useRetainedState("spa-packages:service", "", retainedString),
     [editing, setEditing] = useState<Partial<Package> | null>(null),
     [error, setError] = useState(""),
     [pending, start] = useTransition();
@@ -34,7 +35,7 @@ export function SpaPackagesManager({
       (filter === "ALL" || (filter === "ACTIVE" ? p.isActive : !p.isActive)) &&
       (!service || p.treatmentId === service) &&
       p.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
-  );
+  ).sort((a, b) => Number(b.isActive) - Number(a.isActive));
   return (
     <section className="space-y-4 rounded-xl border border-earth-200 bg-white p-5">
       <header className="flex flex-wrap items-center justify-between gap-3">

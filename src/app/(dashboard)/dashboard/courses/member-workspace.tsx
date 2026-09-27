@@ -1,4 +1,7 @@
 "use client";
+import { RetainedNoteEditor } from "@/components/operations/retained-note-editor";
+import { saveCourseCustomerNote } from "@/server/actions/course-customer-note";
+import { useRetainedState, retainedString, retainedPage } from "@/components/operations/operation-scope";
 import {CourseOptionSelect} from "@/components/admin/course-option-select";
 import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
 import {CourseCardReservations} from "./card-reservations";
@@ -106,9 +109,9 @@ export function CourseMemberWorkspace({
   const [planAmounts,setPlanAmounts]=useState({points:10,price:0,storeCost:0});
   const [selected,setSelected]=useState<string[]>([]);
   const [pending, start] = useTransition();
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(0);
-  const [status, setStatus] = useState("all");
+  const [search, setSearch] = useRetainedState(`course-${view}:search`, "", retainedString);
+  const [page, setPage] = useRetainedState(`course-${view}:page`, 0, retainedPage);
+  const [status, setStatus] = useRetainedState(`course-${view}:status`, "all", retainedString);
   const [panel, setPanel] = useState<
     "person" | "plan" | "assign" | "card" | "coach" | "health" | null
   >(initialPerson ? "person" : null);
@@ -123,7 +126,7 @@ export function CourseMemberWorkspace({
   const [loadedCard,setLoadedCard]=useState<CourseCardView|null>(null);
   const [cardLoading,setCardLoading]=useState(false);
   const [recordTab,setRecordTab]=useState<"purchases"|"bookings">(canReadTransactions ? "purchases":"bookings");
-  const [planUnit, setPlanUnit] = useState("all");
+  const [planUnit, setPlanUnit] = useRetainedState("course-plans:unit", "all", retainedString);
   const [planArea, setPlanArea] = useState<"catalog" | "cards">("catalog");
   function canLeave() { return !pending && (!dirty || window.confirm("尚有未儲存的變更，確定離開？")); }
   function close() { if (canLeave()) { setPanel(null); setDirty(false); if(view==="customers")keepCustomerInUrl(); } }
@@ -421,7 +424,11 @@ export function CourseMemberWorkspace({
             </section>}
             {panel !== "person" && view === "customers" && person && <button type="button" className="mb-3 min-h-11 text-sm text-primary-700" disabled={pending} onClick={()=>{open("person");if(panel==="card")setPersonTab("plans");}}>‹ 返回 {person.name} 詳情</button>}
             {panel === "person" && person && personTab === "info" && !editingPerson && <section className="space-y-3">
-              <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address],["店內備註",person.serviceNote]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
+              <dl className="course-customer-detail-grid grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{[["電話",person.phone],["電子信箱",person.email],["生日",person.birthday],["性別",({male:"男",female:"女",other:"其他"} as Record<string,string>)[person.gender ?? ""]],["緊急聯絡人",person.emergencyContactName],["緊急聯絡電話",person.emergencyContactPhone],["地址",person.address]].map(([label,value])=><div key={label} className="course-customer-detail-field min-w-0"><dt className="text-earth-500">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-earth-900">{value || "尚未填寫"}</dd></div>)}</dl>
+              <RetainedNoteEditor key={person.id} stateKey={`customer-note:${person.id}`} title="店內備註" hint="店長與授課教練可見"
+                placeholder="輸入服務時需要留意的事項" maxLength={1000} value={person.serviceNote} canEdit={canEdit}
+                save={(serviceNote, expectedServiceNote) => saveCourseCustomerNote({ customerId: person.id, serviceNote, expectedServiceNote })}
+                onSaved={() => router.refresh()} />
               {canEdit && <button className={`${button} bg-primary-700 text-white`} onClick={()=>setEditingPerson(true)}>編輯顧客資料</button>}
             </section>}
             {panel === "person" && (
@@ -435,7 +442,7 @@ export function CourseMemberWorkspace({
                       id: person?.id,
                       name: d.get("name"),
                       phone: d.get("phone"),
-                      email: d.get("email"), gender: d.get("gender"), birthday: d.get("birthday"), serviceNote: d.get("serviceNote"), address: d.get("address"), emergencyContactName: d.get("emergencyContactName"), emergencyContactPhone: d.get("emergencyContactPhone"),
+                      email: d.get("email"), gender: d.get("gender"), birthday: d.get("birthday"), ...(!person ? { serviceNote: d.get("serviceNote") } : {}), address: d.get("address"), emergencyContactName: d.get("emergencyContactName"), emergencyContactPhone: d.get("emergencyContactPhone"),
                     }),
                   )
                 }
@@ -468,9 +475,9 @@ export function CourseMemberWorkspace({
                   <div>生日<BirthdayFields defaultValue={person?.birthday} className={field} /></div>
                   <label className="block">緊急聯絡人姓名<input className={field} name="emergencyContactName" maxLength={100} defaultValue={person?.emergencyContactName ?? ""} /></label>
                   <label className="block">緊急聯絡人電話<input className={field} name="emergencyContactPhone" type="tel" maxLength={30} defaultValue={person?.emergencyContactPhone ?? ""} /></label>
+                  {!person && <label className="block">店內備註<textarea className={field} name="serviceNote" maxLength={1000} /></label>}
                   <label className="block">地址<input className={field} name="address" maxLength={300} defaultValue={person?.address ?? ""} /></label>
                   {plan?.termSessionIds?.filter(id=>!termSessions.some(s=>s.id===id)).map(id=><input key={id} type="hidden" name="termSessionIds" value={id}/>)}
-                  <label className="block">店內備註（店長與授課教練可見）<textarea className={field} name="serviceNote" maxLength={1000} defaultValue={person?.serviceNote ?? ""} /></label>
                 </fieldset>
               </form>
             )}

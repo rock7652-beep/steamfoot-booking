@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useRetainedState } from "@/components/operations/operation-scope";
 import { useResponsiveAction } from "@/hooks/use-responsive-action";
 import { fetchBookingDetail } from "@/server/actions/booking-drawer";
 import { bookingMatchesExpectation } from "@/lib/booking-action-reconciliation";
@@ -136,6 +137,11 @@ export interface BookingFilters {
   search: string;
 }
 
+function validBookingFilters(value: unknown): value is BookingFilters {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return ["staffName", "status", "servicePlanId", "search"].every(key => typeof row[key] === "string" && row[key].length <= 1000);
+}
 const EMPTY_FILTERS: BookingFilters = {
   staffName: "",
   status: "",
@@ -178,7 +184,8 @@ export function BookingsManager({
     setMonthData(initialMonthData);
   }, [initialMonthData]);
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useRetainedState<string | null>(`steamfoot-bookings:date:${year}-${month}`, null,
+    (value): value is string | null => value === null || (typeof value === "string" && value.startsWith(`${year}-${String(month).padStart(2, "0")}-`) && /^\d{4}-\d{2}-\d{2}$/.test(value)));
   // Slots cache, keyed by date string. Bookings are derived from monthData
   // (no per-day fetch); slots are still fetched on demand because they
   // require business-hours / duty / overrides resolution that isn't part of
@@ -195,7 +202,7 @@ export function BookingsManager({
   }, [slotsCache]);
   const [slotsLoadingDate, setSlotsLoadingDate] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-  const [filters, setFilters] = useState<BookingFilters>(EMPTY_FILTERS);
+  const [filters, setFilters] = useRetainedState<BookingFilters>("steamfoot-bookings:filters", EMPTY_FILTERS, validBookingFilters);
   const [activeBookingId, setActiveBookingId] = useState<string | null>(
     initialBookingId,
   );
@@ -442,7 +449,7 @@ export function BookingsManager({
         }
       });
     },
-    [],
+    [setSelectedDate],
   );
 
   const refreshDaySlots = useCallback(async (date: string) => {
@@ -479,7 +486,7 @@ export function BookingsManager({
       setActiveSummary(summaryById.get(id) ?? null);
       setActivePrefill(prefillById.get(id) ?? null);
     },
-    [summaryById, prefillById],
+    [summaryById, prefillById, setSelectedDate],
   );
 
   const closeBooking = useCallback(() => {
@@ -490,7 +497,7 @@ export function BookingsManager({
 
   const closeDay = useCallback(() => {
     setSelectedDate(null);
-  }, []);
+  }, [setSelectedDate]);
 
   // Apply confirmed status change to monthData; dayBookings re-derives via
   // useMemo. Replaces the old `router.refresh()` + `fetchDayDetail` re-run

@@ -3,7 +3,7 @@ import { AppError } from "@/lib/errors";
 
 const mocks = vi.hoisted(() => ({
   permission: vi.fn(), access: vi.fn(), subscription: vi.fn(),
-  find: vi.fn(), update: vi.fn(), audit: vi.fn(), refresh: vi.fn(), path: vi.fn(),
+  find: vi.fn(), update: vi.fn(), compare: vi.fn(), current: vi.fn(), audit: vi.fn(), refresh: vi.fn(), path: vi.fn(),
 }));
 vi.mock("@/lib/permissions", () => ({ requireWritablePermission: mocks.permission }));
 vi.mock("@/lib/manager-visibility", () => ({ assertStoreAccess: mocks.access }));
@@ -13,7 +13,7 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.path }));
 vi.mock("@/lib/db", () => ({ prisma: {
   booking: { findUnique: mocks.find },
   $transaction: (fn: (tx: unknown) => unknown) => fn({
-    booking: { update: mocks.update }, auditLog: { create: mocks.audit },
+    booking: { update: mocks.update, updateMany: mocks.compare, findFirst: mocks.current }, auditLog: { create: mocks.audit },
   }),
 } }));
 import { updateBookingNoteAction } from "@/server/actions/booking-note";
@@ -54,4 +54,18 @@ describe("本次備註", () => {
     expect((await updateBookingNoteAction({ bookingId: "missing", notes: "文字" })).success).toBe(false);
     expect(mocks.update).not.toHaveBeenCalled();
   });
+});
+
+it("atomically compares the original note and does not overwrite another editor", async () => {
+  mocks.compare.mockResolvedValue({count:0}); mocks.current.mockResolvedValue({notes:"colleague"});
+  const result = await updateBookingNoteAction({bookingId:"b1",notes:"mine",expectedNotes:"original"});
+  expect(mocks.compare).toHaveBeenCalledWith({where:{id:"b1",storeId:"store1",notes:"original"},data:{notes:"mine"}});
+  expect(result).toMatchObject({success:false,currentValue:"colleague"});
+  expect(mocks.current).toHaveBeenCalledWith({where:{id:"b1",storeId:"store1"},select:{notes:true}});
+  expect(mocks.audit).not.toHaveBeenCalled(); expect(mocks.update).not.toHaveBeenCalled();
+});
+it("recognizes an already committed note after a lost response without rewriting it", async () => {
+  mocks.compare.mockResolvedValue({count:0}); mocks.current.mockResolvedValue({notes:"mine"});
+  expect((await updateBookingNoteAction({bookingId:"b1",notes:"mine",expectedNotes:"original"})).success).toBe(true);
+  expect(mocks.audit).not.toHaveBeenCalled(); expect(mocks.update).not.toHaveBeenCalled();
 });

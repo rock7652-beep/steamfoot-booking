@@ -96,6 +96,7 @@ export const transferCustomerSchema = z.object({
 //     action 內 prisma 查詢 + store filter 把關）。
 //   - serviceNote：trim 後空字串 / 全空白 → null（清除）；上限 1000 字。
 export const updateCustomerServiceNoteSchema = z.object({
+  expectedServiceNote: z.string().max(1000).nullable().optional(),
   customerId: z.string().min(1),
   serviceNote: z.preprocess(
     (v) => {
