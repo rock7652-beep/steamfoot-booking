@@ -437,16 +437,13 @@ export function CourseScheduleBoard({
   const dayScrollRef = React.useRef<HTMLDivElement>(null);
   const [dayScrollLeft, setDayScrollLeft] = React.useState(0);
 
-  const snapResourceCount = resourceView === "room" ? activeRooms.length : activeCoaches.length;
+  const musicResourceWidth = 176;
   function snapDayScroll() {
     const element = dayScrollRef.current;
     if (!element || businessProfile !== "MUSIC") return;
-    const resourceWidth = snapResourceCount
-      ? Math.max(124, (element.scrollWidth - 64) / snapResourceCount)
-      : 132;
     const target = Math.min(
-      element.scrollWidth - element.clientWidth,
-      Math.max(0, Math.round(element.scrollLeft / resourceWidth) * resourceWidth),
+      Math.max(0, element.scrollWidth - element.clientWidth),
+      Math.max(0, Math.round(element.scrollLeft / musicResourceWidth) * musicResourceWidth),
     );
     element.scrollTo({ left: target, behavior: "smooth" });
   }
@@ -556,7 +553,7 @@ export function CourseScheduleBoard({
   const resourceCount = Math.max(resources.length, 1);
   const musicDense = businessProfile === "MUSIC";
   const timetableWidth = musicDense
-    ? "100%"
+    ? 64 + resourceCount * musicResourceWidth
     : resourceCount === 1
       ? "44%"
       : resourceCount === 2
@@ -565,7 +562,7 @@ export function CourseScheduleBoard({
           ? "80%"
           : "100%";
   const timetableMinWidth = musicDense
-    ? 64 + resourceCount * 132
+    ? timetableWidth
     : resourceCount === 1
       ? 420
       : resourceCount === 2
@@ -708,7 +705,7 @@ export function CourseScheduleBoard({
                 style={{
                   width: timetableWidth,
                   minWidth: timetableMinWidth,
-                  gridTemplateColumns: `64px repeat(${resourceCount}, minmax(124px, 1fr))`,
+                  gridTemplateColumns: `64px repeat(${resourceCount}, ${musicResourceWidth}px)`,
                   transform: `translateX(-${dayScrollLeft}px)`,
                 }}
               >
@@ -743,7 +740,7 @@ export function CourseScheduleBoard({
                 className="grid w-full"
                 style={{
                   gridTemplateColumns: musicDense
-                    ? `64px repeat(${resourceCount}, minmax(124px, 1fr))`
+                    ? `64px repeat(${resourceCount}, ${musicResourceWidth}px)`
                     : `72px repeat(${resourceCount}, minmax(180px, 1fr))`,
                 }}
               >
