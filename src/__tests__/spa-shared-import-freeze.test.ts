@@ -18,6 +18,9 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/app/(dashboard)/dashboard/bookings/page.tsx",
   "src/app/(dashboard)/dashboard/plans/_components/treatment-workspace.tsx",
   "src/app/(dashboard)/dashboard/plans/page.tsx",
+  // Reviewed 2026-09-27: authoritative store module routing before legacy
+  // report queries; reports-store-entitlement-gate.test.ts covers all branches.
+  "src/app/(dashboard)/dashboard/reports/page.tsx",
   "src/app/(dashboard)/dashboard/staff/page.tsx",
   "src/app/(dashboard)/dashboard/staff/staff-workspace.tsx",
   // Reviewed 2026-09-14: these shared customer/LIFF surfaces select the SPA
@@ -44,6 +47,9 @@ const EXISTING_SHARED_SPA_DEPENDENCIES = [
   "src/lib/permissions.ts",
   "src/lib/store-plan.ts",
   "src/server/actions/booking-drawer.ts",
+  // Reviewed 2026-09-27: shared transaction/cashbook plus SPA-only receipts;
+  // liff-consumption-boundary.test.ts verifies module and customer/store predicates.
+  "src/server/actions/liff-consumption.ts",
   "src/server/actions/staff.ts",
   "src/server/actions/store-onboarding.ts",
   "src/server/queries/booking.ts",

@@ -4,14 +4,16 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(path, "utf8");
 
 describe("course UI final fixes", () => {
-  it("keeps customer actions compact and removes LINE name from course search prompts", () => {
+  it("keeps customer actions compact and advertises the supported customer search fields", () => {
     const table = read("src/app/(dashboard)/dashboard/customers/_components/customers-table.tsx");
     const toolbar = read("src/app/(dashboard)/dashboard/customers/_components/customers-toolbar.tsx");
     const picker = read("src/components/admin/course-customer-picker.tsx");
 
     expect(table).toContain('"h-8 min-w-14 whitespace-nowrap text-xs"');
-    expect(toolbar).toContain('placeholder="搜尋姓名／電話"');
-    expect(picker).toContain('placeholder="搜尋姓名／電話"');
+    expect(toolbar).toContain('placeholder="搜尋姓名 / 電話 / LINE 名稱"');
+    expect(picker).toContain('placeholder="搜尋姓名／電話／LINE 名稱"');
+    const search = read("src/server/actions/course-browse.ts");
+    expect(search).toContain('["name", "phone", "lineName"]');
   });
 
   it("separates plan products from held plans and keeps assignment with held plans", () => {

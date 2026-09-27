@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/queries/monthly-visitor-overview", () => ({ getMonthlyVisitorOverview: vi.fn().mockResolvedValue([]) }));
 
+const mockGetStoreIndustryModule = vi.fn();
+vi.mock("@/lib/industry-module-server", () => ({ getStoreIndustryModule: (...args: unknown[]) => mockGetStoreIndustryModule(...args) }));
+vi.mock("@/app/(dashboard)/dashboard/reports/spa-analysis-page", () => ({ SpaAnalysisPage: ({ storeId }: { storeId: string }) => React.createElement("div", { "data-spa-store": storeId }, "SPA analysis") }));
+
 const mockGetPeriodMetrics = vi.fn();
 const mockGetCurrentUser = vi.fn();
 const mockCheckPermission = vi.fn();
@@ -186,6 +190,7 @@ const REVENUE_BY_CATEGORY: unknown[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetStoreIndustryModule.mockResolvedValue("steamfoot");
   mockGetCurrentUser.mockResolvedValue(OWNER);
   mockCheckPermission.mockResolvedValue(true);
   mockGetActiveStoreForRead.mockResolvedValue("store-active");
@@ -552,5 +557,28 @@ describe("reports basic_reports source audit", () => {
       expect(source).not.toContain("hasPricingFeature(pricingPlan, FF.ADVANCED_REPORTS)");
       expect(source).not.toContain("需要 PRO 方案");
     }
+  });
+});
+
+describe("report module routing", () => {
+  it("routes the viewed SPA store before any legacy report query", async () => {
+    mockStoreIdForViewContext.mockReturnValue("spa-viewed");
+    mockGetStoreIndustryModule.mockResolvedValue("spa");
+    const html = renderToStaticMarkup(await ReportsPage({ searchParams: Promise.resolve({ preset: "month" }) }));
+    expect(mockGetStoreIndustryModule).toHaveBeenCalledWith("spa-viewed");
+    expect(html).toContain('data-spa-store="spa-viewed"');
+    expect(mockGetPeriodMetrics).not.toHaveBeenCalled();
+    expect(mockMonthlyStoreSummary).not.toHaveBeenCalled();
+    expect(mockMonthlyRevenueByCategory).not.toHaveBeenCalled();
+  });
+
+  it("routes course reports with their selected period before legacy queries", async () => {
+    mockGetStoreIndustryModule.mockResolvedValue("course");
+    await expect(ReportsPage({ searchParams: Promise.resolve({ preset: "custom", startDate: "2026-09-01", endDate: "2026-09-07" }) })).rejects.toThrow("redirect:");
+    expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining("view=analytics"));
+    expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining("startDate=2026-09-01"));
+    expect(mockRedirect).toHaveBeenCalledWith(expect.stringContaining("endDate=2026-09-07"));
+    expect(mockGetPeriodMetrics).not.toHaveBeenCalled();
+    expect(mockMonthlyStoreSummary).not.toHaveBeenCalled();
   });
 });
