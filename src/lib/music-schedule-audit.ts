@@ -39,7 +39,11 @@ export function slotDecision(
   const end = new Date(target.endsAt).getTime();
   for (const session of sessions) {
     if (session.id === target.restoringId) continue;
-    if (session.previewFaded) continue;
+    if (session.previewFaded) {
+      if (target.fixed && session.isFixed && start < new Date(session.endsAt).getTime() && end > new Date(session.startsAt).getTime() &&
+        (session.roomId === target.roomId || session.coachId === target.coachId)) return "fixed-origin" as const;
+      continue;
+    }
     const occupied = start < new Date(session.endsAt).getTime() && end > new Date(session.startsAt).getTime();
     if (occupied && (session.roomId === target.roomId || session.coachId === target.coachId)) return "occupied" as const;
     if (!target.fixed || !session.isFixed || !session.rescheduledFromStartsAt || !session.rescheduledFromEndsAt) continue;

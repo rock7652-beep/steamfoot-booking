@@ -162,6 +162,7 @@ export default async function CoursesPage({
           rescheduledFromCoachId: true,
           rescheduleKind: true,
           rescheduledAt: true,
+          releasedAt: true,
           bookings: {
             where: { status: { not: "CANCELLED" } },
             select: {
@@ -319,6 +320,8 @@ export default async function CoursesPage({
           rescheduledFromStartsAt: s.rescheduledFromStartsAt?.toISOString() ?? null,
           rescheduledFromEndsAt: s.rescheduledFromEndsAt?.toISOString() ?? null,
           rescheduledAt: s.rescheduledAt?.toISOString() ?? null,
+          previewFaded: s.releasedAt ? "異動／請假" as const : undefined,
+          previewStudentNames: s.releasedAt ? cancelledBookings.filter((booking) => booking.sessionId === s.id && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).map((booking) => booking.customerName) : undefined,
         }))}
         cancelledBookings={cancelledBookings}
       />

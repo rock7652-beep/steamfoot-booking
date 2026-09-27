@@ -46,6 +46,7 @@ type Session = {
   // Display metadata for the read-only schedule replica; live sessions omit these fields.
   previewKind?: "CHANGED" | "RENTAL";
   previewFaded?: "異動／請假" | "已調課";
+  previewStudentNames?: string[];
   previewRosterUnknown?: boolean;
   previewAttendanceUnknown?: boolean;
   previewFrequencyUnknown?: boolean;
@@ -125,6 +126,22 @@ function sessionDurationMinutes(session: Session) {
   return Math.max(30, Math.round((new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60000));
 }
 
+function originalPlace(session: Session): Session | null {
+  if (!session.rescheduledFromStartsAt || !session.rescheduledFromEndsAt || !session.rescheduledFromRoomId || !session.rescheduledFromCoachId) return null;
+  return {
+    ...session,
+    startsAt: session.rescheduledFromStartsAt,
+    endsAt: session.rescheduledFromEndsAt,
+    roomId: session.rescheduledFromRoomId,
+    coachId: session.rescheduledFromCoachId,
+    previewFaded: "已調課",
+    rescheduledFromStartsAt: null,
+    rescheduledFromEndsAt: null,
+    rescheduledFromRoomId: null,
+    rescheduledFromCoachId: null,
+  };
+}
+
 function firstCustomer(session: Session) {
   return session.bookings.find((booking) => booking.customerName.trim())?.customerName.trim() ?? "";
 }
@@ -184,12 +201,12 @@ function adaptiveCopy(
   const room = rooms.find((item) => item.id === session.roomId)?.name ?? "未指定教室";
   const privateClass = template?.classType === "PRIVATE";
   const groupClass = template?.classType === "GROUP";
-  const customer = firstCustomer(session);
+  const customer = firstCustomer(session) || session.previewStudentNames?.join("、") || "";
 
   return {
     privateClass,
     groupClass,
-    primary: privateClass && customer ? customer : session.nameSnapshot,
+    primary: privateClass && customer ? customer : session.previewFaded && customer ? `${session.nameSnapshot} · ${customer}` : session.nameSnapshot,
     secondary: privateClass
       ? session.nameSnapshot
       : `${session.bookings.length} / ${session.capacity} 人`,
@@ -234,6 +251,7 @@ function SessionCard({
   const rental = session.previewKind === "RENTAL";
   const changed = session.previewKind === "CHANGED";
   const scheduleType = fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週固定" : "每週固定" : "約課";
+  const fadedBadge = session.previewFaded ? `${session.previewFaded} · ${fixed ? "限單次" : "可排固定"}` : null;
   const primaryType = rental ? "租借" : copy.groupClass ? changed ? "團體異動" : substitute ? "團體代課" : moved ? "團體調課" : "團體" : trialClass ? "體驗" : changed ? "異動" : substitute ? "代課" : moved ? "調課" : fixed ? session.previewFrequencyUnknown ? "固定" : session.isBiweekly ? "隔週" : "每週" : "約課";
   const alteredSchedule = changed || substitute || moved || !fixed;
   const typeBadge = rental ? "bg-pink-200 text-pink-950"
@@ -247,7 +265,7 @@ function SessionCard({
   const attendanceComplete = businessProfile === "MUSIC"
     ? attendance.complete
     : activeBookings.length > 0 && activeBookings.every((booking) => booking.status === "ATTENDED");
-  const attendanceLabel = session.previewFaded ? `${session.previewFaded}（保留原時段）`
+  const attendanceLabel = session.previewFaded ? `${session.previewFaded}（原課已釋出；${session.isFixed ? "僅可排單次臨時課" : "可核對後排固定課"}）`
     : session.previewRosterUnknown ? "截圖未顯示學員名單"
     : session.previewAttendanceUnknown ? "原圖未提供點名資料"
     : attendance.total > 0 ? `已處理 ${attendance.processed}/${attendance.total}` : "尚無學員";
@@ -289,14 +307,14 @@ function SessionCard({
         <>
           <div className="flex min-w-0 items-center gap-1 text-xs leading-4">
             <span className="flex min-w-0 flex-1 items-center gap-1">
-              {brief && <span className={`shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{session.previewFaded ?? primaryType}</span>}
+              {brief && <span className={`shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{fadedBadge ?? primaryType}</span>}
               <strong className="min-w-0 truncate text-earth-900" title={copy.primary}>{cardName}</strong>
             </span>
             <span className="shrink-0 whitespace-nowrap rounded bg-white/85 px-1 text-[11px] font-semibold text-earth-900 ring-1 ring-earth-200" title={resourceView === "coach" ? copy.room : copy.coach}>{resourceLabel}</span>
           </div>
           {!brief && <div className="flex min-w-0 items-center justify-between gap-1 leading-4">
             {secondaryLine && <span className="min-w-0 truncate text-[10px] font-medium text-earth-700">{secondaryLine}</span>}
-            <span className={`ml-auto shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{session.previewFaded ?? primaryType}</span>
+            <span className={`ml-auto shrink-0 rounded px-1 text-[10px] font-bold ${typeBadge}`}>{fadedBadge ?? primaryType}</span>
           </div>}
         </>
       ) : (
@@ -482,11 +500,14 @@ export function CourseScheduleBoard({
                   Number(hhmm(session.rescheduledFromStartsAt).slice(0, 2)) === hour);
                 return <div key={`${date}:${hour}`} className="relative h-[50px] border-b border-r border-earth-100 bg-white">
                   <div className="pointer-events-none absolute inset-x-0 top-[25px] border-t border-dashed border-earth-200" />
-                  {shadows.map((session) => <span key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[1] truncate rounded border border-dashed border-earth-300 bg-earth-50/75 px-1 text-[9px] text-earth-500" style={{ top: hhmm(session.rescheduledFromStartsAt!).endsWith(":30") ? 27 : 2 }}>
-                    已調課 · {session.nameSnapshot}
-                  </span>)}
+                  {shadows.map((session) => {
+                    const original = originalPlace(session);
+                    return original && <div key={`shadow:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: hhmm(original.startsAt).endsWith(":30") ? 25 : 2, height: Math.max(21, sessionDurationMinutes(original) * 50 / 60 - 4) }}>
+                      <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} onOpen={() => {}} readOnly />
+                    </div>;
+                  })}
                   {list.map((session) => <div key={session.id} className={`absolute left-1 right-1 z-10 ${session.previewFaded ? "pointer-events-none" : ""}`} style={{ top: hhmm(session.startsAt).endsWith(":30") ? 25 : 2, height: Math.max(21, sessionDurationMinutes(session) * 50 / 60 - 4) }}>
-                    <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly} onOpen={() => onOpenSession(session.id, date)} />
+                    <SessionCard session={session} templates={templates} coaches={coaches} rooms={rooms} dense resourceView="room" businessProfile={businessProfile} fixed={session.isFixed} leaveCount={leaveCounts[session.id] ?? 0} readOnly={readOnly || Boolean(session.previewFaded)} onOpen={() => onOpenSession(session.id, date)} />
                   </div>)}
                 </div>;
               })}
@@ -650,7 +671,7 @@ export function CourseScheduleBoard({
     <section className="space-y-2" aria-label="日課表">
       {businessProfile === "MUSIC" && !replica && <p className="rounded-lg border border-earth-200 bg-white px-3 py-2 text-sm font-medium text-earth-800">今日 {dayTotals.classes} 堂｜{dayTotals.people} 人次｜租借 {dayTotals.rentals} 次</p>}
       <div className="flex max-w-full flex-wrap items-center gap-2">
-        {!replica && <div
+        {(!musicDense || quickFilter !== "all") && !replica && <div
           className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-lg border border-earth-200 bg-white px-2 py-1.5"
           aria-label="今日狀態快速篩選"
         >
@@ -666,10 +687,10 @@ export function CourseScheduleBoard({
               <strong className="ml-1">{filter.value}</strong>
             </button>
           ))}
-          <span className="px-2 text-xs text-earth-300">｜</span>
+          {!musicDense && <><span className="px-2 text-xs text-earth-300">｜</span>
           <span className="px-1 text-xs text-earth-600">
             {musicDense ? "預約學員" : "預約"} <strong className="text-earth-800">{booked}</strong> {musicDense ? "位" : "人"}
-          </span>
+          </span></>}
         </div>}
 
         {musicDense && !moveClipboard && !replica && (
@@ -686,12 +707,6 @@ export function CourseScheduleBoard({
           </label>
         )}
 
-        {musicDense && !replica && (
-          <div className="inline-flex min-h-9 items-center gap-3 rounded-lg border border-earth-200 bg-white px-2.5 text-[11px] text-earth-600" aria-label="課表可排狀態圖例">
-            <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded-sm border border-earth-200 bg-white" aria-hidden="true" />可排</span>
-            <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded-sm border border-earth-200 bg-earth-100" aria-hidden="true" />不可排</span>
-          </div>
-        )}
         {moveClipboard && <span role={matchError ? "alert" : "status"} className={`text-xs ${matchError ? "text-red-700" : "text-earth-600"}`}>
           {matchError || (matchedSlots ? `可貼空位 ${matchedSlots.length} 格` : "正在核對老師與教室…")}
         </span>}
@@ -715,7 +730,9 @@ export function CourseScheduleBoard({
       </div>
 
       {musicDense && (
-        <div className="flex max-w-full flex-wrap items-center gap-x-5 gap-y-1 rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-[11px] text-earth-700" aria-label="課表顏色圖例">
+        <details className="max-w-full rounded-lg border border-earth-200 bg-white px-3 py-1.5 text-[11px] text-earth-700">
+          <summary className="cursor-pointer font-medium">顏色與點名說明</summary>
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="卡片底色表示課型">
             <span className="font-semibold text-earth-800">底色＝課型</span>
             {[
@@ -735,7 +752,8 @@ export function CourseScheduleBoard({
             <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-slate-400 bg-white" aria-hidden="true" />灰色：尚有未處理</span>
             <span className="inline-flex items-center gap-1 whitespace-nowrap"><span className="h-3 w-3 rounded-sm border border-earth-200 border-l-[4px] border-l-sky-600 bg-white" aria-hidden="true" />對應亮色：全員已記錄（含請假、曠課）</span>
           </div>}
-        </div>
+          </div>
+        </details>
       )}
 
       {!daySessions.length && !musicDense ? (
@@ -870,6 +888,14 @@ export function CourseScheduleBoard({
                              const available=moveClipboard
                                ? Boolean(serverMatch) && !matchError
                                : storeOpen&&resourceOpen&&qualified&&!hasConflict;
+                             const origin = movedShadows.find((session) => {
+                               const starts = session.rescheduledFromStartsAt;
+                               const ends = session.rescheduledFromEndsAt;
+                               return starts && ends && minuteOfDay(hhmm(starts)) < minuteOfDay(startTime) + duration && minuteOfDay(hhmm(ends)) > minuteOfDay(startTime);
+                             });
+                             const releasedHint = origin ? origin.isFixed
+                               ? "原固定課已調走；此處僅可排單次臨時課"
+                               : "原非固定課已調走；可核對後續時段再排固定課" : "";
                              const reason=moveClipboard
                                ? matchError || (!matchedSlots ? "正在核對空位" : "這裡沒有可排的合格老師或教室")
                                : !storeOpen?"店家未開放":!resourceOpen?"老師未排班":!qualified?"老師未授此課":hasConflict?"已有課":"";
@@ -881,8 +907,8 @@ export function CourseScheduleBoard({
                                 key={minute}
                                 type="button"
                                 disabled={!available||pending||readOnly}
-                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘`):reason}
-                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘`):`${startTime} ${reason}`}
+                                 title={readOnly ? "唯讀示意課表" : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):reason}
+                                 aria-label={readOnly ? `${startTime} 唯讀示意課表` : available?(moveClipboard?`${startTime} ${choiceLabel}`:`${startTime} 可排 ${availabilityDuration} 分鐘${releasedHint ? `；${releasedHint}` : ""}`):`${startTime} ${reason}`}
                                  onClick={()=>available&&(moveClipboard&&onPasteMove
                                    ? (resourceView === "room"
                                        ? coachIds.length === 1
@@ -901,18 +927,12 @@ export function CourseScheduleBoard({
                           })}
                         </div>
                       )}
-                      {musicDense && movedShadows.map((session) => (
-                        <button
-                          type="button"
-                          key={`moved:${session.id}`}
-                          className="absolute left-1 right-1 z-[5] rounded border border-dashed border-indigo-200 bg-indigo-50/55 px-1 py-0.5 text-left text-[9px] text-indigo-700 hover:bg-indigo-100"
-                          style={{ top: hhmm(session.rescheduledFromStartsAt!).endsWith(":30") ? 25 : 2 }}
-                          title={`已移動 → ${toLocalDateStr(new Date(session.startsAt))} ${hhmm(session.startsAt)}`}
-                          onClick={()=>onSelectDate(toLocalDateStr(new Date(session.startsAt)))}
-                        >
-                          已移動 → {toLocalDateStr(new Date(session.startsAt)).slice(5)} {hhmm(session.startsAt)}
-                        </button>
-                      ))}
+                      {musicDense && movedShadows.map((session) => {
+                        const original = originalPlace(session);
+                        return original && <div key={`moved:${session.id}`} className="pointer-events-none absolute left-1 right-1 z-[5]" style={{ top: hhmm(original.startsAt).endsWith(":30") ? 25 : 2, height: Math.max(21, sessionDurationMinutes(original) * 50 / 60 - 4) }}>
+                          <SessionCard session={original} templates={templates} coaches={coaches} rooms={rooms} businessProfile={businessProfile} fixed={session.isFixed} dense resourceView={resourceView} onOpen={() => {}} readOnly />
+                        </div>;
+                      })}
 
                       <div className={musicDense?"relative z-10 p-1 pointer-events-none":"contents"}>
                         {list.map((session) => (
@@ -932,7 +952,7 @@ export function CourseScheduleBoard({
                               businessProfile={businessProfile}
                               fixed={session.isFixed}
                               leaveCount={leaveCounts[session.id] ?? 0}
-                              readOnly={readOnly}
+                              readOnly={readOnly || Boolean(session.previewFaded)}
                               dense={musicDense}
                               resourceView={resourceView}
                               onOpen={() => onOpenSession(session.id, selectedDate)}

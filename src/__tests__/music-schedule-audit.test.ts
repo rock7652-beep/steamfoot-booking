@@ -28,6 +28,13 @@ describe("有課資料：釋出時段與原課恢復", () => {
     expect(slotDecision([movedFixed], { ...originalSlot, fixed: true })).toBe("fixed-origin");
   });
 
+  it("全班請假釋出的固定原位保留淡化紀錄，僅能排單次課", () => {
+    const released = { ...movedFixed, previewFaded: "異動／請假", startsAt: originalSlot.startsAt, endsAt: originalSlot.endsAt, rescheduledFromStartsAt: null };
+    expect(slotDecision([released], originalSlot)).toBe("available");
+    expect(slotDecision([released], { ...originalSlot, fixed: true })).toBe("fixed-origin");
+    expect(scheduleTotals([released])).toEqual({ classes: 0, people: 0, rentals: 0 });
+  });
+
   it("原課恢復時若臨時課已占用教室，必須先處理衝突；老師撞期也攔下", () => {
     expect(slotDecision([movedFixed, temporary], { ...originalSlot, restoringId: "fixed-1" })).toBe("occupied");
     expect(slotDecision([movedFixed], { ...originalSlot, restoringId: "fixed-1" })).toBe("available");

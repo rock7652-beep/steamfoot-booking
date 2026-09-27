@@ -59,7 +59,7 @@ export async function getMusicSlotMatches(input: unknown) {
       prisma.$queryRaw<{staffId:string;date:Date;type:string;segments:unknown}[]>`SELECT "staffId",date,type,segments FROM "CourseStaffAvailabilityException" WHERE "storeId"=${storeId} AND date>=${firstDate}::date AND date<=${lastDate}::date`,
       prisma.$queryRaw<{dutySchedulingEnabled:boolean}[]>`SELECT "dutySchedulingEnabled" FROM "ShopConfig" WHERE "storeId"=${storeId}`,
       prisma.$queryRaw<{date:Date;slotTime:string;staffId:string}[]>`SELECT date,"slotTime","staffId" FROM "DutyAssignment" WHERE "storeId"=${storeId} AND date>=${firstDate}::date AND date<=${lastDate}::date`,
-      coursePrisma.courseSession.findMany({ where: { storeId, cancelledAt: null, startsAt: { lt: dayRange(lastDate).end }, endsAt: { gt: dayRange(firstDate).start } }, select: { id: true, startsAt: true, endsAt: true, roomId: true, coachId: true } }),
+      coursePrisma.courseSession.findMany({ where: { storeId, cancelledAt: null, releasedAt: null, startsAt: { lt: dayRange(lastDate).end }, endsAt: { gt: dayRange(firstDate).start } }, select: { id: true, startsAt: true, endsAt: true, roomId: true, coachId: true } }),
     ]);
     const ignored = new Set(moved.map(s => s.id));
     const storeCache = new Map<string, ReturnType<typeof resolvedCourseHours>>();

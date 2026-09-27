@@ -27,9 +27,11 @@ it("moves lessons atomically without deleting the original before the target is 
   expect(action).not.toContain("courseSession.delete");
 });
 
-it("keeps temporary moves visible as moved lessons plus original-slot shadows", () => {
+it("keeps moved lessons and a full faded original card while the released slot stays clickable", () => {
   expect(board).toContain("調課");
-  expect(board).toContain("已移動");
+  expect(board).toContain("originalPlace(session)");
+  expect(board).toContain('previewFaded: "已調課"');
+  expect(board).toContain("pointer-events-none absolute left-1 right-1 z-[5]");
   expect(board).toContain("rescheduledFromStartsAt");
   expect(board).toContain("onPasteMove");
   expect(workspace).toContain("這堂");
@@ -39,7 +41,7 @@ it("keeps temporary moves visible as moved lessons plus original-slot shadows", 
   expect(workspace).toContain("選白格貼上");
   expect(workspace).toContain("sessionStorage");
   expect(board).toContain("固定");
-  expect(board).toContain("已移動 →");
+  expect(board).toContain("原固定課已調走；此處僅可排單次臨時課");
 });
 
 it("stores reschedule history additively", () => {

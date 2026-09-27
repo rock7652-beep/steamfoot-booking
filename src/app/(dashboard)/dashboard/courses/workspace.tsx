@@ -73,6 +73,8 @@ type Session = {
   requestKey?: string;
   isFixed?: boolean;
   isBiweekly?: boolean;
+  previewFaded?: "異動／請假" | "已調課";
+  previewStudentNames?: string[];
   previewKind?: "RENTAL";
   rescheduledFromStartsAt?: string | null;
   rescheduledFromEndsAt?: string | null;
@@ -253,12 +255,12 @@ export function CourseWorkspace({
     first = `${month}-01`;
   const [year, mon] = month.split("-").map(Number);
   const days = new Date(year, mon, 0).getDate();
-  const fullMusicOverview = businessProfile === "MUSIC" && scheduleMode !== "day";
+  const showAllMusicSessions = businessProfile === "MUSIC";
   const filteredScheduleSessions = sessions.filter(
     (s) =>
-      (fullMusicOverview || roomFilter === "all" || s.roomId === roomFilter) &&
-      (fullMusicOverview || coachFilter === "all" || s.coachId === coachFilter) &&
-      (fullMusicOverview || category === "all" ||
+      (showAllMusicSessions || roomFilter === "all" || s.roomId === roomFilter) &&
+      (showAllMusicSessions || coachFilter === "all" || s.coachId === coachFilter) &&
+      (showAllMusicSessions || category === "all" ||
         allTemplates.find((t) => t.id === s.templateId)?.category === category),
   ).map((session) => ({
     ...session,
@@ -583,9 +585,9 @@ export function CourseWorkspace({
             )}
           </div>
 
-          {!fullMusicOverview && <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
+          {businessProfile !== "MUSIC" && <div className="flex flex-wrap items-center gap-2 rounded-xl border border-earth-200 bg-earth-50/50 px-2 py-2">
             <span className="px-1 text-xs font-medium text-earth-500">篩選</span>
-            <label className="sr-only" htmlFor="course-coach-filter">{businessProfile === "MUSIC" ? "老師" : "教練"}</label>
+            <label className="sr-only" htmlFor="course-coach-filter">教練</label>
             <select
               id="course-coach-filter"
               aria-label="教練篩選"
@@ -593,7 +595,7 @@ export function CourseWorkspace({
               value={coachFilter}
               onChange={(e) => setCoachFilter(e.target.value)}
             >
-              <option value="all">{businessProfile === "MUSIC" ? "全部老師" : "全部教練"}</option>
+              <option value="all">全部教練</option>
               {allCoaches.map((coach) => (
                 <option key={coach.id} value={coach.id}>
                   {coach.displayName}
@@ -686,7 +688,7 @@ export function CourseWorkspace({
                       go(date);
                       changeScheduleMode("day");
                     }}
-                    className={`relative flex min-w-0 h-16 sm:h-24 xl:h-28 flex-col items-start justify-start border-t border-earth-100 px-1 py-1.5 text-left sm:px-3 sm:py-2 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
+                    className={`relative flex min-w-0 ${businessProfile === "MUSIC" ? "h-14 sm:h-16" : "h-16 sm:h-24 xl:h-28"} flex-col items-start justify-start border-t border-earth-100 px-1 py-1.5 text-left sm:px-3 sm:py-2 ${date === today ? "ring-2 ring-inset ring-primary-500" : ""} ${
                       isClosed
                         ? "bg-earth-100 text-earth-500"
                         : date === selectedDate
@@ -748,14 +750,10 @@ export function CourseWorkspace({
                 <button className="ml-auto text-xs" type="button" onClick={()=>setMoveClipboard(null)}>取消</button>
               </div>
             )}
-            {businessProfile === "MUSIC" && <div className="flex flex-wrap items-center gap-2 text-xs" aria-label="固定課圖例">
-              <span className="rounded-full bg-teal-100 px-2 py-1 font-semibold text-teal-900 ring-1 ring-teal-200">每週固定</span>
-              <span className="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-900 ring-1 ring-blue-200">隔週固定</span>
-            </div>}
-            {businessProfile === "MUSIC" && <div className="flex flex-wrap gap-2 text-sm">
+            {businessProfile === "MUSIC" && <details className="text-xs text-earth-700"><summary className="cursor-pointer">當日資訊</summary><div className="mt-2 flex flex-wrap gap-2 text-sm">
               <button type="button" className={button} onClick={() => setDailyList("leave")}>請假學員 {leaveStudents.length}</button>
               <button type="button" className={button} onClick={() => setDailyList("unmarked")}>未簽到學員 {absentStudents.length}</button>
-            </div>}
+            </div></details>}
             {dailyList && <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-label={dailyList === "leave" ? "請假學員清單" : "未簽到學員清單"} onClick={() => setDailyList(null)}>
               <div className="flex max-h-[85dvh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
                 <header className="flex items-center justify-between border-b border-earth-200 p-4"><h2 className="font-semibold">{selectedDate} · {dailyList === "leave" ? "請假學員" : "未簽到學員"}</h2><button type="button" className={button} onClick={() => setDailyList(null)}>關閉</button></header>

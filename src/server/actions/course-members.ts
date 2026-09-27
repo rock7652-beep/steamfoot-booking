@@ -23,6 +23,7 @@ import {
   reserveCourseMembers,
   settleCourseBooking,
   correctCourseAttendance,
+  syncCourseRelease,
   type CourseActor,
 } from "@/server/services/course-booking";
 
@@ -462,6 +463,7 @@ export async function markCourseTeacherAttendance(input: unknown) {
       if(!existing)throw new AppError("NOT_FOUND","找不到本店課程");
       const result=await tx.courseSession.updateMany({where:{id:data.sessionId,storeId,teacherAttendance:existing.teacherAttendance},data:{teacherAttendance:data.status,teacherAttendanceReason:data.status==="SCHEDULED"?"":data.reason,teacherAttendanceAt:data.status==="SCHEDULED"?null:new Date(),teacherAttendanceById:data.status==="SCHEDULED"?null:user.id}});
       if(!result.count)throw new AppError("CONFLICT","老師狀態已更新，請重新整理");
+      await syncCourseRelease(tx, storeId, data.sessionId);
     });
     refresh();return {success:true as const};
   } catch(error){return handleActionError(error);}

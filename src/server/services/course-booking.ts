@@ -17,6 +17,28 @@ export type CourseActor = {
 };
 
 export type CourseNoShowChoice = "DEDUCTED" | "DEDUCTED_WITH_MAKEUP";
+export async function syncCourseRelease(tx: Prisma.TransactionClient, storeId: string, sessionId: string) {
+  const session = await tx.courseSession.findFirst({ where: { id: sessionId, storeId, cancelledAt: null }, select: { teacherAttendance: true, releasedAt: true, startsAt: true, endsAt: true, roomId: true, coachId: true } });
+  if (!session) return;
+  const [active, leave] = await Promise.all([
+    tx.courseBooking.count({ where: { storeId, sessionId, status: { not: "CANCELLED" } } }),
+    tx.courseBooking.count({ where: { storeId, sessionId, status: "CANCELLED", absenceKind: { in: ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"] } } }),
+  ]);
+  const shouldRelease = active === 0 && (session.teacherAttendance === "LEAVE" || leave > 0);
+  if (shouldRelease !== Boolean(session.releasedAt)) {
+    if (!shouldRelease) {
+      const conflict = await tx.courseSession.findFirst({ where: {
+        storeId, id: { not: sessionId }, cancelledAt: null, releasedAt: null,
+        startsAt: { lt: session.endsAt }, endsAt: { gt: session.startsAt },
+        OR: [{ roomId: session.roomId }, { coachId: session.coachId }],
+      }, select: { roomId: true } });
+      if (conflict) throw new AppError("CONFLICT", `原時段${conflict.roomId === session.roomId ? "教室" : "老師"}已有課，請先處理占用課程再恢復原課`);
+    }
+    // Reclaiming a slot checks the database's room and teacher exclusions.
+    // A temporary class occupying it prevents accidental restoration.
+    await tx.courseSession.update({ where: { id: sessionId }, data: { releasedAt: shouldRelease ? new Date() : null } });
+  }
+}
 const COURSE_MAKEUP_VALID_DAYS = 7;
 // The music pilot uses an isolated preview database. Allow staff to rehearse
 // attendance before the scheduled start only in that exact environment.
@@ -152,6 +174,7 @@ export async function reserveCourseInTransaction(
   ]);
   if (!session || (input.cardId !== null && !card) || !customers.length)
     return fail("請選擇本店有效課程、方案與上課人");
+  if (session.releasedAt) return fail("此課原時段已釋出，請先處理現有排課再恢復預約");
   if (!session.template.isActive || session.template.visibility === "OFF" || (actor.customerId && session.template.visibility !== "PUBLIC")) return fail("本課程目前不開放新增預約，既有預約仍可查閱與依規則取消");
   if (card && (
     !card.members.some((m) => m.customerId === input.customerId) ||
@@ -321,6 +344,7 @@ export async function settleCourseBooking(
     where: { id: booking.id },
     data: { status: target === "STUDENT_LEAVE" ? "CANCELLED" : target, absenceKind: target === "STUDENT_LEAVE" ? (musicGroupLeave ? "GROUP_LEAVE_FORFEITED" : "STUDENT_LEAVE") : null },
   });
+  if (target === "STUDENT_LEAVE" || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, booking.sessionId);
   if (!booking.cardId) { if (booking.bookingKind === "TRIAL") await auditTrialAttendance(tx,actor,booking.id,booking.status,target); return updated; }
   const kind = shouldDebit ? "DEBIT" : "RELEASE";
   const previousEntry = await tx.coursePointEntry.findUnique({where:{bookingId_kind:{bookingId:booking.id,kind}}});
@@ -396,7 +420,7 @@ export async function correctCourseAttendance(
     if (b.card && b.card.expiresAt < b.session.startsAt) return fail("方案不涵蓋本堂日期，無法恢復請假");
   }
   if (!restoringLeave && b.session.startsAt > new Date() && !allowEarlyPilotAttendance()) return fail("課程尚未開始，不能點名");
-  if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); return tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); }
+  if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (restoringLeave) await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
   const wasDebited=b.status==="ATTENDED"||b.status==="NO_SHOW"||b.absenceKind==="GROUP_LEAVE_FORFEITED";
   const willDebit=target==="ATTENDED"||target==="NO_SHOW";
@@ -416,7 +440,9 @@ export async function correctCourseAttendance(
   }
   if (delta || activation) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { ...(delta ? {remaining: { increment: delta }} : {}), ...(activation??{}) } });
   await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: b.cardId, bookingId: b.id, actorUserId: actor.userId, kind: `CORRECT:${b.status}:${target}:${crypto.randomUUID()}`, points: b.pointCost } });
-  return tx.courseBooking.update({ where: { id: b.id }, data: { status: target, absenceKind: null, checkedInAt: target === "ATTENDED" ? new Date() : null } });
+  const updated = await tx.courseBooking.update({ where: { id: b.id }, data: { status: target, absenceKind: null, checkedInAt: target === "ATTENDED" ? new Date() : null } });
+  if (restoringLeave) await syncCourseRelease(tx, actor.storeId, b.sessionId);
+  return updated;
 }
 
 async function auditTrialAttendance(tx:Prisma.TransactionClient,actor:CourseActor,id:string,before:string,after:string){

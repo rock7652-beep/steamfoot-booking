@@ -37,7 +37,7 @@ export async function scheduleTeacherMakeup(input: unknown) {
       await assertCourseSessionsFitHours(tx,storeId,[range]);
       await assertMusicCourseAvailability(tx,storeId,data.coachId,[range]);
       await assertCourseDutyCoverage(tx,storeId,[{...range,coachId:data.coachId}]);
-      const collision=await tx.courseSession.findFirst({where:{storeId,cancelledAt:null,startsAt:{lt:endsAt},endsAt:{gt:startsAt},OR:[{roomId:data.roomId},{coachId:data.coachId}]}});
+      const collision=await tx.courseSession.findFirst({where:{storeId,cancelledAt:null,releasedAt:null,startsAt:{lt:endsAt},endsAt:{gt:startsAt},OR:[{roomId:data.roomId},{coachId:data.coachId}]}});
       if(collision)throw new AppError("CONFLICT",`${formatTWDateTime(collision.startsAt)} 教室或老師已有課程`);
       const session=await tx.courseSession.create({data:{storeId,templateId:source.templateId,roomId:data.roomId,coachId:data.coachId,nameSnapshot:`免費補課 · ${source.nameSnapshot}`,startsAt,endsAt,pointCost:0,capacity:source.capacity,requestKey:`teacher-makeup:${source.id}`,requestIndex:0,createdById:user.id,teacherMakeupForSessionId:source.id}});
       await tx.courseBooking.createMany({data:source.bookings.map(booking=>({storeId,sessionId:session.id,cardId:null,bookingKind:"TEACHER_MAKEUP",customerId:booking.customerId,operatorUserId:user.id,operatorCustomerId:null,operatorName:user.name??"店長",customerName:booking.customerName,pointCost:0,status:"RESERVED",notes:`原課 ${formatTWDateTime(source.startsAt)} 老師曠課補課`,requestKey:`teacher-makeup:${source.id}:${booking.customerId}`}))});
@@ -204,6 +204,7 @@ export async function updateCourseSession(input: unknown) {
             storeId,
             id: { not: data.id },
             cancelledAt: null,
+            releasedAt: null,
             startsAt: { lt: range.endsAt },
             endsAt: { gt: range.startsAt },
             OR: [{ roomId: data.roomId }, { coachId: data.coachId }],
@@ -373,6 +374,7 @@ export async function createCourseSchedule(input: unknown) {
           where: {
             storeId,
             cancelledAt: null,
+            releasedAt: null,
             AND: [
               { OR: [{ roomId: data.roomId }, { coachId: data.coachId }] },
               {
@@ -397,12 +399,14 @@ export async function createCourseSchedule(input: unknown) {
             where: {
               storeId,
               cancelledAt: null,
-              rescheduledFromStartsAt: { lt: occurrences[occurrences.length - 1].endsAt },
-              rescheduledFromEndsAt: { gt: occurrences[0].startsAt },
-              OR: [{ rescheduledFromRoomId: data.roomId }, { rescheduledFromCoachId: data.coachId }],
+              OR: [
+                { rescheduledFromStartsAt: { lt: occurrences[occurrences.length - 1].endsAt }, rescheduledFromEndsAt: { gt: occurrences[0].startsAt }, OR: [{ rescheduledFromRoomId: data.roomId }, { rescheduledFromCoachId: data.coachId }] },
+                { releasedAt: { not: null }, startsAt: { lt: occurrences[occurrences.length - 1].endsAt }, endsAt: { gt: occurrences[0].startsAt }, OR: [{ roomId: data.roomId }, { coachId: data.coachId }] },
+              ],
             },
             select: {
               requestKey: true,
+              releasedAt: true, startsAt: true, endsAt: true, roomId: true, coachId: true,
               rescheduledFromStartsAt: true,
               rescheduledFromEndsAt: true,
               rescheduledFromRoomId: true,
@@ -419,8 +423,10 @@ export async function createCourseSchedule(input: unknown) {
           const fixedOrigin = movedOrigins.find((item) =>
             (item.template.musicScheduleMode === "FIXED" || recurringKeys.has(item.requestKey)) &&
             occurrences.some((range) =>
-              item.rescheduledFromStartsAt! < range.endsAt && item.rescheduledFromEndsAt! > range.startsAt &&
-              (item.rescheduledFromRoomId === data.roomId || item.rescheduledFromCoachId === data.coachId),
+              (item.releasedAt
+                ? item.startsAt < range.endsAt && item.endsAt > range.startsAt && (item.roomId === data.roomId || item.coachId === data.coachId)
+                : item.rescheduledFromStartsAt && item.rescheduledFromEndsAt && item.rescheduledFromStartsAt < range.endsAt && item.rescheduledFromEndsAt > range.startsAt &&
+                  (item.rescheduledFromRoomId === data.roomId || item.rescheduledFromCoachId === data.coachId)),
             ),
           );
           if (fixedOrigin) throw new AppError("CONFLICT", "原固定課保留此時段；可排單次臨時課，不可再排固定課");
@@ -567,6 +573,7 @@ export async function moveCourseSessions(input: unknown) {
             storeId,
             id: { notIn: selectedIds },
             cancelledAt: null,
+            releasedAt: null,
             startsAt: { lt: change.endsAt },
             endsAt: { gt: change.startsAt },
             OR: [{ roomId: d.roomId }, { coachId: d.coachId }],
@@ -699,11 +706,12 @@ export async function previewCourseSchedule(input: unknown) {
       assertCourseSessionsFitHours(coursePrisma, storeId, dates),
       assertCourseDutyCoverage(coursePrisma, storeId, dates.map(r => ({ ...r, coachId: d.coachId }))),
     ]);
-    const [conflicts, room] = await Promise.all([
+    const [conflicts, room, targetTemplate] = await Promise.all([
       coursePrisma.courseSession.findMany({
         where: {
           storeId,
           cancelledAt: null,
+          releasedAt: null,
           AND: [
             { OR: [{ roomId: d.roomId }, { coachId: d.coachId }] },
             {
@@ -720,16 +728,34 @@ export async function previewCourseSchedule(input: unknown) {
         where: { id: d.roomId, storeId },
         select: { capacity: true },
       }),
+      coursePrisma.courseTemplate.findFirst({ where: { id: d.templateId, storeId }, select: { musicScheduleMode: true } }),
     ]);
+    const originals = dates.length > 1 || targetTemplate?.musicScheduleMode === "FIXED"
+      ? await coursePrisma.courseSession.findMany({ where: {
+          storeId, cancelledAt: null,
+          OR: [
+            { releasedAt: { not: null }, startsAt: { lt: dates[dates.length - 1].endsAt }, endsAt: { gt: dates[0].startsAt }, OR: [{ roomId: d.roomId }, { coachId: d.coachId }] },
+            { rescheduledFromStartsAt: { lt: dates[dates.length - 1].endsAt }, rescheduledFromEndsAt: { gt: dates[0].startsAt }, OR: [{ rescheduledFromRoomId: d.roomId }, { rescheduledFromCoachId: d.coachId }] },
+          ],
+        }, select: { nameSnapshot: true, requestKey: true, releasedAt: true, startsAt: true, endsAt: true, roomId: true, coachId: true, rescheduledFromStartsAt: true, rescheduledFromEndsAt: true, rescheduledFromRoomId: true, rescheduledFromCoachId: true, template: { select: { musicScheduleMode: true } } } }) : [];
+    const recurringKeys = originals.length ? new Set((await coursePrisma.courseSession.groupBy({ by: ["requestKey"], where: { storeId, cancelledAt: null, requestKey: { in: [...new Set(originals.map((item) => item.requestKey))] } }, _count: { id: true }, having: { id: { _count: { gt: 1 } } } })).map((row) => row.requestKey)) : new Set<string>();
+    const fixedOriginals = originals.filter((item) => item.template.musicScheduleMode === "FIXED" || recurringKeys.has(item.requestKey));
+    const allConflicts = [...conflicts, ...fixedOriginals.map((item) => ({
+      startsAt: item.releasedAt ? item.startsAt : item.rescheduledFromStartsAt!,
+      endsAt: item.releasedAt ? item.endsAt : item.rescheduledFromEndsAt!,
+      roomId: item.releasedAt ? item.roomId : item.rescheduledFromRoomId!,
+      coachId: item.releasedAt ? item.coachId : item.rescheduledFromCoachId!,
+      nameSnapshot: `${item.nameSnapshot}（原固定課保留；僅可排單次）`,
+    }))];
     return {
       success: true as const,
       data: {
         dates: dates.map((r) => ({
           startsAt: r.startsAt.toISOString(),
-          conflict: conflicts.some(
+          conflict: allConflicts.some(
             (c) => c.startsAt < r.endsAt && c.endsAt > r.startsAt,
           ),
-          conflicts: conflicts.filter(c => c.startsAt < r.endsAt && c.endsAt > r.startsAt).map(c => ({
+          conflicts: allConflicts.filter(c => c.startsAt < r.endsAt && c.endsAt > r.startsAt).map(c => ({
             name: c.nameSnapshot,
             startsAt: c.startsAt.toISOString(),
             endsAt: c.endsAt.toISOString(),
@@ -832,6 +858,7 @@ export async function updateCourseSeries(input: unknown) {
             storeId,
             id: { notIn: sessions.map((s) => s.id) },
             cancelledAt: null,
+            releasedAt: null,
             startsAt: { lt: change.endsAt },
             endsAt: { gt: change.startsAt },
             OR: [{ roomId: d.roomId }, { coachId: d.coachId }],
