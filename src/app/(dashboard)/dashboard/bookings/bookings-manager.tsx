@@ -389,6 +389,21 @@ export function BookingsManager({
     }));
   }, [monthData, selectedDate]);
 
+  // Warm a small, sequential batch only while the selected day is visible.
+  // Opening a booking or switching dates cancels the remaining work.
+  useEffect(() => {
+    if (!selectedDate || activeBookingId || batchActing || actingIds.size > 0) return;
+    let canceled = false;
+    const timer = setTimeout(async () => {
+      for (const booking of dayBookings.slice(0, 3)) {
+        if (canceled || document.visibilityState !== "visible") break;
+        if (detailCache.get(booking.id)) continue;
+        try { await detailCache.load(booking.id); } catch { /* Opening remains retryable. */ }
+      }
+    }, 350);
+    return () => { canceled = true; clearTimeout(timer); };
+  }, [selectedDate, activeBookingId, batchActing, actingIds.size, dayBookings, detailCache]);
+
   const daySlots: SlotAvailability[] = selectedDate
     ? (slotsCache.get(selectedDate) ?? [])
     : [];
@@ -795,6 +810,7 @@ function monthEntryToSummary(b: BookingEntry, date: string): BookingSummary {
 function monthEntryToPrefill(b: BookingEntry, date: string): BookingPrefill {
   return {
     id: b.id,
+    customerId: b.customer.id,
     bookingDate: date,
     slotTime: b.slotTime,
     bookingStatus: b.bookingStatus,

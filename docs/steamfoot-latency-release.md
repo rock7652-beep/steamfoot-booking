@@ -1,6 +1,7 @@
 # Steamfoot latency backend — release gate
 
-Status: DRAFT. Do not merge or promote until all gates below pass.
+Status: production release authorized by the user on 2026-09-28 (Asia/Taipei).
+Apply and verify the additive migration before merging or deploying.
 
 This backend PR is independent of UI PR #1122. It does not change SPA business
 logic. It adds fixed-label timings (no customer payloads), parallel month-summary
@@ -39,9 +40,13 @@ backend latency is made.
 
 - Focused unit tests, changed-file lint, generated Prisma client, and TypeScript
   checks run locally. No production SQL or customer mutation was performed.
-- Browser testing of UI PR #1122 currently stops at the preview login screen.
-- Migration/concurrency integration and authenticated preview end-to-end tests
-  remain release blockers; a green build alone is insufficient.
+- UI PR #1122 passed authenticated, read-only staging verification and is live.
+- PostgreSQL 17.6 isolated audit passed all 8 cases (run 36332832127),
+  including actual migration SQL and concurrent/recovery delivery scenarios.
+- LINE calls were mocked; no real customer mutation or external message test.
+- Authorized production migration uses the Supabase migration connector, with
+  the exact Prisma migration checksum recorded atomically in its ledger.
+  Existing build migration allowlists remain unchanged.
 - Compare `OPERATION_PERF` for `steamfoot.complete`,
   `steamfoot.complete.notifications`, `booking.detail`, `steamfoot.refresh`, and
   `steamfoot.month.compute`. Spans are not SQL query counts or cache-hit proofs.
