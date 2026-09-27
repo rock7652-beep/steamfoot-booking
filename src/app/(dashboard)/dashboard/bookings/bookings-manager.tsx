@@ -10,7 +10,7 @@ import { matchesBookingSearch } from "@/lib/booking-month-search";
 import { createBookingRefresh, createBookingRefreshGate } from "@/lib/booking-refresh";
 import { refreshBookingManagement } from "@/server/actions/booking-refresh";
 import { toast } from "sonner";
-import { DashboardLink as Link } from "@/components/dashboard-link";
+import { BookingMonthLink } from "./booking-month-link";
 import { fetchDaySlots } from "@/server/actions/slots";
 import {
   markCompleted,
@@ -879,23 +879,19 @@ function Toolbar({
   return (
     <div data-booking-filter-bar className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-earth-200 bg-white px-4 py-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Link
+        <BookingMonthLink
           href={`/dashboard/bookings?year=${prevYear}&month=${prevMonth}`}
           className="inline-flex h-7 w-7 items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50"
-          aria-label="上個月"
-        >
-          ‹
-        </Link>
+          year={prevYear} month={prevMonth} direction="previous"
+        />
         <span className="min-w-[90px] text-center text-sm font-semibold text-earth-900">
           {year} 年 {month} 月
         </span>
-        <Link
+        <BookingMonthLink
           href={`/dashboard/bookings?year=${nextYear}&month=${nextMonth}`}
           className="inline-flex h-7 w-7 items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50"
-          aria-label="下個月"
-        >
-          ›
-        </Link>
+          year={nextYear} month={nextMonth} direction="next"
+        />
         <button
           type="button"
           onClick={() => onJumpToday(todayIso)}

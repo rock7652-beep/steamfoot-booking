@@ -277,10 +277,16 @@ async function fetchBookingDetailMeasured(
   bookingId: string, resolvedStoreId: string | undefined, timing: OperationTiming,
 ): Promise<BookingDrawerPayload> {
   const user = await timing.measure("session", () => requireStaffSession());
-  const activeStoreId = await timing.measure("activeStore", () => getActiveStoreForRead(user));
-  const storeViewContext = await timing.measure("viewContext", () => resolveStoreViewContextFromCookie(user));
+  // Explicit page scope is authoritative after authorization. Do not resolve
+  // unused route/cookie scopes first (or let stale view cookies block it).
+  const [activeStoreId, storeViewContext] = resolvedStoreId
+    ? [null, null] as const
+    : await Promise.all([
+        timing.measure("activeStore", () => getActiveStoreForRead(user)),
+        timing.measure("viewContext", () => resolveStoreViewContextFromCookie(user)),
+      ]);
   const bookingStoreId = resolvedStoreId
-    ? await validateStoreAccess(user, resolvedStoreId, "read")
+    ? await timing.measure("explicitStore", () => validateStoreAccess(user, resolvedStoreId, "read"))
     : storeIdForViewContext(activeStoreId, storeViewContext);
   const readUser = resolvedStoreId && user.role !== "ADMIN"
     ? { ...user, storeId: resolvedStoreId }

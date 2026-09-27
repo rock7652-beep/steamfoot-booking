@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import { DashboardLink as Link } from "@/components/dashboard-link";
+import { BookingMonthLink } from "./booking-month-link";
 
 const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 
@@ -134,13 +135,11 @@ export function BookingCalendarDesktop({
       <div className="flex items-center justify-between gap-3 pb-3">
         <h2 className="text-lg font-semibold text-earth-900">{monthLabel}</h2>
         <div className="flex items-center gap-2">
-          <Link
+          <BookingMonthLink
             href={`${basePath}?year=${prevYear}&month=${prevMonth}`}
             className="inline-flex h-7 w-7 items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50"
-            aria-label="上個月"
-          >
-            ‹
-          </Link>
+          year={prevYear} month={prevMonth} direction="previous"
+        />
           {!isCurrentMonth && (
             <Link
               href={basePath || "/dashboard/bookings"}
@@ -149,13 +148,11 @@ export function BookingCalendarDesktop({
               今日
             </Link>
           )}
-          <Link
+          <BookingMonthLink
             href={`${basePath}?year=${nextYear}&month=${nextMonth}`}
             className="inline-flex h-7 w-7 items-center justify-center rounded border border-earth-300 text-earth-600 hover:bg-earth-50"
-            aria-label="下個月"
-          >
-            ›
-          </Link>
+          year={nextYear} month={nextMonth} direction="next"
+        />
         </div>
       </div>
 
