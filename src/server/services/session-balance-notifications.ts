@@ -398,6 +398,16 @@ export async function dispatchSessionBalanceNotifications(
   if (process.env.VERCEL_ENV === "preview") return;
   for (const id of [...new Set(notificationIds)]) {
     let leaseUntil: Date | null = null;
+    const writeDelivery = async (data: Prisma.SessionBalanceNotificationUpdateManyMutationInput) => {
+      if (!leaseUntil) {
+        await prisma.sessionBalanceNotification.update({ where: { id }, data });
+        return;
+      }
+      const written = await prisma.sessionBalanceNotification.updateMany({
+        where: { id, leaseUntil, status: "PENDING" }, data,
+      });
+      if (written.count !== 1) throw new Error("Notification delivery lease lost");
+    };
     try {
       const delivery = await prisma.sessionBalanceNotification.findUnique({ where: { id } });
       if (!delivery || !["PENDING", "FAILED"].includes(delivery.status)) continue;
@@ -479,12 +489,9 @@ export async function dispatchSessionBalanceNotifications(
         notificationWalletId: notification.walletId,
         validWallets,
       })) {
-        await prisma.sessionBalanceNotification.update({
-          where: { id },
-          data: {
+        await writeDelivery({
             status: "SKIPPED",
             errorMessage: "顧客有效方案總堂數已變更，未發送續購提醒",
-          },
         });
         continue;
       }
@@ -497,12 +504,9 @@ export async function dispatchSessionBalanceNotifications(
           ? setting.lastSessionEnabled
           : setting.planUsedUpEnabled;
       if (!setting.isEnabled || !typeEnabled) {
-        await prisma.sessionBalanceNotification.update({
-          where: { id },
-          data: {
+        await writeDelivery({
             status: "SKIPPED",
             errorMessage: "該分店已停用此類提醒",
-          },
         });
         continue;
       }
@@ -528,13 +532,10 @@ export async function dispatchSessionBalanceNotifications(
       });
 
       if (route.status === "BLOCKED") {
-        await prisma.sessionBalanceNotification.update({
-          where: { id },
-          data: {
+        await writeDelivery({
             status: "SKIPPED",
             renderedBody: content.body,
             errorMessage: route.reason,
-          },
         });
         continue;
       }
@@ -547,19 +548,19 @@ export async function dispatchSessionBalanceNotifications(
         } | null;
         if (snapshot) {
           if (snapshot.channel !== route.channel || snapshot.recipient !== route.recipientLineUserId) {
-            await prisma.sessionBalanceNotification.update({ where: { id }, data: {
+            await writeDelivery({
               status: "SKIPPED", errorMessage: "通知收件路徑已變更，停止自動補送",
-            } });
+            });
             continue;
           }
           content = { ...content, body: snapshot.body, messages: snapshot.messages };
         } else {
-          await prisma.sessionBalanceNotification.update({ where: { id }, data: {
+          await writeDelivery({
             deliverySnapshot: {
               channel: route.channel, recipient: route.recipientLineUserId,
               body: content.body, messages: content.messages,
             } as unknown as Prisma.InputJsonValue,
-          } });
+          });
         }
       }
       const hash = createHash("sha256").update(`session-balance:${id}`).digest("hex");
@@ -588,9 +589,7 @@ export async function dispatchSessionBalanceNotifications(
             content.messages,
             retryKey,
           );
-      await prisma.sessionBalanceNotification.update({
-        where: { id },
-        data: {
+      await writeDelivery({
           status: result.success ? "SENT" : "FAILED",
           renderedBody: content.body,
           errorMessage: result.error ?? null,
@@ -598,7 +597,6 @@ export async function dispatchSessionBalanceNotifications(
           ...(delivery.deliveryVersion === 1 ? {
             nextAttemptAt: new Date(Date.now() + 5 * 60_000),
           } : {}),
-        },
       });
     } catch (error) {
       console.error("[SessionBalanceNotification] dispatch failed", {

@@ -42,8 +42,8 @@ describe("durable session balance delivery", () => {
     await dispatchSessionBalanceNotifications(["n1", "n1"]);
     expect(m.push).toHaveBeenCalledTimes(1);
     expect(m.push.mock.calls[0][3]).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-a[a-f0-9]{3}-[a-f0-9]{12}$/);
-    expect(m.update.mock.calls[0][0].data.deliverySnapshot.recipient).toBe("u1");
-    expect(m.update.mock.invocationCallOrder[0]).toBeLessThan(m.push.mock.invocationCallOrder[0]);
+    expect(m.updateMany.mock.calls[1][0].data.deliverySnapshot.recipient).toBe("u1");
+    expect(m.updateMany.mock.invocationCallOrder[1]).toBeLessThan(m.push.mock.invocationCallOrder[0]);
   });
   it("does not send after another worker wins the lease", async () => {
     m.updateMany.mockResolvedValue({ count: 0 });
@@ -68,7 +68,7 @@ describe("durable session balance delivery", () => {
     m.findFirst.mockResolvedValue({ ...record(), deliverySnapshot: { channel: "CENTRAL", recipient: "old", body: "original", messages: [] } });
     await dispatchSessionBalanceNotifications(["n1"]);
     expect(m.push).not.toHaveBeenCalled();
-    expect(m.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SKIPPED" }) }));
+    expect(m.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SKIPPED" }) }));
   });
   it("retains a failed delivery for later retry and releases its lease", async () => {
     m.push.mockRejectedValue(new Error("private detail"));
