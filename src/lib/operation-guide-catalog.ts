@@ -237,31 +237,35 @@ export const additionalGuides: OperationGuide[] = [
   {
     "id": "A05",
     "category": "booking",
-    "title": "怎麼查看今天或其他日期的預約？",
-    "summary": "在預約管理切換日期即可查看當天預約，不必回首頁重新進入。",
+    "title": "怎麼查看當日預約、狀態並直接聯絡顧客？",
+    "summary": "切換日期查看當日清單；需要聯絡時直接點顧客電話旁的「撥打」，不必先開預約詳情。",
     "path": "預約管理",
     "steps": [
       "在日期區選今天或要查看的日期。",
-      "查看該日清單，點開預約確認顧客與狀態。",
+      "查看該日清單；月曆淡灰表示預約中、淡綠表示已完成、淡紅表示未到，並以畫面圖例為準。",
+      "需要聯絡顧客時，在清單點電話旁的「撥打」；要處理預約才點同一列其他位置開啟詳情。",
       "若找不到資料，先確認門市、日期及目前篩選。"
     ],
-    "important": "畫面上的日期與門市會影響清單範圍。",
-    "success": "",
-    "keywords": "月曆 今天 明天 查詢",
-    "details": [],
+    "important": "「撥打」只開啟裝置的電話功能，不會改預約狀態；沒有電話時顯示「未留電話」。",
+    "success": "當日清單顯示正確預約；點電話不會誤開詳情或更改資料。",
+    "keywords": "月曆 今天 明天 查詢 今日預約 顧客電話 直接撥打 未留電話 預約中 已完成 未到 狀態顏色",
+    "details": [
+      "月曆不再用服務人員色條表示預約狀態；指定人員篩選時，其他人員的預約會淡化，但狀態底色不變。",
+      "電話以目前顧客資料顯示；號碼錯誤請回顧客基本資料核對，不要只改預約備註。"
+    ],
     "modules": [
       "steamfoot"
     ],
     "permission": "booking.read",
     "feature": null,
     "sources": [
-      "src/app/(dashboard)/dashboard/bookings/booking-detail-drawer.tsx",
-      "src/app/(dashboard)/dashboard/bookings/new/booking-form.tsx",
-      "src/app/(dashboard)/dashboard/bookings/no-show-modal.tsx"
+      "src/app/(dashboard)/dashboard/bookings/booking-calendar-desktop.tsx",
+      "src/app/(dashboard)/dashboard/bookings/day-detail-panel.tsx",
+      "src/app/(dashboard)/dashboard/bookings/bookings-manager.tsx"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "在預約管理切換日期即可查看當天預約，不必回首頁重新進入。"
+    "answer": "切換日期查看當日清單；需要聯絡時直接點顧客電話旁的「撥打」，不必先開預約詳情。"
   },
   {
     "id": "A06",
@@ -1422,19 +1426,20 @@ export const additionalGuides: OperationGuide[] = [
     "id": "H01",
     "category": "analysis",
     "title": "怎麼查看本月或其他期間的營收？",
-    "summary": "先用日期篩選看摘要，再分開核對營業額、收入結構、退款、支出與固定近六個月趨勢。",
+    "summary": "先選今日、本月或完整自訂期間，再用同一期間核對營收、客流、開卡、來源及回流；長期趨勢固定近六個月。",
     "path": "分析 → 營運分析",
     "steps": [
-      "選擇今日、本月或自訂期間，先確認目前門市。",
-      "查看儲值方案、零售、其他收入、待收款、退款、已記錄支出及收支結餘；點明細連結追查。",
-      "下方近六個月趨勢可切換營業額、收支結餘、各收入與支出；需要核對摘要時使用上方相同日期範圍。"
+      "選擇今日、本月；或點自訂，填起始與結束日期後按「查詢」，再核對頁首實際期間。",
+      "以相同期間查看營收、完成服務、客流、開卡、來源與回流；查看明細時確認日期條件有一起帶入。",
+      "另看退款、待收款、支出與收支結餘；下方長期趨勢固定顯示最近六個月，不跟著自訂期間縮短。"
     ],
     "important": "營業額是退款後、支出前；收支結餘再扣已記錄支出，仍不是含商品成本與應付帳款的會計淨利。",
     "success": "",
-    "keywords": "月報 營收 報表 營業額 營收結構 儲值方案 零售 其他收入 退款 支出 收支結餘 近六個月",
+    "keywords": "今日 本月 自訂期間 起始日期 結束日期 查詢 較前期 去年同期 月報 營收 客流 開卡 來源 回流 報表 營業額 收支結餘 近六個月",
     "details": [
-      "營收結構摘要依上方日期篩選；近六個月圖固定從本月往前六個月，本月只統計至今天，不跟著摘要區間縮短。",
-      "零售依記帳時選擇的分類計算；提款不算支出，待確認收款不算已收營業額。"
+      "日期範圍包含起始日與結束日；結束日不可早於起始日。若期間涵蓋今天之後，當期只統計到台灣今天，並用相同進度比較前期及去年同期。",
+      "營收結構摘要依上方日期篩選；近六個月圖固定從本月往前六個月，本月只統計至今天，不跟著摘要區間縮短。零售依記帳時選擇的分類計算；提款不算支出，待確認收款不算已收營業額。",
+      "蒸足與 SPA 分別讀取本模組資料；課程店會轉到課程分析，不共用此頁的蒸足／SPA 統計口徑。"
     ],
     "modules": [
       "steamfoot",
@@ -1443,11 +1448,14 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "report.read",
     "feature": "basic_reports",
     "sources": [
-      "src/app/(dashboard)/dashboard/reports/page.tsx"
+      "src/app/(dashboard)/dashboard/reports/page.tsx",
+      "src/components/report-date-range.tsx",
+      "src/lib/date-utils.ts",
+      "src/server/queries/analysis-period.ts"
     ],
     "verification": "source-reviewed",
     "kind": "howto",
-    "answer": "先用日期篩選看摘要，再分開核對營業額、收入結構、退款、支出與固定近六個月趨勢。"
+    "answer": "先選今日、本月或完整自訂期間，再用同一期間核對營收、客流、開卡、來源及回流；長期趨勢固定近六個月。"
   },
   {
     "id": "H03",
@@ -1468,8 +1476,7 @@ export const additionalGuides: OperationGuide[] = [
       "無來源參數與歷史舊資料歸入其他／未記錄；轉傳入口連結會沿用原連結標籤。"
     ],
     "modules": [
-      "steamfoot",
-      "spa"
+      "steamfoot"
     ],
     "permission": "report.read",
     "feature": "basic_reports",
@@ -1487,14 +1494,17 @@ export const additionalGuides: OperationGuide[] = [
     "summary": "先對齊門市、日期、狀態及統計單位；預約筆數、服務人次與不重複顧客數本來就可能不同。",
     "path": "分析／營運／預約管理",
     "steps": [
-      "先把門市、期間與篩選調成一致。",
-      "確認比較的是人次、筆數、收款還是服務完成。",
-      "找差異顧客，核對取消、未到、退款及付款狀態。"
+      "先把門市、完整起訖日期與篩選調成一致；未結束的本月只統計到今天。",
+      "確認比較的是預約組數、完成服務人次、不重複顧客、購買方案人數或已收營收。",
+      "再找差異顧客，核對取消、未到、多人同行、退款、付款及模組來源。"
     ],
     "important": "不要為了讓報表相同就修改原始交易；先查統計口徑。",
     "success": "",
-    "keywords": "對不上 數字 差異 分析",
-    "details": [],
+    "keywords": "對不上 數字 差異 分析 人次 組數 不重複顧客 較前期 去年同期",
+    "details": [
+      "較前期與去年同期使用同樣的期間進度；下方六個月趨勢是固定長期視角，不能拿單一自訂區間直接逐格相比。",
+      "SPA 分析只計本店 SPA 完成服務與 SPA 方案銷售；蒸足及課程資料不會補進 SPA 數字。"
+    ],
     "modules": [
       "steamfoot",
       "spa"
@@ -1502,7 +1512,10 @@ export const additionalGuides: OperationGuide[] = [
     "permission": "report.read",
     "feature": "basic_reports",
     "sources": [
-      "src/app/(dashboard)/dashboard/reports/page.tsx"
+      "src/app/(dashboard)/dashboard/reports/page.tsx",
+      "src/app/(dashboard)/dashboard/reports/spa-analysis-page.tsx",
+      "src/server/queries/analysis-period.ts",
+      "src/server/queries/spa-analysis.ts"
     ],
     "verification": "source-reviewed",
     "kind": "troubleshooting",
@@ -2730,13 +2743,14 @@ export const additionalGuides: OperationGuide[] = [
     "steps": [
       "從課程店後台側邊選單開啟裝置預覽，確認目前門市；系統預設 768 × 1024 平板。",
       "從頁面選單切換課表、顧客、課程、教室、人員、方案、營運、現金帳、分析或設定。",
-      "需要時切換 1440 × 900 桌機，核對視窗、欄位與捲動；離開前確認沒有誤送出操作。"
+      "需要時切換 1440 × 900 桌機，核對內容是否使用側欄以外的可用寬度，以及視窗、欄位與捲動；離開前確認沒有誤送出操作。"
     ],
     "important": "裝置預覽使用目前門市資料，操作仍可能生效；它不是靜態圖片或隔離資料庫。",
     "success": "預覽維持正確課程頁面，切換平板／桌機不會跳回課表或開啟第二個操作指南入口。",
     "keywords": "裝置預覽 課程後台 iPad 平板 桌機 768 1024 1440 900 課表不跳回",
     "details": [
       "預覽工具本身不能再嵌套開啟裝置預覽；框內側邊選單會隱藏同一入口。",
+      "桌機後台已取消共用 1440px 內容上限，頁面可使用側欄以外的可用寬度；個別表單仍可保留閱讀寬度，不能只憑左右留白判定故障。",
       "裝置尺寸只協助檢查排版，不代表已完成真實 iPad、瀏覽器或觸控驗收。"
     ],
     "modules": ["steamfoot", "course"],
@@ -2745,7 +2759,9 @@ export const additionalGuides: OperationGuide[] = [
     "sources": [
       "src/app/(dashboard)/dashboard/device-preview/page.tsx",
       "src/components/device-preview/device-preview.tsx",
-      "src/lib/device-preview.ts"
+      "src/lib/device-preview.ts",
+      "src/components/desktop/page-shell.tsx",
+      "src/app/globals.css"
     ],
     "verification": "source-reviewed",
     "kind": "howto"
