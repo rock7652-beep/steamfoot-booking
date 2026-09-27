@@ -97,7 +97,7 @@ export function CashbookEntryFields({
     </label>
     <label className="sm:col-span-2 text-sm font-medium text-earth-700">
       備註
-      <textarea name="note" rows={1} defaultValue={defaultEntry?.note ?? ""} className={textarea} />
+      <textarea name="note" rows={1} defaultValue={defaultEntry?.note ?? ""} className={textarea} style={{ minHeight: 52 }} />
     </label>
     {isClosed && <label className="sm:col-span-2 rounded-lg border border-gold-200 bg-gold-50 p-3 text-sm text-gold-800">
       <input type="checkbox" name="confirmClosedCashbookChange" required={needsConfirmation} /> 我知道這一天已結帳，這只是補紀錄，不會重算關帳快照。
