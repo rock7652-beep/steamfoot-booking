@@ -1,6 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState } from "react";
+import { useResponsiveAction } from "@/hooks/use-responsive-action";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { updatePlan } from "@/server/actions/plan";
@@ -19,52 +20,56 @@ interface Props {
 }
 
 export function PlanActiveToggle({ planId, planName, isActive, compact = false, onChange }: Props) {
-  const [pending, startTransition] = useTransition();
+  const [preview, setPreview] = useState<boolean | null>(null);
+  const [lastServerValue, setLastServerValue] = useState(isActive);
+  if (lastServerValue !== isActive) {
+    setLastServerValue(isActive);
+    setPreview(null);
+  }
+  const saves = useResponsiveAction();
+  const pending = saves.isBlocked(planId);
+  const displayed = preview ?? isActive;
   const router = useRouter();
 
   function handleToggle() {
-    const next = !isActive;
-    startTransition(async () => {
-      const result = await updatePlan(planId, { isActive: next });
-      if (result.success) {
-        toast.success(
-          next
-            ? `「${planName}」已上架`
-            : `「${planName}」已下架（既有顧客錢包不受影響）`
-        );
-        if (onChange) {
-          onChange(next);
-        } else {
-          router.refresh();
-        }
-      } else {
-        toast.error(result.error ?? "切換失敗");
-      }
+    const next = !displayed;
+    void saves.run(planId, () => updatePlan(planId, { isActive: next }), {
+      apply: () => setPreview(next),
+      rollback: () => setPreview(null),
+      confirmed: () => {
+        toast.success(`「${planName}」設定已儲存`);
+        if (onChange) onChange(next);
+        else router.refresh();
+
+      },
     });
   }
 
-  const label = isActive ? "上架中" : "已下架";
-  const badgeClass = isActive
+  const label = displayed ? "上架中" : "已下架";
+  const badgeClass = displayed
     ? "bg-green-100 text-green-700 hover:bg-green-200"
     : "bg-red-100 text-red-600 hover:bg-red-200";
 
   return (
+    <span className="inline-flex flex-col items-start gap-1">
     <button
       type="button"
       onClick={handleToggle}
       disabled={pending}
-      aria-pressed={isActive}
-      title={isActive ? "點擊下架此方案" : "點擊重新上架此方案"}
+      aria-pressed={displayed}
+      title={displayed ? "點擊下架此方案" : "點擊重新上架此方案"}
       className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium transition ${badgeClass} ${
         compact ? "text-[10px]" : ""
       } ${pending ? "opacity-60 cursor-wait" : "cursor-pointer"}`}
     >
       <span
         className={`inline-block h-1.5 w-1.5 rounded-full ${
-          isActive ? "bg-green-500" : "bg-red-500"
+          displayed ? "bg-green-500" : "bg-red-500"
         }`}
       />
-      {pending ? "切換中..." : label}
+      {label}{saves.states[planId]?.phase === "saving" ? "・儲存中…" : ""}
     </button>
+    {(saves.states[planId]?.phase === "error" || saves.states[planId]?.phase === "unknown") && <span role="alert" className="max-w-64 text-xs text-red-700">{saves.states[planId].message}</span>}
+    </span>
   );
 }
