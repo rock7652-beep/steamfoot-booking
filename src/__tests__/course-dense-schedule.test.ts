@@ -77,14 +77,8 @@ it("day timetable balances width by active resource count", () => {
   expect(board).not.toContain('aria-label="課表欄位視角"');
 });
 
-it("unpaid trial collection is visible beside the unpaid amount", () => {
-  expect(roster).toContain('paid ? `已收 NT$ ${paid.amount}` : "未收款"');
-  expect(roster).toContain('收款');
-  expect(roster).toContain("setCorrectPayment(false)");
-  expect(roster).toContain("setPaymentBooking(booking.id)");
-  expect(roster).toContain('paid &&\n                    booking.bookingKind === "TRIAL"');
-  expect(roster).toContain("更正收款");
-});
+// Payment visibility and click targets are exercised in course-roster-compact-ui.test.ts.
+
 
 it("collected trial payments show a clear paid badge in the fee column", () => {
   expect(roster).toContain("✓ 已收 NT$ {paid.amount}");
