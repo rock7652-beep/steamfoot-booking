@@ -8,6 +8,7 @@ import type {
   StorePlanStatus,
 } from "@prisma/client";
 import type { PersistedIndustryModule } from "@/lib/industry-modules";
+import type { CourseBusinessProfile } from "@/lib/store-business-profile";
 
 // ============================================================
 // 建店輸入
@@ -22,8 +23,10 @@ export interface CreateStoreInput {
   plan: PricingPlan;
   /** 是否為 Demo 店 */
   isDemo: boolean;
-  /** 建立後不可由營運介面變更 */
+  /** 底層執行引擎；建立後不可由營運介面變更 */
   industryModule: PersistedIndustryModule;
+  /** COURSE 引擎上的業務類型；既有 COURSE 店未填時視為 FITNESS */
+  businessProfile?: CourseBusinessProfile;
 
   /** OWNER 必填（name / email / password） */
   owner: OwnerInput;
@@ -66,6 +69,7 @@ export interface StoreDeliverySummary {
     operatingStatus: StoreOperatingStatus;
     isDemo: boolean;
     industryModule: PersistedIndustryModule;
+    businessProfile: CourseBusinessProfile | null;
   };
   /** 交付網址 — 對應 proxy.ts 實際路由 */
   urls: {

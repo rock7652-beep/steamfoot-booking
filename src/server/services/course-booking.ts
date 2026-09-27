@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { resolveCustomerBookingWindow, type CustomerBookingWindowConfig } from "@/lib/shop-config";
 import { getStoreLimitsByStoreId } from "@/lib/feature-gate";
 import { courseMonthlyBookingWhere } from "@/lib/course-usage";
-import { toLocalDateStr } from "@/lib/date-utils";
+import { toLocalDateStr,dayRange } from "@/lib/date-utils";
+import {musicCourseExpiry} from "@/lib/music-course-products";
 import "server-only";
 import { AppError } from "@/lib/errors";
 import { courseTransaction } from "./course-access";
@@ -16,7 +17,39 @@ export type CourseActor = {
 };
 
 export type CourseNoShowChoice = "DEDUCTED" | "DEDUCTED_WITH_MAKEUP";
+export async function syncCourseRelease(tx: Prisma.TransactionClient, storeId: string, sessionId: string) {
+  const session = await tx.courseSession.findFirst({ where: { id: sessionId, storeId, cancelledAt: null }, select: { teacherAttendance: true, releasedAt: true, startsAt: true, endsAt: true, roomId: true, coachId: true } });
+  if (!session) return;
+  const [active, leave] = await Promise.all([
+    tx.courseBooking.count({ where: { storeId, sessionId, status: { not: "CANCELLED" } } }),
+    tx.courseBooking.count({ where: { storeId, sessionId, status: "CANCELLED", absenceKind: { in: ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"] } } }),
+  ]);
+  const shouldRelease = active === 0 && (session.teacherAttendance === "LEAVE" || leave > 0);
+  if (shouldRelease !== Boolean(session.releasedAt)) {
+    if (!shouldRelease) {
+      const conflict = await tx.courseSession.findFirst({ where: {
+        storeId, id: { not: sessionId }, cancelledAt: null, releasedAt: null,
+        startsAt: { lt: session.endsAt }, endsAt: { gt: session.startsAt },
+        OR: [{ roomId: session.roomId }, { coachId: session.coachId }],
+      }, select: { roomId: true } });
+      if (conflict) throw new AppError("CONFLICT", `原時段${conflict.roomId === session.roomId ? "教室" : "老師"}已有課，請先處理占用課程再恢復原課`);
+    }
+    // Reclaiming a slot checks the database's room and teacher exclusions.
+    // A temporary class occupying it prevents accidental restoration.
+    await tx.courseSession.update({ where: { id: sessionId }, data: { releasedAt: shouldRelease ? new Date() : null } });
+  }
+}
 const COURSE_MAKEUP_VALID_DAYS = 7;
+// The music pilot uses an isolated preview database. Allow staff to rehearse
+// attendance before the scheduled start only in that exact environment.
+function allowEarlyPilotAttendance(): boolean {
+  if (process.env.VERCEL_ENV !== "preview" || !["codex/music-reschedule-20260925", "codex/music-manager-attendance-20260927"].includes(process.env.VERCEL_GIT_COMMIT_REF ?? "")) return false;
+  try {
+    const url = new URL(process.env.DATABASE_URL ?? "");
+    return url.hostname === "db.ttworfzgwejdeolegkxl.supabase.co" ||
+      (/^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/.test(url.hostname) && url.username === "postgres.ttworfzgwejdeolegkxl");
+  } catch { return false; }
+}
 const fail = (message: string): never => {
   throw new AppError("VALIDATION", message);
 };
@@ -141,6 +174,7 @@ export async function reserveCourseInTransaction(
   ]);
   if (!session || (input.cardId !== null && !card) || !customers.length)
     return fail("請選擇本店有效課程、方案與上課人");
+  if (session.releasedAt) return fail("此課原時段已釋出，請先處理現有排課再恢復預約");
   if (!session.template.isActive || session.template.visibility === "OFF" || (actor.customerId && session.template.visibility !== "PUBLIC")) return fail("本課程目前不開放新增預約，既有預約仍可查閱與依規則取消");
   if (card && (
     !card.members.some((m) => m.customerId === input.customerId) ||
@@ -148,6 +182,10 @@ export async function reserveCourseInTransaction(
       !card.members.some((m) => m.customerId === actor.customerId))
   ))
     return fail("僅能替此共卡的授權成員預約");
+  if (card && card.unit !== "SESSION") {
+    const music=await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+    if(music.some(row=>row.featureKey==="business.music"))return fail("音樂教室只使用堂數方案，不能以點數預約");
+  }
   if(card?.termSessionIds?.length&&!card.termSessionIds.includes(session.id))return fail("期課方案僅能使用指定課次");
   if (card?.closedAt) return fail("此方案已退款或結清，不能預約");
   if (card?.templateIds?.length && !card.templateIds.includes(session.templateId)) return fail("此方案不適用本堂課");
@@ -169,6 +207,15 @@ export async function reserveCourseInTransaction(
   if (closed[0]?.closed) return fail("店家公休日無法新增預約");
   if (card && (card.expiresAt < now || card.expiresAt < session.startsAt))
     return fail("方案已到期或不涵蓋上課日期");
+  if(card?.musicValidityDays && !card.musicActivatedAt) {
+    const [earliest,latest]=await Promise.all([
+      tx.courseBooking.findFirst({where:{storeId,cardId:card.id,status:"RESERVED"},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}}),
+      tx.courseBooking.findFirst({where:{storeId,cardId:card.id,status:"RESERVED"},orderBy:{session:{startsAt:"desc"}},select:{session:{select:{startsAt:true}}}}),
+    ]);
+    const first=earliest?.session.startsAt && earliest.session.startsAt<session.startsAt ? earliest.session.startsAt : session.startsAt;
+    const last=latest?.session.startsAt && latest.session.startsAt>session.startsAt ? latest.session.startsAt : session.startsAt;
+    if(last>musicCourseExpiry(first,card.musicValidityDays))return fail("預約超過首次上課起算的方案效期，請調整日期");
+  }
   const [duplicate, occupied, held] = await Promise.all([
     tx.courseBooking.findFirst({
       where: {
@@ -219,7 +266,7 @@ export async function settleCourseBooking(
   tx: Prisma.TransactionClient,
   actor: CourseActor,
   bookingId: string,
-  target: "CANCELLED" | "ATTENDED" | "CHECKED_IN" | "NO_SHOW",
+  target: "CANCELLED" | "ATTENDED" | "CHECKED_IN" | "NO_SHOW" | "STUDENT_LEAVE",
   noShowChoice: CourseNoShowChoice = "DEDUCTED",
 ) {
   const booking = await tx.courseBooking.findFirst({
@@ -227,17 +274,26 @@ export async function settleCourseBooking(
     include: { session: true, card: { include: { members: true } } },
   });
   if (!booking) return fail("找不到本店預約");
+  if (target === "NO_SHOW" && noShowChoice === "DEDUCTED_WITH_MAKEUP") {
+    const music = await tx.$queryRaw<Array<{featureKey:string}>>`
+      SELECT "featureKey" FROM "StoreFeatureEntitlement"
+      WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+    if (music.some(item => item.featureKey === "business.music"))
+      return fail("音樂教室曠課只扣堂，不發補課券");
+  }
   if (
     actor.customerId &&
     !(booking.card ? booking.card.members.some((m) => m.customerId === actor.customerId) : booking.customerId === actor.customerId)
   )
     return fail("無權操作此共卡預約");
   if (booking.status === target) return booking;
+  if (target === "STUDENT_LEAVE" && booking.status === "CANCELLED" && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")) return booking;
   if (booking.status !== "RESERVED")
     return fail("此預約已結算或取消，不能重複操作");
+  if (target === "STUDENT_LEAVE" && actor.customerId) return fail("請假登記僅限有權限的人員");
   if (target === "CHECKED_IN" || target === "NO_SHOW") {
     if (actor.customerId) return fail("點名僅限有權限的人員");
-    if (target === "NO_SHOW" && booking.session.startsAt > new Date())
+    if (target === "NO_SHOW" && booking.session.startsAt > new Date() && !allowEarlyPilotAttendance())
       return fail("課程尚未開始，不能標記未到");
     if (target === "CHECKED_IN") {
       if (booking.checkedInAt) return booking;
@@ -248,22 +304,31 @@ export async function settleCourseBooking(
       });
     }
   }
+  const musicGroupLeave = target === "STUDENT_LEAVE" && booking.cardId &&
+    (await tx.$queryRaw<Array<{featureKey:string}>>`
+      SELECT "featureKey" FROM "StoreFeatureEntitlement"
+      WHERE "storeId"=${actor.storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`
+    ).some(item => item.featureKey === "business.music") &&
+    (await tx.courseTemplate.findFirst({where:{id:booking.session.templateId,storeId:actor.storeId},select:{classType:true}}))?.classType === "GROUP";
   const shouldDebit =
-    target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId);
+    target === "ATTENDED" || (target === "NO_SHOW" && !!booking.cardId) || !!musicGroupLeave;
   if (shouldDebit) {
     if (actor.customerId) return fail("點名僅限有權限的人員");
-    if (booking.session.startsAt > new Date())
+    if (target !== "STUDENT_LEAVE" && booking.session.startsAt > new Date() && !allowEarlyPilotAttendance())
       return fail("課程尚未開始，不能標記出席");
     if (booking.cardId) {
+    const expiry=booking.card?.musicValidityDays && !booking.card.musicActivatedAt ? musicCourseExpiry(booking.session.startsAt,booking.card.musicValidityDays) : null;
+    if(booking.card?.musicValidityDays && booking.card.musicActivatedAt && booking.card.expiresAt < booking.session.startsAt)
+      return fail("這堂課超過方案有效期限，請核對補課日期");
     const updated = await tx.coursePointCard.updateMany({
       where: {
         id: booking.cardId,
         storeId: actor.storeId,
         remaining: { gte: booking.pointCost },
       },
-      data: { remaining: { decrement: booking.pointCost } },
+      data: { remaining: { decrement: booking.pointCost }, ...(expiry ? {expiresAt:expiry,musicActivatedAt:booking.session.startsAt}: {}) },
     });
-    if (!updated.count) return fail("點數帳目異常，尚未完成點名");
+    if (!updated.count) return fail("方案額度異常，尚未完成點名");
     }
   } else if (actor.customerId) {
     const rule = await tx.courseBookingRule.findUnique({
@@ -277,9 +342,10 @@ export async function settleCourseBooking(
   }
   const updated = await tx.courseBooking.update({
     where: { id: booking.id },
-    data: { status: target },
+    data: { status: target === "STUDENT_LEAVE" ? "CANCELLED" : target, absenceKind: target === "STUDENT_LEAVE" ? (musicGroupLeave ? "GROUP_LEAVE_FORFEITED" : "STUDENT_LEAVE") : null },
   });
-  if (!booking.cardId) { await auditTrialAttendance(tx,actor,booking.id,booking.status,target); return updated; }
+  if (target === "STUDENT_LEAVE" || target === "CANCELLED") await syncCourseRelease(tx, actor.storeId, booking.sessionId);
+  if (!booking.cardId) { if (booking.bookingKind === "TRIAL") await auditTrialAttendance(tx,actor,booking.id,booking.status,target); return updated; }
   const kind = shouldDebit ? "DEBIT" : "RELEASE";
   const previousEntry = await tx.coursePointEntry.findUnique({where:{bookingId_kind:{bookingId:booking.id,kind}}});
   await tx.coursePointEntry.create({
@@ -295,6 +361,7 @@ export async function settleCourseBooking(
   if (
     target === "NO_SHOW" &&
     noShowChoice === "DEDUCTED_WITH_MAKEUP" &&
+    !booking.card?.termSessionIds?.length &&
     booking.card
   ) {
     const expiresAt = new Date();
@@ -338,21 +405,44 @@ export async function correctCourseAttendance(
   target: "RESERVED" | "ATTENDED" | "NO_SHOW", expectedStatus: string,
 ) {
   const b = await tx.courseBooking.findFirst({ where: { id: bookingId, storeId: actor.storeId }, include: { session: true, card: true } });
-  if (!b || b.status === "CANCELLED" || b.session.cancelledAt) return fail("此預約無法更正");
+  const restoringLeave = b?.status === "CANCELLED" && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(b.absenceKind ?? "") && target === "RESERVED" && expectedStatus === "CANCELLED";
+  if (!b || (b.status === "CANCELLED" && !restoringLeave) || b.session.cancelledAt) return fail("此預約無法更正");
   if (b.status === target) return b;
   if (b.card?.closedAt) return fail("此方案已退款或結清，無法更正出席額度");
   if (b.status !== expectedStatus) return fail("另一位人員已更新點名，請重新確認");
-  if (b.session.startsAt > new Date()) return fail("課程尚未開始，不能點名");
-  if (!b.card || !b.cardId) { await auditTrialAttendance(tx,actor,b.id,b.status,target); return tx.courseBooking.update({where:{id:b.id},data:{status:target,checkedInAt:target === "ATTENDED" ? new Date() : null}}); }
+  if (restoringLeave) {
+    const [occupied, duplicate] = await Promise.all([
+      tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, status: { not: "CANCELLED" } } }),
+      tx.courseBooking.count({ where: { storeId: actor.storeId, sessionId: b.sessionId, customerId: b.customerId, status: { not: "CANCELLED" } } }),
+    ]);
+    if (occupied >= b.session.capacity) return fail("本堂課名額已滿，無法恢復請假；請先處理名額");
+    if (duplicate) return fail("此學員已有本堂課預約，無法重複恢復");
+    if (b.card && b.card.expiresAt < b.session.startsAt) return fail("方案不涵蓋本堂日期，無法恢復請假");
+  }
+  if (!restoringLeave && b.session.startsAt > new Date() && !allowEarlyPilotAttendance()) return fail("課程尚未開始，不能點名");
+  if (!b.card || !b.cardId) { if(b.bookingKind==="TRIAL")await auditTrialAttendance(tx,actor,b.id,b.status,target); const updated = await tx.courseBooking.update({where:{id:b.id},data:{status:target,absenceKind:null,checkedInAt:target === "ATTENDED" ? new Date() : null}}); if (restoringLeave) await syncCourseRelease(tx, actor.storeId, b.sessionId); return updated; }
   const held = await tx.courseBooking.aggregate({ where: { storeId: actor.storeId, cardId: b.cardId, status: "RESERVED", id: { not: b.id } }, _sum: { pointCost: true } });
-  const wasDebited=b.status==="ATTENDED"||(b.status==="NO_SHOW"&&!!b.card.termSessionIds?.length);
-  const willDebit=target==="ATTENDED"||(target==="NO_SHOW"&&!!b.card.termSessionIds?.length);
+  const wasDebited=b.status==="ATTENDED"||b.status==="NO_SHOW"||b.absenceKind==="GROUP_LEAVE_FORFEITED";
+  const willDebit=target==="ATTENDED"||target==="NO_SHOW";
   const remaining = b.card.remaining + (wasDebited ? b.pointCost : 0);
   if ((willDebit || target === "RESERVED") && remaining - (held._sum.pointCost ?? 0) < b.pointCost) return fail("方案可用額度不足，無法更正");
   const delta = (wasDebited ? b.pointCost : 0) - (willDebit ? b.pointCost : 0);
-  if (delta) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { remaining: { increment: delta } } });
+  let activation: {expiresAt:Date;musicActivatedAt:Date|null}|null=null;
+  if(b.card.musicValidityDays && willDebit && !wasDebited && !b.card.musicActivatedAt){
+    const expiresAt=musicCourseExpiry(b.session.startsAt,b.card.musicValidityDays);
+    if(expiresAt < b.session.startsAt) return fail("方案已到期，無法點名");
+    activation={musicActivatedAt:b.session.startsAt,expiresAt};
+  }
+  if(b.card.musicValidityDays && wasDebited && !willDebit){
+    const first=await tx.courseBooking.findFirst({where:{storeId:actor.storeId,cardId:b.cardId,id:{not:b.id},OR:[{status:{in:["ATTENDED","NO_SHOW"]}},{absenceKind:"GROUP_LEAVE_FORFEITED"}]},orderBy:{session:{startsAt:"asc"}},select:{session:{select:{startsAt:true}}}});
+    const firstDate=first?.session.startsAt??null;
+    activation={musicActivatedAt:firstDate,expiresAt:firstDate ? musicCourseExpiry(firstDate,b.card.musicValidityDays) : dayRange("2099-12-31").end};
+  }
+  if (delta || activation) await tx.coursePointCard.update({ where: { id: b.cardId }, data: { ...(delta ? {remaining: { increment: delta }} : {}), ...(activation??{}) } });
   await tx.coursePointEntry.create({ data: { storeId: actor.storeId, cardId: b.cardId, bookingId: b.id, actorUserId: actor.userId, kind: `CORRECT:${b.status}:${target}:${crypto.randomUUID()}`, points: b.pointCost } });
-  return tx.courseBooking.update({ where: { id: b.id }, data: { status: target, checkedInAt: target === "ATTENDED" ? new Date() : null } });
+  const updated = await tx.courseBooking.update({ where: { id: b.id }, data: { status: target, absenceKind: null, checkedInAt: target === "ATTENDED" ? new Date() : null } });
+  if (restoringLeave) await syncCourseRelease(tx, actor.storeId, b.sessionId);
+  return updated;
 }
 
 async function auditTrialAttendance(tx:Prisma.TransactionClient,actor:CourseActor,id:string,before:string,after:string){

@@ -36,3 +36,23 @@
   z-index: 1;
   background: white;
 }
+
+
+/* Mobile Safari must always have a real scroll owner inside the body-locked sheet.
+   Desktop keeps the existing fixed-header / inner-scroll layout. */
+@media (max-width: 639px) {
+  .mobileScrollable {
+    height: 100dvh !important;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .centered.mobileScrollable {
+    overflow-y: auto;
+  }
+}

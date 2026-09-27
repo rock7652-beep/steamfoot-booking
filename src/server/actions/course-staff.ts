@@ -22,7 +22,7 @@ import { revalidatePath } from "next/cache";
 const id = z.string().min(1).max(180);
 const teachingFee = z.object({
   templateId: id,
-  value: compensationRule.refine(rule => rule.mode === "CLASS", "僅支援每堂固定授課費").transform(rule => rule.value),
+  value: compensationRule.refine(rule => rule.mode === "CLASS" || rule.mode === "SHARE", "僅支援每堂固定或音樂課按比例計酬"),
   revision: z.number().int().min(0),
 });
 export async function readCourseStaffTeaching(staffId: string) {
@@ -81,6 +81,8 @@ export async function saveCourseStaff(input: unknown) {
       .parse(input);
     if (d.permissions?.some((p) => !COURSE_PERMISSIONS.includes(p)))
       throw new AppError("FORBIDDEN", "只能設定課程模組的店內權限");
+    if (d.teachingFees?.some(f=>f.value.mode==="SHARE") && !await prisma.storeFeatureEntitlement.findFirst({where:{storeId,featureKey:"business.music",status:"ENABLED"},select:{storeId:true}}))
+      throw new AppError("VALIDATION","只有音樂教室可設定老師拆帳比例");
     if (!d.id && (!d.emergencyContactName || !d.emergencyContactPhone || !d.emergencyContactRelation)) throw new AppError("VALIDATION","新建人員請填緊急聯絡姓名、關係與電話");
     if (d.birthday && !parseTaipeiDateTime(d.birthday,"00:00")) throw new AppError("VALIDATION","生日格式不正確");
     const contacts = { emergencyContactRelation:d.emergencyContactRelation, ...(d.birthday!==undefined?{courseBirthday:d.birthday?new Date(d.birthday+"T00:00:00Z"):null}:{}), phone: d.phone, emergencyContactName: d.emergencyContactName, emergencyContactPhone: d.emergencyContactPhone };
@@ -233,7 +235,7 @@ export async function saveCourseStaff(input: unknown) {
           });
         if (d.teachingFees) {
           for (const fee of d.teachingFees) {
-            const rules = JSON.stringify([{ mode: "CLASS", value: fee.value }]);
+            const rules = JSON.stringify([fee.value]);
             await tx.$executeRaw`INSERT INTO "CourseCompensation" ("storeId","templateId","staffId",rules,revision) VALUES (${storeId},${fee.templateId},${staffId},${rules}::jsonb,1) ON CONFLICT ("storeId","templateId","staffId") DO UPDATE SET rules=EXCLUDED.rules,revision="CourseCompensation".revision+1,"updatedAt"=NOW()`;
           }
         }

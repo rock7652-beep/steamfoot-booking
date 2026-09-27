@@ -18,6 +18,7 @@ import { saveCourseTrialSettings } from "@/server/actions/course-trial";
 import type { TrialSettings } from "@/lib/shop-config";
 
 type Props = {
+  music?:boolean;
   today?: string; trialSettings?: TrialSettings;
   panelContent?: ReactNode;
   storeId: string; name: string; planLabel: string; address: string; mapUrl: string; lineOfficialUrl: string;
@@ -101,7 +102,7 @@ export function CourseSettingsWorkspace(props: Props) {
         </Row>
         <Row title="預約與取消截止" summary={props.canEdit ? "直接調整截止時間，儲存後生效。" : "預約截止：" + lead(props.bookingLeadMinutes) + "；自行取消截止：" + lead(props.cancellationLeadMinutes)}>
           {editor({ section: "booking", bookingLeadMinutes: props.bookingLeadMinutes, cancellationLeadMinutes: props.cancellationLeadMinutes }, props.canEdit)}
-          <details className="mt-3 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">目前扣堂規則</summary><p>自由預約：先保留額度，出席扣點／扣堂；取消或未到釋放占用。固定期課：未到仍扣堂，不提供補課券。截止後請聯絡店長處理。</p></details>
+          <details className="mt-3 text-sm text-earth-600"><summary className="min-h-11 cursor-pointer py-3">目前扣堂規則</summary><p>{props.music ? "預約先保留堂數，報到即出席並扣 1 堂；曠課扣 1 堂。自組班請假保留補課資格，團體班請假記錄並扣 1 堂。音樂教室沒有補課券。" : "自由預約：先保留額度，出席扣點／扣堂；取消或未到釋放占用。固定期課：未到仍扣堂，不提供補課券。截止後請聯絡店長處理。"}</p></details>
         </Row>
         <Row title="值班聯動" summary={props.dutyEnabled ? "已啟用：教練值班須涵蓋完整課程。" : "未啟用：值班供參考，依實際排課開放預約。"} href={props.canDutyManage ? "/dashboard/settings/duty" : undefined} action="查看值班概況">{props.canDutyManage && <div className="mt-3"><DutySchedulingToggle enabled={props.dutyEnabled ?? false} course compact /></div>}</Row>
       </SectionGuard></section>

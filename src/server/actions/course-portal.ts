@@ -137,6 +137,10 @@ export async function purchaseCoursePlan(input: unknown) {
         where: { id: data.planId, storeId, isActive: true, customerPurchasable: true },
       });
       if (!plan) throw new AppError("NOT_FOUND", "此方案目前不開放顧客購買");
+      if(plan.unit==="POINT"){
+        const music=await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+        if(music.some(row=>row.featureKey==="business.music"))throw new AppError("VALIDATION","音樂教室只販售堂數方案");
+      }
       const owners=await tx.$queryRaw<Array<{assignedStaffId:string|null}>>`SELECT "assignedStaffId" FROM "Customer" WHERE id=${customer.id} AND "storeId"=${storeId}`;
       const allocation=await courseSaleSnapshot(tx,storeId,plan.price,plan.storeCost,owners[0]?.assignedStaffId??null);
       const termSessionIds=await validateCourseTerm(tx,storeId,plan);
@@ -186,6 +190,9 @@ export async function confirmCoursePurchase(input: unknown) {
       >`SELECT id FROM "Customer" WHERE id=${order.customerId} AND "storeId"=${storeId} AND "mergedIntoCustomerId" IS NULL`;
       if (!customers.length)
         throw new AppError("VALIDATION", "顧客資料已變更，請先核對");
+      const music=await tx.$queryRaw<Array<{featureKey:string}>>`SELECT "featureKey" FROM "StoreFeatureEntitlement" WHERE "storeId"=${storeId} AND "featureKey"='business.music' AND status::text='ENABLED' LIMIT 1`;
+      const musicCard=music.some(row=>row.featureKey==="business.music");
+      if(musicCard && order.unit!=="SESSION")throw new AppError("VALIDATION","音樂教室只使用堂數方案");
       const card = await tx.coursePointCard.create({
         data: {
           storeId,
@@ -195,9 +202,10 @@ export async function confirmCoursePurchase(input: unknown) {
           unit: order.unit,
           templateIds: order.templateIds,
           remaining: order.points,
-          expiresAt: dayRange(
+          expiresAt: musicCard ? dayRange("2099-12-31").end : dayRange(
             addTaiwanDuration(toLocalDateStr(), order.validDays, "DAY"),
           ).end,
+          musicValidityDays: musicCard ? order.validDays : null,
           requestKey: "purchase:" + order.id,
           members: { create: { customerId: order.customerId } },
           entries: {

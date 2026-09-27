@@ -10,7 +10,7 @@ import { coursePlanReminderSchema } from "@/lib/course-plan-reminders";
 type Plan = { id: string; name: string; unit: string; isActive: boolean; lowBalanceEnabled: boolean; lowBalanceThreshold: number | null; expiry?: {enabled:boolean;days:number[]} };
 type Draft = { enabled: boolean; threshold: string; expiryEnabled: boolean; expiryDays: string };
 const same = (a: Draft, b: Draft) => a.enabled === b.enabled && a.threshold === b.threshold && a.expiryEnabled === b.expiryEnabled && a.expiryDays === b.expiryDays;
-export function CourseLowBalanceSettings({ plans }: { plans: Plan[] }) {
+export function CourseLowBalanceSettings({ plans, music=false }: { plans: Plan[];music?:boolean }) {
   const initial = () => Object.fromEntries(plans.map(p => [p.id, { enabled: p.lowBalanceEnabled, threshold: p.lowBalanceThreshold?.toString() ?? "", expiryEnabled: p.expiry?.enabled ?? true, expiryDays: (p.expiry?.days ?? [14,7]).join(", ") }]));
   const [saved, setSaved] = useState<Record<string, Draft>>(initial);
   const [drafts, setDrafts] = useState<Record<string, Draft>>(initial);
@@ -57,7 +57,7 @@ export function CourseLowBalanceSettings({ plans }: { plans: Plan[] }) {
     <div className="border-t border-earth-100">
       <div className="flex flex-wrap gap-2 p-4"><input aria-label="搜尋提醒方案" placeholder="搜尋方案名稱" value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} className="min-h-11 min-w-0 flex-1 rounded-lg border px-3"/><select aria-label="篩選提醒方案" value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }} className="min-h-11 rounded-lg border px-3"><option value="all">全部方案</option><option value="enabled">低額度已開啟</option><option value="expiry">到期已勾選</option></select></div>
       <p className="px-4 pb-3 text-xs text-earth-500">直接調整後一次儲存；搜尋與換頁保留修改。到期天數以逗號分隔，例如 14, 7；須開啟上方到期提醒總開關才會發送。</p>
-      {!visible.length && <p className="p-4 text-sm text-earth-600">{plans.length ? "沒有符合條件的方案。" : "建立點數／堂數方案後，可在此設定提醒。"}</p>}
+      {!visible.length && <p className="p-4 text-sm text-earth-600">{plans.length ? "沒有符合條件的方案。" : music ? "建立堂數方案後，可在此設定提醒。" : "建立點數／堂數方案後，可在此設定提醒。"}</p>}
       <div className="hidden grid-cols-[minmax(130px,1fr)_160px_190px_52px] gap-3 border-t bg-earth-50 px-4 py-2 text-xs text-earth-600 lg:grid"><span>方案</span><span>低額度提醒</span><span>到期前幾天提醒</span><span>預覽</span></div>
       {visible.map(plan => {
         const draft = drafts[plan.id], unit = plan.unit === "SESSION" ? "堂" : "點";

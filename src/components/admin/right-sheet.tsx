@@ -96,7 +96,7 @@ export function RightSheet({
         aria-modal="true"
         aria-labelledby={labelledById}
         style={centered ? { "--sheet-width": `${width}px` } as CSSProperties : { width }}
-        className={`${centered ? styles.centered : "absolute right-0 top-0 h-full max-w-full"} flex flex-col ${compact ? "border-l border-earth-200 border-t-4 border-t-secondary-500 [&>header]:bg-primary-50 [&>footer]:bg-earth-50" : ""} bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 ${
+        className={`${centered ? styles.centered : "absolute right-0 top-0 h-full max-w-full"} ${styles.mobileScrollable} flex flex-col ${compact ? "border-l border-earth-200 border-t-4 border-t-secondary-500 [&>header]:bg-primary-50 [&>footer]:bg-earth-50" : ""} bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_8px_40px_rgba(20,24,31,0.15)] transition-transform duration-200 ${
           centered ? (open ? "visible" : "invisible") : (open ? "translate-x-0" : "translate-x-full")
         }`}
       >

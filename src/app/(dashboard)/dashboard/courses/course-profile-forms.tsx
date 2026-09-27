@@ -6,8 +6,10 @@ import { useFormDraft, FormDraftNotice } from "@/components/operations/use-form-
 import { saveCourseCustomer, saveCoursePointPlan } from "@/server/actions/course-members";
 import { formatTWDateTime } from "@/lib/date-utils";
 import { coursePlanSnapshot } from "@/lib/course-plan-snapshot";
+import { musicPlanQuote } from "@/lib/music-course-products";
 export type Person = { id: string; updatedAt?: string; name: string; phone: string; email: string | null; gender: string | null; birthday: string; serviceNote: string | null; address: string | null; notes: string | null; emergencyContactName: string | null; emergencyContactPhone: string | null };
 export type Plan = {
+  musicTerms?: number | null;
   id: string;
   name: string;
   points: number;
@@ -81,8 +83,8 @@ export function CourseCustomerDraftForm({person,canEdit,canCreate,hidden,...call
                 </fieldset>
               </fieldset></form>;
 }
-export function CoursePlanDraftForm({plan,templates,termSessions,profitEnabled,...callbacks}:Callbacks&{plan:Plan|null;templates:{id:string;name:string;category:string;isActive:boolean}[];termSessions:{id:string;name:string;startsAt:string}[];profitEnabled:boolean}){
- const draft=useFormDraft<Record<string,string>>(`course-plan:${plan?.id??"new"}`,{name:plan?.name??"",unit:plan?.unit??"POINT",active:plan?.isActive===false?"no":"yes",points:String(plan?.points??10),price:String(plan?.price??0),storeCost:String(plan?.storeCost??0),days:String(plan?.validDays??90),purchaseMode:plan?.customerPurchasable===false?"backend":"customer",allowShared:plan?.allowShared?"yes":"no",templates:JSON.stringify(plan?.templateIds??[]),terms:JSON.stringify(plan?.termSessionIds??[])},plan?JSON.stringify(coursePlanSnapshot(plan)):null);
+export function CoursePlanDraftForm({plan,templates,termSessions,profitEnabled,music=false,...callbacks}:Callbacks&{plan:Plan|null;templates:{id:string;name:string;category:string;isActive:boolean;musicPricePerLesson?:number|null;musicTermLessons?:number|null;musicValidityDaysPerTerm?:number|null;musicTrialMode?:string|null}[];termSessions:{id:string;name:string;startsAt:string}[];profitEnabled:boolean;music?:boolean}){
+ const draft=useFormDraft<Record<string,string>>(`course-plan:${plan?.id??"new"}`,{name:plan?.name??"",unit:music?"SESSION":plan?.unit??"POINT",active:plan?.isActive===false?"no":"yes",points:String(plan?.points??10),price:String(plan?.price??0),storeCost:String(plan?.storeCost??0),days:String(plan?.validDays??90),musicTerms:String(plan?.musicTerms??1),purchaseMode:plan?.customerPurchasable===false?"backend":"customer",allowShared:plan?.allowShared?"yes":"no",templates:JSON.stringify(plan?.templateIds??[]),terms:JSON.stringify(plan?.termSessionIds??[])},plan?JSON.stringify({...coursePlanSnapshot(plan),musicTerms:plan.musicTerms}):null);
  const {submit,error,pending}=useSaveForm(draft,callbacks);
  const [templateSearch,setTemplateSearch]=useState("");
  const parseIds=(raw:string):string[]=>{try{const v:unknown=JSON.parse(raw);return Array.isArray(v)&&v.every(x=>typeof x==="string")?v:[];}catch{return [];}};
@@ -90,9 +92,11 @@ export function CoursePlanDraftForm({plan,templates,termSessions,profitEnabled,.
  const setSelectedTemplateIds:Dispatch<SetStateAction<string[]>>=next=>draft.set("templates",JSON.stringify(typeof next==="function"?next(selectedTemplateIds):next));
  const visibleTemplates=templates.filter(t=>t.name.toLocaleLowerCase().includes(templateSearch.trim().toLocaleLowerCase()));
  const templateGroups=[...new Set(visibleTemplates.map(t=>t.category||"未分類"))];
- const unitPrice=Math.round(Number(draft.values.price)/Math.max(1,Number(draft.values.points)));
- const estimatedProfit=Number(draft.values.price)-Number(draft.values.storeCost);
- return <form id="course-member-form" className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={e=>void submit(e,d=>saveCoursePointPlan({id:plan?.id,expectedSnapshot:draft.expectedRevision??undefined,name:d.get("name"),points:Number(d.get("points")),price:Number(d.get("price")),storeCost:profitEnabled?Number(d.get("storeCost")):(plan?.storeCost??0),termSessionIds:d.getAll("termSessionIds"),customerPurchasable:d.get("purchaseMode")==="customer",allowShared:d.get("allowShared")==="yes",validDays:Number(d.get("days")),isActive:d.get("active")==="yes",unit:d.get("unit"),templateIds:d.getAll("templateIds")}))}>
+ const selectedMusicTemplate=templates.find(t=>t.id===selectedTemplateIds[0]);
+ const musicQuote=music&&selectedMusicTemplate?(()=>{try{return musicPlanQuote({musicPricePerLesson:selectedMusicTemplate.musicPricePerLesson??null,musicTermLessons:selectedMusicTemplate.musicTermLessons??null,musicValidityDaysPerTerm:selectedMusicTemplate.musicValidityDaysPerTerm??null},Number(draft.values.musicTerms));}catch{return null;}})():null;
+ const unitPrice=music?selectedMusicTemplate?.musicPricePerLesson??0:Math.round(Number(draft.values.price)/Math.max(1,Number(draft.values.points)));
+ const estimatedProfit=(music?musicQuote?.price??0:Number(draft.values.price))-Number(draft.values.storeCost);
+ return <form id="course-member-form" className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={e=>void submit(e,d=>saveCoursePointPlan({id:plan?.id,expectedSnapshot:draft.expectedRevision??undefined,name:d.get("name"),points:music?musicQuote?.lessons??0:Number(d.get("points")),price:music?musicQuote?.price??0:Number(d.get("price")),storeCost:profitEnabled?Number(d.get("storeCost")):(plan?.storeCost??0),termSessionIds:d.getAll("termSessionIds"),customerPurchasable:d.get("purchaseMode")==="customer",allowShared:d.get("allowShared")==="yes",validDays:music?musicQuote?.validDays??0:Number(d.get("days")),musicTerms:music?Number(draft.values.musicTerms):null,isActive:d.get("active")==="yes",unit:music?"SESSION":d.get("unit"),templateIds:d.getAll("templateIds")}))}>
  <div className="sm:col-span-2"><FormDraftNotice dirty={draft.dirty} stale={draft.stale} onDiscard={()=>draft.discard()}/>{error&&<p role="alert" className="text-red-700">{error}</p>}</div>
  <fieldset disabled={pending} className="contents">
                 <label className="block sm:col-span-2">
@@ -104,9 +108,10 @@ export function CoursePlanDraftForm({plan,templates,termSessions,profitEnabled,.
                     required
                   />
                 </label>
-                <label className="block">額度單位<select className={field} name="unit" value={draft.values.unit} onChange={e=>draft.set("unit",e.target.value)}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>
+                {music?<input type="hidden" name="unit" value="SESSION"/>:<label className="block">額度單位<select className={field} name="unit" value={draft.values.unit} onChange={e=>draft.set("unit",e.target.value)}><option value="POINT">點數</option><option value="SESSION">堂數（每堂使用 1 堂）</option></select></label>}
                 <label className="block">狀態<select className={field} name="active" value={draft.values.active} onChange={e=>draft.set("active",e.target.value)}><option value="yes">上架</option><option value="no">下架</option></select></label>
-                <label className="sm:col-span-2">搜尋適用課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="輸入課程名稱篩選；未輸入會顯示全部課程"/></label>
+                {music&&<><label>購買期數<input className={field} type="number" min="1" max="100" required value={draft.values.musicTerms} onChange={e=>draft.set("musicTerms",e.target.value)}/></label><p className="self-end text-sm text-earth-600">{musicQuote?`${musicQuote.lessons} 堂 · ${musicQuote.validDays} 天 · NT$ ${musicQuote.price.toLocaleString("zh-TW")}`:"請先選已設定售價的課程"}</p><label className="sm:col-span-2">適用課程<select className={field} required value={selectedTemplateIds[0]??""} onChange={e=>setSelectedTemplateIds(e.target.value?[e.target.value]:[])}><option value="">請選擇課程</option>{templates.filter(t=>t.isActive&&!t.musicTrialMode&&t.musicPricePerLesson!=null&&t.musicTermLessons!=null).map(t=><option key={t.id} value={t.id}>{t.category} · {t.name}（{t.musicTermLessons} 堂／期，NT$ {t.musicPricePerLesson}／堂）</option>)}</select>{selectedTemplateIds.map(id=><input key={id} type="hidden" name="templateIds" value={id}/>)}</label></>}
+                {!music&&<><label className="sm:col-span-2">搜尋適用課程<input className={field} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} placeholder="輸入課程名稱篩選；未輸入會顯示全部課程"/></label>
                 <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3">
                   <legend className="px-1">適用課程（未勾選表示全部課程）</legend>
                   {selectedTemplateIds.map(id=><input key={id} type="hidden" name="templateIds" value={id}/>)}
@@ -138,7 +143,7 @@ export function CoursePlanDraftForm({plan,templates,termSessions,profitEnabled,.
                   ["售價", "price", plan?.price ?? 0, 0],
                   ["店家成本", "storeCost", plan?.storeCost ?? 0, 0],
                   ["有效天數", "days", plan?.validDays ?? 90, 1],
-                ].filter(([,name])=>profitEnabled||name!=="storeCost").map(([label, name, , min]) => (
+                ].filter(([,name])=>(profitEnabled||name!=="storeCost")).map(([label, name, , min]) => (
                   <label key={String(name)} className="block">
                     {label}
                     <input
@@ -152,10 +157,12 @@ export function CoursePlanDraftForm({plan,templates,termSessions,profitEnabled,.
                     />
                   </label>
                 ))}
-                <div className="sm:col-span-2 grid grid-cols-2 gap-3 rounded-lg bg-primary-50 p-3 text-sm"><p><span className="text-earth-500">單位價格</span><strong className="block text-primary-800">NT$ {unitPrice.toLocaleString("zh-TW")}／單位</strong></p>{profitEnabled&&<p><span className="text-earth-500">預估利潤</span><strong className={`block ${estimatedProfit<0?"text-red-700":"text-primary-800"}`}>NT$ {estimatedProfit.toLocaleString("zh-TW")}</strong></p>}</div>
+                </>}
+                {music&&profitEnabled&&<label className="block">店家成本<input className={field} name="storeCost" type="number" min="0" required value={draft.values.storeCost} onChange={e=>draft.set("storeCost",e.target.value)}/></label>}
+                <div className="sm:col-span-2 grid grid-cols-2 gap-3 rounded-lg bg-primary-50 p-3 text-sm"><p><span className="text-earth-500">單位價格</span><strong className="block text-primary-800">NT$ {unitPrice.toLocaleString("zh-TW")}／{music?"堂":"單位"}</strong></p>{profitEnabled&&<p><span className="text-earth-500">預估利潤</span><strong className={`block ${estimatedProfit<0?"text-red-700":"text-primary-800"}`}>NT$ {estimatedProfit.toLocaleString("zh-TW")}</strong></p>}</div>
                 <fieldset className="sm:col-span-2 rounded-lg border border-earth-200 p-3"><legend className="px-1">方案使用方式</legend><div className="grid gap-2 sm:grid-cols-2"><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="customer" checked={draft.values.purchaseMode==="customer"} onChange={()=>draft.set("purchaseMode","customer")}/>顧客可購買</label><label className="flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="radio" name="purchaseMode" value="backend" checked={draft.values.purchaseMode==="backend"} onChange={()=>draft.set("purchaseMode","backend")}/>僅後台指派</label></div><label className="mt-2 flex min-h-11 items-center gap-2 rounded-lg border border-earth-200 px-3"><input type="checkbox" name="allowShared" value="yes" checked={draft.values.allowShared==="yes"} onChange={e=>draft.set("allowShared",e.target.checked?"yes":"no")}/>允許共卡</label></fieldset>
                 <p className="sm:col-span-2 text-sm text-earth-500">
-                  修改預設不影響已指派方案；方案下架也會保留顧客已持有的額度。提供點數與堂數方案，無自動續費。
+                  修改預設不影響已指派方案；方案下架也會保留顧客已持有的額度。{music?"音樂教室每次上課使用 1 堂；每期堂數依課程設定。":"提供點數與堂數方案，無自動續費。"}
                 </p>
               </fieldset></form>;
 }

@@ -16,9 +16,12 @@ import {
 } from "@/lib/date-utils";
 import { CourseSharedHub } from "./shared-hub";
 import { CourseWorkspace } from "./workspace";
+import { MusicTypesShowcase } from "./showcase/music-types-showcase";
+import { LubyRealDayShowcase } from "./showcase/luby-real-day-showcase";
 import { resolvedCourseHours } from "@/lib/course-business-hours";
 import { CashbookShortcut } from "../cashbook/_components/cashbook-shortcut";
 import { resolveStoreViewContextFromCookie } from "@/lib/store-view-context-server";
+import { resolveCourseBusinessProfile } from "@/lib/store-business-profile";
 
 export default async function CoursesPage({
   searchParams,
@@ -43,6 +46,26 @@ export default async function CoursesPage({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId || (await getStoreIndustryModule(storeId)) !== "course")
     redirect("/dashboard");
+  if (query.showcase === "music-types" && process.env.VERCEL_ENV === "preview") {
+    const date = query.date && parseTaipeiDateTime(query.date, "00:00")
+      ? query.date
+      : "2026-09-26";
+    const activeStore = await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } });
+    return (
+      <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
+        <MusicTypesShowcase date={date} showLubyReplica={activeStore?.slug === "lubymusic"} />
+      </PageShell>
+    );
+  }
+  if (query.showcase === "luby-day" && process.env.VERCEL_ENV === "preview") {
+    const activeStore = await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } });
+    if (activeStore?.slug !== "lubymusic") redirect("/dashboard/courses");
+    return (
+      <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
+        <LubyRealDayShowcase date="2026-09-26" mode={query.scheduleView === "week" ? "week" : "day"} />
+      </PageShell>
+    );
+  }
   const view =
     query.view === "catalog" || query.view === "rooms"
       ? query.view
@@ -57,6 +80,11 @@ export default async function CoursesPage({
   const scheduleEnd = dayRange(
     addTaiwanDuration(addTaiwanDuration(firstOfMonth, 1, "MONTH"), 6, "DAY"),
   ).end;
+  const cancelledBookings = await coursePrisma.courseBooking.findMany({
+    where: { storeId, status: "CANCELLED", session: { cancelledAt: null, startsAt: { gte: scheduleStart, lte: scheduleEnd } } },
+    select: { id: true, customerName: true, sessionId: true, absenceKind: true, notes: true },
+    orderBy: { updatedAt: "desc" },
+  });
   const [
     rooms,
     templates,
@@ -66,6 +94,9 @@ export default async function CoursesPage({
     canEdit,
     businessHours,
     specialDays,
+    businessEntitlements,
+    staffAvailability,
+    staffAvailabilityExceptions,
   ] = await Promise.all([
       coursePrisma.courseRoom.findMany({
         where: { storeId },
@@ -94,6 +125,8 @@ export default async function CoursesPage({
           category: true,
           isActive: true,
           visibility:true,classType:true,
+          musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,
+          musicScheduleMode:true,musicTrialMode:true,musicTeacherFeeBase:true,
           durationMinutes: true,
           capacity: true,
           pointCost: true,
@@ -107,7 +140,10 @@ export default async function CoursesPage({
         where: {
           storeId,
           cancelledAt: null,
-          startsAt: { gte: scheduleStart, lte: scheduleEnd },
+          OR: [
+            { startsAt: { gte: scheduleStart, lte: scheduleEnd } },
+            { rescheduledFromStartsAt: { gte: scheduleStart, lte: scheduleEnd } },
+          ],
         },
         select: {
           id: true,
@@ -119,12 +155,23 @@ export default async function CoursesPage({
           roomId: true,
           capacity: true,
           pointCost: true,
+          requestKey: true,
+          teacherAttendance: true,
+          rescheduledFromStartsAt: true,
+          rescheduledFromEndsAt: true,
+          rescheduledFromRoomId: true,
+          rescheduledFromCoachId: true,
+          rescheduleKind: true,
+          rescheduledAt: true,
+          releasedAt: true,
           bookings: {
             where: { status: { not: "CANCELLED" } },
             select: {
+              id: true,
               customerId: true,
               customerName: true,
               status: true,
+              checkedInAt: true,
               bookingKind: true,
             },
           },
@@ -133,13 +180,22 @@ export default async function CoursesPage({
       }),
       prisma.staff.findMany({
         where: { storeId },
-        select: { id: true, displayName: true, status: true,courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:true },
+        select: { id: true, displayName: true, phone: true, status: true,courseCoachEnabled:true,courseQualificationsConfirmed:true,courseQualifiedTemplateIds:true },
         orderBy: { displayName: "asc" },
       }),
       checkPermission(user.role, user.staffId, "booking.create"),
       checkPermission(user.role, user.staffId, "booking.update"),
       prisma.businessHours.findMany({ where: { storeId } }),
       prisma.specialBusinessDay.findMany({ where: { storeId } }),
+      prisma.storeFeatureEntitlement.findMany({
+        where: { storeId, featureKey: { startsWith: "business." }, status: "ENABLED" },
+        select: { featureKey: true },
+      }),
+      prisma.$queryRaw<{staffId:string;dayOfWeek:number;segments:unknown}[]>`
+        SELECT "staffId","dayOfWeek",segments FROM "CourseStaffAvailability" WHERE "storeId"=${storeId}`,
+      prisma.$queryRaw<{staffId:string;date:Date;type:string;segments:unknown;reason:string|null}[]>`
+        SELECT "staffId",date,type,segments,reason FROM "CourseStaffAvailabilityException"
+        WHERE "storeId"=${storeId} AND date>=${scheduleStart}::date AND date<=${scheduleEnd}::date`,
     ]);
   const [calendarYear, calendarMonth] = selected
     .slice(0, 7)
@@ -160,25 +216,73 @@ export default async function CoursesPage({
           {
             status: resolved.status,
             reason: resolved.reason,
+            periods: resolved.periods.map((period) => ({ openTime: period.openTime, closeTime: period.closeTime })),
           },
         ];
       },
     ),
   );
+  const businessProfile = resolveCourseBusinessProfile(businessEntitlements.map((item) => item.featureKey));
+  const recurringKeys = businessProfile === "MUSIC" && sessions.length
+    ? new Set((await coursePrisma.courseSession.groupBy({
+        by: ["requestKey"],
+        where: { storeId, cancelledAt: null, requestKey: { in: [...new Set(sessions.map((session) => session.requestKey))] } },
+        _count: { id: true },
+        having: { id: { _count: { gt: 1 } } },
+      })).map((row) => row.requestKey))
+    : new Set<string>();
+  const biweeklyKeys = new Set<string>();
+  if (recurringKeys.size) {
+    const recurringDates = await coursePrisma.courseSession.findMany({
+      where: { storeId, cancelledAt: null, requestKey: { in: [...recurringKeys] } },
+      select: { requestKey: true, startsAt: true },
+      orderBy: { startsAt: "asc" },
+    });
+    const datesByKey = new Map<string, number[]>();
+    for (const row of recurringDates) {
+      const dates = datesByKey.get(row.requestKey) ?? [];
+      dates.push(row.startsAt.getTime());
+      datesByKey.set(row.requestKey, dates);
+    }
+    for (const [key, dates] of datesByKey) {
+      if (dates.length >= 2 && dates.every((date, index) =>
+        index === 0 || Math.round((date - dates[index - 1]) / 86400000) === 14,
+      )) biweeklyKeys.add(key);
+    }
+  }
+  if (businessProfile === "MUSIC" && businessHours.length > 0 && businessHours.every((row) => row.segments == null)) {
+    redirect("/dashboard/courses/hours?tab=weekly&setup=1");
+  }
   const writable =
     canCreate && (user.role === "ADMIN" || user.storeId === storeId);
   const viewContext = await resolveStoreViewContextFromCookie(user);
+  const showLubyReplica = view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview"
+    && (await prisma.store.findUnique({ where: { id: storeId }, select: { slug: true } }))?.slug === "lubymusic";
   return (
     <PageShell
       className={
         view === "schedule"
-          ? "course-workspace mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3"
+          ? businessProfile === "MUSIC"
+            ? "course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2"
+            : "course-workspace mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3"
           : "course-workspace mx-auto flex max-w-[1440px] flex-col gap-4 px-6 py-6"
       }
     >
+      {view === "schedule" && businessProfile === "MUSIC" && process.env.VERCEL_ENV === "preview" && (
+        <div className="flex flex-wrap gap-2">
+          {showLubyReplica && (
+            <a href="/dashboard/courses?showcase=luby-day&date=2026-09-26" className="rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-950">
+              查看 9/26 陸比原課表對照（9/12 截圖移日）
+            </a>
+          )}
+          <a href="/dashboard/courses?showcase=music-types&date=2026-09-26" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-earth-900">
+            查看 9/26 七種班型示意（49 堂）
+          </a>
+        </div>
+      )}
       {view !== "schedule" && (
         <PageHeader
-          title={view === "catalog" ? "課程設定" : "教室管理"}
+          title={view === "catalog" ? "課程管理" : "教室管理"}
           subtitle={
             view === "catalog"
               ? "管理課程名稱、人數與排課預設"
@@ -202,11 +306,26 @@ export default async function CoursesPage({
         canCreate={writable}
         canEdit={canEdit && (user.role === "ADMIN" || user.storeId === storeId)}
         cashbookShortcut={<CashbookShortcut readOnly={!!viewContext?.isViewMode} />}
+        businessProfile={businessProfile}
+        staffAvailability={staffAvailability}
+        staffAvailabilityExceptions={staffAvailabilityExceptions.map((item)=>({...item,date:item.date.toISOString().slice(0,10)}))}
         sessions={sessions.map((s) => ({
           ...s,
+          isFixed: recurringKeys.has(s.requestKey) || templates.find((template) => template.id === s.templateId)?.musicScheduleMode === "FIXED",
+          isBiweekly: biweeklyKeys.has(s.requestKey),
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
+          bookings: s.bookings.map((booking) => ({
+            ...booking,
+            checkedInAt: booking.checkedInAt?.toISOString() ?? null,
+          })),
+          rescheduledFromStartsAt: s.rescheduledFromStartsAt?.toISOString() ?? null,
+          rescheduledFromEndsAt: s.rescheduledFromEndsAt?.toISOString() ?? null,
+          rescheduledAt: s.rescheduledAt?.toISOString() ?? null,
+          previewFaded: s.releasedAt ? "異動／請假" as const : undefined,
+          previewStudentNames: s.releasedAt ? cancelledBookings.filter((booking) => booking.sessionId === s.id && ["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")).map((booking) => booking.customerName) : undefined,
         }))}
+        cancelledBookings={cancelledBookings}
       />
     </PageShell>
   );

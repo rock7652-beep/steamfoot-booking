@@ -2,6 +2,7 @@
 import {CourseStaffAssignments} from "@/components/admin/course-staff-assignments";
 import {CourseCustomerPicker} from "@/components/admin/course-customer-picker";
 import {CourseBatchBar} from "@/components/admin/course-batch-selection";
+import {CourseStaffAvailabilityEditor} from "./course-staff-availability-editor";
 import {CourseConflicts,type ConflictItem} from "@/components/admin/course-conflicts";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -43,6 +44,7 @@ export function CourseStaffWorkspace({
   customers,
   canManage,
   permissionGroups,
+  music = false,
 }: {
   feeEnabled?:boolean;
   staff: Person[];
@@ -50,6 +52,7 @@ export function CourseStaffWorkspace({
   templates:{id:string;name:string}[];
   customers: { id: string; name: string }[];
   canManage: boolean;
+  music?:boolean;
   permissionGroups: {
     label: string;
     codes: { code: string; label: string }[];
@@ -78,7 +81,7 @@ export function CourseStaffWorkspace({
   const [tab,setTab]=useState("basic");
   const [readOnly,setReadOnly]=useState(false);
   const [dirty,setDirty]=useState(false);
-  const [fees,setFees]=useState<Record<string,{value:string;revision:number}>>({});
+  const [fees,setFees]=useState<Record<string,{mode:"CLASS"|"SHARE";value:string;revision:number}>>({});
   const [teachingVersion,setTeachingVersion]=useState<string>();
   const [feesReady,setFeesReady]=useState(false);
   const [feesError,setFeesError]=useState("");
@@ -95,7 +98,8 @@ export function CourseStaffWorkspace({
       if (!result.success) { setFeesError(result.error); return; }
       if (person.updatedAt && result.version !== person.updatedAt) { setFeesError("人員資料已變更，請關閉並重新整理頁面後再編輯。"); return; }
       setFees(Object.fromEntries(result.fees.map(f => [f.templateId, {
-        value: f.rules.length === 1 && f.rules[0].mode === "CLASS" ? String(f.rules[0].value) : "",
+        mode: f.rules.length === 1 && f.rules[0].mode === "SHARE" ? "SHARE" : "CLASS",
+        value: f.rules.length === 1 && (f.rules[0].mode === "CLASS" || (music && f.rules[0].mode === "SHARE")) ? String(f.rules[0].value) : "",
         revision: f.revision,
       }])));
       setTeachingVersion(result.version);
@@ -103,7 +107,7 @@ export function CourseStaffWorkspace({
       setFeesReady(true);
     }).catch(() => { if (active) setFeesError("授課費讀取失敗，請重試；尚未覆蓋原設定。"); });
     return () => { active = false; };
-  }, [open, person, canManage, reloadFees]);
+  }, [open, person, canManage, reloadFees, music]);
   const activeCount = staff.filter(p => p.active).length;
   const atLimit = maxStaff !== null && activeCount >= maxStaff;
   const rows = staff
@@ -180,11 +184,11 @@ export function CourseStaffWorkspace({
       {canManage && atLimit && <p className="mb-3 text-sm text-amber-800">啟用人員已達上限（{activeCount}／{maxStaff}）。可建立停用人員；啟用時須有剩餘名額。同一人兼任只計一位。</p>}
       {canManage && <CourseBatchBar canDelete={canManage} names={Object.fromEntries(rows.map(p=>[p.id,p.name]))} kind="staff" ids={rows.map(p=>p.id)} selected={selected} onChange={setSelected}/>}
       <div className="overflow-x-auto rounded-xl border border-earth-200 bg-white">
-        <table className="w-full text-left text-sm">
-          <thead>
+        <table className="min-w-[720px] w-full text-left text-sm">
+          <thead className="bg-earth-50">
             <tr>
               {["姓名", "身分", "登入／連結", "狀態", "操作"].map((t) => (
-                <th key={t} className="p-3">
+                <th key={t} className="px-3 py-2 font-medium">
                   {t}
                 </th>
               ))}
@@ -196,20 +200,20 @@ export function CourseStaffWorkspace({
                 key={p.id}
                 className={p.active ? "" : "text-earth-400 bg-earth-50"}
               >
-                <td className="p-3">{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-3" checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>} {p.name}{(!p.emergencyContactName || !p.emergencyContactPhone || !p.emergencyContactRelation) && <span className="block text-xs text-amber-800">緊急聯絡待補</span>}{!p.active && p.assignments.length>0 && <span className="block text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
-                <td className="p-3">
-                  {identity(p)}{p.coachEnabled && <span className="block text-xs text-earth-600">{p.qualificationsConfirmed && p.qualificationIds.length ? "已設定可教授課程" : "授課設定待補"}；{p.coachLoginReady ? "已開通教練登入" : "尚未開通教練登入"}</span>}
+                <td className="whitespace-nowrap px-3 py-2">{canManage && <input type="checkbox" aria-label={`選取 ${p.name}`} className="mr-2" checked={selected.includes(p.id)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,p.id]:ids.filter(id=>id!==p.id))}/>}<span className="font-medium">{p.name}</span>{(!p.emergencyContactName || !p.emergencyContactPhone || !p.emergencyContactRelation) && <span className="ml-2 text-xs text-amber-800">緊急聯絡待補</span>}{!p.active && p.assignments.length>0 && <span className="ml-2 text-xs text-amber-800">{p.assignments.length} 堂待交接</span>}</td>
+                <td className="px-3 py-2">
+                  {identity(p)}{p.coachEnabled && <span className="block whitespace-nowrap text-xs text-earth-600">{p.qualificationsConfirmed && p.qualificationIds.length ? "授課已設定" : "授課待補"} · {p.coachLoginReady ? "教練可登入" : "登入未開通"}</span>}
                 </td>
-                <td className="p-3">
+                <td className="px-3 py-2">
                   {p.kind === "manager"
                     ? p.email
                     : (customers.find((c) => c.id === p.customerId)?.name ??
                       "尚未連結會員帳號")}
                 </td>
-                <td className="p-3">{p.active ? "啟用" : "停用"}</td>
-                <td className="p-3">
-                  <button className={button} onClick={() => edit(p)}>{canManage ? "編輯" : "查看"}</button>
-                  {canManage && p.coachEnabled && <button className={`${button} ml-2`} onClick={() => { edit(p); setTab("qualifications"); }}>授課設定</button>}
+                <td className="whitespace-nowrap px-3 py-2">{p.active ? "啟用" : "停用"}</td>
+                <td className="whitespace-nowrap px-3 py-1.5">
+                  <button className="min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={() => edit(p)}>{canManage ? "編輯" : "查看"}</button>
+                  {canManage && p.coachEnabled && <button className="ml-1 min-h-9 rounded-lg border border-earth-200 px-2 text-sm" onClick={() => { edit(p); setTab("qualifications"); }}>授課設定</button>}
                 </td>
               </tr>
             ))}
@@ -261,7 +265,9 @@ export function CourseStaffWorkspace({
               onSubmit={(e) => {
                 e.preventDefault();
                 if (pending || !feesReady) return;
+
                 const invalidFee=coachEnabled && feeEnabled ? qualificationIds.find(id=>{const raw=fees[id]?.value??"0";const value=Number(raw);return !raw.trim() || !Number.isFinite(value) || value<0 || value>1000000 || Math.abs(value*100-Math.round(value*100))>0.000001;}) : undefined;
+
                 if(invalidFee){setTab("qualifications");setQualificationSearch("");setQualificationScope("all");setQualificationPage(Math.max(0,Math.floor(templates.findIndex(t=>t.id===invalidFee)/10)));setError(`請填寫「${templates.find(t=>t.id===invalidFee)?.name??"課程"}」的每堂授課費（0 至 1,000,000 元，最多兩位小數）。`);return;}
                 const invalid=e.currentTarget.querySelector<HTMLInputElement | HTMLSelectElement>("input:invalid,select:invalid,textarea:invalid");
                 if(invalid){const group=invalid.closest<HTMLElement>("[data-staff-tab]");if(group)setTab(group.dataset.staffTab!);setQualificationSearch("");requestAnimationFrame(()=>invalid.reportValidity());return;}
@@ -278,7 +284,9 @@ export function CourseStaffWorkspace({
                       qualificationIds: coachEnabled ? qualificationIds : person?.qualificationIds ?? [],
                       qualificationsConfirmed: coachEnabled ? (!person || person.qualificationsConfirmed || qualificationsTouched) : person?.qualificationsConfirmed ?? false,
                       teachingVersion,
+
                       teachingFees: coachEnabled && feeEnabled ? qualificationIds.map(templateId => ({templateId, value: {mode: "CLASS", value: Number(fees[templateId]?.value ?? "0")}, revision: fees[templateId]?.revision ?? 0})) : undefined,
+
                       emergencyContactRelation:d.get("emergencyContactRelation"),
                       birthday:d.get("birthday"),
                       confirmDeactivate:!!deactivating,
@@ -362,8 +370,10 @@ export function CourseStaffWorkspace({
               </div>
               <div data-staff-tab="qualifications" hidden={tab!=="qualifications" || !coachEnabled} className="space-y-3">
                 <section className="space-y-2">
+
                   <h3 className="font-medium text-primary-900">{feeEnabled?"可教授課程與每堂授課費":"可教授課程"}</h3>
                   <p className="text-sm text-earth-600">勾選可教授課程並填費用，最後一次儲存。0 元表示不另計；每堂計一次，變更適用新排課，既有課次不變。</p>
+
                   {person && !person.qualificationsConfirmed && <p className="rounded-lg bg-secondary-50 p-2 text-sm text-earth-700">舊資料待補：調整可教授課程後儲存即可；未調整時維持待補，既有課次保留。</p>}
                   <div data-browse-control className="flex flex-wrap gap-2"><input className={`${field} min-w-0 flex-1`} aria-label="搜尋可教授課程" placeholder="搜尋課程名稱" value={qualificationSearch} onChange={e=>{setQualificationSearch(e.target.value);setQualificationPage(0);}}/>
                   <select className="min-h-11 rounded-xl border border-earth-200 px-2 text-sm" aria-label="授課課程篩選" value={qualificationScope} onChange={e=>{setQualificationScope(e.target.value);setQualificationPage(0);}}><option value="all">全部課程（{templates.length}）</option><option value="selected">已選（{qualificationIds.length}）</option></select></div>
@@ -371,9 +381,11 @@ export function CourseStaffWorkspace({
                   <div className="rounded-xl border border-earth-200 divide-y divide-earth-100">
                     {matchingTemplates.slice(visibleQualificationPage*10,(visibleQualificationPage+1)*10).map(t => {
                       const selected = qualificationIds.includes(t.id);
-                      return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-3 px-3 py-2">
+                      return <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_minmax(8rem,17rem)] items-center gap-3 px-3 py-2">
                         <label className="flex min-h-11 min-w-0 items-center gap-3 break-words [overflow-wrap:anywhere]"><input className="h-4 w-4 shrink-0 accent-primary-700" type="checkbox" checked={selected} onChange={e=>{setQualificationsTouched(true);setQualificationIds(ids=>e.target.checked?[...ids,t.id]:ids.filter(id=>id!==t.id));}}/>{t.name}</label>
-                        {selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${t.name}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" required value={fees[t.id]?.value ?? "0"} onChange={e=>setFees(old=>({...old,[t.id]:{value:e.target.value,revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
+
+                        {selected && feeEnabled ? <label className="flex items-center gap-1"><input aria-label={`${t.name}每堂授課費`} className={`${field} min-w-0`} type="number" inputMode="decimal" min="0" max="1000000" step="0.01" required value={fees[t.id]?.value ?? "0"} onChange={e=>setFees(old=>({...old,[t.id]:{mode:"CLASS",value:e.target.value,revision:old[t.id]?.revision??0}}))}/><span className="shrink-0 text-xs">元／堂</span></label> : <span className="text-center text-earth-400">—</span>}
+
                       </div>;
                     })}
                     {!matchingTemplates.length && <p className="p-3 text-sm text-earth-500">沒有符合的課程</p>}
@@ -412,6 +424,7 @@ export function CourseStaffWorkspace({
                 </label>
               )}
 
+                {person && <CourseStaffAvailabilityEditor staffId={person.id}/>}
                 {person && person.assignments.length === 0 && <p className="text-sm text-earth-500">沒有未結束且未取消的課次。</p>}
                 {person && person.assignments.length > 0 && <><CourseStaffAssignments items={person.assignments} label={person.active?"目前授課":"待交接課次"}/></>}
               </div>

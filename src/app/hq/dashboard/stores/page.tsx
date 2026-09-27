@@ -83,7 +83,9 @@ export default async function StoresPage() {
                   <td className="px-4 py-3 text-earth-500 font-mono text-xs">{store.slug}</td>
                   <td className="px-4 py-3 text-earth-600">{store.plan}</td>
                   <td className="px-4 py-3 text-earth-600">
-                    {store.industryModule === "COURSE" ? "運動課程" : store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}
+                    {store.industryModule === "COURSE"
+                      ? store.businessProfile === "MUSIC" ? "音樂教室" : "運動教室"
+                      : store.industryModule === "SPA" ? "SPA／美容美體" : "蒸足"}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>

@@ -32,6 +32,12 @@ model CourseRoom {
 model CourseTemplate {
   visibility String @default("PUBLIC")
   classType String?
+  musicPricePerLesson Int?
+  musicTermLessons Int?
+  musicValidityDaysPerTerm Int?
+  musicScheduleMode String?
+  musicTrialMode String?
+  musicTeacherFeeBase Int?
   id              String @id @default(cuid())
   storeId         String
   name            String
@@ -59,16 +65,31 @@ model CourseSession {
   roomId         String
   coachId        String
   nameSnapshot   String
+  teacherNote    String @default("")
+  teacherAttendance String @default("SCHEDULED")
+  teacherAttendanceAt DateTime? @db.Timestamptz(3)
+  teacherAttendanceById String?
+  teacherAttendanceReason String @default("")
+  teacherMakeupForSessionId String? @unique
   startsAt       DateTime @db.Timestamptz(3)
   endsAt         DateTime @db.Timestamptz(3)
   pointCost      Int
   capacity       Int
   cancelledAt    DateTime? @db.Timestamptz(3)
+  releasedAt     DateTime? @db.Timestamptz(3)
   requestKey     String
   requestIndex   Int
   createdById    String
   createdAt      DateTime @default(now())
+  rescheduledFromStartsAt DateTime? @db.Timestamptz(3)
+  rescheduledFromEndsAt   DateTime? @db.Timestamptz(3)
+  rescheduledFromRoomId   String?
+  rescheduledFromCoachId  String?
+  rescheduleKind          String?
+  rescheduledAt           DateTime? @db.Timestamptz(3)
+  rescheduledById         String?
   bookings       CourseBooking[]
+  moves          CourseSessionMove[]
   template       CourseTemplate @relation(fields: [templateId, storeId], references: [id, storeId])
   room           CourseRoom @relation(fields: [roomId, storeId], references: [id, storeId])
 
@@ -79,7 +100,29 @@ model CourseSession {
   @@index([storeId, roomId, startsAt])
 }
 
+model CourseSessionMove {
+  id             String @id @default(cuid())
+  storeId        String
+  sessionId      String
+  scope          String
+  fromStartsAt   DateTime @db.Timestamptz(3)
+  fromEndsAt     DateTime @db.Timestamptz(3)
+  fromRoomId     String
+  fromCoachId    String
+  toStartsAt     DateTime @db.Timestamptz(3)
+  toEndsAt       DateTime @db.Timestamptz(3)
+  toRoomId       String
+  toCoachId      String
+  actorUserId    String
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  session        CourseSession @relation(fields: [sessionId, storeId], references: [id, storeId])
+
+  @@index([storeId, createdAt])
+  @@index([storeId, sessionId])
+}
+
 model CoursePointPlan {
+  musicTerms Int?
   storeCost Int @default(0)
   termSessionIds String[] @default([])
   customerPurchasable Boolean @default(true)
@@ -111,6 +154,8 @@ model CourseBalanceReminderPreference {
 }
 
 model CoursePointCard {
+  musicValidityDays Int?
+  musicActivatedAt DateTime? @db.Timestamptz(3)
   termSessionIds String[] @default([])
   id String @id @default(cuid())
   storeId String
@@ -156,6 +201,7 @@ model CourseBooking {
   status String @default("RESERVED")
   checkedInAt DateTime? @db.Timestamptz(3)
   notes String @default("")
+  absenceKind String?
   requestKey String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -284,6 +330,9 @@ model CourseCompensationSnapshot {
   rule Json
   revision Int
   durationMinutes Int
+  musicPricePerLesson Int?
+  musicTeacherFeeBase Int?
+  musicTrialMode String?
   createdAt DateTime @default(now()) @db.Timestamptz
 }
 

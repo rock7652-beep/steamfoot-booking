@@ -34,6 +34,10 @@ export async function CourseMemberPage({
   const storeId = await getActiveStoreForRead(user);
   if (!storeId) notFound();
   await requireCourseStore(storeId);
+  const music = !!(await prisma.storeFeatureEntitlement.findFirst({
+    where: { storeId, featureKey: "business.music", status: "ENABLED" },
+    select: { storeId: true },
+  }));
   const canReadCards = await checkPermission(
     user.role,
     user.staffId,
@@ -92,7 +96,7 @@ export async function CourseMemberPage({
   }));
   const assignmentStaff = await prisma.staff.findMany({where:{storeId,status:"ACTIVE",user:{role:"OWNER",status:"ACTIVE"}},select:{id:true,displayName:true},orderBy:{displayName:"asc"}});
   const termSessions=(view === "plans" && await checkPermission(user.role,user.staffId,"booking.read")) ? await coursePrisma.courseSession.findMany({where:{storeId,cancelledAt:null,startsAt:{gt:new Date()}},orderBy:{startsAt:"asc"},take:300,select:{id:true,nameSnapshot:true,startsAt:true}}) : [];
-  const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true},orderBy:[{category:"asc"},{name:"asc"}]});
+  const templates = await coursePrisma.courseTemplate.findMany({where:{storeId},select:{id:true,name:true,category:true,isActive:true,musicPricePerLesson:true,musicTermLessons:true,musicValidityDaysPerTerm:true,musicTrialMode:true},orderBy:[{category:"asc"},{name:"asc"}]});
   const orders = view === "plans" && canReadCards ? await coursePrisma.coursePurchase.findMany({where:{storeId,status:"PENDING"},orderBy:{createdAt:"asc"}}) : [];
   const buyers = orders.length ? await prisma.customer.findMany({where:{storeId,id:{in:orders.map(o=>o.customerId)}},select:{id:true,name:true}}) : [];
   const canExport = view === "customers" && await checkPermission(user.role,user.staffId,"customer.export") && !(await resolveStoreViewContextFromCookie(user))?.isViewMode && await hasDataExportFeature(storeId);
@@ -121,6 +125,7 @@ export async function CourseMemberPage({
         canManageStaff={canManageStaff}
         canAssign={canAssign && canReadCards && canReadPeople && await checkPermission(user.role,user.staffId,"transaction.create")}
         canDiscount={await checkPermission(user.role,user.staffId,"transaction.discount")}
+        music={music}
       />
     </PageShell>
   );

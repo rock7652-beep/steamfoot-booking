@@ -19,6 +19,12 @@ import type {
   StoreIndustryModule,
 } from "@/types/store-onboarding";
 import type { StoreOperatingStatus, UserRole } from "@prisma/client";
+import {
+  getBusinessProfileFeatureKey,
+  getStoreBusinessLabel,
+  resolveCourseBusinessProfile,
+  type CourseBusinessProfile,
+} from "@/lib/store-business-profile";
 
 const STORE_OPERATING_STATUSES: StoreOperatingStatus[] = [
   "TRIAL",
@@ -72,6 +78,8 @@ export async function createStoreAction(
   try {
     const storeId = `store-${input.slug}`;
     const industryModule: StoreIndustryModule = input.industryModule ?? "STEAMFOOT";
+    const businessProfile: CourseBusinessProfile | null =
+      industryModule === "COURSE" ? input.businessProfile ?? "FITNESS" : null;
     const passwordHash = hashSync(input.owner.password, 10);
     const ownerRole: UserRole = "OWNER";
 
@@ -96,6 +104,18 @@ export async function createStoreAction(
               dutySchedulingEnabled: input.dutySchedulingEnabled ?? false,
             },
           },
+          featureEntitlements: businessProfile
+            ? {
+                create: {
+                  featureKey: getBusinessProfileFeatureKey(businessProfile),
+                  status: "ENABLED",
+                  source: "HQ_OVERRIDE",
+                  note: businessProfile === "MUSIC"
+                    ? "HQ 建立：音樂教室業務，底層沿用 COURSE 引擎"
+                    : "HQ 建立：運動教室業務，底層沿用 COURSE 引擎",
+                },
+              }
+            : undefined,
           moduleInstallation: {
             create: {
               module: industryModule,
@@ -197,15 +217,19 @@ export async function createStoreAction(
       // 確保不重複（此處為全新店，createMany 安全）。
       if (industryModule !== "SPA") {
         const businessHoursData = [];
+        const musicHours = businessProfile === "MUSIC";
         for (let dow = 0; dow <= 6; dow++) {
           businessHoursData.push({
             storeId,
             dayOfWeek: dow,
             isOpen: true,
-            openTime: "10:00",
-            closeTime: "21:00",
-            slotInterval: 60,
+            openTime: musicHours ? "09:00" : "10:00",
+            closeTime: musicHours ? "22:00" : "21:00",
+            slotInterval: musicHours ? 30 : 60,
             defaultCapacity: 6,
+            segments: musicHours
+              ? [{ openTime: "09:00", closeTime: "22:00", slotInterval: 30, defaultCapacity: 6 }]
+              : undefined,
           });
         }
         await db.businessHours.createMany({ data: businessHoursData });
@@ -228,6 +252,7 @@ export async function createStoreAction(
           operatingStatus: store.operatingStatus,
           isDemo: store.isDemo,
           industryModule,
+          businessProfile,
         },
         urls: buildStoreUrls(baseUrl, store.slug, store.id),
         accounts: {
@@ -342,6 +367,10 @@ export async function getStoreDeliverySummary(
       staff: {
         include: { user: { select: { name: true, email: true, role: true } } },
       },
+      featureEntitlements: {
+        where: { featureKey: { startsWith: "business." }, status: "ENABLED" },
+        select: { featureKey: true },
+      },
     },
   });
 
@@ -366,6 +395,9 @@ export async function getStoreDeliverySummary(
       operatingStatus: store.operatingStatus,
       isDemo: store.isDemo,
       industryModule: store.industryModule,
+      businessProfile: store.industryModule === "COURSE"
+        ? resolveCourseBusinessProfile(store.featureEntitlements?.map((item) => item.featureKey) ?? [])
+        : null,
     },
     urls: buildStoreUrls(baseUrl, store.slug, store.id),
     accounts: {
@@ -408,6 +440,7 @@ export async function listStoresAction(): Promise<
       operatingStatus: StoreOperatingStatus;
       isDemo: boolean;
       industryModule: StoreIndustryModule;
+      businessProfile: CourseBusinessProfile | null;
       staffCount: number;
       customerCount: number;
       createdAt: Date;
@@ -427,6 +460,10 @@ export async function listStoresAction(): Promise<
       operatingStatus: true,
       isDemo: true,
       industryModule: true,
+      featureEntitlements: {
+        where: { featureKey: { startsWith: "business." }, status: "ENABLED" },
+        select: { featureKey: true },
+      },
       createdAt: true,
       _count: { select: { staff: true, customers: true } },
     },
@@ -444,6 +481,9 @@ export async function listStoresAction(): Promise<
       operatingStatus: s.operatingStatus,
       isDemo: s.isDemo,
       industryModule: s.industryModule,
+      businessProfile: s.industryModule === "COURSE"
+        ? resolveCourseBusinessProfile(s.featureEntitlements?.map((item) => item.featureKey) ?? [])
+        : null,
       staffCount: s._count.staff,
       customerCount: s._count.customers,
       createdAt: s.createdAt,
@@ -513,7 +553,12 @@ function buildDeliveryChecklist(
   return [
     // ① 店舖基本資料
     { key: "store_record", label: "店舖基本資料已建立", status: "pass" },
-    { key: "module_installation", label: `${industryModule === "COURSE" ? "課程" : industryModule === "SPA" ? "SPA" : "蒸足"}模組已完成佈建`,
+    { key: "module_installation", label: `${getStoreBusinessLabel(
+      industryModule,
+      industryModule === "COURSE" && input.businessProfile
+        ? [getBusinessProfileFeatureKey(input.businessProfile)]
+        : undefined,
+    )}已完成佈建`,
       status: industryModule !== "SPA" ? "pass" : "fail" },
     // ② 路由入口
     { key: "route_entry", label: "路由入口 /s/[slug]/ 已可存取", status: "pass" },
@@ -546,7 +591,14 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
   // ① 店舖基本資料
   const store = await prisma.store.findUnique({
     where: { id: storeId },
-    include: { shopConfig: true, moduleInstallation: true },
+    include: {
+      shopConfig: true,
+      moduleInstallation: true,
+      featureEntitlements: {
+        where: { featureKey: { startsWith: "business." }, status: "ENABLED" },
+        select: { featureKey: true },
+      },
+    },
   });
 
   items.push({
@@ -610,8 +662,21 @@ async function verifyStoreSetup(storeId: string): Promise<ChecklistItem[]> {
       status: slotCount > 0 ? "pass" : "fail",
     });
   } else if (store.industryModule === "COURSE") {
-    items.push({ key: "booking-slots", label: "課程使用教練／教室排課，不建立蒸足固定時段", status: "pass" });
-    items.push({ key: "first-course", label: "請由店長設定教練、教室及課程後完成首次排課", status: "skip" });
+    const courseBusiness = resolveCourseBusinessProfile(store.featureEntitlements?.map((item) => item.featureKey) ?? []);
+    items.push({
+      key: "booking-slots",
+      label: courseBusiness === "MUSIC"
+        ? "音樂教室使用老師／教室排課，不建立蒸足固定時段"
+        : "課程使用教練／教室排課，不建立蒸足固定時段",
+      status: "pass",
+    });
+    items.push({
+      key: "first-course",
+      label: courseBusiness === "MUSIC"
+        ? "請先設定老師、教室與科目後完成第一堂音樂課排課"
+        : "請由店長設定教練、教室及課程後完成首次排課",
+      status: "skip",
+    });
   } else {
     items.push({
       key: "booking-slots",
@@ -645,6 +710,18 @@ function validateCreateStoreInput(input: CreateStoreInput): string[] {
   if (input.slug.length < 2 || input.slug.length > 30) errors.push("slug 長度需 2-30 字元");
   if (input.industryModule && input.industryModule !== "STEAMFOOT" && input.industryModule !== "SPA" && input.industryModule !== "COURSE") {
     errors.push("產業模組不正確");
+  }
+
+  if (input.industryModule !== "COURSE" && input.businessProfile) {
+    errors.push("只有課程引擎可設定運動／音樂業務類型");
+  }
+  if (
+    input.industryModule === "COURSE" &&
+    input.businessProfile &&
+    input.businessProfile !== "FITNESS" &&
+    input.businessProfile !== "MUSIC"
+  ) {
+    errors.push("課程業務類型不正確");
   }
 
   if (input.industryModule === "COURSE" && (input.initialStaff?.length ?? 0) > 0) {

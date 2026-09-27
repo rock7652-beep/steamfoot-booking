@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { Prisma } from "../../generated/course-client";
-const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),raw:vi.fn(),write:vi.fn(),sessions:vi.fn(),hours:vi.fn(),special:vi.fn()}));
-vi.mock("@/lib/db",()=>({prisma:{businessHours:{findMany:m.hours},specialBusinessDay:{findMany:m.special}}}));
+const m=vi.hoisted(()=>({manager:vi.fn(),transaction:vi.fn(),raw:vi.fn(),write:vi.fn(),sessions:vi.fn(),hours:vi.fn(),special:vi.fn(),entitlement:vi.fn()}));
+vi.mock("@/lib/db",()=>({prisma:{businessHours:{findMany:m.hours},specialBusinessDay:{findMany:m.special},storeFeatureEntitlement:{findFirst:m.entitlement}}}));
 vi.mock("@/server/services/course-access",()=>({courseManager:m.manager,courseTransaction:m.transaction}));
 vi.mock("@/lib/revalidation",()=>({revalidateBusinessHours:vi.fn(),revalidateSpecialDays:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
@@ -10,7 +10,7 @@ import { assertCourseSessionsFitHours } from "@/server/services/course-business-
 const input={date:"2026-10-01",status:"closed",mode:"copy",weeks:2,reason:"測試公休",periods:[]};
 const tx={$queryRaw:m.raw,$executeRaw:m.write,courseSession:{findMany:m.sessions}};
 beforeEach(()=>{
- vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"course-store"});m.transaction.mockImplementation(async(_id,work)=>work(tx));m.raw.mockResolvedValue([]);m.sessions.mockResolvedValue([]);m.hours.mockResolvedValue([]);m.special.mockResolvedValue([]);
+ vi.resetAllMocks();m.manager.mockResolvedValue({storeId:"course-store"});m.transaction.mockImplementation(async(_id,work)=>work(tx));m.raw.mockResolvedValue([]);m.sessions.mockResolvedValue([]);m.hours.mockResolvedValue([]);m.special.mockResolvedValue([]);m.entitlement.mockResolvedValue(null);
 });
 it("writes source and following weeks under one store transaction without touching bookings or cards",async()=>{
  expect(await saveCourseDayHours(input)).toMatchObject({success:true});

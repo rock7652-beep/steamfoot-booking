@@ -658,6 +658,8 @@ model Store {
   customerPlanWallets               CustomerPlanWallet[]
   cashbookEntries                   CashbookEntry[]
   dutyAssignments                   DutyAssignment[]
+  courseStaffAvailability            CourseStaffAvailability[]
+  courseStaffAvailabilityExceptions  CourseStaffAvailabilityException[]
   bookingSlots                      BookingSlot[]
   businessHours                     BusinessHours[]
   specialBusinessDays               SpecialBusinessDay[]
@@ -1046,6 +1048,8 @@ model Staff {
   // 值班安排
   dutyAssignments DutyAssignment[] @relation("DutyStaff")
   dutyCreatedBy   DutyAssignment[] @relation("DutyCreatedBy")
+  courseAvailability CourseStaffAvailability[]
+  courseAvailabilityExceptions CourseStaffAvailabilityException[]
 
   // 會員登入與營運人員紀錄分離。連結不改寫 Staff.userId，避免破壞舊預約、排班與結算關係。
   memberLink StaffMemberLink?
@@ -2614,6 +2618,42 @@ model DutyAssignment {
 }
 
 // ── 報表快照（Pre-compute）──
+model CourseStaffAvailability {
+  id        String   @id @default(cuid())
+  storeId   String
+  staffId   String
+  dayOfWeek Int
+  segments  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  staff Staff @relation(fields: [staffId, storeId], references: [id, storeId], onDelete: Cascade)
+
+  @@unique([storeId, staffId, dayOfWeek])
+  @@index([storeId, dayOfWeek])
+  @@index([staffId])
+}
+
+model CourseStaffAvailabilityException {
+  id        String   @id @default(cuid())
+  storeId   String
+  staffId   String
+  date      DateTime @db.Date
+  type      String   // "UNAVAILABLE" | "CUSTOM"
+  segments  Json?
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  staff Staff @relation(fields: [staffId, storeId], references: [id, storeId], onDelete: Cascade)
+
+  @@unique([storeId, staffId, date])
+  @@index([storeId, date])
+  @@index([staffId, date])
+}
+
 model ReportSnapshot {
   id        String   @id @default(cuid())
   storeId   String
