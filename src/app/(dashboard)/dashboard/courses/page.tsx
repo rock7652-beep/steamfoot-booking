@@ -62,7 +62,7 @@ export default async function CoursesPage({
     if (activeStore?.slug !== "lubymusic") redirect("/dashboard/courses");
     return (
       <PageShell className="course-workspace flex w-full min-w-0 max-w-none flex-col gap-2 px-3 py-2">
-        <LubyRealDayShowcase date="2026-09-26" />
+        <LubyRealDayShowcase date="2026-09-26" mode={query.scheduleView === "week" ? "week" : "day"} />
       </PageShell>
     );
   }
