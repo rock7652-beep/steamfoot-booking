@@ -543,8 +543,9 @@ export async function updateCourseDailyAttendanceBatch(input: unknown) {
     const {user,storeId}=await courseManager("booking.update");
     await courseTransaction(storeId,async tx=>{
       const sessionIds=[...new Set(data.bookings.map(b=>b.sessionId))];
-      const sessions=await tx.courseSession.findMany({where:{id:{in:sessionIds},storeId,cancelledAt:null},select:{id:true}});
+      const sessions=await tx.courseSession.findMany({where:{id:{in:sessionIds},storeId,cancelledAt:null},select:{id:true,endsAt:true}});
       if(sessions.length!==sessionIds.length)throw new AppError("CONFLICT","課程已變更，請重新核對名單");
+      if(data.target==="NO_SHOW" && sessions.some(session=>session.endsAt>new Date()))throw new AppError("VALIDATION","課程尚未結束，不能記錄曠課");
       const current=await tx.courseBooking.findMany({where:{storeId,id:{in:data.bookings.map(b=>b.id)}},select:{id:true,sessionId:true,status:true,absenceKind:true}});
       if(current.length!==data.bookings.length || data.bookings.some(b=>{
         const found=current.find(item=>item.id===b.id);

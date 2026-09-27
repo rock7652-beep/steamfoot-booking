@@ -26,7 +26,7 @@ it("counts check-in, excludes ordinary cancellation, and keeps empty classes lig
 it("uses a gray pending edge and a course-colored completed edge without a separate dash", () => {
   const board = readFileSync("src/app/(dashboard)/dashboard/courses/course-schedule-board.tsx", "utf8");
   expect(board).toContain("border-l-slate-400");
-  for (const color of ["teal", "blue", "amber", "purple", "orange"]) {
+  for (const color of ["sky", "emerald", "violet", "pink", "orange"]) {
     expect(board).toContain(`border-l-${color}-600`);
   }
   expect(board).not.toContain('className="h-[3px] w-2 shrink-0 rounded bg-emerald-600"');

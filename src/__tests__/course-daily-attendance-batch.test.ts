@@ -12,7 +12,7 @@ const choices=[{id:"one",sessionId:"morning",status:"CANCELLED" as const},{id:"t
 beforeEach(()=>{
   vi.resetAllMocks();
   m.manager.mockResolvedValue({storeId:"store",user:{id:"manager",name:"店長"}});
-  m.sessions.mockResolvedValue([{id:"morning"},{id:"evening"}]);
+  m.sessions.mockResolvedValue([{id:"morning",endsAt:new Date("2020-01-01")},{id:"evening",endsAt:new Date("2020-01-01")}]);
   m.bookings.mockResolvedValue(choices.map(row=>({...row,absenceKind:"STUDENT_LEAVE"})));
   m.transaction.mockImplementation(async (_storeId:string,work:(tx:unknown)=>Promise<unknown>)=>work({courseSession:{findMany:m.sessions},courseBooking:{findMany:m.bookings}}));
 });
@@ -39,5 +39,11 @@ describe("店長跨課次批次處理",()=>{
     expect(m.settle).toHaveBeenCalledTimes(2);
     expect(m.settle.mock.calls[0][4]).toBe("DEDUCTED");
     expect((await updateCourseDailyAttendanceBatch({target:"NO_SHOW",bookings:[pending[0],pending[0]]})).success).toBe(false);
+  });
+  it("課程還沒結束時不可提前扣曠課",async()=>{
+    m.sessions.mockResolvedValueOnce([{id:"morning",endsAt:new Date(Date.now()+60_000)}]);
+    const result=await updateCourseDailyAttendanceBatch({target:"NO_SHOW",bookings:[{...choices[0],status:"RESERVED"}]});
+    expect(result.success).toBe(false);
+    expect(m.settle).not.toHaveBeenCalled();
   });
 });

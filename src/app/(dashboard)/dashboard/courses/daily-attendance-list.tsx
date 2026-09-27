@@ -38,6 +38,7 @@ export function DailyAttendanceList({kind,date,nowIso,rows,canEdit,onClose,onOpe
   ];
   function submit(items:DailyAttendanceRow[],target:"RESERVED"|"ATTENDED"|"NO_SHOW") {
     if(!items.length||pending)return;
+    if(target==="NO_SHOW"&&items.some(row=>new Date(row.endsAt).getTime()>Date.now())){setError("課程結束後才能記錄曠課，請先取消正在上課的學員選取。");return;}
     const action=target==="RESERVED"?"取消請假，恢復待點名":target==="ATTENDED"?"記錄出席並依規則扣堂":"記錄曠課並依規則扣堂";
     if(!window.confirm(`確定將 ${items.length} 位學員${action}？\n${items.map(row=>`${formatTWDateTime(new Date(row.startsAt)).slice(11,16)} ${row.name} · ${row.course}`).join("\n")}`))return;
     setError("");
@@ -68,7 +69,7 @@ export function DailyAttendanceList({kind,date,nowIso,rows,canEdit,onClose,onOpe
         <label className="flex items-center gap-2"><input type="checkbox" aria-label="全選可處理學員" checked={actionable.length>0&&chosen.length===actionable.length} disabled={pending||!actionable.length} onChange={event=>setSelected(event.target.checked?actionable.map(row=>row.id):[])}/>全選可處理學員</label>
         <span className="text-earth-600">已選 {chosen.length} 人</span>
         <button type="button" className="min-h-10 rounded-lg border border-primary-300 px-3 text-primary-800 disabled:opacity-50" disabled={pending||!chosen.length} onClick={()=>submit(chosen,kind==="leave"?"RESERVED":"ATTENDED")}>{kind==="leave"?"批次取消請假":"批次記錄出席"}</button>
-        {kind==="unmarked"&&<button type="button" className="min-h-10 rounded-lg border border-earth-200 px-3 disabled:opacity-50" disabled={pending||!chosen.length} onClick={()=>submit(chosen,"NO_SHOW")}>批次記錄曠課</button>}
+        {kind==="unmarked"&&<button type="button" title="須等所選課程全部結束" className="min-h-10 rounded-lg border border-earth-200 px-3 disabled:opacity-50" disabled={pending||!chosen.length||chosen.some(row=>new Date(row.endsAt).getTime()>now)} onClick={()=>submit(chosen,"NO_SHOW")}>批次記錄曠課</button>}
       </div>}
       {error&&<p role="alert" className="mx-4 mt-2 rounded-lg bg-red-50 p-2 text-sm text-red-700">{error}</p>}
       <div className="overflow-y-auto p-4">{groups.map(group=>group.items.length>0&&<section key={group.label} className="mb-4"><h3 className="sticky top-0 bg-white py-2 text-sm font-semibold text-earth-700">{group.label} · {group.items.length} 人</h3><ul className="divide-y divide-earth-100">{group.items.map(row=><li key={row.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">

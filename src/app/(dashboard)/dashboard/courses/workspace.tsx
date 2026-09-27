@@ -165,6 +165,20 @@ export function CourseWorkspace({
   const [memberBookingReady, setMemberBookingReady] = useState(false);
   const [pending, startTransition] = useTransition();
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [pendingAttendance, setPendingAttendance] = useState<Record<string, "ATTENDED" | "NO_SHOW" | "CANCELLED">>({});
+  useEffect(() => {
+    setPendingAttendance(previous => {
+      const remaining = Object.fromEntries(Object.entries(previous).filter(([bookingId,status]) =>
+        !sessions.some(session => session.bookings.some(booking => booking.id === bookingId && booking.status === status))));
+      return Object.keys(remaining).length === Object.keys(previous).length ? previous : remaining;
+    });
+  }, [sessions]);
+  function showPendingAttendance(bookingId:string,status:"ATTENDED"|"NO_SHOW"|"CANCELLED"|null) {
+    setPendingAttendance(previous => {
+      if(status)return {...previous,[bookingId]:status};
+      const next={...previous};delete next[bookingId];return next;
+    });
+  }
   const [panel, setPanel] = useState<
     "day" | "schedule" | "catalog" | "edit" | "inspect" | null
   >(canCreate && params.get("action") === "schedule" ? "schedule" : params.get("action") === "booking" || params.get("session") ? "day" : null);
@@ -757,12 +771,13 @@ export function CourseWorkspace({
               <button type="button" className={button} onClick={() => setDailyList("unmarked")}>待點名學員 {absentStudents.length}</button>
             </div></details>}
             {dailyList && <DailyAttendanceList kind={dailyList} date={selectedDate} nowIso={nowIso} rows={dailyList==="leave"?leaveStudents:absentStudents} canEdit={canEdit} onClose={()=>setDailyList(null)} onOpenCourse={sessionId=>{setDailyList(null);setCourseDialog({sessionId,kind:"roster"});}}/>}
+            {Object.keys(pendingAttendance).length>0 && <p role="status" className="text-xs text-primary-700">點名結果同步中，課表色槓已先更新；完成後會以實際紀錄核對。</p>}
             <CourseScheduleBoard
               businessProfile={businessProfile}
               mode={scheduleMode}
               selectedDate={selectedDate}
               today={today}
-              sessions={filteredScheduleSessions}
+              sessions={filteredScheduleSessions.map(session=>({...session,bookings:session.bookings.map(booking=>pendingAttendance[booking.id]?{...booking,status:pendingAttendance[booking.id]}:booking)}))}
               leaveCounts={cancelledBookings.reduce<Record<string, number>>((counts, booking) => {
                 if (["STUDENT_LEAVE", "GROUP_LEAVE_FORFEITED"].includes(booking.absenceKind ?? "")) {
                   counts[booking.sessionId] = (counts[booking.sessionId] ?? 0) + 1;
@@ -2218,6 +2233,7 @@ export function CourseWorkspace({
                   roomName={allRooms.find((room) => room.id === dialogSession.roomId)?.name ?? "未指定教室"}
                   courseName={dialogSession.nameSnapshot}
                   onDone={() => setCourseDialog(null)}
+                  onAttendanceOptimistic={showPendingAttendance}
                   onMemberBookingReadyChange={setMemberBookingReady}
                   onCreateCustomer={() =>
                     setCourseDialog({

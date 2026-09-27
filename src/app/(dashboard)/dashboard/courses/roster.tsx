@@ -41,6 +41,7 @@ export function CourseRoster({
   allowTrialActions = true,
   view = "roster",
   onDone,
+  onAttendanceOptimistic,
   onCreateCustomer,
   onMemberBookingReadyChange,
   musicLayout = false,
@@ -59,6 +60,7 @@ export function CourseRoster({
   allowTrialActions?: boolean;
   view?: RosterView;
   onDone?: () => void;
+  onAttendanceOptimistic?: (bookingId: string, status: "ATTENDED" | "NO_SHOW" | "CANCELLED" | null) => void;
   onCreateCustomer?: () => void;
   onMemberBookingReadyChange?: (ready: boolean) => void;
   musicLayout?: boolean;
@@ -180,12 +182,15 @@ export function CourseRoster({
     optimistic?: {bookingId:string;status:"ATTENDED"|"NO_SHOW"|"CANCELLED"},
   ) {
     const previous = roster;
-    if(optimistic) setRoster(rows=>rows.map(row=>row.id===optimistic.bookingId?{...row,status:optimistic.status}:row));
+    if(optimistic) {
+      setRoster(rows=>rows.map(row=>row.id===optimistic.bookingId?{...row,status:optimistic.status}:row));
+      onAttendanceOptimistic?.(optimistic.bookingId,optimistic.status);
+    }
     start(async () => {
       try {
         const result = await action();
         if (!result.success) {
-          if(optimistic)setRoster(previous);
+          if(optimistic){setRoster(previous);onAttendanceOptimistic?.(optimistic.bookingId,null);}
           setMessage(result.error ?? "操作失敗");
           await load();
           router.refresh();
@@ -198,7 +203,7 @@ export function CourseRoster({
         router.refresh();
         if (view !== "roster") onDone?.();
       } catch {
-        if(optimistic)setRoster(previous);
+        if(optimistic){setRoster(previous);onAttendanceOptimistic?.(optimistic.bookingId,null);}
         setMessage("連線中斷，請重試");
       }
     });
