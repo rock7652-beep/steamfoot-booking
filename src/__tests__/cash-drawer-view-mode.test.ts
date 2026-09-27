@@ -152,6 +152,27 @@ describe("cash drawer view mode support", () => {
     );
   });
 
+  it("searches customer, item and note within the selected retail records", async () => {
+    const { listCashbookEntries } = await import("@/server/queries/cashbook");
+    await listCashbookEntries({ activeStoreId: STORE_PARENT, type: "INCOME", categoryGroup: "retail", keyword: "小雅" });
+
+    expect(mockCashbookFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        storeId: STORE_CHILD,
+        type: "INCOME",
+        AND: expect.arrayContaining([
+          { category: { startsWith: "零售-" } },
+          expect.objectContaining({ OR: expect.arrayContaining([
+            { customer: { is: { name: { contains: "小雅", mode: "insensitive" } } } },
+          ]) }),
+        ]),
+      }),
+    }));
+    expect(mockCashbookCount).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ AND: expect.any(Array) }),
+    }));
+  });
+
   it("uses viewedStoreId for cashbook monthly summary reads", async () => {
     const { getMonthlySummary } = await import("@/server/queries/cashbook");
 

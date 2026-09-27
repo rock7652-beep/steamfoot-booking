@@ -92,7 +92,7 @@ export function QuickCashbook({ storeId, triggerClassName, instantSearch = false
         {loading && <p role="status" className="mb-3 text-primary-700">讀取中…</p>}
         {data && <>
           {data.canDrawer && <div className={`${drawerNeedsAttention ? "border-amber-300 bg-amber-50/80" : "steamfoot-brand-gold-accent"} mb-4 rounded-xl border p-4 shadow-sm`}><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${drawerNeedsAttention ? "bg-amber-500" : "bg-gold-500"}`} aria-hidden="true" /><p className={`text-sm font-medium ${drawerNeedsAttention ? "text-amber-800" : "text-earth-600"}`}>{data.balanceLabel}</p></div>{data.balance !== null && <p className={`mt-1 text-2xl font-semibold tracking-tight ${drawerNeedsAttention ? "text-amber-900" : "text-primary-800"}`}>{money(data.balance)}</p>}</div>}
-          {editing ? <form onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="steamfoot-brand-card space-y-4 rounded-xl border p-4">
+          {editing ? <form id="quick-cashbook-entry-form" onSubmit={(event) => { event.preventDefault(); void save(new FormData(event.currentTarget)); }} className="steamfoot-brand-card space-y-4 rounded-xl border p-4">
             <h3 className="font-semibold text-primary-900">{entry ? "編輯收支" : "新增記帳"}</h3>
             <p className="text-sm text-earth-500">登記日期：{data.today}。補登其他日期請至完整現金管理。</p>
             <CashbookEntryFields
@@ -111,7 +111,6 @@ export function QuickCashbook({ storeId, triggerClassName, instantSearch = false
                 customer: entry.customer,
               } : null}
             />
-            <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div>
           </form> : <>
             <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-earth-800">今日收支 · {data.total} 筆</h3>{data.canWrite && <button type="button" disabled={loading || busy} onClick={() => { setEditing("new"); }} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">＋ 記一筆</button>}</div>
             <p className="mb-3 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">預約與方案的現金收款已計入抽屜，請勿重複登記。</p>
@@ -121,9 +120,8 @@ export function QuickCashbook({ storeId, triggerClassName, instantSearch = false
           </>}
         </>}
       </div>
-      <footer className="border-t border-earth-200 bg-white p-4">{editing || busy ? <span className="text-sm text-earth-500">儲存或取消後可查看完整現金管理</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
+      <footer className="shrink-0 border-t border-earth-200 bg-white p-4">{editing ? <div className="flex justify-end gap-2"><button type="button" className={button} disabled={busy} onClick={() => { if (window.confirm("放棄尚未儲存的內容？")) setEditing(null); }}>取消</button><button type="submit" form="quick-cashbook-entry-form" disabled={busy} className="min-h-11 rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 disabled:opacity-50">{busy ? "儲存中…" : "儲存"}</button></div> : busy ? <span className="text-sm text-earth-500">處理中…</span> : <Link href="/dashboard/cashbook" className="font-medium text-primary-700 hover:text-primary-800">查看完整現金管理 →</Link>}</footer>
       </section>
     </div>, document.body)}
   </>;
 }
-

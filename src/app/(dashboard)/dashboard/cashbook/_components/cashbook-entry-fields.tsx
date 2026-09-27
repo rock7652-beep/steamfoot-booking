@@ -8,7 +8,7 @@ type EntryType = "INCOME" | "EXPENSE";
 type Customer = { id: string; name: string };
 
 const input = "mt-1 block h-[52px] w-full rounded-lg border border-earth-200 bg-white px-3 py-0 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
-const textarea = "mt-1 block min-h-28 w-full rounded-lg border border-earth-200 bg-white p-3 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
+const textarea = "mt-1 block min-h-[52px] w-full rounded-lg border border-earth-200 bg-white p-3 text-base leading-normal text-earth-800 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
 
 function initialKind(entry: { type: EntryType; category: string } | null | undefined): CashbookEntryKind | null {
   if (!entry) return null;
@@ -97,7 +97,7 @@ export function CashbookEntryFields({
     </label>
     <label className="sm:col-span-2 text-sm font-medium text-earth-700">
       備註
-      <textarea name="note" rows={3} defaultValue={defaultEntry?.note ?? ""} className={textarea} />
+      <textarea name="note" rows={1} defaultValue={defaultEntry?.note ?? ""} className={textarea} />
     </label>
     {isClosed && <label className="sm:col-span-2 rounded-lg border border-gold-200 bg-gold-50 p-3 text-sm text-gold-800">
       <input type="checkbox" name="confirmClosedCashbookChange" required={needsConfirmation} /> 我知道這一天已結帳，這只是補紀錄，不會重算關帳快照。

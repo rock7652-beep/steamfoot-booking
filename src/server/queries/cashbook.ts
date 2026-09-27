@@ -13,6 +13,7 @@ export interface ListCashbookOptions {
   dateTo?: string;
   type?: CashbookEntryType;
   categoryGroup?: "retail" | "other";
+  keyword?: string;
   staffId?: string;
   page?: number;
   pageSize?: number;
@@ -26,6 +27,7 @@ export interface ListCashbookOptions {
 export async function listCashbookEntries(options: ListCashbookOptions & { activeStoreId?: string | null } = {}) {
   const user = await requireStaffSession();
   const { dateFrom, dateTo, type, categoryGroup, staffId, activeStoreId, page = 1, pageSize = 30 } = options;
+  const keyword = options.keyword?.trim().slice(0, 60);
   const storeViewContext = await resolveStoreViewContextFromCookie(user);
   const readUser = userForViewContext(user, storeViewContext);
   const readStoreId = storeIdForViewContext(activeStoreId ?? null, storeViewContext);
@@ -46,8 +48,16 @@ export async function listCashbookEntries(options: ListCashbookOptions & { activ
   const where = {
     ...staffFilter,
     ...(type ? { type } : {}),
-    ...(categoryGroup === "retail" ? { category: { startsWith: "零售-" } } : {}),
-    ...(categoryGroup === "other" ? { OR: [{ category: null }, { category: { not: { startsWith: "零售-" } } }] } : {}),
+    AND: [
+      ...(categoryGroup === "retail" ? [{ category: { startsWith: "零售-" } }] : []),
+      ...(categoryGroup === "other" ? [{ OR: [{ category: null }, { category: { not: { startsWith: "零售-" } } }] }] : []),
+      ...(keyword ? [{ OR: [
+        { category: { contains: keyword, mode: "insensitive" as const } },
+        { note: { contains: keyword, mode: "insensitive" as const } },
+        { customer: { is: { name: { contains: keyword, mode: "insensitive" as const } } } },
+        { customer: { is: { phone: { contains: keyword } } } },
+      ] }] : []),
+    ],
     ...(dateFrom || dateTo
       ? {
           entryDate: {
